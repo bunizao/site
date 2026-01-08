@@ -1,6 +1,5 @@
 ---
 import { ArrowUpRight } from 'lucide-react';
-import { Badge } from './ui/badge';
 
 const projects = [
   {
@@ -33,24 +32,20 @@ const projects = [
 <section>
   <span class="section-label">Projects</span>
 
-  <div>
+  <div class="project-list">
     {projects.map((project) => (
       <a
         href={project.url}
         target="_blank"
         rel="noopener noreferrer"
-        class="item"
+        class="project-item"
       >
-        <div class="flex items-center justify-between">
-          <span class="item-title">{project.name}</span>
-          <ArrowUpRight className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+        <div class="project-header">
+          <span class="project-name">{project.name}</span>
+          <span class="project-tags">{project.tags.join(' · ')}</span>
         </div>
-        <p class="item-desc">{project.desc}</p>
-        <div class="mt-2 flex flex-wrap gap-2">
-          {project.tags.map((tag) => (
-            <Badge>{tag}</Badge>
-          ))}
-        </div>
+        <p class="project-desc">{project.desc}</p>
+        <ArrowUpRight className="project-arrow" aria-hidden="true" />
       </a>
     ))}
   </div>
@@ -58,8 +53,82 @@ const projects = [
   <a
     href="https://github.com/bunizao"
     target="_blank"
-    class="link mt-4 inline-block text-sm text-muted-foreground"
+    class="link mt-6 inline-block text-sm text-muted-foreground"
   >
     View all on GitHub →
   </a>
 </section>
+
+<style>
+  .project-list {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .project-item {
+    display: block;
+    position: relative;
+    padding: 12px 0;
+    padding-right: 24px;
+    transition: all 0.15s ease;
+  }
+
+  .project-item::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: linear-gradient(to right, hsl(var(--foreground) / 0.1), transparent);
+  }
+
+  .project-item:last-child::after {
+    display: none;
+  }
+
+  .project-item:hover {
+    padding-left: 8px;
+  }
+
+  .project-header {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    margin-bottom: 4px;
+  }
+
+  .project-name {
+    font-weight: 600;
+    font-size: 15px;
+  }
+
+  .project-tags {
+    font-size: 11px;
+    color: hsl(var(--muted-foreground) / 0.6);
+    letter-spacing: 0.02em;
+  }
+
+  .project-desc {
+    font-size: 13px;
+    color: hsl(var(--muted-foreground));
+    line-height: 1.5;
+  }
+
+  .project-arrow {
+    position: absolute;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 14px;
+    height: 14px;
+    color: hsl(var(--muted-foreground) / 0.4);
+    transition: all 0.15s ease;
+  }
+
+  .project-item:hover .project-arrow {
+    color: hsl(var(--foreground));
+    transform: translateY(-50%) translate(2px, -2px);
+  }
+</style>
