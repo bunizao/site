@@ -1,0 +1,82 @@
+---
+import gsap from 'gsap';
+import { ScrollTrigger } from 'gsap/ScrollTrigger';
+---
+
+<div id="parallax-container">
+  <slot />
+</div>
+
+<script>
+  import gsap from 'gsap';
+  import { ScrollTrigger } from 'gsap/ScrollTrigger';
+
+  gsap.registerPlugin(ScrollTrigger);
+
+  // Parallax effect for sections
+  const sections = document.querySelectorAll('section');
+  sections.forEach((section, index) => {
+    // Stagger the parallax effect
+    gsap.fromTo(
+      section,
+      {
+        y: 50,
+        opacity: 0.8
+      },
+      {
+        y: 0,
+        opacity: 1,
+        scrollTrigger: {
+          trigger: section,
+          start: 'top 80%',
+          end: 'top 20%',
+          scrub: 1,
+          toggleActions: 'play none none reverse'
+        }
+      }
+    );
+  });
+
+  // Smooth reveal for items within sections
+  const items = document.querySelectorAll('.item, .project-card, .post-card');
+  items.forEach((item, index) => {
+    gsap.fromTo(
+      item,
+      {
+        y: 30,
+        opacity: 0
+      },
+      {
+        y: 0,
+        opacity: 1,
+        duration: 0.6,
+        ease: 'power2.out',
+        scrollTrigger: {
+          trigger: item,
+          start: 'top 85%',
+          toggleActions: 'play none none reverse'
+        },
+        delay: (index % 3) * 0.1 // Stagger within groups
+      }
+    );
+  });
+
+  // Parallax for hero elements
+  const heroElements = document.querySelectorAll('.animate-in');
+  heroElements.forEach((element, index) => {
+    gsap.fromTo(
+      element,
+      {
+        y: 20 * (index + 1),
+        opacity: 0
+      },
+      {
+        y: 0,
+        opacity: 1,
+        duration: 1,
+        ease: 'power3.out',
+        delay: index * 0.1
+      }
+    );
+  });
+</script>

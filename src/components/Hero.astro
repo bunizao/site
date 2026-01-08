@@ -2,6 +2,7 @@
 import Typewriter from './Typewriter.astro';
 import GitHubContributions from './GitHubContributions.astro';
 import TechMarquee from './TechMarquee.astro';
+import MagneticButton from './MagneticButton';
 import {Instagram, type LucideIcon} from 'lucide-react';
 import { FileText, Github, Mail, Send } from 'lucide-react';
 
@@ -58,16 +59,18 @@ const techRow2 = ['Frontend', 'BGP', 'Proxy', 'Docker', 'Linux', 'Web3', 'Optimi
   <div class="mt-6 flex items-center gap-4 animate-in delay-4 sm:mt-8">
     <span class="text-[14px] text-muted-foreground sm:text-[15px]">Find me at</span>
     {socials.map((social) => (
-      <a
-        href={social.url}
-        target="_blank"
-        rel="noopener noreferrer"
-        class="contact-link"
-        title={social.name}
-      >
-        <social.icon className="h-4 w-4" aria-hidden="true" />
-        <span class="hidden sm:inline">{social.name}</span>
-      </a>
+      <MagneticButton client:load strength={0.4}>
+        <a
+          href={social.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          class="contact-link"
+          title={social.name}
+        >
+          <social.icon className="h-4 w-4" aria-hidden="true" />
+          <span class="hidden sm:inline">{social.name}</span>
+        </a>
+      </MagneticButton>
     ))}
   </div>
 
