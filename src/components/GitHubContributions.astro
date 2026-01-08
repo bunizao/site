@@ -14,10 +14,14 @@ const placeholderBars = Array.from({ length: 30 });
       <div
         class="wave-bar"
         data-bar
+        data-index={i}
         style={`--height: 6px; --delay: ${i * 0.03}s; height: 6px`}
-        title="Loading contributions"
       />
     ))}
+    <div class="contribution-tooltip" data-tooltip aria-hidden="true">
+      <span class="tooltip-count" data-tooltip-count>0</span>
+      <span class="tooltip-date" data-tooltip-date></span>
+    </div>
   </div>
   <div class="activity-stats">
     <a
@@ -44,6 +48,49 @@ const placeholderBars = Array.from({ length: 30 });
     }
   };
 
+  const formatDate = (dateStr) => {
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric'
+    });
+  };
+
+  const setupTooltip = (section, contributionData) => {
+    const wave = section.querySelector('.activity-wave');
+    const tooltip = section.querySelector('[data-tooltip]');
+    const countEl = tooltip.querySelector('[data-tooltip-count]');
+    const dateEl = tooltip.querySelector('[data-tooltip-date]');
+
+    wave.addEventListener('mousemove', (e) => {
+      const bar = e.target.closest('[data-bar]');
+      if (!bar) {
+        tooltip.classList.remove('is-visible');
+        return;
+      }
+
+      const index = parseInt(bar.dataset.index, 10);
+      const dayData = contributionData[index];
+      if (!dayData) return;
+
+      const count = dayData.count;
+      countEl.textContent = count === 1 ? '1 contribution' : `${count} contributions`;
+      dateEl.textContent = formatDate(dayData.date);
+
+      const barRect = bar.getBoundingClientRect();
+      const waveRect = wave.getBoundingClientRect();
+      const tooltipX = barRect.left - waveRect.left + barRect.width / 2;
+
+      tooltip.style.setProperty('--tooltip-x', `${tooltipX}px`);
+      tooltip.classList.add('is-visible');
+    });
+
+    wave.addEventListener('mouseleave', () => {
+      tooltip.classList.remove('is-visible');
+    });
+  };
+
   const updateSection = (section, data) => {
     const bars = Array.from(section.querySelectorAll('[data-bar]'));
     const totalEl = section.querySelector('[data-total]');
@@ -58,8 +105,9 @@ const placeholderBars = Array.from({ length: 30 });
       const height = Math.max(4, (day.count / maxCount) * 24);
       bar.style.setProperty('--height', `${height}px`);
       bar.style.height = `${height}px`;
-      bar.title = `${day.date}: ${day.count}`;
     });
+
+    setupTooltip(section, last30Days);
 
     const totalContributions = data?.total?.lastYear ?? 0;
     if (totalEl) {
@@ -118,6 +166,7 @@ const placeholderBars = Array.from({ length: 30 });
   }
 
   .activity-wave {
+    position: relative;
     display: flex;
     align-items: flex-end;
     gap: 2px;
@@ -165,6 +214,65 @@ const placeholderBars = Array.from({ length: 30 });
   .wave-bar:hover {
     background: hsl(var(--foreground));
     animation-play-state: paused;
+  }
+
+  .contribution-tooltip {
+    position: absolute;
+    bottom: calc(100% + 8px);
+    left: var(--tooltip-x, 0);
+    transform: translateX(-50%);
+    background: hsl(var(--background));
+    border: 1px solid hsl(var(--foreground) / 0.15);
+    border-radius: 6px;
+    padding: 6px 10px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition: opacity 0.15s ease, visibility 0.15s ease;
+    white-space: nowrap;
+    box-shadow: 0 2px 8px hsl(var(--foreground) / 0.08);
+    z-index: 10;
+  }
+
+  .contribution-tooltip::after {
+    content: '';
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border: 5px solid transparent;
+    border-top-color: hsl(var(--foreground) / 0.15);
+  }
+
+  .contribution-tooltip::before {
+    content: '';
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border: 4px solid transparent;
+    border-top-color: hsl(var(--background));
+    z-index: 1;
+  }
+
+  .contribution-tooltip.is-visible {
+    opacity: 1;
+    visibility: visible;
+  }
+
+  .tooltip-count {
+    font-size: 12px;
+    font-weight: 600;
+    color: hsl(var(--foreground));
+  }
+
+  .tooltip-date {
+    font-size: 11px;
+    color: hsl(var(--muted-foreground));
   }
 
   .activity-section.is-loading .wave-bar {
