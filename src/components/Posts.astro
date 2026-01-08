@@ -33,8 +33,8 @@ const posts = await getLatestPosts();
       {posts.map((post) => (
         <a href={post.url} target="_blank" rel="noopener noreferrer" class="item">
           <div class="flex justify-between items-center gap-4">
-            <span class="item-title" style="font-size: 15px;">{post.title}</span>
-            <span class="text-muted text-xs" style="flex-shrink: 0; font-variant-numeric: tabular-nums;">
+            <span class="item-title text-[15px]">{post.title}</span>
+            <span class="shrink-0 text-xs text-muted-foreground tabular-nums">
               {dayjs(post.published_at).format('YYYY.MM')}
             </span>
           </div>
@@ -42,14 +42,13 @@ const posts = await getLatestPosts();
       ))}
     </div>
   ) : (
-    <p class="text-muted text-sm">No posts yet.</p>
+    <p class="text-sm text-muted-foreground">No posts yet.</p>
   )}
 
   <a
     href="https://buxx.me"
     target="_blank"
-    class="link text-sm text-muted mt-4"
-    style="display: inline-block;"
+    class="link mt-4 inline-block text-sm text-muted-foreground"
   >
     Read all posts →
   </a>

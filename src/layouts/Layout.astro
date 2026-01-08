@@ -4,6 +4,9 @@ interface Props {
   description: string;
 }
 
+import '../styles/globals.css';
+import { Moon, Sun } from 'lucide-react';
+
 const { title, description } = Astro.props;
 ---
 
@@ -21,8 +24,16 @@ const { title, description } = Astro.props;
 
     <script is:inline>
       const storedTheme = localStorage.getItem('theme');
-      if (storedTheme === 'light' || storedTheme === 'dark') {
-        document.documentElement.dataset.theme = storedTheme;
+      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      const theme =
+        storedTheme === 'light' || storedTheme === 'dark'
+          ? storedTheme
+          : prefersDark
+            ? 'dark'
+            : 'light';
+
+      if (theme === 'dark') {
+        document.documentElement.classList.add('dark');
       }
     </script>
 
@@ -38,8 +49,12 @@ const { title, description } = Astro.props;
   </head>
   <body>
     <button class="theme-toggle" type="button" data-theme-toggle aria-label="Switch to dark mode">
-      <span class="theme-toggle-icon theme-icon-moon i-ri-moon-line" aria-hidden="true"></span>
-      <span class="theme-toggle-icon theme-icon-sun i-ri-sun-line" aria-hidden="true"></span>
+      <span class="block dark:hidden" aria-hidden="true">
+        <Moon className="h-4 w-4" />
+      </span>
+      <span class="hidden dark:block" aria-hidden="true">
+        <Sun className="h-4 w-4" />
+      </span>
     </button>
     <slot />
 
@@ -62,20 +77,23 @@ const { title, description } = Astro.props;
         toggle.setAttribute('aria-label', isDark ? 'Switch to light mode' : 'Switch to dark mode');
       };
 
-      updateToggle(getPreferredTheme());
+      const applyTheme = (theme) => {
+        document.documentElement.classList.toggle('dark', theme === 'dark');
+        updateToggle(theme);
+      };
 
       if (toggle) {
+        updateToggle(getPreferredTheme());
         toggle.addEventListener('click', () => {
           const nextTheme = getPreferredTheme() === 'dark' ? 'light' : 'dark';
           localStorage.setItem(storageKey, nextTheme);
-          document.documentElement.dataset.theme = nextTheme;
-          updateToggle(nextTheme);
+          applyTheme(nextTheme);
         });
       }
 
       media.addEventListener('change', () => {
         if (!getStoredTheme()) {
-          updateToggle(getPreferredTheme());
+          applyTheme(getPreferredTheme());
         }
       });
     </script>
@@ -86,7 +104,3 @@ const { title, description } = Astro.props;
     </script>
   </body>
 </html>
-
-<style is:global>
-  @import '../styles/main.css';
-</style>

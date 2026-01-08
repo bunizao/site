@@ -1,17 +1,20 @@
 ---
 import Typewriter from './Typewriter.astro';
+import Marquee from './Marquee.astro';
+import type { LucideIcon } from 'lucide-react';
+import { FileText, Github, Mail, Send } from 'lucide-react';
 
-const socials = [
-  { name: 'GitHub', url: 'https://github.com/bunizao', icon: 'i-ri-github-fill' },
-  { name: 'Blog', url: 'https://blog.buxx.me', icon: 'i-ri-article-fill' },
-  { name: 'Email', url: 'mailto:me@buxx.me', icon: 'i-ri-mail-fill' },
-  { name: 'Telegram', url: 'https://t.me/hututu0', icon: 'i-ri-telegram-fill' },
+const socials: Array<{ name: string; url: string; icon: LucideIcon }> = [
+  { name: 'GitHub', url: 'https://github.com/bunizao', icon: Github },
+  { name: 'Blog', url: 'https://blog.buxx.me', icon: FileText },
+  { name: 'Email', url: 'mailto:me@buxx.me', icon: Mail },
+  { name: 'Telegram', url: 'https://t.me/hututu0', icon: Send },
 ];
 
-const skills = ['TypeScript', 'Python', 'Go', 'React', 'Astro', 'Networking'];
+const skills = ['TypeScript', 'Python', 'Go', 'React', 'Astro', 'Networking', 'BGP', 'Web3'];
 ---
 
-<header style="padding: 80px 0 48px;">
+<header class="pt-20 pb-12">
   <!-- Terminal-style intro -->
   <div class="animate-in">
     <div class="status mb-4">
@@ -21,38 +24,36 @@ const skills = ['TypeScript', 'Python', 'Go', 'React', 'Astro', 'Networking'];
   </div>
 
   <!-- Name with typewriter -->
-  <h1 style="font-size: 36px; font-weight: 600; margin-bottom: 8px;" class="animate-in delay-1">
+  <h1 class="animate-in delay-1 mb-2 text-[36px] font-semibold">
     <Typewriter texts={["Lucian", "Bunizao", "Tutu"]} speed={80} />
   </h1>
 
   <!-- Role -->
-  <p class="text-muted animate-in delay-2" style="font-size: 14px; margin-bottom: 24px;">
+  <p class="animate-in delay-2 mb-6 text-sm text-muted-foreground">
     Data Science @ Monash University '28
   </p>
 
   <!-- Bio -->
-  <div class="animate-in delay-3" style="max-width: 520px;">
-    <p class="text-muted" style="font-size: 15px; line-height: 1.7;">
-      Building tools for <span style="color: var(--fg);">networking</span>,
-      <span style="color: var(--fg);">proxy systems</span>, and
-      <span style="color: var(--fg);">open source</span>.
+  <div class="animate-in delay-3 max-w-[520px]">
+    <p class="text-[15px] leading-[1.7] text-muted-foreground">
+      Building tools for <span class="text-foreground">networking</span>,
+      <span class="text-foreground">proxy systems</span>, and
+      <span class="text-foreground">open source</span>.
       Interested in BGP, Web3, and making the internet more accessible.
     </p>
   </div>
 
-  <!-- Skills -->
-  <div class="flex flex-wrap gap-2 mt-6 animate-in delay-4">
-    {skills.map((skill) => (
-      <span class="tag">{skill}</span>
-    ))}
+  <!-- Skills - Marquee -->
+  <div class="mt-6 animate-in delay-4">
+    <Marquee items={skills} speed={25} />
   </div>
 
   <!-- Social Links -->
-  <div class="flex flex-wrap gap-3 mt-8 animate-in delay-5">
+  <div class="mt-8 flex flex-wrap gap-4 animate-in delay-5">
     {socials.map((social) => (
-      <a href={social.url} target="_blank" rel="noopener noreferrer" class="social-link">
-        <span class={social.icon}></span>
-        {social.name}
+      <a href={social.url} target="_blank" rel="noopener noreferrer" class="social-link-minimal">
+        <social.icon className="h-4 w-4" aria-hidden="true" />
+        <span>{social.name}</span>
       </a>
     ))}
   </div>

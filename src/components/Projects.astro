@@ -1,4 +1,7 @@
 ---
+import { ArrowUpRight } from 'lucide-react';
+import { Badge } from './ui/badge';
+
 const projects = [
   {
     name: 'TutuBetterRules',
@@ -31,21 +34,21 @@ const projects = [
   <span class="section-label">Projects</span>
 
   <div>
-    {projects.map((project, i) => (
+    {projects.map((project) => (
       <a
         href={project.url}
         target="_blank"
         rel="noopener noreferrer"
         class="item"
       >
-        <div class="flex justify-between items-center">
+        <div class="flex items-center justify-between">
           <span class="item-title">{project.name}</span>
-          <span class="i-ri-arrow-right-up-line text-muted" style="flex-shrink: 0;"></span>
+          <ArrowUpRight className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
         </div>
         <p class="item-desc">{project.desc}</p>
-        <div>
+        <div class="mt-2 flex flex-wrap gap-2">
           {project.tags.map((tag) => (
-            <span class="tag">{tag}</span>
+            <Badge>{tag}</Badge>
           ))}
         </div>
       </a>
@@ -55,8 +58,7 @@ const projects = [
   <a
     href="https://github.com/bunizao"
     target="_blank"
-    class="link text-sm text-muted mt-4"
-    style="display: inline-block;"
+    class="link mt-4 inline-block text-sm text-muted-foreground"
   >
     View all on GitHub →
   </a>
