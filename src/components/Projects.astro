@@ -1,32 +1,91 @@
 ---
 import { ArrowUpRight } from 'lucide-react';
 
-const projects = [
+interface ProjectConfig {
+  name: string;
+  repo?: string; // GitHub repo in format "owner/repo"
+  url: string;
+  desc?: string; // Override description
+  role: 'Author' | 'Contributor';
+  tags: string[];
+}
+
+interface ProjectData extends ProjectConfig {
+  description: string;
+  stars: number | null;
+}
+
+const projectConfigs: ProjectConfig[] = [
   {
     name: 'TutuBetterRules',
-    desc: 'Cross-platform proxy rules and configs for better network experience',
+    repo: 'bunizao/TutuBetterRules',
     url: 'https://github.com/bunizao/TutuBetterRules',
+    role: 'Author',
     tags: ['Proxy', 'Network']
   },
   {
     name: 'Attegi',
-    desc: 'Modern Ghost theme with Vite and TailwindCSS',
+    repo: 'bunizao/Attegi',
     url: 'https://github.com/bunizao/Attegi',
+    role: 'Author',
     tags: ['Ghost', 'Theme']
   },
   {
     name: 'Mirrored',
-    desc: 'CI/CD automation with Python for container deployment',
+    repo: 'bunizao/Mirrored',
     url: 'https://github.com/bunizao/Mirrored',
+    role: 'Author',
     tags: ['CI/CD', 'Python']
   },
   {
     name: 'iRingo',
-    desc: 'Unlock iOS/macOS features with MitM method',
+    repo: 'NSRingo/iRingo',
     url: 'https://nsringo.github.io/',
-    tags: ['iOS', 'Contributor']
+    desc: 'Unlock iOS/macOS features with MitM method',
+    role: 'Contributor',
+    tags: ['iOS', 'MitM']
   },
 ];
+
+async function fetchGitHubData(repo: string): Promise<{ description: string; stars: number } | null> {
+  try {
+    const response = await fetch(`https://api.github.com/repos/${repo}`, {
+      headers: {
+        'Accept': 'application/vnd.github.v3+json',
+        'User-Agent': 'astro-site'
+      }
+    });
+
+    if (!response.ok) return null;
+
+    const data = await response.json();
+    return {
+      description: data.description || '',
+      stars: data.stargazers_count || 0
+    };
+  } catch (error) {
+    console.error(`Failed to fetch GitHub data for ${repo}:`, error);
+    return null;
+  }
+}
+
+const projects: ProjectData[] = await Promise.all(
+  projectConfigs.map(async (config) => {
+    if (config.repo) {
+      const githubData = await fetchGitHubData(config.repo);
+      return {
+        ...config,
+        description: config.desc || githubData?.description || '',
+        stars: githubData?.stars ?? null
+      };
+    }
+    return {
+      ...config,
+      description: config.desc || '',
+      stars: null
+    };
+  })
+);
 ---
 
 <section>
@@ -42,9 +101,15 @@ const projects = [
       >
         <div class="project-header">
           <span class="project-name">{project.name}</span>
-          <span class="project-tags">{project.tags.join(' · ')}</span>
         </div>
-        <p class="project-desc">{project.desc}</p>
+        <p class="project-desc">{project.description}</p>
+        <div class="project-meta">
+          <span class="project-role">@{project.role}</span>
+          <span class="project-tags">{project.tags.join(' · ')}</span>
+          {project.stars !== null && (
+            <span class="project-stars">{project.stars} stars</span>
+          )}
+        </div>
         <ArrowUpRight className="project-arrow" aria-hidden="true" />
       </a>
     ))}
@@ -104,16 +169,33 @@ const projects = [
     font-size: 15px;
   }
 
-  .project-tags {
-    font-size: 11px;
-    color: hsl(var(--muted-foreground) / 0.6);
-    letter-spacing: 0.02em;
-  }
-
   .project-desc {
     font-size: 13px;
     color: hsl(var(--muted-foreground));
     line-height: 1.5;
+    margin-bottom: 6px;
+  }
+
+  .project-meta {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    font-size: 12px;
+  }
+
+  .project-role {
+    font-weight: 600;
+    color: hsl(var(--foreground));
+  }
+
+  .project-tags {
+    color: hsl(var(--muted-foreground));
+  }
+
+  .project-stars {
+    color: hsl(var(--muted-foreground) / 0.6);
+    font-variant-numeric: tabular-nums;
+    margin-left: auto;
   }
 
   .project-arrow {
