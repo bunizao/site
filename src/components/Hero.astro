@@ -17,7 +17,7 @@ const techRow1 = ['TypeScript', "JavaScript", 'Python', 'C#', 'C++', 'React', 'T
 const techRow2 = ['Frontend', 'BGP', 'Proxy', 'Docker', 'Linux', 'Web3', 'Optimization'];
 ---
 
-<header class="pt-20 pb-12">
+<header class="pt-14 pb-8 sm:pt-20 sm:pb-12">
   <!-- Status indicator -->
   <div class="animate-in">
     <div class="status mb-4">
@@ -27,7 +27,7 @@ const techRow2 = ['Frontend', 'BGP', 'Proxy', 'Docker', 'Linux', 'Web3', 'Optimi
   </div>
 
   <!-- Name -->
-  <h1 class="animate-in delay-1 mb-2 text-[36px] font-semibold">
+  <h1 class="animate-in delay-1 mb-2 text-[28px] font-semibold sm:text-[36px]">
     <Typewriter texts={["Lucian", "Bunizao", "Tutu", "Collapsar"]} speed={80} />
   </h1>
 
@@ -38,8 +38,8 @@ const techRow2 = ['Frontend', 'BGP', 'Proxy', 'Docker', 'Linux', 'Web3', 'Optimi
 
 
   <!-- Bio -->
-  <div class="animate-in delay-3 max-w-[520px]">
-    <p class="text-[15px] leading-[1.7] text-muted-foreground">
+  <div class="animate-in delay-3 max-w-full sm:max-w-[520px]">
+    <p class="text-[14px] leading-[1.7] text-muted-foreground sm:text-[15px]">
       I make interesting things.<br>
       Curious about <span class="text-foreground">frontend design</span>,
       <span class="text-foreground">proxy systems</span>, and
@@ -53,25 +53,29 @@ const techRow2 = ['Frontend', 'BGP', 'Proxy', 'Docker', 'Linux', 'Web3', 'Optimi
 
 
   <!-- Social Links -->
-  <div class="mt-8 flex flex-wrap items-center gap-4 animate-in delay-4">
+  <div class="mt-6 flex items-center gap-4 animate-in delay-4 sm:mt-8">
+    <span class="text-[14px] text-muted-foreground sm:text-[15px]">Find me at</span>
     {socials.map((social) => (
       <a
         href={social.url}
         target="_blank"
         rel="noopener noreferrer"
         class="contact-link"
+        title={social.name}
       >
         <social.icon className="h-4 w-4" aria-hidden="true" />
-        <span>{social.name}</span>
+        <span class="hidden sm:inline">{social.name}</span>
       </a>
     ))}
   </div>
 
   <!-- GitHub Activity -->
-  <GitHubContributions />
+  <div class="max-w-full sm:max-w-[520px]">
+    <GitHubContributions />
+  </div>
 
   <!-- Tech Stack Marquee -->
-  <div class="mt-6 animate-in delay-5">
+  <div class="mt-6 animate-in delay-5 max-w-full sm:max-w-[520px]">
     <TechMarquee row1={techRow1} row2={techRow2} />
   </div>
 </header>
