@@ -17,7 +17,7 @@ const techRow1 = ['TypeScript', "JavaScript", 'Python', 'C#', 'C++', 'React', 'T
 const techRow2 = ['Frontend', 'BGP', 'Proxy', 'Docker', 'Linux', 'Web3', 'Optimization'];
 ---
 
-<header class="pt-14 pb-8 sm:pt-20 sm:pb-12">
+<header class="hero-section pt-14 pb-8 sm:pt-20 sm:pb-12">
   <!-- Status indicator -->
   <div class="animate-in">
     <div class="status mb-4">
@@ -80,5 +80,17 @@ const techRow2 = ['Frontend', 'BGP', 'Proxy', 'Docker', 'Linux', 'Web3', 'Optimi
   </div>
 </header>
 
-<!-- ASCII Divider -->
-<div class="divider">· · · · · · · · · ·</div>
+<style>
+  .hero-section {
+    min-height: calc(100vh - 120px);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+
+  @media (min-width: 640px) {
+    .hero-section {
+      min-height: calc(100vh - 140px);
+    }
+  }
+</style>
