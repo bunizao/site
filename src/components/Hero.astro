@@ -22,7 +22,9 @@ const techRow2 = ['Frontend', 'BGP', 'Proxy', 'Docker', 'Linux', 'Web3', 'Optimi
   <div class="animate-in">
     <div class="status mb-4">
       <span class="status-dot"></span>
-      <span>Wondering</span>
+      <span class="status-text-wrapper">
+        <span class="status-text" id="status-text">Wondering</span>
+      </span>
     </div>
   </div>
 
@@ -93,4 +95,86 @@ const techRow2 = ['Frontend', 'BGP', 'Proxy', 'Docker', 'Linux', 'Web3', 'Optimi
       min-height: calc(100vh - 140px);
     }
   }
+
+  .status-text-wrapper {
+    display: inline-block;
+    height: 1.2em;
+    line-height: 1.2em;
+    overflow: hidden;
+    vertical-align: middle;
+    position: relative;
+  }
+
+  .status-text {
+    display: inline-block;
+    line-height: 1.2em;
+    transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.4s ease;
+  }
+
+  .status-text.slide-out {
+    transform: translateY(-120%);
+    opacity: 0;
+  }
+
+  .status-text.slide-in {
+    transform: translateY(120%);
+    opacity: 0;
+  }
 </style>
+
+<script>
+  const statusWords = [
+    'Wondering',
+    'Building',
+    'Learning',
+    'Exploring',
+    'Creating',
+    'Thinking',
+    'Coding',
+    'Designing',
+    'Reading',
+    'Writing',
+    'Debugging',
+    'Shipping',
+    'Dreaming',
+    'Hacking',
+    'Optimizing',
+    'Iterating',
+    'Refactoring',
+    'Brewing',
+    'Crafting',
+    'Tinkering',
+    'Pondering',
+    'Researching',
+    'Prototyping',
+    'Deploying',
+    'Solving'
+  ];
+
+  const statusText = document.getElementById('status-text');
+  if (statusText) {
+    let currentIndex = 0;
+
+    const rotateStatus = () => {
+      statusText.classList.add('slide-out');
+
+      setTimeout(() => {
+        currentIndex = (currentIndex + 1) % statusWords.length;
+        statusText.textContent = statusWords[currentIndex];
+        statusText.classList.remove('slide-out');
+        statusText.classList.add('slide-in');
+
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            statusText.classList.remove('slide-in');
+          });
+        });
+      }, 400);
+    };
+
+    // Start after initial page load animation
+    setTimeout(() => {
+      setInterval(rotateStatus, 3000);
+    }, 1000);
+  }
+</script>
