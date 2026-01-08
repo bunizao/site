@@ -1,16 +1,26 @@
 ---
 import dayjs from 'dayjs';
 
+interface Tag {
+  id: string;
+  name: string;
+  slug: string;
+  visibility: 'public' | 'internal';
+}
+
 interface PostMeta {
   id: string;
   title: string;
   url: string;
   published_at: string;
+  tags: Tag[];
 }
+
+const ghostUrl = import.meta.env.GHOST_URL || 'https://blog.buxx.me';
 
 async function getLatestPosts(): Promise<PostMeta[]> {
   const apiKey = import.meta.env.GHOST_CONTENT_APIKEY;
-  const apiUrl = `https://blog.buxx.me/ghost/api/v3/content/posts/?key=${apiKey}&limit=5&fields=id,title,url,published_at`;
+  const apiUrl = `${ghostUrl}/ghost/api/v3/content/posts/?key=${apiKey}&limit=5&fields=id,title,url,published_at&include=tags&filter=visibility:public`;
 
   try {
     const res = await fetch(apiUrl);
@@ -30,19 +40,27 @@ const posts = await getLatestPosts();
 
   {posts.length > 0 ? (
     <div class="post-list">
-      {posts.map((post) => (
-        <a href={post.url} target="_blank" rel="noopener noreferrer" class="post-item">
-          <span class="post-title">{post.title}</span>
-          <span class="post-date">{dayjs(post.published_at).format('YYYY.MM')}</span>
-        </a>
-      ))}
+      {posts.map((post) => {
+        const primaryTag = post.tags?.find(t => t.visibility === 'public');
+        return (
+          <a href={post.url} target="_blank" rel="noopener noreferrer" class="post-item">
+            <span class="post-title">{post.title}</span>
+            <span class="post-meta">
+              {primaryTag && (
+                <span class="post-tag">{primaryTag.name}</span>
+              )}
+              <span class="post-date">{dayjs(post.published_at).format('YYYY.MM')}</span>
+            </span>
+          </a>
+        );
+      })}
     </div>
   ) : (
     <p class="text-sm text-muted-foreground">No posts yet.</p>
   )}
 
   <a
-    href="https://blog.buxx.me"
+    href={ghostUrl}
     target="_blank"
     class="link mt-6 inline-block text-sm text-muted-foreground"
   >
@@ -90,14 +108,26 @@ const posts = await getLatestPosts();
     line-height: 1.4;
   }
 
+  .post-meta {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    flex-shrink: 0;
+  }
+
+  .post-tags {
+    font-size: 12px;
+    color: hsl(var(--muted-foreground) / 0.5);
+  }
+
   .post-date {
     font-size: 12px;
     color: hsl(var(--muted-foreground) / 0.6);
     font-variant-numeric: tabular-nums;
-    flex-shrink: 0;
   }
 
-  .post-item:hover .post-date {
+  .post-item:hover .post-date,
+  .post-item:hover .post-tags {
     color: hsl(var(--muted-foreground));
   }
 </style>
