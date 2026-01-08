@@ -1,0 +1,56 @@
+---
+import dayjs from 'dayjs';
+
+interface PostMeta {
+  id: string;
+  title: string;
+  url: string;
+  published_at: string;
+}
+
+async function getLatestPosts(): Promise<PostMeta[]> {
+  const apiKey = import.meta.env.VITE_GHOST_CONTENT_APIKEY;
+  const apiUrl = `https://buxx.me/ghost/api/v3/content/posts/?key=${apiKey}&limit=5&fields=id,title,url,published_at`;
+
+  try {
+    const res = await fetch(apiUrl);
+    const result = await res.json();
+    return result.posts || [];
+  } catch (error) {
+    console.error('Failed to fetch posts:', error);
+    return [];
+  }
+}
+
+const posts = await getLatestPosts();
+---
+
+<section>
+  <span class="section-label">Writing</span>
+
+  {posts.length > 0 ? (
+    <div>
+      {posts.map((post) => (
+        <a href={post.url} target="_blank" rel="noopener noreferrer" class="item">
+          <div class="flex justify-between items-center gap-4">
+            <span class="item-title" style="font-size: 15px;">{post.title}</span>
+            <span class="text-muted text-xs" style="flex-shrink: 0; font-variant-numeric: tabular-nums;">
+              {dayjs(post.published_at).format('YYYY.MM')}
+            </span>
+          </div>
+        </a>
+      ))}
+    </div>
+  ) : (
+    <p class="text-muted text-sm">No posts yet.</p>
+  )}
+
+  <a
+    href="https://buxx.me"
+    target="_blank"
+    class="link text-sm text-muted mt-4"
+    style="display: inline-block;"
+  >
+    Read all posts →
+  </a>
+</section>

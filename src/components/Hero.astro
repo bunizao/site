@@ -1,0 +1,62 @@
+---
+import Typewriter from './Typewriter.astro';
+
+const socials = [
+  { name: 'GitHub', url: 'https://github.com/bunizao', icon: 'i-ri-github-fill' },
+  { name: 'Blog', url: 'https://blog.buxx.me', icon: 'i-ri-article-fill' },
+  { name: 'Email', url: 'mailto:me@buxx.me', icon: 'i-ri-mail-fill' },
+  { name: 'Telegram', url: 'https://t.me/hututu0', icon: 'i-ri-telegram-fill' },
+];
+
+const skills = ['TypeScript', 'Python', 'Go', 'React', 'Astro', 'Networking'];
+---
+
+<header style="padding: 80px 0 48px;">
+  <!-- Terminal-style intro -->
+  <div class="animate-in">
+    <div class="status mb-4">
+      <span class="status-dot"></span>
+      <span>Available</span>
+    </div>
+  </div>
+
+  <!-- Name with typewriter -->
+  <h1 style="font-size: 36px; font-weight: 600; margin-bottom: 8px;" class="animate-in delay-1">
+    <Typewriter texts={["Lucian", "Bunizao", "Tutu"]} speed={80} />
+  </h1>
+
+  <!-- Role -->
+  <p class="text-muted animate-in delay-2" style="font-size: 14px; margin-bottom: 24px;">
+    Data Science @ Monash University '28
+  </p>
+
+  <!-- Bio -->
+  <div class="animate-in delay-3" style="max-width: 520px;">
+    <p class="text-muted" style="font-size: 15px; line-height: 1.7;">
+      Building tools for <span style="color: var(--fg);">networking</span>,
+      <span style="color: var(--fg);">proxy systems</span>, and
+      <span style="color: var(--fg);">open source</span>.
+      Interested in BGP, Web3, and making the internet more accessible.
+    </p>
+  </div>
+
+  <!-- Skills -->
+  <div class="flex flex-wrap gap-2 mt-6 animate-in delay-4">
+    {skills.map((skill) => (
+      <span class="tag">{skill}</span>
+    ))}
+  </div>
+
+  <!-- Social Links -->
+  <div class="flex flex-wrap gap-3 mt-8 animate-in delay-5">
+    {socials.map((social) => (
+      <a href={social.url} target="_blank" rel="noopener noreferrer" class="social-link">
+        <span class={social.icon}></span>
+        {social.name}
+      </a>
+    ))}
+  </div>
+</header>
+
+<!-- ASCII Divider -->
+<div class="divider">· · · · · · · · · ·</div>

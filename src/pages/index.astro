@@ -1,0 +1,19 @@
+---
+import Layout from '../layouts/Layout.astro';
+import Hero from '../components/Hero.astro';
+import Projects from '../components/Projects.astro';
+import Posts from '../components/Posts.astro';
+import Footer from '../components/Footer.astro';
+
+const title = "Lucian";
+const description = "Data Science student at Monash University. Building tools for networking and open source.";
+---
+
+<Layout title={title} description={description}>
+  <main class="page-container">
+    <Hero />
+    <Projects />
+    <Posts />
+    <Footer />
+  </main>
+</Layout>

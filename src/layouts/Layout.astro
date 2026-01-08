@@ -1,0 +1,92 @@
+---
+interface Props {
+  title: string;
+  description: string;
+}
+
+const { title, description } = Astro.props;
+---
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content={description} />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary" />
+    <link rel="icon" href="/favicon.ico" />
+
+    <script is:inline>
+      const storedTheme = localStorage.getItem('theme');
+      if (storedTheme === 'light' || storedTheme === 'dark') {
+        document.documentElement.dataset.theme = storedTheme;
+      }
+    </script>
+
+    <!-- Font loading -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+
+    <title>{title}</title>
+  </head>
+  <body>
+    <button class="theme-toggle" type="button" data-theme-toggle aria-label="Switch to dark mode">
+      <span class="theme-toggle-icon theme-icon-moon i-ri-moon-line" aria-hidden="true"></span>
+      <span class="theme-toggle-icon theme-icon-sun i-ri-sun-line" aria-hidden="true"></span>
+    </button>
+    <slot />
+
+    <script is:inline>
+      const storageKey = 'theme';
+      const toggle = document.querySelector('[data-theme-toggle]');
+      const media = window.matchMedia('(prefers-color-scheme: dark)');
+
+      const getStoredTheme = () => localStorage.getItem(storageKey);
+      const getPreferredTheme = () => {
+        const stored = getStoredTheme();
+        if (stored === 'light' || stored === 'dark') return stored;
+        return media.matches ? 'dark' : 'light';
+      };
+
+      const updateToggle = (theme) => {
+        if (!toggle) return;
+        const isDark = theme === 'dark';
+        toggle.setAttribute('aria-pressed', isDark ? 'true' : 'false');
+        toggle.setAttribute('aria-label', isDark ? 'Switch to light mode' : 'Switch to dark mode');
+      };
+
+      updateToggle(getPreferredTheme());
+
+      if (toggle) {
+        toggle.addEventListener('click', () => {
+          const nextTheme = getPreferredTheme() === 'dark' ? 'light' : 'dark';
+          localStorage.setItem(storageKey, nextTheme);
+          document.documentElement.dataset.theme = nextTheme;
+          updateToggle(nextTheme);
+        });
+      }
+
+      media.addEventListener('change', () => {
+        if (!getStoredTheme()) {
+          updateToggle(getPreferredTheme());
+        }
+      });
+    </script>
+
+    <script>
+      import { inject } from '@vercel/analytics';
+      inject();
+    </script>
+  </body>
+</html>
+
+<style is:global>
+  @import '../styles/main.css';
+</style>

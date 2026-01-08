@@ -1,0 +1,94 @@
+---
+interface Props {
+  texts: string[];
+  speed?: number;
+  delay?: number;
+  pauseDuration?: number;
+}
+
+const { texts, speed = 80, delay = 0, pauseDuration = 2000 } = Astro.props;
+const longestText = texts.reduce((a, b) => a.length > b.length ? a : b, '');
+---
+
+<span class="typewriter-wrapper">
+  <!-- Hidden placeholder using the longest string to prevent reflow -->
+  <span class="typewriter-placeholder" aria-hidden="true">{longestText}</span>
+  <!-- Visible typing text -->
+  <span
+    class="typewriter"
+    data-texts={JSON.stringify(texts)}
+    data-speed={speed}
+    data-delay={delay}
+    data-pause={pauseDuration}
+  >
+    <span class="typewriter-text"></span><span class="typewriter-cursor"></span>
+  </span>
+</span>
+
+<style>
+  .typewriter-wrapper {
+    display: inline-grid;
+  }
+
+  .typewriter-wrapper > * {
+    grid-area: 1 / 1;
+  }
+
+  .typewriter-placeholder {
+    visibility: hidden;
+  }
+
+  .typewriter {
+    display: inline;
+  }
+</style>
+
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll('.typewriter').forEach((el) => {
+      const texts: string[] = JSON.parse(el.getAttribute('data-texts') || '[]');
+      const speed = parseInt(el.getAttribute('data-speed') || '80');
+      const delay = parseInt(el.getAttribute('data-delay') || '0');
+      const pauseDuration = parseInt(el.getAttribute('data-pause') || '2000');
+      const textEl = el.querySelector('.typewriter-text');
+
+      if (!textEl || texts.length === 0) return;
+
+      let textIndex = 0;
+      let charIndex = 0;
+      let isDeleting = false;
+
+      const type = () => {
+        const currentText = texts[textIndex];
+
+        if (isDeleting) {
+          // Remove characters
+          textEl.textContent = currentText.substring(0, charIndex - 1);
+          charIndex--;
+
+          if (charIndex === 0) {
+            isDeleting = false;
+            textIndex = (textIndex + 1) % texts.length;
+            setTimeout(type, speed);
+          } else {
+            setTimeout(type, speed / 2); // Delete faster
+          }
+        } else {
+          // Add characters
+          textEl.textContent = currentText.substring(0, charIndex + 1);
+          charIndex++;
+
+          if (charIndex === currentText.length) {
+            // Pause after a word, then start deleting
+            isDeleting = true;
+            setTimeout(type, pauseDuration);
+          } else {
+            setTimeout(type, speed + Math.random() * 30);
+          }
+        }
+      };
+
+      setTimeout(type, delay);
+    });
+  });
+</script>

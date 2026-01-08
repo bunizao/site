@@ -1,0 +1,16 @@
+/* ═══════════════════════════════════════════════════════════════
+   Typography - Modern Developer Fonts
+   ═══════════════════════════════════════════════════════════════ */
+
+/* Inter, Space Grotesk, JetBrains Mono loaded from Google Fonts in Layout */
+
+/* Local Hubot Sans - Variable Font for special headings */
+@font-face {
+  font-family: 'Hubot Sans';
+  src:
+    url('/fonts/Hubot-Sans.woff2') format('woff2 supports variations'),
+    url('/fonts/Hubot-Sans.woff2') format('woff2-variations');
+  font-weight: 200 900;
+  font-stretch: 135%;
+  font-display: swap;
+}
