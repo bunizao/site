@@ -24,132 +24,119 @@ try {
   console.error('Failed to fetch GitHub contributions:', error);
 }
 
-// Get last 20 weeks of contributions
-const weeks = 20;
-const today = new Date();
-const startDate = new Date(today);
-startDate.setDate(startDate.getDate() - (weeks * 7) + 1);
+// Get recent activity - last 52 weeks
+const recentContributions = contributions.slice(-364);
 
-// Create contribution map for quick lookup
-const contribMap = new Map<string, number>();
-contributions.forEach(day => {
-  contribMap.set(day.date, day.count);
-});
+// Calculate streak and recent stats
+let currentStreak = 0;
+let maxStreak = 0;
+let tempStreak = 0;
 
-// Build weeks array
-const weeksData: { date: string; count: number; level: number }[][] = [];
-
-for (let week = 0; week < weeks; week++) {
-  const weekDays: { date: string; count: number; level: number }[] = [];
-
-  for (let day = 0; day < 7; day++) {
-    const date = new Date(startDate);
-    date.setDate(date.getDate() + (week * 7) + day);
-    const dateStr = date.toISOString().split('T')[0];
-    const count = contribMap.get(dateStr) || 0;
-
-    let level = 0;
-    if (count > 0) level = 1;
-    if (count > 3) level = 2;
-    if (count > 6) level = 3;
-    if (count > 9) level = 4;
-
-    weekDays.push({ date: dateStr, count, level });
+for (let i = recentContributions.length - 1; i >= 0; i--) {
+  if (recentContributions[i].count > 0) {
+    if (i === recentContributions.length - 1 || currentStreak > 0) {
+      currentStreak++;
+    }
+    tempStreak++;
+    maxStreak = Math.max(maxStreak, tempStreak);
+  } else {
+    if (currentStreak === 0) currentStreak = 0;
+    tempStreak = 0;
   }
-
-  weeksData.push(weekDays);
 }
+
+// Get last 30 days for the activity wave
+const last30Days = contributions.slice(-30);
+const maxCount = Math.max(...last30Days.map(d => d.count), 1);
 ---
 
-{contributions.length > 0 ? (
-  <div class="contributions-wrapper animate-in delay-5">
-    <div class="contributions-grid">
-      {weeksData.map((week) => (
-        <div class="contributions-week">
-          {week.map((day) => (
-            <div
-              class={`contribution-day level-${day.level}`}
-              title={`${day.date}: ${day.count} contributions`}
-            />
-          ))}
-        </div>
-      ))}
+{contributions.length > 0 && (
+  <div class="activity-section">
+    <div class="activity-wave">
+      {last30Days.map((day, i) => {
+        const height = Math.max(4, (day.count / maxCount) * 24);
+        return (
+          <div
+            class="wave-bar"
+            style={`--height: ${height}px; --delay: ${i * 0.03}s`}
+            title={`${day.date}: ${day.count}`}
+          />
+        );
+      })}
     </div>
-    <p class="contributions-total">{totalContributions} contributions in the last year</p>
-  </div>
-) : (
-  <div class="contributions-wrapper animate-in delay-5">
-    <p class="contributions-error">Could not load contributions</p>
+    <div class="activity-stats">
+      <a href={`https://github.com/${username}`} target="_blank" rel="noopener noreferrer" class="github-link">
+        @{username}
+      </a>
+      <span class="stat-label"><strong>{totalContributions}</strong> contributions</span>
+    </div>
   </div>
 )}
 
 <style>
-  .contributions-wrapper {
-    margin-top: 2rem;
-  }
-
-  .contributions-grid {
+  .activity-section {
+    margin-top: 2.5rem;
     display: flex;
-    gap: 3px;
-    overflow-x: auto;
-    padding: 4px 0;
+    align-items: flex-end;
+    gap: 1.25rem;
   }
 
-  .contributions-week {
+  .activity-wave {
+    display: flex;
+    align-items: flex-end;
+    gap: 3px;
+    height: 32px;
+  }
+
+  .wave-bar {
+    width: 5px;
+    height: var(--height);
+    background: hsl(var(--foreground) / 0.35);
+    animation: wave 2s ease-in-out infinite;
+    animation-delay: var(--delay);
+  }
+
+  @keyframes wave {
+    0%, 100% {
+      transform: scaleY(1);
+      opacity: 0.35;
+    }
+    50% {
+      transform: scaleY(1.3);
+      opacity: 0.7;
+    }
+  }
+
+  .wave-bar:hover {
+    background: hsl(var(--foreground));
+    animation-play-state: paused;
+  }
+
+  .activity-stats {
     display: flex;
     flex-direction: column;
-    gap: 3px;
+    gap: 2px;
   }
 
-  .contribution-day {
-    width: 10px;
-    height: 10px;
-    border-radius: 2px;
-    background: hsl(var(--muted) / 0.15);
+  .github-link {
+    font-size: 14px;
+    font-weight: 500;
+    color: hsl(var(--foreground));
+    text-decoration: none;
+    transition: opacity 0.15s ease;
   }
 
-  /* Dark mode greens */
-  :global(.dark) .contribution-day.level-1 {
-    background: #0e4429;
+  .github-link:hover {
+    opacity: 0.7;
   }
 
-  :global(.dark) .contribution-day.level-2 {
-    background: #006d32;
-  }
-
-  :global(.dark) .contribution-day.level-3 {
-    background: #26a641;
-  }
-
-  :global(.dark) .contribution-day.level-4 {
-    background: #39d353;
-  }
-
-  /* Light mode greens */
-  :global(:not(.dark)) .contribution-day.level-1 {
-    background: #9be9a8;
-  }
-
-  :global(:not(.dark)) .contribution-day.level-2 {
-    background: #40c463;
-  }
-
-  :global(:not(.dark)) .contribution-day.level-3 {
-    background: #30a14e;
-  }
-
-  :global(:not(.dark)) .contribution-day.level-4 {
-    background: #216e39;
-  }
-
-  .contributions-total {
-    margin-top: 8px;
-    font-size: 11px;
-    color: hsl(var(--muted-foreground) / 0.6);
-  }
-
-  .contributions-error {
+  .stat-label {
     font-size: 12px;
     color: hsl(var(--muted-foreground));
+  }
+
+  .stat-label strong {
+    font-weight: 600;
+    color: hsl(var(--foreground));
   }
 </style>
