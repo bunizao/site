@@ -1,0 +1,12 @@
+{
+  "routes": [
+    { "handle": "filesystem" },
+    {
+      "src": "/(.*)",
+      "status": 308,
+      "headers": {
+        "Location": "https://blog.buxx.me/$1"
+      }
+    }
+  ]
+}
