@@ -1,18 +1,12 @@
-# Gorgeous
+# buxx.me
 
-Personal bio/portfolio website built with SolidJS and vite-plugin-ssr, styled
-with UnoCSS. Live at https://bio.buxx.me.
-
-## Overview
-- Static prerendered pages with client hydration.
-- Fetches blog posts from Ghost CMS.
-- Deployed on Netlify with Vercel Analytics.
+Personal bio/portfolio website. Live at https://buxx.me.
 
 ## Tech Stack
-- SolidJS
-- Vite + vite-plugin-ssr
+- Astro
+- React
 - TypeScript
-- UnoCSS
+- TailwindCSS
 
 ## Development
 ```bash
@@ -24,6 +18,12 @@ pnpm dev
 ```bash
 pnpm build
 pnpm preview
+```
+
+## Environment Variables
+```
+GHOST_URL=https://your-ghost-site.com
+GHOST_CONTENT_APIKEY=your_api_key_here
 ```
 
 ## License
