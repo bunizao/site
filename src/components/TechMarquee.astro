@@ -30,8 +30,14 @@ const duplicatedRow2 = [...row2, ...row2, ...row2];
   .tech-marquee {
     display: flex;
     flex-direction: column;
-    gap: 8px;
-    max-width: 320px;
+    gap: 6px;
+    width: 100%;
+  }
+
+  @media (min-width: 640px) {
+    .tech-marquee {
+      gap: 8px;
+    }
   }
 
   .marquee-row {
@@ -54,8 +60,14 @@ const duplicatedRow2 = [...row2, ...row2, ...row2];
 
   .marquee-track {
     display: flex;
-    gap: 2rem;
+    gap: 1.5rem;
     width: max-content;
+  }
+
+  @media (min-width: 640px) {
+    .marquee-track {
+      gap: 2rem;
+    }
   }
 
   .marquee-track.left {
@@ -67,11 +79,17 @@ const duplicatedRow2 = [...row2, ...row2, ...row2];
   }
 
   .tech-item {
-    font-size: 12px;
+    font-size: 11px;
     font-weight: 300;
     color: hsl(var(--muted-foreground));
     white-space: nowrap;
     letter-spacing: 0.02em;
+  }
+
+  @media (min-width: 640px) {
+    .tech-item {
+      font-size: 12px;
+    }
   }
 
   @keyframes scroll-left {
