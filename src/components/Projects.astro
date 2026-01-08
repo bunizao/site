@@ -3,15 +3,14 @@ import { ArrowUpRight } from 'lucide-react';
 
 interface ProjectConfig {
   name: string;
-  repo?: string; // GitHub repo in format "owner/repo"
+  repo: string;
   url: string;
-  desc?: string; // Override description
+  description: string; // Fallback description
   role: 'Author' | 'Contributor';
   tags: string[];
 }
 
-interface ProjectData extends ProjectConfig {
-  description: string;
+interface Project extends ProjectConfig {
   stars: number | null;
 }
 
@@ -20,6 +19,7 @@ const projectConfigs: ProjectConfig[] = [
     name: 'TutuBetterRules',
     repo: 'bunizao/TutuBetterRules',
     url: 'https://github.com/bunizao/TutuBetterRules',
+    description: 'Proxy rules for Surge, Clash, and other proxy tools',
     role: 'Author',
     tags: ['Proxy', 'Network']
   },
@@ -27,13 +27,15 @@ const projectConfigs: ProjectConfig[] = [
     name: 'Attegi',
     repo: 'bunizao/Attegi',
     url: 'https://github.com/bunizao/Attegi',
+    description: 'A minimal and elegant Ghost theme',
     role: 'Author',
-    tags: ['Ghost', 'Theme', 'JavaScript', 'TailwindCSS']
+    tags: ['Ghost', 'Theme', 'TailwindCSS']
   },
   {
     name: 'Mirrored',
     repo: 'bunizao/Mirrored',
     url: 'https://github.com/bunizao/Mirrored',
+    description: 'Automated mirror sync for container registries',
     role: 'Author',
     tags: ['CI/CD', 'Python', 'Automation']
   },
@@ -41,6 +43,7 @@ const projectConfigs: ProjectConfig[] = [
     name: 'ogis',
     repo: 'bunizao/ogis',
     url: 'https://github.com/bunizao/ogis',
+    description: 'Open Graph image generation service',
     role: 'Author',
     tags: ['Next.js', 'React', 'TypeScript']
   },
@@ -48,13 +51,15 @@ const projectConfigs: ProjectConfig[] = [
     name: 'always-attend',
     repo: 'bunizao/always-attend',
     url: 'https://github.com/bunizao/always-attend',
+    description: 'Automated attendance check-in tool',
     role: 'Author',
-    tags: ['CI/CD', 'Python', 'CLI', 'Automation']
+    tags: ['Python', 'CLI', 'Automation']
   },
   {
     name: 'Mole',
     repo: 'tw93/Mole',
     url: 'https://github.com/tw93/Mole',
+    description: 'A simple macOS app to manage SSH tunnels',
     role: 'Contributor',
     tags: ['Shell', 'macOS', 'CLI']
   }
@@ -76,26 +81,18 @@ async function fetchGitHubData(repo: string): Promise<{ description: string; sta
       description: data.description || '',
       stars: data.stargazers_count || 0
     };
-  } catch (error) {
-    console.error(`Failed to fetch GitHub data for ${repo}:`, error);
+  } catch {
     return null;
   }
 }
 
-const projects: ProjectData[] = await Promise.all(
+const projects: Project[] = await Promise.all(
   projectConfigs.map(async (config) => {
-    if (config.repo) {
-      const githubData = await fetchGitHubData(config.repo);
-      return {
-        ...config,
-        description: config.desc || githubData?.description || '',
-        stars: githubData?.stars ?? null
-      };
-    }
+    const githubData = await fetchGitHubData(config.repo);
     return {
       ...config,
-      description: config.desc || '',
-      stars: null
+      description: githubData?.description || config.description,
+      stars: githubData?.stars ?? null
     };
   })
 );
@@ -106,25 +103,39 @@ const projects: ProjectData[] = await Promise.all(
 
   <div class="project-list">
     {projects.map((project) => (
-      <a
-        href={project.url}
-        target="_blank"
-        rel="noopener noreferrer"
-        class="project-item"
-      >
-        <div class="project-header">
-          <span class="project-name">{project.name}</span>
-        </div>
-        <p class="project-desc">{project.description}</p>
-        <div class="project-meta">
-          <span class="project-role">@{project.role}</span>
-          <span class="project-tags">{project.tags.join(' · ')}</span>
-          {project.stars !== null && (
-            <span class="project-stars">{project.stars} stars</span>
-          )}
-        </div>
-        <ArrowUpRight className="project-arrow" aria-hidden="true" />
-      </a>
+      <div class="tilt-card" data-tilt>
+        <a
+          href={project.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          class="project-item"
+        >
+          <div class="card-glare" data-glare></div>
+          <div class="project-content">
+            <div class="project-header">
+              <span class="project-name">{project.name}</span>
+              {project.stars !== null && (
+                <span class="project-stars">
+                  <svg viewBox="0 0 16 16" width="12" height="12" fill="currentColor">
+                    <path d="M8 .25a.75.75 0 0 1 .673.418l1.882 3.815 4.21.612a.75.75 0 0 1 .416 1.279l-3.046 2.97.719 4.192a.75.75 0 0 1-1.088.791L8 12.347l-3.766 1.98a.75.75 0 0 1-1.088-.79l.72-4.194L.818 6.374a.75.75 0 0 1 .416-1.28l4.21-.611L7.327.668A.75.75 0 0 1 8 .25z"/>
+                  </svg>
+                  {project.stars}
+                </span>
+              )}
+            </div>
+            <p class="project-desc">{project.description}</p>
+          </div>
+          <div class="project-footer">
+            <span class="project-role">{project.role}</span>
+            <div class="project-tags">
+              {project.tags.slice(0, 3).map((tag) => (
+                <span class="tag">{tag}</span>
+              ))}
+            </div>
+          </div>
+          <ArrowUpRight className="project-arrow" aria-hidden="true" />
+        </a>
+      </div>
     ))}
   </div>
 
@@ -139,54 +150,89 @@ const projects: ProjectData[] = await Promise.all(
 
 <style>
   .project-list {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  @media (min-width: 640px) {
+    .project-list {
+      grid-template-columns: repeat(2, 1fr);
+      gap: 14px;
+    }
+  }
+
+  .tilt-card {
+    perspective: 1000px;
+    height: 100%;
   }
 
   .project-item {
-    display: block;
+    display: flex;
+    flex-direction: column;
     position: relative;
-    padding: 10px 0;
-    padding-right: 20px;
-    transition: all 0.15s ease;
+    height: 100%;
+    padding: 16px;
+    background: hsl(var(--background));
+    border: 1px solid hsl(var(--foreground) / 0.08);
+    border-radius: 12px;
+    transition: transform 0.1s ease-out, box-shadow 0.2s ease;
+    transform-style: preserve-3d;
+    will-change: transform;
+    overflow: hidden;
   }
 
   @media (min-width: 640px) {
     .project-item {
-      padding: 12px 0;
-      padding-right: 24px;
+      padding: 18px;
     }
   }
 
-  .project-item::after {
-    content: '';
+  .project-item:hover {
+    box-shadow:
+      0 10px 30px -10px hsl(var(--foreground) / 0.1),
+      0 0 0 1px hsl(var(--foreground) / 0.05);
+  }
+
+  .card-glare {
     position: absolute;
-    bottom: 0;
+    top: 0;
     left: 0;
     right: 0;
-    height: 1px;
-    background: linear-gradient(to right, hsl(var(--foreground) / 0.1), transparent);
+    bottom: 0;
+    pointer-events: none;
+    border-radius: inherit;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+    background: radial-gradient(
+      600px circle at var(--glare-x, 50%) var(--glare-y, 50%),
+      hsl(var(--foreground) / 0.06),
+      transparent 40%
+    );
   }
 
-  .project-item:last-child::after {
-    display: none;
+  .tilt-card:hover .card-glare {
+    opacity: 1;
   }
 
-  .project-item:hover {
-    padding-left: 8px;
+  .project-content {
+    flex: 1;
+    min-height: 0;
   }
 
   .project-header {
     display: flex;
-    align-items: baseline;
-    gap: 12px;
-    margin-bottom: 4px;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 8px;
+    padding-right: 24px;
   }
 
   .project-name {
     font-weight: 600;
     font-size: 14px;
+    color: hsl(var(--foreground));
   }
 
   @media (min-width: 640px) {
@@ -195,80 +241,165 @@ const projects: ProjectData[] = await Promise.all(
     }
   }
 
+  .project-stars {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    font-weight: 500;
+    color: hsl(var(--muted-foreground) / 0.7);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .project-stars svg {
+    opacity: 0.6;
+  }
+
   .project-desc {
     font-size: 12px;
     color: hsl(var(--muted-foreground));
     line-height: 1.5;
-    margin-bottom: 6px;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    min-height: calc(12px * 1.5 * 2);
   }
 
   @media (min-width: 640px) {
     .project-desc {
       font-size: 13px;
+      min-height: calc(13px * 1.5 * 2);
     }
   }
 
-  .project-meta {
+  .project-footer {
     display: flex;
-    flex-wrap: wrap;
-    align-items: baseline;
-    gap: 6px;
-    font-size: 11px;
-  }
-
-  @media (min-width: 640px) {
-    .project-meta {
-      flex-wrap: nowrap;
-      gap: 8px;
-      font-size: 12px;
-    }
+    align-items: center;
+    gap: 10px;
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid hsl(var(--foreground) / 0.06);
   }
 
   .project-role {
+    font-size: 10px;
     font-weight: 600;
-    color: hsl(var(--foreground));
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: hsl(var(--foreground) / 0.5);
+    padding: 2px 6px;
+    background: hsl(var(--foreground) / 0.05);
+    border-radius: 4px;
+    flex-shrink: 0;
   }
 
   .project-tags {
-    font-weight: 300;
-    color: hsl(var(--muted-foreground));
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    flex: 1;
+    min-width: 0;
   }
 
-  .project-stars {
-    font-weight: 300;
-    color: hsl(var(--muted-foreground) / 0.6);
-    font-variant-numeric: tabular-nums;
-    margin-left: auto;
+  .tag {
+    font-size: 10px;
+    font-weight: 400;
+    color: hsl(var(--muted-foreground) / 0.8);
+    white-space: nowrap;
   }
 
-  @media (max-width: 639px) {
-    .project-stars {
-      margin-left: 0;
-      width: 100%;
-      margin-top: 4px;
-    }
+  .tag:not(:last-child)::after {
+    content: '·';
+    margin-left: 6px;
+    opacity: 0.4;
   }
 
   .project-arrow {
     position: absolute;
-    right: 0;
-    top: 50%;
-    transform: translateY(-50%);
-    width: 12px;
-    height: 12px;
-    color: hsl(var(--muted-foreground) / 0.4);
-    transition: all 0.15s ease;
+    right: 14px;
+    top: 14px;
+    width: 14px;
+    height: 14px;
+    color: hsl(var(--muted-foreground) / 0.25);
+    transition: all 0.2s ease;
   }
 
   @media (min-width: 640px) {
     .project-arrow {
-      width: 14px;
-      height: 14px;
+      right: 16px;
+      top: 16px;
     }
   }
 
-  .project-item:hover .project-arrow {
-    color: hsl(var(--foreground));
-    transform: translateY(-50%) translate(2px, -2px);
+  .tilt-card:hover .project-arrow {
+    color: hsl(var(--foreground) / 0.6);
+    transform: translate(2px, -2px);
   }
 </style>
+
+<script>
+  const tiltCards = document.querySelectorAll('[data-tilt]');
+
+  tiltCards.forEach((card) => {
+    const item = card.querySelector('.project-item') as HTMLElement;
+    const glare = card.querySelector('[data-glare]') as HTMLElement;
+    if (!item) return;
+
+    const maxTilt = 8;
+    let rafId: number | null = null;
+    let currentX = 0;
+    let currentY = 0;
+    let targetX = 0;
+    let targetY = 0;
+
+    const lerp = (start: number, end: number, factor: number) => {
+      return start + (end - start) * factor;
+    };
+
+    const animate = () => {
+      currentX = lerp(currentX, targetX, 0.15);
+      currentY = lerp(currentY, targetY, 0.15);
+
+      item.style.transform = `rotateX(${currentY}deg) rotateY(${currentX}deg)`;
+
+      if (Math.abs(currentX - targetX) > 0.01 || Math.abs(currentY - targetY) > 0.01) {
+        rafId = requestAnimationFrame(animate);
+      } else {
+        rafId = null;
+      }
+    };
+
+    card.addEventListener('mousemove', (e: Event) => {
+      const event = e as MouseEvent;
+      const rect = card.getBoundingClientRect();
+      const x = event.clientX - rect.left;
+      const y = event.clientY - rect.top;
+      const centerX = rect.width / 2;
+      const centerY = rect.height / 2;
+
+      targetX = ((x - centerX) / centerX) * maxTilt;
+      targetY = ((centerY - y) / centerY) * maxTilt;
+
+      if (glare) {
+        const glareX = (x / rect.width) * 100;
+        const glareY = (y / rect.height) * 100;
+        glare.style.setProperty('--glare-x', `${glareX}%`);
+        glare.style.setProperty('--glare-y', `${glareY}%`);
+      }
+
+      if (!rafId) {
+        rafId = requestAnimationFrame(animate);
+      }
+    });
+
+    card.addEventListener('mouseleave', () => {
+      targetX = 0;
+      targetY = 0;
+
+      if (!rafId) {
+        rafId = requestAnimationFrame(animate);
+      }
+    });
+  });
+</script>
