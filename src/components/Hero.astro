@@ -2,18 +2,19 @@
 import Typewriter from './Typewriter.astro';
 import GitHubContributions from './GitHubContributions.astro';
 import TechMarquee from './TechMarquee.astro';
-import type { LucideIcon } from 'lucide-react';
+import {Instagram, type LucideIcon} from 'lucide-react';
 import { FileText, Github, Mail, Send } from 'lucide-react';
 
 const socials: Array<{ name: string; url: string; icon: LucideIcon }> = [
-  { name: 'GitHub', url: 'https://github.com/bunizao', icon: Github },
   { name: 'Blog', url: 'https://blog.buxx.me', icon: FileText },
+  { name: 'GitHub', url: 'https://github.com/bunizao', icon: Github },
   { name: 'Email', url: 'mailto:me@buxx.me', icon: Mail },
   { name: 'Telegram', url: 'https://t.me/hututu0', icon: Send },
+  { name: 'Instagram', url: 'https://instagram.com/bunizao_', icon: Instagram}
 ];
 
-const techRow1 = ['TypeScript', 'Python', 'Go', 'Rust', 'React', 'Astro'];
-const techRow2 = ['Networking', 'BGP', 'Proxy', 'Docker', 'Linux', 'Web3'];
+const techRow1 = ['TypeScript', "JavaScript", 'Python', 'C#', 'C++', 'React', 'TailwindCSS', 'Astro'];
+const techRow2 = ['Frontend', 'BGP', 'Proxy', 'Docker', 'Linux', 'Web3', 'Optimization'];
 ---
 
 <header class="pt-20 pb-12">
@@ -21,29 +22,35 @@ const techRow2 = ['Networking', 'BGP', 'Proxy', 'Docker', 'Linux', 'Web3'];
   <div class="animate-in">
     <div class="status mb-4">
       <span class="status-dot"></span>
-      <span>Available</span>
+      <span>Wondering</span>
     </div>
   </div>
 
   <!-- Name -->
   <h1 class="animate-in delay-1 mb-2 text-[36px] font-semibold">
-    <Typewriter texts={["Lucian", "Bunizao", "Tutu"]} speed={80} />
+    <Typewriter texts={["Lucian", "Bunizao", "Tutu", "Collapsar"]} speed={80} />
   </h1>
 
   <!-- Role -->
   <p class="animate-in delay-2 mb-6 text-sm text-muted-foreground">
-    Data Science @ Monash University '28
+    Student / Developer / Blogger
   </p>
+
 
   <!-- Bio -->
   <div class="animate-in delay-3 max-w-[520px]">
     <p class="text-[15px] leading-[1.7] text-muted-foreground">
-      Building tools for <span class="text-foreground">networking</span>,
+      I make interesting things.<br>
+      Curious about <span class="text-foreground">frontend design</span>,
       <span class="text-foreground">proxy systems</span>, and
-      <span class="text-foreground">open source</span>.
-      Interested in BGP, Web3, and making the internet more accessible.
+      contributing to <span class="text-foreground"> open source</span>.<br>
+      Obsessed with <span class="text-foreground">speed</span> and always asking how things can be <span class="text-foreground">better</span>.<br>
+      Outside of coding, I read for curiosity and write to make sense of things.<br>
+      Currently studying Computer Science at <span class="text-foreground">Monash University</span>.
     </p>
   </div>
+
+
 
   <!-- Social Links -->
   <div class="mt-8 flex flex-wrap items-center gap-4 animate-in delay-4">
