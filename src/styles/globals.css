@@ -115,8 +115,8 @@
   }
 
   .section-label {
-    @apply inline-block border-2 border-border px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.15em];
-    margin-bottom: 24px;
+    @apply inline-block text-[11px] font-semibold uppercase tracking-[0.15em] text-muted-foreground;
+    margin-bottom: 20px;
   }
 
   .item {
@@ -189,6 +189,16 @@
   .contact-link:hover span {
     text-decoration: underline;
     text-underline-offset: 3px;
+  }
+
+  .tech-divider {
+    color: hsl(var(--muted-foreground) / 0.3);
+  }
+
+  .tech-stack {
+    font-size: 12px;
+    color: hsl(var(--muted-foreground) / 0.5);
+    letter-spacing: 0.02em;
   }
 
   /* Contact icons - secondary links */
