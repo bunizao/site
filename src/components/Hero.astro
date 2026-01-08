@@ -1,6 +1,7 @@
 ---
 import Typewriter from './Typewriter.astro';
 import Marquee from './Marquee.astro';
+import GitHubContributions from './GitHubContributions.astro';
 import type { LucideIcon } from 'lucide-react';
 import { FileText, Github, Mail, Send } from 'lucide-react';
 
@@ -15,7 +16,7 @@ const skills = ['TypeScript', 'Python', 'Go', 'React', 'Astro', 'Networking', 'B
 ---
 
 <header class="pt-20 pb-12">
-  <!-- Terminal-style intro -->
+  <!-- Status indicator -->
   <div class="animate-in">
     <div class="status mb-4">
       <span class="status-dot"></span>
@@ -23,7 +24,7 @@ const skills = ['TypeScript', 'Python', 'Go', 'React', 'Astro', 'Networking', 'B
     </div>
   </div>
 
-  <!-- Name with typewriter -->
+  <!-- Name -->
   <h1 class="animate-in delay-1 mb-2 text-[36px] font-semibold">
     <Typewriter texts={["Lucian", "Bunizao", "Tutu"]} speed={80} />
   </h1>
@@ -43,20 +44,28 @@ const skills = ['TypeScript', 'Python', 'Go', 'React', 'Astro', 'Networking', 'B
     </p>
   </div>
 
-  <!-- Skills - Marquee -->
-  <div class="mt-6 animate-in delay-4">
-    <Marquee items={skills} speed={25} />
-  </div>
-
-  <!-- Social Links -->
-  <div class="mt-8 flex flex-wrap gap-4 animate-in delay-5">
+  <!-- Social Links with text -->
+  <div class="mt-8 flex flex-wrap items-center gap-4 animate-in delay-4">
     {socials.map((social) => (
-      <a href={social.url} target="_blank" rel="noopener noreferrer" class="social-link-minimal">
+      <a
+        href={social.url}
+        target="_blank"
+        rel="noopener noreferrer"
+        class="contact-link"
+      >
         <social.icon className="h-4 w-4" aria-hidden="true" />
         <span>{social.name}</span>
       </a>
     ))}
   </div>
+
+  <!-- Tech stack: scrolling marquee -->
+  <div class="mt-10 animate-in delay-5">
+    <Marquee items={skills} speed={25} />
+  </div>
+
+  <!-- GitHub Contributions -->
+  <GitHubContributions />
 </header>
 
 <!-- ASCII Divider -->

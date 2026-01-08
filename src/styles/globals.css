@@ -176,6 +176,52 @@
     text-underline-offset: 3px;
   }
 
+  /* Contact links - minimal style without borders */
+  .contact-link {
+    @apply inline-flex items-center gap-2 text-[13px] text-muted-foreground;
+    transition: color 0.15s ease;
+  }
+
+  .contact-link:hover {
+    color: hsl(var(--foreground));
+  }
+
+  .contact-link:hover span {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+
+  /* Contact icons - secondary links */
+  .contact-icon {
+    @apply inline-flex items-center justify-center text-muted-foreground;
+    transition: color 0.15s ease, transform 0.15s ease;
+  }
+
+  .contact-icon:hover {
+    color: hsl(var(--foreground));
+    transform: translateY(-2px);
+  }
+
+  /* Primary contact CTA */
+  .contact-primary {
+    @apply inline-flex items-center gap-2 text-[13px] font-medium text-foreground;
+    transition: opacity 0.15s ease;
+  }
+
+  .contact-primary:hover {
+    opacity: 0.7;
+  }
+
+  .contact-primary span {
+    text-decoration: underline;
+    text-decoration-style: dashed;
+    text-underline-offset: 3px;
+  }
+
+  .contact-primary:hover span {
+    text-decoration-style: solid;
+  }
+
   .theme-toggle {
     @apply fixed right-6 top-6 z-10 inline-flex h-10 w-10 items-center justify-center text-muted-foreground;
     background: transparent;
