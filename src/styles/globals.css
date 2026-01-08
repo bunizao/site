@@ -83,7 +83,10 @@
     color: hsl(var(--selection-fg));
   }
 
-  h1,
+  h1 {
+    @apply font-bold tracking-tight;
+  }
+
   h2,
   h3 {
     @apply font-semibold tracking-tight;
@@ -107,6 +110,11 @@
     outline: 2px solid hsl(var(--foreground));
     outline-offset: 2px;
   }
+
+  /* Font weight utilities */
+  .font-light {
+    font-weight: 300;
+  }
 }
 
 @layer components {
@@ -115,7 +123,7 @@
   }
 
   .section-label {
-    @apply inline-block text-[11px] font-semibold uppercase tracking-[0.15em] text-muted-foreground;
+    @apply inline-block text-[11px] font-light uppercase tracking-[0.2em] text-muted-foreground;
     margin-bottom: 20px;
   }
 

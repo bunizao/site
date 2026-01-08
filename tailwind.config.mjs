@@ -47,7 +47,7 @@ export default {
       },
       fontFamily: {
         mono: [
-          "IBM Plex Mono",
+          "JetBrains Mono",
           "ui-monospace",
           "SFMono-Regular",
           "Menlo",
