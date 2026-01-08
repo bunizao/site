@@ -28,23 +28,36 @@ const projectConfigs: ProjectConfig[] = [
     repo: 'bunizao/Attegi',
     url: 'https://github.com/bunizao/Attegi',
     role: 'Author',
-    tags: ['Ghost', 'Theme']
+    tags: ['Ghost', 'Theme', 'JavaScript', 'TailwindCSS']
   },
   {
     name: 'Mirrored',
     repo: 'bunizao/Mirrored',
     url: 'https://github.com/bunizao/Mirrored',
     role: 'Author',
-    tags: ['CI/CD', 'Python']
+    tags: ['CI/CD', 'Python', 'Automation']
   },
   {
-    name: 'iRingo',
-    repo: 'NSRingo/iRingo',
-    url: 'https://nsringo.github.io/',
-    desc: 'Unlock iOS/macOS features with MitM method',
-    role: 'Contributor',
-    tags: ['iOS', 'MitM']
+    name: 'ogis',
+    repo: 'bunizao/ogis',
+    url: 'https://github.com/bunizao/ogis',
+    role: 'Author',
+    tags: ['Next.js', 'React', 'TypeScript']
   },
+  {
+    name: 'always-attend',
+    repo: 'bunizao/always-attend',
+    url: 'https://github.com/bunizao/always-attend',
+    role: 'Author',
+    tags: ['CI/CD', 'Python', 'CLI', 'Automation']
+  },
+  {
+    name: 'Mole',
+    repo: 'tw93/Mole',
+    url: 'https://github.com/tw93/Mole',
+    role: 'Contributor',
+    tags: ['Shell', 'macOS', 'CLI']
+  }
 ];
 
 async function fetchGitHubData(repo: string): Promise<{ description: string; stars: number } | null> {
@@ -189,10 +202,12 @@ const projects: ProjectData[] = await Promise.all(
   }
 
   .project-tags {
+    font-weight: 300;
     color: hsl(var(--muted-foreground));
   }
 
   .project-stars {
+    font-weight: 300;
     color: hsl(var(--muted-foreground) / 0.6);
     font-variant-numeric: tabular-nums;
     margin-left: auto;
