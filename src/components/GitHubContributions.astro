@@ -101,22 +101,41 @@ const placeholderBars = Array.from({ length: 30 });
 
 <style>
   .activity-section {
-    margin-top: 2.5rem;
+    margin-top: 1.5rem;
     display: flex;
     align-items: flex-end;
-    gap: 1.25rem;
+    justify-content: space-between;
+    gap: 1rem;
     min-height: 32px;
+    width: 100%;
+  }
+
+  @media (min-width: 640px) {
+    .activity-section {
+      margin-top: 2.5rem;
+      gap: 1.25rem;
+    }
   }
 
   .activity-wave {
     display: flex;
     align-items: flex-end;
-    gap: 3px;
-    height: 32px;
+    gap: 2px;
+    height: 28px;
+    flex: 1;
+    min-width: 0;
+  }
+
+  @media (min-width: 640px) {
+    .activity-wave {
+      gap: 3px;
+      height: 32px;
+    }
   }
 
   .wave-bar {
-    width: 5px;
+    flex: 1;
+    max-width: 10px;
     height: var(--height);
     background: hsl(var(--foreground) / 0.35);
     animation: wave 2s ease-in-out infinite;
@@ -124,6 +143,12 @@ const placeholderBars = Array.from({ length: 30 });
     transform-origin: bottom;
     transition: height 0.3s ease, opacity 0.2s ease;
     will-change: transform;
+  }
+
+  @media (min-width: 640px) {
+    .wave-bar {
+      max-width: 14px;
+    }
   }
 
   @keyframes wave {
@@ -151,14 +176,28 @@ const placeholderBars = Array.from({ length: 30 });
     display: flex;
     flex-direction: column;
     gap: 2px;
+    flex-shrink: 0;
+    text-align: right;
+  }
+
+  @media (min-width: 640px) {
+    .activity-stats {
+      text-align: left;
+    }
   }
 
   .github-link {
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 500;
     color: hsl(var(--foreground));
     text-decoration: none;
     transition: opacity 0.15s ease;
+  }
+
+  @media (min-width: 640px) {
+    .github-link {
+      font-size: 14px;
+    }
   }
 
   .github-link:hover {
@@ -166,8 +205,14 @@ const placeholderBars = Array.from({ length: 30 });
   }
 
   .stat-label {
-    font-size: 12px;
+    font-size: 11px;
     color: hsl(var(--muted-foreground));
+  }
+
+  @media (min-width: 640px) {
+    .stat-label {
+      font-size: 12px;
+    }
   }
 
   .stat-label strong {
