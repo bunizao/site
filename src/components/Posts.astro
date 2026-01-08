@@ -9,8 +9,8 @@ interface PostMeta {
 }
 
 async function getLatestPosts(): Promise<PostMeta[]> {
-  const apiKey = import.meta.env.VITE_GHOST_CONTENT_APIKEY;
-  const apiUrl = `https://buxx.me/ghost/api/v3/content/posts/?key=${apiKey}&limit=5&fields=id,title,url,published_at`;
+  const apiKey = import.meta.env.GHOST_CONTENT_APIKEY;
+  const apiUrl = `https://blog.buxx.me/ghost/api/v3/content/posts/?key=${apiKey}&limit=5&fields=id,title,url,published_at`;
 
   try {
     const res = await fetch(apiUrl);
@@ -29,15 +29,11 @@ const posts = await getLatestPosts();
   <span class="section-label">Writing</span>
 
   {posts.length > 0 ? (
-    <div>
+    <div class="post-list">
       {posts.map((post) => (
-        <a href={post.url} target="_blank" rel="noopener noreferrer" class="item">
-          <div class="flex justify-between items-center gap-4">
-            <span class="item-title text-[15px]">{post.title}</span>
-            <span class="shrink-0 text-xs text-muted-foreground tabular-nums">
-              {dayjs(post.published_at).format('YYYY.MM')}
-            </span>
-          </div>
+        <a href={post.url} target="_blank" rel="noopener noreferrer" class="post-item">
+          <span class="post-title">{post.title}</span>
+          <span class="post-date">{dayjs(post.published_at).format('YYYY.MM')}</span>
         </a>
       ))}
     </div>
@@ -46,10 +42,62 @@ const posts = await getLatestPosts();
   )}
 
   <a
-    href="https://buxx.me"
+    href="https://blog.buxx.me"
     target="_blank"
-    class="link mt-4 inline-block text-sm text-muted-foreground"
+    class="link mt-6 inline-block text-sm text-muted-foreground"
   >
     Read all posts →
   </a>
 </section>
+
+<style>
+  .post-list {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .post-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 16px;
+    padding: 10px 0;
+    position: relative;
+    transition: all 0.15s ease;
+  }
+
+  .post-item::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: linear-gradient(to right, hsl(var(--foreground) / 0.1), transparent);
+  }
+
+  .post-item:last-child::after {
+    display: none;
+  }
+
+  .post-item:hover {
+    padding-left: 8px;
+  }
+
+  .post-title {
+    font-size: 14px;
+    font-weight: 500;
+    line-height: 1.4;
+  }
+
+  .post-date {
+    font-size: 12px;
+    color: hsl(var(--muted-foreground) / 0.6);
+    font-variant-numeric: tabular-nums;
+    flex-shrink: 0;
+  }
+
+  .post-item:hover .post-date {
+    color: hsl(var(--muted-foreground));
+  }
+</style>
