@@ -8,6 +8,7 @@ export default defineConfig({
     react(),
     tailwind(),
   ],
+  site: 'https://buxx.me',
   output: 'static',
   vite: {
     resolve: {
