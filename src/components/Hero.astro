@@ -1,7 +1,7 @@
 ---
 import Typewriter from './Typewriter.astro';
-import Marquee from './Marquee.astro';
 import GitHubContributions from './GitHubContributions.astro';
+import TechMarquee from './TechMarquee.astro';
 import type { LucideIcon } from 'lucide-react';
 import { FileText, Github, Mail, Send } from 'lucide-react';
 
@@ -12,7 +12,8 @@ const socials: Array<{ name: string; url: string; icon: LucideIcon }> = [
   { name: 'Telegram', url: 'https://t.me/hututu0', icon: Send },
 ];
 
-const skills = ['TypeScript', 'Python', 'Go', 'React', 'Astro', 'Networking', 'BGP', 'Web3'];
+const techRow1 = ['TypeScript', 'Python', 'Go', 'Rust', 'React', 'Astro'];
+const techRow2 = ['Networking', 'BGP', 'Proxy', 'Docker', 'Linux', 'Web3'];
 ---
 
 <header class="pt-20 pb-12">
@@ -44,7 +45,7 @@ const skills = ['TypeScript', 'Python', 'Go', 'React', 'Astro', 'Networking', 'B
     </p>
   </div>
 
-  <!-- Social Links with text -->
+  <!-- Social Links -->
   <div class="mt-8 flex flex-wrap items-center gap-4 animate-in delay-4">
     {socials.map((social) => (
       <a
@@ -59,13 +60,13 @@ const skills = ['TypeScript', 'Python', 'Go', 'React', 'Astro', 'Networking', 'B
     ))}
   </div>
 
-  <!-- Tech stack: scrolling marquee -->
-  <div class="mt-10 animate-in delay-5">
-    <Marquee items={skills} speed={25} />
-  </div>
-
-  <!-- GitHub Contributions -->
+  <!-- GitHub Activity -->
   <GitHubContributions />
+
+  <!-- Tech Stack Marquee -->
+  <div class="mt-6 animate-in delay-5">
+    <TechMarquee row1={techRow1} row2={techRow2} />
+  </div>
 </header>
 
 <!-- ASCII Divider -->
