@@ -1,0 +1,97 @@
+---
+interface Props {
+  row1: string[];
+  row2: string[];
+}
+
+const { row1, row2 } = Astro.props;
+const duplicatedRow1 = [...row1, ...row1, ...row1];
+const duplicatedRow2 = [...row2, ...row2, ...row2];
+---
+
+<div class="tech-marquee">
+  <div class="marquee-row">
+    <div class="marquee-track left">
+      {duplicatedRow1.map((item) => (
+        <span class="tech-item">{item}</span>
+      ))}
+    </div>
+  </div>
+  <div class="marquee-row">
+    <div class="marquee-track right">
+      {duplicatedRow2.map((item) => (
+        <span class="tech-item">{item}</span>
+      ))}
+    </div>
+  </div>
+</div>
+
+<style>
+  .tech-marquee {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-width: 320px;
+  }
+
+  .marquee-row {
+    overflow: hidden;
+    mask-image: linear-gradient(
+      to right,
+      transparent,
+      black 10%,
+      black 90%,
+      transparent
+    );
+    -webkit-mask-image: linear-gradient(
+      to right,
+      transparent,
+      black 10%,
+      black 90%,
+      transparent
+    );
+  }
+
+  .marquee-track {
+    display: flex;
+    gap: 2rem;
+    width: max-content;
+  }
+
+  .marquee-track.left {
+    animation: scroll-left 25s linear infinite;
+  }
+
+  .marquee-track.right {
+    animation: scroll-right 25s linear infinite;
+  }
+
+  .tech-item {
+    font-size: 12px;
+    color: hsl(var(--muted-foreground));
+    white-space: nowrap;
+    letter-spacing: 0.02em;
+  }
+
+  @keyframes scroll-left {
+    from {
+      transform: translateX(0);
+    }
+    to {
+      transform: translateX(-33.33%);
+    }
+  }
+
+  @keyframes scroll-right {
+    from {
+      transform: translateX(-33.33%);
+    }
+    to {
+      transform: translateX(0);
+    }
+  }
+
+  .tech-marquee:hover .marquee-track {
+    animation-play-state: paused;
+  }
+</style>
