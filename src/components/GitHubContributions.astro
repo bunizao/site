@@ -1,77 +1,103 @@
 ---
 const username = 'bunizao';
-
-interface ContributionDay {
-  date: string;
-  count: number;
-  level: number;
-}
-
-interface ContributionData {
-  total: { lastYear: number };
-  contributions: ContributionDay[];
-}
-
-let contributions: ContributionDay[] = [];
-let totalContributions = 0;
-
-try {
-  const response = await fetch(`https://github-contributions-api.jogruber.de/v4/${username}?y=last`);
-  const data: ContributionData = await response.json();
-  contributions = data.contributions || [];
-  totalContributions = data.total?.lastYear || 0;
-} catch (error) {
-  console.error('Failed to fetch GitHub contributions:', error);
-}
-
-// Get recent activity - last 52 weeks
-const recentContributions = contributions.slice(-364);
-
-// Calculate streak and recent stats
-let currentStreak = 0;
-let maxStreak = 0;
-let tempStreak = 0;
-
-for (let i = recentContributions.length - 1; i >= 0; i--) {
-  if (recentContributions[i].count > 0) {
-    if (i === recentContributions.length - 1 || currentStreak > 0) {
-      currentStreak++;
-    }
-    tempStreak++;
-    maxStreak = Math.max(maxStreak, tempStreak);
-  } else {
-    if (currentStreak === 0) currentStreak = 0;
-    tempStreak = 0;
-  }
-}
-
-// Get last 30 days for the activity wave
-const last30Days = contributions.slice(-30);
-const maxCount = Math.max(...last30Days.map(d => d.count), 1);
+const placeholderBars = Array.from({ length: 30 });
 ---
 
-{contributions.length > 0 && (
-  <div class="activity-section">
-    <div class="activity-wave">
-      {last30Days.map((day, i) => {
-        const height = Math.max(4, (day.count / maxCount) * 24);
-        return (
-          <div
-            class="wave-bar"
-            style={`--height: ${height}px; --delay: ${i * 0.03}s`}
-            title={`${day.date}: ${day.count}`}
-          />
-        );
-      })}
-    </div>
-    <div class="activity-stats">
-      <a href={`https://github.com/${username}`} target="_blank" rel="noopener noreferrer" class="github-link">
-        @{username}
-      </a>
-      <span class="stat-label"><strong>{totalContributions}</strong> contributions</span>
-    </div>
+<div
+  class="activity-section is-loading"
+  data-contributions
+  data-username={username}
+  aria-busy="true"
+>
+  <div class="activity-wave" aria-hidden="true">
+    {placeholderBars.map((_, i) => (
+      <div
+        class="wave-bar"
+        data-bar
+        style={`--height: 6px; --delay: ${i * 0.03}s; height: 6px`}
+        title="Loading contributions"
+      />
+    ))}
   </div>
-)}
+  <div class="activity-stats">
+    <a
+      href={`https://github.com/${username}`}
+      target="_blank"
+      rel="noopener noreferrer"
+      class="github-link"
+    >
+      @{username}
+    </a>
+    <span class="stat-label" data-total>
+      <strong>—</strong> contributions
+    </span>
+  </div>
+</div>
+
+<script is:inline>
+  const sections = document.querySelectorAll('[data-contributions]');
+  const schedule = (callback) => {
+    if ('requestIdleCallback' in window) {
+      window.requestIdleCallback(callback, { timeout: 1500 });
+    } else {
+      setTimeout(callback, 0);
+    }
+  };
+
+  const updateSection = (section, data) => {
+    const bars = Array.from(section.querySelectorAll('[data-bar]'));
+    const totalEl = section.querySelector('[data-total]');
+
+    const contributions = Array.isArray(data?.contributions) ? data.contributions : [];
+    const last30Days = contributions.slice(-30);
+    const maxCount = Math.max(...last30Days.map((day) => day.count || 0), 1);
+
+    last30Days.forEach((day, index) => {
+      const bar = bars[index];
+      if (!bar) return;
+      const height = Math.max(4, (day.count / maxCount) * 24);
+      bar.style.setProperty('--height', `${height}px`);
+      bar.style.height = `${height}px`;
+      bar.title = `${day.date}: ${day.count}`;
+    });
+
+    const totalContributions = data?.total?.lastYear ?? 0;
+    if (totalEl) {
+      totalEl.innerHTML = `<strong>${totalContributions}</strong> contributions`;
+    }
+
+    section.classList.remove('is-loading');
+    section.classList.add('is-ready');
+    section.setAttribute('aria-busy', 'false');
+  };
+
+  const loadContributions = async (section) => {
+    const username = section.getAttribute('data-username');
+    if (!username) return;
+
+    try {
+      const response = await fetch(
+        `https://github-contributions-api.jogruber.de/v4/${username}?y=last`
+      );
+      if (!response.ok) throw new Error('Failed to fetch contributions');
+      const data = await response.json();
+      updateSection(section, data);
+    } catch (error) {
+      console.error('Failed to fetch GitHub contributions:', error);
+      const totalEl = section.querySelector('[data-total]');
+      if (totalEl) {
+        totalEl.textContent = 'Contributions unavailable';
+      }
+      section.classList.remove('is-loading');
+      section.classList.add('is-error');
+      section.setAttribute('aria-busy', 'false');
+    }
+  };
+
+  sections.forEach((section) => {
+    schedule(() => loadContributions(section));
+  });
+</script>
 
 <style>
   .activity-section {
@@ -79,6 +105,7 @@ const maxCount = Math.max(...last30Days.map(d => d.count), 1);
     display: flex;
     align-items: flex-end;
     gap: 1.25rem;
+    min-height: 32px;
   }
 
   .activity-wave {
@@ -94,6 +121,9 @@ const maxCount = Math.max(...last30Days.map(d => d.count), 1);
     background: hsl(var(--foreground) / 0.35);
     animation: wave 2s ease-in-out infinite;
     animation-delay: var(--delay);
+    transform-origin: bottom;
+    transition: height 0.3s ease, opacity 0.2s ease;
+    will-change: transform;
   }
 
   @keyframes wave {
@@ -110,6 +140,11 @@ const maxCount = Math.max(...last30Days.map(d => d.count), 1);
   .wave-bar:hover {
     background: hsl(var(--foreground));
     animation-play-state: paused;
+  }
+
+  .activity-section.is-loading .wave-bar {
+    animation-play-state: paused;
+    opacity: 0.25;
   }
 
   .activity-stats {
