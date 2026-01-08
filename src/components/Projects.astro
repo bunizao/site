@@ -147,9 +147,16 @@ const projects: ProjectData[] = await Promise.all(
   .project-item {
     display: block;
     position: relative;
-    padding: 12px 0;
-    padding-right: 24px;
+    padding: 10px 0;
+    padding-right: 20px;
     transition: all 0.15s ease;
+  }
+
+  @media (min-width: 640px) {
+    .project-item {
+      padding: 12px 0;
+      padding-right: 24px;
+    }
   }
 
   .project-item::after {
@@ -179,21 +186,42 @@ const projects: ProjectData[] = await Promise.all(
 
   .project-name {
     font-weight: 600;
-    font-size: 15px;
+    font-size: 14px;
+  }
+
+  @media (min-width: 640px) {
+    .project-name {
+      font-size: 15px;
+    }
   }
 
   .project-desc {
-    font-size: 13px;
+    font-size: 12px;
     color: hsl(var(--muted-foreground));
     line-height: 1.5;
     margin-bottom: 6px;
   }
 
+  @media (min-width: 640px) {
+    .project-desc {
+      font-size: 13px;
+    }
+  }
+
   .project-meta {
     display: flex;
+    flex-wrap: wrap;
     align-items: baseline;
-    gap: 8px;
-    font-size: 12px;
+    gap: 6px;
+    font-size: 11px;
+  }
+
+  @media (min-width: 640px) {
+    .project-meta {
+      flex-wrap: nowrap;
+      gap: 8px;
+      font-size: 12px;
+    }
   }
 
   .project-role {
@@ -213,15 +241,30 @@ const projects: ProjectData[] = await Promise.all(
     margin-left: auto;
   }
 
+  @media (max-width: 639px) {
+    .project-stars {
+      margin-left: 0;
+      width: 100%;
+      margin-top: 4px;
+    }
+  }
+
   .project-arrow {
     position: absolute;
     right: 0;
     top: 50%;
     transform: translateY(-50%);
-    width: 14px;
-    height: 14px;
+    width: 12px;
+    height: 12px;
     color: hsl(var(--muted-foreground) / 0.4);
     transition: all 0.15s ease;
+  }
+
+  @media (min-width: 640px) {
+    .project-arrow {
+      width: 14px;
+      height: 14px;
+    }
   }
 
   .project-item:hover .project-arrow {
