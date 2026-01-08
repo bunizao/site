@@ -142,14 +142,23 @@
   }
 
   .link {
-    text-decoration: underline;
-    text-decoration-style: dashed;
-    text-underline-offset: 3px;
-    transition: text-decoration-style 0.15s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    transition: all 0.15s ease;
+  }
+
+  .link::after {
+    content: '→';
+    transition: transform 0.15s ease;
   }
 
   .link:hover {
-    text-decoration-style: solid;
+    color: hsl(var(--foreground));
+  }
+
+  .link:hover::after {
+    transform: translateX(4px);
   }
 
   .social-link {
