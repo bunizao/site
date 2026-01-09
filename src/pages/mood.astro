@@ -1,0 +1,221 @@
+---
+import Layout from '../layouts/Layout.astro';
+import dayjs from 'dayjs';
+import { getChannelInfo, type ChannelInfo } from '../lib/telegram';
+
+const title = "Moods | Bunizao's Website";
+const description = "Thoughts and moments from my Telegram channel";
+
+let moods: any[] = [];
+let error = false;
+
+try {
+  const result = await getChannelInfo(Astro, { type: 'list' }) as ChannelInfo;
+  moods = result.posts;
+} catch (e) {
+  console.error('Failed to fetch moods:', e);
+  error = true;
+}
+---
+
+<Layout title={title} description={description}>
+  <main class="page-container">
+    <div class="mood-page">
+      <div class="mood-header">
+        <a href="/" class="back-link">← Back</a>
+        <h1 class="mood-page-title">Moods</h1>
+        <p class="mood-page-desc">Thoughts and moments from my Telegram channel</p>
+      </div>
+
+      {error ? (
+        <p class="text-sm text-muted-foreground">Unable to load moods. Please try again later.</p>
+      ) : moods.length > 0 ? (
+        <div class="mood-list">
+          {moods.map((mood, index) => {
+            const firstTag = mood.tags?.[0];
+            return (
+              <a href={`/mood/${mood.id}`} class="mood-item" style={`--item-index: ${index}`}>
+                <span class="mood-title">{mood.title}</span>
+                <span class="mood-meta">
+                  {firstTag && (
+                    <span class="mood-tag">#{firstTag}</span>
+                  )}
+                  <span class="mood-date">{dayjs(mood.datetime).format('YYYY.MM.DD')}</span>
+                </span>
+              </a>
+            );
+          })}
+        </div>
+      ) : (
+        <p class="text-sm text-muted-foreground">No moods yet.</p>
+      )}
+    </div>
+  </main>
+</Layout>
+
+<style>
+  .mood-page {
+    padding: 80px 0 60px;
+  }
+
+  @media (min-width: 640px) {
+    .mood-page {
+      padding: 100px 0 80px;
+    }
+  }
+
+  .mood-header {
+    margin-bottom: 40px;
+  }
+
+  @media (min-width: 640px) {
+    .mood-header {
+      margin-bottom: 48px;
+    }
+  }
+
+  .back-link {
+    display: inline-block;
+    font-size: 13px;
+    color: hsl(var(--muted-foreground));
+    margin-bottom: 16px;
+    transition: color 0.15s ease;
+  }
+
+  .back-link:hover {
+    color: hsl(var(--foreground));
+  }
+
+  .mood-page-title {
+    font-size: 28px;
+    font-weight: 600;
+    margin-bottom: 8px;
+  }
+
+  @media (min-width: 640px) {
+    .mood-page-title {
+      font-size: 32px;
+    }
+  }
+
+  .mood-page-desc {
+    font-size: 14px;
+    color: hsl(var(--muted-foreground));
+  }
+
+  @media (min-width: 640px) {
+    .mood-page-desc {
+      font-size: 15px;
+    }
+  }
+
+  .mood-list {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .mood-item {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 12px 0;
+    position: relative;
+    transition: all 0.15s ease;
+    opacity: 0;
+    animation: fade-in-up 0.4s ease-out forwards;
+    animation-delay: calc(var(--item-index) * 0.03s);
+  }
+
+  @media (min-width: 640px) {
+    .mood-item {
+      flex-direction: row;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 16px;
+      padding: 14px 0;
+    }
+  }
+
+  .mood-item::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: linear-gradient(to right, hsl(var(--foreground) / 0.1), transparent);
+  }
+
+  .mood-item:last-child::after {
+    display: none;
+  }
+
+  .mood-item:hover {
+    padding-left: 8px;
+  }
+
+  .mood-title {
+    font-size: 14px;
+    font-weight: 500;
+    line-height: 1.4;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+  }
+
+  .mood-meta {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    flex-shrink: 0;
+  }
+
+  @media (min-width: 640px) {
+    .mood-meta {
+      gap: 12px;
+    }
+  }
+
+  .mood-tag {
+    font-size: 11px;
+    font-weight: 400;
+    color: hsl(var(--muted-foreground) / 0.7);
+  }
+
+  @media (min-width: 640px) {
+    .mood-tag {
+      font-size: 12px;
+    }
+  }
+
+  .mood-date {
+    font-size: 11px;
+    font-weight: 300;
+    color: hsl(var(--muted-foreground) / 0.5);
+    font-variant-numeric: tabular-nums;
+  }
+
+  @media (min-width: 640px) {
+    .mood-date {
+      font-size: 12px;
+    }
+  }
+
+  .mood-item:hover .mood-date,
+  .mood-item:hover .mood-tag {
+    color: hsl(var(--muted-foreground));
+  }
+
+  @keyframes fade-in-up {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+</style>

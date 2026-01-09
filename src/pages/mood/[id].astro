@@ -1,0 +1,426 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import dayjs from 'dayjs';
+import { getChannelInfo, type ChannelInfo, type Post } from '../../lib/telegram';
+
+export async function getStaticPaths() {
+  try {
+    const result = await getChannelInfo({} as any, { type: 'list' }) as ChannelInfo;
+    return result.posts.map((post: Post) => ({
+      params: { id: post.id },
+      props: { post }
+    }));
+  } catch (e) {
+    console.error('Failed to generate static paths:', e);
+    return [];
+  }
+}
+
+const { post } = Astro.props as { post: Post };
+const title = `${post.title} | Moods`;
+const description = post.text.slice(0, 160);
+---
+
+<Layout title={title} description={description}>
+  <main class="page-container">
+    <article class="mood-post">
+      <div class="mood-post-header">
+        <a href="/mood" class="back-link">← Back to Moods</a>
+        <div class="mood-post-meta">
+          <time datetime={post.datetime} class="mood-post-date">
+            {dayjs(post.datetime).format('MMMM D, YYYY · HH:mm')}
+          </time>
+          {post.tags.length > 0 && (
+            <div class="mood-post-tags">
+              {post.tags.map((tag) => (
+                <span class="mood-post-tag">#{tag}</span>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div class="mood-post-content" set:html={post.content} />
+    </article>
+  </main>
+</Layout>
+
+<style>
+  .mood-post {
+    padding: 80px 0 60px;
+    max-width: 680px;
+    margin: 0 auto;
+  }
+
+  @media (min-width: 640px) {
+    .mood-post {
+      padding: 100px 0 80px;
+    }
+  }
+
+  .mood-post-header {
+    margin-bottom: 32px;
+  }
+
+  @media (min-width: 640px) {
+    .mood-post-header {
+      margin-bottom: 40px;
+    }
+  }
+
+  .back-link {
+    display: inline-block;
+    font-size: 13px;
+    color: hsl(var(--muted-foreground));
+    margin-bottom: 20px;
+    transition: color 0.15s ease;
+  }
+
+  .back-link:hover {
+    color: hsl(var(--foreground));
+  }
+
+  .mood-post-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .mood-post-date {
+    font-size: 13px;
+    color: hsl(var(--muted-foreground));
+    font-variant-numeric: tabular-nums;
+  }
+
+  @media (min-width: 640px) {
+    .mood-post-date {
+      font-size: 14px;
+    }
+  }
+
+  .mood-post-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .mood-post-tag {
+    font-size: 12px;
+    color: hsl(var(--muted-foreground) / 0.7);
+    padding: 4px 10px;
+    background: hsl(var(--foreground) / 0.05);
+    border-radius: 4px;
+    transition: all 0.15s ease;
+  }
+
+  .mood-post-tag:hover {
+    background: hsl(var(--foreground) / 0.1);
+    color: hsl(var(--muted-foreground));
+  }
+
+  /* Content Styles */
+  .mood-post-content {
+    font-size: 15px;
+    line-height: 1.7;
+    color: hsl(var(--foreground));
+  }
+
+  @media (min-width: 640px) {
+    .mood-post-content {
+      font-size: 16px;
+      line-height: 1.8;
+    }
+  }
+
+  /* Typography */
+  .mood-post-content :global(p) {
+    margin-bottom: 1.2em;
+  }
+
+  .mood-post-content :global(p:last-child) {
+    margin-bottom: 0;
+  }
+
+  .mood-post-content :global(a) {
+    color: hsl(var(--foreground));
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    transition: opacity 0.15s ease;
+  }
+
+  .mood-post-content :global(a:hover) {
+    opacity: 0.7;
+  }
+
+  .mood-post-content :global(strong) {
+    font-weight: 600;
+  }
+
+  .mood-post-content :global(em) {
+    font-style: italic;
+  }
+
+  /* Blockquotes (replies) */
+  .mood-post-content :global(blockquote) {
+    margin: 1.5em 0;
+    padding: 12px 16px;
+    border-left: 3px solid hsl(var(--foreground) / 0.2);
+    background: hsl(var(--foreground) / 0.03);
+    font-size: 14px;
+    color: hsl(var(--muted-foreground));
+  }
+
+  /* Images */
+  .mood-post-content :global(.image-list-container) {
+    margin: 1.5em 0;
+    display: grid;
+    gap: 8px;
+  }
+
+  .mood-post-content :global(.image-list-even) {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .mood-post-content :global(.image-list-odd) {
+    grid-template-columns: 1fr;
+  }
+
+  .mood-post-content :global(.image-preview-wrap) {
+    width: 100%;
+    border: none;
+    background: none;
+    padding: 0;
+    cursor: pointer;
+    border-radius: 8px;
+    overflow: hidden;
+    transition: transform 0.2s ease;
+  }
+
+  .mood-post-content :global(.image-preview-wrap:hover) {
+    transform: scale(1.02);
+  }
+
+  .mood-post-content :global(.image-preview-wrap img) {
+    width: 100%;
+    height: auto;
+    display: block;
+  }
+
+  .mood-post-content :global(.modal) {
+    border: none;
+    background: hsl(var(--background) / 0.95);
+    backdrop-filter: blur(10px);
+    padding: 20px;
+    max-width: 90vw;
+    max-height: 90vh;
+    border-radius: 12px;
+  }
+
+  .mood-post-content :global(.modal-img) {
+    max-width: 100%;
+    max-height: 80vh;
+    object-fit: contain;
+  }
+
+  /* Videos */
+  .mood-post-content :global(video) {
+    width: 100%;
+    max-width: 100%;
+    height: auto;
+    margin: 1.5em 0;
+    border-radius: 8px;
+    background: hsl(var(--foreground) / 0.05);
+  }
+
+  /* Audio */
+  .mood-post-content :global(audio) {
+    width: 100%;
+    margin: 1.5em 0;
+  }
+
+  /* Stickers */
+  .mood-post-content :global(.sticker) {
+    max-width: 256px;
+    height: auto;
+    margin: 1em 0;
+  }
+
+  /* Code blocks */
+  .mood-post-content :global(pre) {
+    margin: 1.5em 0;
+    padding: 16px;
+    background: hsl(var(--foreground) / 0.05);
+    border-radius: 8px;
+    overflow-x: auto;
+    font-size: 13px;
+    line-height: 1.6;
+  }
+
+  @media (min-width: 640px) {
+    .mood-post-content :global(pre) {
+      padding: 20px;
+      font-size: 14px;
+    }
+  }
+
+  .mood-post-content :global(pre code) {
+    background: none;
+    padding: 0;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .mood-post-content :global(code) {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.9em;
+    background: hsl(var(--foreground) / 0.08);
+    padding: 2px 6px;
+    border-radius: 4px;
+  }
+
+  /* Link previews */
+  .mood-post-content :global(.tgme_widget_message_link_preview) {
+    display: block;
+    margin: 1.5em 0;
+    padding: 12px;
+    border: 1px solid hsl(var(--foreground) / 0.1);
+    border-radius: 8px;
+    transition: border-color 0.15s ease;
+  }
+
+  .mood-post-content :global(.tgme_widget_message_link_preview:hover) {
+    border-color: hsl(var(--foreground) / 0.2);
+  }
+
+  .mood-post-content :global(.link_preview_image) {
+    width: 100%;
+    height: auto;
+    border-radius: 6px;
+    margin-bottom: 8px;
+  }
+
+  .mood-post-content :global(.link_preview_title) {
+    font-weight: 600;
+    font-size: 14px;
+    margin-bottom: 4px;
+  }
+
+  .mood-post-content :global(.link_preview_description) {
+    font-size: 13px;
+    color: hsl(var(--muted-foreground));
+  }
+
+  /* Spoilers */
+  .mood-post-content :global(.spoiler-button) {
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .mood-post-content :global(.spoiler-button input[type="checkbox"]) {
+    display: none;
+  }
+
+  .mood-post-content :global(.spoiler-button tg-spoiler) {
+    background: hsl(var(--foreground) / 0.8);
+    color: transparent;
+    border-radius: 4px;
+    padding: 0 4px;
+    transition: all 0.2s ease;
+  }
+
+  .mood-post-content :global(.spoiler-button input[type="checkbox"]:checked + tg-spoiler) {
+    background: transparent;
+    color: inherit;
+  }
+
+  /* Polls */
+  .mood-post-content :global(.tgme_widget_message_poll) {
+    margin: 1.5em 0;
+    padding: 16px;
+    border: 1px solid hsl(var(--foreground) / 0.1);
+    border-radius: 8px;
+  }
+
+  /* Documents */
+  .mood-post-content :global(.tgme_widget_message_document_wrap) {
+    margin: 1.5em 0;
+    padding: 12px;
+    border: 1px solid hsl(var(--foreground) / 0.1);
+    border-radius: 8px;
+  }
+
+  /* Animations */
+  .mood-post {
+    animation: fade-in 0.5s ease-out;
+  }
+
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+</style>
+
+<style is:global>
+  /* Prism.js syntax highlighting theme (matching site colors) */
+  .token.comment,
+  .token.prolog,
+  .token.doctype,
+  .token.cdata {
+    color: hsl(var(--muted-foreground) / 0.6);
+  }
+
+  .token.punctuation {
+    color: hsl(var(--foreground) / 0.7);
+  }
+
+  .token.property,
+  .token.tag,
+  .token.boolean,
+  .token.number,
+  .token.constant,
+  .token.symbol,
+  .token.deleted {
+    color: hsl(var(--foreground));
+  }
+
+  .token.selector,
+  .token.attr-name,
+  .token.string,
+  .token.char,
+  .token.builtin,
+  .token.inserted {
+    color: hsl(var(--foreground) / 0.9);
+  }
+
+  .token.operator,
+  .token.entity,
+  .token.url,
+  .language-css .token.string,
+  .style .token.string {
+    color: hsl(var(--foreground) / 0.8);
+  }
+
+  .token.atrule,
+  .token.attr-value,
+  .token.keyword {
+    color: hsl(var(--foreground));
+    font-weight: 500;
+  }
+
+  .token.function,
+  .token.class-name {
+    color: hsl(var(--foreground));
+    font-weight: 600;
+  }
+
+  .token.regex,
+  .token.important,
+  .token.variable {
+    color: hsl(var(--foreground) / 0.9);
+  }
+</style>
