@@ -1,6 +1,8 @@
 import type { APIRoute } from 'astro';
 import { getChannelInfo, type ChannelInfo } from '../../lib/telegram';
 
+export const prerender = false;
+
 function getFirstImage(content: string): string | null {
   const match = content.match(/<img[^>]+src="([^">]+)"/);
   return match ? match[1] : null;

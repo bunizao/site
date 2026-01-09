@@ -3,6 +3,8 @@ import Layout from '../layouts/Layout.astro';
 import dayjs from 'dayjs';
 import { getChannelInfo, type ChannelInfo } from '../lib/telegram';
 
+export const prerender = false;
+
 const title = "Moods | Bunizao's Website";
 const description = "Thoughts and moments from my Telegram channel";
 
