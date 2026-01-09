@@ -20,7 +20,7 @@ const techRow2 = ['Frontend', 'BGP', 'Proxy', 'Docker', 'Linux', 'Web3', 'Optimi
 
 <header class="hero-section pt-14 pb-8 sm:pt-20 sm:pb-12">
   <!-- Status indicator -->
-  <div class="animate-in">
+  <div class="hero-animate" data-hero-status>
     <div class="status mb-4">
       <span class="status-dot"></span>
       <span class="status-text-wrapper">
@@ -30,18 +30,18 @@ const techRow2 = ['Frontend', 'BGP', 'Proxy', 'Docker', 'Linux', 'Web3', 'Optimi
   </div>
 
   <!-- Name -->
-  <h1 class="animate-in delay-1 mb-2 text-[28px] font-semibold sm:text-[36px]">
+  <h1 class="hero-animate mb-2 text-[28px] font-semibold sm:text-[36px]" data-hero-name>
     <Typewriter texts={["Lucian", "Bunizao", "Tutu", "Collapsar"]} speed={80} />
   </h1>
 
   <!-- Role -->
-  <p class="animate-in delay-2 mb-6 text-sm text-muted-foreground">
+  <p class="hero-animate mb-6 text-sm text-muted-foreground" data-hero-role>
     Student / Developer / Blogger
   </p>
 
 
   <!-- Bio -->
-  <div class="animate-in delay-3">
+  <div class="hero-animate" data-hero-bio>
     <p class="text-[14px] leading-[1.7] text-muted-foreground sm:text-[15px]">
       I make interesting things.<br>
       Curious about <span class="text-foreground">frontend design</span>,
@@ -56,7 +56,7 @@ const techRow2 = ['Frontend', 'BGP', 'Proxy', 'Docker', 'Linux', 'Web3', 'Optimi
 
 
   <!-- Social Links -->
-  <div class="mt-6 flex items-center gap-4 animate-in delay-4 sm:mt-8">
+  <div class="mt-6 flex items-center gap-4 hero-animate sm:mt-8" data-hero-socials>
     <span class="text-[14px] text-muted-foreground sm:text-[15px]">Find me at</span>
     {socials.map((social) => (
       <MagneticButton client:load strength={0.4}>
@@ -75,12 +75,12 @@ const techRow2 = ['Frontend', 'BGP', 'Proxy', 'Docker', 'Linux', 'Web3', 'Optimi
   </div>
 
   <!-- GitHub Activity -->
-  <div>
+  <div class="hero-animate" data-hero-github>
     <GitHubContributions />
   </div>
 
   <!-- Tech Stack Marquee -->
-  <div class="mt-6 animate-in delay-5">
+  <div class="mt-6 hero-animate" data-hero-tech>
     <TechMarquee row1={techRow1} row2={techRow2} />
   </div>
 </header>
@@ -99,6 +99,10 @@ const techRow2 = ['Frontend', 'BGP', 'Proxy', 'Docker', 'Linux', 'Web3', 'Optimi
     }
   }
 
+  .hero-animate {
+    /* Initial state handled by GSAP */
+  }
+
   .status-text-wrapper {
     display: inline-block;
     height: 1.2em;
@@ -111,21 +115,32 @@ const techRow2 = ['Frontend', 'BGP', 'Proxy', 'Docker', 'Linux', 'Web3', 'Optimi
   .status-text {
     display: inline-block;
     line-height: 1.2em;
-    transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.4s ease;
-  }
-
-  .status-text.slide-out {
-    transform: translateY(-120%);
-    opacity: 0;
-  }
-
-  .status-text.slide-in {
-    transform: translateY(120%);
-    opacity: 0;
   }
 </style>
 
 <script>
+  import gsap from 'gsap';
+
+  // Hero entrance animation timeline
+  const heroElements = document.querySelectorAll('.hero-animate');
+
+  // Set initial states
+  gsap.set(heroElements, { opacity: 0, y: 20 });
+
+  // Create master timeline for hero section
+  const heroTl = gsap.timeline({
+    defaults: { ease: 'power3.out' }
+  });
+
+  // Animate each element with stagger
+  heroTl.to(heroElements, {
+    opacity: 1,
+    y: 0,
+    duration: 0.6,
+    stagger: 0.1
+  });
+
+  // Status text rotation
   const statusWords = [
     'Wondering',
     'Building',
@@ -159,25 +174,28 @@ const techRow2 = ['Frontend', 'BGP', 'Proxy', 'Docker', 'Linux', 'Web3', 'Optimi
     let currentIndex = 0;
 
     const rotateStatus = () => {
-      statusText.classList.add('slide-out');
+      // Animate out
+      gsap.to(statusText, {
+        y: '-120%',
+        opacity: 0,
+        duration: 0.3,
+        ease: 'power2.in',
+        onComplete: () => {
+          currentIndex = (currentIndex + 1) % statusWords.length;
+          statusText.textContent = statusWords[currentIndex];
 
-      setTimeout(() => {
-        currentIndex = (currentIndex + 1) % statusWords.length;
-        statusText.textContent = statusWords[currentIndex];
-        statusText.classList.remove('slide-out');
-        statusText.classList.add('slide-in');
-
-        requestAnimationFrame(() => {
-          requestAnimationFrame(() => {
-            statusText.classList.remove('slide-in');
-          });
-        });
-      }, 400);
+          // Reset position and animate in
+          gsap.fromTo(statusText,
+            { y: '120%', opacity: 0 },
+            { y: '0%', opacity: 1, duration: 0.3, ease: 'power2.out' }
+          );
+        }
+      });
     };
 
-    // Start after initial page load animation
-    setTimeout(() => {
+    // Start rotation after hero animation completes
+    heroTl.call(() => {
       setInterval(rotateStatus, 3000);
-    }, 1000);
+    });
   }
 </script>
