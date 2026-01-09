@@ -34,12 +34,49 @@ function stripHtml(html: string): string {
   return html.replace(/<[^>]*>/g, '').trim();
 }
 
-function formatMoodDate(value: string): string {
-  const date = dayjs(value);
-  if (date.isSame(dayjs(), 'day')) {
+// Check if content has media (images, videos, etc.)
+function hasMedia(content: string): boolean {
+  return /<(img|video|audio|iframe)/i.test(content);
+}
+
+// Check if text is long enough to warrant a detail page
+function isLongContent(text: string): boolean {
+  return text.length > 280;
+}
+
+// Format time for display
+function formatTime(value: string): string {
+  return dayjs(value).format('HH:mm');
+}
+
+// Group moods by date
+function groupByDate(items: any[]): Map<string, any[]> {
+  const groups = new Map<string, any[]>();
+  for (const item of items) {
+    const dateKey = dayjs(item.datetime).format('YYYY-MM-DD');
+    if (!groups.has(dateKey)) {
+      groups.set(dateKey, []);
+    }
+    groups.get(dateKey)!.push(item);
+  }
+  return groups;
+}
+
+// Format date header
+function formatDateHeader(dateKey: string): string {
+  const date = dayjs(dateKey);
+  const now = dayjs();
+
+  if (date.isSame(now, 'day')) {
     return 'Today';
   }
-  return date.format('YYYY-MM-DD');
+  if (date.isSame(now.subtract(1, 'day'), 'day')) {
+    return 'Yesterday';
+  }
+  if (date.isSame(now, 'year')) {
+    return date.format('MMMM D');
+  }
+  return date.format('MMMM D, YYYY');
 }
 
 function getTextPreview(mood: any): string {
@@ -47,6 +84,7 @@ function getTextPreview(mood: any): string {
   return preview || stripHtml(mood.content);
 }
 
+const groupedMoods = groupByDate(moods);
 const newestId = moods[0]?.id ?? '';
 const oldestId = moods[moods.length - 1]?.id ?? '';
 const hasOlder = Number.parseInt(oldestId, 10) > 1;
@@ -68,37 +106,64 @@ const olderHref = hasOlder && oldestId ? `?before=${encodeURIComponent(oldestId)
         <p class="text-sm text-muted-foreground">Unable to load moods. Please try again later.</p>
       ) : moods.length > 0 ? (
         <div class="mood-feed">
-          <div class="mood-timeline" data-mood-list>
-            {moods.map((mood, index) => {
-              const firstImage = getFirstImage(mood.content);
-              const textPreview = getTextPreview(mood);
-              const firstTag = mood.tags?.[0];
-              return (
-                <a
-                  href={`/mood/${mood.id}`}
-                  class="mood-item"
-                  data-mood-id={mood.id}
-                  style={`--item-index: ${index}`}
-                >
-                  <div class="mood-item-header">
-                    <time datetime={mood.datetime} class="mood-item-date">
-                      {formatMoodDate(mood.datetime)}
-                    </time>
-                    {firstTag && (
-                      <span class="mood-item-tag">#{firstTag}</span>
-                    )}
-                  </div>
-                  <div class="mood-item-body">
-                    <p class="mood-item-text">{textPreview}</p>
-                    {firstImage && (
-                      <div class="mood-item-image">
-                        <img src={firstImage} alt="" loading="lazy" />
+          <div class="mood-stream" data-mood-list>
+            {Array.from(groupedMoods.entries()).map(([dateKey, dateMoods], groupIndex) => (
+              <div class="mood-date-group" data-date={dateKey}>
+                <div class="mood-date-header">
+                  <span class="mood-date-text">{formatDateHeader(dateKey)}</span>
+                  <div class="mood-date-line"></div>
+                </div>
+                <div class="mood-date-items">
+                  {dateMoods.map((mood, index) => {
+                    const firstImage = getFirstImage(mood.content);
+                    const textPreview = getTextPreview(mood);
+                    const firstTag = mood.tags?.[0];
+                    const needsDetailPage = hasMedia(mood.content) || isLongContent(textPreview);
+                    const globalIndex = groupIndex * 10 + index;
+
+                    return needsDetailPage ? (
+                      <a
+                        href={`/mood/${mood.id}`}
+                        class="mood-item mood-item--clickable"
+                        data-mood-id={mood.id}
+                        style={`--item-index: ${globalIndex}`}
+                      >
+                        <time datetime={mood.datetime} class="mood-item-time">
+                          {formatTime(mood.datetime)}
+                        </time>
+                        <div class="mood-item-content">
+                          <p class="mood-item-text">{textPreview}</p>
+                          {firstImage && (
+                            <div class="mood-item-thumb">
+                              <img src={firstImage} alt="" loading="lazy" />
+                            </div>
+                          )}
+                          {firstTag && (
+                            <span class="mood-item-tag">#{firstTag}</span>
+                          )}
+                        </div>
+                      </a>
+                    ) : (
+                      <div
+                        class="mood-item"
+                        data-mood-id={mood.id}
+                        style={`--item-index: ${globalIndex}`}
+                      >
+                        <time datetime={mood.datetime} class="mood-item-time">
+                          {formatTime(mood.datetime)}
+                        </time>
+                        <div class="mood-item-content">
+                          <p class="mood-item-text">{textPreview}</p>
+                          {firstTag && (
+                            <span class="mood-item-tag">#{firstTag}</span>
+                          )}
+                        </div>
                       </div>
-                    )}
-                  </div>
-                </a>
-              );
-            })}
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
           </div>
           <div class="mood-load-controls">
             <button type="button" class="mood-load-button" data-load-more>Load more</button>
@@ -182,87 +247,99 @@ const olderHref = hasOlder && oldestId ? `?before=${encodeURIComponent(oldestId)
     }
   }
 
-  /* Timeline Layout */
-  .mood-timeline {
+  /* Stream Layout */
+  :global(.mood-stream) {
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    gap: 32px;
   }
 
-  @media (min-width: 640px) {
-    .mood-timeline {
-      gap: 20px;
-    }
+  /* Date Group */
+  :global(.mood-date-group) {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
   }
 
-  .mood-item {
-    display: block;
-    padding: 16px;
-    background: hsl(var(--background));
-    border: 1px solid hsl(var(--foreground) / 0.08);
-    border-radius: 8px;
-    transition: all 0.2s ease;
-    opacity: 0;
-    animation: fade-in-up 0.4s ease-out forwards;
-    animation-delay: calc(var(--item-index) * 0.015s);
-  }
-
-  @media (min-width: 640px) {
-    .mood-item {
-      padding: 18px 20px;
-    }
-  }
-
-  .mood-item:hover {
-    border-color: hsl(var(--foreground) / 0.15);
-    background: hsl(var(--foreground) / 0.02);
-  }
-
-  .mood-item-header {
+  :global(.mood-date-header) {
     display: flex;
     align-items: center;
     gap: 12px;
-    margin-bottom: 12px;
+    margin-bottom: 16px;
   }
 
-  .mood-item-date {
+  :global(.mood-date-text) {
     font-size: 12px;
-    color: hsl(var(--muted-foreground) / 0.6);
-    font-variant-numeric: tabular-nums;
-  }
-
-  @media (min-width: 640px) {
-    .mood-item-date {
-      font-size: 13px;
-    }
-  }
-
-  .mood-item-tag {
-    font-size: 11px;
-    color: hsl(var(--muted-foreground) / 0.7);
-    padding: 2px 8px;
-    background: hsl(var(--foreground) / 0.05);
-    border-radius: 4px;
     font-weight: 500;
+    color: hsl(var(--muted-foreground));
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    white-space: nowrap;
   }
 
-  @media (min-width: 640px) {
-    .mood-item-tag {
-      font-size: 12px;
-    }
-  }
-
-  .mood-item:hover .mood-item-tag {
+  :global(.mood-date-line) {
+    flex: 1;
+    height: 1px;
     background: hsl(var(--foreground) / 0.08);
   }
 
-  .mood-item-body {
+  :global(.mood-date-items) {
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 0;
+    padding-left: 0;
   }
 
-  .mood-item-text {
+  /* Mood Item - Stream Style */
+  :global(.mood-item) {
+    display: flex;
+    gap: 12px;
+    padding: 12px 0;
+    border-bottom: 1px solid hsl(var(--foreground) / 0.04);
+    opacity: 0;
+    animation: fade-in 0.3s ease-out forwards;
+    animation-delay: calc(var(--item-index) * 0.02s);
+  }
+
+  :global(.mood-item:last-child) {
+    border-bottom: none;
+  }
+
+  :global(.mood-item--clickable) {
+    text-decoration: none;
+    color: inherit;
+    border-radius: 8px;
+    margin: 0 -8px;
+    padding: 12px 8px;
+    border-bottom: none;
+    transition: background 0.15s ease;
+  }
+
+  :global(.mood-item--clickable:hover) {
+    background: hsl(var(--foreground) / 0.03);
+  }
+
+  :global(.mood-item--clickable + .mood-item) {
+    border-top: none;
+  }
+
+  :global(.mood-item-time) {
+    font-size: 12px;
+    color: hsl(var(--muted-foreground) / 0.5);
+    font-variant-numeric: tabular-nums;
+    min-width: 40px;
+    padding-top: 2px;
+  }
+
+  :global(.mood-item-content) {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  :global(.mood-item-text) {
     font-size: 14px;
     line-height: 1.6;
     color: hsl(var(--foreground));
@@ -271,129 +348,130 @@ const olderHref = hasOlder && oldestId ? `?before=${encodeURIComponent(oldestId)
   }
 
   @media (min-width: 640px) {
-    .mood-item-text {
+    :global(.mood-item-text) {
       font-size: 15px;
-      line-height: 1.7;
+      line-height: 1.65;
     }
   }
 
-  .mood-item-image {
+  :global(.mood-item-thumb) {
     width: 100%;
-    max-width: 600px;
+    max-width: 280px;
     border-radius: 8px;
     overflow: hidden;
     background: hsl(var(--foreground) / 0.03);
   }
 
-  .mood-item-image img {
+  :global(.mood-item-thumb img) {
     width: 100%;
     height: auto;
     display: block;
-    transition: transform 0.3s ease;
   }
 
-  .mood-item:hover .mood-item-image img {
-    transform: scale(1.02);
+  :global(.mood-item-tag) {
+    display: inline-block;
+    font-size: 11px;
+    color: hsl(var(--muted-foreground) / 0.6);
+    align-self: flex-start;
   }
 
-  .mood-feed {
+  :global(.mood-feed) {
     display: flex;
     flex-direction: column;
-    gap: 20px;
+    gap: 24px;
   }
 
-  .mood-load-controls {
+  :global(.mood-load-controls) {
     display: flex;
     flex-direction: column;
     align-items: center;
     gap: 6px;
+    padding-top: 16px;
   }
 
-  .mood-load-button {
-    border: 1px solid hsl(var(--foreground) / 0.12);
-    background: hsl(var(--background));
-    color: hsl(var(--foreground));
-    padding: 8px 16px;
+  :global(.mood-load-button) {
+    border: 1px solid hsl(var(--foreground) / 0.1);
+    background: transparent;
+    color: hsl(var(--muted-foreground));
+    padding: 8px 20px;
     font-size: 12px;
     border-radius: 999px;
     cursor: pointer;
-    transition: border-color 0.2s ease, background 0.2s ease, transform 0.2s ease;
+    transition: all 0.15s ease;
   }
 
-  .mood-load-button:hover {
-    border-color: hsl(var(--foreground) / 0.25);
-    background: hsl(var(--foreground) / 0.03);
-    transform: translateY(-1px);
+  :global(.mood-load-button:hover) {
+    border-color: hsl(var(--foreground) / 0.2);
+    color: hsl(var(--foreground));
   }
 
-  .mood-load-button:focus-visible {
+  :global(.mood-load-button:focus-visible) {
     outline: 2px solid hsl(var(--foreground) / 0.35);
     outline-offset: 2px;
   }
 
-  .mood-load-button:disabled {
-    opacity: 0.6;
+  :global(.mood-load-button:disabled) {
+    opacity: 0.5;
     cursor: not-allowed;
-    transform: none;
   }
 
-  .mood-load-button.is-hidden {
+  :global(.mood-load-button.is-hidden) {
     display: none;
   }
 
-  .mood-load-status {
+  :global(.mood-load-status) {
     font-size: 12px;
-    color: hsl(var(--muted-foreground));
+    color: hsl(var(--muted-foreground) / 0.6);
     min-height: 16px;
   }
 
-  .mood-sentinel {
+  :global(.mood-sentinel) {
     height: 1px;
   }
 
-  .mood-pagination {
+  :global(.mood-pagination) {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 12px;
+    padding-top: 8px;
   }
 
-  .mood-page-link {
-    border: 1px solid hsl(var(--foreground) / 0.12);
-    background: hsl(var(--background));
-    color: hsl(var(--foreground));
+  :global(.mood-page-link) {
+    border: 1px solid hsl(var(--foreground) / 0.1);
+    background: transparent;
+    color: hsl(var(--muted-foreground));
     padding: 6px 14px;
     font-size: 12px;
     border-radius: 999px;
     text-decoration: none;
-    transition: border-color 0.2s ease, background 0.2s ease, transform 0.2s ease;
+    transition: all 0.15s ease;
   }
 
-  .mood-page-link:hover {
-    border-color: hsl(var(--foreground) / 0.25);
-    background: hsl(var(--foreground) / 0.03);
-    transform: translateY(-1px);
+  :global(.mood-page-link:hover) {
+    border-color: hsl(var(--foreground) / 0.2);
+    color: hsl(var(--foreground));
   }
 
-  .mood-page-link:focus-visible {
+  :global(.mood-page-link:focus-visible) {
     outline: 2px solid hsl(var(--foreground) / 0.35);
     outline-offset: 2px;
   }
 
-  .mood-page-placeholder {
+  :global(.mood-page-placeholder) {
     width: 72px;
     height: 30px;
   }
 
-  .mood-page-label {
+  :global(.mood-page-label) {
     font-size: 12px;
-    color: hsl(var(--muted-foreground));
+    color: hsl(var(--muted-foreground) / 0.5);
   }
 
-  @keyframes fade-in-up {
+  @keyframes fade-in {
     from {
       opacity: 0;
-      transform: translateY(20px);
+      transform: translateY(8px);
     }
     to {
       opacity: 1;
@@ -415,25 +493,51 @@ const olderHref = hasOlder && oldestId ? `?before=${encodeURIComponent(oldestId)
 
     const buttonLabel = loadButton.textContent || 'Load more';
 
-    const formatDate = (value) => {
+    const formatTime = (value) => {
       const date = new Date(value);
-      if (Number.isNaN(date.getTime())) {
-        return '';
-      }
+      if (Number.isNaN(date.getTime())) return '';
+      const hours = String(date.getHours()).padStart(2, '0');
+      const minutes = String(date.getMinutes()).padStart(2, '0');
+      return `${hours}:${minutes}`;
+    };
 
+    const formatDateKey = (value) => {
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) return '';
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    };
+
+    const formatDateHeader = (dateKey) => {
+      const [year, month, day] = dateKey.split('-').map(Number);
+      const date = new Date(year, month - 1, day);
       const now = new Date();
+
       const isToday =
         date.getFullYear() === now.getFullYear() &&
         date.getMonth() === now.getMonth() &&
         date.getDate() === now.getDate();
 
-      if (isToday) {
-        return 'Today';
-      }
+      if (isToday) return 'Today';
 
-      const month = String(date.getMonth() + 1).padStart(2, '0');
-      const day = String(date.getDate()).padStart(2, '0');
-      return `${date.getFullYear()}-${month}-${day}`;
+      const yesterday = new Date(now);
+      yesterday.setDate(yesterday.getDate() - 1);
+      const isYesterday =
+        date.getFullYear() === yesterday.getFullYear() &&
+        date.getMonth() === yesterday.getMonth() &&
+        date.getDate() === yesterday.getDate();
+
+      if (isYesterday) return 'Yesterday';
+
+      const months = ['January', 'February', 'March', 'April', 'May', 'June',
+        'July', 'August', 'September', 'October', 'November', 'December'];
+
+      if (date.getFullYear() === now.getFullYear()) {
+        return `${months[date.getMonth()]} ${date.getDate()}`;
+      }
+      return `${months[date.getMonth()]} ${date.getDate()}, ${date.getFullYear()}`;
     };
 
     const getBeforeId = () => {
@@ -450,11 +554,7 @@ const olderHref = hasOlder && oldestId ? `?before=${encodeURIComponent(oldestId)
         }
       });
 
-      if (oldestId) {
-        return oldestId;
-      }
-
-      return items[items.length - 1]?.getAttribute('data-mood-id') || '';
+      return oldestId || items[items.length - 1]?.getAttribute('data-mood-id') || '';
     };
 
     const setStatus = (message) => {
@@ -472,58 +572,112 @@ const olderHref = hasOlder && oldestId ? `?before=${encodeURIComponent(oldestId)
       }
     };
 
-    const createMoodItem = (mood) => {
-      const link = document.createElement('a');
-      link.href = `/mood/${mood.id}`;
-      link.className = 'mood-item';
-      link.dataset.moodId = mood.id;
-      link.style.setProperty('--item-index', '0');
+    const hasMedia = (content) => /<(img|video|audio|iframe)/i.test(content || '');
+    const isLongContent = (text) => (text || '').length > 280;
 
-      const header = document.createElement('div');
-      header.className = 'mood-item-header';
+    const createMoodItem = (mood) => {
+      const needsDetailPage = mood.hasMedia || mood.image || isLongContent(mood.previewText);
+      const element = needsDetailPage
+        ? document.createElement('a')
+        : document.createElement('div');
+
+      if (needsDetailPage) {
+        element.href = `/mood/${mood.id}`;
+        element.className = 'mood-item mood-item--clickable';
+      } else {
+        element.className = 'mood-item';
+      }
+
+      element.dataset.moodId = mood.id;
+      element.style.setProperty('--item-index', '0');
 
       const time = document.createElement('time');
-      time.className = 'mood-item-date';
+      time.className = 'mood-item-time';
       time.dateTime = mood.datetime;
-      time.textContent = formatDate(mood.datetime);
-      header.appendChild(time);
+      time.textContent = formatTime(mood.datetime);
+
+      const content = document.createElement('div');
+      content.className = 'mood-item-content';
+
+      const text = document.createElement('p');
+      text.className = 'mood-item-text';
+      text.textContent = mood.previewText || '';
+      content.appendChild(text);
+
+      if (mood.image && needsDetailPage) {
+        const thumbWrap = document.createElement('div');
+        thumbWrap.className = 'mood-item-thumb';
+        const img = document.createElement('img');
+        img.src = mood.image;
+        img.alt = '';
+        img.loading = 'lazy';
+        thumbWrap.appendChild(img);
+        content.appendChild(thumbWrap);
+      }
 
       if (mood.tag) {
         const tag = document.createElement('span');
         tag.className = 'mood-item-tag';
         tag.textContent = `#${mood.tag}`;
-        header.appendChild(tag);
+        content.appendChild(tag);
       }
 
-      const body = document.createElement('div');
-      body.className = 'mood-item-body';
+      element.appendChild(time);
+      element.appendChild(content);
+      return element;
+    };
 
-      const text = document.createElement('p');
-      text.className = 'mood-item-text';
-      text.textContent = mood.previewText || '';
-      body.appendChild(text);
+    const createDateGroup = (dateKey) => {
+      const group = document.createElement('div');
+      group.className = 'mood-date-group';
+      group.dataset.date = dateKey;
 
-      if (mood.image) {
-        const imageWrap = document.createElement('div');
-        imageWrap.className = 'mood-item-image';
+      const header = document.createElement('div');
+      header.className = 'mood-date-header';
 
-        const img = document.createElement('img');
-        img.src = mood.image;
-        img.alt = '';
-        img.loading = 'lazy';
-        imageWrap.appendChild(img);
-        body.appendChild(imageWrap);
-      }
+      const dateText = document.createElement('span');
+      dateText.className = 'mood-date-text';
+      dateText.textContent = formatDateHeader(dateKey);
 
-      link.appendChild(header);
-      link.appendChild(body);
-      return link;
+      const dateLine = document.createElement('div');
+      dateLine.className = 'mood-date-line';
+
+      header.appendChild(dateText);
+      header.appendChild(dateLine);
+
+      const items = document.createElement('div');
+      items.className = 'mood-date-items';
+
+      group.appendChild(header);
+      group.appendChild(items);
+
+      return group;
     };
 
     const appendMoods = (posts) => {
-      const fragment = document.createDocumentFragment();
-      posts.forEach((post) => fragment.appendChild(createMoodItem(post)));
-      list.appendChild(fragment);
+      const grouped = new Map();
+
+      posts.forEach((post) => {
+        const dateKey = formatDateKey(post.datetime);
+        if (!grouped.has(dateKey)) {
+          grouped.set(dateKey, []);
+        }
+        grouped.get(dateKey).push(post);
+      });
+
+      grouped.forEach((datePosts, dateKey) => {
+        let group = list.querySelector(`[data-date="${dateKey}"]`);
+
+        if (!group) {
+          group = createDateGroup(dateKey);
+          list.appendChild(group);
+        }
+
+        const itemsContainer = group.querySelector('.mood-date-items');
+        datePosts.forEach((post) => {
+          itemsContainer.appendChild(createMoodItem(post));
+        });
+      });
     };
 
     const handleNoMore = () => {

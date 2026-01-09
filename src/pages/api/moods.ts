@@ -34,6 +34,7 @@ export const GET: APIRoute = async ({ request, locals }) => {
         tag: post.tags?.[0] ?? '',
         previewText,
         image: getFirstImage(post.content),
+        hasMedia: /<(img|video|audio|iframe)/i.test(post.content || ''),
       };
     });
 

@@ -1,49 +1,66 @@
 ---
 import Layout from '../../layouts/Layout.astro';
 import dayjs from 'dayjs';
-import { getChannelInfo, type ChannelInfo, type Post } from '../../lib/telegram';
+import { getChannelInfo, type Post } from '../../lib/telegram';
 
 export const prerender = false;
 
-export async function getStaticPaths() {
-  try {
-    const result = await getChannelInfo({} as any, { type: 'list' }) as ChannelInfo;
-    return result.posts.map((post: Post) => ({
-      params: { id: post.id },
-      props: { post }
-    }));
-  } catch (e) {
-    console.error('Failed to generate static paths:', e);
-    return [];
+const { id } = Astro.params;
+let post: Post | null = null;
+let error = false;
+
+try {
+  if (id) {
+    post = await getChannelInfo(Astro, { id }) as Post;
   }
+} catch (e) {
+  console.error('Failed to fetch mood:', e);
+  error = true;
 }
 
-const { post } = Astro.props as { post: Post };
-const title = `${post.title} | Moods`;
-const description = post.text.slice(0, 160);
+if (!post) {
+  Astro.response.status = 404;
+}
+
+const title = post ? `${post.title} | Moods` : 'Mood not found | Moods';
+const description = post ? post.text.slice(0, 160) : 'Mood not found.';
 ---
 
 <Layout title={title} description={description}>
   <main class="page-container">
-    <article class="mood-post">
-      <div class="mood-post-header">
-        <a href="/mood" class="back-link">← Back to Moods</a>
-        <div class="mood-post-meta">
-          <time datetime={post.datetime} class="mood-post-date">
-            {dayjs(post.datetime).format('MMMM D, YYYY · HH:mm')}
-          </time>
-          {post.tags.length > 0 && (
-            <div class="mood-post-tags">
-              {post.tags.map((tag) => (
-                <span class="mood-post-tag">#{tag}</span>
-              ))}
-            </div>
-          )}
+    {post ? (
+      <article class="mood-post">
+        <div class="mood-post-header">
+          <a href="/mood" class="back-link">← Back to Moods</a>
+          <div class="mood-post-meta">
+            <time datetime={post.datetime} class="mood-post-date">
+              {dayjs(post.datetime).format('MMMM D, YYYY · HH:mm')}
+            </time>
+            {post.tags.length > 0 && (
+              <div class="mood-post-tags">
+                {post.tags.map((tag) => (
+                  <span class="mood-post-tag">#{tag}</span>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
-      </div>
 
-      <div class="mood-post-content" set:html={post.content} />
-    </article>
+        <div class="mood-post-content" set:html={post.content} />
+      </article>
+    ) : (
+      <article class="mood-post">
+        <div class="mood-post-header">
+          <a href="/mood" class="back-link">← Back to Moods</a>
+          <div class="mood-post-meta">
+            <time class="mood-post-date">Unavailable</time>
+          </div>
+        </div>
+        <p class="text-sm text-muted-foreground">
+          {error ? 'Unable to load this mood right now.' : 'This mood could not be found.'}
+        </p>
+      </article>
+    )}
   </main>
 </Layout>
 
