@@ -3,6 +3,8 @@ import Layout from '../../layouts/Layout.astro';
 import dayjs from 'dayjs';
 import { getChannelInfo, type ChannelInfo, type Post } from '../../lib/telegram';
 
+export const prerender = false;
+
 export async function getStaticPaths() {
   try {
     const result = await getChannelInfo({} as any, { type: 'list' }) as ChannelInfo;

@@ -10,7 +10,7 @@ export default defineConfig({
     tailwind(),
   ],
   site: 'https://buxx.me',
-  output: 'server',
+  output: 'hybrid',
   adapter: node({
     mode: 'standalone',
   }),

@@ -1,81 +1,27 @@
 ---
-import dayjs from 'dayjs';
-import { getChannelInfo, type ChannelInfo } from '../lib/telegram';
-
-let latestMoods: any[] = [];
-let error = false;
-
-try {
-  const result = await getChannelInfo(Astro, { type: 'list' }) as ChannelInfo;
-  latestMoods = [...result.posts]
-    .sort((a, b) => Number.parseInt(b.id, 10) - Number.parseInt(a.id, 10))
-    .slice(0, 3);
-} catch (e) {
-  console.error('Failed to fetch moods:', e);
-  error = true;
-}
-
-// Helper to extract first image from content
-function getFirstImage(content: string): string | null {
-  const match = content.match(/<img[^>]+src="([^">]+)"/);
-  return match ? match[1] : null;
-}
-
-// Helper to strip HTML tags for preview
-function stripHtml(html: string): string {
-  return html.replace(/<[^>]*>/g, '').trim();
-}
-
-function formatMoodDate(value: string): string {
-  const date = dayjs(value);
-  if (date.isSame(dayjs(), 'day')) {
-    return 'Today';
-  }
-  return date.format('YYYY-MM-DD');
-}
-
-function getTextPreview(mood: any): string {
-  const preview = (mood.text ?? '').trim();
-  return preview || stripHtml(mood.content);
-}
+const placeholders = Array.from({ length: 3 });
 ---
 
 <section id="moods-section" class="moods-section">
   <span class="section-label scroll-reveal">Moods</span>
 
-  {error ? (
-    <p class="text-sm text-muted-foreground">Unable to load moods.</p>
-  ) : latestMoods.length > 0 ? (
-    <div class="mood-timeline">
-      {latestMoods.map((mood, index) => {
-        const firstImage = getFirstImage(mood.content);
-        const textPreview = getTextPreview(mood);
-        const firstTag = mood.tags?.[0];
-        return (
-          <a href={`/mood/${mood.id}`} class="mood-item scroll-reveal-item" style={`--item-index: ${index}`}>
-            <div class="mood-item-header">
-              <time datetime={mood.datetime} class="mood-item-date">
-                {formatMoodDate(mood.datetime)}
-              </time>
-              {firstTag && (
-                <span class="mood-item-tag">#{firstTag}</span>
-              )}
-            </div>
-            <div class="mood-item-body">
-              <p class="mood-item-text">{textPreview}</p>
-              {firstImage && (
-                <div class="mood-item-image">
-                  <img src={firstImage} alt="" loading="lazy" />
-                </div>
-              )}
-            </div>
-          </a>
-        );
-      })}
-    </div>
-  ) : (
-    <p class="text-sm text-muted-foreground">No moods yet.</p>
-  )}
+  <div class="mood-timeline is-loading" data-mood-list aria-busy="true">
+    {placeholders.map((_, index) => (
+      <div class="mood-item mood-item-skeleton scroll-reveal-item" style={`--item-index: ${index}`}>
+        <div class="mood-item-header">
+          <span class="mood-item-date mood-skeleton-pill"></span>
+          <span class="mood-item-tag mood-skeleton-pill"></span>
+        </div>
+        <div class="mood-item-body">
+          <span class="mood-skeleton-line"></span>
+          <span class="mood-skeleton-line"></span>
+          <span class="mood-skeleton-block"></span>
+        </div>
+      </div>
+    ))}
+  </div>
+  <p class="text-sm text-muted-foreground" data-mood-empty hidden>No moods yet.</p>
+  <p class="text-sm text-muted-foreground" data-mood-error hidden>Unable to load moods.</p>
 
   <a
     href="/mood"
@@ -240,17 +186,172 @@ function getTextPreview(mood: any): string {
   .mood-item:hover .mood-item-image img {
     transform: scale(1.02);
   }
+
+  .mood-item-skeleton {
+    pointer-events: none;
+  }
+
+  .mood-skeleton-line,
+  .mood-skeleton-pill,
+  .mood-skeleton-block {
+    display: block;
+    border-radius: 999px;
+    background: linear-gradient(90deg, hsl(var(--foreground) / 0.05), hsl(var(--foreground) / 0.12), hsl(var(--foreground) / 0.05));
+    background-size: 200% 100%;
+    animation: shimmer 1.6s ease-in-out infinite;
+  }
+
+  .mood-skeleton-line {
+    height: 10px;
+  }
+
+  .mood-skeleton-line:nth-of-type(2) {
+    width: 80%;
+  }
+
+  .mood-skeleton-pill {
+    width: 56px;
+    height: 12px;
+  }
+
+  .mood-skeleton-block {
+    height: 120px;
+    border-radius: 8px;
+  }
+
+  @keyframes shimmer {
+    0% {
+      background-position: 0% 50%;
+    }
+    100% {
+      background-position: 200% 50%;
+    }
+  }
 </style>
 
 <script>
   const moodsSection = document.getElementById('moods-section');
 
   if (moodsSection) {
+    const list = moodsSection.querySelector('[data-mood-list]');
+    const emptyState = moodsSection.querySelector('[data-mood-empty]');
+    const errorState = moodsSection.querySelector('[data-mood-error]');
+    let hasLoaded = false;
+
+    const formatDate = (value) => {
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) {
+        return '';
+      }
+
+      const now = new Date();
+      const isToday =
+        date.getFullYear() === now.getFullYear() &&
+        date.getMonth() === now.getMonth() &&
+        date.getDate() === now.getDate();
+
+      if (isToday) {
+        return 'Today';
+      }
+
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      return `${date.getFullYear()}-${month}-${day}`;
+    };
+
+    const createMoodItem = (mood, index) => {
+      const link = document.createElement('a');
+      link.href = `/mood/${mood.id}`;
+      link.className = 'mood-item scroll-reveal-item';
+      link.style.setProperty('--item-index', `${index}`);
+
+      const header = document.createElement('div');
+      header.className = 'mood-item-header';
+
+      const time = document.createElement('time');
+      time.className = 'mood-item-date';
+      time.dateTime = mood.datetime;
+      time.textContent = formatDate(mood.datetime);
+      header.appendChild(time);
+
+      if (mood.tag) {
+        const tag = document.createElement('span');
+        tag.className = 'mood-item-tag';
+        tag.textContent = `#${mood.tag}`;
+        header.appendChild(tag);
+      }
+
+      const body = document.createElement('div');
+      body.className = 'mood-item-body';
+
+      const text = document.createElement('p');
+      text.className = 'mood-item-text';
+      text.textContent = mood.previewText || '';
+      body.appendChild(text);
+
+      if (mood.image) {
+        const imageWrap = document.createElement('div');
+        imageWrap.className = 'mood-item-image';
+        const img = document.createElement('img');
+        img.src = mood.image;
+        img.alt = '';
+        img.loading = 'lazy';
+        imageWrap.appendChild(img);
+        body.appendChild(imageWrap);
+      }
+
+      link.appendChild(header);
+      link.appendChild(body);
+      return link;
+    };
+
+    const renderMoods = (posts) => {
+      if (!list) return;
+      list.classList.remove('is-loading');
+      list.removeAttribute('aria-busy');
+      list.replaceChildren();
+
+      if (errorState) errorState.hidden = true;
+
+      if (!posts.length) {
+        if (emptyState) emptyState.hidden = false;
+        return;
+      }
+
+      if (emptyState) emptyState.hidden = true;
+      posts.forEach((post, index) => list.appendChild(createMoodItem(post, index)));
+    };
+
+    const loadMoods = async () => {
+      if (hasLoaded || !list) return;
+      hasLoaded = true;
+
+      try {
+        const response = await fetch('/api/moods');
+        if (!response.ok) {
+          throw new Error('Failed to fetch moods.');
+        }
+        const data = await response.json();
+        const posts = Array.isArray(data.posts) ? data.posts.slice(0, 3) : [];
+        renderMoods(posts);
+      } catch (error) {
+        console.error('Failed to fetch moods:', error);
+        if (list) {
+          list.classList.remove('is-loading');
+          list.removeAttribute('aria-busy');
+          list.replaceChildren();
+        }
+        if (emptyState) emptyState.hidden = true;
+        if (errorState) errorState.hidden = false;
+      }
+    };
+
     const observer = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
           if (entry.isIntersecting) {
             entry.target.classList.add('is-visible');
+            loadMoods();
             observer.unobserve(entry.target);
           }
         });
