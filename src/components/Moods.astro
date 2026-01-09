@@ -1,16 +1,15 @@
 ---
 import dayjs from 'dayjs';
-import relativeTime from 'dayjs/plugin/relativeTime';
 import { getChannelInfo, type ChannelInfo } from '../lib/telegram';
-
-dayjs.extend(relativeTime);
 
 let latestMoods: any[] = [];
 let error = false;
 
 try {
   const result = await getChannelInfo(Astro, { type: 'list' }) as ChannelInfo;
-  latestMoods = result.posts.slice(0, 3);
+  latestMoods = [...result.posts]
+    .sort((a, b) => Number.parseInt(b.id, 10) - Number.parseInt(a.id, 10))
+    .slice(0, 3);
 } catch (e) {
   console.error('Failed to fetch moods:', e);
   error = true;
@@ -26,6 +25,19 @@ function getFirstImage(content: string): string | null {
 function stripHtml(html: string): string {
   return html.replace(/<[^>]*>/g, '').trim();
 }
+
+function formatMoodDate(value: string): string {
+  const date = dayjs(value);
+  if (date.isSame(dayjs(), 'day')) {
+    return 'Today';
+  }
+  return date.format('YYYY-MM-DD');
+}
+
+function getTextPreview(mood: any): string {
+  const preview = (mood.text ?? '').trim();
+  return preview || stripHtml(mood.content);
+}
 ---
 
 <section id="moods-section" class="moods-section">
@@ -37,12 +49,14 @@ function stripHtml(html: string): string {
     <div class="mood-timeline">
       {latestMoods.map((mood, index) => {
         const firstImage = getFirstImage(mood.content);
-        const textPreview = stripHtml(mood.content);
+        const textPreview = getTextPreview(mood);
         const firstTag = mood.tags?.[0];
         return (
           <a href={`/mood/${mood.id}`} class="mood-item scroll-reveal-item" style={`--item-index: ${index}`}>
             <div class="mood-item-header">
-              <span class="mood-item-date">{dayjs(mood.datetime).fromNow()}</span>
+              <time datetime={mood.datetime} class="mood-item-date">
+                {formatMoodDate(mood.datetime)}
+              </time>
               {firstTag && (
                 <span class="mood-item-tag">#{firstTag}</span>
               )}
