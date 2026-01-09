@@ -54,6 +54,7 @@ const ogImageType = ogImageUrl.endsWith('.png')
     <link rel="icon" href="/favicon.ico" />
 
     <script is:inline>
+      document.documentElement.classList.add('js');
       const storedTheme = localStorage.getItem('theme');
       const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
       const theme =

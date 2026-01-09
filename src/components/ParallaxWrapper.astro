@@ -14,7 +14,7 @@ import { ScrollTrigger } from 'gsap/ScrollTrigger';
   gsap.registerPlugin(ScrollTrigger);
 
   // Parallax effect for sections
-  const sections = document.querySelectorAll('section');
+  const sections = document.querySelectorAll('section:not([data-parallax="off"])');
   sections.forEach((section, index) => {
     // Stagger the parallax effect
     gsap.fromTo(

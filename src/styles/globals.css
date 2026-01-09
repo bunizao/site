@@ -327,6 +327,49 @@
     animation-delay: 0.5s;
     opacity: 0;
   }
+
+  .js .hero-animate {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+
+  .js #moods-section {
+    opacity: 0;
+    transform: translateY(40px);
+  }
+
+  .js #moods-section .scroll-reveal {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+
+  .js #moods-section .scroll-reveal-item {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  .js #moods-section .scroll-reveal-link {
+    opacity: 0;
+  }
+
+  .js .writing-section {
+    opacity: 0;
+    transform: translateY(40px);
+  }
+
+  .js .writing-section .scroll-reveal {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+
+  .js .writing-section .scroll-reveal-item {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+
+  .js .writing-section .scroll-reveal-link {
+    opacity: 0;
+  }
 }
 
 @keyframes blink {

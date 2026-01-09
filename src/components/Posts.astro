@@ -35,7 +35,7 @@ async function getLatestPosts(): Promise<PostMeta[]> {
 const posts = await getLatestPosts();
 ---
 
-<section id="writing-section" class="writing-section">
+<section id="writing-section" class="writing-section" data-parallax="off">
   <span class="section-label scroll-reveal">Writing</span>
 
   {posts.length > 0 ? (
