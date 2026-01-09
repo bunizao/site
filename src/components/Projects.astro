@@ -150,37 +150,15 @@ const projects: Project[] = await Promise.all(
 
 <style>
   .projects-section {
-    opacity: 0;
-    transform: translateY(60px);
-    transition: opacity 0.6s ease-out, transform 0.6s ease-out;
-  }
-
-  .projects-section.is-visible {
-    opacity: 1;
-    transform: translateY(0);
+    /* Initial state handled by GSAP */
   }
 
   .scroll-reveal {
-    opacity: 0;
-    transform: translateY(20px);
-    transition: opacity 0.5s ease-out, transform 0.5s ease-out;
-  }
-
-  .projects-section.is-visible .scroll-reveal {
-    opacity: 1;
-    transform: translateY(0);
+    /* Initial state handled by GSAP */
   }
 
   .scroll-reveal-card {
-    opacity: 0;
-    transform: translateY(40px) scale(0.95);
-    transition: opacity 0.5s ease-out, transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
-  }
-
-  .projects-section.is-visible .scroll-reveal-card {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-    transition-delay: calc(var(--card-index) * 0.08s + 0.15s);
+    /* Initial state handled by GSAP */
   }
 
   .project-list {
@@ -210,7 +188,7 @@ const projects: Project[] = await Promise.all(
     background: hsl(var(--background));
     border: 1px solid hsl(var(--foreground) / 0.08);
     border-radius: 12px;
-    transition: transform 0.1s ease-out, box-shadow 0.2s ease;
+    transition: box-shadow 0.2s ease;
     transform-style: preserve-3d;
     will-change: transform;
     overflow: hidden;
@@ -373,60 +351,131 @@ const projects: Project[] = await Promise.all(
 </style>
 
 <script>
-  // Scroll reveal animation using Intersection Observer
+  import gsap from 'gsap';
+  import { ScrollTrigger } from 'gsap/ScrollTrigger';
+
+  gsap.registerPlugin(ScrollTrigger);
+
+  // Scroll reveal animation with GSAP ScrollTrigger
   const projectsSection = document.getElementById('projects-section');
 
   if (projectsSection) {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            entry.target.classList.add('is-visible');
-            observer.unobserve(entry.target);
-          }
-        });
-      },
-      {
-        threshold: 0.1,
-        rootMargin: '0px 0px -50px 0px'
-      }
-    );
+    // Set initial state immediately
+    gsap.set(projectsSection, { opacity: 0, y: 60 });
 
-    observer.observe(projectsSection);
+    const cards = projectsSection.querySelectorAll('.scroll-reveal-card');
+    gsap.set(cards, { opacity: 0, y: 40, scale: 0.95 });
+
+    // Animate section
+    gsap.to(projectsSection, {
+      opacity: 1,
+      y: 0,
+      duration: 0.6,
+      ease: 'power2.out',
+      scrollTrigger: {
+        trigger: projectsSection,
+        start: 'top 85%',
+        once: true
+      }
+    });
+
+    // Animate cards with stagger
+    gsap.to(cards, {
+      opacity: 1,
+      y: 0,
+      scale: 1,
+      duration: 0.5,
+      ease: 'back.out(1.7)',
+      stagger: 0.08,
+      scrollTrigger: {
+        trigger: projectsSection,
+        start: 'top 85%',
+        once: true
+      }
+    });
   }
 
+  // Enhanced 3D tilt with GSAP and gyroscope support
   const tiltCards = document.querySelectorAll('[data-tilt]');
+
+  // Detect if device supports orientation events
+  const supportsOrientation = 'DeviceOrientationEvent' in window;
+  let useGyroscope = false;
+  const maxGyroTilt = 20;
+
+  // Check if device is mobile
+  const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+
+  // Auto-enable gyroscope on mobile
+  if (isMobile && supportsOrientation) {
+    // Check if iOS requires permission
+    const needsPermission = typeof (DeviceOrientationEvent as any).requestPermission === 'function';
+
+    if (needsPermission) {
+      // iOS 13+ - create a permission button
+      const permissionBtn = document.createElement('button');
+      permissionBtn.innerHTML = '🎮 Enable Motion';
+      permissionBtn.style.cssText = `
+        position: fixed;
+        bottom: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        padding: 12px 24px;
+        font-size: 14px;
+        font-weight: 600;
+        background: hsl(var(--foreground));
+        color: hsl(var(--background));
+        border: none;
+        border-radius: 12px;
+        cursor: pointer;
+        z-index: 9999;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+      `;
+      document.body.appendChild(permissionBtn);
+
+      permissionBtn.addEventListener('click', async () => {
+        try {
+          const permission = await (DeviceOrientationEvent as any).requestPermission();
+          if (permission === 'granted') {
+            useGyroscope = true;
+            permissionBtn.innerHTML = '✓ Motion Enabled';
+            setTimeout(() => {
+              permissionBtn.style.opacity = '0';
+              permissionBtn.style.transition = 'opacity 0.3s';
+              setTimeout(() => permissionBtn.remove(), 300);
+            }, 1000);
+          } else {
+            permissionBtn.innerHTML = '✗ Permission Denied';
+            setTimeout(() => permissionBtn.remove(), 2000);
+          }
+        } catch (error) {
+          console.log('Orientation permission error:', error);
+          permissionBtn.innerHTML = '✗ Error';
+          setTimeout(() => permissionBtn.remove(), 2000);
+        }
+      });
+    } else {
+      // Android - enable immediately
+      useGyroscope = true;
+    }
+  }
 
   tiltCards.forEach((card) => {
     const item = card.querySelector('.project-item') as HTMLElement;
     const glare = card.querySelector('[data-glare]') as HTMLElement;
+
     if (!item) return;
 
-    const maxTilt = 8;
-    let rafId: number | null = null;
-    let currentX = 0;
-    let currentY = 0;
-    let targetX = 0;
-    let targetY = 0;
+    const maxTilt = 12;
 
-    const lerp = (start: number, end: number, factor: number) => {
-      return start + (end - start) * factor;
-    };
-
-    const animate = () => {
-      currentX = lerp(currentX, targetX, 0.15);
-      currentY = lerp(currentY, targetY, 0.15);
-
-      item.style.transform = `rotateX(${currentY}deg) rotateY(${currentX}deg)`;
-
-      if (Math.abs(currentX - targetX) > 0.01 || Math.abs(currentY - targetY) > 0.01) {
-        rafId = requestAnimationFrame(animate);
-      } else {
-        rafId = null;
-      }
-    };
+    // Mouse tracking (desktop)
+    card.addEventListener('mouseenter', () => {
+      if (glare) gsap.to(glare, { opacity: 1, duration: 0.2 });
+    });
 
     card.addEventListener('mousemove', (e: Event) => {
+      if (useGyroscope) return;
+
       const event = e as MouseEvent;
       const rect = card.getBoundingClientRect();
       const x = event.clientX - rect.left;
@@ -434,28 +483,77 @@ const projects: Project[] = await Promise.all(
       const centerX = rect.width / 2;
       const centerY = rect.height / 2;
 
-      targetX = ((x - centerX) / centerX) * maxTilt;
-      targetY = ((centerY - y) / centerY) * maxTilt;
+      const rotateY = ((x - centerX) / centerX) * maxTilt;
+      const rotateX = ((centerY - y) / centerY) * maxTilt;
+
+      gsap.to(item, {
+        rotationX: rotateX,
+        rotationY: rotateY,
+        duration: 0.3,
+        ease: 'power2.out'
+      });
 
       if (glare) {
         const glareX = (x / rect.width) * 100;
         const glareY = (y / rect.height) * 100;
-        glare.style.setProperty('--glare-x', `${glareX}%`);
-        glare.style.setProperty('--glare-y', `${glareY}%`);
-      }
-
-      if (!rafId) {
-        rafId = requestAnimationFrame(animate);
+        gsap.to(glare, {
+          '--glare-x': `${glareX}%`,
+          '--glare-y': `${glareY}%`,
+          duration: 0.2
+        });
       }
     });
 
     card.addEventListener('mouseleave', () => {
-      targetX = 0;
-      targetY = 0;
+      gsap.to(item, {
+        rotationX: 0,
+        rotationY: 0,
+        duration: 0.5,
+        ease: 'elastic.out(1, 0.3)'
+      });
 
-      if (!rafId) {
-        rafId = requestAnimationFrame(animate);
-      }
+      if (glare) gsap.to(glare, { opacity: 0, duration: 0.2 });
     });
   });
+
+  // Global gyroscope handler
+  if (isMobile && supportsOrientation) {
+    window.addEventListener('deviceorientation', (event) => {
+      if (!useGyroscope) return;
+
+      const beta = event.beta || 0;
+      const gamma = event.gamma || 0;
+
+      const normalizedBeta = Math.max(-45, Math.min(45, beta));
+      const normalizedGamma = Math.max(-45, Math.min(45, gamma));
+
+      tiltCards.forEach((card) => {
+        const item = card.querySelector('.project-item') as HTMLElement;
+        const glare = card.querySelector('[data-glare]') as HTMLElement;
+
+        if (!item) return;
+
+        const rotateX = (normalizedBeta / 45) * maxGyroTilt;
+        const rotateY = (normalizedGamma / 45) * maxGyroTilt;
+
+        gsap.to(item, {
+          rotationX: -rotateX,
+          rotationY: rotateY,
+          duration: 0.3,
+          ease: 'power1.out'
+        });
+
+        if (glare) {
+          const glareX = ((normalizedGamma + 45) / 90) * 100;
+          const glareY = ((normalizedBeta + 45) / 90) * 100;
+          gsap.to(glare, {
+            '--glare-x': `${glareX}%`,
+            '--glare-y': `${glareY}%`,
+            opacity: 0.6,
+            duration: 0.2
+          });
+        }
+      });
+    });
+  }
 </script>
