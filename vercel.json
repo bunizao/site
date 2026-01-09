@@ -1,6 +1,7 @@
 {
   "routes": [
     { "handle": "filesystem" },
+    { "handle": "miss" },
     {
       "src": "/(.*)",
       "status": 308,
