@@ -34,9 +34,12 @@ function stripHtml(html: string): string {
   return html.replace(/<[^>]*>/g, '').trim();
 }
 
-// Check if content has media (images, videos, etc.)
-function hasMedia(content: string): boolean {
-  return /<(img|video|audio|iframe)/i.test(content);
+// Check if content has complex media (videos, audio, multiple images)
+function hasComplexMedia(content: string): boolean {
+  const videoAudio = /<(video|audio|iframe)/i.test(content);
+  const images = content.match(/<img/gi);
+  const multipleImages = images && images.length > 1;
+  return videoAudio || multipleImages;
 }
 
 // Check if text is long enough to warrant a detail page
@@ -118,7 +121,7 @@ const olderHref = hasOlder && oldestId ? `?before=${encodeURIComponent(oldestId)
                     const firstImage = getFirstImage(mood.content);
                     const textPreview = getTextPreview(mood);
                     const firstTag = mood.tags?.[0];
-                    const needsDetailPage = hasMedia(mood.content) || isLongContent(textPreview);
+                    const needsDetailPage = hasComplexMedia(mood.content) || isLongContent(textPreview);
                     const globalIndex = groupIndex * 10 + index;
 
                     return needsDetailPage ? (
@@ -482,18 +485,18 @@ const olderHref = hasOlder && oldestId ? `?before=${encodeURIComponent(oldestId)
 
 <script>
   const list = document.querySelector('[data-mood-list]');
-  const loadButton = document.querySelector('[data-load-more]');
+  const loadButton = document.querySelector('[data-load-more]') as HTMLButtonElement | null;
   const status = document.querySelector('[data-load-status]');
   const sentinel = document.querySelector('[data-mood-sentinel]');
 
   if (list && loadButton && status && sentinel) {
     let isLoading = false;
     let hasMore = true;
-    let observer;
+    let observer: IntersectionObserver;
 
     const buttonLabel = loadButton.textContent || 'Load more';
 
-    const formatTime = (value) => {
+    const formatTime = (value: string): string => {
       const date = new Date(value);
       if (Number.isNaN(date.getTime())) return '';
       const hours = String(date.getHours()).padStart(2, '0');
@@ -501,7 +504,7 @@ const olderHref = hasOlder && oldestId ? `?before=${encodeURIComponent(oldestId)
       return `${hours}:${minutes}`;
     };
 
-    const formatDateKey = (value) => {
+    const formatDateKey = (value: string): string => {
       const date = new Date(value);
       if (Number.isNaN(date.getTime())) return '';
       const year = date.getFullYear();
@@ -510,7 +513,7 @@ const olderHref = hasOlder && oldestId ? `?before=${encodeURIComponent(oldestId)
       return `${year}-${month}-${day}`;
     };
 
-    const formatDateHeader = (dateKey) => {
+    const formatDateHeader = (dateKey: string): string => {
       const [year, month, day] = dateKey.split('-').map(Number);
       const date = new Date(year, month - 1, day);
       const now = new Date();
@@ -540,7 +543,7 @@ const olderHref = hasOlder && oldestId ? `?before=${encodeURIComponent(oldestId)
       return `${months[date.getMonth()]} ${date.getDate()}, ${date.getFullYear()}`;
     };
 
-    const getBeforeId = () => {
+    const getBeforeId = (): string => {
       const items = Array.from(list.querySelectorAll('[data-mood-id]'));
       let oldestId = '';
       let oldestValue = Number.POSITIVE_INFINITY;
@@ -557,11 +560,11 @@ const olderHref = hasOlder && oldestId ? `?before=${encodeURIComponent(oldestId)
       return oldestId || items[items.length - 1]?.getAttribute('data-mood-id') || '';
     };
 
-    const setStatus = (message) => {
+    const setStatus = (message: string): void => {
       status.textContent = message;
     };
 
-    const setLoadingState = (loading) => {
+    const setLoadingState = (loading: boolean): void => {
       loadButton.disabled = loading || !hasMore;
       loadButton.textContent = loading ? 'Loading...' : buttonLabel;
 
@@ -572,16 +575,24 @@ const olderHref = hasOlder && oldestId ? `?before=${encodeURIComponent(oldestId)
       }
     };
 
-    const hasMedia = (content) => /<(img|video|audio|iframe)/i.test(content || '');
-    const isLongContent = (text) => (text || '').length > 280;
+    const isLongContent = (text: string): boolean => (text || '').length > 280;
 
-    const createMoodItem = (mood) => {
-      const needsDetailPage = mood.hasMedia || mood.image || isLongContent(mood.previewText);
+    interface MoodData {
+      id: string;
+      datetime: string;
+      tag?: string;
+      previewText: string;
+      image?: string;
+      hasComplexMedia?: boolean;
+    }
+
+    const createMoodItem = (mood: MoodData): HTMLElement => {
+      const needsDetailPage = mood.hasComplexMedia || isLongContent(mood.previewText);
       const element = needsDetailPage
         ? document.createElement('a')
         : document.createElement('div');
 
-      if (needsDetailPage) {
+      if (needsDetailPage && element instanceof HTMLAnchorElement) {
         element.href = `/mood/${mood.id}`;
         element.className = 'mood-item mood-item--clickable';
       } else {
@@ -627,7 +638,7 @@ const olderHref = hasOlder && oldestId ? `?before=${encodeURIComponent(oldestId)
       return element;
     };
 
-    const createDateGroup = (dateKey) => {
+    const createDateGroup = (dateKey: string): HTMLElement => {
       const group = document.createElement('div');
       group.className = 'mood-date-group';
       group.dataset.date = dateKey;
@@ -654,15 +665,15 @@ const olderHref = hasOlder && oldestId ? `?before=${encodeURIComponent(oldestId)
       return group;
     };
 
-    const appendMoods = (posts) => {
-      const grouped = new Map();
+    const appendMoods = (posts: MoodData[]): void => {
+      const grouped = new Map<string, MoodData[]>();
 
       posts.forEach((post) => {
         const dateKey = formatDateKey(post.datetime);
         if (!grouped.has(dateKey)) {
           grouped.set(dateKey, []);
         }
-        grouped.get(dateKey).push(post);
+        grouped.get(dateKey)!.push(post);
       });
 
       grouped.forEach((datePosts, dateKey) => {
@@ -674,13 +685,15 @@ const olderHref = hasOlder && oldestId ? `?before=${encodeURIComponent(oldestId)
         }
 
         const itemsContainer = group.querySelector('.mood-date-items');
-        datePosts.forEach((post) => {
-          itemsContainer.appendChild(createMoodItem(post));
-        });
+        if (itemsContainer) {
+          datePosts.forEach((post) => {
+            itemsContainer.appendChild(createMoodItem(post));
+          });
+        }
       });
     };
 
-    const handleNoMore = () => {
+    const handleNoMore = (): void => {
       hasMore = false;
       loadButton.classList.add('is-hidden');
       setStatus('No more moods.');
@@ -689,7 +702,7 @@ const olderHref = hasOlder && oldestId ? `?before=${encodeURIComponent(oldestId)
       }
     };
 
-    const loadMore = async () => {
+    const loadMore = async (): Promise<void> => {
       if (isLoading || !hasMore) {
         return;
       }
@@ -710,12 +723,12 @@ const olderHref = hasOlder && oldestId ? `?before=${encodeURIComponent(oldestId)
           throw new Error('Failed to load moods.');
         }
 
-        const data = await response.json();
+        const data = await response.json() as { posts: MoodData[] };
         const posts = Array.isArray(data.posts) ? data.posts : [];
         const existingIds = new Set(
           Array.from(list.querySelectorAll('[data-mood-id]'))
             .map((item) => item.getAttribute('data-mood-id'))
-            .filter(Boolean)
+            .filter(Boolean) as string[]
         );
         const uniquePosts = posts.filter((post) => post?.id && !existingIds.has(post.id));
 

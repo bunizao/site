@@ -31,7 +31,7 @@ const description = post ? post.text.slice(0, 160) : 'Mood not found.';
     {post ? (
       <article class="mood-post">
         <div class="mood-post-header">
-          <a href="/mood" class="back-link">← Back to Moods</a>
+          <button type="button" class="back-link" data-back-button>← Back to Moods</button>
           <div class="mood-post-meta">
             <time datetime={post.datetime} class="mood-post-date">
               {dayjs(post.datetime).format('MMMM D, YYYY · HH:mm')}
@@ -93,6 +93,11 @@ const description = post ? post.text.slice(0, 160) : 'Mood not found.';
     color: hsl(var(--muted-foreground));
     margin-bottom: 20px;
     transition: color 0.15s ease;
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    font-family: inherit;
   }
 
   .back-link:hover {
@@ -182,11 +187,37 @@ const description = post ? post.text.slice(0, 160) : 'Mood not found.';
   /* Blockquotes (replies) */
   .mood-post-content :global(blockquote) {
     margin: 1.5em 0;
-    padding: 12px 16px;
-    border-left: 3px solid hsl(var(--foreground) / 0.2);
-    background: hsl(var(--foreground) / 0.03);
+    padding: 14px 16px;
+    border-left: 3px solid hsl(var(--foreground) / 0.15);
+    background: hsl(var(--foreground) / 0.04);
+    border-radius: 0 6px 6px 0;
     font-size: 14px;
     color: hsl(var(--muted-foreground));
+    position: relative;
+  }
+
+  .mood-post-content :global(blockquote::before) {
+    content: '';
+    position: absolute;
+    left: -3px;
+    top: 0;
+    width: 3px;
+    height: 100%;
+    background: linear-gradient(
+      to bottom,
+      hsl(var(--foreground) / 0.3),
+      hsl(var(--foreground) / 0.1)
+    );
+    border-radius: 3px 0 0 3px;
+  }
+
+  .mood-post-content :global(blockquote small) {
+    display: block;
+    line-height: 1.5;
+  }
+
+  .mood-post-content :global(blockquote p) {
+    margin: 0;
   }
 
   /* Images */
@@ -493,3 +524,20 @@ const description = post ? post.text.slice(0, 160) : 'Mood not found.';
     color: hsl(var(--foreground) / 0.9);
   }
 </style>
+
+<script>
+  const backButton = document.querySelector('[data-back-button]');
+
+  if (backButton) {
+    backButton.addEventListener('click', () => {
+      // Check if there's a previous page in history
+      if (document.referrer && document.referrer.includes('/mood')) {
+        // Go back to previous page (preserves scroll position)
+        window.history.back();
+      } else {
+        // Fallback to mood list if no referrer
+        window.location.href = '/mood';
+      }
+    });
+  }
+</script>

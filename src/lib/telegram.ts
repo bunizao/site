@@ -154,27 +154,35 @@ function getImages($: CheerioAPI, item: Element, { staticProxy, id, index, title
 
 function getVideo($: CheerioAPI, item: Element, { staticProxy, index }: ContentProcessorConfig): string {
   const video = $(item).find('.tgme_widget_message_video_wrap video');
-  video
-    ?.attr('src', staticProxy + video?.attr('src'))
-    ?.attr('controls', 'true')
-    ?.attr('preload', (index ?? 0) > 15 ? 'auto' : 'metadata')
-    ?.attr('playsinline', 'true')
-    .attr('webkit-playsinline', 'true');
+  if (video.length) {
+    video
+      .attr('src', staticProxy + video.attr('src'))
+      .attr('controls', 'true')
+      .attr('preload', (index ?? 0) > 15 ? 'auto' : 'metadata')
+      .attr('playsinline', 'true')
+      .attr('webkit-playsinline', 'true');
+  }
 
   const roundVideo = $(item).find('.tgme_widget_message_roundvideo_wrap video');
-  roundVideo
-    ?.attr('src', staticProxy + roundVideo?.attr('src'))
-    ?.attr('controls', 'true')
-    ?.attr('preload', (index ?? 0) > 15 ? 'auto' : 'metadata')
-    ?.attr('playsinline', 'true')
-    .attr('webkit-playsinline', 'true');
-  return $.html(video) + $.html(roundVideo);
+  if (roundVideo.length) {
+    roundVideo
+      .attr('src', staticProxy + roundVideo.attr('src'))
+      .attr('controls', 'true')
+      .attr('preload', (index ?? 0) > 15 ? 'auto' : 'metadata')
+      .attr('playsinline', 'true')
+      .attr('webkit-playsinline', 'true');
+  }
+
+  return (video.length ? $.html(video) : '') + (roundVideo.length ? $.html(roundVideo) : '');
 }
 
 function getAudio($: CheerioAPI, item: Element, { staticProxy }: ContentProcessorConfig): string {
   const audio = $(item).find('.tgme_widget_message_voice');
-  audio?.attr('src', staticProxy + audio?.attr('src'))?.attr('controls', 'true');
-  return $.html(audio);
+  if (audio.length) {
+    audio.attr('src', staticProxy + audio.attr('src')).attr('controls', 'true');
+    return $.html(audio);
+  }
+  return '';
 }
 
 function getLinkPreview($: CheerioAPI, item: Element, { staticProxy, index }: ContentProcessorConfig): string {

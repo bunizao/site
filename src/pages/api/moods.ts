@@ -17,6 +17,13 @@ function getNumericId(id: string): number {
   return Number.isNaN(parsed) ? 0 : parsed;
 }
 
+function hasComplexMedia(content: string): boolean {
+  const videoAudio = /<(video|audio|iframe)/i.test(content);
+  const images = content.match(/<img/gi);
+  const multipleImages = images && images.length > 1;
+  return videoAudio || multipleImages;
+}
+
 export const GET: APIRoute = async ({ request, locals }) => {
   const url = new URL(request.url);
   const before = url.searchParams.get('before') ?? '';
@@ -34,7 +41,7 @@ export const GET: APIRoute = async ({ request, locals }) => {
         tag: post.tags?.[0] ?? '',
         previewText,
         image: getFirstImage(post.content),
-        hasMedia: /<(img|video|audio|iframe)/i.test(post.content || ''),
+        hasComplexMedia: hasComplexMedia(post.content),
       };
     });
 
