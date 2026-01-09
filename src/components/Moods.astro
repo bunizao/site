@@ -1,298 +1,234 @@
 ---
-const SKELETON_COUNT = 3;
+const SKELETON_COUNT = 5;
 const placeholders = Array.from({ length: SKELETON_COUNT });
 ---
 
 <section id="moods-section" class="moods-section">
-  <div class="moods-header">
-    <span class="section-label scroll-reveal">Moods</span>
-    <p class="moods-subtitle scroll-reveal">Recent thoughts and moments</p>
-  </div>
+  <span class="section-label scroll-reveal">Moods</span>
 
-  <div class="mood-timeline is-loading" data-mood-list aria-busy="true" aria-label="Mood timeline">
+  <div class="mood-timeline" data-mood-list aria-busy="true" aria-label="Recent moods">
     {placeholders.map((_, index) => (
       <div class="mood-item mood-item-skeleton scroll-reveal-item" style={`--item-index: ${index}`}>
-        <div class="mood-item-header">
-          <span class="mood-item-date mood-skeleton-pill"></span>
-          <span class="mood-item-tag mood-skeleton-pill"></span>
+        <div class="mood-dot"></div>
+        <div class="mood-content">
+          <span class="mood-skeleton-text"></span>
+          <span class="mood-skeleton-text mood-skeleton-text--short"></span>
         </div>
-        <div class="mood-item-body">
-          <span class="mood-skeleton-line"></span>
-          <span class="mood-skeleton-line"></span>
-          <span class="mood-skeleton-block"></span>
+        <div class="mood-time">
+          <span class="mood-skeleton-time"></span>
         </div>
       </div>
     ))}
   </div>
 
-  <p class="text-sm text-muted-foreground" data-mood-empty hidden>No moods yet.</p>
-  <p class="text-sm text-muted-foreground" data-mood-error hidden>Unable to load moods. Please try again later.</p>
+  <p class="mood-empty-state" data-mood-empty hidden>No moods yet.</p>
+  <p class="mood-error-state" data-mood-error hidden>Unable to load moods.</p>
 
   <a
     href="/mood"
-    class="link scroll-reveal-link mt-6 text-sm text-muted-foreground hover:text-foreground transition-colors"
+    class="link scroll-reveal-link mt-6 text-sm text-muted-foreground"
     aria-label="View all moods"
   >
-    View all moods →
+    View all moods
   </a>
 </section>
 
-<style>
-  .moods-section {
+<style is:global>
+  #moods-section {
     opacity: 0;
     transform: translateY(40px);
     transition: opacity 0.6s ease-out, transform 0.6s ease-out;
   }
 
-  .moods-section.is-visible {
+  #moods-section.is-visible {
     opacity: 1;
     transform: translateY(0);
   }
 
-  .moods-header {
-    margin-bottom: 24px;
-  }
-
-  @media (min-width: 640px) {
-    .moods-header {
-      margin-bottom: 28px;
-    }
-  }
-
-  .moods-subtitle {
-    font-size: 13px;
-    color: hsl(var(--muted-foreground) / 0.7);
-    margin-top: 4px;
-  }
-
-  @media (min-width: 640px) {
-    .moods-subtitle {
-      font-size: 14px;
-    }
-  }
-
-  .scroll-reveal {
+  #moods-section .scroll-reveal {
     opacity: 0;
     transform: translateY(16px);
     transition: opacity 0.4s ease-out, transform 0.4s ease-out;
   }
 
-  .moods-section.is-visible .scroll-reveal {
+  #moods-section.is-visible .scroll-reveal {
     opacity: 1;
     transform: translateY(0);
   }
 
-  .moods-section.is-visible .scroll-reveal:nth-child(2) {
-    transition-delay: 0.05s;
-  }
-
-  .scroll-reveal-item {
+  #moods-section .scroll-reveal-item {
     opacity: 0;
-    transform: translateY(20px);
+    transform: translateX(-10px);
     transition: opacity 0.4s ease-out, transform 0.4s ease-out;
   }
 
-  .moods-section.is-visible .scroll-reveal-item {
+  #moods-section.is-visible .scroll-reveal-item {
     opacity: 1;
-    transform: translateY(0);
-    transition-delay: calc(var(--item-index) * 0.08s + 0.1s);
+    transform: translateX(0);
+    transition-delay: calc(var(--item-index) * 0.06s + 0.1s);
   }
 
-  .scroll-reveal-link {
+  #moods-section .scroll-reveal-link {
     opacity: 0;
     transition: opacity 0.4s ease-out;
   }
 
-  .moods-section.is-visible .scroll-reveal-link {
+  #moods-section.is-visible .scroll-reveal-link {
     opacity: 1;
     transition-delay: 0.4s;
   }
 
   /* Timeline Layout */
-  .mood-timeline {
+  #moods-section .mood-timeline {
+    position: relative;
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    gap: 0;
+    padding-left: 16px;
   }
 
-  @media (min-width: 640px) {
-    .mood-timeline {
-      gap: 20px;
-    }
+  /* Timeline vertical line */
+  #moods-section .mood-timeline::before {
+    content: '';
+    position: absolute;
+    left: 3px;
+    top: 8px;
+    bottom: 8px;
+    width: 1px;
+    background: linear-gradient(
+      to bottom,
+      hsl(var(--foreground) / 0.15),
+      hsl(var(--foreground) / 0.08)
+    );
   }
 
-  .mood-item {
-    display: block;
-    padding: 16px;
-    background: hsl(var(--background));
-    border: 1px solid hsl(var(--foreground) / 0.08);
-    border-radius: 8px;
-    transition: all 0.2s ease;
-  }
-
-  @media (min-width: 640px) {
-    .mood-item {
-      padding: 18px 20px;
-    }
-  }
-
-  .mood-item:hover {
-    border-color: hsl(var(--foreground) / 0.15);
-    background: hsl(var(--foreground) / 0.02);
-  }
-
-  .mood-item-header {
+  #moods-section .mood-item {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     gap: 12px;
-    margin-bottom: 12px;
+    padding: 10px 0;
+    position: relative;
+    text-decoration: none;
+    color: inherit;
+    transition: all 0.15s ease;
   }
 
-  .mood-item-date {
-    font-size: 12px;
-    color: hsl(var(--muted-foreground) / 0.6);
-    font-variant-numeric: tabular-nums;
+  #moods-section .mood-item:not(.mood-item-skeleton):hover {
+    padding-left: 4px;
   }
 
-  @media (min-width: 640px) {
-    .mood-item-date {
-      font-size: 13px;
-    }
+  /* Timeline dot */
+  #moods-section .mood-dot {
+    position: absolute;
+    left: -16px;
+    top: 14px;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: hsl(var(--foreground) / 0.2);
+    border: 2px solid hsl(var(--background));
+    box-shadow: 0 0 0 1px hsl(var(--foreground) / 0.1);
+    transition: all 0.2s ease;
+    z-index: 1;
   }
 
-  .mood-item-tag {
+  #moods-section .mood-item:not(.mood-item-skeleton):hover .mood-dot {
+    background: hsl(var(--foreground) / 0.5);
+    transform: scale(1.2);
+  }
+
+  #moods-section .mood-content {
+    flex: 1;
+    min-width: 0;
+  }
+
+  #moods-section .mood-text {
+    font-size: 14px;
+    font-weight: 400;
+    line-height: 1.5;
+    color: hsl(var(--foreground) / 0.9);
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  #moods-section .mood-tag {
+    display: inline-block;
     font-size: 11px;
-    color: hsl(var(--muted-foreground) / 0.7);
-    padding: 2px 8px;
-    background: hsl(var(--foreground) / 0.05);
-    border-radius: 4px;
-    font-weight: 500;
+    font-weight: 400;
+    color: hsl(var(--muted-foreground) / 0.6);
+    margin-top: 4px;
+  }
+
+  #moods-section .mood-time {
+    flex-shrink: 0;
+    font-size: 11px;
+    font-weight: 400;
+    color: hsl(var(--muted-foreground) / 0.5);
+    font-variant-numeric: tabular-nums;
+    padding-top: 2px;
   }
 
   @media (min-width: 640px) {
-    .mood-item-tag {
+    #moods-section .mood-time {
       font-size: 12px;
     }
   }
 
-  .mood-item:hover .mood-item-tag {
-    background: hsl(var(--foreground) / 0.08);
+  #moods-section .mood-item:hover .mood-time {
+    color: hsl(var(--muted-foreground) / 0.8);
   }
 
-  .mood-item-body {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-  }
-
-  .mood-item-text {
-    font-size: 14px;
-    line-height: 1.6;
-    color: hsl(var(--foreground));
-    white-space: pre-wrap;
-    word-wrap: break-word;
-  }
-
-  @media (min-width: 640px) {
-    .mood-item-text {
-      font-size: 15px;
-      line-height: 1.7;
-    }
-  }
-
-  .mood-item-image {
-    width: 100%;
-    max-width: 500px;
-    border-radius: 8px;
-    overflow: hidden;
-    background: hsl(var(--foreground) / 0.03);
-  }
-
-  .mood-item-image img {
-    width: 100%;
-    height: auto;
-    display: block;
-    transition: transform 0.3s ease;
-  }
-
-  .mood-item:hover .mood-item-image img {
-    transform: scale(1.02);
-  }
-
-  /* Media preview styles */
-  .mood-item-media {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-  }
-
-  :global(.mood-item-media video) {
-    width: 100%;
-    max-width: 500px;
-    border-radius: 8px;
-    background: hsl(var(--foreground) / 0.05);
-  }
-
-  :global(.mood-item-media audio) {
-    width: 100%;
-    max-width: 500px;
-  }
-
-  :global(.mood-item-media .bookmark-card) {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    padding: 10px;
-    border: 1px solid hsl(var(--foreground) / 0.1);
-    border-radius: 8px;
-    background: hsl(var(--background));
-    text-decoration: none;
-    color: inherit;
-    transition: border-color 0.2s ease;
-  }
-
-  :global(.mood-item-media .bookmark-card:hover) {
-    border-color: hsl(var(--foreground) / 0.2);
-  }
-
-  .mood-item-skeleton {
+  /* Skeleton Styles */
+  #moods-section .mood-item-skeleton {
     pointer-events: none;
   }
 
-  .mood-skeleton-line,
-  .mood-skeleton-pill,
-  .mood-skeleton-block {
+  #moods-section .mood-item-skeleton .mood-dot {
+    background: hsl(var(--foreground) / 0.08);
+    box-shadow: none;
+  }
+
+  #moods-section .mood-skeleton-text,
+  #moods-section .mood-skeleton-time {
     display: block;
-    border-radius: 999px;
+    border-radius: 4px;
     background: linear-gradient(90deg, hsl(var(--foreground) / 0.05), hsl(var(--foreground) / 0.12), hsl(var(--foreground) / 0.05));
     background-size: 200% 100%;
-    animation: shimmer 1.6s ease-in-out infinite;
+    animation: moods-shimmer 1.6s ease-in-out infinite;
   }
 
-  .mood-skeleton-line {
-    height: 10px;
+  #moods-section .mood-skeleton-text {
+    height: 14px;
+    width: 100%;
+    margin-bottom: 6px;
   }
 
-  .mood-skeleton-line:nth-of-type(2) {
-    width: 80%;
+  #moods-section .mood-skeleton-text--short {
+    width: 50%;
+    margin-bottom: 0;
   }
 
-  .mood-skeleton-pill {
-    width: 56px;
-    height: 12px;
+  #moods-section .mood-skeleton-time {
+    width: 40px;
+    height: 14px;
   }
 
-  .mood-skeleton-block {
-    height: 120px;
-    border-radius: 8px;
+  /* Empty and error states */
+  #moods-section .mood-empty-state,
+  #moods-section .mood-error-state {
+    font-size: 14px;
+    color: hsl(var(--muted-foreground));
+    padding: 12px 0 12px 16px;
   }
 
-  @keyframes shimmer {
+  @keyframes moods-shimmer {
     0% {
-      background-position: 0% 50%;
+      background-position: 200% 50%;
     }
     100% {
-      background-position: 200% 50%;
+      background-position: 0% 50%;
     }
   }
 </style>
@@ -301,18 +237,16 @@ const placeholders = Array.from({ length: SKELETON_COUNT });
   const moodsSection = document.getElementById('moods-section');
 
   if (moodsSection) {
-    const list = moodsSection.querySelector('[data-mood-list]');
-    const emptyState = moodsSection.querySelector('[data-mood-empty]');
-    const errorState = moodsSection.querySelector('[data-mood-error]');
+    const list = moodsSection.querySelector('[data-mood-list]') as HTMLElement | null;
+    const emptyState = moodsSection.querySelector('[data-mood-empty]') as HTMLElement | null;
+    const errorState = moodsSection.querySelector('[data-mood-error]') as HTMLElement | null;
     let hasLoaded = false;
 
-    const MAX_MOODS = 3;
+    const MAX_MOODS = 5;
 
-    const formatDate = (value: string): string => {
+    const formatTime = (value: string): string => {
       const date = new Date(value);
-      if (Number.isNaN(date.getTime())) {
-        return '';
-      }
+      if (Number.isNaN(date.getTime())) return '';
 
       const now = new Date();
       const isToday =
@@ -320,13 +254,30 @@ const placeholders = Array.from({ length: SKELETON_COUNT });
         date.getMonth() === now.getMonth() &&
         date.getDate() === now.getDate();
 
+      // If today, show time like 14:30
       if (isToday) {
-        return 'Today';
+        const hours = String(date.getHours()).padStart(2, '0');
+        const minutes = String(date.getMinutes()).padStart(2, '0');
+        return `${hours}:${minutes}`;
       }
 
+      const yesterday = new Date(now);
+      yesterday.setDate(yesterday.getDate() - 1);
+      const isYesterday =
+        date.getFullYear() === yesterday.getFullYear() &&
+        date.getMonth() === yesterday.getMonth() &&
+        date.getDate() === yesterday.getDate();
+
+      if (isYesterday) return 'Yesterday';
+
+      const year = date.getFullYear();
       const month = String(date.getMonth() + 1).padStart(2, '0');
       const day = String(date.getDate()).padStart(2, '0');
-      return `${date.getFullYear()}-${month}-${day}`;
+
+      if (year === now.getFullYear()) {
+        return `${month}-${day}`;
+      }
+      return `${year}-${month}`;
     };
 
     interface MoodData {
@@ -342,61 +293,54 @@ const placeholders = Array.from({ length: SKELETON_COUNT });
     const createMoodItem = (mood: MoodData, index: number): HTMLElement => {
       const link = document.createElement('a');
       link.href = `/mood/${mood.id}`;
-      link.className = 'mood-item scroll-reveal-item';
-      link.style.setProperty('--item-index', `${index}`);
-      link.setAttribute('aria-label', `View mood from ${formatDate(mood.datetime)}`);
+      link.className = 'mood-item';
+      link.style.cssText = `--item-index: ${index}; opacity: 0; transform: translateX(-10px);`;
 
-      const header = document.createElement('div');
-      header.className = 'mood-item-header';
+      // Dot
+      const dot = document.createElement('div');
+      dot.className = 'mood-dot';
 
-      const time = document.createElement('time');
-      time.className = 'mood-item-date';
-      time.dateTime = mood.datetime;
-      time.textContent = formatDate(mood.datetime);
-      header.appendChild(time);
+      // Content
+      const content = document.createElement('div');
+      content.className = 'mood-content';
+
+      const text = document.createElement('span');
+      text.className = 'mood-text';
+      text.textContent = mood.previewText || '(No text)';
+      content.appendChild(text);
 
       if (mood.tag) {
         const tag = document.createElement('span');
-        tag.className = 'mood-item-tag';
+        tag.className = 'mood-tag';
         tag.textContent = `#${mood.tag}`;
-        header.appendChild(tag);
+        content.appendChild(tag);
       }
 
-      const body = document.createElement('div');
-      body.className = 'mood-item-body';
+      // Time
+      const time = document.createElement('time');
+      time.className = 'mood-time';
+      time.dateTime = mood.datetime;
+      time.textContent = formatTime(mood.datetime);
 
-      const text = document.createElement('p');
-      text.className = 'mood-item-text';
-      text.textContent = mood.previewText || '';
-      body.appendChild(text);
+      link.appendChild(dot);
+      link.appendChild(content);
+      link.appendChild(time);
 
-      // Handle media preview
-      const mediaHtml = typeof mood.mediaHtml === 'string' ? mood.mediaHtml.trim() : '';
-      if (mediaHtml) {
-        const mediaWrap = document.createElement('div');
-        mediaWrap.className = 'mood-item-media';
-        mediaWrap.innerHTML = mediaHtml;
-        body.appendChild(mediaWrap);
-      } else if (mood.image) {
-        const imageWrap = document.createElement('div');
-        imageWrap.className = 'mood-item-image';
-        const img = document.createElement('img');
-        img.src = mood.image;
-        img.alt = '';
-        img.loading = 'lazy';
-        imageWrap.appendChild(img);
-        body.appendChild(imageWrap);
-      }
+      // Animate in
+      requestAnimationFrame(() => {
+        setTimeout(() => {
+          link.style.transition = 'opacity 0.4s ease-out, transform 0.4s ease-out, padding 0.15s ease';
+          link.style.opacity = '1';
+          link.style.transform = 'translateX(0)';
+        }, index * 60 + 100);
+      });
 
-      link.appendChild(header);
-      link.appendChild(body);
       return link;
     };
 
     const renderMoods = (posts: MoodData[]): void => {
       if (!list) return;
 
-      list.classList.remove('is-loading');
       list.removeAttribute('aria-busy');
       list.replaceChildren();
 
@@ -426,7 +370,6 @@ const placeholders = Array.from({ length: SKELETON_COUNT });
       } catch (error) {
         console.error('Failed to fetch moods:', error);
         if (list) {
-          list.classList.remove('is-loading');
           list.removeAttribute('aria-busy');
           list.replaceChildren();
         }

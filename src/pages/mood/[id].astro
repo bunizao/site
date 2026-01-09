@@ -255,8 +255,10 @@ const description = post ? post.text.slice(0, 160) : 'Mood not found.';
 
   .mood-post-content :global(.image-preview-wrap img) {
     width: 100%;
+    max-width: var(--image-width, 100%);
     height: auto;
     display: block;
+    margin: 0 auto;
   }
 
   .mood-post-content :global(.modal) {
@@ -279,9 +281,8 @@ const description = post ? post.text.slice(0, 160) : 'Mood not found.';
   @media (min-width: 900px) {
     .mood-post-content :global(.image-preview-wrap img) {
       width: auto;
-      max-width: 100%;
+      max-width: var(--image-width, 100%);
       max-height: 70vh;
-      margin: 0 auto;
     }
   }
 

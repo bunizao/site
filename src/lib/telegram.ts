@@ -137,11 +137,16 @@ function getImages($: CheerioAPI, item: Element, { staticProxy, id, index, title
   const images = $(item)
     .find('.tgme_widget_message_photo_wrap')
     ?.map((_index, photo) => {
-      const url = $(photo).attr('style')?.match(/url\(["'](.*?)["']/)?.[1];
+      const style = $(photo).attr('style') ?? '';
+      const url = style.match(/url\(["'](.*?)["']/)?.[1];
+      const widthMatch = style.match(/width:\s*(\d+)px/i);
+      const imageWidth = widthMatch ? Number.parseInt(widthMatch[1], 10) : 0;
+      const widthStyle = imageWidth ? ` style="--image-width:${imageWidth}px"` : '';
+      const widthAttr = imageWidth ? ` width="${imageWidth}"` : '';
       const popoverId = `modal-${id}-${_index}`;
       return `
-      <button class="image-preview-button image-preview-wrap" popovertarget="${popoverId}" popovertargetaction="show">
-        <img src="${staticProxy + url}" alt="${title}" loading="${(index ?? 0) > 15 ? 'eager' : 'lazy'}" />
+      <button class="image-preview-button image-preview-wrap" popovertarget="${popoverId}" popovertargetaction="show"${widthStyle}>
+        <img src="${staticProxy + url}" alt="${title}" loading="${(index ?? 0) > 15 ? 'eager' : 'lazy'}"${widthAttr} />
       </button>
       <button class="image-preview-button modal" id="${popoverId}" popovertarget="${popoverId}" popovertargetaction="hide" popover>
         <img class="modal-img" src="${staticProxy + url}" alt="${title}" loading="lazy" />
