@@ -1,20 +1,21 @@
 ---
 import Layout from '../layouts/Layout.astro';
 import dayjs from 'dayjs';
-import relativeTime from 'dayjs/plugin/relativeTime';
 import { getChannelInfo, type ChannelInfo } from '../lib/telegram';
-
-dayjs.extend(relativeTime);
 
 const title = "Moods | Bunizao's Website";
 const description = "Thoughts and moments from my Telegram channel";
 
 let moods: any[] = [];
 let error = false;
+const before = Astro.url.searchParams.get('before') ?? '';
+const after = Astro.url.searchParams.get('after') ?? '';
+const pageBefore = before && !after ? before : '';
+const pageAfter = after && !before ? after : '';
 
 try {
-  const result = await getChannelInfo(Astro, { type: 'list' }) as ChannelInfo;
-  moods = result.posts;
+  const result = await getChannelInfo(Astro, { type: 'list', before: pageBefore, after: pageAfter }) as ChannelInfo;
+  moods = [...result.posts].sort((a, b) => Number.parseInt(b.id, 10) - Number.parseInt(a.id, 10));
 } catch (e) {
   console.error('Failed to fetch moods:', e);
   error = true;
@@ -30,6 +31,26 @@ function getFirstImage(content: string): string | null {
 function stripHtml(html: string): string {
   return html.replace(/<[^>]*>/g, '').trim();
 }
+
+function formatMoodDate(value: string): string {
+  const date = dayjs(value);
+  if (date.isSame(dayjs(), 'day')) {
+    return 'Today';
+  }
+  return date.format('YYYY-MM-DD');
+}
+
+function getTextPreview(mood: any): string {
+  const preview = (mood.text ?? '').trim();
+  return preview || stripHtml(mood.content);
+}
+
+const newestId = moods[0]?.id ?? '';
+const oldestId = moods[moods.length - 1]?.id ?? '';
+const hasOlder = Number.parseInt(oldestId, 10) > 1;
+const hasNewer = Boolean(pageBefore || pageAfter);
+const newerHref = hasNewer && newestId ? `?after=${encodeURIComponent(newestId)}` : '';
+const olderHref = hasOlder && oldestId ? `?before=${encodeURIComponent(oldestId)}` : '';
 ---
 
 <Layout title={title} description={description}>
@@ -44,30 +65,57 @@ function stripHtml(html: string): string {
       {error ? (
         <p class="text-sm text-muted-foreground">Unable to load moods. Please try again later.</p>
       ) : moods.length > 0 ? (
-        <div class="mood-timeline">
-          {moods.map((mood, index) => {
-            const firstImage = getFirstImage(mood.content);
-            const textPreview = stripHtml(mood.content);
-            const firstTag = mood.tags?.[0];
-            return (
-              <a href={`/mood/${mood.id}`} class="mood-item" style={`--item-index: ${index}`}>
-                <div class="mood-item-header">
-                  <span class="mood-item-date">{dayjs(mood.datetime).fromNow()}</span>
-                  {firstTag && (
-                    <span class="mood-item-tag">#{firstTag}</span>
-                  )}
-                </div>
-                <div class="mood-item-body">
-                  <p class="mood-item-text">{textPreview}</p>
-                  {firstImage && (
-                    <div class="mood-item-image">
-                      <img src={firstImage} alt="" loading="lazy" />
-                    </div>
-                  )}
-                </div>
-              </a>
-            );
-          })}
+        <div class="mood-feed">
+          <div class="mood-timeline" data-mood-list>
+            {moods.map((mood, index) => {
+              const firstImage = getFirstImage(mood.content);
+              const textPreview = getTextPreview(mood);
+              const firstTag = mood.tags?.[0];
+              return (
+                <a
+                  href={`/mood/${mood.id}`}
+                  class="mood-item"
+                  data-mood-id={mood.id}
+                  style={`--item-index: ${index}`}
+                >
+                  <div class="mood-item-header">
+                    <time datetime={mood.datetime} class="mood-item-date">
+                      {formatMoodDate(mood.datetime)}
+                    </time>
+                    {firstTag && (
+                      <span class="mood-item-tag">#{firstTag}</span>
+                    )}
+                  </div>
+                  <div class="mood-item-body">
+                    <p class="mood-item-text">{textPreview}</p>
+                    {firstImage && (
+                      <div class="mood-item-image">
+                        <img src={firstImage} alt="" loading="lazy" />
+                      </div>
+                    )}
+                  </div>
+                </a>
+              );
+            })}
+          </div>
+          <div class="mood-load-controls">
+            <button type="button" class="mood-load-button" data-load-more>Load more</button>
+            <p class="mood-load-status" data-load-status aria-live="polite"></p>
+          </div>
+          <nav class="mood-pagination" aria-label="Mood pagination">
+            {newerHref ? (
+              <a class="mood-page-link" href={newerHref} rel="prev">Newer</a>
+            ) : (
+              <span class="mood-page-placeholder" aria-hidden="true"></span>
+            )}
+            <span class="mood-page-label">Page</span>
+            {olderHref ? (
+              <a class="mood-page-link" href={olderHref} rel="next">Older</a>
+            ) : (
+              <span class="mood-page-placeholder" aria-hidden="true"></span>
+            )}
+          </nav>
+          <div class="mood-sentinel" data-mood-sentinel aria-hidden="true"></div>
         </div>
       ) : (
         <p class="text-sm text-muted-foreground">No moods yet.</p>
@@ -246,6 +294,100 @@ function stripHtml(html: string): string {
     transform: scale(1.02);
   }
 
+  .mood-feed {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  .mood-load-controls {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .mood-load-button {
+    border: 1px solid hsl(var(--foreground) / 0.12);
+    background: hsl(var(--background));
+    color: hsl(var(--foreground));
+    padding: 8px 16px;
+    font-size: 12px;
+    border-radius: 999px;
+    cursor: pointer;
+    transition: border-color 0.2s ease, background 0.2s ease, transform 0.2s ease;
+  }
+
+  .mood-load-button:hover {
+    border-color: hsl(var(--foreground) / 0.25);
+    background: hsl(var(--foreground) / 0.03);
+    transform: translateY(-1px);
+  }
+
+  .mood-load-button:focus-visible {
+    outline: 2px solid hsl(var(--foreground) / 0.35);
+    outline-offset: 2px;
+  }
+
+  .mood-load-button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+  }
+
+  .mood-load-button.is-hidden {
+    display: none;
+  }
+
+  .mood-load-status {
+    font-size: 12px;
+    color: hsl(var(--muted-foreground));
+    min-height: 16px;
+  }
+
+  .mood-sentinel {
+    height: 1px;
+  }
+
+  .mood-pagination {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .mood-page-link {
+    border: 1px solid hsl(var(--foreground) / 0.12);
+    background: hsl(var(--background));
+    color: hsl(var(--foreground));
+    padding: 6px 14px;
+    font-size: 12px;
+    border-radius: 999px;
+    text-decoration: none;
+    transition: border-color 0.2s ease, background 0.2s ease, transform 0.2s ease;
+  }
+
+  .mood-page-link:hover {
+    border-color: hsl(var(--foreground) / 0.25);
+    background: hsl(var(--foreground) / 0.03);
+    transform: translateY(-1px);
+  }
+
+  .mood-page-link:focus-visible {
+    outline: 2px solid hsl(var(--foreground) / 0.35);
+    outline-offset: 2px;
+  }
+
+  .mood-page-placeholder {
+    width: 72px;
+    height: 30px;
+  }
+
+  .mood-page-label {
+    font-size: 12px;
+    color: hsl(var(--muted-foreground));
+  }
+
   @keyframes fade-in-up {
     from {
       opacity: 0;
@@ -257,3 +399,200 @@ function stripHtml(html: string): string {
     }
   }
 </style>
+
+<script>
+  const list = document.querySelector('[data-mood-list]');
+  const loadButton = document.querySelector('[data-load-more]');
+  const status = document.querySelector('[data-load-status]');
+  const sentinel = document.querySelector('[data-mood-sentinel]');
+
+  if (list && loadButton && status && sentinel) {
+    let isLoading = false;
+    let hasMore = true;
+    let observer;
+
+    const buttonLabel = loadButton.textContent || 'Load more';
+
+    const formatDate = (value) => {
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) {
+        return '';
+      }
+
+      const now = new Date();
+      const isToday =
+        date.getFullYear() === now.getFullYear() &&
+        date.getMonth() === now.getMonth() &&
+        date.getDate() === now.getDate();
+
+      if (isToday) {
+        return 'Today';
+      }
+
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      return `${date.getFullYear()}-${month}-${day}`;
+    };
+
+    const getBeforeId = () => {
+      const items = Array.from(list.querySelectorAll('[data-mood-id]'));
+      let oldestId = '';
+      let oldestValue = Number.POSITIVE_INFINITY;
+
+      items.forEach((item) => {
+        const id = item.getAttribute('data-mood-id') || '';
+        const numericId = Number.parseInt(id, 10);
+        if (!Number.isNaN(numericId) && numericId < oldestValue) {
+          oldestValue = numericId;
+          oldestId = id;
+        }
+      });
+
+      if (oldestId) {
+        return oldestId;
+      }
+
+      return items[items.length - 1]?.getAttribute('data-mood-id') || '';
+    };
+
+    const setStatus = (message) => {
+      status.textContent = message;
+    };
+
+    const setLoadingState = (loading) => {
+      loadButton.disabled = loading || !hasMore;
+      loadButton.textContent = loading ? 'Loading...' : buttonLabel;
+
+      if (loading) {
+        list.setAttribute('aria-busy', 'true');
+      } else {
+        list.removeAttribute('aria-busy');
+      }
+    };
+
+    const createMoodItem = (mood) => {
+      const link = document.createElement('a');
+      link.href = `/mood/${mood.id}`;
+      link.className = 'mood-item';
+      link.dataset.moodId = mood.id;
+      link.style.setProperty('--item-index', '0');
+
+      const header = document.createElement('div');
+      header.className = 'mood-item-header';
+
+      const time = document.createElement('time');
+      time.className = 'mood-item-date';
+      time.dateTime = mood.datetime;
+      time.textContent = formatDate(mood.datetime);
+      header.appendChild(time);
+
+      if (mood.tag) {
+        const tag = document.createElement('span');
+        tag.className = 'mood-item-tag';
+        tag.textContent = `#${mood.tag}`;
+        header.appendChild(tag);
+      }
+
+      const body = document.createElement('div');
+      body.className = 'mood-item-body';
+
+      const text = document.createElement('p');
+      text.className = 'mood-item-text';
+      text.textContent = mood.previewText || '';
+      body.appendChild(text);
+
+      if (mood.image) {
+        const imageWrap = document.createElement('div');
+        imageWrap.className = 'mood-item-image';
+
+        const img = document.createElement('img');
+        img.src = mood.image;
+        img.alt = '';
+        img.loading = 'lazy';
+        imageWrap.appendChild(img);
+        body.appendChild(imageWrap);
+      }
+
+      link.appendChild(header);
+      link.appendChild(body);
+      return link;
+    };
+
+    const appendMoods = (posts) => {
+      const fragment = document.createDocumentFragment();
+      posts.forEach((post) => fragment.appendChild(createMoodItem(post)));
+      list.appendChild(fragment);
+    };
+
+    const handleNoMore = () => {
+      hasMore = false;
+      loadButton.classList.add('is-hidden');
+      setStatus('No more moods.');
+      if (observer) {
+        observer.disconnect();
+      }
+    };
+
+    const loadMore = async () => {
+      if (isLoading || !hasMore) {
+        return;
+      }
+
+      const before = getBeforeId();
+      if (!before) {
+        handleNoMore();
+        return;
+      }
+
+      isLoading = true;
+      setLoadingState(true);
+      setStatus('Loading more moods...');
+
+      try {
+        const response = await fetch(`/api/moods?before=${encodeURIComponent(before)}`);
+        if (!response.ok) {
+          throw new Error('Failed to load moods.');
+        }
+
+        const data = await response.json();
+        const posts = Array.isArray(data.posts) ? data.posts : [];
+        const existingIds = new Set(
+          Array.from(list.querySelectorAll('[data-mood-id]'))
+            .map((item) => item.getAttribute('data-mood-id'))
+            .filter(Boolean)
+        );
+        const uniquePosts = posts.filter((post) => post?.id && !existingIds.has(post.id));
+
+        if (!posts.length || !uniquePosts.length) {
+          handleNoMore();
+        } else {
+          appendMoods(uniquePosts);
+          setStatus('');
+        }
+      } catch (error) {
+        console.error(error);
+        setStatus('Unable to load more moods.');
+      } finally {
+        isLoading = false;
+        setLoadingState(false);
+      }
+    };
+
+    loadButton.addEventListener('click', loadMore);
+
+    observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            loadMore();
+          }
+        });
+      },
+      {
+        rootMargin: '300px 0px',
+      }
+    );
+
+    observer.observe(sentinel);
+  }
+</script>
