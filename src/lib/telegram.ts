@@ -59,6 +59,36 @@ interface ContentProcessorConfig {
   channel?: string;
 }
 
+function escapeHtml(value: string = ''): string {
+  return value.replace(/[&<>"']/g, (char) => {
+    switch (char) {
+      case '&':
+        return '&amp;';
+      case '<':
+        return '&lt;';
+      case '>':
+        return '&gt;';
+      case '"':
+        return '&quot;';
+      case "'":
+        return '&#39;';
+      default:
+        return char;
+    }
+  });
+}
+
+function truncateText(value: string, maxLength: number): string {
+  if (value.length <= maxLength) {
+    return value;
+  }
+
+  const trimmed = value.slice(0, maxLength).trim();
+  const lastSpace = trimmed.lastIndexOf(' ');
+  const truncated = lastSpace > Math.floor(maxLength * 0.6) ? trimmed.slice(0, lastSpace) : trimmed;
+  return `${truncated}...`;
+}
+
 // LRU Cache for Telegram API responses
 const cache = new LRUCache<string, ChannelInfo | Post>({
   ttl: 1000 * 60 * 5, // 5 minutes
@@ -149,16 +179,53 @@ function getAudio($: CheerioAPI, item: Element, { staticProxy }: ContentProcesso
 
 function getLinkPreview($: CheerioAPI, item: Element, { staticProxy, index }: ContentProcessorConfig): string {
   const link = $(item).find('.tgme_widget_message_link_preview');
-  const title = $(item).find('.link_preview_title')?.text() || $(item).find('.link_preview_site_name')?.text();
-  const description = $(item).find('.link_preview_description')?.text();
+  if (!link?.length) {
+    return '';
+  }
 
-  link?.attr('target', '_blank').attr('rel', 'noopener').attr('title', description);
+  const href = link.attr('href') ?? '';
+  if (!href) {
+    return '';
+  }
+
+  const rawTitle = $(item).find('.link_preview_title')?.text() || $(item).find('.link_preview_site_name')?.text() || href;
+  const rawDescription = $(item).find('.link_preview_description')?.text() || '';
+  const rawSiteName = $(item).find('.link_preview_site_name')?.text() || '';
+
+  const cleanedDescription = rawDescription.replace(/\s+/g, ' ').trim();
+  const shortDescription = cleanedDescription ? truncateText(cleanedDescription, 160) : '';
+
+  let domain = '';
+  try {
+    const resolvedHref = href.startsWith('//') ? `https:${href}` : href;
+    domain = new URL(resolvedHref).hostname.replace(/^www\./, '');
+  } catch {
+    domain = '';
+  }
+  const metaText = rawSiteName || domain || href;
 
   const image = $(item).find('.link_preview_image');
   const src = image?.attr('style')?.match(/url\(["'](.*?)["']/i)?.[1];
   const imageSrc = src ? staticProxy + src : '';
-  image?.replaceWith(`<img class="link_preview_image" alt="${title}" src="${imageSrc}" loading="${(index ?? 0) > 15 ? 'eager' : 'lazy'}" />`);
-  return $.html(link);
+
+  const imageMarkup = imageSrc
+    ? `<span class="bookmark-card__media"><img src="${escapeHtml(imageSrc)}" alt="${escapeHtml(rawTitle)}" loading="${(index ?? 0) > 15 ? 'eager' : 'lazy'}" /></span>`
+    : '';
+  const descriptionMarkup = shortDescription
+    ? `<span class="bookmark-card__description">${escapeHtml(shortDescription)}</span>`
+    : '';
+  const metaMarkup = metaText ? `<span class="bookmark-card__meta">${escapeHtml(metaText)}</span>` : '';
+
+  return `
+    <a class="bookmark-card" href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer">
+      ${imageMarkup}
+      <span class="bookmark-card__content">
+        <span class="bookmark-card__title">${escapeHtml(rawTitle)}</span>
+        ${descriptionMarkup}
+        ${metaMarkup}
+      </span>
+    </a>
+  `;
 }
 
 function getReply($: CheerioAPI, item: Element, { channel }: ContentProcessorConfig): string {
