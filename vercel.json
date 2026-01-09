@@ -1,9 +1,11 @@
 {
-  "redirects": [
+  "routes": [
     {
-      "source": "/:path((?!mood(?:/|$)|api/moods(?:/|$)|_astro(?:/|$)|_image(?:/|$)|fonts(?:/|$)|favicon\\.ico$|og\\.png$|robots\\.txt$|avatar\\.webp$|_redirects$).*)",
-      "destination": "https://blog.buxx.me/:path",
-      "permanent": true
+      "src": "/(?!mood(?:/|$)|api/moods(?:/|$)|_astro(?:/|$)|_image(?:/|$)|fonts(?:/|$)|favicon\\.ico$|og\\.png$|robots\\.txt$|avatar\\.webp$|_redirects$)(.*)",
+      "status": 308,
+      "headers": {
+        "Location": "https://blog.buxx.me/$1"
+      }
     }
   ]
 }
