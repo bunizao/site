@@ -1,8 +1,16 @@
 ---
 import Layout from '../layouts/Layout.astro';
-import dayjs from 'dayjs';
-import * as cheerio from 'cheerio';
 import { getChannelInfo, type ChannelInfo } from '../lib/telegram';
+import {
+  getFirstImage,
+  getInlineMediaPreview,
+  getTextPreview,
+  hasMedia,
+  isLongContent,
+  formatTime,
+  formatDateHeader,
+  groupByDate,
+} from '../lib/mood-utils';
 
 export const prerender = false;
 
@@ -22,100 +30,6 @@ try {
 } catch (e) {
   console.error('Failed to fetch moods:', e);
   error = true;
-}
-
-// Helper to extract first image from content
-function getFirstImage(content: string): string | null {
-  const match = content.match(/<img[^>]+src="([^">]+)"/);
-  return match ? match[1] : null;
-}
-
-// Helper to strip HTML tags for preview
-function stripHtml(html: string): string {
-  return html
-    .replace(/<br\s*\/?>/gi, '\n')
-    .replace(/<\/(p|div|li|blockquote)>/gi, '\n')
-    .replace(/<[^>]*>/g, '')
-    .replace(/\n{3,}/g, '\n\n')
-    .trim();
-}
-
-function hasMedia(content: string): boolean {
-  return /<(img|video|audio|iframe)/i.test(content);
-}
-
-// Check if text is long enough to warrant a detail page
-function isLongContent(text: string): boolean {
-  return text.length > 280;
-}
-
-function getInlineMediaPreview(content: string): { type: 'video' | 'audio' | 'bookmark'; html: string } | null {
-  const $ = cheerio.load(content);
-
-  const video = $('video').first();
-  if (video.length) {
-    return { type: 'video', html: $.html(video) };
-  }
-
-  const audio = $('audio').first();
-  if (audio.length) {
-    return { type: 'audio', html: $.html(audio) };
-  }
-
-  const bookmark = $('.bookmark-card').first();
-  if (bookmark.length) {
-    return { type: 'bookmark', html: $.html(bookmark) };
-  }
-
-  return null;
-}
-
-// Format time for display
-function formatTime(value: string): string {
-  return dayjs(value).format('HH:mm');
-}
-
-// Group moods by date
-function groupByDate(items: any[]): Map<string, any[]> {
-  const groups = new Map<string, any[]>();
-  for (const item of items) {
-    const dateKey = dayjs(item.datetime).format('YYYY-MM-DD');
-    if (!groups.has(dateKey)) {
-      groups.set(dateKey, []);
-    }
-    groups.get(dateKey)!.push(item);
-  }
-  return groups;
-}
-
-// Format date header
-function formatDateHeader(dateKey: string): string {
-  const date = dayjs(dateKey);
-  const now = dayjs();
-
-  if (date.isSame(now, 'day')) {
-    return 'Today';
-  }
-  if (date.isSame(now.subtract(1, 'day'), 'day')) {
-    return 'Yesterday';
-  }
-  if (date.isSame(now, 'year')) {
-    return date.format('MMMM D');
-  }
-  return date.format('MMMM D, YYYY');
-}
-
-function getTextPreview(mood: any): string {
-  const fallback = (mood.text ?? '').trim();
-  const $ = cheerio.load(mood.content);
-  $('blockquote').remove();
-  $('.bookmark-card').remove();
-  $('video, audio, iframe').remove();
-  $('.image-list-container, .image-preview-wrap, .image-preview-button, .sticker').remove();
-  $('.tgme_widget_message_poll, .tgme_widget_message_document_wrap, .tgme_widget_message_video_player, .tgme_widget_message_location_wrap').remove();
-  const cleanedHtml = $.root().html() ?? '';
-  const preview = stripHtml(cleanedHtml);
-  return preview || fallback;
 }
 
 const groupedMoods = groupByDate(moods);
@@ -150,6 +64,7 @@ const olderHref = hasOlder && oldestId ? `?before=${encodeURIComponent(oldestId)
                 <div class="mood-date-items">
                   {dateMoods.map((mood, index) => {
                     const mediaPreview = getInlineMediaPreview(mood.content);
+                    const mediaHtml = mediaPreview?.html;
                     const firstImage = mediaPreview ? null : getFirstImage(mood.content);
                     const textPreview = getTextPreview(mood);
                     const firstTag = mood.tags?.[0];
@@ -168,14 +83,13 @@ const olderHref = hasOlder && oldestId ? `?before=${encodeURIComponent(oldestId)
                         </time>
                         <div class="mood-item-content">
                           <p class="mood-item-text">{textPreview}</p>
-                          {mediaPreview ? (
-                            <div class="mood-item-media" set:html={mediaPreview.html} />
-                          ) : (
-                            firstImage && (
-                              <div class="mood-item-thumb">
-                                <img src={firstImage} alt="" loading="lazy" />
-                              </div>
-                            )
+                          {mediaHtml && (
+                            <div class="mood-item-media" set:html={mediaHtml} />
+                          )}
+                          {!mediaHtml && firstImage && (
+                            <div class="mood-item-thumb">
+                              <img src={firstImage} alt="" loading="lazy" />
+                            </div>
                           )}
                           {firstTag && (
                             <span class="mood-item-tag">#{firstTag}</span>
@@ -193,14 +107,13 @@ const olderHref = hasOlder && oldestId ? `?before=${encodeURIComponent(oldestId)
                         </time>
                         <div class="mood-item-content">
                           <p class="mood-item-text">{textPreview}</p>
-                          {mediaPreview ? (
-                            <div class="mood-item-media" set:html={mediaPreview.html} />
-                          ) : (
-                            firstImage && (
-                              <div class="mood-item-thumb">
-                                <img src={firstImage} alt="" loading="lazy" />
-                              </div>
-                            )
+                          {mediaHtml && (
+                            <div class="mood-item-media" set:html={mediaHtml} />
+                          )}
+                          {!mediaHtml && firstImage && (
+                            <div class="mood-item-thumb">
+                              <img src={firstImage} alt="" loading="lazy" />
+                            </div>
                           )}
                           {firstTag && (
                             <span class="mood-item-tag">#{firstTag}</span>
@@ -401,6 +314,62 @@ const olderHref = hasOlder && oldestId ? `?before=${encodeURIComponent(oldestId)
 
   :global(.mood-item-media audio) {
     width: 100%;
+  }
+
+  :global(.mood-item-media .tgme_widget_message_document_wrap) {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+    border: 1px solid hsl(var(--foreground) / 0.1);
+    border-radius: 10px;
+    background: hsl(var(--background));
+    text-decoration: none;
+    color: inherit;
+    transition: border-color 0.2s ease;
+  }
+
+  :global(.mood-item-media .tgme_widget_message_document_wrap:hover) {
+    border-color: hsl(var(--foreground) / 0.18);
+  }
+
+  :global(.mood-item-media .tgme_widget_message_document_icon) {
+    width: 38px;
+    height: 38px;
+    border-radius: 10px;
+    background: hsl(var(--foreground) / 0.08);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    position: relative;
+  }
+
+  :global(.mood-item-media .tgme_widget_message_document_icon.audio::before) {
+    content: '';
+    border-left: 8px solid hsl(var(--foreground) / 0.7);
+    border-top: 5px solid transparent;
+    border-bottom: 5px solid transparent;
+    margin-left: 2px;
+  }
+
+  :global(.mood-item-media .tgme_widget_message_document) {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+  }
+
+  :global(.mood-item-media .tgme_widget_message_document_title) {
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1.4;
+  }
+
+  :global(.mood-item-media .tgme_widget_message_document_extra) {
+    font-size: 12px;
+    color: hsl(var(--muted-foreground));
+    line-height: 1.4;
   }
 
   :global(.mood-item-media .bookmark-card) {

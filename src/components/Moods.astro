@@ -1,11 +1,15 @@
 ---
-const placeholders = Array.from({ length: 3 });
+const SKELETON_COUNT = 3;
+const placeholders = Array.from({ length: SKELETON_COUNT });
 ---
 
 <section id="moods-section" class="moods-section">
-  <span class="section-label scroll-reveal">Moods</span>
+  <div class="moods-header">
+    <span class="section-label scroll-reveal">Moods</span>
+    <p class="moods-subtitle scroll-reveal">Recent thoughts and moments</p>
+  </div>
 
-  <div class="mood-timeline is-loading" data-mood-list aria-busy="true">
+  <div class="mood-timeline is-loading" data-mood-list aria-busy="true" aria-label="Mood timeline">
     {placeholders.map((_, index) => (
       <div class="mood-item mood-item-skeleton scroll-reveal-item" style={`--item-index: ${index}`}>
         <div class="mood-item-header">
@@ -20,14 +24,16 @@ const placeholders = Array.from({ length: 3 });
       </div>
     ))}
   </div>
+
   <p class="text-sm text-muted-foreground" data-mood-empty hidden>No moods yet.</p>
-  <p class="text-sm text-muted-foreground" data-mood-error hidden>Unable to load moods.</p>
+  <p class="text-sm text-muted-foreground" data-mood-error hidden>Unable to load moods. Please try again later.</p>
 
   <a
     href="/mood"
-    class="link scroll-reveal-link mt-6 text-sm text-muted-foreground"
+    class="link scroll-reveal-link mt-6 text-sm text-muted-foreground hover:text-foreground transition-colors"
+    aria-label="View all moods"
   >
-    View all moods
+    View all moods →
   </a>
 </section>
 
@@ -43,6 +49,28 @@ const placeholders = Array.from({ length: 3 });
     transform: translateY(0);
   }
 
+  .moods-header {
+    margin-bottom: 24px;
+  }
+
+  @media (min-width: 640px) {
+    .moods-header {
+      margin-bottom: 28px;
+    }
+  }
+
+  .moods-subtitle {
+    font-size: 13px;
+    color: hsl(var(--muted-foreground) / 0.7);
+    margin-top: 4px;
+  }
+
+  @media (min-width: 640px) {
+    .moods-subtitle {
+      font-size: 14px;
+    }
+  }
+
   .scroll-reveal {
     opacity: 0;
     transform: translateY(16px);
@@ -52,6 +80,10 @@ const placeholders = Array.from({ length: 3 });
   .moods-section.is-visible .scroll-reveal {
     opacity: 1;
     transform: translateY(0);
+  }
+
+  .moods-section.is-visible .scroll-reveal:nth-child(2) {
+    transition-delay: 0.05s;
   }
 
   .scroll-reveal-item {
@@ -187,6 +219,42 @@ const placeholders = Array.from({ length: 3 });
     transform: scale(1.02);
   }
 
+  /* Media preview styles */
+  .mood-item-media {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  :global(.mood-item-media video) {
+    width: 100%;
+    max-width: 500px;
+    border-radius: 8px;
+    background: hsl(var(--foreground) / 0.05);
+  }
+
+  :global(.mood-item-media audio) {
+    width: 100%;
+    max-width: 500px;
+  }
+
+  :global(.mood-item-media .bookmark-card) {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 10px;
+    border: 1px solid hsl(var(--foreground) / 0.1);
+    border-radius: 8px;
+    background: hsl(var(--background));
+    text-decoration: none;
+    color: inherit;
+    transition: border-color 0.2s ease;
+  }
+
+  :global(.mood-item-media .bookmark-card:hover) {
+    border-color: hsl(var(--foreground) / 0.2);
+  }
+
   .mood-item-skeleton {
     pointer-events: none;
   }
@@ -238,7 +306,9 @@ const placeholders = Array.from({ length: 3 });
     const errorState = moodsSection.querySelector('[data-mood-error]');
     let hasLoaded = false;
 
-    const formatDate = (value) => {
+    const MAX_MOODS = 3;
+
+    const formatDate = (value: string): string => {
       const date = new Date(value);
       if (Number.isNaN(date.getTime())) {
         return '';
@@ -259,11 +329,22 @@ const placeholders = Array.from({ length: 3 });
       return `${date.getFullYear()}-${month}-${day}`;
     };
 
-    const createMoodItem = (mood, index) => {
+    interface MoodData {
+      id: string;
+      datetime: string;
+      tag?: string;
+      previewText: string;
+      image?: string | null;
+      mediaHtml?: string;
+      needsDetailPage?: boolean;
+    }
+
+    const createMoodItem = (mood: MoodData, index: number): HTMLElement => {
       const link = document.createElement('a');
       link.href = `/mood/${mood.id}`;
       link.className = 'mood-item scroll-reveal-item';
       link.style.setProperty('--item-index', `${index}`);
+      link.setAttribute('aria-label', `View mood from ${formatDate(mood.datetime)}`);
 
       const header = document.createElement('div');
       header.className = 'mood-item-header';
@@ -289,7 +370,14 @@ const placeholders = Array.from({ length: 3 });
       text.textContent = mood.previewText || '';
       body.appendChild(text);
 
-      if (mood.image) {
+      // Handle media preview
+      const mediaHtml = typeof mood.mediaHtml === 'string' ? mood.mediaHtml.trim() : '';
+      if (mediaHtml) {
+        const mediaWrap = document.createElement('div');
+        mediaWrap.className = 'mood-item-media';
+        mediaWrap.innerHTML = mediaHtml;
+        body.appendChild(mediaWrap);
+      } else if (mood.image) {
         const imageWrap = document.createElement('div');
         imageWrap.className = 'mood-item-image';
         const img = document.createElement('img');
@@ -305,8 +393,9 @@ const placeholders = Array.from({ length: 3 });
       return link;
     };
 
-    const renderMoods = (posts) => {
+    const renderMoods = (posts: MoodData[]): void => {
       if (!list) return;
+
       list.classList.remove('is-loading');
       list.removeAttribute('aria-busy');
       list.replaceChildren();
@@ -322,7 +411,7 @@ const placeholders = Array.from({ length: 3 });
       posts.forEach((post, index) => list.appendChild(createMoodItem(post, index)));
     };
 
-    const loadMoods = async () => {
+    const loadMoods = async (): Promise<void> => {
       if (hasLoaded || !list) return;
       hasLoaded = true;
 
@@ -332,7 +421,7 @@ const placeholders = Array.from({ length: 3 });
           throw new Error('Failed to fetch moods.');
         }
         const data = await response.json();
-        const posts = Array.isArray(data.posts) ? data.posts.slice(0, 3) : [];
+        const posts = Array.isArray(data.posts) ? data.posts.slice(0, MAX_MOODS) : [];
         renderMoods(posts);
       } catch (error) {
         console.error('Failed to fetch moods:', error);
