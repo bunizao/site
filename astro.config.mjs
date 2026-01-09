@@ -2,7 +2,7 @@ import { defineConfig } from 'astro/config';
 import { fileURLToPath } from 'node:url';
 import react from '@astrojs/react';
 import tailwind from '@astrojs/tailwind';
-import node from '@astrojs/node';
+import vercel from '@astrojs/vercel';
 
 export default defineConfig({
   integrations: [
@@ -11,9 +11,7 @@ export default defineConfig({
   ],
   site: 'https://buxx.me',
   output: 'static',
-  adapter: node({
-    mode: 'standalone',
-  }),
+  adapter: vercel(),
   vite: {
     resolve: {
       alias: {
