@@ -1,6 +1,7 @@
 ---
 import Layout from '../layouts/Layout.astro';
 import dayjs from 'dayjs';
+import * as cheerio from 'cheerio';
 import { getChannelInfo, type ChannelInfo } from '../lib/telegram';
 
 export const prerender = false;
@@ -31,20 +32,42 @@ function getFirstImage(content: string): string | null {
 
 // Helper to strip HTML tags for preview
 function stripHtml(html: string): string {
-  return html.replace(/<[^>]*>/g, '').trim();
+  return html
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/(p|div|li|blockquote)>/gi, '\n')
+    .replace(/<[^>]*>/g, '')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
 }
 
-// Check if content has complex media (videos, audio, multiple images)
-function hasComplexMedia(content: string): boolean {
-  const videoAudio = /<(video|audio|iframe)/i.test(content);
-  const images = content.match(/<img/gi);
-  const multipleImages = images && images.length > 1;
-  return videoAudio || multipleImages;
+function hasMedia(content: string): boolean {
+  return /<(img|video|audio|iframe)/i.test(content);
 }
 
 // Check if text is long enough to warrant a detail page
 function isLongContent(text: string): boolean {
   return text.length > 280;
+}
+
+function getInlineMediaPreview(content: string): { type: 'video' | 'audio' | 'bookmark'; html: string } | null {
+  const $ = cheerio.load(content);
+
+  const video = $('video').first();
+  if (video.length) {
+    return { type: 'video', html: $.html(video) };
+  }
+
+  const audio = $('audio').first();
+  if (audio.length) {
+    return { type: 'audio', html: $.html(audio) };
+  }
+
+  const bookmark = $('.bookmark-card').first();
+  if (bookmark.length) {
+    return { type: 'bookmark', html: $.html(bookmark) };
+  }
+
+  return null;
 }
 
 // Format time for display
@@ -83,8 +106,16 @@ function formatDateHeader(dateKey: string): string {
 }
 
 function getTextPreview(mood: any): string {
-  const preview = (mood.text ?? '').trim();
-  return preview || stripHtml(mood.content);
+  const fallback = (mood.text ?? '').trim();
+  const $ = cheerio.load(mood.content);
+  $('blockquote').remove();
+  $('.bookmark-card').remove();
+  $('video, audio, iframe').remove();
+  $('.image-list-container, .image-preview-wrap, .image-preview-button, .sticker').remove();
+  $('.tgme_widget_message_poll, .tgme_widget_message_document_wrap, .tgme_widget_message_video_player, .tgme_widget_message_location_wrap').remove();
+  const cleanedHtml = $.root().html() ?? '';
+  const preview = stripHtml(cleanedHtml);
+  return preview || fallback;
 }
 
 const groupedMoods = groupByDate(moods);
@@ -118,10 +149,11 @@ const olderHref = hasOlder && oldestId ? `?before=${encodeURIComponent(oldestId)
                 </div>
                 <div class="mood-date-items">
                   {dateMoods.map((mood, index) => {
-                    const firstImage = getFirstImage(mood.content);
+                    const mediaPreview = getInlineMediaPreview(mood.content);
+                    const firstImage = mediaPreview ? null : getFirstImage(mood.content);
                     const textPreview = getTextPreview(mood);
                     const firstTag = mood.tags?.[0];
-                    const needsDetailPage = hasComplexMedia(mood.content) || isLongContent(textPreview);
+                    const needsDetailPage = !mediaPreview && (hasMedia(mood.content) || isLongContent(textPreview));
                     const globalIndex = groupIndex * 10 + index;
 
                     return needsDetailPage ? (
@@ -136,10 +168,14 @@ const olderHref = hasOlder && oldestId ? `?before=${encodeURIComponent(oldestId)
                         </time>
                         <div class="mood-item-content">
                           <p class="mood-item-text">{textPreview}</p>
-                          {firstImage && (
-                            <div class="mood-item-thumb">
-                              <img src={firstImage} alt="" loading="lazy" />
-                            </div>
+                          {mediaPreview ? (
+                            <div class="mood-item-media" set:html={mediaPreview.html} />
+                          ) : (
+                            firstImage && (
+                              <div class="mood-item-thumb">
+                                <img src={firstImage} alt="" loading="lazy" />
+                              </div>
+                            )
                           )}
                           {firstTag && (
                             <span class="mood-item-tag">#{firstTag}</span>
@@ -157,6 +193,15 @@ const olderHref = hasOlder && oldestId ? `?before=${encodeURIComponent(oldestId)
                         </time>
                         <div class="mood-item-content">
                           <p class="mood-item-text">{textPreview}</p>
+                          {mediaPreview ? (
+                            <div class="mood-item-media" set:html={mediaPreview.html} />
+                          ) : (
+                            firstImage && (
+                              <div class="mood-item-thumb">
+                                <img src={firstImage} alt="" loading="lazy" />
+                              </div>
+                            )
+                          )}
                           {firstTag && (
                             <span class="mood-item-tag">#{firstTag}</span>
                           )}
@@ -340,6 +385,95 @@ const olderHref = hasOlder && oldestId ? `?before=${encodeURIComponent(oldestId)
     display: flex;
     flex-direction: column;
     gap: 8px;
+  }
+
+  :global(.mood-item-media) {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  :global(.mood-item-media video) {
+    width: 100%;
+    border-radius: 10px;
+    background: hsl(var(--foreground) / 0.05);
+  }
+
+  :global(.mood-item-media audio) {
+    width: 100%;
+  }
+
+  :global(.mood-item-media .bookmark-card) {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 10px;
+    border: 1px solid hsl(var(--foreground) / 0.1);
+    border-radius: 10px;
+    background: hsl(var(--background));
+    text-decoration: none;
+    color: inherit;
+    transition: border-color 0.2s ease, transform 0.2s ease;
+  }
+
+  :global(.mood-item-media .bookmark-card:hover) {
+    border-color: hsl(var(--foreground) / 0.2);
+    transform: translateY(-1px);
+  }
+
+  :global(.mood-item-media .bookmark-card__media) {
+    width: 100%;
+    border-radius: 8px;
+    overflow: hidden;
+    background: hsl(var(--foreground) / 0.04);
+  }
+
+  :global(.mood-item-media .bookmark-card__media img) {
+    width: 100%;
+    height: 100%;
+    display: block;
+    object-fit: cover;
+    aspect-ratio: 4 / 3;
+  }
+
+  :global(.mood-item-media .bookmark-card__content) {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;
+  }
+
+  :global(.mood-item-media .bookmark-card__title) {
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1.4;
+  }
+
+  :global(.mood-item-media .bookmark-card__description) {
+    font-size: 12px;
+    color: hsl(var(--muted-foreground));
+    line-height: 1.5;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    overflow: hidden;
+  }
+
+  :global(.mood-item-media .bookmark-card__meta) {
+    font-size: 11px;
+    color: hsl(var(--muted-foreground) / 0.8);
+  }
+
+  @media (min-width: 560px) {
+    :global(.mood-item-media .bookmark-card) {
+      flex-direction: row;
+      align-items: center;
+    }
+
+    :global(.mood-item-media .bookmark-card__media) {
+      width: 140px;
+      flex-shrink: 0;
+    }
   }
 
   :global(.mood-item-text) {
@@ -582,17 +716,23 @@ const olderHref = hasOlder && oldestId ? `?before=${encodeURIComponent(oldestId)
       datetime: string;
       tag?: string;
       previewText: string;
-      image?: string;
-      hasComplexMedia?: boolean;
+      image?: string | null;
+      mediaHtml?: string;
+      needsDetailPage?: boolean;
     }
 
     const createMoodItem = (mood: MoodData): HTMLElement => {
-      const needsDetailPage = mood.hasComplexMedia || isLongContent(mood.previewText);
-      const element = needsDetailPage
+      const mediaHtml = typeof mood.mediaHtml === 'string' ? mood.mediaHtml.trim() : '';
+      const hasMediaHtml = mediaHtml.length > 0;
+      const needsDetailPage = typeof mood.needsDetailPage === 'boolean'
+        ? mood.needsDetailPage
+        : isLongContent(mood.previewText);
+      const shouldLink = needsDetailPage && !hasMediaHtml;
+      const element = shouldLink
         ? document.createElement('a')
         : document.createElement('div');
 
-      if (needsDetailPage && element instanceof HTMLAnchorElement) {
+      if (shouldLink && element instanceof HTMLAnchorElement) {
         element.href = `/mood/${mood.id}`;
         element.className = 'mood-item mood-item--clickable';
       } else {
@@ -615,7 +755,12 @@ const olderHref = hasOlder && oldestId ? `?before=${encodeURIComponent(oldestId)
       text.textContent = mood.previewText || '';
       content.appendChild(text);
 
-      if (mood.image && needsDetailPage) {
+      if (hasMediaHtml) {
+        const media = document.createElement('div');
+        media.className = 'mood-item-media';
+        media.innerHTML = mediaHtml;
+        content.appendChild(media);
+      } else if (mood.image) {
         const thumbWrap = document.createElement('div');
         thumbWrap.className = 'mood-item-thumb';
         const img = document.createElement('img');
