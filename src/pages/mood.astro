@@ -424,15 +424,42 @@ const description = "Thoughts and moments from my Telegram channel";
     background: hsl(var(--foreground) / 0.03);
   }
 
+  /* Portrait images in feed - limit height */
+  :global(.mood-item-thumb.mood-item-thumb--portrait) {
+    max-width: 200px;
+  }
+
+  :global(.mood-item-thumb.mood-item-thumb--portrait img) {
+    max-height: 320px;
+    width: auto;
+    object-fit: contain;
+  }
+
   @media (min-width: 640px) {
     :global(.mood-item-thumb) {
       max-width: 480px;
+    }
+
+    :global(.mood-item-thumb.mood-item-thumb--portrait) {
+      max-width: 240px;
+    }
+
+    :global(.mood-item-thumb.mood-item-thumb--portrait img) {
+      max-height: 400px;
     }
   }
 
   @media (min-width: 1024px) {
     :global(.mood-item-thumb) {
       max-width: 560px;
+    }
+
+    :global(.mood-item-thumb.mood-item-thumb--portrait) {
+      max-width: 280px;
+    }
+
+    :global(.mood-item-thumb.mood-item-thumb--portrait img) {
+      max-height: 450px;
     }
   }
 
@@ -447,6 +474,54 @@ const description = "Thoughts and moments from my Telegram channel";
     font-size: 11px;
     color: hsl(var(--muted-foreground) / 0.6);
     align-self: flex-start;
+  }
+
+  /* Reactions */
+  :global(.mood-item-reactions) {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 8px;
+  }
+
+  :global(.mood-reaction) {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 3px 8px 3px 6px;
+    font-size: 12px;
+    background: hsl(var(--foreground) / 0.05);
+    border-radius: 999px;
+    color: hsl(var(--muted-foreground));
+    transition: all 0.15s ease;
+    border: 1px solid transparent;
+  }
+
+  :global(.mood-reaction:hover) {
+    background: hsl(var(--foreground) / 0.08);
+    border-color: hsl(var(--foreground) / 0.08);
+  }
+
+  :global(.mood-reaction--paid) {
+    background: hsl(45 100% 50% / 0.08);
+    color: hsl(45 70% 40%);
+  }
+
+  :global(.mood-reaction--paid:hover) {
+    background: hsl(45 100% 50% / 0.12);
+    border-color: hsl(45 100% 50% / 0.2);
+  }
+
+  :global(.mood-reaction-emoji) {
+    font-size: 14px;
+    line-height: 1;
+  }
+
+  :global(.mood-reaction-count) {
+    font-size: 12px;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+    opacity: 0.8;
   }
 
   :global(.mood-feed) {
@@ -612,6 +687,12 @@ const description = "Thoughts and moments from my Telegram channel";
 
     const isLongContent = (text: string): boolean => (text || '').length > 280;
 
+    interface ReactionData {
+      emoji: string;
+      count: string;
+      isPaid: boolean;
+    }
+
     interface MoodData {
       id: string;
       datetime: string;
@@ -620,6 +701,7 @@ const description = "Thoughts and moments from my Telegram channel";
       image?: string | null;
       mediaHtml?: string;
       needsDetailPage?: boolean;
+      reactions?: ReactionData[];
     }
 
     const createMoodItem = (mood: MoodData, index: number): HTMLElement => {
@@ -668,8 +750,27 @@ const description = "Thoughts and moments from my Telegram channel";
         img.src = mood.image;
         img.alt = '';
         img.loading = 'lazy';
+        // Detect portrait images after load
+        img.onload = () => {
+          if (img.naturalHeight > img.naturalWidth * 1.2) {
+            thumbWrap.classList.add('mood-item-thumb--portrait');
+          }
+        };
         thumbWrap.appendChild(img);
         content.appendChild(thumbWrap);
+      }
+
+      // Add reactions
+      if (mood.reactions && mood.reactions.length > 0) {
+        const reactionsWrap = document.createElement('div');
+        reactionsWrap.className = 'mood-item-reactions';
+        mood.reactions.forEach((reaction) => {
+          const pill = document.createElement('span');
+          pill.className = reaction.isPaid ? 'mood-reaction mood-reaction--paid' : 'mood-reaction';
+          pill.innerHTML = `<span class="mood-reaction-emoji">${reaction.isPaid ? '⭐' : reaction.emoji}</span><span class="mood-reaction-count">${reaction.count}</span>`;
+          reactionsWrap.appendChild(pill);
+        });
+        content.appendChild(reactionsWrap);
       }
 
       if (mood.tag) {

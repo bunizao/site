@@ -33,6 +33,13 @@ import 'prismjs-components-importer/cjs/prism-typescript';
 import 'prismjs-components-importer/cjs/prism-yaml';
 
 // Types
+export interface Reaction {
+  emoji: string;
+  emojiId?: string;
+  count: string;
+  isPaid: boolean;
+}
+
 export interface Post {
   id: string;
   title: string;
@@ -41,6 +48,7 @@ export interface Post {
   tags: string[];
   text: string;
   content: string;
+  reactions: Reaction[];
 }
 
 export interface ChannelInfo {
@@ -155,13 +163,26 @@ function getImages($: CheerioAPI, item: Element, { staticProxy, id, index, title
       // Upgrade to higher quality image
       const highQualityUrl = upgradeImageQuality(url ?? '');
       const widthMatch = style.match(/width:\s*(\d+)px/i);
+      const heightMatch = style.match(/height:\s*(\d+)px/i);
+      // Telegram uses padding-top percentage for aspect ratio (height/width * 100)
+      const paddingMatch = style.match(/padding-top:\s*([\d.]+)%/i);
       const imageWidth = widthMatch ? Number.parseInt(widthMatch[1], 10) : 0;
-      const widthStyle = imageWidth ? ` style="--image-width:${imageWidth}px"` : '';
+      let imageHeight = heightMatch ? Number.parseInt(heightMatch[1], 10) : 0;
+      // Calculate height from padding-top if not directly available
+      if (!imageHeight && paddingMatch && imageWidth) {
+        const paddingPercent = Number.parseFloat(paddingMatch[1]);
+        imageHeight = Math.round(imageWidth * paddingPercent / 100);
+      }
+      // Detect portrait (vertical) images: height > width * 1.2
+      const isPortrait = imageHeight > 0 && imageHeight > imageWidth * 1.2;
+      const portraitClass = isPortrait ? ' image-portrait' : '';
+      const widthStyle = imageWidth ? ` style="--image-width:${imageWidth}px;--image-height:${imageHeight}px"` : '';
       const widthAttr = imageWidth ? ` width="${imageWidth}"` : '';
+      const heightAttr = imageHeight ? ` height="${imageHeight}"` : '';
       const popoverId = `modal-${id}-${_index}`;
       return `
-      <button class="image-preview-button image-preview-wrap" popovertarget="${popoverId}" popovertargetaction="show"${widthStyle}>
-        <img src="${staticProxy + highQualityUrl}" alt="${title}" loading="${(index ?? 0) > 15 ? 'eager' : 'lazy'}"${widthAttr} />
+      <button class="image-preview-button image-preview-wrap${portraitClass}" popovertarget="${popoverId}" popovertargetaction="show"${widthStyle}>
+        <img src="${staticProxy + highQualityUrl}" alt="${title}" loading="${(index ?? 0) > 15 ? 'eager' : 'lazy'}"${widthAttr}${heightAttr} />
       </button>
       <button class="image-preview-button modal" id="${popoverId}" popovertarget="${popoverId}" popovertargetaction="hide" popover>
         <img class="modal-img" src="${staticProxy + highQualityUrl}" alt="${title}" loading="lazy" />
@@ -302,6 +323,87 @@ function modifyHTMLContent($: CheerioAPI, content: any, { index }: { index?: num
   return content;
 }
 
+// Common emoji-id to standard emoji fallback mapping
+const EMOJI_ID_FALLBACK: Record<string, string> = {
+  '5368324170671202286': '👍',
+  '5427127139151397446': '🤝',
+  '5388841349703284277': '🔥',
+  '5265077361648368841': '❤️',
+  '5388967613151851494': '🎉',
+  '5881813392380923308': '😍',
+  '5456669990092545624': '💯',
+  '5384108682290152083': '👏',
+  '5449800250032143374': '😂',
+  '5006239808935167310': '🚗',
+  '5472105307985419058': '☝️',
+  '5375338737028841420': '🤩',
+  '5203954737166164311': '✨', // Custom emoji fallback
+};
+
+// Normalize emoji variants (e.g., ❤ → ❤️)
+function normalizeEmoji(emoji: string): string {
+  const emojiMap: Record<string, string> = {
+    '❤': '❤️',
+    '☺': '☺️',
+    '☹': '☹️',
+    '♥': '❤️',
+  };
+  return emojiMap[emoji] || emoji;
+}
+
+function getReactions($: CheerioAPI, item: Element): Reaction[] {
+  const reactions: Reaction[] = [];
+  $(item)
+    .find('.tgme_widget_message_reactions .tgme_reaction')
+    .each((_index, reaction) => {
+      const isPaid = $(reaction).hasClass('tgme_reaction_paid');
+
+      let emoji = '';
+      let emojiId: string | undefined;
+
+      // Check for standard emoji in <i class="emoji"><b>emoji</b></i>
+      const standardEmoji = $(reaction).find('.emoji b');
+      if (standardEmoji.length) {
+        emoji = normalizeEmoji(standardEmoji.text().trim());
+      }
+
+      // Check for custom tg-emoji
+      const tgEmoji = $(reaction).find('tg-emoji');
+      if (tgEmoji.length && !emoji) {
+        emojiId = tgEmoji.attr('emoji-id');
+        // tg-emoji might have nested emoji or be empty
+        const nestedEmoji = tgEmoji.find('.emoji b');
+        if (nestedEmoji.length) {
+          emoji = normalizeEmoji(nestedEmoji.text().trim());
+        } else if (emojiId && EMOJI_ID_FALLBACK[emojiId]) {
+          // Use fallback mapping for known custom emojis
+          emoji = EMOJI_ID_FALLBACK[emojiId];
+        }
+      }
+
+      // For paid reactions, use star emoji
+      if (isPaid && !emoji) {
+        emoji = '⭐';
+      }
+
+      // Extract count - get text content and remove emoji
+      const clone = $(reaction).clone();
+      clone.find('.emoji, tg-emoji, i').remove();
+      const count = clone.text().trim();
+
+      if (count) {
+        reactions.push({
+          emoji: emoji || '👍', // fallback emoji
+          emojiId,
+          count,
+          isPaid,
+        });
+      }
+    });
+
+  return reactions;
+}
+
 function getPost($: CheerioAPI, item: Element | null, { channel, staticProxy, index = 0 }: ContentProcessorConfig & { channel: string }): Post {
   const messageItem = item ? $(item).find('.tgme_widget_message') : $('.tgme_widget_message');
   const content =
@@ -352,6 +454,7 @@ function getPost($: CheerioAPI, item: Element | null, { channel, staticProxy, in
         }
         return `${p1}${staticProxy}${p2}`;
       }),
+    reactions: getReactions($, messageItem as Element),
   };
 }
 

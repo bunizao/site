@@ -4,6 +4,12 @@ import * as cheerio from 'cheerio';
  * Extract the first image URL from HTML content
  */
 export function getFirstImage(content: string): string | null {
+  const $ = cheerio.load(content);
+  const img = $('.image-preview-wrap img').first();
+  const src = img.attr('src');
+  if (src) return src;
+
+  // Fallback to simple regex match
   const match = content.match(/<img[^>]+src="([^">]+)"/);
   return match ? match[1] : null;
 }
@@ -164,6 +170,15 @@ export function groupByDate<T extends { datetime: string }>(items: T[]): Map<str
 }
 
 /**
+ * Reaction data structure
+ */
+export interface ReactionData {
+  emoji: string;
+  count: string;
+  isPaid: boolean;
+}
+
+/**
  * Mood data structure for API responses
  */
 export interface MoodData {
@@ -174,4 +189,5 @@ export interface MoodData {
   image?: string | null;
   mediaHtml?: string;
   needsDetailPage?: boolean;
+  reactions?: ReactionData[];
 }
