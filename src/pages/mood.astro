@@ -336,14 +336,21 @@ const description = "Thoughts and moments from my Telegram channel";
     display: flex;
     flex-direction: column;
     gap: 0;
-    max-width: 400px;
+    width: 100%;
+    max-width: 320px;
     border: 1px solid hsl(var(--foreground) / 0.1);
-    border-radius: 10px;
+    border-radius: 8px;
     background: hsl(var(--background));
     text-decoration: none;
     color: inherit;
     overflow: hidden;
-    transition: border-color 0.2s ease;
+    transition: border-color 0.15s ease;
+  }
+
+  @media (min-width: 640px) {
+    :global(.mood-item-media .bookmark-card) {
+      max-width: 360px;
+    }
   }
 
   :global(.mood-item-media .bookmark-card:hover) {
@@ -352,12 +359,11 @@ const description = "Thoughts and moments from my Telegram channel";
 
   :global(.mood-item-media .bookmark-card__media) {
     width: 100%;
-    background: hsl(var(--foreground) / 0.04);
+    background: hsl(var(--foreground) / 0.03);
   }
 
   :global(.mood-item-media .bookmark-card__media img) {
     width: 100%;
-    height: auto;
     display: block;
     object-fit: cover;
     aspect-ratio: 1.91 / 1;
@@ -367,18 +373,17 @@ const description = "Thoughts and moments from my Telegram channel";
     display: flex;
     flex-direction: column;
     gap: 2px;
-    padding: 10px 12px;
-    min-width: 0;
+    padding: 8px 10px;
   }
 
   :global(.mood-item-media .bookmark-card__title) {
     font-size: 13px;
-    font-weight: 600;
-    line-height: 1.4;
-    display: -webkit-box;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 1;
+    font-weight: 500;
+    line-height: 1.35;
+    color: hsl(var(--foreground));
+    white-space: nowrap;
     overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   :global(.mood-item-media .bookmark-card__description) {
@@ -387,14 +392,13 @@ const description = "Thoughts and moments from my Telegram channel";
     line-height: 1.4;
     display: -webkit-box;
     -webkit-box-orient: vertical;
-    -webkit-line-clamp: 2;
+    -webkit-line-clamp: 1;
     overflow: hidden;
   }
 
   :global(.mood-item-media .bookmark-card__meta) {
     font-size: 11px;
-    color: hsl(var(--muted-foreground) / 0.6);
-    margin-top: 2px;
+    color: hsl(var(--muted-foreground) / 0.5);
   }
 
   :global(.mood-item-text) {

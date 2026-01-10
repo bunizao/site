@@ -346,15 +346,22 @@ const description = post ? post.text.slice(0, 160) : 'Mood not found.';
     display: flex;
     flex-direction: column;
     gap: 0;
-    max-width: 480px;
-    margin: 1.5em 0;
-    border: 1px solid hsl(var(--foreground) / 0.12);
-    border-radius: 10px;
+    width: 100%;
+    max-width: 400px;
+    margin: 1.25em 0;
+    border: 1px solid hsl(var(--foreground) / 0.1);
+    border-radius: 8px;
     background: hsl(var(--background));
     text-decoration: none;
     color: inherit;
     overflow: hidden;
-    transition: border-color 0.2s ease;
+    transition: border-color 0.15s ease;
+  }
+
+  @media (min-width: 640px) {
+    .mood-post-content :global(.bookmark-card) {
+      max-width: 440px;
+    }
   }
 
   .mood-post-content :global(.bookmark-card:hover) {
@@ -368,12 +375,11 @@ const description = post ? post.text.slice(0, 160) : 'Mood not found.';
 
   .mood-post-content :global(.bookmark-card__media) {
     width: 100%;
-    background: hsl(var(--foreground) / 0.04);
+    background: hsl(var(--foreground) / 0.03);
   }
 
   .mood-post-content :global(.bookmark-card__media img) {
     width: 100%;
-    height: auto;
     display: block;
     object-fit: cover;
     aspect-ratio: 1.91 / 1;
@@ -383,18 +389,17 @@ const description = post ? post.text.slice(0, 160) : 'Mood not found.';
     display: flex;
     flex-direction: column;
     gap: 2px;
-    padding: 12px 14px;
-    min-width: 0;
+    padding: 10px 12px;
   }
 
   .mood-post-content :global(.bookmark-card__title) {
     font-size: 14px;
-    font-weight: 600;
-    line-height: 1.4;
-    display: -webkit-box;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 1;
+    font-weight: 500;
+    line-height: 1.35;
+    color: hsl(var(--foreground));
+    white-space: nowrap;
     overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .mood-post-content :global(.bookmark-card__description) {
@@ -409,7 +414,7 @@ const description = post ? post.text.slice(0, 160) : 'Mood not found.';
 
   .mood-post-content :global(.bookmark-card__meta) {
     font-size: 12px;
-    color: hsl(var(--muted-foreground) / 0.6);
+    color: hsl(var(--muted-foreground) / 0.5);
     margin-top: 2px;
   }
 
