@@ -418,10 +418,22 @@ const description = "Thoughts and moments from my Telegram channel";
 
   :global(.mood-item-thumb) {
     width: 100%;
-    max-width: 280px;
+    max-width: 400px;
     border-radius: 8px;
     overflow: hidden;
     background: hsl(var(--foreground) / 0.03);
+  }
+
+  @media (min-width: 640px) {
+    :global(.mood-item-thumb) {
+      max-width: 480px;
+    }
+  }
+
+  @media (min-width: 1024px) {
+    :global(.mood-item-thumb) {
+      max-width: 560px;
+    }
   }
 
   :global(.mood-item-thumb img) {

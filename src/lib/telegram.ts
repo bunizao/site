@@ -78,6 +78,19 @@ function escapeHtml(value: string = ''): string {
   });
 }
 
+/**
+ * Upgrade image URL to higher quality by modifying the width parameter
+ */
+function upgradeImageQuality(url: string): string {
+  if (!url) return url;
+  // Remove existing width parameter and add higher quality one
+  // Telegram CDN supports ?w= parameter for width
+  const cleanUrl = url.replace(/[?&]w=\d+/g, '');
+  const separator = cleanUrl.includes('?') ? '&' : '?';
+  // Request 1280px width for better quality on desktop
+  return `${cleanUrl}${separator}w=1280`;
+}
+
 function truncateText(value: string, maxLength: number): string {
   if (value.length <= maxLength) {
     return value;
@@ -139,6 +152,8 @@ function getImages($: CheerioAPI, item: Element, { staticProxy, id, index, title
     ?.map((_index, photo) => {
       const style = $(photo).attr('style') ?? '';
       const url = style.match(/url\(["'](.*?)["']/)?.[1];
+      // Upgrade to higher quality image
+      const highQualityUrl = upgradeImageQuality(url ?? '');
       const widthMatch = style.match(/width:\s*(\d+)px/i);
       const imageWidth = widthMatch ? Number.parseInt(widthMatch[1], 10) : 0;
       const widthStyle = imageWidth ? ` style="--image-width:${imageWidth}px"` : '';
@@ -146,10 +161,10 @@ function getImages($: CheerioAPI, item: Element, { staticProxy, id, index, title
       const popoverId = `modal-${id}-${_index}`;
       return `
       <button class="image-preview-button image-preview-wrap" popovertarget="${popoverId}" popovertargetaction="show"${widthStyle}>
-        <img src="${staticProxy + url}" alt="${title}" loading="${(index ?? 0) > 15 ? 'eager' : 'lazy'}"${widthAttr} />
+        <img src="${staticProxy + highQualityUrl}" alt="${title}" loading="${(index ?? 0) > 15 ? 'eager' : 'lazy'}"${widthAttr} />
       </button>
       <button class="image-preview-button modal" id="${popoverId}" popovertarget="${popoverId}" popovertargetaction="hide" popover>
-        <img class="modal-img" src="${staticProxy + url}" alt="${title}" loading="lazy" />
+        <img class="modal-img" src="${staticProxy + highQualityUrl}" alt="${title}" loading="lazy" />
       </button>
     `;
     })
@@ -356,7 +371,8 @@ export async function getChannelInfo(
 
   const host = getEnv(import.meta.env, Astro, 'TELEGRAM_HOST') || 't.me';
   const channel = getEnv(import.meta.env, Astro, 'CHANNEL');
-  const staticProxy = getEnv(import.meta.env, Astro, 'STATIC_PROXY') || '';
+  // Always use local static proxy for Telegram media
+  const staticProxy = '/static/';
 
   const url = id ? `https://${host}/${channel}/${id}?embed=1&mode=tme` : `https://${host}/s/${channel}`;
   const headers = Object.fromEntries(Astro.request.headers);
