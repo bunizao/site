@@ -513,8 +513,16 @@ const description = "Thoughts and moments from my Telegram channel";
   }
 
   :global(.mood-reaction-emoji) {
+    display: inline-flex;
+    align-items: center;
     font-size: 14px;
     line-height: 1;
+  }
+
+  :global(.mood-reaction-emoji img) {
+    width: 1em;
+    height: 1em;
+    display: block;
   }
 
   :global(.mood-reaction-count) {
@@ -689,6 +697,7 @@ const description = "Thoughts and moments from my Telegram channel";
 
     interface ReactionData {
       emoji: string;
+      emojiImage?: string;
       count: string;
       isPaid: boolean;
     }
@@ -767,7 +776,27 @@ const description = "Thoughts and moments from my Telegram channel";
         mood.reactions.forEach((reaction) => {
           const pill = document.createElement('span');
           pill.className = reaction.isPaid ? 'mood-reaction mood-reaction--paid' : 'mood-reaction';
-          pill.innerHTML = `<span class="mood-reaction-emoji">${reaction.isPaid ? '⭐' : reaction.emoji}</span><span class="mood-reaction-count">${reaction.count}</span>`;
+          const emojiSpan = document.createElement('span');
+          emojiSpan.className = 'mood-reaction-emoji';
+          if (reaction.isPaid) {
+            emojiSpan.textContent = '⭐';
+          } else if (reaction.emojiImage) {
+            const img = document.createElement('img');
+            img.src = reaction.emojiImage;
+            img.alt = reaction.emoji || 'emoji';
+            img.loading = 'lazy';
+            img.decoding = 'async';
+            img.width = 16;
+            img.height = 16;
+            emojiSpan.appendChild(img);
+          } else {
+            emojiSpan.textContent = reaction.emoji;
+          }
+          const count = document.createElement('span');
+          count.className = 'mood-reaction-count';
+          count.textContent = reaction.count;
+          pill.appendChild(emojiSpan);
+          pill.appendChild(count);
           reactionsWrap.appendChild(pill);
         });
         content.appendChild(reactionsWrap);

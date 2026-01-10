@@ -36,6 +36,7 @@ import 'prismjs-components-importer/cjs/prism-yaml';
 export interface Reaction {
   emoji: string;
   emojiId?: string;
+  emojiImage?: string;
   count: string;
   isPaid: boolean;
 }
@@ -293,6 +294,19 @@ function getReply($: CheerioAPI, item: Element, { channel }: ContentProcessorCon
 function modifyHTMLContent($: CheerioAPI, content: any, { index }: { index?: number } = {}): any {
   $(content).find('.emoji')?.removeAttr('style');
   $(content)
+    .find('tg-emoji')
+    ?.each((_index, emojiEl) => {
+      const emojiId = $(emojiEl).attr('emoji-id');
+      const nestedFallback = extractTgEmojiFallback($, emojiEl);
+      const fallback = nestedFallback || getEmojiFallback(emojiId);
+      if (emojiId && fallback) {
+        setEmojiFallback(emojiId, fallback);
+      }
+      if (!nestedFallback && fallback) {
+        $(emojiEl).text(fallback);
+      }
+    });
+  $(content)
     .find('a')
     ?.each((_index, a) => {
       $(a)?.attr('title', $(a)?.text())?.removeAttr('onclick');
@@ -337,7 +351,6 @@ const EMOJI_ID_FALLBACK: Record<string, string> = {
   '5006239808935167310': '🚗',
   '5472105307985419058': '☝️',
   '5375338737028841420': '🤩',
-  '5203954737166164311': '✨', // Custom emoji fallback
 };
 
 // Normalize emoji variants (e.g., ❤ → ❤️)
@@ -351,60 +364,124 @@ function normalizeEmoji(emoji: string): string {
   return emojiMap[emoji] || emoji;
 }
 
-function getReactions($: CheerioAPI, item: Element): Reaction[] {
-  const reactions: Reaction[] = [];
-  $(item)
-    .find('.tgme_widget_message_reactions .tgme_reaction')
-    .each((_index, reaction) => {
-      const isPaid = $(reaction).hasClass('tgme_reaction_paid');
+const customEmojiFallback = new Map<string, string>(Object.entries(EMOJI_ID_FALLBACK));
 
-      let emoji = '';
-      let emojiId: string | undefined;
+interface CustomEmojiResponse {
+  type?: string;
+  emoji?: string;
+  thumb?: string;
+}
 
-      // Check for standard emoji in <i class="emoji"><b>emoji</b></i>
-      const standardEmoji = $(reaction).find('.emoji b');
-      if (standardEmoji.length) {
-        emoji = normalizeEmoji(standardEmoji.text().trim());
+const customEmojiCache = new LRUCache<string, CustomEmojiResponse>({
+  ttl: 1000 * 60 * 60 * 24, // 24 hours
+  max: 500,
+});
+
+function getEmojiFallback(emojiId?: string): string {
+  if (!emojiId) return '';
+  return customEmojiFallback.get(emojiId) || '';
+}
+
+function setEmojiFallback(emojiId: string, emoji: string): void {
+  if (!emojiId || !emoji) return;
+  customEmojiFallback.set(emojiId, emoji);
+}
+
+function extractTgEmojiFallback($: CheerioAPI, emojiEl: Element): string {
+  const nestedEmoji = $(emojiEl).find('.emoji b').text().trim();
+  if (nestedEmoji) {
+    return normalizeEmoji(nestedEmoji);
+  }
+  const attrEmoji = $(emojiEl).attr('emoji') ?? $(emojiEl).attr('alt') ?? '';
+  if (attrEmoji) {
+    return normalizeEmoji(attrEmoji.trim());
+  }
+  return '';
+}
+
+async function getCustomEmojiImage(emojiId: string, staticProxy: string): Promise<string | null> {
+  if (!emojiId) return null;
+  const cached = customEmojiCache.get(emojiId);
+  if (cached?.thumb) {
+    return `${staticProxy}${cached.thumb}`;
+  }
+  try {
+    const data = await $fetch<CustomEmojiResponse>(`https://t.me/i/emoji/${emojiId}.json`);
+    if (data) {
+      customEmojiCache.set(emojiId, data);
+      if (data.thumb) {
+        return `${staticProxy}${data.thumb}`;
       }
+    }
+  } catch (error) {
+    console.error('Failed to load custom emoji metadata', emojiId, error);
+  }
+  return null;
+}
 
-      // Check for custom tg-emoji
-      const tgEmoji = $(reaction).find('tg-emoji');
-      if (tgEmoji.length && !emoji) {
-        emojiId = tgEmoji.attr('emoji-id');
-        // tg-emoji might have nested emoji or be empty
-        const nestedEmoji = tgEmoji.find('.emoji b');
-        if (nestedEmoji.length) {
-          emoji = normalizeEmoji(nestedEmoji.text().trim());
-        } else if (emojiId && EMOJI_ID_FALLBACK[emojiId]) {
-          // Use fallback mapping for known custom emojis
-          emoji = EMOJI_ID_FALLBACK[emojiId];
+async function getReactions($: CheerioAPI, item: Element, staticProxy: string): Promise<Reaction[]> {
+  const reactions: Reaction[] = [];
+  const reactionNodes = $(item).find('.tgme_widget_message_reactions .tgme_reaction').toArray();
+
+  for (const reaction of reactionNodes) {
+    const isPaid = $(reaction).hasClass('tgme_reaction_paid');
+    let emoji = '';
+    let emojiId: string | undefined;
+    let emojiImage: string | undefined;
+
+    // Check for standard emoji in <i class="emoji"><b>emoji</b></i>
+    const standardEmoji = $(reaction).find('.emoji b');
+    if (standardEmoji.length) {
+      emoji = normalizeEmoji(standardEmoji.text().trim());
+    }
+
+    // Check for custom tg-emoji
+    const tgEmoji = $(reaction).find('tg-emoji');
+    if (tgEmoji.length && !emoji) {
+      emojiId = tgEmoji.attr('emoji-id');
+      if (emojiId) {
+        const nestedFallback = extractTgEmojiFallback($, tgEmoji.get(0));
+        emoji = nestedFallback || getEmojiFallback(emojiId);
+        if (emoji) {
+          setEmojiFallback(emojiId, emoji);
+        } else {
+          const imageUrl = await getCustomEmojiImage(emojiId, staticProxy);
+          if (imageUrl) {
+            emojiImage = imageUrl;
+          }
         }
       }
+    }
 
-      // For paid reactions, use star emoji
-      if (isPaid && !emoji) {
-        emoji = '⭐';
-      }
+    // For paid reactions, use star emoji
+    if (isPaid && !emoji && !emojiImage) {
+      emoji = '⭐';
+    }
 
-      // Extract count - get text content and remove emoji
-      const clone = $(reaction).clone();
-      clone.find('.emoji, tg-emoji, i').remove();
-      const count = clone.text().trim();
+    // Extract count - get text content and remove emoji
+    const clone = $(reaction).clone();
+    clone.find('.emoji, tg-emoji, i').remove();
+    const count = clone.text().trim();
 
-      if (count) {
-        reactions.push({
-          emoji: emoji || '👍', // fallback emoji
-          emojiId,
-          count,
-          isPaid,
-        });
-      }
-    });
+    if (count) {
+      reactions.push({
+        emoji: emoji || (emojiImage ? '' : '👍'),
+        emojiId,
+        emojiImage,
+        count,
+        isPaid,
+      });
+    }
+  }
 
   return reactions;
 }
 
-function getPost($: CheerioAPI, item: Element | null, { channel, staticProxy, index = 0 }: ContentProcessorConfig & { channel: string }): Post {
+async function getPost(
+  $: CheerioAPI,
+  item: Element | null,
+  { channel, staticProxy, index = 0 }: ContentProcessorConfig & { channel: string }
+): Promise<Post> {
   const messageItem = item ? $(item).find('.tgme_widget_message') : $('.tgme_widget_message');
   const content =
     $(messageItem).find('.js-message_reply_text')?.length > 0
@@ -454,7 +531,7 @@ function getPost($: CheerioAPI, item: Element | null, { channel, staticProxy, in
         }
         return `${p1}${staticProxy}${p2}`;
       }),
-    reactions: getReactions($, messageItem as Element),
+    reactions: await getReactions($, messageItem as Element, staticProxy),
   };
 }
 
@@ -500,16 +577,18 @@ export async function getChannelInfo(
 
   const $ = cheerio.load(html, {}, false);
   if (id) {
-    const post = getPost($, null, { channel, staticProxy });
+    const post = await getPost($, null, { channel, staticProxy });
     cache.set(cacheKey, post);
     return post;
   }
   const posts =
-    $('.tgme_channel_history  .tgme_widget_message_wrap')
-      ?.map((index, item) => {
-        return getPost($, item, { channel, staticProxy, index });
-      })
-      ?.get()
+    (await Promise.all(
+      $('.tgme_channel_history  .tgme_widget_message_wrap')
+        ?.map((index, item) => {
+          return getPost($, item, { channel, staticProxy, index });
+        })
+        ?.get() ?? []
+    ))
       ?.reverse()
       .filter((post: Post) => ['text'].includes(post.type) && post.id && post.content) ?? [];
 
