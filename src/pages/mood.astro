@@ -1,44 +1,10 @@
 ---
 import Layout from '../layouts/Layout.astro';
-import { getChannelInfo, type ChannelInfo } from '../lib/telegram';
-import {
-  getFirstImage,
-  getInlineMediaPreview,
-  getTextPreview,
-  hasMedia,
-  isLongContent,
-  formatTime,
-  formatDateHeader,
-  groupByDate,
-} from '../lib/mood-utils';
 
 export const prerender = false;
 
 const title = "Moods | Bunizao's Website";
 const description = "Thoughts and moments from my Telegram channel";
-
-let moods: any[] = [];
-let error = false;
-const before = Astro.url.searchParams.get('before') ?? '';
-const after = Astro.url.searchParams.get('after') ?? '';
-const pageBefore = before && !after ? before : '';
-const pageAfter = after && !before ? after : '';
-
-try {
-  const result = await getChannelInfo(Astro, { type: 'list', before: pageBefore, after: pageAfter }) as ChannelInfo;
-  moods = [...result.posts].sort((a, b) => Number.parseInt(b.id, 10) - Number.parseInt(a.id, 10));
-} catch (e) {
-  console.error('Failed to fetch moods:', e);
-  error = true;
-}
-
-const groupedMoods = groupByDate(moods);
-const newestId = moods[0]?.id ?? '';
-const oldestId = moods[moods.length - 1]?.id ?? '';
-const hasOlder = Number.parseInt(oldestId, 10) > 1;
-const hasNewer = Boolean(pageBefore || pageAfter);
-const newerHref = hasNewer && newestId ? `?after=${encodeURIComponent(newestId)}` : '';
-const olderHref = hasOlder && oldestId ? `?before=${encodeURIComponent(oldestId)}` : '';
 ---
 
 <Layout title={title} description={description}>
@@ -50,104 +16,27 @@ const olderHref = hasOlder && oldestId ? `?before=${encodeURIComponent(oldestId)
         <p class="mood-page-desc">Thoughts and moments from my Telegram channel</p>
       </div>
 
-      {error ? (
-        <p class="text-sm text-muted-foreground">Unable to load moods. Please try again later.</p>
-      ) : moods.length > 0 ? (
-        <div class="mood-feed">
-          <div class="mood-stream" data-mood-list>
-            {Array.from(groupedMoods.entries()).map(([dateKey, dateMoods], groupIndex) => (
-              <div class="mood-date-group" data-date={dateKey}>
-                <div class="mood-date-header">
-                  <span class="mood-date-text">{formatDateHeader(dateKey)}</span>
-                  <div class="mood-date-line"></div>
-                </div>
-                <div class="mood-date-items">
-                  {dateMoods.map((mood, index) => {
-                    const mediaPreview = getInlineMediaPreview(mood.content);
-                    const mediaHtml = mediaPreview?.html;
-                    const firstImage = mediaPreview ? null : getFirstImage(mood.content);
-                    const textPreview = getTextPreview(mood);
-                    const firstTag = mood.tags?.[0];
-                    const needsDetailPage = !mediaPreview && (hasMedia(mood.content) || isLongContent(textPreview));
-                    const globalIndex = groupIndex * 10 + index;
-
-                    return needsDetailPage ? (
-                      <a
-                        href={`/mood/${mood.id}`}
-                        class="mood-item mood-item--clickable"
-                        data-mood-id={mood.id}
-                        style={`--item-index: ${globalIndex}`}
-                      >
-                        <time datetime={mood.datetime} class="mood-item-time">
-                          {formatTime(mood.datetime)}
-                        </time>
-                        <div class="mood-item-content">
-                          <p class="mood-item-text">{textPreview}</p>
-                          {mediaHtml && (
-                            <div class="mood-item-media" set:html={mediaHtml} />
-                          )}
-                          {!mediaHtml && firstImage && (
-                            <div class="mood-item-thumb">
-                              <img src={firstImage} alt="" loading="lazy" />
-                            </div>
-                          )}
-                          {firstTag && (
-                            <span class="mood-item-tag">#{firstTag}</span>
-                          )}
-                        </div>
-                      </a>
-                    ) : (
-                      <div
-                        class="mood-item"
-                        data-mood-id={mood.id}
-                        style={`--item-index: ${globalIndex}`}
-                      >
-                        <time datetime={mood.datetime} class="mood-item-time">
-                          {formatTime(mood.datetime)}
-                        </time>
-                        <div class="mood-item-content">
-                          <p class="mood-item-text">{textPreview}</p>
-                          {mediaHtml && (
-                            <div class="mood-item-media" set:html={mediaHtml} />
-                          )}
-                          {!mediaHtml && firstImage && (
-                            <div class="mood-item-thumb">
-                              <img src={firstImage} alt="" loading="lazy" />
-                            </div>
-                          )}
-                          {firstTag && (
-                            <span class="mood-item-tag">#{firstTag}</span>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            ))}
-          </div>
-          <div class="mood-load-controls">
-            <button type="button" class="mood-load-button" data-load-more>Load more</button>
-            <p class="mood-load-status" data-load-status aria-live="polite"></p>
-          </div>
-          <nav class="mood-pagination" aria-label="Mood pagination">
-            {newerHref ? (
-              <a class="mood-page-link" href={newerHref} rel="prev">Newer</a>
-            ) : (
-              <span class="mood-page-placeholder" aria-hidden="true"></span>
-            )}
-            <span class="mood-page-label">Page</span>
-            {olderHref ? (
-              <a class="mood-page-link" href={olderHref} rel="next">Older</a>
-            ) : (
-              <span class="mood-page-placeholder" aria-hidden="true"></span>
-            )}
-          </nav>
-          <div class="mood-sentinel" data-mood-sentinel aria-hidden="true"></div>
+      <div class="mood-loading" data-mood-loading>
+        <div class="mood-loading-spinner">
+          <div class="mood-loading-dot"></div>
+          <div class="mood-loading-dot"></div>
+          <div class="mood-loading-dot"></div>
         </div>
-      ) : (
-        <p class="text-sm text-muted-foreground">No moods yet.</p>
-      )}
+        <p class="mood-loading-text">Loading moods...</p>
+      </div>
+
+      <div class="mood-error is-hidden" data-mood-error>
+        <p class="text-sm text-muted-foreground">Unable to load moods. Please try again later.</p>
+      </div>
+
+      <div class="mood-feed is-hidden" data-mood-feed>
+        <div class="mood-stream" data-mood-list></div>
+        <div class="mood-load-controls">
+          <button type="button" class="mood-load-button" data-load-more>Load more</button>
+          <p class="mood-load-status" data-load-status aria-live="polite"></p>
+        </div>
+        <div class="mood-sentinel" data-mood-sentinel aria-hidden="true"></div>
+      </div>
     </div>
   </main>
 </Layout>
@@ -206,6 +95,77 @@ const olderHref = hasOlder && oldestId ? `?before=${encodeURIComponent(oldestId)
     .mood-page-desc {
       font-size: 15px;
     }
+  }
+
+  /* Loading State */
+  .mood-loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+    padding: 80px 0;
+  }
+
+  .mood-loading.is-hidden {
+    display: none;
+  }
+
+  .mood-loading-spinner {
+    display: flex;
+    gap: 6px;
+  }
+
+  .mood-loading-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: hsl(var(--foreground) / 0.3);
+    animation: loading-bounce 1.4s ease-in-out infinite both;
+  }
+
+  .mood-loading-dot:nth-child(1) {
+    animation-delay: -0.32s;
+  }
+
+  .mood-loading-dot:nth-child(2) {
+    animation-delay: -0.16s;
+  }
+
+  .mood-loading-dot:nth-child(3) {
+    animation-delay: 0s;
+  }
+
+  @keyframes loading-bounce {
+    0%, 80%, 100% {
+      transform: scale(0.6);
+      opacity: 0.4;
+    }
+    40% {
+      transform: scale(1);
+      opacity: 1;
+    }
+  }
+
+  .mood-loading-text {
+    font-size: 13px;
+    color: hsl(var(--muted-foreground) / 0.6);
+    letter-spacing: 0.02em;
+  }
+
+  /* Error State */
+  .mood-error {
+    padding: 60px 0;
+    text-align: center;
+  }
+
+  .mood-error.is-hidden {
+    display: none;
+  }
+
+  /* Feed Hidden State */
+  .mood-feed.is-hidden {
+    display: none;
   }
 
   /* Stream Layout */
@@ -375,40 +335,39 @@ const olderHref = hasOlder && oldestId ? `?before=${encodeURIComponent(oldestId)
   :global(.mood-item-media .bookmark-card) {
     display: flex;
     flex-direction: column;
-    gap: 10px;
-    padding: 10px;
+    gap: 0;
+    max-width: 400px;
     border: 1px solid hsl(var(--foreground) / 0.1);
     border-radius: 10px;
     background: hsl(var(--background));
     text-decoration: none;
     color: inherit;
-    transition: border-color 0.2s ease, transform 0.2s ease;
+    overflow: hidden;
+    transition: border-color 0.2s ease;
   }
 
   :global(.mood-item-media .bookmark-card:hover) {
     border-color: hsl(var(--foreground) / 0.2);
-    transform: translateY(-1px);
   }
 
   :global(.mood-item-media .bookmark-card__media) {
     width: 100%;
-    border-radius: 8px;
-    overflow: hidden;
     background: hsl(var(--foreground) / 0.04);
   }
 
   :global(.mood-item-media .bookmark-card__media img) {
     width: 100%;
-    height: 100%;
+    height: auto;
     display: block;
     object-fit: cover;
-    aspect-ratio: 4 / 3;
+    aspect-ratio: 1.91 / 1;
   }
 
   :global(.mood-item-media .bookmark-card__content) {
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: 2px;
+    padding: 10px 12px;
     min-width: 0;
   }
 
@@ -416,12 +375,16 @@ const olderHref = hasOlder && oldestId ? `?before=${encodeURIComponent(oldestId)
     font-size: 13px;
     font-weight: 600;
     line-height: 1.4;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 1;
+    overflow: hidden;
   }
 
   :global(.mood-item-media .bookmark-card__description) {
     font-size: 12px;
     color: hsl(var(--muted-foreground));
-    line-height: 1.5;
+    line-height: 1.4;
     display: -webkit-box;
     -webkit-box-orient: vertical;
     -webkit-line-clamp: 2;
@@ -430,19 +393,8 @@ const olderHref = hasOlder && oldestId ? `?before=${encodeURIComponent(oldestId)
 
   :global(.mood-item-media .bookmark-card__meta) {
     font-size: 11px;
-    color: hsl(var(--muted-foreground) / 0.8);
-  }
-
-  @media (min-width: 560px) {
-    :global(.mood-item-media .bookmark-card) {
-      flex-direction: row;
-      align-items: center;
-    }
-
-    :global(.mood-item-media .bookmark-card__media) {
-      width: 140px;
-      flex-shrink: 0;
-    }
+    color: hsl(var(--muted-foreground) / 0.6);
+    margin-top: 2px;
   }
 
   :global(.mood-item-text) {
@@ -535,45 +487,6 @@ const olderHref = hasOlder && oldestId ? `?before=${encodeURIComponent(oldestId)
     height: 1px;
   }
 
-  :global(.mood-pagination) {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    padding-top: 8px;
-  }
-
-  :global(.mood-page-link) {
-    border: 1px solid hsl(var(--foreground) / 0.1);
-    background: transparent;
-    color: hsl(var(--muted-foreground));
-    padding: 6px 14px;
-    font-size: 12px;
-    border-radius: 999px;
-    text-decoration: none;
-    transition: all 0.15s ease;
-  }
-
-  :global(.mood-page-link:hover) {
-    border-color: hsl(var(--foreground) / 0.2);
-    color: hsl(var(--foreground));
-  }
-
-  :global(.mood-page-link:focus-visible) {
-    outline: 2px solid hsl(var(--foreground) / 0.35);
-    outline-offset: 2px;
-  }
-
-  :global(.mood-page-placeholder) {
-    width: 72px;
-    height: 30px;
-  }
-
-  :global(.mood-page-label) {
-    font-size: 12px;
-    color: hsl(var(--muted-foreground) / 0.5);
-  }
-
   @keyframes fade-in {
     from {
       opacity: 0;
@@ -587,12 +500,15 @@ const olderHref = hasOlder && oldestId ? `?before=${encodeURIComponent(oldestId)
 </style>
 
 <script>
+  const loadingEl = document.querySelector('[data-mood-loading]');
+  const errorEl = document.querySelector('[data-mood-error]');
+  const feedEl = document.querySelector('[data-mood-feed]');
   const list = document.querySelector('[data-mood-list]');
   const loadButton = document.querySelector('[data-load-more]') as HTMLButtonElement | null;
   const status = document.querySelector('[data-load-status]');
   const sentinel = document.querySelector('[data-mood-sentinel]');
 
-  if (list && loadButton && status && sentinel) {
+  if (loadingEl && errorEl && feedEl && list && loadButton && status && sentinel) {
     let isLoading = false;
     let hasMore = true;
     let observer: IntersectionObserver;
@@ -690,7 +606,7 @@ const olderHref = hasOlder && oldestId ? `?before=${encodeURIComponent(oldestId)
       needsDetailPage?: boolean;
     }
 
-    const createMoodItem = (mood: MoodData): HTMLElement => {
+    const createMoodItem = (mood: MoodData, index: number): HTMLElement => {
       const mediaHtml = typeof mood.mediaHtml === 'string' ? mood.mediaHtml.trim() : '';
       const hasMediaHtml = mediaHtml.length > 0;
       const needsDetailPage = typeof mood.needsDetailPage === 'boolean'
@@ -709,7 +625,7 @@ const olderHref = hasOlder && oldestId ? `?before=${encodeURIComponent(oldestId)
       }
 
       element.dataset.moodId = mood.id;
-      element.style.setProperty('--item-index', '0');
+      element.style.setProperty('--item-index', String(index));
 
       const time = document.createElement('time');
       time.className = 'mood-item-time';
@@ -779,7 +695,7 @@ const olderHref = hasOlder && oldestId ? `?before=${encodeURIComponent(oldestId)
       return group;
     };
 
-    const appendMoods = (posts: MoodData[]): void => {
+    const appendMoods = (posts: MoodData[], startIndex = 0): void => {
       const grouped = new Map<string, MoodData[]>();
 
       posts.forEach((post) => {
@@ -790,6 +706,7 @@ const olderHref = hasOlder && oldestId ? `?before=${encodeURIComponent(oldestId)
         grouped.get(dateKey)!.push(post);
       });
 
+      let globalIndex = startIndex;
       grouped.forEach((datePosts, dateKey) => {
         let group = list.querySelector(`[data-date="${dateKey}"]`);
 
@@ -801,7 +718,8 @@ const olderHref = hasOlder && oldestId ? `?before=${encodeURIComponent(oldestId)
         const itemsContainer = group.querySelector('.mood-date-items');
         if (itemsContainer) {
           datePosts.forEach((post) => {
-            itemsContainer.appendChild(createMoodItem(post));
+            itemsContainer.appendChild(createMoodItem(post, globalIndex));
+            globalIndex++;
           });
         }
       });
@@ -813,6 +731,58 @@ const olderHref = hasOlder && oldestId ? `?before=${encodeURIComponent(oldestId)
       setStatus('No more moods.');
       if (observer) {
         observer.disconnect();
+      }
+    };
+
+    const showError = (): void => {
+      loadingEl.classList.add('is-hidden');
+      feedEl.classList.add('is-hidden');
+      errorEl.classList.remove('is-hidden');
+    };
+
+    const showFeed = (): void => {
+      loadingEl.classList.add('is-hidden');
+      errorEl.classList.add('is-hidden');
+      feedEl.classList.remove('is-hidden');
+    };
+
+    const loadInitial = async (): Promise<void> => {
+      try {
+        const response = await fetch('/api/moods');
+        if (!response.ok) {
+          throw new Error('Failed to load moods.');
+        }
+
+        const data = await response.json() as { posts: MoodData[] };
+        const posts = Array.isArray(data.posts) ? data.posts : [];
+
+        if (!posts.length) {
+          showFeed();
+          handleNoMore();
+          setStatus('No moods yet.');
+          return;
+        }
+
+        appendMoods(posts, 0);
+        showFeed();
+
+        observer = new IntersectionObserver(
+          (entries) => {
+            entries.forEach((entry) => {
+              if (entry.isIntersecting) {
+                loadMore();
+              }
+            });
+          },
+          {
+            rootMargin: '300px 0px',
+          }
+        );
+
+        observer.observe(sentinel);
+      } catch (error) {
+        console.error(error);
+        showError();
       }
     };
 
@@ -845,11 +815,12 @@ const olderHref = hasOlder && oldestId ? `?before=${encodeURIComponent(oldestId)
             .filter(Boolean) as string[]
         );
         const uniquePosts = posts.filter((post) => post?.id && !existingIds.has(post.id));
+        const currentCount = list.querySelectorAll('[data-mood-id]').length;
 
         if (!posts.length || !uniquePosts.length) {
           handleNoMore();
         } else {
-          appendMoods(uniquePosts);
+          appendMoods(uniquePosts, currentCount);
           setStatus('');
         }
       } catch (error) {
@@ -863,19 +834,6 @@ const olderHref = hasOlder && oldestId ? `?before=${encodeURIComponent(oldestId)
 
     loadButton.addEventListener('click', loadMore);
 
-    observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            loadMore();
-          }
-        });
-      },
-      {
-        rootMargin: '300px 0px',
-      }
-    );
-
-    observer.observe(sentinel);
+    loadInitial();
   }
 </script>
