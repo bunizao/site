@@ -2,7 +2,7 @@
   "routes": [
     { "handle": "filesystem" },
     {
-      "src": "/(?!mood(?:/|$)|api/moods(?:/|$)|_server-islands(?:/|$)|_astro(?:/|$)|_image(?:/|$)|fonts(?:/|$)|favicon\\.ico$|og\\.png$|robots\\.txt$|avatar\\.webp$|_redirects$)(.*)",
+      "src": "/(?!mood(?:/|$)|api/moods(?:/|$)|static(?:/|$)|_server-islands(?:/|$)|_astro(?:/|$)|_image(?:/|$)|fonts(?:/|$)|favicon\\.ico$|og\\.png$|robots\\.txt$|avatar\\.webp$|_redirects$)(.*)",
       "status": 308,
       "headers": {
         "Location": "https://blog.buxx.me/$1"
