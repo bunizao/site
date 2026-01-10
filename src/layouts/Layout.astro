@@ -55,7 +55,15 @@ const ogImageType = ogImageUrl.endsWith('.png')
 
     <script is:inline>
       document.documentElement.classList.add('js');
-      const storedTheme = localStorage.getItem('theme');
+      const storageKey = 'theme';
+      const readStoredTheme = () => {
+        try {
+          return localStorage.getItem(storageKey);
+        } catch (error) {
+          return null;
+        }
+      };
+      const storedTheme = readStoredTheme();
       const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
       const theme =
         storedTheme === 'light' || storedTheme === 'dark'
@@ -95,11 +103,28 @@ const ogImageType = ogImageUrl.endsWith('.png')
       const toggle = document.querySelector('[data-theme-toggle]');
       const media = window.matchMedia('(prefers-color-scheme: dark)');
 
-      const getStoredTheme = () => localStorage.getItem(storageKey);
+      const getStoredTheme = () => {
+        try {
+          return localStorage.getItem(storageKey);
+        } catch (error) {
+          return null;
+        }
+      };
+      const setStoredTheme = (theme) => {
+        try {
+          localStorage.setItem(storageKey, theme);
+        } catch (error) {
+          // Ignore storage errors so system preference can still work.
+        }
+      };
       const getPreferredTheme = () => {
         const stored = getStoredTheme();
         if (stored === 'light' || stored === 'dark') return stored;
         return media.matches ? 'dark' : 'light';
+      };
+      const isSystemTheme = () => {
+        const stored = getStoredTheme();
+        return stored !== 'light' && stored !== 'dark';
       };
 
       const updateToggle = (theme) => {
@@ -114,20 +139,27 @@ const ogImageType = ogImageUrl.endsWith('.png')
         updateToggle(theme);
       };
 
+      applyTheme(getPreferredTheme());
+
       if (toggle) {
-        updateToggle(getPreferredTheme());
         toggle.addEventListener('click', () => {
           const nextTheme = getPreferredTheme() === 'dark' ? 'light' : 'dark';
-          localStorage.setItem(storageKey, nextTheme);
+          setStoredTheme(nextTheme);
           applyTheme(nextTheme);
         });
       }
 
-      media.addEventListener('change', () => {
-        if (!getStoredTheme()) {
+      const onSystemThemeChange = () => {
+        if (isSystemTheme()) {
           applyTheme(getPreferredTheme());
         }
-      });
+      };
+
+      if (typeof media.addEventListener === 'function') {
+        media.addEventListener('change', onSystemThemeChange);
+      } else if (typeof media.addListener === 'function') {
+        media.addListener(onSystemThemeChange);
+      }
     </script>
 
     <script>
