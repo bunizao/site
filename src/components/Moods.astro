@@ -456,36 +456,54 @@ const placeholders = Array.from({ length: SKELETON_COUNT });
       if (!list) return;
 
       list.removeAttribute('aria-busy');
-      list.replaceChildren();
 
-      if (errorState) errorState.hidden = true;
-
-      if (!posts.length) {
-        if (emptyState) emptyState.hidden = false;
-        return;
+      // Fade out skeleton items first
+      const skeletons = list.querySelectorAll('.mood-item-skeleton');
+      if (skeletons.length > 0) {
+        gsap.to(skeletons, {
+          opacity: 0,
+          duration: 0.3,
+          ease: 'power2.out',
+          onComplete: () => {
+            list.replaceChildren();
+            showContent();
+          }
+        });
+      } else {
+        list.replaceChildren();
+        showContent();
       }
 
-      if (emptyState) emptyState.hidden = true;
+      function showContent() {
+        if (errorState) errorState.hidden = true;
 
-      // Create items and animate with GSAP
-      const items: HTMLElement[] = [];
-      posts.forEach((post, index) => {
-        const item = createMoodItem(post, index);
-        list.appendChild(item);
-        items.push(item);
-      });
-
-      // Animate items in with GSAP
-      gsap.fromTo(items,
-        { opacity: 0, y: 8 },
-        {
-          opacity: 1,
-          y: 0,
-          duration: 0.5,
-          ease: 'power2.out',
-          stagger: 0.08
+        if (!posts.length) {
+          if (emptyState) emptyState.hidden = false;
+          return;
         }
-      );
+
+        if (emptyState) emptyState.hidden = true;
+
+        // Create items and animate with GSAP
+        const items: HTMLElement[] = [];
+        posts.forEach((post, index) => {
+          const item = createMoodItem(post, index);
+          list.appendChild(item);
+          items.push(item);
+        });
+
+        // Animate items in with GSAP
+        gsap.fromTo(items,
+          { opacity: 0, y: 8 },
+          {
+            opacity: 1,
+            y: 0,
+            duration: 0.5,
+            ease: 'power2.out',
+            stagger: 0.08
+          }
+        );
+      }
     };
 
     const loadMoods = async (): Promise<void> => {
