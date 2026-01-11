@@ -18,10 +18,24 @@ export function getFirstImage(content: string): string | null {
  * Strip HTML tags and convert to plain text
  */
 export function stripHtml(html: string): string {
-  return html
-    .replace(/<br\s*\/?>/gi, '\n')
-    .replace(/<\/(p|div|li|blockquote)>/gi, '\n')
-    .replace(/<[^>]*>/g, '')
+  const $ = cheerio.load(html);
+
+  $('br').replaceWith('\n');
+
+  const blockTags = ['p', 'div', 'li', 'blockquote'];
+  for (const tag of blockTags) {
+    $(tag).each((_index, element) => {
+      const $element = $(element);
+      const lastNode = $element.contents().last();
+
+      if (!lastNode.length || !lastNode.text().endsWith('\n')) {
+        $element.append('\n');
+      }
+    });
+  }
+
+  return $.root()
+    .text()
     .replace(/\n{3,}/g, '\n\n')
     .trim();
 }
