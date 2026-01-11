@@ -102,7 +102,9 @@ const placeholderBars = Array.from({ length: 30 });
     last30Days.forEach((day, index) => {
       const bar = bars[index];
       if (!bar) return;
-      const height = Math.max(4, (day.count / maxCount) * 24);
+      const baseHeight = 8;
+      const dynamicHeight = (day.count / maxCount) * 36;
+      const height = baseHeight + dynamicHeight;
       bar.style.setProperty('--height', `${height}px`);
       bar.style.height = `${height}px`;
     });
