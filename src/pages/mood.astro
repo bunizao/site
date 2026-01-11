@@ -5,15 +5,33 @@ export const prerender = false;
 
 const title = "Moods | Bunizao's Website";
 const description = "Thoughts and moments from my Telegram channel";
+const rss = { href: '/mood/rss.xml', title: 'Moods RSS' };
 ---
 
-<Layout title={title} description={description}>
+<Layout title={title} description={description} rss={rss}>
   <main class="page-container">
     <div class="mood-page">
       <div class="mood-header">
         <a href="/" class="back-link">← Back</a>
         <h1 class="mood-page-title">Moods</h1>
         <p class="mood-page-desc">Thoughts and moments from my Telegram channel</p>
+        <div class="mood-header-actions">
+          <a class="mood-action-button mood-action-button--secondary" href="/mood/rss.xml" title="Subscribe to RSS feed">
+            <svg class="mood-action-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M4 11a9 9 0 0 1 9 9"></path>
+              <path d="M4 4a16 16 0 0 1 16 16"></path>
+              <circle cx="5" cy="19" r="1"></circle>
+            </svg>
+            <span>RSS</span>
+          </a>
+          <a class="mood-action-button mood-action-button--primary" href="https://t.me/tutumood" target="_blank" rel="noopener noreferrer" title="View on Telegram">
+            <svg class="mood-action-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="m22 2-7 20-4-9-9-4Z"></path>
+              <path d="M22 2 11 13"></path>
+            </svg>
+            <span>Telegram</span>
+          </a>
+        </div>
       </div>
 
       <div class="mood-loading" data-mood-loading>
@@ -95,6 +113,51 @@ const description = "Thoughts and moments from my Telegram channel";
     .mood-page-desc {
       font-size: 15px;
     }
+  }
+
+  .mood-header-actions {
+    margin-top: 12px;
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+
+  .mood-action-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    font-weight: 400;
+    letter-spacing: 0.01em;
+    border-radius: 4px;
+    padding: 4px 8px;
+    transition: all 0.15s ease;
+    text-decoration: none;
+    border: 1px solid hsl(var(--foreground) / 0.08);
+    background: transparent;
+  }
+
+  .mood-action-icon {
+    flex-shrink: 0;
+    width: 12px;
+    height: 12px;
+    opacity: 0.7;
+  }
+
+  .mood-action-button--secondary,
+  .mood-action-button--primary {
+    color: hsl(var(--muted-foreground) / 0.8);
+  }
+
+  .mood-action-button--secondary:hover,
+  .mood-action-button--primary:hover {
+    color: hsl(var(--foreground));
+    background: hsl(var(--foreground) / 0.04);
+    border-color: hsl(var(--foreground) / 0.15);
+  }
+
+  .mood-action-button:hover .mood-action-icon {
+    opacity: 1;
   }
 
   /* Loading State */

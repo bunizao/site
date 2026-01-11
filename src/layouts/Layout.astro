@@ -5,6 +5,10 @@ interface Props {
   image?: string;
   imageAlt?: string;
   url?: string;
+  rss?: {
+    href: string;
+    title?: string;
+  };
 }
 
 import '../styles/globals.css';
@@ -16,6 +20,7 @@ const {
   image = '/og.png',
   imageAlt = 'Bunizao',
   url,
+  rss,
 } = Astro.props;
 
 const site = Astro.site ?? new URL('https://buxx.me');
@@ -52,6 +57,14 @@ const ogImageType = ogImageUrl.endsWith('.png')
     <meta name="twitter:image" content={ogImageUrl} />
     <meta name="twitter:image:alt" content={imageAlt} />
     <link rel="icon" href="/favicon.ico" />
+    {rss?.href ? (
+      <link
+        rel="alternate"
+        type="application/rss+xml"
+        title={rss.title ?? title}
+        href={new URL(rss.href, site).href}
+      />
+    ) : null}
 
     <script is:inline>
       (() => {
