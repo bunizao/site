@@ -1,14 +1,27 @@
 ---
 const SKELETON_COUNT = 5;
-const placeholders = Array.from({ length: SKELETON_COUNT });
+const skeletonPatterns = [
+  { line1: '72%' },
+  { line1: '64%' },
+  { line1: '76%' },
+  { line1: '60%' },
+  { line1: '70%' },
+];
+const placeholders = Array.from({ length: SKELETON_COUNT }, (_, index) => ({
+  index,
+  pattern: skeletonPatterns[index % skeletonPatterns.length],
+}));
 ---
 
 <section id="moods-section" class="moods-section" data-parallax="off">
   <span class="section-label scroll-reveal">Moods</span>
 
   <div class="mood-timeline" data-mood-list aria-busy="true" aria-label="Recent moods">
-    {placeholders.map((_, index) => (
-      <div class="mood-item mood-item-skeleton scroll-reveal-item" style={`--item-index: ${index}`}>
+    {placeholders.map(({ index, pattern }) => (
+      <div
+        class="mood-item mood-item-skeleton"
+        style={`--item-index: ${index}; --line-1: ${pattern.line1};`}
+      >
         <div class="mood-time-col">
           <span class="mood-skeleton-time"></span>
         </div>
@@ -17,9 +30,10 @@ const placeholders = Array.from({ length: SKELETON_COUNT });
           <div class="mood-line"></div>
         </div>
         <div class="mood-content-col">
-          <div class="mood-card">
-            <span class="mood-skeleton-text"></span>
-            <span class="mood-skeleton-text mood-skeleton-text--short"></span>
+          <div class="mood-card mood-card-skeleton">
+            <div class="mood-skeleton-lines">
+              <span class="mood-skeleton-block mood-skeleton-block--primary"></span>
+            </div>
           </div>
         </div>
       </div>
@@ -161,6 +175,7 @@ const placeholders = Array.from({ length: SKELETON_COUNT });
       hsl(var(--foreground) / 0.06)
     );
     margin-top: 4px;
+    position: relative;
   }
 
   #moods-section .mood-item:last-child .mood-line {
@@ -263,43 +278,117 @@ const placeholders = Array.from({ length: SKELETON_COUNT });
     transform: scale(1.1);
   }
 
-  /* Skeleton Styles */
+  /* Skeleton Styles - Timeline Pulse */
   #moods-section .mood-item-skeleton {
     pointer-events: none;
+    position: relative;
+    --skeleton-delay: calc(var(--item-index, 0) * 0.12s);
   }
 
   #moods-section .mood-item-skeleton .mood-dot {
-    border-color: hsl(var(--foreground) / 0.08);
+    border-color: hsl(var(--foreground) / 0.1);
+    background: hsl(var(--background));
+    box-shadow: 0 0 0 1px hsl(var(--foreground) / 0.03);
   }
 
-  #moods-section .mood-item-skeleton .mood-card {
-    background: transparent;
-    border-color: hsl(var(--foreground) / 0.04);
+  #moods-section .mood-item-skeleton .mood-dot::after {
+    content: '';
+    position: absolute;
+    inset: -5px;
+    border-radius: 50%;
+    border: 1px solid hsl(var(--foreground) / 0.08);
+    opacity: 0;
+    animation: mood-skeleton-pulse 2.4s ease-out infinite;
+    animation-delay: var(--skeleton-delay);
   }
 
-  #moods-section .mood-skeleton-text,
+  #moods-section .mood-item-skeleton .mood-line {
+    background: linear-gradient(
+      to bottom,
+      hsl(var(--foreground) / 0.12),
+      hsl(var(--foreground) / 0.03)
+    );
+    position: relative;
+    overflow: hidden;
+  }
+
+  #moods-section .mood-item-skeleton .mood-line::after {
+    content: '';
+    position: absolute;
+    inset: -40% 0;
+    background: linear-gradient(
+      to bottom,
+      transparent,
+      hsl(var(--foreground) / 0.14),
+      transparent
+    );
+    transform: translateY(-60%);
+    animation: mood-skeleton-flow 2.6s ease-in-out infinite;
+    animation-delay: var(--skeleton-delay);
+  }
+
+  #moods-section .mood-card-skeleton {
+    position: relative;
+    overflow: hidden;
+    background: hsl(var(--foreground) / 0.02);
+    border-color: hsl(var(--foreground) / 0.06);
+    box-shadow: inset 0 0 0 1px hsl(var(--background) / 0.7);
+  }
+
+  #moods-section .mood-card-skeleton::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 140%;
+    left: -120%;
+    background: linear-gradient(
+      120deg,
+      transparent 20%,
+      hsl(var(--foreground) / 0.08) 50%,
+      transparent 80%
+    );
+    animation: mood-skeleton-sheen 2.8s ease-in-out infinite;
+    animation-delay: var(--skeleton-delay);
+    opacity: 0.3;
+  }
+
+  #moods-section .mood-skeleton-lines {
+    position: relative;
+    z-index: 1;
+  }
+
+  #moods-section .mood-skeleton-lines {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  #moods-section .mood-skeleton-block,
   #moods-section .mood-skeleton-time {
     display: block;
-    border-radius: 4px;
-    background: linear-gradient(90deg, hsl(var(--foreground) / 0.04), hsl(var(--foreground) / 0.10), hsl(var(--foreground) / 0.04));
-    background-size: 200% 100%;
-    animation: moods-shimmer 1.8s ease-in-out infinite;
+    border-radius: 999px;
+    background: linear-gradient(
+      100deg,
+      hsl(var(--foreground) / 0.04),
+      hsl(var(--foreground) / 0.08),
+      hsl(var(--foreground) / 0.04)
+    );
+    background-size: 160% 100%;
+    animation: mood-skeleton-shimmer 1.9s ease-in-out infinite;
+    animation-delay: var(--skeleton-delay);
   }
 
-  #moods-section .mood-skeleton-text {
-    height: 13px;
-    width: 100%;
-    margin-bottom: 8px;
-  }
-
-  #moods-section .mood-skeleton-text--short {
-    width: 45%;
-    margin-bottom: 0;
+  #moods-section .mood-skeleton-block {
+    height: 12px;
+    border-radius: 6px;
+    width: var(--line-1, 70%);
   }
 
   #moods-section .mood-skeleton-time {
-    width: 36px;
-    height: 12px;
+    width: 32px;
+    height: 10px;
+    border-radius: 4px;
   }
 
   /* Empty and error states */
@@ -318,12 +407,64 @@ const placeholders = Array.from({ length: SKELETON_COUNT });
     }
   }
 
-  @keyframes moods-shimmer {
+  @keyframes mood-skeleton-shimmer {
     0% {
       background-position: 200% 50%;
+      opacity: 0.45;
     }
     100% {
       background-position: 0% 50%;
+      opacity: 0.85;
+    }
+  }
+
+  @keyframes mood-skeleton-sheen {
+    0% {
+      transform: translateX(0);
+    }
+    100% {
+      transform: translateX(140%);
+    }
+  }
+
+  @keyframes mood-skeleton-flow {
+    0% {
+      transform: translateY(-60%);
+      opacity: 0;
+    }
+    40% {
+      opacity: 0.5;
+    }
+    100% {
+      transform: translateY(120%);
+      opacity: 0;
+    }
+  }
+
+  @keyframes mood-skeleton-pulse {
+    0% {
+      transform: scale(0.85);
+      opacity: 0.25;
+    }
+    70% {
+      transform: scale(1.3);
+      opacity: 0;
+    }
+    100% {
+      opacity: 0;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    #moods-section .mood-item-skeleton .mood-skeleton-block,
+    #moods-section .mood-item-skeleton .mood-skeleton-time {
+      animation: none;
+    }
+
+    #moods-section .mood-item-skeleton .mood-line::after,
+    #moods-section .mood-item-skeleton .mood-dot::after,
+    #moods-section .mood-item-skeleton .mood-card-skeleton::before {
+      display: none;
     }
   }
 </style>
@@ -344,12 +485,19 @@ const placeholders = Array.from({ length: SKELETON_COUNT });
     const link = moodsSection.querySelector('.scroll-reveal-link');
     let hasLoaded = false;
 
-    // Set initial states with GSAP
-    gsap.set(moodsSection, { opacity: 0, y: 40 });
-    if (label) gsap.set(label, { opacity: 0, y: 16 });
-    if (link) gsap.set(link, { opacity: 0 });
-
     const MAX_MOODS = 5;
+    const ALWAYS_LOADING = false;
+
+    if (ALWAYS_LOADING) {
+      gsap.set(moodsSection, { opacity: 1, y: 0 });
+      if (label) gsap.set(label, { opacity: 1, y: 0 });
+      if (link) gsap.set(link, { opacity: 1 });
+    } else {
+      // Set initial states with GSAP
+      gsap.set(moodsSection, { opacity: 0, y: 40 });
+      if (label) gsap.set(label, { opacity: 0, y: 16 });
+      if (link) gsap.set(link, { opacity: 0 });
+    }
 
     const formatTime = (value: string): string => {
       const date = new Date(value);
@@ -457,13 +605,17 @@ const placeholders = Array.from({ length: SKELETON_COUNT });
 
       list.removeAttribute('aria-busy');
 
-      // Fade out skeleton items first
+      // Liquid dissolve effect on skeleton items
       const skeletons = list.querySelectorAll('.mood-item-skeleton');
       if (skeletons.length > 0) {
         gsap.to(skeletons, {
           opacity: 0,
-          duration: 0.3,
-          ease: 'power2.out',
+          scale: 0.92,
+          y: -12,
+          filter: 'blur(6px)',
+          duration: 0.5,
+          ease: 'power2.in',
+          stagger: 0.06,
           onComplete: () => {
             list.replaceChildren();
             showContent();
@@ -484,7 +636,7 @@ const placeholders = Array.from({ length: SKELETON_COUNT });
 
         if (emptyState) emptyState.hidden = true;
 
-        // Create items and animate with GSAP
+        // Create items and animate in
         const items: HTMLElement[] = [];
         posts.forEach((post, index) => {
           const item = createMoodItem(post, index);
@@ -492,22 +644,31 @@ const placeholders = Array.from({ length: SKELETON_COUNT });
           items.push(item);
         });
 
-        // Animate items in with GSAP
+        // Liquid splash-in animation
         gsap.fromTo(items,
-          { opacity: 0, y: 8 },
+          {
+            opacity: 0,
+            y: 24,
+            scale: 0.88,
+            filter: 'blur(8px)',
+            rotationX: -15
+          },
           {
             opacity: 1,
             y: 0,
-            duration: 0.5,
-            ease: 'power2.out',
-            stagger: 0.08
+            scale: 1,
+            filter: 'blur(0px)',
+            rotationX: 0,
+            duration: 0.7,
+            ease: 'expo.out',
+            stagger: 0.09
           }
         );
       }
     };
 
     const loadMoods = async (): Promise<void> => {
-      if (hasLoaded || !list) return;
+      if (ALWAYS_LOADING || hasLoaded || !list) return;
       hasLoaded = true;
 
       try {
