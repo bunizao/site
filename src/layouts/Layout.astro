@@ -144,7 +144,17 @@ const ogImageType = ogImageUrl.endsWith('.png')
         };
 
         const applyTheme = (theme) => {
-          document.documentElement.classList.toggle('dark', theme === 'dark');
+          const isDark = theme === 'dark';
+
+          // Use View Transitions API for smooth theme change
+          if (document.startViewTransition) {
+            document.startViewTransition(() => {
+              document.documentElement.classList.toggle('dark', isDark);
+            });
+          } else {
+            document.documentElement.classList.toggle('dark', isDark);
+          }
+
           updateToggle(theme);
         };
 

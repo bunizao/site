@@ -58,6 +58,7 @@
 
   * {
     @apply border-border;
+    transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
   }
 
   html {
@@ -268,6 +269,15 @@
     transform: scale(1.1);
   }
 
+  .theme-toggle:active {
+    transform: scale(0.95);
+  }
+
+  /* Icon rotation animation on theme change */
+  .theme-toggle span:not(.hidden) {
+    animation: icon-rotate 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
   .divider {
     text-align: center;
     color: hsl(var(--muted));
@@ -400,6 +410,53 @@
   }
   50% {
     opacity: 0.4;
+  }
+}
+
+@keyframes icon-rotate {
+  0% {
+    transform: rotate(0deg) scale(1);
+  }
+  50% {
+    transform: rotate(180deg) scale(0.8);
+  }
+  100% {
+    transform: rotate(360deg) scale(1);
+  }
+}
+
+/* View Transitions API - smooth theme switching */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 0.5s;
+  animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+::view-transition-old(root) {
+  animation-name: fade-out;
+}
+
+::view-transition-new(root) {
+  animation-name: fade-in-scale;
+}
+
+@keyframes fade-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes fade-in-scale {
+  from {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
   }
 }
 
