@@ -54,6 +54,7 @@ This site exposes custom SVG endpoints for flexible use:
 ## Acknowledgements
 - [miantiao-me/BroadcastChannel](https://github.com/miantiao-me/BroadcastChannel) - Inspiration and code reference for `moods` ideas.
 - [ddiu8081/ddiu.io](https://github.com/ddiu8081/ddiu.io) - Inspiration and code reference for `Ghost API` integration.
+- [zmh-program/zmh-program.github.io](https://github.com/zmh-program/zmh-program.github.io) - Inspiration for layout and style ideas.
 - The Astro, React, and Tailwind CSS communities for great tooling and docs.
 - Open-source maintainers whose libraries power this site.
 
