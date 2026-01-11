@@ -80,7 +80,6 @@ const loadingPlaceholders = Array.from({ length: LOADING_COUNT }, (_, index) => 
       <div class="mood-feed is-hidden" data-mood-feed>
         <div class="mood-stream" data-mood-list></div>
         <div class="mood-load-controls">
-          <button type="button" class="mood-load-button" data-load-more>Load more</button>
           <p class="mood-load-status" data-load-status aria-live="polite"></p>
         </div>
         <div class="mood-sentinel" data-mood-sentinel aria-hidden="true"></div>
@@ -191,23 +190,28 @@ const loadingPlaceholders = Array.from({ length: LOADING_COUNT }, (_, index) => 
   }
 
   /* Loading State */
-  .mood-loading {
+  :global(.mood-loading),
+  :global(.mood-loading-inline) {
     display: flex;
     flex-direction: column;
     gap: 8px;
     padding: 8px 0 16px;
   }
 
-  .mood-loading.is-hidden {
+  :global(.mood-loading.is-hidden) {
     display: none;
   }
 
-  .mood-loading-list {
+  :global(.mood-loading-inline) {
+    padding: 4px 0 8px;
+  }
+
+  :global(.mood-loading-list) {
     display: flex;
     flex-direction: column;
   }
 
-  .mood-loading-item {
+  :global(.mood-loading-item) {
     display: flex;
     gap: 12px;
     padding: 12px 0;
@@ -215,31 +219,31 @@ const loadingPlaceholders = Array.from({ length: LOADING_COUNT }, (_, index) => 
     --skeleton-delay: calc(var(--item-index, 0) * 0.1s);
   }
 
-  .mood-loading-item:last-child {
+  :global(.mood-loading-item:last-child) {
     border-bottom: none;
   }
 
-  .mood-loading-content {
+  :global(.mood-loading-content) {
     flex: 1;
     min-width: 0;
   }
 
-  .mood-loading-lines {
+  :global(.mood-loading-lines) {
     display: flex;
     flex-direction: column;
     gap: 6px;
   }
 
-  .mood-loading-time,
-  .mood-loading-line {
+  :global(.mood-loading-time),
+  :global(.mood-loading-line) {
     display: block;
     position: relative;
     overflow: hidden;
     background: hsl(var(--foreground) / 0.05);
   }
 
-  .mood-loading-time::after,
-  .mood-loading-line::after {
+  :global(.mood-loading-time::after),
+  :global(.mood-loading-line::after) {
     content: '';
     position: absolute;
     top: 0;
@@ -257,7 +261,7 @@ const loadingPlaceholders = Array.from({ length: LOADING_COUNT }, (_, index) => 
     opacity: 0.35;
   }
 
-  .mood-loading-time {
+  :global(.mood-loading-time) {
     width: 32px;
     height: 10px;
     border-radius: 4px;
@@ -265,16 +269,16 @@ const loadingPlaceholders = Array.from({ length: LOADING_COUNT }, (_, index) => 
     flex-shrink: 0;
   }
 
-  .mood-loading-line {
+  :global(.mood-loading-line) {
     height: 12px;
     border-radius: 6px;
   }
 
-  .mood-loading-line--primary {
+  :global(.mood-loading-line--primary) {
     width: var(--line-width-1, 70%);
   }
 
-  .mood-loading-line--secondary {
+  :global(.mood-loading-line--secondary) {
     width: var(--line-width-2, 48%);
     height: 10px;
     border-radius: 5px;
@@ -293,13 +297,13 @@ const loadingPlaceholders = Array.from({ length: LOADING_COUNT }, (_, index) => 
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .mood-loading-time,
-    .mood-loading-line {
+    :global(.mood-loading-time),
+    :global(.mood-loading-line) {
       animation: none;
     }
 
-    .mood-loading-time::after,
-    .mood-loading-line::after {
+    :global(.mood-loading-time::after),
+    :global(.mood-loading-line::after) {
       display: none;
     }
   }
@@ -696,38 +700,7 @@ const loadingPlaceholders = Array.from({ length: LOADING_COUNT }, (_, index) => 
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 6px;
     padding-top: 16px;
-  }
-
-  :global(.mood-load-button) {
-    border: 1px solid hsl(var(--foreground) / 0.1);
-    background: transparent;
-    color: hsl(var(--muted-foreground));
-    padding: 8px 20px;
-    font-size: 12px;
-    border-radius: 999px;
-    cursor: pointer;
-    transition: all 0.15s ease;
-  }
-
-  :global(.mood-load-button:hover) {
-    border-color: hsl(var(--foreground) / 0.2);
-    color: hsl(var(--foreground));
-  }
-
-  :global(.mood-load-button:focus-visible) {
-    outline: 2px solid hsl(var(--foreground) / 0.35);
-    outline-offset: 2px;
-  }
-
-  :global(.mood-load-button:disabled) {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-
-  :global(.mood-load-button.is-hidden) {
-    display: none;
   }
 
   :global(.mood-load-status) {
@@ -757,12 +730,12 @@ const loadingPlaceholders = Array.from({ length: LOADING_COUNT }, (_, index) => 
   const errorEl = document.querySelector('[data-mood-error]');
   const feedEl = document.querySelector('[data-mood-feed]');
   const list = document.querySelector('[data-mood-list]');
-  const loadButton = document.querySelector('[data-load-more]') as HTMLButtonElement | null;
   const status = document.querySelector('[data-load-status]');
   const sentinel = document.querySelector('[data-mood-sentinel]');
   const ALWAYS_LOADING = false;
 
-  if (loadingEl && errorEl && feedEl && list && loadButton && status && sentinel) {
+  if (loadingEl && errorEl && feedEl && list && status && sentinel) {
+    const loadButton = document.querySelector('[data-load-more]') as HTMLButtonElement | null;
     if (ALWAYS_LOADING) {
       loadingEl.classList.remove('is-hidden');
       errorEl.classList.add('is-hidden');
@@ -773,7 +746,11 @@ const loadingPlaceholders = Array.from({ length: LOADING_COUNT }, (_, index) => 
       let hasMore = true;
       let observer: IntersectionObserver;
 
-      const buttonLabel = loadButton.textContent || 'Load more';
+      const inlineLoadingPatterns = [
+        { line1: '72%', line2: '48%' },
+        { line1: '64%' },
+        { line1: '76%', line2: '54%' },
+      ];
 
     const formatTime = (value: string): string => {
       const date = new Date(value);
@@ -844,14 +821,74 @@ const loadingPlaceholders = Array.from({ length: LOADING_COUNT }, (_, index) => 
     };
 
     const setLoadingState = (loading: boolean): void => {
-      loadButton.disabled = loading || !hasMore;
-      loadButton.textContent = loading ? 'Loading...' : buttonLabel;
+      if (loadButton) {
+        loadButton.disabled = loading || !hasMore;
+        loadButton.setAttribute('aria-busy', loading ? 'true' : 'false');
+      }
 
       if (loading) {
         list.setAttribute('aria-busy', 'true');
       } else {
         list.removeAttribute('aria-busy');
       }
+    };
+
+    const showInlineLoading = (): void => {
+      if (feedEl.querySelector('.mood-loading-inline')) return;
+
+      const wrapper = document.createElement('div');
+      wrapper.className = 'mood-loading-inline';
+      wrapper.setAttribute('aria-hidden', 'true');
+
+      const skeletonList = document.createElement('div');
+      skeletonList.className = 'mood-loading-list';
+
+      inlineLoadingPatterns.forEach((pattern, index) => {
+        const item = document.createElement('div');
+        item.className = 'mood-loading-item';
+        item.style.setProperty('--item-index', String(index));
+        item.style.setProperty('--line-width-1', pattern.line1);
+        if (pattern.line2) {
+          item.style.setProperty('--line-width-2', pattern.line2);
+        }
+
+        const time = document.createElement('span');
+        time.className = 'mood-loading-time';
+
+        const content = document.createElement('div');
+        content.className = 'mood-loading-content';
+
+        const lines = document.createElement('div');
+        lines.className = 'mood-loading-lines';
+
+        const line1 = document.createElement('span');
+        line1.className = 'mood-loading-line mood-loading-line--primary';
+        lines.appendChild(line1);
+
+        if (pattern.line2) {
+          const line2 = document.createElement('span');
+          line2.className = 'mood-loading-line mood-loading-line--secondary';
+          lines.appendChild(line2);
+        }
+
+        content.appendChild(lines);
+        item.appendChild(time);
+        item.appendChild(content);
+        skeletonList.appendChild(item);
+      });
+
+      wrapper.appendChild(skeletonList);
+
+      const controls = feedEl.querySelector('.mood-load-controls');
+      if (controls) {
+        feedEl.insertBefore(wrapper, controls);
+      } else {
+        feedEl.appendChild(wrapper);
+      }
+    };
+
+    const hideInlineLoading = (): void => {
+      feedEl.querySelector('.mood-loading-inline')?.remove();
     };
 
     const isLongContent = (text: string): boolean => (text || '').length > 280;
@@ -1034,7 +1071,9 @@ const loadingPlaceholders = Array.from({ length: LOADING_COUNT }, (_, index) => 
 
     const handleNoMore = (): void => {
       hasMore = false;
-      loadButton.classList.add('is-hidden');
+      if (loadButton) {
+        loadButton.classList.add('is-hidden');
+      }
       setStatus('No more moods.');
       if (observer) {
         observer.disconnect();
@@ -1105,8 +1144,9 @@ const loadingPlaceholders = Array.from({ length: LOADING_COUNT }, (_, index) => 
       }
 
       isLoading = true;
+      setStatus('');
       setLoadingState(true);
-      setStatus('Loading more moods...');
+      showInlineLoading();
 
       try {
         const response = await fetch(`/api/moods?before=${encodeURIComponent(before)}`);
@@ -1136,10 +1176,13 @@ const loadingPlaceholders = Array.from({ length: LOADING_COUNT }, (_, index) => 
       } finally {
         isLoading = false;
         setLoadingState(false);
+        hideInlineLoading();
       }
     };
 
-      loadButton.addEventListener('click', loadMore);
+      if (loadButton) {
+        loadButton.addEventListener('click', loadMore);
+      }
 
       loadInitial();
     }

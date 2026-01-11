@@ -47,11 +47,17 @@ const buildProxyResponse = async (request: Request, targetUrl: string): Promise<
     if (value) headers.set(name, value);
   });
 
-  const upstream = await fetch(targetUrl, {
-    method: request.method,
-    headers,
-    redirect: 'follow',
-  });
+  let upstream: Response;
+  try {
+    upstream = await fetch(targetUrl, {
+      method: request.method,
+      headers,
+      redirect: 'follow',
+    });
+  } catch (error) {
+    console.error('Upstream fetch failed:', { targetUrl, error });
+    return new Response('Upstream fetch failed.', { status: 502 });
+  }
 
   const responseHeaders = new Headers(upstream.headers);
   hopByHopHeaders.forEach((name) => responseHeaders.delete(name));
