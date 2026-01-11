@@ -54,27 +54,31 @@ const ogImageType = ogImageUrl.endsWith('.png')
     <link rel="icon" href="/favicon.ico" />
 
     <script is:inline>
-      document.documentElement.classList.add('js');
-      const storageKey = 'theme';
-      const readStoredTheme = () => {
-        try {
-          return localStorage.getItem(storageKey);
-        } catch (error) {
-          return null;
-        }
-      };
-      const storedTheme = readStoredTheme();
-      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-      const theme =
-        storedTheme === 'light' || storedTheme === 'dark'
-          ? storedTheme
-          : prefersDark
-            ? 'dark'
-            : 'light';
+      (() => {
+        document.documentElement.classList.add('js');
+        const storageKey = 'theme';
+        const readStoredTheme = () => {
+          try {
+            return localStorage.getItem(storageKey);
+          } catch (error) {
+            return null;
+          }
+        };
+        const storedTheme = readStoredTheme();
+        const mediaQuery =
+          typeof window.matchMedia === 'function'
+            ? window.matchMedia('(prefers-color-scheme: dark)')
+            : null;
+        const prefersDark = mediaQuery ? mediaQuery.matches : false;
+        const theme =
+          storedTheme === 'light' || storedTheme === 'dark'
+            ? storedTheme
+            : prefersDark
+              ? 'dark'
+              : 'light';
 
-      if (theme === 'dark') {
-        document.documentElement.classList.add('dark');
-      }
+        document.documentElement.classList.toggle('dark', theme === 'dark');
+      })();
     </script>
 
     <!-- Font loading -->
@@ -99,67 +103,75 @@ const ogImageType = ogImageUrl.endsWith('.png')
     <slot />
 
     <script is:inline>
-      const storageKey = 'theme';
-      const toggle = document.querySelector('[data-theme-toggle]');
-      const media = window.matchMedia('(prefers-color-scheme: dark)');
+      (() => {
+        const storageKey = 'theme';
+        const toggle = document.querySelector('[data-theme-toggle]');
+        const media =
+          typeof window.matchMedia === 'function'
+            ? window.matchMedia('(prefers-color-scheme: dark)')
+            : null;
 
-      const getStoredTheme = () => {
-        try {
-          return localStorage.getItem(storageKey);
-        } catch (error) {
-          return null;
+        const getStoredTheme = () => {
+          try {
+            return localStorage.getItem(storageKey);
+          } catch (error) {
+            return null;
+          }
+        };
+        const setStoredTheme = (theme) => {
+          try {
+            localStorage.setItem(storageKey, theme);
+          } catch (error) {
+            // Ignore storage errors so system preference can still work.
+          }
+        };
+        const getSystemTheme = () => (media && media.matches ? 'dark' : 'light');
+        const getPreferredTheme = () => {
+          const stored = getStoredTheme();
+          if (stored === 'light' || stored === 'dark') return stored;
+          return getSystemTheme();
+        };
+        const isSystemTheme = () => {
+          const stored = getStoredTheme();
+          return stored !== 'light' && stored !== 'dark';
+        };
+
+        const updateToggle = (theme) => {
+          if (!toggle) return;
+          const isDark = theme === 'dark';
+          toggle.setAttribute('aria-pressed', isDark ? 'true' : 'false');
+          toggle.setAttribute('aria-label', isDark ? 'Switch to light mode' : 'Switch to dark mode');
+        };
+
+        const applyTheme = (theme) => {
+          document.documentElement.classList.toggle('dark', theme === 'dark');
+          updateToggle(theme);
+        };
+
+        applyTheme(getPreferredTheme());
+
+        if (toggle) {
+          toggle.addEventListener('click', () => {
+            const nextTheme = document.documentElement.classList.contains('dark') ? 'light' : 'dark';
+            setStoredTheme(nextTheme);
+            applyTheme(nextTheme);
+          });
         }
-      };
-      const setStoredTheme = (theme) => {
-        try {
-          localStorage.setItem(storageKey, theme);
-        } catch (error) {
-          // Ignore storage errors so system preference can still work.
+
+        const onSystemThemeChange = () => {
+          if (isSystemTheme()) {
+            applyTheme(getSystemTheme());
+          }
+        };
+
+        if (media) {
+          if (typeof media.addEventListener === 'function') {
+            media.addEventListener('change', onSystemThemeChange);
+          } else if (typeof media.addListener === 'function') {
+            media.addListener(onSystemThemeChange);
+          }
         }
-      };
-      const getPreferredTheme = () => {
-        const stored = getStoredTheme();
-        if (stored === 'light' || stored === 'dark') return stored;
-        return media.matches ? 'dark' : 'light';
-      };
-      const isSystemTheme = () => {
-        const stored = getStoredTheme();
-        return stored !== 'light' && stored !== 'dark';
-      };
-
-      const updateToggle = (theme) => {
-        if (!toggle) return;
-        const isDark = theme === 'dark';
-        toggle.setAttribute('aria-pressed', isDark ? 'true' : 'false');
-        toggle.setAttribute('aria-label', isDark ? 'Switch to light mode' : 'Switch to dark mode');
-      };
-
-      const applyTheme = (theme) => {
-        document.documentElement.classList.toggle('dark', theme === 'dark');
-        updateToggle(theme);
-      };
-
-      applyTheme(getPreferredTheme());
-
-      if (toggle) {
-        toggle.addEventListener('click', () => {
-          const nextTheme = getPreferredTheme() === 'dark' ? 'light' : 'dark';
-          setStoredTheme(nextTheme);
-          applyTheme(nextTheme);
-        });
-      }
-
-      const onSystemThemeChange = () => {
-        if (isSystemTheme()) {
-          applyTheme(getPreferredTheme());
-        }
-      };
-
-      if (typeof media.addEventListener === 'function') {
-        media.addEventListener('change', onSystemThemeChange);
-      } else if (typeof media.addListener === 'function') {
-        media.addListener(onSystemThemeChange);
-      }
+      })();
     </script>
 
     <script>
