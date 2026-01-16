@@ -358,13 +358,19 @@ async function hydrateTgEmoji(
   await Promise.all(
     emojiNodes.map(async (emojiEl) => {
       const emojiId = $(emojiEl).attr('emoji-id');
-      if (!emojiId) return;
+      const fallbackText = ($(emojiEl).text() ?? '').trim();
+      if (!emojiId && !fallbackText) return;
 
-      const imageUrl = await getCustomEmojiImage(emojiId, staticProxy ?? '');
-      if (imageUrl) {
-        const imageMarkup = `<img class="tg-emoji" src="${imageUrl}" alt="" loading="lazy" />`;
-        $(emojiEl).replaceWith(imageMarkup);
-      }
+      const imageUrl = emojiId ? await getCustomEmojiImage(emojiId, staticProxy ?? '') : null;
+      const safeFallback = fallbackText ? escapeHtml(fallbackText) : '';
+      const altText = escapeHtml(fallbackText || 'emoji');
+      const dataAttr = emojiId ? ` data-emoji-id="${emojiId}"` : '';
+      const labelAttr = fallbackText ? ` aria-label="${safeFallback}"` : '';
+      const fallbackMarkup = imageUrl
+        ? `<img class="tg-emoji-fallback" src="${imageUrl}" alt="${altText}" loading="lazy" />`
+        : safeFallback;
+      const wrapper = `<span class="tg-emoji"${dataAttr}${labelAttr}>${fallbackMarkup}</span>`;
+      $(emojiEl).replaceWith(wrapper);
     })
   );
 }
