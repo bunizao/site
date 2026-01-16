@@ -188,6 +188,7 @@ export function groupByDate<T extends { datetime: string }>(items: T[]): Map<str
  */
 export interface ReactionData {
   emoji: string;
+  emojiId?: string;
   emojiImage?: string;
   count: string;
   isPaid: boolean;
