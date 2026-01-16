@@ -583,23 +583,17 @@ const loadingPlaceholders = Array.from({ length: LOADING_COUNT }, (_, index) => 
   }
 
   /* Portrait images in feed - limit height */
-  :global(.mood-item-thumb.mood-item-thumb--portrait) {
-    max-width: 200px;
-  }
-
   :global(.mood-item-thumb.mood-item-thumb--portrait img) {
     max-height: 320px;
     width: auto;
+    max-width: 100%;
     object-fit: contain;
+    margin: 0 auto;
   }
 
   @media (min-width: 640px) {
     :global(.mood-item-thumb) {
       max-width: 480px;
-    }
-
-    :global(.mood-item-thumb.mood-item-thumb--portrait) {
-      max-width: 240px;
     }
 
     :global(.mood-item-thumb.mood-item-thumb--portrait img) {
@@ -610,10 +604,6 @@ const loadingPlaceholders = Array.from({ length: LOADING_COUNT }, (_, index) => 
   @media (min-width: 1024px) {
     :global(.mood-item-thumb) {
       max-width: 560px;
-    }
-
-    :global(.mood-item-thumb.mood-item-thumb--portrait) {
-      max-width: 280px;
     }
 
     :global(.mood-item-thumb.mood-item-thumb--portrait img) {

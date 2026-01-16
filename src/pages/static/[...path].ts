@@ -61,6 +61,8 @@ const buildProxyResponse = async (request: Request, targetUrl: string): Promise<
 
   const responseHeaders = new Headers(upstream.headers);
   hopByHopHeaders.forEach((name) => responseHeaders.delete(name));
+  responseHeaders.delete('content-encoding');
+  responseHeaders.delete('content-length');
   responseHeaders.set('access-control-allow-origin', '*');
 
   return new Response(upstream.body, {
