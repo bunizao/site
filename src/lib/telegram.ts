@@ -291,21 +291,13 @@ function getReply($: CheerioAPI, item: Element, { channel }: ContentProcessorCon
   return $.html(reply);
 }
 
-function modifyHTMLContent($: CheerioAPI, content: any, { index }: { index?: number } = {}): any {
+async function modifyHTMLContent(
+  $: CheerioAPI,
+  content: any,
+  { index, staticProxy }: { index?: number; staticProxy?: string } = {}
+): Promise<any> {
+  await hydrateTgEmoji($, content, { staticProxy });
   $(content).find('.emoji')?.removeAttr('style');
-  $(content)
-    .find('tg-emoji')
-    ?.each((_index, emojiEl) => {
-      const emojiId = $(emojiEl).attr('emoji-id');
-      const nestedFallback = extractTgEmojiFallback($, emojiEl);
-      const fallback = nestedFallback || getEmojiFallback(emojiId);
-      if (emojiId && fallback) {
-        setEmojiFallback(emojiId, fallback);
-      }
-      if (!nestedFallback && fallback) {
-        $(emojiEl).text(fallback);
-      }
-    });
   $(content)
     .find('a')
     ?.each((_index, a) => {
@@ -337,22 +329,6 @@ function modifyHTMLContent($: CheerioAPI, content: any, { index }: { index?: num
   return content;
 }
 
-// Common emoji-id to standard emoji fallback mapping
-const EMOJI_ID_FALLBACK: Record<string, string> = {
-  '5368324170671202286': '👍',
-  '5427127139151397446': '🤝',
-  '5388841349703284277': '🔥',
-  '5265077361648368841': '❤️',
-  '5388967613151851494': '🎉',
-  '5881813392380923308': '😍',
-  '5456669990092545624': '💯',
-  '5384108682290152083': '👏',
-  '5449800250032143374': '😂',
-  '5006239808935167310': '🚗',
-  '5472105307985419058': '☝️',
-  '5375338737028841420': '🤩',
-};
-
 // Normalize emoji variants (e.g., ❤ → ❤️)
 function normalizeEmoji(emoji: string): string {
   const emojiMap: Record<string, string> = {
@@ -364,59 +340,33 @@ function normalizeEmoji(emoji: string): string {
   return emojiMap[emoji] || emoji;
 }
 
-const customEmojiFallback = new Map<string, string>(Object.entries(EMOJI_ID_FALLBACK));
-
-interface CustomEmojiResponse {
-  type?: string;
-  emoji?: string;
-  thumb?: string;
-}
-
-const customEmojiCache = new LRUCache<string, CustomEmojiResponse>({
-  ttl: 1000 * 60 * 60 * 24, // 24 hours
-  max: 500,
-});
-
-function getEmojiFallback(emojiId?: string): string {
-  if (!emojiId) return '';
-  return customEmojiFallback.get(emojiId) || '';
-}
-
-function setEmojiFallback(emojiId: string, emoji: string): void {
-  if (!emojiId || !emoji) return;
-  customEmojiFallback.set(emojiId, emoji);
-}
-
-function extractTgEmojiFallback($: CheerioAPI, emojiEl: Element): string {
-  const nestedEmoji = $(emojiEl).find('.emoji b').text().trim();
-  if (nestedEmoji) {
-    return normalizeEmoji(nestedEmoji);
-  }
-  const attrEmoji = $(emojiEl).attr('emoji') ?? $(emojiEl).attr('alt') ?? '';
-  if (attrEmoji) {
-    return normalizeEmoji(attrEmoji.trim());
-  }
-  return '';
-}
-
-async function getCustomEmojiImage(emojiId: string, staticProxy: string): Promise<string | null> {
+async function getCustomEmojiImage(emojiId: string, staticProxy = ''): Promise<string | null> {
   if (!emojiId) return null;
-  const cached = customEmojiCache.get(emojiId);
-  if (cached?.thumb) {
-    return `${staticProxy}${cached.thumb}`;
-  }
-  try {
-    const data = await $fetch<CustomEmojiResponse>(`https://t.me/i/emoji/${emojiId}.json`);
-    if (data) {
-      customEmojiCache.set(emojiId, data);
-      if (data.thumb) {
-        return `${staticProxy}${data.thumb}`;
+  const imageUrl = `https://t.me/i/emoji/${emojiId}.webp`;
+  const proxy = staticProxy || '/static/';
+  return `${proxy}${imageUrl}`;
+}
+
+async function hydrateTgEmoji(
+  $: CheerioAPI,
+  content: any,
+  { staticProxy }: { staticProxy?: string } = {}
+): Promise<void> {
+  const emojiNodes = $(content).find('tg-emoji')?.toArray() ?? [];
+  if (!emojiNodes.length) return;
+
+  await Promise.all(
+    emojiNodes.map(async (emojiEl) => {
+      const emojiId = $(emojiEl).attr('emoji-id');
+      if (!emojiId) return;
+
+      const imageUrl = await getCustomEmojiImage(emojiId, staticProxy ?? '');
+      if (imageUrl) {
+        const imageMarkup = `<img class="tg-emoji" src="${imageUrl}" alt="" loading="lazy" />`;
+        $(emojiEl).replaceWith(imageMarkup);
       }
-    }
-  } catch (error) {
-    console.error('Failed to load custom emoji metadata', emojiId, error);
-  }
-  return null;
+    })
+  );
 }
 
 async function getReactions($: CheerioAPI, item: Element, staticProxy: string): Promise<Reaction[]> {
@@ -440,15 +390,9 @@ async function getReactions($: CheerioAPI, item: Element, staticProxy: string): 
     if (tgEmoji.length && !emoji) {
       emojiId = tgEmoji.attr('emoji-id');
       if (emojiId) {
-        const nestedFallback = extractTgEmojiFallback($, tgEmoji.get(0));
-        emoji = nestedFallback || getEmojiFallback(emojiId);
-        if (emoji) {
-          setEmojiFallback(emojiId, emoji);
-        } else {
-          const imageUrl = await getCustomEmojiImage(emojiId, staticProxy);
-          if (imageUrl) {
-            emojiImage = imageUrl;
-          }
+        const imageUrl = await getCustomEmojiImage(emojiId, staticProxy);
+        if (imageUrl) {
+          emojiImage = imageUrl;
         }
       }
     }
@@ -465,7 +409,7 @@ async function getReactions($: CheerioAPI, item: Element, staticProxy: string): 
 
     if (count) {
       reactions.push({
-        emoji: emoji || (emojiImage ? '' : '👍'),
+        emoji,
         emojiId,
         emojiImage,
         count,
@@ -485,8 +429,11 @@ async function getPost(
   const messageItem = item ? $(item).find('.tgme_widget_message') : $('.tgme_widget_message');
   const content =
     $(messageItem).find('.js-message_reply_text')?.length > 0
-      ? modifyHTMLContent($, $(messageItem).find('.tgme_widget_message_text.js-message_text'), { index })
-      : modifyHTMLContent($, $(messageItem).find('.tgme_widget_message_text'), { index });
+      ? await modifyHTMLContent($, $(messageItem).find('.tgme_widget_message_text.js-message_text'), {
+          index,
+          staticProxy,
+        })
+      : await modifyHTMLContent($, $(messageItem).find('.tgme_widget_message_text'), { index, staticProxy });
   const title = content?.text()?.match(/^.*?(?=[。\n]|http\S)/g)?.[0] ?? content?.text() ?? '';
   const id = $(messageItem).attr('data-post')?.replace(new RegExp(`${channel}/`, 'i'), '') ?? '';
 
@@ -596,7 +543,7 @@ export async function getChannelInfo(
     posts,
     title: $('.tgme_channel_info_header_title')?.text() ?? '',
     description: $('.tgme_channel_info_description')?.text() ?? '',
-    descriptionHTML: modifyHTMLContent($, $('.tgme_channel_info_description'))?.html() ?? '',
+    descriptionHTML: (await modifyHTMLContent($, $('.tgme_channel_info_description'), { staticProxy }))?.html() ?? '',
     avatar: $('.tgme_page_photo_image img')?.attr('src') ?? '',
   };
 

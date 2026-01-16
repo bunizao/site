@@ -184,6 +184,12 @@ const description = post ? post.text.slice(0, 160) : 'Mood not found.';
     font-style: italic;
   }
 
+  .mood-post-content :global(.tg-emoji) {
+    width: 1.15em;
+    height: 1.15em;
+    vertical-align: -0.15em;
+  }
+
   /* Blockquotes (replies) */
   .mood-post-content :global(blockquote) {
     margin: 1.5em 0;
