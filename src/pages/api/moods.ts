@@ -34,6 +34,7 @@ export const GET: APIRoute = async ({ request, locals }) => {
         needsDetailPage,
         reactions: post.reactions?.map((r) => ({
           emoji: r.emoji,
+          emojiId: r.emojiId,
           emojiImage: r.emojiImage,
           count: r.count,
           isPaid: r.isPaid,
