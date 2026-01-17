@@ -204,11 +204,12 @@
   /* Contact links - minimal style without borders */
   .contact-link {
     @apply inline-flex items-center gap-2 text-[13px] text-muted-foreground;
-    transition: color 0.15s ease;
+    transition: color 0.2s cubic-bezier(0.16, 1, 0.3, 1), transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
   }
 
   .contact-link:hover {
     color: hsl(var(--foreground));
+    transform: translateY(-1px);
   }
 
   .contact-link:hover span {

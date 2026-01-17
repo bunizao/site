@@ -6,12 +6,48 @@ import MagneticButton from './MagneticButton';
 import {Instagram, type LucideIcon} from 'lucide-react';
 import { FileText, Github, Mail, Send } from 'lucide-react';
 
-const socials: Array<{ name: string; url: string; icon: LucideIcon }> = [
-  { name: 'Blog', url: 'https://blog.buxx.me', icon: FileText },
-  { name: 'GitHub', url: 'https://tuu.cat/gh', icon: Github },
-  { name: 'Email', url: 'mailto:me@buxx.me', icon: Mail },
-  { name: 'Telegram', url: 'https://tuu.cat/tg', icon: Send },
-  { name: 'Instagram', url: 'https://tuu.cat/ig', icon: Instagram}
+const socials: Array<{
+  name: string;
+  url: string;
+  icon: LucideIcon;
+  description: string;
+  handle: string;
+}> = [
+  {
+    name: 'Blog',
+    url: 'https://blog.buxx.me',
+    icon: FileText,
+    description: 'Read my articles',
+    handle: 'blog.buxx.me'
+  },
+  {
+    name: 'GitHub',
+    url: 'https://tuu.cat/gh',
+    icon: Github,
+    description: 'Check out my code',
+    handle: '@bunizao'
+  },
+  {
+    name: 'Email',
+    url: 'mailto:me@buxx.me',
+    icon: Mail,
+    description: 'Send me a message',
+    handle: 'me@buxx.me'
+  },
+  {
+    name: 'Telegram',
+    url: 'https://tuu.cat/tg',
+    icon: Send,
+    description: 'Chat with me',
+    handle: 'tuu.cat/tg'
+  },
+  {
+    name: 'Instagram',
+    url: 'https://tuu.cat/ig',
+    icon: Instagram,
+    description: 'See my photos',
+    handle: 'tuu.cat/ig'
+  }
 ];
 
 const techRow1 = ['TypeScript', "JavaScript", 'Python', 'C#', 'C++', 'React', 'TailwindCSS', 'Astro'];
@@ -72,18 +108,24 @@ const techRow2 = ['Frontend', 'BGP', 'Proxy', 'Docker', 'Linux', 'Web3', 'Optimi
   <div class="mt-6 flex items-center gap-4 hero-animate sm:mt-8" data-hero-socials>
     <span class="text-[14px] text-muted-foreground sm:text-[15px]">Find me at</span>
     {socials.map((social) => (
-      <MagneticButton client:load strength={0.4}>
-        <a
-          href={social.url}
-          target="_blank"
-          rel="noopener noreferrer"
-          class="contact-link"
-          title={social.name}
-        >
-          <social.icon className="h-4 w-4" aria-hidden="true" />
-          <span class="hidden sm:inline">{social.name}</span>
-        </a>
-      </MagneticButton>
+      <div class="social-link-wrapper">
+        <MagneticButton client:load strength={0.4}>
+          <a
+            href={social.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            class="contact-link"
+            title={social.name}
+          >
+            <social.icon className="h-4 w-4" aria-hidden="true" />
+            <span class="hidden sm:inline">{social.name}</span>
+          </a>
+        </MagneticButton>
+        <div class="social-details">
+          <p class="social-details-desc">{social.description}</p>
+          <p class="social-details-handle">{social.handle}</p>
+        </div>
+      </div>
     ))}
   </div>
 
@@ -133,6 +175,161 @@ const techRow2 = ['Frontend', 'BGP', 'Proxy', 'Docker', 'Linux', 'Web3', 'Optimi
   /* Personal info styling */
   .separator {
     opacity: 0.5;
+  }
+
+  /* Social Links with Dropdown Details */
+  .social-link-wrapper {
+    position: relative;
+    display: inline-block;
+  }
+
+  .social-details {
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%) translateY(-8px) scale(0.92);
+    margin-top: 8px;
+    padding: 10px 14px;
+    background: hsl(var(--background) / 0.95);
+    border: 1px solid hsl(var(--border) / 0.15);
+    border-radius: 10px;
+    min-width: 140px;
+    opacity: 0;
+    visibility: hidden;
+    transition:
+      opacity 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+      transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1),
+      visibility 0s linear 0.2s,
+      box-shadow 0.3s cubic-bezier(0.16, 1, 0.3, 1),
+      backdrop-filter 0.3s cubic-bezier(0.16, 1, 0.3, 1),
+      background 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    pointer-events: none;
+    z-index: 10;
+    box-shadow:
+      0 4px 12px rgba(0, 0, 0, 0.04),
+      0 1px 3px rgba(0, 0, 0, 0.02),
+      inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(16px) saturate(180%);
+    -webkit-backdrop-filter: blur(16px) saturate(180%);
+  }
+
+  .social-link-wrapper:hover .social-details {
+    opacity: 1;
+    visibility: visible;
+    transform: translateX(-50%) translateY(0) scale(1);
+    transition-delay: 0s, 0s, 0s, 0s, 0s, 0s;
+    background: hsl(var(--background) / 0.98);
+    box-shadow:
+      0 12px 32px rgba(0, 0, 0, 0.12),
+      0 4px 8px rgba(0, 0, 0, 0.06),
+      inset 0 1px 0 rgba(255, 255, 255, 0.15);
+    backdrop-filter: blur(24px) saturate(200%);
+    -webkit-backdrop-filter: blur(24px) saturate(200%);
+  }
+
+  .social-details-desc {
+    font-size: 11px;
+    font-weight: 500;
+    color: hsl(var(--foreground));
+    margin-bottom: 3px;
+    text-align: center;
+    line-height: 1.4;
+    letter-spacing: 0.01em;
+  }
+
+  .social-details-handle {
+    font-size: 10px;
+    color: hsl(var(--muted-foreground) / 0.7);
+    font-family: monospace;
+    text-align: center;
+    line-height: 1.3;
+  }
+
+  /* Arrow indicator with smooth edges */
+  .social-details::before {
+    content: '';
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%) scale(0.8);
+    border: 5px solid transparent;
+    border-bottom-color: hsl(var(--border) / 0.2);
+    opacity: 0;
+    transition:
+      opacity 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+      transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
+  .social-details::after {
+    content: '';
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%) scale(0.8);
+    border: 4px solid transparent;
+    border-bottom-color: hsl(var(--background) / 0.95);
+    margin-bottom: -1px;
+    opacity: 0;
+    transition:
+      opacity 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+      transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1),
+      border-bottom-color 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .social-link-wrapper:hover .social-details::before,
+  .social-link-wrapper:hover .social-details::after {
+    opacity: 1;
+    transform: translateX(-50%) scale(1);
+  }
+
+  .social-link-wrapper:hover .social-details::after {
+    border-bottom-color: hsl(var(--background) / 0.98);
+  }
+
+  /* Dark mode adjustments */
+  .dark .social-details {
+    background: hsl(var(--background) / 0.92);
+    border-color: hsl(var(--border) / 0.2);
+    box-shadow:
+      0 4px 12px rgba(0, 0, 0, 0.3),
+      0 1px 3px rgba(0, 0, 0, 0.15),
+      inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+  }
+
+  .dark .social-link-wrapper:hover .social-details {
+    background: hsl(var(--background) / 0.96);
+    box-shadow:
+      0 12px 32px rgba(0, 0, 0, 0.6),
+      0 4px 8px rgba(0, 0, 0, 0.4),
+      inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    backdrop-filter: blur(28px) saturate(200%);
+    -webkit-backdrop-filter: blur(28px) saturate(200%);
+  }
+
+  .dark .social-details::after {
+    border-bottom-color: hsl(var(--background) / 0.92);
+  }
+
+  .dark .social-link-wrapper:hover .social-details::after {
+    border-bottom-color: hsl(var(--background) / 0.96);
+  }
+
+  /* Mobile adjustments */
+  @media (max-width: 640px) {
+    .social-details {
+      min-width: 120px;
+      padding: 8px 12px;
+    }
+
+    .social-details-desc {
+      font-size: 10px;
+    }
+
+    .social-details-handle {
+      font-size: 9px;
+    }
   }
 </style>
 
