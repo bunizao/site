@@ -100,12 +100,12 @@ const loadingPlaceholders = Array.from({ length: LOADING_COUNT }, (_, index) => 
   }
 
   .mood-header {
-    margin-bottom: 40px;
+    margin-bottom: 48px;
   }
 
   @media (min-width: 640px) {
     .mood-header {
-      margin-bottom: 48px;
+      margin-bottom: 56px;
     }
   }
 
@@ -113,8 +113,14 @@ const loadingPlaceholders = Array.from({ length: LOADING_COUNT }, (_, index) => 
     display: inline-block;
     font-size: 13px;
     color: hsl(var(--muted-foreground));
-    margin-bottom: 16px;
+    margin-bottom: 24px;
     transition: color 0.15s ease;
+  }
+
+  @media (min-width: 640px) {
+    .back-link {
+      margin-bottom: 28px;
+    }
   }
 
   .back-link:hover {
@@ -124,65 +130,86 @@ const loadingPlaceholders = Array.from({ length: LOADING_COUNT }, (_, index) => 
   .mood-page-title {
     font-size: 28px;
     font-weight: 600;
-    margin-bottom: 8px;
+    margin-bottom: 12px;
+    line-height: 1.2;
   }
 
   @media (min-width: 640px) {
     .mood-page-title {
       font-size: 32px;
+      margin-bottom: 16px;
     }
   }
 
   .mood-page-desc {
     font-size: 14px;
     color: hsl(var(--muted-foreground));
+    line-height: 1.5;
+    margin-bottom: 20px;
   }
 
   @media (min-width: 640px) {
     .mood-page-desc {
       font-size: 15px;
+      margin-bottom: 24px;
     }
   }
 
   .mood-header-actions {
-    margin-top: 12px;
     display: flex;
-    gap: 6px;
+    gap: 8px;
     flex-wrap: wrap;
+    align-items: center;
   }
 
   .mood-action-button {
     display: inline-flex;
     align-items: center;
-    gap: 4px;
+    gap: 5px;
     font-size: 11px;
-    font-weight: 400;
+    font-weight: 450;
     letter-spacing: 0.01em;
-    border-radius: 4px;
-    padding: 4px 8px;
+    border-radius: 5px;
+    padding: 6px 10px;
     transition: all 0.15s ease;
     text-decoration: none;
-    border: 1px solid hsl(var(--foreground) / 0.08);
-    background: transparent;
+    border: 1px solid hsl(var(--foreground) / 0.1);
+    background: hsl(var(--background));
+    min-height: 28px;
+  }
+
+  @media (min-width: 640px) {
+    .mood-action-button {
+      padding: 7px 12px;
+      min-height: 32px;
+    }
   }
 
   .mood-action-icon {
     flex-shrink: 0;
     width: 12px;
     height: 12px;
-    opacity: 0.7;
+    opacity: 0.75;
+  }
+
+  @media (min-width: 640px) {
+    .mood-action-icon {
+      width: 13px;
+      height: 13px;
+    }
   }
 
   .mood-action-button--secondary,
   .mood-action-button--primary {
-    color: hsl(var(--muted-foreground) / 0.8);
+    color: hsl(var(--muted-foreground) / 0.9);
   }
 
   .mood-action-button--secondary:hover,
   .mood-action-button--primary:hover {
     color: hsl(var(--foreground));
-    background: hsl(var(--foreground) / 0.04);
-    border-color: hsl(var(--foreground) / 0.15);
+    background: hsl(var(--foreground) / 0.05);
+    border-color: hsl(var(--foreground) / 0.18);
+    transform: translateY(-1px);
   }
 
   .mood-action-button:hover .mood-action-icon {
@@ -340,8 +367,9 @@ const loadingPlaceholders = Array.from({ length: LOADING_COUNT }, (_, index) => 
   :global(.mood-date-header) {
     display: flex;
     align-items: center;
-    gap: 12px;
-    margin-bottom: 16px;
+    gap: 16px;
+    margin-bottom: 20px;
+    padding-top: 8px;
   }
 
   :global(.mood-date-text) {
@@ -349,14 +377,15 @@ const loadingPlaceholders = Array.from({ length: LOADING_COUNT }, (_, index) => 
     font-weight: 500;
     color: hsl(var(--muted-foreground));
     text-transform: uppercase;
-    letter-spacing: 0.05em;
+    letter-spacing: 0.08em;
     white-space: nowrap;
+    padding-right: 4px;
   }
 
   :global(.mood-date-line) {
     flex: 1;
     height: 1px;
-    background: hsl(var(--foreground) / 0.08);
+    background: hsl(var(--foreground) / 0.1);
   }
 
   :global(.mood-date-items) {
@@ -369,9 +398,9 @@ const loadingPlaceholders = Array.from({ length: LOADING_COUNT }, (_, index) => 
   /* Mood Item - Stream Style */
   :global(.mood-item) {
     display: flex;
-    gap: 12px;
-    padding: 12px 0;
-    border-bottom: 1px solid hsl(var(--foreground) / 0.04);
+    gap: 14px;
+    padding: 14px 0;
+    border-bottom: 1px solid hsl(var(--foreground) / 0.05);
     opacity: 0;
     animation: fade-in 0.3s ease-out forwards;
     animation-delay: calc(var(--item-index) * 0.02s);
@@ -379,21 +408,23 @@ const loadingPlaceholders = Array.from({ length: LOADING_COUNT }, (_, index) => 
 
   :global(.mood-item:last-child) {
     border-bottom: none;
+    padding-bottom: 8px;
   }
 
   :global(.mood-item--clickable) {
     text-decoration: none;
     color: inherit;
     border-radius: 8px;
-    margin: 0 -8px;
-    padding: 12px 8px;
+    margin: 0 -10px;
+    padding: 14px 10px;
     border-bottom: none;
-    transition: background 0.15s ease;
+    transition: background 0.15s ease, transform 0.15s ease;
     cursor: pointer;
   }
 
   :global(.mood-item--clickable:hover) {
     background: hsl(var(--foreground) / 0.03);
+    transform: translateY(-1px);
   }
 
   :global(.mood-item--clickable + .mood-item) {
@@ -402,10 +433,11 @@ const loadingPlaceholders = Array.from({ length: LOADING_COUNT }, (_, index) => 
 
   :global(.mood-item-time) {
     font-size: 12px;
-    color: hsl(var(--muted-foreground) / 0.5);
+    color: hsl(var(--muted-foreground) / 0.6);
     font-variant-numeric: tabular-nums;
-    min-width: 40px;
-    padding-top: 2px;
+    min-width: 42px;
+    padding-top: 1px;
+    line-height: 1.4;
   }
 
   :global(.mood-item-content) {
