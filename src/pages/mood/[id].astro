@@ -43,41 +43,41 @@ const description = post ? post.text.slice(0, 160) : 'Mood not found.';
                 ))}
               </div>
             )}
-            {post.reactions.length > 0 && (
-              <div class="mood-post-reactions" aria-label="Reactions">
-                {post.reactions.map((reaction) => (
-                  <span class={reaction.isPaid ? 'mood-reaction mood-reaction--paid' : 'mood-reaction'}>
-                    <span class="mood-reaction-emoji">
-                      {reaction.isPaid ? (
-                        '⭐'
-                      ) : reaction.emojiImage || reaction.emojiId ? (
-                        <span class="tg-emoji" data-emoji-id={reaction.emojiId}>
-                          {reaction.emojiImage ? (
-                            <img
-                              src={reaction.emojiImage}
-                              alt={reaction.emoji || 'emoji'}
-                              loading="lazy"
-                              decoding="async"
-                              width={16}
-                              height={16}
-                            />
-                          ) : (
-                            reaction.emoji
-                          )}
-                        </span>
-                      ) : (
-                        reaction.emoji
-                      )}
-                    </span>
-                    <span class="mood-reaction-count">{reaction.count}</span>
-                  </span>
-                ))}
-              </div>
-            )}
           </div>
         </div>
 
         <div class="mood-post-content" set:html={post.content} />
+        {post.reactions.length > 0 && (
+          <div class="mood-post-reactions" aria-label="Reactions">
+            {post.reactions.map((reaction) => (
+              <span class={reaction.isPaid ? 'mood-reaction mood-reaction--paid' : 'mood-reaction'}>
+                <span class="mood-reaction-emoji">
+                  {reaction.isPaid ? (
+                    '⭐'
+                  ) : reaction.emojiImage || reaction.emojiId ? (
+                    <span class="tg-emoji" data-emoji-id={reaction.emojiId}>
+                      {reaction.emojiImage ? (
+                        <img
+                          src={reaction.emojiImage}
+                          alt={reaction.emoji || 'emoji'}
+                          loading="lazy"
+                          decoding="async"
+                          width={16}
+                          height={16}
+                        />
+                      ) : (
+                        reaction.emoji
+                      )}
+                    </span>
+                  ) : (
+                    reaction.emoji
+                  )}
+                </span>
+                <span class="mood-reaction-count">{reaction.count}</span>
+              </span>
+            ))}
+          </div>
+        )}
       </article>
     ) : (
       <article class="mood-post">
@@ -174,17 +174,20 @@ const description = post ? post.text.slice(0, 160) : 'Mood not found.';
   }
 
   .mood-post-reactions {
-    display: flex;
+    display: inline-flex;
     flex-wrap: wrap;
     gap: 6px;
+    margin-top: 28px;
+    padding-top: 10px;
+    border-top: 1px solid hsl(var(--foreground) / 0.08);
   }
 
   .mood-reaction {
     display: inline-flex;
     align-items: center;
     gap: 3px;
-    padding: 3px 8px 3px 6px;
-    font-size: 12px;
+    padding: 2px 7px 2px 6px;
+    font-size: 11px;
     background: hsl(var(--foreground) / 0.05);
     border-radius: 999px;
     color: hsl(var(--muted-foreground));
@@ -210,7 +213,7 @@ const description = post ? post.text.slice(0, 160) : 'Mood not found.';
   .mood-reaction-emoji {
     display: inline-flex;
     align-items: center;
-    font-size: 14px;
+    font-size: 13px;
     line-height: 1;
   }
 
@@ -247,7 +250,7 @@ const description = post ? post.text.slice(0, 160) : 'Mood not found.';
   }
 
   .mood-reaction-count {
-    font-size: 12px;
+    font-size: 11px;
     font-weight: 500;
     font-variant-numeric: tabular-nums;
     opacity: 0.8;
