@@ -32,6 +32,7 @@ export const GET: APIRoute = async ({ request, locals }) => {
         image: mediaPreview ? null : getFirstImage(post.content),
         mediaHtml: mediaPreview?.html ?? '',
         needsDetailPage,
+        forwardedFrom: post.forwardedFrom ?? null,
         reactions: post.reactions?.map((r) => ({
           emoji: r.emoji,
           emojiId: r.emojiId,

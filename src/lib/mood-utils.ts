@@ -194,6 +194,12 @@ export interface ReactionData {
   isPaid: boolean;
 }
 
+export interface ForwardedFromData {
+  name: string;
+  href?: string;
+  author?: string;
+}
+
 /**
  * Mood data structure for API responses
  */
@@ -205,5 +211,6 @@ export interface MoodData {
   image?: string | null;
   mediaHtml?: string;
   needsDetailPage?: boolean;
+  forwardedFrom?: ForwardedFromData | null;
   reactions?: ReactionData[];
 }

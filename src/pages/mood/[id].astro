@@ -43,6 +43,26 @@ const description = post ? post.text.slice(0, 160) : 'Mood not found.';
                 ))}
               </div>
             )}
+            {post.forwardedFrom && (
+              <div class="mood-post-forwarded">
+                <span class="mood-forwarded-label">Forwarded from</span>
+                {post.forwardedFrom.href ? (
+                  <a
+                    class="mood-forwarded-source"
+                    href={post.forwardedFrom.href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    {post.forwardedFrom.name}
+                  </a>
+                ) : (
+                  <span class="mood-forwarded-source">{post.forwardedFrom.name}</span>
+                )}
+                {post.forwardedFrom.author && post.forwardedFrom.author !== post.forwardedFrom.name && (
+                  <span class="mood-forwarded-author">· {post.forwardedFrom.author}</span>
+                )}
+              </div>
+            )}
           </div>
         </div>
 
@@ -171,6 +191,38 @@ const description = post ? post.text.slice(0, 160) : 'Mood not found.';
   .mood-post-tag:hover {
     background: hsl(var(--foreground) / 0.1);
     color: hsl(var(--muted-foreground));
+  }
+
+  .mood-post-forwarded {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: hsl(var(--muted-foreground));
+  }
+
+  .mood-forwarded-label {
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-size: 10px;
+    color: hsl(var(--muted-foreground) / 0.7);
+  }
+
+  .mood-forwarded-source {
+    font-weight: 500;
+    color: hsl(var(--foreground) / 0.85);
+    text-decoration: none;
+    border-bottom: 1px solid transparent;
+  }
+
+  .mood-forwarded-source:hover,
+  .mood-forwarded-source:focus-visible {
+    border-bottom-color: hsl(var(--foreground) / 0.35);
+  }
+
+  .mood-forwarded-author {
+    color: hsl(var(--muted-foreground) / 0.7);
   }
 
   .mood-post-reactions {

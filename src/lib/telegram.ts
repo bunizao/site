@@ -41,6 +41,12 @@ export interface Reaction {
   isPaid: boolean;
 }
 
+export interface ForwardedFrom {
+  name: string;
+  href?: string;
+  author?: string;
+}
+
 export interface Post {
   id: string;
   title: string;
@@ -49,6 +55,7 @@ export interface Post {
   tags: string[];
   text: string;
   content: string;
+  forwardedFrom?: ForwardedFrom;
   reactions: Reaction[];
 }
 
@@ -278,6 +285,39 @@ function getLinkPreview($: CheerioAPI, item: Element, { staticProxy, index }: Co
   `;
 }
 
+function getForwardedFrom($: CheerioAPI, item: Element): ForwardedFrom | null {
+  const forwarded = $(item).find('.tgme_widget_message_forwarded_from').first();
+  if (!forwarded.length) {
+    return null;
+  }
+
+  const nameEl = forwarded.find('.tgme_widget_message_forwarded_from_name').first();
+  const name = nameEl.text().replace(/\s+/g, ' ').trim();
+  const href = nameEl.attr('href') ?? '';
+  const author = forwarded
+    .find('.tgme_widget_message_forwarded_from_author')
+    .first()
+    .text()
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  let cleanedName = name;
+  if (!cleanedName) {
+    const fallback = forwarded.text().replace(/\s+/g, ' ').trim();
+    cleanedName = fallback.replace(/^Forwarded from/i, '').trim();
+  }
+
+  if (!cleanedName) {
+    return null;
+  }
+
+  return {
+    name: cleanedName,
+    href: href || undefined,
+    author: author || undefined,
+  };
+}
+
 function getReply($: CheerioAPI, item: Element, { channel }: ContentProcessorConfig): string {
   const reply = $(item).find('.tgme_widget_message_reply');
   reply?.wrapInner('<small></small>')?.wrapInner('<blockquote></blockquote>');
@@ -451,6 +491,7 @@ async function getPost(
       })
       ?.map((_index, a) => $(a)?.text()?.replace('#', '') ?? '')
       ?.get() ?? [];
+  const forwardedFrom = getForwardedFrom($, messageItem as Element);
 
   return {
     id,
@@ -484,6 +525,7 @@ async function getPost(
         }
         return `${p1}${staticProxy}${p2}`;
       }),
+    forwardedFrom: forwardedFrom ?? undefined,
     reactions: await getReactions($, messageItem as Element, staticProxy),
   };
 }

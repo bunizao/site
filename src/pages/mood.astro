@@ -416,6 +416,38 @@ const loadingPlaceholders = Array.from({ length: LOADING_COUNT }, (_, index) => 
     gap: 8px;
   }
 
+  :global(.mood-item-forwarded) {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    color: hsl(var(--muted-foreground));
+  }
+
+  :global(.mood-forwarded-label) {
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-size: 10px;
+    color: hsl(var(--muted-foreground) / 0.7);
+  }
+
+  :global(.mood-forwarded-source) {
+    font-weight: 500;
+    color: hsl(var(--foreground) / 0.85);
+    text-decoration: none;
+    border-bottom: 1px solid transparent;
+  }
+
+  :global(.mood-forwarded-source:hover),
+  :global(.mood-forwarded-source:focus-visible) {
+    border-bottom-color: hsl(var(--foreground) / 0.35);
+  }
+
+  :global(.mood-forwarded-author) {
+    color: hsl(var(--muted-foreground) / 0.7);
+  }
+
   :global(.mood-item-media) {
     display: flex;
     flex-direction: column;
@@ -1106,6 +1138,12 @@ const loadingPlaceholders = Array.from({ length: LOADING_COUNT }, (_, index) => 
       isPaid: boolean;
     }
 
+    interface ForwardedFromData {
+      name: string;
+      href?: string;
+      author?: string;
+    }
+
     interface MoodData {
       id: string;
       datetime: string;
@@ -1114,6 +1152,7 @@ const loadingPlaceholders = Array.from({ length: LOADING_COUNT }, (_, index) => 
       image?: string | null;
       mediaHtml?: string;
       needsDetailPage?: boolean;
+      forwardedFrom?: ForwardedFromData | null;
       reactions?: ReactionData[];
     }
 
@@ -1145,6 +1184,39 @@ const loadingPlaceholders = Array.from({ length: LOADING_COUNT }, (_, index) => 
 
       const content = document.createElement('div');
       content.className = 'mood-item-content';
+
+      const forwardedFrom = mood.forwardedFrom && mood.forwardedFrom.name ? mood.forwardedFrom : null;
+      if (forwardedFrom) {
+        const forwarded = document.createElement('div');
+        forwarded.className = 'mood-item-forwarded';
+
+        const label = document.createElement('span');
+        label.className = 'mood-forwarded-label';
+        label.textContent = 'Forwarded from';
+        forwarded.appendChild(label);
+
+        const source = document.createElement(forwardedFrom.href ? 'a' : 'span');
+        source.className = 'mood-forwarded-source';
+        source.textContent = forwardedFrom.name;
+        if (source instanceof HTMLAnchorElement && forwardedFrom.href) {
+          source.href = forwardedFrom.href;
+          source.target = '_blank';
+          source.rel = 'noopener noreferrer';
+        }
+        forwarded.appendChild(source);
+
+        const author = forwardedFrom.author && forwardedFrom.author !== forwardedFrom.name
+          ? forwardedFrom.author
+          : '';
+        if (author) {
+          const authorSpan = document.createElement('span');
+          authorSpan.className = 'mood-forwarded-author';
+          authorSpan.textContent = `· ${author}`;
+          forwarded.appendChild(authorSpan);
+        }
+
+        content.appendChild(forwarded);
+      }
 
       const text = document.createElement('p');
       text.className = 'mood-item-text';
