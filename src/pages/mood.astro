@@ -389,6 +389,7 @@ const loadingPlaceholders = Array.from({ length: LOADING_COUNT }, (_, index) => 
     padding: 12px 8px;
     border-bottom: none;
     transition: background 0.15s ease;
+    cursor: pointer;
   }
 
   :global(.mood-item--clickable:hover) {
@@ -565,6 +566,15 @@ const loadingPlaceholders = Array.from({ length: LOADING_COUNT }, (_, index) => 
     color: hsl(var(--foreground));
     white-space: pre-wrap;
     word-wrap: break-word;
+  }
+
+  :global(.mood-item-text a) {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+
+  :global(.mood-item-text a:hover) {
+    opacity: 0.7;
   }
 
   @media (min-width: 640px) {
@@ -909,6 +919,50 @@ const loadingPlaceholders = Array.from({ length: LOADING_COUNT }, (_, index) => 
 
     const isLongContent = (text: string): boolean => (text || '').length > 280;
 
+    const linkifyText = (value: string): DocumentFragment => {
+      const fragment = document.createDocumentFragment();
+      if (!value) return fragment;
+
+      const urlPattern = /https?:\/\/[^\s]+/g;
+      let lastIndex = 0;
+      let match: RegExpExecArray | null;
+
+      while ((match = urlPattern.exec(value)) !== null) {
+        const matchText = match[0];
+        const start = match.index;
+
+        if (start > lastIndex) {
+          fragment.appendChild(document.createTextNode(value.slice(lastIndex, start)));
+        }
+
+        let url = matchText;
+        let trailing = '';
+        while (/[)\].,!?:;]+$/.test(url)) {
+          trailing = url.slice(-1) + trailing;
+          url = url.slice(0, -1);
+        }
+
+        const anchor = document.createElement('a');
+        anchor.href = url;
+        anchor.textContent = url;
+        anchor.target = '_blank';
+        anchor.rel = 'noopener noreferrer';
+        fragment.appendChild(anchor);
+
+        if (trailing) {
+          fragment.appendChild(document.createTextNode(trailing));
+        }
+
+        lastIndex = start + matchText.length;
+      }
+
+      if (lastIndex < value.length) {
+        fragment.appendChild(document.createTextNode(value.slice(lastIndex)));
+      }
+
+      return fragment;
+    };
+
     const createAnimatedEmojiManager = () => {
       if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
         return {
@@ -1067,13 +1121,13 @@ const loadingPlaceholders = Array.from({ length: LOADING_COUNT }, (_, index) => 
         ? mood.needsDetailPage
         : isLongContent(mood.previewText);
       const shouldLink = needsDetailPage && !hasMediaHtml;
-      const element = shouldLink
-        ? document.createElement('a')
-        : document.createElement('div');
+      const element = document.createElement('div');
 
-      if (shouldLink && element instanceof HTMLAnchorElement) {
-        element.href = `/mood/${mood.id}`;
+      if (shouldLink) {
         element.className = 'mood-item mood-item--clickable';
+        element.dataset.href = `/mood/${mood.id}`;
+        element.setAttribute('role', 'link');
+        element.tabIndex = 0;
       } else {
         element.className = 'mood-item';
       }
@@ -1091,7 +1145,10 @@ const loadingPlaceholders = Array.from({ length: LOADING_COUNT }, (_, index) => 
 
       const text = document.createElement('p');
       text.className = 'mood-item-text';
-      text.textContent = mood.previewText || '';
+      const previewText = mood.previewText || '';
+      if (previewText.trim()) {
+        text.appendChild(linkifyText(previewText));
+      }
       content.appendChild(text);
 
       if (hasMediaHtml) {
@@ -1197,6 +1254,31 @@ const loadingPlaceholders = Array.from({ length: LOADING_COUNT }, (_, index) => 
 
       return group;
     };
+
+    const navigateToMood = (target: HTMLElement | null): void => {
+      if (!target) return;
+      if (target.closest('a')) return;
+
+      const item = target.closest('.mood-item--clickable') as HTMLElement | null;
+      if (!item) return;
+
+      const href = item.dataset.href;
+      if (href) {
+        window.location.href = href;
+      }
+    };
+
+    list.addEventListener('click', (event) => {
+      navigateToMood(event.target as HTMLElement | null);
+    });
+
+    list.addEventListener('keydown', (event) => {
+      if (event.key !== 'Enter' && event.key !== ' ') return;
+      const target = event.target as HTMLElement | null;
+      if (!target || target.closest('a')) return;
+      event.preventDefault();
+      navigateToMood(target);
+    });
 
     const appendMoods = (posts: MoodData[], startIndex = 0): void => {
       const grouped = new Map<string, MoodData[]>();
