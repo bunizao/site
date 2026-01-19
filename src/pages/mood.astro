@@ -480,9 +480,7 @@ const loadingPlaceholders = Array.from({ length: LOADING_COUNT }, (_, index) => 
     margin: 0 -12px;
     padding: 16px 12px;
     border-bottom: none;
-    background: transparent;
-    box-shadow: inset 0 0 0 1px hsl(var(--foreground) / 0.06);
-    transition: box-shadow 0.2s ease;
+    transition: color 0.15s ease;
     cursor: pointer;
   }
 
@@ -492,15 +490,6 @@ const loadingPlaceholders = Array.from({ length: LOADING_COUNT }, (_, index) => 
       padding: 18px 16px;
       border-radius: 12px;
     }
-  }
-
-  :global(.mood-item--clickable:hover) {
-    box-shadow: inset 0 0 0 1px hsl(var(--foreground) / 0.14);
-  }
-
-  :global(.mood-item--clickable:focus-visible) {
-    outline: none;
-    box-shadow: inset 0 0 0 2px hsl(var(--foreground) / 0.28);
   }
 
   :global(.mood-item--clickable + .mood-item) {
@@ -719,6 +708,27 @@ const loadingPlaceholders = Array.from({ length: LOADING_COUNT }, (_, index) => 
     color: hsl(var(--foreground));
     white-space: pre-wrap;
     word-wrap: break-word;
+  }
+
+  :global(.mood-item-text--clamped) {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 6;
+    overflow: hidden;
+  }
+
+  :global(.mood-item-details) {
+    align-self: flex-start;
+    font-size: 13px;
+    font-weight: 500;
+    color: hsl(var(--muted-foreground));
+    text-decoration: none;
+  }
+
+  @media (min-width: 640px) {
+    :global(.mood-item-details) {
+      font-size: 14px;
+    }
   }
 
   :global(.mood-item-text a) {
@@ -1381,8 +1391,12 @@ const loadingPlaceholders = Array.from({ length: LOADING_COUNT }, (_, index) => 
       const text = document.createElement('p');
       text.className = 'mood-item-text';
       const previewText = mood.previewText || '';
+      const isLongPreview = isLongContent(previewText);
       if (previewText.trim()) {
         text.appendChild(linkifyText(previewText));
+      }
+      if (isLongPreview) {
+        text.classList.add('mood-item-text--clamped');
       }
       content.appendChild(text);
 
@@ -1413,6 +1427,14 @@ const loadingPlaceholders = Array.from({ length: LOADING_COUNT }, (_, index) => 
         };
         thumbWrap.appendChild(img);
         content.appendChild(thumbWrap);
+      }
+
+      if (isLongPreview) {
+        const details = document.createElement('a');
+        details.className = 'mood-item-details link';
+        details.href = `/mood/${mood.id}`;
+        details.textContent = 'View details';
+        content.appendChild(details);
       }
 
       // Add reactions
