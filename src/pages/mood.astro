@@ -498,6 +498,12 @@ const loadingPlaceholders = Array.from({ length: LOADING_COUNT }, (_, index) => 
     box-shadow: 0 8px 25px hsl(var(--foreground) / 0.05);
   }
 
+  :global(.mood-item--clickable.mood-item--media:hover) {
+    background: transparent;
+    transform: none;
+    box-shadow: none;
+  }
+
   :global(.mood-item--clickable + .mood-item) {
     border-top: none;
   }
@@ -738,44 +744,83 @@ const loadingPlaceholders = Array.from({ length: LOADING_COUNT }, (_, index) => 
   :global(.mood-item-thumb) {
     width: 100%;
     max-width: 400px;
-    border-radius: 8px;
+    border-radius: 12px;
     overflow: hidden;
+    background: hsl(var(--foreground) / 0.02);
+    position: relative;
+  }
+
+  /* Landscape and square images - normal flow */
+  :global(.mood-item-thumb img) {
+    width: 100%;
+    height: auto;
+    display: block;
+    transition: transform 0.2s ease;
+  }
+
+  /* Portrait images - fit within max height without cropping */
+  :global(.mood-item-thumb--portrait) {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: hsl(var(--foreground) / 0.04);
+  }
+
+  :global(.mood-item-thumb--portrait img) {
+    width: auto;
+    height: auto;
+    max-width: 100%;
+    max-height: 280px;
+    object-fit: contain;
+    object-position: center;
+    margin: 0;
+  }
+
+  /* Ultra-tall images - contain without cropping */
+  :global(.mood-item-thumb--ultra-tall) {
+    display: flex;
+    align-items: center;
+    justify-content: center;
     background: hsl(var(--foreground) / 0.03);
   }
 
-  /* Portrait images in feed - limit height */
-  :global(.mood-item-thumb.mood-item-thumb--portrait img) {
-    max-height: 320px;
+  :global(.mood-item-thumb--ultra-tall img) {
     width: auto;
+    height: auto;
     max-width: 100%;
+    max-height: 320px;
     object-fit: contain;
-    margin: 0 auto;
+    object-position: center;
   }
 
   @media (min-width: 640px) {
     :global(.mood-item-thumb) {
       max-width: 480px;
+      border-radius: 14px;
     }
 
-    :global(.mood-item-thumb.mood-item-thumb--portrait img) {
-      max-height: 400px;
+    :global(.mood-item-thumb--portrait img) {
+      max-height: 320px;
+    }
+
+    :global(.mood-item-thumb--ultra-tall img) {
+      max-height: 360px;
     }
   }
 
   @media (min-width: 1024px) {
     :global(.mood-item-thumb) {
       max-width: 560px;
+      border-radius: 16px;
     }
 
-    :global(.mood-item-thumb.mood-item-thumb--portrait img) {
-      max-height: 450px;
+    :global(.mood-item-thumb--portrait img) {
+      max-height: 360px;
     }
-  }
 
-  :global(.mood-item-thumb img) {
-    width: 100%;
-    height: auto;
-    display: block;
+    :global(.mood-item-thumb--ultra-tall img) {
+      max-height: 400px;
+    }
   }
 
   :global(.mood-item-tag) {
@@ -1293,6 +1338,10 @@ const loadingPlaceholders = Array.from({ length: LOADING_COUNT }, (_, index) => 
       element.dataset.moodId = mood.id;
       element.style.setProperty('--item-index', String(index));
 
+      if (mood.image) {
+        element.classList.add('mood-item--media');
+      }
+
       const time = document.createElement('time');
       time.className = 'mood-item-time';
       time.dateTime = mood.datetime;
@@ -1327,7 +1376,7 @@ const loadingPlaceholders = Array.from({ length: LOADING_COUNT }, (_, index) => 
         if (author) {
           const authorSpan = document.createElement('span');
           authorSpan.className = 'mood-forwarded-author';
-          authorSpan.textContent = `· ${author}`;
+          authorSpan.textContent = `(${author})`;
           forwarded.appendChild(authorSpan);
         }
 
@@ -1354,11 +1403,18 @@ const loadingPlaceholders = Array.from({ length: LOADING_COUNT }, (_, index) => 
         img.src = mood.image;
         img.alt = '';
         img.loading = 'lazy';
-        // Detect portrait images after load
+        // Intelligent image ratio detection
         img.onload = () => {
-          if (img.naturalHeight > img.naturalWidth * 1.2) {
+          const aspectRatio = img.naturalWidth / img.naturalHeight;
+
+          if (aspectRatio < 0.6) {
+            // Ultra-tall images (aspect ratio < 0.6)
+            thumbWrap.classList.add('mood-item-thumb--ultra-tall');
+          } else if (aspectRatio < 0.8) {
+            // Portrait images (aspect ratio 0.6-0.8)
             thumbWrap.classList.add('mood-item-thumb--portrait');
           }
+          // Landscape and square images (aspect ratio >= 0.8) use default styling
         };
         thumbWrap.appendChild(img);
         content.appendChild(thumbWrap);
