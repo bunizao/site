@@ -281,13 +281,15 @@ const description = post ? post.text.slice(0, 160) : 'Mood not found.';
 
   .mood-post-content :global(a) {
     color: hsl(var(--foreground));
-    text-decoration: underline;
-    text-underline-offset: 3px;
-    transition: opacity 0.15s ease;
+    text-decoration: none;
+    border-bottom: 1px solid transparent;
+    padding-bottom: 1px;
+    transition: border-color 0.15s ease, color 0.15s ease;
   }
 
-  .mood-post-content :global(a:hover) {
-    opacity: 0.7;
+  .mood-post-content :global(a:hover),
+  .mood-post-content :global(a:focus-visible) {
+    border-bottom-color: hsl(var(--foreground) / 0.4);
   }
 
   .mood-post-content :global(strong) {

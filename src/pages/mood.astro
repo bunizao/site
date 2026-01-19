@@ -569,12 +569,15 @@ const loadingPlaceholders = Array.from({ length: LOADING_COUNT }, (_, index) => 
   }
 
   :global(.mood-item-text a) {
-    text-decoration: underline;
-    text-underline-offset: 3px;
+    color: hsl(var(--foreground));
+    text-decoration: none;
+    border-bottom: 1px solid transparent;
+    transition: border-color 0.15s ease, color 0.15s ease, opacity 0.15s ease;
   }
 
-  :global(.mood-item-text a:hover) {
-    opacity: 0.7;
+  :global(.mood-item-text a:hover),
+  :global(.mood-item-text a:focus-visible) {
+    border-bottom-color: hsl(var(--foreground) / 0.4);
   }
 
   @media (min-width: 640px) {
