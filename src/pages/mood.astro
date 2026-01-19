@@ -480,7 +480,9 @@ const loadingPlaceholders = Array.from({ length: LOADING_COUNT }, (_, index) => 
     margin: 0 -12px;
     padding: 16px 12px;
     border-bottom: none;
-    transition: all 0.15s ease;
+    background: transparent;
+    box-shadow: inset 0 0 0 1px hsl(var(--foreground) / 0.06);
+    transition: box-shadow 0.2s ease;
     cursor: pointer;
   }
 
@@ -493,15 +495,12 @@ const loadingPlaceholders = Array.from({ length: LOADING_COUNT }, (_, index) => 
   }
 
   :global(.mood-item--clickable:hover) {
-    background: hsl(var(--foreground) / 0.02);
-    transform: translateY(-1px);
-    box-shadow: 0 8px 25px hsl(var(--foreground) / 0.05);
+    box-shadow: inset 0 0 0 1px hsl(var(--foreground) / 0.14);
   }
 
-  :global(.mood-item--clickable.mood-item--media:hover) {
-    background: transparent;
-    transform: none;
-    box-shadow: none;
+  :global(.mood-item--clickable:focus-visible) {
+    outline: none;
+    box-shadow: inset 0 0 0 2px hsl(var(--foreground) / 0.28);
   }
 
   :global(.mood-item--clickable + .mood-item) {
@@ -1337,10 +1336,6 @@ const loadingPlaceholders = Array.from({ length: LOADING_COUNT }, (_, index) => 
 
       element.dataset.moodId = mood.id;
       element.style.setProperty('--item-index', String(index));
-
-      if (mood.image) {
-        element.classList.add('mood-item--media');
-      }
 
       const time = document.createElement('time');
       time.className = 'mood-item-time';
