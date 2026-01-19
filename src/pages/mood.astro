@@ -99,13 +99,29 @@ const loadingPlaceholders = Array.from({ length: LOADING_COUNT }, (_, index) => 
     }
   }
 
+  @media (min-width: 1024px) {
+    .mood-page {
+      padding: 120px 0 100px;
+    }
+  }
+
   .mood-header {
     margin-bottom: 48px;
+    padding-bottom: 24px;
+    border-bottom: 1px solid hsl(var(--foreground) / 0.06);
   }
 
   @media (min-width: 640px) {
     .mood-header {
       margin-bottom: 56px;
+      padding-bottom: 28px;
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .mood-header {
+      margin-bottom: 64px;
+      padding-bottom: 32px;
     }
   }
 
@@ -354,7 +370,22 @@ const loadingPlaceholders = Array.from({ length: LOADING_COUNT }, (_, index) => 
   :global(.mood-stream) {
     display: flex;
     flex-direction: column;
-    gap: 32px;
+    gap: 40px;
+    max-width: 680px;
+    margin: 0 auto;
+  }
+
+  @media (min-width: 640px) {
+    :global(.mood-stream) {
+      gap: 48px;
+    }
+  }
+
+  @media (min-width: 1024px) {
+    :global(.mood-stream) {
+      gap: 56px;
+      max-width: 720px;
+    }
   }
 
   /* Date Group */
@@ -362,6 +393,23 @@ const loadingPlaceholders = Array.from({ length: LOADING_COUNT }, (_, index) => 
     display: flex;
     flex-direction: column;
     gap: 0;
+    background: hsl(var(--background));
+    border-radius: 12px;
+    padding: 20px;
+    border: 1px solid hsl(var(--foreground) / 0.04);
+  }
+
+  @media (min-width: 640px) {
+    :global(.mood-date-group) {
+      padding: 24px;
+      border-radius: 16px;
+    }
+  }
+
+  @media (min-width: 1024px) {
+    :global(.mood-date-group) {
+      padding: 28px;
+    }
   }
 
   :global(.mood-date-header) {
@@ -369,7 +417,13 @@ const loadingPlaceholders = Array.from({ length: LOADING_COUNT }, (_, index) => 
     align-items: center;
     gap: 16px;
     margin-bottom: 20px;
-    padding-top: 8px;
+    padding-top: 0;
+  }
+
+  @media (min-width: 640px) {
+    :global(.mood-date-header) {
+      margin-bottom: 24px;
+    }
   }
 
   :global(.mood-date-text) {
@@ -398,33 +452,50 @@ const loadingPlaceholders = Array.from({ length: LOADING_COUNT }, (_, index) => 
   /* Mood Item - Stream Style */
   :global(.mood-item) {
     display: flex;
-    gap: 14px;
-    padding: 14px 0;
-    border-bottom: 1px solid hsl(var(--foreground) / 0.05);
+    gap: 16px;
+    padding: 16px 0;
+    border-bottom: 1px solid hsl(var(--foreground) / 0.04);
     opacity: 0;
     animation: fade-in 0.3s ease-out forwards;
     animation-delay: calc(var(--item-index) * 0.02s);
+    position: relative;
+  }
+
+  @media (min-width: 640px) {
+    :global(.mood-item) {
+      padding: 18px 0;
+      gap: 18px;
+    }
   }
 
   :global(.mood-item:last-child) {
     border-bottom: none;
-    padding-bottom: 8px;
+    padding-bottom: 4px;
   }
 
   :global(.mood-item--clickable) {
     text-decoration: none;
     color: inherit;
-    border-radius: 8px;
-    margin: 0 -10px;
-    padding: 14px 10px;
+    border-radius: 10px;
+    margin: 0 -12px;
+    padding: 16px 12px;
     border-bottom: none;
-    transition: background 0.15s ease, transform 0.15s ease;
+    transition: all 0.15s ease;
     cursor: pointer;
   }
 
+  @media (min-width: 640px) {
+    :global(.mood-item--clickable) {
+      margin: 0 -16px;
+      padding: 18px 16px;
+      border-radius: 12px;
+    }
+  }
+
   :global(.mood-item--clickable:hover) {
-    background: hsl(var(--foreground) / 0.03);
+    background: hsl(var(--foreground) / 0.02);
     transform: translateY(-1px);
+    box-shadow: 0 8px 25px hsl(var(--foreground) / 0.05);
   }
 
   :global(.mood-item--clickable + .mood-item) {
@@ -435,9 +506,16 @@ const loadingPlaceholders = Array.from({ length: LOADING_COUNT }, (_, index) => 
     font-size: 12px;
     color: hsl(var(--muted-foreground) / 0.6);
     font-variant-numeric: tabular-nums;
-    min-width: 42px;
+    min-width: 44px;
     padding-top: 1px;
-    line-height: 1.4;
+    line-height: 1.5;
+    flex-shrink: 0;
+  }
+
+  @media (min-width: 640px) {
+    :global(.mood-item-time) {
+      min-width: 46px;
+    }
   }
 
   :global(.mood-item-content) {
@@ -445,7 +523,13 @@ const loadingPlaceholders = Array.from({ length: LOADING_COUNT }, (_, index) => 
     min-width: 0;
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 10px;
+  }
+
+  @media (min-width: 640px) {
+    :global(.mood-item-content) {
+      gap: 12px;
+    }
   }
 
   :global(.mood-item-forwarded) {

@@ -128,13 +128,30 @@ const description = post ? post.text.slice(0, 160) : 'Mood not found.';
     }
   }
 
+  @media (min-width: 1024px) {
+    .mood-post {
+      padding: 120px 0 100px;
+      max-width: 720px;
+    }
+  }
+
   .mood-post-header {
     margin-bottom: 40px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid hsl(var(--foreground) / 0.06);
   }
 
   @media (min-width: 640px) {
     .mood-post-header {
       margin-bottom: 48px;
+      padding-bottom: 24px;
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .mood-post-header {
+      margin-bottom: 56px;
+      padding-bottom: 28px;
     }
   }
 
