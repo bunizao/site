@@ -43,6 +43,37 @@ const description = post ? post.text.slice(0, 160) : 'Mood not found.';
                 ))}
               </div>
             )}
+            {post.reactions.length > 0 && (
+              <div class="mood-post-reactions" aria-label="Reactions">
+                {post.reactions.map((reaction) => (
+                  <span class={reaction.isPaid ? 'mood-reaction mood-reaction--paid' : 'mood-reaction'}>
+                    <span class="mood-reaction-emoji">
+                      {reaction.isPaid ? (
+                        '⭐'
+                      ) : reaction.emojiImage || reaction.emojiId ? (
+                        <span class="tg-emoji" data-emoji-id={reaction.emojiId}>
+                          {reaction.emojiImage ? (
+                            <img
+                              src={reaction.emojiImage}
+                              alt={reaction.emoji || 'emoji'}
+                              loading="lazy"
+                              decoding="async"
+                              width={16}
+                              height={16}
+                            />
+                          ) : (
+                            reaction.emoji
+                          )}
+                        </span>
+                      ) : (
+                        reaction.emoji
+                      )}
+                    </span>
+                    <span class="mood-reaction-count">{reaction.count}</span>
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 
@@ -140,6 +171,86 @@ const description = post ? post.text.slice(0, 160) : 'Mood not found.';
   .mood-post-tag:hover {
     background: hsl(var(--foreground) / 0.1);
     color: hsl(var(--muted-foreground));
+  }
+
+  .mood-post-reactions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .mood-reaction {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 3px 8px 3px 6px;
+    font-size: 12px;
+    background: hsl(var(--foreground) / 0.05);
+    border-radius: 999px;
+    color: hsl(var(--muted-foreground));
+    transition: all 0.15s ease;
+    border: 1px solid transparent;
+  }
+
+  .mood-reaction:hover {
+    background: hsl(var(--foreground) / 0.08);
+    border-color: hsl(var(--foreground) / 0.08);
+  }
+
+  .mood-reaction--paid {
+    background: hsl(45 100% 50% / 0.08);
+    color: hsl(45 70% 40%);
+  }
+
+  .mood-reaction--paid:hover {
+    background: hsl(45 100% 50% / 0.12);
+    border-color: hsl(45 100% 50% / 0.2);
+  }
+
+  .mood-reaction-emoji {
+    display: inline-flex;
+    align-items: center;
+    font-size: 14px;
+    line-height: 1;
+  }
+
+  .mood-reaction-emoji img {
+    width: 1em;
+    height: 1em;
+    display: block;
+  }
+
+  .mood-post-reactions .tg-emoji {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.15em;
+    height: 1.15em;
+    vertical-align: -0.15em;
+  }
+
+  .mood-post-reactions .tg-emoji img {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+
+  .mood-post-reactions .tg-emoji[data-emoji-animated="true"] img {
+    display: none;
+  }
+
+  .mood-post-reactions :global(.tg-emoji-anim),
+  .mood-post-reactions :global(.tg-emoji-anim svg) {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+
+  .mood-reaction-count {
+    font-size: 12px;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+    opacity: 0.8;
   }
 
   /* Content Styles */
