@@ -562,8 +562,12 @@ const placeholders = Array.from({ length: SKELETON_COUNT }, (_, index) => ({
 
       const text = document.createElement('span');
       text.className = 'mood-text';
-      text.textContent = mood.previewText || '(No text)';
-      card.appendChild(text);
+      const previewText = mood.previewText || '';
+      const hasText = previewText.trim().length > 0;
+      if (hasText || !mood.image) {
+        text.textContent = hasText ? previewText : '(No text)';
+        card.appendChild(text);
+      }
 
       const hasMetaContent = mood.tag || mood.image;
       if (hasMetaContent) {
