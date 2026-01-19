@@ -129,12 +129,12 @@ const description = post ? post.text.slice(0, 160) : 'Mood not found.';
   }
 
   .mood-post-header {
-    margin-bottom: 32px;
+    margin-bottom: 40px;
   }
 
   @media (min-width: 640px) {
     .mood-post-header {
-      margin-bottom: 40px;
+      margin-bottom: 48px;
     }
   }
 
@@ -142,13 +142,19 @@ const description = post ? post.text.slice(0, 160) : 'Mood not found.';
     display: inline-block;
     font-size: 13px;
     color: hsl(var(--muted-foreground));
-    margin-bottom: 20px;
+    margin-bottom: 28px;
     transition: color 0.15s ease;
     background: none;
     border: none;
     padding: 0;
     cursor: pointer;
     font-family: inherit;
+  }
+
+  @media (min-width: 640px) {
+    .back-link {
+      margin-bottom: 32px;
+    }
   }
 
   .back-link:hover {
@@ -158,13 +164,20 @@ const description = post ? post.text.slice(0, 160) : 'Mood not found.';
   .mood-post-meta {
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 16px;
+  }
+
+  @media (min-width: 640px) {
+    .mood-post-meta {
+      gap: 18px;
+    }
   }
 
   .mood-post-date {
     font-size: 13px;
     color: hsl(var(--muted-foreground));
     font-variant-numeric: tabular-nums;
+    line-height: 1.5;
   }
 
   @media (min-width: 640px) {
@@ -176,30 +189,34 @@ const description = post ? post.text.slice(0, 160) : 'Mood not found.';
   .mood-post-tags {
     display: flex;
     flex-wrap: wrap;
-    gap: 8px;
+    gap: 10px;
+    margin-top: 2px;
   }
 
   .mood-post-tag {
     font-size: 12px;
     color: hsl(var(--muted-foreground) / 0.7);
-    padding: 4px 10px;
-    background: hsl(var(--foreground) / 0.05);
-    border-radius: 4px;
+    padding: 5px 12px;
+    background: hsl(var(--foreground) / 0.06);
+    border-radius: 6px;
     transition: all 0.15s ease;
+    border: 1px solid transparent;
   }
 
   .mood-post-tag:hover {
     background: hsl(var(--foreground) / 0.1);
     color: hsl(var(--muted-foreground));
+    border-color: hsl(var(--foreground) / 0.12);
   }
 
   .mood-post-forwarded {
     display: inline-flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 6px;
+    gap: 8px;
     font-size: 12px;
     color: hsl(var(--muted-foreground));
+    padding: 6px 0;
   }
 
   .mood-forwarded-label {
@@ -228,19 +245,26 @@ const description = post ? post.text.slice(0, 160) : 'Mood not found.';
   .mood-post-reactions {
     display: inline-flex;
     flex-wrap: wrap;
-    gap: 6px;
-    margin-top: 28px;
-    padding-top: 10px;
-    border-top: 1px solid hsl(var(--foreground) / 0.08);
+    gap: 8px;
+    margin-top: 32px;
+    padding-top: 14px;
+    border-top: 1px solid hsl(var(--foreground) / 0.1);
+  }
+
+  @media (min-width: 640px) {
+    .mood-post-reactions {
+      margin-top: 36px;
+      padding-top: 16px;
+    }
   }
 
   .mood-reaction {
     display: inline-flex;
     align-items: center;
-    gap: 3px;
-    padding: 2px 7px 2px 6px;
+    gap: 4px;
+    padding: 4px 10px 4px 8px;
     font-size: 11px;
-    background: hsl(var(--foreground) / 0.05);
+    background: hsl(var(--foreground) / 0.06);
     border-radius: 999px;
     color: hsl(var(--muted-foreground));
     transition: all 0.15s ease;
@@ -248,8 +272,9 @@ const description = post ? post.text.slice(0, 160) : 'Mood not found.';
   }
 
   .mood-reaction:hover {
-    background: hsl(var(--foreground) / 0.08);
-    border-color: hsl(var(--foreground) / 0.08);
+    background: hsl(var(--foreground) / 0.1);
+    border-color: hsl(var(--foreground) / 0.12);
+    transform: translateY(-1px);
   }
 
   .mood-reaction--paid {
@@ -313,12 +338,14 @@ const description = post ? post.text.slice(0, 160) : 'Mood not found.';
     font-size: 15px;
     line-height: 1.7;
     color: hsl(var(--foreground));
+    margin-top: 4px;
   }
 
   @media (min-width: 640px) {
     .mood-post-content {
       font-size: 16px;
       line-height: 1.8;
+      margin-top: 6px;
     }
   }
 
