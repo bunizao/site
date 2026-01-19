@@ -135,6 +135,87 @@ const description = post ? post.text.slice(0, 160) : 'Mood not found.';
     }
   }
 
+  @media (max-width: 540px) {
+    .mood-post {
+      padding: 64px 0 48px;
+    }
+
+    .mood-post-header {
+      margin-bottom: 28px;
+      padding-bottom: 16px;
+    }
+
+    .back-link {
+      margin-bottom: 20px;
+      font-size: 12px;
+    }
+
+    .mood-post-meta {
+      gap: 12px;
+    }
+
+    .mood-post-date {
+      font-size: 12px;
+    }
+
+    .mood-post-tags {
+      gap: 8px;
+    }
+
+    .mood-post-tag {
+      font-size: 11px;
+      padding: 4px 10px;
+    }
+
+    .mood-post-content {
+      font-size: 14px;
+      line-height: 1.65;
+    }
+
+    .mood-post-reactions {
+      margin-top: 24px;
+      padding-top: 12px;
+      gap: 6px;
+    }
+
+    .mood-reaction {
+      padding: 4px 9px 4px 7px;
+    }
+
+    .mood-post-content :global(blockquote) {
+      padding: 12px 14px;
+      font-size: 13px;
+    }
+
+    .mood-post-content :global(pre) {
+      padding: 12px;
+      font-size: 12px;
+    }
+
+    .mood-post-content :global(.bookmark-card) {
+      max-width: 100%;
+    }
+
+    .mood-post-content :global(.tgme_widget_message_document_wrap) {
+      padding: 12px;
+      gap: 10px;
+    }
+
+    .mood-post-content :global(.tgme_widget_message_document_icon) {
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+    }
+
+    .mood-post-content :global(.tgme_widget_message_document_title) {
+      font-size: 14px;
+    }
+
+    .mood-post-content :global(.tgme_widget_message_document_extra) {
+      font-size: 12px;
+    }
+  }
+
   .mood-post-header {
     margin-bottom: 40px;
     padding-bottom: 20px;
@@ -356,6 +437,8 @@ const description = post ? post.text.slice(0, 160) : 'Mood not found.';
     line-height: 1.7;
     color: hsl(var(--foreground));
     margin-top: 4px;
+    overflow-wrap: anywhere;
+    word-break: break-word;
   }
 
   @media (min-width: 640px) {
@@ -381,6 +464,8 @@ const description = post ? post.text.slice(0, 160) : 'Mood not found.';
     border-bottom: 1px solid transparent;
     padding-bottom: 1px;
     transition: border-color 0.15s ease, color 0.15s ease;
+    overflow-wrap: anywhere;
+    word-break: break-word;
   }
 
   .mood-post-content :global(a:hover),

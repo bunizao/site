@@ -33,7 +33,7 @@ const loadingPlaceholders = Array.from({ length: LOADING_COUNT }, (_, index) => 
         <p class="mood-page-desc">Thoughts and moments from my Telegram channel</p>
         <div class="mood-header-actions">
           <a class="mood-action-button mood-action-button--secondary" href="/mood/rss.xml" title="Subscribe to RSS feed">
-            <svg class="mood-action-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <svg class="mood-action-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <path d="M4 11a9 9 0 0 1 9 9"></path>
               <path d="M4 4a16 16 0 0 1 16 16"></path>
               <circle cx="5" cy="19" r="1"></circle>
@@ -42,7 +42,7 @@ const loadingPlaceholders = Array.from({ length: LOADING_COUNT }, (_, index) => 
           </a>
           {telegramUrl && (
             <a class="mood-action-button mood-action-button--primary" href={telegramUrl} target="_blank" rel="noopener noreferrer" title="View on Telegram">
-              <svg class="mood-action-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <svg class="mood-action-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                 <path d="m22 2-7 20-4-9-9-4Z"></path>
                 <path d="M22 2 11 13"></path>
               </svg>
@@ -90,52 +90,59 @@ const loadingPlaceholders = Array.from({ length: LOADING_COUNT }, (_, index) => 
 
 <style>
   .mood-page {
-    padding: 80px 0 60px;
+    padding: 120px 0 80px;
   }
 
   @media (min-width: 640px) {
     .mood-page {
-      padding: 100px 0 80px;
+      padding: 160px 0 120px;
     }
   }
 
   @media (min-width: 1024px) {
     .mood-page {
-      padding: 120px 0 100px;
+      padding: 200px 0 140px;
     }
   }
 
   .mood-header {
-    margin-bottom: 48px;
-    padding-bottom: 24px;
-    border-bottom: 1px solid hsl(var(--foreground) / 0.06);
+    margin-bottom: 80px;
+    padding-bottom: 40px;
   }
 
   @media (min-width: 640px) {
     .mood-header {
-      margin-bottom: 56px;
-      padding-bottom: 28px;
+      margin-bottom: 120px;
+      padding-bottom: 60px;
     }
   }
 
   @media (min-width: 1024px) {
     .mood-header {
-      margin-bottom: 64px;
-      padding-bottom: 32px;
+      margin-bottom: 160px;
+      padding-bottom: 80px;
     }
   }
 
   .back-link {
     display: inline-block;
-    font-size: 13px;
+    font-size: 14px;
     color: hsl(var(--muted-foreground));
-    margin-bottom: 24px;
+    margin-bottom: 48px;
     transition: color 0.15s ease;
+    font-weight: 500;
   }
 
   @media (min-width: 640px) {
     .back-link {
-      margin-bottom: 28px;
+      margin-bottom: 64px;
+      font-size: 15px;
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .back-link {
+      margin-bottom: 80px;
     }
   }
 
@@ -144,36 +151,57 @@ const loadingPlaceholders = Array.from({ length: LOADING_COUNT }, (_, index) => 
   }
 
   .mood-page-title {
-    font-size: 28px;
-    font-weight: 600;
-    margin-bottom: 12px;
-    line-height: 1.2;
+    font-size: 40px;
+    font-weight: 700;
+    margin-bottom: 32px;
+    line-height: 1.05;
+    text-wrap: balance;
+    letter-spacing: -0.03em;
   }
 
   @media (min-width: 640px) {
     .mood-page-title {
-      font-size: 32px;
-      margin-bottom: 16px;
+      font-size: 56px;
+      margin-bottom: 40px;
+      letter-spacing: -0.04em;
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .mood-page-title {
+      font-size: 72px;
+      margin-bottom: 48px;
+      letter-spacing: -0.05em;
     }
   }
 
   .mood-page-desc {
-    font-size: 14px;
+    font-size: 18px;
     color: hsl(var(--muted-foreground));
-    line-height: 1.5;
-    margin-bottom: 20px;
+    line-height: 1.6;
+    margin-bottom: 48px;
+    max-width: 480px;
   }
 
   @media (min-width: 640px) {
     .mood-page-desc {
-      font-size: 15px;
-      margin-bottom: 24px;
+      font-size: 20px;
+      margin-bottom: 64px;
+      line-height: 1.7;
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .mood-page-desc {
+      font-size: 22px;
+      margin-bottom: 80px;
+      max-width: 540px;
     }
   }
 
   .mood-header-actions {
     display: flex;
-    gap: 8px;
+    gap: 16px;
     flex-wrap: wrap;
     align-items: center;
   }
@@ -181,55 +209,93 @@ const loadingPlaceholders = Array.from({ length: LOADING_COUNT }, (_, index) => 
   .mood-action-button {
     display: inline-flex;
     align-items: center;
-    gap: 5px;
-    font-size: 11px;
-    font-weight: 450;
-    letter-spacing: 0.01em;
-    border-radius: 5px;
-    padding: 6px 10px;
-    transition: all 0.15s ease;
+    gap: 10px;
+    font-size: 14px;
+    font-weight: 500;
+    letter-spacing: 0.005em;
+    border-radius: 10px;
+    padding: 14px 20px;
+    transition: all 0.2s ease;
     text-decoration: none;
-    border: 1px solid hsl(var(--foreground) / 0.1);
+    border: 1px solid hsl(var(--foreground) / 0.12);
     background: hsl(var(--background));
-    min-height: 28px;
+    min-height: 48px;
+    color: hsl(var(--foreground));
+    box-shadow: 0 1px 3px hsl(var(--foreground) / 0.08);
   }
 
   @media (min-width: 640px) {
     .mood-action-button {
-      padding: 7px 12px;
-      min-height: 32px;
+      padding: 16px 24px;
+      min-height: 52px;
+      font-size: 15px;
+      gap: 12px;
     }
   }
 
   .mood-action-icon {
     flex-shrink: 0;
-    width: 12px;
-    height: 12px;
-    opacity: 0.75;
+    width: 18px;
+    height: 18px;
+    opacity: 0.8;
   }
 
   @media (min-width: 640px) {
     .mood-action-icon {
-      width: 13px;
-      height: 13px;
+      width: 20px;
+      height: 20px;
     }
   }
 
-  .mood-action-button--secondary,
-  .mood-action-button--primary {
-    color: hsl(var(--muted-foreground) / 0.9);
-  }
-
-  .mood-action-button--secondary:hover,
-  .mood-action-button--primary:hover {
-    color: hsl(var(--foreground));
-    background: hsl(var(--foreground) / 0.05);
-    border-color: hsl(var(--foreground) / 0.18);
-    transform: translateY(-1px);
+  .mood-action-button:hover {
+    background: hsl(var(--foreground) / 0.03);
+    border-color: hsl(var(--foreground) / 0.2);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px hsl(var(--foreground) / 0.15);
   }
 
   .mood-action-button:hover .mood-action-icon {
     opacity: 1;
+  }
+
+  /* 移动端优化 - 大幅增加留白 */
+  @media (max-width: 480px) {
+    .mood-page {
+      padding: 120px 0 80px;
+    }
+
+    .mood-header {
+      margin-bottom: 80px;
+      padding-bottom: 40px;
+    }
+
+    .back-link {
+      margin-bottom: 48px;
+      font-size: 13px;
+    }
+
+    .mood-page-title {
+      font-size: 32px;
+      margin-bottom: 32px;
+      letter-spacing: -0.02em;
+    }
+
+    .mood-page-desc {
+      font-size: 16px;
+      margin-bottom: 48px;
+      max-width: 400px;
+    }
+
+    .mood-header-actions {
+      gap: 12px;
+    }
+
+    .mood-action-button {
+      padding: 12px 16px;
+      min-height: 44px;
+      font-size: 13px;
+      gap: 8px;
+    }
   }
 
   /* Loading State */
@@ -349,6 +415,12 @@ const loadingPlaceholders = Array.from({ length: LOADING_COUNT }, (_, index) => 
     :global(.mood-loading-line::after) {
       display: none;
     }
+
+    :global(.mood-item) {
+      animation: none;
+      opacity: 1;
+      transform: none;
+    }
   }
 
   /* Error State */
@@ -371,7 +443,9 @@ const loadingPlaceholders = Array.from({ length: LOADING_COUNT }, (_, index) => 
     display: flex;
     flex-direction: column;
     gap: 40px;
+    width: 100%;
     max-width: 680px;
+    min-width: 0;
     margin: 0 auto;
   }
 
@@ -397,6 +471,9 @@ const loadingPlaceholders = Array.from({ length: LOADING_COUNT }, (_, index) => 
     border-radius: 12px;
     padding: 20px;
     border: 1px solid hsl(var(--foreground) / 0.04);
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
   }
 
   @media (min-width: 640px) {
@@ -447,6 +524,7 @@ const loadingPlaceholders = Array.from({ length: LOADING_COUNT }, (_, index) => 
     flex-direction: column;
     gap: 0;
     padding-left: 0;
+    min-width: 0;
   }
 
   /* Mood Item - Stream Style */
@@ -465,6 +543,28 @@ const loadingPlaceholders = Array.from({ length: LOADING_COUNT }, (_, index) => 
     :global(.mood-item) {
       padding: 18px 0;
       gap: 18px;
+    }
+  }
+
+  @media (max-width: 640px) {
+    :global(.mood-item) {
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    :global(.mood-item-time) {
+      min-width: 0;
+      padding-top: 0;
+      font-size: 11px;
+    }
+
+    :global(.mood-item-content) {
+      gap: 8px;
+    }
+
+    :global(.mood-item--clickable) {
+      margin: 0;
+      padding: 14px 0;
     }
   }
 
@@ -708,6 +808,7 @@ const loadingPlaceholders = Array.from({ length: LOADING_COUNT }, (_, index) => 
     color: hsl(var(--foreground));
     white-space: pre-wrap;
     word-wrap: break-word;
+    overflow-wrap: anywhere;
   }
 
   :global(.mood-item-text--clamped) {
@@ -856,7 +957,7 @@ const loadingPlaceholders = Array.from({ length: LOADING_COUNT }, (_, index) => 
     background: hsl(var(--foreground) / 0.05);
     border-radius: 999px;
     color: hsl(var(--muted-foreground));
-    transition: all 0.15s ease;
+    transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
     border: 1px solid transparent;
   }
 
@@ -942,6 +1043,118 @@ const loadingPlaceholders = Array.from({ length: LOADING_COUNT }, (_, index) => 
 
   :global(.mood-sentinel) {
     height: 1px;
+  }
+
+  @media (max-width: 480px) {
+    .mood-page {
+      padding: 64px 0 48px;
+    }
+
+    .mood-header {
+      margin-bottom: 32px;
+      padding-bottom: 20px;
+    }
+
+    .back-link {
+      margin-bottom: 16px;
+      font-size: 12px;
+    }
+
+    .mood-page-title {
+      font-size: 24px;
+      margin-bottom: 10px;
+    }
+
+    .mood-page-desc {
+      font-size: 13px;
+      margin-bottom: 16px;
+    }
+
+    .mood-header-actions {
+      gap: 10px;
+    }
+
+    .mood-action-button {
+      padding: 8px 12px;
+      min-height: 34px;
+      border-radius: 8px;
+      font-size: 12px;
+    }
+
+    :global(.mood-loading-item) {
+      gap: 10px;
+      padding: 10px 0;
+    }
+
+    :global(.mood-loading-time) {
+      width: 28px;
+    }
+
+    :global(.mood-loading-line) {
+      height: 10px;
+    }
+
+    :global(.mood-stream) {
+      gap: 32px;
+    }
+
+    :global(.mood-date-group) {
+      padding: 16px;
+    }
+
+    :global(.mood-date-header) {
+      margin-bottom: 16px;
+      gap: 12px;
+    }
+
+    :global(.mood-item) {
+      gap: 8px;
+      padding: 12px 0;
+    }
+
+    :global(.mood-item--clickable) {
+      margin: 0;
+      padding: 12px 0;
+      border-radius: 10px;
+    }
+
+    :global(.mood-item-time) {
+      min-width: 0;
+      font-size: 11px;
+    }
+
+    :global(.mood-item-content) {
+      gap: 8px;
+    }
+
+    :global(.mood-item-media) {
+      gap: 8px;
+    }
+
+    :global(.mood-item-text) {
+      font-size: 13px;
+      line-height: 1.55;
+    }
+
+    :global(.mood-item-details) {
+      font-size: 12px;
+    }
+
+    :global(.mood-item-media .bookmark-card) {
+      max-width: 100%;
+    }
+
+    :global(.mood-item-reactions) {
+      gap: 4px;
+    }
+
+    :global(.mood-load-controls) {
+      padding-top: 12px;
+    }
+
+    :global(.mood-load-status) {
+      font-size: 11px;
+    }
   }
 
   @keyframes fade-in {
@@ -1537,7 +1750,8 @@ const loadingPlaceholders = Array.from({ length: LOADING_COUNT }, (_, index) => 
     });
 
     list.addEventListener('keydown', (event) => {
-      if (event.key !== 'Enter' && event.key !== ' ') return;
+      const keyEvent = event as KeyboardEvent;
+      if (keyEvent.key !== 'Enter' && keyEvent.key !== ' ') return;
       const target = event.target as HTMLElement | null;
       if (!target || target.closest('a')) return;
       event.preventDefault();

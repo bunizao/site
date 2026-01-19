@@ -55,6 +55,10 @@ const placeholders = Array.from({ length: SKELETON_COUNT }, (_, index) => ({
 <style is:global>
   #moods-section {
     /* Initial state handled by GSAP */
+    --mood-time-col: 52px;
+    --mood-line-col: 24px;
+    --mood-left-offset: calc(var(--mood-time-col) + var(--mood-line-col));
+    --mood-hover-shift: 4px;
   }
 
   #moods-section .scroll-reveal {
@@ -78,7 +82,7 @@ const placeholders = Array.from({ length: SKELETON_COUNT }, (_, index) => ({
 
   #moods-section .mood-item {
     display: grid;
-    grid-template-columns: 52px 24px 1fr;
+    grid-template-columns: var(--mood-time-col) var(--mood-line-col) minmax(0, 1fr);
     gap: 0;
     text-decoration: none;
     color: inherit;
@@ -86,8 +90,9 @@ const placeholders = Array.from({ length: SKELETON_COUNT }, (_, index) => ({
   }
 
   @media (min-width: 640px) {
-    #moods-section .mood-item {
-      grid-template-columns: 64px 32px 1fr;
+    #moods-section {
+      --mood-time-col: 64px;
+      --mood-line-col: 32px;
     }
   }
 
@@ -115,9 +120,6 @@ const placeholders = Array.from({ length: SKELETON_COUNT }, (_, index) => ({
     }
   }
 
-  #moods-section .mood-item:not(.mood-item-skeleton):hover .mood-time {
-    color: hsl(var(--muted-foreground));
-  }
 
   /* Line column */
   #moods-section .mood-line-col {
@@ -136,13 +138,10 @@ const placeholders = Array.from({ length: SKELETON_COUNT }, (_, index) => ({
     margin-top: 12px;
     position: relative;
     z-index: 2;
-    transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
-  }
-
-  #moods-section .mood-item:not(.mood-item-skeleton):hover .mood-dot {
-    border-color: hsl(var(--foreground) / 0.4);
-    background: hsl(var(--foreground) / 0.08);
-    transform: scale(1.3);
+    transition:
+      transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1),
+      border-color 0.25s cubic-bezier(0.34, 1.56, 0.64, 1),
+      background-color 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
   }
 
   /* Pulse effect on first item */
@@ -196,20 +195,13 @@ const placeholders = Array.from({ length: SKELETON_COUNT }, (_, index) => ({
     background: hsl(var(--foreground) / 0.02);
     border: 1px solid hsl(var(--foreground) / 0.06);
     border-radius: 10px;
-    transition: all 0.2s ease;
+    transition: background-color 0.2s ease, border-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
   }
 
   @media (min-width: 640px) {
     #moods-section .mood-card {
       padding: 12px 16px;
     }
-  }
-
-  #moods-section .mood-item:not(.mood-item-skeleton):hover .mood-card {
-    background: hsl(var(--foreground) / 0.04);
-    border-color: hsl(var(--foreground) / 0.12);
-    transform: translateX(4px);
-    box-shadow: -4px 0 0 hsl(var(--foreground) / 0.06);
   }
 
   #moods-section .mood-text {
@@ -244,18 +236,13 @@ const placeholders = Array.from({ length: SKELETON_COUNT }, (_, index) => ({
     padding: 2px 6px;
     background: hsl(var(--foreground) / 0.04);
     border-radius: 4px;
-    transition: all 0.2s ease;
+    transition: background-color 0.2s ease, color 0.2s ease;
   }
 
   @media (min-width: 640px) {
     #moods-section .mood-tag {
       font-size: 11px;
     }
-  }
-
-  #moods-section .mood-item:hover .mood-tag {
-    background: hsl(var(--foreground) / 0.08);
-    color: hsl(var(--muted-foreground) / 0.8);
   }
 
   #moods-section .mood-thumbnail {
@@ -271,6 +258,80 @@ const placeholders = Array.from({ length: SKELETON_COUNT }, (_, index) => ({
     width: 100%;
     height: 100%;
     object-fit: cover;
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    #moods-section .mood-item:not(.mood-item-skeleton):hover .mood-time {
+      color: hsl(var(--muted-foreground));
+    }
+
+    #moods-section .mood-item:not(.mood-item-skeleton):hover .mood-dot {
+      border-color: hsl(var(--foreground) / 0.4);
+      background: hsl(var(--foreground) / 0.08);
+      transform: scale(1.3);
+    }
+
+    #moods-section .mood-item:not(.mood-item-skeleton):hover .mood-card {
+      background: hsl(var(--foreground) / 0.04);
+      border-color: hsl(var(--foreground) / 0.12);
+      transform: translateX(var(--mood-hover-shift));
+      box-shadow: -4px 0 0 hsl(var(--foreground) / 0.06);
+    }
+
+    #moods-section .mood-item:hover .mood-tag {
+      background: hsl(var(--foreground) / 0.08);
+      color: hsl(var(--muted-foreground) / 0.8);
+    }
+  }
+
+  @media (max-width: 480px) {
+    #moods-section {
+      --mood-time-col: 44px;
+      --mood-line-col: 18px;
+      --mood-hover-shift: 2px;
+    }
+
+    #moods-section .mood-time-col {
+      padding-top: 10px;
+      padding-right: 4px;
+    }
+
+    #moods-section .mood-dot {
+      width: 8px;
+      height: 8px;
+      border-width: 1.5px;
+      margin-top: 10px;
+    }
+
+    #moods-section .mood-content-col {
+      padding: 6px 0 12px 0;
+    }
+
+    #moods-section .mood-card {
+      padding: 10px 12px;
+      border-radius: 9px;
+    }
+
+    #moods-section .mood-text {
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    #moods-section .mood-meta {
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    #moods-section .mood-tag {
+      font-size: 10px;
+      padding: 2px 5px;
+    }
+
+    #moods-section .mood-thumbnail {
+      width: 40px;
+      height: 40px;
+      border-radius: 5px;
+    }
   }
 
   /* Skeleton Styles - Timeline Pulse */
@@ -392,14 +453,7 @@ const placeholders = Array.from({ length: SKELETON_COUNT }, (_, index) => ({
     font-size: 14px;
     color: hsl(var(--muted-foreground));
     padding: 16px 0;
-    margin-left: 76px;
-  }
-
-  @media (min-width: 640px) {
-    #moods-section .mood-empty-state,
-    #moods-section .mood-error-state {
-      margin-left: 96px;
-    }
+    margin-left: var(--mood-left-offset);
   }
 
   @keyframes mood-skeleton-shimmer {
@@ -461,6 +515,10 @@ const placeholders = Array.from({ length: SKELETON_COUNT }, (_, index) => ({
     #moods-section .mood-item-skeleton .mood-card-skeleton::before {
       display: none;
     }
+
+    #moods-section .mood-item:first-child:not(.mood-item-skeleton) .mood-dot::before {
+      animation: none;
+    }
   }
 </style>
 
@@ -478,6 +536,7 @@ const placeholders = Array.from({ length: SKELETON_COUNT }, (_, index) => ({
     const errorState = moodsSection.querySelector('[data-mood-error]') as HTMLElement | null;
     const label = moodsSection.querySelector('.scroll-reveal');
     const link = moodsSection.querySelector('.scroll-reveal-link');
+    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     let hasLoaded = false;
 
     const MAX_MOODS = 5;
@@ -604,6 +663,12 @@ const placeholders = Array.from({ length: SKELETON_COUNT }, (_, index) => ({
 
       list.removeAttribute('aria-busy');
 
+      if (prefersReducedMotion) {
+        list.replaceChildren();
+        showContent(true);
+        return;
+      }
+
       // Liquid dissolve effect on skeleton items
       const skeletons = list.querySelectorAll('.mood-item-skeleton');
       if (skeletons.length > 0) {
@@ -625,7 +690,7 @@ const placeholders = Array.from({ length: SKELETON_COUNT }, (_, index) => ({
         showContent();
       }
 
-      function showContent() {
+      function showContent(skipAnimation = false) {
         if (errorState) errorState.hidden = true;
 
         if (!posts.length) {
@@ -642,6 +707,8 @@ const placeholders = Array.from({ length: SKELETON_COUNT }, (_, index) => ({
           list.appendChild(item);
           items.push(item);
         });
+
+        if (skipAnimation) return;
 
         // Liquid splash-in animation
         gsap.fromTo(items,
@@ -689,34 +756,41 @@ const placeholders = Array.from({ length: SKELETON_COUNT }, (_, index) => ({
       }
     };
 
-    // Create GSAP timeline with ScrollTrigger
-    const tl = gsap.timeline({
-      scrollTrigger: {
-        trigger: moodsSection,
-        start: 'top 85%',
-        once: true,
-        onEnter: () => {
-          loadMoods();
+    if (prefersReducedMotion) {
+      gsap.set(moodsSection, { opacity: 1, y: 0 });
+      if (label) gsap.set(label, { opacity: 1, y: 0 });
+      if (link) gsap.set(link, { opacity: 1 });
+      loadMoods();
+    } else {
+      // Create GSAP timeline with ScrollTrigger
+      const tl = gsap.timeline({
+        scrollTrigger: {
+          trigger: moodsSection,
+          start: 'top 85%',
+          once: true,
+          onEnter: () => {
+            loadMoods();
+          }
         }
-      }
-    });
+      });
 
-    tl.to(moodsSection, {
-      opacity: 1,
-      y: 0,
-      duration: 0.6,
-      ease: 'power2.out'
-    })
-    .to(label, {
-      opacity: 1,
-      y: 0,
-      duration: 0.4,
-      ease: 'power2.out'
-    }, '-=0.3')
-    .to(link, {
-      opacity: 1,
-      duration: 0.4,
-      ease: 'power2.out'
-    }, '+=0.3');
+      tl.to(moodsSection, {
+        opacity: 1,
+        y: 0,
+        duration: 0.6,
+        ease: 'power2.out'
+      })
+      .to(label, {
+        opacity: 1,
+        y: 0,
+        duration: 0.4,
+        ease: 'power2.out'
+      }, '-=0.3')
+      .to(link, {
+        opacity: 1,
+        duration: 0.4,
+        ease: 'power2.out'
+      }, '+=0.3');
+    }
   }
 </script>
