@@ -592,6 +592,46 @@ const loadingPlaceholders = Array.from({ length: LOADING_COUNT }, (_, index) => 
     color: hsl(var(--muted-foreground) / 0.7);
   }
 
+  :global(.mood-item-quote) {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 10px 12px;
+    border-radius: 12px;
+    border: 1px solid hsl(var(--foreground) / 0.08);
+    background: hsl(var(--background));
+    color: hsl(var(--muted-foreground));
+    text-decoration: none;
+  }
+
+  :global(.mood-item-quote-meta) {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: hsl(var(--muted-foreground) / 0.7);
+  }
+
+  :global(.mood-item-quote-author) {
+    font-size: 11px;
+    letter-spacing: 0.02em;
+    text-transform: none;
+    color: hsl(var(--foreground) / 0.6);
+  }
+
+  :global(.mood-item-quote-text) {
+    margin: 0;
+    font-size: 12px;
+    line-height: 1.6;
+    color: hsl(var(--foreground) / 0.7);
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+    overflow: hidden;
+  }
+
   :global(.mood-item-media) {
     display: flex;
     flex-direction: column;
@@ -1065,6 +1105,21 @@ const loadingPlaceholders = Array.from({ length: LOADING_COUNT }, (_, index) => 
       gap: 8px;
     }
 
+    :global(.mood-item-quote) {
+      padding: 8px 10px;
+      border-radius: 10px;
+    }
+
+    :global(.mood-item-quote-meta) {
+      font-size: 9px;
+      letter-spacing: 0.1em;
+    }
+
+    :global(.mood-item-quote-text) {
+      font-size: 11px;
+      -webkit-line-clamp: 2;
+    }
+
     :global(.mood-item-text) {
       font-size: 13px;
       line-height: 1.55;
@@ -1315,6 +1370,32 @@ const loadingPlaceholders = Array.from({ length: LOADING_COUNT }, (_, index) => 
       return fragment;
     };
 
+    const getQuoteTargetId = (href: string): string | null => {
+      if (!href) return null;
+      try {
+        const url = new URL(href, window.location.origin);
+        const match = url.pathname.match(/\/mood\/(\d+)/);
+        return match ? match[1] : null;
+      } catch {
+        return null;
+      }
+    };
+
+    const scrollToMood = (id: string): boolean => {
+      if (!list) return false;
+      const escapedId = typeof CSS !== 'undefined' && typeof CSS.escape === 'function'
+        ? CSS.escape(id)
+        : id.replace(/"/g, '\\"');
+      const target = list.querySelector(`[data-mood-id="${escapedId}"]`) as HTMLElement | null;
+      if (!target) return false;
+      const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      target.scrollIntoView({
+        behavior: prefersReducedMotion ? 'auto' : 'smooth',
+        block: 'center',
+      });
+      return true;
+    };
+
     const createAnimatedEmojiManager = () => {
       if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
         return {
@@ -1461,6 +1542,12 @@ const loadingPlaceholders = Array.from({ length: LOADING_COUNT }, (_, index) => 
       author?: string;
     }
 
+    interface QuoteData {
+      text: string;
+      author?: string;
+      href?: string;
+    }
+
     interface MoodData {
       id: string;
       datetime: string;
@@ -1470,6 +1557,7 @@ const loadingPlaceholders = Array.from({ length: LOADING_COUNT }, (_, index) => 
       mediaHtml?: string;
       needsDetailPage?: boolean;
       forwardedFrom?: ForwardedFromData | null;
+      quote?: QuoteData | null;
       reactions?: ReactionData[];
     }
 
@@ -1533,6 +1621,41 @@ const loadingPlaceholders = Array.from({ length: LOADING_COUNT }, (_, index) => 
         }
 
         content.appendChild(forwarded);
+      }
+
+      const quote = mood.quote && mood.quote.text ? mood.quote : null;
+      if (quote) {
+        const quoteWrap = document.createElement(quote.href ? 'a' : 'div');
+        quoteWrap.className = 'mood-item-quote';
+        if (quoteWrap instanceof HTMLAnchorElement && quote.href) {
+          quoteWrap.href = quote.href;
+          if (/^https?:\/\//i.test(quote.href)) {
+            quoteWrap.target = '_blank';
+            quoteWrap.rel = 'noopener noreferrer';
+          }
+        }
+        const quoteTargetId = quote.href ? getQuoteTargetId(quote.href) : null;
+        if (quoteTargetId) {
+          quoteWrap.dataset.quoteId = quoteTargetId;
+        }
+
+        const quoteMeta = document.createElement('div');
+        quoteMeta.className = 'mood-item-quote-meta';
+
+        if (quote.author) {
+          const quoteAuthor = document.createElement('span');
+          quoteAuthor.className = 'mood-item-quote-author';
+          quoteAuthor.textContent = quote.author;
+          quoteMeta.appendChild(quoteAuthor);
+          quoteWrap.appendChild(quoteMeta);
+        }
+
+        const quoteText = document.createElement('p');
+        quoteText.className = 'mood-item-quote-text';
+        quoteText.textContent = quote.text;
+
+        quoteWrap.appendChild(quoteText);
+        content.appendChild(quoteWrap);
       }
 
       const text = document.createElement('p');
@@ -1668,6 +1791,7 @@ const loadingPlaceholders = Array.from({ length: LOADING_COUNT }, (_, index) => 
 
     const navigateToMood = (target: HTMLElement | null): void => {
       if (!target) return;
+      if (target.closest('.mood-item-quote')) return;
       if (target.closest('a')) return;
 
       const item = target.closest('.mood-item--clickable') as HTMLElement | null;
@@ -1679,8 +1803,21 @@ const loadingPlaceholders = Array.from({ length: LOADING_COUNT }, (_, index) => 
       }
     };
 
+    const handleQuoteJump = (target: HTMLElement | null, event: Event): boolean => {
+      const quoteEl = target?.closest('.mood-item-quote') as HTMLElement | null;
+      if (!quoteEl) return false;
+      const quoteId = quoteEl.dataset.quoteId;
+      if (quoteId && scrollToMood(quoteId)) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+      return true;
+    };
+
     list.addEventListener('click', (event) => {
-      navigateToMood(event.target as HTMLElement | null);
+      const target = event.target as HTMLElement | null;
+      if (handleQuoteJump(target, event)) return;
+      navigateToMood(target);
     });
 
     list.addEventListener('keydown', (event) => {

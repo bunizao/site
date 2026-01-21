@@ -40,6 +40,10 @@ export function stripHtml(html: string): string {
     .trim();
 }
 
+function normalizeText(value: string): string {
+  return value.replace(/\s+/g, ' ').trim();
+}
+
 /**
  * Check if content contains media elements
  */
@@ -94,6 +98,7 @@ export function getTextPreview(mood: { text?: string; content: string }): string
 
   // Remove elements that shouldn't be in preview
   $('blockquote').remove();
+  $('.tgme_widget_message_reply').remove();
   $('.bookmark-card').remove();
   $('video, audio, iframe').remove();
   $('.image-list-container, .image-preview-wrap, .image-preview-button, .sticker').remove();
@@ -102,6 +107,31 @@ export function getTextPreview(mood: { text?: string; content: string }): string
   const cleanedHtml = $.root().html() ?? '';
   const preview = stripHtml(cleanedHtml);
   return preview || fallback;
+}
+
+/**
+ * Extract reply/quote preview from mood content
+ */
+export function getQuotePreview(content: string): QuoteData | null {
+  const $ = cheerio.load(content);
+  const reply = $('.tgme_widget_message_reply').first();
+  if (!reply.length) return null;
+
+  const author = normalizeText(reply.find('.tgme_widget_message_reply_author').first().text());
+  const replyText = normalizeText(reply.find('.tgme_widget_message_reply_text').first().text());
+  const raw = normalizeText(reply.text());
+  const hasSeparateText = Boolean(replyText);
+  const text = hasSeparateText ? replyText : raw;
+
+  if (!text) return null;
+
+  const href = normalizeText(reply.attr('href') ?? '');
+
+  return {
+    text,
+    author: hasSeparateText && author ? author : undefined,
+    href: href || undefined,
+  };
 }
 
 /**
@@ -200,6 +230,12 @@ export interface ForwardedFromData {
   author?: string;
 }
 
+export interface QuoteData {
+  text: string;
+  author?: string;
+  href?: string;
+}
+
 /**
  * Mood data structure for API responses
  */
@@ -212,5 +248,6 @@ export interface MoodData {
   mediaHtml?: string;
   needsDetailPage?: boolean;
   forwardedFrom?: ForwardedFromData | null;
+  quote?: QuoteData | null;
   reactions?: ReactionData[];
 }
