@@ -488,11 +488,7 @@ const placeholders = Array.from({ length: SKELETON_COUNT }, (_, index) => ({
 </style>
 
 <script>
-  import gsap from 'gsap';
-  import { ScrollTrigger } from 'gsap/ScrollTrigger';
-
-  gsap.registerPlugin(ScrollTrigger);
-
+  const prefersReducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
   const moodsSection = document.getElementById('moods-section');
 
   if (moodsSection) {
@@ -502,20 +498,10 @@ const placeholders = Array.from({ length: SKELETON_COUNT }, (_, index) => ({
     const label = moodsSection.querySelector('.scroll-reveal');
     const link = moodsSection.querySelector('.scroll-reveal-link');
     let hasLoaded = false;
+    let gsapInstance: typeof import('gsap')['default'] | null = null;
 
     const MAX_MOODS = 5;
     const ALWAYS_LOADING = false;
-
-    if (ALWAYS_LOADING) {
-      gsap.set(moodsSection, { opacity: 1, y: 0 });
-      if (label) gsap.set(label, { opacity: 1, y: 0 });
-      if (link) gsap.set(link, { opacity: 1 });
-    } else {
-      // Set initial states with GSAP
-      gsap.set(moodsSection, { opacity: 0, y: 40 });
-      if (label) gsap.set(label, { opacity: 0, y: 16 });
-      if (link) gsap.set(link, { opacity: 0 });
-    }
 
     const formatTime = (value: string): string => {
       const date = new Date(value);
@@ -734,28 +720,9 @@ const placeholders = Array.from({ length: SKELETON_COUNT }, (_, index) => ({
 
       list.removeAttribute('aria-busy');
 
-      // Liquid dissolve effect on skeleton items
-      const skeletons = list.querySelectorAll('.mood-item-skeleton');
-      if (skeletons.length > 0) {
-        gsap.to(skeletons, {
-          opacity: 0,
-          scale: 0.92,
-          y: -12,
-          filter: 'blur(6px)',
-          duration: 0.5,
-          ease: 'power2.in',
-          stagger: 0.06,
-          onComplete: () => {
-            list.replaceChildren();
-            showContent();
-          }
-        });
-      } else {
-        list.replaceChildren();
-        showContent();
-      }
+      const gsap = gsapInstance;
 
-      function showContent() {
+      const showContent = () => {
         if (errorState) errorState.hidden = true;
 
         if (!posts.length) {
@@ -772,6 +739,8 @@ const placeholders = Array.from({ length: SKELETON_COUNT }, (_, index) => ({
           list.appendChild(item);
           items.push(item);
         });
+
+        if (!gsap) return;
 
         // Liquid splash-in animation
         gsap.fromTo(items,
@@ -793,6 +762,27 @@ const placeholders = Array.from({ length: SKELETON_COUNT }, (_, index) => ({
             stagger: 0.09
           }
         );
+      };
+
+      // Liquid dissolve effect on skeleton items
+      const skeletons = list.querySelectorAll('.mood-item-skeleton');
+      if (gsap && skeletons.length > 0) {
+        gsap.to(skeletons, {
+          opacity: 0,
+          scale: 0.92,
+          y: -12,
+          filter: 'blur(6px)',
+          duration: 0.5,
+          ease: 'power2.in',
+          stagger: 0.06,
+          onComplete: () => {
+            list.replaceChildren();
+            showContent();
+          }
+        });
+      } else {
+        list.replaceChildren();
+        showContent();
       }
     };
 
@@ -844,34 +834,61 @@ const placeholders = Array.from({ length: SKELETON_COUNT }, (_, index) => ({
       });
     }
 
-    // Create GSAP timeline with ScrollTrigger
-    const tl = gsap.timeline({
-      scrollTrigger: {
-        trigger: moodsSection,
-        start: 'top 85%',
-        once: true,
-        onEnter: () => {
-          loadMoods();
-        }
-      }
-    });
+    const initMoods = async () => {
+      const [{ default: gsap }, { ScrollTrigger }] = await Promise.all([
+        import('gsap'),
+        import('gsap/ScrollTrigger')
+      ]);
 
-    tl.to(moodsSection, {
-      opacity: 1,
-      y: 0,
-      duration: 0.6,
-      ease: 'power2.out'
-    })
-    .to(label, {
-      opacity: 1,
-      y: 0,
-      duration: 0.4,
-      ease: 'power2.out'
-    }, '-=0.3')
-    .to(link, {
-      opacity: 1,
-      duration: 0.4,
-      ease: 'power2.out'
-    }, '+=0.3');
+      gsap.registerPlugin(ScrollTrigger);
+      gsapInstance = gsap;
+
+      if (ALWAYS_LOADING) {
+        gsap.set(moodsSection, { opacity: 1, y: 0 });
+        if (label) gsap.set(label, { opacity: 1, y: 0 });
+        if (link) gsap.set(link, { opacity: 1 });
+      } else {
+        // Set initial states with GSAP
+        gsap.set(moodsSection, { opacity: 0, y: 40 });
+        if (label) gsap.set(label, { opacity: 0, y: 16 });
+        if (link) gsap.set(link, { opacity: 0 });
+      }
+
+      // Create GSAP timeline with ScrollTrigger
+      const tl = gsap.timeline({
+        scrollTrigger: {
+          trigger: moodsSection,
+          start: 'top 85%',
+          once: true,
+          onEnter: () => {
+            void loadMoods();
+          }
+        }
+      });
+
+      tl.to(moodsSection, {
+        opacity: 1,
+        y: 0,
+        duration: 0.6,
+        ease: 'power2.out'
+      })
+      .to(label, {
+        opacity: 1,
+        y: 0,
+        duration: 0.4,
+        ease: 'power2.out'
+      }, '-=0.3')
+      .to(link, {
+        opacity: 1,
+        duration: 0.4,
+        ease: 'power2.out'
+      }, '+=0.3');
+    };
+
+    if (prefersReducedMotion) {
+      void loadMoods();
+    } else {
+      void initMoods();
+    }
   }
 </script>

@@ -178,57 +178,66 @@ const posts = await getLatestPosts();
 </style>
 
 <script>
-  import gsap from 'gsap';
-  import { ScrollTrigger } from 'gsap/ScrollTrigger';
-
-  gsap.registerPlugin(ScrollTrigger);
-
+  const prefersReducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
   const writingSection = document.getElementById('writing-section');
 
-  if (writingSection) {
-    // Set initial states
-    gsap.set(writingSection, { opacity: 0, y: 40 });
+  const initWriting = async () => {
+    const [{ default: gsap }, { ScrollTrigger }] = await Promise.all([
+      import('gsap'),
+      import('gsap/ScrollTrigger')
+    ]);
 
-    const label = writingSection.querySelector('.scroll-reveal');
-    const items = writingSection.querySelectorAll('.scroll-reveal-item');
-    const link = writingSection.querySelector('.scroll-reveal-link');
+    gsap.registerPlugin(ScrollTrigger);
 
-    if (label) gsap.set(label, { opacity: 0, y: 16 });
-    gsap.set(items, { opacity: 0, x: -20 });
-    if (link) gsap.set(link, { opacity: 0 });
+    if (writingSection) {
+      // Set initial states
+      gsap.set(writingSection, { opacity: 0, y: 40 });
 
-    // Create timeline
-    const tl = gsap.timeline({
-      scrollTrigger: {
-        trigger: writingSection,
-        start: 'top 85%',
-        once: true
-      }
-    });
+      const label = writingSection.querySelector('.scroll-reveal');
+      const items = writingSection.querySelectorAll('.scroll-reveal-item');
+      const link = writingSection.querySelector('.scroll-reveal-link');
 
-    tl.to(writingSection, {
-      opacity: 1,
-      y: 0,
-      duration: 0.6,
-      ease: 'power2.out'
-    })
-    .to(label, {
-      opacity: 1,
-      y: 0,
-      duration: 0.4,
-      ease: 'power2.out'
-    }, '-=0.3')
-    .to(items, {
-      opacity: 1,
-      x: 0,
-      duration: 0.4,
-      ease: 'power2.out',
-      stagger: 0.06
-    }, '-=0.2')
-    .to(link, {
-      opacity: 1,
-      duration: 0.4,
-      ease: 'power2.out'
-    }, '-=0.1');
+      if (label) gsap.set(label, { opacity: 0, y: 16 });
+      gsap.set(items, { opacity: 0, x: -20 });
+      if (link) gsap.set(link, { opacity: 0 });
+
+      // Create timeline
+      const tl = gsap.timeline({
+        scrollTrigger: {
+          trigger: writingSection,
+          start: 'top 85%',
+          once: true
+        }
+      });
+
+      tl.to(writingSection, {
+        opacity: 1,
+        y: 0,
+        duration: 0.6,
+        ease: 'power2.out'
+      })
+      .to(label, {
+        opacity: 1,
+        y: 0,
+        duration: 0.4,
+        ease: 'power2.out'
+      }, '-=0.3')
+      .to(items, {
+        opacity: 1,
+        x: 0,
+        duration: 0.4,
+        ease: 'power2.out',
+        stagger: 0.06
+      }, '-=0.2')
+      .to(link, {
+        opacity: 1,
+        duration: 0.4,
+        ease: 'power2.out'
+      }, '-=0.1');
+    }
+  };
+
+  if (!prefersReducedMotion && writingSection) {
+    void initWriting();
   }
 </script>

@@ -338,30 +338,59 @@ const techRow2 = ['Frontend', 'BGP', 'Proxy', 'Docker', 'Linux', 'Web3', 'Optimi
 </style>
 
 <script>
-  import gsap from 'gsap';
-
   const prefersReducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-
-  // Hero entrance animation timeline
   const heroElements = document.querySelectorAll('.hero-animate');
+  const statusText = document.getElementById('status-text');
 
-  // Set initial states
-  gsap.set(heroElements, { opacity: 0, y: 20 });
+  // Status text rotation
+  const statusWords = [
+    'Wondering',
+    'Building',
+    'Learning',
+    'Exploring',
+    'Creating',
+    'Thinking',
+    'Coding',
+    'Designing',
+    'Reading',
+    'Writing',
+    'Debugging',
+    'Shipping',
+    'Dreaming',
+    'Hacking',
+    'Optimizing',
+    'Iterating',
+    'Refactoring',
+    'Brewing',
+    'Crafting',
+    'Tinkering',
+    'Pondering',
+    'Researching',
+    'Prototyping',
+    'Deploying',
+    'Solving'
+  ];
 
-  // Create master timeline for hero section
-  const heroTl = gsap.timeline({
-    defaults: { ease: 'power3.out' }
-  });
+  const initHero = async () => {
+    if (!heroElements.length) return;
+    const { default: gsap } = await import('gsap');
 
-  // Animate each element with stagger
-  heroTl.to(heroElements, {
-    opacity: 1,
-    y: 0,
-    duration: 0.6,
-    stagger: 0.1
-  });
+    // Set initial states
+    gsap.set(heroElements, { opacity: 0, y: 20 });
 
-  if (!prefersReducedMotion) {
+    // Create master timeline for hero section
+    const heroTl = gsap.timeline({
+      defaults: { ease: 'power3.out' }
+    });
+
+    // Animate each element with stagger
+    heroTl.to(heroElements, {
+      opacity: 1,
+      y: 0,
+      duration: 0.6,
+      stagger: 0.1
+    });
+
     const magneticButtons = document.querySelectorAll('[data-magnetic]');
     magneticButtons.forEach((button) => {
       const element = button as HTMLElement;
@@ -419,64 +448,38 @@ const techRow2 = ['Frontend', 'BGP', 'Proxy', 'Docker', 'Linux', 'Web3', 'Optimi
       element.addEventListener('pointermove', handlePointerMove, { passive: true });
       element.addEventListener('pointerleave', handlePointerLeave, { passive: true });
     });
-  }
 
-  // Status text rotation
-  const statusWords = [
-    'Wondering',
-    'Building',
-    'Learning',
-    'Exploring',
-    'Creating',
-    'Thinking',
-    'Coding',
-    'Designing',
-    'Reading',
-    'Writing',
-    'Debugging',
-    'Shipping',
-    'Dreaming',
-    'Hacking',
-    'Optimizing',
-    'Iterating',
-    'Refactoring',
-    'Brewing',
-    'Crafting',
-    'Tinkering',
-    'Pondering',
-    'Researching',
-    'Prototyping',
-    'Deploying',
-    'Solving'
-  ];
+    if (statusText) {
+      let currentIndex = 0;
 
-  const statusText = document.getElementById('status-text');
-  if (statusText) {
-    let currentIndex = 0;
+      const rotateStatus = () => {
+        // Animate out
+        gsap.to(statusText, {
+          y: '-120%',
+          opacity: 0,
+          duration: 0.3,
+          ease: 'power2.in',
+          onComplete: () => {
+            currentIndex = (currentIndex + 1) % statusWords.length;
+            statusText.textContent = statusWords[currentIndex];
 
-    const rotateStatus = () => {
-      // Animate out
-      gsap.to(statusText, {
-        y: '-120%',
-        opacity: 0,
-        duration: 0.3,
-        ease: 'power2.in',
-        onComplete: () => {
-          currentIndex = (currentIndex + 1) % statusWords.length;
-          statusText.textContent = statusWords[currentIndex];
+            // Reset position and animate in
+            gsap.fromTo(statusText,
+              { y: '120%', opacity: 0 },
+              { y: '0%', opacity: 1, duration: 0.3, ease: 'power2.out' }
+            );
+          }
+        });
+      };
 
-          // Reset position and animate in
-          gsap.fromTo(statusText,
-            { y: '120%', opacity: 0 },
-            { y: '0%', opacity: 1, duration: 0.3, ease: 'power2.out' }
-          );
-        }
+      // Start rotation after hero animation completes
+      heroTl.call(() => {
+        setInterval(rotateStatus, 3000);
       });
-    };
+    }
+  };
 
-    // Start rotation after hero animation completes
-    heroTl.call(() => {
-      setInterval(rotateStatus, 3000);
-    });
+  if (!prefersReducedMotion) {
+    void initHero();
   }
 </script>

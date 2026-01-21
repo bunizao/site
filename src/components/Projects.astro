@@ -333,104 +333,112 @@ const projects: Project[] = await Promise.all(
 </style>
 
 <script>
-  import gsap from 'gsap';
-  import { ScrollTrigger } from 'gsap/ScrollTrigger';
-
-  gsap.registerPlugin(ScrollTrigger);
-
-  // Scroll reveal animation with GSAP ScrollTrigger
+  const prefersReducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
   const projectsSection = document.getElementById('projects-section');
-
-  if (projectsSection) {
-    // Set initial state immediately
-    gsap.set(projectsSection, { opacity: 0, y: 60 });
-
-    const cards = projectsSection.querySelectorAll('.scroll-reveal-card');
-    gsap.set(cards, { opacity: 0, y: 40, scale: 0.95 });
-
-    // Animate section
-    gsap.to(projectsSection, {
-      opacity: 1,
-      y: 0,
-      duration: 0.6,
-      ease: 'power2.out',
-      scrollTrigger: {
-        trigger: projectsSection,
-        start: 'top 85%',
-        once: true
-      }
-    });
-
-    // Animate cards with stagger
-    gsap.to(cards, {
-      opacity: 1,
-      y: 0,
-      scale: 1,
-      duration: 0.5,
-      ease: 'back.out(1.7)',
-      stagger: 0.08,
-      scrollTrigger: {
-        trigger: projectsSection,
-        start: 'top 85%',
-        once: true
-      }
-    });
-  }
-
-  // Enhanced 3D tilt with GSAP
   const tiltCards = document.querySelectorAll('[data-tilt]');
 
-  tiltCards.forEach((card) => {
-    const item = card.querySelector('.project-item') as HTMLElement;
-    const glare = card.querySelector('[data-glare]') as HTMLElement;
+  const initProjects = async () => {
+    const [{ default: gsap }, { ScrollTrigger }] = await Promise.all([
+      import('gsap'),
+      import('gsap/ScrollTrigger')
+    ]);
 
-    if (!item) return;
+    gsap.registerPlugin(ScrollTrigger);
 
-    const maxTilt = 12;
+    // Scroll reveal animation with GSAP ScrollTrigger
+    if (projectsSection) {
+      // Set initial state immediately
+      gsap.set(projectsSection, { opacity: 0, y: 60 });
 
-    // Mouse tracking
-    card.addEventListener('mouseenter', () => {
-      if (glare) gsap.to(glare, { opacity: 1, duration: 0.2 });
-    });
+      const cards = projectsSection.querySelectorAll('.scroll-reveal-card');
+      gsap.set(cards, { opacity: 0, y: 40, scale: 0.95 });
 
-    card.addEventListener('mousemove', (e: Event) => {
-      const event = e as MouseEvent;
-      const rect = card.getBoundingClientRect();
-      const x = event.clientX - rect.left;
-      const y = event.clientY - rect.top;
-      const centerX = rect.width / 2;
-      const centerY = rect.height / 2;
-
-      const rotateY = ((x - centerX) / centerX) * maxTilt;
-      const rotateX = ((centerY - y) / centerY) * maxTilt;
-
-      gsap.to(item, {
-        rotationX: rotateX,
-        rotationY: rotateY,
-        duration: 0.3,
-        ease: 'power2.out'
+      // Animate section
+      gsap.to(projectsSection, {
+        opacity: 1,
+        y: 0,
+        duration: 0.6,
+        ease: 'power2.out',
+        scrollTrigger: {
+          trigger: projectsSection,
+          start: 'top 85%',
+          once: true
+        }
       });
 
-      if (glare) {
-        const glareX = (x / rect.width) * 100;
-        const glareY = (y / rect.height) * 100;
-        gsap.to(glare, {
-          '--glare-x': `${glareX}%`,
-          '--glare-y': `${glareY}%`,
-          duration: 0.2
-        });
-      }
-    });
-
-    card.addEventListener('mouseleave', () => {
-      gsap.to(item, {
-        rotationX: 0,
-        rotationY: 0,
+      // Animate cards with stagger
+      gsap.to(cards, {
+        opacity: 1,
+        y: 0,
+        scale: 1,
         duration: 0.5,
-        ease: 'elastic.out(1, 0.3)'
+        ease: 'back.out(1.7)',
+        stagger: 0.08,
+        scrollTrigger: {
+          trigger: projectsSection,
+          start: 'top 85%',
+          once: true
+        }
+      });
+    }
+
+    // Enhanced 3D tilt with GSAP
+    tiltCards.forEach((card) => {
+      const item = card.querySelector('.project-item') as HTMLElement;
+      const glare = card.querySelector('[data-glare]') as HTMLElement;
+
+      if (!item) return;
+
+      const maxTilt = 12;
+
+      // Mouse tracking
+      card.addEventListener('mouseenter', () => {
+        if (glare) gsap.to(glare, { opacity: 1, duration: 0.2 });
       });
 
-      if (glare) gsap.to(glare, { opacity: 0, duration: 0.2 });
+      card.addEventListener('mousemove', (e: Event) => {
+        const event = e as MouseEvent;
+        const rect = card.getBoundingClientRect();
+        const x = event.clientX - rect.left;
+        const y = event.clientY - rect.top;
+        const centerX = rect.width / 2;
+        const centerY = rect.height / 2;
+
+        const rotateY = ((x - centerX) / centerX) * maxTilt;
+        const rotateX = ((centerY - y) / centerY) * maxTilt;
+
+        gsap.to(item, {
+          rotationX: rotateX,
+          rotationY: rotateY,
+          duration: 0.3,
+          ease: 'power2.out'
+        });
+
+        if (glare) {
+          const glareX = (x / rect.width) * 100;
+          const glareY = (y / rect.height) * 100;
+          gsap.to(glare, {
+            '--glare-x': `${glareX}%`,
+            '--glare-y': `${glareY}%`,
+            duration: 0.2
+          });
+        }
+      });
+
+      card.addEventListener('mouseleave', () => {
+        gsap.to(item, {
+          rotationX: 0,
+          rotationY: 0,
+          duration: 0.5,
+          ease: 'elastic.out(1, 0.3)'
+        });
+
+        if (glare) gsap.to(glare, { opacity: 0, duration: 0.2 });
+      });
     });
-  });
+  };
+
+  if (!prefersReducedMotion && (projectsSection || tiltCards.length > 0)) {
+    void initProjects();
+  }
 </script>
