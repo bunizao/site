@@ -8,6 +8,11 @@ interface GitHubRepositoryResponse {
   errors?: { message: string }[];
 }
 
+interface GitHubRestRepositoryResponse {
+  description?: string | null;
+  stargazers_count?: number | null;
+}
+
 export interface GitHubRepoData {
   description: string;
   stars: number;
@@ -17,14 +22,7 @@ function getGitHubToken(env: ImportMetaEnv, runtimeEnv?: Record<string, string |
   return env.GITHUB_TOKEN ?? runtimeEnv?.GITHUB_TOKEN ?? '';
 }
 
-export async function fetchGitHubRepo(
-  repo: string,
-  env: ImportMetaEnv,
-  runtimeEnv?: Record<string, string | undefined>
-): Promise<GitHubRepoData | null> {
-  const token = getGitHubToken(env, runtimeEnv);
-  if (!token) return null;
-
+async function fetchGitHubRepoGraphQL(repo: string, token: string): Promise<GitHubRepoData | null> {
   const [owner, name] = repo.split('/');
   if (!owner || !name) return null;
 
@@ -64,4 +62,40 @@ export async function fetchGitHubRepo(
   } catch {
     return null;
   }
+}
+
+async function fetchGitHubRepoRest(repo: string, token?: string): Promise<GitHubRepoData | null> {
+  try {
+    const response = await fetch(`https://api.github.com/repos/${repo}`, {
+      headers: {
+        'Accept': 'application/vnd.github.v3+json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        'User-Agent': 'astro-site'
+      }
+    });
+
+    if (!response.ok) return null;
+
+    const data = (await response.json()) as GitHubRestRepositoryResponse;
+    return {
+      description: data.description ?? '',
+      stars: data.stargazers_count ?? 0
+    };
+  } catch {
+    return null;
+  }
+}
+
+export async function fetchGitHubRepo(
+  repo: string,
+  env: ImportMetaEnv,
+  runtimeEnv?: Record<string, string | undefined>
+): Promise<GitHubRepoData | null> {
+  const token = getGitHubToken(env, runtimeEnv);
+  if (token) {
+    const graphData = await fetchGitHubRepoGraphQL(repo, token);
+    if (graphData) return graphData;
+  }
+
+  return fetchGitHubRepoRest(repo, token || undefined);
 }
