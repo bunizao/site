@@ -127,20 +127,7 @@
 
 @layer components {
   .page-container {
-    @apply mx-auto px-4 sm:px-6;
-    max-width: min(720px, calc(100vw - 2rem));
-  }
-
-  @media (min-width: 768px) {
-    .page-container {
-      max-width: min(760px, calc(100vw - 3rem));
-    }
-  }
-
-  @media (min-width: 1024px) {
-    .page-container {
-      max-width: min(800px, calc(100vw - 4rem));
-    }
+    @apply mx-auto max-w-[720px] px-4 sm:px-6;
   }
 
   .section-label {
