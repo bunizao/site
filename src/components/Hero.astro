@@ -2,7 +2,6 @@
 import Typewriter from './Typewriter.astro';
 import GitHubContributions from './GitHubContributions.astro';
 import TechMarquee from './TechMarquee.astro';
-import MagneticButton from './MagneticButton';
 import {Instagram, type LucideIcon} from 'lucide-react';
 import { FileText, Github, Mail, Send } from 'lucide-react';
 
@@ -109,7 +108,7 @@ const techRow2 = ['Frontend', 'BGP', 'Proxy', 'Docker', 'Linux', 'Web3', 'Optimi
     <span class="flex-none whitespace-nowrap text-[14px] text-muted-foreground sm:text-[15px]">Find me at</span>
     {socials.map((social) => (
       <div class="social-link-wrapper">
-        <MagneticButton client:load strength={0.4}>
+        <div class="magnetic-button" data-magnetic data-strength="0.4">
           <a
             href={social.url}
             target="_blank"
@@ -120,7 +119,7 @@ const techRow2 = ['Frontend', 'BGP', 'Proxy', 'Docker', 'Linux', 'Web3', 'Optimi
             <social.icon className="h-4 w-4" aria-hidden="true" />
             <span class="hidden sm:inline">{social.name}</span>
           </a>
-        </MagneticButton>
+        </div>
         <div class="social-details">
           <p class="social-details-desc">{social.description}</p>
           <p class="social-details-handle">{social.handle}</p>
@@ -181,6 +180,11 @@ const techRow2 = ['Frontend', 'BGP', 'Proxy', 'Docker', 'Linux', 'Web3', 'Optimi
   .social-link-wrapper {
     position: relative;
     display: inline-block;
+  }
+
+  .magnetic-button {
+    display: inline-flex;
+    align-items: center;
   }
 
   .social-details {
@@ -336,6 +340,8 @@ const techRow2 = ['Frontend', 'BGP', 'Proxy', 'Docker', 'Linux', 'Web3', 'Optimi
 <script>
   import gsap from 'gsap';
 
+  const prefersReducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+
   // Hero entrance animation timeline
   const heroElements = document.querySelectorAll('.hero-animate');
 
@@ -354,6 +360,66 @@ const techRow2 = ['Frontend', 'BGP', 'Proxy', 'Docker', 'Linux', 'Web3', 'Optimi
     duration: 0.6,
     stagger: 0.1
   });
+
+  if (!prefersReducedMotion) {
+    const magneticButtons = document.querySelectorAll('[data-magnetic]');
+    magneticButtons.forEach((button) => {
+      const element = button as HTMLElement;
+      const strength = Number.parseFloat(element.getAttribute('data-strength') || '0.3');
+      const quickX = gsap.quickTo(element, 'x', {
+        duration: 0.3,
+        ease: 'power2.out'
+      });
+      const quickY = gsap.quickTo(element, 'y', {
+        duration: 0.3,
+        ease: 'power2.out'
+      });
+      let bounds: DOMRect | null = null;
+
+      const updateBounds = () => {
+        bounds = element.getBoundingClientRect();
+      };
+
+      const handlePointerEnter = (event: PointerEvent) => {
+        if (event.pointerType && event.pointerType !== 'mouse') return;
+        updateBounds();
+      };
+
+      const handlePointerMove = (event: PointerEvent) => {
+        if (event.pointerType && event.pointerType !== 'mouse') return;
+        if (!bounds) {
+          updateBounds();
+        }
+        if (!bounds) return;
+
+        const { left, top, width, height } = bounds;
+        const centerX = left + width / 2;
+        const centerY = top + height / 2;
+
+        const deltaX = (event.clientX - centerX) * strength;
+        const deltaY = (event.clientY - centerY) * strength;
+
+        quickX(deltaX);
+        quickY(deltaY);
+      };
+
+      const handlePointerLeave = (event: PointerEvent) => {
+        if (event.pointerType && event.pointerType !== 'mouse') return;
+        bounds = null;
+        gsap.to(element, {
+          x: 0,
+          y: 0,
+          duration: 0.5,
+          ease: 'elastic.out(1, 0.3)'
+        });
+      };
+
+      element.style.willChange = 'transform';
+      element.addEventListener('pointerenter', handlePointerEnter, { passive: true });
+      element.addEventListener('pointermove', handlePointerMove, { passive: true });
+      element.addEventListener('pointerleave', handlePointerLeave, { passive: true });
+    });
+  }
 
   // Status text rotation
   const statusWords = [
