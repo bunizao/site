@@ -488,7 +488,6 @@ const placeholders = Array.from({ length: SKELETON_COUNT }, (_, index) => ({
 </style>
 
 <script>
-  const prefersReducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
   const moodsSection = document.getElementById('moods-section');
 
   if (moodsSection) {
@@ -885,10 +884,6 @@ const placeholders = Array.from({ length: SKELETON_COUNT }, (_, index) => ({
       }, '+=0.3');
     };
 
-    if (prefersReducedMotion) {
-      void loadMoods();
-    } else {
-      void initMoods();
-    }
+    void initMoods();
   }
 </script>

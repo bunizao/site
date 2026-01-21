@@ -178,7 +178,6 @@ const posts = await getLatestPosts();
 </style>
 
 <script>
-  const prefersReducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
   const writingSection = document.getElementById('writing-section');
 
   const initWriting = async () => {
@@ -237,7 +236,7 @@ const posts = await getLatestPosts();
     }
   };
 
-  if (!prefersReducedMotion && writingSection) {
+  if (writingSection) {
     void initWriting();
   }
 </script>
