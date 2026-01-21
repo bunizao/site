@@ -1,6 +1,6 @@
 # Site
 
-Personal bio/portfolio website.   
+Personal bio/portfolio website.  
 
 Live at:
 
@@ -27,10 +27,10 @@ bun run dev
 
 This site exposes custom SVG endpoints for flexible use:
 
-- `docs/SVG-API.md` - Complete API documentation
+- [`docs/SVG-API.md`](docs/SVG-API.md) - Complete API documentation
 
 ## Project Structure
-- `src/pages` - Route entry points
+- `/src/pages` - Route entry points
 - `src/pages/api` - Dynamic SVG endpoints
 - `src/components` - Reusable UI components
 - `src/layouts` - Layout wrappers
@@ -43,7 +43,10 @@ This site exposes custom SVG endpoints for flexible use:
 - `public` - Logos, icons, and other static media
 
 ## Environment Variables
-- See `.env`
+- `GHOST_URL` - Ghost CMS URL
+- `GHOST_CONTENT_APIKEY` - Ghost CMS content API key
+- `GITHUB_TOKEN` - GitHub GraphQL token for project data and star counts
+- See [`.env`](.env)
 
 ## Acknowledgements
 - [miantiao-me/BroadcastChannel](https://github.com/miantiao-me/BroadcastChannel) - Inspiration and code reference for `moods` ideas.
@@ -63,4 +66,4 @@ This repository includes and is derived from third-party open-source software:
 
 > If you modify this program and run it as a network service, you are required to make the complete corresponding source code of your modified version available to users of that service, as mandated by the AGPL-3.0.
 
-See the `LICENSE` file for the full license text. 
+See the [`LICENSE`](LICENSE) file for the full license text. 
