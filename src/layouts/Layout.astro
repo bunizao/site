@@ -198,8 +198,19 @@ const ogImageType = ogImageUrl.endsWith('.png')
     </script>
 
     <script>
-      import { inject } from '@vercel/analytics';
-      inject();
+      const scheduleAnalytics = (callback) => {
+        if ('requestIdleCallback' in window) {
+          window.requestIdleCallback(callback, { timeout: 2000 });
+        } else {
+          setTimeout(callback, 0);
+        }
+      };
+
+      scheduleAnalytics(() => {
+        import('@vercel/analytics')
+          .then(({ inject }) => inject())
+          .catch(() => {});
+      });
     </script>
   </body>
 </html>
