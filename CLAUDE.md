@@ -15,17 +15,17 @@ The site is deployed on Netlify and integrates with Vercel Analytics.
 ## Development Commands
 
 ```bash
-# Install dependencies (uses pnpm)
-pnpm install
+# Install dependencies (uses Bun)
+bun install
 
 # Start development server (runs on http://localhost:4321)
-pnpm dev
+bun dev
 
 # Build for production
-pnpm build
+bun run build
 
 # Preview production build locally
-pnpm preview
+bun preview
 ```
 
 ## Architecture
@@ -134,11 +134,11 @@ The site features several custom animations:
 
 - Production build outputs to `dist/` directory
 - Configured in `netlify.toml` for Netlify deployment
-- Build command: `npx pnpm i --store=node_modules/.pnpm-store && npx pnpm run build`
+- Build command: `bun install && bun run build`
 
 ## Important Notes
 
-- **Package manager**: This project uses **pnpm** (v9.15.0+), not npm or yarn
+- **Package manager**: This project uses **Bun** (v1.0+), not npm, yarn, or pnpm
 - **Framework**: Uses **Astro** (not SolidJS or vite-plugin-ssr)
 - **React integration**: React components are used selectively via @astrojs/react
 - **No test suite**: There are no test commands or testing framework configured
