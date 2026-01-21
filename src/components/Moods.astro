@@ -85,6 +85,10 @@ const placeholders = Array.from({ length: SKELETON_COUNT }, (_, index) => ({
     position: relative;
   }
 
+  #moods-section .mood-item--clickable {
+    cursor: pointer;
+  }
+
   @media (min-width: 640px) {
     #moods-section .mood-item {
       grid-template-columns: 56px 28px 1fr;
@@ -222,6 +226,18 @@ const placeholders = Array.from({ length: SKELETON_COUNT }, (_, index) => ({
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
+  }
+
+  #moods-section .mood-text a {
+    color: inherit;
+    text-decoration: none;
+    border-bottom: 1px solid transparent;
+    transition: border-color 0.15s ease, color 0.15s ease, opacity 0.15s ease;
+  }
+
+  #moods-section .mood-text a:hover,
+  #moods-section .mood-text a:focus-visible {
+    border-bottom-color: hsl(var(--foreground) / 0.4);
   }
 
   @media (min-width: 640px) {
@@ -524,21 +540,123 @@ const placeholders = Array.from({ length: SKELETON_COUNT }, (_, index) => ({
       return `${monthName} ${day}`;
     };
 
+    const linkifyText = (value: string): DocumentFragment => {
+      const fragment = document.createDocumentFragment();
+      if (!value) return fragment;
+
+      const urlPattern = /https?:\/\/[^\s]+/g;
+      let lastIndex = 0;
+      let match: RegExpExecArray | null;
+
+      while ((match = urlPattern.exec(value)) !== null) {
+        const matchText = match[0];
+        const start = match.index;
+
+        if (start > lastIndex) {
+          fragment.appendChild(document.createTextNode(value.slice(lastIndex, start)));
+        }
+
+        let url = matchText;
+        let trailing = '';
+        while (/[)\].,!?:;]+$/.test(url)) {
+          trailing = url.slice(-1) + trailing;
+          url = url.slice(0, -1);
+        }
+
+        const anchor = document.createElement('a');
+        anchor.href = url;
+        anchor.textContent = url;
+        anchor.target = '_blank';
+        anchor.rel = 'noopener noreferrer';
+        fragment.appendChild(anchor);
+
+        if (trailing) {
+          fragment.appendChild(document.createTextNode(trailing));
+        }
+
+        lastIndex = start + matchText.length;
+      }
+
+      if (lastIndex < value.length) {
+        fragment.appendChild(document.createTextNode(value.slice(lastIndex)));
+      }
+
+      return fragment;
+    };
+
+    const linkifyHtml = (value: string): DocumentFragment => {
+      const fragment = document.createDocumentFragment();
+      if (!value) return fragment;
+
+      const template = document.createElement('template');
+      template.innerHTML = value;
+
+      const appendNode = (node: ChildNode, target: DocumentFragment | HTMLElement): void => {
+        if (node.nodeType === Node.TEXT_NODE) {
+          target.appendChild(linkifyText(node.textContent ?? ''));
+          return;
+        }
+        if (node.nodeType !== Node.ELEMENT_NODE) return;
+
+        const element = node as HTMLElement;
+        const tag = element.tagName.toLowerCase();
+        if (tag === 'script' || tag === 'style') {
+          return;
+        }
+
+        if (tag === 'a') {
+          const anchor = document.createElement('a');
+          const href = element.getAttribute('href') ?? '';
+          anchor.textContent = element.textContent ?? '';
+          if (href) {
+            anchor.href = href;
+            if (/^https?:\/\//i.test(href)) {
+              anchor.target = '_blank';
+              anchor.rel = 'noopener noreferrer';
+            }
+          }
+          target.appendChild(anchor);
+          return;
+        }
+
+        if (tag === 'br') {
+          target.appendChild(document.createElement('br'));
+          return;
+        }
+
+        element.childNodes.forEach((child) => appendNode(child, target));
+      };
+
+      template.content.childNodes.forEach((child) => appendNode(child, fragment));
+      return fragment;
+    };
+
+    const buildPreviewFragment = (previewText: string, previewHtml?: string): DocumentFragment => {
+      const html = typeof previewHtml === 'string' ? previewHtml.trim() : '';
+      if (html) {
+        return linkifyHtml(html);
+      }
+      return linkifyText(previewText);
+    };
+
     interface MoodData {
       id: string;
       datetime: string;
       tag?: string;
       previewText: string;
+      previewHtml?: string;
       image?: string | null;
       mediaHtml?: string;
       needsDetailPage?: boolean;
     }
 
     const createMoodItem = (mood: MoodData, index: number): HTMLElement => {
-      const link = document.createElement('a');
-      link.href = `/mood/${mood.id}`;
-      link.className = 'mood-item';
-      link.style.cssText = `--item-index: ${index}`;
+      const item = document.createElement('div');
+      item.className = 'mood-item mood-item--clickable';
+      item.dataset.href = `/mood/${mood.id}`;
+      item.setAttribute('role', 'link');
+      item.tabIndex = 0;
+      item.style.cssText = `--item-index: ${index}`;
 
       const timeCol = document.createElement('div');
       timeCol.className = 'mood-time-col';
@@ -565,9 +683,14 @@ const placeholders = Array.from({ length: SKELETON_COUNT }, (_, index) => ({
       const text = document.createElement('span');
       text.className = 'mood-text';
       const previewText = mood.previewText || '';
-      const hasText = previewText.trim().length > 0;
+      const previewHtml = mood.previewHtml || '';
+      const hasText = previewText.trim().length > 0 || previewHtml.trim().length > 0;
       if (hasText || !mood.image) {
-        text.textContent = hasText ? previewText : '(No text)';
+        if (hasText) {
+          text.appendChild(buildPreviewFragment(previewText, previewHtml));
+        } else {
+          text.textContent = '(No text)';
+        }
         card.appendChild(text);
       }
 
@@ -599,11 +722,11 @@ const placeholders = Array.from({ length: SKELETON_COUNT }, (_, index) => ({
 
       contentCol.appendChild(card);
 
-      link.appendChild(timeCol);
-      link.appendChild(lineCol);
-      link.appendChild(contentCol);
+      item.appendChild(timeCol);
+      item.appendChild(lineCol);
+      item.appendChild(contentCol);
 
-      return link;
+      return item;
     };
 
     const renderMoods = (posts: MoodData[]): void => {
@@ -695,6 +818,31 @@ const placeholders = Array.from({ length: SKELETON_COUNT }, (_, index) => ({
         if (errorState) errorState.hidden = false;
       }
     };
+
+    const navigateToMood = (target: HTMLElement | null): void => {
+      if (!target || target.closest('a')) return;
+      const item = target.closest('.mood-item--clickable') as HTMLElement | null;
+      if (!item) return;
+      const href = item.dataset.href;
+      if (href) {
+        window.location.href = href;
+      }
+    };
+
+    if (list) {
+      list.addEventListener('click', (event) => {
+        navigateToMood(event.target as HTMLElement | null);
+      });
+
+      list.addEventListener('keydown', (event) => {
+        const keyEvent = event as KeyboardEvent;
+        if (keyEvent.key !== 'Enter' && keyEvent.key !== ' ') return;
+        const target = event.target as HTMLElement | null;
+        if (!target || target.closest('a')) return;
+        event.preventDefault();
+        navigateToMood(target);
+      });
+    }
 
     // Create GSAP timeline with ScrollTrigger
     const tl = gsap.timeline({

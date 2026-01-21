@@ -4,6 +4,7 @@ import {
   getFirstImage,
   getInlineMediaPreview,
   getTextPreview,
+  getTextPreviewHtml,
   getQuotePreview,
   getNumericId,
   hasMedia,
@@ -24,6 +25,7 @@ export const GET: APIRoute = async ({ request, locals }) => {
     const payload = sortedPosts.map((post) => {
       const mediaPreview = getInlineMediaPreview(post.content);
       const previewText = getTextPreview(post);
+      const previewHtml = getTextPreviewHtml(post);
       const quote = getQuotePreview(post.content);
       const needsDetailPage = !mediaPreview && (hasMedia(post.content) || isLongContent(previewText));
       return {
@@ -31,6 +33,7 @@ export const GET: APIRoute = async ({ request, locals }) => {
         datetime: post.datetime,
         tag: post.tags?.[0] ?? '',
         previewText,
+        previewHtml,
         image: mediaPreview ? null : getFirstImage(post.content),
         mediaHtml: mediaPreview?.html ?? '',
         needsDetailPage,

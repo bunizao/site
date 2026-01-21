@@ -1374,6 +1374,61 @@ const loadingPlaceholders = Array.from({ length: LOADING_COUNT }, (_, index) => 
       return fragment;
     };
 
+    const linkifyHtml = (value: string): DocumentFragment => {
+      const fragment = document.createDocumentFragment();
+      if (!value) return fragment;
+
+      const template = document.createElement('template');
+      template.innerHTML = value;
+
+      const appendNode = (node: ChildNode, target: DocumentFragment | HTMLElement): void => {
+        if (node.nodeType === Node.TEXT_NODE) {
+          target.appendChild(linkifyText(node.textContent ?? ''));
+          return;
+        }
+        if (node.nodeType !== Node.ELEMENT_NODE) return;
+
+        const element = node as HTMLElement;
+        const tag = element.tagName.toLowerCase();
+        if (tag === 'script' || tag === 'style') {
+          return;
+        }
+
+        if (tag === 'a') {
+          const anchor = document.createElement('a');
+          const href = element.getAttribute('href') ?? '';
+          anchor.textContent = element.textContent ?? '';
+          if (href) {
+            anchor.href = href;
+            if (/^https?:\/\//i.test(href)) {
+              anchor.target = '_blank';
+              anchor.rel = 'noopener noreferrer';
+            }
+          }
+          target.appendChild(anchor);
+          return;
+        }
+
+        if (tag === 'br') {
+          target.appendChild(document.createElement('br'));
+          return;
+        }
+
+        element.childNodes.forEach((child) => appendNode(child, target));
+      };
+
+      template.content.childNodes.forEach((child) => appendNode(child, fragment));
+      return fragment;
+    };
+
+    const buildPreviewFragment = (previewText: string, previewHtml?: string): DocumentFragment => {
+      const html = typeof previewHtml === 'string' ? previewHtml.trim() : '';
+      if (html) {
+        return linkifyHtml(html);
+      }
+      return linkifyText(previewText);
+    };
+
     const getQuoteTargetId = (href: string): string | null => {
       if (!href) return null;
       try {
@@ -1557,6 +1612,7 @@ const loadingPlaceholders = Array.from({ length: LOADING_COUNT }, (_, index) => 
       datetime: string;
       tag?: string;
       previewText: string;
+      previewHtml?: string;
       image?: string | null;
       mediaHtml?: string;
       needsDetailPage?: boolean;
@@ -1665,9 +1721,10 @@ const loadingPlaceholders = Array.from({ length: LOADING_COUNT }, (_, index) => 
       const text = document.createElement('p');
       text.className = 'mood-item-text';
       const previewText = mood.previewText || '';
+      const previewHtml = mood.previewHtml || '';
       const isLongPreview = isLongContent(previewText);
-      if (previewText.trim()) {
-        text.appendChild(linkifyText(previewText));
+      if (previewText.trim() || previewHtml.trim()) {
+        text.appendChild(buildPreviewFragment(previewText, previewHtml));
       }
       if (isLongPreview) {
         text.classList.add('mood-item-text--clamped');

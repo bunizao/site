@@ -44,6 +44,31 @@ function normalizeText(value: string): string {
   return value.replace(/\s+/g, ' ').trim();
 }
 
+const previewCleanupSelectors = [
+  'blockquote',
+  '.tgme_widget_message_reply',
+  '.bookmark-card',
+  'video, audio, iframe',
+  '.image-list-container, .image-preview-wrap, .image-preview-button, .sticker',
+  '.tgme_widget_message_poll, .tgme_widget_message_document_wrap, .tgme_widget_message_video_player, .tgme_widget_message_location_wrap',
+];
+
+function removePreviewElements($: cheerio.CheerioAPI): void {
+  previewCleanupSelectors.forEach((selector) => {
+    $(selector).remove();
+  });
+}
+
+function sanitizePreviewHref(value: string): string {
+  const trimmed = value.trim();
+  if (!trimmed) return '';
+  if (trimmed.startsWith('//')) return `https:${trimmed}`;
+  if (/^(https?:|mailto:|tel:)/i.test(trimmed)) return trimmed;
+  if (/^[/?#]/.test(trimmed)) return trimmed;
+  if (trimmed.startsWith('.')) return trimmed;
+  return '';
+}
+
 /**
  * Check if content contains media elements
  */
@@ -97,16 +122,56 @@ export function getTextPreview(mood: { text?: string; content: string }): string
   const $ = cheerio.load(mood.content);
 
   // Remove elements that shouldn't be in preview
-  $('blockquote').remove();
-  $('.tgme_widget_message_reply').remove();
-  $('.bookmark-card').remove();
-  $('video, audio, iframe').remove();
-  $('.image-list-container, .image-preview-wrap, .image-preview-button, .sticker').remove();
-  $('.tgme_widget_message_poll, .tgme_widget_message_document_wrap, .tgme_widget_message_video_player, .tgme_widget_message_location_wrap').remove();
+  removePreviewElements($);
 
   const cleanedHtml = $.root().html() ?? '';
   const preview = stripHtml(cleanedHtml);
   return preview || fallback;
+}
+
+/**
+ * Get HTML preview with safe inline links preserved
+ */
+export function getTextPreviewHtml(mood: { text?: string; content: string }): string {
+  const $ = cheerio.load(mood.content, { decodeEntities: false });
+  removePreviewElements($);
+  $('script, style').remove();
+
+  $.root()
+    .find('*')
+    .each((_index, element) => {
+      const tag = element.tagName?.toLowerCase();
+      if (!tag) return;
+
+      if (tag === 'a') {
+        const rawHref = $(element).attr('href') ?? '';
+        const safeHref = sanitizePreviewHref(rawHref);
+        const text = $(element).text();
+
+        if (!safeHref || !text.trim()) {
+          $(element).replaceWith(text);
+          return;
+        }
+
+        const attributes = Object.keys(element.attribs ?? {});
+        attributes.forEach((attr) => {
+          if (attr !== 'href') {
+            $(element).removeAttr(attr);
+          }
+        });
+        $(element).attr('href', safeHref);
+        return;
+      }
+
+      if (tag === 'br') {
+        return;
+      }
+
+      $(element).replaceWith($(element).contents());
+    });
+
+  const previewHtml = $.root().html() ?? '';
+  return previewHtml.replace(/\n{3,}/g, '\n\n').trim();
 }
 
 /**
