@@ -5,8 +5,104 @@
   <slot />
 </div>
 
+<!-- Floating ice particles background -->
+<div id="ice-particles" aria-hidden="true"></div>
+
+<!-- Cursor trail effect -->
+<div id="cursor-trail" aria-hidden="true">
+  <div class="trail-dot"></div>
+  <div class="trail-dot"></div>
+  <div class="trail-dot"></div>
+  <div class="trail-dot"></div>
+  <div class="trail-dot"></div>
+</div>
+
+<style>
+  /* Native scroll with WebKit optimizations */
+  :global(html) {
+    scroll-behavior: smooth;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  :global(body) {
+    overscroll-behavior: none;
+  }
+
+  #parallax-container {
+    will-change: auto;
+  }
+
+  /* Floating sections - GPU accelerated */
+  :global(section) {
+    will-change: transform;
+    transform: translateZ(0);
+    -webkit-transform: translateZ(0);
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+  }
+
+  /* Ice particles */
+  #ice-particles {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+    overflow: hidden;
+  }
+
+  :global(.ice-particle) {
+    position: absolute;
+    width: 4px;
+    height: 4px;
+    background: hsl(var(--foreground) / 0.08);
+    border-radius: 50%;
+    pointer-events: none;
+    will-change: transform;
+  }
+
+  :global(.dark .ice-particle) {
+    background: hsl(var(--foreground) / 0.06);
+  }
+
+  /* Cursor trail */
+  #cursor-trail {
+    position: fixed;
+    top: 0;
+    left: 0;
+    pointer-events: none;
+    z-index: 9999;
+    mix-blend-mode: difference;
+  }
+
+  .trail-dot {
+    position: absolute;
+    width: 8px;
+    height: 8px;
+    background: hsl(var(--foreground));
+    border-radius: 50%;
+    opacity: 0;
+    will-change: transform, opacity;
+    -webkit-transform: translate(-50%, -50%);
+    transform: translate(-50%, -50%);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    :global(html) {
+      scroll-behavior: auto;
+    }
+
+    #cursor-trail,
+    #ice-particles {
+      display: none;
+    }
+  }
+</style>
+
 <script>
-  const initParallax = async () => {
+  const initSkatingEffects = async () => {
+    const prefersReducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    if (prefersReducedMotion) return;
+
     const [{ default: gsap }, { ScrollTrigger }] = await Promise.all([
       import('gsap'),
       import('gsap/ScrollTrigger')
@@ -14,73 +110,188 @@
 
     gsap.registerPlugin(ScrollTrigger);
 
-    // Parallax effect for sections
+    // ===== ICE PARTICLES =====
+    const particlesContainer = document.getElementById('ice-particles');
+    if (particlesContainer) {
+      const particleCount = 15;
+
+      for (let i = 0; i < particleCount; i++) {
+        const particle = document.createElement('div');
+        particle.className = 'ice-particle';
+        particle.style.left = `${Math.random() * 100}%`;
+        particle.style.top = `${Math.random() * 100}%`;
+        particlesContainer.appendChild(particle);
+
+        // Floating animation
+        gsap.to(particle, {
+          y: `${Math.random() * 80 - 40}`,
+          x: `${Math.random() * 40 - 20}`,
+          duration: 4 + Math.random() * 3,
+          repeat: -1,
+          yoyo: true,
+          ease: 'sine.inOut',
+          delay: Math.random() * 2
+        });
+
+        // Parallax on scroll
+        gsap.to(particle, {
+          y: `+=${Math.random() * 150 + 50}`,
+          scrollTrigger: {
+            trigger: document.body,
+            start: 'top top',
+            end: 'bottom bottom',
+            scrub: 1
+          }
+        });
+      }
+    }
+
+    // ===== CURSOR TRAIL =====
+    const cursorTrail = document.getElementById('cursor-trail');
+    const trailDots = cursorTrail?.querySelectorAll('.trail-dot');
+
+    if (trailDots && trailDots.length > 0) {
+      const positions = Array.from(trailDots).map(() => ({ x: 0, y: 0 }));
+      let mouseX = 0;
+      let mouseY = 0;
+      let moveTimeout: number;
+
+      document.addEventListener('mousemove', (e) => {
+        mouseX = e.clientX;
+        mouseY = e.clientY;
+
+        trailDots.forEach((dot, i) => {
+          gsap.to(dot, {
+            opacity: 0.5 - i * 0.08,
+            duration: 0.15
+          });
+        });
+
+        clearTimeout(moveTimeout);
+        moveTimeout = window.setTimeout(() => {
+          trailDots.forEach((dot) => {
+            gsap.to(dot, { opacity: 0, duration: 0.4 });
+          });
+        }, 80);
+      }, { passive: true });
+
+      const animateTrail = () => {
+        positions[0].x += (mouseX - positions[0].x) * 0.35;
+        positions[0].y += (mouseY - positions[0].y) * 0.35;
+
+        for (let i = 1; i < positions.length; i++) {
+          positions[i].x += (positions[i - 1].x - positions[i].x) * 0.25;
+          positions[i].y += (positions[i - 1].y - positions[i].y) * 0.25;
+        }
+
+        trailDots.forEach((dot, i) => {
+          const el = dot as HTMLElement;
+          el.style.left = `${positions[i].x}px`;
+          el.style.top = `${positions[i].y}px`;
+          el.style.transform = `translate(-50%, -50%) scale(${1 - i * 0.12})`;
+        });
+
+        requestAnimationFrame(animateTrail);
+      };
+      animateTrail();
+    }
+
+    // ===== FLOATING SECTIONS (ICE DRIFT) =====
+    const floatingSections = document.querySelectorAll('section');
+    let sectionMouseX = 0;
+    let sectionMouseY = 0;
+    let windowCenterX = window.innerWidth / 2;
+    let windowCenterY = window.innerHeight / 2;
+
+    document.addEventListener('mousemove', (e) => {
+      sectionMouseX = (e.clientX - windowCenterX) / windowCenterX;
+      sectionMouseY = (e.clientY - windowCenterY) / windowCenterY;
+    }, { passive: true });
+
+    window.addEventListener('resize', () => {
+      windowCenterX = window.innerWidth / 2;
+      windowCenterY = window.innerHeight / 2;
+    }, { passive: true });
+
+    floatingSections.forEach((section, index) => {
+      const el = section as HTMLElement;
+      const intensity = 6 + (index % 3) * 3;
+
+      let currentX = 0;
+      let currentY = 0;
+
+      const animateFloat = () => {
+        const targetX = sectionMouseX * intensity;
+        const targetY = sectionMouseY * intensity * 0.4;
+
+        // Smooth glide - higher value = snappier
+        currentX += (targetX - currentX) * 0.08;
+        currentY += (targetY - currentY) * 0.08;
+
+        el.style.transform = `translate3d(${currentX}px, ${currentY}px, 0)`;
+        requestAnimationFrame(animateFloat);
+      };
+
+      animateFloat();
+    });
+
+    // ===== SECTION FADE IN =====
     const sections = document.querySelectorAll('section:not([data-parallax="off"])');
-    sections.forEach((section, index) => {
-      // Stagger the parallax effect
+    sections.forEach((section) => {
       gsap.fromTo(
         section,
+        { opacity: 0, y: 24 },
         {
-          y: 50,
-          opacity: 0.8
-        },
-        {
-          y: 0,
           opacity: 1,
+          y: 0,
+          duration: 0.5,
+          ease: 'power2.out',
           scrollTrigger: {
             trigger: section,
-            start: 'top 80%',
-            end: 'top 20%',
-            scrub: 1,
+            start: 'top 85%',
             toggleActions: 'play none none reverse'
           }
         }
       );
     });
 
-    // Smooth reveal for items within sections
+    // ===== ITEMS FADE IN =====
     const items = document.querySelectorAll('.item, .project-card, .post-card');
     items.forEach((item, index) => {
       gsap.fromTo(
         item,
+        { opacity: 0, y: 16 },
         {
-          y: 30,
-          opacity: 0
-        },
-        {
-          y: 0,
           opacity: 1,
-          duration: 0.6,
+          y: 0,
+          duration: 0.4,
           ease: 'power2.out',
           scrollTrigger: {
             trigger: item,
-            start: 'top 85%',
+            start: 'top 88%',
             toggleActions: 'play none none reverse'
           },
-          delay: (index % 3) * 0.1 // Stagger within groups
+          delay: (index % 4) * 0.04
         }
       );
     });
 
-    // Parallax for hero elements
-    const heroElements = document.querySelectorAll('.animate-in');
+    // ===== HERO ENTRANCE =====
+    const heroElements = document.querySelectorAll('.hero-animate');
     heroElements.forEach((element, index) => {
       gsap.fromTo(
         element,
+        { opacity: 0, y: 16 },
         {
-          y: 20 * (index + 1),
-          opacity: 0
-        },
-        {
-          y: 0,
           opacity: 1,
-          duration: 1,
-          ease: 'power3.out',
-          delay: index * 0.1
+          y: 0,
+          duration: 0.5,
+          ease: 'power2.out',
+          delay: 0.15 + index * 0.06
         }
       );
     });
   };
 
-  void initParallax();
+  void initSkatingEffects();
 </script>
