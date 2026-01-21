@@ -196,43 +196,29 @@
       animateTrail();
     }
 
-    // ===== FLOATING SECTIONS (ICE DRIFT) =====
+    // ===== SMOOTH SCROLL DRIFT (SIMPLE & FLUID) =====
     const floatingSections = document.querySelectorAll('section');
-    let sectionMouseX = 0;
-    let sectionMouseY = 0;
-    let windowCenterX = window.innerWidth / 2;
-    let windowCenterY = window.innerHeight / 2;
 
-    document.addEventListener('mousemove', (e) => {
-      sectionMouseX = (e.clientX - windowCenterX) / windowCenterX;
-      sectionMouseY = (e.clientY - windowCenterY) / windowCenterY;
-    }, { passive: true });
-
-    window.addEventListener('resize', () => {
-      windowCenterX = window.innerWidth / 2;
-      windowCenterY = window.innerHeight / 2;
-    }, { passive: true });
-
+    // Use GSAP's optimized animation for buttery smooth movement
     floatingSections.forEach((section, index) => {
       const el = section as HTMLElement;
-      const intensity = 6 + (index % 3) * 3;
+      const speed = 0.5 + (index % 3) * 0.2; // Vary parallax speed
 
-      let currentX = 0;
-      let currentY = 0;
-
-      const animateFloat = () => {
-        const targetX = sectionMouseX * intensity;
-        const targetY = sectionMouseY * intensity * 0.4;
-
-        // Smooth glide - higher value = snappier
-        currentX += (targetX - currentX) * 0.08;
-        currentY += (targetY - currentY) * 0.08;
-
-        el.style.transform = `translate3d(${currentX}px, ${currentY}px, 0)`;
-        requestAnimationFrame(animateFloat);
-      };
-
-      animateFloat();
+      gsap.to(el, {
+        y: () => {
+          // Different sections move at different rates relative to scroll
+          const scrollProgress = window.scrollY;
+          return scrollProgress * speed * 0.02;
+        },
+        ease: 'none',
+        scrollTrigger: {
+          trigger: document.body,
+          start: 'top top',
+          end: 'bottom bottom',
+          scrub: 1.5, // Higher = more lag/glide (ice skating feel)
+          invalidateOnRefresh: true
+        }
+      });
     });
 
     // ===== SECTION FADE IN =====
