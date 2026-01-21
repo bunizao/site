@@ -1,4 +1,5 @@
 import type { APIRoute } from 'astro';
+import { fetchGitHubRepo } from '../../lib/github';
 import { svgResponse } from '../../lib/svg-response';
 
 interface ProjectData {
@@ -47,24 +48,6 @@ const projects: Record<string, ProjectData> = {
   }
 };
 
-async function fetchGitHubStars(repo: string): Promise<number | null> {
-  try {
-    const response = await fetch(`https://api.github.com/repos/${repo}`, {
-      headers: {
-        'Accept': 'application/vnd.github.v3+json',
-        'User-Agent': 'astro-site'
-      }
-    });
-
-    if (!response.ok) return null;
-
-    const data = await response.json();
-    return data.stargazers_count || 0;
-  } catch {
-    return null;
-  }
-}
-
 function escapeXml(text: string): string {
   return text
     .replace(/&/g, '&amp;')
@@ -74,7 +57,7 @@ function escapeXml(text: string): string {
     .replace(/'/g, '&apos;');
 }
 
-export const GET: APIRoute = async ({ url }) => {
+export const GET: APIRoute = async ({ url, locals }) => {
   const projectId = url.searchParams.get('project') || 'tutubetterrules';
   const theme = url.searchParams.get('theme') || 'dark';
 
@@ -85,7 +68,8 @@ export const GET: APIRoute = async ({ url }) => {
   }
 
   // Fetch live GitHub stars
-  const stars = await fetchGitHubStars(project.repo);
+  const githubData = await fetchGitHubRepo(project.repo, import.meta.env, locals?.runtime?.env);
+  const stars = githubData?.stars ?? null;
 
   // Theme colors
   const colors = theme === 'light'
