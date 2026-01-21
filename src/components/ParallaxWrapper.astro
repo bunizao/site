@@ -6,8 +6,6 @@
 </div>
 
 <script>
-  const prefersReducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-
   const initParallax = async () => {
     const [{ default: gsap }, { ScrollTrigger }] = await Promise.all([
       import('gsap'),
@@ -84,7 +82,5 @@
     });
   };
 
-  if (!prefersReducedMotion) {
-    void initParallax();
-  }
+  void initParallax();
 </script>
