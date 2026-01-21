@@ -92,7 +92,7 @@ Displays a styled project card with live GitHub data.
 ```
 
 **Features:**
-- Live GitHub star count
+- Live GitHub star count (requires `GITHUB_TOKEN` for GitHub GraphQL API)
 - Project description
 - Role badge (Author/Contributor)
 - Technology tags
