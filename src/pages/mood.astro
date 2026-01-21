@@ -607,6 +607,25 @@ const loadingPlaceholders = Array.from({ length: LOADING_COUNT }, (_, index) => 
     width: fit-content;
   }
 
+  :global(.mood-item-quote[href]) {
+    cursor: pointer;
+    transition: background 0.2s ease, color 0.2s ease, box-shadow 0.2s ease,
+      transform 0.2s ease;
+  }
+
+  :global(.mood-item-quote[href]:hover),
+  :global(.mood-item-quote[href]:focus-visible) {
+    background: hsl(var(--foreground) / 0.06);
+    color: hsl(var(--foreground) / 0.7);
+    box-shadow: 0 0 0 1px hsl(var(--foreground) / 0.08);
+    transform: translateY(-1px);
+  }
+
+  :global(.mood-item-quote[href]:hover .mood-item-quote-text),
+  :global(.mood-item-quote[href]:focus-visible .mood-item-quote-text) {
+    color: hsl(var(--foreground) / 0.75);
+  }
+
   :global(.mood-item-quote-meta) {
     display: flex;
     align-items: center;
