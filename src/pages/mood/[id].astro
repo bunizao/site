@@ -461,7 +461,7 @@ const description = post ? post.text.slice(0, 160) : 'Mood not found.';
   .mood-post-content :global(a) {
     color: hsl(var(--foreground));
     text-decoration: none;
-    border-bottom: 1px solid transparent;
+    border-bottom: 1px solid hsl(var(--foreground) / 0.35);
     padding-bottom: 1px;
     transition: border-color 0.15s ease, color 0.15s ease;
     overflow-wrap: anywhere;
@@ -470,7 +470,7 @@ const description = post ? post.text.slice(0, 160) : 'Mood not found.';
 
   .mood-post-content :global(a:hover),
   .mood-post-content :global(a:focus-visible) {
-    border-bottom-color: hsl(var(--foreground) / 0.4);
+    border-bottom-color: hsl(var(--foreground) / 0.6);
   }
 
   .mood-post-content :global(strong) {
