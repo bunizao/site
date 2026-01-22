@@ -12,7 +12,7 @@ interface Props {
 }
 
 import '../styles/globals.css';
-import { Moon, Sun } from 'lucide-react';
+import { Moon, Sun, Monitor } from 'lucide-react';
 
 const {
   title,
@@ -83,14 +83,19 @@ const ogImageType = ogImageUrl.endsWith('.png')
             ? window.matchMedia('(prefers-color-scheme: dark)')
             : null;
         const prefersDark = mediaQuery ? mediaQuery.matches : false;
-        const theme =
+
+        // Determine the effective theme (what's actually displayed)
+        const effectiveTheme =
           storedTheme === 'light' || storedTheme === 'dark'
             ? storedTheme
             : prefersDark
               ? 'dark'
               : 'light';
 
-        document.documentElement.classList.toggle('dark', theme === 'dark');
+        // Set the theme setting attribute for icon display
+        const themeSetting = storedTheme === 'light' || storedTheme === 'dark' ? storedTheme : 'system';
+        document.documentElement.dataset.themeSetting = themeSetting;
+        document.documentElement.classList.toggle('dark', effectiveTheme === 'dark');
       })();
     </script>
 
@@ -105,12 +110,15 @@ const ogImageType = ogImageUrl.endsWith('.png')
     <title>{title}</title>
   </head>
   <body>
-    <button class="theme-toggle" type="button" data-theme-toggle aria-label="Switch to dark mode">
-      <span class="block dark:hidden" aria-hidden="true">
+    <button class="theme-toggle" type="button" data-theme-toggle aria-label="Switch theme">
+      <span class="theme-icon" data-theme-icon="light" aria-hidden="true">
         <Moon className="h-4 w-4" />
       </span>
-      <span class="hidden dark:block" aria-hidden="true">
+      <span class="theme-icon" data-theme-icon="dark" aria-hidden="true">
         <Sun className="h-4 w-4" />
+      </span>
+      <span class="theme-icon" data-theme-icon="system" aria-hidden="true">
+        <Monitor className="h-4 w-4" />
       </span>
     </button>
     <slot />
@@ -133,31 +141,44 @@ const ogImageType = ogImageUrl.endsWith('.png')
         };
         const setStoredTheme = (theme) => {
           try {
-            localStorage.setItem(storageKey, theme);
+            if (theme === 'system') {
+              localStorage.removeItem(storageKey);
+            } else {
+              localStorage.setItem(storageKey, theme);
+            }
           } catch (error) {
-            // Ignore storage errors so system preference can still work.
+            // Ignore storage errors
           }
         };
         const getSystemTheme = () => (media && media.matches ? 'dark' : 'light');
-        const getPreferredTheme = () => {
+
+        // Get the current setting (light/dark/system)
+        const getThemeSetting = () => {
           const stored = getStoredTheme();
           if (stored === 'light' || stored === 'dark') return stored;
-          return getSystemTheme();
-        };
-        const isSystemTheme = () => {
-          const stored = getStoredTheme();
-          return stored !== 'light' && stored !== 'dark';
+          return 'system';
         };
 
-        const updateToggle = (theme) => {
+        // Get what theme is actually displayed
+        const getEffectiveTheme = () => {
+          const setting = getThemeSetting();
+          if (setting === 'system') return getSystemTheme();
+          return setting;
+        };
+
+        const updateIcons = (setting) => {
+          document.documentElement.dataset.themeSetting = setting;
+        };
+
+        const updateToggle = (setting) => {
           if (!toggle) return;
-          const isDark = theme === 'dark';
-          toggle.setAttribute('aria-pressed', isDark ? 'true' : 'false');
-          toggle.setAttribute('aria-label', isDark ? 'Switch to light mode' : 'Switch to dark mode');
+          const labels = { light: 'Light mode, click for dark', dark: 'Dark mode, click for auto', system: 'Auto mode, click for light' };
+          toggle.setAttribute('aria-label', labels[setting] || 'Switch theme');
         };
 
-        const applyTheme = (theme) => {
-          const isDark = theme === 'dark';
+        const applyTheme = (setting) => {
+          const effectiveTheme = setting === 'system' ? getSystemTheme() : setting;
+          const isDark = effectiveTheme === 'dark';
 
           // Use View Transitions API for smooth theme change
           if (document.startViewTransition) {
@@ -168,22 +189,34 @@ const ogImageType = ogImageUrl.endsWith('.png')
             document.documentElement.classList.toggle('dark', isDark);
           }
 
-          updateToggle(theme);
+          updateIcons(setting);
+          updateToggle(setting);
         };
 
-        applyTheme(getPreferredTheme());
+        // Cycle: light -> dark -> system -> light
+        const getNextSetting = (current) => {
+          const cycle = { light: 'dark', dark: 'system', system: 'light' };
+          return cycle[current] || 'light';
+        };
+
+        // Initialize
+        const currentSetting = getThemeSetting();
+        updateIcons(currentSetting);
+        updateToggle(currentSetting);
 
         if (toggle) {
           toggle.addEventListener('click', () => {
-            const nextTheme = document.documentElement.classList.contains('dark') ? 'light' : 'dark';
-            setStoredTheme(nextTheme);
-            applyTheme(nextTheme);
+            const current = getThemeSetting();
+            const next = getNextSetting(current);
+            setStoredTheme(next);
+            applyTheme(next);
           });
         }
 
+        // Listen for system theme changes
         const onSystemThemeChange = () => {
-          if (isSystemTheme()) {
-            applyTheme(getSystemTheme());
+          if (getThemeSetting() === 'system') {
+            applyTheme('system');
           }
         };
 

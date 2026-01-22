@@ -277,8 +277,27 @@
     transform: scale(0.95);
   }
 
-  /* Icon rotation animation on theme change */
-  .theme-toggle span:not(.hidden) {
+  /* Theme toggle icon visibility based on current setting */
+  .theme-icon {
+    display: none;
+  }
+
+  /* Show the icon that represents what clicking will do next */
+  /* In light mode: show moon (click to go dark) */
+  html[data-theme-setting="light"] .theme-icon[data-theme-icon="light"] {
+    display: block;
+    animation: icon-rotate 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  /* In dark mode: show sun (but we use monitor to indicate "next is system") */
+  html[data-theme-setting="dark"] .theme-icon[data-theme-icon="dark"] {
+    display: block;
+    animation: icon-rotate 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  /* In system mode: show monitor */
+  html[data-theme-setting="system"] .theme-icon[data-theme-icon="system"] {
+    display: block;
     animation: icon-rotate 0.5s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
