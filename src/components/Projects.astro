@@ -153,12 +153,26 @@ const projects: Project[] = await Promise.all(
     display: grid;
     grid-template-columns: 1fr;
     gap: 12px;
+    max-width: 100%;
+    /* Center the grid and add horizontal padding on mobile */
+    padding: 0 16px;
+  }
+
+  @media (min-width: 480px) {
+    .project-list {
+      /* Limit max width on larger phones */
+      max-width: 420px;
+      margin: 0 auto;
+      padding: 0;
+    }
   }
 
   @media (min-width: 640px) {
     .project-list {
       grid-template-columns: repeat(2, 1fr);
       gap: 14px;
+      max-width: 100%;
+      margin: 0;
     }
   }
 
