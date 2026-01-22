@@ -132,15 +132,21 @@ const projects: Project[] = await Promise.all(
 
 <style>
   .projects-section {
-    /* Initial state handled by GSAP */
-  }
-
-  .scroll-reveal {
-    /* Initial state handled by GSAP */
+    /* Initial hidden state - only use opacity to prevent layout shift */
+    opacity: 0;
   }
 
   .scroll-reveal-card {
-    /* Initial state handled by GSAP */
+    /* Initial hidden state for cards */
+    opacity: 0;
+  }
+
+  /* For users who prefer reduced motion, show content immediately */
+  @media (prefers-reduced-motion: reduce) {
+    .projects-section,
+    .scroll-reveal-card {
+      opacity: 1;
+    }
   }
 
   .project-list {
@@ -345,13 +351,9 @@ const projects: Project[] = await Promise.all(
   const initProjects = () => {
     // Scroll reveal animation with GSAP ScrollTrigger
     if (projectsSection) {
-      // Set initial state immediately
-      gsap.set(projectsSection, { opacity: 0, y: 60 });
-
       const cards = projectsSection.querySelectorAll('.scroll-reveal-card');
-      gsap.set(cards, { opacity: 0, y: 40, scale: 0.95 });
 
-      // Animate section
+      // Animate section (initial state is set via CSS to prevent flash)
       gsap.to(projectsSection, {
         opacity: 1,
         y: 0,
