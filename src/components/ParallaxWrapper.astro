@@ -49,7 +49,7 @@
     gsap.registerPlugin(ScrollTrigger);
 
     // ===== SMOOTH SCROLL DRIFT (SIMPLE & FLUID) =====
-    const floatingSections = document.querySelectorAll('section');
+    const floatingSections = document.querySelectorAll('section:not(#projects-section)');
 
     // Use GSAP's optimized animation for buttery smooth movement
     floatingSections.forEach((section, index) => {

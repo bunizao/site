@@ -80,7 +80,7 @@ const projects: Project[] = await Promise.all(
 );
 ---
 
-<section id="projects-section" class="projects-section">
+<section id="projects-section" class="projects-section" data-parallax="off">
   <span class="section-label scroll-reveal">Projects</span>
 
   <div class="project-list">
@@ -132,12 +132,12 @@ const projects: Project[] = await Promise.all(
 
 <style>
   .projects-section {
-    /* Initial hidden state - only use opacity to prevent layout shift */
+    /* Initial hidden state - only opacity to prevent layout shift */
     opacity: 0;
   }
 
   .scroll-reveal-card {
-    /* Initial hidden state for cards */
+    /* Initial hidden state - only opacity to prevent layout shift */
     opacity: 0;
   }
 
@@ -348,12 +348,19 @@ const projects: Project[] = await Promise.all(
   const projectsSection = document.getElementById('projects-section');
   const tiltCards = document.querySelectorAll('[data-tilt]');
 
+  // Set initial states early so transforms don't flash.
+  if (projectsSection && !prefersReducedMotion) {
+    const cards = projectsSection.querySelectorAll('.scroll-reveal-card');
+    gsap.set(projectsSection, { y: 60 });
+    gsap.set(cards, { y: 40, scale: 0.95 });
+  }
+
   const initProjects = () => {
     // Scroll reveal animation with GSAP ScrollTrigger
     if (projectsSection) {
       const cards = projectsSection.querySelectorAll('.scroll-reveal-card');
 
-      // Animate section (initial state is set via CSS to prevent flash)
+      // Animate from current state (set above) to target state
       gsap.to(projectsSection, {
         opacity: 1,
         y: 0,
@@ -366,7 +373,7 @@ const projects: Project[] = await Promise.all(
         }
       });
 
-      // Animate cards with stagger
+      // Animate cards with stagger and bouncy effect
       gsap.to(cards, {
         opacity: 1,
         y: 0,
