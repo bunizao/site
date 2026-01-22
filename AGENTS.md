@@ -19,7 +19,7 @@ This is a personal bio/portfolio website built with:
 - **TailwindCSS** - Utility-first CSS framework with custom theme
 - **TypeScript** - Type-safe development
 
-The site is deployed on Netlify and integrates with Vercel Analytics.
+The site is deployed on Vercel and integrates with Vercel Analytics and Speed Insights.
 
 ## Development Commands
 
@@ -142,7 +142,7 @@ The site features several custom animations:
 ## Build Output
 
 - Production build outputs to `dist/` directory
-- Configured in `netlify.toml` for Netlify deployment
+- Configured for Vercel deployment via `@astrojs/vercel` and `vercel.json`
 - Build command: `bun install && bun run build`
 
 ## Important Notes
@@ -152,4 +152,4 @@ The site features several custom animations:
 - **React integration**: React components are used selectively via @astrojs/react
 - **No test suite**: There are no test commands or testing framework configured
 - **No linting**: No ESLint or Prettier configuration present
-- **Deployment**: Configured for Netlify with custom build command
+- **Deployment**: Configured for Vercel with custom build command
