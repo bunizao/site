@@ -153,8 +153,17 @@ const techRow2 = ['Frontend', 'BGP', 'Proxy', 'Docker', 'Linux', 'Web3', 'Optimi
     }
   }
 
-  .hero-animate {
-    /* Initial state handled by GSAP */
+  :global(html.js) .hero-animate {
+    opacity: 0;
+    transform: translateY(20px);
+    will-change: opacity, transform;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    :global(html.js) .hero-animate {
+      opacity: 1;
+      transform: none;
+    }
   }
 
   .status-text-wrapper {
