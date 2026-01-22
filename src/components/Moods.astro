@@ -488,14 +488,19 @@ const placeholders = Array.from({ length: SKELETON_COUNT }, (_, index) => ({
 </style>
 
 <script>
-  import gsap from 'gsap';
-  import { ScrollTrigger } from 'gsap/ScrollTrigger';
+  // GSAP is dynamically imported to avoid blocking initial render
+  const initMoodsAnimation = async () => {
+    const moodsSection = document.getElementById('moods-section');
+    if (!moodsSection) return;
 
-  gsap.registerPlugin(ScrollTrigger);
+    // Dynamic import GSAP only when needed
+    const [{ default: gsap }, { ScrollTrigger }] = await Promise.all([
+      import('gsap'),
+      import('gsap/ScrollTrigger')
+    ]);
 
-  const moodsSection = document.getElementById('moods-section');
+    gsap.registerPlugin(ScrollTrigger);
 
-  if (moodsSection) {
     const list = moodsSection.querySelector('[data-mood-list]') as HTMLElement | null;
     const emptyState = moodsSection.querySelector('[data-mood-empty]') as HTMLElement | null;
     const errorState = moodsSection.querySelector('[data-mood-error]') as HTMLElement | null;
@@ -877,5 +882,8 @@ const placeholders = Array.from({ length: SKELETON_COUNT }, (_, index) => ({
     };
 
     void initMoods();
-  }
+  };
+
+  // Initialize when DOM is ready
+  void initMoodsAnimation();
 </script>
