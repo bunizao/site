@@ -13,6 +13,7 @@ interface Props {
 
 import '../styles/globals.css';
 import { Moon, Sun, Monitor } from 'lucide-react';
+import SpeedInsights from '@vercel/speed-insights/astro';
 
 const {
   title,
@@ -237,6 +238,8 @@ const ogImageType = ogImageUrl.endsWith('.png')
         }
       })();
     </script>
+
+    <SpeedInsights />
 
     <script>
       const scheduleAnalytics = (callback) => {
