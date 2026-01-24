@@ -1780,8 +1780,17 @@ const loadingPlaceholders = Array.from({ length: LOADING_COUNT }, (_, index) => 
         };
       }
 
+      // Performance optimization: limit concurrent animations
+      const MAX_CONCURRENT_ANIMATIONS = 10;
       const scriptCache = new Map<string, Promise<void>>();
       const emojiCache = new Map<string, Promise<any | null>>();
+      // Store animation instances for play/pause control
+      const animationInstances = new WeakMap<HTMLElement, any>();
+      // Track currently playing animations
+      const activeAnimations = new Set<HTMLElement>();
+      // Track all animated elements for visibility management
+      const allAnimatedElements = new Set<HTMLElement>();
+
       const lottieSrc = 'https://cdn.jsdelivr.net/npm/lottie-web@5.12.2/build/player/lottie.min.js';
       const pakoSrc = 'https://cdn.jsdelivr.net/npm/pako@2.1.0/dist/pako.min.js';
 
@@ -1847,6 +1856,54 @@ const loadingPlaceholders = Array.from({ length: LOADING_COUNT }, (_, index) => 
         return promise;
       };
 
+      // Play animation if under the concurrent limit
+      const playAnimation = (node: HTMLElement): void => {
+        if (activeAnimations.size >= MAX_CONCURRENT_ANIMATIONS) return;
+        const anim = animationInstances.get(node);
+        if (anim && !activeAnimations.has(node)) {
+          anim.play();
+          activeAnimations.add(node);
+        }
+      };
+
+      // Pause animation and free up a slot
+      const pauseAnimation = (node: HTMLElement): void => {
+        const anim = animationInstances.get(node);
+        if (anim && activeAnimations.has(node)) {
+          anim.pause();
+          activeAnimations.delete(node);
+        }
+      };
+
+      // Visibility observer for play/pause control
+      let visibilityObserver: IntersectionObserver | null = null;
+
+      const getVisibilityObserver = (): IntersectionObserver => {
+        if (visibilityObserver) return visibilityObserver;
+
+        visibilityObserver = new IntersectionObserver(
+          (entries) => {
+            for (const entry of entries) {
+              const node = entry.target as HTMLElement;
+              if (entry.isIntersecting) {
+                // Element is visible, try to play
+                playAnimation(node);
+              } else {
+                // Element is not visible, pause to save resources
+                pauseAnimation(node);
+              }
+            }
+          },
+          {
+            // Start observing when element is 100px from viewport
+            rootMargin: '100px 0px',
+            threshold: 0,
+          }
+        );
+
+        return visibilityObserver;
+      };
+
       const hydrate = async (root: ParentNode = document): Promise<void> => {
         const nodes = Array.from(root.querySelectorAll('[data-emoji-id]')).filter((node) => {
           return node instanceof HTMLElement && !node.dataset.emojiAnimated;
@@ -1862,6 +1919,8 @@ const loadingPlaceholders = Array.from({ length: LOADING_COUNT }, (_, index) => 
         const lottie = (window as any).lottie;
         if (!lottie) return;
 
+        const observer = getVisibilityObserver();
+
         await Promise.all(
           nodes.map(async (node) => {
             const emojiId = node.dataset.emojiId;
@@ -1876,16 +1935,25 @@ const loadingPlaceholders = Array.from({ length: LOADING_COUNT }, (_, index) => 
             const container = document.createElement('span');
             container.className = 'tg-emoji-anim';
             node.appendChild(container);
-            lottie.loadAnimation({
+
+            // Create animation but don't autoplay - let visibility observer control it
+            const anim = lottie.loadAnimation({
               container,
               renderer: 'svg',
               loop: true,
-              autoplay: true,
+              autoplay: false, // Changed: don't autoplay, let observer control
               animationData,
               rendererSettings: {
                 preserveAspectRatio: 'xMidYMid meet',
               },
             });
+
+            // Store animation instance for later control
+            animationInstances.set(node, anim);
+            allAnimatedElements.add(node);
+
+            // Observe visibility to control play/pause
+            observer.observe(node);
           })
         );
       };
