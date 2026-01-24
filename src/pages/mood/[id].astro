@@ -667,6 +667,9 @@ const description = post ? post.text.slice(0, 160) : 'Mood not found.';
     margin: 1.5em 0;
     border-radius: 8px;
     background: hsl(var(--foreground) / 0.05);
+    overflow: hidden;
+    -webkit-mask-image: -webkit-radial-gradient(white, black);
+    mask-image: radial-gradient(white, black);
   }
 
   /* Audio */

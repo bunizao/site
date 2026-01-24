@@ -667,6 +667,9 @@ const loadingPlaceholders = Array.from({ length: LOADING_COUNT }, (_, index) => 
     display: block;
     border-radius: 10px;
     background: hsl(var(--foreground) / 0.05);
+    overflow: hidden;
+    -webkit-mask-image: -webkit-radial-gradient(white, black);
+    mask-image: radial-gradient(white, black);
   }
 
   :global(.mood-item-media audio) {
