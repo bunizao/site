@@ -147,7 +147,7 @@ const description = post ? post.text.slice(0, 160) : 'Mood not found.';
 
     .back-link {
       margin-bottom: 20px;
-      font-size: 12px;
+      font-size: 13px;
     }
 
     .mood-post-meta {
@@ -155,7 +155,7 @@ const description = post ? post.text.slice(0, 160) : 'Mood not found.';
     }
 
     .mood-post-date {
-      font-size: 12px;
+      font-size: 13px;
     }
 
     .mood-post-tags {
@@ -163,13 +163,13 @@ const description = post ? post.text.slice(0, 160) : 'Mood not found.';
     }
 
     .mood-post-tag {
-      font-size: 11px;
-      padding: 4px 10px;
+      font-size: 12px;
+      padding: 5px 12px;
     }
 
     .mood-post-content {
-      font-size: 14px;
-      line-height: 1.65;
+      font-size: 15px;
+      line-height: 1.7;
     }
 
     .mood-post-reactions {
@@ -179,21 +179,35 @@ const description = post ? post.text.slice(0, 160) : 'Mood not found.';
     }
 
     .mood-reaction {
-      padding: 4px 9px 4px 7px;
+      padding: 4px 10px 4px 8px;
+      font-size: 12px;
+    }
+
+    .mood-reaction-count {
+      font-size: 12px;
     }
 
     .mood-post-content :global(blockquote) {
       padding: 12px 14px;
-      font-size: 13px;
+      font-size: 14px;
+      line-height: 1.6;
     }
 
     .mood-post-content :global(pre) {
       padding: 12px;
-      font-size: 12px;
+      font-size: 13px;
     }
 
     .mood-post-content :global(.bookmark-card) {
       max-width: 100%;
+    }
+
+    .mood-post-content :global(.bookmark-card__title) {
+      font-size: 14px;
+    }
+
+    .mood-post-content :global(.bookmark-card__description) {
+      font-size: 13px;
     }
 
     .mood-post-content :global(.tgme_widget_message_document_wrap) {
@@ -212,7 +226,7 @@ const description = post ? post.text.slice(0, 160) : 'Mood not found.';
     }
 
     .mood-post-content :global(.tgme_widget_message_document_extra) {
-      font-size: 12px;
+      font-size: 13px;
     }
   }
 
