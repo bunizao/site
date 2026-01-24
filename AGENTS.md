@@ -198,6 +198,16 @@ The site features several custom animations:
 - **React integration**: React components are used selectively via @astrojs/react
 - **No test suite**: There are no test commands or testing framework configured
 - **No linting**: No ESLint or Prettier configuration present
+
+## Image Uploads
+
+- **MUST** compress images before uploading to save tokens.
+- **Method**: downscale the longest edge to ~1600px, strip metadata, and export as JPEG/WebP at 75-85 quality.
+- **macOS (built-in)**:
+  - Resize: `sips -Z 1600 input.png --out input-1600.png`
+  - Convert: `sips -s format jpeg -s formatOptions 80 input-1600.png --out input-1600.jpg`
+- **ImageMagick**:
+  - `magick input.png -strip -resize 1600x1600\\> -quality 82 output.jpg`
 - **Deployment**: Configured for Vercel with custom build command
 
 ## Mood Navigation (Three-Level Menu)
