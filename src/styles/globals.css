@@ -414,22 +414,19 @@
     display: none;
   }
 
-  /* In light mode: show moon */
+  /* In light mode: show sun */
   html[data-theme-setting="light"] .theme-icon[data-theme-icon="light"] {
     display: block;
-    animation: icon-rotate 0.5s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
-  /* In dark mode: show sun */
+  /* In dark mode: show moon */
   html[data-theme-setting="dark"] .theme-icon[data-theme-icon="dark"] {
     display: block;
-    animation: icon-rotate 0.5s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
   /* In system mode: show monitor */
   html[data-theme-setting="system"] .theme-icon[data-theme-icon="system"] {
     display: block;
-    animation: icon-rotate 0.5s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
   .divider {
