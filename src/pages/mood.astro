@@ -1553,21 +1553,38 @@ const loadingPlaceholders = Array.from({ length: LOADING_COUNT }, (_, index) => 
       return `${months[date.getMonth()]} ${date.getDate()}, ${date.getFullYear()}`;
     };
 
+    const groupCache = new Map<string, { group: HTMLElement; items: HTMLElement }>();
+    const moodIdSet = new Set<string>();
+    let totalCount = 0;
+    let oldestNumericId = Number.POSITIVE_INFINITY;
+    let oldestId = '';
+    let fallbackOldestId = '';
+
+    const registerMoodId = (id?: string | null): void => {
+      if (!id || moodIdSet.has(id)) return;
+      moodIdSet.add(id);
+      fallbackOldestId = id;
+      const numericId = Number.parseInt(id, 10);
+      if (!Number.isNaN(numericId) && numericId < oldestNumericId) {
+        oldestNumericId = numericId;
+        oldestId = id;
+      }
+    };
+
+    const getGroupEntry = (dateKey: string): { group: HTMLElement; items: HTMLElement } | null => {
+      const cached = groupCache.get(dateKey);
+      if (cached) return cached;
+      const existingGroup = list.querySelector(`[data-date="${dateKey}"]`) as HTMLElement | null;
+      if (!existingGroup) return null;
+      const items = existingGroup.querySelector('.mood-date-items') as HTMLElement | null;
+      if (!items) return null;
+      const entry = { group: existingGroup, items };
+      groupCache.set(dateKey, entry);
+      return entry;
+    };
+
     const getBeforeId = (): string => {
-      const items = Array.from(list.querySelectorAll('[data-mood-id]'));
-      let oldestId = '';
-      let oldestValue = Number.POSITIVE_INFINITY;
-
-      items.forEach((item) => {
-        const id = item.getAttribute('data-mood-id') || '';
-        const numericId = Number.parseInt(id, 10);
-        if (!Number.isNaN(numericId) && numericId < oldestValue) {
-          oldestValue = numericId;
-          oldestId = id;
-        }
-      });
-
-      return oldestId || items[items.length - 1]?.getAttribute('data-mood-id') || '';
+      return oldestId || fallbackOldestId;
     };
 
     const setStatus = (message: string): void => {
@@ -2370,7 +2387,7 @@ const loadingPlaceholders = Array.from({ length: LOADING_COUNT }, (_, index) => 
       navigateToMood(target);
     });
 
-    const appendMoods = (posts: MoodData[], startIndex = 0): void => {
+    const appendMoods = (posts: MoodData[], startIndex = totalCount): void => {
       const grouped = new Map<string, MoodData[]>();
 
       posts.forEach((post) => {
@@ -2382,22 +2399,39 @@ const loadingPlaceholders = Array.from({ length: LOADING_COUNT }, (_, index) => 
       });
 
       let globalIndex = startIndex;
+      const listFragment = document.createDocumentFragment();
       grouped.forEach((datePosts, dateKey) => {
-        let group = list.querySelector(`[data-date="${dateKey}"]`);
+        let entry = getGroupEntry(dateKey);
+        let group = entry?.group ?? null;
+        let itemsContainer = entry?.items ?? null;
 
         if (!group) {
           group = createDateGroup(dateKey);
-          list.appendChild(group);
+          itemsContainer = group.querySelector('.mood-date-items') as HTMLElement | null;
+          if (itemsContainer) {
+            groupCache.set(dateKey, { group, items: itemsContainer });
+          }
+          listFragment.appendChild(group);
         }
 
-        const itemsContainer = group.querySelector('.mood-date-items');
-        if (itemsContainer) {
-          datePosts.forEach((post) => {
-            itemsContainer.appendChild(createMoodItem(post, globalIndex));
-            globalIndex++;
-          });
-        }
+        if (!itemsContainer) return;
+
+        const itemsFragment = document.createDocumentFragment();
+        datePosts.forEach((post) => {
+          if (!post?.id || moodIdSet.has(post.id)) return;
+          const item = createMoodItem(post, globalIndex);
+          itemsFragment.appendChild(item);
+          registerMoodId(post.id);
+          globalIndex++;
+        });
+        itemsContainer.appendChild(itemsFragment);
       });
+
+      if (listFragment.childNodes.length > 0) {
+        list.appendChild(listFragment);
+      }
+
+      totalCount = globalIndex;
     };
 
     const handleNoMore = (): void => {
@@ -2494,18 +2528,12 @@ const loadingPlaceholders = Array.from({ length: LOADING_COUNT }, (_, index) => 
         if (data.channel) {
           channelInfo = data.channel;
         }
-        const existingIds = new Set(
-          Array.from(list.querySelectorAll('[data-mood-id]'))
-            .map((item) => item.getAttribute('data-mood-id'))
-            .filter(Boolean) as string[]
-        );
-        const uniquePosts = posts.filter((post) => post?.id && !existingIds.has(post.id));
-        const currentCount = list.querySelectorAll('[data-mood-id]').length;
+        const uniquePosts = posts.filter((post) => post?.id && !moodIdSet.has(post.id));
 
         if (!posts.length || !uniquePosts.length) {
           handleNoMore();
         } else {
-          appendMoods(uniquePosts, currentCount);
+          appendMoods(uniquePosts, totalCount);
           setStatus('');
         }
       } catch (error) {
