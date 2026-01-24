@@ -507,16 +507,26 @@ const description = post ? post.text.slice(0, 160) : 'Mood not found.';
     display: block;
   }
 
-  /* Blockquotes (replies) */
+  /* Blockquotes (replies/quotes) */
   .mood-post-content :global(blockquote) {
     margin: 1.5em 0;
-    padding: 14px 16px;
+    padding: 16px 20px;
     border-left: 3px solid hsl(var(--foreground) / 0.15);
     background: hsl(var(--foreground) / 0.04);
-    border-radius: 0 6px 6px 0;
-    font-size: 14px;
+    border-radius: 0 8px 8px 0;
+    font-size: 15px;
+    line-height: 1.65;
     color: hsl(var(--muted-foreground));
     position: relative;
+  }
+
+  @media (min-width: 640px) {
+    .mood-post-content :global(blockquote) {
+      padding: 18px 24px;
+      font-size: 16px;
+      line-height: 1.7;
+      border-radius: 0 10px 10px 0;
+    }
   }
 
   .mood-post-content :global(blockquote::before) {

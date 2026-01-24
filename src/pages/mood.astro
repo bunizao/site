@@ -609,8 +609,7 @@ const loadingPlaceholders = Array.from({ length: LOADING_COUNT }, (_, index) => 
 
   :global(.mood-item-quote[href]) {
     cursor: pointer;
-    transition: background 0.2s ease, color 0.2s ease, box-shadow 0.2s ease,
-      transform 0.2s ease;
+    transition: background 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
   }
 
   :global(.mood-item-quote[href]:hover),
@@ -618,7 +617,6 @@ const loadingPlaceholders = Array.from({ length: LOADING_COUNT }, (_, index) => 
     background: hsl(var(--foreground) / 0.06);
     color: hsl(var(--foreground) / 0.7);
     box-shadow: 0 0 0 1px hsl(var(--foreground) / 0.08);
-    transform: translateY(-1px);
   }
 
   :global(.mood-item-quote[href]:hover .mood-item-quote-text),
@@ -1629,6 +1627,27 @@ const loadingPlaceholders = Array.from({ length: LOADING_COUNT }, (_, index) => 
       href?: string;
     }
 
+    interface ChannelInfo {
+      slug?: string;
+      title?: string;
+    }
+
+    let channelInfo: ChannelInfo | null = null;
+
+    const normalizeAuthorName = (value: string): string =>
+      value.replace(/\s+/g, ' ').trim().replace(/^@/, '').toLowerCase().replace(/[^\w-]+$/g, '');
+
+    const shouldHideQuoteAuthor = (value?: string): boolean => {
+      if (!value) return false;
+      const normalized = normalizeAuthorName(value);
+      const slug = channelInfo?.slug ? normalizeAuthorName(channelInfo.slug) : '';
+      const title = channelInfo?.title ? normalizeAuthorName(channelInfo.title) : '';
+      return Boolean(
+        (slug && normalized === slug) ||
+        (title && normalized === title)
+      );
+    };
+
     interface MoodData {
       id: string;
       datetime: string;
@@ -1724,10 +1743,12 @@ const loadingPlaceholders = Array.from({ length: LOADING_COUNT }, (_, index) => 
         const quoteMeta = document.createElement('div');
         quoteMeta.className = 'mood-item-quote-meta';
 
-        if (quote.author) {
+        // Filter out channel name from author display
+        const authorToShow = quote.author && !shouldHideQuoteAuthor(quote.author) ? quote.author : '';
+        if (authorToShow) {
           const quoteAuthor = document.createElement('span');
           quoteAuthor.className = 'mood-item-quote-author';
-          quoteAuthor.textContent = quote.author;
+          quoteAuthor.textContent = authorToShow;
           quoteMeta.appendChild(quoteAuthor);
           quoteWrap.appendChild(quoteMeta);
         }
@@ -1972,8 +1993,11 @@ const loadingPlaceholders = Array.from({ length: LOADING_COUNT }, (_, index) => 
           throw new Error('Failed to load moods.');
         }
 
-        const data = await response.json() as { posts: MoodData[] };
+        const data = await response.json() as { posts: MoodData[]; channel?: ChannelInfo };
         const posts = Array.isArray(data.posts) ? data.posts : [];
+        if (data.channel) {
+          channelInfo = data.channel;
+        }
 
         if (!posts.length) {
           showFeed();
@@ -2027,8 +2051,11 @@ const loadingPlaceholders = Array.from({ length: LOADING_COUNT }, (_, index) => 
           throw new Error('Failed to load moods.');
         }
 
-        const data = await response.json() as { posts: MoodData[] };
+        const data = await response.json() as { posts: MoodData[]; channel?: ChannelInfo };
         const posts = Array.isArray(data.posts) ? data.posts : [];
+        if (data.channel) {
+          channelInfo = data.channel;
+        }
         const existingIds = new Set(
           Array.from(list.querySelectorAll('[data-mood-id]'))
             .map((item) => item.getAttribute('data-mood-id'))

@@ -16,17 +16,20 @@ export const prerender = false;
 export const GET: APIRoute = async ({ request, locals }) => {
   const url = new URL(request.url);
   const before = url.searchParams.get('before') ?? '';
+  const channel = import.meta.env.CHANNEL || locals?.runtime?.env?.CHANNEL || '';
 
   try {
     const result = await getChannelInfo({ request, locals } as any, { type: 'list', before });
-    const posts = (result as ChannelInfo).posts ?? [];
+    const channelInfo = result as ChannelInfo;
+    const posts = channelInfo.posts ?? [];
     const sortedPosts = [...posts].sort((a, b) => getNumericId(b.id) - getNumericId(a.id));
+    const channelTitle = channelInfo.title?.trim() ?? '';
 
     const payload = sortedPosts.map((post) => {
       const mediaPreview = getInlineMediaPreview(post.content);
       const previewText = getTextPreview(post);
       const previewHtml = getTextPreviewHtml(post);
-      const quote = getQuotePreview(post.content);
+      const quote = getQuotePreview(post.content, { channel, channelTitle });
       const needsDetailPage = !mediaPreview && (hasMedia(post.content) || isLongContent(previewText));
       return {
         id: post.id,
@@ -49,7 +52,13 @@ export const GET: APIRoute = async ({ request, locals }) => {
       };
     });
 
-    return new Response(JSON.stringify({ posts: payload }), {
+    return new Response(JSON.stringify({
+      posts: payload,
+      channel: {
+        slug: channel || undefined,
+        title: channelTitle || undefined,
+      },
+    }), {
       headers: {
         'Content-Type': 'application/json',
       },

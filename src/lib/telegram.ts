@@ -73,6 +73,7 @@ interface ContentProcessorConfig {
   index?: number;
   title?: string;
   channel?: string;
+  channelTitle?: string;
 }
 
 function escapeHtml(value: string = ''): string {
@@ -364,8 +365,40 @@ function getForwardedFrom($: CheerioAPI, item: Element): ForwardedFrom | null {
   };
 }
 
-function getReply($: CheerioAPI, item: Element, { channel }: ContentProcessorConfig): string {
+const normalizeReplyAuthor = (value: string): string =>
+  value.replace(/\s+/g, ' ').trim().replace(/^@/, '').toLowerCase();
+
+const shouldHideReplyAuthor = (value: string, channel?: string, channelTitle?: string): boolean => {
+  const normalized = normalizeReplyAuthor(value);
+  if (!normalized) return false;
+  const channelNormalized = normalizeReplyAuthor(channel ?? '');
+  const titleNormalized = normalizeReplyAuthor(channelTitle ?? '');
+  return (
+    (channelNormalized && normalized === channelNormalized) ||
+    (titleNormalized && normalized === titleNormalized)
+  );
+};
+
+function getReply(
+  $: CheerioAPI,
+  item: Element,
+  { channel, channelTitle }: ContentProcessorConfig
+): string {
   const reply = $(item).find('.tgme_widget_message_reply');
+  const authorSelectors = [
+    '.tgme_widget_message_reply_author',
+    '.tgme_widget_message_reply_title',
+    '.tgme_widget_message_reply_name',
+  ];
+
+  authorSelectors.forEach((selector) => {
+    const authorEl = reply.find(selector).first();
+    if (!authorEl.length) return;
+    const authorText = authorEl.text().replace(/\s+/g, ' ').trim();
+    if (shouldHideReplyAuthor(authorText, channel, channelTitle)) {
+      authorEl.remove();
+    }
+  });
   reply?.wrapInner('<small></small>')?.wrapInner('<blockquote></blockquote>');
 
   const href = reply?.attr('href');
@@ -516,7 +549,7 @@ async function getReactions($: CheerioAPI, item: Element, staticProxy: string): 
 async function getPost(
   $: CheerioAPI,
   item: Element | null,
-  { channel, staticProxy, index = 0 }: ContentProcessorConfig & { channel: string }
+  { channel, channelTitle, staticProxy, index = 0 }: ContentProcessorConfig & { channel: string }
 ): Promise<Post> {
   const messageItem = item ? $(item).find('.tgme_widget_message') : $('.tgme_widget_message');
   const content =
@@ -547,7 +580,7 @@ async function getPost(
     tags,
     text: content?.text() ?? '',
     content: [
-      getReply($, messageItem as Element, { channel, staticProxy }),
+      getReply($, messageItem as Element, { channel, channelTitle, staticProxy }),
       getImages($, messageItem as Element, { staticProxy, id, index, title }),
       getVideo($, messageItem as Element, { staticProxy, index }),
       getAudio($, messageItem as Element, { staticProxy }),
@@ -617,8 +650,9 @@ export async function getChannelInfo(
   });
 
   const $ = cheerio.load(html, {}, false);
+  const channelTitle = $('.tgme_channel_info_header_title')?.text() ?? '';
   if (id) {
-    const post = await getPost($, null, { channel, staticProxy });
+    const post = await getPost($, null, { channel, channelTitle, staticProxy });
     cache.set(cacheKey, post);
     return post;
   }
@@ -626,7 +660,7 @@ export async function getChannelInfo(
     (await Promise.all(
       $('.tgme_channel_history  .tgme_widget_message_wrap')
         ?.map((index, item) => {
-          return getPost($, item, { channel, staticProxy, index });
+          return getPost($, item, { channel, channelTitle, staticProxy, index });
         })
         ?.get() ?? []
     ))
@@ -635,7 +669,7 @@ export async function getChannelInfo(
 
   const channelInfo: ChannelInfo = {
     posts,
-    title: $('.tgme_channel_info_header_title')?.text() ?? '',
+    title: channelTitle,
     description: $('.tgme_channel_info_description')?.text() ?? '',
     descriptionHTML: (await modifyHTMLContent($, $('.tgme_channel_info_description'), { staticProxy }))?.html() ?? '',
     avatar: $('.tgme_page_photo_image img')?.attr('src') ?? '',
