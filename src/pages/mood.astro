@@ -1054,17 +1054,18 @@ const loadingPlaceholders = Array.from({ length: LOADING_COUNT }, (_, index) => 
 
     .back-link {
       margin-bottom: 16px;
-      font-size: 12px;
+      font-size: 13px;
     }
 
     .mood-page-title {
-      font-size: 24px;
+      font-size: 26px;
       margin-bottom: 10px;
     }
 
     .mood-page-desc {
-      font-size: 13px;
+      font-size: 14px;
       margin-bottom: 16px;
+      line-height: 1.55;
     }
 
     .mood-header-actions {
@@ -1073,9 +1074,9 @@ const loadingPlaceholders = Array.from({ length: LOADING_COUNT }, (_, index) => 
 
     .mood-action-button {
       padding: 8px 12px;
-      min-height: 34px;
+      min-height: 36px;
       border-radius: 8px;
-      font-size: 12px;
+      font-size: 13px;
     }
 
     :global(.mood-loading-item) {
@@ -1104,61 +1105,83 @@ const loadingPlaceholders = Array.from({ length: LOADING_COUNT }, (_, index) => 
       gap: 12px;
     }
 
+    :global(.mood-date-text) {
+      font-size: 12px;
+    }
+
     :global(.mood-item) {
-      gap: 8px;
-      padding: 12px 0;
+      gap: 10px;
+      padding: 14px 0;
     }
 
     :global(.mood-item--clickable) {
       margin: 0;
-      padding: 12px 0;
+      padding: 14px 0;
       border-radius: 10px;
     }
 
     :global(.mood-item-time) {
       min-width: 0;
-      font-size: 11px;
+      font-size: 12px;
     }
 
     :global(.mood-item-content) {
-      gap: 8px;
+      gap: 10px;
     }
 
     :global(.mood-item-media) {
-      gap: 8px;
+      gap: 10px;
     }
 
     :global(.mood-item-quote) {
-      padding: 6px 8px;
+      padding: 8px 10px;
       border-radius: 8px;
       max-width: 100%;
     }
 
     :global(.mood-item-quote-meta) {
-      font-size: 10px;
+      font-size: 11px;
       letter-spacing: 0.02em;
     }
 
     :global(.mood-item-quote-text) {
-      font-size: 11px;
-      -webkit-line-clamp: 2;
+      font-size: 13px;
+      line-height: 1.5;
+      -webkit-line-clamp: 3;
     }
 
     :global(.mood-item-text) {
-      font-size: 13px;
-      line-height: 1.55;
+      font-size: 15px;
+      line-height: 1.6;
     }
 
     :global(.mood-item-details) {
-      font-size: 12px;
+      font-size: 13px;
     }
 
     :global(.mood-item-media .bookmark-card) {
       max-width: 100%;
     }
 
+    :global(.mood-item-media .bookmark-card__title) {
+      font-size: 14px;
+    }
+
+    :global(.mood-item-media .bookmark-card__description) {
+      font-size: 13px;
+    }
+
     :global(.mood-item-reactions) {
-      gap: 4px;
+      gap: 6px;
+    }
+
+    :global(.mood-reaction) {
+      padding: 4px 10px 4px 8px;
+      font-size: 13px;
+    }
+
+    :global(.mood-reaction-count) {
+      font-size: 13px;
     }
 
     :global(.mood-load-controls) {
@@ -1166,7 +1189,7 @@ const loadingPlaceholders = Array.from({ length: LOADING_COUNT }, (_, index) => 
     }
 
     :global(.mood-load-status) {
-      font-size: 11px;
+      font-size: 12px;
     }
   }
 
