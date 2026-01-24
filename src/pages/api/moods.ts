@@ -17,6 +17,7 @@ export const GET: APIRoute = async ({ request, locals }) => {
   const url = new URL(request.url);
   const before = url.searchParams.get('before') ?? '';
   const channel = import.meta.env.CHANNEL || locals?.runtime?.env?.CHANNEL || '';
+  const channelEmojiId = import.meta.env.CHANNEL_EMOJI_ID || locals?.env?.CHANNEL_EMOJI_ID || '';
 
   try {
     const result = await getChannelInfo({ request, locals } as any, { type: 'list', before });
@@ -62,6 +63,8 @@ export const GET: APIRoute = async ({ request, locals }) => {
       channel: {
         slug: channel || undefined,
         title: channelTitle || undefined,
+        titleHTML: channelInfo.titleHTML || undefined,
+        emojiId: channelEmojiId || undefined,
         avatar: avatarUrl || undefined,
         description: channelInfo.description || undefined,
         descriptionHTML: channelInfo.descriptionHTML || undefined,

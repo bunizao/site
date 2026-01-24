@@ -239,6 +239,34 @@ const loadingPlaceholders = Array.from({ length: LOADING_COUNT }, (_, index) => 
     }
   }
 
+  /* Hero Emoji */
+  .mood-hero-emoji {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.1em;
+    height: 1.1em;
+    margin-left: 0.35em;
+    vertical-align: -0.1em;
+  }
+
+  .mood-hero-emoji img {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+
+  .mood-hero-emoji[data-emoji-animated="true"] img {
+    display: none;
+  }
+
+  .mood-hero-emoji .tg-emoji-anim,
+  .mood-hero-emoji .tg-emoji-anim svg {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+
   .mood-hero-title-skeleton {
     display: inline-block;
     width: 140px;
@@ -1899,6 +1927,8 @@ const loadingPlaceholders = Array.from({ length: LOADING_COUNT }, (_, index) => 
     interface ChannelInfo {
       slug?: string;
       title?: string;
+      titleHTML?: string;
+      emojiId?: string;
       avatar?: string;
       description?: string;
       descriptionHTML?: string;
@@ -1930,9 +1960,30 @@ const loadingPlaceholders = Array.from({ length: LOADING_COUNT }, (_, index) => 
         avatarEl.classList.add('is-loaded');
       }
 
-      // Hydrate title
-      if (titleEl && channel.title) {
-        titleEl.textContent = channel.title;
+      // Hydrate title with custom emoji support
+      if (titleEl) {
+        if (channel.titleHTML) {
+          titleEl.innerHTML = channel.titleHTML;
+          // Hydrate animated emoji in title
+          animatedEmoji.hydrate(titleEl);
+        } else if (channel.title) {
+          titleEl.textContent = channel.title;
+        }
+        // Append custom emoji from env variable (supports animated Telegram emoji)
+        if (channel.emojiId) {
+          const emojiSpan = document.createElement('span');
+          emojiSpan.className = 'tg-emoji mood-hero-emoji';
+          emojiSpan.dataset.emojiId = channel.emojiId;
+          // Add static fallback image
+          const img = document.createElement('img');
+          img.src = `/static/https://t.me/i/emoji/${channel.emojiId}.webp`;
+          img.alt = 'emoji';
+          img.loading = 'eager';
+          emojiSpan.appendChild(img);
+          titleEl.appendChild(emojiSpan);
+          // Hydrate for Lottie animation
+          animatedEmoji.hydrate(titleEl);
+        }
         titleEl.classList.add('is-loaded');
       }
 
