@@ -107,6 +107,27 @@ function upgradeImageQuality(url: string): string {
   return `${cleanUrl}${separator}w=1280`;
 }
 
+function normalizeMediaUrl(value: string): string {
+  if (!value) return '';
+  if (value.startsWith('//')) return `https:${value}`;
+  return value;
+}
+
+function toStaticProxyUrl(value: string, staticProxy: string): string {
+  const normalized = normalizeMediaUrl(value);
+  if (!normalized) return '';
+  if (normalized.startsWith(staticProxy)) return normalized;
+  if (/^(data:|blob:)/i.test(normalized)) return normalized;
+  if (/^https?:/i.test(normalized)) return `${staticProxy}${normalized}`;
+  return normalized;
+}
+
+function extractBackgroundImage(style: string): string {
+  if (!style) return '';
+  const match = style.match(/url\((['"]?)(.*?)\1\)/i);
+  return match?.[2] ?? '';
+}
+
 function truncateText(value: string, maxLength: number): string {
   if (value.length <= maxLength) {
     return value;
@@ -202,27 +223,52 @@ function getImages($: CheerioAPI, item: Element, { staticProxy, id, index, title
 }
 
 function getVideo($: CheerioAPI, item: Element, { staticProxy, index }: ContentProcessorConfig): string {
-  const video = $(item).find('.tgme_widget_message_video_wrap video');
-  if (video.length) {
-    video
-      .attr('src', staticProxy + video.attr('src'))
+  const htmlParts: string[] = [];
+
+  const applyVideoAttributes = (videoEl: cheerio.Cheerio<Element>, wrapEl: cheerio.Cheerio<Element>): void => {
+    const src = videoEl.attr('src');
+    if (src) {
+      videoEl.attr('src', toStaticProxyUrl(src, staticProxy));
+    }
+
+    const explicitPoster = videoEl.attr('poster') ?? '';
+    const dataPoster = videoEl.attr('data-poster') ?? videoEl.attr('data-thumb') ?? '';
+    const wrapPoster = extractBackgroundImage(wrapEl.attr('style') ?? '');
+    const poster = explicitPoster || dataPoster || wrapPoster;
+    if (poster) {
+      videoEl.attr('poster', toStaticProxyUrl(poster, staticProxy));
+    }
+
+    videoEl
       .attr('controls', 'true')
       .attr('preload', (index ?? 0) > 15 ? 'auto' : 'metadata')
       .attr('playsinline', 'true')
       .attr('webkit-playsinline', 'true');
-  }
+  };
 
-  const roundVideo = $(item).find('.tgme_widget_message_roundvideo_wrap video');
-  if (roundVideo.length) {
-    roundVideo
-      .attr('src', staticProxy + roundVideo.attr('src'))
-      .attr('controls', 'true')
-      .attr('preload', (index ?? 0) > 15 ? 'auto' : 'metadata')
-      .attr('playsinline', 'true')
-      .attr('webkit-playsinline', 'true');
-  }
+  $(item)
+    .find('.tgme_widget_message_video_wrap')
+    .each((_index, wrap) => {
+      const wrapEl = $(wrap);
+      wrapEl.find('video').each((_videoIndex, video) => {
+        const videoEl = $(video);
+        applyVideoAttributes(videoEl, wrapEl);
+        htmlParts.push($.html(videoEl));
+      });
+    });
 
-  return (video.length ? $.html(video) : '') + (roundVideo.length ? $.html(roundVideo) : '');
+  $(item)
+    .find('.tgme_widget_message_roundvideo_wrap')
+    .each((_index, wrap) => {
+      const wrapEl = $(wrap);
+      wrapEl.find('video').each((_videoIndex, video) => {
+        const videoEl = $(video);
+        applyVideoAttributes(videoEl, wrapEl);
+        htmlParts.push($.html(videoEl));
+      });
+    });
+
+  return htmlParts.join('');
 }
 
 function getAudio($: CheerioAPI, item: Element, { staticProxy }: ContentProcessorConfig): string {
