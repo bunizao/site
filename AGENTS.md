@@ -106,6 +106,52 @@ External data is fetched at build time in Astro component frontmatter:
    - Fetches contribution data from external API
    - Displays contribution graph with hover effects
 
+### API Endpoints
+
+#### JSON
+
+`GET /api/moods`
+
+Query params:
+- `before` (string, optional): pagination cursor (oldest mood id currently loaded).
+
+Response payload:
+```json
+{
+  "posts": [
+    {
+      "id": "string",
+      "datetime": "string",
+      "tag": "string",
+      "previewText": "string",
+      "previewHtml": "string",
+      "image": "string | null",
+      "mediaHtml": "string",
+      "needsDetailPage": "boolean",
+      "forwardedFrom": { "name": "string", "href": "string", "author": "string" },
+      "quote": { "text": "string", "author": "string", "href": "string" },
+      "reactions": [
+        { "emoji": "string", "emojiId": "string", "emojiImage": "string", "count": "string", "isPaid": "boolean" }
+      ]
+    }
+  ],
+  "channel": {
+    "slug": "string",
+    "title": "string"
+  }
+}
+```
+
+#### SVG
+
+These endpoints return SVG images:
+- `GET /api/status.svg` (optional `theme=light|dark`)
+- `GET /api/tech-stack.svg` (optional `theme=light|dark`)
+- `GET /api/site-badge.svg` (optional `theme=light|dark`)
+- `GET /api/project.svg` (required `project`, optional `theme=light|dark`)
+
+Full SVG API docs: `docs/SVG-API.md`
+
 ### Environment Variables
 
 - `GHOST_URL` - Ghost CMS instance URL (default: https://blog.buxx.me)
@@ -153,3 +199,11 @@ The site features several custom animations:
 - **No test suite**: There are no test commands or testing framework configured
 - **No linting**: No ESLint or Prettier configuration present
 - **Deployment**: Configured for Vercel with custom build command
+
+## Mood Navigation (Three-Level Menu)
+
+Define the Mood section with three levels:
+
+1. **Level 0 (Home Preview)**: A preview of Mood items shown on the home page.
+2. **Level 1 (Mood Feed)**: The main Mood feed page at `/mood`.
+3. **Level 2 (Mood Detail)**: A single Mood item detail view.

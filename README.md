@@ -23,11 +23,53 @@ bun install
 bun run dev
 ```
 
-## SVG API Endpoints
+## API Endpoints
 
-This site exposes custom SVG endpoints for flexible use:
+### JSON
 
-- [`docs/SVG-API.md`](docs/SVG-API.md) - Complete API documentation
+`GET /api/moods`
+
+Query params:
+- `before` (string, optional): pagination cursor (oldest mood id currently loaded).
+
+Response shape:
+```json
+{
+  "posts": [
+    {
+      "id": "12345",
+      "datetime": "2025-01-01T12:34:56+00:00",
+      "tag": "life",
+      "previewText": "text preview",
+      "previewHtml": "<p>text preview</p>",
+      "image": "https://...",
+      "mediaHtml": "<div>...</div>",
+      "needsDetailPage": true,
+      "forwardedFrom": { "name": "source", "href": "https://t.me/..." },
+      "quote": { "text": "quoted text", "author": "someone", "href": "/mood/123" },
+      "reactions": [
+        { "emoji": "👍", "emojiId": "123", "emojiImage": "https://...", "count": "2", "isPaid": false }
+      ]
+    }
+  ],
+  "channel": {
+    "slug": "my_channel",
+    "title": "My Channel"
+  }
+}
+```
+
+### SVG
+
+These endpoints return SVG images:
+
+- `GET /api/status.svg` (optional `theme=light|dark`)
+- `GET /api/tech-stack.svg` (optional `theme=light|dark`)
+- `GET /api/site-badge.svg` (optional `theme=light|dark`)
+- `GET /api/project.svg` (required `project`, optional `theme=light|dark`)
+
+Full SVG API documentation:
+- [`docs/SVG-API.md`](docs/SVG-API.md)
 
 ## Project Structure
 - `/src/pages` - Route entry points
