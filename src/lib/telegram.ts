@@ -62,6 +62,7 @@ export interface Post {
 export interface ChannelInfo {
   posts: Post[];
   title: string;
+  titleHTML: string;
   description: string;
   descriptionHTML: string;
   avatar: string;
@@ -226,7 +227,7 @@ function getImages($: CheerioAPI, item: Element, { staticProxy, id, index, title
 function getVideo($: CheerioAPI, item: Element, { staticProxy, index }: ContentProcessorConfig): string {
   const htmlParts: string[] = [];
 
-  const applyVideoAttributes = (videoEl: cheerio.Cheerio<Element>, wrapEl: cheerio.Cheerio<Element>): void => {
+  const applyVideoAttributes = (videoEl: cheerio.Cheerio<Element>, contextEl: cheerio.Cheerio<Element>): void => {
     const src = videoEl.attr('src');
     if (src) {
       videoEl.attr('src', toStaticProxyUrl(src, staticProxy));
@@ -242,9 +243,9 @@ function getVideo($: CheerioAPI, item: Element, { staticProxy, index }: ContentP
 
     const explicitPoster = videoEl.attr('poster') ?? '';
     const dataPoster = videoEl.attr('data-poster') ?? videoEl.attr('data-thumb') ?? '';
-    const wrapPoster = extractBackgroundImage(wrapEl.attr('style') ?? '');
-    const wrapDataPoster = wrapEl.attr('data-poster') ?? wrapEl.attr('data-thumb') ?? '';
-    const nestedPoster = wrapEl
+    const wrapPoster = extractBackgroundImage(contextEl.attr('style') ?? '');
+    const wrapDataPoster = contextEl.attr('data-poster') ?? contextEl.attr('data-thumb') ?? '';
+    const nestedPoster = contextEl
       .find('.tgme_widget_message_video_thumb, .tgme_widget_message_roundvideo_thumb, [style*="background-image"]')
       .map((_index, node) => extractBackgroundImage($(node).attr('style') ?? ''))
       .get()
@@ -266,13 +267,19 @@ function getVideo($: CheerioAPI, item: Element, { staticProxy, index }: ContentP
       .attr('webkit-playsinline', 'true');
   };
 
+  const resolvePosterContext = (wrapEl: cheerio.Cheerio<Element>): cheerio.Cheerio<Element> => {
+    const player = wrapEl.closest('.tgme_widget_message_video_player, .tgme_widget_message_roundvideo_player');
+    return player.length ? player : wrapEl;
+  };
+
   $(item)
     .find('.tgme_widget_message_video_wrap')
     .each((_index, wrap) => {
       const wrapEl = $(wrap);
+      const contextEl = resolvePosterContext(wrapEl);
       wrapEl.find('video').each((_videoIndex, video) => {
         const videoEl = $(video);
-        applyVideoAttributes(videoEl, wrapEl);
+        applyVideoAttributes(videoEl, contextEl);
         htmlParts.push($.html(videoEl));
       });
     });
@@ -281,9 +288,10 @@ function getVideo($: CheerioAPI, item: Element, { staticProxy, index }: ContentP
     .find('.tgme_widget_message_roundvideo_wrap')
     .each((_index, wrap) => {
       const wrapEl = $(wrap);
+      const contextEl = resolvePosterContext(wrapEl);
       wrapEl.find('video').each((_videoIndex, video) => {
         const videoEl = $(video);
-        applyVideoAttributes(videoEl, wrapEl);
+        applyVideoAttributes(videoEl, contextEl);
         htmlParts.push($.html(videoEl));
       });
     });
@@ -689,6 +697,7 @@ export async function getChannelInfo(
   const channelInfo: ChannelInfo = {
     posts,
     title: channelTitle,
+    titleHTML: (await modifyHTMLContent($, $('.tgme_channel_info_header_title'), { staticProxy }))?.html() ?? '',
     description: $('.tgme_channel_info_description')?.text() ?? '',
     descriptionHTML: (await modifyHTMLContent($, $('.tgme_channel_info_description'), { staticProxy }))?.html() ?? '',
     avatar: $('.tgme_page_photo_image img')?.attr('src') ?? '',
