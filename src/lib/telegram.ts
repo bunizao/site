@@ -232,12 +232,31 @@ function getVideo($: CheerioAPI, item: Element, { staticProxy, index }: ContentP
       videoEl.attr('src', toStaticProxyUrl(src, staticProxy));
     }
 
+    videoEl.find('source').each((_sourceIndex, source) => {
+      const sourceEl = $(source);
+      const sourceSrc = sourceEl.attr('src');
+      if (sourceSrc) {
+        sourceEl.attr('src', toStaticProxyUrl(sourceSrc, staticProxy));
+      }
+    });
+
     const explicitPoster = videoEl.attr('poster') ?? '';
     const dataPoster = videoEl.attr('data-poster') ?? videoEl.attr('data-thumb') ?? '';
     const wrapPoster = extractBackgroundImage(wrapEl.attr('style') ?? '');
-    const poster = explicitPoster || dataPoster || wrapPoster;
+    const wrapDataPoster = wrapEl.attr('data-poster') ?? wrapEl.attr('data-thumb') ?? '';
+    const nestedPoster = wrapEl
+      .find('.tgme_widget_message_video_thumb, .tgme_widget_message_roundvideo_thumb, [style*="background-image"]')
+      .map((_index, node) => extractBackgroundImage($(node).attr('style') ?? ''))
+      .get()
+      .find((value) => Boolean(value)) ?? '';
+    const poster = explicitPoster || dataPoster || wrapDataPoster || nestedPoster || wrapPoster;
     if (poster) {
-      videoEl.attr('poster', toStaticProxyUrl(poster, staticProxy));
+      const posterUrl = toStaticProxyUrl(poster, staticProxy);
+      videoEl.attr('poster', posterUrl);
+      const safePoster = posterUrl.replace(/'/g, '%27');
+      const existingStyle = videoEl.attr('style') ?? '';
+      const backgroundStyle = `background-image: url('${safePoster}'); background-size: cover; background-position: center; background-repeat: no-repeat;`;
+      videoEl.attr('style', existingStyle ? `${existingStyle}; ${backgroundStyle}` : backgroundStyle);
     }
 
     videoEl
