@@ -280,14 +280,14 @@
     }
   }
 
-  /* Unified header action button style */
+  /* Unified header action button style - GSAP controlled */
   .header-action-btn {
     display: inline-flex;
     align-items: center;
     justify-content: center;
     gap: 0;
     height: 32px;
-    width: 32px;
+    min-width: 32px;
     padding: 0;
     font-size: 11px;
     font-weight: 450;
@@ -299,31 +299,32 @@
     cursor: pointer;
     backdrop-filter: blur(8px);
     -webkit-backdrop-filter: blur(8px);
-    transition: all 0.2s ease;
     overflow: hidden;
+    /* Only transition colors, GSAP handles width/transform */
+    transition: color 0.2s ease, background 0.2s ease, border-color 0.2s ease, gap 0.2s ease;
   }
 
-  .header-action-btn:hover {
+  .header-action-btn.is-hovered {
+    gap: 6px;
+  }
+
+  .header-action-btn.is-hovered {
     color: hsl(var(--foreground));
     background: hsl(var(--foreground) / 0.05);
     border-color: hsl(var(--foreground) / 0.15);
-    width: auto;
-    padding: 0 10px;
-    gap: 5px;
   }
 
   .header-action-btn:active {
     transform: scale(0.96);
   }
 
-  /* Text labels hidden by default, shown on hover */
-  .header-action-btn span:not(.theme-icon) {
-    display: none;
+  /* Text labels - GSAP controls visibility via opacity/scale */
+  .header-action-btn-label {
+    display: inline-block;
     white-space: nowrap;
-  }
-
-  .header-action-btn:hover span:not(.theme-icon) {
-    display: inline;
+    max-width: 0;
+    opacity: 0;
+    overflow: hidden;
   }
 
   .header-action-btn svg {
@@ -335,13 +336,8 @@
   @media (min-width: 640px) {
     .header-action-btn {
       height: 34px;
-      width: 34px;
+      min-width: 34px;
       border-radius: 9px;
-    }
-
-    .header-action-btn:hover {
-      padding: 0 12px;
-      gap: 6px;
     }
 
     .header-action-btn svg {

@@ -37,7 +37,7 @@ const skeletonGroups = [
       const headerActions = document.querySelector('[data-header-actions]');
       if (!headerActions) return;
 
-      // Create RSS button
+      // Create RSS button with new GSAP-compatible structure
       const rssBtn = document.createElement('a');
       rssBtn.className = 'header-action-btn';
       rssBtn.href = '/mood/rss.xml';
@@ -48,7 +48,7 @@ const skeletonGroups = [
           <path d="M4 4a16 16 0 0 1 16 16"></path>
           <circle cx="5" cy="19" r="1"></circle>
         </svg>
-        <span>RSS</span>
+        <span class="header-action-btn-label">RSS</span>
       `;
 
       // Create Telegram button if URL exists
@@ -65,7 +65,7 @@ const skeletonGroups = [
             <path d="m22 2-7 20-4-9-9-4Z"></path>
             <path d="M22 2 11 13"></path>
           </svg>
-          <span>Telegram</span>
+          <span class="header-action-btn-label">Telegram</span>
         `;
       }
 
@@ -82,6 +82,20 @@ const skeletonGroups = [
           headerActions.appendChild(telegramBtn);
         }
       }
+
+      // Register buttons with GSAP animation system
+      const registerWithGSAP = () => {
+        if (window.headerBtnAnimations) {
+          window.headerBtnAnimations.register(rssBtn);
+          if (telegramBtn) {
+            window.headerBtnAnimations.register(telegramBtn);
+          }
+        } else {
+          // Retry if GSAP system not ready yet
+          setTimeout(registerWithGSAP, 100);
+        }
+      };
+      registerWithGSAP();
     })();
   </script>
   <main class="page-container">

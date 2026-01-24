@@ -100,6 +100,9 @@ const ogImageType = ogImageUrl.endsWith('.png')
       })();
     </script>
 
+    <!-- GSAP for smooth animations -->
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js" defer></script>
+
     <!-- Font loading - non-blocking with fallback -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -132,7 +135,7 @@ const ogImageType = ogImageUrl.endsWith('.png')
           <span class="theme-icon" data-theme-icon="system" aria-hidden="true">
             <Monitor className="h-4 w-4" />
           </span>
-          <span class="theme-label" data-theme-label>System</span>
+          <span class="header-action-btn-label" data-theme-label>System</span>
         </button>
         <div class="theme-dropdown-menu" data-theme-menu role="menu" aria-label="Theme options">
           <button class="theme-dropdown-item" data-theme-option="light" role="menuitem">
@@ -308,6 +311,159 @@ const ogImageType = ogImageUrl.endsWith('.png')
     </script>
 
     <SpeedInsights />
+
+    <!-- GSAP Header Button Animations -->
+    <script is:inline>
+      (() => {
+        // Wait for GSAP to load
+        const initHeaderAnimations = () => {
+          if (typeof gsap === 'undefined') {
+            setTimeout(initHeaderAnimations, 50);
+            return;
+          }
+
+          const headerActions = document.querySelector('[data-header-actions]');
+          if (!headerActions) return;
+
+          // Get all header action buttons (excluding theme dropdown trigger)
+          const buttons = headerActions.querySelectorAll('.header-action-btn:not([data-theme-toggle])');
+
+          // Store original widths
+          const buttonData = new Map();
+
+          const measureButton = (btn) => {
+            const label = btn.querySelector('.header-action-btn-label');
+            if (!label) return null;
+
+            // Get collapsed width (icon only)
+            const collapsedWidth = 32; // Fixed icon-only width
+
+            // Temporarily show label to measure
+            const origMaxWidth = label.style.maxWidth;
+            const origOpacity = label.style.opacity;
+            label.style.maxWidth = 'none';
+            label.style.opacity = '1';
+
+            // Measure the label's natural width
+            const labelWidth = label.scrollWidth;
+
+            // Restore
+            label.style.maxWidth = origMaxWidth || '0';
+            label.style.opacity = origOpacity || '0';
+
+            // Calculate expanded width: icon + gap + label + padding
+            const expandedWidth = collapsedWidth + labelWidth + 14; // 6px gap + 8px extra padding
+
+            return {
+              label,
+              collapsedWidth,
+              expandedWidth,
+              labelWidth
+            };
+          };
+
+          buttons.forEach(btn => {
+            const data = measureButton(btn);
+            if (data) {
+              buttonData.set(btn, data);
+            }
+          });
+
+          // Animation function for hover in
+          const animateIn = (btn) => {
+            const data = buttonData.get(btn);
+            if (!data) return;
+
+            btn.classList.add('is-hovered');
+
+            // Kill any existing animations
+            gsap.killTweensOf([btn, data.label]);
+
+            // Animate button width and label
+            gsap.to(btn, {
+              width: data.expandedWidth,
+              paddingLeft: 10,
+              paddingRight: 10,
+              duration: 0.3,
+              ease: 'power2.out'
+            });
+
+            gsap.to(data.label, {
+              maxWidth: data.labelWidth + 10,
+              opacity: 1,
+              duration: 0.25,
+              delay: 0.08,
+              ease: 'power2.out'
+            });
+          };
+
+          // Animation function for hover out
+          const animateOut = (btn) => {
+            const data = buttonData.get(btn);
+            if (!data) return;
+
+            btn.classList.remove('is-hovered');
+
+            // Kill any existing animations
+            gsap.killTweensOf([btn, data.label]);
+
+            // Animate label first, then button width
+            gsap.to(data.label, {
+              maxWidth: 0,
+              opacity: 0,
+              duration: 0.15,
+              ease: 'power2.in'
+            });
+
+            gsap.to(btn, {
+              width: data.collapsedWidth,
+              paddingLeft: 0,
+              paddingRight: 0,
+              duration: 0.25,
+              delay: 0.05,
+              ease: 'power2.inOut'
+            });
+          };
+
+          // Attach event listeners
+          buttons.forEach(btn => {
+            btn.addEventListener('mouseenter', () => animateIn(btn));
+            btn.addEventListener('mouseleave', () => animateOut(btn));
+
+            // Focus states for accessibility
+            btn.addEventListener('focus', () => animateIn(btn));
+            btn.addEventListener('blur', () => animateOut(btn));
+          });
+
+          // Make animation functions globally available for dynamically added buttons
+          window.headerBtnAnimations = {
+            register: (btn) => {
+              if (buttonData.has(btn)) return;
+
+              // Small delay to ensure DOM is ready
+              requestAnimationFrame(() => {
+                const data = measureButton(btn);
+                if (!data) return;
+
+                buttonData.set(btn, data);
+
+                btn.addEventListener('mouseenter', () => animateIn(btn));
+                btn.addEventListener('mouseleave', () => animateOut(btn));
+                btn.addEventListener('focus', () => animateIn(btn));
+                btn.addEventListener('blur', () => animateOut(btn));
+              });
+            }
+          };
+        };
+
+        // Start initialization after DOM is ready
+        if (document.readyState === 'loading') {
+          document.addEventListener('DOMContentLoaded', initHeaderAnimations);
+        } else {
+          initHeaderAnimations();
+        }
+      })();
+    </script>
 
     <script>
       const scheduleAnalytics = (callback) => {
