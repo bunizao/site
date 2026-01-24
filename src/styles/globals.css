@@ -261,20 +261,156 @@
     text-decoration-style: solid;
   }
 
-  .theme-toggle {
-    @apply fixed right-4 top-4 z-10 inline-flex h-9 w-9 items-center justify-center text-muted-foreground sm:right-6 sm:top-6 sm:h-10 sm:w-10;
-    background: transparent;
+  /* Global Header Actions */
+  .global-header-actions {
+    position: fixed;
+    top: 16px;
+    right: 16px;
+    z-index: 50;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  @media (min-width: 640px) {
+    .global-header-actions {
+      top: 24px;
+      right: 24px;
+      gap: 8px;
+    }
+  }
+
+  /* Unified header action button style */
+  .header-action-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0;
+    height: 32px;
+    width: 32px;
+    padding: 0;
+    font-size: 11px;
+    font-weight: 450;
+    letter-spacing: 0.01em;
+    color: hsl(var(--muted-foreground));
+    background: hsl(var(--background) / 0.8);
+    border: 1px solid hsl(var(--foreground) / 0.08);
+    border-radius: 8px;
     cursor: pointer;
-    transition: color 0.15s ease, transform 0.15s ease;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    transition: all 0.2s ease;
+    overflow: hidden;
   }
 
-  .theme-toggle:hover {
+  .header-action-btn:hover {
     color: hsl(var(--foreground));
-    transform: scale(1.1);
+    background: hsl(var(--foreground) / 0.05);
+    border-color: hsl(var(--foreground) / 0.15);
+    width: auto;
+    padding: 0 10px;
+    gap: 5px;
   }
 
-  .theme-toggle:active {
-    transform: scale(0.95);
+  .header-action-btn:active {
+    transform: scale(0.96);
+  }
+
+  /* Text labels hidden by default, shown on hover */
+  .header-action-btn span:not(.theme-icon) {
+    display: none;
+    white-space: nowrap;
+  }
+
+  .header-action-btn:hover span:not(.theme-icon) {
+    display: inline;
+  }
+
+  .header-action-btn svg {
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+  }
+
+  @media (min-width: 640px) {
+    .header-action-btn {
+      height: 34px;
+      width: 34px;
+      border-radius: 9px;
+    }
+
+    .header-action-btn:hover {
+      padding: 0 12px;
+      gap: 6px;
+    }
+
+    .header-action-btn svg {
+      width: 15px;
+      height: 15px;
+    }
+  }
+
+  /* Theme Dropdown */
+  .theme-dropdown {
+    position: relative;
+  }
+
+  .theme-dropdown-menu {
+    position: absolute;
+    top: calc(100% + 6px);
+    right: 0;
+    min-width: 120px;
+    padding: 4px;
+    background: hsl(var(--background));
+    border: 1px solid hsl(var(--foreground) / 0.1);
+    border-radius: 10px;
+    box-shadow: 0 8px 24px hsl(var(--foreground) / 0.08), 0 2px 8px hsl(var(--foreground) / 0.04);
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(-4px) scale(0.96);
+    transform-origin: top right;
+    transition: opacity 0.15s ease, transform 0.15s ease, visibility 0.15s ease;
+  }
+
+  .theme-dropdown.is-open .theme-dropdown-menu {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0) scale(1);
+  }
+
+  .theme-dropdown-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 8px 10px;
+    font-size: 12px;
+    color: hsl(var(--muted-foreground));
+    background: transparent;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.12s ease;
+  }
+
+  .theme-dropdown-item:hover {
+    color: hsl(var(--foreground));
+    background: hsl(var(--foreground) / 0.05);
+  }
+
+  .theme-dropdown-item.is-active {
+    color: hsl(var(--foreground));
+    background: hsl(var(--foreground) / 0.08);
+  }
+
+  .theme-dropdown-item svg {
+    width: 14px;
+    height: 14px;
+    opacity: 0.7;
+  }
+
+  .theme-dropdown-item.is-active svg {
+    opacity: 1;
   }
 
   /* Theme toggle icon visibility based on current setting */
@@ -282,14 +418,13 @@
     display: none;
   }
 
-  /* Show the icon that represents what clicking will do next */
-  /* In light mode: show moon (click to go dark) */
+  /* In light mode: show moon */
   html[data-theme-setting="light"] .theme-icon[data-theme-icon="light"] {
     display: block;
     animation: icon-rotate 0.5s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
-  /* In dark mode: show sun (but we use monitor to indicate "next is system") */
+  /* In dark mode: show sun */
   html[data-theme-setting="dark"] .theme-icon[data-theme-icon="dark"] {
     display: block;
     animation: icon-rotate 0.5s cubic-bezier(0.4, 0, 0.2, 1);

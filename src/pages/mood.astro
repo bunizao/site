@@ -31,6 +31,59 @@ const skeletonGroups = [
 ---
 
 <Layout title={title} description={description} rss={rss}>
+  <!-- Inject page-specific header actions -->
+  <script is:inline define:vars={{ telegramUrl }}>
+    (() => {
+      const headerActions = document.querySelector('[data-header-actions]');
+      if (!headerActions) return;
+
+      // Create RSS button
+      const rssBtn = document.createElement('a');
+      rssBtn.className = 'header-action-btn';
+      rssBtn.href = '/mood/rss.xml';
+      rssBtn.title = 'Subscribe to RSS feed';
+      rssBtn.innerHTML = `
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M4 11a9 9 0 0 1 9 9"></path>
+          <path d="M4 4a16 16 0 0 1 16 16"></path>
+          <circle cx="5" cy="19" r="1"></circle>
+        </svg>
+        <span>RSS</span>
+      `;
+
+      // Create Telegram button if URL exists
+      let telegramBtn = null;
+      if (telegramUrl) {
+        telegramBtn = document.createElement('a');
+        telegramBtn.className = 'header-action-btn';
+        telegramBtn.href = telegramUrl;
+        telegramBtn.target = '_blank';
+        telegramBtn.rel = 'noopener noreferrer';
+        telegramBtn.title = 'View on Telegram';
+        telegramBtn.innerHTML = `
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="m22 2-7 20-4-9-9-4Z"></path>
+            <path d="M22 2 11 13"></path>
+          </svg>
+          <span>Telegram</span>
+        `;
+      }
+
+      // Insert before theme dropdown
+      const themeDropdown = headerActions.querySelector('[data-theme-dropdown]');
+      if (themeDropdown) {
+        headerActions.insertBefore(rssBtn, themeDropdown);
+        if (telegramBtn) {
+          headerActions.insertBefore(telegramBtn, themeDropdown);
+        }
+      } else {
+        headerActions.appendChild(rssBtn);
+        if (telegramBtn) {
+          headerActions.appendChild(telegramBtn);
+        }
+      }
+    })();
+  </script>
   <main class="page-container">
     <div class="mood-page">
       <div class="mood-hero" data-mood-hero>
@@ -51,27 +104,6 @@ const skeletonGroups = [
               <span class="mood-hero-desc-skeleton"></span>
             </div>
           </div>
-        </div>
-
-        <!-- Action buttons -->
-        <div class="mood-header-actions">
-          <a class="mood-action-button mood-action-button--secondary" href="/mood/rss.xml" title="Subscribe to RSS feed">
-            <svg class="mood-action-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <path d="M4 11a9 9 0 0 1 9 9"></path>
-              <path d="M4 4a16 16 0 0 1 16 16"></path>
-              <circle cx="5" cy="19" r="1"></circle>
-            </svg>
-            <span>RSS</span>
-          </a>
-          {telegramUrl && (
-            <a class="mood-action-button mood-action-button--primary" href={telegramUrl} target="_blank" rel="noopener noreferrer" title="View on Telegram">
-              <svg class="mood-action-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <path d="m22 2-7 20-4-9-9-4Z"></path>
-                <path d="M22 2 11 13"></path>
-              </svg>
-              <span>Telegram</span>
-            </a>
-          )}
         </div>
       </div>
 
@@ -142,6 +174,20 @@ const skeletonGroups = [
     padding-bottom: 24px;
   }
 
+  /* Navigation row - Back link and action buttons */
+  .mood-hero-nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 24px;
+  }
+
+  @media (min-width: 640px) {
+    .mood-hero-nav {
+      margin-bottom: 28px;
+    }
+  }
+
   @media (min-width: 640px) {
     .mood-hero {
       margin-bottom: 56px;
@@ -160,13 +206,27 @@ const skeletonGroups = [
     display: flex;
     align-items: flex-start;
     gap: 16px;
-    margin-bottom: 20px;
   }
 
   @media (min-width: 640px) {
     .mood-hero-content {
       gap: 20px;
-      margin-bottom: 24px;
+    }
+  }
+
+  /* Title row with inline buttons */
+  .mood-hero-title-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 6px;
+  }
+
+  @media (min-width: 640px) {
+    .mood-hero-title-row {
+      gap: 16px;
+      margin-bottom: 8px;
     }
   }
 
@@ -461,8 +521,13 @@ const skeletonGroups = [
   .mood-header-actions {
     display: flex;
     gap: 8px;
-    flex-wrap: wrap;
     align-items: center;
+  }
+
+  .back-link {
+    font-size: 13px;
+    color: hsl(var(--muted-foreground));
+    transition: color 0.15s ease;
   }
 
   .mood-action-button {
