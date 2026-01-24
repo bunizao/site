@@ -1555,10 +1555,13 @@ const loadingPlaceholders = Array.from({ length: LOADING_COUNT }, (_, index) => 
 
     const groupCache = new Map<string, { group: HTMLElement; items: HTMLElement }>();
     const moodIdSet = new Set<string>();
+    const renderedIdSet = new Set<string>();
     let totalCount = 0;
     let oldestNumericId = Number.POSITIVE_INFINITY;
     let oldestId = '';
     let fallbackOldestId = '';
+    let pendingDateKey: string | null = null;
+    let pendingPosts: MoodData[] = [];
 
     const registerMoodId = (id?: string | null): void => {
       if (!id || moodIdSet.has(id)) return;
@@ -1585,6 +1588,47 @@ const loadingPlaceholders = Array.from({ length: LOADING_COUNT }, (_, index) => 
 
     const getBeforeId = (): string => {
       return oldestId || fallbackOldestId;
+    };
+
+    const stagePostsForRender = (posts: MoodData[]): MoodData[] => {
+      const ready: MoodData[] = [];
+      posts.forEach((post) => {
+        if (!post?.id || moodIdSet.has(post.id)) return;
+        registerMoodId(post.id);
+        const dateKey = formatDateKey(post.datetime);
+        if (!pendingDateKey) {
+          pendingDateKey = dateKey;
+          pendingPosts.push(post);
+          return;
+        }
+        if (dateKey === pendingDateKey) {
+          pendingPosts.push(post);
+          return;
+        }
+        if (pendingPosts.length) {
+          ready.push(...pendingPosts);
+        }
+        pendingPosts = [post];
+        pendingDateKey = dateKey;
+      });
+      return ready;
+    };
+
+    const flushPendingPosts = (): MoodData[] => {
+      if (!pendingPosts.length) return [];
+      const flushed = pendingPosts;
+      pendingPosts = [];
+      pendingDateKey = null;
+      return flushed;
+    };
+
+    const fetchMoods = async (beforeId?: string): Promise<{ posts: MoodData[]; channel?: ChannelInfo }> => {
+      const url = beforeId ? `/api/moods?before=${encodeURIComponent(beforeId)}` : '/api/moods';
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error('Failed to load moods.');
+      }
+      return response.json() as Promise<{ posts: MoodData[]; channel?: ChannelInfo }>;
     };
 
     const setStatus = (message: string): void => {
@@ -2418,9 +2462,10 @@ const loadingPlaceholders = Array.from({ length: LOADING_COUNT }, (_, index) => 
 
         const itemsFragment = document.createDocumentFragment();
         datePosts.forEach((post) => {
-          if (!post?.id || moodIdSet.has(post.id)) return;
+          if (!post?.id || renderedIdSet.has(post.id)) return;
           const item = createMoodItem(post, globalIndex);
           itemsFragment.appendChild(item);
+          renderedIdSet.add(post.id);
           registerMoodId(post.id);
           globalIndex++;
         });
@@ -2459,27 +2504,51 @@ const loadingPlaceholders = Array.from({ length: LOADING_COUNT }, (_, index) => 
 
     const loadInitial = async (): Promise<void> => {
       try {
-        const response = await fetch('/api/moods');
-        if (!response.ok) {
-          throw new Error('Failed to load moods.');
+        let ready: MoodData[] = [];
+        let beforeId = '';
+        let lastBefore = '';
+        while (hasMore && ready.length === 0) {
+          const data = await fetchMoods(beforeId);
+          const posts = Array.isArray(data.posts) ? data.posts : [];
+          if (data.channel && !channelInfo) {
+            channelInfo = data.channel;
+            hydrateHero(channelInfo);
+          }
+          if (!posts.length) {
+            hasMore = false;
+            break;
+          }
+
+          ready = ready.concat(stagePostsForRender(posts));
+          const nextBefore = getBeforeId();
+          if (!nextBefore || nextBefore === lastBefore) {
+            hasMore = false;
+            break;
+          }
+          lastBefore = nextBefore;
+          beforeId = nextBefore;
         }
 
-        const data = await response.json() as { posts: MoodData[]; channel?: ChannelInfo };
-        const posts = Array.isArray(data.posts) ? data.posts : [];
-        if (data.channel) {
-          channelInfo = data.channel;
-          hydrateHero(channelInfo);
+        if (!hasMore) {
+          ready = ready.concat(flushPendingPosts());
         }
 
-        if (!posts.length) {
+        if (!ready.length && !pendingPosts.length) {
           showFeed();
           handleNoMore();
           setStatus('No moods yet.');
           return;
         }
 
-        appendMoods(posts, 0);
+        if (ready.length) {
+          appendMoods(ready, totalCount);
+        }
         showFeed();
+
+        if (!hasMore) {
+          handleNoMore();
+          return;
+        }
 
         observer = new IntersectionObserver(
           (entries) => {
@@ -2506,8 +2575,8 @@ const loadingPlaceholders = Array.from({ length: LOADING_COUNT }, (_, index) => 
         return;
       }
 
-      const before = getBeforeId();
-      if (!before) {
+      let beforeId = getBeforeId();
+      if (!beforeId) {
         handleNoMore();
         return;
       }
@@ -2518,23 +2587,45 @@ const loadingPlaceholders = Array.from({ length: LOADING_COUNT }, (_, index) => 
       showInlineLoading();
 
       try {
-        const response = await fetch(`/api/moods?before=${encodeURIComponent(before)}`);
-        if (!response.ok) {
-          throw new Error('Failed to load moods.');
+        let ready: MoodData[] = [];
+        let lastBefore = beforeId;
+        while (hasMore && ready.length === 0) {
+          const data = await fetchMoods(beforeId);
+          const posts = Array.isArray(data.posts) ? data.posts : [];
+          if (data.channel) {
+            channelInfo = data.channel;
+          }
+          if (!posts.length) {
+            hasMore = false;
+            break;
+          }
+
+          ready = ready.concat(stagePostsForRender(posts));
+          const nextBefore = getBeforeId();
+          if (!nextBefore || nextBefore === lastBefore) {
+            hasMore = false;
+            break;
+          }
+          lastBefore = nextBefore;
+          beforeId = nextBefore;
         }
 
-        const data = await response.json() as { posts: MoodData[]; channel?: ChannelInfo };
-        const posts = Array.isArray(data.posts) ? data.posts : [];
-        if (data.channel) {
-          channelInfo = data.channel;
+        if (!hasMore) {
+          ready = ready.concat(flushPendingPosts());
         }
-        const uniquePosts = posts.filter((post) => post?.id && !moodIdSet.has(post.id));
 
-        if (!posts.length || !uniquePosts.length) {
+        if (!ready.length && !hasMore) {
           handleNoMore();
-        } else {
-          appendMoods(uniquePosts, totalCount);
+          return;
+        }
+
+        if (ready.length) {
+          appendMoods(ready, totalCount);
           setStatus('');
+        }
+
+        if (!hasMore) {
+          handleNoMore();
         }
       } catch (error) {
         console.error(error);
