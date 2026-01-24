@@ -177,7 +177,42 @@ export function getTextPreviewHtml(mood: { text?: string; content: string }): st
 /**
  * Extract reply/quote preview from mood content
  */
-export function getQuotePreview(content: string): QuoteData | null {
+const normalizeReplyAuthor = (value: string): string =>
+  value.replace(/\s+/g, ' ').trim().replace(/^@/, '').toLowerCase();
+
+const shouldHideReplyAuthor = (
+  value: string,
+  channel?: string,
+  channelTitle?: string
+): boolean => {
+  const normalized = normalizeReplyAuthor(value);
+  if (!normalized) return false;
+  const channelNormalized = normalizeReplyAuthor(channel ?? '');
+  const titleNormalized = normalizeReplyAuthor(channelTitle ?? '');
+  return (
+    (channelNormalized && normalized === channelNormalized) ||
+    (titleNormalized && normalized === titleNormalized)
+  );
+};
+
+const escapeForRegExp = (value: string): string => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+const stripLeadingAuthor = (value: string, hiddenNames: string[]): string => {
+  let result = value;
+  hiddenNames
+    .map((name) => name.trim())
+    .filter(Boolean)
+    .forEach((name) => {
+      const pattern = new RegExp(`^${escapeForRegExp(name)}[\\s\\-–—:：]+`, 'i');
+      result = result.replace(pattern, '');
+    });
+  return result.trim();
+};
+
+export function getQuotePreview(
+  content: string,
+  options: { channel?: string; channelTitle?: string } = {}
+): QuoteData | null {
   const $ = cheerio.load(content);
   const reply = $('.tgme_widget_message_reply').first();
   if (!reply.length) return null;
@@ -186,7 +221,16 @@ export function getQuotePreview(content: string): QuoteData | null {
   const replyText = normalizeText(reply.find('.tgme_widget_message_reply_text').first().text());
   const raw = normalizeText(reply.text());
   const hasSeparateText = Boolean(replyText);
-  const text = hasSeparateText ? replyText : raw;
+  const hiddenNames = [options.channelTitle ?? '', options.channel ?? ''].filter(Boolean);
+  const hideAuthor = shouldHideReplyAuthor(author, options.channel, options.channelTitle);
+  let text = hasSeparateText ? replyText : raw;
+  const shouldStrip =
+    hideAuthor ||
+    hiddenNames.some((name) => text.toLowerCase().startsWith(name.toLowerCase()));
+  if (shouldStrip) {
+    const namesToStrip = hideAuthor ? [author, ...hiddenNames] : hiddenNames;
+    text = stripLeadingAuthor(text, namesToStrip.filter(Boolean));
+  }
 
   if (!text) return null;
 
@@ -194,7 +238,7 @@ export function getQuotePreview(content: string): QuoteData | null {
 
   return {
     text,
-    author: hasSeparateText && author ? author : undefined,
+    author: hasSeparateText && author && !hideAuthor ? author : undefined,
     href: href || undefined,
   };
 }
