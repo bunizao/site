@@ -16,7 +16,7 @@ const placeholders = Array.from({ length: SKELETON_COUNT }, (_, index) => ({
 <section id="moods-section" class="moods-section" data-parallax="off">
   <span class="section-label scroll-reveal">Moods</span>
 
-  <div class="mood-timeline" data-mood-list aria-busy="true" aria-label="Recent moods">
+  <div class="mood-timeline" data-mood-list role="feed" aria-busy="true" aria-label="Recent moods">
     {placeholders.map(({ index, pattern }) => (
       <div
         class="mood-item mood-item-skeleton"
