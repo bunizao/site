@@ -100,9 +100,6 @@ const ogImageType = ogImageUrl.endsWith('.png')
       })();
     </script>
 
-    <!-- GSAP for smooth animations -->
-    <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js" defer></script>
-
     <!-- Font loading - non-blocking with fallback -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -313,15 +310,11 @@ const ogImageType = ogImageUrl.endsWith('.png')
     <SpeedInsights />
 
     <!-- GSAP Header Button Animations -->
-    <script is:inline>
-      (() => {
-        // Wait for GSAP to load
-        const initHeaderAnimations = () => {
-          if (typeof gsap === 'undefined') {
-            setTimeout(initHeaderAnimations, 50);
-            return;
-          }
+    <script>
+      import gsap from 'gsap';
 
+      (() => {
+        const initHeaderAnimations = () => {
           const headerActions = document.querySelector('[data-header-actions]');
           if (!headerActions) return;
 
