@@ -8,20 +8,26 @@ const description = "Thoughts and moments from my Telegram channel";
 const rss = { href: '/mood/rss.xml', title: 'Moods RSS' };
 const channel = import.meta.env.CHANNEL || Astro.locals?.runtime?.env?.CHANNEL || '';
 const telegramUrl = channel ? `https://t.me/${channel}` : '';
-const LOADING_COUNT = 6;
-const loadingPatterns = [
-  { line1: '72%', line2: '48%' },
-  { line1: '64%' },
-  { line1: '76%', line2: '54%' },
-  { line1: '60%' },
-  { line1: '70%', line2: '46%' },
-  { line1: '68%' },
+// Skeleton structure: 2 date group cards to match actual content layout
+const skeletonGroups = [
+  {
+    index: 0,
+    dateWidth: '52px', // "Today" length
+    items: [
+      { index: 0, lineWidth: '72%' },
+      { index: 1, lineWidth: '58%' },
+      { index: 2, lineWidth: '66%' },
+    ],
+  },
+  {
+    index: 1,
+    dateWidth: '76px', // "Yesterday" length
+    items: [
+      { index: 0, lineWidth: '64%' },
+      { index: 1, lineWidth: '70%' },
+    ],
+  },
 ];
-const loadingPlaceholders = Array.from({ length: LOADING_COUNT }, (_, index) => ({
-  index,
-  line1: loadingPatterns[index % loadingPatterns.length].line1,
-  line2: loadingPatterns[index % loadingPatterns.length].line2 ?? null,
-}));
 ---
 
 <Layout title={title} description={description} rss={rss}>
@@ -70,20 +76,28 @@ const loadingPlaceholders = Array.from({ length: LOADING_COUNT }, (_, index) => 
       </div>
 
       <div class="mood-loading" data-mood-loading>
-        <div class="mood-loading-list" aria-hidden="true">
-          {loadingPlaceholders.map(({ index, line1, line2 }) => (
+        <div class="mood-skeleton-stream" aria-hidden="true">
+          {skeletonGroups.map((group) => (
             <div
-              class="mood-loading-item"
-              style={`--item-index: ${index}; --line-width-1: ${line1}; --line-width-2: ${line2 ?? ''};`}
+              class="mood-skeleton-group"
+              style={`--group-index: ${group.index}; --date-width: ${group.dateWidth};`}
             >
-              <span class="mood-loading-time"></span>
-              <div class="mood-loading-content">
-                <div class="mood-loading-lines">
-                  <span class="mood-loading-line mood-loading-line--primary"></span>
-                  {line2 ? (
-                    <span class="mood-loading-line mood-loading-line--secondary"></span>
-                  ) : null}
-                </div>
+              <div class="mood-skeleton-header">
+                <span class="mood-skeleton-date"></span>
+                <div class="mood-skeleton-header-line"></div>
+              </div>
+              <div class="mood-skeleton-items">
+                {group.items.map((item) => (
+                  <div
+                    class="mood-skeleton-item"
+                    style={`--item-index: ${item.index}; --line-width: ${item.lineWidth};`}
+                  >
+                    <span class="mood-skeleton-time"></span>
+                    <div class="mood-skeleton-content">
+                      <span class="mood-skeleton-line"></span>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
           ))}
@@ -505,129 +519,210 @@ const loadingPlaceholders = Array.from({ length: LOADING_COUNT }, (_, index) => 
     opacity: 1;
   }
 
-  /* Loading State */
-  :global(.mood-loading),
-  :global(.mood-loading-inline) {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    padding: 8px 0 16px;
+  /* Loading State - Card-based Skeleton */
+  :global(.mood-loading) {
+    display: block;
+    width: 100%;
+    max-width: 720px;
+    margin: 0 auto;
   }
 
   :global(.mood-loading.is-hidden) {
     display: none;
   }
 
-  :global(.mood-loading-inline) {
-    padding: 4px 0 8px;
-  }
-
-  :global(.mood-loading-list) {
+  :global(.mood-skeleton-stream) {
     display: flex;
     flex-direction: column;
+    gap: 40px;
   }
 
-  :global(.mood-loading-item) {
+  @media (min-width: 640px) {
+    :global(.mood-skeleton-stream) {
+      gap: 48px;
+    }
+  }
+
+  :global(.mood-skeleton-group) {
+    background: hsl(var(--background));
+    border-radius: 12px;
+    padding: 20px;
+    border: 1px solid hsl(var(--foreground) / 0.06);
+    box-shadow: 0 1px 0 hsl(var(--foreground) / 0.03);
+    --group-delay: calc(var(--group-index, 0) * 0.15s);
+  }
+
+  @media (min-width: 640px) {
+    :global(.mood-skeleton-group) {
+      padding: 24px;
+      border-radius: 16px;
+    }
+  }
+
+  /* Skeleton Header */
+  :global(.mood-skeleton-header) {
     display: flex;
-    gap: 12px;
-    padding: 12px 0;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 20px;
+  }
+
+  @media (min-width: 640px) {
+    :global(.mood-skeleton-header) {
+      margin-bottom: 24px;
+    }
+  }
+
+  :global(.mood-skeleton-date) {
+    display: block;
+    width: var(--date-width, 60px);
+    height: 12px;
+    background: hsl(var(--foreground) / 0.06);
+    border-radius: 4px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  :global(.mood-skeleton-date::after) {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      hsl(var(--foreground) / 0.08) 50%,
+      transparent 100%
+    );
+    animation: skeleton-shimmer 2s ease-in-out infinite;
+    animation-delay: var(--group-delay);
+  }
+
+  :global(.mood-skeleton-header-line) {
+    flex: 1;
+    height: 1px;
+    background: hsl(var(--foreground) / 0.08);
+  }
+
+  /* Skeleton Items */
+  :global(.mood-skeleton-items) {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+
+  :global(.mood-skeleton-item) {
+    display: flex;
+    gap: 16px;
+    padding: 16px 0;
     border-bottom: 1px solid hsl(var(--foreground) / 0.04);
-    --skeleton-delay: calc(var(--item-index, 0) * 0.1s);
+    --item-delay: calc(var(--group-delay) + var(--item-index, 0) * 0.08s);
   }
 
-  :global(.mood-loading-item:last-child) {
+  :global(.mood-skeleton-item:last-child) {
     border-bottom: none;
+    padding-bottom: 4px;
   }
 
-  :global(.mood-loading-content) {
+  @media (min-width: 640px) {
+    :global(.mood-skeleton-item) {
+      padding: 18px 0;
+      gap: 18px;
+    }
+  }
+
+  @media (max-width: 640px) {
+    :global(.mood-skeleton-item) {
+      flex-direction: column;
+      gap: 8px;
+    }
+  }
+
+  :global(.mood-skeleton-time) {
+    display: block;
+    width: 36px;
+    height: 12px;
+    background: hsl(var(--foreground) / 0.05);
+    border-radius: 4px;
+    flex-shrink: 0;
+    position: relative;
+    overflow: hidden;
+  }
+
+  :global(.mood-skeleton-time::after) {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      hsl(var(--foreground) / 0.06) 50%,
+      transparent 100%
+    );
+    animation: skeleton-shimmer 2s ease-in-out infinite;
+    animation-delay: var(--item-delay);
+  }
+
+  @media (min-width: 640px) {
+    :global(.mood-skeleton-time) {
+      width: 40px;
+    }
+  }
+
+  :global(.mood-skeleton-content) {
     flex: 1;
     min-width: 0;
   }
 
-  :global(.mood-loading-lines) {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-  }
-
-  :global(.mood-loading-time),
-  :global(.mood-loading-line) {
+  :global(.mood-skeleton-line) {
     display: block;
+    width: var(--line-width, 70%);
+    height: 14px;
+    background: hsl(var(--foreground) / 0.05);
+    border-radius: 6px;
     position: relative;
     overflow: hidden;
-    background: hsl(var(--foreground) / 0.05);
   }
 
-  :global(.mood-loading-time::after),
-  :global(.mood-loading-line::after) {
+  :global(.mood-skeleton-line::after) {
     content: '';
     position: absolute;
-    top: 0;
-    bottom: 0;
-    width: 140%;
-    left: -130%;
+    inset: 0;
     background: linear-gradient(
-      120deg,
-      transparent 35%,
-      hsl(var(--foreground) / 0.12) 50%,
-      transparent 65%
+      90deg,
+      transparent 0%,
+      hsl(var(--foreground) / 0.08) 50%,
+      transparent 100%
     );
-    animation: mood-loading-sheen 2.8s ease-in-out infinite;
-    animation-delay: var(--skeleton-delay);
-    opacity: 0.35;
+    animation: skeleton-shimmer 2s ease-in-out infinite;
+    animation-delay: var(--item-delay);
   }
 
-  :global(.mood-loading-time) {
-    width: 32px;
-    height: 10px;
-    border-radius: 4px;
-    margin-top: 2px;
-    flex-shrink: 0;
-  }
-
-  :global(.mood-loading-line) {
-    height: 12px;
-    border-radius: 6px;
-  }
-
-  :global(.mood-loading-line--primary) {
-    width: var(--line-width-1, 70%);
-  }
-
-  :global(.mood-loading-line--secondary) {
-    width: var(--line-width-2, 48%);
-    height: 10px;
-    border-radius: 5px;
-    opacity: 0.75;
-  }
-
-  @keyframes mood-loading-sheen {
+  @keyframes skeleton-shimmer {
     0% {
-      transform: translateX(0);
-      opacity: 0.2;
+      transform: translateX(-100%);
     }
     100% {
-      transform: translateX(160%);
-      opacity: 0.5;
+      transform: translateX(100%);
     }
   }
 
   @media (prefers-reduced-motion: reduce) {
-    :global(.mood-loading-time),
-    :global(.mood-loading-line) {
+    :global(.mood-skeleton-date::after),
+    :global(.mood-skeleton-time::after),
+    :global(.mood-skeleton-line::after) {
       animation: none;
     }
+  }
 
-    :global(.mood-loading-time::after),
-    :global(.mood-loading-line::after) {
-      display: none;
-    }
+  /* Inline Loading for Load More */
+  :global(.mood-loading-inline) {
+    display: flex;
+    flex-direction: column;
+    padding: 16px 0;
+  }
 
-    :global(.mood-item) {
-      animation: none;
-      opacity: 1;
-      transform: none;
-    }
+  :global(.mood-loading-inline .mood-skeleton-group) {
+    opacity: 0.7;
   }
 
   /* Error State */
@@ -1500,11 +1595,13 @@ const loadingPlaceholders = Array.from({ length: LOADING_COUNT }, (_, index) => 
       let hasMore = true;
       let observer: IntersectionObserver;
 
-      const inlineLoadingPatterns = [
-        { line1: '72%', line2: '48%' },
-        { line1: '64%' },
-        { line1: '76%', line2: '54%' },
-      ];
+      const inlineSkeletonConfig = {
+        dateWidth: '68px',
+        items: [
+          { lineWidth: '70%' },
+          { lineWidth: '58%' },
+        ],
+      };
 
     const formatTime = (value: string): string => {
       const date = new Date(value);
@@ -1655,44 +1752,51 @@ const loadingPlaceholders = Array.from({ length: LOADING_COUNT }, (_, index) => 
       wrapper.className = 'mood-loading-inline';
       wrapper.setAttribute('aria-hidden', 'true');
 
-      const skeletonList = document.createElement('div');
-      skeletonList.className = 'mood-loading-list';
+      // Create a single skeleton group for inline loading
+      const group = document.createElement('div');
+      group.className = 'mood-skeleton-group';
+      group.style.setProperty('--group-index', '0');
+      group.style.setProperty('--date-width', inlineSkeletonConfig.dateWidth);
 
-      inlineLoadingPatterns.forEach((pattern, index) => {
+      const header = document.createElement('div');
+      header.className = 'mood-skeleton-header';
+
+      const dateEl = document.createElement('span');
+      dateEl.className = 'mood-skeleton-date';
+
+      const headerLine = document.createElement('div');
+      headerLine.className = 'mood-skeleton-header-line';
+
+      header.appendChild(dateEl);
+      header.appendChild(headerLine);
+
+      const itemsContainer = document.createElement('div');
+      itemsContainer.className = 'mood-skeleton-items';
+
+      inlineSkeletonConfig.items.forEach((itemConfig, index) => {
         const item = document.createElement('div');
-        item.className = 'mood-loading-item';
+        item.className = 'mood-skeleton-item';
         item.style.setProperty('--item-index', String(index));
-        item.style.setProperty('--line-width-1', pattern.line1);
-        if (pattern.line2) {
-          item.style.setProperty('--line-width-2', pattern.line2);
-        }
+        item.style.setProperty('--line-width', itemConfig.lineWidth);
 
         const time = document.createElement('span');
-        time.className = 'mood-loading-time';
+        time.className = 'mood-skeleton-time';
 
         const content = document.createElement('div');
-        content.className = 'mood-loading-content';
+        content.className = 'mood-skeleton-content';
 
-        const lines = document.createElement('div');
-        lines.className = 'mood-loading-lines';
+        const line = document.createElement('span');
+        line.className = 'mood-skeleton-line';
 
-        const line1 = document.createElement('span');
-        line1.className = 'mood-loading-line mood-loading-line--primary';
-        lines.appendChild(line1);
-
-        if (pattern.line2) {
-          const line2 = document.createElement('span');
-          line2.className = 'mood-loading-line mood-loading-line--secondary';
-          lines.appendChild(line2);
-        }
-
-        content.appendChild(lines);
+        content.appendChild(line);
         item.appendChild(time);
         item.appendChild(content);
-        skeletonList.appendChild(item);
+        itemsContainer.appendChild(item);
       });
 
-      wrapper.appendChild(skeletonList);
+      group.appendChild(header);
+      group.appendChild(itemsContainer);
+      wrapper.appendChild(group);
 
       const controls = feedEl.querySelector('.mood-load-controls');
       if (controls) {
