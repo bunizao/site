@@ -52,11 +52,19 @@ export const GET: APIRoute = async ({ request, locals }) => {
       };
     });
 
+    // Proxy avatar URL through static proxy for CORS
+    const avatarUrl = channelInfo.avatar
+      ? `/static/${channelInfo.avatar.startsWith('http') ? channelInfo.avatar : `https:${channelInfo.avatar}`}`
+      : '';
+
     return new Response(JSON.stringify({
       posts: payload,
       channel: {
         slug: channel || undefined,
         title: channelTitle || undefined,
+        avatar: avatarUrl || undefined,
+        description: channelInfo.description || undefined,
+        descriptionHTML: channelInfo.descriptionHTML || undefined,
       },
     }), {
       headers: {
