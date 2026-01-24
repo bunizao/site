@@ -836,9 +836,6 @@ const skeletonGroups = [
     gap: 16px;
     padding: 16px 0;
     border-bottom: 1px solid hsl(var(--foreground) / 0.04);
-    opacity: 0;
-    animation: fade-in 0.3s ease-out forwards;
-    animation-delay: calc(var(--item-index) * 0.02s);
     position: relative;
   }
 
@@ -2169,6 +2166,38 @@ const skeletonGroups = [
 
     let channelInfo: ChannelInfo | null = null;
 
+    const setImageHints = (
+      img: HTMLImageElement,
+      options: { priority?: boolean; lazy?: boolean } = {}
+    ): void => {
+      const { priority = false, lazy = true } = options;
+      if (!img.getAttribute('decoding')) {
+        img.decoding = 'async';
+      }
+      if (priority) {
+        img.loading = 'eager';
+        img.setAttribute('fetchpriority', 'high');
+        return;
+      }
+      if (lazy && !img.getAttribute('loading')) {
+        img.loading = 'lazy';
+      }
+    };
+
+    const applyMediaHints = (root: HTMLElement, priority = false): void => {
+      root.querySelectorAll('img').forEach((node) => {
+        if (!(node instanceof HTMLImageElement)) return;
+        setImageHints(node, { priority });
+      });
+
+      root.querySelectorAll('iframe').forEach((node) => {
+        if (!(node instanceof HTMLIFrameElement)) return;
+        if (!node.getAttribute('loading')) {
+          node.loading = 'lazy';
+        }
+      });
+    };
+
     // Hero hydration function
     const hydrateHero = (channel: ChannelInfo): void => {
       const heroEl = document.querySelector('[data-mood-hero]');
@@ -2184,7 +2213,7 @@ const skeletonGroups = [
         img.src = channel.avatar;
         img.alt = channel.title || 'Channel avatar';
         img.className = 'mood-hero-avatar-img';
-        img.loading = 'eager';
+        setImageHints(img, { priority: true, lazy: false });
         img.onload = () => {
           avatarEl.classList.add('is-loaded');
         };
@@ -2211,7 +2240,7 @@ const skeletonGroups = [
           const img = document.createElement('img');
           img.src = `/static/https://t.me/i/emoji/${channel.emojiId}.webp`;
           img.alt = 'emoji';
-          img.loading = 'eager';
+          setImageHints(img, { lazy: false });
           emojiSpan.appendChild(img);
           titleEl.appendChild(emojiSpan);
           // Hydrate for Lottie animation
@@ -2271,6 +2300,7 @@ const skeletonGroups = [
         ? mood.needsDetailPage
         : isLongContent(mood.previewText);
       const shouldLink = needsDetailPage && !hasMediaHtml;
+      const isPriorityItem = index === 0;
       const element = document.createElement('div');
 
       if (shouldLink) {
@@ -2380,6 +2410,7 @@ const skeletonGroups = [
         const media = document.createElement('div');
         media.className = 'mood-item-media';
         media.innerHTML = mediaHtml;
+        applyMediaHints(media, isPriorityItem);
         content.appendChild(media);
       } else if (mood.image) {
         const thumbWrap = document.createElement('div');
@@ -2387,7 +2418,7 @@ const skeletonGroups = [
         const img = document.createElement('img');
         img.src = mood.image;
         img.alt = '';
-        img.loading = 'lazy';
+        setImageHints(img, { priority: isPriorityItem });
         // Intelligent image ratio detection
         img.onload = () => {
           const aspectRatio = img.naturalWidth / img.naturalHeight;
