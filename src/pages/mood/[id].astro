@@ -1453,7 +1453,8 @@ const description = post ? post.text.slice(0, 160) : 'Mood not found.';
         const response = await fetch(url);
         const data = await response.json();
 
-        if (loadingEl) loadingEl.hidden = true;
+        // Always hide loading on response
+        if (loadingEl) loadingEl.remove();
 
         if (data.comments?.length > 0) {
           const commentsHtml = data.comments.map(renderComment).join('');
@@ -1462,7 +1463,7 @@ const description = post ? post.text.slice(0, 160) : 'Mood not found.';
             // Append for pagination
             commentsList.insertAdjacentHTML('beforeend', commentsHtml);
           } else {
-            // Initial load
+            // Initial load - clear any existing content
             commentsList.innerHTML = commentsHtml;
           }
 
@@ -1480,14 +1481,16 @@ const description = post ? post.text.slice(0, 160) : 'Mood not found.';
           // Hydrate animated emojis in new comments
           animatedEmoji.hydrate(commentsList);
         } else if (!before) {
-          // No comments on initial load
+          // No comments on initial load - clear list and show empty state
+          commentsList.innerHTML = '';
           if (emptyEl) emptyEl.hidden = false;
           if (loadMoreBtn) loadMoreBtn.hidden = true;
         }
       } catch (error) {
         console.error('Failed to load comments:', error);
-        if (loadingEl) loadingEl.hidden = true;
+        if (loadingEl) loadingEl.remove();
         if (!before && emptyEl) {
+          commentsList.innerHTML = '';
           emptyEl.querySelector('p')!.textContent = 'Failed to load comments';
           emptyEl.hidden = false;
         }
