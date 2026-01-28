@@ -655,7 +655,7 @@ const unnecessaryHeaders = ['host', 'cookie', 'origin', 'referer'];
 async function parseComment(
   $: CheerioAPI,
   item: Element,
-  { staticProxy }: { staticProxy: string }
+  { staticProxy, channel, channelTitle }: ContentProcessorConfig
 ): Promise<Comment | null> {
   const messageEl = $(item).find('.tgme_widget_message').first();
   if (!messageEl.length) return null;
@@ -678,10 +678,29 @@ async function parseComment(
   // Get datetime
   const datetime = messageEl.find('.tgme_widget_message_date time').attr('datetime') ?? '';
 
-  // Get content
-  const contentEl = messageEl.find('.tgme_widget_message_text').first();
+  const replyEl = messageEl.find('.tgme_widget_message_reply').first();
+  if (replyEl.length) {
+    await modifyHTMLContent($, replyEl, { staticProxy });
+  }
+  const replyHtml = getReply($, messageEl.get(0) as Element, { channel, channelTitle, staticProxy });
+
+  // Get content (prefer actual message text over reply preview)
+  let contentEl = messageEl.find('.tgme_widget_message_text.js-message_text').first();
+  if (!contentEl.length) {
+    contentEl = messageEl
+      .find('.tgme_widget_message_text')
+      .filter((_index, el) => {
+        const element = $(el);
+        return (
+          !element.hasClass('js-message_reply_text') &&
+          !element.closest('.tgme_widget_message_reply').length &&
+          !element.closest('.tgme_widget_message_reply_template').length
+        );
+      })
+      .first();
+  }
   await modifyHTMLContent($, contentEl, { staticProxy });
-  const content = contentEl.html() ?? '';
+  const content = [replyHtml, contentEl.html() ?? ''].filter(Boolean).join('');
 
   // Get reactions
   const reactions = await getReactions($, messageEl.get(0) as Element, staticProxy);
@@ -702,7 +721,7 @@ async function parseComment(
 export async function getPostComments(
   Astro: any,
   { postId, before = '' }: { postId: string; before?: string }
-): Promise<{ comments: Comment[]; hasMore: boolean }> {
+): Promise<{ comments: Comment[]; hasMore: boolean; nextBefore?: string }> {
   const host = getEnv(import.meta.env, Astro, 'TELEGRAM_HOST') || 't.me';
   const channel = getEnv(import.meta.env, Astro, 'CHANNEL');
   const staticProxy = '/static/';
@@ -733,19 +752,37 @@ export async function getPostComments(
     const comments: Comment[] = [];
 
     for (const node of commentNodes) {
-      const comment = await parseComment($, node, { staticProxy });
+      const comment = await parseComment($, node, { staticProxy, channel });
       if (comment) {
         comments.push(comment);
       }
     }
 
     // Check if there are more comments (pagination)
-    const hasMore = $('.tgme_widget_message_more').length > 0;
+    const moreEl = $('.tgme_widget_message_more').first();
+    const hasMore = moreEl.length > 0;
+    let nextBefore = '';
 
-    return { comments, hasMore };
+    if (hasMore) {
+      const dataBefore = moreEl.attr('data-before') ?? '';
+      const href = moreEl.attr('href') ?? '';
+      nextBefore = dataBefore;
+
+      if (!nextBefore && href) {
+        try {
+          const parsed = new URL(href, `https://${host}`);
+          nextBefore = parsed.searchParams.get('before') ?? '';
+        } catch {
+          const match = href.match(/before=(\d+)/);
+          nextBefore = match?.[1] ?? '';
+        }
+      }
+    }
+
+    return { comments, hasMore, nextBefore };
   } catch (error) {
     console.error('Failed to fetch comments:', error);
-    return { comments: [], hasMore: false };
+    return { comments: [], hasMore: false, nextBefore: '' };
   }
 }
 

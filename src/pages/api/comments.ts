@@ -34,6 +34,7 @@ export const GET: APIRoute = async ({ request, locals }) => {
         })),
       })),
       hasMore: result.hasMore,
+      nextBefore: result.nextBefore || '',
     }), {
       headers: { 'Content-Type': 'application/json' },
     });

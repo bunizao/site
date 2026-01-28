@@ -950,43 +950,66 @@ const description = post ? post.text.slice(0, 160) : 'Mood not found.';
 
   /* Comments Section */
   .mood-comments {
-    margin-top: 48px;
-    padding-top: 32px;
+    margin-top: 56px;
+    padding-top: 40px;
     border-top: 1px solid hsl(var(--foreground) / 0.08);
   }
 
   @media (min-width: 640px) {
     .mood-comments {
-      margin-top: 56px;
-      padding-top: 40px;
+      margin-top: 64px;
+      padding-top: 48px;
     }
   }
 
   .mood-comments-header {
-    margin-bottom: 24px;
+    margin-bottom: 28px;
+  }
+
+  @media (min-width: 640px) {
+    .mood-comments-header {
+      margin-bottom: 32px;
+    }
   }
 
   .mood-comments-title {
     display: flex;
     align-items: center;
-    gap: 8px;
-    font-size: 16px;
+    gap: 10px;
+    font-size: 18px;
     font-weight: 600;
     color: hsl(var(--foreground));
     margin: 0;
+    letter-spacing: -0.01em;
+  }
+
+  @media (min-width: 640px) {
+    .mood-comments-title {
+      font-size: 20px;
+    }
   }
 
   .mood-comments-icon {
-    font-size: 18px;
+    font-size: 20px;
+    line-height: 1;
+  }
+
+  @media (min-width: 640px) {
+    .mood-comments-icon {
+      font-size: 22px;
+    }
   }
 
   .mood-comments-count {
     font-size: 13px;
-    font-weight: 500;
+    font-weight: 600;
     color: hsl(var(--muted-foreground));
-    padding: 2px 8px;
+    padding: 3px 10px;
     background: hsl(var(--foreground) / 0.06);
-    border-radius: 12px;
+    border-radius: 999px;
+    min-width: 28px;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
   }
 
   .mood-comments-count:empty {
@@ -996,25 +1019,32 @@ const description = post ? post.text.slice(0, 160) : 'Mood not found.';
   .mood-comments-list {
     display: flex;
     flex-direction: column;
-    gap: 20px;
+    gap: 16px;
+  }
+
+  @media (min-width: 640px) {
+    .mood-comments-list {
+      gap: 18px;
+    }
   }
 
   .mood-comments-loading {
     display: flex;
     align-items: center;
-    gap: 10px;
-    padding: 20px 0;
-    font-size: 13px;
+    justify-content: center;
+    gap: 12px;
+    padding: 40px 20px;
+    font-size: 14px;
     color: hsl(var(--muted-foreground));
   }
 
   .mood-comments-spinner {
-    width: 16px;
-    height: 16px;
+    width: 18px;
+    height: 18px;
     border: 2px solid hsl(var(--foreground) / 0.1);
-    border-top-color: hsl(var(--foreground) / 0.5);
+    border-top-color: hsl(var(--foreground) / 0.6);
     border-radius: 50%;
-    animation: spin 0.8s linear infinite;
+    animation: spin 0.7s linear infinite;
   }
 
   @keyframes spin {
@@ -1023,47 +1053,114 @@ const description = post ? post.text.slice(0, 160) : 'Mood not found.';
 
   .mood-comments-empty {
     text-align: center;
-    padding: 32px 16px;
+    padding: 48px 20px;
     color: hsl(var(--muted-foreground));
+    background: hsl(var(--foreground) / 0.02);
+    border-radius: 12px;
+    border: 1px dashed hsl(var(--foreground) / 0.1);
   }
 
   .mood-comments-empty-icon {
-    font-size: 32px;
+    font-size: 40px;
     display: block;
-    margin-bottom: 8px;
+    margin-bottom: 12px;
+    opacity: 0.6;
   }
 
   .mood-comments-empty p {
     margin: 0;
     font-size: 14px;
+    color: hsl(var(--muted-foreground) / 0.8);
   }
 
   .mood-comment {
     display: flex;
-    gap: 12px;
-    padding: 16px;
-    background: hsl(var(--foreground) / 0.02);
-    border-radius: 12px;
-    border: 1px solid hsl(var(--foreground) / 0.06);
-    transition: border-color 0.15s ease;
+    gap: 14px;
+    padding: 18px;
+    background: hsl(var(--background));
+    border-radius: 14px;
+    border: 1px solid hsl(var(--foreground) / 0.08);
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    animation: comment-fade-in 0.3s ease-out backwards;
+  }
+
+  @media (min-width: 640px) {
+    .mood-comment {
+      padding: 20px;
+      gap: 16px;
+    }
+  }
+
+  @keyframes comment-fade-in {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
   }
 
   .mood-comment:hover {
-    border-color: hsl(var(--foreground) / 0.1);
+    border-color: hsl(var(--foreground) / 0.12);
+    box-shadow: 0 2px 8px hsl(var(--foreground) / 0.04);
+  }
+
+  .mood-comment::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 3px;
+    height: 100%;
+    background: linear-gradient(
+      to bottom,
+      hsl(var(--foreground) / 0.15),
+      hsl(var(--foreground) / 0.05)
+    );
+    border-radius: 14px 0 0 14px;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+  }
+
+  .mood-comment:hover::before {
+    opacity: 1;
   }
 
   .mood-comment-avatar {
-    width: 36px;
-    height: 36px;
+    width: 40px;
+    height: 40px;
     border-radius: 50%;
-    background: hsl(var(--foreground) / 0.08);
+    background: linear-gradient(
+      135deg,
+      hsl(var(--foreground) / 0.12) 0%,
+      hsl(var(--foreground) / 0.06) 100%
+    );
     flex-shrink: 0;
     display: flex;
     align-items: center;
     justify-content: center;
     font-size: 14px;
-    color: hsl(var(--muted-foreground));
+    font-weight: 600;
+    color: hsl(var(--foreground) / 0.6);
     overflow: hidden;
+    border: 2px solid hsl(var(--background));
+    box-shadow: 0 2px 6px hsl(var(--foreground) / 0.08);
+    transition: transform 0.2s ease;
+  }
+
+  @media (min-width: 640px) {
+    .mood-comment-avatar {
+      width: 44px;
+      height: 44px;
+      font-size: 15px;
+    }
+  }
+
+  .mood-comment:hover .mood-comment-avatar {
+    transform: scale(1.05);
   }
 
   .mood-comment-avatar img {
@@ -1079,110 +1176,488 @@ const description = post ? post.text.slice(0, 160) : 'Mood not found.';
 
   .mood-comment-header {
     display: flex;
-    align-items: baseline;
-    gap: 8px;
-    margin-bottom: 6px;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 8px;
     flex-wrap: wrap;
   }
 
   .mood-comment-author {
-    font-size: 13px;
+    font-size: 14px;
     font-weight: 600;
     color: hsl(var(--foreground));
+    letter-spacing: -0.01em;
+  }
+
+  @media (min-width: 640px) {
+    .mood-comment-author {
+      font-size: 15px;
+    }
   }
 
   .mood-comment-date {
     font-size: 12px;
-    color: hsl(var(--muted-foreground) / 0.7);
+    color: hsl(var(--muted-foreground) / 0.6);
+    font-variant-numeric: tabular-nums;
+  }
+
+  @media (min-width: 640px) {
+    .mood-comment-date {
+      font-size: 13px;
+    }
+  }
+
+  .mood-comment-date::before {
+    content: '•';
+    margin-right: 10px;
+    color: hsl(var(--muted-foreground) / 0.3);
   }
 
   .mood-comment-content {
     font-size: 14px;
-    line-height: 1.6;
-    color: hsl(var(--foreground) / 0.9);
+    line-height: 1.65;
+    color: hsl(var(--foreground) / 0.95);
     overflow-wrap: anywhere;
     word-break: break-word;
+  }
+
+  @media (min-width: 640px) {
+    .mood-comment-content {
+      font-size: 15px;
+      line-height: 1.7;
+    }
+  }
+
+  .mood-comment-content :global(p) {
+    margin: 0 0 0.8em 0;
+  }
+
+  .mood-comment-content :global(p:last-child) {
+    margin-bottom: 0;
   }
 
   .mood-comment-content :global(a) {
     color: hsl(var(--foreground));
     text-decoration: none;
-    border-bottom: 1px solid hsl(var(--foreground) / 0.25);
+    border-bottom: 1px solid hsl(var(--foreground) / 0.3);
+    transition: border-color 0.15s ease;
   }
 
   .mood-comment-content :global(a:hover) {
-    border-bottom-color: hsl(var(--foreground) / 0.5);
+    border-bottom-color: hsl(var(--foreground) / 0.6);
+  }
+
+  .mood-comment-content :global(.tg-emoji) {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.1em;
+    height: 1.1em;
+    vertical-align: -0.15em;
+  }
+
+  .mood-comment-content :global(.tg-emoji img) {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+
+  .mood-comment-content :global(.tg-emoji[data-emoji-animated="true"] img) {
+    display: none;
+  }
+
+  .mood-comment-content :global(.tg-emoji-anim),
+  .mood-comment-content :global(.tg-emoji-anim svg) {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+
+  .mood-comment-content :global(blockquote) {
+    margin: 0.9em 0 1em;
+    padding: 10px 14px;
+    border-left: 2px solid hsl(var(--foreground) / 0.18);
+    background: hsl(var(--foreground) / 0.04);
+    border-radius: 0 8px 8px 0;
+    font-size: 13px;
+    line-height: 1.6;
+    color: hsl(var(--muted-foreground));
+    position: relative;
+  }
+
+  @media (min-width: 640px) {
+    .mood-comment-content :global(blockquote) {
+      padding: 12px 16px;
+      font-size: 14px;
+      line-height: 1.65;
+    }
+  }
+
+  .mood-comment-content :global(blockquote::before) {
+    content: '';
+    position: absolute;
+    left: -2px;
+    top: 0;
+    width: 2px;
+    height: 100%;
+    background: linear-gradient(
+      to bottom,
+      hsl(var(--foreground) / 0.28),
+      hsl(var(--foreground) / 0.08)
+    );
+    border-radius: 2px 0 0 2px;
+  }
+
+  .mood-comment-content :global(blockquote small) {
+    display: block;
+    line-height: 1.5;
+  }
+
+  .mood-comment-content :global(blockquote p) {
+    margin: 0;
   }
 
   .mood-comment-reactions {
     display: flex;
     flex-wrap: wrap;
     gap: 6px;
-    margin-top: 10px;
+    margin-top: 12px;
+  }
+
+  .mood-comment-reactions .mood-reaction {
+    padding: 5px 10px 5px 9px;
+    font-size: 12px;
+    background: hsl(var(--foreground) / 0.05);
+    border: 1px solid hsl(var(--foreground) / 0.08);
+  }
+
+  .mood-comment-reactions .mood-reaction:hover {
+    background: hsl(var(--foreground) / 0.08);
+    border-color: hsl(var(--foreground) / 0.15);
   }
 
   .mood-comments-load-more {
     display: block;
     width: 100%;
-    margin-top: 20px;
-    padding: 12px 20px;
-    font-size: 13px;
+    margin-top: 24px;
+    padding: 14px 24px;
+    font-size: 14px;
     font-weight: 500;
-    color: hsl(var(--muted-foreground));
-    background: hsl(var(--foreground) / 0.04);
-    border: 1px solid hsl(var(--foreground) / 0.08);
-    border-radius: 8px;
+    color: hsl(var(--foreground) / 0.7);
+    background: hsl(var(--foreground) / 0.03);
+    border: 1px solid hsl(var(--foreground) / 0.1);
+    border-radius: 10px;
     cursor: pointer;
-    transition: all 0.15s ease;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
     font-family: inherit;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .mood-comments-load-more::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      hsl(var(--foreground) / 0.05),
+      transparent
+    );
+    transition: left 0.5s ease;
+  }
+
+  .mood-comments-load-more:hover::before {
+    left: 100%;
   }
 
   .mood-comments-load-more:hover {
-    background: hsl(var(--foreground) / 0.08);
-    border-color: hsl(var(--foreground) / 0.12);
+    background: hsl(var(--foreground) / 0.06);
+    border-color: hsl(var(--foreground) / 0.15);
     color: hsl(var(--foreground));
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px hsl(var(--foreground) / 0.08);
+  }
+
+  .mood-comments-load-more:active {
+    transform: translateY(0);
   }
 
   .mood-comments-load-more:disabled {
     opacity: 0.5;
     cursor: not-allowed;
+    transform: none;
+  }
+
+  .mood-comments-load-more:disabled:hover {
+    background: hsl(var(--foreground) / 0.03);
+    border-color: hsl(var(--foreground) / 0.1);
+    box-shadow: none;
   }
 
   @media (max-width: 540px) {
     .mood-comments {
-      margin-top: 32px;
-      padding-top: 24px;
+      margin-top: 40px;
+      padding-top: 28px;
     }
 
     .mood-comments-header {
-      margin-bottom: 16px;
+      margin-bottom: 20px;
     }
 
     .mood-comments-title {
-      font-size: 15px;
+      font-size: 16px;
+    }
+
+    .mood-comments-icon {
+      font-size: 18px;
     }
 
     .mood-comment {
-      padding: 12px;
-      gap: 10px;
+      padding: 14px;
+      gap: 12px;
     }
 
     .mood-comment-avatar {
-      width: 32px;
-      height: 32px;
+      width: 36px;
+      height: 36px;
+      font-size: 13px;
     }
 
     .mood-comment-author {
-      font-size: 12px;
+      font-size: 13px;
     }
 
     .mood-comment-content {
+      font-size: 14px;
+    }
+
+    .mood-comments-load-more {
+      padding: 12px 20px;
       font-size: 13px;
     }
   }
 </style>
 
 <style is:global>
+  /* Comments Section - Global styles for dynamically inserted content */
+  .mood-comment {
+    display: flex;
+    gap: 14px;
+    padding: 18px;
+    background: hsl(var(--background));
+    border-radius: 14px;
+    border: 1px solid hsl(var(--foreground) / 0.08);
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    animation: comment-fade-in 0.3s ease-out backwards;
+  }
+
+  @media (min-width: 640px) {
+    .mood-comment {
+      padding: 20px;
+      gap: 16px;
+    }
+  }
+
+  @keyframes comment-fade-in {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .mood-comment:hover {
+    border-color: hsl(var(--foreground) / 0.12);
+    box-shadow: 0 2px 8px hsl(var(--foreground) / 0.04);
+  }
+
+  .mood-comment::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 3px;
+    height: 100%;
+    background: linear-gradient(
+      to bottom,
+      hsl(var(--foreground) / 0.15),
+      hsl(var(--foreground) / 0.05)
+    );
+    border-radius: 14px 0 0 14px;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+  }
+
+  .mood-comment:hover::before {
+    opacity: 1;
+  }
+
+  .mood-comment-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: linear-gradient(
+      135deg,
+      hsl(var(--foreground) / 0.12) 0%,
+      hsl(var(--foreground) / 0.06) 100%
+    );
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    font-weight: 600;
+    color: hsl(var(--foreground) / 0.6);
+    overflow: hidden;
+    border: 2px solid hsl(var(--background));
+    box-shadow: 0 2px 6px hsl(var(--foreground) / 0.08);
+    transition: transform 0.2s ease;
+  }
+
+  @media (min-width: 640px) {
+    .mood-comment-avatar {
+      width: 44px;
+      height: 44px;
+      font-size: 15px;
+    }
+  }
+
+  .mood-comment:hover .mood-comment-avatar {
+    transform: scale(1.05);
+  }
+
+  .mood-comment-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .mood-comment-body {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .mood-comment-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 8px;
+    flex-wrap: wrap;
+  }
+
+  .mood-comment-author {
+    font-size: 14px;
+    font-weight: 600;
+    color: hsl(var(--foreground));
+    letter-spacing: -0.01em;
+  }
+
+  @media (min-width: 640px) {
+    .mood-comment-author {
+      font-size: 15px;
+    }
+  }
+
+  .mood-comment-date {
+    font-size: 12px;
+    color: hsl(var(--muted-foreground) / 0.6);
+    font-variant-numeric: tabular-nums;
+  }
+
+  @media (min-width: 640px) {
+    .mood-comment-date {
+      font-size: 13px;
+    }
+  }
+
+  .mood-comment-date::before {
+    content: '•';
+    margin-right: 10px;
+    color: hsl(var(--muted-foreground) / 0.3);
+  }
+
+  .mood-comment-content {
+    font-size: 14px;
+    line-height: 1.65;
+    color: hsl(var(--foreground) / 0.95);
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+
+  @media (min-width: 640px) {
+    .mood-comment-content {
+      font-size: 15px;
+      line-height: 1.7;
+    }
+  }
+
+  .mood-comment-content p {
+    margin: 0 0 0.8em 0;
+  }
+
+  .mood-comment-content p:last-child {
+    margin-bottom: 0;
+  }
+
+  .mood-comment-content a {
+    color: hsl(var(--foreground));
+    text-decoration: none;
+    border-bottom: 1px solid hsl(var(--foreground) / 0.3);
+    transition: border-color 0.15s ease;
+  }
+
+  .mood-comment-content a:hover {
+    border-bottom-color: hsl(var(--foreground) / 0.6);
+  }
+
+  .mood-comment-reactions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 12px;
+  }
+
+  .mood-comment-reactions .mood-reaction {
+    padding: 5px 10px 5px 9px;
+    font-size: 12px;
+    background: hsl(var(--foreground) / 0.05);
+    border: 1px solid hsl(var(--foreground) / 0.08);
+  }
+
+  .mood-comment-reactions .mood-reaction:hover {
+    background: hsl(var(--foreground) / 0.08);
+    border-color: hsl(var(--foreground) / 0.15);
+  }
+
+  @media (max-width: 540px) {
+    .mood-comment {
+      padding: 14px;
+      gap: 12px;
+    }
+
+    .mood-comment-avatar {
+      width: 36px;
+      height: 36px;
+      font-size: 13px;
+    }
+
+    .mood-comment-author {
+      font-size: 13px;
+    }
+
+    .mood-comment-content {
+      font-size: 14px;
+    }
+  }
+
   /* Prism.js syntax highlighting theme (matching site colors) */
   .token.comment,
   .token.prolog,
@@ -1395,7 +1870,26 @@ const description = post ? post.text.slice(0, 160) : 'Mood not found.';
     const loadMoreBtn = document.querySelector('[data-load-more]') as HTMLButtonElement;
     const countEl = document.querySelector('[data-comments-count]') as HTMLElement;
 
-    let lastCommentId = '';
+    let nextBefore = '';
+    const loadedCommentIds = new Set<string>();
+
+    const getOldestCommentId = (comments: any[]): string => {
+      let oldest: any | null = null;
+      for (const comment of comments) {
+        if (!comment?.datetime) continue;
+        const currentTime = Date.parse(comment.datetime);
+        if (Number.isNaN(currentTime)) continue;
+        if (!oldest) {
+          oldest = comment;
+          continue;
+        }
+        const oldestTime = Date.parse(oldest.datetime);
+        if (Number.isNaN(oldestTime) || currentTime < oldestTime) {
+          oldest = comment;
+        }
+      }
+      return oldest?.id || comments[0]?.id || '';
+    };
 
     const formatDate = (datetime: string): string => {
       const date = new Date(datetime);
@@ -1447,6 +1941,31 @@ const description = post ? post.text.slice(0, 160) : 'Mood not found.';
       `;
     };
 
+    const addComments = (comments: any[], append: boolean): number => {
+      if (!append) {
+        loadedCommentIds.clear();
+      }
+
+      const uniqueComments = comments.filter((comment) => {
+        if (!comment?.id) return false;
+        if (loadedCommentIds.has(comment.id)) return false;
+        loadedCommentIds.add(comment.id);
+        return true;
+      });
+
+      const html = uniqueComments.map(renderComment).join('');
+
+      if (append) {
+        if (html) {
+          commentsList.insertAdjacentHTML('beforeend', html);
+        }
+      } else {
+        commentsList.innerHTML = html;
+      }
+
+      return uniqueComments.length;
+    };
+
     const loadComments = async (before = ''): Promise<void> => {
       try {
         const url = `/api/comments?postId=${postId}${before ? `&before=${before}` : ''}`;
@@ -1457,26 +1976,25 @@ const description = post ? post.text.slice(0, 160) : 'Mood not found.';
         if (loadingEl) loadingEl.remove();
 
         if (data.comments?.length > 0) {
-          const commentsHtml = data.comments.map(renderComment).join('');
+          if (emptyEl) emptyEl.hidden = true;
 
-          if (before) {
-            // Append for pagination
-            commentsList.insertAdjacentHTML('beforeend', commentsHtml);
-          } else {
-            // Initial load - clear any existing content
-            commentsList.innerHTML = commentsHtml;
-          }
+          const addedCount = addComments(data.comments, Boolean(before));
 
           // Update count
-          const totalComments = commentsList.querySelectorAll('.mood-comment').length;
-          if (countEl) countEl.textContent = String(totalComments);
+          if (countEl) countEl.textContent = String(loadedCommentIds.size);
 
-          // Track last comment for pagination
-          const lastComment = data.comments[data.comments.length - 1];
-          if (lastComment) lastCommentId = lastComment.id;
+          const previousCursor = nextBefore;
+          const fallbackCursor = getOldestCommentId(data.comments);
+          nextBefore = data.nextBefore || fallbackCursor || '';
 
           // Show/hide load more button
-          if (loadMoreBtn) loadMoreBtn.hidden = !data.hasMore;
+          const canLoadMore = Boolean(data.hasMore && nextBefore && nextBefore !== previousCursor);
+          if (loadMoreBtn) loadMoreBtn.hidden = !canLoadMore;
+
+          if (before && addedCount === 0) {
+            nextBefore = '';
+            if (loadMoreBtn) loadMoreBtn.hidden = true;
+          }
 
           // Hydrate animated emojis in new comments
           animatedEmoji.hydrate(commentsList);
@@ -1484,6 +2002,9 @@ const description = post ? post.text.slice(0, 160) : 'Mood not found.';
           // No comments on initial load - clear list and show empty state
           commentsList.innerHTML = '';
           if (emptyEl) emptyEl.hidden = false;
+          if (loadMoreBtn) loadMoreBtn.hidden = true;
+        } else if (before) {
+          nextBefore = '';
           if (loadMoreBtn) loadMoreBtn.hidden = true;
         }
       } catch (error) {
@@ -1500,9 +2021,13 @@ const description = post ? post.text.slice(0, 160) : 'Mood not found.';
     // Load more button handler
     if (loadMoreBtn) {
       loadMoreBtn.addEventListener('click', async () => {
+        if (!nextBefore) {
+          loadMoreBtn.hidden = true;
+          return;
+        }
         loadMoreBtn.disabled = true;
         loadMoreBtn.textContent = 'Loading...';
-        await loadComments(lastCommentId);
+        await loadComments(nextBefore);
         loadMoreBtn.disabled = false;
         loadMoreBtn.textContent = 'Load more comments';
       });
