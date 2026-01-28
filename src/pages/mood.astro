@@ -98,6 +98,93 @@ const skeletonGroups = [
       registerWithGSAP();
     })();
   </script>
+
+  <!-- Mobile header buttons auto-collapse on scroll past hero -->
+  <script>
+    import gsap from 'gsap';
+
+    document.addEventListener('DOMContentLoaded', () => {
+      const heroEl = document.querySelector('[data-mood-hero]');
+      const headerActions = document.querySelector('[data-header-actions]');
+      if (!heroEl || !headerActions) return;
+
+      // Only apply on mobile (< 640px)
+      const isMobile = () => window.innerWidth < 640;
+
+      let isCollapsed = false;
+
+      const collapseButtons = () => {
+        if (isCollapsed) return;
+        isCollapsed = true;
+        headerActions.classList.add('is-collapsed');
+
+        gsap.to(headerActions, {
+          x: '100%',
+          opacity: 0,
+          duration: 0.35,
+          ease: 'power2.inOut',
+        });
+      };
+
+      const expandButtons = () => {
+        if (!isCollapsed) return;
+        isCollapsed = false;
+        headerActions.classList.remove('is-collapsed');
+
+        gsap.to(headerActions, {
+          x: 0,
+          opacity: 1,
+          duration: 0.3,
+          ease: 'power2.out',
+        });
+      };
+
+      // Use Intersection Observer to detect when hero leaves viewport
+      const observer = new IntersectionObserver(
+        (entries) => {
+          if (!isMobile()) {
+            // On desktop, always expanded
+            if (isCollapsed) {
+              isCollapsed = false;
+              headerActions.classList.remove('is-collapsed');
+              gsap.set(headerActions, { x: 0, opacity: 1 });
+            }
+            return;
+          }
+
+          entries.forEach((entry) => {
+            if (entry.isIntersecting) {
+              // Hero is visible - expand buttons
+              expandButtons();
+            } else {
+              // Hero is not visible - collapse buttons
+              collapseButtons();
+            }
+          });
+        },
+        {
+          // Trigger when hero bottom edge crosses viewport top
+          rootMargin: '0px 0px 0px 0px',
+          threshold: 0,
+        }
+      );
+
+      observer.observe(heroEl);
+
+      // Handle resize: reset state when switching between mobile/desktop
+      let resizeTimer;
+      window.addEventListener('resize', () => {
+        clearTimeout(resizeTimer);
+        resizeTimer = setTimeout(() => {
+          if (!isMobile() && isCollapsed) {
+            isCollapsed = false;
+            headerActions.classList.remove('is-collapsed');
+            gsap.set(headerActions, { x: 0, opacity: 1 });
+          }
+        }, 100);
+      });
+    });
+  </script>
   <main class="page-container">
     <div class="mood-page">
       <div class="mood-hero" data-mood-hero>

@@ -280,6 +280,13 @@
     }
   }
 
+  /* Mobile header buttons auto-collapse when scrolling past hero - GSAP controlled */
+  @media (max-width: 639px) {
+    .global-header-actions.is-collapsed {
+      pointer-events: none;
+    }
+  }
+
   /* Unified header action button style - GSAP controlled */
   .header-action-btn {
     display: inline-flex;
