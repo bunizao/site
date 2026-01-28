@@ -660,7 +660,8 @@ async function parseComment(
   const messageEl = $(item).find('.tgme_widget_message').first();
   if (!messageEl.length) return null;
 
-  const id = messageEl.attr('data-post')?.split('/').pop() ?? '';
+  const rawId = messageEl.attr('data-post-id') || messageEl.attr('data-post') || '';
+  const id = rawId.split('/').pop() ?? '';
   if (!id) return null;
 
   // Get author info
@@ -668,9 +669,11 @@ async function parseComment(
   const author = authorEl.text().replace(/\s+/g, ' ').trim() || 'Anonymous';
 
   // Get author avatar
-  const avatarStyle = messageEl.find('.tgme_widget_message_user_photo .tgme_widget_message_user_photo').attr('style') ?? '';
+  const avatarImg = messageEl.find('.tgme_widget_message_user_photo img').attr('src') ?? '';
+  const avatarStyle = messageEl.find('.tgme_widget_message_user_photo').attr('style') ?? '';
   const avatarMatch = avatarStyle.match(/url\(['"]?(.*?)['"]?\)/);
-  const authorAvatar = avatarMatch?.[1] ? toStaticProxyUrl(avatarMatch[1], staticProxy) : undefined;
+  const rawAvatar = avatarImg || avatarMatch?.[1] || '';
+  const authorAvatar = rawAvatar ? toStaticProxyUrl(rawAvatar, staticProxy) : undefined;
 
   // Get datetime
   const datetime = messageEl.find('.tgme_widget_message_date time').attr('datetime') ?? '';
