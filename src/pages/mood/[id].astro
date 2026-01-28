@@ -98,6 +98,30 @@ const description = post ? post.text.slice(0, 160) : 'Mood not found.';
             ))}
           </div>
         )}
+
+        <!-- Comments Section -->
+        <section class="mood-comments" data-post-id={id}>
+          <div class="mood-comments-header">
+            <h2 class="mood-comments-title">
+              <span class="mood-comments-icon">💬</span>
+              Comments
+              <span class="mood-comments-count" data-comments-count></span>
+            </h2>
+          </div>
+          <div class="mood-comments-list" data-comments-list>
+            <div class="mood-comments-loading" data-comments-loading>
+              <span class="mood-comments-spinner"></span>
+              <span>Loading comments...</span>
+            </div>
+          </div>
+          <button type="button" class="mood-comments-load-more" data-load-more hidden>
+            Load more comments
+          </button>
+          <div class="mood-comments-empty" data-comments-empty hidden>
+            <span class="mood-comments-empty-icon">🤫</span>
+            <p>No comments yet</p>
+          </div>
+        </section>
       </article>
     ) : (
       <article class="mood-post">
@@ -923,6 +947,239 @@ const description = post ? post.text.slice(0, 160) : 'Mood not found.';
       transform: translateY(0);
     }
   }
+
+  /* Comments Section */
+  .mood-comments {
+    margin-top: 48px;
+    padding-top: 32px;
+    border-top: 1px solid hsl(var(--foreground) / 0.08);
+  }
+
+  @media (min-width: 640px) {
+    .mood-comments {
+      margin-top: 56px;
+      padding-top: 40px;
+    }
+  }
+
+  .mood-comments-header {
+    margin-bottom: 24px;
+  }
+
+  .mood-comments-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 16px;
+    font-weight: 600;
+    color: hsl(var(--foreground));
+    margin: 0;
+  }
+
+  .mood-comments-icon {
+    font-size: 18px;
+  }
+
+  .mood-comments-count {
+    font-size: 13px;
+    font-weight: 500;
+    color: hsl(var(--muted-foreground));
+    padding: 2px 8px;
+    background: hsl(var(--foreground) / 0.06);
+    border-radius: 12px;
+  }
+
+  .mood-comments-count:empty {
+    display: none;
+  }
+
+  .mood-comments-list {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  .mood-comments-loading {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 20px 0;
+    font-size: 13px;
+    color: hsl(var(--muted-foreground));
+  }
+
+  .mood-comments-spinner {
+    width: 16px;
+    height: 16px;
+    border: 2px solid hsl(var(--foreground) / 0.1);
+    border-top-color: hsl(var(--foreground) / 0.5);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+
+  .mood-comments-empty {
+    text-align: center;
+    padding: 32px 16px;
+    color: hsl(var(--muted-foreground));
+  }
+
+  .mood-comments-empty-icon {
+    font-size: 32px;
+    display: block;
+    margin-bottom: 8px;
+  }
+
+  .mood-comments-empty p {
+    margin: 0;
+    font-size: 14px;
+  }
+
+  .mood-comment {
+    display: flex;
+    gap: 12px;
+    padding: 16px;
+    background: hsl(var(--foreground) / 0.02);
+    border-radius: 12px;
+    border: 1px solid hsl(var(--foreground) / 0.06);
+    transition: border-color 0.15s ease;
+  }
+
+  .mood-comment:hover {
+    border-color: hsl(var(--foreground) / 0.1);
+  }
+
+  .mood-comment-avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: hsl(var(--foreground) / 0.08);
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    color: hsl(var(--muted-foreground));
+    overflow: hidden;
+  }
+
+  .mood-comment-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .mood-comment-body {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .mood-comment-header {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    margin-bottom: 6px;
+    flex-wrap: wrap;
+  }
+
+  .mood-comment-author {
+    font-size: 13px;
+    font-weight: 600;
+    color: hsl(var(--foreground));
+  }
+
+  .mood-comment-date {
+    font-size: 12px;
+    color: hsl(var(--muted-foreground) / 0.7);
+  }
+
+  .mood-comment-content {
+    font-size: 14px;
+    line-height: 1.6;
+    color: hsl(var(--foreground) / 0.9);
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+
+  .mood-comment-content :global(a) {
+    color: hsl(var(--foreground));
+    text-decoration: none;
+    border-bottom: 1px solid hsl(var(--foreground) / 0.25);
+  }
+
+  .mood-comment-content :global(a:hover) {
+    border-bottom-color: hsl(var(--foreground) / 0.5);
+  }
+
+  .mood-comment-reactions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 10px;
+  }
+
+  .mood-comments-load-more {
+    display: block;
+    width: 100%;
+    margin-top: 20px;
+    padding: 12px 20px;
+    font-size: 13px;
+    font-weight: 500;
+    color: hsl(var(--muted-foreground));
+    background: hsl(var(--foreground) / 0.04);
+    border: 1px solid hsl(var(--foreground) / 0.08);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    font-family: inherit;
+  }
+
+  .mood-comments-load-more:hover {
+    background: hsl(var(--foreground) / 0.08);
+    border-color: hsl(var(--foreground) / 0.12);
+    color: hsl(var(--foreground));
+  }
+
+  .mood-comments-load-more:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  @media (max-width: 540px) {
+    .mood-comments {
+      margin-top: 32px;
+      padding-top: 24px;
+    }
+
+    .mood-comments-header {
+      margin-bottom: 16px;
+    }
+
+    .mood-comments-title {
+      font-size: 15px;
+    }
+
+    .mood-comment {
+      padding: 12px;
+      gap: 10px;
+    }
+
+    .mood-comment-avatar {
+      width: 32px;
+      height: 32px;
+    }
+
+    .mood-comment-author {
+      font-size: 12px;
+    }
+
+    .mood-comment-content {
+      font-size: 13px;
+    }
+  }
 </style>
 
 <style is:global>
@@ -1123,4 +1380,134 @@ const description = post ? post.text.slice(0, 160) : 'Mood not found.';
 
   const animatedEmoji = createAnimatedEmojiManager();
   animatedEmoji.hydrate(document);
+
+  // Comments loading functionality
+  const initComments = async () => {
+    const commentsSection = document.querySelector('[data-post-id]') as HTMLElement;
+    if (!commentsSection) return;
+
+    const postId = commentsSection.dataset.postId;
+    if (!postId) return;
+
+    const commentsList = document.querySelector('[data-comments-list]') as HTMLElement;
+    const loadingEl = document.querySelector('[data-comments-loading]') as HTMLElement;
+    const emptyEl = document.querySelector('[data-comments-empty]') as HTMLElement;
+    const loadMoreBtn = document.querySelector('[data-load-more]') as HTMLButtonElement;
+    const countEl = document.querySelector('[data-comments-count]') as HTMLElement;
+
+    let lastCommentId = '';
+
+    const formatDate = (datetime: string): string => {
+      const date = new Date(datetime);
+      const now = new Date();
+      const diffMs = now.getTime() - date.getTime();
+      const diffMins = Math.floor(diffMs / 60000);
+      const diffHours = Math.floor(diffMs / 3600000);
+      const diffDays = Math.floor(diffMs / 86400000);
+
+      if (diffMins < 1) return 'just now';
+      if (diffMins < 60) return `${diffMins}m ago`;
+      if (diffHours < 24) return `${diffHours}h ago`;
+      if (diffDays < 7) return `${diffDays}d ago`;
+      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    };
+
+    const getInitials = (name: string): string => {
+      return name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase() || '?';
+    };
+
+    const renderComment = (comment: any): string => {
+      const avatarContent = comment.authorAvatar
+        ? `<img src="${comment.authorAvatar}" alt="${comment.author}" loading="lazy" />`
+        : getInitials(comment.author);
+
+      const reactionsHtml = comment.reactions?.length
+        ? `<div class="mood-comment-reactions">
+            ${comment.reactions.map((r: any) => `
+              <span class="mood-reaction${r.isPaid ? ' mood-reaction--paid' : ''}">
+                <span class="mood-reaction-emoji">${r.isPaid ? '⭐' : r.emoji || '👍'}</span>
+                <span class="mood-reaction-count">${r.count}</span>
+              </span>
+            `).join('')}
+          </div>`
+        : '';
+
+      return `
+        <div class="mood-comment" data-comment-id="${comment.id}">
+          <div class="mood-comment-avatar">${avatarContent}</div>
+          <div class="mood-comment-body">
+            <div class="mood-comment-header">
+              <span class="mood-comment-author">${comment.author}</span>
+              <time class="mood-comment-date" datetime="${comment.datetime}">${formatDate(comment.datetime)}</time>
+            </div>
+            <div class="mood-comment-content">${comment.content}</div>
+            ${reactionsHtml}
+          </div>
+        </div>
+      `;
+    };
+
+    const loadComments = async (before = ''): Promise<void> => {
+      try {
+        const url = `/api/comments?postId=${postId}${before ? `&before=${before}` : ''}`;
+        const response = await fetch(url);
+        const data = await response.json();
+
+        if (loadingEl) loadingEl.hidden = true;
+
+        if (data.comments?.length > 0) {
+          const commentsHtml = data.comments.map(renderComment).join('');
+
+          if (before) {
+            // Append for pagination
+            commentsList.insertAdjacentHTML('beforeend', commentsHtml);
+          } else {
+            // Initial load
+            commentsList.innerHTML = commentsHtml;
+          }
+
+          // Update count
+          const totalComments = commentsList.querySelectorAll('.mood-comment').length;
+          if (countEl) countEl.textContent = String(totalComments);
+
+          // Track last comment for pagination
+          const lastComment = data.comments[data.comments.length - 1];
+          if (lastComment) lastCommentId = lastComment.id;
+
+          // Show/hide load more button
+          if (loadMoreBtn) loadMoreBtn.hidden = !data.hasMore;
+
+          // Hydrate animated emojis in new comments
+          animatedEmoji.hydrate(commentsList);
+        } else if (!before) {
+          // No comments on initial load
+          if (emptyEl) emptyEl.hidden = false;
+          if (loadMoreBtn) loadMoreBtn.hidden = true;
+        }
+      } catch (error) {
+        console.error('Failed to load comments:', error);
+        if (loadingEl) loadingEl.hidden = true;
+        if (!before && emptyEl) {
+          emptyEl.querySelector('p')!.textContent = 'Failed to load comments';
+          emptyEl.hidden = false;
+        }
+      }
+    };
+
+    // Load more button handler
+    if (loadMoreBtn) {
+      loadMoreBtn.addEventListener('click', async () => {
+        loadMoreBtn.disabled = true;
+        loadMoreBtn.textContent = 'Loading...';
+        await loadComments(lastCommentId);
+        loadMoreBtn.disabled = false;
+        loadMoreBtn.textContent = 'Load more comments';
+      });
+    }
+
+    // Initial load
+    await loadComments();
+  };
+
+  initComments();
 </script>

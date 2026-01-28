@@ -434,24 +434,54 @@
     opacity: 1;
   }
 
+  /* Theme icon container for stacked icons */
+  .theme-icon-container {
+    position: relative;
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+  }
+
+  @media (min-width: 640px) {
+    .theme-icon-container {
+      width: 15px;
+      height: 15px;
+    }
+  }
+
   /* Theme toggle icon visibility based on current setting */
   .theme-icon {
-    display: none;
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transform: scale(0.6) rotate(-90deg);
+    transition: opacity 0.25s ease, transform 0.25s ease;
+  }
+
+  .theme-icon svg {
+    width: 100%;
+    height: 100%;
   }
 
   /* In light mode: show sun */
   html[data-theme-setting="light"] .theme-icon[data-theme-icon="light"] {
-    display: block;
+    opacity: 1;
+    transform: scale(1) rotate(0deg);
   }
 
   /* In dark mode: show moon */
   html[data-theme-setting="dark"] .theme-icon[data-theme-icon="dark"] {
-    display: block;
+    opacity: 1;
+    transform: scale(1) rotate(0deg);
   }
 
   /* In system mode: show monitor */
   html[data-theme-setting="system"] .theme-icon[data-theme-icon="system"] {
-    display: block;
+    opacity: 1;
+    transform: scale(1) rotate(0deg);
   }
 
   .divider {
@@ -601,39 +631,14 @@
   }
 }
 
-/* View Transitions API - smooth theme switching */
-::view-transition-old(root),
-::view-transition-new(root) {
-  animation-duration: 0.5s;
-  animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+/* Smooth theme transition for colors */
+html {
+  transition: background-color 0.2s ease, color 0.2s ease;
 }
 
-::view-transition-old(root) {
-  animation-name: fade-out;
-}
-
-::view-transition-new(root) {
-  animation-name: fade-in-scale;
-}
-
-@keyframes fade-out {
-  from {
-    opacity: 1;
-  }
-  to {
-    opacity: 0;
-  }
-}
-
-@keyframes fade-in-scale {
-  from {
-    opacity: 0;
-    transform: scale(0.98);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
+html.no-transition,
+html.no-transition * {
+  transition: none !important;
 }
 
 ::-webkit-scrollbar {

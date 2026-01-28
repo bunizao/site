@@ -47,6 +47,15 @@ export interface ForwardedFrom {
   author?: string;
 }
 
+export interface Comment {
+  id: string;
+  author: string;
+  authorAvatar?: string;
+  datetime: string;
+  content: string;
+  reactions: Reaction[];
+}
+
 export interface Post {
   id: string;
   title: string;
@@ -57,6 +66,8 @@ export interface Post {
   content: string;
   forwardedFrom?: ForwardedFrom;
   reactions: Reaction[];
+  comments?: Comment[];
+  commentsCount?: number;
 }
 
 export interface ChannelInfo {
@@ -637,6 +648,103 @@ async function getPost(
 }
 
 const unnecessaryHeaders = ['host', 'cookie', 'origin', 'referer'];
+
+/**
+ * Parse a single comment from Telegram discussion embed
+ */
+async function parseComment(
+  $: CheerioAPI,
+  item: Element,
+  { staticProxy }: { staticProxy: string }
+): Promise<Comment | null> {
+  const messageEl = $(item).find('.tgme_widget_message').first();
+  if (!messageEl.length) return null;
+
+  const id = messageEl.attr('data-post')?.split('/').pop() ?? '';
+  if (!id) return null;
+
+  // Get author info
+  const authorEl = messageEl.find('.tgme_widget_message_author_name').first();
+  const author = authorEl.text().replace(/\s+/g, ' ').trim() || 'Anonymous';
+
+  // Get author avatar
+  const avatarStyle = messageEl.find('.tgme_widget_message_user_photo .tgme_widget_message_user_photo').attr('style') ?? '';
+  const avatarMatch = avatarStyle.match(/url\(['"]?(.*?)['"]?\)/);
+  const authorAvatar = avatarMatch?.[1] ? toStaticProxyUrl(avatarMatch[1], staticProxy) : undefined;
+
+  // Get datetime
+  const datetime = messageEl.find('.tgme_widget_message_date time').attr('datetime') ?? '';
+
+  // Get content
+  const contentEl = messageEl.find('.tgme_widget_message_text').first();
+  await modifyHTMLContent($, contentEl, { staticProxy });
+  const content = contentEl.html() ?? '';
+
+  // Get reactions
+  const reactions = await getReactions($, messageEl.get(0) as Element, staticProxy);
+
+  return {
+    id,
+    author,
+    authorAvatar,
+    datetime,
+    content,
+    reactions,
+  };
+}
+
+/**
+ * Fetch comments for a specific post from Telegram discussion
+ */
+export async function getPostComments(
+  Astro: any,
+  { postId, before = '' }: { postId: string; before?: string }
+): Promise<{ comments: Comment[]; hasMore: boolean }> {
+  const host = getEnv(import.meta.env, Astro, 'TELEGRAM_HOST') || 't.me';
+  const channel = getEnv(import.meta.env, Astro, 'CHANNEL');
+  const staticProxy = '/static/';
+
+  // Telegram exposes comments via the discussion embed endpoint
+  const url = `https://${host}/${channel}/${postId}?embed=1&discussion=1&comments_limit=20`;
+  const headers = Object.fromEntries(Astro.request.headers);
+
+  Object.keys(headers).forEach((key) => {
+    if (unnecessaryHeaders.includes(key)) {
+      delete headers[key];
+    }
+  });
+
+  try {
+    console.info('Fetching comments', url, { postId, before });
+    const html = await $fetch<string>(url, {
+      headers,
+      query: before ? { before } : undefined,
+      retry: 2,
+      retryDelay: 100,
+    });
+
+    const $ = cheerio.load(html, {}, false);
+
+    // Find all comment messages in the discussion
+    const commentNodes = $('.tgme_widget_message_wrap').toArray();
+    const comments: Comment[] = [];
+
+    for (const node of commentNodes) {
+      const comment = await parseComment($, node, { staticProxy });
+      if (comment) {
+        comments.push(comment);
+      }
+    }
+
+    // Check if there are more comments (pagination)
+    const hasMore = $('.tgme_widget_message_more').length > 0;
+
+    return { comments, hasMore };
+  } catch (error) {
+    console.error('Failed to fetch comments:', error);
+    return { comments: [], hasMore: false };
+  }
+}
 
 export async function getChannelInfo(
   Astro: any,

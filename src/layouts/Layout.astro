@@ -123,14 +123,16 @@ const ogImageType = ogImageUrl.endsWith('.png')
     <div class="global-header-actions" data-header-actions>
       <div class="theme-dropdown" data-theme-dropdown>
         <button class="header-action-btn" type="button" data-theme-toggle aria-label="Switch theme" aria-haspopup="true" aria-expanded="false">
-          <span class="theme-icon" data-theme-icon="light" aria-hidden="true">
-            <Sun className="h-4 w-4" />
-          </span>
-          <span class="theme-icon" data-theme-icon="dark" aria-hidden="true">
-            <Moon className="h-4 w-4" />
-          </span>
-          <span class="theme-icon" data-theme-icon="system" aria-hidden="true">
-            <Monitor className="h-4 w-4" />
+          <span class="theme-icon-container">
+            <span class="theme-icon" data-theme-icon="light" aria-hidden="true">
+              <Sun className="h-4 w-4" />
+            </span>
+            <span class="theme-icon" data-theme-icon="dark" aria-hidden="true">
+              <Moon className="h-4 w-4" />
+            </span>
+            <span class="theme-icon" data-theme-icon="system" aria-hidden="true">
+              <Monitor className="h-4 w-4" />
+            </span>
           </span>
           <span class="header-action-btn-label" data-theme-label>System</span>
         </button>
@@ -152,7 +154,7 @@ const ogImageType = ogImageUrl.endsWith('.png')
     </div>
     <slot />
 
-    <script is:inline>
+    <script>
       (() => {
         const storageKey = 'theme';
         const toggle = document.querySelector('[data-theme-toggle]');
@@ -171,7 +173,7 @@ const ogImageType = ogImageUrl.endsWith('.png')
             return null;
           }
         };
-        const setStoredTheme = (theme) => {
+        const setStoredTheme = (theme: string) => {
           try {
             if (theme === 'system') {
               localStorage.removeItem(storageKey);
@@ -184,51 +186,39 @@ const ogImageType = ogImageUrl.endsWith('.png')
         };
         const getSystemTheme = () => (media && media.matches ? 'dark' : 'light');
 
-        // Get the current setting (light/dark/system)
         const getThemeSetting = () => {
           const stored = getStoredTheme();
           if (stored === 'light' || stored === 'dark') return stored;
           return 'system';
         };
 
-        const updateIcons = (setting) => {
+        const updateIcons = (setting: string) => {
           document.documentElement.dataset.themeSetting = setting;
-          // Update active state in dropdown
           options.forEach(opt => {
-            opt.classList.toggle('is-active', opt.dataset.themeOption === setting);
+            const el = opt as HTMLElement;
+            el.classList.toggle('is-active', el.dataset.themeOption === setting);
           });
-          // Update label text
           const label = document.querySelector('[data-theme-label]');
           if (label) {
-            const labels = { light: 'Light', dark: 'Dark', system: 'System' };
+            const labels: Record<string, string> = { light: 'Light', dark: 'Dark', system: 'System' };
             label.textContent = labels[setting] || 'System';
           }
         };
 
-        const updateToggle = (setting) => {
+        const updateToggle = (setting: string) => {
           if (!toggle) return;
-          const labels = { light: 'Light mode', dark: 'Dark mode', system: 'System mode' };
+          const labels: Record<string, string> = { light: 'Light mode', dark: 'Dark mode', system: 'System mode' };
           toggle.setAttribute('aria-label', labels[setting] || 'Switch theme');
         };
 
-        const applyTheme = (setting) => {
+        const applyTheme = (setting: string) => {
           const effectiveTheme = setting === 'system' ? getSystemTheme() : setting;
           const isDark = effectiveTheme === 'dark';
-
-          // Use View Transitions API for smooth theme change
-          if (document.startViewTransition) {
-            document.startViewTransition(() => {
-              document.documentElement.classList.toggle('dark', isDark);
-            });
-          } else {
-            document.documentElement.classList.toggle('dark', isDark);
-          }
-
+          document.documentElement.classList.toggle('dark', isDark);
           updateIcons(setting);
           updateToggle(setting);
         };
 
-        // Dropdown toggle
         const openDropdown = () => {
           if (!dropdown || !menu || !toggle) return;
           dropdown.classList.add('is-open');
@@ -241,22 +231,19 @@ const ogImageType = ogImageUrl.endsWith('.png')
           toggle.setAttribute('aria-expanded', 'false');
         };
 
-        // Initialize
         const currentSetting = getThemeSetting();
         updateIcons(currentSetting);
         updateToggle(currentSetting);
 
-        // Hover behavior for dropdown
         if (dropdown) {
           dropdown.addEventListener('mouseenter', openDropdown);
           dropdown.addEventListener('mouseleave', closeDropdown);
         }
 
-        // Click on toggle also opens (for touch devices)
         if (toggle) {
           toggle.addEventListener('click', (e) => {
             e.stopPropagation();
-            if (dropdown.classList.contains('is-open')) {
+            if (dropdown?.classList.contains('is-open')) {
               closeDropdown();
             } else {
               openDropdown();
@@ -264,10 +251,10 @@ const ogImageType = ogImageUrl.endsWith('.png')
           });
         }
 
-        // Handle option clicks
         options.forEach(option => {
           option.addEventListener('click', () => {
-            const theme = option.dataset.themeOption;
+            const el = option as HTMLElement;
+            const theme = el.dataset.themeOption;
             if (theme) {
               setStoredTheme(theme);
               applyTheme(theme);
@@ -276,21 +263,18 @@ const ogImageType = ogImageUrl.endsWith('.png')
           });
         });
 
-        // Close on outside click
         document.addEventListener('click', (e) => {
-          if (dropdown && !dropdown.contains(e.target)) {
+          if (dropdown && !dropdown.contains(e.target as Node)) {
             closeDropdown();
           }
         });
 
-        // Close on Escape
         document.addEventListener('keydown', (e) => {
           if (e.key === 'Escape') {
             closeDropdown();
           }
         });
 
-        // Listen for system theme changes
         const onSystemThemeChange = () => {
           if (getThemeSetting() === 'system') {
             applyTheme('system');
