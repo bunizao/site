@@ -36,6 +36,7 @@
     "prismjs-components-importer": "^0.2.0",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
+    "telegram": "^2.26.22",
     "tailwind-merge": "^3.4.0"
   },
   "overrides": {
