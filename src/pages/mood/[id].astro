@@ -102,11 +102,8 @@ const description = post ? post.text.slice(0, 160) : 'Mood not found.';
         <!-- Comments Section -->
         <section class="mood-comments" data-post-id={id}>
           <div class="mood-comments-header">
-            <h2 class="mood-comments-title">
-              <span class="mood-comments-icon">💬</span>
-              Comments
-              <span class="mood-comments-count" data-comments-count></span>
-            </h2>
+            <span class="mood-comments-title">Comments</span>
+            <span class="mood-comments-count" data-comments-count></span>
           </div>
           <div class="mood-comments-list" data-comments-list>
             <div class="mood-comments-skeleton" data-comments-loading>
@@ -981,67 +978,41 @@ const description = post ? post.text.slice(0, 160) : 'Mood not found.';
   }
 
   .mood-comments-header {
-    margin-bottom: 32px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 24px;
   }
 
   @media (min-width: 640px) {
     .mood-comments-header {
-      margin-bottom: 36px;
+      margin-bottom: 28px;
     }
   }
 
   .mood-comments-title {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    font-size: 19px;
-    font-weight: 600;
-    color: hsl(var(--foreground));
-    margin: 0;
-    letter-spacing: -0.02em;
-  }
-
-  @media (min-width: 640px) {
-    .mood-comments-title {
-      font-size: 21px;
-      gap: 14px;
-    }
-  }
-
-  .mood-comments-icon {
-    font-size: 22px;
-    line-height: 1;
-    filter: grayscale(0.2);
-  }
-
-  @media (min-width: 640px) {
-    .mood-comments-icon {
-      font-size: 24px;
-    }
+    font-size: 13px;
+    font-weight: 500;
+    color: hsl(var(--muted-foreground) / 0.6);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
   }
 
   .mood-comments-count {
     font-size: 12px;
-    font-weight: 600;
-    color: hsl(var(--muted-foreground));
-    padding: 4px 11px;
-    background: hsl(var(--foreground) / 0.08);
-    border: 1px solid hsl(var(--foreground) / 0.06);
-    border-radius: 999px;
-    min-width: 32px;
-    text-align: center;
+    font-weight: 500;
+    color: hsl(var(--muted-foreground) / 0.5);
     font-variant-numeric: tabular-nums;
-    transition: all 0.2s ease;
-  }
-
-  @media (min-width: 640px) {
-    .mood-comments-count {
-      font-size: 13px;
-    }
   }
 
   .mood-comments-count:empty {
     display: none;
+  }
+
+  .mood-comments-count::before {
+    content: '·';
+    margin-right: 8px;
+    color: hsl(var(--muted-foreground) / 0.3);
   }
 
   .mood-comments-list {
