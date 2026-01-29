@@ -1551,6 +1551,49 @@ const skeletonGroups = [
     opacity: 0.8;
   }
 
+  /* Comments indicator */
+  :global(.mood-item-comments) {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 8px 3px 6px;
+    font-size: 12px;
+    background: hsl(var(--foreground) / 0.03);
+    border-radius: 999px;
+    color: hsl(var(--muted-foreground) / 0.7);
+    transition: background-color 0.15s ease, color 0.15s ease;
+    border: 1px solid transparent;
+    text-decoration: none;
+    cursor: pointer;
+  }
+
+  :global(.mood-item-comments:hover),
+  :global(.mood-item-comments:focus-visible) {
+    background: hsl(var(--foreground) / 0.06);
+    color: hsl(var(--muted-foreground));
+    border-color: hsl(var(--foreground) / 0.06);
+  }
+
+  :global(.mood-comments-icon) {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 14px;
+    height: 14px;
+    opacity: 0.7;
+    transition: opacity 0.15s ease;
+  }
+
+  :global(.mood-item-comments:hover .mood-comments-icon) {
+    opacity: 1;
+  }
+
+  :global(.mood-comments-count) {
+    font-size: 12px;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+  }
+
   :global(.mood-feed) {
     display: flex;
     flex-direction: column;
@@ -2457,7 +2500,47 @@ const skeletonGroups = [
       forwardedFrom?: ForwardedFromData | null;
       quote?: QuoteData | null;
       reactions?: ReactionData[];
+      commentsCount?: number | string;
     }
+
+    const getCommentsCountInfo = (value: MoodData['commentsCount']): { count: number; label: string } => {
+      if (typeof value === 'number' && Number.isFinite(value)) {
+        return { count: value, label: String(value) };
+      }
+
+      if (typeof value === 'string') {
+        const trimmed = value.trim();
+        if (!trimmed) {
+          return { count: 0, label: '' };
+        }
+
+        const direct = Number(trimmed.replace(/,/g, ''));
+        if (Number.isFinite(direct)) {
+          return { count: direct, label: trimmed };
+        }
+
+        const match = trimmed.match(/(\d+(?:[.,]\d+)?)(\s*[kKmM])?/);
+        if (!match) {
+          return { count: 0, label: '' };
+        }
+
+        let count = Number(match[1].replace(',', '.'));
+        const suffix = match[2]?.trim() ?? '';
+        if (/k/i.test(suffix)) {
+          count *= 1000;
+        } else if (/m/i.test(suffix)) {
+          count *= 1_000_000;
+        }
+
+        if (!Number.isFinite(count)) {
+          return { count: 0, label: '' };
+        }
+
+        return { count, label: trimmed };
+      }
+
+      return { count: 0, label: '' };
+    };
 
     const createMoodItem = (mood: MoodData, index: number): HTMLElement => {
       const mediaHtml = typeof mood.mediaHtml === 'string' ? mood.mediaHtml.trim() : '';
@@ -2610,46 +2693,77 @@ const skeletonGroups = [
         content.appendChild(details);
       }
 
-      // Add reactions
-      if (mood.reactions && mood.reactions.length > 0) {
+      // Add reactions and comments
+      const hasReactions = mood.reactions && mood.reactions.length > 0;
+      const commentsInfo = getCommentsCountInfo(mood.commentsCount);
+      const hasComments = commentsInfo.count > 0;
+
+      if (hasReactions || hasComments) {
         const reactionsWrap = document.createElement('div');
         reactionsWrap.className = 'mood-item-reactions';
-        mood.reactions.forEach((reaction) => {
-          const pill = document.createElement('span');
-          pill.className = reaction.isPaid ? 'mood-reaction mood-reaction--paid' : 'mood-reaction';
-          const emojiSpan = document.createElement('span');
-          emojiSpan.className = 'mood-reaction-emoji';
-          if (reaction.isPaid) {
-            emojiSpan.textContent = '⭐';
-          } else if (reaction.emojiImage || reaction.emojiId) {
-            const wrapper = document.createElement('span');
-            wrapper.className = 'tg-emoji';
-            if (reaction.emojiId) {
-              wrapper.dataset.emojiId = reaction.emojiId;
+
+        // Add reaction pills
+        if (hasReactions) {
+          mood.reactions.forEach((reaction) => {
+            const pill = document.createElement('span');
+            pill.className = reaction.isPaid ? 'mood-reaction mood-reaction--paid' : 'mood-reaction';
+            const emojiSpan = document.createElement('span');
+            emojiSpan.className = 'mood-reaction-emoji';
+            if (reaction.isPaid) {
+              emojiSpan.textContent = '⭐';
+            } else if (reaction.emojiImage || reaction.emojiId) {
+              const wrapper = document.createElement('span');
+              wrapper.className = 'tg-emoji';
+              if (reaction.emojiId) {
+                wrapper.dataset.emojiId = reaction.emojiId;
+              }
+              if (reaction.emojiImage) {
+                const img = document.createElement('img');
+                img.src = reaction.emojiImage;
+                img.alt = reaction.emoji || 'emoji';
+                img.loading = 'lazy';
+                img.decoding = 'async';
+                img.width = 16;
+                img.height = 16;
+                wrapper.appendChild(img);
+              } else if (reaction.emoji) {
+                wrapper.textContent = reaction.emoji;
+              }
+              emojiSpan.appendChild(wrapper);
+            } else {
+              emojiSpan.textContent = reaction.emoji;
             }
-            if (reaction.emojiImage) {
-              const img = document.createElement('img');
-              img.src = reaction.emojiImage;
-              img.alt = reaction.emoji || 'emoji';
-              img.loading = 'lazy';
-              img.decoding = 'async';
-              img.width = 16;
-              img.height = 16;
-              wrapper.appendChild(img);
-            } else if (reaction.emoji) {
-              wrapper.textContent = reaction.emoji;
-            }
-            emojiSpan.appendChild(wrapper);
-          } else {
-            emojiSpan.textContent = reaction.emoji;
-          }
-          const count = document.createElement('span');
-          count.className = 'mood-reaction-count';
-          count.textContent = reaction.count;
-          pill.appendChild(emojiSpan);
-          pill.appendChild(count);
-          reactionsWrap.appendChild(pill);
-        });
+            const count = document.createElement('span');
+            count.className = 'mood-reaction-count';
+            count.textContent = reaction.count;
+            pill.appendChild(emojiSpan);
+            pill.appendChild(count);
+            reactionsWrap.appendChild(pill);
+          });
+        }
+
+        // Add comments indicator
+        if (hasComments) {
+          const commentsLink = document.createElement('a');
+          commentsLink.className = 'mood-item-comments';
+          commentsLink.href = `/mood/${mood.id}#comments`;
+          const commentsLabel = commentsInfo.label || String(commentsInfo.count);
+          commentsLink.title = `${commentsLabel} comment${commentsInfo.count === 1 ? '' : 's'}`;
+
+          // Chat bubble icon (SVG)
+          const iconSpan = document.createElement('span');
+          iconSpan.className = 'mood-comments-icon';
+          iconSpan.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>`;
+
+          const countSpan = document.createElement('span');
+          countSpan.className = 'mood-comments-count';
+          countSpan.textContent = commentsLabel;
+
+          commentsLink.appendChild(iconSpan);
+          commentsLink.appendChild(countSpan);
+          reactionsWrap.appendChild(commentsLink);
+        }
+
         content.appendChild(reactionsWrap);
       }
 

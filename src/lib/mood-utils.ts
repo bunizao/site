@@ -359,4 +359,5 @@ export interface MoodData {
   forwardedFrom?: ForwardedFromData | null;
   quote?: QuoteData | null;
   reactions?: ReactionData[];
+  commentsCount?: number;
 }

@@ -86,6 +86,8 @@ interface ContentProcessorConfig {
   title?: string;
   channel?: string;
   channelTitle?: string;
+  host?: string;
+  headers?: Record<string, string>;
 }
 
 function escapeHtml(value: string = ''): string {
@@ -159,6 +161,11 @@ const cache = new LRUCache<string, ChannelInfo | Post>({
   sizeCalculation: (item) => {
     return JSON.stringify(item).length;
   },
+});
+
+const commentsCountCache = new LRUCache<string, number>({
+  ttl: 1000 * 60 * 10, // 10 minutes
+  max: 1000,
 });
 
 // Helper function to get environment variables
@@ -532,6 +539,63 @@ async function hydrateTgEmoji(
   );
 }
 
+/**
+ * Extract comments count from post embed
+ */
+async function getCommentsCount(
+  $: CheerioAPI,
+  item: Element,
+  {
+    channel,
+    host = 't.me',
+    headers = {},
+    postId,
+  }: { channel?: string; host?: string; headers?: Record<string, string>; postId?: string } = {}
+): Promise<number> {
+  // Telegram shows replies/comments in .tgme_widget_message_replies or similar elements
+  const repliesEl = $(item).find('.tgme_widget_message_replies, .tgme_widget_message_comments');
+  if (repliesEl.length) {
+    // Try to extract count from the text content (e.g., "12 comments", "3 replies")
+    const text = repliesEl.text().trim();
+    const match = text.match(/(\d+)/);
+    if (match) {
+      return parseInt(match[1], 10);
+    }
+
+    // Fallback: check data attributes
+    const dataCount = repliesEl.attr('data-count') || repliesEl.attr('data-replies');
+    if (dataCount) {
+      const parsed = parseInt(dataCount, 10);
+      if (!Number.isNaN(parsed)) return parsed;
+    }
+  }
+
+  if (!channel || !postId) return 0;
+
+  const cacheKey = `${channel}/${postId}`;
+  const cached = commentsCountCache.get(cacheKey);
+  if (cached !== undefined) return cached;
+
+  try {
+    const url = `https://${host}/${channel}/${postId}?embed=1&discussion=1&comments_limit=1`;
+    const html = await $fetch<string>(url, {
+      headers,
+      retry: 2,
+      retryDelay: 100,
+    });
+    const $discussion = cheerio.load(html, {}, false);
+    const headerText =
+      $discussion('.tgme_post_discussion_header .js-header').first().text().trim();
+    const match = headerText.match(/(\d+)/);
+    const count = match ? parseInt(match[1], 10) : 0;
+    commentsCountCache.set(cacheKey, count);
+    return count;
+  } catch (error) {
+    console.error('Failed to fetch comments count:', error);
+    return 0;
+  }
+}
+
 async function getReactions($: CheerioAPI, item: Element, staticProxy: string): Promise<Reaction[]> {
   const reactions: Reaction[] = [];
   const reactionNodes = $(item).find('.tgme_widget_message_reactions .tgme_reaction').toArray();
@@ -587,7 +651,14 @@ async function getReactions($: CheerioAPI, item: Element, staticProxy: string): 
 async function getPost(
   $: CheerioAPI,
   item: Element | null,
-  { channel, channelTitle, staticProxy, index = 0 }: ContentProcessorConfig & { channel: string }
+  {
+    channel,
+    channelTitle,
+    staticProxy,
+    index = 0,
+    host,
+    headers,
+  }: ContentProcessorConfig & { channel: string }
 ): Promise<Post> {
   const messageItem = item ? $(item).find('.tgme_widget_message') : $('.tgme_widget_message');
   const content =
@@ -644,6 +715,12 @@ async function getPost(
       }),
     forwardedFrom: forwardedFrom ?? undefined,
     reactions: await getReactions($, messageItem as Element, staticProxy),
+    commentsCount: await getCommentsCount($, messageItem as Element, {
+      channel,
+      host,
+      headers,
+      postId: id,
+    }),
   };
 }
 
@@ -827,7 +904,7 @@ export async function getChannelInfo(
   const $ = cheerio.load(html, {}, false);
   const channelTitle = $('.tgme_channel_info_header_title')?.text() ?? '';
   if (id) {
-    const post = await getPost($, null, { channel, channelTitle, staticProxy });
+    const post = await getPost($, null, { channel, channelTitle, staticProxy, host, headers });
     cache.set(cacheKey, post);
     return post;
   }
@@ -835,7 +912,7 @@ export async function getChannelInfo(
     (await Promise.all(
       $('.tgme_channel_history  .tgme_widget_message_wrap')
         ?.map((index, item) => {
-          return getPost($, item, { channel, channelTitle, staticProxy, index });
+          return getPost($, item, { channel, channelTitle, staticProxy, index, host, headers });
         })
         ?.get() ?? []
     ))

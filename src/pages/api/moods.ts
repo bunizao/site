@@ -50,6 +50,7 @@ export const GET: APIRoute = async ({ request, locals }) => {
           count: r.count,
           isPaid: r.isPaid,
         })) ?? [],
+        commentsCount: post.commentsCount ?? 0,
       };
     });
 

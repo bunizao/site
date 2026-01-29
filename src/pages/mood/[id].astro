@@ -1202,12 +1202,13 @@ const description = post ? post.text.slice(0, 160) : 'Mood not found.';
   }
 
   .mood-comment-body {
-    flex: 1;
+    width: fit-content;
+    max-width: 100%;
     min-width: 0;
     background: hsl(var(--foreground) / 0.035);
     border: 1px solid hsl(var(--foreground) / 0.08);
     border-radius: 14px;
-    padding: 14px 16px;
+    padding: 12px 14px;
     position: relative;
   }
 
@@ -1595,12 +1596,13 @@ const description = post ? post.text.slice(0, 160) : 'Mood not found.';
   }
 
   .mood-comment-body {
-    flex: 1;
+    width: fit-content;
+    max-width: 100%;
     min-width: 0;
     background: hsl(var(--foreground) / 0.035);
     border: 1px solid hsl(var(--foreground) / 0.08);
     border-radius: 14px;
-    padding: 14px 16px;
+    padding: 12px 14px;
     position: relative;
   }
 
