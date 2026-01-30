@@ -88,10 +88,6 @@ Full SVG API documentation:
 - `GHOST_URL` - Ghost CMS URL
 - `GHOST_CONTENT_APIKEY` - Ghost CMS content API key
 - `GITHUB_TOKEN` - GitHub GraphQL token for project data and star counts
-- `TELEGRAM_API_ID` - Telegram API ID from my.telegram.org (MTProto)
-- `TELEGRAM_API_HASH` - Telegram API hash from my.telegram.org (MTProto)
-- `TELEGRAM_SESSION` - StringSession for a Telegram user (required for MTProto message access)
-- `TELEGRAM_BOT_TOKEN` - Bot token (alternative to `TELEGRAM_SESSION`, bot must access channel/discussion)
 - See [`.env`](.env)
 
 ## Acknowledgements

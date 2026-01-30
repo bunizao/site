@@ -88,7 +88,6 @@ interface ContentProcessorConfig {
   channelTitle?: string;
   host?: string;
   headers?: Record<string, string>;
-  skipCommentsCount?: boolean;
 }
 
 function escapeHtml(value: string = ''): string {
@@ -168,122 +167,6 @@ const commentsCountCache = new LRUCache<string, number>({
   ttl: 1000 * 60 * 10, // 10 minutes
   max: 1000,
 });
-
-interface MtprotoConfig {
-  apiId: number;
-  apiHash: string;
-  session?: string;
-  botToken?: string;
-}
-
-type MtprotoLib = {
-  Api: any;
-  TelegramClient: any;
-  StringSession: any;
-};
-
-let mtprotoLibPromise: Promise<MtprotoLib> | null = null;
-
-const loadMtprotoLib = async (): Promise<MtprotoLib> => {
-  if (mtprotoLibPromise) return mtprotoLibPromise;
-  mtprotoLibPromise = (async () => {
-    const telegram = await import('telegram');
-    const sessions = await import('telegram/sessions');
-    return {
-      Api: telegram.Api,
-      TelegramClient: telegram.TelegramClient,
-      StringSession: sessions.StringSession,
-    };
-  })();
-  return mtprotoLibPromise;
-};
-
-const getMtprotoConfig = (Astro: any): MtprotoConfig | null => {
-  const apiIdRaw = getEnv(import.meta.env, Astro, 'TELEGRAM_API_ID');
-  const apiHash = getEnv(import.meta.env, Astro, 'TELEGRAM_API_HASH');
-  const session = getEnv(import.meta.env, Astro, 'TELEGRAM_SESSION');
-  const botToken = getEnv(import.meta.env, Astro, 'TELEGRAM_BOT_TOKEN');
-  const apiId = Number(apiIdRaw);
-
-  if (!apiId || !apiHash || (!session && !botToken)) return null;
-
-  return {
-    apiId,
-    apiHash,
-    session: session || undefined,
-    botToken: botToken || undefined,
-  };
-};
-
-const createMtprotoClient = async (config: MtprotoConfig): Promise<any> => {
-  const { TelegramClient, StringSession } = await loadMtprotoLib();
-  const session = new StringSession(config.session ?? '');
-  const client = new TelegramClient(session, config.apiId, config.apiHash, {
-    connectionRetries: 2,
-  });
-
-  if (config.botToken) {
-    await client.start({ botAuthToken: config.botToken });
-  } else {
-    await client.connect();
-    const authorized = await client.checkAuthorization();
-    if (!authorized) {
-      await client.disconnect();
-      throw new Error('Telegram MTProto session is not authorized.');
-    }
-  }
-
-  return client;
-};
-
-const fetchCommentsCountsViaMtproto = async (
-  Astro: any,
-  channel: string,
-  postIds: string[]
-): Promise<Map<string, number> | null> => {
-  if (typeof window !== 'undefined') return null;
-  const config = getMtprotoConfig(Astro);
-  if (!config) return null;
-
-  const ids = postIds
-    .map((id) => Number.parseInt(id, 10))
-    .filter((id) => Number.isFinite(id) && id > 0);
-  if (!ids.length) return new Map();
-
-  let client: any | null = null;
-  try {
-    const { Api } = await loadMtprotoLib();
-    client = await createMtprotoClient(config);
-    const entity = await client.getEntity(channel.startsWith('@') ? channel : `@${channel}`);
-    const result = new Map<string, number>();
-    const chunkSize = 100;
-
-    for (let i = 0; i < ids.length; i += chunkSize) {
-      const chunk = ids.slice(i, i + chunkSize);
-      const messages = await client.getMessages(entity, { ids: chunk });
-      const list = Array.isArray(messages) ? messages : [messages];
-      list.forEach((message: any) => {
-        if (!(message instanceof Api.Message)) return;
-        const replies = message.replies?.replies ?? 0;
-        result.set(String(message.id), replies);
-        commentsCountCache.set(`${channel}/${message.id}`, replies);
-      });
-    }
-
-    return result;
-  } catch (error) {
-    console.error('Failed to fetch comments count via MTProto:', error);
-    return null;
-  } finally {
-    if (client) {
-      try {
-        await client.disconnect();
-      } catch {
-        // Ignore disconnect errors.
-      }
-    }
-  }
-};
 
 // Helper function to get environment variables
 function getEnv(env: ImportMetaEnv, Astro: any, name: string): string {
@@ -669,11 +552,6 @@ async function getCommentsCount(
     postId,
   }: { channel?: string; host?: string; headers?: Record<string, string>; postId?: string } = {}
 ): Promise<number> {
-  if (channel && postId) {
-    const cached = commentsCountCache.get(`${channel}/${postId}`);
-    if (cached !== undefined) return cached;
-  }
-
   // Telegram shows replies/comments in .tgme_widget_message_replies or similar elements
   const repliesEl = $(item).find('.tgme_widget_message_replies, .tgme_widget_message_comments');
   if (repliesEl.length) {
@@ -780,7 +658,6 @@ async function getPost(
     index = 0,
     host,
     headers,
-    skipCommentsCount = false,
   }: ContentProcessorConfig & { channel: string }
 ): Promise<Post> {
   const messageItem = item ? $(item).find('.tgme_widget_message') : $('.tgme_widget_message');
@@ -838,14 +715,12 @@ async function getPost(
       }),
     forwardedFrom: forwardedFrom ?? undefined,
     reactions: await getReactions($, messageItem as Element, staticProxy),
-    commentsCount: skipCommentsCount
-      ? commentsCountCache.get(`${channel}/${id}`) ?? 0
-      : await getCommentsCount($, messageItem as Element, {
-          channel,
-          host,
-          headers,
-          postId: id,
-        }),
+    commentsCount: await getCommentsCount($, messageItem as Element, {
+      channel,
+      host,
+      headers,
+      postId: id,
+    }),
   };
 }
 
@@ -1004,7 +879,6 @@ export async function getChannelInfo(
   const channel = getEnv(import.meta.env, Astro, 'CHANNEL');
   // Always use local static proxy for Telegram media
   const staticProxy = '/static/';
-  const useMtproto = Boolean(getMtprotoConfig(Astro));
 
   const url = id ? `https://${host}/${channel}/${id}?embed=1&mode=tme` : `https://${host}/s/${channel}`;
   const headers = Object.fromEntries(Astro.request.headers);
@@ -1030,20 +904,7 @@ export async function getChannelInfo(
   const $ = cheerio.load(html, {}, false);
   const channelTitle = $('.tgme_channel_info_header_title')?.text() ?? '';
   if (id) {
-    const post = await getPost($, null, {
-      channel,
-      channelTitle,
-      staticProxy,
-      host,
-      headers,
-      skipCommentsCount: useMtproto,
-    });
-    if (useMtproto) {
-      const counts = await fetchCommentsCountsViaMtproto(Astro, channel, [post.id]);
-      if (counts && counts.has(post.id)) {
-        post.commentsCount = counts.get(post.id) ?? 0;
-      }
-    }
+    const post = await getPost($, null, { channel, channelTitle, staticProxy, host, headers });
     cache.set(cacheKey, post);
     return post;
   }
@@ -1051,36 +912,12 @@ export async function getChannelInfo(
     (await Promise.all(
       $('.tgme_channel_history  .tgme_widget_message_wrap')
         ?.map((index, item) => {
-          return getPost($, item, {
-            channel,
-            channelTitle,
-            staticProxy,
-            index,
-            host,
-            headers,
-            skipCommentsCount: useMtproto,
-          });
+          return getPost($, item, { channel, channelTitle, staticProxy, index, host, headers });
         })
         ?.get() ?? []
     ))
       ?.reverse()
       .filter((post: Post) => ['text'].includes(post.type) && post.id && post.content) ?? [];
-
-  if (useMtproto && posts.length) {
-    const counts = await fetchCommentsCountsViaMtproto(
-      Astro,
-      channel,
-      posts.map((post) => post.id)
-    );
-    if (counts) {
-      posts.forEach((post) => {
-        const count = counts.get(post.id);
-        if (typeof count === 'number') {
-          post.commentsCount = count;
-        }
-      });
-    }
-  }
 
   const channelInfo: ChannelInfo = {
     posts,
