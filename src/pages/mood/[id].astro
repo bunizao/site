@@ -191,8 +191,8 @@ const description = post ? post.text.slice(0, 160) : 'Mood not found.';
     }
 
     .mood-post-content {
-      font-size: 15px;
-      line-height: 1.7;
+      font-size: 15.5px;
+      line-height: 1.75;
     }
 
     .mood-post-reactions {
@@ -470,25 +470,32 @@ const description = post ? post.text.slice(0, 160) : 'Mood not found.';
 
   /* Content Styles */
   .mood-post-content {
-    font-size: 15px;
-    line-height: 1.7;
+    font-size: 16px;
+    line-height: 1.8;
     color: hsl(var(--foreground));
-    margin-top: 4px;
+    margin-top: 8px;
     overflow-wrap: anywhere;
     word-break: break-word;
   }
 
   @media (min-width: 640px) {
     .mood-post-content {
-      font-size: 16px;
-      line-height: 1.8;
-      margin-top: 6px;
+      font-size: 17px;
+      line-height: 1.85;
+      margin-top: 12px;
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .mood-post-content {
+      font-size: 18px;
+      line-height: 1.9;
     }
   }
 
   /* Typography */
   .mood-post-content :global(p) {
-    margin-bottom: 1.2em;
+    margin-bottom: 1.5em;
   }
 
   .mood-post-content :global(p:last-child) {
