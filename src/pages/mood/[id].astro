@@ -165,7 +165,7 @@ const description = post ? post.text.slice(0, 160) : 'Mood not found.';
     }
 
     .mood-post-header {
-      margin-bottom: 20px;
+      margin-bottom: 32px;
       padding-bottom: 16px;
     }
 
@@ -211,9 +211,9 @@ const description = post ? post.text.slice(0, 160) : 'Mood not found.';
     }
 
     .mood-post-content {
-      font-size: 15px;
-      line-height: 1.7;
-      margin-top: 4px;
+      font-size: 17px;
+      line-height: 1.75;
+      margin-top: 0;
     }
 
     .mood-post-content :global(p) {
@@ -221,7 +221,7 @@ const description = post ? post.text.slice(0, 160) : 'Mood not found.';
     }
 
     .mood-post-reactions {
-      margin-top: 20px;
+      margin-top: 32px;
       padding-top: 12px;
       gap: 6px;
     }
@@ -339,7 +339,7 @@ const description = post ? post.text.slice(0, 160) : 'Mood not found.';
     }
 
     .mood-post-header {
-      margin-bottom: 16px;
+      margin-bottom: 28px;
       padding-bottom: 12px;
     }
 
@@ -366,6 +366,10 @@ const description = post ? post.text.slice(0, 160) : 'Mood not found.';
       padding: 4px 8px 4px 6px;
       font-size: 10px;
       min-height: 26px;
+    }
+
+    .mood-post-reactions {
+      margin-top: 28px;
     }
   }
 
@@ -1605,7 +1609,7 @@ const description = post ? post.text.slice(0, 160) : 'Mood not found.';
   @media (max-width: 540px) {
     .mood-comments {
       margin-top: 32px;
-      padding-top: 24px;
+      padding-top: 32px;
     }
 
     .mood-comments-header {
@@ -1734,6 +1738,26 @@ const description = post ? post.text.slice(0, 160) : 'Mood not found.';
     .mood-comments-load-more {
       padding: 10px 16px;
       font-size: 12px;
+    }
+  }
+
+  @media (max-width: 540px) {
+    .mood-post-header {
+      margin-bottom: 32px;
+    }
+
+    .mood-post-content {
+      margin-top: 0;
+    }
+  }
+
+  @media (max-width: 380px) {
+    .mood-post-header {
+      margin-bottom: 28px;
+    }
+
+    .mood-post-reactions {
+      margin-top: 28px;
     }
   }
 </style>
