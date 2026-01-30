@@ -223,8 +223,10 @@ function getImages($: CheerioAPI, item: Element, { staticProxy, id, index, title
         imageHeight = Math.round(imageWidth * paddingPercent / 100);
       }
       // Detect portrait (vertical) images: height > width * 1.2
+      // Detect ultra-tall images: height > width * 2.5
       const isPortrait = imageHeight > 0 && imageHeight > imageWidth * 1.2;
-      const portraitClass = isPortrait ? ' image-portrait' : '';
+      const isUltraTall = imageHeight > 0 && imageHeight > imageWidth * 2.5;
+      const portraitClass = isUltraTall ? ' image-preview-wrap--ultra-tall' : isPortrait ? ' image-preview-wrap--portrait' : '';
       const widthStyle = imageWidth ? ` style="--image-width:${imageWidth}px;--image-height:${imageHeight}px"` : '';
       const widthAttr = imageWidth ? ` width="${imageWidth}"` : '';
       const heightAttr = imageHeight ? ` height="${imageHeight}"` : '';
