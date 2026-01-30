@@ -1018,12 +1018,12 @@ const description = post ? post.text.slice(0, 160) : 'Mood not found.';
   .mood-comments-list {
     display: flex;
     flex-direction: column;
-    gap: 20px;
+    gap: 16px;
   }
 
   @media (min-width: 640px) {
     .mood-comments-list {
-      gap: 24px;
+      gap: 18px;
     }
   }
 
@@ -1037,19 +1037,19 @@ const description = post ? post.text.slice(0, 160) : 'Mood not found.';
   .mood-comment-skeleton {
     display: flex;
     align-items: flex-start;
-    gap: 14px;
+    gap: 10px;
     --skeleton-delay: calc(var(--skeleton-index, 0) * 0.15s);
   }
 
   @media (min-width: 640px) {
     .mood-comment-skeleton {
-      gap: 16px;
+      gap: 12px;
     }
   }
 
   .mood-comment-skeleton-avatar {
-    width: 42px;
-    height: 42px;
+    width: 32px;
+    height: 32px;
     border-radius: 50%;
     background: hsl(var(--foreground) / 0.06);
     flex-shrink: 0;
@@ -1073,8 +1073,8 @@ const description = post ? post.text.slice(0, 160) : 'Mood not found.';
 
   @media (min-width: 640px) {
     .mood-comment-skeleton-avatar {
-      width: 46px;
-      height: 46px;
+      width: 36px;
+      height: 36px;
     }
   }
 
@@ -1083,8 +1083,8 @@ const description = post ? post.text.slice(0, 160) : 'Mood not found.';
     min-width: 0;
     background: hsl(var(--foreground) / 0.035);
     border: 1px solid hsl(var(--foreground) / 0.08);
-    border-radius: 14px;
-    padding: 18px 16px;
+    border-radius: 12px;
+    padding: 14px 12px;
     display: flex;
     align-items: center;
   }
@@ -1092,7 +1092,7 @@ const description = post ? post.text.slice(0, 160) : 'Mood not found.';
   .mood-comment-skeleton-line {
     display: block;
     width: var(--line-width, 70%);
-    height: 14px;
+    height: 12px;
     background: hsl(var(--foreground) / 0.06);
     border-radius: 6px;
     position: relative;
@@ -1143,7 +1143,7 @@ const description = post ? post.text.slice(0, 160) : 'Mood not found.';
   .mood-comment {
     display: flex;
     align-items: flex-start;
-    gap: 14px;
+    gap: 10px;
     padding: 0;
     position: relative;
     animation: comment-fade-in 0.3s ease-out backwards;
@@ -1151,7 +1151,7 @@ const description = post ? post.text.slice(0, 160) : 'Mood not found.';
 
   @media (min-width: 640px) {
     .mood-comment {
-      gap: 16px;
+      gap: 12px;
     }
   }
 
@@ -1167,8 +1167,8 @@ const description = post ? post.text.slice(0, 160) : 'Mood not found.';
   }
 
   .mood-comment-avatar {
-    width: 40px;
-    height: 40px;
+    width: 32px;
+    height: 32px;
     border-radius: 50%;
     background: linear-gradient(
       135deg,
@@ -1179,19 +1179,19 @@ const description = post ? post.text.slice(0, 160) : 'Mood not found.';
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 14px;
+    font-size: 12px;
     font-weight: 600;
     color: hsl(var(--foreground) / 0.6);
     overflow: hidden;
-    border: 2px solid hsl(var(--background));
-    box-shadow: 0 2px 6px hsl(var(--foreground) / 0.08);
+    border: 1.5px solid hsl(var(--background));
+    box-shadow: 0 1px 4px hsl(var(--foreground) / 0.06);
   }
 
   @media (min-width: 640px) {
     .mood-comment-avatar {
-      width: 44px;
-      height: 44px;
-      font-size: 15px;
+      width: 36px;
+      height: 36px;
+      font-size: 13px;
     }
   }
 
@@ -1207,21 +1207,21 @@ const description = post ? post.text.slice(0, 160) : 'Mood not found.';
     min-width: 0;
     background: hsl(var(--foreground) / 0.035);
     border: 1px solid hsl(var(--foreground) / 0.08);
-    border-radius: 14px;
-    padding: 12px 14px;
+    border-radius: 12px;
+    padding: 9px 12px;
     position: relative;
   }
 
   .mood-comment-header {
     display: flex;
     align-items: center;
-    gap: 10px;
-    margin-bottom: 8px;
+    gap: 8px;
+    margin-bottom: 6px;
     flex-wrap: wrap;
   }
 
   .mood-comment-author {
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 600;
     color: hsl(var(--foreground));
     letter-spacing: -0.01em;
@@ -1229,31 +1229,31 @@ const description = post ? post.text.slice(0, 160) : 'Mood not found.';
 
   @media (min-width: 640px) {
     .mood-comment-author {
-      font-size: 15px;
+      font-size: 14px;
     }
   }
 
   .mood-comment-date {
-    font-size: 12px;
+    font-size: 11px;
     color: hsl(var(--muted-foreground) / 0.6);
     font-variant-numeric: tabular-nums;
   }
 
   @media (min-width: 640px) {
     .mood-comment-date {
-      font-size: 13px;
+      font-size: 12px;
     }
   }
 
   .mood-comment-date::before {
     content: '•';
-    margin-right: 10px;
+    margin-right: 8px;
     color: hsl(var(--muted-foreground) / 0.3);
   }
 
   .mood-comment-content {
-    font-size: 14px;
-    line-height: 1.65;
+    font-size: 13px;
+    line-height: 1.6;
     color: hsl(var(--foreground) / 0.95);
     overflow-wrap: anywhere;
     word-break: break-word;
@@ -1261,8 +1261,8 @@ const description = post ? post.text.slice(0, 160) : 'Mood not found.';
 
   @media (min-width: 640px) {
     .mood-comment-content {
-      font-size: 15px;
-      line-height: 1.7;
+      font-size: 14px;
+      line-height: 1.65;
     }
   }
 
@@ -1317,13 +1317,13 @@ const description = post ? post.text.slice(0, 160) : 'Mood not found.';
       hsl(var(--foreground) / 0.03) 0%,
       hsl(var(--foreground) / 0.06) 100%
     );
-    margin: 0.9em 0 1em;
-    padding: 10px 14px 18px;
+    margin: 0.8em 0 0.9em;
+    padding: 8px 12px 14px;
     border-left: 2px solid hsl(var(--foreground) / 0.18);
     background: var(--comment-quote-bg);
-    border-radius: 0 10px 10px 0;
-    font-size: 13px;
-    line-height: 1.6;
+    border-radius: 0 8px 8px 0;
+    font-size: 12px;
+    line-height: 1.55;
     color: hsl(var(--muted-foreground));
     position: relative;
     overflow: hidden;
@@ -1331,9 +1331,9 @@ const description = post ? post.text.slice(0, 160) : 'Mood not found.';
 
   @media (min-width: 640px) {
     .mood-comment-content :global(blockquote) {
-      padding: 12px 16px 20px;
-      font-size: 14px;
-      line-height: 1.65;
+      padding: 10px 14px 16px;
+      font-size: 13px;
+      line-height: 1.6;
     }
   }
 
@@ -1384,13 +1384,13 @@ const description = post ? post.text.slice(0, 160) : 'Mood not found.';
   .mood-comment-reactions {
     display: flex;
     flex-wrap: wrap;
-    gap: 7px;
-    margin-top: 14px;
+    gap: 6px;
+    margin-top: 10px;
   }
 
   .mood-comment-reactions .mood-reaction {
-    padding: 6px 11px 6px 10px;
-    font-size: 12px;
+    padding: 4px 9px 4px 8px;
+    font-size: 11px;
     background: hsl(var(--foreground) / 0.06);
     border: 1px solid hsl(var(--foreground) / 0.1);
     transition: all 0.2s ease;
@@ -1478,7 +1478,7 @@ const description = post ? post.text.slice(0, 160) : 'Mood not found.';
     }
 
     .mood-comments-header {
-      margin-bottom: 24px;
+      margin-bottom: 20px;
     }
 
     .mood-comments-title {
@@ -1491,43 +1491,43 @@ const description = post ? post.text.slice(0, 160) : 'Mood not found.';
     }
 
     .mood-comment {
-      gap: 11px;
+      gap: 9px;
     }
 
     .mood-comment-body {
-      padding: 14px 15px;
-      border-radius: 16px 18px 18px 5px;
+      padding: 9px 11px;
+      border-radius: 12px;
     }
 
     .mood-comment-body::before {
-      top: 18px;
-      left: -6px;
-      width: 12px;
-      height: 12px;
+      top: 12px;
+      left: -5px;
+      width: 10px;
+      height: 10px;
     }
 
     .mood-comment-avatar {
-      width: 38px;
-      height: 38px;
-      font-size: 13px;
+      width: 30px;
+      height: 30px;
+      font-size: 11px;
     }
 
     .mood-comment-author {
-      font-size: 13px;
+      font-size: 12px;
     }
 
     .mood-comment-content {
-      font-size: 14px;
+      font-size: 13px;
     }
 
     .mood-comments-load-more {
-      padding: 14px 22px;
+      padding: 12px 20px;
       font-size: 13px;
-      margin-top: 24px;
+      margin-top: 20px;
     }
 
     .mood-comments-list {
-      gap: 18px;
+      gap: 14px;
     }
   }
 </style>
@@ -1537,7 +1537,7 @@ const description = post ? post.text.slice(0, 160) : 'Mood not found.';
   .mood-comment {
     display: flex;
     align-items: flex-start;
-    gap: 14px;
+    gap: 10px;
     padding: 0;
     position: relative;
     animation: comment-fade-in 0.3s ease-out backwards;
@@ -1545,7 +1545,7 @@ const description = post ? post.text.slice(0, 160) : 'Mood not found.';
 
   @media (min-width: 640px) {
     .mood-comment {
-      gap: 16px;
+      gap: 12px;
     }
   }
 
@@ -1561,8 +1561,8 @@ const description = post ? post.text.slice(0, 160) : 'Mood not found.';
   }
 
   .mood-comment-avatar {
-    width: 40px;
-    height: 40px;
+    width: 32px;
+    height: 32px;
     border-radius: 50%;
     background: linear-gradient(
       135deg,
@@ -1573,19 +1573,19 @@ const description = post ? post.text.slice(0, 160) : 'Mood not found.';
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 14px;
+    font-size: 12px;
     font-weight: 600;
     color: hsl(var(--foreground) / 0.6);
     overflow: hidden;
-    border: 2px solid hsl(var(--background));
-    box-shadow: 0 2px 6px hsl(var(--foreground) / 0.08);
+    border: 1.5px solid hsl(var(--background));
+    box-shadow: 0 1px 4px hsl(var(--foreground) / 0.06);
   }
 
   @media (min-width: 640px) {
     .mood-comment-avatar {
-      width: 44px;
-      height: 44px;
-      font-size: 15px;
+      width: 36px;
+      height: 36px;
+      font-size: 13px;
     }
   }
 
@@ -1601,21 +1601,21 @@ const description = post ? post.text.slice(0, 160) : 'Mood not found.';
     min-width: 0;
     background: hsl(var(--foreground) / 0.035);
     border: 1px solid hsl(var(--foreground) / 0.08);
-    border-radius: 14px;
-    padding: 12px 14px;
+    border-radius: 12px;
+    padding: 9px 12px;
     position: relative;
   }
 
   .mood-comment-header {
     display: flex;
     align-items: center;
-    gap: 10px;
-    margin-bottom: 8px;
+    gap: 8px;
+    margin-bottom: 6px;
     flex-wrap: wrap;
   }
 
   .mood-comment-author {
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 600;
     color: hsl(var(--foreground));
     letter-spacing: -0.01em;
@@ -1623,31 +1623,31 @@ const description = post ? post.text.slice(0, 160) : 'Mood not found.';
 
   @media (min-width: 640px) {
     .mood-comment-author {
-      font-size: 15px;
+      font-size: 14px;
     }
   }
 
   .mood-comment-date {
-    font-size: 12px;
+    font-size: 11px;
     color: hsl(var(--muted-foreground) / 0.6);
     font-variant-numeric: tabular-nums;
   }
 
   @media (min-width: 640px) {
     .mood-comment-date {
-      font-size: 13px;
+      font-size: 12px;
     }
   }
 
   .mood-comment-date::before {
     content: '•';
-    margin-right: 10px;
+    margin-right: 8px;
     color: hsl(var(--muted-foreground) / 0.3);
   }
 
   .mood-comment-content {
-    font-size: 14px;
-    line-height: 1.65;
+    font-size: 13px;
+    line-height: 1.6;
     color: hsl(var(--foreground) / 0.95);
     overflow-wrap: anywhere;
     word-break: break-word;
@@ -1655,8 +1655,8 @@ const description = post ? post.text.slice(0, 160) : 'Mood not found.';
 
   @media (min-width: 640px) {
     .mood-comment-content {
-      font-size: 15px;
-      line-height: 1.7;
+      font-size: 14px;
+      line-height: 1.65;
     }
   }
 
@@ -1740,13 +1740,13 @@ const description = post ? post.text.slice(0, 160) : 'Mood not found.';
   .mood-comment-reactions {
     display: flex;
     flex-wrap: wrap;
-    gap: 7px;
-    margin-top: 14px;
+    gap: 6px;
+    margin-top: 10px;
   }
 
   .mood-comment-reactions .mood-reaction {
-    padding: 6px 11px 6px 10px;
-    font-size: 12px;
+    padding: 4px 9px 4px 8px;
+    font-size: 11px;
     background: hsl(var(--foreground) / 0.06);
     border: 1px solid hsl(var(--foreground) / 0.1);
     transition: all 0.2s ease;
