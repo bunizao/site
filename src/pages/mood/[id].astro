@@ -1,30 +1,25 @@
 ---
 import Layout from '../../layouts/Layout.astro';
 import dayjs from 'dayjs';
-import { getChannelInfo, type Post, type ChannelInfo } from '../../lib/telegram';
-import { getTextPreviewHtml, getFirstImage } from '../../lib/mood-utils';
-import { getEmbedHeaders } from '../../lib/embed-response';
+import { getChannelInfo, type Post } from '../../lib/telegram';
 
 export const prerender = false;
 
 const { id } = Astro.params;
+
+// Handle embed mode by redirecting to embed page
 const isEmbed = Astro.url.searchParams.get('embed') === '1';
-const theme = Astro.url.searchParams.get('theme') || 'auto';
+if (isEmbed && id) {
+  const theme = Astro.url.searchParams.get('theme') || 'auto';
+  return Astro.redirect(`/mood/embed?id=${id}&theme=${theme}&link=false`);
+}
 
 let post: Post | null = null;
-let channelTitle = 'Levitating';
-let channelAvatar = '';
 let error = false;
 
 try {
   if (id) {
     post = await getChannelInfo(Astro, { id }) as Post;
-    // Try to get channel info for avatar
-    try {
-      const channelInfo = await getChannelInfo(Astro, { type: 'list' }) as ChannelInfo;
-      if (channelInfo.title) channelTitle = channelInfo.title;
-      if (channelInfo.avatar) channelAvatar = channelInfo.avatar;
-    } catch {}
   }
 } catch (e) {
   console.error('Failed to fetch mood:', e);
@@ -35,35 +30,8 @@ if (!post) {
   Astro.response.status = 404;
 }
 
-// Set embed headers if in embed mode
-if (isEmbed) {
-  const embedHeaders = getEmbedHeaders({ maxAge: 300 });
-  embedHeaders.forEach((value, key) => {
-    Astro.response.headers.set(key, value);
-  });
-}
-
 const title = post ? `${post.title} | Moods` : 'Mood not found | Moods';
 const description = post ? post.text.slice(0, 160) : 'Mood not found.';
-
-// Embed-specific helpers
-const themeClass = theme === 'light' ? '' : theme === 'dark' ? 'dark' : '';
-
-function formatEmbedDateTime(datetime: string): string {
-  const date = new Date(datetime);
-  if (isNaN(date.getTime())) return '';
-  const now = new Date();
-  const isToday = date.toDateString() === now.toDateString();
-  const yesterday = new Date(now);
-  yesterday.setDate(yesterday.getDate() - 1);
-  const isYesterday = date.toDateString() === yesterday.toDateString();
-  const time = date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
-  if (isToday) return `Today at ${time}`;
-  if (isYesterday) return `Yesterday at ${time}`;
-  const month = date.toLocaleString('en-US', { month: 'short' });
-  const day = date.getDate();
-  return `${month} ${day} at ${time}`;
-}
 ---
 
 <Layout title={title} description={description}>
