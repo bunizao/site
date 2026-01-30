@@ -511,7 +511,7 @@ const placeholders = Array.from({ length: SKELETON_COUNT }, (_, index) => ({
     let hasLoaded = false;
 
     const MAX_MOODS = 5;
-    const ALWAYS_LOADING = false;
+    const ALWAYS_LOADING = import.meta.env.PUBLIC_DEBUG_ALWAYS_LOADING === 'true';
 
     const formatTime = (value: string): string => {
       const date = new Date(value);

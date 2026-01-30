@@ -1787,7 +1787,7 @@ const skeletonGroups = [
   const list = document.querySelector('[data-mood-list]');
   const status = document.querySelector('[data-load-status]');
   const sentinel = document.querySelector('[data-mood-sentinel]');
-  const ALWAYS_LOADING = false;
+  const ALWAYS_LOADING = import.meta.env.PUBLIC_DEBUG_ALWAYS_LOADING === 'true';
 
   if (loadingEl && errorEl && feedEl && list && status && sentinel) {
     const loadButton = document.querySelector('[data-load-more]') as HTMLButtonElement | null;
