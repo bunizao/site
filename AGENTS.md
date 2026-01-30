@@ -17,9 +17,11 @@ This file provides guidance to AI coding agents when working with code in this r
 - Do not use "for" or "to" to append reasons or outcomes (no "for clarity", "to enhance", "to improve", etc.).
 - If you need to add scope, keep it as a direct noun phrase (what changed), not a rationale.
 - Examples:
-  - ✅ `refactor: modify margin and padding for mood post reactions`
-  - ✅ `docs: add commit message guidelines in AGENTS.md`
-  - ❌ `docs: add commit message guidelines to AGENTS.md for clarity and consistency`
+  - ✅ `feat: add search filter input`
+  - ✅ `fix: handle empty response`
+  - ✅ `refactor: simplify user profile layout`
+  - ✅ `docs: add setup instructions`
+  - ❌ `docs: add setup instructions for better onboarding`
 
 ## Project Overview
 
