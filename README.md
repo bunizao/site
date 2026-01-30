@@ -71,6 +71,16 @@ These endpoints return SVG images:
 Full SVG API documentation:
 - [`docs/SVG-API.md`](docs/SVG-API.md)
 
+### oEmbed
+
+Embed mood posts on other platforms via oEmbed protocol:
+
+- `GET /api/oembed.json` - oEmbed endpoint
+- `GET /mood/embed` - Embeddable widget
+
+Full oEmbed documentation:
+- [`docs/OEMBED-API.md`](docs/OEMBED-API.md)
+
 ## Project Structure
 - `/src/pages` - Route entry points
 - `src/pages/api` - Dynamic SVG endpoints
