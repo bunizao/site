@@ -927,7 +927,7 @@ export async function getChannelInfo(
     titleHTML: (await modifyHTMLContent($, $('.tgme_channel_info_header_title'), { staticProxy }))?.html() ?? '',
     description: $('.tgme_channel_info_description')?.text() ?? '',
     descriptionHTML: (await modifyHTMLContent($, $('.tgme_channel_info_description'), { staticProxy }))?.html() ?? '',
-    avatar: $('.tgme_page_photo_image img')?.attr('src') ?? '',
+    avatar: toStaticProxyUrl($('.tgme_page_photo_image img')?.attr('src') ?? '', staticProxy),
   };
 
   cache.set(cacheKey, channelInfo);

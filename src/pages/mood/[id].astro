@@ -10,8 +10,7 @@ const { id } = Astro.params;
 // Handle embed mode by redirecting to embed page
 const isEmbed = Astro.url.searchParams.has('embed');
 if (isEmbed && id) {
-  const theme = Astro.url.searchParams.get('theme') || 'auto';
-  return Astro.redirect(`/mood/embed?id=${id}&theme=${theme}&link=false`);
+  return Astro.redirect(`/mood/embed?id=${id}&theme=${Astro.url.searchParams.get('theme') || 'auto'}&link=false`);
 }
 
 let post: Post | null = null;

@@ -33,7 +33,14 @@ if ('posts' in channelInfo) {
   channelAvatar = channelInfo.avatar || '';
 } else if (channelInfo && 'id' in channelInfo) {
   posts = [channelInfo];
-  channelTitle = 'Levitating';
+  // When fetching a single post by ID, we need to get channel info separately for avatar
+  const fullChannelInfo = await getChannelInfo(Astro, { type: 'list' });
+  if ('posts' in fullChannelInfo) {
+    channelTitle = fullChannelInfo.title || 'Levitating';
+    channelAvatar = fullChannelInfo.avatar || '';
+  } else {
+    channelTitle = 'Levitating';
+  }
 }
 
 // Set embed-friendly headers
