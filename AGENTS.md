@@ -11,6 +11,16 @@ This file provides guidance to AI coding agents when working with code in this r
 - All variable names, function names, and identifiers MUST use English words
 - No exceptions - English is the required language for all code-related content
 
+## Commit Message Guidelines
+
+- Use clear, imperative, and concise phrasing.
+- Do not use "for" or "to" to append reasons or outcomes (no "for clarity", "to enhance", "to improve", etc.).
+- If you need to add scope, keep it as a direct noun phrase (what changed), not a rationale.
+- Examples:
+  - ✅ `refactor: modify margin and padding for mood post reactions`
+  - ✅ `docs: add commit message guidelines in AGENTS.md`
+  - ❌ `docs: add commit message guidelines to AGENTS.md for clarity and consistency`
+
 ## Project Overview
 
 This is a personal bio/portfolio website built with:
