@@ -131,7 +131,8 @@ function normalizeMediaUrl(value: string): string {
 function toStaticProxyUrl(value: string, staticProxy: string): string {
   const normalized = normalizeMediaUrl(value);
   if (!normalized) return '';
-  if (normalized.startsWith(staticProxy)) return normalized;
+  // Check if already proxied (starts with /static/ or contains /static/https:)
+  if (normalized.startsWith(staticProxy) || normalized.includes('/static/https:')) return normalized;
   if (/^(data:|blob:)/i.test(normalized)) return normalized;
   if (/^https?:/i.test(normalized)) return `${staticProxy}${normalized}`;
   return normalized;
@@ -927,7 +928,7 @@ export async function getChannelInfo(
     titleHTML: (await modifyHTMLContent($, $('.tgme_channel_info_header_title'), { staticProxy }))?.html() ?? '',
     description: $('.tgme_channel_info_description')?.text() ?? '',
     descriptionHTML: (await modifyHTMLContent($, $('.tgme_channel_info_description'), { staticProxy }))?.html() ?? '',
-    avatar: toStaticProxyUrl($('.tgme_page_photo_image img')?.attr('src') ?? '', staticProxy),
+    avatar: $('.tgme_page_photo_image img')?.attr('src') ?? '',
   };
 
   cache.set(cacheKey, channelInfo);
