@@ -9,6 +9,10 @@ interface Props {
     href: string;
     title?: string;
   };
+  oembed?: {
+    href: string;
+    title?: string;
+  };
 }
 
 import '../styles/globals.css';
@@ -22,6 +26,7 @@ const {
   imageAlt = 'Bunizao',
   url,
   rss,
+  oembed,
 } = Astro.props;
 
 const site = Astro.site ?? new URL('https://buxx.me');
@@ -64,6 +69,14 @@ const ogImageType = ogImageUrl.endsWith('.png')
         type="application/rss+xml"
         title={rss.title ?? title}
         href={new URL(rss.href, site).href}
+      />
+    ) : null}
+    {oembed?.href ? (
+      <link
+        rel="alternate"
+        type="application/json+oembed"
+        title={oembed.title ?? title}
+        href={new URL(oembed.href, site).href}
       />
     ) : null}
 

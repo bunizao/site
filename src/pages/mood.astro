@@ -6,6 +6,7 @@ export const prerender = false;
 const title = "Moods | Bunizao's Website";
 const description = "Thoughts and moments from my Telegram channel";
 const rss = { href: '/mood/rss.xml', title: 'Moods RSS' };
+const oembed = { href: '/api/oembed.json?url=https://buxx.me/mood', title: 'Mood Embed' };
 const channel = import.meta.env.CHANNEL || Astro.locals?.runtime?.env?.CHANNEL || '';
 const telegramUrl = channel ? `https://t.me/${channel}` : '';
 // Skeleton structure: 2 date group cards to match actual content layout
@@ -30,7 +31,7 @@ const skeletonGroups = [
 ];
 ---
 
-<Layout title={title} description={description} rss={rss}>
+<Layout title={title} description={description} rss={rss} oembed={oembed}>
   <!-- Inject page-specific header actions -->
   <script is:inline define:vars={{ telegramUrl }}>
     (() => {

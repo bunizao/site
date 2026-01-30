@@ -1,0 +1,421 @@
+---
+import { getChannelInfo } from '../../lib/telegram';
+import {
+  getTextPreviewHtml,
+  getFirstImage,
+  formatTime,
+} from '../../lib/mood-utils';
+import { getEmbedHeaders } from '../../lib/embed-response';
+
+export const prerender = false;
+
+// Parse query parameters
+const url = Astro.url;
+const theme = url.searchParams.get('theme') || 'auto';
+const idParam = url.searchParams.get('id');
+const countParam = url.searchParams.get('count');
+const count = idParam ? 1 : Math.min(10, Math.max(1, parseInt(countParam || '1', 10) || 1));
+const refreshParam = url.searchParams.get('refresh');
+const refresh = refreshParam ? parseInt(refreshParam, 10) : null;
+const showLink = url.searchParams.get('link') !== 'false';
+
+// Fetch mood data
+const channelInfo = await getChannelInfo(Astro, idParam ? { id: idParam } : { type: 'list' });
+
+// Handle single post or list
+let posts: any[] = [];
+let channelTitle = '';
+let channelAvatar = '';
+
+if ('posts' in channelInfo) {
+  posts = channelInfo.posts.slice(0, count);
+  channelTitle = channelInfo.title || 'Levitating';
+  channelAvatar = channelInfo.avatar || '';
+} else if (channelInfo && 'id' in channelInfo) {
+  posts = [channelInfo];
+  channelTitle = 'Levitating';
+}
+
+// Set embed-friendly headers
+const embedHeaders = getEmbedHeaders({ maxAge: 300 });
+embedHeaders.forEach((value, key) => {
+  Astro.response.headers.set(key, value);
+});
+
+// Determine theme class
+const themeClass = theme === 'light' ? '' : theme === 'dark' ? 'dark' : '';
+
+// Format datetime for display
+function formatDateTime(datetime: string): string {
+  const date = new Date(datetime);
+  if (isNaN(date.getTime())) return '';
+  const now = new Date();
+  const isToday = date.toDateString() === now.toDateString();
+  const yesterday = new Date(now);
+  yesterday.setDate(yesterday.getDate() - 1);
+  const isYesterday = date.toDateString() === yesterday.toDateString();
+
+  const time = date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+
+  if (isToday) return `Today at ${time}`;
+  if (isYesterday) return `Yesterday at ${time}`;
+
+  const month = date.toLocaleString('en-US', { month: 'short' });
+  const day = date.getDate();
+  return `${month} ${day} at ${time}`;
+}
+---
+
+<!DOCTYPE html>
+<html lang="en" class={themeClass} data-embed-theme={theme}>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>Mood Embed</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <style is:inline>
+    :root {
+      --background: 0 0% 100%;
+      --foreground: 0 0% 0%;
+      --muted: 0 0% 40%;
+      --muted-foreground: 0 0% 40%;
+      --border: 0 0% 90%;
+      --card-bg: 0 0% 100%;
+      --card-border: 0 0% 88%;
+      --card-shadow: 0 0% 0% / 0.06;
+    }
+
+    .dark {
+      --background: 0 0% 4%;
+      --foreground: 0 0% 100%;
+      --muted: 0 0% 53%;
+      --muted-foreground: 0 0% 53%;
+      --border: 0 0% 20%;
+      --card-bg: 0 0% 8%;
+      --card-border: 0 0% 18%;
+      --card-shadow: 0 0% 0% / 0.3;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    html, body {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 14px;
+      line-height: 1.6;
+      background: transparent;
+      color: hsl(var(--foreground));
+    }
+
+    body {
+      padding: 8px;
+    }
+
+    a {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    /* Card container */
+    .embed-card {
+      background: hsl(var(--card-bg));
+      border: 1px solid hsl(var(--card-border));
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 2px 8px hsl(var(--card-shadow)), 0 1px 3px hsl(var(--card-shadow));
+    }
+
+    .embed-card + .embed-card {
+      margin-top: 12px;
+    }
+
+    /* Header */
+    .card-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 14px;
+      border-bottom: 1px solid hsl(var(--card-border));
+    }
+
+    .channel-avatar {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: hsl(var(--muted-foreground) / 0.15);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      font-weight: 600;
+      color: hsl(var(--foreground));
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+
+    .channel-avatar img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .channel-info {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .channel-name {
+      font-size: 13px;
+      font-weight: 600;
+      color: hsl(var(--foreground));
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .channel-name:hover {
+      text-decoration: underline;
+      text-underline-offset: 2px;
+    }
+
+    /* Content */
+    .card-content {
+      padding: 14px;
+    }
+
+    .mood-text {
+      font-size: 14px;
+      line-height: 1.6;
+      word-wrap: break-word;
+      overflow-wrap: break-word;
+    }
+
+    .mood-text a {
+      text-decoration: underline;
+      text-underline-offset: 2px;
+    }
+
+    .mood-text a:hover {
+      opacity: 0.7;
+    }
+
+    .mood-image {
+      margin-top: 12px;
+      width: 100%;
+      max-height: 300px;
+      object-fit: cover;
+      border-radius: 8px;
+    }
+
+    /* Footer */
+    .card-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 10px 14px;
+      border-top: 1px solid hsl(var(--card-border));
+      font-size: 11px;
+      color: hsl(var(--muted-foreground));
+    }
+
+    .footer-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .mood-reactions {
+      display: flex;
+      gap: 8px;
+    }
+
+    .mood-reaction {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      padding: 2px 6px;
+      background: hsl(var(--muted-foreground) / 0.08);
+      border-radius: 10px;
+      font-size: 11px;
+    }
+
+    .reaction-emoji {
+      font-size: 12px;
+    }
+
+    .reaction-emoji-img {
+      width: 14px;
+      height: 14px;
+      vertical-align: middle;
+    }
+
+    .mood-datetime {
+      white-space: nowrap;
+    }
+
+    .mood-datetime:hover {
+      text-decoration: underline;
+      text-underline-offset: 2px;
+    }
+
+    /* View more link */
+    .view-more {
+      display: block;
+      text-align: center;
+      padding: 10px;
+      margin-top: 8px;
+      font-size: 12px;
+      color: hsl(var(--muted-foreground));
+      transition: color 0.15s ease;
+    }
+
+    .view-more:hover {
+      color: hsl(var(--foreground));
+    }
+
+    .view-more::after {
+      content: ' →';
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 32px 16px;
+      color: hsl(var(--muted-foreground));
+      font-size: 13px;
+    }
+
+    /* Auto theme detection */
+    @media (prefers-color-scheme: dark) {
+      html[data-embed-theme="auto"] {
+        --background: 0 0% 4%;
+        --foreground: 0 0% 100%;
+        --muted: 0 0% 53%;
+        --muted-foreground: 0 0% 53%;
+        --border: 0 0% 20%;
+        --card-bg: 0 0% 8%;
+        --card-border: 0 0% 18%;
+        --card-shadow: 0 0% 0% / 0.3;
+      }
+    }
+  </style>
+</head>
+<body>
+  {posts.length === 0 ? (
+    <div class="empty-state">No moods to display</div>
+  ) : (
+    <>
+      {posts.map((post) => {
+        const previewHtml = getTextPreviewHtml(post);
+        const image = getFirstImage(post.content);
+        const datetime = formatDateTime(post.datetime);
+        const postUrl = `/mood/${post.id}`;
+        const channelUrl = '/mood';
+        const initial = channelTitle.charAt(0).toUpperCase();
+
+        return (
+          <article class="embed-card">
+            <header class="card-header">
+              <a href={channelUrl} target="_blank" rel="noopener" class="channel-avatar">
+                {channelAvatar ? (
+                  <img src={channelAvatar} alt={channelTitle} />
+                ) : (
+                  initial
+                )}
+              </a>
+              <div class="channel-info">
+                <a href={channelUrl} target="_blank" rel="noopener" class="channel-name">
+                  {channelTitle}
+                </a>
+              </div>
+            </header>
+
+            <div class="card-content">
+              {previewHtml && (
+                <div class="mood-text" set:html={previewHtml} />
+              )}
+              {image && (
+                <img class="mood-image" src={image} alt="" loading="lazy" />
+              )}
+            </div>
+
+            <footer class="card-footer">
+              <div class="footer-left">
+                {post.reactions && post.reactions.length > 0 && (
+                  <div class="mood-reactions">
+                    {post.reactions.slice(0, 4).map((reaction: any) => (
+                      <span class="mood-reaction">
+                        {reaction.emojiImage ? (
+                          <img class="reaction-emoji-img" src={reaction.emojiImage} alt="" />
+                        ) : (
+                          <span class="reaction-emoji">{reaction.emoji}</span>
+                        )}
+                        <span>{reaction.count}</span>
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <a href={postUrl} target="_blank" rel="noopener" class="mood-datetime">
+                {datetime}
+              </a>
+            </footer>
+          </article>
+        );
+      })}
+      {showLink && posts.length > 0 && (
+        <a class="view-more" href="/mood" target="_blank" rel="noopener">
+          View all moods
+        </a>
+      )}
+    </>
+  )}
+
+  <script is:inline define:vars={{ refresh }}>
+    // Notify parent of height for responsive iframe
+    function sendHeight() {
+      const height = document.documentElement.scrollHeight;
+      window.parent.postMessage({ type: 'mood-embed-resize', height }, '*');
+    }
+
+    // Send initial height
+    sendHeight();
+
+    // Send height on resize
+    window.addEventListener('resize', sendHeight);
+
+    // Send height after images load
+    document.querySelectorAll('img').forEach(img => {
+      img.addEventListener('load', sendHeight);
+    });
+
+    // Auto-refresh if configured
+    if (refresh && refresh > 0) {
+      setInterval(() => {
+        window.location.reload();
+      }, refresh * 1000);
+    }
+
+    // Theme sync with parent
+    window.addEventListener('message', (event) => {
+      if (event.data && event.data.type === 'mood-embed-theme') {
+        const html = document.documentElement;
+        const theme = event.data.theme;
+        if (theme === 'dark') {
+          html.classList.add('dark');
+          html.classList.remove('light');
+        } else if (theme === 'light') {
+          html.classList.remove('dark');
+          html.classList.add('light');
+        }
+      }
+    });
+  </script>
+</body>
+</html>
