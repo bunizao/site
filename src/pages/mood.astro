@@ -1594,6 +1594,299 @@ const skeletonGroups = [
     font-variant-numeric: tabular-nums;
   }
 
+  /* Comments popover wrapper */
+  :global(.mood-comments-wrapper) {
+    position: relative;
+    display: inline-flex;
+  }
+
+  :global(.mood-comments-popover) {
+    position: absolute;
+    bottom: calc(100% + 8px);
+    left: 50%;
+    transform: translateX(-50%);
+    width: 320px;
+    max-width: calc(100vw - 32px);
+    max-height: 280px;
+    overflow-y: auto;
+    background: hsl(var(--background));
+    border: 1px solid hsl(var(--foreground) / 0.1);
+    border-radius: 12px;
+    box-shadow:
+      0 4px 24px hsl(var(--foreground) / 0.08),
+      0 0 0 1px hsl(var(--foreground) / 0.04);
+    padding: 12px;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateX(-50%) translateY(4px);
+    transition: opacity 0.2s ease, transform 0.2s ease, visibility 0.2s;
+    z-index: 100;
+    pointer-events: none;
+  }
+
+  :global(.mood-comments-wrapper:hover .mood-comments-popover),
+  :global(.mood-comments-popover:hover) {
+    opacity: 1;
+    visibility: visible;
+    transform: translateX(-50%) translateY(0);
+    pointer-events: auto;
+  }
+
+  :global(.mood-comments-popover::before) {
+    content: '';
+    position: absolute;
+    bottom: -8px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 16px;
+    height: 8px;
+    background: transparent;
+  }
+
+  :global(.mood-comments-popover-arrow) {
+    position: absolute;
+    bottom: -6px;
+    left: 50%;
+    transform: translateX(-50%) rotate(45deg);
+    width: 10px;
+    height: 10px;
+    background: hsl(var(--background));
+    border-right: 1px solid hsl(var(--foreground) / 0.1);
+    border-bottom: 1px solid hsl(var(--foreground) / 0.1);
+  }
+
+  :global(.mood-comments-popover-list) {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  :global(.mood-comments-popover-empty) {
+    text-align: center;
+    padding: 16px 8px;
+    color: hsl(var(--muted-foreground) / 0.6);
+    font-size: 13px;
+    font-style: italic;
+  }
+
+  :global(.mood-comments-popover-loading) {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  :global(.mood-popover-comment) {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  :global(.mood-popover-comment-avatar) {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: linear-gradient(
+      135deg,
+      hsl(var(--foreground) / 0.1) 0%,
+      hsl(var(--foreground) / 0.05) 100%
+    );
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    font-weight: 600;
+    color: hsl(var(--foreground) / 0.5);
+    overflow: hidden;
+  }
+
+  :global(.mood-popover-comment-avatar img) {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  :global(.mood-popover-comment-body) {
+    flex: 1;
+    min-width: 0;
+    background: hsl(var(--foreground) / 0.03);
+    border: 1px solid hsl(var(--foreground) / 0.06);
+    border-radius: 10px;
+    padding: 8px 10px;
+  }
+
+  :global(.mood-popover-comment-header) {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 4px;
+    flex-wrap: wrap;
+  }
+
+  :global(.mood-popover-comment-author) {
+    font-size: 12px;
+    font-weight: 600;
+    color: hsl(var(--foreground));
+    letter-spacing: -0.01em;
+  }
+
+  :global(.mood-popover-comment-date) {
+    font-size: 10px;
+    color: hsl(var(--muted-foreground) / 0.5);
+    font-variant-numeric: tabular-nums;
+  }
+
+  :global(.mood-popover-comment-date::before) {
+    content: '•';
+    margin-right: 6px;
+    color: hsl(var(--muted-foreground) / 0.3);
+  }
+
+  :global(.mood-popover-comment-content) {
+    font-size: 12px;
+    line-height: 1.5;
+    color: hsl(var(--foreground) / 0.9);
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+
+  :global(.mood-popover-comment-content p) {
+    margin: 0;
+  }
+
+  :global(.mood-popover-comment-content p + p) {
+    margin-top: 0.5em;
+  }
+
+  :global(.mood-popover-comment-content blockquote) {
+    margin: 0.4em 0;
+    padding: 3px 8px;
+    border-left: 2px solid hsl(var(--foreground) / 0.12);
+    background: hsl(var(--foreground) / 0.02);
+    border-radius: 0 4px 4px 0;
+    font-size: 11px;
+    line-height: 1.4;
+    color: hsl(var(--muted-foreground) / 0.8);
+  }
+
+  :global(.mood-popover-comment-content .tg-emoji) {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1em;
+    height: 1em;
+    vertical-align: -0.1em;
+  }
+
+  :global(.mood-popover-comment-content .tg-emoji img) {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+
+  :global(.mood-popover-view-all) {
+    display: block;
+    text-align: center;
+    padding: 8px;
+    margin-top: 6px;
+    font-size: 11px;
+    font-weight: 500;
+    color: hsl(var(--muted-foreground) / 0.7);
+    text-decoration: none;
+    border-top: 1px solid hsl(var(--foreground) / 0.06);
+    transition: color 0.15s ease;
+  }
+
+  :global(.mood-popover-view-all:hover) {
+    color: hsl(var(--foreground));
+  }
+
+  /* Skeleton for popover loading */
+  :global(.mood-popover-skeleton) {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  :global(.mood-popover-skeleton-avatar) {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: hsl(var(--foreground) / 0.08);
+    position: relative;
+    overflow: hidden;
+  }
+
+  :global(.mood-popover-skeleton-avatar::after) {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      hsl(var(--foreground) / 0.12) 50%,
+      transparent 100%
+    );
+    animation: popover-shimmer 1.5s ease-in-out infinite;
+  }
+
+  :global(.mood-popover-skeleton-body) {
+    flex: 1;
+  }
+
+  :global(.mood-popover-skeleton-line) {
+    height: 10px;
+    background: hsl(var(--foreground) / 0.08);
+    border-radius: 4px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  :global(.mood-popover-skeleton-line::after) {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      hsl(var(--foreground) / 0.12) 50%,
+      transparent 100%
+    );
+    animation: popover-shimmer 1.5s ease-in-out infinite;
+  }
+
+  :global(.mood-popover-skeleton-line--short) {
+    width: 60%;
+    margin-bottom: 6px;
+  }
+
+  :global(.mood-popover-skeleton-line--long) {
+    width: 90%;
+  }
+
+  @keyframes popover-shimmer {
+    0% {
+      transform: translateX(-100%);
+    }
+    100% {
+      transform: translateX(100%);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    :global(.mood-popover-skeleton-avatar::after),
+    :global(.mood-popover-skeleton-line::after) {
+      animation: none;
+    }
+  }
+
+  /* Mobile: hide popover, keep link behavior */
+  @media (max-width: 768px) {
+    :global(.mood-comments-popover) {
+      display: none;
+    }
+  }
+
   :global(.mood-feed) {
     display: flex;
     flex-direction: column;
@@ -2343,6 +2636,135 @@ const skeletonGroups = [
 
     const animatedEmoji = createAnimatedEmojiManager();
 
+    // Comments popover manager
+    const commentsPopoverManager = (() => {
+      const cache = new Map<string, any[]>();
+      const pendingFetches = new Map<string, Promise<any[]>>();
+
+      const formatDate = (datetime: string): string => {
+        const date = new Date(datetime);
+        const now = new Date();
+        const diffMs = now.getTime() - date.getTime();
+        const diffMins = Math.floor(diffMs / 60000);
+        const diffHours = Math.floor(diffMs / 3600000);
+        const diffDays = Math.floor(diffMs / 86400000);
+
+        if (diffMins < 1) return 'just now';
+        if (diffMins < 60) return `${diffMins}m`;
+        if (diffHours < 24) return `${diffHours}h`;
+        if (diffDays < 7) return `${diffDays}d`;
+        return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      };
+
+      const getInitials = (name: string): string => {
+        return name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase() || '?';
+      };
+
+      const fetchComments = async (postId: string): Promise<any[]> => {
+        if (cache.has(postId)) {
+          return cache.get(postId)!;
+        }
+
+        if (pendingFetches.has(postId)) {
+          return pendingFetches.get(postId)!;
+        }
+
+        const promise = (async () => {
+          try {
+            const response = await fetch(`/api/comments?postId=${postId}`);
+            const data = await response.json();
+            const comments = data.comments || [];
+            cache.set(postId, comments);
+            return comments;
+          } catch (error) {
+            console.error('Failed to fetch comments:', error);
+            return [];
+          } finally {
+            pendingFetches.delete(postId);
+          }
+        })();
+
+        pendingFetches.set(postId, promise);
+        return promise;
+      };
+
+      const renderComment = (comment: any): string => {
+        const avatarContent = comment.authorAvatar
+          ? `<img src="${comment.authorAvatar}" alt="${comment.author}" loading="lazy" />`
+          : getInitials(comment.author);
+
+        return `
+          <div class="mood-popover-comment">
+            <div class="mood-popover-comment-avatar">${avatarContent}</div>
+            <div class="mood-popover-comment-body">
+              <div class="mood-popover-comment-header">
+                <span class="mood-popover-comment-author">${comment.author}</span>
+                <time class="mood-popover-comment-date" datetime="${comment.datetime}">${formatDate(comment.datetime)}</time>
+              </div>
+              <div class="mood-popover-comment-content">${comment.content}</div>
+            </div>
+          </div>
+        `;
+      };
+
+      const renderPopover = (popover: HTMLElement, comments: any[], postId: string): void => {
+        const maxComments = 3;
+        const displayComments = comments.slice(0, maxComments);
+        const hasMore = comments.length > maxComments;
+
+        if (displayComments.length === 0) {
+          popover.innerHTML = `
+            <div class="mood-comments-popover-arrow"></div>
+            <div class="mood-comments-popover-empty">No comments yet</div>
+          `;
+          return;
+        }
+
+        const commentsHtml = displayComments.map(renderComment).join('');
+        const viewAllHtml = hasMore
+          ? `<a href="/mood/${postId}#comments" class="mood-popover-view-all">View all ${comments.length} comments</a>`
+          : '';
+
+        popover.innerHTML = `
+          <div class="mood-comments-popover-arrow"></div>
+          <div class="mood-comments-popover-list">${commentsHtml}</div>
+          ${viewAllHtml}
+        `;
+
+        // Hydrate animated emojis in popover
+        animatedEmoji.hydrate(popover);
+      };
+
+      const handleHover = async (wrapper: HTMLElement): Promise<void> => {
+        const postId = wrapper.dataset.postId;
+        if (!postId) return;
+
+        const popover = wrapper.querySelector('.mood-comments-popover') as HTMLElement;
+        if (!popover) return;
+
+        // Skip if already loaded
+        if (popover.dataset.loaded === 'true') return;
+
+        const comments = await fetchComments(postId);
+        renderPopover(popover, comments, postId);
+        popover.dataset.loaded = 'true';
+      };
+
+      const init = (): void => {
+        document.addEventListener('mouseenter', (e) => {
+          const target = e.target as HTMLElement;
+          const wrapper = target.closest('.mood-comments-wrapper') as HTMLElement;
+          if (wrapper) {
+            handleHover(wrapper);
+          }
+        }, true);
+      };
+
+      return { init, handleHover };
+    })();
+
+    commentsPopoverManager.init();
+
     interface ReactionData {
       emoji: string;
       emojiId?: string;
@@ -2742,8 +3164,12 @@ const skeletonGroups = [
           });
         }
 
-        // Add comments indicator
+        // Add comments indicator with hover popover
         if (hasComments) {
+          const wrapper = document.createElement('div');
+          wrapper.className = 'mood-comments-wrapper';
+          wrapper.dataset.postId = mood.id;
+
           const commentsLink = document.createElement('a');
           commentsLink.className = 'mood-item-comments';
           commentsLink.href = `/mood/${mood.id}#comments`;
@@ -2761,7 +3187,33 @@ const skeletonGroups = [
 
           commentsLink.appendChild(iconSpan);
           commentsLink.appendChild(countSpan);
-          reactionsWrap.appendChild(commentsLink);
+
+          // Create popover
+          const popover = document.createElement('div');
+          popover.className = 'mood-comments-popover';
+          popover.innerHTML = `
+            <div class="mood-comments-popover-arrow"></div>
+            <div class="mood-comments-popover-loading">
+              <div class="mood-popover-skeleton">
+                <div class="mood-popover-skeleton-avatar"></div>
+                <div class="mood-popover-skeleton-body">
+                  <div class="mood-popover-skeleton-line mood-popover-skeleton-line--short"></div>
+                  <div class="mood-popover-skeleton-line mood-popover-skeleton-line--long"></div>
+                </div>
+              </div>
+              <div class="mood-popover-skeleton">
+                <div class="mood-popover-skeleton-avatar"></div>
+                <div class="mood-popover-skeleton-body">
+                  <div class="mood-popover-skeleton-line mood-popover-skeleton-line--short"></div>
+                  <div class="mood-popover-skeleton-line mood-popover-skeleton-line--long"></div>
+                </div>
+              </div>
+            </div>
+          `;
+
+          wrapper.appendChild(commentsLink);
+          wrapper.appendChild(popover);
+          reactionsWrap.appendChild(wrapper);
         }
 
         content.appendChild(reactionsWrap);
