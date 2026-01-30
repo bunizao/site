@@ -107,14 +107,60 @@ const description = post ? post.text.slice(0, 160) : 'Mood not found.';
           </div>
           <div class="mood-comments-list" data-comments-list>
             <div class="mood-comments-skeleton" data-comments-loading>
-              {[0, 1].map((i) => (
-                <div class="mood-comment-skeleton" style={`--skeleton-index: ${i};`}>
-                  <div class="mood-comment-skeleton-avatar"></div>
-                  <div class="mood-comment-skeleton-box">
-                    <span class="mood-comment-skeleton-line" style="--line-width: 70%;"></span>
+              <div class="mood-comment mood-comment--skeleton" style="--skeleton-delay: 0s;">
+                <div class="mood-comment-avatar mood-comment-avatar--skeleton" aria-hidden="true"></div>
+                <div class="mood-comment-body">
+                  <div class="mood-comment-header">
+                    <span
+                      class="mood-comment-skeleton-line mood-comment-skeleton-line--author"
+                      style="--line-width: 100px;"
+                    ></span>
+                    <span
+                      class="mood-comment-skeleton-line mood-comment-skeleton-line--date"
+                      style="--line-width: 49px;"
+                    ></span>
+                  </div>
+                  <div class="mood-comment-content mood-comment-content--skeleton">
+                    <span
+                      class="mood-comment-skeleton-line mood-comment-skeleton-line--content"
+                      style="--line-width: 34px;"
+                    ></span>
                   </div>
                 </div>
-              ))}
+              </div>
+              <div class="mood-comment mood-comment--skeleton" style="--skeleton-delay: 0.15s;">
+                <div class="mood-comment-avatar mood-comment-avatar--skeleton" aria-hidden="true"></div>
+                <div class="mood-comment-body">
+                  <div class="mood-comment-header">
+                    <span
+                      class="mood-comment-skeleton-line mood-comment-skeleton-line--author"
+                      style="--line-width: 120px;"
+                    ></span>
+                    <span
+                      class="mood-comment-skeleton-line mood-comment-skeleton-line--date"
+                      style="--line-width: 62px;"
+                    ></span>
+                  </div>
+                  <div class="mood-comment-content mood-comment-content--skeleton">
+                    <blockquote class="mood-comment-skeleton-quote">
+                      <small>
+                        <span
+                          class="mood-comment-skeleton-line mood-comment-skeleton-line--quote"
+                          style="--line-width: 170px;"
+                        ></span>
+                        <span
+                          class="mood-comment-skeleton-line mood-comment-skeleton-line--quote"
+                          style="--line-width: 120px;"
+                        ></span>
+                      </small>
+                    </blockquote>
+                    <span
+                      class="mood-comment-skeleton-line mood-comment-skeleton-line--content"
+                      style="--line-width: 150px;"
+                    ></span>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
           <div class="mood-comments-empty" data-comments-empty hidden>
@@ -1168,66 +1214,38 @@ const description = post ? post.text.slice(0, 160) : 'Mood not found.';
     gap: 16px;
   }
 
-  .mood-comment-skeleton {
-    display: flex;
-    align-items: flex-start;
-    gap: 10px;
-    --skeleton-delay: calc(var(--skeleton-index, 0) * 0.15s);
+  .mood-comment--skeleton {
+    animation: none;
   }
 
-  @media (min-width: 640px) {
-    .mood-comment-skeleton {
-      gap: 12px;
-    }
+  .mood-comment--skeleton .mood-comment-body {
+    width: fit-content;
   }
 
-  .mood-comment-skeleton-avatar {
-    width: 32px;
-    height: 32px;
-    border-radius: 50%;
-    background: hsl(var(--foreground) / 0.06);
-    flex-shrink: 0;
+  .mood-comment-avatar--skeleton {
     position: relative;
     overflow: hidden;
   }
 
-  .mood-comment-skeleton-avatar::after {
+  .mood-comment-avatar--skeleton::after {
     content: '';
     position: absolute;
     inset: 0;
     background: linear-gradient(
       90deg,
       transparent 0%,
-      hsl(var(--foreground) / 0.08) 50%,
+      hsl(var(--foreground) / 0.15) 50%,
       transparent 100%
     );
     animation: comment-skeleton-shimmer 2s ease-in-out infinite;
-    animation-delay: var(--skeleton-delay);
-  }
-
-  @media (min-width: 640px) {
-    .mood-comment-skeleton-avatar {
-      width: 36px;
-      height: 36px;
-    }
-  }
-
-  .mood-comment-skeleton-box {
-    flex: 1;
-    min-width: 0;
-    background: hsl(var(--foreground) / 0.035);
-    border: 1px solid hsl(var(--foreground) / 0.08);
-    border-radius: 12px;
-    padding: 14px 12px;
-    display: flex;
-    align-items: center;
+    animation-delay: var(--skeleton-delay, 0s);
   }
 
   .mood-comment-skeleton-line {
     display: block;
-    width: var(--line-width, 70%);
-    height: 12px;
-    background: hsl(var(--foreground) / 0.06);
+    width: var(--line-width, 120px);
+    height: var(--line-height, 12px);
+    background: hsl(var(--foreground) / 0.1);
     border-radius: 6px;
     position: relative;
     overflow: hidden;
@@ -1240,11 +1258,36 @@ const description = post ? post.text.slice(0, 160) : 'Mood not found.';
     background: linear-gradient(
       90deg,
       transparent 0%,
-      hsl(var(--foreground) / 0.08) 50%,
+      hsl(var(--foreground) / 0.18) 50%,
       transparent 100%
     );
     animation: comment-skeleton-shimmer 2s ease-in-out infinite;
-    animation-delay: calc(var(--skeleton-delay) + 0.1s);
+    animation-delay: var(--skeleton-delay, 0s);
+  }
+
+  .mood-comment-skeleton-line--author {
+    --line-height: 13px;
+  }
+
+  .mood-comment-skeleton-line--date {
+    --line-height: 10px;
+    background: hsl(var(--foreground) / 0.08);
+  }
+
+  .mood-comment-skeleton-line--quote {
+    --line-height: 11px;
+  }
+
+  .mood-comment-content--skeleton {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .mood-comment-content .mood-comment-skeleton-quote small {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
   }
 
   @keyframes comment-skeleton-shimmer {
@@ -1257,7 +1300,7 @@ const description = post ? post.text.slice(0, 160) : 'Mood not found.';
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .mood-comment-skeleton-avatar::after,
+    .mood-comment-avatar--skeleton::after,
     .mood-comment-skeleton-line::after {
       animation: none;
     }
@@ -2219,7 +2262,11 @@ const description = post ? post.text.slice(0, 160) : 'Mood not found.';
   animatedEmoji.hydrate(document);
 
   // Comments loading functionality
+  const ALWAYS_LOADING = import.meta.env.PUBLIC_DEBUG_ALWAYS_LOADING === 'true';
+
   const initComments = async () => {
+    if (ALWAYS_LOADING) return; // Skip loading, keep skeleton visible
+
     const commentsSection = document.querySelector('[data-post-id]') as HTMLElement;
     if (!commentsSection) return;
 
