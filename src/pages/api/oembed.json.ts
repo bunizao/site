@@ -32,11 +32,6 @@ function clamp(value: number, min: number, max: number): number {
 export const GET: APIRoute = async ({ url, request }) => {
   const corsHeaders = getCorsHeaders();
 
-  // Handle preflight requests
-  if (request.method === 'OPTIONS') {
-    return new Response(null, { status: 204, headers: corsHeaders });
-  }
-
   const params = url.searchParams;
   const requestedUrl = params.get('url');
 
@@ -134,4 +129,9 @@ export const GET: APIRoute = async ({ url, request }) => {
       ...Object.fromEntries(corsHeaders),
     },
   });
+};
+
+export const OPTIONS: APIRoute = async () => {
+  const corsHeaders = getCorsHeaders();
+  return new Response(null, { status: 204, headers: corsHeaders });
 };
