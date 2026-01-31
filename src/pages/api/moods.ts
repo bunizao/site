@@ -1,7 +1,7 @@
 import type { APIRoute } from 'astro';
 import { getChannelInfo, type ChannelInfo } from '../../lib/telegram';
 import {
-  getFirstImageMeta,
+  getFirstImage,
   getInlineMediaPreview,
   getTextPreview,
   getTextPreviewHtml,
@@ -32,16 +32,13 @@ export const GET: APIRoute = async ({ request, locals }) => {
       const previewHtml = getTextPreviewHtml(post);
       const quote = getQuotePreview(post.content, { channel, channelTitle });
       const needsDetailPage = !mediaPreview && (hasMedia(post.content) || isLongContent(previewText));
-      const imageMeta = mediaPreview ? null : getFirstImageMeta(post.content);
       return {
         id: post.id,
         datetime: post.datetime,
         tag: post.tags?.[0] ?? '',
         previewText,
         previewHtml,
-        image: imageMeta?.src ?? null,
-        imageWidth: imageMeta?.width,
-        imageHeight: imageMeta?.height,
+        image: mediaPreview ? null : getFirstImage(post.content),
         mediaHtml: mediaPreview?.html ?? '',
         needsDetailPage,
         forwardedFrom: post.forwardedFrom ?? null,

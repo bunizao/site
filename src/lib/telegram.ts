@@ -4,7 +4,6 @@ import type { CheerioAPI, Element } from 'cheerio';
 import { LRUCache } from 'lru-cache';
 import flourite from 'flourite';
 import Prism from 'prismjs';
-import { buildImageSrcset, setImageWidth } from './image-utils';
 
 // Import Prism language components
 import 'prismjs-components-importer/cjs/prism-c';
@@ -213,16 +212,6 @@ function getImages($: CheerioAPI, item: Element, { staticProxy, id, index, title
       const url = style.match(/url\(["'](.*?)["']/)?.[1];
       // Upgrade to higher quality image
       const highQualityUrl = upgradeImageQuality(url ?? '');
-      const imageSrc = `${staticProxy}${highQualityUrl}`;
-      const srcset = buildImageSrcset(imageSrc, [320, 480, 640, 960, 1280, 1600, 2048]);
-      const srcsetAttr = srcset
-        ? ` srcset="${escapeHtml(srcset)}" sizes="(min-width: 900px) min(70vw, 900px), 100vw"`
-        : '';
-      const safeSrc = escapeHtml(imageSrc);
-      const modalSrc = setImageWidth(imageSrc, 2048);
-      const modalSrcsetAttr = srcset
-        ? ` srcset="${escapeHtml(srcset)}" sizes="(min-width: 900px) min(90vw, 1200px), 100vw"`
-        : '';
       const widthMatch = style.match(/width:\s*(\d+)px/i);
       const heightMatch = style.match(/height:\s*(\d+)px/i);
       // Telegram uses padding-top percentage for aspect ratio (height/width * 100)
@@ -245,10 +234,10 @@ function getImages($: CheerioAPI, item: Element, { staticProxy, id, index, title
       const popoverId = `modal-${id}-${_index}`;
       return `
       <button class="image-preview-button image-preview-wrap${portraitClass}" popovertarget="${popoverId}" popovertargetaction="show"${widthStyle}>
-        <img src="${safeSrc}" alt="${title}" loading="${(index ?? 0) > 15 ? 'eager' : 'lazy'}"${widthAttr}${heightAttr}${srcsetAttr} />
+        <img src="${staticProxy + highQualityUrl}" alt="${title}" loading="${(index ?? 0) > 15 ? 'eager' : 'lazy'}"${widthAttr}${heightAttr} />
       </button>
       <button class="image-preview-button modal" id="${popoverId}" popovertarget="${popoverId}" popovertargetaction="hide" popover>
-        <img class="modal-img" src="${escapeHtml(modalSrc)}" alt="${title}" loading="lazy"${modalSrcsetAttr} />
+        <img class="modal-img" src="${staticProxy + highQualityUrl}" alt="${title}" loading="lazy" />
       </button>
     `;
     })
@@ -369,17 +358,10 @@ function getLinkPreview($: CheerioAPI, item: Element, { staticProxy, index }: Co
 
   const image = $(item).find('.link_preview_image');
   const src = image?.attr('style')?.match(/url\(["'](.*?)["']/i)?.[1];
-  const imageSrc = src ? `${staticProxy}${src}` : '';
-  const baseImageSrc = imageSrc ? setImageWidth(imageSrc, 640) : '';
-  const srcset = baseImageSrc
-    ? buildImageSrcset(baseImageSrc, [240, 360, 480, 640, 960])
-    : '';
-  const srcsetAttr = srcset
-    ? ` srcset="${escapeHtml(srcset)}" sizes="(min-width: 640px) 360px, 100vw"`
-    : '';
+  const imageSrc = src ? staticProxy + src : '';
 
   const imageMarkup = imageSrc
-    ? `<span class="bookmark-card__media"><img src="${escapeHtml(baseImageSrc)}" alt="${escapeHtml(rawTitle)}" loading="${(index ?? 0) > 15 ? 'eager' : 'lazy'}"${srcsetAttr} /></span>`
+    ? `<span class="bookmark-card__media"><img src="${escapeHtml(imageSrc)}" alt="${escapeHtml(rawTitle)}" loading="${(index ?? 0) > 15 ? 'eager' : 'lazy'}" /></span>`
     : '';
   const descriptionMarkup = shortDescription
     ? `<span class="bookmark-card__description">${escapeHtml(shortDescription)}</span>`
