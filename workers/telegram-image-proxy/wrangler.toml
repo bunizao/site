@@ -1,0 +1,15 @@
+name = "telegram-image-proxy"
+main = "src/index.ts"
+compatibility_date = "2024-01-01"
+
+# KV Namespace binding - update the id after running:
+# npx wrangler kv:namespace create MOOD_IMAGES
+[[kv_namespaces]]
+binding = "MOOD_IMAGES"
+id = "<your-namespace-id>"
+
+# Custom domain configuration (set up in Cloudflare Dashboard):
+# Workers -> telegram-image-proxy -> Triggers -> Add Custom Domain -> image.buxx.me
+
+# Secrets (set via `npx wrangler secret put <NAME>`):
+# - TELEGRAM_BOT_TOKEN

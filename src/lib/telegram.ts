@@ -109,8 +109,12 @@ function escapeHtml(value: string = ''): string {
   });
 }
 
+// HD image proxy URL (Cloudflare Worker)
+const HD_IMAGE_URL = import.meta.env.PUBLIC_HD_IMAGE_URL || '';
+
 /**
  * Upgrade image URL to higher quality by modifying the width parameter
+ * Note: This is now a fallback - HD images come from the Worker proxy
  */
 function upgradeImageQuality(url: string): string {
   if (!url) return url;
@@ -210,8 +214,14 @@ function getImages($: CheerioAPI, item: Element, { staticProxy, id, index, title
     ?.map((_index, photo) => {
       const style = $(photo).attr('style') ?? '';
       const url = style.match(/url\(["'](.*?)["']/)?.[1];
-      // Upgrade to higher quality image
+      // Upgrade to higher quality image (fallback)
       const highQualityUrl = upgradeImageQuality(url ?? '');
+      const fallbackUrl = staticProxy + highQualityUrl;
+
+      // Use HD Worker proxy if configured, with fallback to static proxy
+      const hdUrl = HD_IMAGE_URL && id ? `${HD_IMAGE_URL}/mood/${id}/${_index}` : '';
+      const imgSrc = hdUrl || fallbackUrl;
+
       const widthMatch = style.match(/width:\s*(\d+)px/i);
       const heightMatch = style.match(/height:\s*(\d+)px/i);
       // Telegram uses padding-top percentage for aspect ratio (height/width * 100)
@@ -232,12 +242,16 @@ function getImages($: CheerioAPI, item: Element, { staticProxy, id, index, title
       const widthAttr = imageWidth ? ` width="${imageWidth}"` : '';
       const heightAttr = imageHeight ? ` height="${imageHeight}"` : '';
       const popoverId = `modal-${id}-${_index}`;
+
+      // onerror fallback to static proxy if HD Worker fails
+      const onerrorAttr = hdUrl ? ` onerror="this.onerror=null;this.src='${fallbackUrl}'"` : '';
+
       return `
       <button class="image-preview-button image-preview-wrap${portraitClass}" popovertarget="${popoverId}" popovertargetaction="show"${widthStyle}>
-        <img src="${staticProxy + highQualityUrl}" alt="${title}" loading="${(index ?? 0) > 15 ? 'eager' : 'lazy'}"${widthAttr}${heightAttr} />
+        <img src="${imgSrc}"${onerrorAttr} alt="${title}" loading="${(index ?? 0) > 15 ? 'eager' : 'lazy'}"${widthAttr}${heightAttr} />
       </button>
       <button class="image-preview-button modal" id="${popoverId}" popovertarget="${popoverId}" popovertargetaction="hide" popover>
-        <img class="modal-img" src="${staticProxy + highQualityUrl}" alt="${title}" loading="lazy" />
+        <img class="modal-img" src="${imgSrc}"${onerrorAttr} alt="${title}" loading="lazy" />
       </button>
     `;
     })
