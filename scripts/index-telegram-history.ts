@@ -26,11 +26,15 @@ const CF_ACCOUNT_ID = process.env.CLOUDFLARE_ACCOUNT_ID;
 const CF_API_TOKEN = process.env.CLOUDFLARE_API_TOKEN;
 const KV_NAMESPACE_ID = process.env.CLOUDFLARE_KV_NAMESPACE_ID;
 
+// Optional: A private group/channel to forward messages to (instead of the original channel)
+// This avoids spamming the public channel. Create a private group, add the bot, and use its ID.
+const TEMP_CHAT_ID = process.env.TELEGRAM_TEMP_CHAT_ID || CHANNEL_ID;
+
 const START_MESSAGE_ID = process.env.START_MESSAGE_ID ? parseInt(process.env.START_MESSAGE_ID, 10) : 1;
 const END_MESSAGE_ID = process.env.END_MESSAGE_ID ? parseInt(process.env.END_MESSAGE_ID, 10) : undefined;
 
 // Rate limiting: Telegram allows 30 requests per second for bots
-const RATE_LIMIT_DELAY_MS = 50;
+const RATE_LIMIT_DELAY_MS = 100; // Increased to avoid rate limits
 const BATCH_SIZE = 10;
 
 interface TelegramPhotoSize {
@@ -229,7 +233,7 @@ async function scrapeChannelHistory(): Promise<void> {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      chat_id: CHANNEL_ID,
+      chat_id: TEMP_CHAT_ID,
       from_chat_id: CHANNEL_ID,
       message_id: testMessageId,
       disable_notification: true,
@@ -247,7 +251,7 @@ async function scrapeChannelHistory(): Promise<void> {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        chat_id: CHANNEL_ID,
+        chat_id: TEMP_CHAT_ID,
         message_id: checkData.result.message_id,
       }),
     });
@@ -294,14 +298,14 @@ async function indexByMessageId(startId: number, endId: number): Promise<void> {
   let notFound = 0;
 
   for (let messageId = startId; messageId <= endId; messageId++) {
-    // Forward the message to the same channel
+    // Forward the message to temp chat (not the original channel)
     const forwardResponse = await fetch(
       `https://api.telegram.org/bot${BOT_TOKEN}/forwardMessage`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          chat_id: CHANNEL_ID,
+          chat_id: TEMP_CHAT_ID,
           from_chat_id: CHANNEL_ID,
           message_id: messageId,
           disable_notification: true,
@@ -315,6 +319,12 @@ async function indexByMessageId(startId: number, endId: number): Promise<void> {
       if (forwardData.error_code === 400) {
         // Message not found or deleted
         notFound++;
+      } else if (forwardData.error_code === 429) {
+        // Rate limited - wait and retry
+        const retryAfter = (forwardData as any).parameters?.retry_after || 60;
+        console.log(`Rate limited. Waiting ${retryAfter}s before retrying message ${messageId}...`);
+        await new Promise((resolve) => setTimeout(resolve, retryAfter * 1000 + 1000));
+        messageId--; // Retry this message
       } else {
         console.error(`Error forwarding ${messageId}: ${forwardData.description}`);
       }
@@ -328,7 +338,7 @@ async function indexByMessageId(startId: number, endId: number): Promise<void> {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        chat_id: CHANNEL_ID,
+        chat_id: TEMP_CHAT_ID,
         message_id: forwardedMessage.message_id,
       }),
     });
