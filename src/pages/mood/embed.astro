@@ -28,8 +28,10 @@ const refresh = Number.isFinite(refreshRaw)
   : null;
 const showLink = url.searchParams.get('link') !== 'false';
 
-// Fetch mood data
-const channelInfo = await getChannelInfo(Astro, idParam ? { id: idParam } : { type: 'list' });
+// Fetch mood data (avoid waterfalls when id is provided)
+const channelInfoPromise = getChannelInfo(Astro, idParam ? { id: idParam } : { type: 'list' });
+const fullChannelInfoPromise = idParam ? getChannelInfo(Astro, { type: 'list' }) : Promise.resolve(null);
+const [channelInfo, fullChannelInfo] = await Promise.all([channelInfoPromise, fullChannelInfoPromise]);
 
 // Handle single post or list
 let posts: any[] = [];
@@ -44,6 +46,23 @@ function proxyAvatarUrl(avatar: string): string {
   return `/static/${url}`;
 }
 
+const responsiveImageWidths = [480, 800, 1200];
+const embedImageSizes = '(min-width: 640px) 520px, 100vw';
+
+function withWidthParam(value: string, width: number): string {
+  if (!value || /^(data:|blob:)/i.test(value)) return value;
+  const isAbsolute = /^(https?:)?\/\//i.test(value);
+  const parsed = new URL(value, 'https://local.invalid');
+  parsed.searchParams.set('w', String(width));
+  if (isAbsolute) return parsed.toString();
+  return `${parsed.pathname}${parsed.search}${parsed.hash}`;
+}
+
+function buildSrcSet(value: string): string {
+  if (!value || /^(data:|blob:)/i.test(value)) return '';
+  return responsiveImageWidths.map((width) => `${withWidthParam(value, width)} ${width}w`).join(', ');
+}
+
 if ('posts' in channelInfo) {
   posts = channelInfo.posts.slice(0, count);
   channelTitle = channelInfo.title || 'Levitating';
@@ -51,8 +70,7 @@ if ('posts' in channelInfo) {
 } else if (channelInfo && 'id' in channelInfo) {
   posts = [channelInfo];
   // When fetching a single post by ID, we need to get channel info separately for avatar
-  const fullChannelInfo = await getChannelInfo(Astro, { type: 'list' });
-  if ('posts' in fullChannelInfo) {
+  if (fullChannelInfo && 'posts' in fullChannelInfo) {
     channelTitle = fullChannelInfo.title || 'Levitating';
     channelAvatar = proxyAvatarUrl(fullChannelInfo.avatar || '');
   } else {
@@ -443,7 +461,14 @@ const allowedOrigin = normalizeOrigin(originParam);
                 <div class="mood-text" set:html={previewHtml} />
               )}
               {image && (
-                <img class="mood-image" src={image} alt="" loading="lazy" />
+                <img
+                  class="mood-image"
+                  src={image}
+                  srcset={image ? buildSrcSet(image) : undefined}
+                  sizes={embedImageSizes}
+                  alt=""
+                  loading="lazy"
+                />
               )}
             </div>
 
