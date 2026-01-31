@@ -1005,6 +1005,8 @@ const skeletonGroups = [
     padding: 16px 0;
     border-bottom: 1px solid hsl(var(--foreground) / 0.04);
     position: relative;
+    content-visibility: auto;
+    contain-intrinsic-size: 0 320px;
   }
 
   @media (min-width: 640px) {
@@ -2900,6 +2902,30 @@ const skeletonGroups = [
       });
     };
 
+    const responsiveImageWidths = [480, 800, 1200];
+    const thumbnailImageSizes = '(min-width: 1024px) 560px, (min-width: 640px) 480px, 100vw';
+
+    const withWidthParam = (value: string, width: number): string => {
+      if (!value || /^(data:|blob:)/i.test(value)) return value;
+      const isAbsolute = /^(https?:)?\/\//i.test(value);
+      const parsed = new URL(value, window.location.origin);
+      parsed.searchParams.set('w', String(width));
+      if (isAbsolute) return parsed.toString();
+      return `${parsed.pathname}${parsed.search}${parsed.hash}`;
+    };
+
+    const buildSrcSet = (value: string): string => {
+      if (!value || /^(data:|blob:)/i.test(value)) return '';
+      return responsiveImageWidths.map((width) => `${withWidthParam(value, width)} ${width}w`).join(', ');
+    };
+
+    const applyResponsiveImage = (img: HTMLImageElement, src: string, sizes = thumbnailImageSizes): void => {
+      const srcSet = buildSrcSet(src);
+      if (!srcSet) return;
+      img.srcset = srcSet;
+      img.sizes = sizes;
+    };
+
     // Hero hydration function
     const hydrateHero = (channel: ChannelInfo): void => {
       const heroEl = document.querySelector('[data-mood-hero]');
@@ -3160,6 +3186,7 @@ const skeletonGroups = [
         const img = document.createElement('img');
         img.src = mood.image;
         img.alt = '';
+        applyResponsiveImage(img, mood.image);
         setImageHints(img, { priority: isPriorityItem });
         // Intelligent image ratio detection
         img.onload = () => {
