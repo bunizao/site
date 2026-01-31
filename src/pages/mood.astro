@@ -3289,16 +3289,14 @@ const skeletonGroups = [
 
       content.appendChild(reactionsWrap);
 
-      // Add floating expand button for non-clickable items
-      if (!shouldLink) {
-        const expandBtn = document.createElement('a');
-        expandBtn.className = 'mood-item-expand-float';
-        expandBtn.href = `/mood/${mood.id}`;
-        expandBtn.title = 'View full post';
-        expandBtn.setAttribute('aria-label', 'View full post');
-        expandBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>`;
-        element.appendChild(expandBtn);
-      }
+      // Add floating expand button for all items
+      const expandBtn = document.createElement('a');
+      expandBtn.className = 'mood-item-expand-float';
+      expandBtn.href = `/mood/${mood.id}`;
+      expandBtn.title = 'View full post';
+      expandBtn.setAttribute('aria-label', 'View full post');
+      expandBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>`;
+      element.appendChild(expandBtn);
 
       if (mood.tag) {
         const tag = document.createElement('span');
