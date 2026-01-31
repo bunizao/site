@@ -75,13 +75,39 @@ Renders an embeddable HTML widget for mood posts.
 
 ```html
 <!-- Latest mood post -->
-<iframe src="https://buxx.me/mood/embed" width="400" height="300"></iframe>
+<iframe
+  src="https://buxx.me/mood/embed"
+  style="border:0;display:block;width:100%;max-width:400px"
+  height="300"
+  loading="lazy"
+></iframe>
 
 <!-- Specific post with dark theme -->
-<iframe src="https://buxx.me/mood/embed?id=123&theme=dark" width="400" height="300"></iframe>
+<iframe
+  src="https://buxx.me/mood/embed?id=123&theme=dark"
+  style="border:0;display:block;width:100%;max-width:400px"
+  height="300"
+  loading="lazy"
+></iframe>
 
 <!-- Multiple posts -->
-<iframe src="https://buxx.me/mood/embed?count=5&theme=light" width="400" height="600"></iframe>
+<iframe
+  src="https://buxx.me/mood/embed?count=5&theme=light"
+  style="border:0;display:block;width:100%;max-width:400px"
+  height="600"
+  loading="lazy"
+></iframe>
+```
+
+Recommended embed (no ugly outer frame, keeps inner card styling):
+
+```html
+<iframe
+  src="https://buxx.me/mood/embed"
+  style="border:0;display:block;width:100%;max-width:400px"
+  height="300"
+  loading="lazy"
+></iframe>
 ```
 
 ## HTML Discovery
