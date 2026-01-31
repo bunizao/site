@@ -33,6 +33,19 @@ interface TelegramUpdate {
   channel_post?: TelegramMessage;
 }
 
+function selectLargestPhoto(photos: TelegramPhotoSize[]): TelegramPhotoSize | null {
+  if (!photos.length) return null;
+  return photos.reduce((best, current) => {
+    const bestArea = best.width * best.height;
+    const currentArea = current.width * current.height;
+    if (currentArea > bestArea) return current;
+    if (currentArea < bestArea) return best;
+    const bestSize = best.file_size ?? 0;
+    const currentSize = current.file_size ?? 0;
+    return currentSize > bestSize ? current : best;
+  });
+}
+
 /**
  * Write a key-value pair to Cloudflare KV via REST API
  */
@@ -90,9 +103,11 @@ export const POST: APIRoute = async ({ request }) => {
 
   const postId = message.message_id.toString();
 
-  // Photos array is sorted by size (smallest first), get the largest
-  const photos = message.photo;
-  const largestPhoto = photos[photos.length - 1];
+  // Pick the largest photo explicitly to avoid relying on ordering
+  const largestPhoto = selectLargestPhoto(message.photo);
+  if (!largestPhoto) {
+    return new Response('OK');
+  }
 
   // For single images, store as index 0
   // For media groups, Telegram sends separate updates for each image

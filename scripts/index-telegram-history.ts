@@ -59,6 +59,19 @@ interface TelegramResponse<T> {
   error_code?: number;
 }
 
+function selectLargestPhoto(photos: TelegramPhotoSize[]): TelegramPhotoSize | null {
+  if (!photos.length) return null;
+  return photos.reduce((best, current) => {
+    const bestArea = best.width * best.height;
+    const currentArea = current.width * current.height;
+    if (currentArea > bestArea) return current;
+    if (currentArea < bestArea) return best;
+    const bestSize = best.file_size ?? 0;
+    const currentSize = current.file_size ?? 0;
+    return currentSize > bestSize ? current : best;
+  });
+}
+
 /**
  * Write a key-value pair to Cloudflare KV
  */
@@ -257,14 +270,16 @@ async function scrapeChannelHistory(): Promise<void> {
     });
 
     if (checkData.result.photo) {
-      const largest = checkData.result.photo[checkData.result.photo.length - 1];
-      console.log(`Found photo: ${largest.file_id.substring(0, 30)}...`);
+      const largest = selectLargestPhoto(checkData.result.photo);
+      if (largest) {
+        console.log(`Found photo: ${largest.file_id.substring(0, 30)}...`);
 
-      entries.push({
-        key: `mood:${testMessageId}:0`,
-        value: largest.file_id,
-      });
-      indexed++;
+        entries.push({
+          key: `mood:${testMessageId}:0`,
+          value: largest.file_id,
+        });
+        indexed++;
+      }
     }
   } else {
     console.log(`Cannot forward message ${testMessageId}: ${checkData.description}`);
@@ -345,7 +360,11 @@ async function indexByMessageId(startId: number, endId: number): Promise<void> {
 
     // Check if message has photos
     if (forwardedMessage.photo && forwardedMessage.photo.length > 0) {
-      const largest = forwardedMessage.photo[forwardedMessage.photo.length - 1];
+      const largest = selectLargestPhoto(forwardedMessage.photo);
+      if (!largest) {
+        skipped++;
+        continue;
+      }
       entries.push({
         key: `mood:${messageId}:0`,
         value: largest.file_id,
