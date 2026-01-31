@@ -95,9 +95,10 @@ export const GET: APIRoute = async ({ url, request }) => {
   }
 
   // Check if URL is for our mood page
-  const moodListPath = parsedUrl.pathname === '/mood';
-  const moodDetailMatch = parsedUrl.pathname.match(/^\\/mood\\/([^/]+)\\/?$/);
-  const moodDetailId = moodDetailMatch?.[1] ?? '';
+  const moodPath = parsedUrl.pathname.endsWith('/') && parsedUrl.pathname !== '/' ? parsedUrl.pathname.slice(0, -1) : parsedUrl.pathname;
+  const moodListPath = moodPath === '/mood';
+  const moodSegments = moodPath.split('/').filter(Boolean);
+  const moodDetailId = moodSegments.length === 2 && moodSegments[0] === 'mood' ? moodSegments[1] : '';
   const isMoodUrl = moodListPath || Boolean(moodDetailId);
   if (!isMoodUrl) {
     return new Response(
