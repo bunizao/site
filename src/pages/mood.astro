@@ -2087,6 +2087,7 @@ const skeletonGroups = [
 </style>
 
 <script>
+  import { buildImageSrcset } from '../lib/image-utils';
   const loadingEl = document.querySelector('[data-mood-loading]');
   const errorEl = document.querySelector('[data-mood-error]');
   const feedEl = document.querySelector('[data-mood-feed]');
@@ -2930,6 +2931,8 @@ const skeletonGroups = [
       previewText: string;
       previewHtml?: string;
       image?: string | null;
+      imageWidth?: number;
+      imageHeight?: number;
       mediaHtml?: string;
       needsDetailPage?: boolean;
       forwardedFrom?: ForwardedFromData | null;
@@ -3103,6 +3106,15 @@ const skeletonGroups = [
         img.src = mood.image;
         img.alt = '';
         setImageHints(img, { priority: isPriorityItem });
+        if (Number.isFinite(mood.imageWidth) && Number.isFinite(mood.imageHeight)) {
+          img.width = mood.imageWidth;
+          img.height = mood.imageHeight;
+        }
+        const srcset = buildImageSrcset(mood.image, [480, 640, 960, 1280, 1600, 2048]);
+        if (srcset) {
+          img.srcset = srcset;
+          img.sizes = '(min-width: 1024px) 560px, (min-width: 640px) 480px, 100vw';
+        }
         // Intelligent image ratio detection
         img.onload = () => {
           const aspectRatio = img.naturalWidth / img.naturalHeight;

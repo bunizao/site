@@ -4,6 +4,7 @@ import {
   getTextPreviewHtml,
   getFirstImage,
 } from '../../lib/mood-utils';
+import { buildImageSrcset } from '../../lib/image-utils';
 import { getEmbedHeaders } from '../../lib/embed-response';
 
 export const prerender = false;
@@ -416,6 +417,13 @@ const allowedOrigin = normalizeOrigin(originParam);
       {posts.map((post) => {
         const previewHtml = getTextPreviewHtml(post);
         const image = getFirstImage(post.content);
+        const imageSrcset = image ? buildImageSrcset(image, [320, 480, 640, 960, 1280, 1600, 2048]) : '';
+        const imageSrcsetAttr = imageSrcset
+          ? {
+            srcset: imageSrcset,
+            sizes: '(min-width: 640px) 520px, 100vw',
+          }
+          : {};
         const datetime = formatDateTime(post.datetime);
         const postUrl = `/mood/${post.id}`;
         const channelUrl = '/mood';
@@ -443,7 +451,7 @@ const allowedOrigin = normalizeOrigin(originParam);
                 <div class="mood-text" set:html={previewHtml} />
               )}
               {image && (
-                <img class="mood-image" src={image} alt="" loading="lazy" />
+                <img class="mood-image" src={image} alt="" loading="lazy" {...imageSrcsetAttr} />
               )}
             </div>
 

@@ -1,17 +1,36 @@
 import * as cheerio from 'cheerio';
 
+export function getFirstImageMeta(content: string): {
+  src: string | null;
+  width?: number;
+  height?: number;
+} {
+  const $ = cheerio.load(content);
+  const img = $('.image-preview-wrap img').first();
+  const src = img.attr('src') ?? null;
+  const widthRaw = img.attr('width');
+  const heightRaw = img.attr('height');
+  const width = widthRaw ? Number.parseInt(widthRaw, 10) : NaN;
+  const height = heightRaw ? Number.parseInt(heightRaw, 10) : NaN;
+
+  if (src) {
+    return {
+      src,
+      width: Number.isFinite(width) ? width : undefined,
+      height: Number.isFinite(height) ? height : undefined,
+    };
+  }
+
+  // Fallback to simple regex match
+  const match = content.match(/<img[^>]+src="([^">]+)"/);
+  return match ? { src: match[1] } : { src: null };
+}
+
 /**
  * Extract the first image URL from HTML content
  */
 export function getFirstImage(content: string): string | null {
-  const $ = cheerio.load(content);
-  const img = $('.image-preview-wrap img').first();
-  const src = img.attr('src');
-  if (src) return src;
-
-  // Fallback to simple regex match
-  const match = content.match(/<img[^>]+src="([^">]+)"/);
-  return match ? match[1] : null;
+  return getFirstImageMeta(content).src;
 }
 
 /**

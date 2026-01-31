@@ -1,0 +1,404 @@
+---
+export const prerender = false;
+
+if (!import.meta.env.DEV) {
+  return new Response('Not found', { status: 404 });
+}
+---
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Mood Embed iframe Test</title>
+    <style>
+      :root {
+        color-scheme: light;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        background: #f6f6f6;
+        color: #111;
+      }
+
+      main {
+        max-width: 1100px;
+        margin: 0 auto;
+        padding: 32px 20px 60px;
+      }
+
+      h1 {
+        font-size: 24px;
+        margin: 0 0 8px;
+      }
+
+      h2 {
+        margin: 28px 0 12px;
+        font-size: 18px;
+      }
+
+      p {
+        margin: 6px 0 0;
+        color: #444;
+      }
+
+      code {
+        background: #eaeaea;
+        padding: 2px 6px;
+        border-radius: 6px;
+        font-size: 12px;
+      }
+
+      .status {
+        margin-top: 12px;
+        padding: 10px 12px;
+        background: #fff;
+        border: 1px solid #e1e1e1;
+        border-radius: 10px;
+        font-size: 13px;
+        color: #555;
+      }
+
+      .cases {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+        gap: 16px;
+        margin-top: 16px;
+      }
+
+      .case {
+        background: #fff;
+        border: 1px solid #e3e3e3;
+        border-radius: 14px;
+        padding: 14px 14px 16px;
+        box-shadow: 0 12px 24px -18px rgba(0, 0, 0, 0.35);
+      }
+
+      .case-title {
+        font-size: 14px;
+        font-weight: 600;
+        margin: 0 0 6px;
+      }
+
+      .case-desc {
+        font-size: 12px;
+        color: #666;
+        margin-bottom: 10px;
+      }
+
+      .frame {
+        border: 1px dashed #c9c9c9;
+        border-radius: 12px;
+        padding: 8px;
+        background: #fafafa;
+      }
+
+      iframe {
+        width: 100%;
+        max-width: 520px;
+        border: 0;
+        display: block;
+        background: transparent;
+      }
+
+      .placeholder {
+        font-size: 12px;
+        color: #777;
+        padding: 16px;
+        border: 1px dashed #d7d7d7;
+        border-radius: 10px;
+        background: #fbfbfb;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Mood Embed iframe Tests</h1>
+      <p>Use this page to validate embed sizing, framing, density, fonts, and media handling.</p>
+      <p>Route: <code>/iframe-test</code> (dev only).</p>
+
+      <div id="status" class="status">Loading test cases…</div>
+
+      <h2>Direct embed cases</h2>
+      <div id="cases" class="cases"></div>
+
+      <h2>oEmbed HTML cases</h2>
+      <div id="oembed-cases" class="cases"></div>
+    </main>
+
+    <script is:inline>
+      const statusEl = document.getElementById('status');
+      const casesEl = document.getElementById('cases');
+      const oembedEl = document.getElementById('oembed-cases');
+
+      const origin = window.location.origin && window.location.origin !== 'null'
+        ? window.location.origin
+        : '';
+
+      const defaultHeight = 220;
+
+      function buildEmbedUrl(params) {
+        const base = origin || window.location.href;
+        const url = new URL('/mood/embed', base);
+        if (origin && !params.origin) {
+          params.origin = origin;
+        }
+        Object.entries(params).forEach(([key, value]) => {
+          if (value === undefined || value === null || value === '') return;
+          url.searchParams.set(key, String(value));
+        });
+        return url.toString();
+      }
+
+      function buildOembedUrl(params, moodUrl) {
+        const base = origin || window.location.href;
+        const url = new URL('/api/oembed.json', base);
+        url.searchParams.set('url', moodUrl);
+        Object.entries(params).forEach(([key, value]) => {
+          if (value === undefined || value === null || value === '') return;
+          url.searchParams.set(key, String(value));
+        });
+        return url.toString();
+      }
+
+      function renderCase({ title, description, src }) {
+        const section = document.createElement('section');
+        section.className = 'case';
+        section.innerHTML = `
+          <div class="case-title">${title}</div>
+          <div class="case-desc">${description}</div>
+          <div class="frame">
+            ${src ? `<iframe data-embed="true" height="${defaultHeight}" loading="lazy"></iframe>` : `<div class="placeholder">No matching post found for this case.</div>`}
+          </div>
+        `;
+
+        const iframe = section.querySelector('iframe');
+        if (iframe && src) {
+          iframe.src = src;
+        }
+
+        casesEl.appendChild(section);
+      }
+
+      function renderOembedCase({ title, description, oembedUrl }) {
+        const section = document.createElement('section');
+        section.className = 'case';
+        section.innerHTML = `
+          <div class="case-title">${title}</div>
+          <div class="case-desc">${description}</div>
+          <div class="frame">
+            <div class="oembed-slot placeholder">Loading oEmbed…</div>
+          </div>
+        `;
+
+        const slot = section.querySelector('.oembed-slot');
+        oembedEl.appendChild(section);
+
+        if (!oembedUrl) {
+          slot.textContent = 'No matching post found for this case.';
+          return;
+        }
+
+        fetch(oembedUrl)
+          .then((res) => res.json())
+          .then((data) => {
+            if (!data || !data.html) {
+              slot.textContent = 'Invalid oEmbed response.';
+              return;
+            }
+            slot.innerHTML = data.html;
+            slot.classList.remove('placeholder');
+            slot.querySelectorAll('script').forEach((script) => {
+              const replacement = document.createElement('script');
+              if (script.src) {
+                replacement.src = script.src;
+              }
+              replacement.textContent = script.textContent || '';
+              script.replaceWith(replacement);
+            });
+          })
+          .catch((error) => {
+            slot.textContent = `Failed to load oEmbed: ${error.message}`;
+          });
+      }
+
+      function pickPost(posts, predicate) {
+        return posts.find((post) => {
+          try {
+            return predicate(post);
+          } catch {
+            return false;
+          }
+        });
+      }
+
+      window.addEventListener('message', (event) => {
+        if (!event?.data || event.data.type !== 'mood-embed-resize') return;
+        if (origin && event.origin !== origin) return;
+
+        const iframes = document.querySelectorAll('iframe[data-embed]');
+        for (const iframe of iframes) {
+          if (iframe.contentWindow === event.source) {
+            const nextHeight = Number(event.data.height);
+            if (Number.isFinite(nextHeight) && nextHeight > 0) {
+              iframe.style.height = `${nextHeight}px`;
+            }
+            break;
+          }
+        }
+      });
+
+      async function fetchPosts(before) {
+        const base = origin || window.location.href;
+        const url = new URL('/api/moods', base);
+        if (before) {
+          url.searchParams.set('before', before);
+        }
+        const response = await fetch(url);
+        if (!response.ok) {
+          throw new Error(`API error (${response.status})`);
+        }
+        const data = await response.json();
+        return Array.isArray(data.posts) ? data.posts : [];
+      }
+
+      async function loadCases() {
+        const aggregated = [];
+        let before = '';
+        const maxPages = 4;
+
+        for (let page = 0; page < maxPages; page += 1) {
+          const posts = await fetchPosts(before);
+          if (!posts.length) break;
+
+          aggregated.push(...posts);
+          const lastPost = posts[posts.length - 1];
+          before = lastPost?.id || '';
+
+          const textPost = pickPost(aggregated, (post) => !post.image && !post.mediaHtml && post.previewText?.trim());
+          const imagePost = pickPost(aggregated, (post) => Boolean(post.image));
+          const videoPost = pickPost(aggregated, (post) => /video/i.test(post.mediaHtml || ''));
+          const audioPost = pickPost(aggregated, (post) => /audio/i.test(post.mediaHtml || ''));
+
+          if (textPost && imagePost && (videoPost || audioPost)) {
+            break;
+          }
+        }
+
+        const posts = aggregated;
+        const textPost = pickPost(posts, (post) => !post.image && !post.mediaHtml && post.previewText?.trim());
+        const imagePost = pickPost(posts, (post) => Boolean(post.image));
+        const videoPost = pickPost(posts, (post) => /video/i.test(post.mediaHtml || ''));
+        const audioPost = pickPost(posts, (post) => /audio/i.test(post.mediaHtml || ''));
+
+        const baseCases = [
+          {
+            title: 'List: default',
+            description: 'count=5, theme=auto, frame=true, density=regular, font=mono',
+            src: buildEmbedUrl({ count: 5, theme: 'auto' }),
+          },
+          {
+            title: 'List: compact no-frame',
+            description: 'count=5, theme=light, frame=false, density=compact, font=system, link=false',
+            src: buildEmbedUrl({
+              count: 5,
+              theme: 'light',
+              frame: 'false',
+              density: 'compact',
+              font: 'system',
+              link: 'false',
+            }),
+          },
+          {
+            title: 'List: dark compact',
+            description: 'count=3, theme=dark, density=compact',
+            src: buildEmbedUrl({ count: 3, theme: 'dark', density: 'compact' }),
+          },
+        ];
+
+        const singleCases = [
+          {
+            title: 'Single: text-only post',
+            description: textPost ? `id=${textPost.id}` : 'No text-only post found in /api/moods',
+            src: textPost ? buildEmbedUrl({ id: textPost.id, theme: 'auto' }) : '',
+          },
+          {
+            title: 'Single: image post',
+            description: imagePost ? `id=${imagePost.id}` : 'No image post found in /api/moods',
+            src: imagePost ? buildEmbedUrl({ id: imagePost.id, theme: 'auto' }) : '',
+          },
+          {
+            title: 'Single: video post',
+            description: videoPost ? `id=${videoPost.id}` : 'No video post found in /api/moods',
+            src: videoPost ? buildEmbedUrl({ id: videoPost.id, theme: 'auto' }) : '',
+          },
+          {
+            title: 'Single: audio post',
+            description: audioPost ? `id=${audioPost.id}` : 'No audio post found in /api/moods',
+            src: audioPost ? buildEmbedUrl({ id: audioPost.id, theme: 'auto' }) : '',
+          },
+        ];
+
+        baseCases.forEach(renderCase);
+        singleCases.forEach(renderCase);
+
+        const moodUrl = new URL('/mood', origin || window.location.href).toString();
+        const oembedBase = {
+          theme: 'auto',
+          count: 5,
+          origin: origin || undefined,
+        };
+
+        const oembedCases = [
+          {
+            title: 'oEmbed: list (estimated height)',
+            description: 'maxwidth=520, no maxheight, count=5',
+            oembedUrl: buildOembedUrl({ ...oembedBase, maxwidth: 520 }, moodUrl),
+          },
+          {
+            title: 'oEmbed: list (fixed height)',
+            description: 'maxwidth=520, maxheight=320, count=3',
+            oembedUrl: buildOembedUrl({ ...oembedBase, count: 3, maxwidth: 520, maxheight: 320 }, moodUrl),
+          },
+          {
+            title: 'oEmbed: list compact system',
+            description: 'density=compact, font=system, frame=false',
+            oembedUrl: buildOembedUrl({
+              ...oembedBase,
+              maxwidth: 520,
+              density: 'compact',
+              font: 'system',
+              frame: 'false',
+              link: 'false',
+            }, moodUrl),
+          },
+        ];
+
+        const oembedSingle = imagePost || videoPost || textPost;
+        if (oembedSingle) {
+          const singleUrl = new URL(`/mood/${oembedSingle.id}`, origin || window.location.href).toString();
+          oembedCases.push({
+            title: 'oEmbed: single post',
+            description: `id=${oembedSingle.id}, maxwidth=520 (estimated height)`,
+            oembedUrl: buildOembedUrl({ origin: origin || undefined, maxwidth: 520 }, singleUrl),
+          });
+        }
+
+        oembedCases.forEach(renderOembedCase);
+
+        statusEl.textContent = `Loaded ${posts.length} moods from /api/moods.`;
+      }
+
+      loadCases().catch((error) => {
+        statusEl.textContent = `Failed to load cases: ${error.message}`;
+      });
+    </script>
+  </body>
+</html>

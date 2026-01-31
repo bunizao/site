@@ -490,6 +490,7 @@ const placeholders = Array.from({ length: SKELETON_COUNT }, (_, index) => ({
 </style>
 
 <script>
+  import { buildImageSrcset } from '../lib/image-utils';
   // GSAP is dynamically imported to avoid blocking initial render
   const initMoodsAnimation = async () => {
     const moodsSection = document.getElementById('moods-section');
@@ -642,6 +643,8 @@ const placeholders = Array.from({ length: SKELETON_COUNT }, (_, index) => ({
       previewText: string;
       previewHtml?: string;
       image?: string | null;
+      imageWidth?: number;
+      imageHeight?: number;
       mediaHtml?: string;
       needsDetailPage?: boolean;
     }
@@ -709,6 +712,16 @@ const placeholders = Array.from({ length: SKELETON_COUNT }, (_, index) => ({
           img.src = mood.image;
           img.alt = '';
           img.loading = 'lazy';
+          img.decoding = 'async';
+          if (Number.isFinite(mood.imageWidth) && Number.isFinite(mood.imageHeight)) {
+            img.width = mood.imageWidth;
+            img.height = mood.imageHeight;
+          }
+          const srcset = buildImageSrcset(mood.image, [48, 64, 96, 128, 192, 256]);
+          if (srcset) {
+            img.srcset = srcset;
+            img.sizes = '48px';
+          }
           thumbnail.appendChild(img);
           meta.appendChild(thumbnail);
         }
