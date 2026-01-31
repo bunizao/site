@@ -8,8 +8,6 @@
 (function() {
   'use strict';
 
-  var EMBED_BASE = 'https://buxx.me/mood/embed';
-
   function initMoodEmbed() {
     var scripts = document.querySelectorAll('script[data-mood-embed]');
 
@@ -28,13 +26,21 @@
       var lazy = script.dataset.lazy !== 'false';
 
       // Build embed URL
+      var embedBase = '/mood/embed';
+      if (script.src) {
+        try {
+          embedBase = new URL(script.src, window.location.href).origin + '/mood/embed';
+        } catch (error) {
+          embedBase = '/mood/embed';
+        }
+      }
       var params = new URLSearchParams();
       params.set('theme', theme);
       params.set('count', String(Math.min(10, Math.max(1, count))));
       if (refresh) params.set('refresh', String(refresh));
       if (!link) params.set('link', 'false');
 
-      var embedUrl = EMBED_BASE + '?' + params.toString();
+      var embedUrl = embedBase + '?' + params.toString();
 
       // Create container
       var container = document.createElement('div');
