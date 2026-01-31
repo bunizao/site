@@ -847,6 +847,12 @@ const telegramCommentUrl = channel && id ? `https://t.me/${channel}/${id}?commen
     display: block;
     margin: 0 auto;
     background: hsl(var(--foreground) / 0.01);
+    /* Reserve space using aspect-ratio to prevent layout shift */
+    aspect-ratio: var(--image-width, 1) / var(--image-height, 1);
+  }
+
+  .mood-post-content :global(.image-preview-wrap img[width][height]) {
+    aspect-ratio: attr(width) / attr(height);
   }
 
   /* Portrait images in detail view - better constraint */
@@ -2461,13 +2467,14 @@ const telegramCommentUrl = channel && id ? `https://t.me/${channel}/${id}?commen
         const response = await fetch(url);
         const data = await response.json();
 
-        // Always hide loading on response
-        if (loadingEl) loadingEl.remove();
-
         if (data.comments?.length > 0) {
           if (emptyEl) emptyEl.hidden = true;
 
+          // Add comments first, then remove skeleton to prevent layout shift
           const addedCount = addComments(data.comments, Boolean(before));
+
+          // Remove skeleton after comments are rendered
+          if (loadingEl) loadingEl.remove();
 
           // Update count
           if (countEl) countEl.textContent = String(loadedCommentIds.size);
