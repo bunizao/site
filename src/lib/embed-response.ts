@@ -11,16 +11,12 @@ export interface EmbedResponseOptions {
 
 /**
  * Security headers for embeddable pages
- * - X-Frame-Options: ALLOWALL - explicitly allow embedding
  * - CSP allowing inline styles, Google Fonts, and images
  */
 export function getEmbedHeaders(options: EmbedResponseOptions = {}): Headers {
   const { maxAge = 300, staleWhileRevalidate = 60 } = options;
 
   const headers = new Headers();
-
-  // Allow embedding in any iframe
-  headers.set('X-Frame-Options', 'ALLOWALL');
 
   // Content Security Policy for embed context
   // - Allow inline styles for theming
