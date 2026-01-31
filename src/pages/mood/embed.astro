@@ -14,6 +14,8 @@ const theme = url.searchParams.get('theme') || 'auto';
 const idParam = url.searchParams.get('id');
 const countParam = url.searchParams.get('count');
 const count = idParam ? 1 : Math.min(10, Math.max(1, parseInt(countParam || '1', 10) || 1));
+const frameParam = url.searchParams.get('frame');
+const frame = frameParam !== 'false' && frameParam !== '0';
 const refreshParam = url.searchParams.get('refresh');
 const refreshRaw = refreshParam ? parseInt(refreshParam, 10) : NaN;
 const refresh = Number.isFinite(refreshRaw)
@@ -87,7 +89,7 @@ function formatDateTime(datetime: string): string {
 ---
 
 <!DOCTYPE html>
-<html lang="en" class={themeClass} data-embed-theme={theme}>
+<html lang="en" class={themeClass} data-embed-theme={theme} data-embed-frame={frame ? 'true' : 'false'}>
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -137,6 +139,10 @@ function formatDateTime(datetime: string): string {
       padding: 8px;
     }
 
+    html[data-embed-frame="false"] body {
+      padding: 0;
+    }
+
     a {
       color: inherit;
       text-decoration: none;
@@ -153,6 +159,17 @@ function formatDateTime(datetime: string): string {
 
     .embed-card + .embed-card {
       margin-top: 12px;
+    }
+
+    html[data-embed-frame="false"] .embed-card {
+      background: transparent;
+      border: 0;
+      border-radius: 0;
+      box-shadow: none;
+    }
+
+    html[data-embed-frame="false"] .embed-card + .embed-card {
+      margin-top: 16px;
     }
 
     /* Header */
@@ -244,6 +261,13 @@ function formatDateTime(datetime: string): string {
       border-top: 1px solid hsl(var(--card-border));
       font-size: 11px;
       color: hsl(var(--muted-foreground));
+    }
+
+    html[data-embed-frame="false"] .card-header,
+    html[data-embed-frame="false"] .card-content,
+    html[data-embed-frame="false"] .card-footer {
+      padding-left: 0;
+      padding-right: 0;
     }
 
     .footer-left {

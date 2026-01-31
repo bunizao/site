@@ -123,6 +123,7 @@ export const GET: APIRoute = async ({ url, request }) => {
   const theme = params.get('theme') || 'auto';
   const countParam = params.get('count');
   const count = countParam ? clamp(parseInt(countParam, 10) || DEFAULT_COUNT, MIN_COUNT, MAX_COUNT) : DEFAULT_COUNT;
+  const frameParam = params.get('frame');
 
   // Build embed URL
   const baseUrl = `${url.protocol}//${url.host}`;
@@ -133,11 +134,17 @@ export const GET: APIRoute = async ({ url, request }) => {
   } else {
     embedParams.set('count', String(count));
   }
+  if (frameParam) {
+    embedParams.set('frame', frameParam);
+  }
 
   const embedUrl = `${baseUrl}/mood/embed?${embedParams.toString()}`;
 
   // Generate iframe HTML
-  const iframeHtml = `<iframe src="${embedUrl}" width="${width}" height="${height}" frameborder="0" style="border:none;overflow:hidden;" loading="lazy" allowtransparency="true"></iframe>`;
+  const iframeId = `mood-embed-${Math.random().toString(36).slice(2, 9)}`;
+  const iframeHtml = `<iframe id="${iframeId}" src="${embedUrl}" width="${width}" height="${height}" frameborder="0" style="border:0;display:block;width:100%;max-width:${width}px;height:${height}px;overflow:hidden;" loading="lazy" allowtransparency="true" title="Mood Embed"></iframe>`;
+  const resizeScript = `<script>(function(){var iframe=document.getElementById('${iframeId}');if(!iframe)return;function onMessage(event){if(!event||!event.data||event.data.type!=='mood-embed-resize')return;if(event.source!==iframe.contentWindow)return;var nextHeight=Number(event.data.height);if(!Number.isFinite(nextHeight)||nextHeight<=0)return;iframe.style.height=nextHeight+'px';}window.addEventListener('message',onMessage);})();</script>`;
+  const embedHtml = `${iframeHtml}${resizeScript}`;
 
   const response: OEmbedResponse = {
     type: 'rich',
@@ -147,7 +154,7 @@ export const GET: APIRoute = async ({ url, request }) => {
     provider_url: baseUrl,
     width,
     height,
-    html: iframeHtml,
+    html: embedHtml,
     cache_age: 3600,
   };
 
