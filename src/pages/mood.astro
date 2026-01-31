@@ -1005,8 +1005,11 @@ const skeletonGroups = [
     padding: 16px 0;
     border-bottom: 1px solid hsl(var(--foreground) / 0.04);
     position: relative;
-    content-visibility: auto;
-    contain-intrinsic-size: 0 320px;
+  }
+
+  :global(.mood-item:hover),
+  :global(.mood-item:focus-within) {
+    z-index: 2;
   }
 
   @media (min-width: 640px) {
@@ -1030,6 +1033,7 @@ const skeletonGroups = [
 
     :global(.mood-item-content) {
       gap: 8px;
+      padding-right: 32px;
     }
 
     :global(.mood-item--clickable) {
@@ -1088,6 +1092,7 @@ const skeletonGroups = [
     display: flex;
     flex-direction: column;
     gap: 10px;
+    padding-right: 32px;
   }
 
   @media (min-width: 640px) {
@@ -1602,7 +1607,7 @@ const skeletonGroups = [
   :global(.mood-item-expand-float) {
     position: absolute;
     top: 12px;
-    right: 0;
+    right: 12px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1641,12 +1646,18 @@ const skeletonGroups = [
     position: relative;
   }
 
+  @media (min-width: 640px) {
+    :global(.mood-item-expand-float) {
+      right: 16px;
+    }
+  }
+
   @media (max-width: 640px) {
     :global(.mood-item-expand-float) {
       width: 24px;
       height: 24px;
       top: 8px;
-      right: -2px;
+      right: 6px;
       opacity: 0.6;
     }
 
@@ -1713,19 +1724,6 @@ const skeletonGroups = [
     width: 16px;
     height: 8px;
     background: transparent;
-  }
-
-  :global(.mood-comments-popover-arrow) {
-    position: absolute;
-    bottom: -5px;
-    left: 50%;
-    transform: translateX(-50%) rotate(45deg);
-    width: 10px;
-    height: 10px;
-    background: hsl(var(--background) / 0.95);
-    border-right: 1px solid hsl(var(--foreground) / 0.08);
-    border-bottom: 1px solid hsl(var(--foreground) / 0.08);
-    z-index: 1;
   }
 
   :global(.mood-comments-popover-list) {
@@ -2787,7 +2785,6 @@ const skeletonGroups = [
 
         if (displayComments.length === 0) {
           popover.innerHTML = `
-            <div class="mood-comments-popover-arrow"></div>
             <div class="mood-comments-popover-empty">No comments yet</div>
           `;
           return;
@@ -2799,7 +2796,6 @@ const skeletonGroups = [
           : '';
 
         popover.innerHTML = `
-          <div class="mood-comments-popover-arrow"></div>
           <div class="mood-comments-popover-list">${commentsHtml}</div>
           ${viewAllHtml}
         `;
@@ -3290,7 +3286,6 @@ const skeletonGroups = [
           const popover = document.createElement('div');
           popover.className = 'mood-comments-popover';
           popover.innerHTML = `
-            <div class="mood-comments-popover-arrow"></div>
             <div class="mood-comments-popover-loading">
               <div class="mood-popover-skeleton">
                 <div class="mood-popover-skeleton-avatar"></div>
