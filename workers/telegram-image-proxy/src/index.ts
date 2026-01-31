@@ -21,11 +21,27 @@ interface TelegramFileResponse {
   description?: string;
 }
 
+const MAX_WIDTH = 2048;
+const DEFAULT_QUALITY = 82;
+const MIN_QUALITY = 40;
+const MAX_QUALITY = 95;
+
 // CORS headers for cross-origin requests
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, HEAD, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type',
+};
+
+const parsePositiveInt = (value: string | null): number | null => {
+  if (!value) return null;
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isFinite(parsed) || parsed <= 0) return null;
+  return parsed;
+};
+
+const clampNumber = (value: number, min: number, max: number): number => {
+  return Math.min(max, Math.max(min, value));
 };
 
 export default {
@@ -95,7 +111,32 @@ export default {
 
     // 4. Fetch the actual image from Telegram file server
     const imageUrl = `https://api.telegram.org/file/bot${env.TELEGRAM_BOT_TOKEN}/${fileInfo.result.file_path}`;
-    const imageResponse = await fetch(imageUrl);
+    const widthParam = parsePositiveInt(url.searchParams.get('w') ?? url.searchParams.get('width'));
+    const qualityParam = parsePositiveInt(url.searchParams.get('q'));
+    const resizeWidth = widthParam ? Math.min(widthParam, MAX_WIDTH) : null;
+    const resizeQuality = qualityParam
+      ? clampNumber(qualityParam, MIN_QUALITY, MAX_QUALITY)
+      : DEFAULT_QUALITY;
+
+    let imageResponse: Response;
+    if (resizeWidth) {
+      imageResponse = await fetch(imageUrl, {
+        cf: {
+          image: {
+            width: resizeWidth,
+            fit: 'scale-down',
+            quality: resizeQuality,
+            format: 'auto',
+          },
+        },
+      });
+
+      if (!imageResponse.ok) {
+        imageResponse = await fetch(imageUrl);
+      }
+    } else {
+      imageResponse = await fetch(imageUrl);
+    }
 
     if (!imageResponse.ok) {
       console.error('Failed to fetch image:', imageResponse.status);
@@ -109,9 +150,10 @@ export default {
     const contentType = imageResponse.headers.get('Content-Type') || 'image/jpeg';
     const headers = new Headers({
       'Content-Type': contentType,
-      'Cache-Control': 'public, max-age=31536000, immutable',
+      'Cache-Control': 'public, max-age=31536000, immutable, no-transform',
       ...corsHeaders,
     });
+    headers.set('Vary', 'Accept');
 
     const response = new Response(imageResponse.body, {
       status: 200,
