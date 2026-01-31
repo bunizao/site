@@ -411,8 +411,12 @@ function formatDateTime(datetime: string): string {
     // Send height on resize
     window.addEventListener('resize', sendHeight);
 
-    // Send height after images load
+    // Send height after images load (or immediately if cached)
     document.querySelectorAll('img').forEach(img => {
+      if (img.complete) {
+        sendHeight();
+        return;
+      }
       img.addEventListener('load', sendHeight);
     });
 
