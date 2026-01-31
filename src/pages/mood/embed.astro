@@ -15,7 +15,10 @@ const idParam = url.searchParams.get('id');
 const countParam = url.searchParams.get('count');
 const count = idParam ? 1 : Math.min(10, Math.max(1, parseInt(countParam || '1', 10) || 1));
 const refreshParam = url.searchParams.get('refresh');
-const refresh = refreshParam ? parseInt(refreshParam, 10) : null;
+const refreshRaw = refreshParam ? parseInt(refreshParam, 10) : NaN;
+const refresh = Number.isFinite(refreshRaw)
+  ? Math.max(30, Math.min(3600, refreshRaw))
+  : null;
 const showLink = url.searchParams.get('link') !== 'false';
 
 // Fetch mood data
@@ -51,10 +54,13 @@ if ('posts' in channelInfo) {
 }
 
 // Set embed-friendly headers
-const embedHeaders = getEmbedHeaders({ maxAge: 300 });
+const embedHeaders = getEmbedHeaders(refresh && refresh > 0 ? { maxAge: 0, staleWhileRevalidate: 0 } : { maxAge: 300 });
 embedHeaders.forEach((value, key) => {
   Astro.response.headers.set(key, value);
 });
+if (refresh && refresh > 0) {
+  Astro.response.headers.set('Cache-Control', 'no-store');
+}
 
 // Determine theme class
 const themeClass = theme === 'light' ? '' : theme === 'dark' ? 'dark' : '';
