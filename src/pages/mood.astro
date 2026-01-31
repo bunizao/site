@@ -1596,7 +1596,7 @@ const skeletonGroups = [
     font-variant-numeric: tabular-nums;
   }
 
-  /* Floating expand button - appears on hover for non-clickable items */
+  /* Floating expand button - appears on hover */
   :global(.mood-item-expand-float) {
     position: absolute;
     top: 12px;
@@ -1604,37 +1604,30 @@ const skeletonGroups = [
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 32px;
-    height: 32px;
-    background: hsl(var(--background));
-    border: 1px solid hsl(var(--foreground) / 0.1);
-    border-radius: 8px;
-    color: hsl(var(--muted-foreground) / 0.6);
+    width: 28px;
+    height: 28px;
+    background: transparent;
+    border-radius: 6px;
+    color: hsl(var(--muted-foreground) / 0.4);
     text-decoration: none;
     cursor: pointer;
     opacity: 0;
-    transform: translateX(4px);
-    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-    box-shadow: 0 2px 8px hsl(var(--foreground) / 0.04);
+    transition: all 0.2s ease;
     z-index: 10;
   }
 
   :global(.mood-item:hover .mood-item-expand-float),
   :global(.mood-item-expand-float:focus-visible) {
     opacity: 1;
-    transform: translateX(0);
   }
 
   :global(.mood-item-expand-float:hover) {
-    background: hsl(var(--foreground) / 0.06);
-    border-color: hsl(var(--foreground) / 0.15);
-    color: hsl(var(--foreground) / 0.8);
-    box-shadow: 0 4px 12px hsl(var(--foreground) / 0.08);
-    transform: translateY(-1px);
+    color: hsl(var(--foreground) / 0.7);
+    background: hsl(var(--foreground) / 0.05);
   }
 
   :global(.mood-item-expand-float:active) {
-    transform: translateY(0) scale(0.96);
+    transform: scale(0.92);
   }
 
   :global(.mood-item-expand-float svg) {
@@ -1648,26 +1641,16 @@ const skeletonGroups = [
 
   @media (max-width: 640px) {
     :global(.mood-item-expand-float) {
-      width: 28px;
-      height: 28px;
-      top: 10px;
-      right: -4px;
-      border-radius: 6px;
+      width: 24px;
+      height: 24px;
+      top: 8px;
+      right: -2px;
+      opacity: 0.6;
     }
 
     :global(.mood-item-expand-float svg) {
       width: 12px;
       height: 12px;
-    }
-
-    /* Always visible on mobile since no hover */
-    :global(.mood-item-expand-float) {
-      opacity: 0.7;
-      transform: translateX(0);
-    }
-
-    :global(.mood-item:active .mood-item-expand-float) {
-      opacity: 1;
     }
   }
 
