@@ -29,11 +29,15 @@ if (!post) {
   Astro.response.status = 404;
 }
 
+const canonicalUrl = new URL(Astro.url.pathname, Astro.url.origin).href;
+const oembed = id
+  ? { href: `/api/oembed.json?url=${encodeURIComponent(canonicalUrl)}`, title: 'Mood Embed' }
+  : undefined;
 const title = post ? `${post.title} | Moods` : 'Mood not found | Moods';
 const description = post ? post.text.slice(0, 160) : 'Mood not found.';
 ---
 
-<Layout title={title} description={description}>
+<Layout title={title} description={description} oembed={oembed}>
   <main class="page-container">
     {post ? (
       <article class="mood-post">
