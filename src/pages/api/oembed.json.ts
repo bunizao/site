@@ -24,9 +24,35 @@ const MAX_HEIGHT = 800;
 const DEFAULT_COUNT = 5;
 const MIN_COUNT = 1;
 const MAX_COUNT = 10;
+const DEFAULT_DENSITY = 'regular';
 
 function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
+}
+
+function normalizeOrigin(value: string | null): string | null {
+  if (!value) return null;
+  try {
+    const parsed = new URL(value);
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return null;
+    return parsed.origin;
+  } catch {
+    return null;
+  }
+}
+
+function estimateHeight(options: {
+  count: number;
+  hasLink: boolean;
+  frame: boolean;
+  density: 'regular' | 'compact';
+}): number {
+  const cardBase = options.density === 'compact' ? 132 : 164;
+  const gap = options.frame ? 12 : 16;
+  const padding = options.frame ? 16 : 0;
+  const link = options.hasLink ? 28 : 0;
+  const total = padding + options.count * cardBase + (options.count > 1 ? (options.count - 1) * gap : 0) + link;
+  return Math.round(total);
 }
 
 export const GET: APIRoute = async ({ url, request }) => {
@@ -117,13 +143,33 @@ export const GET: APIRoute = async ({ url, request }) => {
   const maxWidth = params.get('maxwidth');
   const maxHeight = params.get('maxheight');
   const width = maxWidth ? clamp(parseInt(maxWidth, 10) || DEFAULT_WIDTH, MIN_WIDTH, MAX_WIDTH) : DEFAULT_WIDTH;
-  const height = maxHeight ? clamp(parseInt(maxHeight, 10) || DEFAULT_HEIGHT, MIN_HEIGHT, MAX_HEIGHT) : DEFAULT_HEIGHT;
 
   // Parse embed-specific parameters
   const theme = params.get('theme') || 'auto';
   const countParam = params.get('count');
   const count = countParam ? clamp(parseInt(countParam, 10) || DEFAULT_COUNT, MIN_COUNT, MAX_COUNT) : DEFAULT_COUNT;
   const frameParam = params.get('frame');
+  const densityParam = params.get('density');
+  const fontParam = params.get('font');
+  const originParam = params.get('origin');
+  const linkParam = params.get('link');
+  const density = densityParam === 'compact' ? 'compact' : DEFAULT_DENSITY;
+  const font = fontParam === 'system' ? 'system' : 'mono';
+  const frame = frameParam ? frameParam !== 'false' && frameParam !== '0' : true;
+  const link = linkParam ? linkParam !== 'false' && linkParam !== '0' : true;
+  const allowedOrigin = normalizeOrigin(originParam);
+  const height = maxHeight
+    ? clamp(parseInt(maxHeight, 10) || DEFAULT_HEIGHT, MIN_HEIGHT, MAX_HEIGHT)
+    : clamp(
+        estimateHeight({
+          count: moodDetailId ? 1 : count,
+          hasLink: link,
+          frame,
+          density,
+        }),
+        MIN_HEIGHT,
+        MAX_HEIGHT
+      );
 
   // Build embed URL
   const baseUrl = `${url.protocol}//${url.host}`;
@@ -137,13 +183,25 @@ export const GET: APIRoute = async ({ url, request }) => {
   if (frameParam) {
     embedParams.set('frame', frameParam);
   }
+  if (densityParam) {
+    embedParams.set('density', density);
+  }
+  if (fontParam) {
+    embedParams.set('font', font);
+  }
+  if (allowedOrigin) {
+    embedParams.set('origin', allowedOrigin);
+  }
+  if (linkParam) {
+    embedParams.set('link', linkParam);
+  }
 
   const embedUrl = `${baseUrl}/mood/embed?${embedParams.toString()}`;
 
   // Generate iframe HTML
   const iframeId = `mood-embed-${Math.random().toString(36).slice(2, 9)}`;
   const iframeHtml = `<iframe id="${iframeId}" src="${embedUrl}" width="${width}" height="${height}" frameborder="0" style="border:0;display:block;width:100%;max-width:${width}px;height:${height}px;overflow:hidden;" loading="lazy" allowtransparency="true" title="Mood Embed"></iframe>`;
-  const resizeScript = `<script>(function(){var iframe=document.getElementById('${iframeId}');if(!iframe)return;function onMessage(event){if(!event||!event.data||event.data.type!=='mood-embed-resize')return;if(event.source!==iframe.contentWindow)return;var nextHeight=Number(event.data.height);if(!Number.isFinite(nextHeight)||nextHeight<=0)return;iframe.style.height=nextHeight+'px';}window.addEventListener('message',onMessage);})();</script>`;
+  const resizeScript = `<script>(function(){var iframe=document.getElementById('${iframeId}');if(!iframe)return;var allowedOrigin=null;try{var url=new URL(iframe.getAttribute('src')||'');var originParam=url.searchParams.get('origin');if(originParam){var parsed=new URL(originParam);allowedOrigin=parsed.origin;}}catch(e){}function onMessage(event){if(!event||!event.data||event.data.type!=='mood-embed-resize')return;if(event.source!==iframe.contentWindow)return;if(allowedOrigin&&event.origin!==allowedOrigin)return;var nextHeight=Number(event.data.height);if(!Number.isFinite(nextHeight)||nextHeight<=0)return;iframe.style.height=nextHeight+'px';}window.addEventListener('message',onMessage);})();</script>`;
   const embedHtml = `${iframeHtml}${resizeScript}`;
 
   const response: OEmbedResponse = {

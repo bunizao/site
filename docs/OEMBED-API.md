@@ -18,15 +18,19 @@ Returns oEmbed JSON response for embedding mood content.
 |-----------|------|----------|-------------|
 | `url` | string | Yes | URL to embed (must be a same-host `/mood` or `/mood/{id}` URL) |
 | `maxwidth` | number | No | Maximum width (200-800, default: 400) |
-| `maxheight` | number | No | Maximum height (150-800, default: 400) |
+| `maxheight` | number | No | Maximum height (150-800). When omitted, height is estimated based on content. |
 | `theme` | string | No | Theme: `light`, `dark`, or `auto` (default: `auto`) |
 | `count` | number | No | Number of posts to show (1-10, default: 5). Ignored for `/mood/{id}` URLs. |
 | `frame` | string | No | Card framing: `true` or `false` (default: `true`). |
+| `density` | string | No | Density: `regular` or `compact` (default: `regular`). |
+| `font` | string | No | Font: `mono` or `system` (default: `mono`). |
+| `origin` | string | No | Allowed parent origin for postMessage (e.g. `https://example.com`). |
+| `link` | string | No | Show "View all" link (`true`/`false`, default: `true`). |
 
 #### Example Request
 
 ```
-GET /api/oembed.json?url=https://buxx.me/mood&maxwidth=400&theme=dark
+GET /api/oembed.json?url=https://buxx.me/mood&maxwidth=400&maxheight=400&theme=dark
 ```
 
 #### Example Response
@@ -63,6 +67,9 @@ Renders an embeddable HTML widget for mood posts.
 | `refresh` | number | No | Auto-refresh interval in seconds (30-3600). Disables caching when set. |
 | `link` | string | No | Show "View all" link (`true`/`false`, default: `true`) |
 | `frame` | string | No | Card framing: `true` or `false` (default: `true`). |
+| `density` | string | No | Density: `regular` or `compact` (default: `regular`). |
+| `font` | string | No | Font: `mono` or `system` (default: `mono`). |
+| `origin` | string | No | Allowed parent origin for postMessage (e.g. `https://example.com`). |
 
 #### Examples
 
@@ -91,12 +98,13 @@ Pages at `/mood` and `/mood/{id}` include oEmbed discovery links:
 
 - **Auto Theme**: Respects `prefers-color-scheme` when theme is `auto`
 - **Responsive Height**: Posts `mood-embed-resize` message to parent for dynamic iframe sizing (oEmbed HTML includes a listener to resize the iframe)
+- **Origin Lock**: Optionally restricts postMessage to a specific parent origin via the `origin` parameter
 - **Theme Sync**: Listens for `mood-embed-theme` messages to sync theme with parent
 - **Auto Refresh**: Optional periodic refresh for live updates (30-3600 seconds, disables caching)
 
 ## Parent Page Integration
 
-If your platform strips scripts from the oEmbed `html` field, add the listener manually on the parent page to enable dynamic height adjustment:
+If your platform strips scripts from the oEmbed `html` field, add the listener manually on the parent page to enable dynamic height adjustment (and optionally validate `event.origin` if you set `origin`):
 
 ```javascript
 window.addEventListener('message', (event) => {

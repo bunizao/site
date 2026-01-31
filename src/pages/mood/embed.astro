@@ -16,6 +16,11 @@ const countParam = url.searchParams.get('count');
 const count = idParam ? 1 : Math.min(10, Math.max(1, parseInt(countParam || '1', 10) || 1));
 const frameParam = url.searchParams.get('frame');
 const frame = frameParam !== 'false' && frameParam !== '0';
+const densityParam = url.searchParams.get('density');
+const density = densityParam === 'compact' ? 'compact' : 'regular';
+const fontParam = url.searchParams.get('font');
+const font = fontParam === 'system' ? 'system' : 'mono';
+const originParam = url.searchParams.get('origin');
 const refreshParam = url.searchParams.get('refresh');
 const refreshRaw = refreshParam ? parseInt(refreshParam, 10) : NaN;
 const refresh = Number.isFinite(refreshRaw)
@@ -86,20 +91,45 @@ function formatDateTime(datetime: string): string {
   const day = date.getDate();
   return `${month} ${day} at ${time}`;
 }
+
+function normalizeOrigin(value: string | null): string | null {
+  if (!value) return null;
+  try {
+    const parsed = new URL(value);
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return null;
+    return parsed.origin;
+  } catch {
+    return null;
+  }
+}
+
+const allowedOrigin = normalizeOrigin(originParam);
 ---
 
 <!DOCTYPE html>
-<html lang="en" class={themeClass} data-embed-theme={theme} data-embed-frame={frame ? 'true' : 'false'}>
+<html
+  lang="en"
+  class={themeClass}
+  data-embed-theme={theme}
+  data-embed-frame={frame ? 'true' : 'false'}
+  data-embed-density={density}
+  data-embed-font={font}
+>
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="robots" content="noindex, nofollow" />
   <title>Mood Embed</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  {font !== 'system' && (
+    <>
+      <link rel="preconnect" href="https://fonts.googleapis.com" />
+      <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+      <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600&display=swap" rel="stylesheet" />
+    </>
+  )}
   <style is:inline>
     :root {
+      --font-family: 'JetBrains Mono', monospace;
       --background: 0 0% 100%;
       --foreground: 0 0% 0%;
       --muted: 0 0% 40%;
@@ -108,6 +138,17 @@ function formatDateTime(datetime: string): string {
       --card-bg: 0 0% 100%;
       --card-border: 0 0% 88%;
       --card-shadow: 0 0% 0% / 0.06;
+      --body-padding: 8px;
+      --card-gap: 12px;
+      --card-radius: 12px;
+      --header-padding: 12px 14px;
+      --content-padding: 14px;
+      --footer-padding: 10px 14px;
+      --text-size: 14px;
+      --meta-size: 11px;
+      --view-more-size: 12px;
+      --reaction-size: 11px;
+      --image-max: 400px;
     }
 
     .dark {
@@ -128,7 +169,7 @@ function formatDateTime(datetime: string): string {
     }
 
     html, body {
-      font-family: 'JetBrains Mono', monospace;
+      font-family: var(--font-family);
       font-size: 14px;
       line-height: 1.6;
       background: transparent;
@@ -136,11 +177,7 @@ function formatDateTime(datetime: string): string {
     }
 
     body {
-      padding: 8px;
-    }
-
-    html[data-embed-frame="false"] body {
-      padding: 0;
+      padding: var(--body-padding);
     }
 
     a {
@@ -148,17 +185,41 @@ function formatDateTime(datetime: string): string {
       text-decoration: none;
     }
 
+    html[data-embed-font="system"] {
+      --font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    }
+
+    html[data-embed-density="compact"] {
+      --body-padding: 6px;
+      --card-gap: 10px;
+      --card-radius: 10px;
+      --header-padding: 10px 12px;
+      --content-padding: 12px;
+      --footer-padding: 8px 12px;
+      --text-size: 13px;
+      --meta-size: 10px;
+      --view-more-size: 11px;
+      --reaction-size: 10px;
+      --image-max: 320px;
+    }
+
+    html[data-embed-frame="false"] {
+      --body-padding: 0;
+      --card-gap: 16px;
+      --card-radius: 0;
+    }
+
     /* Card container */
     .embed-card {
       background: hsl(var(--card-bg));
       border: 1px solid hsl(var(--card-border));
-      border-radius: 12px;
+      border-radius: var(--card-radius);
       overflow: hidden;
       box-shadow: 0 2px 8px hsl(var(--card-shadow)), 0 1px 3px hsl(var(--card-shadow));
     }
 
     .embed-card + .embed-card {
-      margin-top: 12px;
+      margin-top: var(--card-gap);
     }
 
     html[data-embed-frame="false"] .embed-card {
@@ -168,16 +229,12 @@ function formatDateTime(datetime: string): string {
       box-shadow: none;
     }
 
-    html[data-embed-frame="false"] .embed-card + .embed-card {
-      margin-top: 16px;
-    }
-
     /* Header */
     .card-header {
       display: flex;
       align-items: center;
       gap: 10px;
-      padding: 12px 14px;
+      padding: var(--header-padding);
       border-bottom: 1px solid hsl(var(--card-border));
     }
 
@@ -223,11 +280,11 @@ function formatDateTime(datetime: string): string {
 
     /* Content */
     .card-content {
-      padding: 14px;
+      padding: var(--content-padding);
     }
 
     .mood-text {
-      font-size: 14px;
+      font-size: var(--text-size);
       line-height: 1.6;
       word-wrap: break-word;
       overflow-wrap: break-word;
@@ -245,7 +302,7 @@ function formatDateTime(datetime: string): string {
     .mood-image {
       margin-top: 12px;
       width: 100%;
-      max-height: 400px;
+      max-height: var(--image-max);
       object-fit: contain;
       border-radius: 8px;
       background: hsl(var(--muted-foreground) / 0.05);
@@ -257,9 +314,9 @@ function formatDateTime(datetime: string): string {
       align-items: center;
       justify-content: space-between;
       gap: 12px;
-      padding: 10px 14px;
+      padding: var(--footer-padding);
       border-top: 1px solid hsl(var(--card-border));
-      font-size: 11px;
+      font-size: var(--meta-size);
       color: hsl(var(--muted-foreground));
     }
 
@@ -288,7 +345,7 @@ function formatDateTime(datetime: string): string {
       padding: 2px 6px;
       background: hsl(var(--muted-foreground) / 0.08);
       border-radius: 10px;
-      font-size: 11px;
+      font-size: var(--reaction-size);
     }
 
     .reaction-emoji {
@@ -316,7 +373,7 @@ function formatDateTime(datetime: string): string {
       text-align: center;
       padding: 10px;
       margin-top: 8px;
-      font-size: 12px;
+      font-size: var(--view-more-size);
       color: hsl(var(--muted-foreground));
       transition: color 0.15s ease;
     }
@@ -422,27 +479,65 @@ function formatDateTime(datetime: string): string {
     </>
   )}
 
-  <script is:inline define:vars={{ refresh }}>
-    // Notify parent of height for responsive iframe
-    function sendHeight() {
-      const height = document.documentElement.scrollHeight;
-      window.parent.postMessage({ type: 'mood-embed-resize', height }, '*');
+  <script is:inline define:vars={{ refresh, allowedOrigin }}>
+    const targetOrigin = allowedOrigin || '*';
+    let lastHeight = 0;
+    let rafId = 0;
+
+    function measureHeight() {
+      const doc = document.documentElement;
+      const body = document.body;
+      return Math.max(doc.scrollHeight, body ? body.scrollHeight : 0);
+    }
+
+    function postHeight() {
+      const height = measureHeight();
+      if (height === lastHeight) return;
+      lastHeight = height;
+      window.parent.postMessage({ type: 'mood-embed-resize', height }, targetOrigin);
+    }
+
+    function scheduleSend() {
+      if (rafId) return;
+      rafId = window.requestAnimationFrame(() => {
+        rafId = 0;
+        postHeight();
+      });
     }
 
     // Send initial height
-    sendHeight();
+    scheduleSend();
 
     // Send height on resize
-    window.addEventListener('resize', sendHeight);
+    window.addEventListener('resize', scheduleSend);
+
+    // Track layout changes for dynamic content
+    if ('ResizeObserver' in window) {
+      const resizeObserver = new ResizeObserver(scheduleSend);
+      resizeObserver.observe(document.documentElement);
+    } else if ('MutationObserver' in window) {
+      const mutationObserver = new MutationObserver(scheduleSend);
+      mutationObserver.observe(document.body, {
+        childList: true,
+        subtree: true,
+        characterData: true,
+        attributes: true,
+      });
+    }
 
     // Send height after images load (or immediately if cached)
     document.querySelectorAll('img').forEach(img => {
       if (img.complete) {
-        sendHeight();
+        scheduleSend();
         return;
       }
-      img.addEventListener('load', sendHeight);
+      img.addEventListener('load', scheduleSend);
     });
+
+    // Re-measure after fonts load
+    if (document.fonts && document.fonts.ready) {
+      document.fonts.ready.then(scheduleSend);
+    }
 
     // Auto-refresh if configured
     if (refresh && refresh > 0) {
@@ -453,6 +548,12 @@ function formatDateTime(datetime: string): string {
 
     // Theme sync with parent
     window.addEventListener('message', (event) => {
+      if (allowedOrigin && event.origin !== allowedOrigin) {
+        return;
+      }
+      if (event.source !== window.parent) {
+        return;
+      }
       if (event.data && event.data.type === 'mood-embed-theme') {
         const html = document.documentElement;
         const theme = event.data.theme;
