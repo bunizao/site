@@ -780,7 +780,14 @@ async function parseComment(
       .first();
   }
   await modifyHTMLContent($, contentEl, { staticProxy });
-  const content = [replyHtml, contentEl.html() ?? ''].filter(Boolean).join('');
+
+  // Extract stickers from comments (same as posts)
+  const stickersHtml = [
+    getImageStickers($, messageEl.get(0) as Element, { staticProxy }),
+    getVideoStickers($, messageEl.get(0) as Element, { staticProxy }),
+  ].filter(Boolean).join('');
+
+  const content = [replyHtml, contentEl.html() ?? '', stickersHtml].filter(Boolean).join('');
 
   // Get reactions
   const reactions = await getReactions($, messageEl.get(0) as Element, staticProxy);
