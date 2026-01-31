@@ -111,6 +111,10 @@ function escapeHtml(value: string = ''): string {
 
 // HD image proxy URL (Cloudflare Worker)
 const HD_IMAGE_URL = import.meta.env.PUBLIC_HD_IMAGE_URL || '';
+const INLINE_IMAGE_WIDTHS = [480, 800, 1200];
+const MODAL_IMAGE_WIDTHS = [800, 1200, 1600];
+const INLINE_IMAGE_SIZES = '(min-width: 1024px) 720px, (min-width: 640px) 90vw, 100vw';
+const MODAL_IMAGE_SIZES = '(min-width: 1024px) 900px, 90vw';
 
 /**
  * Upgrade image URL to higher quality by modifying the width parameter
@@ -124,6 +128,21 @@ function upgradeImageQuality(url: string): string {
   const separator = cleanUrl.includes('?') ? '&' : '?';
   // Request 1280px width for better quality on desktop
   return `${cleanUrl}${separator}w=1280`;
+}
+
+function withWidthParam(url: string, width: number): string {
+  if (!url) return url;
+  if (/^(data:|blob:)/i.test(url)) return url;
+  const isAbsolute = /^(https?:)?\/\//i.test(url);
+  const parsed = new URL(url, 'https://local.invalid');
+  parsed.searchParams.set('w', String(width));
+  if (isAbsolute) return parsed.toString();
+  return `${parsed.pathname}${parsed.search}${parsed.hash}`;
+}
+
+function buildSrcSet(url: string, widths: number[]): string {
+  if (!url || /^(data:|blob:)/i.test(url)) return '';
+  return widths.map((width) => `${withWidthParam(url, width)} ${width}w`).join(', ');
 }
 
 function normalizeMediaUrl(value: string): string {
@@ -221,6 +240,10 @@ function getImages($: CheerioAPI, item: Element, { staticProxy, id, index, title
       // Use HD Worker proxy if configured, with fallback to static proxy
       const hdUrl = HD_IMAGE_URL && id ? `${HD_IMAGE_URL}/mood/${id}/${_index}` : '';
       const imgSrc = hdUrl || fallbackUrl;
+      const inlineSrcSet = buildSrcSet(imgSrc, INLINE_IMAGE_WIDTHS);
+      const modalSrcSet = buildSrcSet(imgSrc, MODAL_IMAGE_WIDTHS);
+      const srcSetAttr = inlineSrcSet ? ` srcset="${inlineSrcSet}" sizes="${INLINE_IMAGE_SIZES}"` : '';
+      const modalSrcSetAttr = modalSrcSet ? ` srcset="${modalSrcSet}" sizes="${MODAL_IMAGE_SIZES}"` : '';
 
       const widthMatch = style.match(/width:\s*(\d+)px/i);
       const heightMatch = style.match(/height:\s*(\d+)px/i);
@@ -248,10 +271,10 @@ function getImages($: CheerioAPI, item: Element, { staticProxy, id, index, title
 
       return `
       <button class="image-preview-button image-preview-wrap${portraitClass}" popovertarget="${popoverId}" popovertargetaction="show"${widthStyle}>
-        <img src="${imgSrc}"${onerrorAttr} alt="${title}" loading="${(index ?? 0) > 15 ? 'eager' : 'lazy'}"${widthAttr}${heightAttr} />
+        <img src="${imgSrc}"${srcSetAttr}${onerrorAttr} alt="${title}" loading="${(index ?? 0) > 15 ? 'eager' : 'lazy'}"${widthAttr}${heightAttr} />
       </button>
       <button class="image-preview-button modal" id="${popoverId}" popovertarget="${popoverId}" popovertargetaction="hide" popover>
-        <img class="modal-img" src="${imgSrc}"${onerrorAttr} alt="${title}" loading="lazy" />
+        <img class="modal-img" src="${imgSrc}"${modalSrcSetAttr}${onerrorAttr} alt="${title}" loading="lazy" />
       </button>
     `;
     })
