@@ -383,7 +383,7 @@ function formatDateTime(datetime: string): string {
                   </div>
                 )}
               </div>
-              <a href={postUrl} target="_blank" rel="noopener" class="mood-datetime">
+              <a href={postUrl} target="_blank" rel="noopener" class="mood-datetime" data-datetime={post.datetime}>
                 {datetime}
               </a>
             </footer>
@@ -439,6 +439,34 @@ function formatDateTime(datetime: string): string {
           html.classList.remove('dark');
           html.classList.add('light');
         }
+      }
+    });
+
+    function formatClientDateTime(datetime) {
+      const date = new Date(datetime);
+      if (Number.isNaN(date.getTime())) return '';
+      const now = new Date();
+      const isToday = date.toDateString() === now.toDateString();
+      const yesterday = new Date(now);
+      yesterday.setDate(yesterday.getDate() - 1);
+      const isYesterday = date.toDateString() === yesterday.toDateString();
+      const time = date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+
+      if (isToday) return `Today at ${time}`;
+      if (isYesterday) return `Yesterday at ${time}`;
+
+      const month = date.toLocaleString('en-US', { month: 'short' });
+      const day = date.getDate();
+      return `${month} ${day} at ${time}`;
+    }
+
+    // Update datetimes to client locale
+    document.querySelectorAll('.mood-datetime[data-datetime]').forEach((el) => {
+      const value = el.getAttribute('data-datetime');
+      if (!value) return;
+      const text = formatClientDateTime(value);
+      if (text) {
+        el.textContent = text;
       }
     });
   </script>
