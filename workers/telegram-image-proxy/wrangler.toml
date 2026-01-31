@@ -6,7 +6,7 @@ compatibility_date = "2024-01-01"
 # npx wrangler kv:namespace create MOOD_IMAGES
 [[kv_namespaces]]
 binding = "MOOD_IMAGES"
-id = "<your-namespace-id>"
+id = "189050c714624215881eb09a874cfd90"
 
 # Custom domain configuration (set up in Cloudflare Dashboard):
 # Workers -> telegram-image-proxy -> Triggers -> Add Custom Domain -> image.buxx.me
