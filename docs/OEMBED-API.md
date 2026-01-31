@@ -16,11 +16,11 @@ Returns oEmbed JSON response for embedding mood content.
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `url` | string | Yes | URL to embed (must be a `/mood` or `/mood/{id}` URL) |
+| `url` | string | Yes | URL to embed (must be a same-host `/mood` or `/mood/{id}` URL) |
 | `maxwidth` | number | No | Maximum width (200-800, default: 400) |
 | `maxheight` | number | No | Maximum height (150-800, default: 400) |
 | `theme` | string | No | Theme: `light`, `dark`, or `auto` (default: `auto`) |
-| `count` | number | No | Number of posts to show (1-10, default: 5) |
+| `count` | number | No | Number of posts to show (1-10, default: 5). Ignored for `/mood/{id}` URLs. |
 
 #### Example Request
 
@@ -59,7 +59,7 @@ Renders an embeddable HTML widget for mood posts.
 | `id` | string | No | Specific post ID to display |
 | `count` | number | No | Number of posts (1-10, default: 1) |
 | `theme` | string | No | Theme: `light`, `dark`, or `auto` |
-| `refresh` | number | No | Auto-refresh interval in seconds |
+| `refresh` | number | No | Auto-refresh interval in seconds (30-3600). Disables caching when set. |
 | `link` | string | No | Show "View all" link (`true`/`false`, default: `true`) |
 
 #### Examples
@@ -90,7 +90,7 @@ Pages at `/mood` and `/mood/{id}` include oEmbed discovery links:
 - **Auto Theme**: Respects `prefers-color-scheme` when theme is `auto`
 - **Responsive Height**: Posts `mood-embed-resize` message to parent for dynamic iframe sizing
 - **Theme Sync**: Listens for `mood-embed-theme` messages to sync theme with parent
-- **Auto Refresh**: Optional periodic refresh for live updates
+- **Auto Refresh**: Optional periodic refresh for live updates (30-3600 seconds, disables caching)
 
 ## Parent Page Integration
 
