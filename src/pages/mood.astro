@@ -1596,38 +1596,79 @@ const skeletonGroups = [
     font-variant-numeric: tabular-nums;
   }
 
-  /* Expand to detail icon */
-  :global(.mood-item-expand) {
-    display: inline-flex;
+  /* Floating expand button - appears on hover for non-clickable items */
+  :global(.mood-item-expand-float) {
+    position: absolute;
+    top: 12px;
+    right: 0;
+    display: flex;
     align-items: center;
     justify-content: center;
-    width: 24px;
-    height: 24px;
-    background: hsl(var(--foreground) / 0.03);
-    border-radius: 50%;
-    color: hsl(var(--muted-foreground) / 0.5);
-    transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
-    border: 1px solid transparent;
+    width: 32px;
+    height: 32px;
+    background: hsl(var(--background));
+    border: 1px solid hsl(var(--foreground) / 0.1);
+    border-radius: 8px;
+    color: hsl(var(--muted-foreground) / 0.6);
     text-decoration: none;
     cursor: pointer;
-    margin-left: auto;
+    opacity: 0;
+    transform: translateX(4px);
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 2px 8px hsl(var(--foreground) / 0.04);
+    z-index: 10;
+  }
+
+  :global(.mood-item:hover .mood-item-expand-float),
+  :global(.mood-item-expand-float:focus-visible) {
+    opacity: 1;
+    transform: translateX(0);
+  }
+
+  :global(.mood-item-expand-float:hover) {
+    background: hsl(var(--foreground) / 0.06);
+    border-color: hsl(var(--foreground) / 0.15);
+    color: hsl(var(--foreground) / 0.8);
+    box-shadow: 0 4px 12px hsl(var(--foreground) / 0.08);
+    transform: translateY(-1px);
+  }
+
+  :global(.mood-item-expand-float:active) {
+    transform: translateY(0) scale(0.96);
+  }
+
+  :global(.mood-item-expand-float svg) {
     flex-shrink: 0;
   }
 
-  :global(.mood-item-expand:hover),
-  :global(.mood-item-expand:focus-visible) {
-    background: hsl(var(--foreground) / 0.08);
-    color: hsl(var(--foreground) / 0.7);
-    border-color: hsl(var(--foreground) / 0.1);
-    transform: scale(1.1) rotate(-5deg);
+  /* Ensure mood-item has relative positioning for the float button */
+  :global(.mood-item) {
+    position: relative;
   }
 
-  :global(.mood-item-expand:active) {
-    transform: scale(0.95);
-  }
+  @media (max-width: 640px) {
+    :global(.mood-item-expand-float) {
+      width: 28px;
+      height: 28px;
+      top: 10px;
+      right: -4px;
+      border-radius: 6px;
+    }
 
-  :global(.mood-item-expand svg) {
-    flex-shrink: 0;
+    :global(.mood-item-expand-float svg) {
+      width: 12px;
+      height: 12px;
+    }
+
+    /* Always visible on mobile since no hover */
+    :global(.mood-item-expand-float) {
+      opacity: 0.7;
+      transform: translateX(0);
+    }
+
+    :global(.mood-item:active .mood-item-expand-float) {
+      opacity: 1;
+    }
   }
 
   /* Comments popover wrapper */
@@ -3212,14 +3253,6 @@ const skeletonGroups = [
         }
 
         // Add comments indicator with hover popover
-        // Add detail page link icon for all posts
-        const detailLink = document.createElement('a');
-        detailLink.className = 'mood-item-expand';
-        detailLink.href = `/mood/${mood.id}`;
-        detailLink.title = 'View full post';
-        detailLink.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="7" y1="17" x2="17" y2="7"></line><polyline points="7 7 17 7 17 17"></polyline></svg>`;
-        reactionsWrap.appendChild(detailLink);
-
         if (hasComments) {
           const wrapper = document.createElement('div');
           wrapper.className = 'mood-comments-wrapper';
@@ -3268,13 +3301,21 @@ const skeletonGroups = [
 
           wrapper.appendChild(commentsLink);
           wrapper.appendChild(popover);
-          reactionsWrap.appendChild(detailLink);
           reactionsWrap.appendChild(wrapper);
-        } else {
-          reactionsWrap.appendChild(detailLink);
         }
 
       content.appendChild(reactionsWrap);
+
+      // Add floating expand button for non-clickable items
+      if (!shouldLink) {
+        const expandBtn = document.createElement('a');
+        expandBtn.className = 'mood-item-expand-float';
+        expandBtn.href = `/mood/${mood.id}`;
+        expandBtn.title = 'View full post';
+        expandBtn.setAttribute('aria-label', 'View full post');
+        expandBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>`;
+        element.appendChild(expandBtn);
+      }
 
       if (mood.tag) {
         const tag = document.createElement('span');
