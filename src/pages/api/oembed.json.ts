@@ -72,7 +72,10 @@ export const GET: APIRoute = async ({ url, request }) => {
   }
 
   // Check if URL is for our mood page
-  const isMoodUrl = parsedUrl.pathname === '/mood' || parsedUrl.pathname.startsWith('/mood/');
+  const moodListPath = parsedUrl.pathname === '/mood';
+  const moodDetailMatch = parsedUrl.pathname.match(/^\\/mood\\/([^/]+)\\/?$/);
+  const moodDetailId = moodDetailMatch?.[1] ?? '';
+  const isMoodUrl = moodListPath || Boolean(moodDetailId);
   if (!isMoodUrl) {
     return new Response(
       JSON.stringify({ error: 'URL not supported for embedding' }),
@@ -101,7 +104,11 @@ export const GET: APIRoute = async ({ url, request }) => {
   const baseUrl = `${url.protocol}//${url.host}`;
   const embedParams = new URLSearchParams();
   embedParams.set('theme', theme);
-  embedParams.set('count', String(count));
+  if (moodDetailId) {
+    embedParams.set('id', moodDetailId);
+  } else {
+    embedParams.set('count', String(count));
+  }
 
   const embedUrl = `${baseUrl}/mood/embed?${embedParams.toString()}`;
 
