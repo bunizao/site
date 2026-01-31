@@ -66,6 +66,34 @@ export const GET: APIRoute = async ({ url, request }) => {
     );
   }
 
+  const isHttp = parsedUrl.protocol === 'http:' || parsedUrl.protocol === 'https:';
+  if (!isHttp) {
+    return new Response(
+      JSON.stringify({ error: 'Unsupported URL protocol' }),
+      {
+        status: 400,
+        headers: {
+          'Content-Type': 'application/json',
+          ...Object.fromEntries(corsHeaders),
+        },
+      }
+    );
+  }
+
+  const normalizeHost = (value: string): string => value.replace(/^www\\./i, '').toLowerCase();
+  if (normalizeHost(parsedUrl.host) !== normalizeHost(url.host)) {
+    return new Response(
+      JSON.stringify({ error: 'URL host not allowed for embedding' }),
+      {
+        status: 403,
+        headers: {
+          'Content-Type': 'application/json',
+          ...Object.fromEntries(corsHeaders),
+        },
+      }
+    );
+  }
+
   // Check if URL is for our mood page
   const moodListPath = parsedUrl.pathname === '/mood';
   const moodDetailMatch = parsedUrl.pathname.match(/^\\/mood\\/([^/]+)\\/?$/);
