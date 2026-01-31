@@ -1365,8 +1365,18 @@ const telegramCommentUrl = channel && id ? `https://t.me/${channel}/${id}?commen
   }
 
   a.mood-comment-cta-wrap:hover .mood-comment-body {
-    background: hsl(var(--foreground) / 0.06);
-    border-color: hsl(var(--foreground) / 0.12);
+    background: linear-gradient(
+      145deg,
+      hsl(var(--foreground) / 0.035) 0%,
+      hsl(200 50% 60% / 0.06) 50%,
+      hsl(var(--foreground) / 0.05) 100%
+    );
+    border-color: hsl(200 40% 50% / 0.15);
+    box-shadow:
+      0 1px 2px hsl(var(--foreground) / 0.04),
+      0 4px 12px hsl(200 60% 50% / 0.08),
+      inset 0 1px 0 hsl(var(--background) / 0.8),
+      inset 0 -1px 0 hsl(var(--foreground) / 0.03);
   }
 
   .mood-comment-avatar--telegram {
