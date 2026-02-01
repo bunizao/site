@@ -3623,191 +3623,151 @@ const skeletonGroups = [
 </script>
 
 <script>
-  // Timeline Wheel - Scroll sync and navigation
+  // Timeline Wheel - Large wheel at screen edge, only right arc visible
   import gsap from 'gsap';
   import { ScrollTrigger } from 'gsap/ScrollTrigger';
-  import { ScrollToPlugin } from 'gsap/ScrollToPlugin';
 
-  gsap.registerPlugin(ScrollTrigger, ScrollToPlugin);
+  gsap.registerPlugin(ScrollTrigger);
 
   const initTimelineWheel = (): void => {
     const wheel = document.querySelector('[data-timeline-wheel]') as HTMLElement | null;
-    const track = document.querySelector('[data-timeline-track]') as HTMLElement | null;
-    const indicator = document.querySelector('[data-timeline-indicator]') as HTMLElement | null;
+    const dial = document.querySelector('[data-timeline-dial]') as HTMLElement | null;
+    const label = document.querySelector('[data-timeline-label]') as HTMLElement | null;
     const feedEl = document.querySelector('[data-mood-feed]') as HTMLElement | null;
     const list = document.querySelector('[data-mood-list]') as HTMLElement | null;
 
-    if (!wheel || !track || !indicator || !feedEl || !list) return;
+    if (!wheel || !dial || !label || !feedEl || !list) return;
 
-    // Only show on desktop
     const isDesktop = (): boolean => window.innerWidth >= 1024;
     const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-    let wheelItems: HTMLElement[] = [];
     let dateGroups: HTMLElement[] = [];
-    let scrollTriggers: ScrollTrigger[] = [];
+    let notches: HTMLElement[] = [];
+    let currentRotation = 0;
+    let targetRotation = 0;
+    let animationId = 0;
     let activeIndex = 0;
-    let isInitialized = false;
 
-    const ITEM_HEIGHT = 28; // Height of each wheel item in px
+    // Gear settings - notches visible around 3 o'clock (0°)
+    const NOTCHES_PER_DATE = 6;
+    const ANGLE_PER_NOTCH = 4; // Degrees per notch
+    const VISIBLE_ARC = 60; // Degrees visible on screen (±30° from horizontal)
 
-    const debounce = <T extends (...args: unknown[]) => void>(fn: T, wait = 100): T => {
-      let timer = 0;
-      return ((...args: Parameters<T>) => {
-        window.clearTimeout(timer);
-        timer = window.setTimeout(() => fn(...args), wait);
-      }) as T;
-    };
-
-    const formatWheelDate = (dateKey: string): string => {
+    const formatDate = (dateKey: string): string => {
       const [year, month, day] = dateKey.split('-').map(Number);
       const date = new Date(year, month - 1, day);
       const now = new Date();
 
-      const isToday =
-        date.getFullYear() === now.getFullYear() &&
-        date.getMonth() === now.getMonth() &&
-        date.getDate() === now.getDate();
-
-      if (isToday) return 'Today';
+      if (date.toDateString() === now.toDateString()) return 'Today';
 
       const yesterday = new Date(now);
       yesterday.setDate(yesterday.getDate() - 1);
-      const isYesterday =
-        date.getFullYear() === yesterday.getFullYear() &&
-        date.getMonth() === yesterday.getMonth() &&
-        date.getDate() === yesterday.getDate();
-
-      if (isYesterday) return 'Yesterday';
+      if (date.toDateString() === yesterday.toDateString()) return 'Yesterday';
 
       const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
         'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-
-      if (date.getFullYear() === now.getFullYear()) {
-        return `${months[date.getMonth()]} ${date.getDate()}`;
-      }
-      return `${months[date.getMonth()]} ${date.getDate()}, ${String(date.getFullYear()).slice(-2)}`;
+      return `${months[date.getMonth()]} ${date.getDate()}`;
     };
 
-    const createWheelItem = (dateKey: string, index: number): HTMLElement => {
-      const item = document.createElement('button');
-      item.className = 'timeline-wheel-item';
-      item.type = 'button';
-      item.textContent = formatWheelDate(dateKey);
-      item.dataset.dateKey = dateKey;
-      item.dataset.index = String(index);
-      item.setAttribute('aria-label', `Navigate to ${formatWheelDate(dateKey)}`);
-      return item;
-    };
+    const createNotches = (): void => {
+      dial.innerHTML = '';
+      notches = [];
 
-    const activateWheelItem = (index: number): void => {
-      if (index === activeIndex && isInitialized) return;
+      const totalDates = dateGroups.length;
+      if (totalDates === 0) return;
 
-      const prevItem = wheelItems[activeIndex];
-      const nextItem = wheelItems[index];
+      // Create notches centered around 0° (3 o'clock, pointing right)
+      // Total angle span needed
+      const totalAngle = totalDates * NOTCHES_PER_DATE * ANGLE_PER_NOTCH;
+      const startOffset = 0; // Start from 0°
 
-      if (prevItem) {
-        prevItem.classList.remove('is-active');
-        prevItem.removeAttribute('aria-current');
-      }
+      for (let dateIdx = 0; dateIdx < totalDates; dateIdx++) {
+        // Major notch for the date
+        const majorAngle = startOffset + dateIdx * NOTCHES_PER_DATE * ANGLE_PER_NOTCH;
+        const majorNotch = document.createElement('div');
+        majorNotch.className = 'timeline-notch is-major';
+        majorNotch.dataset.dateIndex = String(dateIdx);
+        majorNotch.style.transform = `rotate(${majorAngle}deg) translateX(calc(var(--wheel-size) / 2 - 36px))`;
+        dial.appendChild(majorNotch);
+        notches.push(majorNotch);
 
-      if (nextItem) {
-        nextItem.classList.add('is-active');
-        nextItem.setAttribute('aria-current', 'true');
-      }
-
-      // Move indicator
-      const targetY = index * ITEM_HEIGHT + 12; // 12px padding offset
-      if (prefersReducedMotion) {
-        indicator.style.top = `${targetY}px`;
-      } else {
-        gsap.to(indicator, {
-          top: targetY,
-          duration: 0.4,
-          ease: 'power3.inOut',
-        });
-      }
-
-      activeIndex = index;
-      isInitialized = true;
-    };
-
-    const scrollToDate = (dateGroup: HTMLElement): void => {
-      const headerOffset = 120;
-      if (prefersReducedMotion) {
-        dateGroup.scrollIntoView({ behavior: 'auto', block: 'start' });
-        window.scrollBy(0, -headerOffset);
-      } else {
-        gsap.to(window, {
-          scrollTo: { y: dateGroup, offsetY: headerOffset },
-          duration: 0.8,
-          ease: 'power2.inOut',
-        });
-      }
-    };
-
-    const handleWheelClick = (event: Event): void => {
-      const target = event.target as HTMLElement;
-      const item = target.closest('.timeline-wheel-item') as HTMLElement | null;
-      if (!item) return;
-
-      const index = parseInt(item.dataset.index || '0', 10);
-      const dateGroup = dateGroups[index];
-      if (dateGroup) {
-        scrollToDate(dateGroup);
-      }
-    };
-
-    const handleKeydown = (event: KeyboardEvent): void => {
-      if (!wheel.contains(document.activeElement)) return;
-
-      let newIndex = activeIndex;
-
-      if (event.key === 'ArrowUp' || event.key === 'ArrowLeft') {
-        event.preventDefault();
-        newIndex = Math.max(0, activeIndex - 1);
-      } else if (event.key === 'ArrowDown' || event.key === 'ArrowRight') {
-        event.preventDefault();
-        newIndex = Math.min(wheelItems.length - 1, activeIndex + 1);
-      } else if (event.key === 'Home') {
-        event.preventDefault();
-        newIndex = 0;
-      } else if (event.key === 'End') {
-        event.preventDefault();
-        newIndex = wheelItems.length - 1;
-      }
-
-      if (newIndex !== activeIndex && wheelItems[newIndex]) {
-        wheelItems[newIndex].focus();
-        const dateGroup = dateGroups[newIndex];
-        if (dateGroup) {
-          scrollToDate(dateGroup);
+        // Minor notches between dates
+        for (let i = 1; i < NOTCHES_PER_DATE; i++) {
+          const minorAngle = majorAngle + i * ANGLE_PER_NOTCH;
+          const minorNotch = document.createElement('div');
+          minorNotch.className = 'timeline-notch';
+          minorNotch.style.transform = `rotate(${minorAngle}deg) translateX(calc(var(--wheel-size) / 2 - 20px))`;
+          dial.appendChild(minorNotch);
         }
       }
     };
 
-    const setupScrollTriggers = (): void => {
-      if (!ScrollTrigger || typeof ScrollTrigger.create !== 'function') {
-        return;
-      }
-      // Clear existing triggers
-      scrollTriggers.forEach((trigger) => trigger.kill());
-      scrollTriggers = [];
+    const updateActiveNotch = (index: number): void => {
+      if (index === activeIndex && notches.length > 0) return;
 
-      dateGroups.forEach((group, index) => {
-        const trigger = ScrollTrigger.create({
-          trigger: group,
-          start: 'top center',
-          end: 'bottom center',
-          onEnter: () => activateWheelItem(index),
-          onEnterBack: () => activateWheelItem(index),
-        });
-        scrollTriggers.push(trigger);
+      notches.forEach((notch) => notch.classList.remove('is-active'));
+
+      if (notches[index]) {
+        notches[index].classList.add('is-active');
+      }
+
+      const dateKey = dateGroups[index]?.dataset.date || '';
+      label.textContent = formatDate(dateKey);
+
+      activeIndex = index;
+    };
+
+    const animateRotation = (): void => {
+      if (prefersReducedMotion) {
+        currentRotation = targetRotation;
+      } else {
+        const diff = targetRotation - currentRotation;
+        currentRotation += diff * 0.1;
+
+        if (Math.abs(diff) < 0.05) {
+          currentRotation = targetRotation;
+        }
+      }
+
+      // Rotate the dial (negative = clockwise when scrolling down)
+      dial.style.transform = `translateY(-50%) rotate(${-currentRotation}deg)`;
+
+      if (Math.abs(targetRotation - currentRotation) > 0.05) {
+        animationId = requestAnimationFrame(animateRotation);
+      }
+    };
+
+    const startAnimation = (): void => {
+      cancelAnimationFrame(animationId);
+      animationId = requestAnimationFrame(animateRotation);
+    };
+
+    const setupScrollSync = (): void => {
+      ScrollTrigger.create({
+        trigger: list,
+        start: 'top top',
+        end: 'bottom bottom',
+        onUpdate: (self) => {
+          const totalDates = dateGroups.length;
+          if (totalDates <= 1) return;
+
+          const progress = self.progress;
+          const exactIndex = progress * (totalDates - 1);
+          const dateIndex = Math.min(Math.floor(exactIndex), totalDates - 1);
+          const withinDate = exactIndex - dateIndex;
+
+          // Calculate rotation
+          const baseAngle = dateIndex * NOTCHES_PER_DATE * ANGLE_PER_NOTCH;
+          const interpolatedAngle = withinDate * NOTCHES_PER_DATE * ANGLE_PER_NOTCH;
+          targetRotation = baseAngle + interpolatedAngle;
+
+          updateActiveNotch(dateIndex);
+          startAnimation();
+        },
       });
     };
 
     const rebuildWheel = (): void => {
-      // Get current date groups from the DOM
       dateGroups = Array.from(list.querySelectorAll('.mood-date-group')) as HTMLElement[];
 
       if (dateGroups.length === 0) {
@@ -3815,69 +3775,43 @@ const skeletonGroups = [
         return;
       }
 
-      // Remove existing wheel items but keep the scoped indicator element
-      track.querySelectorAll('.timeline-wheel-item').forEach((item) => item.remove());
-      wheelItems = [];
-      isInitialized = false;
+      createNotches();
+      setupScrollSync();
 
-      if (indicator && indicator.parentElement !== track) {
-        track.prepend(indicator);
-      }
-
-      // Create wheel items for each date group
-      dateGroups.forEach((group, index) => {
-        const dateKey = group.dataset.date || '';
-        const item = createWheelItem(dateKey, index);
-        track.appendChild(item);
-        wheelItems.push(item);
-      });
-
-      // Setup scroll triggers
-      setupScrollTriggers();
-      if (ScrollTrigger && typeof ScrollTrigger.refresh === 'function') {
-        ScrollTrigger.refresh();
-      }
-
-      // Show wheel if on desktop
-      if (isDesktop() && dateGroups.length > 0) {
+      if (isDesktop()) {
         wheel.classList.add('is-visible');
-        // Activate current item
-        const clampedIndex = Math.max(0, Math.min(activeIndex, wheelItems.length - 1));
-        activateWheelItem(clampedIndex);
+        updateActiveNotch(0);
+        const dateKey = dateGroups[0]?.dataset.date || '';
+        label.textContent = formatDate(dateKey);
       }
     };
 
     const handleResize = (): void => {
-      if (isDesktop()) {
+      if (isDesktop() && dateGroups.length > 0) {
         wheel.classList.add('is-visible');
-        if (ScrollTrigger && typeof ScrollTrigger.refresh === 'function') {
-          ScrollTrigger.refresh();
-        }
+        ScrollTrigger.refresh();
       } else {
         wheel.classList.remove('is-visible');
       }
     };
 
-    // Event listeners
-    track.addEventListener('click', handleWheelClick);
-    document.addEventListener('keydown', handleKeydown);
-    window.addEventListener('resize', debounce(handleResize, 100));
-
-    // Observe feed for changes (new date groups added)
-    const feedObserver = new MutationObserver(() => {
-      const currentCount = list.querySelectorAll('.mood-date-group').length;
-      if (currentCount !== dateGroups.length) {
-        rebuildWheel();
-      }
+    window.addEventListener('resize', () => {
+      clearTimeout((window as any)._wheelResizeTimer);
+      (window as any)._wheelResizeTimer = setTimeout(handleResize, 100);
     });
 
-    // Wait for feed to be visible before initializing
     const checkFeedVisible = (): void => {
       if (!feedEl.classList.contains('is-hidden')) {
         rebuildWheel();
-        feedObserver.observe(list, { childList: true, subtree: true });
+
+        const observer = new MutationObserver(() => {
+          const newCount = list.querySelectorAll('.mood-date-group').length;
+          if (newCount !== dateGroups.length) {
+            rebuildWheel();
+          }
+        });
+        observer.observe(list, { childList: true, subtree: true });
       } else {
-        // Check again soon
         requestAnimationFrame(checkFeedVisible);
       }
     };
@@ -3885,7 +3819,6 @@ const skeletonGroups = [
     checkFeedVisible();
   };
 
-  // Initialize when DOM is ready
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', initTimelineWheel);
   } else {
