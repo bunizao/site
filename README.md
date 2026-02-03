@@ -81,6 +81,13 @@ Embed mood posts on other platforms via oEmbed protocol:
 Full oEmbed documentation:
 - [`docs/OEMBED-API.md`](docs/OEMBED-API.md)
 
+## Image Quality Upgrade (Cloudflare Worker)
+
+Mood photos can be served via a Cloudflare Worker for higher quality and edge caching.
+
+Documentation:
+- [`docs/IMAGE-QUALITY-UPGRADE.md`](docs/IMAGE-QUALITY-UPGRADE.md)
+
 ## Project Structure
 - `/src/pages` - Route entry points
 - `src/pages/api` - Dynamic SVG endpoints
@@ -98,6 +105,11 @@ Full oEmbed documentation:
 - `GHOST_URL` - Ghost CMS URL
 - `GHOST_CONTENT_APIKEY` - Ghost CMS content API key
 - `GITHUB_TOKEN` - GitHub GraphQL token for project data and star counts
+- `PUBLIC_HD_IMAGE_URL` - Cloudflare Worker base URL for Mood images
+- `TELEGRAM_WEBHOOK_SECRET` - Secret token for `/api/telegram-webhook`
+- `CLOUDFLARE_ACCOUNT_ID` - Cloudflare account id for KV writes
+- `CLOUDFLARE_API_TOKEN` - Cloudflare API token for KV writes
+- `CLOUDFLARE_KV_NAMESPACE_ID` - Cloudflare KV namespace id (MOOD_IMAGES)
 - See [`.env`](.env)
 
 ## Acknowledgements
