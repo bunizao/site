@@ -1,6 +1,6 @@
-# Telegram HD Image Proxy (`telegram-image-proxy`)
+# Image Quality Upgrade Worker (`telegram-image-proxy`)
 
-Cloudflare Worker that serves high-resolution Telegram photos for the Mood section.
+Cloudflare Worker that serves higher-quality Telegram photos for the Mood section.
 
 At a glance:
 - A Cloudflare KV namespace stores a lookup table from `(postId, imageIndex)` to Telegram `file_id`.
@@ -46,7 +46,7 @@ Backfill indexing:
 Base route:
 
 ```text
-GET https://<HD_IMAGE_HOST>/mood/<postId>/<imageIndex>
+GET https://<IMAGE_HOST>/mood/<postId>/<imageIndex>
 ```
 
 Query params:
@@ -101,10 +101,10 @@ Optional (recommended): configure a custom domain in the Cloudflare dashboard:
 ### 4. Point the Site to the Worker
 
 Set the site environment variable:
-- `PUBLIC_HD_IMAGE_URL=https://<HD_IMAGE_HOST>`
+- `PUBLIC_HD_IMAGE_URL=https://<IMAGE_HOST>`
 
 The HTML generation in `../../src/lib/telegram.ts` will then prefer:
-- `https://<HD_IMAGE_HOST>/mood/<postId>/<imageIndex>`
+- `https://<IMAGE_HOST>/mood/<postId>/<imageIndex>`
 
 If the Worker 404s, the `<img>` tag will fall back to the `/static/` Telegram proxy.
 
