@@ -3723,7 +3723,7 @@ const skeletonGroups = [
         loadingDelayedCall = null;
       }
 
-      // Kill tweens on skeleton notches and glow
+      // Kill tweens on skeleton notches, glow, and sweep
       const skeletonNotches = dial.querySelectorAll('.timeline-notch.is-skeleton');
       skeletonNotches.forEach(el => gsap.killTweensOf(el));
 
@@ -3731,6 +3731,12 @@ const skeletonGroups = [
       if (glowEl) {
         gsap.killTweensOf(glowEl);
         (glowEl as HTMLElement).style.opacity = '';
+      }
+
+      const sweepEl = wheel.querySelector('[data-timeline-sweep]');
+      if (sweepEl) {
+        gsap.killTweensOf(sweepEl);
+        (sweepEl as HTMLElement).style.opacity = '';
       }
     };
 
@@ -3844,6 +3850,22 @@ const skeletonGroups = [
           stagger: { each: 0.03 },
           ease: 'sine.inOut',
         });
+      }
+
+      // ── Phase 4: Sweep indicator pulse (center focal point) ──
+      const sweepEl = wheel.querySelector('[data-timeline-sweep]') as HTMLElement | null;
+      if (sweepEl) {
+        gsap.fromTo(sweepEl,
+          { opacity: 0 },
+          {
+            opacity: 0.8,
+            duration: 1.5,
+            repeat: -1,
+            yoyo: true,
+            ease: 'sine.inOut',
+            delay: hasSkeleton ? 0.3 : 0,
+          }
+        );
       }
     };
 

@@ -9,6 +9,7 @@
   <!-- Masked arc + notches -->
   <div class="timeline-wheel-arc">
     <div class="timeline-wheel-dial" data-timeline-dial></div>
+    <div class="timeline-wheel-sweep" data-timeline-sweep></div>
   </div>
   <!-- Ambient glow at active center -->
   <div class="timeline-wheel-glow"></div>
@@ -318,6 +319,47 @@
     border-color: hsl(var(--foreground) / 0.06);
   }
 
+  /* Inner gauge ring during loading */
+  .timeline-wheel.is-loading .timeline-wheel-dial::after {
+    content: '';
+    position: absolute;
+    inset: 18px;
+    border-radius: 50%;
+    border: 1px solid hsl(var(--foreground) / 0.03);
+    pointer-events: none;
+  }
+
+  /* ── Center sweep indicator (loading focal point) ── */
+  .timeline-wheel-sweep {
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 30px;
+    height: 1.5px;
+    background: linear-gradient(
+      to right,
+      hsl(var(--foreground) / 0.3),
+      hsl(var(--foreground) / 0.06)
+    );
+    border-radius: 1px;
+    opacity: 0;
+    pointer-events: none;
+    z-index: 2;
+  }
+
+  .timeline-wheel-sweep::after {
+    content: '';
+    position: absolute;
+    right: -2.5px;
+    top: 50%;
+    width: 4px;
+    height: 4px;
+    transform: translateY(-50%);
+    border-radius: 50%;
+    background: hsl(var(--foreground) / 0.3);
+  }
+
   /* ── Reduced motion: show skeleton notches statically ── */
   @media (prefers-reduced-motion: reduce) {
     .timeline-wheel {
@@ -326,7 +368,8 @@
     .timeline-wheel-dial,
     :global(.timeline-notch),
     :global(.timeline-notch-pip),
-    .timeline-wheel-glow {
+    .timeline-wheel-glow,
+    .timeline-wheel-sweep {
       transition: none !important;
       animation: none !important;
     }
