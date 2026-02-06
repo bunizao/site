@@ -1,15 +1,11 @@
-# AGENTS.md
+# CLAUDE.md
 
-This file provides guidance to AI coding agents when working with code in this repository.
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## Code Standards
 
 **IMPORTANT: Language Requirements**
-- All code comments MUST be written in English
-- All documentation MUST be written in English
-- All commit messages MUST be written in English
-- All variable names, function names, and identifiers MUST use English words
-- No exceptions - English is the required language for all code-related content
+- All code comments, documentation, commit messages, variable names, and identifiers MUST be in English. No exceptions.
 
 ## Commit Message Guidelines
 
@@ -19,213 +15,98 @@ This file provides guidance to AI coding agents when working with code in this r
 - Examples:
   - ✅ `feat: add search filter input`
   - ✅ `fix: handle empty response`
-  - ✅ `refactor: simplify user profile layout`
-  - ✅ `docs: add setup instructions`
   - ❌ `docs: add setup instructions for better onboarding`
-
-## Project Overview
-
-This is a personal bio/portfolio website built with:
-- **Astro** - Static site generator with component-based architecture
-- **React** - UI components via @astrojs/react integration
-- **TailwindCSS** - Utility-first CSS framework with custom theme
-- **TypeScript** - Type-safe development
-
-The site is deployed on Vercel and integrates with Vercel Analytics and Speed Insights.
 
 ## Development Commands
 
 ```bash
-# Install dependencies (uses Bun)
-bun install
-
-# Start development server (runs on http://localhost:4321)
-bun dev
-
-# Build for production
-bun run build
-
-# Preview production build locally
-bun preview
+bun install          # Install dependencies (uses Bun, not npm/yarn/pnpm)
+bun dev              # Dev server at http://localhost:4321
+bun run build        # Production build → dist/
+bun preview          # Preview production build locally
 ```
+
+No test suite or linter is configured.
 
 ## Architecture
 
-### Static Site Generation with Astro
+**Astro v5** static site generator + **React** (interactive components via @astrojs/react) + **TailwindCSS** + **TypeScript**. Deployed on **Vercel**.
 
-The project uses **Astro** (v5.0+) for static site generation. Key characteristics:
-- Pages are pre-rendered at build time to static HTML
-- Client-side JavaScript is minimal and only loaded when needed
-- React components are used for interactive UI elements (via @astrojs/react)
-- Build output goes to `dist/` directory
+### Path Alias
+
+`@` maps to `./src` (configured in `astro.config.mjs`). Use `@/lib/utils` instead of relative paths.
 
 ### Key Directories
 
-- **`src/pages/`** - Page routes (file-based routing)
-  - `index.astro` - Home page that composes all sections
-- **`src/components/`** - Reusable components
-  - `Hero.astro` - Hero section with typewriter effect and status rotation
-  - `Projects.astro` - Project showcase with GitHub API integration
-  - `Posts.astro` - Blog posts from Ghost CMS
-  - `GitHubContributions.astro` - GitHub contribution graph
-  - `TechMarquee.astro` - Animated tech stack marquee
-  - `Footer.astro` - Footer section
-  - `Typewriter.astro` - Typewriter animation component
-  - `Marquee.astro` - Base marquee component
-  - `ui/` - React UI components (shadcn/ui style)
-- **`src/layouts/`** - Layout templates
-  - `Layout.astro` - Base layout with meta tags, theme toggle, and analytics
-- **`src/styles/`** - Global styles
-  - `globals.css` - Global CSS with Tailwind directives and custom styles
+- **`src/pages/`** — File-based routing. Includes `index.astro` (home), `mood.astro` (feed), `mood/[id].astro` (detail), `mood/embed.astro` (embeddable widget)
+- **`src/pages/api/`** — Server endpoints (moods, comments, SVG generators, oEmbed, telegram webhook)
+- **`src/components/`** — Astro (`.astro`) and React (`.tsx`) components. `ui/` subdirectory follows shadcn/ui patterns
+- **`src/lib/`** — Shared utilities: `github.ts` (GitHub API), `telegram.ts` (Telegram integration), `mood-utils.ts` (mood data processing), `svg-response.ts` (SVG endpoint helpers), `embed-response.ts` (oEmbed helpers), `utils.ts` (cn/clsx utility)
+- **`src/layouts/`** — `Layout.astro` base layout with meta tags, theme toggle, analytics
+- **`src/styles/`** — `globals.css` with Tailwind directives, CSS variable color system (HSL), JetBrains Mono font
 
 ### Component Patterns
 
-- **Astro Components** (`.astro` files):
-  - Use Astro's component syntax with frontmatter (code between `---`)
-  - Can fetch data at build time in the frontmatter
-  - Support scoped `<style>` blocks and inline `<script>` tags
-  - Use `<slot />` for content projection
-- **React Components** (`.tsx` files):
-  - Used for interactive UI elements (buttons, badges, etc.)
-  - Imported from `lucide-react` for icons
-  - Follow shadcn/ui patterns for styling
+- **Astro components** (`.astro`): frontmatter between `---` fences for build-time data fetching, scoped `<style>`, inline `<script>` for client-side behavior
+- **React components** (`.tsx`): used selectively for interactive UI. Icons from `lucide-react`, styling with shadcn/ui patterns (class-variance-authority, tailwind-merge)
+- **Animations**: GSAP for complex animations (MoodTimelineWheel), Intersection Observer for scroll reveals, custom CSS for typewriter/marquee effects
 
 ### Styling
 
-- **TailwindCSS** with custom configuration:
-  - Custom color system using CSS variables (HSL format)
-  - Dark mode support via `class` strategy
-  - Custom font family: JetBrains Mono (loaded from Google Fonts)
-  - `tailwindcss-animate` plugin for animations
-- **Scoped styles** in Astro components for component-specific styling
-- **Global styles** in `src/styles/globals.css` for base styles and utilities
+- TailwindCSS with `class` dark mode strategy
+- Custom color system via CSS variables (HSL format) in `globals.css`
+- `tailwindcss-animate` plugin for animation utilities
 
-### Data Fetching
+### Data Sources
 
-External data is fetched at build time in Astro component frontmatter:
-
-1. **Ghost CMS Integration** (`Posts.astro`):
-   - Fetches latest blog posts from Ghost CMS API
-   - Uses `GHOST_URL` and `GHOST_CONTENT_APIKEY` environment variables
-   - Displays post title, primary tag, and publish date
-
-2. **GitHub API Integration** (`Projects.astro`):
-   - Fetches repository data (description, stars) from GitHub API
-   - Falls back to hardcoded descriptions if API fails
-   - No authentication required (public API)
-
-3. **GitHub Contributions** (`GitHubContributions.astro`):
-   - Fetches contribution data from external API
-   - Displays contribution graph with hover effects
+1. **Ghost CMS** (`Posts.astro`) — Blog posts via Ghost Content API
+2. **GitHub API** (`Projects.astro`, `src/lib/github.ts`) — Repository data and stars via GraphQL
+3. **GitHub Contributions** (`GitHubContributions.astro`) — Contribution graph from external API
+4. **Telegram/BroadcastChannel** — Mood posts sourced from Telegram channel, processed with cheerio
 
 ### API Endpoints
 
-#### JSON
+**JSON:**
+- `GET /api/moods` — Mood feed with pagination (`?before=<id>`)
+- `GET /api/comments` — Comments
+- `GET /api/oembed.json` — oEmbed endpoint (docs: `docs/OEMBED-API.md`)
+- `POST /api/telegram-webhook` — Telegram webhook receiver
 
-`GET /api/moods`
+**SVG** (all accept `?theme=light|dark`):
+- `GET /api/status.svg`, `GET /api/tech-stack.svg`, `GET /api/site-badge.svg`
+- `GET /api/project.svg` (requires `?project=<name>`)
+- Full docs: `docs/SVG-API.md`
 
-Query params:
-- `before` (string, optional): pagination cursor (oldest mood id currently loaded).
-
-Response payload:
-```json
-{
-  "posts": [
-    {
-      "id": "string",
-      "datetime": "string",
-      "tag": "string",
-      "previewText": "string",
-      "previewHtml": "string",
-      "image": "string | null",
-      "mediaHtml": "string",
-      "needsDetailPage": "boolean",
-      "forwardedFrom": { "name": "string", "href": "string", "author": "string" },
-      "quote": { "text": "string", "author": "string", "href": "string" },
-      "reactions": [
-        { "emoji": "string", "emojiId": "string", "emojiImage": "string", "count": "string", "isPaid": "boolean" }
-      ]
-    }
-  ],
-  "channel": {
-    "slug": "string",
-    "title": "string"
-  }
-}
-```
-
-#### SVG
-
-These endpoints return SVG images:
-- `GET /api/status.svg` (optional `theme=light|dark`)
-- `GET /api/tech-stack.svg` (optional `theme=light|dark`)
-- `GET /api/site-badge.svg` (optional `theme=light|dark`)
-- `GET /api/project.svg` (required `project`, optional `theme=light|dark`)
-
-Full SVG API docs: `docs/SVG-API.md`
+**RSS:** `GET /mood/rss.xml`
 
 ### Environment Variables
 
-- `GHOST_URL` - Ghost CMS instance URL (default: https://blog.buxx.me)
-- `GHOST_CONTENT_APIKEY` - Ghost CMS content API key for fetching blog posts
-- Accessed via `import.meta.env.*` (Vite/Astro convention)
+Accessed via `import.meta.env.*`:
+- `GHOST_URL` — Ghost CMS URL (default: https://blog.buxx.me)
+- `GHOST_CONTENT_APIKEY` — Ghost CMS content API key
+- `GITHUB_TOKEN` — GitHub GraphQL token for project data
+- `PUBLIC_HD_IMAGE_URL` — Cloudflare Worker URL for HD mood images
+- `TELEGRAM_WEBHOOK_SECRET` — Secret for `/api/telegram-webhook`
+- `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_KV_NAMESPACE_ID` — Cloudflare KV for mood image mapping
 
-### Animations and Interactions
+### Key Dependencies
 
-The site features several custom animations:
-
-1. **Scroll Reveal Animations**:
-   - Uses Intersection Observer API to trigger animations on scroll
-   - Staggered animations for lists (projects, posts)
-   - Implemented in component `<script>` tags
-
-2. **3D Tilt Effect** (`Projects.astro`):
-   - Mouse-tracking tilt effect on project cards
-   - Smooth interpolation using `requestAnimationFrame`
-   - Glare effect that follows mouse position
-
-3. **Typewriter Effect** (`Typewriter.astro`):
-   - Animated typing effect for hero name
-   - Cycles through multiple names
-
-4. **Status Text Rotation** (`Hero.astro`):
-   - Rotates through status words with slide animation
-   - Updates every 3 seconds
-
-5. **Theme Toggle** (`Layout.astro`):
-   - Dark/light mode toggle with localStorage persistence
-   - Respects system preference as fallback
-   - Inline script to prevent flash of unstyled content
-
-## Build Output
-
-- Production build outputs to `dist/` directory
-- Configured for Vercel deployment via `@astrojs/vercel` and `vercel.json`
-- Build command: `bun install && bun run build`
-
-## Important Notes
-
-- **Package manager**: This project uses **Bun** (v1.0+), not npm, yarn, or pnpm
-- **Framework**: Uses **Astro** (not SolidJS or vite-plugin-ssr)
-- **React integration**: React components are used selectively via @astrojs/react
-- **No test suite**: There are no test commands or testing framework configured
-- **No linting**: No ESLint or Prettier configuration present
+- **gsap** — Animation library (used in MoodTimelineWheel)
+- **cheerio** — HTML parsing for Telegram/mood content
+- **ofetch** — HTTP client for API calls
+- **dayjs** — Date formatting
+- **prismjs** — Syntax highlighting in mood posts
+- **lru-cache** — In-memory caching for API responses
 
 ## Image Uploads
 
 - **MUST** compress images before uploading to save tokens.
-- **Method**: downscale the longest edge to ~1600px, strip metadata, and export as JPEG/WebP at 75-85 quality.
-- **macOS (built-in)**:
-  - Resize: `sips -Z 1600 input.png --out input-1600.png`
-  - Convert: `sips -s format jpeg -s formatOptions 80 input-1600.png --out input-1600.jpg`
-- **ImageMagick**:
-  - `magick input.png -strip -resize 1600x1600\\> -quality 82 output.jpg`
-- **Deployment**: Configured for Vercel with custom build command
+- Downscale longest edge to ~1600px, strip metadata, export as JPEG/WebP at 75-85 quality.
+- macOS: `sips -Z 1600 input.png --out input-1600.png && sips -s format jpeg -s formatOptions 80 input-1600.png --out input-1600.jpg`
+- ImageMagick: `magick input.png -strip -resize 1600x1600\\> -quality 82 output.jpg`
 
 ## Mood Navigation (Three-Level Menu)
 
-Define the Mood section with three levels:
-
-1. **Level 0 (Home Preview)**: A preview of Mood items shown on the home page.
-2. **Level 1 (Mood Feed)**: The main Mood feed page at `/mood`.
-3. **Level 2 (Mood Detail)**: A single Mood item detail view.
+1. **Level 0 (Home Preview)**: Mood preview on the home page (`Moods.astro`)
+2. **Level 1 (Mood Feed)**: Main feed at `/mood` with `MoodTimelineWheel.astro`
+3. **Level 2 (Mood Detail)**: Single item at `/mood/[id]`
