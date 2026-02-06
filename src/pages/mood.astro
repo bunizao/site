@@ -3643,12 +3643,14 @@ const skeletonGroups = [
     let dateItemCount = 0;
     let wheelSyncRaf = 0;
     let isLoadingSpin = false;
-    let loadingSpinLastTimestamp = 0;
+    let loadingShimmerTl: gsap.core.Timeline | null = null;
+    let loadingPendulumTl: gsap.core.Timeline | null = null;
+    let loadingDelayedCall: gsap.core.Tween | null = null;
+    let loadingTickActive = false;
 
     // Gear settings - notches visible around 3 o'clock (0°)
     const NOTCHES_PER_DATE = 6;
     const ANGLE_PER_NOTCH = 4; // Degrees per notch
-    const LOADING_SPIN_DEG_PER_SEC = 42;
 
     const clamp = (value: number, min: number, max: number): number => {
       return Math.min(Math.max(value, min), max);
@@ -3698,6 +3700,150 @@ const skeletonGroups = [
           minorNotch.style.transform = `rotate(${minorAngle}deg) translateX(calc(var(--wheel-size) / 2 - 20px))`;
           dial.appendChild(minorNotch);
         }
+      }
+    };
+
+    // ── GSAP Loading Animation ──
+
+    const destroyLoadingAnimation = (): void => {
+      loadingTickActive = false;
+
+      if (loadingShimmerTl) {
+        loadingShimmerTl.kill();
+        loadingShimmerTl = null;
+      }
+
+      if (loadingPendulumTl) {
+        loadingPendulumTl.kill();
+        loadingPendulumTl = null;
+      }
+
+      if (loadingDelayedCall) {
+        loadingDelayedCall.kill();
+        loadingDelayedCall = null;
+      }
+
+      // Kill tweens on skeleton notches and glow
+      const skeletonNotches = dial.querySelectorAll('.timeline-notch.is-skeleton');
+      skeletonNotches.forEach(el => gsap.killTweensOf(el));
+
+      const glowEl = wheel.querySelector('.timeline-wheel-glow');
+      if (glowEl) {
+        gsap.killTweensOf(glowEl);
+        (glowEl as HTMLElement).style.opacity = '';
+      }
+    };
+
+    const createLoadingAnimation = (): void => {
+      if (prefersReducedMotion) return;
+      destroyLoadingAnimation();
+
+      const glowEl = wheel.querySelector('.timeline-wheel-glow') as HTMLElement | null;
+      const skeletonNotches = Array.from(
+        dial.querySelectorAll('.timeline-notch.is-skeleton')
+      );
+      const hasSkeleton = skeletonNotches.length > 0;
+
+      // ── Phase 1: Smooth cascade entry ──
+      if (hasSkeleton) {
+        gsap.fromTo(skeletonNotches,
+          { opacity: 0 },
+          {
+            opacity: 1,
+            duration: 0.5,
+            stagger: 0.02,
+            ease: 'power2.out',
+          }
+        );
+      }
+
+      // ── Phase 2: Flowing pendulum sweep ──
+      loadingTickActive = true;
+
+      const SWEEP_ARC = ANGLE_PER_NOTCH * 7; // 28° total arc
+      const FORWARD_DUR = 2.2; // smooth forward sweep
+      const RETURN_DUR = 1.4; // slightly faster return
+      const HOLD_DUR = 0.35; // brief dwell at each end
+
+      const buildPendulumCycle = (): void => {
+        if (!loadingTickActive || !isLoadingSpin) return;
+
+        const startRot = currentRotation;
+        const proxy = { r: startRot };
+
+        loadingPendulumTl = gsap.timeline({
+          onComplete: buildPendulumCycle,
+        });
+
+        // Forward sweep — gradual acceleration, steady cruise, gentle deceleration
+        loadingPendulumTl.to(proxy, {
+          r: startRot + SWEEP_ARC,
+          duration: FORWARD_DUR,
+          ease: 'sine.inOut',
+          onUpdate: () => {
+            currentRotation = proxy.r;
+            targetRotation = currentRotation;
+            applyDialTransform();
+          },
+        });
+
+        // Dwell at far end
+        loadingPendulumTl.to({}, { duration: HOLD_DUR });
+
+        // Return sweep — slightly faster, different easing for asymmetric feel
+        loadingPendulumTl.to(proxy, {
+          r: startRot,
+          duration: RETURN_DUR,
+          ease: 'power2.inOut',
+          onUpdate: () => {
+            currentRotation = proxy.r;
+            targetRotation = currentRotation;
+            applyDialTransform();
+          },
+        });
+
+        // Dwell at home before next cycle
+        loadingPendulumTl.to({}, { duration: HOLD_DUR });
+      };
+
+      // Start pendulum after entry cascade settles
+      loadingDelayedCall = gsap.delayedCall(hasSkeleton ? 0.55 : 0, buildPendulumCycle);
+
+      // ── Glow breathing (continuous, synced with pendulum rhythm) ──
+      if (glowEl) {
+        gsap.fromTo(glowEl,
+          { opacity: 0.06 },
+          {
+            opacity: 0.5,
+            duration: FORWARD_DUR * 0.5,
+            repeat: -1,
+            yoyo: true,
+            ease: 'sine.inOut',
+            delay: hasSkeleton ? 0.55 : 0,
+          }
+        );
+      }
+
+      // ── Phase 3: Shimmer wave (independent flowing highlight) ──
+      if (hasSkeleton) {
+        loadingShimmerTl = gsap.timeline({ repeat: -1, delay: 0.8 });
+
+        // Wave of brightness traveling through notches
+        loadingShimmerTl.to(skeletonNotches, {
+          opacity: (_i: number, el: Element) =>
+            el.classList.contains('is-major') ? 1 : 0.6,
+          duration: 1.0,
+          stagger: { each: 0.03 },
+          ease: 'sine.inOut',
+        });
+
+        // Dim back
+        loadingShimmerTl.to(skeletonNotches, {
+          opacity: 0.15,
+          duration: 1.2,
+          stagger: { each: 0.03 },
+          ease: 'sine.inOut',
+        });
       }
     };
 
@@ -3774,21 +3920,11 @@ const skeletonGroups = [
     };
 
     const animateRotation = (timestamp: number): void => {
-      if (isLoadingSpin && !prefersReducedMotion) {
-        if (loadingSpinLastTimestamp === 0) {
-          loadingSpinLastTimestamp = timestamp;
-        }
-        const frameDelta = Math.min(timestamp - loadingSpinLastTimestamp, 64);
-        loadingSpinLastTimestamp = timestamp;
-        currentRotation += (frameDelta / 1000) * LOADING_SPIN_DEG_PER_SEC;
-        targetRotation = currentRotation;
-        velocity = 0;
-        applyDialTransform();
-        animationId = requestAnimationFrame(animateRotation);
+      // Loading rotation is driven by GSAP clockwork tick, not rAF
+      if (isLoadingSpin) {
+        animationId = 0;
         return;
       }
-
-      loadingSpinLastTimestamp = 0;
 
       if (prefersReducedMotion) {
         currentRotation = targetRotation;
@@ -3895,7 +4031,7 @@ const skeletonGroups = [
     const setLoadingSpin = (active: boolean): void => {
       if (!isDesktop()) {
         isLoadingSpin = false;
-        loadingSpinLastTimestamp = 0;
+        destroyLoadingAnimation();
         if (animationId !== 0) {
           cancelAnimationFrame(animationId);
           animationId = 0;
@@ -3907,11 +4043,12 @@ const skeletonGroups = [
       isLoadingSpin = active;
 
       if (isLoadingSpin) {
-        startAnimation();
+        createLoadingAnimation();
         return;
       }
 
-      loadingSpinLastTimestamp = 0;
+      // Loading ended — clean up GSAP, transition to scroll mode
+      destroyLoadingAnimation();
       if (dateGroups.length > 0) {
         applyScrollPosition(window.scrollY, true);
       }
@@ -4022,7 +4159,7 @@ const skeletonGroups = [
         syncLoadingSpinState();
       } else {
         isLoadingSpin = false;
-        loadingSpinLastTimestamp = 0;
+        destroyLoadingAnimation();
         if (animationId !== 0) {
           cancelAnimationFrame(animationId);
           animationId = 0;
@@ -4051,6 +4188,7 @@ const skeletonGroups = [
 
     const onFeedReady = (): void => {
       wheel.classList.remove('is-loading');
+      destroyLoadingAnimation();
       rebuildWheel();
       syncLoadingSpinState();
 
