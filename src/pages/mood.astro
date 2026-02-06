@@ -3646,16 +3646,30 @@ const skeletonGroups = [
     let currentRotation = 0;
     let targetRotation = 0;
     let animationId = 0;
-    let activeIndex = 0;
+    let activeIndex = -1; // Initialize to -1 so first update always runs
+    let wheelScrollTrigger: ScrollTrigger | null = null;
+    let dateAnchors: number[] = [];
+    let dateItemCount = 0;
+    let wheelSyncRaf = 0;
 
     // Gear settings - notches visible around 3 o'clock (0°)
     const NOTCHES_PER_DATE = 6;
     const ANGLE_PER_NOTCH = 4; // Degrees per notch
-    const VISIBLE_ARC = 60; // Degrees visible on screen (±30° from horizontal)
+
+    const clamp = (value: number, min: number, max: number): number => {
+      return Math.min(Math.max(value, min), max);
+    };
+
+    const parseDateKey = (dateKey: string): Date | null => {
+      const [year, month, day] = dateKey.split('-').map(Number);
+      if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) return null;
+      const date = new Date(year, month - 1, day);
+      return Number.isNaN(date.getTime()) ? null : date;
+    };
 
     const formatDate = (dateKey: string): string => {
-      const [year, month, day] = dateKey.split('-').map(Number);
-      const date = new Date(year, month - 1, day);
+      const date = parseDateKey(dateKey);
+      if (!date) return '';
       const now = new Date();
 
       if (date.toDateString() === now.toDateString()) return 'Today';
@@ -3672,13 +3686,12 @@ const skeletonGroups = [
     const createNotches = (): void => {
       dial.innerHTML = '';
       notches = [];
+      activeIndex = -1;
 
       const totalDates = dateGroups.length;
       if (totalDates === 0) return;
 
       // Create notches centered around 0° (3 o'clock, pointing right)
-      // Total angle span needed
-      const totalAngle = totalDates * NOTCHES_PER_DATE * ANGLE_PER_NOTCH;
       const startOffset = 0; // Start from 0°
 
       for (let dateIdx = 0; dateIdx < totalDates; dateIdx++) {
@@ -3705,11 +3718,24 @@ const skeletonGroups = [
     const updateActiveNotch = (index: number): void => {
       if (index === activeIndex && notches.length > 0) return;
 
-      notches.forEach((notch) => notch.classList.remove('is-active'));
+      if (index < 0 || index >= dateGroups.length) {
+        label.textContent = '';
+        activeIndex = -1;
+        return;
+      }
+
+      notches.forEach((notch) => {
+        notch.classList.remove('is-active');
+        notch.classList.remove('is-neighbor');
+      });
 
       if (notches[index]) {
         notches[index].classList.add('is-active');
       }
+
+      // Highlight neighbors
+      if (notches[index - 1]) notches[index - 1].classList.add('is-neighbor');
+      if (notches[index + 1]) notches[index + 1].classList.add('is-neighbor');
 
       const dateKey = dateGroups[index]?.dataset.date || '';
       label.textContent = formatDate(dateKey);
@@ -3734,62 +3760,168 @@ const skeletonGroups = [
 
       if (Math.abs(targetRotation - currentRotation) > 0.05) {
         animationId = requestAnimationFrame(animateRotation);
+      } else {
+        animationId = 0;
       }
     };
 
     const startAnimation = (): void => {
-      cancelAnimationFrame(animationId);
+      if (animationId !== 0) return;
       animationId = requestAnimationFrame(animateRotation);
     };
 
+    const rebuildDateAnchors = (): void => {
+      dateAnchors = dateGroups.map((group) => {
+        const header = group.querySelector('.mood-date-header') as HTMLElement | null;
+        const anchor = header ?? group;
+        const rect = anchor.getBoundingClientRect();
+        const y = window.scrollY + rect.top;
+        return Number.isFinite(y) ? y : window.scrollY;
+      });
+    };
+
+    const getExactIndexFromScroll = (scrollY: number): number => {
+      const totalDates = dateGroups.length;
+      if (totalDates === 0 || dateAnchors.length === 0) return 0;
+
+      // Use viewport center as timeline cursor for wheel/feed alignment.
+      const focusY = scrollY + (window.innerHeight * 0.5);
+      const listBottomY = window.scrollY + list.getBoundingClientRect().bottom;
+
+      if (totalDates === 1 || dateAnchors.length === 1) {
+        const singleStart = dateAnchors[0];
+        const singleSpan = Math.max(listBottomY - singleStart, 1);
+        const singleProgress = clamp((focusY - singleStart) / singleSpan, 0, 1);
+        return singleProgress;
+      }
+
+      const lastIndex = totalDates - 1;
+
+      if (focusY <= dateAnchors[0]) return 0;
+
+      for (let i = 0; i < lastIndex; i++) {
+        const start = dateAnchors[i];
+        const end = dateAnchors[i + 1];
+        if (focusY <= end) {
+          const span = Math.max(end - start, 1);
+          const localProgress = clamp((focusY - start) / span, 0, 1);
+          return i + localProgress;
+        }
+      }
+
+      // Keep rotation alive in the last loaded date group before new data arrives.
+      const lastStart = dateAnchors[lastIndex];
+      const lastSpan = Math.max(listBottomY - lastStart, 1);
+      const tailProgress = clamp((focusY - lastStart) / lastSpan, 0, 1);
+      return lastIndex + tailProgress;
+    };
+
+    const applyScrollPosition = (scrollY: number, animate = true): void => {
+      const totalDates = dateGroups.length;
+      if (totalDates === 0) return;
+
+      if (dateAnchors.length !== totalDates) {
+        rebuildDateAnchors();
+      }
+
+      const maxIndex = Math.max(totalDates - 1, 0);
+      const rawIndex = getExactIndexFromScroll(scrollY);
+      const labelIndexValue = clamp(rawIndex, 0, maxIndex);
+      const rotationIndex = clamp(rawIndex, 0, maxIndex + 0.999);
+      const closestIndex = Math.min(Math.round(labelIndexValue), totalDates - 1);
+
+      targetRotation = rotationIndex * NOTCHES_PER_DATE * ANGLE_PER_NOTCH;
+      updateActiveNotch(closestIndex);
+
+      if (animate && !prefersReducedMotion) {
+        startAnimation();
+        return;
+      }
+
+      currentRotation = targetRotation;
+      dial.style.transform = `translateY(-50%) rotate(${-currentRotation}deg)`;
+    };
+
+    const destroyScrollSync = (): void => {
+      if (wheelScrollTrigger) {
+        wheelScrollTrigger.kill();
+        wheelScrollTrigger = null;
+      }
+    };
+
     const setupScrollSync = (): void => {
-      ScrollTrigger.create({
+      destroyScrollSync();
+      wheelScrollTrigger = ScrollTrigger.create({
         trigger: list,
         start: 'top top',
         end: 'bottom bottom',
+        invalidateOnRefresh: true,
+        onRefresh: () => {
+          rebuildDateAnchors();
+          applyScrollPosition(window.scrollY, false);
+        },
         onUpdate: (self) => {
-          const totalDates = dateGroups.length;
-          if (totalDates <= 1) return;
-
-          const progress = self.progress;
-          const exactIndex = progress * (totalDates - 1);
-          const dateIndex = Math.min(Math.floor(exactIndex), totalDates - 1);
-          const withinDate = exactIndex - dateIndex;
-
-          // Calculate rotation
-          const baseAngle = dateIndex * NOTCHES_PER_DATE * ANGLE_PER_NOTCH;
-          const interpolatedAngle = withinDate * NOTCHES_PER_DATE * ANGLE_PER_NOTCH;
-          targetRotation = baseAngle + interpolatedAngle;
-
-          updateActiveNotch(dateIndex);
-          startAnimation();
+          applyScrollPosition(self.scroll(), true);
         },
       });
     };
 
     const rebuildWheel = (): void => {
       dateGroups = Array.from(list.querySelectorAll('.mood-date-group')) as HTMLElement[];
+      dateItemCount = list.querySelectorAll('.mood-item').length;
 
       if (dateGroups.length === 0) {
+        destroyScrollSync();
+        cancelAnimationFrame(animationId);
+        animationId = 0;
         wheel.classList.remove('is-visible');
         return;
       }
 
       createNotches();
+      rebuildDateAnchors();
       setupScrollSync();
+      wheelScrollTrigger?.refresh();
+      applyScrollPosition(window.scrollY, false);
 
       if (isDesktop()) {
         wheel.classList.add('is-visible');
-        updateActiveNotch(0);
-        const dateKey = dateGroups[0]?.dataset.date || '';
-        label.textContent = formatDate(dateKey);
+      } else {
+        wheel.classList.remove('is-visible');
       }
+    };
+
+    const scheduleWheelSync = (): void => {
+      if (wheelSyncRaf !== 0) return;
+      wheelSyncRaf = requestAnimationFrame(() => {
+        wheelSyncRaf = 0;
+        const latestGroups = Array.from(list.querySelectorAll('.mood-date-group')) as HTMLElement[];
+        const latestGroupCount = latestGroups.length;
+        const latestItemCount = list.querySelectorAll('.mood-item').length;
+
+        const groupChanged = latestGroupCount !== dateGroups.length;
+        const itemsChanged = latestItemCount !== dateItemCount;
+        if (!groupChanged && !itemsChanged) return;
+
+        if (groupChanged) {
+          rebuildWheel();
+          return;
+        }
+
+        dateGroups = latestGroups;
+        dateItemCount = latestItemCount;
+        rebuildDateAnchors();
+        wheelScrollTrigger?.refresh();
+        applyScrollPosition(window.scrollY, false);
+      });
     };
 
     const handleResize = (): void => {
       if (isDesktop() && dateGroups.length > 0) {
         wheel.classList.add('is-visible');
-        ScrollTrigger.refresh();
+        wheelScrollTrigger?.refresh();
+        rebuildDateAnchors();
+        applyScrollPosition(window.scrollY, false);
       } else {
         wheel.classList.remove('is-visible');
       }
@@ -3805,10 +3937,7 @@ const skeletonGroups = [
         rebuildWheel();
 
         const observer = new MutationObserver(() => {
-          const newCount = list.querySelectorAll('.mood-date-group').length;
-          if (newCount !== dateGroups.length) {
-            rebuildWheel();
-          }
+          scheduleWheelSync();
         });
         observer.observe(list, { childList: true, subtree: true });
       } else {
