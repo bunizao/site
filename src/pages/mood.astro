@@ -3646,6 +3646,8 @@ const skeletonGroups = [
     let currentRotation = 0;
     let targetRotation = 0;
     let animationId = 0;
+    let velocity = 0;
+    let scrollTimer = 0;
     let activeIndex = -1; // Initialize to -1 so first update always runs
     let wheelScrollTrigger: ScrollTrigger | null = null;
     let dateAnchors: number[] = [];
@@ -3701,6 +3703,9 @@ const skeletonGroups = [
         majorNotch.className = 'timeline-notch is-major';
         majorNotch.dataset.dateIndex = String(dateIdx);
         majorNotch.style.transform = `rotate(${majorAngle}deg) translateX(calc(var(--wheel-size) / 2 - 36px))`;
+        const pip = document.createElement('div');
+        pip.className = 'timeline-notch-pip';
+        majorNotch.appendChild(pip);
         dial.appendChild(majorNotch);
         notches.push(majorNotch);
 
@@ -3725,17 +3730,20 @@ const skeletonGroups = [
       }
 
       notches.forEach((notch) => {
-        notch.classList.remove('is-active');
-        notch.classList.remove('is-neighbor');
+        notch.classList.remove('is-active', 'is-neighbor', 'is-near');
       });
 
       if (notches[index]) {
         notches[index].classList.add('is-active');
       }
 
-      // Highlight neighbors
+      // Highlight neighbors (±1)
       if (notches[index - 1]) notches[index - 1].classList.add('is-neighbor');
       if (notches[index + 1]) notches[index + 1].classList.add('is-neighbor');
+
+      // Highlight near (±2)
+      if (notches[index - 2]) notches[index - 2].classList.add('is-near');
+      if (notches[index + 2]) notches[index + 2].classList.add('is-near');
 
       const dateKey = dateGroups[index]?.dataset.date || '';
       label.textContent = formatDate(dateKey);
@@ -3746,19 +3754,23 @@ const skeletonGroups = [
     const animateRotation = (): void => {
       if (prefersReducedMotion) {
         currentRotation = targetRotation;
+        velocity = 0;
       } else {
-        const diff = targetRotation - currentRotation;
-        currentRotation += diff * 0.1;
+        // Spring physics: stiffness pulls toward target, damping reduces oscillation
+        const force = (targetRotation - currentRotation) * 0.08;
+        velocity = (velocity + force) * 0.78;
+        currentRotation += velocity;
 
-        if (Math.abs(diff) < 0.05) {
+        if (Math.abs(velocity) < 0.01 && Math.abs(targetRotation - currentRotation) < 0.05) {
           currentRotation = targetRotation;
+          velocity = 0;
         }
       }
 
       // Rotate the dial (negative = clockwise when scrolling down)
       dial.style.transform = `translateY(-50%) rotate(${-currentRotation}deg)`;
 
-      if (Math.abs(targetRotation - currentRotation) > 0.05) {
+      if (velocity !== 0 || Math.abs(targetRotation - currentRotation) > 0.05) {
         animationId = requestAnimationFrame(animateRotation);
       } else {
         animationId = 0;
@@ -3862,6 +3874,12 @@ const skeletonGroups = [
         },
         onUpdate: (self) => {
           applyScrollPosition(self.scroll(), true);
+          // Track scroll state for visual effects
+          wheel.classList.add('is-scrolling');
+          clearTimeout(scrollTimer);
+          scrollTimer = window.setTimeout(() => {
+            wheel.classList.remove('is-scrolling');
+          }, 150);
         },
       });
     };

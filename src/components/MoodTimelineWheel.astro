@@ -1,49 +1,49 @@
 ---
-// Timeline wheel - only the right arc visible at screen edge
-// The wheel body is hidden off-screen, just the edge peeks in
+// Timeline wheel - precision instrument aesthetic
+// Only the right arc visible at screen edge with refined visual feedback
 ---
 
 <nav class="timeline-wheel" aria-label="Timeline navigation" data-timeline-wheel>
+  <!-- Vertical track rail -->
+  <div class="timeline-wheel-track"></div>
   <!-- Masked arc + notches -->
   <div class="timeline-wheel-arc">
-    <!-- Large wheel mostly hidden off-screen left -->
     <div class="timeline-wheel-dial" data-timeline-dial></div>
   </div>
-  <!-- Active date label -->
-  <div class="timeline-wheel-label" data-timeline-label></div>
+  <!-- Ambient glow at active center -->
+  <div class="timeline-wheel-glow"></div>
+  <!-- Label with connector -->
+  <div class="timeline-wheel-label-wrap">
+    <div class="timeline-wheel-connector"></div>
+    <div class="timeline-wheel-label" data-timeline-label></div>
+  </div>
 </nav>
 
 <style>
+  /* ── Container ── */
   .timeline-wheel {
     position: fixed;
     left: 0;
     top: 50%;
-    transform: translateY(-50%);
-    /* Wheel is large but mostly off-screen */
+    transform: translateY(-50%) translateX(-10px);
     --wheel-size: 600px;
-    --visible-width: 40px;
+    --visible-width: 44px;
     width: var(--visible-width);
     height: 360px;
     z-index: 50;
     display: none;
     opacity: 0;
     pointer-events: none;
-    transition: opacity 0.4s ease;
+    transition:
+      opacity 0.6s cubic-bezier(0.16, 1, 0.3, 1),
+      transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
     overflow: visible;
   }
 
   .timeline-wheel.is-visible {
     opacity: 1;
     pointer-events: auto;
-  }
-
-  .timeline-wheel-arc {
-    position: absolute;
-    inset: 0;
-    overflow: visible;
-    /* Vertical fade mask for smoother entrance/exit of notches */
-    -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 20%, black 80%, transparent 100%);
-    mask-image: linear-gradient(to bottom, transparent 0%, black 20%, black 80%, transparent 100%);
+    transform: translateY(-50%) translateX(0);
   }
 
   @media (min-width: 1024px) {
@@ -55,7 +55,7 @@
   @media (min-width: 1280px) {
     .timeline-wheel {
       --wheel-size: 700px;
-      --visible-width: 48px;
+      --visible-width: 52px;
       height: 400px;
     }
   }
@@ -63,117 +63,246 @@
   @media (min-width: 1440px) {
     .timeline-wheel {
       --wheel-size: 800px;
-      --visible-width: 56px;
+      --visible-width: 60px;
       height: 440px;
     }
   }
 
-  /* The rotating dial - positioned so only right edge shows */
+  /* ── Vertical track rail ── */
+  .timeline-wheel-track {
+    position: absolute;
+    left: 2px;
+    top: 5%;
+    bottom: 5%;
+    width: 1px;
+    background: linear-gradient(
+      to bottom,
+      transparent 0%,
+      hsl(var(--foreground) / 0.06) 15%,
+      hsl(var(--foreground) / 0.1) 50%,
+      hsl(var(--foreground) / 0.06) 85%,
+      transparent 100%
+    );
+    border-radius: 1px;
+  }
+
+  /* ── Arc mask ── */
+  .timeline-wheel-arc {
+    position: absolute;
+    inset: 0;
+    overflow: visible;
+    -webkit-mask-image: linear-gradient(
+      to bottom,
+      transparent 0%,
+      black 12%,
+      black 88%,
+      transparent 100%
+    );
+    mask-image: linear-gradient(
+      to bottom,
+      transparent 0%,
+      black 12%,
+      black 88%,
+      transparent 100%
+    );
+  }
+
+  /* ── Rotating dial ── */
   .timeline-wheel-dial {
     position: absolute;
     width: var(--wheel-size);
     height: var(--wheel-size);
-    /* Center vertically, push left so only right arc visible */
     top: 50%;
     right: 0;
     transform: translateY(-50%);
     border-radius: 50%;
-    /* Subtle arc appearance */
-    border: 1px solid hsl(var(--foreground) / 0.08);
+    border: 1px solid hsl(var(--foreground) / 0.04);
     will-change: transform;
   }
 
-  /* Notch marks radiating from center */
+  /* ── Ambient glow ── */
+  .timeline-wheel-glow {
+    position: absolute;
+    left: -6px;
+    top: 50%;
+    width: 48px;
+    height: 48px;
+    transform: translateY(-50%);
+    border-radius: 50%;
+    background: radial-gradient(
+      circle,
+      hsl(var(--foreground) / 0.03) 0%,
+      transparent 70%
+    );
+    opacity: 0.5;
+    pointer-events: none;
+    transition: opacity 0.4s ease;
+  }
+
+  .timeline-wheel.is-scrolling .timeline-wheel-glow {
+    opacity: 1;
+  }
+
+  /* ── Notches ── */
+
+  /* Base minor notch */
   :global(.timeline-notch) {
     position: absolute;
-    /* Position at right edge of wheel (3 o'clock position) */
     left: 50%;
     top: 50%;
-    /* Notch dimensions */
-    width: 20px;
+    width: 14px;
+    height: 1.5px;
+    margin-top: -0.75px;
+    background: hsl(var(--foreground) / 0.08);
+    border-radius: 0 1px 1px 0;
+    transform-origin: left center;
+    transition:
+      background 0.3s cubic-bezier(0.16, 1, 0.3, 1),
+      width 0.3s cubic-bezier(0.16, 1, 0.3, 1),
+      height 0.2s ease,
+      box-shadow 0.3s ease;
+  }
+
+  /* Major notch (date marker) */
+  :global(.timeline-notch.is-major) {
+    width: 22px;
     height: 2px;
     margin-top: -1px;
-    background: hsl(var(--muted-foreground) / 0.3);
-    border-radius: 1px;
-    /* Rotate from wheel center */
-    transform-origin: left center;
-    transition: background 0.15s ease, width 0.15s ease;
+    background: hsl(var(--muted-foreground) / 0.2);
+    border-radius: 0 1.5px 1.5px 0;
   }
 
-  :global(.timeline-notch.is-major) {
-    width: 28px;
-    height: 3px;
-    margin-top: -1.5px;
-    background: hsl(var(--muted-foreground) / 0.5);
+  /* Near notches (±2 from active) */
+  :global(.timeline-notch.is-near) {
+    background: hsl(var(--foreground) / 0.18);
+  }
+  :global(.timeline-notch.is-major.is-near) {
+    width: 26px;
+    background: hsl(var(--foreground) / 0.28);
   }
 
-  /* Neighboring notches (next to active) */
+  /* Neighbor notches (±1 from active) */
   :global(.timeline-notch.is-neighbor) {
-    background: hsl(var(--foreground) / 0.6);
+    background: hsl(var(--foreground) / 0.3);
   }
   :global(.timeline-notch.is-major.is-neighbor) {
-    width: 32px;
+    width: 30px;
+    background: hsl(var(--foreground) / 0.45);
   }
 
   /* Active notch */
   :global(.timeline-notch.is-active) {
-    background: hsl(var(--foreground));
+    background: hsl(var(--foreground) / 0.8);
+    width: 18px;
+    height: 2px;
+    margin-top: -1px;
   }
   :global(.timeline-notch.is-major.is-active) {
     width: 36px;
+    height: 2.5px;
+    margin-top: -1.25px;
     background: hsl(var(--foreground));
-    box-shadow: 0 0 8px hsl(var(--foreground) / 0.3);
-  }
-
-  /* Date label - floats next to visible arc */
-  .timeline-wheel-label {
-    position: absolute;
-    left: calc(var(--visible-width) + 16px);
-    top: 50%;
-    /* Initial state (will be controlled by GSAP) */
-    transform: translateY(-50%) scale(1);
-    transform-origin: left center;
-
-    font-size: 11px;
-    font-weight: 600;
-    letter-spacing: 0.05em;
-    text-transform: uppercase;
-    color: hsl(var(--foreground));
-    white-space: nowrap;
-
-    /* Polished card look */
-    padding: 6px 12px;
-    background: hsl(var(--background) / 0.85);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    border: 1px solid hsl(var(--border) / 0.5);
     box-shadow:
-      0 4px 12px -2px rgba(0, 0, 0, 0.1),
-      0 2px 4px -2px rgba(0, 0, 0, 0.05);
-    border-radius: 8px;
-
-    opacity: 0;
-
-    /* Important: NO transition on transform/opacity so GSAP has full control */
-    transition: border-color 0.3s ease;
-
-    font-variant-numeric: tabular-nums;
-    pointer-events: none;
-    will-change: transform, opacity;
-    z-index: 2;
+      0 0 8px hsl(var(--foreground) / 0.1),
+      0 0 20px hsl(var(--foreground) / 0.05);
   }
 
-  .timeline-wheel.is-visible .timeline-wheel-label {
-    /* Base visibility when wheel is active */
+  /* Pip dot on major notch tip */
+  :global(.timeline-notch-pip) {
+    position: absolute;
+    right: -3px;
+    top: 50%;
+    width: 5px;
+    height: 5px;
+    transform: translateY(-50%) scale(0);
+    border-radius: 50%;
+    background: hsl(var(--foreground));
+    opacity: 0;
+    transition:
+      opacity 0.3s ease,
+      transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
+  :global(.timeline-notch.is-major.is-active .timeline-notch-pip) {
+    opacity: 1;
+    transform: translateY(-50%) scale(1);
+    box-shadow: 0 0 6px hsl(var(--foreground) / 0.2);
+    animation: pip-pulse 2.5s ease-in-out infinite;
+  }
+
+  @keyframes pip-pulse {
+    0%, 100% { box-shadow: 0 0 6px hsl(var(--foreground) / 0.2); }
+    50% { box-shadow: 0 0 12px hsl(var(--foreground) / 0.35); }
+  }
+
+  /* ── Label group ── */
+  .timeline-wheel-label-wrap {
+    position: absolute;
+    left: calc(var(--visible-width) + 4px);
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    align-items: center;
+    z-index: 2;
+    pointer-events: none;
+    opacity: 0;
+    will-change: opacity;
+    transition: opacity 0.4s ease;
+  }
+
+  .timeline-wheel.is-visible .timeline-wheel-label-wrap {
     opacity: 1;
   }
 
-  /* Reduced motion */
+  /* Connector line from arc to label */
+  .timeline-wheel-connector {
+    width: 14px;
+    height: 1px;
+    background: linear-gradient(
+      to right,
+      hsl(var(--foreground) / 0.18),
+      hsl(var(--foreground) / 0.06)
+    );
+    flex-shrink: 0;
+  }
+
+  /* Date label */
+  .timeline-wheel-label {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: hsl(var(--foreground) / 0.8);
+    white-space: nowrap;
+
+    padding: 5px 10px;
+    background: hsl(var(--background) / 0.75);
+    backdrop-filter: blur(16px) saturate(1.2);
+    -webkit-backdrop-filter: blur(16px) saturate(1.2);
+    border: 1px solid hsl(var(--foreground) / 0.06);
+    border-radius: 6px;
+    box-shadow:
+      0 1px 2px rgba(0, 0, 0, 0.03),
+      0 4px 12px -2px rgba(0, 0, 0, 0.06),
+      inset 0 0.5px 0 hsl(var(--foreground) / 0.04);
+
+    font-variant-numeric: tabular-nums;
+    transition:
+      border-color 0.3s ease,
+      box-shadow 0.3s ease;
+  }
+
+  /* ── Reduced motion ── */
   @media (prefers-reduced-motion: reduce) {
+    .timeline-wheel {
+      transition: none;
+    }
     .timeline-wheel-dial,
     :global(.timeline-notch),
-    .timeline-wheel-label {
-      transition: none;
+    :global(.timeline-notch-pip),
+    .timeline-wheel-glow {
+      transition: none !important;
+      animation: none !important;
     }
   }
 </style>
