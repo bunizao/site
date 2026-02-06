@@ -3642,10 +3642,13 @@ const skeletonGroups = [
     let dateAnchors: number[] = [];
     let dateItemCount = 0;
     let wheelSyncRaf = 0;
+    let isLoadingSpin = false;
+    let loadingSpinLastTimestamp = 0;
 
     // Gear settings - notches visible around 3 o'clock (0°)
     const NOTCHES_PER_DATE = 6;
     const ANGLE_PER_NOTCH = 4; // Degrees per notch
+    const LOADING_SPIN_DEG_PER_SEC = 42;
 
     const clamp = (value: number, min: number, max: number): number => {
       return Math.min(Math.max(value, min), max);
@@ -3766,7 +3769,27 @@ const skeletonGroups = [
       activeIndex = index;
     };
 
-    const animateRotation = (): void => {
+    const applyDialTransform = (): void => {
+      dial.style.transform = `translateY(-50%) rotate(${-currentRotation}deg)`;
+    };
+
+    const animateRotation = (timestamp: number): void => {
+      if (isLoadingSpin && !prefersReducedMotion) {
+        if (loadingSpinLastTimestamp === 0) {
+          loadingSpinLastTimestamp = timestamp;
+        }
+        const frameDelta = Math.min(timestamp - loadingSpinLastTimestamp, 64);
+        loadingSpinLastTimestamp = timestamp;
+        currentRotation += (frameDelta / 1000) * LOADING_SPIN_DEG_PER_SEC;
+        targetRotation = currentRotation;
+        velocity = 0;
+        applyDialTransform();
+        animationId = requestAnimationFrame(animateRotation);
+        return;
+      }
+
+      loadingSpinLastTimestamp = 0;
+
       if (prefersReducedMotion) {
         currentRotation = targetRotation;
         velocity = 0;
@@ -3783,7 +3806,7 @@ const skeletonGroups = [
       }
 
       // Rotate the dial (negative = clockwise when scrolling down)
-      dial.style.transform = `translateY(-50%) rotate(${-currentRotation}deg)`;
+      applyDialTransform();
 
       if (velocity !== 0 || Math.abs(targetRotation - currentRotation) > 0.05) {
         animationId = requestAnimationFrame(animateRotation);
@@ -3866,7 +3889,39 @@ const skeletonGroups = [
       }
 
       currentRotation = targetRotation;
-      dial.style.transform = `translateY(-50%) rotate(${-currentRotation}deg)`;
+      applyDialTransform();
+    };
+
+    const setLoadingSpin = (active: boolean): void => {
+      if (!isDesktop()) {
+        isLoadingSpin = false;
+        loadingSpinLastTimestamp = 0;
+        if (animationId !== 0) {
+          cancelAnimationFrame(animationId);
+          animationId = 0;
+        }
+        return;
+      }
+
+      if (isLoadingSpin === active) return;
+      isLoadingSpin = active;
+
+      if (isLoadingSpin) {
+        startAnimation();
+        return;
+      }
+
+      loadingSpinLastTimestamp = 0;
+      if (dateGroups.length > 0) {
+        applyScrollPosition(window.scrollY, true);
+      }
+    };
+
+    const syncLoadingSpinState = (): void => {
+      const shouldSpin = wheel.classList.contains('is-loading')
+        || feedEl.classList.contains('is-hidden')
+        || list.getAttribute('aria-busy') === 'true';
+      setLoadingSpin(shouldSpin);
     };
 
     const destroyScrollSync = (): void => {
@@ -3964,7 +4019,14 @@ const skeletonGroups = [
           rebuildDateAnchors();
           applyScrollPosition(window.scrollY, false);
         }
+        syncLoadingSpinState();
       } else {
+        isLoadingSpin = false;
+        loadingSpinLastTimestamp = 0;
+        if (animationId !== 0) {
+          cancelAnimationFrame(animationId);
+          animationId = 0;
+        }
         wheel.classList.remove('is-visible');
       }
     };
@@ -3974,15 +4036,23 @@ const skeletonGroups = [
       (window as any)._wheelResizeTimer = setTimeout(handleResize, 100);
     });
 
+    const loadingStateObserver = new MutationObserver(() => {
+      syncLoadingSpinState();
+    });
+    loadingStateObserver.observe(feedEl, { attributes: true, attributeFilter: ['class'] });
+    loadingStateObserver.observe(list, { attributes: true, attributeFilter: ['aria-busy'] });
+
     // Show wheel immediately with skeleton notches during loading
     if (isDesktop()) {
       createSkeletonNotches();
       wheel.classList.add('is-visible', 'is-loading');
+      syncLoadingSpinState();
     }
 
     const onFeedReady = (): void => {
       wheel.classList.remove('is-loading');
       rebuildWheel();
+      syncLoadingSpinState();
 
       const contentObserver = new MutationObserver(() => {
         scheduleWheelSync();
