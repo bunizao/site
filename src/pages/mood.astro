@@ -3786,12 +3786,12 @@ const skeletonGroups = [
 
       // Use viewport center as timeline cursor for wheel/feed alignment.
       const focusY = scrollY + (window.innerHeight * 0.5);
-      const listBottomY = window.scrollY + list.getBoundingClientRect().bottom;
+      const feedBottomY = window.scrollY + feedEl.getBoundingClientRect().bottom;
 
       if (totalDates === 1 || dateAnchors.length === 1) {
         const singleStart = dateAnchors[0];
-        const singleSpan = Math.max(listBottomY - singleStart, 1);
-        const singleProgress = clamp((focusY - singleStart) / singleSpan, 0, 1);
+        const singleSpan = Math.max(feedBottomY - singleStart, 1);
+        const singleProgress = (focusY - singleStart) / singleSpan;
         return singleProgress;
       }
 
@@ -3811,8 +3811,8 @@ const skeletonGroups = [
 
       // Keep rotation alive in the last loaded date group before new data arrives.
       const lastStart = dateAnchors[lastIndex];
-      const lastSpan = Math.max(listBottomY - lastStart, 1);
-      const tailProgress = clamp((focusY - lastStart) / lastSpan, 0, 1);
+      const lastSpan = Math.max(feedBottomY - lastStart, 1);
+      const tailProgress = (focusY - lastStart) / lastSpan;
       return lastIndex + tailProgress;
     };
 
@@ -3827,7 +3827,7 @@ const skeletonGroups = [
       const maxIndex = Math.max(totalDates - 1, 0);
       const rawIndex = getExactIndexFromScroll(scrollY);
       const labelIndexValue = clamp(rawIndex, 0, maxIndex);
-      const rotationIndex = clamp(rawIndex, 0, maxIndex + 0.999);
+      const rotationIndex = Math.max(rawIndex, 0);
       const closestIndex = Math.min(Math.round(labelIndexValue), totalDates - 1);
 
       targetRotation = rotationIndex * NOTCHES_PER_DATE * ANGLE_PER_NOTCH;
