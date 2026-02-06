@@ -3674,10 +3674,36 @@ const skeletonGroups = [
       return `${months[date.getMonth()]} ${date.getDate()}`;
     };
 
-    const createNotches = (): void => {
+    const SKELETON_GROUPS = 5;
+
+    const createSkeletonNotches = (): void => {
       dial.innerHTML = '';
       notches = [];
-      activeIndex = -1;
+      for (let i = 0; i < SKELETON_GROUPS; i++) {
+        const majorAngle = i * NOTCHES_PER_DATE * ANGLE_PER_NOTCH;
+        const majorNotch = document.createElement('div');
+        majorNotch.className = 'timeline-notch is-major is-skeleton';
+        majorNotch.style.setProperty('--notch-idx', String(i));
+        majorNotch.style.transform = `rotate(${majorAngle}deg) translateX(calc(var(--wheel-size) / 2 - 36px))`;
+        dial.appendChild(majorNotch);
+
+        for (let j = 1; j < NOTCHES_PER_DATE; j++) {
+          const minorAngle = majorAngle + j * ANGLE_PER_NOTCH;
+          const minorNotch = document.createElement('div');
+          minorNotch.className = 'timeline-notch is-skeleton';
+          minorNotch.style.setProperty('--notch-idx', String(i * NOTCHES_PER_DATE + j));
+          minorNotch.style.transform = `rotate(${minorAngle}deg) translateX(calc(var(--wheel-size) / 2 - 20px))`;
+          dial.appendChild(minorNotch);
+        }
+      }
+    };
+
+    const createNotches = (startFrom = 0): void => {
+      if (startFrom === 0) {
+        dial.innerHTML = '';
+        notches = [];
+        activeIndex = -1;
+      }
 
       const totalDates = dateGroups.length;
       if (totalDates === 0) return;
@@ -3685,7 +3711,7 @@ const skeletonGroups = [
       // Create notches centered around 0° (3 o'clock, pointing right)
       const startOffset = 0; // Start from 0°
 
-      for (let dateIdx = 0; dateIdx < totalDates; dateIdx++) {
+      for (let dateIdx = startFrom; dateIdx < totalDates; dateIdx++) {
         // Major notch for the date
         const majorAngle = startOffset + dateIdx * NOTCHES_PER_DATE * ANGLE_PER_NOTCH;
         const majorNotch = document.createElement('div');
@@ -3910,25 +3936,34 @@ const skeletonGroups = [
         const itemsChanged = latestItemCount !== dateItemCount;
         if (!groupChanged && !itemsChanged) return;
 
-        if (groupChanged) {
-          rebuildWheel();
-          return;
-        }
-
+        const prevCount = dateGroups.length;
         dateGroups = latestGroups;
         dateItemCount = latestItemCount;
+
+        if (groupChanged) {
+          // Incrementally append only new date notches
+          createNotches(prevCount);
+        }
+
         rebuildDateAnchors();
-        wheelScrollTrigger?.refresh();
+        if (wheelScrollTrigger) {
+          wheelScrollTrigger.refresh();
+        } else {
+          setupScrollSync();
+        }
         applyScrollPosition(window.scrollY, false);
       });
     };
 
     const handleResize = (): void => {
-      if (isDesktop() && dateGroups.length > 0) {
+      const isLoading = wheel.classList.contains('is-loading');
+      if (isDesktop() && (dateGroups.length > 0 || isLoading)) {
         wheel.classList.add('is-visible');
-        wheelScrollTrigger?.refresh();
-        rebuildDateAnchors();
-        applyScrollPosition(window.scrollY, false);
+        if (dateGroups.length > 0) {
+          wheelScrollTrigger?.refresh();
+          rebuildDateAnchors();
+          applyScrollPosition(window.scrollY, false);
+        }
       } else {
         wheel.classList.remove('is-visible');
       }
@@ -3939,20 +3974,33 @@ const skeletonGroups = [
       (window as any)._wheelResizeTimer = setTimeout(handleResize, 100);
     });
 
-    const checkFeedVisible = (): void => {
-      if (!feedEl.classList.contains('is-hidden')) {
-        rebuildWheel();
+    // Show wheel immediately with skeleton notches during loading
+    if (isDesktop()) {
+      createSkeletonNotches();
+      wheel.classList.add('is-visible', 'is-loading');
+    }
 
-        const observer = new MutationObserver(() => {
-          scheduleWheelSync();
-        });
-        observer.observe(list, { childList: true, subtree: true });
-      } else {
-        requestAnimationFrame(checkFeedVisible);
-      }
+    const onFeedReady = (): void => {
+      wheel.classList.remove('is-loading');
+      rebuildWheel();
+
+      const contentObserver = new MutationObserver(() => {
+        scheduleWheelSync();
+      });
+      contentObserver.observe(list, { childList: true, subtree: true });
     };
 
-    checkFeedVisible();
+    if (!feedEl.classList.contains('is-hidden')) {
+      onFeedReady();
+    } else {
+      const feedClassObserver = new MutationObserver(() => {
+        if (!feedEl.classList.contains('is-hidden')) {
+          feedClassObserver.disconnect();
+          onFeedReady();
+        }
+      });
+      feedClassObserver.observe(feedEl, { attributes: true, attributeFilter: ['class'] });
+    }
   };
 
   if (document.readyState === 'loading') {

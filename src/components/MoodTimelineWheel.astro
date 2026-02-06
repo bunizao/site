@@ -292,6 +292,37 @@
       box-shadow 0.3s ease;
   }
 
+  /* ── Loading skeleton state ── */
+  :global(.timeline-notch.is-skeleton) {
+    background: hsl(var(--foreground) / 0.06);
+    animation: notch-shimmer 2s ease-in-out infinite;
+    animation-delay: calc(var(--notch-idx, 0) * 0.1s);
+  }
+
+  :global(.timeline-notch.is-major.is-skeleton) {
+    background: hsl(var(--foreground) / 0.1);
+  }
+
+  @keyframes notch-shimmer {
+    0%, 100% { opacity: 0.3; }
+    50% { opacity: 0.8; }
+  }
+
+  /* Hide label during loading */
+  .timeline-wheel.is-loading .timeline-wheel-label-wrap {
+    opacity: 0 !important;
+  }
+
+  /* Breathing glow during loading */
+  .timeline-wheel.is-loading .timeline-wheel-glow {
+    animation: glow-breathe 2.5s ease-in-out infinite;
+  }
+
+  @keyframes glow-breathe {
+    0%, 100% { opacity: 0.3; }
+    50% { opacity: 0.8; }
+  }
+
   /* ── Reduced motion ── */
   @media (prefers-reduced-motion: reduce) {
     .timeline-wheel {
@@ -300,6 +331,7 @@
     .timeline-wheel-dial,
     :global(.timeline-notch),
     :global(.timeline-notch-pip),
+    :global(.timeline-notch.is-skeleton),
     .timeline-wheel-glow {
       transition: none !important;
       animation: none !important;
