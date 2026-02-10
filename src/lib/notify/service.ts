@@ -1,6 +1,6 @@
 import type { ChannelInfo, Post } from '@/lib/telegram';
 import { getChannelInfo } from '@/lib/telegram';
-import { getTextPreview } from '@/lib/mood-utils';
+import { getTextPreviewWithMedia } from '@/lib/mood-utils';
 import { getNotifyConfig, getNotifyFromAddress, requireConfigValue } from './env';
 import { CloudflareKvClient } from './kv';
 import {
@@ -12,7 +12,11 @@ import {
   verifyNotifyToken,
 } from './security';
 import { sendEmailWithResend } from './resend';
-import { buildMoodNotificationEmail, buildSubscribeConfirmEmail } from './templates';
+import {
+  buildMoodDigestEmail,
+  buildMoodNotificationEmail,
+  buildSubscribeConfirmEmail,
+} from './templates';
 import type {
   ConfirmResult,
   DeliveryMode,
@@ -38,10 +42,20 @@ export interface SubscriptionRequestInput {
   dailyHour?: number | string | null;
 }
 
+interface ChannelMeta {
+  title?: string;
+  avatarUrl?: string;
+}
+
 interface NotifyTestHooks {
   now?: () => Date;
   loadMoodPost?: (context: NotifyRequestContext, postId: string) => Promise<Post | null>;
   loadLatestMoodPost?: (context: NotifyRequestContext) => Promise<Post | null>;
+  loadRecentMoodPosts?: (
+    context: NotifyRequestContext,
+    input: { since: Date; until: Date }
+  ) => Promise<Post[]>;
+  loadChannelMeta?: (context: NotifyRequestContext) => Promise<ChannelMeta | null>;
 }
 
 export class NotifyServiceError extends Error {
@@ -76,6 +90,10 @@ const DEFAULT_SEND_CONCURRENCY = 4;
 const DEFAULT_RETRY_SCAN_LIMIT = 500;
 const DEFAULT_RETRY_PROCESS_LIMIT = 50;
 const EVERY_5H_WINDOW_MS = 5 * 60 * 60 * 1000;
+const DEFAULT_DAILY_LOOKBACK_MS = 36 * 60 * 60 * 1000;
+const MAX_DIGEST_POSTS = 20;
+const MAX_DIGEST_FETCH_POSTS = 180;
+const MAX_DIGEST_FETCH_PAGES = 12;
 const DEFAULT_DAILY_TIMEZONE = 'Asia/Shanghai';
 const DEFAULT_DAILY_HOUR = 9;
 
@@ -250,6 +268,53 @@ function getLocalHour(date: Date, timeZone: string): number {
   const hourPart = parts.find((part) => part.type === 'hour')?.value ?? '0';
   const parsed = Number.parseInt(hourPart, 10);
   return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function getLocalTimeLabel(date: Date, timeZone: string): string {
+  return new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).format(date);
+}
+
+function getLocalDateLabel(date: Date, timeZone: string): string {
+  return new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+  }).format(date);
+}
+
+function getPostTimestamp(post: Post): number {
+  const parsed = Date.parse(post.datetime);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function getDefaultWindowStart(mode: DeliveryMode, now: Date): Date {
+  if (mode === 'every_5h') {
+    return new Date(now.getTime() - EVERY_5H_WINDOW_MS);
+  }
+  return new Date(now.getTime() - DEFAULT_DAILY_LOOKBACK_MS);
+}
+
+function getSubscriberWindowStart(subscriber: SubscriberRecord, now: Date): Date {
+  const lastNotified = parseIsoDate(subscriber.lastNotifiedAt);
+  if (lastNotified) {
+    return lastNotified;
+  }
+
+  return getDefaultWindowStart(getSubscriberDeliveryMode(subscriber), now);
+}
+
+function getDigestDisplayTimezone(subscriber: SubscriberRecord): string {
+  const timezone = subscriber.timezone || '';
+  if (timezone && isValidTimezone(timezone)) {
+    return timezone;
+  }
+  return 'UTC';
 }
 
 function isScheduledDue(subscriber: SubscriberRecord, now: Date): boolean {
@@ -494,6 +559,184 @@ async function loadLatestMoodPost(context: NotifyRequestContext): Promise<Post |
   }
 }
 
+async function loadMoodPostsInWindow(
+  context: NotifyRequestContext,
+  input: { since: Date; until: Date }
+): Promise<Post[]> {
+  if (notifyTestHooks?.loadRecentMoodPosts) {
+    return notifyTestHooks.loadRecentMoodPosts(context, input);
+  }
+
+  if (notifyTestHooks?.loadLatestMoodPost) {
+    const latest = await notifyTestHooks.loadLatestMoodPost(context);
+    return latest ? [latest] : [];
+  }
+
+  const sinceMs = input.since.getTime();
+  const untilMs = input.until.getTime();
+  if (!Number.isFinite(sinceMs) || !Number.isFinite(untilMs) || sinceMs >= untilMs) {
+    return [];
+  }
+
+  const collected: Post[] = [];
+  const seenIds = new Set<string>();
+  let before = '';
+  let pageCount = 0;
+  let reachedWindowStart = false;
+
+  while (
+    pageCount < MAX_DIGEST_FETCH_PAGES
+    && collected.length < MAX_DIGEST_FETCH_POSTS
+  ) {
+    pageCount += 1;
+
+    let result: ChannelInfo;
+    try {
+      result = (await getChannelInfo(
+        {
+          request: context.request,
+          locals: context.locals,
+        } as any,
+        {
+          type: 'list',
+          before,
+          skipCache: true,
+        }
+      )) as ChannelInfo;
+    } catch (error) {
+      console.error('Notify failed to load mood list for digest:', error);
+      break;
+    }
+
+    const pagePosts = (result?.posts ?? [])
+      .filter((post) => post?.id && post.type === 'text')
+      .sort((a, b) => Number.parseInt(b.id, 10) - Number.parseInt(a.id, 10));
+
+    if (!pagePosts.length) {
+      break;
+    }
+
+    for (const post of pagePosts) {
+      if (seenIds.has(post.id)) {
+        continue;
+      }
+      seenIds.add(post.id);
+
+      const timestamp = getPostTimestamp(post);
+      if (!timestamp) {
+        continue;
+      }
+
+      if (timestamp <= sinceMs) {
+        reachedWindowStart = true;
+        break;
+      }
+
+      if (timestamp > untilMs) {
+        continue;
+      }
+
+      collected.push(post);
+      if (collected.length >= MAX_DIGEST_FETCH_POSTS) {
+        break;
+      }
+    }
+
+    const nextBefore = pagePosts[pagePosts.length - 1]?.id?.trim() || '';
+    if (!nextBefore || nextBefore === before || reachedWindowStart) {
+      break;
+    }
+    before = nextBefore;
+  }
+
+  return collected.sort((a, b) => getPostTimestamp(b) - getPostTimestamp(a));
+}
+
+function pickDigestPostsForSubscriber(
+  posts: Post[],
+  subscriber: SubscriberRecord,
+  now: Date
+): Post[] {
+  const mode = getSubscriberDeliveryMode(subscriber);
+  const lastNotified = parseIsoDate(subscriber.lastNotifiedAt);
+  const lastNotifiedMs = lastNotified?.getTime() ?? Number.NEGATIVE_INFINITY;
+  const windowStartMs = getSubscriberWindowStart(subscriber, now).getTime();
+  const nowMs = now.getTime();
+
+  if (mode === 'every_5h') {
+    return posts.filter((post) => {
+      const timestamp = getPostTimestamp(post);
+      if (!timestamp) return false;
+      if (timestamp > nowMs) return false;
+      if (timestamp <= windowStartMs) return false;
+      return timestamp > lastNotifiedMs;
+    });
+  }
+
+  if (mode === 'daily') {
+    const timezone = getDailyTimezone(subscriber);
+    const todayKey = getLocalDateKey(now, timezone);
+
+    return posts.filter((post) => {
+      const timestamp = getPostTimestamp(post);
+      if (!timestamp) return false;
+      if (timestamp > nowMs || timestamp <= lastNotifiedMs) return false;
+      return getLocalDateKey(new Date(timestamp), timezone) === todayKey;
+    });
+  }
+
+  return [];
+}
+
+function normalizeAbsoluteUrl(value: string | undefined, baseUrl: string): string | undefined {
+  const raw = (value || '').trim();
+  if (!raw) return undefined;
+
+  if (raw.startsWith('//')) {
+    return `https:${raw}`;
+  }
+
+  try {
+    return new URL(raw, baseUrl).toString();
+  } catch {
+    return undefined;
+  }
+}
+
+async function loadChannelMeta(context: NotifyRequestContext): Promise<ChannelMeta | null> {
+  if (notifyTestHooks) {
+    if (notifyTestHooks.loadChannelMeta) {
+      return notifyTestHooks.loadChannelMeta(context);
+    }
+    return null;
+  }
+
+  try {
+    const result = (await getChannelInfo(
+      {
+        request: context.request,
+        locals: context.locals,
+      } as any,
+      {
+        type: 'list',
+      }
+    )) as ChannelInfo;
+
+    if (!result || !('posts' in result)) {
+      return null;
+    }
+
+    const siteUrl = getSiteUrl(context);
+    const title = (result.title || '').trim() || undefined;
+    const avatarUrl = normalizeAbsoluteUrl(result.avatar, siteUrl);
+
+    return { title, avatarUrl };
+  } catch (error) {
+    console.error('Notify failed to load channel metadata:', error);
+    return null;
+  }
+}
+
 async function sendMoodEmail(
   context: NotifyRequestContext,
   kv: CloudflareKvClient,
@@ -502,6 +745,7 @@ async function sendMoodEmail(
     previewText: string;
     subscriber: SubscriberRecord;
     force: boolean;
+    channelMeta?: ChannelMeta | null;
   }
 ): Promise<{ sent: boolean; resendId?: string }> {
   const config = getNotifyConfig(context);
@@ -526,12 +770,16 @@ async function sendMoodEmail(
   const siteUrl = getSiteUrl(context);
   const moodUrl = `${siteUrl}/mood/${input.post.id}`;
   const unsubscribeUrl = `${siteUrl}/api/notify/unsubscribe?token=${encodeURIComponent(unsubscribeToken)}`;
+  const channelTitle = input.channelMeta?.title || 'Mood Feed';
+  const channelAvatarUrl = input.channelMeta?.avatarUrl;
 
   const email = buildMoodNotificationEmail({
     moodUrl,
     unsubscribeUrl,
     previewText: input.previewText,
     postId: input.post.id,
+    channelTitle,
+    channelAvatarUrl,
   });
 
   const response = await sendEmailWithResend({
@@ -549,6 +797,113 @@ async function sendMoodEmail(
   await kv.delete(retryKey(postId, input.subscriber.emailHash));
 
   return { sent: true, resendId: response.id };
+}
+
+async function sendMoodDigestEmail(
+  context: NotifyRequestContext,
+  kv: CloudflareKvClient,
+  input: {
+    posts: Post[];
+    subscriber: SubscriberRecord;
+    channelMeta?: ChannelMeta | null;
+    force: boolean;
+  }
+): Promise<{ sent: boolean; resendId?: string; latestPostId?: string }> {
+  const config = getNotifyConfig(context);
+
+  const uniquePosts = new Map<string, Post>();
+  for (const post of input.posts) {
+    if (!post?.id || post.type !== 'text') continue;
+    if (!uniquePosts.has(post.id)) {
+      uniquePosts.set(post.id, post);
+    }
+  }
+
+  const orderedPosts = Array.from(uniquePosts.values())
+    .sort((a, b) => getPostTimestamp(b) - getPostTimestamp(a))
+    .slice(0, MAX_DIGEST_POSTS);
+
+  if (!orderedPosts.length) {
+    return { sent: false };
+  }
+
+  const postsToSend: Post[] = [];
+  for (const post of orderedPosts) {
+    if (!input.force) {
+      const alreadySent = await hasBeenSent(kv, post.id, input.subscriber.emailHash);
+      if (alreadySent) {
+        continue;
+      }
+    }
+    postsToSend.push(post);
+  }
+
+  if (!postsToSend.length) {
+    return { sent: false };
+  }
+
+  const unsubscribeToken = createNotifyToken(
+    {
+      action: 'unsubscribe',
+      email: input.subscriber.email,
+      exp: unixNow() + UNSUBSCRIBE_TOKEN_TTL_SECONDS,
+    },
+    config.tokenSecret
+  );
+
+  const siteUrl = getSiteUrl(context);
+  const unsubscribeUrl = `${siteUrl}/api/notify/unsubscribe?token=${encodeURIComponent(unsubscribeToken)}`;
+  const channelTitle = input.channelMeta?.title || 'Mood Feed';
+  const channelAvatarUrl = input.channelMeta?.avatarUrl;
+  const mode = getSubscriberDeliveryMode(input.subscriber);
+  const timezone = mode === 'daily'
+    ? getDailyTimezone(input.subscriber)
+    : getDigestDisplayTimezone(input.subscriber);
+
+  const digestItems = postsToSend.map((post) => {
+    const postDate = new Date(getPostTimestamp(post));
+    return {
+      postId: post.id,
+      moodUrl: `${siteUrl}/mood/${post.id}`,
+      previewText: getTextPreviewWithMedia(post),
+      timeLabel: getLocalTimeLabel(postDate, timezone),
+      dateLabel: getLocalDateLabel(postDate, timezone),
+    };
+  });
+
+  const email = buildMoodDigestEmail({
+    mode: mode === 'daily' ? 'daily' : 'every_5h',
+    moodUrl: `${siteUrl}/mood`,
+    unsubscribeUrl,
+    channelTitle,
+    channelAvatarUrl,
+    posts: digestItems,
+  });
+
+  const latestPostId = postsToSend[0].id;
+  const response = await sendEmailWithResend({
+    apiKey: config.resendApiKey,
+    from: getNotifyFromAddress(config),
+    to: input.subscriber.email,
+    replyTo: config.notifyReplyTo || undefined,
+    subject: email.subject,
+    html: email.html,
+    text: email.text,
+    idempotencyKey: `mood-digest-${mode}-${latestPostId}-${input.subscriber.emailHash}`,
+  });
+
+  await Promise.all(
+    postsToSend.map(async (post) => {
+      await markAsSent(kv, post.id, input.subscriber.emailHash, response.id);
+      await kv.delete(retryKey(post.id, input.subscriber.emailHash));
+    })
+  );
+
+  return {
+    sent: true,
+    resendId: response.id,
+    latestPostId,
+  };
 }
 
 async function runWithConcurrency<T>(
@@ -785,7 +1140,8 @@ export async function dispatchMoodNotification(
   }
 
   const subscribers = await listActiveSubscribers(kv);
-  const previewText = getTextPreview(post);
+  const previewText = getTextPreviewWithMedia(post);
+  const channelMeta = await loadChannelMeta(context);
   const allowedModes = options.deliveryModes ? new Set(options.deliveryModes) : null;
 
   const result: DispatchResult = {
@@ -813,6 +1169,7 @@ export async function dispatchMoodNotification(
         previewText,
         subscriber,
         force: Boolean(options.force),
+        channelMeta,
       });
 
       if (sendResult.sent) {
@@ -870,7 +1227,7 @@ export async function dispatchScheduledMoodNotifications(
     return isScheduledDue(subscriber, now);
   });
 
-  const previewText = getTextPreview(latestPost);
+  const channelMeta = await loadChannelMeta(context);
   const result: ScheduledDispatchResult = {
     postId: latestPost.id,
     scanned: scheduledSubscribers.length,
@@ -884,26 +1241,50 @@ export async function dispatchScheduledMoodNotifications(
     return result;
   }
 
+  let globalWindowStart = getSubscriberWindowStart(dueSubscribers[0], now);
+  for (let index = 1; index < dueSubscribers.length; index += 1) {
+    const candidate = getSubscriberWindowStart(dueSubscribers[index], now);
+    if (candidate.getTime() < globalWindowStart.getTime()) {
+      globalWindowStart = candidate;
+    }
+  }
+
+  const candidatePosts = await loadMoodPostsInWindow(context, {
+    since: globalWindowStart,
+    until: now,
+  });
+
   await runWithConcurrency(dueSubscribers, DEFAULT_SEND_CONCURRENCY, async (subscriber) => {
+    const digestPosts = pickDigestPostsForSubscriber(candidatePosts, subscriber, now);
+    if (!digestPosts.length) {
+      result.skipped += 1;
+      return;
+    }
+
     try {
-      const sendResult = await sendMoodEmail(context, kv, {
-        post: latestPost,
-        previewText,
+      const sendResult = await sendMoodDigestEmail(context, kv, {
+        posts: digestPosts,
         subscriber,
         force: false,
+        channelMeta,
       });
 
       if (sendResult.sent) {
         result.sent += 1;
-        await updateSubscriberDeliveryState(kv, subscriber, latestPost.id);
+        await updateSubscriberDeliveryState(
+          kv,
+          subscriber,
+          sendResult.latestPostId ?? digestPosts[0].id
+        );
       } else {
         result.skipped += 1;
       }
     } catch (error) {
       result.failed += 1;
       const message = error instanceof Error ? error.message : 'Unknown scheduled send error';
+      const retryPostId = digestPosts[0]?.id || latestPost.id;
       await scheduleRetry(kv, {
-        postId: latestPost.id,
+        postId: retryPostId,
         email: subscriber.email,
         emailHash: subscriber.emailHash,
         lastError: message,
@@ -952,6 +1333,7 @@ export async function processNotifyRetries(
   };
 
   const postCache = new Map<string, Post | null>();
+  const channelMeta = await loadChannelMeta(context);
 
   for (const entry of dueRecords) {
     output.processed += 1;
@@ -985,12 +1367,13 @@ export async function processNotifyRetries(
     }
 
     try {
-      const previewText = getTextPreview(post);
+      const previewText = getTextPreviewWithMedia(post);
       const sendResult = await sendMoodEmail(context, kv, {
         post,
         previewText,
         subscriber: activeSubscriber,
         force: false,
+        channelMeta,
       });
 
       if (sendResult.sent) {

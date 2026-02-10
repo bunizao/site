@@ -128,8 +128,16 @@ export function buildMoodNotificationEmail(options: {
   unsubscribeUrl: string;
   previewText: string;
   postId: string;
+  channelTitle?: string;
+  channelAvatarUrl?: string;
 }): { subject: string; html: string; text: string } {
   const preview = trimPreview(options.previewText || '(No text preview)');
+  const channelTitle = (options.channelTitle || 'Mood Feed').trim() || 'Mood Feed';
+  const channelInitial = channelTitle.charAt(0).toUpperCase() || 'M';
+  const channelAvatarUrl = (options.channelAvatarUrl || '').trim();
+  const channelAvatarHtml = channelAvatarUrl
+    ? `<img src="${escapeHtml(channelAvatarUrl)}" alt="${escapeHtml(channelTitle)} avatar" width="32" height="32" style="display: block; width: 32px; height: 32px; border-radius: 999px;" />`
+    : escapeHtml(channelInitial);
   const subject = `New mood #${options.postId}`;
   const html = emailShell(`
           <tr>
@@ -145,10 +153,10 @@ export function buildMoodNotificationEmail(options: {
                     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
                       <tr>
                         <td width="32" valign="middle">
-                          <div class="email-avatar" style="width: 32px; height: 32px; border-radius: 999px; background: #f3f4f6; color: #111; font-family: ${MONO_FONT}; font-size: 13px; font-weight: 600; line-height: 32px; text-align: center;">M</div>
+                          <div class="email-avatar" style="width: 32px; height: 32px; border-radius: 999px; background: #f3f4f6; color: #111; font-family: ${MONO_FONT}; font-size: 13px; font-weight: 600; line-height: 32px; text-align: center; overflow: hidden;">${channelAvatarHtml}</div>
                         </td>
                         <td valign="middle" style="padding-left: 10px;">
-                          <a href="${escapeHtml(options.moodUrl)}" class="email-channel-name" style="display: inline-block; font-family: ${MONO_FONT}; font-size: 13px; font-weight: 600; color: #111; text-decoration: none;">Mood Feed</a>
+                          <a href="${escapeHtml(options.moodUrl)}" class="email-channel-name" style="display: inline-block; font-family: ${MONO_FONT}; font-size: 13px; font-weight: 600; color: #111; text-decoration: none;">${escapeHtml(channelTitle)}</a>
                           <div class="email-channel-meta" style="margin-top: 2px; font-family: ${MONO_FONT}; font-size: 11px; color: #666;">New mood posted &middot; #${escapeHtml(options.postId)}</div>
                         </td>
                       </tr>
@@ -171,7 +179,6 @@ export function buildMoodNotificationEmail(options: {
                   <td class="email-embed-footer" style="padding: 10px 14px; border-top: 1px solid #e5e5e5;">
                     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
                       <tr>
-                        <td class="email-meta" style="font-family: ${MONO_FONT}; font-size: 11px; color: #666;">Styled like oEmbed card</td>
                         <td align="right">
                           <a href="${escapeHtml(options.unsubscribeUrl)}" class="email-muted" style="font-family: ${MONO_FONT}; font-size: 11px; color: #666; text-decoration: none;">Unsubscribe &rarr;</a>
                         </td>
@@ -194,4 +201,134 @@ export function buildMoodNotificationEmail(options: {
   ].join('\n');
 
   return { subject, html, text };
+}
+
+interface MoodDigestPost {
+  postId: string;
+  moodUrl: string;
+  previewText: string;
+  timeLabel: string;
+  dateLabel: string;
+}
+
+function buildDigestListHtml(posts: MoodDigestPost[]): string {
+  let currentDate = '';
+  const rows: string[] = [];
+
+  for (const post of posts) {
+    if (post.dateLabel && post.dateLabel !== currentDate) {
+      currentDate = post.dateLabel;
+      rows.push(`
+                <tr>
+                  <td style="padding: 14px 14px 6px; font-family: ${MONO_FONT}; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: #666;">
+                    ${escapeHtml(post.dateLabel)}
+                  </td>
+                </tr>`);
+    }
+
+    rows.push(`
+                <tr>
+                  <td style="padding: 0 14px;">
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-top: 1px solid #efefef;">
+                      <tr>
+                        <td valign="top" width="56" style="padding: 10px 0; font-family: ${MONO_FONT}; font-size: 11px; color: #666;">
+                          ${escapeHtml(post.timeLabel)}
+                        </td>
+                        <td valign="top" style="padding: 10px 0;">
+                          <a href="${escapeHtml(post.moodUrl)}" class="email-preview" style="display: block; font-family: ${MONO_FONT}; font-size: 13px; line-height: 1.65; color: #111; text-decoration: none;">
+                            ${escapeHtml(trimPreview(post.previewText, 160))}
+                          </a>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>`);
+  }
+
+  return rows.join('');
+}
+
+export function buildMoodDigestEmail(options: {
+  mode: 'every_5h' | 'daily';
+  moodUrl: string;
+  unsubscribeUrl: string;
+  channelTitle?: string;
+  channelAvatarUrl?: string;
+  posts: MoodDigestPost[];
+}): { subject: string; html: string; text: string } {
+  const channelTitle = (options.channelTitle || 'Mood Feed').trim() || 'Mood Feed';
+  const channelInitial = channelTitle.charAt(0).toUpperCase() || 'M';
+  const channelAvatarUrl = (options.channelAvatarUrl || '').trim();
+  const channelAvatarHtml = channelAvatarUrl
+    ? `<img src="${escapeHtml(channelAvatarUrl)}" alt="${escapeHtml(channelTitle)} avatar" width="32" height="32" style="display: block; width: 32px; height: 32px; border-radius: 999px;" />`
+    : escapeHtml(channelInitial);
+  const count = options.posts.length;
+  const modeLabel = options.mode === 'daily' ? 'Daily digest' : '5-hour digest';
+  const subject = `${modeLabel} · ${count} mood update${count > 1 ? 's' : ''}`;
+
+  const html = emailShell(`
+          <tr>
+            <td style="padding: 24px 24px 0;">
+              <span class="email-label" style="font-family: ${MONO_FONT}; font-size: 11px; font-weight: 400; letter-spacing: 0.2em; text-transform: uppercase; color: #666;">mood digest</span>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 10px 24px 24px;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" class="email-embed-card" style="border: 1px solid #e0e0e0; border-radius: 12px; overflow: hidden; background-color: #fff;">
+                <tr>
+                  <td class="email-embed-header" style="padding: 12px 14px; border-bottom: 1px solid #e5e5e5;">
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                      <tr>
+                        <td width="32" valign="middle">
+                          <div class="email-avatar" style="width: 32px; height: 32px; border-radius: 999px; background: #f3f4f6; color: #111; font-family: ${MONO_FONT}; font-size: 13px; font-weight: 600; line-height: 32px; text-align: center; overflow: hidden;">${channelAvatarHtml}</div>
+                        </td>
+                        <td valign="middle" style="padding-left: 10px;">
+                          <a href="${escapeHtml(options.moodUrl)}" class="email-channel-name" style="display: inline-block; font-family: ${MONO_FONT}; font-size: 13px; font-weight: 600; color: #111; text-decoration: none;">${escapeHtml(channelTitle)}</a>
+                          <div class="email-channel-meta" style="margin-top: 2px; font-family: ${MONO_FONT}; font-size: 11px; color: #666;">${escapeHtml(modeLabel)} &middot; ${count} update${count > 1 ? 's' : ''}</div>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+                ${buildDigestListHtml(options.posts)}
+                <tr>
+                  <td class="email-embed-footer" style="padding: 10px 14px; border-top: 1px solid #e5e5e5;">
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                      <tr>
+                        <td>
+                          <a href="${escapeHtml(options.moodUrl)}" class="email-view-link" style="font-family: ${MONO_FONT}; font-size: 11px; color: #000; text-decoration: none;">View mood feed &rarr;</a>
+                        </td>
+                        <td align="right">
+                          <a href="${escapeHtml(options.unsubscribeUrl)}" class="email-muted" style="font-family: ${MONO_FONT}; font-size: 11px; color: #666; text-decoration: none;">Unsubscribe &rarr;</a>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>`);
+
+  const textLines: string[] = [
+    modeLabel.toUpperCase(),
+    '────────────',
+    '',
+  ];
+
+  let currentDate = '';
+  for (const post of options.posts) {
+    if (post.dateLabel && post.dateLabel !== currentDate) {
+      currentDate = post.dateLabel;
+      textLines.push(post.dateLabel);
+    }
+
+    textLines.push(`[${post.timeLabel}] ${trimPreview(post.previewText, 160)}`);
+    textLines.push(`Read: ${post.moodUrl}`);
+    textLines.push('');
+  }
+
+  textLines.push(`Feed: ${options.moodUrl}`);
+  textLines.push(`Unsubscribe: ${options.unsubscribeUrl}`);
+
+  return { subject, html, text: textLines.join('\n') };
 }

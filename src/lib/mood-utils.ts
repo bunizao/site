@@ -130,6 +130,51 @@ export function getTextPreview(mood: { text?: string; content: string }): string
 }
 
 /**
+ * Check whether content contains image media
+ */
+export function hasImageMedia(content: string): boolean {
+  return /<(img)\b/i.test(content);
+}
+
+/**
+ * Check whether content contains video media
+ */
+export function hasVideoMedia(content: string): boolean {
+  return /<(video)\b/i.test(content);
+}
+
+/**
+ * Check whether content contains audio media
+ */
+export function hasAudioMedia(content: string): boolean {
+  return /<(audio)\b|tgme_widget_message_voice|tgme_widget_message_document_icon[^"']*\baudio\b/i.test(content);
+}
+
+/**
+ * Build media indicator prefix for text previews
+ */
+export function getMediaIndicatorPrefix(content: string): string {
+  const indicators: string[] = [];
+  if (hasImageMedia(content)) indicators.push('🖼️');
+  if (hasVideoMedia(content)) indicators.push('🎬');
+  if (hasAudioMedia(content)) indicators.push('🎧');
+  return indicators.join(' ');
+}
+
+/**
+ * Get text preview and prepend media indicators when media exists
+ */
+export function getTextPreviewWithMedia(mood: { text?: string; content: string }): string {
+  const preview = getTextPreview(mood);
+  const prefix = getMediaIndicatorPrefix(mood.content);
+  if (!prefix) {
+    return preview;
+  }
+  const body = preview || '(No text preview)';
+  return `${prefix} ${body}`;
+}
+
+/**
  * Get HTML preview with safe inline links preserved
  */
 export function getTextPreviewHtml(mood: { text?: string; content: string }): string {

@@ -387,6 +387,36 @@ describe('notify service integration e2e', () => {
     expect(dailySubscriber?.lastNotifiedPostId).toBeUndefined();
   });
 
+  test('mood notification email uses real channel title and avatar when available', async () => {
+    const context = createContext('/api/notify/dispatch');
+    const email = 'channel-meta@example.com';
+    const post = createPost('510', 'Channel metadata');
+
+    await subscribeAndConfirm(mock, context, email, {
+      deliveryMode: 'immediate',
+    });
+
+    mock.clearEmails();
+
+    setNotifyTestHooksForTesting({
+      loadMoodPost: async (_context, postId) => (postId === post.id ? post : null),
+      loadChannelMeta: async () => ({
+        title: 'Levitating',
+        avatarUrl: 'https://cdn.example.com/channel-avatar.jpg',
+      }),
+    });
+
+    const result = await dispatchMoodNotification(context, post.id, {
+      deliveryModes: ['immediate'],
+    });
+
+    expect(result.sent).toBe(1);
+    expect(mock.emails.length).toBe(1);
+    expect(mock.emails[0].html).toContain('Levitating');
+    expect(mock.emails[0].html).toContain('https://cdn.example.com/channel-avatar.jpg');
+    expect(mock.emails[0].html).not.toContain('Styled like oEmbed card');
+  });
+
   test('every_5h mode does not resend when there is no new post', async () => {
     const context = createContext('/api/notify/schedule');
     const email = 'every5h-no-repeat@example.com';
@@ -399,6 +429,7 @@ describe('notify service integration e2e', () => {
 
     let now = new Date('2026-02-10T00:00:00.000Z');
     let latestPost = createPost('200', 'First post');
+    latestPost.datetime = '2026-02-10T00:00:00.000Z';
 
     setNotifyTestHooksForTesting({
       now: () => now,
@@ -415,6 +446,7 @@ describe('notify service integration e2e', () => {
     expect(mock.emails.length).toBe(1);
 
     latestPost = createPost('201', 'New post after interval');
+    latestPost.datetime = '2026-02-10T05:30:00.000Z';
     const thirdRun = await dispatchScheduledMoodNotifications(context);
     expect(thirdRun.sent).toBe(1);
     expect(mock.emails.length).toBe(2);
@@ -432,6 +464,7 @@ describe('notify service integration e2e', () => {
 
     let now = new Date('2026-02-10T00:00:00.000Z');
     let latestPost = createPost('300', 'Initial post');
+    latestPost.datetime = '2026-02-10T00:00:00.000Z';
 
     setNotifyTestHooksForTesting({
       now: () => now,
@@ -443,6 +476,7 @@ describe('notify service integration e2e', () => {
 
     now = new Date('2026-02-10T02:00:00.000Z');
     latestPost = createPost('301', 'Too early');
+    latestPost.datetime = '2026-02-10T01:50:00.000Z';
 
     const secondRun = await dispatchScheduledMoodNotifications(context);
     expect(secondRun.sent).toBe(0);
@@ -468,6 +502,7 @@ describe('notify service integration e2e', () => {
 
     let now = new Date('2026-02-10T00:00:00.000Z'); // 08:00 Asia/Shanghai
     let latestPost = createPost('400', 'Morning update');
+    latestPost.datetime = '2026-02-10T00:00:00.000Z';
 
     setNotifyTestHooksForTesting({
       now: () => now,
@@ -483,14 +518,56 @@ describe('notify service integration e2e', () => {
 
     now = new Date('2026-02-10T06:00:00.000Z'); // same local day
     latestPost = createPost('401', 'Afternoon update');
+    latestPost.datetime = '2026-02-10T05:30:00.000Z';
     const sameDay = await dispatchScheduledMoodNotifications(context);
     expect(sameDay.sent).toBe(0);
 
     now = new Date('2026-02-11T02:00:00.000Z'); // next local day
+    latestPost = createPost('402', 'Next day update');
+    latestPost.datetime = '2026-02-11T01:20:00.000Z';
     const nextDay = await dispatchScheduledMoodNotifications(context);
     expect(nextDay.sent).toBe(1);
 
     expect(mock.emails.length).toBe(2);
+  });
+
+  test('daily mode sends digest list for all posts in the current local day', async () => {
+    const context = createContext('/api/notify/schedule');
+    const email = 'daily-digest@example.com';
+
+    await subscribeAndConfirm(mock, context, email, {
+      deliveryMode: 'daily',
+      timezone: 'Asia/Shanghai',
+      dailyHour: 9,
+    });
+
+    mock.clearEmails();
+
+    const firstPost = createPost('610', 'Morning task finished');
+    firstPost.datetime = '2026-02-10T01:00:00.000Z'; // 09:00 Asia/Shanghai
+
+    const secondPost = createPost('611', 'Noon deployment done');
+    secondPost.datetime = '2026-02-10T04:30:00.000Z'; // 12:30 Asia/Shanghai
+
+    const previousDayPost = createPost('609', 'Yesterday wrap-up');
+    previousDayPost.datetime = '2026-02-09T12:00:00.000Z';
+
+    let now = new Date('2026-02-10T05:00:00.000Z'); // 13:00 Asia/Shanghai
+    const latestPost = secondPost;
+
+    setNotifyTestHooksForTesting({
+      now: () => now,
+      loadLatestMoodPost: async () => latestPost,
+      loadRecentMoodPosts: async () => [secondPost, firstPost, previousDayPost],
+    });
+
+    const run = await dispatchScheduledMoodNotifications(context);
+    expect(run.sent).toBe(1);
+    expect(mock.emails.length).toBe(1);
+    expect(mock.emails[0].subject).toContain('Daily digest');
+    expect(mock.emails[0].html).toContain('Morning task finished');
+    expect(mock.emails[0].html).toContain('Noon deployment done');
+    expect(mock.emails[0].html).not.toContain('Yesterday wrap-up');
   });
 
   test('failed immediate send is retried and succeeds later', async () => {
