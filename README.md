@@ -126,7 +126,7 @@ Use `.env.local` for local secrets and keep [`.env`](.env) as the documented tem
 - [ddiu8081/ddiu.io](https://github.com/ddiu8081/ddiu.io) - Inspiration and code reference for `Ghost API` integration.
 - [zmh-program/zmh-program.github.io](https://github.com/zmh-program/zmh-program.github.io) - Inspiration for layout and style ideas.
 - [antfu/antfu.me](https://antfu.me/) - Inspiration for personal website design and content ideas.
-- The Astro, React, and Tailwind CSS communities for great tooling and docs.
+- The [Astro](https://astro.build/), [React](https://react.dev/), and [Tailwind CSS](https://tailwindcss.com/) communities for great tooling and docs.
 - Open-source maintainers whose libraries power this site.
 
 ## License
