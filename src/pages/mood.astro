@@ -133,6 +133,7 @@ const skeletonGroups = [
               <fieldset class="notify-fieldset">
                 <legend class="notify-label">Frequency</legend>
                 <div class="notify-radio-group" role="radiogroup" aria-label="Delivery mode">
+                  <span class="notify-radio-indicator" aria-hidden="true"></span>
                   <input type="radio" id="notify-mode-instant" name="deliveryMode" value="instant" class="notify-radio-input" checked />
                   <label for="notify-mode-instant" class="notify-radio-label">Instant</label>
                   <input type="radio" id="notify-mode-digest5h" name="deliveryMode" value="every_5h" class="notify-radio-input" />
@@ -2518,11 +2519,35 @@ const skeletonGroups = [
   }
 
   :global(.notify-radio-group) {
+    --notify-frequency-segments: 3;
+    --notify-frequency-offset: 0%;
+    position: relative;
     display: flex;
     gap: 0;
     background: hsl(var(--foreground) / 0.04);
     border-radius: 7px;
     padding: 2px;
+    overflow: hidden;
+    isolation: isolate;
+  }
+
+  :global(.notify-radio-indicator) {
+    position: absolute;
+    top: 2px;
+    bottom: 2px;
+    left: 2px;
+    width: calc((100% - 4px) / var(--notify-frequency-segments));
+    border-radius: 5px;
+    background: hsl(var(--background));
+    box-shadow: 0 1px 3px hsl(var(--foreground) / 0.08);
+    pointer-events: none;
+    z-index: 0;
+    transform: translate3d(var(--notify-frequency-offset), 0, 0);
+    -webkit-transform: translate3d(var(--notify-frequency-offset), 0, 0);
+    transition: transform 0.24s cubic-bezier(0.22, 1, 0.36, 1), -webkit-transform 0.24s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.24s ease;
+    will-change: transform;
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
   }
 
   :global(.notify-radio-input) {
@@ -2535,21 +2560,25 @@ const skeletonGroups = [
 
   :global(.notify-radio-label) {
     flex: 1;
+    position: relative;
+    z-index: 1;
     text-align: center;
     padding: 5px 0;
     font-size: 11px;
     font-weight: 500;
     color: hsl(var(--muted-foreground));
     border-radius: 5px;
+    background: transparent;
     cursor: pointer;
-    transition: color 0.12s ease, background 0.12s ease, box-shadow 0.12s ease;
+    transition: color 0.12s ease;
     user-select: none;
+    -webkit-tap-highlight-color: transparent;
   }
 
   :global(.notify-radio-input:checked + .notify-radio-label) {
     color: hsl(var(--foreground));
-    background: hsl(var(--background));
-    box-shadow: 0 1px 3px hsl(var(--foreground) / 0.08);
+    background: transparent;
+    box-shadow: none;
   }
 
   :global(.notify-radio-input:focus-visible + .notify-radio-label) {
@@ -2681,6 +2710,10 @@ const skeletonGroups = [
     :global(.notify-panel.is-open) {
       transform: none !important;
     }
+
+    :global(.notify-radio-indicator) {
+      transition: none;
+    }
   }
 </style>
 
@@ -2706,6 +2739,10 @@ const skeletonGroups = [
     const retryBtn = panel.querySelector('[data-notify-retry]') as HTMLButtonElement;
     const errorStateText = panel.querySelector('[data-notify-error-state-text]') as HTMLElement;
     const turnstileContainer = panel.querySelector('[data-notify-turnstile]') as HTMLElement;
+    const deliveryModeGroup = panel.querySelector('.notify-radio-group') as HTMLElement | null;
+    const deliveryModeInputs = Array.from(
+      panel.querySelectorAll('input[name="deliveryMode"]')
+    ) as HTMLInputElement[];
 
     const DEFAULT_SUCCESS_TEXT = 'Check your inbox to confirm.';
     const ALREADY_SUBSCRIBED_TEXT = 'This email is already subscribed.';
@@ -2741,6 +2778,19 @@ const skeletonGroups = [
         }
       }, HOVER_CLOSE_DELAY_MS);
     };
+
+    const syncFrequencyIndicator = () => {
+      if (!deliveryModeGroup || deliveryModeInputs.length === 0) return;
+      const checkedIndex = deliveryModeInputs.findIndex((input) => input.checked);
+      const safeIndex = checkedIndex >= 0 ? checkedIndex : 0;
+      deliveryModeGroup.style.setProperty('--notify-frequency-segments', String(deliveryModeInputs.length));
+      deliveryModeGroup.style.setProperty('--notify-frequency-offset', `${safeIndex * 100}%`);
+    };
+
+    deliveryModeInputs.forEach((input) => {
+      input.addEventListener('change', syncFrequencyIndicator);
+    });
+    syncFrequencyIndicator();
 
     // Position panel relative to toggle button
     const positionPanel = () => {
@@ -3014,16 +3064,10 @@ const skeletonGroups = [
 
       const UPDATE_POLL_INTERVAL_MS = 75_000;
       const AUTO_REFRESH_DELAY_MS = 6_000;
-      const PREVIEW_REFRESH_DELAY_MS = 4_000;
       const AUTO_REFRESH_MAX_SCROLL_Y = 120;
       const AUTO_REFRESH_CANCEL_SCROLL_Y = 220;
-      const PREVIEW_PENDING_ID = '9007199254740991';
       const REFRESH_LABEL_IDLE = 'Refresh';
       const REFRESH_LABEL_PENDING = 'Refreshing...';
-      const previewUpdateQuery = new URLSearchParams(window.location.search);
-      const previewUpdateParam = (previewUpdateQuery.get('previewUpdate') ?? '').trim().toLowerCase();
-      const forceUpdateNoticePreview = previewUpdateQuery.has('previewUpdate')
-        && !['0', 'false', 'no', 'off'].includes(previewUpdateParam);
 
       // GSAP animation references for update notice
       let noticeShowTl: gsap.core.Timeline | null = null;
@@ -3310,13 +3354,7 @@ const skeletonGroups = [
       }
 
       // Phase 3: Reload after a brief pause so the user sees "Refreshing..."
-      noticeReloadCall = gsap.delayedCall(forceUpdateNoticePreview ? 0.8 : 0.72, () => {
-        if (forceUpdateNoticePreview) {
-          pendingUpdateId = PREVIEW_PENDING_ID;
-          dismissedUpdateId = '';
-          showUpdateNotice(true);
-          return;
-        }
+      noticeReloadCall = gsap.delayedCall(0.72, () => {
         window.location.reload();
       });
     };
@@ -3382,7 +3420,7 @@ const skeletonGroups = [
 
       // Countdown
       if (autoRefresh && progressEl) {
-        const countdownDelayMs = forceUpdateNoticePreview ? PREVIEW_REFRESH_DELAY_MS : AUTO_REFRESH_DELAY_MS;
+        const countdownDelayMs = AUTO_REFRESH_DELAY_MS;
         gsap.set(progressEl, { opacity: 1, '--progress': 1 });
         noticeCountdownTween = gsap.to(progressEl, {
           '--progress': 0,
@@ -3483,26 +3521,10 @@ const skeletonGroups = [
       if (updateWatcherStarted) return;
       updateWatcherStarted = true;
       syncLatestSeenId();
-      if (!forceUpdateNoticePreview) {
-        scheduleNextUpdateCheck();
-      }
-
-      if (forceUpdateNoticePreview) {
-        pendingUpdateId = PREVIEW_PENDING_ID;
-        dismissedUpdateId = '';
-        showUpdateNotice(true);
-      }
+      scheduleNextUpdateCheck();
 
       document.addEventListener('visibilitychange', () => {
         if (document.visibilityState === 'visible') {
-          if (forceUpdateNoticePreview) {
-            if (!autoRefreshPending) {
-              pendingUpdateId = PREVIEW_PENDING_ID;
-              dismissedUpdateId = '';
-              showUpdateNotice(true);
-            }
-            return;
-          }
           if (pendingUpdateId && isNewerMoodId(pendingUpdateId, latestSeenId) && dismissedUpdateId !== pendingUpdateId) {
             const canAutoRefresh = window.scrollY <= AUTO_REFRESH_MAX_SCROLL_Y;
             showUpdateNotice(canAutoRefresh);
@@ -3514,16 +3536,12 @@ const skeletonGroups = [
       });
 
       window.addEventListener('online', () => {
-        if (forceUpdateNoticePreview) {
-          return;
-        }
         checkForUpdates();
       });
 
       window.addEventListener(
         'scroll',
         () => {
-          if (forceUpdateNoticePreview) return;
           if (!autoRefreshPending) return;
           if (window.scrollY > AUTO_REFRESH_CANCEL_SCROLL_Y) {
             showUpdateNotice(false);
