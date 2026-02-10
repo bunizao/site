@@ -25,10 +25,13 @@ interface CapturedEmail {
 class ExternalApiMock {
   private originalFetch: typeof fetch | null = null;
 
-  public readonly kv = new Map<string, string>();
   public readonly emails: CapturedEmail[] = [];
   private readonly resendFailures = new Map<string, number>();
   private emailCounter = 1;
+  private readonly subscribers = new Map<string, Record<string, unknown>>();
+  private readonly sent = new Map<string, Record<string, unknown>>();
+  private readonly retries = new Map<string, Record<string, unknown>>();
+  private readonly deadLetters: Array<Record<string, unknown>> = [];
 
   install(): void {
     this.originalFetch = globalThis.fetch;
@@ -89,56 +92,186 @@ class ExternalApiMock {
     return this.jsonResponse({ id }, 200);
   }
 
-  private async handleCloudflareKv(url: URL, request: Request): Promise<Response> {
-    if (url.pathname.endsWith('/keys') && request.method === 'GET') {
-      const prefix = url.searchParams.get('prefix') ?? '';
-      const limitRaw = Number.parseInt(url.searchParams.get('limit') ?? '1000', 10);
-      const limit = Number.isFinite(limitRaw) && limitRaw > 0 ? limitRaw : 1000;
-      const cursorRaw = url.searchParams.get('cursor') ?? '';
-      const offset = cursorRaw ? Number.parseInt(cursorRaw, 10) : 0;
-      const safeOffset = Number.isFinite(offset) && offset >= 0 ? offset : 0;
+  private d1Success(results: unknown[] = [], changes = 0): Response {
+    return this.jsonResponse({
+      success: true,
+      errors: [],
+      result: [
+        {
+          success: true,
+          results,
+          meta: {
+            changes,
+          },
+        },
+      ],
+    });
+  }
 
-      const allMatched = Array.from(this.kv.keys())
-        .filter((key) => key.startsWith(prefix))
-        .sort();
+  private normalizeSql(sql: string): string {
+    return sql.replace(/\s+/g, ' ').trim().toLowerCase();
+  }
 
-      const batch = allMatched.slice(safeOffset, safeOffset + limit);
-      const nextOffset = safeOffset + limit < allMatched.length ? String(safeOffset + limit) : '';
+  private recordKey(postId: string, emailHash: string): string {
+    return `${postId}:${emailHash}`;
+  }
 
-      return this.jsonResponse({
-        result: batch.map((name) => ({ name })),
-        result_info: nextOffset ? { cursor: nextOffset } : {},
-      });
+  private toSubscriberRecord(row: Record<string, unknown>): SubscriberRecord {
+    return {
+      email: String(row.email ?? ''),
+      emailHash: String(row.email_hash ?? ''),
+      status: row.status as SubscriberRecord['status'],
+      deliveryMode: (row.delivery_mode as SubscriberRecord['deliveryMode']) ?? undefined,
+      timezone: (row.timezone as string | null) ?? undefined,
+      dailyHour: typeof row.daily_hour === 'number' ? row.daily_hour : undefined,
+      pendingDeliveryMode: (row.pending_delivery_mode as SubscriberRecord['pendingDeliveryMode']) ?? undefined,
+      pendingTimezone: (row.pending_timezone as string | null) ?? undefined,
+      pendingDailyHour: typeof row.pending_daily_hour === 'number' ? row.pending_daily_hour : undefined,
+      lastNotifiedAt: (row.last_notified_at as string | null) ?? undefined,
+      lastNotifiedPostId: (row.last_notified_post_id as string | null) ?? undefined,
+      createdAt: String(row.created_at ?? ''),
+      updatedAt: String(row.updated_at ?? ''),
+      confirmedAt: (row.confirmed_at as string | null) ?? undefined,
+      lastConfirmSentAt: (row.last_confirm_sent_at as string | null) ?? undefined,
+    };
+  }
+
+  readSubscriber(email: string): SubscriberRecord | null {
+    const key = hashEmail(email.toLowerCase());
+    const row = this.subscribers.get(key);
+    return row ? this.toSubscriberRecord(row) : null;
+  }
+
+  readRetry(postId: string, email: string): string | null {
+    const key = this.recordKey(postId, hashEmail(email.toLowerCase()));
+    const row = this.retries.get(key);
+    if (!row) return null;
+    return JSON.stringify(row);
+  }
+
+  private async handleCloudflareD1(request: Request): Promise<Response> {
+    const body = await request.json() as {
+      sql?: string;
+      params?: unknown[];
+    };
+
+    const sql = body.sql ?? '';
+    const params = body.params ?? [];
+    const normalized = this.normalizeSql(sql);
+
+    if (normalized.startsWith('select') && normalized.includes('from notify_subscribers where email_hash = ?')) {
+      const emailHash = String(params[0] ?? '');
+      const row = this.subscribers.get(emailHash);
+      return this.d1Success(row ? [row] : []);
     }
 
-    const valuesMarker = '/values/';
-    const markerIndex = url.pathname.indexOf(valuesMarker);
-    if (markerIndex === -1) {
-      return new Response('Not Found', { status: 404 });
+    if (normalized.startsWith('select') && normalized.includes('from notify_subscribers') && normalized.includes('where status = ?')) {
+      const status = String(params[0] ?? '');
+      const rows = Array.from(this.subscribers.values())
+        .filter((row) => row.status === status)
+        .sort((a, b) => String(a.email_hash).localeCompare(String(b.email_hash)));
+      return this.d1Success(rows);
     }
 
-    const encodedKey = url.pathname.slice(markerIndex + valuesMarker.length);
-    const key = decodeURIComponent(encodedKey);
-
-    if (request.method === 'GET') {
-      if (!this.kv.has(key)) {
-        return new Response('Not Found', { status: 404 });
-      }
-      return new Response(this.kv.get(key) ?? '', { status: 200 });
+    if (normalized.startsWith('insert into notify_subscribers')) {
+      const row: Record<string, unknown> = {
+        email: String(params[0] ?? ''),
+        email_hash: String(params[1] ?? ''),
+        status: String(params[2] ?? ''),
+        delivery_mode: params[3] ?? null,
+        timezone: params[4] ?? null,
+        daily_hour: params[5] ?? null,
+        pending_delivery_mode: params[6] ?? null,
+        pending_timezone: params[7] ?? null,
+        pending_daily_hour: params[8] ?? null,
+        last_notified_at: params[9] ?? null,
+        last_notified_post_id: params[10] ?? null,
+        created_at: String(params[11] ?? ''),
+        updated_at: String(params[12] ?? ''),
+        confirmed_at: params[13] ?? null,
+        last_confirm_sent_at: params[14] ?? null,
+      };
+      this.subscribers.set(String(row.email_hash), row);
+      return this.d1Success([], 1);
     }
 
-    if (request.method === 'PUT') {
-      const value = await request.text();
-      this.kv.set(key, value);
-      return this.jsonResponse({ success: true });
+    if (normalized.startsWith('select') && normalized.includes('from notify_retries where post_id = ? and email_hash = ?')) {
+      const postId = String(params[0] ?? '');
+      const emailHash = String(params[1] ?? '');
+      const row = this.retries.get(this.recordKey(postId, emailHash));
+      return this.d1Success(row ? [row] : []);
     }
 
-    if (request.method === 'DELETE') {
-      this.kv.delete(key);
-      return this.jsonResponse({ success: true });
+    if (normalized.startsWith('insert into notify_retries')) {
+      const row: Record<string, unknown> = {
+        post_id: String(params[0] ?? ''),
+        email: String(params[1] ?? ''),
+        email_hash: String(params[2] ?? ''),
+        attempt: Number(params[3] ?? 0),
+        created_at: String(params[4] ?? ''),
+        updated_at: String(params[5] ?? ''),
+        next_attempt_at: String(params[6] ?? ''),
+        last_error: String(params[7] ?? ''),
+      };
+      this.retries.set(this.recordKey(String(row.post_id), String(row.email_hash)), row);
+      return this.d1Success([], 1);
     }
 
-    return new Response('Method Not Allowed', { status: 405 });
+    if (normalized.startsWith('delete from notify_retries where post_id = ? and email_hash = ?')) {
+      const postId = String(params[0] ?? '');
+      const emailHash = String(params[1] ?? '');
+      this.retries.delete(this.recordKey(postId, emailHash));
+      return this.d1Success([], 1);
+    }
+
+    if (normalized.startsWith('select') && normalized.includes('from notify_retries') && normalized.includes('order by next_attempt_at asc')) {
+      const limit = Number(params[0] ?? 0);
+      const rows = Array.from(this.retries.values())
+        .sort((a, b) => String(a.next_attempt_at).localeCompare(String(b.next_attempt_at)))
+        .slice(0, Number.isFinite(limit) && limit > 0 ? limit : this.retries.size);
+      return this.d1Success(rows);
+    }
+
+    if (normalized.startsWith('insert into notify_dead_letters')) {
+      const row: Record<string, unknown> = {
+        post_id: String(params[0] ?? ''),
+        email: String(params[1] ?? ''),
+        email_hash: String(params[2] ?? ''),
+        attempt: Number(params[3] ?? 0),
+        created_at: String(params[4] ?? ''),
+        updated_at: String(params[5] ?? ''),
+        last_error: String(params[6] ?? ''),
+      };
+      this.deadLetters.push(row);
+      return this.d1Success([], 1);
+    }
+
+    if (normalized.startsWith('insert into notify_sent')) {
+      const row: Record<string, unknown> = {
+        post_id: String(params[0] ?? ''),
+        email_hash: String(params[1] ?? ''),
+        sent_at: String(params[2] ?? ''),
+        resend_id: params[3] ?? null,
+      };
+      this.sent.set(this.recordKey(String(row.post_id), String(row.email_hash)), row);
+      return this.d1Success([], 1);
+    }
+
+    if (normalized.startsWith('select sent_at from notify_sent where post_id = ? and email_hash = ?')) {
+      const postId = String(params[0] ?? '');
+      const emailHash = String(params[1] ?? '');
+      const row = this.sent.get(this.recordKey(postId, emailHash));
+      return this.d1Success(row ? [{ sent_at: row.sent_at }] : []);
+    }
+
+    if (normalized.startsWith('delete from notify_sent where post_id = ? and email_hash = ?')) {
+      const postId = String(params[0] ?? '');
+      const emailHash = String(params[1] ?? '');
+      this.sent.delete(this.recordKey(postId, emailHash));
+      return this.d1Success([], 1);
+    }
+
+    throw new Error(`Unhandled D1 SQL in test mock: ${sql}`);
   }
 
   async fetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
@@ -149,8 +282,8 @@ class ExternalApiMock {
       return this.handleResend(request);
     }
 
-    if (url.origin === 'https://api.cloudflare.com' && url.pathname.includes('/storage/kv/namespaces/')) {
-      return this.handleCloudflareKv(url, request);
+    if (url.origin === 'https://api.cloudflare.com' && url.pathname.includes('/d1/database/')) {
+      return this.handleCloudflareD1(request);
     }
 
     throw new Error(`Unexpected outbound request in test: ${request.method} ${request.url}`);
@@ -168,7 +301,7 @@ const BASE_ENV = {
   CRON_SECRET: 'cron_secret',
   CLOUDFLARE_ACCOUNT_ID: 'cf_account',
   CLOUDFLARE_API_TOKEN: 'cf_api_token',
-  CLOUDFLARE_NOTIFY_KV_NAMESPACE_ID: 'notify_kv_ns',
+  CLOUDFLARE_NOTIFY_D1_DATABASE_ID: 'notify_d1_db',
 };
 
 function createContext(path = '/api/test'): NotifyRequestContext {
@@ -204,15 +337,11 @@ function extractTokenFromEmailText(text: string): string {
 }
 
 function readSubscriber(mock: ExternalApiMock, email: string): SubscriberRecord | null {
-  const key = `notify:subscriber:${hashEmail(email.toLowerCase())}`;
-  const raw = mock.kv.get(key);
-  if (!raw) return null;
-  return JSON.parse(raw) as SubscriberRecord;
+  return mock.readSubscriber(email);
 }
 
 function readRetryRaw(mock: ExternalApiMock, postId: string, email: string): string | null {
-  const key = `notify:retry:${postId}:${hashEmail(email.toLowerCase())}`;
-  return mock.kv.get(key) ?? null;
+  return mock.readRetry(postId, email);
 }
 
 async function subscribeAndConfirm(
