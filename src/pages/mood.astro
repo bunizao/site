@@ -254,7 +254,13 @@ const skeletonGroups = [
       </div>
 
       <div class="mood-update-notice" data-mood-update-notice role="status" aria-live="polite" aria-atomic="true" style="visibility: hidden;">
-        <span class="mood-update-dot" aria-hidden="true"></span>
+        <button class="mood-update-dismiss-dot" type="button" data-mood-update-dismiss aria-label="Dismiss update notice">
+          <span class="mood-update-dot" aria-hidden="true"></span>
+          <svg class="mood-update-dismiss-cross" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
         <p class="mood-update-text" data-mood-update-text>New moods available</p>
         <div class="mood-update-actions" data-mood-update-actions>
           <button class="mood-update-action" type="button" data-mood-update-refresh aria-label="Refresh">
@@ -263,12 +269,6 @@ const skeletonGroups = [
               <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
             </svg>
             <span class="mood-update-action-label">Refresh</span>
-          </button>
-          <button class="mood-update-action mood-update-action--dismiss" type="button" data-mood-update-dismiss aria-label="Dismiss">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <line x1="18" y1="6" x2="6" y2="18"></line>
-              <line x1="6" y1="6" x2="18" y2="18"></line>
-            </svg>
           </button>
         </div>
         <div class="mood-update-progress" aria-hidden="true"></div>
@@ -2001,7 +2001,7 @@ const skeletonGroups = [
     display: inline-flex;
     align-items: center;
     gap: 10px;
-    padding: 5px 5px 5px 14px;
+    padding: 5px 5px 5px 8px;
     border: 1px solid hsl(var(--foreground) / 0.08);
     border-radius: 12px;
     background: hsl(var(--background) / 0.8);
@@ -2014,12 +2014,56 @@ const skeletonGroups = [
   }
 
   /* Dot indicator — GSAP controls pulse and spin */
+  :global(.mood-update-dismiss-dot) {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    margin-right: 1px;
+    padding: 0;
+    border: 0;
+    border-radius: 999px;
+    background: transparent;
+    color: hsl(var(--foreground) / 0.74);
+    flex-shrink: 0;
+    cursor: pointer;
+    transition: background 0.2s ease, color 0.2s ease, opacity 0.2s ease;
+  }
+
+  :global(.mood-update-dismiss-dot:hover),
+  :global(.mood-update-dismiss-dot:focus-visible) {
+    background: hsl(var(--foreground) / 0.08);
+    color: hsl(var(--foreground) / 0.9);
+  }
+
+  :global(.mood-update-dismiss-dot:focus-visible) {
+    outline: 2px solid hsl(var(--foreground) / 0.25);
+    outline-offset: 1px;
+  }
+
+  :global(.mood-update-dismiss-dot.is-disabled) {
+    pointer-events: none;
+    opacity: 0.6;
+  }
+
   :global(.mood-update-dot) {
     width: 5px;
     height: 5px;
     border-radius: 50%;
     background: hsl(var(--foreground));
-    flex-shrink: 0;
+    pointer-events: none;
+    will-change: transform, opacity;
+  }
+
+  :global(.mood-update-dismiss-cross) {
+    position: absolute;
+    width: 10px;
+    height: 10px;
+    opacity: 0;
+    transform: scale(0.6) rotate(-35deg);
+    pointer-events: none;
     will-change: transform, opacity;
   }
 
@@ -2038,12 +2082,14 @@ const skeletonGroups = [
     color: hsl(var(--foreground) / 0.85);
     white-space: nowrap;
     letter-spacing: -0.01em;
+    padding-right: 4px;
   }
 
   :global(.mood-update-actions) {
     display: inline-flex;
     align-items: center;
     gap: 3px;
+    margin-left: auto;
     flex-shrink: 0;
   }
 
@@ -2094,17 +2140,6 @@ const skeletonGroups = [
     overflow: hidden;
   }
 
-  :global(.mood-update-action--dismiss) {
-    background: transparent;
-    border-color: transparent;
-  }
-
-  :global(.mood-update-action--dismiss:hover) {
-    color: hsl(var(--foreground) / 0.7);
-    background: hsl(var(--foreground) / 0.05);
-    border-color: hsl(var(--foreground) / 0.08);
-  }
-
   /* Countdown progress bar — GSAP controls scaleX via --progress */
   :global(.mood-update-progress) {
     --progress: 1;
@@ -2130,8 +2165,14 @@ const skeletonGroups = [
       right: 12px;
       bottom: 12px;
       gap: 8px;
-      padding: 4px 4px 4px 12px;
+      padding: 4px 4px 4px 7px;
       border-radius: 10px;
+    }
+
+    :global(.mood-update-dismiss-dot) {
+      width: 22px;
+      height: 22px;
+      margin-right: 0;
     }
 
     :global(.mood-update-text) {
@@ -2152,7 +2193,8 @@ const skeletonGroups = [
 
   @media (prefers-reduced-motion: reduce) {
     :global(.mood-update-notice),
-    :global(.mood-update-dot) {
+    :global(.mood-update-dot),
+    :global(.mood-update-dismiss-cross) {
       will-change: auto;
     }
 
@@ -2337,6 +2379,8 @@ const skeletonGroups = [
   const updateNoticeTextEl = document.querySelector('[data-mood-update-text]') as HTMLElement | null;
   const updateRefreshBtn = document.querySelector('[data-mood-update-refresh]') as HTMLButtonElement | null;
   const updateDismissBtn = document.querySelector('[data-mood-update-dismiss]') as HTMLButtonElement | null;
+  const updateDismissDotEl = updateDismissBtn?.querySelector('.mood-update-dot') as HTMLElement | null;
+  const updateDismissCrossEl = updateDismissBtn?.querySelector('.mood-update-dismiss-cross') as HTMLElement | null;
   const ALWAYS_LOADING = import.meta.env.PUBLIC_DEBUG_ALWAYS_LOADING === 'true';
 
   if (loadingEl && errorEl && feedEl && list && status && sentinel) {
@@ -2542,7 +2586,7 @@ const skeletonGroups = [
         return;
       }
 
-      const dotEl = updateNoticeEl.querySelector('.mood-update-dot') as HTMLElement;
+      const dotEl = updateDismissDotEl ?? (updateNoticeEl.querySelector('.mood-update-dot') as HTMLElement | null);
       const actionsEl = updateNoticeEl.querySelector('[data-mood-update-actions]') as HTMLElement;
       const progressEl = updateNoticeEl.querySelector('.mood-update-progress') as HTMLElement;
 
@@ -2550,9 +2594,19 @@ const skeletonGroups = [
       noticeDotPulse?.kill();
       noticeDotPulse = null;
 
+      if (updateDismissBtn) {
+        updateDismissBtn.classList.add('is-disabled');
+        updateDismissBtn.setAttribute('aria-disabled', 'true');
+      }
+      if (updateDismissCrossEl) {
+        gsap.killTweensOf(updateDismissCrossEl);
+        gsap.set(updateDismissCrossEl, { autoAlpha: 0, scale: 0.6, rotation: -35 });
+      }
+
       // Switch dot to spinner
       if (dotEl) {
         gsap.killTweensOf(dotEl);
+        gsap.set(dotEl, { autoAlpha: 1, scale: 1 });
         dotEl.classList.add('is-spinning');
         noticeSpinnerTween = gsap.to(dotEl, {
           rotation: '+=360', duration: 0.7, ease: 'none', repeat: -1
@@ -2597,11 +2651,18 @@ const skeletonGroups = [
           const dotEl = updateNoticeEl!.querySelector('.mood-update-dot') as HTMLElement;
           if (dotEl) {
             dotEl.classList.remove('is-spinning');
-            gsap.set(dotEl, { clearProps: 'rotation,scale,opacity' });
+            gsap.set(dotEl, { clearProps: 'rotation,scale,opacity,width,height' });
           }
           const actionsEl = updateNoticeEl!.querySelector('[data-mood-update-actions]') as HTMLElement;
           if (actionsEl) {
             gsap.set(actionsEl, { clearProps: 'opacity,visibility,x' });
+          }
+          if (updateDismissBtn) {
+            updateDismissBtn.classList.remove('is-disabled');
+            updateDismissBtn.removeAttribute('aria-disabled');
+          }
+          if (updateDismissCrossEl) {
+            gsap.set(updateDismissCrossEl, { autoAlpha: 0, scale: 0.6, rotation: -35 });
           }
         }
       });
@@ -2630,10 +2691,18 @@ const skeletonGroups = [
 
       if (dotEl) {
         dotEl.classList.remove('is-spinning');
-        gsap.set(dotEl, { clearProps: 'rotation,width,height' });
+        gsap.set(dotEl, { clearProps: 'rotation,width,height,opacity,scale' });
+        gsap.set(dotEl, { autoAlpha: 1, scale: 1 });
       }
       if (actionsEl) {
         gsap.set(actionsEl, { clearProps: 'opacity,visibility,x' });
+      }
+      if (updateDismissBtn) {
+        updateDismissBtn.classList.remove('is-disabled');
+        updateDismissBtn.removeAttribute('aria-disabled');
+      }
+      if (updateDismissCrossEl) {
+        gsap.set(updateDismissCrossEl, { autoAlpha: 0, scale: 0.6, rotation: -35 });
       }
 
       // Set text
@@ -4198,10 +4267,52 @@ const skeletonGroups = [
 
       if (updateDismissBtn) {
         updateDismissBtn.addEventListener('click', () => {
+          if (updateDismissBtn.classList.contains('is-disabled')) {
+            return;
+          }
           dismissedUpdateId = pendingUpdateId;
           hideUpdateNotice();
         });
       }
+
+      // GSAP hover animation for dismiss control (dot morphs to x)
+      (() => {
+        if (!updateDismissBtn || !updateDismissDotEl || !updateDismissCrossEl) return;
+
+        const showDismissIcon = () => {
+          if (updateDismissBtn.classList.contains('is-disabled') || updateDismissDotEl.classList.contains('is-spinning')) {
+            return;
+          }
+          noticeDotPulse?.pause();
+          gsap.killTweensOf([updateDismissDotEl, updateDismissCrossEl]);
+          gsap.to(updateDismissDotEl, {
+            autoAlpha: 0, scale: 0.45, duration: 0.16, ease: 'power2.out'
+          });
+          gsap.to(updateDismissCrossEl, {
+            autoAlpha: 1, scale: 1, rotation: 0, duration: 0.2, ease: 'power2.out'
+          });
+        };
+
+        const showDismissDot = () => {
+          gsap.killTweensOf([updateDismissDotEl, updateDismissCrossEl]);
+          gsap.to(updateDismissCrossEl, {
+            autoAlpha: 0, scale: 0.6, rotation: -35, duration: 0.16, ease: 'power2.in'
+          });
+          gsap.to(updateDismissDotEl, {
+            autoAlpha: 1, scale: 1, duration: 0.18, ease: 'power2.out',
+            onComplete: () => {
+              if (noticeDotPulse && !updateDismissDotEl.classList.contains('is-spinning')) {
+                noticeDotPulse.resume();
+              }
+            }
+          });
+        };
+
+        updateDismissBtn.addEventListener('mouseenter', showDismissIcon);
+        updateDismissBtn.addEventListener('mouseleave', showDismissDot);
+        updateDismissBtn.addEventListener('focus', showDismissIcon);
+        updateDismissBtn.addEventListener('blur', showDismissDot);
+      })();
 
       // GSAP hover animation for refresh action button (matching header button style)
       (() => {
