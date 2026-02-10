@@ -2095,7 +2095,7 @@ const skeletonGroups = [
 
   :global(.mood-update-notice.is-refreshing) {
     gap: 0;
-    padding: 0;
+    padding: 5px 0;
     border-color: transparent;
     background: transparent;
     box-shadow: none;
@@ -2133,6 +2133,7 @@ const skeletonGroups = [
     padding: 0;
     font-size: 11px;
     font-weight: 450;
+    line-height: 1;
     font-family: inherit;
     letter-spacing: 0.01em;
     color: hsl(var(--muted-foreground));
@@ -2173,8 +2174,10 @@ const skeletonGroups = [
   }
 
   :global(.mood-update-action-label) {
-    display: inline-block;
+    display: inline-flex;
+    align-items: center;
     white-space: nowrap;
+    line-height: 1;
     max-width: 0;
     opacity: 0;
     overflow: hidden;
@@ -2217,6 +2220,10 @@ const skeletonGroups = [
       gap: 8px;
       padding: 4px 4px 4px 10px;
       border-radius: 10px;
+    }
+
+    :global(.mood-update-notice.is-refreshing) {
+      padding: 4px 0;
     }
 
     :global(.mood-update-text) {
