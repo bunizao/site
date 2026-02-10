@@ -45,20 +45,41 @@ Set these in Vercel project settings:
 - `CRON_SECRET`
 - `CLOUDFLARE_ACCOUNT_ID`
 - `CLOUDFLARE_API_TOKEN`
-- `CLOUDFLARE_NOTIFY_KV_NAMESPACE_ID` (recommended)
+- `CLOUDFLARE_NOTIFY_D1_DATABASE_ID`
 - `PUBLIC_TURNSTILE_SITE_KEY` (optional, frontend widget site key)
 - `TURNSTILE_SECRET_KEY` (optional, enables anti-bot verification for subscribe endpoint)
 
 If `TURNSTILE_SECRET_KEY` (or `CLOUDFLARE_TURNSTILE_SECRET_KEY`) is set, `POST /api/notify/subscribe` requires a valid Turnstile token.
 
-If `CLOUDFLARE_NOTIFY_KV_NAMESPACE_ID` is not set, the code falls back to `CLOUDFLARE_KV_NAMESPACE_ID`.
+`CLOUDFLARE_KV_NAMESPACE_ID` is still used by Telegram image indexing (`/api/telegram-webhook`) and mood image lookup.
 
-## Cloudflare KV Data Keys
+## Notify D1 Tables
 
-- `notify:subscriber:<emailHash>`
-- `notify:sent:<postId>:<emailHash>`
-- `notify:retry:<postId>:<emailHash>`
-- `notify:dead:<postId>:<emailHash>:<timestamp>`
+- `notify_subscribers`
+- `notify_sent`
+- `notify_retries`
+- `notify_dead_letters`
+
+Schema file:
+
+- [`scripts/sql/notify-d1.sql`](../scripts/sql/notify-d1.sql)
+
+KV migration script:
+
+- [`scripts/migrate-notify-kv-to-d1.ts`](../scripts/migrate-notify-kv-to-d1.ts)
+
+### D1 Setup Commands
+
+```bash
+# Create database (first time only)
+bunx wrangler d1 create site-notify
+
+# Apply schema
+bunx wrangler d1 execute site-notify --remote --file scripts/sql/notify-d1.sql
+
+# Migrate existing notify:* records from KV to D1
+bunx tsx scripts/migrate-notify-kv-to-d1.ts
+```
 
 ## Scheduling Strategy
 
