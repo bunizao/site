@@ -149,7 +149,7 @@ function normalizeDeliveryMode(value: string | null | undefined): DeliveryMode {
   const normalized = (value || '').trim().toLowerCase();
   if (!normalized) return 'immediate';
 
-  if (normalized === 'immediate') return 'immediate';
+  if (normalized === 'immediate' || normalized === 'instant') return 'immediate';
   if (normalized === 'every_5h' || normalized === '5h' || normalized === 'every5h') {
     return 'every_5h';
   }
@@ -294,6 +294,26 @@ function isMatchingPreferences(
 
   return getDailyTimezone(subscriber) === (target.timezone ?? DEFAULT_DAILY_TIMEZONE)
     && getDailyHour(subscriber) === (target.dailyHour ?? DEFAULT_DAILY_HOUR);
+}
+
+function isMatchingPendingPreferences(
+  subscriber: SubscriberRecord,
+  target: { deliveryMode: DeliveryMode; timezone?: string; dailyHour?: number }
+): boolean {
+  const pendingMode = subscriber.pendingDeliveryMode ?? getSubscriberDeliveryMode(subscriber);
+  if (pendingMode !== target.deliveryMode) {
+    return false;
+  }
+
+  if (pendingMode !== 'daily') {
+    return true;
+  }
+
+  const pendingTimezone = subscriber.pendingTimezone ?? getDailyTimezone(subscriber);
+  const pendingDailyHour = subscriber.pendingDailyHour ?? getDailyHour(subscriber);
+
+  return pendingTimezone === (target.timezone ?? DEFAULT_DAILY_TIMEZONE)
+    && pendingDailyHour === (target.dailyHour ?? DEFAULT_DAILY_HOUR);
 }
 
 async function getSubscriberByEmail(
@@ -574,6 +594,14 @@ export async function requestMoodSubscription(
   const existing = await getSubscriberByEmail(kv, email);
 
   if (existing?.status === 'active' && isMatchingPreferences(existing, { deliveryMode, timezone, dailyHour })) {
+    return {
+      status: 'already_subscribed',
+      email,
+      deliveryMode,
+    };
+  }
+
+  if (existing?.status === 'pending' && isMatchingPendingPreferences(existing, { deliveryMode, timezone, dailyHour })) {
     return {
       status: 'already_subscribed',
       email,

@@ -267,6 +267,29 @@ describe('notify service integration e2e', () => {
     expect(subscriber?.deliveryMode).toBe('immediate');
   });
 
+  test('instant delivery mode alias is normalized to immediate', async () => {
+    const context = createContext('/api/notify/subscribe');
+
+    const subscribeResult = await requestMoodSubscription(context, {
+      email: 'user-instant@example.com',
+      deliveryMode: 'instant',
+    });
+
+    expect(subscribeResult.status).toBe('confirmation_sent');
+    expect(subscribeResult.deliveryMode).toBe('immediate');
+    expect(mock.emails.length).toBe(1);
+
+    const token = extractTokenFromEmailText(mock.emails[0].text);
+    const confirmResult = await confirmMoodSubscription(context, token);
+
+    expect(confirmResult.status).toBe('subscribed');
+    expect(confirmResult.deliveryMode).toBe('immediate');
+
+    const subscriber = readSubscriber(mock, 'user-instant@example.com');
+    expect(subscriber?.status).toBe('active');
+    expect(subscriber?.deliveryMode).toBe('immediate');
+  });
+
   test('active subscriber can change delivery mode via reconfirmation', async () => {
     const context = createContext('/api/notify/subscribe');
     const email = 'user-change-mode@example.com';
