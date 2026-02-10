@@ -197,17 +197,45 @@ function getEnv(env: ImportMetaEnv, Astro: any, name: string): string {
   return env[name] ?? Astro.locals?.runtime?.env?.[name] ?? '';
 }
 
+const telegramHeaderAllowList = [
+  'accept',
+  'accept-language',
+  'if-modified-since',
+  'if-none-match',
+  'user-agent',
+];
+
+function buildTelegramRequestHeaders(request: Request): Record<string, string> {
+  const headers: Record<string, string> = {};
+  for (const headerName of telegramHeaderAllowList) {
+    const value = request.headers.get(headerName);
+    if (!value) continue;
+    headers[headerName] = value;
+  }
+  return headers;
+}
+
 // Content processors
 function getVideoStickers($: CheerioAPI, item: Element, { staticProxy, index }: ContentProcessorConfig): string {
   return $(item)
     .find('.js-videosticker_video')
     ?.map((_index, video) => {
-      const url = $(video)?.attr('src');
-      const imgurl = $(video).find('img')?.attr('src');
+      const url = $(video)?.attr('src') ?? '';
+      const imgurl = $(video).find('img')?.attr('src') ?? '';
+      const videoSrc = sanitizeUrlValue(toStaticProxyUrl(url, staticProxy), 'src');
+      const posterSrc = sanitizeUrlValue(toStaticProxyUrl(imgurl, staticProxy), 'src');
+      if (!videoSrc) {
+        return '';
+      }
+      const loading = (index ?? 0) > 15 ? 'eager' : 'lazy';
+      const posterMarkup = posterSrc
+        ? `<img class="sticker" src="${escapeHtml(posterSrc)}" alt="Video Sticker" loading="${loading}" />`
+        : '';
+
       return `
     <div style="background-image: none; width: 256px;">
-      <video src="${staticProxy + url}" width="100%" height="100%" alt="Video Sticker" preload muted autoplay loop playsinline disablepictureinpicture >
-        <img class="sticker" src="${staticProxy + imgurl}" alt="Video Sticker" loading="${(index ?? 0) > 15 ? 'eager' : 'lazy'}" />
+      <video src="${escapeHtml(videoSrc)}" width="100%" height="100%" alt="Video Sticker" preload muted autoplay loop playsinline disablepictureinpicture >
+        ${posterMarkup}
       </video>
     </div>
     `;
@@ -220,8 +248,12 @@ function getImageStickers($: CheerioAPI, item: Element, { staticProxy, index }: 
   return $(item)
     .find('.tgme_widget_message_sticker')
     ?.map((_index, image) => {
-      const url = $(image)?.attr('data-webp');
-      return `<img class="sticker" src="${staticProxy + url}" style="width: 256px;" alt="Sticker" loading="${(index ?? 0) > 15 ? 'eager' : 'lazy'}" />`;
+      const url = $(image)?.attr('data-webp') ?? '';
+      const imageSrc = sanitizeUrlValue(toStaticProxyUrl(url, staticProxy), 'src');
+      if (!imageSrc) {
+        return '';
+      }
+      return `<img class="sticker" src="${escapeHtml(imageSrc)}" style="width: 256px;" alt="Sticker" loading="${(index ?? 0) > 15 ? 'eager' : 'lazy'}" />`;
     })
     ?.get()
     ?.join('') ?? '';
@@ -235,15 +267,25 @@ function getImages($: CheerioAPI, item: Element, { staticProxy, id, index, title
       const url = style.match(/url\(["'](.*?)["']/)?.[1];
       // Upgrade to higher quality image (fallback)
       const highQualityUrl = upgradeImageQuality(url ?? '');
-      const fallbackUrl = staticProxy + highQualityUrl;
+      const fallbackUrl = sanitizeUrlValue(toStaticProxyUrl(highQualityUrl, staticProxy), 'src');
 
       // Use HD Worker proxy if configured, with fallback to static proxy
-      const hdUrl = HD_IMAGE_URL && id ? `${HD_IMAGE_URL}/mood/${id}/${_index}` : '';
+      const hdUrl = HD_IMAGE_URL && id
+        ? sanitizeUrlValue(`${HD_IMAGE_URL}/mood/${encodeURIComponent(id)}/${_index}`, 'src')
+        : '';
       const imgSrc = hdUrl || fallbackUrl;
-      const inlineSrcSet = buildSrcSet(imgSrc, INLINE_IMAGE_WIDTHS);
-      const modalSrcSet = buildSrcSet(imgSrc, MODAL_IMAGE_WIDTHS);
-      const srcSetAttr = inlineSrcSet ? ` srcset="${inlineSrcSet}" sizes="${INLINE_IMAGE_SIZES}"` : '';
-      const modalSrcSetAttr = modalSrcSet ? ` srcset="${modalSrcSet}" sizes="${MODAL_IMAGE_SIZES}"` : '';
+      if (!imgSrc) {
+        return '';
+      }
+
+      const inlineSrcSet = sanitizeSrcSet(buildSrcSet(imgSrc, INLINE_IMAGE_WIDTHS));
+      const modalSrcSet = sanitizeSrcSet(buildSrcSet(imgSrc, MODAL_IMAGE_WIDTHS));
+      const srcSetAttr = inlineSrcSet
+        ? ` srcset="${escapeHtml(inlineSrcSet)}" sizes="${escapeHtml(INLINE_IMAGE_SIZES)}"`
+        : '';
+      const modalSrcSetAttr = modalSrcSet
+        ? ` srcset="${escapeHtml(modalSrcSet)}" sizes="${escapeHtml(MODAL_IMAGE_SIZES)}"`
+        : '';
 
       const widthMatch = style.match(/width:\s*(\d+)px/i);
       const heightMatch = style.match(/height:\s*(\d+)px/i);
@@ -264,17 +306,16 @@ function getImages($: CheerioAPI, item: Element, { staticProxy, id, index, title
       const widthStyle = imageWidth ? ` style="--image-width:${imageWidth}px;--image-height:${imageHeight}px"` : '';
       const widthAttr = imageWidth ? ` width="${imageWidth}"` : '';
       const heightAttr = imageHeight ? ` height="${imageHeight}"` : '';
-      const popoverId = `modal-${id}-${_index}`;
-
-      // onerror fallback to static proxy if HD Worker fails
-      const onerrorAttr = hdUrl ? ` onerror="this.onerror=null;this.src='${fallbackUrl}'"` : '';
+      const safePostId = (id ?? '').replace(/[^a-z0-9_-]/gi, '');
+      const popoverId = `modal-${safePostId || 'post'}-${_index}`;
+      const escapedTitle = escapeHtml(title ?? '');
 
       return `
       <button class="image-preview-button image-preview-wrap${portraitClass}" popovertarget="${popoverId}" popovertargetaction="show"${widthStyle}>
-        <img src="${imgSrc}"${srcSetAttr}${onerrorAttr} alt="${title}" loading="${(index ?? 0) > 15 ? 'eager' : 'lazy'}"${widthAttr}${heightAttr} />
+        <img src="${escapeHtml(imgSrc)}"${srcSetAttr} alt="${escapedTitle}" loading="${(index ?? 0) > 15 ? 'eager' : 'lazy'}"${widthAttr}${heightAttr} />
       </button>
       <button class="image-preview-button modal" id="${popoverId}" popovertarget="${popoverId}" popovertargetaction="hide" popover>
-        <img class="modal-img" src="${imgSrc}"${modalSrcSetAttr}${onerrorAttr} alt="${title}" loading="lazy" />
+        <img class="modal-img" src="${escapeHtml(imgSrc)}"${modalSrcSetAttr} alt="${escapedTitle}" loading="lazy" />
       </button>
     `;
     })
@@ -373,11 +414,12 @@ function getLinkPreview($: CheerioAPI, item: Element, { staticProxy, index }: Co
   }
 
   const href = link.attr('href') ?? '';
-  if (!href) {
+  const safeHref = sanitizeUrlValue(href, 'href');
+  if (!safeHref) {
     return '';
   }
 
-  const rawTitle = $(item).find('.link_preview_title')?.text() || $(item).find('.link_preview_site_name')?.text() || href;
+  const rawTitle = $(item).find('.link_preview_title')?.text() || $(item).find('.link_preview_site_name')?.text() || safeHref;
   const rawDescription = $(item).find('.link_preview_description')?.text() || '';
   const rawSiteName = $(item).find('.link_preview_site_name')?.text() || '';
 
@@ -386,16 +428,16 @@ function getLinkPreview($: CheerioAPI, item: Element, { staticProxy, index }: Co
 
   let domain = '';
   try {
-    const resolvedHref = href.startsWith('//') ? `https:${href}` : href;
+    const resolvedHref = safeHref.startsWith('//') ? `https:${safeHref}` : safeHref;
     domain = new URL(resolvedHref).hostname.replace(/^www\./, '');
   } catch {
     domain = '';
   }
-  const metaText = rawSiteName || domain || href;
+  const metaText = rawSiteName || domain || safeHref;
 
   const image = $(item).find('.link_preview_image');
   const src = image?.attr('style')?.match(/url\(["'](.*?)["']/i)?.[1];
-  const imageSrc = src ? staticProxy + src : '';
+  const imageSrc = src ? sanitizeUrlValue(toStaticProxyUrl(src, staticProxy), 'src') : '';
 
   const imageMarkup = imageSrc
     ? `<span class="bookmark-card__media"><img src="${escapeHtml(imageSrc)}" alt="${escapeHtml(rawTitle)}" loading="${(index ?? 0) > 15 ? 'eager' : 'lazy'}" /></span>`
@@ -406,7 +448,7 @@ function getLinkPreview($: CheerioAPI, item: Element, { staticProxy, index }: Co
   const metaMarkup = metaText ? `<span class="bookmark-card__meta">${escapeHtml(metaText)}</span>` : '';
 
   return `
-    <a class="bookmark-card" href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer">
+    <a class="bookmark-card" href="${escapeHtml(safeHref)}" target="_blank" rel="noopener noreferrer">
       ${imageMarkup}
       <span class="bookmark-card__content">
         <span class="bookmark-card__title">${escapeHtml(rawTitle)}</span>
@@ -464,6 +506,53 @@ const shouldHideReplyAuthor = (value: string, channel?: string, channelTitle?: s
   );
 };
 
+function sanitizeUrlValue(value: string, type: 'href' | 'src'): string {
+  const trimmed = value.trim();
+  if (!trimmed) return '';
+
+  if (trimmed.startsWith('//')) {
+    return `https:${trimmed}`;
+  }
+
+  const lower = trimmed.toLowerCase();
+  if (
+    lower.startsWith('javascript:') ||
+    lower.startsWith('vbscript:') ||
+    lower.startsWith('data:text/html')
+  ) {
+    return '';
+  }
+
+  if (type === 'href') {
+    if (/^(https?:|mailto:|tel:|\/|#|\?|\.\.?\/)/i.test(trimmed)) {
+      return trimmed;
+    }
+    return '';
+  }
+
+  if (/^(https?:|data:image\/|blob:|\/|\.\.?\/)/i.test(trimmed)) {
+    return trimmed;
+  }
+
+  return '';
+}
+
+function sanitizeSrcSet(value: string): string {
+  return value
+    .split(',')
+    .map((entry) => {
+      const trimmed = entry.trim();
+      if (!trimmed) return '';
+      const [rawUrl, ...descriptors] = trimmed.split(/\s+/);
+      if (!rawUrl) return '';
+      const safeUrl = sanitizeUrlValue(rawUrl, 'src');
+      if (!safeUrl) return '';
+      return [safeUrl, ...descriptors].join(' ');
+    })
+    .filter(Boolean)
+    .join(', ');
+}
+
 function getReply(
   $: CheerioAPI,
   item: Element,
@@ -488,8 +577,30 @@ function getReply(
 
   const href = reply?.attr('href');
   if (href && channel) {
-    const url = new URL(href);
-    reply?.attr('href', `${url.pathname}`.replace(new RegExp(`/${channel}/`, 'i'), '/mood/'));
+    try {
+      const url = new URL(href, 'https://t.me');
+      reply?.attr('href', `${url.pathname}`.replace(new RegExp(`/${channel}/`, 'i'), '/mood/'));
+    } catch {
+      reply?.removeAttr('href');
+    }
+  }
+
+  reply?.find('*')?.each((_index, element) => {
+    const el = $(element);
+    const attrs = Object.keys((element as any).attribs ?? {});
+    attrs.forEach((attr) => {
+      if (attr.toLowerCase().startsWith('on')) {
+        el.removeAttr(attr);
+      }
+    });
+  });
+
+  const replyHref = reply?.attr('href') ?? '';
+  const safeReplyHref = sanitizeUrlValue(replyHref, 'href');
+  if (safeReplyHref) {
+    reply?.attr('href', safeReplyHref);
+  } else {
+    reply?.removeAttr('href');
   }
 
   return $.html(reply);
@@ -501,6 +612,7 @@ async function modifyHTMLContent(
   { index, staticProxy }: { index?: number; staticProxy?: string } = {}
 ): Promise<any> {
   await hydrateTgEmoji($, content, { staticProxy });
+  $(content).find('script, style, iframe, object, embed, link, meta').remove();
   $(content).find('.emoji')?.removeAttr('style');
   $(content)
     .find('a')
@@ -530,6 +642,74 @@ async function modifyHTMLContent(
         console.error(error);
       }
     });
+
+  $(content)
+    .find('*')
+    .each((_index, element) => {
+      const el = $(element);
+      const attrs = Object.keys((element as any).attribs ?? {});
+
+      attrs.forEach((attr) => {
+        const attrLower = attr.toLowerCase();
+        const rawValue = el.attr(attr) ?? '';
+
+        if (attrLower.startsWith('on')) {
+          el.removeAttr(attr);
+          return;
+        }
+
+        if (attrLower === 'style') {
+          el.removeAttr(attr);
+          return;
+        }
+
+        if (attrLower === 'href') {
+          const safeHref = sanitizeUrlValue(rawValue, 'href');
+          if (safeHref) {
+            el.attr(attr, safeHref);
+          } else {
+            el.removeAttr(attr);
+          }
+          return;
+        }
+
+        if (attrLower === 'src' || attrLower === 'poster') {
+          const safeSrc = sanitizeUrlValue(rawValue, 'src');
+          if (safeSrc) {
+            el.attr(attr, safeSrc);
+          } else {
+            el.removeAttr(attr);
+          }
+          return;
+        }
+
+        if (attrLower === 'srcset') {
+          const safeSrcSet = sanitizeSrcSet(rawValue);
+          if (safeSrcSet) {
+            el.attr(attr, safeSrcSet);
+          } else {
+            el.removeAttr(attr);
+          }
+        }
+      });
+
+      if (el.is('a')) {
+        const href = el.attr('href') ?? '';
+        if (!href) {
+          el.replaceWith(el.text());
+          return;
+        }
+
+        if (/^https?:/i.test(href)) {
+          el.attr('target', '_blank');
+          el.attr('rel', 'noopener noreferrer');
+        } else {
+          el.removeAttr('target');
+          el.removeAttr('rel');
+        }
+      }
+    });
+
   return content;
 }
 
@@ -561,7 +741,7 @@ async function hydrateTgEmoji(
 
   await Promise.all(
     emojiNodes.map(async (emojiEl) => {
-      const emojiId = $(emojiEl).attr('emoji-id');
+      const emojiId = ($(emojiEl).attr('emoji-id') ?? '').replace(/[^0-9]/g, '');
       const fallbackText = ($(emojiEl).text() ?? '').trim();
       if (!emojiId && !fallbackText) return;
 
@@ -764,8 +944,6 @@ async function getPost(
   };
 }
 
-const unnecessaryHeaders = ['host', 'cookie', 'origin', 'referer'];
-
 /**
  * Parse a single comment from Telegram discussion embed
  */
@@ -852,13 +1030,7 @@ export async function getPostComments(
 
   // Telegram exposes comments via the discussion embed endpoint
   const url = `https://${host}/${channel}/${postId}?embed=1&discussion=1&comments_limit=20`;
-  const headers = Object.fromEntries(Astro.request.headers);
-
-  Object.keys(headers).forEach((key) => {
-    if (unnecessaryHeaders.includes(key)) {
-      delete headers[key];
-    }
-  });
+  const headers = buildTelegramRequestHeaders(Astro.request);
 
   try {
     console.info('Fetching comments', url, { postId, before });
@@ -937,13 +1109,7 @@ export async function getChannelInfo(
   const staticProxy = '/static/';
 
   const url = id ? `https://${host}/${channel}/${id}?embed=1&mode=tme` : `https://${host}/s/${channel}`;
-  const headers = Object.fromEntries(Astro.request.headers);
-
-  Object.keys(headers).forEach((key) => {
-    if (unnecessaryHeaders.includes(key)) {
-      delete headers[key];
-    }
-  });
+  const headers = buildTelegramRequestHeaders(Astro.request);
 
   console.info('Fetching', url, { before, after, q, type, id, skipCache });
   const html = await $fetch<string>(url, {
