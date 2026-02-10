@@ -36,6 +36,15 @@ function emailShell(content: string): string {
       .email-divider { border-color: #333 !important; }
       .email-label { color: #888 !important; }
       .email-grid-dot { opacity: 0.1 !important; }
+      .email-embed-card { background-color: #0f0f0f !important; border-color: #2b2b2b !important; }
+      .email-embed-header { border-color: #2b2b2b !important; }
+      .email-embed-footer { border-color: #2b2b2b !important; }
+      .email-avatar { background-color: #242424 !important; color: #e5e5e5 !important; }
+      .email-channel-name { color: #e5e5e5 !important; }
+      .email-channel-meta { color: #8a8a8a !important; }
+      .email-preview { color: #e5e5e5 !important; }
+      .email-view-link { color: #e5e5e5 !important; }
+      .email-meta { color: #8a8a8a !important; }
     }
   </style>
 </head>
@@ -123,44 +132,54 @@ export function buildMoodNotificationEmail(options: {
   const preview = trimPreview(options.previewText || '(No text preview)');
   const subject = `New mood #${options.postId}`;
   const html = emailShell(`
-          <!-- Header label -->
           <tr>
-            <td style="padding: 28px 28px 0;">
-              <span class="email-label" style="font-family: ${MONO_FONT}; font-size: 11px; font-weight: 400; letter-spacing: 0.2em; text-transform: uppercase; color: #666;">mood &middot; #${escapeHtml(options.postId)}</span>
+            <td style="padding: 24px 24px 0;">
+              <span class="email-label" style="font-family: ${MONO_FONT}; font-size: 11px; font-weight: 400; letter-spacing: 0.2em; text-transform: uppercase; color: #666;">mood update</span>
             </td>
           </tr>
-          <!-- Title -->
           <tr>
-            <td class="email-text" style="padding: 16px 28px 0; font-family: ${MONO_FONT}; font-size: 18px; font-weight: 600; color: #000; letter-spacing: -0.01em;">
-              New mood posted
-            </td>
-          </tr>
-          <!-- Preview text -->
-          <tr>
-            <td style="padding: 12px 28px 0;">
-              <div class="email-text" style="font-family: ${MONO_FONT}; font-size: 13px; line-height: 1.7; color: #374151; padding: 12px 16px; border-left: 2px solid #000;">
-                ${escapeHtml(preview)}
-              </div>
-            </td>
-          </tr>
-          <!-- CTA Button -->
-          <tr>
-            <td style="padding: 24px 28px 0;">
-              <a href="${escapeHtml(options.moodUrl)}" class="email-btn" style="display: inline-block; font-family: ${MONO_FONT}; font-size: 13px; font-weight: 500; color: #fff; background-color: #000; text-decoration: none; padding: 10px 20px; border: 2px solid #000;">
-                <span class="email-btn-text" style="color: #fff;">Read mood &rarr;</span>
-              </a>
-            </td>
-          </tr>
-          <!-- Divider -->
-          <tr>
-            <td style="padding: 24px 28px 0;">
-              <hr class="email-divider" style="border: none; border-top: 1px dashed #ccc; margin: 0;" />
-            </td>
-          </tr>
-          <!-- Footer -->
-          <tr>
-            <td style="padding: 16px 28px 28px;">
-              <a href="${escapeHtml(options.unsubscribeUrl)}" class="email-muted" style="font-family: ${MONO_FONT}; font-size: 11px; color: #999; text-decoration: none;">Unsubscribe &rarr;</a>
+            <td style="padding: 12px 24px 24px;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" class="email-embed-card" style="border: 1px solid #e0e0e0; border-radius: 12px; overflow: hidden; background-color: #fff;">
+                <tr>
+                  <td class="email-embed-header" style="padding: 12px 14px; border-bottom: 1px solid #e5e5e5;">
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                      <tr>
+                        <td width="32" valign="middle">
+                          <div class="email-avatar" style="width: 32px; height: 32px; border-radius: 999px; background: #f3f4f6; color: #111; font-family: ${MONO_FONT}; font-size: 13px; font-weight: 600; line-height: 32px; text-align: center;">M</div>
+                        </td>
+                        <td valign="middle" style="padding-left: 10px;">
+                          <a href="${escapeHtml(options.moodUrl)}" class="email-channel-name" style="display: inline-block; font-family: ${MONO_FONT}; font-size: 13px; font-weight: 600; color: #111; text-decoration: none;">Mood Feed</a>
+                          <div class="email-channel-meta" style="margin-top: 2px; font-family: ${MONO_FONT}; font-size: 11px; color: #666;">New mood posted &middot; #${escapeHtml(options.postId)}</div>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding: 14px;">
+                    <div class="email-preview" style="font-family: ${MONO_FONT}; font-size: 14px; line-height: 1.65; color: #111;">
+                      ${escapeHtml(preview)}
+                    </div>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding: 0 14px 14px;">
+                    <a href="${escapeHtml(options.moodUrl)}" class="email-view-link" style="font-family: ${MONO_FONT}; font-size: 12px; color: #000; text-decoration: none;">View full mood &rarr;</a>
+                  </td>
+                </tr>
+                <tr>
+                  <td class="email-embed-footer" style="padding: 10px 14px; border-top: 1px solid #e5e5e5;">
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                      <tr>
+                        <td class="email-meta" style="font-family: ${MONO_FONT}; font-size: 11px; color: #666;">Styled like oEmbed card</td>
+                        <td align="right">
+                          <a href="${escapeHtml(options.unsubscribeUrl)}" class="email-muted" style="font-family: ${MONO_FONT}; font-size: 11px; color: #666; text-decoration: none;">Unsubscribe &rarr;</a>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
             </td>
           </tr>`);
 
