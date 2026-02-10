@@ -46,6 +46,7 @@ Set these in Vercel project settings:
 - `CLOUDFLARE_ACCOUNT_ID`
 - `CLOUDFLARE_API_TOKEN`
 - `CLOUDFLARE_NOTIFY_KV_NAMESPACE_ID` (recommended)
+- `PUBLIC_TURNSTILE_SITE_KEY` (optional, frontend widget site key)
 - `TURNSTILE_SECRET_KEY` (optional, enables anti-bot verification for subscribe endpoint)
 
 If `TURNSTILE_SECRET_KEY` (or `CLOUDFLARE_TURNSTILE_SECRET_KEY`) is set, `POST /api/notify/subscribe` requires a valid Turnstile token.
