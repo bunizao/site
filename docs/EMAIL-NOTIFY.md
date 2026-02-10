@@ -20,6 +20,7 @@ A failed send is stored in KV as a retry record and processed by Vercel Cron (`/
 Set these in Vercel project settings:
 
 - `RESEND_API_KEY`
+- `NOTIFY_FROM_NAME` (optional, example: `Mood`)
 - `NOTIFY_FROM_EMAIL`
 - `NOTIFY_REPLY_TO_EMAIL` (optional)
 - `EMAIL_NOTIFY_SECRET` (long random string)
@@ -83,3 +84,4 @@ curl "https://your-domain.com/api/notify/retry" \
 - Unsubscribe links are signed and time-limited.
 - Failed deliveries are retried with backoff.
 - Keep `NOTIFY_FROM_EMAIL` domain verified in Resend.
+- Use `NOTIFY_FROM_NAME` when you want a display name without embedding it in `NOTIFY_FROM_EMAIL`.

@@ -125,7 +125,8 @@ Documentation:
 - `CLOUDFLARE_KV_NAMESPACE_ID` - Cloudflare KV namespace id (MOOD_IMAGES)
 - `CLOUDFLARE_NOTIFY_KV_NAMESPACE_ID` - Optional dedicated KV namespace for notify data
 - `RESEND_API_KEY` - Resend API key for transactional email sending
-- `NOTIFY_FROM_EMAIL` - Sender email address verified in Resend
+- `NOTIFY_FROM_NAME` - Optional sender display name (example: `Mood`)
+- `NOTIFY_FROM_EMAIL` - Sender email address verified in Resend (email only)
 - `NOTIFY_REPLY_TO_EMAIL` - Optional reply-to mailbox
 - `EMAIL_NOTIFY_SECRET` - HMAC secret for confirm/unsubscribe signed tokens
 - `NOTIFY_DISPATCH_SECRET` - Secret for authenticated `/api/notify/dispatch` calls

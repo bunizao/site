@@ -1,5 +1,6 @@
 export interface NotifyConfig {
   resendApiKey: string;
+  notifyFromName: string;
   notifyFrom: string;
   notifyReplyTo: string;
   siteUrl: string;
@@ -38,6 +39,7 @@ export function getNotifyConfig(context: RuntimeContext = {}): NotifyConfig {
 
   return {
     resendApiKey: readEnv(locals, 'RESEND_API_KEY'),
+    notifyFromName: readEnv(locals, 'NOTIFY_FROM_NAME'),
     notifyFrom: readEnv(locals, 'NOTIFY_FROM_EMAIL'),
     notifyReplyTo: readEnv(locals, 'NOTIFY_REPLY_TO_EMAIL'),
     siteUrl: trimTrailingSlash(siteUrl),
@@ -54,4 +56,19 @@ export function requireConfigValue(value: string, name: string): void {
   if (!value) {
     throw new Error(`Missing required configuration: ${name}`);
   }
+}
+
+function sanitizeFromName(value: string): string {
+  return value.replace(/[\r\n<>]/g, '').trim();
+}
+
+export function getNotifyFromAddress(config: NotifyConfig): string {
+  const email = config.notifyFrom.trim();
+  const name = sanitizeFromName(config.notifyFromName);
+
+  if (!name) {
+    return email;
+  }
+
+  return `${name} <${email}>`;
 }

@@ -1,7 +1,7 @@
 import type { Post } from '@/lib/telegram';
 import { getChannelInfo } from '@/lib/telegram';
 import { getTextPreview } from '@/lib/mood-utils';
-import { getNotifyConfig, requireConfigValue } from './env';
+import { getNotifyConfig, getNotifyFromAddress, requireConfigValue } from './env';
 import { CloudflareKvClient } from './kv';
 import {
   createNotifyToken,
@@ -282,7 +282,7 @@ async function sendMoodEmail(
 
   const response = await sendEmailWithResend({
     apiKey: config.resendApiKey,
-    from: config.notifyFrom,
+    from: getNotifyFromAddress(config),
     to: input.subscriber.email,
     replyTo: config.notifyReplyTo || undefined,
     subject: email.subject,
@@ -360,7 +360,7 @@ export async function requestMoodSubscription(
 
   await sendEmailWithResend({
     apiKey: config.resendApiKey,
-    from: config.notifyFrom,
+    from: getNotifyFromAddress(config),
     to: email,
     replyTo: config.notifyReplyTo || undefined,
     subject: mail.subject,
