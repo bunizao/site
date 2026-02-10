@@ -2780,6 +2780,7 @@ const skeletonGroups = [
     const subscribeParam = (currentUrl.searchParams.get('subscribe') ?? '').trim().toLowerCase();
     const shouldAutoOpenSubscribe = currentUrl.searchParams.has('subscribe')
       && !['0', 'false', 'no', 'off'].includes(subscribeParam);
+    const isFormViewActive = () => !formView.classList.contains('is-hidden');
 
     const clearHoverCloseTimer = () => {
       if (hoverCloseTimer !== null) {
@@ -2792,6 +2793,7 @@ const skeletonGroups = [
       if (!supportsHoverOpen) return;
       clearHoverCloseTimer();
       hoverCloseTimer = window.setTimeout(() => {
+        if (!isFormViewActive()) return;
         const panelHovered = panel.matches(':hover');
         const buttonHovered = toggleBtn.matches(':hover');
         const panelFocused = panel.contains(document.activeElement);
