@@ -339,7 +339,7 @@ const skeletonGroups = [
       </div>
 
       <div class="mood-update-notice" data-mood-update-notice role="status" aria-live="polite" aria-atomic="true" style="visibility: hidden;">
-        <p class="mood-update-text" data-mood-update-text>New moods available</p>
+        <p class="mood-update-text" data-mood-update-text>New moods are in!</p>
         <div class="mood-update-actions" data-mood-update-actions>
           <button class="mood-update-action" type="button" data-mood-update-refresh aria-label="Refresh">
             <svg class="mood-update-action-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -3333,7 +3333,7 @@ const skeletonGroups = [
       }
 
       // Set text
-      updateNoticeTextEl.textContent = autoRefresh ? 'New moods detected' : 'New moods available';
+      updateNoticeTextEl.textContent = 'New moods are in!';
 
       // Entrance animation
       noticeShowTl = gsap.timeline();
