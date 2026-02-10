@@ -11,6 +11,7 @@ const canonicalUrl = new URL(Astro.url.pathname, Astro.url.origin).href;
 const oembed = { href: `/api/oembed.json?url=${encodeURIComponent(canonicalUrl)}`, title: 'Mood Embed' };
 const channel = import.meta.env.CHANNEL || Astro.locals?.runtime?.env?.CHANNEL || '';
 const telegramUrl = channel ? `https://t.me/${channel}` : '';
+const turnstileSiteKey = import.meta.env.PUBLIC_TURNSTILE_SITE_KEY || '';
 // Skeleton structure: 2 date group cards to match actual content layout
 const skeletonGroups = [
   {
@@ -35,7 +36,7 @@ const skeletonGroups = [
 
 <Layout title={title} description={description} rss={rss} oembed={oembed}>
   <!-- Inject page-specific header actions -->
-  <script is:inline define:vars={{ telegramUrl }}>
+  <script is:inline define:vars={{ telegramUrl, turnstileSiteKey }}>
     (() => {
       const headerActions = document.querySelector('[data-header-actions]');
       if (!headerActions) return;
@@ -72,6 +73,23 @@ const skeletonGroups = [
         `;
       }
 
+      // Create Notify button
+      const notifyBtn = document.createElement('button');
+      notifyBtn.className = 'header-action-btn';
+      notifyBtn.type = 'button';
+      notifyBtn.title = 'Subscribe to notifications';
+      notifyBtn.setAttribute('data-notify-toggle', '');
+      notifyBtn.setAttribute('aria-haspopup', 'dialog');
+      notifyBtn.setAttribute('aria-expanded', 'false');
+      notifyBtn.innerHTML = `
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"></path>
+          <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"></path>
+        </svg>
+        <span class="header-action-btn-label">Notify</span>
+      `;
+
       // Insert before theme dropdown
       const themeDropdown = headerActions.querySelector('[data-theme-dropdown]');
       if (themeDropdown) {
@@ -79,12 +97,78 @@ const skeletonGroups = [
         if (telegramBtn) {
           headerActions.insertBefore(telegramBtn, themeDropdown);
         }
+        headerActions.insertBefore(notifyBtn, themeDropdown);
       } else {
         headerActions.appendChild(rssBtn);
         if (telegramBtn) {
           headerActions.appendChild(telegramBtn);
         }
+        headerActions.appendChild(notifyBtn);
       }
+
+      // Inject notify panel into DOM
+      const notifyPanel = document.createElement('div');
+      notifyPanel.className = 'notify-panel';
+      notifyPanel.setAttribute('role', 'dialog');
+      notifyPanel.setAttribute('aria-label', 'Subscribe to notifications');
+      notifyPanel.setAttribute('aria-hidden', 'true');
+      notifyPanel.dataset.turnstileSiteKey = turnstileSiteKey;
+      notifyPanel.innerHTML = `
+        <div class="notify-panel-inner">
+          <div data-notify-form-view>
+            <div class="notify-panel-header">
+              <span class="notify-panel-title">Get notified</span>
+              <button type="button" class="notify-panel-close" data-notify-close aria-label="Close">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                     stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M18 6 6 18"></path>
+                  <path d="m6 6 12 12"></path>
+                </svg>
+              </button>
+            </div>
+            <form data-notify-form autocomplete="off">
+              <label class="notify-label" for="notify-email">Email</label>
+              <input id="notify-email" type="email" class="notify-input" placeholder="you@example.com"
+                     required autocomplete="email" data-notify-email />
+              <fieldset class="notify-fieldset">
+                <legend class="notify-label">Delivery</legend>
+                <div class="notify-radio-group" role="radiogroup" aria-label="Delivery mode">
+                  <input type="radio" id="notify-mode-instant" name="deliveryMode" value="instant" class="notify-radio-input" checked />
+                  <label for="notify-mode-instant" class="notify-radio-label">Instant</label>
+                  <input type="radio" id="notify-mode-digest5h" name="deliveryMode" value="every_5h" class="notify-radio-input" />
+                  <label for="notify-mode-digest5h" class="notify-radio-label">Every 5h</label>
+                  <input type="radio" id="notify-mode-daily" name="deliveryMode" value="daily" class="notify-radio-input" />
+                  <label for="notify-mode-daily" class="notify-radio-label">Daily</label>
+                </div>
+              </fieldset>
+              <div data-notify-turnstile class="notify-turnstile"></div>
+              <button type="submit" class="notify-submit" data-notify-submit>
+                <span data-notify-submit-text>Subscribe</span>
+                <span data-notify-submit-spinner class="notify-spinner is-hidden"></span>
+              </button>
+              <div data-notify-error-msg class="notify-error-msg" aria-live="polite"></div>
+            </form>
+          </div>
+          <div data-notify-success-view class="is-hidden">
+            <div class="notify-success">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                   stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                <path d="m9 11 3 3L22 4"></path>
+              </svg>
+              <p class="notify-success-text">Check your inbox to confirm.</p>
+              <button type="button" class="notify-submit" data-notify-done>Done</button>
+            </div>
+          </div>
+          <div data-notify-error-view class="is-hidden">
+            <div class="notify-error-state">
+              <p class="notify-error-state-text" data-notify-error-state-text>Something went wrong.</p>
+              <button type="button" class="notify-submit" data-notify-retry>Try again</button>
+            </div>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(notifyPanel);
 
       // Register buttons with GSAP animation system
       const registerWithGSAP = () => {
@@ -93,6 +177,7 @@ const skeletonGroups = [
           if (telegramBtn) {
             window.headerBtnAnimations.register(telegramBtn);
           }
+          window.headerBtnAnimations.register(notifyBtn);
         } else {
           // Retry if GSAP system not ready yet
           setTimeout(registerWithGSAP, 100);
@@ -254,13 +339,6 @@ const skeletonGroups = [
       </div>
 
       <div class="mood-update-notice" data-mood-update-notice role="status" aria-live="polite" aria-atomic="true" style="visibility: hidden;">
-        <button class="mood-update-dismiss-dot" type="button" data-mood-update-dismiss aria-label="Dismiss update notice">
-          <span class="mood-update-dot" aria-hidden="true"></span>
-          <svg class="mood-update-dismiss-cross" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <line x1="18" y1="6" x2="6" y2="18"></line>
-            <line x1="6" y1="6" x2="18" y2="18"></line>
-          </svg>
-        </button>
         <p class="mood-update-text" data-mood-update-text>New moods available</p>
         <div class="mood-update-actions" data-mood-update-actions>
           <button class="mood-update-action" type="button" data-mood-update-refresh aria-label="Refresh">
@@ -2001,7 +2079,7 @@ const skeletonGroups = [
     display: inline-flex;
     align-items: center;
     gap: 10px;
-    padding: 5px 5px 5px 8px;
+    padding: 5px 5px 5px 12px;
     border: 1px solid hsl(var(--foreground) / 0.08);
     border-radius: 12px;
     background: hsl(var(--background) / 0.8);
@@ -2024,68 +2102,6 @@ const skeletonGroups = [
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
     overflow: visible;
-  }
-
-  /* Dot indicator — GSAP controls pulse and spin */
-  :global(.mood-update-dismiss-dot) {
-    position: relative;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 24px;
-    height: 24px;
-    margin-right: 1px;
-    padding: 0;
-    border: 0;
-    border-radius: 999px;
-    background: transparent;
-    color: hsl(var(--foreground) / 0.74);
-    flex-shrink: 0;
-    cursor: pointer;
-    transition: background 0.2s ease, color 0.2s ease, opacity 0.2s ease;
-  }
-
-  :global(.mood-update-dismiss-dot:hover),
-  :global(.mood-update-dismiss-dot:focus-visible) {
-    background: hsl(var(--foreground) / 0.08);
-    color: hsl(var(--foreground) / 0.9);
-  }
-
-  :global(.mood-update-dismiss-dot:focus-visible) {
-    outline: 2px solid hsl(var(--foreground) / 0.25);
-    outline-offset: 1px;
-  }
-
-  :global(.mood-update-dismiss-dot.is-disabled) {
-    pointer-events: none;
-    opacity: 0.6;
-  }
-
-  :global(.mood-update-dot) {
-    width: 5px;
-    height: 5px;
-    border-radius: 50%;
-    background: hsl(var(--foreground));
-    pointer-events: none;
-    will-change: transform, opacity;
-  }
-
-  :global(.mood-update-dismiss-cross) {
-    position: absolute;
-    width: 10px;
-    height: 10px;
-    opacity: 0;
-    transform: scale(0.6) rotate(-35deg);
-    pointer-events: none;
-    will-change: transform, opacity;
-  }
-
-  :global(.mood-update-dot.is-spinning) {
-    width: 12px;
-    height: 12px;
-    background: transparent;
-    border: 1.5px solid hsl(var(--foreground) / 0.15);
-    border-top-color: hsl(var(--foreground) / 0.8);
   }
 
   :global(.mood-update-text) {
@@ -2137,10 +2153,11 @@ const skeletonGroups = [
   }
 
   :global(.mood-update-action.is-refreshing) {
-    gap: 6px;
+    gap: 0;
     color: hsl(var(--foreground));
     background: hsl(var(--foreground) / 0.08);
     border-color: hsl(var(--foreground) / 0.15);
+    justify-content: center;
     cursor: default;
     pointer-events: none;
   }
@@ -2171,15 +2188,24 @@ const skeletonGroups = [
     bottom: 0;
     left: 0;
     right: 0;
-    height: 1.5px;
+    height: 2.5px;
     opacity: 0;
+    border-radius: 999px;
+    background: hsl(var(--foreground) / 0.08);
+    overflow: hidden;
   }
 
   :global(.mood-update-progress::after) {
     content: '';
     position: absolute;
     inset: 0;
-    background: hsl(var(--foreground) / 0.12);
+    background: linear-gradient(
+      90deg,
+      hsl(var(--foreground) / 0.9) 0%,
+      hsl(var(--foreground) / 0.62) 70%,
+      hsl(var(--foreground) / 0.45) 100%
+    );
+    box-shadow: 0 0 8px hsl(var(--foreground) / 0.28);
     transform-origin: left;
     transform: scaleX(var(--progress));
   }
@@ -2189,14 +2215,8 @@ const skeletonGroups = [
       right: 12px;
       bottom: 12px;
       gap: 8px;
-      padding: 4px 4px 4px 7px;
+      padding: 4px 4px 4px 10px;
       border-radius: 10px;
-    }
-
-    :global(.mood-update-dismiss-dot) {
-      width: 22px;
-      height: 22px;
-      margin-right: 0;
     }
 
     :global(.mood-update-text) {
@@ -2216,15 +2236,8 @@ const skeletonGroups = [
   }
 
   @media (prefers-reduced-motion: reduce) {
-    :global(.mood-update-notice),
-    :global(.mood-update-dot),
-    :global(.mood-update-dismiss-cross) {
+    :global(.mood-update-notice) {
       will-change: auto;
-    }
-
-    :global(.mood-update-dot.is-spinning) {
-      border-color: hsl(var(--foreground) / 0.5);
-      border-top-color: hsl(var(--foreground) / 0.5);
     }
   }
 
@@ -2389,7 +2402,493 @@ const skeletonGroups = [
       transform: translateY(0);
     }
   }
+
+  /* Notify Panel */
+  :global(.notify-panel) {
+    position: fixed;
+    z-index: 60;
+    width: 280px;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(-4px) scale(0.96);
+    transform-origin: top right;
+    transition: opacity 0.15s ease, transform 0.15s ease, visibility 0.15s ease;
+    pointer-events: none;
+  }
+
+  :global(.notify-panel.is-open) {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0) scale(1);
+    pointer-events: auto;
+  }
+
+  :global(.notify-panel-inner) {
+    background: hsl(var(--background));
+    border: 1px solid hsl(var(--foreground) / 0.1);
+    border-radius: 10px;
+    box-shadow: 0 8px 24px hsl(var(--foreground) / 0.08), 0 2px 8px hsl(var(--foreground) / 0.04);
+    padding: 16px;
+  }
+
+  :global(.notify-panel-header) {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 14px;
+  }
+
+  :global(.notify-panel-title) {
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+  }
+
+  :global(.notify-panel-close) {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    color: hsl(var(--muted-foreground));
+    background: none;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: color 0.12s ease, background 0.12s ease;
+  }
+
+  :global(.notify-panel-close:hover) {
+    color: hsl(var(--foreground));
+    background: hsl(var(--foreground) / 0.06);
+  }
+
+  :global(.notify-label) {
+    display: block;
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.03em;
+    color: hsl(var(--muted-foreground));
+    margin-bottom: 6px;
+  }
+
+  :global(.notify-input) {
+    width: 100%;
+    height: 34px;
+    padding: 0 10px;
+    font-family: inherit;
+    font-size: 13px;
+    color: hsl(var(--foreground));
+    background: hsl(var(--foreground) / 0.04);
+    border: 1px solid hsl(var(--foreground) / 0.1);
+    border-radius: 7px;
+    outline: none;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  }
+
+  :global(.notify-input::placeholder) {
+    color: hsl(var(--muted-foreground) / 0.5);
+  }
+
+  :global(.notify-input:focus) {
+    border-color: hsl(var(--foreground) / 0.3);
+    box-shadow: 0 0 0 2px hsl(var(--foreground) / 0.06);
+  }
+
+  :global(.notify-fieldset) {
+    border: none;
+    padding: 0;
+    margin: 14px 0 0;
+  }
+
+  :global(.notify-radio-group) {
+    display: flex;
+    gap: 0;
+    background: hsl(var(--foreground) / 0.04);
+    border-radius: 7px;
+    padding: 2px;
+  }
+
+  :global(.notify-radio-input) {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+    pointer-events: none;
+  }
+
+  :global(.notify-radio-label) {
+    flex: 1;
+    text-align: center;
+    padding: 5px 0;
+    font-size: 11px;
+    font-weight: 500;
+    color: hsl(var(--muted-foreground));
+    border-radius: 5px;
+    cursor: pointer;
+    transition: color 0.12s ease, background 0.12s ease, box-shadow 0.12s ease;
+    user-select: none;
+  }
+
+  :global(.notify-radio-input:checked + .notify-radio-label) {
+    color: hsl(var(--foreground));
+    background: hsl(var(--background));
+    box-shadow: 0 1px 3px hsl(var(--foreground) / 0.08);
+  }
+
+  :global(.notify-radio-input:focus-visible + .notify-radio-label) {
+    outline: 2px solid hsl(var(--foreground));
+    outline-offset: 1px;
+  }
+
+  :global(.notify-turnstile) {
+    margin-top: 14px;
+    display: flex;
+    justify-content: center;
+    min-height: 0;
+    transition: min-height 0.2s ease;
+  }
+
+  :global(.notify-turnstile.has-widget) {
+    min-height: 65px;
+  }
+
+  :global(.notify-submit) {
+    width: 100%;
+    height: 34px;
+    margin-top: 14px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    color: hsl(var(--primary-foreground));
+    background: hsl(var(--primary));
+    border: none;
+    border-radius: 7px;
+    cursor: pointer;
+    transition: opacity 0.12s ease;
+  }
+
+  :global(.notify-submit:hover) {
+    opacity: 0.85;
+  }
+
+  :global(.notify-submit:active) {
+    transform: scale(0.98);
+  }
+
+  :global(.notify-submit:disabled) {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  :global(.notify-error-msg) {
+    margin-top: 8px;
+    font-size: 11px;
+    color: hsl(0 84% 60%);
+    min-height: 0;
+  }
+
+  :global(.notify-error-msg:empty) {
+    display: none;
+  }
+
+  :global(.notify-spinner) {
+    width: 14px;
+    height: 14px;
+    border: 2px solid hsl(var(--primary-foreground) / 0.3);
+    border-top-color: hsl(var(--primary-foreground));
+    border-radius: 50%;
+    animation: notify-spin 0.6s linear infinite;
+  }
+
+  @keyframes notify-spin {
+    to { transform: rotate(360deg); }
+  }
+
+  :global(.notify-success) {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 0 4px;
+    color: hsl(var(--foreground));
+  }
+
+  :global(.notify-success-text) {
+    font-size: 13px;
+    font-weight: 500;
+    text-align: center;
+  }
+
+  :global(.notify-error-state) {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 0 4px;
+  }
+
+  :global(.notify-error-state-text) {
+    font-size: 13px;
+    color: hsl(0 84% 60%);
+    text-align: center;
+  }
+
+  :global(.is-hidden) {
+    display: none !important;
+  }
+
+  :global(.header-action-btn.is-active) {
+    color: hsl(var(--foreground));
+    background: hsl(var(--foreground) / 0.06);
+    border-color: hsl(var(--foreground) / 0.15);
+  }
+
+  @media (max-width: 639px) {
+    :global(.notify-panel) {
+      width: calc(100vw - 32px);
+      max-width: 300px;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    :global(.notify-panel) {
+      transition: opacity 0.1s ease, visibility 0.1s ease;
+      transform: none !important;
+    }
+
+    :global(.notify-panel.is-open) {
+      transform: none !important;
+    }
+  }
 </style>
+
+<script>
+  // Notify panel interaction logic
+  (() => {
+    const panel = document.querySelector('.notify-panel') as HTMLElement | null;
+    const toggleBtn = document.querySelector('[data-notify-toggle]') as HTMLButtonElement | null;
+    if (!panel || !toggleBtn) return;
+
+    const formView = panel.querySelector('[data-notify-form-view]') as HTMLElement;
+    const successView = panel.querySelector('[data-notify-success-view]') as HTMLElement;
+    const errorView = panel.querySelector('[data-notify-error-view]') as HTMLElement;
+    const closeBtn = panel.querySelector('[data-notify-close]') as HTMLButtonElement;
+    const form = panel.querySelector('[data-notify-form]') as HTMLFormElement;
+    const emailInput = panel.querySelector('[data-notify-email]') as HTMLInputElement;
+    const submitBtn = panel.querySelector('[data-notify-submit]') as HTMLButtonElement;
+    const submitText = panel.querySelector('[data-notify-submit-text]') as HTMLElement;
+    const submitSpinner = panel.querySelector('[data-notify-submit-spinner]') as HTMLElement;
+    const errorMsg = panel.querySelector('[data-notify-error-msg]') as HTMLElement;
+    const doneBtn = panel.querySelector('[data-notify-done]') as HTMLButtonElement;
+    const retryBtn = panel.querySelector('[data-notify-retry]') as HTMLButtonElement;
+    const errorStateText = panel.querySelector('[data-notify-error-state-text]') as HTMLElement;
+    const turnstileContainer = panel.querySelector('[data-notify-turnstile]') as HTMLElement;
+
+    const siteKey = panel.dataset.turnstileSiteKey || '';
+    let turnstileWidgetId: string | null = null;
+    let turnstileReady = false;
+    let isOpen = false;
+
+    // Position panel relative to toggle button
+    const positionPanel = () => {
+      const rect = toggleBtn.getBoundingClientRect();
+      panel.style.top = `${rect.bottom + 6}px`;
+      panel.style.right = `${window.innerWidth - rect.right}px`;
+    };
+
+    // Show a specific view
+    const showView = (view: 'form' | 'success' | 'error') => {
+      formView.classList.toggle('is-hidden', view !== 'form');
+      successView.classList.toggle('is-hidden', view !== 'success');
+      errorView.classList.toggle('is-hidden', view !== 'error');
+    };
+
+    // Load Turnstile script if needed
+    const loadTurnstile = () => {
+      if (!siteKey || turnstileReady) return;
+      if (document.querySelector('script[src*="challenges.cloudflare.com/turnstile"]')) {
+        turnstileReady = true;
+        renderTurnstile();
+        return;
+      }
+      const script = document.createElement('script');
+      script.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit&onload=onTurnstileLoad';
+      script.async = true;
+      (window as any).onTurnstileLoad = () => {
+        turnstileReady = true;
+        renderTurnstile();
+      };
+      document.head.appendChild(script);
+    };
+
+    // Render Turnstile widget
+    const renderTurnstile = () => {
+      if (!siteKey || !turnstileReady || !(window as any).turnstile) return;
+      if (turnstileWidgetId !== null) return;
+      turnstileContainer.classList.add('has-widget');
+      turnstileWidgetId = (window as any).turnstile.render(turnstileContainer, {
+        sitekey: siteKey,
+        action: 'notify_subscribe',
+        theme: document.documentElement.classList.contains('dark') ? 'dark' : 'light',
+        size: 'compact',
+      });
+    };
+
+    // Reset Turnstile widget
+    const resetTurnstile = () => {
+      if (turnstileWidgetId !== null && (window as any).turnstile) {
+        (window as any).turnstile.reset(turnstileWidgetId);
+      }
+    };
+
+    // Get Turnstile token
+    const getTurnstileToken = (): string => {
+      if (turnstileWidgetId !== null && (window as any).turnstile) {
+        return (window as any).turnstile.getResponse(turnstileWidgetId) || '';
+      }
+      return '';
+    };
+
+    // Open panel
+    const openPanel = () => {
+      isOpen = true;
+      positionPanel();
+      panel.classList.add('is-open');
+      panel.setAttribute('aria-hidden', 'false');
+      toggleBtn.setAttribute('aria-expanded', 'true');
+      toggleBtn.classList.add('is-active');
+      emailInput.focus();
+      loadTurnstile();
+    };
+
+    // Close panel
+    const closePanel = () => {
+      if (!isOpen) return;
+      isOpen = false;
+      panel.classList.remove('is-open');
+      panel.setAttribute('aria-hidden', 'true');
+      toggleBtn.setAttribute('aria-expanded', 'false');
+      toggleBtn.classList.remove('is-active');
+      // Reset to form view after animation
+      setTimeout(() => {
+        if (!isOpen) {
+          showView('form');
+          errorMsg.textContent = '';
+          submitBtn.disabled = false;
+          submitText.classList.remove('is-hidden');
+          submitSpinner.classList.add('is-hidden');
+        }
+      }, 200);
+    };
+
+    // Toggle
+    toggleBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (isOpen) closePanel();
+      else openPanel();
+    });
+
+    // Close button
+    closeBtn.addEventListener('click', () => closePanel());
+
+    // Done button
+    doneBtn.addEventListener('click', () => closePanel());
+
+    // Retry button
+    retryBtn.addEventListener('click', () => {
+      showView('form');
+      errorMsg.textContent = '';
+      resetTurnstile();
+    });
+
+    // Outside click
+    document.addEventListener('click', (e) => {
+      if (isOpen && !panel.contains(e.target as Node) && !toggleBtn.contains(e.target as Node)) {
+        closePanel();
+      }
+    });
+
+    // Escape key
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && isOpen) {
+        closePanel();
+        toggleBtn.focus();
+      }
+    });
+
+    // Reposition on scroll/resize
+    let repositionRaf: number;
+    const handleReposition = () => {
+      if (!isOpen) return;
+      cancelAnimationFrame(repositionRaf);
+      repositionRaf = requestAnimationFrame(positionPanel);
+    };
+    window.addEventListener('scroll', handleReposition, { passive: true });
+    window.addEventListener('resize', handleReposition, { passive: true });
+
+    // Form submission
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const email = emailInput.value.trim();
+      if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        errorMsg.textContent = 'Please enter a valid email address.';
+        return;
+      }
+
+      const deliveryMode = (form.querySelector('input[name="deliveryMode"]:checked') as HTMLInputElement)?.value || 'instant';
+      const turnstileToken = getTurnstileToken();
+
+      // Loading state
+      errorMsg.textContent = '';
+      submitBtn.disabled = true;
+      submitBtn.setAttribute('aria-busy', 'true');
+      submitText.classList.add('is-hidden');
+      submitSpinner.classList.remove('is-hidden');
+
+      try {
+        const res = await fetch('/api/notify/subscribe', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email,
+            deliveryMode,
+            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+            turnstileToken,
+          }),
+        });
+
+        const data = await res.json();
+
+        if (res.ok) {
+          showView('success');
+        } else if (res.status === 429) {
+          errorMsg.textContent = 'Too many requests. Please try again later.';
+          resetTurnstile();
+        } else if (data.code?.startsWith('turnstile')) {
+          errorMsg.textContent = 'Verification failed. Please try again.';
+          resetTurnstile();
+        } else {
+          errorStateText.textContent = data.error || 'Something went wrong.';
+          showView('error');
+        }
+      } catch {
+        errorStateText.textContent = 'Network error. Please check your connection.';
+        showView('error');
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.removeAttribute('aria-busy');
+        submitText.classList.remove('is-hidden');
+        submitSpinner.classList.add('is-hidden');
+      }
+    });
+  })();
+</script>
 
 <script>
   import gsap from 'gsap';
@@ -2429,13 +2928,16 @@ const skeletonGroups = [
 
       const UPDATE_POLL_INTERVAL_MS = 75_000;
       const AUTO_REFRESH_DELAY_MS = 6_000;
+      const PREVIEW_REFRESH_DELAY_MS = 4_000;
       const AUTO_REFRESH_MAX_SCROLL_Y = 120;
       const AUTO_REFRESH_CANCEL_SCROLL_Y = 220;
       const PREVIEW_PENDING_ID = '9007199254740991';
       const REFRESH_LABEL_IDLE = 'Refresh';
       const REFRESH_LABEL_PENDING = 'Refreshing...';
-      const previewUpdateParam = new URLSearchParams(window.location.search).get('previewUpdate') ?? '';
-      const forceUpdateNoticePreview = ['1', 'true', 'yes', 'on'].includes(previewUpdateParam.toLowerCase());
+      const previewUpdateQuery = new URLSearchParams(window.location.search);
+      const previewUpdateParam = (previewUpdateQuery.get('previewUpdate') ?? '').trim().toLowerCase();
+      const forceUpdateNoticePreview = previewUpdateQuery.has('previewUpdate')
+        && !['0', 'false', 'no', 'off'].includes(previewUpdateParam);
 
       // GSAP animation references for update notice
       let noticeShowTl: gsap.core.Timeline | null = null;
@@ -2644,10 +3146,10 @@ const skeletonGroups = [
       }
 
       if (refreshBtn) {
-        refreshBtn.classList.remove('is-refreshing');
+        refreshBtn.classList.remove('is-refreshing', 'is-hovered');
         refreshBtn.removeAttribute('aria-disabled');
         refreshBtn.setAttribute('aria-label', REFRESH_LABEL_IDLE);
-        gsap.set(refreshBtn, { clearProps: 'width,paddingLeft,paddingRight' });
+        gsap.set(refreshBtn, { clearProps: 'width,paddingLeft,paddingRight,gap' });
       }
 
       if (refreshLabel) {
@@ -2697,9 +3199,11 @@ const skeletonGroups = [
       }
 
       if (refreshBtn) {
-        refreshBtn.classList.add('is-hovered', 'is-refreshing');
+        refreshBtn.classList.remove('is-hovered');
+        refreshBtn.classList.add('is-refreshing');
         refreshBtn.setAttribute('aria-disabled', 'true');
         refreshBtn.setAttribute('aria-label', 'Refreshing');
+        gsap.set(refreshBtn, { gap: 0, width: 28, paddingLeft: 0, paddingRight: 0 });
       }
 
       updateNoticeEl.classList.add('is-refreshing');
@@ -2786,6 +3290,7 @@ const skeletonGroups = [
           width: refreshExpandedWidth,
           paddingLeft: 10,
           paddingRight: 10,
+          gap: 6,
           duration: 0.18,
           ease: 'power2.out',
         }, 0.08);
@@ -2805,7 +3310,15 @@ const skeletonGroups = [
         }, 0.11);
       }
 
-      noticeReloadCall = gsap.delayedCall(0.72, () => { window.location.reload(); });
+      noticeReloadCall = gsap.delayedCall(forceUpdateNoticePreview ? 0.8 : 0.72, () => {
+        if (forceUpdateNoticePreview) {
+          pendingUpdateId = PREVIEW_PENDING_ID;
+          dismissedUpdateId = '';
+          showUpdateNotice(true);
+          return;
+        }
+        window.location.reload();
+      });
     };
 
     const hideUpdateNotice = (): void => {
@@ -2891,15 +3404,16 @@ const skeletonGroups = [
 
       // Countdown
       if (autoRefresh && progressEl) {
+        const countdownDelayMs = forceUpdateNoticePreview ? PREVIEW_REFRESH_DELAY_MS : AUTO_REFRESH_DELAY_MS;
         gsap.set(progressEl, { opacity: 1, '--progress': 1 });
         noticeCountdownTween = gsap.to(progressEl, {
           '--progress': 0,
-          duration: AUTO_REFRESH_DELAY_MS / 1000,
+          duration: countdownDelayMs / 1000,
           ease: 'none'
         });
         autoRefreshTimer = window.setTimeout(() => {
           triggerPageRefresh();
-        }, AUTO_REFRESH_DELAY_MS);
+        }, countdownDelayMs);
       } else if (progressEl) {
         gsap.set(progressEl, { opacity: 0 });
       }
@@ -2991,16 +3505,26 @@ const skeletonGroups = [
       if (updateWatcherStarted) return;
       updateWatcherStarted = true;
       syncLatestSeenId();
-      scheduleNextUpdateCheck();
+      if (!forceUpdateNoticePreview) {
+        scheduleNextUpdateCheck();
+      }
 
       if (forceUpdateNoticePreview) {
         pendingUpdateId = PREVIEW_PENDING_ID;
         dismissedUpdateId = '';
-        showUpdateNotice(false);
+        showUpdateNotice(true);
       }
 
       document.addEventListener('visibilitychange', () => {
         if (document.visibilityState === 'visible') {
+          if (forceUpdateNoticePreview) {
+            if (!autoRefreshPending) {
+              pendingUpdateId = PREVIEW_PENDING_ID;
+              dismissedUpdateId = '';
+              showUpdateNotice(true);
+            }
+            return;
+          }
           if (pendingUpdateId && isNewerMoodId(pendingUpdateId, latestSeenId) && dismissedUpdateId !== pendingUpdateId) {
             const canAutoRefresh = window.scrollY <= AUTO_REFRESH_MAX_SCROLL_Y;
             showUpdateNotice(canAutoRefresh);
@@ -3012,12 +3536,16 @@ const skeletonGroups = [
       });
 
       window.addEventListener('online', () => {
+        if (forceUpdateNoticePreview) {
+          return;
+        }
         checkForUpdates();
       });
 
       window.addEventListener(
         'scroll',
         () => {
+          if (forceUpdateNoticePreview) return;
           if (!autoRefreshPending) return;
           if (window.scrollY > AUTO_REFRESH_CANCEL_SCROLL_Y) {
             showUpdateNotice(false);
