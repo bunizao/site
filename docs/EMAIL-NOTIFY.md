@@ -21,13 +21,14 @@ The implementation uses:
 - `deliveryMode`: `immediate` | `every_5h` | `daily`
 - `timezone`: required for accurate local-day behavior in `daily` mode (defaults to `Asia/Shanghai`)
 - `dailyHour`: hour in `0..23` for `daily` mode (defaults to `9`)
+- `turnstileToken` (recommended when Turnstile is enabled on server)
 
 Example:
 
 ```bash
 curl -X POST "https://your-domain.com/api/notify/subscribe" \
   -H "content-type: application/json" \
-  -d '{"email":"user@example.com","deliveryMode":"daily","timezone":"Asia/Shanghai","dailyHour":9}'
+  -d '{"email":"user@example.com","deliveryMode":"daily","timezone":"Asia/Shanghai","dailyHour":9,"turnstileToken":"<TURNSTILE_TOKEN>"}'
 ```
 
 ## Environment Variables
@@ -45,6 +46,9 @@ Set these in Vercel project settings:
 - `CLOUDFLARE_ACCOUNT_ID`
 - `CLOUDFLARE_API_TOKEN`
 - `CLOUDFLARE_NOTIFY_KV_NAMESPACE_ID` (recommended)
+- `TURNSTILE_SECRET_KEY` (optional, enables anti-bot verification for subscribe endpoint)
+
+If `TURNSTILE_SECRET_KEY` (or `CLOUDFLARE_TURNSTILE_SECRET_KEY`) is set, `POST /api/notify/subscribe` requires a valid Turnstile token.
 
 If `CLOUDFLARE_NOTIFY_KV_NAMESPACE_ID` is not set, the code falls back to `CLOUDFLARE_KV_NAMESPACE_ID`.
 

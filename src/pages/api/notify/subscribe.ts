@@ -1,6 +1,7 @@
 import type { APIRoute } from 'astro';
 import { NotifyServiceError, requestMoodSubscription } from '@/lib/notify/service';
 import { checkRateLimit, createRateLimitHeaders } from '@/lib/security/rate-limit';
+import { verifyTurnstileToken } from '@/lib/security/turnstile';
 
 export const prerender = false;
 
@@ -9,6 +10,9 @@ interface SubscribeBody {
   deliveryMode?: string;
   timezone?: string;
   dailyHour?: number | string | null;
+  turnstileToken?: string;
+  cfTurnstileResponse?: string;
+  captchaToken?: string;
 }
 
 export const POST: APIRoute = async ({ request, locals }) => {
@@ -39,6 +43,36 @@ export const POST: APIRoute = async ({ request, locals }) => {
         ...Object.fromEntries(rateLimitHeaders),
       },
     });
+  }
+
+  const turnstileToken =
+    payload.turnstileToken
+    || payload.cfTurnstileResponse
+    || payload.captchaToken
+    || request.headers.get('cf-turnstile-response')
+    || '';
+
+  const turnstileResult = await verifyTurnstileToken({
+    request,
+    locals,
+    token: turnstileToken,
+    expectedAction: 'notify_subscribe',
+  });
+  if (!turnstileResult.ok) {
+    const isServiceError = turnstileResult.code === 'verify_unavailable';
+    return new Response(
+      JSON.stringify({
+        error: isServiceError ? 'Turnstile verification unavailable' : 'Turnstile verification failed',
+        code: turnstileResult.code,
+      }),
+      {
+        status: isServiceError ? 503 : 400,
+        headers: {
+          'Content-Type': 'application/json',
+          ...Object.fromEntries(rateLimitHeaders),
+        },
+      }
+    );
   }
 
   try {
