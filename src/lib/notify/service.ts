@@ -1,4 +1,4 @@
-import type { Post } from '@/lib/telegram';
+import type { ChannelInfo, Post } from '@/lib/telegram';
 import { getChannelInfo } from '@/lib/telegram';
 import { getTextPreview } from '@/lib/mood-utils';
 import { getNotifyConfig, getNotifyFromAddress, requireConfigValue } from './env';
@@ -14,9 +14,11 @@ import { sendEmailWithResend } from './resend';
 import { buildMoodNotificationEmail, buildSubscribeConfirmEmail } from './templates';
 import type {
   ConfirmResult,
+  DeliveryMode,
   DispatchResult,
   RetryProcessResult,
   RetryRecord,
+  ScheduledDispatchResult,
   SentRecord,
   SubscribeResult,
   SubscriberRecord,
@@ -28,6 +30,19 @@ export interface NotifyRequestContext {
   locals?: any;
 }
 
+export interface SubscriptionRequestInput {
+  email: string;
+  deliveryMode?: string;
+  timezone?: string;
+  dailyHour?: number | string | null;
+}
+
+interface NotifyTestHooks {
+  now?: () => Date;
+  loadMoodPost?: (context: NotifyRequestContext, postId: string) => Promise<Post | null>;
+  loadLatestMoodPost?: (context: NotifyRequestContext) => Promise<Post | null>;
+}
+
 export class NotifyServiceError extends Error {
   constructor(
     public readonly status: number,
@@ -37,6 +52,12 @@ export class NotifyServiceError extends Error {
     super(message);
     this.name = 'NotifyServiceError';
   }
+}
+
+let notifyTestHooks: NotifyTestHooks | null = null;
+
+export function setNotifyTestHooksForTesting(hooks: NotifyTestHooks | null): void {
+  notifyTestHooks = hooks;
 }
 
 const SUBSCRIBER_PREFIX = 'notify:subscriber:';
@@ -53,13 +74,27 @@ const MAX_RETRY_ATTEMPTS = 5;
 const DEFAULT_SEND_CONCURRENCY = 4;
 const DEFAULT_RETRY_SCAN_LIMIT = 500;
 const DEFAULT_RETRY_PROCESS_LIMIT = 50;
+const EVERY_5H_WINDOW_MS = 5 * 60 * 60 * 1000;
+const DEFAULT_DAILY_TIMEZONE = 'Asia/Shanghai';
+const DEFAULT_DAILY_HOUR = 9;
 
 function nowIso(): string {
-  return new Date().toISOString();
+  return getNowDate().toISOString();
 }
 
 function unixNow(): number {
-  return Math.floor(Date.now() / 1000);
+  return Math.floor(getNowMs() / 1000);
+}
+
+function getNowDate(): Date {
+  if (!notifyTestHooks?.now) {
+    return new Date();
+  }
+  return notifyTestHooks.now();
+}
+
+function getNowMs(): number {
+  return getNowDate().getTime();
 }
 
 function subscriberKey(emailHash: string): string {
@@ -75,7 +110,7 @@ function retryKey(postId: string, emailHash: string): string {
 }
 
 function deadKey(postId: string, emailHash: string): string {
-  return `${DEAD_PREFIX}${postId}:${emailHash}:${Date.now()}`;
+  return `${DEAD_PREFIX}${postId}:${emailHash}:${getNowMs()}`;
 }
 
 function getSiteUrl(context: NotifyRequestContext): string {
@@ -109,6 +144,157 @@ function requireEmailSendingConfig(context: NotifyRequestContext): void {
   requireConfigValue(config.tokenSecret, 'EMAIL_NOTIFY_SECRET');
 }
 
+function normalizeDeliveryMode(value: string | null | undefined): DeliveryMode {
+  const normalized = (value || '').trim().toLowerCase();
+  if (!normalized) return 'immediate';
+
+  if (normalized === 'immediate') return 'immediate';
+  if (normalized === 'every_5h' || normalized === '5h' || normalized === 'every5h') {
+    return 'every_5h';
+  }
+  if (normalized === 'daily') return 'daily';
+
+  throw new NotifyServiceError(
+    400,
+    'invalid_delivery_mode',
+    'deliveryMode must be one of immediate, every_5h, daily'
+  );
+}
+
+function getSubscriberDeliveryMode(subscriber: SubscriberRecord): DeliveryMode {
+  return subscriber.deliveryMode ?? 'immediate';
+}
+
+function parseDailyHour(value: number | string | null | undefined): number | null {
+  if (value === undefined || value === null || value === '') {
+    return null;
+  }
+
+  const parsed =
+    typeof value === 'number'
+      ? value
+      : Number.parseInt(String(value), 10);
+
+  if (!Number.isInteger(parsed) || parsed < 0 || parsed > 23) {
+    throw new NotifyServiceError(400, 'invalid_daily_hour', 'dailyHour must be an integer in 0..23');
+  }
+
+  return parsed;
+}
+
+function isValidTimezone(value: string): boolean {
+  try {
+    new Intl.DateTimeFormat('en-US', { timeZone: value }).format(new Date());
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function normalizeTimezone(mode: DeliveryMode, value: string | null | undefined): string | undefined {
+  if (mode !== 'daily') {
+    return undefined;
+  }
+
+  const timezone = (value || '').trim() || DEFAULT_DAILY_TIMEZONE;
+  if (!isValidTimezone(timezone)) {
+    throw new NotifyServiceError(400, 'invalid_timezone', 'Invalid timezone');
+  }
+
+  return timezone;
+}
+
+function normalizeDailyHour(mode: DeliveryMode, value: number | string | null | undefined): number | undefined {
+  if (mode !== 'daily') {
+    return undefined;
+  }
+
+  const parsed = parseDailyHour(value);
+  return parsed ?? DEFAULT_DAILY_HOUR;
+}
+
+function getDailyTimezone(subscriber: SubscriberRecord): string {
+  const timezone = subscriber.timezone || DEFAULT_DAILY_TIMEZONE;
+  return isValidTimezone(timezone) ? timezone : DEFAULT_DAILY_TIMEZONE;
+}
+
+function getDailyHour(subscriber: SubscriberRecord): number {
+  if (typeof subscriber.dailyHour === 'number' && subscriber.dailyHour >= 0 && subscriber.dailyHour <= 23) {
+    return subscriber.dailyHour;
+  }
+  return DEFAULT_DAILY_HOUR;
+}
+
+function parseIsoDate(value: string | undefined): Date | null {
+  if (!value) return null;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function getLocalDateKey(date: Date, timeZone: string): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(date);
+}
+
+function getLocalHour(date: Date, timeZone: string): number {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    hour: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(date);
+  const hourPart = parts.find((part) => part.type === 'hour')?.value ?? '0';
+  const parsed = Number.parseInt(hourPart, 10);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function isScheduledDue(subscriber: SubscriberRecord, now: Date): boolean {
+  const mode = getSubscriberDeliveryMode(subscriber);
+
+  if (mode === 'every_5h') {
+    const lastNotified = parseIsoDate(subscriber.lastNotifiedAt);
+    if (!lastNotified) return true;
+    return now.getTime() - lastNotified.getTime() >= EVERY_5H_WINDOW_MS;
+  }
+
+  if (mode === 'daily') {
+    const timezone = getDailyTimezone(subscriber);
+    const hour = getDailyHour(subscriber);
+    if (getLocalHour(now, timezone) < hour) {
+      return false;
+    }
+
+    const lastNotified = parseIsoDate(subscriber.lastNotifiedAt);
+    if (!lastNotified) {
+      return true;
+    }
+
+    return getLocalDateKey(lastNotified, timezone) !== getLocalDateKey(now, timezone);
+  }
+
+  return false;
+}
+
+function isMatchingPreferences(
+  subscriber: SubscriberRecord,
+  target: { deliveryMode: DeliveryMode; timezone?: string; dailyHour?: number }
+): boolean {
+  const currentMode = getSubscriberDeliveryMode(subscriber);
+  if (currentMode !== target.deliveryMode) {
+    return false;
+  }
+
+  if (currentMode !== 'daily') {
+    return true;
+  }
+
+  return getDailyTimezone(subscriber) === (target.timezone ?? DEFAULT_DAILY_TIMEZONE)
+    && getDailyHour(subscriber) === (target.dailyHour ?? DEFAULT_DAILY_HOUR);
+}
+
 async function getSubscriberByEmail(
   kv: CloudflareKvClient,
   email: string
@@ -122,6 +308,21 @@ async function upsertSubscriber(
   record: SubscriberRecord
 ): Promise<void> {
   await kv.putJson(subscriberKey(record.emailHash), record);
+}
+
+async function updateSubscriberDeliveryState(
+  kv: CloudflareKvClient,
+  subscriber: SubscriberRecord,
+  postId: string,
+  timestamp = nowIso()
+): Promise<void> {
+  await upsertSubscriber(kv, {
+    ...subscriber,
+    deliveryMode: getSubscriberDeliveryMode(subscriber),
+    updatedAt: timestamp,
+    lastNotifiedAt: timestamp,
+    lastNotifiedPostId: postId,
+  });
 }
 
 async function listActiveSubscribers(kv: CloudflareKvClient): Promise<SubscriberRecord[]> {
@@ -169,7 +370,7 @@ async function scheduleRetry(
   }
 
   const delayMinutes = getRetryDelayMinutes(attempt);
-  const nextAttemptAt = new Date(Date.now() + delayMinutes * 60 * 1000).toISOString();
+  const nextAttemptAt = new Date(getNowMs() + delayMinutes * 60 * 1000).toISOString();
 
   const record: RetryRecord = {
     postId: input.postId,
@@ -216,6 +417,10 @@ async function loadMoodPost(
   context: NotifyRequestContext,
   postId: string
 ): Promise<Post | null> {
+  if (notifyTestHooks?.loadMoodPost) {
+    return notifyTestHooks.loadMoodPost(context, postId);
+  }
+
   try {
     const result = (await getChannelInfo(
       {
@@ -236,6 +441,34 @@ async function loadMoodPost(
     return result;
   } catch (error) {
     console.error('Notify failed to load mood post:', error);
+    return null;
+  }
+}
+
+async function loadLatestMoodPost(context: NotifyRequestContext): Promise<Post | null> {
+  if (notifyTestHooks?.loadLatestMoodPost) {
+    return notifyTestHooks.loadLatestMoodPost(context);
+  }
+
+  try {
+    const result = (await getChannelInfo(
+      {
+        request: context.request,
+        locals: context.locals,
+      } as any,
+      {
+        type: 'list',
+        skipCache: true,
+      }
+    )) as ChannelInfo;
+
+    const posts = (result?.posts ?? [])
+      .filter((post) => post?.id && post.type === 'text')
+      .sort((a, b) => Number.parseInt(b.id, 10) - Number.parseInt(a.id, 10));
+
+    return posts[0] ?? null;
+  } catch (error) {
+    console.error('Notify failed to load latest mood post:', error);
     return null;
   }
 }
@@ -322,23 +555,28 @@ async function runWithConcurrency<T>(
 
 export async function requestMoodSubscription(
   context: NotifyRequestContext,
-  emailInput: string
+  input: SubscriptionRequestInput
 ): Promise<SubscribeResult> {
   requireEmailSendingConfig(context);
 
-  const email = normalizeEmail(emailInput || '');
+  const email = normalizeEmail(input.email || '');
   if (!isValidEmail(email)) {
     throw new NotifyServiceError(400, 'invalid_email', 'Invalid email address');
   }
+
+  const deliveryMode = normalizeDeliveryMode(input.deliveryMode);
+  const timezone = normalizeTimezone(deliveryMode, input.timezone);
+  const dailyHour = normalizeDailyHour(deliveryMode, input.dailyHour);
 
   const kv = createKvClient(context);
   const config = getNotifyConfig(context);
   const existing = await getSubscriberByEmail(kv, email);
 
-  if (existing?.status === 'active') {
+  if (existing?.status === 'active' && isMatchingPreferences(existing, { deliveryMode, timezone, dailyHour })) {
     return {
       status: 'already_subscribed',
       email,
+      deliveryMode,
     };
   }
 
@@ -366,24 +604,34 @@ export async function requestMoodSubscription(
     subject: mail.subject,
     html: mail.html,
     text: mail.text,
-    idempotencyKey: `subscribe-${hashEmail(email)}-${Math.floor(Date.now() / 60_000)}`,
+    idempotencyKey: `subscribe-${hashEmail(email)}-${Math.floor(getNowMs() / 60_000)}`,
   });
 
   const now = nowIso();
   const emailHash = hashEmail(email);
+
   await upsertSubscriber(kv, {
     email,
     emailHash,
-    status: 'pending',
+    status: existing?.status === 'active' ? 'active' : 'pending',
+    deliveryMode: existing?.deliveryMode ?? deliveryMode,
+    timezone: existing?.timezone ?? timezone,
+    dailyHour: existing?.dailyHour ?? dailyHour,
+    pendingDeliveryMode: deliveryMode,
+    pendingTimezone: timezone,
+    pendingDailyHour: dailyHour,
     createdAt: existing?.createdAt ?? now,
     updatedAt: now,
     confirmedAt: existing?.confirmedAt,
     lastConfirmSentAt: now,
+    lastNotifiedAt: existing?.lastNotifiedAt,
+    lastNotifiedPostId: existing?.lastNotifiedPostId,
   });
 
   return {
     status: 'confirmation_sent',
     email,
+    deliveryMode,
   };
 }
 
@@ -405,14 +653,27 @@ export async function confirmMoodSubscription(
   const existing = await kv.getJson<SubscriberRecord>(subscriberKey(emailHash));
   const now = nowIso();
 
+  const deliveryMode = existing?.pendingDeliveryMode ?? existing?.deliveryMode ?? 'immediate';
+  const timezone = deliveryMode === 'daily'
+    ? (existing?.pendingTimezone ?? existing?.timezone ?? DEFAULT_DAILY_TIMEZONE)
+    : undefined;
+  const dailyHour = deliveryMode === 'daily'
+    ? (existing?.pendingDailyHour ?? existing?.dailyHour ?? DEFAULT_DAILY_HOUR)
+    : undefined;
+
   const record: SubscriberRecord = {
     email,
     emailHash,
     status: 'active',
+    deliveryMode,
+    timezone,
+    dailyHour,
     createdAt: existing?.createdAt ?? now,
     updatedAt: now,
     confirmedAt: existing?.confirmedAt ?? now,
     lastConfirmSentAt: existing?.lastConfirmSentAt,
+    lastNotifiedAt: existing?.lastNotifiedAt,
+    lastNotifiedPostId: existing?.lastNotifiedPostId,
   };
 
   await upsertSubscriber(kv, record);
@@ -420,6 +681,7 @@ export async function confirmMoodSubscription(
   return {
     status: 'subscribed',
     email,
+    deliveryMode,
   };
 }
 
@@ -445,10 +707,18 @@ export async function unsubscribeMoodSubscription(
     email,
     emailHash,
     status: 'unsubscribed',
+    deliveryMode: existing?.deliveryMode,
+    timezone: existing?.timezone,
+    dailyHour: existing?.dailyHour,
+    pendingDeliveryMode: existing?.pendingDeliveryMode,
+    pendingTimezone: existing?.pendingTimezone,
+    pendingDailyHour: existing?.pendingDailyHour,
     createdAt: existing?.createdAt ?? now,
     updatedAt: now,
     confirmedAt: existing?.confirmedAt,
     lastConfirmSentAt: existing?.lastConfirmSentAt,
+    lastNotifiedAt: existing?.lastNotifiedAt,
+    lastNotifiedPostId: existing?.lastNotifiedPostId,
   };
 
   await upsertSubscriber(kv, record);
@@ -462,7 +732,7 @@ export async function unsubscribeMoodSubscription(
 export async function dispatchMoodNotification(
   context: NotifyRequestContext,
   postIdInput: string,
-  options: { force?: boolean } = {}
+  options: { force?: boolean; deliveryModes?: DeliveryMode[] } = {}
 ): Promise<DispatchResult> {
   requireEmailSendingConfig(context);
 
@@ -487,6 +757,7 @@ export async function dispatchMoodNotification(
 
   const subscribers = await listActiveSubscribers(kv);
   const previewText = getTextPreview(post);
+  const allowedModes = options.deliveryModes ? new Set(options.deliveryModes) : null;
 
   const result: DispatchResult = {
     postId: post.id,
@@ -501,6 +772,12 @@ export async function dispatchMoodNotification(
   }
 
   await runWithConcurrency(subscribers, DEFAULT_SEND_CONCURRENCY, async (subscriber) => {
+    const mode = getSubscriberDeliveryMode(subscriber);
+    if (allowedModes && !allowedModes.has(mode)) {
+      result.skipped += 1;
+      return;
+    }
+
     try {
       const sendResult = await sendMoodEmail(context, kv, {
         post,
@@ -508,8 +785,10 @@ export async function dispatchMoodNotification(
         subscriber,
         force: Boolean(options.force),
       });
+
       if (sendResult.sent) {
         result.sent += 1;
+        await updateSubscriberDeliveryState(kv, subscriber, post.id);
       } else {
         result.skipped += 1;
       }
@@ -518,6 +797,84 @@ export async function dispatchMoodNotification(
       const message = error instanceof Error ? error.message : 'Unknown email send error';
       await scheduleRetry(kv, {
         postId: post.id,
+        email: subscriber.email,
+        emailHash: subscriber.emailHash,
+        lastError: message,
+      });
+    }
+  });
+
+  return result;
+}
+
+export async function dispatchScheduledMoodNotifications(
+  context: NotifyRequestContext
+): Promise<ScheduledDispatchResult> {
+  requireEmailSendingConfig(context);
+
+  const kv = createKvClient(context);
+  const latestPost = await loadLatestMoodPost(context);
+
+  if (!latestPost) {
+    return {
+      postId: '',
+      scanned: 0,
+      due: 0,
+      sent: 0,
+      skipped: 0,
+      failed: 0,
+      skippedReason: 'no_mood_post',
+    };
+  }
+
+  const subscribers = await listActiveSubscribers(kv);
+  const scheduledSubscribers = subscribers.filter(
+    (subscriber) => getSubscriberDeliveryMode(subscriber) !== 'immediate'
+  );
+
+  const now = getNowDate();
+  const dueSubscribers = scheduledSubscribers.filter((subscriber) => {
+    if (subscriber.lastNotifiedPostId === latestPost.id) {
+      return false;
+    }
+
+    return isScheduledDue(subscriber, now);
+  });
+
+  const previewText = getTextPreview(latestPost);
+  const result: ScheduledDispatchResult = {
+    postId: latestPost.id,
+    scanned: scheduledSubscribers.length,
+    due: dueSubscribers.length,
+    sent: 0,
+    skipped: 0,
+    failed: 0,
+  };
+
+  if (!dueSubscribers.length) {
+    return result;
+  }
+
+  await runWithConcurrency(dueSubscribers, DEFAULT_SEND_CONCURRENCY, async (subscriber) => {
+    try {
+      const sendResult = await sendMoodEmail(context, kv, {
+        post: latestPost,
+        previewText,
+        subscriber,
+        force: false,
+      });
+
+      if (sendResult.sent) {
+        result.sent += 1;
+        await updateSubscriberDeliveryState(kv, subscriber, latestPost.id);
+      } else {
+        result.skipped += 1;
+      }
+    } catch (error) {
+      result.failed += 1;
+      const message = error instanceof Error ? error.message : 'Unknown scheduled send error';
+      await scheduleRetry(kv, {
+        postId: latestPost.id,
         email: subscriber.email,
         emailHash: subscriber.emailHash,
         lastError: message,
@@ -551,7 +908,7 @@ export async function processNotifyRetries(
 
   const dueRecords = records
     .filter((entry): entry is { key: string; record: RetryRecord } => Boolean(entry.record))
-    .filter((entry) => new Date(entry.record.nextAttemptAt).getTime() <= Date.now())
+    .filter((entry) => new Date(entry.record.nextAttemptAt).getTime() <= getNowMs())
     .sort((a, b) =>
       new Date(a.record.nextAttemptAt).getTime() - new Date(b.record.nextAttemptAt).getTime()
     )
@@ -606,11 +963,14 @@ export async function processNotifyRetries(
         subscriber: activeSubscriber,
         force: false,
       });
+
       if (sendResult.sent) {
         output.sent += 1;
+        await updateSubscriberDeliveryState(kv, activeSubscriber, post.id);
       } else {
         output.dropped += 1;
       }
+
       await kv.delete(entry.key);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown retry send error';

@@ -1,9 +1,18 @@
 export type SubscriberStatus = 'pending' | 'active' | 'unsubscribed';
+export type DeliveryMode = 'immediate' | 'every_5h' | 'daily';
 
 export interface SubscriberRecord {
   email: string;
   emailHash: string;
   status: SubscriberStatus;
+  deliveryMode?: DeliveryMode;
+  timezone?: string;
+  dailyHour?: number;
+  pendingDeliveryMode?: DeliveryMode;
+  pendingTimezone?: string;
+  pendingDailyHour?: number;
+  lastNotifiedAt?: string;
+  lastNotifiedPostId?: string;
   createdAt: string;
   updatedAt: string;
   confirmedAt?: string;
@@ -31,11 +40,13 @@ export interface SentRecord {
 export interface SubscribeResult {
   status: 'confirmation_sent' | 'already_subscribed';
   email: string;
+  deliveryMode: DeliveryMode;
 }
 
 export interface ConfirmResult {
   status: 'subscribed';
   email: string;
+  deliveryMode: DeliveryMode;
 }
 
 export interface UnsubscribeResult {
@@ -58,4 +69,14 @@ export interface RetryProcessResult {
   sent: number;
   dropped: number;
   failed: number;
+}
+
+export interface ScheduledDispatchResult {
+  postId: string;
+  scanned: number;
+  due: number;
+  sent: number;
+  skipped: number;
+  failed: number;
+  skippedReason?: string;
 }

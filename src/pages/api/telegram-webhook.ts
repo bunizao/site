@@ -98,7 +98,9 @@ async function triggerMoodDispatch(context: { request: Request; locals?: any }, 
   }
 
   try {
-    const result = await dispatchMoodNotification(context, postId);
+    const result = await dispatchMoodNotification(context, postId, {
+      deliveryModes: ['immediate'],
+    });
     if (result.failed > 0) {
       console.warn(`Mood notify dispatch finished with failures for post ${postId}:`, result);
     }

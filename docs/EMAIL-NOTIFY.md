@@ -1,6 +1,6 @@
 # Email Notify (Resend)
 
-This document describes how to deploy mood email notifications with Resend on Vercel.
+This document describes how mood email notifications are deployed with Resend.
 
 ## Overview
 
@@ -9,11 +9,26 @@ The implementation uses:
 - `POST /api/notify/subscribe` for subscription requests (double opt-in)
 - `GET /api/notify/confirm` for subscription confirmation
 - `GET /api/notify/unsubscribe` for one-click unsubscribe
-- `POST /api/notify/dispatch` for manual notification dispatch
+- `POST /api/notify/dispatch` for manual per-post dispatch
+- `GET/POST /api/notify/schedule` for scheduled delivery modes (`every_5h`, `daily`)
 - `GET/POST /api/notify/retry` for retrying failed deliveries
-- `POST /api/telegram-webhook` as the automatic trigger when a new mood is posted
+- `POST /api/telegram-webhook` for automatic real-time dispatch on new mood posts (`immediate` mode)
 
-A failed send is stored in KV as a retry record and processed by Vercel Cron (`/api/notify/retry`).
+## Delivery Modes
+
+`POST /api/notify/subscribe` accepts:
+
+- `deliveryMode`: `immediate` | `every_5h` | `daily`
+- `timezone`: required for accurate local-day behavior in `daily` mode (defaults to `Asia/Shanghai`)
+- `dailyHour`: hour in `0..23` for `daily` mode (defaults to `9`)
+
+Example:
+
+```bash
+curl -X POST "https://your-domain.com/api/notify/subscribe" \
+  -H "content-type: application/json" \
+  -d '{"email":"user@example.com","deliveryMode":"daily","timezone":"Asia/Shanghai","dailyHour":9}'
+```
 
 ## Environment Variables
 
@@ -40,27 +55,36 @@ If `CLOUDFLARE_NOTIFY_KV_NAMESPACE_ID` is not set, the code falls back to `CLOUD
 - `notify:retry:<postId>:<emailHash>`
 - `notify:dead:<postId>:<emailHash>:<timestamp>`
 
-## Vercel Cron
+## Scheduling Strategy
 
-`vercel.json` includes:
+- Real-time sends (`immediate`) are triggered by Telegram webhook events.
+- Scheduled sends (`every_5h`, `daily`) are triggered by `/api/notify/schedule`.
+- Failed sends are retried by `/api/notify/retry`.
+
+### Vercel Cron
+
+`vercel.json` keeps a low-frequency fallback cron:
 
 ```json
 {
-  "crons": [{ "path": "/api/notify/retry", "schedule": "*/15 * * * *" }]
+  "crons": [{ "path": "/api/notify/retry", "schedule": "0 3 * * *" }]
 }
 ```
 
-Cron calls include `Authorization: Bearer <CRON_SECRET>` automatically when `CRON_SECRET` is configured in Vercel.
+This daily fallback exists for Vercel Hobby plan compatibility.
+
+### Primary Scheduler (Cloudflare Worker)
+
+Use `workers/notify-scheduler` as the primary scheduler (every 15 minutes).
+
+It calls:
+
+- `POST /api/notify/schedule`
+- `POST /api/notify/retry`
+
+with `Authorization: Bearer <CRON_SECRET>`.
 
 ## API Usage
-
-Start subscription:
-
-```bash
-curl -X POST "https://your-domain.com/api/notify/subscribe" \
-  -H "content-type: application/json" \
-  -d '{"email":"user@example.com"}'
-```
 
 Manual dispatch for a specific mood post id:
 
@@ -71,16 +95,23 @@ curl -X POST "https://your-domain.com/api/notify/dispatch" \
   -d '{"postId":"12345"}'
 ```
 
+Manual schedule run:
+
+```bash
+curl -X POST "https://your-domain.com/api/notify/schedule" \
+  -H "authorization: Bearer <CRON_SECRET>"
+```
+
 Manual retry run:
 
 ```bash
-curl "https://your-domain.com/api/notify/retry" \
-  -H "authorization: Bearer <NOTIFY_DISPATCH_SECRET>"
+curl -X POST "https://your-domain.com/api/notify/retry" \
+  -H "authorization: Bearer <CRON_SECRET>"
 ```
 
 ## Operational Notes
 
-- The webhook dispatch is idempotent per `postId + emailHash`.
+- Webhook dispatch is idempotent per `postId + emailHash`.
 - Unsubscribe links are signed and time-limited.
 - Failed deliveries are retried with backoff.
 - Keep `NOTIFY_FROM_EMAIL` domain verified in Resend.

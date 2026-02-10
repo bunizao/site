@@ -67,7 +67,13 @@ Email notification endpoints for mood subscriptions:
 - `GET /api/notify/confirm?token=<token>` - Confirm subscription link
 - `GET /api/notify/unsubscribe?token=<token>` - One-click unsubscribe link
 - `POST /api/notify/dispatch` - Dispatch mood notification (requires `NOTIFY_DISPATCH_SECRET`)
+- `GET/POST /api/notify/schedule` - Process scheduled modes (`every_5h`, `daily`)
 - `GET/POST /api/notify/retry` - Retry failed deliveries (requires `CRON_SECRET` or `NOTIFY_DISPATCH_SECRET`)
+
+`POST /api/notify/subscribe` supports optional fields:
+- `deliveryMode` (`immediate` | `every_5h` | `daily`)
+- `timezone` (recommended for `daily`)
+- `dailyHour` (`0..23` for `daily`)
 
 Full email notification setup guide:
 - [`docs/EMAIL-NOTIFY.md`](docs/EMAIL-NOTIFY.md)
@@ -104,6 +110,7 @@ Documentation:
 ## Project Structure
 - `/src/pages` - Route entry points
 - `src/pages/api` - Dynamic SVG endpoints
+- `workers/notify-scheduler` - Cloudflare Worker scheduler for notify `schedule + retry`
 - `src/components` - Reusable UI components
 - `src/layouts` - Layout wrappers
 - `src/styles` - Global styles and fonts

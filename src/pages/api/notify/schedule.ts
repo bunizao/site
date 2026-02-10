@@ -1,19 +1,12 @@
 import type { APIRoute } from 'astro';
 import { getNotifyConfig } from '@/lib/notify/env';
 import {
-  dispatchMoodNotification,
+  dispatchScheduledMoodNotifications,
   isAuthorizedSecret,
   NotifyServiceError,
 } from '@/lib/notify/service';
-import type { DeliveryMode } from '@/lib/notify/types';
 
 export const prerender = false;
-
-interface DispatchBody {
-  postId?: string;
-  force?: boolean;
-  deliveryModes?: DeliveryMode[];
-}
 
 function unauthorized(): Response {
   return new Response(JSON.stringify({ error: 'Unauthorized' }), {
@@ -22,36 +15,27 @@ function unauthorized(): Response {
   });
 }
 
-export const POST: APIRoute = async ({ request, locals }) => {
+function isAuthorizedForSchedule(request: Request, locals: any): boolean {
   const config = getNotifyConfig({ locals });
 
-  if (!config.dispatchSecret || !isAuthorizedSecret(request, config.dispatchSecret)) {
+  if (config.cronSecret && isAuthorizedSecret(request, config.cronSecret)) {
+    return true;
+  }
+
+  if (config.dispatchSecret && isAuthorizedSecret(request, config.dispatchSecret)) {
+    return true;
+  }
+
+  return false;
+}
+
+async function handleSchedule(request: Request, locals: any): Promise<Response> {
+  if (!isAuthorizedForSchedule(request, locals)) {
     return unauthorized();
   }
 
-  let body: DispatchBody;
   try {
-    body = (await request.json()) as DispatchBody;
-  } catch {
-    return new Response(JSON.stringify({ error: 'Invalid JSON body' }), {
-      status: 400,
-      headers: { 'Content-Type': 'application/json' },
-    });
-  }
-
-  try {
-    const result = await dispatchMoodNotification(
-      {
-        request,
-        locals,
-      },
-      body.postId ?? '',
-      {
-        force: Boolean(body.force),
-        deliveryModes: Array.isArray(body.deliveryModes) ? body.deliveryModes : undefined,
-      }
-    );
-
+    const result = await dispatchScheduledMoodNotifications({ request, locals });
     return new Response(JSON.stringify(result), {
       headers: { 'Content-Type': 'application/json' },
     });
@@ -63,12 +47,20 @@ export const POST: APIRoute = async ({ request, locals }) => {
       });
     }
 
-    console.error('Dispatch failed:', error);
+    console.error('Schedule process failed:', error);
     return new Response(JSON.stringify({ error: 'Internal Server Error' }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' },
     });
   }
+}
+
+export const GET: APIRoute = async ({ request, locals }) => {
+  return handleSchedule(request, locals);
+};
+
+export const POST: APIRoute = async ({ request, locals }) => {
+  return handleSchedule(request, locals);
 };
 
 export const ALL: APIRoute = async () => {

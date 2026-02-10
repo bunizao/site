@@ -5,6 +5,9 @@ export const prerender = false;
 
 interface SubscribeBody {
   email?: string;
+  deliveryMode?: string;
+  timezone?: string;
+  dailyHour?: number | string | null;
 }
 
 export const POST: APIRoute = async ({ request, locals }) => {
@@ -24,7 +27,12 @@ export const POST: APIRoute = async ({ request, locals }) => {
         request,
         locals,
       },
-      payload.email ?? ''
+      {
+        email: payload.email ?? '',
+        deliveryMode: payload.deliveryMode,
+        timezone: payload.timezone,
+        dailyHour: payload.dailyHour,
+      }
     );
 
     return new Response(JSON.stringify(result), {

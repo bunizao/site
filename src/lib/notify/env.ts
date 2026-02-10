@@ -17,7 +17,17 @@ interface RuntimeContext {
 }
 
 function readEnv(locals: any, name: string): string {
-  return import.meta.env[name] ?? locals?.runtime?.env?.[name] ?? locals?.env?.[name] ?? '';
+  const buildValue = import.meta.env[name];
+  if (typeof buildValue === 'string' && buildValue.trim()) {
+    return buildValue;
+  }
+
+  const runtimeValue = locals?.runtime?.env?.[name] ?? locals?.env?.[name];
+  if (typeof runtimeValue === 'string') {
+    return runtimeValue;
+  }
+
+  return '';
 }
 
 function trimTrailingSlash(value: string): string {
