@@ -145,18 +145,17 @@ Documentation:
 - [miantiao-me/BroadcastChannel](https://github.com/miantiao-me/BroadcastChannel) - Inspiration and code reference for `moods` ideas.
 - [ddiu8081/ddiu.io](https://github.com/ddiu8081/ddiu.io) - Inspiration and code reference for `Ghost API` integration.
 - [zmh-program/zmh-program.github.io](https://github.com/zmh-program/zmh-program.github.io) - Inspiration for layout and style ideas.
+- [antfu/antfu.me](https://antfu.me/) - Inspiration for personal website design and content ideas.
 - The Astro, React, and Tailwind CSS communities for great tooling and docs.
 - Open-source maintainers whose libraries power this site.
 
 ## License
-This project is licensed under the **GNU Affero General Public License v3.0 (AGPL-3.0)**.
+Copyright (c) 2026 bunizao. All rights reserved.
 
-This repository includes and is derived from third-party open-source software:
+This repository is publicly visible for source inspection. No permission is granted to use, copy, modify, distribute, deploy, or commercialize this code without prior written approval from bunizao.
 
-- Portions of the codebase are derived from AGPL-licensed projects and therefore the entire project is distributed under the AGPL-3.0 in accordance with its terms.
-- This project also incorporates code licensed under the MIT License. MIT-licensed components remain under their original license, and their copyright notices are preserved as required.
+If you obtained an earlier version of this project under a different license, that version remains governed by the license terms that were included with that version.
 
+Third-party components and assets remain subject to their own licenses.
 
-> If you modify this program and run it as a network service, you are required to make the complete corresponding source code of your modified version available to users of that service, as mandated by the AGPL-3.0.
-
-See the [`LICENSE`](LICENSE) file for the full license text. 
+See the [`LICENSE`](LICENSE) file for the full terms.
