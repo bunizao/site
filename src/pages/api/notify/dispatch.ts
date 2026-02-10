@@ -6,6 +6,7 @@ import {
   NotifyServiceError,
 } from '@/lib/notify/service';
 import type { DeliveryMode } from '@/lib/notify/types';
+import { checkRateLimit, createRateLimitHeaders } from '@/lib/security/rate-limit';
 
 export const prerender = false;
 
@@ -15,18 +16,41 @@ interface DispatchBody {
   deliveryModes?: DeliveryMode[];
 }
 
-function unauthorized(): Response {
+function unauthorized(rateLimitHeaders?: Headers): Response {
+  const headers = new Headers({ 'Content-Type': 'application/json' });
+  if (rateLimitHeaders) {
+    rateLimitHeaders.forEach((value, key) => {
+      headers.set(key, value);
+    });
+  }
+
   return new Response(JSON.stringify({ error: 'Unauthorized' }), {
     status: 401,
-    headers: { 'Content-Type': 'application/json' },
+    headers,
   });
 }
 
 export const POST: APIRoute = async ({ request, locals }) => {
+  const rateLimit = checkRateLimit(
+    request,
+    { windowMs: 60_000, max: 20, prefix: 'api:notify:dispatch' },
+    locals
+  );
+  const rateLimitHeaders = createRateLimitHeaders(rateLimit);
+  if (!rateLimit.allowed) {
+    return new Response(JSON.stringify({ error: 'Too Many Requests' }), {
+      status: 429,
+      headers: {
+        'Content-Type': 'application/json',
+        ...Object.fromEntries(rateLimitHeaders),
+      },
+    });
+  }
+
   const config = getNotifyConfig({ locals });
 
   if (!config.dispatchSecret || !isAuthorizedSecret(request, config.dispatchSecret)) {
-    return unauthorized();
+    return unauthorized(rateLimitHeaders);
   }
 
   let body: DispatchBody;
@@ -35,7 +59,10 @@ export const POST: APIRoute = async ({ request, locals }) => {
   } catch {
     return new Response(JSON.stringify({ error: 'Invalid JSON body' }), {
       status: 400,
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        ...Object.fromEntries(rateLimitHeaders),
+      },
     });
   }
 
@@ -53,20 +80,29 @@ export const POST: APIRoute = async ({ request, locals }) => {
     );
 
     return new Response(JSON.stringify(result), {
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        ...Object.fromEntries(rateLimitHeaders),
+      },
     });
   } catch (error) {
     if (error instanceof NotifyServiceError) {
       return new Response(JSON.stringify({ error: error.message, code: error.code }), {
         status: error.status,
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...Object.fromEntries(rateLimitHeaders),
+        },
       });
     }
 
     console.error('Dispatch failed:', error);
     return new Response(JSON.stringify({ error: 'Internal Server Error' }), {
       status: 500,
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        ...Object.fromEntries(rateLimitHeaders),
+      },
     });
   }
 };

@@ -1,5 +1,6 @@
 import type { APIRoute } from 'astro';
 import { NotifyServiceError, requestMoodSubscription } from '@/lib/notify/service';
+import { checkRateLimit, createRateLimitHeaders } from '@/lib/security/rate-limit';
 
 export const prerender = false;
 
@@ -11,13 +12,32 @@ interface SubscribeBody {
 }
 
 export const POST: APIRoute = async ({ request, locals }) => {
+  const rateLimit = checkRateLimit(
+    request,
+    { windowMs: 10 * 60_000, max: 8, prefix: 'api:notify:subscribe' },
+    locals
+  );
+  const rateLimitHeaders = createRateLimitHeaders(rateLimit);
+  if (!rateLimit.allowed) {
+    return new Response(JSON.stringify({ error: 'Too Many Requests' }), {
+      status: 429,
+      headers: {
+        'Content-Type': 'application/json',
+        ...Object.fromEntries(rateLimitHeaders),
+      },
+    });
+  }
+
   let payload: SubscribeBody;
   try {
     payload = (await request.json()) as SubscribeBody;
   } catch {
     return new Response(JSON.stringify({ error: 'Invalid JSON body' }), {
       status: 400,
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        ...Object.fromEntries(rateLimitHeaders),
+      },
     });
   }
 
@@ -35,8 +55,19 @@ export const POST: APIRoute = async ({ request, locals }) => {
       }
     );
 
-    return new Response(JSON.stringify(result), {
-      headers: { 'Content-Type': 'application/json' },
+    const publicResult =
+      result.status === 'already_subscribed'
+        ? {
+            ...result,
+            status: 'confirmation_sent' as const,
+          }
+        : result;
+
+    return new Response(JSON.stringify(publicResult), {
+      headers: {
+        'Content-Type': 'application/json',
+        ...Object.fromEntries(rateLimitHeaders),
+      },
     });
   } catch (error) {
     if (error instanceof NotifyServiceError) {
@@ -47,7 +78,10 @@ export const POST: APIRoute = async ({ request, locals }) => {
         }),
         {
           status: error.status,
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            ...Object.fromEntries(rateLimitHeaders),
+          },
         }
       );
     }
@@ -55,7 +89,10 @@ export const POST: APIRoute = async ({ request, locals }) => {
     console.error('Subscription request failed:', error);
     return new Response(JSON.stringify({ error: 'Internal Server Error' }), {
       status: 500,
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        ...Object.fromEntries(rateLimitHeaders),
+      },
     });
   }
 };

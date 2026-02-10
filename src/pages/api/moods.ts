@@ -10,8 +10,15 @@ import {
   hasMedia,
   isLongContent,
 } from '../../lib/mood-utils';
+import { checkRateLimit, createRateLimitHeaders } from '../../lib/security/rate-limit';
 
 export const prerender = false;
+
+const CURSOR_PATTERN = /^\d{1,20}$/;
+
+function isValidCursor(value: string): boolean {
+  return !value || CURSOR_PATTERN.test(value);
+}
 
 export const GET: APIRoute = async ({ request, locals }) => {
   const url = new URL(request.url);
@@ -19,6 +26,37 @@ export const GET: APIRoute = async ({ request, locals }) => {
   const after = url.searchParams.get('after') ?? '';
   const isProbe = url.searchParams.get('probe') === '1';
   const skipCache = url.searchParams.get('fresh') === '1';
+  const rateLimit = checkRateLimit(
+    request,
+    isProbe
+      ? { windowMs: 60_000, max: 90, prefix: 'api:moods:probe' }
+      : skipCache
+        ? { windowMs: 60_000, max: 30, prefix: 'api:moods:fresh' }
+        : { windowMs: 60_000, max: 180, prefix: 'api:moods' },
+    locals
+  );
+  const rateLimitHeaders = createRateLimitHeaders(rateLimit);
+
+  if (!rateLimit.allowed) {
+    return new Response(JSON.stringify({ error: 'Too Many Requests' }), {
+      status: 429,
+      headers: {
+        'Content-Type': 'application/json',
+        ...Object.fromEntries(rateLimitHeaders),
+      },
+    });
+  }
+
+  if (!isValidCursor(before) || !isValidCursor(after)) {
+    return new Response(JSON.stringify({ error: 'Invalid cursor parameter' }), {
+      status: 400,
+      headers: {
+        'Content-Type': 'application/json',
+        ...Object.fromEntries(rateLimitHeaders),
+      },
+    });
+  }
+
   const channel = import.meta.env.CHANNEL || locals?.runtime?.env?.CHANNEL || '';
   const channelEmojiId = import.meta.env.CHANNEL_EMOJI_ID || locals?.env?.CHANNEL_EMOJI_ID || '';
 
@@ -43,6 +81,7 @@ export const GET: APIRoute = async ({ request, locals }) => {
           headers: {
             'Content-Type': 'application/json',
             'Cache-Control': 'no-store, max-age=0',
+            ...Object.fromEntries(rateLimitHeaders),
           },
         }
       );
@@ -96,6 +135,7 @@ export const GET: APIRoute = async ({ request, locals }) => {
       headers: {
         'Content-Type': 'application/json',
         'Cache-Control': skipCache ? 'no-store, max-age=0' : 'public, max-age=0',
+        ...Object.fromEntries(rateLimitHeaders),
       },
     });
   } catch (error) {
@@ -104,6 +144,7 @@ export const GET: APIRoute = async ({ request, locals }) => {
       status: 500,
       headers: {
         'Content-Type': 'application/json',
+        ...Object.fromEntries(rateLimitHeaders),
       },
     });
   }

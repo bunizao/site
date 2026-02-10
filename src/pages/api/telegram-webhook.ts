@@ -9,6 +9,8 @@
 import type { APIRoute } from 'astro';
 import { dispatchMoodNotification } from '@/lib/notify/service';
 import { getNotifyConfig } from '@/lib/notify/env';
+import { secureCompareText } from '@/lib/notify/security';
+import { checkRateLimit, createRateLimitHeaders } from '@/lib/security/rate-limit';
 
 export const prerender = false;
 
@@ -109,24 +111,44 @@ async function triggerMoodDispatch(context: { request: Request; locals?: any }, 
   }
 }
 
+function isValidWebhookToken(receivedToken: string | null): boolean {
+  if (!receivedToken || !WEBHOOK_SECRET) {
+    return false;
+  }
+  return secureCompareText(receivedToken, WEBHOOK_SECRET);
+}
+
 export const POST: APIRoute = async ({ request, locals }) => {
+  const rateLimit = checkRateLimit(
+    request,
+    { windowMs: 60_000, max: 180, prefix: 'api:telegram:webhook' },
+    locals
+  );
+  const rateLimitHeaders = createRateLimitHeaders(rateLimit);
+  if (!rateLimit.allowed) {
+    return new Response('Too Many Requests', {
+      status: 429,
+      headers: rateLimitHeaders,
+    });
+  }
+
   // Verify webhook secret token
   const secretToken = request.headers.get('X-Telegram-Bot-Api-Secret-Token');
-  if (secretToken !== WEBHOOK_SECRET) {
+  if (!isValidWebhookToken(secretToken)) {
     console.warn('Webhook unauthorized: invalid secret token');
-    return new Response('Unauthorized', { status: 401 });
+    return new Response('Unauthorized', { status: 401, headers: rateLimitHeaders });
   }
 
   let update: TelegramUpdate;
   try {
     update = await request.json();
   } catch {
-    return new Response('Invalid JSON', { status: 400 });
+    return new Response('Invalid JSON', { status: 400, headers: rateLimitHeaders });
   }
 
   const message = update.channel_post;
   if (!message?.message_id) {
-    return new Response('OK');
+    return new Response('OK', { headers: rateLimitHeaders });
   }
 
   const postId = message.message_id.toString();
@@ -134,13 +156,13 @@ export const POST: APIRoute = async ({ request, locals }) => {
 
   // Only index image file_id when the post has photos
   if (!message?.photo?.length) {
-    return new Response('OK');
+    return new Response('OK', { headers: rateLimitHeaders });
   }
 
   // Pick the largest photo explicitly to avoid relying on ordering
   const largestPhoto = selectLargestPhoto(message.photo);
   if (!largestPhoto) {
-    return new Response('OK');
+    return new Response('OK', { headers: rateLimitHeaders });
   }
 
   // For single images, store as index 0
@@ -156,7 +178,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
     console.info(`Indexed image: ${kvKey} -> ${largestPhoto.file_id.substring(0, 20)}...`);
   }
 
-  return new Response('OK');
+  return new Response('OK', { headers: rateLimitHeaders });
 };
 
 // Return 405 for non-POST requests

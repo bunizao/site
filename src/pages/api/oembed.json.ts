@@ -1,5 +1,6 @@
 import type { APIRoute } from 'astro';
 import { getCorsHeaders } from '../../lib/embed-response';
+import { checkRateLimit, createRateLimitHeaders } from '../../lib/security/rate-limit';
 
 export const prerender = false;
 
@@ -55,8 +56,25 @@ function estimateHeight(options: {
   return Math.round(total);
 }
 
-export const GET: APIRoute = async ({ url, request }) => {
+export const GET: APIRoute = async ({ url, request, locals }) => {
   const corsHeaders = getCorsHeaders();
+  const rateLimit = checkRateLimit(
+    request,
+    { windowMs: 60_000, max: 120, prefix: 'api:oembed' },
+    locals
+  );
+  const rateLimitHeaders = createRateLimitHeaders(rateLimit);
+
+  if (!rateLimit.allowed) {
+    return new Response(JSON.stringify({ error: 'Too Many Requests' }), {
+      status: 429,
+      headers: {
+        'Content-Type': 'application/json',
+        ...Object.fromEntries(corsHeaders),
+        ...Object.fromEntries(rateLimitHeaders),
+      },
+    });
+  }
 
   const params = url.searchParams;
   const requestedUrl = params.get('url');
