@@ -912,14 +912,23 @@ export async function getPostComments(
 
 export async function getChannelInfo(
   Astro: any,
-  { before = '', after = '', q = '', type = 'list', id = '' }: { before?: string; after?: string; q?: string; type?: string; id?: string } = {}
+  {
+    before = '',
+    after = '',
+    q = '',
+    type = 'list',
+    id = '',
+    skipCache = false,
+  }: { before?: string; after?: string; q?: string; type?: string; id?: string; skipCache?: boolean } = {}
 ): Promise<ChannelInfo | Post> {
   const cacheKey = JSON.stringify({ before, after, q, type, id });
-  const cachedResult = cache.get(cacheKey);
 
-  if (cachedResult) {
-    console.info('Match Cache', { before, after, q, type, id });
-    return JSON.parse(JSON.stringify(cachedResult));
+  if (!skipCache) {
+    const cachedResult = cache.get(cacheKey);
+    if (cachedResult) {
+      console.info('Match Cache', { before, after, q, type, id });
+      return JSON.parse(JSON.stringify(cachedResult));
+    }
   }
 
   const host = getEnv(import.meta.env, Astro, 'TELEGRAM_HOST') || 't.me';
@@ -936,7 +945,7 @@ export async function getChannelInfo(
     }
   });
 
-  console.info('Fetching', url, { before, after, q, type, id });
+  console.info('Fetching', url, { before, after, q, type, id, skipCache });
   const html = await $fetch<string>(url, {
     headers,
     query: {
@@ -952,7 +961,9 @@ export async function getChannelInfo(
   const channelTitle = $('.tgme_channel_info_header_title')?.text() ?? '';
   if (id) {
     const post = await getPost($, null, { channel, channelTitle, staticProxy, host, headers });
-    cache.set(cacheKey, post);
+    if (!skipCache) {
+      cache.set(cacheKey, post);
+    }
     return post;
   }
   const posts =
@@ -975,6 +986,8 @@ export async function getChannelInfo(
     avatar: $('.tgme_page_photo_image img')?.attr('src') ?? '',
   };
 
-  cache.set(cacheKey, channelInfo);
+  if (!skipCache) {
+    cache.set(cacheKey, channelInfo);
+  }
   return channelInfo;
 }

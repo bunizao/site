@@ -16,15 +16,37 @@ export const prerender = false;
 export const GET: APIRoute = async ({ request, locals }) => {
   const url = new URL(request.url);
   const before = url.searchParams.get('before') ?? '';
+  const after = url.searchParams.get('after') ?? '';
+  const isProbe = url.searchParams.get('probe') === '1';
+  const skipCache = url.searchParams.get('fresh') === '1';
   const channel = import.meta.env.CHANNEL || locals?.runtime?.env?.CHANNEL || '';
   const channelEmojiId = import.meta.env.CHANNEL_EMOJI_ID || locals?.env?.CHANNEL_EMOJI_ID || '';
 
   try {
-    const result = await getChannelInfo({ request, locals } as any, { type: 'list', before });
+    const result = await getChannelInfo({ request, locals } as any, {
+      type: 'list',
+      before,
+      after,
+      skipCache,
+    });
     const channelInfo = result as ChannelInfo;
     const posts = channelInfo.posts ?? [];
     const sortedPosts = [...posts].sort((a, b) => getNumericId(b.id) - getNumericId(a.id));
     const channelTitle = channelInfo.title?.trim() ?? '';
+
+    if (isProbe) {
+      return new Response(
+        JSON.stringify({
+          latestId: sortedPosts[0]?.id ?? '',
+        }),
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            'Cache-Control': 'no-store, max-age=0',
+          },
+        }
+      );
+    }
 
     const payload = sortedPosts.map((post) => {
       const mediaPreview = getInlineMediaPreview(post.content);
@@ -73,6 +95,7 @@ export const GET: APIRoute = async ({ request, locals }) => {
     }), {
       headers: {
         'Content-Type': 'application/json',
+        'Cache-Control': skipCache ? 'no-store, max-age=0' : 'public, max-age=0',
       },
     });
   } catch (error) {

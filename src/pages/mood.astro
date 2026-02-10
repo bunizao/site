@@ -252,6 +252,14 @@ const skeletonGroups = [
         </div>
         <div class="mood-sentinel" data-mood-sentinel aria-hidden="true"></div>
       </div>
+
+      <div class="mood-update-notice is-hidden" data-mood-update-notice role="status" aria-live="polite" aria-atomic="true">
+        <p class="mood-update-text" data-mood-update-text>New moods available.</p>
+        <div class="mood-update-actions">
+          <button class="mood-update-btn" type="button" data-mood-update-refresh>Refresh</button>
+          <button class="mood-update-btn mood-update-btn--ghost" type="button" data-mood-update-dismiss>Later</button>
+        </div>
+      </div>
     </div>
   </main>
 </Layout>
@@ -1972,6 +1980,97 @@ const skeletonGroups = [
     height: 1px;
   }
 
+  :global(.mood-update-notice) {
+    position: fixed;
+    right: 16px;
+    bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    max-width: min(420px, calc(100vw - 32px));
+    padding: 12px 14px;
+    border: 1px solid hsl(var(--foreground) / 0.12);
+    border-radius: 12px;
+    background: hsl(var(--background) / 0.92);
+    backdrop-filter: blur(14px) saturate(1.1);
+    -webkit-backdrop-filter: blur(14px) saturate(1.1);
+    box-shadow:
+      0 10px 24px hsl(0 0% 0% / 0.12),
+      0 2px 8px hsl(0 0% 0% / 0.06);
+    z-index: 80;
+    transition:
+      transform 0.2s ease,
+      opacity 0.2s ease;
+  }
+
+  :global(.mood-update-notice.is-hidden) {
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(12px);
+  }
+
+  :global(.mood-update-text) {
+    margin: 0;
+    font-size: 12px;
+    line-height: 1.35;
+    color: hsl(var(--foreground) / 0.92);
+  }
+
+  :global(.mood-update-actions) {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-left: auto;
+    flex-shrink: 0;
+  }
+
+  :global(.mood-update-btn) {
+    border: 1px solid hsl(var(--foreground) / 0.16);
+    border-radius: 8px;
+    padding: 4px 10px;
+    background: hsl(var(--foreground));
+    color: hsl(var(--background));
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.2;
+    cursor: pointer;
+    transition:
+      transform 0.15s ease,
+      opacity 0.15s ease;
+  }
+
+  :global(.mood-update-btn:hover) {
+    transform: translateY(-1px);
+  }
+
+  :global(.mood-update-btn:active) {
+    transform: translateY(0);
+  }
+
+  :global(.mood-update-btn--ghost) {
+    background: transparent;
+    color: hsl(var(--muted-foreground));
+  }
+
+  @media (max-width: 640px) {
+    :global(.mood-update-notice) {
+      left: 12px;
+      right: 12px;
+      bottom: 12px;
+      gap: 10px;
+      padding: 10px 12px;
+    }
+
+    :global(.mood-update-actions) {
+      gap: 5px;
+    }
+
+    :global(.mood-update-btn) {
+      padding: 4px 8px;
+      font-size: 11px;
+    }
+  }
+
   @media (max-width: 480px) {
     .mood-page {
       padding: 64px 0 48px;
@@ -2142,6 +2241,10 @@ const skeletonGroups = [
   const list = document.querySelector('[data-mood-list]');
   const status = document.querySelector('[data-load-status]');
   const sentinel = document.querySelector('[data-mood-sentinel]');
+  const updateNoticeEl = document.querySelector('[data-mood-update-notice]') as HTMLElement | null;
+  const updateNoticeTextEl = document.querySelector('[data-mood-update-text]') as HTMLElement | null;
+  const updateRefreshBtn = document.querySelector('[data-mood-update-refresh]') as HTMLButtonElement | null;
+  const updateDismissBtn = document.querySelector('[data-mood-update-dismiss]') as HTMLButtonElement | null;
   const ALWAYS_LOADING = import.meta.env.PUBLIC_DEBUG_ALWAYS_LOADING === 'true';
 
   if (loadingEl && errorEl && feedEl && list && status && sentinel) {
@@ -2155,6 +2258,22 @@ const skeletonGroups = [
       let isLoading = false;
       let hasMore = true;
       let observer: IntersectionObserver;
+      let latestSeenId = '';
+      let pendingUpdateId = '';
+      let dismissedUpdateId = '';
+      let isCheckingUpdates = false;
+      let updatePollTimer = 0;
+      let autoRefreshTimer = 0;
+      let autoRefreshPending = false;
+      let updateWatcherStarted = false;
+
+      const UPDATE_POLL_INTERVAL_MS = 75_000;
+      const AUTO_REFRESH_DELAY_MS = 6_000;
+      const AUTO_REFRESH_MAX_SCROLL_Y = 120;
+      const AUTO_REFRESH_CANCEL_SCROLL_Y = 220;
+      const PREVIEW_PENDING_ID = '9007199254740991';
+      const previewUpdateParam = new URLSearchParams(window.location.search).get('previewUpdate') ?? '';
+      const forceUpdateNoticePreview = ['1', 'true', 'yes', 'on'].includes(previewUpdateParam.toLowerCase());
 
       const inlineSkeletonConfig = {
         dateWidth: '68px',
@@ -2278,6 +2397,195 @@ const skeletonGroups = [
       pendingPosts = [];
       pendingDateKey = null;
       return flushed;
+    };
+
+    const toNumericMoodId = (value: string): number => {
+      const parsed = Number.parseInt(value, 10);
+      return Number.isFinite(parsed) ? parsed : Number.NaN;
+    };
+
+    const isNewerMoodId = (nextId: string, currentId: string): boolean => {
+      if (!nextId) return false;
+      if (!currentId) return true;
+      const nextNumeric = toNumericMoodId(nextId);
+      const currentNumeric = toNumericMoodId(currentId);
+      if (!Number.isNaN(nextNumeric) && !Number.isNaN(currentNumeric)) {
+        return nextNumeric > currentNumeric;
+      }
+      return nextId > currentId;
+    };
+
+    const getNewestRenderedMoodId = (): string => {
+      const firstItem = list.querySelector('.mood-item[data-mood-id]') as HTMLElement | null;
+      return firstItem?.dataset.moodId ?? '';
+    };
+
+    const cancelAutoRefresh = (): void => {
+      autoRefreshPending = false;
+      if (autoRefreshTimer) {
+        window.clearTimeout(autoRefreshTimer);
+        autoRefreshTimer = 0;
+      }
+    };
+
+    const triggerPageRefresh = (): void => {
+      cancelAutoRefresh();
+      if (updateNoticeTextEl) {
+        updateNoticeTextEl.textContent = 'Refreshing...';
+      }
+      window.location.reload();
+    };
+
+    const hideUpdateNotice = (): void => {
+      cancelAutoRefresh();
+      if (!updateNoticeEl) return;
+      updateNoticeEl.classList.add('is-hidden');
+    };
+
+    const showUpdateNotice = (autoRefresh: boolean): void => {
+      if (!updateNoticeEl || !updateNoticeTextEl) {
+        if (autoRefresh) {
+          triggerPageRefresh();
+        }
+        return;
+      }
+
+      cancelAutoRefresh();
+      autoRefreshPending = autoRefresh;
+      updateNoticeTextEl.textContent = autoRefresh
+        ? 'New moods detected. Refreshing in 6s...'
+        : 'New moods available.';
+      updateNoticeEl.classList.remove('is-hidden');
+
+      if (autoRefresh) {
+        autoRefreshTimer = window.setTimeout(() => {
+          triggerPageRefresh();
+        }, AUTO_REFRESH_DELAY_MS);
+      }
+    };
+
+    const syncLatestSeenId = (): void => {
+      const newestId = getNewestRenderedMoodId();
+      if (!newestId) return;
+      if (!latestSeenId || isNewerMoodId(newestId, latestSeenId)) {
+        latestSeenId = newestId;
+      }
+
+      if (pendingUpdateId && !isNewerMoodId(pendingUpdateId, latestSeenId)) {
+        pendingUpdateId = '';
+        dismissedUpdateId = '';
+        hideUpdateNotice();
+      }
+    };
+
+    const handleDetectedUpdate = (nextLatestId: string): void => {
+      if (!nextLatestId || dismissedUpdateId === nextLatestId) return;
+      if (!pendingUpdateId || isNewerMoodId(nextLatestId, pendingUpdateId)) {
+        pendingUpdateId = nextLatestId;
+      }
+
+      const canAutoRefresh = document.visibilityState === 'visible'
+        && window.scrollY <= AUTO_REFRESH_MAX_SCROLL_Y;
+      showUpdateNotice(canAutoRefresh);
+    };
+
+    const fetchLatestMoodId = async (): Promise<string> => {
+      const response = await fetch('/api/moods?probe=1&fresh=1', {
+        cache: 'no-store',
+        headers: {
+          'Cache-Control': 'no-cache',
+        },
+      });
+      if (!response.ok) {
+        throw new Error('Failed to check mood updates.');
+      }
+      const data = await response.json() as { latestId?: unknown };
+      return typeof data.latestId === 'string' ? data.latestId : '';
+    };
+
+    const checkForUpdates = async (): Promise<void> => {
+      if (!updateWatcherStarted || document.visibilityState !== 'visible') return;
+      if (isLoading || isCheckingUpdates) return;
+
+      isCheckingUpdates = true;
+      try {
+        const remoteLatestId = await fetchLatestMoodId();
+        if (!remoteLatestId) return;
+
+        if (!latestSeenId) {
+          if (totalCount === 0) {
+            handleDetectedUpdate(remoteLatestId);
+          } else {
+            latestSeenId = remoteLatestId;
+          }
+          return;
+        }
+
+        if (isNewerMoodId(remoteLatestId, latestSeenId)) {
+          handleDetectedUpdate(remoteLatestId);
+        }
+      } catch (error) {
+        console.error('Failed to check mood updates:', error);
+      } finally {
+        isCheckingUpdates = false;
+      }
+    };
+
+    const clearUpdatePollTimer = (): void => {
+      if (updatePollTimer) {
+        window.clearTimeout(updatePollTimer);
+        updatePollTimer = 0;
+      }
+    };
+
+    const scheduleNextUpdateCheck = (delay = UPDATE_POLL_INTERVAL_MS): void => {
+      clearUpdatePollTimer();
+      updatePollTimer = window.setTimeout(async () => {
+        await checkForUpdates();
+        scheduleNextUpdateCheck();
+      }, delay);
+    };
+
+    const startUpdateWatcher = (): void => {
+      if (updateWatcherStarted) return;
+      updateWatcherStarted = true;
+      syncLatestSeenId();
+      scheduleNextUpdateCheck();
+
+      if (forceUpdateNoticePreview) {
+        pendingUpdateId = PREVIEW_PENDING_ID;
+        dismissedUpdateId = '';
+        showUpdateNotice(false);
+      }
+
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') {
+          if (pendingUpdateId && isNewerMoodId(pendingUpdateId, latestSeenId) && dismissedUpdateId !== pendingUpdateId) {
+            const canAutoRefresh = window.scrollY <= AUTO_REFRESH_MAX_SCROLL_Y;
+            showUpdateNotice(canAutoRefresh);
+          }
+          checkForUpdates();
+          return;
+        }
+        cancelAutoRefresh();
+      });
+
+      window.addEventListener('online', () => {
+        checkForUpdates();
+      });
+
+      window.addEventListener(
+        'scroll',
+        () => {
+          if (!autoRefreshPending) return;
+          if (window.scrollY > AUTO_REFRESH_CANCEL_SCROLL_Y) {
+            showUpdateNotice(false);
+          }
+        },
+        { passive: true }
+      );
+
+      window.addEventListener('beforeunload', clearUpdatePollTimer, { once: true });
     };
 
     const fetchMoods = async (beforeId?: string): Promise<{ posts: MoodData[]; channel?: ChannelInfo }> => {
@@ -3441,6 +3749,7 @@ const skeletonGroups = [
       }
 
       totalCount = globalIndex;
+      syncLatestSeenId();
     };
 
     const handleNoMore = (): void => {
@@ -3501,6 +3810,7 @@ const skeletonGroups = [
           showFeed();
           handleNoMore();
           setStatus('No moods yet.');
+          startUpdateWatcher();
           return;
         }
 
@@ -3508,6 +3818,7 @@ const skeletonGroups = [
           appendMoods(ready, totalCount);
         }
         showFeed();
+        startUpdateWatcher();
 
         if (!hasMore) {
           handleNoMore();
@@ -3603,6 +3914,17 @@ const skeletonGroups = [
 
       if (loadButton) {
         loadButton.addEventListener('click', loadMore);
+      }
+
+      if (updateRefreshBtn) {
+        updateRefreshBtn.addEventListener('click', triggerPageRefresh);
+      }
+
+      if (updateDismissBtn) {
+        updateDismissBtn.addEventListener('click', () => {
+          dismissedUpdateId = pendingUpdateId;
+          hideUpdateNotice();
+        });
       }
 
       animatedEmoji.observe(list);
