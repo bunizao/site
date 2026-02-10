@@ -267,6 +267,37 @@ describe('notify service integration e2e', () => {
     expect(subscriber?.deliveryMode).toBe('immediate');
   });
 
+  test('pending subscription with same preferences does not send duplicate confirmations', async () => {
+    const context = createContext('/api/notify/subscribe');
+    const email = 'pending-user@example.com';
+
+    const firstRequest = await requestMoodSubscription(context, {
+      email,
+      deliveryMode: 'daily',
+      timezone: 'Asia/Shanghai',
+      dailyHour: 9,
+    });
+
+    expect(firstRequest.status).toBe('confirmation_sent');
+    expect(mock.emails.length).toBe(1);
+
+    const secondRequest = await requestMoodSubscription(context, {
+      email,
+      deliveryMode: 'daily',
+      timezone: 'Asia/Shanghai',
+      dailyHour: 9,
+    });
+
+    expect(secondRequest.status).toBe('already_subscribed');
+    expect(mock.emails.length).toBe(1);
+
+    const subscriber = readSubscriber(mock, email);
+    expect(subscriber?.status).toBe('pending');
+    expect(subscriber?.pendingDeliveryMode).toBe('daily');
+    expect(subscriber?.pendingTimezone).toBe('Asia/Shanghai');
+    expect(subscriber?.pendingDailyHour).toBe(9);
+  });
+
   test('instant delivery mode alias is normalized to immediate', async () => {
     const context = createContext('/api/notify/subscribe');
 

@@ -89,15 +89,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
       }
     );
 
-    const publicResult =
-      result.status === 'already_subscribed'
-        ? {
-            ...result,
-            status: 'confirmation_sent' as const,
-          }
-        : result;
-
-    return new Response(JSON.stringify(publicResult), {
+    return new Response(JSON.stringify(result), {
       headers: {
         'Content-Type': 'application/json',
         ...Object.fromEntries(rateLimitHeaders),
