@@ -2776,6 +2776,10 @@ const skeletonGroups = [
     const MOBILE_PANEL_MIN_TOP = 72;
     const HOVER_CLOSE_DELAY_MS = 140;
     const supportsHoverOpen = window.matchMedia('(hover: hover) and (pointer: fine)').matches;
+    const currentUrl = new URL(window.location.href);
+    const subscribeParam = (currentUrl.searchParams.get('subscribe') ?? '').trim().toLowerCase();
+    const shouldAutoOpenSubscribe = currentUrl.searchParams.has('subscribe')
+      && !['0', 'false', 'no', 'off'].includes(subscribeParam);
 
     const clearHoverCloseTimer = () => {
       if (hoverCloseTimer !== null) {
@@ -2986,6 +2990,17 @@ const skeletonGroups = [
     };
     window.addEventListener('scroll', handleReposition, { passive: true });
     window.addEventListener('resize', handleReposition, { passive: true });
+
+    if (shouldAutoOpenSubscribe) {
+      requestAnimationFrame(() => {
+        openPanel({ focusEmail: true });
+      });
+
+      currentUrl.searchParams.delete('subscribe');
+      const nextSearch = currentUrl.searchParams.toString();
+      const nextUrl = `${currentUrl.pathname}${nextSearch ? `?${nextSearch}` : ''}${currentUrl.hash}`;
+      window.history.replaceState({}, '', nextUrl);
+    }
 
     // Form submission
     form.addEventListener('submit', async (e) => {
