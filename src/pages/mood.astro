@@ -264,7 +264,7 @@ const skeletonGroups = [
         <p class="mood-update-text" data-mood-update-text>New moods available</p>
         <div class="mood-update-actions" data-mood-update-actions>
           <button class="mood-update-action" type="button" data-mood-update-refresh aria-label="Refresh">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <svg class="mood-update-action-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <polyline points="23 4 23 10 17 10"></polyline>
               <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
             </svg>
@@ -2011,6 +2011,19 @@ const skeletonGroups = [
     z-index: 80;
     overflow: hidden;
     will-change: transform, opacity;
+    transform: translateZ(0);
+    transition: gap 0.22s ease, padding 0.22s ease, border-color 0.22s ease, background-color 0.22s ease, box-shadow 0.22s ease;
+  }
+
+  :global(.mood-update-notice.is-refreshing) {
+    gap: 0;
+    padding: 0;
+    border-color: transparent;
+    background: transparent;
+    box-shadow: none;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    overflow: visible;
   }
 
   /* Dot indicator — GSAP controls pulse and spin */
@@ -2113,6 +2126,7 @@ const skeletonGroups = [
     cursor: pointer;
     overflow: hidden;
     transition: color 0.2s ease, background 0.2s ease, border-color 0.2s ease, gap 0.2s ease;
+    will-change: width, transform;
   }
 
   :global(.mood-update-action.is-hovered) {
@@ -2120,6 +2134,15 @@ const skeletonGroups = [
     color: hsl(var(--foreground));
     background: hsl(var(--foreground) / 0.08);
     border-color: hsl(var(--foreground) / 0.15);
+  }
+
+  :global(.mood-update-action.is-refreshing) {
+    gap: 6px;
+    color: hsl(var(--foreground));
+    background: hsl(var(--foreground) / 0.08);
+    border-color: hsl(var(--foreground) / 0.15);
+    cursor: default;
+    pointer-events: none;
   }
 
   :global(.mood-update-action:active) {
@@ -2138,6 +2161,7 @@ const skeletonGroups = [
     max-width: 0;
     opacity: 0;
     overflow: hidden;
+    will-change: max-width, opacity;
   }
 
   /* Countdown progress bar — GSAP controls scaleX via --progress */
@@ -2408,6 +2432,8 @@ const skeletonGroups = [
       const AUTO_REFRESH_MAX_SCROLL_Y = 120;
       const AUTO_REFRESH_CANCEL_SCROLL_Y = 220;
       const PREVIEW_PENDING_ID = '9007199254740991';
+      const REFRESH_LABEL_IDLE = 'Refresh';
+      const REFRESH_LABEL_PENDING = 'Refreshing...';
       const previewUpdateParam = new URLSearchParams(window.location.search).get('previewUpdate') ?? '';
       const forceUpdateNoticePreview = ['1', 'true', 'yes', 'on'].includes(previewUpdateParam.toLowerCase());
 
@@ -2416,6 +2442,8 @@ const skeletonGroups = [
       let noticeDotPulse: gsap.core.Tween | null = null;
       let noticeCountdownTween: gsap.core.Tween | null = null;
       let noticeSpinnerTween: gsap.core.Tween | null = null;
+      let noticeRefreshTl: gsap.core.Timeline | null = null;
+      let noticeReloadCall: gsap.core.Tween | null = null;
 
       // Set initial hidden state with GSAP
       if (updateNoticeEl) {
@@ -2579,8 +2607,66 @@ const skeletonGroups = [
       }
     };
 
+    const clearRefreshMotion = (): void => {
+      noticeRefreshTl?.kill();
+      noticeRefreshTl = null;
+      noticeReloadCall?.kill();
+      noticeReloadCall = null;
+    };
+
+    const resetUpdateNoticeLayout = (): void => {
+      clearRefreshMotion();
+      if (!updateNoticeEl) return;
+
+      const progressEl = updateNoticeEl.querySelector('.mood-update-progress') as HTMLElement | null;
+      const refreshBtn = updateRefreshBtn as HTMLElement | null;
+      const refreshLabel = refreshBtn?.querySelector('.mood-update-action-label') as HTMLElement | null;
+      const refreshIcon = refreshBtn?.querySelector('.mood-update-action-icon') as HTMLElement | null;
+
+      updateNoticeEl.classList.remove('is-refreshing');
+      gsap.set(updateNoticeEl, { clearProps: 'width,gap,paddingLeft,paddingRight' });
+
+      if (updateDismissBtn) {
+        updateDismissBtn.style.display = '';
+        updateDismissBtn.classList.remove('is-disabled');
+        updateDismissBtn.removeAttribute('aria-disabled');
+        gsap.set(updateDismissBtn, { clearProps: 'opacity,visibility,scale,x,pointerEvents' });
+      }
+
+      if (updateNoticeTextEl) {
+        updateNoticeTextEl.style.display = '';
+        gsap.set(updateNoticeTextEl, { clearProps: 'opacity,visibility,x' });
+      }
+
+      if (progressEl) {
+        progressEl.style.display = '';
+        gsap.set(progressEl, { clearProps: 'opacity,visibility' });
+      }
+
+      if (refreshBtn) {
+        refreshBtn.classList.remove('is-refreshing');
+        refreshBtn.removeAttribute('aria-disabled');
+        refreshBtn.setAttribute('aria-label', REFRESH_LABEL_IDLE);
+        gsap.set(refreshBtn, { clearProps: 'width,paddingLeft,paddingRight' });
+      }
+
+      if (refreshLabel) {
+        refreshLabel.textContent = REFRESH_LABEL_IDLE;
+        gsap.set(refreshLabel, { clearProps: 'maxWidth,opacity' });
+      }
+
+      if (refreshIcon) {
+        gsap.set(refreshIcon, { clearProps: 'rotation' });
+      }
+
+      if (updateDismissCrossEl) {
+        gsap.set(updateDismissCrossEl, { autoAlpha: 0, scale: 0.6, rotation: -35 });
+      }
+    };
+
     const triggerPageRefresh = (): void => {
       cancelAutoRefresh();
+      clearRefreshMotion();
       if (!updateNoticeEl) {
         setTimeout(() => window.location.reload(), 100);
         return;
@@ -2589,56 +2675,146 @@ const skeletonGroups = [
       const dotEl = updateDismissDotEl ?? (updateNoticeEl.querySelector('.mood-update-dot') as HTMLElement | null);
       const actionsEl = updateNoticeEl.querySelector('[data-mood-update-actions]') as HTMLElement;
       const progressEl = updateNoticeEl.querySelector('.mood-update-progress') as HTMLElement;
+      const refreshBtn = updateRefreshBtn as HTMLElement | null;
+      const refreshLabel = refreshBtn?.querySelector('.mood-update-action-label') as HTMLElement | null;
+      const refreshIcon = refreshBtn?.querySelector('.mood-update-action-icon') as HTMLElement | null;
+
+      if (refreshBtn?.classList.contains('is-refreshing')) {
+        return;
+      }
 
       // Kill idle animations
+      noticeShowTl?.kill();
+      noticeShowTl = null;
       noticeDotPulse?.kill();
       noticeDotPulse = null;
+      noticeSpinnerTween?.kill();
+      noticeSpinnerTween = null;
 
       if (updateDismissBtn) {
         updateDismissBtn.classList.add('is-disabled');
         updateDismissBtn.setAttribute('aria-disabled', 'true');
       }
+
+      if (refreshBtn) {
+        refreshBtn.classList.add('is-hovered', 'is-refreshing');
+        refreshBtn.setAttribute('aria-disabled', 'true');
+        refreshBtn.setAttribute('aria-label', 'Refreshing');
+      }
+
+      updateNoticeEl.classList.add('is-refreshing');
+
       if (updateDismissCrossEl) {
         gsap.killTweensOf(updateDismissCrossEl);
         gsap.set(updateDismissCrossEl, { autoAlpha: 0, scale: 0.6, rotation: -35 });
       }
 
-      // Switch dot to spinner
       if (dotEl) {
+        dotEl.classList.remove('is-spinning');
         gsap.killTweensOf(dotEl);
-        gsap.set(dotEl, { autoAlpha: 1, scale: 1 });
-        dotEl.classList.add('is-spinning');
-        noticeSpinnerTween = gsap.to(dotEl, {
-          rotation: '+=360', duration: 0.7, ease: 'none', repeat: -1
-        });
+        gsap.set(dotEl, { clearProps: 'rotation,width,height' });
       }
 
-      // Fade out actions
-      if (actionsEl) {
-        gsap.to(actionsEl, {
-          opacity: 0, x: 6, duration: 0.2, ease: 'power2.in',
-          onComplete: () => { actionsEl.style.visibility = 'hidden'; }
-        });
-      }
-
-      // Hide progress
       if (progressEl) {
-        gsap.to(progressEl, { opacity: 0, duration: 0.15 });
+        gsap.killTweensOf(progressEl);
+      }
+      if (actionsEl) {
+        gsap.killTweensOf(actionsEl);
+        gsap.set(actionsEl, { clearProps: 'opacity,visibility,x' });
+      }
+      if (refreshBtn) {
+        gsap.killTweensOf(refreshBtn);
+      }
+      if (refreshLabel) {
+        gsap.killTweensOf(refreshLabel);
       }
 
-      // Change text
+      let refreshingLabelWidth = 0;
+      const refreshCollapsedWidth = 28;
+      if (refreshLabel) {
+        refreshLabel.textContent = REFRESH_LABEL_PENDING;
+        const originalMaxWidth = refreshLabel.style.maxWidth;
+        const originalOpacity = refreshLabel.style.opacity;
+        refreshLabel.style.maxWidth = 'none';
+        refreshLabel.style.opacity = '1';
+        refreshingLabelWidth = refreshLabel.scrollWidth;
+        refreshLabel.style.maxWidth = originalMaxWidth || '0';
+        refreshLabel.style.opacity = originalOpacity || '0';
+      }
+
+      const refreshExpandedWidth = refreshCollapsedWidth + refreshingLabelWidth + 14;
+      const collapseTl = gsap.timeline({
+        defaults: { overwrite: 'auto' },
+        onComplete: () => {
+          if (updateDismissBtn) {
+            updateDismissBtn.style.display = 'none';
+          }
+          if (updateNoticeTextEl) {
+            updateNoticeTextEl.style.display = 'none';
+          }
+          if (progressEl) {
+            progressEl.style.display = 'none';
+          }
+          noticeRefreshTl = null;
+        }
+      });
+      noticeRefreshTl = collapseTl;
+
+      // Make the dot disappear first, then collapse the rest.
+      if (dotEl) {
+        collapseTl.to(dotEl, {
+          autoAlpha: 0, scale: 0.42, duration: 0.08, ease: 'power2.out',
+        }, 0);
+      }
+      if (updateDismissBtn) {
+        collapseTl.set(updateDismissBtn, { pointerEvents: 'none' }, 0);
+        collapseTl.to(updateDismissBtn, {
+          autoAlpha: 0, x: -4, scale: 0.9, duration: 0.11, ease: 'power2.out',
+        }, 0.01);
+      }
       if (updateNoticeTextEl) {
-        updateNoticeTextEl.textContent = 'Refreshing\u2026';
+        collapseTl.to(updateNoticeTextEl, {
+          autoAlpha: 0, x: -6, duration: 0.14, ease: 'power2.out',
+        }, 0.05);
+      }
+      if (progressEl) {
+        collapseTl.to(progressEl, { autoAlpha: 0, duration: 0.1, ease: 'power2.out' }, 0.05);
       }
 
-      setTimeout(() => { window.location.reload(); }, 400);
+      if (refreshBtn && refreshLabel) {
+        collapseTl.to(refreshBtn, {
+          width: refreshExpandedWidth,
+          paddingLeft: 10,
+          paddingRight: 10,
+          duration: 0.18,
+          ease: 'power2.out',
+        }, 0.08);
+        collapseTl.to(refreshLabel, {
+          maxWidth: refreshingLabelWidth + 10,
+          opacity: 1,
+          duration: 0.16,
+          ease: 'power2.out',
+        }, 0.11);
+      }
+
+      if (refreshIcon) {
+        collapseTl.add(() => {
+          noticeSpinnerTween = gsap.to(refreshIcon, {
+            rotation: '+=360', duration: 0.8, ease: 'none', repeat: -1, overwrite: 'auto'
+          });
+        }, 0.11);
+      }
+
+      noticeReloadCall = gsap.delayedCall(0.72, () => { window.location.reload(); });
     };
 
     const hideUpdateNotice = (): void => {
       cancelAutoRefresh();
+      clearRefreshMotion();
       if (!updateNoticeEl) return;
 
       noticeShowTl?.kill();
+      noticeShowTl = null;
       noticeDotPulse?.kill();
       noticeSpinnerTween?.kill();
       noticeDotPulse = null;
@@ -2657,13 +2833,7 @@ const skeletonGroups = [
           if (actionsEl) {
             gsap.set(actionsEl, { clearProps: 'opacity,visibility,x' });
           }
-          if (updateDismissBtn) {
-            updateDismissBtn.classList.remove('is-disabled');
-            updateDismissBtn.removeAttribute('aria-disabled');
-          }
-          if (updateDismissCrossEl) {
-            gsap.set(updateDismissCrossEl, { autoAlpha: 0, scale: 0.6, rotation: -35 });
-          }
+          resetUpdateNoticeLayout();
         }
       });
     };
@@ -2679,6 +2849,7 @@ const skeletonGroups = [
 
       // Kill existing animations
       noticeShowTl?.kill();
+      noticeShowTl = null;
       noticeDotPulse?.kill();
       noticeSpinnerTween?.kill();
       noticeDotPulse = null;
@@ -2688,6 +2859,7 @@ const skeletonGroups = [
       const dotEl = updateNoticeEl.querySelector('.mood-update-dot') as HTMLElement;
       const progressEl = updateNoticeEl.querySelector('.mood-update-progress') as HTMLElement;
       const actionsEl = updateNoticeEl.querySelector('[data-mood-update-actions]') as HTMLElement;
+      resetUpdateNoticeLayout();
 
       if (dotEl) {
         dotEl.classList.remove('is-spinning');
@@ -2696,13 +2868,6 @@ const skeletonGroups = [
       }
       if (actionsEl) {
         gsap.set(actionsEl, { clearProps: 'opacity,visibility,x' });
-      }
-      if (updateDismissBtn) {
-        updateDismissBtn.classList.remove('is-disabled');
-        updateDismissBtn.removeAttribute('aria-disabled');
-      }
-      if (updateDismissCrossEl) {
-        gsap.set(updateDismissCrossEl, { autoAlpha: 0, scale: 0.6, rotation: -35 });
       }
 
       // Set text
@@ -4331,6 +4496,9 @@ const skeletonGroups = [
         const expandedWidth = collapsedWidth + labelWidth + 14;
 
         refreshBtn.addEventListener('mouseenter', () => {
+          if (refreshBtn.classList.contains('is-refreshing')) {
+            return;
+          }
           refreshBtn.classList.add('is-hovered');
           gsap.killTweensOf([refreshBtn, refreshLabel]);
           gsap.to(refreshBtn, {
@@ -4344,6 +4512,9 @@ const skeletonGroups = [
         });
 
         refreshBtn.addEventListener('mouseleave', () => {
+          if (refreshBtn.classList.contains('is-refreshing')) {
+            return;
+          }
           refreshBtn.classList.remove('is-hovered');
           gsap.killTweensOf([refreshBtn, refreshLabel]);
           gsap.to(refreshLabel, {
