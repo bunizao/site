@@ -2908,9 +2908,6 @@ const skeletonGroups = [
   const updateNoticeEl = document.querySelector('[data-mood-update-notice]') as HTMLElement | null;
   const updateNoticeTextEl = document.querySelector('[data-mood-update-text]') as HTMLElement | null;
   const updateRefreshBtn = document.querySelector('[data-mood-update-refresh]') as HTMLButtonElement | null;
-  const updateDismissBtn = document.querySelector('[data-mood-update-dismiss]') as HTMLButtonElement | null;
-  const updateDismissDotEl = updateDismissBtn?.querySelector('.mood-update-dot') as HTMLElement | null;
-  const updateDismissCrossEl = updateDismissBtn?.querySelector('.mood-update-dismiss-cross') as HTMLElement | null;
   const ALWAYS_LOADING = import.meta.env.PUBLIC_DEBUG_ALWAYS_LOADING === 'true';
 
   if (loadingEl && errorEl && feedEl && list && status && sentinel) {
@@ -2948,7 +2945,6 @@ const skeletonGroups = [
 
       // GSAP animation references for update notice
       let noticeShowTl: gsap.core.Timeline | null = null;
-      let noticeDotPulse: gsap.core.Tween | null = null;
       let noticeCountdownTween: gsap.core.Tween | null = null;
       let noticeSpinnerTween: gsap.core.Tween | null = null;
       let noticeRefreshTl: gsap.core.Timeline | null = null;
@@ -3135,13 +3131,6 @@ const skeletonGroups = [
       updateNoticeEl.classList.remove('is-refreshing');
       gsap.set(updateNoticeEl, { clearProps: 'width,gap,paddingLeft,paddingRight' });
 
-      if (updateDismissBtn) {
-        updateDismissBtn.style.display = '';
-        updateDismissBtn.classList.remove('is-disabled');
-        updateDismissBtn.removeAttribute('aria-disabled');
-        gsap.set(updateDismissBtn, { clearProps: 'opacity,visibility,scale,x,pointerEvents' });
-      }
-
       if (updateNoticeTextEl) {
         updateNoticeTextEl.style.display = '';
         gsap.set(updateNoticeTextEl, { clearProps: 'opacity,visibility,x' });
@@ -3156,7 +3145,7 @@ const skeletonGroups = [
         refreshBtn.classList.remove('is-refreshing', 'is-hovered');
         refreshBtn.removeAttribute('aria-disabled');
         refreshBtn.setAttribute('aria-label', REFRESH_LABEL_IDLE);
-        gsap.set(refreshBtn, { clearProps: 'width,paddingLeft,paddingRight,gap' });
+        gsap.set(refreshBtn, { clearProps: 'width,paddingLeft,paddingRight,gap,pointerEvents' });
       }
 
       if (refreshLabel) {
@@ -3166,10 +3155,6 @@ const skeletonGroups = [
 
       if (refreshIcon) {
         gsap.set(refreshIcon, { clearProps: 'rotation' });
-      }
-
-      if (updateDismissCrossEl) {
-        gsap.set(updateDismissCrossEl, { autoAlpha: 0, scale: 0.6, rotation: -35 });
       }
     };
 
@@ -3181,7 +3166,6 @@ const skeletonGroups = [
         return;
       }
 
-      const dotEl = updateDismissDotEl ?? (updateNoticeEl.querySelector('.mood-update-dot') as HTMLElement | null);
       const actionsEl = updateNoticeEl.querySelector('[data-mood-update-actions]') as HTMLElement;
       const progressEl = updateNoticeEl.querySelector('.mood-update-progress') as HTMLElement;
       const refreshBtn = updateRefreshBtn as HTMLElement | null;
@@ -3195,35 +3179,15 @@ const skeletonGroups = [
       // Kill idle animations
       noticeShowTl?.kill();
       noticeShowTl = null;
-      noticeDotPulse?.kill();
-      noticeDotPulse = null;
       noticeSpinnerTween?.kill();
       noticeSpinnerTween = null;
-
-      if (updateDismissBtn) {
-        updateDismissBtn.classList.add('is-disabled');
-        updateDismissBtn.setAttribute('aria-disabled', 'true');
-      }
 
       if (refreshBtn) {
         refreshBtn.classList.remove('is-hovered');
         refreshBtn.classList.add('is-refreshing');
         refreshBtn.setAttribute('aria-disabled', 'true');
-        refreshBtn.setAttribute('aria-label', 'Refreshing');
-        gsap.set(refreshBtn, { gap: 0, width: 28, paddingLeft: 0, paddingRight: 0 });
-      }
-
-      updateNoticeEl.classList.add('is-refreshing');
-
-      if (updateDismissCrossEl) {
-        gsap.killTweensOf(updateDismissCrossEl);
-        gsap.set(updateDismissCrossEl, { autoAlpha: 0, scale: 0.6, rotation: -35 });
-      }
-
-      if (dotEl) {
-        dotEl.classList.remove('is-spinning');
-        gsap.killTweensOf(dotEl);
-        gsap.set(dotEl, { clearProps: 'rotation,width,height' });
+        refreshBtn.setAttribute('aria-label', REFRESH_LABEL_PENDING);
+        gsap.set(refreshBtn, { pointerEvents: 'none' });
       }
 
       if (progressEl) {
@@ -3257,9 +3221,6 @@ const skeletonGroups = [
       const collapseTl = gsap.timeline({
         defaults: { overwrite: 'auto' },
         onComplete: () => {
-          if (updateDismissBtn) {
-            updateDismissBtn.style.display = 'none';
-          }
           if (updateNoticeTextEl) {
             updateNoticeTextEl.style.display = 'none';
           }
@@ -3271,42 +3232,22 @@ const skeletonGroups = [
       });
       noticeRefreshTl = collapseTl;
 
-      // Make the dot disappear first, then collapse the rest.
-      if (dotEl) {
-        collapseTl.to(dotEl, {
-          autoAlpha: 0, scale: 0.42, duration: 0.08, ease: 'power2.out',
-        }, 0);
-      }
-      if (updateDismissBtn) {
-        collapseTl.set(updateDismissBtn, { pointerEvents: 'none' }, 0);
-        collapseTl.to(updateDismissBtn, {
-          autoAlpha: 0, x: -4, scale: 0.9, duration: 0.11, ease: 'power2.out',
-        }, 0.01);
-      }
-      if (updateNoticeTextEl) {
-        collapseTl.to(updateNoticeTextEl, {
-          autoAlpha: 0, x: -6, duration: 0.14, ease: 'power2.out',
-        }, 0.05);
-      }
-      if (progressEl) {
-        collapseTl.to(progressEl, { autoAlpha: 0, duration: 0.1, ease: 'power2.out' }, 0.05);
-      }
-
+      // Expand refresh button and fade notice content in parallel.
       if (refreshBtn && refreshLabel) {
         collapseTl.to(refreshBtn, {
           width: refreshExpandedWidth,
           paddingLeft: 10,
           paddingRight: 10,
           gap: 6,
-          duration: 0.18,
+          duration: 0.24,
           ease: 'power2.out',
-        }, 0.08);
+        }, 0);
         collapseTl.to(refreshLabel, {
           maxWidth: refreshingLabelWidth + 10,
           opacity: 1,
-          duration: 0.16,
+          duration: 0.22,
           ease: 'power2.out',
-        }, 0.11);
+        }, 0.02);
       }
 
       if (refreshIcon) {
@@ -3314,8 +3255,24 @@ const skeletonGroups = [
           noticeSpinnerTween = gsap.to(refreshIcon, {
             rotation: '+=360', duration: 0.8, ease: 'none', repeat: -1, overwrite: 'auto'
           });
-        }, 0.11);
+        }, 0.05);
       }
+
+      if (updateNoticeTextEl) {
+        collapseTl.to(updateNoticeTextEl, {
+          autoAlpha: 0, x: -8, duration: 0.18, ease: 'power2.inOut',
+        }, 0);
+      }
+      if (progressEl) {
+        collapseTl.to(progressEl, {
+          autoAlpha: 0, duration: 0.14, ease: 'power2.inOut'
+        }, 0);
+      }
+
+      // Delay class switch slightly so the expansion is visibly perceived.
+      collapseTl.add(() => {
+        updateNoticeEl.classList.add('is-refreshing');
+      }, 0.2);
 
       noticeReloadCall = gsap.delayedCall(forceUpdateNoticePreview ? 0.8 : 0.72, () => {
         if (forceUpdateNoticePreview) {
@@ -3335,20 +3292,13 @@ const skeletonGroups = [
 
       noticeShowTl?.kill();
       noticeShowTl = null;
-      noticeDotPulse?.kill();
       noticeSpinnerTween?.kill();
-      noticeDotPulse = null;
       noticeSpinnerTween = null;
 
       gsap.to(updateNoticeEl, {
         autoAlpha: 0, y: 8, scale: 0.97,
         duration: 0.3, ease: 'power2.in',
         onComplete: () => {
-          const dotEl = updateNoticeEl!.querySelector('.mood-update-dot') as HTMLElement;
-          if (dotEl) {
-            dotEl.classList.remove('is-spinning');
-            gsap.set(dotEl, { clearProps: 'rotation,scale,opacity,width,height' });
-          }
           const actionsEl = updateNoticeEl!.querySelector('[data-mood-update-actions]') as HTMLElement;
           if (actionsEl) {
             gsap.set(actionsEl, { clearProps: 'opacity,visibility,x' });
@@ -3370,22 +3320,14 @@ const skeletonGroups = [
       // Kill existing animations
       noticeShowTl?.kill();
       noticeShowTl = null;
-      noticeDotPulse?.kill();
       noticeSpinnerTween?.kill();
-      noticeDotPulse = null;
       noticeSpinnerTween = null;
 
       // Reset states
-      const dotEl = updateNoticeEl.querySelector('.mood-update-dot') as HTMLElement;
       const progressEl = updateNoticeEl.querySelector('.mood-update-progress') as HTMLElement;
       const actionsEl = updateNoticeEl.querySelector('[data-mood-update-actions]') as HTMLElement;
       resetUpdateNoticeLayout();
 
-      if (dotEl) {
-        dotEl.classList.remove('is-spinning');
-        gsap.set(dotEl, { clearProps: 'rotation,width,height,opacity,scale' });
-        gsap.set(dotEl, { autoAlpha: 1, scale: 1 });
-      }
       if (actionsEl) {
         gsap.set(actionsEl, { clearProps: 'opacity,visibility,x' });
       }
@@ -3399,15 +3341,6 @@ const skeletonGroups = [
         { autoAlpha: 0, y: 12, scale: 0.96 },
         { autoAlpha: 1, y: 0, scale: 1, duration: 0.5, ease: 'power3.out' }
       );
-
-      // Dot pulse
-      if (dotEl) {
-        noticeDotPulse = gsap.to(dotEl, {
-          scale: 0.5, opacity: 0.3,
-          repeat: -1, yoyo: true,
-          duration: 1.2, ease: 'sine.inOut', delay: 0.4
-        });
-      }
 
       // Countdown
       if (autoRefresh && progressEl) {
@@ -4965,60 +4898,15 @@ const skeletonGroups = [
         updateRefreshBtn.addEventListener('click', triggerPageRefresh);
       }
 
-      if (updateDismissBtn) {
-        updateDismissBtn.addEventListener('click', () => {
-          if (updateDismissBtn.classList.contains('is-disabled')) {
-            return;
-          }
-          dismissedUpdateId = pendingUpdateId;
-          hideUpdateNotice();
-        });
-      }
-
-      // GSAP hover animation for dismiss control (dot morphs to x)
-      (() => {
-        if (!updateDismissBtn || !updateDismissDotEl || !updateDismissCrossEl) return;
-
-        const showDismissIcon = () => {
-          if (updateDismissBtn.classList.contains('is-disabled') || updateDismissDotEl.classList.contains('is-spinning')) {
-            return;
-          }
-          noticeDotPulse?.pause();
-          gsap.killTweensOf([updateDismissDotEl, updateDismissCrossEl]);
-          gsap.to(updateDismissDotEl, {
-            autoAlpha: 0, scale: 0.45, duration: 0.16, ease: 'power2.out'
-          });
-          gsap.to(updateDismissCrossEl, {
-            autoAlpha: 1, scale: 1, rotation: 0, duration: 0.2, ease: 'power2.out'
-          });
-        };
-
-        const showDismissDot = () => {
-          gsap.killTweensOf([updateDismissDotEl, updateDismissCrossEl]);
-          gsap.to(updateDismissCrossEl, {
-            autoAlpha: 0, scale: 0.6, rotation: -35, duration: 0.16, ease: 'power2.in'
-          });
-          gsap.to(updateDismissDotEl, {
-            autoAlpha: 1, scale: 1, duration: 0.18, ease: 'power2.out',
-            onComplete: () => {
-              if (noticeDotPulse && !updateDismissDotEl.classList.contains('is-spinning')) {
-                noticeDotPulse.resume();
-              }
-            }
-          });
-        };
-
-        updateDismissBtn.addEventListener('mouseenter', showDismissIcon);
-        updateDismissBtn.addEventListener('mouseleave', showDismissDot);
-        updateDismissBtn.addEventListener('focus', showDismissIcon);
-        updateDismissBtn.addEventListener('blur', showDismissDot);
-      })();
-
       // GSAP hover animation for refresh action button (matching header button style)
       (() => {
         const refreshBtn = updateNoticeEl?.querySelector('[data-mood-update-refresh]') as HTMLElement;
         const refreshLabel = refreshBtn?.querySelector('.mood-update-action-label') as HTMLElement;
         if (!refreshBtn || !refreshLabel) return;
+        const isRefreshLocked = (): boolean => (
+          refreshBtn.classList.contains('is-refreshing')
+          || refreshBtn.getAttribute('aria-disabled') === 'true'
+        );
 
         const collapsedWidth = 28;
         const origMax = refreshLabel.style.maxWidth;
@@ -5031,7 +4919,7 @@ const skeletonGroups = [
         const expandedWidth = collapsedWidth + labelWidth + 14;
 
         refreshBtn.addEventListener('mouseenter', () => {
-          if (refreshBtn.classList.contains('is-refreshing')) {
+          if (isRefreshLocked()) {
             return;
           }
           refreshBtn.classList.add('is-hovered');
@@ -5047,7 +4935,7 @@ const skeletonGroups = [
         });
 
         refreshBtn.addEventListener('mouseleave', () => {
-          if (refreshBtn.classList.contains('is-refreshing')) {
+          if (isRefreshLocked()) {
             return;
           }
           refreshBtn.classList.remove('is-hovered');
