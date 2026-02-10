@@ -2527,7 +2527,6 @@ const skeletonGroups = [
     background: hsl(var(--foreground) / 0.04);
     border-radius: 7px;
     padding: 2px;
-    overflow: hidden;
     isolation: isolate;
   }
 
@@ -2698,6 +2697,25 @@ const skeletonGroups = [
     :global(.notify-panel) {
       width: calc(100vw - 32px);
       max-width: 300px;
+    }
+  }
+
+  @media (hover: none) and (pointer: coarse) {
+    :global(.notify-input) {
+      font-size: 16px;
+    }
+  }
+
+  @supports (-webkit-touch-callout: none) {
+    @media (hover: none) and (pointer: coarse) {
+      :global(.notify-input) {
+        --notify-input-visual-scale: 0.9375;
+        width: calc(100% / var(--notify-input-visual-scale));
+        transform: scale(var(--notify-input-visual-scale));
+        -webkit-transform: scale(var(--notify-input-visual-scale));
+        transform-origin: left center;
+        -webkit-transform-origin: left center;
+      }
     }
   }
 
