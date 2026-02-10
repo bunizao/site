@@ -402,7 +402,7 @@ describe('notify service integration e2e', () => {
       loadMoodPost: async (_context, postId) => (postId === post.id ? post : null),
       loadChannelMeta: async () => ({
         title: 'Levitating',
-        avatarUrl: 'https://cdn.example.com/channel-avatar.jpg',
+        avatarUrl: 'https://cdn5.telesco.pe/file/channel-avatar.jpg',
       }),
     });
 
@@ -413,7 +413,8 @@ describe('notify service integration e2e', () => {
     expect(result.sent).toBe(1);
     expect(mock.emails.length).toBe(1);
     expect(mock.emails[0].html).toContain('Levitating');
-    expect(mock.emails[0].html).toContain('https://cdn.example.com/channel-avatar.jpg');
+    expect(mock.emails[0].html).toContain('https://example.com/static/https://cdn5.telesco.pe/file/channel-avatar.jpg');
+    expect(mock.emails[0].html).not.toContain('src="https://cdn5.telesco.pe/file/channel-avatar.jpg"');
     expect(mock.emails[0].html).not.toContain('Styled like oEmbed card');
   });
 

@@ -703,6 +703,33 @@ function normalizeAbsoluteUrl(value: string | undefined, baseUrl: string): strin
   }
 }
 
+function toEmailImageUrl(value: string | undefined, siteUrl: string): string | undefined {
+  const absoluteUrl = normalizeAbsoluteUrl(value, siteUrl);
+  if (!absoluteUrl) return undefined;
+
+  let siteOrigin: string;
+  try {
+    siteOrigin = new URL(siteUrl).origin;
+  } catch {
+    return absoluteUrl;
+  }
+
+  const staticPrefix = `${siteOrigin}/static/`;
+  if (absoluteUrl.startsWith(staticPrefix)) {
+    return absoluteUrl;
+  }
+
+  try {
+    if (new URL(absoluteUrl).origin === siteOrigin) {
+      return absoluteUrl;
+    }
+  } catch {
+    return absoluteUrl;
+  }
+
+  return `${staticPrefix}${absoluteUrl}`;
+}
+
 async function loadChannelMeta(context: NotifyRequestContext): Promise<ChannelMeta | null> {
   if (notifyTestHooks) {
     if (notifyTestHooks.loadChannelMeta) {
@@ -771,7 +798,7 @@ async function sendMoodEmail(
   const moodUrl = `${siteUrl}/mood/${input.post.id}`;
   const unsubscribeUrl = `${siteUrl}/api/notify/unsubscribe?token=${encodeURIComponent(unsubscribeToken)}`;
   const channelTitle = input.channelMeta?.title || 'Mood Feed';
-  const channelAvatarUrl = input.channelMeta?.avatarUrl;
+  const channelAvatarUrl = toEmailImageUrl(input.channelMeta?.avatarUrl, siteUrl);
 
   const email = buildMoodNotificationEmail({
     moodUrl,
@@ -854,7 +881,7 @@ async function sendMoodDigestEmail(
   const siteUrl = getSiteUrl(context);
   const unsubscribeUrl = `${siteUrl}/api/notify/unsubscribe?token=${encodeURIComponent(unsubscribeToken)}`;
   const channelTitle = input.channelMeta?.title || 'Mood Feed';
-  const channelAvatarUrl = input.channelMeta?.avatarUrl;
+  const channelAvatarUrl = toEmailImageUrl(input.channelMeta?.avatarUrl, siteUrl);
   const mode = getSubscriberDeliveryMode(input.subscriber);
   const timezone = mode === 'daily'
     ? getDailyTimezone(input.subscriber)
