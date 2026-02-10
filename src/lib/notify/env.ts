@@ -1,0 +1,57 @@
+export interface NotifyConfig {
+  resendApiKey: string;
+  notifyFrom: string;
+  notifyReplyTo: string;
+  siteUrl: string;
+  tokenSecret: string;
+  dispatchSecret: string;
+  cronSecret: string;
+  cloudflareAccountId: string;
+  cloudflareApiToken: string;
+  cloudflareNotifyNamespaceId: string;
+}
+
+interface RuntimeContext {
+  locals?: any;
+}
+
+function readEnv(locals: any, name: string): string {
+  return import.meta.env[name] ?? locals?.runtime?.env?.[name] ?? locals?.env?.[name] ?? '';
+}
+
+function trimTrailingSlash(value: string): string {
+  return value.replace(/\/$/, '');
+}
+
+export function getNotifyConfig(context: RuntimeContext = {}): NotifyConfig {
+  const locals = context.locals;
+  const siteUrl =
+    readEnv(locals, 'PUBLIC_SITE_URL') ||
+    readEnv(locals, 'SITE_URL') ||
+    readEnv(locals, 'PUBLIC_BASE_URL') ||
+    '';
+
+  const namespaceId =
+    readEnv(locals, 'CLOUDFLARE_NOTIFY_KV_NAMESPACE_ID') ||
+    readEnv(locals, 'CLOUDFLARE_KV_NAMESPACE_ID') ||
+    '';
+
+  return {
+    resendApiKey: readEnv(locals, 'RESEND_API_KEY'),
+    notifyFrom: readEnv(locals, 'NOTIFY_FROM_EMAIL'),
+    notifyReplyTo: readEnv(locals, 'NOTIFY_REPLY_TO_EMAIL'),
+    siteUrl: trimTrailingSlash(siteUrl),
+    tokenSecret: readEnv(locals, 'EMAIL_NOTIFY_SECRET'),
+    dispatchSecret: readEnv(locals, 'NOTIFY_DISPATCH_SECRET'),
+    cronSecret: readEnv(locals, 'CRON_SECRET'),
+    cloudflareAccountId: readEnv(locals, 'CLOUDFLARE_ACCOUNT_ID'),
+    cloudflareApiToken: readEnv(locals, 'CLOUDFLARE_API_TOKEN'),
+    cloudflareNotifyNamespaceId: namespaceId,
+  };
+}
+
+export function requireConfigValue(value: string, name: string): void {
+  if (!value) {
+    throw new Error(`Missing required configuration: ${name}`);
+  }
+}

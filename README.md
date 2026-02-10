@@ -59,6 +59,19 @@ Response shape:
 }
 ```
 
+### Notifications (Email)
+
+Email notification endpoints for mood subscriptions:
+
+- `POST /api/notify/subscribe` - Start double opt-in subscription
+- `GET /api/notify/confirm?token=<token>` - Confirm subscription link
+- `GET /api/notify/unsubscribe?token=<token>` - One-click unsubscribe link
+- `POST /api/notify/dispatch` - Dispatch mood notification (requires `NOTIFY_DISPATCH_SECRET`)
+- `GET/POST /api/notify/retry` - Retry failed deliveries (requires `CRON_SECRET` or `NOTIFY_DISPATCH_SECRET`)
+
+Full email notification setup guide:
+- [`docs/EMAIL-NOTIFY.md`](docs/EMAIL-NOTIFY.md)
+
 ### SVG
 
 These endpoints return SVG images:
@@ -110,6 +123,14 @@ Documentation:
 - `CLOUDFLARE_ACCOUNT_ID` - Cloudflare account id for KV writes
 - `CLOUDFLARE_API_TOKEN` - Cloudflare API token for KV writes
 - `CLOUDFLARE_KV_NAMESPACE_ID` - Cloudflare KV namespace id (MOOD_IMAGES)
+- `CLOUDFLARE_NOTIFY_KV_NAMESPACE_ID` - Optional dedicated KV namespace for notify data
+- `RESEND_API_KEY` - Resend API key for transactional email sending
+- `NOTIFY_FROM_EMAIL` - Sender email address verified in Resend
+- `NOTIFY_REPLY_TO_EMAIL` - Optional reply-to mailbox
+- `EMAIL_NOTIFY_SECRET` - HMAC secret for confirm/unsubscribe signed tokens
+- `NOTIFY_DISPATCH_SECRET` - Secret for authenticated `/api/notify/dispatch` calls
+- `PUBLIC_SITE_URL` - Public site base URL for email links (e.g. `https://buxx.me`)
+- `CRON_SECRET` - Secret used by Vercel Cron when calling `/api/notify/retry`
 - See [`.env`](.env)
 
 ## Acknowledgements

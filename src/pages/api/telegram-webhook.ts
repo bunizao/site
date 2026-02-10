@@ -1,11 +1,14 @@
 /**
  * Telegram Bot Webhook Endpoint
  *
- * Receives channel_post updates from Telegram Bot API and stores
- * photo file_ids in Cloudflare KV for the HD image proxy.
+ * Receives channel_post updates from Telegram Bot API, dispatches
+ * email notifications, and stores photo file_ids in Cloudflare KV
+ * for the HD image proxy.
  */
 
 import type { APIRoute } from 'astro';
+import { dispatchMoodNotification } from '@/lib/notify/service';
+import { getNotifyConfig } from '@/lib/notify/env';
 
 export const prerender = false;
 
@@ -79,7 +82,32 @@ async function writeToKV(key: string, value: string): Promise<boolean> {
   }
 }
 
-export const POST: APIRoute = async ({ request }) => {
+async function triggerMoodDispatch(context: { request: Request; locals?: any }, postId: string): Promise<void> {
+  const notifyConfig = getNotifyConfig({ locals: context.locals });
+  const notifyEnabled = Boolean(
+    notifyConfig.resendApiKey &&
+    notifyConfig.notifyFrom &&
+    notifyConfig.tokenSecret &&
+    notifyConfig.cloudflareAccountId &&
+    notifyConfig.cloudflareApiToken &&
+    notifyConfig.cloudflareNotifyNamespaceId
+  );
+
+  if (!notifyEnabled) {
+    return;
+  }
+
+  try {
+    const result = await dispatchMoodNotification(context, postId);
+    if (result.failed > 0) {
+      console.warn(`Mood notify dispatch finished with failures for post ${postId}:`, result);
+    }
+  } catch (error) {
+    console.error(`Mood notify dispatch failed for post ${postId}:`, error);
+  }
+}
+
+export const POST: APIRoute = async ({ request, locals }) => {
   // Verify webhook secret token
   const secretToken = request.headers.get('X-Telegram-Bot-Api-Secret-Token');
   if (secretToken !== WEBHOOK_SECRET) {
@@ -95,13 +123,17 @@ export const POST: APIRoute = async ({ request }) => {
   }
 
   const message = update.channel_post;
-
-  // Only process posts with photos
-  if (!message?.photo?.length) {
+  if (!message?.message_id) {
     return new Response('OK');
   }
 
   const postId = message.message_id.toString();
+  await triggerMoodDispatch({ request, locals }, postId);
+
+  // Only index image file_id when the post has photos
+  if (!message?.photo?.length) {
+    return new Response('OK');
+  }
 
   // Pick the largest photo explicitly to avoid relying on ordering
   const largestPhoto = selectLargestPhoto(message.photo);

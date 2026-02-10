@@ -1,4 +1,10 @@
 {
+  "crons": [
+    {
+      "path": "/api/notify/retry",
+      "schedule": "*/15 * * * *"
+    }
+  ],
   "routes": [
     { "handle": "filesystem" },
     {
