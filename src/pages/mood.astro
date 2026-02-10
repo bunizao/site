@@ -253,12 +253,25 @@ const skeletonGroups = [
         <div class="mood-sentinel" data-mood-sentinel aria-hidden="true"></div>
       </div>
 
-      <div class="mood-update-notice is-hidden" data-mood-update-notice role="status" aria-live="polite" aria-atomic="true">
-        <p class="mood-update-text" data-mood-update-text>New moods available.</p>
-        <div class="mood-update-actions">
-          <button class="mood-update-btn" type="button" data-mood-update-refresh>Refresh</button>
-          <button class="mood-update-btn mood-update-btn--ghost" type="button" data-mood-update-dismiss>Later</button>
+      <div class="mood-update-notice" data-mood-update-notice role="status" aria-live="polite" aria-atomic="true" style="visibility: hidden;">
+        <span class="mood-update-dot" aria-hidden="true"></span>
+        <p class="mood-update-text" data-mood-update-text>New moods available</p>
+        <div class="mood-update-actions" data-mood-update-actions>
+          <button class="mood-update-action" type="button" data-mood-update-refresh aria-label="Refresh">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <polyline points="23 4 23 10 17 10"></polyline>
+              <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+            </svg>
+            <span class="mood-update-action-label">Refresh</span>
+          </button>
+          <button class="mood-update-action mood-update-action--dismiss" type="button" data-mood-update-dismiss aria-label="Dismiss">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+          </button>
         </div>
+        <div class="mood-update-progress" aria-hidden="true"></div>
       </div>
     </div>
   </main>
@@ -1980,94 +1993,172 @@ const skeletonGroups = [
     height: 1px;
   }
 
+  /* Update notice — GSAP-driven floating notification */
   :global(.mood-update-notice) {
     position: fixed;
     right: 16px;
     bottom: 16px;
-    display: flex;
+    display: inline-flex;
     align-items: center;
-    gap: 12px;
-    max-width: min(420px, calc(100vw - 32px));
-    padding: 12px 14px;
-    border: 1px solid hsl(var(--foreground) / 0.12);
+    gap: 10px;
+    padding: 5px 5px 5px 14px;
+    border: 1px solid hsl(var(--foreground) / 0.08);
     border-radius: 12px;
-    background: hsl(var(--background) / 0.92);
-    backdrop-filter: blur(14px) saturate(1.1);
-    -webkit-backdrop-filter: blur(14px) saturate(1.1);
-    box-shadow:
-      0 10px 24px hsl(0 0% 0% / 0.12),
-      0 2px 8px hsl(0 0% 0% / 0.06);
+    background: hsl(var(--background) / 0.8);
+    backdrop-filter: blur(12px) saturate(1.3);
+    -webkit-backdrop-filter: blur(12px) saturate(1.3);
+    box-shadow: 0 2px 12px hsl(0 0% 0% / 0.06);
     z-index: 80;
-    transition:
-      transform 0.2s ease,
-      opacity 0.2s ease;
+    overflow: hidden;
+    will-change: transform, opacity;
   }
 
-  :global(.mood-update-notice.is-hidden) {
-    opacity: 0;
-    pointer-events: none;
-    transform: translateY(12px);
+  /* Dot indicator — GSAP controls pulse and spin */
+  :global(.mood-update-dot) {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: hsl(var(--foreground));
+    flex-shrink: 0;
+    will-change: transform, opacity;
+  }
+
+  :global(.mood-update-dot.is-spinning) {
+    width: 12px;
+    height: 12px;
+    background: transparent;
+    border: 1.5px solid hsl(var(--foreground) / 0.15);
+    border-top-color: hsl(var(--foreground) / 0.8);
   }
 
   :global(.mood-update-text) {
     margin: 0;
-    font-size: 12px;
-    line-height: 1.35;
-    color: hsl(var(--foreground) / 0.92);
+    font-size: 12.5px;
+    line-height: 1;
+    color: hsl(var(--foreground) / 0.85);
+    white-space: nowrap;
+    letter-spacing: -0.01em;
   }
 
   :global(.mood-update-actions) {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
-    margin-left: auto;
+    gap: 3px;
     flex-shrink: 0;
   }
 
-  :global(.mood-update-btn) {
-    border: 1px solid hsl(var(--foreground) / 0.16);
-    border-radius: 8px;
-    padding: 4px 10px;
-    background: hsl(var(--foreground));
-    color: hsl(var(--background));
-    font-size: 12px;
-    font-weight: 600;
-    line-height: 1.2;
-    cursor: pointer;
-    transition:
-      transform 0.15s ease,
-      opacity 0.15s ease;
-  }
-
-  :global(.mood-update-btn:hover) {
-    transform: translateY(-1px);
-  }
-
-  :global(.mood-update-btn:active) {
-    transform: translateY(0);
-  }
-
-  :global(.mood-update-btn--ghost) {
-    background: transparent;
+  /* Action buttons — mirroring header-action-btn design */
+  :global(.mood-update-action) {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0;
+    height: 28px;
+    min-width: 28px;
+    padding: 0;
+    font-size: 11px;
+    font-weight: 450;
+    font-family: inherit;
+    letter-spacing: 0.01em;
     color: hsl(var(--muted-foreground));
+    background: hsl(var(--foreground) / 0.04);
+    border: 1px solid hsl(var(--foreground) / 0.08);
+    border-radius: 8px;
+    cursor: pointer;
+    overflow: hidden;
+    transition: color 0.2s ease, background 0.2s ease, border-color 0.2s ease, gap 0.2s ease;
+  }
+
+  :global(.mood-update-action.is-hovered) {
+    gap: 6px;
+    color: hsl(var(--foreground));
+    background: hsl(var(--foreground) / 0.08);
+    border-color: hsl(var(--foreground) / 0.15);
+  }
+
+  :global(.mood-update-action:active) {
+    transform: scale(0.96);
+  }
+
+  :global(.mood-update-action svg) {
+    width: 13px;
+    height: 13px;
+    flex-shrink: 0;
+  }
+
+  :global(.mood-update-action-label) {
+    display: inline-block;
+    white-space: nowrap;
+    max-width: 0;
+    opacity: 0;
+    overflow: hidden;
+  }
+
+  :global(.mood-update-action--dismiss) {
+    background: transparent;
+    border-color: transparent;
+  }
+
+  :global(.mood-update-action--dismiss:hover) {
+    color: hsl(var(--foreground) / 0.7);
+    background: hsl(var(--foreground) / 0.05);
+    border-color: hsl(var(--foreground) / 0.08);
+  }
+
+  /* Countdown progress bar — GSAP controls scaleX via --progress */
+  :global(.mood-update-progress) {
+    --progress: 1;
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 1.5px;
+    opacity: 0;
+  }
+
+  :global(.mood-update-progress::after) {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: hsl(var(--foreground) / 0.12);
+    transform-origin: left;
+    transform: scaleX(var(--progress));
   }
 
   @media (max-width: 640px) {
     :global(.mood-update-notice) {
-      left: 12px;
       right: 12px;
       bottom: 12px;
-      gap: 10px;
-      padding: 10px 12px;
+      gap: 8px;
+      padding: 4px 4px 4px 12px;
+      border-radius: 10px;
     }
 
-    :global(.mood-update-actions) {
-      gap: 5px;
+    :global(.mood-update-text) {
+      font-size: 12px;
     }
 
-    :global(.mood-update-btn) {
-      padding: 4px 8px;
-      font-size: 11px;
+    :global(.mood-update-action) {
+      height: 26px;
+      min-width: 26px;
+      border-radius: 7px;
+    }
+
+    :global(.mood-update-action svg) {
+      width: 12px;
+      height: 12px;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    :global(.mood-update-notice),
+    :global(.mood-update-dot) {
+      will-change: auto;
+    }
+
+    :global(.mood-update-dot.is-spinning) {
+      border-color: hsl(var(--foreground) / 0.5);
+      border-top-color: hsl(var(--foreground) / 0.5);
     }
   }
 
@@ -2235,6 +2326,7 @@ const skeletonGroups = [
 </style>
 
 <script>
+  import gsap from 'gsap';
   const loadingEl = document.querySelector('[data-mood-loading]');
   const errorEl = document.querySelector('[data-mood-error]');
   const feedEl = document.querySelector('[data-mood-feed]');
@@ -2274,6 +2366,17 @@ const skeletonGroups = [
       const PREVIEW_PENDING_ID = '9007199254740991';
       const previewUpdateParam = new URLSearchParams(window.location.search).get('previewUpdate') ?? '';
       const forceUpdateNoticePreview = ['1', 'true', 'yes', 'on'].includes(previewUpdateParam.toLowerCase());
+
+      // GSAP animation references for update notice
+      let noticeShowTl: gsap.core.Timeline | null = null;
+      let noticeDotPulse: gsap.core.Tween | null = null;
+      let noticeCountdownTween: gsap.core.Tween | null = null;
+      let noticeSpinnerTween: gsap.core.Tween | null = null;
+
+      // Set initial hidden state with GSAP
+      if (updateNoticeEl) {
+        gsap.set(updateNoticeEl, { autoAlpha: 0, y: 12 });
+      }
 
       const inlineSkeletonConfig = {
         dateWidth: '68px',
@@ -2426,41 +2529,145 @@ const skeletonGroups = [
         window.clearTimeout(autoRefreshTimer);
         autoRefreshTimer = 0;
       }
+      if (noticeCountdownTween) {
+        noticeCountdownTween.kill();
+        noticeCountdownTween = null;
+      }
     };
 
     const triggerPageRefresh = (): void => {
       cancelAutoRefresh();
-      if (updateNoticeTextEl) {
-        updateNoticeTextEl.textContent = 'Refreshing...';
+      if (!updateNoticeEl) {
+        setTimeout(() => window.location.reload(), 100);
+        return;
       }
-      window.location.reload();
+
+      const dotEl = updateNoticeEl.querySelector('.mood-update-dot') as HTMLElement;
+      const actionsEl = updateNoticeEl.querySelector('[data-mood-update-actions]') as HTMLElement;
+      const progressEl = updateNoticeEl.querySelector('.mood-update-progress') as HTMLElement;
+
+      // Kill idle animations
+      noticeDotPulse?.kill();
+      noticeDotPulse = null;
+
+      // Switch dot to spinner
+      if (dotEl) {
+        gsap.killTweensOf(dotEl);
+        dotEl.classList.add('is-spinning');
+        noticeSpinnerTween = gsap.to(dotEl, {
+          rotation: '+=360', duration: 0.7, ease: 'none', repeat: -1
+        });
+      }
+
+      // Fade out actions
+      if (actionsEl) {
+        gsap.to(actionsEl, {
+          opacity: 0, x: 6, duration: 0.2, ease: 'power2.in',
+          onComplete: () => { actionsEl.style.visibility = 'hidden'; }
+        });
+      }
+
+      // Hide progress
+      if (progressEl) {
+        gsap.to(progressEl, { opacity: 0, duration: 0.15 });
+      }
+
+      // Change text
+      if (updateNoticeTextEl) {
+        updateNoticeTextEl.textContent = 'Refreshing\u2026';
+      }
+
+      setTimeout(() => { window.location.reload(); }, 400);
     };
 
     const hideUpdateNotice = (): void => {
       cancelAutoRefresh();
       if (!updateNoticeEl) return;
-      updateNoticeEl.classList.add('is-hidden');
+
+      noticeShowTl?.kill();
+      noticeDotPulse?.kill();
+      noticeSpinnerTween?.kill();
+      noticeDotPulse = null;
+      noticeSpinnerTween = null;
+
+      gsap.to(updateNoticeEl, {
+        autoAlpha: 0, y: 8, scale: 0.97,
+        duration: 0.3, ease: 'power2.in',
+        onComplete: () => {
+          const dotEl = updateNoticeEl!.querySelector('.mood-update-dot') as HTMLElement;
+          if (dotEl) {
+            dotEl.classList.remove('is-spinning');
+            gsap.set(dotEl, { clearProps: 'rotation,scale,opacity' });
+          }
+          const actionsEl = updateNoticeEl!.querySelector('[data-mood-update-actions]') as HTMLElement;
+          if (actionsEl) {
+            gsap.set(actionsEl, { clearProps: 'opacity,visibility,x' });
+          }
+        }
+      });
     };
 
     const showUpdateNotice = (autoRefresh: boolean): void => {
       if (!updateNoticeEl || !updateNoticeTextEl) {
-        if (autoRefresh) {
-          triggerPageRefresh();
-        }
+        if (autoRefresh) { triggerPageRefresh(); }
         return;
       }
 
       cancelAutoRefresh();
       autoRefreshPending = autoRefresh;
-      updateNoticeTextEl.textContent = autoRefresh
-        ? 'New moods detected. Refreshing in 6s...'
-        : 'New moods available.';
-      updateNoticeEl.classList.remove('is-hidden');
 
-      if (autoRefresh) {
+      // Kill existing animations
+      noticeShowTl?.kill();
+      noticeDotPulse?.kill();
+      noticeSpinnerTween?.kill();
+      noticeDotPulse = null;
+      noticeSpinnerTween = null;
+
+      // Reset states
+      const dotEl = updateNoticeEl.querySelector('.mood-update-dot') as HTMLElement;
+      const progressEl = updateNoticeEl.querySelector('.mood-update-progress') as HTMLElement;
+      const actionsEl = updateNoticeEl.querySelector('[data-mood-update-actions]') as HTMLElement;
+
+      if (dotEl) {
+        dotEl.classList.remove('is-spinning');
+        gsap.set(dotEl, { clearProps: 'rotation,width,height' });
+      }
+      if (actionsEl) {
+        gsap.set(actionsEl, { clearProps: 'opacity,visibility,x' });
+      }
+
+      // Set text
+      updateNoticeTextEl.textContent = autoRefresh ? 'New moods detected' : 'New moods available';
+
+      // Entrance animation
+      noticeShowTl = gsap.timeline();
+      noticeShowTl.fromTo(updateNoticeEl,
+        { autoAlpha: 0, y: 12, scale: 0.96 },
+        { autoAlpha: 1, y: 0, scale: 1, duration: 0.5, ease: 'power3.out' }
+      );
+
+      // Dot pulse
+      if (dotEl) {
+        noticeDotPulse = gsap.to(dotEl, {
+          scale: 0.5, opacity: 0.3,
+          repeat: -1, yoyo: true,
+          duration: 1.2, ease: 'sine.inOut', delay: 0.4
+        });
+      }
+
+      // Countdown
+      if (autoRefresh && progressEl) {
+        gsap.set(progressEl, { opacity: 1, '--progress': 1 });
+        noticeCountdownTween = gsap.to(progressEl, {
+          '--progress': 0,
+          duration: AUTO_REFRESH_DELAY_MS / 1000,
+          ease: 'none'
+        });
         autoRefreshTimer = window.setTimeout(() => {
           triggerPageRefresh();
         }, AUTO_REFRESH_DELAY_MS);
+      } else if (progressEl) {
+        gsap.set(progressEl, { opacity: 0 });
       }
     };
 
@@ -3030,6 +3237,34 @@ const skeletonGroups = [
         return name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase() || '?';
       };
 
+      const asText = (value: unknown): string => {
+        if (typeof value === 'string') return value;
+        if (value === null || value === undefined) return '';
+        return String(value);
+      };
+
+      const toPlainText = (value: unknown): string => {
+        const html = asText(value);
+        if (!html) return '';
+        const template = document.createElement('template');
+        template.innerHTML = html;
+        return (template.content.textContent ?? '').trim();
+      };
+
+      const sanitizeImageUrl = (value: unknown): string => {
+        const raw = asText(value).trim();
+        if (!raw) return '';
+        try {
+          const parsed = new URL(raw, window.location.origin);
+          if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+            return '';
+          }
+          return parsed.toString();
+        } catch {
+          return '';
+        }
+      };
+
       const fetchComments = async (postId: string): Promise<any[]> => {
         if (cache.has(postId)) {
           return cache.get(postId)!;
@@ -3058,23 +3293,55 @@ const skeletonGroups = [
         return promise;
       };
 
-      const renderComment = (comment: any): string => {
-        const avatarContent = comment.authorAvatar
-          ? `<img src="${comment.authorAvatar}" alt="${comment.author}" loading="lazy" />`
-          : getInitials(comment.author);
+      const renderComment = (comment: any): HTMLElement => {
+        const root = document.createElement('div');
+        root.className = 'mood-popover-comment';
 
-        return `
-          <div class="mood-popover-comment">
-            <div class="mood-popover-comment-avatar">${avatarContent}</div>
-            <div class="mood-popover-comment-body">
-              <div class="mood-popover-comment-header">
-                <span class="mood-popover-comment-author">${comment.author}</span>
-                <time class="mood-popover-comment-date" datetime="${comment.datetime}">${formatDate(comment.datetime)}</time>
-              </div>
-              <div class="mood-popover-comment-content">${comment.content}</div>
-            </div>
-          </div>
-        `;
+        const avatar = document.createElement('div');
+        avatar.className = 'mood-popover-comment-avatar';
+
+        const author = asText(comment?.author).trim() || 'Anonymous';
+        const avatarUrl = sanitizeImageUrl(comment?.authorAvatar);
+        if (avatarUrl) {
+          const img = document.createElement('img');
+          img.src = avatarUrl;
+          img.alt = author;
+          img.loading = 'lazy';
+          avatar.appendChild(img);
+        } else {
+          avatar.textContent = getInitials(author);
+        }
+        root.appendChild(avatar);
+
+        const body = document.createElement('div');
+        body.className = 'mood-popover-comment-body';
+
+        const header = document.createElement('div');
+        header.className = 'mood-popover-comment-header';
+
+        const authorEl = document.createElement('span');
+        authorEl.className = 'mood-popover-comment-author';
+        authorEl.textContent = author;
+
+        const datetimeRaw = asText(comment?.datetime).trim();
+        const dateEl = document.createElement('time');
+        dateEl.className = 'mood-popover-comment-date';
+        if (datetimeRaw) {
+          dateEl.dateTime = datetimeRaw;
+        }
+        dateEl.textContent = formatDate(datetimeRaw);
+
+        header.appendChild(authorEl);
+        header.appendChild(dateEl);
+        body.appendChild(header);
+
+        const content = document.createElement('div');
+        content.className = 'mood-popover-comment-content';
+        content.textContent = toPlainText(comment?.content);
+        body.appendChild(content);
+
+        root.appendChild(body);
+        return root;
       };
 
       const renderPopover = (popover: HTMLElement, comments: any[], postId: string): void => {
@@ -3083,21 +3350,30 @@ const skeletonGroups = [
         const hasMore = comments.length > maxComments;
 
         if (displayComments.length === 0) {
-          popover.innerHTML = `
-            <div class="mood-comments-popover-empty">No comments yet</div>
-          `;
+          const empty = document.createElement('div');
+          empty.className = 'mood-comments-popover-empty';
+          empty.textContent = 'No comments yet';
+          popover.replaceChildren(empty);
           return;
         }
 
-        const commentsHtml = displayComments.map(renderComment).join('');
-        const viewAllHtml = hasMore
-          ? `<a href="/mood/${postId}#comments" class="mood-popover-view-all">View all ${comments.length} comments</a>`
-          : '';
+        const fragment = document.createDocumentFragment();
+        const list = document.createElement('div');
+        list.className = 'mood-comments-popover-list';
+        displayComments.forEach((comment) => {
+          list.appendChild(renderComment(comment));
+        });
+        fragment.appendChild(list);
 
-        popover.innerHTML = `
-          <div class="mood-comments-popover-list">${commentsHtml}</div>
-          ${viewAllHtml}
-        `;
+        if (hasMore) {
+          const viewAll = document.createElement('a');
+          viewAll.className = 'mood-popover-view-all';
+          viewAll.href = `/mood/${postId}#comments`;
+          viewAll.textContent = `View all ${comments.length} comments`;
+          fragment.appendChild(viewAll);
+        }
+
+        popover.replaceChildren(fragment);
 
         // Hydrate animated emojis in popover
         animatedEmoji.hydrate(popover);
@@ -3926,6 +4202,49 @@ const skeletonGroups = [
           hideUpdateNotice();
         });
       }
+
+      // GSAP hover animation for refresh action button (matching header button style)
+      (() => {
+        const refreshBtn = updateNoticeEl?.querySelector('[data-mood-update-refresh]') as HTMLElement;
+        const refreshLabel = refreshBtn?.querySelector('.mood-update-action-label') as HTMLElement;
+        if (!refreshBtn || !refreshLabel) return;
+
+        const collapsedWidth = 28;
+        const origMax = refreshLabel.style.maxWidth;
+        const origOpacity = refreshLabel.style.opacity;
+        refreshLabel.style.maxWidth = 'none';
+        refreshLabel.style.opacity = '1';
+        const labelWidth = refreshLabel.scrollWidth;
+        refreshLabel.style.maxWidth = origMax || '0';
+        refreshLabel.style.opacity = origOpacity || '0';
+        const expandedWidth = collapsedWidth + labelWidth + 14;
+
+        refreshBtn.addEventListener('mouseenter', () => {
+          refreshBtn.classList.add('is-hovered');
+          gsap.killTweensOf([refreshBtn, refreshLabel]);
+          gsap.to(refreshBtn, {
+            width: expandedWidth, paddingLeft: 10, paddingRight: 10,
+            duration: 0.3, ease: 'power2.out'
+          });
+          gsap.to(refreshLabel, {
+            maxWidth: labelWidth + 10, opacity: 1,
+            duration: 0.25, delay: 0.08, ease: 'power2.out'
+          });
+        });
+
+        refreshBtn.addEventListener('mouseleave', () => {
+          refreshBtn.classList.remove('is-hovered');
+          gsap.killTweensOf([refreshBtn, refreshLabel]);
+          gsap.to(refreshLabel, {
+            maxWidth: 0, opacity: 0,
+            duration: 0.15, ease: 'power2.in'
+          });
+          gsap.to(refreshBtn, {
+            width: collapsedWidth, paddingLeft: 0, paddingRight: 0,
+            duration: 0.25, delay: 0.05, ease: 'power2.inOut'
+          });
+        });
+      })();
 
       animatedEmoji.observe(list);
       loadInitial();

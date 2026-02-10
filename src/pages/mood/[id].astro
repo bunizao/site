@@ -2405,35 +2405,111 @@ const telegramCommentUrl = channel && id ? `https://t.me/${channel}/${id}?commen
       return name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase() || '?';
     };
 
-    const renderComment = (comment: any): string => {
-      const avatarContent = comment.authorAvatar
-        ? `<img src="${comment.authorAvatar}" alt="${comment.author}" loading="lazy" />`
-        : getInitials(comment.author);
+    const asText = (value: unknown): string => {
+      if (typeof value === 'string') return value;
+      if (value === null || value === undefined) return '';
+      return String(value);
+    };
 
-      const reactionsHtml = comment.reactions?.length
-        ? `<div class="mood-comment-reactions">
-            ${comment.reactions.map((r: any) => `
-              <span class="mood-reaction${r.isPaid ? ' mood-reaction--paid' : ''}">
-                <span class="mood-reaction-emoji">${r.isPaid ? '⭐' : r.emoji || '👍'}</span>
-                <span class="mood-reaction-count">${r.count}</span>
-              </span>
-            `).join('')}
-          </div>`
-        : '';
+    const toPlainText = (value: unknown): string => {
+      const html = asText(value);
+      if (!html) return '';
+      const template = document.createElement('template');
+      template.innerHTML = html;
+      return (template.content.textContent ?? '').trim();
+    };
 
-      return `
-        <div class="mood-comment" data-comment-id="${comment.id}">
-          <div class="mood-comment-avatar">${avatarContent}</div>
-          <div class="mood-comment-body">
-            <div class="mood-comment-header">
-              <span class="mood-comment-author">${comment.author}</span>
-              <time class="mood-comment-date" datetime="${comment.datetime}">${formatDate(comment.datetime)}</time>
-            </div>
-            <div class="mood-comment-content">${comment.content}</div>
-            ${reactionsHtml}
-          </div>
-        </div>
-      `;
+    const sanitizeImageUrl = (value: unknown): string => {
+      const raw = asText(value).trim();
+      if (!raw) return '';
+      try {
+        const parsed = new URL(raw, window.location.origin);
+        if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+          return '';
+        }
+        return parsed.toString();
+      } catch {
+        return '';
+      }
+    };
+
+    const renderComment = (comment: any): HTMLElement => {
+      const root = document.createElement('div');
+      root.className = 'mood-comment';
+      const commentId = asText(comment?.id).trim();
+      if (commentId) {
+        root.dataset.commentId = commentId;
+      }
+
+      const avatar = document.createElement('div');
+      avatar.className = 'mood-comment-avatar';
+      const author = asText(comment?.author).trim() || 'Anonymous';
+      const avatarUrl = sanitizeImageUrl(comment?.authorAvatar);
+      if (avatarUrl) {
+        const img = document.createElement('img');
+        img.src = avatarUrl;
+        img.alt = author;
+        img.loading = 'lazy';
+        avatar.appendChild(img);
+      } else {
+        avatar.textContent = getInitials(author);
+      }
+      root.appendChild(avatar);
+
+      const body = document.createElement('div');
+      body.className = 'mood-comment-body';
+
+      const header = document.createElement('div');
+      header.className = 'mood-comment-header';
+
+      const authorEl = document.createElement('span');
+      authorEl.className = 'mood-comment-author';
+      authorEl.textContent = author;
+
+      const datetimeRaw = asText(comment?.datetime).trim();
+      const dateEl = document.createElement('time');
+      dateEl.className = 'mood-comment-date';
+      if (datetimeRaw) {
+        dateEl.dateTime = datetimeRaw;
+      }
+      dateEl.textContent = formatDate(datetimeRaw);
+
+      header.appendChild(authorEl);
+      header.appendChild(dateEl);
+      body.appendChild(header);
+
+      const contentEl = document.createElement('div');
+      contentEl.className = 'mood-comment-content';
+      contentEl.textContent = toPlainText(comment?.content);
+      body.appendChild(contentEl);
+
+      const reactions = Array.isArray(comment?.reactions) ? comment.reactions : [];
+      if (reactions.length > 0) {
+        const reactionsWrap = document.createElement('div');
+        reactionsWrap.className = 'mood-comment-reactions';
+
+        reactions.forEach((reaction: any) => {
+          const pill = document.createElement('span');
+          pill.className = `mood-reaction${reaction?.isPaid ? ' mood-reaction--paid' : ''}`;
+
+          const emojiEl = document.createElement('span');
+          emojiEl.className = 'mood-reaction-emoji';
+          emojiEl.textContent = reaction?.isPaid ? '⭐' : (asText(reaction?.emoji).trim() || '👍');
+
+          const countEl = document.createElement('span');
+          countEl.className = 'mood-reaction-count';
+          countEl.textContent = asText(reaction?.count).trim();
+
+          pill.appendChild(emojiEl);
+          pill.appendChild(countEl);
+          reactionsWrap.appendChild(pill);
+        });
+
+        body.appendChild(reactionsWrap);
+      }
+
+      root.appendChild(body);
+      return root;
     };
 
     const addComments = (comments: any[], append: boolean): number => {
@@ -2448,14 +2524,15 @@ const telegramCommentUrl = channel && id ? `https://t.me/${channel}/${id}?commen
         return true;
       });
 
-      const html = uniqueComments.map(renderComment).join('');
+      const fragment = document.createDocumentFragment();
+      uniqueComments.forEach((comment) => {
+        fragment.appendChild(renderComment(comment));
+      });
 
       if (append) {
-        if (html) {
-          commentsList.insertAdjacentHTML('beforeend', html);
-        }
+        commentsList.appendChild(fragment);
       } else {
-        commentsList.innerHTML = html;
+        commentsList.replaceChildren(fragment);
       }
 
       return uniqueComments.length;
@@ -2496,7 +2573,7 @@ const telegramCommentUrl = channel && id ? `https://t.me/${channel}/${id}?commen
           animatedEmoji.hydrate(commentsList);
         } else if (!before) {
           // No comments on initial load - clear list and show empty state
-          commentsList.innerHTML = '';
+          commentsList.replaceChildren();
           if (emptyEl) emptyEl.hidden = false;
           if (loadMoreBtn) loadMoreBtn.hidden = true;
         } else if (before) {
@@ -2507,7 +2584,7 @@ const telegramCommentUrl = channel && id ? `https://t.me/${channel}/${id}?commen
         console.error('Failed to load comments:', error);
         if (loadingEl) loadingEl.remove();
         if (!before && emptyEl) {
-          commentsList.innerHTML = '';
+          commentsList.replaceChildren();
           emptyEl.querySelector('p')!.textContent = 'Failed to load comments';
           emptyEl.hidden = false;
         }
