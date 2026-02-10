@@ -92,7 +92,7 @@ async function triggerMoodDispatch(context: { request: Request; locals?: any }, 
     notifyConfig.tokenSecret &&
     notifyConfig.cloudflareAccountId &&
     notifyConfig.cloudflareApiToken &&
-    notifyConfig.cloudflareNotifyNamespaceId
+    notifyConfig.cloudflareNotifyD1DatabaseId
   );
 
   if (!notifyEnabled) {

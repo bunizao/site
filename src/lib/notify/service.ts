@@ -2,7 +2,7 @@ import type { ChannelInfo, Post } from '@/lib/telegram';
 import { getChannelInfo } from '@/lib/telegram';
 import { getTextPreviewWithMedia } from '@/lib/mood-utils';
 import { getNotifyConfig, getNotifyFromAddress, requireConfigValue } from './env';
-import { CloudflareKvClient } from './kv';
+import { CloudflareD1Client } from './d1';
 import {
   createNotifyToken,
   hashEmail,
@@ -24,7 +24,6 @@ import type {
   RetryProcessResult,
   RetryRecord,
   ScheduledDispatchResult,
-  SentRecord,
   SubscribeResult,
   SubscriberRecord,
   UnsubscribeResult,
@@ -75,14 +74,10 @@ export function setNotifyTestHooksForTesting(hooks: NotifyTestHooks | null): voi
   notifyTestHooks = hooks;
 }
 
-const SUBSCRIBER_PREFIX = 'notify:subscriber:';
-const SENT_PREFIX = 'notify:sent:';
-const RETRY_PREFIX = 'notify:retry:';
-const DEAD_PREFIX = 'notify:dead:';
-
 const SUBSCRIBE_TOKEN_TTL_SECONDS = 24 * 60 * 60;
 const UNSUBSCRIBE_TOKEN_TTL_SECONDS = 180 * 24 * 60 * 60;
 const SENT_RECORD_TTL_SECONDS = 180 * 24 * 60 * 60;
+const SENT_RECORD_TTL_MS = SENT_RECORD_TTL_SECONDS * 1000;
 
 const RETRY_DELAYS_MINUTES = [5, 30, 120, 720, 1440];
 const MAX_RETRY_ATTEMPTS = 5;
@@ -96,6 +91,91 @@ const MAX_DIGEST_FETCH_POSTS = 180;
 const MAX_DIGEST_FETCH_PAGES = 12;
 const DEFAULT_DAILY_TIMEZONE = 'Asia/Shanghai';
 const DEFAULT_DAILY_HOUR = 9;
+
+interface SubscriberRow {
+  email: string;
+  email_hash: string;
+  status: 'pending' | 'active' | 'unsubscribed';
+  delivery_mode: DeliveryMode | null;
+  timezone: string | null;
+  daily_hour: number | null;
+  pending_delivery_mode: DeliveryMode | null;
+  pending_timezone: string | null;
+  pending_daily_hour: number | null;
+  last_notified_at: string | null;
+  last_notified_post_id: string | null;
+  created_at: string;
+  updated_at: string;
+  confirmed_at: string | null;
+  last_confirm_sent_at: string | null;
+}
+
+interface RetryRow {
+  post_id: string;
+  email: string;
+  email_hash: string;
+  attempt: number;
+  created_at: string;
+  updated_at: string;
+  next_attempt_at: string;
+  last_error: string;
+}
+
+const SUBSCRIBER_COLUMNS = `
+  email,
+  email_hash,
+  status,
+  delivery_mode,
+  timezone,
+  daily_hour,
+  pending_delivery_mode,
+  pending_timezone,
+  pending_daily_hour,
+  last_notified_at,
+  last_notified_post_id,
+  created_at,
+  updated_at,
+  confirmed_at,
+  last_confirm_sent_at
+`;
+
+function nullableText(value: string | undefined): string | null {
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim();
+  return trimmed ? trimmed : null;
+}
+
+function nullableInt(value: number | undefined): number | null {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return null;
+  return value;
+}
+
+function parseNullableInt(value: unknown): number | undefined {
+  if (value === null || value === undefined || value === '') return undefined;
+  const parsed = typeof value === 'number' ? value : Number.parseInt(String(value), 10);
+  if (!Number.isFinite(parsed)) return undefined;
+  return parsed;
+}
+
+function mapSubscriberRow(row: SubscriberRow): SubscriberRecord {
+  return {
+    email: row.email,
+    emailHash: row.email_hash,
+    status: row.status,
+    deliveryMode: row.delivery_mode ?? undefined,
+    timezone: row.timezone ?? undefined,
+    dailyHour: parseNullableInt(row.daily_hour),
+    pendingDeliveryMode: row.pending_delivery_mode ?? undefined,
+    pendingTimezone: row.pending_timezone ?? undefined,
+    pendingDailyHour: parseNullableInt(row.pending_daily_hour),
+    lastNotifiedAt: row.last_notified_at ?? undefined,
+    lastNotifiedPostId: row.last_notified_post_id ?? undefined,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    confirmedAt: row.confirmed_at ?? undefined,
+    lastConfirmSentAt: row.last_confirm_sent_at ?? undefined,
+  };
+}
 
 function nowIso(): string {
   return getNowDate().toISOString();
@@ -116,22 +196,6 @@ function getNowMs(): number {
   return getNowDate().getTime();
 }
 
-function subscriberKey(emailHash: string): string {
-  return `${SUBSCRIBER_PREFIX}${emailHash}`;
-}
-
-function sentKey(postId: string, emailHash: string): string {
-  return `${SENT_PREFIX}${postId}:${emailHash}`;
-}
-
-function retryKey(postId: string, emailHash: string): string {
-  return `${RETRY_PREFIX}${postId}:${emailHash}`;
-}
-
-function deadKey(postId: string, emailHash: string): string {
-  return `${DEAD_PREFIX}${postId}:${emailHash}:${getNowMs()}`;
-}
-
 function getSiteUrl(context: NotifyRequestContext): string {
   const config = getNotifyConfig(context);
   if (config.siteUrl) {
@@ -140,19 +204,16 @@ function getSiteUrl(context: NotifyRequestContext): string {
   return new URL(context.request.url).origin;
 }
 
-function createKvClient(context: NotifyRequestContext): CloudflareKvClient {
+function createD1Client(context: NotifyRequestContext): CloudflareD1Client {
   const config = getNotifyConfig(context);
   requireConfigValue(config.cloudflareAccountId, 'CLOUDFLARE_ACCOUNT_ID');
   requireConfigValue(config.cloudflareApiToken, 'CLOUDFLARE_API_TOKEN');
-  requireConfigValue(
-    config.cloudflareNotifyNamespaceId,
-    'CLOUDFLARE_NOTIFY_KV_NAMESPACE_ID or CLOUDFLARE_KV_NAMESPACE_ID'
-  );
+  requireConfigValue(config.cloudflareNotifyD1DatabaseId, 'CLOUDFLARE_NOTIFY_D1_DATABASE_ID');
 
-  return new CloudflareKvClient({
+  return new CloudflareD1Client({
     accountId: config.cloudflareAccountId,
     apiToken: config.cloudflareApiToken,
-    namespaceId: config.cloudflareNotifyNamespaceId,
+    databaseId: config.cloudflareNotifyD1DatabaseId,
   });
 }
 
@@ -382,27 +443,88 @@ function isMatchingPendingPreferences(
 }
 
 async function getSubscriberByEmail(
-  kv: CloudflareKvClient,
+  d1: CloudflareD1Client,
   email: string
 ): Promise<SubscriberRecord | null> {
-  const emailHash = hashEmail(email);
-  return kv.getJson<SubscriberRecord>(subscriberKey(emailHash));
+  return getSubscriberByEmailHash(d1, hashEmail(email));
+}
+
+async function getSubscriberByEmailHash(
+  d1: CloudflareD1Client,
+  emailHash: string
+): Promise<SubscriberRecord | null> {
+  const row = await d1.first<SubscriberRow>(
+    `SELECT ${SUBSCRIBER_COLUMNS} FROM notify_subscribers WHERE email_hash = ? LIMIT 1`,
+    [emailHash]
+  );
+  return row ? mapSubscriberRow(row) : null;
 }
 
 async function upsertSubscriber(
-  kv: CloudflareKvClient,
+  d1: CloudflareD1Client,
   record: SubscriberRecord
 ): Promise<void> {
-  await kv.putJson(subscriberKey(record.emailHash), record);
+  await d1.run(
+    `INSERT INTO notify_subscribers (
+      email,
+      email_hash,
+      status,
+      delivery_mode,
+      timezone,
+      daily_hour,
+      pending_delivery_mode,
+      pending_timezone,
+      pending_daily_hour,
+      last_notified_at,
+      last_notified_post_id,
+      created_at,
+      updated_at,
+      confirmed_at,
+      last_confirm_sent_at
+    )
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(email_hash) DO UPDATE SET
+      email = excluded.email,
+      status = excluded.status,
+      delivery_mode = excluded.delivery_mode,
+      timezone = excluded.timezone,
+      daily_hour = excluded.daily_hour,
+      pending_delivery_mode = excluded.pending_delivery_mode,
+      pending_timezone = excluded.pending_timezone,
+      pending_daily_hour = excluded.pending_daily_hour,
+      last_notified_at = excluded.last_notified_at,
+      last_notified_post_id = excluded.last_notified_post_id,
+      created_at = excluded.created_at,
+      updated_at = excluded.updated_at,
+      confirmed_at = excluded.confirmed_at,
+      last_confirm_sent_at = excluded.last_confirm_sent_at`,
+    [
+      record.email,
+      record.emailHash,
+      record.status,
+      nullableText(record.deliveryMode),
+      nullableText(record.timezone),
+      nullableInt(record.dailyHour),
+      nullableText(record.pendingDeliveryMode),
+      nullableText(record.pendingTimezone),
+      nullableInt(record.pendingDailyHour),
+      nullableText(record.lastNotifiedAt),
+      nullableText(record.lastNotifiedPostId),
+      record.createdAt,
+      record.updatedAt,
+      nullableText(record.confirmedAt),
+      nullableText(record.lastConfirmSentAt),
+    ]
+  );
 }
 
 async function updateSubscriberDeliveryState(
-  kv: CloudflareKvClient,
+  d1: CloudflareD1Client,
   subscriber: SubscriberRecord,
   postId: string,
   timestamp = nowIso()
 ): Promise<void> {
-  await upsertSubscriber(kv, {
+  await upsertSubscriber(d1, {
     ...subscriber,
     deliveryMode: getSubscriberDeliveryMode(subscriber),
     updatedAt: timestamp,
@@ -411,14 +533,17 @@ async function updateSubscriberDeliveryState(
   });
 }
 
-async function listActiveSubscribers(kv: CloudflareKvClient): Promise<SubscriberRecord[]> {
-  const keys = await kv.listKeys(SUBSCRIBER_PREFIX, 10000);
-  if (!keys.length) return [];
+async function listActiveSubscribers(d1: CloudflareD1Client): Promise<SubscriberRecord[]> {
+  const rows = await d1.query<SubscriberRow>(
+    `SELECT ${SUBSCRIBER_COLUMNS}
+     FROM notify_subscribers
+     WHERE status = ?
+     ORDER BY email_hash
+     LIMIT 10000`,
+    ['active']
+  );
 
-  const records = await Promise.all(keys.map((key) => kv.getJson<SubscriberRecord>(key)));
-  return records
-    .filter((record): record is SubscriberRecord => Boolean(record && record.email && record.emailHash))
-    .filter((record) => record.status === 'active');
+  return rows.map((row) => mapSubscriberRow(row));
 }
 
 function normalizePostId(value: string): string {
@@ -431,7 +556,7 @@ function getRetryDelayMinutes(attempt: number): number {
 }
 
 async function scheduleRetry(
-  kv: CloudflareKvClient,
+  d1: CloudflareD1Client,
   input: {
     postId: string;
     email: string;
@@ -439,64 +564,158 @@ async function scheduleRetry(
     lastError: string;
   }
 ): Promise<{ scheduled: boolean; attempt: number }> {
-  const key = retryKey(input.postId, input.emailHash);
-  const existing = await kv.getJson<RetryRecord>(key);
+  const existingRow = await d1.first<RetryRow>(
+    `SELECT
+      post_id,
+      email,
+      email_hash,
+      attempt,
+      created_at,
+      updated_at,
+      next_attempt_at,
+      last_error
+    FROM notify_retries
+    WHERE post_id = ? AND email_hash = ?
+    LIMIT 1`,
+    [input.postId, input.emailHash]
+  );
+
+  const existing: RetryRecord | null = existingRow
+    ? {
+      postId: existingRow.post_id,
+      email: existingRow.email,
+      emailHash: existingRow.email_hash,
+      attempt: parseNullableInt(existingRow.attempt) ?? 0,
+      createdAt: existingRow.created_at,
+      updatedAt: existingRow.updated_at,
+      nextAttemptAt: existingRow.next_attempt_at,
+      lastError: existingRow.last_error,
+    }
+    : null;
+
   const attempt = (existing?.attempt ?? 0) + 1;
   const createdAt = existing?.createdAt ?? nowIso();
+  const updatedAt = nowIso();
 
   if (attempt > MAX_RETRY_ATTEMPTS) {
-    await kv.putJson(deadKey(input.postId, input.emailHash), {
-      ...input,
-      createdAt,
-      updatedAt: nowIso(),
-      attempt,
-    });
-    await kv.delete(key);
+    await d1.run(
+      `INSERT INTO notify_dead_letters (
+        post_id,
+        email,
+        email_hash,
+        attempt,
+        created_at,
+        updated_at,
+        last_error
+      ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [
+        input.postId,
+        input.email,
+        input.emailHash,
+        attempt,
+        createdAt,
+        updatedAt,
+        input.lastError.slice(0, 500),
+      ]
+    );
+    await deleteRetryRecord(d1, input.postId, input.emailHash);
     return { scheduled: false, attempt };
   }
 
   const delayMinutes = getRetryDelayMinutes(attempt);
   const nextAttemptAt = new Date(getNowMs() + delayMinutes * 60 * 1000).toISOString();
 
-  const record: RetryRecord = {
-    postId: input.postId,
-    email: input.email,
-    emailHash: input.emailHash,
-    attempt,
-    createdAt,
-    updatedAt: nowIso(),
-    nextAttemptAt,
-    lastError: input.lastError.slice(0, 500),
-  };
-
-  await kv.putJson(key, record);
+  await d1.run(
+    `INSERT INTO notify_retries (
+      post_id,
+      email,
+      email_hash,
+      attempt,
+      created_at,
+      updated_at,
+      next_attempt_at,
+      last_error
+    )
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(post_id, email_hash) DO UPDATE SET
+      email = excluded.email,
+      attempt = excluded.attempt,
+      created_at = excluded.created_at,
+      updated_at = excluded.updated_at,
+      next_attempt_at = excluded.next_attempt_at,
+      last_error = excluded.last_error`,
+    [
+      input.postId,
+      input.email,
+      input.emailHash,
+      attempt,
+      createdAt,
+      updatedAt,
+      nextAttemptAt,
+      input.lastError.slice(0, 500),
+    ]
+  );
   return { scheduled: true, attempt };
 }
 
+async function deleteRetryRecord(
+  d1: CloudflareD1Client,
+  postId: string,
+  emailHash: string
+): Promise<void> {
+  await d1.run(
+    'DELETE FROM notify_retries WHERE post_id = ? AND email_hash = ?',
+    [postId, emailHash]
+  );
+}
+
 async function markAsSent(
-  kv: CloudflareKvClient,
+  d1: CloudflareD1Client,
   postId: string,
   emailHash: string,
   resendId?: string
 ): Promise<void> {
-  const record: SentRecord = {
-    postId,
-    emailHash,
-    sentAt: nowIso(),
-    resendId,
-  };
-  await kv.putJson(sentKey(postId, emailHash), record, {
-    expirationTtl: SENT_RECORD_TTL_SECONDS,
-  });
+  await d1.run(
+    `INSERT INTO notify_sent (
+      post_id,
+      email_hash,
+      sent_at,
+      resend_id
+    )
+    VALUES (?, ?, ?, ?)
+    ON CONFLICT(post_id, email_hash) DO UPDATE SET
+      sent_at = excluded.sent_at,
+      resend_id = excluded.resend_id`,
+    [postId, emailHash, nowIso(), nullableText(resendId)]
+  );
 }
 
 async function hasBeenSent(
-  kv: CloudflareKvClient,
+  d1: CloudflareD1Client,
   postId: string,
   emailHash: string
 ): Promise<boolean> {
-  const record = await kv.get(sentKey(postId, emailHash));
-  return Boolean(record);
+  const row = await d1.first<{ sent_at: string | null }>(
+    'SELECT sent_at FROM notify_sent WHERE post_id = ? AND email_hash = ? LIMIT 1',
+    [postId, emailHash]
+  );
+
+  const sentAt = row?.sent_at;
+  if (!sentAt) {
+    return false;
+  }
+
+  const sentAtMs = Date.parse(sentAt);
+  if (!Number.isFinite(sentAtMs)) {
+    return true;
+  }
+
+  if (sentAtMs < (getNowMs() - SENT_RECORD_TTL_MS)) {
+    await d1.run('DELETE FROM notify_sent WHERE post_id = ? AND email_hash = ?', [postId, emailHash]);
+    return false;
+  }
+
+  return true;
 }
 
 async function loadMoodPost(
@@ -766,7 +985,7 @@ async function loadChannelMeta(context: NotifyRequestContext): Promise<ChannelMe
 
 async function sendMoodEmail(
   context: NotifyRequestContext,
-  kv: CloudflareKvClient,
+  d1: CloudflareD1Client,
   input: {
     post: Post;
     previewText: string;
@@ -779,7 +998,7 @@ async function sendMoodEmail(
   const postId = input.post.id;
 
   if (!input.force) {
-    const alreadySent = await hasBeenSent(kv, postId, input.subscriber.emailHash);
+    const alreadySent = await hasBeenSent(d1, postId, input.subscriber.emailHash);
     if (alreadySent) {
       return { sent: false };
     }
@@ -820,15 +1039,15 @@ async function sendMoodEmail(
     idempotencyKey: `mood-${postId}-${input.subscriber.emailHash}`,
   });
 
-  await markAsSent(kv, postId, input.subscriber.emailHash, response.id);
-  await kv.delete(retryKey(postId, input.subscriber.emailHash));
+  await markAsSent(d1, postId, input.subscriber.emailHash, response.id);
+  await deleteRetryRecord(d1, postId, input.subscriber.emailHash);
 
   return { sent: true, resendId: response.id };
 }
 
 async function sendMoodDigestEmail(
   context: NotifyRequestContext,
-  kv: CloudflareKvClient,
+  d1: CloudflareD1Client,
   input: {
     posts: Post[];
     subscriber: SubscriberRecord;
@@ -857,7 +1076,7 @@ async function sendMoodDigestEmail(
   const postsToSend: Post[] = [];
   for (const post of orderedPosts) {
     if (!input.force) {
-      const alreadySent = await hasBeenSent(kv, post.id, input.subscriber.emailHash);
+      const alreadySent = await hasBeenSent(d1, post.id, input.subscriber.emailHash);
       if (alreadySent) {
         continue;
       }
@@ -921,8 +1140,8 @@ async function sendMoodDigestEmail(
 
   await Promise.all(
     postsToSend.map(async (post) => {
-      await markAsSent(kv, post.id, input.subscriber.emailHash, response.id);
-      await kv.delete(retryKey(post.id, input.subscriber.emailHash));
+      await markAsSent(d1, post.id, input.subscriber.emailHash, response.id);
+      await deleteRetryRecord(d1, post.id, input.subscriber.emailHash);
     })
   );
 
@@ -971,9 +1190,9 @@ export async function requestMoodSubscription(
   const timezone = normalizeTimezone(deliveryMode, input.timezone);
   const dailyHour = normalizeDailyHour(deliveryMode, input.dailyHour);
 
-  const kv = createKvClient(context);
+  const d1 = createD1Client(context);
   const config = getNotifyConfig(context);
-  const existing = await getSubscriberByEmail(kv, email);
+  const existing = await getSubscriberByEmail(d1, email);
 
   if (existing?.status === 'active' && isMatchingPreferences(existing, { deliveryMode, timezone, dailyHour })) {
     return {
@@ -1021,7 +1240,7 @@ export async function requestMoodSubscription(
   const now = nowIso();
   const emailHash = hashEmail(email);
 
-  await upsertSubscriber(kv, {
+  await upsertSubscriber(d1, {
     email,
     emailHash,
     status: existing?.status === 'active' ? 'active' : 'pending',
@@ -1060,8 +1279,8 @@ export async function confirmMoodSubscription(
 
   const email = normalizeEmail(payload.email);
   const emailHash = hashEmail(email);
-  const kv = createKvClient(context);
-  const existing = await kv.getJson<SubscriberRecord>(subscriberKey(emailHash));
+  const d1 = createD1Client(context);
+  const existing = await getSubscriberByEmailHash(d1, emailHash);
   const now = nowIso();
 
   const deliveryMode = existing?.pendingDeliveryMode ?? existing?.deliveryMode ?? 'immediate';
@@ -1087,7 +1306,7 @@ export async function confirmMoodSubscription(
     lastNotifiedPostId: existing?.lastNotifiedPostId,
   };
 
-  await upsertSubscriber(kv, record);
+  await upsertSubscriber(d1, record);
 
   return {
     status: 'subscribed',
@@ -1110,9 +1329,9 @@ export async function unsubscribeMoodSubscription(
 
   const email = normalizeEmail(payload.email);
   const emailHash = hashEmail(email);
-  const kv = createKvClient(context);
+  const d1 = createD1Client(context);
   const now = nowIso();
-  const existing = await kv.getJson<SubscriberRecord>(subscriberKey(emailHash));
+  const existing = await getSubscriberByEmailHash(d1, emailHash);
 
   const record: SubscriberRecord = {
     email,
@@ -1132,7 +1351,7 @@ export async function unsubscribeMoodSubscription(
     lastNotifiedPostId: existing?.lastNotifiedPostId,
   };
 
-  await upsertSubscriber(kv, record);
+  await upsertSubscriber(d1, record);
 
   return {
     status: 'unsubscribed',
@@ -1152,7 +1371,7 @@ export async function dispatchMoodNotification(
     throw new NotifyServiceError(400, 'invalid_post_id', 'postId is required');
   }
 
-  const kv = createKvClient(context);
+  const d1 = createD1Client(context);
   const post = await loadMoodPost(context, postId);
 
   if (!post) {
@@ -1166,7 +1385,7 @@ export async function dispatchMoodNotification(
     };
   }
 
-  const subscribers = await listActiveSubscribers(kv);
+  const subscribers = await listActiveSubscribers(d1);
   const previewText = getTextPreviewWithMedia(post);
   const channelMeta = await loadChannelMeta(context);
   const allowedModes = options.deliveryModes ? new Set(options.deliveryModes) : null;
@@ -1191,7 +1410,7 @@ export async function dispatchMoodNotification(
     }
 
     try {
-      const sendResult = await sendMoodEmail(context, kv, {
+      const sendResult = await sendMoodEmail(context, d1, {
         post,
         previewText,
         subscriber,
@@ -1201,14 +1420,14 @@ export async function dispatchMoodNotification(
 
       if (sendResult.sent) {
         result.sent += 1;
-        await updateSubscriberDeliveryState(kv, subscriber, post.id);
+        await updateSubscriberDeliveryState(d1, subscriber, post.id);
       } else {
         result.skipped += 1;
       }
     } catch (error) {
       result.failed += 1;
       const message = error instanceof Error ? error.message : 'Unknown email send error';
-      await scheduleRetry(kv, {
+      await scheduleRetry(d1, {
         postId: post.id,
         email: subscriber.email,
         emailHash: subscriber.emailHash,
@@ -1225,7 +1444,7 @@ export async function dispatchScheduledMoodNotifications(
 ): Promise<ScheduledDispatchResult> {
   requireEmailSendingConfig(context);
 
-  const kv = createKvClient(context);
+  const d1 = createD1Client(context);
   const latestPost = await loadLatestMoodPost(context);
 
   if (!latestPost) {
@@ -1240,7 +1459,7 @@ export async function dispatchScheduledMoodNotifications(
     };
   }
 
-  const subscribers = await listActiveSubscribers(kv);
+  const subscribers = await listActiveSubscribers(d1);
   const scheduledSubscribers = subscribers.filter(
     (subscriber) => getSubscriberDeliveryMode(subscriber) !== 'immediate'
   );
@@ -1289,7 +1508,7 @@ export async function dispatchScheduledMoodNotifications(
     }
 
     try {
-      const sendResult = await sendMoodDigestEmail(context, kv, {
+      const sendResult = await sendMoodDigestEmail(context, d1, {
         posts: digestPosts,
         subscriber,
         force: false,
@@ -1299,7 +1518,7 @@ export async function dispatchScheduledMoodNotifications(
       if (sendResult.sent) {
         result.sent += 1;
         await updateSubscriberDeliveryState(
-          kv,
+          d1,
           subscriber,
           sendResult.latestPostId ?? digestPosts[0].id
         );
@@ -1310,7 +1529,7 @@ export async function dispatchScheduledMoodNotifications(
       result.failed += 1;
       const message = error instanceof Error ? error.message : 'Unknown scheduled send error';
       const retryPostId = digestPosts[0]?.id || latestPost.id;
-      await scheduleRetry(kv, {
+      await scheduleRetry(d1, {
         postId: retryPostId,
         email: subscriber.email,
         emailHash: subscriber.emailHash,
@@ -1334,25 +1553,43 @@ export async function processNotifyRetries(
   const scanLimit = options.scanLimit ?? DEFAULT_RETRY_SCAN_LIMIT;
   const processLimit = options.processLimit ?? DEFAULT_RETRY_PROCESS_LIMIT;
 
-  const kv = createKvClient(context);
-  const retryKeys = await kv.listKeys(RETRY_PREFIX, scanLimit);
-  const records = await Promise.all(
-    retryKeys.map(async (key) => {
-      const record = await kv.getJson<RetryRecord>(key);
-      return { key, record };
-    })
+  const d1 = createD1Client(context);
+  const retryRows = await d1.query<RetryRow>(
+    `SELECT
+      post_id,
+      email,
+      email_hash,
+      attempt,
+      created_at,
+      updated_at,
+      next_attempt_at,
+      last_error
+    FROM notify_retries
+    ORDER BY next_attempt_at ASC
+    LIMIT ?`,
+    [scanLimit]
   );
 
-  const dueRecords = records
-    .filter((entry): entry is { key: string; record: RetryRecord } => Boolean(entry.record))
-    .filter((entry) => new Date(entry.record.nextAttemptAt).getTime() <= getNowMs())
+  const nowMs = getNowMs();
+  const dueRecords = retryRows
+    .map((row): RetryRecord => ({
+      postId: row.post_id,
+      email: row.email,
+      emailHash: row.email_hash,
+      attempt: parseNullableInt(row.attempt) ?? 0,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+      nextAttemptAt: row.next_attempt_at,
+      lastError: row.last_error,
+    }))
+    .filter((record) => new Date(record.nextAttemptAt).getTime() <= nowMs)
     .sort((a, b) =>
-      new Date(a.record.nextAttemptAt).getTime() - new Date(b.record.nextAttemptAt).getTime()
+      new Date(a.nextAttemptAt).getTime() - new Date(b.nextAttemptAt).getTime()
     )
     .slice(0, processLimit);
 
   const output: RetryProcessResult = {
-    scanned: retryKeys.length,
+    scanned: retryRows.length,
     processed: 0,
     sent: 0,
     dropped: 0,
@@ -1362,40 +1599,38 @@ export async function processNotifyRetries(
   const postCache = new Map<string, Post | null>();
   const channelMeta = await loadChannelMeta(context);
 
-  for (const entry of dueRecords) {
+  for (const record of dueRecords) {
     output.processed += 1;
 
-    const activeSubscriber = await kv.getJson<SubscriberRecord>(
-      subscriberKey(entry.record.emailHash)
-    );
+    const activeSubscriber = await getSubscriberByEmailHash(d1, record.emailHash);
 
     if (!activeSubscriber || activeSubscriber.status !== 'active') {
-      await kv.delete(entry.key);
+      await deleteRetryRecord(d1, record.postId, record.emailHash);
       output.dropped += 1;
       continue;
     }
 
-    if (await hasBeenSent(kv, entry.record.postId, entry.record.emailHash)) {
-      await kv.delete(entry.key);
+    if (await hasBeenSent(d1, record.postId, record.emailHash)) {
+      await deleteRetryRecord(d1, record.postId, record.emailHash);
       output.dropped += 1;
       continue;
     }
 
-    let post = postCache.get(entry.record.postId);
+    let post = postCache.get(record.postId);
     if (post === undefined) {
-      post = await loadMoodPost(context, entry.record.postId);
-      postCache.set(entry.record.postId, post);
+      post = await loadMoodPost(context, record.postId);
+      postCache.set(record.postId, post);
     }
 
     if (!post) {
-      await kv.delete(entry.key);
+      await deleteRetryRecord(d1, record.postId, record.emailHash);
       output.dropped += 1;
       continue;
     }
 
     try {
       const previewText = getTextPreviewWithMedia(post);
-      const sendResult = await sendMoodEmail(context, kv, {
+      const sendResult = await sendMoodEmail(context, d1, {
         post,
         previewText,
         subscriber: activeSubscriber,
@@ -1405,18 +1640,18 @@ export async function processNotifyRetries(
 
       if (sendResult.sent) {
         output.sent += 1;
-        await updateSubscriberDeliveryState(kv, activeSubscriber, post.id);
+        await updateSubscriberDeliveryState(d1, activeSubscriber, post.id);
       } else {
         output.dropped += 1;
       }
 
-      await kv.delete(entry.key);
+      await deleteRetryRecord(d1, record.postId, record.emailHash);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown retry send error';
-      const retryOutcome = await scheduleRetry(kv, {
-        postId: entry.record.postId,
-        email: entry.record.email,
-        emailHash: entry.record.emailHash,
+      const retryOutcome = await scheduleRetry(d1, {
+        postId: record.postId,
+        email: record.email,
+        emailHash: record.emailHash,
         lastError: message,
       });
 

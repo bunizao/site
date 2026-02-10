@@ -9,7 +9,7 @@ export interface NotifyConfig {
   cronSecret: string;
   cloudflareAccountId: string;
   cloudflareApiToken: string;
-  cloudflareNotifyNamespaceId: string;
+  cloudflareNotifyD1DatabaseId: string;
 }
 
 interface RuntimeContext {
@@ -42,10 +42,7 @@ export function getNotifyConfig(context: RuntimeContext = {}): NotifyConfig {
     readEnv(locals, 'PUBLIC_BASE_URL') ||
     '';
 
-  const namespaceId =
-    readEnv(locals, 'CLOUDFLARE_NOTIFY_KV_NAMESPACE_ID') ||
-    readEnv(locals, 'CLOUDFLARE_KV_NAMESPACE_ID') ||
-    '';
+  const d1DatabaseId = readEnv(locals, 'CLOUDFLARE_NOTIFY_D1_DATABASE_ID');
 
   return {
     resendApiKey: readEnv(locals, 'RESEND_API_KEY'),
@@ -58,7 +55,7 @@ export function getNotifyConfig(context: RuntimeContext = {}): NotifyConfig {
     cronSecret: readEnv(locals, 'CRON_SECRET'),
     cloudflareAccountId: readEnv(locals, 'CLOUDFLARE_ACCOUNT_ID'),
     cloudflareApiToken: readEnv(locals, 'CLOUDFLARE_API_TOKEN'),
-    cloudflareNotifyNamespaceId: namespaceId,
+    cloudflareNotifyD1DatabaseId: d1DatabaseId,
   };
 }
 
