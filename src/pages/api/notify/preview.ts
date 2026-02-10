@@ -21,12 +21,46 @@ function isValidTimezone(value: string): boolean {
   }
 }
 
-function normalizeAbsoluteUrl(value: string | undefined): string | undefined {
+function normalizeAbsoluteUrl(value: string | undefined, baseUrl: string): string | undefined {
   const raw = (value || '').trim();
   if (!raw) return undefined;
-  if (raw.startsWith('//')) return `https:${raw}`;
-  if (/^https?:\/\//i.test(raw)) return raw;
-  return undefined;
+
+  if (raw.startsWith('//')) {
+    return `https:${raw}`;
+  }
+
+  try {
+    return new URL(raw, baseUrl).toString();
+  } catch {
+    return undefined;
+  }
+}
+
+function toEmailImageUrl(value: string | undefined, siteUrl: string): string | undefined {
+  const absoluteUrl = normalizeAbsoluteUrl(value, siteUrl);
+  if (!absoluteUrl) return undefined;
+
+  let siteOrigin: string;
+  try {
+    siteOrigin = new URL(siteUrl).origin;
+  } catch {
+    return absoluteUrl;
+  }
+
+  const staticPrefix = `${siteOrigin}/static/`;
+  if (absoluteUrl.startsWith(staticPrefix)) {
+    return absoluteUrl;
+  }
+
+  try {
+    if (new URL(absoluteUrl).origin === siteOrigin) {
+      return absoluteUrl;
+    }
+  } catch {
+    return absoluteUrl;
+  }
+
+  return `${staticPrefix}${absoluteUrl}`;
 }
 
 function getPostTimestamp(post: Post): number {
@@ -62,7 +96,8 @@ function getLocalDateLabel(date: Date, timeZone: string): string {
 }
 
 async function loadChannelSnapshot(
-  context: { request: Request; locals: any }
+  context: { request: Request; locals: any },
+  siteUrl: string
 ): Promise<{ channelTitle: string; channelAvatarUrl?: string; posts: Post[] }> {
   try {
     const result = (await getChannelInfo(
@@ -76,7 +111,7 @@ async function loadChannelSnapshot(
 
     return {
       channelTitle: result.title?.trim() || 'Mood Feed',
-      channelAvatarUrl: normalizeAbsoluteUrl(result.avatar),
+      channelAvatarUrl: toEmailImageUrl(result.avatar, siteUrl),
       posts,
     };
   } catch (error) {
@@ -102,7 +137,7 @@ export const GET: APIRoute = async ({ request, locals }) => {
     || new URL(request.url).origin
   ).replace(/\/+$/, '');
 
-  const { channelTitle, channelAvatarUrl, posts } = await loadChannelSnapshot({ request, locals });
+  const { channelTitle, channelAvatarUrl, posts } = await loadChannelSnapshot({ request, locals }, siteUrl);
   const latestPost = posts[0];
   const latestPostId = latestPost?.id || '00000';
 
