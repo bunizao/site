@@ -8,6 +8,7 @@ import {
   hashEmail,
   isValidEmail,
   normalizeEmail,
+  secureCompareText,
   verifyNotifyToken,
 } from './security';
 import { sendEmailWithResend } from './resend';
@@ -999,5 +1000,5 @@ export function isAuthorizedSecret(request: Request, secret: string): boolean {
   const bearer = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : '';
   const headerSecret = request.headers.get('x-notify-secret')?.trim() ?? '';
 
-  return bearer === secret || headerSecret === secret;
+  return secureCompareText(bearer, secret) || secureCompareText(headerSecret, secret);
 }

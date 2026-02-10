@@ -23,6 +23,20 @@ export function hashEmail(email: string): string {
   return createHash('sha256').update(email).digest('hex');
 }
 
+export function secureCompareText(input: string, expected: string): boolean {
+  if (!input || !expected) {
+    return false;
+  }
+
+  const inputBuffer = Buffer.from(input);
+  const expectedBuffer = Buffer.from(expected);
+  if (inputBuffer.length !== expectedBuffer.length) {
+    return false;
+  }
+
+  return timingSafeEqual(inputBuffer, expectedBuffer);
+}
+
 function signPayload(encodedPayload: string, secret: string): string {
   return createHmac('sha256', secret).update(encodedPayload).digest('base64url');
 }

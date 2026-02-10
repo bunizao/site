@@ -22,6 +22,18 @@ interface RunResult {
 
 const TASK_PATHS = ['/api/notify/schedule', '/api/notify/retry'];
 
+function secureCompareText(input: string, expected: string): boolean {
+  if (!input || !expected) return false;
+  if (input.length !== expected.length) return false;
+
+  let diff = 0;
+  for (let index = 0; index < input.length; index += 1) {
+    diff |= input.charCodeAt(index) ^ expected.charCodeAt(index);
+  }
+
+  return diff === 0;
+}
+
 function trimTrailingSlash(value: string): string {
   return value.replace(/\/$/, '');
 }
@@ -91,7 +103,7 @@ function hasManualAccess(request: Request, env: Env): boolean {
   const bearer = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : '';
   const manualHeader = request.headers.get('x-worker-token')?.trim() ?? '';
 
-  return bearer === expected || manualHeader === expected;
+  return secureCompareText(bearer, expected) || secureCompareText(manualHeader, expected);
 }
 
 export default {
