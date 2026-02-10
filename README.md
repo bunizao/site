@@ -32,7 +32,9 @@ bun run dev
 Query params:
 - `before` (string, optional): pagination cursor (oldest mood id currently loaded).
 
-Response shape:
+<details>
+<summary>Response shape</summary>
+
 ```json
 {
   "posts": [
@@ -58,46 +60,21 @@ Response shape:
   }
 }
 ```
+</details>
 
 ### Notifications (Email)
 
-Email notification endpoints for mood subscriptions:
-
-- `POST /api/notify/subscribe` - Start double opt-in subscription
-- `GET /api/notify/confirm?token=<token>` - Confirm subscription link
-- `GET /api/notify/unsubscribe?token=<token>` - One-click unsubscribe link
-- `POST /api/notify/dispatch` - Dispatch mood notification (requires `NOTIFY_DISPATCH_SECRET`)
-- `GET/POST /api/notify/schedule` - Process scheduled modes (`every_5h`, `daily`)
-- `GET/POST /api/notify/retry` - Retry failed deliveries (requires `CRON_SECRET` or `NOTIFY_DISPATCH_SECRET`)
-
-`POST /api/notify/subscribe` supports optional fields:
-- `deliveryMode` (`immediate` | `every_5h` | `daily`)
-- `timezone` (recommended for `daily`)
-- `dailyHour` (`0..23` for `daily`)
-
-Full email notification setup guide:
+Documentation:
 - [`docs/EMAIL-NOTIFY.md`](docs/EMAIL-NOTIFY.md)
 
 ### SVG
 
-These endpoints return SVG images:
-
-- `GET /api/status.svg` (optional `theme=light|dark`)
-- `GET /api/tech-stack.svg` (optional `theme=light|dark`)
-- `GET /api/site-badge.svg` (optional `theme=light|dark`)
-- `GET /api/project.svg` (required `project`, optional `theme=light|dark`)
-
-Full SVG API documentation:
+Documentation:
 - [`docs/SVG-API.md`](docs/SVG-API.md)
 
 ### oEmbed
 
-Embed mood posts on other platforms via oEmbed protocol:
-
-- `GET /api/oembed.json` - oEmbed endpoint
-- `GET /mood/embed` - Embeddable widget
-
-Full oEmbed documentation:
+Documentation:
 - [`docs/OEMBED-API.md`](docs/OEMBED-API.md)
 
 ## Image Quality Upgrade (Cloudflare Worker)
@@ -108,38 +85,41 @@ Documentation:
 - [`docs/IMAGE-QUALITY-UPGRADE.md`](docs/IMAGE-QUALITY-UPGRADE.md)
 
 ## Project Structure
-- `/src/pages` - Route entry points
-- `src/pages/api` - Dynamic SVG endpoints
-- `workers/notify-scheduler` - Cloudflare Worker scheduler for notify `schedule + retry`
-- `src/components` - Reusable UI components
-- `src/layouts` - Layout wrappers
-- `src/styles` - Global styles and fonts
-- `public` - Static assets
-
-## Customization
-- `src/pages/index.astro` - Homepage content
-- `src/styles/globals.css` - Global styling overrides
-- `public` - Logos, icons, and other static media
+```text
+.
+├── src/                              # Application source code
+│   ├── pages/                        # Astro routes and API endpoints
+│   │   ├── index.astro               # Homepage
+│   │   ├── mood.astro                # Mood feed page
+│   │   ├── mood/[id].astro           # Mood detail page
+│   │   ├── mood/embed.astro          # Embeddable widget page
+│   │   ├── api/                      # JSON/SVG/oEmbed/webhook endpoints
+│   │   └── static/                   # Static proxy/helper routes
+│   ├── components/                   # Reusable Astro/React components
+│   │   └── ui/                       # UI primitives
+│   ├── layouts/                      # Shared layout wrappers
+│   ├── lib/                          # Utilities and service integrations
+│   │   ├── notify/                   # Email notify domain logic
+│   │   └── security/                 # Turnstile and security helpers
+│   └── styles/                       # Global styles and Tailwind layers
+├── public/                           # Public static assets
+│   └── fonts/                        # Font files
+├── docs/                             # API and feature documentation
+├── workers/                          # Cloudflare Worker projects
+│   ├── notify-scheduler/             # Scheduled notify dispatcher
+│   └── telegram-image-proxy/         # Telegram image proxy worker
+├── scripts/                          # Maintenance/migration scripts
+├── tests/                            # Automated tests
+│   └── e2e/                          # Playwright e2e test cases
+├── astro.config.mjs                  # Astro config and integrations
+├── tailwind.config.mjs               # Tailwind theme/config
+└── .env                              # Environment template with comments
+```
 
 ## Environment Variables
-- `GHOST_URL` - Ghost CMS URL
-- `GHOST_CONTENT_APIKEY` - Ghost CMS content API key
-- `GITHUB_TOKEN` - GitHub GraphQL token for project data and star counts
-- `PUBLIC_HD_IMAGE_URL` - Cloudflare Worker base URL for Mood images
-- `TELEGRAM_WEBHOOK_SECRET` - Secret token for `/api/telegram-webhook`
-- `CLOUDFLARE_ACCOUNT_ID` - Cloudflare account id for KV writes
-- `CLOUDFLARE_API_TOKEN` - Cloudflare API token for KV writes
-- `CLOUDFLARE_KV_NAMESPACE_ID` - Cloudflare KV namespace id (MOOD_IMAGES)
-- `CLOUDFLARE_NOTIFY_KV_NAMESPACE_ID` - Optional dedicated KV namespace for notify data
-- `RESEND_API_KEY` - Resend API key for transactional email sending
-- `NOTIFY_FROM_NAME` - Optional sender display name (example: `Mood`)
-- `NOTIFY_FROM_EMAIL` - Sender email address verified in Resend (email only)
-- `NOTIFY_REPLY_TO_EMAIL` - Optional reply-to mailbox
-- `EMAIL_NOTIFY_SECRET` - HMAC secret for confirm/unsubscribe signed tokens
-- `NOTIFY_DISPATCH_SECRET` - Secret for authenticated `/api/notify/dispatch` calls
-- `PUBLIC_SITE_URL` - Public site base URL for email links (e.g. `https://buxx.me`)
-- `CRON_SECRET` - Secret used by Vercel Cron when calling `/api/notify/retry`
-- See [`.env`](.env)
+Variable descriptions are maintained as inline comments in [`.env`](.env).
+
+Use `.env.local` for local secrets and keep [`.env`](.env) as the documented template.
 
 ## Acknowledgements
 - [miantiao-me/BroadcastChannel](https://github.com/miantiao-me/BroadcastChannel) - Inspiration and code reference for `moods` ideas.
