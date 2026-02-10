@@ -27,3 +27,5 @@ dist-ssr
 .env
 .vercel
 .env*.local
+playwright-report
+test-results
