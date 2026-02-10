@@ -1,6 +1,8 @@
 import type { APIRoute } from 'astro';
 import { svgResponse } from '../../lib/svg-response';
 
+export const prerender = false;
+
 const techStack = [
   'TypeScript',
   'JavaScript',

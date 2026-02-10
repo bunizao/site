@@ -2,6 +2,8 @@ import type { APIRoute } from 'astro';
 import { fetchGitHubRepo } from '../../lib/github';
 import { svgResponse } from '../../lib/svg-response';
 
+export const prerender = false;
+
 interface ProjectData {
   name: string;
   repo: string;
@@ -57,9 +59,10 @@ function escapeXml(text: string): string {
     .replace(/'/g, '&apos;');
 }
 
-export const GET: APIRoute = async ({ url, locals }) => {
-  const projectId = url.searchParams.get('project') || 'tutubetterrules';
-  const theme = url.searchParams.get('theme') || 'dark';
+export const GET: APIRoute = async ({ request, locals }) => {
+  const searchParams = new URL(request.url).searchParams;
+  const projectId = searchParams.get('project') || 'tutubetterrules';
+  const theme = searchParams.get('theme') || 'dark';
 
   const project = projects[projectId.toLowerCase()];
 
