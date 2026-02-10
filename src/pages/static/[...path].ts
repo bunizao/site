@@ -1,4 +1,5 @@
 import type { APIRoute } from 'astro';
+import { checkRateLimit, createRateLimitHeaders } from '@/lib/security/rate-limit';
 
 export const prerender = false;
 
@@ -38,6 +39,9 @@ const forwardHeadersAllowList = [
   'user-agent',
 ];
 
+const redirectStatusCodes = new Set([301, 302, 303, 307, 308]);
+const MAX_REDIRECTS = 3;
+
 const decodeTarget = (value: string): string => {
   try {
     return decodeURIComponent(value);
@@ -56,7 +60,65 @@ const normalizeTarget = (value: string): string => {
   return value;
 };
 
-const buildProxyResponse = async (request: Request, targetUrl: string): Promise<Response> => {
+const isAllowedTargetHost = (url: URL): boolean => {
+  if (['localhost', '127.0.0.1', '::1'].includes(url.hostname)) {
+    return false;
+  }
+
+  return ALLOWED_DOMAINS.some(
+    (domain) => url.hostname === domain || url.hostname.endsWith(`.${domain}`)
+  );
+};
+
+const fetchWithValidatedRedirects = async (
+  request: Request,
+  targetUrl: string,
+  headers: Headers
+): Promise<Response> => {
+  let currentUrl = targetUrl;
+
+  for (let redirectCount = 0; redirectCount <= MAX_REDIRECTS; redirectCount += 1) {
+    const upstream = await fetch(currentUrl, {
+      method: request.method,
+      headers,
+      redirect: 'manual',
+    });
+
+    if (!redirectStatusCodes.has(upstream.status)) {
+      return upstream;
+    }
+
+    if (redirectCount === MAX_REDIRECTS) {
+      throw new Error('Too many upstream redirects');
+    }
+
+    const location = upstream.headers.get('location');
+    if (!location) {
+      throw new Error('Upstream redirect missing location header');
+    }
+
+    let nextUrl: URL;
+    try {
+      nextUrl = new URL(location, currentUrl);
+    } catch {
+      throw new Error('Invalid upstream redirect URL');
+    }
+
+    if (!/^https?:$/i.test(nextUrl.protocol) || !isAllowedTargetHost(nextUrl)) {
+      throw new Error('Upstream redirect target is not allowed');
+    }
+
+    currentUrl = nextUrl.toString();
+  }
+
+  throw new Error('Redirect handling failed');
+};
+
+const buildProxyResponse = async (
+  request: Request,
+  targetUrl: string,
+  extraHeaders: Headers
+): Promise<Response> => {
   const headers = new Headers();
   forwardHeadersAllowList.forEach((name) => {
     const value = request.headers.get(name);
@@ -65,14 +127,13 @@ const buildProxyResponse = async (request: Request, targetUrl: string): Promise<
 
   let upstream: Response;
   try {
-    upstream = await fetch(targetUrl, {
-      method: request.method,
-      headers,
-      redirect: 'follow',
-    });
+    upstream = await fetchWithValidatedRedirects(request, targetUrl, headers);
   } catch (error) {
     console.error('Upstream fetch failed:', { targetUrl, error });
-    return new Response('Upstream fetch failed.', { status: 502 });
+    return new Response('Upstream fetch failed.', {
+      status: 502,
+      headers: extraHeaders,
+    });
   }
 
   const responseHeaders = new Headers(upstream.headers);
@@ -83,6 +144,9 @@ const buildProxyResponse = async (request: Request, targetUrl: string): Promise<
   if (!responseHeaders.has('cache-control')) {
     responseHeaders.set('cache-control', 'public, max-age=86400, s-maxage=86400');
   }
+  extraHeaders.forEach((value, key) => {
+    responseHeaders.set(key, value);
+  });
 
   return new Response(upstream.body, {
     status: upstream.status,
@@ -102,34 +166,60 @@ const resolveTargetUrl = (request: Request, rawPath: string): string | null => {
   if (!/^https?:\/\//i.test(target)) return null;
 
   const url = new URL(target);
-  if (['localhost', '127.0.0.1', '::1'].includes(url.hostname)) {
-    return null;
-  }
-
-  const isAllowed = ALLOWED_DOMAINS.some(
-    (domain) => url.hostname === domain || url.hostname.endsWith(`.${domain}`)
-  );
-  if (!isAllowed) return null;
+  if (!isAllowedTargetHost(url)) return null;
 
   return url.toString();
 };
 
-export const GET: APIRoute = async ({ request, params }) => {
-  const rawPath = params.path ?? '';
-  const targetUrl = resolveTargetUrl(request, rawPath);
-  if (!targetUrl) {
-    return new Response('Invalid target URL.', { status: 400 });
-  }
-
-  return buildProxyResponse(request, targetUrl);
+const createRateLimitedResponse = (headers: Headers): Response => {
+  return new Response('Too Many Requests.', {
+    status: 429,
+    headers,
+  });
 };
 
-export const HEAD: APIRoute = async ({ request, params }) => {
+export const GET: APIRoute = async ({ request, params, locals }) => {
+  const rateLimit = checkRateLimit(
+    request,
+    { windowMs: 60_000, max: 240, prefix: 'api:static-proxy' },
+    locals
+  );
+  const rateLimitHeaders = createRateLimitHeaders(rateLimit);
+  if (!rateLimit.allowed) {
+    return createRateLimitedResponse(rateLimitHeaders);
+  }
+
   const rawPath = params.path ?? '';
   const targetUrl = resolveTargetUrl(request, rawPath);
   if (!targetUrl) {
-    return new Response(null, { status: 400 });
+    return new Response('Invalid target URL.', {
+      status: 400,
+      headers: rateLimitHeaders,
+    });
   }
 
-  return buildProxyResponse(request, targetUrl);
+  return buildProxyResponse(request, targetUrl, rateLimitHeaders);
+};
+
+export const HEAD: APIRoute = async ({ request, params, locals }) => {
+  const rateLimit = checkRateLimit(
+    request,
+    { windowMs: 60_000, max: 240, prefix: 'api:static-proxy' },
+    locals
+  );
+  const rateLimitHeaders = createRateLimitHeaders(rateLimit);
+  if (!rateLimit.allowed) {
+    return createRateLimitedResponse(rateLimitHeaders);
+  }
+
+  const rawPath = params.path ?? '';
+  const targetUrl = resolveTargetUrl(request, rawPath);
+  if (!targetUrl) {
+    return new Response(null, {
+      status: 400,
+      headers: rateLimitHeaders,
+    });
+  }
+
+  return buildProxyResponse(request, targetUrl, rateLimitHeaders);
 };
