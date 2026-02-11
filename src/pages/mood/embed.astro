@@ -37,12 +37,35 @@ const [channelInfo, fullChannelInfo] = await Promise.all([channelInfoPromise, fu
 let posts: any[] = [];
 let channelTitle = '';
 let channelAvatar = '';
+const HD_IMAGE_URL =
+  import.meta.env.PUBLIC_HD_IMAGE_URL
+  || Astro.locals?.runtime?.env?.PUBLIC_HD_IMAGE_URL
+  || Astro.locals?.env?.PUBLIC_HD_IMAGE_URL
+  || '';
+
+let hdImageOrigin = '';
+if (HD_IMAGE_URL) {
+  try {
+    hdImageOrigin = new URL(HD_IMAGE_URL).origin.toLowerCase();
+  } catch {
+    hdImageOrigin = '';
+  }
+}
 
 // Helper to proxy avatar URL
 function proxyAvatarUrl(avatar: string): string {
   if (!avatar) return '';
   if (avatar.startsWith('/static/')) return avatar;
   const url = avatar.startsWith('http') ? avatar : `https:${avatar}`;
+  if (hdImageOrigin) {
+    try {
+      if (new URL(url).origin.toLowerCase() === hdImageOrigin) {
+        return url;
+      }
+    } catch {
+      // Fall through to static proxy fallback.
+    }
+  }
   return `/static/${url}`;
 }
 

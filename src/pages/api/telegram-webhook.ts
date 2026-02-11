@@ -15,6 +15,8 @@ import { checkRateLimit, createRateLimitHeaders } from '@/lib/security/rate-limi
 export const prerender = false;
 
 const WEBHOOK_SECRET = import.meta.env.TELEGRAM_WEBHOOK_SECRET;
+const TELEGRAM_BOT_TOKEN = import.meta.env.TELEGRAM_BOT_TOKEN;
+const TELEGRAM_CHANNEL_ID = import.meta.env.TELEGRAM_CHANNEL_ID;
 const CF_ACCOUNT_ID = import.meta.env.CLOUDFLARE_ACCOUNT_ID;
 const CF_API_TOKEN = import.meta.env.CLOUDFLARE_API_TOKEN;
 const KV_NAMESPACE_ID = import.meta.env.CLOUDFLARE_KV_NAMESPACE_ID;
@@ -31,11 +33,29 @@ interface TelegramMessage {
   message_id: number;
   photo?: TelegramPhotoSize[];
   media_group_id?: string;
+  chat?: {
+    id: number | string;
+    photo?: {
+      small_file_id?: string;
+      big_file_id?: string;
+    };
+  };
 }
 
 interface TelegramUpdate {
   update_id: number;
   channel_post?: TelegramMessage;
+}
+
+interface TelegramGetChatResponse {
+  ok: boolean;
+  result?: {
+    photo?: {
+      small_file_id?: string;
+      big_file_id?: string;
+    };
+  };
+  description?: string;
 }
 
 function selectLargestPhoto(photos: TelegramPhotoSize[]): TelegramPhotoSize | null {
@@ -49,6 +69,51 @@ function selectLargestPhoto(photos: TelegramPhotoSize[]): TelegramPhotoSize | nu
     const currentSize = current.file_size ?? 0;
     return currentSize > bestSize ? current : best;
   });
+}
+
+async function fetchChannelAvatarFileId(channelId: string): Promise<string | null> {
+  if (!channelId || !TELEGRAM_BOT_TOKEN) {
+    return null;
+  }
+
+  try {
+    const getChatUrl = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getChat?chat_id=${encodeURIComponent(channelId)}`;
+    const response = await fetch(getChatUrl);
+    if (!response.ok) {
+      console.error('Telegram getChat failed for avatar indexing:', response.status);
+      return null;
+    }
+
+    const payload = (await response.json()) as TelegramGetChatResponse;
+    if (!payload.ok) {
+      console.error('Telegram getChat response invalid for avatar indexing:', payload.description);
+      return null;
+    }
+
+    const photo = payload.result?.photo;
+    return photo?.big_file_id || photo?.small_file_id || null;
+  } catch (error) {
+    console.error('Telegram getChat request failed for avatar indexing:', error);
+    return null;
+  }
+}
+
+async function indexChannelAvatarInKv(message: TelegramMessage): Promise<void> {
+  const channelId = message.chat?.id ? String(message.chat.id) : TELEGRAM_CHANNEL_ID || '';
+  if (!channelId) {
+    return;
+  }
+
+  const directAvatarFileId = message.chat?.photo?.big_file_id || message.chat?.photo?.small_file_id || '';
+  const avatarFileId = directAvatarFileId || await fetchChannelAvatarFileId(channelId);
+  if (!avatarFileId) {
+    return;
+  }
+
+  const success = await writeToKV('channel:avatar', avatarFileId);
+  if (success) {
+    console.info(`Indexed channel avatar: channel:avatar -> ${avatarFileId.slice(0, 20)}...`);
+  }
 }
 
 /**
@@ -153,6 +218,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
 
   const postId = message.message_id.toString();
   await triggerMoodDispatch({ request, locals }, postId);
+  await indexChannelAvatarInKv(message);
 
   // Only index image file_id when the post has photos
   if (!message?.photo?.length) {

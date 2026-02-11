@@ -119,6 +119,7 @@ export function renderNotifyPage(options: {
 
       .card {
         border: 1px solid var(--border);
+        border-radius: 14px;
         padding: 32px;
       }
 

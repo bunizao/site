@@ -111,10 +111,16 @@ function escapeHtml(value: string = ''): string {
 
 // HD image proxy URL (Cloudflare Worker)
 const HD_IMAGE_URL = import.meta.env.PUBLIC_HD_IMAGE_URL || '';
+const HD_IMAGE_BASE = HD_IMAGE_URL.replace(/\/+$/, '');
 const INLINE_IMAGE_WIDTHS = [480, 800, 1200];
 const MODAL_IMAGE_WIDTHS = [800, 1200, 1600];
 const INLINE_IMAGE_SIZES = '(min-width: 1024px) 720px, (min-width: 640px) 90vw, 100vw';
 const MODAL_IMAGE_SIZES = '(min-width: 1024px) 900px, 90vw';
+
+function buildHdImageUrl(path: string): string {
+  if (!HD_IMAGE_BASE) return '';
+  return `${HD_IMAGE_BASE}${path.startsWith('/') ? path : `/${path}`}`;
+}
 
 /**
  * Upgrade image URL to higher quality by modifying the width parameter
@@ -270,8 +276,8 @@ function getImages($: CheerioAPI, item: Element, { staticProxy, id, index, title
       const fallbackUrl = sanitizeUrlValue(toStaticProxyUrl(highQualityUrl, staticProxy), 'src');
 
       // Use HD Worker proxy if configured, with fallback to static proxy
-      const hdUrl = HD_IMAGE_URL && id
-        ? sanitizeUrlValue(`${HD_IMAGE_URL}/mood/${encodeURIComponent(id)}/${_index}`, 'src')
+      const hdUrl = HD_IMAGE_BASE && id
+        ? sanitizeUrlValue(buildHdImageUrl(`/mood/${encodeURIComponent(id)}/${_index}`), 'src')
         : '';
       const imgSrc = hdUrl || fallbackUrl;
       if (!imgSrc) {
@@ -1143,13 +1149,14 @@ export async function getChannelInfo(
       ?.reverse()
       .filter((post: Post) => ['text'].includes(post.type) && post.id && post.content) ?? [];
 
+  const rawAvatar = $('.tgme_page_photo_image img')?.attr('src') ?? '';
   const channelInfo: ChannelInfo = {
     posts,
     title: channelTitle,
     titleHTML: (await modifyHTMLContent($, $('.tgme_channel_info_header_title'), { staticProxy }))?.html() ?? '',
     description: $('.tgme_channel_info_description')?.text() ?? '',
     descriptionHTML: (await modifyHTMLContent($, $('.tgme_channel_info_description'), { staticProxy }))?.html() ?? '',
-    avatar: $('.tgme_page_photo_image img')?.attr('src') ?? '',
+    avatar: buildHdImageUrl('/channel/avatar') || rawAvatar,
   };
 
   if (!skipCache) {

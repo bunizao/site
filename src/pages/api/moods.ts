@@ -20,6 +20,51 @@ function isValidCursor(value: string): boolean {
   return !value || CURSOR_PATTERN.test(value);
 }
 
+function readEnv(locals: any, name: string): string {
+  const buildValue = import.meta.env[name];
+  if (typeof buildValue === 'string' && buildValue.trim()) {
+    return buildValue;
+  }
+
+  const runtimeValue = locals?.runtime?.env?.[name] ?? locals?.env?.[name];
+  if (typeof runtimeValue === 'string') {
+    return runtimeValue;
+  }
+
+  return '';
+}
+
+function getHdImageOrigin(locals: any): string {
+  const hdImageUrl = readEnv(locals, 'PUBLIC_HD_IMAGE_URL');
+  if (!hdImageUrl) return '';
+
+  try {
+    return new URL(hdImageUrl).origin.toLowerCase();
+  } catch {
+    return '';
+  }
+}
+
+function toChannelAvatarUrl(avatar: string, locals: any): string {
+  if (!avatar) return '';
+  if (avatar.startsWith('/static/')) return avatar;
+
+  const normalized = avatar.startsWith('http') ? avatar : `https:${avatar}`;
+  const hdImageOrigin = getHdImageOrigin(locals);
+
+  if (hdImageOrigin) {
+    try {
+      if (new URL(normalized).origin.toLowerCase() === hdImageOrigin) {
+        return normalized;
+      }
+    } catch {
+      // Fall through to static proxy fallback.
+    }
+  }
+
+  return `/static/${normalized}`;
+}
+
 export const GET: APIRoute = async ({ request, locals }) => {
   const url = new URL(request.url);
   const before = url.searchParams.get('before') ?? '';
@@ -115,10 +160,7 @@ export const GET: APIRoute = async ({ request, locals }) => {
       };
     });
 
-    // Proxy avatar URL through static proxy for CORS
-    const avatarUrl = channelInfo.avatar
-      ? `/static/${channelInfo.avatar.startsWith('http') ? channelInfo.avatar : `https:${channelInfo.avatar}`}`
-      : '';
+    const avatarUrl = toChannelAvatarUrl(channelInfo.avatar || '', locals);
 
     return new Response(JSON.stringify({
       posts: payload,

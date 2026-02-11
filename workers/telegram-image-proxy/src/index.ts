@@ -58,17 +58,22 @@ export default {
       return new Response('Method Not Allowed', { status: 405, headers: corsHeaders });
     }
 
+    let cacheKey = '';
+
     // Route: /mood/:postId/:imageIndex
-    const match = url.pathname.match(/^\/mood\/(\d+)\/(\d+)$/);
-    if (!match) {
-      return new Response('Not Found. Use /mood/:postId/:imageIndex', {
+    const moodMatch = url.pathname.match(/^\/mood\/(\d+)\/(\d+)$/);
+    if (moodMatch) {
+      const [, postId, imageIndex] = moodMatch;
+      cacheKey = `mood:${postId}:${imageIndex}`;
+    } else if (url.pathname === '/channel/avatar') {
+      // Route: /channel/avatar
+      cacheKey = 'channel:avatar';
+    } else {
+      return new Response('Not Found. Use /mood/:postId/:imageIndex or /channel/avatar', {
         status: 404,
         headers: corsHeaders,
       });
     }
-
-    const [, postId, imageIndex] = match;
-    const cacheKey = `mood:${postId}:${imageIndex}`;
 
     // 1. Check edge cache first
     const cache = caches.default;
@@ -126,7 +131,6 @@ export default {
             width: resizeWidth,
             fit: 'scale-down',
             quality: resizeQuality,
-            format: 'auto',
           },
         },
       });

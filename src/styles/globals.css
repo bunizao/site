@@ -24,7 +24,11 @@
     --border: 0 0% 0%;
     --input: 0 0% 0%;
     --ring: 0 0% 0%;
-    --radius: 0rem;
+    --radius: 0.875rem;
+    --radius-sm: 0.5rem;
+    --radius-md: 0.75rem;
+    --radius-lg: 0.875rem;
+    --radius-xl: 1rem;
     --grid: 0 0% 0% / 0.12;
     --selection-bg: 0 0% 0%;
     --selection-fg: 0 0% 100%;
@@ -182,6 +186,7 @@
 
   .social-link {
     @apply inline-flex items-center gap-2 border-2 border-border px-2.5 py-1.5 text-[12px] font-medium sm:px-3 sm:py-2 sm:text-[13px];
+    border-radius: var(--radius-md);
     transition: all 0.15s ease;
   }
 
@@ -259,6 +264,15 @@
 
   .contact-primary:hover span {
     text-decoration-style: solid;
+  }
+
+  /* Shared surface shape language: remove hard right-angle boxes */
+  .card,
+  .panel,
+  .frame,
+  .shell,
+  .surface {
+    border-radius: var(--radius-lg);
   }
 
   /* Global Header Actions */
