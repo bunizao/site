@@ -1,6 +1,6 @@
 import type { ChannelInfo, Post } from '@/lib/telegram';
 import { getChannelInfo } from '@/lib/telegram';
-import { getTextPreviewWithMedia } from '@/lib/mood-utils';
+import { getRelatedLinks, getTextPreviewWithMedia } from '@/lib/mood-utils';
 import { getNotifyConfig, getNotifyFromAddress, requireConfigValue } from './env';
 import { CloudflareD1Client } from './d1';
 import {
@@ -119,6 +119,11 @@ interface RetryRow {
   updated_at: string;
   next_attempt_at: string;
   last_error: string;
+}
+
+interface EmailRelatedLink {
+  url: string;
+  type: 'link' | 'image';
 }
 
 const SUBSCRIBER_COLUMNS = `
@@ -922,27 +927,60 @@ function normalizeAbsoluteUrl(value: string | undefined, baseUrl: string): strin
   }
 }
 
-function toEmailImageUrl(value: string | undefined, siteUrl: string): string | undefined {
+function readEnv(locals: any, name: string): string {
+  const buildValue = import.meta.env[name];
+  if (typeof buildValue === 'string' && buildValue.trim()) {
+    return buildValue;
+  }
+
+  const runtimeValue = locals?.runtime?.env?.[name] ?? locals?.env?.[name];
+  if (typeof runtimeValue === 'string') {
+    return runtimeValue;
+  }
+
+  return '';
+}
+
+function getHdImageOrigin(locals: any): string {
+  const hdImageUrl = readEnv(locals, 'PUBLIC_HD_IMAGE_URL');
+  if (!hdImageUrl) return '';
+
+  try {
+    return new URL(hdImageUrl).origin.toLowerCase();
+  } catch {
+    return '';
+  }
+}
+
+function toEmailImageUrl(
+  value: string | undefined,
+  siteUrl: string,
+  locals?: any
+): string | undefined {
   const absoluteUrl = normalizeAbsoluteUrl(value, siteUrl);
   if (!absoluteUrl) return undefined;
 
+  let imageOrigin: string;
+  try {
+    imageOrigin = new URL(absoluteUrl).origin.toLowerCase();
+  } catch {
+    return absoluteUrl;
+  }
+
+  const hdImageOrigin = getHdImageOrigin(locals);
+  if (hdImageOrigin && imageOrigin === hdImageOrigin) {
+    return absoluteUrl;
+  }
+
   let siteOrigin: string;
   try {
-    siteOrigin = new URL(siteUrl).origin;
+    siteOrigin = new URL(siteUrl).origin.toLowerCase();
   } catch {
     return absoluteUrl;
   }
 
   const staticPrefix = `${siteOrigin}/static/`;
-  if (absoluteUrl.startsWith(staticPrefix)) {
-    return absoluteUrl;
-  }
-
-  try {
-    if (new URL(absoluteUrl).origin === siteOrigin) {
-      return absoluteUrl;
-    }
-  } catch {
+  if (absoluteUrl.startsWith(staticPrefix) || imageOrigin === siteOrigin) {
     return absoluteUrl;
   }
 
@@ -989,6 +1027,7 @@ async function sendMoodEmail(
   input: {
     post: Post;
     previewText: string;
+    relatedLinks?: EmailRelatedLink[];
     subscriber: SubscriberRecord;
     force: boolean;
     channelMeta?: ChannelMeta | null;
@@ -1017,12 +1056,16 @@ async function sendMoodEmail(
   const moodUrl = `${siteUrl}/mood/${input.post.id}`;
   const unsubscribeUrl = `${siteUrl}/api/notify/unsubscribe?token=${encodeURIComponent(unsubscribeToken)}`;
   const channelTitle = input.channelMeta?.title || 'Mood Feed';
-  const channelAvatarUrl = toEmailImageUrl(input.channelMeta?.avatarUrl, siteUrl);
+  const channelAvatarUrl = toEmailImageUrl(input.channelMeta?.avatarUrl, siteUrl, context.locals);
+  const relatedLinks = input.relatedLinks?.length
+    ? input.relatedLinks
+    : getRelatedLinks(input.post, { baseUrl: siteUrl, maxCount: 8 });
 
   const email = buildMoodNotificationEmail({
     moodUrl,
     unsubscribeUrl,
     previewText: input.previewText,
+    relatedLinks,
     postId: input.post.id,
     channelTitle,
     channelAvatarUrl,
@@ -1100,7 +1143,7 @@ async function sendMoodDigestEmail(
   const siteUrl = getSiteUrl(context);
   const unsubscribeUrl = `${siteUrl}/api/notify/unsubscribe?token=${encodeURIComponent(unsubscribeToken)}`;
   const channelTitle = input.channelMeta?.title || 'Mood Feed';
-  const channelAvatarUrl = toEmailImageUrl(input.channelMeta?.avatarUrl, siteUrl);
+  const channelAvatarUrl = toEmailImageUrl(input.channelMeta?.avatarUrl, siteUrl, context.locals);
   const mode = getSubscriberDeliveryMode(input.subscriber);
   const timezone = mode === 'daily'
     ? getDailyTimezone(input.subscriber)
@@ -1112,6 +1155,7 @@ async function sendMoodDigestEmail(
       postId: post.id,
       moodUrl: `${siteUrl}/mood/${post.id}`,
       previewText: getTextPreviewWithMedia(post),
+      relatedLinks: getRelatedLinks(post, { baseUrl: siteUrl, maxCount: 5 }),
       timeLabel: getLocalTimeLabel(postDate, timezone),
       dateLabel: getLocalDateLabel(postDate, timezone),
     };
@@ -1387,6 +1431,7 @@ export async function dispatchMoodNotification(
 
   const subscribers = await listActiveSubscribers(d1);
   const previewText = getTextPreviewWithMedia(post);
+  const relatedLinks = getRelatedLinks(post, { baseUrl: getSiteUrl(context), maxCount: 8 });
   const channelMeta = await loadChannelMeta(context);
   const allowedModes = options.deliveryModes ? new Set(options.deliveryModes) : null;
 
@@ -1413,6 +1458,7 @@ export async function dispatchMoodNotification(
       const sendResult = await sendMoodEmail(context, d1, {
         post,
         previewText,
+        relatedLinks,
         subscriber,
         force: Boolean(options.force),
         channelMeta,
@@ -1630,9 +1676,11 @@ export async function processNotifyRetries(
 
     try {
       const previewText = getTextPreviewWithMedia(post);
+      const relatedLinks = getRelatedLinks(post, { baseUrl: getSiteUrl(context), maxCount: 8 });
       const sendResult = await sendMoodEmail(context, d1, {
         post,
         previewText,
+        relatedLinks,
         subscriber: activeSubscriber,
         force: false,
         channelMeta,

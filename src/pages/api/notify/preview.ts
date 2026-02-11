@@ -1,6 +1,6 @@
 import type { APIRoute } from 'astro';
 import { getChannelInfo, type ChannelInfo, type Post } from '@/lib/telegram';
-import { getNumericId, getTextPreviewWithMedia } from '@/lib/mood-utils';
+import { getNumericId, getRelatedLinks, getTextPreviewWithMedia } from '@/lib/mood-utils';
 import {
   buildMoodDigestEmail,
   buildMoodNotificationEmail,
@@ -36,27 +36,56 @@ function normalizeAbsoluteUrl(value: string | undefined, baseUrl: string): strin
   }
 }
 
-function toEmailImageUrl(value: string | undefined, siteUrl: string): string | undefined {
+function readEnv(locals: any, name: string): string {
+  const buildValue = import.meta.env[name];
+  if (typeof buildValue === 'string' && buildValue.trim()) {
+    return buildValue;
+  }
+
+  const runtimeValue = locals?.runtime?.env?.[name] ?? locals?.env?.[name];
+  if (typeof runtimeValue === 'string') {
+    return runtimeValue;
+  }
+
+  return '';
+}
+
+function getHdImageOrigin(locals: any): string {
+  const hdImageUrl = readEnv(locals, 'PUBLIC_HD_IMAGE_URL');
+  if (!hdImageUrl) return '';
+
+  try {
+    return new URL(hdImageUrl).origin.toLowerCase();
+  } catch {
+    return '';
+  }
+}
+
+function toEmailImageUrl(value: string | undefined, siteUrl: string, locals: any): string | undefined {
   const absoluteUrl = normalizeAbsoluteUrl(value, siteUrl);
   if (!absoluteUrl) return undefined;
 
+  let imageOrigin: string;
+  try {
+    imageOrigin = new URL(absoluteUrl).origin.toLowerCase();
+  } catch {
+    return absoluteUrl;
+  }
+
+  const hdImageOrigin = getHdImageOrigin(locals);
+  if (hdImageOrigin && imageOrigin === hdImageOrigin) {
+    return absoluteUrl;
+  }
+
   let siteOrigin: string;
   try {
-    siteOrigin = new URL(siteUrl).origin;
+    siteOrigin = new URL(siteUrl).origin.toLowerCase();
   } catch {
     return absoluteUrl;
   }
 
   const staticPrefix = `${siteOrigin}/static/`;
-  if (absoluteUrl.startsWith(staticPrefix)) {
-    return absoluteUrl;
-  }
-
-  try {
-    if (new URL(absoluteUrl).origin === siteOrigin) {
-      return absoluteUrl;
-    }
-  } catch {
+  if (absoluteUrl.startsWith(staticPrefix) || imageOrigin === siteOrigin) {
     return absoluteUrl;
   }
 
@@ -111,7 +140,7 @@ async function loadChannelSnapshot(
 
     return {
       channelTitle: result.title?.trim() || 'Mood Feed',
-      channelAvatarUrl: toEmailImageUrl(result.avatar, siteUrl),
+      channelAvatarUrl: toEmailImageUrl(result.avatar, siteUrl, context.locals),
       posts,
     };
   } catch (error) {
@@ -154,6 +183,7 @@ export const GET: APIRoute = async ({ request, locals }) => {
     moodUrl,
     unsubscribeUrl,
     previewText: latestPost ? getTextPreviewWithMedia(latestPost) : 'No mood post available yet.',
+    relatedLinks: latestPost ? getRelatedLinks(latestPost, { baseUrl: siteUrl, maxCount: 8 }) : [],
     postId: latestPostId,
     channelTitle,
     channelAvatarUrl,
@@ -193,6 +223,7 @@ export const GET: APIRoute = async ({ request, locals }) => {
         postId: post.id,
         moodUrl: `${siteUrl}/mood/${post.id}`,
         previewText: getTextPreviewWithMedia(post),
+        relatedLinks: getRelatedLinks(post, { baseUrl: siteUrl, maxCount: 5 }),
         timeLabel: getLocalTimeLabel(postDate, timezone),
         dateLabel: getLocalDateLabel(postDate, timezone),
       };

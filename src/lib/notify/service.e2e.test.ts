@@ -298,6 +298,7 @@ const BASE_ENV = {
   EMAIL_NOTIFY_SECRET: 'test_notify_secret',
   NOTIFY_DISPATCH_SECRET: 'dispatch_secret',
   PUBLIC_SITE_URL: 'https://example.com',
+  PUBLIC_HD_IMAGE_URL: 'https://image.example.com',
   CRON_SECRET: 'cron_secret',
   CLOUDFLARE_ACCOUNT_ID: 'cf_account',
   CLOUDFLARE_API_TOKEN: 'cf_api_token',
@@ -531,7 +532,7 @@ describe('notify service integration e2e', () => {
       loadMoodPost: async (_context, postId) => (postId === post.id ? post : null),
       loadChannelMeta: async () => ({
         title: 'Levitating',
-        avatarUrl: 'https://cdn5.telesco.pe/file/channel-avatar.jpg',
+        avatarUrl: 'https://image.example.com/channel/avatar',
       }),
     });
 
@@ -542,9 +543,47 @@ describe('notify service integration e2e', () => {
     expect(result.sent).toBe(1);
     expect(mock.emails.length).toBe(1);
     expect(mock.emails[0].html).toContain('Levitating');
-    expect(mock.emails[0].html).toContain('https://example.com/static/https://cdn5.telesco.pe/file/channel-avatar.jpg');
-    expect(mock.emails[0].html).not.toContain('src="https://cdn5.telesco.pe/file/channel-avatar.jpg"');
+    expect(mock.emails[0].html).toContain('https://image.example.com/channel/avatar');
+    expect(mock.emails[0].html).not.toContain('https://example.com/static/https://image.example.com/channel/avatar');
     expect(mock.emails[0].html).not.toContain('Styled like oEmbed card');
+  });
+
+  test('mood notification email includes related links and image URLs', async () => {
+    const context = createContext('/api/notify/dispatch');
+    const email = 'related-links@example.com';
+    const post = createPost('512', 'Launch message');
+    post.content = [
+      '<p>Launch 😊 with <a href="https://example.org/article">article</a></p>',
+      '<div class="image-preview-wrap">',
+      '  <img src="https://image.buxx.me/mood/3092/0" alt="Mood image" />',
+      '</div>',
+    ].join('');
+
+    await subscribeAndConfirm(mock, context, email, {
+      deliveryMode: 'immediate',
+    });
+
+    mock.clearEmails();
+
+    setNotifyTestHooksForTesting({
+      loadMoodPost: async (_context, postId) => (postId === post.id ? post : null),
+    });
+
+    const result = await dispatchMoodNotification(context, post.id, {
+      deliveryModes: ['immediate'],
+    });
+
+    expect(result.sent).toBe(1);
+    expect(mock.emails.length).toBe(1);
+    expect(mock.emails[0].html).not.toContain('Image preview');
+    expect(mock.emails[0].html).toContain('alt="Mood image"');
+    expect(mock.emails[0].html).toContain('https://example.org/article');
+    expect(mock.emails[0].html).toContain('src="https://image.buxx.me/mood/3092/0"');
+    expect(mock.emails[0].html).not.toContain('href="https://image.buxx.me/mood/3092/0"');
+    expect(mock.emails[0].text).toContain('🖼️ Launch 😊 with article');
+    expect(mock.emails[0].text).toContain('Related links:');
+    expect(mock.emails[0].text).toContain('- https://example.org/article');
+    expect(mock.emails[0].text).not.toContain('https://image.buxx.me/mood/3092/0');
   });
 
   test('every_5h mode does not resend when there is no new post', async () => {
