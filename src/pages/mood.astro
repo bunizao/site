@@ -1135,7 +1135,6 @@ const skeletonGroups = [
 
     :global(.mood-item-content) {
       gap: 8px;
-      padding-right: 32px;
     }
 
     :global(.mood-item--clickable) {
@@ -1194,12 +1193,13 @@ const skeletonGroups = [
     display: flex;
     flex-direction: column;
     gap: 10px;
-    padding-right: 32px;
+    padding-right: 0;
   }
 
   @media (min-width: 640px) {
     :global(.mood-item-content) {
       gap: 12px;
+      padding-right: 32px;
     }
   }
 
