@@ -547,6 +547,40 @@ describe('notify service integration e2e', () => {
     expect(mock.emails[0].html).not.toContain('Styled like oEmbed card');
   });
 
+  test('mood notification email includes related links and image URLs', async () => {
+    const context = createContext('/api/notify/dispatch');
+    const email = 'related-links@example.com';
+    const post = createPost('512', 'Launch message');
+    post.content = [
+      '<p>Launch 😊 with <a href="https://example.org/article">article</a></p>',
+      '<div class="image-preview-wrap">',
+      '  <img src="https://image.buxx.me/mood/3092/0" alt="Mood image" />',
+      '</div>',
+    ].join('');
+
+    await subscribeAndConfirm(mock, context, email, {
+      deliveryMode: 'immediate',
+    });
+
+    mock.clearEmails();
+
+    setNotifyTestHooksForTesting({
+      loadMoodPost: async (_context, postId) => (postId === post.id ? post : null),
+    });
+
+    const result = await dispatchMoodNotification(context, post.id, {
+      deliveryModes: ['immediate'],
+    });
+
+    expect(result.sent).toBe(1);
+    expect(mock.emails.length).toBe(1);
+    expect(mock.emails[0].html).toContain('Related links');
+    expect(mock.emails[0].html).toContain('https://example.org/article');
+    expect(mock.emails[0].html).toContain('https://image.buxx.me/mood/3092/0');
+    expect(mock.emails[0].text).toContain('🖼️ Launch 😊 with article');
+    expect(mock.emails[0].text).toContain('[image] https://image.buxx.me/mood/3092/0');
+  });
+
   test('every_5h mode does not resend when there is no new post', async () => {
     const context = createContext('/api/notify/schedule');
     const email = 'every5h-no-repeat@example.com';

@@ -14,11 +14,13 @@ export function renderNotifyPage(options: {
   title: string;
   message: string;
   status: PageStatus;
+  enableCongratsFx?: boolean;
   rateLimitHeaders?: Headers;
 }): Response {
   const safeLabel = escapeHtml(options.label);
   const safeTitle = escapeHtml(options.title);
   const safeMessage = escapeHtml(options.message);
+  const enableCongratsFx = options.enableCongratsFx === true;
 
   const statusIcon = options.status === 'success'
     ? `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>`
@@ -91,6 +93,20 @@ export function renderNotifyPage(options: {
         background-image: radial-gradient(circle, var(--grid) 1px, transparent 1px);
         background-size: 24px 24px;
         z-index: 0;
+      }
+
+      .congrats-layer {
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+        z-index: 0;
+        overflow: hidden;
+      }
+
+      .congrats-canvas {
+        width: 100%;
+        height: 100%;
+        display: block;
       }
 
       .container {
@@ -207,6 +223,7 @@ export function renderNotifyPage(options: {
     </style>
   </head>
   <body>
+    ${enableCongratsFx ? '<div class="congrats-layer" aria-hidden="true"><canvas class="congrats-canvas" data-notify-congrats-fx></canvas></div>' : ''}
     <div class="container">
       <div class="card">
         <span class="label animate">${safeLabel}</span>
@@ -224,6 +241,222 @@ export function renderNotifyPage(options: {
         <a href="/">buxx.me</a>
       </div>
     </div>
+    ${enableCongratsFx ? `<script>
+      (() => {
+        const canvas = document.querySelector('[data-notify-congrats-fx]');
+        if (!(canvas instanceof HTMLCanvasElement)) {
+          return;
+        }
+
+        const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+        if (prefersReducedMotion.matches) {
+          return;
+        }
+
+        const context = canvas.getContext('2d', { alpha: true });
+        if (!context) {
+          return;
+        }
+
+        const prefersDark = window.matchMedia('(prefers-color-scheme: dark)');
+        const colorPalette = prefersDark.matches
+          ? ['#f2f2f2', '#d4d4d8', '#a1a1aa', '#7dd3fc', '#60a5fa']
+          : ['#111827', '#374151', '#6b7280', '#0284c7', '#0ea5e9'];
+        const confetti = [];
+        const sparks = [];
+        let width = 0;
+        let height = 0;
+        let dpr = 1;
+        let started = false;
+        let lastBurstAt = 0;
+        let lastPointerBurstAt = 0;
+        let rafId = 0;
+
+        function random(min, max) {
+          return Math.random() * (max - min) + min;
+        }
+
+        function randomColor() {
+          return colorPalette[(Math.random() * colorPalette.length) | 0];
+        }
+
+        function createConfettiPiece(ySeed) {
+          return {
+            x: random(0, width),
+            y: ySeed ?? random(-height, -12),
+            vx: random(-0.35, 0.35),
+            vy: random(0.8, 1.95),
+            spin: random(-0.08, 0.08),
+            rotation: random(0, Math.PI * 2),
+            size: random(2.8, 7.2),
+            phase: random(0, Math.PI * 2),
+            shape: Math.random() > 0.45 ? 'rect' : 'dot',
+            color: randomColor(),
+          };
+        }
+
+        function createSpark(x, y, power) {
+          const angle = random(0, Math.PI * 2);
+          const speed = random(1.4, 5.8) * power;
+          return {
+            x,
+            y,
+            vx: Math.cos(angle) * speed,
+            vy: Math.sin(angle) * speed - random(0.55, 1.7),
+            life: random(34, 70),
+            maxLife: random(34, 70),
+            size: random(1, 2.8),
+            drag: random(0.962, 0.987),
+            gravity: random(0.026, 0.052),
+            color: randomColor(),
+          };
+        }
+
+        function emitBurst(x, y, power) {
+          const amount = Math.floor(24 + power * 42);
+          for (let index = 0; index < amount; index += 1) {
+            sparks.push(createSpark(x, y, power));
+          }
+        }
+
+        function drawBackdrop() {
+          const gradient = context.createRadialGradient(
+            width * 0.5,
+            height * 0.36,
+            10,
+            width * 0.5,
+            height * 0.36,
+            Math.max(width, height) * 0.72
+          );
+          if (prefersDark.matches) {
+            gradient.addColorStop(0, 'rgba(125, 211, 252, 0.12)');
+            gradient.addColorStop(0.44, 'rgba(96, 165, 250, 0.08)');
+            gradient.addColorStop(1, 'rgba(15, 23, 42, 0)');
+          } else {
+            gradient.addColorStop(0, 'rgba(14, 116, 144, 0.11)');
+            gradient.addColorStop(0.44, 'rgba(15, 23, 42, 0.06)');
+            gradient.addColorStop(1, 'rgba(15, 23, 42, 0)');
+          }
+          context.fillStyle = gradient;
+          context.fillRect(0, 0, width, height);
+        }
+
+        function drawConfetti(time) {
+          for (let index = 0; index < confetti.length; index += 1) {
+            const piece = confetti[index];
+            piece.x += piece.vx + Math.sin(time * 0.001 + piece.phase) * 0.34;
+            piece.y += piece.vy;
+            piece.rotation += piece.spin;
+
+            if (piece.y > height + 14) {
+              confetti[index] = createConfettiPiece(random(-60, -12));
+              continue;
+            }
+
+            context.save();
+            context.translate(piece.x, piece.y);
+            context.rotate(piece.rotation);
+            context.fillStyle = piece.color;
+            if (piece.shape === 'rect') {
+              context.fillRect(-piece.size * 0.5, -piece.size * 0.5, piece.size, piece.size * 0.54);
+            } else {
+              context.beginPath();
+              context.arc(0, 0, piece.size * 0.34, 0, Math.PI * 2);
+              context.fill();
+            }
+            context.restore();
+          }
+        }
+
+        function drawSparks() {
+          for (let index = sparks.length - 1; index >= 0; index -= 1) {
+            const spark = sparks[index];
+            spark.life -= 1;
+            spark.x += spark.vx;
+            spark.y += spark.vy;
+            spark.vx *= spark.drag;
+            spark.vy = spark.vy * spark.drag + spark.gravity;
+
+            if (spark.life <= 0) {
+              sparks.splice(index, 1);
+              continue;
+            }
+
+            const alpha = Math.max(0, spark.life / spark.maxLife);
+            context.globalAlpha = alpha * 0.66;
+            context.beginPath();
+            context.fillStyle = spark.color;
+            context.arc(spark.x, spark.y, spark.size, 0, Math.PI * 2);
+            context.fill();
+          }
+          context.globalAlpha = 1;
+        }
+
+        function resizeCanvas() {
+          dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+          width = window.innerWidth;
+          height = window.innerHeight;
+          canvas.width = Math.floor(width * dpr);
+          canvas.height = Math.floor(height * dpr);
+          context.setTransform(1, 0, 0, 1, 0, 0);
+          context.scale(dpr, dpr);
+        }
+
+        function renderFrame(timestamp) {
+          if (!started) {
+            started = true;
+            const card = document.querySelector('.card');
+            if (card instanceof HTMLElement) {
+              const rect = card.getBoundingClientRect();
+              emitBurst(rect.left + rect.width * 0.22, rect.top + rect.height * 0.2, 0.95);
+              emitBurst(rect.left + rect.width * 0.78, rect.top + rect.height * 0.2, 0.95);
+            } else {
+              emitBurst(width * 0.5, height * 0.42, 0.9);
+            }
+          }
+
+          context.clearRect(0, 0, width, height);
+          drawBackdrop();
+          drawConfetti(timestamp);
+          drawSparks();
+
+          if (timestamp - lastBurstAt > 2200) {
+            const bx = random(width * 0.24, width * 0.76);
+            const by = random(height * 0.14, height * 0.44);
+            emitBurst(bx, by, random(0.42, 0.78));
+            lastBurstAt = timestamp;
+          }
+
+          rafId = window.requestAnimationFrame(renderFrame);
+        }
+
+        function onPointerMove(event) {
+          const now = performance.now();
+          if (now - lastPointerBurstAt > 280) {
+            emitBurst(event.clientX, event.clientY, 0.22);
+            lastPointerBurstAt = now;
+          }
+        }
+
+        resizeCanvas();
+        for (let index = 0; index < 84; index += 1) {
+          confetti.push(createConfettiPiece());
+        }
+
+        window.addEventListener('resize', resizeCanvas, { passive: true });
+        window.addEventListener('pointermove', onPointerMove, { passive: true });
+
+        document.addEventListener('visibilitychange', () => {
+          if (document.hidden) {
+            window.cancelAnimationFrame(rafId);
+            return;
+          }
+          rafId = window.requestAnimationFrame(renderFrame);
+        });
+
+        rafId = window.requestAnimationFrame(renderFrame);
+      })();
+    </script>` : ''}
   </body>
 </html>`;
 

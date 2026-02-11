@@ -36,6 +36,7 @@ export const GET: APIRoute = async ({ request, locals }) => {
       title: 'Subscribed',
       message: 'Your email subscription is now active. You will receive mood notifications.',
       status: 'success',
+      enableCongratsFx: true,
       rateLimitHeaders,
     });
   } catch (error) {
