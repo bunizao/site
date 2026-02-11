@@ -4,7 +4,7 @@ import { checkRateLimit, createRateLimitHeaders } from '@/lib/security/rate-limi
 export const prerender = false;
 
 // Whitelist of allowed Telegram-related domains.
-const TELEGRAM_ALLOWED_DOMAINS = [
+const ALLOWED_DOMAINS = [
   't.me',
   'telegram.org',
   'telegram.me',
@@ -60,34 +60,12 @@ const normalizeTarget = (value: string): string => {
   return value;
 };
 
-function readEnv(locals: any, name: string): string {
-  return import.meta.env[name] ?? locals?.runtime?.env?.[name] ?? locals?.env?.[name] ?? '';
-}
-
-function getAllowedDomains(locals: any): string[] {
-  const domains = new Set(TELEGRAM_ALLOWED_DOMAINS);
-  const hdImageUrl = readEnv(locals, 'PUBLIC_HD_IMAGE_URL');
-
-  if (hdImageUrl) {
-    try {
-      const parsed = new URL(hdImageUrl);
-      if (parsed.hostname) {
-        domains.add(parsed.hostname.toLowerCase());
-      }
-    } catch {
-      // Ignore invalid PUBLIC_HD_IMAGE_URL values.
-    }
-  }
-
-  return Array.from(domains);
-}
-
-const isAllowedTargetHost = (url: URL, allowedDomains: string[]): boolean => {
+const isAllowedTargetHost = (url: URL): boolean => {
   if (['localhost', '127.0.0.1', '::1'].includes(url.hostname)) {
     return false;
   }
 
-  return allowedDomains.some(
+  return ALLOWED_DOMAINS.some(
     (domain) => url.hostname === domain || url.hostname.endsWith(`.${domain}`)
   );
 };
@@ -95,8 +73,7 @@ const isAllowedTargetHost = (url: URL, allowedDomains: string[]): boolean => {
 const fetchWithValidatedRedirects = async (
   request: Request,
   targetUrl: string,
-  headers: Headers,
-  allowedDomains: string[]
+  headers: Headers
 ): Promise<Response> => {
   let currentUrl = targetUrl;
 
@@ -127,7 +104,7 @@ const fetchWithValidatedRedirects = async (
       throw new Error('Invalid upstream redirect URL');
     }
 
-    if (!/^https?:$/i.test(nextUrl.protocol) || !isAllowedTargetHost(nextUrl, allowedDomains)) {
+    if (!/^https?:$/i.test(nextUrl.protocol) || !isAllowedTargetHost(nextUrl)) {
       throw new Error('Upstream redirect target is not allowed');
     }
 
@@ -140,8 +117,7 @@ const fetchWithValidatedRedirects = async (
 const buildProxyResponse = async (
   request: Request,
   targetUrl: string,
-  extraHeaders: Headers,
-  allowedDomains: string[]
+  extraHeaders: Headers
 ): Promise<Response> => {
   const headers = new Headers();
   forwardHeadersAllowList.forEach((name) => {
@@ -151,7 +127,7 @@ const buildProxyResponse = async (
 
   let upstream: Response;
   try {
-    upstream = await fetchWithValidatedRedirects(request, targetUrl, headers, allowedDomains);
+    upstream = await fetchWithValidatedRedirects(request, targetUrl, headers);
   } catch (error) {
     console.error('Upstream fetch failed:', { targetUrl, error });
     return new Response('Upstream fetch failed.', {
@@ -178,11 +154,7 @@ const buildProxyResponse = async (
   });
 };
 
-const resolveTargetUrl = (
-  request: Request,
-  rawPath: string,
-  allowedDomains: string[]
-): string | null => {
+const resolveTargetUrl = (request: Request, rawPath: string): string | null => {
   let target = normalizeTarget(decodeTarget(rawPath));
   if (!target) return null;
 
@@ -194,7 +166,7 @@ const resolveTargetUrl = (
   if (!/^https?:\/\//i.test(target)) return null;
 
   const url = new URL(target);
-  if (!isAllowedTargetHost(url, allowedDomains)) return null;
+  if (!isAllowedTargetHost(url)) return null;
 
   return url.toString();
 };
@@ -218,8 +190,7 @@ export const GET: APIRoute = async ({ request, params, locals }) => {
   }
 
   const rawPath = params.path ?? '';
-  const allowedDomains = getAllowedDomains(locals);
-  const targetUrl = resolveTargetUrl(request, rawPath, allowedDomains);
+  const targetUrl = resolveTargetUrl(request, rawPath);
   if (!targetUrl) {
     return new Response('Invalid target URL.', {
       status: 400,
@@ -227,7 +198,7 @@ export const GET: APIRoute = async ({ request, params, locals }) => {
     });
   }
 
-  return buildProxyResponse(request, targetUrl, rateLimitHeaders, allowedDomains);
+  return buildProxyResponse(request, targetUrl, rateLimitHeaders);
 };
 
 export const HEAD: APIRoute = async ({ request, params, locals }) => {
@@ -242,8 +213,7 @@ export const HEAD: APIRoute = async ({ request, params, locals }) => {
   }
 
   const rawPath = params.path ?? '';
-  const allowedDomains = getAllowedDomains(locals);
-  const targetUrl = resolveTargetUrl(request, rawPath, allowedDomains);
+  const targetUrl = resolveTargetUrl(request, rawPath);
   if (!targetUrl) {
     return new Response(null, {
       status: 400,
@@ -251,5 +221,5 @@ export const HEAD: APIRoute = async ({ request, params, locals }) => {
     });
   }
 
-  return buildProxyResponse(request, targetUrl, rateLimitHeaders, allowedDomains);
+  return buildProxyResponse(request, targetUrl, rateLimitHeaders);
 };

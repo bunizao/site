@@ -1,6 +1,6 @@
 import type { ChannelInfo, Post } from '@/lib/telegram';
 import { getChannelInfo } from '@/lib/telegram';
-import { getRelatedLinks, getTextPreviewWithMedia } from '@/lib/mood-utils';
+import { getTextPreviewWithMedia } from '@/lib/mood-utils';
 import { getNotifyConfig, getNotifyFromAddress, requireConfigValue } from './env';
 import { CloudflareD1Client } from './d1';
 import {
@@ -119,11 +119,6 @@ interface RetryRow {
   updated_at: string;
   next_attempt_at: string;
   last_error: string;
-}
-
-interface EmailRelatedLink {
-  url: string;
-  type: 'link' | 'image';
 }
 
 const SUBSCRIBER_COLUMNS = `
@@ -994,7 +989,6 @@ async function sendMoodEmail(
   input: {
     post: Post;
     previewText: string;
-    relatedLinks?: EmailRelatedLink[];
     subscriber: SubscriberRecord;
     force: boolean;
     channelMeta?: ChannelMeta | null;
@@ -1024,15 +1018,11 @@ async function sendMoodEmail(
   const unsubscribeUrl = `${siteUrl}/api/notify/unsubscribe?token=${encodeURIComponent(unsubscribeToken)}`;
   const channelTitle = input.channelMeta?.title || 'Mood Feed';
   const channelAvatarUrl = toEmailImageUrl(input.channelMeta?.avatarUrl, siteUrl);
-  const relatedLinks = input.relatedLinks?.length
-    ? input.relatedLinks
-    : getRelatedLinks(input.post, { baseUrl: siteUrl, maxCount: 8 });
 
   const email = buildMoodNotificationEmail({
     moodUrl,
     unsubscribeUrl,
     previewText: input.previewText,
-    relatedLinks,
     postId: input.post.id,
     channelTitle,
     channelAvatarUrl,
@@ -1122,7 +1112,6 @@ async function sendMoodDigestEmail(
       postId: post.id,
       moodUrl: `${siteUrl}/mood/${post.id}`,
       previewText: getTextPreviewWithMedia(post),
-      relatedLinks: getRelatedLinks(post, { baseUrl: siteUrl, maxCount: 5 }),
       timeLabel: getLocalTimeLabel(postDate, timezone),
       dateLabel: getLocalDateLabel(postDate, timezone),
     };
@@ -1398,7 +1387,6 @@ export async function dispatchMoodNotification(
 
   const subscribers = await listActiveSubscribers(d1);
   const previewText = getTextPreviewWithMedia(post);
-  const relatedLinks = getRelatedLinks(post, { baseUrl: getSiteUrl(context), maxCount: 8 });
   const channelMeta = await loadChannelMeta(context);
   const allowedModes = options.deliveryModes ? new Set(options.deliveryModes) : null;
 
@@ -1425,7 +1413,6 @@ export async function dispatchMoodNotification(
       const sendResult = await sendMoodEmail(context, d1, {
         post,
         previewText,
-        relatedLinks,
         subscriber,
         force: Boolean(options.force),
         channelMeta,
@@ -1643,11 +1630,9 @@ export async function processNotifyRetries(
 
     try {
       const previewText = getTextPreviewWithMedia(post);
-      const relatedLinks = getRelatedLinks(post, { baseUrl: getSiteUrl(context), maxCount: 8 });
       const sendResult = await sendMoodEmail(context, d1, {
         post,
         previewText,
-        relatedLinks,
         subscriber: activeSubscriber,
         force: false,
         channelMeta,

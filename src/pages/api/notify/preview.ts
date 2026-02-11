@@ -1,6 +1,6 @@
 import type { APIRoute } from 'astro';
 import { getChannelInfo, type ChannelInfo, type Post } from '@/lib/telegram';
-import { getNumericId, getRelatedLinks, getTextPreviewWithMedia } from '@/lib/mood-utils';
+import { getNumericId, getTextPreviewWithMedia } from '@/lib/mood-utils';
 import {
   buildMoodDigestEmail,
   buildMoodNotificationEmail,
@@ -154,7 +154,6 @@ export const GET: APIRoute = async ({ request, locals }) => {
     moodUrl,
     unsubscribeUrl,
     previewText: latestPost ? getTextPreviewWithMedia(latestPost) : 'No mood post available yet.',
-    relatedLinks: latestPost ? getRelatedLinks(latestPost, { baseUrl: siteUrl, maxCount: 8 }) : [],
     postId: latestPostId,
     channelTitle,
     channelAvatarUrl,
@@ -194,7 +193,6 @@ export const GET: APIRoute = async ({ request, locals }) => {
         postId: post.id,
         moodUrl: `${siteUrl}/mood/${post.id}`,
         previewText: getTextPreviewWithMedia(post),
-        relatedLinks: getRelatedLinks(post, { baseUrl: siteUrl, maxCount: 5 }),
         timeLabel: getLocalTimeLabel(postDate, timezone),
         dateLabel: getLocalDateLabel(postDate, timezone),
       };

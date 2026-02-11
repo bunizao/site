@@ -15,115 +15,6 @@ function trimPreview(value: string, maxLength = 140): string {
 
 const MONO_FONT = "'JetBrains Mono', 'SF Mono', 'Fira Code', 'Cascadia Code', Menlo, Monaco, Consolas, 'Courier New', monospace";
 
-interface EmailRelatedLink {
-  url: string;
-  type?: 'link' | 'image';
-}
-
-function sanitizeExternalUrl(value: string): string {
-  const trimmed = value.trim();
-  if (!trimmed) return '';
-
-  try {
-    const parsed = new URL(trimmed);
-    if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
-      return parsed.toString();
-    }
-  } catch {
-    return '';
-  }
-
-  return '';
-}
-
-function normalizeRelatedLinks(
-  links: EmailRelatedLink[] | undefined,
-  maxCount: number
-): Array<{ url: string; type: 'link' | 'image' }> {
-  if (!links?.length) return [];
-
-  const normalized: Array<{ url: string; type: 'link' | 'image' }> = [];
-  const seen = new Set<string>();
-
-  for (const item of links) {
-    const url = sanitizeExternalUrl(item?.url || '');
-    if (!url || seen.has(url)) {
-      continue;
-    }
-
-    seen.add(url);
-    normalized.push({
-      url,
-      type: item?.type === 'image' ? 'image' : 'link',
-    });
-
-    if (normalized.length >= maxCount) {
-      break;
-    }
-  }
-
-  return normalized;
-}
-
-function formatLinkLabel(value: string, maxLength = 80): string {
-  const compact = value.replace(/^https?:\/\//i, '');
-  if (compact.length <= maxLength) {
-    return compact;
-  }
-  return `${compact.slice(0, maxLength - 3)}...`;
-}
-
-function buildRelatedLinksHtml(
-  links: EmailRelatedLink[] | undefined,
-  options: { maxCount?: number; compact?: boolean } = {}
-): string {
-  const normalized = normalizeRelatedLinks(links, options.maxCount ?? 6);
-  if (!normalized.length) {
-    return '';
-  }
-
-  const compact = Boolean(options.compact);
-  const heading = compact ? 'Links' : 'Related links';
-  const blockStyle = compact
-    ? 'margin-top: 8px;'
-    : 'margin-top: 12px; padding-top: 12px; border-top: 1px dashed #e5e5e5;';
-  const headingStyle = compact
-    ? `font-family: ${MONO_FONT}; font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: #666;`
-    : `font-family: ${MONO_FONT}; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: #666;`;
-  const linkStyle = compact
-    ? `display: block; margin-top: 4px; font-family: ${MONO_FONT}; font-size: 11px; color: #111; text-decoration: none; line-height: 1.45;`
-    : `display: block; margin-top: 6px; font-family: ${MONO_FONT}; font-size: 12px; color: #111; text-decoration: none; line-height: 1.45;`;
-
-  const lines = normalized.map((link) => {
-    const marker = link.type === 'image' ? '🖼️ ' : '🔗 ';
-    const label = `${marker}${formatLinkLabel(link.url, compact ? 72 : 84)}`;
-    return `<a href="${escapeHtml(link.url)}" class="email-link" style="${linkStyle}">${escapeHtml(label)}</a>`;
-  }).join('');
-
-  return `
-                      <div style="${blockStyle}">
-                        <div class="email-meta" style="${headingStyle}">${heading}</div>
-                        ${lines}
-                      </div>`;
-}
-
-function buildRelatedLinksTextLines(
-  links: EmailRelatedLink[] | undefined,
-  options: { maxCount?: number; heading?: string } = {}
-): string[] {
-  const normalized = normalizeRelatedLinks(links, options.maxCount ?? 6);
-  if (!normalized.length) {
-    return [];
-  }
-
-  const lines = [options.heading || 'Related links:'];
-  for (const link of normalized) {
-    const marker = link.type === 'image' ? '[image] ' : '';
-    lines.push(`- ${marker}${link.url}`);
-  }
-  return lines;
-}
-
 function emailShell(content: string): string {
   return `<!doctype html>
 <html lang="en" xmlns="http://www.w3.org/1999/xhtml">
@@ -236,7 +127,6 @@ export function buildMoodNotificationEmail(options: {
   moodUrl: string;
   unsubscribeUrl: string;
   previewText: string;
-  relatedLinks?: EmailRelatedLink[];
   postId: string;
   channelTitle?: string;
   channelAvatarUrl?: string;
@@ -248,8 +138,6 @@ export function buildMoodNotificationEmail(options: {
   const channelAvatarHtml = channelAvatarUrl
     ? `<img src="${escapeHtml(channelAvatarUrl)}" alt="${escapeHtml(channelTitle)} avatar" width="32" height="32" style="display: block; width: 32px; height: 32px; border-radius: 999px;" />`
     : escapeHtml(channelInitial);
-  const relatedLinksHtml = buildRelatedLinksHtml(options.relatedLinks, { maxCount: 6 });
-  const relatedLinksTextLines = buildRelatedLinksTextLines(options.relatedLinks, { maxCount: 6 });
   const subject = `New mood #${options.postId}`;
   const html = emailShell(`
           <tr>
@@ -280,7 +168,6 @@ export function buildMoodNotificationEmail(options: {
                     <div class="email-preview" style="font-family: ${MONO_FONT}; font-size: 14px; line-height: 1.65; color: #111;">
                       ${escapeHtml(preview)}
                     </div>
-                    ${relatedLinksHtml}
                   </td>
                 </tr>
                 <tr>
@@ -303,30 +190,23 @@ export function buildMoodNotificationEmail(options: {
             </td>
           </tr>`);
 
-  const textLines = [
+  const text = [
     `MOOD · #${options.postId}`,
     '────────────',
     '',
     preview,
     '',
-  ];
+    `Read: ${options.moodUrl}`,
+    `Unsubscribe: ${options.unsubscribeUrl}`,
+  ].join('\n');
 
-  if (relatedLinksTextLines.length) {
-    textLines.push(...relatedLinksTextLines);
-    textLines.push('');
-  }
-
-  textLines.push(`Read: ${options.moodUrl}`);
-  textLines.push(`Unsubscribe: ${options.unsubscribeUrl}`);
-
-  return { subject, html, text: textLines.join('\n') };
+  return { subject, html, text };
 }
 
 interface MoodDigestPost {
   postId: string;
   moodUrl: string;
   previewText: string;
-  relatedLinks?: EmailRelatedLink[];
   timeLabel: string;
   dateLabel: string;
 }
@@ -358,7 +238,6 @@ function buildDigestListHtml(posts: MoodDigestPost[]): string {
                           <a href="${escapeHtml(post.moodUrl)}" class="email-preview" style="display: block; font-family: ${MONO_FONT}; font-size: 13px; line-height: 1.65; color: #111; text-decoration: none;">
                             ${escapeHtml(trimPreview(post.previewText, 160))}
                           </a>
-                          ${buildRelatedLinksHtml(post.relatedLinks, { maxCount: 4, compact: true })}
                         </td>
                       </tr>
                     </table>
@@ -444,13 +323,6 @@ export function buildMoodDigestEmail(options: {
     }
 
     textLines.push(`[${post.timeLabel}] ${trimPreview(post.previewText, 160)}`);
-    const relatedLinkLines = buildRelatedLinksTextLines(post.relatedLinks, {
-      maxCount: 4,
-      heading: 'Links:',
-    });
-    if (relatedLinkLines.length) {
-      textLines.push(...relatedLinkLines);
-    }
     textLines.push(`Read: ${post.moodUrl}`);
     textLines.push('');
   }
