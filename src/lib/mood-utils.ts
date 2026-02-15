@@ -5,21 +5,56 @@ function isEmojiImageElement(element: cheerio.Element, $: cheerio.CheerioAPI): b
   return $element.closest('.tg-emoji, .mood-reaction-emoji').length > 0;
 }
 
+function isCustomEmojiImageSrc(src: string): boolean {
+  const normalized = src.trim().toLowerCase();
+  if (!normalized) return false;
+  return normalized.includes('/i/emoji/') || normalized.includes('tg-emoji-fallback');
+}
+
+function getNonEmojiImageSrc($: cheerio.CheerioAPI, selector: string): string | null {
+  const element = $(selector)
+    .filter((_index, node) => {
+      if (isEmojiImageElement(node, $)) {
+        return false;
+      }
+      const src = ($(node).attr('src') ?? '').trim();
+      if (!src) {
+        return false;
+      }
+      return !isCustomEmojiImageSrc(src);
+    })
+    .first();
+
+  const src = (element.attr('src') ?? '').trim();
+  return src || null;
+}
+
 /**
  * Extract the first image URL from HTML content
  */
 export function getFirstImage(content: string): string | null {
   const $ = cheerio.load(content);
-  const img = $('.image-preview-wrap img')
-    .filter((_index, element) => !isEmojiImageElement(element, $))
-    .first();
-  const src = img.attr('src');
-  if (src) return src;
 
-  const fallbackImg = $('img')
-    .filter((_index, element) => !isEmojiImageElement(element, $))
-    .first();
-  return fallbackImg.attr('src') ?? null;
+  const previewImage = getNonEmojiImageSrc($, '.image-preview-wrap img, .image-list-container img');
+  if (previewImage) {
+    return previewImage;
+  }
+
+  const fallbackImage = getNonEmojiImageSrc($, 'img');
+  if (fallbackImage) {
+    return fallbackImage;
+  }
+
+  const regexMatches = Array.from(content.matchAll(/<img[^>]+src=["']([^"'>]+)["']/gi));
+  for (const match of regexMatches) {
+    const src = (match[1] ?? '').trim();
+    if (!src || isCustomEmojiImageSrc(src)) {
+      continue;
+    }
+    return src;
+  }
+
+  return null;
 }
 
 /**
