@@ -10,6 +10,11 @@ function isCustomEmojiImageSrc(src: string): boolean {
   return normalized.includes('/i/emoji/');
 }
 
+function extractBackgroundImageUrl(style: string): string {
+  const match = style.match(/background-image\s*:\s*url\((['"]?)(.*?)\1\)/i);
+  return (match?.[2] ?? '').trim();
+}
+
 function getFirstValidImageSrc($: cheerio.CheerioAPI, selector: string): string | null {
   const image = $(selector)
     .filter((_index, node) => {
@@ -30,6 +35,20 @@ function getFirstValidImageSrc($: cheerio.CheerioAPI, selector: string): string 
   return src || null;
 }
 
+function getFirstPhotoWrapImageSrc($: cheerio.CheerioAPI): string | null {
+  const photoWrap = $('.tgme_widget_message_photo_wrap')
+    .filter((_index, node) => {
+      const style = ($(node).attr('style') ?? '').trim();
+      const src = extractBackgroundImageUrl(style);
+      return Boolean(src) && !isCustomEmojiImageSrc(src);
+    })
+    .first();
+
+  const style = (photoWrap.attr('style') ?? '').trim();
+  const src = extractBackgroundImageUrl(style);
+  return src || null;
+}
+
 /**
  * Extract the first image URL from HTML content
  */
@@ -37,8 +56,8 @@ export function getFirstImage(content: string): string | null {
   const $ = cheerio.load(content);
 
   const imageSelectors = [
-    '.image-preview-wrap img',
-    '.image-list-container img',
+    '.image-preview-wrap img:not(.modal-img)',
+    '.image-list-container img:not(.modal-img)',
     '.tgme_widget_message_photo_wrap img',
     'img',
   ];
@@ -48,6 +67,11 @@ export function getFirstImage(content: string): string | null {
     if (src) {
       return src;
     }
+  }
+
+  const photoWrapSrc = getFirstPhotoWrapImageSrc($);
+  if (photoWrapSrc) {
+    return photoWrapSrc;
   }
 
   return null;
