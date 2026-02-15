@@ -7,25 +7,26 @@ function isEmojiImageElement(element: cheerio.Element, $: cheerio.CheerioAPI): b
 
 function isCustomEmojiImageSrc(src: string): boolean {
   const normalized = src.trim().toLowerCase();
-  if (!normalized) return false;
-  return normalized.includes('/i/emoji/') || normalized.includes('tg-emoji-fallback');
+  return normalized.includes('/i/emoji/');
 }
 
-function getNonEmojiImageSrc($: cheerio.CheerioAPI, selector: string): string | null {
-  const element = $(selector)
+function getFirstValidImageSrc($: cheerio.CheerioAPI, selector: string): string | null {
+  const image = $(selector)
     .filter((_index, node) => {
       if (isEmojiImageElement(node, $)) {
         return false;
       }
+
       const src = ($(node).attr('src') ?? '').trim();
       if (!src) {
         return false;
       }
+
       return !isCustomEmojiImageSrc(src);
     })
     .first();
 
-  const src = (element.attr('src') ?? '').trim();
+  const src = (image.attr('src') ?? '').trim();
   return src || null;
 }
 
@@ -35,23 +36,18 @@ function getNonEmojiImageSrc($: cheerio.CheerioAPI, selector: string): string | 
 export function getFirstImage(content: string): string | null {
   const $ = cheerio.load(content);
 
-  const previewImage = getNonEmojiImageSrc($, '.image-preview-wrap img, .image-list-container img');
-  if (previewImage) {
-    return previewImage;
-  }
+  const imageSelectors = [
+    '.image-preview-wrap img',
+    '.image-list-container img',
+    '.tgme_widget_message_photo_wrap img',
+    'img',
+  ];
 
-  const fallbackImage = getNonEmojiImageSrc($, 'img');
-  if (fallbackImage) {
-    return fallbackImage;
-  }
-
-  const regexMatches = Array.from(content.matchAll(/<img[^>]+src=["']([^"'>]+)["']/gi));
-  for (const match of regexMatches) {
-    const src = (match[1] ?? '').trim();
-    if (!src || isCustomEmojiImageSrc(src)) {
-      continue;
+  for (const selector of imageSelectors) {
+    const src = getFirstValidImageSrc($, selector);
+    if (src) {
+      return src;
     }
-    return src;
   }
 
   return null;
