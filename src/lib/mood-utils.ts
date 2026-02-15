@@ -132,13 +132,11 @@ export function getRelatedLinks(
   });
 
   $('img[src]').each((_index, element) => {
-    const $element = $(element);
-    const isEmojiImage = $element.closest('.tg-emoji, .mood-reaction-emoji').length > 0;
-    if (isEmojiImage) {
+    if (isEmojiImageElement(element, $)) {
       return;
     }
 
-    appendLink($element.attr('src'), 'image');
+    appendLink($(element).attr('src'), 'image');
   });
 
   const textSources = [mood.text ?? '', stripHtml(mood.content)];
@@ -159,14 +157,7 @@ export function getRelatedLinks(
  * Check if content contains media elements
  */
 export function hasMedia(content: string): boolean {
-  const $ = cheerio.load(content);
-  if ($('video, audio, iframe, .tgme_widget_message_document_wrap, .bookmark-card').length > 0) {
-    return true;
-  }
-
-  return $('img')
-    .toArray()
-    .some((element) => !isEmojiImageElement(element, $));
+  return /<(img|video|audio|iframe)/i.test(content);
 }
 
 /**
@@ -226,10 +217,7 @@ export function getTextPreview(mood: { text?: string; content: string }): string
  * Check whether content contains image media
  */
 export function hasImageMedia(content: string): boolean {
-  const $ = cheerio.load(content);
-  return $('img')
-    .toArray()
-    .some((element) => !isEmojiImageElement(element, $));
+  return /<(img)\b/i.test(content);
 }
 
 /**
