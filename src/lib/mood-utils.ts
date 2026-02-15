@@ -1,17 +1,25 @@
 import * as cheerio from 'cheerio';
 
+function isEmojiImageElement(element: cheerio.Element, $: cheerio.CheerioAPI): boolean {
+  const $element = $(element);
+  return $element.closest('.tg-emoji, .mood-reaction-emoji').length > 0;
+}
+
 /**
  * Extract the first image URL from HTML content
  */
 export function getFirstImage(content: string): string | null {
   const $ = cheerio.load(content);
-  const img = $('.image-preview-wrap img').first();
+  const img = $('.image-preview-wrap img')
+    .filter((_index, element) => !isEmojiImageElement(element, $))
+    .first();
   const src = img.attr('src');
   if (src) return src;
 
-  // Fallback to simple regex match
-  const match = content.match(/<img[^>]+src="([^">]+)"/);
-  return match ? match[1] : null;
+  const fallbackImg = $('img')
+    .filter((_index, element) => !isEmojiImageElement(element, $))
+    .first();
+  return fallbackImg.attr('src') ?? null;
 }
 
 /**
@@ -151,7 +159,14 @@ export function getRelatedLinks(
  * Check if content contains media elements
  */
 export function hasMedia(content: string): boolean {
-  return /<(img|video|audio|iframe)/i.test(content);
+  const $ = cheerio.load(content);
+  if ($('video, audio, iframe, .tgme_widget_message_document_wrap, .bookmark-card').length > 0) {
+    return true;
+  }
+
+  return $('img')
+    .toArray()
+    .some((element) => !isEmojiImageElement(element, $));
 }
 
 /**
@@ -211,7 +226,10 @@ export function getTextPreview(mood: { text?: string; content: string }): string
  * Check whether content contains image media
  */
 export function hasImageMedia(content: string): boolean {
-  return /<(img)\b/i.test(content);
+  const $ = cheerio.load(content);
+  return $('img')
+    .toArray()
+    .some((element) => !isEmojiImageElement(element, $));
 }
 
 /**
