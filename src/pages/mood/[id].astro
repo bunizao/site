@@ -787,10 +787,12 @@ const telegramCommentUrl = channel && id ? `https://t.me/${channel}/${id}?commen
   .mood-post-content :global(blockquote small) {
     display: block;
     line-height: 1.5;
+    white-space: pre-line;
   }
 
   .mood-post-content :global(blockquote p) {
     margin: 0;
+    white-space: pre-line;
   }
 
   /* Images */
@@ -1651,12 +1653,14 @@ const telegramCommentUrl = channel && id ? `https://t.me/${channel}/${id}?commen
     line-height: 1.5;
     position: relative;
     z-index: 1;
+    white-space: pre-line;
   }
 
   .mood-comment-content :global(blockquote p) {
     margin: 0;
     position: relative;
     z-index: 1;
+    white-space: pre-line;
   }
 
   .mood-comment-reactions {
@@ -2101,10 +2105,12 @@ const telegramCommentUrl = channel && id ? `https://t.me/${channel}/${id}?commen
     font-weight: 500;
     color: hsl(var(--foreground) / 0.7);
     margin-bottom: 4px;
+    white-space: pre-line;
   }
 
   .mood-comment-content blockquote p {
     margin: 0;
+    white-space: pre-line;
   }
 
   .mood-comment-reactions {

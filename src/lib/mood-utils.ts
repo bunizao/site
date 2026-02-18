@@ -122,6 +122,20 @@ function normalizeText(value: string): string {
   return value.replace(/\s+/g, ' ').trim();
 }
 
+function normalizeMultilineText(value: string): string {
+  return value
+    .replace(/\r\n?/g, '\n')
+    .replace(/[^\S\n]+/g, ' ')
+    .replace(/ *\n */g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
+function extractMultilineTextFromHtml(html: string): string {
+  if (!html) return '';
+  return normalizeMultilineText(stripHtml(html));
+}
+
 const previewCleanupSelectors = [
   'blockquote',
   '.tgme_widget_message_reply',
@@ -535,8 +549,10 @@ export function getQuotePreview(
   if (!reply.length) return null;
 
   const author = normalizeText(reply.find('.tgme_widget_message_reply_author').first().text());
-  const replyText = normalizeText(reply.find('.tgme_widget_message_reply_text').first().text());
-  const raw = normalizeText(reply.text());
+  const replyText = extractMultilineTextFromHtml(
+    reply.find('.tgme_widget_message_reply_text').first().html() ?? ''
+  );
+  const raw = extractMultilineTextFromHtml(reply.html() ?? '');
   const hasSeparateText = Boolean(replyText);
   const hiddenNames = [options.channelTitle ?? '', options.channel ?? ''].filter(Boolean);
   const hideAuthor = shouldHideReplyAuthor(author, options.channel, options.channelTitle);
@@ -548,6 +564,8 @@ export function getQuotePreview(
     const namesToStrip = hideAuthor ? [author, ...hiddenNames] : hiddenNames;
     text = stripLeadingAuthor(text, namesToStrip.filter(Boolean));
   }
+
+  text = normalizeMultilineText(text);
 
   if (!text) return null;
 
