@@ -1,13 +1,23 @@
 import * as cheerio from 'cheerio';
 
-function isEmojiImageElement(element: cheerio.Element, $: cheerio.CheerioAPI): boolean {
-  const $element = $(element);
-  return $element.closest('.tg-emoji, .mood-reaction-emoji').length > 0;
+function isCustomEmojiImageSrc(src: string): boolean {
+  return src.trim().toLowerCase().includes('/i/emoji/');
 }
 
-function isCustomEmojiImageSrc(src: string): boolean {
-  const normalized = src.trim().toLowerCase();
-  return normalized.includes('/i/emoji/');
+export function isEmojiImageElement(element: cheerio.Element, $: cheerio.CheerioAPI): boolean {
+  const $element = $(element);
+
+  if ($element.closest('.tg-emoji, .mood-reaction-emoji').length > 0) {
+    return true;
+  }
+
+  const className = $element.attr('class') ?? '';
+  if (/\b(tg-emoji|mood-reaction-emoji)\b/.test(className)) {
+    return true;
+  }
+
+  const src = ($element.attr('src') ?? '').trim();
+  return Boolean(src) && isCustomEmojiImageSrc(src);
 }
 
 function extractBackgroundImageUrl(style: string): string {
@@ -15,38 +25,48 @@ function extractBackgroundImageUrl(style: string): string {
   return (match?.[2] ?? '').trim();
 }
 
+function hasPhotoWrapImage($: cheerio.CheerioAPI): boolean {
+  return $('.tgme_widget_message_photo_wrap').toArray().some((element) => {
+    const style = ($(element).attr('style') ?? '').trim();
+    const src = extractBackgroundImageUrl(style);
+    return Boolean(src) && !isCustomEmojiImageSrc(src);
+  });
+}
+
 function getFirstValidImageSrc($: cheerio.CheerioAPI, selector: string): string | null {
   const image = $(selector)
-    .filter((_index, node) => {
-      if (isEmojiImageElement(node, $)) {
+    .toArray()
+    .find((element) => {
+      if (isEmojiImageElement(element, $)) {
         return false;
       }
 
-      const src = ($(node).attr('src') ?? '').trim();
-      if (!src) {
-        return false;
-      }
+      const src = ($(element).attr('src') ?? '').trim();
+      return Boolean(src);
+    });
 
-      return !isCustomEmojiImageSrc(src);
-    })
-    .first();
+  if (!image) {
+    return null;
+  }
 
-  const src = (image.attr('src') ?? '').trim();
-  return src || null;
+  return ($(image).attr('src') ?? '').trim() || null;
 }
 
 function getFirstPhotoWrapImageSrc($: cheerio.CheerioAPI): string | null {
   const photoWrap = $('.tgme_widget_message_photo_wrap')
-    .filter((_index, node) => {
-      const style = ($(node).attr('style') ?? '').trim();
+    .toArray()
+    .find((element) => {
+      const style = ($(element).attr('style') ?? '').trim();
       const src = extractBackgroundImageUrl(style);
       return Boolean(src) && !isCustomEmojiImageSrc(src);
-    })
-    .first();
+    });
 
-  const style = (photoWrap.attr('style') ?? '').trim();
-  const src = extractBackgroundImageUrl(style);
-  return src || null;
+  if (!photoWrap) {
+    return null;
+  }
+
+  const style = ($(photoWrap).attr('style') ?? '').trim();
+  return extractBackgroundImageUrl(style) || null;
 }
 
 /**
@@ -55,26 +75,21 @@ function getFirstPhotoWrapImageSrc($: cheerio.CheerioAPI): string | null {
 export function getFirstImage(content: string): string | null {
   const $ = cheerio.load(content);
 
-  const imageSelectors = [
+  const selectors = [
     '.image-preview-wrap img:not(.modal-img)',
     '.image-list-container img:not(.modal-img)',
     '.tgme_widget_message_photo_wrap img',
     'img',
   ];
 
-  for (const selector of imageSelectors) {
+  for (const selector of selectors) {
     const src = getFirstValidImageSrc($, selector);
     if (src) {
       return src;
     }
   }
 
-  const photoWrapSrc = getFirstPhotoWrapImageSrc($);
-  if (photoWrapSrc) {
-    return photoWrapSrc;
-  }
-
-  return null;
+  return getFirstPhotoWrapImageSrc($);
 }
 
 /**
@@ -212,7 +227,31 @@ export function getRelatedLinks(
  * Check if content contains media elements
  */
 export function hasMedia(content: string): boolean {
-  return /<(img|video|audio|iframe)/i.test(content);
+  const $ = cheerio.load(content);
+
+  const hasValidImage = $('img')
+    .toArray()
+    .some((element) => {
+      if (isEmojiImageElement(element, $)) {
+        return false;
+      }
+      const src = ($(element).attr('src') ?? '').trim();
+      return Boolean(src);
+    });
+
+  if (hasValidImage || hasPhotoWrapImage($)) {
+    return true;
+  }
+
+  return [
+    'video',
+    'audio',
+    'iframe',
+    '.bookmark-card',
+    '.tgme_widget_message_document_wrap',
+    '.tgme_widget_message_video_player',
+    '.tgme_widget_message_location_wrap',
+  ].some((selector) => $(selector).length > 0);
 }
 
 /**
@@ -272,7 +311,37 @@ export function getTextPreview(mood: { text?: string; content: string }): string
  * Check whether content contains image media
  */
 export function hasImageMedia(content: string): boolean {
-  return /<(img)\b/i.test(content);
+  const $ = cheerio.load(content);
+
+  const hasValidImage = $('img')
+    .toArray()
+    .some((element) => {
+      if (isEmojiImageElement(element, $)) {
+        return false;
+      }
+      const src = ($(element).attr('src') ?? '').trim();
+      return Boolean(src);
+    });
+
+  return hasValidImage || hasPhotoWrapImage($);
+}
+
+/**
+ * Check whether content contains emoji image media
+ */
+export function hasEmojiImageMedia(content: string): boolean {
+  const $ = cheerio.load(content);
+
+  return $('img')
+    .toArray()
+    .some((element) => {
+      if (!isEmojiImageElement(element, $)) {
+        return false;
+      }
+
+      const src = ($(element).attr('src') ?? '').trim();
+      return Boolean(src);
+    });
 }
 
 /**
