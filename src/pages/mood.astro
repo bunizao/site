@@ -3681,6 +3681,11 @@ const skeletonGroups = [
     };
 
     const isLongContent = (text: string): boolean => (text || '').length > 280;
+    const isSafeEmojiImageSrc = (value: string): boolean => {
+      if (!value) return false;
+      if (/^https?:\/\//i.test(value)) return true;
+      return /^[/?]/.test(value);
+    };
 
     const linkifyText = (value: string): DocumentFragment => {
       const fragment = document.createDocumentFragment();
@@ -3758,6 +3763,55 @@ const skeletonGroups = [
             }
           }
           target.appendChild(anchor);
+          return;
+        }
+
+        if (tag === 'span') {
+          const className = element.getAttribute('class') ?? '';
+          if (/\b(tg-emoji|mood-reaction-emoji)\b/.test(className)) {
+            const emoji = document.createElement('span');
+            emoji.className = 'tg-emoji';
+
+            const emojiId = element.getAttribute('data-emoji-id');
+            if (emojiId) {
+              emoji.dataset.emojiId = emojiId;
+            }
+
+            const animated = element.getAttribute('data-emoji-animated');
+            if (animated === 'true' || animated === 'false') {
+              emoji.dataset.emojiAnimated = animated;
+            }
+
+            const ariaLabel = element.getAttribute('aria-label');
+            if (ariaLabel) {
+              emoji.setAttribute('aria-label', ariaLabel);
+            }
+
+            element.childNodes.forEach((child) => appendNode(child, emoji));
+            target.appendChild(emoji);
+            return;
+          }
+        }
+
+        if (tag === 'img') {
+          const src = (element.getAttribute('src') ?? '').trim();
+          if (!src) return;
+
+          const isEmojiImage = Boolean(element.closest('.tg-emoji, .mood-reaction-emoji'))
+            || src.toLowerCase().includes('/i/emoji/');
+          if (!isEmojiImage || !isSafeEmojiImageSrc(src)) {
+            return;
+          }
+
+          const image = document.createElement('img');
+          image.src = src;
+          image.alt = element.getAttribute('alt') ?? '';
+          image.loading = 'lazy';
+          image.decoding = 'async';
+          if (element.classList.contains('tg-emoji-fallback')) {
+            image.className = 'tg-emoji-fallback';
+          }
+          target.appendChild(image);
           return;
         }
 

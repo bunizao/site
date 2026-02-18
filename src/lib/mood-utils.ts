@@ -147,6 +147,15 @@ function sanitizePreviewHref(value: string): string {
   return '';
 }
 
+function sanitizePreviewImageSrc(value: string): string {
+  const trimmed = value.trim();
+  if (!trimmed) return '';
+  if (trimmed.startsWith('//')) return `https:${trimmed}`;
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  if (/^[/?]/.test(trimmed)) return trimmed;
+  return '';
+}
+
 function normalizeRelatedUrl(value: string, baseUrl?: string): string {
   const safe = sanitizePreviewHref(value);
   if (!safe) return '';
@@ -413,6 +422,61 @@ export function getTextPreviewHtml(mood: { text?: string; content: string }): st
           }
         });
         $(element).attr('href', safeHref);
+        return;
+      }
+
+      if (tag === 'span') {
+        const className = $(element).attr('class') ?? '';
+        const isEmojiWrapper = /\b(tg-emoji|mood-reaction-emoji)\b/.test(className);
+        if (isEmojiWrapper) {
+          const emojiId = ($(element).attr('data-emoji-id') ?? '').trim();
+          const animated = ($(element).attr('data-emoji-animated') ?? '').trim();
+          const ariaLabel = ($(element).attr('aria-label') ?? '').trim();
+
+          const attributes = Object.keys(element.attribs ?? {});
+          attributes.forEach((attr) => $(element).removeAttr(attr));
+          $(element).attr('class', 'tg-emoji');
+
+          if (emojiId) {
+            $(element).attr('data-emoji-id', emojiId);
+          }
+          if (animated === 'true' || animated === 'false') {
+            $(element).attr('data-emoji-animated', animated);
+          }
+          if (ariaLabel) {
+            $(element).attr('aria-label', ariaLabel);
+          }
+
+          return;
+        }
+      }
+
+      if (tag === 'img') {
+        if (!isEmojiImageElement(element, $)) {
+          $(element).remove();
+          return;
+        }
+
+        const safeSrc = sanitizePreviewImageSrc($(element).attr('src') ?? '');
+        const alt = ($(element).attr('alt') ?? '').trim();
+        const className = ($(element).attr('class') ?? '')
+          .split(/\s+/)
+          .filter((value) => value === 'tg-emoji-fallback')
+          .join(' ');
+
+        if (!safeSrc) {
+          $(element).replaceWith(alt);
+          return;
+        }
+
+        const attributes = Object.keys(element.attribs ?? {});
+        attributes.forEach((attr) => $(element).removeAttr(attr));
+        $(element).attr('src', safeSrc);
+        $(element).attr('alt', alt);
+        $(element).attr('loading', 'lazy');
+        if (className) {
+          $(element).attr('class', className);
+        }
         return;
       }
 
