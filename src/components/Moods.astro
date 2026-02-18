@@ -641,6 +641,12 @@ const placeholders = Array.from({ length: SKELETON_COUNT }, (_, index) => ({
           if (/\b(tg-emoji|mood-reaction-emoji)\b/.test(className)) {
             const emoji = document.createElement('span');
             emoji.className = 'tg-emoji';
+            emoji.style.display = 'inline-flex';
+            emoji.style.alignItems = 'center';
+            emoji.style.justifyContent = 'center';
+            emoji.style.width = '1.15em';
+            emoji.style.height = '1.15em';
+            emoji.style.verticalAlign = '-0.15em';
 
             const emojiId = element.getAttribute('data-emoji-id');
             if (emojiId) {
@@ -678,6 +684,9 @@ const placeholders = Array.from({ length: SKELETON_COUNT }, (_, index) => ({
           image.alt = element.getAttribute('alt') ?? '';
           image.loading = 'lazy';
           image.decoding = 'async';
+          image.style.width = '100%';
+          image.style.height = '100%';
+          image.style.display = 'block';
           if (element.classList.contains('tg-emoji-fallback')) {
             image.className = 'tg-emoji-fallback';
           }
