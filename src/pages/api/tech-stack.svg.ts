@@ -50,7 +50,14 @@ export const GET: APIRoute = ({ url }) => {
     <svg width="${svgWidth}" height="60" xmlns="http://www.w3.org/2000/svg">
       <defs>
         <style>
-          @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&amp;display=swap');
+          @font-face {
+            font-family: 'JetBrains Mono';
+            src:
+              url('/fonts/jetbrains-mono-variable.woff2') format('woff2-variations'),
+              url('/fonts/jetbrains-mono-variable.woff2') format('woff2');
+            font-weight: 100 800;
+            font-style: normal;
+          }
 
           .tech-tag {
             font-family: 'JetBrains Mono', monospace;

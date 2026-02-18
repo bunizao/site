@@ -157,7 +157,6 @@ function emailShell(content: string): string {
   <meta name="color-scheme" content="light dark" />
   <meta name="supported-color-schemes" content="light dark" />
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap');
     @media (prefers-color-scheme: dark) {
       .email-body { background-color: #0a0a0a !important; }
       .email-card { background-color: #0a0a0a !important; }
