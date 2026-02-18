@@ -2426,7 +2426,7 @@ const skeletonGroups = [
   :global(.notify-panel) {
     position: fixed;
     z-index: 60;
-    width: 280px;
+    width: 312px;
     opacity: 0;
     visibility: hidden;
     transform: translateY(-4px) scale(0.96);
@@ -2447,7 +2447,7 @@ const skeletonGroups = [
     border: 1px solid hsl(var(--foreground) / 0.1);
     border-radius: 10px;
     box-shadow: 0 8px 24px hsl(var(--foreground) / 0.08), 0 2px 8px hsl(var(--foreground) / 0.04);
-    padding: 16px;
+    padding: 14px;
   }
 
   :global(.notify-panel-header) {
@@ -2588,15 +2588,35 @@ const skeletonGroups = [
   }
 
   :global(.notify-turnstile) {
-    margin-top: 14px;
+    --notify-turnstile-scale: 0.94;
+    margin-top: 12px;
     display: flex;
     justify-content: center;
+    align-items: flex-start;
     min-height: 0;
     transition: min-height 0.2s ease;
   }
 
   :global(.notify-turnstile.has-widget) {
-    min-height: 65px;
+    min-height: 62px;
+  }
+
+  :global(.notify-turnstile.has-widget > div) {
+    transform: scale(var(--notify-turnstile-scale));
+    transform-origin: center top;
+    display: block;
+  }
+
+  @media (max-width: 639px) {
+    :global(.notify-turnstile) {
+      --notify-turnstile-scale: 0.92;
+    }
+  }
+
+  @media (max-width: 380px) {
+    :global(.notify-turnstile) {
+      --notify-turnstile-scale: 0.9;
+    }
   }
 
   :global(.notify-submit) {
@@ -2697,8 +2717,12 @@ const skeletonGroups = [
 
   @media (max-width: 639px) {
     :global(.notify-panel) {
-      width: calc(100vw - 32px);
-      max-width: 300px;
+      width: min(312px, calc(100vw - 20px));
+      max-width: 312px;
+    }
+
+    :global(.notify-panel-inner) {
+      padding: 14px;
     }
   }
 
@@ -2773,8 +2797,8 @@ const skeletonGroups = [
     let isOpen = false;
     let hoverCloseTimer: number | null = null;
     const MOBILE_BREAKPOINT = 640;
-    const MOBILE_PANEL_MAX_WIDTH = 300;
-    const MOBILE_PANEL_PADDING = 16;
+    const MOBILE_PANEL_MAX_WIDTH = 312;
+    const MOBILE_PANEL_PADDING = 10;
     const MOBILE_PANEL_MIN_TOP = 72;
     const HOVER_CLOSE_DELAY_MS = 140;
     const supportsHoverOpen = window.matchMedia('(hover: hover) and (pointer: fine)').matches;
@@ -2879,7 +2903,7 @@ const skeletonGroups = [
         sitekey: siteKey,
         action: 'notify_subscribe',
         theme: document.documentElement.classList.contains('dark') ? 'dark' : 'light',
-        size: 'compact',
+        size: 'normal',
       });
     };
 
