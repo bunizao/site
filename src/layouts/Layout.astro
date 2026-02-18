@@ -113,21 +113,13 @@ const ogImageType = ogImageUrl.endsWith('.png')
       })();
     </script>
 
-    <!-- Font loading - non-blocking with fallback -->
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
       rel="preload"
-      as="style"
-      href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap"
-      onload="this.onload=null;this.rel='stylesheet'"
+      as="font"
+      href="/fonts/jetbrains-mono-variable.woff2"
+      type="font/woff2"
+      crossorigin
     />
-    <noscript>
-      <link
-        href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap"
-        rel="stylesheet"
-      />
-    </noscript>
 
     <title>{title}</title>
   </head>

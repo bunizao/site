@@ -35,10 +35,18 @@ export function renderNotifyPage(options: {
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>${safeTitle} — buxx.me</title>
     <link rel="icon" href="/favicon.ico" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600&display=swap" rel="stylesheet" />
+    <link rel="preload" as="font" href="/fonts/jetbrains-mono-variable.woff2" type="font/woff2" crossorigin />
     <style>
+      @font-face {
+        font-family: 'JetBrains Mono';
+        src:
+          url('/fonts/jetbrains-mono-variable.woff2') format('woff2-variations'),
+          url('/fonts/jetbrains-mono-variable.woff2') format('woff2');
+        font-weight: 100 800;
+        font-style: normal;
+        font-display: swap;
+      }
+
       :root {
         --bg: #fff;
         --fg: #000;

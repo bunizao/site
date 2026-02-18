@@ -162,13 +162,25 @@ const allowedOrigin = normalizeOrigin(originParam);
   <meta name="robots" content="noindex, nofollow" />
   <title>Mood Embed</title>
   {font !== 'system' && (
-    <>
-      <link rel="preconnect" href="https://fonts.googleapis.com" />
-      <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-      <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600&display=swap" rel="stylesheet" />
-    </>
+    <link
+      rel="preload"
+      as="font"
+      href="/fonts/jetbrains-mono-variable.woff2"
+      type="font/woff2"
+      crossorigin
+    />
   )}
   <style is:inline>
+    @font-face {
+      font-family: 'JetBrains Mono';
+      src:
+        url('/fonts/jetbrains-mono-variable.woff2') format('woff2-variations'),
+        url('/fonts/jetbrains-mono-variable.woff2') format('woff2');
+      font-weight: 100 800;
+      font-style: normal;
+      font-display: swap;
+    }
+
     :root {
       --font-family: 'JetBrains Mono', monospace;
       --background: 0 0% 100%;
