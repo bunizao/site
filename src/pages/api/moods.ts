@@ -7,6 +7,7 @@ import {
   getTextPreviewHtml,
   getQuotePreview,
   getNumericId,
+  hasEmojiImageMedia,
   hasMedia,
   isLongContent,
 } from '../../lib/mood-utils';
@@ -137,7 +138,8 @@ export const GET: APIRoute = async ({ request, locals }) => {
       const previewText = getTextPreview(post);
       const previewHtml = getTextPreviewHtml(post);
       const quote = getQuotePreview(post.content, { channel, channelTitle });
-      const needsDetailPage = !mediaPreview && (hasMedia(post.content) || isLongContent(previewText));
+      const hasDetailMedia = hasMedia(post.content) || hasEmojiImageMedia(post.content);
+      const needsDetailPage = !mediaPreview && (hasDetailMedia || isLongContent(previewText));
       return {
         id: post.id,
         datetime: post.datetime,

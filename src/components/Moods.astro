@@ -242,6 +242,21 @@ const placeholders = Array.from({ length: SKELETON_COUNT }, (_, index) => ({
     border-bottom-color: hsl(var(--foreground) / 0.6);
   }
 
+  #moods-section :global(.mood-text .tg-emoji) {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.15em;
+    height: 1.15em;
+    vertical-align: -0.15em;
+  }
+
+  #moods-section :global(.mood-text .tg-emoji img) {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+
   @media (min-width: 640px) {
     #moods-section .mood-text {
       font-size: 14px;
@@ -536,6 +551,12 @@ const placeholders = Array.from({ length: SKELETON_COUNT }, (_, index) => ({
       return `${monthName} ${day}`;
     };
 
+    const isSafeEmojiImageSrc = (value: string): boolean => {
+      if (!value) return false;
+      if (/^https?:\/\//i.test(value)) return true;
+      return /^[/?]/.test(value);
+    };
+
     const linkifyText = (value: string): DocumentFragment => {
       const fragment = document.createDocumentFragment();
       if (!value) return fragment;
@@ -612,6 +633,64 @@ const placeholders = Array.from({ length: SKELETON_COUNT }, (_, index) => ({
             }
           }
           target.appendChild(anchor);
+          return;
+        }
+
+        if (tag === 'span') {
+          const className = element.getAttribute('class') ?? '';
+          if (/\b(tg-emoji|mood-reaction-emoji)\b/.test(className)) {
+            const emoji = document.createElement('span');
+            emoji.className = 'tg-emoji';
+            emoji.style.display = 'inline-flex';
+            emoji.style.alignItems = 'center';
+            emoji.style.justifyContent = 'center';
+            emoji.style.width = '1.15em';
+            emoji.style.height = '1.15em';
+            emoji.style.verticalAlign = '-0.15em';
+
+            const emojiId = element.getAttribute('data-emoji-id');
+            if (emojiId) {
+              emoji.dataset.emojiId = emojiId;
+            }
+
+            const animated = element.getAttribute('data-emoji-animated');
+            if (animated === 'true' || animated === 'false') {
+              emoji.dataset.emojiAnimated = animated;
+            }
+
+            const ariaLabel = element.getAttribute('aria-label');
+            if (ariaLabel) {
+              emoji.setAttribute('aria-label', ariaLabel);
+            }
+
+            element.childNodes.forEach((child) => appendNode(child, emoji));
+            target.appendChild(emoji);
+            return;
+          }
+        }
+
+        if (tag === 'img') {
+          const src = (element.getAttribute('src') ?? '').trim();
+          if (!src) return;
+
+          const isEmojiImage = Boolean(element.closest('.tg-emoji, .mood-reaction-emoji'))
+            || src.toLowerCase().includes('/i/emoji/');
+          if (!isEmojiImage || !isSafeEmojiImageSrc(src)) {
+            return;
+          }
+
+          const image = document.createElement('img');
+          image.src = src;
+          image.alt = element.getAttribute('alt') ?? '';
+          image.loading = 'lazy';
+          image.decoding = 'async';
+          image.style.width = '100%';
+          image.style.height = '100%';
+          image.style.display = 'block';
+          if (element.classList.contains('tg-emoji-fallback')) {
+            image.className = 'tg-emoji-fallback';
+          }
+          target.appendChild(image);
           return;
         }
 
