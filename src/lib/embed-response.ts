@@ -11,7 +11,7 @@ export interface EmbedResponseOptions {
 
 /**
  * Security headers for embeddable pages
- * - CSP allowing inline styles, Google Fonts, and images
+ * - CSP allowing inline styles, local fonts, and images
  */
 export function getEmbedHeaders(options: EmbedResponseOptions = {}): Headers {
   const { maxAge = 300, staleWhileRevalidate = 60 } = options;
@@ -20,14 +20,14 @@ export function getEmbedHeaders(options: EmbedResponseOptions = {}): Headers {
 
   // Content Security Policy for embed context
   // - Allow inline styles for theming
-  // - Allow Google Fonts
+  // - Allow local fonts
   // - Allow images from various sources
   headers.set(
     'Content-Security-Policy',
     [
       "default-src 'self'",
-      "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-      "font-src 'self' https://fonts.gstatic.com",
+      "style-src 'self' 'unsafe-inline'",
+      "font-src 'self'",
       "img-src 'self' data: https: blob:",
       "media-src 'self' https:",
       "script-src 'self' 'unsafe-inline'",
