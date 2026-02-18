@@ -144,9 +144,17 @@ const skeletonGroups = [
               </fieldset>
               <div data-notify-turnstile class="notify-turnstile"></div>
               <button type="submit" class="notify-submit" data-notify-submit>
+                <span class="notify-submit-lock-icon" data-notify-submit-lock aria-hidden="true">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                       stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="4" y="11" width="16" height="10" rx="2"></rect>
+                    <path d="M8 11V8a4 4 0 1 1 8 0v3"></path>
+                  </svg>
+                </span>
                 <span data-notify-submit-text>Subscribe</span>
                 <span data-notify-submit-spinner class="notify-spinner is-hidden"></span>
               </button>
+              <p class="notify-submit-hint" data-notify-submit-hint>Complete security check before subscribing.</p>
               <div data-notify-error-msg class="notify-error-msg" aria-live="polite"></div>
             </form>
           </div>
@@ -2621,22 +2629,22 @@ const skeletonGroups = [
 
   :global(.notify-submit) {
     width: 100%;
-    height: 34px;
+    height: 36px;
     margin-top: 14px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 8px;
+    gap: 6px;
     font-family: inherit;
     font-size: 12px;
     font-weight: 600;
     letter-spacing: 0.02em;
     color: hsl(var(--primary-foreground));
     background: hsl(var(--primary));
-    border: none;
-    border-radius: 7px;
+    border: 1px solid transparent;
+    border-radius: 8px;
     cursor: pointer;
-    transition: opacity 0.12s ease;
+    transition: opacity 0.15s ease, background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
   }
 
   :global(.notify-submit:hover) {
@@ -2644,7 +2652,25 @@ const skeletonGroups = [
   }
 
   :global(.notify-submit:active) {
-    transform: scale(0.98);
+    opacity: 0.7;
+  }
+
+  :global([data-notify-submit].notify-submit) {
+    height: 40px;
+    border-radius: 9px;
+    margin-top: 13px;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.015em;
+  }
+
+  :global([data-notify-submit].notify-submit:not(.is-locked):not(:disabled)) {
+    color: hsl(var(--background));
+    background: hsl(var(--foreground));
+  }
+
+  :global([data-notify-submit].notify-submit:not(.is-locked):not(:disabled):hover) {
+    opacity: 0.88;
   }
 
   :global(.notify-submit:disabled) {
@@ -2652,10 +2678,52 @@ const skeletonGroups = [
     cursor: not-allowed;
   }
 
+  :global(.notify-submit.is-locked),
+  :global(.notify-submit.is-locked:disabled) {
+    opacity: 1;
+    color: hsl(var(--muted-foreground));
+    background: transparent;
+    border-color: hsl(var(--foreground) / 0.12);
+    cursor: not-allowed;
+  }
+
+  :global(.notify-submit.is-locked:hover) {
+    opacity: 1;
+  }
+
+  :global(.notify-submit-lock-icon) {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    color: currentColor;
+    opacity: 0.5;
+  }
+
+  :global(.notify-submit.is-locked .notify-submit-lock-icon) {
+    display: inline-flex;
+  }
+
+  :global(.notify-submit[aria-busy="true"] .notify-submit-lock-icon) {
+    display: none;
+  }
+
+  :global(.notify-submit-hint) {
+    margin: 7px 0 0;
+    min-height: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10.5px;
+    letter-spacing: 0.015em;
+    color: hsl(var(--muted-foreground) / 0.76);
+    text-align: center;
+  }
+
   :global(.notify-error-msg) {
-    margin-top: 8px;
-    font-size: 11px;
-    color: hsl(0 84% 60%);
+    margin-top: 6px;
+    font-size: 10.5px;
+    line-height: 1.35;
+    color: hsl(8 72% 62% / 0.9);
     min-height: 0;
   }
 
@@ -2776,7 +2844,9 @@ const skeletonGroups = [
     const emailInput = panel.querySelector('[data-notify-email]') as HTMLInputElement;
     const submitBtn = panel.querySelector('[data-notify-submit]') as HTMLButtonElement;
     const submitText = panel.querySelector('[data-notify-submit-text]') as HTMLElement;
+    const submitLockIcon = panel.querySelector('[data-notify-submit-lock]') as HTMLElement | null;
     const submitSpinner = panel.querySelector('[data-notify-submit-spinner]') as HTMLElement;
+    const submitHint = panel.querySelector('[data-notify-submit-hint]') as HTMLElement;
     const successText = panel.querySelector('[data-notify-success-text]') as HTMLElement;
     const errorMsg = panel.querySelector('[data-notify-error-msg]') as HTMLElement;
     const doneBtn = panel.querySelector('[data-notify-done]') as HTMLButtonElement;
@@ -2790,10 +2860,17 @@ const skeletonGroups = [
 
     const DEFAULT_SUCCESS_TEXT = 'Check your inbox to confirm.';
     const ALREADY_SUBSCRIBED_TEXT = 'This email is already subscribed.';
+    const SUBMIT_LABEL = 'Subscribe';
+    const DEFAULT_LOCKED_HINT = 'Complete security check before subscribing.';
+    const FAILED_LOCKED_HINT = 'Security check failed. Retry to continue.';
 
     const siteKey = panel.dataset.turnstileSiteKey || '';
+    const requiresTurnstile = Boolean(siteKey);
     let turnstileWidgetId: string | null = null;
     let turnstileReady = false;
+    let turnstileToken = '';
+    let isSubmitting = false;
+    let lockedHintMessage = DEFAULT_LOCKED_HINT;
     let isOpen = false;
     let hoverCloseTimer: number | null = null;
     const MOBILE_BREAKPOINT = 640;
@@ -2841,6 +2918,35 @@ const skeletonGroups = [
       input.addEventListener('change', syncFrequencyIndicator);
     });
     syncFrequencyIndicator();
+
+    const setSubmitHint = (message: string): void => {
+      submitHint.textContent = message;
+      submitHint.classList.toggle('is-hidden', !message);
+    };
+
+    const setLockedHintMessage = (message: string = DEFAULT_LOCKED_HINT): void => {
+      lockedHintMessage = message;
+    };
+
+    const syncSubmitGate = (): void => {
+      const verified = !requiresTurnstile || Boolean(turnstileToken);
+      const canSubmit = verified && !isSubmitting;
+      submitBtn.disabled = !canSubmit;
+      submitBtn.classList.toggle('is-locked', !verified);
+      submitText.textContent = SUBMIT_LABEL;
+      if (submitLockIcon) {
+        submitLockIcon.classList.toggle('is-hidden', verified || isSubmitting);
+      }
+      if (!requiresTurnstile) {
+        setSubmitHint('');
+        return;
+      }
+      if (verified) {
+        setSubmitHint('');
+        return;
+      }
+      setSubmitHint(lockedHintMessage);
+    };
 
     // Position panel relative to toggle button
     const positionPanel = () => {
@@ -2904,20 +3010,55 @@ const skeletonGroups = [
         action: 'notify_subscribe',
         theme: document.documentElement.classList.contains('dark') ? 'dark' : 'light',
         size: 'normal',
+        callback: (token: string) => {
+          turnstileToken = token || '';
+          errorMsg.textContent = '';
+          setLockedHintMessage(DEFAULT_LOCKED_HINT);
+          syncSubmitGate();
+        },
+        'expired-callback': () => {
+          turnstileToken = '';
+          errorMsg.textContent = '';
+          setLockedHintMessage(FAILED_LOCKED_HINT);
+          syncSubmitGate();
+        },
+        'error-callback': () => {
+          turnstileToken = '';
+          errorMsg.textContent = '';
+          setLockedHintMessage(FAILED_LOCKED_HINT);
+          syncSubmitGate();
+        },
+        'timeout-callback': () => {
+          turnstileToken = '';
+          errorMsg.textContent = '';
+          setLockedHintMessage(FAILED_LOCKED_HINT);
+          syncSubmitGate();
+        },
       });
     };
 
     // Reset Turnstile widget
-    const resetTurnstile = () => {
+    const resetTurnstile = (hintMessage: string = DEFAULT_LOCKED_HINT) => {
       if (turnstileWidgetId !== null && (window as any).turnstile) {
         (window as any).turnstile.reset(turnstileWidgetId);
       }
+      turnstileToken = '';
+      errorMsg.textContent = '';
+      setLockedHintMessage(hintMessage);
+      syncSubmitGate();
     };
 
     // Get Turnstile token
     const getTurnstileToken = (): string => {
+      if (turnstileToken) {
+        return turnstileToken;
+      }
       if (turnstileWidgetId !== null && (window as any).turnstile) {
-        return (window as any).turnstile.getResponse(turnstileWidgetId) || '';
+        const response = (window as any).turnstile.getResponse(turnstileWidgetId) || '';
+        if (response) {
+          turnstileToken = response;
+        }
+        return response;
       }
       return '';
     };
@@ -2952,7 +3093,9 @@ const skeletonGroups = [
           showView('form');
           errorMsg.textContent = '';
           successText.textContent = DEFAULT_SUCCESS_TEXT;
-          submitBtn.disabled = false;
+          isSubmitting = false;
+          setLockedHintMessage(DEFAULT_LOCKED_HINT);
+          syncSubmitGate();
           submitText.classList.remove('is-hidden');
           submitSpinner.classList.add('is-hidden');
         }
@@ -2992,6 +3135,7 @@ const skeletonGroups = [
       showView('form');
       errorMsg.textContent = '';
       resetTurnstile();
+      syncSubmitGate();
     });
 
     // Outside click
@@ -3030,6 +3174,8 @@ const skeletonGroups = [
       window.history.replaceState({}, '', nextUrl);
     }
 
+    syncSubmitGate();
+
     // Form submission
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
@@ -3041,10 +3187,17 @@ const skeletonGroups = [
 
       const deliveryMode = (form.querySelector('input[name="deliveryMode"]:checked') as HTMLInputElement)?.value || 'instant';
       const turnstileToken = getTurnstileToken();
+      if (requiresTurnstile && !turnstileToken) {
+        errorMsg.textContent = '';
+        setLockedHintMessage(DEFAULT_LOCKED_HINT);
+        syncSubmitGate();
+        return;
+      }
 
       // Loading state
       errorMsg.textContent = '';
-      submitBtn.disabled = true;
+      isSubmitting = true;
+      syncSubmitGate();
       submitBtn.setAttribute('aria-busy', 'true');
       submitText.classList.add('is-hidden');
       submitSpinner.classList.remove('is-hidden');
@@ -3071,8 +3224,7 @@ const skeletonGroups = [
           errorMsg.textContent = 'Too many requests. Please try again later.';
           resetTurnstile();
         } else if (data.code?.startsWith('turnstile')) {
-          errorMsg.textContent = 'Verification failed. Please try again.';
-          resetTurnstile();
+          resetTurnstile(FAILED_LOCKED_HINT);
         } else {
           errorStateText.textContent = data.error || 'Something went wrong.';
           showView('error');
@@ -3081,7 +3233,8 @@ const skeletonGroups = [
         errorStateText.textContent = 'Network error. Please check your connection.';
         showView('error');
       } finally {
-        submitBtn.disabled = false;
+        isSubmitting = false;
+        syncSubmitGate();
         submitBtn.removeAttribute('aria-busy');
         submitText.classList.remove('is-hidden');
         submitSpinner.classList.add('is-hidden');
