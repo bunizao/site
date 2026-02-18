@@ -8,9 +8,19 @@ function escapeHtml(value: string): string {
 }
 
 function trimPreview(value: string, maxLength = 140): string {
-  const normalized = value.replace(/\s+/g, ' ').trim();
+  const normalized = value
+    .replace(/\r\n?/g, '\n')
+    .split('\n')
+    .map((line) => line.replace(/[^\S\n]+/g, ' ').trim())
+    .join('\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
   if (normalized.length <= maxLength) return normalized;
   return `${normalized.slice(0, maxLength - 3).trim()}...`;
+}
+
+function escapeHtmlWithLineBreaks(value: string): string {
+  return escapeHtml(value).replace(/\n/g, '<br />');
 }
 
 const MONO_FONT = "'JetBrains Mono', 'SF Mono', 'Fira Code', 'Cascadia Code', Menlo, Monaco, Consolas, 'Courier New', monospace";
@@ -308,7 +318,7 @@ export function buildMoodNotificationEmail(options: {
                 <tr>
                   <td style="padding: 14px;">
                     <div class="email-preview" style="font-family: ${MONO_FONT}; font-size: 14px; line-height: 1.65; color: #111;">
-                      ${escapeHtml(preview)}
+                      ${escapeHtmlWithLineBreaks(preview)}
                     </div>
                     ${relatedLinksHtml}
                   </td>
@@ -386,7 +396,7 @@ function buildDigestListHtml(posts: MoodDigestPost[]): string {
                         </td>
                         <td valign="top" style="padding: 10px 0;">
                           <a href="${escapeHtml(post.moodUrl)}" class="email-preview" style="display: block; font-family: ${MONO_FONT}; font-size: 13px; line-height: 1.65; color: #111; text-decoration: none;">
-                            ${escapeHtml(trimPreview(post.previewText, 160))}
+                            ${escapeHtmlWithLineBreaks(trimPreview(post.previewText, 160))}
                           </a>
                           ${buildRelatedLinksHtml(post.relatedLinks, { maxCount: 4, compact: true })}
                         </td>
