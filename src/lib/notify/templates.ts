@@ -162,8 +162,6 @@ function emailShell(content: string): string {
       .email-card { background-color: #0a0a0a !important; }
       .email-text { color: #e5e5e5 !important; }
       .email-muted { color: #888 !important; }
-      .email-btn { background-color: #fff !important; color: #000 !important; }
-      .email-btn-text { color: #000 !important; }
       .email-link { color: #e5e5e5 !important; }
       .email-divider { border-color: #333 !important; }
       .email-label { color: #888 !important; }
@@ -221,9 +219,17 @@ export function buildSubscribeConfirmEmail(options: {
           <!-- CTA Button -->
           <tr>
             <td style="padding: 24px 28px 0;">
-              <a href="${escapeHtml(options.confirmUrl)}" class="email-btn" style="display: inline-block; font-family: ${MONO_FONT}; font-size: 13px; font-weight: 500; color: #fff; background-color: #000; text-decoration: none; padding: 10px 20px; border: 2px solid #000;">
-                <span class="email-btn-text" style="color: #fff;">Confirm &rarr;</span>
+              <a href="${escapeHtml(options.confirmUrl)}" class="email-btn" style="display: inline-block; font-family: ${MONO_FONT}; font-size: 13px; font-weight: 500; color: #fff; background-color: #111; text-decoration: none; padding: 10px 20px; border: 2px solid #2b2b2b;">
+                <span class="email-btn-text" style="color: #fff; -webkit-text-fill-color: #fff;">Confirm &rarr;</span>
               </a>
+            </td>
+          </tr>
+          <!-- Fallback confirm link -->
+          <tr>
+            <td class="email-muted" style="padding: 12px 28px 0; font-family: ${MONO_FONT}; font-size: 11px; line-height: 1.7; color: #999;">
+              If you cannot see the button, open this link:
+              <br />
+              <a href="${escapeHtml(options.confirmUrl)}" class="email-link" style="font-family: ${MONO_FONT}; font-size: 12px; color: #000; text-decoration: underline; word-break: break-all;">${escapeHtml(options.confirmUrl)}</a>
             </td>
           </tr>
           <!-- Divider -->
@@ -247,6 +253,7 @@ export function buildSubscribeConfirmEmail(options: {
     'Confirm your mood subscription',
     '',
     `Open this link: ${options.confirmUrl}`,
+    'If the button is not visible, use the link above.',
     '',
     'If you did not request this, ignore this email.',
     `Site: ${options.siteUrl}`,
