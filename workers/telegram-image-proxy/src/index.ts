@@ -9,7 +9,6 @@ interface Env {
   TELEGRAM_BOT_TOKEN: string;
   HD_IMAGE_INGEST_TOKEN: string;
   MOOD_IMAGES: R2Bucket;
-  TELEGRAM_PUBLIC_CHANNEL?: string;
 }
 
 interface TelegramFileResponse {
@@ -36,21 +35,6 @@ const corsHeaders = {
 const CACHE_CONTROL = 'public, max-age=31536000, immutable, no-transform';
 const VARIANT_WIDTHS = [480, 800, 1200, 1600] as const;
 const VARIANT_QUALITY = 82;
-const TELEGRAM_PUBLIC_HOST = 'https://t.me';
-const TELEGRAM_PUBLIC_CHANNEL_FALLBACK = 'tutumood';
-const TELEGRAM_PUBLIC_MAX_WIDTH = 1600;
-const TELEGRAM_ALLOWED_IMAGE_HOSTS = new Set([
-  'cdn-telegram.org',
-  'cdn1.telegram-cdn.org',
-  'cdn2.telegram-cdn.org',
-  'cdn3.telegram-cdn.org',
-  'cdn4.telegram-cdn.org',
-  'cdn5.telegram-cdn.org',
-]);
-const TELEGRAM_PAGE_HEADERS = {
-  Accept: 'text/html,application/xhtml+xml',
-  'User-Agent': 'Mozilla/5.0 (compatible; TelegramImageProxy/1.0)',
-};
 
 function parsePositiveInt(value: string | null): number | null {
   if (!value) return null;
@@ -110,121 +94,6 @@ function resolveReadTarget(pathname: string): { objectKey: string; publicPath: s
   }
 
   return null;
-}
-
-function parseMoodTarget(target: { objectKey: string; publicPath: string }): { postId: string; imageIndex: number } | null {
-  const moodMatch = target.objectKey.match(/^mood\/(\d+)\/(\d+)$/);
-  if (!moodMatch) {
-    return null;
-  }
-
-  const [, postId, imageIndexRaw] = moodMatch;
-  const imageIndex = Number.parseInt(imageIndexRaw, 10);
-  if (!Number.isFinite(imageIndex) || imageIndex < 0) {
-    return null;
-  }
-
-  return { postId, imageIndex };
-}
-
-function getPublicChannel(env: Env): string {
-  const value = env.TELEGRAM_PUBLIC_CHANNEL?.trim() ?? '';
-  if (!value) {
-    return TELEGRAM_PUBLIC_CHANNEL_FALLBACK;
-  }
-  return value.replace(/^@+/, '');
-}
-
-function normalizeTelegramCdnUrl(value: string): string | null {
-  const cleaned = value.trim().replace(/&amp;/g, '&');
-  if (!cleaned) {
-    return null;
-  }
-
-  let normalized = cleaned;
-  if (normalized.startsWith('//')) {
-    normalized = `https:${normalized}`;
-  } else if (normalized.startsWith('/')) {
-    normalized = `${TELEGRAM_PUBLIC_HOST}${normalized}`;
-  }
-
-  let parsed: URL;
-  try {
-    parsed = new URL(normalized);
-  } catch {
-    return null;
-  }
-
-  if (!/^https?:$/i.test(parsed.protocol)) {
-    return null;
-  }
-
-  const host = parsed.hostname.toLowerCase();
-  const allowed = TELEGRAM_ALLOWED_IMAGE_HOSTS.has(host)
-    || host.endsWith('.telegram-cdn.org')
-    || host.endsWith('.cdn-telegram.org');
-  if (!allowed) {
-    return null;
-  }
-
-  return parsed.toString();
-}
-
-function stripTelegramWidth(urlValue: string): string {
-  const parsed = new URL(urlValue);
-  parsed.searchParams.delete('w');
-  return parsed.toString();
-}
-
-function withTelegramWidth(urlValue: string, width: number | null): string {
-  if (!width) {
-    return urlValue;
-  }
-
-  const parsed = new URL(urlValue);
-  parsed.searchParams.set('w', String(width));
-  return parsed.toString();
-}
-
-function extractTelegramImageUrls(html: string): string[] {
-  const urls = new Set<string>();
-  const backgroundImageRegex = /background-image\s*:\s*url\((['"]?)([^'")]+)\1\)/gi;
-
-  let match: RegExpExecArray | null;
-  while ((match = backgroundImageRegex.exec(html)) !== null) {
-    const normalized = normalizeTelegramCdnUrl(match[2] ?? '');
-    if (!normalized) {
-      continue;
-    }
-    urls.add(stripTelegramWidth(normalized));
-  }
-
-  return Array.from(urls);
-}
-
-function slicePostScope(html: string, channel: string, postId: string): string {
-  const marker = `data-post="${channel}/${postId}"`;
-  const markerStart = html.indexOf(marker);
-  if (markerStart === -1) {
-    return html;
-  }
-
-  const nextMessageStart = html.indexOf('data-post="', markerStart + marker.length);
-  if (nextMessageStart === -1) {
-    return html.slice(markerStart);
-  }
-
-  return html.slice(markerStart, nextMessageStart);
-}
-
-function buildPublicPostCandidates(channel: string, postId: string): string[] {
-  const safeChannel = encodeURIComponent(channel);
-  const safePostId = encodeURIComponent(postId);
-  return [
-    `${TELEGRAM_PUBLIC_HOST}/s/${safeChannel}/${safePostId}`,
-    `${TELEGRAM_PUBLIC_HOST}/${safeChannel}/${safePostId}?single`,
-    `${TELEGRAM_PUBLIC_HOST}/${safeChannel}/${safePostId}`,
-  ];
 }
 
 function resolveIngestTarget(pathname: string): { objectKey: string; publicPath: string } | null {
@@ -350,82 +219,6 @@ async function ingestTelegramImage(
   await ingestImageFromSource(target, sourceImageUrl, requestUrl, env, 'telegram-bot');
 }
 
-async function resolveTelegramPublicImageUrl(
-  target: { objectKey: string; publicPath: string },
-  env: Env
-): Promise<string | null> {
-  const moodTarget = parseMoodTarget(target);
-  if (!moodTarget) {
-    return null;
-  }
-
-  const channel = getPublicChannel(env);
-  const candidates = buildPublicPostCandidates(channel, moodTarget.postId);
-  for (const pageUrl of candidates) {
-    let pageResponse: Response;
-    try {
-      pageResponse = await fetch(pageUrl, { headers: TELEGRAM_PAGE_HEADERS });
-    } catch (error) {
-      console.warn('Failed to load Telegram public page:', { pageUrl, error });
-      continue;
-    }
-
-    if (!pageResponse.ok) {
-      console.warn('Telegram public page returned non-200:', pageResponse.status, pageUrl);
-      continue;
-    }
-
-    const html = await pageResponse.text();
-    const scopedHtml = slicePostScope(html, channel, moodTarget.postId);
-    const imageUrls = extractTelegramImageUrls(scopedHtml);
-    const fallbackImageUrls = imageUrls.length ? imageUrls : extractTelegramImageUrls(html);
-    if (!fallbackImageUrls.length) {
-      continue;
-    }
-
-    const selectedIndex = Math.min(moodTarget.imageIndex, fallbackImageUrls.length - 1);
-    return fallbackImageUrls[selectedIndex];
-  }
-
-  return null;
-}
-
-async function fetchTelegramSourceImage(
-  sourceImageUrl: string,
-  width: number | null,
-  method: 'GET' | 'HEAD' = 'GET'
-): Promise<Response | null> {
-  const resizeInit = width
-    ? {
-        cf: {
-          image: {
-            width,
-            fit: 'scale-down' as const,
-            quality: VARIANT_QUALITY,
-          },
-        },
-      }
-    : undefined;
-
-  const response = await fetch(sourceImageUrl, {
-    ...(resizeInit ?? {}),
-    method,
-  });
-  if (response.ok && (method === 'HEAD' || response.body)) {
-    return response;
-  }
-
-  if (resizeInit) {
-    const fallbackResponse = await fetch(sourceImageUrl, { method });
-    if (fallbackResponse.ok && (method === 'HEAD' || fallbackResponse.body)) {
-      return fallbackResponse;
-    }
-    return null;
-  }
-
-  return null;
-}
-
 async function handleIngest(request: Request, url: URL, env: Env, ctx: ExecutionContext): Promise<Response> {
   const target = resolveIngestTarget(url.pathname);
   if (!target) {
@@ -510,50 +303,17 @@ async function handleRead(request: Request, url: URL, env: Env, ctx: ExecutionCo
     return response;
   }
 
-  const publicImageUrl = await resolveTelegramPublicImageUrl(target, env);
-  if (!publicImageUrl) {
-    return new Response('Image not available. Post may be too old or has no images.', {
+  if (request.method === 'HEAD') {
+    return new Response(null, {
       status: 404,
       headers: corsHeaders,
     });
   }
 
-  const sourceImageUrl = withTelegramWidth(publicImageUrl, variantWidth ?? TELEGRAM_PUBLIC_MAX_WIDTH);
-  const telegramResponse = await fetchTelegramSourceImage(
-    sourceImageUrl,
-    null,
-    request.method === 'HEAD' ? 'HEAD' : 'GET'
-  );
-  if (!telegramResponse) {
-    return new Response('Failed to fetch image from Telegram', {
-      status: 502,
-      headers: corsHeaders,
-    });
-  }
-
-  const headers = new Headers({
-    'Content-Type': telegramResponse.headers.get('Content-Type') || 'image/jpeg',
-    'Cache-Control': CACHE_CONTROL,
-    ...corsHeaders,
+  return new Response('Image not available. Post may be too old or has no images.', {
+    status: 404,
+    headers: corsHeaders,
   });
-  headers.set('Vary', 'Accept');
-
-  const response = request.method === 'HEAD'
-    ? new Response(null, { status: 200, headers })
-    : new Response(telegramResponse.body, { status: 200, headers });
-
-  if (request.method === 'GET') {
-    ctx.waitUntil(cache.put(cacheRequest, response.clone()));
-
-    const sourceForBackfill = withTelegramWidth(publicImageUrl, TELEGRAM_PUBLIC_MAX_WIDTH);
-    ctx.waitUntil(
-      ingestImageFromSource(target, sourceForBackfill, url, env, 'telegram-cdn').catch((error) => {
-        console.error('Telegram CDN fallback backfill failed:', error);
-      })
-    );
-  }
-
-  return response;
 }
 
 export default {

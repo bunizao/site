@@ -6,8 +6,8 @@ At a glance:
 - The Worker serves image bytes directly from R2.
 - The site webhook (`/api/telegram-webhook`) calls Worker ingest routes to pull image bytes from Telegram once and store them in R2.
 - The ingest step also pre-generates common responsive widths (`480`, `800`, `1200`, `1600`) and stores them in R2.
-- Runtime image requests read from R2 first.
-- On R2 miss, the Worker falls back to Telegram public CDN (`t.me` page scrape -> image proxy fetch) and backfills R2 asynchronously.
+- Runtime image requests read from R2 only.
+- On R2 miss, the Worker returns `404` and the site should fallback to `/static/<telegram-url>`.
 
 ## Components
 
@@ -28,7 +28,6 @@ Environment bindings:
 - `TELEGRAM_BOT_TOKEN` (secret)
 - `HD_IMAGE_INGEST_TOKEN` (secret for ingest authorization)
 - `MOOD_IMAGES` (R2 bucket binding)
-- `TELEGRAM_PUBLIC_CHANNEL` (optional plain var, defaults to `tutumood`)
 
 ### 2. R2 Bucket
 
@@ -65,7 +64,7 @@ https://image.example.com/mood/123/0?w=1200&q=85
 
 Response behavior:
 - On R2 hit: returns the object immediately.
-- On R2 miss: tries Telegram public CDN fallback and returns `404` only if fallback cannot resolve an image.
+- On R2 miss: returns `404`.
 - CORS is enabled (`Access-Control-Allow-Origin: *`) for cross-origin `<img>` usage.
 - The response is cached aggressively (`Cache-Control: public, max-age=31536000, immutable`).
 
@@ -154,10 +153,10 @@ curl -I "https://image.buxx.me/mood/<postId>/0?w=1200"
 
 - This system stores image bytes in R2.
 - The ingest route stores one original image and responsive variants (`480`, `800`, `1200`, `1600`).
-- If an R2 object is missing, Worker falls back to Telegram public CDN and backfills R2 asynchronously.
+- If an R2 object is missing, Worker returns `404`.
 - Media groups (albums) are still indexed as `imageIndex = 0` in `../../src/pages/api/telegram-webhook.ts`.
 - If you update an existing object key, the Worker clears the cached `GET` route key.
-- The current client does not automatically switch to `/static/` when the HD URL returns 404.
+- The site must handle fallback to `/static/` when HD URLs return `404`.
 
 ## Troubleshooting
 
@@ -167,8 +166,7 @@ curl -I "https://image.buxx.me/mood/<postId>/0?w=1200"
 - **401 on ingest**
   - `HD_IMAGE_INGEST_TOKEN` mismatch between site and Worker secret.
 - **502: "Failed to fetch image from Telegram"**
-  - Telegram public page/CDN fetch failed during fallback, or Telegram is throttling.
-  - Check `TELEGRAM_PUBLIC_CHANNEL` value if you customized the channel slug.
+  - `TELEGRAM_BOT_TOKEN` is missing/invalid on Worker ingest, or Telegram API failed.
   - Check Worker logs with `bun run tail`.
 
 ## Security Notes

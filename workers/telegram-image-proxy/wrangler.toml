@@ -11,11 +11,6 @@ routes = [
 binding = "MOOD_IMAGES"
 bucket_name = "mood-images"
 
-[vars]
-# Optional. Used when R2 miss fallback needs to scrape Telegram public page.
-# Defaults to "tutumood" if omitted.
-TELEGRAM_PUBLIC_CHANNEL = "tutumood"
-
 # Custom domain configuration (set up in Cloudflare Dashboard):
 # Workers -> telegram-image-proxy -> Triggers -> Add Custom Domain -> image.buxx.me
 

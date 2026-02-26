@@ -89,10 +89,9 @@ type FakeEnv = {
   TELEGRAM_BOT_TOKEN: string;
   HD_IMAGE_INGEST_TOKEN: string;
   MOOD_IMAGES: FakeR2Bucket;
-  TELEGRAM_PUBLIC_CHANNEL: string;
 };
 
-type FetchHandler = (url: URL, init?: RequestInit) => Promise<Response>;
+type FetchHandler = (url: URL, init?: RequestInit) => Promise<Response | null>;
 
 class FetchMock {
   private readonly handlers: FetchHandler[] = [];
@@ -124,19 +123,8 @@ function createEnv(overrides?: Partial<FakeEnv>): FakeEnv {
     TELEGRAM_BOT_TOKEN: 'test-bot-token',
     HD_IMAGE_INGEST_TOKEN: 'test-ingest-token',
     MOOD_IMAGES: new FakeR2Bucket(),
-    TELEGRAM_PUBLIC_CHANNEL: 'tutumood',
     ...overrides,
   };
-}
-
-function createTelegramPostHtml(channel: string, postId: string, imageUrl: string): string {
-  return `
-    <div class="tgme_widget_message_wrap">
-      <div class="tgme_widget_message" data-post="${channel}/${postId}">
-        <a class="tgme_widget_message_photo_wrap" style="background-image:url('${imageUrl}')"></a>
-      </div>
-    </div>
-  `;
 }
 
 const originalFetch = globalThis.fetch;
@@ -197,7 +185,7 @@ describe('telegram image worker e2e', () => {
         });
       }
 
-      return null as unknown as Response;
+      return null;
     });
 
     globalThis.fetch = fetchMock.fetch as typeof fetch;
@@ -224,110 +212,49 @@ describe('telegram image worker e2e', () => {
     expect(variantWidths.sort((a, b) => a - b)).toEqual([480, 800, 1200, 1600]);
   });
 
-  test('read endpoint falls back to Telegram public CDN and backfills R2 on GET', async () => {
+  test('read endpoint serves existing R2 object', async () => {
     const env = createEnv();
     const ctx = new FakeExecutionContext();
-    const fetchMock = new FetchMock();
-    let pageFetchCount = 0;
-    let cdnFetchCount = 0;
-
-    fetchMock.register(async (url, init) => {
-      if (url.hostname === 't.me') {
-        pageFetchCount += 1;
-        return new Response(
-          createTelegramPostHtml('tutumood', '456', 'https://cdn4.telegram-cdn.org/file/test.jpg?w=320'),
-          { status: 200, headers: { 'Content-Type': 'text/html' } }
-        );
-      }
-
-      if (url.hostname === 'cdn4.telegram-cdn.org') {
-        cdnFetchCount += 1;
-        const method = init?.method ?? 'GET';
-        if (method === 'HEAD') {
-          return new Response(null, {
-            status: 200,
-            headers: { 'Content-Type': 'image/jpeg' },
-          });
-        }
-
-        return new Response(new Uint8Array([9, 8, 7, 6]), {
-          status: 200,
-          headers: { 'Content-Type': 'image/jpeg' },
-        });
-      }
-
-      return null as unknown as Response;
+    await env.MOOD_IMAGES.put('mood/200/0', new Uint8Array([10, 20, 30]), {
+      httpMetadata: {
+        contentType: 'image/jpeg',
+        cacheControl: 'public, max-age=31536000, immutable, no-transform',
+      },
     });
 
-    globalThis.fetch = fetchMock.fetch as typeof fetch;
-
-    const request = new Request('https://image.example.test/mood/456/0?w=800', { method: 'GET' });
-    const response = await worker.fetch(request, env as unknown as Env, ctx);
-    expect(response.status).toBe(200);
-    expect(await response.arrayBuffer()).toBeTruthy();
-
-    await ctx.drain();
-
-    expect(pageFetchCount).toBeGreaterThan(0);
-    expect(cdnFetchCount).toBeGreaterThan(0);
-    expect(env.MOOD_IMAGES.has('mood/456/0')).toBe(true);
-    expect(env.MOOD_IMAGES.has('mood/456/0@w800')).toBe(true);
-  });
-
-  test('read endpoint fallback supports HEAD requests', async () => {
-    const env = createEnv();
-    const ctx = new FakeExecutionContext();
-    const fetchMock = new FetchMock();
-
-    fetchMock.register(async (url, init) => {
-      if (url.hostname === 't.me') {
-        return new Response(
-          createTelegramPostHtml('tutumood', '789', 'https://cdn4.telegram-cdn.org/file/head.jpg?w=320'),
-          { status: 200, headers: { 'Content-Type': 'text/html' } }
-        );
-      }
-
-      if (url.hostname === 'cdn4.telegram-cdn.org') {
-        return new Response(null, {
-          status: 200,
-          headers: { 'Content-Type': 'image/jpeg' },
-        });
-      }
-
-      return null as unknown as Response;
-    });
-
-    globalThis.fetch = fetchMock.fetch as typeof fetch;
-
-    const request = new Request('https://image.example.test/mood/789/0?w=800', { method: 'HEAD' });
+    const request = new Request('https://image.example.test/mood/200/0?w=1200', { method: 'GET' });
     const response = await worker.fetch(request, env as unknown as Env, ctx);
 
     expect(response.status).toBe(200);
-    expect(await response.text()).toBe('');
+    expect(response.headers.get('content-type')).toContain('image/jpeg');
+    expect((await response.arrayBuffer()).byteLength).toBeGreaterThan(0);
   });
 
-  test('returns 404 when no Telegram public image can be resolved', async () => {
+  test('read endpoint returns 404 on R2 miss without telegram fallback fetch', async () => {
     const env = createEnv();
     const ctx = new FakeExecutionContext();
-    const fetchMock = new FetchMock();
+    let fetchCalls = 0;
+    globalThis.fetch = (async () => {
+      fetchCalls += 1;
+      throw new Error('Unexpected fetch');
+    }) as typeof fetch;
 
-    fetchMock.register(async (url) => {
-      if (url.hostname === 't.me') {
-        return new Response('<html><body>No media</body></html>', {
-          status: 200,
-          headers: { 'Content-Type': 'text/html' },
-        });
-      }
-
-      return null as unknown as Response;
-    });
-
-    globalThis.fetch = fetchMock.fetch as typeof fetch;
-
-    const request = new Request('https://image.example.test/mood/999/0', { method: 'GET' });
+    const request = new Request('https://image.example.test/mood/999/0?w=1200', { method: 'GET' });
     const response = await worker.fetch(request, env as unknown as Env, ctx);
 
     expect(response.status).toBe(404);
     expect(await response.text()).toContain('Image not available');
+    expect(fetchCalls).toBe(0);
+  });
+
+  test('read endpoint returns 404 for HEAD on R2 miss', async () => {
+    const env = createEnv();
+    const ctx = new FakeExecutionContext();
+
+    const request = new Request('https://image.example.test/mood/1000/0?w=1200', { method: 'HEAD' });
+    const response = await worker.fetch(request, env as unknown as Env, ctx);
+
+    expect(response.status).toBe(404);
+    expect(await response.text()).toBe('');
   });
 });
