@@ -833,6 +833,12 @@ const ogImageType = ogImageUrl.endsWith('.png')
             const ratioY = dy / (navBounds.height / 2);
             navQuickRotY(ratioX * tiltMax);
             navQuickRotX(-ratioY * tiltMax);
+
+            // Cursor-tracking glow position
+            const mx = ((e.clientX - navBounds.left) / navBounds.width * 100);
+            const my = ((e.clientY - navBounds.top) / navBounds.height * 100);
+            nav.style.setProperty('--mx', `${mx}%`);
+            nav.style.setProperty('--my', `${my}%`);
           });
 
           nav.addEventListener('pointerleave', (e: PointerEvent) => {

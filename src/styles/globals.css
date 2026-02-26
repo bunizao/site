@@ -348,6 +348,38 @@
     border-radius: 10px;
     perspective: 800px;
     transform-style: preserve-3d;
+    position: relative;
+    overflow: hidden;
+    --mx: 50%;
+    --my: 50%;
+  }
+
+  /* Cursor-tracking inner glow */
+  .site-nav.is-vertical::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: radial-gradient(
+      circle 80px at var(--mx) var(--my),
+      hsl(var(--foreground) / 0.08) 0%,
+      transparent 70%
+    );
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .site-nav.is-vertical:hover::before {
+    opacity: 1;
+  }
+
+  /* Ensure nav children sit above the glow */
+  .site-nav.is-vertical .nav-link,
+  .site-nav.is-vertical .nav-active-indicator {
+    position: relative;
+    z-index: 1;
   }
 
   .site-nav.is-vertical .nav-separator {
