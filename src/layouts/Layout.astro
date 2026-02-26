@@ -712,16 +712,8 @@ const ogImageType = ogImageUrl.endsWith('.png')
             });
           }
 
-          // Phase 2: Layout switch — reset hover transform state
+          // Phase 2: Layout switch
           nav.classList.remove('is-vertical');
-          nav.style.setProperty('--nav-x', '0');
-          nav.style.setProperty('--nav-y', '0');
-          nav.style.setProperty('--nav-rx', '0');
-          nav.style.setProperty('--nav-ry', '0');
-          nav.style.setProperty('--nav-s', '1');
-          nav.style.boxShadow = '';
-          nav.style.backdropFilter = '';
-          nav.style.setProperty('-webkit-backdrop-filter', '');
 
           // Phase 3: Snappy cascade reveal all chars + separators
           const allChars = linkDataList.flatMap(ld => ld.chars);
@@ -806,143 +798,14 @@ const ogImageType = ogImageUrl.endsWith('.png')
         });
 
         // ─── 3f. Magnetic hover (desktop, vertical mode only) ─────────
-        // Spring physics ticker: one gsap.set per frame, zero tween conflicts
-        // Hover = stiff spring (responsive tracking)
-        // Leave = soft spring (elastic overshoot return)
+        // Disabled — no hover box or physics effects
         const initMagneticHover = async () => {
+          // Per-link char wave on hover (kept as subtle interaction)
           const { default: gsap } = await import('gsap');
 
-          // Spring constants
-          const hoverStiff = 0.15;   // stiffness during hover (high = snappy)
-          const hoverDamp  = 0.65;   // damping during hover (high = less oscillation)
-          const returnStiff = 0.06;  // stiffness for return (low = slower)
-          const returnDamp  = 0.75;  // damping for return (<1 = elastic overshoot)
-          const strength = 0.12;     // cursor→drift ratio
-          const tiltMax = 5;         // max tilt degrees
-
-          let navBounds: DOMRect | null = null;
-          let isHovering = false;
-          let tickerActive = false;
-
-          // Target & current values
-          let tx = 0, ty = 0, trx = 0, try_ = 0, ts = 1;
-          let cx = 0, cy = 0, crx = 0, cry = 0, cs = 1;
-          // Velocity (shared across states for smooth handoff)
-          let vx = 0, vy = 0, vrx = 0, vry = 0, vs = 0;
-
-          const isSettled = () =>
-            Math.abs(cx) < 0.01 && Math.abs(cy) < 0.01 &&
-            Math.abs(crx) < 0.01 && Math.abs(cry) < 0.01 &&
-            Math.abs(cs - 1) < 0.001 &&
-            Math.abs(vx) < 0.005 && Math.abs(vy) < 0.005;
-
-          const onTick = () => {
-            const k = isHovering ? hoverStiff : returnStiff;
-            const d = isHovering ? hoverDamp : returnDamp;
-
-            vx  = (vx  + (tx   - cx)  * k) * d;
-            vy  = (vy  + (ty   - cy)  * k) * d;
-            vrx = (vrx + (trx  - crx) * k) * d;
-            vry = (vry + (try_ - cry) * k) * d;
-            vs  = (vs  + (ts   - cs)  * k) * d;
-
-            cx  += vx;
-            cy  += vy;
-            crx += vrx;
-            cry += vry;
-            cs  += vs;
-
-            nav.style.setProperty('--nav-x',  cx.toFixed(2));
-            nav.style.setProperty('--nav-y',  cy.toFixed(2));
-            nav.style.setProperty('--nav-rx', crx.toFixed(2));
-            nav.style.setProperty('--nav-ry', cry.toFixed(2));
-            nav.style.setProperty('--nav-s',  cs.toFixed(4));
-
-            // Stop ticker once settled after leave
-            if (!isHovering && isSettled()) {
-              nav.style.setProperty('--nav-x', '0');
-              nav.style.setProperty('--nav-y', '0');
-              nav.style.setProperty('--nav-rx', '0');
-              nav.style.setProperty('--nav-ry', '0');
-              nav.style.setProperty('--nav-s', '1');
-              cx = cy = crx = cry = vx = vy = vrx = vry = vs = 0;
-              cs = 1;
-              tickerActive = false;
-              gsap.ticker.remove(onTick);
-            }
-          };
-
-          const startTicker = () => {
-            if (!tickerActive) {
-              tickerActive = true;
-              gsap.ticker.add(onTick);
-            }
-          };
-
-          nav.addEventListener('pointerenter', (e: PointerEvent) => {
-            if (e.pointerType !== 'mouse' || !isVertical) return;
-            isHovering = true;
-            navBounds = nav.getBoundingClientRect();
-            ts = 1.02;
-            startTicker();
-            // Non-transform effects (CSS transition handles these)
-            nav.style.boxShadow = '0 8px 32px hsl(var(--foreground) / 0.08)';
-            nav.style.backdropFilter = 'blur(18px) saturate(1.2)';
-            nav.style.setProperty('-webkit-backdrop-filter', 'blur(18px) saturate(1.2)');
-            // Indicator pulse
-            if (indicator) {
-              gsap.to(indicator, { width: 3, duration: 0.25, ease: 'power2.out' });
-              gsap.to(indicator, { width: 2, duration: 0.4, delay: 0.25, ease: 'elastic.out(1, 0.5)' });
-            }
-          });
-
-          nav.addEventListener('pointermove', (e: PointerEvent) => {
-            if (e.pointerType !== 'mouse' || !isVertical || !isHovering) return;
-            if (!navBounds) navBounds = nav.getBoundingClientRect();
-            const midX = navBounds.left + navBounds.width / 2;
-            const midY = navBounds.top + navBounds.height / 2;
-            const dx = e.clientX - midX;
-            const dy = e.clientY - midY;
-            const ratioX = Math.max(-1, Math.min(1, dx / (navBounds.width / 2)));
-            const ratioY = Math.max(-1, Math.min(1, dy / (navBounds.height / 2)));
-
-            // Update targets — ticker interpolates via spring
-            tx = dx * strength;
-            ty = dy * strength;
-            try_ = ratioX * tiltMax;
-            trx = -ratioY * tiltMax;
-
-            // Cursor-tracking glow (instant, no spring needed)
-            const mx = ((e.clientX - navBounds.left) / navBounds.width * 100);
-            const my = ((e.clientY - navBounds.top) / navBounds.height * 100);
-            nav.style.setProperty('--mx', `${mx}%`);
-            nav.style.setProperty('--my', `${my}%`);
-          });
-
-          nav.addEventListener('pointerleave', (e: PointerEvent) => {
-            if (e.pointerType !== 'mouse') return;
-            isHovering = false;
-            navBounds = null;
-            // Set targets to zero — ticker springs back with elastic overshoot
-            tx = ty = trx = try_ = 0;
-            ts = 1;
-            nav.style.boxShadow = '';
-            nav.style.backdropFilter = '';
-            nav.style.setProperty('-webkit-backdrop-filter', '');
-          });
-
-          // Layer 2: Per-link magnetic pull + char wave
           linkDataList.forEach(({ el, chars }) => {
-            const linkStrength = 0.25;
-            const quickX = gsap.quickTo(el, 'x', { duration: 0.3, ease: 'power2.out' });
-            const quickY = gsap.quickTo(el, 'y', { duration: 0.3, ease: 'power2.out' });
-            let bounds: DOMRect | null = null;
-
             el.addEventListener('pointerenter', (e: PointerEvent) => {
               if (e.pointerType !== 'mouse' || !isVertical) return;
-              bounds = el.getBoundingClientRect();
-
-              // Per-char wave float
               chars.forEach((c, i) => {
                 gsap.to(c, {
                   y: -1.5,
@@ -953,21 +816,8 @@ const ogImageType = ogImageUrl.endsWith('.png')
               });
             });
 
-            el.addEventListener('pointermove', (e: PointerEvent) => {
-              if (e.pointerType !== 'mouse' || !isVertical) return;
-              if (!bounds) bounds = el.getBoundingClientRect();
-              const centerX = bounds.left + bounds.width / 2;
-              const centerY = bounds.top + bounds.height / 2;
-              quickX((e.clientX - centerX) * linkStrength);
-              quickY((e.clientY - centerY) * linkStrength);
-            });
-
             el.addEventListener('pointerleave', (e: PointerEvent) => {
               if (e.pointerType !== 'mouse') return;
-              bounds = null;
-              gsap.to(el, { x: 0, y: 0, duration: 0.5, ease: 'elastic.out(1, 0.3)' });
-
-              // Spring chars back
               chars.forEach(c => {
                 gsap.to(c, {
                   y: 0,
