@@ -339,6 +339,13 @@
     flex-direction: column;
     align-items: flex-start;
     gap: 1px;
+    height: auto;
+    padding: 10px 12px;
+    background: hsl(var(--background) / 0.7);
+    backdrop-filter: blur(12px) saturate(1.1);
+    -webkit-backdrop-filter: blur(12px) saturate(1.1);
+    border: 1px solid hsl(var(--foreground) / 0.06);
+    border-radius: 10px;
   }
 
   .site-nav.is-vertical .nav-separator {
@@ -366,23 +373,44 @@
     opacity: 0;
     transform-origin: center top;
     pointer-events: none;
+    box-shadow: 0 0 8px hsl(var(--foreground) / 0.15), 0 0 20px hsl(var(--foreground) / 0.06);
   }
 
   /* Typewriter cursor on the currently-revealing character */
   .nav-char.is-cursor::after {
     content: '';
     display: inline-block;
-    width: 1px;
+    width: 2px;
     height: 0.9em;
     margin-left: 1px;
     background: hsl(var(--foreground));
     vertical-align: text-bottom;
     animation: blink 0.6s step-end infinite;
+    box-shadow: 0 0 6px hsl(var(--foreground) / 0.25);
   }
 
-  /* Disable CSS hover background in vertical mode (magnetic takes over) */
+  /* Section index numbers (editorial design touch) */
+  .nav-index {
+    font-size: 9px;
+    font-variant-numeric: tabular-nums;
+    color: hsl(var(--muted-foreground) / 0.3);
+    margin-right: 6px;
+    display: inline-block;
+    transition: color 0.2s ease;
+  }
+
+  .site-nav:not(.is-vertical) .nav-index {
+    display: none;
+  }
+
+  .nav-link.is-active .nav-index {
+    color: hsl(var(--muted-foreground) / 0.5);
+  }
+
+  /* Vertical hover text glow */
   .site-nav.is-vertical .nav-link:hover {
     background: transparent;
+    text-shadow: 0 0 12px hsl(var(--foreground) / 0.15);
   }
 
   @media (prefers-reduced-motion: reduce) {
