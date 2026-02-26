@@ -797,12 +797,56 @@ const ogImageType = ogImageUrl.endsWith('.png')
           if (isVertical && indicator) updateIndicator();
         });
 
-        // ─── 3f. Magnetic hover + per-char wave (desktop, vertical) ──
+        // ─── 3f. Magnetic hover (desktop, vertical mode only) ─────────
+        // Two-layer parallax + 3D perspective tilt
         const initMagneticHover = async () => {
           const { default: gsap } = await import('gsap');
 
+          // Layer 1: Container 3D tilt + magnetic drift
+          const containerStrength = 0.12;
+          const tiltMax = 8; // max degrees
+          const navQuickX = gsap.quickTo(nav, 'x', { duration: 0.4, ease: 'power2.out' });
+          const navQuickY = gsap.quickTo(nav, 'y', { duration: 0.4, ease: 'power2.out' });
+          const navQuickRotX = gsap.quickTo(nav, 'rotateX', { duration: 0.35, ease: 'power2.out' });
+          const navQuickRotY = gsap.quickTo(nav, 'rotateY', { duration: 0.35, ease: 'power2.out' });
+          let navBounds: DOMRect | null = null;
+
+          nav.addEventListener('pointerenter', (e: PointerEvent) => {
+            if (e.pointerType !== 'mouse' || !isVertical) return;
+            navBounds = nav.getBoundingClientRect();
+          });
+
+          nav.addEventListener('pointermove', (e: PointerEvent) => {
+            if (e.pointerType !== 'mouse' || !isVertical) return;
+            if (!navBounds) navBounds = nav.getBoundingClientRect();
+            const cx = navBounds.left + navBounds.width / 2;
+            const cy = navBounds.top + navBounds.height / 2;
+            const dx = e.clientX - cx;
+            const dy = e.clientY - cy;
+
+            // Magnetic drift
+            navQuickX(dx * containerStrength);
+            navQuickY(dy * containerStrength);
+
+            // 3D tilt: mouse right → rotateY positive, mouse down → rotateX negative
+            const ratioX = dx / (navBounds.width / 2);
+            const ratioY = dy / (navBounds.height / 2);
+            navQuickRotY(ratioX * tiltMax);
+            navQuickRotX(-ratioY * tiltMax);
+          });
+
+          nav.addEventListener('pointerleave', (e: PointerEvent) => {
+            if (e.pointerType !== 'mouse') return;
+            navBounds = null;
+            gsap.to(nav, {
+              x: 0, y: 0, rotateX: 0, rotateY: 0,
+              duration: 0.6, ease: 'elastic.out(1, 0.3)'
+            });
+          });
+
+          // Layer 2: Per-link magnetic pull + char wave
           linkDataList.forEach(({ el, chars }) => {
-            const strength = 0.25;
+            const linkStrength = 0.25;
             const quickX = gsap.quickTo(el, 'x', { duration: 0.3, ease: 'power2.out' });
             const quickY = gsap.quickTo(el, 'y', { duration: 0.3, ease: 'power2.out' });
             let bounds: DOMRect | null = null;
@@ -827,8 +871,8 @@ const ogImageType = ogImageUrl.endsWith('.png')
               if (!bounds) bounds = el.getBoundingClientRect();
               const centerX = bounds.left + bounds.width / 2;
               const centerY = bounds.top + bounds.height / 2;
-              quickX((e.clientX - centerX) * strength);
-              quickY((e.clientY - centerY) * strength);
+              quickX((e.clientX - centerX) * linkStrength);
+              quickY((e.clientY - centerY) * linkStrength);
             });
 
             el.addEventListener('pointerleave', (e: PointerEvent) => {
