@@ -103,6 +103,38 @@ const techRow2 = ['Frontend', 'BGP', 'Proxy', 'Docker', 'Linux', 'Web3', 'Optimi
 
 
 
+  <!-- Liquid Glass SVG Filters (used by Chrome for displacement refraction) -->
+  <svg class="liquid-glass-filters" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <!-- Tooltip refraction filter -->
+      <filter id="liquid-glass-tooltip" x="-10%" y="-10%" width="120%" height="120%" color-interpolation-filters="sRGB">
+        <feTurbulence type="fractalNoise" baseFrequency="0.015" numOctaves="3" seed="42" result="noise" />
+        <feDisplacementMap in="SourceGraphic" in2="noise" scale="3" xChannelSelector="R" yChannelSelector="G" result="displaced" />
+        <feGaussianBlur in="displaced" stdDeviation="0.5" result="softened" />
+        <feSpecularLighting in="noise" surfaceScale="2" specularConstant="0.8" specularExponent="35" result="specular">
+          <fePointLight x="100" y="50" z="200" />
+        </feSpecularLighting>
+        <feMerge>
+          <feMergeNode in="softened" />
+          <feMergeNode in="specular" />
+        </feMerge>
+      </filter>
+      <!-- Button hover surface filter (lighter) -->
+      <filter id="liquid-glass-button" x="-10%" y="-10%" width="120%" height="120%" color-interpolation-filters="sRGB">
+        <feTurbulence type="fractalNoise" baseFrequency="0.02" numOctaves="2" seed="7" result="noise" />
+        <feDisplacementMap in="SourceGraphic" in2="noise" scale="1.5" xChannelSelector="R" yChannelSelector="G" result="displaced" />
+        <feGaussianBlur in="displaced" stdDeviation="0.3" result="softened" />
+        <feSpecularLighting in="noise" surfaceScale="1" specularConstant="0.6" specularExponent="35" result="specular">
+          <fePointLight x="80" y="40" z="180" />
+        </feSpecularLighting>
+        <feMerge>
+          <feMergeNode in="softened" />
+          <feMergeNode in="specular" />
+        </feMerge>
+      </filter>
+    </defs>
+  </svg>
+
   <!-- Social Links -->
   <div class="mt-6 flex flex-wrap items-center gap-4 hero-animate sm:mt-8" data-hero-socials>
     <span class="flex-none whitespace-nowrap text-[14px] text-muted-foreground sm:text-[15px]">Find me at</span>
@@ -185,6 +217,15 @@ const techRow2 = ['Frontend', 'BGP', 'Proxy', 'Docker', 'Linux', 'Web3', 'Optimi
     opacity: 0.5;
   }
 
+  /* Hidden SVG filter container */
+  .liquid-glass-filters {
+    position: absolute;
+    width: 0;
+    height: 0;
+    overflow: hidden;
+    pointer-events: none;
+  }
+
   /* Social Links with Dropdown Details */
   .social-link-wrapper {
     position: relative;
@@ -194,8 +235,34 @@ const techRow2 = ['Frontend', 'BGP', 'Proxy', 'Docker', 'Linux', 'Web3', 'Optimi
   .magnetic-button {
     display: inline-flex;
     align-items: center;
+    position: relative;
   }
 
+  /* Magnetic button hover surface */
+  .magnetic-button::before {
+    content: '';
+    position: absolute;
+    inset: -4px -8px;
+    border-radius: 10px;
+    background: hsl(var(--foreground) / 0.03);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    opacity: 0;
+    transition: opacity 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    pointer-events: none;
+    z-index: -1;
+  }
+
+  .social-link-wrapper:hover .magnetic-button::before {
+    opacity: 1;
+  }
+
+  /* Chrome-only: liquid glass button surface */
+  [data-liquid-glass] .magnetic-button::before {
+    backdrop-filter: url(#liquid-glass-button) blur(4px);
+    -webkit-backdrop-filter: url(#liquid-glass-button) blur(4px);
+  }
+
+  /* Tooltip panel — baseline (all browsers) */
   .social-details {
     position: absolute;
     top: 100%;
@@ -203,9 +270,16 @@ const techRow2 = ['Frontend', 'BGP', 'Proxy', 'Docker', 'Linux', 'Web3', 'Optimi
     transform: translateX(-50%) translateY(-8px) scale(0.92);
     margin-top: 8px;
     padding: 10px 14px;
-    background: hsl(var(--background) / 0.95);
-    border: 1px solid hsl(var(--border) / 0.15);
-    border-radius: 10px;
+    background:
+      linear-gradient(
+        135deg,
+        rgba(255, 255, 255, 0.18) 0%,
+        rgba(255, 255, 255, 0.05) 40%,
+        rgba(255, 255, 255, 0) 60%
+      ),
+      hsl(var(--background) / 0.72);
+    border: 1px solid hsl(var(--foreground) / 0.08);
+    border-radius: 12px;
     min-width: 140px;
     opacity: 0;
     visibility: hidden;
@@ -221,9 +295,10 @@ const techRow2 = ['Frontend', 'BGP', 'Proxy', 'Docker', 'Linux', 'Web3', 'Optimi
     box-shadow:
       0 4px 12px rgba(0, 0, 0, 0.04),
       0 1px 3px rgba(0, 0, 0, 0.02),
-      inset 0 1px 0 rgba(255, 255, 255, 0.1);
-    backdrop-filter: blur(16px) saturate(180%);
-    -webkit-backdrop-filter: blur(16px) saturate(180%);
+      inset 0 1px 0 rgba(255, 255, 255, 0.12),
+      inset 0 -1px 0 rgba(0, 0, 0, 0.04);
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
   }
 
   .social-link-wrapper:hover .social-details {
@@ -231,13 +306,48 @@ const techRow2 = ['Frontend', 'BGP', 'Proxy', 'Docker', 'Linux', 'Web3', 'Optimi
     visibility: visible;
     transform: translateX(-50%) translateY(0) scale(1);
     transition-delay: 0s, 0s, 0s, 0s, 0s, 0s;
-    background: hsl(var(--background) / 0.98);
+    background:
+      linear-gradient(
+        135deg,
+        rgba(255, 255, 255, 0.22) 0%,
+        rgba(255, 255, 255, 0.06) 40%,
+        rgba(255, 255, 255, 0) 60%
+      ),
+      hsl(var(--background) / 0.78);
     box-shadow:
       0 12px 32px rgba(0, 0, 0, 0.12),
       0 4px 8px rgba(0, 0, 0, 0.06),
-      inset 0 1px 0 rgba(255, 255, 255, 0.15);
-    backdrop-filter: blur(24px) saturate(200%);
-    -webkit-backdrop-filter: blur(24px) saturate(200%);
+      inset 0 1px 0 rgba(255, 255, 255, 0.18),
+      inset 0 -1px 0 rgba(0, 0, 0, 0.05);
+    backdrop-filter: blur(28px) saturate(200%);
+    -webkit-backdrop-filter: blur(28px) saturate(200%);
+  }
+
+  /* Chrome-only: SVG displacement refraction */
+  [data-liquid-glass] .social-details {
+    backdrop-filter: url(#liquid-glass-tooltip) blur(20px) saturate(180%);
+    -webkit-backdrop-filter: url(#liquid-glass-tooltip) blur(20px) saturate(180%);
+    background:
+      linear-gradient(
+        135deg,
+        rgba(255, 255, 255, 0.18) 0%,
+        rgba(255, 255, 255, 0.05) 40%,
+        rgba(255, 255, 255, 0) 60%
+      ),
+      hsl(var(--background) / 0.55);
+  }
+
+  [data-liquid-glass] .social-link-wrapper:hover .social-details {
+    backdrop-filter: url(#liquid-glass-tooltip) blur(28px) saturate(200%);
+    -webkit-backdrop-filter: url(#liquid-glass-tooltip) blur(28px) saturate(200%);
+    background:
+      linear-gradient(
+        135deg,
+        rgba(255, 255, 255, 0.22) 0%,
+        rgba(255, 255, 255, 0.06) 40%,
+        rgba(255, 255, 255, 0) 60%
+      ),
+      hsl(var(--background) / 0.6);
   }
 
   .social-details-desc {
@@ -266,7 +376,7 @@ const techRow2 = ['Frontend', 'BGP', 'Proxy', 'Docker', 'Linux', 'Web3', 'Optimi
     left: 50%;
     transform: translateX(-50%) scale(0.8);
     border: 5px solid transparent;
-    border-bottom-color: hsl(var(--border) / 0.2);
+    border-bottom-color: hsl(var(--foreground) / 0.08);
     opacity: 0;
     transition:
       opacity 0.2s cubic-bezier(0.16, 1, 0.3, 1),
@@ -280,7 +390,7 @@ const techRow2 = ['Frontend', 'BGP', 'Proxy', 'Docker', 'Linux', 'Web3', 'Optimi
     left: 50%;
     transform: translateX(-50%) scale(0.8);
     border: 4px solid transparent;
-    border-bottom-color: hsl(var(--background) / 0.95);
+    border-bottom-color: hsl(var(--background) / 0.72);
     margin-bottom: -1px;
     opacity: 0;
     transition:
@@ -296,37 +406,86 @@ const techRow2 = ['Frontend', 'BGP', 'Proxy', 'Docker', 'Linux', 'Web3', 'Optimi
   }
 
   .social-link-wrapper:hover .social-details::after {
-    border-bottom-color: hsl(var(--background) / 0.98);
+    border-bottom-color: hsl(var(--background) / 0.78);
   }
 
   /* Dark mode adjustments */
   .dark .social-details {
-    background: hsl(var(--background) / 0.92);
-    border-color: hsl(var(--border) / 0.2);
+    background:
+      linear-gradient(
+        135deg,
+        rgba(255, 255, 255, 0.08) 0%,
+        rgba(255, 255, 255, 0.02) 40%,
+        rgba(255, 255, 255, 0) 60%
+      ),
+      hsl(var(--background) / 0.65);
+    border-color: hsl(var(--foreground) / 0.1);
     box-shadow:
       0 4px 12px rgba(0, 0, 0, 0.3),
       0 1px 3px rgba(0, 0, 0, 0.15),
-      inset 0 1px 0 rgba(255, 255, 255, 0.05);
+      inset 0 1px 0 rgba(255, 255, 255, 0.06),
+      inset 0 -1px 0 rgba(0, 0, 0, 0.2);
     backdrop-filter: blur(20px) saturate(180%);
     -webkit-backdrop-filter: blur(20px) saturate(180%);
   }
 
   .dark .social-link-wrapper:hover .social-details {
-    background: hsl(var(--background) / 0.96);
+    background:
+      linear-gradient(
+        135deg,
+        rgba(255, 255, 255, 0.12) 0%,
+        rgba(255, 255, 255, 0.03) 40%,
+        rgba(255, 255, 255, 0) 60%
+      ),
+      hsl(var(--background) / 0.7);
     box-shadow:
       0 12px 32px rgba(0, 0, 0, 0.6),
       0 4px 8px rgba(0, 0, 0, 0.4),
-      inset 0 1px 0 rgba(255, 255, 255, 0.08);
+      inset 0 1px 0 rgba(255, 255, 255, 0.1),
+      inset 0 -1px 0 rgba(0, 0, 0, 0.3);
     backdrop-filter: blur(28px) saturate(200%);
     -webkit-backdrop-filter: blur(28px) saturate(200%);
   }
 
   .dark .social-details::after {
-    border-bottom-color: hsl(var(--background) / 0.92);
+    border-bottom-color: hsl(var(--background) / 0.65);
   }
 
   .dark .social-link-wrapper:hover .social-details::after {
-    border-bottom-color: hsl(var(--background) / 0.96);
+    border-bottom-color: hsl(var(--background) / 0.7);
+  }
+
+  /* Dark mode + Chrome liquid glass */
+  .dark [data-liquid-glass] .social-details {
+    backdrop-filter: url(#liquid-glass-tooltip) blur(20px) saturate(180%);
+    -webkit-backdrop-filter: url(#liquid-glass-tooltip) blur(20px) saturate(180%);
+    background:
+      linear-gradient(
+        135deg,
+        rgba(255, 255, 255, 0.1) 0%,
+        rgba(255, 255, 255, 0.03) 40%,
+        rgba(255, 255, 255, 0) 60%
+      ),
+      hsl(var(--background) / 0.45);
+  }
+
+  .dark [data-liquid-glass] .social-link-wrapper:hover .social-details {
+    backdrop-filter: url(#liquid-glass-tooltip) blur(28px) saturate(200%);
+    -webkit-backdrop-filter: url(#liquid-glass-tooltip) blur(28px) saturate(200%);
+    background:
+      linear-gradient(
+        135deg,
+        rgba(255, 255, 255, 0.14) 0%,
+        rgba(255, 255, 255, 0.04) 40%,
+        rgba(255, 255, 255, 0) 60%
+      ),
+      hsl(var(--background) / 0.5);
+  }
+
+  /* Dark mode button surface */
+  .dark .magnetic-button::before {
+    background: hsl(var(--foreground) / 0.05);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
   }
 
   /* Mobile adjustments */
@@ -347,6 +506,13 @@ const techRow2 = ['Frontend', 'BGP', 'Proxy', 'Docker', 'Linux', 'Web3', 'Optimi
 </style>
 
 <script>
+  // Detect SVG filter support in backdrop-filter (Chrome/Chromium only)
+  const _lgEl = document.createElement('div');
+  _lgEl.style.cssText = 'backdrop-filter: url(#test)';
+  if (_lgEl.style.backdropFilter?.includes('url')) {
+    document.querySelector('[data-hero-socials]')?.setAttribute('data-liquid-glass', '');
+  }
+
   const prefersReducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
   const heroElements = document.querySelectorAll('.hero-animate');
   const statusText = document.getElementById('status-text');
