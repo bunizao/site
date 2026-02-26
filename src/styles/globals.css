@@ -331,6 +331,23 @@
     font-size: 9px;
     color: hsl(var(--muted-foreground) / 0.2);
     user-select: none;
+    transition: opacity 0.2s ease;
+  }
+
+  /* Vertical nav state — GSAP controls the transition */
+  .site-nav.is-vertical {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1px;
+  }
+
+  .site-nav.is-vertical .nav-separator {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+    width: 0;
+    height: 0;
+    overflow: hidden;
   }
 
   @media (min-width: 640px) {

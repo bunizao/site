@@ -38,6 +38,10 @@ const skeletonGroups = [
   <!-- Inject page-specific header actions -->
   <script is:inline define:vars={{ telegramUrl, turnstileSiteKey }}>
     (() => {
+      // Hide site nav on mood L1 page
+      const siteNav = document.querySelector('[data-site-nav]');
+      if (siteNav) siteNav.style.display = 'none';
+
       const headerActions = document.querySelector('[data-header-actions]');
       if (!headerActions) return;
 

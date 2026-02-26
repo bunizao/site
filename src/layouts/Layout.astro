@@ -456,11 +456,12 @@ const ogImageType = ogImageUrl.endsWith('.png')
       })();
     </script>
 
-    <!-- Site Navigation: smooth scroll + active tracking -->
+    <!-- Site Navigation: smooth scroll + active tracking + vertical collapse -->
     <script>
       (() => {
+        const nav = document.querySelector('[data-site-nav]') as HTMLElement | null;
         const links = document.querySelectorAll('[data-nav-link]');
-        if (!links.length) return;
+        if (!links.length || !nav) return;
 
         // Smooth scroll on click
         links.forEach(link => {
@@ -506,6 +507,85 @@ const ogImageType = ogImageUrl.endsWith('.png')
 
         window.addEventListener('scroll', onScroll, { passive: true });
         onScroll();
+
+        // Vertical collapse: when hero status scrolls out of view
+        const statusEl = document.querySelector('[data-hero-status]');
+        if (!statusEl) return;
+
+        let isVertical = false;
+        let animating = false;
+
+        const toVertical = async () => {
+          if (isVertical || animating) return;
+          isVertical = true;
+          animating = true;
+
+          const { default: gsap } = await import('gsap');
+          gsap.killTweensOf(nav);
+
+          // Fade out whole nav, switch layout, fade back in
+          gsap.to(nav, {
+            opacity: 0,
+            duration: 0.15,
+            ease: 'power2.in',
+            onComplete: () => {
+              nav.classList.add('is-vertical');
+              gsap.fromTo(nav,
+                { opacity: 0, y: -4 },
+                {
+                  opacity: 1,
+                  y: 0,
+                  duration: 0.3,
+                  ease: 'power3.out',
+                  onComplete: () => { animating = false; }
+                }
+              );
+            }
+          });
+        };
+
+        const toHorizontal = async () => {
+          if (!isVertical || animating) return;
+          isVertical = false;
+          animating = true;
+
+          const { default: gsap } = await import('gsap');
+          gsap.killTweensOf(nav);
+
+          gsap.to(nav, {
+            opacity: 0,
+            duration: 0.15,
+            ease: 'power2.in',
+            onComplete: () => {
+              nav.classList.remove('is-vertical');
+              gsap.fromTo(nav,
+                { opacity: 0, y: 4 },
+                {
+                  opacity: 1,
+                  y: 0,
+                  duration: 0.3,
+                  ease: 'power3.out',
+                  onComplete: () => { animating = false; }
+                }
+              );
+            }
+          });
+        };
+
+        const navObserver = new IntersectionObserver(
+          (entries) => {
+            entries.forEach((entry) => {
+              if (entry.isIntersecting) {
+                toHorizontal();
+              } else {
+                toVertical();
+              }
+            });
+          },
+          { threshold: 0 }
+        );
+
+        navObserver.observe(statusEl);
       })();
     </script>
 
