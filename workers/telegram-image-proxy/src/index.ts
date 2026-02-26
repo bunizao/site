@@ -1,13 +1,15 @@
 /**
  * Telegram HD Image Proxy Worker
  *
- * Proxies high-resolution images from Telegram Bot API with edge caching.
- * Images are looked up by post ID and image index from KV storage.
+ * Serves Telegram images from R2 with edge caching.
+ * New images are ingested via authenticated POST routes.
  */
 
 interface Env {
   TELEGRAM_BOT_TOKEN: string;
-  MOOD_IMAGES: KVNamespace;
+  HD_IMAGE_INGEST_TOKEN: string;
+  MOOD_IMAGES: R2Bucket;
+  TELEGRAM_PUBLIC_CHANNEL?: string;
 }
 
 interface TelegramFileResponse {
@@ -21,155 +23,555 @@ interface TelegramFileResponse {
   description?: string;
 }
 
-const MAX_WIDTH = 2048;
-const DEFAULT_QUALITY = 82;
-const MIN_QUALITY = 40;
-const MAX_QUALITY = 95;
+interface IngestPayload {
+  fileId?: string;
+}
 
-// CORS headers for cross-origin requests
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, HEAD, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type',
+  'Access-Control-Allow-Methods': 'GET, HEAD, OPTIONS, POST',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
 };
 
-const parsePositiveInt = (value: string | null): number | null => {
+const CACHE_CONTROL = 'public, max-age=31536000, immutable, no-transform';
+const VARIANT_WIDTHS = [480, 800, 1200, 1600] as const;
+const VARIANT_QUALITY = 82;
+const TELEGRAM_PUBLIC_HOST = 'https://t.me';
+const TELEGRAM_PUBLIC_CHANNEL_FALLBACK = 'tutumood';
+const TELEGRAM_PUBLIC_MAX_WIDTH = 1600;
+const TELEGRAM_ALLOWED_IMAGE_HOSTS = new Set([
+  'cdn-telegram.org',
+  'cdn1.telegram-cdn.org',
+  'cdn2.telegram-cdn.org',
+  'cdn3.telegram-cdn.org',
+  'cdn4.telegram-cdn.org',
+  'cdn5.telegram-cdn.org',
+]);
+const TELEGRAM_PAGE_HEADERS = {
+  Accept: 'text/html,application/xhtml+xml',
+  'User-Agent': 'Mozilla/5.0 (compatible; TelegramImageProxy/1.0)',
+};
+
+function parsePositiveInt(value: string | null): number | null {
   if (!value) return null;
   const parsed = Number.parseInt(value, 10);
-  if (!Number.isFinite(parsed) || parsed <= 0) return null;
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return null;
+  }
   return parsed;
-};
+}
 
-const clampNumber = (value: number, min: number, max: number): number => {
-  return Math.min(max, Math.max(min, value));
-};
-
-export default {
-  async fetch(request: Request, env: Env): Promise<Response> {
-    const url = new URL(request.url);
-
-    // Handle CORS preflight
-    if (request.method === 'OPTIONS') {
-      return new Response(null, { headers: corsHeaders });
+function pickVariantWidth(width: number): number {
+  for (const candidate of VARIANT_WIDTHS) {
+    if (width <= candidate) {
+      return candidate;
     }
+  }
+  return VARIANT_WIDTHS[VARIANT_WIDTHS.length - 1];
+}
 
-    // Only allow GET and HEAD
-    if (request.method !== 'GET' && request.method !== 'HEAD') {
-      return new Response('Method Not Allowed', { status: 405, headers: corsHeaders });
+function getVariantObjectKey(baseKey: string, width: number): string {
+  return `${baseKey}@w${width}`;
+}
+
+function timingSafeEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) {
+    return false;
+  }
+
+  let result = 0;
+  for (let index = 0; index < a.length; index += 1) {
+    result |= a.charCodeAt(index) ^ b.charCodeAt(index);
+  }
+  return result === 0;
+}
+
+function readBearerToken(request: Request): string {
+  const authorization = request.headers.get('Authorization') ?? '';
+  const match = authorization.match(/^Bearer\s+(.+)$/i);
+  return match?.[1]?.trim() ?? '';
+}
+
+function resolveReadTarget(pathname: string): { objectKey: string; publicPath: string } | null {
+  const moodMatch = pathname.match(/^\/mood\/(\d+)\/(\d+)$/);
+  if (moodMatch) {
+    const [, postId, imageIndex] = moodMatch;
+    return {
+      objectKey: `mood/${postId}/${imageIndex}`,
+      publicPath: `/mood/${postId}/${imageIndex}`,
+    };
+  }
+
+  if (pathname === '/channel/avatar') {
+    return {
+      objectKey: 'channel/avatar',
+      publicPath: '/channel/avatar',
+    };
+  }
+
+  return null;
+}
+
+function parseMoodTarget(target: { objectKey: string; publicPath: string }): { postId: string; imageIndex: number } | null {
+  const moodMatch = target.objectKey.match(/^mood\/(\d+)\/(\d+)$/);
+  if (!moodMatch) {
+    return null;
+  }
+
+  const [, postId, imageIndexRaw] = moodMatch;
+  const imageIndex = Number.parseInt(imageIndexRaw, 10);
+  if (!Number.isFinite(imageIndex) || imageIndex < 0) {
+    return null;
+  }
+
+  return { postId, imageIndex };
+}
+
+function getPublicChannel(env: Env): string {
+  const value = env.TELEGRAM_PUBLIC_CHANNEL?.trim() ?? '';
+  if (!value) {
+    return TELEGRAM_PUBLIC_CHANNEL_FALLBACK;
+  }
+  return value.replace(/^@+/, '');
+}
+
+function normalizeTelegramCdnUrl(value: string): string | null {
+  const cleaned = value.trim().replace(/&amp;/g, '&');
+  if (!cleaned) {
+    return null;
+  }
+
+  let normalized = cleaned;
+  if (normalized.startsWith('//')) {
+    normalized = `https:${normalized}`;
+  } else if (normalized.startsWith('/')) {
+    normalized = `${TELEGRAM_PUBLIC_HOST}${normalized}`;
+  }
+
+  let parsed: URL;
+  try {
+    parsed = new URL(normalized);
+  } catch {
+    return null;
+  }
+
+  if (!/^https?:$/i.test(parsed.protocol)) {
+    return null;
+  }
+
+  const host = parsed.hostname.toLowerCase();
+  const allowed = TELEGRAM_ALLOWED_IMAGE_HOSTS.has(host)
+    || host.endsWith('.telegram-cdn.org')
+    || host.endsWith('.cdn-telegram.org');
+  if (!allowed) {
+    return null;
+  }
+
+  return parsed.toString();
+}
+
+function stripTelegramWidth(urlValue: string): string {
+  const parsed = new URL(urlValue);
+  parsed.searchParams.delete('w');
+  return parsed.toString();
+}
+
+function withTelegramWidth(urlValue: string, width: number | null): string {
+  if (!width) {
+    return urlValue;
+  }
+
+  const parsed = new URL(urlValue);
+  parsed.searchParams.set('w', String(width));
+  return parsed.toString();
+}
+
+function extractTelegramImageUrls(html: string): string[] {
+  const urls = new Set<string>();
+  const backgroundImageRegex = /background-image\s*:\s*url\((['"]?)([^'")]+)\1\)/gi;
+
+  let match: RegExpExecArray | null;
+  while ((match = backgroundImageRegex.exec(html)) !== null) {
+    const normalized = normalizeTelegramCdnUrl(match[2] ?? '');
+    if (!normalized) {
+      continue;
     }
+    urls.add(stripTelegramWidth(normalized));
+  }
 
-    let cacheKey = '';
+  return Array.from(urls);
+}
 
-    // Route: /mood/:postId/:imageIndex
-    const moodMatch = url.pathname.match(/^\/mood\/(\d+)\/(\d+)$/);
-    if (moodMatch) {
-      const [, postId, imageIndex] = moodMatch;
-      cacheKey = `mood:${postId}:${imageIndex}`;
-    } else if (url.pathname === '/channel/avatar') {
-      // Route: /channel/avatar
-      cacheKey = 'channel:avatar';
-    } else {
-      return new Response('Not Found. Use /mood/:postId/:imageIndex or /channel/avatar', {
-        status: 404,
-        headers: corsHeaders,
-      });
-    }
+function slicePostScope(html: string, channel: string, postId: string): string {
+  const marker = `data-post="${channel}/${postId}"`;
+  const markerStart = html.indexOf(marker);
+  if (markerStart === -1) {
+    return html;
+  }
 
-    // 1. Check edge cache first
-    const cache = caches.default;
-    const cacheRequest = new Request(url.toString(), request);
-    const cached = await cache.match(cacheRequest);
-    if (cached) {
-      return cached;
-    }
+  const nextMessageStart = html.indexOf('data-post="', markerStart + marker.length);
+  if (nextMessageStart === -1) {
+    return html.slice(markerStart);
+  }
 
-    // 2. Look up file_id from KV
-    const fileId = await env.MOOD_IMAGES.get(cacheKey);
-    if (!fileId) {
-      return new Response('Image not indexed. Post may be too old or has no images.', {
-        status: 404,
-        headers: corsHeaders,
-      });
-    }
+  return html.slice(markerStart, nextMessageStart);
+}
 
-    // 3. Call Telegram Bot API getFile to get file_path
-    const getFileUrl = `https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/getFile?file_id=${encodeURIComponent(fileId)}`;
-    const fileInfoResponse = await fetch(getFileUrl);
+function buildPublicPostCandidates(channel: string, postId: string): string[] {
+  const safeChannel = encodeURIComponent(channel);
+  const safePostId = encodeURIComponent(postId);
+  return [
+    `${TELEGRAM_PUBLIC_HOST}/s/${safeChannel}/${safePostId}`,
+    `${TELEGRAM_PUBLIC_HOST}/${safeChannel}/${safePostId}?single`,
+    `${TELEGRAM_PUBLIC_HOST}/${safeChannel}/${safePostId}`,
+  ];
+}
 
-    if (!fileInfoResponse.ok) {
-      console.error('Telegram getFile failed:', fileInfoResponse.status);
-      return new Response('Telegram API error', {
-        status: 502,
-        headers: corsHeaders,
-      });
-    }
+function resolveIngestTarget(pathname: string): { objectKey: string; publicPath: string } | null {
+  const moodMatch = pathname.match(/^\/ingest\/mood\/(\d+)\/(\d+)$/);
+  if (moodMatch) {
+    const [, postId, imageIndex] = moodMatch;
+    return {
+      objectKey: `mood/${postId}/${imageIndex}`,
+      publicPath: `/mood/${postId}/${imageIndex}`,
+    };
+  }
 
-    const fileInfo: TelegramFileResponse = await fileInfoResponse.json();
+  if (pathname === '/ingest/channel/avatar') {
+    return {
+      objectKey: 'channel/avatar',
+      publicPath: '/channel/avatar',
+    };
+  }
 
-    if (!fileInfo.ok || !fileInfo.result?.file_path) {
-      console.error('Telegram getFile response invalid:', fileInfo.description);
-      return new Response('Failed to retrieve file path from Telegram', {
-        status: 502,
-        headers: corsHeaders,
-      });
-    }
+  return null;
+}
 
-    // 4. Fetch the actual image from Telegram file server
-    const imageUrl = `https://api.telegram.org/file/bot${env.TELEGRAM_BOT_TOKEN}/${fileInfo.result.file_path}`;
-    const widthParam = parsePositiveInt(url.searchParams.get('w') ?? url.searchParams.get('width'));
-    const qualityParam = parsePositiveInt(url.searchParams.get('q'));
-    const resizeWidth = widthParam ? Math.min(widthParam, MAX_WIDTH) : null;
-    const resizeQuality = qualityParam
-      ? clampNumber(qualityParam, MIN_QUALITY, MAX_QUALITY)
-      : DEFAULT_QUALITY;
+async function resolveTelegramImageUrl(fileId: string, env: Env): Promise<string | null> {
+  const getFileUrl = `https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/getFile?file_id=${encodeURIComponent(fileId)}`;
+  const fileInfoResponse = await fetch(getFileUrl);
 
-    let imageResponse: Response;
-    if (resizeWidth) {
-      imageResponse = await fetch(imageUrl, {
+  if (!fileInfoResponse.ok) {
+    console.error('Telegram getFile failed:', fileInfoResponse.status);
+    return null;
+  }
+
+  const fileInfo: TelegramFileResponse = await fileInfoResponse.json();
+  if (!fileInfo.ok || !fileInfo.result?.file_path) {
+    console.error('Telegram getFile response invalid:', fileInfo.description);
+    return null;
+  }
+
+  return `https://api.telegram.org/file/bot${env.TELEGRAM_BOT_TOKEN}/${fileInfo.result.file_path}`;
+}
+
+async function ingestImageFromSource(
+  target: { objectKey: string; publicPath: string },
+  sourceImageUrl: string,
+  requestUrl: URL,
+  env: Env,
+  sourceLabel: string
+): Promise<void> {
+  const originalResponse = await fetch(sourceImageUrl);
+  if (!originalResponse.ok || !originalResponse.body) {
+    throw new Error(`Failed to fetch image from Telegram: ${originalResponse.status}`);
+  }
+
+  const updatedAt = new Date().toISOString();
+  const contentType = originalResponse.headers.get('Content-Type') || 'image/jpeg';
+
+  await env.MOOD_IMAGES.put(target.objectKey, originalResponse.body, {
+    httpMetadata: {
+      contentType,
+      cacheControl: CACHE_CONTROL,
+    },
+    customMetadata: {
+      source: sourceLabel,
+      variant: 'original',
+      updatedAt,
+    },
+  });
+
+  await Promise.all(
+    VARIANT_WIDTHS.map(async (width) => {
+      const variantResponse = await fetch(sourceImageUrl, {
         cf: {
           image: {
-            width: resizeWidth,
+            width,
             fit: 'scale-down',
-            quality: resizeQuality,
+            quality: VARIANT_QUALITY,
           },
         },
       });
 
-      if (!imageResponse.ok) {
-        imageResponse = await fetch(imageUrl);
+      if (!variantResponse.ok || !variantResponse.body) {
+        console.warn(`Variant generation failed for width ${width}:`, variantResponse.status);
+        return;
       }
-    } else {
-      imageResponse = await fetch(imageUrl);
-    }
 
-    if (!imageResponse.ok) {
-      console.error('Failed to fetch image:', imageResponse.status);
-      return new Response('Failed to fetch image from Telegram', {
-        status: 502,
-        headers: corsHeaders,
+      const variantType = variantResponse.headers.get('Content-Type') || contentType;
+      await env.MOOD_IMAGES.put(getVariantObjectKey(target.objectKey, width), variantResponse.body, {
+        httpMetadata: {
+          contentType: variantType,
+          cacheControl: CACHE_CONTROL,
+        },
+        customMetadata: {
+          source: sourceLabel,
+          variant: `w${width}`,
+          updatedAt,
+        },
       });
+    })
+  );
+
+  const cache = caches.default;
+  const cacheRequests = [null, ...VARIANT_WIDTHS].map((width) => {
+    const cacheUrl = new URL(target.publicPath, requestUrl.origin);
+    if (width) {
+      cacheUrl.searchParams.set('w', String(width));
+    }
+    return new Request(cacheUrl.toString(), { method: 'GET' });
+  });
+
+  await Promise.all(cacheRequests.map((entry) => cache.delete(entry)));
+}
+
+async function ingestTelegramImage(
+  target: { objectKey: string; publicPath: string },
+  fileId: string,
+  requestUrl: URL,
+  env: Env
+): Promise<void> {
+  const sourceImageUrl = await resolveTelegramImageUrl(fileId, env);
+  if (!sourceImageUrl) {
+    throw new Error('Failed to resolve image path from Telegram');
+  }
+
+  await ingestImageFromSource(target, sourceImageUrl, requestUrl, env, 'telegram-bot');
+}
+
+async function resolveTelegramPublicImageUrl(
+  target: { objectKey: string; publicPath: string },
+  env: Env
+): Promise<string | null> {
+  const moodTarget = parseMoodTarget(target);
+  if (!moodTarget) {
+    return null;
+  }
+
+  const channel = getPublicChannel(env);
+  const candidates = buildPublicPostCandidates(channel, moodTarget.postId);
+  for (const pageUrl of candidates) {
+    let pageResponse: Response;
+    try {
+      pageResponse = await fetch(pageUrl, { headers: TELEGRAM_PAGE_HEADERS });
+    } catch (error) {
+      console.warn('Failed to load Telegram public page:', { pageUrl, error });
+      continue;
     }
 
-    // 5. Build response with cache headers
-    const contentType = imageResponse.headers.get('Content-Type') || 'image/jpeg';
+    if (!pageResponse.ok) {
+      console.warn('Telegram public page returned non-200:', pageResponse.status, pageUrl);
+      continue;
+    }
+
+    const html = await pageResponse.text();
+    const scopedHtml = slicePostScope(html, channel, moodTarget.postId);
+    const imageUrls = extractTelegramImageUrls(scopedHtml);
+    const fallbackImageUrls = imageUrls.length ? imageUrls : extractTelegramImageUrls(html);
+    if (!fallbackImageUrls.length) {
+      continue;
+    }
+
+    const selectedIndex = Math.min(moodTarget.imageIndex, fallbackImageUrls.length - 1);
+    return fallbackImageUrls[selectedIndex];
+  }
+
+  return null;
+}
+
+async function fetchTelegramSourceImage(
+  sourceImageUrl: string,
+  width: number | null,
+  method: 'GET' | 'HEAD' = 'GET'
+): Promise<Response | null> {
+  const resizeInit = width
+    ? {
+        cf: {
+          image: {
+            width,
+            fit: 'scale-down' as const,
+            quality: VARIANT_QUALITY,
+          },
+        },
+      }
+    : undefined;
+
+  const response = await fetch(sourceImageUrl, {
+    ...(resizeInit ?? {}),
+    method,
+  });
+  if (response.ok && (method === 'HEAD' || response.body)) {
+    return response;
+  }
+
+  if (resizeInit) {
+    const fallbackResponse = await fetch(sourceImageUrl, { method });
+    if (fallbackResponse.ok && (method === 'HEAD' || fallbackResponse.body)) {
+      return fallbackResponse;
+    }
+    return null;
+  }
+
+  return null;
+}
+
+async function handleIngest(request: Request, url: URL, env: Env, ctx: ExecutionContext): Promise<Response> {
+  const target = resolveIngestTarget(url.pathname);
+  if (!target) {
+    return new Response('Not Found', { status: 404, headers: corsHeaders });
+  }
+
+  const token = readBearerToken(request);
+  if (!token || !env.HD_IMAGE_INGEST_TOKEN || !timingSafeEqual(token, env.HD_IMAGE_INGEST_TOKEN)) {
+    return new Response('Unauthorized', { status: 401, headers: corsHeaders });
+  }
+
+  let payload: IngestPayload;
+  try {
+    payload = await request.json<IngestPayload>();
+  } catch {
+    return new Response('Invalid JSON body', { status: 400, headers: corsHeaders });
+  }
+
+  const fileId = typeof payload.fileId === 'string' ? payload.fileId.trim() : '';
+  if (!fileId) {
+    return new Response('Missing fileId', { status: 400, headers: corsHeaders });
+  }
+
+  ctx.waitUntil(
+    ingestTelegramImage(target, fileId, url, env).catch((error) => {
+      console.error('Ingest task failed:', error);
+    })
+  );
+
+  return new Response(JSON.stringify({ ok: true, accepted: true, key: target.objectKey }), {
+    status: 202,
+    headers: {
+      'Content-Type': 'application/json',
+      ...corsHeaders,
+    },
+  });
+}
+
+async function handleRead(request: Request, url: URL, env: Env, ctx: ExecutionContext): Promise<Response> {
+  const target = resolveReadTarget(url.pathname);
+  if (!target) {
+    return new Response('Not Found. Use /mood/:postId/:imageIndex or /channel/avatar', {
+      status: 404,
+      headers: corsHeaders,
+    });
+  }
+
+  const requestedWidth = parsePositiveInt(url.searchParams.get('w') ?? url.searchParams.get('width'));
+  const variantWidth = requestedWidth ? pickVariantWidth(requestedWidth) : null;
+
+  const cacheUrl = new URL(target.publicPath, url.origin);
+  if (variantWidth) {
+    cacheUrl.searchParams.set('w', String(variantWidth));
+  }
+  const cacheRequest = new Request(cacheUrl.toString(), request);
+  const cache = caches.default;
+  const cached = await cache.match(cacheRequest);
+  if (cached) {
+    return cached;
+  }
+
+  const preferredKey = variantWidth ? getVariantObjectKey(target.objectKey, variantWidth) : target.objectKey;
+  const object = await env.MOOD_IMAGES.get(preferredKey) ?? await env.MOOD_IMAGES.get(target.objectKey);
+  if (object) {
     const headers = new Headers({
-      'Content-Type': contentType,
-      'Cache-Control': 'public, max-age=31536000, immutable, no-transform',
+      'Content-Type': 'image/jpeg',
+      'Cache-Control': CACHE_CONTROL,
       ...corsHeaders,
     });
+    object.writeHttpMetadata(headers);
+    headers.set('ETag', object.httpEtag);
     headers.set('Vary', 'Accept');
 
-    const response = new Response(imageResponse.body, {
-      status: 200,
-      headers,
-    });
+    const response = request.method === 'HEAD'
+      ? new Response(null, { status: 200, headers })
+      : new Response(object.body, { status: 200, headers });
 
-    // 6. Store in edge cache (async, don't await)
-    const cacheableResponse = response.clone();
-    cache.put(cacheRequest, cacheableResponse).catch((err) => {
-      console.error('Cache put failed:', err);
-    });
+    if (request.method === 'GET') {
+      ctx.waitUntil(cache.put(cacheRequest, response.clone()));
+    }
 
     return response;
+  }
+
+  const publicImageUrl = await resolveTelegramPublicImageUrl(target, env);
+  if (!publicImageUrl) {
+    return new Response('Image not available. Post may be too old or has no images.', {
+      status: 404,
+      headers: corsHeaders,
+    });
+  }
+
+  const sourceImageUrl = withTelegramWidth(publicImageUrl, variantWidth ?? TELEGRAM_PUBLIC_MAX_WIDTH);
+  const telegramResponse = await fetchTelegramSourceImage(
+    sourceImageUrl,
+    null,
+    request.method === 'HEAD' ? 'HEAD' : 'GET'
+  );
+  if (!telegramResponse) {
+    return new Response('Failed to fetch image from Telegram', {
+      status: 502,
+      headers: corsHeaders,
+    });
+  }
+
+  const headers = new Headers({
+    'Content-Type': telegramResponse.headers.get('Content-Type') || 'image/jpeg',
+    'Cache-Control': CACHE_CONTROL,
+    ...corsHeaders,
+  });
+  headers.set('Vary', 'Accept');
+
+  const response = request.method === 'HEAD'
+    ? new Response(null, { status: 200, headers })
+    : new Response(telegramResponse.body, { status: 200, headers });
+
+  if (request.method === 'GET') {
+    ctx.waitUntil(cache.put(cacheRequest, response.clone()));
+
+    const sourceForBackfill = withTelegramWidth(publicImageUrl, TELEGRAM_PUBLIC_MAX_WIDTH);
+    ctx.waitUntil(
+      ingestImageFromSource(target, sourceForBackfill, url, env, 'telegram-cdn').catch((error) => {
+        console.error('Telegram CDN fallback backfill failed:', error);
+      })
+    );
+  }
+
+  return response;
+}
+
+export default {
+  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+    const url = new URL(request.url);
+
+    if (request.method === 'OPTIONS') {
+      return new Response(null, { headers: corsHeaders });
+    }
+
+    if (request.method === 'POST') {
+      return handleIngest(request, url, env, ctx);
+    }
+
+    if (request.method !== 'GET' && request.method !== 'HEAD') {
+      return new Response('Method Not Allowed', { status: 405, headers: corsHeaders });
+    }
+
+    return handleRead(request, url, env, ctx);
   },
 };

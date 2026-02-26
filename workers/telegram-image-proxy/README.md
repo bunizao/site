@@ -1,12 +1,13 @@
 # Image Quality Upgrade Worker (`telegram-image-proxy`)
 
-Cloudflare Worker that serves higher-quality Telegram photos for the Mood section.
+Cloudflare Worker that serves Telegram photos from R2 for the Mood section.
 
 At a glance:
-- A Cloudflare KV namespace stores a lookup table from `(postId, imageIndex)` to Telegram `file_id`.
-- The Worker resolves `file_id` to `file_path` via the Telegram Bot API, downloads the original bytes, and returns them with long-lived cache headers.
-- Optional: Cloudflare Image Resizing (`?w=`/`?q=`) for responsive images.
-- The site prefers the Worker URL when `PUBLIC_HD_IMAGE_URL` is set and falls back to the built-in `/static/` proxy if the Worker cannot serve an image.
+- The Worker serves image bytes directly from R2.
+- The site webhook (`/api/telegram-webhook`) calls Worker ingest routes to pull image bytes from Telegram once and store them in R2.
+- The ingest step also pre-generates common responsive widths (`480`, `800`, `1200`, `1600`) and stores them in R2.
+- Runtime image requests read from R2 first.
+- On R2 miss, the Worker falls back to Telegram public CDN (`t.me` page scrape -> image proxy fetch) and backfills R2 asynchronously.
 
 ## Components
 
@@ -17,29 +18,31 @@ Location: `workers/telegram-image-proxy` (this folder)
 Route:
 - `GET /mood/:postId/:imageIndex`
 - `HEAD /mood/:postId/:imageIndex`
+- `GET /channel/avatar`
+- `HEAD /channel/avatar`
+- `POST /ingest/mood/:postId/:imageIndex`
+- `POST /ingest/channel/avatar`
 - `OPTIONS` is handled for CORS preflight
 
 Environment bindings:
 - `TELEGRAM_BOT_TOKEN` (secret)
-- `MOOD_IMAGES` (KV namespace binding)
+- `HD_IMAGE_INGEST_TOKEN` (secret for ingest authorization)
+- `MOOD_IMAGES` (R2 bucket binding)
+- `TELEGRAM_PUBLIC_CHANNEL` (optional plain var, defaults to `tutumood`)
 
-### 2. KV Namespace
+### 2. R2 Bucket
 
 Binding name: `MOOD_IMAGES`
 
 Key format:
-- `mood:{postId}:{imageIndex}`
-
-Value:
-- Telegram `file_id` (string)
+- `mood/<postId>/<imageIndex>`
+- `channel/avatar`
 
 ### 3. Indexing Pipeline
 
 Real-time indexing:
-- `../../src/pages/api/telegram-webhook.ts` receives `channel_post` updates and writes photo `file_id`s into Cloudflare KV.
-
-Backfill indexing:
-- `../../scripts/index-telegram-history.ts` can write historical keys into Cloudflare KV (useful for older posts).
+- `../../src/pages/api/telegram-webhook.ts` receives `channel_post` updates and calls the ingest routes.
+- The Worker fetches bytes from Telegram and writes image objects into R2.
 
 ## Request API
 
@@ -50,8 +53,8 @@ GET https://<IMAGE_HOST>/mood/<postId>/<imageIndex>
 ```
 
 Query params:
-- `w` or `width` (optional): resize width. The Worker clamps this to `2048`.
-- `q` (optional): output quality. Clamped to `40..95` (default: `82`).
+- `w` or `width` (optional): the Worker selects the nearest pre-generated width variant (`480`, `800`, `1200`, `1600`).
+- `q` is accepted for compatibility and currently ignored.
 
 Examples:
 
@@ -61,22 +64,22 @@ https://image.example.com/mood/123/0?w=1200&q=85
 ```
 
 Response behavior:
-- `404` if the image is not indexed in KV.
-- `502` if Telegram APIs fail or the file cannot be fetched.
+- On R2 hit: returns the object immediately.
+- On R2 miss: tries Telegram public CDN fallback and returns `404` only if fallback cannot resolve an image.
 - CORS is enabled (`Access-Control-Allow-Origin: *`) for cross-origin `<img>` usage.
-- The response is cached aggressively (`Cache-Control: public, max-age=31536000, immutable`), and the Worker stores the response in `caches.default` keyed by full URL.
+- The response is cached aggressively (`Cache-Control: public, max-age=31536000, immutable`).
 
 ## Setup
 
-### 1. Create the KV Namespace
+### 1. Create the R2 Bucket
 
 From `workers/telegram-image-proxy`:
 
 ```bash
-bunx wrangler kv namespace create MOOD_IMAGES
+bunx wrangler r2 bucket create mood-images
 ```
 
-Copy the namespace id into `wrangler.toml` under `[[kv_namespaces]]`.
+Set `bucket_name` in `wrangler.toml` under `[[r2_buckets]]`.
 
 ### 2. Set the Worker Secret
 
@@ -84,6 +87,7 @@ From `workers/telegram-image-proxy`:
 
 ```bash
 bunx wrangler secret put TELEGRAM_BOT_TOKEN
+bunx wrangler secret put HD_IMAGE_INGEST_TOKEN
 ```
 
 ### 3. Deploy the Worker
@@ -100,73 +104,75 @@ Optional (recommended): configure a custom domain in the Cloudflare dashboard:
 
 ### 4. Point the Site to the Worker
 
-Set the site environment variable:
+Set site environment variables:
 - `PUBLIC_HD_IMAGE_URL=https://<IMAGE_HOST>`
+- `HD_IMAGE_INGEST_TOKEN=<same_token_as_worker_secret>`
 
 The HTML generation in `../../src/lib/telegram.ts` will then prefer:
 - `https://<IMAGE_HOST>/mood/<postId>/<imageIndex>`
 
-If the Worker 404s, the `<img>` tag will fall back to the `/static/` Telegram proxy.
+## Ingest API
 
-## Indexing Images Into KV
+Body:
 
-### Option A: Telegram Webhook (Recommended)
-
-This is the intended "hands-off" flow for new posts.
-
-1. Deploy the site with these environment variables set:
-- `TELEGRAM_WEBHOOK_SECRET` - used to verify Telegram's `X-Telegram-Bot-Api-Secret-Token` header.
-- `CLOUDFLARE_ACCOUNT_ID` - Cloudflare account id.
-- `CLOUDFLARE_API_TOKEN` - API token with KV write permission.
-- `CLOUDFLARE_KV_NAMESPACE_ID` - namespace id for `MOOD_IMAGES`.
-
-2. Configure the Telegram webhook to call the site endpoint:
-
-```bash
-curl -sS -X POST "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/setWebhook" \
-  -d "url=https://<SITE_HOST>/api/telegram-webhook" \
-  -d "secret_token=$TELEGRAM_WEBHOOK_SECRET"
+```json
+{
+  "fileId": "<telegram_file_id>"
+}
 ```
 
-When a new channel post contains a photo, the endpoint writes:
-- `mood:<message_id>:<imageIndex>` -> `<file_id>`
+Auth:
 
-### Option B: Backfill Historical Posts
-
-For older posts that predate webhook deployment, run this from the repo root:
-
-```bash
-TELEGRAM_BOT_TOKEN=... \
-TELEGRAM_CHANNEL_ID=-100... \
-CLOUDFLARE_ACCOUNT_ID=... \
-CLOUDFLARE_API_TOKEN=... \
-CLOUDFLARE_KV_NAMESPACE_ID=... \
-npx tsx scripts/index-telegram-history.ts
+```text
+Authorization: Bearer <HD_IMAGE_INGEST_TOKEN>
 ```
 
-Notes:
-- Telegram bots have limited access to channel history; the script uses forwarding as a workaround.
-- You may need a private temp chat/group (`TELEGRAM_TEMP_CHAT_ID`) where the bot can forward messages.
+Routes:
+- `POST /ingest/mood/:postId/:imageIndex`
+- `POST /ingest/channel/avatar`
+
+## Historical Backfill
+
+Use this script to repair historical IDs by pulling public Telegram CDN images and writing them into R2:
+
+```bash
+npx tsx scripts/backfill-r2-from-telegram-public.ts --pages=12 --max-fixes=200 --concurrency=3
+```
+
+Useful flags:
+- `--ids=3122,3112` to repair specific post IDs only.
+- `--dry-run` to verify extraction without writing to R2.
+- `--channel=tutumood` to override Telegram public channel slug.
+
+After backfill, verify with:
+
+```bash
+curl -I "https://image.buxx.me/mood/<postId>/0?w=1200"
+```
 
 ## Notes and Limitations
 
-- This system does not permanently store image bytes. KV stores references (`file_id`), and the Worker caches the fetched bytes at the edge.
-- Media groups (albums) are not fully indexed by default: `../../src/pages/api/telegram-webhook.ts` currently writes `imageIndex = 0` only. Other indices will fall back to `/static/` unless you backfill additional keys.
-- Caching is keyed by the full request URL. If KV mappings change, you may need to purge the Worker cache or use a cache-busting query param.
+- This system stores image bytes in R2.
+- The ingest route stores one original image and responsive variants (`480`, `800`, `1200`, `1600`).
+- If an R2 object is missing, Worker falls back to Telegram public CDN and backfills R2 asynchronously.
+- Media groups (albums) are still indexed as `imageIndex = 0` in `../../src/pages/api/telegram-webhook.ts`.
+- If you update an existing object key, the Worker clears the cached `GET` route key.
+- The current client does not automatically switch to `/static/` when the HD URL returns 404.
 
 ## Troubleshooting
 
-- **404: "Image not indexed"**
-  - KV is missing `mood:<postId>:<imageIndex>` or the wrong namespace is configured.
-  - Confirm your webhook is receiving updates and that it can write to the KV namespace.
-- **502: "Telegram API error"**
-  - `TELEGRAM_BOT_TOKEN` is missing/invalid, or Telegram is failing.
+- **404: "Image not available"**
+  - R2 key is missing (`mood/<postId>/<imageIndex>` or `channel/avatar`).
+  - Confirm `/api/telegram-webhook` can call Worker ingest routes.
+- **401 on ingest**
+  - `HD_IMAGE_INGEST_TOKEN` mismatch between site and Worker secret.
+- **502: "Failed to fetch image from Telegram"**
+  - Telegram public page/CDN fetch failed during fallback, or Telegram is throttling.
+  - Check `TELEGRAM_PUBLIC_CHANNEL` value if you customized the channel slug.
   - Check Worker logs with `bun run tail`.
-- **Resizing not applied**
-  - Cloudflare Image Resizing may not be enabled on the zone/account.
-  - The Worker will fall back to returning the original image.
 
 ## Security Notes
 
-- Treat `TELEGRAM_BOT_TOKEN` and `CLOUDFLARE_API_TOKEN` as secrets.
+- Treat `TELEGRAM_BOT_TOKEN` as a secret.
 - Keep `/api/telegram-webhook` protected by `TELEGRAM_WEBHOOK_SECRET` (do not disable the header check).
+- Keep `HD_IMAGE_INGEST_TOKEN` secret and rotate it periodically.
