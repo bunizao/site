@@ -814,6 +814,15 @@ const ogImageType = ogImageUrl.endsWith('.png')
           nav.addEventListener('pointerenter', (e: PointerEvent) => {
             if (e.pointerType !== 'mouse' || !isVertical) return;
             navBounds = nav.getBoundingClientRect();
+            // Scale breathe + intensify backdrop
+            gsap.to(nav, {
+              scale: 1.03,
+              boxShadow: '0 8px 32px hsl(var(--foreground) / 0.08), 0 0 0 1px hsl(var(--foreground) / 0.04)',
+              duration: 0.4,
+              ease: 'power2.out'
+            });
+            nav.style.backdropFilter = 'blur(18px) saturate(1.2)';
+            nav.style.setProperty('-webkit-backdrop-filter', 'blur(18px) saturate(1.2)');
           });
 
           nav.addEventListener('pointermove', (e: PointerEvent) => {
@@ -845,9 +854,12 @@ const ogImageType = ogImageUrl.endsWith('.png')
             if (e.pointerType !== 'mouse') return;
             navBounds = null;
             gsap.to(nav, {
-              x: 0, y: 0, rotateX: 0, rotateY: 0,
+              x: 0, y: 0, rotateX: 0, rotateY: 0, scale: 1,
+              boxShadow: '0 0px 0px hsl(var(--foreground) / 0), 0 0 0 0px hsl(var(--foreground) / 0)',
               duration: 0.6, ease: 'elastic.out(1, 0.3)'
             });
+            nav.style.backdropFilter = '';
+            nav.style.setProperty('-webkit-backdrop-filter', '');
           });
 
           // Layer 2: Per-link magnetic pull + char wave
