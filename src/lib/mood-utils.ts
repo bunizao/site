@@ -497,29 +497,11 @@ export function getTextPreviewHtml(mood: { text?: string; content: string }): st
         return;
       }
 
-      // Preserve rich text formatting tags
-      if (tag === 'blockquote' || tag === 'pre' || tag === 'code') {
+      // Preserve rich text formatting tags (keep in-place, strip attributes)
+      const richTextTags = ['blockquote', 'pre', 'code', 'b', 'strong', 'i', 'em', 'u', 's', 'del', 'strike'];
+      if (richTextTags.includes(tag)) {
         const attributes = Object.keys(element.attribs ?? {});
         attributes.forEach((attr) => $(element).removeAttr(attr));
-        return;
-      }
-
-      if (tag === 'b' || tag === 'strong') {
-        $(element).replaceWith(`<strong>${$(element).html()}</strong>`);
-        return;
-      }
-
-      if (tag === 'i' || tag === 'em') {
-        $(element).replaceWith(`<em>${$(element).html()}</em>`);
-        return;
-      }
-
-      if (tag === 'u') {
-        return;
-      }
-
-      if (tag === 's' || tag === 'del' || tag === 'strike') {
-        $(element).replaceWith(`<del>${$(element).html()}</del>`);
         return;
       }
 

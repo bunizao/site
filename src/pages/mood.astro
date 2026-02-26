@@ -4030,36 +4030,9 @@ const skeletonGroups = [
         }
 
         // Preserve rich text formatting tags
-        if (tag === 'blockquote' || tag === 'pre' || tag === 'code') {
+        const richTextTags = ['blockquote', 'pre', 'code', 'b', 'strong', 'i', 'em', 'u', 's', 'del', 'strike'];
+        if (richTextTags.includes(tag)) {
           const el = document.createElement(tag);
-          element.childNodes.forEach((child) => appendNode(child, el));
-          target.appendChild(el);
-          return;
-        }
-
-        if (tag === 'b' || tag === 'strong') {
-          const el = document.createElement('strong');
-          element.childNodes.forEach((child) => appendNode(child, el));
-          target.appendChild(el);
-          return;
-        }
-
-        if (tag === 'i' || tag === 'em') {
-          const el = document.createElement('em');
-          element.childNodes.forEach((child) => appendNode(child, el));
-          target.appendChild(el);
-          return;
-        }
-
-        if (tag === 'u') {
-          const el = document.createElement('u');
-          element.childNodes.forEach((child) => appendNode(child, el));
-          target.appendChild(el);
-          return;
-        }
-
-        if (tag === 's' || tag === 'del' || tag === 'strike') {
-          const el = document.createElement('del');
           element.childNodes.forEach((child) => appendNode(child, el));
           target.appendChild(el);
           return;
