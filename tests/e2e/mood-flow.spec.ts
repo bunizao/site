@@ -165,4 +165,84 @@ test.describe('Mood routes', () => {
       })
       .toBe(true);
   });
+
+  test('falls back to /static image when HD image request fails', async ({ page }) => {
+    const moodId = '990001';
+    const fallbackImage = '/static/https://cdn4.telesco.pe/file/fallback.jpg';
+    const payload = {
+      posts: [
+        {
+          id: moodId,
+          datetime: '2026-02-10T13:00:00+00:00',
+          tag: 'e2e',
+          previewText: 'Image fallback case',
+          previewHtml: 'Image fallback case',
+          image: 'https://image.example.test/mood/990001/0',
+          imageFallback: fallbackImage,
+          mediaHtml: '',
+          needsDetailPage: true,
+          forwardedFrom: null,
+          quote: null,
+          reactions: [],
+          commentsCount: 0,
+        },
+      ],
+      channel: {
+        slug: 'e2e',
+        title: 'E2E Channel',
+      },
+    };
+
+    await page.route('**/api/moods**', async (route) => {
+      const url = new URL(route.request().url());
+      if (url.searchParams.get('probe') === '1') {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({ latestId: moodId }),
+        });
+        return;
+      }
+
+      if (url.searchParams.has('before')) {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({ posts: [], channel: payload.channel }),
+        });
+        return;
+      }
+
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(payload),
+      });
+    });
+
+    await page.route('https://image.example.test/**', async (route) => {
+      await route.fulfill({
+        status: 404,
+        contentType: 'text/plain',
+        body: 'not found',
+      });
+    });
+
+    await page.route('**/static/https://cdn4.telesco.pe/file/fallback.jpg**', async (route) => {
+      const gif = Buffer.from('R0lGODlhAQABAIABAP///wAAACwAAAAAAQABAAACAkQBADs=', 'base64');
+      await route.fulfill({
+        status: 200,
+        contentType: 'image/gif',
+        body: gif,
+      });
+    });
+
+    await page.goto('/mood');
+
+    const image = page.locator('.mood-item-thumb img').first();
+    await expect(image).toBeVisible();
+    await expect
+      .poll(async () => await image.getAttribute('src'))
+      .toContain(fallbackImage);
+  });
 });
