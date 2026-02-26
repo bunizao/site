@@ -350,6 +350,49 @@
     overflow: hidden;
   }
 
+  /* Character spans for typewriter animation */
+  .nav-char {
+    display: inline-block;
+  }
+
+  /* Active link indicator (vertical mode only) */
+  .nav-active-indicator {
+    position: absolute;
+    left: 0;
+    width: 2px;
+    height: 20px;
+    background: hsl(var(--foreground));
+    border-radius: 1px;
+    opacity: 0;
+    transform-origin: center top;
+    pointer-events: none;
+  }
+
+  /* Typewriter cursor on the currently-revealing character */
+  .nav-char.is-cursor::after {
+    content: '';
+    display: inline-block;
+    width: 1px;
+    height: 0.9em;
+    margin-left: 1px;
+    background: hsl(var(--foreground));
+    vertical-align: text-bottom;
+    animation: blink 0.6s step-end infinite;
+  }
+
+  /* Disable CSS hover background in vertical mode (magnetic takes over) */
+  .site-nav.is-vertical .nav-link:hover {
+    background: transparent;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .nav-char,
+    .nav-active-indicator {
+      transition: none !important;
+      animation: none !important;
+    }
+  }
+
   @media (min-width: 640px) {
     .nav-link {
       font-size: 12px;
