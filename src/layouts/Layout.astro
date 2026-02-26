@@ -798,31 +798,36 @@ const ogImageType = ogImageUrl.endsWith('.png')
         });
 
         // ─── 3f. Magnetic hover (desktop, vertical mode only) ─────────
-        // Two-layer parallax + 3D perspective tilt
+        // Combined: 3D tilt + inner glow + border light + scale breathe
         const initMagneticHover = async () => {
           const { default: gsap } = await import('gsap');
 
-          // Layer 1: Container 3D tilt + magnetic drift
-          const containerStrength = 0.12;
-          const tiltMax = 8; // max degrees
+          // Layer 1: Container — tilt, drift, scale, glow
+          const containerStrength = 0.15;
+          const tiltMax = 6; // refined from 8 — less jitter with scale
           const navQuickX = gsap.quickTo(nav, 'x', { duration: 0.4, ease: 'power2.out' });
           const navQuickY = gsap.quickTo(nav, 'y', { duration: 0.4, ease: 'power2.out' });
-          const navQuickRotX = gsap.quickTo(nav, 'rotateX', { duration: 0.35, ease: 'power2.out' });
-          const navQuickRotY = gsap.quickTo(nav, 'rotateY', { duration: 0.35, ease: 'power2.out' });
+          const navQuickRotX = gsap.quickTo(nav, 'rotateX', { duration: 0.3, ease: 'power2.out' });
+          const navQuickRotY = gsap.quickTo(nav, 'rotateY', { duration: 0.3, ease: 'power2.out' });
           let navBounds: DOMRect | null = null;
 
           nav.addEventListener('pointerenter', (e: PointerEvent) => {
             if (e.pointerType !== 'mouse' || !isVertical) return;
             navBounds = nav.getBoundingClientRect();
-            // Scale breathe + intensify backdrop
+            // Scale lift + elevated shadow + intensified glass
             gsap.to(nav, {
-              scale: 1.03,
-              boxShadow: '0 8px 32px hsl(var(--foreground) / 0.08), 0 0 0 1px hsl(var(--foreground) / 0.04)',
-              duration: 0.4,
-              ease: 'power2.out'
+              scale: 1.02,
+              boxShadow: '0 8px 32px hsl(var(--foreground) / 0.1), 0 0 0 1px hsl(var(--foreground) / 0.05)',
+              duration: 0.5,
+              ease: 'power3.out'
             });
-            nav.style.backdropFilter = 'blur(18px) saturate(1.2)';
-            nav.style.setProperty('-webkit-backdrop-filter', 'blur(18px) saturate(1.2)');
+            nav.style.backdropFilter = 'blur(20px) saturate(1.25)';
+            nav.style.setProperty('-webkit-backdrop-filter', 'blur(20px) saturate(1.25)');
+            // Pulse indicator width on enter
+            if (indicator) {
+              gsap.to(indicator, { width: 3, duration: 0.25, ease: 'power2.out' });
+              gsap.to(indicator, { width: 2, duration: 0.4, delay: 0.25, ease: 'elastic.out(1, 0.5)' });
+            }
           });
 
           nav.addEventListener('pointermove', (e: PointerEvent) => {
@@ -837,13 +842,13 @@ const ogImageType = ogImageUrl.endsWith('.png')
             navQuickX(dx * containerStrength);
             navQuickY(dy * containerStrength);
 
-            // 3D tilt: mouse right → rotateY positive, mouse down → rotateX negative
-            const ratioX = dx / (navBounds.width / 2);
-            const ratioY = dy / (navBounds.height / 2);
+            // 3D tilt
+            const ratioX = Math.max(-1, Math.min(1, dx / (navBounds.width / 2)));
+            const ratioY = Math.max(-1, Math.min(1, dy / (navBounds.height / 2)));
             navQuickRotY(ratioX * tiltMax);
             navQuickRotX(-ratioY * tiltMax);
 
-            // Cursor-tracking glow position
+            // Cursor-tracking glow + border light position
             const mx = ((e.clientX - navBounds.left) / navBounds.width * 100);
             const my = ((e.clientY - navBounds.top) / navBounds.height * 100);
             nav.style.setProperty('--mx', `${mx}%`);
@@ -855,8 +860,8 @@ const ogImageType = ogImageUrl.endsWith('.png')
             navBounds = null;
             gsap.to(nav, {
               x: 0, y: 0, rotateX: 0, rotateY: 0, scale: 1,
-              boxShadow: '0 0px 0px hsl(var(--foreground) / 0), 0 0 0 0px hsl(var(--foreground) / 0)',
-              duration: 0.6, ease: 'elastic.out(1, 0.3)'
+              boxShadow: '0 0 0 hsl(var(--foreground) / 0), 0 0 0 0 hsl(var(--foreground) / 0)',
+              duration: 0.8, ease: 'elastic.out(1, 0.35)'
             });
             nav.style.backdropFilter = '';
             nav.style.setProperty('-webkit-backdrop-filter', '');
