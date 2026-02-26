@@ -4660,6 +4660,7 @@ const skeletonGroups = [
       previewText: string;
       previewHtml?: string;
       image?: string | null;
+      imageFallback?: string | null;
       mediaHtml?: string;
       needsDetailPage?: boolean;
       forwardedFrom?: ForwardedFromData | null;
@@ -4833,6 +4834,18 @@ const skeletonGroups = [
         img.src = mood.image;
         img.alt = '';
         applyResponsiveImage(img, mood.image);
+        const fallback = typeof mood.imageFallback === 'string' ? mood.imageFallback.trim() : '';
+        if (fallback) {
+          img.dataset.fallbackSrc = fallback;
+          img.onerror = () => {
+            if (img.dataset.fallbackApplied === '1') return;
+            const fallbackSrc = img.dataset.fallbackSrc || '';
+            if (!fallbackSrc) return;
+            img.dataset.fallbackApplied = '1';
+            img.src = fallbackSrc;
+            applyResponsiveImage(img, fallbackSrc);
+          };
+        }
         setImageHints(img, { priority: isPriorityItem });
         // Intelligent image ratio detection
         img.onload = () => {

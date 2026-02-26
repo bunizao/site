@@ -151,6 +151,25 @@ function buildSrcSet(url: string, widths: number[]): string {
   return widths.map((width) => `${withWidthParam(url, width)} ${width}w`).join(', ');
 }
 
+function buildImageFallbackAttrs(fallbackSrc: string, fallbackSrcSet: string, fallbackSizes: string): string {
+  const safeFallbackSrc = sanitizeUrlValue(fallbackSrc, 'src');
+  if (!safeFallbackSrc) {
+    return '';
+  }
+
+  const attrs = [` data-fallback-src="${escapeHtml(safeFallbackSrc)}"`];
+  const safeFallbackSrcSet = sanitizeSrcSet(fallbackSrcSet);
+  if (safeFallbackSrcSet) {
+    attrs.push(` data-fallback-srcset="${escapeHtml(safeFallbackSrcSet)}"`);
+    attrs.push(` data-fallback-sizes="${escapeHtml(fallbackSizes)}"`);
+  }
+
+  attrs.push(
+    ' onerror="if(this.dataset.fallbackApplied===\'1\')return;this.dataset.fallbackApplied=\'1\';const s=this.dataset.fallbackSrc;if(s){this.src=s;}const ss=this.dataset.fallbackSrcset;if(ss){this.setAttribute(\'srcset\',ss);const z=this.dataset.fallbackSizes||\'\';if(z){this.setAttribute(\'sizes\',z);}else{this.removeAttribute(\'sizes\');}}else{this.removeAttribute(\'srcset\');this.removeAttribute(\'sizes\');}"'
+  );
+  return attrs.join('');
+}
+
 function normalizeMediaUrl(value: string): string {
   if (!value) return '';
   if (value.startsWith('//')) return `https:${value}`;
@@ -284,13 +303,23 @@ function getImages($: CheerioAPI, item: Element, { staticProxy, id, index, title
         return '';
       }
 
+      const canUseFallback = Boolean(hdUrl && fallbackUrl && hdUrl !== fallbackUrl);
+
       const inlineSrcSet = sanitizeSrcSet(buildSrcSet(imgSrc, INLINE_IMAGE_WIDTHS));
       const modalSrcSet = sanitizeSrcSet(buildSrcSet(imgSrc, MODAL_IMAGE_WIDTHS));
+      const fallbackInlineSrcSet = canUseFallback ? sanitizeSrcSet(buildSrcSet(fallbackUrl, INLINE_IMAGE_WIDTHS)) : '';
+      const fallbackModalSrcSet = canUseFallback ? sanitizeSrcSet(buildSrcSet(fallbackUrl, MODAL_IMAGE_WIDTHS)) : '';
       const srcSetAttr = inlineSrcSet
         ? ` srcset="${escapeHtml(inlineSrcSet)}" sizes="${escapeHtml(INLINE_IMAGE_SIZES)}"`
         : '';
       const modalSrcSetAttr = modalSrcSet
         ? ` srcset="${escapeHtml(modalSrcSet)}" sizes="${escapeHtml(MODAL_IMAGE_SIZES)}"`
+        : '';
+      const fallbackAttr = canUseFallback
+        ? buildImageFallbackAttrs(fallbackUrl, fallbackInlineSrcSet, INLINE_IMAGE_SIZES)
+        : '';
+      const fallbackModalAttr = canUseFallback
+        ? buildImageFallbackAttrs(fallbackUrl, fallbackModalSrcSet, MODAL_IMAGE_SIZES)
         : '';
 
       const widthMatch = style.match(/width:\s*(\d+)px/i);
@@ -318,10 +347,10 @@ function getImages($: CheerioAPI, item: Element, { staticProxy, id, index, title
 
       return `
       <button class="image-preview-button image-preview-wrap${portraitClass}" popovertarget="${popoverId}" popovertargetaction="show"${widthStyle}>
-        <img src="${escapeHtml(imgSrc)}"${srcSetAttr} alt="${escapedTitle}" loading="${(index ?? 0) > 15 ? 'eager' : 'lazy'}"${widthAttr}${heightAttr} />
+        <img src="${escapeHtml(imgSrc)}"${srcSetAttr}${fallbackAttr} alt="${escapedTitle}" loading="${(index ?? 0) > 15 ? 'eager' : 'lazy'}"${widthAttr}${heightAttr} />
       </button>
       <button class="image-preview-button modal" id="${popoverId}" popovertarget="${popoverId}" popovertargetaction="hide" popover>
-        <img class="modal-img" src="${escapeHtml(imgSrc)}"${modalSrcSetAttr} alt="${escapedTitle}" loading="lazy" />
+        <img class="modal-img" src="${escapeHtml(imgSrc)}"${modalSrcSetAttr}${fallbackModalAttr} alt="${escapedTitle}" loading="lazy" />
       </button>
     `;
     })

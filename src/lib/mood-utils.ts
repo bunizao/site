@@ -93,6 +93,39 @@ export function getFirstImage(content: string): string | null {
 }
 
 /**
+ * Extract fallback image URL from image markup (data-fallback-src).
+ */
+export function getFirstImageFallback(content: string): string | null {
+  const $ = cheerio.load(content);
+  const selectors = [
+    '.image-preview-wrap img[data-fallback-src]:not(.modal-img)',
+    '.image-list-container img[data-fallback-src]:not(.modal-img)',
+    'img[data-fallback-src]:not(.modal-img)',
+  ];
+
+  for (const selector of selectors) {
+    const image = $(selector)
+      .toArray()
+      .find((element) => {
+        if (isEmojiImageElement(element, $)) {
+          return false;
+        }
+        const src = ($(element).attr('data-fallback-src') ?? '').trim();
+        return Boolean(src);
+      });
+
+    if (image) {
+      const src = ($(image).attr('data-fallback-src') ?? '').trim();
+      if (src) {
+        return src;
+      }
+    }
+  }
+
+  return null;
+}
+
+/**
  * Strip HTML tags and convert to plain text
  */
 export function stripHtml(html: string): string {
