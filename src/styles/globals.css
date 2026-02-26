@@ -353,15 +353,15 @@
     --my: 50%;
   }
 
-  /* Cursor-tracking inner glow (inset shadow driven by JS) */
+  /* Cursor-tracking inner glow */
   .site-nav.is-vertical::before {
     content: '';
     position: absolute;
     inset: 0;
     border-radius: inherit;
     background: radial-gradient(
-      circle 80px at var(--mx) var(--my),
-      hsl(var(--foreground) / 0.08) 0%,
+      circle 90px at var(--mx) var(--my),
+      hsl(var(--foreground) / 0.12) 0%,
       transparent 70%
     );
     opacity: 0;
@@ -381,8 +381,8 @@
     inset: -1px;
     border-radius: inherit;
     background: radial-gradient(
-      circle 60px at var(--mx) var(--my),
-      hsl(var(--foreground) / 0.25) 0%,
+      circle 50px at var(--mx) var(--my),
+      hsl(var(--foreground) / 0.3) 0%,
       transparent 70%
     );
     opacity: 0;
