@@ -419,9 +419,12 @@
   }
 
   /* Ensure nav children sit above the glow */
-  .site-nav.is-vertical .nav-link,
-  .site-nav.is-vertical .nav-active-indicator {
+  .site-nav.is-vertical .nav-link {
     position: relative;
+    z-index: 1;
+  }
+
+  .site-nav.is-vertical .nav-active-indicator {
     z-index: 1;
   }
 
@@ -442,6 +445,7 @@
   /* Active link indicator (vertical mode only) */
   .nav-active-indicator {
     position: absolute;
+    top: 0;
     left: 0;
     width: 2px;
     height: 20px;
