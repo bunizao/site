@@ -334,98 +334,13 @@
     transition: opacity 0.2s ease;
   }
 
-  /* Vertical nav state — CSS vars + JS spring ticker drive the 3D hover */
+  /* Vertical nav state — plain list, no box or effects */
   .site-nav.is-vertical {
     flex-direction: column;
     align-items: flex-start;
     gap: 1px;
     height: auto;
-    padding: 10px 12px;
-    background: hsl(var(--background) / 0.7);
-    backdrop-filter: blur(12px) saturate(1.1);
-    -webkit-backdrop-filter: blur(12px) saturate(1.1);
-    border: 1px solid hsl(var(--foreground) / 0.06);
-    border-radius: 10px;
-    /* Transform driven by CSS vars, updated by JS ticker every frame */
-    --nav-x: 0;
-    --nav-y: 0;
-    --nav-rx: 0;
-    --nav-ry: 0;
-    --nav-s: 1;
-    transform: perspective(800px)
-               translateX(calc(var(--nav-x) * 1px))
-               translateY(calc(var(--nav-y) * 1px))
-               rotateX(calc(var(--nav-rx) * 1deg))
-               rotateY(calc(var(--nav-ry) * 1deg))
-               scale(var(--nav-s));
-    will-change: transform;
-    /* Transition only non-transform properties (transform is ticker-driven) */
-    transition: box-shadow 0.4s ease,
-                backdrop-filter 0.4s ease,
-                -webkit-backdrop-filter 0.4s ease,
-                background-color 0.3s ease,
-                color 0.3s ease,
-                border-color 0.3s ease;
-    /* Glow tracking */
-    --mx: 50%;
-    --my: 50%;
-  }
-
-  /* Cursor-tracking inner glow */
-  .site-nav.is-vertical::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    border-radius: inherit;
-    background: radial-gradient(
-      circle 90px at var(--mx) var(--my),
-      hsl(var(--foreground) / 0.12) 0%,
-      transparent 70%
-    );
-    opacity: 0;
-    transition: opacity 0.3s ease;
-    pointer-events: none;
-    z-index: 0;
-  }
-
-  .site-nav.is-vertical:hover::before {
-    opacity: 1;
-  }
-
-  /* Shimmering border light — follows cursor around the perimeter */
-  .site-nav.is-vertical::after {
-    content: '';
-    position: absolute;
-    inset: -1px;
-    border-radius: inherit;
-    background: radial-gradient(
-      circle 50px at var(--mx) var(--my),
-      hsl(var(--foreground) / 0.3) 0%,
-      transparent 70%
-    );
-    opacity: 0;
-    transition: opacity 0.3s ease;
-    pointer-events: none;
-    z-index: -1;
-    mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-    mask-composite: exclude;
-    -webkit-mask-composite: xor;
-    padding: 1.5px;
-  }
-
-  .site-nav.is-vertical:hover::after {
-    opacity: 1;
-  }
-
-  /* Ensure nav children sit above the glow */
-  .site-nav.is-vertical .nav-link {
-    position: relative;
-    z-index: 1;
-  }
-
-  .site-nav.is-vertical .nav-active-indicator {
-    z-index: 1;
+    padding: 10px 0;
   }
 
   .site-nav.is-vertical .nav-separator {
@@ -488,10 +403,10 @@
     color: hsl(var(--muted-foreground) / 0.5);
   }
 
-  /* Vertical hover text glow */
+  /* Vertical hover — no special effects */
   .site-nav.is-vertical .nav-link:hover {
-    background: transparent;
-    text-shadow: 0 0 12px hsl(var(--foreground) / 0.15);
+    background: hsl(var(--foreground) / 0.06);
+    text-shadow: none;
   }
 
   @media (prefers-reduced-motion: reduce) {
