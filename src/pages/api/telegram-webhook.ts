@@ -2,8 +2,8 @@
  * Telegram Bot Webhook Endpoint
  *
  * Receives channel_post updates from Telegram Bot API, dispatches
- * email notifications, and stores photo file_ids in Cloudflare KV
- * for the HD image proxy.
+ * email notifications, and ingests Telegram photo bytes into the
+ * R2-backed HD image proxy Worker.
  */
 
 import type { APIRoute } from 'astro';
@@ -17,9 +17,9 @@ export const prerender = false;
 const WEBHOOK_SECRET = import.meta.env.TELEGRAM_WEBHOOK_SECRET;
 const TELEGRAM_BOT_TOKEN = import.meta.env.TELEGRAM_BOT_TOKEN;
 const TELEGRAM_CHANNEL_ID = import.meta.env.TELEGRAM_CHANNEL_ID;
-const CF_ACCOUNT_ID = import.meta.env.CLOUDFLARE_ACCOUNT_ID;
-const CF_API_TOKEN = import.meta.env.CLOUDFLARE_API_TOKEN;
-const KV_NAMESPACE_ID = import.meta.env.CLOUDFLARE_KV_NAMESPACE_ID;
+const HD_IMAGE_URL = import.meta.env.PUBLIC_HD_IMAGE_URL;
+const HD_IMAGE_INGEST_TOKEN = import.meta.env.HD_IMAGE_INGEST_TOKEN;
+const HD_IMAGE_BASE = HD_IMAGE_URL?.replace(/\/+$/, '') ?? '';
 
 interface TelegramPhotoSize {
   file_id: string;
@@ -98,7 +98,7 @@ async function fetchChannelAvatarFileId(channelId: string): Promise<string | nul
   }
 }
 
-async function indexChannelAvatarInKv(message: TelegramMessage): Promise<void> {
+async function indexChannelAvatarInR2(message: TelegramMessage): Promise<void> {
   const channelId = message.chat?.id ? String(message.chat.id) : TELEGRAM_CHANNEL_ID || '';
   if (!channelId) {
     return;
@@ -110,41 +110,45 @@ async function indexChannelAvatarInKv(message: TelegramMessage): Promise<void> {
     return;
   }
 
-  const success = await writeToKV('channel:avatar', avatarFileId);
+  const success = await ingestToImageWorker('/ingest/channel/avatar', avatarFileId);
   if (success) {
-    console.info(`Indexed channel avatar: channel:avatar -> ${avatarFileId.slice(0, 20)}...`);
+    console.info(`Ingested channel avatar: ${avatarFileId.slice(0, 20)}...`);
   }
 }
 
 /**
- * Write a key-value pair to Cloudflare KV via REST API
+ * Trigger image ingest in the image proxy Worker.
  */
-async function writeToKV(key: string, value: string): Promise<boolean> {
-  if (!CF_ACCOUNT_ID || !CF_API_TOKEN || !KV_NAMESPACE_ID) {
-    console.error('Missing Cloudflare KV configuration');
+async function ingestToImageWorker(pathname: string, fileId: string): Promise<boolean> {
+  if (!fileId) {
+    return false;
+  }
+
+  if (!HD_IMAGE_BASE || !HD_IMAGE_INGEST_TOKEN) {
+    console.error('Missing HD image ingest configuration');
     return false;
   }
 
   try {
-    const url = `https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/storage/kv/namespaces/${KV_NAMESPACE_ID}/values/${encodeURIComponent(key)}`;
+    const url = `${HD_IMAGE_BASE}${pathname.startsWith('/') ? pathname : `/${pathname}`}`;
     const response = await fetch(url, {
-      method: 'PUT',
+      method: 'POST',
       headers: {
-        Authorization: `Bearer ${CF_API_TOKEN}`,
-        'Content-Type': 'text/plain',
+        Authorization: `Bearer ${HD_IMAGE_INGEST_TOKEN}`,
+        'Content-Type': 'application/json',
       },
-      body: value,
+      body: JSON.stringify({ fileId }),
     });
 
     if (!response.ok) {
       const error = await response.text();
-      console.error('KV write failed:', response.status, error);
+      console.error('Image ingest failed:', response.status, error);
       return false;
     }
 
     return true;
   } catch (error) {
-    console.error('KV write error:', error);
+    console.error('Image ingest request failed:', error);
     return false;
   }
 }
@@ -218,7 +222,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
 
   const postId = message.message_id.toString();
   await triggerMoodDispatch({ request, locals }, postId);
-  await indexChannelAvatarInKv(message);
+  await indexChannelAvatarInR2(message);
 
   // Only index image file_id when the post has photos
   if (!message?.photo?.length) {
@@ -236,12 +240,11 @@ export const POST: APIRoute = async ({ request, locals }) => {
   // We use a simple approach: store each as index 0
   // A more sophisticated approach would track media_group_id
   const imageIndex = 0;
-  const kvKey = `mood:${postId}:${imageIndex}`;
-
-  const success = await writeToKV(kvKey, largestPhoto.file_id);
+  const ingestPath = `/ingest/mood/${encodeURIComponent(postId)}/${imageIndex}`;
+  const success = await ingestToImageWorker(ingestPath, largestPhoto.file_id);
 
   if (success) {
-    console.info(`Indexed image: ${kvKey} -> ${largestPhoto.file_id.substring(0, 20)}...`);
+    console.info(`Ingested image: ${postId}/${imageIndex} -> ${largestPhoto.file_id.substring(0, 20)}...`);
   }
 
   return new Response('OK', { headers: rateLimitHeaders });
