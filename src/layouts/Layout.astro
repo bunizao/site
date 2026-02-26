@@ -712,8 +712,16 @@ const ogImageType = ogImageUrl.endsWith('.png')
             });
           }
 
-          // Phase 2: Layout switch
-          nav.classList.remove('is-vertical');
+          // Phase 2: Layout switch — reset hover transform state
+          nav.classList.remove('is-vertical', 'is-hovering');
+          nav.style.setProperty('--nav-x', '0');
+          nav.style.setProperty('--nav-y', '0');
+          nav.style.setProperty('--nav-rx', '0');
+          nav.style.setProperty('--nav-ry', '0');
+          nav.style.setProperty('--nav-s', '1');
+          nav.style.boxShadow = '';
+          nav.style.backdropFilter = '';
+          nav.style.setProperty('-webkit-backdrop-filter', '');
 
           // Phase 3: Snappy cascade reveal all chars + separators
           const allChars = linkDataList.flatMap(ld => ld.chars);
@@ -798,32 +806,26 @@ const ogImageType = ogImageUrl.endsWith('.png')
         });
 
         // ─── 3f. Magnetic hover (desktop, vertical mode only) ─────────
-        // Combined: 3D tilt + inner glow + border light + scale breathe
+        // 3D tilt + inner glow + border light + scale breathe
+        // Container: CSS custom properties + transitions (no GSAP on nav transform)
+        // Per-link: GSAP quickTo for magnetic pull + char wave
         const initMagneticHover = async () => {
           const { default: gsap } = await import('gsap');
-
-          // Layer 1: Container — tilt, drift, scale, glow
           const containerStrength = 0.15;
-          const tiltMax = 6; // refined from 8 — less jitter with scale
-          const navQuickX = gsap.quickTo(nav, 'x', { duration: 0.4, ease: 'power2.out' });
-          const navQuickY = gsap.quickTo(nav, 'y', { duration: 0.4, ease: 'power2.out' });
-          const navQuickRotX = gsap.quickTo(nav, 'rotateX', { duration: 0.3, ease: 'power2.out' });
-          const navQuickRotY = gsap.quickTo(nav, 'rotateY', { duration: 0.3, ease: 'power2.out' });
+          const tiltMax = 6;
           let navBounds: DOMRect | null = null;
+          let isHovering = false;
 
           nav.addEventListener('pointerenter', (e: PointerEvent) => {
             if (e.pointerType !== 'mouse' || !isVertical) return;
+            isHovering = true;
             navBounds = nav.getBoundingClientRect();
-            // Scale lift + elevated shadow + intensified glass
-            gsap.to(nav, {
-              scale: 1.02,
-              boxShadow: '0 8px 32px hsl(var(--foreground) / 0.1), 0 0 0 1px hsl(var(--foreground) / 0.05)',
-              duration: 0.5,
-              ease: 'power3.out'
-            });
+            nav.classList.add('is-hovering');
+            nav.style.setProperty('--nav-s', '1.02');
+            nav.style.boxShadow = '0 8px 32px hsl(var(--foreground) / 0.1), 0 0 0 1px hsl(var(--foreground) / 0.05)';
             nav.style.backdropFilter = 'blur(20px) saturate(1.25)';
             nav.style.setProperty('-webkit-backdrop-filter', 'blur(20px) saturate(1.25)');
-            // Pulse indicator width on enter
+            // Indicator pulse
             if (indicator) {
               gsap.to(indicator, { width: 3, duration: 0.25, ease: 'power2.out' });
               gsap.to(indicator, { width: 2, duration: 0.4, delay: 0.25, ease: 'elastic.out(1, 0.5)' });
@@ -831,24 +833,22 @@ const ogImageType = ogImageUrl.endsWith('.png')
           });
 
           nav.addEventListener('pointermove', (e: PointerEvent) => {
-            if (e.pointerType !== 'mouse' || !isVertical) return;
+            if (e.pointerType !== 'mouse' || !isVertical || !isHovering) return;
             if (!navBounds) navBounds = nav.getBoundingClientRect();
             const cx = navBounds.left + navBounds.width / 2;
             const cy = navBounds.top + navBounds.height / 2;
             const dx = e.clientX - cx;
             const dy = e.clientY - cy;
-
-            // Magnetic drift
-            navQuickX(dx * containerStrength);
-            navQuickY(dy * containerStrength);
-
-            // 3D tilt
             const ratioX = Math.max(-1, Math.min(1, dx / (navBounds.width / 2)));
             const ratioY = Math.max(-1, Math.min(1, dy / (navBounds.height / 2)));
-            navQuickRotY(ratioX * tiltMax);
-            navQuickRotX(-ratioY * tiltMax);
 
-            // Cursor-tracking glow + border light position
+            // Update CSS custom properties — CSS transition handles smoothing
+            nav.style.setProperty('--nav-x', String(dx * containerStrength));
+            nav.style.setProperty('--nav-y', String(dy * containerStrength));
+            nav.style.setProperty('--nav-ry', String(ratioX * tiltMax));
+            nav.style.setProperty('--nav-rx', String(-ratioY * tiltMax));
+
+            // Cursor-tracking glow + border light
             const mx = ((e.clientX - navBounds.left) / navBounds.width * 100);
             const my = ((e.clientY - navBounds.top) / navBounds.height * 100);
             nav.style.setProperty('--mx', `${mx}%`);
@@ -857,12 +857,16 @@ const ogImageType = ogImageUrl.endsWith('.png')
 
           nav.addEventListener('pointerleave', (e: PointerEvent) => {
             if (e.pointerType !== 'mouse') return;
+            isHovering = false;
             navBounds = null;
-            gsap.to(nav, {
-              x: 0, y: 0, rotateX: 0, rotateY: 0, scale: 1,
-              boxShadow: '0 0 0 hsl(var(--foreground) / 0), 0 0 0 0 hsl(var(--foreground) / 0)',
-              duration: 0.8, ease: 'elastic.out(1, 0.35)'
-            });
+            nav.classList.remove('is-hovering');
+            // Reset — CSS transition on .is-vertical handles the springy return
+            nav.style.setProperty('--nav-x', '0');
+            nav.style.setProperty('--nav-y', '0');
+            nav.style.setProperty('--nav-rx', '0');
+            nav.style.setProperty('--nav-ry', '0');
+            nav.style.setProperty('--nav-s', '1');
+            nav.style.boxShadow = '';
             nav.style.backdropFilter = '';
             nav.style.setProperty('-webkit-backdrop-filter', '');
           });
