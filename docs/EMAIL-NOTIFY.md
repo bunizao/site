@@ -51,7 +51,11 @@ Set these in Vercel project settings:
 
 If `TURNSTILE_SECRET_KEY` (or `CLOUDFLARE_TURNSTILE_SECRET_KEY`) is set, `POST /api/notify/subscribe` requires a valid Turnstile token.
 
-`CLOUDFLARE_KV_NAMESPACE_ID` is still used by Telegram image indexing (`/api/telegram-webhook`) and mood image lookup.
+Telegram image ingest (`/api/telegram-webhook`) now uses:
+- `PUBLIC_HD_IMAGE_URL`
+- `HD_IMAGE_INGEST_TOKEN`
+
+`CLOUDFLARE_KV_NAMESPACE_ID` is no longer required for Telegram image lookup after the R2 migration.
 
 ## Notify D1 Tables
 
