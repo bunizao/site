@@ -349,12 +349,11 @@
     perspective: 800px;
     transform-style: preserve-3d;
     position: relative;
-    overflow: hidden;
     --mx: 50%;
     --my: 50%;
   }
 
-  /* Cursor-tracking inner glow */
+  /* Cursor-tracking inner glow (inset shadow driven by JS) */
   .site-nav.is-vertical::before {
     content: '';
     position: absolute;
@@ -372,6 +371,32 @@
   }
 
   .site-nav.is-vertical:hover::before {
+    opacity: 1;
+  }
+
+  /* Shimmering border light — follows cursor around the perimeter */
+  .site-nav.is-vertical::after {
+    content: '';
+    position: absolute;
+    inset: -1px;
+    border-radius: inherit;
+    background: radial-gradient(
+      circle 60px at var(--mx) var(--my),
+      hsl(var(--foreground) / 0.25) 0%,
+      transparent 70%
+    );
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    pointer-events: none;
+    z-index: -1;
+    mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    mask-composite: exclude;
+    -webkit-mask-composite: xor;
+    padding: 1.5px;
+  }
+
+  .site-nav.is-vertical:hover::after {
     opacity: 1;
   }
 
