@@ -124,6 +124,15 @@ const ogImageType = ogImageUrl.endsWith('.png')
     <title>{title}</title>
   </head>
   <body>
+    <!-- Site navigation -->
+    <nav class="site-nav" data-site-nav aria-label="Page sections">
+      <a href="#projects-section" class="nav-link" data-nav-link="projects">Projects</a>
+      <span class="nav-separator" aria-hidden="true">/</span>
+      <a href="#writing-section" class="nav-link" data-nav-link="writing">Writing</a>
+      <span class="nav-separator" aria-hidden="true">/</span>
+      <a href="#moods-section" class="nav-link" data-nav-link="moods">Moods</a>
+    </nav>
+
     <!-- Global header actions - theme dropdown will be added by pages -->
     <div class="global-header-actions" data-header-actions>
       <div class="theme-dropdown" data-theme-dropdown>
@@ -444,6 +453,59 @@ const ogImageType = ogImageUrl.endsWith('.png')
         } else {
           initHeaderAnimations();
         }
+      })();
+    </script>
+
+    <!-- Site Navigation: smooth scroll + active tracking -->
+    <script>
+      (() => {
+        const links = document.querySelectorAll('[data-nav-link]');
+        if (!links.length) return;
+
+        // Smooth scroll on click
+        links.forEach(link => {
+          link.addEventListener('click', (e) => {
+            const href = (link as HTMLAnchorElement).getAttribute('href');
+            if (!href) return;
+            const target = document.querySelector(href);
+            if (!target) return;
+            e.preventDefault();
+            target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          });
+        });
+
+        // Track active section
+        const sections = ['projects', 'writing', 'moods'].map(id => ({
+          id,
+          el: document.getElementById(`${id}-section`)
+        })).filter(s => s.el);
+
+        let ticking = false;
+        const onScroll = () => {
+          if (ticking) return;
+          ticking = true;
+          requestAnimationFrame(() => {
+            const viewportH = window.innerHeight;
+            let activeId = '';
+            for (const section of sections) {
+              if (!section.el) continue;
+              const rect = section.el.getBoundingClientRect();
+              if (rect.top <= viewportH * 0.4 && rect.bottom > viewportH * 0.2) {
+                activeId = section.id;
+              }
+            }
+
+            links.forEach(link => {
+              const el = link as HTMLElement;
+              el.classList.toggle('is-active', el.dataset.navLink === activeId);
+            });
+
+            ticking = false;
+          });
+        };
+
+        window.addEventListener('scroll', onScroll, { passive: true });
+        onScroll();
       })();
     </script>
 
