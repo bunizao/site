@@ -1494,6 +1494,37 @@ const skeletonGroups = [
     border-bottom-color: hsl(var(--foreground) / 0.6);
   }
 
+  :global(.mood-item-text blockquote) {
+    border-left: 3px solid hsl(var(--foreground) / 0.25);
+    padding: 4px 0 4px 12px;
+    margin: 4px 0;
+    background: hsl(var(--foreground) / 0.03);
+    border-radius: 0 6px 6px 0;
+  }
+
+  :global(.mood-item-text code) {
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 0.88em;
+    background: hsl(var(--foreground) / 0.06);
+    padding: 1px 5px;
+    border-radius: 4px;
+  }
+
+  :global(.mood-item-text pre) {
+    background: hsl(var(--foreground) / 0.06);
+    padding: 8px 12px;
+    border-radius: 6px;
+    overflow-x: auto;
+    margin: 4px 0;
+    white-space: pre;
+  }
+
+  :global(.mood-item-text pre code) {
+    background: none;
+    padding: 0;
+    border-radius: 0;
+  }
+
   @media (min-width: 640px) {
     :global(.mood-item-text) {
       font-size: 15px;
@@ -3995,6 +4026,42 @@ const skeletonGroups = [
 
         if (tag === 'br') {
           target.appendChild(document.createElement('br'));
+          return;
+        }
+
+        // Preserve rich text formatting tags
+        if (tag === 'blockquote' || tag === 'pre' || tag === 'code') {
+          const el = document.createElement(tag);
+          element.childNodes.forEach((child) => appendNode(child, el));
+          target.appendChild(el);
+          return;
+        }
+
+        if (tag === 'b' || tag === 'strong') {
+          const el = document.createElement('strong');
+          element.childNodes.forEach((child) => appendNode(child, el));
+          target.appendChild(el);
+          return;
+        }
+
+        if (tag === 'i' || tag === 'em') {
+          const el = document.createElement('em');
+          element.childNodes.forEach((child) => appendNode(child, el));
+          target.appendChild(el);
+          return;
+        }
+
+        if (tag === 'u') {
+          const el = document.createElement('u');
+          element.childNodes.forEach((child) => appendNode(child, el));
+          target.appendChild(el);
+          return;
+        }
+
+        if (tag === 's' || tag === 'del' || tag === 'strike') {
+          const el = document.createElement('del');
+          element.childNodes.forEach((child) => appendNode(child, el));
+          target.appendChild(el);
           return;
         }
 
