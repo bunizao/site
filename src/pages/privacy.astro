@@ -1,0 +1,387 @@
+---
+import Layout from '@/layouts/Layout.astro';
+
+const title = 'Mood Subscribe Privacy Policy | Bunizao';
+const description =
+  'Privacy Policy for the mood email subscription flow, including data collection, Turnstile verification, sharing, retention, and unsubscribe choices.';
+const updatedAt = 'March 8, 2026';
+---
+
+<Layout
+  title={title}
+  description={description}
+  url="/privacy"
+  showSiteNav={false}
+>
+  <main class="policy-page">
+    <div class="policy-shell">
+      <a href="/mood" class="policy-back-link">Back to mood</a>
+
+      <header class="policy-header">
+        <p class="policy-updated">Updated: {updatedAt}</p>
+        <h1>Privacy Policy</h1>
+        <p class="policy-intro">
+          This Privacy Policy explains how the mood subscription feature collects, uses, and shares personal data. It
+          applies to the email subscription flow available from <a href="/mood">/mood</a>, including subscription
+          requests, confirmation emails, notification delivery, unsubscribe handling, and anti-abuse verification.
+        </p>
+        <p class="policy-intro">
+          This page is intentionally narrow in scope. It is not a general site-wide privacy statement for unrelated
+          pages or third-party links included in mood posts.
+        </p>
+      </header>
+
+      <article class="policy-article">
+        <section class="policy-section">
+          <h2>Scope</h2>
+          <p>
+            This policy covers the collection and use of personal data in connection with the mood email subscription
+            feature. It does not cover other parts of the site that do not use this subscription flow, and it does not
+            govern third-party websites or services linked from mood posts.
+          </p>
+          <p>
+            The subscription feature is designed to let you receive mood posts by email, choose a delivery schedule,
+            confirm your subscription, and later unsubscribe.
+          </p>
+        </section>
+
+        <section class="policy-section">
+          <h2>Personal data we collect</h2>
+          <p>Depending on how you use the subscription feature, we may collect the following categories of data:</p>
+          <ul>
+            <li><strong>Contact data.</strong> Your email address when you submit the subscription form.</li>
+            <li>
+              <strong>Subscription preferences.</strong> Your selected delivery mode, such as immediate, every 5
+              hours, or daily.
+            </li>
+            <li>
+              <strong>Time-related settings.</strong> Your browser-reported timezone and, where applicable, a chosen
+              daily delivery hour.
+            </li>
+            <li>
+              <strong>Subscription record metadata.</strong> Status fields such as pending, active, or unsubscribed,
+              plus timestamps such as created, updated, confirmed, last confirmation sent, and last notification sent.
+            </li>
+            <li>
+              <strong>Security and abuse-prevention data.</strong> Rate-limit information derived from request
+              metadata, anti-bot verification tokens, and the client IP address used when verifying a Turnstile
+              challenge.
+            </li>
+            <li>
+              <strong>Technical validation data.</strong> Request context used to validate the subscription request,
+              such as hostname and verification action consistency.
+            </li>
+          </ul>
+          <p>
+            We also maintain an email hash alongside the email address to index, deduplicate, and manage subscription
+            records.
+          </p>
+        </section>
+
+        <section class="policy-section">
+          <h2>How we use personal data</h2>
+          <p>We use the data described above to operate the subscription feature, including to:</p>
+          <ul>
+            <li>send you a confirmation email and complete double opt-in verification;</li>
+            <li>deliver mood notifications according to the frequency you choose;</li>
+            <li>honor unsubscribe requests and maintain subscription state;</li>
+            <li>detect abuse, spam, scripted signups, and repeated invalid requests;</li>
+            <li>debug delivery failures, retry failed sends, and keep the system working reliably; and</li>
+            <li>maintain operational records needed to run this feature safely.</li>
+          </ul>
+          <p>
+            We do not use the mood subscription list for advertising profiles, data brokerage, or unrelated marketing
+            campaigns.
+          </p>
+        </section>
+
+        <section class="policy-section">
+          <h2>Turnstile and Cloudflare</h2>
+          <p>
+            The subscription form may use
+            <a
+              href="https://www.cloudflare.com/application-services/products/turnstile/"
+              target="_blank"
+              rel="noreferrer"
+            >
+              Cloudflare Turnstile
+            </a>
+            to help distinguish legitimate visitors from bots and protect the subscribe endpoint from abuse.
+          </p>
+          <p>When Turnstile is active, the following processing may occur:</p>
+          <ul>
+            <li>your browser loads the Turnstile widget from Cloudflare;</li>
+            <li>the widget issues a verification token associated with the challenge;</li>
+            <li>
+              your subscription request includes that token, and our server sends the token to Cloudflare for
+              verification;
+            </li>
+            <li>our server may also send the client IP address to Cloudflare as part of the verification request;</li>
+            <li>
+              Cloudflare may process challenge and request metadata needed to operate Turnstile, detect abuse, perform
+              diagnostics, and generate aggregate service metrics or reporting for the Turnstile service.
+            </li>
+          </ul>
+          <p>
+            Turnstile verification is used only for security and anti-abuse purposes in this flow. If Turnstile is
+            required and you do not complete the check, the subscription request cannot be accepted.
+          </p>
+        </section>
+
+        <section class="policy-section">
+          <h2>How we share personal data</h2>
+          <p>We share personal data only where reasonably necessary to operate the subscription feature:</p>
+          <ul>
+            <li>
+              <strong>Cloudflare.</strong> Used for Turnstile verification and infrastructure supporting request
+              handling or data storage.
+            </li>
+            <li>
+              <strong>Resend.</strong> Used to send confirmation emails and mood notification emails.
+            </li>
+            <li>
+              <strong>Service providers and hosting infrastructure.</strong> Data may be processed by providers
+              involved in serving the site and persisting subscription records.
+            </li>
+          </ul>
+          <p>
+            We do not sell personal data collected through this subscription feature. We also do not share the
+            subscription list with third parties for their own direct marketing.
+          </p>
+        </section>
+
+        <section class="policy-section">
+          <h2>Retention</h2>
+          <p>
+            We retain subscription records for as long as reasonably necessary to operate the email subscription
+            feature, maintain unsubscribe status, prevent repeated abuse, and resolve operational issues.
+          </p>
+          <p>
+            Some security-related data, such as rate-limit state, may be processed temporarily and retained for a
+            shorter period than subscription records. Data processed by third-party providers such as Cloudflare
+            Turnstile or Resend is also subject to those providers&apos; own retention practices.
+          </p>
+        </section>
+
+        <section class="policy-section">
+          <h2>Your choices</h2>
+          <p>You have several choices in relation to this feature:</p>
+          <ul>
+            <li>you can choose whether to subscribe at all;</li>
+            <li>you can choose your preferred delivery frequency;</li>
+            <li>you can unsubscribe at any time using the unsubscribe link in subscription emails; and</li>
+            <li>
+              you can request access, correction, or deletion related to your subscription record by contacting
+              <a href="mailto:me@buxx.me">me@buxx.me</a>.
+            </li>
+          </ul>
+          <p>
+            If Turnstile is required in the environment where you submit the form, completing the anti-bot check is
+            part of the subscription process.
+          </p>
+        </section>
+
+        <section class="policy-section">
+          <h2>International processing</h2>
+          <p>
+            The site and its service providers may process data in countries other than the one where you are located.
+            By using the subscription feature, you understand that your data may be processed where the site
+            infrastructure, email provider, or anti-abuse provider operates.
+          </p>
+        </section>
+
+        <section class="policy-section">
+          <h2>Changes to this policy</h2>
+          <p>
+            This policy may be updated from time to time to reflect changes in the subscription feature, service
+            providers, or legal requirements. When that happens, the date at the top of this page will be updated.
+          </p>
+        </section>
+
+        <section class="policy-section">
+          <h2>Contact</h2>
+          <p>
+            If you have questions about this Privacy Policy or the mood subscription feature, contact
+            <a href="mailto:me@buxx.me">me@buxx.me</a>.
+          </p>
+        </section>
+      </article>
+    </div>
+  </main>
+</Layout>
+
+<style>
+  :global(html) {
+    scroll-behavior: smooth;
+  }
+
+  :global(.global-header-actions) {
+    display: none;
+  }
+
+  .policy-page {
+    min-height: 100vh;
+    padding: 5.5rem 0 7rem;
+    background: #000;
+    color: #fff;
+    font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+
+  .policy-page :where(h1, h2, p, li, a, span, article, header, strong, ul, section) {
+    font-family: inherit;
+    color: inherit;
+  }
+
+  .policy-shell {
+    width: min(100%, 760px);
+    margin: 0 auto;
+    padding: 0 1.5rem;
+  }
+
+  .policy-back-link {
+    display: inline-flex;
+    align-items: center;
+    margin-bottom: 2.5rem;
+    color: rgb(255 255 255 / 0.72);
+    font-size: 0.84rem;
+    line-height: 1.4;
+    transition: color 0.18s ease;
+  }
+
+  .policy-back-link::before {
+    content: '←';
+    margin-right: 0.55rem;
+  }
+
+  .policy-back-link:hover,
+  .policy-back-link:focus-visible {
+    color: #fff;
+  }
+
+  .policy-header {
+    padding-bottom: 1.2rem;
+  }
+
+  .policy-updated {
+    margin: 0 0 1rem;
+    color: rgb(255 255 255 / 0.82);
+    font-size: 1rem;
+    line-height: 1.6;
+  }
+
+  .policy-header h1 {
+    margin: 0 0 2rem;
+    font-size: clamp(3.4rem, 9vw, 6rem);
+    font-weight: 500;
+    line-height: 0.98;
+    letter-spacing: -0.065em;
+  }
+
+  .policy-intro,
+  .policy-section p,
+  .policy-section li {
+    color: rgb(255 255 255 / 0.9);
+    font-size: 1rem;
+    line-height: 1.82;
+    letter-spacing: -0.01em;
+  }
+
+  .policy-intro {
+    margin: 0 0 1.35rem;
+  }
+
+  .policy-article {
+    padding-top: 0.5rem;
+  }
+
+  .policy-section {
+    padding: 1.35rem 0 0;
+  }
+
+  .policy-section + .policy-section {
+    margin-top: 1.2rem;
+  }
+
+  .policy-section h2 {
+    margin: 0 0 1rem;
+    font-size: 2rem;
+    font-weight: 500;
+    line-height: 1.1;
+    letter-spacing: -0.045em;
+    color: #fff;
+  }
+
+  .policy-section p {
+    margin: 0;
+  }
+
+  .policy-section p + p {
+    margin-top: 1.25rem;
+  }
+
+  .policy-section ul {
+    margin: 1rem 0 0;
+    padding-left: 1.25rem;
+  }
+
+  .policy-section li + li {
+    margin-top: 0.85rem;
+  }
+
+  .policy-section strong {
+    color: #fff;
+    font-weight: 600;
+  }
+
+  .policy-page a {
+    color: #fff;
+    text-decoration: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 0.18em;
+  }
+
+  .policy-page a:hover,
+  .policy-page a:focus-visible {
+    text-decoration-thickness: 2px;
+  }
+
+  @media (max-width: 720px) {
+    .policy-page {
+      padding: 5rem 0 5.5rem;
+    }
+
+    .policy-shell {
+      padding: 0 1rem;
+    }
+
+    .policy-back-link {
+      margin-bottom: 2rem;
+    }
+
+    .policy-header h1 {
+      margin-bottom: 1.6rem;
+    }
+
+    .policy-updated,
+    .policy-intro,
+    .policy-section p,
+    .policy-section li {
+      font-size: 0.98rem;
+      line-height: 1.78;
+    }
+
+    .policy-section h2 {
+      font-size: 1.7rem;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    :global(html) {
+      scroll-behavior: auto;
+    }
+
+    .policy-back-link {
+      transition: none;
+    }
+  }
+</style>
