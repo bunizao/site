@@ -1,9 +1,9 @@
 ---
 import Layout from '@/layouts/Layout.astro';
 
-const title = 'Mood Subscribe Privacy Policy | Bunizao';
+const title = 'Privacy Policy | Bunizao';
 const description =
-  'Privacy Policy for the mood email subscription flow, including data collection, Turnstile verification, sharing, retention, and unsubscribe choices.';
+  'Privacy Policy for this website, including hosting, analytics, content delivery, mood subscriptions, and third-party services such as Vercel.';
 const updatedAt = 'March 8, 2026';
 ---
 
@@ -42,13 +42,14 @@ const updatedAt = 'March 8, 2026';
         <p class="policy-updated">Updated: {updatedAt}</p>
         <h1>Privacy Policy</h1>
         <p class="policy-intro">
-          This Privacy Policy explains how the mood subscription feature collects, uses, and shares personal data. It
-          applies to the email subscription flow available from <a href="/mood">/mood</a>, including subscription
-          requests, confirmation emails, notification delivery, unsubscribe handling, and anti-abuse verification.
+          This Privacy Policy explains how this website collects, uses, and shares personal data. It applies to the
+          site as a whole, including page visits, theme preferences, analytics and performance monitoring, public
+          content loading, API access, and the mood subscription flow available from <a href="/mood">/mood</a>.
         </p>
         <p class="policy-intro">
-          This page is intentionally narrow in scope. It is not a general site-wide privacy statement for unrelated
-          pages or third-party links included in mood posts.
+          It also covers the infrastructure and services used to run the site, including Vercel for hosting and
+          performance tooling, Cloudflare for anti-abuse checks and data infrastructure in the mood notification flow,
+          and other third-party services used to load public content or deliver email.
         </p>
       </header>
 
@@ -56,70 +57,92 @@ const updatedAt = 'March 8, 2026';
         <section class="policy-section">
           <h2>Scope</h2>
           <p>
-            This policy covers the collection and use of personal data in connection with the mood email subscription
-            feature. It does not cover other parts of the site that do not use this subscription flow, and it does not
-            govern third-party websites or services linked from mood posts.
+            This policy covers personal data processed in connection with this website, including the homepage, mood
+            pages, privacy page, API routes, mood comments views, and the optional email subscription feature.
           </p>
           <p>
-            The subscription feature is designed to let you receive mood posts by email, choose a delivery schedule,
-            confirm your subscription, and later unsubscribe.
+            It does not govern third-party websites, external links, or services you visit independently after leaving
+            this site.
           </p>
         </section>
 
         <section class="policy-section">
           <h2>Personal data we collect</h2>
-          <p>Depending on how you use the subscription feature, we may collect the following categories of data:</p>
+          <p>Depending on how you use the site, we may collect or process the following categories of data:</p>
           <ul>
-            <li><strong>Contact data.</strong> Your email address when you submit the subscription form.</li>
             <li>
-              <strong>Subscription preferences.</strong> Your selected delivery mode, such as immediate, every 5
-              hours, or daily.
+              <strong>Information you provide directly.</strong> If you use the mood subscription form, this includes
+              your email address, delivery preferences, timezone, and related subscription settings.
             </li>
             <li>
-              <strong>Time-related settings.</strong> Your browser-reported timezone and, where applicable, a chosen
-              daily delivery hour.
+              <strong>Technical and request data.</strong> When you visit pages or call API routes, infrastructure and
+              security systems may process request metadata needed to serve the site, operate rate limits, prevent
+              abuse, and keep the service available.
             </li>
             <li>
-              <strong>Subscription record metadata.</strong> Status fields such as pending, active, or unsubscribed,
-              plus timestamps such as created, updated, confirmed, last confirmation sent, and last notification sent.
+              <strong>Analytics and performance data.</strong> The site uses Vercel tooling to measure traffic and page
+              performance. That may involve usage and performance measurements associated with page loads and visits.
             </li>
             <li>
-              <strong>Security and abuse-prevention data.</strong> Rate-limit information derived from request
-              metadata, anti-bot verification tokens, and the client IP address used when verifying a Turnstile
-              challenge.
+              <strong>Theme preference data.</strong> If you change the site theme, that preference is stored locally
+              in your browser using local storage so the site can remember it later.
             </li>
             <li>
-              <strong>Technical validation data.</strong> Request context used to validate the subscription request,
-              such as hostname and verification action consistency.
+              <strong>Subscription record metadata.</strong> For mood subscriptions, this includes status fields such
+              as pending, active, or unsubscribed, plus timestamps such as created, updated, confirmed, last
+              confirmation sent, and last notification sent.
+            </li>
+            <li>
+              <strong>Security and anti-abuse data.</strong> If Turnstile is enabled for the mood subscription flow,
+              anti-bot verification data may include a challenge token and the client IP address used during
+              verification.
+            </li>
+            <li>
+              <strong>Public-content request data.</strong> The site loads or displays public content from services
+              such as Ghost, GitHub, a GitHub contributions API, and Telegram-related sources, which may involve
+              server-side or browser-side requests to those services.
             </li>
           </ul>
           <p>
-            We also maintain an email hash alongside the email address to index, deduplicate, and manage subscription
-            records.
+            For mood subscriptions, the site also maintains an email hash alongside the email address to index,
+            deduplicate, and manage subscription records.
           </p>
         </section>
 
         <section class="policy-section">
           <h2>How we use personal data</h2>
-          <p>We use the data described above to operate the subscription feature, including to:</p>
+          <p>We use the data described above to operate and improve the site, including to:</p>
           <ul>
-            <li>send you a confirmation email and complete double opt-in verification;</li>
-            <li>deliver mood notifications according to the frequency you choose;</li>
-            <li>honor unsubscribe requests and maintain subscription state;</li>
-            <li>detect abuse, spam, scripted signups, and repeated invalid requests;</li>
-            <li>debug delivery failures, retry failed sends, and keep the system working reliably; and</li>
-            <li>maintain operational records needed to run this feature safely.</li>
+            <li>host, render, and secure the website and its API routes;</li>
+            <li>remember your local theme preference;</li>
+            <li>measure traffic, page performance, and reliability;</li>
+            <li>load public content from connected sources such as Ghost, GitHub, and Telegram-related data;</li>
+            <li>send subscription confirmation emails and mood notifications if you opt in;</li>
+            <li>honor unsubscribe requests and maintain subscription state; and</li>
+            <li>detect abuse, spam, scripted signups, and operational failures.</li>
           </ul>
           <p>
-            We do not use the mood subscription list for advertising profiles, data brokerage, or unrelated marketing
-            campaigns.
+            We do not use personal data collected through this site for data brokerage or unrelated advertising
+            profiles.
           </p>
         </section>
 
         <section class="policy-section">
-          <h2>Turnstile and Cloudflare</h2>
+          <h2>Vercel, analytics, and performance</h2>
           <p>
-            The subscription form may use
+            This site is hosted on Vercel and uses Vercel tooling for analytics and performance monitoring, including
+            Vercel Analytics and Vercel Speed Insights.
+          </p>
+          <p>
+            Vercel may process standard request metadata, usage information, and performance measurements needed to
+            serve the site, analyze traffic, and understand how pages perform in real use.
+          </p>
+        </section>
+
+        <section class="policy-section">
+          <h2>Cloudflare, email delivery, and anti-abuse</h2>
+          <p>
+            The mood subscription form may use
             <a
               href="https://www.cloudflare.com/application-services/products/turnstile/"
               target="_blank"
@@ -129,66 +152,80 @@ const updatedAt = 'March 8, 2026';
             </a>
             to help distinguish legitimate visitors from bots and protect the subscribe endpoint from abuse.
           </p>
-          <p>When Turnstile is active, the following processing may occur:</p>
           <ul>
-            <li>your browser loads the Turnstile widget from Cloudflare;</li>
-            <li>the widget issues a verification token associated with the challenge;</li>
+            <li>your browser may load the Turnstile widget from Cloudflare;</li>
+            <li>the widget may issue a verification token associated with the challenge;</li>
             <li>
-              your subscription request includes that token, and our server sends the token to Cloudflare for
+              the subscription request may include that token, and the server may send it to Cloudflare for
               verification;
             </li>
-            <li>our server may also send the client IP address to Cloudflare as part of the verification request;</li>
             <li>
-              Cloudflare may process challenge and request metadata needed to operate Turnstile, detect abuse, perform
-              diagnostics, and generate aggregate service metrics or reporting for the Turnstile service.
+              the server may also send the client IP address to Cloudflare as part of that verification request; and
+            </li>
+            <li>
+              confirmation and notification emails for mood subscriptions are sent through Resend.
             </li>
           </ul>
           <p>
-            Turnstile verification is used only for security and anti-abuse purposes in this flow. If Turnstile is
-            required and you do not complete the check, the subscription request cannot be accepted.
+            Cloudflare may also support data infrastructure used for the mood notification feature. Turnstile
+            verification is used only for security and anti-abuse purposes in that flow.
+          </p>
+        </section>
+
+        <section class="policy-section">
+          <h2>Content and third-party data sources</h2>
+          <p>The site also relies on third-party services to load public content and metadata, including:</p>
+          <ul>
+            <li><strong>Ghost.</strong> Used to display writing links and post metadata.</li>
+            <li><strong>GitHub.</strong> Used to display repository data and related project metadata.</li>
+            <li>
+              <strong>GitHub contributions API.</strong> Used on the homepage to display the GitHub contributions
+              graph.
+            </li>
+            <li>
+              <strong>Telegram-related sources.</strong> Used to fetch and display mood content and comment threads.
+            </li>
+          </ul>
+          <p>
+            Depending on the page and feature you use, requests associated with delivering that content may involve
+            those services directly or through this site&apos;s server-side integrations.
           </p>
         </section>
 
         <section class="policy-section">
           <h2>How we share personal data</h2>
-          <p>We share personal data only where reasonably necessary to operate the subscription feature:</p>
+          <p>We share personal data only where reasonably necessary to operate the site and its features:</p>
           <ul>
-            <li>
-              <strong>Cloudflare.</strong> Used for Turnstile verification and infrastructure supporting request
-              handling or data storage.
-            </li>
-            <li>
-              <strong>Resend.</strong> Used to send confirmation emails and mood notification emails.
-            </li>
-            <li>
-              <strong>Service providers and hosting infrastructure.</strong> Data may be processed by providers
-              involved in serving the site and persisting subscription records.
-            </li>
+            <li><strong>Vercel.</strong> Hosting, analytics, and performance monitoring.</li>
+            <li><strong>Cloudflare.</strong> Anti-abuse verification and mood notification infrastructure.</li>
+            <li><strong>Resend.</strong> Email delivery for mood subscriptions.</li>
+            <li><strong>Ghost, GitHub, and Telegram-related services.</strong> Public content and metadata sources.</li>
           </ul>
           <p>
-            We do not sell personal data collected through this subscription feature. We also do not share the
-            subscription list with third parties for their own direct marketing.
+            We do not sell personal data collected through this site, and we do not share subscription lists with
+            third parties for their own direct marketing.
           </p>
         </section>
 
         <section class="policy-section">
           <h2>Retention</h2>
           <p>
-            We retain subscription records for as long as reasonably necessary to operate the email subscription
-            feature, maintain unsubscribe status, prevent repeated abuse, and resolve operational issues.
+            We retain data for as long as reasonably necessary to operate the site, maintain security, understand
+            performance, and provide optional features such as mood subscriptions.
           </p>
           <p>
-            Some security-related data, such as rate-limit state, may be processed temporarily and retained for a
-            shorter period than subscription records. Data processed by third-party providers such as Cloudflare
-            Turnstile or Resend is also subject to those providers&apos; own retention practices.
+            Some data is short-lived, such as temporary rate-limit state or local theme settings stored in your
+            browser. Subscription records may be retained longer to maintain opt-in status, unsubscribe status, and
+            delivery history. Data handled by Vercel, Cloudflare, Resend, Ghost, GitHub, Telegram-related sources, or
+            other providers is also subject to those providers&apos; own retention practices.
           </p>
         </section>
 
         <section class="policy-section">
           <h2>Your choices</h2>
-          <p>You have several choices in relation to this feature:</p>
+          <p>You have several choices in relation to this site:</p>
           <ul>
-            <li>you can choose whether to subscribe at all;</li>
+            <li>you can browse the site without subscribing to mood notifications;</li>
             <li>you can choose your preferred delivery frequency;</li>
             <li>you can unsubscribe at any time using the unsubscribe link in subscription emails; and</li>
             <li>
@@ -197,8 +234,8 @@ const updatedAt = 'March 8, 2026';
             </li>
           </ul>
           <p>
-            If Turnstile is required in the environment where you submit the form, completing the anti-bot check is
-            part of the subscription process.
+            You can also clear locally stored theme preferences through your browser storage controls. If Turnstile is
+            required when you submit the subscription form, completing the anti-bot check is part of that process.
           </p>
         </section>
 
@@ -222,7 +259,7 @@ const updatedAt = 'March 8, 2026';
         <section class="policy-section">
           <h2>Contact</h2>
           <p>
-            If you have questions about this Privacy Policy or the mood subscription feature, contact
+            If you have questions about this Privacy Policy or this site&apos;s data practices, contact
             <a href="mailto:me@buxx.me">me@buxx.me</a>.
           </p>
         </section>
