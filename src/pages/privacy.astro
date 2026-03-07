@@ -18,11 +18,21 @@ const updatedAt = 'March 8, 2026';
       const nav = document.querySelector('[data-site-nav]');
       if (!nav) return;
 
-      nav.querySelectorAll('a[href^="#"]').forEach((link) => {
-        const href = link.getAttribute('href');
-        if (!href) return;
-        link.setAttribute('href', `/${href}`);
-      });
+      nav.classList.add('policy-home-nav');
+      nav.setAttribute('aria-label', 'Home');
+      nav.querySelector('[data-nav-indicator]')?.remove();
+
+      const links = Array.from(nav.querySelectorAll('.nav-link'));
+      const primaryLink = links[0];
+      if (primaryLink) {
+        primaryLink.textContent = 'Home';
+        primaryLink.setAttribute('href', '/');
+        primaryLink.removeAttribute('data-nav-link');
+        primaryLink.removeAttribute('data-nav-index');
+      }
+
+      links.slice(1).forEach((link) => link.remove());
+      nav.querySelectorAll('.nav-separator').forEach((separator) => separator.remove());
     })();
   </script>
 
@@ -227,16 +237,35 @@ const updatedAt = 'March 8, 2026';
   }
 
   .policy-page {
+    --policy-text: #111;
+    --policy-muted: rgb(17 17 17 / 0.7);
+    --policy-rule: rgb(17 17 17 / 0.14);
     min-height: 100vh;
     padding: 8.5rem 0 7rem;
-    background: #000;
-    color: #fff;
+    background: #fafafa;
+    color: var(--policy-text);
     font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+
+  :global(.dark) .policy-page {
+    --policy-text: #fff;
+    --policy-muted: rgb(255 255 255 / 0.78);
+    --policy-rule: rgb(255 255 255 / 0.14);
+    background: #000;
   }
 
   .policy-page :where(h1, h2, p, li, a, span, article, header, strong, ul, section) {
     font-family: inherit;
     color: inherit;
+  }
+
+  :global(.policy-home-nav) {
+    align-items: center;
+    justify-content: flex-start;
+  }
+
+  :global(.policy-home-nav .nav-link) {
+    cursor: pointer;
   }
 
   .policy-shell {
@@ -251,26 +280,26 @@ const updatedAt = 'March 8, 2026';
 
   .policy-updated {
     margin: 0 0 1rem;
-    color: rgb(255 255 255 / 0.82);
+    color: var(--policy-muted);
     font-size: 1rem;
     line-height: 1.6;
   }
 
   .policy-header h1 {
     margin: 0 0 2rem;
-    font-size: clamp(3.4rem, 9vw, 6rem);
+    font-size: clamp(2.8rem, 7vw, 4.9rem);
     font-weight: 500;
-    line-height: 0.98;
-    letter-spacing: -0.065em;
+    line-height: 1;
+    letter-spacing: -0.04em;
   }
 
   .policy-intro,
   .policy-section p,
   .policy-section li {
-    color: rgb(255 255 255 / 0.9);
+    color: var(--policy-text);
     font-size: 1rem;
     line-height: 1.82;
-    letter-spacing: -0.01em;
+    letter-spacing: -0.008em;
   }
 
   .policy-intro {
@@ -283,12 +312,13 @@ const updatedAt = 'March 8, 2026';
 
   .policy-section {
     padding: 0;
+    border-bottom: none;
   }
 
   .policy-section + .policy-section {
     margin-top: 1.9rem;
     padding-top: 1.9rem;
-    border-top: 1px solid rgb(255 255 255 / 0.14);
+    border-top: 1px solid var(--policy-rule);
   }
 
   .policy-section h2 {
@@ -316,7 +346,7 @@ const updatedAt = 'March 8, 2026';
   }
 
   .policy-section li::marker {
-    color: #fff;
+    color: var(--policy-text);
   }
 
   .policy-section li + li {
@@ -329,7 +359,7 @@ const updatedAt = 'March 8, 2026';
   }
 
   .policy-page a {
-    color: #fff;
+    color: var(--policy-text);
     text-decoration: underline;
     text-decoration-thickness: 1px;
     text-underline-offset: 0.18em;
