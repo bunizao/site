@@ -11,12 +11,23 @@ const updatedAt = 'March 8, 2026';
   title={title}
   description={description}
   url="/privacy"
-  showSiteNav={false}
+  showSiteNav={true}
 >
+  <script is:inline>
+    (() => {
+      const nav = document.querySelector('[data-site-nav]');
+      if (!nav) return;
+
+      nav.querySelectorAll('a[href^="#"]').forEach((link) => {
+        const href = link.getAttribute('href');
+        if (!href) return;
+        link.setAttribute('href', `/${href}`);
+      });
+    })();
+  </script>
+
   <main class="policy-page">
     <div class="policy-shell">
-      <a href="/mood" class="policy-back-link">Back to mood</a>
-
       <header class="policy-header">
         <p class="policy-updated">Updated: {updatedAt}</p>
         <h1>Privacy Policy</h1>
@@ -215,13 +226,9 @@ const updatedAt = 'March 8, 2026';
     scroll-behavior: smooth;
   }
 
-  :global(.global-header-actions) {
-    display: none;
-  }
-
   .policy-page {
     min-height: 100vh;
-    padding: 5.5rem 0 7rem;
+    padding: 8.5rem 0 7rem;
     background: #000;
     color: #fff;
     font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
@@ -236,26 +243,6 @@ const updatedAt = 'March 8, 2026';
     width: min(100%, 760px);
     margin: 0 auto;
     padding: 0 1.5rem;
-  }
-
-  .policy-back-link {
-    display: inline-flex;
-    align-items: center;
-    margin-bottom: 2.5rem;
-    color: rgb(255 255 255 / 0.72);
-    font-size: 0.84rem;
-    line-height: 1.4;
-    transition: color 0.18s ease;
-  }
-
-  .policy-back-link::before {
-    content: '←';
-    margin-right: 0.55rem;
-  }
-
-  .policy-back-link:hover,
-  .policy-back-link:focus-visible {
-    color: #fff;
   }
 
   .policy-header {
@@ -295,11 +282,13 @@ const updatedAt = 'March 8, 2026';
   }
 
   .policy-section {
-    padding: 1.35rem 0 0;
+    padding: 0;
   }
 
   .policy-section + .policy-section {
-    margin-top: 1.2rem;
+    margin-top: 1.9rem;
+    padding-top: 1.9rem;
+    border-top: 1px solid rgb(255 255 255 / 0.14);
   }
 
   .policy-section h2 {
@@ -322,6 +311,12 @@ const updatedAt = 'March 8, 2026';
   .policy-section ul {
     margin: 1rem 0 0;
     padding-left: 1.25rem;
+    list-style: disc;
+    list-style-position: outside;
+  }
+
+  .policy-section li::marker {
+    color: #fff;
   }
 
   .policy-section li + li {
@@ -347,15 +342,11 @@ const updatedAt = 'March 8, 2026';
 
   @media (max-width: 720px) {
     .policy-page {
-      padding: 5rem 0 5.5rem;
+      padding: 7.25rem 0 5.5rem;
     }
 
     .policy-shell {
       padding: 0 1rem;
-    }
-
-    .policy-back-link {
-      margin-bottom: 2rem;
     }
 
     .policy-header h1 {
@@ -378,10 +369,6 @@ const updatedAt = 'March 8, 2026';
   @media (prefers-reduced-motion: reduce) {
     :global(html) {
       scroll-behavior: auto;
-    }
-
-    .policy-back-link {
-      transition: none;
     }
   }
 </style>
