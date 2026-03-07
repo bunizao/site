@@ -1565,6 +1565,14 @@ const telegramCommentUrl = channel && id ? `https://t.me/${channel}/${id}?commen
     border-bottom-color: hsl(var(--foreground) / 0.6);
   }
 
+  .mood-comment-content :global(.emoji) {
+    font-style: normal;
+  }
+
+  .mood-comment-content :global(.emoji b) {
+    font-weight: inherit;
+  }
+
   .mood-comment-content :global(.tg-emoji) {
     display: inline-flex;
     align-items: center;
@@ -1660,6 +1668,57 @@ const telegramCommentUrl = channel && id ? `https://t.me/${channel}/${id}?commen
     margin: 0;
     position: relative;
     z-index: 1;
+    white-space: pre-line;
+  }
+
+  .mood-comment-content :global(.tgme_widget_message_reply) {
+    display: block;
+    margin: 0 0 0.75em;
+  }
+
+  .mood-comment-content :global(.tgme_widget_message_reply:last-child) {
+    margin-bottom: 0;
+  }
+
+  .mood-comment-content :global(a.tgme_widget_message_reply) {
+    color: inherit;
+    text-decoration: none;
+    border-bottom: none;
+  }
+
+  .mood-comment-content :global(a.tgme_widget_message_reply:hover) {
+    border-bottom: none;
+  }
+
+  .mood-comment-content :global(.tgme_widget_message_reply blockquote) {
+    margin: 0;
+  }
+
+  .mood-comment-content :global(.tgme_widget_message_reply small) {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3em;
+    white-space: normal;
+  }
+
+  .mood-comment-content :global(.tgme_widget_message_author),
+  .mood-comment-content :global(.tgme_widget_message_reply_author),
+  .mood-comment-content :global(.tgme_widget_message_reply_title),
+  .mood-comment-content :global(.tgme_widget_message_reply_name) {
+    font-size: 0.92em;
+    font-weight: 600;
+    line-height: 1.35;
+    color: hsl(var(--foreground) / 0.72);
+  }
+
+  .mood-comment-content :global(.tgme_widget_message_author_name) {
+    color: inherit;
+  }
+
+  .mood-comment-content :global(.js-message_reply_text),
+  .mood-comment-content :global(.tgme_widget_message_reply_text) {
+    color: inherit;
+    opacity: 0.92;
     white-space: pre-line;
   }
 
@@ -2417,14 +2476,6 @@ const telegramCommentUrl = channel && id ? `https://t.me/${channel}/${id}?commen
       return String(value);
     };
 
-    const toPlainText = (value: unknown): string => {
-      const html = asText(value);
-      if (!html) return '';
-      const template = document.createElement('template');
-      template.innerHTML = html;
-      return (template.content.textContent ?? '').trim();
-    };
-
     const sanitizeImageUrl = (value: unknown): string => {
       const raw = asText(value).trim();
       if (!raw) return '';
@@ -2486,7 +2537,8 @@ const telegramCommentUrl = channel && id ? `https://t.me/${channel}/${id}?commen
 
       const contentEl = document.createElement('div');
       contentEl.className = 'mood-comment-content';
-      contentEl.textContent = toPlainText(comment?.content);
+      // Comment HTML is sanitized by the API layer. Preserve Telegram markup here.
+      contentEl.innerHTML = asText(comment?.content).trim();
       body.appendChild(contentEl);
 
       const reactions = Array.isArray(comment?.reactions) ? comment.reactions : [];

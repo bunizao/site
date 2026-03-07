@@ -1965,6 +1965,14 @@ const skeletonGroups = [
     margin-top: 0.5em;
   }
 
+  :global(.mood-popover-comment-content .emoji) {
+    font-style: normal;
+  }
+
+  :global(.mood-popover-comment-content .emoji b) {
+    font-weight: inherit;
+  }
+
   :global(.mood-popover-comment-content blockquote) {
     margin: 0.4em 0;
     padding: 3px 8px;
@@ -1989,6 +1997,57 @@ const skeletonGroups = [
     width: 100%;
     height: 100%;
     display: block;
+  }
+
+  :global(.mood-popover-comment-content .tgme_widget_message_reply) {
+    display: block;
+    margin: 0 0 0.5em;
+  }
+
+  :global(.mood-popover-comment-content .tgme_widget_message_reply:last-child) {
+    margin-bottom: 0;
+  }
+
+  :global(.mood-popover-comment-content a.tgme_widget_message_reply) {
+    color: inherit;
+    text-decoration: none;
+    border-bottom: none;
+  }
+
+  :global(.mood-popover-comment-content a.tgme_widget_message_reply:hover) {
+    border-bottom: none;
+  }
+
+  :global(.mood-popover-comment-content .tgme_widget_message_reply blockquote) {
+    margin: 0;
+  }
+
+  :global(.mood-popover-comment-content .tgme_widget_message_reply small) {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2em;
+    white-space: normal;
+  }
+
+  :global(.mood-popover-comment-content .tgme_widget_message_author),
+  :global(.mood-popover-comment-content .tgme_widget_message_reply_author),
+  :global(.mood-popover-comment-content .tgme_widget_message_reply_title),
+  :global(.mood-popover-comment-content .tgme_widget_message_reply_name) {
+    font-size: 0.95em;
+    font-weight: 600;
+    line-height: 1.35;
+    color: hsl(var(--foreground) / 0.72);
+  }
+
+  :global(.mood-popover-comment-content .tgme_widget_message_author_name) {
+    color: inherit;
+  }
+
+  :global(.mood-popover-comment-content .js-message_reply_text),
+  :global(.mood-popover-comment-content .tgme_widget_message_reply_text) {
+    color: inherit;
+    opacity: 0.92;
+    white-space: pre-line;
   }
 
   :global(.mood-popover-view-all) {
@@ -4313,14 +4372,6 @@ const skeletonGroups = [
         return String(value);
       };
 
-      const toPlainText = (value: unknown): string => {
-        const html = asText(value);
-        if (!html) return '';
-        const template = document.createElement('template');
-        template.innerHTML = html;
-        return (template.content.textContent ?? '').trim();
-      };
-
       const sanitizeImageUrl = (value: unknown): string => {
         const raw = asText(value).trim();
         if (!raw) return '';
@@ -4407,7 +4458,8 @@ const skeletonGroups = [
 
         const content = document.createElement('div');
         content.className = 'mood-popover-comment-content';
-        content.textContent = toPlainText(comment?.content);
+        // Comment HTML is sanitized by the API layer. Preserve Telegram markup here.
+        content.innerHTML = asText(comment?.content).trim();
         body.appendChild(content);
 
         root.appendChild(body);
