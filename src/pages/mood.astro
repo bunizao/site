@@ -159,6 +159,10 @@ const skeletonGroups = [
                 <span data-notify-submit-spinner class="notify-spinner is-hidden"></span>
               </button>
               <p class="notify-submit-hint" data-notify-submit-hint>Complete security check before subscribing.</p>
+              <p class="notify-privacy-note">
+                Subscription details are covered by the
+                <a href="/privacy" class="notify-privacy-link" target="_blank" rel="noopener noreferrer">Privacy Policy</a>.
+              </p>
               <div data-notify-error-msg class="notify-error-msg" aria-live="polite"></div>
             </form>
           </div>
@@ -2752,6 +2756,26 @@ const skeletonGroups = [
     letter-spacing: 0.015em;
     color: hsl(var(--muted-foreground) / 0.76);
     text-align: center;
+  }
+
+  :global(.notify-privacy-note) {
+    margin: 6px 0 0;
+    font-size: 10.5px;
+    line-height: 1.45;
+    text-align: center;
+    color: hsl(var(--muted-foreground) / 0.74);
+  }
+
+  :global(.notify-privacy-link) {
+    color: hsl(var(--foreground));
+    text-decoration: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 0.16em;
+  }
+
+  :global(.notify-privacy-link:hover),
+  :global(.notify-privacy-link:focus-visible) {
+    text-decoration-thickness: 2px;
   }
 
   :global(.notify-error-msg) {
