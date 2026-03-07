@@ -5,6 +5,7 @@ interface Props {
   image?: string;
   imageAlt?: string;
   url?: string;
+  showSiteNav?: boolean;
   rss?: {
     href: string;
     title?: string;
@@ -25,6 +26,7 @@ const {
   image = '/og.png',
   imageAlt = 'Bunizao',
   url,
+  showSiteNav = true,
   rss,
   oembed,
 } = Astro.props;
@@ -124,15 +126,17 @@ const ogImageType = ogImageUrl.endsWith('.png')
     <title>{title}</title>
   </head>
   <body>
-    <!-- Site navigation -->
-    <nav class="site-nav" data-site-nav aria-label="Page sections">
-      <div class="nav-active-indicator" data-nav-indicator aria-hidden="true"></div>
-      <a href="#projects-section" class="nav-link" data-nav-link="projects" data-nav-index="01">Projects</a>
-      <span class="nav-separator" aria-hidden="true">/</span>
-      <a href="#writing-section" class="nav-link" data-nav-link="writing" data-nav-index="02">Writing</a>
-      <span class="nav-separator" aria-hidden="true">/</span>
-      <a href="#moods-section" class="nav-link" data-nav-link="moods" data-nav-index="03">Moods</a>
-    </nav>
+    {showSiteNav ? (
+      <!-- Site navigation -->
+      <nav class="site-nav" data-site-nav aria-label="Page sections">
+        <div class="nav-active-indicator" data-nav-indicator aria-hidden="true"></div>
+        <a href="#projects-section" class="nav-link" data-nav-link="projects" data-nav-index="01">Projects</a>
+        <span class="nav-separator" aria-hidden="true">/</span>
+        <a href="#writing-section" class="nav-link" data-nav-link="writing" data-nav-index="02">Writing</a>
+        <span class="nav-separator" aria-hidden="true">/</span>
+        <a href="#moods-section" class="nav-link" data-nav-link="moods" data-nav-index="03">Moods</a>
+      </nav>
+    ) : null}
 
     <!-- Global header actions - theme dropdown will be added by pages -->
     <div class="global-header-actions" data-header-actions>
