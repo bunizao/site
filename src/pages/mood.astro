@@ -1252,67 +1252,6 @@ const skeletonGroups = [
     color: hsl(var(--muted-foreground) / 0.7);
   }
 
-  :global(.mood-item-quote) {
-    display: inline-flex;
-    flex-direction: column;
-    gap: 4px;
-    padding: 8px 10px;
-    border-radius: 10px;
-    border: none;
-    background: hsl(var(--foreground) / 0.03);
-    color: hsl(var(--muted-foreground));
-    text-decoration: none;
-    align-self: flex-start;
-    max-width: 88%;
-    width: fit-content;
-  }
-
-  :global(.mood-item-quote[href]) {
-    cursor: pointer;
-    transition: background 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
-  }
-
-  :global(.mood-item-quote[href]:hover),
-  :global(.mood-item-quote[href]:focus-visible) {
-    background: hsl(var(--foreground) / 0.06);
-    color: hsl(var(--foreground) / 0.7);
-    box-shadow: 0 0 0 1px hsl(var(--foreground) / 0.08);
-  }
-
-  :global(.mood-item-quote[href]:hover .mood-item-quote-text),
-  :global(.mood-item-quote[href]:focus-visible .mood-item-quote-text) {
-    color: hsl(var(--foreground) / 0.75);
-  }
-
-  :global(.mood-item-quote-meta) {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 11px;
-    text-transform: none;
-    letter-spacing: 0.02em;
-    color: hsl(var(--muted-foreground));
-  }
-
-  :global(.mood-item-quote-author) {
-    font-size: 11px;
-    letter-spacing: 0.02em;
-    text-transform: none;
-    color: hsl(var(--foreground) / 0.6);
-  }
-
-  :global(.mood-item-quote-text) {
-    margin: 0;
-    font-size: 12px;
-    line-height: 1.55;
-    color: hsl(var(--foreground) / 0.6);
-    white-space: pre-line;
-    display: -webkit-box;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 3;
-    overflow: hidden;
-  }
-
   :global(.mood-item-media) {
     display: flex;
     flex-direction: column;
@@ -1637,36 +1576,6 @@ const skeletonGroups = [
     margin-top: 8px;
   }
 
-  :global(.mood-reaction) {
-    display: inline-flex;
-    align-items: center;
-    gap: 3px;
-    padding: 3px 8px 3px 6px;
-    font-size: 12px;
-    background: hsl(var(--foreground) / 0.05);
-    border-radius: 999px;
-    color: hsl(var(--muted-foreground));
-    border: 1px solid transparent;
-  }
-
-  :global(.mood-reaction--paid) {
-    background: hsl(45 100% 50% / 0.08);
-    color: hsl(45 70% 40%);
-  }
-
-  :global(.mood-reaction-emoji) {
-    display: inline-flex;
-    align-items: center;
-    font-size: 14px;
-    line-height: 1;
-  }
-
-  :global(.mood-reaction-emoji img) {
-    width: 1em;
-    height: 1em;
-    display: block;
-  }
-
   :global(.tg-emoji) {
     display: inline-flex;
     align-items: center;
@@ -1967,6 +1876,14 @@ const skeletonGroups = [
 
   :global(.mood-popover-comment-content p + p) {
     margin-top: 0.5em;
+  }
+
+  :global(.mood-popover-comment-content .emoji) {
+    font-style: normal;
+  }
+
+  :global(.mood-popover-comment-content .emoji b) {
+    font-weight: inherit;
   }
 
   :global(.mood-popover-comment-content blockquote) {
@@ -3304,6 +3221,7 @@ const skeletonGroups = [
 
 <script>
   import gsap from 'gsap';
+  import { asText, buildCommentContentFragment, sanitizeImageUrl } from '../lib/comment-content';
   const loadingEl = document.querySelector('[data-mood-loading]');
   const errorEl = document.querySelector('[data-mood-error]');
   const feedEl = document.querySelector('[data-mood-feed]');
@@ -4331,34 +4249,6 @@ const skeletonGroups = [
         return name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase() || '?';
       };
 
-      const asText = (value: unknown): string => {
-        if (typeof value === 'string') return value;
-        if (value === null || value === undefined) return '';
-        return String(value);
-      };
-
-      const toPlainText = (value: unknown): string => {
-        const html = asText(value);
-        if (!html) return '';
-        const template = document.createElement('template');
-        template.innerHTML = html;
-        return (template.content.textContent ?? '').trim();
-      };
-
-      const sanitizeImageUrl = (value: unknown): string => {
-        const raw = asText(value).trim();
-        if (!raw) return '';
-        try {
-          const parsed = new URL(raw, window.location.origin);
-          if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
-            return '';
-          }
-          return parsed.toString();
-        } catch {
-          return '';
-        }
-      };
-
       const fetchComments = async (postId: string): Promise<any[]> => {
         if (cache.has(postId)) {
           return cache.get(postId)!;
@@ -4431,7 +4321,7 @@ const skeletonGroups = [
 
         const content = document.createElement('div');
         content.className = 'mood-popover-comment-content';
-        content.textContent = toPlainText(comment?.content);
+        content.appendChild(buildCommentContentFragment(comment?.content));
         body.appendChild(content);
 
         root.appendChild(body);

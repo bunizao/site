@@ -28,6 +28,32 @@ function createMoodFeedPayload(moodId: string) {
   };
 }
 
+function createRichCommentsPayload(moodId: string) {
+  const replyHref = `/mood/${moodId}#comments`;
+  const richContent = [
+    `<a class="tgme_widget_message_reply" href="${replyHref}">`,
+    '<span class="tgme_widget_message_reply_author">Reply Author</span>',
+    '<span class="tgme_widget_message_reply_text">Reply Author: First line<br>Second line</span>',
+    '</a>',
+    `<p><strong>Bold</strong> <a href="${replyHref}">linked context</a> <span class="emoji"><b>🙂</b></span></p>`,
+  ].join('');
+
+  return {
+    comments: [
+      {
+        id: '9001',
+        author: 'E2E',
+        authorAvatar: '',
+        datetime: '2026-02-10T13:10:00+00:00',
+        content: richContent,
+        reactions: [],
+      },
+    ],
+    hasMore: false,
+    nextBefore: '',
+  };
+}
+
 test.describe('Mood routes', () => {
   test.beforeEach(async ({ page }) => {
     await page.emulateMedia({ reducedMotion: 'reduce' });
@@ -86,6 +112,69 @@ test.describe('Mood routes', () => {
 
     await expandLink.click();
     await expect(page).toHaveURL(new RegExp(`${href}$`));
+  });
+
+  test('renders rich comment content in the feed popover', async ({ page }) => {
+    const moodId = '12345';
+    const moodFeedPayload = createMoodFeedPayload(moodId);
+    const richCommentsPayload = createRichCommentsPayload(moodId);
+
+    await page.route('**/api/moods**', async (route) => {
+      const url = new URL(route.request().url());
+      if (url.searchParams.get('probe') === '1') {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({ latestId: moodId }),
+        });
+        return;
+      }
+
+      if (url.searchParams.has('before')) {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({ posts: [], channel: moodFeedPayload.channel }),
+        });
+        return;
+      }
+
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(moodFeedPayload),
+      });
+    });
+
+    await page.route('**/api/comments?postId=*', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(richCommentsPayload),
+      });
+    });
+
+    await page.goto('/mood', { waitUntil: 'domcontentloaded' });
+    await expect(page.locator('[data-mood-feed]')).not.toHaveClass(/is-hidden/, { timeout: 30_000 });
+
+    const firstItem = page.locator('[data-mood-list] .mood-item').first();
+    await expect(firstItem).toBeVisible();
+
+    const commentsWrapper = firstItem.locator('.mood-comments-wrapper');
+    await expect(commentsWrapper).toBeVisible();
+    await commentsWrapper.hover();
+
+    await expect
+      .poll(async () => commentsWrapper.locator('.mood-popover-comment').count(), { timeout: 30_000 })
+      .toBe(1);
+
+    const popoverContent = commentsWrapper.locator('.mood-popover-comment-content').first();
+    await expect(popoverContent.locator('.mood-comment-quote')).toBeVisible();
+    await expect(popoverContent.locator('.mood-item-quote-author')).toHaveText('Reply Author');
+    await expect(popoverContent.locator('.mood-item-quote-text')).toContainText(/First line\s+Second line/);
+    await expect(popoverContent.locator('strong')).toHaveText('Bold');
+    await expect(popoverContent.locator('p a')).toHaveAttribute('href', `/mood/${moodId}#comments`);
+    await expect(popoverContent).toContainText('🙂');
   });
 
   test('loads comments on detail page and fallback back-button navigation works', async ({ page, request }) => {
