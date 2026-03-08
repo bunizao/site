@@ -32,9 +32,6 @@ const {
 } = Astro.props;
 
 const site = Astro.site ?? new URL('https://buxx.me');
-const currentPath = Astro.url?.pathname ?? '/';
-const shouldRenderSiteNav = currentPath === '/' || showSiteNav;
-const isMobileSiteNavVisible = showSiteNav;
 const canonicalUrl = url ?? new URL(Astro.url?.pathname ?? '/', site).href;
 const ogImageUrl = new URL(image, site).href;
 const ogImageType = ogImageUrl.endsWith('.png')
@@ -129,21 +126,15 @@ const ogImageType = ogImageUrl.endsWith('.png')
     <title>{title}</title>
   </head>
   <body>
-    {shouldRenderSiteNav ? (
-      <!-- Site navigation -->
-      <nav
-        class:list={['site-nav', { 'site-nav--mobile-visible': isMobileSiteNavVisible }]}
-        data-site-nav
-        aria-label="Page sections"
-      >
-        <div class="nav-active-indicator" data-nav-indicator aria-hidden="true"></div>
-        <a href="#projects-section" class="nav-link" data-nav-link="projects" data-nav-index="01">Projects</a>
-        <span class="nav-separator" aria-hidden="true">/</span>
-        <a href="#writing-section" class="nav-link" data-nav-link="writing" data-nav-index="02">Writing</a>
-        <span class="nav-separator" aria-hidden="true">/</span>
-        <a href="#moods-section" class="nav-link" data-nav-link="moods" data-nav-index="03">Moods</a>
-      </nav>
-    ) : null}
+    <!-- Site navigation -->
+    <nav class:list={['site-nav', { 'site-nav--mobile-visible': showSiteNav }]} data-site-nav aria-label="Page sections">
+      <div class="nav-active-indicator" data-nav-indicator aria-hidden="true"></div>
+      <a href="#projects-section" class="nav-link" data-nav-link="projects" data-nav-index="01">Projects</a>
+      <span class="nav-separator" aria-hidden="true">/</span>
+      <a href="#writing-section" class="nav-link" data-nav-link="writing" data-nav-index="02">Writing</a>
+      <span class="nav-separator" aria-hidden="true">/</span>
+      <a href="#moods-section" class="nav-link" data-nav-link="moods" data-nav-index="03">Moods</a>
+    </nav>
 
     <!-- Global header actions - theme dropdown will be added by pages -->
     <div class="global-header-actions" data-header-actions>
