@@ -15,6 +15,7 @@ const updatedAt = 'March 8, 2026';
 >
   <script is:inline>
     (() => {
+      document.body.classList.add('policy-page-active');
       const nav = document.querySelector('[data-site-nav]');
       if (!nav) return;
 
@@ -273,6 +274,20 @@ const updatedAt = 'March 8, 2026';
     scroll-behavior: smooth;
   }
 
+  :global(body.policy-page-active) {
+    --policy-chrome-bg: rgb(250 250 250 / 0.72);
+    --policy-chrome-border: rgb(17 17 17 / 0.08);
+    --policy-chrome-shadow: 0 10px 30px rgb(17 17 17 / 0.08);
+    --policy-chrome-fg: #111;
+  }
+
+  :global(.dark body.policy-page-active) {
+    --policy-chrome-bg: rgb(10 10 10 / 0.68);
+    --policy-chrome-border: rgb(255 255 255 / 0.1);
+    --policy-chrome-shadow: 0 12px 36px rgb(0 0 0 / 0.32);
+    --policy-chrome-fg: #fff;
+  }
+
   .policy-page {
     --policy-text: #111;
     --policy-muted: rgb(17 17 17 / 0.7);
@@ -409,11 +424,65 @@ const updatedAt = 'March 8, 2026';
 
   @media (max-width: 720px) {
     .policy-page {
-      padding: 7.25rem 0 5.5rem;
+      padding: calc(env(safe-area-inset-top, 0px) + 6.6rem) 0 5.5rem;
     }
 
     .policy-shell {
       padding: 0 1rem;
+    }
+
+    :global(body.policy-page-active .policy-home-nav) {
+      top: calc(env(safe-area-inset-top, 0px) + 0.75rem);
+      left: 0.75rem;
+      right: 0.75rem;
+      z-index: 60;
+      height: auto;
+      min-height: 3.5rem;
+      padding: 0.3rem;
+      gap: 0;
+      border: 1px solid var(--policy-chrome-border);
+      border-radius: 1.15rem;
+      background: var(--policy-chrome-bg);
+      box-shadow: var(--policy-chrome-shadow);
+      backdrop-filter: blur(18px) saturate(150%);
+      -webkit-backdrop-filter: blur(18px) saturate(150%);
+    }
+
+    :global(body.policy-page-active .policy-home-nav .nav-link) {
+      min-height: 2.75rem;
+      padding: 0 0.95rem;
+      padding-right: 3.4rem;
+      font-size: 0.96rem;
+      font-weight: 500;
+      letter-spacing: -0.01em;
+      color: var(--policy-chrome-fg);
+      border-radius: 0.9rem;
+    }
+
+    :global(body.policy-page-active .global-header-actions) {
+      top: calc(env(safe-area-inset-top, 0px) + 1rem);
+      right: 1rem;
+      z-index: 61;
+    }
+
+    :global(body.policy-page-active .header-action-btn) {
+      min-width: 2.75rem;
+      height: 2.75rem;
+      border-radius: 0.9rem;
+      background: transparent;
+      border-color: transparent;
+      box-shadow: none;
+      backdrop-filter: none;
+      -webkit-backdrop-filter: none;
+    }
+
+    :global(body.policy-page-active .header-action-btn:hover) {
+      background: rgb(17 17 17 / 0.06);
+      border-color: transparent;
+    }
+
+    :global(.dark body.policy-page-active .header-action-btn:hover) {
+      background: rgb(255 255 255 / 0.08);
     }
 
     .policy-header h1 {
