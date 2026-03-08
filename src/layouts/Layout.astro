@@ -723,6 +723,7 @@ const ogImageType = ogImageUrl.endsWith('.png')
         const showIndicator = async () => {
           if (!indicator) return;
           const { default: gsap } = await import('gsap');
+          gsap.killTweensOf(indicator);
           positionIndicator(gsap, false);
           gsap.to(indicator, {
             opacity: 1,
@@ -735,6 +736,7 @@ const ogImageType = ogImageUrl.endsWith('.png')
         const hideIndicator = async () => {
           if (!indicator) return;
           const { default: gsap } = await import('gsap');
+          gsap.killTweensOf(indicator);
           gsap.to(indicator, {
             opacity: 0,
             scaleX: 0,
