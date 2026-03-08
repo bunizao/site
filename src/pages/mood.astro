@@ -1248,67 +1248,6 @@ const skeletonGroups = [
     color: hsl(var(--muted-foreground) / 0.7);
   }
 
-  :global(.mood-item-quote) {
-    display: inline-flex;
-    flex-direction: column;
-    gap: 4px;
-    padding: 8px 10px;
-    border-radius: 10px;
-    border: none;
-    background: hsl(var(--foreground) / 0.03);
-    color: hsl(var(--muted-foreground));
-    text-decoration: none;
-    align-self: flex-start;
-    max-width: 88%;
-    width: fit-content;
-  }
-
-  :global(.mood-item-quote[href]) {
-    cursor: pointer;
-    transition: background 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
-  }
-
-  :global(.mood-item-quote[href]:hover),
-  :global(.mood-item-quote[href]:focus-visible) {
-    background: hsl(var(--foreground) / 0.06);
-    color: hsl(var(--foreground) / 0.7);
-    box-shadow: 0 0 0 1px hsl(var(--foreground) / 0.08);
-  }
-
-  :global(.mood-item-quote[href]:hover .mood-item-quote-text),
-  :global(.mood-item-quote[href]:focus-visible .mood-item-quote-text) {
-    color: hsl(var(--foreground) / 0.75);
-  }
-
-  :global(.mood-item-quote-meta) {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 11px;
-    text-transform: none;
-    letter-spacing: 0.02em;
-    color: hsl(var(--muted-foreground));
-  }
-
-  :global(.mood-item-quote-author) {
-    font-size: 11px;
-    letter-spacing: 0.02em;
-    text-transform: none;
-    color: hsl(var(--foreground) / 0.6);
-  }
-
-  :global(.mood-item-quote-text) {
-    margin: 0;
-    font-size: 12px;
-    line-height: 1.55;
-    color: hsl(var(--foreground) / 0.6);
-    white-space: pre-line;
-    display: -webkit-box;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 3;
-    overflow: hidden;
-  }
-
   :global(.mood-item-media) {
     display: flex;
     flex-direction: column;
@@ -1633,36 +1572,6 @@ const skeletonGroups = [
     margin-top: 8px;
   }
 
-  :global(.mood-reaction) {
-    display: inline-flex;
-    align-items: center;
-    gap: 3px;
-    padding: 3px 8px 3px 6px;
-    font-size: 12px;
-    background: hsl(var(--foreground) / 0.05);
-    border-radius: 999px;
-    color: hsl(var(--muted-foreground));
-    border: 1px solid transparent;
-  }
-
-  :global(.mood-reaction--paid) {
-    background: hsl(45 100% 50% / 0.08);
-    color: hsl(45 70% 40%);
-  }
-
-  :global(.mood-reaction-emoji) {
-    display: inline-flex;
-    align-items: center;
-    font-size: 14px;
-    line-height: 1;
-  }
-
-  :global(.mood-reaction-emoji img) {
-    width: 1em;
-    height: 1em;
-    display: block;
-  }
-
   :global(.tg-emoji) {
     display: inline-flex;
     align-items: center;
@@ -1963,24 +1872,6 @@ const skeletonGroups = [
 
   :global(.mood-popover-comment-content p + p) {
     margin-top: 0.5em;
-  }
-
-  :global(.mood-popover-comment-content .mood-item-quote) {
-    display: flex;
-    margin: 0 0 0.5em;
-    max-width: 100%;
-  }
-
-  :global(.mood-popover-comment-content .mood-item-quote:last-child) {
-    margin-bottom: 0;
-  }
-
-  :global(.mood-popover-comment-content a.mood-item-quote) {
-    border-bottom: none;
-  }
-
-  :global(.mood-popover-comment-content a.mood-item-quote:hover) {
-    border-bottom: none;
   }
 
   :global(.mood-popover-comment-content .emoji) {
@@ -3306,6 +3197,7 @@ const skeletonGroups = [
 
 <script>
   import gsap from 'gsap';
+  import { asText, buildCommentContentFragment, sanitizeImageUrl } from '../lib/comment-content';
   const loadingEl = document.querySelector('[data-mood-loading]');
   const errorEl = document.querySelector('[data-mood-error]');
   const feedEl = document.querySelector('[data-mood-feed]');
@@ -4331,180 +4223,6 @@ const skeletonGroups = [
 
       const getInitials = (name: string): string => {
         return name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase() || '?';
-      };
-
-      const asText = (value: unknown): string => {
-        if (typeof value === 'string') return value;
-        if (value === null || value === undefined) return '';
-        return String(value);
-      };
-
-      const sanitizeHref = (value: unknown): string => {
-        const raw = asText(value).trim();
-        if (!raw) return '';
-
-        try {
-          const parsed = new URL(raw, window.location.origin);
-          if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
-            return '';
-          }
-          return parsed.origin === window.location.origin
-            ? `${parsed.pathname}${parsed.search}${parsed.hash}`
-            : parsed.toString();
-        } catch {
-          if (/^(\/|#|\?)/.test(raw)) {
-            return raw;
-          }
-          return '';
-        }
-      };
-
-      const normalizeMultilineText = (value: string): string => {
-        return value
-          .replace(/\r/g, '')
-          .replace(/[ \t]+\n/g, '\n')
-          .replace(/\n[ \t]+/g, '\n')
-          .replace(/\n{3,}/g, '\n\n')
-          .trim();
-      };
-
-      const escapeForRegExp = (value: string): string => {
-        return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      };
-
-      const stripLeadingAuthor = (value: string, author: string): string => {
-        if (!author) return value.trim();
-        return value.replace(new RegExp(`^${escapeForRegExp(author)}[\\s\\-–—:：]+`, 'i'), '').trim();
-      };
-
-      const extractMultilineText = (element: Element | null): string => {
-        if (!element) return '';
-        const clone = element.cloneNode(true) as Element;
-        clone.querySelectorAll('br').forEach((lineBreak) => {
-          lineBreak.replaceWith('\n');
-        });
-        clone.querySelectorAll('p, div, li').forEach((block) => {
-          if (!block.textContent?.trim()) return;
-          block.prepend(document.createTextNode('\n'));
-          block.append(document.createTextNode('\n'));
-        });
-        return normalizeMultilineText(clone.textContent ?? '');
-      };
-
-      const createCommentQuote = (replyEl: Element): HTMLElement | null => {
-        const authorSelectors = [
-          '.tgme_widget_message_reply_author',
-          '.tgme_widget_message_reply_title',
-          '.tgme_widget_message_reply_name',
-          '.tgme_widget_message_author_name',
-        ];
-        const author = authorSelectors
-          .map((selector) => replyEl.querySelector(selector)?.textContent ?? '')
-          .map((value) => value.replace(/\s+/g, ' ').trim())
-          .find(Boolean) ?? '';
-
-        const replyTextEl = replyEl.querySelector('.js-message_reply_text, .tgme_widget_message_reply_text');
-        const rawText = extractMultilineText(replyTextEl ?? replyEl);
-        const text = stripLeadingAuthor(rawText, author);
-        if (!text) return null;
-
-        const href = sanitizeHref(replyEl.getAttribute('href') ?? '');
-        const quoteWrap = document.createElement(href ? 'a' : 'div');
-        quoteWrap.className = 'mood-item-quote mood-comment-quote';
-
-        if (quoteWrap instanceof HTMLAnchorElement && href) {
-          quoteWrap.href = href;
-          if (/^https?:\/\//i.test(href)) {
-            quoteWrap.target = '_blank';
-            quoteWrap.rel = 'noopener noreferrer';
-          }
-        }
-
-        if (author) {
-          const quoteMeta = document.createElement('div');
-          quoteMeta.className = 'mood-item-quote-meta';
-
-          const quoteAuthor = document.createElement('span');
-          quoteAuthor.className = 'mood-item-quote-author';
-          quoteAuthor.textContent = author;
-
-          quoteMeta.appendChild(quoteAuthor);
-          quoteWrap.appendChild(quoteMeta);
-        }
-
-        const quoteText = document.createElement('p');
-        quoteText.className = 'mood-item-quote-text';
-        quoteText.textContent = text;
-        quoteWrap.appendChild(quoteText);
-
-        return quoteWrap;
-      };
-
-      const buildCommentContentFragment = (value: unknown): DocumentFragment => {
-        const template = document.createElement('template');
-        template.innerHTML = asText(value).trim();
-
-        template.content.querySelectorAll('.tgme_widget_message_reply').forEach((replyNode) => {
-          const quoteCard = createCommentQuote(replyNode as Element);
-          if (quoteCard) {
-            replyNode.replaceWith(quoteCard);
-            return;
-          }
-          replyNode.remove();
-        });
-
-        const normalized = document.createDocumentFragment();
-        let paragraph: HTMLParagraphElement | null = null;
-
-        const flushParagraph = (): void => {
-          if (!paragraph) return;
-          if (paragraph.textContent?.trim() || paragraph.querySelector('*')) {
-            normalized.appendChild(paragraph);
-          }
-          paragraph = null;
-        };
-
-        Array.from(template.content.childNodes).forEach((node) => {
-          if (node.nodeType === Node.TEXT_NODE && !node.textContent?.trim()) {
-            if (paragraph) {
-              paragraph.appendChild(node);
-            }
-            return;
-          }
-
-          const isBlockElement =
-            node instanceof HTMLElement &&
-            (node.classList.contains('mood-item-quote') ||
-              ['P', 'DIV', 'BLOCKQUOTE', 'PRE', 'UL', 'OL'].includes(node.tagName));
-
-          if (isBlockElement) {
-            flushParagraph();
-            normalized.appendChild(node);
-            return;
-          }
-
-          if (!paragraph) {
-            paragraph = document.createElement('p');
-          }
-          paragraph.appendChild(node);
-        });
-
-        flushParagraph();
-        return normalized;
-      };
-
-      const sanitizeImageUrl = (value: unknown): string => {
-        const raw = asText(value).trim();
-        if (!raw) return '';
-        try {
-          const parsed = new URL(raw, window.location.origin);
-          if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
-            return '';
-          }
-          return parsed.toString();
-        } catch {
-          return '';
-        }
       };
 
       const fetchComments = async (postId: string): Promise<any[]> => {
