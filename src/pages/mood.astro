@@ -1965,6 +1965,24 @@ const skeletonGroups = [
     margin-top: 0.5em;
   }
 
+  :global(.mood-popover-comment-content .mood-item-quote) {
+    display: flex;
+    margin: 0 0 0.5em;
+    max-width: 100%;
+  }
+
+  :global(.mood-popover-comment-content .mood-item-quote:last-child) {
+    margin-bottom: 0;
+  }
+
+  :global(.mood-popover-comment-content a.mood-item-quote) {
+    border-bottom: none;
+  }
+
+  :global(.mood-popover-comment-content a.mood-item-quote:hover) {
+    border-bottom: none;
+  }
+
   :global(.mood-popover-comment-content .emoji) {
     font-style: normal;
   }
@@ -1997,57 +2015,6 @@ const skeletonGroups = [
     width: 100%;
     height: 100%;
     display: block;
-  }
-
-  :global(.mood-popover-comment-content .tgme_widget_message_reply) {
-    display: block;
-    margin: 0 0 0.5em;
-  }
-
-  :global(.mood-popover-comment-content .tgme_widget_message_reply:last-child) {
-    margin-bottom: 0;
-  }
-
-  :global(.mood-popover-comment-content a.tgme_widget_message_reply) {
-    color: inherit;
-    text-decoration: none;
-    border-bottom: none;
-  }
-
-  :global(.mood-popover-comment-content a.tgme_widget_message_reply:hover) {
-    border-bottom: none;
-  }
-
-  :global(.mood-popover-comment-content .tgme_widget_message_reply blockquote) {
-    margin: 0;
-  }
-
-  :global(.mood-popover-comment-content .tgme_widget_message_reply small) {
-    display: flex;
-    flex-direction: column;
-    gap: 0.2em;
-    white-space: normal;
-  }
-
-  :global(.mood-popover-comment-content .tgme_widget_message_author),
-  :global(.mood-popover-comment-content .tgme_widget_message_reply_author),
-  :global(.mood-popover-comment-content .tgme_widget_message_reply_title),
-  :global(.mood-popover-comment-content .tgme_widget_message_reply_name) {
-    font-size: 0.95em;
-    font-weight: 600;
-    line-height: 1.35;
-    color: hsl(var(--foreground) / 0.72);
-  }
-
-  :global(.mood-popover-comment-content .tgme_widget_message_author_name) {
-    color: inherit;
-  }
-
-  :global(.mood-popover-comment-content .js-message_reply_text),
-  :global(.mood-popover-comment-content .tgme_widget_message_reply_text) {
-    color: inherit;
-    opacity: 0.92;
-    white-space: pre-line;
   }
 
   :global(.mood-popover-view-all) {
@@ -4372,6 +4339,160 @@ const skeletonGroups = [
         return String(value);
       };
 
+      const sanitizeHref = (value: unknown): string => {
+        const raw = asText(value).trim();
+        if (!raw) return '';
+
+        try {
+          const parsed = new URL(raw, window.location.origin);
+          if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+            return '';
+          }
+          return parsed.origin === window.location.origin
+            ? `${parsed.pathname}${parsed.search}${parsed.hash}`
+            : parsed.toString();
+        } catch {
+          if (/^(\/|#|\?)/.test(raw)) {
+            return raw;
+          }
+          return '';
+        }
+      };
+
+      const normalizeMultilineText = (value: string): string => {
+        return value
+          .replace(/\r/g, '')
+          .replace(/[ \t]+\n/g, '\n')
+          .replace(/\n[ \t]+/g, '\n')
+          .replace(/\n{3,}/g, '\n\n')
+          .trim();
+      };
+
+      const escapeForRegExp = (value: string): string => {
+        return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      };
+
+      const stripLeadingAuthor = (value: string, author: string): string => {
+        if (!author) return value.trim();
+        return value.replace(new RegExp(`^${escapeForRegExp(author)}[\\s\\-–—:：]+`, 'i'), '').trim();
+      };
+
+      const extractMultilineText = (element: Element | null): string => {
+        if (!element) return '';
+        const clone = element.cloneNode(true) as Element;
+        clone.querySelectorAll('br').forEach((lineBreak) => {
+          lineBreak.replaceWith('\n');
+        });
+        clone.querySelectorAll('p, div, li').forEach((block) => {
+          if (!block.textContent?.trim()) return;
+          block.prepend(document.createTextNode('\n'));
+          block.append(document.createTextNode('\n'));
+        });
+        return normalizeMultilineText(clone.textContent ?? '');
+      };
+
+      const createCommentQuote = (replyEl: Element): HTMLElement | null => {
+        const authorSelectors = [
+          '.tgme_widget_message_reply_author',
+          '.tgme_widget_message_reply_title',
+          '.tgme_widget_message_reply_name',
+          '.tgme_widget_message_author_name',
+        ];
+        const author = authorSelectors
+          .map((selector) => replyEl.querySelector(selector)?.textContent ?? '')
+          .map((value) => value.replace(/\s+/g, ' ').trim())
+          .find(Boolean) ?? '';
+
+        const replyTextEl = replyEl.querySelector('.js-message_reply_text, .tgme_widget_message_reply_text');
+        const rawText = extractMultilineText(replyTextEl ?? replyEl);
+        const text = stripLeadingAuthor(rawText, author);
+        if (!text) return null;
+
+        const href = sanitizeHref(replyEl.getAttribute('href') ?? '');
+        const quoteWrap = document.createElement(href ? 'a' : 'div');
+        quoteWrap.className = 'mood-item-quote mood-comment-quote';
+
+        if (quoteWrap instanceof HTMLAnchorElement && href) {
+          quoteWrap.href = href;
+          if (/^https?:\/\//i.test(href)) {
+            quoteWrap.target = '_blank';
+            quoteWrap.rel = 'noopener noreferrer';
+          }
+        }
+
+        if (author) {
+          const quoteMeta = document.createElement('div');
+          quoteMeta.className = 'mood-item-quote-meta';
+
+          const quoteAuthor = document.createElement('span');
+          quoteAuthor.className = 'mood-item-quote-author';
+          quoteAuthor.textContent = author;
+
+          quoteMeta.appendChild(quoteAuthor);
+          quoteWrap.appendChild(quoteMeta);
+        }
+
+        const quoteText = document.createElement('p');
+        quoteText.className = 'mood-item-quote-text';
+        quoteText.textContent = text;
+        quoteWrap.appendChild(quoteText);
+
+        return quoteWrap;
+      };
+
+      const buildCommentContentFragment = (value: unknown): DocumentFragment => {
+        const template = document.createElement('template');
+        template.innerHTML = asText(value).trim();
+
+        template.content.querySelectorAll('.tgme_widget_message_reply').forEach((replyNode) => {
+          const quoteCard = createCommentQuote(replyNode as Element);
+          if (quoteCard) {
+            replyNode.replaceWith(quoteCard);
+            return;
+          }
+          replyNode.remove();
+        });
+
+        const normalized = document.createDocumentFragment();
+        let paragraph: HTMLParagraphElement | null = null;
+
+        const flushParagraph = (): void => {
+          if (!paragraph) return;
+          if (paragraph.textContent?.trim() || paragraph.querySelector('*')) {
+            normalized.appendChild(paragraph);
+          }
+          paragraph = null;
+        };
+
+        Array.from(template.content.childNodes).forEach((node) => {
+          if (node.nodeType === Node.TEXT_NODE && !node.textContent?.trim()) {
+            if (paragraph) {
+              paragraph.appendChild(node);
+            }
+            return;
+          }
+
+          const isBlockElement =
+            node instanceof HTMLElement &&
+            (node.classList.contains('mood-item-quote') ||
+              ['P', 'DIV', 'BLOCKQUOTE', 'PRE', 'UL', 'OL'].includes(node.tagName));
+
+          if (isBlockElement) {
+            flushParagraph();
+            normalized.appendChild(node);
+            return;
+          }
+
+          if (!paragraph) {
+            paragraph = document.createElement('p');
+          }
+          paragraph.appendChild(node);
+        });
+
+        flushParagraph();
+        return normalized;
+      };
+
       const sanitizeImageUrl = (value: unknown): string => {
         const raw = asText(value).trim();
         if (!raw) return '';
@@ -4458,8 +4579,7 @@ const skeletonGroups = [
 
         const content = document.createElement('div');
         content.className = 'mood-popover-comment-content';
-        // Comment HTML is sanitized by the API layer. Preserve Telegram markup here.
-        content.innerHTML = asText(comment?.content).trim();
+        content.appendChild(buildCommentContentFragment(comment?.content));
         body.appendChild(content);
 
         root.appendChild(body);

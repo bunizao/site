@@ -147,6 +147,76 @@
     @apply mx-auto max-w-[720px] px-4 sm:px-6;
   }
 
+  .mood-item-quote,
+  .mood-quote-card {
+    display: inline-flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 8px 10px;
+    border-radius: 10px;
+    border: none;
+    background: hsl(var(--foreground) / 0.03);
+    color: hsl(var(--muted-foreground));
+    text-decoration: none;
+    align-self: flex-start;
+    max-width: 88%;
+    width: fit-content;
+  }
+
+  .mood-item-quote[href],
+  .mood-quote-card[href] {
+    cursor: pointer;
+    transition: background 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+  }
+
+  .mood-item-quote[href]:hover,
+  .mood-item-quote[href]:focus-visible,
+  .mood-quote-card[href]:hover,
+  .mood-quote-card[href]:focus-visible {
+    background: hsl(var(--foreground) / 0.06);
+    color: hsl(var(--foreground) / 0.7);
+    box-shadow: 0 0 0 1px hsl(var(--foreground) / 0.08);
+  }
+
+  .mood-item-quote[href]:hover .mood-item-quote-text,
+  .mood-item-quote[href]:focus-visible .mood-item-quote-text,
+  .mood-quote-card[href]:hover .mood-quote-card-text,
+  .mood-quote-card[href]:focus-visible .mood-quote-card-text {
+    color: hsl(var(--foreground) / 0.75);
+  }
+
+  .mood-item-quote-meta,
+  .mood-quote-card-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 11px;
+    text-transform: none;
+    letter-spacing: 0.02em;
+    color: hsl(var(--muted-foreground));
+  }
+
+  .mood-item-quote-author,
+  .mood-quote-card-author {
+    font-size: 11px;
+    letter-spacing: 0.02em;
+    text-transform: none;
+    color: hsl(var(--foreground) / 0.6);
+  }
+
+  .mood-item-quote-text,
+  .mood-quote-card-text {
+    margin: 0;
+    font-size: 12px;
+    line-height: 1.55;
+    color: hsl(var(--foreground) / 0.6);
+    white-space: pre-line;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+    overflow: hidden;
+  }
+
   .section-label {
     @apply inline-block text-[11px] font-light uppercase tracking-[0.2em] text-muted-foreground;
     margin-bottom: 20px;
