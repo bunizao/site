@@ -471,8 +471,6 @@ const ogImageType = ogImageUrl.endsWith('.png')
         const indicator = nav.querySelector('[data-nav-indicator]') as HTMLElement | null;
         const separators = nav.querySelectorAll('.nav-separator');
         const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-        const scrambleChars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*';
-        const randChar = () => scrambleChars[Math.floor(Math.random() * scrambleChars.length)];
 
         // ─── 3a. Character wrapping with index injection ─────────────
         interface LinkData {
@@ -561,26 +559,6 @@ const ogImageType = ogImageUrl.endsWith('.png')
         window.addEventListener('scroll', onScroll, { passive: true });
         onScroll();
 
-        // ─── Helper: scramble decode a single character span ─────────
-        // Cycles through 2-3 random glyphs at ~30ms, then settles
-        const scrambleReveal = (span: HTMLSpanElement, correctChar: string): Promise<void> => {
-          return new Promise(resolve => {
-            const cycles = 2 + Math.floor(Math.random() * 2); // 2–3 cycles
-            let count = 0;
-            const iv = setInterval(() => {
-              if (count < cycles) {
-                span.textContent = randChar();
-                span.style.opacity = '1';
-                count++;
-              } else {
-                clearInterval(iv);
-                span.textContent = correctChar;
-                resolve();
-              }
-            }, 30);
-          });
-        };
-
         // ─── Vertical collapse: observer + transition logic ───────────
         const statusEl = document.querySelector('[data-hero-status]');
         if (!statusEl) return;
@@ -597,7 +575,7 @@ const ogImageType = ogImageUrl.endsWith('.png')
           else toHorizontal();
         };
 
-        // ─── 3c. toVertical — dissolve + layout + scramble typewriter ─
+        // ─── 3c. toVertical — dissolve + layout + typewriter ──────────
         const toVertical = async () => {
           if (isVertical) return;
           if (animating) { pendingDirection = 'vertical'; return; }
@@ -642,9 +620,9 @@ const ogImageType = ogImageUrl.endsWith('.png')
           // Phase 2: Layout switch
           nav.classList.add('is-vertical');
 
-          // Phase 3: Scramble decode typewriter per link
+          // Phase 3: Quick typewriter per link
           for (let i = 0; i < linkDataList.length; i++) {
-            const { chars, text, indexSpan } = linkDataList[i];
+            const { chars, indexSpan } = linkDataList[i];
             // Reset positions before reveal
             gsap.set(chars, { y: 0, x: 0 });
 
@@ -658,8 +636,11 @@ const ogImageType = ogImageUrl.endsWith('.png')
               if (j > 0) chars[j - 1].classList.remove('is-cursor');
               chars[j].classList.add('is-cursor');
 
-              // Scramble decode: cycle random chars then settle
-              await scrambleReveal(chars[j], text[j]);
+              await gsap.to(chars[j], {
+                opacity: 1,
+                duration: 0.02,
+                delay: 0.035
+              });
             }
             // Remove cursor from last char
             chars[chars.length - 1].classList.remove('is-cursor');
