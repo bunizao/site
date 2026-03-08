@@ -5,6 +5,7 @@ interface Props {
   image?: string;
   imageAlt?: string;
   url?: string;
+  showSiteNav?: boolean;
   rss?: {
     href: string;
     title?: string;
@@ -25,6 +26,7 @@ const {
   image = '/og.png',
   imageAlt = 'Bunizao',
   url,
+  showSiteNav = false,
   rss,
   oembed,
 } = Astro.props;
@@ -125,13 +127,13 @@ const ogImageType = ogImageUrl.endsWith('.png')
   </head>
   <body>
     <!-- Site navigation -->
-    <nav class="site-nav" data-site-nav aria-label="Page sections">
+    <nav class:list={['site-nav', { 'site-nav--mobile-visible': showSiteNav }]} data-site-nav aria-label="Page sections">
       <div class="nav-active-indicator" data-nav-indicator aria-hidden="true"></div>
-      <a href="#projects-section" class="nav-link" data-nav-link="projects">Projects</a>
+      <a href="#projects-section" class="nav-link" data-nav-link="projects" data-nav-index="01">Projects</a>
       <span class="nav-separator" aria-hidden="true">/</span>
-      <a href="#writing-section" class="nav-link" data-nav-link="writing">Writing</a>
+      <a href="#writing-section" class="nav-link" data-nav-link="writing" data-nav-index="02">Writing</a>
       <span class="nav-separator" aria-hidden="true">/</span>
-      <a href="#moods-section" class="nav-link" data-nav-link="moods">Moods</a>
+      <a href="#moods-section" class="nav-link" data-nav-link="moods" data-nav-index="03">Moods</a>
     </nav>
 
     <!-- Global header actions - theme dropdown will be added by pages -->
@@ -468,11 +470,12 @@ const ogImageType = ogImageUrl.endsWith('.png')
         const separators = nav.querySelectorAll('.nav-separator');
         const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-        // ─── 3a. Character wrapping (synchronous) ─────────────────────
+        // ─── 3a. Character wrapping with index injection ─────────────
         interface LinkData {
           el: HTMLElement;
           text: string;
           chars: HTMLSpanElement[];
+          indexSpan: HTMLSpanElement | null;
         }
         const linkDataList: LinkData[] = [];
 
@@ -480,8 +483,20 @@ const ogImageType = ogImageUrl.endsWith('.png')
           const el = link as HTMLElement;
           const text = el.textContent || '';
           const chars: HTMLSpanElement[] = [];
+          const navIndex = el.dataset.navIndex;
 
           el.textContent = '';
+
+          // Inject section index span
+          let indexSpan: HTMLSpanElement | null = null;
+          if (navIndex) {
+            indexSpan = document.createElement('span');
+            indexSpan.className = 'nav-index';
+            indexSpan.textContent = navIndex;
+            indexSpan.style.opacity = '0';
+            el.appendChild(indexSpan);
+          }
+
           for (const ch of text) {
             const span = document.createElement('span');
             span.className = 'nav-char';
@@ -490,7 +505,7 @@ const ogImageType = ogImageUrl.endsWith('.png')
             chars.push(span);
           }
 
-          linkDataList.push({ el, text, chars });
+          linkDataList.push({ el, text, chars, indexSpan });
         });
 
         // ─── 3b. Smooth scroll + active section tracking ──────────────
@@ -513,28 +528,32 @@ const ogImageType = ogImageUrl.endsWith('.png')
         let activeId = '';
         let ticking = false;
 
+        const syncActiveSection = () => {
+          const viewportH = window.innerHeight;
+          let newActiveId = '';
+          for (const section of sections) {
+            if (!section.el) continue;
+            const rect = section.el.getBoundingClientRect();
+            if (rect.top <= viewportH * 0.4 && rect.bottom > viewportH * 0.2) {
+              newActiveId = section.id;
+            }
+          }
+
+          if (newActiveId === activeId) return;
+
+          activeId = newActiveId;
+          links.forEach(link => {
+            const el = link as HTMLElement;
+            el.classList.toggle('is-active', el.dataset.navLink === activeId);
+          });
+          if (isVertical) updateIndicator();
+        };
+
         const onScroll = () => {
           if (ticking) return;
           ticking = true;
           requestAnimationFrame(() => {
-            const viewportH = window.innerHeight;
-            let newActiveId = '';
-            for (const section of sections) {
-              if (!section.el) continue;
-              const rect = section.el.getBoundingClientRect();
-              if (rect.top <= viewportH * 0.4 && rect.bottom > viewportH * 0.2) {
-                newActiveId = section.id;
-              }
-            }
-
-            if (newActiveId !== activeId) {
-              activeId = newActiveId;
-              links.forEach(link => {
-                const el = link as HTMLElement;
-                el.classList.toggle('is-active', el.dataset.navLink === activeId);
-              });
-              if (isVertical) updateIndicator();
-            }
+            syncActiveSection();
             ticking = false;
           });
         };
@@ -569,7 +588,10 @@ const ogImageType = ogImageUrl.endsWith('.png')
           if (reducedMotion) {
             nav.classList.add('is-vertical');
             separators.forEach(s => (s as HTMLElement).style.opacity = '0');
-            linkDataList.forEach(ld => ld.chars.forEach(c => { c.style.opacity = '1'; }));
+            linkDataList.forEach(ld => {
+              ld.chars.forEach(c => { c.style.opacity = '1'; });
+              if (ld.indexSpan) ld.indexSpan.style.opacity = '1';
+            });
             showIndicator();
             animating = false;
             flushPending();
@@ -581,10 +603,14 @@ const ogImageType = ogImageUrl.endsWith('.png')
           // Collect all chars in order for the dissolve
           const allChars = linkDataList.flatMap(ld => ld.chars);
 
-          // Phase 1: Dissolve out (staggered left→right)
+          // Phase 1: Dissolve out (staggered left→right) with random scatter
+          allChars.forEach(c => {
+            c.dataset.scatterX = `${(Math.random() - 0.5) * 8}`;
+          });
           await gsap.to(allChars, {
             opacity: 0,
             y: -3,
+            x: (_i: number, el: HTMLElement) => parseFloat(el.dataset.scatterX || '0'),
             duration: 0.18,
             stagger: 0.012,
             ease: 'power2.in'
@@ -596,11 +622,19 @@ const ogImageType = ogImageUrl.endsWith('.png')
           // Phase 2: Layout switch
           nav.classList.add('is-vertical');
 
-          // Phase 3: Typewriter reveal per link
+          syncActiveSection();
+          showIndicator();
+
+          // Phase 3: Quick typewriter per link
           for (let i = 0; i < linkDataList.length; i++) {
-            const { chars } = linkDataList[i];
+            const { chars, indexSpan } = linkDataList[i];
             // Reset positions before reveal
-            gsap.set(chars, { y: 0 });
+            gsap.set(chars, { y: 0, x: 0 });
+
+            // Fade in index span
+            if (indexSpan) {
+              gsap.to(indexSpan, { opacity: 1, duration: 0.15, ease: 'power2.out' });
+            }
 
             for (let j = 0; j < chars.length; j++) {
               // Remove cursor from previous char
@@ -617,12 +651,11 @@ const ogImageType = ogImageUrl.endsWith('.png')
             chars[chars.length - 1].classList.remove('is-cursor');
           }
 
-          showIndicator();
           animating = false;
           flushPending();
         };
 
-        // ─── 3d. toHorizontal — reverse dissolve + layout + cascade ───
+        // ─── 3d. toHorizontal — scatter dissolve + layout + snappy cascade
         const toHorizontal = async () => {
           if (!isVertical) return;
           if (animating) { pendingDirection = 'horizontal'; return; }
@@ -633,7 +666,10 @@ const ogImageType = ogImageUrl.endsWith('.png')
             hideIndicator();
             nav.classList.remove('is-vertical');
             separators.forEach(s => (s as HTMLElement).style.opacity = '1');
-            linkDataList.forEach(ld => ld.chars.forEach(c => { c.style.opacity = '1'; }));
+            linkDataList.forEach(ld => {
+              ld.chars.forEach(c => { c.style.opacity = '1'; });
+              if (ld.indexSpan) ld.indexSpan.style.opacity = '0';
+            });
             animating = false;
             flushPending();
             return;
@@ -643,12 +679,22 @@ const ogImageType = ogImageUrl.endsWith('.png')
 
           hideIndicator();
 
-          // Phase 1: Reverse dissolve per-link, bottom to top
+          // Hide index spans
+          linkDataList.forEach(ld => {
+            if (ld.indexSpan) gsap.to(ld.indexSpan, { opacity: 0, duration: 0.1 });
+          });
+
+          // Phase 1: Scatter dissolve per-link, bottom to top
           for (let i = linkDataList.length - 1; i >= 0; i--) {
             const { chars } = linkDataList[i];
+            // Each char gets a random x offset for scatter
+            chars.forEach(c => {
+              c.dataset.scatterX = `${(Math.random() - 0.5) * 8}`;
+            });
             await gsap.to(chars, {
               opacity: 0,
-              y: 3,
+              y: -3,
+              x: (_i: number, el: HTMLElement) => parseFloat(el.dataset.scatterX || '0'),
               duration: 0.15,
               stagger: 0.025,
               ease: 'power2.in'
@@ -658,15 +704,15 @@ const ogImageType = ogImageUrl.endsWith('.png')
           // Phase 2: Layout switch
           nav.classList.remove('is-vertical');
 
-          // Phase 3: Cascade reveal all chars + separators
+          // Phase 3: Snappy cascade reveal all chars + separators
           const allChars = linkDataList.flatMap(ld => ld.chars);
-          gsap.set(allChars, { y: 0 });
+          gsap.set(allChars, { y: 0, x: 0 });
 
           gsap.to(allChars, {
             opacity: 1,
             duration: 0.2,
             stagger: 0.015,
-            ease: 'power2.out'
+            ease: 'back.out(1.7)'
           });
 
           gsap.to(Array.from(separators), {
@@ -685,7 +731,12 @@ const ogImageType = ogImageUrl.endsWith('.png')
         const showIndicator = async () => {
           if (!indicator) return;
           const { default: gsap } = await import('gsap');
-          positionIndicator(gsap, false);
+          gsap.killTweensOf(indicator);
+          const hasActiveLink = positionIndicator(gsap, false);
+          if (!hasActiveLink) {
+            gsap.set(indicator, { opacity: 0, scaleX: 0 });
+            return;
+          }
           gsap.to(indicator, {
             opacity: 1,
             scaleX: 1,
@@ -697,6 +748,7 @@ const ogImageType = ogImageUrl.endsWith('.png')
         const hideIndicator = async () => {
           if (!indicator) return;
           const { default: gsap } = await import('gsap');
+          gsap.killTweensOf(indicator);
           gsap.to(indicator, {
             opacity: 0,
             scaleX: 0,
@@ -715,8 +767,8 @@ const ogImageType = ogImageUrl.endsWith('.png')
           if (!indicator) return;
           const activeLink = nav.querySelector('.nav-link.is-active') as HTMLElement | null;
           if (!activeLink) {
-            gsap.to(indicator, { opacity: 0, duration: 0.15 });
-            return;
+            gsap.set(indicator, { opacity: 0, scaleX: 0 });
+            return false;
           }
 
           const navRect = nav.getBoundingClientRect();
@@ -733,6 +785,7 @@ const ogImageType = ogImageUrl.endsWith('.png')
           } else {
             gsap.set(indicator, { y: targetY });
           }
+          return true;
         };
 
         // Keep indicator positioned on resize
@@ -741,33 +794,33 @@ const ogImageType = ogImageUrl.endsWith('.png')
         });
 
         // ─── 3f. Magnetic hover (desktop, vertical mode only) ─────────
+        // Disabled — no hover box or physics effects
         const initMagneticHover = async () => {
+          // Per-link char wave on hover (kept as subtle interaction)
           const { default: gsap } = await import('gsap');
 
-          linkDataList.forEach(({ el }) => {
-            const strength = 0.25;
-            const quickX = gsap.quickTo(el, 'x', { duration: 0.3, ease: 'power2.out' });
-            const quickY = gsap.quickTo(el, 'y', { duration: 0.3, ease: 'power2.out' });
-            let bounds: DOMRect | null = null;
-
+          linkDataList.forEach(({ el, chars }) => {
             el.addEventListener('pointerenter', (e: PointerEvent) => {
               if (e.pointerType !== 'mouse' || !isVertical) return;
-              bounds = el.getBoundingClientRect();
-            });
-
-            el.addEventListener('pointermove', (e: PointerEvent) => {
-              if (e.pointerType !== 'mouse' || !isVertical) return;
-              if (!bounds) bounds = el.getBoundingClientRect();
-              const centerX = bounds.left + bounds.width / 2;
-              const centerY = bounds.top + bounds.height / 2;
-              quickX((e.clientX - centerX) * strength);
-              quickY((e.clientY - centerY) * strength);
+              chars.forEach((c, i) => {
+                gsap.to(c, {
+                  y: -1.5,
+                  duration: 0.25,
+                  delay: i * 0.015,
+                  ease: 'power2.out'
+                });
+              });
             });
 
             el.addEventListener('pointerleave', (e: PointerEvent) => {
               if (e.pointerType !== 'mouse') return;
-              bounds = null;
-              gsap.to(el, { x: 0, y: 0, duration: 0.5, ease: 'elastic.out(1, 0.3)' });
+              chars.forEach(c => {
+                gsap.to(c, {
+                  y: 0,
+                  duration: 0.6,
+                  ease: 'elastic.out(1, 0.4)'
+                });
+              });
             });
           });
         };
