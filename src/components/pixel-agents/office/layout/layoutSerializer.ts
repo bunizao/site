@@ -290,6 +290,10 @@ export function createDefaultLayout(): OfficeLayout {
   const furniture: PlacedFurniture[] = [
     { uid: 'desk-left', type: FurnitureType.DESK, col: 4, row: 3 },
     { uid: 'desk-right', type: FurnitureType.DESK, col: 13, row: 3 },
+    { uid: 'pc-left', type: FurnitureType.PC, col: 4, row: 3 },
+    { uid: 'lamp-left', type: FurnitureType.LAMP, col: 5, row: 3 },
+    { uid: 'pc-right', type: FurnitureType.PC, col: 13, row: 3 },
+    { uid: 'lamp-right', type: FurnitureType.LAMP, col: 14, row: 3 },
     { uid: 'bookshelf-1', type: FurnitureType.BOOKSHELF, col: 1, row: 5 },
     { uid: 'plant-left', type: FurnitureType.PLANT, col: 1, row: 1 },
     { uid: 'cooler-1', type: FurnitureType.COOLER, col: 17, row: 7 },

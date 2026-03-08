@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 
 import { playDoneSound, setSoundEnabled } from '../notificationSound.js';
+import { setFloorSprites } from '../office/floorTiles.js';
 import type { OfficeState } from '../office/engine/officeState.js';
-import { migrateLayoutColors } from '../office/layout/layoutSerializer.js';
+import { getCatalogEntry } from '../office/layout/furnitureCatalog.js';
+import { createDefaultLayout, migrateLayoutColors } from '../office/layout/layoutSerializer.js';
 import { extractToolName } from '../office/toolUtils.js';
 import type { OfficeLayout, ToolActivity } from '../office/types.js';
 import { setWallSprites } from '../office/wallTiles.js';
@@ -75,9 +77,12 @@ const STORAGE_SEATS_KEY = 'pixel-agents:seats';
 const STORAGE_SOUND_KEY = 'pixel-agents:sound';
 const DEFAULT_AGENT_COUNT = 4;
 const SOURCE_URL = 'https://github.com/pablodelucca/pixel-agents/tree/main/webview-ui';
+const FLOOR_SPRITE_URL = '/pixel-agents/assets/floors.png';
 const WALL_SPRITE_URL = '/pixel-agents/assets/walls.png';
 const DEFAULT_LAYOUT_URL = '/pixel-agents/assets/default-layout.json';
 const DEFAULT_FOLDER_NAMES = ['site', 'content', 'design', 'ops', 'infra', 'notes'];
+const FLOOR_TILE_SIZE = 16;
+const FLOOR_PATTERN_COUNT = 7;
 
 const BEATS: BeatSpec[][] = [
   [
@@ -182,17 +187,25 @@ function buildFolderNames(agentIds: number[]): Record<number, string> {
 }
 
 async function fetchDefaultLayout(): Promise<OfficeLayout | null> {
+  const fallbackLayout = createDefaultLayout();
+
   try {
     const response = await fetch(DEFAULT_LAYOUT_URL);
 
     if (!response.ok) {
-      return null;
+      return fallbackLayout;
     }
 
     const layout = (await response.json()) as OfficeLayout;
-    return layout.version === 1 ? migrateLayoutColors(layout) : null;
+    if (layout.version !== 1) {
+      return fallbackLayout;
+    }
+
+    const migrated = migrateLayoutColors(layout);
+    const hasOnlyRenderableFurniture = migrated.furniture.every((item) => Boolean(getCatalogEntry(item.type)));
+    return hasOnlyRenderableFurniture ? migrated : fallbackLayout;
   } catch {
-    return null;
+    return fallbackLayout;
   }
 }
 
@@ -226,6 +239,62 @@ async function loadWallSpritesFromImage(): Promise<string[][][] | null> {
 
         for (let col = 0; col < 16; col += 1) {
           const index = ((offsetY + row) * width + (offsetX + col)) * 4;
+          const red = data[index];
+          const green = data[index + 1];
+          const blue = data[index + 2];
+          const alpha = data[index + 3];
+
+          if (alpha < 8) {
+            line.push('');
+            continue;
+          }
+
+          line.push(
+            `#${red.toString(16).padStart(2, '0')}${green.toString(16).padStart(2, '0')}${blue.toString(16).padStart(2, '0')}`.toUpperCase(),
+          );
+        }
+
+        sprite.push(line);
+      }
+
+      sprites.push(sprite);
+    }
+
+    return sprites;
+  } catch {
+    return null;
+  }
+}
+
+async function loadFloorSpritesFromImage(): Promise<string[][][] | null> {
+  try {
+    const image = new Image();
+    image.src = FLOOR_SPRITE_URL;
+    await image.decode();
+
+    const canvas = document.createElement('canvas');
+    canvas.width = image.width;
+    canvas.height = image.height;
+
+    const context = canvas.getContext('2d');
+
+    if (!context) {
+      return null;
+    }
+
+    context.drawImage(image, 0, 0);
+    const { data, width } = context.getImageData(0, 0, canvas.width, canvas.height);
+    const sprites: string[][][] = [];
+
+    for (let pattern = 0; pattern < FLOOR_PATTERN_COUNT; pattern += 1) {
+      const offsetX = pattern * FLOOR_TILE_SIZE;
+      const sprite: string[][] = [];
+
+      for (let row = 0; row < FLOOR_TILE_SIZE; row += 1) {
+        const line: string[] = [];
+
+        for (let col = 0; col < FLOOR_TILE_SIZE; col += 1) {
+          const index = (row * width + (offsetX + col)) * 4;
           const red = data[index];
           const green = data[index + 1];
           const blue = data[index + 2];
@@ -726,6 +795,10 @@ export function useExtensionMessages(
           setSoundEnabled(Boolean(message.soundEnabled));
           return;
 
+        case 'floorTilesLoaded':
+          setFloorSprites((message.sprites as string[][][]) ?? []);
+          return;
+
         case 'wallTilesLoaded':
           setWallSprites((message.sprites as string[][][]) ?? []);
           return;
@@ -802,9 +875,17 @@ export function useExtensionMessages(
       const initialIds = buildInitialAgentIds(savedSeats);
       const folderNames = buildFolderNames(initialIds);
       const savedLayout = readJsonStorage<OfficeLayout | null>(STORAGE_LAYOUT_KEY, null);
+      const hasRenderableSavedLayout =
+        savedLayout?.version === 1 &&
+        savedLayout.furniture.every((item) => Boolean(getCatalogEntry(item.type)));
       const soundOn = readJsonStorage<boolean>(STORAGE_SOUND_KEY, true);
 
       await handleMessage({ type: 'settingsLoaded', soundEnabled: soundOn });
+
+      const floorSprites = await loadFloorSpritesFromImage();
+      if (!cancelled && floorSprites) {
+        await handleMessage({ type: 'floorTilesLoaded', sprites: floorSprites });
+      }
 
       const wallSprites = await loadWallSpritesFromImage();
       if (!cancelled && wallSprites) {
@@ -826,17 +907,20 @@ export function useExtensionMessages(
         return;
       }
 
-      applyLayout(savedLayout ?? (await fetchDefaultLayout()), true, false);
+      applyLayout(
+        hasRenderableSavedLayout ? savedLayout : await fetchDefaultLayout(),
+        true,
+        !hasRenderableSavedLayout,
+      );
 
       if (cancelled || initialIds.length === 0) {
         return;
       }
 
-      const firstAgentId = initialIds[0];
       const os = getOfficeState();
-      os.selectedAgentId = firstAgentId;
-      os.cameraFollowId = firstAgentId;
-      setSelectedAgent(firstAgentId);
+      os.selectedAgentId = null;
+      os.cameraFollowId = null;
+      setSelectedAgent(null);
     };
 
     void bootstrap();

@@ -108,6 +108,7 @@ export const FURNITURE_CATALOG: CatalogEntryWithCategory[] = [
     sprite: PC_SPRITE,
     isDesk: false,
     category: 'electronics',
+    canPlaceOnSurfaces: true,
   },
   {
     type: FurnitureType.LAMP,
@@ -117,6 +118,7 @@ export const FURNITURE_CATALOG: CatalogEntryWithCategory[] = [
     sprite: LAMP_SPRITE,
     isDesk: false,
     category: 'decor',
+    canPlaceOnSurfaces: true,
   },
 ];
 
