@@ -26,12 +26,15 @@ const {
   image = '/og.png',
   imageAlt = 'Bunizao',
   url,
-  showSiteNav = true,
+  showSiteNav = false,
   rss,
   oembed,
 } = Astro.props;
 
 const site = Astro.site ?? new URL('https://buxx.me');
+const currentPath = Astro.url?.pathname ?? '/';
+const shouldRenderSiteNav = currentPath === '/' || showSiteNav;
+const isMobileSiteNavVisible = showSiteNav;
 const canonicalUrl = url ?? new URL(Astro.url?.pathname ?? '/', site).href;
 const ogImageUrl = new URL(image, site).href;
 const ogImageType = ogImageUrl.endsWith('.png')
@@ -126,9 +129,13 @@ const ogImageType = ogImageUrl.endsWith('.png')
     <title>{title}</title>
   </head>
   <body>
-    {showSiteNav ? (
+    {shouldRenderSiteNav ? (
       <!-- Site navigation -->
-      <nav class="site-nav" data-site-nav aria-label="Page sections">
+      <nav
+        class:list={['site-nav', { 'site-nav--mobile-visible': isMobileSiteNavVisible }]}
+        data-site-nav
+        aria-label="Page sections"
+      >
         <div class="nav-active-indicator" data-nav-indicator aria-hidden="true"></div>
         <a href="#projects-section" class="nav-link" data-nav-link="projects" data-nav-index="01">Projects</a>
         <span class="nav-separator" aria-hidden="true">/</span>
@@ -530,28 +537,32 @@ const ogImageType = ogImageUrl.endsWith('.png')
         let activeId = '';
         let ticking = false;
 
+        const syncActiveSection = () => {
+          const viewportH = window.innerHeight;
+          let newActiveId = '';
+          for (const section of sections) {
+            if (!section.el) continue;
+            const rect = section.el.getBoundingClientRect();
+            if (rect.top <= viewportH * 0.4 && rect.bottom > viewportH * 0.2) {
+              newActiveId = section.id;
+            }
+          }
+
+          if (newActiveId === activeId) return;
+
+          activeId = newActiveId;
+          links.forEach(link => {
+            const el = link as HTMLElement;
+            el.classList.toggle('is-active', el.dataset.navLink === activeId);
+          });
+          if (isVertical) updateIndicator();
+        };
+
         const onScroll = () => {
           if (ticking) return;
           ticking = true;
           requestAnimationFrame(() => {
-            const viewportH = window.innerHeight;
-            let newActiveId = '';
-            for (const section of sections) {
-              if (!section.el) continue;
-              const rect = section.el.getBoundingClientRect();
-              if (rect.top <= viewportH * 0.4 && rect.bottom > viewportH * 0.2) {
-                newActiveId = section.id;
-              }
-            }
-
-            if (newActiveId !== activeId) {
-              activeId = newActiveId;
-              links.forEach(link => {
-                const el = link as HTMLElement;
-                el.classList.toggle('is-active', el.dataset.navLink === activeId);
-              });
-              if (isVertical) updateIndicator();
-            }
+            syncActiveSection();
             ticking = false;
           });
         };
@@ -619,7 +630,8 @@ const ogImageType = ogImageUrl.endsWith('.png')
 
           // Phase 2: Layout switch
           nav.classList.add('is-vertical');
-
+          syncActiveSection();
+          showIndicator();
           // Phase 3: Quick typewriter per link
           for (let i = 0; i < linkDataList.length; i++) {
             const { chars, indexSpan } = linkDataList[i];
@@ -646,7 +658,6 @@ const ogImageType = ogImageUrl.endsWith('.png')
             chars[chars.length - 1].classList.remove('is-cursor');
           }
 
-          showIndicator();
           animating = false;
           flushPending();
         };
@@ -728,7 +739,11 @@ const ogImageType = ogImageUrl.endsWith('.png')
           if (!indicator) return;
           const { default: gsap } = await import('gsap');
           gsap.killTweensOf(indicator);
-          positionIndicator(gsap, false);
+          const hasActiveLink = positionIndicator(gsap, false);
+          if (!hasActiveLink) {
+            gsap.set(indicator, { opacity: 0, scaleX: 0 });
+            return;
+          }
           gsap.to(indicator, {
             opacity: 1,
             scaleX: 1,
@@ -759,8 +774,8 @@ const ogImageType = ogImageUrl.endsWith('.png')
           if (!indicator) return;
           const activeLink = nav.querySelector('.nav-link.is-active') as HTMLElement | null;
           if (!activeLink) {
-            gsap.to(indicator, { opacity: 0, duration: 0.15 });
-            return;
+            gsap.set(indicator, { opacity: 0, scaleX: 0 });
+            return false;
           }
 
           const navRect = nav.getBoundingClientRect();
@@ -777,6 +792,7 @@ const ogImageType = ogImageUrl.endsWith('.png')
           } else {
             gsap.set(indicator, { y: targetY });
           }
+          return true;
         };
 
         // Keep indicator positioned on resize
