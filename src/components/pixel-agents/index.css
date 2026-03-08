@@ -62,12 +62,20 @@
   width: 100%;
   height: 100%;
   overflow: hidden;
+  background: var(--vscode-editor-background);
   font-family: 'FS Pixel Sans', sans-serif;
   box-sizing: border-box;
+  user-select: none;
 }
 
 .pixel-agents-root,
 .pixel-agents-root * {
   font-family: 'FS Pixel Sans', sans-serif;
   box-sizing: border-box;
+}
+
+.pixel-agents-root canvas {
+  display: block;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
 }

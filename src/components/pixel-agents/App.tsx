@@ -1,6 +1,6 @@
 import './index.css';
 
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { BottomToolbar } from './components/BottomToolbar.js';
 import { DebugView } from './components/DebugView.js';
@@ -15,6 +15,7 @@ import { EditorState } from './office/editor/editorState.js';
 import { EditorToolbar } from './office/editor/EditorToolbar.js';
 import { OfficeState } from './office/engine/officeState.js';
 import { isRotatable } from './office/layout/furnitureCatalog.js';
+import { fitZoomToViewport } from './office/toolUtils.js';
 import { EditTool } from './office/types.js';
 import { vscode } from './vscodeApi.js';
 
@@ -150,6 +151,7 @@ function App() {
   }, []);
 
   const containerRef = useRef<HTMLDivElement>(null);
+  const didApplyInitialZoomRef = useRef(false);
 
   const [editorTickForKeyboard, setEditorTickForKeyboard] = useState(0);
   useEditorKeyboard(
@@ -177,6 +179,21 @@ function App() {
   }, []);
 
   const officeState = getOfficeState();
+
+  useEffect(() => {
+    if (!layoutReady || didApplyInitialZoomRef.current || !containerRef.current) {
+      return;
+    }
+
+    const rect = containerRef.current.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) {
+      return;
+    }
+
+    const layout = officeState.getLayout();
+    editor.handleZoomChange(fitZoomToViewport(layout.cols, layout.rows, rect.width, rect.height));
+    didApplyInitialZoomRef.current = true;
+  }, [editor, layoutReady, officeState]);
 
   // Force dependency on editorTickForKeyboard to propagate keyboard-triggered re-renders
   void editorTickForKeyboard;

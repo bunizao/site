@@ -1,133 +1,61 @@
 ---
 import PixelAgentsApp from '@/components/pixel-agents/App';
-import Layout from '../layouts/Layout.astro';
 
-const title = 'Office | Bunizao';
-const description =
-  'A local page that ports the Pixel Agents webview office into this Astro site with the original React and Canvas 2D office stack.';
-const sourceUrl = 'https://github.com/pablodelucca/pixel-agents/tree/main/webview-ui';
+const title = 'OpenClaw Agents Office';
+const description = 'A full-screen Pixel Agents office view tuned for OpenClaw agents.';
+const site = Astro.site ?? new URL(Astro.url?.origin ?? 'http://localhost:4321');
+const canonicalUrl = new URL('/office', site).toString();
 ---
 
-<Layout title={title} description={description} url="/office" showSiteNav={false}>
-  <main class="office-clone-page">
-    <div class="office-clone-shell">
-      <div class="office-clone-meta">
-        <a href="/" class="office-clone-back">← Home</a>
-        <div class="office-clone-copy">
-          <p class="office-clone-kicker">/office</p>
-          <h1>Pixel Agents office, ported much closer to upstream.</h1>
-          <p>
-            This route now runs a vendored version of the
-            <a href={sourceUrl} target="_blank" rel="noreferrer"> Pixel Agents webview-ui </a>
-            office stack, with local mock agents, localStorage persistence, and the original editor,
-            zoom controls, overlays, and canvas renderer intact.
-          </p>
-        </div>
-      </div>
-
-      <section class="office-clone-stage">
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="description" content={description} />
+    <meta name="theme-color" content="#070b12" />
+    <link rel="canonical" href={canonicalUrl} />
+    <link rel="icon" href="/favicon.ico" />
+    <title>{title}</title>
+  </head>
+  <body>
+    <main class="office-page">
+      <div class="office-stage">
         <PixelAgentsApp client:only="react" />
-      </section>
-    </div>
-  </main>
-</Layout>
+      </div>
+    </main>
+  </body>
+</html>
 
-<style>
-  .office-clone-page {
-    padding-top: 5.5rem;
-    padding-bottom: 2rem;
+<style is:global>
+  :root {
+    color-scheme: dark;
   }
 
-  .office-clone-shell {
-    width: min(1440px, calc(100vw - 1.5rem));
-    margin: 0 auto;
-  }
-
-  .office-clone-meta {
-    display: grid;
-    gap: 1rem;
-    margin-bottom: 1rem;
-  }
-
-  .office-clone-back {
-    display: inline-flex;
-    align-items: center;
-    width: fit-content;
-    padding: 0.65rem 0.95rem;
-    border: 1px solid hsl(var(--foreground) / 0.12);
-    border-radius: 999px;
-    color: hsl(var(--muted-foreground));
-    background: hsl(var(--background) / 0.84);
-  }
-
-  .office-clone-back:hover {
-    color: hsl(var(--foreground));
-    border-color: hsl(var(--foreground) / 0.24);
-  }
-
-  .office-clone-kicker {
-    margin: 0 0 0.75rem;
-    font-size: 0.7rem;
-    letter-spacing: 0.28em;
-    text-transform: uppercase;
-    color: hsl(var(--muted-foreground));
-  }
-
-  .office-clone-copy h1 {
+  html,
+  body {
+    width: 100%;
+    height: 100%;
     margin: 0;
-    font-size: clamp(2rem, 5vw, 3.75rem);
-    line-height: 0.95;
-    letter-spacing: -0.06em;
-  }
-
-  .office-clone-copy p:last-child {
-    max-width: 56rem;
-    margin: 0.9rem 0 0;
-    line-height: 1.8;
-    color: hsl(var(--muted-foreground));
-  }
-
-  .office-clone-copy a {
-    color: hsl(var(--foreground));
-    text-decoration: underline;
-    text-underline-offset: 0.16em;
-  }
-
-  .office-clone-stage {
-    position: relative;
-    height: min(860px, calc(100vh - 11rem));
-    min-height: 620px;
-    border: 1px solid hsl(var(--foreground) / 0.12);
-    border-radius: 1.5rem;
     overflow: hidden;
-    background: #131320;
-    box-shadow: 0 34px 100px -54px rgb(0 0 0 / 0.65);
+    background: #070b12;
   }
 
-  @media (min-width: 900px) {
-    .office-clone-meta {
-      grid-template-columns: auto minmax(0, 1fr);
-      align-items: start;
-    }
-
-    .office-clone-back {
-      margin-top: 0.25rem;
-    }
+  body {
+    font-family: 'FS Pixel Sans', 'JetBrains Mono', monospace;
   }
 
-  @media (max-width: 640px) {
-    .office-clone-page {
-      padding-top: 5rem;
-    }
+  .office-page {
+    width: 100vw;
+    min-height: 100dvh;
+    background:
+      radial-gradient(circle at top, rgb(33 52 88 / 0.18) 0%, rgb(33 52 88 / 0) 42%),
+      linear-gradient(180deg, #0b1020 0%, #070b12 100%);
+  }
 
-    .office-clone-shell {
-      width: calc(100vw - 1rem);
-    }
-
-    .office-clone-stage {
-      min-height: 540px;
-      height: calc(100vh - 13rem);
-      border-radius: 1.1rem;
-    }
+  .office-stage {
+    width: 100vw;
+    height: 100dvh;
+    overflow: hidden;
   }
 </style>
