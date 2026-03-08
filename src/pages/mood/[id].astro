@@ -589,7 +589,7 @@ const telegramCommentUrl = channel && id ? `https://t.me/${channel}/${id}?commen
     }
   }
 
-  .mood-reaction {
+  .mood-post-reactions .mood-reaction {
     display: inline-flex;
     align-items: center;
     gap: 4px;
@@ -602,30 +602,30 @@ const telegramCommentUrl = channel && id ? `https://t.me/${channel}/${id}?commen
     border: 1px solid transparent;
   }
 
-  .mood-reaction:hover {
+  .mood-post-reactions .mood-reaction:hover {
     background: hsl(var(--foreground) / 0.1);
     border-color: hsl(var(--foreground) / 0.12);
     transform: translateY(-1px);
   }
 
-  .mood-reaction--paid {
+  .mood-post-reactions .mood-reaction--paid {
     background: hsl(45 100% 50% / 0.08);
     color: hsl(45 70% 40%);
   }
 
-  .mood-reaction--paid:hover {
+  .mood-post-reactions .mood-reaction--paid:hover {
     background: hsl(45 100% 50% / 0.12);
     border-color: hsl(45 100% 50% / 0.2);
   }
 
-  .mood-reaction-emoji {
+  .mood-post-reactions .mood-reaction-emoji {
     display: inline-flex;
     align-items: center;
     font-size: 13px;
     line-height: 1;
   }
 
-  .mood-reaction-emoji img {
+  .mood-post-reactions .mood-reaction-emoji img {
     width: 1em;
     height: 1em;
     display: block;
@@ -657,7 +657,7 @@ const telegramCommentUrl = channel && id ? `https://t.me/${channel}/${id}?commen
     display: block;
   }
 
-  .mood-reaction-count {
+  .mood-post-reactions .mood-reaction-count {
     font-size: 11px;
     font-weight: 500;
     font-variant-numeric: tabular-nums;
@@ -1678,14 +1678,6 @@ const telegramCommentUrl = channel && id ? `https://t.me/${channel}/${id}?commen
     margin-top: 10px;
   }
 
-  .mood-comment-reactions .mood-reaction {
-    padding: 4px 9px 4px 8px;
-    font-size: 11px;
-    background: hsl(var(--foreground) / 0.06);
-    border: 1px solid hsl(var(--foreground) / 0.1);
-    border-radius: 999px;
-  }
-
   .mood-comments-load-more {
     display: block;
     width: 100%;
@@ -1828,12 +1820,6 @@ const telegramCommentUrl = channel && id ? `https://t.me/${channel}/${id}?commen
     .mood-comment-reactions {
       gap: 5px;
       margin-top: 8px;
-    }
-
-    .mood-comment-reactions .mood-reaction {
-      padding: 3px 7px 3px 6px;
-      font-size: 10px;
-      min-height: 24px;
     }
 
     .mood-comments-empty {
@@ -2126,14 +2112,6 @@ const telegramCommentUrl = channel && id ? `https://t.me/${channel}/${id}?commen
     flex-wrap: wrap;
     gap: 6px;
     margin-top: 10px;
-  }
-
-  .mood-comment-reactions .mood-reaction {
-    padding: 4px 9px 4px 8px;
-    font-size: 11px;
-    background: hsl(var(--foreground) / 0.06);
-    border: 1px solid hsl(var(--foreground) / 0.1);
-    border-radius: 999px;
   }
 
   @media (max-width: 540px) {
