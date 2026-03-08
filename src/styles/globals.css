@@ -372,6 +372,15 @@
     box-shadow: 0 0 8px hsl(var(--foreground) / 0.15), 0 0 20px hsl(var(--foreground) / 0.06);
   }
 
+  .site-nav:not(.is-vertical) .nav-active-indicator {
+    opacity: 0 !important;
+    visibility: hidden;
+  }
+
+  .site-nav.is-vertical .nav-active-indicator {
+    visibility: visible;
+  }
+
   /* Typewriter cursor on the currently-revealing character */
   .nav-char.is-cursor::after {
     content: '';
