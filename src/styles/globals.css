@@ -147,6 +147,218 @@
     @apply mx-auto max-w-[720px] px-4 sm:px-6;
   }
 
+  .mood-item-quote,
+  .mood-quote-card {
+    display: inline-flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 8px 10px;
+    border-radius: 10px;
+    border: none;
+    background: hsl(var(--foreground) / 0.03);
+    color: hsl(var(--muted-foreground));
+    text-decoration: none;
+    align-self: flex-start;
+    max-width: 88%;
+    width: fit-content;
+  }
+
+  .mood-item-quote[href],
+  .mood-quote-card[href] {
+    cursor: pointer;
+    transition: background 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+  }
+
+  .mood-item-quote[href]:hover,
+  .mood-item-quote[href]:focus-visible,
+  .mood-quote-card[href]:hover,
+  .mood-quote-card[href]:focus-visible {
+    background: hsl(var(--foreground) / 0.06);
+    color: hsl(var(--foreground) / 0.7);
+    box-shadow: 0 0 0 1px hsl(var(--foreground) / 0.08);
+  }
+
+  .mood-item-quote[href]:hover .mood-item-quote-text,
+  .mood-item-quote[href]:focus-visible .mood-item-quote-text,
+  .mood-quote-card[href]:hover .mood-quote-card-text,
+  .mood-quote-card[href]:focus-visible .mood-quote-card-text {
+    color: hsl(var(--foreground) / 0.75);
+  }
+
+  .mood-item-quote-meta,
+  .mood-quote-card-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 11px;
+    text-transform: none;
+    letter-spacing: 0.02em;
+    color: hsl(var(--muted-foreground));
+  }
+
+  .mood-item-quote-author,
+  .mood-quote-card-author {
+    font-size: 11px;
+    letter-spacing: 0.02em;
+    text-transform: none;
+    color: hsl(var(--foreground) / 0.6);
+  }
+
+  .mood-item-quote-text,
+  .mood-quote-card-text {
+    margin: 0;
+    font-size: 12px;
+    line-height: 1.55;
+    color: hsl(var(--foreground) / 0.6);
+    white-space: pre-line;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+    overflow: hidden;
+  }
+
+  .mood-comment-content .mood-item-quote,
+  .mood-popover-comment-content .mood-item-quote {
+    display: flex;
+    margin: 0 0 0.75em;
+    max-width: 100%;
+  }
+
+  .mood-popover-comment-content .mood-item-quote {
+    margin-bottom: 0.5em;
+  }
+
+  .mood-comment-content .mood-item-quote:last-child,
+  .mood-popover-comment-content .mood-item-quote:last-child {
+    margin-bottom: 0;
+  }
+
+  .mood-comment-content a.mood-item-quote,
+  .mood-comment-content a.mood-item-quote:hover,
+  .mood-popover-comment-content a.mood-item-quote,
+  .mood-popover-comment-content a.mood-item-quote:hover {
+    border-bottom: none;
+  }
+
+  .mood-comment-content .mood-comment-quote {
+    gap: 3px;
+    width: 100%;
+    padding: 8px 12px;
+    border-radius: 10px;
+    background: hsl(var(--foreground) / 0.045);
+    color: hsl(var(--foreground) / 0.74);
+    box-shadow: none;
+  }
+
+  .mood-comment-content a.mood-comment-quote:hover {
+    background: hsl(var(--foreground) / 0.06);
+    color: hsl(var(--foreground) / 0.78);
+    box-shadow: none;
+  }
+
+  .mood-comment-content .mood-comment-quote .mood-item-quote-meta {
+    gap: 0;
+    font-size: 12px;
+    color: hsl(var(--foreground) / 0.8);
+  }
+
+  .mood-comment-content .mood-comment-quote .mood-item-quote-author {
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0;
+    color: hsl(var(--foreground) / 0.84);
+  }
+
+  .mood-comment-content .mood-comment-quote .mood-item-quote-text {
+    display: block;
+    max-width: 100%;
+    font-size: 12px;
+    line-height: 1.3;
+    color: hsl(var(--foreground) / 0.62);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    -webkit-line-clamp: unset;
+  }
+
+  .mood-popover-comment-content .mood-comment-quote {
+    gap: 2px;
+    width: 100%;
+    padding: 6px 9px;
+    border-radius: 8px;
+    background: hsl(var(--foreground) / 0.04);
+    color: hsl(var(--foreground) / 0.72);
+    box-shadow: none;
+  }
+
+  .mood-popover-comment-content a.mood-comment-quote:hover {
+    background: hsl(var(--foreground) / 0.055);
+    color: hsl(var(--foreground) / 0.76);
+    box-shadow: none;
+  }
+
+  .mood-popover-comment-content .mood-comment-quote .mood-item-quote-meta {
+    gap: 0;
+    font-size: 10px;
+    color: hsl(var(--foreground) / 0.78);
+  }
+
+  .mood-popover-comment-content .mood-comment-quote .mood-item-quote-author {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0;
+    color: hsl(var(--foreground) / 0.82);
+  }
+
+  .mood-popover-comment-content .mood-comment-quote .mood-item-quote-text {
+    display: block;
+    max-width: 100%;
+    font-size: 10px;
+    line-height: 1.3;
+    color: hsl(var(--foreground) / 0.6);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    -webkit-line-clamp: unset;
+  }
+
+  .mood-reaction {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 3px 8px 3px 6px;
+    font-size: 12px;
+    background: hsl(var(--foreground) / 0.05);
+    border-radius: 999px;
+    color: hsl(var(--muted-foreground));
+    border: 1px solid transparent;
+  }
+
+  .mood-reaction--paid {
+    background: hsl(45 100% 50% / 0.08);
+    color: hsl(45 70% 40%);
+  }
+
+  .mood-reaction-emoji {
+    display: inline-flex;
+    align-items: center;
+    font-size: 14px;
+    line-height: 1;
+  }
+
+  .mood-reaction-emoji img {
+    width: 1em;
+    height: 1em;
+    display: block;
+  }
+
+  .mood-reaction-count {
+    font-size: 12px;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+    opacity: 0.8;
+  }
+
   .section-label {
     @apply inline-block text-[11px] font-light uppercase tracking-[0.2em] text-muted-foreground;
     margin-bottom: 20px;
