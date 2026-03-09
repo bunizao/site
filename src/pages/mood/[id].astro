@@ -718,27 +718,81 @@ const telegramCommentUrl = channel && id ? `https://t.me/${channel}/${id}?commen
     border-bottom-color: hsl(var(--foreground) / 0.6);
   }
 
-  .mood-post-content :global(a.tgme_widget_message_reply) {
-    display: block;
-    border-bottom: none;
-    padding-bottom: 0;
-    color: inherit;
+  .mood-post-content :global(.mood-detail-quote) {
+    display: inline-flex;
+    flex-direction: column;
+    gap: 4px;
     width: fit-content;
-    max-width: 100%;
+    max-width: min(32rem, 100%);
     min-width: 0;
     margin: 1.1em 0 1.35em;
-    padding: 9px 12px;
-    background: hsl(var(--foreground) / 0.035);
-    border: 1px solid hsl(var(--foreground) / 0.08);
+    padding: 10px 12px;
     border-radius: 12px;
-    position: relative;
-    transition: border-color 0.15s ease, background-color 0.15s ease;
+    background: hsl(var(--foreground) / 0.03);
+    color: hsl(var(--muted-foreground));
+    text-decoration: none;
+    transition: background 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
   }
 
-  .mood-post-content :global(a.tgme_widget_message_reply:hover),
-  .mood-post-content :global(a.tgme_widget_message_reply:focus-visible) {
-    border-color: hsl(var(--foreground) / 0.12);
-    background: hsl(var(--foreground) / 0.045);
+  .mood-post-content :global(a.mood-detail-quote),
+  .mood-post-content :global(a.mood-detail-quote:hover),
+  .mood-post-content :global(a.mood-detail-quote:focus-visible) {
+    border-bottom: none;
+    padding-bottom: 0;
+  }
+
+  .mood-post-content :global(.mood-detail-quote:hover),
+  .mood-post-content :global(.mood-detail-quote:focus-visible) {
+    background: hsl(var(--foreground) / 0.06);
+    color: hsl(var(--foreground) / 0.7);
+    box-shadow: 0 0 0 1px hsl(var(--foreground) / 0.08);
+  }
+
+  .mood-post-content :global(.mood-detail-quote-meta) {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 11px;
+    letter-spacing: 0.02em;
+    color: hsl(var(--muted-foreground));
+  }
+
+  .mood-post-content :global(.mood-detail-quote-source) {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    color: hsl(var(--foreground) / 0.6);
+  }
+
+  .mood-post-content :global(.mood-detail-quote-text) {
+    margin: 0;
+    font-size: 12.5px;
+    line-height: 1.58;
+    color: hsl(var(--foreground) / 0.62);
+    white-space: pre-line;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+
+  .mood-post-content :global(.mood-detail-quote:hover .mood-detail-quote-text),
+  .mood-post-content :global(.mood-detail-quote:focus-visible .mood-detail-quote-text) {
+    color: hsl(var(--foreground) / 0.75);
+  }
+
+  @media (min-width: 640px) {
+    .mood-post-content :global(.mood-detail-quote) {
+      gap: 5px;
+      padding: 11px 13px;
+    }
+
+    .mood-post-content :global(.mood-detail-quote-source) {
+      font-size: 11.5px;
+    }
+
+    .mood-post-content :global(.mood-detail-quote-text) {
+      font-size: 13px;
+      line-height: 1.62;
+    }
   }
 
   .mood-post-content :global(strong) {
@@ -800,50 +854,15 @@ const telegramCommentUrl = channel && id ? `https://t.me/${channel}/${id}?commen
     }
   }
 
-  .mood-post-content :global(a.tgme_widget_message_reply blockquote) {
-    margin: 0;
-    padding: 4px 10px;
-    border: none;
-    border-left: 2px solid hsl(var(--foreground) / 0.12);
-    background: hsl(var(--foreground) / 0.03);
-    border-radius: 0 6px 6px 0;
-    font-size: 11.5px;
-    line-height: 1.5;
-    color: hsl(var(--muted-foreground) / 0.85);
-  }
-
-  @media (min-width: 640px) {
-    .mood-post-content :global(a.tgme_widget_message_reply blockquote) {
-      padding: 5px 12px;
-      font-size: 12.5px;
-      line-height: 1.55;
-    }
-  }
-
   .mood-post-content :global(blockquote small) {
     display: block;
     line-height: 1.5;
     white-space: pre-line;
   }
 
-  .mood-post-content :global(a.tgme_widget_message_reply blockquote small) {
-    font-weight: 500;
-    color: hsl(var(--foreground) / 0.7);
-    margin-bottom: 4px;
-  }
-
   .mood-post-content :global(blockquote p) {
     margin: 0;
     white-space: pre-line;
-  }
-
-  .mood-post-content :global(a.tgme_widget_message_reply .tgme_widget_message_author) {
-    margin-bottom: 4px;
-  }
-
-  .mood-post-content :global(a.tgme_widget_message_reply .tgme_widget_message_author_name) {
-    font-weight: 600;
-    color: hsl(var(--foreground) / 0.72);
   }
 
   /* Images */

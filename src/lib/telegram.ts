@@ -88,6 +88,7 @@ interface ContentProcessorConfig {
   channelTitle?: string;
   host?: string;
   headers?: Record<string, string>;
+  replyVariant?: 'raw' | 'detail-card';
 }
 
 function escapeHtml(value: string = ''): string {
@@ -541,6 +542,97 @@ const shouldHideReplyAuthor = (value: string, channel?: string, channelTitle?: s
   );
 };
 
+const escapeForRegExp = (value: string): string => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+const normalizeReplyText = (value: string): string =>
+  value
+    .replace(/\r\n?/g, '\n')
+    .replace(/[^\S\n]+/g, ' ')
+    .replace(/ *\n */g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+
+const extractReplyTextFromHtml = (html: string): string => {
+  if (!html) return '';
+
+  const $ = cheerio.load(html);
+  $('br').replaceWith('\n');
+
+  ['p', 'div', 'li', 'blockquote'].forEach((tag) => {
+    $(tag).each((_index, element) => {
+      const el = $(element);
+      const lastNode = el.contents().last();
+      if (!lastNode.length || !lastNode.text().endsWith('\n')) {
+        el.append('\n');
+      }
+    });
+  });
+
+  return normalizeReplyText($.root().text());
+};
+
+const stripLeadingReplyLabel = (value: string, labels: string[]): string => {
+  let result = value;
+  labels
+    .map((label) => label.trim())
+    .filter(Boolean)
+    .forEach((label) => {
+      const pattern = new RegExp(`^${escapeForRegExp(label)}[\\s\\-–—:：]+`, 'i');
+      result = result.replace(pattern, '');
+    });
+  return result.trim();
+};
+
+function buildDetailReplyCard(
+  $: CheerioAPI,
+  reply: cheerio.Cheerio<Element>,
+  { channel, channelTitle }: Pick<ContentProcessorConfig, 'channel' | 'channelTitle'>
+): string {
+  const sourceName =
+    [
+      '.tgme_widget_message_author_name',
+      '.tgme_widget_message_reply_author',
+      '.tgme_widget_message_reply_title',
+      '.tgme_widget_message_reply_name',
+    ]
+      .map((selector) => reply.find(selector).first().text().replace(/\s+/g, ' ').trim())
+      .find(Boolean) ??
+    channelTitle?.trim() ??
+    '';
+
+  const replyTextHtml =
+    reply.find('.js-message_reply_text, .tgme_widget_message_reply_text').first().html() ?? '';
+  const rawReplyHtml = reply.html() ?? '';
+  let text = extractReplyTextFromHtml(replyTextHtml || rawReplyHtml);
+  text = stripLeadingReplyLabel(text, [sourceName, channelTitle ?? '', channel ?? '']);
+
+  if (!text) {
+    return '';
+  }
+
+  let href = reply.attr('href') ?? '';
+  if (href && channel) {
+    try {
+      const url = new URL(href, 'https://t.me');
+      href = `${url.pathname}`.replace(new RegExp(`/${channel}/`, 'i'), '/mood/');
+    } catch {
+      href = '';
+    }
+  }
+
+  const safeHref = sanitizeUrlValue(href, 'href');
+  const tagName = safeHref ? 'a' : 'div';
+  const hrefAttr = safeHref ? ` href="${escapeHtml(safeHref)}"` : '';
+  const externalAttrs = safeHref && /^https?:\/\//i.test(safeHref)
+    ? ' target="_blank" rel="noopener noreferrer"'
+    : '';
+  const sourceMarkup = sourceName
+    ? `<div class="mood-detail-quote-meta"><span class="mood-detail-quote-source">${escapeHtml(sourceName)}</span></div>`
+    : '';
+
+  return `<${tagName} class="mood-detail-quote"${hrefAttr}${externalAttrs}>${sourceMarkup}<p class="mood-detail-quote-text">${escapeHtml(text)}</p></${tagName}>`;
+}
+
 function sanitizeUrlValue(value: string, type: 'href' | 'src'): string {
   const trimmed = value.trim();
   if (!trimmed) return '';
@@ -591,9 +683,15 @@ function sanitizeSrcSet(value: string): string {
 function getReply(
   $: CheerioAPI,
   item: Element,
-  { channel, channelTitle }: ContentProcessorConfig
+  { channel, channelTitle, replyVariant = 'raw' }: ContentProcessorConfig
 ): string {
-  const reply = $(item).find('.tgme_widget_message_reply');
+  const reply = $(item).find('.tgme_widget_message_reply').first();
+  if (!reply.length) return '';
+
+  if (replyVariant === 'detail-card') {
+    return buildDetailReplyCard($, reply, { channel, channelTitle });
+  }
+
   const authorSelectors = [
     '.tgme_widget_message_reply_author',
     '.tgme_widget_message_reply_title',
@@ -608,19 +706,19 @@ function getReply(
       authorEl.remove();
     }
   });
-  reply?.wrapInner('<small></small>')?.wrapInner('<blockquote></blockquote>');
+  reply.wrapInner('<small></small>').wrapInner('<blockquote></blockquote>');
 
-  const href = reply?.attr('href');
+  const href = reply.attr('href');
   if (href && channel) {
     try {
       const url = new URL(href, 'https://t.me');
-      reply?.attr('href', `${url.pathname}`.replace(new RegExp(`/${channel}/`, 'i'), '/mood/'));
+      reply.attr('href', `${url.pathname}`.replace(new RegExp(`/${channel}/`, 'i'), '/mood/'));
     } catch {
-      reply?.removeAttr('href');
+      reply.removeAttr('href');
     }
   }
 
-  reply?.find('*')?.each((_index, element) => {
+  reply.find('*').each((_index, element) => {
     const el = $(element);
     const attrs = Object.keys((element as any).attribs ?? {});
     attrs.forEach((attr) => {
@@ -630,12 +728,12 @@ function getReply(
     });
   });
 
-  const replyHref = reply?.attr('href') ?? '';
+  const replyHref = reply.attr('href') ?? '';
   const safeReplyHref = sanitizeUrlValue(replyHref, 'href');
   if (safeReplyHref) {
-    reply?.attr('href', safeReplyHref);
+    reply.attr('href', safeReplyHref);
   } else {
-    reply?.removeAttr('href');
+    reply.removeAttr('href');
   }
 
   return $.html(reply);
@@ -944,7 +1042,12 @@ async function getPost(
     tags,
     text: content?.text() ?? '',
     content: [
-      getReply($, messageItem as Element, { channel, channelTitle, staticProxy }),
+      getReply($, messageItem as Element, {
+        channel,
+        channelTitle,
+        staticProxy,
+        replyVariant: 'detail-card',
+      }),
       getImages($, messageItem as Element, { staticProxy, id, index, title }),
       getVideo($, messageItem as Element, { staticProxy, index }),
       getAudio($, messageItem as Element, { staticProxy }),
