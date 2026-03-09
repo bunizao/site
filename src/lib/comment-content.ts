@@ -105,12 +105,8 @@ const createCommentQuote = (replyEl: Element): HTMLElement | null => {
   return quoteWrap;
 };
 
-export const buildCommentContentFragment = (value: unknown): DocumentFragment => {
-  const template = document.createElement('template');
-  // `/api/comments` returns HTML sanitized in `src/lib/telegram.ts`.
-  template.innerHTML = asText(value).trim();
-
-  template.content.querySelectorAll('.tgme_widget_message_reply').forEach((replyNode) => {
+export const replaceReplyNodesWithCommentQuotes = (root: ParentNode): void => {
+  root.querySelectorAll('.tgme_widget_message_reply').forEach((replyNode) => {
     const quoteCard = createCommentQuote(replyNode as Element);
     if (quoteCard) {
       replyNode.replaceWith(quoteCard);
@@ -118,6 +114,14 @@ export const buildCommentContentFragment = (value: unknown): DocumentFragment =>
     }
     replyNode.remove();
   });
+};
+
+export const buildCommentContentFragment = (value: unknown): DocumentFragment => {
+  const template = document.createElement('template');
+  // `/api/comments` returns HTML sanitized in `src/lib/telegram.ts`.
+  template.innerHTML = asText(value).trim();
+
+  replaceReplyNodesWithCommentQuotes(template.content);
 
   const normalized = document.createDocumentFragment();
   let paragraph: HTMLParagraphElement | null = null;

@@ -406,6 +406,11 @@ const telegramCommentUrl = channel && id ? `https://t.me/${channel}/${id}?commen
       font-size: 0.85em;
       padding: 1px 5px;
     }
+
+    .mood-post-content :global(blockquote code) {
+      padding: 0;
+      border-radius: 0;
+    }
   }
 
   /* Extra small screens */
@@ -713,6 +718,29 @@ const telegramCommentUrl = channel && id ? `https://t.me/${channel}/${id}?commen
     border-bottom-color: hsl(var(--foreground) / 0.6);
   }
 
+  .mood-post-content :global(a.tgme_widget_message_reply) {
+    display: block;
+    border-bottom: none;
+    padding-bottom: 0;
+    color: inherit;
+    width: fit-content;
+    max-width: 100%;
+    min-width: 0;
+    margin: 1.1em 0 1.35em;
+    padding: 9px 12px;
+    background: hsl(var(--foreground) / 0.035);
+    border: 1px solid hsl(var(--foreground) / 0.08);
+    border-radius: 12px;
+    position: relative;
+    transition: border-color 0.15s ease, background-color 0.15s ease;
+  }
+
+  .mood-post-content :global(a.tgme_widget_message_reply:hover),
+  .mood-post-content :global(a.tgme_widget_message_reply:focus-visible) {
+    border-color: hsl(var(--foreground) / 0.12);
+    background: hsl(var(--foreground) / 0.045);
+  }
+
   .mood-post-content :global(strong) {
     font-weight: 600;
   }
@@ -749,39 +777,47 @@ const telegramCommentUrl = channel && id ? `https://t.me/${channel}/${id}?commen
 
   /* Blockquotes (replies/quotes) */
   .mood-post-content :global(blockquote) {
-    margin: 1.5em 0;
-    padding: 16px 20px;
-    border-left: 3px solid hsl(var(--foreground) / 0.15);
-    background: hsl(var(--foreground) / 0.04);
-    border-radius: 0 8px 8px 0;
-    font-size: 15px;
-    line-height: 1.65;
-    color: hsl(var(--muted-foreground));
+    width: fit-content;
+    max-width: 100%;
+    min-width: 0;
+    margin: 1.1em 0 1.35em;
+    padding: 9px 12px;
+    background: hsl(var(--foreground) / 0.035);
+    border: 1px solid hsl(var(--foreground) / 0.08);
+    border-radius: 12px;
+    font-size: 13px;
+    line-height: 1.6;
+    color: hsl(var(--foreground) / 0.95);
     position: relative;
+    overflow-wrap: anywhere;
+    word-break: break-word;
   }
 
   @media (min-width: 640px) {
     .mood-post-content :global(blockquote) {
-      padding: 18px 24px;
-      font-size: 16px;
-      line-height: 1.7;
-      border-radius: 0 10px 10px 0;
+      font-size: 14px;
+      line-height: 1.65;
     }
   }
 
-  .mood-post-content :global(blockquote::before) {
-    content: '';
-    position: absolute;
-    left: -3px;
-    top: 0;
-    width: 3px;
-    height: 100%;
-    background: linear-gradient(
-      to bottom,
-      hsl(var(--foreground) / 0.3),
-      hsl(var(--foreground) / 0.1)
-    );
-    border-radius: 3px 0 0 3px;
+  .mood-post-content :global(a.tgme_widget_message_reply blockquote) {
+    margin: 0;
+    padding: 4px 10px;
+    border: none;
+    border-left: 2px solid hsl(var(--foreground) / 0.12);
+    background: hsl(var(--foreground) / 0.03);
+    border-radius: 0 6px 6px 0;
+    font-size: 11.5px;
+    line-height: 1.5;
+    color: hsl(var(--muted-foreground) / 0.85);
+  }
+
+  @media (min-width: 640px) {
+    .mood-post-content :global(a.tgme_widget_message_reply blockquote) {
+      padding: 5px 12px;
+      font-size: 12.5px;
+      line-height: 1.55;
+    }
   }
 
   .mood-post-content :global(blockquote small) {
@@ -790,9 +826,24 @@ const telegramCommentUrl = channel && id ? `https://t.me/${channel}/${id}?commen
     white-space: pre-line;
   }
 
+  .mood-post-content :global(a.tgme_widget_message_reply blockquote small) {
+    font-weight: 500;
+    color: hsl(var(--foreground) / 0.7);
+    margin-bottom: 4px;
+  }
+
   .mood-post-content :global(blockquote p) {
     margin: 0;
     white-space: pre-line;
+  }
+
+  .mood-post-content :global(a.tgme_widget_message_reply .tgme_widget_message_author) {
+    margin-bottom: 4px;
+  }
+
+  .mood-post-content :global(a.tgme_widget_message_reply .tgme_widget_message_author_name) {
+    font-weight: 600;
+    color: hsl(var(--foreground) / 0.72);
   }
 
   /* Images */
@@ -945,26 +996,32 @@ const telegramCommentUrl = channel && id ? `https://t.me/${channel}/${id}?commen
 
   /* Code blocks */
   .mood-post-content :global(pre) {
-    margin: 1.5em 0;
+    margin: 1.1em 0 1.35em;
     padding: 16px;
-    background: hsl(var(--foreground) / 0.05);
-    border-radius: 8px;
+    background: hsl(var(--foreground) / 0.035);
+    border: 1px solid hsl(var(--foreground) / 0.08);
+    border-radius: 12px;
     overflow-x: auto;
     font-size: 13px;
     line-height: 1.6;
+    color: hsl(var(--foreground) / 0.95);
   }
 
   @media (min-width: 640px) {
     .mood-post-content :global(pre) {
-      padding: 20px;
+      padding: 18px 20px;
       font-size: 14px;
+      line-height: 1.65;
     }
   }
 
   .mood-post-content :global(pre code) {
     background: none;
     padding: 0;
+    border: none;
+    border-radius: 0;
     font-family: 'JetBrains Mono', monospace;
+    color: inherit;
   }
 
   .mood-post-content :global(code) {
@@ -973,6 +1030,21 @@ const telegramCommentUrl = channel && id ? `https://t.me/${channel}/${id}?commen
     background: hsl(var(--foreground) / 0.08);
     padding: 2px 6px;
     border-radius: 4px;
+  }
+
+  .mood-post-content :global(blockquote code) {
+    display: block;
+    max-width: 100%;
+    padding: 0;
+    border: none;
+    border-radius: 0;
+    background: none;
+    box-shadow: none;
+    color: inherit;
+    font-size: 0.92em;
+    line-height: inherit;
+    white-space: pre-wrap;
+    word-break: break-word;
   }
 
   /* Bookmark cards */
@@ -2201,7 +2273,12 @@ const telegramCommentUrl = channel && id ? `https://t.me/${channel}/${id}?commen
 </style>
 
 <script>
-  import { asText, buildCommentContentFragment, sanitizeImageUrl } from '../../lib/comment-content';
+  import {
+    asText,
+    buildCommentContentFragment,
+    replaceReplyNodesWithCommentQuotes,
+    sanitizeImageUrl,
+  } from '../../lib/comment-content';
   const backButton = document.querySelector('[data-back-button]');
 
   if (backButton) {
@@ -2336,6 +2413,11 @@ const telegramCommentUrl = channel && id ? `https://t.me/${channel}/${id}?commen
 
     return { hydrate };
   };
+
+  const moodPostContent = document.querySelector('.mood-post-content');
+  if (moodPostContent) {
+    replaceReplyNodesWithCommentQuotes(moodPostContent);
+  }
 
   const animatedEmoji = createAnimatedEmojiManager();
   animatedEmoji.hydrate(document);

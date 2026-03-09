@@ -217,6 +217,7 @@
     overflow: hidden;
   }
 
+  .mood-post-content .mood-item-quote,
   .mood-comment-content .mood-item-quote,
   .mood-popover-comment-content .mood-item-quote {
     display: flex;
@@ -228,11 +229,14 @@
     margin-bottom: 0.5em;
   }
 
+  .mood-post-content .mood-item-quote:last-child,
   .mood-comment-content .mood-item-quote:last-child,
   .mood-popover-comment-content .mood-item-quote:last-child {
     margin-bottom: 0;
   }
 
+  .mood-post-content a.mood-item-quote,
+  .mood-post-content a.mood-item-quote:hover,
   .mood-comment-content a.mood-item-quote,
   .mood-comment-content a.mood-item-quote:hover,
   .mood-popover-comment-content a.mood-item-quote,
@@ -240,6 +244,7 @@
     border-bottom: none;
   }
 
+  .mood-post-content .mood-comment-quote,
   .mood-comment-content .mood-comment-quote {
     gap: 3px;
     width: 100%;
@@ -250,18 +255,21 @@
     box-shadow: none;
   }
 
+  .mood-post-content a.mood-comment-quote:hover,
   .mood-comment-content a.mood-comment-quote:hover {
     background: hsl(var(--foreground) / 0.06);
     color: hsl(var(--foreground) / 0.78);
     box-shadow: none;
   }
 
+  .mood-post-content .mood-comment-quote .mood-item-quote-meta,
   .mood-comment-content .mood-comment-quote .mood-item-quote-meta {
     gap: 0;
     font-size: 12px;
     color: hsl(var(--foreground) / 0.8);
   }
 
+  .mood-post-content .mood-comment-quote .mood-item-quote-author,
   .mood-comment-content .mood-comment-quote .mood-item-quote-author {
     font-size: 13px;
     font-weight: 600;
@@ -269,6 +277,7 @@
     color: hsl(var(--foreground) / 0.84);
   }
 
+  .mood-post-content .mood-comment-quote .mood-item-quote-text,
   .mood-comment-content .mood-comment-quote .mood-item-quote-text {
     display: block;
     max-width: 100%;
