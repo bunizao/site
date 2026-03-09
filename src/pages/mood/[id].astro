@@ -45,7 +45,7 @@ const channel = import.meta.env.CHANNEL || Astro.locals?.runtime?.env?.CHANNEL |
 const telegramCommentUrl = channel && id ? `https://t.me/${channel}/${id}?comment=1` : '';
 ---
 
-<Layout title={title} description={description} oembed={oembed}>
+<Layout title={title} description={description} oembed={oembed} hideSiteNav>
   <main class="page-container">
     {post ? (
       <article class="mood-post">

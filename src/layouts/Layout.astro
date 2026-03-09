@@ -5,6 +5,7 @@ interface Props {
   image?: string;
   imageAlt?: string;
   url?: string;
+  hideSiteNav?: boolean;
   showSiteNav?: boolean;
   rss?: {
     href: string;
@@ -26,6 +27,7 @@ const {
   image = '/og.png',
   imageAlt = 'Bunizao',
   url,
+  hideSiteNav = false,
   showSiteNav = false,
   rss,
   oembed,
@@ -127,14 +129,16 @@ const ogImageType = ogImageUrl.endsWith('.png')
   </head>
   <body>
     <!-- Site navigation -->
-    <nav class:list={['site-nav', { 'site-nav--mobile-visible': showSiteNav }]} data-site-nav aria-label="Page sections">
-      <div class="nav-active-indicator" data-nav-indicator aria-hidden="true"></div>
-      <a href="#projects-section" class="nav-link" data-nav-link="projects" data-nav-index="01">Projects</a>
-      <span class="nav-separator" aria-hidden="true">/</span>
-      <a href="#writing-section" class="nav-link" data-nav-link="writing" data-nav-index="02">Writing</a>
-      <span class="nav-separator" aria-hidden="true">/</span>
-      <a href="#moods-section" class="nav-link" data-nav-link="moods" data-nav-index="03">Moods</a>
-    </nav>
+    {!hideSiteNav && (
+      <nav class:list={['site-nav', { 'site-nav--mobile-visible': showSiteNav }]} data-site-nav aria-label="Page sections">
+        <div class="nav-active-indicator" data-nav-indicator aria-hidden="true"></div>
+        <a href="#projects-section" class="nav-link" data-nav-link="projects" data-nav-index="01">Projects</a>
+        <span class="nav-separator" aria-hidden="true">/</span>
+        <a href="#writing-section" class="nav-link" data-nav-link="writing" data-nav-index="02">Writing</a>
+        <span class="nav-separator" aria-hidden="true">/</span>
+        <a href="#moods-section" class="nav-link" data-nav-link="moods" data-nav-index="03">Moods</a>
+      </nav>
+    )}
 
     <!-- Global header actions - theme dropdown will be added by pages -->
     <div class="global-header-actions" data-header-actions>
