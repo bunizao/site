@@ -629,10 +629,10 @@ function buildDetailReplyCard(
     ? ' target="_blank" rel="noopener noreferrer"'
     : '';
   const sourceMarkup = sourceName
-    ? `<div class="mood-detail-quote-meta"><span class="mood-detail-quote-source">${escapeHtml(sourceName)}</span></div>`
+    ? `<div class="mood-detail-quote-meta mood-item-quote-meta"><span class="mood-detail-quote-source mood-item-quote-author">${escapeHtml(sourceName)}</span></div>`
     : '';
 
-  return `<${tagName} class="mood-detail-quote"${hrefAttr}${externalAttrs}>${sourceMarkup}<p class="mood-detail-quote-text">${escapeHtml(text)}</p></${tagName}>`;
+  return `<${tagName} class="mood-detail-quote mood-item-quote mood-comment-quote"${hrefAttr}${externalAttrs}>${sourceMarkup}<p class="mood-detail-quote-text mood-item-quote-text">${escapeHtml(text)}</p></${tagName}>`;
 }
 
 function sanitizeUrlValue(value: string, type: 'href' | 'src'): string {
