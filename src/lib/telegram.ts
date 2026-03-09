@@ -218,6 +218,8 @@ const commentsCountCache = new LRUCache<string, number>({
   max: 1000,
 });
 
+const TELEGRAM_PARSE_CACHE_VERSION = 'reply-variant-v2';
+
 // Helper function to get environment variables
 function getEnv(env: ImportMetaEnv, Astro: any, name: string): string {
   return env[name] ?? Astro.locals?.runtime?.env?.[name] ?? '';
@@ -1011,6 +1013,7 @@ async function getPost(
     index = 0,
     host,
     headers,
+    replyVariant = 'raw',
   }: ContentProcessorConfig & { channel: string }
 ): Promise<Post> {
   const messageItem = item ? $(item).find('.tgme_widget_message') : $('.tgme_widget_message');
@@ -1046,7 +1049,7 @@ async function getPost(
         channel,
         channelTitle,
         staticProxy,
-        replyVariant: 'detail-card',
+        replyVariant,
       }),
       getImages($, messageItem as Element, { staticProxy, id, index, title }),
       getVideo($, messageItem as Element, { staticProxy, index }),
@@ -1231,7 +1234,7 @@ export async function getChannelInfo(
     skipCache = false,
   }: { before?: string; after?: string; q?: string; type?: string; id?: string; skipCache?: boolean } = {}
 ): Promise<ChannelInfo | Post> {
-  const cacheKey = JSON.stringify({ before, after, q, type, id });
+  const cacheKey = JSON.stringify({ before, after, q, type, id, version: TELEGRAM_PARSE_CACHE_VERSION });
 
   if (!skipCache) {
     const cachedResult = cache.get(cacheKey);
@@ -1264,7 +1267,14 @@ export async function getChannelInfo(
   const $ = cheerio.load(html, {}, false);
   const channelTitle = $('.tgme_channel_info_header_title')?.text() ?? '';
   if (id) {
-    const post = await getPost($, null, { channel, channelTitle, staticProxy, host, headers });
+    const post = await getPost($, null, {
+      channel,
+      channelTitle,
+      staticProxy,
+      host,
+      headers,
+      replyVariant: 'detail-card',
+    });
     if (!skipCache) {
       cache.set(cacheKey, post);
     }
