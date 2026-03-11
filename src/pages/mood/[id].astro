@@ -287,13 +287,13 @@ const telegramCommentUrl = channel && id ? `https://t.me/${channel}/${id}?commen
     }
 
     .mood-post-content {
-      font-size: 15px;
-      line-height: 1.6;
+      font-size: 18px;
+      line-height: 1.75;
       margin-top: 0;
     }
 
     .mood-post-content :global(p) {
-      margin-bottom: 1.1em;
+      margin-bottom: 1.25em;
     }
 
     .mood-post-reactions {
@@ -416,7 +416,7 @@ const telegramCommentUrl = channel && id ? `https://t.me/${channel}/${id}?commen
 
     .mood-post-content {
       font-size: 14px;
-      line-height: 1.55;
+      line-height: 1.65;
     }
 
     .mood-reaction {
@@ -647,8 +647,8 @@ const telegramCommentUrl = channel && id ? `https://t.me/${channel}/${id}?commen
 
   /* Content Styles */
   .mood-post-content {
-    font-size: 15px;
-    line-height: 1.6;
+    font-size: 16px;
+    line-height: 1.8;
     color: hsl(var(--foreground));
     margin-top: 8px;
     overflow-wrap: anywhere;
@@ -657,22 +657,22 @@ const telegramCommentUrl = channel && id ? `https://t.me/${channel}/${id}?commen
 
   @media (min-width: 640px) {
     .mood-post-content {
-      font-size: 15px;
-      line-height: 1.65;
+      font-size: 17px;
+      line-height: 1.85;
       margin-top: 12px;
     }
   }
 
   @media (min-width: 1024px) {
     .mood-post-content {
-      font-size: 16px;
-      line-height: 1.65;
+      font-size: 18px;
+      line-height: 1.9;
     }
   }
 
   /* Typography */
   .mood-post-content :global(p) {
-    margin-bottom: 1.15em;
+    margin-bottom: 1.5em;
   }
 
   .mood-post-content :global(p:last-child) {
@@ -805,14 +805,8 @@ const telegramCommentUrl = channel && id ? `https://t.me/${channel}/${id}?commen
     background: hsl(var(--foreground) / 0.03);
     border-left: 3px solid hsl(var(--foreground) / 0.25);
     border-radius: 0 6px 6px 0;
-    color: hsl(var(--foreground)) !important;
     overflow-wrap: anywhere;
     word-break: break-word;
-  }
-
-  .mood-post-content :global(blockquote *),
-  .mood-post-content :global(blockquote a) {
-    color: hsl(var(--foreground)) !important;
   }
 
   .mood-post-content :global(blockquote small) {
@@ -980,7 +974,6 @@ const telegramCommentUrl = channel && id ? `https://t.me/${channel}/${id}?commen
     padding: 8px 12px;
     background: hsl(var(--foreground) / 0.06);
     border-radius: 6px;
-    color: hsl(var(--foreground));
     overflow-x: auto;
     white-space: pre;
   }
@@ -989,7 +982,6 @@ const telegramCommentUrl = channel && id ? `https://t.me/${channel}/${id}?commen
     background: none;
     padding: 0;
     border-radius: 0;
-    color: hsl(var(--foreground));
   }
 
   .mood-post-content :global(code) {
@@ -998,7 +990,6 @@ const telegramCommentUrl = channel && id ? `https://t.me/${channel}/${id}?commen
     background: hsl(var(--foreground) / 0.06);
     padding: 1px 5px;
     border-radius: 4px;
-    color: hsl(var(--foreground));
   }
 
   .mood-post-content :global(blockquote code) {
@@ -1009,7 +1000,7 @@ const telegramCommentUrl = channel && id ? `https://t.me/${channel}/${id}?commen
     border-radius: 0;
     background: none;
     box-shadow: none;
-    color: hsl(var(--foreground));
+    color: inherit;
     font-size: 0.92em;
     line-height: inherit;
     white-space: pre-wrap;
