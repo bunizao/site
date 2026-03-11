@@ -81,6 +81,7 @@ export interface ChannelInfo {
 
 interface ContentProcessorConfig {
   staticProxy: string;
+  hdImageBase?: string;
   id?: string;
   index?: number;
   title?: string;
@@ -110,17 +111,14 @@ function escapeHtml(value: string = ''): string {
   });
 }
 
-// HD image proxy URL (Cloudflare Worker)
-const HD_IMAGE_URL = import.meta.env.PUBLIC_HD_IMAGE_URL || '';
-const HD_IMAGE_BASE = HD_IMAGE_URL.replace(/\/+$/, '');
 const INLINE_IMAGE_WIDTHS = [480, 800, 1200];
 const MODAL_IMAGE_WIDTHS = [800, 1200, 1600];
 const INLINE_IMAGE_SIZES = '(min-width: 1024px) 720px, (min-width: 640px) 90vw, 100vw';
 const MODAL_IMAGE_SIZES = '(min-width: 1024px) 900px, 90vw';
 
-function buildHdImageUrl(path: string): string {
-  if (!HD_IMAGE_BASE) return '';
-  return `${HD_IMAGE_BASE}${path.startsWith('/') ? path : `/${path}`}`;
+function buildHdImageUrl(hdImageBase: string, path: string): string {
+  if (!hdImageBase) return '';
+  return `${hdImageBase}${path.startsWith('/') ? path : `/${path}`}`;
 }
 
 /**
@@ -222,7 +220,17 @@ const TELEGRAM_PARSE_CACHE_VERSION = 'reply-variant-v2';
 
 // Helper function to get environment variables
 function getEnv(env: ImportMetaEnv, Astro: any, name: string): string {
-  return env[name] ?? Astro.locals?.runtime?.env?.[name] ?? '';
+  const buildValue = env[name];
+  if (typeof buildValue === 'string' && buildValue.trim()) {
+    return buildValue.trim();
+  }
+
+  const runtimeValue = Astro.locals?.runtime?.env?.[name] ?? Astro.locals?.env?.[name];
+  if (typeof runtimeValue === 'string' && runtimeValue.trim()) {
+    return runtimeValue.trim();
+  }
+
+  return '';
 }
 
 const telegramHeaderAllowList = [
@@ -287,7 +295,7 @@ function getImageStickers($: CheerioAPI, item: Element, { staticProxy, index }: 
     ?.join('') ?? '';
 }
 
-function getImages($: CheerioAPI, item: Element, { staticProxy, id, index, title }: ContentProcessorConfig): string {
+function getImages($: CheerioAPI, item: Element, { staticProxy, hdImageBase = '', id, index, title }: ContentProcessorConfig): string {
   const images = $(item)
     .find('.tgme_widget_message_photo_wrap')
     ?.map((_index, photo) => {
@@ -298,8 +306,8 @@ function getImages($: CheerioAPI, item: Element, { staticProxy, id, index, title
       const fallbackUrl = sanitizeUrlValue(toStaticProxyUrl(highQualityUrl, staticProxy), 'src');
 
       // Use HD Worker proxy if configured, with fallback to static proxy
-      const hdUrl = HD_IMAGE_BASE && id
-        ? sanitizeUrlValue(buildHdImageUrl(`/mood/${encodeURIComponent(id)}/${_index}`), 'src')
+      const hdUrl = hdImageBase && id
+        ? sanitizeUrlValue(buildHdImageUrl(hdImageBase, `/mood/${encodeURIComponent(id)}/${_index}`), 'src')
         : '';
       const imgSrc = hdUrl || fallbackUrl;
       if (!imgSrc) {
@@ -1010,6 +1018,7 @@ async function getPost(
     channel,
     channelTitle,
     staticProxy,
+    hdImageBase,
     index = 0,
     host,
     headers,
@@ -1051,7 +1060,7 @@ async function getPost(
         staticProxy,
         replyVariant,
       }),
-      getImages($, messageItem as Element, { staticProxy, id, index, title }),
+      getImages($, messageItem as Element, { staticProxy, hdImageBase, id, index, title }),
       getVideo($, messageItem as Element, { staticProxy, index }),
       getAudio($, messageItem as Element, { staticProxy }),
       content?.html(),
@@ -1246,6 +1255,7 @@ export async function getChannelInfo(
 
   const host = getEnv(import.meta.env, Astro, 'TELEGRAM_HOST') || 't.me';
   const channel = getEnv(import.meta.env, Astro, 'CHANNEL');
+  const hdImageBase = getEnv(import.meta.env, Astro, 'PUBLIC_HD_IMAGE_URL').replace(/\/+$/, '');
   // Always use local static proxy for Telegram media
   const staticProxy = '/static/';
 
@@ -1271,6 +1281,7 @@ export async function getChannelInfo(
       channel,
       channelTitle,
       staticProxy,
+      hdImageBase,
       host,
       headers,
       replyVariant: 'detail-card',
@@ -1284,7 +1295,7 @@ export async function getChannelInfo(
     (await Promise.all(
       $('.tgme_channel_history  .tgme_widget_message_wrap')
         ?.map((index, item) => {
-          return getPost($, item, { channel, channelTitle, staticProxy, index, host, headers });
+          return getPost($, item, { channel, channelTitle, staticProxy, hdImageBase, index, host, headers });
         })
         ?.get() ?? []
     ))
@@ -1298,7 +1309,7 @@ export async function getChannelInfo(
     titleHTML: (await modifyHTMLContent($, $('.tgme_channel_info_header_title'), { staticProxy }))?.html() ?? '',
     description: $('.tgme_channel_info_description')?.text() ?? '',
     descriptionHTML: (await modifyHTMLContent($, $('.tgme_channel_info_description'), { staticProxy }))?.html() ?? '',
-    avatar: buildHdImageUrl('/channel/avatar') || rawAvatar,
+    avatar: buildHdImageUrl(hdImageBase, '/channel/avatar') || rawAvatar,
   };
 
   if (!skipCache) {

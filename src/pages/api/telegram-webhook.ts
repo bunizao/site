@@ -14,13 +14,6 @@ import { checkRateLimit, createRateLimitHeaders } from '@/lib/security/rate-limi
 
 export const prerender = false;
 
-const WEBHOOK_SECRET = import.meta.env.TELEGRAM_WEBHOOK_SECRET;
-const TELEGRAM_BOT_TOKEN = import.meta.env.TELEGRAM_BOT_TOKEN;
-const TELEGRAM_CHANNEL_ID = import.meta.env.TELEGRAM_CHANNEL_ID;
-const HD_IMAGE_URL = import.meta.env.PUBLIC_HD_IMAGE_URL;
-const HD_IMAGE_INGEST_TOKEN = import.meta.env.HD_IMAGE_INGEST_TOKEN;
-const HD_IMAGE_BASE = HD_IMAGE_URL?.replace(/\/+$/, '') ?? '';
-
 interface TelegramPhotoSize {
   file_id: string;
   file_unique_id: string;
@@ -58,6 +51,38 @@ interface TelegramGetChatResponse {
   description?: string;
 }
 
+function readEnv(locals: any, name: string): string {
+  const buildValue = import.meta.env[name];
+  if (typeof buildValue === 'string' && buildValue.trim()) {
+    return buildValue.trim();
+  }
+
+  const runtimeValue = locals?.runtime?.env?.[name] ?? locals?.env?.[name];
+  if (typeof runtimeValue === 'string' && runtimeValue.trim()) {
+    return runtimeValue.trim();
+  }
+
+  return '';
+}
+
+interface WebhookConfig {
+  webhookSecret: string;
+  telegramBotToken: string;
+  telegramChannelId: string;
+  hdImageIngestToken: string;
+  hdImageBase: string;
+}
+
+function getWebhookConfig(locals: any): WebhookConfig {
+  return {
+    webhookSecret: readEnv(locals, 'TELEGRAM_WEBHOOK_SECRET'),
+    telegramBotToken: readEnv(locals, 'TELEGRAM_BOT_TOKEN'),
+    telegramChannelId: readEnv(locals, 'TELEGRAM_CHANNEL_ID'),
+    hdImageIngestToken: readEnv(locals, 'HD_IMAGE_INGEST_TOKEN'),
+    hdImageBase: readEnv(locals, 'PUBLIC_HD_IMAGE_URL').replace(/\/+$/, ''),
+  };
+}
+
 function selectLargestPhoto(photos: TelegramPhotoSize[]): TelegramPhotoSize | null {
   if (!photos.length) return null;
   return photos.reduce((best, current) => {
@@ -71,13 +96,13 @@ function selectLargestPhoto(photos: TelegramPhotoSize[]): TelegramPhotoSize | nu
   });
 }
 
-async function fetchChannelAvatarFileId(channelId: string): Promise<string | null> {
-  if (!channelId || !TELEGRAM_BOT_TOKEN) {
+async function fetchChannelAvatarFileId(channelId: string, config: WebhookConfig): Promise<string | null> {
+  if (!channelId || !config.telegramBotToken) {
     return null;
   }
 
   try {
-    const getChatUrl = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getChat?chat_id=${encodeURIComponent(channelId)}`;
+    const getChatUrl = `https://api.telegram.org/bot${config.telegramBotToken}/getChat?chat_id=${encodeURIComponent(channelId)}`;
     const response = await fetch(getChatUrl);
     if (!response.ok) {
       console.error('Telegram getChat failed for avatar indexing:', response.status);
@@ -98,19 +123,20 @@ async function fetchChannelAvatarFileId(channelId: string): Promise<string | nul
   }
 }
 
-async function indexChannelAvatarInR2(message: TelegramMessage): Promise<void> {
-  const channelId = message.chat?.id ? String(message.chat.id) : TELEGRAM_CHANNEL_ID || '';
+async function indexChannelAvatarInR2(message: TelegramMessage, locals?: any): Promise<void> {
+  const config = getWebhookConfig(locals);
+  const channelId = message.chat?.id ? String(message.chat.id) : config.telegramChannelId;
   if (!channelId) {
     return;
   }
 
   const directAvatarFileId = message.chat?.photo?.big_file_id || message.chat?.photo?.small_file_id || '';
-  const avatarFileId = directAvatarFileId || await fetchChannelAvatarFileId(channelId);
+  const avatarFileId = directAvatarFileId || await fetchChannelAvatarFileId(channelId, config);
   if (!avatarFileId) {
     return;
   }
 
-  const success = await ingestToImageWorker('/ingest/channel/avatar', avatarFileId);
+  const success = await ingestToImageWorker('/ingest/channel/avatar', avatarFileId, config);
   if (success) {
     console.info(`Ingested channel avatar: ${avatarFileId.slice(0, 20)}...`);
   }
@@ -119,22 +145,22 @@ async function indexChannelAvatarInR2(message: TelegramMessage): Promise<void> {
 /**
  * Trigger image ingest in the image proxy Worker.
  */
-async function ingestToImageWorker(pathname: string, fileId: string): Promise<boolean> {
+async function ingestToImageWorker(pathname: string, fileId: string, config: WebhookConfig): Promise<boolean> {
   if (!fileId) {
     return false;
   }
 
-  if (!HD_IMAGE_BASE || !HD_IMAGE_INGEST_TOKEN) {
+  if (!config.hdImageBase || !config.hdImageIngestToken) {
     console.error('Missing HD image ingest configuration');
     return false;
   }
 
   try {
-    const url = `${HD_IMAGE_BASE}${pathname.startsWith('/') ? pathname : `/${pathname}`}`;
+    const url = `${config.hdImageBase}${pathname.startsWith('/') ? pathname : `/${pathname}`}`;
     const response = await fetch(url, {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${HD_IMAGE_INGEST_TOKEN}`,
+        Authorization: `Bearer ${config.hdImageIngestToken}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({ fileId }),
@@ -180,14 +206,15 @@ async function triggerMoodDispatch(context: { request: Request; locals?: any }, 
   }
 }
 
-function isValidWebhookToken(receivedToken: string | null): boolean {
-  if (!receivedToken || !WEBHOOK_SECRET) {
+function isValidWebhookToken(receivedToken: string | null, config: WebhookConfig): boolean {
+  if (!receivedToken || !config.webhookSecret) {
     return false;
   }
-  return secureCompareText(receivedToken, WEBHOOK_SECRET);
+  return secureCompareText(receivedToken, config.webhookSecret);
 }
 
 export const POST: APIRoute = async ({ request, locals }) => {
+  const config = getWebhookConfig(locals);
   const rateLimit = checkRateLimit(
     request,
     { windowMs: 60_000, max: 180, prefix: 'api:telegram:webhook' },
@@ -203,7 +230,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
 
   // Verify webhook secret token
   const secretToken = request.headers.get('X-Telegram-Bot-Api-Secret-Token');
-  if (!isValidWebhookToken(secretToken)) {
+  if (!isValidWebhookToken(secretToken, config)) {
     console.warn('Webhook unauthorized: invalid secret token');
     return new Response('Unauthorized', { status: 401, headers: rateLimitHeaders });
   }
@@ -222,7 +249,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
 
   const postId = message.message_id.toString();
   await triggerMoodDispatch({ request, locals }, postId);
-  await indexChannelAvatarInR2(message);
+  await indexChannelAvatarInR2(message, locals);
 
   // Only index image file_id when the post has photos
   if (!message?.photo?.length) {
@@ -241,7 +268,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
   // A more sophisticated approach would track media_group_id
   const imageIndex = 0;
   const ingestPath = `/ingest/mood/${encodeURIComponent(postId)}/${imageIndex}`;
-  const success = await ingestToImageWorker(ingestPath, largestPhoto.file_id);
+  const success = await ingestToImageWorker(ingestPath, largestPhoto.file_id, config);
 
   if (success) {
     console.info(`Ingested image: ${postId}/${imageIndex} -> ${largestPhoto.file_id.substring(0, 20)}...`);
