@@ -1,21 +1,32 @@
 ---
 import { ArrowUpRight } from 'lucide-react';
-import { fetchGitHubRepo } from '@/lib/github';
+import {
+  fetchGitHubPinnedRepos,
+  fetchGitHubRepo,
+  type GitHubPinnedRepoData
+} from '@/lib/github';
 
-interface ProjectConfig {
+const githubUsername = 'bunizao';
+
+interface FallbackProjectConfig {
   name: string;
   repo: string;
   url: string;
-  description: string; // Fallback description
+  description: string;
   role: 'Author' | 'Contributor';
   tags: string[];
 }
 
-interface Project extends ProjectConfig {
+interface Project {
+  name: string;
+  url: string;
+  description: string;
+  role: 'Author' | 'Contributor';
+  tags: string[];
   stars: number | null;
 }
 
-const projectConfigs: ProjectConfig[] = [
+const fallbackProjectConfigs: FallbackProjectConfig[] = [
   {
     name: 'TutuBetterRules',
     repo: 'bunizao/TutuBetterRules',
@@ -68,16 +79,38 @@ const projectConfigs: ProjectConfig[] = [
 
 const runtimeEnv = Astro.locals?.runtime?.env;
 
-const projects: Project[] = await Promise.all(
-  projectConfigs.map(async (config) => {
-    const githubData = await fetchGitHubRepo(config.repo, import.meta.env, runtimeEnv);
-    return {
-      ...config,
-      description: githubData?.description || config.description,
-      stars: githubData?.stars ?? null
-    };
-  })
-);
+function mapPinnedRepoToProject(repo: GitHubPinnedRepoData): Project {
+  const tags = Array.from(
+    new Set([repo.primaryLanguage, ...repo.topics].filter((tag): tag is string => Boolean(tag)))
+  ).slice(0, 3);
+
+  return {
+    name: repo.name,
+    url: repo.url,
+    description: repo.description || 'Pinned repository on GitHub',
+    role: repo.owner.toLowerCase() === githubUsername.toLowerCase() ? 'Author' : 'Contributor',
+    tags: tags.length > 0 ? tags : ['GitHub'],
+    stars: repo.stars
+  };
+}
+
+const pinnedRepos = await fetchGitHubPinnedRepos(githubUsername, import.meta.env, runtimeEnv);
+
+const projects: Project[] = pinnedRepos !== null
+  ? pinnedRepos.map(mapPinnedRepoToProject)
+  : await Promise.all(
+      fallbackProjectConfigs.map(async (config) => {
+        const githubData = await fetchGitHubRepo(config.repo, import.meta.env, runtimeEnv);
+        return {
+          name: config.name,
+          url: config.url,
+          description: githubData?.description || config.description,
+          role: config.role,
+          tags: config.tags,
+          stars: githubData?.stars ?? null
+        };
+      })
+    );
 ---
 
 <section id="projects-section" class="projects-section" data-parallax="off">
