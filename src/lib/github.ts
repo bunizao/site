@@ -1,3 +1,5 @@
+import * as cheerio from 'cheerio';
+
 interface GitHubRepositoryResponse {
   data?: {
     repository?: {
@@ -61,6 +63,22 @@ export interface GitHubPinnedRepoData {
 
 function getGitHubToken(env: ImportMetaEnv, runtimeEnv?: Record<string, string | undefined>): string {
   return env.GITHUB_TOKEN ?? runtimeEnv?.GITHUB_TOKEN ?? '';
+}
+
+function normalizeText(value: string): string {
+  return value.replace(/\s+/g, ' ').trim();
+}
+
+function parseGitHubCount(value: string): number {
+  const normalized = value.trim().toLowerCase().replace(/,/g, '');
+  const match = normalized.match(/^([\d.]+)([km])?$/);
+  if (!match) return 0;
+
+  const count = Number(match[1]);
+  if (!Number.isFinite(count)) return 0;
+
+  const multiplier = match[2] === 'm' ? 1_000_000 : match[2] === 'k' ? 1_000 : 1;
+  return Math.round(count * multiplier);
 }
 
 async function fetchGitHubRepoGraphQL(repo: string, token: string): Promise<GitHubRepoData | null> {
@@ -219,6 +237,64 @@ async function fetchGitHubPinnedReposGraphQL(
   }
 }
 
+async function fetchGitHubPinnedReposHtml(
+  username: string,
+  limit = 6
+): Promise<GitHubPinnedRepoData[] | null> {
+  try {
+    const response = await fetch(`https://github.com/${username}`, {
+      headers: {
+        'Accept': 'text/html,application/xhtml+xml',
+        'User-Agent': 'astro-site'
+      }
+    });
+
+    if (!response.ok) return null;
+
+    const html = await response.text();
+    const $ = cheerio.load(html);
+
+    const repos = $('.js-pinned-item-list-item, .pinned-item-list-item')
+      .slice(0, limit)
+      .toArray()
+      .map((element) => {
+        const repoLink = $(element)
+          .find('.pinned-item-list-item-content a[href^="/"]')
+          .first();
+
+        const href = (repoLink.attr('href') ?? '').trim();
+        const [owner, name] = href.replace(/^\/+/, '').split('/');
+        if (!owner || !name) return null;
+
+        const description = normalizeText(
+          $(element).find('.pinned-item-desc').first().text()
+        );
+        const primaryLanguage = normalizeText(
+          $(element).find('[itemprop="programmingLanguage"]').first().text()
+        );
+        const stars = parseGitHubCount(
+          normalizeText($(element).find('a[href$="/stargazers"]').first().text())
+        );
+
+        return {
+          name,
+          repo: `${owner}/${name}`,
+          url: `https://github.com/${owner}/${name}`,
+          description,
+          stars,
+          owner,
+          primaryLanguage: primaryLanguage || null,
+          topics: []
+        } satisfies GitHubPinnedRepoData;
+      })
+      .filter((repo): repo is GitHubPinnedRepoData => repo !== null);
+
+    return repos;
+  } catch {
+    return null;
+  }
+}
+
 export async function fetchGitHubPinnedRepos(
   username: string,
   env: ImportMetaEnv,
@@ -226,7 +302,10 @@ export async function fetchGitHubPinnedRepos(
   limit = 6
 ): Promise<GitHubPinnedRepoData[] | null> {
   const token = getGitHubToken(env, runtimeEnv);
-  if (!token) return null;
+  if (token) {
+    const graphData = await fetchGitHubPinnedReposGraphQL(username, token, limit);
+    if (graphData) return graphData;
+  }
 
-  return fetchGitHubPinnedReposGraphQL(username, token, limit);
+  return fetchGitHubPinnedReposHtml(username, limit);
 }
