@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "op run --environment l57xmsivlnctkio4zz673luf64 -- astro dev",
     "build": "astro build",
+    "check": "astro check",
     "preview": "astro preview",
     "test:e2e": "bun run test:e2e:site && bun run test:e2e:worker",
     "test:e2e:coverage": "rm -rf .nyc_output coverage/e2e && E2E_PORT=4331 COVERAGE=1 playwright test && nyc report",
@@ -17,9 +18,9 @@
     "test:e2e:report": "playwright show-report"
   },
   "devDependencies": {
-    "@astrojs/react": "^4.4.2",
-    "@astrojs/tailwind": "^6.0.2",
-    "@astrojs/vercel": "^9.0.5",
+    "@astrojs/check": "^0.9.7",
+    "@astrojs/react": "^5.0.0",
+    "@astrojs/vercel": "^10.0.0",
     "@playwright/test": "^1.58.2",
     "autoprefixer": "^10.4.23",
     "nyc": "^18.0.0",
@@ -34,7 +35,7 @@
     "@radix-ui/react-slot": "^1.2.4",
     "@vercel/analytics": "^1.5.0",
     "@vercel/speed-insights": "^1.3.1",
-    "astro": "^5.18.1",
+    "astro": "^6.0.4",
     "cheerio": "1.0.0-rc.12",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
@@ -51,6 +52,7 @@
     "tailwind-merge": "^3.4.0"
   },
   "overrides": {
+    "@vercel/nft": "0.30.4",
     "ajv": "8.18.0",
     "devalue": "5.6.4",
     "minimatch": "9.0.9",
@@ -59,5 +61,8 @@
     "svgo": "4.0.1",
     "tar": "7.5.11"
   },
-  "packageManager": "bun@1.0.0"
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "packageManager": "bun@1.3.6"
 }
