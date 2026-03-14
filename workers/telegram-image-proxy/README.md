@@ -156,7 +156,7 @@ curl -I "https://image.buxx.me/mood/<postId>/0?w=1200"
 - This system stores image bytes in R2.
 - The ingest route stores one original image and responsive variants (`480`, `800`, `1200`, `1600`).
 - If an R2 object is missing, Worker returns `404`.
-- Media groups (albums) are still indexed as `imageIndex = 0` in `../../src/pages/api/telegram-webhook.ts`.
+- Media groups (albums) are indexed through Telegram embed markup so each image can be written under its own `imageIndex`.
 - If you update an existing object key, the Worker clears the cached `GET` route key.
 - The site must handle fallback to `/static/` when HD URLs return `404`.
 

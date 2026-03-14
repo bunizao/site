@@ -7,6 +7,7 @@
  */
 
 import type { APIRoute } from 'astro';
+import { load } from 'cheerio';
 import { dispatchMoodNotification } from '@/lib/notify/service';
 import { getNotifyConfig } from '@/lib/notify/env';
 import { secureCompareText } from '@/lib/notify/security';
@@ -49,6 +50,11 @@ interface TelegramGetChatResponse {
     };
   };
   description?: string;
+}
+
+interface MoodImageTarget {
+  postId: string;
+  imageIndex: number;
 }
 
 function readEnv(locals: any, name: string): string {
@@ -94,6 +100,92 @@ function selectLargestPhoto(photos: TelegramPhotoSize[]): TelegramPhotoSize | nu
     const currentSize = current.file_size ?? 0;
     return currentSize > bestSize ? current : best;
   });
+}
+
+function extractMessageIdFromPhotoHref(href: string, channel: string, host: string): string {
+  if (!href) return '';
+
+  try {
+    const parsed = new URL(href, `https://${host}`);
+    const parts = parsed.pathname.split('/').filter(Boolean);
+    if (parts.length < 2) return '';
+
+    const messageId = parts[parts.length - 1] ?? '';
+    const channelSlug = parts[parts.length - 2] ?? '';
+    if (channelSlug !== channel || !/^\d+$/.test(messageId)) {
+      return '';
+    }
+
+    return messageId;
+  } catch {
+    return '';
+  }
+}
+
+async function resolveMoodImageTarget(message: TelegramMessage, locals?: any): Promise<MoodImageTarget> {
+  const currentPostId = String(message.message_id);
+  if (!message.media_group_id) {
+    return {
+      postId: currentPostId,
+      imageIndex: 0,
+    };
+  }
+
+  const channel = readEnv(locals, 'CHANNEL');
+  const host = readEnv(locals, 'TELEGRAM_HOST') || 't.me';
+  if (!channel) {
+    throw new Error('Missing CHANNEL configuration for media group indexing');
+  }
+
+  const url = `https://${host}/${channel}/${encodeURIComponent(currentPostId)}?embed=1&mode=tme`;
+  const response = await fetch(url, {
+    headers: {
+      Accept: 'text/html,application/xhtml+xml',
+      'Accept-Language': 'en-US,en;q=0.9',
+      'User-Agent': 'Mozilla/5.0 (compatible; TelegramWebhook/1.0)',
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Telegram embed fetch failed: ${response.status}`);
+  }
+
+  const html = await response.text();
+  return resolveMoodImageTargetFromHtml(html, currentPostId, channel, host);
+}
+
+export function resolveMoodImageTargetFromHtml(
+  html: string,
+  currentPostId: string,
+  channel: string,
+  host: string
+): MoodImageTarget {
+  const $ = load(html);
+  const wrapper = $(`.tgme_widget_message[data-post="${channel}/${currentPostId}"]`).first();
+  const photoNodes = (wrapper.length ? wrapper.find('.tgme_widget_message_photo_wrap') : $('.tgme_widget_message_photo_wrap')).toArray();
+  const orderedPostIds: string[] = [];
+
+  for (const node of photoNodes) {
+    const postId = extractMessageIdFromPhotoHref($(node).attr('href') ?? '', channel, host);
+    if (!postId || orderedPostIds.includes(postId)) {
+      continue;
+    }
+    orderedPostIds.push(postId);
+  }
+
+  if (!orderedPostIds.length) {
+    throw new Error(`No grouped media targets found for post ${currentPostId}`);
+  }
+
+  const imageIndex = orderedPostIds.indexOf(currentPostId);
+  if (imageIndex === -1) {
+    throw new Error(`Current media group item ${currentPostId} not found in embed markup`);
+  }
+
+  return {
+    postId: orderedPostIds[0] ?? currentPostId,
+    imageIndex,
+  };
 }
 
 async function fetchChannelAvatarFileId(channelId: string, config: WebhookConfig): Promise<string | null> {
@@ -247,7 +339,11 @@ export const POST: APIRoute = async ({ request, locals }) => {
     return new Response('OK', { headers: rateLimitHeaders });
   }
 
-  const postId = message.message_id.toString();
+  const messageId = message.message_id.toString();
+  const imageTarget = message.photo?.length
+    ? await resolveMoodImageTarget(message, locals)
+    : { postId: messageId, imageIndex: 0 };
+  const postId = imageTarget.postId;
   await indexChannelAvatarInR2(message, locals);
 
   // Only index image file_id when the post has photos
@@ -255,23 +351,20 @@ export const POST: APIRoute = async ({ request, locals }) => {
     // Pick the largest photo explicitly to avoid relying on ordering
     const largestPhoto = selectLargestPhoto(message.photo);
     if (largestPhoto) {
-      // For single images, store as index 0
-      // For media groups, Telegram sends separate updates for each image
-      // We use a simple approach: store each as index 0
-      // A more sophisticated approach would track media_group_id
-      const imageIndex = 0;
-      const ingestPath = `/ingest/mood/${encodeURIComponent(postId)}/${imageIndex}`;
+      const ingestPath = `/ingest/mood/${encodeURIComponent(postId)}/${imageTarget.imageIndex}`;
       const success = await ingestToImageWorker(ingestPath, largestPhoto.file_id, config);
 
       if (!success) {
-        console.error(`Image ingest failed for post ${postId}/${imageIndex}`);
+        console.error(`Image ingest failed for post ${postId}/${imageTarget.imageIndex}`);
         return new Response('Image ingest failed', {
           status: 502,
           headers: rateLimitHeaders,
         });
       }
 
-      console.info(`Ingested image: ${postId}/${imageIndex} -> ${largestPhoto.file_id.substring(0, 20)}...`);
+      console.info(
+        `Ingested image: ${postId}/${imageTarget.imageIndex} from message ${messageId} -> ${largestPhoto.file_id.substring(0, 20)}...`
+      );
     }
   }
 
