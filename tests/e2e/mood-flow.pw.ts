@@ -54,6 +54,22 @@ function createRichCommentsPayload(moodId: string) {
   };
 }
 
+function createComment(comment: {
+  id: string;
+  author?: string;
+  datetime?: string;
+  content?: string;
+}) {
+  return {
+    id: comment.id,
+    author: comment.author ?? 'E2E',
+    authorAvatar: '',
+    datetime: comment.datetime ?? '2026-02-10T13:10:00+00:00',
+    content: comment.content ?? `<p>Comment ${comment.id}</p>`,
+    reactions: [],
+  };
+}
+
 test.describe('Mood routes', () => {
   test.beforeEach(async ({ page }) => {
     await page.emulateMedia({ reducedMotion: 'reduce' });
@@ -224,6 +240,124 @@ test.describe('Mood routes', () => {
 
     await page.locator('[data-back-button]').click();
     await expect(page).toHaveURL(/\/mood$/);
+  });
+
+  test('shows an empty state when the feed has no moods', async ({ page }) => {
+    await page.route('**/api/moods**', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          posts: [],
+          channel: {
+            slug: 'e2e',
+            title: 'E2E Channel',
+            description: 'E2E mood feed',
+            avatar: '',
+          },
+        }),
+      });
+    });
+
+    await page.goto('/mood', { waitUntil: 'domcontentloaded' });
+
+    await expect(page.locator('[data-mood-feed]')).not.toHaveClass(/is-hidden/, { timeout: 30_000 });
+    await expect(page.locator('[data-load-status]')).toHaveText('No moods yet.');
+    await expect(page.locator('[data-mood-list] .mood-item')).toHaveCount(0);
+    await expect(page.locator('[data-mood-error]')).toHaveClass(/is-hidden/);
+  });
+
+  test('shows an empty state when a detail page has no comments', async ({ page, request }) => {
+    const latestMoodId = await getLatestMoodId(request);
+    test.skip(!latestMoodId, 'No mood id available from /api/moods');
+
+    await page.route('**/api/comments?postId=*', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          comments: [],
+          hasMore: false,
+          nextBefore: '',
+        }),
+      });
+    });
+
+    await page.goto(`/mood/${latestMoodId}`, { waitUntil: 'domcontentloaded' });
+
+    await expect(page.locator('[data-comments-loading]')).toHaveCount(0, { timeout: 30_000 });
+    await expect(page.locator('[data-comments-empty]')).toBeVisible();
+    await expect(page.locator('[data-comments-empty]')).toContainText('No comments here yet...');
+    await expect(page.locator('[data-comments-list] .mood-comment')).toHaveCount(0);
+  });
+
+  test('shows an error state when detail comments fail to load', async ({ page, request }) => {
+    const latestMoodId = await getLatestMoodId(request);
+    test.skip(!latestMoodId, 'No mood id available from /api/moods');
+
+    await page.route('**/api/comments?postId=*', async (route) => {
+      await route.abort('failed');
+    });
+
+    await page.goto(`/mood/${latestMoodId}`, { waitUntil: 'domcontentloaded' });
+
+    await expect(page.locator('[data-comments-loading]')).toHaveCount(0, { timeout: 30_000 });
+    await expect(page.locator('[data-comments-empty]')).toBeVisible();
+    await expect(page.locator('[data-comments-empty]')).toContainText('Failed to load comments');
+    await expect(page.locator('[data-comments-list] .mood-comment')).toHaveCount(0);
+  });
+
+  test('loads more comments without duplicating existing entries', async ({ page, request }) => {
+    const latestMoodId = await getLatestMoodId(request);
+    test.skip(!latestMoodId, 'No mood id available from /api/moods');
+
+    let requestCount = 0;
+    await page.route('**/api/comments?postId=*', async (route) => {
+      requestCount += 1;
+
+      if (requestCount === 1) {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            comments: [createComment({ id: '9001' })],
+            hasMore: true,
+            nextBefore: '9001',
+          }),
+        });
+        return;
+      }
+
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          comments: [
+            createComment({ id: '9001' }),
+            createComment({
+              id: '9000',
+              datetime: '2026-02-10T13:05:00+00:00',
+              content: '<p>Older comment</p>',
+            }),
+          ],
+          hasMore: false,
+          nextBefore: '',
+        }),
+      });
+    });
+
+    await page.goto(`/mood/${latestMoodId}`, { waitUntil: 'domcontentloaded' });
+
+    await expect(page.locator('[data-comments-list] .mood-comment')).toHaveCount(1, { timeout: 30_000 });
+
+    const loadMoreButton = page.getByRole('button', { name: 'Load more comments' });
+    await expect(loadMoreButton).toBeVisible();
+    await loadMoreButton.click();
+
+    await expect(page.locator('[data-comments-list] .mood-comment')).toHaveCount(2);
+    await expect(page.locator('[data-comments-list] .mood-comment[data-comment-id="9001"]')).toHaveCount(1);
+    await expect(page.locator('[data-comments-list] .mood-comment[data-comment-id="9000"]')).toHaveCount(1);
+    await expect(loadMoreButton).toBeHidden();
   });
 
   test('redirects /mood/:id?embed=1 to the embed endpoint with expected params', async ({ page }) => {

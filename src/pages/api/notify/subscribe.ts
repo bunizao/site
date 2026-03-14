@@ -45,6 +45,16 @@ export const POST: APIRoute = async ({ request, locals }) => {
     });
   }
 
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+    return new Response(JSON.stringify({ error: 'Invalid JSON body' }), {
+      status: 400,
+      headers: {
+        'Content-Type': 'application/json',
+        ...Object.fromEntries(rateLimitHeaders),
+      },
+    });
+  }
+
   const turnstileToken =
     payload.turnstileToken
     || payload.cfTurnstileResponse

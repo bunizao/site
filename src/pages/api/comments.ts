@@ -1,4 +1,5 @@
 import type { APIRoute } from 'astro';
+import { createE2EComments, isE2ESiteFixtureEnabled } from '@/lib/e2e-fixtures';
 import { getPostComments } from '../../lib/telegram';
 import { checkRateLimit, createRateLimitHeaders } from '../../lib/security/rate-limit';
 
@@ -54,6 +55,16 @@ export const GET: APIRoute = async ({ request, locals }) => {
   if (!isValidCommentCursor(before)) {
     return new Response(JSON.stringify({ error: 'Invalid before parameter' }), {
       status: 400,
+      headers: {
+        'Content-Type': 'application/json',
+        ...Object.fromEntries(rateLimitHeaders),
+      },
+    });
+  }
+
+  if (isE2ESiteFixtureEnabled(locals)) {
+    const fixture = createE2EComments(postId);
+    return new Response(JSON.stringify(fixture), {
       headers: {
         'Content-Type': 'application/json',
         ...Object.fromEntries(rateLimitHeaders),

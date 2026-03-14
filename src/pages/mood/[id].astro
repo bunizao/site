@@ -1,6 +1,7 @@
 ---
 import Layout from '../../layouts/Layout.astro';
 import dayjs from 'dayjs';
+import { createE2EPost, isE2ESiteFixtureEnabled } from '../../lib/e2e-fixtures';
 import { getChannelInfo, type Post } from '../../lib/telegram';
 
 export const prerender = false;
@@ -24,7 +25,11 @@ let error = false;
 
 try {
   if (id) {
-    post = await getChannelInfo(Astro, { id }) as Post;
+    if (isE2ESiteFixtureEnabled(Astro.locals)) {
+      post = createE2EPost(id);
+    } else {
+      post = await getChannelInfo(Astro, { id }) as Post;
+    }
   }
 } catch (e) {
   console.error('Failed to fetch mood:', e);
@@ -173,6 +178,9 @@ const telegramCommentUrl = channel && id ? `https://t.me/${channel}/${id}?commen
           <div class="mood-comments-empty" data-comments-empty hidden>
             <p>No comments here yet...</p>
           </div>
+          <button type="button" class="mood-comments-load-more" data-load-more hidden>
+            Load more comments
+          </button>
           {telegramCommentUrl && (
             <a
               href={telegramCommentUrl}
@@ -1742,6 +1750,10 @@ const telegramCommentUrl = channel && id ? `https://t.me/${channel}/${id}?commen
     box-shadow:
       0 2px 8px hsl(var(--foreground) / 0.04),
       0 0 0 1px hsl(var(--foreground) / 0.02);
+  }
+
+  .mood-comments-load-more[hidden] {
+    display: none;
   }
 
   .mood-comments-load-more::before {

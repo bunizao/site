@@ -1,4 +1,5 @@
 import type { APIRoute } from 'astro';
+import { createE2EChannelInfo, isE2ESiteFixtureEnabled } from '@/lib/e2e-fixtures';
 import { getChannelInfo, type ChannelInfo } from '../../lib/telegram';
 import {
   getFirstImage,
@@ -99,6 +100,60 @@ export const GET: APIRoute = async ({ request, locals }) => {
       status: 400,
       headers: {
         'Content-Type': 'application/json',
+        ...Object.fromEntries(rateLimitHeaders),
+      },
+    });
+  }
+
+  if (isE2ESiteFixtureEnabled(locals)) {
+    const fixture = createE2EChannelInfo();
+    const sortedPosts = [...fixture.posts].sort((a, b) => getNumericId(b.id) - getNumericId(a.id));
+
+    if (isProbe) {
+      return new Response(
+        JSON.stringify({
+          latestId: sortedPosts[0]?.id ?? '',
+        }),
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            'Cache-Control': 'no-store, max-age=0',
+            ...Object.fromEntries(rateLimitHeaders),
+          },
+        }
+      );
+    }
+
+    const payload = sortedPosts.map((post) => ({
+      id: post.id,
+      datetime: post.datetime,
+      tag: post.tags?.[0] ?? '',
+      previewText: getTextPreview(post),
+      previewHtml: getTextPreviewHtml(post),
+      image: getFirstImage(post.content),
+      imageFallback: getFirstImageFallback(post.content),
+      mediaHtml: '',
+      needsDetailPage: true,
+      forwardedFrom: null,
+      quote: null,
+      reactions: [],
+      commentsCount: post.commentsCount ?? 0,
+    }));
+
+    return new Response(JSON.stringify({
+      posts: payload,
+      channel: {
+        slug: 'e2e',
+        title: fixture.title,
+        titleHTML: fixture.titleHTML,
+        avatar: fixture.avatar || undefined,
+        description: fixture.description,
+        descriptionHTML: fixture.descriptionHTML,
+      },
+    }), {
+      headers: {
+        'Content-Type': 'application/json',
+        'Cache-Control': skipCache ? 'no-store, max-age=0' : 'public, max-age=0',
         ...Object.fromEntries(rateLimitHeaders),
       },
     });
