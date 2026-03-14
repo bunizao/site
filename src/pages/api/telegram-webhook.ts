@@ -248,31 +248,34 @@ export const POST: APIRoute = async ({ request, locals }) => {
   }
 
   const postId = message.message_id.toString();
-  await triggerMoodDispatch({ request, locals }, postId);
   await indexChannelAvatarInR2(message, locals);
 
   // Only index image file_id when the post has photos
-  if (!message?.photo?.length) {
-    return new Response('OK', { headers: rateLimitHeaders });
+  if (message?.photo?.length) {
+    // Pick the largest photo explicitly to avoid relying on ordering
+    const largestPhoto = selectLargestPhoto(message.photo);
+    if (largestPhoto) {
+      // For single images, store as index 0
+      // For media groups, Telegram sends separate updates for each image
+      // We use a simple approach: store each as index 0
+      // A more sophisticated approach would track media_group_id
+      const imageIndex = 0;
+      const ingestPath = `/ingest/mood/${encodeURIComponent(postId)}/${imageIndex}`;
+      const success = await ingestToImageWorker(ingestPath, largestPhoto.file_id, config);
+
+      if (!success) {
+        console.error(`Image ingest failed for post ${postId}/${imageIndex}`);
+        return new Response('Image ingest failed', {
+          status: 502,
+          headers: rateLimitHeaders,
+        });
+      }
+
+      console.info(`Ingested image: ${postId}/${imageIndex} -> ${largestPhoto.file_id.substring(0, 20)}...`);
+    }
   }
 
-  // Pick the largest photo explicitly to avoid relying on ordering
-  const largestPhoto = selectLargestPhoto(message.photo);
-  if (!largestPhoto) {
-    return new Response('OK', { headers: rateLimitHeaders });
-  }
-
-  // For single images, store as index 0
-  // For media groups, Telegram sends separate updates for each image
-  // We use a simple approach: store each as index 0
-  // A more sophisticated approach would track media_group_id
-  const imageIndex = 0;
-  const ingestPath = `/ingest/mood/${encodeURIComponent(postId)}/${imageIndex}`;
-  const success = await ingestToImageWorker(ingestPath, largestPhoto.file_id, config);
-
-  if (success) {
-    console.info(`Ingested image: ${postId}/${imageIndex} -> ${largestPhoto.file_id.substring(0, 20)}...`);
-  }
+  await triggerMoodDispatch({ request, locals }, postId);
 
   return new Response('OK', { headers: rateLimitHeaders });
 };

@@ -219,7 +219,7 @@ async function ingestTelegramImage(
   await ingestImageFromSource(target, sourceImageUrl, requestUrl, env, 'telegram-bot');
 }
 
-async function handleIngest(request: Request, url: URL, env: Env, ctx: ExecutionContext): Promise<Response> {
+async function handleIngest(request: Request, url: URL, env: Env): Promise<Response> {
   const target = resolveIngestTarget(url.pathname);
   if (!target) {
     return new Response('Not Found', { status: 404, headers: corsHeaders });
@@ -242,14 +242,25 @@ async function handleIngest(request: Request, url: URL, env: Env, ctx: Execution
     return new Response('Missing fileId', { status: 400, headers: corsHeaders });
   }
 
-  ctx.waitUntil(
-    ingestTelegramImage(target, fileId, url, env).catch((error) => {
-      console.error('Ingest task failed:', error);
-    })
-  );
+  try {
+    await ingestTelegramImage(target, fileId, url, env);
+  } catch (error) {
+    console.error('Ingest task failed:', error);
+    return new Response(JSON.stringify({
+      ok: false,
+      error: error instanceof Error ? error.message : 'Ingest failed',
+      key: target.objectKey,
+    }), {
+      status: 502,
+      headers: {
+        'Content-Type': 'application/json',
+        ...corsHeaders,
+      },
+    });
+  }
 
-  return new Response(JSON.stringify({ ok: true, accepted: true, key: target.objectKey }), {
-    status: 202,
+  return new Response(JSON.stringify({ ok: true, key: target.objectKey }), {
+    status: 200,
     headers: {
       'Content-Type': 'application/json',
       ...corsHeaders,
@@ -325,7 +336,7 @@ export default {
     }
 
     if (request.method === 'POST') {
-      return handleIngest(request, url, env, ctx);
+      return handleIngest(request, url, env);
     }
 
     if (request.method !== 'GET' && request.method !== 'HEAD') {

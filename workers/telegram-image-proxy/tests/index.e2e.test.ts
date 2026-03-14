@@ -200,9 +200,7 @@ describe('telegram image worker e2e', () => {
     });
 
     const response = await worker.fetch(request, env as unknown as Env, ctx);
-    expect(response.status).toBe(202);
-
-    await ctx.drain();
+    expect(response.status).toBe(200);
 
     expect(env.MOOD_IMAGES.has('mood/123/0')).toBe(true);
     expect(env.MOOD_IMAGES.has('mood/123/0@w480')).toBe(true);

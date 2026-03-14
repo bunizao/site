@@ -75,7 +75,7 @@ Response behavior:
 From `workers/telegram-image-proxy`:
 
 ```bash
-bunx wrangler r2 bucket create mood-images
+bunx --bun wrangler r2 bucket create mood-images
 ```
 
 Set `bucket_name` in `wrangler.toml` under `[[r2_buckets]]`.
@@ -85,8 +85,8 @@ Set `bucket_name` in `wrangler.toml` under `[[r2_buckets]]`.
 From `workers/telegram-image-proxy`:
 
 ```bash
-bunx wrangler secret put TELEGRAM_BOT_TOKEN
-bunx wrangler secret put HD_IMAGE_INGEST_TOKEN
+bunx --bun wrangler secret put TELEGRAM_BOT_TOKEN
+bunx --bun wrangler secret put HD_IMAGE_INGEST_TOKEN
 ```
 
 ### 3. Deploy the Worker
@@ -129,6 +129,8 @@ Authorization: Bearer <HD_IMAGE_INGEST_TOKEN>
 Routes:
 - `POST /ingest/mood/:postId/:imageIndex`
 - `POST /ingest/channel/avatar`
+
+The ingest route writes to R2 before it returns. Success is `200`; failures surface as `5xx` instead of being deferred in the background.
 
 ## Historical Backfill
 

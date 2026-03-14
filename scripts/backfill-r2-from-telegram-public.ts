@@ -476,6 +476,7 @@ async function uploadToR2(
   return await runCommand(
     'bunx',
     [
+      '--bun',
       'wrangler',
       'r2',
       'object',
