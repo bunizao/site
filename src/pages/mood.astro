@@ -3014,12 +3014,18 @@ const skeletonGroups = [
     };
 
     // Reset Turnstile widget
-    const resetTurnstile = (hintMessage: string = DEFAULT_LOCKED_HINT) => {
+    const resetTurnstile = (
+      hintMessage: string = DEFAULT_LOCKED_HINT,
+      options: { clearError?: boolean } = {}
+    ) => {
+      const { clearError = true } = options;
       if (turnstileWidgetId !== null && (window as any).turnstile) {
         (window as any).turnstile.reset(turnstileWidgetId);
       }
       turnstileToken = '';
-      errorMsg.textContent = '';
+      if (clearError) {
+        errorMsg.textContent = '';
+      }
       setLockedHintMessage(hintMessage);
       syncSubmitGate();
     };
@@ -3197,8 +3203,8 @@ const skeletonGroups = [
             data.status === 'already_subscribed' ? ALREADY_SUBSCRIBED_TEXT : DEFAULT_SUCCESS_TEXT;
           showView('success');
         } else if (res.status === 429) {
+          resetTurnstile(DEFAULT_LOCKED_HINT, { clearError: false });
           errorMsg.textContent = 'Too many requests. Please try again later.';
-          resetTurnstile();
         } else if (data.code?.startsWith('turnstile')) {
           resetTurnstile(FAILED_LOCKED_HINT);
         } else {

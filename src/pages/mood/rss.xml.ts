@@ -1,5 +1,6 @@
 import type { APIRoute } from 'astro';
 import * as cheerio from 'cheerio';
+import { createE2EChannelInfo, isE2ESiteFixtureEnabled } from '@/lib/e2e-fixtures';
 import { getChannelInfo, type ChannelInfo, type Post } from '../../lib/telegram';
 import { getNumericId, getTextPreview } from '../../lib/mood-utils';
 
@@ -147,8 +148,9 @@ export const GET: APIRoute = async ({ request, locals, site }) => {
   const baseUrl = site ?? new URL(requestUrl.origin);
 
   try {
-    const result = await getChannelInfo({ request, locals } as any, { type: 'list' });
-    const channel = result as ChannelInfo;
+    const channel = isE2ESiteFixtureEnabled(locals)
+      ? createE2EChannelInfo()
+      : (await getChannelInfo({ request, locals } as any, { type: 'list' })) as ChannelInfo;
     const sortedPosts = [...(channel.posts ?? [])].sort(
       (a, b) => getNumericId(b.id) - getNumericId(a.id)
     );

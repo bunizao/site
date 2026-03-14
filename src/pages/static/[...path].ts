@@ -1,4 +1,5 @@
 import type { APIRoute } from 'astro';
+import { isE2ESiteFixtureEnabled } from '@/lib/e2e-fixtures';
 import { checkRateLimit, createRateLimitHeaders } from '@/lib/security/rate-limit';
 
 export const prerender = false;
@@ -234,6 +235,18 @@ export const GET: APIRoute = async ({ request, params, locals }) => {
     return new Response('Invalid target URL.', {
       status: 400,
       headers: rateLimitHeaders,
+    });
+  }
+
+  if (isE2ESiteFixtureEnabled(locals) && targetUrl === 'https://cdn4.telegram-cdn.org/e2e-image.png') {
+    return new Response('e2e-image', {
+      status: 200,
+      headers: {
+        'content-type': 'image/png',
+        'cache-control': 'public, max-age=86400, s-maxage=86400',
+        'access-control-allow-origin': '*',
+        ...Object.fromEntries(rateLimitHeaders),
+      },
     });
   }
 

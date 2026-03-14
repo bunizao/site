@@ -4,6 +4,32 @@ import react from '@astrojs/react';
 import tailwind from '@astrojs/tailwind';
 import vercel from '@astrojs/vercel';
 
+const isCoverageEnabled = process.env.COVERAGE === '1';
+const isE2EStrictPort = process.env.ASTRO_E2E_STRICT_PORT === '1';
+const coveragePlugins = [];
+
+if (isCoverageEnabled) {
+  const { default: istanbul } = await import('vite-plugin-istanbul');
+  coveragePlugins.push(
+    istanbul({
+      include: [
+        'src/components/**/*',
+        'src/layouts/**/*',
+        'src/pages/**/*.astro',
+        'src/lib/comment-content.ts',
+        'src/lib/utils.ts',
+      ],
+      exclude: [
+        'tests/**',
+        'workers/**',
+      ],
+      extension: ['.js', '.ts', '.tsx', '.astro'],
+      requireEnv: false,
+      cypress: false,
+    }),
+  );
+}
+
 export default defineConfig({
   integrations: [
     react(),
@@ -13,9 +39,13 @@ export default defineConfig({
   output: 'static',
   compressHTML: true,
   adapter: vercel(),
+  server: {
+    strictPort: isE2EStrictPort,
+  },
   vite: {
+    plugins: coveragePlugins,
     build: {
-      sourcemap: false,
+      sourcemap: isCoverageEnabled,
       minify: 'esbuild',
       cssMinify: true,
     },

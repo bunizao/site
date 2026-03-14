@@ -1,4 +1,5 @@
 ---
+import { createE2EChannelInfo, createE2EPost, isE2ESiteFixtureEnabled } from '@/lib/e2e-fixtures';
 import { getChannelInfo } from '../../lib/telegram';
 import {
   getTextPreviewHtml,
@@ -27,10 +28,18 @@ const refresh = Number.isFinite(refreshRaw)
   ? Math.max(30, Math.min(3600, refreshRaw))
   : null;
 const showLink = url.searchParams.get('link') !== 'false';
+const useE2EFixture = isE2ESiteFixtureEnabled(Astro.locals);
 
 // Fetch mood data (avoid waterfalls when id is provided)
-const channelInfoPromise = getChannelInfo(Astro, idParam ? { id: idParam } : { type: 'list' });
-const fullChannelInfoPromise = idParam ? getChannelInfo(Astro, { type: 'list' }) : Promise.resolve(null);
+const fixtureChannelInfo = createE2EChannelInfo();
+const channelInfoPromise = useE2EFixture
+  ? Promise.resolve(idParam ? createE2EPost(idParam) : fixtureChannelInfo)
+  : getChannelInfo(Astro, idParam ? { id: idParam } : { type: 'list' });
+const fullChannelInfoPromise = useE2EFixture
+  ? Promise.resolve(idParam ? fixtureChannelInfo : null)
+  : idParam
+    ? getChannelInfo(Astro, { type: 'list' })
+    : Promise.resolve(null);
 const [channelInfo, fullChannelInfo] = await Promise.all([channelInfoPromise, fullChannelInfoPromise]);
 
 // Handle single post or list

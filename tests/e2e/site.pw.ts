@@ -1,4 +1,5 @@
-import { expect, test, type Page } from '@playwright/test';
+import type { Page } from '@playwright/test';
+import { expect, test } from './fixtures';
 
 async function waitForHomeMoodState(page: Page): Promise<void> {
   await expect
@@ -50,6 +51,11 @@ test.describe('Home page', () => {
     await expect(page.locator('#projects-section')).toBeVisible();
     await expect(page.locator('#writing-section')).toBeVisible();
     await expect(page.locator('#moods-section')).toBeVisible();
+    await expect(page.locator('#projects-section .project-item')).toHaveCount(2);
+    await expect(page.locator('#writing-section .post-item')).toHaveCount(2);
+    await expect(page.getByRole('link', { name: 'View all on GitHub' })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Read all posts' })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Privacy' })).toBeVisible();
 
     const themeDropdown = page.locator('[data-theme-dropdown]');
     await themeDropdown.hover();
@@ -90,6 +96,53 @@ test.describe('Home page', () => {
 
     await page.getByRole('link', { name: 'View all moods' }).click();
     await expect(page).toHaveURL(/\/mood$/);
+  });
+
+  test('loads GitHub contributions and shows tooltip details', async ({ page }) => {
+    await page.route('**/github-contributions-api.jogruber.de/**', async (route) => {
+      const contributions = Array.from({ length: 30 }, (_, index) => ({
+        date: `2026-02-${String(index + 1).padStart(2, '0')}`,
+        count: (index % 5) + 1,
+        level: 1,
+      }));
+
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          total: { lastYear: 321 },
+          contributions,
+        }),
+      });
+    });
+
+    await page.goto('/');
+
+    const section = page.locator('[data-contributions]');
+    await expect(section).toHaveAttribute('aria-busy', 'false', { timeout: 30_000 });
+    await expect(page.locator('[data-total]')).toContainText('321');
+
+    const bars = page.locator('[data-bar]');
+    await expect(bars).toHaveCount(30);
+    await bars.nth(10).dispatchEvent('mousemove');
+
+    const tooltip = page.locator('[data-tooltip]');
+    await expect(tooltip).toHaveClass(/is-visible/);
+    await expect(page.locator('[data-tooltip-count]')).toContainText('contribution');
+    await expect(page.locator('[data-tooltip-date]')).not.toHaveText('');
+  });
+
+  test('shows the GitHub contributions fallback state when the request fails', async ({ page }) => {
+    await page.route('**/github-contributions-api.jogruber.de/**', async (route) => {
+      await route.abort('failed');
+    });
+
+    await page.goto('/');
+
+    const section = page.locator('[data-contributions]');
+    await expect(section).toHaveAttribute('aria-busy', 'false', { timeout: 30_000 });
+    await expect(section).toHaveClass(/is-error/);
+    await expect(page.locator('[data-total]')).toContainText('Contributions unavailable');
   });
 
   test('shows the empty state when the preview feed has no moods', async ({ page }) => {

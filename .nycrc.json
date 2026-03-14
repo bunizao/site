@@ -1,0 +1,30 @@
+{
+  "temp-dir": ".nyc_output",
+  "report-dir": "coverage/e2e",
+  "reporter": [
+    "text-summary",
+    "html",
+    "lcov"
+  ],
+  "exclude-after-remap": false,
+  "include": [
+    "src/components/**/*.{astro,js,ts,tsx}",
+    "src/layouts/**/*.{astro,js,ts,tsx}",
+    "src/pages/**/*.astro",
+    "src/lib/comment-content.ts",
+    "src/lib/utils.ts"
+  ],
+  "exclude": [
+    "**/*.d.ts",
+    "tests/**",
+    "workers/**",
+    "dist/**",
+    "coverage/**"
+  ],
+  "extension": [
+    ".astro",
+    ".js",
+    ".ts",
+    ".tsx"
+  ]
+}

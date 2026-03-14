@@ -1,4 +1,5 @@
 import type { APIRoute } from 'astro';
+import { isE2ESiteFixtureEnabled } from '@/lib/e2e-fixtures';
 import { fetchGitHubRepo } from '../../lib/github';
 import { svgResponse } from '../../lib/svg-response';
 
@@ -71,7 +72,9 @@ export const GET: APIRoute = async ({ request, locals }) => {
   }
 
   // Fetch live GitHub stars
-  const githubData = await fetchGitHubRepo(project.repo, import.meta.env, locals?.runtime?.env);
+  const githubData = isE2ESiteFixtureEnabled(locals)
+    ? { stars: 128 }
+    : await fetchGitHubRepo(project.repo, import.meta.env, locals?.runtime?.env);
   const stars = githubData?.stars ?? null;
 
   // Theme colors

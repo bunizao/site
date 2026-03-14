@@ -1,5 +1,6 @@
 ---
 import { ArrowUpRight } from 'lucide-react';
+import { createE2EProjects, isE2ESiteFixtureEnabled } from '@/lib/e2e-fixtures';
 import {
   fetchGitHubPinnedRepos,
   fetchGitHubRepo,
@@ -78,6 +79,7 @@ const fallbackProjectConfigs: FallbackProjectConfig[] = [
 ];
 
 const runtimeEnv = Astro.locals?.runtime?.env;
+const useE2EFixture = isE2ESiteFixtureEnabled(Astro.locals);
 
 function mapPinnedRepoToProject(repo: GitHubPinnedRepoData): Project {
   const tags = Array.from(
@@ -94,23 +96,32 @@ function mapPinnedRepoToProject(repo: GitHubPinnedRepoData): Project {
   };
 }
 
-const pinnedRepos = await fetchGitHubPinnedRepos(githubUsername, import.meta.env, runtimeEnv);
+async function loadProjects(): Promise<Project[]> {
+  if (useE2EFixture) {
+    return createE2EProjects();
+  }
 
-const projects: Project[] = pinnedRepos !== null
-  ? pinnedRepos.map(mapPinnedRepoToProject)
-  : await Promise.all(
-      fallbackProjectConfigs.map(async (config) => {
-        const githubData = await fetchGitHubRepo(config.repo, import.meta.env, runtimeEnv);
-        return {
-          name: config.name,
-          url: config.url,
-          description: githubData?.description || config.description,
-          role: config.role,
-          tags: config.tags,
-          stars: githubData?.stars ?? null
-        };
-      })
-    );
+  const pinnedRepos = await fetchGitHubPinnedRepos(githubUsername, import.meta.env, runtimeEnv);
+  if (pinnedRepos !== null) {
+    return pinnedRepos.map(mapPinnedRepoToProject);
+  }
+
+  return Promise.all(
+    fallbackProjectConfigs.map(async (config) => {
+      const githubData = await fetchGitHubRepo(config.repo, import.meta.env, runtimeEnv);
+      return {
+        name: config.name,
+        url: config.url,
+        description: githubData?.description || config.description,
+        role: config.role,
+        tags: config.tags,
+        stars: githubData?.stars ?? null,
+      };
+    })
+  );
+}
+
+const projects = await loadProjects();
 ---
 
 <section id="projects-section" class="projects-section" data-parallax="off">

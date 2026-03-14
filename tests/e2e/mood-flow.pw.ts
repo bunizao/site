@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './fixtures';
 import { getLatestMoodId } from './helpers';
 
 function createMoodFeedPayload(moodId: string) {
@@ -68,6 +68,12 @@ function createComment(comment: {
     content: comment.content ?? `<p>Comment ${comment.id}</p>`,
     reactions: [],
   };
+}
+
+async function disableNotifyNativeValidation(page: import('@playwright/test').Page): Promise<void> {
+  await page.locator('[data-notify-form]').evaluate((form) => {
+    form.setAttribute('novalidate', 'true');
+  });
 }
 
 test.describe('Mood routes', () => {
@@ -240,6 +246,100 @@ test.describe('Mood routes', () => {
 
     await page.locator('[data-back-button]').click();
     await expect(page).toHaveURL(/\/mood$/);
+  });
+
+  test('submits the notify panel successfully and closes cleanly', async ({ page }) => {
+    const requests: Array<Record<string, unknown>> = [];
+
+    await page.route('**/api/notify/subscribe', async (route) => {
+      requests.push(route.request().postDataJSON() as Record<string, unknown>);
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ status: 'pending' }),
+      });
+    });
+
+    await page.goto('/mood?subscribe=1', { waitUntil: 'domcontentloaded' });
+
+    const panel = page.locator('.notify-panel');
+    await expect(panel).toHaveClass(/is-open/, { timeout: 30_000 });
+    await expect(page).toHaveURL(/\/mood$/);
+
+    await disableNotifyNativeValidation(page);
+    await page.locator('[data-notify-email]').fill('reader@example.com');
+    await page.locator('label[for="notify-mode-daily"]').click();
+    await page.locator('[data-notify-submit]').click();
+
+    await expect(page.locator('[data-notify-success-view]')).not.toHaveClass(/is-hidden/);
+    await expect(page.locator('[data-notify-success-text]')).toHaveText('Check your inbox to confirm.');
+    await expect.poll(() => requests.length).toBe(1);
+    await expect(requests[0]?.email).toBe('reader@example.com');
+    await expect(requests[0]?.deliveryMode).toBe('daily');
+
+    await page.locator('[data-notify-done]').click();
+    await expect(panel).not.toHaveClass(/is-open/);
+  });
+
+  test('shows the already subscribed notify state', async ({ page }) => {
+    await page.route('**/api/notify/subscribe', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ status: 'already_subscribed' }),
+      });
+    });
+
+    await page.goto('/mood?subscribe=1', { waitUntil: 'domcontentloaded' });
+
+    await disableNotifyNativeValidation(page);
+    await page.locator('[data-notify-email]').fill('reader@example.com');
+    await page.locator('[data-notify-submit]').click();
+
+    await expect(page.locator('[data-notify-success-view]')).not.toHaveClass(/is-hidden/);
+    await expect(page.locator('[data-notify-success-text]')).toHaveText('This email is already subscribed.');
+  });
+
+  test('handles notify validation, rate limits, and retryable server errors', async ({ page }) => {
+    let requestCount = 0;
+    await page.route('**/api/notify/subscribe', async (route) => {
+      requestCount += 1;
+
+      if (requestCount === 1) {
+        await route.fulfill({
+          status: 429,
+          contentType: 'application/json',
+          body: JSON.stringify({ error: 'Too Many Requests' }),
+        });
+        return;
+      }
+
+      await route.fulfill({
+        status: 500,
+        contentType: 'application/json',
+        body: JSON.stringify({ error: 'Backend failed' }),
+      });
+    });
+
+    await page.goto('/mood?subscribe=1', { waitUntil: 'domcontentloaded' });
+
+    await disableNotifyNativeValidation(page);
+    await page.locator('[data-notify-email]').fill('not-an-email');
+    await page.locator('[data-notify-submit]').click();
+    await expect(page.locator('[data-notify-error-msg]')).toHaveText('Please enter a valid email address.');
+
+    await page.locator('[data-notify-email]').fill('reader@example.com');
+    await page.locator('[data-notify-submit]').click();
+    await expect(page.locator('[data-notify-error-msg]')).toHaveText('Too many requests. Please try again later.');
+    await expect(page.locator('[data-notify-form-view]')).not.toHaveClass(/is-hidden/);
+
+    await page.locator('[data-notify-submit]').click();
+    await expect(page.locator('[data-notify-error-view]')).not.toHaveClass(/is-hidden/);
+    await expect(page.locator('[data-notify-error-state-text]')).toHaveText('Backend failed');
+
+    await page.locator('[data-notify-retry]').click();
+    await expect(page.locator('[data-notify-form-view]')).not.toHaveClass(/is-hidden/);
+    await expect(page.locator('[data-notify-error-msg]')).toHaveText('');
   });
 
   test('shows an empty state when the feed has no moods', async ({ page }) => {

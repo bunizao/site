@@ -1,4 +1,5 @@
 import type { APIRoute } from 'astro';
+import { createE2EChannelInfo, isE2ESiteFixtureEnabled } from '@/lib/e2e-fixtures';
 import { getChannelInfo, type ChannelInfo, type Post } from '@/lib/telegram';
 import { getNumericId, getRelatedLinks, getTextPreviewWithMedia } from '@/lib/mood-utils';
 import {
@@ -128,6 +129,15 @@ async function loadChannelSnapshot(
   context: { request: Request; locals: any },
   siteUrl: string
 ): Promise<{ channelTitle: string; channelAvatarUrl?: string; posts: Post[] }> {
+  if (isE2ESiteFixtureEnabled(context.locals)) {
+    const fixture = createE2EChannelInfo();
+    return {
+      channelTitle: fixture.title,
+      channelAvatarUrl: undefined,
+      posts: fixture.posts,
+    };
+  }
+
   try {
     const result = (await getChannelInfo(
       { request: context.request, locals: context.locals } as any,

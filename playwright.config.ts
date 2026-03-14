@@ -10,7 +10,7 @@ export default defineConfig({
   fullyParallel: false,
   workers: Number(process.env.E2E_WORKERS || 1),
   retries: process.env.CI ? 2 : 0,
-  timeout: 60_000,
+  timeout: 120_000,
   expect: {
     timeout: 10_000,
   },
@@ -26,9 +26,9 @@ export default defineConfig({
   },
   outputDir: 'test-results',
   webServer: {
-    command: `E2E_SITE_FIXTURE=1 bunx astro dev --host ${host} --port ${port}`,
+    command: `ASTRO_E2E_STRICT_PORT=1 E2E_SITE_FIXTURE=1 bunx astro dev --host ${host} --port ${port}`,
     url: baseURL,
-    reuseExistingServer: !process.env.CI,
+    reuseExistingServer: process.env.COVERAGE !== '1' && !process.env.CI,
     timeout: 120_000,
   },
   projects: [

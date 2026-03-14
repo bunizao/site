@@ -1,5 +1,6 @@
 ---
 import dayjs from 'dayjs';
+import { createE2EWritingPosts, isE2ESiteFixtureEnabled } from '@/lib/e2e-fixtures';
 
 interface Tag {
   id: string;
@@ -17,6 +18,7 @@ interface PostMeta {
 }
 
 const ghostUrl = import.meta.env.GHOST_URL || 'https://blog.buxx.me';
+const useE2EFixture = isE2ESiteFixtureEnabled(Astro.locals);
 
 async function getLatestPosts(): Promise<PostMeta[]> {
   const apiKey = import.meta.env.GHOST_CONTENT_APIKEY;
@@ -32,7 +34,7 @@ async function getLatestPosts(): Promise<PostMeta[]> {
   }
 }
 
-const posts = await getLatestPosts();
+const posts = useE2EFixture ? createE2EWritingPosts() : await getLatestPosts();
 ---
 
 <section id="writing-section" class="writing-section" data-parallax="off">

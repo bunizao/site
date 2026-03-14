@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './fixtures';
 import { getLatestMoodId } from './helpers';
 
 interface MoodApiPost {
@@ -147,6 +147,27 @@ test.describe('API behavior', () => {
     expect(projectNotFound.status()).toBe(404);
   });
 
+  test('GET /api/notify/preview returns deterministic preview payload in e2e mode', async ({ request }) => {
+    const preview = await request.get('/api/notify/preview?mode=daily&timezone=Asia/Kuala_Lumpur');
+    expect(preview.ok()).toBeTruthy();
+
+    const payload = (await preview.json()) as {
+      mode?: string;
+      timezone?: string;
+      source?: { channelTitle?: string; latestPostId?: string | null };
+      subjects?: Record<string, string>;
+      html?: Record<string, string>;
+    };
+
+    expect(payload.mode).toBe('daily');
+    expect(payload.timezone).toBe('Asia/Kuala_Lumpur');
+    expect(payload.source?.channelTitle).toBe('E2E Channel');
+    expect(payload.source?.latestPostId).toBeTruthy();
+    expect(payload.subjects?.subscribe).toContain('Confirm');
+    expect(payload.html?.mood).toContain('/mood/');
+    expect(payload.html?.digest).toContain('E2E Channel');
+  });
+
   test('notify, webhook, and static proxy endpoints handle unauthorized/invalid requests', async ({ request }) => {
     const webhookGet = await request.get('/api/telegram-webhook');
     expect(webhookGet.status()).toBe(405);
@@ -189,5 +210,13 @@ test.describe('API behavior', () => {
 
     const staticForbiddenHost = await request.get('/static/https://example.com/test.png');
     expect(staticForbiddenHost.status()).toBe(400);
+  });
+
+  test('static proxy returns the e2e fixture asset for allowed Telegram hosts', async ({ request }) => {
+    const response = await request.get('/static/https://cdn4.telegram-cdn.org/e2e-image.png');
+    expect(response.ok()).toBeTruthy();
+    expect(response.headers()['content-type']).toContain('image/png');
+    expect(response.headers()['access-control-allow-origin']).toBe('*');
+    expect(await response.text()).toBe('e2e-image');
   });
 });
