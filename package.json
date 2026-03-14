@@ -21,11 +21,13 @@
     "@astrojs/vercel": "^9.0.5",
     "@playwright/test": "^1.58.2",
     "autoprefixer": "^10.4.23",
+    "nyc": "^18.0.0",
     "postcss": "^8.5.6",
     "tailwindcss": "^3.4.17",
     "tailwindcss-animate": "^1.0.7",
     "tsx": "^4.21.0",
-    "typescript": "^5.0.0"
+    "typescript": "^5.0.0",
+    "vite-plugin-istanbul": "^8.0.0"
   },
   "dependencies": {
     "@radix-ui/react-slot": "^1.2.4",

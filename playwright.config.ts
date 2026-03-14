@@ -6,6 +6,7 @@ const baseURL = `http://${host}:${port}`;
 
 export default defineConfig({
   testDir: './tests/e2e',
+  testMatch: '**/*.pw.ts',
   fullyParallel: false,
   workers: Number(process.env.E2E_WORKERS || 1),
   retries: process.env.CI ? 2 : 0,
@@ -25,7 +26,7 @@ export default defineConfig({
   },
   outputDir: 'test-results',
   webServer: {
-    command: `bun run dev --host ${host} --port ${port}`,
+    command: `E2E_SITE_FIXTURE=1 bunx astro dev --host ${host} --port ${port}`,
     url: baseURL,
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
