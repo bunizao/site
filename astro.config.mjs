@@ -1,7 +1,6 @@
 import { defineConfig } from 'astro/config';
 import { fileURLToPath } from 'node:url';
 import react from '@astrojs/react';
-import tailwind from '@astrojs/tailwind';
 import vercel from '@astrojs/vercel';
 
 const isCoverageEnabled = process.env.COVERAGE === '1';
@@ -33,7 +32,6 @@ if (isCoverageEnabled) {
 export default defineConfig({
   integrations: [
     react(),
-    tailwind(),
   ],
   site: 'https://buxx.me',
   output: 'static',

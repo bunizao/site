@@ -26,7 +26,7 @@ export default defineConfig({
   },
   outputDir: 'test-results',
   webServer: {
-    command: `ASTRO_E2E_STRICT_PORT=1 E2E_SITE_FIXTURE=1 bunx astro dev --host ${host} --port ${port}`,
+    command: `ASTRO_E2E_STRICT_PORT=1 E2E_SITE_FIXTURE=1 astro dev --host ${host} --port ${port}`,
     url: baseURL,
     reuseExistingServer: process.env.COVERAGE !== '1' && !process.env.CI,
     timeout: 120_000,
