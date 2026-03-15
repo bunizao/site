@@ -4,6 +4,10 @@ interface Env {
   WORKER_MANUAL_TOKEN?: string;
 }
 
+interface ExecutionContext {
+  waitUntil(promise: Promise<unknown>): void;
+}
+
 interface TaskResult {
   path: string;
   ok: boolean;
@@ -139,7 +143,7 @@ export default {
     });
   },
 
-  async scheduled(_event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
+  async scheduled(_controller: unknown, env: Env, ctx: ExecutionContext): Promise<void> {
     ctx.waitUntil(runAllTasks(env));
   },
 };

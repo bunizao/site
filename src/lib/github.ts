@@ -257,14 +257,14 @@ async function fetchGitHubPinnedReposHtml(
     const repos = $('.js-pinned-item-list-item, .pinned-item-list-item')
       .slice(0, limit)
       .toArray()
-      .map((element) => {
+      .flatMap<GitHubPinnedRepoData>((element) => {
         const repoLink = $(element)
           .find('.pinned-item-list-item-content a[href^="/"]')
           .first();
 
         const href = (repoLink.attr('href') ?? '').trim();
         const [owner, name] = href.replace(/^\/+/, '').split('/');
-        if (!owner || !name) return null;
+        if (!owner || !name) return [];
 
         const description = normalizeText(
           $(element).find('.pinned-item-desc').first().text()
@@ -276,7 +276,7 @@ async function fetchGitHubPinnedReposHtml(
           normalizeText($(element).find('a[href$="/stargazers"]').first().text())
         );
 
-        return {
+        return [{
           name,
           repo: `${owner}/${name}`,
           url: `https://github.com/${owner}/${name}`,
@@ -285,9 +285,8 @@ async function fetchGitHubPinnedReposHtml(
           owner,
           primaryLanguage: primaryLanguage || null,
           topics: []
-        } satisfies GitHubPinnedRepoData;
-      })
-      .filter((repo): repo is GitHubPinnedRepoData => repo !== null);
+        } satisfies GitHubPinnedRepoData];
+      });
 
     return repos;
   } catch {

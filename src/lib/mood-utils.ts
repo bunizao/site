@@ -1,5 +1,9 @@
 import * as cheerio from 'cheerio';
 
+function isCheerioElement(node: unknown): node is cheerio.Element {
+  return typeof node === 'object' && node !== null && 'type' in node && 'attribs' in node;
+}
+
 function isCustomEmojiImageSrc(src: string): boolean {
   return src.trim().toLowerCase().includes('/i/emoji/');
 }
@@ -37,6 +41,10 @@ function getFirstValidImageSrc($: cheerio.CheerioAPI, selector: string): string 
   const image = $(selector)
     .toArray()
     .find((element) => {
+      if (!isCheerioElement(element)) {
+        return false;
+      }
+
       if (isEmojiImageElement(element, $)) {
         return false;
       }
@@ -107,6 +115,10 @@ export function getFirstImageFallback(content: string): string | null {
     const image = $(selector)
       .toArray()
       .find((element) => {
+        if (!isCheerioElement(element)) {
+          return false;
+        }
+
         if (isEmojiImageElement(element, $)) {
           return false;
         }
@@ -560,7 +572,7 @@ const shouldHideReplyAuthor = (
   if (!normalized) return false;
   const channelNormalized = normalizeReplyAuthor(channel ?? '');
   const titleNormalized = normalizeReplyAuthor(channelTitle ?? '');
-  return (
+  return Boolean(
     (channelNormalized && normalized === channelNormalized) ||
     (titleNormalized && normalized === titleNormalized)
   );

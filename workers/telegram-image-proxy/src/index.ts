@@ -5,7 +5,33 @@
  * New images are ingested via authenticated POST routes.
  */
 
-interface Env {
+interface ExecutionContext {
+  waitUntil(promise: Promise<unknown>): void;
+  passThroughOnException(): void;
+}
+
+interface R2ObjectBody {
+  body: ReadableStream<Uint8Array> | null;
+  httpEtag: string;
+  writeHttpMetadata(headers: Headers): void;
+}
+
+interface R2Bucket {
+  put(
+    key: string,
+    value: ReadableStream<Uint8Array> | ArrayBuffer | ArrayBufferView | Blob | string,
+    options?: {
+      httpMetadata?: {
+        contentType?: string;
+        cacheControl?: string;
+      };
+      customMetadata?: Record<string, string>;
+    }
+  ): Promise<void>;
+  get(key: string): Promise<R2ObjectBody | null>;
+}
+
+export interface Env {
   TELEGRAM_BOT_TOKEN: string;
   HD_IMAGE_INGEST_TOKEN: string;
   MOOD_IMAGES: R2Bucket;
@@ -26,6 +52,10 @@ interface IngestPayload {
   fileId?: string;
 }
 
+interface CacheStorageWithDefault extends CacheStorage {
+  default: Cache;
+}
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, HEAD, OPTIONS, POST',
@@ -35,6 +65,15 @@ const corsHeaders = {
 const CACHE_CONTROL = 'public, max-age=31536000, immutable, no-transform';
 const VARIANT_WIDTHS = [480, 800, 1200, 1600] as const;
 const VARIANT_QUALITY = 82;
+type CfImageRequestInit = RequestInit & {
+  cf: {
+    image: {
+      width: number;
+      fit: 'scale-down';
+      quality: number;
+    };
+  };
+};
 
 function parsePositiveInt(value: string | null): number | null {
   if (!value) return null;
@@ -163,7 +202,7 @@ async function ingestImageFromSource(
 
   await Promise.all(
     VARIANT_WIDTHS.map(async (width) => {
-      const variantResponse = await fetch(sourceImageUrl, {
+      const variantRequestInit: CfImageRequestInit = {
         cf: {
           image: {
             width,
@@ -171,7 +210,8 @@ async function ingestImageFromSource(
             quality: VARIANT_QUALITY,
           },
         },
-      });
+      };
+      const variantResponse = await fetch(sourceImageUrl, variantRequestInit);
 
       if (!variantResponse.ok || !variantResponse.body) {
         console.warn(`Variant generation failed for width ${width}:`, variantResponse.status);
@@ -193,7 +233,7 @@ async function ingestImageFromSource(
     })
   );
 
-  const cache = caches.default;
+  const cache = (caches as CacheStorageWithDefault).default;
   const cacheRequests = [null, ...VARIANT_WIDTHS].map((width) => {
     const cacheUrl = new URL(target.publicPath, requestUrl.origin);
     if (width) {
@@ -232,7 +272,7 @@ async function handleIngest(request: Request, url: URL, env: Env): Promise<Respo
 
   let payload: IngestPayload;
   try {
-    payload = await request.json<IngestPayload>();
+    payload = await request.json() as IngestPayload;
   } catch {
     return new Response('Invalid JSON body', { status: 400, headers: corsHeaders });
   }
@@ -285,7 +325,7 @@ async function handleRead(request: Request, url: URL, env: Env, ctx: ExecutionCo
     cacheUrl.searchParams.set('w', String(variantWidth));
   }
   const cacheRequest = new Request(cacheUrl.toString(), request);
-  const cache = caches.default;
+  const cache = (caches as CacheStorageWithDefault).default;
   const cached = await cache.match(cacheRequest);
   if (cached) {
     return cached;

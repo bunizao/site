@@ -277,7 +277,7 @@ const skeletonGroups = [
       observer.observe(heroEl);
 
       // Handle resize: reset state when switching between mobile/desktop
-      let resizeTimer;
+      let resizeTimer: ReturnType<typeof setTimeout> | undefined;
       window.addEventListener('resize', () => {
         clearTimeout(resizeTimer);
         resizeTimer = setTimeout(() => {
@@ -3196,7 +3196,11 @@ const skeletonGroups = [
           }),
         });
 
-        const data = await res.json();
+        const data = await res.json() as {
+          status?: string;
+          code?: string;
+          error?: string;
+        };
 
         if (res.ok) {
           successText.textContent =
@@ -4097,7 +4101,7 @@ const skeletonGroups = [
         const promise = (async () => {
           const metaResponse = await fetch(`/static/https://t.me/i/emoji/${emojiId}.json`, { cache: 'no-store' });
           if (!metaResponse.ok) return null;
-          const meta = await metaResponse.json();
+          const meta = await metaResponse.json() as { emoji?: string };
           const emojiUrl = meta?.emoji;
           if (!emojiUrl) return null;
           const proxied = emojiUrl.startsWith('http') ? `/static/${emojiUrl}` : emojiUrl;
@@ -4217,7 +4221,7 @@ const skeletonGroups = [
         );
       };
 
-      const observe = (root: Element): void => {
+      const observe = (root: ParentNode): void => {
         hydrate(root);
         const observer = new MutationObserver((mutations) => {
           if (!mutations.some((mutation) => mutation.addedNodes.length)) return;
@@ -4232,9 +4236,18 @@ const skeletonGroups = [
     const animatedEmoji = createAnimatedEmojiManager();
 
     // Comments popover manager
-    const commentsPopoverManager = (() => {
-      const cache = new Map<string, any[]>();
-      const pendingFetches = new Map<string, Promise<any[]>>();
+	    const commentsPopoverManager = (() => {
+	      interface CommentPreviewData {
+	        id?: string;
+	        author?: string;
+	        authorAvatar?: string;
+	        datetime?: string;
+	        content?: string;
+	        reactions?: ReactionData[];
+	      }
+
+	      const cache = new Map<string, CommentPreviewData[]>();
+	      const pendingFetches = new Map<string, Promise<CommentPreviewData[]>>();
 
       const formatDate = (datetime: string): string => {
         const date = new Date(datetime);
@@ -4255,7 +4268,7 @@ const skeletonGroups = [
         return name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase() || '?';
       };
 
-      const fetchComments = async (postId: string): Promise<any[]> => {
+	      const fetchComments = async (postId: string): Promise<CommentPreviewData[]> => {
         if (cache.has(postId)) {
           return cache.get(postId)!;
         }
@@ -4267,8 +4280,8 @@ const skeletonGroups = [
         const promise = (async () => {
           try {
             const response = await fetch(`/api/comments?postId=${postId}`);
-            const data = await response.json();
-            const comments = data.comments || [];
+	            const data = await response.json() as { comments?: CommentPreviewData[] };
+	            const comments = Array.isArray(data.comments) ? data.comments : [];
             cache.set(postId, comments);
             return comments;
           } catch (error) {
@@ -4803,7 +4816,7 @@ const skeletonGroups = [
 
         // Add reaction pills
         if (hasReactions) {
-          mood.reactions.forEach((reaction) => {
+          (mood.reactions ?? []).forEach((reaction) => {
             const pill = document.createElement('span');
             pill.className = reaction.isPaid ? 'mood-reaction mood-reaction--paid' : 'mood-reaction';
             const emojiSpan = document.createElement('span');

@@ -1,7 +1,6 @@
 /// <reference types="astro/client" />
 /// <reference types="node" />
 /// <reference types="bun-types" />
-/// <reference types="@cloudflare/workers-types" />
 
 declare global {
   namespace App {

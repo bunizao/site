@@ -892,8 +892,8 @@ const placeholders = Array.from({ length: SKELETON_COUNT }, (_, index) => ({
         if (!response.ok) {
           throw new Error('Failed to fetch moods.');
         }
-        const data = await response.json();
-        const posts = Array.isArray(data.posts) ? data.posts.slice(0, MAX_MOODS) : [];
+        const data = await response.json() as { posts?: unknown[] };
+        const posts = Array.isArray(data.posts) ? (data.posts.slice(0, MAX_MOODS) as MoodData[]) : [];
         renderMoods(posts);
       } catch (error) {
         console.error('Failed to fetch moods:', error);

@@ -2253,13 +2253,28 @@ const telegramCommentUrl = channel && id ? `https://t.me/${channel}/${id}?commen
   }
 </style>
 
-<script>
+	<script>
   import {
     asText,
     buildCommentContentFragment,
     replaceReplyNodesWithCommentQuotes,
     sanitizeImageUrl,
   } from '../../lib/comment-content';
+
+  interface CommentReactionData {
+    emoji?: string;
+    count?: string;
+    isPaid?: boolean;
+  }
+
+  interface CommentData {
+    id?: string;
+    author?: string;
+    authorAvatar?: string;
+    datetime?: string;
+    content?: string;
+    reactions?: CommentReactionData[];
+  }
   const backButton = document.querySelector('[data-back-button]');
 
   if (backButton) {
@@ -2331,7 +2346,7 @@ const telegramCommentUrl = channel && id ? `https://t.me/${channel}/${id}?commen
       const promise = (async () => {
         const metaResponse = await fetch(`/static/https://t.me/i/emoji/${emojiId}.json`, { cache: 'no-store' });
         if (!metaResponse.ok) return null;
-        const meta = await metaResponse.json();
+        const meta = await metaResponse.json() as { emoji?: string };
         const emojiUrl = meta?.emoji;
         if (!emojiUrl) return null;
         const proxied = emojiUrl.startsWith('http') ? `/static/${emojiUrl}` : emojiUrl;
@@ -2396,7 +2411,7 @@ const telegramCommentUrl = channel && id ? `https://t.me/${channel}/${id}?commen
   };
 
   const moodPostContent = document.querySelector('.mood-post-content');
-  if (moodPostContent) {
+  if (moodPostContent instanceof HTMLElement) {
     replaceReplyNodesWithCommentQuotes(moodPostContent);
   }
 
@@ -2424,8 +2439,8 @@ const telegramCommentUrl = channel && id ? `https://t.me/${channel}/${id}?commen
     let nextBefore = '';
     const loadedCommentIds = new Set<string>();
 
-    const getOldestCommentId = (comments: any[]): string => {
-      let oldest: any | null = null;
+    const getOldestCommentId = (comments: CommentData[]): string => {
+      let oldest: CommentData | null = null;
       for (const comment of comments) {
         if (!comment?.datetime) continue;
         const currentTime = Date.parse(comment.datetime);
@@ -2434,7 +2449,7 @@ const telegramCommentUrl = channel && id ? `https://t.me/${channel}/${id}?commen
           oldest = comment;
           continue;
         }
-        const oldestTime = Date.parse(oldest.datetime);
+        const oldestTime = Date.parse(oldest.datetime ?? '');
         if (Number.isNaN(oldestTime) || currentTime < oldestTime) {
           oldest = comment;
         }
@@ -2461,7 +2476,7 @@ const telegramCommentUrl = channel && id ? `https://t.me/${channel}/${id}?commen
       return name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase() || '?';
     };
 
-    const renderComment = (comment: any): HTMLElement => {
+    const renderComment = (comment: CommentData): HTMLElement => {
       const root = document.createElement('div');
       root.className = 'mood-comment';
       const commentId = asText(comment?.id).trim();
@@ -2516,7 +2531,7 @@ const telegramCommentUrl = channel && id ? `https://t.me/${channel}/${id}?commen
         const reactionsWrap = document.createElement('div');
         reactionsWrap.className = 'mood-comment-reactions';
 
-        reactions.forEach((reaction: any) => {
+        reactions.forEach((reaction) => {
           const pill = document.createElement('span');
           pill.className = `mood-reaction${reaction?.isPaid ? ' mood-reaction--paid' : ''}`;
 
@@ -2540,7 +2555,7 @@ const telegramCommentUrl = channel && id ? `https://t.me/${channel}/${id}?commen
       return root;
     };
 
-    const addComments = (comments: any[], append: boolean): number => {
+    const addComments = (comments: CommentData[], append: boolean): number => {
       if (!append) {
         loadedCommentIds.clear();
       }
@@ -2570,13 +2585,19 @@ const telegramCommentUrl = channel && id ? `https://t.me/${channel}/${id}?commen
       try {
         const url = `/api/comments?postId=${postId}${before ? `&before=${before}` : ''}`;
         const response = await fetch(url);
-        const data = await response.json();
+        const data = await response.json() as {
+          comments?: CommentData[];
+          nextBefore?: string;
+          hasMore?: boolean;
+        };
 
-        if (data.comments?.length > 0) {
+        const comments = data.comments ?? [];
+
+        if (comments.length > 0) {
           if (emptyEl) emptyEl.hidden = true;
 
           // Add comments first, then remove skeleton to prevent layout shift
-          const addedCount = addComments(data.comments, Boolean(before));
+          const addedCount = addComments(comments, Boolean(before));
 
           // Remove skeleton after comments are rendered
           if (loadingEl) loadingEl.remove();
@@ -2585,7 +2606,7 @@ const telegramCommentUrl = channel && id ? `https://t.me/${channel}/${id}?commen
           if (countEl) countEl.textContent = String(loadedCommentIds.size);
 
           const previousCursor = nextBefore;
-          const fallbackCursor = getOldestCommentId(data.comments);
+          const fallbackCursor = getOldestCommentId(comments);
           nextBefore = data.nextBefore || fallbackCursor || '';
 
           // Show/hide load more button
