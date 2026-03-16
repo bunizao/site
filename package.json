@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "dev": "op run --environment l57xmsivlnctkio4zz673luf64 -- astro dev",
+    "dev": "op run --environment l57xmsivlnctkio4zz673luf64 -- bunx --bun astro dev",
     "build": "astro build",
     "check": "astro check",
     "preview": "astro preview",
