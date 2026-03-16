@@ -5,6 +5,13 @@ const port = Number(process.env.E2E_PORT || 4321);
 const remoteBaseURL = process.env.E2E_BASE_URL?.trim();
 const baseURL = remoteBaseURL || `http://${host}:${port}`;
 const shouldUseWebServer = !remoteBaseURL;
+const vercelBypassSecret = process.env.E2E_VERCEL_BYPASS_SECRET?.trim();
+const extraHTTPHeaders = vercelBypassSecret
+  ? {
+      'x-vercel-protection-bypass': vercelBypassSecret,
+      'x-vercel-set-bypass-cookie': 'true',
+    }
+  : undefined;
 
 export default defineConfig({
   testDir: './tests/e2e',
@@ -22,6 +29,7 @@ export default defineConfig({
   ],
   use: {
     baseURL,
+    extraHTTPHeaders,
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',

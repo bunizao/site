@@ -100,6 +100,7 @@ jobs:
         if: steps.context.outputs.should_run == 'true'
         env:
           E2E_BASE_URL: ${{ steps.context.outputs.preview_url }}
+          E2E_VERCEL_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
         run: bunx playwright test tests/e2e/preview-smoke.pw.ts
 
       - name: Upload Playwright report
