@@ -413,7 +413,7 @@ function getVideo($: CheerioAPI, item: Element, { staticProxy, index }: ContentP
   };
 
   const resolvePosterContext = (wrapEl: cheerio.Cheerio<Element>): cheerio.Cheerio<Element> => {
-    const player = wrapEl.closest('.tgme_widget_message_video_player, .tgme_widget_message_roundvideo_player');
+    const player = wrapEl.closest('.tgme_widget_message_video_player, .tgme_widget_message_roundvideo_player') as cheerio.Cheerio<Element>;
     return player.length ? player : wrapEl;
   };
 
@@ -546,7 +546,7 @@ const shouldHideReplyAuthor = (value: string, channel?: string, channelTitle?: s
   if (!normalized) return false;
   const channelNormalized = normalizeReplyAuthor(channel ?? '');
   const titleNormalized = normalizeReplyAuthor(channelTitle ?? '');
-  return (
+  return Boolean(
     (channelNormalized && normalized === channelNormalized) ||
     (titleNormalized && normalized === titleNormalized)
   );
@@ -1026,6 +1026,10 @@ async function getPost(
   }: ContentProcessorConfig & { channel: string }
 ): Promise<Post> {
   const messageItem = item ? $(item).find('.tgme_widget_message') : $('.tgme_widget_message');
+  const messageElement = messageItem.get(0) ?? item;
+  if (!messageElement) {
+    throw new Error('Message element not found');
+  }
   const content =
     $(messageItem).find('.js-message_reply_text')?.length > 0
       ? await modifyHTMLContent($, $(messageItem).find('.tgme_widget_message_text.js-message_text'), {
@@ -1044,33 +1048,33 @@ async function getPost(
       })
       ?.map((_index, a) => $(a)?.text()?.replace('#', '') ?? '')
       ?.get() ?? [];
-  const forwardedFrom = getForwardedFrom($, messageItem as Element);
+  const forwardedFrom = getForwardedFrom($, messageElement);
 
   return {
     id,
     title,
-    type: $(messageItem).attr('class')?.includes('service_message') ? 'service' : 'text',
-    datetime: $(messageItem).find('.tgme_widget_message_date time')?.attr('datetime') ?? '',
+    type: $(messageElement).attr('class')?.includes('service_message') ? 'service' : 'text',
+    datetime: $(messageElement).find('.tgme_widget_message_date time')?.attr('datetime') ?? '',
     tags,
     text: content?.text() ?? '',
     content: [
-      getReply($, messageItem as Element, {
+      getReply($, messageElement, {
         channel,
         channelTitle,
         staticProxy,
         replyVariant,
       }),
-      getImages($, messageItem as Element, { staticProxy, hdImageBase, id, index, title }),
-      getVideo($, messageItem as Element, { staticProxy, index }),
-      getAudio($, messageItem as Element, { staticProxy }),
+      getImages($, messageElement, { staticProxy, hdImageBase, id, index, title }),
+      getVideo($, messageElement, { staticProxy, index }),
+      getAudio($, messageElement, { staticProxy }),
       content?.html(),
-      getImageStickers($, messageItem as Element, { staticProxy, index }),
-      getVideoStickers($, messageItem as Element, { staticProxy, index }),
-      $(messageItem).find('.tgme_widget_message_poll')?.html(),
-      $.html($(messageItem).find('.tgme_widget_message_document_wrap')),
-      $.html($(messageItem).find('.tgme_widget_message_video_player.not_supported')),
-      $.html($(messageItem).find('.tgme_widget_message_location_wrap')),
-      getLinkPreview($, messageItem as Element, { staticProxy, index }),
+      getImageStickers($, messageElement, { staticProxy, index }),
+      getVideoStickers($, messageElement, { staticProxy, index }),
+      $(messageElement).find('.tgme_widget_message_poll')?.html(),
+      $.html($(messageElement).find('.tgme_widget_message_document_wrap')),
+      $.html($(messageElement).find('.tgme_widget_message_video_player.not_supported')),
+      $.html($(messageElement).find('.tgme_widget_message_location_wrap')),
+      getLinkPreview($, messageElement, { staticProxy, index }),
     ]
       .filter(Boolean)
       .join('')
@@ -1084,8 +1088,8 @@ async function getPost(
         return `${p1}${staticProxy}${p2}`;
       }),
     forwardedFrom: forwardedFrom ?? undefined,
-    reactions: await getReactions($, messageItem as Element, staticProxy),
-    commentsCount: await getCommentsCount($, messageItem as Element, {
+    reactions: await getReactions($, messageElement, staticProxy),
+    commentsCount: await getCommentsCount($, messageElement, {
       channel,
       host,
       headers,

@@ -714,3 +714,5 @@ main().catch((error) => {
   console.error('Backfill script failed:', error);
   process.exitCode = 1;
 });
+
+export {};

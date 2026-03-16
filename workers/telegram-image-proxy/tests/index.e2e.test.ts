@@ -1,11 +1,23 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import worker from '../src/index';
+import worker, { type Env } from '../src/index';
 
 type StoredObject = {
   bytes: Uint8Array;
   contentType: string;
   cacheControl: string;
 };
+
+interface R2ObjectBody {
+  body: ReadableStream<Uint8Array> | null;
+  httpEtag: string;
+  writeHttpMetadata(headers: Headers): void;
+}
+
+interface ExecutionContext {
+  waitUntil(promise: Promise<unknown>): void;
+  passThroughOnException(): void;
+  readonly props?: unknown;
+}
 
 class FakeR2Bucket {
   private readonly objects = new Map<string, StoredObject>();
@@ -35,7 +47,7 @@ class FakeR2Bucket {
     }
 
     return {
-      body: new Response(found.bytes).body,
+      body: new Response(Buffer.from(found.bytes)).body,
       httpEtag: '"fake-etag"',
       writeHttpMetadata(headers: Headers): void {
         headers.set('Content-Type', found.contentType);
@@ -71,6 +83,7 @@ class FakeR2Bucket {
 
 class FakeExecutionContext implements ExecutionContext {
   private readonly tasks: Promise<unknown>[] = [];
+  readonly props: unknown = undefined;
 
   passThroughOnException(): void {
     // no-op for tests
@@ -235,7 +248,7 @@ describe('telegram image worker e2e', () => {
     globalThis.fetch = (async () => {
       fetchCalls += 1;
       throw new Error('Unexpected fetch');
-    }) as typeof fetch;
+    }) as unknown as typeof fetch;
 
     const request = new Request('https://image.example.test/mood/999/0?w=1200', { method: 'GET' });
     const response = await worker.fetch(request, env as unknown as Env, ctx);

@@ -1,0 +1,114 @@
+name: Preview Smoke
+
+on:
+  deployment_status:
+  workflow_dispatch:
+    inputs:
+      preview_url:
+        description: Preview URL to test
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: preview-smoke-${{ github.event.deployment.id || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  preview-smoke:
+    name: Preview Smoke
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (
+        github.event_name == 'deployment_status' &&
+        github.event.deployment.environment == 'Preview' &&
+        github.event.deployment_status.state == 'success'
+      )
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Resolve preview context
+        id: context
+        uses: actions/github-script@v7
+        with:
+          script: |
+            if (context.eventName === 'workflow_dispatch') {
+              const previewUrl = String(context.payload.inputs?.preview_url ?? '').trim();
+              if (!previewUrl) {
+                core.setFailed('preview_url input is required.');
+                return;
+              }
+              core.setOutput('should_run', 'true');
+              core.setOutput('preview_url', previewUrl);
+              core.setOutput('pr_number', '');
+              return;
+            }
+
+            const deployment = context.payload.deployment;
+            const deploymentStatus = context.payload.deployment_status;
+            const previewUrl = deploymentStatus.environment_url || deploymentStatus.target_url || '';
+
+            if (!previewUrl) {
+              core.setFailed('Preview deployment did not expose an environment URL.');
+              return;
+            }
+
+            const response = await github.request('GET /repos/{owner}/{repo}/commits/{commit_sha}/pulls', {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              commit_sha: deployment.sha,
+            });
+
+            const openPull = response.data.find((pull) => pull.state === 'open');
+            if (!openPull) {
+              core.notice(`No open pull request found for deployment commit ${deployment.sha}.`);
+              core.setOutput('should_run', 'false');
+              return;
+            }
+
+            core.setOutput('should_run', 'true');
+            core.setOutput('preview_url', previewUrl);
+            core.setOutput('pr_number', String(openPull.number));
+
+      - name: Skip non-PR preview
+        if: steps.context.outputs.should_run != 'true'
+        run: echo "No open pull request is associated with this preview deployment."
+
+      - name: Checkout
+        if: steps.context.outputs.should_run == 'true'
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        if: steps.context.outputs.should_run == 'true'
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.6
+
+      - name: Install dependencies
+        if: steps.context.outputs.should_run == 'true'
+        run: bun install --frozen-lockfile
+
+      - name: Install Playwright Chromium
+        if: steps.context.outputs.should_run == 'true'
+        run: bunx playwright install --with-deps chromium
+
+      - name: Run preview smoke tests
+        if: steps.context.outputs.should_run == 'true'
+        env:
+          E2E_BASE_URL: ${{ steps.context.outputs.preview_url }}
+          E2E_VERCEL_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+        run: bunx playwright test tests/e2e/preview-smoke.pw.ts
+
+      - name: Upload Playwright report
+        if: failure() && steps.context.outputs.should_run == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: preview-playwright-report
+          path: |
+            playwright-report
+            test-results
+          if-no-files-found: ignore

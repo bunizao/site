@@ -26,8 +26,8 @@ async function getLatestPosts(): Promise<PostMeta[]> {
 
   try {
     const res = await fetch(apiUrl);
-    const result = await res.json();
-    return result.posts || [];
+    const result = await res.json() as { posts?: PostMeta[] };
+    return Array.isArray(result.posts) ? result.posts : [];
   } catch (error) {
     console.error('Failed to fetch posts:', error);
     return [];

@@ -2,7 +2,16 @@ import { defineConfig, devices } from '@playwright/test';
 
 const host = process.env.E2E_HOST || '127.0.0.1';
 const port = Number(process.env.E2E_PORT || 4321);
-const baseURL = `http://${host}:${port}`;
+const remoteBaseURL = process.env.E2E_BASE_URL?.trim();
+const baseURL = remoteBaseURL || `http://${host}:${port}`;
+const shouldUseWebServer = !remoteBaseURL;
+const vercelBypassSecret = process.env.E2E_VERCEL_BYPASS_SECRET?.trim();
+const extraHTTPHeaders = vercelBypassSecret
+  ? {
+      'x-vercel-protection-bypass': vercelBypassSecret,
+      'x-vercel-set-bypass-cookie': 'true',
+    }
+  : undefined;
 
 export default defineConfig({
   testDir: './tests/e2e',
@@ -20,17 +29,20 @@ export default defineConfig({
   ],
   use: {
     baseURL,
+    extraHTTPHeaders,
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
   },
   outputDir: 'test-results',
-  webServer: {
-    command: `ASTRO_E2E_STRICT_PORT=1 E2E_SITE_FIXTURE=1 astro dev --host ${host} --port ${port}`,
-    url: baseURL,
-    reuseExistingServer: process.env.COVERAGE !== '1' && !process.env.CI,
-    timeout: 120_000,
-  },
+  webServer: shouldUseWebServer
+    ? {
+        command: `ASTRO_E2E_STRICT_PORT=1 E2E_SITE_FIXTURE=1 astro dev --host ${host} --port ${port}`,
+        url: baseURL,
+        reuseExistingServer: process.env.COVERAGE !== '1' && !process.env.CI,
+        timeout: 120_000,
+      }
+    : undefined,
   projects: [
     {
       name: 'chromium',

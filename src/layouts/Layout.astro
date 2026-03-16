@@ -324,13 +324,21 @@ const ogImageType = ogImageUrl.endsWith('.png')
           if (!headerActions) return;
 
           // Get all header action buttons (excluding theme dropdown trigger)
-          const buttons = headerActions.querySelectorAll('.header-action-btn:not([data-theme-toggle])');
+          const buttons = headerActions.querySelectorAll<HTMLElement>('.header-action-btn:not([data-theme-toggle])');
 
           // Store original widths
-          const buttonData = new Map();
+          const buttonData = new Map<
+            HTMLElement,
+            {
+              label: HTMLElement;
+              collapsedWidth: number;
+              expandedWidth: number;
+              labelWidth: number;
+            }
+          >();
 
-          const measureButton = (btn) => {
-            const label = btn.querySelector('.header-action-btn-label');
+          const measureButton = (btn: HTMLElement) => {
+            const label = btn.querySelector<HTMLElement>('.header-action-btn-label');
             if (!label) return null;
 
             // Get collapsed width (icon only)
@@ -360,7 +368,7 @@ const ogImageType = ogImageUrl.endsWith('.png')
             };
           };
 
-          buttons.forEach(btn => {
+          buttons.forEach((btn) => {
             const data = measureButton(btn);
             if (data) {
               buttonData.set(btn, data);
@@ -368,7 +376,7 @@ const ogImageType = ogImageUrl.endsWith('.png')
           });
 
           // Animation function for hover in
-          const animateIn = (btn) => {
+          const animateIn = (btn: HTMLElement) => {
             const data = buttonData.get(btn);
             if (!data) return;
 
@@ -396,7 +404,7 @@ const ogImageType = ogImageUrl.endsWith('.png')
           };
 
           // Animation function for hover out
-          const animateOut = (btn) => {
+          const animateOut = (btn: HTMLElement) => {
             const data = buttonData.get(btn);
             if (!data) return;
 
@@ -848,9 +856,9 @@ const ogImageType = ogImageUrl.endsWith('.png')
     </script>
 
     <script>
-      const scheduleAnalytics = (callback) => {
+      const scheduleAnalytics = (callback: () => void): void => {
         if ('requestIdleCallback' in window) {
-          window.requestIdleCallback(callback, { timeout: 2000 });
+          window.requestIdleCallback(() => callback(), { timeout: 2000 });
         } else {
           setTimeout(callback, 0);
         }

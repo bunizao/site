@@ -163,6 +163,11 @@ function pickLargestPhoto(photos: TelegramPhotoSize[]): TelegramPhotoSize | null
 }
 
 async function cloudflareRequest(pathname: string, init?: RequestInit): Promise<any> {
+  interface CloudflareResponsePayload {
+    success?: boolean;
+    errors?: unknown;
+  }
+
   const accountId = requireEnv(CF_ACCOUNT_ID, 'CLOUDFLARE_ACCOUNT_ID');
   const globalKey = requireEnv(CF_GLOBAL_KEY, 'CLOUDFLARE_GLOBAL_KEY');
   const url = `https://api.cloudflare.com/client/v4/accounts/${accountId}${pathname}`;
@@ -175,7 +180,7 @@ async function cloudflareRequest(pathname: string, init?: RequestInit): Promise<
     },
   });
 
-  const payload = await response.json();
+  const payload = await response.json() as CloudflareResponsePayload;
   if (!response.ok || !payload?.success) {
     throw new Error(`Cloudflare API failed: ${response.status} ${JSON.stringify(payload?.errors ?? payload)}`);
   }
@@ -495,3 +500,5 @@ main().catch((error) => {
   console.error(error);
   process.exitCode = 1;
 });
+
+export {};
