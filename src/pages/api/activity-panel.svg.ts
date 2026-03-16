@@ -92,7 +92,7 @@ export const GET: APIRoute = ({ url }) => {
           }
         </style>
       </defs>
-      <rect width="${width}" height="${height}" rx="6" fill="${colors.bg}" stroke="${colors.border}" stroke-width="1"/>
+      <rect width="${width}" height="${height}" rx="6" fill="${colors.bg}"/>
       ${rows}
     </svg>
   `.trim();
