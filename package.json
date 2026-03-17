@@ -8,6 +8,7 @@
     "build": "astro build",
     "check": "astro check",
     "preview": "astro preview",
+    "test:ops": "bun test tests/ops/*.test.ts",
     "test:e2e": "bun run test:e2e:site && bun run test:e2e:worker",
     "test:e2e:coverage": "rm -rf .nyc_output coverage/e2e && E2E_PORT=4331 COVERAGE=1 playwright test && nyc report",
     "test:e2e:site": "playwright test",
