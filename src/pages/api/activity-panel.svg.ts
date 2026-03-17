@@ -1,9 +1,24 @@
 import type { APIRoute } from 'astro';
+import { readRuntimeEnv, verifySignedRequestUrl } from '@/lib/security/signed-url';
 import { svgResponse } from '../../lib/svg-response';
 
 export const prerender = false;
 
-export const GET: APIRoute = ({ url }) => {
+export const GET: APIRoute = ({ url, locals }) => {
+  const signingSecret = readRuntimeEnv(locals, 'ACTIVITY_PANEL_SIGNING_SECRET')
+    || import.meta.env.ACTIVITY_PANEL_SIGNING_SECRET
+    || '';
+
+  if (signingSecret && !verifySignedRequestUrl(url, signingSecret)) {
+    return new Response('Unauthorized', {
+      status: 401,
+      headers: {
+        'Cache-Control': 'private, no-store',
+        'Content-Type': 'text/plain; charset=utf-8',
+      },
+    });
+  }
+
   const theme = url.searchParams.get('theme') || 'dark';
   const days = url.searchParams.get('days') || '7';
   const projects = url.searchParams.get('projects') || '0';

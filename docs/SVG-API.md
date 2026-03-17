@@ -26,6 +26,8 @@ All values are passed as query parameters — the server renders them verbatim i
 | `removed`  | string | `0`      | Lines removed (e.g. `-12,388`)           |
 | `net`      | string | `0`      | Net line delta (e.g. `+26,113`)          |
 | `lph`      | string | `0`      | Average lines per hour (e.g. `+155`)     |
+| `exp`      | string | —        | Unix expiry timestamp for signed access when auth is enabled |
+| `sig`      | string | —        | HMAC signature for signed access when auth is enabled |
 
 **Rows rendered**
 
@@ -38,6 +40,7 @@ All values are passed as query parameters — the server renders them verbatim i
 **Dimensions:** 330 × 126px (height is computed: `paddingY×2 + rows×22`)
 **Cache:** `public, max-age=300, s-maxage=300` (5 minutes)
 **Animation:** Each row fades in with a staggered 80ms delay
+**Auth:** When `ACTIVITY_PANEL_SIGNING_SECRET` is configured, requests must include valid `exp` and `sig` values.
 
 **Example (GitHub README)**
 
