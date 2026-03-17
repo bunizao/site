@@ -50,6 +50,7 @@ Accessed via `import.meta.env.*`:
 - `GHOST_CONTENT_APIKEY` — Ghost CMS content API key
 - `GITHUB_TOKEN` — GitHub GraphQL token for project data
 - `PUBLIC_HD_IMAGE_URL` — Cloudflare Worker URL for HD mood images
+- `HD_IMAGE_INGEST_BASE_URL` — Internal Worker base URL for webhook image ingest when the public image domain has extra edge protections
 - `TELEGRAM_WEBHOOK_SECRET` — Secret for `/api/telegram-webhook`
 - `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_KV_NAMESPACE_ID` — Cloudflare KV for mood image mapping
 

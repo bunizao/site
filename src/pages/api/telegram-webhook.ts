@@ -76,16 +76,25 @@ interface WebhookConfig {
   telegramBotToken: string;
   telegramChannelId: string;
   hdImageIngestToken: string;
+  hdImageIngestBase: string;
   hdImageBase: string;
 }
 
+function trimTrailingSlash(value: string): string {
+  return value.replace(/\/+$/, '');
+}
+
 function getWebhookConfig(locals: any): WebhookConfig {
+  const publicHdImageBase = trimTrailingSlash(readEnv(locals, 'PUBLIC_HD_IMAGE_URL'));
+  const internalHdImageBase = trimTrailingSlash(readEnv(locals, 'HD_IMAGE_INGEST_BASE_URL'));
+
   return {
     webhookSecret: readEnv(locals, 'TELEGRAM_WEBHOOK_SECRET'),
     telegramBotToken: readEnv(locals, 'TELEGRAM_BOT_TOKEN'),
     telegramChannelId: readEnv(locals, 'TELEGRAM_CHANNEL_ID'),
     hdImageIngestToken: readEnv(locals, 'HD_IMAGE_INGEST_TOKEN'),
-    hdImageBase: readEnv(locals, 'PUBLIC_HD_IMAGE_URL').replace(/\/+$/, ''),
+    hdImageIngestBase: internalHdImageBase || publicHdImageBase,
+    hdImageBase: publicHdImageBase,
   };
 }
 
@@ -242,13 +251,13 @@ async function ingestToImageWorker(pathname: string, fileId: string, config: Web
     return false;
   }
 
-  if (!config.hdImageBase || !config.hdImageIngestToken) {
+  if (!config.hdImageIngestBase || !config.hdImageIngestToken) {
     console.error('Missing HD image ingest configuration');
     return false;
   }
 
   try {
-    const url = `${config.hdImageBase}${pathname.startsWith('/') ? pathname : `/${pathname}`}`;
+    const url = `${config.hdImageIngestBase}${pathname.startsWith('/') ? pathname : `/${pathname}`}`;
     const response = await fetch(url, {
       method: 'POST',
       headers: {

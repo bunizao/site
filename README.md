@@ -80,6 +80,7 @@ Documentation:
 ## Image Quality Upgrade (Cloudflare Worker)
 
 Mood photos can be served via a Cloudflare Worker for higher quality and edge caching.
+Use `PUBLIC_HD_IMAGE_URL` for public reads and `HD_IMAGE_INGEST_BASE_URL` for webhook ingest if the public image domain is protected by Cloudflare challenges or WAF rules.
 
 Documentation:
 - [`docs/IMAGE-QUALITY-UPGRADE.md`](docs/IMAGE-QUALITY-UPGRADE.md)
