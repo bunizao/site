@@ -25,7 +25,6 @@ describe('telegram webhook health', () => {
     const expectedUrl = getExpectedWebhookUrl();
 
     if (!botToken) {
-      test.skip(true, 'TELEGRAM_BOT_TOKEN is required for webhook health checks');
       return;
     }
 
