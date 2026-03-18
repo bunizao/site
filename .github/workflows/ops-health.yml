@@ -39,4 +39,5 @@ jobs:
         env:
           SITE_URL: https://buxx.me
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_EXPECTED_WEBHOOK_URL: https://image.buxx.me/webhook
         run: bun run test:ops
