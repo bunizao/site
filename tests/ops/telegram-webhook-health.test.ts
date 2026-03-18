@@ -15,6 +15,11 @@ function readEnv(name: string): string {
 }
 
 function getExpectedWebhookUrl(): string {
+  const explicitUrl = readEnv('TELEGRAM_EXPECTED_WEBHOOK_URL');
+  if (explicitUrl) {
+    return explicitUrl;
+  }
+
   const siteUrl = readEnv('SITE_URL') || readEnv('PUBLIC_SITE_URL') || 'https://buxx.me';
   return `${siteUrl.replace(/\/+$/, '')}/api/telegram-webhook`;
 }

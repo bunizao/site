@@ -12,7 +12,12 @@ The implementation uses:
 - `POST /api/notify/dispatch` for manual per-post dispatch
 - `GET/POST /api/notify/schedule` for scheduled delivery modes (`every_5h`, `daily`)
 - `GET/POST /api/notify/retry` for retrying failed deliveries
-- `POST /api/telegram-webhook` for automatic real-time dispatch on new mood posts (`immediate` mode)
+- `POST https://image.buxx.me/webhook` for automatic real-time dispatch on new mood posts (`immediate` mode)
+
+Related references:
+
+- [`docs/TELEGRAM-PIPELINE.md`](./TELEGRAM-PIPELINE.md)
+- [`docs/debug/README.md`](./debug/README.md) for local-only investigation notes
 
 ## Delivery Modes
 
@@ -51,9 +56,20 @@ Set these in Vercel project settings:
 
 If `TURNSTILE_SECRET_KEY` (or `CLOUDFLARE_TURNSTILE_SECRET_KEY`) is set, `POST /api/notify/subscribe` requires a valid Turnstile token.
 
-Telegram image ingest (`/api/telegram-webhook`) now uses:
+Telegram webhook and image ingest now use:
 - `PUBLIC_HD_IMAGE_URL`
 - `HD_IMAGE_INGEST_TOKEN`
+- `TELEGRAM_WEBHOOK_SECRET`
+- `TELEGRAM_BOT_TOKEN`
+- `TELEGRAM_CHANNEL_ID`
+- `CHANNEL`
+- `TELEGRAM_HOST`
+
+The Cloudflare Worker also needs:
+
+- `NOTIFY_DISPATCH_SECRET`
+
+That secret must match the Vercel production value because the Worker queue consumer calls `POST /api/notify/dispatch`.
 
 `CLOUDFLARE_KV_NAMESPACE_ID` is no longer required for Telegram image lookup after the R2 migration.
 
@@ -90,6 +106,22 @@ bunx tsx scripts/migrate-notify-kv-to-d1.ts
 - Real-time sends (`immediate`) are triggered by Telegram webhook events.
 - Scheduled sends (`every_5h`, `daily`) are triggered by `/api/notify/schedule`.
 - Failed sends are retried by `/api/notify/retry`.
+
+### Immediate Delivery Flow
+
+Current production path:
+
+```text
+Telegram -> Cloudflare Worker /webhook -> Cloudflare Queue
+         -> Worker queue consumer -> POST /api/notify/dispatch on buxx.me
+         -> existing notify service -> Resend
+```
+
+Notes:
+
+- The Worker does not send email directly.
+- `/api/notify/dispatch` remains the notify entrypoint for actual delivery, idempotency, and per-subscriber retry scheduling.
+- The queue exists only to make the Worker-to-Vercel notify handoff durable.
 
 ### Vercel Cron
 
@@ -142,6 +174,7 @@ curl -X POST "https://your-domain.com/api/notify/retry" \
 ## Operational Notes
 
 - Webhook dispatch is idempotent per `postId + emailHash`.
+- Immediate webhook-triggered dispatch now enters through the Cloudflare Worker and queue before reaching `/api/notify/dispatch`.
 - Unsubscribe links are signed and time-limited.
 - Failed deliveries are retried with backoff.
 - Keep `NOTIFY_FROM_EMAIL` domain verified in Resend.

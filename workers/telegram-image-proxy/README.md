@@ -4,8 +4,10 @@ Cloudflare Worker that serves Telegram photos from R2 for the Mood section.
 
 At a glance:
 - The Worker serves image bytes directly from R2.
-- The site webhook (`/api/telegram-webhook`) calls Worker ingest routes to pull image bytes from Telegram once and store them in R2.
+- Telegram can now call the Worker webhook route directly for real-time image ingest.
+- The legacy site webhook (`/api/telegram-webhook`) can remain as a rollback target during rollout.
 - The ingest step also pre-generates common responsive widths (`480`, `800`, `1200`, `1600`) and stores them in R2.
+- Immediate notify handoff is queued durably and dispatched to the site from the Worker queue consumer.
 - Runtime image requests read from R2 only.
 - On R2 miss, the Worker returns `404` and the site should fallback to `/static/<telegram-url>`.
 
@@ -16,6 +18,7 @@ At a glance:
 Location: `workers/telegram-image-proxy` (this folder)
 
 Route:
+- `POST /webhook`
 - `GET /mood/:postId/:imageIndex`
 - `HEAD /mood/:postId/:imageIndex`
 - `GET /channel/avatar`
@@ -27,7 +30,14 @@ Route:
 Environment bindings:
 - `TELEGRAM_BOT_TOKEN` (secret)
 - `HD_IMAGE_INGEST_TOKEN` (secret for ingest authorization)
+- `TELEGRAM_WEBHOOK_SECRET` (secret for Telegram webhook auth)
+- `NOTIFY_DISPATCH_SECRET` (secret shared with site `/api/notify/dispatch`)
+- `NOTIFY_DISPATCH_URL` (site dispatch endpoint)
+- `CHANNEL` (Telegram channel slug for media-group indexing)
+- `TELEGRAM_CHANNEL_ID` (Telegram channel id for avatar refresh fallback)
+- `TELEGRAM_HOST` (defaults to `t.me`)
 - `MOOD_IMAGES` (R2 bucket binding)
+- `NOTIFY_DISPATCH_QUEUE` (Cloudflare Queue producer/consumer binding)
 
 ### 2. R2 Bucket
 
@@ -40,8 +50,9 @@ Key format:
 ### 3. Indexing Pipeline
 
 Real-time indexing:
-- `../../src/pages/api/telegram-webhook.ts` receives `channel_post` updates and calls the ingest routes.
+- `POST /webhook` receives `channel_post` updates from Telegram.
 - The Worker fetches bytes from Telegram and writes image objects into R2.
+- The Worker enqueues an immediate notify job and the queue consumer calls `POST /api/notify/dispatch`.
 
 ## Request API
 
@@ -87,6 +98,10 @@ From `workers/telegram-image-proxy`:
 ```bash
 bunx --bun wrangler secret put TELEGRAM_BOT_TOKEN
 bunx --bun wrangler secret put HD_IMAGE_INGEST_TOKEN
+bunx --bun wrangler secret put TELEGRAM_WEBHOOK_SECRET
+bunx --bun wrangler secret put NOTIFY_DISPATCH_SECRET
+bunx --bun wrangler secret put CHANNEL
+bunx --bun wrangler secret put TELEGRAM_CHANNEL_ID
 ```
 
 ### 3. Deploy the Worker
@@ -132,6 +147,27 @@ Routes:
 
 The ingest route writes to R2 before it returns. Success is `200`; failures surface as `5xx` instead of being deferred in the background.
 
+## Webhook API
+
+Telegram webhook route:
+
+```text
+POST https://<IMAGE_HOST>/webhook
+```
+
+Auth:
+
+```text
+X-Telegram-Bot-Api-Secret-Token: <TELEGRAM_WEBHOOK_SECRET>
+```
+
+Behavior:
+- Returns `401` for invalid secret.
+- Returns `400` for invalid JSON.
+- Returns `200` for authenticated deliveries even if image ingest fails after parsing.
+- Returns `503` when media-group resolution fails or the notify queue handoff cannot be persisted.
+- Queues `{ postId, deliveryModes: ['immediate'] }` for `/api/notify/dispatch`.
+
 ## Historical Backfill
 
 Use this script to repair historical IDs by pulling public Telegram CDN images and writing them into R2:
@@ -170,9 +206,13 @@ curl -I "https://image.buxx.me/mood/<postId>/0?w=1200"
 - **502: "Failed to fetch image from Telegram"**
   - `TELEGRAM_BOT_TOKEN` is missing/invalid on Worker ingest, or Telegram API failed.
   - Check Worker logs with `bun run tail`.
+- **503 on `/webhook`**
+  - Media-group resolution failed, or the Worker could not enqueue the notify handoff.
+  - Check Worker logs and queue status before retrying cutover.
 
 ## Security Notes
 
 - Treat `TELEGRAM_BOT_TOKEN` as a secret.
-- Keep `/api/telegram-webhook` protected by `TELEGRAM_WEBHOOK_SECRET` (do not disable the header check).
+- Keep `/webhook` protected by `TELEGRAM_WEBHOOK_SECRET`.
 - Keep `HD_IMAGE_INGEST_TOKEN` secret and rotate it periodically.
+- Keep `NOTIFY_DISPATCH_SECRET` secret and aligned with the site environment.

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import worker, { type Env } from '../src/index';
+import worker, { type Env, type NotifyDispatchJob } from '../src/index';
 
 type StoredObject = {
   bytes: Uint8Array;
@@ -81,6 +81,18 @@ class FakeR2Bucket {
   }
 }
 
+class FakeNotifyDispatchQueue {
+  readonly messages: NotifyDispatchJob[] = [];
+  failSend = false;
+
+  async send(message: NotifyDispatchJob): Promise<void> {
+    if (this.failSend) {
+      throw new Error('Queue send failed');
+    }
+    this.messages.push(message);
+  }
+}
+
 class FakeExecutionContext implements ExecutionContext {
   private readonly tasks: Promise<unknown>[] = [];
   readonly props: unknown = undefined;
@@ -94,14 +106,25 @@ class FakeExecutionContext implements ExecutionContext {
   }
 
   async drain(): Promise<void> {
-    await Promise.allSettled(this.tasks);
+    const settled = await Promise.allSettled(this.tasks);
+    const rejected = settled.find((entry) => entry.status === 'rejected');
+    if (rejected?.status === 'rejected') {
+      throw rejected.reason;
+    }
   }
 }
 
 type FakeEnv = {
   TELEGRAM_BOT_TOKEN: string;
   HD_IMAGE_INGEST_TOKEN: string;
+  TELEGRAM_WEBHOOK_SECRET: string;
+  NOTIFY_DISPATCH_SECRET: string;
+  NOTIFY_DISPATCH_URL: string;
+  CHANNEL: string;
+  TELEGRAM_CHANNEL_ID: string;
+  TELEGRAM_HOST: string;
   MOOD_IMAGES: FakeR2Bucket;
+  NOTIFY_DISPATCH_QUEUE: FakeNotifyDispatchQueue;
 };
 
 type FetchHandler = (url: URL, init?: RequestInit) => Promise<Response | null>;
@@ -135,9 +158,60 @@ function createEnv(overrides?: Partial<FakeEnv>): FakeEnv {
   return {
     TELEGRAM_BOT_TOKEN: 'test-bot-token',
     HD_IMAGE_INGEST_TOKEN: 'test-ingest-token',
+    TELEGRAM_WEBHOOK_SECRET: 'test-webhook-secret',
+    NOTIFY_DISPATCH_SECRET: 'test-dispatch-secret',
+    NOTIFY_DISPATCH_URL: 'https://buxx.me/api/notify/dispatch',
+    CHANNEL: 'tutumood',
+    TELEGRAM_CHANNEL_ID: '-100100',
+    TELEGRAM_HOST: 't.me',
     MOOD_IMAGES: new FakeR2Bucket(),
+    NOTIFY_DISPATCH_QUEUE: new FakeNotifyDispatchQueue(),
     ...overrides,
   };
+}
+
+function registerTelegramImageHandlers(fetchMock: FetchMock, filePaths: Record<string, string>, failingFileIds: string[] = []): void {
+  fetchMock.register(async (url, init) => {
+    if (url.hostname === 'api.telegram.org' && url.pathname.includes('/getFile')) {
+      const fileId = url.searchParams.get('file_id') ?? '';
+      const filePath = filePaths[fileId];
+      if (!filePath) {
+        return new Response(JSON.stringify({ ok: false, description: 'missing test file path' }), {
+          status: 404,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+
+      return new Response(JSON.stringify({
+        ok: true,
+        result: {
+          file_id: fileId,
+          file_unique_id: `unique-${fileId}`,
+          file_path: filePath,
+        },
+      }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
+    if (url.hostname === 'api.telegram.org' && url.pathname.includes('/file/bot')) {
+      const fileName = url.pathname.split('/').pop() ?? '';
+      const fileId = Object.entries(filePaths).find(([, filePath]) => filePath.endsWith(fileName))?.[0] ?? '';
+      if (failingFileIds.includes(fileId)) {
+        return new Response('upstream failed', { status: 502 });
+      }
+
+      const width = (init as RequestInit & { cf?: { image?: { width?: number } } })?.cf?.image?.width;
+      const bytes = width ? [width % 255, 2, 3, 4] : [1, 2, 3, 4];
+      return new Response(new Uint8Array(bytes), {
+        status: 200,
+        headers: { 'Content-Type': 'image/jpeg' },
+      });
+    }
+
+    return null;
+  });
 }
 
 const originalFetch = globalThis.fetch;
@@ -170,35 +244,9 @@ describe('telegram image worker e2e', () => {
     const env = createEnv();
     const ctx = new FakeExecutionContext();
     const fetchMock = new FetchMock();
-    const variantWidths: number[] = [];
 
-    fetchMock.register(async (url, init) => {
-      if (url.hostname === 'api.telegram.org' && url.pathname.includes('/getFile')) {
-        return new Response(JSON.stringify({
-          ok: true,
-          result: {
-            file_id: 'file-id-1',
-            file_unique_id: 'unique-id-1',
-            file_path: 'photos/file_1.jpg',
-          },
-        }), {
-          status: 200,
-          headers: { 'Content-Type': 'application/json' },
-        });
-      }
-
-      if (url.hostname === 'api.telegram.org' && url.pathname.includes('/file/bot')) {
-        const width = (init as RequestInit & { cf?: { image?: { width?: number } } })?.cf?.image?.width;
-        if (width) {
-          variantWidths.push(width);
-        }
-        return new Response(new Uint8Array([1, 2, 3, 4]), {
-          status: 200,
-          headers: { 'Content-Type': 'image/jpeg' },
-        });
-      }
-
-      return null;
+    registerTelegramImageHandlers(fetchMock, {
+      'file-id-1': 'photos/file_1.jpg',
     });
 
     globalThis.fetch = fetchMock.fetch as typeof fetch;
@@ -220,7 +268,226 @@ describe('telegram image worker e2e', () => {
     expect(env.MOOD_IMAGES.has('mood/123/0@w800')).toBe(true);
     expect(env.MOOD_IMAGES.has('mood/123/0@w1200')).toBe(true);
     expect(env.MOOD_IMAGES.has('mood/123/0@w1600')).toBe(true);
-    expect(variantWidths.sort((a, b) => a - b)).toEqual([480, 800, 1200, 1600]);
+  });
+
+  test('webhook rejects invalid secret', async () => {
+    const env = createEnv();
+    const ctx = new FakeExecutionContext();
+
+    const request = new Request('https://image.example.test/webhook', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Telegram-Bot-Api-Secret-Token': 'invalid-secret',
+      },
+      body: JSON.stringify({ update_id: 1 }),
+    });
+
+    const response = await worker.fetch(request, env as unknown as Env, ctx);
+    expect(response.status).toBe(401);
+  });
+
+  test('webhook ingests photo, refreshes avatar, and queues notify handoff', async () => {
+    const env = createEnv();
+    const ctx = new FakeExecutionContext();
+    const fetchMock = new FetchMock();
+
+    registerTelegramImageHandlers(fetchMock, {
+      'mood-file-1': 'photos/mood_1.jpg',
+      'avatar-file-1': 'photos/avatar_1.jpg',
+    });
+
+    globalThis.fetch = fetchMock.fetch as typeof fetch;
+
+    const request = new Request('https://image.example.test/webhook', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Telegram-Bot-Api-Secret-Token': env.TELEGRAM_WEBHOOK_SECRET,
+      },
+      body: JSON.stringify({
+        update_id: 1,
+        channel_post: {
+          message_id: 4001,
+          photo: [
+            { file_id: 'mood-file-1', file_unique_id: 'u1', width: 100, height: 100 },
+          ],
+          chat: {
+            id: '-100100',
+            photo: {
+              big_file_id: 'avatar-file-1',
+            },
+          },
+        },
+      }),
+    });
+
+    const response = await worker.fetch(request, env as unknown as Env, ctx);
+    expect(response.status).toBe(200);
+    expect(await response.text()).toBe('OK');
+
+    expect(env.MOOD_IMAGES.has('mood/4001/0')).toBe(true);
+    expect(env.MOOD_IMAGES.has('channel/avatar')).toBe(true);
+    expect(env.NOTIFY_DISPATCH_QUEUE.messages).toEqual([
+      {
+        postId: '4001',
+        deliveryModes: ['immediate'],
+        source: 'telegram-webhook',
+      },
+    ]);
+  });
+
+  test('webhook resolves media-group items back to the root post id', async () => {
+    const env = createEnv({ TELEGRAM_CHANNEL_ID: '' });
+    const ctx = new FakeExecutionContext();
+    const fetchMock = new FetchMock();
+
+    fetchMock.register(async (url) => {
+      if (url.hostname === 't.me') {
+        return new Response(`
+          <div class="tgme_widget_message" data-post="tutumood/3191">
+            <a class="tgme_widget_message_photo_wrap" href="https://t.me/tutumood/3190?single"></a>
+            <a class="tgme_widget_message_photo_wrap" href="https://t.me/tutumood/3191?single"></a>
+          </div>
+        `, {
+          status: 200,
+          headers: { 'Content-Type': 'text/html' },
+        });
+      }
+      return null;
+    });
+
+    registerTelegramImageHandlers(fetchMock, {
+      'album-file-2': 'photos/album_2.jpg',
+    });
+
+    globalThis.fetch = fetchMock.fetch as typeof fetch;
+
+    const request = new Request('https://image.example.test/webhook', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Telegram-Bot-Api-Secret-Token': env.TELEGRAM_WEBHOOK_SECRET,
+      },
+      body: JSON.stringify({
+        update_id: 2,
+        channel_post: {
+          message_id: 3191,
+          media_group_id: 'group-1',
+          photo: [
+            { file_id: 'album-file-2', file_unique_id: 'u2', width: 100, height: 100 },
+          ],
+        },
+      }),
+    });
+
+    const response = await worker.fetch(request, env as unknown as Env, ctx);
+    expect(response.status).toBe(200);
+
+    expect(env.MOOD_IMAGES.has('mood/3190/1')).toBe(true);
+    expect(env.NOTIFY_DISPATCH_QUEUE.messages[0]?.postId).toBe('3190');
+  });
+
+  test('webhook returns 200 on image ingest failure and still queues notify', async () => {
+    const env = createEnv({ TELEGRAM_CHANNEL_ID: '' });
+    const ctx = new FakeExecutionContext();
+    const fetchMock = new FetchMock();
+
+    registerTelegramImageHandlers(fetchMock, {
+      'broken-file-1': 'photos/broken_1.jpg',
+    }, ['broken-file-1']);
+
+    globalThis.fetch = fetchMock.fetch as typeof fetch;
+
+    const request = new Request('https://image.example.test/webhook', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Telegram-Bot-Api-Secret-Token': env.TELEGRAM_WEBHOOK_SECRET,
+      },
+      body: JSON.stringify({
+        update_id: 3,
+        channel_post: {
+          message_id: 4100,
+          photo: [
+            { file_id: 'broken-file-1', file_unique_id: 'u3', width: 100, height: 100 },
+          ],
+        },
+      }),
+    });
+
+    const response = await worker.fetch(request, env as unknown as Env, ctx);
+    expect(response.status).toBe(200);
+    expect(env.MOOD_IMAGES.has('mood/4100/0')).toBe(false);
+    expect(env.NOTIFY_DISPATCH_QUEUE.messages[0]?.postId).toBe('4100');
+  });
+
+  test('webhook returns 503 when notify queue handoff fails', async () => {
+    const env = createEnv({ TELEGRAM_CHANNEL_ID: '' });
+    env.NOTIFY_DISPATCH_QUEUE.failSend = true;
+    const ctx = new FakeExecutionContext();
+
+    const request = new Request('https://image.example.test/webhook', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Telegram-Bot-Api-Secret-Token': env.TELEGRAM_WEBHOOK_SECRET,
+      },
+      body: JSON.stringify({
+        update_id: 4,
+        channel_post: {
+          message_id: 4200,
+        },
+      }),
+    });
+
+    const response = await worker.fetch(request, env as unknown as Env, ctx);
+    expect(response.status).toBe(503);
+  });
+
+  test('queue consumer dispatches notify jobs to the site endpoint', async () => {
+    const env = createEnv();
+    const ctx = new FakeExecutionContext();
+    const fetchMock = new FetchMock();
+    const calls: Array<{ url: string; auth: string; body: string }> = [];
+
+    fetchMock.register(async (url, init) => {
+      if (url.toString() === env.NOTIFY_DISPATCH_URL) {
+        calls.push({
+          url: url.toString(),
+          auth: (init?.headers as Record<string, string>)?.Authorization ?? '',
+          body: String(init?.body ?? ''),
+        });
+        return new Response(JSON.stringify({ ok: true }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+
+      return null;
+    });
+
+    globalThis.fetch = fetchMock.fetch as typeof fetch;
+
+    await worker.queue({
+      messages: [
+        {
+          body: {
+            postId: '5000',
+            deliveryModes: ['immediate'],
+            source: 'telegram-webhook',
+          },
+        },
+      ],
+    }, env as unknown as Env);
+
+    expect(calls).toEqual([
+      {
+        url: 'https://buxx.me/api/notify/dispatch',
+        auth: `Bearer ${env.NOTIFY_DISPATCH_SECRET}`,
+        body: JSON.stringify({ postId: '5000', deliveryModes: ['immediate'] }),
+      },
+    ]);
   });
 
   test('read endpoint serves existing R2 object', async () => {

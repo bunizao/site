@@ -6,11 +6,25 @@ routes = [
   { pattern = "image.buxx.me", zone_name = "buxx.me", custom_domain = true }
 ]
 
+[vars]
+NOTIFY_DISPATCH_URL = "https://buxx.me/api/notify/dispatch"
+TELEGRAM_HOST = "t.me"
+
 # R2 Bucket binding - update bucket_name after running:
 # wrangler r2 bucket create mood-images
 [[r2_buckets]]
 binding = "MOOD_IMAGES"
 bucket_name = "mood-images"
+
+[[queues.producers]]
+binding = "NOTIFY_DISPATCH_QUEUE"
+queue = "telegram-notify-dispatch"
+
+[[queues.consumers]]
+queue = "telegram-notify-dispatch"
+max_batch_size = 10
+max_batch_timeout = 5
+max_retries = 5
 
 # Custom domain configuration (set up in Cloudflare Dashboard):
 # Workers -> telegram-image-proxy -> Triggers -> Add Custom Domain -> image.buxx.me
@@ -18,3 +32,7 @@ bucket_name = "mood-images"
 # Secrets (set via `npx wrangler secret put <NAME>`):
 # - TELEGRAM_BOT_TOKEN
 # - HD_IMAGE_INGEST_TOKEN
+# - TELEGRAM_WEBHOOK_SECRET
+# - NOTIFY_DISPATCH_SECRET
+# - CHANNEL
+# - TELEGRAM_CHANNEL_ID

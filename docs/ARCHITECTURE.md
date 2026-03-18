@@ -3,7 +3,7 @@
 ## Key Directories
 
 - **`src/pages/`** — File-based routing. Includes `index.astro` (home), `mood.astro` (feed), `mood/[id].astro` (detail), `mood/embed.astro` (embeddable widget)
-- **`src/pages/api/`** — Server endpoints (moods, comments, SVG generators, oEmbed, telegram webhook)
+- **`src/pages/api/`** — Server endpoints (moods, comments, SVG generators, oEmbed, notify endpoints, legacy telegram webhook fallback)
 - **`src/components/`** — Astro (`.astro`) and React (`.tsx`) components. `ui/` subdirectory follows shadcn/ui patterns
 - **`src/lib/`** — Shared utilities: `github.ts` (GitHub API), `telegram.ts` (Telegram integration), `mood-utils.ts` (mood data processing), `svg-response.ts` (SVG endpoint helpers), `embed-response.ts` (oEmbed helpers), `utils.ts` (cn/clsx utility)
 - **`src/layouts/`** — `Layout.astro` base layout with meta tags, theme toggle, analytics
@@ -26,7 +26,7 @@
 1. **Ghost CMS** (`Posts.astro`) — Blog posts via Ghost Content API
 2. **GitHub API** (`Projects.astro`, `src/lib/github.ts`) — Repository data and stars via GraphQL
 3. **GitHub Contributions** (`GitHubContributions.astro`) — Contribution graph from external API
-4. **Telegram/BroadcastChannel** — Mood posts sourced from Telegram channel, processed with cheerio
+4. **Telegram/BroadcastChannel** — Mood posts sourced from Telegram channel, with webhook ingress on Cloudflare Worker and content parsing in the site app
 
 ## API Endpoints
 
@@ -34,7 +34,19 @@
 - `GET /api/moods` — Mood feed with pagination (`?before=<id>`)
 - `GET /api/comments` — Comments
 - `GET /api/oembed.json` — oEmbed endpoint (docs: `docs/OEMBED-API.md`)
-- `POST /api/telegram-webhook` — Telegram webhook receiver
+- `POST /api/notify/dispatch` — Internal notify dispatch endpoint
+- `POST /api/telegram-webhook` — Legacy Telegram webhook fallback endpoint
+
+Telegram references:
+
+- `docs/TELEGRAM-PIPELINE.md`
+- `docs/debug/README.md` for local-only investigation notes and temporary debug artifacts
+
+**Cloudflare Worker routes:**
+- `POST https://image.buxx.me/webhook` — Primary Telegram webhook receiver
+- `GET https://image.buxx.me/mood/:postId/:imageIndex` — Public mood image reads
+- `GET https://image.buxx.me/channel/avatar` — Public channel avatar reads
+- `POST https://image.buxx.me/ingest/...` — Authenticated manual/backfill ingest routes
 
 **SVG** (all accept `?theme=light|dark`):
 - `GET /api/status.svg`, `GET /api/tech-stack.svg`, `GET /api/site-badge.svg`
@@ -51,8 +63,15 @@ Accessed via `import.meta.env.*`:
 - `GITHUB_TOKEN` — GitHub GraphQL token for project data
 - `PUBLIC_HD_IMAGE_URL` — Cloudflare Worker URL for HD mood images
 - `HD_IMAGE_INGEST_BASE_URL` — Internal Worker base URL for webhook image ingest when the public image domain has extra edge protections
-- `TELEGRAM_WEBHOOK_SECRET` — Secret for `/api/telegram-webhook`
-- `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_KV_NAMESPACE_ID` — Cloudflare KV for mood image mapping
+- `TELEGRAM_WEBHOOK_SECRET` — Secret shared by the Telegram webhook endpoints
+- `TELEGRAM_BOT_TOKEN` — Telegram Bot API token
+- `TELEGRAM_CHANNEL_ID` — Telegram channel id for avatar lookups and bot-side reads
+- `CHANNEL` — Telegram public channel slug used for media-group indexing
+- `TELEGRAM_HOST` — Telegram public host for embed lookups (default: `t.me`)
+- `NOTIFY_DISPATCH_SECRET` — Bearer secret accepted by `/api/notify/dispatch`
+- `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_NOTIFY_D1_DATABASE_ID` — Cloudflare account access and D1 notify database
+
+Cloudflare Worker bindings and secrets are defined in [`workers/telegram-image-proxy/wrangler.toml`](../workers/telegram-image-proxy/wrangler.toml).
 
 ## Key Dependencies
 
