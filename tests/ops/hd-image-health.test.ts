@@ -26,6 +26,15 @@ function getSampleSize(): number {
   return parsed;
 }
 
+function getProbeTimeoutMs(): number {
+  const raw = readEnv('HD_IMAGE_HEALTH_TIMEOUT_MS');
+  const parsed = Number.parseInt(raw, 10);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return 4_000;
+  }
+  return parsed;
+}
+
 async function fetchMoodPage(siteUrl: string): Promise<MoodApiResponse> {
   const response = await fetch(`${siteUrl}/api/moods`, {
     headers: {
@@ -38,9 +47,32 @@ async function fetchMoodPage(siteUrl: string): Promise<MoodApiResponse> {
   return await response.json() as MoodApiResponse;
 }
 
+async function probeImage(post: ImagePost, timeoutMs: number): Promise<string | null> {
+  try {
+    const response = await fetch(post.image, {
+      method: 'HEAD',
+      headers: {
+        Accept: 'image/avif,image/webp,image/jpeg,image/*,*/*;q=0.8',
+        'Cache-Control': 'no-cache',
+      },
+      signal: AbortSignal.timeout(timeoutMs),
+    });
+
+    if (response.ok) {
+      return null;
+    }
+
+    return `${post.id}:${response.status}:${post.image}`;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unknown probe error';
+    return `${post.id}:timeout:${message}:${post.image}`;
+  }
+}
+
 describe('hd image health', () => {
   test('latest mood image URLs are readable', async () => {
     const siteUrl = getSiteUrl();
+    const timeoutMs = getProbeTimeoutMs();
     const payload = await fetchMoodPage(siteUrl);
     const imagePosts = (payload.posts ?? [])
       .filter((post): post is ImagePost => {
@@ -50,20 +82,8 @@ describe('hd image health', () => {
 
     expect(imagePosts.length).toBeGreaterThan(0);
 
-    const failures: string[] = [];
-    for (const post of imagePosts) {
-      const response = await fetch(post.image, {
-        method: 'HEAD',
-        headers: {
-          Accept: 'image/avif,image/webp,image/jpeg,image/*,*/*;q=0.8',
-          'Cache-Control': 'no-cache',
-        },
-      });
-
-      if (!response.ok) {
-        failures.push(`${post.id}:${response.status}:${post.image}`);
-      }
-    }
+    const results = await Promise.all(imagePosts.map((post) => probeImage(post, timeoutMs)));
+    const failures = results.filter((result): result is string => result !== null);
 
     expect(failures).toEqual([]);
   });

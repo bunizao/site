@@ -40,4 +40,6 @@ jobs:
           SITE_URL: https://buxx.me
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_EXPECTED_WEBHOOK_URL: https://image.buxx.me/webhook
+          HD_IMAGE_HEALTH_SAMPLE_SIZE: 4
+          HD_IMAGE_HEALTH_TIMEOUT_MS: 4000
         run: bun run test:ops
