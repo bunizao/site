@@ -191,7 +191,11 @@ function timingSafeEqual(a: string, b: string): boolean {
 }
 
 function trimTrailingSlash(value: string): string {
-  return value.replace(/\/+$/, '');
+  let end = value.length;
+  while (end > 0 && value.charCodeAt(end - 1) === 47) {
+    end -= 1;
+  }
+  return end === value.length ? value : value.slice(0, end);
 }
 
 function readBearerToken(request: Request): string {
@@ -343,16 +347,9 @@ async function collectPhotoHrefsWithRewriter(
   return hrefs;
 }
 
-async function collectPhotoHrefsFromHtml(html: string, currentPostRef: string): Promise<string[]> {
+async function collectPhotoHrefsFromHtml(html: string): Promise<string[]> {
   const HtmlRewriterCtor = HTMLRewriter;
   if (typeof HtmlRewriterCtor === 'function') {
-    const escapedPostRef = currentPostRef.replace(/"/g, '\\"');
-    const scopedSelector = `.tgme_widget_message[data-post="${escapedPostRef}"] .tgme_widget_message_photo_wrap`;
-    const scopedHrefs = await collectPhotoHrefsWithRewriter(html, scopedSelector, HtmlRewriterCtor);
-    if (scopedHrefs.length) {
-      return scopedHrefs;
-    }
-
     return collectPhotoHrefsWithRewriter(html, '.tgme_widget_message_photo_wrap', HtmlRewriterCtor);
   }
 
@@ -365,7 +362,7 @@ async function resolveMoodImageTargetFromHtml(
   channel: string,
   host: string
 ): Promise<MoodImageTarget> {
-  const hrefs = await collectPhotoHrefsFromHtml(html, `${channel}/${currentPostId}`);
+  const hrefs = await collectPhotoHrefsFromHtml(html);
   return resolveMoodImageTargetFromPhotoHrefs(hrefs, currentPostId, channel, host);
 }
 
