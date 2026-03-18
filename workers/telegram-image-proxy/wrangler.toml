@@ -1,6 +1,7 @@
 name = "telegram-image-proxy"
 main = "src/index.ts"
 compatibility_date = "2024-01-01"
+workers_dev = true
 routes = [
   { pattern = "image.buxx.me", zone_name = "buxx.me", custom_domain = true }
 ]

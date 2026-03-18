@@ -43,7 +43,7 @@ describe('hd image health', () => {
     const siteUrl = getSiteUrl();
     const payload = await fetchMoodPage(siteUrl);
     const imagePosts = (payload.posts ?? [])
-      .filter((post): post is Required<Pick<MoodPost, 'id' | 'image'>> => {
+      .filter((post): post is ImagePost => {
         return typeof post.id === 'string' && typeof post.image === 'string' && post.image.trim().length > 0;
       })
       .slice(0, getSampleSize());
@@ -68,3 +68,7 @@ describe('hd image health', () => {
     expect(failures).toEqual([]);
   });
 });
+interface ImagePost {
+  id: string;
+  image: string;
+}

@@ -7,6 +7,7 @@
  */
 
 import type { APIRoute } from 'astro';
+import { request as httpsRequest } from 'node:https';
 import { load } from 'cheerio';
 import { dispatchMoodNotification } from '@/lib/notify/service';
 import { getNotifyConfig } from '@/lib/notify/env';
@@ -258,18 +259,17 @@ async function ingestToImageWorker(pathname: string, fileId: string, config: Web
 
   try {
     const url = `${config.hdImageIngestBase}${pathname.startsWith('/') ? pathname : `/${pathname}`}`;
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${config.hdImageIngestToken}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ fileId }),
+    const response = await postJson(url, {
+      fileId,
+    }, {
+      Authorization: `Bearer ${config.hdImageIngestToken}`,
+      'Content-Type': 'application/json',
+      Accept: 'application/json, text/plain;q=0.9, */*;q=0.8',
+      'User-Agent': 'Mozilla/5.0 (compatible; TelegramWebhook/1.0; +https://buxx.me)',
     });
 
-    if (!response.ok) {
-      const error = await response.text();
-      console.error('Image ingest failed:', response.status, error);
+    if (response.status < 200 || response.status >= 300) {
+      console.error('Image ingest failed:', response.status, response.bodyText);
       return false;
     }
 
@@ -278,6 +278,46 @@ async function ingestToImageWorker(pathname: string, fileId: string, config: Web
     console.error('Image ingest request failed:', error);
     return false;
   }
+}
+
+function postJson(
+  targetUrl: string,
+  payload: unknown,
+  headers: Record<string, string>
+): Promise<{ status: number; bodyText: string }> {
+  return new Promise((resolve, reject) => {
+    const url = new URL(targetUrl);
+    const body = JSON.stringify(payload);
+
+    const request = httpsRequest({
+      protocol: url.protocol,
+      hostname: url.hostname,
+      port: url.port ? Number.parseInt(url.port, 10) : undefined,
+      path: `${url.pathname}${url.search}`,
+      method: 'POST',
+      headers: {
+        ...headers,
+        'Content-Length': Buffer.byteLength(body).toString(),
+      },
+    }, (response) => {
+      const chunks: Buffer[] = [];
+
+      response.on('data', (chunk) => {
+        chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+      });
+
+      response.on('end', () => {
+        resolve({
+          status: response.statusCode ?? 0,
+          bodyText: Buffer.concat(chunks).toString('utf8'),
+        });
+      });
+    });
+
+    request.on('error', reject);
+    request.write(body);
+    request.end();
+  });
 }
 
 async function triggerMoodDispatch(context: { request: Request; locals?: any }, postId: string): Promise<void> {
