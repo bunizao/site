@@ -1,8 +1,8 @@
 /**
  * Telegram HD Image Proxy Worker
  *
- * Serves Telegram images from R2 with edge caching.
- * New images are ingested via authenticated POST routes.
+ * Serves Telegram images from R2, accepts authenticated ingest writes,
+ * receives Telegram webhook events, and hands off immediate notify jobs.
  */
 
 interface ExecutionContext {
@@ -31,10 +31,46 @@ interface R2Bucket {
   get(key: string): Promise<R2ObjectBody | null>;
 }
 
+interface NotifyDispatchQueue {
+  send(message: NotifyDispatchJob): Promise<void>;
+}
+
+interface QueueBatch<T> {
+  messages: Array<{
+    body: T;
+  }>;
+}
+
+interface HtmlRewriterElement {
+  getAttribute(name: string): string | null;
+}
+
+interface HtmlRewriterLike {
+  on(selector: string, handlers: { element(element: HtmlRewriterElement): void }): HtmlRewriterLike;
+  transform(response: Response): Response;
+}
+
+declare const HTMLRewriter:
+  | (new () => HtmlRewriterLike)
+  | undefined;
+
+export interface NotifyDispatchJob {
+  postId: string;
+  deliveryModes: ['immediate'];
+  source: 'telegram-webhook';
+}
+
 export interface Env {
   TELEGRAM_BOT_TOKEN: string;
   HD_IMAGE_INGEST_TOKEN: string;
+  TELEGRAM_WEBHOOK_SECRET: string;
+  NOTIFY_DISPATCH_SECRET: string;
+  NOTIFY_DISPATCH_URL: string;
+  CHANNEL: string;
+  TELEGRAM_CHANNEL_ID: string;
+  TELEGRAM_HOST: string;
   MOOD_IMAGES: R2Bucket;
+  NOTIFY_DISPATCH_QUEUE: NotifyDispatchQueue;
 }
 
 interface TelegramFileResponse {
@@ -48,6 +84,48 @@ interface TelegramFileResponse {
   description?: string;
 }
 
+interface TelegramPhotoSize {
+  file_id: string;
+  file_unique_id: string;
+  width: number;
+  height: number;
+  file_size?: number;
+}
+
+interface TelegramMessage {
+  message_id: number;
+  photo?: TelegramPhotoSize[];
+  media_group_id?: string;
+  chat?: {
+    id: number | string;
+    photo?: {
+      small_file_id?: string;
+      big_file_id?: string;
+    };
+  };
+}
+
+interface TelegramUpdate {
+  update_id: number;
+  channel_post?: TelegramMessage;
+}
+
+interface TelegramGetChatResponse {
+  ok: boolean;
+  result?: {
+    photo?: {
+      small_file_id?: string;
+      big_file_id?: string;
+    };
+  };
+  description?: string;
+}
+
+interface MoodImageTarget {
+  postId: string;
+  imageIndex: number;
+}
+
 interface IngestPayload {
   fileId?: string;
 }
@@ -55,6 +133,8 @@ interface IngestPayload {
 interface CacheStorageWithDefault extends CacheStorage {
   default: Cache;
 }
+
+type ImageTarget = { objectKey: string; publicPath: string };
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -65,6 +145,7 @@ const corsHeaders = {
 const CACHE_CONTROL = 'public, max-age=31536000, immutable, no-transform';
 const VARIANT_WIDTHS = [480, 800, 1200, 1600] as const;
 const VARIANT_QUALITY = 82;
+
 type CfImageRequestInit = RequestInit & {
   cf: {
     image: {
@@ -98,7 +179,7 @@ function getVariantObjectKey(baseKey: string, width: number): string {
 }
 
 function timingSafeEqual(a: string, b: string): boolean {
-  if (a.length !== b.length) {
+  if (!a || !b || a.length !== b.length) {
     return false;
   }
 
@@ -109,13 +190,17 @@ function timingSafeEqual(a: string, b: string): boolean {
   return result === 0;
 }
 
+function trimTrailingSlash(value: string): string {
+  return value.replace(/\/+$/, '');
+}
+
 function readBearerToken(request: Request): string {
   const authorization = request.headers.get('Authorization') ?? '';
   const match = authorization.match(/^Bearer\s+(.+)$/i);
   return match?.[1]?.trim() ?? '';
 }
 
-function resolveReadTarget(pathname: string): { objectKey: string; publicPath: string } | null {
+function resolveReadTarget(pathname: string): ImageTarget | null {
   const moodMatch = pathname.match(/^\/mood\/(\d+)\/(\d+)$/);
   if (moodMatch) {
     const [, postId, imageIndex] = moodMatch;
@@ -135,7 +220,7 @@ function resolveReadTarget(pathname: string): { objectKey: string; publicPath: s
   return null;
 }
 
-function resolveIngestTarget(pathname: string): { objectKey: string; publicPath: string } | null {
+function resolveIngestTarget(pathname: string): ImageTarget | null {
   const moodMatch = pathname.match(/^\/ingest\/mood\/(\d+)\/(\d+)$/);
   if (moodMatch) {
     const [, postId, imageIndex] = moodMatch;
@@ -153,6 +238,194 @@ function resolveIngestTarget(pathname: string): { objectKey: string; publicPath:
   }
 
   return null;
+}
+
+function selectLargestPhoto(photos: TelegramPhotoSize[]): TelegramPhotoSize | null {
+  if (!photos.length) return null;
+  return photos.reduce((best, current) => {
+    const bestArea = best.width * best.height;
+    const currentArea = current.width * current.height;
+    if (currentArea > bestArea) return current;
+    if (currentArea < bestArea) return best;
+    const bestSize = best.file_size ?? 0;
+    const currentSize = current.file_size ?? 0;
+    return currentSize > bestSize ? current : best;
+  });
+}
+
+function extractMessageIdFromPhotoHref(href: string, channel: string, host: string): string {
+  if (!href) return '';
+
+  try {
+    const parsed = new URL(href, `https://${host}`);
+    const parts = parsed.pathname.split('/').filter(Boolean);
+    if (parts.length < 2) return '';
+
+    const messageId = parts[parts.length - 1] ?? '';
+    const channelSlug = parts[parts.length - 2] ?? '';
+    if (channelSlug !== channel || !/^\d+$/.test(messageId)) {
+      return '';
+    }
+
+    return messageId;
+  } catch {
+    return '';
+  }
+}
+
+function resolveMoodImageTargetFromPhotoHrefs(
+  hrefs: string[],
+  currentPostId: string,
+  channel: string,
+  host: string
+): MoodImageTarget {
+  const orderedPostIds: string[] = [];
+
+  for (const href of hrefs) {
+    const postId = extractMessageIdFromPhotoHref(href, channel, host);
+    if (!postId || orderedPostIds.includes(postId)) {
+      continue;
+    }
+    orderedPostIds.push(postId);
+  }
+
+  if (!orderedPostIds.length) {
+    throw new Error(`No grouped media targets found for post ${currentPostId}`);
+  }
+
+  const imageIndex = orderedPostIds.indexOf(currentPostId);
+  if (imageIndex === -1) {
+    throw new Error(`Current media group item ${currentPostId} not found in embed markup`);
+  }
+
+  return {
+    postId: orderedPostIds[0] ?? currentPostId,
+    imageIndex,
+  };
+}
+
+function collectPhotoHrefsWithFallback(html: string): string[] {
+  const hrefs: string[] = [];
+
+  for (const match of html.matchAll(/<a\b[^>]*>/gi)) {
+    const tag = match[0];
+    const className = tag.match(/\bclass\s*=\s*(['"])(.*?)\1/i)?.[2] ?? '';
+    if (!className.split(/\s+/).includes('tgme_widget_message_photo_wrap')) {
+      continue;
+    }
+
+    const href = tag.match(/\bhref\s*=\s*(['"])(.*?)\1/i)?.[2]?.trim() ?? '';
+    if (href) {
+      hrefs.push(href);
+    }
+  }
+
+  return hrefs;
+}
+
+async function collectPhotoHrefsWithRewriter(
+  html: string,
+  selector: string,
+  HtmlRewriterCtor: new () => HtmlRewriterLike
+): Promise<string[]> {
+  const hrefs: string[] = [];
+  const rewriter = new HtmlRewriterCtor()
+    .on(selector, {
+      element(element) {
+        const href = element.getAttribute('href')?.trim() ?? '';
+        if (href) {
+          hrefs.push(href);
+        }
+      },
+    });
+
+  await rewriter.transform(new Response(html)).text();
+  return hrefs;
+}
+
+async function collectPhotoHrefsFromHtml(html: string, currentPostRef: string): Promise<string[]> {
+  const HtmlRewriterCtor = HTMLRewriter;
+  if (typeof HtmlRewriterCtor === 'function') {
+    const escapedPostRef = currentPostRef.replace(/"/g, '\\"');
+    const scopedSelector = `.tgme_widget_message[data-post="${escapedPostRef}"] .tgme_widget_message_photo_wrap`;
+    const scopedHrefs = await collectPhotoHrefsWithRewriter(html, scopedSelector, HtmlRewriterCtor);
+    if (scopedHrefs.length) {
+      return scopedHrefs;
+    }
+
+    return collectPhotoHrefsWithRewriter(html, '.tgme_widget_message_photo_wrap', HtmlRewriterCtor);
+  }
+
+  return collectPhotoHrefsWithFallback(html);
+}
+
+async function resolveMoodImageTargetFromHtml(
+  html: string,
+  currentPostId: string,
+  channel: string,
+  host: string
+): Promise<MoodImageTarget> {
+  const hrefs = await collectPhotoHrefsFromHtml(html, `${channel}/${currentPostId}`);
+  return resolveMoodImageTargetFromPhotoHrefs(hrefs, currentPostId, channel, host);
+}
+
+async function resolveMoodImageTarget(message: TelegramMessage, env: Env): Promise<MoodImageTarget> {
+  const currentPostId = String(message.message_id);
+  if (!message.media_group_id) {
+    return {
+      postId: currentPostId,
+      imageIndex: 0,
+    };
+  }
+
+  const channel = env.CHANNEL?.trim();
+  const host = env.TELEGRAM_HOST?.trim() || 't.me';
+  if (!channel) {
+    throw new Error('Missing CHANNEL configuration for media group indexing');
+  }
+
+  const url = `https://${host}/${channel}/${encodeURIComponent(currentPostId)}?embed=1&mode=tme`;
+  const response = await fetch(url, {
+    headers: {
+      Accept: 'text/html,application/xhtml+xml',
+      'Accept-Language': 'en-US,en;q=0.9',
+      'User-Agent': 'Mozilla/5.0 (compatible; TelegramWebhook/1.0)',
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Telegram embed fetch failed: ${response.status}`);
+  }
+
+  const html = await response.text();
+  return resolveMoodImageTargetFromHtml(html, currentPostId, channel, host);
+}
+
+async function fetchChannelAvatarFileId(channelId: string, env: Env): Promise<string | null> {
+  if (!channelId || !env.TELEGRAM_BOT_TOKEN) {
+    return null;
+  }
+
+  try {
+    const getChatUrl = `https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/getChat?chat_id=${encodeURIComponent(channelId)}`;
+    const response = await fetch(getChatUrl);
+    if (!response.ok) {
+      console.error('Telegram getChat failed for avatar indexing:', response.status);
+      return null;
+    }
+
+    const payload = (await response.json()) as TelegramGetChatResponse;
+    if (!payload.ok) {
+      console.error('Telegram getChat response invalid for avatar indexing:', payload.description);
+      return null;
+    }
+
+    const photo = payload.result?.photo;
+    return photo?.big_file_id || photo?.small_file_id || null;
+  } catch (error) {
+    console.error('Telegram getChat request failed for avatar indexing:', error);
+    return null;
+  }
 }
 
 async function resolveTelegramImageUrl(fileId: string, env: Env): Promise<string | null> {
@@ -174,7 +447,7 @@ async function resolveTelegramImageUrl(fileId: string, env: Env): Promise<string
 }
 
 async function ingestImageFromSource(
-  target: { objectKey: string; publicPath: string },
+  target: ImageTarget,
   sourceImageUrl: string,
   requestUrl: URL,
   env: Env,
@@ -246,17 +519,69 @@ async function ingestImageFromSource(
 }
 
 async function ingestTelegramImage(
-  target: { objectKey: string; publicPath: string },
+  target: ImageTarget,
   fileId: string,
   requestUrl: URL,
-  env: Env
+  env: Env,
+  sourceLabel = 'telegram-bot'
 ): Promise<void> {
   const sourceImageUrl = await resolveTelegramImageUrl(fileId, env);
   if (!sourceImageUrl) {
     throw new Error('Failed to resolve image path from Telegram');
   }
 
-  await ingestImageFromSource(target, sourceImageUrl, requestUrl, env, 'telegram-bot');
+  await ingestImageFromSource(target, sourceImageUrl, requestUrl, env, sourceLabel);
+}
+
+async function indexChannelAvatarInR2(message: TelegramMessage, requestUrl: URL, env: Env): Promise<void> {
+  const channelId = message.chat?.id ? String(message.chat.id) : env.TELEGRAM_CHANNEL_ID?.trim();
+  if (!channelId) {
+    return;
+  }
+
+  const directAvatarFileId = message.chat?.photo?.big_file_id || message.chat?.photo?.small_file_id || '';
+  const avatarFileId = directAvatarFileId || await fetchChannelAvatarFileId(channelId, env);
+  if (!avatarFileId) {
+    return;
+  }
+
+  await ingestTelegramImage(
+    { objectKey: 'channel/avatar', publicPath: '/channel/avatar' },
+    avatarFileId,
+    requestUrl,
+    env,
+    'telegram-bot-avatar'
+  );
+}
+
+function buildNotifyDispatchJob(postId: string): NotifyDispatchJob {
+  return {
+    postId,
+    deliveryModes: ['immediate'],
+    source: 'telegram-webhook',
+  };
+}
+
+async function dispatchNotifyJob(job: NotifyDispatchJob, env: Env): Promise<void> {
+  const endpoint = trimTrailingSlash(env.NOTIFY_DISPATCH_URL);
+  const response = await fetch(endpoint, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${env.NOTIFY_DISPATCH_SECRET}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      postId: job.postId,
+      deliveryModes: job.deliveryModes,
+    }),
+  });
+
+  if (response.ok) {
+    return;
+  }
+
+  const bodyText = (await response.text()).slice(0, 500);
+  throw new Error(`Notify dispatch failed with ${response.status}: ${bodyText}`);
 }
 
 async function handleIngest(request: Request, url: URL, env: Env): Promise<Response> {
@@ -306,6 +631,73 @@ async function handleIngest(request: Request, url: URL, env: Env): Promise<Respo
       ...corsHeaders,
     },
   });
+}
+
+async function handleWebhook(request: Request, url: URL, env: Env): Promise<Response> {
+  const secretToken = request.headers.get('X-Telegram-Bot-Api-Secret-Token')?.trim() ?? '';
+  if (!timingSafeEqual(secretToken, env.TELEGRAM_WEBHOOK_SECRET?.trim() ?? '')) {
+    return new Response('Unauthorized', { status: 401 });
+  }
+
+  let update: TelegramUpdate;
+  try {
+    update = await request.json() as TelegramUpdate;
+  } catch {
+    return new Response('Invalid JSON', { status: 400 });
+  }
+
+  const message = update.channel_post;
+  if (!message?.message_id) {
+    return new Response('OK');
+  }
+
+  const messageId = String(message.message_id);
+  let postId = messageId;
+  let imageTarget: MoodImageTarget = { postId: messageId, imageIndex: 0 };
+
+  if (message.photo?.length) {
+    try {
+      imageTarget = await resolveMoodImageTarget(message, env);
+      postId = imageTarget.postId;
+    } catch (error) {
+      console.error(`Webhook media-group resolution failed for message ${messageId}:`, error);
+      return new Response('Media-group resolution failed', { status: 503 });
+    }
+  }
+
+  try {
+    await indexChannelAvatarInR2(message, url, env);
+  } catch (error) {
+    console.error(`Webhook avatar ingest failed for post ${postId}:`, error);
+  }
+
+  if (message.photo?.length) {
+    const largestPhoto = selectLargestPhoto(message.photo);
+    if (largestPhoto) {
+      try {
+        await ingestTelegramImage(
+          {
+            objectKey: `mood/${postId}/${imageTarget.imageIndex}`,
+            publicPath: `/mood/${postId}/${imageTarget.imageIndex}`,
+          },
+          largestPhoto.file_id,
+          url,
+          env
+        );
+      } catch (error) {
+        console.error(`Webhook mood image ingest failed for post ${postId}/${imageTarget.imageIndex}:`, error);
+      }
+    }
+  }
+
+  try {
+    await env.NOTIFY_DISPATCH_QUEUE.send(buildNotifyDispatchJob(postId));
+  } catch (error) {
+    console.error(`Failed to enqueue notify dispatch for post ${postId}:`, error);
+    return new Response('Notify queue unavailable', { status: 503 });
+  }
+
+  return new Response('OK');
 }
 
 async function handleRead(request: Request, url: URL, env: Env, ctx: ExecutionContext): Promise<Response> {
@@ -367,6 +759,26 @@ async function handleRead(request: Request, url: URL, env: Env, ctx: ExecutionCo
   });
 }
 
+async function processQueueBatch(batch: QueueBatch<NotifyDispatchJob>, env: Env): Promise<void> {
+  for (const message of batch.messages) {
+    const postId = message.body?.postId?.trim() ?? '';
+    if (!postId) {
+      console.warn('Dropping notify queue message without postId');
+      continue;
+    }
+
+    try {
+      await dispatchNotifyJob(message.body, env);
+    } catch (error) {
+      console.error('Notify queue dispatch failed:', {
+        message: message.body,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      throw error;
+    }
+  }
+}
+
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
@@ -376,6 +788,9 @@ export default {
     }
 
     if (request.method === 'POST') {
+      if (url.pathname === '/webhook') {
+        return handleWebhook(request, url, env);
+      }
       return handleIngest(request, url, env);
     }
 
@@ -384,5 +799,9 @@ export default {
     }
 
     return handleRead(request, url, env, ctx);
+  },
+
+  async queue(batch: QueueBatch<NotifyDispatchJob>, env: Env): Promise<void> {
+    await processQueueBatch(batch, env);
   },
 };
