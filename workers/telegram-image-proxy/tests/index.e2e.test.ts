@@ -479,8 +479,7 @@ describe('telegram image worker e2e', () => {
           },
         },
       ],
-    }, env as unknown as Env, ctx);
-    await ctx.drain();
+    }, env as unknown as Env);
 
     expect(calls).toEqual([
       {
