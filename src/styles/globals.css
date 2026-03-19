@@ -81,15 +81,6 @@
   html {
     font-size: 16px;
     overflow-y: scroll;
-    --spotlight-x: 50vw;
-    --spotlight-y: 30vh;
-    --spotlight-tail-x: 0px;
-    --spotlight-tail-y: 0px;
-    --spotlight-soft-radius: 240px;
-    --spotlight-core-radius: 128px;
-    --spotlight-opacity: 0;
-    --spotlight-soft-opacity: 0;
-    --spotlight-core-opacity: 0;
   }
 
   body {
@@ -166,6 +157,17 @@
     z-index: 0;
     pointer-events: none;
     overflow: hidden;
+    contain: strict;
+    transform: translateZ(0);
+    backface-visibility: hidden;
+    --spotlight-x: 50vw;
+    --spotlight-y: 30vh;
+    --spotlight-tail-x: 0px;
+    --spotlight-tail-y: 0px;
+    --spotlight-soft-radius: 240px;
+    --spotlight-core-radius: 128px;
+    --spotlight-soft-opacity: 0;
+    --spotlight-core-opacity: 0;
   }
 
   .spotlight-overlay__grid {
@@ -173,8 +175,8 @@
     inset: 0;
     pointer-events: none;
     opacity: 0;
-    transition: opacity 220ms ease-out;
-    will-change: opacity, transform, mask-image, -webkit-mask-image;
+    will-change: opacity, mask-image, -webkit-mask-image;
+    contain: paint;
   }
 
   .spotlight-overlay__grid {

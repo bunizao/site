@@ -184,17 +184,16 @@ const ogImageType = ogImageUrl.endsWith('.png')
 
     <script>
       (() => {
-        const root = document.documentElement;
         const overlay = document.querySelector('[data-spotlight-overlay]') as HTMLElement | null;
         if (!overlay) return;
+        const overlayStyle = overlay.style;
 
         const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
         const prefersFinePointer = window.matchMedia('(pointer: fine)');
 
         const setInactive = () => {
-          root.style.setProperty('--spotlight-opacity', '0');
-          root.style.setProperty('--spotlight-soft-opacity', '0');
-          root.style.setProperty('--spotlight-core-opacity', '0');
+          overlayStyle.setProperty('--spotlight-soft-opacity', '0');
+          overlayStyle.setProperty('--spotlight-core-opacity', '0');
         };
 
         const canRun = () => !prefersReducedMotion.matches && prefersFinePointer.matches;
@@ -215,28 +214,34 @@ const ogImageType = ogImageUrl.endsWith('.png')
         let lastY = targetY;
         let hasPointer = false;
         let frameId = 0;
+        let lastFrameTime = performance.now();
 
-        root.style.setProperty('--spotlight-x', `${currentX}px`);
-        root.style.setProperty('--spotlight-y', `${currentY}px`);
+        overlayStyle.setProperty('--spotlight-x', `${currentX}px`);
+        overlayStyle.setProperty('--spotlight-y', `${currentY}px`);
 
-        const tick = () => {
+        const tick = (timestamp: number) => {
           frameId = 0;
-          currentX += (targetX - currentX) * 0.16;
-          currentY += (targetY - currentY) * 0.16;
-          currentOpacity += (targetOpacity - currentOpacity) * 0.14;
-          velocityX *= 0.84;
-          velocityY *= 0.84;
+          const deltaMs = Math.min(32, timestamp - lastFrameTime || 16.67);
+          lastFrameTime = timestamp;
+          const positionBlend = 1 - Math.exp(-deltaMs / 78);
+          const opacityBlend = 1 - Math.exp(-deltaMs / 110);
+          const velocityDecay = Math.exp(-deltaMs / 72);
+
+          currentX += (targetX - currentX) * positionBlend;
+          currentY += (targetY - currentY) * positionBlend;
+          currentOpacity += (targetOpacity - currentOpacity) * opacityBlend;
+          velocityX *= velocityDecay;
+          velocityY *= velocityDecay;
 
           const speed = Math.min(1, Math.hypot(velocityX, velocityY) / 28);
-          root.style.setProperty('--spotlight-x', `${currentX}px`);
-          root.style.setProperty('--spotlight-y', `${currentY}px`);
-          root.style.setProperty('--spotlight-tail-x', `${velocityX * 1.25}px`);
-          root.style.setProperty('--spotlight-tail-y', `${velocityY * 1.25}px`);
-          root.style.setProperty('--spotlight-soft-radius', `${240 + speed * 36}px`);
-          root.style.setProperty('--spotlight-core-radius', `${128 + speed * 18}px`);
-          root.style.setProperty('--spotlight-opacity', `${currentOpacity.toFixed(3)}`);
-          root.style.setProperty('--spotlight-soft-opacity', `${(currentOpacity * 0.32).toFixed(3)}`);
-          root.style.setProperty('--spotlight-core-opacity', `${(currentOpacity * 0.94).toFixed(3)}`);
+          overlayStyle.setProperty('--spotlight-x', `${currentX}px`);
+          overlayStyle.setProperty('--spotlight-y', `${currentY}px`);
+          overlayStyle.setProperty('--spotlight-tail-x', `${velocityX * 1.1}px`);
+          overlayStyle.setProperty('--spotlight-tail-y', `${velocityY * 1.1}px`);
+          overlayStyle.setProperty('--spotlight-soft-radius', `${236 + speed * 28}px`);
+          overlayStyle.setProperty('--spotlight-core-radius', `${124 + speed * 14}px`);
+          overlayStyle.setProperty('--spotlight-soft-opacity', `${(currentOpacity * 0.28).toFixed(3)}`);
+          overlayStyle.setProperty('--spotlight-core-opacity', `${(currentOpacity * 0.96).toFixed(3)}`);
 
           if (
             Math.abs(targetX - currentX) > 0.15 ||
@@ -249,6 +254,7 @@ const ogImageType = ogImageUrl.endsWith('.png')
 
         const queueTick = () => {
           if (!frameId) {
+            lastFrameTime = performance.now();
             frameId = window.requestAnimationFrame(tick);
           }
         };
