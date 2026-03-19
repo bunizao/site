@@ -215,6 +215,9 @@ const ogImageType = ogImageUrl.endsWith('.png')
         let hasPointer = false;
         let frameId = 0;
         let lastFrameTime = performance.now();
+        const positionSmoothingMs = 42;
+        const opacitySmoothingMs = 72;
+        const velocityDecayMs = 58;
 
         overlayStyle.setProperty('--spotlight-x', `${currentX}px`);
         overlayStyle.setProperty('--spotlight-y', `${currentY}px`);
@@ -223,9 +226,9 @@ const ogImageType = ogImageUrl.endsWith('.png')
           frameId = 0;
           const deltaMs = Math.min(32, timestamp - lastFrameTime || 16.67);
           lastFrameTime = timestamp;
-          const positionBlend = 1 - Math.exp(-deltaMs / 78);
-          const opacityBlend = 1 - Math.exp(-deltaMs / 110);
-          const velocityDecay = Math.exp(-deltaMs / 72);
+          const positionBlend = 1 - Math.exp(-deltaMs / positionSmoothingMs);
+          const opacityBlend = 1 - Math.exp(-deltaMs / opacitySmoothingMs);
+          const velocityDecay = Math.exp(-deltaMs / velocityDecayMs);
 
           currentX += (targetX - currentX) * positionBlend;
           currentY += (targetY - currentY) * positionBlend;
