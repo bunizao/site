@@ -1,4 +1,4 @@
-# Home Implementation
+# Home
 
 ## Scope
 

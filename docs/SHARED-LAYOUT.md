@@ -1,14 +1,13 @@
-# Shared Layout and Security
+# Shared Layout
 
 ## Scope
 
-This document covers shared cross-page behavior:
+This document covers shared cross-page UI behavior:
 
 - layout shell
 - navbar and header actions
 - page-template adaptation
-- footer links
-- shared security modules
+- shared footer
 
 ## Base Layout
 
@@ -92,90 +91,8 @@ The privacy page is therefore linked from:
 - the global footer
 - the mood notify panel
 
-## Rate Limiting
-
-File: [`src/lib/security/rate-limit.ts`](../src/lib/security/rate-limit.ts)
-
-Implementation:
-
-- in-memory IP-based bucket store
-- key format is `{prefix}:{clientIp}`
-- expired entries are cleaned on access
-- store size is capped
-
-IP resolution order:
-
-- runtime IP from platform locals
-- trusted proxy headers
-- `x-forwarded-for`
-- fallback client headers
-- `anonymous`
-
-Response headers:
-
-- `X-RateLimit-Limit`
-- `X-RateLimit-Remaining`
-- `X-RateLimit-Reset`
-- `Retry-After` on rejection
-
-Operational constraint:
-
-- state is process-local and not durable
-
-## Turnstile Verification
-
-File: [`src/lib/security/turnstile.ts`](../src/lib/security/turnstile.ts)
-
-Behavior:
-
-- reads secret from build env or runtime env
-- posts verification requests to Cloudflare Turnstile
-- forwards `remoteip` when available
-- validates challenge hostname against the current request host
-- optionally validates `action`
-- returns structured result codes instead of throwing
-
-Current primary usage:
-
-- [`src/pages/api/notify/subscribe.ts`](../src/pages/api/notify/subscribe.ts) with expected action `notify_subscribe`
-
-## Signed URLs
-
-File: [`src/lib/security/signed-url.ts`](../src/lib/security/signed-url.ts)
-
-Behavior:
-
-- signs `pathname + normalized search params` with HMAC-SHA256
-- excludes `sig` from the signing payload
-- requires numeric `exp`
-- rejects expired signatures
-
-Current usage:
-
-- protects selected generated resources such as the activity SVG endpoint
-
-## Security-Adjacent Shared Endpoints
-
-Static proxy:
-
-- [`src/pages/static/[...path].ts`](../src/pages/static/[...path].ts)
-
-Role:
-
-- allowlisted proxy for Telegram-related static assets
-- blocks localhost and private-network misuse
-- limits redirect chains
-- uses the shared rate limiter
-
-Response hardening is selective:
-
-- normal HTML pages do not apply a site-wide CSP in `Layout.astro`
-- embed responses use stricter headers in [`src/lib/embed-response.ts`](../src/lib/embed-response.ts)
-- SVG responses use CSP and hardening headers in [`src/lib/svg-response.ts`](../src/lib/svg-response.ts)
-
 ## Implementation Summary
 
 - shared UI concerns are centralized in `Layout.astro`
 - content pages reuse the same shell and mutate the nav through `Page.astro`
-- security is endpoint-focused, not centralized in one middleware layer
-- rate limiting is the common baseline across public APIs
+- the shared layout is optimized for the home page first, then adapted for document-style pages

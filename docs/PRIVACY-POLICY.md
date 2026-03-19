@@ -1,4 +1,4 @@
-# Privacy Policy Implementation
+# Privacy Policy
 
 ## Scope
 

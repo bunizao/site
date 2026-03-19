@@ -1,4 +1,4 @@
-# Worker and Site Collaboration
+# Worker and Site
 
 ## Scope
 

@@ -2,11 +2,12 @@
 
 ## Detailed Implementation Docs
 
-- [Home Implementation](./HOME-IMPLEMENTATION.md)
-- [Mood Implementation](./MOOD-IMPLEMENTATION.md)
-- [Shared Layout and Security](./SHARED-LAYOUT-AND-SECURITY.md)
-- [Privacy Policy Implementation](./PRIVACY-POLICY-IMPLEMENTATION.md)
-- [Worker and Site Collaboration](./WORKER-SITE-COLLABORATION.md)
+- [Home](./HOME.md)
+- [Mood](./MOOD.md)
+- [Shared Layout](./SHARED-LAYOUT.md)
+- [Security](./SECURITY.md)
+- [Privacy Policy](./PRIVACY-POLICY.md)
+- [Worker and Site](./WORKER-SITE.md)
 
 ## Key Directories
 

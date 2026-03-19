@@ -1,4 +1,4 @@
-# Mood Implementation
+# Mood
 
 ## Scope
 
