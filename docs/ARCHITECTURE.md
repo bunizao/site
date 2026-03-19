@@ -1,5 +1,13 @@
 # Architecture Reference
 
+## Detailed Implementation Docs
+
+- [Home Implementation](./HOME-IMPLEMENTATION.md)
+- [Mood Implementation](./MOOD-IMPLEMENTATION.md)
+- [Shared Layout and Security](./SHARED-LAYOUT-AND-SECURITY.md)
+- [Privacy Policy Implementation](./PRIVACY-POLICY-IMPLEMENTATION.md)
+- [Worker and Site Collaboration](./WORKER-SITE-COLLABORATION.md)
+
 ## Key Directories
 
 - **`src/pages/`** — File-based routing. Includes `index.astro` (home), `mood.astro` (feed), `mood/[id].astro` (detail), `mood/embed.astro` (embeddable widget)
