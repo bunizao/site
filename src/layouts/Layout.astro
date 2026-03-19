@@ -128,6 +128,12 @@ const ogImageType = ogImageUrl.endsWith('.png')
     <title>{title}</title>
   </head>
   <body>
+    <div class="spotlight-overlay" data-spotlight-overlay aria-hidden="true">
+      <div class="spotlight-overlay__aura"></div>
+      <div class="spotlight-overlay__grid spotlight-overlay__grid--soft"></div>
+      <div class="spotlight-overlay__grid spotlight-overlay__grid--core"></div>
+    </div>
+
     <!-- Site navigation -->
     {!hideSiteNav && (
       <nav class:list={['site-nav', { 'site-nav--mobile-visible': showSiteNav }]} data-site-nav aria-label="Page sections">
@@ -173,7 +179,115 @@ const ogImageType = ogImageUrl.endsWith('.png')
         </div>
       </div>
     </div>
-    <slot />
+    <div class="site-shell">
+      <slot />
+    </div>
+
+    <script>
+      (() => {
+        const root = document.documentElement;
+        const overlay = document.querySelector('[data-spotlight-overlay]') as HTMLElement | null;
+        if (!overlay) return;
+
+        const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+        const prefersFinePointer = window.matchMedia('(pointer: fine)');
+
+        const setInactive = () => {
+          root.style.setProperty('--spotlight-opacity', '0');
+          root.style.setProperty('--spotlight-soft-opacity', '0');
+          root.style.setProperty('--spotlight-core-opacity', '0');
+          root.style.setProperty('--spotlight-aura-opacity', '0');
+        };
+
+        const canRun = () => !prefersReducedMotion.matches && prefersFinePointer.matches;
+        if (!canRun()) {
+          setInactive();
+          return;
+        }
+
+        let targetX = window.innerWidth * 0.5;
+        let targetY = window.innerHeight * 0.3;
+        let currentX = targetX;
+        let currentY = targetY;
+        let currentOpacity = 0;
+        let targetOpacity = 0;
+        let velocityX = 0;
+        let velocityY = 0;
+        let lastX = targetX;
+        let lastY = targetY;
+        let hasPointer = false;
+        let frameId = 0;
+
+        root.style.setProperty('--spotlight-x', `${currentX}px`);
+        root.style.setProperty('--spotlight-y', `${currentY}px`);
+
+        const tick = () => {
+          frameId = 0;
+          currentX += (targetX - currentX) * 0.16;
+          currentY += (targetY - currentY) * 0.16;
+          currentOpacity += (targetOpacity - currentOpacity) * 0.14;
+          velocityX *= 0.84;
+          velocityY *= 0.84;
+
+          const speed = Math.min(1, Math.hypot(velocityX, velocityY) / 28);
+          root.style.setProperty('--spotlight-x', `${currentX}px`);
+          root.style.setProperty('--spotlight-y', `${currentY}px`);
+          root.style.setProperty('--spotlight-tail-x', `${velocityX * 1.25}px`);
+          root.style.setProperty('--spotlight-tail-y', `${velocityY * 1.25}px`);
+          root.style.setProperty('--spotlight-soft-radius', `${320 + speed * 56}px`);
+          root.style.setProperty('--spotlight-core-radius', `${168 + speed * 24}px`);
+          root.style.setProperty('--spotlight-aura-radius', `${580 + speed * 64}px`);
+          root.style.setProperty('--spotlight-opacity', `${currentOpacity.toFixed(3)}`);
+          root.style.setProperty('--spotlight-soft-opacity', `${(currentOpacity * 0.48).toFixed(3)}`);
+          root.style.setProperty('--spotlight-core-opacity', `${(currentOpacity * 0.94).toFixed(3)}`);
+          root.style.setProperty('--spotlight-aura-opacity', `${(currentOpacity * 0.9).toFixed(3)}`);
+
+          if (
+            Math.abs(targetX - currentX) > 0.15 ||
+            Math.abs(targetY - currentY) > 0.15 ||
+            Math.abs(targetOpacity - currentOpacity) > 0.015
+          ) {
+            frameId = window.requestAnimationFrame(tick);
+          }
+        };
+
+        const queueTick = () => {
+          if (!frameId) {
+            frameId = window.requestAnimationFrame(tick);
+          }
+        };
+
+        const handlePointerMove = (event: PointerEvent) => {
+          if (event.pointerType && event.pointerType !== 'mouse') return;
+          targetX = event.clientX;
+          targetY = event.clientY;
+          targetOpacity = 1;
+          if (hasPointer) {
+            velocityX = event.clientX - lastX;
+            velocityY = event.clientY - lastY;
+          }
+          lastX = event.clientX;
+          lastY = event.clientY;
+          hasPointer = true;
+          queueTick();
+        };
+
+        const handlePointerLeaveWindow = (event: MouseEvent) => {
+          if (event.relatedTarget) return;
+          targetOpacity = 0;
+          queueTick();
+        };
+
+        const handleBlur = () => {
+          targetOpacity = 0;
+          queueTick();
+        };
+
+        window.addEventListener('pointermove', handlePointerMove, { passive: true });
+        window.addEventListener('mouseout', handlePointerLeaveWindow, { passive: true });
+        window.addEventListener('blur', handleBlur);
+      })();
+    </script>
 
     <script>
       (() => {

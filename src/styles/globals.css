@@ -81,10 +81,22 @@
   html {
     font-size: 16px;
     overflow-y: scroll;
+    --spotlight-x: 50vw;
+    --spotlight-y: 30vh;
+    --spotlight-tail-x: 0px;
+    --spotlight-tail-y: 0px;
+    --spotlight-soft-radius: 320px;
+    --spotlight-core-radius: 168px;
+    --spotlight-aura-radius: 580px;
+    --spotlight-opacity: 0;
+    --spotlight-soft-opacity: 0;
+    --spotlight-core-opacity: 0;
+    --spotlight-aura-opacity: 0;
   }
 
   body {
     @apply bg-background text-foreground min-h-screen font-mono leading-relaxed antialiased;
+    position: relative;
   }
 
   body::before {
@@ -94,7 +106,7 @@
     pointer-events: none;
     background-image: radial-gradient(circle, hsl(var(--grid)) 1px, transparent 1px);
     background-size: 24px 24px;
-    z-index: -1;
+    z-index: -2;
   }
 
   ::selection {
@@ -143,6 +155,93 @@
 }
 
 @layer components {
+  .site-shell,
+  .site-nav,
+  .global-header-actions {
+    position: relative;
+    z-index: 1;
+  }
+
+  .spotlight-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    overflow: hidden;
+  }
+
+  .spotlight-overlay__aura,
+  .spotlight-overlay__grid {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 220ms ease-out;
+    will-change: opacity, transform, mask-image, -webkit-mask-image;
+  }
+
+  .spotlight-overlay__aura {
+    opacity: var(--spotlight-aura-opacity);
+    background:
+      radial-gradient(
+        circle var(--spotlight-aura-radius) at var(--spotlight-x) var(--spotlight-y),
+        hsl(var(--foreground) / 0.04),
+        transparent 72%
+      );
+    filter: blur(10px);
+  }
+
+  .spotlight-overlay__grid {
+    background-image: radial-gradient(circle, hsl(var(--foreground) / 0.78) 1.15px, transparent 1.15px);
+    background-size: 24px 24px;
+    background-position: 0 0;
+  }
+
+  .spotlight-overlay__grid--soft {
+    opacity: var(--spotlight-soft-opacity);
+    filter: blur(0.55px);
+    mask-image:
+      radial-gradient(
+        ellipse calc(var(--spotlight-soft-radius) + 36px) calc(var(--spotlight-soft-radius) * 0.72)
+        at calc(var(--spotlight-x) - var(--spotlight-tail-x))
+        calc(var(--spotlight-y) - var(--spotlight-tail-y)),
+        rgba(0, 0, 0, 0.88) 0%,
+        rgba(0, 0, 0, 0.44) 42%,
+        transparent 100%
+      );
+    -webkit-mask-image:
+      radial-gradient(
+        ellipse calc(var(--spotlight-soft-radius) + 36px) calc(var(--spotlight-soft-radius) * 0.72)
+        at calc(var(--spotlight-x) - var(--spotlight-tail-x))
+        calc(var(--spotlight-y) - var(--spotlight-tail-y)),
+        rgba(0, 0, 0, 0.88) 0%,
+        rgba(0, 0, 0, 0.44) 42%,
+        transparent 100%
+      );
+  }
+
+  .spotlight-overlay__grid--core {
+    opacity: var(--spotlight-core-opacity);
+    mask-image:
+      radial-gradient(
+        ellipse var(--spotlight-core-radius) calc(var(--spotlight-core-radius) * 0.7)
+        at var(--spotlight-x) var(--spotlight-y),
+        rgba(0, 0, 0, 1) 0%,
+        rgba(0, 0, 0, 0.92) 24%,
+        rgba(0, 0, 0, 0.36) 56%,
+        transparent 100%
+      );
+    -webkit-mask-image:
+      radial-gradient(
+        ellipse var(--spotlight-core-radius) calc(var(--spotlight-core-radius) * 0.7)
+        at var(--spotlight-x) var(--spotlight-y),
+        rgba(0, 0, 0, 1) 0%,
+        rgba(0, 0, 0, 0.92) 24%,
+        rgba(0, 0, 0, 0.36) 56%,
+        transparent 100%
+      );
+  }
+
   .page-container {
     @apply mx-auto max-w-[720px] px-4 sm:px-6;
   }
