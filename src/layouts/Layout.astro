@@ -129,7 +129,6 @@ const ogImageType = ogImageUrl.endsWith('.png')
   </head>
   <body>
     <div class="spotlight-overlay" data-spotlight-overlay aria-hidden="true">
-      <div class="spotlight-overlay__aura"></div>
       <div class="spotlight-overlay__grid spotlight-overlay__grid--soft"></div>
       <div class="spotlight-overlay__grid spotlight-overlay__grid--core"></div>
     </div>
@@ -196,7 +195,6 @@ const ogImageType = ogImageUrl.endsWith('.png')
           root.style.setProperty('--spotlight-opacity', '0');
           root.style.setProperty('--spotlight-soft-opacity', '0');
           root.style.setProperty('--spotlight-core-opacity', '0');
-          root.style.setProperty('--spotlight-aura-opacity', '0');
         };
 
         const canRun = () => !prefersReducedMotion.matches && prefersFinePointer.matches;
@@ -234,13 +232,11 @@ const ogImageType = ogImageUrl.endsWith('.png')
           root.style.setProperty('--spotlight-y', `${currentY}px`);
           root.style.setProperty('--spotlight-tail-x', `${velocityX * 1.25}px`);
           root.style.setProperty('--spotlight-tail-y', `${velocityY * 1.25}px`);
-          root.style.setProperty('--spotlight-soft-radius', `${320 + speed * 56}px`);
-          root.style.setProperty('--spotlight-core-radius', `${168 + speed * 24}px`);
-          root.style.setProperty('--spotlight-aura-radius', `${580 + speed * 64}px`);
+          root.style.setProperty('--spotlight-soft-radius', `${240 + speed * 36}px`);
+          root.style.setProperty('--spotlight-core-radius', `${128 + speed * 18}px`);
           root.style.setProperty('--spotlight-opacity', `${currentOpacity.toFixed(3)}`);
-          root.style.setProperty('--spotlight-soft-opacity', `${(currentOpacity * 0.48).toFixed(3)}`);
+          root.style.setProperty('--spotlight-soft-opacity', `${(currentOpacity * 0.32).toFixed(3)}`);
           root.style.setProperty('--spotlight-core-opacity', `${(currentOpacity * 0.94).toFixed(3)}`);
-          root.style.setProperty('--spotlight-aura-opacity', `${(currentOpacity * 0.9).toFixed(3)}`);
 
           if (
             Math.abs(targetX - currentX) > 0.15 ||

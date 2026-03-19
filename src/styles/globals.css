@@ -85,13 +85,11 @@
     --spotlight-y: 30vh;
     --spotlight-tail-x: 0px;
     --spotlight-tail-y: 0px;
-    --spotlight-soft-radius: 320px;
-    --spotlight-core-radius: 168px;
-    --spotlight-aura-radius: 580px;
+    --spotlight-soft-radius: 240px;
+    --spotlight-core-radius: 128px;
     --spotlight-opacity: 0;
     --spotlight-soft-opacity: 0;
     --spotlight-core-opacity: 0;
-    --spotlight-aura-opacity: 0;
   }
 
   body {
@@ -170,7 +168,6 @@
     overflow: hidden;
   }
 
-  .spotlight-overlay__aura,
   .spotlight-overlay__grid {
     position: absolute;
     inset: 0;
@@ -178,17 +175,6 @@
     opacity: 0;
     transition: opacity 220ms ease-out;
     will-change: opacity, transform, mask-image, -webkit-mask-image;
-  }
-
-  .spotlight-overlay__aura {
-    opacity: var(--spotlight-aura-opacity);
-    background:
-      radial-gradient(
-        circle var(--spotlight-aura-radius) at var(--spotlight-x) var(--spotlight-y),
-        hsl(var(--foreground) / 0.04),
-        transparent 72%
-      );
-    filter: blur(10px);
   }
 
   .spotlight-overlay__grid {
@@ -202,20 +188,20 @@
     filter: blur(0.55px);
     mask-image:
       radial-gradient(
-        ellipse calc(var(--spotlight-soft-radius) + 36px) calc(var(--spotlight-soft-radius) * 0.72)
+        ellipse calc(var(--spotlight-soft-radius) + 22px) calc(var(--spotlight-soft-radius) * 0.68)
         at calc(var(--spotlight-x) - var(--spotlight-tail-x))
         calc(var(--spotlight-y) - var(--spotlight-tail-y)),
-        rgba(0, 0, 0, 0.88) 0%,
-        rgba(0, 0, 0, 0.44) 42%,
+        rgba(0, 0, 0, 0.82) 0%,
+        rgba(0, 0, 0, 0.32) 40%,
         transparent 100%
       );
     -webkit-mask-image:
       radial-gradient(
-        ellipse calc(var(--spotlight-soft-radius) + 36px) calc(var(--spotlight-soft-radius) * 0.72)
+        ellipse calc(var(--spotlight-soft-radius) + 22px) calc(var(--spotlight-soft-radius) * 0.68)
         at calc(var(--spotlight-x) - var(--spotlight-tail-x))
         calc(var(--spotlight-y) - var(--spotlight-tail-y)),
-        rgba(0, 0, 0, 0.88) 0%,
-        rgba(0, 0, 0, 0.44) 42%,
+        rgba(0, 0, 0, 0.82) 0%,
+        rgba(0, 0, 0, 0.32) 40%,
         transparent 100%
       );
   }
