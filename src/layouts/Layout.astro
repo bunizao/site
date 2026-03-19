@@ -215,6 +215,7 @@ const ogImageType = ogImageUrl.endsWith('.png')
         let hasPointer = false;
         let frameId = 0;
         let lastFrameTime = performance.now();
+        let idleFadeTimer: number | null = null;
         const positionSmoothingMs = 42;
         const opacitySmoothingMs = 72;
         const velocityDecayMs = 58;
@@ -262,6 +263,21 @@ const ogImageType = ogImageUrl.endsWith('.png')
           }
         };
 
+        const clearIdleFadeTimer = () => {
+          if (idleFadeTimer !== null) {
+            window.clearTimeout(idleFadeTimer);
+            idleFadeTimer = null;
+          }
+        };
+
+        const scheduleIdleFade = () => {
+          clearIdleFadeTimer();
+          idleFadeTimer = window.setTimeout(() => {
+            targetOpacity = 0;
+            queueTick();
+          }, 1000);
+        };
+
         const handlePointerMove = (event: PointerEvent) => {
           if (event.pointerType && event.pointerType !== 'mouse') return;
           targetX = event.clientX;
@@ -274,16 +290,19 @@ const ogImageType = ogImageUrl.endsWith('.png')
           lastX = event.clientX;
           lastY = event.clientY;
           hasPointer = true;
+          scheduleIdleFade();
           queueTick();
         };
 
         const handlePointerLeaveWindow = (event: MouseEvent) => {
           if (event.relatedTarget) return;
+          clearIdleFadeTimer();
           targetOpacity = 0;
           queueTick();
         };
 
         const handleBlur = () => {
+          clearIdleFadeTimer();
           targetOpacity = 0;
           queueTick();
         };
