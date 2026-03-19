@@ -54,84 +54,87 @@ const techRow2 = ['Frontend', 'BGP', 'Proxy', 'Docker', 'Linux', 'Web3', 'Optimi
 ---
 
 <header class="hero-section pt-14 pb-8 sm:pt-20 sm:pb-12">
-  <!-- Status indicator -->
-  <div class="hero-animate" data-hero-status>
-    <div class="status mb-4">
-      <span class="status-dot"></span>
-      <span class="status-text-wrapper">
-        <span class="status-text" id="status-text">Wondering</span>
-      </span>
-    </div>
+  <div class="hero-backdrop" aria-hidden="true">
+    <canvas class="hero-particle-canvas" data-hero-particles></canvas>
   </div>
 
-  <!-- Name -->
-  <h1 class="hero-animate mb-2 text-[28px] font-semibold sm:text-[36px]" data-hero-name>
-    <Typewriter texts={["Lucian", "Bunizao", "Tutu", "Collapsar"]} speed={80} />
-  </h1>
-
-  <!-- Personal Info -->
-  <div class="hero-animate mb-3" data-hero-info>
-    <p class="text-xs text-muted-foreground/70 tracking-wider font-mono">
-      <span class="inline-flex items-center gap-2">
-        <span>18 y.o.</span>
-        <span class="separator">•</span>
-        <span>INFP</span>
-        <span class="separator">•</span>
-        <span>Libra</span>
-      </span>
-    </p>
-  </div>
-
-  <!-- Role -->
-  <p class="hero-animate mb-6 text-sm text-muted-foreground" data-hero-role>
-    Student / Developer / Blogger
-  </p>
-
-
-  <!-- Bio -->
-  <div class="hero-animate" data-hero-bio>
-    <p class="text-[14px] leading-[1.7] text-muted-foreground sm:text-[15px]">
-      I make interesting things.<br>
-      Curious about <span class="text-foreground">frontend design</span>,
-      <span class="text-foreground">proxy systems</span>, and
-      contributing to <span class="text-foreground"> open source</span>.<br>
-      Obsessed with <span class="text-foreground">speed</span> and always asking how things can be <span class="text-foreground">better</span>.<br>
-      Outside of coding, I read for curiosity and write to make sense of things.<br>
-      Currently studying Computer Science at <span class="text-foreground">Monash University</span>.
-    </p>
-  </div>
-
-
-
-  <!-- Social Links -->
-  <div class="mt-6 flex flex-wrap items-center gap-4 hero-animate sm:mt-8" data-hero-socials>
-    <span class="flex-none whitespace-nowrap text-[14px] text-muted-foreground sm:text-[15px]">Find me at</span>
-    {socials.map((social) => (
-      <div class="social-link-wrapper">
-        <div class="magnetic-button" data-magnetic data-strength="0.4">
-          <a
-            href={social.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            class="contact-link"
-            title={social.name}
-          >
-            <social.icon className="h-4 w-4" aria-hidden="true" />
-            <span class="hidden sm:inline">{social.name}</span>
-          </a>
-        </div>
+  <div class="hero-content">
+    <!-- Status indicator -->
+    <div class="hero-animate" data-hero-status>
+      <div class="status mb-4">
+        <span class="status-dot"></span>
+        <span class="status-text-wrapper">
+          <span class="status-text" id="status-text">Wondering</span>
+        </span>
       </div>
-    ))}
-  </div>
+    </div>
 
-  <!-- GitHub Activity -->
-  <div class="hero-animate" data-hero-github>
-    <GitHubContributions />
-  </div>
+    <!-- Name -->
+    <h1 class="hero-animate mb-2 text-[28px] font-semibold sm:text-[36px]" data-hero-name>
+      <Typewriter texts={["Lucian", "Bunizao", "Tutu", "Collapsar"]} speed={80} />
+    </h1>
 
-  <!-- Tech Stack Marquee -->
-  <div class="mt-6 hero-animate" data-hero-tech>
-    <TechMarquee row1={techRow1} row2={techRow2} />
+    <!-- Personal Info -->
+    <div class="hero-animate mb-3" data-hero-info>
+      <p class="text-xs text-muted-foreground/70 tracking-wider font-mono">
+        <span class="inline-flex items-center gap-2">
+          <span>18 y.o.</span>
+          <span class="separator">•</span>
+          <span>INFP</span>
+          <span class="separator">•</span>
+          <span>Libra</span>
+        </span>
+      </p>
+    </div>
+
+    <!-- Role -->
+    <p class="hero-animate mb-6 text-sm text-muted-foreground" data-hero-role>
+      Student / Developer / Blogger
+    </p>
+
+    <!-- Bio -->
+    <div class="hero-animate" data-hero-bio>
+      <p class="text-[14px] leading-[1.7] text-muted-foreground sm:text-[15px]">
+        I make interesting things.<br>
+        Curious about <span class="text-foreground">frontend design</span>,
+        <span class="text-foreground">proxy systems</span>, and
+        contributing to <span class="text-foreground"> open source</span>.<br>
+        Obsessed with <span class="text-foreground">speed</span> and always asking how things can be <span class="text-foreground">better</span>.<br>
+        Outside of coding, I read for curiosity and write to make sense of things.<br>
+        Currently studying Computer Science at <span class="text-foreground">Monash University</span>.
+      </p>
+    </div>
+
+    <!-- Social Links -->
+    <div class="mt-6 flex flex-wrap items-center gap-4 hero-animate sm:mt-8" data-hero-socials>
+      <span class="flex-none whitespace-nowrap text-[14px] text-muted-foreground sm:text-[15px]">Find me at</span>
+      {socials.map((social) => (
+        <div class="social-link-wrapper">
+          <div class="magnetic-button" data-magnetic data-strength="0.4">
+            <a
+              href={social.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              class="contact-link"
+              title={social.name}
+            >
+              <social.icon className="h-4 w-4" aria-hidden="true" />
+              <span class="hidden sm:inline">{social.name}</span>
+            </a>
+          </div>
+        </div>
+      ))}
+    </div>
+
+    <!-- GitHub Activity -->
+    <div class="hero-animate" data-hero-github>
+      <GitHubContributions />
+    </div>
+
+    <!-- Tech Stack Marquee -->
+    <div class="mt-6 hero-animate" data-hero-tech>
+      <TechMarquee row1={techRow1} row2={techRow2} />
+    </div>
   </div>
 </header>
 
@@ -141,12 +144,44 @@ const techRow2 = ['Frontend', 'BGP', 'Proxy', 'Docker', 'Linux', 'Web3', 'Optimi
     display: flex;
     flex-direction: column;
     justify-content: center;
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+    --hero-particle-highlight: 0, 0, 0;
   }
 
   @media (min-width: 640px) {
     .hero-section {
       min-height: calc(100vh - 140px);
     }
+  }
+
+  :global(.dark) .hero-section {
+    --hero-particle-highlight: 255, 255, 255;
+  }
+
+  .hero-backdrop {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 50%;
+    width: 100vw;
+    transform: translateX(-50%);
+    z-index: 0;
+    pointer-events: none;
+  }
+
+  .hero-particle-canvas {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 1;
+  }
+
+  .hero-content {
+    position: relative;
+    z-index: 1;
   }
 
   :global(html.js) .hero-animate {
@@ -206,6 +241,198 @@ const techRow2 = ['Frontend', 'BGP', 'Proxy', 'Docker', 'Linux', 'Web3', 'Optimi
   const prefersReducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
   const heroElements = document.querySelectorAll('.hero-animate');
   const statusText = document.getElementById('status-text');
+  const heroSection = document.querySelector('.hero-section') as HTMLElement | null;
+  const heroBackdrop = heroSection?.querySelector('.hero-backdrop') as HTMLElement | null;
+  const particleCanvas = heroBackdrop?.querySelector('[data-hero-particles]') as HTMLCanvasElement | null;
+
+  type HeroParticle = {
+    baseX: number;
+    baseY: number;
+    x: number;
+    y: number;
+    phase: number;
+    seed: number;
+  };
+
+  const initHeroParticles = (canvas: HTMLCanvasElement, container: HTMLElement) => {
+    const context = canvas.getContext('2d');
+    if (!context) return () => {};
+
+    const prefersFinePointer = window.matchMedia?.('(pointer: fine)').matches ?? true;
+    if (!prefersFinePointer) return () => {};
+
+    const particles: HeroParticle[] = [];
+    const pointer = {
+      currentX: 0,
+      currentY: 0,
+      targetX: 0,
+      targetY: 0,
+      strength: 0
+    };
+
+    let width = 0;
+    let height = 0;
+    let dpr = 1;
+    let frameId = 0;
+    let visible = true;
+
+    const getPalette = () => {
+      const styles = getComputedStyle(container);
+      const readColor = (name: string, fallback: [number, number, number]) => {
+        const value = styles.getPropertyValue(name).trim();
+        if (!value) return fallback;
+
+        const channels = value
+          .split(',')
+          .map((channel) => Number.parseFloat(channel.trim()))
+          .filter((channel) => Number.isFinite(channel));
+
+        return channels.length === 3
+          ? [channels[0], channels[1], channels[2]] as [number, number, number]
+          : fallback;
+      };
+
+      return {
+        highlight: readColor('--hero-particle-highlight', [0, 0, 0])
+      };
+    };
+
+    const mix = (from: number, to: number, amount: number) => from + (to - from) * amount;
+    const smoothstep = (value: number) => value * value * (3 - 2 * value);
+
+    const rebuildParticles = () => {
+      const rect = container.getBoundingClientRect();
+      width = Math.max(1, Math.round(rect.width));
+      height = Math.max(1, Math.round(rect.height));
+      dpr = Math.min(window.devicePixelRatio || 1, 2);
+
+      canvas.width = Math.round(width * dpr);
+      canvas.height = Math.round(height * dpr);
+      canvas.style.width = `${width}px`;
+      canvas.style.height = `${height}px`;
+      context.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+      particles.length = 0;
+      const spacing = 24;
+      const startX = ((-rect.left % spacing) + spacing) % spacing;
+      const startY = ((-rect.top % spacing) + spacing) % spacing;
+      let row = 0;
+
+      for (let y = startY; y <= height + spacing; y += spacing) {
+        let column = 0;
+        for (let x = startX; x <= width + spacing; x += spacing) {
+          const phase = ((column * 17 + row * 11) % 24) / 24 * Math.PI * 2;
+          const seed = ((column * 37 + row * 19) % 100) / 100;
+          particles.push({
+            baseX: x,
+            baseY: y,
+            x,
+            y,
+            phase,
+            seed
+          });
+          column += 1;
+        }
+        row += 1;
+      }
+
+      pointer.currentX = width * 0.5;
+      pointer.currentY = height * 0.42;
+      pointer.targetX = pointer.currentX;
+      pointer.targetY = pointer.currentY;
+    };
+
+    const resizeObserver = new ResizeObserver(() => {
+      rebuildParticles();
+    });
+
+    const intersectionObserver = new IntersectionObserver(
+      ([entry]) => {
+        visible = entry?.isIntersecting ?? true;
+        if (visible && !frameId) {
+          frameId = window.requestAnimationFrame(render);
+        }
+      },
+      { threshold: 0.08 }
+    );
+
+    const updatePointer = (event: PointerEvent) => {
+      if (event.pointerType && event.pointerType !== 'mouse') return;
+
+      const rect = container.getBoundingClientRect();
+      const nextX = event.clientX - rect.left;
+      const nextY = event.clientY - rect.top;
+
+      if (nextX < 0 || nextX > rect.width || nextY < 0 || nextY > rect.height) {
+        pointer.strength = 0;
+        return;
+      }
+
+      pointer.targetX = nextX;
+      pointer.targetY = nextY;
+      pointer.strength = 1;
+    };
+
+    const handleWindowBlur = () => {
+      pointer.strength = 0;
+    };
+
+    const render = () => {
+      frameId = 0;
+      if (!visible) return;
+
+      const { highlight } = getPalette();
+      const influenceRadius = Math.max(120, Math.min(width * 0.16, 170));
+      const radiusSquared = influenceRadius * influenceRadius;
+      const time = performance.now() * 0.001;
+
+      pointer.currentX = mix(pointer.currentX, pointer.targetX, 0.18);
+      pointer.currentY = mix(pointer.currentY, pointer.targetY, 0.18);
+
+      context.clearRect(0, 0, width, height);
+
+      for (const particle of particles) {
+        const dx = particle.baseX - pointer.currentX;
+        const dy = particle.baseY - pointer.currentY;
+        const distanceSquared = dx * dx + dy * dy;
+        if (distanceSquared >= radiusSquared || pointer.strength <= 0) {
+          continue;
+        }
+
+        const distance = Math.sqrt(distanceSquared || 1);
+        const falloff =
+          smoothstep(1 - distance / influenceRadius) * pointer.strength;
+        const pulse = 0.92 + Math.sin(time * 5 + particle.phase + particle.seed) * 0.08;
+        const opacity = Math.min(0.28, 0.04 + falloff * 0.2) * pulse;
+        const radius = 1 + falloff * 0.55;
+
+        context.fillStyle = `rgba(${highlight[0]}, ${highlight[1]}, ${highlight[2]}, ${opacity})`;
+        context.beginPath();
+        context.arc(particle.baseX, particle.baseY, radius, 0, Math.PI * 2);
+        context.fill();
+      }
+
+      frameId = window.requestAnimationFrame(render);
+    };
+
+    resizeObserver.observe(container);
+    intersectionObserver.observe(container);
+    window.addEventListener('pointermove', updatePointer, { passive: true });
+    window.addEventListener('blur', handleWindowBlur);
+
+    rebuildParticles();
+    frameId = window.requestAnimationFrame(render);
+
+    return () => {
+      resizeObserver.disconnect();
+      intersectionObserver.disconnect();
+      window.removeEventListener('pointermove', updatePointer);
+      window.removeEventListener('blur', handleWindowBlur);
+      if (frameId) {
+        window.cancelAnimationFrame(frameId);
+      }
+    };
+  };
 
   // Status text rotation
   const statusWords = [
@@ -343,6 +570,10 @@ const techRow2 = ['Frontend', 'BGP', 'Proxy', 'Docker', 'Linux', 'Web3', 'Optimi
       });
     }
   };
+
+  if (!prefersReducedMotion && heroBackdrop && particleCanvas) {
+    initHeroParticles(particleCanvas, heroBackdrop);
+  }
 
   if (!prefersReducedMotion) {
     void initHero();
