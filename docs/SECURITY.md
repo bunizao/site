@@ -12,7 +12,7 @@ This document covers shared security and security-adjacent behavior:
 
 ## Rate Limiting
 
-File: [`src/lib/security/rate-limit.ts`](../src/lib/security/rate-limit.ts)
+File: `[src/lib/security/rate-limit.ts](../src/lib/security/rate-limit.ts)`
 
 Implementation:
 
@@ -42,7 +42,7 @@ Operational constraint:
 
 ## Turnstile Verification
 
-File: [`src/lib/security/turnstile.ts`](../src/lib/security/turnstile.ts)
+File: `[src/lib/security/turnstile.ts](../src/lib/security/turnstile.ts)`
 
 Behavior:
 
@@ -55,11 +55,11 @@ Behavior:
 
 Current primary usage:
 
-- [`src/pages/api/notify/subscribe.ts`](../src/pages/api/notify/subscribe.ts) with expected action `notify_subscribe`
+- `[src/pages/api/notify/subscribe.ts](../src/pages/api/notify/subscribe.ts)` with expected action `notify_subscribe`
 
 ## Signed URLs
 
-File: [`src/lib/security/signed-url.ts`](../src/lib/security/signed-url.ts)
+File: `[src/lib/security/signed-url.ts](../src/lib/security/signed-url.ts)`
 
 Behavior:
 
@@ -74,7 +74,7 @@ Current usage:
 
 ## Static Proxy Restrictions
 
-File: [`src/pages/static/[...path].ts`](../src/pages/static/[...path].ts)
+File: `[src/pages/static/[...path].ts](../src/pages/static/[...path].ts)`
 
 Role:
 
@@ -91,9 +91,9 @@ Hardening is selective rather than centralized.
 
 Current boundaries:
 
-- normal HTML pages do not apply a site-wide CSP in [`src/layouts/Layout.astro`](../src/layouts/Layout.astro)
-- embed responses use stricter headers in [`src/lib/embed-response.ts`](../src/lib/embed-response.ts)
-- SVG responses use CSP and hardening headers in [`src/lib/svg-response.ts`](../src/lib/svg-response.ts)
+- normal HTML pages do not apply a site-wide CSP in `[src/layouts/Layout.astro](../src/layouts/Layout.astro)`
+- embed responses use stricter headers in `[src/lib/embed-response.ts](../src/lib/embed-response.ts)`
+- SVG responses use CSP and hardening headers in `[src/lib/svg-response.ts](../src/lib/svg-response.ts)`
 
 ## Implementation Summary
 
@@ -102,3 +102,4 @@ Current boundaries:
 - Turnstile protects subscription intake
 - signed URLs protect selected generated resources
 - response hardening exists for specific response types, not for the full site shell
+
