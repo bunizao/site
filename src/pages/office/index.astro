@@ -1,0 +1,61 @@
+---
+const title = 'Office';
+const description = 'Original Star Office frontend mounted under /office and adapted to the worker-backed room runtime.';
+---
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content={description} />
+    <title>{title}</title>
+    <style>
+      :root {
+        color-scheme: dark;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        margin: 0;
+        width: 100%;
+        min-height: 100%;
+        background: #090b10;
+      }
+
+      body {
+        overflow: hidden;
+        font-family: 'JetBrains Mono', ui-monospace, monospace;
+      }
+
+      .office-frame {
+        width: 100vw;
+        height: 100vh;
+        border: 0;
+        display: block;
+        background: #090b10;
+      }
+    </style>
+  </head>
+  <body>
+    <iframe
+      id="office-frame"
+      class="office-frame"
+      title="Office"
+      loading="eager"
+      referrerpolicy="same-origin"
+    ></iframe>
+
+    <script is:inline>
+      (() => {
+        const frame = document.getElementById('office-frame');
+        if (!frame) return;
+        frame.src = `/office-runtime/index.html${window.location.search || ''}`;
+      })();
+    </script>
+  </body>
+</html>
