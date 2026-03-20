@@ -104,6 +104,18 @@
     }));
   }
 
+  function withOfficeRoomHeader(init) {
+    const headers = new Headers(init?.headers || {});
+    if (!headers.get('x-office-room-id')) {
+      headers.set('x-office-room-id', roomId);
+    }
+
+    return {
+      ...(init || {}),
+      headers,
+    };
+  }
+
   function requireAssetAuth() {
     if (assetDrawerAuthed) return null;
     return { ok: false, code: 'UNAUTHORIZED', msg: 'Asset editor auth required' };
@@ -384,6 +396,10 @@
     if (pathname === '/agent-reject' && method === 'POST') {
       const payload = JSON.parse(init?.body || '{}');
       return responseJson(await updateGuestAuth(String(payload?.agentId || ''), 'rejected'));
+    }
+
+    if (pathname.startsWith('/assets/') || pathname === '/config/gemini') {
+      return originalFetch(input, withOfficeRoomHeader(init));
     }
 
     if (pathname === '/assets/auth/status') {

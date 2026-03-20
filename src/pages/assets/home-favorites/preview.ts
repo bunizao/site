@@ -18,7 +18,16 @@ export const GET: APIRoute = async (context) => {
     });
   }
 
-  return new Response(JSON.stringify({ ok: true, items: state.favorites }), {
-    headers: { 'content-type': 'application/json; charset=utf-8' },
+  const id = String(context.url.searchParams.get('id') || '').trim();
+  const item = state.favorites.find((favorite) => favorite.id === id);
+  if (!item?.base64) {
+    return new Response('Not Found', { status: 404 });
+  }
+
+  return new Response(Buffer.from(item.base64, 'base64'), {
+    headers: {
+      'content-type': item.contentType || 'image/webp',
+      'cache-control': 'no-store',
+    },
   });
 };

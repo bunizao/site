@@ -1,9 +1,16 @@
 import type { APIRoute } from 'astro';
+import { forwardOfficeAssetsRequest } from '@/lib/office-assets-proxy';
 import { getOfficeDrawerState } from '@/lib/office-drawer-store';
 
 export const prerender = false;
 
-export const POST: APIRoute = async ({ request }) => {
+export const POST: APIRoute = async (context) => {
+  const proxied = await forwardOfficeAssetsRequest(context);
+  if (proxied) {
+    return proxied;
+  }
+
+  const { request } = context;
   const payload = await request.json().catch(() => ({}));
   const password = String(payload?.password || '').trim();
   if (password === '1234') {

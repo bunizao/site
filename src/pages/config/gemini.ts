@@ -1,9 +1,15 @@
 import type { APIRoute } from 'astro';
+import { forwardOfficeAssetsRequest } from '@/lib/office-assets-proxy';
 import { getOfficeDrawerState, maskOfficeApiKey } from '@/lib/office-drawer-store';
 
 export const prerender = false;
 
-export const GET: APIRoute = () => {
+export const GET: APIRoute = async (context) => {
+  const proxied = await forwardOfficeAssetsRequest(context);
+  if (proxied) {
+    return proxied;
+  }
+
   const state = getOfficeDrawerState();
   if (!state.authed) {
     return new Response(JSON.stringify({ ok: false, code: 'UNAUTHORIZED', msg: 'Asset editor auth required' }), {
@@ -22,7 +28,13 @@ export const GET: APIRoute = () => {
   });
 };
 
-export const POST: APIRoute = async ({ request }) => {
+export const POST: APIRoute = async (context) => {
+  const proxied = await forwardOfficeAssetsRequest(context);
+  if (proxied) {
+    return proxied;
+  }
+
+  const { request } = context;
   const state = getOfficeDrawerState();
   if (!state.authed) {
     return new Response(JSON.stringify({ ok: false, code: 'UNAUTHORIZED', msg: 'Asset editor auth required' }), {

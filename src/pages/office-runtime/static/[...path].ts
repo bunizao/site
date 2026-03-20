@@ -1,6 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import type { APIRoute } from 'astro';
+import { forwardOfficeAssetsRequest, getOfficeAssetsWorkerUrl } from '@/lib/office-assets-proxy';
 import { getOfficeDrawerState } from '@/lib/office-drawer-store';
 
 export const prerender = false;
@@ -28,7 +29,15 @@ function contentTypeFor(filePath: string): string {
   }
 }
 
-export const GET: APIRoute = async ({ params }) => {
+export const GET: APIRoute = async (context) => {
+  if (getOfficeAssetsWorkerUrl(context)) {
+    const proxied = await forwardOfficeAssetsRequest(context);
+    if (proxied) {
+      return proxied;
+    }
+  }
+
+  const { params } = context;
   const relativePath = Array.isArray(params.path) ? params.path.join('/') : String(params.path || '');
   if (!relativePath) {
     return new Response('Not Found', { status: 404 });
