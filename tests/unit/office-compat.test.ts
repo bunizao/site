@@ -155,7 +155,7 @@ describe('office compat guest flow', () => {
       return new Response('Not Found', { status: 404 });
     });
 
-    globalThis.fetch = fetchMock as typeof globalThis.fetch;
+    globalThis.fetch = fetchMock as unknown as typeof globalThis.fetch;
   });
 
   afterEach(() => {
