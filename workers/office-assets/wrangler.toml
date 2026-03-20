@@ -1,0 +1,16 @@
+name = "office-assets"
+main = "src/index.ts"
+compatibility_date = "2024-01-01"
+workers_dev = true
+
+[vars]
+OFFICE_DEFAULT_ROOM_ID = "demo"
+
+[[d1_databases]]
+binding = "OFFICE_ASSETS_DB"
+database_name = "office-assets"
+database_id = "replace-me"
+
+[[r2_buckets]]
+binding = "OFFICE_ASSETS_BUCKET"
+bucket_name = "office-assets"
