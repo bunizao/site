@@ -35,7 +35,7 @@ interface MockSnapshot {
   };
 }
 
-function createContext(path: string, method: string, body?: unknown) {
+function createContext(path: string, method: string, body?: unknown, env: Record<string, string> = {}) {
   const url = new URL(`http://example.test${path}`);
   const request = new Request(url, {
     method,
@@ -47,7 +47,7 @@ function createContext(path: string, method: string, body?: unknown) {
     body: body ? JSON.stringify(body) : undefined,
   });
 
-  return { request, url, locals: {} } as any;
+  return { request, url, locals: { env } } as any;
 }
 
 describe('office compat guest flow', () => {
@@ -202,5 +202,68 @@ describe('office compat guest flow', () => {
 
     const agentsAfterLeave = await (await getAgentsResponse(createContext('/agents', 'GET'))).json() as Array<{ agentId: string }>;
     expect(agentsAfterLeave.some((agent) => agent.agentId === joinData.agentId)).toBe(false);
+  });
+
+  test('rejects invalid join key when configured', async () => {
+    const response = await joinAgentResponse(createContext(
+      '/join-agent',
+      'POST',
+      {
+        name: 'Wrong Key Guest',
+        joinKey: 'bad-key',
+        state: 'idle',
+      },
+      {
+        OFFICE_JOIN_KEYS: 'alpha-key,beta-key',
+      },
+    ));
+    const data = await response.json() as { ok: boolean; msg: string };
+
+    expect(response.status).toBe(403);
+    expect(data.ok).toBe(false);
+  });
+
+  test('enforces join key concurrency limit', async () => {
+    const now = new Date().toISOString();
+    snapshot.agents.push(
+      {
+        id: 'guest-a',
+        label: 'Guest A',
+        role: 'Visitor',
+        summary: '',
+        presence: 'working',
+        updatedAt: now,
+        queue: [],
+        preferences: { preferredZoneId: 'alpha-key' },
+      },
+      {
+        id: 'guest-b',
+        label: 'Guest B',
+        role: 'Visitor',
+        summary: '',
+        presence: 'working',
+        updatedAt: now,
+        queue: [],
+        preferences: { preferredZoneId: 'alpha-key' },
+      },
+    );
+
+    const response = await joinAgentResponse(createContext(
+      '/join-agent',
+      'POST',
+      {
+        name: 'Guest C',
+        joinKey: 'alpha-key',
+        state: 'idle',
+      },
+      {
+        OFFICE_JOIN_KEYS: 'alpha-key',
+        OFFICE_JOIN_MAX_CONCURRENT: '2',
+      },
+    ));
+    const data = await response.json() as { ok: boolean; msg: string };
+
+    expect(response.status).toBe(429);
+    expect(data.ok).toBe(false);
   });
 });
