@@ -210,16 +210,20 @@ const ogImageType = ogImageUrl.endsWith('.png')
         let targetOpacity = 0;
         let velocityX = 0;
         let velocityY = 0;
+        // Smoothed tail — separate spring for the soft-layer offset
+        let tailX = 0;
+        let tailY = 0;
         let lastX = targetX;
         let lastY = targetY;
         let hasPointer = false;
         let frameId = 0;
         let lastFrameTime = performance.now();
         let lastPointerMoveTime = performance.now();
-        const positionSmoothingMs = 42;
-        const opacitySmoothingMs = 72;
-        const velocityDecayMs = 58;
-        const idleFadeDurationMs = 600;
+        const positionSmoothingMs = 38;
+        const opacitySmoothingMs = 90;
+        const velocityDecayMs = 72;
+        const tailSmoothingMs = 110;  // tail lags behind velocity for a gentle comet feel
+        const idleFadeDurationMs = 800;
 
         overlayStyle.setProperty('--spotlight-x', `${currentX}px`);
         overlayStyle.setProperty('--spotlight-y', `${currentY}px`);
@@ -228,12 +232,17 @@ const ogImageType = ogImageUrl.endsWith('.png')
           frameId = 0;
           const deltaMs = Math.min(32, timestamp - lastFrameTime || 16.67);
           lastFrameTime = timestamp;
+
+          // Idle fade: ease-out³ curve so the glow "sinks in" rather than vanishing linearly
           const idleElapsedMs = hasPointer ? Math.max(0, timestamp - lastPointerMoveTime) : idleFadeDurationMs;
-          const idleVisibility = Math.max(0, 1 - idleElapsedMs / idleFadeDurationMs);
+          const idleT = Math.min(1, idleElapsedMs / idleFadeDurationMs);
+          const idleVisibility = 1 - (idleT * idleT * (3 - 2 * idleT)); // smoothstep
           targetOpacity = idleVisibility;
+
           const positionBlend = 1 - Math.exp(-deltaMs / positionSmoothingMs);
-          const opacityBlend = 1 - Math.exp(-deltaMs / opacitySmoothingMs);
+          const opacityBlend  = 1 - Math.exp(-deltaMs / opacitySmoothingMs);
           const velocityDecay = Math.exp(-deltaMs / velocityDecayMs);
+          const tailBlend     = 1 - Math.exp(-deltaMs / tailSmoothingMs);
 
           currentX += (targetX - currentX) * positionBlend;
           currentY += (targetY - currentY) * positionBlend;
@@ -241,20 +250,27 @@ const ogImageType = ogImageUrl.endsWith('.png')
           velocityX *= velocityDecay;
           velocityY *= velocityDecay;
 
-          const speed = Math.min(1, Math.hypot(velocityX, velocityY) / 28);
+          // Tail spring: lerp toward current velocity — smooths out micro-jitter
+          tailX += (velocityX - tailX) * tailBlend;
+          tailY += (velocityY - tailY) * tailBlend;
+
+          // speed: normalise, then apply sqrt so slow movement still reads as motion
+          const rawSpeed = Math.hypot(tailX, tailY);
+          const speed = Math.min(1, Math.sqrt(rawSpeed / 20));
+
           overlayStyle.setProperty('--spotlight-x', `${currentX}px`);
           overlayStyle.setProperty('--spotlight-y', `${currentY}px`);
-          overlayStyle.setProperty('--spotlight-tail-x', `${velocityX * 1.1}px`);
-          overlayStyle.setProperty('--spotlight-tail-y', `${velocityY * 1.1}px`);
-          overlayStyle.setProperty('--spotlight-soft-radius', `${236 + speed * 28}px`);
-          overlayStyle.setProperty('--spotlight-core-radius', `${124 + speed * 14}px`);
-          overlayStyle.setProperty('--spotlight-soft-opacity', `${(currentOpacity * 0.28).toFixed(3)}`);
-          overlayStyle.setProperty('--spotlight-core-opacity', `${(currentOpacity * 0.96).toFixed(3)}`);
+          overlayStyle.setProperty('--spotlight-tail-x', `${tailX * 1.4}px`);
+          overlayStyle.setProperty('--spotlight-tail-y', `${tailY * 1.4}px`);
+          overlayStyle.setProperty('--spotlight-soft-radius', `${170 + speed * 30}px`);
+          overlayStyle.setProperty('--spotlight-core-radius', `${88 + speed * 14}px`);
+          overlayStyle.setProperty('--spotlight-soft-opacity', `${(currentOpacity * 0.26).toFixed(3)}`);
+          overlayStyle.setProperty('--spotlight-core-opacity', `${(currentOpacity * 0.98).toFixed(3)}`);
 
           if (
             Math.abs(targetX - currentX) > 0.15 ||
             Math.abs(targetY - currentY) > 0.15 ||
-            Math.abs(targetOpacity - currentOpacity) > 0.015 ||
+            Math.abs(targetOpacity - currentOpacity) > 0.008 ||
             targetOpacity > 0
           ) {
             frameId = window.requestAnimationFrame(tick);

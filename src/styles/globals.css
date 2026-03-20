@@ -164,8 +164,8 @@
     --spotlight-y: 30vh;
     --spotlight-tail-x: 0px;
     --spotlight-tail-y: 0px;
-    --spotlight-soft-radius: 240px;
-    --spotlight-core-radius: 128px;
+    --spotlight-soft-radius: 180px;
+    --spotlight-core-radius: 96px;
     --spotlight-soft-opacity: 0;
     --spotlight-core-opacity: 0;
   }
@@ -187,45 +187,49 @@
 
   .spotlight-overlay__grid--soft {
     opacity: var(--spotlight-soft-opacity);
-    filter: blur(0.55px);
+    filter: blur(0.4px);
+    /* Comet halo: larger, egg-shaped, offset toward the tail for a trailing feel */
     mask-image:
       radial-gradient(
-        ellipse calc(var(--spotlight-soft-radius) + 22px) calc(var(--spotlight-soft-radius) * 0.68)
-        at calc(var(--spotlight-x) - var(--spotlight-tail-x))
-        calc(var(--spotlight-y) - var(--spotlight-tail-y)),
-        rgba(0, 0, 0, 0.82) 0%,
-        rgba(0, 0, 0, 0.32) 40%,
+        ellipse calc(var(--spotlight-soft-radius) + 32px) calc(var(--spotlight-soft-radius) * 0.62)
+        at calc(var(--spotlight-x) - var(--spotlight-tail-x) * 0.7)
+        calc(var(--spotlight-y) - var(--spotlight-tail-y) * 0.7),
+        rgba(0, 0, 0, 0.72) 0%,
+        rgba(0, 0, 0, 0.38) 38%,
+        rgba(0, 0, 0, 0.08) 68%,
         transparent 100%
       );
     -webkit-mask-image:
       radial-gradient(
-        ellipse calc(var(--spotlight-soft-radius) + 22px) calc(var(--spotlight-soft-radius) * 0.68)
-        at calc(var(--spotlight-x) - var(--spotlight-tail-x))
-        calc(var(--spotlight-y) - var(--spotlight-tail-y)),
-        rgba(0, 0, 0, 0.82) 0%,
-        rgba(0, 0, 0, 0.32) 40%,
+        ellipse calc(var(--spotlight-soft-radius) + 32px) calc(var(--spotlight-soft-radius) * 0.62)
+        at calc(var(--spotlight-x) - var(--spotlight-tail-x) * 0.7)
+        calc(var(--spotlight-y) - var(--spotlight-tail-y) * 0.7),
+        rgba(0, 0, 0, 0.72) 0%,
+        rgba(0, 0, 0, 0.38) 38%,
+        rgba(0, 0, 0, 0.08) 68%,
         transparent 100%
       );
   }
 
   .spotlight-overlay__grid--core {
     opacity: var(--spotlight-core-opacity);
+    /* Tight crisp nucleus pinned exactly to the cursor — no offset */
     mask-image:
       radial-gradient(
-        ellipse var(--spotlight-core-radius) calc(var(--spotlight-core-radius) * 0.7)
+        ellipse var(--spotlight-core-radius) calc(var(--spotlight-core-radius) * 0.72)
         at var(--spotlight-x) var(--spotlight-y),
         rgba(0, 0, 0, 1) 0%,
-        rgba(0, 0, 0, 0.92) 24%,
-        rgba(0, 0, 0, 0.36) 56%,
+        rgba(0, 0, 0, 0.88) 20%,
+        rgba(0, 0, 0, 0.28) 52%,
         transparent 100%
       );
     -webkit-mask-image:
       radial-gradient(
-        ellipse var(--spotlight-core-radius) calc(var(--spotlight-core-radius) * 0.7)
+        ellipse var(--spotlight-core-radius) calc(var(--spotlight-core-radius) * 0.72)
         at var(--spotlight-x) var(--spotlight-y),
         rgba(0, 0, 0, 1) 0%,
-        rgba(0, 0, 0, 0.92) 24%,
-        rgba(0, 0, 0, 0.36) 56%,
+        rgba(0, 0, 0, 0.88) 20%,
+        rgba(0, 0, 0, 0.28) 52%,
         transparent 100%
       );
   }
