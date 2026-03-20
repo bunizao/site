@@ -4,12 +4,22 @@ export interface OfficeCompatConfig {
   workerBase: string;
   roomId: string;
   joinKey: string;
+  joinKeys: string[];
+  joinMaxConcurrent: number;
 }
 
 interface OfficeCompatAgent {
   id: string;
   label: string;
   role?: string;
+  appearance?: {
+    spriteVariant?: string;
+  };
+  preferences?: {
+    preferredSeatId?: string;
+    preferredZoneId?: string;
+    allowRoaming?: boolean;
+  };
   summary?: string;
   thought?: string;
   mood?: string;
@@ -75,6 +85,27 @@ function deterministicAvatar(agentId: string): string {
   const hash = [...agentId].reduce((sum, char) => sum + char.charCodeAt(0), 0);
   const variant = (hash % 6) + 1;
   return `guest_role_${variant}`;
+}
+
+function parseJoinKeys(raw: string): string[] {
+  const value = raw.trim();
+  if (!value) return [];
+
+  try {
+    const parsed = JSON.parse(value);
+    if (Array.isArray(parsed)) {
+      return parsed
+        .map((entry) => String(entry || '').trim())
+        .filter(Boolean);
+    }
+  } catch {
+    // Ignore JSON parse failures and fall back to comma-separated parsing.
+  }
+
+  return value
+    .split(',')
+    .map((entry) => entry.trim())
+    .filter(Boolean);
 }
 
 export function normalizeState(input: string | undefined | null): string {
@@ -153,11 +184,15 @@ export function getOfficeCompatConfig(context: APIContext): OfficeCompatConfig {
   const workerBase = trimTrailingSlash(queryWorkerBase || readEnv(context.locals, 'PUBLIC_AGENTS_OFFICE_URL'));
   const roomId = queryRoomId || readEnv(context.locals, 'PUBLIC_AGENTS_OFFICE_ROOM_ID') || 'demo';
   const joinKey = readEnv(context.locals, 'OFFICE_JOIN_KEY');
+  const joinKeys = parseJoinKeys(readEnv(context.locals, 'OFFICE_JOIN_KEYS') || joinKey);
+  const joinMaxConcurrent = Number.parseInt(readEnv(context.locals, 'OFFICE_JOIN_MAX_CONCURRENT') || '3', 10);
 
   return {
     workerBase,
     roomId,
     joinKey,
+    joinKeys,
+    joinMaxConcurrent: Number.isFinite(joinMaxConcurrent) ? joinMaxConcurrent : 3,
   };
 }
 
@@ -193,6 +228,33 @@ export async function postEvent(config: OfficeCompatConfig, event: Record<string
   if (!response.ok) {
     throw new Error(`Event push failed with ${response.status}.`);
   }
+}
+
+async function upsertCompatAgent(
+  config: OfficeCompatConfig,
+  agent: OfficeCompatAgent,
+  patch: Partial<OfficeCompatAgent>,
+): Promise<void> {
+  await postEvent(config, {
+    type: 'agent.upsert',
+    agent: {
+      ...agent,
+      ...patch,
+      appearance: {
+        ...(agent.appearance || {}),
+        ...(patch.appearance || {}),
+      },
+      preferences: {
+        ...(agent.preferences || {}),
+        ...(patch.preferences || {}),
+      },
+      queue: patch.queue ?? agent.queue ?? [],
+      summary: patch.summary ?? agent.summary ?? '',
+      presence: patch.presence ?? agent.presence ?? 'idle',
+      mood: patch.mood ?? agent.mood ?? 'neutral',
+      updatedAt: new Date().toISOString(),
+    },
+  });
 }
 
 export async function getStatusResponse(context: APIContext): Promise<Response> {
@@ -245,7 +307,7 @@ export async function getAgentsResponse(context: APIContext): Promise<Response> 
         authStatus,
         authExpiresAt: null,
         lastPushAt: updatedAt,
-        avatar: deterministicAvatar(agent.id),
+        avatar: agent.appearance?.spriteVariant || deterministicAvatar(agent.id),
       };
     });
 
@@ -386,14 +448,35 @@ export async function joinAgentResponse(context: APIContext): Promise<Response> 
       return json({ ok: false, msg: 'Missing name.' }, 400);
     }
 
-    if (config.joinKey && joinKey !== config.joinKey) {
+    const allowedJoinKeys = config.joinKeys.length > 0
+      ? config.joinKeys
+      : (config.joinKey ? [config.joinKey] : []);
+    if (allowedJoinKeys.length > 0 && !allowedJoinKeys.includes(joinKey)) {
       return json({ ok: false, msg: 'Invalid join key.' }, 403);
     }
 
     const snapshot = await fetchSnapshot(config);
     const agents = snapshot.agents || [];
-    const existing = agents.find((agent) => agent.label === name && agent.id !== pickMainAgent(agents)?.id);
+    const mainAgent = pickMainAgent(agents);
+    const existing = agents.find((agent) => agent.label === name && agent.id !== mainAgent?.id);
+    const activeCount = agents.filter((agent) => {
+      if (mainAgent && agent.id === mainAgent.id) return false;
+      if (existing && agent.id === existing.id) return false;
+      if ((agent.preferences?.preferredZoneId || '') !== joinKey) return false;
+      const updatedAt = agent.updatedAt ? new Date(agent.updatedAt).getTime() : 0;
+      if (!updatedAt) return false;
+      return Date.now() - updatedAt <= 5 * 60 * 1000;
+    }).length;
+
+    if (joinKey && activeCount >= config.joinMaxConcurrent) {
+      return json({
+        ok: false,
+        msg: `Join key is at concurrent limit (${config.joinMaxConcurrent}).`,
+      }, 429);
+    }
+
     const agentId = existing?.id || `agent_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+    const spriteVariant = existing?.appearance?.spriteVariant || deterministicAvatar(agentId);
 
     if (!existing) {
       await postEvent(config, {
@@ -401,6 +484,26 @@ export async function joinAgentResponse(context: APIContext): Promise<Response> 
         agentId,
         label: name,
         role: 'Visitor',
+        appearance: {
+          spriteVariant,
+        },
+        preferences: {
+          preferredZoneId: joinKey || undefined,
+          allowRoaming: true,
+        },
+      });
+    } else {
+      await upsertCompatAgent(config, existing, {
+        label: name,
+        role: existing.role || 'Visitor',
+        appearance: {
+          spriteVariant,
+        },
+        preferences: {
+          ...(existing.preferences || {}),
+          preferredZoneId: joinKey || existing.preferences?.preferredZoneId,
+          allowRoaming: true,
+        },
       });
     }
 
@@ -448,7 +551,10 @@ export async function agentPushResponse(context: APIContext): Promise<Response> 
       return json({ ok: false, msg: 'Missing agentId/state.' }, 400);
     }
 
-    if (config.joinKey && joinKey !== config.joinKey) {
+    const allowedJoinKeys = config.joinKeys.length > 0
+      ? config.joinKeys
+      : (config.joinKey ? [config.joinKey] : []);
+    if (allowedJoinKeys.length > 0 && !allowedJoinKeys.includes(joinKey)) {
       return json({ ok: false, msg: 'joinKey mismatch.' }, 403);
     }
 
@@ -458,14 +564,13 @@ export async function agentPushResponse(context: APIContext): Promise<Response> 
       return json({ ok: false, msg: 'agent not registered, join first.' }, 404);
     }
 
+    if ((target.preferences?.preferredZoneId || '') && joinKey && target.preferences?.preferredZoneId !== joinKey) {
+      return json({ ok: false, msg: 'joinKey mismatch.' }, 403);
+    }
+
     if (name && name !== target.label) {
-      await postEvent(config, {
-        type: 'agent.upsert',
-        agent: {
-          ...target,
-          id: agentId,
-          label: name,
-        },
+      await upsertCompatAgent(config, target, {
+        label: name,
       });
     }
 
