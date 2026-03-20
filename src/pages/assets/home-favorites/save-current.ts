@@ -18,6 +18,8 @@ export const POST: APIRoute = () => {
     url: '/office-runtime/static/office_bg_small.webp',
     thumb_url: '/office-runtime/static/office_bg_small.webp',
     created_at: new Date().toISOString(),
+    contentType: state.uploadedAssets['office_bg_small.webp']?.contentType || 'image/webp',
+    base64: state.uploadedAssets['office_bg_small.webp']?.base64 || '',
   };
   state.favorites = [item, ...state.favorites].slice(0, 30);
 

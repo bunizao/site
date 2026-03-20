@@ -1,3 +1,6 @@
+import { readFile } from 'node:fs/promises';
+import path from 'node:path';
+
 interface OfficeGeminiConfig {
   apiKey: string;
   model: string;
@@ -8,12 +11,27 @@ interface OfficeAssetState {
   gemini: OfficeGeminiConfig;
   positions: Record<string, { x: number; y: number; scale: number; updated_at: string }>;
   defaults: Record<string, { x: number; y: number; scale: number; updated_at: string }>;
+  uploadedAssets: Record<string, {
+    contentType: string;
+    base64: string;
+    defaultAsset?: {
+      contentType: string;
+      base64: string;
+    };
+    previousAsset?: {
+      contentType: string;
+      base64: string;
+    };
+    updated_at: string;
+  }>;
   favorites: Array<{
     id: string;
     path: string;
     url: string;
     thumb_url: string;
     created_at: string;
+    contentType?: string;
+    base64?: string;
   }>;
 }
 
@@ -66,6 +84,8 @@ const STATIC_ASSET_ITEMS = [
   mtime: '',
 }));
 
+const STATIC_ROOT = '/Users/tutu/Library/CloudStorage/Dropbox/Dev/site/public/office-runtime/static';
+
 function getInitialState(): OfficeAssetState {
   return {
     authed: false,
@@ -75,6 +95,7 @@ function getInitialState(): OfficeAssetState {
     },
     positions: {},
     defaults: {},
+    uploadedAssets: {},
     favorites: [],
   };
 }
@@ -95,4 +116,28 @@ export function maskOfficeApiKey(value: string): string {
 
 export function getOfficeStaticAssetItems() {
   return STATIC_ASSET_ITEMS;
+}
+
+export function getOfficeStaticAssetPath(relativePath: string): string {
+  return path.resolve(STATIC_ROOT, relativePath);
+}
+
+export async function readOfficeStaticAssetSnapshot(relativePath: string): Promise<{ contentType: string; base64: string } | null> {
+  try {
+    const absolutePath = getOfficeStaticAssetPath(relativePath);
+    const data = await readFile(absolutePath);
+    const ext = path.extname(relativePath).toLowerCase();
+    const contentType =
+      ext === '.png' ? 'image/png'
+      : ext === '.webp' ? 'image/webp'
+      : ext === '.jpg' || ext === '.jpeg' ? 'image/jpeg'
+      : ext === '.gif' ? 'image/gif'
+      : 'application/octet-stream';
+    return {
+      contentType,
+      base64: Buffer.from(data).toString('base64'),
+    };
+  } catch {
+    return null;
+  }
 }

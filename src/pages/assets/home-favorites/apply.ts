@@ -22,6 +22,21 @@ export const POST: APIRoute = async ({ request }) => {
     });
   }
 
+  if (hit.base64) {
+    state.uploadedAssets['office_bg_small.webp'] = {
+      contentType: hit.contentType || 'image/webp',
+      base64: hit.base64,
+      defaultAsset: state.uploadedAssets['office_bg_small.webp']?.defaultAsset,
+      previousAsset: state.uploadedAssets['office_bg_small.webp']
+        ? {
+            contentType: state.uploadedAssets['office_bg_small.webp'].contentType,
+            base64: state.uploadedAssets['office_bg_small.webp'].base64,
+          }
+        : undefined,
+      updated_at: new Date().toISOString(),
+    };
+  }
+
   return new Response(JSON.stringify({ ok: true, path: 'office_bg_small.webp', from: hit.path, msg: '已应用收藏地图' }), {
     headers: { 'content-type': 'application/json; charset=utf-8' },
   });
