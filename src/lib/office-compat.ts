@@ -1,4 +1,14 @@
 import type { APIContext } from 'astro';
+import {
+  approveOfficeGuestAuth,
+  markOfficeGuestPush,
+  rejectOfficeGuestAuth,
+  removeOfficeGuestAuth,
+  syncOfficeGuestAuthRecord,
+  upsertPendingOfficeGuestAuth,
+  type OfficeGuestAuthConfig,
+  type OfficeGuestAuthStatus,
+} from '@/lib/office-guest-auth-store';
 
 export interface OfficeCompatConfig {
   workerBase: string;
@@ -6,6 +16,7 @@ export interface OfficeCompatConfig {
   joinKey: string;
   joinKeys: string[];
   joinMaxConcurrent: number;
+  guestAuth: OfficeGuestAuthConfig;
 }
 
 interface OfficeCompatAgent {
@@ -108,6 +119,14 @@ function parseJoinKeys(raw: string): string[] {
     .filter(Boolean);
 }
 
+function parseDurationMs(raw: string, fallback: number): number {
+  const parsed = Number.parseInt(raw.trim(), 10);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return fallback;
+  }
+  return parsed;
+}
+
 export function normalizeState(input: string | undefined | null): string {
   const state = String(input || '').trim().toLowerCase();
   if (['idle', 'writing', 'researching', 'executing', 'syncing', 'error'].includes(state)) {
@@ -186,6 +205,9 @@ export function getOfficeCompatConfig(context: APIContext): OfficeCompatConfig {
   const joinKey = readEnv(context.locals, 'OFFICE_JOIN_KEY');
   const joinKeys = parseJoinKeys(readEnv(context.locals, 'OFFICE_JOIN_KEYS') || joinKey);
   const joinMaxConcurrent = Number.parseInt(readEnv(context.locals, 'OFFICE_JOIN_MAX_CONCURRENT') || '3', 10);
+  const pendingTtlMs = parseDurationMs(readEnv(context.locals, 'OFFICE_JOIN_PENDING_TTL_MS') || '', 10 * 60 * 1000);
+  const approvedTtlMs = parseDurationMs(readEnv(context.locals, 'OFFICE_JOIN_APPROVED_TTL_MS') || '', 12 * 60 * 60 * 1000);
+  const offlineAfterMs = parseDurationMs(readEnv(context.locals, 'OFFICE_JOIN_OFFLINE_AFTER_MS') || '', 5 * 60 * 1000);
 
   return {
     workerBase,
@@ -193,6 +215,11 @@ export function getOfficeCompatConfig(context: APIContext): OfficeCompatConfig {
     joinKey,
     joinKeys,
     joinMaxConcurrent: Number.isFinite(joinMaxConcurrent) ? joinMaxConcurrent : 3,
+    guestAuth: {
+      pendingTtlMs,
+      approvedTtlMs,
+      offlineAfterMs,
+    },
   };
 }
 
@@ -293,8 +320,10 @@ export async function getAgentsResponse(context: APIContext): Promise<Response> 
     const payload = agents.map((agent) => {
       const state = inferVisualState(agent);
       const updatedAt = agent.updatedAt || snapshot.updatedAt || new Date().toISOString();
+      const authRecord = syncOfficeGuestAuthRecord(config.roomId, agent.id, config.guestAuth, now);
       const ageSeconds = Math.max(0, (now - new Date(updatedAt).getTime()) / 1000);
-      const authStatus = ageSeconds > 300 ? 'offline' : 'approved';
+      const fallbackAuthStatus: OfficeGuestAuthStatus = ageSeconds > 300 ? 'offline' : 'approved';
+      const authStatus = authRecord?.authStatus || fallbackAuthStatus;
       return {
         agentId: agent.id,
         name: agent.label,
@@ -305,8 +334,8 @@ export async function getAgentsResponse(context: APIContext): Promise<Response> 
         area: stateToArea(state),
         source: !!mainAgent && agent.id === mainAgent.id ? 'local' : 'remote-openclaw',
         authStatus,
-        authExpiresAt: null,
-        lastPushAt: updatedAt,
+        authExpiresAt: authRecord?.authExpiresAt || authRecord?.expiresAt || null,
+        lastPushAt: authRecord?.lastPushAt || updatedAt,
         avatar: agent.appearance?.spriteVariant || deterministicAvatar(agent.id),
       };
     });
@@ -395,6 +424,7 @@ export async function leaveAgentResponse(context: APIContext): Promise<Response>
       type: 'agent.remove',
       agentId: target.id,
     });
+    removeOfficeGuestAuth(config.roomId, target.id);
 
     return json({ ok: true });
   } catch (error) {
@@ -404,12 +434,23 @@ export async function leaveAgentResponse(context: APIContext): Promise<Response>
 
 export async function agentApproveResponse(context: APIContext): Promise<Response> {
   try {
+    const config = getOfficeCompatConfig(context);
     const payload = await context.request.json().catch(() => ({}));
     const agentId = String(payload?.agentId || '').trim();
     if (!agentId) {
       return json({ ok: false, msg: 'Missing agentId.' }, 400);
     }
-    return json({ ok: true, agentId, authStatus: 'approved' });
+    const authRecord = approveOfficeGuestAuth(config.roomId, agentId, config.guestAuth);
+    if (!authRecord) {
+      return json({ ok: false, msg: 'Agent not found.' }, 404);
+    }
+
+    return json({
+      ok: true,
+      agentId,
+      authStatus: authRecord.authStatus,
+      authExpiresAt: authRecord.authExpiresAt,
+    });
   } catch (error) {
     return json({ ok: false, msg: errorMessage(error, 'Failed to approve agent.') }, 500);
   }
@@ -424,10 +465,16 @@ export async function agentRejectResponse(context: APIContext): Promise<Response
       return json({ ok: false, msg: 'Missing agentId.' }, 400);
     }
 
+    const authRecord = rejectOfficeGuestAuth(config.roomId, agentId);
+    if (!authRecord) {
+      return json({ ok: false, msg: 'Agent not found.' }, 404);
+    }
+
     await postEvent(config, {
       type: 'agent.remove',
       agentId,
     });
+    removeOfficeGuestAuth(config.roomId, agentId);
 
     return json({ ok: true, agentId, authStatus: 'rejected' });
   } catch (error) {
@@ -526,11 +573,22 @@ export async function joinAgentResponse(context: APIContext): Promise<Response> 
       });
     }
 
+    const authRecord = upsertPendingOfficeGuestAuth(
+      config.roomId,
+      {
+        agentId,
+        name,
+        joinKey,
+      },
+      config.guestAuth,
+    );
+
     return json({
       ok: true,
       agentId,
-      authStatus: 'approved',
-      nextStep: 'Approved automatically. Start pushing status.',
+      authStatus: authRecord.authStatus,
+      authExpiresAt: authRecord.expiresAt,
+      nextStep: 'Waiting for approval before status push.',
     });
   } catch (error) {
     return json({ ok: false, msg: errorMessage(error, 'Failed to join agent.') }, 500);
@@ -563,6 +621,19 @@ export async function agentPushResponse(context: APIContext): Promise<Response> 
     if (!target) {
       return json({ ok: false, msg: 'agent not registered, join first.' }, 404);
     }
+    const authRecord = syncOfficeGuestAuthRecord(config.roomId, agentId, config.guestAuth);
+    if (!authRecord) {
+      return json({ ok: false, msg: 'agent not registered, join first.' }, 404);
+    }
+    if (authRecord.authStatus === 'pending') {
+      return json({ ok: false, msg: 'Agent approval pending.' }, 403);
+    }
+    if (authRecord.authStatus === 'rejected') {
+      return json({ ok: false, msg: 'Agent approval rejected.' }, 403);
+    }
+    if (authRecord.authStatus === 'offline' && !authRecord.authExpiresAt) {
+      return json({ ok: false, msg: 'Agent approval expired. Rejoin required.' }, 403);
+    }
 
     if ((target.preferences?.preferredZoneId || '') && joinKey && target.preferences?.preferredZoneId !== joinKey) {
       return json({ ok: false, msg: 'joinKey mismatch.' }, 403);
@@ -590,8 +661,15 @@ export async function agentPushResponse(context: APIContext): Promise<Response> 
       thought: detail || null,
       ttl: detail ? 120000 : undefined,
     });
+    const pushed = markOfficeGuestPush(config.roomId, agentId, config.guestAuth);
 
-    return json({ ok: true, agentId, area: stateToArea(state) });
+    return json({
+      ok: true,
+      agentId,
+      area: stateToArea(state),
+      authStatus: pushed?.authStatus || 'approved',
+      lastPushAt: pushed?.lastPushAt || new Date().toISOString(),
+    });
   } catch (error) {
     return json({ ok: false, msg: errorMessage(error, 'Failed to push agent state.') }, 500);
   }

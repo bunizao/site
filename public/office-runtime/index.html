@@ -3452,7 +3452,11 @@ function toggleBrokerPanel() {
                 const stateText = stateMap[state] || state;
                 const subtitle = `${statusText} · ${stateText}`;
 
-                const pendingActions = `<button onclick="alert('交换 skill 功能开发中')">交换skill</button><button class="leave-btn" onclick="leaveGuestAgent('${agent.agentId}','${name}')">离开房间</button>`;
+                const actionButtons = authStatus === 'pending'
+                    ? `<button onclick="approveGuestAgent('${agent.agentId}')">批准</button><button class="leave-btn" onclick="rejectGuestAgent('${agent.agentId}')">拒绝</button>`
+                    : authStatus === 'rejected'
+                        ? `<button class="leave-btn" onclick="leaveGuestAgent('${agent.agentId}','${name}')">清理</button>`
+                        : `<button onclick="alert('交换 skill 功能开发中')">交换skill</button><button class="leave-btn" onclick="leaveGuestAgent('${agent.agentId}','${name}')">离开房间</button>`;
 
                 return `
                   <div class="guest-agent-item" data-name="${name}">
@@ -3461,7 +3465,7 @@ function toggleBrokerPanel() {
                       <div style="font-size:11px;color:#cbd5e1;">${subtitle}</div>
                     </div>
                     <div class="guest-agent-buttons">
-                      ${pendingActions}
+                      ${actionButtons}
                     </div>
                   </div>
                 `;

@@ -1,10 +1,12 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from 'bun:test';
 import {
+  agentApproveResponse,
   agentPushResponse,
   getAgentsResponse,
   joinAgentResponse,
   leaveAgentResponse,
 } from '@/lib/office-compat';
+import { resetOfficeGuestAuthState } from '@/lib/office-guest-auth-store';
 
 interface MockAgent {
   id: string;
@@ -55,6 +57,7 @@ describe('office compat guest flow', () => {
   let fetchMock: ReturnType<typeof mock>;
 
   beforeEach(() => {
+    resetOfficeGuestAuthState();
     snapshot = {
       updatedAt: new Date().toISOString(),
       agents: [
@@ -169,10 +172,27 @@ describe('office compat guest flow', () => {
       state: 'idle',
       detail: 'compat join',
     }));
-    const joinData = await joinResponse.json() as { ok: boolean; agentId: string };
+    const joinData = await joinResponse.json() as { ok: boolean; agentId: string; authStatus: string };
 
     expect(joinData.ok).toBe(true);
     expect(typeof joinData.agentId).toBe('string');
+    expect(joinData.authStatus).toBe('pending');
+
+    const pendingPush = await agentPushResponse(createContext('/agent-push', 'POST', {
+      agentId: joinData.agentId,
+      joinKey: '',
+      state: 'writing',
+      detail: 'editing implementation task',
+      name: 'Compat Guest',
+    }));
+    expect(pendingPush.status).toBe(403);
+
+    const approveResponse = await agentApproveResponse(createContext('/agent-approve', 'POST', {
+      agentId: joinData.agentId,
+    }));
+    const approveData = await approveResponse.json() as { ok: boolean; authStatus: string };
+    expect(approveData.ok).toBe(true);
+    expect(approveData.authStatus).toBe('approved');
 
     const pushResponse = await agentPushResponse(createContext('/agent-push', 'POST', {
       agentId: joinData.agentId,
@@ -187,11 +207,12 @@ describe('office compat guest flow', () => {
     expect(pushData.area).toBe('writing');
 
     const agentsResponse = await getAgentsResponse(createContext('/agents', 'GET'));
-    const agentsData = await agentsResponse.json() as Array<{ agentId: string; state: string }>;
+    const agentsData = await agentsResponse.json() as Array<{ agentId: string; state: string; authStatus: string }>;
     const guest = agentsData.find((agent) => agent.agentId === joinData.agentId);
 
     expect(guest).toBeDefined();
     expect(guest?.state).toBe('writing');
+    expect(guest?.authStatus).toBe('approved');
 
     const leaveResponse = await leaveAgentResponse(createContext('/leave-agent', 'POST', {
       agentId: joinData.agentId,
@@ -265,5 +286,45 @@ describe('office compat guest flow', () => {
 
     expect(response.status).toBe(429);
     expect(data.ok).toBe(false);
+  });
+
+  test('marks approved guest offline after push timeout', async () => {
+    const joinResponse = await joinAgentResponse(createContext('/join-agent', 'POST', {
+      name: 'Offline Guest',
+      joinKey: '',
+      state: 'idle',
+    }, {
+      OFFICE_JOIN_OFFLINE_AFTER_MS: '1000',
+      OFFICE_JOIN_APPROVED_TTL_MS: '120000',
+    }));
+    const joinData = await joinResponse.json() as { agentId: string };
+
+    await agentApproveResponse(createContext('/agent-approve', 'POST', {
+      agentId: joinData.agentId,
+    }, {
+      OFFICE_JOIN_OFFLINE_AFTER_MS: '1000',
+      OFFICE_JOIN_APPROVED_TTL_MS: '120000',
+    }));
+
+    await agentPushResponse(createContext('/agent-push', 'POST', {
+      agentId: joinData.agentId,
+      joinKey: '',
+      state: 'idle',
+      name: 'Offline Guest',
+    }, {
+      OFFICE_JOIN_OFFLINE_AFTER_MS: '1000',
+      OFFICE_JOIN_APPROVED_TTL_MS: '120000',
+    }));
+
+    await new Promise((resolve) => setTimeout(resolve, 1100));
+
+    const agentsResponse = await getAgentsResponse(createContext('/agents', 'GET', undefined, {
+      OFFICE_JOIN_OFFLINE_AFTER_MS: '1000',
+      OFFICE_JOIN_APPROVED_TTL_MS: '120000',
+    }));
+    const agentsData = await agentsResponse.json() as Array<{ agentId: string; authStatus: string }>;
+    const guest = agentsData.find((agent) => agent.agentId === joinData.agentId);
+
+    expect(guest?.authStatus).toBe('offline');
   });
 });

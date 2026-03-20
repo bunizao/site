@@ -185,7 +185,11 @@
           });
           const data = await response.json();
           if (data.ok) {
-            showStatus('加入成功！刷新办公室就能看到你啦 ✨', true);
+            if (data.authStatus === 'pending') {
+              showStatus('已提交加入申请，等待办公室批准后再开始推送状态 ✨', true);
+            } else {
+              showStatus('加入成功！刷新办公室就能看到你啦 ✨', true);
+            }
           } else {
             showStatus(data.msg || '加入失败', false);
           }
