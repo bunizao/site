@@ -30,6 +30,23 @@ test.describe('Preview smoke', () => {
     await expect(page.locator('[data-mood-list]')).toBeVisible();
   });
 
+  test('renders the office host shell', async ({ page }) => {
+    await page.goto('/office');
+
+    await expect(page).toHaveTitle(/Office/i);
+    await expect(page.locator('#office-frame')).toBeVisible();
+  });
+
+  test('renders the office guest entry pages', async ({ page }) => {
+    await page.goto('/join');
+    await expect(page.getByRole('heading', { name: /加入 Star 的像素办公室/i })).toBeVisible();
+    await expect(page.getByRole('button', { name: /加入办公室/i })).toBeVisible();
+
+    await page.goto('/invite');
+    await expect(page.getByRole('heading', { name: /海辛办公室 · 加入邀请/i })).toBeVisible();
+    await expect(page.getByRole('link', { name: /回到海辛办公室/i })).toBeVisible();
+  });
+
   test('serves core API endpoints', async ({ request }, testInfo) => {
     const baseURL = requireBaseUrl(testInfo.project.use.baseURL as string | undefined);
 
