@@ -1,12 +1,43 @@
 (function () {
   const params = new URLSearchParams(window.location.search);
-  const workerBase = (params.get('worker') || '').replace(/\/+$/, '');
-  const roomId = params.get('room') || 'demo';
   const originalFetch = window.fetch.bind(window);
+  const storageKey = 'officeRuntimeConfig';
+  const guestOverridesKey = 'officeRuntimeGuestOverrides';
+  const mainStateOverridesKey = 'officeRuntimeMainStateOverrides';
+
+  let storedConfig = null;
+  try {
+    storedConfig = JSON.parse(sessionStorage.getItem(storageKey) || 'null');
+  } catch (error) {
+    storedConfig = null;
+  }
+
+  const workerBase = (params.get('worker') || storedConfig?.workerBase || '').replace(/\/+$/, '');
+  const roomId = params.get('room') || storedConfig?.roomId || 'demo';
 
   let snapshotCache = null;
   let snapshotFetchedAt = 0;
   let inflightSnapshot = null;
+
+  function readJsonStorage(key, fallback) {
+    try {
+      const raw = sessionStorage.getItem(key);
+      return raw ? JSON.parse(raw) : fallback;
+    } catch (error) {
+      return fallback;
+    }
+  }
+
+  function writeJsonStorage(key, value) {
+    try {
+      sessionStorage.setItem(key, JSON.stringify(value));
+    } catch (error) {
+      // Ignore storage failures in runtime mode.
+    }
+  }
+
+  const guestOverrides = readJsonStorage(guestOverridesKey, {});
+  const mainStateOverrides = readJsonStorage(mainStateOverridesKey, {});
 
   function responseJson(data, status = 200) {
     return Promise.resolve(new Response(JSON.stringify(data), {
@@ -64,7 +95,8 @@
 
   function buildStatus(snapshot) {
     const mainAgent = pickMainAgent(snapshot?.agents || []);
-    const state = normalizeVisualState(mainAgent || {});
+    const overrideState = mainAgent ? mainStateOverrides[mainAgent.id] : null;
+    const state = overrideState?.state || normalizeVisualState(mainAgent || {});
     const detail = mainAgent?.thought
       || mainAgent?.currentTask?.summary
       || mainAgent?.summary
@@ -85,8 +117,10 @@
 
     return agents
       .filter((agent) => !mainAgent || agent.id !== mainAgent.id)
+      .filter((agent) => guestOverrides[agent.id]?.hidden !== true)
       .map((agent) => {
-        const state = normalizeVisualState(agent);
+        const override = guestOverrides[agent.id] || {};
+        const state = override.state || normalizeVisualState(agent);
         return {
           agentId: agent.id,
           name: agent.label || agent.id,
@@ -94,7 +128,7 @@
           state,
           detail: agent.thought || agent.currentTask?.summary || agent.summary || agent.currentTask?.title || '',
           area: stateToArea(state),
-          authStatus: agent.presence === 'offline' ? 'offline' : 'approved',
+          authStatus: override.authStatus || (agent.presence === 'offline' ? 'offline' : 'approved'),
           updated_at: agent.updatedAt || snapshot?.updatedAt || new Date().toISOString(),
         };
       });
@@ -150,6 +184,94 @@
     return inflightSnapshot;
   }
 
+  async function postEvent(event) {
+    if (!workerBase) {
+      throw new Error('Missing worker base URL.');
+    }
+
+    const response = await originalFetch(`${workerBase}/api/rooms/${roomId}/events`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify(event),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Event push failed with ${response.status}`);
+    }
+
+    snapshotCache = null;
+    snapshotFetchedAt = 0;
+    return response;
+  }
+
+  async function setMainAgentState(payload) {
+    const snapshot = await getSnapshot(true);
+    const mainAgent = pickMainAgent(snapshot?.agents || []);
+    if (!mainAgent) {
+      return { ok: false, msg: 'No main agent available.' };
+    }
+
+    const state = String(payload?.state || 'idle');
+    const detail = String(payload?.detail || '').trim();
+
+    mainStateOverrides[mainAgent.id] = {
+      state,
+      detail,
+      updatedAt: new Date().toISOString(),
+    };
+    writeJsonStorage(mainStateOverridesKey, mainStateOverrides);
+
+    const presence =
+      state === 'idle' ? 'idle'
+      : state === 'error' ? 'blocked'
+      : 'working';
+
+    const events = [
+      { type: 'agent.presence.set', agentId: mainAgent.id, presence },
+      { type: 'agent.summary.set', agentId: mainAgent.id, summary: detail || mainAgent.summary || state },
+      { type: 'agent.thought.set', agentId: mainAgent.id, thought: detail || null, ttl: detail ? 120000 : undefined },
+    ];
+
+    for (const event of events) {
+      await postEvent(event);
+    }
+
+    return { ok: true, state, detail };
+  }
+
+  async function leaveGuestAgent(payload) {
+    const agentId = String(payload?.agentId || '');
+    if (!agentId) {
+      return { ok: false, msg: 'Missing agentId.' };
+    }
+
+    guestOverrides[agentId] = {
+      ...(guestOverrides[agentId] || {}),
+      hidden: true,
+    };
+    writeJsonStorage(guestOverridesKey, guestOverrides);
+
+    await postEvent({ type: 'agent.remove', agentId });
+    return { ok: true };
+  }
+
+  async function updateGuestAuth(agentId, authStatus) {
+    if (!agentId) {
+      return { ok: false, msg: 'Missing agentId.' };
+    }
+
+    guestOverrides[agentId] = {
+      ...(guestOverrides[agentId] || {}),
+      authStatus,
+      hidden: false,
+    };
+    writeJsonStorage(guestOverridesKey, guestOverrides);
+
+    return { ok: true, authStatus };
+  }
+
   function unsupportedOk(extra) {
     return { ok: true, ...extra };
   }
@@ -176,6 +298,26 @@
 
     if (pathname === '/health') {
       return responseJson({ ok: true, roomId, workerBase });
+    }
+
+    if (pathname === '/set_state' && method === 'POST') {
+      const payload = JSON.parse(init?.body || '{}');
+      return responseJson(await setMainAgentState(payload));
+    }
+
+    if (pathname === '/leave-agent' && method === 'POST') {
+      const payload = JSON.parse(init?.body || '{}');
+      return responseJson(await leaveGuestAgent(payload));
+    }
+
+    if (pathname === '/agent-approve' && method === 'POST') {
+      const payload = JSON.parse(init?.body || '{}');
+      return responseJson(await updateGuestAuth(String(payload?.agentId || ''), 'approved'));
+    }
+
+    if (pathname === '/agent-reject' && method === 'POST') {
+      const payload = JSON.parse(init?.body || '{}');
+      return responseJson(await updateGuestAuth(String(payload?.agentId || ''), 'rejected'));
     }
 
     if (pathname === '/assets/auth/status') {

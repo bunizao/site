@@ -1,6 +1,8 @@
 ---
 const title = 'Office';
 const description = 'Original Star Office frontend mounted under /office and adapted to the worker-backed room runtime.';
+const defaultWorkerBase = import.meta.env.PUBLIC_AGENTS_OFFICE_URL || '';
+const defaultRoomId = import.meta.env.PUBLIC_AGENTS_OFFICE_ROOM_ID || 'demo';
 ---
 
 <!DOCTYPE html>
@@ -41,7 +43,10 @@ const description = 'Original Star Office frontend mounted under /office and ada
       }
     </style>
   </head>
-  <body>
+  <body
+    data-default-worker-base={defaultWorkerBase}
+    data-default-room-id={defaultRoomId}
+  >
     <iframe
       id="office-frame"
       class="office-frame"
@@ -54,7 +59,27 @@ const description = 'Original Star Office frontend mounted under /office and ada
       (() => {
         const frame = document.getElementById('office-frame');
         if (!frame) return;
-        frame.src = `/office-runtime/index.html${window.location.search || ''}`;
+        const root = document.body;
+        const defaultWorkerBase = root?.dataset.defaultWorkerBase || '';
+        const defaultRoomId = root?.dataset.defaultRoomId || 'demo';
+
+        const query = new URLSearchParams(window.location.search);
+        const runtimeConfig = {
+          workerBase: query.get('worker') || defaultWorkerBase,
+          roomId: query.get('room') || defaultRoomId,
+        };
+
+        try {
+          sessionStorage.setItem('officeRuntimeConfig', JSON.stringify(runtimeConfig));
+        } catch (error) {
+          console.warn('Failed to persist office runtime config.', error);
+        }
+
+        const runtimeQuery = new URLSearchParams();
+        if (query.get('worker')) runtimeQuery.set('worker', query.get('worker'));
+        if (query.get('room')) runtimeQuery.set('room', query.get('room'));
+        const suffix = runtimeQuery.toString();
+        frame.src = `/office-runtime/index.html${suffix ? `?${suffix}` : ''}`;
       })();
     </script>
   </body>
