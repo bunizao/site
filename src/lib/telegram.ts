@@ -1011,6 +1011,34 @@ async function getReactions($: CheerioAPI, item: Element, staticProxy: string): 
   return reactions;
 }
 
+function getNotSupportedVideo(
+  $: CheerioAPI,
+  item: Element,
+  { staticProxy, channel, id }: { staticProxy: string; channel: string; id: string }
+): string {
+  const player = $(item).find('.tgme_widget_message_video_player.not_supported');
+  if (!player.length) return '';
+
+  const thumbStyle = player.find('.tgme_widget_message_video_thumb').attr('style') ?? '';
+  const thumbUrl = extractBackgroundImage(thumbStyle);
+  const proxiedThumb = thumbUrl ? sanitizeUrlValue(toStaticProxyUrl(thumbUrl, staticProxy), 'src') : '';
+
+  const postUrl = sanitizeUrlValue(`https://t.me/${channel}/${id}`, 'href');
+  const imageMarkup = proxiedThumb
+    ? `<span class="bookmark-card__media"><img src="${escapeHtml(proxiedThumb)}" alt="Video" loading="lazy" /></span>`
+    : '';
+
+  return `
+    <a class="bookmark-card" href="${escapeHtml(postUrl)}" target="_blank" rel="noopener noreferrer">
+      ${imageMarkup}
+      <span class="bookmark-card__content">
+        <span class="bookmark-card__title">Watch on Telegram</span>
+        <span class="bookmark-card__meta">t.me</span>
+      </span>
+    </a>
+  `;
+}
+
 async function getPost(
   $: CheerioAPI,
   item: Element | null,
@@ -1072,7 +1100,7 @@ async function getPost(
       getVideoStickers($, messageElement, { staticProxy, index }),
       $(messageElement).find('.tgme_widget_message_poll')?.html(),
       $.html($(messageElement).find('.tgme_widget_message_document_wrap')),
-      $.html($(messageElement).find('.tgme_widget_message_video_player.not_supported')),
+      getNotSupportedVideo($, messageElement, { staticProxy, channel, id }),
       $.html($(messageElement).find('.tgme_widget_message_location_wrap')),
       getLinkPreview($, messageElement, { staticProxy, index }),
     ]
