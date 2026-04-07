@@ -4,6 +4,7 @@ import { getChannelInfo, type ChannelInfo } from '../../lib/telegram';
 import {
   getFirstImage,
   getFirstImageFallback,
+  getFirstVideoPosterSrc,
   getInlineMediaPreview,
   getTextPreview,
   getTextPreviewHtml,
@@ -194,17 +195,19 @@ export const GET: APIRoute = async ({ request, locals }) => {
       const previewText = getTextPreview(post);
       const previewHtml = getTextPreviewHtml(post);
       const firstImage = getFirstImage(post.content);
+      const firstVideoPoster = mediaPreview?.type === 'video' ? getFirstVideoPosterSrc(post.content) : null;
+      const previewImage = firstVideoPoster || firstImage;
       const quote = getQuotePreview(post.content, { channel, channelTitle });
       const hasDetailMedia = hasMedia(post.content) || hasEmojiImageMedia(post.content);
       const needsDetailPage = !mediaPreview && (hasDetailMedia || isLongContent(previewText));
-      const preferStaticImagePreview = mediaPreview?.type === 'video' && !previewText.trim() && Boolean(firstImage);
+      const preferStaticImagePreview = mediaPreview?.type === 'video' && !previewText.trim() && Boolean(previewImage);
       return {
         id: post.id,
         datetime: post.datetime,
         tag: post.tags?.[0] ?? '',
         previewText,
         previewHtml,
-        image: preferStaticImagePreview ? firstImage : mediaPreview ? null : firstImage,
+        image: preferStaticImagePreview ? previewImage : mediaPreview ? null : firstImage,
         imageFallback: mediaPreview ? null : getFirstImageFallback(post.content),
         mediaHtml: preferStaticImagePreview ? '' : mediaPreview?.html ?? '',
         needsDetailPage,

@@ -375,6 +375,12 @@ function getUnsupportedMediaFallback(
   { hdImageBase = '', id, index, title }: ContentProcessorConfig
 ): string {
   const className = $(item).attr('class') ?? '';
+  const hasPlayableVideo = $(item).find('.tgme_widget_message_video_wrap video, .tgme_widget_message_roundvideo_wrap video').length > 0;
+  const hasNotSupportedPlayer = $(item).find('.tgme_widget_message_video_player.not_supported').length > 0;
+  if (hasPlayableVideo || hasNotSupportedPlayer) {
+    return '';
+  }
+
   if (!className.includes('text_not_supported_wrap') || !hdImageBase || !id) {
     return '';
   }
@@ -480,6 +486,48 @@ function getAudio($: CheerioAPI, item: Element, { staticProxy }: ContentProcesso
     return $.html(audio);
   }
   return '';
+}
+
+function getNotSupportedVideo(
+  $: CheerioAPI,
+  item: Element,
+  { staticProxy, channel = '', id = '' }: ContentProcessorConfig
+): string {
+  const player = $(item).find('.tgme_widget_message_video_player.not_supported').first();
+  const hasPlayableVideo = $(item).find('.tgme_widget_message_video_wrap video, .tgme_widget_message_roundvideo_wrap video').length > 0;
+  if (!player.length || hasPlayableVideo || !channel || !id) {
+    return '';
+  }
+
+  const thumbEl = player.find('.tgme_widget_message_video_thumb').first();
+  const thumbStyle = thumbEl.attr('style') ?? '';
+  const thumbUrl = extractBackgroundImage(thumbStyle);
+  const proxiedThumb = thumbUrl ? sanitizeUrlValue(toStaticProxyUrl(thumbUrl, staticProxy), 'src') : '';
+
+  const paddingMatch = thumbStyle.match(/padding-top:\s*([\d.]+)%/i);
+  const paddingPercent = paddingMatch ? Number.parseFloat(paddingMatch[1]) : 0;
+  const aspectStyle = paddingPercent > 0
+    ? ` style="aspect-ratio: ${(100 / paddingPercent).toFixed(4)} / 1"`
+    : '';
+
+  const postUrl = sanitizeUrlValue(`https://t.me/${channel}/${id}`, 'href');
+  if (!postUrl) {
+    return '';
+  }
+
+  const thumbMarkup = proxiedThumb
+    ? `<img class="video-too-big__thumb" src="${escapeHtml(proxiedThumb)}" alt="" loading="lazy" />`
+    : '';
+
+  return `
+    <a class="video-too-big" href="${escapeHtml(postUrl)}" target="_blank" rel="noopener noreferrer"${aspectStyle}>
+      ${thumbMarkup}
+      <span class="video-too-big__overlay">
+        <span class="video-too-big__label">Media is too big</span>
+        <span class="video-too-big__btn">View in Telegram</span>
+      </span>
+    </a>
+  `;
 }
 
 function getLinkPreview($: CheerioAPI, item: Element, { staticProxy, index }: ContentProcessorConfig): string {
@@ -1102,7 +1150,7 @@ async function getPost(
       getVideoStickers($, messageElement, { staticProxy, index }),
       $(messageElement).find('.tgme_widget_message_poll')?.html(),
       $.html($(messageElement).find('.tgme_widget_message_document_wrap')),
-      $.html($(messageElement).find('.tgme_widget_message_video_player.not_supported')),
+      getNotSupportedVideo($, messageElement, { staticProxy, channel, id }),
       $.html($(messageElement).find('.tgme_widget_message_location_wrap')),
       getLinkPreview($, messageElement, { staticProxy, index }),
     ]

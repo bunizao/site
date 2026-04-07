@@ -1261,6 +1261,7 @@ const skeletonGroups = [
   :global(.mood-item-media video) {
     width: 100%;
     max-width: 100%;
+    max-height: min(52vh, 400px);
     height: auto;
     display: block;
     border-radius: 10px;
@@ -1268,6 +1269,22 @@ const skeletonGroups = [
     overflow: hidden;
     -webkit-mask-image: -webkit-radial-gradient(white, black);
     mask-image: radial-gradient(white, black);
+  }
+
+  /* Portrait videos (aspect ratio < 0.8) */
+  :global(.mood-item-media video.video--portrait) {
+    width: min(100%, clamp(220px, 52vw, 320px));
+    max-width: 100%;
+    max-height: min(58vh, 460px);
+    margin: 0 auto;
+  }
+
+  /* Ultra-tall videos (aspect ratio < 0.6) */
+  :global(.mood-item-media video.video--ultra-tall) {
+    width: min(100%, clamp(200px, 44vw, 280px));
+    max-width: 100%;
+    max-height: min(62vh, 500px);
+    margin: 0 auto;
   }
 
   :global(.mood-item-media audio) {
@@ -1498,16 +1515,19 @@ const skeletonGroups = [
 
   /* Portrait images - fit within max height without cropping */
   :global(.mood-item-thumb--portrait) {
-    display: flex;
+    display: inline-flex;
     align-items: center;
     justify-content: center;
+    align-self: flex-start;
+    width: fit-content;
+    max-width: min(100%, 220px);
     background: hsl(var(--foreground) / 0.04);
   }
 
   :global(.mood-item-thumb--portrait img) {
-    width: auto;
+    width: 100%;
     height: auto;
-    max-width: 100%;
+    max-width: 220px;
     max-height: 280px;
     object-fit: contain;
     object-position: center;
@@ -1516,47 +1536,94 @@ const skeletonGroups = [
 
   /* Ultra-tall images - contain without cropping */
   :global(.mood-item-thumb--ultra-tall) {
-    display: flex;
+    display: inline-flex;
     align-items: center;
     justify-content: center;
+    align-self: flex-start;
+    width: fit-content;
+    max-width: min(100%, 180px);
     background: hsl(var(--foreground) / 0.03);
   }
 
   :global(.mood-item-thumb--ultra-tall img) {
-    width: auto;
+    width: 100%;
     height: auto;
-    max-width: 100%;
+    max-width: 180px;
     max-height: 320px;
     object-fit: contain;
     object-position: center;
   }
 
   @media (min-width: 640px) {
+    :global(.mood-item-media video) {
+      max-height: min(56vh, 440px);
+    }
+
+    :global(.mood-item-media video.video--portrait) {
+      width: min(100%, 360px);
+    }
+
+    :global(.mood-item-media video.video--ultra-tall) {
+      width: min(100%, 320px);
+    }
+
     :global(.mood-item-thumb) {
       max-width: 480px;
       border-radius: 14px;
     }
 
+    :global(.mood-item-thumb--portrait) {
+      max-width: min(100%, 240px);
+    }
+
     :global(.mood-item-thumb--portrait img) {
+      max-width: 240px;
       max-height: 320px;
     }
 
+    :global(.mood-item-thumb--ultra-tall) {
+      max-width: min(100%, 200px);
+    }
+
     :global(.mood-item-thumb--ultra-tall img) {
+      max-width: 200px;
       max-height: 360px;
     }
   }
 
   @media (min-width: 1024px) {
+    :global(.mood-item-media video) {
+      max-height: min(60vh, 480px);
+    }
+
+    :global(.mood-item-media video.video--portrait) {
+      width: min(100%, 400px);
+    }
+
+    :global(.mood-item-media video.video--ultra-tall) {
+      width: min(100%, 340px);
+    }
+
     :global(.mood-item-thumb) {
       max-width: 560px;
       border-radius: 16px;
     }
 
+    :global(.mood-item-thumb--portrait) {
+      max-width: min(100%, 260px);
+    }
+
     :global(.mood-item-thumb--portrait img) {
+      max-width: 260px;
       max-height: 360px;
     }
 
+    :global(.mood-item-thumb--ultra-tall) {
+      max-width: min(100%, 220px);
+    }
+
     :global(.mood-item-thumb--ultra-tall img) {
+      max-width: 220px;
       max-height: 400px;
     }
   }
@@ -4477,6 +4544,26 @@ const skeletonGroups = [
         if (!(node instanceof HTMLIFrameElement)) return;
         if (!node.getAttribute('loading')) {
           node.loading = 'lazy';
+        }
+      });
+
+      root.querySelectorAll('video').forEach((node) => {
+        if (!(node instanceof HTMLVideoElement)) return;
+        const classify = () => {
+          const w = node.videoWidth;
+          const h = node.videoHeight;
+          if (!w || !h) return;
+          const ratio = w / h;
+          if (ratio < 0.6) {
+            node.classList.add('video--ultra-tall');
+          } else if (ratio < 0.8) {
+            node.classList.add('video--portrait');
+          }
+        };
+        if (node.readyState >= 1) {
+          classify();
+        } else {
+          node.addEventListener('loadedmetadata', classify, { once: true });
         }
       });
     };

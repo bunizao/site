@@ -77,7 +77,8 @@ function getFirstPhotoWrapImageSrc($: cheerio.CheerioAPI): string | null {
   return extractBackgroundImageUrl(style) || null;
 }
 
-function getFirstVideoPosterSrc($: cheerio.CheerioAPI): string | null {
+export function getFirstVideoPosterSrc(content: string | cheerio.CheerioAPI): string | null {
+  const $ = typeof content === 'string' ? cheerio.load(content) : content;
   const video = $('video[poster]')
     .toArray()
     .find((element) => {
