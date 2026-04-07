@@ -194,6 +194,10 @@ function getVariantObjectKey(baseKey: string, width: number): string {
   return `${baseKey}@w${width}`;
 }
 
+function buildPublicUrl(target: ImageTarget, requestUrl: URL): string {
+  return new URL(target.publicPath, requestUrl.origin).toString();
+}
+
 function timingSafeEqual(a: string, b: string): boolean {
   if (!a || !b || a.length !== b.length) {
     return false;
@@ -509,6 +513,7 @@ async function ingestImageFromSource(
     },
   });
 
+  const originalPublicUrl = buildPublicUrl(target, requestUrl);
   await Promise.all(
     VARIANT_WIDTHS.map(async (width) => {
       const variantRequestInit: CfImageRequestInit = {
@@ -520,7 +525,7 @@ async function ingestImageFromSource(
           },
         },
       };
-      const variantResponse = await fetch(sourceImageUrl, variantRequestInit);
+      const variantResponse = await fetch(originalPublicUrl, variantRequestInit);
 
       if (!variantResponse.ok || !variantResponse.body) {
         console.warn(`Variant generation failed for width ${width}:`, variantResponse.status);
@@ -552,6 +557,49 @@ async function ingestImageFromSource(
   });
 
   await Promise.all(cacheRequests.map((entry) => cache.delete(entry)));
+}
+
+async function generateMissingVariant(
+  target: ImageTarget,
+  variantWidth: number,
+  requestUrl: URL,
+  env: Env
+): Promise<{ bytes: Uint8Array; contentType: string } | null> {
+  const variantRequestInit: CfImageRequestInit = {
+    cf: {
+      image: {
+        width: variantWidth,
+        fit: 'scale-down',
+        quality: VARIANT_QUALITY,
+      },
+    },
+  };
+
+  const response = await fetch(buildPublicUrl(target, requestUrl), variantRequestInit);
+  if (!response.ok) {
+    console.warn(`On-demand variant generation failed for width ${variantWidth}:`, response.status);
+    return null;
+  }
+
+  const bytes = new Uint8Array(await response.arrayBuffer());
+  if (!bytes.byteLength) {
+    return null;
+  }
+
+  const contentType = response.headers.get('Content-Type') || 'image/jpeg';
+  await env.MOOD_IMAGES.put(getVariantObjectKey(target.objectKey, variantWidth), bytes, {
+    httpMetadata: {
+      contentType,
+      cacheControl: CACHE_CONTROL,
+    },
+    customMetadata: {
+      source: 'worker-read-repair',
+      variant: `w${variantWidth}`,
+      updatedAt: new Date().toISOString(),
+    },
+  });
+
+  return { bytes, contentType };
 }
 
 async function ingestTelegramImage(
@@ -758,26 +806,66 @@ async function handleRead(request: Request, url: URL, env: Env, ctx: ExecutionCo
   }
 
   const preferredKey = variantWidth ? getVariantObjectKey(target.objectKey, variantWidth) : target.objectKey;
-  const object = await env.MOOD_IMAGES.get(preferredKey) ?? await env.MOOD_IMAGES.get(target.objectKey);
-  if (object) {
+  const preferredObject = await env.MOOD_IMAGES.get(preferredKey);
+  if (preferredObject) {
     const headers = new Headers({
       'Content-Type': 'image/jpeg',
       'Cache-Control': CACHE_CONTROL,
       ...corsHeaders,
     });
-    object.writeHttpMetadata(headers);
-    headers.set('ETag', object.httpEtag);
+    preferredObject.writeHttpMetadata(headers);
+    headers.set('ETag', preferredObject.httpEtag);
     headers.set('Vary', 'Accept');
 
     const response = request.method === 'HEAD'
       ? new Response(null, { status: 200, headers })
-      : new Response(object.body, { status: 200, headers });
+      : new Response(preferredObject.body, { status: 200, headers });
 
     if (request.method === 'GET') {
       ctx.waitUntil(cache.put(cacheRequest, response.clone()));
     }
 
     return response;
+  }
+
+  const originalObject = await env.MOOD_IMAGES.get(target.objectKey);
+  if (originalObject) {
+    if (variantWidth) {
+      const generated = await generateMissingVariant(target, variantWidth, url, env);
+      if (generated) {
+        const headers = new Headers({
+          'Content-Type': generated.contentType,
+          'Cache-Control': CACHE_CONTROL,
+          'Vary': 'Accept',
+          ...corsHeaders,
+        });
+        const response = request.method === 'HEAD'
+          ? new Response(null, { status: 200, headers })
+          : new Response(generated.bytes, { status: 200, headers });
+
+        if (request.method === 'GET') {
+          ctx.waitUntil(cache.put(cacheRequest, response.clone()));
+        }
+
+        return response;
+      }
+    }
+
+    const headers = new Headers({
+      'Content-Type': 'image/jpeg',
+      'Cache-Control': CACHE_CONTROL,
+      ...corsHeaders,
+    });
+    originalObject.writeHttpMetadata(headers);
+    headers.set('ETag', originalObject.httpEtag);
+    headers.set('Vary', 'Accept');
+    if (variantWidth) {
+      headers.set('X-Image-Variant', 'original-fallback');
+    }
+
+    return request.method === 'HEAD'
+      ? new Response(null, { status: 200, headers })
+      : new Response(originalObject.body, { status: 200, headers });
   }
 
   if (request.method === 'HEAD') {
