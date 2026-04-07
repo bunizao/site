@@ -287,6 +287,14 @@
     color: hsl(var(--muted-foreground));
   }
 
+  .mood-item-quote-body,
+  .mood-quote-card-body {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+  }
+
   .mood-item-quote-author,
   .mood-quote-card-author {
     font-size: 11px;
@@ -313,6 +321,17 @@
     gap: 6px;
   }
 
+  .mood-item-quote--with-media,
+  .mood-quote-card--with-media {
+    display: inline-grid;
+    grid-template-columns: clamp(4.5rem, 14vw, 5.75rem) minmax(0, 1fr);
+    align-items: start;
+    width: auto;
+    max-width: min(18rem, 100%);
+    padding: 8px;
+    gap: 0.75rem;
+  }
+
   .mood-item-quote-image,
   .mood-quote-card-image {
     display: block;
@@ -326,6 +345,23 @@
   .mood-item-quote--media-only .mood-item-quote-meta,
   .mood-quote-card--media-only .mood-quote-card-meta {
     display: none;
+  }
+
+  .mood-item-quote--with-media .mood-item-quote-media,
+  .mood-quote-card--with-media .mood-quote-card-media {
+    width: clamp(4.5rem, 14vw, 5.75rem);
+    margin-top: 0;
+    align-self: start;
+  }
+
+  .mood-item-quote--with-media .mood-item-quote-body,
+  .mood-quote-card--with-media .mood-quote-card-body {
+    max-width: clamp(7rem, 24vw, 10.5rem);
+  }
+
+  .mood-item-quote--with-media .mood-item-quote-text,
+  .mood-quote-card--with-media .mood-quote-card-text {
+    -webkit-line-clamp: 4;
   }
 
   .mood-item-quote-text,

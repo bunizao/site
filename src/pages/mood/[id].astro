@@ -756,6 +756,13 @@ const telegramCommentUrl = channel && id ? `https://t.me/${channel}/${id}?commen
     gap: 0;
   }
 
+  .mood-post-content :global(.mood-detail-quote-body) {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+  }
+
   .mood-post-content :global(.mood-detail-quote-source) {
     font-size: 13.5px;
     font-weight: 600;
@@ -806,6 +813,33 @@ const telegramCommentUrl = channel && id ? `https://t.me/${channel}/${id}?commen
     display: none;
   }
 
+  .mood-post-content :global(.mood-detail-quote--with-media) {
+    display: inline-grid;
+    grid-template-columns: clamp(4.5rem, 14vw, 5.75rem) minmax(0, 1fr);
+    align-items: start;
+    width: auto;
+    max-width: min(18rem, 100%);
+    padding: 8px;
+    gap: 0.75rem;
+  }
+
+  .mood-post-content :global(.mood-detail-quote--with-media .mood-detail-quote-media) {
+    width: clamp(4.5rem, 14vw, 5.75rem);
+    margin-top: 0;
+    align-self: start;
+  }
+
+  .mood-post-content :global(.mood-detail-quote--with-media .mood-detail-quote-body) {
+    max-width: clamp(7rem, 24vw, 10.5rem);
+  }
+
+  .mood-post-content :global(.mood-detail-quote--with-media .mood-detail-quote-text) {
+    -webkit-line-clamp: 4;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
   @media (min-width: 640px) {
     .mood-post-content :global(.mood-detail-quote) {
       gap: 4px;
@@ -823,6 +857,10 @@ const telegramCommentUrl = channel && id ? `https://t.me/${channel}/${id}?commen
 
     .mood-post-content :global(.mood-detail-quote--media-only) {
       padding: 6px;
+    }
+
+    .mood-post-content :global(.mood-detail-quote--with-media) {
+      padding: 9px;
     }
   }
 

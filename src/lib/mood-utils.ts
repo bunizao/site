@@ -837,14 +837,16 @@ export function getQuotePreview(
 
   text = normalizeMultilineText(text);
 
+  const replyMediaLabel = getReplyMediaLabel(reply);
+
   if (!text) {
-    text = getReplyMediaLabel(reply);
+    text = replyMediaLabel;
   }
 
   if (!text) return null;
 
   const href = normalizeText(reply.attr('href') ?? '');
-  const thumbnailSrc = text === 'Media' && href
+  const thumbnailSrc = replyMediaLabel && href
     ? getMoodQuoteThumbnailSrc(href, options.hdImageBase)
     : undefined;
 

@@ -4928,8 +4928,11 @@ const skeletonGroups = [
       if (quote) {
         const quoteWrap = document.createElement(quote.href ? 'a' : 'div');
         quoteWrap.className = 'mood-item-quote';
-        if (quote.thumbnailSrc && quote.text === 'Media') {
+        const isMediaOnlyQuote = Boolean(quote.thumbnailSrc && /^(Media|Video)$/i.test(quote.text));
+        if (isMediaOnlyQuote) {
           quoteWrap.classList.add('mood-item-quote--media-only');
+        } else if (quote.thumbnailSrc) {
+          quoteWrap.classList.add('mood-item-quote--with-media');
         }
         if (quoteWrap instanceof HTMLAnchorElement && quote.href) {
           quoteWrap.href = quote.href;
@@ -4941,19 +4944,6 @@ const skeletonGroups = [
         const quoteTargetId = quote.href ? getQuoteTargetId(quote.href) : null;
         if (quoteTargetId) {
           quoteWrap.dataset.quoteId = quoteTargetId;
-        }
-
-        const quoteMeta = document.createElement('div');
-        quoteMeta.className = 'mood-item-quote-meta';
-
-        // Filter out channel name from author display
-        const authorToShow = quote.author && !shouldHideQuoteAuthor(quote.author) ? quote.author : '';
-        if (authorToShow) {
-          const quoteAuthor = document.createElement('span');
-          quoteAuthor.className = 'mood-item-quote-author';
-          quoteAuthor.textContent = authorToShow;
-          quoteMeta.appendChild(quoteAuthor);
-          quoteWrap.appendChild(quoteMeta);
         }
 
         if (quote.thumbnailSrc) {
@@ -4971,11 +4961,33 @@ const skeletonGroups = [
           quoteWrap.appendChild(quoteMedia);
         }
 
-        if (!(quote.thumbnailSrc && quote.text === 'Media')) {
+        const quoteBody = document.createElement('span');
+        quoteBody.className = 'mood-item-quote-body';
+
+        const quoteMeta = document.createElement('div');
+        quoteMeta.className = 'mood-item-quote-meta';
+
+        const authorToShow = quote.author && !shouldHideQuoteAuthor(quote.author) ? quote.author : '';
+        if (authorToShow) {
+          const quoteAuthor = document.createElement('span');
+          quoteAuthor.className = 'mood-item-quote-author';
+          quoteAuthor.textContent = authorToShow;
+          quoteMeta.appendChild(quoteAuthor);
+        }
+
+        if (quoteMeta.childNodes.length > 0) {
+          quoteBody.appendChild(quoteMeta);
+        }
+
+        if (!isMediaOnlyQuote) {
           const quoteText = document.createElement('p');
           quoteText.className = 'mood-item-quote-text';
           quoteText.textContent = quote.text;
-          quoteWrap.appendChild(quoteText);
+          quoteBody.appendChild(quoteText);
+        }
+
+        if (quoteBody.childNodes.length > 0) {
+          quoteWrap.appendChild(quoteBody);
         }
         content.appendChild(quoteWrap);
       }
