@@ -42,4 +42,5 @@ jobs:
           TELEGRAM_EXPECTED_WEBHOOK_URL: https://image.buxx.me/webhook
           HD_IMAGE_HEALTH_SAMPLE_SIZE: 4
           HD_IMAGE_HEALTH_TIMEOUT_MS: 4000
+          LIVE_PHOTO_DETAIL_IDS: 3327
         run: bun run test:ops

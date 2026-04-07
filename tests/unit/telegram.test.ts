@@ -126,6 +126,20 @@ describe('getChannelInfo detail media rendering', () => {
     expect(headFetchMock).not.toHaveBeenCalled();
   });
 
+  test('renders unsupported live photo fallback even when runtime fetch fails', async () => {
+    globalThis.fetch = mock(async () => {
+      throw new Error('network down');
+    }) as typeof fetch;
+
+    const { getChannelInfo } = await telegramModulePromise;
+    const post = await getChannelInfo(astro, { id: '3327', skipCache: true });
+    const content = (post as { content: string }).content;
+
+    expect(content).toContain('https://image.buxx.me/mood/3327/0');
+    expect(content).toContain('image-preview-wrap image-preview-wrap--fallback');
+    expect(content).not.toContain('Open Telegram to view this live photo');
+  });
+
   test('does not invent a reply thumbnail when Telegram reply markup has text only', async () => {
     const { getChannelInfo } = await telegramModulePromise;
     const post = await getChannelInfo(astro, { id: '3315', skipCache: true });
