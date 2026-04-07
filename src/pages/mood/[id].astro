@@ -830,14 +830,15 @@ const telegramCommentUrl = channel && id ? `https://t.me/${channel}/${id}?commen
   }
 
   .mood-post-content :global(.mood-detail-quote--with-media .mood-detail-quote-body) {
-    max-width: clamp(7rem, 24vw, 10.5rem);
+    width: 100%;
+    min-width: 0;
     justify-content: center;
-    align-self: stretch;
-    text-align: center;
+    align-self: center;
+    text-align: left;
   }
 
   .mood-post-content :global(.mood-detail-quote--with-media .mood-detail-quote-meta) {
-    justify-content: center;
+    justify-content: flex-start;
   }
 
   .mood-post-content :global(.mood-detail-quote--with-media .mood-detail-quote-text) {

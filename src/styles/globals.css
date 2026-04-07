@@ -356,15 +356,16 @@
 
   .mood-item-quote--with-media .mood-item-quote-body,
   .mood-quote-card--with-media .mood-quote-card-body {
-    max-width: clamp(7rem, 24vw, 10.5rem);
+    width: 100%;
+    min-width: 0;
     justify-content: center;
-    align-self: stretch;
-    text-align: center;
+    align-self: center;
+    text-align: left;
   }
 
   .mood-item-quote--with-media .mood-item-quote-meta,
   .mood-quote-card--with-media .mood-quote-card-meta {
-    justify-content: center;
+    justify-content: flex-start;
   }
 
   .mood-item-quote--with-media .mood-item-quote-text,
