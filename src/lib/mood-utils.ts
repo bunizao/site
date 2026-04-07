@@ -807,7 +807,7 @@ const getReplyMediaLabel = (reply: cheerio.Cheerio<any>): string => {
     return 'Media';
   }
 
-  return (reply.attr('href') ?? '').trim() ? 'Media' : '';
+  return (reply.attr('href') ?? '').trim() ? 'Link' : '';
 };
 
 const getMoodQuoteThumbnailSrc = (href: string, hdImageBase?: string): string | undefined => {
@@ -860,6 +860,7 @@ export function getQuotePreview(
   text = normalizeMultilineText(text);
 
   const replyMediaLabel = getReplyMediaLabel(reply);
+  const hasInlineReplyMediaPreview = /^(media|video)$/i.test(replyMediaLabel);
 
   if (!text) {
     text = replyMediaLabel;
@@ -868,7 +869,7 @@ export function getQuotePreview(
   if (!text) return null;
 
   const href = normalizeText(reply.attr('href') ?? '');
-  const thumbnailSrc = replyMediaLabel && href
+  const thumbnailSrc = hasInlineReplyMediaPreview && href
     ? getMoodQuoteThumbnailSrc(href, options.hdImageBase)
     : undefined;
 
