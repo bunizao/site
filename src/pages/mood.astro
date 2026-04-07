@@ -1557,6 +1557,8 @@ const skeletonGroups = [
     font-size: 13px;
     color: rgba(255, 255, 255, 0.85);
     letter-spacing: 0.01em;
+    line-height: 1.2;
+    white-space: nowrap;
   }
 
   :global(.mood-item-thumb-video-cta) {
@@ -1573,6 +1575,7 @@ const skeletonGroups = [
     border: 1.5px solid rgba(255, 255, 255, 0.75);
     background: transparent;
     transition: background 0.15s ease, border-color 0.15s ease;
+    white-space: nowrap;
   }
 
   :global(.mood-item--clickable:hover .mood-item-thumb-video-cta),
@@ -5031,11 +5034,13 @@ const skeletonGroups = [
         if (isTooBigVideoPreview) {
           thumbWrap.classList.add('mood-item-thumb--video');
         }
-        const imageLayout = mood.imageLayout === 'portrait' || mood.imageLayout === 'ultra-tall'
-          ? mood.imageLayout
-          : mood.imageLayout === 'landscape'
-            ? 'landscape'
-            : null;
+        const imageLayout = isTooBigVideoPreview
+          ? null
+          : mood.imageLayout === 'portrait' || mood.imageLayout === 'ultra-tall'
+            ? mood.imageLayout
+            : mood.imageLayout === 'landscape'
+              ? 'landscape'
+              : null;
         if (imageLayout === 'portrait') {
           thumbWrap.classList.add('mood-item-thumb--portrait');
         } else if (imageLayout === 'ultra-tall') {
