@@ -1,11 +1,11 @@
 ---
 const SKELETON_COUNT = 5;
 const skeletonPatterns = [
-  { line1: '72%' },
-  { line1: '64%' },
-  { line1: '76%' },
-  { line1: '60%' },
-  { line1: '70%' },
+  { line1: '72%', line2: '0%', lineCount: 1 },
+  { line1: '64%', line2: '42%', lineCount: 2 },
+  { line1: '76%', line2: '54%', lineCount: 2 },
+  { line1: '60%', line2: '0%', lineCount: 1 },
+  { line1: '70%', line2: '38%', lineCount: 2 },
 ];
 const placeholders = Array.from({ length: SKELETON_COUNT }, (_, index) => ({
   index,
@@ -20,7 +20,7 @@ const placeholders = Array.from({ length: SKELETON_COUNT }, (_, index) => ({
     {placeholders.map(({ index, pattern }) => (
       <div
         class="mood-item mood-item-skeleton"
-        style={`--item-index: ${index}; --line-1: ${pattern.line1};`}
+        style={`--item-index: ${index}; --line-1: ${pattern.line1}; --line-2: ${pattern.line2};`}
       >
         <div class="mood-time-col">
           <span class="mood-skeleton-time"></span>
@@ -31,8 +31,9 @@ const placeholders = Array.from({ length: SKELETON_COUNT }, (_, index) => ({
         </div>
         <div class="mood-content-col">
           <div class="mood-card mood-card-skeleton">
-            <div class="mood-skeleton-lines">
+            <div class="mood-skeleton-lines" data-skeleton-lines data-line-count={String(pattern.lineCount)}>
               <span class="mood-skeleton-block mood-skeleton-block--primary"></span>
+              <span class="mood-skeleton-block mood-skeleton-block--secondary"></span>
             </div>
           </div>
         </div>
@@ -201,6 +202,7 @@ const placeholders = Array.from({ length: SKELETON_COUNT }, (_, index) => ({
     background: hsl(var(--foreground) / 0.02);
     border: 1px solid hsl(var(--foreground) / 0.06);
     border-radius: 10px;
+    min-height: var(--reserved-card-height, auto);
     transition: all 0.2s ease;
   }
 
@@ -223,6 +225,7 @@ const placeholders = Array.from({ length: SKELETON_COUNT }, (_, index) => ({
     line-height: 1.55;
     color: hsl(var(--foreground) / 0.85);
     display: -webkit-box;
+    min-height: var(--reserved-text-height, auto);
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
@@ -416,6 +419,15 @@ const placeholders = Array.from({ length: SKELETON_COUNT }, (_, index) => ({
     width: var(--line-1, 70%);
   }
 
+  #moods-section .mood-skeleton-block--secondary {
+    display: none;
+    width: var(--line-2, 42%);
+  }
+
+  #moods-section .mood-skeleton-lines[data-line-count="2"] .mood-skeleton-block--secondary {
+    display: block;
+  }
+
   #moods-section .mood-skeleton-time {
     width: 32px;
     height: 10px;
@@ -510,19 +522,13 @@ const placeholders = Array.from({ length: SKELETON_COUNT }, (_, index) => ({
     const moodsSection = document.getElementById('moods-section');
     if (!moodsSection) return;
 
-    // Dynamic import GSAP only when needed
-    const [{ default: gsap }, { ScrollTrigger }] = await Promise.all([
-      import('gsap'),
-      import('gsap/ScrollTrigger')
-    ]);
-
-    gsap.registerPlugin(ScrollTrigger);
-
     const list = moodsSection.querySelector('[data-mood-list]') as HTMLElement | null;
     const emptyState = moodsSection.querySelector('[data-mood-empty]') as HTMLElement | null;
     const errorState = moodsSection.querySelector('[data-mood-error]') as HTMLElement | null;
     const label = moodsSection.querySelector('.scroll-reveal');
     const link = moodsSection.querySelector('.scroll-reveal-link');
+    let gsap!: (typeof import('gsap'))['default'];
+    let ScrollTrigger!: (typeof import('gsap/ScrollTrigger'))['ScrollTrigger'];
     let hasLoaded = false;
 
     const MAX_MOODS = 5;
@@ -726,7 +732,391 @@ const placeholders = Array.from({ length: SKELETON_COUNT }, (_, index) => ({
       needsDetailPage?: boolean;
     }
 
-    const createMoodItem = (mood: MoodData, index: number): HTMLElement => {
+    interface MoodReservation {
+      lineCount: number;
+      lineWidths: string[];
+      textHeight: number;
+      reservedHeight: number;
+    }
+
+    interface TextMeasurementConfig {
+      font: string;
+      lineHeight: number;
+      textWidth: number;
+      cardPaddingY: number;
+      metaGap: number;
+      tagHeight: number;
+      thumbnailHeight: number;
+    }
+
+    type PretextModule = typeof import('@chenglou/pretext');
+
+    const MAX_PREVIEW_LINES = 2;
+    const MOOD_PREVIEW_CACHE_KEY = 'home-moods-preview-cache:v1';
+    const MOOD_PREVIEW_CACHE_TTL_MS = 1000 * 60 * 30;
+    const PRETEXT_FONT_TIMEOUT_MS = 900;
+    const PRETEXT_THUMBNAIL_HEIGHT = 48;
+    const PRETEXT_META_GAP = 6;
+    const reservedCards = new Set<HTMLElement>();
+    let pretextModulePromise: Promise<PretextModule | null> | null = null;
+    let renderedMoodSignature = '';
+
+    interface MoodPreviewCacheEntry {
+      id: string;
+      datetime: string;
+      tag?: string;
+      previewText: string;
+      image?: string | null;
+      imageFallback?: string | null;
+    }
+
+    interface MoodPreviewCache {
+      updatedAt: number;
+      posts: MoodPreviewCacheEntry[];
+    }
+
+    const clearCardReservations = (): void => {
+      reservedCards.forEach((card) => {
+        card.style.removeProperty('--reserved-card-height');
+        card.removeAttribute('data-reserved-lines');
+        card.removeAttribute('data-reserved');
+
+        const text = card.querySelector('.mood-text') as HTMLElement | null;
+        if (text) {
+          text.style.removeProperty('--reserved-text-height');
+          text.removeAttribute('data-reserved-lines');
+        }
+      });
+      reservedCards.clear();
+    };
+
+    const debugPretextFallback = (reason: string, error?: unknown): void => {
+      if (!import.meta.env.DEV) return;
+      console.debug('[moods-pretext] Falling back to baseline skeletons:', reason, error);
+    };
+
+    const sanitizeCachedMood = (value: unknown): MoodPreviewCacheEntry | null => {
+      if (!value || typeof value !== 'object') return null;
+
+      const candidate = value as Partial<MoodPreviewCacheEntry>;
+      if (typeof candidate.id !== 'string' || typeof candidate.datetime !== 'string') {
+        return null;
+      }
+
+      return {
+        id: candidate.id,
+        datetime: candidate.datetime,
+        tag: typeof candidate.tag === 'string' ? candidate.tag : undefined,
+        previewText: typeof candidate.previewText === 'string' ? candidate.previewText : '',
+        image: typeof candidate.image === 'string' ? candidate.image : null,
+        imageFallback: typeof candidate.imageFallback === 'string' ? candidate.imageFallback : null,
+      };
+    };
+
+    const readCachedPreviewPosts = (): MoodPreviewCacheEntry[] => {
+      try {
+        const raw = window.localStorage.getItem(MOOD_PREVIEW_CACHE_KEY);
+        if (!raw) return [];
+
+        const parsed = JSON.parse(raw) as Partial<MoodPreviewCache>;
+        if (!parsed || typeof parsed.updatedAt !== 'number' || !Array.isArray(parsed.posts)) {
+          return [];
+        }
+
+        if (Date.now() - parsed.updatedAt > MOOD_PREVIEW_CACHE_TTL_MS) {
+          window.localStorage.removeItem(MOOD_PREVIEW_CACHE_KEY);
+          return [];
+        }
+
+        return parsed.posts
+          .map((post) => sanitizeCachedMood(post))
+          .filter((post): post is MoodPreviewCacheEntry => post !== null)
+          .slice(0, MAX_MOODS);
+      } catch (error) {
+        debugPretextFallback('cache read failed', error);
+        return [];
+      }
+    };
+
+    const writeCachedPreviewPosts = (posts: MoodData[]): void => {
+      try {
+        const payload: MoodPreviewCache = {
+          updatedAt: Date.now(),
+          posts: posts.slice(0, MAX_MOODS).map((post) => ({
+            id: post.id,
+            datetime: post.datetime,
+            tag: post.tag,
+            previewText: typeof post.previewText === 'string' ? post.previewText : '',
+            image: typeof post.image === 'string' ? post.image : null,
+            imageFallback: typeof post.imageFallback === 'string' ? post.imageFallback : null,
+          })),
+        };
+
+        window.localStorage.setItem(MOOD_PREVIEW_CACHE_KEY, JSON.stringify(payload));
+      } catch (error) {
+        debugPretextFallback('cache write failed', error);
+      }
+    };
+
+    const createMoodSignature = (
+      posts: Array<MoodData | MoodPreviewCacheEntry>,
+    ): string => JSON.stringify(
+      posts.map((post) => ({
+        id: post.id,
+        datetime: post.datetime,
+        tag: post.tag ?? '',
+        previewText: post.previewText ?? '',
+        image: post.image ?? '',
+      })),
+    );
+
+    const loadPretextModule = async (): Promise<PretextModule | null> => {
+      if (!pretextModulePromise) {
+        pretextModulePromise = import('@chenglou/pretext').catch((error) => {
+          debugPretextFallback('module import failed', error);
+          return null;
+        });
+      }
+
+      return pretextModulePromise;
+    };
+
+    const buildCanvasFontShorthand = (styles: CSSStyleDeclaration): string | null => {
+      const fontSize = styles.fontSize?.trim();
+      const fontFamily = styles.fontFamily?.trim();
+      if (!fontSize || !fontFamily) return null;
+
+      const fontStyle = styles.fontStyle && styles.fontStyle !== 'normal' ? `${styles.fontStyle} ` : '';
+      const fontWeight = styles.fontWeight && styles.fontWeight !== 'normal' ? `${styles.fontWeight} ` : '';
+
+      return `${fontStyle}${fontWeight}${fontSize} ${fontFamily}`.trim();
+    };
+
+    const readTextMeasurementConfig = (): TextMeasurementConfig | null => {
+      if (!list) return null;
+
+      const skeletonCard = list.querySelector('.mood-card-skeleton') as HTMLElement | null;
+      if (!skeletonCard) return null;
+
+      const host = document.createElement('div');
+      host.setAttribute('aria-hidden', 'true');
+      host.style.cssText = [
+        'position:absolute',
+        'left:-9999px',
+        'top:0',
+        'visibility:hidden',
+        'pointer-events:none',
+        'contain:layout style',
+      ].join(';');
+
+      const textProbe = document.createElement('span');
+      textProbe.className = 'mood-text';
+      textProbe.textContent = 'Measurement probe';
+
+      const tagProbe = document.createElement('span');
+      tagProbe.className = 'mood-tag';
+      tagProbe.textContent = '#probe';
+
+      host.appendChild(textProbe);
+      host.appendChild(tagProbe);
+      document.body.appendChild(host);
+
+      const cardStyles = window.getComputedStyle(skeletonCard);
+      const textStyles = window.getComputedStyle(textProbe);
+      const textWidth =
+        skeletonCard.clientWidth
+        - Number.parseFloat(cardStyles.paddingLeft || '0')
+        - Number.parseFloat(cardStyles.paddingRight || '0');
+      const lineHeight = Number.parseFloat(textStyles.lineHeight || '0');
+      const cardPaddingY =
+        Number.parseFloat(cardStyles.paddingTop || '0')
+        + Number.parseFloat(cardStyles.paddingBottom || '0');
+      const tagHeight = Math.ceil(tagProbe.getBoundingClientRect().height);
+      const font = buildCanvasFontShorthand(textStyles);
+
+      host.remove();
+
+      if (!font || !Number.isFinite(textWidth) || textWidth <= 0 || !Number.isFinite(lineHeight) || lineHeight <= 0) {
+        return null;
+      }
+
+      return {
+        font,
+        lineHeight,
+        textWidth,
+        cardPaddingY,
+        metaGap: PRETEXT_META_GAP,
+        tagHeight,
+        thumbnailHeight: PRETEXT_THUMBNAIL_HEIGHT,
+      };
+    };
+
+    const waitForFontReady = async (font: string): Promise<boolean> => {
+      if (!('fonts' in document) || typeof document.fonts.load !== 'function') {
+        return true;
+      }
+
+      const timeout = new Promise<boolean>((resolve) => {
+        window.setTimeout(() => resolve(false), PRETEXT_FONT_TIMEOUT_MS);
+      });
+
+      const loaded = Promise.all([
+        document.fonts.load(font, 'Bunizao'),
+        document.fonts.load(font, 'MMMM 88'),
+        document.fonts.ready,
+      ])
+        .then(() => true)
+        .catch((error) => {
+          debugPretextFallback('font sync failed', error);
+          return false;
+        });
+
+      return Promise.race([loaded, timeout]);
+    };
+
+    const formatReservationWidth = (width: number, maxWidth: number): string => {
+      if (!Number.isFinite(width) || width <= 0 || !Number.isFinite(maxWidth) || maxWidth <= 0) {
+        return '70%';
+      }
+
+      const percentage = Math.max(18, Math.min(100, (width / maxWidth) * 100));
+      return `${percentage.toFixed(2)}%`;
+    };
+
+    const measureMoodReservation = (
+      mood: MoodData,
+      config: TextMeasurementConfig,
+      pretext: PretextModule,
+    ): MoodReservation | null => {
+      const previewText = (mood.previewText ?? '').trim();
+      if (!previewText) {
+        return null;
+      }
+
+      const prepared = pretext.prepareWithSegments(previewText, config.font);
+      const result = pretext.layoutWithLines(prepared, config.textWidth, config.lineHeight);
+      const visibleLines = result.lines.slice(0, MAX_PREVIEW_LINES);
+      const lineCount = Math.max(1, Math.min(MAX_PREVIEW_LINES, visibleLines.length || result.lineCount || 1));
+      const lineWidths = Array.from({ length: lineCount }, (_, index) => {
+        const line = visibleLines[index];
+        return formatReservationWidth(line?.width ?? config.textWidth * 0.7, config.textWidth);
+      });
+      const textHeight = Math.ceil(config.lineHeight * lineCount);
+      const metaHeight = mood.image
+        ? config.thumbnailHeight
+        : mood.tag
+          ? config.tagHeight
+          : 0;
+      const reservedHeight = Math.ceil(
+        config.cardPaddingY
+        + textHeight
+        + (metaHeight > 0 ? config.metaGap + metaHeight : 0)
+      );
+
+      return {
+        lineCount,
+        lineWidths,
+        textHeight,
+        reservedHeight,
+      };
+    };
+
+    const measureMoodReservations = async (posts: MoodData[]): Promise<Array<MoodReservation | null>> => {
+      if (!posts.length) {
+        return [];
+      }
+
+      const [pretext, config] = await Promise.all([loadPretextModule(), Promise.resolve(readTextMeasurementConfig())]);
+      if (!pretext || !config) {
+        return posts.map(() => null);
+      }
+
+      const fontReady = await waitForFontReady(config.font);
+      if (!fontReady) {
+        debugPretextFallback('font load timeout');
+        return posts.map(() => null);
+      }
+
+      try {
+        return posts.map((post) => measureMoodReservation(post, config, pretext));
+      } catch (error) {
+        debugPretextFallback('layout measurement failed', error);
+        return posts.map(() => null);
+      }
+    };
+
+    const applyReservationToSkeleton = (
+      item: Element,
+      reservation: MoodReservation | null,
+    ): void => {
+      const card = item.querySelector('.mood-card-skeleton') as HTMLElement | null;
+      const lines = item.querySelector('[data-skeleton-lines]') as HTMLElement | null;
+      if (!card || !lines || !reservation) return;
+
+      card.style.setProperty('--reserved-card-height', `${reservation.reservedHeight}px`);
+      lines.dataset.lineCount = String(reservation.lineCount);
+      lines.style.setProperty('--line-1', reservation.lineWidths[0] ?? '70%');
+      lines.style.setProperty('--line-2', reservation.lineWidths[1] ?? '42%');
+    };
+
+    const setVisibleSkeletonCount = (count: number | null): void => {
+      if (!list) return;
+
+      const skeletons = Array.from(list.querySelectorAll('.mood-item-skeleton'));
+      skeletons.forEach((skeleton, index) => {
+        (skeleton as HTMLElement).hidden = count !== null && index >= count;
+      });
+    };
+
+    const applyReservationsToSkeletons = (reservations: Array<MoodReservation | null>): void => {
+      if (!list || !reservations.length) return;
+
+      const skeletons = Array.from(list.querySelectorAll('.mood-item-skeleton'));
+      reservations.forEach((reservation, index) => {
+        const skeleton = skeletons[index];
+        if (!skeleton) return;
+        applyReservationToSkeleton(skeleton, reservation);
+      });
+    };
+
+    const primeSkeletonsFromCache = async (): Promise<void> => {
+      const cachedPosts = readCachedPreviewPosts();
+      if (!cachedPosts.length) {
+        setVisibleSkeletonCount(null);
+        return;
+      }
+
+      renderedMoodSignature = createMoodSignature(cachedPosts);
+      const reservations = await measureMoodReservations(cachedPosts);
+      renderMoods(cachedPosts as MoodData[], reservations, {
+        animate: false,
+        preserveBusy: true,
+      });
+    };
+
+    const applyReservationToCard = (
+      card: HTMLElement,
+      text: HTMLElement | null,
+      reservation: MoodReservation | null,
+    ): void => {
+      if (!reservation) return;
+
+      card.dataset.reserved = 'true';
+      card.dataset.reservedLines = String(reservation.lineCount);
+      card.style.setProperty('--reserved-card-height', `${reservation.reservedHeight}px`);
+      reservedCards.add(card);
+
+      if (text) {
+        text.dataset.reservedLines = String(reservation.lineCount);
+        text.style.setProperty('--reserved-text-height', `${reservation.textHeight}px`);
+      }
+    };
+
+    const createMoodItem = (
+      mood: MoodData,
+      index: number,
+      reservation: MoodReservation | null,
+    ): HTMLElement => {
       const item = document.createElement('div');
       item.className = 'mood-item mood-item--clickable';
       item.dataset.href = `/mood/${mood.id}`;
@@ -807,6 +1197,8 @@ const placeholders = Array.from({ length: SKELETON_COUNT }, (_, index) => ({
         card.appendChild(meta);
       }
 
+      applyReservationToCard(card, card.querySelector('.mood-text') as HTMLElement | null, reservation);
+
       contentCol.appendChild(card);
 
       item.appendChild(timeCol);
@@ -816,10 +1208,17 @@ const placeholders = Array.from({ length: SKELETON_COUNT }, (_, index) => ({
       return item;
     };
 
-    const renderMoods = (posts: MoodData[]): void => {
+    const renderMoods = (
+      posts: MoodData[],
+      reservations: Array<MoodReservation | null>,
+      options: { animate?: boolean; preserveBusy?: boolean } = {},
+    ): void => {
       if (!list) return;
 
-      list.removeAttribute('aria-busy');
+      const { animate = true, preserveBusy = false } = options;
+      if (!preserveBusy) {
+        list.removeAttribute('aria-busy');
+      }
 
       const showContent = () => {
         if (errorState) errorState.hidden = true;
@@ -834,36 +1233,38 @@ const placeholders = Array.from({ length: SKELETON_COUNT }, (_, index) => ({
         // Create items and animate in
         const items: HTMLElement[] = [];
         posts.forEach((post, index) => {
-          const item = createMoodItem(post, index);
+          const item = createMoodItem(post, index, reservations[index] ?? null);
           list.appendChild(item);
           items.push(item);
         });
 
-        // Liquid splash-in animation
-        gsap.fromTo(items,
-          {
-            opacity: 0,
-            y: 24,
-            scale: 0.88,
-            filter: 'blur(8px)',
-            rotationX: -15
-          },
-          {
-            opacity: 1,
-            y: 0,
-            scale: 1,
-            filter: 'blur(0px)',
-            rotationX: 0,
-            duration: 0.7,
-            ease: 'expo.out',
-            stagger: 0.09
-          }
-        );
+        if (animate) {
+          // Liquid splash-in animation
+          gsap.fromTo(items,
+            {
+              opacity: 0,
+              y: 24,
+              scale: 0.88,
+              filter: 'blur(8px)',
+              rotationX: -15
+            },
+            {
+              opacity: 1,
+              y: 0,
+              scale: 1,
+              filter: 'blur(0px)',
+              rotationX: 0,
+              duration: 0.7,
+              ease: 'expo.out',
+              stagger: 0.09
+            }
+          );
+        }
       };
 
       // Liquid dissolve effect on skeleton items
       const skeletons = list.querySelectorAll('.mood-item-skeleton');
-      if (skeletons.length > 0) {
+      if (animate && skeletons.length > 0) {
         gsap.to(skeletons, {
           opacity: 0,
           scale: 0.92,
@@ -894,7 +1295,23 @@ const placeholders = Array.from({ length: SKELETON_COUNT }, (_, index) => ({
         }
         const data = await response.json() as { posts?: unknown[] };
         const posts = Array.isArray(data.posts) ? (data.posts.slice(0, MAX_MOODS) as MoodData[]) : [];
-        renderMoods(posts);
+        writeCachedPreviewPosts(posts);
+        const nextSignature = createMoodSignature(posts);
+        const hasRenderedCards = Boolean(list.querySelector('.mood-card:not(.mood-card-skeleton)'));
+        if (renderedMoodSignature && renderedMoodSignature === nextSignature && hasRenderedCards) {
+          list.removeAttribute('aria-busy');
+          if (emptyState) emptyState.hidden = true;
+          if (errorState) errorState.hidden = true;
+          return;
+        }
+
+        setVisibleSkeletonCount(posts.length);
+        const reservations = await measureMoodReservations(posts);
+        applyReservationsToSkeletons(reservations);
+        renderMoods(posts, reservations, {
+          animate: !hasRenderedCards,
+        });
+        renderedMoodSignature = nextSignature;
       } catch (error) {
         console.error('Failed to fetch moods:', error);
         if (list) {
@@ -917,6 +1334,8 @@ const placeholders = Array.from({ length: SKELETON_COUNT }, (_, index) => ({
     };
 
     if (list) {
+      window.addEventListener('resize', clearCardReservations, { passive: true });
+
       list.addEventListener('click', (event) => {
         navigateToMood(event.target as HTMLElement | null);
       });
@@ -944,6 +1363,8 @@ const placeholders = Array.from({ length: SKELETON_COUNT }, (_, index) => ({
       }
 
       // Create GSAP timeline with ScrollTrigger
+      void primeSkeletonsFromCache();
+
       const tl = gsap.timeline({
         scrollTrigger: {
           trigger: moodsSection,
@@ -974,6 +1395,15 @@ const placeholders = Array.from({ length: SKELETON_COUNT }, (_, index) => ({
       }, '+=0.3');
     };
 
+    await primeSkeletonsFromCache();
+
+    // Dynamic import GSAP only when needed after the cache prepass has had a chance to render.
+    [{ default: gsap }, { ScrollTrigger }] = await Promise.all([
+      import('gsap'),
+      import('gsap/ScrollTrigger')
+    ]);
+
+    gsap.registerPlugin(ScrollTrigger);
     void initMoods();
   };
 

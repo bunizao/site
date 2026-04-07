@@ -39,6 +39,51 @@ test.describe('Home page', () => {
     },
   };
 
+  const mixedHomeMoodPayload = {
+    posts: [
+      {
+        id: '1001',
+        datetime: '2026-02-10T12:00:00+00:00',
+        previewText: 'Short preview',
+        previewHtml: 'Short preview',
+        image: null,
+        mediaHtml: '',
+        needsDetailPage: true,
+        reactions: [],
+        commentsCount: 0,
+      },
+      {
+        id: '1002',
+        datetime: '2026-02-10T12:10:00+00:00',
+        previewText:
+          'This longer preview is meant to wrap into a second reserved line so the home mood prototype can prove the cards do not all collapse into the same shape.',
+        previewHtml:
+          'This longer preview is meant to wrap into a second reserved line so the home mood prototype can prove the cards do not all collapse into the same shape.',
+        image: null,
+        mediaHtml: '',
+        needsDetailPage: true,
+        reactions: [],
+        commentsCount: 0,
+      },
+      {
+        id: '1003',
+        datetime: '2026-02-10T12:20:00+00:00',
+        tag: 'photo',
+        previewText:
+          'A medium preview with a thumbnail keeps the text reservation path honest when metadata follows the preview block.',
+        previewHtml:
+          'A medium preview with a thumbnail keeps the text reservation path honest when metadata follows the preview block.',
+        image: '/avatar.webp',
+        imageFallback: null,
+        mediaHtml: '',
+        needsDetailPage: true,
+        reactions: [],
+        commentsCount: 0,
+      },
+    ],
+    channel: homeMoodPayload.channel,
+  };
+
   test.beforeEach(async ({ page }) => {
     await page.emulateMedia({ reducedMotion: 'reduce' });
   });
@@ -96,6 +141,58 @@ test.describe('Home page', () => {
 
     await page.getByRole('link', { name: 'View all moods' }).click();
     await expect(page).toHaveURL(/\/mood$/);
+  });
+
+  test('reserves mixed home mood preview heights without runtime errors', async ({ page }) => {
+    const consoleErrors: string[] = [];
+    page.on('console', (message) => {
+      if (message.type() === 'error') {
+        consoleErrors.push(message.text());
+      }
+    });
+
+    await page.route('**/github-contributions-api.jogruber.de/**', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          total: { lastYear: 5 },
+          contributions: [],
+        }),
+      });
+    });
+
+    await page.route('**/api/moods', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(mixedHomeMoodPayload),
+      });
+    });
+
+    await page.goto('/');
+    await page.locator('#moods-section').scrollIntoViewIfNeeded();
+
+    await waitForHomeMoodState(page);
+
+    const cards = page.locator('#moods-section .mood-card');
+    await expect(cards).toHaveCount(3);
+    await expect(page.locator('#moods-section [data-mood-error]')).toBeHidden();
+
+    const reservedLines = await cards.evaluateAll((nodes) =>
+      nodes.map((node) => node.getAttribute('data-reserved-lines'))
+    );
+    expect(reservedLines.filter((value) => value === '1').length).toBeGreaterThan(0);
+    expect(reservedLines.filter((value) => value === '2').length).toBeGreaterThan(0);
+
+    const reservedHeights = await cards.evaluateAll((nodes) =>
+      nodes.map((node) => window.getComputedStyle(node).minHeight)
+    );
+    expect(new Set(reservedHeights).size).toBeGreaterThan(1);
+
+    await cards.nth(1).click();
+    await expect(page).toHaveURL(/\/mood\/1002$/);
+    expect(consoleErrors).toEqual([]);
   });
 
   test('loads GitHub contributions and shows tooltip details', async ({ page }) => {
