@@ -419,7 +419,7 @@ async function getUnsupportedMediaFallback(
   const safePostId = id.replace(/[^a-z0-9_-]/gi, '');
   const popoverId = `modal-${safePostId || 'post'}-unsupported`;
   const escapedTitle = escapeHtml(title || 'Telegram media');
-  const fallbackImageStyle = 'width:100%;max-width:100%;height:auto;aspect-ratio:auto;';
+  const fallbackImageStyle = 'aspect-ratio:auto;';
 
   return `
       <div class="image-list-container image-list-odd">
@@ -798,9 +798,10 @@ function buildDetailReplyCard(
   const rawReplyHtml = reply.html() ?? '';
   let text = extractReplyTextFromHtml(replyTextHtml || rawReplyHtml);
   text = stripLeadingReplyLabel(text, [sourceName, channelTitle ?? '', channel ?? '']);
+  const replyMediaLabel = getReplyMediaLabel(reply);
 
   if (!text) {
-    text = getReplyMediaLabel(reply);
+    text = replyMediaLabel;
   }
 
   if (!text) {
@@ -829,7 +830,7 @@ function buildDetailReplyCard(
     }
   })();
   const replyPreviewSrc =
-    text === 'Media' && replyTargetId && hdImageBase
+    replyMediaLabel && replyTargetId && hdImageBase
       ? sanitizeUrlValue(buildHdImageUrl(hdImageBase, `/mood/${encodeURIComponent(replyTargetId)}/0`), 'src')
       : '';
   const tagName = safeHref ? 'a' : 'div';
@@ -843,20 +844,25 @@ function buildDetailReplyCard(
   const previewMarkup = replyPreviewSrc
     ? `<span class="mood-detail-quote-media"><img class="mood-detail-quote-image" src="${escapeHtml(replyPreviewSrc)}" alt="" loading="lazy" /></span>`
     : '';
+  const isMediaOnlyQuote = Boolean(replyPreviewSrc && /^(media|video)$/i.test(text));
   const textMarkup =
-    replyPreviewSrc && text === 'Media'
+    isMediaOnlyQuote
       ? ''
       : `<p class="mood-detail-quote-text mood-item-quote-text">${escapeHtml(text)}</p>`;
+  const bodyMarkup = sourceMarkup || textMarkup
+    ? `<span class="mood-detail-quote-body">${sourceMarkup}${textMarkup}</span>`
+    : '';
   const quoteClassName = [
     'mood-detail-quote',
     'mood-item-quote',
     'mood-comment-quote',
-    replyPreviewSrc && text === 'Media' ? 'mood-detail-quote--media-only mood-item-quote--media-only' : '',
+    isMediaOnlyQuote ? 'mood-detail-quote--media-only mood-item-quote--media-only' : '',
+    replyPreviewSrc && !isMediaOnlyQuote ? 'mood-detail-quote--with-media mood-item-quote--with-media' : '',
   ]
     .filter(Boolean)
     .join(' ');
 
-  return `<${tagName} class="${quoteClassName}"${hrefAttr}${externalAttrs}>${sourceMarkup}${previewMarkup}${textMarkup}</${tagName}>`;
+  return `<${tagName} class="${quoteClassName}"${hrefAttr}${externalAttrs}>${previewMarkup}${bodyMarkup}</${tagName}>`;
 }
 
 function sanitizeUrlValue(value: string, type: 'href' | 'src'): string {
