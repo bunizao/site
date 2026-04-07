@@ -331,7 +331,7 @@ const telegramCommentUrl = channel && id ? `https://t.me/${channel}/${id}?commen
     }
 
     .mood-post-content :global(.image-preview-wrap) {
-      border-radius: 10px;
+      border-radius: 12px;
     }
 
     .mood-post-content :global(.image-preview-wrap--portrait) {
@@ -344,16 +344,17 @@ const telegramCommentUrl = channel && id ? `https://t.me/${channel}/${id}?commen
 
     .mood-post-content :global(video) {
       margin: 1.25em 0;
-      border-radius: 10px;
+      border-radius: 12px;
       max-height: min(62vh, 420px);
+      background: transparent;
     }
 
     .mood-post-content :global(video.video--portrait) {
       width: min(82vw, 340px);
       max-width: 100%;
       max-height: min(68vh, 520px);
-      margin-left: auto;
-      margin-right: auto;
+      margin-left: 0;
+      margin-right: 0;
       display: block;
     }
 
@@ -361,8 +362,8 @@ const telegramCommentUrl = channel && id ? `https://t.me/${channel}/${id}?commen
       width: min(72vw, 300px);
       max-width: 100%;
       max-height: min(72vh, 560px);
-      margin-left: auto;
-      margin-right: auto;
+      margin-left: 0;
+      margin-right: 0;
       display: block;
     }
 
@@ -982,11 +983,10 @@ const telegramCommentUrl = channel && id ? `https://t.me/${channel}/${id}?commen
     max-height: min(74vh, 640px);
     height: auto;
     margin: 1.5em 0;
-    border-radius: 8px;
-    background: hsl(var(--foreground) / 0.05);
-    overflow: hidden;
-    -webkit-mask-image: -webkit-radial-gradient(white, black);
-    mask-image: radial-gradient(white, black);
+    border-radius: 12px;
+    background: transparent;
+    overflow: clip;
+    clip-path: inset(0 round 12px);
   }
 
   /* Portrait videos */
@@ -994,8 +994,8 @@ const telegramCommentUrl = channel && id ? `https://t.me/${channel}/${id}?commen
     width: min(100%, clamp(280px, 46vw, 440px));
     max-width: 100%;
     max-height: min(78vh, 760px);
-    margin-left: auto;
-    margin-right: auto;
+    margin-left: 0;
+    margin-right: 0;
     display: block;
   }
 
@@ -1004,8 +1004,8 @@ const telegramCommentUrl = channel && id ? `https://t.me/${channel}/${id}?commen
     width: min(100%, clamp(240px, 38vw, 380px));
     max-width: 100%;
     max-height: min(82vh, 820px);
-    margin-left: auto;
-    margin-right: auto;
+    margin-left: 0;
+    margin-right: 0;
     display: block;
   }
 
@@ -1015,8 +1015,8 @@ const telegramCommentUrl = channel && id ? `https://t.me/${channel}/${id}?commen
     width: min(100%, 480px);
     max-width: 100%;
     aspect-ratio: 16 / 9;
-    margin: 1.5em auto;
-    border-radius: 10px;
+    margin: 1.5em 0;
+    border-radius: 12px;
     overflow: hidden;
     text-decoration: none;
     cursor: pointer;

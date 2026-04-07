@@ -434,10 +434,6 @@ function getVideo($: CheerioAPI, item: Element, { staticProxy, index }: ContentP
     if (poster) {
       const posterUrl = toStaticProxyUrl(poster, staticProxy);
       videoEl.attr('poster', posterUrl);
-      const safePoster = posterUrl.replace(/'/g, '%27');
-      const existingStyle = videoEl.attr('style') ?? '';
-      const backgroundStyle = `background-image: url('${safePoster}'); background-size: cover; background-position: center; background-repeat: no-repeat;`;
-      videoEl.attr('style', existingStyle ? `${existingStyle}; ${backgroundStyle}` : backgroundStyle);
     }
 
     videoEl

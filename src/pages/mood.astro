@@ -1281,11 +1281,10 @@ const skeletonGroups = [
     max-height: min(52vh, 400px);
     height: auto;
     display: block;
-    border-radius: 10px;
-    background: hsl(var(--foreground) / 0.05);
-    overflow: hidden;
-    -webkit-mask-image: -webkit-radial-gradient(white, black);
-    mask-image: radial-gradient(white, black);
+    border-radius: 12px;
+    background: transparent;
+    overflow: clip;
+    clip-path: inset(0 round 12px);
   }
 
   /* Portrait videos (aspect ratio < 0.8) */
@@ -1293,7 +1292,7 @@ const skeletonGroups = [
     width: min(100%, clamp(220px, 52vw, 320px));
     max-width: 100%;
     max-height: min(58vh, 460px);
-    margin: 0 auto;
+    margin: 0;
   }
 
   /* Ultra-tall videos (aspect ratio < 0.6) */
@@ -1301,7 +1300,7 @@ const skeletonGroups = [
     width: min(100%, clamp(200px, 44vw, 280px));
     max-width: 100%;
     max-height: min(62vh, 500px);
-    margin: 0 auto;
+    margin: 0;
   }
 
   :global(.mood-item-media audio) {
