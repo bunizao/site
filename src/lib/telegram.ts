@@ -1019,21 +1019,29 @@ function getNotSupportedVideo(
   const player = $(item).find('.tgme_widget_message_video_player.not_supported');
   if (!player.length) return '';
 
-  const thumbStyle = player.find('.tgme_widget_message_video_thumb').attr('style') ?? '';
+  const thumbEl = player.find('.tgme_widget_message_video_thumb');
+  const thumbStyle = thumbEl.attr('style') ?? '';
   const thumbUrl = extractBackgroundImage(thumbStyle);
   const proxiedThumb = thumbUrl ? sanitizeUrlValue(toStaticProxyUrl(thumbUrl, staticProxy), 'src') : '';
 
+  // Derive aspect-ratio from Telegram's padding-top trick (padding % = height/width * 100)
+  const paddingMatch = thumbStyle.match(/padding-top:\s*([\d.]+)%/i);
+  const paddingPercent = paddingMatch ? Number.parseFloat(paddingMatch[1]) : 0;
+  const aspectStyle = paddingPercent > 0
+    ? ` style="aspect-ratio: ${(100 / paddingPercent).toFixed(4)} / 1"`
+    : '';
+
   const postUrl = sanitizeUrlValue(`https://t.me/${channel}/${id}`, 'href');
-  const imageMarkup = proxiedThumb
-    ? `<span class="bookmark-card__media"><img src="${escapeHtml(proxiedThumb)}" alt="Video" loading="lazy" /></span>`
+  const thumbMarkup = proxiedThumb
+    ? `<img class="video-too-big__thumb" src="${escapeHtml(proxiedThumb)}" alt="" loading="lazy" />`
     : '';
 
   return `
-    <a class="bookmark-card" href="${escapeHtml(postUrl)}" target="_blank" rel="noopener noreferrer">
-      ${imageMarkup}
-      <span class="bookmark-card__content">
-        <span class="bookmark-card__title">Watch on Telegram</span>
-        <span class="bookmark-card__meta">t.me</span>
+    <a class="video-too-big" href="${escapeHtml(postUrl)}" target="_blank" rel="noopener noreferrer"${aspectStyle}>
+      ${thumbMarkup}
+      <span class="video-too-big__overlay">
+        <span class="video-too-big__label">Media is too big</span>
+        <span class="video-too-big__btn">VIEW IN TELEGRAM</span>
       </span>
     </a>
   `;
