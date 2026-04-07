@@ -393,6 +393,7 @@ async function getUnsupportedMediaFallback(
   { hdImageBase = '', id, index, title, channel }: ContentProcessorConfig
 ): Promise<string> {
   const className = $(item).attr('class') ?? '';
+  const hasUnsupportedMediaNotice = $(item).find('.message_media_not_supported_wrap, .message_media_not_supported_label').length > 0;
   const hasPhoto = $(item).find('.tgme_widget_message_photo_wrap').length > 0;
   const hasPlayableVideo = $(item).find('.tgme_widget_message_video_wrap video, .tgme_widget_message_roundvideo_wrap video').length > 0;
   const hasNotSupportedPlayer = $(item).find('.tgme_widget_message_video_player.not_supported').length > 0;
@@ -400,7 +401,7 @@ async function getUnsupportedMediaFallback(
     return '';
   }
 
-  if (!className.includes('text_not_supported_wrap') || !hdImageBase || !id) {
+  if (!className.includes('text_not_supported_wrap') || !hasUnsupportedMediaNotice || !hdImageBase || !id) {
     return '';
   }
 
