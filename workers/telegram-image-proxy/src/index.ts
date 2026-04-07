@@ -92,9 +92,25 @@ interface TelegramPhotoSize {
   file_size?: number;
 }
 
+interface TelegramVideoMedia {
+  cover?: TelegramPhotoSize[];
+  thumbnail?: TelegramPhotoSize;
+}
+
+interface TelegramAnimationMedia {
+  thumbnail?: TelegramPhotoSize;
+}
+
+interface TelegramDocumentMedia {
+  thumbnail?: TelegramPhotoSize;
+}
+
 interface TelegramMessage {
   message_id: number;
   photo?: TelegramPhotoSize[];
+  video?: TelegramVideoMedia;
+  animation?: TelegramAnimationMedia;
+  document?: TelegramDocumentMedia;
   media_group_id?: string;
   chat?: {
     id: number | string;
@@ -257,6 +273,20 @@ function selectLargestPhoto(photos: TelegramPhotoSize[]): TelegramPhotoSize | nu
   });
 }
 
+function selectMoodStaticImageFile(message: TelegramMessage): TelegramPhotoSize | null {
+  const messagePhoto = selectLargestPhoto(message.photo ?? []);
+  if (messagePhoto) {
+    return messagePhoto;
+  }
+
+  const videoCover = selectLargestPhoto(message.video?.cover ?? []);
+  if (videoCover) {
+    return videoCover;
+  }
+
+  return message.video?.thumbnail ?? message.animation?.thumbnail ?? message.document?.thumbnail ?? null;
+}
+
 function extractMessageIdFromPhotoHref(href: string, channel: string, host: string): string {
   if (!href) return '';
 
@@ -277,7 +307,7 @@ function extractMessageIdFromPhotoHref(href: string, channel: string, host: stri
   }
 }
 
-function resolveMoodImageTargetFromPhotoHrefs(
+function resolveMoodImageTargetFromMediaHrefs(
   hrefs: string[],
   currentPostId: string,
   channel: string,
@@ -308,13 +338,22 @@ function resolveMoodImageTargetFromPhotoHrefs(
   };
 }
 
-function collectPhotoHrefsWithFallback(html: string): string[] {
+const MEDIA_GROUP_ITEM_CLASSES = new Set([
+  'tgme_widget_message_photo_wrap',
+  'tgme_widget_message_video_wrap',
+  'tgme_widget_message_video_player',
+  'tgme_widget_message_document_wrap',
+]);
+
+const MEDIA_GROUP_ITEM_SELECTOR = '.tgme_widget_message_photo_wrap, .tgme_widget_message_video_wrap, .tgme_widget_message_video_player, .tgme_widget_message_document_wrap';
+
+function collectMediaHrefsWithFallback(html: string): string[] {
   const hrefs: string[] = [];
 
   for (const match of html.matchAll(/<a\b[^>]*>/gi)) {
     const tag = match[0];
     const className = tag.match(/\bclass\s*=\s*(['"])(.*?)\1/i)?.[2] ?? '';
-    if (!className.split(/\s+/).includes('tgme_widget_message_photo_wrap')) {
+    if (!className.split(/\s+/).some((token) => MEDIA_GROUP_ITEM_CLASSES.has(token))) {
       continue;
     }
 
@@ -327,7 +366,7 @@ function collectPhotoHrefsWithFallback(html: string): string[] {
   return hrefs;
 }
 
-async function collectPhotoHrefsWithRewriter(
+async function collectMediaHrefsWithRewriter(
   html: string,
   selector: string,
   HtmlRewriterCtor: new () => HtmlRewriterLike
@@ -347,13 +386,13 @@ async function collectPhotoHrefsWithRewriter(
   return hrefs;
 }
 
-async function collectPhotoHrefsFromHtml(html: string): Promise<string[]> {
+async function collectMediaHrefsFromHtml(html: string): Promise<string[]> {
   const HtmlRewriterCtor = HTMLRewriter;
   if (typeof HtmlRewriterCtor === 'function') {
-    return collectPhotoHrefsWithRewriter(html, '.tgme_widget_message_photo_wrap', HtmlRewriterCtor);
+    return collectMediaHrefsWithRewriter(html, MEDIA_GROUP_ITEM_SELECTOR, HtmlRewriterCtor);
   }
 
-  return collectPhotoHrefsWithFallback(html);
+  return collectMediaHrefsWithFallback(html);
 }
 
 async function resolveMoodImageTargetFromHtml(
@@ -362,8 +401,8 @@ async function resolveMoodImageTargetFromHtml(
   channel: string,
   host: string
 ): Promise<MoodImageTarget> {
-  const hrefs = await collectPhotoHrefsFromHtml(html);
-  return resolveMoodImageTargetFromPhotoHrefs(hrefs, currentPostId, channel, host);
+  const hrefs = await collectMediaHrefsFromHtml(html);
+  return resolveMoodImageTargetFromMediaHrefs(hrefs, currentPostId, channel, host);
 }
 
 async function resolveMoodImageTarget(message: TelegramMessage, env: Env): Promise<MoodImageTarget> {
@@ -651,8 +690,9 @@ async function handleWebhook(request: Request, url: URL, env: Env): Promise<Resp
   const messageId = String(message.message_id);
   let postId = messageId;
   let imageTarget: MoodImageTarget = { postId: messageId, imageIndex: 0 };
+  const staticImageFile = selectMoodStaticImageFile(message);
 
-  if (message.photo?.length) {
+  if (staticImageFile) {
     try {
       imageTarget = await resolveMoodImageTarget(message, env);
       postId = imageTarget.postId;
@@ -668,22 +708,19 @@ async function handleWebhook(request: Request, url: URL, env: Env): Promise<Resp
     console.error(`Webhook avatar ingest failed for post ${postId}:`, error);
   }
 
-  if (message.photo?.length) {
-    const largestPhoto = selectLargestPhoto(message.photo);
-    if (largestPhoto) {
-      try {
-        await ingestTelegramImage(
-          {
-            objectKey: `mood/${postId}/${imageTarget.imageIndex}`,
-            publicPath: `/mood/${postId}/${imageTarget.imageIndex}`,
-          },
-          largestPhoto.file_id,
-          url,
-          env
-        );
-      } catch (error) {
-        console.error(`Webhook mood image ingest failed for post ${postId}/${imageTarget.imageIndex}:`, error);
-      }
+  if (staticImageFile) {
+    try {
+      await ingestTelegramImage(
+        {
+          objectKey: `mood/${postId}/${imageTarget.imageIndex}`,
+          publicPath: `/mood/${postId}/${imageTarget.imageIndex}`,
+        },
+        staticImageFile.file_id,
+        url,
+        env
+      );
+    } catch (error) {
+      console.error(`Webhook mood image ingest failed for post ${postId}/${imageTarget.imageIndex}:`, error);
     }
   }
 

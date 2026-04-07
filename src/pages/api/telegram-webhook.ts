@@ -24,9 +24,25 @@ interface TelegramPhotoSize {
   file_size?: number;
 }
 
+interface TelegramVideoMedia {
+  cover?: TelegramPhotoSize[];
+  thumbnail?: TelegramPhotoSize;
+}
+
+interface TelegramAnimationMedia {
+  thumbnail?: TelegramPhotoSize;
+}
+
+interface TelegramDocumentMedia {
+  thumbnail?: TelegramPhotoSize;
+}
+
 interface TelegramMessage {
   message_id: number;
   photo?: TelegramPhotoSize[];
+  video?: TelegramVideoMedia;
+  animation?: TelegramAnimationMedia;
+  document?: TelegramDocumentMedia;
   media_group_id?: string;
   chat?: {
     id: number | string;
@@ -112,6 +128,20 @@ function selectLargestPhoto(photos: TelegramPhotoSize[]): TelegramPhotoSize | nu
   });
 }
 
+export function selectMoodStaticImageFile(message: TelegramMessage): TelegramPhotoSize | null {
+  const messagePhoto = selectLargestPhoto(message.photo ?? []);
+  if (messagePhoto) {
+    return messagePhoto;
+  }
+
+  const videoCover = selectLargestPhoto(message.video?.cover ?? []);
+  if (videoCover) {
+    return videoCover;
+  }
+
+  return message.video?.thumbnail ?? message.animation?.thumbnail ?? message.document?.thumbnail ?? null;
+}
+
 function extractMessageIdFromPhotoHref(href: string, channel: string, host: string): string {
   if (!href) return '';
 
@@ -172,10 +202,14 @@ export function resolveMoodImageTargetFromHtml(
 ): MoodImageTarget {
   const $ = load(html);
   const wrapper = $(`.tgme_widget_message[data-post="${channel}/${currentPostId}"]`).first();
-  const photoNodes = (wrapper.length ? wrapper.find('.tgme_widget_message_photo_wrap') : $('.tgme_widget_message_photo_wrap')).toArray();
+  const mediaNodes = (
+    wrapper.length
+      ? wrapper.find('.tgme_widget_message_photo_wrap, .tgme_widget_message_video_wrap, .tgme_widget_message_video_player, .tgme_widget_message_document_wrap')
+      : $('.tgme_widget_message_photo_wrap, .tgme_widget_message_video_wrap, .tgme_widget_message_video_player, .tgme_widget_message_document_wrap')
+  ).toArray();
   const orderedPostIds: string[] = [];
 
-  for (const node of photoNodes) {
+  for (const node of mediaNodes) {
     const postId = extractMessageIdFromPhotoHref($(node).attr('href') ?? '', channel, host);
     if (!postId || orderedPostIds.includes(postId)) {
       continue;
@@ -389,32 +423,28 @@ export const POST: APIRoute = async ({ request, locals }) => {
   }
 
   const messageId = message.message_id.toString();
-  const imageTarget = message.photo?.length
+  const staticImageFile = selectMoodStaticImageFile(message);
+  const imageTarget = staticImageFile
     ? await resolveMoodImageTarget(message, locals)
     : { postId: messageId, imageIndex: 0 };
   const postId = imageTarget.postId;
   await indexChannelAvatarInR2(message, locals);
 
-  // Only index image file_id when the post has photos
-  if (message?.photo?.length) {
-    // Pick the largest photo explicitly to avoid relying on ordering
-    const largestPhoto = selectLargestPhoto(message.photo);
-    if (largestPhoto) {
-      const ingestPath = `/ingest/mood/${encodeURIComponent(postId)}/${imageTarget.imageIndex}`;
-      const success = await ingestToImageWorker(ingestPath, largestPhoto.file_id, config);
+  if (staticImageFile) {
+    const ingestPath = `/ingest/mood/${encodeURIComponent(postId)}/${imageTarget.imageIndex}`;
+    const success = await ingestToImageWorker(ingestPath, staticImageFile.file_id, config);
 
-      if (!success) {
-        console.error(`Image ingest failed for post ${postId}/${imageTarget.imageIndex}`);
-        return new Response('Image ingest failed', {
-          status: 502,
-          headers: rateLimitHeaders,
-        });
-      }
-
-      console.info(
-        `Ingested image: ${postId}/${imageTarget.imageIndex} from message ${messageId} -> ${largestPhoto.file_id.substring(0, 20)}...`
-      );
+    if (!success) {
+      console.error(`Image ingest failed for post ${postId}/${imageTarget.imageIndex}`);
+      return new Response('Image ingest failed', {
+        status: 502,
+        headers: rateLimitHeaders,
+      });
     }
+
+    console.info(
+      `Ingested static image: ${postId}/${imageTarget.imageIndex} from message ${messageId} -> ${staticImageFile.file_id.substring(0, 20)}...`
+    );
   }
 
   await triggerMoodDispatch({ request, locals }, postId);

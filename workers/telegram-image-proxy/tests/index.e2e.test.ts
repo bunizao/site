@@ -337,6 +337,42 @@ describe('telegram image worker e2e', () => {
     ]);
   });
 
+  test('webhook ingests a static cover for video-backed media when no photo exists', async () => {
+    const env = createEnv({ TELEGRAM_CHANNEL_ID: '' });
+    const ctx = new FakeExecutionContext();
+    const fetchMock = new FetchMock();
+
+    registerTelegramImageHandlers(fetchMock, {
+      'video-cover-1': 'photos/video_cover_1.jpg',
+    });
+
+    globalThis.fetch = fetchMock.fetch as typeof fetch;
+
+    const request = new Request('https://image.example.test/webhook', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Telegram-Bot-Api-Secret-Token': env.TELEGRAM_WEBHOOK_SECRET,
+      },
+      body: JSON.stringify({
+        update_id: 11,
+        channel_post: {
+          message_id: 4400,
+          video: {
+            cover: [
+              { file_id: 'video-cover-1', file_unique_id: 'vc1', width: 1280, height: 720 },
+            ],
+          },
+        },
+      }),
+    });
+
+    const response = await worker.fetch(request, env as unknown as Env, ctx);
+    expect(response.status).toBe(200);
+    expect(env.MOOD_IMAGES.has('mood/4400/0')).toBe(true);
+    expect(env.NOTIFY_DISPATCH_QUEUE.messages[0]?.postId).toBe('4400');
+  });
+
   test('webhook resolves media-group items back to the root post id', async () => {
     const env = createEnv({ TELEGRAM_CHANNEL_ID: '' });
     const ctx = new FakeExecutionContext();
@@ -386,6 +422,58 @@ describe('telegram image worker e2e', () => {
 
     expect(env.MOOD_IMAGES.has('mood/3190/1')).toBe(true);
     expect(env.NOTIFY_DISPATCH_QUEUE.messages[0]?.postId).toBe('3190');
+  });
+
+  test('webhook resolves video-wrapped media-group items back to the root post id', async () => {
+    const env = createEnv({ TELEGRAM_CHANNEL_ID: '' });
+    const ctx = new FakeExecutionContext();
+    const fetchMock = new FetchMock();
+
+    fetchMock.register(async (url) => {
+      if (url.hostname === 't.me') {
+        return new Response(`
+          <div class="tgme_widget_message" data-post="tutumood/5301">
+            <a class="tgme_widget_message_video_wrap" href="https://t.me/tutumood/5300?single"></a>
+            <a class="tgme_widget_message_video_wrap" href="https://t.me/tutumood/5301?single"></a>
+          </div>
+        `, {
+          status: 200,
+          headers: { 'Content-Type': 'text/html' },
+        });
+      }
+      return null;
+    });
+
+    registerTelegramImageHandlers(fetchMock, {
+      'video-cover-2': 'photos/video_cover_2.jpg',
+    });
+
+    globalThis.fetch = fetchMock.fetch as typeof fetch;
+
+    const request = new Request('https://image.example.test/webhook', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Telegram-Bot-Api-Secret-Token': env.TELEGRAM_WEBHOOK_SECRET,
+      },
+      body: JSON.stringify({
+        update_id: 12,
+        channel_post: {
+          message_id: 5301,
+          media_group_id: 'group-video-1',
+          video: {
+            cover: [
+              { file_id: 'video-cover-2', file_unique_id: 'vc2', width: 1280, height: 720 },
+            ],
+          },
+        },
+      }),
+    });
+
+    const response = await worker.fetch(request, env as unknown as Env, ctx);
+    expect(response.status).toBe(200);
+    expect(env.MOOD_IMAGES.has('mood/5300/1')).toBe(true);
+    expect(env.NOTIFY_DISPATCH_QUEUE.messages[0]?.postId).toBe('5300');
   });
 
   test('webhook returns 200 on image ingest failure and still queues notify', async () => {
