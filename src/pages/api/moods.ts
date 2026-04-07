@@ -4,7 +4,6 @@ import { getChannelInfo, type ChannelInfo } from '../../lib/telegram';
 import {
   getFirstImage,
   getFirstImageFallback,
-  getFirstVideoPosterSrc,
   getInlineMediaPreview,
   getTextPreview,
   getTextPreviewHtml,
@@ -12,6 +11,7 @@ import {
   getNumericId,
   hasEmojiImageMedia,
   hasMedia,
+  hasTooBigVideo,
   isLongContent,
 } from '../../lib/mood-utils';
 import { checkRateLimit, createRateLimitHeaders } from '../../lib/security/rate-limit';
@@ -192,24 +192,23 @@ export const GET: APIRoute = async ({ request, locals }) => {
 
     const payload = sortedPosts.map((post) => {
       const mediaPreview = getInlineMediaPreview(post.content);
+      const tooBigVideo = hasTooBigVideo(post.content);
       const previewText = getTextPreview(post);
       const previewHtml = getTextPreviewHtml(post);
       const firstImage = getFirstImage(post.content);
-      const firstVideoPoster = mediaPreview?.type === 'video' ? getFirstVideoPosterSrc(post.content) : null;
-      const previewImage = firstVideoPoster || firstImage;
       const quote = getQuotePreview(post.content, { channel, channelTitle });
       const hasDetailMedia = hasMedia(post.content) || hasEmojiImageMedia(post.content);
-      const needsDetailPage = !mediaPreview && (hasDetailMedia || isLongContent(previewText));
-      const preferStaticImagePreview = mediaPreview?.type === 'video' && !previewText.trim() && Boolean(previewImage);
+      const needsDetailPage = !mediaPreview && (hasDetailMedia || tooBigVideo || isLongContent(previewText));
       return {
         id: post.id,
         datetime: post.datetime,
         tag: post.tags?.[0] ?? '',
         previewText,
         previewHtml,
-        image: preferStaticImagePreview ? previewImage : mediaPreview ? null : firstImage,
+        previewMediaType: tooBigVideo ? 'too-big-video' : '',
+        image: mediaPreview ? null : firstImage,
         imageFallback: mediaPreview ? null : getFirstImageFallback(post.content),
-        mediaHtml: preferStaticImagePreview ? '' : mediaPreview?.html ?? '',
+        mediaHtml: mediaPreview?.html ?? '',
         needsDetailPage,
         forwardedFrom: post.forwardedFrom ?? null,
         quote: quote ?? null,

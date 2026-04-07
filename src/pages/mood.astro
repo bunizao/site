@@ -1154,6 +1154,12 @@ const skeletonGroups = [
       gap: 10px;
     }
 
+    :global(.mood-item-content--media-only) {
+      width: 100%;
+      max-width: 100%;
+      padding-right: 0;
+    }
+
     :global(.mood-item--clickable) {
       margin: 0;
       padding: 14px 0;
@@ -1213,10 +1219,21 @@ const skeletonGroups = [
     padding-right: 0;
   }
 
+  :global(.mood-item-content--media-only) {
+    flex: 0 1 auto;
+    width: fit-content;
+    max-width: min(100%, 340px);
+    padding-right: 24px;
+  }
+
   @media (min-width: 640px) {
     :global(.mood-item-content) {
       gap: 12px;
       padding-right: 32px;
+    }
+
+    :global(.mood-item-content--media-only) {
+      max-width: min(100%, 380px);
     }
   }
 
@@ -1503,6 +1520,55 @@ const skeletonGroups = [
     overflow: hidden;
     background: hsl(var(--foreground) / 0.02);
     position: relative;
+  }
+
+  :global(.mood-item-thumb--video) {
+    align-self: flex-start;
+    background: hsl(var(--foreground) / 0.04);
+    box-shadow: inset 0 0 0 1px hsl(var(--foreground) / 0.04);
+  }
+
+  :global(.mood-item-thumb-video-overlay) {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    background: linear-gradient(180deg, hsl(0 0% 0% / 0.08) 0%, hsl(0 0% 0% / 0.2) 100%);
+    pointer-events: none;
+  }
+
+  :global(.mood-item-thumb-video-play) {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    border-radius: 999px;
+    color: #fff;
+    background: hsl(0 0% 0% / 0.42);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    box-shadow: 0 8px 24px hsl(0 0% 0% / 0.18);
+  }
+
+  :global(.mood-item-thumb-video-label) {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 24px;
+    padding: 0 10px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: #fff;
+    background: hsl(0 0% 0% / 0.5);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
   }
 
   /* Landscape and square images - normal flow */
@@ -4679,6 +4745,7 @@ const skeletonGroups = [
       tag?: string;
       previewText: string;
       previewHtml?: string;
+      previewMediaType?: string;
       image?: string | null;
       imageFallback?: string | null;
       mediaHtml?: string;
@@ -4731,6 +4798,7 @@ const skeletonGroups = [
     const createMoodItem = (mood: MoodData, index: number): HTMLElement => {
       const mediaHtml = typeof mood.mediaHtml === 'string' ? mood.mediaHtml.trim() : '';
       const hasMediaHtml = mediaHtml.length > 0;
+      const previewMediaType = typeof mood.previewMediaType === 'string' ? mood.previewMediaType.trim() : '';
       const needsDetailPage = typeof mood.needsDetailPage === 'boolean'
         ? mood.needsDetailPage
         : isLongContent(mood.previewText);
@@ -4832,14 +4900,28 @@ const skeletonGroups = [
       text.className = 'mood-item-text';
       const previewText = mood.previewText || '';
       const previewHtml = mood.previewHtml || '';
+      const hasTextPreview = Boolean(previewText.trim() || previewHtml.trim());
       const isLongPreview = isLongContent(previewText);
-      if (previewText.trim() || previewHtml.trim()) {
+      if (hasTextPreview) {
         text.appendChild(buildPreviewFragment(previewText, previewHtml));
+        content.appendChild(text);
       }
-      if (isLongPreview) {
+      if (hasTextPreview && isLongPreview) {
         text.classList.add('mood-item-text--clamped');
       }
-      content.appendChild(text);
+
+      const isMediaOnlyVideoPreview =
+        previewMediaType === 'too-big-video' &&
+        !hasTextPreview &&
+        !hasMediaHtml &&
+        Boolean(mood.image) &&
+        !forwardedFrom &&
+        !quote;
+
+      if (isMediaOnlyVideoPreview) {
+        element.classList.add('mood-item--media-only');
+        content.classList.add('mood-item-content--media-only');
+      }
 
       if (hasMediaHtml) {
         const media = document.createElement('div');

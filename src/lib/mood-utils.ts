@@ -206,6 +206,7 @@ const previewCleanupSelectors = [
   '.tgme_widget_message_reply',
   '.bookmark-card',
   'video, audio, iframe',
+  '.video-too-big',
   '.image-list-container, .image-preview-wrap, .image-preview-button, .sticker',
   '.tgme_widget_message_poll, .tgme_widget_message_document_wrap, .tgme_widget_message_video_player, .tgme_widget_message_location_wrap',
 ];
@@ -437,6 +438,10 @@ export function hasEmojiImageMedia(content: string): boolean {
  */
 export function hasVideoMedia(content: string): boolean {
   return /<(video)\b/i.test(content);
+}
+
+export function hasTooBigVideo(content: string): boolean {
+  return /\bvideo-too-big\b|tgme_widget_message_video_player\s+not_supported|message_media_not_supported/i.test(content);
 }
 
 /**
