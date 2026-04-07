@@ -1275,31 +1275,38 @@ const skeletonGroups = [
     gap: 10px;
   }
 
+  :global(.mood-item-media .mood-video-frame) {
+    width: 100%;
+    max-width: 100%;
+    border-radius: 12px;
+    overflow: hidden;
+    background: transparent;
+    align-self: flex-start;
+  }
+
   :global(.mood-item-media video) {
     width: 100%;
     max-width: 100%;
     max-height: min(52vh, 400px);
     height: auto;
     display: block;
-    border-radius: 12px;
+    border-radius: 0;
     background: transparent;
-    overflow: clip;
-    clip-path: inset(0 round 12px);
+    overflow: visible;
+    clip-path: none;
   }
 
   /* Portrait videos (aspect ratio < 0.8) */
-  :global(.mood-item-media video.video--portrait) {
+  :global(.mood-item-media .mood-video-frame.video--portrait) {
     width: min(100%, clamp(220px, 52vw, 320px));
     max-width: 100%;
-    max-height: min(58vh, 460px);
     margin: 0;
   }
 
   /* Ultra-tall videos (aspect ratio < 0.6) */
-  :global(.mood-item-media video.video--ultra-tall) {
+  :global(.mood-item-media .mood-video-frame.video--ultra-tall) {
     width: min(100%, clamp(200px, 44vw, 280px));
     max-width: 100%;
-    max-height: min(62vh, 500px);
     margin: 0;
   }
 
@@ -1624,11 +1631,11 @@ const skeletonGroups = [
       max-height: min(56vh, 440px);
     }
 
-    :global(.mood-item-media video.video--portrait) {
+    :global(.mood-item-media .mood-video-frame.video--portrait) {
       width: min(100%, 360px);
     }
 
-    :global(.mood-item-media video.video--ultra-tall) {
+    :global(.mood-item-media .mood-video-frame.video--ultra-tall) {
       width: min(100%, 320px);
     }
 
@@ -1661,11 +1668,11 @@ const skeletonGroups = [
       max-height: min(60vh, 480px);
     }
 
-    :global(.mood-item-media video.video--portrait) {
+    :global(.mood-item-media .mood-video-frame.video--portrait) {
       width: min(100%, 400px);
     }
 
-    :global(.mood-item-media video.video--ultra-tall) {
+    :global(.mood-item-media .mood-video-frame.video--ultra-tall) {
       width: min(100%, 340px);
     }
 

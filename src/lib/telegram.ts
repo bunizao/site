@@ -437,6 +437,8 @@ function getVideo($: CheerioAPI, item: Element, { staticProxy, index }: ContentP
     }
 
     videoEl
+      .removeAttr('width')
+      .removeAttr('height')
       .attr('controls', 'true')
       .attr('preload', (index ?? 0) > 15 ? 'auto' : 'metadata')
       .attr('muted', 'true')
@@ -459,7 +461,7 @@ function getVideo($: CheerioAPI, item: Element, { staticProxy, index }: ContentP
       wrapEl.find('video').each((_videoIndex, video) => {
         const videoEl = $(video);
         applyVideoAttributes(videoEl, contextEl);
-        htmlParts.push($.html(videoEl));
+        htmlParts.push(`<div class="mood-video-frame">${$.html(videoEl)}</div>`);
       });
     });
 
@@ -471,7 +473,7 @@ function getVideo($: CheerioAPI, item: Element, { staticProxy, index }: ContentP
       wrapEl.find('video').each((_videoIndex, video) => {
         const videoEl = $(video);
         applyVideoAttributes(videoEl, contextEl);
-        htmlParts.push($.html(videoEl));
+        htmlParts.push(`<div class="mood-video-frame">${$.html(videoEl)}</div>`);
       });
     });
 
