@@ -216,7 +216,12 @@ const commentsCountCache = new LRUCache<string, number>({
   max: 1000,
 });
 
-const TELEGRAM_PARSE_CACHE_VERSION = 'reply-variant-v2';
+const remoteAssetExistsCache = new LRUCache<string, boolean>({
+  ttl: 1000 * 60 * 10, // 10 minutes
+  max: 1000,
+});
+
+const TELEGRAM_PARSE_CACHE_VERSION = 'reply-variant-v3';
 
 // Helper function to get environment variables
 function getEnv(env: ImportMetaEnv, Astro: any, name: string): string {
@@ -369,11 +374,24 @@ function getImages($: CheerioAPI, item: Element, { staticProxy, hdImageBase = ''
   return images.length ? `<div class="image-list-container ${images.length % 2 === 0 ? 'image-list-even' : 'image-list-odd'}">${images?.join('')}</div>` : '';
 }
 
-function getUnsupportedMediaFallback(
+function buildUnsupportedMediaCard(
+  { channel, id }: Pick<ContentProcessorConfig, 'channel' | 'id'>,
+  label: string
+): string {
+  const safeLabel = escapeHtml(label.trim() || 'Open Telegram to view this media');
+  const href = channel && id ? sanitizeUrlValue(`https://t.me/${channel}/${id}`, 'href') : '';
+  const tagName = href ? 'a' : 'div';
+  const hrefAttr = href ? ` href="${escapeHtml(href)}"` : '';
+  const externalAttrs = href ? ' target="_blank" rel="noopener noreferrer"' : '';
+
+  return `<${tagName} class="mood-detail-quote mood-item-quote mood-comment-quote mood-unsupported-media-card"${hrefAttr}${externalAttrs}><div class="mood-detail-quote-meta mood-item-quote-meta"><span class="mood-detail-quote-source mood-item-quote-author">Telegram</span></div><p class="mood-detail-quote-text mood-item-quote-text">${safeLabel}</p></${tagName}>`;
+}
+
+async function getUnsupportedMediaFallback(
   $: CheerioAPI,
   item: Element,
-  { hdImageBase = '', id, index, title }: ContentProcessorConfig
-): string {
+  { hdImageBase = '', id, index, title, channel }: ContentProcessorConfig
+): Promise<string> {
   const className = $(item).attr('class') ?? '';
   const hasPhoto = $(item).find('.tgme_widget_message_photo_wrap').length > 0;
   const hasPlayableVideo = $(item).find('.tgme_widget_message_video_wrap video, .tgme_widget_message_roundvideo_wrap video').length > 0;
@@ -389,6 +407,13 @@ function getUnsupportedMediaFallback(
   const imgSrc = sanitizeUrlValue(buildHdImageUrl(hdImageBase, `/mood/${encodeURIComponent(id)}/0`), 'src');
   if (!imgSrc) {
     return '';
+  }
+
+  if (!(await remoteAssetExists(imgSrc))) {
+    return buildUnsupportedMediaCard(
+      { channel, id },
+      'Open Telegram to view this live photo'
+    );
   }
 
   const safePostId = id.replace(/[^a-z0-9_-]/gi, '');
@@ -410,6 +435,24 @@ function getUnsupportedMediaFallback(
 
 function getVideo($: CheerioAPI, item: Element, { staticProxy, index }: ContentProcessorConfig): string {
   const htmlParts: string[] = [];
+
+  const getVideoLayoutClass = (sourceEl: cheerio.Cheerio<Element>): string => {
+    const style = sourceEl.attr('style') ?? '';
+    const paddingMatch = style.match(/padding-top:\s*([\d.]+)%/i);
+    const paddingPercent = paddingMatch ? Number.parseFloat(paddingMatch[1]) : 0;
+    if (!paddingPercent) {
+      return '';
+    }
+
+    const ratio = 100 / paddingPercent;
+    if (ratio < 0.6) {
+      return 'video--ultra-tall';
+    }
+    if (ratio < 0.8) {
+      return 'video--portrait';
+    }
+    return '';
+  };
 
   const applyVideoAttributes = (videoEl: cheerio.Cheerio<Element>, contextEl: cheerio.Cheerio<Element>): void => {
     const src = videoEl.attr('src');
@@ -464,8 +507,13 @@ function getVideo($: CheerioAPI, item: Element, { staticProxy, index }: ContentP
       const contextEl = resolvePosterContext(wrapEl);
       wrapEl.find('video').each((_videoIndex, video) => {
         const videoEl = $(video);
+        const layoutClass = getVideoLayoutClass(wrapEl);
+        if (layoutClass) {
+          const existingClass = (videoEl.attr('class') ?? '').trim();
+          videoEl.attr('class', `${existingClass} ${layoutClass}`.trim());
+        }
         applyVideoAttributes(videoEl, contextEl);
-        htmlParts.push(`<div class="mood-video-frame">${$.html(videoEl)}</div>`);
+        htmlParts.push($.html(videoEl));
       });
     });
 
@@ -476,8 +524,13 @@ function getVideo($: CheerioAPI, item: Element, { staticProxy, index }: ContentP
       const contextEl = resolvePosterContext(wrapEl);
       wrapEl.find('video').each((_videoIndex, video) => {
         const videoEl = $(video);
+        const layoutClass = getVideoLayoutClass(wrapEl);
+        if (layoutClass) {
+          const existingClass = (videoEl.attr('class') ?? '').trim();
+          videoEl.attr('class', `${existingClass} ${layoutClass}`.trim());
+        }
         applyVideoAttributes(videoEl, contextEl);
-        htmlParts.push(`<div class="mood-video-frame">${$.html(videoEl)}</div>`);
+        htmlParts.push($.html(videoEl));
       });
     });
 
@@ -664,13 +717,60 @@ const extractReplyTextFromHtml = (html: string): string => {
   return normalizeReplyText($.root().text());
 };
 
+const getReplyMediaLabel = (reply: cheerio.Cheerio<Element>): string => {
+  if (
+    reply.find(
+      '.tgme_widget_message_video_wrap, .tgme_widget_message_video_player, video, .message_video_duration'
+    ).length
+  ) {
+    return 'Video';
+  }
+
+  if (
+    reply.find(
+      '.tgme_widget_message_reply_thumb, .tgme_widget_message_photo_wrap, .message_media_not_supported_wrap'
+    ).length
+  ) {
+    return 'Media';
+  }
+
+  return (reply.attr('href') ?? '').trim() ? 'Media' : '';
+};
+
+async function remoteAssetExists(url: string): Promise<boolean> {
+  const normalizedUrl = sanitizeUrlValue(url, 'src');
+  if (!normalizedUrl) {
+    return false;
+  }
+
+  const cached = remoteAssetExistsCache.get(normalizedUrl);
+  if (cached !== undefined) {
+    return cached;
+  }
+
+  let exists = false;
+
+  try {
+    const response = await fetch(normalizedUrl, {
+      method: 'HEAD',
+      redirect: 'follow',
+    });
+    exists = response.ok;
+  } catch {
+    exists = false;
+  }
+
+  remoteAssetExistsCache.set(normalizedUrl, exists);
+  return exists;
+}
+
 const stripLeadingReplyLabel = (value: string, labels: string[]): string => {
   let result = value;
   labels
     .map((label) => label.trim())
     .filter(Boolean)
     .forEach((label) => {
-      const pattern = new RegExp(`^${escapeForRegExp(label)}[\\s\\-–—:：]+`, 'i');
+      const pattern = new RegExp(`^${escapeForRegExp(label)}(?:[\\s\\-–—:：]+|$)`, 'i');
       result = result.replace(pattern, '');
     });
   return result.trim();
@@ -679,7 +779,7 @@ const stripLeadingReplyLabel = (value: string, labels: string[]): string => {
 function buildDetailReplyCard(
   $: CheerioAPI,
   reply: cheerio.Cheerio<Element>,
-  { channel, channelTitle }: Pick<ContentProcessorConfig, 'channel' | 'channelTitle'>
+  { channel, channelTitle, hdImageBase }: Pick<ContentProcessorConfig, 'channel' | 'channelTitle' | 'hdImageBase'>
 ): string {
   const sourceName =
     [
@@ -700,6 +800,10 @@ function buildDetailReplyCard(
   text = stripLeadingReplyLabel(text, [sourceName, channelTitle ?? '', channel ?? '']);
 
   if (!text) {
+    text = getReplyMediaLabel(reply);
+  }
+
+  if (!text) {
     return '';
   }
 
@@ -714,6 +818,20 @@ function buildDetailReplyCard(
   }
 
   const safeHref = sanitizeUrlValue(href, 'href');
+  const replyTargetId = (() => {
+    if (!safeHref) return '';
+    try {
+      const url = new URL(safeHref, 'https://local.invalid');
+      const match = url.pathname.match(/^\/mood\/(\d+)$/);
+      return match?.[1] ?? '';
+    } catch {
+      return '';
+    }
+  })();
+  const replyPreviewSrc =
+    text === 'Media' && replyTargetId && hdImageBase
+      ? sanitizeUrlValue(buildHdImageUrl(hdImageBase, `/mood/${encodeURIComponent(replyTargetId)}/0`), 'src')
+      : '';
   const tagName = safeHref ? 'a' : 'div';
   const hrefAttr = safeHref ? ` href="${escapeHtml(safeHref)}"` : '';
   const externalAttrs = safeHref && /^https?:\/\//i.test(safeHref)
@@ -722,8 +840,15 @@ function buildDetailReplyCard(
   const sourceMarkup = sourceName
     ? `<div class="mood-detail-quote-meta mood-item-quote-meta"><span class="mood-detail-quote-source mood-item-quote-author">${escapeHtml(sourceName)}</span></div>`
     : '';
+  const previewMarkup = replyPreviewSrc
+    ? `<span class="mood-detail-quote-media"><img class="mood-detail-quote-image" src="${escapeHtml(replyPreviewSrc)}" alt="" loading="lazy" /></span>`
+    : '';
+  const textMarkup =
+    replyPreviewSrc && text === 'Media'
+      ? ''
+      : `<p class="mood-detail-quote-text mood-item-quote-text">${escapeHtml(text)}</p>`;
 
-  return `<${tagName} class="mood-detail-quote mood-item-quote mood-comment-quote"${hrefAttr}${externalAttrs}>${sourceMarkup}<p class="mood-detail-quote-text mood-item-quote-text">${escapeHtml(text)}</p></${tagName}>`;
+  return `<${tagName} class="mood-detail-quote mood-item-quote mood-comment-quote"${hrefAttr}${externalAttrs}>${sourceMarkup}${previewMarkup}${textMarkup}</${tagName}>`;
 }
 
 function sanitizeUrlValue(value: string, type: 'href' | 'src'): string {
@@ -776,13 +901,13 @@ function sanitizeSrcSet(value: string): string {
 function getReply(
   $: CheerioAPI,
   item: Element,
-  { channel, channelTitle, replyVariant = 'raw' }: ContentProcessorConfig
+  { channel, channelTitle, hdImageBase, replyVariant = 'raw' }: ContentProcessorConfig
 ): string {
   const reply = $(item).find('.tgme_widget_message_reply').first();
   if (!reply.length) return '';
 
   if (replyVariant === 'detail-card') {
-    return buildDetailReplyCard($, reply, { channel, channelTitle });
+    return buildDetailReplyCard($, reply, { channel, channelTitle, hdImageBase });
   }
 
   const authorSelectors = [
@@ -1144,11 +1269,12 @@ async function getPost(
       getReply($, messageElement, {
         channel,
         channelTitle,
+        hdImageBase,
         staticProxy,
         replyVariant,
       }),
       getImages($, messageElement, { staticProxy, hdImageBase, id, index, title }),
-      getUnsupportedMediaFallback($, messageElement, { staticProxy, hdImageBase, id, index, title }),
+      await getUnsupportedMediaFallback($, messageElement, { staticProxy, hdImageBase, id, index, title, channel }),
       getVideo($, messageElement, { staticProxy, index }),
       getAudio($, messageElement, { staticProxy }),
       content?.html(),

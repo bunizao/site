@@ -295,6 +295,25 @@
     color: hsl(var(--foreground) / 0.6);
   }
 
+  .mood-item-quote-media,
+  .mood-quote-card-media {
+    display: block;
+    width: min(180px, 100%);
+    border-radius: 8px;
+    overflow: hidden;
+    background: hsl(var(--foreground) / 0.04);
+  }
+
+  .mood-item-quote-image,
+  .mood-quote-card-image {
+    display: block;
+    width: 100%;
+    height: auto;
+    aspect-ratio: 4 / 5;
+    object-fit: cover;
+    background: hsl(var(--foreground) / 0.03);
+  }
+
   .mood-item-quote-text,
   .mood-quote-card-text {
     margin: 0;

@@ -347,6 +347,8 @@ const telegramCommentUrl = channel && id ? `https://t.me/${channel}/${id}?commen
       border-radius: 12px;
       max-height: min(62vh, 420px);
       background: transparent;
+      overflow: clip;
+      clip-path: inset(0 round 12px);
     }
 
     .mood-post-content :global(video.video--portrait) {
@@ -774,6 +776,24 @@ const telegramCommentUrl = channel && id ? `https://t.me/${channel}/${id}?commen
   .mood-post-content :global(a.mood-detail-quote:hover .mood-detail-quote-text),
   .mood-post-content :global(a.mood-detail-quote:focus-visible .mood-detail-quote-text) {
     color: hsl(var(--foreground) / 0.65);
+  }
+
+  .mood-post-content :global(.mood-detail-quote-media) {
+    display: block;
+    width: min(220px, 100%);
+    margin-top: 2px;
+    border-radius: 10px;
+    overflow: hidden;
+    background: hsl(var(--foreground) / 0.04);
+  }
+
+  .mood-post-content :global(.mood-detail-quote-image) {
+    display: block;
+    width: 100%;
+    height: auto;
+    aspect-ratio: 4 / 5;
+    object-fit: cover;
+    background: hsl(var(--foreground) / 0.03);
   }
 
   @media (min-width: 640px) {
