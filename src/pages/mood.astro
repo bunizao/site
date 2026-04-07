@@ -1221,9 +1221,10 @@ const skeletonGroups = [
 
   :global(.mood-item-content--media-only) {
     flex: 0 1 auto;
-    width: fit-content;
+    width: min(100%, 340px);
     max-width: min(100%, 340px);
     padding-right: 24px;
+    align-self: flex-start;
   }
 
   @media (min-width: 640px) {
@@ -1233,6 +1234,7 @@ const skeletonGroups = [
     }
 
     :global(.mood-item-content--media-only) {
+      width: min(100%, 380px);
       max-width: min(100%, 380px);
     }
   }
@@ -1522,9 +1524,19 @@ const skeletonGroups = [
   }
 
   :global(.mood-item-thumb--video) {
+    width: 100%;
     align-self: flex-start;
     background: hsl(var(--foreground) / 0.04);
     box-shadow: inset 0 0 0 1px hsl(var(--foreground) / 0.04);
+    aspect-ratio: var(--mood-thumb-ratio, 16 / 9);
+  }
+
+  :global(.mood-item-thumb--video img) {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    filter: blur(14px);
+    transform: scale(1.08);
   }
 
   :global(.mood-item-thumb-video-overlay) {
@@ -1568,6 +1580,24 @@ const skeletonGroups = [
     background: hsl(0 0% 0% / 0.5);
     backdrop-filter: blur(8px);
     -webkit-backdrop-filter: blur(8px);
+  }
+
+  :global(.mood-item-thumb-video-cta) {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 32px;
+    padding: 0 14px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    color: #fff;
+    background: hsl(0 0% 0% / 0.42);
+    border: 1px solid hsl(0 0% 100% / 0.16);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    box-shadow: 0 10px 28px hsl(0 0% 0% / 0.2);
   }
 
   /* Landscape and square images - normal flow */
@@ -1635,6 +1665,15 @@ const skeletonGroups = [
     :global(.mood-item-thumb) {
       max-width: 480px;
       border-radius: 14px;
+    }
+
+    :global(.mood-item-thumb-video-overlay) {
+      gap: 12px;
+    }
+
+    :global(.mood-item-thumb-video-play) {
+      width: 48px;
+      height: 48px;
     }
 
     :global(.mood-item-thumb--portrait) {
@@ -4981,11 +5020,11 @@ const skeletonGroups = [
         text.classList.add('mood-item-text--clamped');
       }
 
+      const isTooBigVideoPreview = previewMediaType === 'too-big-video' && Boolean(mood.image);
       const isMediaOnlyVideoPreview =
-        previewMediaType === 'too-big-video' &&
+        isTooBigVideoPreview &&
         !hasTextPreview &&
         !hasMediaHtml &&
-        Boolean(mood.image) &&
         !forwardedFrom &&
         !quote;
 
@@ -5003,6 +5042,9 @@ const skeletonGroups = [
       } else if (mood.image) {
         const thumbWrap = document.createElement('div');
         thumbWrap.className = 'mood-item-thumb';
+        if (isTooBigVideoPreview) {
+          thumbWrap.classList.add('mood-item-thumb--video');
+        }
         const imageLayout = mood.imageLayout === 'portrait' || mood.imageLayout === 'ultra-tall'
           ? mood.imageLayout
           : mood.imageLayout === 'landscape'
@@ -5044,6 +5086,8 @@ const skeletonGroups = [
           if (!img.naturalWidth || !img.naturalHeight) return;
           const aspectRatio = img.naturalWidth / img.naturalHeight;
 
+          thumbWrap.style.setProperty('--mood-thumb-ratio', `${img.naturalWidth} / ${img.naturalHeight}`);
+
           if (aspectRatio < 0.6) {
             thumbWrap.classList.add('mood-item-thumb--ultra-tall');
           } else if (aspectRatio < 0.8) {
@@ -5069,6 +5113,32 @@ const skeletonGroups = [
           }
         }
         thumbWrap.appendChild(img);
+        if (isTooBigVideoPreview) {
+          const overlay = document.createElement('div');
+          overlay.className = 'mood-item-thumb-video-overlay';
+          overlay.setAttribute('aria-hidden', 'true');
+
+          const play = document.createElement('span');
+          play.className = 'mood-item-thumb-video-play';
+          play.innerHTML = `
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <path d="M8 6.82v10.36c0 .79.87 1.27 1.54.84l8.14-5.18a1 1 0 0 0 0-1.68L9.54 5.98A1 1 0 0 0 8 6.82Z"></path>
+            </svg>
+          `;
+
+          const label = document.createElement('span');
+          label.className = 'mood-item-thumb-video-label';
+          label.textContent = 'Media is too big';
+
+          const cta = document.createElement('span');
+          cta.className = 'mood-item-thumb-video-cta';
+          cta.textContent = 'View details';
+
+          overlay.appendChild(play);
+          overlay.appendChild(label);
+          overlay.appendChild(cta);
+          thumbWrap.appendChild(overlay);
+        }
         if (!isPriorityItem) {
           registerDeferredImage(thumbWrap, img);
         }
