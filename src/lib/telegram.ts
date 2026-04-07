@@ -761,7 +761,7 @@ const getReplyMediaLabel = (reply: cheerio.Cheerio<Element>): string => {
     return 'Media';
   }
 
-  return (reply.attr('href') ?? '').trim() ? 'Media' : '';
+  return (reply.attr('href') ?? '').trim() ? 'Link' : '';
 };
 
 async function remoteAssetExists(url: string): Promise<boolean> {
@@ -826,6 +826,7 @@ function buildDetailReplyCard(
   let text = extractReplyTextFromHtml(replyTextHtml || rawReplyHtml);
   text = stripLeadingReplyLabel(text, [sourceName, channelTitle ?? '', channel ?? '']);
   const replyMediaLabel = getReplyMediaLabel(reply);
+  const hasInlineReplyMediaPreview = /^(media|video)$/i.test(replyMediaLabel);
 
   if (!text) {
     text = replyMediaLabel;
@@ -857,7 +858,7 @@ function buildDetailReplyCard(
     }
   })();
   const replyPreviewSrc =
-    replyMediaLabel && replyTargetId && hdImageBase
+    hasInlineReplyMediaPreview && replyTargetId && hdImageBase
       ? sanitizeUrlValue(buildHdImageUrl(hdImageBase, `/mood/${encodeURIComponent(replyTargetId)}/0`), 'src')
       : '';
   const tagName = safeHref ? 'a' : 'div';

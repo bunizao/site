@@ -27,6 +27,23 @@ const DETAIL_HTML_BY_URL: Record<string, string> = {
       </div>
     </div>
   `,
+  'https://t.me/imagebuxx/3315?embed=1&mode=tme': `
+    <div class="tgme_channel_info_header_title">Image Buxx</div>
+    <div class="tgme_widget_message_wrap">
+      <div class="tgme_widget_message text_not_supported_wrap" data-post="imagebuxx/3315">
+        <a class="tgme_widget_message_reply" href="https://t.me/imagebuxx/3314">
+          <div class="tgme_widget_message_author accent_color">
+            <span class="tgme_widget_message_author_name" dir="auto">Image Buxx</span>
+          </div>
+          <div class="tgme_widget_message_text js-message_reply_text" dir="auto">reply text only</div>
+        </a>
+        <div class="tgme_widget_message_text js-message_text">body text</div>
+        <div class="tgme_widget_message_date">
+          <time datetime="2026-04-07T06:50:10+00:00"></time>
+        </div>
+      </div>
+    </div>
+  `,
 };
 
 const ofetchMock = mock(async (url: string) => {
@@ -97,7 +114,17 @@ describe('getChannelInfo detail media rendering', () => {
 
     expect(content).toContain('image-list-container image-list-odd');
     expect(content).toContain('image-preview-wrap image-preview-wrap--fallback');
-    expect(content).toContain('style="width:100%;max-width:100%;height:auto;aspect-ratio:auto;"');
+    expect(content).toContain('style="aspect-ratio:auto;"');
     expect(content).toContain('modal-3327-unsupported');
+  });
+
+  test('does not invent a reply thumbnail when Telegram reply markup has text only', async () => {
+    const { getChannelInfo } = await telegramModulePromise;
+    const post = await getChannelInfo(astro, { id: '3315', skipCache: true });
+    const content = (post as { content: string }).content;
+
+    expect(content).toContain('reply text only');
+    expect(content).not.toContain('mood-detail-quote-image');
+    expect(content).not.toContain('https://image.buxx.me/mood/3314/0');
   });
 });
