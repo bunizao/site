@@ -780,7 +780,7 @@ const telegramCommentUrl = channel && id ? `https://t.me/${channel}/${id}?commen
 
   .mood-post-content :global(.mood-detail-quote-media) {
     display: block;
-    width: min(220px, 100%);
+    width: min(4.5rem, 100%);
     margin-top: 2px;
     border-radius: 10px;
     overflow: hidden;
@@ -790,8 +790,8 @@ const telegramCommentUrl = channel && id ? `https://t.me/${channel}/${id}?commen
   .mood-post-content :global(.mood-detail-quote-image) {
     display: block;
     width: 100%;
-    height: auto;
-    aspect-ratio: 4 / 5;
+    height: 100%;
+    aspect-ratio: 1 / 1;
     object-fit: cover;
     background: hsl(var(--foreground) / 0.03);
   }

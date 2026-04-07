@@ -298,7 +298,7 @@
   .mood-item-quote-media,
   .mood-quote-card-media {
     display: block;
-    width: min(180px, 100%);
+    width: min(4.5rem, 100%);
     border-radius: 8px;
     overflow: hidden;
     background: hsl(var(--foreground) / 0.04);
@@ -308,8 +308,8 @@
   .mood-quote-card-image {
     display: block;
     width: 100%;
-    height: auto;
-    aspect-ratio: 4 / 5;
+    height: 100%;
+    aspect-ratio: 1 / 1;
     object-fit: cover;
     background: hsl(var(--foreground) / 0.03);
   }
