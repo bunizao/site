@@ -1546,58 +1546,39 @@ const skeletonGroups = [
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 10px;
-    background: linear-gradient(180deg, hsl(0 0% 0% / 0.08) 0%, hsl(0 0% 0% / 0.2) 100%);
+    gap: 12px;
+    padding: 20px;
+    text-align: center;
+    background: linear-gradient(180deg, hsl(0 0% 0% / 0.1) 0%, hsl(0 0% 0% / 0.42) 100%);
     pointer-events: none;
   }
 
-  :global(.mood-item-thumb-video-play) {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 44px;
-    height: 44px;
-    border-radius: 999px;
-    color: #fff;
-    background: hsl(0 0% 0% / 0.42);
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
-    box-shadow: 0 8px 24px hsl(0 0% 0% / 0.18);
-  }
-
   :global(.mood-item-thumb-video-label) {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-height: 24px;
-    padding: 0 10px;
-    border-radius: 999px;
-    font-size: 11px;
-    font-weight: 600;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    color: #fff;
-    background: hsl(0 0% 0% / 0.5);
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
+    font-size: 13px;
+    color: rgba(255, 255, 255, 0.85);
+    letter-spacing: 0.01em;
   }
 
   :global(.mood-item-thumb-video-cta) {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    min-height: 32px;
-    padding: 0 14px;
+    min-height: 0;
+    padding: 7px 18px;
     border-radius: 999px;
     font-size: 12px;
-    font-weight: 600;
-    letter-spacing: 0.01em;
+    font-weight: 500;
+    letter-spacing: 0.04em;
     color: #fff;
-    background: hsl(0 0% 0% / 0.42);
-    border: 1px solid hsl(0 0% 100% / 0.16);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
-    box-shadow: 0 10px 28px hsl(0 0% 0% / 0.2);
+    border: 1.5px solid rgba(255, 255, 255, 0.75);
+    background: transparent;
+    transition: background 0.15s ease, border-color 0.15s ease;
+  }
+
+  :global(.mood-item--clickable:hover .mood-item-thumb-video-cta),
+  :global(.mood-item--clickable:focus-visible .mood-item-thumb-video-cta) {
+    background: rgba(255, 255, 255, 0.15);
+    border-color: rgba(255, 255, 255, 0.95);
   }
 
   /* Landscape and square images - normal flow */
@@ -1666,16 +1647,6 @@ const skeletonGroups = [
       max-width: 480px;
       border-radius: 14px;
     }
-
-    :global(.mood-item-thumb-video-overlay) {
-      gap: 12px;
-    }
-
-    :global(.mood-item-thumb-video-play) {
-      width: 48px;
-      height: 48px;
-    }
-
     :global(.mood-item-thumb--portrait) {
       max-width: min(100%, 240px);
     }
@@ -5084,9 +5055,11 @@ const skeletonGroups = [
         }
         const classifyLoadedImage = () => {
           if (!img.naturalWidth || !img.naturalHeight) return;
-          const aspectRatio = img.naturalWidth / img.naturalHeight;
+          if (isTooBigVideoPreview) {
+            return;
+          }
 
-          thumbWrap.style.setProperty('--mood-thumb-ratio', `${img.naturalWidth} / ${img.naturalHeight}`);
+          const aspectRatio = img.naturalWidth / img.naturalHeight;
 
           if (aspectRatio < 0.6) {
             thumbWrap.classList.add('mood-item-thumb--ultra-tall');
@@ -5118,14 +5091,6 @@ const skeletonGroups = [
           overlay.className = 'mood-item-thumb-video-overlay';
           overlay.setAttribute('aria-hidden', 'true');
 
-          const play = document.createElement('span');
-          play.className = 'mood-item-thumb-video-play';
-          play.innerHTML = `
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-              <path d="M8 6.82v10.36c0 .79.87 1.27 1.54.84l8.14-5.18a1 1 0 0 0 0-1.68L9.54 5.98A1 1 0 0 0 8 6.82Z"></path>
-            </svg>
-          `;
-
           const label = document.createElement('span');
           label.className = 'mood-item-thumb-video-label';
           label.textContent = 'Media is too big';
@@ -5134,7 +5099,6 @@ const skeletonGroups = [
           cta.className = 'mood-item-thumb-video-cta';
           cta.textContent = 'View details';
 
-          overlay.appendChild(play);
           overlay.appendChild(label);
           overlay.appendChild(cta);
           thumbWrap.appendChild(overlay);
