@@ -375,9 +375,10 @@ function getUnsupportedMediaFallback(
   { hdImageBase = '', id, index, title }: ContentProcessorConfig
 ): string {
   const className = $(item).attr('class') ?? '';
+  const hasPhoto = $(item).find('.tgme_widget_message_photo_wrap').length > 0;
   const hasPlayableVideo = $(item).find('.tgme_widget_message_video_wrap video, .tgme_widget_message_roundvideo_wrap video').length > 0;
   const hasNotSupportedPlayer = $(item).find('.tgme_widget_message_video_player.not_supported').length > 0;
-  if (hasPlayableVideo || hasNotSupportedPlayer) {
+  if (hasPhoto || hasPlayableVideo || hasNotSupportedPlayer) {
     return '';
   }
 
@@ -393,14 +394,17 @@ function getUnsupportedMediaFallback(
   const safePostId = id.replace(/[^a-z0-9_-]/gi, '');
   const popoverId = `modal-${safePostId || 'post'}-unsupported`;
   const escapedTitle = escapeHtml(title || 'Telegram media');
+  const fallbackImageStyle = 'width:100%;max-width:100%;height:auto;aspect-ratio:auto;';
 
   return `
-      <button class="image-preview-button image-preview-wrap" popovertarget="${popoverId}" popovertargetaction="show">
-        <img src="${escapeHtml(imgSrc)}" alt="${escapedTitle}" loading="${(index ?? 0) > 15 ? 'eager' : 'lazy'}" />
-      </button>
-      <button class="image-preview-button modal" id="${popoverId}" popovertarget="${popoverId}" popovertargetaction="hide" popover>
-        <img class="modal-img" src="${escapeHtml(imgSrc)}" alt="${escapedTitle}" loading="lazy" />
-      </button>
+      <div class="image-list-container image-list-odd">
+        <button class="image-preview-button image-preview-wrap image-preview-wrap--fallback" popovertarget="${popoverId}" popovertargetaction="show">
+          <img src="${escapeHtml(imgSrc)}" alt="${escapedTitle}" loading="${(index ?? 0) > 15 ? 'eager' : 'lazy'}" style="${fallbackImageStyle}" />
+        </button>
+        <button class="image-preview-button modal" id="${popoverId}" popovertarget="${popoverId}" popovertargetaction="hide" popover>
+          <img class="modal-img" src="${escapeHtml(imgSrc)}" alt="${escapedTitle}" loading="lazy" />
+        </button>
+      </div>
     `;
 }
 
