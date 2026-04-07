@@ -2,8 +2,7 @@ import type { APIRoute } from 'astro';
 import { createE2EChannelInfo, isE2ESiteFixtureEnabled } from '@/lib/e2e-fixtures';
 import { getChannelInfo, type ChannelInfo } from '../../lib/telegram';
 import {
-  getFirstImage,
-  getFirstImageFallback,
+  getFirstImageMeta,
   getInlineMediaPreview,
   getTextPreview,
   getTextPreviewHtml,
@@ -47,6 +46,10 @@ function getHdImageOrigin(locals: any): string {
   } catch {
     return '';
   }
+}
+
+function getHdImageBase(locals: any): string {
+  return readEnv(locals, 'PUBLIC_HD_IMAGE_URL').replace(/\/+$/, '');
 }
 
 function toChannelAvatarUrl(avatar: string, locals: any): string {
@@ -125,21 +128,27 @@ export const GET: APIRoute = async ({ request, locals }) => {
       );
     }
 
-    const payload = sortedPosts.map((post) => ({
-      id: post.id,
-      datetime: post.datetime,
-      tag: post.tags?.[0] ?? '',
-      previewText: getTextPreview(post),
-      previewHtml: getTextPreviewHtml(post),
-      image: getFirstImage(post.content),
-      imageFallback: getFirstImageFallback(post.content),
-      mediaHtml: '',
-      needsDetailPage: true,
-      forwardedFrom: null,
-      quote: null,
-      reactions: [],
-      commentsCount: post.commentsCount ?? 0,
-    }));
+    const payload = sortedPosts.map((post) => {
+      const imageMeta = getFirstImageMeta(post.content);
+      return {
+        id: post.id,
+        datetime: post.datetime,
+        tag: post.tags?.[0] ?? '',
+        previewText: getTextPreview(post),
+        previewHtml: getTextPreviewHtml(post),
+        image: imageMeta.src,
+        imageFallback: imageMeta.fallbackSrc,
+        imageWidth: imageMeta.width,
+        imageHeight: imageMeta.height,
+        imageLayout: imageMeta.layout,
+        mediaHtml: '',
+        needsDetailPage: true,
+        forwardedFrom: null,
+        quote: null,
+        reactions: [],
+        commentsCount: post.commentsCount ?? 0,
+      };
+    });
 
     return new Response(JSON.stringify({
       posts: payload,
@@ -162,6 +171,7 @@ export const GET: APIRoute = async ({ request, locals }) => {
 
   const channel = import.meta.env.CHANNEL || locals?.runtime?.env?.CHANNEL || '';
   const channelEmojiId = import.meta.env.CHANNEL_EMOJI_ID || locals?.env?.CHANNEL_EMOJI_ID || '';
+  const hdImageBase = getHdImageBase(locals);
 
   try {
     const result = await getChannelInfo({ request, locals } as any, {
@@ -195,8 +205,8 @@ export const GET: APIRoute = async ({ request, locals }) => {
       const tooBigVideo = hasTooBigVideo(post.content);
       const previewText = getTextPreview(post);
       const previewHtml = getTextPreviewHtml(post);
-      const firstImage = getFirstImage(post.content);
-      const quote = getQuotePreview(post.content, { channel, channelTitle });
+      const imageMeta = getFirstImageMeta(post.content);
+      const quote = getQuotePreview(post.content, { channel, channelTitle, hdImageBase });
       const hasDetailMedia = hasMedia(post.content) || hasEmojiImageMedia(post.content);
       const needsDetailPage = !mediaPreview && (hasDetailMedia || tooBigVideo || isLongContent(previewText));
       return {
@@ -206,8 +216,11 @@ export const GET: APIRoute = async ({ request, locals }) => {
         previewText,
         previewHtml,
         previewMediaType: tooBigVideo ? 'too-big-video' : '',
-        image: mediaPreview ? null : firstImage,
-        imageFallback: mediaPreview ? null : getFirstImageFallback(post.content),
+        image: mediaPreview ? null : imageMeta.src,
+        imageFallback: mediaPreview ? null : imageMeta.fallbackSrc,
+        imageWidth: mediaPreview ? null : imageMeta.width,
+        imageHeight: mediaPreview ? null : imageMeta.height,
+        imageLayout: mediaPreview ? null : imageMeta.layout,
         mediaHtml: mediaPreview?.html ?? '',
         needsDetailPage,
         forwardedFrom: post.forwardedFrom ?? null,

@@ -1275,38 +1275,31 @@ const skeletonGroups = [
     gap: 10px;
   }
 
-  :global(.mood-item-media .mood-video-frame) {
-    width: 100%;
-    max-width: 100%;
-    border-radius: 12px;
-    overflow: hidden;
-    background: transparent;
-    align-self: flex-start;
-  }
-
   :global(.mood-item-media video) {
     width: 100%;
     max-width: 100%;
     max-height: min(52vh, 400px);
     height: auto;
     display: block;
-    border-radius: 0;
+    border-radius: 12px;
     background: transparent;
-    overflow: visible;
-    clip-path: none;
+    overflow: clip;
+    clip-path: inset(0 round 12px);
   }
 
   /* Portrait videos (aspect ratio < 0.8) */
-  :global(.mood-item-media .mood-video-frame.video--portrait) {
+  :global(.mood-item-media video.video--portrait) {
     width: min(100%, clamp(220px, 52vw, 320px));
     max-width: 100%;
+    max-height: min(58vh, 460px);
     margin: 0;
   }
 
   /* Ultra-tall videos (aspect ratio < 0.6) */
-  :global(.mood-item-media .mood-video-frame.video--ultra-tall) {
+  :global(.mood-item-media video.video--ultra-tall) {
     width: min(100%, clamp(200px, 44vw, 280px));
     max-width: 100%;
+    max-height: min(62vh, 500px);
     margin: 0;
   }
 
@@ -1631,11 +1624,11 @@ const skeletonGroups = [
       max-height: min(56vh, 440px);
     }
 
-    :global(.mood-item-media .mood-video-frame.video--portrait) {
+    :global(.mood-item-media video.video--portrait) {
       width: min(100%, 360px);
     }
 
-    :global(.mood-item-media .mood-video-frame.video--ultra-tall) {
+    :global(.mood-item-media video.video--ultra-tall) {
       width: min(100%, 320px);
     }
 
@@ -1668,11 +1661,11 @@ const skeletonGroups = [
       max-height: min(60vh, 480px);
     }
 
-    :global(.mood-item-media .mood-video-frame.video--portrait) {
+    :global(.mood-item-media video.video--portrait) {
       width: min(100%, 400px);
     }
 
-    :global(.mood-item-media .mood-video-frame.video--ultra-tall) {
+    :global(.mood-item-media video.video--ultra-tall) {
       width: min(100%, 340px);
     }
 
@@ -4574,6 +4567,7 @@ const skeletonGroups = [
       text: string;
       author?: string;
       href?: string;
+      thumbnailSrc?: string;
     }
 
     interface ChannelInfo {
@@ -4642,6 +4636,8 @@ const skeletonGroups = [
 
     const responsiveImageWidths = [480, 800, 1200];
     const thumbnailImageSizes = '(min-width: 1024px) 560px, (min-width: 640px) 480px, 100vw';
+    const deferredImageRootMargin = '600px 0px';
+    let deferredImageObserver: IntersectionObserver | null = null;
 
     const withWidthParam = (value: string, width: number): string => {
       if (!value || /^(data:|blob:)/i.test(value)) return value;
@@ -4662,6 +4658,56 @@ const skeletonGroups = [
       if (!srcSet) return;
       img.srcset = srcSet;
       img.sizes = sizes;
+    };
+
+    const hydrateDeferredImage = (img: HTMLImageElement): void => {
+      if (img.dataset.deferredHydrated === '1') return;
+      const src = img.dataset.deferredSrc || '';
+      if (!src) return;
+
+      img.dataset.deferredHydrated = '1';
+      img.src = src;
+      applyResponsiveImage(img, src);
+    };
+
+    const getDeferredImageObserver = (): IntersectionObserver | null => {
+      if (!('IntersectionObserver' in window)) {
+        return null;
+      }
+
+      if (deferredImageObserver) {
+        return deferredImageObserver;
+      }
+
+      deferredImageObserver = new IntersectionObserver(
+        (entries) => {
+          entries.forEach((entry) => {
+            if (!entry.isIntersecting) return;
+
+            deferredImageObserver?.unobserve(entry.target);
+            const target = entry.target as HTMLElement;
+            const img = target.querySelector('img');
+            if (!(img instanceof HTMLImageElement)) return;
+
+            hydrateDeferredImage(img);
+          });
+        },
+        {
+          rootMargin: deferredImageRootMargin,
+        }
+      );
+
+      return deferredImageObserver;
+    };
+
+    const registerDeferredImage = (container: HTMLElement, img: HTMLImageElement): void => {
+      const observer = getDeferredImageObserver();
+      if (!observer) {
+        hydrateDeferredImage(img);
+        return;
+      }
+
+      observer.observe(container);
     };
 
     // Hero hydration function
@@ -4754,6 +4800,9 @@ const skeletonGroups = [
       previewMediaType?: string;
       image?: string | null;
       imageFallback?: string | null;
+      imageWidth?: number | null;
+      imageHeight?: number | null;
+      imageLayout?: 'landscape' | 'portrait' | 'ultra-tall' | null;
       mediaHtml?: string;
       needsDetailPage?: boolean;
       forwardedFrom?: ForwardedFromData | null;
@@ -4894,11 +4943,27 @@ const skeletonGroups = [
           quoteWrap.appendChild(quoteMeta);
         }
 
-        const quoteText = document.createElement('p');
-        quoteText.className = 'mood-item-quote-text';
-        quoteText.textContent = quote.text;
+        if (quote.thumbnailSrc) {
+          const quoteMedia = document.createElement('span');
+          quoteMedia.className = 'mood-item-quote-media';
 
-        quoteWrap.appendChild(quoteText);
+          const quoteImage = document.createElement('img');
+          quoteImage.className = 'mood-item-quote-image';
+          quoteImage.src = quote.thumbnailSrc;
+          quoteImage.alt = '';
+          quoteImage.loading = 'lazy';
+          quoteImage.decoding = 'async';
+
+          quoteMedia.appendChild(quoteImage);
+          quoteWrap.appendChild(quoteMedia);
+        }
+
+        if (!(quote.thumbnailSrc && quote.text === 'Media')) {
+          const quoteText = document.createElement('p');
+          quoteText.className = 'mood-item-quote-text';
+          quoteText.textContent = quote.text;
+          quoteWrap.appendChild(quoteText);
+        }
         content.appendChild(quoteWrap);
       }
 
@@ -4938,10 +5003,24 @@ const skeletonGroups = [
       } else if (mood.image) {
         const thumbWrap = document.createElement('div');
         thumbWrap.className = 'mood-item-thumb';
+        const imageLayout = mood.imageLayout === 'portrait' || mood.imageLayout === 'ultra-tall'
+          ? mood.imageLayout
+          : mood.imageLayout === 'landscape'
+            ? 'landscape'
+            : null;
+        if (imageLayout === 'portrait') {
+          thumbWrap.classList.add('mood-item-thumb--portrait');
+        } else if (imageLayout === 'ultra-tall') {
+          thumbWrap.classList.add('mood-item-thumb--ultra-tall');
+        }
         const img = document.createElement('img');
-        img.src = mood.image;
         img.alt = '';
-        applyResponsiveImage(img, mood.image);
+        if (typeof mood.imageWidth === 'number' && mood.imageWidth > 0) {
+          img.width = mood.imageWidth;
+        }
+        if (typeof mood.imageHeight === 'number' && mood.imageHeight > 0) {
+          img.height = mood.imageHeight;
+        }
         const fallback = typeof mood.imageFallback === 'string' ? mood.imageFallback.trim() : '';
         if (fallback) {
           img.dataset.fallbackSrc = fallback;
@@ -4955,20 +5034,44 @@ const skeletonGroups = [
           };
         }
         setImageHints(img, { priority: isPriorityItem });
-        // Intelligent image ratio detection
-        img.onload = () => {
+        if (isPriorityItem) {
+          img.src = mood.image;
+          applyResponsiveImage(img, mood.image);
+        } else {
+          img.dataset.deferredSrc = mood.image;
+        }
+        const classifyLoadedImage = () => {
+          if (!img.naturalWidth || !img.naturalHeight) return;
           const aspectRatio = img.naturalWidth / img.naturalHeight;
 
           if (aspectRatio < 0.6) {
-            // Ultra-tall images (aspect ratio < 0.6)
             thumbWrap.classList.add('mood-item-thumb--ultra-tall');
           } else if (aspectRatio < 0.8) {
-            // Portrait images (aspect ratio 0.6-0.8)
             thumbWrap.classList.add('mood-item-thumb--portrait');
           }
-          // Landscape and square images (aspect ratio >= 0.8) use default styling
         };
+        if (!imageLayout) {
+          const pollForImageDimensions = (): void => {
+            if (img.naturalWidth > 0 && img.naturalHeight > 0) {
+              classifyLoadedImage();
+              return;
+            }
+            if (!img.isConnected || img.complete) {
+              return;
+            }
+            window.requestAnimationFrame(pollForImageDimensions);
+          };
+          if (img.complete && img.naturalWidth > 0 && img.naturalHeight > 0) {
+            classifyLoadedImage();
+          } else {
+            img.addEventListener('load', classifyLoadedImage, { once: true });
+            window.requestAnimationFrame(pollForImageDimensions);
+          }
+        }
         thumbWrap.appendChild(img);
+        if (!isPriorityItem) {
+          registerDeferredImage(thumbWrap, img);
+        }
         content.appendChild(thumbWrap);
       }
 

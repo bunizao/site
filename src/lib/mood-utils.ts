@@ -37,7 +37,7 @@ function hasPhotoWrapImage($: cheerio.CheerioAPI): boolean {
   });
 }
 
-function getFirstValidImageSrc($: cheerio.CheerioAPI, selector: string): string | null {
+function getFirstValidImageElement($: cheerio.CheerioAPI, selector: string): cheerio.Element | null {
   const image = $(selector)
     .toArray()
     .find((element) => {
@@ -53,6 +53,11 @@ function getFirstValidImageSrc($: cheerio.CheerioAPI, selector: string): string 
       return Boolean(src);
     });
 
+  return image ?? null;
+}
+
+function getFirstValidImageSrc($: cheerio.CheerioAPI, selector: string): string | null {
+  const image = getFirstValidImageElement($, selector);
   if (!image) {
     return null;
   }
@@ -91,6 +96,149 @@ export function getFirstVideoPosterSrc(content: string | cheerio.CheerioAPI): st
   }
 
   return ($(video).attr('poster') ?? '').trim() || null;
+}
+
+export type MoodImageLayout = 'landscape' | 'portrait' | 'ultra-tall';
+
+export interface MoodImageMeta {
+  src: string | null;
+  fallbackSrc: string | null;
+  width: number | null;
+  height: number | null;
+  layout: MoodImageLayout | null;
+}
+
+function parsePositiveInteger(value: string | undefined): number | null {
+  if (!value) return null;
+  const parsed = Number.parseInt(value.trim(), 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+}
+
+function parseStylePixelValue(style: string, property: string): number | null {
+  const match = style.match(new RegExp(`${property}\\s*:\\s*([\\d.]+)px`, 'i'));
+  if (!match) return null;
+
+  const parsed = Number.parseFloat(match[1]);
+  return Number.isFinite(parsed) && parsed > 0 ? Math.round(parsed) : null;
+}
+
+function parseStyleDimensions(style: string): { width: number | null; height: number | null } {
+  const directWidth = parseStylePixelValue(style, 'width');
+  const directHeight = parseStylePixelValue(style, 'height');
+  const variableWidth = parseStylePixelValue(style, '--image-width');
+  const variableHeight = parseStylePixelValue(style, '--image-height');
+  const width = directWidth ?? variableWidth;
+  let height = directHeight ?? variableHeight;
+  const paddingMatch = style.match(/padding-top:\s*([\d.]+)%/i);
+
+  if (!height && paddingMatch && width) {
+    const paddingPercent = Number.parseFloat(paddingMatch[1]);
+    if (Number.isFinite(paddingPercent) && paddingPercent > 0) {
+      height = Math.round(width * paddingPercent / 100);
+    }
+  }
+
+  return { width, height };
+}
+
+function deriveMoodImageLayout(width: number | null, height: number | null): MoodImageLayout | null {
+  if (!width || !height) return null;
+  if (height > width * 2.5) return 'ultra-tall';
+  if (height > width * 1.2) return 'portrait';
+  return 'landscape';
+}
+
+function readMoodImageLayoutFromWrapper($: cheerio.CheerioAPI, image: cheerio.Element): MoodImageLayout | null {
+  const wrapperClassName = $(image).closest('.image-preview-wrap, .tgme_widget_message_photo_wrap').attr('class') ?? '';
+  if (wrapperClassName.includes('image-preview-wrap--ultra-tall')) {
+    return 'ultra-tall';
+  }
+  if (wrapperClassName.includes('image-preview-wrap--portrait')) {
+    return 'portrait';
+  }
+  return null;
+}
+
+function readFirstImageDimensions(
+  $: cheerio.CheerioAPI,
+  image: cheerio.Element,
+): { width: number | null; height: number | null } {
+  const inlineWidth = parsePositiveInteger($(image).attr('width'));
+  const inlineHeight = parsePositiveInteger($(image).attr('height'));
+  const wrapper = $(image).closest('.image-preview-wrap, .tgme_widget_message_photo_wrap').first();
+  const wrapperStyle = (wrapper.attr('style') ?? '').trim();
+  const wrapperDimensions = wrapperStyle ? parseStyleDimensions(wrapperStyle) : { width: null, height: null };
+
+  return {
+    width: inlineWidth ?? wrapperDimensions.width,
+    height: inlineHeight ?? wrapperDimensions.height,
+  };
+}
+
+function getFirstImageFallbackFromElement($: cheerio.CheerioAPI, image: cheerio.Element): string | null {
+  const fallbackSrc = ($(image).attr('data-fallback-src') ?? '').trim();
+  return fallbackSrc || null;
+}
+
+export function getFirstImageMeta(content: string): MoodImageMeta {
+  const $ = cheerio.load(content);
+  const selectors = [
+    '.image-preview-wrap img:not(.modal-img)',
+    '.image-list-container img:not(.modal-img)',
+    '.tgme_widget_message_photo_wrap img',
+    'img',
+  ];
+
+  for (const selector of selectors) {
+    const image = getFirstValidImageElement($, selector);
+    if (!image) continue;
+
+    const src = ($(image).attr('src') ?? '').trim() || null;
+    const fallbackSrc = getFirstImageFallbackFromElement($, image);
+    const { width, height } = readFirstImageDimensions($, image);
+
+    return {
+      src,
+      fallbackSrc,
+      width,
+      height,
+      layout: readMoodImageLayoutFromWrapper($, image) ?? deriveMoodImageLayout(width, height),
+    };
+  }
+
+  const videoPoster = getFirstVideoPosterSrc($);
+  if (videoPoster) {
+    return {
+      src: videoPoster,
+      fallbackSrc: null,
+      width: null,
+      height: null,
+      layout: null,
+    };
+  }
+
+  const fallbackPhotoSrc = getFirstPhotoWrapImageSrc($);
+  if (!fallbackPhotoSrc) {
+    return {
+      src: null,
+      fallbackSrc: null,
+      width: null,
+      height: null,
+      layout: null,
+    };
+  }
+
+  const photoWrap = $('.tgme_widget_message_photo_wrap').first();
+  const style = (photoWrap.attr('style') ?? '').trim();
+  const { width, height } = style ? parseStyleDimensions(style) : { width: null, height: null };
+
+  return {
+    src: fallbackPhotoSrc,
+    fallbackSrc: null,
+    width,
+    height,
+    layout: deriveMoodImageLayout(width, height),
+  };
 }
 
 /**
@@ -204,6 +352,7 @@ function extractMultilineTextFromHtml(html: string): string {
 
 const previewCleanupSelectors = [
   '.tgme_widget_message_reply',
+  '.mood-unsupported-media-card',
   '.bookmark-card',
   'video, audio, iframe',
   '.video-too-big',
@@ -336,6 +485,7 @@ export function hasMedia(content: string): boolean {
     'video',
     'audio',
     'iframe',
+    '.mood-unsupported-media-card',
     '.bookmark-card',
     '.tgme_widget_message_document_wrap',
     '.tgme_widget_message_video_player',
@@ -612,21 +762,63 @@ const stripLeadingAuthor = (value: string, hiddenNames: string[]): string => {
     .map((name) => name.trim())
     .filter(Boolean)
     .forEach((name) => {
-      const pattern = new RegExp(`^${escapeForRegExp(name)}[\\s\\-–—:：]+`, 'i');
+      const pattern = new RegExp(`^${escapeForRegExp(name)}(?:[\\s\\-–—:：]+|$)`, 'i');
       result = result.replace(pattern, '');
     });
   return result.trim();
 };
 
+const getReplyMediaLabel = (reply: cheerio.Cheerio<any>): string => {
+  if (
+    reply.find(
+      '.tgme_widget_message_video_wrap, .tgme_widget_message_video_player, video, .message_video_duration'
+    ).length
+  ) {
+    return 'Video';
+  }
+
+  if (
+    reply.find(
+      '.tgme_widget_message_reply_thumb, .tgme_widget_message_photo_wrap, .message_media_not_supported_wrap'
+    ).length
+  ) {
+    return 'Media';
+  }
+
+  return (reply.attr('href') ?? '').trim() ? 'Media' : '';
+};
+
+const getMoodQuoteThumbnailSrc = (href: string, hdImageBase?: string): string | undefined => {
+  if (!hdImageBase) return undefined;
+
+  try {
+    const url = new URL(href, 'https://local.invalid');
+    const match = url.pathname.match(/^\/mood\/(\d+)$/);
+    if (!match) return undefined;
+    return `${hdImageBase.replace(/\/+$/, '')}/mood/${encodeURIComponent(match[1])}/0`;
+  } catch {
+    return undefined;
+  }
+};
+
 export function getQuotePreview(
   content: string,
-  options: { channel?: string; channelTitle?: string } = {}
+  options: { channel?: string; channelTitle?: string; hdImageBase?: string } = {}
 ): QuoteData | null {
   const $ = cheerio.load(content);
   const reply = $('.tgme_widget_message_reply').first();
   if (!reply.length) return null;
 
-  const author = normalizeText(reply.find('.tgme_widget_message_reply_author').first().text());
+  const author = normalizeText(
+    [
+      '.tgme_widget_message_reply_author',
+      '.tgme_widget_message_reply_title',
+      '.tgme_widget_message_reply_name',
+      '.tgme_widget_message_author_name',
+    ]
+      .map((selector) => reply.find(selector).first().text())
+      .find((value) => normalizeText(value).length > 0) ?? ''
+  );
   const replyText = extractMultilineTextFromHtml(
     reply.find('.tgme_widget_message_reply_text').first().html() ?? ''
   );
@@ -645,14 +837,22 @@ export function getQuotePreview(
 
   text = normalizeMultilineText(text);
 
+  if (!text) {
+    text = getReplyMediaLabel(reply);
+  }
+
   if (!text) return null;
 
   const href = normalizeText(reply.attr('href') ?? '');
+  const thumbnailSrc = text === 'Media' && href
+    ? getMoodQuoteThumbnailSrc(href, options.hdImageBase)
+    : undefined;
 
   return {
     text,
     author: hasSeparateText && author && !hideAuthor ? author : undefined,
     href: href || undefined,
+    thumbnailSrc,
   };
 }
 
@@ -756,6 +956,7 @@ export interface QuoteData {
   text: string;
   author?: string;
   href?: string;
+  thumbnailSrc?: string;
 }
 
 /**
