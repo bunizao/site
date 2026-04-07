@@ -193,18 +193,20 @@ export const GET: APIRoute = async ({ request, locals }) => {
       const mediaPreview = getInlineMediaPreview(post.content);
       const previewText = getTextPreview(post);
       const previewHtml = getTextPreviewHtml(post);
+      const firstImage = getFirstImage(post.content);
       const quote = getQuotePreview(post.content, { channel, channelTitle });
       const hasDetailMedia = hasMedia(post.content) || hasEmojiImageMedia(post.content);
       const needsDetailPage = !mediaPreview && (hasDetailMedia || isLongContent(previewText));
+      const preferStaticImagePreview = mediaPreview?.type === 'video' && !previewText.trim() && Boolean(firstImage);
       return {
         id: post.id,
         datetime: post.datetime,
         tag: post.tags?.[0] ?? '',
         previewText,
         previewHtml,
-        image: mediaPreview ? null : getFirstImage(post.content),
+        image: preferStaticImagePreview ? firstImage : mediaPreview ? null : firstImage,
         imageFallback: mediaPreview ? null : getFirstImageFallback(post.content),
-        mediaHtml: mediaPreview?.html ?? '',
+        mediaHtml: preferStaticImagePreview ? '' : mediaPreview?.html ?? '',
         needsDetailPage,
         forwardedFrom: post.forwardedFrom ?? null,
         quote: quote ?? null,

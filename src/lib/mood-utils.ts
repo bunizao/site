@@ -77,6 +77,21 @@ function getFirstPhotoWrapImageSrc($: cheerio.CheerioAPI): string | null {
   return extractBackgroundImageUrl(style) || null;
 }
 
+function getFirstVideoPosterSrc($: cheerio.CheerioAPI): string | null {
+  const video = $('video[poster]')
+    .toArray()
+    .find((element) => {
+      const poster = ($(element).attr('poster') ?? '').trim();
+      return Boolean(poster);
+    });
+
+  if (!video) {
+    return null;
+  }
+
+  return ($(video).attr('poster') ?? '').trim() || null;
+}
+
 /**
  * Extract the first image URL from HTML content
  */
@@ -95,6 +110,11 @@ export function getFirstImage(content: string): string | null {
     if (src) {
       return src;
     }
+  }
+
+  const videoPoster = getFirstVideoPosterSrc($);
+  if (videoPoster) {
+    return videoPoster;
   }
 
   return getFirstPhotoWrapImageSrc($);
