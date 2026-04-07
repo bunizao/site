@@ -369,6 +369,35 @@ function getImages($: CheerioAPI, item: Element, { staticProxy, hdImageBase = ''
   return images.length ? `<div class="image-list-container ${images.length % 2 === 0 ? 'image-list-even' : 'image-list-odd'}">${images?.join('')}</div>` : '';
 }
 
+function getUnsupportedMediaFallback(
+  $: CheerioAPI,
+  item: Element,
+  { hdImageBase = '', id, index, title }: ContentProcessorConfig
+): string {
+  const className = $(item).attr('class') ?? '';
+  if (!className.includes('text_not_supported_wrap') || !hdImageBase || !id) {
+    return '';
+  }
+
+  const imgSrc = sanitizeUrlValue(buildHdImageUrl(hdImageBase, `/mood/${encodeURIComponent(id)}/0`), 'src');
+  if (!imgSrc) {
+    return '';
+  }
+
+  const safePostId = id.replace(/[^a-z0-9_-]/gi, '');
+  const popoverId = `modal-${safePostId || 'post'}-unsupported`;
+  const escapedTitle = escapeHtml(title || 'Telegram media');
+
+  return `
+      <button class="image-preview-button image-preview-wrap" popovertarget="${popoverId}" popovertargetaction="show">
+        <img src="${escapeHtml(imgSrc)}" alt="${escapedTitle}" loading="${(index ?? 0) > 15 ? 'eager' : 'lazy'}" />
+      </button>
+      <button class="image-preview-button modal" id="${popoverId}" popovertarget="${popoverId}" popovertargetaction="hide" popover>
+        <img class="modal-img" src="${escapeHtml(imgSrc)}" alt="${escapedTitle}" loading="lazy" />
+      </button>
+    `;
+}
+
 function getVideo($: CheerioAPI, item: Element, { staticProxy, index }: ContentProcessorConfig): string {
   const htmlParts: string[] = [];
 
@@ -1065,6 +1094,7 @@ async function getPost(
         replyVariant,
       }),
       getImages($, messageElement, { staticProxy, hdImageBase, id, index, title }),
+      getUnsupportedMediaFallback($, messageElement, { staticProxy, hdImageBase, id, index, title }),
       getVideo($, messageElement, { staticProxy, index }),
       getAudio($, messageElement, { staticProxy }),
       content?.html(),
