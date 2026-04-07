@@ -971,8 +971,7 @@ const telegramCommentUrl = channel && id ? `https://t.me/${channel}/${id}?commen
 
   /* Media too big (oversized Telegram video) */
   .mood-post-content :global(.video-too-big) {
-    position: relative;
-    display: block;
+    display: grid;
     width: 100%;
     max-width: 400px;
     aspect-ratio: 16 / 9;
@@ -981,12 +980,17 @@ const telegramCommentUrl = channel && id ? `https://t.me/${channel}/${id}?commen
     overflow: hidden;
     text-decoration: none;
     cursor: pointer;
-    background: hsl(var(--foreground) / 0.06);
+    /* reset link styles from the global a rule */
+    border-bottom: none !important;
+    padding-bottom: 0 !important;
+  }
+
+  /* stack thumb and overlay in the same grid cell */
+  .mood-post-content :global(.video-too-big > *) {
+    grid-area: 1 / 1;
   }
 
   .mood-post-content :global(.video-too-big__thumb) {
-    position: absolute;
-    inset: 0;
     width: 100%;
     height: 100%;
     object-fit: cover;
@@ -995,8 +999,6 @@ const telegramCommentUrl = channel && id ? `https://t.me/${channel}/${id}?commen
   }
 
   .mood-post-content :global(.video-too-big__overlay) {
-    position: absolute;
-    inset: 0;
     display: flex;
     flex-direction: column;
     align-items: center;
