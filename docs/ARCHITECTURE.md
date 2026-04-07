@@ -4,6 +4,7 @@
 
 - [Home](./HOME.md)
 - [Mood](./MOOD.md)
+- [Mood Decoupling Plan](./MOOD-DECOUPLING.md)
 - [Shared Layout](./SHARED-LAYOUT.md)
 - [Security](./SECURITY.md)
 - [Privacy Policy](./PRIVACY-POLICY.md)

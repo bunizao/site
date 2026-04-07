@@ -1,0 +1,736 @@
+# Mood Decoupling Plan
+
+## Scope
+
+This document defines the target architecture and migration plan for decoupling the mood feature.
+
+It covers:
+
+- the `L1` mood feed at `/mood`
+- the `L2` mood detail page at `/mood/[id]`
+- the home preview component
+- shared mood client behavior
+- shared mood server shaping
+- reusable route-level helpers that can be adopted across the project
+
+It does not propose a Telegram parser rewrite or a full-site middleware rewrite.
+
+## Why This Exists
+
+The current mood implementation works, but the feature boundary is weak.
+
+The main problem is not only file size. The larger issue is that route code, DOM rendering, feature state, cross-page behavior, and server shaping are mixed together.
+
+Current hotspots:
+
+- [`src/pages/mood.astro`](../src/pages/mood.astro)
+- [`src/pages/mood/[id].astro`](../src/pages/mood/[id].astro)
+- [`src/components/Moods.astro`](../src/components/Moods.astro)
+- [`src/pages/api/moods.ts`](../src/pages/api/moods.ts)
+- [`src/lib/mood-utils.ts`](../src/lib/mood-utils.ts)
+
+Current symptoms:
+
+- feed page owns too many responsibilities
+- detail page duplicates client logic already present elsewhere
+- home preview duplicates preview rendering and image logic
+- server entrypoints reshape mood data independently
+- environment reads, query parsing, JSON responses, and rate-limit response patterns repeat across endpoints
+- the timeline wheel is only visually separated; its behavior still lives in the page
+
+## Current State Summary
+
+### Feed Page
+
+[`src/pages/mood.astro`](../src/pages/mood.astro) currently combines:
+
+- header action injection
+- notify panel UI and controller
+- hero hydration
+- feed loading and pagination
+- feed DOM rendering
+- date grouping
+- preview HTML reconstruction
+- image fallback and responsive media logic
+- comments hover popover behavior
+- animated emoji hydration
+- update polling and refresh behavior
+- timeline wheel behavior
+
+### Detail Page
+
+[`src/pages/mood/[id].astro`](../src/pages/mood/[id].astro) currently combines:
+
+- route handling and redirect behavior
+- post rendering
+- reaction rendering
+- animated emoji hydration
+- media classification
+- comments loading and pagination
+- comment rendering and sanitization
+- back navigation behavior
+
+### Home Preview
+
+[`src/components/Moods.astro`](../src/components/Moods.astro) currently owns:
+
+- home-only mood list fetching
+- local preview cache behavior
+- preview HTML/text rendering
+- image fallback logic
+- DOM construction for cards
+- navigation behavior
+
+### Server Side
+
+[`src/pages/api/moods.ts`](../src/pages/api/moods.ts) currently owns:
+
+- query parsing
+- cursor validation
+- rate limiting
+- environment reads
+- avatar proxy resolution
+- E2E fixture branching
+- Telegram data loading
+- feed payload shaping
+- probe mode branching
+
+The same feature data is also reshaped independently in:
+
+- [`src/pages/mood/embed.astro`](../src/pages/mood/embed.astro)
+- [`src/pages/mood/rss.xml.ts`](../src/pages/mood/rss.xml.ts)
+- [`src/pages/api/notify/preview.ts`](../src/pages/api/notify/preview.ts)
+- [`src/lib/notify/service.ts`](../src/lib/notify/service.ts)
+
+## Design Principles
+
+### 1. Separate feature code from project-wide shared code
+
+Mood-specific logic should first move into a `features/mood` boundary.
+
+Only logic that is clearly reusable outside mood should move into `src/lib`.
+
+### 2. Separate behavior from layout before separating layout from markup
+
+The current problem is mostly controller and rendering coupling.
+
+Do not start by mechanically splitting one Astro file into many Astro files while keeping the same inline scripts. That would increase file count without improving boundaries.
+
+### 3. Preserve route contracts before changing implementation
+
+The first migration steps should keep current behavior and route contracts stable.
+
+Important contracts to preserve first:
+
+- `GET /api/moods`
+- `GET /api/moods?probe=1`
+- `GET /api/comments`
+- `/mood`
+- `/mood/[id]`
+- `/mood/embed`
+- `/mood/rss.xml`
+
+### 4. Do not rewrite the Telegram parser in the same effort
+
+[`src/lib/telegram.ts`](../src/lib/telegram.ts) is upstream parsing infrastructure.
+
+It should be wrapped by feature services first, not deeply refactored during the first decoupling passes.
+
+### 5. Prefer route-level helpers over global middleware
+
+The current project is endpoint-focused, not middleware-centric.
+
+That matches the security documentation in [`docs/SECURITY.md`](./SECURITY.md).
+
+The right first move is shared route helpers, not a global `src/middleware.ts`.
+
+## Target Architecture
+
+## Target Layering
+
+```text
+pages / api routes
+  -> feature controllers / feature services
+    -> feature shared renderers / serializers / contracts
+      -> project-wide shared helpers
+        -> telegram parser / security / transport
+```
+
+## Target Directories
+
+### Mood Feature Layer
+
+- `src/features/mood/shared/types.ts`
+- `src/features/mood/shared/preview.ts`
+- `src/features/mood/shared/comments.ts`
+- `src/features/mood/client/feed-controller.ts`
+- `src/features/mood/client/detail-comments-controller.ts`
+- `src/features/mood/client/notify-panel-controller.ts`
+- `src/features/mood/client/animated-emoji.ts`
+- `src/features/mood/client/timeline-wheel.ts`
+- `src/features/mood/server/contracts.ts`
+- `src/features/mood/server/channel-service.ts`
+- `src/features/mood/server/feed-service.ts`
+- `src/features/mood/server/comments-service.ts`
+- `src/features/mood/server/serializers.ts`
+
+### Project-Wide Shared Layer
+
+- `src/lib/runtime/env.ts`
+- `src/lib/http/json-response.ts`
+- `src/lib/http/query.ts`
+- `src/lib/http/rate-limited.ts`
+- `src/lib/media/responsive-image.ts`
+
+### Optional Astro UI Shells
+
+These should be introduced after controllers are extracted.
+
+- `src/components/mood/MoodHero.astro`
+- `src/components/mood/MoodFeedShell.astro`
+- `src/components/mood/MoodDetailArticle.astro`
+- `src/components/mood/MoodCommentsSection.astro`
+- `src/components/notify/NotifyPanel.astro`
+
+## Module Responsibilities
+
+### `src/features/mood/server/contracts.ts`
+
+Defines stable feature contracts shared by route handlers, services, and client controllers.
+
+Expected exports:
+
+- `MoodFeedItem`
+- `MoodChannelSummary`
+- `MoodProbeResult`
+- `MoodCommentsPage`
+- `MoodQuote`
+- `MoodReaction`
+
+This file should become the single source of truth for feed payload shape.
+
+### `src/features/mood/server/channel-service.ts`
+
+Responsible for loading mood data from the upstream Telegram integration and E2E fixtures.
+
+Expected responsibilities:
+
+- read one post
+- read feed snapshot
+- read channel summary
+- centralize E2E fixture switching
+
+It should not know about route response formatting.
+
+### `src/features/mood/server/feed-service.ts`
+
+Responsible for turning upstream posts into feed-ready domain data.
+
+Expected responsibilities:
+
+- sort posts
+- derive preview fields
+- derive inline media fields
+- derive `needsDetailPage`
+- derive quote and forwarded metadata
+- derive channel avatar URL
+- produce `MoodFeedItem[]`
+
+### `src/features/mood/server/comments-service.ts`
+
+Responsible for loading and normalizing comments data.
+
+Expected responsibilities:
+
+- read comments thread
+- map upstream comment data into a stable client-facing shape
+- centralize cursor handling and pagination response shape
+
+### `src/features/mood/server/serializers.ts`
+
+Responsible for entrypoint-specific formatting.
+
+Expected responsibilities:
+
+- feed serializer
+- embed serializer
+- RSS serializer
+- notify preview serializer
+
+This layer avoids repeating shaping logic in route files.
+
+### `src/features/mood/shared/preview.ts`
+
+Responsible for preview rendering rules shared across home preview and feed.
+
+Expected responsibilities:
+
+- `linkifyText`
+- `linkifyHtml`
+- `buildPreviewFragment`
+- preview-safe inline markup handling
+
+This should replace duplicate logic currently present in:
+
+- [`src/pages/mood.astro`](../src/pages/mood.astro)
+- [`src/components/Moods.astro`](../src/components/Moods.astro)
+
+### `src/features/mood/shared/comments.ts`
+
+Responsible for shared comment rendering helpers.
+
+Expected responsibilities:
+
+- comment content normalization
+- reply quote conversion
+- comment DOM fragment helpers
+- comment date formatting helpers if shared
+
+This should align with the existing behavior in [`src/lib/comment-content.ts`](../src/lib/comment-content.ts).
+
+### `src/features/mood/client/animated-emoji.ts`
+
+Responsible for Telegram animated emoji hydration.
+
+Expected responsibilities:
+
+- dynamic script loading
+- emoji metadata fetch
+- animation data caching
+- root hydration entrypoint
+
+This should replace duplicate implementations in:
+
+- [`src/pages/mood.astro`](../src/pages/mood.astro)
+- [`src/pages/mood/[id].astro`](../src/pages/mood/[id].astro)
+
+### `src/features/mood/client/feed-controller.ts`
+
+Responsible for feed runtime state.
+
+Expected responsibilities:
+
+- initial loading
+- infinite pagination
+- render staging
+- date grouping
+- update polling
+- refresh behavior
+- comments preview interaction hooks
+
+It should not own inline markup definitions for the shell.
+
+### `src/features/mood/client/detail-comments-controller.ts`
+
+Responsible for detail-page comments runtime state.
+
+Expected responsibilities:
+
+- initial comments load
+- pagination
+- dedupe
+- empty and error states
+- animated emoji hydration for comment content
+
+### `src/features/mood/client/notify-panel-controller.ts`
+
+Responsible for the feed page notify panel behavior.
+
+Expected responsibilities:
+
+- open and close state
+- submit gating
+- Turnstile lifecycle
+- success and error states
+- URL-driven subscribe open behavior
+
+### `src/features/mood/client/timeline-wheel.ts`
+
+Responsible for timeline wheel behavior only.
+
+Expected responsibilities:
+
+- date anchor extraction
+- notch lifecycle
+- active state sync
+- scroll position mapping
+- loading state sync
+
+The Astro component [`src/components/MoodTimelineWheel.astro`](../src/components/MoodTimelineWheel.astro) should remain the visual shell.
+
+## Project-Wide Shared Helpers
+
+## `src/lib/runtime/env.ts`
+
+Centralize runtime/build env reads currently repeated in multiple files.
+
+Expected helpers:
+
+- `readEnv`
+- `readPublicEnv`
+- `readOptionalEnv`
+
+Current duplication exists in:
+
+- [`src/pages/api/moods.ts`](../src/pages/api/moods.ts)
+- [`src/pages/mood/embed.astro`](../src/pages/mood/embed.astro)
+- [`src/lib/notify/service.ts`](../src/lib/notify/service.ts)
+
+## `src/lib/http/json-response.ts`
+
+Centralize JSON response boilerplate.
+
+Expected helpers:
+
+- `jsonOk`
+- `jsonError`
+- `jsonBadRequest`
+- `jsonTooManyRequests`
+
+This should reduce repeated response assembly across public APIs.
+
+## `src/lib/http/query.ts`
+
+Centralize route query parsing and validation.
+
+Expected helpers:
+
+- `readNumericQuery`
+- `readCursorQuery`
+- `readEnumQuery`
+- `readBooleanFlag`
+
+Current duplication exists in:
+
+- [`src/pages/api/moods.ts`](../src/pages/api/moods.ts)
+- [`src/pages/api/comments.ts`](../src/pages/api/comments.ts)
+- [`src/pages/api/oembed.json.ts`](../src/pages/api/oembed.json.ts)
+
+## `src/lib/http/rate-limited.ts`
+
+Centralize the common pattern:
+
+- call `checkRateLimit`
+- produce headers
+- return early on `429`
+
+This is not global middleware. It is a route-level helper.
+
+## `src/lib/media/responsive-image.ts`
+
+Centralize image helpers reused by mood pages and previews.
+
+Expected helpers:
+
+- `withWidthParam`
+- `buildSrcSet`
+- `applyResponsiveImage`
+- `proxyAvatarUrl` if generic enough
+
+Current duplication exists in:
+
+- [`src/pages/mood.astro`](../src/pages/mood.astro)
+- [`src/components/Moods.astro`](../src/components/Moods.astro)
+- [`src/pages/mood/embed.astro`](../src/pages/mood/embed.astro)
+- [`src/lib/telegram.ts`](../src/lib/telegram.ts)
+
+## Migration Mapping
+
+## Current File to Target File Mapping
+
+### From `src/pages/mood.astro`
+
+Move or isolate:
+
+- notify panel behavior -> `src/features/mood/client/notify-panel-controller.ts`
+- feed state and pagination -> `src/features/mood/client/feed-controller.ts`
+- timeline wheel behavior -> `src/features/mood/client/timeline-wheel.ts`
+- animated emoji hydration -> `src/features/mood/client/animated-emoji.ts`
+- preview fragment rendering -> `src/features/mood/shared/preview.ts`
+- responsive media helpers -> `src/lib/media/responsive-image.ts`
+
+Keep in page:
+
+- route metadata
+- route-local layout composition
+- shell markup
+- script bootstrapping
+
+### From `src/pages/mood/[id].astro`
+
+Move or isolate:
+
+- animated emoji hydration -> `src/features/mood/client/animated-emoji.ts`
+- comments loading and pagination -> `src/features/mood/client/detail-comments-controller.ts`
+- shared comment rendering helpers -> `src/features/mood/shared/comments.ts`
+
+Keep in page:
+
+- route params
+- redirect handling for embed mode
+- post shell markup
+- route-level SEO and `404` behavior
+
+### From `src/components/Moods.astro`
+
+Move or isolate:
+
+- preview fragment rendering -> `src/features/mood/shared/preview.ts`
+- image fallback logic -> `src/lib/media/responsive-image.ts`
+- optional preview cache helpers -> keep local unless reused
+
+Keep in component:
+
+- home-specific shell
+- home-only animation timing
+- home-only cache policy if it remains unique
+
+### From `src/pages/api/moods.ts`
+
+Move or isolate:
+
+- env reads -> `src/lib/runtime/env.ts`
+- cursor parsing -> `src/lib/http/query.ts`
+- JSON response boilerplate -> `src/lib/http/json-response.ts`
+- rate-limit wrapper -> `src/lib/http/rate-limited.ts`
+- feed shaping -> `src/features/mood/server/feed-service.ts`
+- payload contracts -> `src/features/mood/server/contracts.ts`
+
+Keep in route:
+
+- route method boundary
+- request-to-service orchestration
+
+### From `src/lib/mood-utils.ts`
+
+Split only where there is clear boundary value.
+
+Keep here for now:
+
+- Telegram content parsing helpers
+- preview extraction helpers
+- quote extraction helpers
+- media detection helpers
+
+Potential later splits:
+
+- move shared public types into `src/features/mood/server/contracts.ts`
+- move generic image helpers into `src/lib/media/responsive-image.ts`
+
+Do not over-split this file before the service layer exists.
+
+## Staged Execution Plan
+
+## Stage 1: Freeze Contracts and Shared Route Helpers
+
+Goal:
+
+- reduce endpoint boilerplate duplication
+- define stable feature contracts
+- keep existing page behavior unchanged
+
+Changes:
+
+- add `src/lib/runtime/env.ts`
+- add `src/lib/http/json-response.ts`
+- add `src/lib/http/query.ts`
+- add `src/lib/http/rate-limited.ts`
+- add `src/features/mood/server/contracts.ts`
+- adapt `moods/comments/oembed/notify` routes to use these helpers
+
+Files expected to change:
+
+- [`src/pages/api/moods.ts`](../src/pages/api/moods.ts)
+- [`src/pages/api/comments.ts`](../src/pages/api/comments.ts)
+- [`src/pages/api/oembed.json.ts`](../src/pages/api/oembed.json.ts)
+- [`src/pages/api/notify/subscribe.ts`](../src/pages/api/notify/subscribe.ts)
+
+Do not change yet:
+
+- page DOM structure
+- feed rendering behavior
+- timeline wheel markup
+
+## Stage 2: Extract Feature Server Services
+
+Goal:
+
+- stop reshaping mood data independently in each entrypoint
+
+Changes:
+
+- add `channel-service`
+- add `feed-service`
+- add `comments-service`
+- add serializers for feed/embed/rss/notify preview
+
+Files expected to change:
+
+- [`src/pages/api/moods.ts`](../src/pages/api/moods.ts)
+- [`src/pages/mood/embed.astro`](../src/pages/mood/embed.astro)
+- [`src/pages/mood/rss.xml.ts`](../src/pages/mood/rss.xml.ts)
+- [`src/pages/api/notify/preview.ts`](../src/pages/api/notify/preview.ts)
+
+Do not change yet:
+
+- Telegram parser internals
+- feed page shell
+
+## Stage 3: Extract Shared Client Utilities
+
+Goal:
+
+- eliminate duplicated preview, image, emoji, and comment helpers
+
+Changes:
+
+- add `shared/preview.ts`
+- add `shared/comments.ts`
+- add `client/animated-emoji.ts`
+- add `src/lib/media/responsive-image.ts`
+
+Files expected to change:
+
+- [`src/pages/mood.astro`](../src/pages/mood.astro)
+- [`src/pages/mood/[id].astro`](../src/pages/mood/[id].astro)
+- [`src/components/Moods.astro`](../src/components/Moods.astro)
+
+Do not change yet:
+
+- page-level controller ownership
+
+## Stage 4: Extract Controllers
+
+Goal:
+
+- move feature behavior out of page files
+
+Changes:
+
+- add `feed-controller.ts`
+- add `detail-comments-controller.ts`
+- add `notify-panel-controller.ts`
+- add `timeline-wheel.ts`
+
+Recommended order:
+
+1. detail comments controller
+2. notify panel controller
+3. feed controller
+4. timeline wheel controller
+
+Rationale:
+
+- detail comments have the clearest boundary
+- notify panel is behavior-heavy but isolated
+- feed controller is broader
+- timeline wheel is tightly coupled to feed DOM structure and should move last
+
+## Stage 5: Extract Astro UI Shells
+
+Goal:
+
+- reduce page file size after behavior is already isolated
+
+Changes:
+
+- add `MoodHero.astro`
+- add `MoodFeedShell.astro`
+- add `MoodDetailArticle.astro`
+- add `MoodCommentsSection.astro`
+- add `NotifyPanel.astro`
+
+After this stage, page files should mostly contain:
+
+- route metadata
+- params handling
+- service calls
+- component composition
+- controller bootstrap
+
+## Validation Strategy
+
+Each stage should keep current behavior stable.
+
+Minimum verification references:
+
+- [`tests/e2e/api.pw.ts`](../tests/e2e/api.pw.ts)
+- [`tests/e2e/mood-flow.pw.ts`](../tests/e2e/mood-flow.pw.ts)
+- [`tests/e2e/site.pw.ts`](../tests/e2e/site.pw.ts)
+
+Stage-specific concerns:
+
+- Stage 1: route status codes, cursor validation, rate-limit responses
+- Stage 2: payload shape parity across feed/embed/rss/notify preview
+- Stage 3: preview HTML rendering parity, image fallback parity, emoji parity
+- Stage 4: pagination, update polling, notify panel, comment loading, scroll behavior
+- Stage 5: no visual regressions in shell composition
+
+## Risks
+
+### Preview Rendering Drift
+
+`previewHtml` is already sanitized server-side, but the client rebuilds DOM rules in more than one place.
+
+If this changes carelessly, the home preview and feed can drift apart.
+
+### Timeline Wheel Coupling
+
+The wheel behavior is tightly coupled to feed DOM structure.
+
+Do not change the feed markup and wheel logic in the same step unless the new controller already exists.
+
+### Refresh State Machine Regressions
+
+The feed update watcher manages polling, auto-refresh, and scroll-sensitive behavior.
+
+It should be extracted as a controller, not split across UI components.
+
+### Notify Panel Regressions
+
+The notify panel touches Turnstile, URL-driven auto-open, focus management, retry states, and API error handling.
+
+It should not be moved before its helper dependencies are extracted.
+
+### Fixture Drift
+
+E2E fixture payloads must stay aligned with live payload contracts.
+
+This is especially important for:
+
+- `needsDetailPage`
+- `mediaHtml`
+- `quote`
+- `reactions`
+- `commentsCount`
+
+## Explicit Non-Goals
+
+These are out of scope for the first decoupling effort:
+
+- replacing Astro page scripts with React state management
+- introducing a new global state library
+- rewriting Telegram parsing internals
+- introducing a full-site middleware architecture
+- redesigning the mood UI
+
+## Exit Criteria
+
+The decoupling effort is successful when:
+
+- `mood` route files become orchestration shells instead of feature monoliths
+- feed/detail/home preview stop duplicating preview and emoji logic
+- feed/embed/rss/notify preview use shared server shaping
+- route handlers share the same query and JSON helper layer
+- the timeline wheel becomes behaviorally modular, not only visually modular
+- the mood feature can evolve without editing multiple unrelated entrypoints for one behavior change
+
+## Recommended First Implementation Pass
+
+If work must proceed with low risk and without disrupting ongoing feature work, start with:
+
+1. Stage 1
+2. Stage 2
+3. Stage 3
+
+That sequence gives the highest decoupling value with the lowest UI regression risk.
