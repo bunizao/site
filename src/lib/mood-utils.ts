@@ -122,12 +122,25 @@ function parseStylePixelValue(style: string, property: string): number | null {
   return Number.isFinite(parsed) && parsed > 0 ? Math.round(parsed) : null;
 }
 
+function parseStyleAspectRatio(style: string): number | null {
+  const match = style.match(/aspect-ratio\s*:\s*([\d.]+)\s*\/\s*([\d.]+)/i);
+  if (!match) return null;
+
+  const width = Number.parseFloat(match[1]);
+  const height = Number.parseFloat(match[2]);
+  if (!Number.isFinite(width) || width <= 0 || !Number.isFinite(height) || height <= 0) {
+    return null;
+  }
+
+  return width / height;
+}
+
 function parseStyleDimensions(style: string): { width: number | null; height: number | null } {
   const directWidth = parseStylePixelValue(style, 'width');
   const directHeight = parseStylePixelValue(style, 'height');
   const variableWidth = parseStylePixelValue(style, '--image-width');
   const variableHeight = parseStylePixelValue(style, '--image-height');
-  const width = directWidth ?? variableWidth;
+  let width = directWidth ?? variableWidth;
   let height = directHeight ?? variableHeight;
   const paddingMatch = style.match(/padding-top:\s*([\d.]+)%/i);
 
@@ -135,6 +148,15 @@ function parseStyleDimensions(style: string): { width: number | null; height: nu
     const paddingPercent = Number.parseFloat(paddingMatch[1]);
     if (Number.isFinite(paddingPercent) && paddingPercent > 0) {
       height = Math.round(width * paddingPercent / 100);
+    }
+  }
+
+  if ((!width || !height) && style) {
+    const ratio = parseStyleAspectRatio(style);
+    if (ratio) {
+      const fallbackWidth = width ?? 1000;
+      width = fallbackWidth;
+      height = Math.round(fallbackWidth / ratio);
     }
   }
 
@@ -165,7 +187,7 @@ function readFirstImageDimensions(
 ): { width: number | null; height: number | null } {
   const inlineWidth = parsePositiveInteger($(image).attr('width'));
   const inlineHeight = parsePositiveInteger($(image).attr('height'));
-  const wrapper = $(image).closest('.image-preview-wrap, .tgme_widget_message_photo_wrap').first();
+  const wrapper = $(image).closest('.image-preview-wrap, .tgme_widget_message_photo_wrap, .video-too-big').first();
   const wrapperStyle = (wrapper.attr('style') ?? '').trim();
   const wrapperDimensions = wrapperStyle ? parseStyleDimensions(wrapperStyle) : { width: null, height: null };
 

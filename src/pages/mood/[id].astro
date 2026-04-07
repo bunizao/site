@@ -815,8 +815,8 @@ const telegramCommentUrl = channel && id ? `https://t.me/${channel}/${id}?commen
 
   .mood-post-content :global(.mood-detail-quote--with-media) {
     display: inline-grid;
-    grid-template-columns: clamp(4.5rem, 14vw, 5.75rem) minmax(0, 1fr);
-    align-items: start;
+    grid-template-columns: 2rem minmax(0, 1fr);
+    align-items: center;
     width: auto;
     max-width: min(18rem, 100%);
     padding: 8px;
@@ -824,13 +824,20 @@ const telegramCommentUrl = channel && id ? `https://t.me/${channel}/${id}?commen
   }
 
   .mood-post-content :global(.mood-detail-quote--with-media .mood-detail-quote-media) {
-    width: clamp(4.5rem, 14vw, 5.75rem);
+    width: 2rem;
     margin-top: 0;
-    align-self: start;
+    align-self: center;
   }
 
   .mood-post-content :global(.mood-detail-quote--with-media .mood-detail-quote-body) {
     max-width: clamp(7rem, 24vw, 10.5rem);
+    justify-content: center;
+    align-self: stretch;
+    text-align: center;
+  }
+
+  .mood-post-content :global(.mood-detail-quote--with-media .mood-detail-quote-meta) {
+    justify-content: center;
   }
 
   .mood-post-content :global(.mood-detail-quote--with-media .mood-detail-quote-text) {

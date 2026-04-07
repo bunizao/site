@@ -546,6 +546,28 @@ function getAudio($: CheerioAPI, item: Element, { staticProxy }: ContentProcesso
   return '';
 }
 
+function parseAspectRatioFromStyle(style: string): number | null {
+  const paddingMatch = style.match(/padding-top:\s*([\d.]+)%/i);
+  if (paddingMatch) {
+    const paddingPercent = Number.parseFloat(paddingMatch[1]);
+    if (Number.isFinite(paddingPercent) && paddingPercent > 0) {
+      return 100 / paddingPercent;
+    }
+  }
+
+  const widthMatch = style.match(/width:\s*([\d.]+)px/i);
+  const heightMatch = style.match(/height:\s*([\d.]+)px/i);
+  if (widthMatch && heightMatch) {
+    const width = Number.parseFloat(widthMatch[1]);
+    const height = Number.parseFloat(heightMatch[1]);
+    if (Number.isFinite(width) && width > 0 && Number.isFinite(height) && height > 0) {
+      return width / height;
+    }
+  }
+
+  return null;
+}
+
 function getNotSupportedVideo(
   $: CheerioAPI,
   item: Element,
@@ -558,14 +580,19 @@ function getNotSupportedVideo(
   }
 
   const thumbEl = player.find('.tgme_widget_message_video_thumb').first();
+  const videoWrapEl = player.find('.tgme_widget_message_video_wrap').first();
   const thumbStyle = thumbEl.attr('style') ?? '';
+  const videoWrapStyle = videoWrapEl.attr('style') ?? '';
+  const playerStyle = player.attr('style') ?? '';
   const thumbUrl = extractBackgroundImage(thumbStyle);
   const proxiedThumb = thumbUrl ? sanitizeUrlValue(toStaticProxyUrl(thumbUrl, staticProxy), 'src') : '';
 
-  const paddingMatch = thumbStyle.match(/padding-top:\s*([\d.]+)%/i);
-  const paddingPercent = paddingMatch ? Number.parseFloat(paddingMatch[1]) : 0;
-  const aspectStyle = paddingPercent > 0
-    ? ` style="aspect-ratio: ${(100 / paddingPercent).toFixed(4)} / 1"`
+  const aspectRatio =
+    parseAspectRatioFromStyle(videoWrapStyle) ??
+    parseAspectRatioFromStyle(thumbStyle) ??
+    parseAspectRatioFromStyle(playerStyle);
+  const aspectStyle = aspectRatio
+    ? ` style="aspect-ratio: ${aspectRatio.toFixed(4)} / 1"`
     : '';
 
   const postUrl = sanitizeUrlValue(`https://t.me/${channel}/${id}`, 'href');

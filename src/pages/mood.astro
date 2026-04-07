@@ -5071,6 +5071,7 @@ const skeletonGroups = [
         const classifyLoadedImage = () => {
           if (!img.naturalWidth || !img.naturalHeight) return;
           if (isTooBigVideoPreview) {
+            thumbWrap.style.setProperty('--mood-thumb-ratio', `${img.naturalWidth} / ${img.naturalHeight}`);
             return;
           }
 
@@ -5099,6 +5100,15 @@ const skeletonGroups = [
             img.addEventListener('load', classifyLoadedImage, { once: true });
             window.requestAnimationFrame(pollForImageDimensions);
           }
+        }
+        if (
+          isTooBigVideoPreview &&
+          typeof mood.imageWidth === 'number' &&
+          mood.imageWidth > 0 &&
+          typeof mood.imageHeight === 'number' &&
+          mood.imageHeight > 0
+        ) {
+          thumbWrap.style.setProperty('--mood-thumb-ratio', `${mood.imageWidth} / ${mood.imageHeight}`);
         }
         thumbWrap.appendChild(img);
         if (isTooBigVideoPreview) {
