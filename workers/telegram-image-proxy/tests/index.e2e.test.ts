@@ -62,6 +62,10 @@ class FakeR2Bucket {
     return this.objects.has(key);
   }
 
+  read(key: string): StoredObject | null {
+    return this.objects.get(key) ?? null;
+  }
+
   private async toBytes(
     value: ReadableStream<Uint8Array> | ArrayBuffer | Uint8Array | string
   ): Promise<Uint8Array> {
@@ -214,6 +218,40 @@ function registerTelegramImageHandlers(fetchMock: FetchMock, filePaths: Record<s
   });
 }
 
+function registerWorkerPublicImageHandler(fetchMock: FetchMock, env: FakeEnv): void {
+  fetchMock.register(async (url, init) => {
+    if (url.hostname !== 'image.example.test') {
+      return null;
+    }
+
+    const moodMatch = url.pathname.match(/^\/mood\/(\d+)\/(\d+)$/);
+    const objectKey = moodMatch
+      ? `mood/${moodMatch[1]}/${moodMatch[2]}`
+      : url.pathname === '/channel/avatar'
+        ? 'channel/avatar'
+        : '';
+
+    if (!objectKey) {
+      return null;
+    }
+
+    const stored = env.MOOD_IMAGES.read(objectKey);
+    if (!stored) {
+      return new Response('missing original', { status: 404 });
+    }
+
+    const width = (init as RequestInit & { cf?: { image?: { width?: number } } })?.cf?.image?.width;
+    const bytes = width
+      ? new Uint8Array([width % 255, 9, 8, 7])
+      : stored.bytes;
+
+    return new Response(bytes, {
+      status: 200,
+      headers: { 'Content-Type': stored.contentType },
+    });
+  });
+}
+
 const originalFetch = globalThis.fetch;
 const originalCaches = globalThis.caches;
 
@@ -248,6 +286,7 @@ describe('telegram image worker e2e', () => {
     registerTelegramImageHandlers(fetchMock, {
       'file-id-1': 'photos/file_1.jpg',
     });
+    registerWorkerPublicImageHandler(fetchMock, env);
 
     globalThis.fetch = fetchMock.fetch as typeof fetch;
 
@@ -296,6 +335,7 @@ describe('telegram image worker e2e', () => {
       'mood-file-1': 'photos/mood_1.jpg',
       'avatar-file-1': 'photos/avatar_1.jpg',
     });
+    registerWorkerPublicImageHandler(fetchMock, env);
 
     globalThis.fetch = fetchMock.fetch as typeof fetch;
 
@@ -345,6 +385,7 @@ describe('telegram image worker e2e', () => {
     registerTelegramImageHandlers(fetchMock, {
       'video-cover-1': 'photos/video_cover_1.jpg',
     });
+    registerWorkerPublicImageHandler(fetchMock, env);
 
     globalThis.fetch = fetchMock.fetch as typeof fetch;
 
@@ -396,6 +437,7 @@ describe('telegram image worker e2e', () => {
     registerTelegramImageHandlers(fetchMock, {
       'album-file-2': 'photos/album_2.jpg',
     });
+    registerWorkerPublicImageHandler(fetchMock, env);
 
     globalThis.fetch = fetchMock.fetch as typeof fetch;
 
@@ -447,6 +489,7 @@ describe('telegram image worker e2e', () => {
     registerTelegramImageHandlers(fetchMock, {
       'video-cover-2': 'photos/video_cover_2.jpg',
     });
+    registerWorkerPublicImageHandler(fetchMock, env);
 
     globalThis.fetch = fetchMock.fetch as typeof fetch;
 
@@ -581,6 +624,9 @@ describe('telegram image worker e2e', () => {
   test('read endpoint serves existing R2 object', async () => {
     const env = createEnv();
     const ctx = new FakeExecutionContext();
+    const fetchMock = new FetchMock();
+    registerWorkerPublicImageHandler(fetchMock, env);
+    globalThis.fetch = fetchMock.fetch as typeof fetch;
     await env.MOOD_IMAGES.put('mood/200/0', new Uint8Array([10, 20, 30]), {
       httpMetadata: {
         contentType: 'image/jpeg',
@@ -594,6 +640,30 @@ describe('telegram image worker e2e', () => {
     expect(response.status).toBe(200);
     expect(response.headers.get('content-type')).toContain('image/jpeg');
     expect((await response.arrayBuffer()).byteLength).toBeGreaterThan(0);
+    expect(env.MOOD_IMAGES.has('mood/200/0@w1200')).toBe(true);
+  });
+
+  test('read endpoint repairs a missing width variant from the stored original', async () => {
+    const env = createEnv();
+    const ctx = new FakeExecutionContext();
+    const fetchMock = new FetchMock();
+    registerWorkerPublicImageHandler(fetchMock, env);
+    globalThis.fetch = fetchMock.fetch as typeof fetch;
+
+    await env.MOOD_IMAGES.put('mood/201/0', new Uint8Array([10, 20, 30]), {
+      httpMetadata: {
+        contentType: 'image/jpeg',
+        cacheControl: 'public, max-age=31536000, immutable, no-transform',
+      },
+    });
+
+    const request = new Request('https://image.example.test/mood/201/0?w=96', { method: 'GET' });
+    const response = await worker.fetch(request, env as unknown as Env, ctx);
+    const bytes = new Uint8Array(await response.arrayBuffer());
+
+    expect(response.status).toBe(200);
+    expect(Array.from(bytes)).toEqual([225, 9, 8, 7]);
+    expect(env.MOOD_IMAGES.has('mood/201/0@w480')).toBe(true);
   });
 
   test('read endpoint returns 404 on R2 miss without telegram fallback fetch', async () => {
