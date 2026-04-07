@@ -1531,6 +1531,16 @@ const skeletonGroups = [
     aspect-ratio: var(--mood-thumb-ratio, 16 / 9);
   }
 
+  :global(.mood-item-thumb--video-portrait) {
+    width: min(100%, 220px);
+    max-width: min(100%, 220px);
+  }
+
+  :global(.mood-item-thumb--video-ultra-tall) {
+    width: min(100%, 180px);
+    max-width: min(100%, 180px);
+  }
+
   :global(.mood-item-thumb--video img) {
     width: 100%;
     height: 100%;
@@ -1650,6 +1660,17 @@ const skeletonGroups = [
       max-width: 480px;
       border-radius: 14px;
     }
+
+    :global(.mood-item-thumb--video-portrait) {
+      width: min(100%, 240px);
+      max-width: min(100%, 240px);
+    }
+
+    :global(.mood-item-thumb--video-ultra-tall) {
+      width: min(100%, 200px);
+      max-width: min(100%, 200px);
+    }
+
     :global(.mood-item-thumb--portrait) {
       max-width: min(100%, 240px);
     }
@@ -1685,6 +1706,16 @@ const skeletonGroups = [
     :global(.mood-item-thumb) {
       max-width: 560px;
       border-radius: 16px;
+    }
+
+    :global(.mood-item-thumb--video-portrait) {
+      width: min(100%, 260px);
+      max-width: min(100%, 260px);
+    }
+
+    :global(.mood-item-thumb--video-ultra-tall) {
+      width: min(100%, 220px);
+      max-width: min(100%, 220px);
     }
 
     :global(.mood-item-thumb--portrait) {
@@ -5076,7 +5107,13 @@ const skeletonGroups = [
         const classifyLoadedImage = () => {
           if (!img.naturalWidth || !img.naturalHeight) return;
           if (isTooBigVideoPreview) {
+            const aspectRatio = img.naturalWidth / img.naturalHeight;
             thumbWrap.style.setProperty('--mood-thumb-ratio', `${img.naturalWidth} / ${img.naturalHeight}`);
+            if (aspectRatio < 0.6) {
+              thumbWrap.classList.add('mood-item-thumb--video-ultra-tall');
+            } else if (aspectRatio < 0.8) {
+              thumbWrap.classList.add('mood-item-thumb--video-portrait');
+            }
             return;
           }
 
@@ -5114,6 +5151,12 @@ const skeletonGroups = [
           mood.imageHeight > 0
         ) {
           thumbWrap.style.setProperty('--mood-thumb-ratio', `${mood.imageWidth} / ${mood.imageHeight}`);
+          const aspectRatio = mood.imageWidth / mood.imageHeight;
+          if (aspectRatio < 0.6) {
+            thumbWrap.classList.add('mood-item-thumb--video-ultra-tall');
+          } else if (aspectRatio < 0.8) {
+            thumbWrap.classList.add('mood-item-thumb--video-portrait');
+          }
         }
         thumbWrap.appendChild(img);
         if (isTooBigVideoPreview) {
