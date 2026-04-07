@@ -122,6 +122,8 @@ describe('getChannelInfo detail media rendering', () => {
     expect(content).toContain('image-preview-wrap image-preview-wrap--fallback');
     expect(content).toContain('style="aspect-ratio:auto;"');
     expect(content).toContain('modal-3327-unsupported');
+    expect(content).not.toContain('Open Telegram to view this live photo');
+    expect(headFetchMock).not.toHaveBeenCalled();
   });
 
   test('does not invent a reply thumbnail when Telegram reply markup has text only', async () => {

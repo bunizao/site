@@ -216,11 +216,6 @@ const commentsCountCache = new LRUCache<string, number>({
   max: 1000,
 });
 
-const remoteAssetExistsCache = new LRUCache<string, boolean>({
-  ttl: 1000 * 60 * 10, // 10 minutes
-  max: 1000,
-});
-
 const TELEGRAM_PARSE_CACHE_VERSION = 'reply-variant-v3';
 
 // Helper function to get environment variables
@@ -408,13 +403,6 @@ async function getUnsupportedMediaFallback(
   const imgSrc = sanitizeUrlValue(buildHdImageUrl(hdImageBase, `/mood/${encodeURIComponent(id)}/0`), 'src');
   if (!imgSrc) {
     return '';
-  }
-
-  if (!(await remoteAssetExists(imgSrc))) {
-    return buildUnsupportedMediaCard(
-      { channel, id },
-      'Open Telegram to view this live photo'
-    );
   }
 
   const safePostId = id.replace(/[^a-z0-9_-]/gi, '');
@@ -764,33 +752,6 @@ const getReplyMediaLabel = (reply: cheerio.Cheerio<Element>): string => {
 
   return (reply.attr('href') ?? '').trim() ? 'Link' : '';
 };
-
-async function remoteAssetExists(url: string): Promise<boolean> {
-  const normalizedUrl = sanitizeUrlValue(url, 'src');
-  if (!normalizedUrl) {
-    return false;
-  }
-
-  const cached = remoteAssetExistsCache.get(normalizedUrl);
-  if (cached !== undefined) {
-    return cached;
-  }
-
-  let exists = false;
-
-  try {
-    const response = await fetch(normalizedUrl, {
-      method: 'HEAD',
-      redirect: 'follow',
-    });
-    exists = response.ok;
-  } catch {
-    exists = false;
-  }
-
-  remoteAssetExistsCache.set(normalizedUrl, exists);
-  return exists;
-}
 
 const stripLeadingReplyLabel = (value: string, labels: string[]): string => {
   let result = value;
