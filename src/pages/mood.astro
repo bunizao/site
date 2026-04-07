@@ -4928,6 +4928,9 @@ const skeletonGroups = [
       if (quote) {
         const quoteWrap = document.createElement(quote.href ? 'a' : 'div');
         quoteWrap.className = 'mood-item-quote';
+        if (quote.thumbnailSrc && quote.text === 'Media') {
+          quoteWrap.classList.add('mood-item-quote--media-only');
+        }
         if (quoteWrap instanceof HTMLAnchorElement && quote.href) {
           quoteWrap.href = quote.href;
           if (/^https?:\/\//i.test(quote.href)) {

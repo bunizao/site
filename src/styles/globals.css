@@ -298,10 +298,19 @@
   .mood-item-quote-media,
   .mood-quote-card-media {
     display: block;
-    width: min(4.5rem, 100%);
+    width: 100%;
     border-radius: 8px;
     overflow: hidden;
     background: hsl(var(--foreground) / 0.04);
+  }
+
+  .mood-item-quote--media-only,
+  .mood-quote-card--media-only {
+    display: inline-flex;
+    width: auto;
+    max-width: clamp(5.25rem, 14vw, 6.5rem);
+    padding: 6px;
+    gap: 6px;
   }
 
   .mood-item-quote-image,
@@ -312,6 +321,11 @@
     aspect-ratio: 1 / 1;
     object-fit: cover;
     background: hsl(var(--foreground) / 0.03);
+  }
+
+  .mood-item-quote--media-only .mood-item-quote-meta,
+  .mood-quote-card--media-only .mood-quote-card-meta {
+    display: none;
   }
 
   .mood-item-quote-text,

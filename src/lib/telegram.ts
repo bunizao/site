@@ -847,8 +847,16 @@ function buildDetailReplyCard(
     replyPreviewSrc && text === 'Media'
       ? ''
       : `<p class="mood-detail-quote-text mood-item-quote-text">${escapeHtml(text)}</p>`;
+  const quoteClassName = [
+    'mood-detail-quote',
+    'mood-item-quote',
+    'mood-comment-quote',
+    replyPreviewSrc && text === 'Media' ? 'mood-detail-quote--media-only mood-item-quote--media-only' : '',
+  ]
+    .filter(Boolean)
+    .join(' ');
 
-  return `<${tagName} class="mood-detail-quote mood-item-quote mood-comment-quote"${hrefAttr}${externalAttrs}>${sourceMarkup}${previewMarkup}${textMarkup}</${tagName}>`;
+  return `<${tagName} class="${quoteClassName}"${hrefAttr}${externalAttrs}>${sourceMarkup}${previewMarkup}${textMarkup}</${tagName}>`;
 }
 
 function sanitizeUrlValue(value: string, type: 'href' | 'src'): string {
