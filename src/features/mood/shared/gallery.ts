@@ -328,7 +328,7 @@ export function replaceMoodGalleryWithPlaceholders(content: string): {
             [extractGalleryItemFromPhotoWrap($, node)].filter((item): item is MoodGalleryItem => item !== null)
           );
 
-      if (!gallery) {
+      if (!gallery || gallery.count <= 1) {
         return;
       }
 

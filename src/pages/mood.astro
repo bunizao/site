@@ -5063,7 +5063,7 @@ const skeletonGroups = [
         media.innerHTML = mediaHtml;
         applyMediaHints(media, isPriorityItem);
         content.appendChild(media);
-      } else if (!isTooBigVideoPreview && mood.gallery?.items.length) {
+      } else if (!isTooBigVideoPreview && (mood.gallery?.items.length ?? 0) > 1) {
         const gallery = createMoodGalleryElement(mood.gallery, {
           variant: 'feed',
           showCountBadge: true,

@@ -24,6 +24,14 @@ const multiImageContent = [
   '<p>After gallery</p>',
 ].join('');
 
+const singleImageContent = [
+  '<p>Single image post</p>',
+  '<button class="image-preview-button image-preview-wrap image-preview-wrap--portrait" style="--image-width:720px;--image-height:960px">',
+  '  <img src="https://image.example.test/mood/1/0" data-fallback-src="/static/https://cdn.example.test/0.jpg" alt="" width="720" height="960" />',
+  '</button>',
+  '<button class="image-preview-button modal"><img class="modal-img" src="https://image.example.test/mood/1/0" alt="" /></button>',
+].join('');
+
 describe('mood gallery extraction', () => {
   test('extracts all non-modal images from an image list container', () => {
     const gallery = getMoodGallery(multiImageContent);
@@ -59,5 +67,13 @@ describe('mood gallery extraction', () => {
     expect(html).toContain('data-deferred-src="https://image.example.test/mood/1/2"');
     expect(html).not.toContain('image-list-container');
     expect(html).not.toContain('modal-img');
+  });
+
+  test('leaves single-image markup untouched', () => {
+    const html = renderMoodContentWithGalleries(singleImageContent);
+
+    expect(html).toContain('image-preview-wrap');
+    expect(html).not.toContain('data-mood-gallery');
+    expect(html).toContain('modal-img');
   });
 });
