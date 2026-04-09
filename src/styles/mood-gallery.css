@@ -41,6 +41,11 @@
   height: auto;
 }
 
+.mood-gallery--feed .mood-gallery-image {
+  max-width: 400px;
+  max-height: 280px;
+}
+
 .mood-gallery-count {
   position: absolute;
   top: 12px;
@@ -79,9 +84,22 @@
   max-width: min(calc(100vw - 48px), 920px);
 }
 
+.mood-gallery--detail .mood-gallery-slide--portrait .mood-gallery-image {
+  max-height: 60vh;
+}
+
+.mood-gallery--detail .mood-gallery-slide--ultra-tall .mood-gallery-image {
+  max-height: 70vh;
+}
+
 @media (min-width: 640px) {
   .mood-gallery-track {
     gap: 12px;
+  }
+
+  .mood-gallery--feed .mood-gallery-image {
+    max-width: 480px;
+    max-height: 320px;
   }
 
   .mood-gallery--detail .mood-gallery-track {
@@ -95,11 +113,13 @@
 }
 
 @media (min-width: 1024px) {
-  .mood-gallery-image {
-    max-width: 820px;
+  .mood-gallery--feed .mood-gallery-image {
+    max-width: 560px;
+    max-height: 360px;
   }
 
   .mood-gallery--detail .mood-gallery-image {
     max-width: 960px;
+    max-height: 70vh;
   }
 }
