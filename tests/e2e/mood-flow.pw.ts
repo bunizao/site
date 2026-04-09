@@ -569,7 +569,6 @@ test.describe('Mood routes', () => {
     const images = gallery.locator('[data-mood-gallery-image]');
 
     await expect(gallery).toBeVisible();
-    await expect(gallery.locator('.mood-gallery-count')).toHaveText('3');
     await expect(images).toHaveCount(3);
 
     await expect(images.nth(0)).toHaveAttribute('src', /\/0$/);

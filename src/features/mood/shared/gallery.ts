@@ -26,7 +26,6 @@ interface MoodGalleryPlaceholder {
 
 interface RenderMoodGalleryOptions {
   variant: MoodGalleryVariant;
-  showCountBadge?: boolean;
   priority?: boolean;
 }
 
@@ -347,9 +346,8 @@ export function renderMoodGalleryMarkup(
   gallery: MoodGallery,
   options: RenderMoodGalleryOptions,
 ): string {
-  const { variant, showCountBadge = true, priority = false } = options;
+  const { variant, priority = false } = options;
   const sizes = getMoodGallerySizes(variant);
-  const showBadge = showCountBadge && gallery.count > 1;
 
   const slides = gallery.items
     .map((item, index) => {
@@ -384,7 +382,6 @@ export function renderMoodGalleryMarkup(
 
   return [
     `<div class="mood-gallery mood-gallery--${variant}" data-mood-gallery data-mood-gallery-variant="${variant}" data-mood-gallery-count="${gallery.count}"${priority ? ' data-mood-gallery-priority="true"' : ''}>`,
-    showBadge ? `<span class="mood-gallery-count" aria-label="${gallery.count} images">${gallery.count}</span>` : '',
     `<div class="mood-gallery-track" data-mood-gallery-track>${slides}</div>`,
     '</div>',
   ].join('');
@@ -400,7 +397,7 @@ export function renderMoodContentWithGalleries(content: string): string {
 
   placeholders.forEach(({ index, gallery }) => {
     $(`[${GALLERY_PLACEHOLDER_ATTR}="${index}"]`).replaceWith(
-      renderMoodGalleryMarkup(gallery, { variant: 'detail', showCountBadge: true })
+      renderMoodGalleryMarkup(gallery, { variant: 'detail' })
     );
   });
 

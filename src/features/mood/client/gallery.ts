@@ -6,7 +6,6 @@ import {
 
 interface CreateMoodGalleryElementOptions {
   variant: MoodGalleryVariant;
-  showCountBadge?: boolean;
   priority?: boolean;
 }
 
