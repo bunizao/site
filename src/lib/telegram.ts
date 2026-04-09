@@ -359,6 +359,41 @@ async function getTelegramOpenGraphMeta(
   }
 }
 
+export async function getTelegramPostFallbackInfo(
+  Astro: any,
+  postId: string
+): Promise<{
+  description: string;
+  image: string;
+  hasUnsupportedMediaNotice: boolean;
+  hasVisibleText: boolean;
+}> {
+  const host = getEnv(import.meta.env, Astro, 'TELEGRAM_HOST') || 't.me';
+  const channel = getEnv(import.meta.env, Astro, 'CHANNEL');
+  const headers = buildTelegramRequestHeaders(Astro.request);
+
+  if (!channel || !postId) {
+    return {
+      description: '',
+      image: '',
+      hasUnsupportedMediaNotice: false,
+      hasVisibleText: false,
+    };
+  }
+
+  const [meta, state] = await Promise.all([
+    getTelegramOpenGraphMeta(host, channel, postId, headers),
+    getTelegramEmbedState(host, channel, postId, headers),
+  ]);
+
+  return {
+    description: meta?.description?.trim() ?? '',
+    image: meta?.image?.trim() ?? '',
+    hasUnsupportedMediaNotice: Boolean(state?.hasUnsupportedMediaNotice),
+    hasVisibleText: Boolean(state?.hasVisibleText),
+  };
+}
+
 function buildTextParagraphMarkup(text: string): string {
   const normalized = text
     .replace(/\r\n?/g, '\n')

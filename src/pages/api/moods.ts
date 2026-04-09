@@ -1,6 +1,6 @@
 import type { APIRoute } from 'astro';
 import { createE2EChannelInfo, isE2ESiteFixtureEnabled } from '@/lib/e2e-fixtures';
-import { getChannelInfo, type ChannelInfo } from '../../lib/telegram';
+import { getChannelInfo, getTelegramPostFallbackInfo, type ChannelInfo } from '../../lib/telegram';
 import {
   getFirstImageMeta,
   getInlineMediaPreview,
@@ -70,6 +70,37 @@ function toChannelAvatarUrl(avatar: string, locals: any): string {
   }
 
   return `/static/${normalized}`;
+}
+
+function escapeHtml(value: string): string {
+  return value.replace(/[&<>"']/g, (char) => {
+    switch (char) {
+      case '&':
+        return '&amp;';
+      case '<':
+        return '&lt;';
+      case '>':
+        return '&gt;';
+      case '"':
+        return '&quot;';
+      case '\'':
+        return '&#39;';
+      default:
+        return char;
+    }
+  });
+}
+
+function buildPlainPreviewHtml(text: string): string {
+  const normalized = text
+    .replace(/\r\n?/g, '\n')
+    .split('\n')
+    .map((line) => line.trim())
+    .join('\n')
+    .trim();
+
+  if (!normalized) return '';
+  return escapeHtml(normalized).replace(/\n/g, '<br>');
 }
 
 export const GET: APIRoute = async ({ request, locals }) => {
@@ -200,14 +231,36 @@ export const GET: APIRoute = async ({ request, locals }) => {
       );
     }
 
-    const payload = sortedPosts.map((post) => {
+    const payload = await Promise.all(sortedPosts.map(async (post) => {
       const mediaPreview = getInlineMediaPreview(post.content);
       const tooBigVideo = hasTooBigVideo(post.content);
-      const previewText = getTextPreview(post);
-      const previewHtml = getTextPreviewHtml(post);
+      let previewText = getTextPreview(post);
+      let previewHtml = getTextPreviewHtml(post);
       const imageMeta = getFirstImageMeta(post.content);
-      const quote = getQuotePreview(post.content, { channel, channelTitle, hdImageBase });
+      const rawQuote = getQuotePreview(post.content, { channel, channelTitle, hdImageBase });
+      let quote = rawQuote ? { ...rawQuote } : null;
       const hasDetailMedia = hasMedia(post.content) || hasEmojiImageMedia(post.content);
+      const isUnsupportedFallbackImage = post.content.includes('image-preview-wrap--fallback');
+
+      if (isUnsupportedFallbackImage && !previewText.trim()) {
+        const fallbackInfo = await getTelegramPostFallbackInfo({ request, locals } as any, post.id);
+        if (fallbackInfo.hasUnsupportedMediaNotice && !fallbackInfo.hasVisibleText && fallbackInfo.description) {
+          previewText = fallbackInfo.description;
+          previewHtml = buildPlainPreviewHtml(fallbackInfo.description);
+        }
+      }
+
+      if (quote && !quote.thumbnailSrc && quote.href) {
+        const match = quote.href.match(/^\/mood\/(\d+)$/);
+        const targetId = match?.[1] ?? '';
+        if (targetId && hdImageBase) {
+          const fallbackInfo = await getTelegramPostFallbackInfo({ request, locals } as any, targetId);
+          if (fallbackInfo.hasUnsupportedMediaNotice && !fallbackInfo.hasVisibleText) {
+            quote.thumbnailSrc = `${hdImageBase}/mood/${encodeURIComponent(targetId)}/0`;
+          }
+        }
+      }
+
       const needsDetailPage = !mediaPreview && (hasDetailMedia || tooBigVideo || isLongContent(previewText));
       return {
         id: post.id,
@@ -234,7 +287,7 @@ export const GET: APIRoute = async ({ request, locals }) => {
         })) ?? [],
         commentsCount: post.commentsCount ?? 0,
       };
-    });
+    }));
 
     const avatarUrl = toChannelAvatarUrl(channelInfo.avatar || '', locals);
 
