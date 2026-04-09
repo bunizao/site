@@ -159,20 +159,6 @@ export function getMoodGalleryAspectRatio(item: MoodGalleryItem): string {
   return '4 / 3';
 }
 
-export function getMoodGalleryRatioValue(item: MoodGalleryItem): string {
-  if (item.width && item.height) {
-    return String(item.width / item.height);
-  }
-
-  if (item.layout === 'portrait') {
-    return '0.75';
-  }
-  if (item.layout === 'ultra-tall') {
-    return '0.5625';
-  }
-  return '1.3333333333';
-}
-
 function normalizeGalleryItems(items: MoodGalleryItem[]): MoodGallery | null {
   const normalized = items.filter((item) => item.src.trim().length > 0);
   if (!normalized.length) {
@@ -389,7 +375,7 @@ export function renderMoodGalleryMarkup(
         .join(' ');
 
       return [
-        `<div class="mood-gallery-slide${layoutClass}" data-mood-gallery-slide data-gallery-index="${index}" style="--mood-gallery-ratio:${escapeHtml(getMoodGalleryAspectRatio(item))};--mood-gallery-ratio-value:${escapeHtml(getMoodGalleryRatioValue(item))};">`,
+        `<div class="mood-gallery-slide${layoutClass}" data-mood-gallery-slide data-gallery-index="${index}" style="--mood-gallery-ratio:${escapeHtml(getMoodGalleryAspectRatio(item))};">`,
         `<img ${attrs} />`,
         '</div>',
       ].join('');
