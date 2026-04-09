@@ -6,9 +6,8 @@
 }
 
 .mood-gallery-track {
-  display: grid;
-  grid-auto-flow: column;
-  align-items: stretch;
+  display: flex;
+  align-items: flex-start;
   gap: 10px;
   overflow-x: auto;
   overscroll-behavior-x: contain;
@@ -23,26 +22,34 @@
 }
 
 .mood-gallery--feed .mood-gallery-track {
-  grid-auto-columns: minmax(0, calc(100% - 54px));
+  --mood-gallery-frame-height: clamp(220px, 34vw, 470px);
 }
 
 .mood-gallery--detail .mood-gallery-track {
-  grid-auto-columns: minmax(0, calc(100% - 34px));
+  --mood-gallery-frame-height: min(72vh, 720px);
 }
 
 .mood-gallery-slide {
   position: relative;
-  min-width: 0;
+  flex: 0 0 auto;
   scroll-snap-align: start;
   overflow: hidden;
   border-radius: 18px;
   background:
     linear-gradient(180deg, hsl(var(--foreground) / 0.04), hsl(var(--foreground) / 0.02));
   aspect-ratio: var(--mood-gallery-ratio, 4 / 3);
+  height: var(--mood-gallery-frame-height);
+  width: clamp(
+    160px,
+    calc(var(--mood-gallery-frame-height) * var(--mood-gallery-ratio-value, 1.3333333333)),
+    min(82vw, 760px)
+  );
+  max-width: calc(100vw - 72px);
 }
 
 .mood-gallery--feed .mood-gallery-slide {
   border-radius: 20px;
+  max-width: min(84vw, 760px);
 }
 
 .mood-gallery-slide--portrait {
@@ -98,14 +105,15 @@
 
 .mood-gallery--detail .mood-gallery-slide {
   border-radius: 22px;
+  max-width: min(calc(100vw - 48px), 900px);
 }
 
 .mood-gallery--detail .mood-gallery-slide--portrait {
-  max-width: min(420px, 100%);
+  max-width: min(calc(100vw - 72px), 480px);
 }
 
 .mood-gallery--detail .mood-gallery-slide--ultra-tall {
-  max-width: min(320px, 100%);
+  max-width: min(calc(100vw - 96px), 360px);
 }
 
 @media (min-width: 640px) {
@@ -114,11 +122,11 @@
   }
 
   .mood-gallery--feed .mood-gallery-track {
-    grid-auto-columns: minmax(0, calc(100% - 72px));
+    --mood-gallery-frame-height: clamp(260px, 30vw, 500px);
   }
 
   .mood-gallery--detail .mood-gallery-track {
-    grid-auto-columns: minmax(0, calc(100% - 84px));
+    --mood-gallery-frame-height: min(74vh, 760px);
     gap: 16px;
   }
 
@@ -129,15 +137,15 @@
 }
 
 @media (min-width: 1024px) {
-  .mood-gallery--detail .mood-gallery-track {
-    grid-auto-columns: minmax(0, calc(100% - 140px));
+  .mood-gallery--feed .mood-gallery-track {
+    --mood-gallery-frame-height: clamp(280px, 26vw, 520px);
   }
 
   .mood-gallery--detail .mood-gallery-slide--portrait {
-    max-width: 460px;
+    max-width: 520px;
   }
 
   .mood-gallery--detail .mood-gallery-slide--ultra-tall {
-    max-width: 360px;
+    max-width: 400px;
   }
 }
