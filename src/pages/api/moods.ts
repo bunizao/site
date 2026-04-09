@@ -13,6 +13,7 @@ import {
   hasTooBigVideo,
   isLongContent,
 } from '../../lib/mood-utils';
+import { getMoodGallery } from '@/features/mood/shared/gallery';
 import { checkRateLimit, createRateLimitHeaders } from '../../lib/security/rate-limit';
 
 export const prerender = false;
@@ -160,6 +161,8 @@ export const GET: APIRoute = async ({ request, locals }) => {
     }
 
     const payload = sortedPosts.map((post) => {
+      const gallery = getMoodGallery(post.content);
+      const leadItem = gallery?.items[0] ?? null;
       const imageMeta = getFirstImageMeta(post.content);
       return {
         id: post.id,
@@ -167,11 +170,12 @@ export const GET: APIRoute = async ({ request, locals }) => {
         tag: post.tags?.[0] ?? '',
         previewText: getTextPreview(post),
         previewHtml: getTextPreviewHtml(post),
-        image: imageMeta.src,
-        imageFallback: imageMeta.fallbackSrc,
-        imageWidth: imageMeta.width,
-        imageHeight: imageMeta.height,
-        imageLayout: imageMeta.layout,
+        gallery,
+        image: leadItem?.src ?? imageMeta.src,
+        imageFallback: leadItem?.fallbackSrc ?? imageMeta.fallbackSrc,
+        imageWidth: leadItem?.width ?? imageMeta.width,
+        imageHeight: leadItem?.height ?? imageMeta.height,
+        imageLayout: leadItem?.layout ?? imageMeta.layout,
         mediaHtml: '',
         needsDetailPage: true,
         forwardedFrom: null,
@@ -236,6 +240,8 @@ export const GET: APIRoute = async ({ request, locals }) => {
       const tooBigVideo = hasTooBigVideo(post.content);
       let previewText = getTextPreview(post);
       let previewHtml = getTextPreviewHtml(post);
+      const gallery = getMoodGallery(post.content);
+      const leadItem = gallery?.items[0] ?? null;
       const imageMeta = getFirstImageMeta(post.content);
       const rawQuote = getQuotePreview(post.content, { channel, channelTitle, hdImageBase });
       let quote = rawQuote ? { ...rawQuote } : null;
@@ -269,11 +275,12 @@ export const GET: APIRoute = async ({ request, locals }) => {
         previewText,
         previewHtml,
         previewMediaType: tooBigVideo ? 'too-big-video' : '',
-        image: mediaPreview ? null : imageMeta.src,
-        imageFallback: mediaPreview ? null : imageMeta.fallbackSrc,
-        imageWidth: mediaPreview ? null : imageMeta.width,
-        imageHeight: mediaPreview ? null : imageMeta.height,
-        imageLayout: mediaPreview ? null : imageMeta.layout,
+        gallery: mediaPreview ? null : gallery,
+        image: mediaPreview ? null : leadItem?.src ?? imageMeta.src,
+        imageFallback: mediaPreview ? null : leadItem?.fallbackSrc ?? imageMeta.fallbackSrc,
+        imageWidth: mediaPreview ? null : leadItem?.width ?? imageMeta.width,
+        imageHeight: mediaPreview ? null : leadItem?.height ?? imageMeta.height,
+        imageLayout: mediaPreview ? null : leadItem?.layout ?? imageMeta.layout,
         mediaHtml: mediaPreview?.html ?? '',
         needsDetailPage,
         forwardedFrom: post.forwardedFrom ?? null,

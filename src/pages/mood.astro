@@ -1,6 +1,7 @@
 ---
 import Layout from '../layouts/Layout.astro';
 import MoodTimelineWheel from '../components/MoodTimelineWheel.astro';
+import '@/styles/mood-gallery.css';
 
 export const prerender = false;
 
@@ -3408,6 +3409,8 @@ const skeletonGroups = [
 <script>
   import gsap from 'gsap';
   import { asText, buildCommentContentFragment, sanitizeImageUrl } from '../lib/comment-content';
+  import { createMoodGalleryElement, initMoodGalleries } from '@/features/mood/client/gallery';
+  import type { MoodGallery } from '@/features/mood/shared/gallery';
   const loadingEl = document.querySelector('[data-mood-loading]');
   const errorEl = document.querySelector('[data-mood-error]');
   const feedEl = document.querySelector('[data-mood-feed]');
@@ -4842,6 +4845,7 @@ const skeletonGroups = [
       previewText: string;
       previewHtml?: string;
       previewMediaType?: string;
+      gallery?: MoodGallery | null;
       image?: string | null;
       imageFallback?: string | null;
       imageWidth?: number | null;
@@ -5059,6 +5063,13 @@ const skeletonGroups = [
         media.innerHTML = mediaHtml;
         applyMediaHints(media, isPriorityItem);
         content.appendChild(media);
+      } else if (!isTooBigVideoPreview && mood.gallery?.items.length) {
+        const gallery = createMoodGalleryElement(mood.gallery, {
+          variant: 'feed',
+          showCountBadge: true,
+          priority: isPriorityItem,
+        });
+        content.appendChild(gallery);
       } else if (mood.image) {
         const thumbWrap = document.createElement('div');
         thumbWrap.className = 'mood-item-thumb';
@@ -5343,6 +5354,7 @@ const skeletonGroups = [
     const navigateToMood = (target: HTMLElement | null): void => {
       if (!target) return;
       if (target.closest('.mood-item-quote')) return;
+      if (target.closest('.mood-gallery')) return;
       if (target.closest('a')) return;
 
       const item = target.closest('.mood-item--clickable') as HTMLElement | null;
@@ -5423,6 +5435,7 @@ const skeletonGroups = [
 
       if (listFragment.childNodes.length > 0) {
         list.appendChild(listFragment);
+        initMoodGalleries(list);
       }
 
       totalCount = globalIndex;

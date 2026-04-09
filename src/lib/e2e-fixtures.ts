@@ -1,6 +1,34 @@
 import type { ChannelInfo, Post } from './telegram';
 
 const DEFAULT_MOOD_ID = '990001';
+const MULTI_IMAGE_MOOD_ID = '990777';
+
+function createE2EMultiImageContent(id: string): string {
+  return [
+    '<p>E2E multi-image detail post</p>',
+    '<div class="image-list-container image-list-odd">',
+    `  <button class="image-preview-button image-preview-wrap image-preview-wrap--portrait" style="--image-width:720px;--image-height:960px" popovertarget="modal-${id}-0" popovertargetaction="show">`,
+    '    <img src="https://image.example.test/mood/990777/0" data-fallback-src="/static/https://cdn4.telesco.pe/file/e2e-0.jpg" alt="" width="720" height="960" loading="lazy" />',
+    '  </button>',
+    `  <button class="image-preview-button modal" id="modal-${id}-0" popovertarget="modal-${id}-0" popovertargetaction="hide" popover>`,
+    '    <img class="modal-img" src="https://image.example.test/mood/990777/0" alt="" loading="lazy" />',
+    '  </button>',
+    `  <button class="image-preview-button image-preview-wrap" style="--image-width:1200px;--image-height:900px" popovertarget="modal-${id}-1" popovertargetaction="show">`,
+    '    <img src="https://image.example.test/mood/990777/1" data-fallback-src="/static/https://cdn4.telesco.pe/file/e2e-1.jpg" alt="" width="1200" height="900" loading="lazy" />',
+    '  </button>',
+    `  <button class="image-preview-button modal" id="modal-${id}-1" popovertarget="modal-${id}-1" popovertargetaction="hide" popover>`,
+    '    <img class="modal-img" src="https://image.example.test/mood/990777/1" alt="" loading="lazy" />',
+    '  </button>',
+    `  <button class="image-preview-button image-preview-wrap image-preview-wrap--ultra-tall" style="--image-width:540px;--image-height:1200px" popovertarget="modal-${id}-2" popovertargetaction="show">`,
+    '    <img src="https://image.example.test/mood/990777/2" data-fallback-src="/static/https://cdn4.telesco.pe/file/e2e-2.jpg" alt="" width="540" height="1200" loading="lazy" />',
+    '  </button>',
+    `  <button class="image-preview-button modal" id="modal-${id}-2" popovertarget="modal-${id}-2" popovertargetaction="hide" popover>`,
+    '    <img class="modal-img" src="https://image.example.test/mood/990777/2" alt="" loading="lazy" />',
+    '  </button>',
+    '</div>',
+    '<p>Detail text continues after the gallery.</p>',
+  ].join('');
+}
 
 export interface E2EProject {
   name: string;
@@ -50,6 +78,20 @@ export function isE2ESiteFixtureEnabled(locals: any): boolean {
 }
 
 export function createE2EPost(id = DEFAULT_MOOD_ID): Post {
+  if (id === MULTI_IMAGE_MOOD_ID) {
+    return {
+      id,
+      title: `E2E Mood ${id}`,
+      type: 'text',
+      datetime: '2026-02-10T13:00:00+00:00',
+      tags: ['e2e'],
+      text: 'E2E multi-image mood',
+      content: createE2EMultiImageContent(id),
+      reactions: [],
+      commentsCount: 1,
+    };
+  }
+
   return {
     id,
     title: `E2E Mood ${id}`,

@@ -3,6 +3,8 @@ import Layout from '../../layouts/Layout.astro';
 import dayjs from 'dayjs';
 import { createE2EPost, isE2ESiteFixtureEnabled } from '../../lib/e2e-fixtures';
 import { getChannelInfo, type Post } from '../../lib/telegram';
+import '@/styles/mood-gallery.css';
+import { renderMoodContentWithGalleries } from '@/features/mood/shared/gallery';
 
 export const prerender = false;
 
@@ -48,6 +50,7 @@ const title = post ? `${post.title} | Moods` : 'Mood not found | Moods';
 const description = post ? post.text.slice(0, 160) : 'Mood not found.';
 const channel = import.meta.env.CHANNEL || Astro.locals?.runtime?.env?.CHANNEL || '';
 const telegramCommentUrl = channel && id ? `https://t.me/${channel}/${id}?comment=1` : '';
+const renderedPostContent = post ? renderMoodContentWithGalleries(post.content) : '';
 ---
 
 <Layout title={title} description={description} oembed={oembed} hideSiteNav>
@@ -89,8 +92,7 @@ const telegramCommentUrl = channel && id ? `https://t.me/${channel}/${id}?commen
             )}
           </div>
         </div>
-
-        <div class="mood-post-content" set:html={post.content} />
+        <div class="mood-post-content" set:html={renderedPostContent} />
         {post.reactions.length > 0 && (
           <div class="mood-post-reactions" aria-label="Reactions">
             {post.reactions.map((reaction) => (
@@ -2461,6 +2463,7 @@ const telegramCommentUrl = channel && id ? `https://t.me/${channel}/${id}?commen
     replaceReplyNodesWithCommentQuotes,
     sanitizeImageUrl,
   } from '../../lib/comment-content';
+  import { initMoodGalleries } from '@/features/mood/client/gallery';
 
   interface CommentReactionData {
     emoji?: string;
@@ -2635,6 +2638,7 @@ const telegramCommentUrl = channel && id ? `https://t.me/${channel}/${id}?commen
   const moodPostContent = document.querySelector('.mood-post-content');
   if (moodPostContent instanceof HTMLElement) {
     replaceReplyNodesWithCommentQuotes(moodPostContent);
+    initMoodGalleries(moodPostContent);
   }
 
   const animatedEmoji = createAnimatedEmojiManager();
