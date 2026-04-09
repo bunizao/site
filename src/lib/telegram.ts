@@ -216,7 +216,27 @@ const commentsCountCache = new LRUCache<string, number>({
   max: 1000,
 });
 
-const TELEGRAM_PARSE_CACHE_VERSION = 'reply-variant-v3';
+interface TelegramPostOpenGraphMeta {
+  description: string;
+  image: string;
+}
+
+interface TelegramEmbedState {
+  hasUnsupportedMediaNotice: boolean;
+  hasVisibleText: boolean;
+}
+
+const telegramPostMetaCache = new LRUCache<string, TelegramPostOpenGraphMeta | null>({
+  ttl: 1000 * 60 * 10, // 10 minutes
+  max: 500,
+});
+
+const telegramEmbedStateCache = new LRUCache<string, TelegramEmbedState | null>({
+  ttl: 1000 * 60 * 10, // 10 minutes
+  max: 500,
+});
+
+const TELEGRAM_PARSE_CACHE_VERSION = 'reply-variant-v4';
 
 // Helper function to get environment variables
 function getEnv(env: ImportMetaEnv, Astro: any, name: string): string {
@@ -249,6 +269,186 @@ function buildTelegramRequestHeaders(request: Request): Record<string, string> {
     headers[headerName] = value;
   }
   return headers;
+}
+
+function buildTelegramPostCacheKey(host: string, channel: string, postId: string): string {
+  return `${host}/${channel}/${postId}`;
+}
+
+function parseTelegramEmbedState(html: string): TelegramEmbedState {
+  const $ = cheerio.load(html, {}, false);
+  const message = $('.tgme_widget_message').first();
+  const hasUnsupportedMediaNotice = message.find('.message_media_not_supported_wrap, .message_media_not_supported_label').length > 0;
+  const hasVisibleText = message
+    .find('.tgme_widget_message_text.js-message_text')
+    .toArray()
+    .some((element) => $(element).text().replace(/\s+/g, ' ').trim().length > 0);
+
+  return {
+    hasUnsupportedMediaNotice,
+    hasVisibleText,
+  };
+}
+
+function parseTelegramOpenGraphMeta(html: string): TelegramPostOpenGraphMeta | null {
+  const $ = cheerio.load(html, {}, false);
+  const description = $('meta[property="og:description"]').attr('content')?.trim() ?? '';
+  const image = $('meta[property="og:image"]').attr('content')?.trim() ?? '';
+
+  if (!description && !image) {
+    return null;
+  }
+
+  return {
+    description,
+    image,
+  };
+}
+
+async function getTelegramEmbedState(
+  host: string,
+  channel: string,
+  postId: string,
+  headers: Record<string, string> = {}
+): Promise<TelegramEmbedState | null> {
+  const cacheKey = buildTelegramPostCacheKey(host, channel, postId);
+  const cached = telegramEmbedStateCache.get(cacheKey);
+  if (cached !== undefined) {
+    return cached;
+  }
+
+  try {
+    const html = await $fetch<string>(`https://${host}/${channel}/${postId}?embed=1&mode=tme`, {
+      headers,
+      retry: 2,
+      retryDelay: 100,
+    });
+    const state = parseTelegramEmbedState(html);
+    telegramEmbedStateCache.set(cacheKey, state);
+    return state;
+  } catch (error) {
+    telegramEmbedStateCache.set(cacheKey, null);
+    return null;
+  }
+}
+
+async function getTelegramOpenGraphMeta(
+  host: string,
+  channel: string,
+  postId: string,
+  headers: Record<string, string> = {}
+): Promise<TelegramPostOpenGraphMeta | null> {
+  const cacheKey = buildTelegramPostCacheKey(host, channel, postId);
+  const cached = telegramPostMetaCache.get(cacheKey);
+  if (cached !== undefined) {
+    return cached;
+  }
+
+  try {
+    const html = await $fetch<string>(`https://${host}/${channel}/${postId}`, {
+      headers,
+      retry: 2,
+      retryDelay: 100,
+    });
+    const meta = parseTelegramOpenGraphMeta(html);
+    telegramPostMetaCache.set(cacheKey, meta);
+    return meta;
+  } catch (error) {
+    telegramPostMetaCache.set(cacheKey, null);
+    return null;
+  }
+}
+
+function buildTextParagraphMarkup(text: string): string {
+  const normalized = text
+    .replace(/\r\n?/g, '\n')
+    .split('\n')
+    .map((line) => line.trim())
+    .join('\n')
+    .trim();
+
+  if (!normalized) {
+    return '';
+  }
+
+  return `<p>${escapeHtml(normalized).replace(/\n/g, '<br>')}</p>`;
+}
+
+async function enrichDetailPost(
+  post: Post,
+  {
+    host,
+    channel,
+    headers,
+    hdImageBase,
+    currentEmbedState,
+  }: {
+    host: string;
+    channel: string;
+    headers: Record<string, string>;
+    hdImageBase: string;
+    currentEmbedState: TelegramEmbedState;
+  }
+): Promise<Post> {
+  const shouldRecoverOwnText = currentEmbedState.hasUnsupportedMediaNotice && !currentEmbedState.hasVisibleText && !post.text.trim();
+
+  if (shouldRecoverOwnText) {
+    const meta = await getTelegramOpenGraphMeta(host, channel, post.id, headers);
+    const recoveredText = meta?.description?.trim() ?? '';
+    if (recoveredText) {
+      const textMarkup = buildTextParagraphMarkup(recoveredText);
+      if (textMarkup) {
+        post.content = `${post.content}${textMarkup}`;
+      }
+      post.text = recoveredText;
+      if (!post.title.trim()) {
+        post.title = recoveredText.split('\n')[0]?.trim() ?? recoveredText;
+      }
+    }
+  }
+
+  if (!hdImageBase || !post.content.includes('mood-detail-quote')) {
+    return post;
+  }
+
+  const $ = cheerio.load(`<div data-root="detail-content">${post.content}</div>`, {}, false);
+  const localQuotes = $('a.mood-detail-quote[href^="/mood/"]').toArray();
+
+  for (const quote of localQuotes) {
+    const quoteEl = $(quote);
+    if (quoteEl.find('.mood-detail-quote-media').length > 0) {
+      continue;
+    }
+
+    const href = quoteEl.attr('href') ?? '';
+    const match = href.match(/^\/mood\/(\d+)$/);
+    const targetId = match?.[1] ?? '';
+    if (!targetId) {
+      continue;
+    }
+
+    const targetState = await getTelegramEmbedState(host, channel, targetId, headers);
+    const shouldRenderFallbackThumb = Boolean(
+      targetState?.hasUnsupportedMediaNotice && !targetState.hasVisibleText
+    );
+
+    if (!shouldRenderFallbackThumb) {
+      continue;
+    }
+
+    const previewSrc = sanitizeUrlValue(buildHdImageUrl(hdImageBase, `/mood/${encodeURIComponent(targetId)}/0`), 'src');
+    if (!previewSrc) {
+      continue;
+    }
+
+    quoteEl.addClass('mood-detail-quote--with-media mood-item-quote--with-media');
+    quoteEl.prepend(
+      `<span class="mood-detail-quote-media"><img class="mood-detail-quote-image" src="${escapeHtml(previewSrc)}" alt="" loading="lazy" /></span>`
+    );
+  }
+
+  post.content = $('[data-root="detail-content"]').html() ?? post.content;
+  return post;
 }
 
 // Content processors
@@ -1495,7 +1695,7 @@ export async function getChannelInfo(
   const $ = cheerio.load(html, {}, false);
   const channelTitle = $('.tgme_channel_info_header_title')?.text() ?? '';
   if (id) {
-    const post = await getPost($, null, {
+    let post = await getPost($, null, {
       channel,
       channelTitle,
       staticProxy,
@@ -1503,6 +1703,13 @@ export async function getChannelInfo(
       host,
       headers,
       replyVariant: 'detail-card',
+    });
+    post = await enrichDetailPost(post, {
+      host,
+      channel,
+      headers,
+      hdImageBase,
+      currentEmbedState: parseTelegramEmbedState(html),
     });
     if (!skipCache) {
       cache.set(cacheKey, post);

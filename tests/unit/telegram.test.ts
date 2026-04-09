@@ -26,9 +26,25 @@ const DETAIL_HTML_BY_URL: Record<string, string> = {
             <a href="https://t.me/imagebuxx/3327" class="message_media_view_in_telegram">VIEW IN TELEGRAM</a>
           </div>
         </div>
-        <div class="tgme_widget_message_text js-message_text">live photo</div>
         <div class="tgme_widget_message_date">
           <time datetime="2026-04-07T06:50:10+00:00"></time>
+        </div>
+      </div>
+    </div>
+  `,
+  'https://t.me/imagebuxx/3328?embed=1&mode=tme': `
+    <div class="tgme_channel_info_header_title">Image Buxx</div>
+    <div class="tgme_widget_message_wrap">
+      <div class="tgme_widget_message text_not_supported_wrap" data-post="imagebuxx/3328">
+        <a class="tgme_widget_message_reply" href="https://t.me/imagebuxx/3327">
+          <div class="tgme_widget_message_author accent_color">
+            <span class="tgme_widget_message_author_name" dir="auto">Image Buxx</span>
+          </div>
+          <div class="tgme_widget_message_text js-message_reply_text" dir="auto">海</div>
+        </a>
+        <div class="tgme_widget_message_text js-message_text">在这里<br/>主播因为太忧郁被要 ig 了</div>
+        <div class="tgme_widget_message_date">
+          <time datetime="2026-04-07T06:54:41+00:00"></time>
         </div>
       </div>
     </div>
@@ -52,6 +68,18 @@ const DETAIL_HTML_BY_URL: Record<string, string> = {
   `,
 };
 
+const PAGE_HTML_BY_URL: Record<string, string> = {
+  'https://t.me/imagebuxx/3327': `
+    <html>
+      <head>
+        <meta property="og:title" content="Image Buxx">
+        <meta property="og:image" content="https://cdn5.telesco.pe/file/3327.jpg">
+        <meta property="og:description" content="海">
+      </head>
+    </html>
+  `,
+};
+
 const ofetchMock = mock(async (url: string) => {
   if (url.includes('&discussion=1&comments_limit=1')) {
     return `
@@ -61,7 +89,7 @@ const ofetchMock = mock(async (url: string) => {
     `;
   }
 
-  const html = DETAIL_HTML_BY_URL[url];
+  const html = DETAIL_HTML_BY_URL[url] ?? PAGE_HTML_BY_URL[url];
   if (!html) {
     throw new Error(`Unexpected Telegram URL: ${url}`);
   }
@@ -126,6 +154,16 @@ describe('getChannelInfo detail media rendering', () => {
     expect(headFetchMock).not.toHaveBeenCalled();
   });
 
+  test('recovers live photo caption from Telegram share metadata when embed text is missing', async () => {
+    const { getChannelInfo } = await telegramModulePromise;
+    const post = await getChannelInfo(astro, { id: '3327', skipCache: true });
+    const content = (post as { content: string; text: string; title: string }).content;
+
+    expect((post as { text: string }).text).toBe('海');
+    expect((post as { title: string }).title).toBe('海');
+    expect(content).toContain('<p>海</p>');
+  });
+
   test('renders unsupported live photo fallback even when runtime fetch fails', async () => {
     globalThis.fetch = mock(async () => {
       throw new Error('network down');
@@ -138,6 +176,17 @@ describe('getChannelInfo detail media rendering', () => {
     expect(content).toContain('https://image.buxx.me/mood/3327/0');
     expect(content).toContain('image-preview-wrap image-preview-wrap--fallback');
     expect(content).not.toContain('Open Telegram to view this live photo');
+  });
+
+  test('adds a quote thumbnail when the quoted target is unsupported live photo media', async () => {
+    const { getChannelInfo } = await telegramModulePromise;
+    const post = await getChannelInfo(astro, { id: '3328', skipCache: true });
+    const content = (post as { content: string }).content;
+
+    expect(content).toContain('mood-detail-quote--with-media');
+    expect(content).toContain('mood-detail-quote-image');
+    expect(content).toContain('https://image.buxx.me/mood/3327/0');
+    expect(content).toContain('海');
   });
 
   test('does not invent a reply thumbnail when Telegram reply markup has text only', async () => {
