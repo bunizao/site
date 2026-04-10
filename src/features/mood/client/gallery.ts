@@ -148,106 +148,6 @@ function getDetailTargetRowHeight(trackWidth: number, slides: HTMLElement[]): nu
   return Math.max(180, Math.min(340, Math.round(trackWidth / rowAspect)));
 }
 
-function fitDetailBox(
-  aspectRatio: number,
-  targetWidth: number,
-  maxHeight: number,
-  minWidth = 0,
-): { width: number; height: number } {
-  let width = Math.max(targetWidth, minWidth);
-  let height = width / Math.max(aspectRatio, 0.1);
-
-  if (height > maxHeight) {
-    height = maxHeight;
-    width = height * aspectRatio;
-  }
-
-  width = Math.max(width, minWidth);
-  height = width / Math.max(aspectRatio, 0.1);
-
-  return {
-    width: Math.round(width),
-    height: Math.round(height),
-  };
-}
-
-function applyThreeImageDetailLayout(track: HTMLElement, slides: HTMLElement[]): void {
-  const trackWidth = Math.floor(track.clientWidth);
-  if (trackWidth <= 0 || slides.length !== 3) return;
-
-  const gap = trackWidth >= 1024 ? 28 : trackWidth >= 640 ? 22 : 14;
-  const overlap = trackWidth >= 1024 ? 22 : trackWidth >= 640 ? 18 : 10;
-  const centerTargetWidth = Math.min(trackWidth * 0.42, trackWidth >= 1024 ? 500 : trackWidth >= 640 ? 420 : 300);
-  const sideTargetWidth = Math.min(
-    (trackWidth - centerTargetWidth - gap * 2 + overlap * 2) / 2,
-    trackWidth >= 1024 ? 220 : trackWidth >= 640 ? 200 : 160
-  );
-  const sideMinWidth = trackWidth >= 1024 ? 180 : trackWidth >= 640 ? 160 : 130;
-  const centerMinWidth = trackWidth >= 1024 ? 320 : trackWidth >= 640 ? 280 : 220;
-  const centerMaxHeight = trackWidth >= 1024 ? 620 : trackWidth >= 640 ? 520 : 400;
-  const sideMaxHeight = Math.round(centerMaxHeight * 1.08);
-  const aspects = slides.map((slide) => {
-    const ratio = Number.parseFloat(slide.dataset.aspectRatio ?? '');
-    return Number.isFinite(ratio) && ratio > 0 ? ratio : 1;
-  });
-
-  const leftBox = fitDetailBox(aspects[0], sideTargetWidth, sideMaxHeight, sideMinWidth);
-  const centerBox = fitDetailBox(aspects[1], centerTargetWidth, centerMaxHeight, centerMinWidth);
-  const rightBox = fitDetailBox(aspects[2], sideTargetWidth, sideMaxHeight, sideMinWidth);
-  const baselineHeight = Math.max(centerBox.height, leftBox.height + 32, rightBox.height + 42);
-  const topInset = 8;
-  const centerLeft = Math.round((trackWidth - centerBox.width) / 2);
-  const leftLeft = Math.round(Math.max(0, centerLeft - leftBox.width - gap + overlap));
-  const rightLeft = Math.round(
-    Math.min(trackWidth - rightBox.width, centerLeft + centerBox.width + gap - overlap)
-  );
-
-  const positions = [
-    {
-      left: leftLeft,
-      top: topInset + (baselineHeight - leftBox.height) + 24,
-      width: leftBox.width,
-      height: leftBox.height,
-      transform: 'rotate(-3deg)',
-      zIndex: 1,
-    },
-    {
-      left: centerLeft,
-      top: topInset + (baselineHeight - centerBox.height),
-      width: centerBox.width,
-      height: centerBox.height,
-      transform: 'rotate(0deg)',
-      zIndex: 3,
-    },
-    {
-      left: rightLeft,
-      top: topInset + (baselineHeight - rightBox.height) + 34,
-      width: rightBox.width,
-      height: rightBox.height,
-      transform: 'rotate(2.5deg)',
-      zIndex: 2,
-    },
-  ];
-
-  track.style.height = `${baselineHeight + topInset + 44}px`;
-  track.dataset.moodGalleryLayout = 'collage-3';
-
-  positions.forEach((position, index) => {
-    const slide = slides[index];
-    const img = slide.querySelector<HTMLImageElement>('[data-mood-gallery-image]');
-    if (!slide || !img) return;
-
-    slide.style.left = `${position.left}px`;
-    slide.style.top = `${position.top}px`;
-    slide.style.width = `${position.width}px`;
-    slide.style.height = `${position.height}px`;
-    slide.style.zIndex = String(position.zIndex);
-    slide.style.transform = position.transform;
-    img.style.width = '100%';
-    img.style.height = '100%';
-  });
-}
-
 function applyDetailJustifiedLayout(track: HTMLElement, slides: HTMLElement[]): void {
   const trackWidth = Math.floor(track.clientWidth);
   if (trackWidth <= 0) return;
@@ -315,10 +215,86 @@ function initMoodGallery(gallery: HTMLElement): void {
     return;
   }
 
+  const isFeed = variant === 'feed';
+
+  // ─── Feed-only affordance helpers ───
+
+  const progressEl = isFeed
+    ? gallery.querySelector<HTMLElement>('.mood-gallery-progress')
+    : null;
+
+  function updateFadeAndProgress(): void {
+    const scrollLeft = track.scrollLeft;
+    const maxScroll = track.scrollWidth - track.clientWidth;
+    if (maxScroll <= 0) {
+      track.style.setProperty('--fade-left', '0px');
+      track.style.setProperty('--fade-right', '0px');
+      if (progressEl) gallery.style.setProperty('--mood-gallery-progress', '1');
+      return;
+    }
+    const fadeLeft = Math.min(32, scrollLeft);
+    const fadeRight = Math.min(32, maxScroll - scrollLeft);
+    track.style.setProperty('--fade-left', `${fadeLeft}px`);
+    track.style.setProperty('--fade-right', `${fadeRight}px`);
+    if (progressEl) {
+      gallery.style.setProperty('--mood-gallery-progress', String(scrollLeft / maxScroll));
+    }
+  }
+
+  let scrollingTimer = 0;
+  function markScrolling(): void {
+    gallery.dataset.scrolling = 'true';
+    clearTimeout(scrollingTimer);
+    scrollingTimer = window.setTimeout(() => {
+      delete gallery.dataset.scrolling;
+    }, 900);
+  }
+
+  function nudgeTrack(): void {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    if (track.dataset.nudged === '1') return;
+    track.dataset.nudged = '1';
+
+    window.setTimeout(() => {
+      const peakOffset = 28;
+      const outMs = 240;
+      const backMs = 400;
+      const startTime = performance.now();
+
+      const originalSnap = track.style.scrollSnapType;
+      track.style.scrollSnapType = 'none';
+
+      const animate = (now: number): void => {
+        const elapsed = now - startTime;
+        if (elapsed <= outMs) {
+          const t = elapsed / outMs;
+          const eased = 1 - Math.pow(1 - t, 2);
+          track.scrollLeft = Math.round(peakOffset * eased);
+          requestAnimationFrame(animate);
+        } else if (elapsed <= outMs + backMs) {
+          const t = (elapsed - outMs) / backMs;
+          const eased = Math.pow(1 - t, 2);
+          track.scrollLeft = Math.round(peakOffset * eased);
+          requestAnimationFrame(animate);
+        } else {
+          track.scrollLeft = 0;
+          track.style.scrollSnapType = originalSnap;
+        }
+      };
+
+      requestAnimationFrame(animate);
+    }, 500);
+  }
+
   const startTrackWatcher = (): void => {
     const existing = galleryControllers.get(gallery);
     if (existing?.cleanupTrack) {
       return;
+    }
+
+    // Initialize fade/progress state immediately (before any scroll fires)
+    if (isFeed) {
+      updateFadeAndProgress();
     }
 
     let rafId = 0;
@@ -340,10 +316,63 @@ function initMoodGallery(gallery: HTMLElement): void {
           hydrateSlideAtIndex(slides, index);
           hydrateSlideAtIndex(slides, index + 1);
         });
+
+        if (isFeed) {
+          updateFadeAndProgress();
+          markScrolling();
+        }
       });
     };
 
     track.addEventListener('scroll', onScroll, { passive: true });
+
+    // ─── Wheel-to-advance (desktop only) ───
+    let wheelCooldown = false;
+    let wheelTimer = 0;
+
+    const onWheel = (event: WheelEvent): void => {
+      if (window.matchMedia('(hover: none)').matches) return;
+
+      const absDx = Math.abs(event.deltaX);
+      const absDy = Math.abs(event.deltaY);
+      if (absDx > absDy) return; // horizontal trackpad swipe — let CSS scroll-snap handle it
+
+      const dir = event.deltaY > 0 ? 1 : -1;
+      const atLeft = track.scrollLeft <= 1;
+      const atRight = track.scrollLeft >= track.scrollWidth - track.clientWidth - 1;
+
+      if ((dir === -1 && atLeft) || (dir === 1 && atRight)) {
+        // Edge: let the page scroll normally
+        return;
+      }
+
+      event.preventDefault();
+
+      if (wheelCooldown) return;
+      wheelCooldown = true;
+
+      // Compute the slide step from the first slide + gap
+      const firstSlide = slides[0];
+      const gap = firstSlide
+        ? Number.parseFloat(window.getComputedStyle(track).gap) || 0
+        : 0;
+      const slideStep = firstSlide ? firstSlide.offsetWidth + gap : track.clientWidth;
+      const currentIndex = Math.round(track.scrollLeft / slideStep);
+      const targetLeft = Math.round((currentIndex + dir) * slideStep);
+
+      track.scrollTo({ left: targetLeft, behavior: 'smooth' });
+
+      // Show progress bar while wheel-advancing
+      gallery.dataset.wheelActive = 'true';
+
+      clearTimeout(wheelTimer);
+      wheelTimer = window.setTimeout(() => {
+        wheelCooldown = false;
+        delete gallery.dataset.wheelActive;
+      }, 420);
+    };
+
+    gallery.addEventListener('wheel', onWheel, { passive: false });
 
     galleryControllers.set(gallery, {
       containerObserver: existing?.containerObserver ?? null,
@@ -351,7 +380,10 @@ function initMoodGallery(gallery: HTMLElement): void {
         if (rafId) {
           window.cancelAnimationFrame(rafId);
         }
+        clearTimeout(scrollingTimer);
+        clearTimeout(wheelTimer);
         track.removeEventListener('scroll', onScroll);
+        gallery.removeEventListener('wheel', onWheel);
       },
     });
   };
@@ -376,11 +408,6 @@ function initMoodGallery(gallery: HTMLElement): void {
 
         resizeFrame = window.requestAnimationFrame(() => {
           resizeFrame = 0;
-          if (slides.length === 3) {
-            applyThreeImageDetailLayout(track, slides);
-            return;
-          }
-
           applyDetailJustifiedLayout(track, slides);
         });
       };
@@ -431,6 +458,10 @@ function initMoodGallery(gallery: HTMLElement): void {
 
         containerObserver.unobserve(gallery);
         primeGallery();
+
+        if (isFeed && slides.length > 1) {
+          nudgeTrack();
+        }
       });
     },
     {
