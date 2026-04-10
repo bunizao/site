@@ -80,6 +80,7 @@ function classifySlideFromImage(slide: HTMLElement, img: HTMLImageElement): void
   const height = img.naturalHeight || img.height;
   if (!width || !height) return;
 
+  slide.dataset.aspectRatio = String(width / height);
   slide.style.setProperty('--mood-gallery-ratio', `${width} / ${height}`);
 
   slide.classList.remove('mood-gallery-slide--portrait', 'mood-gallery-slide--ultra-tall');
@@ -155,8 +156,10 @@ function applyDetailJustifiedLayout(track: HTMLElement, slides: HTMLElement[]): 
   const geometry = justifiedLayout(
     slides.map((slide) => {
       const img = slide.querySelector<HTMLImageElement>('[data-mood-gallery-image]');
-      const width = Number.parseFloat(img?.getAttribute('width') ?? '');
-      const height = Number.parseFloat(img?.getAttribute('height') ?? '');
+      const naturalWidth = img?.naturalWidth ?? 0;
+      const naturalHeight = img?.naturalHeight ?? 0;
+      const width = naturalWidth > 0 ? naturalWidth : Number.parseFloat(img?.getAttribute('width') ?? '');
+      const height = naturalHeight > 0 ? naturalHeight : Number.parseFloat(img?.getAttribute('height') ?? '');
       const aspectRatio = Number.parseFloat(slide.dataset.aspectRatio ?? '');
 
       if (Number.isFinite(width) && width > 0 && Number.isFinite(height) && height > 0) {
@@ -223,22 +226,14 @@ function initMoodGallery(gallery: HTMLElement): void {
     ? gallery.querySelector<HTMLElement>('.mood-gallery-progress')
     : null;
 
-  function updateFadeAndProgress(): void {
-    const scrollLeft = track.scrollLeft;
+  function updateProgress(): void {
+    if (!progressEl) return;
     const maxScroll = track.scrollWidth - track.clientWidth;
     if (maxScroll <= 0) {
-      track.style.setProperty('--fade-left', '0px');
-      track.style.setProperty('--fade-right', '0px');
-      if (progressEl) gallery.style.setProperty('--mood-gallery-progress', '1');
+      gallery.style.setProperty('--mood-gallery-progress', '1');
       return;
     }
-    const fadeLeft = Math.min(32, scrollLeft);
-    const fadeRight = Math.min(32, maxScroll - scrollLeft);
-    track.style.setProperty('--fade-left', `${fadeLeft}px`);
-    track.style.setProperty('--fade-right', `${fadeRight}px`);
-    if (progressEl) {
-      gallery.style.setProperty('--mood-gallery-progress', String(scrollLeft / maxScroll));
-    }
+    gallery.style.setProperty('--mood-gallery-progress', String(track.scrollLeft / maxScroll));
   }
 
   let scrollingTimer = 0;
@@ -292,9 +287,9 @@ function initMoodGallery(gallery: HTMLElement): void {
       return;
     }
 
-    // Initialize fade/progress state immediately (before any scroll fires)
+    // Initialize progress bar immediately
     if (isFeed) {
-      updateFadeAndProgress();
+      updateProgress();
     }
 
     let rafId = 0;
@@ -318,7 +313,7 @@ function initMoodGallery(gallery: HTMLElement): void {
         });
 
         if (isFeed) {
-          updateFadeAndProgress();
+          updateProgress();
           markScrolling();
         }
       });
@@ -326,50 +321,58 @@ function initMoodGallery(gallery: HTMLElement): void {
 
     track.addEventListener('scroll', onScroll, { passive: true });
 
-    // ─── Wheel-to-advance (desktop only) ───
-    let wheelCooldown = false;
-    let wheelTimer = 0;
+    // ─── Wheel-to-scroll (desktop only): redirect vertical wheel to horizontal ───
+    let wheelRafId = 0;
+    let pendingDelta = 0;
+    let snapTimer = 0;
 
     const onWheel = (event: WheelEvent): void => {
       if (window.matchMedia('(hover: none)').matches) return;
 
       const absDx = Math.abs(event.deltaX);
       const absDy = Math.abs(event.deltaY);
-      if (absDx > absDy) return; // horizontal trackpad swipe — let CSS scroll-snap handle it
+      if (absDx >= absDy) return; // horizontal trackpad swipe — let CSS handle it
 
-      const dir = event.deltaY > 0 ? 1 : -1;
+      const maxScroll = track.scrollWidth - track.clientWidth;
       const atLeft = track.scrollLeft <= 1;
-      const atRight = track.scrollLeft >= track.scrollWidth - track.clientWidth - 1;
+      const atRight = track.scrollLeft >= maxScroll - 1;
 
-      if ((dir === -1 && atLeft) || (dir === 1 && atRight)) {
-        // Edge: let the page scroll normally
-        return;
-      }
+      if ((event.deltaY < 0 && atLeft) || (event.deltaY > 0 && atRight)) return;
 
       event.preventDefault();
 
-      if (wheelCooldown) return;
-      wheelCooldown = true;
+      // Disable scroll-snap while wheel is active so scrollLeft tracks delta freely
+      if (!track.dataset.wheeling) {
+        track.dataset.wheeling = '1';
+        track.style.scrollSnapType = 'none';
+      }
 
-      // Compute the slide step from the first slide + gap
-      const firstSlide = slides[0];
-      const gap = firstSlide
-        ? Number.parseFloat(window.getComputedStyle(track).gap) || 0
-        : 0;
-      const slideStep = firstSlide ? firstSlide.offsetWidth + gap : track.clientWidth;
-      const currentIndex = Math.round(track.scrollLeft / slideStep);
-      const targetLeft = Math.round((currentIndex + dir) * slideStep);
+      pendingDelta += event.deltaY;
 
-      track.scrollTo({ left: targetLeft, behavior: 'smooth' });
+      if (!wheelRafId) {
+        wheelRafId = requestAnimationFrame(() => {
+          wheelRafId = 0;
+          track.scrollLeft = Math.max(0, Math.min(maxScroll, track.scrollLeft + pendingDelta));
+          pendingDelta = 0;
+          if (isFeed) {
+            updateProgress();
+            markScrolling();
+          }
+        });
+      }
 
-      // Show progress bar while wheel-advancing
-      gallery.dataset.wheelActive = 'true';
-
-      clearTimeout(wheelTimer);
-      wheelTimer = window.setTimeout(() => {
-        wheelCooldown = false;
-        delete gallery.dataset.wheelActive;
-      }, 420);
+      // After gesture ends, re-enable snap and settle to nearest slide
+      clearTimeout(snapTimer);
+      snapTimer = window.setTimeout(() => {
+        delete track.dataset.wheeling;
+        track.style.scrollSnapType = '';
+        const firstSlide = slides[0];
+        if (!firstSlide) return;
+        const gap = Number.parseFloat(window.getComputedStyle(track).gap) || 0;
+        const slideStep = firstSlide.offsetWidth + gap;
+        const nearestIndex = Math.round(track.scrollLeft / slideStep);
+        track.scrollTo({ left: nearestIndex * slideStep, behavior: 'smooth' });
+      }, 150);
     };
 
     gallery.addEventListener('wheel', onWheel, { passive: false });
@@ -377,11 +380,10 @@ function initMoodGallery(gallery: HTMLElement): void {
     galleryControllers.set(gallery, {
       containerObserver: existing?.containerObserver ?? null,
       cleanupTrack: () => {
-        if (rafId) {
-          window.cancelAnimationFrame(rafId);
-        }
+        if (rafId) window.cancelAnimationFrame(rafId);
+        if (wheelRafId) window.cancelAnimationFrame(wheelRafId);
         clearTimeout(scrollingTimer);
-        clearTimeout(wheelTimer);
+        clearTimeout(snapTimer);
         track.removeEventListener('scroll', onScroll);
         gallery.removeEventListener('wheel', onWheel);
       },
@@ -411,6 +413,21 @@ function initMoodGallery(gallery: HTMLElement): void {
           applyDetailJustifiedLayout(track, slides);
         });
       };
+
+      slides.forEach((slide) => {
+        const img = slide.querySelector<HTMLImageElement>('[data-mood-gallery-image]');
+        if (!img) return;
+
+        if (img.complete && img.naturalWidth > 0 && img.naturalHeight > 0) {
+          classifySlideFromImage(slide, img);
+          return;
+        }
+
+        img.addEventListener('load', () => {
+          classifySlideFromImage(slide, img);
+          relayout();
+        });
+      });
 
       const resizeObserver = typeof ResizeObserver !== 'undefined'
         ? new ResizeObserver(() => {

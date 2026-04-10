@@ -107,25 +107,6 @@
 
 /* ─── Feed gallery scroll affordance ─── */
 
-.mood-gallery--feed .mood-gallery-track {
-  --fade-left: 0px;
-  --fade-right: 32px;
-  mask-image: linear-gradient(
-    to right,
-    transparent 0,
-    #000 var(--fade-left),
-    #000 calc(100% - var(--fade-right)),
-    transparent 100%
-  );
-  -webkit-mask-image: linear-gradient(
-    to right,
-    transparent 0,
-    #000 var(--fade-left),
-    #000 calc(100% - var(--fade-right)),
-    transparent 100%
-  );
-}
-
 .mood-gallery-progress {
   position: absolute;
   left: 12px;
@@ -152,8 +133,7 @@
   will-change: transform;
 }
 
-.mood-gallery--feed[data-scrolling="true"] .mood-gallery-progress,
-.mood-gallery--feed[data-wheel-active="true"] .mood-gallery-progress {
+.mood-gallery--feed[data-scrolling="true"] .mood-gallery-progress {
   opacity: 1;
 }
 
