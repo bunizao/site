@@ -204,6 +204,17 @@ function initMoodGallery(gallery: HTMLElement): void {
   };
 
   if (variant === 'detail' || priority) {
+    if (variant === 'detail') {
+      slides.forEach((_slide, index) => {
+        hydrateSlideAtIndex(slides, index);
+      });
+      galleryControllers.set(gallery, {
+        containerObserver: null,
+        cleanupTrack: null,
+      });
+      return;
+    }
+
     primeGallery();
     galleryControllers.set(gallery, {
       containerObserver: null,

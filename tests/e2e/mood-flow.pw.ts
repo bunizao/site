@@ -587,7 +587,7 @@ test.describe('Mood routes', () => {
     await expect(images.nth(2)).toHaveAttribute('src', /\/2$/);
   });
 
-  test('renders the detail gallery in place and keeps later slides deferred', async ({ page }) => {
+  test('renders the detail gallery as a responsive non-scrolling lightbox layout', async ({ page }) => {
     const tinyGif = Buffer.from('R0lGODlhAQABAIABAP///wAAACwAAAAAAQABAAACAkQBADs=', 'base64');
 
     await page.route('https://image.example.test/**', async (route) => {
@@ -611,16 +611,9 @@ test.describe('Mood routes', () => {
     await expect(images).toHaveCount(3);
     await expect(images.nth(0)).toHaveAttribute('src', /\/0$/);
     await expect(images.nth(1)).toHaveAttribute('src', /\/1$/);
-    expect(await images.nth(2).getAttribute('src')).toBeNull();
-
-    expect(await track.evaluate((element) => getComputedStyle(element).overflowX)).toBe('auto');
-
-    await track.evaluate((element) => {
-      element.scrollLeft = element.scrollWidth;
-      element.dispatchEvent(new Event('scroll'));
-    });
-
     await expect(images.nth(2)).toHaveAttribute('src', /\/2$/);
+    expect(await track.evaluate((element) => getComputedStyle(element).overflowX)).toBe('visible');
+    expect(await track.evaluate((element) => getComputedStyle(element).flexWrap)).toBe('wrap');
   });
 
   test('redirects /mood/:id?embed=1 to the embed endpoint with expected params', async ({ page }) => {

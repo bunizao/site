@@ -51,15 +51,26 @@
 }
 
 .mood-gallery--detail .mood-gallery-track {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: center;
   gap: 14px;
+  overflow: visible;
+  overscroll-behavior-x: auto;
+  scroll-snap-type: none;
+  padding-bottom: 0;
 }
 
 .mood-gallery--detail .mood-gallery-slide {
   border-radius: 22px;
+  flex: 0 1 auto;
   max-width: min(calc(100vw - 48px), 920px);
+  scroll-snap-align: unset;
 }
 
 .mood-gallery--detail .mood-gallery-image {
+  margin: 0 auto;
   max-width: min(calc(100vw - 48px), 920px);
 }
 
@@ -84,7 +95,6 @@
   .mood-gallery--detail .mood-gallery-track {
     gap: 16px;
   }
-
 }
 
 @media (min-width: 1024px) {
