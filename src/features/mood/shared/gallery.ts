@@ -354,6 +354,9 @@ export function renderMoodGalleryMarkup(
       const srcSet = buildMoodGallerySrcSet(item.src);
       const fallbackSrcSet = item.fallbackSrc ? buildMoodGallerySrcSet(item.fallbackSrc) : '';
       const layoutClass = item.layout ? ` mood-gallery-slide--${item.layout}` : '';
+      const shift = index - (gallery.count - 1) / 2;
+      const depth = Math.abs(shift);
+      const zIndex = gallery.count - Math.round(depth * 10) + index;
       const attrs = [
         'class="mood-gallery-image"',
         'data-mood-gallery-image',
@@ -373,7 +376,7 @@ export function renderMoodGalleryMarkup(
         .join(' ');
 
       return [
-        `<div class="mood-gallery-slide${layoutClass}" data-mood-gallery-slide data-gallery-index="${index}" style="--mood-gallery-ratio:${escapeHtml(getMoodGalleryAspectRatio(item))};">`,
+        `<div class="mood-gallery-slide${layoutClass}" data-mood-gallery-slide data-gallery-index="${index}" style="--mood-gallery-ratio:${escapeHtml(getMoodGalleryAspectRatio(item))};--mood-gallery-shift:${shift};--mood-gallery-depth:${depth};--mood-gallery-z:${zIndex};">`,
         `<img ${attrs} />`,
         '</div>',
       ].join('');
@@ -401,5 +404,5 @@ export function renderMoodContentWithGalleries(content: string): string {
     );
   });
 
-  return $.root().html() ?? content;
+  return $('body').html()?.trim() || $.root().html() || content;
 }

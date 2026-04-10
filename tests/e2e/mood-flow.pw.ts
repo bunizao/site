@@ -613,7 +613,7 @@ test.describe('Mood routes', () => {
     await expect(images.nth(1)).toHaveAttribute('src', /\/1$/);
     await expect(images.nth(2)).toHaveAttribute('src', /\/2$/);
     expect(await track.evaluate((element) => getComputedStyle(element).overflowX)).toBe('visible');
-    expect(await track.evaluate((element) => getComputedStyle(element).flexWrap)).toBe('wrap');
+    expect(await track.evaluate((element) => getComputedStyle(element).display)).toBe('grid');
   });
 
   test('redirects /mood/:id?embed=1 to the embed endpoint with expected params', async ({ page }) => {
