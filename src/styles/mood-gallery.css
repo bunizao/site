@@ -103,42 +103,18 @@
     max-width: 560px;
     max-height: 360px;
   }
-}
 
-/* ─── Feed gallery scroll affordance ─── */
+  .mood-gallery--detail {
+    position: relative;
+    left: 50%;
+    width: min(calc(100vw - 120px), 1280px);
+    max-width: none;
+    margin: 1.75em 0 2em;
+    transform: translateX(-50%);
+  }
 
-.mood-gallery-progress {
-  position: absolute;
-  left: 12px;
-  right: 12px;
-  bottom: 5px;
-  height: 2px;
-  border-radius: 999px;
-  background: hsl(var(--foreground) / 0.1);
-  overflow: hidden;
-  opacity: 0;
-  transition: opacity 300ms ease;
-  pointer-events: none;
-}
-
-.mood-gallery-progress::after {
-  content: "";
-  display: block;
-  height: 100%;
-  border-radius: inherit;
-  background: hsl(var(--foreground) / 0.55);
-  transform-origin: left center;
-  transform: scaleX(var(--mood-gallery-progress, 0));
-  transition: transform 80ms linear;
-  will-change: transform;
-}
-
-.mood-gallery--feed[data-scrolling="true"] .mood-gallery-progress {
-  opacity: 1;
-}
-
-@media (hover: hover) {
-  .mood-gallery--feed:hover .mood-gallery-progress {
-    opacity: 1;
+  .mood-gallery--detail .mood-gallery-track {
+    width: 100%;
   }
 }
+

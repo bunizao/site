@@ -395,14 +395,9 @@ export function renderMoodGalleryMarkup(
     })
     .join('');
 
-  const progressSpan = variant === 'feed' && gallery.count > 1
-    ? '<span class="mood-gallery-progress" aria-hidden="true"></span>'
-    : '';
-
   return [
     `<div class="mood-gallery mood-gallery--${variant}" data-mood-gallery data-mood-gallery-variant="${variant}" data-mood-gallery-count="${gallery.count}"${priority ? ' data-mood-gallery-priority="true"' : ''}>`,
     `<div class="mood-gallery-track" data-mood-gallery-track>${slides}</div>`,
-    progressSpan,
     '</div>',
   ].join('');
 }

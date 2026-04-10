@@ -146,7 +146,9 @@ function getDetailTargetRowHeight(trackWidth: number, slides: HTMLElement[]): nu
   }, 0);
   const desiredRows = slides.length <= 3 ? 1 : Math.ceil(slides.length / 3);
   const rowAspect = Math.max(aspectTotal / desiredRows, 1);
-  return Math.max(180, Math.min(340, Math.round(trackWidth / rowAspect)));
+  const minHeight = trackWidth >= 1024 ? 260 : 180;
+  const maxHeight = trackWidth >= 1440 ? 520 : trackWidth >= 1200 ? 460 : trackWidth >= 1024 ? 400 : 340;
+  return Math.max(minHeight, Math.min(maxHeight, Math.round(trackWidth / rowAspect)));
 }
 
 function applyDetailJustifiedLayout(track: HTMLElement, slides: HTMLElement[]): void {
@@ -172,11 +174,11 @@ function applyDetailJustifiedLayout(track: HTMLElement, slides: HTMLElement[]): 
       containerWidth: trackWidth,
       containerPadding: 0,
       boxSpacing: {
-        horizontal: trackWidth >= 640 ? 16 : 14,
-        vertical: trackWidth >= 640 ? 16 : 14,
+        horizontal: trackWidth >= 1024 ? 18 : trackWidth >= 640 ? 16 : 14,
+        vertical: trackWidth >= 1024 ? 18 : trackWidth >= 640 ? 16 : 14,
       },
       targetRowHeight: getDetailTargetRowHeight(trackWidth, slides),
-      targetRowHeightTolerance: 0.2,
+      targetRowHeightTolerance: 0.22,
       showWidows: true,
       widowLayoutStyle: 'left',
     }
@@ -220,31 +222,6 @@ function initMoodGallery(gallery: HTMLElement): void {
 
   const isFeed = variant === 'feed';
 
-  // ─── Feed-only affordance helpers ───
-
-  const progressEl = isFeed
-    ? gallery.querySelector<HTMLElement>('.mood-gallery-progress')
-    : null;
-
-  function updateProgress(): void {
-    if (!progressEl) return;
-    const maxScroll = track.scrollWidth - track.clientWidth;
-    if (maxScroll <= 0) {
-      gallery.style.setProperty('--mood-gallery-progress', '1');
-      return;
-    }
-    gallery.style.setProperty('--mood-gallery-progress', String(track.scrollLeft / maxScroll));
-  }
-
-  let scrollingTimer = 0;
-  function markScrolling(): void {
-    gallery.dataset.scrolling = 'true';
-    clearTimeout(scrollingTimer);
-    scrollingTimer = window.setTimeout(() => {
-      delete gallery.dataset.scrolling;
-    }, 900);
-  }
-
   function nudgeTrack(): void {
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
     if (track.dataset.nudged === '1') return;
@@ -287,11 +264,6 @@ function initMoodGallery(gallery: HTMLElement): void {
       return;
     }
 
-    // Initialize progress bar immediately
-    if (isFeed) {
-      updateProgress();
-    }
-
     let rafId = 0;
     const onScroll = (): void => {
       if (rafId) return;
@@ -312,10 +284,6 @@ function initMoodGallery(gallery: HTMLElement): void {
           hydrateSlideAtIndex(slides, index + 1);
         });
 
-        if (isFeed) {
-          updateProgress();
-          markScrolling();
-        }
       });
     };
 
@@ -354,10 +322,6 @@ function initMoodGallery(gallery: HTMLElement): void {
           wheelRafId = 0;
           track.scrollLeft = Math.max(0, Math.min(maxScroll, track.scrollLeft + pendingDelta));
           pendingDelta = 0;
-          if (isFeed) {
-            updateProgress();
-            markScrolling();
-          }
         });
       }
 
@@ -382,7 +346,6 @@ function initMoodGallery(gallery: HTMLElement): void {
       cleanupTrack: () => {
         if (rafId) window.cancelAnimationFrame(rafId);
         if (wheelRafId) window.cancelAnimationFrame(wheelRafId);
-        clearTimeout(scrollingTimer);
         clearTimeout(snapTimer);
         track.removeEventListener('scroll', onScroll);
         gallery.removeEventListener('wheel', onWheel);
