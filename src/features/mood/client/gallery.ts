@@ -139,16 +139,12 @@ function hydrateSlideAtIndex(slides: HTMLElement[], index: number): void {
   hydrateGalleryImage(img);
 }
 
-function getDetailTargetRowHeight(trackWidth: number, slides: HTMLElement[]): number {
-  const aspectTotal = slides.reduce((sum, slide) => {
-    const ratio = Number.parseFloat(slide.dataset.aspectRatio ?? '');
-    return Number.isFinite(ratio) && ratio > 0 ? sum + ratio : sum + 1;
-  }, 0);
-  const desiredRows = slides.length <= 3 ? 1 : Math.ceil(slides.length / 3);
-  const rowAspect = Math.max(aspectTotal / desiredRows, 1);
-  const minHeight = trackWidth >= 1024 ? 260 : 180;
-  const maxHeight = trackWidth >= 1440 ? 520 : trackWidth >= 1200 ? 460 : trackWidth >= 1024 ? 400 : 340;
-  return Math.max(minHeight, Math.min(maxHeight, Math.round(trackWidth / rowAspect)));
+function getDetailTargetRowHeight(trackWidth: number): number {
+  if (trackWidth >= 1440) return 420;
+  if (trackWidth >= 1200) return 360;
+  if (trackWidth >= 1024) return 320;
+  if (trackWidth >= 640) return 260;
+  return 210;
 }
 
 function applyDetailJustifiedLayout(track: HTMLElement, slides: HTMLElement[]): void {
@@ -177,7 +173,7 @@ function applyDetailJustifiedLayout(track: HTMLElement, slides: HTMLElement[]): 
         horizontal: trackWidth >= 1024 ? 18 : trackWidth >= 640 ? 16 : 14,
         vertical: trackWidth >= 1024 ? 18 : trackWidth >= 640 ? 16 : 14,
       },
-      targetRowHeight: getDetailTargetRowHeight(trackWidth, slides),
+      targetRowHeight: getDetailTargetRowHeight(trackWidth),
       targetRowHeightTolerance: 0.22,
       showWidows: true,
       widowLayoutStyle: 'left',
