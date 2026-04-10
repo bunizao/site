@@ -51,48 +51,36 @@
 }
 
 .mood-gallery--detail .mood-gallery-track {
-  display: grid;
-  place-items: end center;
-  gap: 0;
-  isolation: isolate;
+  position: relative;
+  display: block;
   overflow: visible;
-  overscroll-behavior-x: auto;
   scroll-snap-type: none;
-  padding:
-    clamp(12px, 2vw, 18px)
-    clamp(36px, 10vw, 120px)
-    clamp(28px, 6vw, 52px);
+  scrollbar-width: auto;
+  padding: 0;
+  min-height: 1px;
+}
+
+.mood-gallery--detail .mood-gallery-track::-webkit-scrollbar {
+  display: none;
 }
 
 .mood-gallery--detail .mood-gallery-slide {
-  grid-area: 1 / 1;
-  position: relative;
-  border-radius: 22px;
-  max-width: min(72vw, 520px);
+  position: absolute;
+  inset: auto;
+  max-width: none;
+  border-radius: 18px;
   scroll-snap-align: unset;
-  z-index: var(--mood-gallery-z, 1);
-  transform-origin: center bottom;
-  transform:
-    translateX(calc(var(--mood-gallery-shift, 0) * clamp(54px, 11vw, 132px)))
-    translateY(calc(var(--mood-gallery-depth, 0) * clamp(34px, 5vw, 58px)))
-    rotate(calc(var(--mood-gallery-shift, 0) * 5deg))
-    scale(calc(1 - (var(--mood-gallery-depth, 0) * 0.18)));
   box-shadow:
-    0 22px 60px hsl(var(--foreground) / 0.12),
-    0 8px 20px hsl(var(--foreground) / 0.08);
+    0 16px 40px hsl(var(--foreground) / 0.12),
+    0 6px 18px hsl(var(--foreground) / 0.08);
 }
 
 .mood-gallery--detail .mood-gallery-image {
-  margin: 0 auto;
-  max-width: min(72vw, 520px);
-}
-
-.mood-gallery--detail .mood-gallery-slide--portrait .mood-gallery-image {
-  max-height: 60vh;
-}
-
-.mood-gallery--detail .mood-gallery-slide--ultra-tall .mood-gallery-image {
-  max-height: 70vh;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  object-fit: cover;
 }
 
 @media (min-width: 640px) {
@@ -105,8 +93,8 @@
     max-height: 320px;
   }
 
-  .mood-gallery--detail .mood-gallery-track {
-    padding-inline: clamp(56px, 12vw, 160px);
+  .mood-gallery--detail .mood-gallery-slide {
+    border-radius: 20px;
   }
 }
 
@@ -114,19 +102,5 @@
   .mood-gallery--feed .mood-gallery-image {
     max-width: 560px;
     max-height: 360px;
-  }
-
-  .mood-gallery--detail .mood-gallery-image {
-    max-width: 520px;
-    max-height: 70vh;
-  }
-
-  .mood-gallery--detail .mood-gallery-slide {
-    max-width: 520px;
-    transform:
-      translateX(calc(var(--mood-gallery-shift, 0) * 148px))
-      translateY(calc(var(--mood-gallery-depth, 0) * 56px))
-      rotate(calc(var(--mood-gallery-shift, 0) * 5.5deg))
-      scale(calc(1 - (var(--mood-gallery-depth, 0) * 0.18)));
   }
 }

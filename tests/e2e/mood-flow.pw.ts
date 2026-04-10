@@ -587,7 +587,7 @@ test.describe('Mood routes', () => {
     await expect(images.nth(2)).toHaveAttribute('src', /\/2$/);
   });
 
-  test('renders the detail gallery as a responsive non-scrolling lightbox layout', async ({ page }) => {
+  test('renders the detail gallery with a justified Flickr-style layout', async ({ page }) => {
     const tinyGif = Buffer.from('R0lGODlhAQABAIABAP///wAAACwAAAAAAQABAAACAkQBADs=', 'base64');
 
     await page.route('https://image.example.test/**', async (route) => {
@@ -613,7 +613,7 @@ test.describe('Mood routes', () => {
     await expect(images.nth(1)).toHaveAttribute('src', /\/1$/);
     await expect(images.nth(2)).toHaveAttribute('src', /\/2$/);
     expect(await track.evaluate((element) => getComputedStyle(element).overflowX)).toBe('visible');
-    expect(await track.evaluate((element) => getComputedStyle(element).display)).toBe('grid');
+    expect(await track.getAttribute('data-mood-gallery-layout')).toBe('justified');
   });
 
   test('redirects /mood/:id?embed=1 to the embed endpoint with expected params', async ({ page }) => {

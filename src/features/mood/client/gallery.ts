@@ -1,3 +1,4 @@
+import justifiedLayout from 'justified-layout';
 import {
   renderMoodGalleryMarkup,
   type MoodGallery,
@@ -137,6 +138,64 @@ function hydrateSlideAtIndex(slides: HTMLElement[], index: number): void {
   hydrateGalleryImage(img);
 }
 
+function getDetailTargetRowHeight(trackWidth: number, slides: HTMLElement[]): number {
+  const aspectTotal = slides.reduce((sum, slide) => {
+    const ratio = Number.parseFloat(slide.dataset.aspectRatio ?? '');
+    return Number.isFinite(ratio) && ratio > 0 ? sum + ratio : sum + 1;
+  }, 0);
+  const desiredRows = slides.length <= 3 ? 1 : Math.ceil(slides.length / 3);
+  const rowAspect = Math.max(aspectTotal / desiredRows, 1);
+  return Math.max(180, Math.min(340, Math.round(trackWidth / rowAspect)));
+}
+
+function applyDetailJustifiedLayout(track: HTMLElement, slides: HTMLElement[]): void {
+  const trackWidth = Math.floor(track.clientWidth);
+  if (trackWidth <= 0) return;
+
+  const geometry = justifiedLayout(
+    slides.map((slide) => {
+      const img = slide.querySelector<HTMLImageElement>('[data-mood-gallery-image]');
+      const width = Number.parseFloat(img?.getAttribute('width') ?? '');
+      const height = Number.parseFloat(img?.getAttribute('height') ?? '');
+      const aspectRatio = Number.parseFloat(slide.dataset.aspectRatio ?? '');
+
+      if (Number.isFinite(width) && width > 0 && Number.isFinite(height) && height > 0) {
+        return { width, height };
+      }
+
+      return Number.isFinite(aspectRatio) && aspectRatio > 0 ? aspectRatio : 1;
+    }),
+    {
+      containerWidth: trackWidth,
+      containerPadding: 0,
+      boxSpacing: {
+        horizontal: trackWidth >= 640 ? 16 : 14,
+        vertical: trackWidth >= 640 ? 16 : 14,
+      },
+      targetRowHeight: getDetailTargetRowHeight(trackWidth, slides),
+      targetRowHeightTolerance: 0.2,
+      showWidows: true,
+      widowLayoutStyle: 'left',
+    }
+  );
+
+  track.style.height = `${Math.ceil(geometry.containerHeight)}px`;
+  track.dataset.moodGalleryLayout = 'justified';
+
+  geometry.boxes.forEach((box, index) => {
+    const slide = slides[index];
+    const img = slide?.querySelector<HTMLImageElement>('[data-mood-gallery-image]');
+    if (!slide || !img) return;
+
+    slide.style.left = `${Math.round(box.left)}px`;
+    slide.style.top = `${Math.round(box.top)}px`;
+    slide.style.width = `${Math.round(box.width)}px`;
+    slide.style.height = `${Math.round(box.height)}px`;
+    img.style.width = '100%';
+    img.style.height = '100%';
+  });
+}
+
 function initMoodGallery(gallery: HTMLElement): void {
   if (gallery.dataset.moodGalleryInitialized === '1') {
     return;
@@ -208,9 +267,37 @@ function initMoodGallery(gallery: HTMLElement): void {
       slides.forEach((_slide, index) => {
         hydrateSlideAtIndex(slides, index);
       });
+
+      let resizeFrame = 0;
+      const relayout = (): void => {
+        if (resizeFrame) {
+          window.cancelAnimationFrame(resizeFrame);
+        }
+
+        resizeFrame = window.requestAnimationFrame(() => {
+          resizeFrame = 0;
+          applyDetailJustifiedLayout(track, slides);
+        });
+      };
+
+      const resizeObserver = typeof ResizeObserver !== 'undefined'
+        ? new ResizeObserver(() => {
+            relayout();
+          })
+        : null;
+      resizeObserver?.observe(track);
+      window.addEventListener('resize', relayout);
+      relayout();
+
       galleryControllers.set(gallery, {
         containerObserver: null,
-        cleanupTrack: null,
+        cleanupTrack: () => {
+          if (resizeFrame) {
+            window.cancelAnimationFrame(resizeFrame);
+          }
+          resizeObserver?.disconnect();
+          window.removeEventListener('resize', relayout);
+        },
       });
       return;
     }
