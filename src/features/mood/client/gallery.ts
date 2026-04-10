@@ -148,6 +148,106 @@ function getDetailTargetRowHeight(trackWidth: number, slides: HTMLElement[]): nu
   return Math.max(180, Math.min(340, Math.round(trackWidth / rowAspect)));
 }
 
+function fitDetailBox(
+  aspectRatio: number,
+  targetWidth: number,
+  maxHeight: number,
+  minWidth = 0,
+): { width: number; height: number } {
+  let width = Math.max(targetWidth, minWidth);
+  let height = width / Math.max(aspectRatio, 0.1);
+
+  if (height > maxHeight) {
+    height = maxHeight;
+    width = height * aspectRatio;
+  }
+
+  width = Math.max(width, minWidth);
+  height = width / Math.max(aspectRatio, 0.1);
+
+  return {
+    width: Math.round(width),
+    height: Math.round(height),
+  };
+}
+
+function applyThreeImageDetailLayout(track: HTMLElement, slides: HTMLElement[]): void {
+  const trackWidth = Math.floor(track.clientWidth);
+  if (trackWidth <= 0 || slides.length !== 3) return;
+
+  const gap = trackWidth >= 1024 ? 28 : trackWidth >= 640 ? 22 : 14;
+  const overlap = trackWidth >= 1024 ? 22 : trackWidth >= 640 ? 18 : 10;
+  const centerTargetWidth = Math.min(trackWidth * 0.42, trackWidth >= 1024 ? 500 : trackWidth >= 640 ? 420 : 300);
+  const sideTargetWidth = Math.min(
+    (trackWidth - centerTargetWidth - gap * 2 + overlap * 2) / 2,
+    trackWidth >= 1024 ? 220 : trackWidth >= 640 ? 200 : 160
+  );
+  const sideMinWidth = trackWidth >= 1024 ? 180 : trackWidth >= 640 ? 160 : 130;
+  const centerMinWidth = trackWidth >= 1024 ? 320 : trackWidth >= 640 ? 280 : 220;
+  const centerMaxHeight = trackWidth >= 1024 ? 620 : trackWidth >= 640 ? 520 : 400;
+  const sideMaxHeight = Math.round(centerMaxHeight * 1.08);
+  const aspects = slides.map((slide) => {
+    const ratio = Number.parseFloat(slide.dataset.aspectRatio ?? '');
+    return Number.isFinite(ratio) && ratio > 0 ? ratio : 1;
+  });
+
+  const leftBox = fitDetailBox(aspects[0], sideTargetWidth, sideMaxHeight, sideMinWidth);
+  const centerBox = fitDetailBox(aspects[1], centerTargetWidth, centerMaxHeight, centerMinWidth);
+  const rightBox = fitDetailBox(aspects[2], sideTargetWidth, sideMaxHeight, sideMinWidth);
+  const baselineHeight = Math.max(centerBox.height, leftBox.height + 32, rightBox.height + 42);
+  const topInset = 8;
+  const centerLeft = Math.round((trackWidth - centerBox.width) / 2);
+  const leftLeft = Math.round(Math.max(0, centerLeft - leftBox.width - gap + overlap));
+  const rightLeft = Math.round(
+    Math.min(trackWidth - rightBox.width, centerLeft + centerBox.width + gap - overlap)
+  );
+
+  const positions = [
+    {
+      left: leftLeft,
+      top: topInset + (baselineHeight - leftBox.height) + 24,
+      width: leftBox.width,
+      height: leftBox.height,
+      transform: 'rotate(-3deg)',
+      zIndex: 1,
+    },
+    {
+      left: centerLeft,
+      top: topInset + (baselineHeight - centerBox.height),
+      width: centerBox.width,
+      height: centerBox.height,
+      transform: 'rotate(0deg)',
+      zIndex: 3,
+    },
+    {
+      left: rightLeft,
+      top: topInset + (baselineHeight - rightBox.height) + 34,
+      width: rightBox.width,
+      height: rightBox.height,
+      transform: 'rotate(2.5deg)',
+      zIndex: 2,
+    },
+  ];
+
+  track.style.height = `${baselineHeight + topInset + 44}px`;
+  track.dataset.moodGalleryLayout = 'collage-3';
+
+  positions.forEach((position, index) => {
+    const slide = slides[index];
+    const img = slide.querySelector<HTMLImageElement>('[data-mood-gallery-image]');
+    if (!slide || !img) return;
+
+    slide.style.left = `${position.left}px`;
+    slide.style.top = `${position.top}px`;
+    slide.style.width = `${position.width}px`;
+    slide.style.height = `${position.height}px`;
+    slide.style.zIndex = String(position.zIndex);
+    slide.style.transform = position.transform;
+    img.style.width = '100%';
+    img.style.height = '100%';
+  });
+}
+
 function applyDetailJustifiedLayout(track: HTMLElement, slides: HTMLElement[]): void {
   const trackWidth = Math.floor(track.clientWidth);
   if (trackWidth <= 0) return;
@@ -276,6 +376,11 @@ function initMoodGallery(gallery: HTMLElement): void {
 
         resizeFrame = window.requestAnimationFrame(() => {
           resizeFrame = 0;
+          if (slides.length === 3) {
+            applyThreeImageDetailLayout(track, slides);
+            return;
+          }
+
           applyDetailJustifiedLayout(track, slides);
         });
       };
