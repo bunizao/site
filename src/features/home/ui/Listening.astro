@@ -1,0 +1,487 @@
+---
+import { getListeningTracks } from '@/features/home/server/listening';
+
+const tracks = await getListeningTracks();
+const initialTrack = tracks[0] ?? null;
+---
+
+{initialTrack && (
+  <section class="listening-section" data-parallax="off">
+    <span class="section-label">Listening</span>
+
+    <div class="listening-shell" data-listening>
+      <article class="listening-feature">
+        <a
+          href={initialTrack.appleMusicUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          class="listening-cover-link"
+          data-listening-link
+          aria-label={`Open ${initialTrack.title} on Apple Music`}
+        >
+          <img
+            src={initialTrack.artworkUrl}
+            alt={`${initialTrack.title} cover art`}
+            class="listening-cover"
+            data-listening-cover
+            loading="eager"
+            decoding="async"
+            referrerpolicy="no-referrer"
+          />
+        </a>
+
+        <div class="listening-feature-copy">
+          <div class="listening-feature-top">
+            <div class="listening-feature-text">
+              <p class="listening-title" data-listening-title>{initialTrack.title}</p>
+              <p class="listening-artist" data-listening-artist>{initialTrack.artist}</p>
+            </div>
+
+            <button
+              type="button"
+              class="listening-play"
+              data-listening-play
+              disabled={!initialTrack.previewUrl}
+              aria-pressed="false"
+              aria-label={`Play preview of ${initialTrack.title}`}
+            >
+              <span class="listening-play-icon" aria-hidden="true"></span>
+              <span class="listening-play-label" data-listening-play-label>Preview</span>
+            </button>
+          </div>
+
+          <div class="listening-meta">
+            <span data-listening-year>{initialTrack.year}</span>
+            <span>•</span>
+            <span data-listening-genre>{initialTrack.genre}</span>
+            <span>•</span>
+            <span data-listening-release-kind>{initialTrack.releaseKind === 'album' ? 'Album' : 'Single'}</span>
+          </div>
+
+          <p class="listening-collection" data-listening-collection>{initialTrack.collection}</p>
+          <p class="listening-track-position" data-listening-track-position>
+            {initialTrack.releaseKind === 'album'
+              ? `Track ${initialTrack.trackNumber} of ${initialTrack.trackCount}`
+              : 'Standalone release'}
+          </p>
+        </div>
+      </article>
+
+      <ol class="listening-list" aria-label="Listening demo tracks">
+        {tracks.map((track, index) => (
+          <li>
+            <button
+              type="button"
+              class:list={['listening-item', { 'is-active': index === 0 }]}
+              data-listening-item
+              data-title={track.title}
+              data-artist={track.artist}
+              data-collection={track.collection}
+              data-link={track.appleMusicUrl}
+              data-artwork={track.artworkUrl}
+              data-preview-url={track.previewUrl}
+              data-year={track.year}
+              data-genre={track.genre}
+              data-release-kind={track.releaseKind}
+              data-track-number={track.trackNumber}
+              data-track-count={track.trackCount}
+              aria-pressed={index === 0 ? 'true' : 'false'}
+            >
+              <img
+                src={track.thumbUrl}
+                alt=""
+                class="listening-thumb"
+                loading="lazy"
+                decoding="async"
+                referrerpolicy="no-referrer"
+                aria-hidden="true"
+              />
+              <span class="listening-item-copy">
+                <span class="listening-item-title">{track.title}</span>
+                <span class="listening-item-artist">{track.artist}</span>
+              </span>
+            </button>
+          </li>
+        ))}
+      </ol>
+    </div>
+  </section>
+)}
+
+<style>
+  .listening-section {
+    padding-top: 8px;
+  }
+
+  .listening-shell {
+    display: grid;
+    gap: 16px;
+    align-items: start;
+  }
+
+  .listening-feature {
+    display: grid;
+    gap: 16px;
+    padding: 16px;
+    border: 1px solid hsl(var(--foreground) / 0.08);
+    border-radius: 18px;
+    background:
+      linear-gradient(180deg, hsl(var(--foreground) / 0.03), transparent 140px),
+      hsl(var(--background));
+  }
+
+  .listening-cover-link {
+    display: block;
+    border-radius: 14px;
+    overflow: hidden;
+    background: hsl(var(--foreground) / 0.05);
+  }
+
+  .listening-cover {
+    display: block;
+    width: 100%;
+    aspect-ratio: 1;
+    object-fit: cover;
+  }
+
+  .listening-feature-copy {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    min-width: 0;
+  }
+
+  .listening-feature-top {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    align-items: flex-start;
+  }
+
+  .listening-feature-text {
+    min-width: 0;
+  }
+
+  .listening-title {
+    font-size: 22px;
+    font-weight: 600;
+    line-height: 1.15;
+    word-break: break-word;
+  }
+
+  .listening-artist {
+    margin-top: 6px;
+    font-size: 14px;
+    color: hsl(var(--muted-foreground));
+  }
+
+  .listening-play {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+    min-height: 40px;
+    padding: 0 12px;
+    border: 1px solid hsl(var(--foreground) / 0.12);
+    border-radius: 999px;
+    background: transparent;
+    color: hsl(var(--foreground));
+    transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  }
+
+  .listening-play:hover:not(:disabled) {
+    background: hsl(var(--foreground));
+    color: hsl(var(--background));
+  }
+
+  .listening-play:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .listening-play-icon {
+    position: relative;
+    width: 10px;
+    height: 12px;
+    display: inline-block;
+  }
+
+  .listening-play-icon::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    clip-path: polygon(0 0, 100% 50%, 0 100%);
+    background: currentColor;
+  }
+
+  .listening-play.is-playing .listening-play-icon::before {
+    clip-path: none;
+    inset: 0;
+    width: 10px;
+    background:
+      linear-gradient(to right, currentColor 0 3px, transparent 3px 7px, currentColor 7px 10px);
+  }
+
+  .listening-meta,
+  .listening-track-position,
+  .listening-collection {
+    font-size: 12px;
+    color: hsl(var(--muted-foreground));
+  }
+
+  .listening-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  .listening-collection {
+    font-size: 13px;
+    color: hsl(var(--foreground) / 0.72);
+  }
+
+  .listening-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .listening-item {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px;
+    border: 1px solid hsl(var(--foreground) / 0.08);
+    border-radius: 14px;
+    background: transparent;
+    text-align: left;
+    transition: transform 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+  }
+
+  .listening-item:hover,
+  .listening-item.is-active {
+    transform: translateX(4px);
+    border-color: hsl(var(--foreground) / 0.18);
+    background: hsl(var(--foreground) / 0.03);
+  }
+
+  .listening-thumb {
+    width: 52px;
+    height: 52px;
+    flex-shrink: 0;
+    border-radius: 10px;
+    object-fit: cover;
+    background: hsl(var(--foreground) / 0.05);
+  }
+
+  .listening-item-copy {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+
+  .listening-item-title {
+    font-size: 14px;
+    font-weight: 500;
+    line-height: 1.3;
+    word-break: break-word;
+  }
+
+  .listening-item-artist {
+    margin-top: 4px;
+    font-size: 12px;
+    color: hsl(var(--muted-foreground));
+  }
+
+  @media (min-width: 640px) {
+    .listening-shell {
+      grid-template-columns: minmax(0, 1.2fr) minmax(260px, 0.8fr);
+    }
+
+    .listening-feature {
+      grid-template-columns: 196px minmax(0, 1fr);
+      gap: 20px;
+      padding: 18px;
+    }
+
+    .listening-title {
+      font-size: 24px;
+    }
+  }
+</style>
+
+<script>
+  const initListeningSection = () => {
+    const roots = document.querySelectorAll('[data-listening]');
+
+    roots.forEach((root) => {
+      if (!(root instanceof HTMLElement) || root.dataset.bound === 'true') {
+        return;
+      }
+
+      root.dataset.bound = 'true';
+
+      const items = Array.from(root.querySelectorAll('[data-listening-item]')).filter(
+        (item) => item instanceof HTMLButtonElement
+      );
+      const playButton = root.querySelector('[data-listening-play]');
+      const playLabel = root.querySelector('[data-listening-play-label]');
+      const title = root.querySelector('[data-listening-title]');
+      const artist = root.querySelector('[data-listening-artist]');
+      const year = root.querySelector('[data-listening-year]');
+      const genre = root.querySelector('[data-listening-genre]');
+      const releaseKind = root.querySelector('[data-listening-release-kind]');
+      const collection = root.querySelector('[data-listening-collection]');
+      const trackPosition = root.querySelector('[data-listening-track-position]');
+      const link = root.querySelector('[data-listening-link]');
+      const cover = root.querySelector('[data-listening-cover]');
+
+      if (!(playButton instanceof HTMLButtonElement) || !(cover instanceof HTMLImageElement) || items.length === 0) {
+        return;
+      }
+
+      const audio = new Audio();
+      audio.preload = 'none';
+
+      let activeItem = items.find((item) => item.classList.contains('is-active')) ?? items[0];
+
+      const setPlayState = (isPlaying: boolean, hasPreview: boolean, trackTitle: string) => {
+        playButton.disabled = !hasPreview;
+        playButton.classList.toggle('is-playing', hasPreview && isPlaying);
+        playButton.setAttribute('aria-pressed', hasPreview && isPlaying ? 'true' : 'false');
+
+        if (playLabel instanceof HTMLElement) {
+          playLabel.textContent = hasPreview ? (isPlaying ? 'Pause' : 'Preview') : 'Unavailable';
+        }
+
+        const action = isPlaying ? 'Pause' : 'Play';
+        playButton.setAttribute(
+          'aria-label',
+          hasPreview ? `${action} preview of ${trackTitle}` : `${trackTitle} preview unavailable`
+        );
+      };
+
+      const stopAudio = () => {
+        audio.pause();
+        audio.currentTime = 0;
+        setPlayState(false, Boolean(activeItem?.dataset.previewUrl), activeItem?.dataset.title ?? 'Track');
+      };
+
+      const syncFeature = (item: HTMLButtonElement) => {
+        activeItem = item;
+
+        items.forEach((candidate) => {
+          const isSelected = candidate === item;
+          candidate.classList.toggle('is-active', isSelected);
+          candidate.setAttribute('aria-pressed', isSelected ? 'true' : 'false');
+        });
+
+        if (title instanceof HTMLElement) {
+          title.textContent = item.dataset.title ?? '';
+        }
+
+        if (artist instanceof HTMLElement) {
+          artist.textContent = item.dataset.artist ?? '';
+        }
+
+        if (year instanceof HTMLElement) {
+          year.textContent = item.dataset.year ?? '';
+        }
+
+        if (genre instanceof HTMLElement) {
+          genre.textContent = item.dataset.genre ?? '';
+        }
+
+        if (releaseKind instanceof HTMLElement) {
+          releaseKind.textContent = item.dataset.releaseKind === 'album' ? 'Album' : 'Single';
+        }
+
+        if (collection instanceof HTMLElement) {
+          collection.textContent = item.dataset.collection ?? '';
+        }
+
+        if (trackPosition instanceof HTMLElement) {
+          trackPosition.textContent =
+            item.dataset.releaseKind === 'album'
+              ? `Track ${item.dataset.trackNumber ?? '?'} of ${item.dataset.trackCount ?? '?'}`
+              : 'Standalone release';
+        }
+
+        if (link instanceof HTMLAnchorElement) {
+          link.href = item.dataset.link ?? '#';
+          link.setAttribute('aria-label', `Open ${item.dataset.title ?? 'track'} on Apple Music`);
+        }
+
+        if (item.dataset.artwork) {
+          cover.src = item.dataset.artwork;
+          cover.alt = `${item.dataset.title ?? 'Track'} cover art`;
+        }
+
+        if (audio.src !== (item.dataset.previewUrl ?? '')) {
+          audio.pause();
+          audio.currentTime = 0;
+          if (item.dataset.previewUrl) {
+            audio.src = item.dataset.previewUrl;
+          } else {
+            audio.removeAttribute('src');
+          }
+        }
+
+        setPlayState(false, Boolean(item.dataset.previewUrl), item.dataset.title ?? 'Track');
+      };
+
+      playButton.addEventListener('click', async () => {
+        if (!(activeItem instanceof HTMLButtonElement)) {
+          return;
+        }
+
+        const previewUrl = activeItem.dataset.previewUrl ?? '';
+        if (!previewUrl) {
+          return;
+        }
+
+        if (audio.src !== previewUrl) {
+          audio.src = previewUrl;
+        }
+
+        if (audio.paused) {
+          try {
+            await audio.play();
+            setPlayState(true, true, activeItem.dataset.title ?? 'Track');
+          } catch {
+            setPlayState(false, true, activeItem.dataset.title ?? 'Track');
+          }
+
+          return;
+        }
+
+        stopAudio();
+      });
+
+      audio.addEventListener('ended', () => {
+        setPlayState(false, Boolean(activeItem?.dataset.previewUrl), activeItem?.dataset.title ?? 'Track');
+      });
+
+      items.forEach((item) => {
+        item.addEventListener('click', () => {
+          if (item !== activeItem) {
+            stopAudio();
+          }
+
+          syncFeature(item);
+        });
+      });
+
+      syncFeature(activeItem);
+    });
+  };
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initListeningSection, { once: true });
+  } else {
+    initListeningSection();
+  }
+</script>
