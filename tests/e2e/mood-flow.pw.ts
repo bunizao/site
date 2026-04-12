@@ -349,6 +349,31 @@ test.describe('Mood routes', () => {
     const reactionEmoji = page.locator('[data-comments-list] .mood-comment .mood-reaction-emoji .tg-emoji').first();
     await expect(reactionEmoji).toBeVisible();
     await expect(reactionEmoji.locator('img')).toHaveAttribute('src', emojiImage);
+
+    await reactionEmoji.evaluate((node) => {
+      if (!(node instanceof HTMLElement)) return;
+      node.dataset.emojiAnimated = 'true';
+      const existingImage = node.querySelector('img');
+      existingImage?.remove();
+      const anim = document.createElement('span');
+      anim.className = 'tg-emoji-anim';
+      anim.innerHTML = `
+        <svg
+          viewBox="0 0 512 512"
+          width="512"
+          height="512"
+          style="width: 100%; height: 100%; transform: translate3d(0px, 0px, 0px); content-visibility: visible;"
+        >
+          <rect width="512" height="512" fill="#ff00aa"></rect>
+        </svg>
+      `;
+      node.appendChild(anim);
+    });
+
+    const box = await reactionEmoji.boundingBox();
+    expect(box).not.toBeNull();
+    expect(box!.width).toBeLessThan(32);
+    expect(box!.height).toBeLessThan(32);
   });
 
   test('submits the notify panel successfully and closes cleanly', async ({ page }) => {

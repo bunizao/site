@@ -479,6 +479,43 @@ const {
     margin-top: 10px;
   }
 
+  .mood-comment-reactions .mood-reaction-emoji {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.15em;
+    height: 1.15em;
+    line-height: 1;
+    overflow: hidden;
+  }
+
+  .mood-comment-reactions .tg-emoji {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    vertical-align: -0.15em;
+  }
+
+  .mood-comment-reactions .tg-emoji img {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+
+  .mood-comment-reactions .tg-emoji[data-emoji-animated='true'] img {
+    display: none;
+  }
+
+  .mood-comment-reactions .tg-emoji-anim,
+  .mood-comment-reactions .tg-emoji-anim svg {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+
   .mood-comment-skeleton-line {
     display: block;
     width: var(--line-width, 120px);
