@@ -9,6 +9,7 @@ import {
   readEnumQuery,
   readIntQuery,
 } from '@/lib/http/query';
+import { buildSrcSet } from '@/lib/media/responsive-image';
 import {
   getTextPreviewHtml,
   getFirstImage,
@@ -50,20 +51,6 @@ if (idParam) {
 
 const responsiveImageWidths = [480, 800, 1200];
 const embedImageSizes = '(min-width: 640px) 520px, 100vw';
-
-function withWidthParam(value: string, width: number): string {
-  if (!value || /^(data:|blob:)/i.test(value)) return value;
-  const isAbsolute = /^(https?:)?\/\//i.test(value);
-  const parsed = new URL(value, 'https://local.invalid');
-  parsed.searchParams.set('w', String(width));
-  if (isAbsolute) return parsed.toString();
-  return `${parsed.pathname}${parsed.search}${parsed.hash}`;
-}
-
-function buildSrcSet(value: string): string {
-  if (!value || /^(data:|blob:)/i.test(value)) return '';
-  return responsiveImageWidths.map((width) => `${withWidthParam(value, width)} ${width}w`).join(', ');
-}
 
 // Set embed-friendly headers
 const embedHeaders = getEmbedHeaders(refresh && refresh > 0 ? { maxAge: 0, staleWhileRevalidate: 0 } : { maxAge: 300 });
@@ -463,7 +450,7 @@ const allowedOrigin = normalizeOrigin(originParam);
                 <img
                   class="mood-image"
                   src={image}
-                  srcset={image ? buildSrcSet(image) : undefined}
+                  srcset={image ? buildSrcSet(image, responsiveImageWidths) : undefined}
                   sizes={embedImageSizes}
                   alt=""
                   loading="lazy"
