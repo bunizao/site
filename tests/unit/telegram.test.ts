@@ -118,7 +118,7 @@ const astro = {
   },
 };
 
-const telegramModulePromise = import('../../src/lib/telegram');
+const telegramModulePromise = import('../../src/features/mood/server/telegram-source');
 
 beforeEach(() => {
   ofetchMock.mockClear();

@@ -10,7 +10,7 @@ import {
   hasTooBigVideo,
   isLongContent,
 } from '@/features/mood/shared/utils';
-import { getTelegramPostFallbackInfo, type ChannelInfo, type Post } from '@/lib/telegram';
+import { getTelegramPostFallbackInfo, type ChannelInfo, type Post } from '@/features/mood/server/telegram-source';
 import type { MoodFeedItem, MoodFeedResponse } from './contracts';
 import {
   getMoodChannelEmojiId,

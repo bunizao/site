@@ -84,7 +84,7 @@ Responsibilities:
 Files:
 
 - [`src/pages/api/moods.ts`](../src/pages/api/moods.ts)
-- [`src/lib/telegram.ts`](../src/lib/telegram.ts)
+- [`src/features/mood/server/telegram-source.ts`](../src/features/mood/server/telegram-source.ts)
 - [`src/features/mood/shared/utils.ts`](../src/features/mood/shared/utils.ts)
 
 Responsibilities:

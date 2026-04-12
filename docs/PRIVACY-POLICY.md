@@ -70,7 +70,7 @@ Covered implementation:
 
 - `/mood` and `/mood/[id]` fetch public Telegram-derived content
 - [`src/pages/api/moods.ts`](../src/pages/api/moods.ts) and [`src/pages/api/comments.ts`](../src/pages/api/comments.ts) expose public data derived from Telegram scraping
-- [`src/lib/telegram.ts`](../src/lib/telegram.ts) and [`src/features/mood/shared/utils.ts`](../src/features/mood/shared/utils.ts) shape public mood content and media references
+- [`src/features/mood/server/telegram-source.ts`](../src/features/mood/server/telegram-source.ts) and [`src/features/mood/shared/utils.ts`](../src/features/mood/shared/utils.ts) shape public mood content and media references
 
 ### Mood Subscription Flow
 
@@ -105,7 +105,7 @@ Covered implementation:
 
 - Ghost is used for writing links in [`src/features/home/ui/Posts.astro`](../src/features/home/ui/Posts.astro)
 - GitHub is used for project data in [`src/features/home/ui/Projects.astro`](../src/features/home/ui/Projects.astro) and [`src/lib/github.ts`](../src/lib/github.ts)
-- Telegram-derived content is parsed in [`src/lib/telegram.ts`](../src/lib/telegram.ts)
+- Telegram-derived content is parsed in [`src/features/mood/server/telegram-source.ts`](../src/features/mood/server/telegram-source.ts)
 
 ## Why the Policy Is Markdown-Backed
 

@@ -1,6 +1,6 @@
 import * as cheerio from 'cheerio';
 import { getTextPreview } from '@/features/mood/shared/utils';
-import type { ChannelInfo, Post } from '@/lib/telegram';
+import type { ChannelInfo, Post } from '@/features/mood/server/telegram-source';
 
 const stripInvalidXmlChars = (value: string): string =>
   value.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, '');

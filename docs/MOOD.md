@@ -61,7 +61,7 @@ Implementation file: [`src/pages/api/moods.ts`](../src/pages/api/moods.ts)
 
 Upstream dependency:
 
-- [`src/lib/telegram.ts`](../src/lib/telegram.ts) via `getChannelInfo({ type: 'list', before, after, skipCache })`
+- [`src/features/mood/server/telegram-source.ts`](../src/features/mood/server/telegram-source.ts) via `getChannelInfo({ type: 'list', before, after, skipCache })`
 
 Returned post shape is optimized for feed rendering:
 
@@ -127,7 +127,7 @@ Back navigation:
 Implementation files:
 
 - [`src/pages/api/comments.ts`](../src/pages/api/comments.ts)
-- [`src/lib/telegram.ts`](../src/lib/telegram.ts)
+- [`src/features/mood/server/telegram-source.ts`](../src/features/mood/server/telegram-source.ts)
 - [`src/features/mood/shared/comments.ts`](../src/features/mood/shared/comments.ts)
 
 Data flow:
@@ -150,10 +150,10 @@ Comment normalization:
 
 Core files:
 
-- [`src/lib/telegram.ts`](../src/lib/telegram.ts)
+- [`src/features/mood/server/telegram-source.ts`](../src/features/mood/server/telegram-source.ts)
 - [`src/features/mood/shared/utils.ts`](../src/features/mood/shared/utils.ts)
 
-`src/lib/telegram.ts` responsibilities:
+`src/features/mood/server/telegram-source.ts` responsibilities:
 
 - scrape list pages from `https://{host}/s/{channel}`
 - scrape detail pages from `https://{host}/{channel}/{id}?embed=1&mode=tme`

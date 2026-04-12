@@ -61,11 +61,11 @@ If Telegram represents live photo motion through video-like markup, current inde
 
 Telegram parsing can already emit `<video>` tags from embed HTML:
 
-- [src/lib/telegram.ts](/Users/tutu/Library/CloudStorage/Dropbox/Dev/site/src/lib/telegram.ts#L372)
+- [src/features/mood/server/telegram-source.ts](/Users/tutu/Library/CloudStorage/Dropbox/Dev/site/src/features/mood/server/telegram-source.ts#L372)
 
 It separately emits image blocks from `.tgme_widget_message_photo_wrap`:
 
-- [src/lib/telegram.ts](/Users/tutu/Library/CloudStorage/Dropbox/Dev/site/src/lib/telegram.ts#L298)
+- [src/features/mood/server/telegram-source.ts](/Users/tutu/Library/CloudStorage/Dropbox/Dev/site/src/features/mood/server/telegram-source.ts#L298)
 
 This is enough for plain video and plain photo, but there is no explicit "live photo" normalization step.
 

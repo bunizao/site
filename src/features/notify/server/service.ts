@@ -1,5 +1,5 @@
-import type { ChannelInfo, Post } from '@/lib/telegram';
-import { getChannelInfo } from '@/lib/telegram';
+import type { ChannelInfo, Post } from '@/features/mood/server/telegram-source';
+import { getChannelInfo } from '@/features/mood/server/telegram-source';
 import { getRelatedLinks, getTextPreviewWithMedia } from '@/features/mood/shared/utils';
 import { readPublicEnv } from '@/lib/runtime/env';
 import { getNotifyConfig, getNotifyFromAddress, requireConfigValue } from './env';

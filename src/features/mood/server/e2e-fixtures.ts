@@ -1,4 +1,4 @@
-import type { ChannelInfo, Post } from '@/lib/telegram';
+import type { ChannelInfo, Post } from '@/features/mood/server/telegram-source';
 
 const DEFAULT_MOOD_ID = '990001';
 const MULTI_IMAGE_MOOD_ID = '990777';

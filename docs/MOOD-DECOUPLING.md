@@ -132,7 +132,7 @@ Important contracts to preserve first:
 
 ### 4. Do not rewrite the Telegram parser in the same effort
 
-[`src/lib/telegram.ts`](../src/lib/telegram.ts) is upstream parsing infrastructure.
+[`src/features/mood/server/telegram-source.ts`](../src/features/mood/server/telegram-source.ts) is upstream parsing infrastructure.
 
 It should be wrapped by feature services first, not deeply refactored during the first decoupling passes.
 
@@ -432,7 +432,7 @@ Current duplication exists in:
 - [`src/pages/mood.astro`](../src/pages/mood.astro)
 - [`src/features/mood/ui/HomePreview.astro`](../src/features/mood/ui/HomePreview.astro)
 - [`src/pages/mood/embed.astro`](../src/pages/mood/embed.astro)
-- [`src/lib/telegram.ts`](../src/lib/telegram.ts)
+- [`src/features/mood/server/telegram-source.ts`](../src/features/mood/server/telegram-source.ts)
 
 ## Migration Mapping
 

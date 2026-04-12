@@ -1,4 +1,4 @@
-import { getPostComments } from '@/lib/telegram';
+import { getPostComments } from '@/features/mood/server/telegram-source';
 import { isE2ESiteFixtureEnabled } from '@/lib/e2e';
 import type { MoodCommentsPage } from './contracts';
 import { loadMoodCommentsFixture, type MoodServerContext } from './channel-service';
