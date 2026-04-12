@@ -1,12 +1,14 @@
 ---
-import { createE2EChannelInfo, createE2EPost, isE2ESiteFixtureEnabled } from '@/lib/e2e-fixtures';
+import {
+  loadMoodChannelSnapshot,
+  loadMoodPostSnapshot,
+  toMoodAvatarUrl,
+} from '@/features/mood/server/channel-service';
 import {
   readBooleanFlag,
   readEnumQuery,
   readIntQuery,
 } from '@/lib/http/query';
-import { readPublicEnv } from '@/lib/runtime/env';
-import { getChannelInfo } from '../../lib/telegram';
 import {
   getTextPreviewHtml,
   getFirstImage,
@@ -29,50 +31,21 @@ const refresh = refreshRaw !== null
   ? Math.max(30, Math.min(3600, refreshRaw))
   : null;
 const showLink = readBooleanFlag(url, 'link', true);
-const useE2EFixture = isE2ESiteFixtureEnabled(Astro.locals);
-
-// Fetch mood data (avoid waterfalls when id is provided)
-const fixtureChannelInfo = createE2EChannelInfo();
-const channelInfoPromise = useE2EFixture
-  ? Promise.resolve(idParam ? createE2EPost(idParam) : fixtureChannelInfo)
-  : getChannelInfo(Astro, idParam ? { id: idParam } : { type: 'list' });
-const fullChannelInfoPromise = useE2EFixture
-  ? Promise.resolve(idParam ? fixtureChannelInfo : null)
-  : idParam
-    ? getChannelInfo(Astro, { type: 'list' })
-    : Promise.resolve(null);
-const [channelInfo, fullChannelInfo] = await Promise.all([channelInfoPromise, fullChannelInfoPromise]);
-
-// Handle single post or list
+const context = { request: Astro.request, locals: Astro.locals };
 let posts: any[] = [];
 let channelTitle = '';
 let channelAvatar = '';
-const HD_IMAGE_URL = readPublicEnv(Astro.locals, 'HD_IMAGE_URL');
 
-let hdImageOrigin = '';
-if (HD_IMAGE_URL) {
-  try {
-    hdImageOrigin = new URL(HD_IMAGE_URL).origin.toLowerCase();
-  } catch {
-    hdImageOrigin = '';
-  }
-}
-
-// Helper to proxy avatar URL
-function proxyAvatarUrl(avatar: string): string {
-  if (!avatar) return '';
-  if (avatar.startsWith('/static/')) return avatar;
-  const url = avatar.startsWith('http') ? avatar : `https:${avatar}`;
-  if (hdImageOrigin) {
-    try {
-      if (new URL(url).origin.toLowerCase() === hdImageOrigin) {
-        return url;
-      }
-    } catch {
-      // Fall through to static proxy fallback.
-    }
-  }
-  return `/static/${url}`;
+if (idParam) {
+  const { post, channelInfo } = await loadMoodPostSnapshot(context, idParam);
+  posts = post ? [post] : [];
+  channelTitle = channelInfo?.title || 'Levitating';
+  channelAvatar = toMoodAvatarUrl(channelInfo?.avatar || '', Astro.locals);
+} else {
+  const { channelInfo, posts: channelPosts } = await loadMoodChannelSnapshot(context);
+  posts = channelPosts.slice(0, count);
+  channelTitle = channelInfo.title || 'Levitating';
+  channelAvatar = toMoodAvatarUrl(channelInfo.avatar || '', Astro.locals);
 }
 
 const responsiveImageWidths = [480, 800, 1200];
@@ -90,21 +63,6 @@ function withWidthParam(value: string, width: number): string {
 function buildSrcSet(value: string): string {
   if (!value || /^(data:|blob:)/i.test(value)) return '';
   return responsiveImageWidths.map((width) => `${withWidthParam(value, width)} ${width}w`).join(', ');
-}
-
-if ('posts' in channelInfo) {
-  posts = channelInfo.posts.slice(0, count);
-  channelTitle = channelInfo.title || 'Levitating';
-  channelAvatar = proxyAvatarUrl(channelInfo.avatar || '');
-} else if (channelInfo && 'id' in channelInfo) {
-  posts = [channelInfo];
-  // When fetching a single post by ID, we need to get channel info separately for avatar
-  if (fullChannelInfo && 'posts' in fullChannelInfo) {
-    channelTitle = fullChannelInfo.title || 'Levitating';
-    channelAvatar = proxyAvatarUrl(fullChannelInfo.avatar || '');
-  } else {
-    channelTitle = 'Levitating';
-  }
 }
 
 // Set embed-friendly headers
