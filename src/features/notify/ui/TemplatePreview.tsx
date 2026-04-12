@@ -22,7 +22,7 @@ interface PreviewResponse {
   };
 }
 
-export default function NotifyTemplatePreview() {
+export default function TemplatePreview() {
   const [digestMode, setDigestMode] = useState<'daily' | 'every_5h'>('daily');
   const [timezone, setTimezone] = useState('UTC');
   const [preview, setPreview] = useState<PreviewResponse | null>(null);

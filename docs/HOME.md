@@ -16,7 +16,7 @@ Entry file: [`src/pages/index.astro`](../src/pages/index.astro)
 The page is a thin composition layer:
 
 - mounts [`src/layouts/Layout.astro`](../src/layouts/Layout.astro)
-- wraps content in [`src/components/ParallaxWrapper.astro`](../src/components/ParallaxWrapper.astro)
+- wraps content in [`src/features/home/ui/ParallaxWrapper.astro`](../src/features/home/ui/ParallaxWrapper.astro)
 - renders sections in fixed order:
   - [`src/features/home/ui/Hero.astro`](../src/features/home/ui/Hero.astro)
   - [`src/features/home/ui/Projects.astro`](../src/features/home/ui/Projects.astro)
@@ -168,7 +168,7 @@ Debug hook:
 Relevant files:
 
 - [`src/layouts/Layout.astro`](../src/layouts/Layout.astro)
-- [`src/components/ParallaxWrapper.astro`](../src/components/ParallaxWrapper.astro)
+- [`src/features/home/ui/ParallaxWrapper.astro`](../src/features/home/ui/ParallaxWrapper.astro)
 
 Cross-cutting behavior:
 
