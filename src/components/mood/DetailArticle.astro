@@ -1,6 +1,6 @@
 ---
 import type { Post } from '@/lib/telegram';
-import MoodCommentsSection from '@/components/mood/MoodCommentsSection.astro';
+import CommentsSection from '@/components/mood/CommentsSection.astro';
 
 interface Props {
   post: Post | null;
@@ -91,7 +91,7 @@ const {
       </div>
     )}
     {postId && (
-      <MoodCommentsSection postId={postId} telegramCommentUrl={telegramCommentUrl} />
+      <CommentsSection postId={postId} telegramCommentUrl={telegramCommentUrl} />
     )}
   </article>
 ) : (

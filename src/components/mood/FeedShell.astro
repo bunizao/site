@@ -1,5 +1,5 @@
 ---
-import MoodHero from '@/components/mood/MoodHero.astro';
+import Hero from '@/components/mood/Hero.astro';
 
 interface SkeletonItem {
   index: number;
@@ -22,7 +22,7 @@ const {
 ---
 
 <div class="mood-page">
-  <MoodHero />
+  <Hero />
 
   <div class="mood-loading" data-mood-loading>
     <div class="mood-skeleton-stream" aria-hidden="true">

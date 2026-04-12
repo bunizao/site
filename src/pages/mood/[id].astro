@@ -5,7 +5,7 @@ import { createE2EPost, isE2ESiteFixtureEnabled } from '../../lib/e2e-fixtures';
 import { getChannelInfo, type Post } from '../../lib/telegram';
 import '@/styles/mood-gallery.css';
 import { renderMoodContentWithGalleries } from '@/features/mood/shared/gallery';
-import MoodDetailArticle from '@/components/mood/MoodDetailArticle.astro';
+import DetailArticle from '@/components/mood/DetailArticle.astro';
 
 export const prerender = false;
 
@@ -57,7 +57,7 @@ const renderedPostContent = post ? renderMoodContentWithGalleries(post.content) 
 
 <Layout title={title} description={description} oembed={oembed} hideSiteNav>
   <main class="page-container">
-    <MoodDetailArticle
+    <DetailArticle
       post={post}
       error={error}
       postId={id}

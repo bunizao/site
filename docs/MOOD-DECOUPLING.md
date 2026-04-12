@@ -186,11 +186,11 @@ pages / api routes
 
 These should be introduced after controllers are extracted.
 
-- `src/components/mood/MoodHero.astro`
-- `src/components/mood/MoodFeedShell.astro`
-- `src/components/mood/MoodDetailArticle.astro`
-- `src/components/mood/MoodCommentsSection.astro`
-- `src/components/notify/NotifyPanel.astro`
+- `src/components/mood/Hero.astro`
+- `src/components/mood/FeedShell.astro`
+- `src/components/mood/DetailArticle.astro`
+- `src/components/mood/CommentsSection.astro`
+- `src/components/mood/NotifyPanel.astro`
 
 ## Module Responsibilities
 
@@ -634,10 +634,10 @@ Goal:
 
 Changes:
 
-- add `MoodHero.astro`
-- add `MoodFeedShell.astro`
-- add `MoodDetailArticle.astro`
-- add `MoodCommentsSection.astro`
+- add `Hero.astro`
+- add `FeedShell.astro`
+- add `DetailArticle.astro`
+- add `CommentsSection.astro`
 - add `NotifyPanel.astro`
 
 After this stage, page files should mostly contain:
