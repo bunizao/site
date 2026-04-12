@@ -2,7 +2,7 @@
 import Layout from '../../layouts/Layout.astro';
 import dayjs from 'dayjs';
 import { isE2ESiteFixtureEnabled } from '@/lib/e2e';
-import { getChannelInfo, type Post } from '../../lib/telegram';
+import { getChannelInfo, type Post } from '@/features/mood/server/telegram-source';
 import '@/styles/mood-gallery.css';
 import { renderMoodContentWithGalleries } from '@/features/mood/shared/gallery';
 import DetailArticle from '@/features/mood/ui/DetailArticle.astro';
