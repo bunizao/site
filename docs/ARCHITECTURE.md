@@ -14,7 +14,7 @@
 
 - **`src/pages/`** — File-based routing. Includes `index.astro` (home), `mood.astro` (feed), `mood/[id].astro` (detail), `mood/embed.astro` (embeddable widget)
 - **`src/pages/api/`** — Server endpoints (moods, comments, SVG generators, oEmbed, notify endpoints, legacy telegram webhook fallback)
-- **`src/components/`** — Site-wide shared Astro (`.astro`) and React (`.tsx`) components. `ui/` follows shadcn/ui patterns
+- **`src/components/`** — Site-wide shared Astro (`.astro`) and React (`.tsx`) components
 - **`src/features/`** — Feature-private code. `src/features/home/ui/` contains home-route sections and their private UI helpers. `src/features/mood/` contains mood-specific client controllers, server services, shared helpers, and private Astro UI shells in `ui/`. `src/features/notify/server/` contains notify delivery, subscription, token, email, and D1 persistence logic, while `src/features/notify/ui/` holds notify-private preview UI.
 - **`src/lib/`** — Shared utilities: `github.ts` (GitHub API), `svg-response.ts` (SVG endpoint helpers), `embed-response.ts` (oEmbed helpers), `e2e.ts` (shared E2E fixture flag), `utils.ts` (cn/clsx utility)
 - **`src/layouts/`** — `Layout.astro` base layout with meta tags, theme toggle, analytics
@@ -23,7 +23,7 @@
 ## Component Patterns
 
 - **Astro components** (`.astro`): frontmatter between `---` fences for build-time data fetching, scoped `<style>`, inline `<script>` for client-side behavior
-- **React components** (`.tsx`): used selectively for interactive UI. Icons from `lucide-react`, styling with shadcn/ui patterns (class-variance-authority, tailwind-merge)
+- **React components** (`.tsx`): used selectively for interactive UI. Icons from `lucide-react`
 - **Animations**: GSAP for complex animations (MoodTimelineWheel), Intersection Observer for scroll reveals, custom CSS for typewriter/marquee effects
 
 ## Styling
