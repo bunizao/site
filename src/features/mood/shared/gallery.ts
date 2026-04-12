@@ -1,6 +1,6 @@
 import * as cheerio from 'cheerio';
 
-import { isEmojiImageElement } from '@/lib/mood-utils';
+import { isEmojiImageElement } from '@/features/mood/shared/utils';
 
 export type MoodGalleryVariant = 'feed' | 'detail';
 export type MoodGalleryLayout = 'landscape' | 'portrait' | 'ultra-tall';

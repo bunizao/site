@@ -4,7 +4,7 @@ import type {
   MoodImageLayout,
   QuoteData,
   ReactionData,
-} from '@/lib/mood-utils';
+} from '@/features/mood/shared/utils';
 
 export type MoodReaction = ReactionData;
 export type MoodForwardedFrom = ForwardedFromData;

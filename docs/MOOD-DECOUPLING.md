@@ -27,7 +27,7 @@ Current hotspots:
 - [`src/pages/mood/[id].astro`](../src/pages/mood/[id].astro)
 - [`src/features/mood/ui/HomePreview.astro`](../src/features/mood/ui/HomePreview.astro)
 - [`src/pages/api/moods.ts`](../src/pages/api/moods.ts)
-- [`src/lib/mood-utils.ts`](../src/lib/mood-utils.ts)
+- [`src/features/mood/shared/utils.ts`](../src/features/mood/shared/utils.ts)
 
 Current symptoms:
 
@@ -501,7 +501,7 @@ Keep in route:
 - route method boundary
 - request-to-service orchestration
 
-### From `src/lib/mood-utils.ts`
+### From `src/features/mood/shared/utils.ts`
 
 Split only where there is clear boundary value.
 

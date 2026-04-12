@@ -151,7 +151,7 @@ Comment normalization:
 Core files:
 
 - [`src/lib/telegram.ts`](../src/lib/telegram.ts)
-- [`src/lib/mood-utils.ts`](../src/lib/mood-utils.ts)
+- [`src/features/mood/shared/utils.ts`](../src/features/mood/shared/utils.ts)
 
 `src/lib/telegram.ts` responsibilities:
 
@@ -168,7 +168,7 @@ Core files:
   - custom emoji images
   - comments count
 
-`src/lib/mood-utils.ts` responsibilities:
+`src/features/mood/shared/utils.ts` responsibilities:
 
 - strip Telegram HTML into preview text
 - keep a limited preview HTML subset

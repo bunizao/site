@@ -1,6 +1,6 @@
 import type { APIRoute } from 'astro';
 import { jsonOk } from '@/lib/http/json-response';
-import { getRelatedLinks, getTextPreviewWithMedia } from '@/lib/mood-utils';
+import { getRelatedLinks, getTextPreviewWithMedia } from '@/features/mood/shared/utils';
 import {
   buildMoodDigestEmail,
   buildMoodNotificationEmail,

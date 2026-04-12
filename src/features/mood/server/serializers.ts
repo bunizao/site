@@ -1,5 +1,5 @@
 import * as cheerio from 'cheerio';
-import { getTextPreview } from '@/lib/mood-utils';
+import { getTextPreview } from '@/features/mood/shared/utils';
 import type { ChannelInfo, Post } from '@/lib/telegram';
 
 const stripInvalidXmlChars = (value: string): string =>

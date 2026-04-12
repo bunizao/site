@@ -9,7 +9,7 @@ import {
   hasMedia,
   hasTooBigVideo,
   isLongContent,
-} from '@/lib/mood-utils';
+} from '@/features/mood/shared/utils';
 import { getTelegramPostFallbackInfo, type ChannelInfo, type Post } from '@/lib/telegram';
 import type { MoodFeedItem, MoodFeedResponse } from './contracts';
 import {

@@ -70,7 +70,7 @@ Covered implementation:
 
 - `/mood` and `/mood/[id]` fetch public Telegram-derived content
 - [`src/pages/api/moods.ts`](../src/pages/api/moods.ts) and [`src/pages/api/comments.ts`](../src/pages/api/comments.ts) expose public data derived from Telegram scraping
-- [`src/lib/telegram.ts`](../src/lib/telegram.ts) and [`src/lib/mood-utils.ts`](../src/lib/mood-utils.ts) shape public mood content and media references
+- [`src/lib/telegram.ts`](../src/lib/telegram.ts) and [`src/features/mood/shared/utils.ts`](../src/features/mood/shared/utils.ts) shape public mood content and media references
 
 ### Mood Subscription Flow
 

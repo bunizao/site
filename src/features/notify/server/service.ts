@@ -1,6 +1,6 @@
 import type { ChannelInfo, Post } from '@/lib/telegram';
 import { getChannelInfo } from '@/lib/telegram';
-import { getRelatedLinks, getTextPreviewWithMedia } from '@/lib/mood-utils';
+import { getRelatedLinks, getTextPreviewWithMedia } from '@/features/mood/shared/utils';
 import { readPublicEnv } from '@/lib/runtime/env';
 import { getNotifyConfig, getNotifyFromAddress, requireConfigValue } from './env';
 import { CloudflareD1Client } from './d1';

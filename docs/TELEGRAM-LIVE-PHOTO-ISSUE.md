@@ -73,8 +73,8 @@ This is enough for plain video and plain photo, but there is no explicit "live p
 
 Feed preview logic returns the first `<video>` if one exists; otherwise it falls back to image extraction:
 
-- [src/lib/mood-utils.ts](/Users/tutu/Library/CloudStorage/Dropbox/Dev/site/src/lib/mood-utils.ts#L296)
-- [src/lib/mood-utils.ts](/Users/tutu/Library/CloudStorage/Dropbox/Dev/site/src/lib/mood-utils.ts#L334)
+- [src/features/mood/shared/utils.ts](/Users/tutu/Library/CloudStorage/Dropbox/Dev/site/src/features/mood/shared/utils.ts#L296)
+- [src/features/mood/shared/utils.ts](/Users/tutu/Library/CloudStorage/Dropbox/Dev/site/src/features/mood/shared/utils.ts#L334)
 
 That is too simplistic for live photos because the desired UX is usually:
 

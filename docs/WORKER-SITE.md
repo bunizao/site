@@ -72,7 +72,7 @@ This route is not the preferred production path.
 Core files:
 
 - [`src/lib/telegram.ts`](../src/lib/telegram.ts)
-- [`src/lib/mood-utils.ts`](../src/lib/mood-utils.ts)
+- [`src/features/mood/shared/utils.ts`](../src/features/mood/shared/utils.ts)
 - [`src/pages/api/moods.ts`](../src/pages/api/moods.ts)
 - [`src/pages/mood.astro`](../src/pages/mood.astro)
 - [`src/pages/mood/[id].astro`](../src/pages/mood/[id].astro)

@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { getFirstImage, getInlineMediaPreview, getQuotePreview, getTextPreview } from '../../src/lib/mood-utils';
+import { getFirstImage, getInlineMediaPreview, getQuotePreview, getTextPreview } from '../../src/features/mood/shared/utils';
 
 describe('getFirstImage', () => {
   test('extracts video poster when no img exists', () => {
