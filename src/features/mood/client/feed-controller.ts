@@ -926,6 +926,7 @@ export function initMoodFeedController(): void {
       const thumbnailImageSizes = '(min-width: 1024px) 560px, (min-width: 640px) 480px, 100vw';
       const deferredImageRootMargin = '600px 0px';
       let deferredImageObserver: IntersectionObserver | null = null;
+      const deferredImageHydrators = new WeakMap<Element, () => void>();
 
       const hydrateDeferredImage = (img: HTMLImageElement): void => {
         if (img.dataset.deferredHydrated === '1') return;
@@ -952,11 +953,9 @@ export function initMoodFeedController(): void {
               if (!entry.isIntersecting) return;
 
               deferredImageObserver?.unobserve(entry.target);
-              const target = entry.target as HTMLElement;
-              const img = target.querySelector('img');
-              if (!(img instanceof HTMLImageElement)) return;
-
-              hydrateDeferredImage(img);
+              const hydrate = deferredImageHydrators.get(entry.target);
+              deferredImageHydrators.delete(entry.target);
+              hydrate?.();
             });
           },
           {
@@ -967,14 +966,15 @@ export function initMoodFeedController(): void {
         return deferredImageObserver;
       };
 
-      const registerDeferredImage = (container: HTMLElement, img: HTMLImageElement): void => {
+      const registerDeferredImage = (target: Element, hydrate: () => void): void => {
         const observer = getDeferredImageObserver();
         if (!observer) {
-          hydrateDeferredImage(img);
+          hydrate();
           return;
         }
 
-        observer.observe(container);
+        deferredImageHydrators.set(target, hydrate);
+        observer.observe(target);
       };
 
       // Hero hydration function
@@ -1284,7 +1284,11 @@ export function initMoodFeedController(): void {
           applyMediaHints(media, isPriorityItem);
           content.appendChild(media);
         } else if (!isTooBigVideoPreview && (mood.gallery?.items.length ?? 0) > 1) {
-          const gallery = createMoodGalleryElement(mood.gallery, {
+          const galleryData = mood.gallery;
+          if (!galleryData) {
+            throw new Error(`Missing mood gallery payload for mood ${mood.id}`);
+          }
+          const gallery = createMoodGalleryElement(galleryData, {
             variant: 'feed',
             priority: isPriorityItem,
           });
@@ -1327,13 +1331,31 @@ export function initMoodFeedController(): void {
               applyResponsiveImage(img, fallbackSrc, thumbnailImageSizes, responsiveImageWidths);
             };
           }
+          const hasResolvedImageLayout = Boolean(imageLayout) || isTooBigVideoPreview;
           setImageHints(img, { priority: isPriorityItem });
-          if (isPriorityItem) {
+          if (!hasResolvedImageLayout) {
+            img.loading = 'eager';
+            img.removeAttribute('fetchpriority');
+          }
+          if (isPriorityItem || !hasResolvedImageLayout) {
             img.src = mood.image;
             applyResponsiveImage(img, mood.image, thumbnailImageSizes, responsiveImageWidths);
           } else {
             img.dataset.deferredSrc = mood.image;
           }
+          const thumbMarker = document.createElement('span');
+          thumbMarker.style.display = 'block';
+          thumbMarker.style.width = '100%';
+          thumbMarker.style.minHeight = '1px';
+          let thumbInserted = false;
+          const insertThumb = (): void => {
+            if (thumbInserted) return;
+            thumbInserted = true;
+            if (thumbMarker.parentNode) {
+              thumbMarker.parentNode.insertBefore(thumbWrap, thumbMarker);
+            }
+            thumbMarker.remove();
+          };
           const classifyLoadedImage = () => {
             if (!img.naturalWidth || !img.naturalHeight) return;
             if (isTooBigVideoPreview) {
@@ -1355,22 +1377,15 @@ export function initMoodFeedController(): void {
               thumbWrap.classList.add('mood-item-thumb--portrait');
             }
           };
-          if (!imageLayout) {
-            const pollForImageDimensions = (): void => {
-              if (img.naturalWidth > 0 && img.naturalHeight > 0) {
-                classifyLoadedImage();
-                return;
-              }
-              if (!img.isConnected || img.complete) {
-                return;
-              }
-              window.requestAnimationFrame(pollForImageDimensions);
-            };
+          const resolveUnknownLayoutThumb = (): void => {
+            classifyLoadedImage();
+            insertThumb();
+          };
+          if (!hasResolvedImageLayout) {
             if (img.complete && img.naturalWidth > 0 && img.naturalHeight > 0) {
-              classifyLoadedImage();
+              resolveUnknownLayoutThumb();
             } else {
-              img.addEventListener('load', classifyLoadedImage, { once: true });
-              window.requestAnimationFrame(pollForImageDimensions);
+              img.addEventListener('load', resolveUnknownLayoutThumb, { once: true });
             }
           }
           if (
@@ -1406,10 +1421,17 @@ export function initMoodFeedController(): void {
             overlay.appendChild(cta);
             thumbWrap.appendChild(overlay);
           }
-          if (!isPriorityItem) {
-            registerDeferredImage(thumbWrap, img);
+          if (hasResolvedImageLayout) {
+            content.appendChild(thumbWrap);
+          } else {
+            content.appendChild(thumbMarker);
           }
-          content.appendChild(thumbWrap);
+          if (!isPriorityItem && hasResolvedImageLayout) {
+            const deferredTarget = thumbWrap;
+            registerDeferredImage(deferredTarget, () => {
+              hydrateDeferredImage(img);
+            });
+          }
         }
 
         if (isLongPreview) {
