@@ -308,6 +308,49 @@ test.describe('Mood routes', () => {
     await expect(page).toHaveURL(/\/mood$/);
   });
 
+  test('renders custom emoji reactions in detail comments', async ({ page, request }) => {
+    const latestMoodId = await getLatestMoodId(request);
+    test.skip(!latestMoodId, 'No mood id available from /api/moods');
+
+    const emojiImage = '/static/https://t.me/i/emoji/5389048680659563012.webp';
+
+    await page.route('**/api/comments?postId=*', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          comments: [
+            {
+              id: '9001',
+              author: 'E2E',
+              authorAvatar: '',
+              datetime: '2026-02-10T13:10:00+00:00',
+              content: '<p>Reaction test</p>',
+              reactions: [
+                {
+                  emoji: '',
+                  emojiId: '5389048680659563012',
+                  emojiImage,
+                  count: '1',
+                  isPaid: false,
+                },
+              ],
+            },
+          ],
+          hasMore: false,
+          nextBefore: '',
+        }),
+      });
+    });
+
+    await page.goto(`/mood/${latestMoodId}`, { waitUntil: 'domcontentloaded' });
+
+    await expect(page.locator('[data-comments-loading]')).toHaveCount(0, { timeout: 30_000 });
+    const reactionEmoji = page.locator('[data-comments-list] .mood-comment .mood-reaction-emoji .tg-emoji').first();
+    await expect(reactionEmoji).toBeVisible();
+    await expect(reactionEmoji.locator('img')).toHaveAttribute('src', emojiImage);
+  });
+
   test('submits the notify panel successfully and closes cleanly', async ({ page }) => {
     const requests: Array<Record<string, unknown>> = [];
 

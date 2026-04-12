@@ -6,6 +6,8 @@ import {
 
 interface CommentReactionData {
   emoji?: string;
+  emojiId?: string;
+  emojiImage?: string;
   count?: string;
   isPaid?: boolean;
 }
@@ -143,7 +145,30 @@ export async function initMoodDetailComments(
 
         const emojiEl = document.createElement('span');
         emojiEl.className = 'mood-reaction-emoji';
-        emojiEl.textContent = reaction?.isPaid ? '⭐' : (asText(reaction?.emoji).trim() || '👍');
+        if (reaction?.isPaid) {
+          emojiEl.textContent = '⭐';
+        } else if (reaction?.emojiImage || reaction?.emojiId) {
+          const wrapper = document.createElement('span');
+          wrapper.className = 'tg-emoji';
+          if (reaction?.emojiId) {
+            wrapper.dataset.emojiId = reaction.emojiId;
+          }
+          if (reaction?.emojiImage) {
+            const img = document.createElement('img');
+            img.src = reaction.emojiImage;
+            img.alt = reaction.emoji || 'emoji';
+            img.loading = 'lazy';
+            img.decoding = 'async';
+            img.width = 16;
+            img.height = 16;
+            wrapper.appendChild(img);
+          } else if (reaction?.emoji) {
+            wrapper.textContent = reaction.emoji;
+          }
+          emojiEl.appendChild(wrapper);
+        } else {
+          emojiEl.textContent = asText(reaction?.emoji).trim() || '👍';
+        }
 
         const reactionCountEl = document.createElement('span');
         reactionCountEl.className = 'mood-reaction-count';
