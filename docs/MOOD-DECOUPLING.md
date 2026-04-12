@@ -25,7 +25,7 @@ Current hotspots:
 
 - [`src/pages/mood.astro`](../src/pages/mood.astro)
 - [`src/pages/mood/[id].astro`](../src/pages/mood/[id].astro)
-- [`src/components/Moods.astro`](../src/components/Moods.astro)
+- [`src/features/mood/ui/HomePreview.astro`](../src/features/mood/ui/HomePreview.astro)
 - [`src/pages/api/moods.ts`](../src/pages/api/moods.ts)
 - [`src/lib/mood-utils.ts`](../src/lib/mood-utils.ts)
 
@@ -72,7 +72,7 @@ Current symptoms:
 
 ### Home Preview
 
-[`src/components/Moods.astro`](../src/components/Moods.astro) currently owns:
+[`src/features/mood/ui/HomePreview.astro`](../src/features/mood/ui/HomePreview.astro) currently owns:
 
 - home-only mood list fetching
 - local preview cache behavior
@@ -186,11 +186,11 @@ pages / api routes
 
 These should be introduced after controllers are extracted.
 
-- `src/components/mood/Hero.astro`
-- `src/components/mood/FeedShell.astro`
-- `src/components/mood/DetailArticle.astro`
-- `src/components/mood/CommentsSection.astro`
-- `src/components/mood/NotifyPanel.astro`
+- `src/features/mood/ui/Hero.astro`
+- `src/features/mood/ui/FeedShell.astro`
+- `src/features/mood/ui/DetailArticle.astro`
+- `src/features/mood/ui/CommentsSection.astro`
+- `src/features/mood/ui/NotifyPanel.astro`
 
 ## Module Responsibilities
 
@@ -273,7 +273,7 @@ Expected responsibilities:
 This should replace duplicate logic currently present in:
 
 - [`src/pages/mood.astro`](../src/pages/mood.astro)
-- [`src/components/Moods.astro`](../src/components/Moods.astro)
+- [`src/features/mood/ui/HomePreview.astro`](../src/features/mood/ui/HomePreview.astro)
 
 ### `src/features/mood/shared/comments.ts`
 
@@ -356,7 +356,7 @@ Expected responsibilities:
 - scroll position mapping
 - loading state sync
 
-The Astro component [`src/components/MoodTimelineWheel.astro`](../src/components/MoodTimelineWheel.astro) should remain the visual shell.
+The Astro component [`src/features/mood/ui/TimelineWheel.astro`](../src/features/mood/ui/TimelineWheel.astro) should remain the visual shell.
 
 ## Project-Wide Shared Helpers
 
@@ -430,7 +430,7 @@ Expected helpers:
 Current duplication exists in:
 
 - [`src/pages/mood.astro`](../src/pages/mood.astro)
-- [`src/components/Moods.astro`](../src/components/Moods.astro)
+- [`src/features/mood/ui/HomePreview.astro`](../src/features/mood/ui/HomePreview.astro)
 - [`src/pages/mood/embed.astro`](../src/pages/mood/embed.astro)
 - [`src/lib/telegram.ts`](../src/lib/telegram.ts)
 
@@ -471,7 +471,7 @@ Keep in page:
 - post shell markup
 - route-level SEO and `404` behavior
 
-### From `src/components/Moods.astro`
+### From `src/features/mood/ui/HomePreview.astro`
 
 Move or isolate:
 
@@ -593,7 +593,7 @@ Files expected to change:
 
 - [`src/pages/mood.astro`](../src/pages/mood.astro)
 - [`src/pages/mood/[id].astro`](../src/pages/mood/[id].astro)
-- [`src/components/Moods.astro`](../src/components/Moods.astro)
+- [`src/features/mood/ui/HomePreview.astro`](../src/features/mood/ui/HomePreview.astro)
 
 Do not change yet:
 
@@ -634,11 +634,11 @@ Goal:
 
 Changes:
 
-- add `Hero.astro`
-- add `FeedShell.astro`
-- add `DetailArticle.astro`
-- add `CommentsSection.astro`
-- add `NotifyPanel.astro`
+- add `src/features/mood/ui/Hero.astro`
+- add `src/features/mood/ui/FeedShell.astro`
+- add `src/features/mood/ui/DetailArticle.astro`
+- add `src/features/mood/ui/CommentsSection.astro`
+- add `src/features/mood/ui/NotifyPanel.astro`
 
 After this stage, page files should mostly contain:
 

@@ -1,8 +1,8 @@
 ---
 import Layout from '../layouts/Layout.astro';
-import MoodTimelineWheel from '../components/MoodTimelineWheel.astro';
-import FeedShell from '@/components/mood/FeedShell.astro';
-import NotifyPanel from '@/components/mood/NotifyPanel.astro';
+import TimelineWheel from '@/features/mood/ui/TimelineWheel.astro';
+import FeedShell from '@/features/mood/ui/FeedShell.astro';
+import NotifyPanel from '@/features/mood/ui/NotifyPanel.astro';
 import '@/styles/mood-gallery.css';
 
 export const prerender = false;
@@ -222,7 +222,7 @@ const skeletonGroups = [
     });
   </script>
   <main class="page-container">
-    <MoodTimelineWheel />
+    <TimelineWheel />
     <FeedShell skeletonGroups={skeletonGroups} />
   </main>
   <NotifyPanel turnstileSiteKey={turnstileSiteKey} />

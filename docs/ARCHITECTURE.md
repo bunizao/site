@@ -14,7 +14,8 @@
 
 - **`src/pages/`** — File-based routing. Includes `index.astro` (home), `mood.astro` (feed), `mood/[id].astro` (detail), `mood/embed.astro` (embeddable widget)
 - **`src/pages/api/`** — Server endpoints (moods, comments, SVG generators, oEmbed, notify endpoints, legacy telegram webhook fallback)
-- **`src/components/`** — Astro (`.astro`) and React (`.tsx`) components. `ui/` subdirectory follows shadcn/ui patterns
+- **`src/components/`** — Site-wide shared Astro (`.astro`) and React (`.tsx`) components. `ui/` follows shadcn/ui patterns
+- **`src/features/`** — Feature-private code. `src/features/mood/` contains mood-specific client controllers, server services, shared helpers, and private Astro UI shells in `ui/`
 - **`src/lib/`** — Shared utilities: `github.ts` (GitHub API), `telegram.ts` (Telegram integration), `mood-utils.ts` (mood data processing), `svg-response.ts` (SVG endpoint helpers), `embed-response.ts` (oEmbed helpers), `utils.ts` (cn/clsx utility)
 - **`src/layouts/`** — `Layout.astro` base layout with meta tags, theme toggle, analytics
 - **`src/styles/`** — `globals.css` with Tailwind directives, CSS variable color system (HSL), JetBrains Mono font

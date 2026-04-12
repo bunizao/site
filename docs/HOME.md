@@ -21,7 +21,7 @@ The page is a thin composition layer:
   - [`src/components/Hero.astro`](../src/components/Hero.astro)
   - [`src/components/Projects.astro`](../src/components/Projects.astro)
   - [`src/components/Posts.astro`](../src/components/Posts.astro)
-  - [`src/components/Moods.astro`](../src/components/Moods.astro)
+  - [`src/features/mood/ui/HomePreview.astro`](../src/features/mood/ui/HomePreview.astro)
   - [`src/components/Footer.astro`](../src/components/Footer.astro)
 
 Section anchors are owned by the shared layout navbar:
@@ -118,7 +118,7 @@ Client behavior:
 
 Implementation files:
 
-- [`src/components/Moods.astro`](../src/components/Moods.astro)
+- [`src/features/mood/ui/HomePreview.astro`](../src/features/mood/ui/HomePreview.astro)
 - [`src/pages/api/moods.ts`](../src/pages/api/moods.ts)
 
 Rendering strategy:
