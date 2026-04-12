@@ -1,45 +1,42 @@
 import type { APIRoute } from 'astro';
 import { createE2EChannelInfo, isE2ESiteFixtureEnabled } from '@/lib/e2e-fixtures';
-import { getChannelInfo, getTelegramPostFallbackInfo, type ChannelInfo } from '../../lib/telegram';
+import {
+  json,
+  jsonBadRequest,
+  jsonOk,
+  jsonTooManyRequests,
+} from '@/lib/http/json-response';
+import {
+  isValidCursor,
+  readBooleanFlag,
+  readCursorQuery,
+} from '@/lib/http/query';
+import { withRateLimit } from '@/lib/http/rate-limited';
 import {
   getFirstImageMeta,
   getInlineMediaPreview,
+  getNumericId,
+  getQuotePreview,
   getTextPreview,
   getTextPreviewHtml,
-  getQuotePreview,
-  getNumericId,
   hasEmojiImageMedia,
   hasMedia,
   hasTooBigVideo,
   isLongContent,
-} from '../../lib/mood-utils';
+} from '@/lib/mood-utils';
+import { readEnv, readPublicEnv } from '@/lib/runtime/env';
+import {
+  type MoodFeedItem,
+  type MoodFeedResponse,
+  type MoodProbeResult,
+} from '@/features/mood/server/contracts';
 import { getMoodGallery } from '@/features/mood/shared/gallery';
-import { checkRateLimit, createRateLimitHeaders } from '../../lib/security/rate-limit';
+import { getChannelInfo, getTelegramPostFallbackInfo, type ChannelInfo } from '../../lib/telegram';
 
 export const prerender = false;
 
-const CURSOR_PATTERN = /^\d{1,20}$/;
-
-function isValidCursor(value: string): boolean {
-  return !value || CURSOR_PATTERN.test(value);
-}
-
-function readEnv(locals: any, name: string): string {
-  const buildValue = import.meta.env[name];
-  if (typeof buildValue === 'string' && buildValue.trim()) {
-    return buildValue;
-  }
-
-  const runtimeValue = locals?.runtime?.env?.[name] ?? locals?.env?.[name];
-  if (typeof runtimeValue === 'string') {
-    return runtimeValue;
-  }
-
-  return '';
-}
-
 function getHdImageOrigin(locals: any): string {
-  const hdImageUrl = readEnv(locals, 'PUBLIC_HD_IMAGE_URL');
+  const hdImageUrl = readPublicEnv(locals, 'HD_IMAGE_URL');
   if (!hdImageUrl) return '';
 
   try {
@@ -50,7 +47,7 @@ function getHdImageOrigin(locals: any): string {
 }
 
 function getHdImageBase(locals: any): string {
-  return readEnv(locals, 'PUBLIC_HD_IMAGE_URL').replace(/\/+$/, '');
+  return readPublicEnv(locals, 'HD_IMAGE_URL').replace(/\/+$/, '');
 }
 
 function toChannelAvatarUrl(avatar: string, locals: any): string {
@@ -106,11 +103,11 @@ function buildPlainPreviewHtml(text: string): string {
 
 export const GET: APIRoute = async ({ request, locals }) => {
   const url = new URL(request.url);
-  const before = url.searchParams.get('before') ?? '';
-  const after = url.searchParams.get('after') ?? '';
-  const isProbe = url.searchParams.get('probe') === '1';
-  const skipCache = url.searchParams.get('fresh') === '1';
-  const rateLimit = checkRateLimit(
+  const before = readCursorQuery(url, 'before');
+  const after = readCursorQuery(url, 'after');
+  const isProbe = readBooleanFlag(url, 'probe');
+  const skipCache = readBooleanFlag(url, 'fresh');
+  const rateLimit = withRateLimit(
     request,
     isProbe
       ? { windowMs: 60_000, max: 90, prefix: 'api:moods:probe' }
@@ -119,26 +116,13 @@ export const GET: APIRoute = async ({ request, locals }) => {
         : { windowMs: 60_000, max: 180, prefix: 'api:moods' },
     locals
   );
-  const rateLimitHeaders = createRateLimitHeaders(rateLimit);
 
   if (!rateLimit.allowed) {
-    return new Response(JSON.stringify({ error: 'Too Many Requests' }), {
-      status: 429,
-      headers: {
-        'Content-Type': 'application/json',
-        ...Object.fromEntries(rateLimitHeaders),
-      },
-    });
+    return jsonTooManyRequests(rateLimit.headers);
   }
 
   if (!isValidCursor(before) || !isValidCursor(after)) {
-    return new Response(JSON.stringify({ error: 'Invalid cursor parameter' }), {
-      status: 400,
-      headers: {
-        'Content-Type': 'application/json',
-        ...Object.fromEntries(rateLimitHeaders),
-      },
-    });
+    return jsonBadRequest('Invalid cursor parameter', rateLimit.headers);
   }
 
   if (isE2ESiteFixtureEnabled(locals)) {
@@ -146,21 +130,15 @@ export const GET: APIRoute = async ({ request, locals }) => {
     const sortedPosts = [...fixture.posts].sort((a, b) => getNumericId(b.id) - getNumericId(a.id));
 
     if (isProbe) {
-      return new Response(
-        JSON.stringify({
-          latestId: sortedPosts[0]?.id ?? '',
-        }),
-        {
-          headers: {
-            'Content-Type': 'application/json',
-            'Cache-Control': 'no-store, max-age=0',
-            ...Object.fromEntries(rateLimitHeaders),
-          },
-        }
-      );
+      const headers = new Headers(rateLimit.headers);
+      headers.set('Cache-Control', 'no-store, max-age=0');
+      const body: MoodProbeResult = {
+        latestId: sortedPosts[0]?.id ?? '',
+      };
+      return jsonOk(body, headers);
     }
 
-    const payload = sortedPosts.map((post) => {
+    const payload: MoodFeedItem[] = sortedPosts.map((post) => {
       const gallery = getMoodGallery(post.content);
       const leadItem = gallery?.items[0] ?? null;
       const imageMeta = getFirstImageMeta(post.content);
@@ -185,7 +163,9 @@ export const GET: APIRoute = async ({ request, locals }) => {
       };
     });
 
-    return new Response(JSON.stringify({
+    const headers = new Headers(rateLimit.headers);
+    headers.set('Cache-Control', skipCache ? 'no-store, max-age=0' : 'public, max-age=0');
+    const body: MoodFeedResponse = {
       posts: payload,
       channel: {
         slug: 'e2e',
@@ -195,17 +175,13 @@ export const GET: APIRoute = async ({ request, locals }) => {
         description: fixture.description,
         descriptionHTML: fixture.descriptionHTML,
       },
-    }), {
-      headers: {
-        'Content-Type': 'application/json',
-        'Cache-Control': skipCache ? 'no-store, max-age=0' : 'public, max-age=0',
-        ...Object.fromEntries(rateLimitHeaders),
-      },
-    });
+    };
+
+    return jsonOk(body, headers);
   }
 
-  const channel = import.meta.env.CHANNEL || locals?.runtime?.env?.CHANNEL || '';
-  const channelEmojiId = import.meta.env.CHANNEL_EMOJI_ID || locals?.env?.CHANNEL_EMOJI_ID || '';
+  const channel = readEnv(locals, 'CHANNEL');
+  const channelEmojiId = readEnv(locals, 'CHANNEL_EMOJI_ID');
   const hdImageBase = getHdImageBase(locals);
 
   try {
@@ -221,21 +197,15 @@ export const GET: APIRoute = async ({ request, locals }) => {
     const channelTitle = channelInfo.title?.trim() ?? '';
 
     if (isProbe) {
-      return new Response(
-        JSON.stringify({
-          latestId: sortedPosts[0]?.id ?? '',
-        }),
-        {
-          headers: {
-            'Content-Type': 'application/json',
-            'Cache-Control': 'no-store, max-age=0',
-            ...Object.fromEntries(rateLimitHeaders),
-          },
-        }
-      );
+      const headers = new Headers(rateLimit.headers);
+      headers.set('Cache-Control', 'no-store, max-age=0');
+      const body: MoodProbeResult = {
+        latestId: sortedPosts[0]?.id ?? '',
+      };
+      return jsonOk(body, headers);
     }
 
-    const payload = await Promise.all(sortedPosts.map(async (post) => {
+    const payload: MoodFeedItem[] = await Promise.all(sortedPosts.map(async (post) => {
       const mediaPreview = getInlineMediaPreview(post.content);
       const tooBigVideo = hasTooBigVideo(post.content);
       let previewText = getTextPreview(post);
@@ -244,7 +214,7 @@ export const GET: APIRoute = async ({ request, locals }) => {
       const leadItem = gallery?.items[0] ?? null;
       const imageMeta = getFirstImageMeta(post.content);
       const rawQuote = getQuotePreview(post.content, { channel, channelTitle, hdImageBase });
-      let quote = rawQuote ? { ...rawQuote } : null;
+      const quote = rawQuote ? { ...rawQuote } : null;
       const hasDetailMedia = hasMedia(post.content) || hasEmojiImageMedia(post.content);
       const isUnsupportedFallbackImage = post.content.includes('image-preview-wrap--fallback');
 
@@ -285,20 +255,21 @@ export const GET: APIRoute = async ({ request, locals }) => {
         needsDetailPage,
         forwardedFrom: post.forwardedFrom ?? null,
         quote: quote ?? null,
-        reactions: post.reactions?.map((r) => ({
-          emoji: r.emoji,
-          emojiId: r.emojiId,
-          emojiImage: r.emojiImage,
-          count: r.count,
-          isPaid: r.isPaid,
+        reactions: post.reactions?.map((reaction) => ({
+          emoji: reaction.emoji,
+          emojiId: reaction.emojiId,
+          emojiImage: reaction.emojiImage,
+          count: reaction.count,
+          isPaid: reaction.isPaid,
         })) ?? [],
         commentsCount: post.commentsCount ?? 0,
       };
     }));
 
     const avatarUrl = toChannelAvatarUrl(channelInfo.avatar || '', locals);
-
-    return new Response(JSON.stringify({
+    const headers = new Headers(rateLimit.headers);
+    headers.set('Cache-Control', skipCache ? 'no-store, max-age=0' : 'public, max-age=0');
+    const body: MoodFeedResponse = {
       posts: payload,
       channel: {
         slug: channel || undefined,
@@ -309,21 +280,11 @@ export const GET: APIRoute = async ({ request, locals }) => {
         description: channelInfo.description || undefined,
         descriptionHTML: channelInfo.descriptionHTML || undefined,
       },
-    }), {
-      headers: {
-        'Content-Type': 'application/json',
-        'Cache-Control': skipCache ? 'no-store, max-age=0' : 'public, max-age=0',
-        ...Object.fromEntries(rateLimitHeaders),
-      },
-    });
+    };
+
+    return jsonOk(body, headers);
   } catch (error) {
     console.error('Failed to fetch moods:', error);
-    return new Response(JSON.stringify({ posts: [] }), {
-      status: 500,
-      headers: {
-        'Content-Type': 'application/json',
-        ...Object.fromEntries(rateLimitHeaders),
-      },
-    });
+    return json(500, { posts: [] }, rateLimit.headers);
   }
 };

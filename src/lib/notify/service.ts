@@ -1,6 +1,7 @@
 import type { ChannelInfo, Post } from '@/lib/telegram';
 import { getChannelInfo } from '@/lib/telegram';
 import { getRelatedLinks, getTextPreviewWithMedia } from '@/lib/mood-utils';
+import { readPublicEnv } from '@/lib/runtime/env';
 import { getNotifyConfig, getNotifyFromAddress, requireConfigValue } from './env';
 import { CloudflareD1Client } from './d1';
 import {
@@ -927,22 +928,8 @@ function normalizeAbsoluteUrl(value: string | undefined, baseUrl: string): strin
   }
 }
 
-function readEnv(locals: any, name: string): string {
-  const buildValue = import.meta.env[name];
-  if (typeof buildValue === 'string' && buildValue.trim()) {
-    return buildValue;
-  }
-
-  const runtimeValue = locals?.runtime?.env?.[name] ?? locals?.env?.[name];
-  if (typeof runtimeValue === 'string') {
-    return runtimeValue;
-  }
-
-  return '';
-}
-
 function getHdImageOrigin(locals: any): string {
-  const hdImageUrl = readEnv(locals, 'PUBLIC_HD_IMAGE_URL');
+  const hdImageUrl = readPublicEnv(locals, 'HD_IMAGE_URL');
   if (!hdImageUrl) return '';
 
   try {

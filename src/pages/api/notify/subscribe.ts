@@ -1,6 +1,12 @@
 import type { APIRoute } from 'astro';
+import {
+  jsonBadRequest,
+  jsonError,
+  jsonOk,
+  jsonTooManyRequests,
+} from '@/lib/http/json-response';
+import { withRateLimit } from '@/lib/http/rate-limited';
 import { NotifyServiceError, requestMoodSubscription } from '@/lib/notify/service';
-import { checkRateLimit, createRateLimitHeaders } from '@/lib/security/rate-limit';
 import { verifyTurnstileToken } from '@/lib/security/turnstile';
 
 export const prerender = false;
@@ -16,43 +22,24 @@ interface SubscribeBody {
 }
 
 export const POST: APIRoute = async ({ request, locals }) => {
-  const rateLimit = checkRateLimit(
+  const rateLimit = withRateLimit(
     request,
     { windowMs: 10 * 60_000, max: 8, prefix: 'api:notify:subscribe' },
     locals
   );
-  const rateLimitHeaders = createRateLimitHeaders(rateLimit);
   if (!rateLimit.allowed) {
-    return new Response(JSON.stringify({ error: 'Too Many Requests' }), {
-      status: 429,
-      headers: {
-        'Content-Type': 'application/json',
-        ...Object.fromEntries(rateLimitHeaders),
-      },
-    });
+    return jsonTooManyRequests(rateLimit.headers);
   }
 
   let payload: SubscribeBody;
   try {
     payload = (await request.json()) as SubscribeBody;
   } catch {
-    return new Response(JSON.stringify({ error: 'Invalid JSON body' }), {
-      status: 400,
-      headers: {
-        'Content-Type': 'application/json',
-        ...Object.fromEntries(rateLimitHeaders),
-      },
-    });
+    return jsonBadRequest('Invalid JSON body', rateLimit.headers);
   }
 
   if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
-    return new Response(JSON.stringify({ error: 'Invalid JSON body' }), {
-      status: 400,
-      headers: {
-        'Content-Type': 'application/json',
-        ...Object.fromEntries(rateLimitHeaders),
-      },
-    });
+    return jsonBadRequest('Invalid JSON body', rateLimit.headers);
   }
 
   const turnstileToken =
@@ -70,17 +57,12 @@ export const POST: APIRoute = async ({ request, locals }) => {
   });
   if (!turnstileResult.ok) {
     const isServiceError = turnstileResult.code === 'verify_unavailable';
-    return new Response(
-      JSON.stringify({
-        error: isServiceError ? 'Turnstile verification unavailable' : 'Turnstile verification failed',
-        code: turnstileResult.code,
-      }),
+    return jsonError(
+      isServiceError ? 503 : 400,
+      isServiceError ? 'Turnstile verification unavailable' : 'Turnstile verification failed',
+      rateLimit.headers,
       {
-        status: isServiceError ? 503 : 400,
-        headers: {
-          'Content-Type': 'application/json',
-          ...Object.fromEntries(rateLimitHeaders),
-        },
+        code: turnstileResult.code,
       }
     );
   }
@@ -99,37 +81,21 @@ export const POST: APIRoute = async ({ request, locals }) => {
       }
     );
 
-    return new Response(JSON.stringify(result), {
-      headers: {
-        'Content-Type': 'application/json',
-        ...Object.fromEntries(rateLimitHeaders),
-      },
-    });
+    return jsonOk(result, rateLimit.headers);
   } catch (error) {
     if (error instanceof NotifyServiceError) {
-      return new Response(
-        JSON.stringify({
-          error: error.message,
-          code: error.code,
-        }),
+      return jsonError(
+        error.status,
+        error.message,
+        rateLimit.headers,
         {
-          status: error.status,
-          headers: {
-            'Content-Type': 'application/json',
-            ...Object.fromEntries(rateLimitHeaders),
-          },
+          code: error.code,
         }
       );
     }
 
     console.error('Subscription request failed:', error);
-    return new Response(JSON.stringify({ error: 'Internal Server Error' }), {
-      status: 500,
-      headers: {
-        'Content-Type': 'application/json',
-        ...Object.fromEntries(rateLimitHeaders),
-      },
-    });
+    return jsonError(500, 'Internal Server Error', rateLimit.headers);
   }
 };
 

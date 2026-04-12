@@ -1,6 +1,10 @@
 import type { Page } from '@playwright/test';
 import { expect, test } from './fixtures';
 
+function isIgnorableDevConsoleError(message: string): boolean {
+  return message.includes('Outdated Optimize Dep');
+}
+
 async function waitForHomeMoodState(page: Page): Promise<void> {
   await expect
     .poll(
@@ -146,7 +150,7 @@ test.describe('Home page', () => {
   test('reserves mixed home mood preview heights without runtime errors', async ({ page }) => {
     const consoleErrors: string[] = [];
     page.on('console', (message) => {
-      if (message.type() === 'error') {
+      if (message.type() === 'error' && !isIgnorableDevConsoleError(message.text())) {
         consoleErrors.push(message.text());
       }
     });

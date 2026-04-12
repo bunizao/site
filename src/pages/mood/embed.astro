@@ -1,5 +1,11 @@
 ---
 import { createE2EChannelInfo, createE2EPost, isE2ESiteFixtureEnabled } from '@/lib/e2e-fixtures';
+import {
+  readBooleanFlag,
+  readEnumQuery,
+  readIntQuery,
+} from '@/lib/http/query';
+import { readPublicEnv } from '@/lib/runtime/env';
 import { getChannelInfo } from '../../lib/telegram';
 import {
   getTextPreviewHtml,
@@ -13,21 +19,16 @@ export const prerender = false;
 const url = Astro.url;
 const theme = url.searchParams.get('theme') || 'auto';
 const idParam = url.searchParams.get('id');
-const countParam = url.searchParams.get('count');
-const count = idParam ? 1 : Math.min(10, Math.max(1, parseInt(countParam || '1', 10) || 1));
-const frameParam = url.searchParams.get('frame');
-const frame = frameParam !== 'false' && frameParam !== '0';
-const densityParam = url.searchParams.get('density');
-const density = densityParam === 'compact' ? 'compact' : 'regular';
-const fontParam = url.searchParams.get('font');
-const font = fontParam === 'system' ? 'system' : 'mono';
+const count = idParam ? 1 : Math.min(10, Math.max(1, readIntQuery(url, 'count') ?? 1));
+const frame = readBooleanFlag(url, 'frame', true);
+const density = readEnumQuery(url, 'density', ['regular', 'compact'] as const, 'regular');
+const font = readEnumQuery(url, 'font', ['mono', 'system'] as const, 'mono');
 const originParam = url.searchParams.get('origin');
-const refreshParam = url.searchParams.get('refresh');
-const refreshRaw = refreshParam ? parseInt(refreshParam, 10) : NaN;
-const refresh = Number.isFinite(refreshRaw)
+const refreshRaw = readIntQuery(url, 'refresh');
+const refresh = refreshRaw !== null
   ? Math.max(30, Math.min(3600, refreshRaw))
   : null;
-const showLink = url.searchParams.get('link') !== 'false';
+const showLink = readBooleanFlag(url, 'link', true);
 const useE2EFixture = isE2ESiteFixtureEnabled(Astro.locals);
 
 // Fetch mood data (avoid waterfalls when id is provided)
@@ -46,11 +47,7 @@ const [channelInfo, fullChannelInfo] = await Promise.all([channelInfoPromise, fu
 let posts: any[] = [];
 let channelTitle = '';
 let channelAvatar = '';
-const HD_IMAGE_URL =
-  import.meta.env.PUBLIC_HD_IMAGE_URL
-  || Astro.locals?.runtime?.env?.PUBLIC_HD_IMAGE_URL
-  || Astro.locals?.env?.PUBLIC_HD_IMAGE_URL
-  || '';
+const HD_IMAGE_URL = readPublicEnv(Astro.locals, 'HD_IMAGE_URL');
 
 let hdImageOrigin = '';
 if (HD_IMAGE_URL) {

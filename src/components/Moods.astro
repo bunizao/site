@@ -518,6 +518,8 @@ const placeholders = Array.from({ length: SKELETON_COUNT }, (_, index) => ({
 </style>
 
 <script>
+  import * as pretext from '@chenglou/pretext';
+
   // GSAP is dynamically imported to avoid blocking initial render
   const initMoodsAnimation = async () => {
     const moodsSection = document.getElementById('moods-section');
@@ -750,7 +752,7 @@ const placeholders = Array.from({ length: SKELETON_COUNT }, (_, index) => ({
       thumbnailHeight: number;
     }
 
-    type PretextModule = typeof import('@chenglou/pretext');
+    type PretextModule = typeof pretext;
 
     const MAX_PREVIEW_LINES = 2;
     const DEFAULT_VISIBLE_SKELETONS = 1;
@@ -761,7 +763,6 @@ const placeholders = Array.from({ length: SKELETON_COUNT }, (_, index) => ({
     const PRETEXT_META_GAP = 6;
     const HOME_THUMBNAIL_WIDTH = 480;
     const reservedCards = new Set<HTMLElement>();
-    let pretextModulePromise: Promise<PretextModule | null> | null = null;
     let renderedMoodSignature = '';
 
     interface MoodPreviewCacheEntry {
@@ -896,14 +897,7 @@ const placeholders = Array.from({ length: SKELETON_COUNT }, (_, index) => ({
     };
 
     const loadPretextModule = async (): Promise<PretextModule | null> => {
-      if (!pretextModulePromise) {
-        pretextModulePromise = import('@chenglou/pretext').catch((error) => {
-          debugPretextFallback('module import failed', error);
-          return null;
-        });
-      }
-
-      return pretextModulePromise;
+      return pretext;
     };
 
     const buildCanvasFontShorthand = (styles: CSSStyleDeclaration): string | null => {
