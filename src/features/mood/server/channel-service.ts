@@ -2,8 +2,8 @@ import {
   createE2EChannelInfo,
   createE2EComments,
   createE2EPost,
-  isE2ESiteFixtureEnabled,
-} from '@/lib/e2e-fixtures';
+} from '@/features/mood/server/e2e-fixtures';
+import { isE2ESiteFixtureEnabled } from '@/lib/e2e';
 import { getNumericId } from '@/lib/mood-utils';
 import { readEnv, readPublicEnv } from '@/lib/runtime/env';
 import { getChannelInfo, type ChannelInfo, type Post } from '@/lib/telegram';

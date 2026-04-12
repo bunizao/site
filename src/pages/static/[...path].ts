@@ -1,5 +1,5 @@
 import type { APIRoute } from 'astro';
-import { isE2ESiteFixtureEnabled } from '@/lib/e2e-fixtures';
+import { isE2ESiteFixtureEnabled } from '@/lib/e2e';
 import { checkRateLimit, createRateLimitHeaders } from '@/lib/security/rate-limit';
 
 export const prerender = false;

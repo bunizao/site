@@ -1,5 +1,5 @@
 import { getPostComments } from '@/lib/telegram';
-import { isE2ESiteFixtureEnabled } from '@/lib/e2e-fixtures';
+import { isE2ESiteFixtureEnabled } from '@/lib/e2e';
 import type { MoodCommentsPage } from './contracts';
 import { loadMoodCommentsFixture, type MoodServerContext } from './channel-service';
 

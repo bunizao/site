@@ -1,11 +1,12 @@
 ---
 import Layout from '../../layouts/Layout.astro';
 import dayjs from 'dayjs';
-import { createE2EPost, isE2ESiteFixtureEnabled } from '../../lib/e2e-fixtures';
+import { isE2ESiteFixtureEnabled } from '@/lib/e2e';
 import { getChannelInfo, type Post } from '../../lib/telegram';
 import '@/styles/mood-gallery.css';
 import { renderMoodContentWithGalleries } from '@/features/mood/shared/gallery';
 import DetailArticle from '@/features/mood/ui/DetailArticle.astro';
+import { createE2EPost } from '@/features/mood/server/e2e-fixtures';
 
 export const prerender = false;
 

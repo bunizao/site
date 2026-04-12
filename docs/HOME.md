@@ -19,6 +19,7 @@ The page is a thin composition layer:
 - wraps content in [`src/features/home/ui/ParallaxWrapper.astro`](../src/features/home/ui/ParallaxWrapper.astro)
 - renders sections in fixed order:
   - [`src/features/home/ui/Hero.astro`](../src/features/home/ui/Hero.astro)
+  - [`src/features/home/ui/Listening.astro`](../src/features/home/ui/Listening.astro)
   - [`src/features/home/ui/Projects.astro`](../src/features/home/ui/Projects.astro)
   - [`src/features/home/ui/Posts.astro`](../src/features/home/ui/Posts.astro)
   - [`src/features/mood/ui/HomePreview.astro`](../src/features/mood/ui/HomePreview.astro)
@@ -35,6 +36,7 @@ The hero block does not have a navbar anchor.
 Feature boundary:
 
 - home-private UI lives in [`src/features/home/ui/`](../src/features/home/ui)
+- home-private server helpers live in [`src/features/home/server/`](../src/features/home/server/)
 - shared site scaffolding remains in [`src/components/`](../src/components)
 
 ## Hero / Intro
@@ -66,8 +68,9 @@ Client behavior:
 Implementation files:
 
 - [`src/features/home/ui/Projects.astro`](../src/features/home/ui/Projects.astro)
+- [`src/features/home/server/e2e-fixtures.ts`](../src/features/home/server/e2e-fixtures.ts)
 - [`src/lib/github.ts`](../src/lib/github.ts)
-- [`src/lib/e2e-fixtures.ts`](../src/lib/e2e-fixtures.ts)
+- [`src/lib/e2e.ts`](../src/lib/e2e.ts)
 
 Data flow:
 
@@ -88,12 +91,38 @@ Client behavior:
 - Cards apply pointer-based 3D tilt.
 - Radial glare is driven by CSS variables on hover.
 
+## Listening
+
+Implementation files:
+
+- [`src/features/home/ui/Listening.astro`](../src/features/home/ui/Listening.astro)
+- [`src/features/home/server/listening.ts`](../src/features/home/server/listening.ts)
+
+Data flow:
+
+- Server-side render fetches track metadata from the public iTunes lookup endpoint.
+- The component starts from a short list of Apple Music track URLs.
+- Fetch failure falls back to bundled demo metadata so the section still renders.
+
+Rendering rules:
+
+- the first track hydrates the feature card on initial render
+- each list item carries its playback metadata in `data-*` attributes
+- Apple Music links always open in a new tab
+
+Client behavior:
+
+- clicking a list item swaps the feature card content
+- the preview button plays or pauses the selected track's preview URL with the native `Audio` API
+- selecting another track stops the current preview before switching state
+
 ## Writing
 
 Implementation files:
 
 - [`src/features/home/ui/Posts.astro`](../src/features/home/ui/Posts.astro)
-- [`src/lib/e2e-fixtures.ts`](../src/lib/e2e-fixtures.ts)
+- [`src/features/home/server/e2e-fixtures.ts`](../src/features/home/server/e2e-fixtures.ts)
+- [`src/lib/e2e.ts`](../src/lib/e2e.ts)
 
 Data flow:
 

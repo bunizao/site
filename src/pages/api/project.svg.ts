@@ -1,5 +1,5 @@
 import type { APIRoute } from 'astro';
-import { isE2ESiteFixtureEnabled } from '@/lib/e2e-fixtures';
+import { isE2ESiteFixtureEnabled } from '@/lib/e2e';
 import { fetchGitHubRepo } from '../../lib/github';
 import { svgResponse } from '../../lib/svg-response';
 
