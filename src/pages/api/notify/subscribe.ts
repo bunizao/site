@@ -6,7 +6,7 @@ import {
   jsonTooManyRequests,
 } from '@/lib/http/json-response';
 import { withRateLimit } from '@/lib/http/rate-limited';
-import { NotifyServiceError, requestMoodSubscription } from '@/lib/notify/service';
+import { NotifyServiceError, requestMoodSubscription } from '@/features/notify/server/service';
 import { verifyTurnstileToken } from '@/lib/security/turnstile';
 
 export const prerender = false;

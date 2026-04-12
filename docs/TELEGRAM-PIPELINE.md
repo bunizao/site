@@ -97,7 +97,7 @@ Responsibilities:
 
 Files:
 
-- [`src/lib/notify/service.ts`](../src/lib/notify/service.ts)
+- [`src/features/notify/server/service.ts`](../src/features/notify/server/service.ts)
 - [`docs/EMAIL-NOTIFY.md`](./EMAIL-NOTIFY.md)
 
 Responsibilities:

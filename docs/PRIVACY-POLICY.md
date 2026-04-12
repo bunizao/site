@@ -86,9 +86,9 @@ Covered implementation:
 
 Supporting infrastructure:
 
-- subscriber state and delivery records live in Cloudflare D1 through [`src/lib/notify/d1.ts`](../src/lib/notify/d1.ts)
-- email delivery is handled through Resend in [`src/lib/notify/resend.ts`](../src/lib/notify/resend.ts)
-- token creation and verification live in [`src/lib/notify/security.ts`](../src/lib/notify/security.ts)
+- subscriber state and delivery records live in Cloudflare D1 through [`src/features/notify/server/d1.ts`](../src/features/notify/server/d1.ts)
+- email delivery is handled through Resend in [`src/features/notify/server/resend.ts`](../src/features/notify/server/resend.ts)
+- token creation and verification live in [`src/features/notify/server/security.ts`](../src/features/notify/server/security.ts)
 
 ### Cloudflare Anti-Abuse and Infrastructure
 

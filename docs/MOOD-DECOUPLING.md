@@ -100,7 +100,7 @@ The same feature data is also reshaped independently in:
 - [`src/pages/mood/embed.astro`](../src/pages/mood/embed.astro)
 - [`src/pages/mood/rss.xml.ts`](../src/pages/mood/rss.xml.ts)
 - [`src/pages/api/notify/preview.ts`](../src/pages/api/notify/preview.ts)
-- [`src/lib/notify/service.ts`](../src/lib/notify/service.ts)
+- [`src/features/notify/server/service.ts`](../src/features/notify/server/service.ts)
 
 ## Design Principles
 
@@ -374,7 +374,7 @@ Current duplication exists in:
 
 - [`src/pages/api/moods.ts`](../src/pages/api/moods.ts)
 - [`src/pages/mood/embed.astro`](../src/pages/mood/embed.astro)
-- [`src/lib/notify/service.ts`](../src/lib/notify/service.ts)
+- [`src/features/notify/server/service.ts`](../src/features/notify/server/service.ts)
 
 ## `src/lib/http/json-response.ts`
 

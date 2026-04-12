@@ -1,7 +1,7 @@
 import type { APIRoute } from 'astro';
-import { confirmMoodSubscription, NotifyServiceError } from '@/lib/notify/service';
+import { confirmMoodSubscription, NotifyServiceError } from '@/features/notify/server/service';
 import { checkRateLimit, createRateLimitHeaders } from '@/lib/security/rate-limit';
-import { renderNotifyPage } from '@/lib/notify/page-template';
+import { renderNotifyPage } from '@/features/notify/server/page-template';
 
 export const prerender = false;
 

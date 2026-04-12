@@ -1,11 +1,11 @@
 import type { APIRoute } from 'astro';
-import { getNotifyConfig } from '@/lib/notify/env';
+import { getNotifyConfig } from '@/features/notify/server/env';
 import {
   dispatchMoodNotification,
   isAuthorizedSecret,
   NotifyServiceError,
-} from '@/lib/notify/service';
-import type { DeliveryMode } from '@/lib/notify/types';
+} from '@/features/notify/server/service';
+import type { DeliveryMode } from '@/features/notify/server/types';
 import { checkRateLimit, createRateLimitHeaders } from '@/lib/security/rate-limit';
 
 export const prerender = false;

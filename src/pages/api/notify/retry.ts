@@ -1,10 +1,10 @@
 import type { APIRoute } from 'astro';
-import { getNotifyConfig } from '@/lib/notify/env';
+import { getNotifyConfig } from '@/features/notify/server/env';
 import {
   isAuthorizedSecret,
   NotifyServiceError,
   processNotifyRetries,
-} from '@/lib/notify/service';
+} from '@/features/notify/server/service';
 import { checkRateLimit, createRateLimitHeaders } from '@/lib/security/rate-limit';
 
 export const prerender = false;

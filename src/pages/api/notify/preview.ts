@@ -5,7 +5,7 @@ import {
   buildMoodDigestEmail,
   buildMoodNotificationEmail,
   buildSubscribeConfirmEmail,
-} from '@/lib/notify/templates';
+} from '@/features/notify/server/templates';
 import { readPublicEnv } from '@/lib/runtime/env';
 import {
   loadMoodChannelSnapshot,
