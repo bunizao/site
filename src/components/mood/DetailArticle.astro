@@ -196,21 +196,6 @@ const {
       gap: 6px;
     }
 
-    .mood-reaction {
-      padding: 5px 10px 5px 8px;
-      font-size: 11px;
-      gap: 3px;
-      min-height: 28px;
-    }
-
-    .mood-reaction-emoji {
-      font-size: 12px;
-    }
-
-    .mood-reaction-count {
-      font-size: 10px;
-    }
-
     .mood-post-content :global(.image-list-container) {
       margin: 1.25em 0;
       gap: 6px;
@@ -335,12 +320,6 @@ const {
     .mood-post-content {
       font-size: 14px;
       line-height: 1.55;
-    }
-
-    .mood-reaction {
-      padding: 4px 8px 4px 6px;
-      font-size: 10px;
-      min-height: 26px;
     }
 
     .mood-post-reactions {
@@ -486,81 +465,6 @@ const {
       margin-top: 32px;
       padding-top: 0;
     }
-  }
-
-  .mood-post-reactions .mood-reaction {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    padding: 4px 10px 4px 8px;
-    font-size: 11px;
-    background: hsl(var(--foreground) / 0.06);
-    border-radius: 999px;
-    color: hsl(var(--muted-foreground));
-    transition: all 0.15s ease;
-    border: 1px solid transparent;
-  }
-
-  .mood-post-reactions .mood-reaction:hover {
-    background: hsl(var(--foreground) / 0.1);
-    border-color: hsl(var(--foreground) / 0.12);
-    transform: translateY(-1px);
-  }
-
-  .mood-post-reactions .mood-reaction--paid {
-    background: hsl(45 100% 50% / 0.08);
-    color: hsl(45 70% 40%);
-  }
-
-  .mood-post-reactions .mood-reaction--paid:hover {
-    background: hsl(45 100% 50% / 0.12);
-    border-color: hsl(45 100% 50% / 0.2);
-  }
-
-  .mood-post-reactions .mood-reaction-emoji {
-    display: inline-flex;
-    align-items: center;
-    font-size: 13px;
-    line-height: 1;
-  }
-
-  .mood-post-reactions .mood-reaction-emoji img {
-    width: 1em;
-    height: 1em;
-    display: block;
-  }
-
-  .mood-post-reactions .tg-emoji {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 1.15em;
-    height: 1.15em;
-    vertical-align: -0.15em;
-  }
-
-  .mood-post-reactions .tg-emoji img {
-    width: 100%;
-    height: 100%;
-    display: block;
-  }
-
-  .mood-post-reactions .tg-emoji[data-emoji-animated='true'] img {
-    display: none;
-  }
-
-  .mood-post-reactions :global(.tg-emoji-anim),
-  .mood-post-reactions :global(.tg-emoji-anim svg) {
-    width: 100%;
-    height: 100%;
-    display: block;
-  }
-
-  .mood-post-reactions .mood-reaction-count {
-    font-size: 11px;
-    font-weight: 500;
-    font-variant-numeric: tabular-nums;
-    opacity: 0.8;
   }
 
   .mood-post-content {

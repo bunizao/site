@@ -2,6 +2,13 @@ import type { ChannelInfo, Post } from './telegram';
 
 const DEFAULT_MOOD_ID = '990001';
 const MULTI_IMAGE_MOOD_ID = '990777';
+const E2E_REACTIONS = [
+  {
+    emoji: '👍',
+    count: '4',
+    isPaid: false,
+  },
+];
 
 function createE2EMultiImageContent(id: string): string {
   return [
@@ -87,7 +94,7 @@ export function createE2EPost(id = DEFAULT_MOOD_ID): Post {
       tags: ['e2e'],
       text: 'E2E multi-image mood',
       content: createE2EMultiImageContent(id),
-      reactions: [],
+      reactions: E2E_REACTIONS,
       commentsCount: 1,
     };
   }
@@ -100,7 +107,7 @@ export function createE2EPost(id = DEFAULT_MOOD_ID): Post {
     tags: ['e2e'],
     text: `E2E fallback mood ${id}`,
     content: `<p>E2E fallback mood ${id}</p>`,
-    reactions: [],
+    reactions: E2E_REACTIONS,
     commentsCount: 1,
   };
 }

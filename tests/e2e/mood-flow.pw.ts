@@ -684,6 +684,33 @@ test.describe('Mood routes', () => {
     expect(await track.getAttribute('data-mood-gallery-layout')).toBe('justified');
   });
 
+  test('keeps detail reactions visually stable on hover', async ({ page }) => {
+    await page.goto('/mood/990777', { waitUntil: 'domcontentloaded' });
+
+    const reaction = page.locator('.mood-post-reactions .mood-reaction').first();
+    await expect(reaction).toBeVisible();
+
+    const readReactionStyle = async () => {
+      return reaction.evaluate((element) => {
+        const style = getComputedStyle(element);
+        return {
+          background: style.backgroundColor,
+          border: style.borderColor,
+          transform: style.transform,
+        };
+      });
+    };
+
+    const before = await readReactionStyle();
+    await reaction.hover();
+    await page.waitForTimeout(200);
+    const after = await readReactionStyle();
+
+    expect(after.background).toBe(before.background);
+    expect(after.border).toBe(before.border);
+    expect(after.transform).toBe(before.transform);
+  });
+
   test('redirects /mood/:id?embed=1 to the embed endpoint with expected params', async ({ page }) => {
     const moodId = '12345';
 

@@ -577,13 +577,44 @@
   .mood-reaction-emoji {
     display: inline-flex;
     align-items: center;
+    justify-content: center;
     font-size: 14px;
     line-height: 1;
+    width: 1.15em;
+    height: 1.15em;
+    overflow: hidden;
   }
 
   .mood-reaction-emoji img {
     width: 1em;
     height: 1em;
+    display: block;
+  }
+
+  .mood-reaction-emoji .tg-emoji {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    vertical-align: -0.15em;
+  }
+
+  .mood-reaction-emoji .tg-emoji img {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+
+  .mood-reaction-emoji .tg-emoji[data-emoji-animated='true'] img {
+    display: none;
+  }
+
+  .mood-reaction-emoji .tg-emoji-anim,
+  .mood-reaction-emoji .tg-emoji-anim svg {
+    width: 100%;
+    height: 100%;
     display: block;
   }
 
