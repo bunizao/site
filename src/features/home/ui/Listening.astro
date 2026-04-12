@@ -152,21 +152,21 @@ const initialTrack = tracks[0] ?? null;
   }
 
   .listening-feature-top {
-    display: flex;
-    justify-content: space-between;
-    gap: 12px;
-    align-items: flex-start;
+    display: grid;
+    gap: 10px;
   }
 
   .listening-feature-text {
     min-width: 0;
+    width: 100%;
   }
 
   .listening-title {
     font-size: 22px;
     font-weight: 600;
     line-height: 1.15;
-    word-break: break-word;
+    word-break: normal;
+    overflow-wrap: anywhere;
   }
 
   .listening-artist {
@@ -179,6 +179,7 @@ const initialTrack = tracks[0] ?? null;
     display: inline-flex;
     align-items: center;
     gap: 8px;
+    align-self: flex-start;
     flex-shrink: 0;
     min-height: 40px;
     padding: 0 12px;
@@ -240,6 +241,7 @@ const initialTrack = tracks[0] ?? null;
   .listening-collection {
     font-size: 13px;
     color: hsl(var(--foreground) / 0.72);
+    overflow-wrap: anywhere;
   }
 
   .listening-list {
