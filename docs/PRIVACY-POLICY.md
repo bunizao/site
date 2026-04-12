@@ -103,8 +103,8 @@ Covered implementation:
 
 Covered implementation:
 
-- Ghost is used for writing links in [`src/components/Posts.astro`](../src/components/Posts.astro)
-- GitHub is used for project data in [`src/components/Projects.astro`](../src/components/Projects.astro) and [`src/lib/github.ts`](../src/lib/github.ts)
+- Ghost is used for writing links in [`src/features/home/ui/Posts.astro`](../src/features/home/ui/Posts.astro)
+- GitHub is used for project data in [`src/features/home/ui/Projects.astro`](../src/features/home/ui/Projects.astro) and [`src/lib/github.ts`](../src/lib/github.ts)
 - Telegram-derived content is parsed in [`src/lib/telegram.ts`](../src/lib/telegram.ts)
 
 ## Why the Policy Is Markdown-Backed

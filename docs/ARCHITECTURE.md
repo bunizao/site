@@ -15,7 +15,7 @@
 - **`src/pages/`** — File-based routing. Includes `index.astro` (home), `mood.astro` (feed), `mood/[id].astro` (detail), `mood/embed.astro` (embeddable widget)
 - **`src/pages/api/`** — Server endpoints (moods, comments, SVG generators, oEmbed, notify endpoints, legacy telegram webhook fallback)
 - **`src/components/`** — Site-wide shared Astro (`.astro`) and React (`.tsx`) components. `ui/` follows shadcn/ui patterns
-- **`src/features/`** — Feature-private code. `src/features/mood/` contains mood-specific client controllers, server services, shared helpers, and private Astro UI shells in `ui/`. `src/features/notify/server/` contains notify delivery, subscription, token, email, and D1 persistence logic.
+- **`src/features/`** — Feature-private code. `src/features/home/ui/` contains home-route sections and their private UI helpers. `src/features/mood/` contains mood-specific client controllers, server services, shared helpers, and private Astro UI shells in `ui/`. `src/features/notify/server/` contains notify delivery, subscription, token, email, and D1 persistence logic.
 - **`src/lib/`** — Shared utilities: `github.ts` (GitHub API), `telegram.ts` (Telegram integration), `mood-utils.ts` (mood data processing), `svg-response.ts` (SVG endpoint helpers), `embed-response.ts` (oEmbed helpers), `utils.ts` (cn/clsx utility)
 - **`src/layouts/`** — `Layout.astro` base layout with meta tags, theme toggle, analytics
 - **`src/styles/`** — `globals.css` with Tailwind directives, CSS variable color system (HSL), JetBrains Mono font
@@ -34,9 +34,9 @@
 
 ## Data Sources
 
-1. **Ghost CMS** (`Posts.astro`) — Blog posts via Ghost Content API
-2. **GitHub API** (`Projects.astro`, `src/lib/github.ts`) — Repository data and stars via GraphQL
-3. **GitHub Contributions** (`GitHubContributions.astro`) — Contribution graph from external API
+1. **Ghost CMS** (`src/features/home/ui/Posts.astro`) — Blog posts via Ghost Content API
+2. **GitHub API** (`src/features/home/ui/Projects.astro`, `src/lib/github.ts`) — Repository data and stars via GraphQL
+3. **GitHub Contributions** (`src/features/home/ui/GitHubContributions.astro`) — Contribution graph from external API
 4. **Telegram/BroadcastChannel** — Mood posts sourced from Telegram channel, with webhook ingress on Cloudflare Worker and content parsing in the site app
 
 ## API Endpoints

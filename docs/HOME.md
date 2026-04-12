@@ -18,11 +18,11 @@ The page is a thin composition layer:
 - mounts [`src/layouts/Layout.astro`](../src/layouts/Layout.astro)
 - wraps content in [`src/components/ParallaxWrapper.astro`](../src/components/ParallaxWrapper.astro)
 - renders sections in fixed order:
-  - [`src/components/Hero.astro`](../src/components/Hero.astro)
-  - [`src/components/Projects.astro`](../src/components/Projects.astro)
-  - [`src/components/Posts.astro`](../src/components/Posts.astro)
+  - [`src/features/home/ui/Hero.astro`](../src/features/home/ui/Hero.astro)
+  - [`src/features/home/ui/Projects.astro`](../src/features/home/ui/Projects.astro)
+  - [`src/features/home/ui/Posts.astro`](../src/features/home/ui/Posts.astro)
   - [`src/features/mood/ui/HomePreview.astro`](../src/features/mood/ui/HomePreview.astro)
-  - [`src/components/Footer.astro`](../src/components/Footer.astro)
+  - [`src/features/home/ui/Footer.astro`](../src/features/home/ui/Footer.astro)
 
 Section anchors are owned by the shared layout navbar:
 
@@ -32,14 +32,19 @@ Section anchors are owned by the shared layout navbar:
 
 The hero block does not have a navbar anchor.
 
+Feature boundary:
+
+- home-private UI lives in [`src/features/home/ui/`](../src/features/home/ui)
+- shared site scaffolding remains in [`src/components/`](../src/components)
+
 ## Hero / Intro
 
 Implementation files:
 
-- [`src/components/Hero.astro`](../src/components/Hero.astro)
-- [`src/components/Typewriter.astro`](../src/components/Typewriter.astro)
-- [`src/components/GitHubContributions.astro`](../src/components/GitHubContributions.astro)
-- [`src/components/TechMarquee.astro`](../src/components/TechMarquee.astro)
+- [`src/features/home/ui/Hero.astro`](../src/features/home/ui/Hero.astro)
+- [`src/features/home/ui/Typewriter.astro`](../src/features/home/ui/Typewriter.astro)
+- [`src/features/home/ui/GitHubContributions.astro`](../src/features/home/ui/GitHubContributions.astro)
+- [`src/features/home/ui/TechMarquee.astro`](../src/features/home/ui/TechMarquee.astro)
 
 Implementation shape:
 
@@ -60,7 +65,7 @@ Client behavior:
 
 Implementation files:
 
-- [`src/components/Projects.astro`](../src/components/Projects.astro)
+- [`src/features/home/ui/Projects.astro`](../src/features/home/ui/Projects.astro)
 - [`src/lib/github.ts`](../src/lib/github.ts)
 - [`src/lib/e2e-fixtures.ts`](../src/lib/e2e-fixtures.ts)
 
@@ -87,7 +92,7 @@ Client behavior:
 
 Implementation files:
 
-- [`src/components/Posts.astro`](../src/components/Posts.astro)
+- [`src/features/home/ui/Posts.astro`](../src/features/home/ui/Posts.astro)
 - [`src/lib/e2e-fixtures.ts`](../src/lib/e2e-fixtures.ts)
 
 Data flow:
