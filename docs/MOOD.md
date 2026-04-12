@@ -128,7 +128,7 @@ Implementation files:
 
 - [`src/pages/api/comments.ts`](../src/pages/api/comments.ts)
 - [`src/lib/telegram.ts`](../src/lib/telegram.ts)
-- [`src/lib/comment-content.ts`](../src/lib/comment-content.ts)
+- [`src/features/mood/shared/comments.ts`](../src/features/mood/shared/comments.ts)
 
 Data flow:
 

@@ -286,7 +286,7 @@ Expected responsibilities:
 - comment DOM fragment helpers
 - comment date formatting helpers if shared
 
-This should align with the existing behavior in [`src/lib/comment-content.ts`](../src/lib/comment-content.ts).
+This should align with the existing behavior in [`src/features/mood/shared/comments.ts`](../src/features/mood/shared/comments.ts).
 
 ### `src/features/mood/client/animated-emoji.ts`
 

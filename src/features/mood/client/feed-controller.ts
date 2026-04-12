@@ -1,5 +1,5 @@
 import gsap from 'gsap';
-import { asText, buildCommentContentFragment, sanitizeImageUrl } from '@/lib/comment-content';
+import { asText, buildCommentContentFragment, sanitizeImageUrl } from '@/features/mood/shared/comments';
 import { createAnimatedEmojiManager } from '@/features/mood/client/animated-emoji';
 import { createMoodGalleryElement, initMoodGalleries } from '@/features/mood/client/gallery';
 import { buildMoodPreviewFragment } from '@/features/mood/shared/preview';

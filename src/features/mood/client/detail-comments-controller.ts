@@ -2,7 +2,7 @@ import {
   asText,
   buildCommentContentFragment,
   sanitizeImageUrl,
-} from '@/lib/comment-content';
+} from '@/features/mood/shared/comments';
 
 interface CommentReactionData {
   emoji?: string;
