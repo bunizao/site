@@ -72,6 +72,7 @@ const renderedPostContent = post ? renderMoodContentWithGalleries(post.content) 
   import {
     replaceReplyNodesWithCommentQuotes,
   } from '@/lib/comment-content';
+  import { createAnimatedEmojiManager } from '@/features/mood/client/animated-emoji';
   import { initMoodDetailComments } from '@/features/mood/client/detail-comments-controller';
   import { initMoodGalleries } from '@/features/mood/client/gallery';
 
@@ -107,126 +108,6 @@ const renderedPostContent = post ? renderMoodContentWithGalleries(post.content) 
     });
   }
 
-  const createAnimatedEmojiManager = () => {
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-      return {
-        hydrate: (_root?: ParentNode) => {},
-      };
-    }
-
-    const scriptCache = new Map<string, Promise<void>>();
-    const emojiCache = new Map<string, Promise<any | null>>();
-    const lottieSrc = 'https://cdn.jsdelivr.net/npm/lottie-web@5.12.2/build/player/lottie.min.js';
-    const pakoSrc = 'https://cdn.jsdelivr.net/npm/pako@2.1.0/dist/pako.min.js';
-
-    const loadScript = (src: string): Promise<void> => {
-      if (scriptCache.has(src)) {
-        return scriptCache.get(src) as Promise<void>;
-      }
-
-      const promise = new Promise<void>((resolve, reject) => {
-        const existing = document.querySelector(`script[src="${src}"]`) as HTMLScriptElement | null;
-        if (existing) {
-          if (existing.dataset.loaded === 'true') {
-            resolve();
-            return;
-          }
-          existing.addEventListener('load', () => resolve(), { once: true });
-          existing.addEventListener('error', () => reject(new Error(`Failed to load ${src}`)), { once: true });
-          return;
-        }
-
-        const script = document.createElement('script');
-        script.src = src;
-        script.async = true;
-        script.dataset.loaded = 'false';
-        script.onload = () => {
-          script.dataset.loaded = 'true';
-          resolve();
-        };
-        script.onerror = () => reject(new Error(`Failed to load ${src}`));
-        document.head.appendChild(script);
-      });
-
-      scriptCache.set(src, promise);
-      return promise;
-    };
-
-    const ensureLibs = (): Promise<void> =>
-      Promise.all([loadScript(lottieSrc), loadScript(pakoSrc)]).then(() => undefined);
-
-    const getAnimationData = (emojiId: string): Promise<any | null> => {
-      if (emojiCache.has(emojiId)) {
-        return emojiCache.get(emojiId) as Promise<any | null>;
-      }
-
-      const promise = (async () => {
-        const metaResponse = await fetch(`/static/https://t.me/i/emoji/${emojiId}.json`, { cache: 'no-store' });
-        if (!metaResponse.ok) return null;
-        const meta = await metaResponse.json() as { emoji?: string };
-        const emojiUrl = meta?.emoji;
-        if (!emojiUrl) return null;
-        const proxied = emojiUrl.startsWith('http') ? `/static/${emojiUrl}` : emojiUrl;
-        const tgsResponse = await fetch(proxied);
-        if (!tgsResponse.ok) return null;
-        const buffer = await tgsResponse.arrayBuffer();
-        const pako = (window as any).pako;
-        if (!pako) return null;
-        const bytes = new Uint8Array(buffer);
-        const jsonText = new TextDecoder('utf-8').decode(pako.ungzip(bytes));
-        return JSON.parse(jsonText);
-      })().catch(() => null);
-
-      emojiCache.set(emojiId, promise);
-      return promise;
-    };
-
-    const hydrate = async (root: ParentNode = document): Promise<void> => {
-      const nodes = Array.from(root.querySelectorAll('[data-emoji-id]')).filter((node) => {
-        return node instanceof HTMLElement && !node.dataset.emojiAnimated;
-      }) as HTMLElement[];
-
-      if (!nodes.length) return;
-
-      try {
-        await ensureLibs();
-      } catch {
-        return;
-      }
-      const lottie = (window as any).lottie;
-      if (!lottie) return;
-
-      await Promise.all(
-        nodes.map(async (node) => {
-          const emojiId = node.dataset.emojiId;
-          if (!emojiId) return;
-          node.dataset.emojiAnimated = 'pending';
-          const animationData = await getAnimationData(emojiId);
-          if (!animationData) {
-            node.dataset.emojiAnimated = 'false';
-            return;
-          }
-          node.dataset.emojiAnimated = 'true';
-          const container = document.createElement('span');
-          container.className = 'tg-emoji-anim';
-          node.appendChild(container);
-          lottie.loadAnimation({
-            container,
-            renderer: 'svg',
-            loop: true,
-            autoplay: true,
-            animationData,
-            rendererSettings: {
-              preserveAspectRatio: 'xMidYMid meet',
-            },
-          });
-        })
-      );
-    };
-
-    return { hydrate };
-  };
-
   const moodPostContent = document.querySelector('.mood-post-content');
   if (moodPostContent instanceof HTMLElement) {
     replaceReplyNodesWithCommentQuotes(moodPostContent);
@@ -234,7 +115,7 @@ const renderedPostContent = post ? renderMoodContentWithGalleries(post.content) 
   }
 
   const animatedEmoji = createAnimatedEmojiManager();
-  animatedEmoji.hydrate(document);
+  void animatedEmoji.hydrate(document);
 
   const ALWAYS_LOADING = import.meta.env.PUBLIC_DEBUG_ALWAYS_LOADING === 'true';
   void initMoodDetailComments({
