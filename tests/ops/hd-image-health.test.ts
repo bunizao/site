@@ -35,12 +35,17 @@ function getProbeTimeoutMs(): number {
   return parsed;
 }
 
-async function fetchMoodPage(siteUrl: string): Promise<MoodApiResponse> {
+function getHealthTestTimeoutMs(): number {
+  return Math.max(15_000, getProbeTimeoutMs() * 2 + 3_000);
+}
+
+async function fetchMoodPage(siteUrl: string, timeoutMs: number): Promise<MoodApiResponse> {
   const response = await fetch(`${siteUrl}/api/moods`, {
     headers: {
       Accept: 'application/json',
       'Cache-Control': 'no-cache',
     },
+    signal: AbortSignal.timeout(timeoutMs),
   });
 
   expect(response.ok).toBe(true);
@@ -73,7 +78,7 @@ describe('hd image health', () => {
   test('latest mood image URLs are readable', async () => {
     const siteUrl = getSiteUrl();
     const timeoutMs = getProbeTimeoutMs();
-    const payload = await fetchMoodPage(siteUrl);
+    const payload = await fetchMoodPage(siteUrl, timeoutMs);
     const imagePosts = (payload.posts ?? [])
       .filter((post): post is ImagePost => {
         return typeof post.id === 'string' && typeof post.image === 'string' && post.image.trim().length > 0;
@@ -86,7 +91,7 @@ describe('hd image health', () => {
     const failures = results.filter((result): result is string => result !== null);
 
     expect(failures).toEqual([]);
-  });
+  }, { timeout: getHealthTestTimeoutMs() });
 });
 interface ImagePost {
   id: string;
