@@ -1,6 +1,6 @@
-import gsap from 'gsap';
 import { createAnimatedEmojiManager } from '@/features/mood/client/animated-emoji';
 import { createFeedCommentsPopoverController } from '@/features/mood/client/feed-comments-popover';
+import { createFeedUpdateWatcher } from '@/features/mood/client/feed-update-watcher';
 import { createMoodGalleryElement, initMoodGalleries } from '@/features/mood/client/gallery';
 import { buildMoodPreviewFragment } from '@/features/mood/shared/preview';
 import type { MoodGallery } from '@/features/mood/shared/gallery';
@@ -10,7 +10,7 @@ export function initMoodFeedController(): void {
     const loadingEl = document.querySelector('[data-mood-loading]');
     const errorEl = document.querySelector('[data-mood-error]');
     const feedEl = document.querySelector('[data-mood-feed]');
-    const list = document.querySelector('[data-mood-list]');
+    const list = document.querySelector('[data-mood-list]') as HTMLElement | null;
     const status = document.querySelector('[data-load-status]');
     const sentinel = document.querySelector('[data-mood-sentinel]');
     const updateNoticeEl = document.querySelector('[data-mood-update-notice]') as HTMLElement | null;
@@ -29,33 +29,6 @@ export function initMoodFeedController(): void {
         let isLoading = false;
         let hasMore = true;
         let observer: IntersectionObserver;
-        let latestSeenId = '';
-        let pendingUpdateId = '';
-        let dismissedUpdateId = '';
-        let isCheckingUpdates = false;
-        let updatePollTimer = 0;
-        let autoRefreshTimer = 0;
-        let autoRefreshPending = false;
-        let updateWatcherStarted = false;
-
-        const UPDATE_POLL_INTERVAL_MS = 75_000;
-        const AUTO_REFRESH_DELAY_MS = 6_000;
-        const AUTO_REFRESH_MAX_SCROLL_Y = 120;
-        const AUTO_REFRESH_CANCEL_SCROLL_Y = 220;
-        const REFRESH_LABEL_IDLE = 'Refresh';
-        const REFRESH_LABEL_PENDING = 'Refreshing...';
-
-        // GSAP animation references for update notice
-        let noticeShowTl: gsap.core.Timeline | null = null;
-        let noticeCountdownTween: gsap.core.Tween | null = null;
-        let noticeSpinnerTween: gsap.core.Tween | null = null;
-        let noticeRefreshTl: gsap.core.Timeline | null = null;
-        let noticeReloadCall: gsap.core.Tween | null = null;
-
-        // Set initial hidden state with GSAP
-        if (updateNoticeEl) {
-          gsap.set(updateNoticeEl, { autoAlpha: 0, x: -10, display: 'none' });
-        }
 
         const inlineSkeletonConfig = {
           dateWidth: '68px',
@@ -121,6 +94,14 @@ export function initMoodFeedController(): void {
       let fallbackOldestId = '';
       let pendingDateKey: string | null = null;
       let pendingPosts: MoodData[] = [];
+      const updateWatcher = createFeedUpdateWatcher({
+        list,
+        updateNoticeEl,
+        updateNoticeTextEl,
+        updateRefreshBtn,
+        isLoading: () => isLoading,
+        getTotalCount: () => totalCount,
+      });
 
       const registerMoodId = (id?: string | null): void => {
         if (!id || moodIdSet.has(id)) return;
@@ -179,354 +160,6 @@ export function initMoodFeedController(): void {
         pendingPosts = [];
         pendingDateKey = null;
         return flushed;
-      };
-
-      const toNumericMoodId = (value: string): number => {
-        const parsed = Number.parseInt(value, 10);
-        return Number.isFinite(parsed) ? parsed : Number.NaN;
-      };
-
-      const isNewerMoodId = (nextId: string, currentId: string): boolean => {
-        if (!nextId) return false;
-        if (!currentId) return true;
-        const nextNumeric = toNumericMoodId(nextId);
-        const currentNumeric = toNumericMoodId(currentId);
-        if (!Number.isNaN(nextNumeric) && !Number.isNaN(currentNumeric)) {
-          return nextNumeric > currentNumeric;
-        }
-        return nextId > currentId;
-      };
-
-      const getNewestRenderedMoodId = (): string => {
-        const firstItem = list.querySelector('.mood-item[data-mood-id]') as HTMLElement | null;
-        return firstItem?.dataset.moodId ?? '';
-      };
-
-      const cancelAutoRefresh = (): void => {
-        autoRefreshPending = false;
-        if (autoRefreshTimer) {
-          window.clearTimeout(autoRefreshTimer);
-          autoRefreshTimer = 0;
-        }
-        if (noticeCountdownTween) {
-          noticeCountdownTween.kill();
-          noticeCountdownTween = null;
-        }
-      };
-
-      const clearRefreshMotion = (): void => {
-        noticeRefreshTl?.kill();
-        noticeRefreshTl = null;
-        noticeReloadCall?.kill();
-        noticeReloadCall = null;
-      };
-
-      const resetUpdateNoticeLayout = (): void => {
-        clearRefreshMotion();
-        if (!updateNoticeEl) return;
-
-        const progressEl = updateNoticeEl.querySelector('.mood-update-progress') as HTMLElement | null;
-        const refreshBtn = updateRefreshBtn as HTMLElement | null;
-        const refreshLabel = refreshBtn?.querySelector('.mood-update-action-label') as HTMLElement | null;
-        const refreshIcon = refreshBtn?.querySelector('.mood-update-action-icon') as HTMLElement | null;
-
-        updateNoticeEl.classList.remove('is-refreshing');
-        gsap.set(updateNoticeEl, { clearProps: 'width,gap,paddingLeft,paddingRight,x,overflow' });
-
-        if (updateNoticeTextEl) {
-          updateNoticeTextEl.style.display = '';
-          gsap.set(updateNoticeTextEl, { clearProps: 'opacity,visibility,x,maxWidth,overflow,paddingRight,position,left,top,yPercent' });
-        }
-
-        if (progressEl) {
-          progressEl.style.display = '';
-          gsap.set(progressEl, { clearProps: 'opacity,visibility' });
-        }
-
-        if (refreshBtn) {
-          refreshBtn.classList.remove('is-refreshing', 'is-hovered');
-          refreshBtn.removeAttribute('aria-disabled');
-          refreshBtn.setAttribute('aria-label', REFRESH_LABEL_IDLE);
-          gsap.set(refreshBtn, { clearProps: 'width,paddingLeft,paddingRight,gap,pointerEvents,x' });
-        }
-
-        if (refreshLabel) {
-          refreshLabel.textContent = REFRESH_LABEL_IDLE;
-          gsap.set(refreshLabel, { clearProps: 'maxWidth,opacity' });
-        }
-
-        if (refreshIcon) {
-          gsap.set(refreshIcon, { clearProps: 'rotation' });
-        }
-      };
-
-      const triggerPageRefresh = (): void => {
-        cancelAutoRefresh();
-        clearRefreshMotion();
-        if (!updateNoticeEl) {
-          setTimeout(() => window.location.reload(), 100);
-          return;
-        }
-
-        const progressEl = updateNoticeEl.querySelector('.mood-update-progress') as HTMLElement;
-        const refreshBtn = updateRefreshBtn as HTMLElement | null;
-        const refreshLabel = refreshBtn?.querySelector('.mood-update-action-label') as HTMLElement | null;
-        const refreshIcon = refreshBtn?.querySelector('.mood-update-action-icon') as HTMLElement | null;
-
-        if (refreshBtn?.classList.contains('is-refreshing')) {
-          return;
-        }
-
-        // Kill idle animations
-        noticeShowTl?.kill();
-        noticeShowTl = null;
-        noticeSpinnerTween?.kill();
-        noticeSpinnerTween = null;
-        gsap.killTweensOf(updateNoticeEl);
-        if (progressEl) gsap.killTweensOf(progressEl);
-        if (refreshBtn) gsap.killTweensOf(refreshBtn);
-        if (refreshLabel) gsap.killTweensOf(refreshLabel);
-        if (updateNoticeTextEl) gsap.killTweensOf(updateNoticeTextEl);
-
-        if (refreshBtn) {
-          refreshBtn.classList.remove('is-hovered');
-          refreshBtn.classList.add('is-refreshing');
-          refreshBtn.setAttribute('aria-disabled', 'true');
-          refreshBtn.setAttribute('aria-label', REFRESH_LABEL_PENDING);
-          gsap.set(refreshBtn, { pointerEvents: 'none' });
-        }
-
-        // Keep layout stable during refresh to avoid forced button movement.
-        // Only animate compositor-friendly properties for smoother behavior.
-        if (refreshLabel) {
-          refreshLabel.textContent = REFRESH_LABEL_PENDING;
-        }
-        if (progressEl) {
-          gsap.set(progressEl, { opacity: 0 });
-        }
-
-        const refreshTl = gsap.timeline({
-          defaults: { overwrite: 'auto' },
-          onComplete: () => {
-            noticeRefreshTl = null;
-          }
-        });
-        noticeRefreshTl = refreshTl;
-
-        // Dim notice text slightly while refresh is pending without reflowing layout.
-        if (updateNoticeTextEl) {
-          refreshTl.to(updateNoticeTextEl, {
-            opacity: 0.55, duration: 0.18, ease: 'power2.out',
-          }, 0);
-        }
-
-        // Spin icon for active feedback.
-        if (refreshIcon) {
-          refreshTl.add(() => {
-            void (noticeSpinnerTween = gsap.to(refreshIcon, {
-              rotation: '+=360', duration: 0.8, ease: 'none', repeat: -1, overwrite: 'auto',
-            }));
-          }, 0);
-        }
-
-        // Phase 3: Reload after a brief pause so the user sees "Refreshing..."
-        noticeReloadCall = gsap.delayedCall(0.72, () => {
-          window.location.reload();
-        });
-      };
-
-      const hideUpdateNotice = (): void => {
-        cancelAutoRefresh();
-        clearRefreshMotion();
-        if (!updateNoticeEl) return;
-
-        noticeShowTl?.kill();
-        noticeShowTl = null;
-        noticeSpinnerTween?.kill();
-        noticeSpinnerTween = null;
-
-        gsap.to(updateNoticeEl, {
-          autoAlpha: 0, x: -10, scale: 0.98,
-          duration: 0.24, ease: 'power2.in',
-          onComplete: () => {
-            const actionsEl = updateNoticeEl!.querySelector('[data-mood-update-actions]') as HTMLElement;
-            if (actionsEl) {
-              gsap.set(actionsEl, { clearProps: 'opacity,visibility,x' });
-            }
-            resetUpdateNoticeLayout();
-            gsap.set(updateNoticeEl, { display: 'none' });
-          }
-        });
-      };
-
-      const showUpdateNotice = (autoRefresh: boolean): void => {
-        if (!updateNoticeEl || !updateNoticeTextEl) {
-          if (autoRefresh) { triggerPageRefresh(); }
-          return;
-        }
-
-        cancelAutoRefresh();
-        autoRefreshPending = autoRefresh;
-
-        // Kill existing animations
-        noticeShowTl?.kill();
-        noticeShowTl = null;
-        noticeSpinnerTween?.kill();
-        noticeSpinnerTween = null;
-
-        // Reset states
-        const progressEl = updateNoticeEl.querySelector('.mood-update-progress') as HTMLElement;
-        const actionsEl = updateNoticeEl.querySelector('[data-mood-update-actions]') as HTMLElement;
-        resetUpdateNoticeLayout();
-
-        if (actionsEl) {
-          gsap.set(actionsEl, { clearProps: 'opacity,visibility,x' });
-        }
-
-        // Set text
-        updateNoticeTextEl.textContent = 'New moods are in!';
-        gsap.set(updateNoticeEl, { display: 'inline-flex' });
-
-        // Entrance animation
-        noticeShowTl = gsap.timeline();
-        noticeShowTl.fromTo(updateNoticeEl,
-          { autoAlpha: 0, x: -10, scale: 0.98 },
-          { autoAlpha: 1, x: 0, scale: 1, duration: 0.42, ease: 'power3.out' }
-        );
-
-        // Countdown
-        if (autoRefresh && progressEl) {
-          const countdownDelayMs = AUTO_REFRESH_DELAY_MS;
-          gsap.set(progressEl, { opacity: 1, '--progress': 1 });
-          noticeCountdownTween = gsap.to(progressEl, {
-            '--progress': 0,
-            duration: countdownDelayMs / 1000,
-            ease: 'none'
-          });
-          autoRefreshTimer = window.setTimeout(() => {
-            triggerPageRefresh();
-          }, countdownDelayMs);
-        } else if (progressEl) {
-          gsap.set(progressEl, { opacity: 0 });
-        }
-      };
-
-      const syncLatestSeenId = (): void => {
-        const newestId = getNewestRenderedMoodId();
-        if (!newestId) return;
-        if (!latestSeenId || isNewerMoodId(newestId, latestSeenId)) {
-          latestSeenId = newestId;
-        }
-
-        if (pendingUpdateId && !isNewerMoodId(pendingUpdateId, latestSeenId)) {
-          pendingUpdateId = '';
-          dismissedUpdateId = '';
-          hideUpdateNotice();
-        }
-      };
-
-      const handleDetectedUpdate = (nextLatestId: string): void => {
-        if (!nextLatestId || dismissedUpdateId === nextLatestId) return;
-        if (!pendingUpdateId || isNewerMoodId(nextLatestId, pendingUpdateId)) {
-          pendingUpdateId = nextLatestId;
-        }
-
-        const canAutoRefresh = document.visibilityState === 'visible'
-          && window.scrollY <= AUTO_REFRESH_MAX_SCROLL_Y;
-        showUpdateNotice(canAutoRefresh);
-      };
-
-      const fetchLatestMoodId = async (): Promise<string> => {
-        const response = await fetch('/api/moods?probe=1&fresh=1', {
-          cache: 'no-store',
-          headers: {
-            'Cache-Control': 'no-cache',
-          },
-        });
-        if (!response.ok) {
-          throw new Error('Failed to check mood updates.');
-        }
-        const data = await response.json() as { latestId?: unknown };
-        return typeof data.latestId === 'string' ? data.latestId : '';
-      };
-
-      const checkForUpdates = async (): Promise<void> => {
-        if (!updateWatcherStarted || document.visibilityState !== 'visible') return;
-        if (isLoading || isCheckingUpdates) return;
-
-        isCheckingUpdates = true;
-        try {
-          const remoteLatestId = await fetchLatestMoodId();
-          if (!remoteLatestId) return;
-
-          if (!latestSeenId) {
-            if (totalCount === 0) {
-              handleDetectedUpdate(remoteLatestId);
-            } else {
-              latestSeenId = remoteLatestId;
-            }
-            return;
-          }
-
-          if (isNewerMoodId(remoteLatestId, latestSeenId)) {
-            handleDetectedUpdate(remoteLatestId);
-          }
-        } catch (error) {
-          console.error('Failed to check mood updates:', error);
-        } finally {
-          isCheckingUpdates = false;
-        }
-      };
-
-      const clearUpdatePollTimer = (): void => {
-        if (updatePollTimer) {
-          window.clearTimeout(updatePollTimer);
-          updatePollTimer = 0;
-        }
-      };
-
-      const scheduleNextUpdateCheck = (delay = UPDATE_POLL_INTERVAL_MS): void => {
-        clearUpdatePollTimer();
-        updatePollTimer = window.setTimeout(async () => {
-          await checkForUpdates();
-          scheduleNextUpdateCheck();
-        }, delay);
-      };
-
-      const startUpdateWatcher = (): void => {
-        if (updateWatcherStarted) return;
-        updateWatcherStarted = true;
-        syncLatestSeenId();
-        scheduleNextUpdateCheck();
-
-        document.addEventListener('visibilitychange', () => {
-          if (document.visibilityState === 'visible') {
-            if (pendingUpdateId && isNewerMoodId(pendingUpdateId, latestSeenId) && dismissedUpdateId !== pendingUpdateId) {
-              const canAutoRefresh = window.scrollY <= AUTO_REFRESH_MAX_SCROLL_Y;
-              showUpdateNotice(canAutoRefresh);
-            }
-            checkForUpdates();
-            return;
-          }
-          cancelAutoRefresh();
-        });
-
-        window.addEventListener('online', () => {
-          checkForUpdates();
-        });
-
-        window.addEventListener(
-          'scroll',
-          () => {
-            if (!autoRefreshPending) return;
-            if (window.scrollY > AUTO_REFRESH_CANCEL_SCROLL_Y) {
-              showUpdateNotice(false);
-            }
-          },
-          { passive: true }
-        );
-
-        window.addEventListener('beforeunload', clearUpdatePollTimer, { once: true });
       };
 
       const fetchMoods = async (beforeId?: string): Promise<{ posts: MoodData[]; channel?: ChannelInfo }> => {
@@ -1461,7 +1094,7 @@ export function initMoodFeedController(): void {
         }
 
         totalCount = globalIndex;
-        syncLatestSeenId();
+        updateWatcher.syncLatestSeenId();
       };
 
       const handleNoMore = (): void => {
@@ -1522,7 +1155,7 @@ export function initMoodFeedController(): void {
             showFeed();
             handleNoMore();
             setStatus('No moods yet.');
-            startUpdateWatcher();
+            updateWatcher.start();
             return;
           }
 
@@ -1530,7 +1163,7 @@ export function initMoodFeedController(): void {
             appendMoods(ready, totalCount);
           }
           showFeed();
-          startUpdateWatcher();
+          updateWatcher.start();
 
           if (!hasMore) {
             handleNoMore();
@@ -1628,34 +1261,7 @@ export function initMoodFeedController(): void {
           loadButton.addEventListener('click', loadMore);
         }
 
-        if (updateRefreshBtn) {
-          updateRefreshBtn.addEventListener('click', triggerPageRefresh);
-        }
-
-        // Hover color feedback for refresh button (no width expansion)
-        (() => {
-          const refreshBtn = updateNoticeEl?.querySelector('[data-mood-update-refresh]') as HTMLElement;
-          if (!refreshBtn) return;
-          const isRefreshLocked = (): boolean => (
-            refreshBtn.classList.contains('is-refreshing')
-            || refreshBtn.getAttribute('aria-disabled') === 'true'
-          );
-
-          refreshBtn.addEventListener('mouseenter', () => {
-            if (isRefreshLocked()) {
-              return;
-            }
-            refreshBtn.classList.add('is-hovered');
-          });
-
-          refreshBtn.addEventListener('mouseleave', () => {
-            if (isRefreshLocked()) {
-              return;
-            }
-            refreshBtn.classList.remove('is-hovered');
-          });
-        })();
-
+        updateWatcher.init();
         animatedEmoji.observe(list);
         loadInitial();
       }
