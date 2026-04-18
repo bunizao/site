@@ -145,6 +145,7 @@ export function createFeedRenderer({
 }: FeedRendererOptions): FeedRenderer {
   const groupCache = new Map<string, { group: HTMLElement; items: HTMLElement }>();
   const renderedIdSet = new Set<string>();
+  let interactionsBound = false;
 
   const normalizeAuthorName = (value: string): string =>
     value.replace(/\s+/g, ' ').trim().replace(/^@/, '').toLowerCase().replace(/[^\w-]+$/g, '');
@@ -648,6 +649,9 @@ export function createFeedRenderer({
   };
 
   const bindInteractions = (): void => {
+    if (interactionsBound) return;
+    interactionsBound = true;
+
     list.addEventListener('click', (event) => {
       const target = event.target as HTMLElement | null;
       if (handleQuoteJump(target, event)) return;
