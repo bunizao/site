@@ -1,10 +1,13 @@
 import { createAnimatedEmojiManager } from '@/features/mood/client/animated-emoji';
 import { createFeedCommentsPopoverController } from '@/features/mood/client/feed-comments-popover';
+import { createFeedMediaHydrator } from '@/features/mood/client/feed-media-hydration';
 import { createFeedUpdateWatcher } from '@/features/mood/client/feed-update-watcher';
 import { createMoodGalleryElement, initMoodGalleries } from '@/features/mood/client/gallery';
 import { buildMoodPreviewFragment } from '@/features/mood/shared/preview';
-import type { MoodGallery } from '@/features/mood/shared/gallery';
-import { applyResponsiveImage } from '@/lib/media/responsive-image';
+import type {
+  ChannelInfo,
+  MoodData,
+} from '@/features/mood/client/feed-types';
 
 export function initMoodFeedController(): void {
     const loadingEl = document.querySelector('[data-mood-loading]');
@@ -287,215 +290,11 @@ export function initMoodFeedController(): void {
 
       const animatedEmoji = createAnimatedEmojiManager();
       const commentsPopover = createFeedCommentsPopoverController(animatedEmoji);
+      const mediaHydrator = createFeedMediaHydrator(animatedEmoji);
 
       commentsPopover.init();
 
-      interface ReactionData {
-        emoji: string;
-        emojiId?: string;
-        emojiImage?: string;
-        count: string;
-        isPaid: boolean;
-      }
-
-      interface ForwardedFromData {
-        name: string;
-        href?: string;
-        author?: string;
-      }
-
-      interface QuoteData {
-        text: string;
-        author?: string;
-        href?: string;
-        thumbnailSrc?: string;
-      }
-
-      interface ChannelInfo {
-        slug?: string;
-        title?: string;
-        titleHTML?: string;
-        emojiId?: string;
-        avatar?: string;
-        description?: string;
-        descriptionHTML?: string;
-      }
-
       let channelInfo: ChannelInfo | null = null;
-
-      const setImageHints = (
-        img: HTMLImageElement,
-        options: { priority?: boolean; lazy?: boolean } = {}
-      ): void => {
-        const { priority = false, lazy = true } = options;
-        if (!img.getAttribute('decoding')) {
-          img.decoding = 'async';
-        }
-        if (priority) {
-          img.loading = 'eager';
-          img.setAttribute('fetchpriority', 'high');
-          return;
-        }
-        if (lazy && !img.getAttribute('loading')) {
-          img.loading = 'lazy';
-        }
-      };
-
-      const applyMediaHints = (root: HTMLElement, priority = false): void => {
-        root.querySelectorAll('img').forEach((node) => {
-          if (!(node instanceof HTMLImageElement)) return;
-          setImageHints(node, { priority });
-        });
-
-        root.querySelectorAll('iframe').forEach((node) => {
-          if (!(node instanceof HTMLIFrameElement)) return;
-          if (!node.getAttribute('loading')) {
-            node.loading = 'lazy';
-          }
-        });
-
-        root.querySelectorAll('video').forEach((node) => {
-          if (!(node instanceof HTMLVideoElement)) return;
-          const classify = () => {
-            const w = node.videoWidth;
-            const h = node.videoHeight;
-            if (!w || !h) return;
-            const ratio = w / h;
-            if (ratio < 0.6) {
-              node.classList.add('video--ultra-tall');
-            } else if (ratio < 0.8) {
-              node.classList.add('video--portrait');
-            }
-          };
-          if (node.readyState >= 1) {
-            classify();
-          } else {
-            node.addEventListener('loadedmetadata', classify, { once: true });
-          }
-        });
-      };
-
-      const responsiveImageWidths = [480, 800, 1200];
-      const thumbnailImageSizes = '(min-width: 1024px) 560px, (min-width: 640px) 480px, 100vw';
-      const deferredImageRootMargin = '600px 0px';
-      let deferredImageObserver: IntersectionObserver | null = null;
-      const deferredImageHydrators = new WeakMap<Element, () => void>();
-
-      const hydrateDeferredImage = (img: HTMLImageElement): void => {
-        if (img.dataset.deferredHydrated === '1') return;
-        const src = img.dataset.deferredSrc || '';
-        if (!src) return;
-
-        img.dataset.deferredHydrated = '1';
-        img.src = src;
-        applyResponsiveImage(img, src, thumbnailImageSizes, responsiveImageWidths);
-      };
-
-      const getDeferredImageObserver = (): IntersectionObserver | null => {
-        if (!('IntersectionObserver' in window)) {
-          return null;
-        }
-
-        if (deferredImageObserver) {
-          return deferredImageObserver;
-        }
-
-        deferredImageObserver = new IntersectionObserver(
-          (entries) => {
-            entries.forEach((entry) => {
-              if (!entry.isIntersecting) return;
-
-              deferredImageObserver?.unobserve(entry.target);
-              const hydrate = deferredImageHydrators.get(entry.target);
-              deferredImageHydrators.delete(entry.target);
-              hydrate?.();
-            });
-          },
-          {
-            rootMargin: deferredImageRootMargin,
-          }
-        );
-
-        return deferredImageObserver;
-      };
-
-      const registerDeferredImage = (target: Element, hydrate: () => void): void => {
-        const observer = getDeferredImageObserver();
-        if (!observer) {
-          hydrate();
-          return;
-        }
-
-        deferredImageHydrators.set(target, hydrate);
-        observer.observe(target);
-      };
-
-      // Hero hydration function
-      const hydrateHero = (channel: ChannelInfo): void => {
-        const heroEl = document.querySelector('[data-mood-hero]');
-        if (!heroEl) return;
-
-        const avatarEl = heroEl.querySelector('[data-hero-avatar]');
-        const titleEl = heroEl.querySelector('[data-hero-title]');
-        const descEl = heroEl.querySelector('[data-hero-description]');
-
-        // Hydrate avatar
-        if (avatarEl && channel.avatar) {
-          const img = document.createElement('img');
-          img.src = channel.avatar;
-          img.alt = channel.title || 'Channel avatar';
-          img.className = 'mood-hero-avatar-img';
-          setImageHints(img, { priority: true, lazy: false });
-          img.onload = () => {
-            avatarEl.classList.add('is-loaded');
-          };
-          avatarEl.appendChild(img);
-        } else if (avatarEl) {
-          avatarEl.classList.add('is-loaded');
-        }
-
-        // Hydrate title with custom emoji support
-        if (titleEl) {
-          if (channel.titleHTML) {
-            titleEl.innerHTML = channel.titleHTML;
-            // Hydrate animated emoji in title
-            animatedEmoji.hydrate(titleEl);
-          } else if (channel.title) {
-            titleEl.textContent = channel.title;
-          }
-          // Append custom emoji from env variable (supports animated Telegram emoji)
-          if (channel.emojiId) {
-            const emojiSpan = document.createElement('span');
-            emojiSpan.className = 'tg-emoji mood-hero-emoji';
-            emojiSpan.dataset.emojiId = channel.emojiId;
-            // Add static fallback image
-            const img = document.createElement('img');
-            img.src = `/static/https://t.me/i/emoji/${channel.emojiId}.webp`;
-            img.alt = 'emoji';
-            setImageHints(img, { lazy: false });
-            emojiSpan.appendChild(img);
-            titleEl.appendChild(emojiSpan);
-            // Hydrate for Lottie animation
-            animatedEmoji.hydrate(titleEl);
-          }
-          titleEl.classList.add('is-loaded');
-        }
-
-        // Hydrate description with custom emoji support
-        if (descEl) {
-          if (channel.descriptionHTML) {
-            descEl.innerHTML = channel.descriptionHTML;
-            // Hydrate animated emoji in description
-            animatedEmoji.hydrate(descEl);
-          } else if (channel.description) {
-            descEl.textContent = channel.description;
-          }
-          descEl.classList.add('is-loaded');
-        }
-
-        // Mark hero as loaded
-        heroEl.classList.add('is-loaded');
-      };
 
       const normalizeAuthorName = (value: string): string =>
         value.replace(/\s+/g, ' ').trim().replace(/^@/, '').toLowerCase().replace(/[^\w-]+$/g, '');
@@ -510,27 +309,6 @@ export function initMoodFeedController(): void {
           (title && normalized === title)
         );
       };
-
-      interface MoodData {
-        id: string;
-        datetime: string;
-        tag?: string;
-        previewText: string;
-        previewHtml?: string;
-        previewMediaType?: string;
-        gallery?: MoodGallery | null;
-        image?: string | null;
-        imageFallback?: string | null;
-        imageWidth?: number | null;
-        imageHeight?: number | null;
-        imageLayout?: 'landscape' | 'portrait' | 'ultra-tall' | null;
-        mediaHtml?: string;
-        needsDetailPage?: boolean;
-        forwardedFrom?: ForwardedFromData | null;
-        quote?: QuoteData | null;
-        reactions?: ReactionData[];
-        commentsCount?: number | string;
-      }
 
       const getCommentsCountInfo = (value: MoodData['commentsCount']): { count: number; label: string } => {
         if (typeof value === 'number' && Number.isFinite(value)) {
@@ -734,7 +512,7 @@ export function initMoodFeedController(): void {
           const media = document.createElement('div');
           media.className = 'mood-item-media';
           media.innerHTML = mediaHtml;
-          applyMediaHints(media, isPriorityItem);
+          mediaHydrator.applyMediaHints(media, isPriorityItem);
           content.appendChild(media);
         } else if (!isTooBigVideoPreview && (mood.gallery?.items.length ?? 0) > 1) {
           const galleryData = mood.gallery;
@@ -780,19 +558,17 @@ export function initMoodFeedController(): void {
               const fallbackSrc = img.dataset.fallbackSrc || '';
               if (!fallbackSrc) return;
               img.dataset.fallbackApplied = '1';
-              img.src = fallbackSrc;
-              applyResponsiveImage(img, fallbackSrc, thumbnailImageSizes, responsiveImageWidths);
+              mediaHydrator.applyResponsiveImage(img, fallbackSrc);
             };
           }
           const hasResolvedImageLayout = Boolean(imageLayout) || isTooBigVideoPreview;
-          setImageHints(img, { priority: isPriorityItem });
+          mediaHydrator.setImageHints(img, { priority: isPriorityItem });
           if (!hasResolvedImageLayout) {
             img.loading = 'eager';
             img.removeAttribute('fetchpriority');
           }
           if (isPriorityItem || !hasResolvedImageLayout) {
-            img.src = mood.image;
-            applyResponsiveImage(img, mood.image, thumbnailImageSizes, responsiveImageWidths);
+            mediaHydrator.applyResponsiveImage(img, mood.image);
           } else {
             img.dataset.deferredSrc = mood.image;
           }
@@ -881,8 +657,8 @@ export function initMoodFeedController(): void {
           }
           if (!isPriorityItem && hasResolvedImageLayout) {
             const deferredTarget = thumbWrap;
-            registerDeferredImage(deferredTarget, () => {
-              hydrateDeferredImage(img);
+            mediaHydrator.registerDeferredImage(deferredTarget, () => {
+              mediaHydrator.hydrateDeferredImage(img);
             });
           }
         }
@@ -1130,7 +906,7 @@ export function initMoodFeedController(): void {
             const posts = Array.isArray(data.posts) ? data.posts : [];
             if (data.channel && !channelInfo) {
               channelInfo = data.channel;
-              hydrateHero(channelInfo);
+              mediaHydrator.hydrateHero(channelInfo);
             }
             if (!posts.length) {
               hasMore = false;
