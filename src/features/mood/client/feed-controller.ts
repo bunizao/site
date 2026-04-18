@@ -1,11 +1,6 @@
 import gsap from 'gsap';
-import {
-  asText,
-  buildCommentContentFragment,
-  formatRelativeCommentDate,
-  sanitizeImageUrl,
-} from '@/features/mood/shared/comments';
 import { createAnimatedEmojiManager } from '@/features/mood/client/animated-emoji';
+import { createFeedCommentsPopoverController } from '@/features/mood/client/feed-comments-popover';
 import { createMoodGalleryElement, initMoodGalleries } from '@/features/mood/client/gallery';
 import { buildMoodPreviewFragment } from '@/features/mood/shared/preview';
 import type { MoodGallery } from '@/features/mood/shared/gallery';
@@ -658,173 +653,9 @@ export function initMoodFeedController(): void {
       };
 
       const animatedEmoji = createAnimatedEmojiManager();
+      const commentsPopover = createFeedCommentsPopoverController(animatedEmoji);
 
-      // Comments popover manager
-  	    const commentsPopoverManager = (() => {
-  	      interface CommentPreviewData {
-  	        id?: string;
-  	        author?: string;
-  	        authorAvatar?: string;
-  	        datetime?: string;
-  	        content?: string;
-  	        reactions?: ReactionData[];
-  	      }
-
-  	      const cache = new Map<string, CommentPreviewData[]>();
-  	      const pendingFetches = new Map<string, Promise<CommentPreviewData[]>>();
-
-        const getInitials = (name: string): string => {
-          return name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase() || '?';
-        };
-
-  	      const fetchComments = async (postId: string): Promise<CommentPreviewData[]> => {
-          if (cache.has(postId)) {
-            return cache.get(postId)!;
-          }
-
-          if (pendingFetches.has(postId)) {
-            return pendingFetches.get(postId)!;
-          }
-
-          const promise = (async () => {
-            try {
-              const response = await fetch(`/api/comments?postId=${postId}`);
-  	            const data = await response.json() as { comments?: CommentPreviewData[] };
-  	            const comments = Array.isArray(data.comments) ? data.comments : [];
-              cache.set(postId, comments);
-              return comments;
-            } catch (error) {
-              console.error('Failed to fetch comments:', error);
-              return [];
-            } finally {
-              pendingFetches.delete(postId);
-            }
-          })();
-
-          pendingFetches.set(postId, promise);
-          return promise;
-        };
-
-        const renderComment = (comment: any): HTMLElement => {
-          const root = document.createElement('div');
-          root.className = 'mood-popover-comment';
-
-          const avatar = document.createElement('div');
-          avatar.className = 'mood-popover-comment-avatar';
-
-          const author = asText(comment?.author).trim() || 'Anonymous';
-          const avatarUrl = sanitizeImageUrl(comment?.authorAvatar);
-          if (avatarUrl) {
-            const img = document.createElement('img');
-            img.src = avatarUrl;
-            img.alt = author;
-            img.loading = 'lazy';
-            avatar.appendChild(img);
-          } else {
-            avatar.textContent = getInitials(author);
-          }
-          root.appendChild(avatar);
-
-          const body = document.createElement('div');
-          body.className = 'mood-popover-comment-body';
-
-          const header = document.createElement('div');
-          header.className = 'mood-popover-comment-header';
-
-          const authorEl = document.createElement('span');
-          authorEl.className = 'mood-popover-comment-author';
-          authorEl.textContent = author;
-
-          const datetimeRaw = asText(comment?.datetime).trim();
-          const dateEl = document.createElement('time');
-          dateEl.className = 'mood-popover-comment-date';
-          if (datetimeRaw) {
-            dateEl.dateTime = datetimeRaw;
-          }
-          dateEl.textContent = formatRelativeCommentDate(datetimeRaw, { compact: true });
-
-          header.appendChild(authorEl);
-          header.appendChild(dateEl);
-          body.appendChild(header);
-
-          const content = document.createElement('div');
-          content.className = 'mood-popover-comment-content';
-          content.appendChild(buildCommentContentFragment(comment?.content));
-          body.appendChild(content);
-
-          root.appendChild(body);
-          return root;
-        };
-
-        const renderPopover = (popover: HTMLElement, comments: any[], postId: string): void => {
-          const maxComments = 3;
-          const displayComments = comments.slice(0, maxComments);
-          const hasMore = comments.length > maxComments;
-
-          if (displayComments.length === 0) {
-            const empty = document.createElement('div');
-            empty.className = 'mood-comments-popover-empty';
-            empty.textContent = 'No comments yet';
-            popover.replaceChildren(empty);
-            return;
-          }
-
-          const fragment = document.createDocumentFragment();
-          const list = document.createElement('div');
-          list.className = 'mood-comments-popover-list';
-          displayComments.forEach((comment) => {
-            list.appendChild(renderComment(comment));
-          });
-          fragment.appendChild(list);
-
-          if (hasMore) {
-            const viewAll = document.createElement('a');
-            viewAll.className = 'mood-popover-view-all';
-            viewAll.href = `/mood/${postId}#comments`;
-            viewAll.textContent = `View all ${comments.length} comments`;
-            fragment.appendChild(viewAll);
-          }
-
-          popover.replaceChildren(fragment);
-
-          // Hydrate animated emojis in popover
-          animatedEmoji.hydrate(popover);
-        };
-
-        const handleHover = async (wrapper: HTMLElement): Promise<void> => {
-          const postId = wrapper.dataset.postId;
-          if (!postId) return;
-
-          const popover = wrapper.querySelector('.mood-comments-popover') as HTMLElement;
-          if (!popover) return;
-
-          // Skip if already loaded
-          if (popover.dataset.loaded === 'true') return;
-
-          const comments = await fetchComments(postId);
-          renderPopover(popover, comments, postId);
-          popover.dataset.loaded = 'true';
-        };
-
-        const init = (): void => {
-          document.addEventListener(
-            'mouseenter',
-            (event) => {
-              const target = event.target;
-              if (!(target instanceof Element)) return;
-              const wrapper = target.closest('.mood-comments-wrapper') as HTMLElement | null;
-              if (wrapper) {
-                handleHover(wrapper);
-              }
-            },
-            true
-          );
-        };
-
-        return { init, handleHover };
-      })();
-
-      commentsPopoverManager.init();
+      commentsPopover.init();
 
       interface ReactionData {
         emoji: string;
@@ -1482,53 +1313,14 @@ export function initMoodFeedController(): void {
 
           // Add comments indicator with hover popover
           if (hasComments) {
-            const wrapper = document.createElement('div');
-            wrapper.className = 'mood-comments-wrapper';
-            wrapper.dataset.postId = mood.id;
-
-            const commentsLink = document.createElement('a');
-            commentsLink.className = 'mood-item-comments';
-            commentsLink.href = `/mood/${mood.id}#comments`;
             const commentsLabel = commentsInfo.label || String(commentsInfo.count);
-            commentsLink.title = `${commentsLabel} comment${commentsInfo.count === 1 ? '' : 's'}`;
-
-            // Chat bubble icon (SVG)
-            const iconSpan = document.createElement('span');
-            iconSpan.className = 'mood-comments-icon';
-            iconSpan.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>`;
-
-            const countSpan = document.createElement('span');
-            countSpan.className = 'mood-comments-count';
-            countSpan.textContent = commentsLabel;
-
-            commentsLink.appendChild(iconSpan);
-            commentsLink.appendChild(countSpan);
-
-            // Create popover
-            const popover = document.createElement('div');
-            popover.className = 'mood-comments-popover';
-            popover.innerHTML = `
-              <div class="mood-comments-popover-loading">
-                <div class="mood-popover-skeleton">
-                  <div class="mood-popover-skeleton-avatar"></div>
-                  <div class="mood-popover-skeleton-body">
-                    <div class="mood-popover-skeleton-line mood-popover-skeleton-line--short"></div>
-                    <div class="mood-popover-skeleton-line mood-popover-skeleton-line--long"></div>
-                  </div>
-                </div>
-                <div class="mood-popover-skeleton">
-                  <div class="mood-popover-skeleton-avatar"></div>
-                  <div class="mood-popover-skeleton-body">
-                    <div class="mood-popover-skeleton-line mood-popover-skeleton-line--short"></div>
-                    <div class="mood-popover-skeleton-line mood-popover-skeleton-line--long"></div>
-                  </div>
-                </div>
-              </div>
-            `;
-
-            wrapper.appendChild(commentsLink);
-            wrapper.appendChild(popover);
-            reactionsWrap.appendChild(wrapper);
+            reactionsWrap.appendChild(
+              commentsPopover.createIndicator({
+                postId: mood.id,
+                count: commentsInfo.count,
+                label: commentsLabel,
+              })
+            );
           }
 
         content.appendChild(reactionsWrap);
