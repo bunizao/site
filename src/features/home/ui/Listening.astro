@@ -9,8 +9,8 @@ const initialTrack = tracks[0] ?? null;
   <section class="listening-section" data-parallax="off">
     <span class="section-label">Listening</span>
 
-    <div class="listening-shell" data-listening>
-      <article class="listening-feature">
+    <div class="listening-widget" data-listening>
+      <div class="listening-bar">
         <a
           href={initialTrack.appleMusicUrl}
           target="_blank"
@@ -30,80 +30,72 @@ const initialTrack = tracks[0] ?? null;
           />
         </a>
 
-        <div class="listening-feature-copy">
-          <div class="listening-feature-top">
-            <div class="listening-feature-text">
-              <p class="listening-title" data-listening-title>{initialTrack.title}</p>
-              <p class="listening-artist" data-listening-artist>{initialTrack.artist}</p>
-            </div>
-
-            <button
-              type="button"
-              class="listening-play"
-              data-listening-play
-              disabled={!initialTrack.previewUrl}
-              aria-pressed="false"
-              aria-label={`Play preview of ${initialTrack.title}`}
-            >
-              <span class="listening-play-icon" aria-hidden="true"></span>
-              <span class="listening-play-label" data-listening-play-label>Preview</span>
-            </button>
-          </div>
-
-          <div class="listening-meta">
-            <span data-listening-year>{initialTrack.year}</span>
-            <span>•</span>
-            <span data-listening-genre>{initialTrack.genre}</span>
-            <span>•</span>
-            <span data-listening-release-kind>{initialTrack.releaseKind === 'album' ? 'Album' : 'Single'}</span>
-          </div>
-
-          <p class="listening-collection" data-listening-collection>{initialTrack.collection}</p>
-          <p class="listening-track-position" data-listening-track-position>
-            {initialTrack.releaseKind === 'album'
-              ? `Track ${initialTrack.trackNumber} of ${initialTrack.trackCount}`
-              : 'Standalone release'}
-          </p>
+        <div class="listening-info">
+          <p class="listening-title" data-listening-title>{initialTrack.title}</p>
+          <p class="listening-artist" data-listening-artist>{initialTrack.artist}</p>
         </div>
-      </article>
 
-      <ol class="listening-list" aria-label="Listening demo tracks">
-        {tracks.map((track, index) => (
-          <li>
-            <button
-              type="button"
-              class:list={['listening-item', { 'is-active': index === 0 }]}
-              data-listening-item
-              data-title={track.title}
-              data-artist={track.artist}
-              data-collection={track.collection}
-              data-link={track.appleMusicUrl}
-              data-artwork={track.artworkUrl}
-              data-preview-url={track.previewUrl}
-              data-year={track.year}
-              data-genre={track.genre}
-              data-release-kind={track.releaseKind}
-              data-track-number={track.trackNumber}
-              data-track-count={track.trackCount}
-              aria-pressed={index === 0 ? 'true' : 'false'}
-            >
-              <img
-                src={track.thumbUrl}
-                alt=""
-                class="listening-thumb"
-                loading="lazy"
-                decoding="async"
-                referrerpolicy="no-referrer"
-                aria-hidden="true"
-              />
-              <span class="listening-item-copy">
-                <span class="listening-item-title">{track.title}</span>
-                <span class="listening-item-artist">{track.artist}</span>
-              </span>
-            </button>
-          </li>
-        ))}
-      </ol>
+        <button
+          type="button"
+          class="listening-play"
+          data-listening-play
+          disabled={!initialTrack.previewUrl}
+          aria-pressed="false"
+          aria-label={`Play preview of ${initialTrack.title}`}
+        >
+          <span class="listening-play-icon" aria-hidden="true"></span>
+        </button>
+
+        <button
+          type="button"
+          class="listening-toggle"
+          data-listening-toggle
+          aria-expanded="false"
+          aria-label="Show track list"
+        >
+          <span class="listening-toggle-icon" aria-hidden="true"></span>
+        </button>
+      </div>
+
+      <div class="listening-panel" data-listening-panel hidden>
+        <ol class="listening-list" aria-label="Track list">
+          {tracks.map((track, index) => (
+            <li>
+              <button
+                type="button"
+                class:list={['listening-item', { 'is-active': index === 0 }]}
+                data-listening-item
+                data-title={track.title}
+                data-artist={track.artist}
+                data-collection={track.collection}
+                data-link={track.appleMusicUrl}
+                data-artwork={track.artworkUrl}
+                data-preview-url={track.previewUrl}
+                data-year={track.year}
+                data-genre={track.genre}
+                data-release-kind={track.releaseKind}
+                data-track-number={track.trackNumber}
+                data-track-count={track.trackCount}
+                aria-pressed={index === 0 ? 'true' : 'false'}
+              >
+                <img
+                  src={track.thumbUrl}
+                  alt=""
+                  class="listening-thumb"
+                  loading="lazy"
+                  decoding="async"
+                  referrerpolicy="no-referrer"
+                  aria-hidden="true"
+                />
+                <span class="listening-item-info">
+                  <span class="listening-item-title">{track.title}</span>
+                  <span class="listening-item-artist">{track.artist}</span>
+                </span>
+              </button>
+            </li>
+          ))}
+        </ol>
+      </div>
     </div>
   </section>
 )}
@@ -113,90 +105,93 @@ const initialTrack = tracks[0] ?? null;
     padding-top: 8px;
   }
 
-  .listening-shell {
-    display: grid;
-    gap: 16px;
-    align-items: start;
+  .listening-widget {
+    border-radius: 14px;
+    background: hsl(var(--foreground) / 0.02);
+    border: 1px solid hsl(var(--foreground) / 0.06);
+    overflow: hidden;
   }
 
-  .listening-feature {
-    display: grid;
-    gap: 16px;
-    padding: 16px;
-    border: 1px solid hsl(var(--foreground) / 0.08);
-    border-radius: 18px;
-    background:
-      linear-gradient(180deg, hsl(var(--foreground) / 0.03), transparent 140px),
-      hsl(var(--background));
+  .listening-bar {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 12px;
   }
 
   .listening-cover-link {
+    flex-shrink: 0;
     display: block;
-    border-radius: 14px;
+    width: 48px;
+    height: 48px;
+    border-radius: 6px;
     overflow: hidden;
     background: hsl(var(--foreground) / 0.05);
+    box-shadow: 0 2px 8px hsl(var(--foreground) / 0.1);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }
+
+  .listening-cover-link:hover {
+    transform: scale(1.05);
+    box-shadow: 0 4px 12px hsl(var(--foreground) / 0.15);
   }
 
   .listening-cover {
     display: block;
     width: 100%;
-    aspect-ratio: 1;
+    height: 100%;
     object-fit: cover;
   }
 
-  .listening-feature-copy {
+  .listening-info {
+    flex: 1;
+    min-width: 0;
     display: flex;
     flex-direction: column;
-    gap: 10px;
-    min-width: 0;
-  }
-
-  .listening-feature-top {
-    display: grid;
-    gap: 10px;
-  }
-
-  .listening-feature-text {
-    min-width: 0;
-    width: 100%;
+    gap: 2px;
   }
 
   .listening-title {
-    font-size: 22px;
+    font-size: 14px;
     font-weight: 600;
-    line-height: 1.15;
-    word-break: normal;
-    overflow-wrap: anywhere;
+    line-height: 1.3;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .listening-artist {
-    margin-top: 6px;
-    font-size: 14px;
+    font-size: 12px;
     color: hsl(var(--muted-foreground));
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
-  .listening-play {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    align-self: flex-start;
+  .listening-play,
+  .listening-toggle {
     flex-shrink: 0;
-    min-height: 40px;
-    padding: 0 12px;
-    border: 1px solid hsl(var(--foreground) / 0.12);
-    border-radius: 999px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border: 1px solid hsl(var(--foreground) / 0.1);
+    border-radius: 50%;
     background: transparent;
     color: hsl(var(--foreground));
-    transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+    transition: background 0.15s ease, color 0.15s ease, transform 0.15s ease, border-color 0.15s ease;
   }
 
-  .listening-play:hover:not(:disabled) {
+  .listening-play:hover:not(:disabled),
+  .listening-toggle:hover {
     background: hsl(var(--foreground));
     color: hsl(var(--background));
+    transform: scale(1.08);
   }
 
   .listening-play:disabled {
-    opacity: 0.5;
+    opacity: 0.4;
     cursor: not-allowed;
   }
 
@@ -205,6 +200,7 @@ const initialTrack = tracks[0] ?? null;
     width: 10px;
     height: 12px;
     display: inline-block;
+    margin-left: 2px;
   }
 
   .listening-play-icon::before {
@@ -213,6 +209,11 @@ const initialTrack = tracks[0] ?? null;
     inset: 0;
     clip-path: polygon(0 0, 100% 50%, 0 100%);
     background: currentColor;
+    transition: clip-path 0.15s ease;
+  }
+
+  .listening-play.is-playing .listening-play-icon {
+    margin-left: 0;
   }
 
   .listening-play.is-playing .listening-play-icon::before {
@@ -223,31 +224,45 @@ const initialTrack = tracks[0] ?? null;
       linear-gradient(to right, currentColor 0 3px, transparent 3px 7px, currentColor 7px 10px);
   }
 
-  .listening-meta,
-  .listening-track-position,
-  .listening-collection {
-    font-size: 12px;
-    color: hsl(var(--muted-foreground));
+  .listening-toggle-icon {
+    position: relative;
+    width: 10px;
+    height: 6px;
+    display: inline-block;
   }
 
-  .listening-meta {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
+  .listening-toggle-icon::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    clip-path: polygon(0 0, 50% 100%, 100% 0);
+    background: currentColor;
+    transition: transform 0.2s ease;
   }
 
-  .listening-collection {
-    font-size: 13px;
-    color: hsl(var(--foreground) / 0.72);
-    overflow-wrap: anywhere;
+  .listening-widget.is-expanded .listening-toggle-icon::before {
+    transform: rotate(180deg);
+  }
+
+  .listening-panel {
+    display: grid;
+    grid-template-rows: 0fr;
+    transition: grid-template-rows 0.25s ease;
+  }
+
+  .listening-widget.is-expanded .listening-panel {
+    grid-template-rows: 1fr;
   }
 
   .listening-list {
+    overflow: hidden;
     display: flex;
     flex-direction: column;
-    gap: 10px;
+  }
+
+  .listening-widget.is-expanded .listening-list {
+    padding: 4px 12px 12px;
+    border-top: 1px solid hsl(var(--foreground) / 0.06);
   }
 
   .listening-item {
@@ -255,231 +270,108 @@ const initialTrack = tracks[0] ?? null;
     display: flex;
     align-items: center;
     gap: 12px;
-    padding: 10px;
-    border: 1px solid hsl(var(--foreground) / 0.08);
-    border-radius: 14px;
+    padding: 10px 8px;
+    border: none;
+    border-radius: 8px;
     background: transparent;
     text-align: left;
-    transition: transform 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+    transition: background 0.15s ease;
   }
 
-  .listening-item:hover,
+  .listening-item:hover {
+    background: hsl(var(--foreground) / 0.04);
+  }
+
   .listening-item.is-active {
-    transform: translateX(4px);
-    border-color: hsl(var(--foreground) / 0.18);
-    background: hsl(var(--foreground) / 0.03);
+    background: hsl(var(--foreground) / 0.06);
   }
 
   .listening-thumb {
-    width: 52px;
-    height: 52px;
+    width: 40px;
+    height: 40px;
     flex-shrink: 0;
-    border-radius: 10px;
+    border-radius: 4px;
     object-fit: cover;
     background: hsl(var(--foreground) / 0.05);
   }
 
-  .listening-item-copy {
+  .listening-item-info {
+    flex: 1;
+    min-width: 0;
     display: flex;
     flex-direction: column;
-    min-width: 0;
+    gap: 2px;
   }
 
   .listening-item-title {
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 500;
     line-height: 1.3;
-    word-break: break-word;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .listening-item-artist {
-    margin-top: 4px;
-    font-size: 12px;
+    font-size: 11px;
     color: hsl(var(--muted-foreground));
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   @media (min-width: 640px) {
-    .listening-shell {
-      grid-template-columns: minmax(0, 1.2fr) minmax(260px, 0.8fr);
+    .listening-bar {
+      gap: 16px;
+      padding: 14px 16px;
     }
 
-    .listening-feature {
-      grid-template-columns: 196px minmax(0, 1fr);
-      gap: 20px;
-      padding: 18px;
+    .listening-cover-link {
+      width: 52px;
+      height: 52px;
+      border-radius: 8px;
     }
 
     .listening-title {
-      font-size: 24px;
+      font-size: 15px;
+    }
+
+    .listening-artist {
+      font-size: 13px;
+    }
+
+    .listening-play,
+    .listening-toggle {
+      width: 36px;
+      height: 36px;
+    }
+
+    .listening-widget.is-expanded .listening-list {
+      padding: 8px 16px 16px;
+    }
+
+    .listening-item {
+      padding: 10px;
+    }
+
+    .listening-thumb {
+      width: 44px;
+      height: 44px;
+      border-radius: 6px;
+    }
+
+    .listening-item-title {
+      font-size: 14px;
+    }
+
+    .listening-item-artist {
+      font-size: 12px;
     }
   }
 </style>
 
 <script>
-  const initListeningSection = () => {
-    const roots = document.querySelectorAll('[data-listening]');
-
-    roots.forEach((root) => {
-      if (!(root instanceof HTMLElement) || root.dataset.bound === 'true') {
-        return;
-      }
-
-      root.dataset.bound = 'true';
-
-      const items = Array.from(root.querySelectorAll('[data-listening-item]')).filter(
-        (item) => item instanceof HTMLButtonElement
-      );
-      const playButton = root.querySelector('[data-listening-play]');
-      const playLabel = root.querySelector('[data-listening-play-label]');
-      const title = root.querySelector('[data-listening-title]');
-      const artist = root.querySelector('[data-listening-artist]');
-      const year = root.querySelector('[data-listening-year]');
-      const genre = root.querySelector('[data-listening-genre]');
-      const releaseKind = root.querySelector('[data-listening-release-kind]');
-      const collection = root.querySelector('[data-listening-collection]');
-      const trackPosition = root.querySelector('[data-listening-track-position]');
-      const link = root.querySelector('[data-listening-link]');
-      const cover = root.querySelector('[data-listening-cover]');
-
-      if (!(playButton instanceof HTMLButtonElement) || !(cover instanceof HTMLImageElement) || items.length === 0) {
-        return;
-      }
-
-      const audio = new Audio();
-      audio.preload = 'none';
-
-      let activeItem = items.find((item) => item.classList.contains('is-active')) ?? items[0];
-
-      const setPlayState = (isPlaying: boolean, hasPreview: boolean, trackTitle: string) => {
-        playButton.disabled = !hasPreview;
-        playButton.classList.toggle('is-playing', hasPreview && isPlaying);
-        playButton.setAttribute('aria-pressed', hasPreview && isPlaying ? 'true' : 'false');
-
-        if (playLabel instanceof HTMLElement) {
-          playLabel.textContent = hasPreview ? (isPlaying ? 'Pause' : 'Preview') : 'Unavailable';
-        }
-
-        const action = isPlaying ? 'Pause' : 'Play';
-        playButton.setAttribute(
-          'aria-label',
-          hasPreview ? `${action} preview of ${trackTitle}` : `${trackTitle} preview unavailable`
-        );
-      };
-
-      const stopAudio = () => {
-        audio.pause();
-        audio.currentTime = 0;
-        setPlayState(false, Boolean(activeItem?.dataset.previewUrl), activeItem?.dataset.title ?? 'Track');
-      };
-
-      const syncFeature = (item: HTMLButtonElement) => {
-        activeItem = item;
-
-        items.forEach((candidate) => {
-          const isSelected = candidate === item;
-          candidate.classList.toggle('is-active', isSelected);
-          candidate.setAttribute('aria-pressed', isSelected ? 'true' : 'false');
-        });
-
-        if (title instanceof HTMLElement) {
-          title.textContent = item.dataset.title ?? '';
-        }
-
-        if (artist instanceof HTMLElement) {
-          artist.textContent = item.dataset.artist ?? '';
-        }
-
-        if (year instanceof HTMLElement) {
-          year.textContent = item.dataset.year ?? '';
-        }
-
-        if (genre instanceof HTMLElement) {
-          genre.textContent = item.dataset.genre ?? '';
-        }
-
-        if (releaseKind instanceof HTMLElement) {
-          releaseKind.textContent = item.dataset.releaseKind === 'album' ? 'Album' : 'Single';
-        }
-
-        if (collection instanceof HTMLElement) {
-          collection.textContent = item.dataset.collection ?? '';
-        }
-
-        if (trackPosition instanceof HTMLElement) {
-          trackPosition.textContent =
-            item.dataset.releaseKind === 'album'
-              ? `Track ${item.dataset.trackNumber ?? '?'} of ${item.dataset.trackCount ?? '?'}`
-              : 'Standalone release';
-        }
-
-        if (link instanceof HTMLAnchorElement) {
-          link.href = item.dataset.link ?? '#';
-          link.setAttribute('aria-label', `Open ${item.dataset.title ?? 'track'} on Apple Music`);
-        }
-
-        if (item.dataset.artwork) {
-          cover.src = item.dataset.artwork;
-          cover.alt = `${item.dataset.title ?? 'Track'} cover art`;
-        }
-
-        if (audio.src !== (item.dataset.previewUrl ?? '')) {
-          audio.pause();
-          audio.currentTime = 0;
-          if (item.dataset.previewUrl) {
-            audio.src = item.dataset.previewUrl;
-          } else {
-            audio.removeAttribute('src');
-          }
-        }
-
-        setPlayState(false, Boolean(item.dataset.previewUrl), item.dataset.title ?? 'Track');
-      };
-
-      playButton.addEventListener('click', async () => {
-        if (!(activeItem instanceof HTMLButtonElement)) {
-          return;
-        }
-
-        const previewUrl = activeItem.dataset.previewUrl ?? '';
-        if (!previewUrl) {
-          return;
-        }
-
-        if (audio.src !== previewUrl) {
-          audio.src = previewUrl;
-        }
-
-        if (audio.paused) {
-          try {
-            await audio.play();
-            setPlayState(true, true, activeItem.dataset.title ?? 'Track');
-          } catch {
-            setPlayState(false, true, activeItem.dataset.title ?? 'Track');
-          }
-
-          return;
-        }
-
-        stopAudio();
-      });
-
-      audio.addEventListener('ended', () => {
-        setPlayState(false, Boolean(activeItem?.dataset.previewUrl), activeItem?.dataset.title ?? 'Track');
-      });
-
-      items.forEach((item) => {
-        item.addEventListener('click', () => {
-          if (item !== activeItem) {
-            stopAudio();
-          }
-
-          syncFeature(item);
-        });
-      });
-
-      syncFeature(activeItem);
-    });
-  };
+  import { initListeningSection } from '@/features/home/client/listening-controller';
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', initListeningSection, { once: true });
