@@ -1,5 +1,10 @@
 import gsap from 'gsap';
-import { asText, buildCommentContentFragment, sanitizeImageUrl } from '@/features/mood/shared/comments';
+import {
+  asText,
+  buildCommentContentFragment,
+  formatRelativeCommentDate,
+  sanitizeImageUrl,
+} from '@/features/mood/shared/comments';
 import { createAnimatedEmojiManager } from '@/features/mood/client/animated-emoji';
 import { createMoodGalleryElement, initMoodGalleries } from '@/features/mood/client/gallery';
 import { buildMoodPreviewFragment } from '@/features/mood/shared/preview';
@@ -640,10 +645,9 @@ export function initMoodFeedController(): void {
 
       const scrollToMood = (id: string): boolean => {
         if (!list) return false;
-        const escapedId = typeof CSS !== 'undefined' && typeof CSS.escape === 'function'
-          ? CSS.escape(id)
-          : id.replace(/"/g, '\\"');
-        const target = list.querySelector(`[data-mood-id="${escapedId}"]`) as HTMLElement | null;
+        const target = Array.from(list.querySelectorAll<HTMLElement>('[data-mood-id]')).find(
+          (item) => item.dataset.moodId === id
+        ) ?? null;
         if (!target) return false;
         const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
         target.scrollIntoView({
@@ -668,21 +672,6 @@ export function initMoodFeedController(): void {
 
   	      const cache = new Map<string, CommentPreviewData[]>();
   	      const pendingFetches = new Map<string, Promise<CommentPreviewData[]>>();
-
-        const formatDate = (datetime: string): string => {
-          const date = new Date(datetime);
-          const now = new Date();
-          const diffMs = now.getTime() - date.getTime();
-          const diffMins = Math.floor(diffMs / 60000);
-          const diffHours = Math.floor(diffMs / 3600000);
-          const diffDays = Math.floor(diffMs / 86400000);
-
-          if (diffMins < 1) return 'just now';
-          if (diffMins < 60) return `${diffMins}m`;
-          if (diffHours < 24) return `${diffHours}h`;
-          if (diffDays < 7) return `${diffDays}d`;
-          return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-        };
 
         const getInitials = (name: string): string => {
           return name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase() || '?';
@@ -752,7 +741,7 @@ export function initMoodFeedController(): void {
           if (datetimeRaw) {
             dateEl.dateTime = datetimeRaw;
           }
-          dateEl.textContent = formatDate(datetimeRaw);
+          dateEl.textContent = formatRelativeCommentDate(datetimeRaw, { compact: true });
 
           header.appendChild(authorEl);
           header.appendChild(dateEl);

@@ -1,6 +1,7 @@
 import {
   asText,
   buildCommentContentFragment,
+  formatRelativeCommentDate,
   sanitizeImageUrl,
 } from '@/features/mood/shared/comments';
 
@@ -66,21 +67,6 @@ export async function initMoodDetailComments(
     return oldest?.id || comments[0]?.id || '';
   };
 
-  const formatDate = (datetime: string): string => {
-    const date = new Date(datetime);
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffMins = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMs / 3600000);
-    const diffDays = Math.floor(diffMs / 86400000);
-
-    if (diffMins < 1) return 'just now';
-    if (diffMins < 60) return `${diffMins}m ago`;
-    if (diffHours < 24) return `${diffHours}h ago`;
-    if (diffDays < 7) return `${diffDays}d ago`;
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-  };
-
   const getInitials = (name: string): string =>
     name.split(' ').map((part) => part[0]).slice(0, 2).join('').toUpperCase() || '?';
 
@@ -123,7 +109,7 @@ export async function initMoodDetailComments(
     if (datetimeRaw) {
       dateEl.dateTime = datetimeRaw;
     }
-    dateEl.textContent = formatDate(datetimeRaw);
+    dateEl.textContent = formatRelativeCommentDate(datetimeRaw);
 
     header.appendChild(authorEl);
     header.appendChild(dateEl);
