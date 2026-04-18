@@ -839,9 +839,10 @@ async function handleRead(request: Request, url: URL, env: Env, ctx: ExecutionCo
           'Vary': 'Accept',
           ...corsHeaders,
         });
+        const generatedBody = Uint8Array.from(generated.bytes);
         const response = request.method === 'HEAD'
           ? new Response(null, { status: 200, headers })
-          : new Response(generated.bytes, { status: 200, headers });
+          : new Response(generatedBody, { status: 200, headers });
 
         if (request.method === 'GET') {
           ctx.waitUntil(cache.put(cacheRequest, response.clone()));

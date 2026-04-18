@@ -226,12 +226,23 @@ interface TelegramEmbedState {
   hasVisibleText: boolean;
 }
 
-const telegramPostMetaCache = new LRUCache<string, TelegramPostOpenGraphMeta | null>({
+type CachedTelegramPostMeta =
+  | { found: true; value: TelegramPostOpenGraphMeta | null }
+  | { found: false };
+
+type CachedTelegramEmbedState =
+  | { found: true; value: TelegramEmbedState | null }
+  | { found: false };
+
+const TELEGRAM_POST_META_MISS: CachedTelegramPostMeta = { found: false };
+const TELEGRAM_EMBED_STATE_MISS: CachedTelegramEmbedState = { found: false };
+
+const telegramPostMetaCache = new LRUCache<string, CachedTelegramPostMeta>({
   ttl: 1000 * 60 * 10, // 10 minutes
   max: 500,
 });
 
-const telegramEmbedStateCache = new LRUCache<string, TelegramEmbedState | null>({
+const telegramEmbedStateCache = new LRUCache<string, CachedTelegramEmbedState>({
   ttl: 1000 * 60 * 10, // 10 minutes
   max: 500,
 });
@@ -314,7 +325,7 @@ async function getTelegramEmbedState(
   const cacheKey = buildTelegramPostCacheKey(host, channel, postId);
   const cached = telegramEmbedStateCache.get(cacheKey);
   if (cached !== undefined) {
-    return cached;
+    return cached.found ? cached.value : null;
   }
 
   try {
@@ -324,10 +335,10 @@ async function getTelegramEmbedState(
       retryDelay: 100,
     });
     const state = parseTelegramEmbedState(html);
-    telegramEmbedStateCache.set(cacheKey, state);
+    telegramEmbedStateCache.set(cacheKey, { found: true, value: state });
     return state;
   } catch (error) {
-    telegramEmbedStateCache.set(cacheKey, null);
+    telegramEmbedStateCache.set(cacheKey, TELEGRAM_EMBED_STATE_MISS);
     return null;
   }
 }
@@ -341,7 +352,7 @@ async function getTelegramOpenGraphMeta(
   const cacheKey = buildTelegramPostCacheKey(host, channel, postId);
   const cached = telegramPostMetaCache.get(cacheKey);
   if (cached !== undefined) {
-    return cached;
+    return cached.found ? cached.value : null;
   }
 
   try {
@@ -351,10 +362,10 @@ async function getTelegramOpenGraphMeta(
       retryDelay: 100,
     });
     const meta = parseTelegramOpenGraphMeta(html);
-    telegramPostMetaCache.set(cacheKey, meta);
+    telegramPostMetaCache.set(cacheKey, { found: true, value: meta });
     return meta;
   } catch (error) {
-    telegramPostMetaCache.set(cacheKey, null);
+    telegramPostMetaCache.set(cacheKey, TELEGRAM_POST_META_MISS);
     return null;
   }
 }

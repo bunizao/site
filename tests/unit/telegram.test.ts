@@ -106,6 +106,10 @@ const headFetchMock = mock(async () => {
   return new Response(null, { status: 200 });
 });
 
+function asFetchMock(fetchMock: typeof headFetchMock): typeof fetch {
+  return fetchMock as unknown as typeof fetch;
+}
+
 const astro = {
   request: new Request('http://localhost:4321'),
   locals: {
@@ -123,7 +127,7 @@ const telegramModulePromise = import('../../src/features/mood/server/telegram-so
 beforeEach(() => {
   ofetchMock.mockClear();
   headFetchMock.mockClear();
-  globalThis.fetch = headFetchMock as typeof fetch;
+  globalThis.fetch = asFetchMock(headFetchMock);
 });
 
 afterAll(() => {
@@ -165,9 +169,9 @@ describe('getChannelInfo detail media rendering', () => {
   });
 
   test('renders unsupported live photo fallback even when runtime fetch fails', async () => {
-    globalThis.fetch = mock(async () => {
+    globalThis.fetch = asFetchMock(mock(async () => {
       throw new Error('network down');
-    }) as typeof fetch;
+    }));
 
     const { getChannelInfo } = await telegramModulePromise;
     const post = await getChannelInfo(astro, { id: '3327', skipCache: true });
