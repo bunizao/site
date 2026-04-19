@@ -841,7 +841,7 @@ async function handleRead(request: Request, url: URL, env: Env, ctx: ExecutionCo
         });
         const response = request.method === 'HEAD'
           ? new Response(null, { status: 200, headers })
-          : new Response(generated.bytes, { status: 200, headers });
+          : new Response(generated.bytes as unknown as BodyInit, { status: 200, headers });
 
         if (request.method === 'GET') {
           ctx.waitUntil(cache.put(cacheRequest, response.clone()));

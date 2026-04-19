@@ -1,5 +1,5 @@
 import { createHmac } from 'node:crypto';
-import { secureCompareText } from '@/lib/notify/security';
+import { secureCompareText } from '@/features/notify/server/security';
 
 function normalizeSearchParams(searchParams: URLSearchParams): string {
   const entries = Array.from(searchParams.entries())

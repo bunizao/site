@@ -1,0 +1,803 @@
+---
+interface Props {
+  postId: string;
+  telegramCommentUrl?: string;
+}
+
+const {
+  postId,
+  telegramCommentUrl = '',
+} = Astro.props;
+---
+
+<section class="mood-comments" data-post-id={postId}>
+  <div class="mood-comments-header">
+    <span class="mood-comments-title">Comments</span>
+    <span class="mood-comments-count" data-comments-count></span>
+  </div>
+  <div class="mood-comments-list" data-comments-list>
+    <div class="mood-comments-skeleton" data-comments-loading>
+      <div class="mood-comment mood-comment--skeleton" style="--skeleton-delay: 0s;">
+        <div class="mood-comment-avatar mood-comment-avatar--skeleton" aria-hidden="true"></div>
+        <div class="mood-comment-body">
+          <div class="mood-comment-header">
+            <span
+              class="mood-comment-skeleton-line mood-comment-skeleton-line--author"
+              style="--line-width: 100px;"
+            ></span>
+            <span
+              class="mood-comment-skeleton-line mood-comment-skeleton-line--date"
+              style="--line-width: 49px;"
+            ></span>
+          </div>
+          <div class="mood-comment-content mood-comment-content--skeleton">
+            <span
+              class="mood-comment-skeleton-line mood-comment-skeleton-line--content"
+              style="--line-width: 34px;"
+            ></span>
+          </div>
+        </div>
+      </div>
+      <div class="mood-comment mood-comment--skeleton" style="--skeleton-delay: 0.15s;">
+        <div class="mood-comment-avatar mood-comment-avatar--skeleton" aria-hidden="true"></div>
+        <div class="mood-comment-body">
+          <div class="mood-comment-header">
+            <span
+              class="mood-comment-skeleton-line mood-comment-skeleton-line--author"
+              style="--line-width: 85px;"
+            ></span>
+            <span
+              class="mood-comment-skeleton-line mood-comment-skeleton-line--date"
+              style="--line-width: 55px;"
+            ></span>
+          </div>
+          <div class="mood-comment-content mood-comment-content--skeleton">
+            <span
+              class="mood-comment-skeleton-line mood-comment-skeleton-line--content"
+              style="--line-width: 120px;"
+            ></span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="mood-comments-empty" data-comments-empty hidden>
+    <p>No comments here yet...</p>
+  </div>
+  <button type="button" class="mood-comments-load-more" data-load-more hidden>
+    Load more comments
+  </button>
+  {telegramCommentUrl && (
+    <a
+      href={telegramCommentUrl}
+      target="_blank"
+      rel="noopener noreferrer"
+      class="mood-comment mood-comment-cta-wrap"
+    >
+      <div class="mood-comment-avatar mood-comment-avatar--telegram"></div>
+      <div class="mood-comment-body">
+        <div class="mood-comment-header">
+          <span class="mood-comment-author">Telegram</span>
+          <span class="mood-comment-date">now</span>
+        </div>
+        <div class="mood-comment-content mood-comment-cta-content">
+          <span>Leave a comment</span>
+          <svg
+            class="mood-comment-cta-arrow"
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <line x1="7" y1="17" x2="17" y2="7"></line>
+            <polyline points="7 7 17 7 17 17"></polyline>
+          </svg>
+        </div>
+      </div>
+    </a>
+  )}
+</section>
+
+<style is:global>
+  .mood-comments {
+    margin-top: 48px;
+    padding-top: 48px;
+    border-top: 1px solid hsl(var(--foreground) / 0.08);
+    position: relative;
+    --comment-body-padding: 9px 12px;
+    --comment-body-radius: 12px;
+    --comment-stack-gap: 16px;
+  }
+
+  .mood-comments::before {
+    content: '';
+    position: absolute;
+    top: -1px;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      hsl(var(--foreground) / 0.15) 50%,
+      transparent 100%
+    );
+  }
+
+  @media (min-width: 640px) {
+    .mood-comments {
+      margin-top: 56px;
+      padding-top: 56px;
+      --comment-stack-gap: 18px;
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .mood-comments {
+      margin-top: 64px;
+      padding-top: 64px;
+    }
+  }
+
+  .mood-comments-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 24px;
+  }
+
+  @media (min-width: 640px) {
+    .mood-comments-header {
+      margin-bottom: 28px;
+    }
+  }
+
+  .mood-comments-title {
+    font-size: 13px;
+    font-weight: 500;
+    color: hsl(var(--muted-foreground) / 0.6);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .mood-comments-count {
+    font-size: 12px;
+    font-weight: 500;
+    color: hsl(var(--muted-foreground) / 0.5);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .mood-comments-count:empty {
+    display: none;
+  }
+
+  .mood-comments-count::before {
+    content: '·';
+    margin-right: 8px;
+    color: hsl(var(--muted-foreground) / 0.3);
+  }
+
+  .mood-comments-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--comment-stack-gap);
+  }
+
+  .mood-comments-skeleton {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .mood-comment {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 0;
+    position: relative;
+    animation: comment-fade-in 0.3s ease-out backwards;
+  }
+
+  @media (min-width: 640px) {
+    .mood-comment {
+      gap: 12px;
+    }
+  }
+
+  @keyframes comment-fade-in {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .mood-comment--skeleton {
+    animation: none;
+  }
+
+  .mood-comment--skeleton .mood-comment-body {
+    width: fit-content;
+  }
+
+  .mood-comment-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: linear-gradient(
+      135deg,
+      hsl(var(--foreground) / 0.12) 0%,
+      hsl(var(--foreground) / 0.06) 100%
+    );
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 600;
+    color: hsl(var(--foreground) / 0.6);
+    overflow: hidden;
+    border: 1.5px solid hsl(var(--background));
+    box-shadow: 0 1px 4px hsl(var(--foreground) / 0.06);
+  }
+
+  @media (min-width: 640px) {
+    .mood-comment-avatar {
+      width: 36px;
+      height: 36px;
+      font-size: 13px;
+    }
+  }
+
+  .mood-comment-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .mood-comment-avatar--skeleton {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .mood-comment-avatar--skeleton::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      hsl(var(--foreground) / 0.15) 50%,
+      transparent 100%
+    );
+    animation: comment-skeleton-shimmer 2s ease-in-out infinite;
+    animation-delay: var(--skeleton-delay, 0s);
+  }
+
+  .mood-comment-body {
+    width: fit-content;
+    max-width: 100%;
+    min-width: 0;
+    background: hsl(var(--foreground) / 0.035);
+    border: 1px solid hsl(var(--foreground) / 0.08);
+    border-radius: var(--comment-body-radius, 12px);
+    padding: var(--comment-body-padding, 9px 12px);
+    position: relative;
+  }
+
+  .mood-comment-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+    flex-wrap: wrap;
+  }
+
+  .mood-comment-author {
+    font-size: 13px;
+    font-weight: 600;
+    color: hsl(var(--foreground));
+    letter-spacing: -0.01em;
+  }
+
+  @media (min-width: 640px) {
+    .mood-comment-author {
+      font-size: 14px;
+    }
+  }
+
+  .mood-comment-date {
+    font-size: 11px;
+    color: hsl(var(--muted-foreground) / 0.6);
+    font-variant-numeric: tabular-nums;
+  }
+
+  @media (min-width: 640px) {
+    .mood-comment-date {
+      font-size: 12px;
+    }
+  }
+
+  .mood-comment-date::before {
+    content: '•';
+    margin-right: 8px;
+    color: hsl(var(--muted-foreground) / 0.3);
+  }
+
+  .mood-comment-content {
+    font-size: 13px;
+    line-height: 1.6;
+    color: hsl(var(--foreground) / 0.95);
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+
+  @media (min-width: 640px) {
+    .mood-comment-content {
+      font-size: 14px;
+      line-height: 1.65;
+    }
+  }
+
+  .mood-comment-content p {
+    margin: 0 0 0.8em;
+  }
+
+  .mood-comment-content p:last-child {
+    margin-bottom: 0;
+  }
+
+  .mood-comment-content a {
+    color: hsl(var(--foreground));
+    text-decoration: none;
+    border-bottom: 1px solid hsl(var(--foreground) / 0.3);
+    transition: border-color 0.15s ease;
+  }
+
+  .mood-comment-content a:hover {
+    border-bottom-color: hsl(var(--foreground) / 0.6);
+  }
+
+  .mood-comment-content .emoji {
+    font-style: normal;
+  }
+
+  .mood-comment-content .emoji b {
+    font-weight: inherit;
+  }
+
+  .mood-comment-content .tg-emoji {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.1em;
+    height: 1.1em;
+    vertical-align: -0.15em;
+  }
+
+  .mood-comment-content .tg-emoji img {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+
+  .mood-comment-content .tg-emoji[data-emoji-animated='true'] img {
+    display: none;
+  }
+
+  .mood-comment-content .tg-emoji-anim,
+  .mood-comment-content .tg-emoji-anim svg {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+
+  .mood-comment-content blockquote {
+    --comment-quote-bg: linear-gradient(
+      180deg,
+      hsl(var(--foreground) / 0.03) 0%,
+      hsl(var(--foreground) / 0.06) 100%
+    );
+    margin: 0.6em 0 0.7em;
+    padding: 4px 10px 4px;
+    border-left: 2px solid hsl(var(--foreground) / 0.18);
+    background: var(--comment-quote-bg);
+    border-radius: 0 6px 6px 0;
+    font-size: 11.5px;
+    line-height: 1.5;
+    color: hsl(var(--muted-foreground));
+    position: relative;
+    overflow: hidden;
+  }
+
+  @media (min-width: 640px) {
+    .mood-comment-content blockquote {
+      padding: 5px 12px 5px;
+      font-size: 12.5px;
+      line-height: 1.55;
+    }
+  }
+
+  .mood-comment-content blockquote::before {
+    content: '';
+    position: absolute;
+    left: -2px;
+    top: 0;
+    width: 2px;
+    height: 100%;
+    background: linear-gradient(
+      to bottom,
+      hsl(var(--foreground) / 0.3),
+      hsl(var(--foreground) / 0.08)
+    );
+    border-radius: 2px 0 0 2px;
+  }
+
+  .mood-comment-content blockquote::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 42%;
+    background: linear-gradient(
+      180deg,
+      hsl(var(--foreground) / 0) 0%,
+      hsl(var(--foreground) / 0.18) 100%
+    );
+    opacity: 0.35;
+    pointer-events: none;
+  }
+
+  .mood-comment-content blockquote small {
+    display: block;
+    line-height: 1.5;
+    position: relative;
+    z-index: 1;
+    white-space: pre-line;
+  }
+
+  .mood-comment-content blockquote p {
+    margin: 0;
+    position: relative;
+    z-index: 1;
+    white-space: pre-line;
+  }
+
+  .mood-comment-reactions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 10px;
+  }
+
+  .mood-comment-skeleton-line {
+    display: block;
+    width: var(--line-width, 120px);
+    height: var(--line-height, 12px);
+    background: hsl(var(--foreground) / 0.1);
+    border-radius: 6px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .mood-comment-skeleton-line::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      hsl(var(--foreground) / 0.18) 50%,
+      transparent 100%
+    );
+    animation: comment-skeleton-shimmer 2s ease-in-out infinite;
+    animation-delay: var(--skeleton-delay, 0s);
+  }
+
+  .mood-comment-skeleton-line--author {
+    --line-height: 13px;
+  }
+
+  .mood-comment-skeleton-line--date {
+    --line-height: 10px;
+    background: hsl(var(--foreground) / 0.08);
+  }
+
+  .mood-comment-skeleton-line--quote {
+    --line-height: 11px;
+  }
+
+  .mood-comment-content--skeleton {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .mood-comment-content .mood-comment-skeleton-quote small {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  @keyframes comment-skeleton-shimmer {
+    0% {
+      transform: translateX(-100%);
+    }
+    100% {
+      transform: translateX(100%);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .mood-comment-avatar--skeleton::after,
+    .mood-comment-skeleton-line::after {
+      animation: none;
+    }
+  }
+
+  .mood-comments-empty {
+    padding: 24px 0;
+    color: hsl(var(--muted-foreground) / 0.5);
+  }
+
+  .mood-comments-empty p {
+    margin: 0;
+    font-size: 14px;
+    font-style: italic;
+  }
+
+  .mood-comments-load-more {
+    display: block;
+    width: 100%;
+    margin-top: 28px;
+    padding: 16px 28px;
+    font-size: 14px;
+    font-weight: 500;
+    color: hsl(var(--foreground) / 0.75);
+    background: linear-gradient(
+      180deg,
+      hsl(var(--foreground) / 0.04) 0%,
+      hsl(var(--foreground) / 0.06) 100%
+    );
+    border: 1px solid hsl(var(--foreground) / 0.12);
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    font-family: inherit;
+    position: relative;
+    overflow: hidden;
+    box-shadow:
+      0 2px 8px hsl(var(--foreground) / 0.04),
+      0 0 0 1px hsl(var(--foreground) / 0.02);
+  }
+
+  .mood-comments-load-more[hidden] {
+    display: none;
+  }
+
+  .mood-comments-load-more::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      135deg,
+      hsl(var(--foreground) / 0.08) 0%,
+      transparent 100%
+    );
+    opacity: 0;
+    transition: opacity 0.25s ease;
+  }
+
+  .mood-comments-load-more:hover {
+    color: hsl(var(--foreground));
+    border-color: hsl(var(--foreground) / 0.18);
+    box-shadow:
+      0 4px 16px hsl(var(--foreground) / 0.08),
+      0 0 0 1px hsl(var(--foreground) / 0.04);
+    transform: translateY(-1px);
+  }
+
+  .mood-comments-load-more:hover::before {
+    opacity: 1;
+  }
+
+  .mood-comments-load-more:active {
+    transform: translateY(0);
+  }
+
+  .mood-comments-load-more:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+  }
+
+  .mood-comments-load-more:disabled:hover {
+    border-color: hsl(var(--foreground) / 0.12);
+    box-shadow:
+      0 2px 8px hsl(var(--foreground) / 0.04),
+      0 0 0 1px hsl(var(--foreground) / 0.02);
+  }
+
+  a.mood-comment-cta-wrap {
+    text-decoration: none;
+    color: inherit;
+    cursor: pointer;
+    animation: none;
+    margin-top: var(--comment-stack-gap, 16px);
+  }
+
+  a.mood-comment-cta-wrap .mood-comment-body {
+    transition: all 0.2s ease;
+  }
+
+  a.mood-comment-cta-wrap:hover .mood-comment-body {
+    background: linear-gradient(
+      145deg,
+      hsl(var(--foreground) / 0.035) 0%,
+      hsl(200 50% 60% / 0.06) 50%,
+      hsl(var(--foreground) / 0.05) 100%
+    );
+    border-color: hsl(200 40% 50% / 0.15);
+    box-shadow:
+      0 1px 2px hsl(var(--foreground) / 0.04),
+      0 4px 12px hsl(200 60% 50% / 0.08),
+      inset 0 1px 0 hsl(var(--background) / 0.8),
+      inset 0 -1px 0 hsl(var(--foreground) / 0.03);
+  }
+
+  .mood-comment-avatar--telegram {
+    background: url('/telegram-logo.svg') no-repeat center !important;
+    background-size: 91% !important;
+  }
+
+  .mood-comment-cta-content {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .mood-comment-cta-content span {
+    color: hsl(var(--foreground) / 0.95);
+  }
+
+  .mood-comment-cta-arrow {
+    opacity: 0.4;
+    transition: all 0.2s ease;
+    flex-shrink: 0;
+  }
+
+  a.mood-comment-cta-wrap:hover .mood-comment-cta-arrow {
+    opacity: 0.7;
+    transform: translate(2px, -2px);
+  }
+
+  @media (max-width: 540px) {
+    .mood-comments {
+      --comment-body-padding: 14px 15px;
+      --comment-body-radius: 16px 18px 18px 5px;
+      --comment-stack-gap: 12px;
+      margin-top: 32px;
+      padding-top: 32px;
+    }
+
+    .mood-comments-header {
+      margin-bottom: 16px;
+    }
+
+    .mood-comments-title {
+      font-size: 12px;
+      letter-spacing: 0.06em;
+    }
+
+    .mood-comments-count {
+      font-size: 11px;
+    }
+
+    .mood-comment {
+      gap: 10px;
+    }
+
+    .mood-comment-avatar {
+      width: 32px;
+      height: 32px;
+      font-size: 11px;
+      border-width: 1px;
+    }
+
+    .mood-comment-header {
+      gap: 6px;
+      margin-bottom: 4px;
+    }
+
+    .mood-comment-author {
+      font-size: 12px;
+    }
+
+    .mood-comment-date {
+      font-size: 10px;
+    }
+
+    .mood-comment-date::before {
+      margin-right: 6px;
+    }
+
+    .mood-comment-content {
+      font-size: 13px;
+      line-height: 1.55;
+    }
+
+    .mood-comment-content blockquote {
+      margin: 0.5em 0 0.6em;
+      padding: 4px 8px;
+      font-size: 11px;
+      line-height: 1.45;
+    }
+
+    .mood-comment-reactions {
+      gap: 5px;
+      margin-top: 8px;
+    }
+
+    .mood-comments-empty {
+      padding: 16px 0;
+    }
+
+    .mood-comments-empty p {
+      font-size: 13px;
+    }
+
+    .mood-comments-load-more {
+      margin-top: 16px;
+      padding: 12px 20px;
+      font-size: 13px;
+      border-radius: 10px;
+    }
+
+    .mood-comment-cta-arrow {
+      width: 12px;
+      height: 12px;
+    }
+  }
+
+  @media (max-width: 380px) {
+    .mood-comments {
+      --comment-body-padding: 14px 15px;
+      --comment-body-radius: 16px 18px 18px 5px;
+      --comment-stack-gap: 10px;
+      margin-top: 28px;
+      padding-top: 20px;
+    }
+
+    .mood-comment {
+      gap: 8px;
+    }
+
+    .mood-comment-avatar {
+      width: 28px;
+      height: 28px;
+      font-size: 10px;
+    }
+
+    .mood-comment-author {
+      font-size: 11px;
+    }
+
+    .mood-comment-content {
+      font-size: 12px;
+    }
+
+    .mood-comments-load-more {
+      padding: 10px 16px;
+      font-size: 12px;
+    }
+  }
+</style>

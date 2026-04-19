@@ -1,0 +1,569 @@
+---
+interface Props {
+  turnstileSiteKey?: string;
+}
+
+const {
+  turnstileSiteKey = '',
+} = Astro.props;
+---
+
+<div
+  class="notify-panel"
+  role="dialog"
+  aria-label="Subscribe to notifications"
+  aria-hidden="true"
+  data-turnstile-site-key={turnstileSiteKey}
+>
+  <div class="notify-panel-inner">
+    <div data-notify-form-view>
+      <div class="notify-panel-header">
+        <span class="notify-panel-title">Get notified</span>
+        <button type="button" class="notify-panel-close" data-notify-close aria-label="Close">
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M18 6 6 18"></path>
+            <path d="m6 6 12 12"></path>
+          </svg>
+        </button>
+      </div>
+      <form data-notify-form autocomplete="off">
+        <label class="notify-label" for="notify-email">Email</label>
+        <input
+          id="notify-email"
+          type="email"
+          class="notify-input"
+          placeholder="you@example.com"
+          required
+          autocomplete="email"
+          data-notify-email
+        />
+        <fieldset class="notify-fieldset">
+          <legend class="notify-label">Frequency</legend>
+          <div class="notify-radio-group" role="radiogroup" aria-label="Delivery mode">
+            <span class="notify-radio-indicator" aria-hidden="true"></span>
+            <input
+              type="radio"
+              id="notify-mode-instant"
+              name="deliveryMode"
+              value="instant"
+              class="notify-radio-input"
+              checked
+            />
+            <label for="notify-mode-instant" class="notify-radio-label">Instant</label>
+            <input
+              type="radio"
+              id="notify-mode-digest5h"
+              name="deliveryMode"
+              value="every_5h"
+              class="notify-radio-input"
+            />
+            <label for="notify-mode-digest5h" class="notify-radio-label">Every 5h</label>
+            <input
+              type="radio"
+              id="notify-mode-daily"
+              name="deliveryMode"
+              value="daily"
+              class="notify-radio-input"
+            />
+            <label for="notify-mode-daily" class="notify-radio-label">Daily</label>
+          </div>
+        </fieldset>
+        <div data-notify-turnstile class="notify-turnstile"></div>
+        <button type="submit" class="notify-submit" data-notify-submit>
+          <span class="notify-submit-lock-icon" data-notify-submit-lock aria-hidden="true">
+            <svg
+              width="12"
+              height="12"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <rect x="4" y="11" width="16" height="10" rx="2"></rect>
+              <path d="M8 11V8a4 4 0 1 1 8 0v3"></path>
+            </svg>
+          </span>
+          <span data-notify-submit-text>Subscribe</span>
+          <span data-notify-submit-spinner class="notify-spinner is-hidden"></span>
+        </button>
+        <p class="notify-submit-hint" data-notify-submit-hint>
+          Complete security check before subscribing.
+        </p>
+        <p class="notify-privacy-note">
+          Subscription details are covered by the
+          <a
+            href="/privacy"
+            class="notify-privacy-link"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Privacy Policy
+          </a>.
+        </p>
+        <div data-notify-error-msg class="notify-error-msg" aria-live="polite"></div>
+      </form>
+    </div>
+    <div data-notify-success-view class="is-hidden">
+      <div class="notify-success">
+        <svg
+          width="32"
+          height="32"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.5"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          aria-hidden="true"
+        >
+          <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+          <path d="m9 11 3 3L22 4"></path>
+        </svg>
+        <p class="notify-success-text" data-notify-success-text>Check your inbox to confirm.</p>
+        <button type="button" class="notify-submit" data-notify-done>Done</button>
+      </div>
+    </div>
+    <div data-notify-error-view class="is-hidden">
+      <div class="notify-error-state">
+        <p class="notify-error-state-text" data-notify-error-state-text>Something went wrong.</p>
+        <button type="button" class="notify-submit" data-notify-retry>Try again</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style is:global>
+  .notify-panel {
+    position: fixed;
+    z-index: 60;
+    width: 312px;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(-4px) scale(0.96);
+    transform-origin: top right;
+    transition: opacity 0.15s ease, transform 0.15s ease, visibility 0.15s ease;
+    pointer-events: none;
+  }
+
+  .notify-panel.is-open {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0) scale(1);
+    pointer-events: auto;
+  }
+
+  .notify-panel-inner {
+    background: hsl(var(--background));
+    border: 1px solid hsl(var(--foreground) / 0.1);
+    border-radius: 10px;
+    box-shadow: 0 8px 24px hsl(var(--foreground) / 0.08), 0 2px 8px hsl(var(--foreground) / 0.04);
+    padding: 14px;
+  }
+
+  .notify-panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 14px;
+  }
+
+  .notify-panel-title {
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+  }
+
+  .notify-panel-close {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    color: hsl(var(--muted-foreground));
+    background: none;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: color 0.12s ease, background 0.12s ease;
+  }
+
+  .notify-panel-close:hover {
+    color: hsl(var(--foreground));
+    background: hsl(var(--foreground) / 0.06);
+  }
+
+  .notify-label {
+    display: block;
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.03em;
+    color: hsl(var(--muted-foreground));
+    margin-bottom: 6px;
+  }
+
+  .notify-input {
+    width: 100%;
+    height: 34px;
+    padding: 0 10px;
+    font-family: inherit;
+    font-size: 13px;
+    color: hsl(var(--foreground));
+    background: hsl(var(--foreground) / 0.04);
+    border: 1px solid hsl(var(--foreground) / 0.1);
+    border-radius: 7px;
+    outline: none;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  }
+
+  .notify-input::placeholder {
+    color: hsl(var(--muted-foreground) / 0.5);
+  }
+
+  .notify-input:focus {
+    border-color: hsl(var(--foreground) / 0.3);
+    box-shadow: 0 0 0 2px hsl(var(--foreground) / 0.06);
+  }
+
+  .notify-fieldset {
+    border: none;
+    padding: 0;
+    margin: 14px 0 0;
+  }
+
+  .notify-radio-group {
+    --notify-frequency-segments: 3;
+    --notify-frequency-offset: 0%;
+    position: relative;
+    display: flex;
+    gap: 0;
+    background: hsl(var(--foreground) / 0.04);
+    border-radius: 7px;
+    padding: 2px;
+    isolation: isolate;
+  }
+
+  .notify-radio-indicator {
+    position: absolute;
+    top: 2px;
+    bottom: 2px;
+    left: 2px;
+    width: calc((100% - 4px) / var(--notify-frequency-segments));
+    border-radius: 5px;
+    background: hsl(var(--background));
+    box-shadow: 0 1px 3px hsl(var(--foreground) / 0.08);
+    pointer-events: none;
+    z-index: 0;
+    transform: translate3d(var(--notify-frequency-offset), 0, 0);
+    -webkit-transform: translate3d(var(--notify-frequency-offset), 0, 0);
+    transition:
+      transform 0.24s cubic-bezier(0.22, 1, 0.36, 1),
+      -webkit-transform 0.24s cubic-bezier(0.22, 1, 0.36, 1),
+      box-shadow 0.24s ease;
+    will-change: transform;
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+  }
+
+  .notify-radio-input {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+    pointer-events: none;
+  }
+
+  .notify-radio-label {
+    flex: 1;
+    position: relative;
+    z-index: 1;
+    text-align: center;
+    padding: 5px 0;
+    font-size: 11px;
+    font-weight: 500;
+    color: hsl(var(--muted-foreground));
+    border-radius: 5px;
+    background: transparent;
+    cursor: pointer;
+    transition: color 0.12s ease;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .notify-radio-input:checked + .notify-radio-label {
+    color: hsl(var(--foreground));
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .notify-radio-input:focus-visible + .notify-radio-label {
+    outline: 2px solid hsl(var(--foreground));
+    outline-offset: 1px;
+  }
+
+  .notify-turnstile {
+    --notify-turnstile-scale: 0.94;
+    margin-top: 12px;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    min-height: 0;
+    transition: min-height 0.2s ease;
+  }
+
+  .notify-turnstile.has-widget {
+    min-height: 62px;
+  }
+
+  .notify-turnstile.has-widget > div {
+    transform: scale(var(--notify-turnstile-scale));
+    transform-origin: center top;
+    display: block;
+  }
+
+  @media (max-width: 639px) {
+    .notify-turnstile {
+      --notify-turnstile-scale: 0.92;
+    }
+  }
+
+  @media (max-width: 380px) {
+    .notify-turnstile {
+      --notify-turnstile-scale: 0.9;
+    }
+  }
+
+  .notify-submit {
+    width: 100%;
+    height: 36px;
+    margin-top: 14px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    color: hsl(var(--primary-foreground));
+    background: hsl(var(--primary));
+    border: 1px solid transparent;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: opacity 0.15s ease, background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  }
+
+  .notify-submit:hover {
+    opacity: 0.85;
+  }
+
+  .notify-submit:active {
+    opacity: 0.7;
+  }
+
+  [data-notify-submit].notify-submit {
+    height: 40px;
+    border-radius: 9px;
+    margin-top: 13px;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.015em;
+  }
+
+  [data-notify-submit].notify-submit:not(.is-locked):not(:disabled) {
+    color: hsl(var(--background));
+    background: hsl(var(--foreground));
+  }
+
+  [data-notify-submit].notify-submit:not(.is-locked):not(:disabled):hover {
+    opacity: 0.88;
+  }
+
+  .notify-submit:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .notify-submit.is-locked,
+  .notify-submit.is-locked:disabled {
+    opacity: 1;
+    color: hsl(var(--muted-foreground));
+    background: transparent;
+    border-color: hsl(var(--foreground) / 0.12);
+    cursor: not-allowed;
+  }
+
+  .notify-submit.is-locked:hover {
+    opacity: 1;
+  }
+
+  .notify-submit-lock-icon {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    color: currentColor;
+    opacity: 0.5;
+  }
+
+  .notify-submit.is-locked .notify-submit-lock-icon {
+    display: inline-flex;
+  }
+
+  .notify-submit[aria-busy='true'] .notify-submit-lock-icon {
+    display: none;
+  }
+
+  .notify-submit-hint {
+    margin: 7px 0 0;
+    min-height: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10.5px;
+    letter-spacing: 0.015em;
+    color: hsl(var(--muted-foreground) / 0.76);
+    text-align: center;
+  }
+
+  .notify-privacy-note {
+    margin: 6px 0 0;
+    font-size: 10.5px;
+    line-height: 1.45;
+    text-align: center;
+    color: hsl(var(--muted-foreground) / 0.74);
+  }
+
+  .notify-privacy-link {
+    color: hsl(var(--foreground));
+    text-decoration: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 0.16em;
+  }
+
+  .notify-privacy-link:hover,
+  .notify-privacy-link:focus-visible {
+    text-decoration-thickness: 2px;
+  }
+
+  .notify-error-msg {
+    margin-top: 6px;
+    font-size: 10.5px;
+    line-height: 1.35;
+    color: hsl(8 72% 62% / 0.9);
+    min-height: 0;
+  }
+
+  .notify-error-msg:empty {
+    display: none;
+  }
+
+  .notify-spinner {
+    width: 14px;
+    height: 14px;
+    border: 2px solid hsl(var(--primary-foreground) / 0.3);
+    border-top-color: hsl(var(--primary-foreground));
+    border-radius: 50%;
+    animation: notify-spin 0.6s linear infinite;
+  }
+
+  @keyframes notify-spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
+  .notify-success {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 0 4px;
+    color: hsl(var(--foreground));
+  }
+
+  .notify-success-text {
+    font-size: 13px;
+    font-weight: 500;
+    text-align: center;
+  }
+
+  .notify-error-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 0 4px;
+  }
+
+  .notify-error-state-text {
+    font-size: 13px;
+    color: hsl(0 84% 60%);
+    text-align: center;
+  }
+
+  .is-hidden {
+    display: none !important;
+  }
+
+  .header-action-btn.is-active {
+    color: hsl(var(--foreground));
+    background: hsl(var(--foreground) / 0.06);
+    border-color: hsl(var(--foreground) / 0.15);
+  }
+
+  @media (max-width: 639px) {
+    .notify-panel {
+      width: min(312px, calc(100vw - 20px));
+      max-width: 312px;
+    }
+
+    .notify-panel-inner {
+      padding: 14px;
+    }
+  }
+
+  @media (hover: none) and (pointer: coarse) {
+    .notify-input {
+      font-size: 16px;
+    }
+  }
+
+  @supports (-webkit-touch-callout: none) {
+    @media (hover: none) and (pointer: coarse) {
+      .notify-input {
+        --notify-input-visual-scale: 0.9375;
+        width: calc(100% / var(--notify-input-visual-scale));
+        transform: scale(var(--notify-input-visual-scale));
+        -webkit-transform: scale(var(--notify-input-visual-scale));
+        transform-origin: left center;
+        -webkit-transform-origin: left center;
+      }
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .notify-panel {
+      transition: opacity 0.1s ease, visibility 0.1s ease;
+      transform: none !important;
+    }
+
+    .notify-panel.is-open {
+      transform: none !important;
+    }
+
+    .notify-radio-indicator {
+      transition: none;
+    }
+  }
+</style>

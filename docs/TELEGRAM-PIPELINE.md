@@ -84,8 +84,8 @@ Responsibilities:
 Files:
 
 - [`src/pages/api/moods.ts`](../src/pages/api/moods.ts)
-- [`src/lib/telegram.ts`](../src/lib/telegram.ts)
-- [`src/lib/mood-utils.ts`](../src/lib/mood-utils.ts)
+- [`src/features/mood/server/telegram-source.ts`](../src/features/mood/server/telegram-source.ts)
+- [`src/features/mood/shared/utils.ts`](../src/features/mood/shared/utils.ts)
 
 Responsibilities:
 
@@ -97,7 +97,7 @@ Responsibilities:
 
 Files:
 
-- [`src/lib/notify/service.ts`](../src/lib/notify/service.ts)
+- [`src/features/notify/server/service.ts`](../src/features/notify/server/service.ts)
 - [`docs/EMAIL-NOTIFY.md`](./EMAIL-NOTIFY.md)
 
 Responsibilities:

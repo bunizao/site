@@ -1,6 +1,17 @@
 import type { APIRoute } from 'astro';
+import {
+  json,
+  jsonBadRequest,
+  jsonError,
+  jsonTooManyRequests,
+} from '@/lib/http/json-response';
+import {
+  readBooleanFlag,
+  readEnumQuery,
+  readIntQuery,
+} from '@/lib/http/query';
+import { withRateLimit } from '@/lib/http/rate-limited';
 import { getCorsHeaders } from '../../lib/embed-response';
-import { checkRateLimit, createRateLimitHeaders } from '../../lib/security/rate-limit';
 
 export const prerender = false;
 
@@ -56,128 +67,75 @@ function estimateHeight(options: {
   return Math.round(total);
 }
 
+function mergeHeaders(...sources: Array<HeadersInit | undefined>): Headers {
+  const headers = new Headers();
+  sources.forEach((source) => {
+    if (!source) return;
+    new Headers(source).forEach((value, key) => {
+      headers.set(key, value);
+    });
+  });
+  return headers;
+}
+
 export const GET: APIRoute = async ({ url, request, locals }) => {
   const corsHeaders = getCorsHeaders();
-  const rateLimit = checkRateLimit(
+  const rateLimit = withRateLimit(
     request,
     { windowMs: 60_000, max: 120, prefix: 'api:oembed' },
     locals
   );
-  const rateLimitHeaders = createRateLimitHeaders(rateLimit);
 
   if (!rateLimit.allowed) {
-    return new Response(JSON.stringify({ error: 'Too Many Requests' }), {
-      status: 429,
-      headers: {
-        'Content-Type': 'application/json',
-        ...Object.fromEntries(corsHeaders),
-        ...Object.fromEntries(rateLimitHeaders),
-      },
-    });
+    return jsonTooManyRequests(mergeHeaders(corsHeaders, rateLimit.headers));
   }
 
-  const params = url.searchParams;
-  const requestedUrl = params.get('url');
-
-  // Validate URL parameter
+  const requestedUrl = url.searchParams.get('url')?.trim() ?? '';
   if (!requestedUrl) {
-    return new Response(
-      JSON.stringify({ error: 'Missing required parameter: url' }),
-      {
-        status: 400,
-        headers: {
-          'Content-Type': 'application/json',
-          ...Object.fromEntries(corsHeaders),
-        },
-      }
-    );
+    return jsonBadRequest('Missing required parameter: url', corsHeaders);
   }
 
-  // Parse and validate the URL
   let parsedUrl: URL;
   try {
     parsedUrl = new URL(requestedUrl);
   } catch {
-    return new Response(
-      JSON.stringify({ error: 'Invalid URL format' }),
-      {
-        status: 400,
-        headers: {
-          'Content-Type': 'application/json',
-          ...Object.fromEntries(corsHeaders),
-        },
-      }
-    );
+    return jsonBadRequest('Invalid URL format', corsHeaders);
   }
 
   const isHttp = parsedUrl.protocol === 'http:' || parsedUrl.protocol === 'https:';
   if (!isHttp) {
-    return new Response(
-      JSON.stringify({ error: 'Unsupported URL protocol' }),
-      {
-        status: 400,
-        headers: {
-          'Content-Type': 'application/json',
-          ...Object.fromEntries(corsHeaders),
-        },
-      }
-    );
+    return jsonBadRequest('Unsupported URL protocol', corsHeaders);
   }
 
   const normalizeHost = (value: string): string => value.replace(/^www\\./i, '').toLowerCase();
   if (normalizeHost(parsedUrl.host) !== normalizeHost(url.host)) {
-    return new Response(
-      JSON.stringify({ error: 'URL host not allowed for embedding' }),
-      {
-        status: 403,
-        headers: {
-          'Content-Type': 'application/json',
-          ...Object.fromEntries(corsHeaders),
-        },
-      }
-    );
+    return jsonError(403, 'URL host not allowed for embedding', corsHeaders);
   }
 
-  // Check if URL is for our mood page
   const moodPath = parsedUrl.pathname.endsWith('/') && parsedUrl.pathname !== '/' ? parsedUrl.pathname.slice(0, -1) : parsedUrl.pathname;
   const moodListPath = moodPath === '/mood';
   const moodSegments = moodPath.split('/').filter(Boolean);
   const moodDetailId = moodSegments.length === 2 && moodSegments[0] === 'mood' ? moodSegments[1] : '';
   const isMoodUrl = moodListPath || Boolean(moodDetailId);
   if (!isMoodUrl) {
-    return new Response(
-      JSON.stringify({ error: 'URL not supported for embedding' }),
-      {
-        status: 404,
-        headers: {
-          'Content-Type': 'application/json',
-          ...Object.fromEntries(corsHeaders),
-        },
-      }
-    );
+    return jsonError(404, 'URL not supported for embedding', corsHeaders);
   }
 
-  // Parse dimension parameters
-  const maxWidth = params.get('maxwidth');
-  const maxHeight = params.get('maxheight');
-  const width = maxWidth ? clamp(parseInt(maxWidth, 10) || DEFAULT_WIDTH, MIN_WIDTH, MAX_WIDTH) : DEFAULT_WIDTH;
+  const width = clamp(readIntQuery(url, 'maxwidth') ?? DEFAULT_WIDTH, MIN_WIDTH, MAX_WIDTH);
+  const maxHeight = readIntQuery(url, 'maxheight');
 
-  // Parse embed-specific parameters
-  const theme = params.get('theme') || 'auto';
-  const countParam = params.get('count');
-  const count = countParam ? clamp(parseInt(countParam, 10) || DEFAULT_COUNT, MIN_COUNT, MAX_COUNT) : DEFAULT_COUNT;
-  const frameParam = params.get('frame');
-  const densityParam = params.get('density');
-  const fontParam = params.get('font');
-  const originParam = params.get('origin');
-  const linkParam = params.get('link');
-  const density = densityParam === 'compact' ? 'compact' : DEFAULT_DENSITY;
-  const font = fontParam === 'system' ? 'system' : 'mono';
-  const frame = frameParam ? frameParam !== 'false' && frameParam !== '0' : true;
-  const link = linkParam ? linkParam !== 'false' && linkParam !== '0' : true;
+  const theme = url.searchParams.get('theme') || 'auto';
+  const count = clamp(readIntQuery(url, 'count') ?? DEFAULT_COUNT, MIN_COUNT, MAX_COUNT);
+  const frameParam = url.searchParams.get('frame');
+  const density = readEnumQuery(url, 'density', ['regular', 'compact'] as const, DEFAULT_DENSITY);
+  const font = readEnumQuery(url, 'font', ['mono', 'system'] as const, 'mono');
+  const originParam = url.searchParams.get('origin');
+  const linkParam = url.searchParams.get('link');
+  const frame = readBooleanFlag(url, 'frame', true);
+  const link = readBooleanFlag(url, 'link', true);
   const allowedOrigin = normalizeOrigin(originParam);
-  const height = maxHeight
-    ? clamp(parseInt(maxHeight, 10) || DEFAULT_HEIGHT, MIN_HEIGHT, MAX_HEIGHT)
+  const height = maxHeight !== null
+    ? clamp(maxHeight || DEFAULT_HEIGHT, MIN_HEIGHT, MAX_HEIGHT)
     : clamp(
         estimateHeight({
           count: moodDetailId ? 1 : count,
@@ -189,7 +147,6 @@ export const GET: APIRoute = async ({ url, request, locals }) => {
         MAX_HEIGHT
       );
 
-  // Build embed URL
   const baseUrl = `${url.protocol}//${url.host}`;
   const embedParams = new URLSearchParams();
   embedParams.set('theme', theme);
@@ -201,10 +158,10 @@ export const GET: APIRoute = async ({ url, request, locals }) => {
   if (frameParam) {
     embedParams.set('frame', frameParam);
   }
-  if (densityParam) {
+  if (url.searchParams.has('density')) {
     embedParams.set('density', density);
   }
-  if (fontParam) {
+  if (url.searchParams.has('font')) {
     embedParams.set('font', font);
   }
   if (allowedOrigin) {
@@ -216,7 +173,6 @@ export const GET: APIRoute = async ({ url, request, locals }) => {
 
   const embedUrl = `${baseUrl}/mood/embed?${embedParams.toString()}`;
 
-  // Generate iframe HTML
   const iframeId = `mood-embed-${Math.random().toString(36).slice(2, 9)}`;
   const iframeHtml = `<iframe id="${iframeId}" src="${embedUrl}" width="${width}" height="${height}" frameborder="0" style="border:0;display:block;width:100%;max-width:${width}px;height:${height}px;overflow:hidden;" loading="lazy" allowtransparency="true" title="Mood Embed"></iframe>`;
   const resizeScript = `<script>(function(){var iframe=document.getElementById('${iframeId}');if(!iframe)return;var allowedOrigin=null;try{var url=new URL(iframe.getAttribute('src')||'');var originParam=url.searchParams.get('origin');if(originParam){var parsed=new URL(originParam);allowedOrigin=parsed.origin;}}catch(e){}function onMessage(event){if(!event||!event.data||event.data.type!=='mood-embed-resize')return;if(event.source!==iframe.contentWindow)return;if(allowedOrigin&&event.origin!==allowedOrigin)return;var nextHeight=Number(event.data.height);if(!Number.isFinite(nextHeight)||nextHeight<=0)return;iframe.style.height=nextHeight+'px';}window.addEventListener('message',onMessage);})();</script>`;
@@ -234,13 +190,7 @@ export const GET: APIRoute = async ({ url, request, locals }) => {
     cache_age: 3600,
   };
 
-  return new Response(JSON.stringify(response), {
-    status: 200,
-    headers: {
-      'Content-Type': 'application/json',
-      ...Object.fromEntries(corsHeaders),
-    },
-  });
+  return json(200, response, corsHeaders);
 };
 
 export const OPTIONS: APIRoute = async () => {

@@ -1,0 +1,136 @@
+---
+import Hero from '@/features/mood/ui/Hero.astro';
+
+interface SkeletonItem {
+  index: number;
+  lineWidth: string;
+}
+
+interface SkeletonGroup {
+  index: number;
+  dateWidth: string;
+  items: SkeletonItem[];
+}
+
+interface Props {
+  skeletonGroups: SkeletonGroup[];
+}
+
+const {
+  skeletonGroups,
+} = Astro.props;
+---
+
+<div class="mood-page">
+  <Hero />
+
+  <div class="mood-loading" data-mood-loading>
+    <div class="mood-skeleton-stream" aria-hidden="true">
+      {skeletonGroups.map((group) => (
+        <div
+          class="mood-skeleton-group"
+          style={`--group-index: ${group.index}; --date-width: ${group.dateWidth};`}
+        >
+          <div class="mood-skeleton-header">
+            <span class="mood-skeleton-date"></span>
+            <div class="mood-skeleton-header-line"></div>
+          </div>
+          <div class="mood-skeleton-items">
+            {group.items.map((item) => (
+              <div
+                class="mood-skeleton-item"
+                style={`--item-index: ${item.index}; --line-width: ${item.lineWidth};`}
+              >
+                <span class="mood-skeleton-time"></span>
+                <div class="mood-skeleton-content">
+                  <span class="mood-skeleton-line"></span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  </div>
+
+  <div class="mood-error is-hidden" data-mood-error>
+    <p class="text-sm text-muted-foreground">Unable to load moods. Please try again later.</p>
+  </div>
+
+  <div class="mood-feed is-hidden" data-mood-feed>
+    <div class="mood-stream" data-mood-list role="feed" aria-label="Mood feed"></div>
+    <div class="mood-load-controls">
+      <p class="mood-load-status" data-load-status aria-live="polite"></p>
+    </div>
+    <div class="mood-sentinel" data-mood-sentinel aria-hidden="true"></div>
+  </div>
+
+  <div
+    class="mood-update-notice"
+    data-mood-update-notice
+    role="status"
+    aria-live="polite"
+    aria-atomic="true"
+    style="display: none;"
+  >
+    <p class="mood-update-text" data-mood-update-text>New moods are in!</p>
+    <div class="mood-update-actions" data-mood-update-actions>
+      <button class="mood-update-action" type="button" data-mood-update-refresh aria-label="Refresh">
+        <svg
+          class="mood-update-action-icon"
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          aria-hidden="true"
+        >
+          <polyline points="23 4 23 10 17 10"></polyline>
+          <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+        </svg>
+        <span class="mood-update-action-label">Refresh</span>
+      </button>
+    </div>
+    <div class="mood-update-progress" aria-hidden="true"></div>
+  </div>
+</div>
+
+<style>
+  .mood-page {
+    padding: 80px 0 60px;
+  }
+
+  @media (min-width: 640px) {
+    .mood-page {
+      padding: 100px 0 80px;
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .mood-page {
+      padding: 120px 0 100px;
+    }
+  }
+
+  @media (max-width: 480px) {
+    .mood-page {
+      padding: 64px 0 48px;
+    }
+  }
+
+  .mood-error {
+    padding: 60px 0;
+    text-align: center;
+  }
+
+  .mood-error.is-hidden {
+    display: none;
+  }
+
+  .mood-feed.is-hidden {
+    display: none;
+  }
+</style>

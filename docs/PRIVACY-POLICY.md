@@ -70,7 +70,7 @@ Covered implementation:
 
 - `/mood` and `/mood/[id]` fetch public Telegram-derived content
 - [`src/pages/api/moods.ts`](../src/pages/api/moods.ts) and [`src/pages/api/comments.ts`](../src/pages/api/comments.ts) expose public data derived from Telegram scraping
-- [`src/lib/telegram.ts`](../src/lib/telegram.ts) and [`src/lib/mood-utils.ts`](../src/lib/mood-utils.ts) shape public mood content and media references
+- [`src/features/mood/server/telegram-source.ts`](../src/features/mood/server/telegram-source.ts) and [`src/features/mood/shared/utils.ts`](../src/features/mood/shared/utils.ts) shape public mood content and media references
 
 ### Mood Subscription Flow
 
@@ -86,9 +86,9 @@ Covered implementation:
 
 Supporting infrastructure:
 
-- subscriber state and delivery records live in Cloudflare D1 through [`src/lib/notify/d1.ts`](../src/lib/notify/d1.ts)
-- email delivery is handled through Resend in [`src/lib/notify/resend.ts`](../src/lib/notify/resend.ts)
-- token creation and verification live in [`src/lib/notify/security.ts`](../src/lib/notify/security.ts)
+- subscriber state and delivery records live in Cloudflare D1 through [`src/features/notify/server/d1.ts`](../src/features/notify/server/d1.ts)
+- email delivery is handled through Resend in [`src/features/notify/server/resend.ts`](../src/features/notify/server/resend.ts)
+- token creation and verification live in [`src/features/notify/server/security.ts`](../src/features/notify/server/security.ts)
 
 ### Cloudflare Anti-Abuse and Infrastructure
 
@@ -103,9 +103,9 @@ Covered implementation:
 
 Covered implementation:
 
-- Ghost is used for writing links in [`src/components/Posts.astro`](../src/components/Posts.astro)
-- GitHub is used for project data in [`src/components/Projects.astro`](../src/components/Projects.astro) and [`src/lib/github.ts`](../src/lib/github.ts)
-- Telegram-derived content is parsed in [`src/lib/telegram.ts`](../src/lib/telegram.ts)
+- Ghost is used for writing links in [`src/features/home/ui/Posts.astro`](../src/features/home/ui/Posts.astro)
+- GitHub is used for project data in [`src/features/home/ui/Projects.astro`](../src/features/home/ui/Projects.astro) and [`src/lib/github.ts`](../src/lib/github.ts)
+- Telegram-derived content is parsed in [`src/features/mood/server/telegram-source.ts`](../src/features/mood/server/telegram-source.ts)
 
 ## Why the Policy Is Markdown-Backed
 

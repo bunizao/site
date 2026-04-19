@@ -37,14 +37,14 @@ That assumption is now too narrow. As a result, newly supported Telegram live ph
 
 The legacy webhook only resolves targets and ingests when `message.photo?.length` exists:
 
-- [src/pages/api/telegram-webhook.ts](/Users/tutu/Library/CloudStorage/Dropbox/Dev/site/src/pages/api/telegram-webhook.ts#L135)
-- [src/pages/api/telegram-webhook.ts](/Users/tutu/Library/CloudStorage/Dropbox/Dev/site/src/pages/api/telegram-webhook.ts#L398)
+- [src/pages/api/telegram-webhook.ts](../src/pages/api/telegram-webhook.ts#L135)
+- [src/pages/api/telegram-webhook.ts](../src/pages/api/telegram-webhook.ts#L398)
 
 The Cloudflare Worker follows the same pattern and only resolves Telegram file URLs for image ingest:
 
-- [workers/telegram-image-proxy/src/index.ts](/Users/tutu/Library/CloudStorage/Dropbox/Dev/site/workers/telegram-image-proxy/src/index.ts#L369)
-- [workers/telegram-image-proxy/src/index.ts](/Users/tutu/Library/CloudStorage/Dropbox/Dev/site/workers/telegram-image-proxy/src/index.ts#L428)
-- [workers/telegram-image-proxy/src/index.ts](/Users/tutu/Library/CloudStorage/Dropbox/Dev/site/workers/telegram-image-proxy/src/index.ts#L446)
+- [workers/telegram-image-proxy/src/index.ts](../workers/telegram-image-proxy/src/index.ts#L369)
+- [workers/telegram-image-proxy/src/index.ts](../workers/telegram-image-proxy/src/index.ts#L428)
+- [workers/telegram-image-proxy/src/index.ts](../workers/telegram-image-proxy/src/index.ts#L446)
 
 This means the ingest layer is image-specific by design.
 
@@ -52,8 +52,8 @@ This means the ingest layer is image-specific by design.
 
 Album indexing is derived from `.tgme_widget_message_photo_wrap` nodes:
 
-- [src/pages/api/telegram-webhook.ts](/Users/tutu/Library/CloudStorage/Dropbox/Dev/site/src/pages/api/telegram-webhook.ts#L167)
-- [workers/telegram-image-proxy/src/index.ts](/Users/tutu/Library/CloudStorage/Dropbox/Dev/site/workers/telegram-image-proxy/src/index.ts#L360)
+- [src/pages/api/telegram-webhook.ts](../src/pages/api/telegram-webhook.ts#L167)
+- [workers/telegram-image-proxy/src/index.ts](../workers/telegram-image-proxy/src/index.ts#L360)
 
 If Telegram represents live photo motion through video-like markup, current indexing logic will not track it.
 
@@ -61,11 +61,11 @@ If Telegram represents live photo motion through video-like markup, current inde
 
 Telegram parsing can already emit `<video>` tags from embed HTML:
 
-- [src/lib/telegram.ts](/Users/tutu/Library/CloudStorage/Dropbox/Dev/site/src/lib/telegram.ts#L372)
+- [src/features/mood/server/telegram-source.ts](../src/features/mood/server/telegram-source.ts#L372)
 
 It separately emits image blocks from `.tgme_widget_message_photo_wrap`:
 
-- [src/lib/telegram.ts](/Users/tutu/Library/CloudStorage/Dropbox/Dev/site/src/lib/telegram.ts#L298)
+- [src/features/mood/server/telegram-source.ts](../src/features/mood/server/telegram-source.ts#L298)
 
 This is enough for plain video and plain photo, but there is no explicit "live photo" normalization step.
 
@@ -73,8 +73,8 @@ This is enough for plain video and plain photo, but there is no explicit "live p
 
 Feed preview logic returns the first `<video>` if one exists; otherwise it falls back to image extraction:
 
-- [src/lib/mood-utils.ts](/Users/tutu/Library/CloudStorage/Dropbox/Dev/site/src/lib/mood-utils.ts#L296)
-- [src/lib/mood-utils.ts](/Users/tutu/Library/CloudStorage/Dropbox/Dev/site/src/lib/mood-utils.ts#L334)
+- [src/features/mood/shared/utils.ts](../src/features/mood/shared/utils.ts#L296)
+- [src/features/mood/shared/utils.ts](../src/features/mood/shared/utils.ts#L334)
 
 That is too simplistic for live photos because the desired UX is usually:
 

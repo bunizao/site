@@ -245,7 +245,7 @@ function registerWorkerPublicImageHandler(fetchMock: FetchMock, env: FakeEnv): v
       ? new Uint8Array([width % 255, 9, 8, 7])
       : stored.bytes;
 
-    return new Response(bytes, {
+    return new Response(bytes as unknown as BodyInit, {
       status: 200,
       headers: { 'Content-Type': stored.contentType },
     });

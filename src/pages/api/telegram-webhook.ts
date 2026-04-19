@@ -9,9 +9,9 @@
 import type { APIRoute } from 'astro';
 import { request as httpsRequest } from 'node:https';
 import { load } from 'cheerio';
-import { dispatchMoodNotification } from '@/lib/notify/service';
-import { getNotifyConfig } from '@/lib/notify/env';
-import { secureCompareText } from '@/lib/notify/security';
+import { dispatchMoodNotification } from '@/features/notify/server/service';
+import { getNotifyConfig } from '@/features/notify/server/env';
+import { secureCompareText } from '@/features/notify/server/security';
 import { checkRateLimit, createRateLimitHeaders } from '@/lib/security/rate-limit';
 
 export const prerender = false;

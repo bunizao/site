@@ -71,8 +71,8 @@ This route is not the preferred production path.
 
 Core files:
 
-- [`src/lib/telegram.ts`](../src/lib/telegram.ts)
-- [`src/lib/mood-utils.ts`](../src/lib/mood-utils.ts)
+- [`src/features/mood/server/telegram-source.ts`](../src/features/mood/server/telegram-source.ts)
+- [`src/features/mood/shared/utils.ts`](../src/features/mood/shared/utils.ts)
 - [`src/pages/api/moods.ts`](../src/pages/api/moods.ts)
 - [`src/pages/mood.astro`](../src/pages/mood.astro)
 - [`src/pages/mood/[id].astro`](../src/pages/mood/[id].astro)
@@ -95,7 +95,7 @@ What the site owns:
 
 Core files:
 
-- [`src/lib/notify/service.ts`](../src/lib/notify/service.ts)
+- [`src/features/notify/server/service.ts`](../src/features/notify/server/service.ts)
 - [`src/pages/api/notify/dispatch.ts`](../src/pages/api/notify/dispatch.ts)
 - [`src/pages/api/notify/subscribe.ts`](../src/pages/api/notify/subscribe.ts)
 - [`src/pages/api/notify/schedule.ts`](../src/pages/api/notify/schedule.ts)
@@ -127,9 +127,9 @@ Notify service responsibilities:
 
 Relevant files:
 
-- [`src/lib/notify/d1.ts`](../src/lib/notify/d1.ts)
-- [`src/lib/notify/env.ts`](../src/lib/notify/env.ts)
-- [`src/lib/notify/security.ts`](../src/lib/notify/security.ts)
+- [`src/features/notify/server/d1.ts`](../src/features/notify/server/d1.ts)
+- [`src/features/notify/server/env.ts`](../src/features/notify/server/env.ts)
+- [`src/features/notify/server/security.ts`](../src/features/notify/server/security.ts)
 
 Storage model:
 

@@ -1,11 +1,11 @@
 ---
 import Layout from '../layouts/Layout.astro';
-import Hero from '../components/Hero.astro';
-import Projects from '../components/Projects.astro';
-import Posts from '../components/Posts.astro';
-import Moods from '../components/Moods.astro';
-import Footer from '../components/Footer.astro';
-import ParallaxWrapper from '../components/ParallaxWrapper.astro';
+import Hero from '@/features/home/ui/Hero.astro';
+import ParallaxWrapper from '@/features/home/ui/ParallaxWrapper.astro';
+import Projects from '@/features/home/ui/Projects.astro';
+import Posts from '@/features/home/ui/Posts.astro';
+import HomePreview from '@/features/mood/ui/HomePreview.astro';
+import Footer from '@/features/home/ui/Footer.astro';
 
 const title = "Bunizao's Website";
 const description = "I make interesting things. Curious about frontend design, proxy systems, and open-source work. Obsessed with speed, optimization, and building things better.";
@@ -17,7 +17,7 @@ const description = "I make interesting things. Curious about frontend design, p
       <Hero />
       <Projects />
       <Posts />
-      <Moods />
+      <HomePreview />
       <Footer />
     </main>
   </ParallaxWrapper>

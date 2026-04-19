@@ -16,13 +16,14 @@ Entry file: [`src/pages/index.astro`](../src/pages/index.astro)
 The page is a thin composition layer:
 
 - mounts [`src/layouts/Layout.astro`](../src/layouts/Layout.astro)
-- wraps content in [`src/components/ParallaxWrapper.astro`](../src/components/ParallaxWrapper.astro)
+- wraps content in [`src/features/home/ui/ParallaxWrapper.astro`](../src/features/home/ui/ParallaxWrapper.astro)
 - renders sections in fixed order:
-  - [`src/components/Hero.astro`](../src/components/Hero.astro)
-  - [`src/components/Projects.astro`](../src/components/Projects.astro)
-  - [`src/components/Posts.astro`](../src/components/Posts.astro)
-  - [`src/components/Moods.astro`](../src/components/Moods.astro)
-  - [`src/components/Footer.astro`](../src/components/Footer.astro)
+  - [`src/features/home/ui/Hero.astro`](../src/features/home/ui/Hero.astro)
+  - [`src/features/home/ui/Listening.astro`](../src/features/home/ui/Listening.astro)
+  - [`src/features/home/ui/Projects.astro`](../src/features/home/ui/Projects.astro)
+  - [`src/features/home/ui/Posts.astro`](../src/features/home/ui/Posts.astro)
+  - [`src/features/mood/ui/HomePreview.astro`](../src/features/mood/ui/HomePreview.astro)
+  - [`src/features/home/ui/Footer.astro`](../src/features/home/ui/Footer.astro)
 
 Section anchors are owned by the shared layout navbar:
 
@@ -32,14 +33,20 @@ Section anchors are owned by the shared layout navbar:
 
 The hero block does not have a navbar anchor.
 
+Feature boundary:
+
+- home-private UI lives in [`src/features/home/ui/`](../src/features/home/ui)
+- home-private server helpers live in [`src/features/home/server/`](../src/features/home/server/)
+- shared site scaffolding remains in [`src/components/`](../src/components)
+
 ## Hero / Intro
 
 Implementation files:
 
-- [`src/components/Hero.astro`](../src/components/Hero.astro)
-- [`src/components/Typewriter.astro`](../src/components/Typewriter.astro)
-- [`src/components/GitHubContributions.astro`](../src/components/GitHubContributions.astro)
-- [`src/components/TechMarquee.astro`](../src/components/TechMarquee.astro)
+- [`src/features/home/ui/Hero.astro`](../src/features/home/ui/Hero.astro)
+- [`src/features/home/ui/Typewriter.astro`](../src/features/home/ui/Typewriter.astro)
+- [`src/features/home/ui/GitHubContributions.astro`](../src/features/home/ui/GitHubContributions.astro)
+- [`src/features/home/ui/TechMarquee.astro`](../src/features/home/ui/TechMarquee.astro)
 
 Implementation shape:
 
@@ -60,9 +67,10 @@ Client behavior:
 
 Implementation files:
 
-- [`src/components/Projects.astro`](../src/components/Projects.astro)
+- [`src/features/home/ui/Projects.astro`](../src/features/home/ui/Projects.astro)
+- [`src/features/home/server/e2e-fixtures.ts`](../src/features/home/server/e2e-fixtures.ts)
 - [`src/lib/github.ts`](../src/lib/github.ts)
-- [`src/lib/e2e-fixtures.ts`](../src/lib/e2e-fixtures.ts)
+- [`src/lib/e2e.ts`](../src/lib/e2e.ts)
 
 Data flow:
 
@@ -83,12 +91,38 @@ Client behavior:
 - Cards apply pointer-based 3D tilt.
 - Radial glare is driven by CSS variables on hover.
 
+## Listening
+
+Implementation files:
+
+- [`src/features/home/ui/Listening.astro`](../src/features/home/ui/Listening.astro)
+- [`src/features/home/server/listening.ts`](../src/features/home/server/listening.ts)
+
+Data flow:
+
+- Server-side render fetches track metadata from the public iTunes lookup endpoint.
+- The component starts from a short list of Apple Music track URLs.
+- Fetch failure falls back to bundled demo metadata so the section still renders.
+
+Rendering rules:
+
+- the first track hydrates the feature card on initial render
+- each list item carries its playback metadata in `data-*` attributes
+- Apple Music links always open in a new tab
+
+Client behavior:
+
+- clicking a list item swaps the feature card content
+- the preview button plays or pauses the selected track's preview URL with the native `Audio` API
+- selecting another track stops the current preview before switching state
+
 ## Writing
 
 Implementation files:
 
-- [`src/components/Posts.astro`](../src/components/Posts.astro)
-- [`src/lib/e2e-fixtures.ts`](../src/lib/e2e-fixtures.ts)
+- [`src/features/home/ui/Posts.astro`](../src/features/home/ui/Posts.astro)
+- [`src/features/home/server/e2e-fixtures.ts`](../src/features/home/server/e2e-fixtures.ts)
+- [`src/lib/e2e.ts`](../src/lib/e2e.ts)
 
 Data flow:
 
@@ -118,7 +152,7 @@ Client behavior:
 
 Implementation files:
 
-- [`src/components/Moods.astro`](../src/components/Moods.astro)
+- [`src/features/mood/ui/HomePreview.astro`](../src/features/mood/ui/HomePreview.astro)
 - [`src/pages/api/moods.ts`](../src/pages/api/moods.ts)
 
 Rendering strategy:
@@ -163,7 +197,7 @@ Debug hook:
 Relevant files:
 
 - [`src/layouts/Layout.astro`](../src/layouts/Layout.astro)
-- [`src/components/ParallaxWrapper.astro`](../src/components/ParallaxWrapper.astro)
+- [`src/features/home/ui/ParallaxWrapper.astro`](../src/features/home/ui/ParallaxWrapper.astro)
 
 Cross-cutting behavior:
 

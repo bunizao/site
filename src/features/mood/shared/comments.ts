@@ -4,6 +4,31 @@ export const asText = (value: unknown): string => {
   return String(value);
 };
 
+interface FormatRelativeCommentDateOptions {
+  compact?: boolean;
+}
+
+export const formatRelativeCommentDate = (
+  datetime: string,
+  options: FormatRelativeCommentDateOptions = {}
+): string => {
+  const timestamp = Date.parse(datetime);
+  if (Number.isNaN(timestamp)) return '';
+
+  const date = new Date(timestamp);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
+  const diffDays = Math.floor(diffMs / 86400000);
+
+  if (diffMins < 1) return 'just now';
+  if (diffMins < 60) return options.compact ? `${diffMins}m` : `${diffMins}m ago`;
+  if (diffHours < 24) return options.compact ? `${diffHours}h` : `${diffHours}h ago`;
+  if (diffDays < 7) return options.compact ? `${diffDays}d` : `${diffDays}d ago`;
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+};
+
 const sanitizeHref = (value: unknown): string => {
   const raw = asText(value).trim();
   if (!raw) return '';
@@ -118,7 +143,7 @@ export const replaceReplyNodesWithCommentQuotes = (root: ParentNode): void => {
 
 export const buildCommentContentFragment = (value: unknown): DocumentFragment => {
   const template = document.createElement('template');
-  // `/api/comments` returns HTML sanitized in `src/lib/telegram.ts`.
+  // `/api/comments` returns HTML sanitized in `src/features/mood/server/telegram-source.ts`.
   template.innerHTML = asText(value).trim();
 
   replaceReplyNodesWithCommentQuotes(template.content);

@@ -25,9 +25,9 @@ Current hotspots:
 
 - [`src/pages/mood.astro`](../src/pages/mood.astro)
 - [`src/pages/mood/[id].astro`](../src/pages/mood/[id].astro)
-- [`src/components/Moods.astro`](../src/components/Moods.astro)
+- [`src/features/mood/ui/HomePreview.astro`](../src/features/mood/ui/HomePreview.astro)
 - [`src/pages/api/moods.ts`](../src/pages/api/moods.ts)
-- [`src/lib/mood-utils.ts`](../src/lib/mood-utils.ts)
+- [`src/features/mood/shared/utils.ts`](../src/features/mood/shared/utils.ts)
 
 Current symptoms:
 
@@ -72,7 +72,7 @@ Current symptoms:
 
 ### Home Preview
 
-[`src/components/Moods.astro`](../src/components/Moods.astro) currently owns:
+[`src/features/mood/ui/HomePreview.astro`](../src/features/mood/ui/HomePreview.astro) currently owns:
 
 - home-only mood list fetching
 - local preview cache behavior
@@ -100,7 +100,7 @@ The same feature data is also reshaped independently in:
 - [`src/pages/mood/embed.astro`](../src/pages/mood/embed.astro)
 - [`src/pages/mood/rss.xml.ts`](../src/pages/mood/rss.xml.ts)
 - [`src/pages/api/notify/preview.ts`](../src/pages/api/notify/preview.ts)
-- [`src/lib/notify/service.ts`](../src/lib/notify/service.ts)
+- [`src/features/notify/server/service.ts`](../src/features/notify/server/service.ts)
 
 ## Design Principles
 
@@ -132,7 +132,7 @@ Important contracts to preserve first:
 
 ### 4. Do not rewrite the Telegram parser in the same effort
 
-[`src/lib/telegram.ts`](../src/lib/telegram.ts) is upstream parsing infrastructure.
+[`src/features/mood/server/telegram-source.ts`](../src/features/mood/server/telegram-source.ts) is upstream parsing infrastructure.
 
 It should be wrapped by feature services first, not deeply refactored during the first decoupling passes.
 
@@ -186,11 +186,11 @@ pages / api routes
 
 These should be introduced after controllers are extracted.
 
-- `src/components/mood/MoodHero.astro`
-- `src/components/mood/MoodFeedShell.astro`
-- `src/components/mood/MoodDetailArticle.astro`
-- `src/components/mood/MoodCommentsSection.astro`
-- `src/components/notify/NotifyPanel.astro`
+- `src/features/mood/ui/Hero.astro`
+- `src/features/mood/ui/FeedShell.astro`
+- `src/features/mood/ui/DetailArticle.astro`
+- `src/features/mood/ui/CommentsSection.astro`
+- `src/features/mood/ui/NotifyPanel.astro`
 
 ## Module Responsibilities
 
@@ -273,7 +273,7 @@ Expected responsibilities:
 This should replace duplicate logic currently present in:
 
 - [`src/pages/mood.astro`](../src/pages/mood.astro)
-- [`src/components/Moods.astro`](../src/components/Moods.astro)
+- [`src/features/mood/ui/HomePreview.astro`](../src/features/mood/ui/HomePreview.astro)
 
 ### `src/features/mood/shared/comments.ts`
 
@@ -286,7 +286,7 @@ Expected responsibilities:
 - comment DOM fragment helpers
 - comment date formatting helpers if shared
 
-This should align with the existing behavior in [`src/lib/comment-content.ts`](../src/lib/comment-content.ts).
+This should align with the existing behavior in [`src/features/mood/shared/comments.ts`](../src/features/mood/shared/comments.ts).
 
 ### `src/features/mood/client/animated-emoji.ts`
 
@@ -356,7 +356,7 @@ Expected responsibilities:
 - scroll position mapping
 - loading state sync
 
-The Astro component [`src/components/MoodTimelineWheel.astro`](../src/components/MoodTimelineWheel.astro) should remain the visual shell.
+The Astro component [`src/features/mood/ui/TimelineWheel.astro`](../src/features/mood/ui/TimelineWheel.astro) should remain the visual shell.
 
 ## Project-Wide Shared Helpers
 
@@ -374,7 +374,7 @@ Current duplication exists in:
 
 - [`src/pages/api/moods.ts`](../src/pages/api/moods.ts)
 - [`src/pages/mood/embed.astro`](../src/pages/mood/embed.astro)
-- [`src/lib/notify/service.ts`](../src/lib/notify/service.ts)
+- [`src/features/notify/server/service.ts`](../src/features/notify/server/service.ts)
 
 ## `src/lib/http/json-response.ts`
 
@@ -430,9 +430,9 @@ Expected helpers:
 Current duplication exists in:
 
 - [`src/pages/mood.astro`](../src/pages/mood.astro)
-- [`src/components/Moods.astro`](../src/components/Moods.astro)
+- [`src/features/mood/ui/HomePreview.astro`](../src/features/mood/ui/HomePreview.astro)
 - [`src/pages/mood/embed.astro`](../src/pages/mood/embed.astro)
-- [`src/lib/telegram.ts`](../src/lib/telegram.ts)
+- [`src/features/mood/server/telegram-source.ts`](../src/features/mood/server/telegram-source.ts)
 
 ## Migration Mapping
 
@@ -471,7 +471,7 @@ Keep in page:
 - post shell markup
 - route-level SEO and `404` behavior
 
-### From `src/components/Moods.astro`
+### From `src/features/mood/ui/HomePreview.astro`
 
 Move or isolate:
 
@@ -501,7 +501,7 @@ Keep in route:
 - route method boundary
 - request-to-service orchestration
 
-### From `src/lib/mood-utils.ts`
+### From `src/features/mood/shared/utils.ts`
 
 Split only where there is clear boundary value.
 
@@ -593,7 +593,7 @@ Files expected to change:
 
 - [`src/pages/mood.astro`](../src/pages/mood.astro)
 - [`src/pages/mood/[id].astro`](../src/pages/mood/[id].astro)
-- [`src/components/Moods.astro`](../src/components/Moods.astro)
+- [`src/features/mood/ui/HomePreview.astro`](../src/features/mood/ui/HomePreview.astro)
 
 Do not change yet:
 
@@ -634,11 +634,11 @@ Goal:
 
 Changes:
 
-- add `MoodHero.astro`
-- add `MoodFeedShell.astro`
-- add `MoodDetailArticle.astro`
-- add `MoodCommentsSection.astro`
-- add `NotifyPanel.astro`
+- add `src/features/mood/ui/Hero.astro`
+- add `src/features/mood/ui/FeedShell.astro`
+- add `src/features/mood/ui/DetailArticle.astro`
+- add `src/features/mood/ui/CommentsSection.astro`
+- add `src/features/mood/ui/NotifyPanel.astro`
 
 After this stage, page files should mostly contain:
 

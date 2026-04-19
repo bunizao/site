@@ -1,3 +1,5 @@
+import { readEnv } from '@/lib/runtime/env';
+
 export interface NotifyConfig {
   resendApiKey: string;
   notifyFromName: string;
@@ -14,20 +16,6 @@ export interface NotifyConfig {
 
 interface RuntimeContext {
   locals?: any;
-}
-
-function readEnv(locals: any, name: string): string {
-  const buildValue = import.meta.env[name];
-  if (typeof buildValue === 'string' && buildValue.trim()) {
-    return buildValue;
-  }
-
-  const runtimeValue = locals?.runtime?.env?.[name] ?? locals?.env?.[name];
-  if (typeof runtimeValue === 'string') {
-    return runtimeValue;
-  }
-
-  return '';
 }
 
 function trimTrailingSlash(value: string): string {

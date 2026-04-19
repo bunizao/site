@@ -53,7 +53,11 @@ function getFirstValidImageElement($: cheerio.CheerioAPI, selector: string): che
       return Boolean(src);
     });
 
-  return image ?? null;
+  if (!image || !isCheerioElement(image)) {
+    return null;
+  }
+
+  return image;
 }
 
 function getFirstValidImageSrc($: cheerio.CheerioAPI, selector: string): string | null {

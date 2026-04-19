@@ -308,6 +308,74 @@ test.describe('Mood routes', () => {
     await expect(page).toHaveURL(/\/mood$/);
   });
 
+  test('renders custom emoji reactions in detail comments', async ({ page, request }) => {
+    const latestMoodId = await getLatestMoodId(request);
+    test.skip(!latestMoodId, 'No mood id available from /api/moods');
+
+    const emojiImage = '/static/https://t.me/i/emoji/5389048680659563012.webp';
+
+    await page.route('**/api/comments?postId=*', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          comments: [
+            {
+              id: '9001',
+              author: 'E2E',
+              authorAvatar: '',
+              datetime: '2026-02-10T13:10:00+00:00',
+              content: '<p>Reaction test</p>',
+              reactions: [
+                {
+                  emoji: '',
+                  emojiId: '5389048680659563012',
+                  emojiImage,
+                  count: '1',
+                  isPaid: false,
+                },
+              ],
+            },
+          ],
+          hasMore: false,
+          nextBefore: '',
+        }),
+      });
+    });
+
+    await page.goto(`/mood/${latestMoodId}`, { waitUntil: 'domcontentloaded' });
+
+    await expect(page.locator('[data-comments-loading]')).toHaveCount(0, { timeout: 30_000 });
+    const reactionEmoji = page.locator('[data-comments-list] .mood-comment .mood-reaction-emoji .tg-emoji').first();
+    await expect(reactionEmoji).toBeVisible();
+    await expect(reactionEmoji.locator('img')).toHaveAttribute('src', emojiImage);
+
+    await reactionEmoji.evaluate((node) => {
+      if (!(node instanceof HTMLElement)) return;
+      node.dataset.emojiAnimated = 'true';
+      const existingImage = node.querySelector('img');
+      existingImage?.remove();
+      const anim = document.createElement('span');
+      anim.className = 'tg-emoji-anim';
+      anim.innerHTML = `
+        <svg
+          viewBox="0 0 512 512"
+          width="512"
+          height="512"
+          style="width: 100%; height: 100%; transform: translate3d(0px, 0px, 0px); content-visibility: visible;"
+        >
+          <rect width="512" height="512" fill="#ff00aa"></rect>
+        </svg>
+      `;
+      node.appendChild(anim);
+    });
+
+    const box = await reactionEmoji.boundingBox();
+    expect(box).not.toBeNull();
+    expect(box!.width).toBeLessThan(32);
+    expect(box!.height).toBeLessThan(32);
+  });
+
   test('submits the notify panel successfully and closes cleanly', async ({ page }) => {
     const requests: Array<Record<string, unknown>> = [];
 
@@ -614,6 +682,33 @@ test.describe('Mood routes', () => {
     await expect(images.nth(2)).toHaveAttribute('src', /\/2$/);
     expect(await track.evaluate((element) => getComputedStyle(element).overflowX)).toBe('visible');
     expect(await track.getAttribute('data-mood-gallery-layout')).toBe('justified');
+  });
+
+  test('keeps detail reactions visually stable on hover', async ({ page }) => {
+    await page.goto('/mood/990777', { waitUntil: 'domcontentloaded' });
+
+    const reaction = page.locator('.mood-post-reactions .mood-reaction').first();
+    await expect(reaction).toBeVisible();
+
+    const readReactionStyle = async () => {
+      return reaction.evaluate((element) => {
+        const style = getComputedStyle(element);
+        return {
+          background: style.backgroundColor,
+          border: style.borderColor,
+          transform: style.transform,
+        };
+      });
+    };
+
+    const before = await readReactionStyle();
+    await reaction.hover();
+    await page.waitForTimeout(200);
+    const after = await readReactionStyle();
+
+    expect(after.background).toBe(before.background);
+    expect(after.border).toBe(before.border);
+    expect(after.transform).toBe(before.transform);
   });
 
   test('redirects /mood/:id?embed=1 to the embed endpoint with expected params', async ({ page }) => {

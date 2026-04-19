@@ -1,6 +1,6 @@
 ---
 import Layout from '@/layouts/Layout.astro';
-import NotifyTemplatePreview from '@/components/NotifyTemplatePreview';
+import TemplatePreview from '@/features/notify/ui/TemplatePreview';
 
 const title = 'Newsletter Live Preview';
 const description = 'Real-time preview for email notification templates.';
@@ -14,6 +14,6 @@ const description = 'Real-time preview for email notification templates.';
         Live preview generated from current channel data and real notify templates.
       </p>
     </header>
-    <NotifyTemplatePreview client:load />
+    <TemplatePreview client:load />
   </main>
 </Layout>

@@ -220,8 +220,10 @@ function initMoodGallery(gallery: HTMLElement): void {
 
   function nudgeTrack(): void {
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-    if (track.dataset.nudged === '1') return;
-    track.dataset.nudged = '1';
+    const galleryTrack = track as HTMLElement;
+
+    if (galleryTrack.dataset.nudged === '1') return;
+    galleryTrack.dataset.nudged = '1';
 
     window.setTimeout(() => {
       const peakOffset = 28;
@@ -229,24 +231,24 @@ function initMoodGallery(gallery: HTMLElement): void {
       const backMs = 400;
       const startTime = performance.now();
 
-      const originalSnap = track.style.scrollSnapType;
-      track.style.scrollSnapType = 'none';
+      const originalSnap = galleryTrack.style.scrollSnapType;
+      galleryTrack.style.scrollSnapType = 'none';
 
       const animate = (now: number): void => {
         const elapsed = now - startTime;
         if (elapsed <= outMs) {
           const t = elapsed / outMs;
           const eased = 1 - Math.pow(1 - t, 2);
-          track.scrollLeft = Math.round(peakOffset * eased);
+          galleryTrack.scrollLeft = Math.round(peakOffset * eased);
           requestAnimationFrame(animate);
         } else if (elapsed <= outMs + backMs) {
           const t = (elapsed - outMs) / backMs;
           const eased = Math.pow(1 - t, 2);
-          track.scrollLeft = Math.round(peakOffset * eased);
+          galleryTrack.scrollLeft = Math.round(peakOffset * eased);
           requestAnimationFrame(animate);
         } else {
-          track.scrollLeft = 0;
-          track.style.scrollSnapType = originalSnap;
+          galleryTrack.scrollLeft = 0;
+          galleryTrack.style.scrollSnapType = originalSnap;
         }
       };
 

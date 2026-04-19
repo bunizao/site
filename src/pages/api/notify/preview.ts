@@ -1,12 +1,16 @@
 import type { APIRoute } from 'astro';
-import { createE2EChannelInfo, isE2ESiteFixtureEnabled } from '@/lib/e2e-fixtures';
-import { getChannelInfo, type ChannelInfo, type Post } from '@/lib/telegram';
-import { getNumericId, getRelatedLinks, getTextPreviewWithMedia } from '@/lib/mood-utils';
+import { jsonOk } from '@/lib/http/json-response';
+import { getRelatedLinks, getTextPreviewWithMedia } from '@/features/mood/shared/utils';
 import {
   buildMoodDigestEmail,
   buildMoodNotificationEmail,
   buildSubscribeConfirmEmail,
-} from '@/lib/notify/templates';
+} from '@/features/notify/server/templates';
+import { readPublicEnv } from '@/lib/runtime/env';
+import {
+  loadMoodChannelSnapshot,
+  toMoodEmailImageUrl,
+} from '@/features/mood/server/channel-service';
 
 export const prerender = false;
 
@@ -22,79 +26,8 @@ function isValidTimezone(value: string): boolean {
   }
 }
 
-function normalizeAbsoluteUrl(value: string | undefined, baseUrl: string): string | undefined {
-  const raw = (value || '').trim();
-  if (!raw) return undefined;
-
-  if (raw.startsWith('//')) {
-    return `https:${raw}`;
-  }
-
-  try {
-    return new URL(raw, baseUrl).toString();
-  } catch {
-    return undefined;
-  }
-}
-
-function readEnv(locals: any, name: string): string {
-  const buildValue = import.meta.env[name];
-  if (typeof buildValue === 'string' && buildValue.trim()) {
-    return buildValue;
-  }
-
-  const runtimeValue = locals?.runtime?.env?.[name] ?? locals?.env?.[name];
-  if (typeof runtimeValue === 'string') {
-    return runtimeValue;
-  }
-
-  return '';
-}
-
-function getHdImageOrigin(locals: any): string {
-  const hdImageUrl = readEnv(locals, 'PUBLIC_HD_IMAGE_URL');
-  if (!hdImageUrl) return '';
-
-  try {
-    return new URL(hdImageUrl).origin.toLowerCase();
-  } catch {
-    return '';
-  }
-}
-
-function toEmailImageUrl(value: string | undefined, siteUrl: string, locals: any): string | undefined {
-  const absoluteUrl = normalizeAbsoluteUrl(value, siteUrl);
-  if (!absoluteUrl) return undefined;
-
-  let imageOrigin: string;
-  try {
-    imageOrigin = new URL(absoluteUrl).origin.toLowerCase();
-  } catch {
-    return absoluteUrl;
-  }
-
-  const hdImageOrigin = getHdImageOrigin(locals);
-  if (hdImageOrigin && imageOrigin === hdImageOrigin) {
-    return absoluteUrl;
-  }
-
-  let siteOrigin: string;
-  try {
-    siteOrigin = new URL(siteUrl).origin.toLowerCase();
-  } catch {
-    return absoluteUrl;
-  }
-
-  const staticPrefix = `${siteOrigin}/static/`;
-  if (absoluteUrl.startsWith(staticPrefix) || imageOrigin === siteOrigin) {
-    return absoluteUrl;
-  }
-
-  return `${staticPrefix}${absoluteUrl}`;
-}
-
-function getPostTimestamp(post: Post): number {
-  const parsed = Date.parse(post.datetime);
+function getPostTimestamp(datetime: string): number {
+  const parsed = Date.parse(datetime);
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
@@ -125,44 +58,6 @@ function getLocalDateLabel(date: Date, timeZone: string): string {
   }).format(date);
 }
 
-async function loadChannelSnapshot(
-  context: { request: Request; locals: any },
-  siteUrl: string
-): Promise<{ channelTitle: string; channelAvatarUrl?: string; posts: Post[] }> {
-  if (isE2ESiteFixtureEnabled(context.locals)) {
-    const fixture = createE2EChannelInfo();
-    return {
-      channelTitle: fixture.title,
-      channelAvatarUrl: undefined,
-      posts: fixture.posts,
-    };
-  }
-
-  try {
-    const result = (await getChannelInfo(
-      { request: context.request, locals: context.locals } as any,
-      { type: 'list', skipCache: true }
-    )) as ChannelInfo;
-
-    const posts = (result.posts ?? [])
-      .filter((post) => post?.id && post.type === 'text')
-      .sort((a, b) => getNumericId(b.id) - getNumericId(a.id));
-
-    return {
-      channelTitle: result.title?.trim() || 'Mood Feed',
-      channelAvatarUrl: toEmailImageUrl(result.avatar, siteUrl, context.locals),
-      posts,
-    };
-  } catch (error) {
-    console.error('Notify preview failed to load channel snapshot:', error);
-    return {
-      channelTitle: 'Mood Feed',
-      channelAvatarUrl: undefined,
-      posts: [],
-    };
-  }
-}
-
 export const GET: APIRoute = async ({ request, locals }) => {
   const url = new URL(request.url);
   const mode = url.searchParams.get('mode') === 'every_5h' ? 'every_5h' : 'daily';
@@ -170,13 +65,19 @@ export const GET: APIRoute = async ({ request, locals }) => {
   const timezone = timezoneParam && isValidTimezone(timezoneParam) ? timezoneParam : 'UTC';
 
   const siteUrl = (
-    import.meta.env.PUBLIC_SITE_URL
-    || locals?.runtime?.env?.PUBLIC_SITE_URL
-    || locals?.env?.PUBLIC_SITE_URL
+    readPublicEnv(locals, 'SITE_URL')
     || new URL(request.url).origin
   ).replace(/\/+$/, '');
 
-  const { channelTitle, channelAvatarUrl, posts } = await loadChannelSnapshot({ request, locals }, siteUrl);
+  const { channelInfo, posts } = await loadMoodChannelSnapshot(
+    { request, locals },
+    {
+      skipCache: true,
+      textOnly: true,
+    }
+  );
+  const channelTitle = channelInfo.title?.trim() || 'Mood Feed';
+  const channelAvatarUrl = toMoodEmailImageUrl(channelInfo.avatar, siteUrl, locals);
   const latestPost = posts[0];
   const latestPostId = latestPost?.id || '00000';
 
@@ -205,7 +106,7 @@ export const GET: APIRoute = async ({ request, locals }) => {
     ? (() => {
       const todayKey = getLocalDateKey(now, timezone);
       return posts.filter((post) => {
-        const timestamp = getPostTimestamp(post);
+        const timestamp = getPostTimestamp(post.datetime);
         if (!timestamp || timestamp > nowMs) return false;
         return getLocalDateKey(new Date(timestamp), timezone) === todayKey;
       });
@@ -213,7 +114,7 @@ export const GET: APIRoute = async ({ request, locals }) => {
     : (() => {
       const since = nowMs - EVERY_5H_WINDOW_MS;
       return posts.filter((post) => {
-        const timestamp = getPostTimestamp(post);
+        const timestamp = getPostTimestamp(post.datetime);
         return Boolean(timestamp && timestamp > since && timestamp <= nowMs);
       });
     })();
@@ -227,7 +128,7 @@ export const GET: APIRoute = async ({ request, locals }) => {
   const digestPosts = digestSourcePosts
     .slice(0, MAX_DIGEST_POSTS)
     .map((post) => {
-      const timestamp = getPostTimestamp(post);
+      const timestamp = getPostTimestamp(post.datetime);
       const postDate = new Date(timestamp || nowMs);
       return {
         postId: post.id,
@@ -248,8 +149,8 @@ export const GET: APIRoute = async ({ request, locals }) => {
     posts: digestPosts,
   });
 
-  return new Response(
-    JSON.stringify({
+  return jsonOk(
+    {
       generatedAt: now.toISOString(),
       mode,
       timezone,
@@ -269,12 +170,9 @@ export const GET: APIRoute = async ({ request, locals }) => {
         mood: moodEmail.html,
         digest: digestEmail.html,
       },
-    }),
+    },
     {
-      headers: {
-        'Content-Type': 'application/json',
-        'Cache-Control': 'no-store, max-age=0',
-      },
+      'Cache-Control': 'no-store, max-age=0',
     }
   );
 };

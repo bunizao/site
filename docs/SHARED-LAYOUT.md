@@ -78,7 +78,7 @@ This keeps the global chrome but changes the navigation contract from section sc
 
 ## Shared Footer
 
-File: [`src/components/Footer.astro`](../src/components/Footer.astro)
+File: [`src/features/home/ui/Footer.astro`](../src/features/home/ui/Footer.astro)
 
 Behavior:
 

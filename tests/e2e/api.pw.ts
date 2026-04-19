@@ -1,16 +1,10 @@
 import { expect, test } from './fixtures';
+import type {
+  MoodCommentsPage,
+  MoodFeedResponse,
+  MoodProbeResult,
+} from '../../src/features/mood/server/contracts';
 import { getLatestMoodId } from './helpers';
-
-interface MoodApiPost {
-  id: string;
-  datetime: string;
-  previewText: string;
-}
-
-interface MoodApiPayload {
-  posts: MoodApiPost[];
-  channel?: Record<string, unknown>;
-}
 
 function requireBaseUrl(value: string | undefined): string {
   if (!value) {
@@ -26,7 +20,7 @@ test.describe('API behavior', () => {
     expect(response.ok()).toBeTruthy();
     expect(response.headers()['content-type']).toContain('application/json');
 
-    const payload = (await response.json()) as MoodApiPayload;
+    const payload = (await response.json()) as MoodFeedResponse;
     expect(Array.isArray(payload.posts)).toBe(true);
 
     if (payload.posts.length > 0) {
@@ -51,7 +45,7 @@ test.describe('API behavior', () => {
     const probe = await request.get('/api/moods?probe=1&fresh=1');
     expect(probe.ok()).toBeTruthy();
 
-    const probePayload = (await probe.json()) as { latestId?: unknown };
+    const probePayload = (await probe.json()) as MoodProbeResult;
     expect(typeof probePayload.latestId).toBe('string');
   });
 
@@ -66,11 +60,7 @@ test.describe('API behavior', () => {
     const response = await request.get(`/api/comments?postId=${latestMoodId}`);
     expect(response.ok()).toBeTruthy();
 
-    const payload = (await response.json()) as {
-      comments?: unknown[];
-      hasMore?: unknown;
-      nextBefore?: unknown;
-    };
+    const payload = (await response.json()) as MoodCommentsPage;
 
     expect(Array.isArray(payload.comments)).toBe(true);
     expect(typeof payload.hasMore).toBe('boolean');

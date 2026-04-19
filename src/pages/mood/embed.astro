@@ -1,10 +1,19 @@
 ---
-import { createE2EChannelInfo, createE2EPost, isE2ESiteFixtureEnabled } from '@/lib/e2e-fixtures';
-import { getChannelInfo } from '../../lib/telegram';
+import {
+  loadMoodChannelSnapshot,
+  loadMoodPostSnapshot,
+  toMoodAvatarUrl,
+} from '@/features/mood/server/channel-service';
+import {
+  readBooleanFlag,
+  readEnumQuery,
+  readIntQuery,
+} from '@/lib/http/query';
+import { buildSrcSet } from '@/lib/media/responsive-image';
 import {
   getTextPreviewHtml,
   getFirstImage,
-} from '../../lib/mood-utils';
+} from '@/features/mood/shared/utils';
 import { getEmbedHeaders } from '../../lib/embed-response';
 
 export const prerender = false;
@@ -13,102 +22,35 @@ export const prerender = false;
 const url = Astro.url;
 const theme = url.searchParams.get('theme') || 'auto';
 const idParam = url.searchParams.get('id');
-const countParam = url.searchParams.get('count');
-const count = idParam ? 1 : Math.min(10, Math.max(1, parseInt(countParam || '1', 10) || 1));
-const frameParam = url.searchParams.get('frame');
-const frame = frameParam !== 'false' && frameParam !== '0';
-const densityParam = url.searchParams.get('density');
-const density = densityParam === 'compact' ? 'compact' : 'regular';
-const fontParam = url.searchParams.get('font');
-const font = fontParam === 'system' ? 'system' : 'mono';
+const count = idParam ? 1 : Math.min(10, Math.max(1, readIntQuery(url, 'count') ?? 1));
+const frame = readBooleanFlag(url, 'frame', true);
+const density = readEnumQuery(url, 'density', ['regular', 'compact'] as const, 'regular');
+const font = readEnumQuery(url, 'font', ['mono', 'system'] as const, 'mono');
 const originParam = url.searchParams.get('origin');
-const refreshParam = url.searchParams.get('refresh');
-const refreshRaw = refreshParam ? parseInt(refreshParam, 10) : NaN;
-const refresh = Number.isFinite(refreshRaw)
+const refreshRaw = readIntQuery(url, 'refresh');
+const refresh = refreshRaw !== null
   ? Math.max(30, Math.min(3600, refreshRaw))
   : null;
-const showLink = url.searchParams.get('link') !== 'false';
-const useE2EFixture = isE2ESiteFixtureEnabled(Astro.locals);
-
-// Fetch mood data (avoid waterfalls when id is provided)
-const fixtureChannelInfo = createE2EChannelInfo();
-const channelInfoPromise = useE2EFixture
-  ? Promise.resolve(idParam ? createE2EPost(idParam) : fixtureChannelInfo)
-  : getChannelInfo(Astro, idParam ? { id: idParam } : { type: 'list' });
-const fullChannelInfoPromise = useE2EFixture
-  ? Promise.resolve(idParam ? fixtureChannelInfo : null)
-  : idParam
-    ? getChannelInfo(Astro, { type: 'list' })
-    : Promise.resolve(null);
-const [channelInfo, fullChannelInfo] = await Promise.all([channelInfoPromise, fullChannelInfoPromise]);
-
-// Handle single post or list
+const showLink = readBooleanFlag(url, 'link', true);
+const context = { request: Astro.request, locals: Astro.locals };
 let posts: any[] = [];
 let channelTitle = '';
 let channelAvatar = '';
-const HD_IMAGE_URL =
-  import.meta.env.PUBLIC_HD_IMAGE_URL
-  || Astro.locals?.runtime?.env?.PUBLIC_HD_IMAGE_URL
-  || Astro.locals?.env?.PUBLIC_HD_IMAGE_URL
-  || '';
 
-let hdImageOrigin = '';
-if (HD_IMAGE_URL) {
-  try {
-    hdImageOrigin = new URL(HD_IMAGE_URL).origin.toLowerCase();
-  } catch {
-    hdImageOrigin = '';
-  }
-}
-
-// Helper to proxy avatar URL
-function proxyAvatarUrl(avatar: string): string {
-  if (!avatar) return '';
-  if (avatar.startsWith('/static/')) return avatar;
-  const url = avatar.startsWith('http') ? avatar : `https:${avatar}`;
-  if (hdImageOrigin) {
-    try {
-      if (new URL(url).origin.toLowerCase() === hdImageOrigin) {
-        return url;
-      }
-    } catch {
-      // Fall through to static proxy fallback.
-    }
-  }
-  return `/static/${url}`;
+if (idParam) {
+  const { post, channelInfo } = await loadMoodPostSnapshot(context, idParam);
+  posts = post ? [post] : [];
+  channelTitle = channelInfo?.title || 'Levitating';
+  channelAvatar = toMoodAvatarUrl(channelInfo?.avatar || '', Astro.locals);
+} else {
+  const { channelInfo, posts: channelPosts } = await loadMoodChannelSnapshot(context);
+  posts = channelPosts.slice(0, count);
+  channelTitle = channelInfo.title || 'Levitating';
+  channelAvatar = toMoodAvatarUrl(channelInfo.avatar || '', Astro.locals);
 }
 
 const responsiveImageWidths = [480, 800, 1200];
 const embedImageSizes = '(min-width: 640px) 520px, 100vw';
-
-function withWidthParam(value: string, width: number): string {
-  if (!value || /^(data:|blob:)/i.test(value)) return value;
-  const isAbsolute = /^(https?:)?\/\//i.test(value);
-  const parsed = new URL(value, 'https://local.invalid');
-  parsed.searchParams.set('w', String(width));
-  if (isAbsolute) return parsed.toString();
-  return `${parsed.pathname}${parsed.search}${parsed.hash}`;
-}
-
-function buildSrcSet(value: string): string {
-  if (!value || /^(data:|blob:)/i.test(value)) return '';
-  return responsiveImageWidths.map((width) => `${withWidthParam(value, width)} ${width}w`).join(', ');
-}
-
-if ('posts' in channelInfo) {
-  posts = channelInfo.posts.slice(0, count);
-  channelTitle = channelInfo.title || 'Levitating';
-  channelAvatar = proxyAvatarUrl(channelInfo.avatar || '');
-} else if (channelInfo && 'id' in channelInfo) {
-  posts = [channelInfo];
-  // When fetching a single post by ID, we need to get channel info separately for avatar
-  if (fullChannelInfo && 'posts' in fullChannelInfo) {
-    channelTitle = fullChannelInfo.title || 'Levitating';
-    channelAvatar = proxyAvatarUrl(fullChannelInfo.avatar || '');
-  } else {
-    channelTitle = 'Levitating';
-  }
-}
 
 // Set embed-friendly headers
 const embedHeaders = getEmbedHeaders(refresh && refresh > 0 ? { maxAge: 0, staleWhileRevalidate: 0 } : { maxAge: 300 });
@@ -508,7 +450,7 @@ const allowedOrigin = normalizeOrigin(originParam);
                 <img
                   class="mood-image"
                   src={image}
-                  srcset={image ? buildSrcSet(image) : undefined}
+                  srcset={image ? buildSrcSet(image, responsiveImageWidths) : undefined}
                   sizes={embedImageSizes}
                   alt=""
                   loading="lazy"

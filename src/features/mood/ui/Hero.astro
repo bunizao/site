@@ -1,0 +1,312 @@
+<div class="mood-hero" data-mood-hero>
+  <a href="/" class="back-link">← Back</a>
+
+  <div class="mood-hero-content">
+    <div class="mood-hero-avatar" data-hero-avatar>
+      <div class="mood-hero-avatar-skeleton"></div>
+    </div>
+
+    <div class="mood-hero-info">
+      <h1 class="mood-hero-title" data-hero-title>
+        <span class="mood-hero-title-skeleton"></span>
+      </h1>
+      <div class="mood-hero-description" data-hero-description>
+        <span class="mood-hero-desc-skeleton"></span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+  .mood-hero {
+    margin-bottom: 48px;
+    padding-bottom: 24px;
+  }
+
+  @media (min-width: 640px) {
+    .mood-hero {
+      margin-bottom: 56px;
+      padding-bottom: 28px;
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .mood-hero {
+      margin-bottom: 64px;
+      padding-bottom: 32px;
+    }
+  }
+
+  .mood-hero-content {
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+  }
+
+  @media (min-width: 640px) {
+    .mood-hero-content {
+      gap: 20px;
+    }
+  }
+
+  .mood-hero-avatar {
+    position: relative;
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    overflow: hidden;
+    flex-shrink: 0;
+    background: hsl(var(--foreground) / 0.05);
+  }
+
+  @media (min-width: 640px) {
+    .mood-hero-avatar {
+      width: 80px;
+      height: 80px;
+    }
+  }
+
+  .mood-hero-avatar-skeleton {
+    position: absolute;
+    inset: 0;
+    background: hsl(var(--foreground) / 0.05);
+    border-radius: 50%;
+  }
+
+  .mood-hero-avatar-skeleton::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      120deg,
+      transparent 35%,
+      hsl(var(--foreground) / 0.12) 50%,
+      transparent 65%
+    );
+    animation: mood-hero-shimmer 2.8s ease-in-out infinite;
+    opacity: 0.35;
+  }
+
+  .mood-hero-avatar.is-loaded .mood-hero-avatar-skeleton {
+    display: none;
+  }
+
+  .mood-hero-avatar-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+
+  .mood-hero-avatar.is-loaded .mood-hero-avatar-img {
+    opacity: 1;
+  }
+
+  .mood-hero-info {
+    flex: 1;
+    min-width: 0;
+    padding-top: 4px;
+  }
+
+  @media (min-width: 640px) {
+    .mood-hero-info {
+      padding-top: 8px;
+    }
+  }
+
+  .mood-hero-title {
+    font-size: 24px;
+    font-weight: 600;
+    margin-bottom: 8px;
+    line-height: 1.2;
+  }
+
+  @media (min-width: 640px) {
+    .mood-hero-title {
+      font-size: 28px;
+      margin-bottom: 10px;
+    }
+  }
+
+  .mood-hero-emoji {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.1em;
+    height: 1.1em;
+    margin-left: 0.35em;
+    vertical-align: -0.1em;
+  }
+
+  .mood-hero-emoji img {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+
+  .mood-hero-emoji[data-emoji-animated='true'] img {
+    display: none;
+  }
+
+  .mood-hero-emoji .tg-emoji-anim,
+  .mood-hero-emoji .tg-emoji-anim svg {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+
+  .mood-hero-title-skeleton {
+    display: inline-block;
+    width: 140px;
+    height: 24px;
+    background: hsl(var(--foreground) / 0.05);
+    border-radius: 6px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  @media (min-width: 640px) {
+    .mood-hero-title-skeleton {
+      width: 180px;
+      height: 28px;
+    }
+  }
+
+  .mood-hero-title-skeleton::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      120deg,
+      transparent 35%,
+      hsl(var(--foreground) / 0.12) 50%,
+      transparent 65%
+    );
+    animation: mood-hero-shimmer 2.8s ease-in-out infinite;
+    animation-delay: 0.1s;
+    opacity: 0.35;
+  }
+
+  .mood-hero-title.is-loaded .mood-hero-title-skeleton {
+    display: none;
+  }
+
+  .mood-hero-description {
+    font-size: 14px;
+    color: hsl(var(--muted-foreground));
+    line-height: 1.5;
+  }
+
+  @media (min-width: 640px) {
+    .mood-hero-description {
+      font-size: 15px;
+    }
+  }
+
+  .mood-hero-desc-skeleton {
+    display: inline-block;
+    width: 220px;
+    height: 14px;
+    background: hsl(var(--foreground) / 0.05);
+    border-radius: 4px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  @media (min-width: 640px) {
+    .mood-hero-desc-skeleton {
+      width: 280px;
+      height: 15px;
+    }
+  }
+
+  .mood-hero-desc-skeleton::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      120deg,
+      transparent 35%,
+      hsl(var(--foreground) / 0.12) 50%,
+      transparent 65%
+    );
+    animation: mood-hero-shimmer 2.8s ease-in-out infinite;
+    animation-delay: 0.2s;
+    opacity: 0.35;
+  }
+
+  .mood-hero-description.is-loaded .mood-hero-desc-skeleton {
+    display: none;
+  }
+
+  .mood-hero-description :global(a) {
+    color: hsl(var(--foreground));
+    text-decoration: none;
+    border-bottom: 1px solid hsl(var(--foreground) / 0.35);
+    transition: border-color 0.15s ease;
+  }
+
+  .mood-hero-description :global(a:hover) {
+    border-bottom-color: hsl(var(--foreground) / 0.6);
+  }
+
+  .mood-hero-description :global(.tg-emoji) {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.15em;
+    height: 1.15em;
+    vertical-align: -0.15em;
+  }
+
+  .mood-hero-description :global(.tg-emoji img) {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+
+  .back-link {
+    display: inline-block;
+    font-size: 13px;
+    color: hsl(var(--muted-foreground));
+    margin-bottom: 24px;
+    transition: color 0.15s ease;
+  }
+
+  @media (min-width: 640px) {
+    .back-link {
+      margin-bottom: 28px;
+    }
+  }
+
+  @media (max-width: 480px) {
+    .back-link {
+      margin-bottom: 16px;
+      font-size: 13px;
+    }
+  }
+
+  .back-link:hover {
+    color: hsl(var(--foreground));
+  }
+
+  @keyframes mood-hero-shimmer {
+    0% {
+      transform: translateX(-100%);
+      opacity: 0.2;
+    }
+    100% {
+      transform: translateX(200%);
+      opacity: 0.5;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .mood-hero-avatar-skeleton::after,
+    .mood-hero-title-skeleton::after,
+    .mood-hero-desc-skeleton::after {
+      animation: none;
+    }
+  }
+</style>
