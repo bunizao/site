@@ -15,60 +15,84 @@ It covers:
 
 It does not propose a Telegram parser rewrite or a full-site middleware rewrite.
 
+## Implementation Status
+
+As of April 19, 2026, the main decoupling plan in this document has already been implemented in the repo.
+
+Current shipped state:
+
+- `/mood` now composes [`src/features/mood/ui/TimelineWheel.astro`](../src/features/mood/ui/TimelineWheel.astro), [`src/features/mood/ui/FeedShell.astro`](../src/features/mood/ui/FeedShell.astro), and [`src/features/mood/ui/NotifyPanel.astro`](../src/features/mood/ui/NotifyPanel.astro)
+- feed runtime is split across [`src/features/mood/client/feed-controller.ts`](../src/features/mood/client/feed-controller.ts), [`src/features/mood/client/feed-renderer.ts`](../src/features/mood/client/feed-renderer.ts), [`src/features/mood/client/feed-media-hydration.ts`](../src/features/mood/client/feed-media-hydration.ts), [`src/features/mood/client/feed-update-watcher.ts`](../src/features/mood/client/feed-update-watcher.ts), and [`src/features/mood/client/feed-comments-popover.ts`](../src/features/mood/client/feed-comments-popover.ts)
+- `/mood/[id]` now composes [`src/features/mood/ui/DetailArticle.astro`](../src/features/mood/ui/DetailArticle.astro) and [`src/features/mood/ui/CommentsSection.astro`](../src/features/mood/ui/CommentsSection.astro)
+- route helpers, mood server services, and Astro UI shells from stages 1-5 are present in the codebase
+
+Remaining hotspots are narrower:
+
+- [`src/pages/mood.astro`](../src/pages/mood.astro) still owns route-local header action injection and mobile-only header collapse behavior
+- [`src/pages/mood/[id].astro`](../src/pages/mood/[id].astro) still owns a small inline bootstrap script for back navigation, detail video classification, gallery init, and animated emoji hydration
+- [`src/features/mood/shared/utils.ts`](../src/features/mood/shared/utils.ts) is still the broadest mood utility file on the parsing side
+
 ## Why This Exists
 
 The current mood implementation works, but the feature boundary is weak.
 
 The main problem is not only file size. The larger issue is that route code, DOM rendering, feature state, cross-page behavior, and server shaping are mixed together.
 
-Current hotspots:
+Remaining hotspots:
 
 - [`src/pages/mood.astro`](../src/pages/mood.astro)
 - [`src/pages/mood/[id].astro`](../src/pages/mood/[id].astro)
-- [`src/features/mood/ui/HomePreview.astro`](../src/features/mood/ui/HomePreview.astro)
-- [`src/pages/api/moods.ts`](../src/pages/api/moods.ts)
+- [`src/features/mood/client/feed-renderer.ts`](../src/features/mood/client/feed-renderer.ts)
 - [`src/features/mood/shared/utils.ts`](../src/features/mood/shared/utils.ts)
 
-Current symptoms:
+Original symptoms that motivated this work:
 
 - feed page owns too many responsibilities
 - detail page duplicates client logic already present elsewhere
 - home preview duplicates preview rendering and image logic
 - server entrypoints reshape mood data independently
 - environment reads, query parsing, JSON responses, and rate-limit response patterns repeat across endpoints
-- the timeline wheel is only visually separated; its behavior still lives in the page
+- the timeline wheel was only visually separated; its behavior lived in the page
 
 ## Current State Summary
 
 ### Feed Page
 
-[`src/pages/mood.astro`](../src/pages/mood.astro) currently combines:
+[`src/pages/mood.astro`](../src/pages/mood.astro) now acts as a route shell plus bootstrap layer.
+
+Current page-owned responsibilities:
 
 - header action injection
-- notify panel UI and controller
-- hero hydration
-- feed loading and pagination
-- feed DOM rendering
-- date grouping
-- preview HTML reconstruction
-- image fallback and responsive media logic
-- comments hover popover behavior
-- animated emoji hydration
-- update polling and refresh behavior
-- timeline wheel behavior
+- mobile header collapse behavior
+- route-local layout composition
+- bootstrapping of feed / notify / timeline client modules
+
+The feed feature runtime itself now lives in:
+
+- [`src/features/mood/client/feed-controller.ts`](../src/features/mood/client/feed-controller.ts)
+- [`src/features/mood/client/feed-renderer.ts`](../src/features/mood/client/feed-renderer.ts)
+- [`src/features/mood/client/feed-media-hydration.ts`](../src/features/mood/client/feed-media-hydration.ts)
+- [`src/features/mood/client/feed-update-watcher.ts`](../src/features/mood/client/feed-update-watcher.ts)
+- [`src/features/mood/client/feed-comments-popover.ts`](../src/features/mood/client/feed-comments-popover.ts)
 
 ### Detail Page
 
-[`src/pages/mood/[id].astro`](../src/pages/mood/[id].astro) currently combines:
+[`src/pages/mood/[id].astro`](../src/pages/mood/[id].astro) now composes private Astro shells and a smaller bootstrap script.
+
+Current page-owned responsibilities:
 
 - route handling and redirect behavior
-- post rendering
-- reaction rendering
-- animated emoji hydration
-- media classification
-- comments loading and pagination
-- comment rendering and sanitization
+- route-level fetch and `404` handling
 - back navigation behavior
+- detail video classification
+- gallery init
+- animated emoji hydration bootstrap
+
+Detail shells and comments runtime now live in:
+
+- [`src/features/mood/ui/DetailArticle.astro`](../src/features/mood/ui/DetailArticle.astro)
+- [`src/features/mood/ui/CommentsSection.astro`](../src/features/mood/ui/CommentsSection.astro)
+- [`src/features/mood/client/detail-comments-controller.ts`](../src/features/mood/client/detail-comments-controller.ts)
 
 ### Home Preview
 
@@ -160,10 +184,14 @@ pages / api routes
 
 ### Mood Feature Layer
 
-- `src/features/mood/shared/types.ts`
 - `src/features/mood/shared/preview.ts`
 - `src/features/mood/shared/comments.ts`
 - `src/features/mood/client/feed-controller.ts`
+- `src/features/mood/client/feed-renderer.ts`
+- `src/features/mood/client/feed-media-hydration.ts`
+- `src/features/mood/client/feed-update-watcher.ts`
+- `src/features/mood/client/feed-comments-popover.ts`
+- `src/features/mood/client/feed-types.ts`
 - `src/features/mood/client/detail-comments-controller.ts`
 - `src/features/mood/client/notify-panel-controller.ts`
 - `src/features/mood/client/animated-emoji.ts`
@@ -184,13 +212,14 @@ pages / api routes
 
 ### Optional Astro UI Shells
 
-These should be introduced after controllers are extracted.
+These now exist in the codebase after controller extraction.
 
 - `src/features/mood/ui/Hero.astro`
 - `src/features/mood/ui/FeedShell.astro`
 - `src/features/mood/ui/DetailArticle.astro`
 - `src/features/mood/ui/CommentsSection.astro`
 - `src/features/mood/ui/NotifyPanel.astro`
+- `src/features/mood/ui/TimelineWheel.astro`
 
 ## Module Responsibilities
 
@@ -306,19 +335,23 @@ This should replace duplicate implementations in:
 
 ### `src/features/mood/client/feed-controller.ts`
 
-Responsible for feed runtime state.
+Responsible for feed orchestration and runtime state handoff.
 
 Expected responsibilities:
 
 - initial loading
 - infinite pagination
 - render staging
-- date grouping
-- update polling
-- refresh behavior
-- comments preview interaction hooks
+- handing off DOM work to dedicated feed submodules
 
 It should not own inline markup definitions for the shell.
+
+The current repo now splits those concerns into:
+
+- `src/features/mood/client/feed-renderer.ts`
+- `src/features/mood/client/feed-media-hydration.ts`
+- `src/features/mood/client/feed-update-watcher.ts`
+- `src/features/mood/client/feed-comments-popover.ts`
 
 ### `src/features/mood/client/detail-comments-controller.ts`
 
@@ -628,6 +661,8 @@ Rationale:
 
 ## Stage 5: Extract Astro UI Shells
 
+Status: implemented in the current repo.
+
 Goal:
 
 - reduce page file size after behavior is already isolated
@@ -727,7 +762,7 @@ The decoupling effort is successful when:
 
 ## Recommended First Implementation Pass
 
-If work must proceed with low risk and without disrupting ongoing feature work, start with:
+If this plan is reused as migration history elsewhere, the safest original execution order was:
 
 1. Stage 1
 2. Stage 2

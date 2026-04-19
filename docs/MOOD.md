@@ -39,14 +39,15 @@ Page-level responsibilities:
   - RSS
   - Telegram
   - Notify
-- renders a shell, hero area, and loading skeleton before client fetch starts
+- composes [`src/features/mood/ui/TimelineWheel.astro`](../src/features/mood/ui/TimelineWheel.astro), [`src/features/mood/ui/FeedShell.astro`](../src/features/mood/ui/FeedShell.astro), and [`src/features/mood/ui/NotifyPanel.astro`](../src/features/mood/ui/NotifyPanel.astro)
+- bootstraps [`src/features/mood/client/feed-controller.ts`](../src/features/mood/client/feed-controller.ts), [`src/features/mood/client/notify-panel-controller.ts`](../src/features/mood/client/notify-panel-controller.ts), and [`src/features/mood/client/timeline-wheel.ts`](../src/features/mood/client/timeline-wheel.ts)
 
 Feed data flow:
 
 1. The browser requests `GET /api/moods`.
 2. The response contains channel metadata plus feed-shaped posts.
-3. Client code hydrates the channel hero.
-4. Client code groups posts by date and appends them into the feed.
+3. [`src/features/mood/client/feed-media-hydration.ts`](../src/features/mood/client/feed-media-hydration.ts) hydrates the channel hero and deferred media behavior.
+4. [`src/features/mood/client/feed-renderer.ts`](../src/features/mood/client/feed-renderer.ts) groups posts by date and appends them into the feed.
 5. Infinite loading continues with `before=<oldestPostId>`.
 
 Freshness behavior:
@@ -85,7 +86,15 @@ Important shaping rules:
 
 ## Feed Rendering Strategy
 
-Most feed items are created client-side in [`src/pages/mood.astro`](../src/pages/mood.astro), not server-rendered.
+Most feed items are still created client-side, but the route no longer owns the DOM logic directly.
+
+Current client entrypoints:
+
+- [`src/features/mood/client/feed-controller.ts`](../src/features/mood/client/feed-controller.ts)
+- [`src/features/mood/client/feed-renderer.ts`](../src/features/mood/client/feed-renderer.ts)
+- [`src/features/mood/client/feed-media-hydration.ts`](../src/features/mood/client/feed-media-hydration.ts)
+- [`src/features/mood/client/feed-update-watcher.ts`](../src/features/mood/client/feed-update-watcher.ts)
+- [`src/features/mood/client/feed-comments-popover.ts`](../src/features/mood/client/feed-comments-popover.ts)
 
 Rendering behavior:
 
@@ -110,10 +119,11 @@ Server-side responsibilities:
 - fetches one post by id through `getChannelInfo({ id })`
 - sets `404` when the post is missing
 - renders a controlled not-found or unavailable state instead of crashing
+- composes [`src/features/mood/ui/DetailArticle.astro`](../src/features/mood/ui/DetailArticle.astro), which in turn mounts [`src/features/mood/ui/CommentsSection.astro`](../src/features/mood/ui/CommentsSection.astro)
 
 Rendering behavior:
 
-- full post HTML is inserted with `set:html={post.content}`
+- [`src/features/mood/ui/DetailArticle.astro`](../src/features/mood/ui/DetailArticle.astro) inserts gallery-aware HTML with `set:html={renderedPostContent}`
 - forwarded metadata, reactions, and tags are rendered from parsed Telegram data
 - the page can show a Telegram `Leave a comment` CTA when channel config exists
 
@@ -127,13 +137,14 @@ Back navigation:
 Implementation files:
 
 - [`src/pages/api/comments.ts`](../src/pages/api/comments.ts)
+- [`src/features/mood/client/detail-comments-controller.ts`](../src/features/mood/client/detail-comments-controller.ts)
 - [`src/features/mood/server/telegram-source.ts`](../src/features/mood/server/telegram-source.ts)
 - [`src/features/mood/shared/comments.ts`](../src/features/mood/shared/comments.ts)
 
 Data flow:
 
-1. Detail page renders a skeleton comments section.
-2. Client fetches `GET /api/comments?postId=...`.
+1. [`src/features/mood/ui/CommentsSection.astro`](../src/features/mood/ui/CommentsSection.astro) renders a skeleton comments section.
+2. [`src/features/mood/client/detail-comments-controller.ts`](../src/features/mood/client/detail-comments-controller.ts) fetches `GET /api/comments?postId=...`.
 3. API validates `postId` and optional `before`.
 4. API calls `getPostComments`.
 5. `getPostComments` scrapes Telegram discussion embeds.
