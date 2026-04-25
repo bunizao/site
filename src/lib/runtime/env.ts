@@ -17,12 +17,23 @@ function readValue(source: EnvSource | undefined, name: string): string | undefi
   return value ? value : undefined;
 }
 
+function readProcessEnv(name: string): string | undefined {
+  const processEnv = (globalThis as typeof globalThis & {
+    process?: {
+      env?: EnvSource;
+    };
+  }).process?.env;
+
+  return readValue(processEnv, name);
+}
+
 export function readOptionalEnv(
   locals: RuntimeEnvLocals | undefined,
   name: string,
   buildEnv: EnvSource = import.meta.env as EnvSource
 ): string | undefined {
-  return readValue(buildEnv, name)
+  return readProcessEnv(name)
+    ?? readValue(buildEnv, name)
     ?? readValue(locals?.runtime?.env, name)
     ?? readValue(locals?.env, name);
 }
