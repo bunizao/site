@@ -44,27 +44,27 @@ const initialTrack = tracks[0] ?? null;
       >
         <g class="listening-art-tonearm-arm">
           <path
-            d="M14 25 C29 34 45 49 62 65"
+            d="M20 15 C33 24 45 39 58 56"
             class="listening-art-tonearm-shaft"
           />
           <rect
-            x="58"
-            y="62"
+            x="54"
+            y="53"
             width="17"
             height="7"
             rx="2"
             class="listening-art-tonearm-cartridge"
-            transform="rotate(43 66.5 65.5)"
+            transform="rotate(48 62.5 56.5)"
           />
           <circle
-            cx="14"
-            cy="25"
+            cx="20"
+            cy="15"
             r="7"
             class="listening-art-tonearm-pivot"
           />
           <circle
-            cx="14"
-            cy="25"
+            cx="20"
+            cy="15"
             r="2.8"
             class="listening-art-tonearm-hole"
           />
@@ -369,13 +369,13 @@ const initialTrack = tracks[0] ?? null;
   }
 
   .listening-art-tonearm-arm {
-    transform-origin: 14px 25px;
-    transform: rotate(86deg);
+    transform-origin: 20px 15px;
+    transform: rotate(-42deg);
     transition: transform 0.65s cubic-bezier(0.34, 1.55, 0.64, 1) 0.18s;
   }
 
   .listening-art.is-playing .listening-art-tonearm-arm {
-    transform: rotate(0deg);
+    transform: rotate(23deg);
   }
 
   .listening-art-tonearm-shaft {
