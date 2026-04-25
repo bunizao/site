@@ -167,10 +167,18 @@ const initialTrack = tracks[0] ?? null;
     height: var(--record-size);
     border-radius: 999px;
     background:
-      radial-gradient(circle at 50% 50%, transparent 0 22%, hsl(0 0% 100% / 0.12) 23% 24%, transparent 25%),
-      repeating-radial-gradient(circle at 50% 50%, hsl(0 0% 100% / 0.16) 0 1px, transparent 1px 5px),
-      linear-gradient(132deg, transparent 0 42%, hsl(0 0% 100% / 0.16) 43% 56%, transparent 57%),
-      radial-gradient(circle at 38% 30%, hsl(0 0% 100% / 0.15), transparent 32%),
+      radial-gradient(circle at 50% 50%, transparent 0 23%, hsl(0 0% 100% / 0.14) 23.5% 24.5%, transparent 25%),
+      repeating-radial-gradient(circle at 50% 50%, hsl(0 0% 100% / 0.12) 0 1px, transparent 1px 4px),
+      conic-gradient(
+        from -28deg at 50% 50%,
+        transparent 0deg 18deg,
+        hsl(0 0% 100% / 0.055) 28deg,
+        transparent 46deg 168deg,
+        hsl(0 0% 100% / 0.04) 184deg,
+        transparent 208deg 360deg
+      ),
+      radial-gradient(circle at 36% 30%, hsl(0 0% 100% / 0.1), transparent 30%),
+      radial-gradient(circle at 68% 76%, hsl(0 0% 100% / 0.045), transparent 34%),
       #050505;
     box-shadow:
       inset 0 0 0 1px hsl(0 0% 100% / 0.08),
