@@ -18,8 +18,8 @@ const initialTrack = tracks[0] ?? null;
       aria-pressed="false"
       aria-label={`Play preview of ${initialTrack.title}`}
     >
-      <span class="listening-art-shadow" aria-hidden="true"></span>
       <span class="listening-art-frame">
+        <span class="listening-art-record" aria-hidden="true"></span>
         <img
           src={initialTrack.artworkUrl}
           alt=""
@@ -39,36 +39,33 @@ const initialTrack = tracks[0] ?? null;
       </span>
       <svg
         class="listening-art-tonearm"
-        viewBox="0 0 52 52"
+        viewBox="0 0 96 84"
         aria-hidden="true"
       >
         <g class="listening-art-tonearm-arm">
-          <line
-            x1="6"
-            y1="6"
-            x2="29"
-            y2="30"
+          <path
+            d="M20 15 C33 24 45 39 58 56"
             class="listening-art-tonearm-shaft"
           />
           <rect
-            x="27"
-            y="28"
-            width="9"
-            height="4"
-            rx="1.2"
+            x="54"
+            y="53"
+            width="17"
+            height="7"
+            rx="2"
             class="listening-art-tonearm-cartridge"
-            transform="rotate(46 31.5 30)"
+            transform="rotate(48 62.5 56.5)"
           />
           <circle
-            cx="6"
-            cy="6"
-            r="4.2"
+            cx="20"
+            cy="15"
+            r="7"
             class="listening-art-tonearm-pivot"
           />
           <circle
-            cx="6"
-            cy="6"
-            r="1.7"
+            cx="20"
+            cy="15"
+            r="2.8"
             class="listening-art-tonearm-hole"
           />
         </g>
@@ -114,7 +111,7 @@ const initialTrack = tracks[0] ?? null;
     display: grid;
     grid-template-columns: auto minmax(0, 1fr);
     align-items: center;
-    gap: 14px;
+    gap: 18px;
     width: fit-content;
     max-width: min(100%, 520px);
     color: hsl(var(--muted-foreground));
@@ -122,9 +119,12 @@ const initialTrack = tracks[0] ?? null;
 
   .listening-art {
     --listening-tint: hsl(0 0% 30% / 0.85);
+    --record-size: 72px;
+    --label-size: 40px;
+    --record-left: 46px;
     position: relative;
-    width: 52px;
-    height: 52px;
+    width: 96px;
+    height: 84px;
     flex: none;
     padding: 0;
     border: 0;
@@ -141,70 +141,75 @@ const initialTrack = tracks[0] ?? null;
     outline: none;
   }
 
-  .listening-art:focus-visible .listening-art-frame {
+  .listening-art:focus-visible .listening-art-record {
     box-shadow:
-      inset 0 0 0 1px hsl(var(--foreground) / 0.18),
+      inset 0 0 0 1px hsl(0 0% 100% / 0.08),
+      inset 0 0 18px hsl(0 0% 100% / 0.06),
+      0 8px 18px -12px hsl(0 0% 0% / 0.72),
       0 0 0 2px hsl(var(--background)),
       0 0 0 4px hsl(var(--foreground) / 0.55);
   }
 
-  /* Bottom layer — transparent base peeks out from the lower-left */
-  .listening-art-shadow {
-    position: absolute;
-    inset: 0;
-    border-radius: 8px;
-    background: transparent;
-    box-shadow:
-      inset 0 0 0 1px hsl(var(--foreground) / 0.18),
-      0 10px 24px -20px var(--listening-tint);
-    opacity: 0;
-    transform: translate(0, 0) scale(0.96);
-    transform-origin: 0 100%;
-    transition:
-      opacity 0.28s ease,
-      box-shadow 0.28s ease,
-      transform 0.32s cubic-bezier(0.2, 0.8, 0.2, 1);
-    pointer-events: none;
-    z-index: 0;
-  }
-
-  .listening-art:hover:not(:disabled):not(.is-playing) .listening-art-shadow,
-  .listening-art:focus-visible:not(:disabled):not(.is-playing) .listening-art-shadow {
-    opacity: 1;
-    transform: translate(-5px, 5px) scale(1);
-  }
-
-  /* Top layer — the actual cover (handles morph to disc) */
   .listening-art-frame {
     position: absolute;
     inset: 0;
-    border-radius: 8px;
-    overflow: hidden;
+    overflow: visible;
     isolation: isolate;
-    box-shadow: inset 0 0 0 1px hsl(var(--foreground) / 0.08);
-    transition:
-      border-radius 0.55s cubic-bezier(0.2, 0.8, 0.2, 1),
-      box-shadow 0.3s ease;
+    background: transparent;
     z-index: 1;
   }
 
-  .listening-art:hover:not(:disabled) .listening-art-frame {
-    box-shadow: inset 0 0 0 1px hsl(var(--foreground) / 0.22);
+  .listening-art-record {
+    position: absolute;
+    top: 50%;
+    left: var(--record-left);
+    width: var(--record-size);
+    height: var(--record-size);
+    border-radius: 999px;
+    background:
+      radial-gradient(circle at 50% 50%, transparent 0 22%, hsl(0 0% 100% / 0.12) 23% 24%, transparent 25%),
+      repeating-radial-gradient(circle at 50% 50%, hsl(0 0% 100% / 0.16) 0 1px, transparent 1px 5px),
+      linear-gradient(132deg, transparent 0 42%, hsl(0 0% 100% / 0.16) 43% 56%, transparent 57%),
+      radial-gradient(circle at 38% 30%, hsl(0 0% 100% / 0.15), transparent 32%),
+      #050505;
+    box-shadow:
+      inset 0 0 0 1px hsl(0 0% 100% / 0.08),
+      inset 0 0 18px hsl(0 0% 100% / 0.06),
+      0 8px 18px -12px hsl(0 0% 0% / 0.72);
+    transform: translate(-50%, -50%);
+    transition:
+      filter 0.3s ease,
+      transform 0.45s cubic-bezier(0.2, 0.8, 0.2, 1);
+    z-index: 1;
   }
 
   .listening-art-img {
+    position: absolute;
+    top: 50%;
+    left: var(--record-left);
     display: block;
-    width: 100%;
-    height: 100%;
+    width: var(--label-size);
+    height: var(--label-size);
+    border-radius: 999px;
     object-fit: cover;
     transform-origin: 50% 50%;
+    transform: translate(-50%, -50%);
+    box-shadow:
+      inset 0 0 0 1px hsl(0 0% 100% / 0.25),
+      0 0 0 1px hsl(0 0% 0% / 0.5);
     will-change: transform;
+    z-index: 2;
   }
 
   /* Color-blend tint over the cover image */
   .listening-art-tint {
     position: absolute;
-    inset: 0;
+    top: 50%;
+    left: var(--record-left);
+    width: var(--record-size);
+    height: var(--record-size);
+    border-radius: 999px;
+    transform: translate(-50%, -50%);
     background: var(--listening-tint);
     mix-blend-mode: color;
     opacity: 0;
@@ -221,7 +226,7 @@ const initialTrack = tracks[0] ?? null;
   .listening-art-spindle {
     position: absolute;
     top: 50%;
-    left: 50%;
+    left: var(--record-left);
     width: 6px;
     height: 6px;
     border-radius: 999px;
@@ -245,13 +250,17 @@ const initialTrack = tracks[0] ?? null;
 
   .listening-art-icons {
     position: absolute;
-    inset: 0;
+    top: 50%;
+    left: var(--record-left);
+    width: var(--label-size);
+    height: var(--label-size);
     display: grid;
     place-items: center;
     opacity: 0;
+    transform: translate(-50%, -50%);
     transition: opacity 0.2s ease;
     pointer-events: none;
-    z-index: 4;
+    z-index: 6;
   }
 
   .listening-art:hover:not(:disabled) .listening-art-icons,
@@ -260,8 +269,8 @@ const initialTrack = tracks[0] ?? null;
   }
 
   .listening-art-icon {
-    width: 22px;
-    height: 22px;
+    width: 20px;
+    height: 20px;
     color: #fff;
     fill: #fff;
     stroke-width: 1.5;
@@ -282,17 +291,9 @@ const initialTrack = tracks[0] ?? null;
     display: block;
   }
 
-  /* Playing — disc mode */
-  .listening-art.is-playing .listening-art-frame {
-    border-radius: 50%;
-    box-shadow:
-      inset 0 0 0 1px hsl(0 0% 0% / 0.45),
-      0 8px 22px -12px hsl(0 0% 0% / 0.55),
-      0 0 22px -10px hsl(var(--foreground) / 0.4);
-  }
-
+  .listening-art.is-playing .listening-art-record,
   .listening-art.is-playing .listening-art-img {
-    animation: listening-spin 14s linear infinite;
+    animation: listening-record-spin 14s linear infinite;
   }
 
   .listening-art.is-playing .listening-art-spindle {
@@ -309,25 +310,29 @@ const initialTrack = tracks[0] ?? null;
     height: 100%;
     overflow: visible;
     pointer-events: none;
-    color: hsl(var(--foreground) / 0.86);
+    color: hsl(0 0% 96%);
     filter:
-      drop-shadow(0 1px 2px hsl(0 0% 0% / 0.55))
-      drop-shadow(0 0 1px hsl(0 0% 0% / 0.4));
-    opacity: 0;
-    transition: opacity 0.4s ease 0.15s;
+      drop-shadow(0 1px 1px hsl(0 0% 0% / 0.58))
+      drop-shadow(0 0 1px hsl(var(--foreground) / 0.7));
+    opacity: 0.86;
+    transition: opacity 0.3s ease;
     z-index: 5;
   }
 
+  .listening-art:hover:not(:disabled) .listening-art-tonearm,
+  .listening-art:focus-visible:not(:disabled) .listening-art-tonearm,
   .listening-art.is-playing .listening-art-tonearm {
     opacity: 1;
   }
 
   .listening-art-tonearm-arm {
-    transform-origin: 6px 6px;
-    transform: rotate(24deg);
+    transform-origin: 20px 15px;
+    transform: rotate(23deg);
     transition: transform 0.65s cubic-bezier(0.34, 1.55, 0.64, 1) 0.18s;
   }
 
+  .listening-art:hover:not(:disabled) .listening-art-tonearm-arm,
+  .listening-art:focus-visible:not(:disabled) .listening-art-tonearm-arm,
   .listening-art.is-playing .listening-art-tonearm-arm {
     transform: rotate(0deg);
   }
@@ -335,18 +340,23 @@ const initialTrack = tracks[0] ?? null;
   .listening-art-tonearm-shaft {
     fill: none;
     stroke: currentColor;
-    stroke-width: 2;
+    stroke-width: 4;
     stroke-linecap: round;
   }
 
-  .listening-art-tonearm-cartridge,
+  .listening-art-tonearm-cartridge {
+    fill: currentColor;
+    stroke: hsl(var(--background) / 0.75);
+    stroke-width: 0.4;
+  }
+
   .listening-art-tonearm-pivot {
     fill: currentColor;
     stroke: none;
   }
 
   .listening-art-tonearm-hole {
-    fill: hsl(var(--background));
+    fill: #050505;
     stroke: none;
   }
 
@@ -500,12 +510,15 @@ const initialTrack = tracks[0] ?? null;
 
   @media (max-width: 430px) {
     .listening {
-      gap: 12px;
+      gap: 14px;
     }
 
     .listening-art {
-      width: 48px;
-      height: 48px;
+      --record-size: 58px;
+      --label-size: 32px;
+      --record-left: 38px;
+      width: 78px;
+      height: 70px;
     }
 
     .listening-title {
@@ -531,8 +544,8 @@ const initialTrack = tracks[0] ?? null;
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .listening-art-shadow,
     .listening-art-frame,
+    .listening-art-record,
     .listening-art-tint,
     .listening-art-icons,
     .listening-art-spindle,
@@ -544,24 +557,20 @@ const initialTrack = tracks[0] ?? null;
       transition: none;
     }
 
+    .listening-art.is-playing .listening-art-record,
     .listening-art.is-playing .listening-art-img,
     .listening.is-playing .listening-eyebrow-wave span {
       animation: none;
     }
 
-    .listening-art.is-playing .listening-art-frame {
-      border-radius: 8px;
-    }
-
-    .listening-art.is-playing .listening-art-spindle,
-    .listening-art.is-playing .listening-art-tonearm {
+    .listening-art.is-playing .listening-art-spindle {
       opacity: 0;
     }
   }
 
-  @keyframes listening-spin {
+  @keyframes listening-record-spin {
     to {
-      transform: rotate(360deg);
+      transform: translate(-50%, -50%) rotate(360deg);
     }
   }
 
