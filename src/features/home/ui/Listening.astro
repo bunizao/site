@@ -1,58 +1,16 @@
 ---
 import { getListeningTracks } from '@/features/home/server/listening';
-import { Play } from 'lucide-react';
+import { Pause, Play } from 'lucide-react';
 
 const tracks = await getListeningTracks();
 const initialTrack = tracks[0] ?? null;
 ---
 
 {initialTrack && (
-  <aside class="listening-status" data-listening aria-label="Now playing">
-    <a
-      href={initialTrack.appleMusicUrl}
-      target="_blank"
-      rel="noopener noreferrer"
-      class="listening-cover-link"
-      aria-label={`Open ${initialTrack.title} on Apple Music`}
-    >
-      <img
-        src={initialTrack.artworkUrl}
-        alt={`${initialTrack.title} cover art`}
-        class="listening-cover"
-        loading="eager"
-        decoding="async"
-        referrerpolicy="no-referrer"
-      />
-    </a>
-
-    <div class="listening-copy">
-      <p class="listening-kicker">
-        <span class="listening-kicker-mark" aria-hidden="true"></span>
-        <span>Now playing</span>
-      </p>
-
-      <a
-        href={initialTrack.appleMusicUrl}
-        target="_blank"
-        rel="noopener noreferrer"
-        class="listening-track"
-        data-listening-link
-        aria-label={`Open ${initialTrack.title} on Apple Music`}
-      >
-        <span class="listening-title">{initialTrack.title}</span>
-        <span class="listening-artist">{initialTrack.artist}</span>
-      </a>
-
-      <p class="listening-detail">
-        <span>{initialTrack.collection}</span>
-        <span aria-hidden="true">/</span>
-        <span>{initialTrack.year}</span>
-      </p>
-    </div>
-
+  <aside class="listening" data-listening aria-label="Now playing">
     <button
       type="button"
-      class="listening-play"
+      class="listening-art"
       data-listening-play
       data-preview-url={initialTrack.previewUrl}
       data-track-title={initialTrack.title}
@@ -60,77 +18,420 @@ const initialTrack = tracks[0] ?? null;
       aria-pressed="false"
       aria-label={`Play preview of ${initialTrack.title}`}
     >
-      <Play className="listening-play-icon listening-play-icon--play" aria-hidden="true" />
-      <span class="listening-play-wave" aria-hidden="true">
-        <span></span>
-        <span></span>
-        <span></span>
+      <span class="listening-art-shadow" aria-hidden="true"></span>
+      <span class="listening-art-frame">
+        <img
+          src={initialTrack.artworkUrl}
+          alt=""
+          class="listening-art-img"
+          crossorigin="anonymous"
+          loading="eager"
+          decoding="async"
+          referrerpolicy="no-referrer"
+        />
+        <span class="listening-art-tint" aria-hidden="true"></span>
+        <span class="listening-art-spindle" aria-hidden="true"></span>
+        <span class="listening-art-icons" aria-hidden="true">
+          <Play className="listening-art-icon listening-art-icon--play" aria-hidden="true" />
+          <Pause className="listening-art-icon listening-art-icon--pause" aria-hidden="true" />
+        </span>
       </span>
+      <svg
+        class="listening-art-tonearm"
+        viewBox="0 0 52 52"
+        aria-hidden="true"
+      >
+        <g class="listening-art-tonearm-arm">
+          <line
+            x1="48"
+            y1="6"
+            x2="24"
+            y2="30"
+            class="listening-art-tonearm-shaft"
+          />
+          <rect
+            x="18"
+            y="28"
+            width="9"
+            height="4"
+            rx="1.2"
+            class="listening-art-tonearm-cartridge"
+            transform="rotate(-45 22.5 30)"
+          />
+          <circle
+            cx="48"
+            cy="6"
+            r="2.8"
+            class="listening-art-tonearm-pivot"
+          />
+          <circle
+            cx="48"
+            cy="6"
+            r="1.3"
+            class="listening-art-tonearm-hole"
+          />
+        </g>
+      </svg>
     </button>
+
+    <div class="listening-copy">
+      <p class="listening-eyebrow">
+        <span class="listening-eyebrow-dot" aria-hidden="true"></span>
+        <span class="listening-eyebrow-text">Now playing</span>
+        <span class="listening-eyebrow-wave" aria-hidden="true">
+          <span></span>
+          <span></span>
+          <span></span>
+          <span></span>
+        </span>
+      </p>
+
+      <a
+        href={initialTrack.appleMusicUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        class="listening-track"
+        aria-label={`Open ${initialTrack.title} on Apple Music`}
+      >
+        <span class="listening-title">{initialTrack.title}</span>
+        <span class="listening-sep" aria-hidden="true">—</span>
+        <span class="listening-artist">{initialTrack.artist}</span>
+      </a>
+
+      <p class="listening-meta">
+        <span>{initialTrack.collection}</span>
+        <span class="listening-meta-dot" aria-hidden="true"></span>
+        <span>{initialTrack.year}</span>
+      </p>
+    </div>
   </aside>
 )}
 
 <style>
-  .listening-status {
+  .listening {
     display: grid;
-    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-columns: auto minmax(0, 1fr);
     align-items: center;
-    gap: 12px;
+    gap: 14px;
     width: fit-content;
     max-width: min(100%, 520px);
     color: hsl(var(--muted-foreground));
   }
 
-  .listening-copy {
-    min-width: 0;
-    max-width: 390px;
+  .listening-art {
+    --listening-tint: hsl(0 0% 30% / 0.85);
+    position: relative;
+    width: 52px;
+    height: 52px;
+    flex: none;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    cursor: pointer;
   }
 
-  .listening-kicker {
+  .listening-art:disabled {
+    cursor: not-allowed;
+    opacity: 0.55;
+  }
+
+  .listening-art:focus-visible {
+    outline: none;
+  }
+
+  .listening-art:focus-visible .listening-art-frame {
+    box-shadow:
+      inset 0 0 0 1px hsl(var(--foreground) / 0.18),
+      0 0 0 2px hsl(var(--background)),
+      0 0 0 4px hsl(var(--foreground) / 0.55);
+  }
+
+  /* Bottom layer — colored card peeks out on idle hover */
+  .listening-art-shadow {
+    position: absolute;
+    inset: 0;
+    border-radius: 8px;
+    background: var(--listening-tint);
+    opacity: 0;
+    transform: translate(0, 0) scale(0.96);
+    transform-origin: 0 0;
+    transition:
+      opacity 0.28s ease,
+      transform 0.32s cubic-bezier(0.2, 0.8, 0.2, 1);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .listening-art:hover:not(:disabled):not(.is-playing) .listening-art-shadow,
+  .listening-art:focus-visible:not(:disabled):not(.is-playing) .listening-art-shadow {
+    opacity: 1;
+    transform: translate(5px, 5px) scale(1);
+  }
+
+  /* Top layer — the actual cover (handles morph to disc) */
+  .listening-art-frame {
+    position: absolute;
+    inset: 0;
+    border-radius: 8px;
+    overflow: hidden;
+    isolation: isolate;
+    box-shadow: inset 0 0 0 1px hsl(var(--foreground) / 0.08);
+    transition:
+      border-radius 0.55s cubic-bezier(0.2, 0.8, 0.2, 1),
+      box-shadow 0.3s ease;
+    z-index: 1;
+  }
+
+  .listening-art:hover:not(:disabled) .listening-art-frame {
+    box-shadow: inset 0 0 0 1px hsl(var(--foreground) / 0.22);
+  }
+
+  .listening-art-img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transform-origin: 50% 50%;
+    will-change: transform;
+  }
+
+  /* Color-blend tint over the cover image */
+  .listening-art-tint {
+    position: absolute;
+    inset: 0;
+    background: var(--listening-tint);
+    mix-blend-mode: color;
+    opacity: 0;
+    transition: opacity 0.22s ease;
+    pointer-events: none;
+    z-index: 2;
+  }
+
+  .listening-art:hover:not(:disabled) .listening-art-tint,
+  .listening-art:focus-visible:not(:disabled) .listening-art-tint {
+    opacity: 1;
+  }
+
+  .listening-art-spindle {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 6px;
+    height: 6px;
+    border-radius: 999px;
+    background: radial-gradient(
+      circle at 50% 45%,
+      #000 0%,
+      #161616 55%,
+      hsl(0 0% 100% / 0.35) 100%
+    );
+    box-shadow:
+      inset 0 0 0 0.5px hsl(0 0% 100% / 0.3),
+      0 0 0 1px hsl(0 0% 0% / 0.55);
+    transform: translate(-50%, -50%) scale(0);
+    opacity: 0;
+    pointer-events: none;
+    transition:
+      transform 0.45s cubic-bezier(0.2, 0.8, 0.2, 1),
+      opacity 0.3s ease;
+    z-index: 3;
+  }
+
+  .listening-art-icons {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+    pointer-events: none;
+    z-index: 4;
+  }
+
+  .listening-art:hover:not(:disabled) .listening-art-icons,
+  .listening-art:focus-visible:not(:disabled) .listening-art-icons {
+    opacity: 1;
+  }
+
+  .listening-art-icon {
+    width: 22px;
+    height: 22px;
+    color: #fff;
+    fill: #fff;
+    stroke-width: 1.5;
+    filter:
+      drop-shadow(0 1px 6px hsl(0 0% 0% / 0.6))
+      drop-shadow(0 0 1px hsl(0 0% 0% / 0.85));
+  }
+
+  .listening-art-icon--pause {
+    display: none;
+  }
+
+  .listening-art.is-playing .listening-art-icon--play {
+    display: none;
+  }
+
+  .listening-art.is-playing .listening-art-icon--pause {
+    display: block;
+  }
+
+  /* Playing — disc mode */
+  .listening-art.is-playing .listening-art-frame {
+    border-radius: 50%;
+    box-shadow:
+      inset 0 0 0 1px hsl(0 0% 0% / 0.45),
+      0 8px 22px -12px hsl(0 0% 0% / 0.55),
+      0 0 22px -10px hsl(var(--foreground) / 0.4);
+  }
+
+  .listening-art.is-playing .listening-art-img {
+    animation: listening-spin 14s linear infinite;
+  }
+
+  .listening-art.is-playing .listening-art-spindle {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 1;
+    transition-delay: 0.3s;
+  }
+
+  /* Tone arm — SVG, swings in from upper-right when playing */
+  .listening-art-tonearm {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+    pointer-events: none;
+    color: hsl(var(--foreground) / 0.86);
+    filter:
+      drop-shadow(0 1px 2px hsl(0 0% 0% / 0.55))
+      drop-shadow(0 0 1px hsl(0 0% 0% / 0.4));
+    opacity: 0;
+    transition: opacity 0.4s ease 0.15s;
+    z-index: 5;
+  }
+
+  .listening-art.is-playing .listening-art-tonearm {
+    opacity: 1;
+  }
+
+  .listening-art-tonearm-arm {
+    transform-origin: 48px 6px;
+    transform: rotate(-22deg);
+    transition: transform 0.65s cubic-bezier(0.34, 1.55, 0.64, 1) 0.18s;
+  }
+
+  .listening-art.is-playing .listening-art-tonearm-arm {
+    transform: rotate(0deg);
+  }
+
+  .listening-art-tonearm-shaft {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.6;
+    stroke-linecap: round;
+  }
+
+  .listening-art-tonearm-cartridge,
+  .listening-art-tonearm-pivot {
+    fill: currentColor;
+    stroke: none;
+  }
+
+  .listening-art-tonearm-hole {
+    fill: hsl(var(--background));
+    stroke: none;
+  }
+
+  /* Copy */
+  .listening-copy {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .listening-eyebrow {
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    margin: 0 0 8px;
+    margin: 0 0 2px;
     font-size: 11px;
     letter-spacing: 0.14em;
     text-transform: uppercase;
     color: hsl(var(--muted-foreground) / 0.84);
+    font-feature-settings: 'tnum';
   }
 
-  .listening-kicker-mark {
-    position: relative;
-    width: 18px;
-    height: 1px;
-    background: currentColor;
-    opacity: 0.48;
-  }
-
-  .listening-kicker-mark::before {
-    content: '';
-    position: absolute;
-    top: 50%;
-    left: 0;
+  .listening-eyebrow-dot {
     width: 5px;
     height: 5px;
     border-radius: 999px;
-    background: hsl(var(--foreground));
-    transform: translateY(-50%);
-    animation: listening-pulse 1.8s ease-in-out infinite;
+    background: hsl(var(--foreground) / 0.45);
+    transition:
+      background 0.3s ease,
+      box-shadow 0.3s ease;
   }
 
+  .listening.is-playing .listening-eyebrow-dot {
+    background: hsl(var(--foreground));
+    box-shadow: 0 0 0 4px hsl(var(--foreground) / 0.08);
+  }
+
+  .listening-eyebrow-wave {
+    display: inline-flex;
+    align-items: flex-end;
+    gap: 2px;
+    height: 9px;
+    width: 0;
+    overflow: hidden;
+    transition: width 0.35s cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+
+  .listening-eyebrow-wave span {
+    display: block;
+    width: 2px;
+    height: 100%;
+    border-radius: 999px;
+    background: hsl(var(--foreground) / 0.7);
+    transform-origin: 50% 100%;
+    transform: scaleY(0.32);
+  }
+
+  .listening.is-playing .listening-eyebrow-wave {
+    width: 18px;
+  }
+
+  .listening.is-playing .listening-eyebrow-wave span {
+    animation: listening-wave 0.92s ease-in-out infinite;
+  }
+
+  .listening.is-playing .listening-eyebrow-wave span:nth-child(2) {
+    animation-delay: 0.1s;
+  }
+
+  .listening.is-playing .listening-eyebrow-wave span:nth-child(3) {
+    animation-delay: 0.22s;
+  }
+
+  .listening.is-playing .listening-eyebrow-wave span:nth-child(4) {
+    animation-delay: 0.16s;
+  }
+
+  /* Track line */
   .listening-track {
-    display: flex;
+    display: inline-flex;
     flex-wrap: wrap;
     align-items: baseline;
-    gap: 8px 10px;
+    gap: 0 8px;
     min-width: 0;
     width: fit-content;
     max-width: 100%;
   }
 
   .listening-title,
-  .listening-artist,
-  .listening-detail span {
+  .listening-artist {
     min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -138,15 +439,25 @@ const initialTrack = tracks[0] ?? null;
   }
 
   .listening-title {
-    max-width: 100%;
     font-size: 15px;
-    line-height: 1.35;
+    line-height: 1.4;
     color: hsl(var(--foreground));
-    transition: opacity 0.18s ease;
+    background-image: linear-gradient(currentColor, currentColor);
+    background-repeat: no-repeat;
+    background-position: 0 100%;
+    background-size: 0% 1px;
+    padding-bottom: 1px;
+    transition: background-size 0.45s cubic-bezier(0.2, 0.8, 0.2, 1);
   }
 
-  .listening-track:hover .listening-title {
-    opacity: 0.72;
+  .listening-track:hover .listening-title,
+  .listening-track:focus-visible .listening-title {
+    background-size: 100% 1px;
+  }
+
+  .listening-sep {
+    font-size: 13px;
+    color: hsl(var(--muted-foreground) / 0.5);
   }
 
   .listening-artist {
@@ -155,205 +466,193 @@ const initialTrack = tracks[0] ?? null;
     color: hsl(var(--muted-foreground));
   }
 
-  .listening-detail {
-    display: flex;
+  .listening-meta {
+    display: inline-flex;
     align-items: center;
-    gap: 7px;
-    margin: 6px 0 0;
+    gap: 8px;
+    margin: 2px 0 0;
     min-width: 0;
     font-size: 12px;
     line-height: 1.4;
-    color: hsl(var(--muted-foreground) / 0.82);
+    color: hsl(var(--muted-foreground) / 0.78);
+    font-feature-settings: 'tnum';
   }
 
-  .listening-cover-link {
-    display: block;
-    width: 42px;
-    height: 42px;
-    flex: none;
-    overflow: hidden;
-    border-radius: 7px;
-    opacity: 0.86;
-    transition: opacity 0.18s ease, transform 0.18s ease;
-  }
-
-  .listening-cover-link:hover {
-    opacity: 1;
-    transform: translateY(-1px);
-  }
-
-  .listening-status.is-playing .listening-cover-link {
-    opacity: 1;
-    animation: listening-cover-breath 2.6s ease-in-out infinite;
-  }
-
-  .listening-cover {
-    display: block;
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    box-shadow: 0 0 0 1px hsl(var(--foreground) / 0.08);
-  }
-
-  .listening-play {
-    display: grid;
-    width: 30px;
-    height: 30px;
-    place-items: center;
-    border: 1px solid hsl(var(--foreground) / 0.12);
-    border-radius: 999px;
-    background: transparent;
-    color: hsl(var(--muted-foreground));
-    transition:
-      transform 0.18s ease,
-      border-color 0.18s ease,
-      color 0.18s ease;
-  }
-
-  .listening-play:hover:not(:disabled) {
-    transform: translateY(-1px);
-    border-color: hsl(var(--foreground) / 0.28);
-    color: hsl(var(--foreground));
-  }
-
-  .listening-play:active:not(:disabled) {
-    transform: translateY(0) scale(0.96);
-  }
-
-  .listening-play:disabled {
-    opacity: 0.42;
-    cursor: not-allowed;
-  }
-
-  .listening-play-icon {
-    width: 13px;
-    height: 13px;
-    stroke-width: 2;
-  }
-
-  .listening-play-wave {
-    display: none;
-    align-items: center;
-    justify-content: center;
-    gap: 2px;
-    width: 14px;
-    height: 14px;
-  }
-
-  .listening-play-wave span {
+  .listening-meta-dot {
     width: 2px;
-    height: 5px;
+    height: 2px;
     border-radius: 999px;
     background: currentColor;
-    opacity: 0.9;
-    transform-origin: center bottom;
-    animation: listening-wave 0.86s ease-in-out infinite;
-  }
-
-  .listening-play-wave span:nth-child(2) {
-    animation-delay: 0.12s;
-  }
-
-  .listening-play-wave span:nth-child(3) {
-    animation-delay: 0.24s;
-  }
-
-  .listening-play.is-playing .listening-play-icon--play {
-    display: none;
-  }
-
-  .listening-play.is-playing .listening-play-wave {
-    display: flex;
-  }
-
-  .listening-play.is-playing {
-    border-color: hsl(var(--foreground) / 0.24);
-    color: hsl(var(--foreground));
+    opacity: 0.65;
   }
 
   @media (max-width: 520px) {
-    .listening-status {
-      grid-template-columns: auto minmax(0, 1fr) auto;
+    .listening {
       width: 100%;
     }
   }
 
   @media (max-width: 430px) {
-    .listening-track {
-      gap: 4px 8px;
+    .listening {
+      gap: 12px;
+    }
+
+    .listening-art {
+      width: 48px;
+      height: 48px;
     }
 
     .listening-title {
       font-size: 14px;
     }
 
-    .listening-artist,
-    .listening-detail {
+    .listening-artist {
       font-size: 12px;
     }
 
-    .listening-cover-link {
-      width: 38px;
-      height: 38px;
+    .listening-sep {
+      display: none;
+    }
+
+    .listening-track {
+      gap: 2px 6px;
+    }
+
+    .listening-meta,
+    .listening-eyebrow {
+      font-size: 11px;
     }
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .listening-kicker-mark::before {
-      animation: none;
-    }
-
-    .listening-status.is-playing .listening-cover-link,
-    .listening-play-wave span {
-      animation: none;
-    }
-
-    .listening-cover-link,
-    .listening-play,
-    .listening-title {
+    .listening-art-shadow,
+    .listening-art-frame,
+    .listening-art-tint,
+    .listening-art-icons,
+    .listening-art-spindle,
+    .listening-art-tonearm,
+    .listening-art-tonearm-arm,
+    .listening-title,
+    .listening-eyebrow-wave,
+    .listening-eyebrow-dot {
       transition: none;
     }
+
+    .listening-art.is-playing .listening-art-img,
+    .listening.is-playing .listening-eyebrow-wave span {
+      animation: none;
+    }
+
+    .listening-art.is-playing .listening-art-frame {
+      border-radius: 8px;
+    }
+
+    .listening-art.is-playing .listening-art-spindle,
+    .listening-art.is-playing .listening-art-tonearm {
+      opacity: 0;
+    }
   }
 
-  @keyframes listening-pulse {
-    0%,
-    100% {
-      transform: translateY(-50%) scale(1);
-      opacity: 1;
-    }
-
-    50% {
-      transform: translateY(-50%) scale(1.4);
-      opacity: 0.55;
-    }
-  }
-
-  @keyframes listening-cover-breath {
-    0%,
-    100% {
-      transform: translateY(0) scale(1);
-    }
-
-    50% {
-      transform: translateY(-1px) scale(1.025);
+  @keyframes listening-spin {
+    to {
+      transform: rotate(360deg);
     }
   }
 
   @keyframes listening-wave {
     0%,
     100% {
-      transform: scaleY(0.72);
-      opacity: 0.58;
+      transform: scaleY(0.32);
+      opacity: 0.6;
     }
-
     50% {
-      transform: scaleY(1.6);
+      transform: scaleY(1);
       opacity: 1;
     }
   }
 </style>
 
 <script>
+  type Rgb = { r: number; g: number; b: number };
+
+  const SAMPLE_SIZE = 28;
+
+  const extractTintColor = (img: HTMLImageElement): Rgb | null => {
+    const canvas = document.createElement('canvas');
+    canvas.width = SAMPLE_SIZE;
+    canvas.height = SAMPLE_SIZE;
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    if (!ctx) return null;
+
+    ctx.drawImage(img, 0, 0, SAMPLE_SIZE, SAMPLE_SIZE);
+
+    let data: Uint8ClampedArray;
+    try {
+      data = ctx.getImageData(0, 0, SAMPLE_SIZE, SAMPLE_SIZE).data;
+    } catch {
+      return null;
+    }
+
+    let bestR = 0;
+    let bestG = 0;
+    let bestB = 0;
+    let bestScore = -1;
+    let avgR = 0;
+    let avgG = 0;
+    let avgB = 0;
+    let avgN = 0;
+
+    for (let i = 0; i < data.length; i += 4) {
+      const r = data[i];
+      const g = data[i + 1];
+      const b = data[i + 2];
+      const a = data[i + 3];
+      if (a < 200) continue;
+
+      avgR += r;
+      avgG += g;
+      avgB += b;
+      avgN += 1;
+
+      const max = Math.max(r, g, b);
+      const min = Math.min(r, g, b);
+      const lightness = (max + min) / 510;
+      if (lightness < 0.18 || lightness > 0.82) continue;
+
+      const sat = max === 0 ? 0 : (max - min) / max;
+      const score = sat * 1.6 + (lightness > 0.4 && lightness < 0.65 ? 0.2 : 0);
+      if (score > bestScore) {
+        bestScore = score;
+        bestR = r;
+        bestG = g;
+        bestB = b;
+      }
+    }
+
+    if (bestScore > 0.25) {
+      return { r: bestR, g: bestG, b: bestB };
+    }
+
+    if (avgN > 0) {
+      return {
+        r: Math.round(avgR / avgN),
+        g: Math.round(avgG / avgN),
+        b: Math.round(avgB / avgN)
+      };
+    }
+
+    return null;
+  };
+
+  const applyTint = (button: HTMLElement, img: HTMLImageElement) => {
+    const color = extractTintColor(img);
+    if (!color) return;
+    button.style.setProperty(
+      '--listening-tint',
+      `rgb(${color.r} ${color.g} ${color.b} / 0.92)`
+    );
+  };
+
   const initListeningSection = () => {
     const roots = document.querySelectorAll('[data-listening]');
 
@@ -367,6 +666,15 @@ const initialTrack = tracks[0] ?? null;
       const playButton = root.querySelector('[data-listening-play]');
       if (!(playButton instanceof HTMLButtonElement)) {
         return;
+      }
+
+      const img = playButton.querySelector('img');
+      if (img instanceof HTMLImageElement) {
+        if (img.complete && img.naturalWidth > 0) {
+          applyTint(playButton, img);
+        } else {
+          img.addEventListener('load', () => applyTint(playButton, img), { once: true });
+        }
       }
 
       const previewUrl = playButton.dataset.previewUrl ?? '';
@@ -385,7 +693,10 @@ const initialTrack = tracks[0] ?? null;
         root.classList.toggle('is-playing', isPlaying);
         playButton.classList.toggle('is-playing', isPlaying);
         playButton.setAttribute('aria-pressed', isPlaying ? 'true' : 'false');
-        playButton.setAttribute('aria-label', `${isPlaying ? 'Pause' : 'Play'} preview of ${trackTitle}`);
+        playButton.setAttribute(
+          'aria-label',
+          `${isPlaying ? 'Pause' : 'Play'} preview of ${trackTitle}`
+        );
       };
 
       playButton.addEventListener('click', async () => {
