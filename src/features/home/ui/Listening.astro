@@ -1,6 +1,6 @@
 ---
 import { getListeningTracks } from '@/features/home/server/listening';
-import { Pause, Play } from 'lucide-react';
+import { Play } from 'lucide-react';
 
 const tracks = await getListeningTracks();
 const initialTrack = tracks[0] ?? null;
@@ -61,7 +61,11 @@ const initialTrack = tracks[0] ?? null;
       aria-label={`Play preview of ${initialTrack.title}`}
     >
       <Play className="listening-play-icon listening-play-icon--play" aria-hidden="true" />
-      <Pause className="listening-play-icon listening-play-icon--pause" aria-hidden="true" />
+      <span class="listening-play-wave" aria-hidden="true">
+        <span></span>
+        <span></span>
+        <span></span>
+      </span>
     </button>
   </aside>
 )}
@@ -178,6 +182,11 @@ const initialTrack = tracks[0] ?? null;
     transform: translateY(-1px);
   }
 
+  .listening-status.is-playing .listening-cover-link {
+    opacity: 1;
+    animation: listening-cover-breath 2.6s ease-in-out infinite;
+  }
+
   .listening-cover {
     display: block;
     width: 100%;
@@ -222,13 +231,44 @@ const initialTrack = tracks[0] ?? null;
     stroke-width: 2;
   }
 
-  .listening-play-icon--pause,
+  .listening-play-wave {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    width: 14px;
+    height: 14px;
+  }
+
+  .listening-play-wave span {
+    width: 2px;
+    height: 5px;
+    border-radius: 999px;
+    background: currentColor;
+    opacity: 0.9;
+    transform-origin: center bottom;
+    animation: listening-wave 0.86s ease-in-out infinite;
+  }
+
+  .listening-play-wave span:nth-child(2) {
+    animation-delay: 0.12s;
+  }
+
+  .listening-play-wave span:nth-child(3) {
+    animation-delay: 0.24s;
+  }
+
   .listening-play.is-playing .listening-play-icon--play {
     display: none;
   }
 
-  .listening-play.is-playing .listening-play-icon--pause {
-    display: block;
+  .listening-play.is-playing .listening-play-wave {
+    display: flex;
+  }
+
+  .listening-play.is-playing {
+    border-color: hsl(var(--foreground) / 0.24);
+    color: hsl(var(--foreground));
   }
 
   @media (max-width: 520px) {
@@ -263,6 +303,11 @@ const initialTrack = tracks[0] ?? null;
       animation: none;
     }
 
+    .listening-status.is-playing .listening-cover-link,
+    .listening-play-wave span {
+      animation: none;
+    }
+
     .listening-cover-link,
     .listening-play,
     .listening-title {
@@ -280,6 +325,30 @@ const initialTrack = tracks[0] ?? null;
     50% {
       transform: translateY(-50%) scale(1.4);
       opacity: 0.55;
+    }
+  }
+
+  @keyframes listening-cover-breath {
+    0%,
+    100% {
+      transform: translateY(0) scale(1);
+    }
+
+    50% {
+      transform: translateY(-1px) scale(1.025);
+    }
+  }
+
+  @keyframes listening-wave {
+    0%,
+    100% {
+      transform: scaleY(0.72);
+      opacity: 0.58;
+    }
+
+    50% {
+      transform: scaleY(1.6);
+      opacity: 1;
     }
   }
 </style>
@@ -313,6 +382,7 @@ const initialTrack = tracks[0] ?? null;
       audio.preload = 'none';
 
       const setPlayState = (isPlaying: boolean) => {
+        root.classList.toggle('is-playing', isPlaying);
         playButton.classList.toggle('is-playing', isPlaying);
         playButton.setAttribute('aria-pressed', isPlaying ? 'true' : 'false');
         playButton.setAttribute('aria-label', `${isPlaying ? 'Pause' : 'Play'} preview of ${trackTitle}`);
@@ -320,9 +390,10 @@ const initialTrack = tracks[0] ?? null;
 
       playButton.addEventListener('click', async () => {
         if (audio.paused) {
+          setPlayState(true);
+
           try {
             await audio.play();
-            setPlayState(true);
           } catch {
             setPlayState(false);
           }
