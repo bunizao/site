@@ -6,201 +6,251 @@ const initialTrack = tracks[0] ?? null;
 ---
 
 {initialTrack && (
-  <section class="listening-section" data-parallax="off">
-    <span class="section-label">Listening</span>
+  <aside class="listening-status" data-listening aria-label="Now playing">
+    <div class="listening-copy">
+      <p class="listening-kicker">
+        <span class="listening-kicker-mark" aria-hidden="true"></span>
+        <span>Now playing</span>
+      </p>
 
-    <div class="listening-widget" data-listening>
-      <div class="listening-bar">
-        <a
-          href={initialTrack.appleMusicUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          class="listening-cover-link"
-          data-listening-link
-          aria-label={`Open ${initialTrack.title} on Apple Music`}
-        >
-          <img
-            src={initialTrack.artworkUrl}
-            alt={`${initialTrack.title} cover art`}
-            class="listening-cover"
-            data-listening-cover
-            loading="eager"
-            decoding="async"
-            referrerpolicy="no-referrer"
-          />
-        </a>
+      <a
+        href={initialTrack.appleMusicUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        class="listening-track"
+        data-listening-link
+        aria-label={`Open ${initialTrack.title} on Apple Music`}
+      >
+        <span class="listening-title">{initialTrack.title}</span>
+        <span class="listening-artist">{initialTrack.artist}</span>
+      </a>
 
-        <div class="listening-info">
-          <p class="listening-title" data-listening-title>{initialTrack.title}</p>
-          <p class="listening-artist" data-listening-artist>{initialTrack.artist}</p>
-        </div>
-
-        <button
-          type="button"
-          class="listening-play"
-          data-listening-play
-          disabled={!initialTrack.previewUrl}
-          aria-pressed="false"
-          aria-label={`Play preview of ${initialTrack.title}`}
-        >
-          <span class="listening-play-icon" aria-hidden="true"></span>
-        </button>
-
-        <button
-          type="button"
-          class="listening-toggle"
-          data-listening-toggle
-          aria-expanded="false"
-          aria-label="Show track list"
-        >
-          <span class="listening-toggle-icon" aria-hidden="true"></span>
-        </button>
-      </div>
-
-      <div class="listening-panel" data-listening-panel hidden>
-        <ol class="listening-list" aria-label="Track list">
-          {tracks.map((track, index) => (
-            <li>
-              <button
-                type="button"
-                class:list={['listening-item', { 'is-active': index === 0 }]}
-                data-listening-item
-                data-title={track.title}
-                data-artist={track.artist}
-                data-collection={track.collection}
-                data-link={track.appleMusicUrl}
-                data-artwork={track.artworkUrl}
-                data-preview-url={track.previewUrl}
-                data-year={track.year}
-                data-genre={track.genre}
-                data-release-kind={track.releaseKind}
-                data-track-number={track.trackNumber}
-                data-track-count={track.trackCount}
-                aria-pressed={index === 0 ? 'true' : 'false'}
-              >
-                <img
-                  src={track.thumbUrl}
-                  alt=""
-                  class="listening-thumb"
-                  loading="lazy"
-                  decoding="async"
-                  referrerpolicy="no-referrer"
-                  aria-hidden="true"
-                />
-                <span class="listening-item-info">
-                  <span class="listening-item-title">{track.title}</span>
-                  <span class="listening-item-artist">{track.artist}</span>
-                </span>
-              </button>
-            </li>
-          ))}
-        </ol>
-      </div>
+      <p class="listening-detail">
+        <span>{initialTrack.collection}</span>
+        <span aria-hidden="true">/</span>
+        <span>{initialTrack.year}</span>
+      </p>
     </div>
-  </section>
+
+    <div class="listening-media">
+      <a
+        href={initialTrack.appleMusicUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        class="listening-cover-link"
+        aria-label={`Open ${initialTrack.title} on Apple Music`}
+      >
+        <img
+          src={initialTrack.artworkUrl}
+          alt={`${initialTrack.title} cover art`}
+          class="listening-cover"
+          loading="eager"
+          decoding="async"
+          referrerpolicy="no-referrer"
+        />
+      </a>
+
+      <button
+        type="button"
+        class="listening-play"
+        data-listening-play
+        data-preview-url={initialTrack.previewUrl}
+        data-track-title={initialTrack.title}
+        disabled={!initialTrack.previewUrl}
+        aria-pressed="false"
+        aria-label={`Play preview of ${initialTrack.title}`}
+      >
+        <span class="listening-play-ring" aria-hidden="true"></span>
+        <span class="listening-play-icon" aria-hidden="true"></span>
+      </button>
+    </div>
+  </aside>
 )}
 
 <style>
-  .listening-section {
-    padding-top: 8px;
+  .listening-status {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 14px 18px;
+    width: fit-content;
+    max-width: min(100%, 560px);
+    color: hsl(var(--muted-foreground));
   }
 
-  .listening-widget {
-    border-radius: 14px;
-    background: hsl(var(--foreground) / 0.02);
-    border: 1px solid hsl(var(--foreground) / 0.06);
+  .listening-copy {
+    min-width: 0;
+    max-width: 360px;
+  }
+
+  .listening-kicker {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0 0 8px;
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: hsl(var(--muted-foreground) / 0.84);
+  }
+
+  .listening-kicker-mark {
+    position: relative;
+    width: 18px;
+    height: 1px;
+    background: currentColor;
+    opacity: 0.48;
+  }
+
+  .listening-kicker-mark::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 0;
+    width: 5px;
+    height: 5px;
+    border-radius: 999px;
+    background: hsl(var(--foreground));
+    transform: translateY(-50%);
+    animation: listening-pulse 1.8s ease-in-out infinite;
+  }
+
+  .listening-track {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 8px 10px;
+    min-width: 0;
+    width: fit-content;
+    max-width: 100%;
+  }
+
+  .listening-title,
+  .listening-artist,
+  .listening-detail span {
+    min-width: 0;
     overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
-  .listening-bar {
+  .listening-title {
+    max-width: 100%;
+    font-size: 15px;
+    line-height: 1.35;
+    color: hsl(var(--foreground));
+    transition: opacity 0.18s ease;
+  }
+
+  .listening-track:hover .listening-title {
+    opacity: 0.72;
+  }
+
+  .listening-artist {
+    font-size: 14px;
+    line-height: 1.45;
+    color: hsl(var(--muted-foreground));
+  }
+
+  .listening-detail {
     display: flex;
     align-items: center;
-    gap: 14px;
-    padding: 12px;
+    gap: 7px;
+    margin: 6px 0 0;
+    min-width: 0;
+    font-size: 12px;
+    line-height: 1.4;
+    color: hsl(var(--muted-foreground) / 0.82);
+  }
+
+  .listening-media {
+    position: relative;
+    width: 70px;
+    min-width: 70px;
+    padding: 2px 8px 8px 2px;
   }
 
   .listening-cover-link {
-    flex-shrink: 0;
+    position: relative;
     display: block;
-    width: 48px;
-    height: 48px;
-    border-radius: 6px;
-    overflow: hidden;
-    background: hsl(var(--foreground) / 0.05);
-    box-shadow: 0 2px 8px hsl(var(--foreground) / 0.1);
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    width: 56px;
+    height: 56px;
+    transition: transform 0.18s ease;
+  }
+
+  .listening-cover-link::before {
+    content: '';
+    position: absolute;
+    inset: 6px -6px -6px 6px;
+    border: 1px solid hsl(var(--foreground) / 0.12);
+    border-radius: 8px;
+    transition: transform 0.18s ease, border-color 0.18s ease;
   }
 
   .listening-cover-link:hover {
-    transform: scale(1.05);
-    box-shadow: 0 4px 12px hsl(var(--foreground) / 0.15);
+    transform: translate(-1px, -1px);
+  }
+
+  .listening-cover-link:hover::before {
+    transform: translate(2px, 2px);
+    border-color: hsl(var(--foreground) / 0.18);
   }
 
   .listening-cover {
     display: block;
     width: 100%;
     height: 100%;
+    border-radius: 8px;
     object-fit: cover;
+    box-shadow: 0 0 0 1px hsl(var(--foreground) / 0.08);
   }
 
-  .listening-info {
-    flex: 1;
-    min-width: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-  }
-
-  .listening-title {
-    font-size: 14px;
-    font-weight: 600;
-    line-height: 1.3;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  .listening-artist {
-    font-size: 12px;
-    color: hsl(var(--muted-foreground));
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  .listening-play,
-  .listening-toggle {
-    flex-shrink: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 32px;
-    height: 32px;
-    border: 1px solid hsl(var(--foreground) / 0.1);
-    border-radius: 50%;
-    background: transparent;
+  .listening-play {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    display: grid;
+    width: 34px;
+    height: 34px;
+    place-items: center;
+    border: 1px solid hsl(var(--foreground) / 0.14);
+    border-radius: 999px;
+    background: hsl(var(--background) / 0.96);
     color: hsl(var(--foreground));
-    transition: background 0.15s ease, color 0.15s ease, transform 0.15s ease, border-color 0.15s ease;
+    transition:
+      transform 0.18s ease,
+      border-color 0.18s ease,
+      background-color 0.18s ease,
+      color 0.18s ease;
+    backdrop-filter: blur(10px);
   }
 
-  .listening-play:hover:not(:disabled),
-  .listening-toggle:hover {
-    background: hsl(var(--foreground));
-    color: hsl(var(--background));
-    transform: scale(1.08);
+  .listening-play:hover:not(:disabled) {
+    transform: translateY(-1px);
+    border-color: hsl(var(--foreground) / 0.22);
+    background: hsl(var(--background));
   }
 
   .listening-play:disabled {
-    opacity: 0.4;
+    opacity: 0.42;
     cursor: not-allowed;
   }
 
+  .listening-play-ring,
   .listening-play-icon {
-    position: relative;
+    position: absolute;
+  }
+
+  .listening-play-ring {
+    inset: 4px;
+    border: 1px solid hsl(var(--foreground) / 0.08);
+    border-radius: inherit;
+    transition: border-color 0.18s ease, transform 0.18s ease;
+  }
+
+  .listening-play-icon {
     width: 10px;
     height: 12px;
-    display: inline-block;
-    margin-left: 2px;
   }
 
   .listening-play-icon::before {
@@ -209,169 +259,142 @@ const initialTrack = tracks[0] ?? null;
     inset: 0;
     clip-path: polygon(0 0, 100% 50%, 0 100%);
     background: currentColor;
-    transition: clip-path 0.15s ease;
   }
 
-  .listening-play.is-playing .listening-play-icon {
-    margin-left: 0;
+  .listening-play.is-playing .listening-play-ring {
+    border-color: hsl(var(--foreground) / 0.16);
+    transform: scale(1.04);
   }
 
   .listening-play.is-playing .listening-play-icon::before {
     clip-path: none;
-    inset: 0;
-    width: 10px;
-    background:
-      linear-gradient(to right, currentColor 0 3px, transparent 3px 7px, currentColor 7px 10px);
+    background: linear-gradient(to right, currentColor 0 3px, transparent 3px 7px, currentColor 7px 10px);
   }
 
-  .listening-toggle-icon {
-    position: relative;
-    width: 10px;
-    height: 6px;
-    display: inline-block;
+  @media (max-width: 520px) {
+    .listening-status {
+      grid-template-columns: minmax(0, 1fr);
+      gap: 12px;
+      width: 100%;
+    }
+
+    .listening-media {
+      width: auto;
+      min-width: 0;
+      padding-right: 0;
+    }
   }
 
-  .listening-toggle-icon::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    clip-path: polygon(0 0, 50% 100%, 100% 0);
-    background: currentColor;
-    transition: transform 0.2s ease;
-  }
+  @media (max-width: 430px) {
+    .listening-track {
+      gap: 4px 8px;
+    }
 
-  .listening-widget.is-expanded .listening-toggle-icon::before {
-    transform: rotate(180deg);
-  }
+    .listening-title {
+      font-size: 14px;
+    }
 
-  .listening-panel {
-    display: grid;
-    grid-template-rows: 0fr;
-    transition: grid-template-rows 0.25s ease;
-  }
+    .listening-artist,
+    .listening-detail {
+      font-size: 12px;
+    }
 
-  .listening-widget.is-expanded .listening-panel {
-    grid-template-rows: 1fr;
-  }
-
-  .listening-list {
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
-  }
-
-  .listening-widget.is-expanded .listening-list {
-    padding: 4px 12px 12px;
-    border-top: 1px solid hsl(var(--foreground) / 0.06);
-  }
-
-  .listening-item {
-    width: 100%;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 10px 8px;
-    border: none;
-    border-radius: 8px;
-    background: transparent;
-    text-align: left;
-    transition: background 0.15s ease;
-  }
-
-  .listening-item:hover {
-    background: hsl(var(--foreground) / 0.04);
-  }
-
-  .listening-item.is-active {
-    background: hsl(var(--foreground) / 0.06);
-  }
-
-  .listening-thumb {
-    width: 40px;
-    height: 40px;
-    flex-shrink: 0;
-    border-radius: 4px;
-    object-fit: cover;
-    background: hsl(var(--foreground) / 0.05);
-  }
-
-  .listening-item-info {
-    flex: 1;
-    min-width: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-  }
-
-  .listening-item-title {
-    font-size: 13px;
-    font-weight: 500;
-    line-height: 1.3;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  .listening-item-artist {
-    font-size: 11px;
-    color: hsl(var(--muted-foreground));
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  @media (min-width: 640px) {
-    .listening-bar {
-      gap: 16px;
-      padding: 14px 16px;
+    .listening-media {
+      padding-bottom: 4px;
     }
 
     .listening-cover-link {
       width: 52px;
       height: 52px;
-      border-radius: 8px;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .listening-kicker-mark::before {
+      animation: none;
     }
 
-    .listening-title {
-      font-size: 15px;
-    }
-
-    .listening-artist {
-      font-size: 13px;
-    }
-
+    .listening-cover-link,
+    .listening-cover-link::before,
     .listening-play,
-    .listening-toggle {
-      width: 36px;
-      height: 36px;
+    .listening-play-ring,
+    .listening-title {
+      transition: none;
+    }
+  }
+
+  @keyframes listening-pulse {
+    0%,
+    100% {
+      transform: translateY(-50%) scale(1);
+      opacity: 1;
     }
 
-    .listening-widget.is-expanded .listening-list {
-      padding: 8px 16px 16px;
-    }
-
-    .listening-item {
-      padding: 10px;
-    }
-
-    .listening-thumb {
-      width: 44px;
-      height: 44px;
-      border-radius: 6px;
-    }
-
-    .listening-item-title {
-      font-size: 14px;
-    }
-
-    .listening-item-artist {
-      font-size: 12px;
+    50% {
+      transform: translateY(-50%) scale(1.4);
+      opacity: 0.55;
     }
   }
 </style>
 
 <script>
-  import { initListeningSection } from '@/features/home/client/listening-controller';
+  const initListeningSection = () => {
+    const roots = document.querySelectorAll('[data-listening]');
+
+    roots.forEach((root) => {
+      if (!(root instanceof HTMLElement) || root.dataset.bound === 'true') {
+        return;
+      }
+
+      root.dataset.bound = 'true';
+
+      const playButton = root.querySelector('[data-listening-play]');
+      if (!(playButton instanceof HTMLButtonElement)) {
+        return;
+      }
+
+      const previewUrl = playButton.dataset.previewUrl ?? '';
+      const trackTitle = playButton.dataset.trackTitle ?? 'Track';
+      const audio = previewUrl ? new Audio(previewUrl) : null;
+
+      if (!audio) {
+        playButton.disabled = true;
+        playButton.setAttribute('aria-label', `${trackTitle} preview unavailable`);
+        return;
+      }
+
+      audio.preload = 'none';
+
+      const setPlayState = (isPlaying: boolean) => {
+        playButton.classList.toggle('is-playing', isPlaying);
+        playButton.setAttribute('aria-pressed', isPlaying ? 'true' : 'false');
+        playButton.setAttribute('aria-label', `${isPlaying ? 'Pause' : 'Play'} preview of ${trackTitle}`);
+      };
+
+      playButton.addEventListener('click', async () => {
+        if (audio.paused) {
+          try {
+            await audio.play();
+            setPlayState(true);
+          } catch {
+            setPlayState(false);
+          }
+
+          return;
+        }
+
+        audio.pause();
+        audio.currentTime = 0;
+        setPlayState(false);
+      });
+
+      audio.addEventListener('ended', () => {
+        setPlayState(false);
+      });
+
+      setPlayState(false);
+    });
+  };
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', initListeningSection, { once: true });

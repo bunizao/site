@@ -38,75 +38,21 @@ interface AppleLookupResponse {
 
 const DEMO_TRACKS: DemoSeedTrack[] = [
   {
-    appleMusicUrl: 'https://music.apple.com/cn/album/protostar/1878155644?i=1878155653',
+    appleMusicUrl: 'https://music.apple.com/tw/album/all-the-love/1888707282?i=1888707290&l=en-GB',
     fallback: {
-      id: '1878155653',
-      title: 'Protostar',
-      artist: 'nano.RIPE',
-      collection: 'Protostar - Single',
-      appleMusicUrl: 'https://music.apple.com/cn/album/protostar/1878155644?i=1878155653',
-      artworkUrl: 'https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/87/08/f3/8708f395-d6f1-3ca3-ff1e-01a1d91f236d/4550753537538_cover.jpg/600x600bb.jpg',
-      thumbUrl: 'https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/87/08/f3/8708f395-d6f1-3ca3-ff1e-01a1d91f236d/4550753537538_cover.jpg/100x100bb.jpg',
-      previewUrl: 'https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview211/v4/56/3a/d5/563ad5ac-7b8a-c088-94d6-0bdea350609b/mzaf_16266990984437405405.plus.aac.p.m4a',
+      id: '1888707290',
+      title: 'ALL THE LOVE',
+      artist: 'Kanye West & Andre Troutman',
+      collection: 'BULLY',
+      appleMusicUrl: 'https://music.apple.com/tw/album/all-the-love/1888707282?i=1888707290&l=en-GB',
+      artworkUrl: 'https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/4b/38/d1/4b38d146-381d-ace2-73df-24074576e62b/656465138828_cover.jpg/600x600bb.jpg',
+      thumbUrl: 'https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/4b/38/d1/4b38d146-381d-ace2-73df-24074576e62b/656465138828_cover.jpg/100x100bb.jpg',
+      previewUrl: 'https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview221/v4/0d/a6/f0/0da6f0f2-0145-676d-9f9c-d28c7e08f258/mzaf_2658965377541339594.plus.aac.p.m4a',
       year: '2026',
-      genre: '摇滚',
-      releaseKind: 'single',
-      trackNumber: '1',
-      trackCount: '1'
-    }
-  },
-  {
-    appleMusicUrl: 'https://music.apple.com/cn/album/nexus-podv-feat-laco/1551613716?i=1551614059',
-    fallback: {
-      id: '1551614059',
-      title: 'NEXUS <PODv> (feat. Laco)',
-      artist: 'SawanoHiroyuki[nZk]',
-      collection: 'iv',
-      appleMusicUrl: 'https://music.apple.com/cn/album/nexus-podv-feat-laco/1551613716?i=1551614059',
-      artworkUrl: 'https://is1-ssl.mzstatic.com/image/thumb/Music124/v4/a6/57/07/a65707b7-954d-5437-0130-a6d66adcc0bf/4547366498042.jpg/600x600bb.jpg',
-      thumbUrl: 'https://is1-ssl.mzstatic.com/image/thumb/Music124/v4/a6/57/07/a65707b7-954d-5437-0130-a6d66adcc0bf/4547366498042.jpg/100x100bb.jpg',
-      previewUrl: 'https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview211/v4/9c/eb/67/9ceb67e5-2801-f1df-2dd8-db0a0abdcc26/mzaf_14889878403714681399.plus.aac.p.m4a',
-      year: '2021',
-      genre: '摇滚',
+      genre: 'Hip-Hop/Rap',
       releaseKind: 'album',
-      trackNumber: '16',
-      trackCount: '16'
-    }
-  },
-  {
-    appleMusicUrl: 'https://music.apple.com/cn/album/%E3%81%BF%E3%81%A1%E3%81%97%E3%82%8B%E3%81%B9-movie-version/1826491265?i=1826491476',
-    fallback: {
-      id: '1826491476',
-      title: 'みちしるべ ～Movie Version～',
-      artist: 'Minori Chihara',
-      collection: '「劇場版 ヴァイオレット・エヴァーガーデン」ボーカルアルバム Song letters',
-      appleMusicUrl: 'https://music.apple.com/cn/album/%E3%81%BF%E3%81%A1%E3%81%97%E3%82%8B%E3%81%B9-movie-version/1826491265?i=1826491476',
-      artworkUrl: 'https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/40/58/5f/40585f61-22f5-68c0-cf06-9c2c0a884771/4540774907519.png/600x600bb.jpg',
-      thumbUrl: 'https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/40/58/5f/40585f61-22f5-68c0-cf06-9c2c0a884771/4540774907519.png/100x100bb.jpg',
-      previewUrl: 'https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview221/v4/dc/17/f4/dc17f42e-7736-3cd0-147a-b7f2407a1186/mzaf_18266268859118496436.plus.aac.p.m4a',
-      year: '2020',
-      genre: '动画',
-      releaseKind: 'album',
-      trackNumber: '31',
-      trackCount: '51'
-    }
-  },
-  {
-    appleMusicUrl: 'https://music.apple.com/cn/album/%E3%82%B7%E3%83%AB%E3%82%A8%E3%83%83%E3%83%88/1536455324?i=1536455325',
-    fallback: {
-      id: '1536455325',
-      title: 'シルエット',
-      artist: 'KANA-BOON',
-      collection: 'シルエット - EP',
-      appleMusicUrl: 'https://music.apple.com/cn/album/%E3%82%B7%E3%83%AB%E3%82%A8%E3%83%83%E3%83%88/1536455324?i=1536455325',
-      artworkUrl: 'https://is1-ssl.mzstatic.com/image/thumb/Music124/v4/7b/30/aa/7b30aa0a-0b3f-bb03-4dce-70840e227444/jacket_KSCL02520B00Z_550.jpg/600x600bb.jpg',
-      thumbUrl: 'https://is1-ssl.mzstatic.com/image/thumb/Music124/v4/7b/30/aa/7b30aa0a-0b3f-bb03-4dce-70840e227444/jacket_KSCL02520B00Z_550.jpg/100x100bb.jpg',
-      previewUrl: 'https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview115/v4/31/76/a3/3176a3c8-0465-b1fb-9a06-faf9f2423fbc/mzaf_892689947062240155.plus.aac.p.m4a',
-      year: '2014',
-      genre: '摇滚',
-      releaseKind: 'album',
-      trackNumber: '1',
-      trackCount: '3'
+      trackNumber: '4',
+      trackCount: '18'
     }
   }
 ];
@@ -117,6 +63,16 @@ function parseTrackId(appleMusicUrl: string): string {
     return url.searchParams.get('i') ?? '';
   } catch {
     return '';
+  }
+}
+
+function parseStorefront(appleMusicUrl: string): string {
+  try {
+    const url = new URL(appleMusicUrl);
+    const storefront = url.pathname.split('/').filter(Boolean)[0];
+    return storefront || 'us';
+  } catch {
+    return 'us';
   }
 }
 
@@ -134,7 +90,8 @@ async function fetchTrack(seed: DemoSeedTrack): Promise<ListeningTrack> {
     return seed.fallback;
   }
 
-  const response = await fetch(`https://itunes.apple.com/lookup?id=${trackId}&country=cn`);
+  const storefront = parseStorefront(seed.appleMusicUrl);
+  const response = await fetch(`https://itunes.apple.com/lookup?id=${trackId}&country=${storefront}`);
   if (!response.ok) {
     throw new Error(`Apple lookup failed with ${response.status}`);
   }
