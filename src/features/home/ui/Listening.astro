@@ -166,6 +166,7 @@ const initialTrack = tracks[0] ?? null;
     width: var(--record-size);
     height: var(--record-size);
     border-radius: 999px;
+    overflow: hidden;
     background:
       radial-gradient(circle at 50% 50%, transparent 0 23%, hsl(0 0% 100% / 0.14) 23.5% 24.5%, transparent 25%),
       repeating-radial-gradient(circle at 50% 50%, hsl(0 0% 100% / 0.12) 0 1px, transparent 1px 4px),
@@ -189,6 +190,40 @@ const initialTrack = tracks[0] ?? null;
       filter 0.3s ease,
       transform 0.45s cubic-bezier(0.2, 0.8, 0.2, 1);
     z-index: 1;
+  }
+
+  .listening-art-record::before,
+  .listening-art-record::after {
+    content: "";
+    position: absolute;
+    inset: 3px;
+    border-radius: inherit;
+    pointer-events: none;
+    mix-blend-mode: screen;
+  }
+
+  .listening-art-record::before {
+    background:
+      conic-gradient(
+        from 214deg at 50% 50%,
+        transparent 0deg 24deg,
+        hsl(0 0% 100% / 0.32) 34deg,
+        hsl(0 0% 100% / 0.11) 52deg,
+        transparent 72deg 194deg,
+        hsl(0 0% 100% / 0.14) 213deg,
+        transparent 236deg 360deg
+      );
+    filter: blur(0.35px);
+    opacity: 0.9;
+    mask-image: radial-gradient(circle at 50% 50%, transparent 0 29%, #000 34% 86%, transparent 91%);
+    -webkit-mask-image: radial-gradient(circle at 50% 50%, transparent 0 29%, #000 34% 86%, transparent 91%);
+  }
+
+  .listening-art-record::after {
+    background:
+      radial-gradient(ellipse at 31% 23%, hsl(0 0% 100% / 0.34), transparent 22%),
+      radial-gradient(ellipse at 72% 70%, hsl(0 0% 100% / 0.16), transparent 30%);
+    opacity: 0.8;
   }
 
   .listening-art-img {
