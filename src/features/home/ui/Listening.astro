@@ -44,31 +44,31 @@ const initialTrack = tracks[0] ?? null;
       >
         <g class="listening-art-tonearm-arm">
           <line
-            x1="48"
+            x1="6"
             y1="6"
-            x2="24"
+            x2="29"
             y2="30"
             class="listening-art-tonearm-shaft"
           />
           <rect
-            x="18"
+            x="27"
             y="28"
             width="9"
             height="4"
             rx="1.2"
             class="listening-art-tonearm-cartridge"
-            transform="rotate(-45 22.5 30)"
+            transform="rotate(46 31.5 30)"
           />
           <circle
-            cx="48"
+            cx="6"
             cy="6"
-            r="2.8"
+            r="4.2"
             class="listening-art-tonearm-pivot"
           />
           <circle
-            cx="48"
+            cx="6"
             cy="6"
-            r="1.3"
+            r="1.7"
             class="listening-art-tonearm-hole"
           />
         </g>
@@ -148,17 +148,21 @@ const initialTrack = tracks[0] ?? null;
       0 0 0 4px hsl(var(--foreground) / 0.55);
   }
 
-  /* Bottom layer — colored card peeks out on idle hover */
+  /* Bottom layer — transparent base peeks out from the lower-left */
   .listening-art-shadow {
     position: absolute;
     inset: 0;
     border-radius: 8px;
-    background: var(--listening-tint);
+    background: transparent;
+    box-shadow:
+      inset 0 0 0 1px hsl(var(--foreground) / 0.18),
+      0 10px 24px -20px var(--listening-tint);
     opacity: 0;
     transform: translate(0, 0) scale(0.96);
-    transform-origin: 0 0;
+    transform-origin: 0 100%;
     transition:
       opacity 0.28s ease,
+      box-shadow 0.28s ease,
       transform 0.32s cubic-bezier(0.2, 0.8, 0.2, 1);
     pointer-events: none;
     z-index: 0;
@@ -167,7 +171,7 @@ const initialTrack = tracks[0] ?? null;
   .listening-art:hover:not(:disabled):not(.is-playing) .listening-art-shadow,
   .listening-art:focus-visible:not(:disabled):not(.is-playing) .listening-art-shadow {
     opacity: 1;
-    transform: translate(5px, 5px) scale(1);
+    transform: translate(-5px, 5px) scale(1);
   }
 
   /* Top layer — the actual cover (handles morph to disc) */
@@ -297,7 +301,7 @@ const initialTrack = tracks[0] ?? null;
     transition-delay: 0.3s;
   }
 
-  /* Tone arm — SVG, swings in from upper-right when playing */
+  /* Tone arm — SVG, swings in from upper-left when playing */
   .listening-art-tonearm {
     position: absolute;
     inset: 0;
@@ -319,8 +323,8 @@ const initialTrack = tracks[0] ?? null;
   }
 
   .listening-art-tonearm-arm {
-    transform-origin: 48px 6px;
-    transform: rotate(-22deg);
+    transform-origin: 6px 6px;
+    transform: rotate(24deg);
     transition: transform 0.65s cubic-bezier(0.34, 1.55, 0.64, 1) 0.18s;
   }
 
@@ -331,7 +335,7 @@ const initialTrack = tracks[0] ?? null;
   .listening-art-tonearm-shaft {
     fill: none;
     stroke: currentColor;
-    stroke-width: 1.6;
+    stroke-width: 2;
     stroke-linecap: round;
   }
 
