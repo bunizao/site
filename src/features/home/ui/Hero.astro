@@ -1,6 +1,7 @@
 ---
 import Typewriter from '@/features/home/ui/Typewriter.astro';
 import GitHubContributions from '@/features/home/ui/GitHubContributions.astro';
+import Listening from '@/features/home/ui/Listening.astro';
 import TechMarquee from '@/features/home/ui/TechMarquee.astro';
 import {Instagram, type LucideIcon} from 'lucide-react';
 import { FileText, Github, Mail, Send } from 'lucide-react';
@@ -119,6 +120,10 @@ const techRow2 = ['Frontend', 'BGP', 'Proxy', 'Docker', 'Linux', 'Web3', 'Optimi
           </div>
         </div>
       ))}
+    </div>
+
+    <div class="hero-animate mt-6 sm:mt-7" data-hero-listening>
+      <Listening />
     </div>
 
     <!-- GitHub Activity -->

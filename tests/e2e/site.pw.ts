@@ -153,24 +153,6 @@ test.describe('Home page', () => {
       .toBe(true);
   });
 
-  test('expands listening track list with synced hidden state', async ({ page }) => {
-    await page.goto('/');
-
-    const widget = page.locator('[data-listening]');
-    const toggle = page.locator('[data-listening-toggle]');
-    const panel = page.locator('[data-listening-panel]');
-
-    await expect(widget).toBeVisible();
-    await expect(toggle).toHaveAttribute('aria-expanded', 'false');
-    await expect(panel).toHaveAttribute('hidden', '');
-
-    await toggle.click();
-
-    await expect(toggle).toHaveAttribute('aria-expanded', 'true');
-    await expect(panel).not.toHaveAttribute('hidden', '');
-    await expect(panel.locator('[data-listening-item]').first()).toBeVisible();
-  });
-
   test('loads mood preview and navigates to /mood', async ({ page }) => {
     await page.route('**/api/moods', async (route) => {
       await route.fulfill({

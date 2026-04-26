@@ -37,7 +37,7 @@ Feature boundary:
 
 - home-private UI lives in [`src/features/home/ui/`](../src/features/home/ui)
 - home-private server helpers live in [`src/features/home/server/`](../src/features/home/server/)
-- shared site scaffolding remains in [`src/components/`](../src/components)
+- shared site scaffolding lives in [`src/layouts/`](../src/layouts) and other feature-local UI shells
 
 ## Hero / Intro
 
