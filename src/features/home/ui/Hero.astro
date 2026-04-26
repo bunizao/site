@@ -160,14 +160,14 @@ const techRow2 = ['Frontend', 'BGP', 'Proxy', 'Docker', 'Linux', 'Web3', 'Optimi
     }
   }
 
-  :global(html.js) .hero-animate[data-hero-motion] {
+  :global(html.js) .hero-animate {
     opacity: 0;
     transform: translateY(20px);
     will-change: opacity, transform;
   }
 
   @media (prefers-reduced-motion: reduce) {
-    :global(html.js) .hero-animate[data-hero-motion] {
+    :global(html.js) .hero-animate {
       opacity: 1;
       transform: none;
     }
@@ -288,7 +288,7 @@ const techRow2 = ['Frontend', 'BGP', 'Proxy', 'Docker', 'Linux', 'Web3', 'Optimi
 
 <script>
   const prefersReducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-  const heroElements = document.querySelectorAll('.hero-animate[data-hero-motion]');
+  const heroElements = document.querySelectorAll('.hero-animate');
   const statusText = document.getElementById('status-text');
 
   // Status text rotation
