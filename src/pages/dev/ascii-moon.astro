@@ -1,0 +1,29 @@
+---
+import Layout from '@/layouts/Layout.astro';
+import AsciiMoonArt from '@/features/ascii/ui/AsciiMoon.astro';
+
+const title = 'ASCII Moon Study';
+const description = 'A static high-resolution ASCII moon study.';
+---
+
+<Layout title={title} description={description} hideSiteNav>
+  <main class="ascii-moon-page">
+    <h1 class="sr-only">ASCII Moon Study</h1>
+    <AsciiMoonArt />
+  </main>
+</Layout>
+
+<style>
+  .ascii-moon-page {
+    min-height: 100vh;
+    display: grid;
+    place-items: center;
+    padding: 28px 14px;
+  }
+
+  @media (min-width: 640px) {
+    .ascii-moon-page {
+      padding: 48px 24px;
+    }
+  }
+</style>

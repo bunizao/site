@@ -1,0 +1,186 @@
+---
+interface Star {
+  x: number;
+  y: number;
+  shape: 'dot' | 'cross';
+}
+
+interface Crater {
+  cx: number;
+  cy: number;
+  rx: number;
+  ry: number;
+  depth: number;
+}
+
+const width = 118;
+const height = 62;
+const palette = ' .,:;irsXA253hMHGS#9B&@';
+
+const stars: Star[] = [
+  { x: 25, y: 10, shape: 'cross' },
+  { x: 64, y: 12, shape: 'cross' },
+  { x: 91, y: 7, shape: 'dot' },
+  { x: 103, y: 19, shape: 'dot' },
+  { x: 15, y: 24, shape: 'dot' },
+];
+
+const craters: Crater[] = [
+  { cx: -0.43, cy: 0.55, rx: 0.14, ry: 0.06, depth: 0.92 },
+  { cx: 0.53, cy: 0.56, rx: 0.11, ry: 0.048, depth: 0.88 },
+  { cx: -0.8, cy: 0.68, rx: 0.055, ry: 0.043, depth: 0.8 },
+  { cx: -0.17, cy: 0.66, rx: 0.07, ry: 0.04, depth: 0.78 },
+  { cx: 0.25, cy: 0.65, rx: 0.055, ry: 0.035, depth: 0.74 },
+  { cx: 0, cy: 0.58, rx: 0.045, ry: 0.026, depth: 0.62 },
+  { cx: -0.62, cy: 0.84, rx: 0.045, ry: 0.035, depth: 0.7 },
+];
+
+function noise(x: number, y: number): number {
+  const value = Math.sin((x + 1) * 127.1 + (y + 3) * 311.7) * 43758.5453;
+  return value - Math.floor(value);
+}
+
+function getStarChar(x: number, y: number): string | null {
+  for (const star of stars) {
+    const dx = x - star.x;
+    const dy = y - star.y;
+
+    if (star.shape === 'dot' && dx === 0 && dy === 0) {
+      return '.';
+    }
+
+    if (star.shape === 'cross') {
+      if (dx === 0 && dy === 0) return '+';
+      if (Math.abs(dx) + Math.abs(dy) === 1) return '.';
+    }
+  }
+
+  return null;
+}
+
+function clamp(value: number): number {
+  return Math.max(0, Math.min(1, value));
+}
+
+function renderAsciiMoon(): string {
+  const sunburst = { cx: 0.4, cy: 0.8 };
+  const lines: string[] = [];
+
+  for (let y = 0; y < height; y += 1) {
+    let line = '';
+
+    for (let x = 0; x < width; x += 1) {
+      const star = getStarChar(x, y);
+      const nx = (x / (width - 1) - 0.5) * 1.75;
+      const ny = y / (height - 1);
+      const moonDx = nx;
+      const moonDy = ny - 1.08;
+      const moonDistance = Math.sqrt(moonDx * moonDx + moonDy * moonDy);
+      let char = ' ';
+
+      if (moonDistance < 0.82 && ny > 0.35) {
+        const rim = Math.max(0, 1 - Math.abs(moonDistance - 0.82) / 0.014);
+        const verticalLight = 1 - clamp((ny - 0.38) / 0.57);
+        const lattice = (x * 3 + y * 5) % 9 === 0 || (x + y * 2) % 13 === 0;
+        let density = 0.15 + verticalLight * 0.82 + noise(x, y) * 0.14;
+
+        density += rim * 0.26;
+        density += (lattice ? 0.16 : 0) * (0.65 + verticalLight);
+
+        for (const crater of craters) {
+          const craterX = (nx - crater.cx) / crater.rx;
+          const craterY = (ny - crater.cy) / crater.ry;
+          const craterDistance = craterX * craterX + craterY * craterY;
+
+          if (craterDistance < 1) {
+            density *= 1 - crater.depth;
+          } else if (craterDistance < 1.33) {
+            density += 0.18;
+          }
+        }
+
+        const burstDx = nx - sunburst.cx;
+        const burstDy = ny - sunburst.cy;
+        const burstDistance = Math.sqrt(burstDx * burstDx + burstDy * burstDy);
+
+        if (burstDistance < 0.073) {
+          density = 0.015;
+        } else if (burstDistance < 0.102) {
+          density = 0.95;
+        } else if (burstDistance < 0.34 && ny > 0.6) {
+          const angle = Math.atan2(burstDy, burstDx);
+          const ray = Math.abs(Math.sin(angle * 18));
+
+          if (ray < 0.055 && noise(x, y) > 0.22) {
+            density = Math.max(density, 0.66 - burstDistance);
+          }
+        }
+
+        char = palette[Math.floor(clamp(density) * (palette.length - 1))] ?? ' ';
+
+        if (char === ' ' && noise(x, y) > 0.78) {
+          char = '.';
+        }
+      }
+
+      if (star && char === ' ') {
+        char = star;
+      }
+
+      line += char;
+    }
+
+    lines.push(line.trimEnd());
+  }
+
+  return lines.join('\n');
+}
+
+const asciiMoon = renderAsciiMoon();
+---
+
+<figure class="ascii-moon" aria-label="ASCII rendering of a cratered moon under a night sky">
+  <pre>{asciiMoon}</pre>
+</figure>
+
+<style>
+  .ascii-moon {
+    width: min(100%, 860px);
+    aspect-ratio: 1;
+    display: grid;
+    place-items: center;
+    margin: 0 auto;
+    overflow: hidden;
+    border: 1px solid hsl(var(--foreground) / 0.14);
+    border-radius: 28px;
+    background:
+      radial-gradient(circle at 68% 72%, hsl(var(--foreground) / 0.08), transparent 18%),
+      hsl(var(--foreground));
+    color: hsl(var(--background));
+    box-shadow: 0 20px 80px hsl(var(--foreground) / 0.12);
+  }
+
+  .ascii-moon pre {
+    display: block;
+    margin: 0;
+    padding: clamp(18px, 3vw, 28px);
+    overflow-x: auto;
+    font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: clamp(5.8px, 1.04vw, 12px);
+    font-weight: 650;
+    line-height: 0.88;
+    letter-spacing: 0;
+    white-space: pre;
+    text-rendering: geometricPrecision;
+  }
+
+  @media (max-width: 640px) {
+    .ascii-moon {
+      border-radius: 18px;
+    }
+
+    .ascii-moon pre {
+      font-size: 5.1px;
+    }
+  }
+</style>
