@@ -98,7 +98,18 @@ const initialTrack = tracks[0] ?? null;
         data-listening-link
         aria-label={`Open ${initialTrack.title}`}
       >
-        <span class="listening-title" data-listening-title>{initialTrack.title}</span>
+        <span class="listening-title" data-listening-title>
+          <span class="listening-title-text" data-listening-title-text>
+            <span data-listening-title-label>{initialTrack.title}</span>
+            <span
+              class="listening-title-duplicate"
+              data-listening-title-duplicate
+              aria-hidden="true"
+            >
+              {initialTrack.title}
+            </span>
+          </span>
+        </span>
         <span class="listening-sep" aria-hidden="true">—</span>
         <span class="listening-artist" data-listening-artist>{initialTrack.artist}</span>
       </a>
@@ -502,20 +513,67 @@ const initialTrack = tracks[0] ?? null;
   .listening-artist {
     min-width: 0;
     overflow: hidden;
-    text-overflow: ellipsis;
     white-space: nowrap;
   }
 
   .listening-title {
+    --title-marquee-duration: 14s;
+    --title-marquee-distance: 0px;
+    --title-marquee-width: 360px;
+    position: relative;
+    flex: 0 1 auto;
+    max-width: min(100%, 360px);
     font-size: 15px;
     line-height: 1.4;
     color: hsl(var(--foreground));
+    text-overflow: clip;
     background-image: linear-gradient(currentColor, currentColor);
     background-repeat: no-repeat;
     background-position: 0 100%;
     background-size: 0% 1px;
     padding-bottom: 1px;
     transition: background-size 0.45s cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+
+  .listening-title.is-marquee {
+    width: min(100%, var(--title-marquee-width));
+    mask-image: linear-gradient(
+      90deg,
+      transparent 0,
+      #000 16px,
+      #000 calc(100% - 34px),
+      transparent 100%
+    );
+    -webkit-mask-image: linear-gradient(
+      90deg,
+      transparent 0,
+      #000 16px,
+      #000 calc(100% - 34px),
+      transparent 100%
+    );
+  }
+
+  .listening-title-text {
+    display: inline-block;
+    white-space: nowrap;
+    will-change: transform;
+  }
+
+  [data-listening-title-label] {
+    display: inline-block;
+  }
+
+  .listening-title.is-marquee .listening-title-text {
+    animation: listening-title-marquee var(--title-marquee-duration) linear infinite;
+  }
+
+  .listening-title-duplicate {
+    display: none;
+    padding-left: 28px;
+  }
+
+  .listening-title.is-marquee .listening-title-duplicate {
+    display: inline-block;
   }
 
   .listening-track:hover .listening-title,
@@ -532,6 +590,7 @@ const initialTrack = tracks[0] ?? null;
     font-size: 14px;
     line-height: 1.45;
     color: hsl(var(--muted-foreground));
+    text-overflow: ellipsis;
   }
 
   .listening-meta {
@@ -603,6 +662,7 @@ const initialTrack = tracks[0] ?? null;
     .listening-art-tonearm,
     .listening-art-tonearm-arm,
     .listening-title,
+    .listening-title-text,
     .listening-eyebrow-wave,
     .listening-eyebrow-dot {
       transition: none;
@@ -612,6 +672,7 @@ const initialTrack = tracks[0] ?? null;
     .listening-art.is-live .listening-art-img,
     .listening-art.is-preview-playing .listening-art-record,
     .listening-art.is-preview-playing .listening-art-img,
+    .listening-title.is-marquee .listening-title-text,
     .listening.is-live .listening-eyebrow-wave span {
       animation: none;
     }
@@ -625,6 +686,12 @@ const initialTrack = tracks[0] ?? null;
   @keyframes listening-record-spin {
     to {
       transform: translate(-50%, -50%) rotate(360deg);
+    }
+  }
+
+  @keyframes listening-title-marquee {
+    to {
+      transform: translateX(calc(var(--title-marquee-distance) * -1));
     }
   }
 
@@ -738,6 +805,9 @@ const initialTrack = tracks[0] ?? null;
       const artwork = root.querySelector('[data-listening-artwork]');
       const link = root.querySelector('[data-listening-link]');
       const title = root.querySelector('[data-listening-title]');
+      const titleText = root.querySelector('[data-listening-title-text]');
+      const titleLabel = root.querySelector('[data-listening-title-label]');
+      const titleDuplicate = root.querySelector('[data-listening-title-duplicate]');
       const artist = root.querySelector('[data-listening-artist]');
       const collection = root.querySelector('[data-listening-collection]');
       const year = root.querySelector('[data-listening-year]');
@@ -775,6 +845,33 @@ const initialTrack = tracks[0] ?? null;
           'aria-label',
           `${isPlaying ? 'Pause' : 'Play'} preview of ${trackTitle}`
         );
+      };
+
+      const syncTitleMarquee = () => {
+        if (!(title instanceof HTMLElement) || !(titleText instanceof HTMLElement)) {
+          return;
+        }
+
+        title.classList.remove('is-marquee');
+        title.style.removeProperty('--title-marquee-duration');
+        title.style.removeProperty('--title-marquee-distance');
+        title.style.removeProperty('--title-marquee-width');
+
+        window.requestAnimationFrame(() => {
+          const measuredTitle = titleLabel instanceof HTMLElement ? titleLabel : titleText;
+          const maxTitleWidth = 360;
+          const containerWidth = title.parentElement?.clientWidth || maxTitleWidth;
+          const displayWidth = Math.min(containerWidth, maxTitleWidth);
+          const overflow = measuredTitle.scrollWidth > displayWidth + 2;
+          if (!overflow) return;
+
+          const distance = measuredTitle.scrollWidth + 28;
+          const duration = Math.max(12, Math.min(26, distance / 22));
+          title.style.setProperty('--title-marquee-width', `${displayWidth}px`);
+          title.style.setProperty('--title-marquee-distance', `${distance}px`);
+          title.style.setProperty('--title-marquee-duration', `${duration}s`);
+          title.classList.add('is-marquee');
+        });
       };
 
       const setPreview = (previewUrl: string) => {
@@ -825,7 +922,12 @@ const initialTrack = tracks[0] ?? null;
         trackTitle = nextTitle;
         playButton.dataset.trackTitle = nextTitle;
 
-        if (title) title.textContent = nextTitle;
+        if (titleLabel instanceof HTMLElement && titleDuplicate instanceof HTMLElement) {
+          titleLabel.textContent = nextTitle;
+          titleDuplicate.textContent = nextTitle;
+        } else if (title) {
+          title.textContent = nextTitle;
+        }
         if (artist) artist.textContent = nextArtist;
         if (collection) collection.textContent = nextCollection;
         if (year) year.textContent = nextYear;
@@ -848,11 +950,16 @@ const initialTrack = tracks[0] ?? null;
         } else {
           playButton.setAttribute('aria-label', `Play preview of ${trackTitle}`);
         }
+
+        syncTitleMarquee();
       };
 
       setLiveState(isLive);
       refreshArtworkAccent();
       setPreview(playButton.dataset.previewUrl ?? '');
+      syncTitleMarquee();
+
+      window.addEventListener('resize', syncTitleMarquee, { passive: true });
 
       playButton.addEventListener('click', async () => {
         if (!audio) {
