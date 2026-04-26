@@ -110,6 +110,7 @@ const initialTrack = tracks[0] ?? null;
             </span>
           </span>
         </span>
+        <span class="listening-sep" aria-hidden="true">—</span>
         <span class="listening-artist" data-listening-artist>{initialTrack.artist}</span>
       </a>
 
@@ -512,6 +513,12 @@ const initialTrack = tracks[0] ?? null;
     max-width: 100%;
   }
 
+  .listening-track.is-inline {
+    flex-direction: row;
+    align-items: baseline;
+    gap: 0 8px;
+  }
+
   .listening-title,
   .listening-artist {
     min-width: 0;
@@ -584,6 +591,16 @@ const initialTrack = tracks[0] ?? null;
     background-size: 100% 1px;
   }
 
+  .listening-sep {
+    display: none;
+    font-size: 13px;
+    color: hsl(var(--muted-foreground) / 0.5);
+  }
+
+  .listening-track.is-inline .listening-sep {
+    display: inline;
+  }
+
   .listening-artist {
     font-size: 14px;
     line-height: 1.36;
@@ -640,6 +657,10 @@ const initialTrack = tracks[0] ?? null;
 
     .listening-track {
       gap: 2px;
+    }
+
+    .listening-track.is-inline {
+      gap: 0 6px;
     }
 
     .listening-meta,
@@ -802,6 +823,7 @@ const initialTrack = tracks[0] ?? null;
       const titleText = root.querySelector('[data-listening-title-text]');
       const titleLabel = root.querySelector('[data-listening-title-label]');
       const titleDuplicate = root.querySelector('[data-listening-title-duplicate]');
+      const separator = root.querySelector('.listening-sep');
       const artist = root.querySelector('[data-listening-artist]');
       const collection = root.querySelector('[data-listening-collection]');
       const year = root.querySelector('[data-listening-year]');
@@ -850,12 +872,25 @@ const initialTrack = tracks[0] ?? null;
         title.style.removeProperty('--title-marquee-duration');
         title.style.removeProperty('--title-marquee-distance');
         title.style.removeProperty('--title-marquee-width');
+        link?.classList.remove('is-inline');
 
         window.requestAnimationFrame(() => {
           const measuredTitle = titleLabel instanceof HTMLElement ? titleLabel : titleText;
+          const measuredArtist = artist instanceof HTMLElement ? artist : null;
+          const measuredSeparator = separator instanceof HTMLElement ? separator : null;
           const maxTitleWidth = 360;
-          const containerWidth = title.parentElement?.clientWidth || maxTitleWidth;
+          const containerWidth = link?.parentElement?.clientWidth || maxTitleWidth;
           const displayWidth = Math.min(containerWidth, maxTitleWidth);
+          const separatorWidth = measuredSeparator?.scrollWidth || 8;
+          const artistWidth = measuredArtist?.scrollWidth ?? 0;
+          const inlineGap = 16;
+          const inlineWidth = measuredTitle.scrollWidth + separatorWidth + artistWidth + inlineGap;
+
+          if (inlineWidth <= containerWidth) {
+            link?.classList.add('is-inline');
+            return;
+          }
+
           const overflow = measuredTitle.scrollWidth > displayWidth + 2;
           if (!overflow) return;
 
