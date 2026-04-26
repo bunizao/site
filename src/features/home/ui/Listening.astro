@@ -7,10 +7,15 @@ const initialTrack = tracks[0] ?? null;
 ---
 
 {initialTrack && (
-  <aside class="listening" data-listening aria-label="Now playing">
+  <aside
+    class:list={['listening', initialTrack.isNowPlaying ? 'is-live' : 'is-recent']}
+    data-listening
+    data-now-playing={String(initialTrack.isNowPlaying)}
+    aria-label="Now playing"
+  >
     <button
       type="button"
-      class="listening-art"
+      class:list={['listening-art', initialTrack.isNowPlaying ? 'is-live' : 'is-recent']}
       data-listening-play
       data-preview-url={initialTrack.previewUrl}
       data-track-title={initialTrack.title}
@@ -74,7 +79,9 @@ const initialTrack = tracks[0] ?? null;
     <div class="listening-copy">
       <p class="listening-eyebrow">
         <span class="listening-eyebrow-dot" aria-hidden="true"></span>
-        <span class="listening-eyebrow-text" data-listening-status>Now playing</span>
+        <span class="listening-eyebrow-text" data-listening-status>
+          {initialTrack.isNowPlaying ? 'Now Playing' : 'Recently Played'}
+        </span>
         <span class="listening-eyebrow-wave" aria-hidden="true">
           <span></span>
           <span></span>
@@ -107,6 +114,7 @@ const initialTrack = tracks[0] ?? null;
 
 <style>
   .listening {
+    --listening-accent: hsl(var(--foreground));
     display: grid;
     grid-template-columns: auto minmax(0, 1fr);
     align-items: center;
@@ -284,7 +292,8 @@ const initialTrack = tracks[0] ?? null;
   }
 
   .listening-art:hover:not(:disabled) .listening-art-icons,
-  .listening-art:focus-visible:not(:disabled) .listening-art-icons {
+  .listening-art:focus-visible:not(:disabled) .listening-art-icons,
+  .listening-art.is-preview-playing .listening-art-icons {
     opacity: 1;
   }
 
@@ -303,20 +312,28 @@ const initialTrack = tracks[0] ?? null;
     display: none;
   }
 
-  .listening-art.is-playing .listening-art-icon--play {
+  .listening-art.is-preview-playing .listening-art-icon--play {
     display: none;
   }
 
-  .listening-art.is-playing .listening-art-icon--pause {
+  .listening-art.is-preview-playing .listening-art-icon--pause {
     display: block;
   }
 
-  .listening-art.is-playing .listening-art-record,
-  .listening-art.is-playing .listening-art-img {
+  .listening-art.is-live .listening-art-record,
+  .listening-art.is-live .listening-art-img,
+  .listening-art.is-preview-playing .listening-art-record,
+  .listening-art.is-preview-playing .listening-art-img {
     animation: listening-record-spin 14s linear infinite;
   }
 
-  .listening-art.is-playing .listening-art-spindle {
+  .listening-art.is-preview-playing .listening-art-record,
+  .listening-art.is-preview-playing .listening-art-img {
+    animation-duration: 8s;
+  }
+
+  .listening-art.is-live .listening-art-spindle,
+  .listening-art.is-preview-playing .listening-art-spindle {
     transform: translate(-50%, -50%) scale(1);
     opacity: 1;
     transition-delay: 0.3s;
@@ -341,7 +358,8 @@ const initialTrack = tracks[0] ?? null;
 
   .listening-art:hover:not(:disabled) .listening-art-tonearm,
   .listening-art:focus-visible:not(:disabled) .listening-art-tonearm,
-  .listening-art.is-playing .listening-art-tonearm {
+  .listening-art.is-live .listening-art-tonearm,
+  .listening-art.is-preview-playing .listening-art-tonearm {
     opacity: 1;
   }
 
@@ -351,12 +369,13 @@ const initialTrack = tracks[0] ?? null;
     transition: transform 0.45s cubic-bezier(0.2, 0.8, 0.2, 1);
   }
 
-  .listening-art:hover:not(:disabled):not(.is-playing) .listening-art-tonearm-arm,
-  .listening-art:focus-visible:not(:disabled):not(.is-playing) .listening-art-tonearm-arm {
+  .listening-art:hover:not(:disabled):not(.is-live):not(.is-preview-playing) .listening-art-tonearm-arm,
+  .listening-art:focus-visible:not(:disabled):not(.is-live):not(.is-preview-playing) .listening-art-tonearm-arm {
     transform: rotate(-18deg);
   }
 
-  .listening-art.is-playing .listening-art-tonearm-arm {
+  .listening-art.is-live .listening-art-tonearm-arm,
+  .listening-art.is-preview-playing .listening-art-tonearm-arm {
     transition: transform 0.65s cubic-bezier(0.34, 1.55, 0.64, 1) 0.18s;
     transform: rotate(23deg);
   }
@@ -377,8 +396,8 @@ const initialTrack = tracks[0] ?? null;
       stroke 0.3s ease;
   }
 
-  .listening-art:hover:not(:disabled):not(.is-playing) .listening-art-tonearm-cartridge,
-  .listening-art:focus-visible:not(:disabled):not(.is-playing) .listening-art-tonearm-cartridge {
+  .listening-art:hover:not(:disabled):not(.is-live):not(.is-preview-playing) .listening-art-tonearm-cartridge,
+  .listening-art:focus-visible:not(:disabled):not(.is-live):not(.is-preview-playing) .listening-art-tonearm-cartridge {
     filter: drop-shadow(0 0 4px hsl(0 0% 100% / 0.34));
     stroke: hsl(var(--background) / 0.42);
   }
@@ -423,9 +442,9 @@ const initialTrack = tracks[0] ?? null;
       box-shadow 0.3s ease;
   }
 
-  .listening.is-playing .listening-eyebrow-dot {
-    background: hsl(var(--foreground));
-    box-shadow: 0 0 0 4px hsl(var(--foreground) / 0.08);
+  .listening.is-live .listening-eyebrow-dot {
+    background: var(--listening-accent);
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--listening-accent) 18%, transparent);
   }
 
   .listening-eyebrow-wave {
@@ -443,28 +462,28 @@ const initialTrack = tracks[0] ?? null;
     width: 2px;
     height: 100%;
     border-radius: 999px;
-    background: hsl(var(--foreground) / 0.7);
+    background: var(--listening-accent);
     transform-origin: 50% 100%;
     transform: scaleY(0.32);
   }
 
-  .listening.is-playing .listening-eyebrow-wave {
+  .listening.is-live .listening-eyebrow-wave {
     width: 18px;
   }
 
-  .listening.is-playing .listening-eyebrow-wave span {
+  .listening.is-live .listening-eyebrow-wave span {
     animation: listening-wave 0.92s ease-in-out infinite;
   }
 
-  .listening.is-playing .listening-eyebrow-wave span:nth-child(2) {
+  .listening.is-live .listening-eyebrow-wave span:nth-child(2) {
     animation-delay: 0.1s;
   }
 
-  .listening.is-playing .listening-eyebrow-wave span:nth-child(3) {
+  .listening.is-live .listening-eyebrow-wave span:nth-child(3) {
     animation-delay: 0.22s;
   }
 
-  .listening.is-playing .listening-eyebrow-wave span:nth-child(4) {
+  .listening.is-live .listening-eyebrow-wave span:nth-child(4) {
     animation-delay: 0.16s;
   }
 
@@ -589,13 +608,16 @@ const initialTrack = tracks[0] ?? null;
       transition: none;
     }
 
-    .listening-art.is-playing .listening-art-record,
-    .listening-art.is-playing .listening-art-img,
-    .listening.is-playing .listening-eyebrow-wave span {
+    .listening-art.is-live .listening-art-record,
+    .listening-art.is-live .listening-art-img,
+    .listening-art.is-preview-playing .listening-art-record,
+    .listening-art.is-preview-playing .listening-art-img,
+    .listening.is-live .listening-eyebrow-wave span {
       animation: none;
     }
 
-    .listening-art.is-playing .listening-art-spindle {
+    .listening-art.is-live .listening-art-spindle,
+    .listening-art.is-preview-playing .listening-art-spindle {
       opacity: 0;
     }
   }
@@ -620,6 +642,7 @@ const initialTrack = tracks[0] ?? null;
 </style>
 
 <script>
+  type Rgb = { r: number; g: number; b: number };
   type ListeningTrackPayload = {
     title?: string;
     artist?: string;
@@ -633,7 +656,69 @@ const initialTrack = tracks[0] ?? null;
     isNowPlaying?: boolean;
   };
 
+  const SAMPLE_SIZE = 24;
   const LISTENING_REFRESH_MS = 45_000;
+
+  const extractAccentColor = (img: HTMLImageElement): Rgb | null => {
+    const canvas = document.createElement('canvas');
+    canvas.width = SAMPLE_SIZE;
+    canvas.height = SAMPLE_SIZE;
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    if (!ctx) return null;
+
+    try {
+      ctx.drawImage(img, 0, 0, SAMPLE_SIZE, SAMPLE_SIZE);
+      const data = ctx.getImageData(0, 0, SAMPLE_SIZE, SAMPLE_SIZE).data;
+      let best: Rgb | null = null;
+      let bestScore = -1;
+      let avgR = 0;
+      let avgG = 0;
+      let avgB = 0;
+      let avgN = 0;
+
+      for (let i = 0; i < data.length; i += 4) {
+        const r = data[i];
+        const g = data[i + 1];
+        const b = data[i + 2];
+        const a = data[i + 3];
+        if (a < 220) continue;
+
+        avgR += r;
+        avgG += g;
+        avgB += b;
+        avgN += 1;
+
+        const max = Math.max(r, g, b);
+        const min = Math.min(r, g, b);
+        const saturation = max === 0 ? 0 : (max - min) / max;
+        const lightness = (max + min) / 510;
+        if (lightness < 0.2 || lightness > 0.82) continue;
+
+        const score = saturation * 1.8 + (lightness > 0.38 && lightness < 0.7 ? 0.25 : 0);
+        if (score > bestScore) {
+          bestScore = score;
+          best = { r, g, b };
+        }
+      }
+
+      if (best) return best;
+      if (!avgN) return null;
+
+      return {
+        r: Math.round(avgR / avgN),
+        g: Math.round(avgG / avgN),
+        b: Math.round(avgB / avgN)
+      };
+    } catch {
+      return null;
+    }
+  };
+
+  const applyArtworkAccent = (root: HTMLElement, img: HTMLImageElement) => {
+    const color = extractAccentColor(img);
+    if (!color) return;
+    root.style.setProperty('--listening-accent', `rgb(${color.r} ${color.g} ${color.b})`);
+  };
 
   const initListeningSection = () => {
     const roots = document.querySelectorAll('[data-listening]');
@@ -660,10 +745,31 @@ const initialTrack = tracks[0] ?? null;
 
       let audio: HTMLAudioElement | null = null;
       let trackTitle = playButton.dataset.trackTitle ?? 'Track';
+      let isLive = root.dataset.nowPlaying === 'true';
 
-      const setPlayState = (isPlaying: boolean) => {
-        root.classList.toggle('is-playing', isPlaying);
-        playButton.classList.toggle('is-playing', isPlaying);
+      const refreshArtworkAccent = () => {
+        if (!(artwork instanceof HTMLImageElement)) return;
+
+        if (artwork.complete && artwork.naturalWidth > 0) {
+          applyArtworkAccent(root, artwork);
+        } else {
+          artwork.addEventListener('load', () => applyArtworkAccent(root, artwork), { once: true });
+        }
+      };
+
+      const setLiveState = (nextIsLive: boolean) => {
+        isLive = nextIsLive;
+        root.dataset.nowPlaying = String(nextIsLive);
+        root.classList.toggle('is-live', nextIsLive);
+        root.classList.toggle('is-recent', !nextIsLive);
+        playButton.classList.toggle('is-live', nextIsLive);
+        playButton.classList.toggle('is-recent', !nextIsLive);
+        if (status) status.textContent = nextIsLive ? 'Now Playing' : 'Recently Played';
+      };
+
+      const setPreviewState = (isPlaying: boolean) => {
+        root.classList.toggle('is-preview-playing', isPlaying);
+        playButton.classList.toggle('is-preview-playing', isPlaying);
         playButton.setAttribute('aria-pressed', isPlaying ? 'true' : 'false');
         playButton.setAttribute(
           'aria-label',
@@ -677,7 +783,7 @@ const initialTrack = tracks[0] ?? null;
           audio.currentTime = 0;
         }
 
-        setPlayState(false);
+        setPreviewState(false);
         playButton.dataset.previewUrl = previewUrl;
         audio = previewUrl ? new Audio(previewUrl) : null;
 
@@ -689,7 +795,7 @@ const initialTrack = tracks[0] ?? null;
 
         audio.preload = 'none';
         audio.addEventListener('ended', () => {
-          setPlayState(false);
+          setPreviewState(false);
         });
         playButton.disabled = false;
         playButton.setAttribute('aria-label', `Play preview of ${trackTitle}`);
@@ -723,7 +829,7 @@ const initialTrack = tracks[0] ?? null;
         if (artist) artist.textContent = nextArtist;
         if (collection) collection.textContent = nextCollection;
         if (year) year.textContent = nextYear;
-        if (status) status.textContent = track.isNowPlaying ? 'Now playing' : 'Recently played';
+        setLiveState(Boolean(track.isNowPlaying));
 
         if (link instanceof HTMLAnchorElement && nextLink) {
           link.href = nextLink;
@@ -732,6 +838,7 @@ const initialTrack = tracks[0] ?? null;
 
         if (artwork instanceof HTMLImageElement && nextArtwork && artwork.src !== nextArtwork) {
           artwork.src = nextArtwork;
+          refreshArtworkAccent();
         }
 
         if ((playButton.dataset.previewUrl ?? '') !== nextPreviewUrl) {
@@ -743,6 +850,8 @@ const initialTrack = tracks[0] ?? null;
         }
       };
 
+      setLiveState(isLive);
+      refreshArtworkAccent();
       setPreview(playButton.dataset.previewUrl ?? '');
 
       playButton.addEventListener('click', async () => {
@@ -751,12 +860,12 @@ const initialTrack = tracks[0] ?? null;
         }
 
         if (audio.paused) {
-          setPlayState(true);
+          setPreviewState(true);
 
           try {
             await audio.play();
           } catch {
-            setPlayState(false);
+            setPreviewState(false);
           }
 
           return;
@@ -764,7 +873,7 @@ const initialTrack = tracks[0] ?? null;
 
         audio.pause();
         audio.currentTime = 0;
-        setPlayState(false);
+        setPreviewState(false);
       });
 
       const refreshListening = async () => {
