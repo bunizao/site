@@ -22,6 +22,32 @@ async function waitForHomeMoodState(page: Page): Promise<void> {
     .toMatch(/items|empty|error/);
 }
 
+function createListeningPayload(overrides: Record<string, unknown>) {
+  return {
+    configured: true,
+    source: 'lastfm',
+    track: {
+      id: 'e2e-listening',
+      title: 'All of the Lights',
+      artist: 'Kanye West',
+      collection: 'My Beautiful Dark Twisted Fantasy',
+      appleMusicUrl: 'https://music.apple.com/test',
+      artworkUrl: '/avatar.webp',
+      thumbUrl: '/avatar.webp',
+      previewUrl: '',
+      year: '2010',
+      genre: 'Hip-Hop/Rap',
+      releaseKind: 'album',
+      trackNumber: '5',
+      trackCount: '13',
+      sourceUrl: 'https://www.last.fm/music/Kanye+West/_/All+of+the+Lights',
+      isNowPlaying: true,
+      playedAt: '',
+      ...overrides,
+    },
+  };
+}
+
 test.describe('Home page', () => {
   const homeMoodPayload = {
     posts: [
@@ -249,6 +275,66 @@ test.describe('Home page', () => {
     await expect(tooltip).toHaveClass(/is-visible/);
     await expect(page.locator('[data-tooltip-count]')).toContainText('contribution');
     await expect(page.locator('[data-tooltip-date]')).not.toHaveText('');
+  });
+
+  test('keeps listening metadata responsive for short and long tracks', async ({ page }) => {
+    let listeningPayload = createListeningPayload({});
+
+    await page.route('**/api/listening', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(listeningPayload),
+      });
+    });
+
+    await page.setViewportSize({ width: 741, height: 957 });
+    await page.goto('/');
+
+    const track = page.locator('[data-listening-link]');
+    const title = page.locator('[data-listening-title]');
+    const artist = page.locator('[data-listening-artist]');
+
+    await expect(page.locator('[data-listening-title-label]')).toHaveText('All of the Lights');
+    await expect(track).toHaveClass(/is-inline/);
+    await expect(title).not.toHaveClass(/is-marquee/);
+
+    listeningPayload = createListeningPayload({
+      title: 'Monster (feat. JAŸ-Z, Rick Ross, Nicki Minaj & Bon Iver)',
+      artist: 'Kanye West, JAŸ-Z, Rick Ross, Nicki Minaj & Bon Iver',
+      collection: 'My Beautiful Dark Twisted Fantasy (Deluxe Edition)',
+    });
+
+    await page.reload();
+
+    await expect(page.locator('[data-listening-title-label]')).toHaveText(
+      'Monster (feat. JAŸ-Z, Rick Ross, Nicki Minaj & Bon Iver)'
+    );
+    await expect(track).not.toHaveClass(/is-inline/);
+    await expect(title).toHaveClass(/is-marquee/);
+
+    const longLayout = await page.evaluate(() => {
+      const trackNode = document.querySelector('[data-listening-link]');
+      const artistNode = document.querySelector('[data-listening-artist]');
+      const root = document.documentElement;
+
+      if (!(trackNode instanceof HTMLElement) || !(artistNode instanceof HTMLElement)) {
+        return null;
+      }
+
+      return {
+        artistWidth: artistNode.getBoundingClientRect().width,
+        artistScrollWidth: artistNode.scrollWidth,
+        trackWidth: trackNode.getBoundingClientRect().width,
+        documentWidth: root.scrollWidth,
+        viewportWidth: root.clientWidth,
+      };
+    });
+
+    expect(longLayout).not.toBeNull();
+    expect(longLayout?.artistScrollWidth).toBeGreaterThan(longLayout?.artistWidth ?? 0);
+    expect(longLayout?.artistWidth).toBeLessThanOrEqual((longLayout?.trackWidth ?? 0) + 1);
+    expect(longLayout?.documentWidth).toBeLessThanOrEqual(longLayout?.viewportWidth ?? 0);
   });
 
   test('shows the GitHub contributions fallback state when the request fails', async ({ page }) => {

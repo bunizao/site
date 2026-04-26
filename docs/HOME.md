@@ -111,6 +111,8 @@ Rendering rules:
 - the first track hydrates the compact widget on initial render
 - track metadata is carried through `data-*` attributes for client updates
 - outbound music links open in a new tab
+- title and artist render inline with a separator when they fit the available width
+- long titles switch to a constrained stacked layout; the title scrolls and the artist truncates without widening the page
 
 Client behavior:
 
