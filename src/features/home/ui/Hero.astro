@@ -102,7 +102,7 @@ const techRow2 = ['Frontend', 'BGP', 'Proxy', 'Docker', 'Linux', 'Web3', 'Optimi
     </div>
 
     <!-- Social Links -->
-    <div class="mt-6 flex flex-wrap items-center gap-4 hero-animate sm:mt-8" data-hero-socials>
+    <div class="mt-6 flex flex-wrap items-center gap-4 hero-animate sm:mt-8" data-hero-motion data-hero-socials>
       <span class="flex-none whitespace-nowrap text-[14px] text-muted-foreground sm:text-[15px]">Find me at</span>
       {socials.map((social) => (
         <div class="social-link-wrapper">
@@ -122,17 +122,17 @@ const techRow2 = ['Frontend', 'BGP', 'Proxy', 'Docker', 'Linux', 'Web3', 'Optimi
       ))}
     </div>
 
-    <div class="hero-animate mt-7 sm:mt-7" data-hero-listening>
+    <div class="hero-animate mt-6 sm:mt-7" data-hero-motion data-hero-listening>
       <Listening />
     </div>
 
     <!-- GitHub Activity -->
-    <div class="hero-animate mt-1 sm:mt-0" data-hero-github>
+    <div class="hero-animate" data-hero-motion data-hero-github>
       <GitHubContributions />
     </div>
 
     <!-- Tech Stack Marquee -->
-    <div class="mt-6 hero-animate" data-hero-tech>
+    <div class="mt-6 hero-animate" data-hero-motion data-hero-tech>
       <TechMarquee row1={techRow1} row2={techRow2} />
     </div>
 </header>
@@ -151,14 +151,14 @@ const techRow2 = ['Frontend', 'BGP', 'Proxy', 'Docker', 'Linux', 'Web3', 'Optimi
     }
   }
 
-  :global(html.js) .hero-animate {
+  :global(html.js) .hero-animate[data-hero-motion] {
     opacity: 0;
     transform: translateY(20px);
     will-change: opacity, transform;
   }
 
   @media (prefers-reduced-motion: reduce) {
-    :global(html.js) .hero-animate {
+    :global(html.js) .hero-animate[data-hero-motion] {
       opacity: 1;
       transform: none;
     }
@@ -206,7 +206,7 @@ const techRow2 = ['Frontend', 'BGP', 'Proxy', 'Docker', 'Linux', 'Web3', 'Optimi
 
 <script>
   const prefersReducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-  const heroElements = document.querySelectorAll('.hero-animate');
+  const heroElements = document.querySelectorAll('.hero-animate[data-hero-motion]');
   const statusText = document.getElementById('status-text');
 
   // Status text rotation

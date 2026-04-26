@@ -7,13 +7,13 @@ interface Props {
 }
 
 const { texts, speed = 80, delay = 0, pauseDuration = 2000 } = Astro.props;
+const initialText = texts[0] ?? '';
 const longestText = texts.reduce((a, b) => a.length > b.length ? a : b, '');
 ---
 
 <span class="typewriter-wrapper">
-  <!-- Hidden placeholder using the longest string to prevent reflow -->
+  <!-- Hidden placeholder keeps the animated text width stable. -->
   <span class="typewriter-placeholder" aria-hidden="true">{longestText}</span>
-  <!-- Visible typing text -->
   <span
     class="typewriter"
     data-texts={JSON.stringify(texts)}
@@ -21,7 +21,7 @@ const longestText = texts.reduce((a, b) => a.length > b.length ? a : b, '');
     data-delay={delay}
     data-pause={pauseDuration}
   >
-    <span class="typewriter-text"></span><span class="typewriter-cursor"></span>
+    <span class="typewriter-text">{initialText}</span><span class="typewriter-cursor"></span>
   </span>
 </span>
 
@@ -55,8 +55,8 @@ const longestText = texts.reduce((a, b) => a.length > b.length ? a : b, '');
       if (!textEl || texts.length === 0) return;
 
       let textIndex = 0;
-      let charIndex = 0;
-      let isDeleting = false;
+      let charIndex = textEl.textContent?.length ?? 0;
+      let isDeleting = charIndex > 0;
 
       const type = () => {
         const currentText = texts[textIndex];
@@ -88,7 +88,8 @@ const longestText = texts.reduce((a, b) => a.length > b.length ? a : b, '');
         }
       };
 
-      setTimeout(type, delay);
+      const startDelay = charIndex > 0 ? delay + pauseDuration : delay;
+      setTimeout(type, startDelay);
     });
   });
 </script>

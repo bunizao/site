@@ -4,6 +4,7 @@ import { Pause, Play } from 'lucide-react';
 
 const tracks = await getListeningTracks();
 const initialTrack = tracks[0] ?? null;
+const initialArtworkUrl = initialTrack ? initialTrack.thumbUrl || initialTrack.artworkUrl : '';
 ---
 
 {initialTrack && (
@@ -26,14 +27,17 @@ const initialTrack = tracks[0] ?? null;
       <span class="listening-art-frame">
         <span class="listening-art-record" aria-hidden="true"></span>
         <img
-          src={initialTrack.artworkUrl}
+          src={initialArtworkUrl}
           alt=""
           class="listening-art-img"
           data-listening-artwork
           crossorigin="anonymous"
-          loading="eager"
+          loading="lazy"
           decoding="async"
+          fetchpriority="low"
           referrerpolicy="no-referrer"
+          width="40"
+          height="40"
         />
         <span class="listening-art-icons" aria-hidden="true">
           <Play className="listening-art-icon listening-art-icon--play" aria-hidden="true" />
@@ -696,6 +700,7 @@ const initialTrack = tracks[0] ?? null;
     appleMusicUrl?: string;
     sourceUrl?: string;
     artworkUrl?: string;
+    thumbUrl?: string;
     previewUrl?: string;
     year?: string;
     playedAt?: string;
@@ -908,7 +913,7 @@ const initialTrack = tracks[0] ?? null;
         const nextArtist = track.artist?.trim() || '';
         const nextCollection = track.collection?.trim() || '';
         const nextLink = track.appleMusicUrl?.trim() || track.sourceUrl?.trim() || '';
-        const nextArtwork = track.artworkUrl?.trim() || '';
+        const nextArtwork = track.thumbUrl?.trim() || track.artworkUrl?.trim() || '';
         const nextPreviewUrl = track.previewUrl?.trim() || '';
         const nextYear = track.year?.trim() || formatPlayedAt(track.playedAt ?? '');
 
