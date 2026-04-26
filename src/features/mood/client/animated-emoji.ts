@@ -35,6 +35,8 @@ type EmojiWindow = Window & typeof globalThis & {
 
 const LOTTIE_SRC = 'https://cdn.jsdelivr.net/npm/lottie-web@5.12.2/build/player/lottie.min.js';
 const PAKO_SRC = 'https://cdn.jsdelivr.net/npm/pako@2.1.0/dist/pako.min.js';
+
+const toStaticProxyUrl = (value: string): string => `/static/${value.replace('://', ':/')}`;
 const scriptCache = new Map<string, Promise<void>>();
 const emojiCache = new Map<string, Promise<unknown | null>>();
 
@@ -85,7 +87,7 @@ async function getAnimationData(emojiId: string): Promise<unknown | null> {
   }
 
   const promise = (async () => {
-    const metaResponse = await fetch(`/static/https://t.me/i/emoji/${emojiId}.json`, { cache: 'no-store' });
+    const metaResponse = await fetch(toStaticProxyUrl(`https://t.me/i/emoji/${emojiId}.json`), { cache: 'no-store' });
     if (!metaResponse.ok) return null;
 
     const meta = await metaResponse.json() as EmojiMetaResponse;

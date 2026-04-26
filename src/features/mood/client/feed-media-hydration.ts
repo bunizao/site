@@ -169,7 +169,7 @@ export function createFeedMediaHydrator(
         emojiSpan.className = 'tg-emoji mood-hero-emoji';
         emojiSpan.dataset.emojiId = channel.emojiId;
         const img = document.createElement('img');
-        img.src = `/static/https://t.me/i/emoji/${channel.emojiId}.webp`;
+            img.src = `/static/https:/t.me/i/emoji/${channel.emojiId}.webp`;
         img.alt = 'emoji';
         setImageHints(img, { lazy: false });
         emojiSpan.appendChild(img);

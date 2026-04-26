@@ -181,7 +181,9 @@ function toStaticProxyUrl(value: string, staticProxy: string): string {
   // Check if already proxied (starts with /static/ or contains /static/https:)
   if (normalized.startsWith(staticProxy) || normalized.includes('/static/https:')) return normalized;
   if (/^(data:|blob:)/i.test(normalized)) return normalized;
-  if (/^https?:/i.test(normalized)) return `${staticProxy}${normalized}`;
+  if (/^https?:\/\//i.test(normalized)) {
+    return `${staticProxy}${normalized.replace('://', ':/')}`;
+  }
   return normalized;
 }
 
@@ -775,7 +777,7 @@ function getVideo($: CheerioAPI, item: Element, { staticProxy, index }: ContentP
 function getAudio($: CheerioAPI, item: Element, { staticProxy }: ContentProcessorConfig): string {
   const audio = $(item).find('.tgme_widget_message_voice');
   if (audio.length) {
-    audio.attr('src', staticProxy + audio.attr('src')).attr('controls', 'true');
+    audio.attr('src', toStaticProxyUrl(audio.attr('src') ?? '', staticProxy)).attr('controls', 'true');
     return $.html(audio);
   }
   return '';
@@ -1329,7 +1331,7 @@ async function getCustomEmojiImage(emojiId: string, staticProxy = ''): Promise<s
   if (!emojiId) return null;
   const imageUrl = `https://t.me/i/emoji/${emojiId}.webp`;
   const proxy = staticProxy || '/static/';
-  return `${proxy}${imageUrl}`;
+  return toStaticProxyUrl(imageUrl, proxy);
 }
 
 async function hydrateTgEmoji(
@@ -1545,7 +1547,7 @@ async function getPost(
         if (p2?.startsWith('t.me')) {
           return match;
         }
-        return `${p1}${staticProxy}${p2}`;
+        return `${p1}${toStaticProxyUrl(p2, staticProxy)}`;
       }),
     forwardedFrom: forwardedFrom ?? undefined,
     reactions: await getReactions($, messageElement, staticProxy),
