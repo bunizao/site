@@ -140,7 +140,8 @@ function getLastFmConfig(locals?: RuntimeLocals): LastFmConfig | null {
 function readTextValue(value: LastFmNamedValue | LastFmTextValue | string | undefined): string {
   if (!value) return '';
   if (typeof value === 'string') return value.trim();
-  return (value.name ?? value['#text'] ?? '').trim();
+  if ('name' in value && value.name) return value.name.trim();
+  return (value['#text'] ?? '').trim();
 }
 
 function selectLastFmImage(images: LastFmImage[] | undefined): string {
