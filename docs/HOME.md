@@ -37,7 +37,7 @@ Feature boundary:
 
 - home-private UI lives in [`src/features/home/ui/`](../src/features/home/ui)
 - home-private server helpers live in [`src/features/home/server/`](../src/features/home/server/)
-- shared site scaffolding remains in [`src/components/`](../src/components)
+- shared site scaffolding lives in [`src/layouts/`](../src/layouts) and other feature-local UI shells
 
 ## Hero / Intro
 
@@ -97,24 +97,28 @@ Implementation files:
 
 - [`src/features/home/ui/Listening.astro`](../src/features/home/ui/Listening.astro)
 - [`src/features/home/server/listening.ts`](../src/features/home/server/listening.ts)
+- [`src/pages/api/listening.ts`](../src/pages/api/listening.ts)
 
 Data flow:
 
-- Server-side render fetches track metadata from the public iTunes lookup endpoint.
-- The component starts from a short list of Apple Music track URLs.
-- Fetch failure falls back to bundled demo metadata so the section still renders.
+- The initial render uses bundled fallback metadata so the static home page always renders.
+- The client fetches `/api/listening`, which reads Last.fm `user.getRecentTracks`.
+- Last.fm provides the current or latest track; iTunes Search enriches it with preview audio and higher-confidence artwork when available.
+- Missing Last.fm configuration keeps the static fallback in place.
 
 Rendering rules:
 
-- the first track hydrates the feature card on initial render
-- each list item carries its playback metadata in `data-*` attributes
-- Apple Music links always open in a new tab
+- the first track hydrates the compact widget on initial render
+- track metadata is carried through `data-*` attributes for client updates
+- outbound music links open in a new tab
+- title and artist render inline with a separator when they fit the available width
+- long titles switch to a constrained stacked layout; the title scrolls and the artist truncates without widening the page
 
 Client behavior:
 
-- clicking a list item swaps the feature card content
-- the preview button plays or pauses the selected track's preview URL with the native `Audio` API
-- selecting another track stops the current preview before switching state
+- the widget refreshes live listening data every 45 seconds
+- the preview button plays or pauses the current track's preview URL with the native `Audio` API
+- live refresh keeps the static fallback if the API is unavailable
 
 ## Writing
 

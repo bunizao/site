@@ -36,7 +36,7 @@
 
 1. **Ghost CMS** (`src/features/home/ui/Posts.astro`) — Blog posts via Ghost Content API
 2. **GitHub API** (`src/features/home/ui/Projects.astro`, `src/lib/github.ts`) — Repository data and stars via GraphQL
-3. **Apple iTunes Lookup** (`src/features/home/ui/Listening.astro`, `src/features/home/server/listening.ts`) — Track metadata and preview URLs resolved from Apple Music links
+3. **Last.fm + Apple iTunes Search** (`src/features/home/ui/Listening.astro`, `src/features/home/server/listening.ts`, `src/pages/api/listening.ts`) — Recent listening status from Last.fm, with iTunes enrichment for preview URLs and stronger artwork
 4. **GitHub Contributions** (`src/features/home/ui/GitHubContributions.astro`) — Contribution graph from external API
 5. **Telegram/BroadcastChannel** — Mood posts sourced from Telegram channel, with webhook ingress on Cloudflare Worker and content parsing in the site app
 
@@ -82,6 +82,7 @@ Accessed via `import.meta.env.*`:
 - `TELEGRAM_HOST` — Telegram public host for embed lookups (default: `t.me`)
 - `NOTIFY_DISPATCH_SECRET` — Bearer secret accepted by `/api/notify/dispatch`
 - `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_NOTIFY_D1_DATABASE_ID` — Cloudflare account access and D1 notify database
+- `LASTFM_API_KEY`, `LASTFM_USER` — Last.fm recent tracks integration for the home listening widget
 
 Cloudflare Worker bindings and secrets are defined in [`workers/telegram-image-proxy/wrangler.toml`](../workers/telegram-image-proxy/wrangler.toml).
 

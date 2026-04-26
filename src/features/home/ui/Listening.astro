@@ -1,0 +1,1009 @@
+---
+import { getListeningTracks } from '@/features/home/server/listening';
+import { Pause, Play } from 'lucide-react';
+
+const tracks = await getListeningTracks();
+const initialTrack = tracks[0] ?? null;
+---
+
+{initialTrack && (
+  <aside
+    class:list={['listening', initialTrack.isNowPlaying ? 'is-live' : 'is-recent']}
+    data-listening
+    data-now-playing={String(initialTrack.isNowPlaying)}
+    aria-label="Now playing"
+  >
+    <button
+      type="button"
+      class:list={['listening-art', initialTrack.isNowPlaying ? 'is-live' : 'is-recent']}
+      data-listening-play
+      data-preview-url={initialTrack.previewUrl}
+      data-track-title={initialTrack.title}
+      disabled={!initialTrack.previewUrl}
+      aria-pressed="false"
+      aria-label={`Play preview of ${initialTrack.title}`}
+    >
+      <span class="listening-art-frame">
+        <span class="listening-art-record" aria-hidden="true"></span>
+        <img
+          src={initialTrack.artworkUrl}
+          alt=""
+          class="listening-art-img"
+          data-listening-artwork
+          crossorigin="anonymous"
+          loading="eager"
+          decoding="async"
+          referrerpolicy="no-referrer"
+        />
+        <span class="listening-art-icons" aria-hidden="true">
+          <Play className="listening-art-icon listening-art-icon--play" aria-hidden="true" />
+          <Pause className="listening-art-icon listening-art-icon--pause" aria-hidden="true" />
+        </span>
+      </span>
+      <svg
+        class="listening-art-tonearm"
+        viewBox="0 0 96 84"
+        aria-hidden="true"
+      >
+        <g class="listening-art-tonearm-arm">
+          <path
+            d="M20 15 C33 24 45 39 58 56"
+            class="listening-art-tonearm-shaft"
+          />
+          <rect
+            x="54"
+            y="53"
+            width="17"
+            height="7"
+            rx="2"
+            class="listening-art-tonearm-cartridge"
+            transform="rotate(48 62.5 56.5)"
+          />
+          <circle
+            cx="20"
+            cy="15"
+            r="7"
+            class="listening-art-tonearm-pivot"
+          />
+          <circle
+            cx="20"
+            cy="15"
+            r="2.8"
+            class="listening-art-tonearm-hole"
+          />
+        </g>
+      </svg>
+    </button>
+
+    <div class="listening-copy">
+      <p class="listening-eyebrow">
+        <span class="listening-eyebrow-dot" aria-hidden="true"></span>
+        <span class="listening-eyebrow-text" data-listening-status>
+          {initialTrack.isNowPlaying ? 'Now Playing' : 'Recently Played'}
+        </span>
+        <span class="listening-eyebrow-wave" aria-hidden="true">
+          <span></span>
+          <span></span>
+          <span></span>
+          <span></span>
+        </span>
+      </p>
+
+      <a
+        href={initialTrack.appleMusicUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        class="listening-track"
+        data-listening-link
+        aria-label={`Open ${initialTrack.title}`}
+      >
+        <span class="listening-title" data-listening-title>
+          <span class="listening-title-text" data-listening-title-text>
+            <span data-listening-title-label>{initialTrack.title}</span>
+            <span
+              class="listening-title-duplicate"
+              data-listening-title-duplicate
+              aria-hidden="true"
+            >
+              {initialTrack.title}
+            </span>
+          </span>
+        </span>
+        <span class="listening-sep" aria-hidden="true">—</span>
+        <span class="listening-artist" data-listening-artist>{initialTrack.artist}</span>
+      </a>
+
+      <p class="listening-meta">
+        <span data-listening-collection>{initialTrack.collection}</span>
+        <span class="listening-meta-dot" aria-hidden="true"></span>
+        <span data-listening-year>{initialTrack.year}</span>
+      </p>
+    </div>
+  </aside>
+)}
+
+<style>
+  .listening {
+    --listening-accent: hsl(var(--foreground));
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    gap: 11px;
+    width: fit-content;
+    max-width: min(100%, 520px);
+    color: hsl(var(--muted-foreground));
+  }
+
+  .listening-art {
+    --record-size: 72px;
+    --label-size: 40px;
+    --record-left: 46px;
+    position: relative;
+    width: 88px;
+    height: 84px;
+    flex: none;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    cursor: pointer;
+  }
+
+  .listening-art:disabled {
+    cursor: not-allowed;
+    opacity: 0.55;
+  }
+
+  .listening-art:focus-visible {
+    outline: none;
+  }
+
+  .listening-art:focus-visible .listening-art-record {
+    box-shadow:
+      inset 0 0 0 1px hsl(0 0% 100% / 0.08),
+      inset 0 0 18px hsl(0 0% 100% / 0.06),
+      0 8px 18px -12px hsl(0 0% 0% / 0.72),
+      0 0 0 2px hsl(var(--background)),
+      0 0 0 4px hsl(var(--foreground) / 0.55);
+  }
+
+  .listening-art-frame {
+    position: absolute;
+    inset: 0;
+    overflow: visible;
+    isolation: isolate;
+    background: transparent;
+    z-index: 1;
+  }
+
+  .listening-art-record {
+    position: absolute;
+    top: 50%;
+    left: var(--record-left);
+    width: var(--record-size);
+    height: var(--record-size);
+    border-radius: 999px;
+    overflow: hidden;
+    background:
+      radial-gradient(circle at 50% 50%, transparent 0 23%, hsl(0 0% 100% / 0.14) 23.5% 24.5%, transparent 25%),
+      repeating-radial-gradient(circle at 50% 50%, hsl(0 0% 100% / 0.12) 0 1px, transparent 1px 4px),
+      conic-gradient(
+        from -28deg at 50% 50%,
+        transparent 0deg 18deg,
+        hsl(0 0% 100% / 0.055) 28deg,
+        transparent 46deg 168deg,
+        hsl(0 0% 100% / 0.04) 184deg,
+        transparent 208deg 360deg
+      ),
+      radial-gradient(circle at 36% 30%, hsl(0 0% 100% / 0.1), transparent 30%),
+      radial-gradient(circle at 68% 76%, hsl(0 0% 100% / 0.045), transparent 34%),
+      #050505;
+    box-shadow:
+      inset 0 0 0 1px hsl(0 0% 100% / 0.08),
+      inset 0 0 18px hsl(0 0% 100% / 0.06),
+      0 8px 18px -12px hsl(0 0% 0% / 0.72);
+    transform: translate(-50%, -50%);
+    transition:
+      filter 0.3s ease,
+      transform 0.45s cubic-bezier(0.2, 0.8, 0.2, 1);
+    will-change: transform;
+    z-index: 1;
+  }
+
+  .listening-art-record::before,
+  .listening-art-record::after {
+    content: "";
+    position: absolute;
+    inset: 3px;
+    border-radius: inherit;
+    pointer-events: none;
+    mix-blend-mode: screen;
+  }
+
+  .listening-art-record::before {
+    background:
+      conic-gradient(
+        from 214deg at 50% 50%,
+        transparent 0deg 24deg,
+        hsl(0 0% 100% / 0.32) 34deg,
+        hsl(0 0% 100% / 0.11) 52deg,
+        transparent 72deg 194deg,
+        hsl(0 0% 100% / 0.14) 213deg,
+        transparent 236deg 360deg
+      );
+    filter: blur(0.35px);
+    opacity: 0.9;
+    mask-image: radial-gradient(circle at 50% 50%, transparent 0 29%, #000 34% 86%, transparent 91%);
+    -webkit-mask-image: radial-gradient(circle at 50% 50%, transparent 0 29%, #000 34% 86%, transparent 91%);
+  }
+
+  .listening-art-record::after {
+    background:
+      radial-gradient(ellipse at 31% 23%, hsl(0 0% 100% / 0.34), transparent 22%),
+      radial-gradient(ellipse at 72% 70%, hsl(0 0% 100% / 0.16), transparent 30%);
+    opacity: 0.8;
+  }
+
+  .listening-art-img {
+    position: absolute;
+    top: 50%;
+    left: var(--record-left);
+    display: block;
+    width: var(--label-size);
+    height: var(--label-size);
+    border-radius: 999px;
+    object-fit: cover;
+    transform-origin: 50% 50%;
+    transform: translate(-50%, -50%);
+    box-shadow:
+      inset 0 0 0 1px hsl(0 0% 100% / 0.25),
+      0 0 0 1px hsl(0 0% 0% / 0.5);
+    will-change: transform;
+    z-index: 2;
+  }
+
+  .listening-art-icons {
+    position: absolute;
+    top: 50%;
+    left: var(--record-left);
+    width: var(--label-size);
+    height: var(--label-size);
+    display: grid;
+    place-items: center;
+    opacity: 0;
+    transform: translate(-50%, -50%);
+    transition: opacity 0.2s ease;
+    pointer-events: none;
+    z-index: 6;
+  }
+
+  .listening-art:hover:not(:disabled) .listening-art-icons,
+  .listening-art:focus-visible:not(:disabled) .listening-art-icons,
+  .listening-art.is-preview-playing .listening-art-icons {
+    opacity: 1;
+  }
+
+  .listening-art-icon {
+    width: 20px;
+    height: 20px;
+    color: #fff;
+    fill: #fff;
+    stroke-width: 1.5;
+    filter:
+      drop-shadow(0 1px 6px hsl(0 0% 0% / 0.6))
+      drop-shadow(0 0 1px hsl(0 0% 0% / 0.85));
+  }
+
+  .listening-art-icon--pause {
+    display: none;
+  }
+
+  .listening-art.is-preview-playing .listening-art-icon--play {
+    display: none;
+  }
+
+  .listening-art.is-preview-playing .listening-art-icon--pause {
+    display: block;
+  }
+
+  .listening-art.is-live .listening-art-record,
+  .listening-art.is-live .listening-art-img,
+  .listening-art.is-preview-playing .listening-art-record,
+  .listening-art.is-preview-playing .listening-art-img {
+    animation: listening-record-spin 14s linear infinite;
+  }
+
+  .listening-art.is-preview-playing .listening-art-record,
+  .listening-art.is-preview-playing .listening-art-img {
+    animation-duration: 8s;
+  }
+
+  /* Tone arm — SVG, swings in from upper-left when playing */
+  .listening-art-tonearm {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+    pointer-events: none;
+    color: hsl(0 0% 96%);
+    filter:
+      drop-shadow(0 1px 1px hsl(0 0% 0% / 0.58))
+      drop-shadow(0 0 1px hsl(var(--foreground) / 0.7));
+    opacity: 0.86;
+    transition: opacity 0.3s ease;
+    z-index: 5;
+  }
+
+  .listening-art:hover:not(:disabled) .listening-art-tonearm,
+  .listening-art:focus-visible:not(:disabled) .listening-art-tonearm,
+  .listening-art.is-live .listening-art-tonearm,
+  .listening-art.is-preview-playing .listening-art-tonearm {
+    opacity: 1;
+  }
+
+  .listening-art-tonearm-arm {
+    transform-origin: 20px 15px;
+    transform: rotate(-42deg);
+    transition: transform 0.45s cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+
+  .listening-art:hover:not(:disabled):not(.is-live):not(.is-preview-playing) .listening-art-tonearm-arm,
+  .listening-art:focus-visible:not(:disabled):not(.is-live):not(.is-preview-playing) .listening-art-tonearm-arm {
+    transform: rotate(-18deg);
+  }
+
+  .listening-art.is-live .listening-art-tonearm-arm,
+  .listening-art.is-preview-playing .listening-art-tonearm-arm {
+    transition: transform 0.65s cubic-bezier(0.34, 1.55, 0.64, 1) 0.18s;
+    transform: rotate(23deg);
+  }
+
+  .listening-art-tonearm-shaft {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 4;
+    stroke-linecap: round;
+  }
+
+  .listening-art-tonearm-cartridge {
+    fill: currentColor;
+    stroke: hsl(var(--background) / 0.75);
+    stroke-width: 0.4;
+    transition:
+      filter 0.3s ease,
+      stroke 0.3s ease;
+  }
+
+  .listening-art:hover:not(:disabled):not(.is-live):not(.is-preview-playing) .listening-art-tonearm-cartridge,
+  .listening-art:focus-visible:not(:disabled):not(.is-live):not(.is-preview-playing) .listening-art-tonearm-cartridge {
+    filter: drop-shadow(0 0 4px hsl(0 0% 100% / 0.34));
+    stroke: hsl(var(--background) / 0.42);
+  }
+
+  .listening-art-tonearm-pivot {
+    fill: currentColor;
+    stroke: none;
+  }
+
+  .listening-art-tonearm-hole {
+    fill: #050505;
+    stroke: none;
+  }
+
+  /* Copy */
+  .listening-copy {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .listening-eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0 0 2px;
+    font-size: 11px;
+    line-height: 1.18;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: hsl(var(--muted-foreground) / 0.84);
+    font-feature-settings: 'tnum';
+  }
+
+  .listening-eyebrow-dot {
+    width: 3px;
+    height: 3px;
+    border-radius: 999px;
+    background: currentColor;
+    opacity: 0.42;
+    transition:
+      background 0.3s ease,
+      opacity 0.3s ease,
+      transform 0.3s ease;
+  }
+
+  .listening.is-live .listening-eyebrow-dot {
+    background: color-mix(in srgb, var(--listening-accent) 42%, currentColor);
+    opacity: 0.68;
+    transform: scale(1.08);
+  }
+
+  .listening-eyebrow-wave {
+    display: inline-flex;
+    align-items: flex-end;
+    gap: 2px;
+    height: 9px;
+    width: 0;
+    overflow: hidden;
+    transition: width 0.35s cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+
+  .listening-eyebrow-wave span {
+    display: block;
+    width: 2px;
+    height: 100%;
+    border-radius: 999px;
+    background: var(--listening-accent);
+    transform-origin: 50% 100%;
+    transform: scaleY(0.32);
+  }
+
+  .listening.is-live .listening-eyebrow-wave {
+    width: 18px;
+  }
+
+  .listening.is-live .listening-eyebrow-wave span {
+    animation: listening-wave 0.92s ease-in-out infinite;
+  }
+
+  .listening.is-live .listening-eyebrow-wave span:nth-child(2) {
+    animation-delay: 0.1s;
+  }
+
+  .listening.is-live .listening-eyebrow-wave span:nth-child(3) {
+    animation-delay: 0.22s;
+  }
+
+  .listening.is-live .listening-eyebrow-wave span:nth-child(4) {
+    animation-delay: 0.16s;
+  }
+
+  /* Track line */
+  .listening-track {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+    min-width: 0;
+    width: min(100%, 360px);
+    max-width: min(100%, 360px);
+  }
+
+  .listening-track.is-inline {
+    flex-direction: row;
+    align-items: baseline;
+    gap: 0 8px;
+    width: fit-content;
+  }
+
+  .listening-title,
+  .listening-artist {
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+  }
+
+  .listening-title {
+    --title-marquee-duration: 14s;
+    --title-marquee-distance: 0px;
+    --title-marquee-width: 360px;
+    position: relative;
+    flex: 0 1 auto;
+    max-width: 100%;
+    font-size: 15px;
+    line-height: 1.28;
+    color: hsl(var(--foreground));
+    text-overflow: clip;
+    background-image: linear-gradient(currentColor, currentColor);
+    background-repeat: no-repeat;
+    background-position: 0 100%;
+    background-size: 0% 1px;
+    padding-bottom: 1px;
+    transition: background-size 0.45s cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+
+  .listening-title.is-marquee {
+    width: min(100%, var(--title-marquee-width));
+    mask-image: linear-gradient(
+      90deg,
+      transparent 0,
+      #000 16px,
+      #000 calc(100% - 34px),
+      transparent 100%
+    );
+    -webkit-mask-image: linear-gradient(
+      90deg,
+      transparent 0,
+      #000 16px,
+      #000 calc(100% - 34px),
+      transparent 100%
+    );
+  }
+
+  .listening-title-text {
+    display: inline-block;
+    white-space: nowrap;
+    will-change: transform;
+  }
+
+  [data-listening-title-label] {
+    display: inline-block;
+  }
+
+  .listening-title.is-marquee .listening-title-text {
+    animation: listening-title-marquee var(--title-marquee-duration) linear infinite;
+  }
+
+  .listening-title-duplicate {
+    display: none;
+    padding-left: 28px;
+  }
+
+  .listening-title.is-marquee .listening-title-duplicate {
+    display: inline-block;
+  }
+
+  .listening-track:hover .listening-title,
+  .listening-track:focus-visible .listening-title {
+    background-size: 100% 1px;
+  }
+
+  .listening-sep {
+    display: none;
+    font-size: 13px;
+    color: hsl(var(--muted-foreground) / 0.5);
+  }
+
+  .listening-track.is-inline .listening-sep {
+    display: inline;
+  }
+
+  .listening-artist {
+    max-width: 100%;
+    font-size: 14px;
+    line-height: 1.36;
+    color: hsl(var(--muted-foreground));
+    text-overflow: ellipsis;
+  }
+
+  .listening-meta {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin: 3px 0 0;
+    min-width: 0;
+    font-size: 12px;
+    line-height: 1.36;
+    color: hsl(var(--muted-foreground) / 0.78);
+    font-feature-settings: 'tnum';
+  }
+
+  .listening-meta-dot {
+    width: 2px;
+    height: 2px;
+    border-radius: 999px;
+    background: currentColor;
+    opacity: 0.65;
+  }
+
+  @media (max-width: 520px) {
+    .listening {
+      width: 100%;
+    }
+  }
+
+  @media (max-width: 430px) {
+    .listening {
+      gap: 9px;
+    }
+
+    .listening-art {
+      --record-size: 58px;
+      --label-size: 32px;
+      --record-left: 38px;
+      width: 72px;
+      height: 70px;
+    }
+
+    .listening-title {
+      font-size: 14px;
+    }
+
+    .listening-artist {
+      font-size: 12px;
+    }
+
+    .listening-track {
+      gap: 2px;
+    }
+
+    .listening-track.is-inline {
+      gap: 0 6px;
+    }
+
+    .listening-meta,
+    .listening-eyebrow {
+      font-size: 11px;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .listening-art-frame,
+    .listening-art-record,
+    .listening-art-icons,
+    .listening-art-tonearm,
+    .listening-art-tonearm-arm,
+    .listening-title,
+    .listening-title-text,
+    .listening-eyebrow-wave,
+    .listening-eyebrow-dot {
+      transition: none;
+    }
+
+    .listening-art.is-live .listening-art-record,
+    .listening-art.is-live .listening-art-img,
+    .listening-art.is-preview-playing .listening-art-record,
+    .listening-art.is-preview-playing .listening-art-img,
+    .listening-title.is-marquee .listening-title-text,
+    .listening.is-live .listening-eyebrow-wave span {
+      animation: none;
+    }
+
+  }
+
+  @keyframes listening-record-spin {
+    to {
+      transform: translate(-50%, -50%) rotate(360deg);
+    }
+  }
+
+  @keyframes listening-title-marquee {
+    to {
+      transform: translateX(calc(var(--title-marquee-distance) * -1));
+    }
+  }
+
+  @keyframes listening-wave {
+    0%,
+    100% {
+      transform: scaleY(0.32);
+      opacity: 0.6;
+    }
+    50% {
+      transform: scaleY(1);
+      opacity: 1;
+    }
+  }
+</style>
+
+<script>
+  type Rgb = { r: number; g: number; b: number };
+  type ListeningTrackPayload = {
+    title?: string;
+    artist?: string;
+    collection?: string;
+    appleMusicUrl?: string;
+    sourceUrl?: string;
+    artworkUrl?: string;
+    previewUrl?: string;
+    year?: string;
+    playedAt?: string;
+    isNowPlaying?: boolean;
+  };
+
+  const SAMPLE_SIZE = 24;
+  const LISTENING_REFRESH_MS = 45_000;
+
+  const extractAccentColor = (img: HTMLImageElement): Rgb | null => {
+    const canvas = document.createElement('canvas');
+    canvas.width = SAMPLE_SIZE;
+    canvas.height = SAMPLE_SIZE;
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    if (!ctx) return null;
+
+    try {
+      ctx.drawImage(img, 0, 0, SAMPLE_SIZE, SAMPLE_SIZE);
+      const data = ctx.getImageData(0, 0, SAMPLE_SIZE, SAMPLE_SIZE).data;
+      let best: Rgb | null = null;
+      let bestScore = -1;
+      let avgR = 0;
+      let avgG = 0;
+      let avgB = 0;
+      let avgN = 0;
+
+      for (let i = 0; i < data.length; i += 4) {
+        const r = data[i];
+        const g = data[i + 1];
+        const b = data[i + 2];
+        const a = data[i + 3];
+        if (a < 220) continue;
+
+        avgR += r;
+        avgG += g;
+        avgB += b;
+        avgN += 1;
+
+        const max = Math.max(r, g, b);
+        const min = Math.min(r, g, b);
+        const saturation = max === 0 ? 0 : (max - min) / max;
+        const lightness = (max + min) / 510;
+        if (lightness < 0.2 || lightness > 0.82) continue;
+
+        const score = saturation * 1.8 + (lightness > 0.38 && lightness < 0.7 ? 0.25 : 0);
+        if (score > bestScore) {
+          bestScore = score;
+          best = { r, g, b };
+        }
+      }
+
+      if (best) return best;
+      if (!avgN) return null;
+
+      return {
+        r: Math.round(avgR / avgN),
+        g: Math.round(avgG / avgN),
+        b: Math.round(avgB / avgN)
+      };
+    } catch {
+      return null;
+    }
+  };
+
+  const applyArtworkAccent = (root: HTMLElement, img: HTMLImageElement) => {
+    const color = extractAccentColor(img);
+    if (!color) return;
+    root.style.setProperty('--listening-accent', `rgb(${color.r} ${color.g} ${color.b})`);
+  };
+
+  const initListeningSection = () => {
+    const roots = document.querySelectorAll('[data-listening]');
+
+    roots.forEach((root) => {
+      if (!(root instanceof HTMLElement) || root.dataset.bound === 'true') {
+        return;
+      }
+
+      root.dataset.bound = 'true';
+
+      const playButton = root.querySelector('[data-listening-play]');
+      if (!(playButton instanceof HTMLButtonElement)) {
+        return;
+      }
+
+      const artwork = root.querySelector('[data-listening-artwork]');
+      const link = root.querySelector('[data-listening-link]');
+      const title = root.querySelector('[data-listening-title]');
+      const titleText = root.querySelector('[data-listening-title-text]');
+      const titleLabel = root.querySelector('[data-listening-title-label]');
+      const titleDuplicate = root.querySelector('[data-listening-title-duplicate]');
+      const separator = root.querySelector('.listening-sep');
+      const artist = root.querySelector('[data-listening-artist]');
+      const collection = root.querySelector('[data-listening-collection]');
+      const year = root.querySelector('[data-listening-year]');
+      const status = root.querySelector('[data-listening-status]');
+
+      let audio: HTMLAudioElement | null = null;
+      let trackTitle = playButton.dataset.trackTitle ?? 'Track';
+      let isLive = root.dataset.nowPlaying === 'true';
+
+      const refreshArtworkAccent = () => {
+        if (!(artwork instanceof HTMLImageElement)) return;
+
+        if (artwork.complete && artwork.naturalWidth > 0) {
+          applyArtworkAccent(root, artwork);
+        } else {
+          artwork.addEventListener('load', () => applyArtworkAccent(root, artwork), { once: true });
+        }
+      };
+
+      const setLiveState = (nextIsLive: boolean) => {
+        isLive = nextIsLive;
+        root.dataset.nowPlaying = String(nextIsLive);
+        root.classList.toggle('is-live', nextIsLive);
+        root.classList.toggle('is-recent', !nextIsLive);
+        playButton.classList.toggle('is-live', nextIsLive);
+        playButton.classList.toggle('is-recent', !nextIsLive);
+        if (status) status.textContent = nextIsLive ? 'Now Playing' : 'Recently Played';
+      };
+
+      const setPreviewState = (isPlaying: boolean) => {
+        root.classList.toggle('is-preview-playing', isPlaying);
+        playButton.classList.toggle('is-preview-playing', isPlaying);
+        playButton.setAttribute('aria-pressed', isPlaying ? 'true' : 'false');
+        playButton.setAttribute(
+          'aria-label',
+          `${isPlaying ? 'Pause' : 'Play'} preview of ${trackTitle}`
+        );
+      };
+
+      const syncTitleMarquee = () => {
+        if (!(title instanceof HTMLElement) || !(titleText instanceof HTMLElement)) {
+          return;
+        }
+
+        title.classList.remove('is-marquee');
+        title.style.removeProperty('--title-marquee-duration');
+        title.style.removeProperty('--title-marquee-distance');
+        title.style.removeProperty('--title-marquee-width');
+        link?.classList.remove('is-inline');
+
+        window.requestAnimationFrame(() => {
+          const measuredTitle = titleLabel instanceof HTMLElement ? titleLabel : titleText;
+          const measuredArtist = artist instanceof HTMLElement ? artist : null;
+          const measuredSeparator = separator instanceof HTMLElement ? separator : null;
+          const maxTitleWidth = 360;
+          const containerWidth = link?.parentElement?.clientWidth || maxTitleWidth;
+          const displayWidth = Math.min(containerWidth, maxTitleWidth);
+          const separatorWidth = measuredSeparator?.scrollWidth || 8;
+          const artistWidth = measuredArtist?.scrollWidth ?? 0;
+          const inlineGap = 16;
+          const inlineWidth = measuredTitle.scrollWidth + separatorWidth + artistWidth + inlineGap;
+
+          if (inlineWidth <= containerWidth) {
+            link?.classList.add('is-inline');
+            return;
+          }
+
+          const overflow = measuredTitle.scrollWidth > displayWidth + 2;
+          if (!overflow) return;
+
+          const distance = measuredTitle.scrollWidth + 28;
+          const duration = Math.max(12, Math.min(26, distance / 22));
+          title.style.setProperty('--title-marquee-width', `${displayWidth}px`);
+          title.style.setProperty('--title-marquee-distance', `${distance}px`);
+          title.style.setProperty('--title-marquee-duration', `${duration}s`);
+          title.classList.add('is-marquee');
+        });
+      };
+
+      const setPreview = (previewUrl: string) => {
+        if (audio) {
+          audio.pause();
+          audio.currentTime = 0;
+        }
+
+        setPreviewState(false);
+        playButton.dataset.previewUrl = previewUrl;
+        audio = previewUrl ? new Audio(previewUrl) : null;
+
+        if (!audio) {
+          playButton.disabled = true;
+          playButton.setAttribute('aria-label', `${trackTitle} preview unavailable`);
+          return;
+        }
+
+        audio.preload = 'none';
+        audio.addEventListener('ended', () => {
+          setPreviewState(false);
+        });
+        playButton.disabled = false;
+        playButton.setAttribute('aria-label', `Play preview of ${trackTitle}`);
+      };
+
+      const formatPlayedAt = (playedAt: string) => {
+        const date = new Date(playedAt);
+        if (!Number.isFinite(date.getTime())) {
+          return '';
+        }
+
+        return new Intl.DateTimeFormat(undefined, {
+          month: 'short',
+          day: 'numeric'
+        }).format(date);
+      };
+
+      const applyTrack = (track: ListeningTrackPayload) => {
+        const nextTitle = track.title?.trim() || trackTitle;
+        const nextArtist = track.artist?.trim() || '';
+        const nextCollection = track.collection?.trim() || '';
+        const nextLink = track.appleMusicUrl?.trim() || track.sourceUrl?.trim() || '';
+        const nextArtwork = track.artworkUrl?.trim() || '';
+        const nextPreviewUrl = track.previewUrl?.trim() || '';
+        const nextYear = track.year?.trim() || formatPlayedAt(track.playedAt ?? '');
+
+        trackTitle = nextTitle;
+        playButton.dataset.trackTitle = nextTitle;
+
+        if (titleLabel instanceof HTMLElement && titleDuplicate instanceof HTMLElement) {
+          titleLabel.textContent = nextTitle;
+          titleDuplicate.textContent = nextTitle;
+        } else if (title) {
+          title.textContent = nextTitle;
+        }
+        if (artist) artist.textContent = nextArtist;
+        if (collection) collection.textContent = nextCollection;
+        if (year) year.textContent = nextYear;
+        setLiveState(Boolean(track.isNowPlaying));
+
+        if (link instanceof HTMLAnchorElement && nextLink) {
+          link.href = nextLink;
+          link.setAttribute('aria-label', `Open ${nextTitle}`);
+        }
+
+        if (artwork instanceof HTMLImageElement && nextArtwork && artwork.src !== nextArtwork) {
+          artwork.src = nextArtwork;
+          refreshArtworkAccent();
+        }
+
+        if ((playButton.dataset.previewUrl ?? '') !== nextPreviewUrl) {
+          setPreview(nextPreviewUrl);
+        } else if (!audio) {
+          playButton.setAttribute('aria-label', `${trackTitle} preview unavailable`);
+        } else {
+          playButton.setAttribute('aria-label', `Play preview of ${trackTitle}`);
+        }
+
+        syncTitleMarquee();
+      };
+
+      setLiveState(isLive);
+      refreshArtworkAccent();
+      setPreview(playButton.dataset.previewUrl ?? '');
+      syncTitleMarquee();
+
+      window.addEventListener('resize', syncTitleMarquee, { passive: true });
+
+      playButton.addEventListener('click', async () => {
+        if (!audio) {
+          return;
+        }
+
+        if (audio.paused) {
+          setPreviewState(true);
+
+          try {
+            await audio.play();
+          } catch {
+            setPreviewState(false);
+          }
+
+          return;
+        }
+
+        audio.pause();
+        audio.currentTime = 0;
+        setPreviewState(false);
+      });
+
+      const refreshListening = async () => {
+        try {
+          const response = await fetch('/api/listening', {
+            headers: {
+              Accept: 'application/json'
+            }
+          });
+          if (!response.ok) {
+            return;
+          }
+
+          const payload = await response.json() as { track?: ListeningTrackPayload };
+          if (payload.track) {
+            applyTrack(payload.track);
+          }
+        } catch {
+          // Keep the static fallback when live listening data is unavailable.
+        }
+      };
+
+      window.setTimeout(refreshListening, 800);
+      window.setInterval(refreshListening, LISTENING_REFRESH_MS);
+    });
+  };
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initListeningSection, { once: true });
+  } else {
+    initListeningSection();
+  }
+</script>

@@ -33,6 +33,9 @@ export default defineConfig({
   integrations: [
     react(),
   ],
+  devToolbar: {
+    enabled: false,
+  },
   site: 'https://buxx.me',
   output: 'static',
   compressHTML: true,
