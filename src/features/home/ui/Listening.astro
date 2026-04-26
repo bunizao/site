@@ -1,33 +1,30 @@
 ---
-import { getListeningTracks } from '@/features/home/server/listening';
 import { Pause, Play } from 'lucide-react';
 
-const tracks = await getListeningTracks();
-const initialTrack = tracks[0] ?? null;
-const initialArtworkUrl = initialTrack ? initialTrack.thumbUrl || initialTrack.artworkUrl : '';
+const blankArtwork =
+  'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==';
 ---
 
-{initialTrack && (
   <aside
-    class:list={['listening', initialTrack.isNowPlaying ? 'is-live' : 'is-recent']}
+    class="listening is-loading is-recent"
     data-listening
-    data-now-playing={String(initialTrack.isNowPlaying)}
-    aria-label="Now playing"
+    data-now-playing="false"
+    aria-label="Loading listening track"
   >
     <button
       type="button"
-      class:list={['listening-art', initialTrack.isNowPlaying ? 'is-live' : 'is-recent']}
+      class="listening-art is-recent"
       data-listening-play
-      data-preview-url={initialTrack.previewUrl}
-      data-track-title={initialTrack.title}
-      disabled={!initialTrack.previewUrl}
+      data-preview-url=""
+      data-track-title="Track"
+      disabled
       aria-pressed="false"
-      aria-label={`Play preview of ${initialTrack.title}`}
+      aria-label="Track preview unavailable"
     >
       <span class="listening-art-frame">
         <span class="listening-art-record" aria-hidden="true"></span>
         <img
-          src={initialArtworkUrl}
+          src={blankArtwork}
           alt=""
           class="listening-art-img"
           data-listening-artwork
@@ -83,7 +80,7 @@ const initialArtworkUrl = initialTrack ? initialTrack.thumbUrl || initialTrack.a
       <p class="listening-eyebrow">
         <span class="listening-eyebrow-dot" aria-hidden="true"></span>
         <span class="listening-eyebrow-text" data-listening-status>
-          {initialTrack.isNowPlaying ? 'Now Playing' : 'Recently Played'}
+          Now Playing
         </span>
         <span class="listening-eyebrow-wave" aria-hidden="true">
           <span></span>
@@ -94,37 +91,38 @@ const initialArtworkUrl = initialTrack ? initialTrack.thumbUrl || initialTrack.a
       </p>
 
       <a
-        href={initialTrack.appleMusicUrl}
+        href="#"
         target="_blank"
         rel="noopener noreferrer"
-        class="listening-track"
+        class="listening-track is-inline"
         data-listening-link
-        aria-label={`Open ${initialTrack.title}`}
+        aria-label="Loading listening track"
+        aria-disabled="true"
+        tabindex="-1"
       >
         <span class="listening-title" data-listening-title>
           <span class="listening-title-text" data-listening-title-text>
-            <span data-listening-title-label>{initialTrack.title}</span>
+            <span data-listening-title-label>Loading track</span>
             <span
               class="listening-title-duplicate"
               data-listening-title-duplicate
               aria-hidden="true"
             >
-              {initialTrack.title}
+              Loading track
             </span>
           </span>
         </span>
         <span class="listening-sep" aria-hidden="true">—</span>
-        <span class="listening-artist" data-listening-artist>{initialTrack.artist}</span>
+        <span class="listening-artist" data-listening-artist>Fetching</span>
       </a>
 
       <p class="listening-meta">
-        <span data-listening-collection>{initialTrack.collection}</span>
+        <span data-listening-collection>Last.fm</span>
         <span class="listening-meta-dot" aria-hidden="true"></span>
-        <span data-listening-year>{initialTrack.year}</span>
+        <span data-listening-year>Live</span>
       </p>
     </div>
   </aside>
-)}
 
 <style>
   .listening {
@@ -136,6 +134,10 @@ const initialArtworkUrl = initialTrack ? initialTrack.thumbUrl || initialTrack.a
     width: fit-content;
     max-width: min(100%, 520px);
     color: hsl(var(--muted-foreground));
+  }
+
+  .listening.is-loading .listening-track {
+    pointer-events: none;
   }
 
   .listening-art {
@@ -515,6 +517,44 @@ const initialArtworkUrl = initialTrack ? initialTrack.thumbUrl || initialTrack.a
     background-size: 0% 1px;
     padding-bottom: 1px;
     transition: background-size 0.45s cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+
+  .listening.is-loading .listening-title,
+  .listening.is-loading .listening-artist,
+  .listening.is-loading .listening-meta span:not(.listening-meta-dot),
+  .listening.is-loading .listening-eyebrow-text {
+    width: fit-content;
+    color: transparent;
+    border-radius: 999px;
+    background: hsl(var(--foreground) / 0.08);
+    user-select: none;
+  }
+
+  .listening.is-loading .listening-title {
+    min-width: 160px;
+    height: 14px;
+    padding-bottom: 0;
+    background-image: none;
+  }
+
+  .listening.is-loading .listening-sep,
+  .listening.is-loading .listening-meta-dot {
+    opacity: 0;
+  }
+
+  .listening.is-loading .listening-artist {
+    min-width: 94px;
+    height: 13px;
+  }
+
+  .listening.is-loading .listening-meta span:not(.listening-meta-dot) {
+    min-width: 58px;
+    height: 10px;
+  }
+
+  .listening.is-loading .listening-eyebrow-text {
+    min-width: 78px;
+    height: 8px;
   }
 
   .listening-title.is-marquee {
@@ -916,8 +956,11 @@ const initialArtworkUrl = initialTrack ? initialTrack.thumbUrl || initialTrack.a
         const nextArtwork = track.thumbUrl?.trim() || track.artworkUrl?.trim() || '';
         const nextPreviewUrl = track.previewUrl?.trim() || '';
         const nextYear = track.year?.trim() || formatPlayedAt(track.playedAt ?? '');
+        const nextIsLive = Boolean(track.isNowPlaying);
 
         trackTitle = nextTitle;
+        root.classList.remove('is-loading');
+        root.setAttribute('aria-label', nextIsLive ? 'Now playing' : 'Recently played');
         playButton.dataset.trackTitle = nextTitle;
 
         if (titleLabel instanceof HTMLElement && titleDuplicate instanceof HTMLElement) {
@@ -929,11 +972,13 @@ const initialArtworkUrl = initialTrack ? initialTrack.thumbUrl || initialTrack.a
         if (artist) artist.textContent = nextArtist;
         if (collection) collection.textContent = nextCollection;
         if (year) year.textContent = nextYear;
-        setLiveState(Boolean(track.isNowPlaying));
+        setLiveState(nextIsLive);
 
         if (link instanceof HTMLAnchorElement && nextLink) {
           link.href = nextLink;
           link.setAttribute('aria-label', `Open ${nextTitle}`);
+          link.removeAttribute('aria-disabled');
+          link.removeAttribute('tabindex');
         }
 
         if (artwork instanceof HTMLImageElement && nextArtwork && artwork.src !== nextArtwork) {
@@ -1001,7 +1046,7 @@ const initialArtworkUrl = initialTrack ? initialTrack.thumbUrl || initialTrack.a
         }
       };
 
-      window.setTimeout(refreshListening, 800);
+      void refreshListening();
       window.setInterval(refreshListening, LISTENING_REFRESH_MS);
     });
   };

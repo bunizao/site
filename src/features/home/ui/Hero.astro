@@ -123,16 +123,7 @@ const techRow2 = ['Frontend', 'BGP', 'Proxy', 'Docker', 'Linux', 'Web3', 'Optimi
     </div>
 
     <div class="hero-animate mt-6 sm:mt-7" data-hero-motion data-hero-listening>
-      <Listening server:defer>
-        <aside slot="fallback" class="listening-fallback" aria-hidden="true">
-          <span class="listening-fallback-art"></span>
-          <span class="listening-fallback-copy">
-            <span class="listening-fallback-line listening-fallback-line--status"></span>
-            <span class="listening-fallback-line listening-fallback-line--title"></span>
-            <span class="listening-fallback-line listening-fallback-line--meta"></span>
-          </span>
-        </aside>
-      </Listening>
+      <Listening />
     </div>
 
     <!-- GitHub Activity -->
@@ -212,78 +203,6 @@ const techRow2 = ['Frontend', 'BGP', 'Proxy', 'Docker', 'Linux', 'Web3', 'Optimi
     align-items: center;
   }
 
-  .listening-fallback {
-    display: grid;
-    grid-template-columns: auto minmax(0, 1fr);
-    align-items: center;
-    gap: 11px;
-    width: min(100%, 320px);
-    min-height: 84px;
-    color: hsl(var(--muted-foreground) / 0.72);
-  }
-
-  .listening-fallback-art {
-    width: 88px;
-    height: 84px;
-    display: block;
-    position: relative;
-  }
-
-  .listening-fallback-art::before,
-  .listening-fallback-art::after {
-    content: '';
-    position: absolute;
-    border-radius: 999px;
-  }
-
-  .listening-fallback-art::before {
-    top: 6px;
-    left: 10px;
-    width: 72px;
-    height: 72px;
-    background:
-      radial-gradient(circle at 50% 50%, transparent 0 24%, hsl(0 0% 100% / 0.06) 24.5% 25.5%, transparent 26%),
-      repeating-radial-gradient(circle at 50% 50%, hsl(0 0% 100% / 0.05) 0 1px, transparent 1px 4px),
-      hsl(var(--foreground) / 0.06);
-  }
-
-  .listening-fallback-art::after {
-    top: 22px;
-    left: 26px;
-    width: 40px;
-    height: 40px;
-    background: hsl(var(--foreground) / 0.08);
-    box-shadow: inset 0 0 0 1px hsl(0 0% 100% / 0.05);
-  }
-
-  .listening-fallback-copy {
-    min-width: 0;
-    display: grid;
-    gap: 8px;
-  }
-
-  .listening-fallback-line {
-    display: block;
-    height: 9px;
-    border-radius: 999px;
-    background: hsl(var(--foreground) / 0.08);
-  }
-
-  .listening-fallback-line--status {
-    width: 74px;
-    height: 7px;
-    opacity: 0.78;
-  }
-
-  .listening-fallback-line--title {
-    width: min(100%, 180px);
-    height: 12px;
-  }
-
-  .listening-fallback-line--meta {
-    width: min(100%, 124px);
-    opacity: 0.82;
-  }
 </style>
 
 <script>

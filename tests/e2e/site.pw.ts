@@ -153,13 +153,14 @@ test.describe('Home page', () => {
       .toBe(true);
   });
 
-  test('does not inline listening track data into the prerendered home HTML', async ({ page }) => {
+  test('does not inline stale listening data or server islands into the home HTML', async ({ page }) => {
     const response = await page.request.get('/');
     expect(response.ok()).toBeTruthy();
 
     const html = await response.text();
-    expect(html).not.toContain('data-listening-link');
-    expect(html).not.toContain('data-listening-play');
+    expect(html).not.toContain('_server-islands/Listening');
+    expect(html).not.toContain('Mr. Rager');
+    expect(html).not.toContain('data-track-title="Mr. Rager"');
   });
 
   test('loads mood preview and navigates to /mood', async ({ page }) => {
