@@ -123,8 +123,14 @@ Variable descriptions are maintained as inline comments in [`.env`](.env).
 Use `.env.local` for local secrets and keep [`.env`](.env) as the documented template.
 
 ## Acknowledgements
+- [miantiao-me/BroadcastChannel](https://github.com/miantiao-me/BroadcastChannel) - Inspiration and code reference for `moods` ideas.
+- [ddiu8081/ddiu.io](https://github.com/ddiu8081/ddiu.io) - Inspiration and code reference for `Ghost API` integration.
+- [zmh-program/zmh-program.github.io](https://github.com/zmh-program/zmh-program.github.io) - Inspiration for layout and style ideas.
+- [antfu/antfu.me](https://antfu.me/) - Inspiration for personal website design and content ideas.
 - [hritish.com](https://hritish.com/) - Reference for the listening / recently played section and the `last.fm` driven now playing presentation.
 - [John Tornow - Now Playing: A Web Component](https://johntornow.com/etc/now-playing/) - Reference for the now playing component pattern and lightweight playback status presentation.
+- The [Astro](https://astro.build/), [React](https://react.dev/), and [Tailwind CSS](https://tailwindcss.com/) communities for great tooling and docs.
+- Open-source maintainers whose libraries power this site.
 
 ## License
 Copyright (c) 2026 bunizao. All rights reserved.
