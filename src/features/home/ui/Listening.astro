@@ -732,7 +732,14 @@ const blankArtwork =
 </style>
 
 <script>
+  import { Vibrant } from 'node-vibrant/browser';
+
   type Rgb = { r: number; g: number; b: number };
+  type PaletteSwatch = {
+    hsl: [number, number, number];
+    rgb: [number, number, number];
+    population: number;
+  };
   type ListeningTrackPayload = {
     title?: string;
     artist?: string;
@@ -747,66 +754,58 @@ const blankArtwork =
     isNowPlaying?: boolean;
   };
 
-  const SAMPLE_SIZE = 24;
+  const PALETTE_PRIORITY = [
+    'Vibrant',
+    'Muted',
+    'DarkVibrant',
+    'LightVibrant',
+    'DarkMuted',
+    'LightMuted'
+  ] as const;
   const LISTENING_REFRESH_MS = 45_000;
 
-  const extractAccentColor = (img: HTMLImageElement): Rgb | null => {
-    const canvas = document.createElement('canvas');
-    canvas.width = SAMPLE_SIZE;
-    canvas.height = SAMPLE_SIZE;
-    const ctx = canvas.getContext('2d', { willReadFrequently: true });
-    if (!ctx) return null;
+  const scoreSwatch = (swatch: PaletteSwatch, priorityIndex: number) => {
+    const [, saturation, lightness] = swatch.hsl;
+    if (lightness < 0.18 || lightness > 0.82 || saturation < 0.12) {
+      return -1;
+    }
 
+    const populationScore = Math.min(1, Math.log10(swatch.population + 1) / 3);
+    const lightnessScore = 1 - Math.abs(lightness - 0.52) / 0.34;
+    return saturation * 0.45 + lightnessScore * 0.35 + populationScore * 0.2 - priorityIndex * 0.04;
+  };
+
+  const extractAccentColor = async (img: HTMLImageElement): Promise<Rgb | null> => {
     try {
-      ctx.drawImage(img, 0, 0, SAMPLE_SIZE, SAMPLE_SIZE);
-      const data = ctx.getImageData(0, 0, SAMPLE_SIZE, SAMPLE_SIZE).data;
-      let best: Rgb | null = null;
-      let bestScore = -1;
-      let avgR = 0;
-      let avgG = 0;
-      let avgB = 0;
-      let avgN = 0;
+      const palette = await Vibrant.from(img).getPalette();
+      const candidates = PALETTE_PRIORITY
+        .map((name, priorityIndex) => {
+          const swatch = palette[name];
+          return swatch ? { swatch, score: scoreSwatch(swatch, priorityIndex) } : null;
+        })
+        .filter((candidate): candidate is { swatch: PaletteSwatch; score: number } => {
+          return Boolean(candidate) && candidate.score >= 0;
+        })
+        .sort((a, b) => b.score - a.score);
 
-      for (let i = 0; i < data.length; i += 4) {
-        const r = data[i];
-        const g = data[i + 1];
-        const b = data[i + 2];
-        const a = data[i + 3];
-        if (a < 220) continue;
+      const selected = candidates[0]?.swatch ?? PALETTE_PRIORITY.map((name) => palette[name]).find(Boolean);
+      if (!selected) return null;
 
-        avgR += r;
-        avgG += g;
-        avgB += b;
-        avgN += 1;
-
-        const max = Math.max(r, g, b);
-        const min = Math.min(r, g, b);
-        const saturation = max === 0 ? 0 : (max - min) / max;
-        const lightness = (max + min) / 510;
-        if (lightness < 0.2 || lightness > 0.82) continue;
-
-        const score = saturation * 1.8 + (lightness > 0.38 && lightness < 0.7 ? 0.25 : 0);
-        if (score > bestScore) {
-          bestScore = score;
-          best = { r, g, b };
-        }
-      }
-
-      if (best) return best;
-      if (!avgN) return null;
-
+      const [r, g, b] = selected.rgb;
       return {
-        r: Math.round(avgR / avgN),
-        g: Math.round(avgG / avgN),
-        b: Math.round(avgB / avgN)
+        r: Math.round(r),
+        g: Math.round(g),
+        b: Math.round(b)
       };
     } catch {
       return null;
     }
   };
 
-  const applyArtworkAccent = (root: HTMLElement, img: HTMLImageElement) => {
-    const color = extractAccentColor(img);
+  const applyArtworkAccent = async (root: HTMLElement, img: HTMLImageElement) => {
+    const source = img.currentSrc || img.src;
+    const color = await extractAccentColor(img);
+    if (source !== (img.currentSrc || img.src)) return;
     if (!color) return;
     root.style.setProperty('--listening-accent', `rgb(${color.r} ${color.g} ${color.b})`);
   };
@@ -846,9 +845,9 @@ const blankArtwork =
         if (!(artwork instanceof HTMLImageElement)) return;
 
         if (artwork.complete && artwork.naturalWidth > 0) {
-          applyArtworkAccent(root, artwork);
+          void applyArtworkAccent(root, artwork);
         } else {
-          artwork.addEventListener('load', () => applyArtworkAccent(root, artwork), { once: true });
+          artwork.addEventListener('load', () => void applyArtworkAccent(root, artwork), { once: true });
         }
       };
 
