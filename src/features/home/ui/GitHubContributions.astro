@@ -41,10 +41,18 @@ const placeholderBars = Array.from({ length: 30 });
 <script is:inline>
   const sections = document.querySelectorAll('[data-contributions]');
   const schedule = (callback) => {
-    if ('requestIdleCallback' in window) {
-      window.requestIdleCallback(callback, { timeout: 1500 });
+    const runWhenIdle = () => {
+      if ('requestIdleCallback' in window) {
+        window.requestIdleCallback(callback, { timeout: 3500 });
+      } else {
+        setTimeout(callback, 1500);
+      }
+    };
+
+    if (document.readyState === 'complete') {
+      runWhenIdle();
     } else {
-      setTimeout(callback, 0);
+      window.addEventListener('load', runWhenIdle, { once: true });
     }
   };
 
