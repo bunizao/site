@@ -316,17 +316,6 @@ const initialTrack = tracks[0] ?? null;
     animation: listening-record-spin 14s linear infinite;
   }
 
-  .listening-art:hover:not(:disabled):not(.is-playing) .listening-art-record,
-  .listening-art:focus-visible:not(:disabled):not(.is-playing) .listening-art-record {
-    animation: listening-record-hover-turn 1.25s ease-in-out infinite alternate;
-    filter: brightness(1.08) contrast(1.05);
-  }
-
-  .listening-art:hover:not(:disabled):not(.is-playing) .listening-art-img,
-  .listening-art:focus-visible:not(:disabled):not(.is-playing) .listening-art-img {
-    animation: listening-label-hover-turn 1.25s ease-in-out infinite alternate;
-  }
-
   .listening-art.is-playing .listening-art-spindle {
     transform: translate(-50%, -50%) scale(1);
     opacity: 1;
@@ -359,10 +348,16 @@ const initialTrack = tracks[0] ?? null;
   .listening-art-tonearm-arm {
     transform-origin: 20px 15px;
     transform: rotate(-42deg);
-    transition: transform 0.65s cubic-bezier(0.34, 1.55, 0.64, 1) 0.18s;
+    transition: transform 0.45s cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+
+  .listening-art:hover:not(:disabled):not(.is-playing) .listening-art-tonearm-arm,
+  .listening-art:focus-visible:not(:disabled):not(.is-playing) .listening-art-tonearm-arm {
+    transform: rotate(-18deg);
   }
 
   .listening-art.is-playing .listening-art-tonearm-arm {
+    transition: transform 0.65s cubic-bezier(0.34, 1.55, 0.64, 1) 0.18s;
     transform: rotate(23deg);
   }
 
@@ -377,6 +372,15 @@ const initialTrack = tracks[0] ?? null;
     fill: currentColor;
     stroke: hsl(var(--background) / 0.75);
     stroke-width: 0.4;
+    transition:
+      filter 0.3s ease,
+      stroke 0.3s ease;
+  }
+
+  .listening-art:hover:not(:disabled):not(.is-playing) .listening-art-tonearm-cartridge,
+  .listening-art:focus-visible:not(:disabled):not(.is-playing) .listening-art-tonearm-cartridge {
+    filter: drop-shadow(0 0 4px hsl(0 0% 100% / 0.34));
+    stroke: hsl(var(--background) / 0.42);
   }
 
   .listening-art-tonearm-pivot {
@@ -586,9 +590,7 @@ const initialTrack = tracks[0] ?? null;
     }
 
     .listening-art.is-playing .listening-art-record,
-    .listening-art:hover:not(:disabled):not(.is-playing) .listening-art-record,
     .listening-art.is-playing .listening-art-img,
-    .listening-art:hover:not(:disabled):not(.is-playing) .listening-art-img,
     .listening.is-playing .listening-eyebrow-wave span {
       animation: none;
     }
@@ -601,18 +603,6 @@ const initialTrack = tracks[0] ?? null;
   @keyframes listening-record-spin {
     to {
       transform: translate(-50%, -50%) rotate(360deg);
-    }
-  }
-
-  @keyframes listening-record-hover-turn {
-    to {
-      transform: translate(-50%, -50%) rotate(8deg);
-    }
-  }
-
-  @keyframes listening-label-hover-turn {
-    to {
-      transform: translate(-50%, -50%) rotate(8deg);
     }
   }
 
