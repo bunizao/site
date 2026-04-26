@@ -153,6 +153,15 @@ test.describe('Home page', () => {
       .toBe(true);
   });
 
+  test('does not inline listening track data into the prerendered home HTML', async ({ page }) => {
+    const response = await page.request.get('/');
+    expect(response.ok()).toBeTruthy();
+
+    const html = await response.text();
+    expect(html).not.toContain('data-listening-link');
+    expect(html).not.toContain('data-listening-play');
+  });
+
   test('loads mood preview and navigates to /mood', async ({ page }) => {
     await page.route('**/api/moods', async (route) => {
       await route.fulfill({

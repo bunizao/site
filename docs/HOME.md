@@ -102,7 +102,8 @@ Implementation files:
 Data flow:
 
 - The initial render uses bundled fallback metadata so the static home page always renders.
-- The client fetches `/api/listening`, which reads Last.fm `user.getRecentTracks`.
+- The hero mounts the listening card as a deferred server island so the prerendered home HTML does not freeze an old track into the static page.
+- The client still fetches `/api/listening`, which reads Last.fm `user.getRecentTracks`, to refresh the card after first paint.
 - Last.fm provides the current or latest track; iTunes Search enriches it with preview audio and higher-confidence artwork when available.
 - Missing Last.fm configuration keeps the static fallback in place.
 
