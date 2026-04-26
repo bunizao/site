@@ -110,7 +110,6 @@ const initialTrack = tracks[0] ?? null;
             </span>
           </span>
         </span>
-        <span class="listening-sep" aria-hidden="true">—</span>
         <span class="listening-artist" data-listening-artist>{initialTrack.artist}</span>
       </a>
 
@@ -428,15 +427,16 @@ const initialTrack = tracks[0] ?? null;
     min-width: 0;
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 3px;
   }
 
   .listening-eyebrow {
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    margin: 0 0 2px;
+    margin: 0 0 1px;
     font-size: 11px;
+    line-height: 1.18;
     letter-spacing: 0.14em;
     text-transform: uppercase;
     color: hsl(var(--muted-foreground) / 0.84);
@@ -504,9 +504,9 @@ const initialTrack = tracks[0] ?? null;
   /* Track line */
   .listening-track {
     display: inline-flex;
-    flex-wrap: wrap;
-    align-items: baseline;
-    gap: 0 8px;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
     min-width: 0;
     width: fit-content;
     max-width: 100%;
@@ -527,7 +527,7 @@ const initialTrack = tracks[0] ?? null;
     flex: 0 1 auto;
     max-width: min(100%, 360px);
     font-size: 15px;
-    line-height: 1.4;
+    line-height: 1.28;
     color: hsl(var(--foreground));
     text-overflow: clip;
     background-image: linear-gradient(currentColor, currentColor);
@@ -584,14 +584,9 @@ const initialTrack = tracks[0] ?? null;
     background-size: 100% 1px;
   }
 
-  .listening-sep {
-    font-size: 13px;
-    color: hsl(var(--muted-foreground) / 0.5);
-  }
-
   .listening-artist {
     font-size: 14px;
-    line-height: 1.45;
+    line-height: 1.36;
     color: hsl(var(--muted-foreground));
     text-overflow: ellipsis;
   }
@@ -600,10 +595,10 @@ const initialTrack = tracks[0] ?? null;
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    margin: 2px 0 0;
+    margin: 3px 0 0;
     min-width: 0;
     font-size: 12px;
-    line-height: 1.4;
+    line-height: 1.36;
     color: hsl(var(--muted-foreground) / 0.78);
     font-feature-settings: 'tnum';
   }
@@ -643,12 +638,8 @@ const initialTrack = tracks[0] ?? null;
       font-size: 12px;
     }
 
-    .listening-sep {
-      display: none;
-    }
-
     .listening-track {
-      gap: 2px 6px;
+      gap: 2px;
     }
 
     .listening-meta,
