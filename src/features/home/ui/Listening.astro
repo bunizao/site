@@ -444,18 +444,21 @@ const initialTrack = tracks[0] ?? null;
   }
 
   .listening-eyebrow-dot {
-    width: 5px;
-    height: 5px;
+    width: 3px;
+    height: 3px;
     border-radius: 999px;
-    background: hsl(var(--foreground) / 0.45);
+    background: currentColor;
+    opacity: 0.42;
     transition:
       background 0.3s ease,
-      box-shadow 0.3s ease;
+      opacity 0.3s ease,
+      transform 0.3s ease;
   }
 
   .listening.is-live .listening-eyebrow-dot {
-    background: var(--listening-accent);
-    box-shadow: 0 0 0 4px color-mix(in srgb, var(--listening-accent) 18%, transparent);
+    background: color-mix(in srgb, var(--listening-accent) 42%, currentColor);
+    opacity: 0.68;
+    transform: scale(1.08);
   }
 
   .listening-eyebrow-wave {
