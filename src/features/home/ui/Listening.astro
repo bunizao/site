@@ -30,7 +30,6 @@ const initialTrack = tracks[0] ?? null;
           decoding="async"
           referrerpolicy="no-referrer"
         />
-        <span class="listening-art-tint" aria-hidden="true"></span>
         <span class="listening-art-spindle" aria-hidden="true"></span>
         <span class="listening-art-icons" aria-hidden="true">
           <Play className="listening-art-icon listening-art-icon--play" aria-hidden="true" />
@@ -118,7 +117,6 @@ const initialTrack = tracks[0] ?? null;
   }
 
   .listening-art {
-    --listening-tint: hsl(0 0% 30% / 0.85);
     --record-size: 72px;
     --label-size: 40px;
     --record-left: 46px;
@@ -189,6 +187,7 @@ const initialTrack = tracks[0] ?? null;
     transition:
       filter 0.3s ease,
       transform 0.45s cubic-bezier(0.2, 0.8, 0.2, 1);
+    will-change: transform;
     z-index: 1;
   }
 
@@ -242,28 +241,6 @@ const initialTrack = tracks[0] ?? null;
       0 0 0 1px hsl(0 0% 0% / 0.5);
     will-change: transform;
     z-index: 2;
-  }
-
-  /* Color-blend tint over the cover image */
-  .listening-art-tint {
-    position: absolute;
-    top: 50%;
-    left: var(--record-left);
-    width: var(--record-size);
-    height: var(--record-size);
-    border-radius: 999px;
-    transform: translate(-50%, -50%);
-    background: var(--listening-tint);
-    mix-blend-mode: color;
-    opacity: 0;
-    transition: opacity 0.22s ease;
-    pointer-events: none;
-    z-index: 2;
-  }
-
-  .listening-art:hover:not(:disabled) .listening-art-tint,
-  .listening-art:focus-visible:not(:disabled) .listening-art-tint {
-    opacity: 1;
   }
 
   .listening-art-spindle {
@@ -337,6 +314,17 @@ const initialTrack = tracks[0] ?? null;
   .listening-art.is-playing .listening-art-record,
   .listening-art.is-playing .listening-art-img {
     animation: listening-record-spin 14s linear infinite;
+  }
+
+  .listening-art:hover:not(:disabled):not(.is-playing) .listening-art-record,
+  .listening-art:focus-visible:not(:disabled):not(.is-playing) .listening-art-record {
+    animation: listening-record-hover-turn 1.25s ease-in-out infinite alternate;
+    filter: brightness(1.08) contrast(1.05);
+  }
+
+  .listening-art:hover:not(:disabled):not(.is-playing) .listening-art-img,
+  .listening-art:focus-visible:not(:disabled):not(.is-playing) .listening-art-img {
+    animation: listening-label-hover-turn 1.25s ease-in-out infinite alternate;
   }
 
   .listening-art.is-playing .listening-art-spindle {
@@ -587,7 +575,6 @@ const initialTrack = tracks[0] ?? null;
   @media (prefers-reduced-motion: reduce) {
     .listening-art-frame,
     .listening-art-record,
-    .listening-art-tint,
     .listening-art-icons,
     .listening-art-spindle,
     .listening-art-tonearm,
@@ -599,7 +586,9 @@ const initialTrack = tracks[0] ?? null;
     }
 
     .listening-art.is-playing .listening-art-record,
+    .listening-art:hover:not(:disabled):not(.is-playing) .listening-art-record,
     .listening-art.is-playing .listening-art-img,
+    .listening-art:hover:not(:disabled):not(.is-playing) .listening-art-img,
     .listening.is-playing .listening-eyebrow-wave span {
       animation: none;
     }
@@ -612,6 +601,18 @@ const initialTrack = tracks[0] ?? null;
   @keyframes listening-record-spin {
     to {
       transform: translate(-50%, -50%) rotate(360deg);
+    }
+  }
+
+  @keyframes listening-record-hover-turn {
+    to {
+      transform: translate(-50%, -50%) rotate(8deg);
+    }
+  }
+
+  @keyframes listening-label-hover-turn {
+    to {
+      transform: translate(-50%, -50%) rotate(8deg);
     }
   }
 
@@ -629,7 +630,6 @@ const initialTrack = tracks[0] ?? null;
 </style>
 
 <script>
-  type Rgb = { r: number; g: number; b: number };
   type ListeningTrackPayload = {
     title?: string;
     artist?: string;
@@ -643,84 +643,7 @@ const initialTrack = tracks[0] ?? null;
     isNowPlaying?: boolean;
   };
 
-  const SAMPLE_SIZE = 28;
   const LISTENING_REFRESH_MS = 45_000;
-
-  const extractTintColor = (img: HTMLImageElement): Rgb | null => {
-    const canvas = document.createElement('canvas');
-    canvas.width = SAMPLE_SIZE;
-    canvas.height = SAMPLE_SIZE;
-    const ctx = canvas.getContext('2d', { willReadFrequently: true });
-    if (!ctx) return null;
-
-    ctx.drawImage(img, 0, 0, SAMPLE_SIZE, SAMPLE_SIZE);
-
-    let data: Uint8ClampedArray;
-    try {
-      data = ctx.getImageData(0, 0, SAMPLE_SIZE, SAMPLE_SIZE).data;
-    } catch {
-      return null;
-    }
-
-    let bestR = 0;
-    let bestG = 0;
-    let bestB = 0;
-    let bestScore = -1;
-    let avgR = 0;
-    let avgG = 0;
-    let avgB = 0;
-    let avgN = 0;
-
-    for (let i = 0; i < data.length; i += 4) {
-      const r = data[i];
-      const g = data[i + 1];
-      const b = data[i + 2];
-      const a = data[i + 3];
-      if (a < 200) continue;
-
-      avgR += r;
-      avgG += g;
-      avgB += b;
-      avgN += 1;
-
-      const max = Math.max(r, g, b);
-      const min = Math.min(r, g, b);
-      const lightness = (max + min) / 510;
-      if (lightness < 0.18 || lightness > 0.82) continue;
-
-      const sat = max === 0 ? 0 : (max - min) / max;
-      const score = sat * 1.6 + (lightness > 0.4 && lightness < 0.65 ? 0.2 : 0);
-      if (score > bestScore) {
-        bestScore = score;
-        bestR = r;
-        bestG = g;
-        bestB = b;
-      }
-    }
-
-    if (bestScore > 0.25) {
-      return { r: bestR, g: bestG, b: bestB };
-    }
-
-    if (avgN > 0) {
-      return {
-        r: Math.round(avgR / avgN),
-        g: Math.round(avgG / avgN),
-        b: Math.round(avgB / avgN)
-      };
-    }
-
-    return null;
-  };
-
-  const applyTint = (button: HTMLElement, img: HTMLImageElement) => {
-    const color = extractTintColor(img);
-    if (!color) return;
-    button.style.setProperty(
-      '--listening-tint',
-      `rgb(${color.r} ${color.g} ${color.b} / 0.92)`
-    );
-  };
 
   const initListeningSection = () => {
     const roots = document.querySelectorAll('[data-listening]');
@@ -747,16 +670,6 @@ const initialTrack = tracks[0] ?? null;
 
       let audio: HTMLAudioElement | null = null;
       let trackTitle = playButton.dataset.trackTitle ?? 'Track';
-
-      const refreshTint = () => {
-        if (!(artwork instanceof HTMLImageElement)) return;
-
-        if (artwork.complete && artwork.naturalWidth > 0) {
-          applyTint(playButton, artwork);
-        } else {
-          artwork.addEventListener('load', () => applyTint(playButton, artwork), { once: true });
-        }
-      };
 
       const setPlayState = (isPlaying: boolean) => {
         root.classList.toggle('is-playing', isPlaying);
@@ -829,7 +742,6 @@ const initialTrack = tracks[0] ?? null;
 
         if (artwork instanceof HTMLImageElement && nextArtwork && artwork.src !== nextArtwork) {
           artwork.src = nextArtwork;
-          refreshTint();
         }
 
         if ((playButton.dataset.previewUrl ?? '') !== nextPreviewUrl) {
@@ -841,7 +753,6 @@ const initialTrack = tracks[0] ?? null;
         }
       };
 
-      refreshTint();
       setPreview(playButton.dataset.previewUrl ?? '');
 
       playButton.addEventListener('click', async () => {
