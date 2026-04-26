@@ -329,6 +329,62 @@ test.describe('Home page', () => {
     expect(longLayout?.documentWidth).toBeLessThanOrEqual(longLayout?.viewportWidth ?? 0);
   });
 
+  test('shows the listening wave while a recent track preview plays', async ({ page }) => {
+    await page.addInitScript(() => {
+      class FakeAudio extends EventTarget {
+        paused = true;
+        currentTime = 0;
+        preload = '';
+        src: string;
+
+        constructor(src: string) {
+          super();
+          this.src = src;
+        }
+
+        async play() {
+          this.paused = false;
+        }
+
+        pause() {
+          this.paused = true;
+        }
+      }
+
+      Object.defineProperty(window, 'Audio', {
+        configurable: true,
+        writable: true,
+        value: FakeAudio,
+      });
+    });
+
+    await page.route('**/api/listening', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(createListeningPayload({
+          isNowPlaying: false,
+          previewUrl: 'https://example.com/preview.m4a',
+        })),
+      });
+    });
+
+    await page.goto('/');
+
+    const root = page.locator('[data-listening]');
+    const playButton = page.locator('[data-listening-play]');
+    await expect(page.locator('[data-listening-status]')).toHaveText('Recently Played');
+
+    await playButton.click();
+    await expect(root).toHaveClass(/is-preview-playing/);
+    await expect(playButton).toHaveClass(/is-preview-playing/);
+
+    const waveWidth = await page.locator('.listening-eyebrow-wave').evaluate((node) => {
+      return Number.parseFloat(window.getComputedStyle(node).width);
+    });
+    expect(waveWidth).toBeGreaterThan(0);
+  });
+
   test('shows the GitHub contributions fallback state when the request fails', async ({ page }) => {
     await page.route('**/github-contributions-api.jogruber.de/**', async (route) => {
       await route.abort('failed');
