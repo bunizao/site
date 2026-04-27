@@ -103,6 +103,7 @@ export function getFirstVideoPosterSrc(content: string | cheerio.CheerioAPI): st
 }
 
 export type MoodImageLayout = 'landscape' | 'portrait' | 'ultra-tall';
+export type MoodImageKind = 'sticker';
 
 export interface MoodImageMeta {
   src: string | null;
@@ -110,6 +111,7 @@ export interface MoodImageMeta {
   width: number | null;
   height: number | null;
   layout: MoodImageLayout | null;
+  kind: MoodImageKind | null;
 }
 
 function parsePositiveInteger(value: string | undefined): number | null {
@@ -229,6 +231,7 @@ export function getFirstImageMeta(content: string): MoodImageMeta {
       width,
       height,
       layout: readMoodImageLayoutFromWrapper($, image) ?? deriveMoodImageLayout(width, height),
+      kind: ($(image).attr('class') ?? '').split(/\s+/).includes('sticker') ? 'sticker' : null,
     };
   }
 
@@ -240,6 +243,7 @@ export function getFirstImageMeta(content: string): MoodImageMeta {
       width: null,
       height: null,
       layout: null,
+      kind: null,
     };
   }
 
@@ -251,6 +255,7 @@ export function getFirstImageMeta(content: string): MoodImageMeta {
       width: null,
       height: null,
       layout: null,
+      kind: null,
     };
   }
 
@@ -264,6 +269,7 @@ export function getFirstImageMeta(content: string): MoodImageMeta {
     width,
     height,
     layout: deriveMoodImageLayout(width, height),
+    kind: null,
   };
 }
 

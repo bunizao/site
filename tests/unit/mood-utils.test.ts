@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { getFirstImage, getInlineMediaPreview, getQuotePreview, getTextPreview } from '../../src/features/mood/shared/utils';
+import { getFirstImage, getFirstImageMeta, getInlineMediaPreview, getQuotePreview, getTextPreview } from '../../src/features/mood/shared/utils';
 
 describe('getFirstImage', () => {
   test('extracts video poster when no img exists', () => {
@@ -12,6 +12,15 @@ describe('getFirstImage', () => {
     `;
 
     expect(getFirstImage(content)).toBe('/static/https://cdn5.telesco.pe/file/example-poster.jpg');
+  });
+
+  test('marks sticker images as sticker media', () => {
+    const content = '<img class="sticker" src="/static/sticker.webp" alt="Sticker" loading="lazy" />';
+
+    expect(getFirstImageMeta(content)).toMatchObject({
+      src: '/static/sticker.webp',
+      kind: 'sticker',
+    });
   });
 });
 

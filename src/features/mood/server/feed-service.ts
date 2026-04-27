@@ -113,6 +113,7 @@ export async function buildMoodFeedItem(
     imageWidth: mediaPreview ? null : leadItem?.width ?? imageMeta.width,
     imageHeight: mediaPreview ? null : leadItem?.height ?? imageMeta.height,
     imageLayout: mediaPreview ? null : leadItem?.layout ?? imageMeta.layout,
+    imageKind: mediaPreview ? null : imageMeta.kind,
     mediaHtml: mediaPreview?.html ?? '',
     needsDetailPage,
     forwardedFrom: post.forwardedFrom ?? null,

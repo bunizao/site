@@ -33,6 +33,7 @@ export interface MoodFeedItem {
   imageWidth?: number | null;
   imageHeight?: number | null;
   imageLayout?: MoodImageLayout | null;
+  imageKind?: 'sticker' | null;
   mediaHtml: string;
   needsDetailPage: boolean;
   forwardedFrom: MoodForwardedFrom | null;

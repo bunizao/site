@@ -44,6 +44,7 @@ export interface MoodData {
   imageWidth?: number | null;
   imageHeight?: number | null;
   imageLayout?: 'landscape' | 'portrait' | 'ultra-tall' | null;
+  imageKind?: 'sticker' | null;
   mediaHtml?: string;
   needsDetailPage?: boolean;
   forwardedFrom?: ForwardedFromData | null;

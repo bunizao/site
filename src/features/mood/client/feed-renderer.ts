@@ -365,6 +365,9 @@ export function createFeedRenderer({
       if (isTooBigVideoPreview) {
         thumbWrap.classList.add('mood-item-thumb--video');
       }
+      if (mood.imageKind === 'sticker') {
+        thumbWrap.classList.add('mood-item-thumb--sticker');
+      }
 
       const imageLayout = isTooBigVideoPreview
         ? null
@@ -405,11 +408,6 @@ export function createFeedRenderer({
       if (!hasResolvedImageLayout) {
         img.loading = 'eager';
         img.removeAttribute('fetchpriority');
-      }
-      if (isPriorityItem || !hasResolvedImageLayout) {
-        mediaHydrator.applyResponsiveImage(img, mood.image);
-      } else {
-        img.dataset.deferredSrc = mood.image;
       }
 
       const thumbMarker = document.createElement('span');
@@ -498,6 +496,12 @@ export function createFeedRenderer({
         content.appendChild(thumbWrap);
       } else {
         content.appendChild(thumbMarker);
+      }
+
+      if (isPriorityItem || !hasResolvedImageLayout) {
+        mediaHydrator.applyResponsiveImage(img, mood.image);
+      } else {
+        img.dataset.deferredSrc = mood.image;
       }
 
       if (!isPriorityItem && hasResolvedImageLayout) {

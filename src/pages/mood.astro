@@ -1026,6 +1026,22 @@ const skeletonGroups = [
     transition: transform 0.2s ease;
   }
 
+  :global(.mood-item-thumb--sticker) {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    align-self: flex-start;
+    width: fit-content;
+    max-width: min(100%, 256px);
+    background: transparent;
+  }
+
+  :global(.mood-item-thumb--sticker img) {
+    width: min(100%, 256px);
+    height: auto;
+    object-fit: contain;
+  }
+
   /* Portrait images - fit within max height without cropping */
   :global(.mood-item-thumb--portrait) {
     display: inline-flex;
