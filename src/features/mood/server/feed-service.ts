@@ -1,6 +1,7 @@
 import { getMoodGallery } from '@/features/mood/shared/gallery';
 import {
   getFirstImageMeta,
+  getFirstVideoPosterSrc,
   getInlineMediaPreview,
   getQuotePreview,
   getTextPreview,
@@ -51,6 +52,17 @@ function buildPlainPreviewHtml(text: string): string {
   return escapeHtml(normalized).replace(/\n/g, '<br>');
 }
 
+function getLocalMoodId(href: string | undefined): string {
+  if (!href) return '';
+  try {
+    const url = new URL(href, 'https://local.invalid');
+    const match = url.pathname.match(/^\/mood\/(\d+)$/);
+    return match?.[1] ?? '';
+  } catch {
+    return '';
+  }
+}
+
 export async function buildMoodFeedItem(
   context: MoodServerContext,
   post: Post,
@@ -69,6 +81,14 @@ export async function buildMoodFeedItem(
     hdImageBase: getMoodHdImageBase(context.locals),
   });
   const quote = rawQuote ? { ...rawQuote } : null;
+  const quoteTargetId = getLocalMoodId(quote?.href);
+  const quoteTargetPost = quoteTargetId
+    ? channelInfo.posts?.find((candidate) => candidate.id === quoteTargetId)
+    : null;
+  const quoteTargetVideoPoster = quoteTargetPost ? getFirstVideoPosterSrc(quoteTargetPost.content) : null;
+  if (quote && quoteTargetVideoPoster) {
+    quote.thumbnailSrc = quoteTargetVideoPoster;
+  }
   const hasDetailMedia = hasMedia(post.content) || hasEmojiImageMedia(post.content);
   const isUnsupportedFallbackImage = post.content.includes('image-preview-wrap--fallback');
 
