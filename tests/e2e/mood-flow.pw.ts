@@ -196,6 +196,59 @@ test.describe('Mood routes', () => {
     await expect(page).toHaveURL(new RegExp(`${href}$`));
   });
 
+  test('collapses header actions on compact mood feed scroll', async ({ page }) => {
+    const moodId = '12345';
+    const moodFeedPayload = createMoodFeedPayload(moodId);
+    moodFeedPayload.posts = Array.from({ length: 12 }, (_value, index) => ({
+      ...moodFeedPayload.posts[0],
+      id: String(Number(moodId) + index),
+      previewText: `E2E mood feed item ${index + 1}`,
+      previewHtml: `E2E mood feed item ${index + 1}`,
+    }));
+    await page.setViewportSize({ width: 720, height: 500 });
+
+    await page.route('**/api/moods**', async (route) => {
+      const url = new URL(route.request().url());
+      if (url.searchParams.get('probe') === '1') {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({ latestId: moodId }),
+        });
+        return;
+      }
+
+      if (url.searchParams.has('before')) {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({ posts: [], channel: moodFeedPayload.channel }),
+        });
+        return;
+      }
+
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(moodFeedPayload),
+      });
+    });
+
+    await page.goto('/mood');
+    const headerActions = page.locator('[data-header-actions]');
+    await expect(headerActions).toBeVisible();
+    await expect(page.locator('[data-mood-feed]')).not.toHaveClass(/is-hidden/, { timeout: 30_000 });
+
+    await page.evaluate(() => window.scrollTo({ top: 600, behavior: 'instant' }));
+
+    await expect(headerActions).toHaveClass(/is-collapsed/, { timeout: 30_000 });
+    await expect
+      .poll(async () => {
+        return await headerActions.evaluate((element) => Number(getComputedStyle(element).opacity));
+      }, { timeout: 30_000 })
+      .toBeLessThan(0.1);
+  });
+
   test('renders rich comment content in the feed popover', async ({ page }) => {
     const moodId = '12345';
     const moodFeedPayload = createMoodFeedPayload(moodId);

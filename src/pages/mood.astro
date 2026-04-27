@@ -135,7 +135,7 @@ const skeletonGroups = [
     })();
   </script>
 
-  <!-- Mobile header buttons auto-collapse on scroll past hero -->
+  <!-- Compact header buttons auto-collapse on scroll past hero -->
   <script>
     import gsap from 'gsap';
 
@@ -144,8 +144,7 @@ const skeletonGroups = [
       const headerActions = document.querySelector('[data-header-actions]');
       if (!heroEl || !headerActions) return;
 
-      // Only apply on mobile (< 640px)
-      const isMobile = () => window.innerWidth < 640;
+      const isCompactViewport = () => window.innerWidth < 900;
 
       let isCollapsed = false;
 
@@ -178,8 +177,8 @@ const skeletonGroups = [
       // Use Intersection Observer to detect when hero leaves viewport
       const observer = new IntersectionObserver(
         (entries) => {
-          if (!isMobile()) {
-            // On desktop, always expanded
+          if (!isCompactViewport()) {
+            // On wide viewports, always expanded
             if (isCollapsed) {
               isCollapsed = false;
               headerActions.classList.remove('is-collapsed');
@@ -212,7 +211,7 @@ const skeletonGroups = [
       window.addEventListener('resize', () => {
         clearTimeout(resizeTimer);
         resizeTimer = setTimeout(() => {
-          if (!isMobile() && isCollapsed) {
+          if (!isCompactViewport() && isCollapsed) {
             isCollapsed = false;
             headerActions.classList.remove('is-collapsed');
             gsap.set(headerActions, { x: 0, opacity: 1 });

@@ -937,8 +937,8 @@
     }
   }
 
-  /* Mobile header buttons auto-collapse when scrolling past hero - GSAP controlled */
-  @media (max-width: 639px) {
+  /* Compact header buttons auto-collapse when scrolling past hero - GSAP controlled */
+  @media (max-width: 899px) {
     .global-header-actions.is-collapsed {
       pointer-events: none;
     }
