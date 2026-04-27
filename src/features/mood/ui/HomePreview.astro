@@ -220,14 +220,13 @@ const placeholders = Array.from({ length: SKELETON_COUNT }, (_, index) => ({
   }
 
   #moods-section .mood-text {
+    --mood-text-line-height: 1.55;
+    display: block;
     font-size: 13px;
     font-weight: 400;
-    line-height: 1.55;
+    line-height: var(--mood-text-line-height);
     color: hsl(var(--foreground) / 0.85);
-    display: -webkit-box;
-    min-height: var(--reserved-text-height, auto);
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
+    max-height: calc(var(--mood-text-line-height) * 2em);
     overflow: hidden;
     word-break: break-word;
     overflow-wrap: break-word;
@@ -262,6 +261,20 @@ const placeholders = Array.from({ length: SKELETON_COUNT }, (_, index) => ({
 
   @media (min-width: 640px) {
     #moods-section .mood-text {
+      --mood-text-line-height: 1.6;
+      font-size: 14px;
+    }
+  }
+
+  #moods-section .mood-media-fallback {
+    display: block;
+    font-size: 13px;
+    line-height: 1.55;
+    color: hsl(var(--muted-foreground) / 0.72);
+  }
+
+  @media (min-width: 640px) {
+    #moods-section .mood-media-fallback {
       font-size: 14px;
       line-height: 1.6;
     }
@@ -577,6 +590,42 @@ const placeholders = Array.from({ length: SKELETON_COUNT }, (_, index) => ({
       })
     );
 
+    const getPreviewLines = (previewText: string): { lines: string[]; truncated: boolean } => {
+      const lines = previewText
+        .replace(/\r\n?/g, '\n')
+        .split('\n')
+        .map((line) => line.trim())
+        .filter(Boolean);
+
+      return {
+        lines: lines.slice(0, MAX_PREVIEW_LINES),
+        truncated: lines.length > MAX_PREVIEW_LINES,
+      };
+    };
+
+    const appendPreviewLines = (
+      target: HTMLElement,
+      previewText: string,
+      previewHtml: string,
+    ): void => {
+      const { lines, truncated } = getPreviewLines(previewText);
+      if (!lines.length) {
+        target.appendChild(buildPreviewFragment(previewText, previewHtml));
+        return;
+      }
+
+      lines.forEach((line, index) => {
+        if (index > 0) {
+          target.appendChild(document.createElement('br'));
+        }
+        target.appendChild(buildPreviewFragment(line));
+      });
+
+      if (truncated) {
+        target.appendChild(document.createTextNode(' ...'));
+      }
+    };
+
     interface MoodData {
       id: string;
       datetime: string;
@@ -592,7 +641,6 @@ const placeholders = Array.from({ length: SKELETON_COUNT }, (_, index) => ({
     interface MoodReservation {
       lineCount: number;
       lineWidths: string[];
-      textHeight: number;
       reservedHeight: number;
     }
 
@@ -642,7 +690,6 @@ const placeholders = Array.from({ length: SKELETON_COUNT }, (_, index) => ({
 
         const text = card.querySelector('.mood-text') as HTMLElement | null;
         if (text) {
-          text.style.removeProperty('--reserved-text-height');
           text.removeAttribute('data-reserved-lines');
         }
       });
@@ -733,11 +780,24 @@ const placeholders = Array.from({ length: SKELETON_COUNT }, (_, index) => ({
       })),
     );
 
+    const appendMediaFallback = (card: HTMLElement): void => {
+      if (card.querySelector('.mood-text, .mood-media-fallback, .mood-meta')) return;
+
+      const fallback = document.createElement('span');
+      fallback.className = 'mood-media-fallback';
+      fallback.textContent = 'Media post';
+      card.appendChild(fallback);
+    };
+
     const removeFailedThumbnail = (thumbnail: HTMLElement): void => {
       const meta = thumbnail.parentElement;
+      const card = meta?.parentElement instanceof HTMLElement ? meta.parentElement : null;
       thumbnail.remove();
       if (meta && meta.childElementCount === 0) {
         meta.remove();
+      }
+      if (card) {
+        appendMediaFallback(card);
       }
     };
 
@@ -880,7 +940,6 @@ const placeholders = Array.from({ length: SKELETON_COUNT }, (_, index) => ({
       return {
         lineCount,
         lineWidths,
-        textHeight,
         reservedHeight,
       };
     };
@@ -972,7 +1031,6 @@ const placeholders = Array.from({ length: SKELETON_COUNT }, (_, index) => ({
 
       if (text) {
         text.dataset.reservedLines = String(reservation.lineCount);
-        text.style.setProperty('--reserved-text-height', `${reservation.textHeight}px`);
       }
     };
 
@@ -1017,7 +1075,7 @@ const placeholders = Array.from({ length: SKELETON_COUNT }, (_, index) => ({
       const hasText = previewText.trim().length > 0 || previewHtml.trim().length > 0;
       if (hasText || !mood.image) {
         if (hasText) {
-          text.appendChild(buildPreviewFragment(previewText, previewHtml));
+          appendPreviewLines(text, previewText, previewHtml);
         } else {
           text.textContent = '(No text)';
         }
