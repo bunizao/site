@@ -308,6 +308,61 @@ test.describe('Mood routes', () => {
     await expect(page).toHaveURL(/\/mood$/);
   });
 
+  test('renders image media in detail comments', async ({ page, request }) => {
+    const latestMoodId = await getLatestMoodId(request);
+    test.skip(!latestMoodId, 'No mood id available from /api/moods');
+
+    const requestedImages: string[] = [];
+    const tinyGif = Buffer.from('R0lGODlhAQABAIABAP///wAAACwAAAAAAQABAAACAkQBADs=', 'base64');
+    const commentImage = 'https://image.example.test/comment-photo.gif';
+
+    await page.route('**/api/comments?postId=*', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          comments: [
+            {
+              id: '9001',
+              author: 'E2E',
+              authorAvatar: '',
+              datetime: '2026-02-10T13:10:00+00:00',
+              content: `
+                <div class="image-list-container image-list-odd">
+                  <button class="image-preview-button image-preview-wrap">
+                    <img src="${commentImage}" alt="Comment photo" loading="eager" />
+                  </button>
+                </div>
+              `,
+              reactions: [],
+            },
+          ],
+          hasMore: false,
+          nextBefore: '',
+        }),
+      });
+    });
+
+    await page.route('https://image.example.test/**', async (route) => {
+      requestedImages.push(route.request().url());
+      await route.fulfill({
+        status: 200,
+        contentType: 'image/gif',
+        body: tinyGif,
+      });
+    });
+
+    await page.goto(`/mood/${latestMoodId}#comments`, { waitUntil: 'domcontentloaded' });
+
+    await expect(page.locator('[data-comments-loading]')).toHaveCount(0, { timeout: 30_000 });
+    const image = page.locator('[data-comments-list] .mood-comment-content .image-preview-wrap img');
+    await expect(image).toBeVisible();
+    await expect(image).toHaveAttribute('src', commentImage);
+    await expect
+      .poll(() => requestedImages.filter((url) => url === commentImage).length, { timeout: 30_000 })
+      .toBeGreaterThan(0);
+  });
+
   test('renders custom emoji reactions in detail comments', async ({ page, request }) => {
     const latestMoodId = await getLatestMoodId(request);
     test.skip(!latestMoodId, 'No mood id available from /api/moods');

@@ -1613,13 +1613,21 @@ async function parseComment(
   }
   await modifyHTMLContent($, contentEl, { staticProxy });
 
+  const mediaHtml = [
+    getImages($, messageEl.get(0) as Element, { staticProxy, id, title: author }),
+    getVideo($, messageEl.get(0) as Element, { staticProxy }),
+    getAudio($, messageEl.get(0) as Element, { staticProxy }),
+    $.html(messageEl.find('.tgme_widget_message_document_wrap')),
+    getNotSupportedVideo($, messageEl.get(0) as Element, { staticProxy, channel, id }),
+  ].filter(Boolean).join('');
+
   // Extract stickers from comments (same as posts)
   const stickersHtml = [
     getImageStickers($, messageEl.get(0) as Element, { staticProxy }),
     getVideoStickers($, messageEl.get(0) as Element, { staticProxy }),
   ].filter(Boolean).join('');
 
-  const content = [replyHtml, contentEl.html() ?? '', stickersHtml].filter(Boolean).join('');
+  const content = [replyHtml, mediaHtml, contentEl.html() ?? '', stickersHtml].filter(Boolean).join('');
 
   // Get reactions
   const reactions = await getReactions($, messageEl.get(0) as Element, staticProxy);

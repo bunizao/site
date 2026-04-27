@@ -88,6 +88,26 @@ const DETAIL_HTML_BY_URL: Record<string, string> = {
   `,
 };
 
+const DISCUSSION_HTML_BY_URL: Record<string, string> = {
+  'https://t.me/imagebuxx/3332?embed=1&discussion=1&comments_limit=20': `
+    <div class="tgme_widget_message_wrap">
+      <div class="tgme_widget_message" data-post="imagebuxx/9001" data-post-id="9001">
+        <a class="tgme_widget_message_user_photo">
+          <img src="https://cdn5.telesco.pe/file/avatar.jpg" alt="">
+        </a>
+        <a class="tgme_widget_message_author_name">Photo Author</a>
+        <a
+          class="tgme_widget_message_photo_wrap grouped_media_wrap blured js-message_photo"
+          style="left:0px;top:0px;width:277px;height:604px;background-image:url('https://cdn5.telesco.pe/file/comment-photo.jpg')"
+        ></a>
+        <div class="tgme_widget_message_date">
+          <time datetime="2026-04-19T15:28:19+00:00"></time>
+        </div>
+      </div>
+    </div>
+  `,
+};
+
 const PAGE_HTML_BY_URL: Record<string, string> = {
   'https://t.me/imagebuxx/3327': `
     <html>
@@ -109,7 +129,7 @@ const ofetchMock = mock(async (url: string) => {
     `;
   }
 
-  const html = DETAIL_HTML_BY_URL[url] ?? PAGE_HTML_BY_URL[url];
+  const html = DISCUSSION_HTML_BY_URL[url] ?? DETAIL_HTML_BY_URL[url] ?? PAGE_HTML_BY_URL[url];
   if (!html) {
     throw new Error(`Unexpected Telegram URL: ${url}`);
   }
@@ -234,5 +254,17 @@ describe('getChannelInfo detail media rendering', () => {
     expect(content).toContain('/static/https:/cdn5.telesco.pe/file/sticker.webp');
     expect(content).not.toContain('image-preview-wrap--fallback');
     expect(content).not.toContain('https://image.buxx.me/mood/3417/0');
+  });
+});
+
+describe('getPostComments media rendering', () => {
+  test('renders image media from Telegram comments', async () => {
+    const { getPostComments } = await telegramModulePromise;
+    const result = await getPostComments(astro, { postId: '3332' });
+
+    expect(result.comments).toHaveLength(1);
+    expect(result.comments[0].content).toContain('image-list-container image-list-odd');
+    expect(result.comments[0].content).toContain('image-preview-wrap image-preview-wrap--portrait');
+    expect(result.comments[0].content).toContain('/static/https:/cdn5.telesco.pe/file/comment-photo.jpg?w=1280');
   });
 });
