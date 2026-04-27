@@ -314,7 +314,11 @@ test.describe('Mood routes', () => {
 
     const requestedImages: string[] = [];
     const tinyGif = Buffer.from('R0lGODlhAQABAIABAP///wAAACwAAAAAAQABAAACAkQBADs=', 'base64');
-    const commentImage = 'https://image.example.test/comment-photo.gif';
+    const commentImages = [
+      'https://image.example.test/comment-photo-1.gif',
+      'https://image.example.test/comment-photo-2.gif',
+      'https://image.example.test/comment-photo-3.gif',
+    ];
 
     await page.route('**/api/comments?postId=*', async (route) => {
       await route.fulfill({
@@ -330,7 +334,13 @@ test.describe('Mood routes', () => {
               content: `
                 <div class="image-list-container image-list-odd">
                   <button class="image-preview-button image-preview-wrap">
-                    <img src="${commentImage}" alt="Comment photo" loading="eager" />
+                    <img src="${commentImages[0]}" alt="Comment photo 1" loading="eager" />
+                  </button>
+                  <button class="image-preview-button image-preview-wrap">
+                    <img src="${commentImages[1]}" alt="Comment photo 2" loading="eager" />
+                  </button>
+                  <button class="image-preview-button image-preview-wrap">
+                    <img src="${commentImages[2]}" alt="Comment photo 3" loading="eager" />
                   </button>
                 </div>
               `,
@@ -355,12 +365,19 @@ test.describe('Mood routes', () => {
     await page.goto(`/mood/${latestMoodId}#comments`, { waitUntil: 'domcontentloaded' });
 
     await expect(page.locator('[data-comments-loading]')).toHaveCount(0, { timeout: 30_000 });
-    const image = page.locator('[data-comments-list] .mood-comment-content .image-preview-wrap img');
+    const image = page.locator('[data-comments-list] .mood-comment-content .image-preview-wrap img').first();
+    await expect(page.locator('[data-comments-list] .mood-comment-content .image-preview-wrap img')).toHaveCount(3);
     await expect(image).toBeVisible();
-    await expect(image).toHaveAttribute('src', commentImage);
-    await expect
-      .poll(() => requestedImages.filter((url) => url === commentImage).length, { timeout: 30_000 })
-      .toBeGreaterThan(0);
+    await expect(image).toHaveAttribute('src', commentImages[0]);
+    const imageBox = await image.boundingBox();
+    expect(imageBox).not.toBeNull();
+    expect(imageBox!.width).toBeLessThanOrEqual(130);
+    expect(imageBox!.height).toBeLessThanOrEqual(130);
+    for (const commentImage of commentImages) {
+      await expect
+        .poll(() => requestedImages.filter((url) => url === commentImage).length, { timeout: 30_000 })
+        .toBeGreaterThan(0);
+    }
   });
 
   test('renders custom emoji reactions in detail comments', async ({ page, request }) => {
