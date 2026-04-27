@@ -249,7 +249,7 @@ const telegramEmbedStateCache = new LRUCache<string, CachedTelegramEmbedState>({
   max: 500,
 });
 
-const TELEGRAM_PARSE_CACHE_VERSION = 'reply-variant-v4';
+const TELEGRAM_PARSE_CACHE_VERSION = 'sticker-fallback-v1';
 
 // Helper function to get environment variables
 function getEnv(env: ImportMetaEnv, Astro: any, name: string): string {
@@ -640,7 +640,8 @@ async function getUnsupportedMediaFallback(
   const hasPhoto = $(item).find('.tgme_widget_message_photo_wrap').length > 0;
   const hasPlayableVideo = $(item).find('.tgme_widget_message_video_wrap video, .tgme_widget_message_roundvideo_wrap video').length > 0;
   const hasNotSupportedPlayer = $(item).find('.tgme_widget_message_video_player.not_supported').length > 0;
-  if (hasPhoto || hasPlayableVideo || hasNotSupportedPlayer) {
+  const hasSticker = $(item).find('.tgme_widget_message_sticker, .js-videosticker_video').length > 0;
+  if (hasPhoto || hasPlayableVideo || hasNotSupportedPlayer || hasSticker) {
     return '';
   }
 

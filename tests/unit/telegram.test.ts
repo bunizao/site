@@ -66,6 +66,26 @@ const DETAIL_HTML_BY_URL: Record<string, string> = {
       </div>
     </div>
   `,
+  'https://t.me/imagebuxx/3417?embed=1&mode=tme': `
+    <div class="tgme_channel_info_header_title">Image Buxx</div>
+    <div class="tgme_widget_message_wrap">
+      <div class="tgme_widget_message text_not_supported_wrap" data-post="imagebuxx/3417">
+        <div class="message_media_not_supported_wrap">
+          <div class="message_media_not_supported">
+            <div class="message_media_not_supported_label">Please open Telegram to view this post</div>
+            <a href="https://t.me/imagebuxx/3417" class="message_media_view_in_telegram">VIEW IN TELEGRAM</a>
+          </div>
+        </div>
+        <i
+          class="tgme_widget_message_sticker"
+          data-webp="https://cdn5.telesco.pe/file/sticker.webp"
+        ></i>
+        <div class="tgme_widget_message_date">
+          <time datetime="2026-04-27T10:06:52+00:00"></time>
+        </div>
+      </div>
+    </div>
+  `,
 };
 
 const PAGE_HTML_BY_URL: Record<string, string> = {
@@ -203,5 +223,16 @@ describe('getChannelInfo detail media rendering', () => {
     expect(content).not.toContain('https://image.buxx.me/mood/3314/0');
     expect(content).not.toContain('Open Telegram to view this live photo');
     expect(content).not.toContain('mood-unsupported-media-card');
+  });
+
+  test('does not add unsupported media fallback when sticker media exists', async () => {
+    const { getChannelInfo } = await telegramModulePromise;
+    const post = await getChannelInfo(astro, { id: '3417', skipCache: true });
+    const content = (post as { content: string }).content;
+
+    expect(content).toContain('class="sticker"');
+    expect(content).toContain('/static/https:/cdn5.telesco.pe/file/sticker.webp');
+    expect(content).not.toContain('image-preview-wrap--fallback');
+    expect(content).not.toContain('https://image.buxx.me/mood/3417/0');
   });
 });
