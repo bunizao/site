@@ -52,9 +52,15 @@ async function fetchMoodPage(siteUrl: string, timeoutMs: number): Promise<MoodAp
   return await response.json() as MoodApiResponse;
 }
 
-async function probeImage(post: ImagePost, timeoutMs: number): Promise<string | null> {
+function resolveImageUrl(siteUrl: string, imageUrl: string): string {
+  return new URL(imageUrl, siteUrl).toString();
+}
+
+async function probeImage(siteUrl: string, post: ImagePost, timeoutMs: number): Promise<string | null> {
+  const imageUrl = resolveImageUrl(siteUrl, post.image);
+
   try {
-    const response = await fetch(post.image, {
+    const response = await fetch(imageUrl, {
       method: 'HEAD',
       headers: {
         Accept: 'image/avif,image/webp,image/jpeg,image/*,*/*;q=0.8',
@@ -67,10 +73,10 @@ async function probeImage(post: ImagePost, timeoutMs: number): Promise<string | 
       return null;
     }
 
-    return `${post.id}:${response.status}:${post.image}`;
+    return `${post.id}:${response.status}:${imageUrl}`;
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown probe error';
-    return `${post.id}:timeout:${message}:${post.image}`;
+    return `${post.id}:timeout:${message}:${imageUrl}`;
   }
 }
 
@@ -87,7 +93,7 @@ describe('hd image health', () => {
 
     expect(imagePosts.length).toBeGreaterThan(0);
 
-    const results = await Promise.all(imagePosts.map((post) => probeImage(post, timeoutMs)));
+    const results = await Promise.all(imagePosts.map((post) => probeImage(siteUrl, post, timeoutMs)));
     const failures = results.filter((result): result is string => result !== null);
 
     expect(failures).toEqual([]);
