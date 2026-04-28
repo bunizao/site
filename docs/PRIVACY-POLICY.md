@@ -64,6 +64,20 @@ Covered implementation:
 - [`src/layouts/Layout.astro`](../src/layouts/Layout.astro) mounts `@vercel/speed-insights/astro`
 - [`src/layouts/Layout.astro`](../src/layouts/Layout.astro) also lazy-loads `@vercel/analytics`
 
+### Homepage Listening
+
+Covered implementation:
+
+- [`src/features/home/ui/Listening.astro`](../src/features/home/ui/Listening.astro) renders the listening card on the homepage
+- [`src/pages/api/listening.ts`](../src/pages/api/listening.ts) exposes the data used by the client
+- [`src/features/home/server/listening.ts`](../src/features/home/server/listening.ts) fetches the latest Last.fm track and enriches it with Apple music metadata
+
+Provider behavior the policy now needs to reflect:
+
+- Last.fm is the primary source for recent listening activity
+- Apple's music metadata search endpoints are used to enrich results with album data, artwork, preview audio, and Apple Music links
+- the listening card refreshes through this site's API route rather than embedding static personal listening data into the prerendered home HTML
+
 ### Mood Pages and Public Content
 
 Covered implementation:
@@ -123,6 +137,7 @@ When implementation changes affect personal data handling, update [`src/content/
 Typical triggers:
 
 - adding or removing analytics vendors
+- adding or changing listening-data providers
 - changing subscription storage or email delivery providers
 - changing anti-abuse controls
 - changing public content sources or media proxy behavior

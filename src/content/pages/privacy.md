@@ -1,18 +1,18 @@
 ---
 title: Privacy Policy | Bunizao
-description: Privacy Policy for this website, including hosting, analytics, content delivery, mood subscriptions, and third-party services such as Vercel.
-updatedAt: March 8, 2026
+description: Privacy Policy for this website, including hosting, analytics, homepage listening data, mood subscriptions, and third-party services such as Vercel.
+updatedAt: April 28, 2026
 ---
 
 # Privacy Policy
 
-This Privacy Policy explains how this website collects, uses, and shares personal data. It applies to the site as a whole, including page visits, theme preferences, analytics and performance monitoring, public content loading, API access, and the mood subscription flow available from [/mood](/mood).
+This Privacy Policy explains how this website collects, uses, and shares personal data. It applies to the site as a whole, including page visits, theme preferences, analytics and performance monitoring, the homepage listening card, public content loading, API access, and the mood subscription flow available from [/mood](/mood).
 
-It also covers the infrastructure and services used to run the site, including Vercel for hosting and performance tooling, Cloudflare for anti-abuse checks and data infrastructure in the mood notification flow, and other third-party services used to load public content or deliver email.
+It also covers the infrastructure and services used to run the site, including Vercel for hosting and performance tooling, Cloudflare for anti-abuse checks and data infrastructure in the mood notification flow, Last.fm and Apple services for the homepage listening feature, and other third-party services used to load public content or deliver email.
 
 ## Scope
 
-This policy covers personal data processed in connection with this website, including the homepage, mood pages, privacy page, API routes, mood comments views, and the optional email subscription feature.
+This policy covers personal data processed in connection with this website, including the homepage, homepage listening API route, mood pages, privacy page, other API routes, mood comments views, and the optional email subscription feature.
 
 It does not govern third-party websites, external links, or services you visit independently after leaving this site.
 
@@ -23,6 +23,7 @@ Depending on how you use the site, we may collect or process the following categ
 - **Information you provide directly.** If you use the mood subscription form, this includes your email address, delivery preferences, timezone, and related subscription settings.
 - **Technical and request data.** When you visit pages or call API routes, infrastructure and security systems may process request metadata needed to serve the site, operate rate limits, prevent abuse, and keep the service available.
 - **Analytics and performance data.** The site uses Vercel tooling to measure traffic and page performance. That may involve usage and performance measurements associated with page loads and visits.
+- **Listening feature request data.** The homepage listening card may trigger server-side requests to Last.fm and Apple services to fetch the most recent track, album metadata, artwork, preview URLs, and related listening status for display.
 - **Theme preference data.** If you change the site theme, that preference is stored locally in your browser using local storage so the site can remember it later.
 - **Subscription record metadata.** For mood subscriptions, this includes status fields such as pending, active, or unsubscribed, plus timestamps such as created, updated, confirmed, last confirmation sent, and last notification sent.
 - **Security and anti-abuse data.** If Turnstile is enabled for the mood subscription flow, anti-bot verification data may include a challenge token and the client IP address used during verification.
@@ -37,6 +38,7 @@ We use the data described above to operate and improve the site, including to:
 - host, render, and secure the website and its API routes;
 - remember your local theme preference;
 - measure traffic, page performance, and reliability;
+- load and refresh homepage listening data from Last.fm and Apple services;
 - load public content from connected sources such as Ghost, GitHub, and Telegram-related data;
 - send subscription confirmation emails and mood notifications if you opt in;
 - honor unsubscribe requests and maintain subscription state; and
@@ -49,6 +51,17 @@ We do not use personal data collected through this site for data brokerage or un
 This site is hosted on Vercel and uses Vercel tooling for analytics and performance monitoring, including Vercel Analytics and Vercel Speed Insights.
 
 Vercel may process standard request metadata, usage information, and performance measurements needed to serve the site, analyze traffic, and understand how pages perform in real use.
+
+## Homepage listening feature
+
+The homepage includes a listening card that may call this site's `/api/listening` route after the page loads.
+
+That feature currently relies on:
+
+- **Last.fm.** Used as the primary source for the most recent listening activity through the Last.fm recent tracks API.
+- **Apple services.** Used through Apple's music metadata search endpoints to enrich the current track with album details, artwork, preview audio, and Apple Music links.
+
+When this feature runs, this site's server may send track lookup terms derived from the latest Last.fm result to Apple services and may receive track metadata in response. Standard request metadata is also processed as part of those outbound requests in the same way any server-to-server request works.
 
 ## Cloudflare, email delivery, and anti-abuse
 
@@ -66,6 +79,8 @@ Cloudflare may also support data infrastructure used for the mood notification f
 
 The site also relies on third-party services to load public content and metadata, including:
 
+- **Last.fm.** Used for the homepage listening status and recent track data.
+- **Apple services.** Used to enrich listening results with track metadata, artwork, preview audio, and Apple Music links.
 - **Ghost.** Used to display writing links and post metadata.
 - **GitHub.** Used to display repository data and related project metadata.
 - **GitHub contributions API.** Used on the homepage to display the GitHub contributions graph.
@@ -80,6 +95,7 @@ We share personal data only where reasonably necessary to operate the site and i
 - **Vercel.** Hosting, analytics, and performance monitoring.
 - **Cloudflare.** Anti-abuse verification and mood notification infrastructure.
 - **Resend.** Email delivery for mood subscriptions.
+- **Last.fm and Apple services.** Listening data and music metadata used by the homepage listening card.
 - **Ghost, GitHub, and Telegram-related services.** Public content and metadata sources.
 
 We do not sell personal data collected through this site, and we do not share subscription lists with third parties for their own direct marketing.
