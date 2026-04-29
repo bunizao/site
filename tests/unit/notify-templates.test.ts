@@ -43,4 +43,30 @@ describe('notify email templates', () => {
     expect(email.html).toContain('Digest quote');
     expect(email.html).toContain('email-quote');
   });
+
+  test('mood notification renders bookmark cards with wrapping text styles', () => {
+    const email = buildMoodNotificationEmail({
+      moodUrl: 'https://example.com/mood/3415',
+      unsubscribeUrl: 'https://example.com/unsubscribe',
+      previewText: 'Plain fallback',
+      previewHtml: [
+        '<a class="bookmark-card" href="https://example.org/article" onclick="bad()">',
+        '<span class="bookmark-card__content">',
+        '<span class="bookmark-card__title">A very long bookmark title that should wrap instead of staying on one line</span>',
+        '<span class="bookmark-card__description">A useful link description that needs more than one line in the newsletter card.</span>',
+        '<span class="bookmark-card__meta">example.org</span>',
+        '</span>',
+        '</a>',
+      ].join(''),
+      postId: '3415',
+      channelTitle: 'Levitating',
+    });
+
+    expect(email.html).toContain('email-bookmark-card');
+    expect(email.html).toContain('email-bookmark-title');
+    expect(email.html).toContain('email-bookmark-description');
+    expect(email.html).toContain('overflow-wrap: anywhere');
+    expect(email.html).not.toContain('white-space: nowrap');
+    expect(email.html).not.toContain('onclick');
+  });
 });

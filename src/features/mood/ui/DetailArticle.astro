@@ -256,7 +256,7 @@ const {
 
     .mood-post-content :global(.bookmark-card__description) {
       font-size: 12px;
-      -webkit-line-clamp: 2;
+      -webkit-line-clamp: 3;
     }
 
     .mood-post-content :global(.bookmark-card__meta) {
@@ -1058,9 +1058,11 @@ const {
     font-weight: 500;
     line-height: 1.35;
     color: hsl(var(--foreground));
-    white-space: nowrap;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
     overflow: hidden;
-    text-overflow: ellipsis;
+    overflow-wrap: anywhere;
   }
 
   .mood-post-content :global(.bookmark-card__description) {
@@ -1069,8 +1071,9 @@ const {
     line-height: 1.4;
     display: -webkit-box;
     -webkit-box-orient: vertical;
-    -webkit-line-clamp: 2;
+    -webkit-line-clamp: 3;
     overflow: hidden;
+    overflow-wrap: anywhere;
   }
 
   .mood-post-content :global(.bookmark-card__meta) {

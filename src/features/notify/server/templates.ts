@@ -32,6 +32,12 @@ const EMAIL_LINK_STYLE = 'color: #111; text-decoration: underline; text-decorati
 const EMAIL_QUOTE_STYLE = 'margin: 0 0 10px; padding: 0 0 0 12px; border-left: 2px solid #d4d4d4; color: #333;';
 const EMAIL_CODE_STYLE = `font-family: ${MONO_FONT}; font-size: 0.92em; background-color: #f4f4f5; color: #111; padding: 1px 4px; border-radius: 4px;`;
 const EMAIL_PRE_STYLE = `margin: 8px 0 10px; padding: 10px 12px; overflow-x: auto; font-family: ${MONO_FONT}; font-size: 12px; line-height: 1.55; background-color: #f4f4f5; color: #111; border-radius: 8px;`;
+const EMAIL_BOOKMARK_CARD_STYLE = 'display: block; margin: 10px 0 0; border: 1px solid #e5e5e5; border-radius: 10px; overflow: hidden; background-color: #fff; color: #111; text-decoration: none;';
+const EMAIL_BOOKMARK_MEDIA_STYLE = 'display: block; width: 100%; max-width: 420px; border: 0;';
+const EMAIL_BOOKMARK_CONTENT_STYLE = 'display: block; padding: 10px 12px;';
+const EMAIL_BOOKMARK_TITLE_STYLE = `display: block; font-family: ${MONO_FONT}; font-size: 13px; font-weight: 600; line-height: 1.45; color: #111; word-break: break-word; overflow-wrap: anywhere;`;
+const EMAIL_BOOKMARK_DESCRIPTION_STYLE = `display: block; margin-top: 4px; font-family: ${MONO_FONT}; font-size: 12px; line-height: 1.5; color: #555; word-break: break-word; overflow-wrap: anywhere;`;
+const EMAIL_BOOKMARK_META_STYLE = `display: block; margin-top: 6px; font-family: ${MONO_FONT}; font-size: 11px; line-height: 1.4; color: #888; word-break: break-word; overflow-wrap: anywhere;`;
 
 interface EmailRelatedLink {
   url: string;
@@ -91,6 +97,45 @@ function formatLinkLabel(value: string, maxLength = 80): string {
   return `${compact.slice(0, maxLength - 3)}...`;
 }
 
+function compactText(value: string): string {
+  return value.replace(/\s+/g, ' ').trim();
+}
+
+function hasClass(element: cheerio.Element, className: string): boolean {
+  return (` ${element.attribs?.class ?? ''} `).includes(` ${className} `);
+}
+
+function renderEmailBookmarkCard($: cheerio.CheerioAPI, element: cheerio.Element): string {
+  const href = sanitizeExternalUrl($(element).attr('href') ?? '');
+  const title = compactText($(element).find('.bookmark-card__title').first().text()) || formatLinkLabel(href, 120);
+  if (!href || !title) {
+    return escapeHtml(compactText($(element).text()));
+  }
+
+  const description = compactText($(element).find('.bookmark-card__description').first().text());
+  const meta = compactText($(element).find('.bookmark-card__meta').first().text());
+  const imageSrc = sanitizeExternalUrl($(element).find('.bookmark-card__media img').first().attr('src') ?? '');
+  const imageAlt = compactText($(element).find('.bookmark-card__media img').first().attr('alt') ?? title);
+  const imageHtml = imageSrc
+    ? `<img src="${escapeHtml(imageSrc)}" alt="${escapeHtml(imageAlt)}" class="email-bookmark-media" loading="lazy" style="${EMAIL_BOOKMARK_MEDIA_STYLE}" />`
+    : '';
+  const descriptionHtml = description
+    ? `<span class="email-bookmark-description" style="${EMAIL_BOOKMARK_DESCRIPTION_STYLE}">${escapeHtml(description)}</span>`
+    : '';
+  const metaHtml = meta
+    ? `<span class="email-bookmark-meta" style="${EMAIL_BOOKMARK_META_STYLE}">${escapeHtml(meta)}</span>`
+    : '';
+
+  return `<a href="${escapeHtml(href)}" class="email-bookmark-card email-link" style="${EMAIL_BOOKMARK_CARD_STYLE}">
+    ${imageHtml}
+    <span class="email-bookmark-content" style="${EMAIL_BOOKMARK_CONTENT_STYLE}">
+      <span class="email-bookmark-title" style="${EMAIL_BOOKMARK_TITLE_STYLE}">${escapeHtml(title)}</span>
+      ${descriptionHtml}
+      ${metaHtml}
+    </span>
+  </a>`;
+}
+
 function renderEmailRichNode($: cheerio.CheerioAPI, node: cheerio.AnyNode): string {
   if (node.type === 'text') {
     return escapeHtml(node.data ?? '');
@@ -117,6 +162,10 @@ function renderEmailRichNode($: cheerio.CheerioAPI, node: cheerio.AnyNode): stri
   }
 
   if (tag === 'a') {
+    if (hasClass(element, 'bookmark-card')) {
+      return renderEmailBookmarkCard($, element);
+    }
+
     const href = sanitizeExternalUrl($(element).attr('href') ?? '');
     if (!href || !children.trim()) {
       return children;
@@ -296,6 +345,10 @@ function emailShell(content: string): string {
       .email-quote { color: #d4d4d4 !important; border-color: #444 !important; }
       .email-code { background-color: #1f1f1f !important; color: #e5e5e5 !important; }
       .email-code-block { background-color: #1f1f1f !important; color: #e5e5e5 !important; }
+      .email-bookmark-card { background-color: #0f0f0f !important; border-color: #2b2b2b !important; color: #e5e5e5 !important; }
+      .email-bookmark-title { color: #e5e5e5 !important; }
+      .email-bookmark-description { color: #c7c7c7 !important; }
+      .email-bookmark-meta { color: #8a8a8a !important; }
     }
   </style>
 </head>

@@ -1149,7 +1149,7 @@ async function sendMoodDigestEmail(
       postId: post.id,
       moodUrl: `${siteUrl}/mood/${post.id}`,
       previewText: getTextPreviewWithMedia(post),
-      previewHtml: getTextPreviewHtml(post),
+      previewHtml: getTextPreviewHtml(post, { preserveBookmarks: true }),
       relatedLinks: getRelatedLinks(post, {
         baseUrl: siteUrl,
         maxCount: 5,
@@ -1431,7 +1431,7 @@ export async function dispatchMoodNotification(
 
   const subscribers = await listActiveSubscribers(d1);
   const previewText = getTextPreviewWithMedia(post);
-  const previewHtml = getTextPreviewHtml(post);
+  const previewHtml = getTextPreviewHtml(post, { preserveBookmarks: true });
   const relatedLinks = getRelatedLinks(post, {
     baseUrl: getSiteUrl(context),
     maxCount: 8,
@@ -1683,7 +1683,7 @@ export async function processNotifyRetries(
 
     try {
       const previewText = getTextPreviewWithMedia(post);
-      const previewHtml = getTextPreviewHtml(post);
+      const previewHtml = getTextPreviewHtml(post, { preserveBookmarks: true });
       const relatedLinks = getRelatedLinks(post, {
         baseUrl: getSiteUrl(context),
         maxCount: 8,

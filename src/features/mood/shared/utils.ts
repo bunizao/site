@@ -392,8 +392,15 @@ const previewCleanupSelectors = [
   '.tgme_widget_message_poll, .tgme_widget_message_document_wrap, .tgme_widget_message_video_player, .tgme_widget_message_location_wrap',
 ];
 
-function removePreviewElements($: cheerio.CheerioAPI): void {
+interface TextPreviewHtmlOptions {
+  preserveBookmarks?: boolean;
+}
+
+function removePreviewElements($: cheerio.CheerioAPI, options: TextPreviewHtmlOptions = {}): void {
   previewCleanupSelectors.forEach((selector) => {
+    if (selector === '.bookmark-card' && options.preserveBookmarks) {
+      return;
+    }
     $(selector).remove();
   });
 }
@@ -688,9 +695,12 @@ export function getTextPreviewWithMedia(mood: { text?: string; content: string }
 /**
  * Get HTML preview with safe inline links preserved
  */
-export function getTextPreviewHtml(mood: { text?: string; content: string }): string {
+export function getTextPreviewHtml(
+  mood: { text?: string; content: string },
+  options: TextPreviewHtmlOptions = {}
+): string {
   const $ = cheerio.load(mood.content, { decodeEntities: false });
-  removePreviewElements($);
+  removePreviewElements($, options);
   $('script, style').remove();
 
   $.root()
@@ -698,6 +708,26 @@ export function getTextPreviewHtml(mood: { text?: string; content: string }): st
     .each((_index, element) => {
       const tag = element.tagName?.toLowerCase();
       if (!tag) return;
+      const className = $(element).attr('class') ?? '';
+
+      if (options.preserveBookmarks && tag === 'a' && /\bbookmark-card\b/.test(className)) {
+        const rawHref = $(element).attr('href') ?? '';
+        const safeHref = sanitizePreviewHref(rawHref);
+        const text = $(element).text();
+
+        if (!safeHref || !text.trim()) {
+          $(element).replaceWith(text);
+          return;
+        }
+
+        const attributes = Object.keys(element.attribs ?? {});
+        attributes.forEach((attr) => $(element).removeAttr(attr));
+        $(element).attr('href', safeHref);
+        $(element).attr('class', 'bookmark-card');
+        $(element).attr('target', '_blank');
+        $(element).attr('rel', 'noopener noreferrer');
+        return;
+      }
 
       if (tag === 'a') {
         const rawHref = $(element).attr('href') ?? '';
@@ -720,7 +750,19 @@ export function getTextPreviewHtml(mood: { text?: string; content: string }): st
       }
 
       if (tag === 'span') {
-        const className = $(element).attr('class') ?? '';
+        if (options.preserveBookmarks) {
+          const bookmarkClass = className
+            .split(/\s+/)
+            .find((value) => /^bookmark-card__(content|title|description|meta|media)$/.test(value));
+
+          if (bookmarkClass) {
+            const attributes = Object.keys(element.attribs ?? {});
+            attributes.forEach((attr) => $(element).removeAttr(attr));
+            $(element).attr('class', bookmarkClass);
+            return;
+          }
+        }
+
         const isEmojiWrapper = /\b(tg-emoji|mood-reaction-emoji)\b/.test(className);
         if (isEmojiWrapper) {
           const emojiId = ($(element).attr('data-emoji-id') ?? '').trim();
@@ -746,6 +788,23 @@ export function getTextPreviewHtml(mood: { text?: string; content: string }): st
       }
 
       if (tag === 'img') {
+        if (options.preserveBookmarks && $(element).parents('.bookmark-card').length > 0) {
+          const safeSrc = sanitizePreviewImageSrc($(element).attr('src') ?? '');
+          const alt = ($(element).attr('alt') ?? '').trim();
+
+          if (!safeSrc) {
+            $(element).replaceWith(alt);
+            return;
+          }
+
+          const attributes = Object.keys(element.attribs ?? {});
+          attributes.forEach((attr) => $(element).removeAttr(attr));
+          $(element).attr('src', safeSrc);
+          $(element).attr('alt', alt);
+          $(element).attr('loading', 'lazy');
+          return;
+        }
+
         if (!isEmojiImageElement(element, $)) {
           $(element).remove();
           return;

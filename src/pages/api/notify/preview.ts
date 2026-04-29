@@ -31,6 +31,13 @@ function createRichPreviewPost(now: Date) {
       'A compact newsletter preview with <code>inline code</code> and ',
       '<a href="https://example.org/newsletter-preview">source</a>.',
       '</blockquote>',
+      '<a class="bookmark-card" href="https://example.org/a-very-long-link-card-title" target="_blank" rel="noopener noreferrer">',
+      '<span class="bookmark-card__content">',
+      '<span class="bookmark-card__title">A very long bookmark title that should wrap across multiple lines in the newsletter preview instead of being crushed into one line</span>',
+      '<span class="bookmark-card__description">This description should also keep enough room to be useful, because one-line summaries hide the exact context the newsletter reader needs.</span>',
+      '<span class="bookmark-card__meta">example.org</span>',
+      '</span>',
+      '</a>',
     ].join(''),
     reactions: [],
   };
@@ -127,7 +134,7 @@ export const GET: APIRoute = async ({ request, locals }) => {
     moodUrl,
     unsubscribeUrl,
     previewText: latestPost ? getTextPreviewWithMedia(latestPost) : 'No mood post available yet.',
-    previewHtml: latestPost ? getTextPreviewHtml(latestPost) : '',
+    previewHtml: latestPost ? getTextPreviewHtml(latestPost, { preserveBookmarks: true }) : '',
     relatedLinks: latestPost ? getRelatedLinks(latestPost, {
       baseUrl: siteUrl,
       maxCount: 8,
@@ -172,7 +179,7 @@ export const GET: APIRoute = async ({ request, locals }) => {
         postId: post.id,
         moodUrl: `${siteUrl}/mood/${post.id}`,
         previewText: getTextPreviewWithMedia(post),
-        previewHtml: getTextPreviewHtml(post),
+        previewHtml: getTextPreviewHtml(post, { preserveBookmarks: true }),
         relatedLinks: getRelatedLinks(post, {
           baseUrl: siteUrl,
           maxCount: 5,
