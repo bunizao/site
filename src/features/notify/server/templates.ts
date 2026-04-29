@@ -32,12 +32,12 @@ const EMAIL_LINK_STYLE = 'color: #111; text-decoration: underline; text-decorati
 const EMAIL_QUOTE_STYLE = 'margin: 0 0 10px; padding: 0 0 0 12px; border-left: 2px solid #d4d4d4; color: #333;';
 const EMAIL_CODE_STYLE = `font-family: ${MONO_FONT}; font-size: 0.92em; background-color: #f4f4f5; color: #111; padding: 1px 4px; border-radius: 4px;`;
 const EMAIL_PRE_STYLE = `margin: 8px 0 10px; padding: 10px 12px; overflow-x: auto; font-family: ${MONO_FONT}; font-size: 12px; line-height: 1.55; background-color: #f4f4f5; color: #111; border-radius: 8px;`;
-const EMAIL_BOOKMARK_CARD_STYLE = 'display: block; margin: 10px 0 0; border: 1px solid #e5e5e5; border-radius: 10px; overflow: hidden; background-color: #fff; color: #111; text-decoration: none;';
+const EMAIL_BOOKMARK_CARD_STYLE = 'display: block; margin: 12px 0 2px; border: 1px solid #d8d8d8; border-radius: 9px; overflow: hidden; background-color: #fafafa; color: #111; text-decoration: none;';
 const EMAIL_BOOKMARK_MEDIA_STYLE = 'display: block; width: 100%; max-width: 420px; border: 0;';
-const EMAIL_BOOKMARK_CONTENT_STYLE = 'display: block; padding: 10px 12px;';
-const EMAIL_BOOKMARK_TITLE_STYLE = `display: block; font-family: ${MONO_FONT}; font-size: 13px; font-weight: 600; line-height: 1.45; color: #111; word-break: break-word; overflow-wrap: anywhere;`;
-const EMAIL_BOOKMARK_DESCRIPTION_STYLE = `display: block; margin-top: 4px; font-family: ${MONO_FONT}; font-size: 12px; line-height: 1.5; color: #555; word-break: break-word; overflow-wrap: anywhere;`;
-const EMAIL_BOOKMARK_META_STYLE = `display: block; margin-top: 6px; font-family: ${MONO_FONT}; font-size: 11px; line-height: 1.4; color: #888; word-break: break-word; overflow-wrap: anywhere;`;
+const EMAIL_BOOKMARK_CONTENT_STYLE = 'display: block; padding: 12px 14px 13px;';
+const EMAIL_BOOKMARK_TITLE_STYLE = `display: block; font-family: ${MONO_FONT}; font-size: 13px; font-weight: 600; line-height: 1.42; color: #111; word-break: normal; overflow-wrap: break-word;`;
+const EMAIL_BOOKMARK_DESCRIPTION_STYLE = `display: block; margin-top: 6px; font-family: ${MONO_FONT}; font-size: 12px; font-weight: 400; line-height: 1.5; color: #666; word-break: normal; overflow-wrap: break-word;`;
+const EMAIL_BOOKMARK_META_STYLE = `display: block; margin: 0 0 7px; font-family: ${MONO_FONT}; font-size: 10px; font-weight: 600; line-height: 1.2; letter-spacing: 0.08em; text-transform: uppercase; color: #8a8a8a; word-break: normal; overflow-wrap: break-word;`;
 
 interface EmailRelatedLink {
   url: string;
@@ -129,9 +129,9 @@ function renderEmailBookmarkCard($: cheerio.CheerioAPI, element: cheerio.Element
   return `<a href="${escapeHtml(href)}" class="email-bookmark-card email-link" style="${EMAIL_BOOKMARK_CARD_STYLE}">
     ${imageHtml}
     <span class="email-bookmark-content" style="${EMAIL_BOOKMARK_CONTENT_STYLE}">
+      ${metaHtml}
       <span class="email-bookmark-title" style="${EMAIL_BOOKMARK_TITLE_STYLE}">${escapeHtml(title)}</span>
       ${descriptionHtml}
-      ${metaHtml}
     </span>
   </a>`;
 }

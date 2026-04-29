@@ -65,7 +65,8 @@ describe('notify email templates', () => {
     expect(email.html).toContain('email-bookmark-card');
     expect(email.html).toContain('email-bookmark-title');
     expect(email.html).toContain('email-bookmark-description');
-    expect(email.html).toContain('overflow-wrap: anywhere');
+    expect(email.html).toContain('text-transform: uppercase');
+    expect(email.html).toContain('overflow-wrap: break-word');
     expect(email.html).not.toContain('white-space: nowrap');
     expect(email.html).not.toContain('onclick');
   });
