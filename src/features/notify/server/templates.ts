@@ -101,8 +101,62 @@ function compactText(value: string): string {
   return value.replace(/\s+/g, ' ').trim();
 }
 
+function normalizeComparableUrl(value: string): string {
+  const safeUrl = sanitizeExternalUrl(value);
+  if (!safeUrl) {
+    return '';
+  }
+
+  try {
+    const parsed = new URL(safeUrl);
+    parsed.hash = '';
+    return parsed.toString().replace(/\/$/, '');
+  } catch {
+    return '';
+  }
+}
+
 function hasClass(element: cheerio.Element, className: string): boolean {
   return (` ${element.attribs?.class ?? ''} `).includes(` ${className} `);
+}
+
+function hasBookmarkPreview(previewHtml: string | undefined): boolean {
+  return /\bclass=["'][^"']*\bbookmark-card\b/i.test(previewHtml ?? '');
+}
+
+function removeRedundantBookmarkUrlLinks($: cheerio.CheerioAPI): void {
+  const bookmarkUrls = new Set<string>();
+
+  $('.bookmark-card[href]').each((_index, element) => {
+    const url = normalizeComparableUrl($(element).attr('href') ?? '');
+    if (url) {
+      bookmarkUrls.add(url);
+    }
+  });
+
+  if (!bookmarkUrls.size) {
+    return;
+  }
+
+  $('a[href]').each((_index, element) => {
+    if (hasClass(element, 'bookmark-card')) {
+      return;
+    }
+
+    const href = normalizeComparableUrl($(element).attr('href') ?? '');
+    const label = normalizeComparableUrl(compactText($(element).text()));
+    if (href && label && href === label && bookmarkUrls.has(href)) {
+      $(element).remove();
+    }
+  });
+}
+
+function trimEmailRichHtml(value: string): string {
+  return value
+    .trim()
+    .replace(/^(?:\s|<br\s*\/?>)+/gi, '')
+    .replace(/(?:\s|<br\s*\/?>)+$/gi, '')
+    .trim();
 }
 
 function renderEmailBookmarkCard($: cheerio.CheerioAPI, element: cheerio.Element): string {
@@ -219,19 +273,20 @@ function renderEmailRichPreview(previewHtml: string | undefined, compact = false
   }
 
   const $ = cheerio.load(html, { decodeEntities: false });
+  removeRedundantBookmarkUrlLinks($);
   const rendered = $.root()
     .contents()
     .toArray()
     .map((node) => renderEmailRichNode($, node))
     .join('')
-    .trim();
+  const trimmed = trimEmailRichHtml(rendered);
 
-  if (!rendered) {
+  if (!trimmed) {
     return '';
   }
 
   const style = compact ? EMAIL_PREVIEW_COMPACT_STYLE : EMAIL_PREVIEW_STYLE;
-  return `<div class="email-preview email-rich-text" style="${style}">${rendered}</div>`;
+  return `<div class="email-preview email-rich-text" style="${style}">${trimmed}</div>`;
 }
 
 function renderEmailTextPreview(previewText: string, options: { compact?: boolean; maxLength?: number } = {}): string {
@@ -457,8 +512,9 @@ export function buildMoodNotificationEmail(options: {
   const channelAvatarHtml = channelAvatarUrl
     ? `<img src="${escapeHtml(channelAvatarUrl)}" alt="${escapeHtml(channelTitle)} avatar" width="32" height="32" style="display: block; width: 32px; height: 32px; border-radius: 999px;" />`
     : escapeHtml(channelInitial);
-  const relatedLinksHtml = buildRelatedLinksHtml(options.relatedLinks, { maxCount: 6 });
-  const relatedLinksTextLines = buildRelatedLinksTextLines(options.relatedLinks, { maxCount: 6 });
+  const hasBookmark = hasBookmarkPreview(options.previewHtml);
+  const relatedLinksHtml = hasBookmark ? '' : buildRelatedLinksHtml(options.relatedLinks, { maxCount: 6 });
+  const relatedLinksTextLines = hasBookmark ? [] : buildRelatedLinksTextLines(options.relatedLinks, { maxCount: 6 });
   const subject = `New mood #${options.postId}`;
   const html = emailShell(`
           <tr>
@@ -544,7 +600,9 @@ function buildDigestListHtml(posts: MoodDigestPost[]): string {
   const rows: string[] = [];
 
   for (const post of posts) {
+    const hasBookmark = hasBookmarkPreview(post.previewHtml);
     const richPreview = renderEmailRichPreview(post.previewHtml, true);
+    const relatedLinksHtml = hasBookmark ? '' : buildRelatedLinksHtml(post.relatedLinks, { maxCount: 4, compact: true });
     const previewHtml = richPreview
       ? `${richPreview}
                           <a href="${escapeHtml(post.moodUrl)}" class="email-view-link" style="display: inline-block; margin-top: 6px; font-family: ${MONO_FONT}; font-size: 11px; color: #000; text-decoration: none;">Read mood &rarr;</a>`
@@ -572,7 +630,7 @@ function buildDigestListHtml(posts: MoodDigestPost[]): string {
                         </td>
                         <td valign="top" class="email-digest-content" style="padding: 9px 0 11px 12px; border-left: 1px solid #ececec;">
                           ${previewHtml}
-                          ${buildRelatedLinksHtml(post.relatedLinks, { maxCount: 4, compact: true })}
+                          ${relatedLinksHtml}
                         </td>
                       </tr>
                     </table>
