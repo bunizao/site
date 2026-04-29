@@ -216,6 +216,12 @@
   display: grid;
 }
 
+.mood-post-content .mood-item-quote-text {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.55;
+}
+
 .mood-comment-content .mood-item-quote,
 .mood-popover-comment-content .mood-item-quote {
   display: flex;

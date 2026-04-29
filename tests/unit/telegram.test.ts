@@ -270,6 +270,7 @@ describe('getChannelInfo detail media rendering', () => {
     expect(content).toContain('mood-detail-quote mood-item-quote mood-comment-quote');
     expect(content).toContain('mood-detail-quote-body mood-item-quote-body');
     expect(content).toContain('mood-detail-quote-text mood-item-quote-text');
+    expect(content).not.toContain('mood-item-quote-author');
     expect(content).toContain('body text should start after the quote');
   });
 

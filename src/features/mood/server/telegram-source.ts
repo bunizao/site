@@ -1077,7 +1077,8 @@ function buildDetailReplyCard(
   const externalAttrs = safeHref && /^https?:\/\//i.test(safeHref)
     ? ' target="_blank" rel="noopener noreferrer"'
     : '';
-  const sourceMarkup = sourceName
+  const isLocalMoodQuote = safeHref.startsWith('/mood/');
+  const sourceMarkup = sourceName && !isLocalMoodQuote
     ? `<div class="mood-detail-quote-meta mood-item-quote-meta"><span class="mood-detail-quote-source mood-item-quote-author">${escapeHtml(sourceName)}</span></div>`
     : '';
   const previewMarkup = replyPreviewSrc
