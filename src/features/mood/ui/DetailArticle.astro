@@ -135,7 +135,7 @@ const {
     }
 
     .mood-post-header {
-      margin-bottom: 32px;
+      margin-bottom: 24px;
       padding-bottom: 16px;
     }
 
@@ -299,7 +299,7 @@ const {
     }
 
     .mood-post-header {
-      margin-bottom: 28px;
+      margin-bottom: 22px;
       padding-bottom: 12px;
     }
 
@@ -328,21 +328,21 @@ const {
   }
 
   .mood-post-header {
-    margin-bottom: 48px;
+    margin-bottom: 24px;
     padding-bottom: 20px;
     border-bottom: 1px solid hsl(var(--foreground) / 0.06);
   }
 
   @media (min-width: 640px) {
     .mood-post-header {
-      margin-bottom: 56px;
+      margin-bottom: 28px;
       padding-bottom: 24px;
     }
   }
 
   @media (min-width: 1024px) {
     .mood-post-header {
-      margin-bottom: 64px;
+      margin-bottom: 28px;
       padding-bottom: 28px;
     }
   }
@@ -468,10 +468,12 @@ const {
   }
 
   .mood-post-content {
+    max-width: 34rem;
     font-size: 15px;
     line-height: 1.6;
     color: hsl(var(--foreground));
     margin-top: 8px;
+    margin-inline: auto;
     overflow-wrap: anywhere;
     word-break: break-word;
   }
@@ -515,14 +517,23 @@ const {
   }
 
   .mood-post-content :global(.mood-item-quote) {
+    display: inline-flex;
+    align-items: center;
     gap: 4px;
     max-width: 88%;
-    margin: 0 0 0.7rem;
+    margin: 0 0.85rem 1rem 0;
     padding: 8px 10px;
     border: none;
     border-radius: 10px;
     background: hsl(var(--foreground) / 0.03);
     box-shadow: none;
+    vertical-align: top;
+  }
+
+  .mood-post-content :global(.mood-item-quote-body) {
+    display: flex;
+    justify-content: center;
+    min-width: 0;
   }
 
   .mood-post-content :global(a.mood-item-quote),
@@ -530,7 +541,7 @@ const {
   .mood-post-content :global(a.mood-item-quote:focus-visible) {
     border-bottom: none;
     color: hsl(var(--muted-foreground));
-    padding-bottom: 0;
+    padding: 8px 10px;
     text-decoration: none;
   }
 
