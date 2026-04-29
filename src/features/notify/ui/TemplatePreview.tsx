@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 interface PreviewResponse {
   generatedAt: string;
   mode: 'daily' | 'every_5h';
+  sample: 'live' | 'rich';
   timezone: string;
   source: {
     channelTitle: string;
@@ -24,6 +25,7 @@ interface PreviewResponse {
 
 export default function TemplatePreview() {
   const [digestMode, setDigestMode] = useState<'daily' | 'every_5h'>('daily');
+  const [sample, setSample] = useState<'live' | 'rich'>('live');
   const [timezone, setTimezone] = useState('UTC');
   const [preview, setPreview] = useState<PreviewResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -41,6 +43,7 @@ export default function TemplatePreview() {
     try {
       const params = new URLSearchParams({
         mode: digestMode,
+        sample,
         timezone,
       });
       const response = await fetch(`/api/notify/preview?${params.toString()}`, {
@@ -59,7 +62,7 @@ export default function TemplatePreview() {
     } finally {
       setLoading(false);
     }
-  }, [digestMode, timezone, refreshKey]);
+  }, [digestMode, sample, timezone, refreshKey]);
 
   useEffect(() => {
     void fetchPreview();
@@ -85,6 +88,22 @@ export default function TemplatePreview() {
               Every 5h
             </button>
           </div>
+          <div className="inline-flex items-center gap-2 rounded-md border border-border bg-background p-1">
+            <button
+              type="button"
+              onClick={() => setSample('live')}
+              className={`rounded px-3 py-1.5 text-xs ${sample === 'live' ? 'bg-foreground text-background' : 'text-foreground/70'}`}
+            >
+              Live
+            </button>
+            <button
+              type="button"
+              onClick={() => setSample('rich')}
+              className={`rounded px-3 py-1.5 text-xs ${sample === 'rich' ? 'bg-foreground text-background' : 'text-foreground/70'}`}
+            >
+              Rich sample
+            </button>
+          </div>
           <button
             type="button"
             onClick={() => setRefreshKey((value) => value + 1)}
@@ -99,6 +118,7 @@ export default function TemplatePreview() {
 
         <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
           <span>Channel: {preview?.source.channelTitle || '-'}</span>
+          <span>Sample: {preview?.sample || sample}</span>
           <span>Latest Post: {preview?.source.latestPostId || '-'}</span>
           <span>Digest Count: {preview?.source.digestPostIds.length ?? 0}</span>
           <span>Generated: {preview?.generatedAt ? new Date(preview.generatedAt).toLocaleString() : '-'}</span>

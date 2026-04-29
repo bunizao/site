@@ -1,6 +1,6 @@
 import type { ChannelInfo, Post } from '@/features/mood/server/telegram-source';
 import { getChannelInfo } from '@/features/mood/server/telegram-source';
-import { getRelatedLinks, getTextPreviewWithMedia } from '@/features/mood/shared/utils';
+import { getRelatedLinks, getTextPreviewHtml, getTextPreviewWithMedia } from '@/features/mood/shared/utils';
 import { readPublicEnv } from '@/lib/runtime/env';
 import { getNotifyConfig, getNotifyFromAddress, requireConfigValue } from './env';
 import { CloudflareD1Client } from './d1';
@@ -1014,6 +1014,7 @@ async function sendMoodEmail(
   input: {
     post: Post;
     previewText: string;
+    previewHtml: string;
     relatedLinks?: EmailRelatedLink[];
     subscriber: SubscriberRecord;
     force: boolean;
@@ -1046,12 +1047,18 @@ async function sendMoodEmail(
   const channelAvatarUrl = toEmailImageUrl(input.channelMeta?.avatarUrl, siteUrl, context.locals);
   const relatedLinks = input.relatedLinks?.length
     ? input.relatedLinks
-    : getRelatedLinks(input.post, { baseUrl: siteUrl, maxCount: 8 });
+    : getRelatedLinks(input.post, {
+      baseUrl: siteUrl,
+      maxCount: 8,
+      excludeInlineAnchors: true,
+      excludeInternalLinks: true,
+    });
 
   const email = buildMoodNotificationEmail({
     moodUrl,
     unsubscribeUrl,
     previewText: input.previewText,
+    previewHtml: input.previewHtml,
     relatedLinks,
     postId: input.post.id,
     channelTitle,
@@ -1142,7 +1149,13 @@ async function sendMoodDigestEmail(
       postId: post.id,
       moodUrl: `${siteUrl}/mood/${post.id}`,
       previewText: getTextPreviewWithMedia(post),
-      relatedLinks: getRelatedLinks(post, { baseUrl: siteUrl, maxCount: 5 }),
+      previewHtml: getTextPreviewHtml(post),
+      relatedLinks: getRelatedLinks(post, {
+        baseUrl: siteUrl,
+        maxCount: 5,
+        excludeInlineAnchors: true,
+        excludeInternalLinks: true,
+      }),
       timeLabel: getLocalTimeLabel(postDate, timezone),
       dateLabel: getLocalDateLabel(postDate, timezone),
     };
@@ -1418,7 +1431,13 @@ export async function dispatchMoodNotification(
 
   const subscribers = await listActiveSubscribers(d1);
   const previewText = getTextPreviewWithMedia(post);
-  const relatedLinks = getRelatedLinks(post, { baseUrl: getSiteUrl(context), maxCount: 8 });
+  const previewHtml = getTextPreviewHtml(post);
+  const relatedLinks = getRelatedLinks(post, {
+    baseUrl: getSiteUrl(context),
+    maxCount: 8,
+    excludeInlineAnchors: true,
+    excludeInternalLinks: true,
+  });
   const channelMeta = await loadChannelMeta(context);
   const allowedModes = options.deliveryModes ? new Set(options.deliveryModes) : null;
 
@@ -1445,6 +1464,7 @@ export async function dispatchMoodNotification(
       const sendResult = await sendMoodEmail(context, d1, {
         post,
         previewText,
+        previewHtml,
         relatedLinks,
         subscriber,
         force: Boolean(options.force),
@@ -1663,10 +1683,17 @@ export async function processNotifyRetries(
 
     try {
       const previewText = getTextPreviewWithMedia(post);
-      const relatedLinks = getRelatedLinks(post, { baseUrl: getSiteUrl(context), maxCount: 8 });
+      const previewHtml = getTextPreviewHtml(post);
+      const relatedLinks = getRelatedLinks(post, {
+        baseUrl: getSiteUrl(context),
+        maxCount: 8,
+        excludeInlineAnchors: true,
+        excludeInternalLinks: true,
+      });
       const sendResult = await sendMoodEmail(context, d1, {
         post,
         previewText,
+        previewHtml,
         relatedLinks,
         subscriber: activeSubscriber,
         force: false,

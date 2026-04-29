@@ -444,12 +444,35 @@ export interface RelatedLinkData {
   type: 'link' | 'image';
 }
 
+interface RelatedLinksOptions {
+  baseUrl?: string;
+  maxCount?: number;
+  excludeInlineAnchors?: boolean;
+  excludeInternalLinks?: boolean;
+}
+
+function isInternalRelatedUrl(value: string, baseUrl?: string): boolean {
+  try {
+    const url = new URL(value);
+    const ownHosts = new Set(['buxx.me', 'www.buxx.me']);
+
+    if (baseUrl) {
+      const base = new URL(baseUrl);
+      ownHosts.add(base.hostname.toLowerCase());
+    }
+
+    return ownHosts.has(url.hostname.toLowerCase());
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Extract related links from mood content for email/newsletter rendering
  */
 export function getRelatedLinks(
   mood: { text?: string; content: string },
-  options: { baseUrl?: string; maxCount?: number } = {}
+  options: RelatedLinksOptions = {}
 ): RelatedLinkData[] {
   const maxCount = Math.max(1, Math.min(options.maxCount ?? 8, 30));
   const collected: RelatedLinkData[] = [];
@@ -460,6 +483,9 @@ export function getRelatedLinks(
     if (!normalized || seen.has(normalized)) {
       return;
     }
+    if (type === 'link' && options.excludeInternalLinks && isInternalRelatedUrl(normalized, options.baseUrl)) {
+      return;
+    }
 
     seen.add(normalized);
     collected.push({ url: normalized, type });
@@ -467,9 +493,11 @@ export function getRelatedLinks(
 
   const $ = cheerio.load(mood.content, { decodeEntities: false });
 
-  $('a[href]').each((_index, element) => {
-    appendLink($(element).attr('href'), 'link');
-  });
+  if (!options.excludeInlineAnchors) {
+    $('a[href]').each((_index, element) => {
+      appendLink($(element).attr('href'), 'link');
+    });
+  }
 
   $('img[src]').each((_index, element) => {
     if (isEmojiImageElement(element, $)) {

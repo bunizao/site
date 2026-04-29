@@ -1,6 +1,6 @@
 import type { APIRoute } from 'astro';
 import { jsonOk } from '@/lib/http/json-response';
-import { getRelatedLinks, getTextPreviewWithMedia } from '@/features/mood/shared/utils';
+import { getRelatedLinks, getTextPreviewHtml, getTextPreviewWithMedia } from '@/features/mood/shared/utils';
 import {
   buildMoodDigestEmail,
   buildMoodNotificationEmail,
@@ -16,6 +16,25 @@ export const prerender = false;
 
 const EVERY_5H_WINDOW_MS = 5 * 60 * 60 * 1000;
 const MAX_DIGEST_POSTS = 20;
+
+function createRichPreviewPost(now: Date) {
+  return {
+    id: 'rich-preview',
+    title: 'Rich newsletter preview',
+    type: 'text',
+    datetime: now.toISOString(),
+    tags: ['preview'],
+    text: 'Bold quote answer source',
+    content: [
+      '<blockquote>',
+      '<strong>Bold quote</strong><br>',
+      'A compact newsletter preview with <code>inline code</code> and ',
+      '<a href="https://example.org/newsletter-preview">source</a>.',
+      '</blockquote>',
+    ].join(''),
+    reactions: [],
+  };
+}
 
 function isValidTimezone(value: string): boolean {
   try {
@@ -61,23 +80,37 @@ function getLocalDateLabel(date: Date, timeZone: string): string {
 export const GET: APIRoute = async ({ request, locals }) => {
   const url = new URL(request.url);
   const mode = url.searchParams.get('mode') === 'every_5h' ? 'every_5h' : 'daily';
+  const sample = url.searchParams.get('sample') === 'rich' ? 'rich' : 'live';
   const timezoneParam = (url.searchParams.get('timezone') || '').trim();
   const timezone = timezoneParam && isValidTimezone(timezoneParam) ? timezoneParam : 'UTC';
+  const now = new Date();
 
   const siteUrl = (
     readPublicEnv(locals, 'SITE_URL')
     || new URL(request.url).origin
   ).replace(/\/+$/, '');
 
-  const { channelInfo, posts } = await loadMoodChannelSnapshot(
-    { request, locals },
-    {
-      skipCache: true,
-      textOnly: true,
+  const previewSource = sample === 'rich'
+    ? {
+      channelTitle: 'Levitating',
+      channelAvatarUrl: '',
+      posts: [createRichPreviewPost(now)],
     }
-  );
-  const channelTitle = channelInfo.title?.trim() || 'Mood Feed';
-  const channelAvatarUrl = toMoodEmailImageUrl(channelInfo.avatar, siteUrl, locals);
+    : null;
+
+  const liveSource = previewSource
+    ? null
+    : await loadMoodChannelSnapshot(
+      { request, locals },
+      {
+        skipCache: true,
+        textOnly: true,
+      }
+    );
+
+  const channelTitle = previewSource?.channelTitle || liveSource?.channelInfo.title?.trim() || 'Mood Feed';
+  const channelAvatarUrl = previewSource?.channelAvatarUrl ?? toMoodEmailImageUrl(liveSource?.channelInfo.avatar, siteUrl, locals);
+  const posts = previewSource?.posts || liveSource?.posts || [];
   const latestPost = posts[0];
   const latestPostId = latestPost?.id || '00000';
 
@@ -94,13 +127,18 @@ export const GET: APIRoute = async ({ request, locals }) => {
     moodUrl,
     unsubscribeUrl,
     previewText: latestPost ? getTextPreviewWithMedia(latestPost) : 'No mood post available yet.',
-    relatedLinks: latestPost ? getRelatedLinks(latestPost, { baseUrl: siteUrl, maxCount: 8 }) : [],
+    previewHtml: latestPost ? getTextPreviewHtml(latestPost) : '',
+    relatedLinks: latestPost ? getRelatedLinks(latestPost, {
+      baseUrl: siteUrl,
+      maxCount: 8,
+      excludeInlineAnchors: true,
+      excludeInternalLinks: true,
+    }) : [],
     postId: latestPostId,
     channelTitle,
     channelAvatarUrl,
   });
 
-  const now = new Date();
   const nowMs = now.getTime();
   const digestCandidates = mode === 'daily'
     ? (() => {
@@ -134,7 +172,13 @@ export const GET: APIRoute = async ({ request, locals }) => {
         postId: post.id,
         moodUrl: `${siteUrl}/mood/${post.id}`,
         previewText: getTextPreviewWithMedia(post),
-        relatedLinks: getRelatedLinks(post, { baseUrl: siteUrl, maxCount: 5 }),
+        previewHtml: getTextPreviewHtml(post),
+        relatedLinks: getRelatedLinks(post, {
+          baseUrl: siteUrl,
+          maxCount: 5,
+          excludeInlineAnchors: true,
+          excludeInternalLinks: true,
+        }),
         timeLabel: getLocalTimeLabel(postDate, timezone),
         dateLabel: getLocalDateLabel(postDate, timezone),
       };
@@ -153,6 +197,7 @@ export const GET: APIRoute = async ({ request, locals }) => {
     {
       generatedAt: now.toISOString(),
       mode,
+      sample,
       timezone,
       source: {
         channelTitle,

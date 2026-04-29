@@ -1,3 +1,5 @@
+import * as cheerio from 'cheerio';
+
 function escapeHtml(value: string): string {
   return value
     .replace(/&/g, '&amp;')
@@ -24,6 +26,12 @@ function escapeHtmlWithLineBreaks(value: string): string {
 }
 
 const MONO_FONT = "'JetBrains Mono', 'SF Mono', 'Fira Code', 'Cascadia Code', Menlo, Monaco, Consolas, 'Courier New', monospace";
+const EMAIL_PREVIEW_STYLE = `font-family: ${MONO_FONT}; font-size: 14px; line-height: 1.65; color: #111;`;
+const EMAIL_PREVIEW_COMPACT_STYLE = `font-family: ${MONO_FONT}; font-size: 13px; line-height: 1.65; color: #111;`;
+const EMAIL_LINK_STYLE = 'color: #111; text-decoration: underline; text-decoration-thickness: 1px;';
+const EMAIL_QUOTE_STYLE = 'margin: 0 0 10px; padding: 0 0 0 12px; border-left: 2px solid #d4d4d4; color: #333;';
+const EMAIL_CODE_STYLE = `font-family: ${MONO_FONT}; font-size: 0.92em; background-color: #f4f4f5; color: #111; padding: 1px 4px; border-radius: 4px;`;
+const EMAIL_PRE_STYLE = `margin: 8px 0 10px; padding: 10px 12px; overflow-x: auto; font-family: ${MONO_FONT}; font-size: 12px; line-height: 1.55; background-color: #f4f4f5; color: #111; border-radius: 8px;`;
 
 interface EmailRelatedLink {
   url: string;
@@ -81,6 +89,106 @@ function formatLinkLabel(value: string, maxLength = 80): string {
     return compact;
   }
   return `${compact.slice(0, maxLength - 3)}...`;
+}
+
+function renderEmailRichNode($: cheerio.CheerioAPI, node: cheerio.AnyNode): string {
+  if (node.type === 'text') {
+    return escapeHtml(node.data ?? '');
+  }
+
+  if (node.type !== 'tag') {
+    return '';
+  }
+
+  const element = node as cheerio.Element;
+  const tag = element.tagName?.toLowerCase();
+  const children = $(element)
+    .contents()
+    .toArray()
+    .map((child) => renderEmailRichNode($, child))
+    .join('');
+
+  if (!tag) {
+    return children;
+  }
+
+  if (tag === 'br') {
+    return '<br />';
+  }
+
+  if (tag === 'a') {
+    const href = sanitizeExternalUrl($(element).attr('href') ?? '');
+    if (!href || !children.trim()) {
+      return children;
+    }
+    return `<a href="${escapeHtml(href)}" class="email-link" style="${EMAIL_LINK_STYLE}">${children}</a>`;
+  }
+
+  if (tag === 'blockquote') {
+    return `<div class="email-quote" style="${EMAIL_QUOTE_STYLE}">${children}</div>`;
+  }
+
+  if (tag === 'pre') {
+    return `<pre class="email-code-block" style="${EMAIL_PRE_STYLE}">${children}</pre>`;
+  }
+
+  if (tag === 'code') {
+    return `<code class="email-code" style="${EMAIL_CODE_STYLE}">${children}</code>`;
+  }
+
+  if (tag === 'strong' || tag === 'b') {
+    return `<strong style="font-weight: 700;">${children}</strong>`;
+  }
+
+  if (tag === 'em' || tag === 'i') {
+    return `<em style="font-style: italic;">${children}</em>`;
+  }
+
+  if (tag === 'u') {
+    return `<span style="text-decoration: underline;">${children}</span>`;
+  }
+
+  if (tag === 's' || tag === 'del' || tag === 'strike') {
+    return `<span style="text-decoration: line-through;">${children}</span>`;
+  }
+
+  if (tag === 'img') {
+    return escapeHtml($(element).attr('alt') ?? '');
+  }
+
+  return children;
+}
+
+function renderEmailRichPreview(previewHtml: string | undefined, compact = false): string {
+  const html = (previewHtml ?? '').trim();
+  if (!html) {
+    return '';
+  }
+
+  if (!/<(?:a|blockquote|br|pre|code|b|strong|i|em|u|s|del|strike)\b/i.test(html)) {
+    return '';
+  }
+
+  const $ = cheerio.load(html, { decodeEntities: false });
+  const rendered = $.root()
+    .contents()
+    .toArray()
+    .map((node) => renderEmailRichNode($, node))
+    .join('')
+    .trim();
+
+  if (!rendered) {
+    return '';
+  }
+
+  const style = compact ? EMAIL_PREVIEW_COMPACT_STYLE : EMAIL_PREVIEW_STYLE;
+  return `<div class="email-preview email-rich-text" style="${style}">${rendered}</div>`;
+}
+
+function renderEmailTextPreview(previewText: string, options: { compact?: boolean; maxLength?: number } = {}): string {
+  const style = options.compact ? EMAIL_PREVIEW_COMPACT_STYLE : EMAIL_PREVIEW_STYLE;
+  const preview = trimPreview(previewText || '(No text preview)', options.maxLength);
+  return `<div class="email-preview" style="${style}">${escapeHtmlWithLineBreaks(preview)}</div>`;
 }
 
 function buildRelatedLinksHtml(
@@ -185,6 +293,9 @@ function emailShell(content: string): string {
       .email-preview { color: #e5e5e5 !important; }
       .email-view-link { color: #e5e5e5 !important; }
       .email-meta { color: #8a8a8a !important; }
+      .email-quote { color: #d4d4d4 !important; border-color: #444 !important; }
+      .email-code { background-color: #1f1f1f !important; color: #e5e5e5 !important; }
+      .email-code-block { background-color: #1f1f1f !important; color: #e5e5e5 !important; }
     }
   </style>
 </head>
@@ -276,12 +387,14 @@ export function buildMoodNotificationEmail(options: {
   moodUrl: string;
   unsubscribeUrl: string;
   previewText: string;
+  previewHtml?: string;
   relatedLinks?: EmailRelatedLink[];
   postId: string;
   channelTitle?: string;
   channelAvatarUrl?: string;
 }): { subject: string; html: string; text: string } {
   const preview = trimPreview(options.previewText || '(No text preview)');
+  const previewHtml = renderEmailRichPreview(options.previewHtml) || renderEmailTextPreview(preview);
   const channelTitle = (options.channelTitle || 'Mood Feed').trim() || 'Mood Feed';
   const channelInitial = channelTitle.charAt(0).toUpperCase() || 'M';
   const channelAvatarUrl = (options.channelAvatarUrl || '').trim();
@@ -317,9 +430,7 @@ export function buildMoodNotificationEmail(options: {
                 </tr>
                 <tr>
                   <td style="padding: 14px;">
-                    <div class="email-preview" style="font-family: ${MONO_FONT}; font-size: 14px; line-height: 1.65; color: #111;">
-                      ${escapeHtmlWithLineBreaks(preview)}
-                    </div>
+                    ${previewHtml}
                     ${relatedLinksHtml}
                   </td>
                 </tr>
@@ -366,6 +477,7 @@ interface MoodDigestPost {
   postId: string;
   moodUrl: string;
   previewText: string;
+  previewHtml?: string;
   relatedLinks?: EmailRelatedLink[];
   timeLabel: string;
   dateLabel: string;
@@ -376,6 +488,14 @@ function buildDigestListHtml(posts: MoodDigestPost[]): string {
   const rows: string[] = [];
 
   for (const post of posts) {
+    const richPreview = renderEmailRichPreview(post.previewHtml, true);
+    const previewHtml = richPreview
+      ? `${richPreview}
+                          <a href="${escapeHtml(post.moodUrl)}" class="email-view-link" style="display: inline-block; margin-top: 6px; font-family: ${MONO_FONT}; font-size: 11px; color: #000; text-decoration: none;">Read mood &rarr;</a>`
+      : `<a href="${escapeHtml(post.moodUrl)}" class="email-preview" style="display: block; font-family: ${MONO_FONT}; font-size: 13px; line-height: 1.65; color: #111; text-decoration: none;">
+                            ${escapeHtmlWithLineBreaks(trimPreview(post.previewText, 160))}
+                          </a>`;
+
     if (post.dateLabel && post.dateLabel !== currentDate) {
       currentDate = post.dateLabel;
       rows.push(`
@@ -395,9 +515,7 @@ function buildDigestListHtml(posts: MoodDigestPost[]): string {
                           ${escapeHtml(post.timeLabel)}
                         </td>
                         <td valign="top" style="padding: 10px 0;">
-                          <a href="${escapeHtml(post.moodUrl)}" class="email-preview" style="display: block; font-family: ${MONO_FONT}; font-size: 13px; line-height: 1.65; color: #111; text-decoration: none;">
-                            ${escapeHtmlWithLineBreaks(trimPreview(post.previewText, 160))}
-                          </a>
+                          ${previewHtml}
                           ${buildRelatedLinksHtml(post.relatedLinks, { maxCount: 4, compact: true })}
                         </td>
                       </tr>

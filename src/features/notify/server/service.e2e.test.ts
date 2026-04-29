@@ -548,12 +548,49 @@ describe('notify service integration e2e', () => {
     expect(mock.emails[0].html).not.toContain('Styled like oEmbed card');
   });
 
+  test('mood notification email preserves rich preview formatting', async () => {
+    const context = createContext('/api/notify/dispatch');
+    const email = 'rich-preview@example.com';
+    const post = createPost('511', 'Plain fallback');
+    post.content = [
+      '<blockquote>',
+      '<strong>Bold quote</strong><br>',
+      '<code>answer</code> ',
+      '<a href="https://example.org/source">source</a>',
+      '</blockquote>',
+    ].join('');
+
+    await subscribeAndConfirm(mock, context, email, {
+      deliveryMode: 'immediate',
+    });
+
+    mock.clearEmails();
+
+    setNotifyTestHooksForTesting({
+      loadMoodPost: async (_context, postId) => (postId === post.id ? post : null),
+    });
+
+    const result = await dispatchMoodNotification(context, post.id, {
+      deliveryModes: ['immediate'],
+    });
+
+    expect(result.sent).toBe(1);
+    expect(mock.emails.length).toBe(1);
+    expect(mock.emails[0].html).toContain('email-rich-text');
+    expect(mock.emails[0].html).toContain('email-quote');
+    expect(mock.emails[0].html).toContain('<strong');
+    expect(mock.emails[0].html).toContain('<code');
+    expect(mock.emails[0].html).toContain('href="https://example.org/source"');
+    expect(mock.emails[0].text).toContain('Bold quote');
+  });
+
   test('mood notification email includes related links and image URLs', async () => {
     const context = createContext('/api/notify/dispatch');
     const email = 'related-links@example.com';
     const post = createPost('512', 'Launch message');
     post.content = [
-      '<p>Launch 😊 with <a href="https://example.org/article">article</a></p>',
+      '<p>Launch 😊 with article https://example.org/article</p>',
+      '<p><a href="https://buxx.me/mood/512">redundant self link</a></p>',
       '<div class="image-preview-wrap">',
       '  <img src="https://image.buxx.me/mood/3092/0" alt="Mood image" />',
       '</div>',
@@ -580,9 +617,11 @@ describe('notify service integration e2e', () => {
     expect(mock.emails[0].html).toContain('https://example.org/article');
     expect(mock.emails[0].html).toContain('src="https://image.buxx.me/mood/3092/0"');
     expect(mock.emails[0].html).not.toContain('href="https://image.buxx.me/mood/3092/0"');
+    expect(mock.emails[0].html).not.toContain('🔗 buxx.me/mood/512');
     expect(mock.emails[0].text).toContain('🖼️ Launch 😊 with article');
     expect(mock.emails[0].text).toContain('Related links:');
     expect(mock.emails[0].text).toContain('- https://example.org/article');
+    expect(mock.emails[0].text).not.toContain('- https://buxx.me/mood/512');
     expect(mock.emails[0].text).not.toContain('https://image.buxx.me/mood/3092/0');
   });
 
