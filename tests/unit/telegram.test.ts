@@ -66,6 +66,23 @@ const DETAIL_HTML_BY_URL: Record<string, string> = {
       </div>
     </div>
   `,
+  'https://t.me/imagebuxx/3421?embed=1&mode=tme': `
+    <div class="tgme_channel_info_header_title">Image Buxx</div>
+    <div class="tgme_widget_message_wrap">
+      <div class="tgme_widget_message text_not_supported_wrap" data-post="imagebuxx/3421">
+        <a class="tgme_widget_message_reply" href="https://t.me/imagebuxx/3420">
+          <div class="tgme_widget_message_author accent_color">
+            <span class="tgme_widget_message_author_name" dir="auto">Image Buxx</span>
+          </div>
+          <div class="tgme_widget_message_text js-message_reply_text" dir="auto">quoted detail text</div>
+        </a>
+        <div class="tgme_widget_message_text js-message_text">body text should start after the quote</div>
+        <div class="tgme_widget_message_date">
+          <time datetime="2026-04-29T06:50:10+00:00"></time>
+        </div>
+      </div>
+    </div>
+  `,
   'https://t.me/imagebuxx/3417?embed=1&mode=tme': `
     <div class="tgme_channel_info_header_title">Image Buxx</div>
     <div class="tgme_widget_message_wrap">
@@ -243,6 +260,17 @@ describe('getChannelInfo detail media rendering', () => {
     expect(content).not.toContain('https://image.buxx.me/mood/3314/0');
     expect(content).not.toContain('Open Telegram to view this live photo');
     expect(content).not.toContain('mood-unsupported-media-card');
+  });
+
+  test('renders detail reply cards with the shared mood quote structure', async () => {
+    const { getChannelInfo } = await telegramModulePromise;
+    const post = await getChannelInfo(astro, { id: '3421', skipCache: true });
+    const content = (post as { content: string }).content;
+
+    expect(content).toContain('mood-detail-quote mood-item-quote mood-comment-quote');
+    expect(content).toContain('mood-detail-quote-body mood-item-quote-body');
+    expect(content).toContain('mood-detail-quote-text mood-item-quote-text');
+    expect(content).toContain('body text should start after the quote');
   });
 
   test('does not add unsupported media fallback when sticker media exists', async () => {

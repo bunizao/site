@@ -514,152 +514,18 @@ const {
     border-bottom-color: hsl(var(--foreground) / 0.6);
   }
 
-  .mood-post-content :global(.mood-detail-quote) {
-    display: inline-flex;
-    flex-direction: column;
-    gap: 4px;
-    width: fit-content;
-    max-width: min(32rem, 100%);
-    min-width: 0;
-    margin: 0 0 1.35em;
-    padding: 10px 14px;
-    border-radius: 12px;
-    background: hsl(var(--foreground) / 0.045);
-    text-decoration: none;
-    transition: background 0.2s ease;
-  }
-
-  .mood-post-content :global(a.mood-detail-quote),
-  .mood-post-content :global(a.mood-detail-quote:hover),
-  .mood-post-content :global(a.mood-detail-quote:focus-visible) {
+  .mood-post-content :global(a.mood-item-quote),
+  .mood-post-content :global(a.mood-item-quote:hover),
+  .mood-post-content :global(a.mood-item-quote:focus-visible) {
     border-bottom: none;
+    color: hsl(var(--muted-foreground));
+    padding-bottom: 0;
+    text-decoration: none;
   }
 
-  .mood-post-content :global(a.mood-detail-quote:hover),
-  .mood-post-content :global(a.mood-detail-quote:focus-visible) {
-    background: hsl(var(--foreground) / 0.07);
-  }
-
-  .mood-post-content :global(.mood-detail-quote-meta) {
-    display: flex;
-    align-items: center;
-    gap: 0;
-  }
-
-  .mood-post-content :global(.mood-detail-quote-body) {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    min-width: 0;
-  }
-
-  .mood-post-content :global(.mood-detail-quote-source) {
-    font-size: 13.5px;
-    font-weight: 600;
-    letter-spacing: 0;
-    color: hsl(var(--foreground) / 0.84);
-  }
-
-  .mood-post-content :global(.mood-detail-quote-text) {
-    margin: 0;
-    font-size: 13px;
-    line-height: 1.45;
-    color: hsl(var(--foreground) / 0.55);
-    white-space: pre-line;
-    overflow-wrap: anywhere;
-    word-break: break-word;
-  }
-
-  .mood-post-content :global(a.mood-detail-quote:hover .mood-detail-quote-text),
-  .mood-post-content :global(a.mood-detail-quote:focus-visible .mood-detail-quote-text) {
-    color: hsl(var(--foreground) / 0.65);
-  }
-
-  .mood-post-content :global(.mood-detail-quote-media) {
-    display: block;
-    width: 100%;
-    margin-top: 2px;
-    border-radius: 10px;
-    overflow: hidden;
-    background: hsl(var(--foreground) / 0.04);
-  }
-
-  .mood-post-content :global(.mood-detail-quote-image) {
-    display: block;
-    width: 100%;
-    height: 100%;
-    aspect-ratio: 1 / 1;
-    object-fit: cover;
-    background: hsl(var(--foreground) / 0.03);
-  }
-
-  .mood-post-content :global(.mood-detail-quote--media-only) {
-    max-width: clamp(5.25rem, 14vw, 6.5rem);
-    padding: 6px;
-    gap: 0;
-  }
-
-  .mood-post-content :global(.mood-detail-quote--media-only .mood-detail-quote-meta) {
-    display: none;
-  }
-
-  .mood-post-content :global(.mood-detail-quote--with-media) {
-    display: inline-grid;
-    grid-template-columns: 2rem minmax(0, 1fr);
-    align-items: center;
-    width: auto;
-    max-width: min(18rem, 100%);
-    padding: 8px;
-    gap: 0.75rem;
-  }
-
-  .mood-post-content :global(.mood-detail-quote--with-media .mood-detail-quote-media) {
-    width: 2rem;
-    margin-top: 0;
-    align-self: center;
-  }
-
-  .mood-post-content :global(.mood-detail-quote--with-media .mood-detail-quote-body) {
-    width: 100%;
-    min-width: 0;
-    justify-content: center;
-    align-self: center;
-    text-align: left;
-  }
-
-  .mood-post-content :global(.mood-detail-quote--with-media .mood-detail-quote-meta) {
-    justify-content: flex-start;
-  }
-
-  .mood-post-content :global(.mood-detail-quote--with-media .mood-detail-quote-text) {
-    -webkit-line-clamp: 4;
-    display: -webkit-box;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-  }
-
-  @media (min-width: 640px) {
-    .mood-post-content :global(.mood-detail-quote) {
-      gap: 4px;
-      padding: 11px 15px;
-    }
-
-    .mood-post-content :global(.mood-detail-quote-source) {
-      font-size: 14px;
-    }
-
-    .mood-post-content :global(.mood-detail-quote-text) {
-      font-size: 13.5px;
-      line-height: 1.5;
-    }
-
-    .mood-post-content :global(.mood-detail-quote--media-only) {
-      padding: 6px;
-    }
-
-    .mood-post-content :global(.mood-detail-quote--with-media) {
-      padding: 9px;
-    }
+  .mood-post-content :global(a.mood-item-quote:hover),
+  .mood-post-content :global(a.mood-item-quote:focus-visible) {
+    color: hsl(var(--foreground) / 0.7);
   }
 
   .mood-post-content :global(strong) {

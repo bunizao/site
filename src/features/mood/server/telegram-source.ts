@@ -491,7 +491,7 @@ async function enrichDetailPost(
 
     quoteEl.addClass('mood-detail-quote--with-media mood-item-quote--with-media');
     quoteEl.prepend(
-      `<span class="mood-detail-quote-media"><img class="mood-detail-quote-image" src="${escapeHtml(previewSrc)}" alt="" loading="lazy" /></span>`
+      `<span class="mood-detail-quote-media mood-item-quote-media"><img class="mood-detail-quote-image mood-item-quote-image" src="${escapeHtml(previewSrc)}" alt="" loading="lazy" /></span>`
     );
   }
 
@@ -1081,7 +1081,7 @@ function buildDetailReplyCard(
     ? `<div class="mood-detail-quote-meta mood-item-quote-meta"><span class="mood-detail-quote-source mood-item-quote-author">${escapeHtml(sourceName)}</span></div>`
     : '';
   const previewMarkup = replyPreviewSrc
-    ? `<span class="mood-detail-quote-media"><img class="mood-detail-quote-image" src="${escapeHtml(replyPreviewSrc)}" alt="" loading="lazy" /></span>`
+    ? `<span class="mood-detail-quote-media mood-item-quote-media"><img class="mood-detail-quote-image mood-item-quote-image" src="${escapeHtml(replyPreviewSrc)}" alt="" loading="lazy" /></span>`
     : '';
   const isMediaOnlyQuote = Boolean(replyPreviewSrc && /^(media|video)$/i.test(text));
   const textMarkup =
@@ -1089,7 +1089,7 @@ function buildDetailReplyCard(
       ? ''
       : `<p class="mood-detail-quote-text mood-item-quote-text">${escapeHtml(text)}</p>`;
   const bodyMarkup = sourceMarkup || textMarkup
-    ? `<span class="mood-detail-quote-body">${sourceMarkup}${textMarkup}</span>`
+    ? `<span class="mood-detail-quote-body mood-item-quote-body">${sourceMarkup}${textMarkup}</span>`
     : '';
   const quoteClassName = [
     'mood-detail-quote',

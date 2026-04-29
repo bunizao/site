@@ -206,9 +206,14 @@
 }
 
 .mood-post-content .mood-item-quote {
-  display: inline-flex;
+  display: flex;
   margin: 0 0 0.75em;
   max-width: 100%;
+  width: fit-content;
+}
+
+.mood-post-content .mood-item-quote--with-media {
+  display: grid;
 }
 
 .mood-comment-content .mood-item-quote,
