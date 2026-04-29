@@ -6,6 +6,7 @@ import {
   getQuotePreview,
   getRelatedLinks,
   getTextPreview,
+  getTextPreviewHtml,
 } from '../../src/features/mood/shared/utils';
 
 describe('getFirstImage', () => {
@@ -54,6 +55,25 @@ describe('video-only feed preview heuristic', () => {
 });
 
 describe('getQuotePreview', () => {
+  test('extracts detail quote cards as feed quotes', () => {
+    const content = [
+      '<a class="mood-detail-quote mood-item-quote mood-comment-quote" href="/mood/3420">',
+      '<span class="mood-detail-quote-body mood-item-quote-body">',
+      '<p class="mood-detail-quote-text mood-item-quote-text">哎想到今晚 meta 财报又睡不着了</p>',
+      '</span>',
+      '</a>',
+      '卧槽记错时间了！',
+    ].join('');
+
+    expect(getQuotePreview(content)).toEqual({
+      text: '哎想到今晚 meta 财报又睡不着了',
+      href: '/mood/3420',
+      thumbnailSrc: undefined,
+    });
+    expect(getTextPreview({ content })).toBe('卧槽记错时间了！');
+    expect(getTextPreviewHtml({ content })).toBe('卧槽记错时间了！');
+  });
+
   test('does not invent a thumbnail for text-only replies with a link target', () => {
     const content = `
       <a class="tgme_widget_message_reply" href="/mood/3314">

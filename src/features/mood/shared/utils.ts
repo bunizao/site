@@ -384,6 +384,9 @@ function extractMultilineTextFromHtml(html: string): string {
 
 const previewCleanupSelectors = [
   '.tgme_widget_message_reply',
+  '.mood-detail-quote',
+  '.mood-comment-quote',
+  '.mood-item-quote',
   '.mood-unsupported-media-card',
   '.bookmark-card',
   'video, audio, iframe',
@@ -926,7 +929,42 @@ export function getQuotePreview(
 ): QuoteData | null {
   const $ = cheerio.load(content);
   const reply = $('.tgme_widget_message_reply').first();
-  if (!reply.length) return null;
+  if (!reply.length) {
+    const detailQuote = $('.mood-detail-quote, .mood-comment-quote, .mood-item-quote').first();
+    if (!detailQuote.length) return null;
+
+    let text = extractMultilineTextFromHtml(
+      detailQuote.find('.mood-item-quote-text, .mood-detail-quote-text').first().html() ?? ''
+    );
+    const author = normalizeText(
+      detailQuote.find('.mood-item-quote-author, .mood-detail-quote-source').first().text()
+    );
+    const hiddenNames = [options.channelTitle ?? '', options.channel ?? ''].filter(Boolean);
+    const hideAuthor = shouldHideReplyAuthor(author, options.channel, options.channelTitle);
+    const shouldStrip =
+      hideAuthor ||
+      hiddenNames.some((name) => text.toLowerCase().startsWith(name.toLowerCase()));
+
+    if (shouldStrip) {
+      const namesToStrip = hideAuthor ? [author, ...hiddenNames] : hiddenNames;
+      text = stripLeadingAuthor(text, namesToStrip.filter(Boolean));
+    }
+
+    text = normalizeMultilineText(text);
+    if (!text) return null;
+
+    const href = normalizeText(detailQuote.attr('href') ?? '');
+    const thumbnailSrc = normalizeText(
+      detailQuote.find('.mood-item-quote-image, .mood-detail-quote-image').first().attr('src') ?? ''
+    );
+
+    return {
+      text,
+      author: author && !hideAuthor ? author : undefined,
+      href: href || undefined,
+      thumbnailSrc: thumbnailSrc || undefined,
+    };
+  }
 
   const author = normalizeText(
     [
