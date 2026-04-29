@@ -293,8 +293,8 @@ class ExternalApiMock {
 const BASE_ENV = {
   RESEND_API_KEY: 're_test_key',
   NOTIFY_FROM_NAME: 'Mood',
-  NOTIFY_FROM_EMAIL: 'notify@example.com',
-  NOTIFY_REPLY_TO_EMAIL: 'reply@example.com',
+  NOTIFY_FROM_EMAIL: 'notify@recipient.testmail',
+  NOTIFY_REPLY_TO_EMAIL: 'reply@recipient.testmail',
   EMAIL_NOTIFY_SECRET: 'test_notify_secret',
   NOTIFY_DISPATCH_SECRET: 'dispatch_secret',
   PUBLIC_SITE_URL: 'https://example.com',
@@ -379,7 +379,7 @@ describe('notify service integration e2e', () => {
     const context = createContext('/api/notify/subscribe');
 
     const subscribeResult = await requestMoodSubscription(context, {
-      email: 'user-immediate@example.com',
+      email: 'user-immediate@recipient.testmail',
     });
 
     expect(subscribeResult.status).toBe('confirmation_sent');
@@ -392,14 +392,14 @@ describe('notify service integration e2e', () => {
     expect(confirmResult.status).toBe('subscribed');
     expect(confirmResult.deliveryMode).toBe('immediate');
 
-    const subscriber = readSubscriber(mock, 'user-immediate@example.com');
+    const subscriber = readSubscriber(mock, 'user-immediate@recipient.testmail');
     expect(subscriber?.status).toBe('active');
     expect(subscriber?.deliveryMode).toBe('immediate');
   });
 
   test('pending subscription with same preferences does not send duplicate confirmations', async () => {
     const context = createContext('/api/notify/subscribe');
-    const email = 'pending-user@example.com';
+    const email = 'pending-user@recipient.testmail';
 
     const firstRequest = await requestMoodSubscription(context, {
       email,
@@ -432,7 +432,7 @@ describe('notify service integration e2e', () => {
     const context = createContext('/api/notify/subscribe');
 
     const subscribeResult = await requestMoodSubscription(context, {
-      email: 'user-instant@example.com',
+      email: 'user-instant@recipient.testmail',
       deliveryMode: 'instant',
     });
 
@@ -446,14 +446,14 @@ describe('notify service integration e2e', () => {
     expect(confirmResult.status).toBe('subscribed');
     expect(confirmResult.deliveryMode).toBe('immediate');
 
-    const subscriber = readSubscriber(mock, 'user-instant@example.com');
+    const subscriber = readSubscriber(mock, 'user-instant@recipient.testmail');
     expect(subscriber?.status).toBe('active');
     expect(subscriber?.deliveryMode).toBe('immediate');
   });
 
   test('active subscriber can change delivery mode via reconfirmation', async () => {
     const context = createContext('/api/notify/subscribe');
-    const email = 'user-change-mode@example.com';
+    const email = 'user-change-mode@recipient.testmail';
 
     await subscribeAndConfirm(mock, context, email, { deliveryMode: 'immediate' });
 
@@ -484,11 +484,11 @@ describe('notify service integration e2e', () => {
   test('webhook dispatch can target immediate subscribers only', async () => {
     const context = createContext('/api/telegram-webhook');
 
-    await subscribeAndConfirm(mock, context, 'immediate-user@example.com', {
+    await subscribeAndConfirm(mock, context, 'immediate-user@recipient.testmail', {
       deliveryMode: 'immediate',
     });
 
-    await subscribeAndConfirm(mock, context, 'daily-user@example.com', {
+    await subscribeAndConfirm(mock, context, 'daily-user@recipient.testmail', {
       deliveryMode: 'daily',
       timezone: 'Asia/Shanghai',
       dailyHour: 9,
@@ -508,10 +508,10 @@ describe('notify service integration e2e', () => {
     expect(result.sent).toBe(1);
     expect(result.failed).toBe(0);
     expect(mock.emails.length).toBe(1);
-    expect(mock.emails[0].to).toBe('immediate-user@example.com');
+    expect(mock.emails[0].to).toBe('immediate-user@recipient.testmail');
 
-    const immediateSubscriber = readSubscriber(mock, 'immediate-user@example.com');
-    const dailySubscriber = readSubscriber(mock, 'daily-user@example.com');
+    const immediateSubscriber = readSubscriber(mock, 'immediate-user@recipient.testmail');
+    const dailySubscriber = readSubscriber(mock, 'daily-user@recipient.testmail');
 
     expect(immediateSubscriber?.lastNotifiedPostId).toBe('500');
     expect(dailySubscriber?.lastNotifiedPostId).toBeUndefined();
@@ -519,7 +519,7 @@ describe('notify service integration e2e', () => {
 
   test('mood notification email uses real channel title and avatar when available', async () => {
     const context = createContext('/api/notify/dispatch');
-    const email = 'channel-meta@example.com';
+    const email = 'channel-meta@recipient.testmail';
     const post = createPost('510', 'Channel metadata');
 
     await subscribeAndConfirm(mock, context, email, {
@@ -550,7 +550,7 @@ describe('notify service integration e2e', () => {
 
   test('mood notification email preserves rich preview formatting', async () => {
     const context = createContext('/api/notify/dispatch');
-    const email = 'rich-preview@example.com';
+    const email = 'rich-preview@recipient.testmail';
     const post = createPost('511', 'Plain fallback');
     post.content = [
       '<blockquote>',
@@ -586,7 +586,7 @@ describe('notify service integration e2e', () => {
 
   test('mood notification email includes related links and image URLs', async () => {
     const context = createContext('/api/notify/dispatch');
-    const email = 'related-links@example.com';
+    const email = 'related-links@recipient.testmail';
     const post = createPost('512', 'Launch message');
     post.content = [
       '<p>Launch 😊 with article https://example.org/article</p>',
@@ -627,7 +627,7 @@ describe('notify service integration e2e', () => {
 
   test('every_5h mode does not resend when there is no new post', async () => {
     const context = createContext('/api/notify/schedule');
-    const email = 'every5h-no-repeat@example.com';
+    const email = 'every5h-no-repeat@recipient.testmail';
 
     await subscribeAndConfirm(mock, context, email, {
       deliveryMode: 'every_5h',
@@ -662,7 +662,7 @@ describe('notify service integration e2e', () => {
 
   test('every_5h mode respects interval even when new post arrives early', async () => {
     const context = createContext('/api/notify/schedule');
-    const email = 'every5h-interval@example.com';
+    const email = 'every5h-interval@recipient.testmail';
 
     await subscribeAndConfirm(mock, context, email, {
       deliveryMode: 'every_5h',
@@ -698,7 +698,7 @@ describe('notify service integration e2e', () => {
 
   test('daily mode sends only after local hour and only once per local day', async () => {
     const context = createContext('/api/notify/schedule');
-    const email = 'daily-mode@example.com';
+    const email = 'daily-mode@recipient.testmail';
 
     await subscribeAndConfirm(mock, context, email, {
       deliveryMode: 'daily',
@@ -741,7 +741,7 @@ describe('notify service integration e2e', () => {
 
   test('daily mode sends digest list for all posts in the current local day', async () => {
     const context = createContext('/api/notify/schedule');
-    const email = 'daily-digest@example.com';
+    const email = 'daily-digest@recipient.testmail';
 
     await subscribeAndConfirm(mock, context, email, {
       deliveryMode: 'daily',
@@ -780,7 +780,7 @@ describe('notify service integration e2e', () => {
 
   test('failed immediate send is retried and succeeds later', async () => {
     const context = createContext('/api/notify/dispatch');
-    const email = 'retry-user@example.com';
+    const email = 'retry-user@recipient.testmail';
     const post = createPost('700', 'Retry me');
 
     await subscribeAndConfirm(mock, context, email, {
@@ -817,7 +817,7 @@ describe('notify service integration e2e', () => {
 
   test('unsubscribed users are excluded from dispatch', async () => {
     const context = createContext('/api/notify/dispatch');
-    const email = 'unsub-user@example.com';
+    const email = 'unsub-user@recipient.testmail';
 
     await subscribeAndConfirm(mock, context, email, {
       deliveryMode: 'immediate',
@@ -854,7 +854,7 @@ describe('notify service integration e2e', () => {
 
     await expect(
       requestMoodSubscription(context, {
-        email: 'invalid-mode@example.com',
+        email: 'invalid-mode@recipient.testmail',
         deliveryMode: 'weekly',
       })
     ).rejects.toMatchObject({
@@ -864,7 +864,7 @@ describe('notify service integration e2e', () => {
 
     await expect(
       requestMoodSubscription(context, {
-        email: 'invalid-hour@example.com',
+        email: 'invalid-hour@recipient.testmail',
         deliveryMode: 'daily',
         timezone: 'Asia/Shanghai',
         dailyHour: 99,
@@ -876,7 +876,7 @@ describe('notify service integration e2e', () => {
 
     await expect(
       requestMoodSubscription(context, {
-        email: 'invalid-timezone@example.com',
+        email: 'invalid-timezone@recipient.testmail',
         deliveryMode: 'daily',
         timezone: 'Mars/OlympusMons',
       })
@@ -884,5 +884,20 @@ describe('notify service integration e2e', () => {
       code: 'invalid_timezone',
       status: 400,
     });
+  });
+
+  test('reserved example email domains are rejected before sending', async () => {
+    const context = createContext('/api/notify/subscribe');
+
+    await expect(
+      requestMoodSubscription(context, {
+        email: 'reader@example.com',
+      })
+    ).rejects.toMatchObject({
+      code: 'invalid_email',
+      status: 400,
+    });
+
+    expect(mock.emails.length).toBe(0);
   });
 });

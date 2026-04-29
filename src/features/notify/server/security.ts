@@ -10,13 +10,26 @@ export interface NotifyTokenPayload {
 }
 
 const BASIC_EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const RESERVED_EMAIL_DOMAINS = new Set([
+  'example.com',
+  'example.net',
+  'example.org',
+  'invalid',
+  'localhost',
+  'test',
+]);
 
 export function normalizeEmail(value: string): string {
   return value.trim().toLowerCase();
 }
 
 export function isValidEmail(value: string): boolean {
-  return BASIC_EMAIL_REGEX.test(value);
+  if (!BASIC_EMAIL_REGEX.test(value)) {
+    return false;
+  }
+
+  const domain = value.split('@').pop()?.toLowerCase() ?? '';
+  return !RESERVED_EMAIL_DOMAINS.has(domain);
 }
 
 export function hashEmail(email: string): string {
