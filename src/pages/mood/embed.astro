@@ -5,6 +5,7 @@ import {
   toMoodAvatarUrl,
 } from '@/features/mood/server/channel-service';
 import { buildMoodFeedItems } from '@/features/mood/server/feed-service';
+import { renderMoodGalleryMarkup } from '@/features/mood/shared/gallery';
 import {
   readBooleanFlag,
   readEnumQuery,
@@ -15,6 +16,7 @@ import type { MoodFeedItem } from '@/features/mood/server/contracts';
 import type { ChannelInfo, Post } from '@/features/mood/server/telegram-source';
 import { getEmbedHeaders } from '../../lib/embed-response';
 import '@/features/mood/styles/feed-rich-text.css';
+import '@/styles/mood-gallery.css';
 
 export const prerender = false;
 
@@ -127,6 +129,15 @@ function isMediaOnlyQuote(post: MoodFeedItem): boolean {
 
 function isExternalHref(value: string | undefined): boolean {
   return Boolean(value && /^https?:\/\//i.test(value));
+}
+
+function getImageClassName(post: MoodFeedItem): string {
+  return [
+    'mood-item-thumb',
+    post.imageKind === 'sticker' ? 'mood-item-thumb--sticker' : '',
+    post.imageLayout === 'portrait' ? 'mood-item-thumb--portrait' : '',
+    post.imageLayout === 'ultra-tall' ? 'mood-item-thumb--ultra-tall' : '',
+  ].filter(Boolean).join(' ');
 }
 ---
 
@@ -346,13 +357,68 @@ function isExternalHref(value: string | undefined): boolean {
       font-size: var(--text-size);
     }
 
-    .mood-image {
+    .mood-item-thumb,
+    .mood-gallery {
       margin-top: 12px;
+    }
+
+    .mood-item-thumb {
       width: 100%;
-      max-height: var(--image-max);
+      max-width: 400px;
+      border-radius: 12px;
+      overflow: hidden;
+      background: hsl(var(--foreground) / 0.02);
+      position: relative;
+    }
+
+    .mood-item-thumb img {
+      display: block;
+      width: 100%;
+      height: auto;
+    }
+
+    .mood-item-thumb--sticker {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: fit-content;
+      max-width: min(100%, 256px);
+      background: transparent;
+    }
+
+    .mood-item-thumb--sticker img {
+      width: min(100%, 256px);
       object-fit: contain;
-      border-radius: 8px;
-      background: hsl(var(--muted-foreground) / 0.05);
+    }
+
+    .mood-item-thumb--portrait {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: fit-content;
+      max-width: min(100%, 220px);
+      background: hsl(var(--foreground) / 0.04);
+    }
+
+    .mood-item-thumb--portrait img {
+      max-width: 220px;
+      max-height: 280px;
+      object-fit: contain;
+    }
+
+    .mood-item-thumb--ultra-tall {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: fit-content;
+      max-width: min(100%, 180px);
+      background: hsl(var(--foreground) / 0.03);
+    }
+
+    .mood-item-thumb--ultra-tall img {
+      max-width: 180px;
+      max-height: 320px;
+      object-fit: contain;
     }
 
     /* Footer */
@@ -463,6 +529,7 @@ function isExternalHref(value: string | undefined): boolean {
       {feedPosts.map((post) => {
         const previewHtml = post.previewHtml;
         const image = post.image;
+        const gallery = (post.gallery?.items.length ?? 0) > 1 ? post.gallery : null;
         const datetime = formatDateTime(post.datetime);
         const postUrl = `/mood/${post.id}`;
         const channelUrl = '/mood';
@@ -516,15 +583,19 @@ function isExternalHref(value: string | undefined): boolean {
               {previewHtml && (
                 <div class="mood-item-text" set:html={previewHtml} />
               )}
-              {image && (
-                <img
-                  class="mood-image"
-                  src={image}
-                  srcset={image ? buildSrcSet(image, responsiveImageWidths) : undefined}
-                  sizes={embedImageSizes}
-                  alt=""
-                  loading="lazy"
-                />
+              {gallery ? (
+                <Fragment set:html={renderMoodGalleryMarkup(gallery, { variant: 'feed' })} />
+              ) : image && (
+                <div class={getImageClassName(post)}>
+                  <img
+                    src={image}
+                    srcset={image ? buildSrcSet(image, responsiveImageWidths) : undefined}
+                    sizes={embedImageSizes}
+                    data-fallback-src={post.imageFallback || undefined}
+                    alt=""
+                    loading="lazy"
+                  />
+                </div>
               )}
             </div>
 
@@ -605,6 +676,29 @@ function isExternalHref(value: string | undefined): boolean {
         attributes: true,
       });
     }
+
+    document.querySelectorAll('img[data-fallback-src]').forEach(img => {
+      img.addEventListener('error', () => {
+        if (img.dataset.fallbackApplied === '1') return;
+        const fallbackSrc = img.dataset.fallbackSrc || '';
+        if (!fallbackSrc) return;
+        img.dataset.fallbackApplied = '1';
+        img.src = fallbackSrc;
+        img.removeAttribute('srcset');
+      });
+    });
+
+    document.querySelectorAll('img[data-mood-gallery-image]').forEach(img => {
+      if (img.dataset.deferredSrc) {
+        img.src = img.dataset.deferredSrc;
+      }
+      if (img.dataset.deferredSrcset) {
+        img.srcset = img.dataset.deferredSrcset;
+      }
+      if (img.dataset.sizes) {
+        img.sizes = img.dataset.sizes;
+      }
+    });
 
     // Send height after images load (or immediately if cached)
     document.querySelectorAll('img').forEach(img => {

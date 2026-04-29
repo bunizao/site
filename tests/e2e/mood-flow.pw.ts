@@ -913,6 +913,14 @@ test.describe('Mood routes', () => {
       .toBe('rgb(0, 0, 0)');
   });
 
+  test('renders embed galleries with feed image styling', async ({ page }) => {
+    await page.goto('/mood/embed?id=990777&theme=light&link=false');
+
+    await expect(page.locator('.mood-gallery--feed')).toBeVisible();
+    await expect(page.locator('.mood-gallery-image')).toHaveCount(3);
+    await expect(page.locator('.mood-image')).toHaveCount(0);
+  });
+
   test('falls back to /static image when HD image request fails', async ({ page }) => {
     const moodId = '990001';
     const fallbackImage = '/static/https://cdn4.telesco.pe/file/fallback.jpg';

@@ -74,6 +74,27 @@ describe('getQuotePreview', () => {
     expect(getTextPreviewHtml({ content })).toBe('卧槽记错时间了！');
   });
 
+  test('keeps quote card images available for embed thumbnails', () => {
+    const content = [
+      '<a class="mood-detail-quote mood-item-quote mood-comment-quote" href="/mood/1000">',
+      '<span class="mood-item-quote-media">',
+      '<img class="mood-item-quote-image" src="https://image.buxx.me/mood/1000/0" alt="" />',
+      '</span>',
+      '<span class="mood-item-quote-body">',
+      '<p class="mood-item-quote-text">怎么变成A了</p>',
+      '</span>',
+      '</a>',
+      '我是爱因斯坦',
+    ].join('');
+
+    expect(getFirstImage(content)).toBe('https://image.buxx.me/mood/1000/0');
+    expect(getFirstImageMeta(content)).toMatchObject({
+      src: 'https://image.buxx.me/mood/1000/0',
+      fallbackSrc: null,
+      layout: null,
+    });
+  });
+
   test('does not invent a thumbnail for text-only replies with a link target', () => {
     const content = `
       <a class="tgme_widget_message_reply" href="/mood/3314">
