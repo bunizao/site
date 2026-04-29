@@ -865,6 +865,54 @@ test.describe('Mood routes', () => {
       .toBe(true);
   });
 
+  test('keeps embed channel and rich text on mono while honoring density', async ({ page }) => {
+    await page.goto('/mood/embed?count=1&theme=light&density=regular&link=false');
+    const regular = await page.locator('.mood-item-text, .empty-state').first().evaluate((element) => {
+      const style = getComputedStyle(element);
+      return {
+        fontFamily: style.fontFamily,
+        fontSize: style.fontSize,
+      };
+    });
+    const channel = await page.locator('.channel-name').first().evaluate((element) => {
+      const style = getComputedStyle(element);
+      return {
+        fontFamily: style.fontFamily,
+        text: element.textContent?.trim() ?? '',
+      };
+    });
+
+    await page.goto('/mood/embed?count=1&theme=light&density=compact&font=mono&link=false');
+    const compact = await page.locator('.mood-item-text, .empty-state').first().evaluate((element) => {
+      const style = getComputedStyle(element);
+      return {
+        fontFamily: style.fontFamily,
+        fontSize: style.fontSize,
+      };
+    });
+
+    expect(channel.text).toBe('Levitating');
+    expect(channel.fontFamily.toLowerCase()).toContain('jetbrains mono');
+    expect(regular.fontFamily.toLowerCase()).toContain('jetbrains mono');
+    expect(regular.fontSize).toBe('14px');
+    expect(compact.fontFamily.toLowerCase()).toContain('jetbrains mono');
+    expect(compact.fontSize).toBe('13px');
+  });
+
+  test('keeps transparent auto embeds readable on light hosts', async ({ page }) => {
+    await page.emulateMedia({ colorScheme: 'dark' });
+    await page.goto('/mood/embed?count=1&theme=auto&frame=false&link=false');
+
+    await expect(page.locator('html')).toHaveAttribute('data-embed-theme', 'auto');
+    await expect(page.locator('html')).toHaveAttribute('data-embed-frame', 'false');
+
+    await expect
+      .poll(async () => page.locator('.mood-item-text, .empty-state').first().evaluate((element) => {
+        return getComputedStyle(element).color;
+      }))
+      .toBe('rgb(0, 0, 0)');
+  });
+
   test('falls back to /static image when HD image request fails', async ({ page }) => {
     const moodId = '990001';
     const fallbackImage = '/static/https://cdn4.telesco.pe/file/fallback.jpg';

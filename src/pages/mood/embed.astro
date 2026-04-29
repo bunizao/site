@@ -4,17 +4,17 @@ import {
   loadMoodPostSnapshot,
   toMoodAvatarUrl,
 } from '@/features/mood/server/channel-service';
+import { buildMoodFeedItems } from '@/features/mood/server/feed-service';
 import {
   readBooleanFlag,
   readEnumQuery,
   readIntQuery,
 } from '@/lib/http/query';
 import { buildSrcSet } from '@/lib/media/responsive-image';
-import {
-  getTextPreviewHtml,
-  getFirstImage,
-} from '@/features/mood/shared/utils';
+import type { MoodFeedItem } from '@/features/mood/server/contracts';
+import type { ChannelInfo, Post } from '@/features/mood/server/telegram-source';
 import { getEmbedHeaders } from '../../lib/embed-response';
+import '@/features/mood/styles/feed-rich-text.css';
 
 export const prerender = false;
 
@@ -33,21 +33,33 @@ const refresh = refreshRaw !== null
   : null;
 const showLink = readBooleanFlag(url, 'link', true);
 const context = { request: Astro.request, locals: Astro.locals };
-let posts: any[] = [];
+let posts: Post[] = [];
 let channelTitle = '';
 let channelAvatar = '';
+let channelInfoForFeed: ChannelInfo = {
+  posts: [],
+  title: '',
+  titleHTML: '',
+  description: '',
+  descriptionHTML: '',
+  avatar: '',
+};
 
 if (idParam) {
   const { post, channelInfo } = await loadMoodPostSnapshot(context, idParam);
   posts = post ? [post] : [];
-  channelTitle = channelInfo?.title || 'Levitating';
-  channelAvatar = toMoodAvatarUrl(channelInfo?.avatar || '', Astro.locals);
+  channelInfoForFeed = channelInfo ?? channelInfoForFeed;
+  channelTitle = channelInfoForFeed.title || 'Levitating';
+  channelAvatar = toMoodAvatarUrl(channelInfoForFeed.avatar || '', Astro.locals);
 } else {
   const { channelInfo, posts: channelPosts } = await loadMoodChannelSnapshot(context);
   posts = channelPosts.slice(0, count);
+  channelInfoForFeed = channelInfo;
   channelTitle = channelInfo.title || 'Levitating';
   channelAvatar = toMoodAvatarUrl(channelInfo.avatar || '', Astro.locals);
 }
+
+const feedPosts = await buildMoodFeedItems(context, channelInfoForFeed, posts);
 
 const responsiveImageWidths = [480, 800, 1200];
 const embedImageSizes = '(min-width: 640px) 520px, 100vw';
@@ -96,6 +108,26 @@ function normalizeOrigin(value: string | null): string | null {
 }
 
 const allowedOrigin = normalizeOrigin(originParam);
+
+function getQuoteClassName(post: MoodFeedItem): string {
+  const quote = post.quote;
+  const quoteHasMedia = Boolean(quote?.thumbnailSrc);
+  const mediaOnly = isMediaOnlyQuote(post);
+  return [
+    'mood-item-quote',
+    mediaOnly ? 'mood-item-quote--media-only' : '',
+    quoteHasMedia && !mediaOnly ? 'mood-item-quote--with-media' : '',
+  ].filter(Boolean).join(' ');
+}
+
+function isMediaOnlyQuote(post: MoodFeedItem): boolean {
+  const quote = post.quote;
+  return Boolean(quote?.thumbnailSrc && /^(Media|Video)$/i.test(quote.text));
+}
+
+function isExternalHref(value: string | undefined): boolean {
+  return Boolean(value && /^https?:\/\//i.test(value));
+}
 ---
 
 <!DOCTYPE html>
@@ -153,6 +185,12 @@ const allowedOrigin = normalizeOrigin(originParam);
       --view-more-size: 12px;
       --reaction-size: 11px;
       --image-max: 400px;
+      --mood-item-text-size: var(--text-size);
+      --mood-item-text-wide-size: var(--text-size);
+      --mood-item-text-mobile-size: var(--text-size);
+      --mood-item-text-line-height: 1.6;
+      --mood-item-text-wide-line-height: 1.6;
+      --mood-item-text-mobile-line-height: 1.6;
     }
 
     .dark {
@@ -164,6 +202,17 @@ const allowedOrigin = normalizeOrigin(originParam);
       --card-bg: 0 0% 8%;
       --card-border: 0 0% 18%;
       --card-shadow: 0 0% 0% / 0.3;
+    }
+
+    .light {
+      --background: 0 0% 100%;
+      --foreground: 0 0% 0%;
+      --muted: 0 0% 40%;
+      --muted-foreground: 0 0% 40%;
+      --border: 0 0% 90%;
+      --card-bg: 0 0% 100%;
+      --card-border: 0 0% 88%;
+      --card-shadow: 0 0% 0% / 0.06;
     }
 
     * {
@@ -269,6 +318,7 @@ const allowedOrigin = normalizeOrigin(originParam);
     }
 
     .channel-name {
+      font-family: var(--font-family);
       font-size: 13px;
       font-weight: 600;
       color: hsl(var(--foreground));
@@ -287,20 +337,13 @@ const allowedOrigin = normalizeOrigin(originParam);
       padding: var(--content-padding);
     }
 
-    .mood-text {
+    .mood-item-quote {
+      margin-bottom: 10px;
+      max-width: 100%;
+    }
+
+    .mood-item-text {
       font-size: var(--text-size);
-      line-height: 1.6;
-      word-wrap: break-word;
-      overflow-wrap: break-word;
-    }
-
-    .mood-text a {
-      text-decoration: underline;
-      text-underline-offset: 2px;
-    }
-
-    .mood-text a:hover {
-      opacity: 0.7;
     }
 
     .mood-image {
@@ -399,7 +442,7 @@ const allowedOrigin = normalizeOrigin(originParam);
 
     /* Auto theme detection */
     @media (prefers-color-scheme: dark) {
-      html[data-embed-theme="auto"] {
+      html[data-embed-theme="auto"][data-embed-frame="true"]:not(.light) {
         --background: 0 0% 4%;
         --foreground: 0 0% 100%;
         --muted: 0 0% 53%;
@@ -417,13 +460,16 @@ const allowedOrigin = normalizeOrigin(originParam);
     <div class="empty-state">No moods to display</div>
   ) : (
     <>
-      {posts.map((post) => {
-        const previewHtml = getTextPreviewHtml(post);
-        const image = getFirstImage(post.content);
+      {feedPosts.map((post) => {
+        const previewHtml = post.previewHtml;
+        const image = post.image;
         const datetime = formatDateTime(post.datetime);
         const postUrl = `/mood/${post.id}`;
         const channelUrl = '/mood';
         const initial = channelTitle.charAt(0).toUpperCase();
+        const quoteHref = post.quote?.href;
+        const QuoteElement = quoteHref ? 'a' : 'div';
+        const quoteIsExternal = isExternalHref(quoteHref);
 
         return (
           <article class="embed-card">
@@ -443,8 +489,32 @@ const allowedOrigin = normalizeOrigin(originParam);
             </header>
 
             <div class="card-content">
+              {post.quote && (
+                <QuoteElement
+                  href={quoteHref}
+                  target={quoteIsExternal ? '_blank' : undefined}
+                  rel={quoteIsExternal ? 'noopener noreferrer' : undefined}
+                  class={getQuoteClassName(post)}
+                >
+                  {post.quote.thumbnailSrc && (
+                    <span class="mood-item-quote-media">
+                      <img class="mood-item-quote-image" src={post.quote.thumbnailSrc} alt="" loading="lazy" />
+                    </span>
+                  )}
+                  <span class="mood-item-quote-body">
+                    {post.quote.author && (
+                      <div class="mood-item-quote-meta">
+                        <span class="mood-item-quote-author">{post.quote.author}</span>
+                      </div>
+                    )}
+                    {!isMediaOnlyQuote(post) && (
+                      <p class="mood-item-quote-text">{post.quote.text}</p>
+                    )}
+                  </span>
+                </QuoteElement>
+              )}
               {previewHtml && (
-                <div class="mood-text" set:html={previewHtml} />
+                <div class="mood-item-text" set:html={previewHtml} />
               )}
               {image && (
                 <img
@@ -569,9 +639,11 @@ const allowedOrigin = normalizeOrigin(originParam);
         const html = document.documentElement;
         const theme = event.data.theme;
         if (theme === 'dark') {
+          html.dataset.embedTheme = 'dark';
           html.classList.add('dark');
           html.classList.remove('light');
         } else if (theme === 'light') {
+          html.dataset.embedTheme = 'light';
           html.classList.remove('dark');
           html.classList.add('light');
         }

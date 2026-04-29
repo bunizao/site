@@ -1,0 +1,269 @@
+.mood-item-quote,
+.mood-quote-card {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: none;
+  background: hsl(var(--foreground) / 0.03);
+  color: hsl(var(--muted-foreground));
+  text-decoration: none;
+  align-self: flex-start;
+  max-width: 88%;
+  width: fit-content;
+}
+
+.mood-item-quote[href],
+.mood-quote-card[href] {
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.mood-item-quote[href]:hover,
+.mood-item-quote[href]:focus-visible,
+.mood-quote-card[href]:hover,
+.mood-quote-card[href]:focus-visible {
+  background: hsl(var(--foreground) / 0.06);
+  color: hsl(var(--foreground) / 0.7);
+  box-shadow: 0 0 0 1px hsl(var(--foreground) / 0.08);
+}
+
+.mood-item-quote[href]:hover .mood-item-quote-text,
+.mood-item-quote[href]:focus-visible .mood-item-quote-text,
+.mood-quote-card[href]:hover .mood-quote-card-text,
+.mood-quote-card[href]:focus-visible .mood-quote-card-text {
+  color: hsl(var(--foreground) / 0.75);
+}
+
+.mood-item-quote-meta,
+.mood-quote-card-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  text-transform: none;
+  letter-spacing: 0.02em;
+  color: hsl(var(--muted-foreground));
+}
+
+.mood-item-quote-body,
+.mood-quote-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.mood-item-quote-author,
+.mood-quote-card-author {
+  font-size: 11px;
+  letter-spacing: 0.02em;
+  text-transform: none;
+  color: hsl(var(--foreground) / 0.6);
+}
+
+.mood-item-quote-media,
+.mood-quote-card-media {
+  display: block;
+  width: 100%;
+  border-radius: 8px;
+  overflow: hidden;
+  background: hsl(var(--foreground) / 0.04);
+}
+
+.mood-item-quote--media-only,
+.mood-quote-card--media-only {
+  display: inline-flex;
+  width: auto;
+  max-width: clamp(5.25rem, 14vw, 6.5rem);
+  padding: 6px;
+  gap: 6px;
+}
+
+.mood-item-quote--with-media,
+.mood-quote-card--with-media {
+  display: inline-grid;
+  grid-template-columns: 2rem minmax(0, 1fr);
+  align-items: center;
+  width: auto;
+  max-width: min(18rem, 100%);
+  padding: 8px;
+  gap: 0.75rem;
+}
+
+.mood-item-quote-image,
+.mood-quote-card-image {
+  display: block;
+  width: 100%;
+  height: 100%;
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
+  background: hsl(var(--foreground) / 0.03);
+}
+
+.mood-item-quote--media-only .mood-item-quote-meta,
+.mood-quote-card--media-only .mood-quote-card-meta {
+  display: none;
+}
+
+.mood-item-quote--with-media .mood-item-quote-media,
+.mood-quote-card--with-media .mood-quote-card-media {
+  width: 2rem;
+  margin-top: 0;
+  align-self: center;
+}
+
+.mood-item-quote--with-media .mood-item-quote-body,
+.mood-quote-card--with-media .mood-quote-card-body {
+  width: 100%;
+  min-width: 0;
+  justify-content: center;
+  align-self: center;
+  text-align: left;
+}
+
+.mood-item-quote--with-media .mood-item-quote-meta,
+.mood-quote-card--with-media .mood-quote-card-meta {
+  justify-content: flex-start;
+}
+
+.mood-item-quote--with-media .mood-item-quote-text,
+.mood-quote-card--with-media .mood-quote-card-text {
+  -webkit-line-clamp: 4;
+}
+
+.mood-item-quote-text,
+.mood-quote-card-text {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.55;
+  color: hsl(var(--foreground) / 0.6);
+  white-space: pre-line;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+}
+
+.mood-item-text {
+  font-size: var(--mood-item-text-size, 14px);
+  line-height: var(--mood-item-text-line-height, 1.6);
+  color: hsl(var(--foreground));
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  overflow-wrap: anywhere;
+}
+
+.mood-item-text--clamped {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 6;
+  overflow: hidden;
+}
+
+.mood-item-text a {
+  color: hsl(var(--foreground));
+  text-decoration: none;
+  border-bottom: 1px solid hsl(var(--foreground) / 0.35);
+  transition: border-color 0.15s ease, color 0.15s ease, opacity 0.15s ease;
+}
+
+.mood-item-text a:hover,
+.mood-item-text a:focus-visible {
+  border-bottom-color: hsl(var(--foreground) / 0.6);
+}
+
+.mood-item-text blockquote {
+  border-left: 3px solid hsl(var(--foreground) / 0.25);
+  padding: 4px 0 4px 12px;
+  margin: 4px 0;
+  background: hsl(var(--foreground) / 0.03);
+  border-radius: 0 6px 6px 0;
+}
+
+.mood-item-text code {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 0.88em;
+  background: hsl(var(--foreground) / 0.06);
+  padding: 1px 5px;
+  border-radius: 4px;
+}
+
+.mood-item-text pre {
+  background: hsl(var(--foreground) / 0.06);
+  padding: 8px 12px;
+  border-radius: 6px;
+  overflow-x: auto;
+  margin: 4px 0;
+  white-space: pre;
+}
+
+.mood-item-text pre code {
+  background: none;
+  padding: 0;
+  border-radius: 0;
+}
+
+.mood-post-content .mood-item-quote {
+  display: inline-flex;
+  margin: 0 0 0.75em;
+  max-width: 100%;
+}
+
+.mood-comment-content .mood-item-quote,
+.mood-popover-comment-content .mood-item-quote {
+  display: flex;
+  margin: 0 0 0.75em;
+  max-width: 100%;
+}
+
+.mood-popover-comment-content .mood-item-quote {
+  margin-bottom: 0.5em;
+}
+
+.mood-post-content .mood-item-quote:last-child,
+.mood-comment-content .mood-item-quote:last-child,
+.mood-popover-comment-content .mood-item-quote:last-child {
+  margin-bottom: 0;
+}
+
+.mood-post-content a.mood-item-quote,
+.mood-post-content a.mood-item-quote:hover,
+.mood-comment-content a.mood-item-quote,
+.mood-comment-content a.mood-item-quote:hover,
+.mood-popover-comment-content a.mood-item-quote,
+.mood-popover-comment-content a.mood-item-quote:hover {
+  border-bottom: none;
+}
+
+@media (min-width: 640px) {
+  .mood-item-text {
+    font-size: var(--mood-item-text-wide-size, 15px);
+    line-height: var(--mood-item-text-wide-line-height, 1.65);
+  }
+}
+
+@media (max-width: 480px) {
+  .mood-item-quote {
+    padding: 8px 10px;
+    border-radius: 8px;
+    max-width: 100%;
+  }
+
+  .mood-item-quote-meta {
+    font-size: 11px;
+    letter-spacing: 0.02em;
+  }
+
+  .mood-item-quote-text {
+    font-size: 13px;
+    line-height: 1.5;
+    -webkit-line-clamp: 3;
+  }
+
+  .mood-item-text {
+    font-size: var(--mood-item-text-mobile-size, 15px);
+    line-height: var(--mood-item-text-mobile-line-height, 1.6);
+  }
+}

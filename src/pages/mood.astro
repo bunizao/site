@@ -857,22 +857,6 @@ const skeletonGroups = [
     color: hsl(var(--muted-foreground) / 0.5);
   }
 
-  :global(.mood-item-text) {
-    font-size: 14px;
-    line-height: 1.6;
-    color: hsl(var(--foreground));
-    white-space: pre-wrap;
-    word-wrap: break-word;
-    overflow-wrap: anywhere;
-  }
-
-  :global(.mood-item-text--clamped) {
-    display: -webkit-box;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 6;
-    overflow: hidden;
-  }
-
   :global(.mood-item-details) {
     align-self: flex-start;
     font-size: 13px;
@@ -884,56 +868,6 @@ const skeletonGroups = [
   @media (min-width: 640px) {
     :global(.mood-item-details) {
       font-size: 14px;
-    }
-  }
-
-  :global(.mood-item-text a) {
-    color: hsl(var(--foreground));
-    text-decoration: none;
-    border-bottom: 1px solid hsl(var(--foreground) / 0.35);
-    transition: border-color 0.15s ease, color 0.15s ease, opacity 0.15s ease;
-  }
-
-  :global(.mood-item-text a:hover),
-  :global(.mood-item-text a:focus-visible) {
-    border-bottom-color: hsl(var(--foreground) / 0.6);
-  }
-
-  :global(.mood-item-text blockquote) {
-    border-left: 3px solid hsl(var(--foreground) / 0.25);
-    padding: 4px 0 4px 12px;
-    margin: 4px 0;
-    background: hsl(var(--foreground) / 0.03);
-    border-radius: 0 6px 6px 0;
-  }
-
-  :global(.mood-item-text code) {
-    font-family: 'JetBrains Mono', ui-monospace, monospace;
-    font-size: 0.88em;
-    background: hsl(var(--foreground) / 0.06);
-    padding: 1px 5px;
-    border-radius: 4px;
-  }
-
-  :global(.mood-item-text pre) {
-    background: hsl(var(--foreground) / 0.06);
-    padding: 8px 12px;
-    border-radius: 6px;
-    overflow-x: auto;
-    margin: 4px 0;
-    white-space: pre;
-  }
-
-  :global(.mood-item-text pre code) {
-    background: none;
-    padding: 0;
-    border-radius: 0;
-  }
-
-  @media (min-width: 640px) {
-    :global(.mood-item-text) {
-      font-size: 15px;
-      line-height: 1.65;
     }
   }
 
@@ -1879,28 +1813,6 @@ const skeletonGroups = [
 
     :global(.mood-item-media) {
       gap: 10px;
-    }
-
-    :global(.mood-item-quote) {
-      padding: 8px 10px;
-      border-radius: 8px;
-      max-width: 100%;
-    }
-
-    :global(.mood-item-quote-meta) {
-      font-size: 11px;
-      letter-spacing: 0.02em;
-    }
-
-    :global(.mood-item-quote-text) {
-      font-size: 13px;
-      line-height: 1.5;
-      -webkit-line-clamp: 3;
-    }
-
-    :global(.mood-item-text) {
-      font-size: 15px;
-      line-height: 1.6;
     }
 
     :global(.mood-item-details) {
