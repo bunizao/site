@@ -349,6 +349,9 @@ function emailShell(content: string): string {
       .email-bookmark-title { color: #e5e5e5 !important; }
       .email-bookmark-description { color: #c7c7c7 !important; }
       .email-bookmark-meta { color: #8a8a8a !important; }
+      .email-digest-date { color: #777 !important; }
+      .email-digest-time { color: #777 !important; }
+      .email-digest-content { border-color: #242424 !important; }
     }
   </style>
 </head>
@@ -553,7 +556,7 @@ function buildDigestListHtml(posts: MoodDigestPost[]): string {
       currentDate = post.dateLabel;
       rows.push(`
                 <tr>
-                  <td style="padding: 14px 14px 6px; font-family: ${MONO_FONT}; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: #666;">
+                  <td class="email-digest-date" style="padding: 16px 14px 4px; font-family: ${MONO_FONT}; font-size: 10px; font-weight: 600; line-height: 1.2; letter-spacing: 0.08em; text-transform: uppercase; color: #777;">
                     ${escapeHtml(post.dateLabel)}
                   </td>
                 </tr>`);
@@ -562,12 +565,12 @@ function buildDigestListHtml(posts: MoodDigestPost[]): string {
     rows.push(`
                 <tr>
                   <td style="padding: 0 14px;">
-                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-top: 1px solid #efefef;">
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" class="email-digest-item">
                       <tr>
-                        <td valign="top" width="56" style="padding: 10px 0; font-family: ${MONO_FONT}; font-size: 11px; color: #666;">
+                        <td valign="top" width="54" class="email-digest-time" style="padding: 9px 0 11px; font-family: ${MONO_FONT}; font-size: 10px; line-height: 1.4; color: #888; white-space: nowrap;">
                           ${escapeHtml(post.timeLabel)}
                         </td>
-                        <td valign="top" style="padding: 10px 0;">
+                        <td valign="top" class="email-digest-content" style="padding: 9px 0 11px 12px; border-left: 1px solid #ececec;">
                           ${previewHtml}
                           ${buildRelatedLinksHtml(post.relatedLinks, { maxCount: 4, compact: true })}
                         </td>

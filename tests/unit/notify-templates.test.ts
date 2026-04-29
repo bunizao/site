@@ -42,6 +42,10 @@ describe('notify email templates', () => {
     expect(email.html).toContain('email-rich-text');
     expect(email.html).toContain('Digest quote');
     expect(email.html).toContain('email-quote');
+    expect(email.html).toContain('email-digest-content');
+    expect(email.html).toContain('border-left: 1px solid #ececec');
+    expect(email.html).toContain('.email-digest-content { border-color: #242424 !important; }');
+    expect(email.html).not.toContain('border-top: 1px solid #efefef');
   });
 
   test('mood notification renders bookmark cards with wrapping text styles', () => {
