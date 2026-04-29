@@ -514,6 +514,16 @@ const {
     border-bottom-color: hsl(var(--foreground) / 0.6);
   }
 
+  .mood-post-content :global(.mood-item-quote) {
+    gap: 4px;
+    max-width: 88%;
+    padding: 8px 10px;
+    border: none;
+    border-radius: 10px;
+    background: hsl(var(--foreground) / 0.03);
+    box-shadow: none;
+  }
+
   .mood-post-content :global(a.mood-item-quote),
   .mood-post-content :global(a.mood-item-quote:hover),
   .mood-post-content :global(a.mood-item-quote:focus-visible) {
@@ -526,6 +536,17 @@ const {
   .mood-post-content :global(a.mood-item-quote:hover),
   .mood-post-content :global(a.mood-item-quote:focus-visible) {
     color: hsl(var(--foreground) / 0.7);
+  }
+
+  .mood-post-content :global(.mood-item-quote .mood-item-quote-text) {
+    display: -webkit-box;
+    margin: 0;
+    font-size: 12px;
+    line-height: 1.55;
+    color: hsl(var(--foreground) / 0.6);
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
   }
 
   .mood-post-content :global(strong) {
