@@ -604,8 +604,7 @@ function buildDigestListHtml(posts: MoodDigestPost[]): string {
     const richPreview = renderEmailRichPreview(post.previewHtml, true);
     const relatedLinksHtml = hasBookmark ? '' : buildRelatedLinksHtml(post.relatedLinks, { maxCount: 4, compact: true });
     const previewHtml = richPreview
-      ? `${richPreview}
-                          <a href="${escapeHtml(post.moodUrl)}" class="email-view-link" style="display: inline-block; margin-top: 6px; font-family: ${MONO_FONT}; font-size: 11px; color: #000; text-decoration: none;">Read mood &rarr;</a>`
+      ? richPreview
       : `<a href="${escapeHtml(post.moodUrl)}" class="email-preview" style="display: block; font-family: ${MONO_FONT}; font-size: 13px; line-height: 1.65; color: #111; text-decoration: none;">
                             ${escapeHtmlWithLineBreaks(trimPreview(post.previewText, 160))}
                           </a>`;
@@ -723,7 +722,7 @@ export function buildMoodDigestEmail(options: {
     if (relatedLinkLines.length) {
       textLines.push(...relatedLinkLines);
     }
-    textLines.push(`Read: ${post.moodUrl}`);
+    textLines.push(`Post: ${post.moodUrl}`);
     textLines.push('');
   }
 

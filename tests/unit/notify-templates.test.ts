@@ -43,6 +43,10 @@ describe('notify email templates', () => {
     expect(email.html).toContain('email-rich-text');
     expect(email.html).toContain('Digest quote');
     expect(email.html).toContain('email-quote');
+    expect(email.html).not.toContain('View post');
+    expect(email.html).not.toContain('Read mood');
+    expect(email.text).toContain('Post: https://example.com/mood/701');
+    expect(email.text).not.toContain('Read: https://example.com/mood/701');
     expect(email.html).toContain('email-digest-content');
     expect(email.html).toContain('border-left: 1px solid #ececec');
     expect(email.html).toContain('.email-digest-content { border-color: #242424 !important; }');
