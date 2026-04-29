@@ -212,6 +212,19 @@
   width: fit-content;
 }
 
+.mood-post-content a.mood-item-quote[href],
+.mood-post-content a.mood-item-quote[href]:hover,
+.mood-post-content a.mood-item-quote[href]:focus-visible {
+  border: none;
+  background: hsl(var(--foreground) / 0.03);
+  box-shadow: none;
+}
+
+.mood-post-content a.mood-item-quote[href]:hover,
+.mood-post-content a.mood-item-quote[href]:focus-visible {
+  background: hsl(var(--foreground) / 0.06);
+}
+
 .mood-post-content .mood-item-quote--with-media {
   display: grid;
 }
