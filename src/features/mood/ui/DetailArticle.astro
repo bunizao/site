@@ -517,17 +517,17 @@ const {
   }
 
   .mood-post-content :global(.mood-item-quote) {
-    display: inline-flex;
+    display: flex;
     align-items: center;
     gap: 4px;
     max-width: 88%;
-    margin: 0 0.85rem 1rem 0;
+    width: fit-content;
+    margin: 0 0 0.9rem;
     padding: 8px 10px;
     border: none;
     border-radius: 10px;
     background: hsl(var(--foreground) / 0.03);
     box-shadow: none;
-    vertical-align: top;
   }
 
   .mood-post-content :global(.mood-item-quote-body) {
