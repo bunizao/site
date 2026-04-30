@@ -217,11 +217,17 @@ function appendQuote(lines: string[], post: MoodFeedItem, baseUrl: URL): void {
   }
 }
 
-function buildAgentMoodPostMarkdown(post: MoodFeedItem, baseUrl: URL): string {
+export function buildMoodAgentPostMarkdown(
+  post: MoodFeedItem,
+  baseUrl: URL,
+  options: { headingLevel?: 1 | 2 } = {}
+): string {
+  const heading = '#'.repeat(options.headingLevel ?? 2);
   const lines = [
-    `## ${post.id} · ${post.datetime}`,
+    `${heading} ${post.id} · ${post.datetime}`,
     '',
     `URL: ${new URL(`/mood/${post.id}`, baseUrl).href}`,
+    `Agent: ${new URL(`/agent/mood/${post.id}`, baseUrl).href}`,
   ];
 
   if (post.tag) {
@@ -296,7 +302,17 @@ export function buildMoodAgentMarkdown(
     return `${lines.join('\n')}\n`;
   }
 
-  lines.push(...feed.posts.map((post) => buildAgentMoodPostMarkdown(post, baseUrl)).join('\n\n').split('\n'));
+  lines.push(...feed.posts.map((post) => buildMoodAgentPostMarkdown(post, baseUrl)).join('\n\n').split('\n'));
 
   return `${lines.join('\n')}\n`;
+}
+
+export function buildMoodAgentPostPageMarkdown(post: MoodFeedItem, baseUrl: URL): string {
+  const feedUrl = new URL('/agent/mood', baseUrl);
+  return [
+    buildMoodAgentPostMarkdown(post, baseUrl, { headingLevel: 1 }),
+    '',
+    `Feed: ${feedUrl.href}`,
+    '',
+  ].join('\n');
 }

@@ -119,6 +119,11 @@ test.describe('API behavior', () => {
     expect(agentMood.headers()['content-type']).toContain('text/markdown');
     expect(await agentMood.text()).toContain('# Mood Feed');
 
+    const agentMoodPost = await request.get('/agent/mood/990001');
+    expect(agentMoodPost.ok()).toBeTruthy();
+    expect(agentMoodPost.headers()['content-type']).toContain('text/markdown');
+    expect(await agentMoodPost.text()).toContain('# 990001');
+
     const statusSvg = await request.get('/api/status.svg?theme=light');
     expect(statusSvg.ok()).toBeTruthy();
     expect(statusSvg.headers()['content-type']).toContain('image/svg+xml');
