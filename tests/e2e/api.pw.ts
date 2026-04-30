@@ -114,6 +114,11 @@ test.describe('API behavior', () => {
     expect(rss.headers()['content-type']).toContain('application/rss+xml');
     expect(await rss.text()).toContain('<rss');
 
+    const agentMood = await request.get('/agent/mood');
+    expect(agentMood.ok()).toBeTruthy();
+    expect(agentMood.headers()['content-type']).toContain('text/markdown');
+    expect(await agentMood.text()).toContain('# Mood Feed');
+
     const statusSvg = await request.get('/api/status.svg?theme=light');
     expect(statusSvg.ok()).toBeTruthy();
     expect(statusSvg.headers()['content-type']).toContain('image/svg+xml');

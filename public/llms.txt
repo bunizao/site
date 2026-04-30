@@ -10,12 +10,14 @@ Personal website for Bunizao, including project notes, live status widgets, and 
 
 ## Programmatic Access
 
+- [Agent Mood Markdown](https://buxx.me/agent/mood) - Compact Markdown view of recent Mood posts for LLM and agent reading.
 - [Mood feed JSON](https://buxx.me/api/moods) - Current JSON payload used by the Mood feed UI. Supports cursor pagination with `before` and `after`; use this for recent feed inspection.
 - [Mood probe JSON](https://buxx.me/api/moods?probe=1) - Lightweight endpoint returning the latest Mood id.
 
 ## Notes For Agents
 
-- Prefer the RSS feed for simple chronological reading.
+- Prefer `/agent/mood` for concise Markdown reading.
+- Prefer the RSS feed for simple chronological subscription.
 - Prefer `/api/moods` when you need structured fields such as ids, timestamps, text previews, media hints, quotes, reactions, and comment counts.
 - Treat `/api/moods` as a feed-oriented payload. It may include presentation fields such as HTML snippets and image layout metadata.
 - Individual Mood entries use canonical URLs in the form `https://buxx.me/mood/{id}`.

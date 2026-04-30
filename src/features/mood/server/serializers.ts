@@ -1,5 +1,6 @@
 import * as cheerio from 'cheerio';
 import { getTextPreview } from '@/features/mood/shared/utils';
+import type { MoodFeedItem, MoodFeedResponse } from '@/features/mood/server/contracts';
 import type { ChannelInfo, Post } from '@/features/mood/server/telegram-source';
 
 const stripInvalidXmlChars = (value: string): string =>
@@ -135,4 +136,167 @@ export function buildMoodRssXml(channel: ChannelInfo, posts: Post[], baseUrl: UR
     '</rss>',
     '',
   ].join('\n');
+}
+
+function normalizeMarkdownText(value: string): string {
+  return value
+    .replace(/\r\n?/g, '\n')
+    .split('\n')
+    .map((line) => line.trimEnd())
+    .join('\n')
+    .trim();
+}
+
+function appendBlockquote(lines: string[], value: string, label = 'Text'): void {
+  const normalized = normalizeMarkdownText(value);
+  if (!normalized) return;
+
+  lines.push(`${label}:`);
+  for (const line of normalized.split('\n')) {
+    lines.push(line ? `> ${line}` : '>');
+  }
+}
+
+function formatReaction(reaction: MoodFeedItem['reactions'][number]): string {
+  return `${reaction.emoji} ${reaction.count}`;
+}
+
+function formatMediaItem(
+  type: string,
+  src: string,
+  baseUrl: URL,
+  width?: number | null,
+  height?: number | null
+): string {
+  const parts = [`- ${type}: ${toAbsoluteUrl(src, baseUrl)}`];
+  if (width && height) {
+    parts.push(`(${width}x${height})`);
+  }
+  return parts.join(' ');
+}
+
+function appendMedia(lines: string[], post: MoodFeedItem, baseUrl: URL): void {
+  const mediaLines: string[] = [];
+
+  if (post.gallery?.items.length) {
+    for (const item of post.gallery.items) {
+      mediaLines.push(formatMediaItem('image', item.src, baseUrl, item.width, item.height));
+    }
+  } else if (post.image) {
+    mediaLines.push(formatMediaItem('image', post.image, baseUrl, post.imageWidth, post.imageHeight));
+  }
+
+  if (post.imageFallback && post.imageFallback !== post.image) {
+    mediaLines.push(`- image fallback: ${toAbsoluteUrl(post.imageFallback, baseUrl)}`);
+  }
+
+  if (!mediaLines.length && post.previewMediaType) {
+    mediaLines.push(`- ${post.previewMediaType}`);
+  }
+
+  if (!mediaLines.length) return;
+
+  lines.push('Media:');
+  lines.push(...mediaLines);
+}
+
+function appendQuote(lines: string[], post: MoodFeedItem, baseUrl: URL): void {
+  if (!post.quote) return;
+
+  const quoteParts = ['Quote:'];
+  if (post.quote.author) {
+    quoteParts.push(post.quote.author);
+  }
+  if (post.quote.href) {
+    quoteParts.push(toAbsoluteUrl(post.quote.href, baseUrl));
+  }
+  lines.push(quoteParts.join(' '));
+  appendBlockquote(lines, post.quote.text, 'Quote text');
+  if (post.quote.thumbnailSrc) {
+    lines.push(`Quote media: ${toAbsoluteUrl(post.quote.thumbnailSrc, baseUrl)}`);
+  }
+}
+
+function buildAgentMoodPostMarkdown(post: MoodFeedItem, baseUrl: URL): string {
+  const lines = [
+    `## ${post.id} · ${post.datetime}`,
+    '',
+    `URL: ${new URL(`/mood/${post.id}`, baseUrl).href}`,
+  ];
+
+  if (post.tag) {
+    lines.push(`Tag: ${post.tag}`);
+  }
+
+  const commentsCount = String(post.commentsCount || '').trim();
+  if (commentsCount && commentsCount !== '0') {
+    lines.push(`Comments: ${commentsCount}`);
+  }
+
+  if (post.reactions.length) {
+    lines.push(`Reactions: ${post.reactions.map(formatReaction).join(', ')}`);
+  }
+
+  if (post.forwardedFrom?.name) {
+    const forwardedFrom = post.forwardedFrom.href
+      ? `${post.forwardedFrom.name} (${toAbsoluteUrl(post.forwardedFrom.href, baseUrl)})`
+      : post.forwardedFrom.name;
+    lines.push(`Forwarded from: ${forwardedFrom}`);
+  }
+
+  lines.push('');
+  appendBlockquote(lines, post.previewText);
+  appendQuote(lines, post, baseUrl);
+  appendMedia(lines, post, baseUrl);
+
+  return lines.filter((line, index, all) => line !== '' || all[index - 1] !== '').join('\n').trim();
+}
+
+export function buildMoodAgentMarkdown(
+  feed: MoodFeedResponse,
+  baseUrl: URL,
+  options: { before?: string; after?: string } = {}
+): string {
+  const sourceUrl = new URL('/mood', baseUrl);
+  const jsonUrl = new URL('/api/moods', baseUrl);
+  if (options.before) {
+    jsonUrl.searchParams.set('before', options.before);
+  }
+  if (options.after) {
+    jsonUrl.searchParams.set('after', options.after);
+  }
+
+  const lines = [
+    '# Mood Feed',
+    '',
+    `Source: ${sourceUrl.href}`,
+    `JSON: ${jsonUrl.href}`,
+  ];
+
+  const latestId = feed.posts[0]?.id ?? '';
+  if (latestId) {
+    lines.push(`Latest: ${latestId}`);
+  }
+
+  const nextBefore = feed.posts.at(-1)?.id ?? '';
+  if (nextBefore) {
+    const nextUrl = new URL('/agent/mood', baseUrl);
+    nextUrl.searchParams.set('before', nextBefore);
+    lines.push(`Next: ${nextUrl.href}`);
+  }
+
+  if (feed.channel.title) {
+    lines.push(`Channel: ${feed.channel.title}`);
+  }
+
+  lines.push('');
+
+  if (!feed.posts.length) {
+    lines.push('No mood posts found.');
+    return `${lines.join('\n')}\n`;
+  }
+
+  lines.push(...feed.posts.map((post) => buildAgentMoodPostMarkdown(post, baseUrl)).join('\n\n').split('\n'));
+
+  return `${lines.join('\n')}\n`;
 }
