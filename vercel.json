@@ -8,10 +8,24 @@
   "routes": [
     { "handle": "filesystem" },
     {
-      "src": "/(?!mood(?:/|$)|api(?:/|$)|static(?:/|$)|_server-islands(?:/|$)|_astro(?:/|$)|_image(?:/|$)|fonts(?:/|$)|favicon\\.ico$|og\\.png$|robots\\.txt$|avatar\\.webp$|_redirects$)(.*)",
+      "src": "/(links|tags|2026|sacrifice|existence|time-warp|2025|2024|remedy|zootopia|dreamcatcher|dear-dont-be-confused|ni-shan-road|haven|poem-for-the-sea|spring-24|about)/?$",
       "status": 308,
       "headers": {
-        "Location": "https://blog.buxx.me/$1"
+        "Location": "https://blog.buxx.me/$1/"
+      }
+    },
+    {
+      "src": "/author/(murray)/?$",
+      "status": 308,
+      "headers": {
+        "Location": "https://blog.buxx.me/author/$1/"
+      }
+    },
+    {
+      "src": "/tag/(talks|flaneur|prose|monologue|novelist|resonance)/?$",
+      "status": 308,
+      "headers": {
+        "Location": "https://blog.buxx.me/tag/$1/"
       }
     }
   ]
