@@ -7,9 +7,7 @@ const description = "The page you're looking for isn't here.";
 
 <Layout title={title} description={description} hideSiteNav>
   <main class="not-found">
-    <a class="nf-brand" href="/" aria-label="Bunizao home">Bunizao</a>
-
-    <div class="nf-number" aria-hidden="true">404</div>
+    <div class="nf-number" data-text="404" aria-hidden="true">404</div>
 
     <section class="nf-copy" aria-labelledby="not-found-title">
       <p class="nf-kicker">404 / not found</p>
@@ -43,8 +41,7 @@ const description = "The page you're looking for isn't here.";
     isolation: isolate;
   }
 
-  .not-found::before,
-  .not-found::after {
+  .not-found::before {
     content: "";
     position: absolute;
     inset: 0;
@@ -60,57 +57,41 @@ const description = "The page you're looking for isn't here.";
     background-size: 100% clamp(72px, 11svh, 112px), clamp(72px, 11svh, 112px) 100%;
   }
 
-  .not-found::after {
-    opacity: 0.55;
-    background: linear-gradient(
-      180deg,
-      transparent 0,
-      transparent calc(50% - 1px),
-      hsl(var(--foreground) / 0.18) 50%,
-      transparent calc(50% + 1px),
-      transparent 100%
-    );
-    animation: nf-scan 7s ease-in-out infinite;
-  }
-
-  .nf-brand {
-    position: fixed;
-    top: clamp(16px, 2.4vw, 28px);
-    left: clamp(16px, 2.4vw, 28px);
-    z-index: 2;
-    color: var(--nf-fg);
-    font-size: clamp(16px, 1.7vw, 24px);
-    font-weight: 720;
-    line-height: 1;
-    letter-spacing: 0;
-    text-decoration: none;
-    mix-blend-mode: normal;
-  }
-
-  .nf-brand::after {
-    content: "®";
-    position: relative;
-    top: -0.44em;
-    margin-left: 1px;
-    font-size: 0.46em;
-    font-weight: 500;
-    letter-spacing: 0;
-  }
-
   .nf-number {
     position: relative;
     z-index: 1;
     width: min(92vw, 1100px);
     color: var(--nf-fg);
-    font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-family: 'Geist Mono', 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
     font-size: min(38svh, 21rem);
     font-weight: 520;
     line-height: 0.82;
-    letter-spacing: 0;
+    letter-spacing: -0.03em;
     text-align: center;
     font-variant-numeric: tabular-nums;
     transform: translateY(-1svh);
-    animation: nf-breathe 9s ease-in-out infinite;
+  }
+
+  .nf-number::before,
+  .nf-number::after {
+    content: attr(data-text);
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    color: var(--nf-fg);
+    pointer-events: none;
+  }
+
+  .nf-number::before {
+    opacity: 0.075;
+    transform: translate(-0.018em, -0.006em);
+    animation: nf-callback-a 5.6s ease-out infinite;
+  }
+
+  .nf-number::after {
+    opacity: 0.04;
+    transform: translate(0.024em, 0.008em);
+    animation: nf-callback-b 5.6s ease-out infinite;
   }
 
   .nf-copy {
@@ -213,8 +194,8 @@ const description = "The page you're looking for isn't here.";
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .not-found::after,
-    .nf-number {
+    .nf-number::before,
+    .nf-number::after {
       animation: none;
     }
 
@@ -223,27 +204,59 @@ const description = "The page you're looking for isn't here.";
     }
   }
 
-  @keyframes nf-breathe {
+  @keyframes nf-callback-a {
     0%,
     100% {
-      opacity: 0.94;
-      transform: translateY(-1svh);
+      opacity: 0.075;
+      transform: translate(-0.018em, -0.006em);
     }
 
-    50% {
-      opacity: 1;
-      transform: translateY(0);
+    72% {
+      opacity: 0.075;
+      transform: translate(-0.018em, -0.006em);
+    }
+
+    76% {
+      opacity: 0.22;
+      transform: translate(-0.065em, -0.022em);
+    }
+
+    81% {
+      opacity: 0.035;
+      transform: translate(0.012em, 0.004em);
+    }
+
+    86% {
+      opacity: 0.075;
+      transform: translate(-0.018em, -0.006em);
     }
   }
 
-  @keyframes nf-scan {
+  @keyframes nf-callback-b {
     0%,
     100% {
-      transform: translateY(-34svh);
+      opacity: 0.04;
+      transform: translate(0.024em, 0.008em);
     }
 
-    50% {
-      transform: translateY(34svh);
+    74% {
+      opacity: 0.04;
+      transform: translate(0.024em, 0.008em);
+    }
+
+    78% {
+      opacity: 0.16;
+      transform: translate(0.075em, 0.024em);
+    }
+
+    83% {
+      opacity: 0.02;
+      transform: translate(-0.01em, -0.004em);
+    }
+
+    88% {
+      opacity: 0.04;
+      transform: translate(0.024em, 0.008em);
     }
   }
 </style>
