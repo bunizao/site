@@ -184,8 +184,8 @@ const description = "The page you're looking for isn't here.";
       const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
 
       if (ctx) {
-        const mask = document.createElement('canvas');
-        const maskCtx = mask.getContext('2d');
+        const glyph = document.createElement('canvas');
+        const glyphCtx = glyph.getContext('2d');
         let width = 0;
         let height = 0;
         let dpr = 1;
@@ -210,7 +210,7 @@ const description = "The page you're looking for isn't here.";
           canvas.style.height = `${height}px`;
 
           ctx.imageSmoothingEnabled = false;
-          buildMask();
+          buildGlyph();
           drawOnce();
         };
 
@@ -224,7 +224,7 @@ const description = "The page you're looking for isn't here.";
         const restart = () => {
           cancelAnimationFrame(animationFrame);
           colors = readColors();
-          buildMask();
+          buildGlyph();
           if (reducedMotion.matches) {
             drawOnce();
             return;
@@ -243,7 +243,7 @@ const description = "The page you're looking for isn't here.";
         reducedMotion.addEventListener('change', restart);
 
         document.fonts?.ready.then(() => {
-          buildMask();
+          buildGlyph();
           drawOnce();
         });
 
@@ -267,24 +267,24 @@ const description = "The page you're looking for isn't here.";
           };
         }
 
-        function buildMask() {
-          if (!maskCtx || renderWidth === 0 || renderHeight === 0) return;
+        function buildGlyph() {
+          if (!glyphCtx || renderWidth === 0 || renderHeight === 0) return;
 
-          mask.width = renderWidth;
-          mask.height = renderHeight;
-          maskCtx.clearRect(0, 0, renderWidth, renderHeight);
-          maskCtx.fillStyle = colors.foreground;
-          maskCtx.textAlign = 'center';
-          maskCtx.textBaseline = 'middle';
+          glyph.width = renderWidth;
+          glyph.height = renderHeight;
+          glyphCtx.clearRect(0, 0, renderWidth, renderHeight);
+          glyphCtx.fillStyle = colors.foreground;
+          glyphCtx.textAlign = 'center';
+          glyphCtx.textBaseline = 'middle';
 
-          const targetWidth = renderWidth * (width < 640 ? 1.1 : 0.9);
-          let fontSize = renderHeight * (width < 640 ? 0.76 : 0.86);
-          maskCtx.font = `800 ${fontSize}px ui-sans-serif, -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif`;
-          const measured = maskCtx.measureText('404').width;
+          const targetWidth = renderWidth * (width < 640 ? 1.18 : 0.94);
+          let fontSize = renderHeight * (width < 640 ? 0.82 : 0.92);
+          glyphCtx.font = `650 ${fontSize}px "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace`;
+          const measured = glyphCtx.measureText('404').width;
           if (measured > targetWidth) fontSize *= targetWidth / measured;
 
-          maskCtx.font = `800 ${fontSize}px ui-sans-serif, -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif`;
-          maskCtx.fillText('404', renderWidth / 2, renderHeight * (width < 640 ? 0.49 : 0.51));
+          glyphCtx.font = `650 ${fontSize}px "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace`;
+          glyphCtx.fillText('404', renderWidth / 2, renderHeight * (width < 640 ? 0.49 : 0.51));
         }
 
         function draw(time: number) {
@@ -292,8 +292,7 @@ const description = "The page you're looking for isn't here.";
           ctx.fillStyle = colors.background;
           ctx.fillRect(0, 0, renderWidth, renderHeight);
           drawGuideLines(time);
-          drawSolidNumber(time);
-          cutSignalLines(time);
+          drawDisplacedNumber(time);
         }
 
         function drawGuideLines(time: number) {
@@ -305,12 +304,12 @@ const description = "The page you're looking for isn't here.";
 
           for (let x = -spacing; x < renderWidth + spacing; x += spacing) {
             const column = Math.round(x / spacing);
-            const drift = Math.sin(time * 0.55 + column * 0.8) * dpr;
+            const drift = Math.sin(time * 1.1 + column * 0.8) * dpr * 7;
             for (let y = -segment; y < renderHeight + segment; y += segment * 1.45) {
               const phase = seededRandom(column * 19 + Math.round(y));
               ctx.beginPath();
-              ctx.moveTo(Math.round(x + drift) + 0.5, y + phase * segment * 0.22);
-              ctx.lineTo(Math.round(x + drift) + 0.5, y + segment * 0.7 + phase * segment * 0.22);
+              ctx.moveTo(Math.round(x + drift) + 0.5, y + phase * segment * 0.28);
+              ctx.lineTo(Math.round(x + drift) + 0.5, y + segment * 0.74 + phase * segment * 0.28);
               ctx.stroke();
             }
           }
@@ -318,47 +317,42 @@ const description = "The page you're looking for isn't here.";
           ctx.restore();
         }
 
-        function drawSolidNumber(time: number) {
-          ctx.drawImage(mask, 0, 0);
+        function drawDisplacedNumber(time: number) {
+          const rowHeight = Math.max(3, Math.round(dpr * 5));
+          const cycle = (time * 0.42) % 1;
+          const sweepCenter = renderHeight * (0.1 + cycle * 0.8);
+          const amplitude = renderWidth * (width < 640 ? 0.15 : 0.18);
+          const slowDrift = Math.sin(time * 1.25) * renderWidth * 0.018;
 
-          const bandCount = width < 640 ? 14 : 18;
-          const rowHeight = renderHeight / bandCount;
           ctx.save();
+          ctx.drawImage(glyph, slowDrift, Math.sin(time * 0.9) * dpr * 2);
 
-          for (let i = 0; i < bandCount; i += 1) {
-            const sliceHeight = rowHeight * (0.42 + seededRandom(i * 53) * 0.34);
-            const y = i * rowHeight + seededRandom(i * 43) * Math.max(1, rowHeight - sliceHeight);
-            const speed = 0.85 + seededRandom(i * 17) * 1.35;
-            const offset = Math.sin(time * speed + i * 1.9) * dpr * (1.8 + seededRandom(i * 71) * 5.2);
+          for (let y = 0; y < renderHeight; y += rowHeight) {
+            const yRatio = y / renderHeight;
+            const rowPhase = yRatio * 18;
+            const mainDistance = Math.abs(y - sweepCenter) / Math.max(1, renderHeight * 0.16);
+            const echoDistance = Math.abs(y - ((sweepCenter + renderHeight * 0.42) % renderHeight)) / Math.max(1, renderHeight * 0.22);
+            const mainSweep = Math.max(0, 1 - mainDistance);
+            const echoSweep = Math.max(0, 1 - echoDistance) * 0.45;
+            const energy = Math.max(Math.pow(mainSweep, 2.1), Math.pow(echoSweep, 2));
 
-            if (Math.abs(offset) < dpr * 0.55) continue;
+            if (energy < 0.015) continue;
+
+            const direction = Math.sin(rowPhase + time * 4.8) > 0 ? 1 : -1;
+            const ripple = Math.sin(time * 3.2 + rowPhase * 0.8) * renderWidth * 0.025;
+            const offset = slowDrift + direction * energy * amplitude + ripple * energy;
+            const stretch = Math.sin(time * 2.4 - rowPhase) * dpr * 2.2 * energy;
+            const sliceHeight = Math.min(renderHeight - y, rowHeight + Math.ceil(dpr));
 
             ctx.globalCompositeOperation = 'destination-out';
-            ctx.drawImage(mask, 0, y, renderWidth, sliceHeight, 0, y, renderWidth, sliceHeight);
+            ctx.drawImage(glyph, 0, y, renderWidth, sliceHeight, slowDrift, y, renderWidth, sliceHeight);
             ctx.globalCompositeOperation = 'source-over';
-            ctx.drawImage(mask, 0, y, renderWidth, sliceHeight, offset, y, renderWidth, sliceHeight);
+            ctx.drawImage(glyph, 0, y, renderWidth, sliceHeight, offset, y + stretch, renderWidth, sliceHeight);
           }
 
-          ctx.restore();
-        }
-
-        function cutSignalLines(time: number) {
-          ctx.save();
-          ctx.strokeStyle = colors.background;
-          ctx.lineCap = 'butt';
-
-          const cutCount = width < 640 ? 8 : 14;
-          for (let i = 0; i < cutCount; i += 1) {
-            const x = renderWidth * (0.16 + seededRandom(i * 29) * 0.68);
-            const top = renderHeight * (0.07 + seededRandom(i * 31) * 0.18);
-            const length = renderHeight * (0.16 + seededRandom(i * 37) * 0.46);
-            const wobble = Math.sin(time * (0.95 + seededRandom(i * 11)) + i) * dpr * 4.4;
-            ctx.lineWidth = Math.max(1, dpr * (0.7 + seededRandom(i * 41) * 1.35));
-            ctx.beginPath();
-            ctx.moveTo(x + wobble, top);
-            ctx.lineTo(x + wobble, top + length);
-            ctx.stroke();
-          }
+          ctx.globalAlpha = 0.07;
+          ctx.globalCompositeOperation = 'multiply';
+          ctx.drawImage(glyph, slowDrift + Math.sin(time * 1.8) * renderWidth * 0.035, Math.cos(time * 1.1) * dpr * 5);
 
           ctx.restore();
         }
