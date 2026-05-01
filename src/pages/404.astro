@@ -3,567 +3,464 @@ import Layout from '../layouts/Layout.astro';
 
 const title = '404 - page not found';
 const description = "The page you're looking for isn't here.";
-
-const pixelDigits: Record<string, string[]> = {
-  '0': [
-    '111111',
-    '110011',
-    '110011',
-    '110011',
-    '110011',
-    '110011',
-    '111111',
-  ],
-  '4': [
-    '110011',
-    '110011',
-    '110011',
-    '111111',
-    '000011',
-    '000011',
-    '000011',
-  ],
-};
-
-const digitCells = ['4', '0', '4'].map((digit) => ({
-  digit,
-  rows: pixelDigits[digit],
-}));
 ---
 
 <Layout title={title} description={description} hideSiteNav>
   <main class="not-found" data-not-found>
-    <div class="nf-frame" aria-hidden="true">
-      <span class="nf-corner nf-corner-tl"></span>
-      <span class="nf-corner nf-corner-tr"></span>
-      <span class="nf-corner nf-corner-bl"></span>
-      <span class="nf-corner nf-corner-br"></span>
-    </div>
+    <canvas class="nf-canvas" data-error-canvas aria-hidden="true"></canvas>
+    <a class="nf-brand" href="/" aria-label="Bunizao home">Bunizao</a>
 
-    <header class="nf-status" aria-hidden="true">
-      <span class="nf-status-dot"></span>
-      <span>signal lost</span>
-      <span class="nf-muted">/</span>
-      <span data-nf-clock>00:00</span>
-    </header>
-
-    <aside class="nf-readout" aria-hidden="true">
-      <span>idx:<b data-nf-index>0000</b></span>
-      <span>x:<b data-nf-x>0.50</b></span>
-      <span>y:<b data-nf-y>0.50</b></span>
-    </aside>
-
-    <div class="nf-stage">
-      <div class="nf-display" aria-hidden="true">
-        {digitCells.map(({ digit, rows }, digitIndex) => (
-          <div class="nf-digit" data-digit={digit} style={`--digit-delay: ${digitIndex * 90}ms`}>
-            {rows.flatMap((row, rowIndex) =>
-              [...row].map((cell, cellIndex) => (
-                <span
-                  class:list={['nf-pixel', { 'is-on': cell === '1' }]}
-                  style={`--cell-delay: ${(rowIndex * row.length + cellIndex) * 9 + digitIndex * 80}ms`}
-                ></span>
-              ))
-            )}
-          </div>
-        ))}
-      </div>
-
-      <section class="nf-copy" aria-labelledby="not-found-title">
-        <p class="nf-kicker">
-          <span class="nf-kicker-line" aria-hidden="true"></span>
-          <span>page not found</span>
-        </p>
-        <h1 id="not-found-title">this route fell off the grid.</h1>
-        <p>
-          maybe it moved. maybe it never existed.
-          either way, the map is clean and the page is gone.
-        </p>
-        <nav class="nf-actions" aria-label="recovery links">
-          <a href="/" class="nf-action nf-action-primary">
-            <span>go home</span>
-            <span aria-hidden="true">-></span>
-          </a>
-          <button type="button" class="nf-action nf-action-ghost" data-nf-back>
-            <span aria-hidden="true">&lt;-</span>
-            <span>drift back</span>
-          </button>
-        </nav>
-      </section>
-    </div>
+    <section class="nf-copy" aria-labelledby="not-found-title">
+      <p class="nf-kicker">lost signal / 404</p>
+      <h1 id="not-found-title">Page not found</h1>
+      <p>this page slipped out of the index.</p>
+      <a href="/" class="nf-home">go home</a>
+    </section>
   </main>
 </Layout>
 
 <style>
-  .not-found {
-    position: relative;
-    display: grid;
+  @font-face {
+    font-family: 'Geist Pixel Square';
+    src: url('/fonts/geist-pixel-square.woff2') format('woff2');
+    font-display: swap;
+  }
+
+  :global(body:has(.not-found) .global-header-actions) {
+    display: none;
+  }
+
+  :global(body:has(.not-found) .site-shell) {
     min-height: 100svh;
-    padding: clamp(72px, 8vw, 104px) clamp(20px, 5vw, 72px);
+  }
+
+  .not-found {
+    --nf-bg: hsl(var(--background));
+    --nf-fg: hsl(var(--foreground));
+    --nf-muted: hsl(var(--muted-foreground));
+    position: relative;
+    min-height: 100svh;
     overflow: hidden;
-    color: hsl(var(--foreground));
-    background:
-      linear-gradient(90deg, hsl(var(--foreground) / 0.035) 1px, transparent 1px),
-      linear-gradient(0deg, hsl(var(--foreground) / 0.035) 1px, transparent 1px),
-      hsl(var(--background));
-    background-size: 24px 24px;
+    color: var(--nf-fg);
+    background: var(--nf-bg);
     isolation: isolate;
   }
 
-  .not-found::before {
-    content: "";
+  .nf-canvas {
     position: absolute;
     inset: 0;
-    z-index: -1;
-    pointer-events: none;
-    background: radial-gradient(
-      circle at var(--pointer-x, 68%) var(--pointer-y, 28%),
-      hsl(var(--foreground) / 0.08),
-      transparent 34%
-    );
-    opacity: 0.9;
-    transition: background-position 0.2s ease;
+    z-index: 0;
+    width: 100%;
+    height: 100%;
+    max-width: none;
+    background: var(--nf-bg);
   }
 
-  .nf-frame,
-  .nf-corner {
-    position: absolute;
-    pointer-events: none;
-  }
-
-  .nf-frame {
-    inset: clamp(18px, 2.3vw, 32px);
-  }
-
-  .nf-corner {
-    width: 28px;
-    height: 28px;
-    border: 1px solid hsl(var(--foreground) / 0.44);
-    opacity: 0;
-    animation: nf-corner-in 0.55s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
-  }
-
-  .nf-corner-tl {
-    top: 0;
-    left: 0;
-    border-right: 0;
-    border-bottom: 0;
-  }
-
-  .nf-corner-tr {
-    top: 0;
-    right: 56px;
-    border-bottom: 0;
-    border-left: 0;
-  }
-
-  .nf-corner-bl {
-    bottom: 0;
-    left: 0;
-    border-top: 0;
-    border-right: 0;
-  }
-
-  .nf-corner-br {
-    right: 0;
-    bottom: 0;
-    border-top: 0;
-    border-left: 0;
-  }
-
-  .nf-status,
-  .nf-readout {
-    position: absolute;
+  .nf-brand {
+    position: fixed;
+    top: clamp(16px, 2.4vw, 28px);
+    left: clamp(16px, 2.4vw, 28px);
     z-index: 2;
-    display: inline-flex;
-    align-items: center;
-    color: hsl(var(--muted-foreground));
-    font-size: 11px;
-    font-variant-numeric: tabular-nums;
-    letter-spacing: 0.18em;
-    text-transform: uppercase;
-    opacity: 0;
-    animation: nf-fade-in 0.55s ease 0.25s forwards;
-  }
-
-  .nf-status {
-    top: clamp(40px, 5vw, 64px);
-    left: clamp(32px, 6vw, 80px);
-    gap: 10px;
-  }
-
-  .nf-readout {
-    top: clamp(40px, 5vw, 64px);
-    right: clamp(88px, 8vw, 128px);
-    gap: 16px;
-  }
-
-  .nf-readout b {
-    margin-left: 5px;
-    color: hsl(var(--foreground));
-    font-weight: 500;
-  }
-
-  .nf-status-dot {
-    width: 6px;
-    height: 6px;
-    background: hsl(var(--foreground));
-    box-shadow: 0 0 0 1px hsl(var(--foreground) / 0.2);
-    animation: nf-pulse 2.2s ease-in-out infinite;
-  }
-
-  .nf-muted {
-    color: hsl(var(--muted-foreground) / 0.4);
-  }
-
-  .nf-stage {
-    display: grid;
-    grid-template-columns: minmax(0, 1.35fr) minmax(280px, 0.65fr);
-    gap: clamp(28px, 5vw, 72px);
-    align-items: end;
-    width: min(100%, 1180px);
-    margin: auto 0;
-  }
-
-  .nf-display {
-    display: flex;
-    align-items: center;
-    gap: clamp(10px, 1.6vw, 22px);
+    color: var(--nf-fg);
+    font-size: clamp(16px, 1.7vw, 24px);
+    font-weight: 720;
     line-height: 1;
-    transform: translateX(clamp(-8px, -0.9vw, 0px));
+    letter-spacing: -0.045em;
+    text-decoration: none;
+    mix-blend-mode: normal;
   }
 
-  .nf-digit {
-    display: grid;
-    grid-template-columns: repeat(6, 1fr);
-    gap: clamp(3px, 0.42vw, 6px);
-    width: clamp(88px, 17vw, 236px);
-    aspect-ratio: 6 / 7;
-    opacity: 0;
-    transform: translateY(10px);
-    animation: nf-digit-in 0.65s cubic-bezier(0.2, 0.8, 0.2, 1) var(--digit-delay) forwards;
-  }
-
-  .nf-pixel {
-    display: block;
-    border-radius: 2px;
-    background: transparent;
-    transform: scale(0.82);
-  }
-
-  .nf-pixel.is-on {
-    background:
-      linear-gradient(180deg, hsl(var(--background) / 0.16), transparent 52%),
-      hsl(var(--foreground));
-    box-shadow:
-      0 0 0 1px hsl(var(--background) / 0.08) inset,
-      0 10px 26px hsl(var(--foreground) / 0.1);
-    animation: nf-pixel-on 0.35s steps(2, end) calc(0.22s + var(--cell-delay)) both;
-  }
-
-  .nf-copy {
-    max-width: 420px;
-    padding: 0;
-    border: 0;
-    opacity: 0;
-    animation: nf-copy-in 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) 0.52s forwards;
-  }
-
-  .nf-kicker {
-    display: inline-flex;
-    align-items: center;
-    gap: 10px;
-    margin: 0 0 18px;
-    color: hsl(var(--muted-foreground));
-    font-size: 11px;
-    letter-spacing: 0.22em;
-    text-transform: uppercase;
-  }
-
-  .nf-kicker-line {
-    width: 28px;
-    height: 1px;
-    background: hsl(var(--foreground) / 0.5);
-  }
-
-  .nf-copy h1 {
-    max-width: 13ch;
-    margin: 0 0 18px;
-    color: hsl(var(--foreground));
-    font-size: clamp(28px, 4vw, 52px);
-    font-weight: 620;
-    line-height: 1.02;
+  .nf-brand::after {
+    content: "®";
+    position: relative;
+    top: -0.44em;
+    margin-left: 1px;
+    font-size: 0.46em;
+    font-weight: 500;
     letter-spacing: 0;
   }
 
-  .nf-copy p:not(.nf-kicker) {
-    max-width: 38ch;
-    margin: 0 0 30px;
-    color: hsl(var(--muted-foreground));
-    font-size: 14px;
-    line-height: 1.7;
+  .nf-copy {
+    position: fixed;
+    right: clamp(18px, 2.8vw, 34px);
+    bottom: clamp(18px, 2.8vw, 34px);
+    left: clamp(18px, 2.8vw, 34px);
+    z-index: 2;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: end;
+    gap: 10px 24px;
+    pointer-events: none;
   }
 
-  .nf-actions {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 10px;
-    align-items: center;
+  .nf-kicker,
+  .nf-copy h1,
+  .nf-copy p,
+  .nf-home {
+    margin: 0;
+    font-size: 11px;
+    line-height: 1.35;
+    letter-spacing: 0.02em;
+    text-transform: lowercase;
   }
 
-  .nf-action {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    min-height: 40px;
-    padding: 0 14px;
-    color: hsl(var(--foreground));
-    font: inherit;
-    font-size: 13px;
+  .nf-kicker {
+    position: fixed;
+    top: clamp(82px, 8vw, 118px);
+    right: clamp(18px, 4vw, 56px);
+    color: var(--nf-muted);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.24em;
+    writing-mode: vertical-rl;
+  }
+
+  .nf-copy h1 {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
     white-space: nowrap;
-    background: transparent;
-    border: 1px solid hsl(var(--foreground) / 0.2);
-    border-radius: 8px;
-    cursor: pointer;
-    transition:
-      color 0.18s ease,
-      background-color 0.18s ease,
-      border-color 0.18s ease,
-      transform 0.18s ease;
+    border: 0;
   }
 
-  .nf-action-primary {
-    color: hsl(var(--background));
-    background: hsl(var(--foreground));
-    border-color: hsl(var(--foreground));
+  .nf-copy p {
+    max-width: 32ch;
+    color: hsl(var(--foreground) / 0.5);
   }
 
-  .nf-action-ghost {
-    color: hsl(var(--muted-foreground));
+  .nf-home {
+    position: relative;
+    color: var(--nf-fg);
+    pointer-events: auto;
+    text-decoration: none;
   }
 
-  .nf-action:hover {
-    color: hsl(var(--background));
-    background: hsl(var(--foreground));
-    border-color: hsl(var(--foreground));
-    transform: translateY(-1px);
+  .nf-home::after {
+    content: "";
+    position: absolute;
+    right: 0;
+    bottom: -4px;
+    left: 0;
+    height: 1px;
+    background: currentColor;
+    transform: scaleX(0);
+    transform-origin: right center;
+    transition: transform 180ms ease;
   }
 
-  @keyframes nf-corner-in {
-    from {
-      opacity: 0;
-      transform: scale(0.72);
-    }
-    to {
-      opacity: 1;
-      transform: scale(1);
-    }
-  }
-
-  @keyframes nf-fade-in {
-    to {
-      opacity: 1;
-    }
-  }
-
-  @keyframes nf-pulse {
-    0%,
-    100% {
-      opacity: 0.45;
-      transform: scale(0.9);
-    }
-    50% {
-      opacity: 1;
-      transform: scale(1.08);
-    }
-  }
-
-  @keyframes nf-digit-in {
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
-  }
-
-  @keyframes nf-pixel-on {
-    0% {
-      opacity: 0.12;
-      transform: scale(0.72);
-    }
-    48% {
-      opacity: 0.4;
-      transform: scale(1);
-    }
-    100% {
-      opacity: 1;
-      transform: scale(1);
-    }
-  }
-
-  @keyframes nf-copy-in {
-    from {
-      opacity: 0;
-      transform: translateY(14px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
-  }
-
-  @media (min-width: 1280px) {
-    .nf-stage {
-      grid-template-columns: minmax(0, 1.45fr) minmax(320px, 0.55fr);
-    }
-  }
-
-  @media (max-width: 900px) {
-    .nf-stage {
-      grid-template-columns: 1fr;
-      align-items: start;
-      gap: 34px;
-    }
-
-    .nf-display {
-      width: min(100%, 720px);
-    }
-
-    .nf-digit {
-      width: clamp(72px, 25vw, 150px);
-    }
-
-    .nf-copy h1 {
-      max-width: 18ch;
-    }
+  .nf-home:hover::after,
+  .nf-home:focus-visible::after {
+    transform: scaleX(1);
+    transform-origin: left center;
   }
 
   @media (max-width: 640px) {
-    .not-found {
-      min-height: 100dvh;
-      padding: 112px 24px 72px;
-      align-content: start;
+    .nf-copy {
+      grid-template-columns: 1fr;
+      align-items: start;
+      gap: 8px;
     }
 
-    .nf-status {
-      top: 70px;
-      left: 34px;
-    }
-
-    .nf-readout {
-      display: none;
-    }
-
-    .nf-stage {
-      margin-top: 30px;
-      gap: 28px;
-    }
-
-    .nf-display {
-      gap: 7px;
-    }
-
-    .nf-digit {
-      width: clamp(64px, 27vw, 104px);
-      gap: 3px;
-    }
-
-    .nf-copy h1 {
-      font-size: clamp(30px, 9vw, 40px);
-    }
-
-    .nf-copy p:not(.nf-kicker) {
-      font-size: 13px;
-    }
-
-    .nf-action {
-      min-height: 38px;
-      padding: 0 12px;
-    }
-  }
-
-  @media (max-width: 420px) {
-    .nf-display {
-      transform: translateX(-4px);
-    }
-
-    .nf-digit {
-      width: clamp(56px, 26vw, 88px);
-    }
-
-    .nf-corner-tr {
-      right: 54px;
+    .nf-kicker {
+      top: auto;
+      right: auto;
+      bottom: 104px;
+      left: 20px;
+      writing-mode: horizontal-tb;
     }
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .not-found::before,
-    .nf-corner,
-    .nf-status,
-    .nf-readout,
-    .nf-status-dot,
-    .nf-digit,
-    .nf-pixel.is-on,
-    .nf-copy,
-    .nf-action {
-      animation: none !important;
-      transition: none !important;
-      transform: none !important;
-      opacity: 1 !important;
+    .nf-home::after {
+      transition: none;
     }
   }
 </style>
 
 <script>
   const root = document.querySelector<HTMLElement>('[data-not-found]');
-  const backButton = document.querySelector<HTMLButtonElement>('[data-nf-back]');
-  const clock = document.querySelector<HTMLElement>('[data-nf-clock]');
-  const index = document.querySelector<HTMLElement>('[data-nf-index]');
-  const x = document.querySelector<HTMLElement>('[data-nf-x]');
-  const y = document.querySelector<HTMLElement>('[data-nf-y]');
+  const canvas = document.querySelector<HTMLCanvasElement>('[data-error-canvas]');
 
-  backButton?.addEventListener('click', () => {
-    if (window.history.length > 1) {
-      window.history.back();
-      return;
+  if (root && canvas) {
+    const ctx = canvas.getContext('2d', { alpha: false });
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+
+    if (ctx) {
+      const mask = document.createElement('canvas');
+      const maskCtx = mask.getContext('2d', { alpha: true });
+      const pointer = { x: 0.55, y: 0.42, active: false };
+      let width = 0;
+      let height = 0;
+      let dpr = 1;
+      let frame = 0;
+      let animationFrame = 0;
+      let colors = readColors();
+
+      const drawOnce = () => {
+        draw(performance.now() * 0.001);
+      };
+
+      const resize = () => {
+        const rect = root.getBoundingClientRect();
+        width = Math.max(1, Math.round(rect.width));
+        height = Math.max(1, Math.round(rect.height));
+        dpr = Math.min(window.devicePixelRatio || 1, 2);
+
+        canvas.width = Math.round(width * dpr);
+        canvas.height = Math.round(height * dpr);
+        canvas.style.width = `${width}px`;
+        canvas.style.height = `${height}px`;
+
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        ctx.imageSmoothingEnabled = false;
+        buildMask();
+        drawOnce();
+      };
+
+      const animate = (time: number) => {
+        draw(time * 0.001);
+        if (!reducedMotion.matches) {
+          animationFrame = requestAnimationFrame(animate);
+        }
+      };
+
+      const restart = () => {
+        cancelAnimationFrame(animationFrame);
+        colors = readColors();
+        buildMask();
+        if (reducedMotion.matches) {
+          drawOnce();
+          return;
+        }
+        animationFrame = requestAnimationFrame(animate);
+      };
+
+      const onPointerMove = (event: PointerEvent) => {
+        pointer.x = event.clientX / Math.max(window.innerWidth, 1);
+        pointer.y = event.clientY / Math.max(window.innerHeight, 1);
+        pointer.active = true;
+      };
+
+      const observer = new ResizeObserver(resize);
+      const themeObserver = new MutationObserver(restart);
+
+      observer.observe(root);
+      themeObserver.observe(document.documentElement, {
+        attributes: true,
+        attributeFilter: ['class', 'data-theme-setting'],
+      });
+      window.addEventListener('pointermove', onPointerMove, { passive: true });
+      reducedMotion.addEventListener('change', restart);
+
+      document.fonts?.load('120px "Geist Pixel Square"').then(() => {
+        buildMask();
+        drawOnce();
+      });
+
+      resize();
+      restart();
+
+      window.addEventListener('pagehide', () => {
+        cancelAnimationFrame(animationFrame);
+        observer.disconnect();
+        themeObserver.disconnect();
+        window.removeEventListener('pointermove', onPointerMove);
+        reducedMotion.removeEventListener('change', restart);
+      });
+
+      function readColors() {
+        const styles = getComputedStyle(root);
+        return {
+          background: styles.backgroundColor,
+          foreground: styles.color,
+          muted: getComputedStyle(document.documentElement).getPropertyValue('--muted-foreground').trim(),
+        };
+      }
+
+      function buildMask() {
+        if (!maskCtx || width === 0 || height === 0) {
+          return;
+        }
+
+        const lowWidth = Math.max(1, Math.ceil(width));
+        const lowHeight = Math.max(1, Math.ceil(height));
+        mask.width = lowWidth;
+        mask.height = lowHeight;
+        maskCtx.clearRect(0, 0, lowWidth, lowHeight);
+        maskCtx.fillStyle = '#000';
+        maskCtx.textAlign = 'center';
+        maskCtx.textBaseline = 'middle';
+
+        const targetWidth = lowWidth * (width < 640 ? 1.22 : 1.08);
+        let fontSize = lowHeight * (width < 640 ? 0.86 : 1.14);
+        maskCtx.font = `400 ${fontSize}px "Geist Pixel Square", "JetBrains Mono", ui-monospace, monospace`;
+
+        const measured = maskCtx.measureText('404').width;
+        if (measured > targetWidth) {
+          fontSize *= targetWidth / measured;
+        }
+
+        maskCtx.font = `400 ${fontSize}px "Geist Pixel Square", "JetBrains Mono", ui-monospace, monospace`;
+        maskCtx.letterSpacing = `${-fontSize * 0.08}px`;
+        maskCtx.fillText('404', lowWidth / 2 - lowWidth * 0.025, lowHeight * (width < 640 ? 0.49 : 0.52));
+      }
+
+      function draw(time: number) {
+        if (!maskCtx) {
+          return;
+        }
+
+        frame += 1;
+        ctx.save();
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        ctx.imageSmoothingEnabled = false;
+        ctx.fillStyle = colors.background;
+        ctx.fillRect(0, 0, width, height);
+
+        drawScanLines(time);
+        drawNumber(time);
+        drawCuts(time);
+        drawVignette();
+        ctx.restore();
+      }
+
+      function drawScanLines(time: number) {
+        const spacing = width < 640 ? 18 : 22;
+        const segment = width < 640 ? 26 : 34;
+        const drift = Math.sin(time * 0.7) * 7 + (pointer.active ? (pointer.x - 0.5) * 16 : 0);
+
+        ctx.save();
+        ctx.strokeStyle = colorWithAlpha(colors.foreground, document.documentElement.classList.contains('dark') ? 0.13 : 0.09);
+        ctx.lineWidth = 1;
+
+        for (let x = -spacing; x < width + spacing; x += spacing) {
+          const column = Math.round(x / spacing);
+          const columnPhase = time * (1.4 + (column % 4) * 0.11) + column * 1.7;
+          const offset = Math.sin(columnPhase) * 2.2 + drift * randomSigned(column, Math.floor(time * 2));
+          for (let y = -segment; y < height + segment; y += segment * 1.55) {
+            const row = Math.round(y / segment);
+            const wobble = randomSigned(column, row + Math.floor(time * 3)) * 8;
+            ctx.beginPath();
+            ctx.moveTo(Math.round(x + offset) + 0.5, y + wobble);
+            ctx.lineTo(Math.round(x + offset) + 0.5, y + wobble + segment);
+            ctx.stroke();
+          }
+        }
+
+        ctx.restore();
+      }
+
+      function drawNumber(time: number) {
+        const lowWidth = mask.width;
+        const lowHeight = mask.height;
+        const bandBase = width < 640 ? 2 : 3;
+        const pulse = Math.pow(Math.max(0, Math.sin(time * 1.15)), 5);
+        let sourceY = 0;
+
+        ctx.save();
+        ctx.globalAlpha = 1;
+
+        while (sourceY < lowHeight) {
+          const bandHeight = Math.max(1, Math.round(bandBase + random(sourceY, frame % 97) * 5));
+          const wave = Math.sin(time * 2.1 + sourceY * 0.21) * 2.2;
+          const drag = pointer.active ? (pointer.x - 0.5) * 10 * Math.sin(sourceY * 0.17) : 0;
+          const snap = randomSigned(sourceY, Math.floor(time * 9)) * pulse * 16;
+          const offset = Math.round(wave + drag + snap);
+
+          ctx.drawImage(
+            mask,
+            0,
+            sourceY,
+            lowWidth,
+            bandHeight,
+            offset,
+            sourceY,
+            lowWidth,
+            bandHeight
+          );
+
+          sourceY += bandHeight;
+        }
+
+        ctx.restore();
+      }
+
+      function drawCuts(time: number) {
+        const cutCount = width < 640 ? 11 : 18;
+        const top = height * 0.05;
+        const bottom = height * 0.94;
+        const pulse = Math.pow(Math.max(0, Math.sin(time * 1.3 + 0.8)), 7);
+
+        ctx.save();
+        ctx.lineCap = 'butt';
+
+        for (let i = 0; i < cutCount; i += 1) {
+          const seed = i * 31;
+          const baseX = width * (0.18 + random(seed, 3) * 0.64);
+          const jitter = randomSigned(seed, Math.floor(time * 8)) * (3 + pulse * 13);
+          const x = Math.round(baseX + jitter);
+          const y = top + random(seed, 7) * height * 0.2;
+          const length = (bottom - top) * (0.22 + random(seed, 11) * 0.74);
+          const widthLine = 1 + Math.floor(random(seed, 17) * 3);
+
+          ctx.strokeStyle = colors.background;
+          ctx.lineWidth = widthLine;
+          ctx.beginPath();
+          ctx.moveTo(x + 0.5, y);
+          ctx.lineTo(x + 0.5, y + length);
+          ctx.stroke();
+
+          if (pulse > 0.18) {
+            ctx.strokeStyle = colors.foreground;
+            ctx.globalAlpha = 0.8;
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(x + widthLine + 2.5, y + length * 0.08);
+            ctx.lineTo(x + widthLine + 2.5, y + length * 0.62);
+            ctx.stroke();
+            ctx.globalAlpha = 1;
+          }
+        }
+
+        ctx.restore();
+      }
+
+      function drawVignette() {
+        const gradient = ctx.createLinearGradient(0, 0, 0, height);
+        gradient.addColorStop(0, colors.background);
+        gradient.addColorStop(0.12, colorWithAlpha(colors.background, 0));
+        gradient.addColorStop(0.78, colorWithAlpha(colors.background, 0));
+        gradient.addColorStop(1, colors.background);
+
+        ctx.save();
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, width, height);
+        ctx.restore();
+      }
+
+      function random(a: number, b: number) {
+        const value = Math.sin(a * 127.1 + b * 311.7) * 43758.5453123;
+        return value - Math.floor(value);
+      }
+
+      function randomSigned(a: number, b: number) {
+        return random(a, b) * 2 - 1;
+      }
+
+      function colorWithAlpha(color: string, alpha: number) {
+        if (color.startsWith('rgb(')) {
+          return color.replace('rgb(', 'rgba(').replace(')', `, ${alpha})`);
+        }
+
+        if (color.startsWith('rgba(')) {
+          return color.replace(/,\s*[\d.]+\)$/, `, ${alpha})`);
+        }
+
+        return color;
+      }
     }
-
-    window.location.href = '/';
-  });
-
-  if (root) {
-    let elapsed = 0;
-    let frame = 0;
-    let rafId = 0;
-
-    const clockId = window.setInterval(() => {
-      elapsed += 1;
-      const minutes = Math.floor(elapsed / 60);
-      const seconds = elapsed % 60;
-      if (clock) clock.textContent = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
-    }, 1000);
-
-    const onPointerMove = (event: PointerEvent) => {
-      const px = event.clientX / window.innerWidth;
-      const py = event.clientY / window.innerHeight;
-      root.style.setProperty('--pointer-x', `${px * 100}%`);
-      root.style.setProperty('--pointer-y', `${py * 100}%`);
-      if (x) x.textContent = px.toFixed(2);
-      if (y) y.textContent = py.toFixed(2);
-    };
-
-    const tick = () => {
-      frame += 1;
-      if (index && frame % 8 === 0) index.textContent = String(frame % 10000).padStart(4, '0');
-      rafId = window.requestAnimationFrame(tick);
-    };
-
-    window.addEventListener('pointermove', onPointerMove, { passive: true });
-    rafId = window.requestAnimationFrame(tick);
-
-    window.addEventListener('pagehide', () => {
-      window.clearInterval(clockId);
-      window.cancelAnimationFrame(rafId);
-      window.removeEventListener('pointermove', onPointerMove);
-    });
   }
 </script>
