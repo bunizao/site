@@ -20,12 +20,6 @@ const description = "The page you're looking for isn't here.";
 </Layout>
 
 <style>
-  @font-face {
-    font-family: 'Geist Pixel Square';
-    src: url('/fonts/geist-pixel-square.woff2') format('woff2');
-    font-display: swap;
-  }
-
   :global(body:has(.not-found) .global-header-actions) {
     display: none;
   }
@@ -181,47 +175,55 @@ const description = "The page you're looking for isn't here.";
 </style>
 
 <script>
-  const root = document.querySelector<HTMLElement>('[data-not-found]');
-  const canvas = document.querySelector<HTMLCanvasElement>('[data-error-canvas]');
+  queueMicrotask(() => {
+    const root = document.querySelector<HTMLElement>('[data-not-found]');
+    const canvas = document.querySelector<HTMLCanvasElement>('[data-error-canvas]');
 
-  if (root && canvas) {
-    const ctx = canvas.getContext('2d', { alpha: false });
-    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+    if (root && canvas) {
+      const ctx = canvas.getContext('2d', { alpha: false });
+      const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
 
-    if (ctx) {
-      const mask = document.createElement('canvas');
-      const maskCtx = mask.getContext('2d', { alpha: true });
-      const pointer = { x: 0.55, y: 0.42, active: false };
+      if (ctx) {
+      const map = document.createElement('canvas');
+      const mapCtx = map.getContext('2d', { willReadFrequently: true });
+      const rows: EffectRow[] = [];
       let width = 0;
       let height = 0;
       let dpr = 1;
-      let frame = 0;
+      let renderWidth = 0;
+      let renderHeight = 0;
+      let mapData: ImageData | null = null;
       let animationFrame = 0;
+      let lastTime = 0;
       let colors = readColors();
 
       const drawOnce = () => {
-        draw(performance.now() * 0.001);
+        draw(1 / 60);
       };
 
       const resize = () => {
         const rect = root.getBoundingClientRect();
         width = Math.max(1, Math.round(rect.width));
         height = Math.max(1, Math.round(rect.height));
-        dpr = Math.min(window.devicePixelRatio || 1, 2);
+        dpr = Math.min(window.devicePixelRatio || 1, 2) * 1.5;
+        renderWidth = Math.round(width * dpr);
+        renderHeight = Math.round(height * dpr);
 
-        canvas.width = Math.round(width * dpr);
-        canvas.height = Math.round(height * dpr);
+        canvas.width = renderWidth;
+        canvas.height = renderHeight;
         canvas.style.width = `${width}px`;
         canvas.style.height = `${height}px`;
 
-        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
         ctx.imageSmoothingEnabled = false;
-        buildMask();
+        buildDisplacementMap();
+        buildRows();
         drawOnce();
       };
 
       const animate = (time: number) => {
-        draw(time * 0.001);
+        const deltaTime = lastTime ? (time - lastTime) / 1000 : 1 / 60;
+        lastTime = time;
+        draw(Math.min(deltaTime, 1 / 24));
         if (!reducedMotion.matches) {
           animationFrame = requestAnimationFrame(animate);
         }
@@ -229,19 +231,15 @@ const description = "The page you're looking for isn't here.";
 
       const restart = () => {
         cancelAnimationFrame(animationFrame);
+        lastTime = 0;
         colors = readColors();
-        buildMask();
+        buildDisplacementMap();
+        buildRows();
         if (reducedMotion.matches) {
           drawOnce();
           return;
         }
         animationFrame = requestAnimationFrame(animate);
-      };
-
-      const onPointerMove = (event: PointerEvent) => {
-        pointer.x = event.clientX / Math.max(window.innerWidth, 1);
-        pointer.y = event.clientY / Math.max(window.innerHeight, 1);
-        pointer.active = true;
       };
 
       const observer = new ResizeObserver(resize);
@@ -252,11 +250,11 @@ const description = "The page you're looking for isn't here.";
         attributes: true,
         attributeFilter: ['class', 'data-theme-setting'],
       });
-      window.addEventListener('pointermove', onPointerMove, { passive: true });
       reducedMotion.addEventListener('change', restart);
 
-      document.fonts?.load('120px "Geist Pixel Square"').then(() => {
-        buildMask();
+      document.fonts?.ready.then(() => {
+        buildDisplacementMap();
+        buildRows();
         drawOnce();
       });
 
@@ -267,7 +265,6 @@ const description = "The page you're looking for isn't here.";
         cancelAnimationFrame(animationFrame);
         observer.disconnect();
         themeObserver.disconnect();
-        window.removeEventListener('pointermove', onPointerMove);
         reducedMotion.removeEventListener('change', restart);
       });
 
@@ -276,191 +273,185 @@ const description = "The page you're looking for isn't here.";
         return {
           background: styles.backgroundColor,
           foreground: styles.color,
-          muted: getComputedStyle(document.documentElement).getPropertyValue('--muted-foreground').trim(),
+          faint: document.documentElement.classList.contains('dark')
+            ? 'rgba(255, 255, 255, 0.18)'
+            : 'rgba(0, 0, 0, 0.1)',
         };
       }
 
-      function buildMask() {
-        if (!maskCtx || width === 0 || height === 0) {
+      function buildDisplacementMap() {
+        if (!mapCtx || renderWidth === 0 || renderHeight === 0) {
           return;
         }
 
-        const lowWidth = Math.max(1, Math.ceil(width));
-        const lowHeight = Math.max(1, Math.ceil(height));
-        mask.width = lowWidth;
-        mask.height = lowHeight;
-        maskCtx.clearRect(0, 0, lowWidth, lowHeight);
-        maskCtx.fillStyle = '#000';
-        maskCtx.textAlign = 'center';
-        maskCtx.textBaseline = 'middle';
+        map.width = 867;
+        map.height = 238;
+        mapCtx.imageSmoothingEnabled = true;
+        mapCtx.fillStyle = '#fff';
+        mapCtx.fillRect(0, 0, map.width, map.height);
+        mapCtx.fillStyle = '#1c1c1c';
+        mapCtx.textAlign = 'center';
+        mapCtx.textBaseline = 'middle';
 
-        const targetWidth = lowWidth * (width < 640 ? 1.22 : 1.08);
-        let fontSize = lowHeight * (width < 640 ? 0.86 : 1.14);
-        maskCtx.font = `400 ${fontSize}px "Geist Pixel Square", "JetBrains Mono", ui-monospace, monospace`;
-
-        const measured = maskCtx.measureText('404').width;
-        if (measured > targetWidth) {
-          fontSize *= targetWidth / measured;
-        }
-
-        maskCtx.font = `400 ${fontSize}px "Geist Pixel Square", "JetBrains Mono", ui-monospace, monospace`;
-        maskCtx.letterSpacing = `${-fontSize * 0.08}px`;
-        maskCtx.fillText('404', lowWidth / 2 - lowWidth * 0.025, lowHeight * (width < 640 ? 0.49 : 0.52));
+        const fontStack = '650 286px ui-sans-serif, -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif';
+        mapCtx.font = fontStack;
+        const measured = mapCtx.measureText('404').width;
+        const targetWidth = map.width * 0.74;
+        const size = Math.min(286, 286 * (targetWidth / measured));
+        mapCtx.font = `650 ${size}px ui-sans-serif, -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif`;
+        mapCtx.fillText('404', map.width / 2, map.height * 0.54);
+        mapData = mapCtx.getImageData(0, 0, map.width, map.height);
       }
 
-      function draw(time: number) {
-        if (!maskCtx) {
-          return;
-        }
+      function buildRows() {
+        rows.length = 0;
+        const count = 18;
+        const rowHeight = renderHeight / count;
 
-        frame += 1;
-        ctx.save();
-        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        for (let index = 0; index < count; index += 1) {
+          const seed = seededRandom(index + 31);
+          rows.push(new EffectRow({
+            index,
+            y: rowHeight * index,
+            height: rowHeight,
+            canvasWidth: renderWidth,
+            mapData,
+            color: colors.foreground,
+            min: 0.01,
+            max: 0.78,
+            range: 1.6,
+            space: 1.55,
+            movement: 0.02 * seed - 0.01,
+            drag: 4,
+            stretch: {
+              amount: 1,
+              speed: 8,
+              wave: 3,
+            },
+          }));
+        }
+      }
+
+      function draw(deltaTime: number) {
         ctx.imageSmoothingEnabled = false;
         ctx.fillStyle = colors.background;
-        ctx.fillRect(0, 0, width, height);
+        ctx.fillRect(0, 0, renderWidth, renderHeight);
 
-        drawScanLines(time);
-        drawNumber(time);
-        drawCuts(time);
-        drawVignette();
-        ctx.restore();
-      }
-
-      function drawScanLines(time: number) {
-        const spacing = width < 640 ? 18 : 22;
-        const segment = width < 640 ? 26 : 34;
-        const drift = Math.sin(time * 0.7) * 7 + (pointer.active ? (pointer.x - 0.5) * 16 : 0);
-
-        ctx.save();
-        ctx.strokeStyle = colorWithAlpha(colors.foreground, document.documentElement.classList.contains('dark') ? 0.13 : 0.09);
-        ctx.lineWidth = 1;
-
-        for (let x = -spacing; x < width + spacing; x += spacing) {
-          const column = Math.round(x / spacing);
-          const columnPhase = time * (1.4 + (column % 4) * 0.11) + column * 1.7;
-          const offset = Math.sin(columnPhase) * 2.2 + drift * randomSigned(column, Math.floor(time * 2));
-          for (let y = -segment; y < height + segment; y += segment * 1.55) {
-            const row = Math.round(y / segment);
-            const wobble = randomSigned(column, row + Math.floor(time * 3)) * 8;
-            ctx.beginPath();
-            ctx.moveTo(Math.round(x + offset) + 0.5, y + wobble);
-            ctx.lineTo(Math.round(x + offset) + 0.5, y + wobble + segment);
-            ctx.stroke();
-          }
+        ctx.fillStyle = colors.foreground;
+        for (const row of rows) {
+          row.render(deltaTime, ctx);
         }
-
-        ctx.restore();
       }
 
-      function drawNumber(time: number) {
-        const lowWidth = mask.width;
-        const lowHeight = mask.height;
-        const bandBase = width < 640 ? 2 : 3;
-        const pulse = Math.pow(Math.max(0, Math.sin(time * 1.15)), 5);
-        let sourceY = 0;
-
-        ctx.save();
-        ctx.globalAlpha = 1;
-
-        while (sourceY < lowHeight) {
-          const bandHeight = Math.max(1, Math.round(bandBase + random(sourceY, frame % 97) * 5));
-          const wave = Math.sin(time * 2.1 + sourceY * 0.21) * 2.2;
-          const drag = pointer.active ? (pointer.x - 0.5) * 10 * Math.sin(sourceY * 0.17) : 0;
-          const snap = randomSigned(sourceY, Math.floor(time * 9)) * pulse * 16;
-          const offset = Math.round(wave + drag + snap);
-
-          ctx.drawImage(
-            mask,
-            0,
-            sourceY,
-            lowWidth,
-            bandHeight,
-            offset,
-            sourceY,
-            lowWidth,
-            bandHeight
-          );
-
-          sourceY += bandHeight;
-        }
-
-        ctx.restore();
-      }
-
-      function drawCuts(time: number) {
-        const cutCount = width < 640 ? 11 : 18;
-        const top = height * 0.05;
-        const bottom = height * 0.94;
-        const pulse = Math.pow(Math.max(0, Math.sin(time * 1.3 + 0.8)), 7);
-
-        ctx.save();
-        ctx.lineCap = 'butt';
-
-        for (let i = 0; i < cutCount; i += 1) {
-          const seed = i * 31;
-          const baseX = width * (0.18 + random(seed, 3) * 0.64);
-          const jitter = randomSigned(seed, Math.floor(time * 8)) * (3 + pulse * 13);
-          const x = Math.round(baseX + jitter);
-          const y = top + random(seed, 7) * height * 0.2;
-          const length = (bottom - top) * (0.22 + random(seed, 11) * 0.74);
-          const widthLine = 1 + Math.floor(random(seed, 17) * 3);
-
-          ctx.strokeStyle = colors.background;
-          ctx.lineWidth = widthLine;
-          ctx.beginPath();
-          ctx.moveTo(x + 0.5, y);
-          ctx.lineTo(x + 0.5, y + length);
-          ctx.stroke();
-
-          if (pulse > 0.18) {
-            ctx.strokeStyle = colors.foreground;
-            ctx.globalAlpha = 0.8;
-            ctx.lineWidth = 1;
-            ctx.beginPath();
-            ctx.moveTo(x + widthLine + 2.5, y + length * 0.08);
-            ctx.lineTo(x + widthLine + 2.5, y + length * 0.62);
-            ctx.stroke();
-            ctx.globalAlpha = 1;
-          }
-        }
-
-        ctx.restore();
-      }
-
-      function drawVignette() {
-        const gradient = ctx.createLinearGradient(0, 0, 0, height);
-        gradient.addColorStop(0, colors.background);
-        gradient.addColorStop(0.12, colorWithAlpha(colors.background, 0));
-        gradient.addColorStop(0.78, colorWithAlpha(colors.background, 0));
-        gradient.addColorStop(1, colors.background);
-
-        ctx.save();
-        ctx.fillStyle = gradient;
-        ctx.fillRect(0, 0, width, height);
-        ctx.restore();
-      }
-
-      function random(a: number, b: number) {
-        const value = Math.sin(a * 127.1 + b * 311.7) * 43758.5453123;
+      function seededRandom(seed: number) {
+        const value = Math.sin(seed * 127.1) * 43758.5453123;
         return value - Math.floor(value);
       }
-
-      function randomSigned(a: number, b: number) {
-        return random(a, b) * 2 - 1;
-      }
-
-      function colorWithAlpha(color: string, alpha: number) {
-        if (color.startsWith('rgb(')) {
-          return color.replace('rgb(', 'rgba(').replace(')', `, ${alpha})`);
-        }
-
-        if (color.startsWith('rgba(')) {
-          return color.replace(/,\s*[\d.]+\)$/, `, ${alpha})`);
-        }
-
-        return color;
       }
     }
+  });
+
+  type EffectRowOptions = {
+    index: number;
+    y: number;
+    height: number;
+    canvasWidth: number;
+    mapData: ImageData | null;
+    color: string;
+    min: number;
+    max: number;
+    range: number;
+    space: number;
+    movement: number;
+    drag: number;
+    stretch: {
+      amount: number;
+      speed: number;
+      wave: number;
+    };
+  };
+
+  class EffectRow {
+    private lines: EffectLine[] = [];
+    private scrollX = 0;
+    private tick = 0;
+    private readonly scale: number;
+
+    constructor(private readonly options: EffectRowOptions) {
+      this.scale = options.canvasWidth / 100;
+      this.syncLines();
+    }
+
+    render(deltaTime: number, ctx: CanvasRenderingContext2D) {
+      const { height, y, movement, drag, stretch } = this.options;
+      const spacing = this.options.space * this.scale;
+      const stretchAmount =
+        1 + Math.sin(this.tick * stretch.speed * 0.01 + y * stretch.wave * 0.001) * stretch.amount * 0.01;
+      const totalWidth = (this.lines.length * spacing) * stretchAmount;
+      const offset = totalWidth - this.options.canvasWidth;
+
+      this.scrollX += movement * this.scale;
+      this.tick += deltaTime * 10;
+
+      for (let index = 0; index < this.lines.length; index += 1) {
+        const line = this.lines[index];
+        let x = (index * spacing - offset * 0.5 + this.scrollX) * stretchAmount;
+        while (x < -offset * 0.5) x += totalWidth;
+        while (x > totalWidth - offset * 0.5) x -= totalWidth;
+
+        const targetWidth = this.getWidthAt(x);
+        line.width += (targetWidth - line.width) / drag;
+
+        if (line.width <= 0.05) continue;
+        ctx.fillRect(x - line.width * 0.5, Math.floor(y), line.width, Math.ceil(height));
+      }
+    }
+
+    private syncLines() {
+      const spacing = this.options.space * this.scale;
+      const count = Math.floor((this.options.canvasWidth + spacing) / spacing) * 4;
+      while (this.lines.length < count) this.lines.push({ width: 0 });
+      while (this.lines.length > count) this.lines.pop();
+    }
+
+    private getContrastAt(x: number) {
+      const imageData = this.options.mapData;
+      if (!imageData) return 1;
+
+      const scaleX = imageData.width / this.options.canvasWidth;
+      const scaleY = imageData.height / (this.options.height * 18);
+      const sourceX = Math.floor(x * scaleX);
+      const sourceY = Math.floor((this.options.y + this.options.height * 0.5) * scaleY);
+      const index = (sourceY * imageData.width + sourceX) * 4;
+
+      if (index < 0 || index + 2 >= imageData.data.length) return 1;
+
+      const red = imageData.data[index];
+      const green = imageData.data[index + 1];
+      const blue = imageData.data[index + 2];
+      return (red * 0.299 + green * 0.587 + blue * 0.114) / 255;
+    }
+
+    private getWidthAt(x: number) {
+      const max = this.options.max * this.scale;
+      const min = this.options.min * this.scale;
+      const range = this.options.range * this.scale;
+      const from = Math.floor(x - range / 2);
+      const to = Math.ceil(x + range / 2);
+      let average = 0;
+
+      for (let sample = from; sample < to; sample += 1) {
+        average += this.getContrastAt(sample);
+      }
+
+      const count = to - from - 1;
+      if (count > 1) average /= count;
+
+      return Math.max(min, (1 - average) * max);
+    }
   }
+
+  type EffectLine = {
+    width: number;
+  };
 </script>
