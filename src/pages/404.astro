@@ -113,6 +113,16 @@ const description = "The page you're looking for isn't here.";
     --nf-bg: hsl(var(--background));
     --nf-fg: hsl(var(--foreground));
     --nf-muted: hsl(var(--muted-foreground));
+    --nf-grid-y: hsl(var(--foreground) / 0.05);
+    --nf-grid-x: hsl(var(--foreground) / 0.045);
+    --nf-scan-fg: hsl(var(--foreground) / 0.32);
+    --nf-trace: hsl(var(--foreground) / 0.42);
+    --nf-trace-strong: hsl(var(--foreground) / 0.7);
+    --nf-trace-dim: hsl(var(--foreground) / 0.28);
+    --nf-secondary: hsl(var(--foreground) / 0.55);
+    --nf-dot: hsl(var(--foreground) / 0.7);
+    --nf-ring: hsl(var(--foreground) / 0.3);
+    --nf-prefix: hsl(var(--foreground) / 0.3);
     position: relative;
     display: grid;
     place-items: center;
@@ -124,6 +134,22 @@ const description = "The page you're looking for isn't here.";
     isolation: isolate;
   }
 
+  :global(.dark) .not-found {
+    --nf-bg: hsl(0 0% 7%);
+    --nf-fg: hsl(0 0% 76%);
+    --nf-muted: hsl(0 0% 56%);
+    --nf-grid-y: hsl(0 0% 100% / 0.028);
+    --nf-grid-x: hsl(0 0% 100% / 0.024);
+    --nf-scan-fg: hsl(0 0% 78% / 0.18);
+    --nf-trace: hsl(0 0% 78% / 0.32);
+    --nf-trace-strong: hsl(0 0% 80% / 0.52);
+    --nf-trace-dim: hsl(0 0% 78% / 0.18);
+    --nf-secondary: hsl(0 0% 78% / 0.6);
+    --nf-dot: hsl(0 0% 80% / 0.48);
+    --nf-ring: hsl(0 0% 80% / 0.18);
+    --nf-prefix: hsl(0 0% 78% / 0.32);
+  }
+
   .not-found::before {
     content: "";
     position: absolute;
@@ -132,8 +158,8 @@ const description = "The page you're looking for isn't here.";
     pointer-events: none;
     opacity: 0.42;
     background-image:
-      linear-gradient(hsl(var(--foreground) / 0.05) 1px, transparent 1px),
-      linear-gradient(90deg, hsl(var(--foreground) / 0.045) 1px, transparent 1px);
+      linear-gradient(var(--nf-grid-y) 1px, transparent 1px),
+      linear-gradient(90deg, var(--nf-grid-x) 1px, transparent 1px);
     background-size: 100% clamp(72px, 11svh, 112px), clamp(72px, 11svh, 112px) 100%;
     transition: opacity 720ms cubic-bezier(0.16, 1, 0.3, 1);
   }
@@ -219,7 +245,7 @@ const description = "The page you're looking for isn't here.";
     background: linear-gradient(
       90deg,
       transparent 0%,
-      hsl(var(--foreground) / 0.32) 50%,
+      var(--nf-scan-fg) 50%,
       transparent 100%
     );
     transform: translateY(-50%);
@@ -237,7 +263,7 @@ const description = "The page you're looking for isn't here.";
     font-size: 11px;
     line-height: 1;
     letter-spacing: 0.04em;
-    color: hsl(var(--foreground) / 0.42);
+    color: var(--nf-trace);
     text-transform: lowercase;
     font-variant-numeric: tabular-nums;
     opacity: 0;
@@ -258,11 +284,11 @@ const description = "The page you're looking for isn't here.";
   }
 
   .nf-trace-mono {
-    color: hsl(var(--foreground) / 0.7);
+    color: var(--nf-trace-strong);
   }
 
   .nf-trace-dot {
-    color: hsl(var(--foreground) / 0.28);
+    color: var(--nf-trace-dim);
   }
 
   .nf-sr-title {
@@ -291,7 +317,7 @@ const description = "The page you're looking for isn't here.";
     line-height: 1;
     letter-spacing: 0.06em;
     text-transform: lowercase;
-    color: hsl(var(--foreground) / 0.55);
+    color: var(--nf-secondary);
     font-variant-numeric: tabular-nums;
     pointer-events: none;
   }
@@ -301,7 +327,7 @@ const description = "The page you're looking for isn't here.";
     width: 6px;
     height: 6px;
     border-radius: 50%;
-    background: hsl(var(--foreground) / 0.7);
+    background: var(--nf-dot);
     animation: nf-status-pulse 2.4s cubic-bezier(0.4, 0, 0.2, 1) infinite;
   }
 
@@ -310,7 +336,7 @@ const description = "The page you're looking for isn't here.";
     position: absolute;
     inset: -3px;
     border-radius: 50%;
-    border: 1px solid hsl(var(--foreground) / 0.3);
+    border: 1px solid var(--nf-ring);
     opacity: 0;
     animation: nf-status-ring 2.4s cubic-bezier(0.4, 0, 0.2, 1) infinite;
   }
@@ -327,14 +353,14 @@ const description = "The page you're looking for isn't here.";
     line-height: 1.55;
     letter-spacing: 0;
     text-transform: lowercase;
-    color: hsl(var(--foreground) / 0.55);
+    color: var(--nf-secondary);
     pointer-events: none;
   }
 
   .nf-line-prefix {
     display: inline-block;
     margin-right: 0.55em;
-    color: hsl(var(--foreground) / 0.3);
+    color: var(--nf-prefix);
     font-variant-numeric: tabular-nums;
   }
 
