@@ -133,15 +133,15 @@ const description = "The page you're looking for isn't here.";
   }
 
   .nf-number::before {
-    opacity: 0.075;
-    transform: translate(-0.018em, -0.006em);
-    animation: nf-callback-a 5.6s ease-out infinite;
+    opacity: 0.08;
+    transform: translate(-0.02em, -0.007em);
+    animation: nf-idle-a 4.8s cubic-bezier(0.45, 0, 0.2, 1) infinite;
   }
 
   .nf-number::after {
-    opacity: 0.04;
-    transform: translate(0.024em, 0.008em);
-    animation: nf-callback-b 5.6s ease-out infinite;
+    opacity: 0.045;
+    transform: translate(0.026em, 0.009em);
+    animation: nf-idle-b 4.8s cubic-bezier(0.45, 0, 0.2, 1) 180ms infinite;
   }
 
   .nf-number.is-number-hovered::before {
@@ -305,62 +305,51 @@ const description = "The page you're looking for isn't here.";
     .nf-home:focus-visible {
       transform: none;
     }
-
   }
 
-  @keyframes nf-callback-a {
+  @keyframes nf-idle-a {
     0%,
     100% {
-      opacity: 0.075;
-      transform: translate(-0.018em, -0.006em);
+      opacity: 0.065;
+      transform: translate(-0.016em, -0.005em);
     }
 
-    72% {
-      opacity: 0.075;
-      transform: translate(-0.018em, -0.006em);
+    34% {
+      opacity: 0.12;
+      transform: translate(-0.03em, -0.01em);
+    }
+
+    58% {
+      opacity: 0.055;
+      transform: translate(-0.008em, -0.002em);
     }
 
     76% {
-      opacity: 0.22;
-      transform: translate(-0.065em, -0.022em);
-    }
-
-    81% {
-      opacity: 0.035;
-      transform: translate(0.012em, 0.004em);
-    }
-
-    86% {
-      opacity: 0.075;
-      transform: translate(-0.018em, -0.006em);
+      opacity: 0.09;
+      transform: translate(-0.024em, -0.008em);
     }
   }
 
-  @keyframes nf-callback-b {
+  @keyframes nf-idle-b {
     0%,
     100% {
-      opacity: 0.04;
-      transform: translate(0.024em, 0.008em);
+      opacity: 0.035;
+      transform: translate(0.02em, 0.007em);
     }
 
-    74% {
-      opacity: 0.04;
-      transform: translate(0.024em, 0.008em);
+    30% {
+      opacity: 0.075;
+      transform: translate(0.038em, 0.012em);
+    }
+
+    55% {
+      opacity: 0.025;
+      transform: translate(0.006em, 0.002em);
     }
 
     78% {
-      opacity: 0.16;
-      transform: translate(0.075em, 0.024em);
-    }
-
-    83% {
-      opacity: 0.02;
-      transform: translate(-0.01em, -0.004em);
-    }
-
-    88% {
-      opacity: 0.04;
-      transform: translate(0.024em, 0.008em);
+      opacity: 0.05;
+      transform: translate(0.028em, 0.009em);
     }
   }
 
