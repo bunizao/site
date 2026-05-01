@@ -6,12 +6,13 @@ const description = "The page you're looking for isn't here.";
 ---
 
 <Layout title={title} description={description} hideSiteNav>
-  <main class="not-found" data-not-found>
-    <canvas class="nf-canvas" data-error-canvas aria-hidden="true"></canvas>
+  <main class="not-found">
     <a class="nf-brand" href="/" aria-label="Bunizao home">Bunizao</a>
 
+    <div class="nf-number" aria-hidden="true">404</div>
+
     <section class="nf-copy" aria-labelledby="not-found-title">
-      <p class="nf-kicker">lost signal / 404</p>
+      <p class="nf-kicker">404 / not found</p>
       <h1 id="not-found-title">Page not found</h1>
       <p>this page slipped out of the index.</p>
       <a href="/" class="nf-home">go home</a>
@@ -33,6 +34,8 @@ const description = "The page you're looking for isn't here.";
     --nf-fg: hsl(var(--foreground));
     --nf-muted: hsl(var(--muted-foreground));
     position: relative;
+    display: grid;
+    place-items: center;
     min-height: 100svh;
     overflow: hidden;
     color: var(--nf-fg);
@@ -40,14 +43,34 @@ const description = "The page you're looking for isn't here.";
     isolation: isolate;
   }
 
-  .nf-canvas {
+  .not-found::before,
+  .not-found::after {
+    content: "";
     position: absolute;
     inset: 0;
     z-index: 0;
-    width: 100%;
-    height: 100%;
-    max-width: none;
-    background: var(--nf-bg);
+    pointer-events: none;
+  }
+
+  .not-found::before {
+    opacity: 0.42;
+    background-image:
+      linear-gradient(hsl(var(--foreground) / 0.05) 1px, transparent 1px),
+      linear-gradient(90deg, hsl(var(--foreground) / 0.045) 1px, transparent 1px);
+    background-size: 100% clamp(72px, 11svh, 112px), clamp(72px, 11svh, 112px) 100%;
+  }
+
+  .not-found::after {
+    opacity: 0.55;
+    background: linear-gradient(
+      180deg,
+      transparent 0,
+      transparent calc(50% - 1px),
+      hsl(var(--foreground) / 0.18) 50%,
+      transparent calc(50% + 1px),
+      transparent 100%
+    );
+    animation: nf-scan 7s ease-in-out infinite;
   }
 
   .nf-brand {
@@ -59,7 +82,7 @@ const description = "The page you're looking for isn't here.";
     font-size: clamp(16px, 1.7vw, 24px);
     font-weight: 720;
     line-height: 1;
-    letter-spacing: -0.045em;
+    letter-spacing: 0;
     text-decoration: none;
     mix-blend-mode: normal;
   }
@@ -74,10 +97,26 @@ const description = "The page you're looking for isn't here.";
     letter-spacing: 0;
   }
 
+  .nf-number {
+    position: relative;
+    z-index: 1;
+    width: min(92vw, 1100px);
+    color: var(--nf-fg);
+    font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: min(38svh, 21rem);
+    font-weight: 520;
+    line-height: 0.82;
+    letter-spacing: 0;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+    transform: translateY(-1svh);
+    animation: nf-breathe 9s ease-in-out infinite;
+  }
+
   .nf-copy {
     position: fixed;
     right: clamp(18px, 2.8vw, 34px);
-    bottom: clamp(18px, 2.8vw, 34px);
+    bottom: clamp(30px, 4svh, 52px);
     left: clamp(18px, 2.8vw, 34px);
     z-index: 2;
     display: grid;
@@ -94,7 +133,7 @@ const description = "The page you're looking for isn't here.";
     margin: 0;
     font-size: 11px;
     line-height: 1.35;
-    letter-spacing: 0.02em;
+    letter-spacing: 0;
     text-transform: lowercase;
   }
 
@@ -104,7 +143,7 @@ const description = "The page you're looking for isn't here.";
     right: clamp(18px, 4vw, 56px);
     color: var(--nf-muted);
     font-variant-numeric: tabular-nums;
-    letter-spacing: 0.24em;
+    letter-spacing: 0;
     writing-mode: vertical-rl;
   }
 
@@ -152,6 +191,12 @@ const description = "The page you're looking for isn't here.";
   }
 
   @media (max-width: 640px) {
+    .nf-number {
+      width: min(96vw, 420px);
+      font-size: min(28svh, 10rem);
+      transform: translateY(-4svh);
+    }
+
     .nf-copy {
       grid-template-columns: 1fr;
       align-items: start;
@@ -168,200 +213,37 @@ const description = "The page you're looking for isn't here.";
   }
 
   @media (prefers-reduced-motion: reduce) {
+    .not-found::after,
+    .nf-number {
+      animation: none;
+    }
+
     .nf-home::after {
       transition: none;
     }
   }
-</style>
 
-<script>
-  queueMicrotask(() => {
-    const root = document.querySelector<HTMLElement>('[data-not-found]');
-    const canvas = document.querySelector<HTMLCanvasElement>('[data-error-canvas]');
-
-    if (root && canvas) {
-      const ctx = canvas.getContext('2d', { alpha: true });
-      const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
-
-      if (ctx) {
-        const glyph = document.createElement('canvas');
-        const glyphCtx = glyph.getContext('2d');
-        let width = 0;
-        let height = 0;
-        let dpr = 1;
-        let renderWidth = 0;
-        let renderHeight = 0;
-        let animationFrame = 0;
-        let colors = readColors();
-
-        const drawOnce = () => draw(performance.now() * 0.001);
-
-        const resize = () => {
-          const rect = root.getBoundingClientRect();
-          width = Math.max(1, Math.round(rect.width));
-          height = Math.max(1, Math.round(rect.height));
-          dpr = Math.min(window.devicePixelRatio || 1, 2);
-          renderWidth = Math.round(width * dpr);
-          renderHeight = Math.round(height * dpr);
-
-          canvas.width = renderWidth;
-          canvas.height = renderHeight;
-          canvas.style.width = `${width}px`;
-          canvas.style.height = `${height}px`;
-
-          ctx.imageSmoothingEnabled = false;
-          buildGlyph();
-          drawOnce();
-        };
-
-        const animate = (time: number) => {
-          draw(time * 0.001);
-          if (!reducedMotion.matches) {
-            animationFrame = requestAnimationFrame(animate);
-          }
-        };
-
-        const restart = () => {
-          cancelAnimationFrame(animationFrame);
-          colors = readColors();
-          buildGlyph();
-          if (reducedMotion.matches) {
-            drawOnce();
-            return;
-          }
-          animationFrame = requestAnimationFrame(animate);
-        };
-
-        const observer = new ResizeObserver(resize);
-        const themeObserver = new MutationObserver(restart);
-
-        observer.observe(root);
-        themeObserver.observe(document.documentElement, {
-          attributes: true,
-          attributeFilter: ['class', 'data-theme-setting'],
-        });
-        reducedMotion.addEventListener('change', restart);
-
-        document.fonts?.ready.then(() => {
-          buildGlyph();
-          drawOnce();
-        });
-
-        resize();
-        restart();
-
-        window.addEventListener('pagehide', () => {
-          cancelAnimationFrame(animationFrame);
-          observer.disconnect();
-          themeObserver.disconnect();
-          reducedMotion.removeEventListener('change', restart);
-        });
-
-        function readColors() {
-          const styles = getComputedStyle(root);
-          const isDark = document.documentElement.classList.contains('dark');
-          return {
-            background: styles.backgroundColor,
-            foreground: styles.color,
-            guide: isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.075)',
-          };
-        }
-
-        function buildGlyph() {
-          if (!glyphCtx || renderWidth === 0 || renderHeight === 0) return;
-
-          glyph.width = renderWidth;
-          glyph.height = renderHeight;
-          glyphCtx.clearRect(0, 0, renderWidth, renderHeight);
-          glyphCtx.fillStyle = colors.foreground;
-          glyphCtx.textAlign = 'center';
-          glyphCtx.textBaseline = 'middle';
-
-          const targetWidth = renderWidth * (width < 640 ? 1.18 : 0.94);
-          let fontSize = renderHeight * (width < 640 ? 0.82 : 0.92);
-          glyphCtx.font = `650 ${fontSize}px "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace`;
-          const measured = glyphCtx.measureText('404').width;
-          if (measured > targetWidth) fontSize *= targetWidth / measured;
-
-          glyphCtx.font = `650 ${fontSize}px "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace`;
-          glyphCtx.fillText('404', renderWidth / 2, renderHeight * (width < 640 ? 0.49 : 0.51));
-        }
-
-        function draw(time: number) {
-          ctx.imageSmoothingEnabled = false;
-          ctx.fillStyle = colors.background;
-          ctx.fillRect(0, 0, renderWidth, renderHeight);
-          drawGuideLines(time);
-          drawDisplacedNumber(time);
-        }
-
-        function drawGuideLines(time: number) {
-          const spacing = Math.max(16, Math.round(renderWidth / 74));
-          const segment = Math.max(44, Math.round(renderHeight / 14));
-          ctx.save();
-          ctx.strokeStyle = colors.guide;
-          ctx.lineWidth = Math.max(1, dpr);
-
-          for (let x = -spacing; x < renderWidth + spacing; x += spacing) {
-            const column = Math.round(x / spacing);
-            const drift = Math.sin(time * 1.1 + column * 0.8) * dpr * 7;
-            for (let y = -segment; y < renderHeight + segment; y += segment * 1.45) {
-              const phase = seededRandom(column * 19 + Math.round(y));
-              ctx.beginPath();
-              ctx.moveTo(Math.round(x + drift) + 0.5, y + phase * segment * 0.28);
-              ctx.lineTo(Math.round(x + drift) + 0.5, y + segment * 0.74 + phase * segment * 0.28);
-              ctx.stroke();
-            }
-          }
-
-          ctx.restore();
-        }
-
-        function drawDisplacedNumber(time: number) {
-          const rowHeight = Math.max(3, Math.round(dpr * 5));
-          const cycle = (time * 0.42) % 1;
-          const sweepCenter = renderHeight * (0.1 + cycle * 0.8);
-          const amplitude = renderWidth * (width < 640 ? 0.15 : 0.18);
-          const slowDrift = Math.sin(time * 1.25) * renderWidth * 0.018;
-
-          ctx.save();
-          ctx.drawImage(glyph, slowDrift, Math.sin(time * 0.9) * dpr * 2);
-
-          for (let y = 0; y < renderHeight; y += rowHeight) {
-            const yRatio = y / renderHeight;
-            const rowPhase = yRatio * 18;
-            const mainDistance = Math.abs(y - sweepCenter) / Math.max(1, renderHeight * 0.16);
-            const echoDistance = Math.abs(y - ((sweepCenter + renderHeight * 0.42) % renderHeight)) / Math.max(1, renderHeight * 0.22);
-            const mainSweep = Math.max(0, 1 - mainDistance);
-            const echoSweep = Math.max(0, 1 - echoDistance) * 0.45;
-            const energy = Math.max(Math.pow(mainSweep, 2.1), Math.pow(echoSweep, 2));
-
-            if (energy < 0.015) continue;
-
-            const direction = Math.sin(rowPhase + time * 4.8) > 0 ? 1 : -1;
-            const ripple = Math.sin(time * 3.2 + rowPhase * 0.8) * renderWidth * 0.025;
-            const offset = slowDrift + direction * energy * amplitude + ripple * energy;
-            const stretch = Math.sin(time * 2.4 - rowPhase) * dpr * 2.2 * energy;
-            const sliceHeight = Math.min(renderHeight - y, rowHeight + Math.ceil(dpr));
-
-            ctx.globalCompositeOperation = 'destination-out';
-            ctx.drawImage(glyph, 0, y, renderWidth, sliceHeight, slowDrift, y, renderWidth, sliceHeight);
-            ctx.globalCompositeOperation = 'source-over';
-            ctx.drawImage(glyph, 0, y, renderWidth, sliceHeight, offset, y + stretch, renderWidth, sliceHeight);
-          }
-
-          ctx.globalAlpha = 0.07;
-          ctx.globalCompositeOperation = 'multiply';
-          ctx.drawImage(glyph, slowDrift + Math.sin(time * 1.8) * renderWidth * 0.035, Math.cos(time * 1.1) * dpr * 5);
-
-          ctx.restore();
-        }
-
-        function seededRandom(seed: number) {
-          const value = Math.sin(seed * 127.1) * 43758.5453123;
-          return value - Math.floor(value);
-        }
-      }
+  @keyframes nf-breathe {
+    0%,
+    100% {
+      opacity: 0.94;
+      transform: translateY(-1svh);
     }
-  });
-</script>
+
+    50% {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes nf-scan {
+    0%,
+    100% {
+      transform: translateY(-34svh);
+    }
+
+    50% {
+      transform: translateY(34svh);
+    }
+  }
+</style>
