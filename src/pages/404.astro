@@ -7,34 +7,79 @@ const description = "The page you're looking for isn't here.";
 
 <Layout title={title} description={description} hideSiteNav>
   <main class="not-found">
-    <div class="nf-number" data-text="404" aria-hidden="true">404</div>
+    <div class="nf-stage">
+      <div class="nf-number" data-text="404" aria-hidden="true"
+        ><span class="nf-digit" style="--idx: 0">4</span
+        ><span class="nf-digit" style="--idx: 1">0</span
+        ><span class="nf-digit" style="--idx: 2">4</span
+        ><span class="nf-scan" aria-hidden="true"></span
+      ></div>
 
-    <section class="nf-copy" aria-labelledby="not-found-title">
-      <p class="nf-kicker">404 / not found</p>
-      <h1 id="not-found-title">Page not found</h1>
-      <p class="nf-line">this page slipped out of the index.</p>
-      <a href="/" class="nf-home">go home</a>
-    </section>
+      <div class="nf-trace" aria-hidden="true">
+        <span class="nf-trace-cell" style="--idx: 0">trace</span>
+        <span class="nf-trace-cell nf-trace-dot" style="--idx: 1">·</span>
+        <span class="nf-trace-cell nf-trace-mono" style="--idx: 2">0100</span>
+        <span class="nf-trace-cell nf-trace-dot" style="--idx: 3">·</span>
+        <span class="nf-trace-cell nf-trace-mono" style="--idx: 4">0000</span>
+        <span class="nf-trace-cell nf-trace-dot" style="--idx: 5">·</span>
+        <span class="nf-trace-cell nf-trace-mono" style="--idx: 6">0100</span>
+        <span class="nf-trace-cell nf-trace-dot" style="--idx: 7">·</span>
+        <span class="nf-trace-cell" style="--idx: 8">vector ∅</span>
+      </div>
+    </div>
+
+    <h1 class="nf-sr-title">Page not found</h1>
+
+    <div class="nf-status" aria-hidden="true">
+      <span class="nf-status-dot"></span>
+      <span class="nf-status-text">404 · not found</span>
+    </div>
+
+    <p class="nf-line">
+      <span class="nf-line-prefix" aria-hidden="true">//</span>
+      this page slipped out of the index.
+    </p>
+
+    <a href="/" class="nf-home">
+      <span class="nf-home-arrow" aria-hidden="true">←</span>
+      <span class="nf-home-text">go home</span>
+    </a>
   </main>
 
   <script>
-    const notFound = document.querySelector('.not-found');
-    const notFoundNumber = document.querySelector('.nf-number');
+    const notFound = document.querySelector('.not-found') as HTMLElement | null;
+    const notFoundNumber = document.querySelector('.nf-number') as HTMLElement | null;
     const canAnimate = window.matchMedia('(hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference)');
     let recallTimer = 0;
 
     if (notFound && notFoundNumber && canAnimate.matches) {
+      const onMove = (event: PointerEvent) => {
+        const rect = notFoundNumber.getBoundingClientRect();
+        const cx = rect.left + rect.width / 2;
+        const cy = rect.top + rect.height / 2;
+        const dx = (event.clientX - cx) / (rect.width / 2);
+        const dy = (event.clientY - cy) / (rect.height / 2);
+        notFoundNumber.style.setProperty('--mx', Math.max(-1, Math.min(1, dx)).toFixed(3));
+        notFoundNumber.style.setProperty('--my', Math.max(-1, Math.min(1, dy)).toFixed(3));
+      };
+
       notFoundNumber.addEventListener('pointerenter', () => {
         window.clearTimeout(recallTimer);
         notFound.classList.remove('is-number-recalling');
         notFoundNumber.classList.remove('is-number-recalling');
+        notFound.classList.add('is-number-hovered');
         notFoundNumber.classList.add('is-number-hovered');
+        notFoundNumber.addEventListener('pointermove', onMove);
       });
 
       notFoundNumber.addEventListener('pointerleave', () => {
+        notFound.classList.remove('is-number-hovered');
         notFoundNumber.classList.remove('is-number-hovered');
         notFound.classList.add('is-number-recalling');
         notFoundNumber.classList.add('is-number-recalling');
+        notFoundNumber.removeEventListener('pointermove', onMove);
+        notFoundNumber.style.setProperty('--mx', '0');
+        notFoundNumber.style.setProperty('--my', '0');
 
         recallTimer = window.setTimeout(() => {
           notFound.classList.remove('is-number-recalling');
@@ -85,19 +130,30 @@ const description = "The page you're looking for isn't here.";
     inset: 0;
     z-index: 0;
     pointer-events: none;
-  }
-
-  .not-found::before {
     opacity: 0.42;
     background-image:
       linear-gradient(hsl(var(--foreground) / 0.05) 1px, transparent 1px),
       linear-gradient(90deg, hsl(var(--foreground) / 0.045) 1px, transparent 1px);
     background-size: 100% clamp(72px, 11svh, 112px), clamp(72px, 11svh, 112px) 100%;
+    transition: opacity 720ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .not-found.is-number-hovered::before {
+    opacity: 0.62;
+  }
+
+  .nf-stage {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    place-items: center;
+    gap: clamp(28px, 4svh, 48px);
   }
 
   .nf-number {
+    --mx: 0;
+    --my: 0;
     position: relative;
-    z-index: 1;
     width: min(92vw, 1100px);
     color: var(--nf-fg);
     font-family: 'Geist Mono', 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
@@ -118,6 +174,15 @@ const description = "The page you're looking for isn't here.";
     will-change: transform;
   }
 
+  .nf-digit {
+    display: inline-block;
+    transform-origin: 50% 60%;
+    animation: nf-digit-breathe 5.4s cubic-bezier(0.45, 0, 0.2, 1) infinite;
+    animation-delay: calc(var(--idx) * 420ms);
+    transition: transform 720ms cubic-bezier(0.16, 1, 0.3, 1);
+    will-change: transform;
+  }
+
   .nf-number::before,
   .nf-number::after {
     content: attr(data-text);
@@ -126,6 +191,7 @@ const description = "The page you're looking for isn't here.";
     z-index: -1;
     color: var(--nf-fg);
     pointer-events: none;
+    text-align: center;
     transition:
       opacity 360ms ease,
       transform 680ms cubic-bezier(0.16, 1, 0.3, 1);
@@ -144,53 +210,62 @@ const description = "The page you're looking for isn't here.";
     animation: nf-idle-b 4.8s cubic-bezier(0.45, 0, 0.2, 1) 180ms infinite;
   }
 
-  .nf-number.is-number-hovered::before {
-    opacity: 0.09;
-    transform: translate(-0.026em, -0.008em);
-    animation: none;
+  .nf-scan {
+    position: absolute;
+    left: 6%;
+    right: 6%;
+    top: 50%;
+    height: 1px;
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      hsl(var(--foreground) / 0.32) 50%,
+      transparent 100%
+    );
+    transform: translateY(-50%);
+    pointer-events: none;
+    opacity: 0;
+    animation: nf-scan-idle 9.2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+    will-change: transform, opacity;
   }
 
-  .nf-number.is-number-hovered::after {
-    opacity: 0.05;
-    transform: translate(0.032em, 0.01em);
-    animation: none;
-  }
-
-  .nf-copy {
-    position: fixed;
-    right: clamp(18px, 2.8vw, 34px);
-    bottom: clamp(30px, 4svh, 52px);
-    left: clamp(18px, 2.8vw, 34px);
-    z-index: 2;
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    align-items: end;
-    gap: 10px 24px;
+  .nf-trace {
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 8px;
+    font-family: 'Geist Mono', 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 11px;
+    line-height: 1;
+    letter-spacing: 0.04em;
+    color: hsl(var(--foreground) / 0.42);
+    text-transform: lowercase;
+    font-variant-numeric: tabular-nums;
+    opacity: 0;
+    transform: translateY(-6px);
+    transition:
+      opacity 520ms cubic-bezier(0.16, 1, 0.3, 1),
+      transform 520ms cubic-bezier(0.16, 1, 0.3, 1);
     pointer-events: none;
   }
 
-  .nf-kicker,
-  .nf-copy h1,
-  .nf-copy p,
-  .nf-home {
-    margin: 0;
-    font-size: 11px;
-    line-height: 1.35;
-    letter-spacing: 0;
-    text-transform: lowercase;
+  .nf-trace-cell {
+    display: inline-block;
+    opacity: 0;
+    transform: translateY(4px);
+    transition:
+      opacity 320ms ease,
+      transform 320ms cubic-bezier(0.16, 1, 0.3, 1);
   }
 
-  .nf-kicker {
-    position: fixed;
-    top: clamp(82px, 8vw, 118px);
-    right: clamp(18px, 4vw, 56px);
-    color: var(--nf-muted);
-    font-variant-numeric: tabular-nums;
-    letter-spacing: 0;
-    writing-mode: vertical-rl;
+  .nf-trace-mono {
+    color: hsl(var(--foreground) / 0.7);
   }
 
-  .nf-copy h1 {
+  .nf-trace-dot {
+    color: hsl(var(--foreground) / 0.28);
+  }
+
+  .nf-sr-title {
     position: absolute;
     width: 1px;
     height: 1px;
@@ -202,24 +277,103 @@ const description = "The page you're looking for isn't here.";
     border: 0;
   }
 
-  .nf-copy p {
-    position: relative;
-    max-width: 32ch;
-    color: hsl(var(--foreground) / 0.5);
+  .nf-status {
+    position: absolute;
+    top: clamp(22px, 3vw, 38px);
+    right: clamp(20px, 3vw, 36px);
+    z-index: 3;
+    display: inline-flex;
+    align-items: center;
+    gap: 9px;
+    margin: 0;
+    font-family: 'Geist Mono', 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 11px;
+    line-height: 1;
+    letter-spacing: 0.06em;
+    text-transform: lowercase;
+    color: hsl(var(--foreground) / 0.55);
+    font-variant-numeric: tabular-nums;
     pointer-events: none;
   }
 
-  .nf-home {
+  .nf-status-dot {
     position: relative;
-    color: var(--nf-fg);
-    pointer-events: auto;
-    text-decoration: none;
-    transition:
-      transform 240ms cubic-bezier(0.16, 1, 0.3, 1),
-      color 180ms ease;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: hsl(var(--foreground) / 0.7);
+    animation: nf-status-pulse 2.4s cubic-bezier(0.4, 0, 0.2, 1) infinite;
   }
 
-  .nf-home::after {
+  .nf-status-dot::after {
+    content: "";
+    position: absolute;
+    inset: -3px;
+    border-radius: 50%;
+    border: 1px solid hsl(var(--foreground) / 0.3);
+    opacity: 0;
+    animation: nf-status-ring 2.4s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  }
+
+  .nf-line {
+    position: absolute;
+    left: clamp(20px, 3vw, 36px);
+    bottom: clamp(28px, 4svh, 48px);
+    z-index: 3;
+    max-width: 38ch;
+    margin: 0;
+    font-family: 'Geist Mono', 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 12px;
+    line-height: 1.55;
+    letter-spacing: 0;
+    text-transform: lowercase;
+    color: hsl(var(--foreground) / 0.55);
+    pointer-events: none;
+  }
+
+  .nf-line-prefix {
+    display: inline-block;
+    margin-right: 0.55em;
+    color: hsl(var(--foreground) / 0.3);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .nf-home {
+    position: absolute;
+    right: clamp(20px, 3vw, 36px);
+    bottom: clamp(28px, 4svh, 48px);
+    z-index: 3;
+    display: inline-flex;
+    align-items: center;
+    gap: 9px;
+    font-family: 'Geist Mono', 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 12px;
+    line-height: 1;
+    letter-spacing: 0.02em;
+    text-transform: lowercase;
+    color: var(--nf-fg);
+    text-decoration: none;
+    pointer-events: auto;
+    transition:
+      gap 320ms cubic-bezier(0.16, 1, 0.3, 1),
+      color 220ms ease;
+  }
+
+  .nf-home-arrow {
+    display: inline-block;
+    width: 12px;
+    font-size: 13px;
+    line-height: 1;
+    text-align: center;
+    transition: transform 360ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .nf-home-text {
+    position: relative;
+    display: inline-block;
+  }
+
+  .nf-home-text::after {
     content: "";
     position: absolute;
     right: 0;
@@ -229,18 +383,24 @@ const description = "The page you're looking for isn't here.";
     background: currentColor;
     transform: scaleX(0);
     transform-origin: right center;
-    transition: transform 180ms ease;
-  }
-
-  .nf-home:hover::after,
-  .nf-home:focus-visible::after {
-    transform: scaleX(1);
-    transform-origin: left center;
+    transition: transform 220ms cubic-bezier(0.16, 1, 0.3, 1);
   }
 
   .nf-home:hover,
   .nf-home:focus-visible {
-    transform: translateX(-4px);
+    gap: 14px;
+    outline: none;
+  }
+
+  .nf-home:hover .nf-home-arrow,
+  .nf-home:focus-visible .nf-home-arrow {
+    transform: translateX(-5px);
+  }
+
+  .nf-home:hover .nf-home-text::after,
+  .nf-home:focus-visible .nf-home-text::after {
+    transform: scaleX(1);
+    transform-origin: left center;
   }
 
   @media (hover: hover) and (pointer: fine) {
@@ -249,6 +409,73 @@ const description = "The page you're looking for isn't here.";
       font-variation-settings: "wght" 485;
       letter-spacing: -0.034em;
       transform: translateY(-1.25svh) scale(1.012);
+    }
+
+    .nf-number.is-number-hovered .nf-digit {
+      animation-play-state: paused;
+    }
+
+    .nf-number.is-number-hovered .nf-digit:nth-child(1) {
+      transform:
+        translate3d(
+          calc(var(--mx) * -0.018em - 0.026em),
+          calc(var(--my) * -0.014em - 0.006em),
+          0
+        )
+        rotate(-0.7deg);
+    }
+
+    .nf-number.is-number-hovered .nf-digit:nth-child(2) {
+      transform:
+        translate3d(
+          calc(var(--mx) * 0.02em),
+          calc(var(--my) * 0.022em - 0.014em),
+          0
+        )
+        scale(1.024);
+    }
+
+    .nf-number.is-number-hovered .nf-digit:nth-child(3) {
+      transform:
+        translate3d(
+          calc(var(--mx) * 0.018em + 0.026em),
+          calc(var(--my) * 0.014em - 0.006em),
+          0
+        )
+        rotate(0.7deg);
+    }
+
+    .nf-number.is-number-hovered::before {
+      opacity: 0.16;
+      transform: translate(
+        calc(var(--mx) * -0.05em - 0.038em),
+        calc(var(--my) * -0.034em - 0.012em)
+      );
+      animation: none;
+    }
+
+    .nf-number.is-number-hovered::after {
+      opacity: 0.085;
+      transform: translate(
+        calc(var(--mx) * 0.05em + 0.044em),
+        calc(var(--my) * 0.034em + 0.014em)
+      );
+      animation: none;
+    }
+
+    .nf-number.is-number-hovered .nf-scan {
+      animation: nf-scan-hover 1.6s cubic-bezier(0.45, 0, 0.2, 1) infinite;
+    }
+
+    .not-found.is-number-hovered .nf-trace {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .not-found.is-number-hovered .nf-trace-cell {
+      opacity: 1;
+      transform: translateY(0);
+      transition-delay: calc(var(--idx) * 50ms);
     }
 
     .nf-number.is-number-recalling::before {
@@ -267,30 +494,46 @@ const description = "The page you're looking for isn't here.";
       transform: translateY(-4svh);
     }
 
-    .nf-copy {
-      grid-template-columns: 1fr;
-      align-items: start;
+    .nf-trace {
+      font-size: 10px;
+      gap: 6px;
+    }
+
+    .nf-status {
+      top: clamp(14px, 4vw, 22px);
+      right: clamp(14px, 4vw, 22px);
+      font-size: 10px;
       gap: 8px;
     }
 
-    .nf-kicker {
-      top: auto;
-      right: auto;
-      bottom: 104px;
-      left: 20px;
-      writing-mode: horizontal-tb;
+    .nf-line {
+      font-size: 11px;
+      bottom: 60px;
+      max-width: 28ch;
+    }
+
+    .nf-home {
+      font-size: 11px;
+      bottom: 28px;
     }
   }
 
   @media (prefers-reduced-motion: reduce) {
     .nf-number::before,
-    .nf-number::after {
+    .nf-number::after,
+    .nf-digit,
+    .nf-scan,
+    .nf-status-dot,
+    .nf-status-dot::after {
       animation: none;
     }
 
     .nf-number,
     .nf-home,
-    .nf-home::after {
+    .nf-home-arrow,
+    .nf-home-text::after,
+    .nf-trace,
+    .nf-trace-cell {
       transition: none;
     }
 
@@ -303,7 +546,81 @@ const description = "The page you're looking for isn't here.";
 
     .nf-home:hover,
     .nf-home:focus-visible {
+      gap: 9px;
+    }
+
+    .nf-home:hover .nf-home-arrow,
+    .nf-home:focus-visible .nf-home-arrow {
       transform: none;
+    }
+  }
+
+  @keyframes nf-digit-breathe {
+    0%,
+    100% {
+      transform: translate3d(0, 0, 0);
+    }
+
+    26% {
+      transform: translate3d(0, -0.014em, 0);
+    }
+
+    52% {
+      transform: translate3d(0.005em, 0.004em, 0);
+    }
+
+    74% {
+      transform: translate3d(-0.004em, -0.006em, 0);
+    }
+  }
+
+  @keyframes nf-scan-idle {
+    0%,
+    78% {
+      opacity: 0;
+      transform: translateY(-58%) scaleX(0.5);
+    }
+
+    82% {
+      opacity: 0;
+      transform: translateY(-58%) scaleX(0.6);
+    }
+
+    88% {
+      opacity: 0.55;
+      transform: translateY(-50%) scaleX(1);
+    }
+
+    96% {
+      opacity: 0.25;
+      transform: translateY(-44%) scaleX(0.9);
+    }
+
+    100% {
+      opacity: 0;
+      transform: translateY(-42%) scaleX(0.5);
+    }
+  }
+
+  @keyframes nf-scan-hover {
+    0% {
+      opacity: 0;
+      transform: translateY(-110%) scaleX(0.7);
+    }
+
+    18% {
+      opacity: 0.85;
+      transform: translateY(-50%) scaleX(1);
+    }
+
+    82% {
+      opacity: 0.55;
+      transform: translateY(40%) scaleX(1);
+    }
+
+    100% {
+      opacity: 0;
+      transform: translateY(120%) scaleX(0.7);
     }
   }
 
@@ -394,6 +711,36 @@ const description = "The page you're looking for isn't here.";
     100% {
       opacity: 0.055;
       transform: translate(0.034em, 0.011em);
+    }
+  }
+
+  @keyframes nf-status-pulse {
+    0%,
+    100% {
+      opacity: 0.55;
+      transform: scale(1);
+    }
+
+    50% {
+      opacity: 1;
+      transform: scale(1.18);
+    }
+  }
+
+  @keyframes nf-status-ring {
+    0% {
+      opacity: 0.45;
+      transform: scale(0.8);
+    }
+
+    70% {
+      opacity: 0;
+      transform: scale(2.2);
+    }
+
+    100% {
+      opacity: 0;
+      transform: scale(2.2);
     }
   }
 </style>
