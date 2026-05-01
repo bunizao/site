@@ -12,7 +12,7 @@ const description = "The page you're looking for isn't here.";
     <section class="nf-copy" aria-labelledby="not-found-title">
       <p class="nf-kicker">404 / not found</p>
       <h1 id="not-found-title">Page not found</h1>
-      <p>this page slipped out of the index.</p>
+      <p class="nf-line" data-text="this page slipped out of the index.">this page slipped out of the index.</p>
       <a href="/" class="nf-home">go home</a>
     </section>
   </main>
@@ -48,6 +48,7 @@ const description = "The page you're looking for isn't here.";
     overflow: hidden;
     color: var(--nf-fg);
     background: var(--nf-bg);
+    cursor: default;
     isolation: isolate;
   }
 
@@ -80,6 +81,19 @@ const description = "The page you're looking for isn't here.";
     text-align: center;
     font-variant-numeric: tabular-nums;
     transform: translateY(-1svh);
+    transition:
+      transform 520ms cubic-bezier(0.16, 1, 0.3, 1),
+      letter-spacing 520ms cubic-bezier(0.16, 1, 0.3, 1),
+      font-weight 520ms cubic-bezier(0.16, 1, 0.3, 1),
+      filter 520ms cubic-bezier(0.16, 1, 0.3, 1);
+    will-change: transform;
+  }
+
+  .nf-number:hover {
+    font-weight: 470;
+    letter-spacing: -0.036em;
+    filter: contrast(1.08);
+    transform: translateY(-1.4svh) scale(1.018);
   }
 
   .nf-number::before,
@@ -102,6 +116,14 @@ const description = "The page you're looking for isn't here.";
     opacity: 0.04;
     transform: translate(0.024em, 0.008em);
     animation: nf-callback-b 5.6s ease-out infinite;
+  }
+
+  .nf-number:hover::before {
+    animation: nf-callback-hover-a 1.08s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+  }
+
+  .nf-number:hover::after {
+    animation: nf-callback-hover-b 1.08s cubic-bezier(0.16, 1, 0.3, 1) infinite;
   }
 
   .nf-copy {
@@ -151,8 +173,32 @@ const description = "The page you're looking for isn't here.";
   }
 
   .nf-copy p {
+    position: relative;
     max-width: 32ch;
     color: hsl(var(--foreground) / 0.5);
+    pointer-events: auto;
+  }
+
+  .nf-line::before {
+    content: attr(data-text);
+    position: absolute;
+    left: 0;
+    bottom: calc(100% + 8px);
+    width: max-content;
+    max-width: 32ch;
+    color: hsl(var(--foreground) / 0.34);
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(5px);
+    transition:
+      opacity 260ms ease,
+      transform 360ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .not-found:has(.nf-number:hover) .nf-line::before,
+  .nf-line:hover::before {
+    opacity: 1;
+    transform: translateY(0);
   }
 
   .nf-home {
@@ -160,6 +206,22 @@ const description = "The page you're looking for isn't here.";
     color: var(--nf-fg);
     pointer-events: auto;
     text-decoration: none;
+    transition:
+      transform 240ms cubic-bezier(0.16, 1, 0.3, 1),
+      color 180ms ease;
+  }
+
+  .nf-home::before {
+    content: "go home";
+    position: absolute;
+    inset: 0;
+    color: hsl(var(--foreground) / 0.22);
+    opacity: 0;
+    pointer-events: none;
+    transform: translate(-0.5em, -0.75em);
+    transition:
+      opacity 180ms ease,
+      transform 240ms cubic-bezier(0.16, 1, 0.3, 1);
   }
 
   .nf-home::after {
@@ -179,6 +241,17 @@ const description = "The page you're looking for isn't here.";
   .nf-home:focus-visible::after {
     transform: scaleX(1);
     transform-origin: left center;
+  }
+
+  .nf-home:hover,
+  .nf-home:focus-visible {
+    transform: translateX(-4px);
+  }
+
+  .nf-home:hover::before,
+  .nf-home:focus-visible::before {
+    opacity: 1;
+    transform: translate(-0.8em, -1em);
   }
 
   @media (max-width: 640px) {
@@ -209,8 +282,27 @@ const description = "The page you're looking for isn't here.";
       animation: none;
     }
 
+    .nf-number,
+    .nf-home,
     .nf-home::after {
       transition: none;
+    }
+
+    .nf-number:hover {
+      font-weight: 520;
+      letter-spacing: -0.03em;
+      filter: none;
+      transform: translateY(-1svh);
+    }
+
+    .nf-home:hover,
+    .nf-home:focus-visible {
+      transform: none;
+    }
+
+    .nf-line::before,
+    .nf-home::before {
+      display: none;
     }
   }
 
@@ -267,6 +359,42 @@ const description = "The page you're looking for isn't here.";
     88% {
       opacity: 0.04;
       transform: translate(0.024em, 0.008em);
+    }
+  }
+
+  @keyframes nf-callback-hover-a {
+    0%,
+    100% {
+      opacity: 0.12;
+      transform: translate(-0.032em, -0.01em);
+    }
+
+    34% {
+      opacity: 0.2;
+      transform: translate(-0.072em, -0.026em);
+    }
+
+    58% {
+      opacity: 0.055;
+      transform: translate(0.018em, 0.006em);
+    }
+  }
+
+  @keyframes nf-callback-hover-b {
+    0%,
+    100% {
+      opacity: 0.07;
+      transform: translate(0.04em, 0.014em);
+    }
+
+    32% {
+      opacity: 0.16;
+      transform: translate(0.09em, 0.03em);
+    }
+
+    62% {
+      opacity: 0.03;
+      transform: translate(-0.014em, -0.005em);
     }
   }
 </style>
