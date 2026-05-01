@@ -180,278 +180,194 @@ const description = "The page you're looking for isn't here.";
     const canvas = document.querySelector<HTMLCanvasElement>('[data-error-canvas]');
 
     if (root && canvas) {
-      const ctx = canvas.getContext('2d', { alpha: false });
+      const ctx = canvas.getContext('2d', { alpha: true });
       const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
 
       if (ctx) {
-      const map = document.createElement('canvas');
-      const mapCtx = map.getContext('2d', { willReadFrequently: true });
-      const rows: EffectRow[] = [];
-      let width = 0;
-      let height = 0;
-      let dpr = 1;
-      let renderWidth = 0;
-      let renderHeight = 0;
-      let mapData: ImageData | null = null;
-      let animationFrame = 0;
-      let lastTime = 0;
-      let colors = readColors();
+        const mask = document.createElement('canvas');
+        const maskCtx = mask.getContext('2d');
+        let width = 0;
+        let height = 0;
+        let dpr = 1;
+        let renderWidth = 0;
+        let renderHeight = 0;
+        let animationFrame = 0;
+        let colors = readColors();
 
-      const drawOnce = () => {
-        draw(1 / 60);
-      };
+        const drawOnce = () => draw(performance.now() * 0.001);
 
-      const resize = () => {
-        const rect = root.getBoundingClientRect();
-        width = Math.max(1, Math.round(rect.width));
-        height = Math.max(1, Math.round(rect.height));
-        dpr = Math.min(window.devicePixelRatio || 1, 2) * 1.5;
-        renderWidth = Math.round(width * dpr);
-        renderHeight = Math.round(height * dpr);
+        const resize = () => {
+          const rect = root.getBoundingClientRect();
+          width = Math.max(1, Math.round(rect.width));
+          height = Math.max(1, Math.round(rect.height));
+          dpr = Math.min(window.devicePixelRatio || 1, 2);
+          renderWidth = Math.round(width * dpr);
+          renderHeight = Math.round(height * dpr);
 
-        canvas.width = renderWidth;
-        canvas.height = renderHeight;
-        canvas.style.width = `${width}px`;
-        canvas.style.height = `${height}px`;
+          canvas.width = renderWidth;
+          canvas.height = renderHeight;
+          canvas.style.width = `${width}px`;
+          canvas.style.height = `${height}px`;
 
-        ctx.imageSmoothingEnabled = false;
-        buildDisplacementMap();
-        buildRows();
-        drawOnce();
-      };
-
-      const animate = (time: number) => {
-        const deltaTime = lastTime ? (time - lastTime) / 1000 : 1 / 60;
-        lastTime = time;
-        draw(Math.min(deltaTime, 1 / 24));
-        if (!reducedMotion.matches) {
-          animationFrame = requestAnimationFrame(animate);
-        }
-      };
-
-      const restart = () => {
-        cancelAnimationFrame(animationFrame);
-        lastTime = 0;
-        colors = readColors();
-        buildDisplacementMap();
-        buildRows();
-        if (reducedMotion.matches) {
+          ctx.imageSmoothingEnabled = false;
+          buildMask();
           drawOnce();
-          return;
-        }
-        animationFrame = requestAnimationFrame(animate);
-      };
-
-      const observer = new ResizeObserver(resize);
-      const themeObserver = new MutationObserver(restart);
-
-      observer.observe(root);
-      themeObserver.observe(document.documentElement, {
-        attributes: true,
-        attributeFilter: ['class', 'data-theme-setting'],
-      });
-      reducedMotion.addEventListener('change', restart);
-
-      document.fonts?.ready.then(() => {
-        buildDisplacementMap();
-        buildRows();
-        drawOnce();
-      });
-
-      resize();
-      restart();
-
-      window.addEventListener('pagehide', () => {
-        cancelAnimationFrame(animationFrame);
-        observer.disconnect();
-        themeObserver.disconnect();
-        reducedMotion.removeEventListener('change', restart);
-      });
-
-      function readColors() {
-        const styles = getComputedStyle(root);
-        return {
-          background: styles.backgroundColor,
-          foreground: styles.color,
-          faint: document.documentElement.classList.contains('dark')
-            ? 'rgba(255, 255, 255, 0.18)'
-            : 'rgba(0, 0, 0, 0.1)',
         };
-      }
 
-      function buildDisplacementMap() {
-        if (!mapCtx || renderWidth === 0 || renderHeight === 0) {
-          return;
+        const animate = (time: number) => {
+          draw(time * 0.001);
+          if (!reducedMotion.matches) {
+            animationFrame = requestAnimationFrame(animate);
+          }
+        };
+
+        const restart = () => {
+          cancelAnimationFrame(animationFrame);
+          colors = readColors();
+          buildMask();
+          if (reducedMotion.matches) {
+            drawOnce();
+            return;
+          }
+          animationFrame = requestAnimationFrame(animate);
+        };
+
+        const observer = new ResizeObserver(resize);
+        const themeObserver = new MutationObserver(restart);
+
+        observer.observe(root);
+        themeObserver.observe(document.documentElement, {
+          attributes: true,
+          attributeFilter: ['class', 'data-theme-setting'],
+        });
+        reducedMotion.addEventListener('change', restart);
+
+        document.fonts?.ready.then(() => {
+          buildMask();
+          drawOnce();
+        });
+
+        resize();
+        restart();
+
+        window.addEventListener('pagehide', () => {
+          cancelAnimationFrame(animationFrame);
+          observer.disconnect();
+          themeObserver.disconnect();
+          reducedMotion.removeEventListener('change', restart);
+        });
+
+        function readColors() {
+          const styles = getComputedStyle(root);
+          const isDark = document.documentElement.classList.contains('dark');
+          return {
+            background: styles.backgroundColor,
+            foreground: styles.color,
+            guide: isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.075)',
+          };
         }
 
-        map.width = 867;
-        map.height = 238;
-        mapCtx.imageSmoothingEnabled = true;
-        mapCtx.fillStyle = '#fff';
-        mapCtx.fillRect(0, 0, map.width, map.height);
-        mapCtx.fillStyle = '#1c1c1c';
-        mapCtx.textAlign = 'center';
-        mapCtx.textBaseline = 'middle';
+        function buildMask() {
+          if (!maskCtx || renderWidth === 0 || renderHeight === 0) return;
 
-        const fontStack = '650 286px ui-sans-serif, -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif';
-        mapCtx.font = fontStack;
-        const measured = mapCtx.measureText('404').width;
-        const targetWidth = map.width * 0.74;
-        const size = Math.min(286, 286 * (targetWidth / measured));
-        mapCtx.font = `650 ${size}px ui-sans-serif, -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif`;
-        mapCtx.fillText('404', map.width / 2, map.height * 0.54);
-        mapData = mapCtx.getImageData(0, 0, map.width, map.height);
-      }
+          mask.width = renderWidth;
+          mask.height = renderHeight;
+          maskCtx.clearRect(0, 0, renderWidth, renderHeight);
+          maskCtx.fillStyle = colors.foreground;
+          maskCtx.textAlign = 'center';
+          maskCtx.textBaseline = 'middle';
 
-      function buildRows() {
-        rows.length = 0;
-        const count = 18;
-        const rowHeight = renderHeight / count;
+          const targetWidth = renderWidth * (width < 640 ? 1.1 : 0.9);
+          let fontSize = renderHeight * (width < 640 ? 0.76 : 0.86);
+          maskCtx.font = `800 ${fontSize}px ui-sans-serif, -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif`;
+          const measured = maskCtx.measureText('404').width;
+          if (measured > targetWidth) fontSize *= targetWidth / measured;
 
-        for (let index = 0; index < count; index += 1) {
-          const seed = seededRandom(index + 31);
-          rows.push(new EffectRow({
-            index,
-            y: rowHeight * index,
-            height: rowHeight,
-            canvasWidth: renderWidth,
-            mapData,
-            color: colors.foreground,
-            min: 0.01,
-            max: 0.78,
-            range: 1.6,
-            space: 1.55,
-            movement: 0.02 * seed - 0.01,
-            drag: 4,
-            stretch: {
-              amount: 1,
-              speed: 8,
-              wave: 3,
-            },
-          }));
+          maskCtx.font = `800 ${fontSize}px ui-sans-serif, -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif`;
+          maskCtx.fillText('404', renderWidth / 2, renderHeight * (width < 640 ? 0.49 : 0.51));
         }
-      }
 
-      function draw(deltaTime: number) {
-        ctx.imageSmoothingEnabled = false;
-        ctx.fillStyle = colors.background;
-        ctx.fillRect(0, 0, renderWidth, renderHeight);
-
-        ctx.fillStyle = colors.foreground;
-        for (const row of rows) {
-          row.render(deltaTime, ctx);
+        function draw(time: number) {
+          ctx.imageSmoothingEnabled = false;
+          ctx.fillStyle = colors.background;
+          ctx.fillRect(0, 0, renderWidth, renderHeight);
+          drawGuideLines(time);
+          drawSolidNumber(time);
+          cutSignalLines(time);
         }
-      }
 
-      function seededRandom(seed: number) {
-        const value = Math.sin(seed * 127.1) * 43758.5453123;
-        return value - Math.floor(value);
-      }
+        function drawGuideLines(time: number) {
+          const spacing = Math.max(16, Math.round(renderWidth / 74));
+          const segment = Math.max(44, Math.round(renderHeight / 14));
+          ctx.save();
+          ctx.strokeStyle = colors.guide;
+          ctx.lineWidth = Math.max(1, dpr);
+
+          for (let x = -spacing; x < renderWidth + spacing; x += spacing) {
+            const column = Math.round(x / spacing);
+            const drift = Math.sin(time * 0.55 + column * 0.8) * dpr;
+            for (let y = -segment; y < renderHeight + segment; y += segment * 1.45) {
+              const phase = seededRandom(column * 19 + Math.round(y));
+              ctx.beginPath();
+              ctx.moveTo(Math.round(x + drift) + 0.5, y + phase * segment * 0.22);
+              ctx.lineTo(Math.round(x + drift) + 0.5, y + segment * 0.7 + phase * segment * 0.22);
+              ctx.stroke();
+            }
+          }
+
+          ctx.restore();
+        }
+
+        function drawSolidNumber(time: number) {
+          ctx.drawImage(mask, 0, 0);
+
+          const bandCount = width < 640 ? 14 : 18;
+          const rowHeight = renderHeight / bandCount;
+          ctx.save();
+
+          for (let i = 0; i < bandCount; i += 1) {
+            const sliceHeight = rowHeight * (0.42 + seededRandom(i * 53) * 0.34);
+            const y = i * rowHeight + seededRandom(i * 43) * Math.max(1, rowHeight - sliceHeight);
+            const speed = 0.85 + seededRandom(i * 17) * 1.35;
+            const offset = Math.sin(time * speed + i * 1.9) * dpr * (1.8 + seededRandom(i * 71) * 5.2);
+
+            if (Math.abs(offset) < dpr * 0.55) continue;
+
+            ctx.globalCompositeOperation = 'destination-out';
+            ctx.drawImage(mask, 0, y, renderWidth, sliceHeight, 0, y, renderWidth, sliceHeight);
+            ctx.globalCompositeOperation = 'source-over';
+            ctx.drawImage(mask, 0, y, renderWidth, sliceHeight, offset, y, renderWidth, sliceHeight);
+          }
+
+          ctx.restore();
+        }
+
+        function cutSignalLines(time: number) {
+          ctx.save();
+          ctx.strokeStyle = colors.background;
+          ctx.lineCap = 'butt';
+
+          const cutCount = width < 640 ? 8 : 14;
+          for (let i = 0; i < cutCount; i += 1) {
+            const x = renderWidth * (0.16 + seededRandom(i * 29) * 0.68);
+            const top = renderHeight * (0.07 + seededRandom(i * 31) * 0.18);
+            const length = renderHeight * (0.16 + seededRandom(i * 37) * 0.46);
+            const wobble = Math.sin(time * (0.95 + seededRandom(i * 11)) + i) * dpr * 4.4;
+            ctx.lineWidth = Math.max(1, dpr * (0.7 + seededRandom(i * 41) * 1.35));
+            ctx.beginPath();
+            ctx.moveTo(x + wobble, top);
+            ctx.lineTo(x + wobble, top + length);
+            ctx.stroke();
+          }
+
+          ctx.restore();
+        }
+
+        function seededRandom(seed: number) {
+          const value = Math.sin(seed * 127.1) * 43758.5453123;
+          return value - Math.floor(value);
+        }
       }
     }
   });
-
-  type EffectRowOptions = {
-    index: number;
-    y: number;
-    height: number;
-    canvasWidth: number;
-    mapData: ImageData | null;
-    color: string;
-    min: number;
-    max: number;
-    range: number;
-    space: number;
-    movement: number;
-    drag: number;
-    stretch: {
-      amount: number;
-      speed: number;
-      wave: number;
-    };
-  };
-
-  class EffectRow {
-    private lines: EffectLine[] = [];
-    private scrollX = 0;
-    private tick = 0;
-    private readonly scale: number;
-
-    constructor(private readonly options: EffectRowOptions) {
-      this.scale = options.canvasWidth / 100;
-      this.syncLines();
-    }
-
-    render(deltaTime: number, ctx: CanvasRenderingContext2D) {
-      const { height, y, movement, drag, stretch } = this.options;
-      const spacing = this.options.space * this.scale;
-      const stretchAmount =
-        1 + Math.sin(this.tick * stretch.speed * 0.01 + y * stretch.wave * 0.001) * stretch.amount * 0.01;
-      const totalWidth = (this.lines.length * spacing) * stretchAmount;
-      const offset = totalWidth - this.options.canvasWidth;
-
-      this.scrollX += movement * this.scale;
-      this.tick += deltaTime * 10;
-
-      for (let index = 0; index < this.lines.length; index += 1) {
-        const line = this.lines[index];
-        let x = (index * spacing - offset * 0.5 + this.scrollX) * stretchAmount;
-        while (x < -offset * 0.5) x += totalWidth;
-        while (x > totalWidth - offset * 0.5) x -= totalWidth;
-
-        const targetWidth = this.getWidthAt(x);
-        line.width += (targetWidth - line.width) / drag;
-
-        if (line.width <= 0.05) continue;
-        ctx.fillRect(x - line.width * 0.5, Math.floor(y), line.width, Math.ceil(height));
-      }
-    }
-
-    private syncLines() {
-      const spacing = this.options.space * this.scale;
-      const count = Math.floor((this.options.canvasWidth + spacing) / spacing) * 4;
-      while (this.lines.length < count) this.lines.push({ width: 0 });
-      while (this.lines.length > count) this.lines.pop();
-    }
-
-    private getContrastAt(x: number) {
-      const imageData = this.options.mapData;
-      if (!imageData) return 1;
-
-      const scaleX = imageData.width / this.options.canvasWidth;
-      const scaleY = imageData.height / (this.options.height * 18);
-      const sourceX = Math.floor(x * scaleX);
-      const sourceY = Math.floor((this.options.y + this.options.height * 0.5) * scaleY);
-      const index = (sourceY * imageData.width + sourceX) * 4;
-
-      if (index < 0 || index + 2 >= imageData.data.length) return 1;
-
-      const red = imageData.data[index];
-      const green = imageData.data[index + 1];
-      const blue = imageData.data[index + 2];
-      return (red * 0.299 + green * 0.587 + blue * 0.114) / 255;
-    }
-
-    private getWidthAt(x: number) {
-      const max = this.options.max * this.scale;
-      const min = this.options.min * this.scale;
-      const range = this.options.range * this.scale;
-      const from = Math.floor(x - range / 2);
-      const to = Math.ceil(x + range / 2);
-      let average = 0;
-
-      for (let sample = from; sample < to; sample += 1) {
-        average += this.getContrastAt(sample);
-      }
-
-      const count = to - from - 1;
-      if (count > 1) average /= count;
-
-      return Math.max(min, (1 - average) * max);
-    }
-  }
-
-  type EffectLine = {
-    width: number;
-  };
 </script>
