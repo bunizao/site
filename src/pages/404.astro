@@ -19,6 +19,16 @@ const description = "The page you're looking for isn't here.";
 </Layout>
 
 <style>
+  @font-face {
+    font-family: 'Geist Mono';
+    src:
+      url('/fonts/geist-mono-variable.woff2') format('woff2-variations'),
+      url('/fonts/geist-mono-variable.woff2') format('woff2');
+    font-weight: 100 900;
+    font-style: normal;
+    font-display: swap;
+  }
+
   :global(body:has(.not-found) .global-header-actions) {
     display: none;
   }
