@@ -123,6 +123,7 @@ const description = "The page you're looking for isn't here.";
     --nf-dot: hsl(var(--foreground) / 0.7);
     --nf-ring: hsl(var(--foreground) / 0.3);
     --nf-prefix: hsl(var(--foreground) / 0.3);
+    --nf-footer-bottom: clamp(28px, 4svh, 48px);
     position: relative;
     display: grid;
     place-items: center;
@@ -344,15 +345,18 @@ const description = "The page you're looking for isn't here.";
   .nf-line {
     position: absolute;
     left: clamp(20px, 3vw, 36px);
-    bottom: clamp(28px, 4svh, 48px);
+    bottom: var(--nf-footer-bottom);
     z-index: 3;
-    max-width: 38ch;
+    max-width: min(48ch, calc(100vw - 150px));
     margin: 0;
     font-family: 'Geist Mono', 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
     font-size: 12px;
-    line-height: 1.55;
+    line-height: 1;
     letter-spacing: 0;
     text-transform: lowercase;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
     color: var(--nf-secondary);
     pointer-events: none;
   }
@@ -367,13 +371,13 @@ const description = "The page you're looking for isn't here.";
   .nf-home {
     position: absolute;
     right: clamp(20px, 3vw, 36px);
-    bottom: clamp(28px, 4svh, 48px);
+    bottom: var(--nf-footer-bottom);
     z-index: 3;
     display: inline-flex;
     align-items: center;
     gap: 9px;
     font-family: 'Geist Mono', 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-    font-size: 12px;
+    font-size: 13px;
     line-height: 1;
     letter-spacing: 0.02em;
     text-transform: lowercase;
@@ -387,8 +391,8 @@ const description = "The page you're looking for isn't here.";
 
   .nf-home-arrow {
     display: inline-block;
-    width: 12px;
-    font-size: 13px;
+    width: 13px;
+    font-size: 14px;
     line-height: 1;
     text-align: center;
     transition: transform 360ms cubic-bezier(0.16, 1, 0.3, 1);
@@ -534,13 +538,11 @@ const description = "The page you're looking for isn't here.";
 
     .nf-line {
       font-size: 11px;
-      bottom: 60px;
-      max-width: 28ch;
+      max-width: calc(100vw - 120px);
     }
 
     .nf-home {
-      font-size: 11px;
-      bottom: 28px;
+      font-size: 12px;
     }
   }
 
