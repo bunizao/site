@@ -12,7 +12,7 @@ const description = "The page you're looking for isn't here.";
     <section class="nf-copy" aria-labelledby="not-found-title">
       <p class="nf-kicker">404 / not found</p>
       <h1 id="not-found-title">Page not found</h1>
-      <p class="nf-line" data-text="this page slipped out of the index.">this page slipped out of the index.</p>
+      <p class="nf-line">this page slipped out of the index.</p>
       <a href="/" class="nf-home">go home</a>
     </section>
   </main>
@@ -206,29 +206,7 @@ const description = "The page you're looking for isn't here.";
     position: relative;
     max-width: 32ch;
     color: hsl(var(--foreground) / 0.5);
-    pointer-events: auto;
-  }
-
-  .nf-line::before {
-    content: attr(data-text);
-    position: absolute;
-    left: 0;
-    bottom: calc(100% + 8px);
-    width: max-content;
-    max-width: 32ch;
-    color: hsl(var(--foreground) / 0.34);
-    opacity: 0;
     pointer-events: none;
-    transform: translateY(6px);
-    transition:
-      opacity 320ms ease,
-      transform 520ms cubic-bezier(0.16, 1, 0.3, 1);
-  }
-
-  .not-found.is-number-recalling .nf-line::before,
-  .nf-line:hover::before {
-    opacity: 1;
-    transform: translateY(0);
   }
 
   .nf-home {
@@ -239,19 +217,6 @@ const description = "The page you're looking for isn't here.";
     transition:
       transform 240ms cubic-bezier(0.16, 1, 0.3, 1),
       color 180ms ease;
-  }
-
-  .nf-home::before {
-    content: "go home";
-    position: absolute;
-    inset: 0;
-    color: hsl(var(--foreground) / 0.22);
-    opacity: 0;
-    pointer-events: none;
-    transform: translate(-0.42em, -0.62em);
-    transition:
-      opacity 220ms ease,
-      transform 360ms cubic-bezier(0.16, 1, 0.3, 1);
   }
 
   .nf-home::after {
@@ -276,12 +241,6 @@ const description = "The page you're looking for isn't here.";
   .nf-home:hover,
   .nf-home:focus-visible {
     transform: translateX(-4px);
-  }
-
-  .nf-home:hover::before,
-  .nf-home:focus-visible::before {
-    opacity: 1;
-    transform: translate(-0.66em, -0.86em);
   }
 
   @media (hover: hover) and (pointer: fine) {
@@ -347,10 +306,6 @@ const description = "The page you're looking for isn't here.";
       transform: none;
     }
 
-    .nf-line::before,
-    .nf-home::before {
-      display: none;
-    }
   }
 
   @keyframes nf-callback-a {
