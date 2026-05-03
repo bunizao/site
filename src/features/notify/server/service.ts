@@ -1107,7 +1107,6 @@ async function sendUnsubscribeNoticeEmail(
     idempotencyKey: `unsubscribe-${hashEmail(emailAddress)}`,
   });
 }
-
 async function notifyAdminEvent(
   context: NotifyRequestContext,
   input: {
@@ -1634,7 +1633,6 @@ export async function confirmMoodSubscription(
   } catch (error) {
     console.error('Welcome email send failed:', error);
   }
-
   await notifyAdminEvent(context, {
     event: 'subscription_confirmed',
     email,
@@ -1697,7 +1695,6 @@ export async function unsubscribeMoodSubscription(
   } catch (error) {
     console.error('Unsubscribe notice email send failed:', error);
   }
-
   await notifyAdminEvent(context, {
     event: 'unsubscribed',
     email,
