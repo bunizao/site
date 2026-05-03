@@ -1136,7 +1136,6 @@ async function notifyAdminEvent(
     console.error('Notify admin message failed:', error);
   }
 }
-
 function pickDigestPostsForSubscriber(
   posts: Post[],
   subscriber: SubscriberRecord,
@@ -1641,7 +1640,6 @@ export async function confirmMoodSubscription(
     email,
     deliveryMode,
   });
-
   return {
     status: 'subscribed',
     email,
@@ -1705,7 +1703,6 @@ export async function unsubscribeMoodSubscription(
     email,
     deliveryMode: existing?.deliveryMode,
   });
-
   return {
     status: 'unsubscribed',
     email,
