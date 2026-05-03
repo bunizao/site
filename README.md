@@ -121,7 +121,6 @@ Documentation:
 Variable descriptions are maintained as inline comments in [`.env`](.env).
 
 Use `.env.local` for local secrets and keep [`.env`](.env) as the documented template.
-Ghost-driven writing refreshes use `GHOST_DEPLOY_HOOK_URL` and `GHOST_WEBHOOK_TOKEN`.
 
 ## Acknowledgements
 - [miantiao-me/BroadcastChannel](https://github.com/miantiao-me/BroadcastChannel) - Inspiration and code reference for `moods` ideas.

@@ -132,7 +132,6 @@ Data flow:
 
 - Server-side render fetches the latest 5 public Ghost posts from `GHOST_URL`.
 - The request uses `GHOST_CONTENT_APIKEY`.
-- Freshness comes from Ghost publish/edit webhooks hitting `/api/ghost-webhook`, which triggers a Vercel rebuild.
 - Only metadata needed by the section is fetched:
   - `id`
   - `title`

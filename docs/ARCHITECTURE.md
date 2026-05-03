@@ -45,7 +45,6 @@
 - `GET /api/moods` — Mood feed with pagination (`?before=<id>`)
 - `GET /api/comments` — Comments
 - `GET /api/oembed.json` — oEmbed endpoint (docs: `docs/OEMBED-API.md`)
-- `POST /api/ghost-webhook` — Triggers a Vercel rebuild after Ghost writing updates
 - `POST /api/notify/dispatch` — Internal notify dispatch endpoint
 - `POST /api/telegram-webhook` — Legacy Telegram webhook fallback endpoint
 
@@ -72,8 +71,6 @@ Telegram references:
 Accessed via `import.meta.env.*`:
 - `GHOST_URL` — Ghost CMS URL (default: https://blog.buxx.me)
 - `GHOST_CONTENT_APIKEY` — Ghost CMS content API key
-- `GHOST_DEPLOY_HOOK_URL` — Vercel deploy hook URL for writing refreshes
-- `GHOST_WEBHOOK_TOKEN` — Shared secret for `/api/ghost-webhook`
 - `GITHUB_TOKEN` — GitHub GraphQL token for project data
 - `PUBLIC_HD_IMAGE_URL` — Cloudflare Worker URL for HD mood images
 - `HD_IMAGE_INGEST_BASE_URL` — Internal Worker base URL for webhook image ingest when the public image domain has extra edge protections
