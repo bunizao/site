@@ -174,7 +174,7 @@ export const GET: APIRoute = async ({ url, request, locals }) => {
   const embedUrl = `${baseUrl}/mood/embed?${embedParams.toString()}`;
 
   const iframeId = `mood-embed-${Math.random().toString(36).slice(2, 9)}`;
-  const iframeHtml = `<iframe id="${iframeId}" src="${embedUrl}" width="${width}" height="${height}" frameborder="0" style="border:0;display:block;width:100%;max-width:${width}px;height:${height}px;overflow:hidden;" loading="lazy" allowtransparency="true" title="Mood Embed"></iframe>`;
+  const iframeHtml = `<div style="margin:0 auto;text-align:center;"><iframe id="${iframeId}" src="${embedUrl}" width="${width}" height="${height}" frameborder="0" style="display:inline-block;width:${width}px;max-width:100%;height:${height}px;border:0;overflow:hidden;vertical-align:top;" loading="lazy" allowtransparency="true" title="Mood Embed"></iframe></div>`;
   const resizeScript = `<script>(function(){var iframe=document.getElementById('${iframeId}');if(!iframe)return;var allowedOrigin=null;try{var url=new URL(iframe.getAttribute('src')||'');var originParam=url.searchParams.get('origin');if(originParam){var parsed=new URL(originParam);allowedOrigin=parsed.origin;}}catch(e){}function onMessage(event){if(!event||!event.data||event.data.type!=='mood-embed-resize')return;if(event.source!==iframe.contentWindow)return;if(allowedOrigin&&event.origin!==allowedOrigin)return;var nextHeight=Number(event.data.height);if(!Number.isFinite(nextHeight)||nextHeight<=0)return;iframe.style.height=nextHeight+'px';}window.addEventListener('message',onMessage);})();</script>`;
   const embedHtml = `${iframeHtml}${resizeScript}`;
 
