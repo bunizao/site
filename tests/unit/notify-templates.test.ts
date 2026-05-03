@@ -122,4 +122,18 @@ describe('notify email templates', () => {
     expect($('.email-rich-text').html()?.trim().startsWith('<br')).toBe(false);
     expect($('.email-rich-text').text().trim().startsWith('有意思')).toBe(true);
   });
+
+  test('unsubscribe links keep the token in the query string', () => {
+    const email = buildMoodNotificationEmail({
+      moodUrl: 'https://example.com/mood/777',
+      unsubscribeUrl: 'https://example.com/api/notify/unsubscribe?token=abc123',
+      previewText: 'Fallback',
+      previewHtml: 'Fallback',
+      postId: '777',
+      channelTitle: 'Levitating',
+    });
+
+    expect(email.html).toContain('/api/notify/unsubscribe?token=abc123');
+    expect(email.text).toContain('/api/notify/unsubscribe?token=abc123');
+  });
 });

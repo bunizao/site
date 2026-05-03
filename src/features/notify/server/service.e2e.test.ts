@@ -20,6 +20,7 @@ interface CapturedEmail {
   text: string;
   html: string;
   idempotencyKey: string;
+  headers?: Record<string, string>;
 }
 
 class ExternalApiMock {
@@ -32,6 +33,7 @@ class ExternalApiMock {
   private readonly sent = new Map<string, Record<string, unknown>>();
   private readonly retries = new Map<string, Record<string, unknown>>();
   private readonly deadLetters: Array<Record<string, unknown>> = [];
+  private readonly audit: Array<Record<string, unknown>> = [];
 
   install(): void {
     this.originalFetch = globalThis.fetch;
@@ -76,6 +78,7 @@ class ExternalApiMock {
       subject: string;
       text: string;
       html: string;
+      headers?: Record<string, string>;
     };
 
     const id = `email_${this.emailCounter++}`;
@@ -87,6 +90,7 @@ class ExternalApiMock {
       text: body.text,
       html: body.html,
       idempotencyKey,
+      headers: body.headers,
     });
 
     return this.jsonResponse({ id }, 200);
@@ -147,6 +151,11 @@ class ExternalApiMock {
     const row = this.retries.get(key);
     if (!row) return null;
     return JSON.stringify(row);
+  }
+
+  readAudit(email: string): Array<Record<string, unknown>> {
+    const emailHash = hashEmail(email.toLowerCase());
+    return this.audit.filter((entry) => entry.email_hash === emailHash);
   }
 
   private async handleCloudflareD1(request: Request): Promise<Response> {
@@ -271,6 +280,21 @@ class ExternalApiMock {
       return this.d1Success([], 1);
     }
 
+    if (normalized.startsWith('insert into notify_audit')) {
+      const row: Record<string, unknown> = {
+        event_type: String(params[0] ?? ''),
+        email_hash: String(params[1] ?? ''),
+        email: String(params[2] ?? ''),
+        source: String(params[3] ?? ''),
+        user_agent: params[4] ?? null,
+        ip_hash: params[5] ?? null,
+        token_hash: params[6] ?? null,
+        created_at: String(params[7] ?? ''),
+      };
+      this.audit.push(row);
+      return this.d1Success([], 1);
+    }
+
     throw new Error(`Unhandled D1 SQL in test mock: ${sql}`);
   }
 
@@ -343,6 +367,10 @@ function readSubscriber(mock: ExternalApiMock, email: string): SubscriberRecord 
 
 function readRetryRaw(mock: ExternalApiMock, postId: string, email: string): string | null {
   return mock.readRetry(postId, email);
+}
+
+function readAudit(mock: ExternalApiMock, email: string): Array<Record<string, unknown>> {
+  return mock.readAudit(email);
 }
 
 async function subscribeAndConfirm(
@@ -546,6 +574,8 @@ describe('notify service integration e2e', () => {
     expect(mock.emails[0].html).toContain('https://image.example.com/channel/avatar');
     expect(mock.emails[0].html).not.toContain('https://example.com/static/https://image.example.com/channel/avatar');
     expect(mock.emails[0].html).not.toContain('Styled like oEmbed card');
+    expect(mock.emails[0].headers?.['List-Unsubscribe']).toContain('/api/notify/unsubscribe?token=');
+    expect(mock.emails[0].headers?.['List-Unsubscribe-Post']).toBe('List-Unsubscribe=One-Click');
   });
 
   test('mood notification email preserves rich preview formatting', async () => {
@@ -776,6 +806,8 @@ describe('notify service integration e2e', () => {
     expect(mock.emails[0].html).toContain('Morning task finished');
     expect(mock.emails[0].html).toContain('Noon deployment done');
     expect(mock.emails[0].html).not.toContain('Yesterday wrap-up');
+    expect(mock.emails[0].headers?.['List-Unsubscribe']).toContain('/api/notify/unsubscribe?token=');
+    expect(mock.emails[0].headers?.['List-Unsubscribe-Post']).toBe('List-Unsubscribe=One-Click');
   });
 
   test('failed immediate send is retried and succeeds later', async () => {
@@ -847,6 +879,63 @@ describe('notify service integration e2e', () => {
     expect(result.subscribers).toBe(0);
     expect(result.sent).toBe(0);
     expect(mock.emails.length).toBe(0);
+  });
+
+  test('subscription lifecycle writes audit records', async () => {
+    const context = createContext('/api/notify/subscribe');
+    const email = 'audit-user@recipient.testmail';
+
+    await requestMoodSubscription(context, {
+      email,
+      deliveryMode: 'immediate',
+    });
+
+    const subscribeAudit = readAudit(mock, email);
+    expect(subscribeAudit).toHaveLength(1);
+    expect(subscribeAudit[0]?.event_type).toBe('subscribe_requested');
+
+    const subscribeToken = extractTokenFromEmailText(mock.emails[0].text);
+    await confirmMoodSubscription(context, subscribeToken);
+
+    const confirmAudit = readAudit(mock, email);
+    expect(confirmAudit.map((entry) => entry.event_type)).toEqual([
+      'subscribe_requested',
+      'subscription_confirmed',
+    ]);
+    expect(typeof confirmAudit[1]?.token_hash).toBe('string');
+
+    const unsubscribeToken = createNotifyToken(
+      {
+        action: 'unsubscribe',
+        email,
+        exp: Math.floor(Date.now() / 1000) + 3600,
+      },
+      BASE_ENV.EMAIL_NOTIFY_SECRET
+    );
+
+    const unsubscribeContext: NotifyRequestContext = {
+      request: new Request('https://example.com/api/notify/unsubscribe', {
+        method: 'POST',
+        headers: {
+          'user-agent': 'Mozilla/5.0 test browser',
+          'sec-fetch-mode': 'navigate',
+          'sec-fetch-user': '?1',
+          'cf-connecting-ip': '203.0.113.10',
+        },
+      }),
+      locals: context.locals,
+    };
+
+    await unsubscribeMoodSubscription(unsubscribeContext, unsubscribeToken);
+
+    const unsubscribeAudit = readAudit(mock, email);
+    expect(unsubscribeAudit.map((entry) => entry.event_type)).toEqual([
+      'subscribe_requested',
+      'subscription_confirmed',
+      'unsubscribed',
+    ]);
+    expect(unsubscribeAudit[2]?.source).toBe('user_click');
+    expect(typeof unsubscribeAudit[2]?.ip_hash).toBe('string');
   });
 
   test('invalid delivery config is rejected', async () => {

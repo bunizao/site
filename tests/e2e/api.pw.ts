@@ -196,6 +196,10 @@ test.describe('API behavior', () => {
     expect(unsubscribeNoToken.status()).toBe(200);
     expect(await unsubscribeNoToken.text()).toContain('Invalid link');
 
+    const unsubscribePostNoToken = await request.post('/api/notify/unsubscribe');
+    expect(unsubscribePostNoToken.status()).toBe(200);
+    expect(await unsubscribePostNoToken.text()).toContain('missing a required token');
+
     const dispatchUnauthorized = await request.post('/api/notify/dispatch', { data: {} });
     expect(dispatchUnauthorized.status()).toBe(401);
 
