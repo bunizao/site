@@ -18,7 +18,7 @@ concurrency:
 
 jobs:
   quality:
-    name: Check, Build, Worker Tests
+    name: Check, Unit, Build, Worker Tests
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
@@ -41,6 +41,9 @@ jobs:
 
       - name: Astro check
         run: bun run check
+
+      - name: Unit tests
+        run: bun run test:unit
 
       - name: Production build
         run: bun run build
