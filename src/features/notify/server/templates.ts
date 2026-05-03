@@ -494,6 +494,118 @@ export function buildSubscribeConfirmEmail(options: {
   return { subject, html, text };
 }
 
+export function buildSubscribeWelcomeEmail(options: {
+  moodUrl: string;
+  unsubscribeUrl: string;
+  deliveryMode: 'immediate' | 'every_5h' | 'daily';
+}): { subject: string; html: string; text: string } {
+  const subject = 'Welcome to mood updates';
+  const deliveryModeLabel = options.deliveryMode === 'daily'
+    ? 'Daily delivery is active.'
+    : options.deliveryMode === 'every_5h'
+      ? '5-hour digest delivery is active.'
+      : 'Instant delivery is active.';
+  const html = emailShell(`
+          <tr>
+            <td style="padding: 28px 28px 0;">
+              <span class="email-label" style="font-family: ${MONO_FONT}; font-size: 11px; font-weight: 400; letter-spacing: 0.2em; text-transform: uppercase; color: #666;">welcome</span>
+            </td>
+          </tr>
+          <tr>
+            <td class="email-text" style="padding: 16px 28px 0; font-family: ${MONO_FONT}; font-size: 18px; font-weight: 600; color: #000; letter-spacing: -0.01em;">
+              Subscription active
+            </td>
+          </tr>
+          <tr>
+            <td class="email-muted" style="padding: 12px 28px 0; font-family: ${MONO_FONT}; font-size: 13px; line-height: 1.7; color: #666;">
+              You are in. ${escapeHtml(deliveryModeLabel)}
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 24px 28px 0;">
+              <a href="${escapeHtml(options.moodUrl)}" class="email-btn" style="display: inline-block; font-family: ${MONO_FONT}; font-size: 13px; font-weight: 500; color: #fff; background-color: #111; text-decoration: none; padding: 10px 20px; border: 2px solid #2b2b2b;">
+                <span class="email-btn-text" style="color: #fff; -webkit-text-fill-color: #fff;">Open mood feed &rarr;</span>
+              </a>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 24px 28px 0;">
+              <hr class="email-divider" style="border: none; border-top: 1px dashed #ccc; margin: 0;" />
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 16px 28px 28px;">
+              <p class="email-muted" style="margin: 0 0 8px; font-family: ${MONO_FONT}; font-size: 11px; color: #999; line-height: 1.6;">You can leave anytime from the link below.</p>
+              <a href="${escapeHtml(options.unsubscribeUrl)}" class="email-link" style="font-family: ${MONO_FONT}; font-size: 11px; color: #000; text-decoration: none;">Unsubscribe &rarr;</a>
+            </td>
+          </tr>`);
+
+  const text = [
+    'WELCOME',
+    '────────────',
+    '',
+    'Your mood subscription is active.',
+    deliveryModeLabel,
+    '',
+    `Feed: ${options.moodUrl}`,
+    `Unsubscribe: ${options.unsubscribeUrl}`,
+  ].join('\n');
+
+  return { subject, html, text };
+}
+
+export function buildUnsubscribeNoticeEmail(options: {
+  siteUrl: string;
+  subscribeUrl: string;
+}): { subject: string; html: string; text: string } {
+  const subject = 'Mood updates canceled';
+  const html = emailShell(`
+          <tr>
+            <td style="padding: 28px 28px 0;">
+              <span class="email-label" style="font-family: ${MONO_FONT}; font-size: 11px; font-weight: 400; letter-spacing: 0.2em; text-transform: uppercase; color: #666;">unsubscribe</span>
+            </td>
+          </tr>
+          <tr>
+            <td class="email-text" style="padding: 16px 28px 0; font-family: ${MONO_FONT}; font-size: 18px; font-weight: 600; color: #000; letter-spacing: -0.01em;">
+              Subscription canceled
+            </td>
+          </tr>
+          <tr>
+            <td class="email-muted" style="padding: 12px 28px 0; font-family: ${MONO_FONT}; font-size: 13px; line-height: 1.7; color: #666;">
+              You will no longer receive mood updates for this address.
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 24px 28px 0;">
+              <a href="${escapeHtml(options.subscribeUrl)}" class="email-btn" style="display: inline-block; font-family: ${MONO_FONT}; font-size: 13px; font-weight: 500; color: #fff; background-color: #111; text-decoration: none; padding: 10px 20px; border: 2px solid #2b2b2b;">
+                <span class="email-btn-text" style="color: #fff; -webkit-text-fill-color: #fff;">Subscribe again &rarr;</span>
+              </a>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 24px 28px 0;">
+              <hr class="email-divider" style="border: none; border-top: 1px dashed #ccc; margin: 0;" />
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 16px 28px 28px;">
+              <a href="${escapeHtml(options.siteUrl)}" class="email-link" style="font-family: ${MONO_FONT}; font-size: 11px; color: #000; text-decoration: none;">${escapeHtml(options.siteUrl)}</a>
+            </td>
+          </tr>`);
+
+  const text = [
+    'UNSUBSCRIBED',
+    '────────────',
+    '',
+    'Your mood subscription has been canceled.',
+    '',
+    `Subscribe again: ${options.subscribeUrl}`,
+    `Site: ${options.siteUrl}`,
+  ].join('\n');
+
+  return { subject, html, text };
+}
+
 export function buildMoodNotificationEmail(options: {
   moodUrl: string;
   unsubscribeUrl: string;

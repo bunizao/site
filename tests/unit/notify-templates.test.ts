@@ -1,6 +1,11 @@
 import { describe, expect, test } from 'bun:test';
 import * as cheerio from 'cheerio';
-import { buildMoodDigestEmail, buildMoodNotificationEmail } from '../../src/features/notify/server/templates';
+import {
+  buildMoodDigestEmail,
+  buildMoodNotificationEmail,
+  buildSubscribeWelcomeEmail,
+  buildUnsubscribeNoticeEmail,
+} from '../../src/features/notify/server/templates';
 
 describe('notify email templates', () => {
   test('mood notification renders safe rich preview html', () => {
@@ -135,5 +140,31 @@ describe('notify email templates', () => {
 
     expect(email.html).toContain('/api/notify/unsubscribe?token=abc123');
     expect(email.text).toContain('/api/notify/unsubscribe?token=abc123');
+  });
+
+  test('welcome email reflects delivery mode and unsubscribe link', () => {
+    const email = buildSubscribeWelcomeEmail({
+      moodUrl: 'https://example.com/mood',
+      unsubscribeUrl: 'https://example.com/api/notify/unsubscribe?token=abc123',
+      deliveryMode: 'daily',
+    });
+
+    expect(email.subject).toBe('Welcome to mood updates');
+    expect(email.html).toContain('Subscription active');
+    expect(email.html).toContain('Daily delivery is active.');
+    expect(email.text).toContain('Feed: https://example.com/mood');
+    expect(email.text).toContain('Unsubscribe: https://example.com/api/notify/unsubscribe?token=abc123');
+  });
+
+  test('unsubscribe notice email includes resubscribe link', () => {
+    const email = buildUnsubscribeNoticeEmail({
+      siteUrl: 'https://example.com',
+      subscribeUrl: 'https://example.com/mood?subscribe=1',
+    });
+
+    expect(email.subject).toBe('Mood updates canceled');
+    expect(email.html).toContain('Subscription canceled');
+    expect(email.html).toContain('https://example.com/mood?subscribe=1');
+    expect(email.text).toContain('Subscribe again: https://example.com/mood?subscribe=1');
   });
 });
