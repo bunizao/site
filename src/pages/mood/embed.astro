@@ -357,6 +357,39 @@ function getImageClassName(post: MoodFeedItem): string {
       font-size: var(--text-size);
     }
 
+    .mood-item-media {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-top: 12px;
+    }
+
+    .mood-item-media :global(video) {
+      display: block;
+      width: 100%;
+      max-width: 100%;
+      max-height: min(52vh, 400px);
+      height: auto;
+      border-radius: 12px;
+      background: transparent;
+      overflow: clip;
+      clip-path: inset(0 round 12px);
+    }
+
+    .mood-item-media :global(video.video--portrait) {
+      width: min(100%, 320px);
+      max-height: min(58vh, 460px);
+    }
+
+    .mood-item-media :global(video.video--ultra-tall) {
+      width: min(100%, 280px);
+      max-height: min(62vh, 500px);
+    }
+
+    .mood-item-media :global(audio) {
+      width: 100%;
+    }
+
     .mood-item-thumb,
     .mood-gallery {
       margin-top: 12px;
@@ -583,6 +616,9 @@ function getImageClassName(post: MoodFeedItem): string {
               {previewHtml && (
                 <div class="mood-item-text" set:html={previewHtml} />
               )}
+              {post.mediaHtml && (
+                <div class="mood-item-media" set:html={post.mediaHtml} />
+              )}
               {gallery ? (
                 <Fragment set:html={renderMoodGalleryMarkup(gallery, { variant: 'feed' })} />
               ) : image && (
@@ -707,6 +743,11 @@ function getImageClassName(post: MoodFeedItem): string {
         return;
       }
       img.addEventListener('load', scheduleSend);
+    });
+
+    document.querySelectorAll('video').forEach(video => {
+      video.addEventListener('loadedmetadata', scheduleSend);
+      video.addEventListener('loadeddata', scheduleSend);
     });
 
     // Re-measure after fonts load
