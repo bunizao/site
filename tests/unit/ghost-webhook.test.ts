@@ -47,7 +47,7 @@ describe('ghost webhook helpers', () => {
 describe('POST /api/ghost-webhook', () => {
   test('triggers the deploy hook for allowed events', async () => {
     const fetchMock = mock(async () => new Response('ok', { status: 200 }));
-    globalThis.fetch = fetchMock as typeof fetch;
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
 
     const request = new Request('https://buxx.me/api/ghost-webhook?token=shared-secret', {
       method: 'POST',
@@ -83,7 +83,7 @@ describe('POST /api/ghost-webhook', () => {
 
   test('ignores events outside the publish flow', async () => {
     const fetchMock = mock(async () => new Response('ok', { status: 200 }));
-    globalThis.fetch = fetchMock as typeof fetch;
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
 
     const request = new Request('https://buxx.me/api/ghost-webhook?token=shared-secret', {
       method: 'POST',
