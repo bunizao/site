@@ -762,6 +762,7 @@ const blankArtwork =
     rgb: [number, number, number];
     population: number;
   };
+  const isDefined = <T,>(value: T | null | undefined): value is T => value != null;
   type ListeningTrackPayload = {
     title?: string;
     artist?: string;
@@ -805,9 +806,8 @@ const blankArtwork =
           const swatch = palette[name];
           return swatch ? { swatch, score: scoreSwatch(swatch, priorityIndex) } : null;
         })
-        .filter((candidate): candidate is { swatch: PaletteSwatch; score: number } => {
-          return Boolean(candidate) && candidate.score >= 0;
-        })
+        .filter(isDefined)
+        .filter((candidate) => candidate.score >= 0)
         .sort((a, b) => b.score - a.score);
 
       const selected = candidates[0]?.swatch ?? PALETTE_PRIORITY.map((name) => palette[name]).find(Boolean);
