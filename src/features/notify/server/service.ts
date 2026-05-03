@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import type { ChannelInfo, Post } from '@/features/mood/server/telegram-source';
 import { getChannelInfo } from '@/features/mood/server/telegram-source';
 import { getRelatedLinks, getTextPreviewHtml, getTextPreviewWithMedia } from '@/features/mood/shared/utils';
@@ -22,6 +23,8 @@ import type {
   ConfirmResult,
   DeliveryMode,
   DispatchResult,
+  NotifyAuditEventType,
+  NotifyAuditRecord,
   RetryProcessResult,
   RetryRecord,
   ScheduledDispatchResult,
@@ -156,6 +159,10 @@ function nullableInt(value: number | undefined): number | null {
   return value;
 }
 
+function sha256(value: string): string {
+  return createHash('sha256').update(value).digest('hex');
+}
+
 function parseNullableInt(value: unknown): number | undefined {
   if (value === null || value === undefined || value === '') return undefined;
   const parsed = typeof value === 'number' ? value : Number.parseInt(String(value), 10);
@@ -208,6 +215,74 @@ function getSiteUrl(context: NotifyRequestContext): string {
     return config.siteUrl;
   }
   return new URL(context.request.url).origin;
+}
+
+function truncateText(value: string | null | undefined, maxLength: number): string | null {
+  if (!value) return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  return trimmed.slice(0, maxLength);
+}
+
+function readClientIp(request: Request): string {
+  const candidates = [
+    request.headers.get('cf-connecting-ip'),
+    request.headers.get('x-forwarded-for')?.split(',')[0],
+    request.headers.get('x-real-ip'),
+  ];
+
+  for (const candidate of candidates) {
+    const value = candidate?.trim();
+    if (value) {
+      return value;
+    }
+  }
+
+  return '';
+}
+
+function detectNotifyRequestSource(request: Request): string {
+  const method = request.method.toUpperCase();
+  const userAgent = (request.headers.get('user-agent') || '').toLowerCase();
+  const purpose = (request.headers.get('purpose') || request.headers.get('x-purpose') || '').toLowerCase();
+  const secPurpose = (request.headers.get('sec-purpose') || '').toLowerCase();
+  const secFetchMode = (request.headers.get('sec-fetch-mode') || '').toLowerCase();
+  const secFetchUser = (request.headers.get('sec-fetch-user') || '').toLowerCase();
+
+  if (method === 'POST' && userAgent.includes('resend')) {
+    return 'one_click_provider';
+  }
+
+  if (purpose.includes('prefetch') || secPurpose.includes('prefetch')) {
+    return 'prefetch';
+  }
+
+  if (userAgent.includes('googleimageproxy') || userAgent.includes('outlook') || userAgent.includes('safelinks')) {
+    return 'link_scanner';
+  }
+
+  if (
+    userAgent.includes('bot')
+    || userAgent.includes('crawler')
+    || userAgent.includes('spider')
+    || userAgent.includes('headless')
+  ) {
+    return 'bot';
+  }
+
+  if (method === 'POST' && (secFetchMode === 'navigate' || secFetchUser === '?1')) {
+    return 'user_click';
+  }
+
+  if (method === 'GET' && (secFetchMode === 'navigate' || secFetchUser === '?1')) {
+    return 'confirm_page';
+  }
+
+  if (method === 'POST') {
+    return 'post_request';
+  }
+
+  return 'unknown';
 }
 
 function createD1Client(context: NotifyRequestContext): CloudflareD1Client {
@@ -522,6 +597,66 @@ async function upsertSubscriber(
       nullableText(record.lastConfirmSentAt),
     ]
   );
+}
+
+async function insertAuditRecord(
+  d1: CloudflareD1Client,
+  record: NotifyAuditRecord
+): Promise<void> {
+  await d1.run(
+    `INSERT INTO notify_audit (
+      event_type,
+      email_hash,
+      email,
+      source,
+      user_agent,
+      ip_hash,
+      token_hash,
+      created_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      record.eventType,
+      record.emailHash,
+      record.email,
+      record.source,
+      nullableText(record.userAgent),
+      nullableText(record.ipHash),
+      nullableText(record.tokenHash),
+      record.createdAt,
+    ]
+  );
+}
+
+async function recordAuditEvent(
+  context: NotifyRequestContext,
+  d1: CloudflareD1Client,
+  input: {
+    eventType: NotifyAuditEventType;
+    email: string;
+    emailHash: string;
+    token?: string;
+  }
+): Promise<void> {
+  const config = getNotifyConfig(context);
+  const userAgent = truncateText(context.request.headers.get('user-agent'), 500);
+  const ip = readClientIp(context.request);
+  const ipHash = ip && config.tokenSecret ? sha256(`${config.tokenSecret}:${ip}`) : null;
+  const tokenHash = input.token ? sha256(input.token) : null;
+
+  try {
+    await insertAuditRecord(d1, {
+      eventType: input.eventType,
+      email: input.email,
+      emailHash: input.emailHash,
+      source: detectNotifyRequestSource(context.request),
+      userAgent: userAgent ?? undefined,
+      ipHash: ipHash ?? undefined,
+      tokenHash: tokenHash ?? undefined,
+      createdAt: nowIso(),
+    });
+  } catch (error) {
+    console.error('Notify audit write failed:', error);
+  }
 }
 
 async function updateSubscriberDeliveryState(
@@ -877,6 +1012,13 @@ async function loadMoodPostsInWindow(
   return collected.sort((a, b) => getPostTimestamp(b) - getPostTimestamp(a));
 }
 
+function buildListUnsubscribeHeaders(unsubscribeUrl: string): Record<string, string> {
+  return {
+    'List-Unsubscribe': `<${unsubscribeUrl}>`,
+    'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+  };
+}
+
 function pickDigestPostsForSubscriber(
   posts: Post[],
   subscriber: SubscriberRecord,
@@ -1074,6 +1216,7 @@ async function sendMoodEmail(
     html: email.html,
     text: email.text,
     idempotencyKey: `mood-${postId}-${input.subscriber.emailHash}`,
+    headers: buildListUnsubscribeHeaders(unsubscribeUrl),
   });
 
   await markAsSent(d1, postId, input.subscriber.emailHash, response.id);
@@ -1180,6 +1323,7 @@ async function sendMoodDigestEmail(
     html: email.html,
     text: email.text,
     idempotencyKey: `mood-digest-${mode}-${latestPostId}-${input.subscriber.emailHash}`,
+    headers: buildListUnsubscribeHeaders(unsubscribeUrl),
   });
 
   await Promise.all(
@@ -1302,6 +1446,12 @@ export async function requestMoodSubscription(
     lastNotifiedPostId: existing?.lastNotifiedPostId,
   });
 
+  await recordAuditEvent(context, d1, {
+    eventType: 'subscribe_requested',
+    email,
+    emailHash,
+  });
+
   return {
     status: 'confirmation_sent',
     email,
@@ -1352,6 +1502,13 @@ export async function confirmMoodSubscription(
 
   await upsertSubscriber(d1, record);
 
+  await recordAuditEvent(context, d1, {
+    eventType: 'subscription_confirmed',
+    email,
+    emailHash,
+    token,
+  });
+
   return {
     status: 'subscribed',
     email,
@@ -1396,6 +1553,13 @@ export async function unsubscribeMoodSubscription(
   };
 
   await upsertSubscriber(d1, record);
+
+  await recordAuditEvent(context, d1, {
+    eventType: 'unsubscribed',
+    email,
+    emailHash,
+    token,
+  });
 
   return {
     status: 'unsubscribed',
@@ -1726,6 +1890,48 @@ export async function processNotifyRetries(
   }
 
   return output;
+}
+
+export async function readNotifyTokenFromRequest(request: Request, fallbackToken = ''): Promise<string> {
+  const url = new URL(request.url);
+  const queryToken = url.searchParams.get('token')?.trim() ?? '';
+  if (queryToken) {
+    return queryToken;
+  }
+
+  if (request.method.toUpperCase() !== 'POST') {
+    return fallbackToken;
+  }
+
+  const contentType = request.headers.get('content-type') || '';
+  if (contentType.includes('application/x-www-form-urlencoded') || contentType.includes('multipart/form-data')) {
+    const formData = await request.formData().catch(() => null);
+    const formToken = formData?.get('token');
+    if (typeof formToken === 'string' && formToken.trim()) {
+      return formToken.trim();
+    }
+  }
+
+  if (contentType.includes('application/json')) {
+    const payload = await request.clone().json().catch(() => null) as { token?: unknown } | null;
+    if (typeof payload?.token === 'string' && payload.token.trim()) {
+      return payload.token.trim();
+    }
+  }
+
+  return fallbackToken;
+}
+
+export function previewUnsubscribeToken(context: NotifyRequestContext, token: string): string {
+  const config = getNotifyConfig(context);
+  requireConfigValue(config.tokenSecret, 'EMAIL_NOTIFY_SECRET');
+
+  const payload = verifyNotifyToken(token, config.tokenSecret);
+  if (payload.action !== 'unsubscribe') {
+    throw new NotifyServiceError(400, 'invalid_token_action', 'Invalid token action');
+  }
+
+  return normalizeEmail(payload.email);
 }
 
 export function isAuthorizedSecret(request: Request, secret: string): boolean {

@@ -15,12 +15,14 @@ export function renderNotifyPage(options: {
   message: string;
   status: PageStatus;
   enableCongratsFx?: boolean;
+  actionsHtml?: string;
   rateLimitHeaders?: Headers;
 }): Response {
   const safeLabel = escapeHtml(options.label);
   const safeTitle = escapeHtml(options.title);
   const safeMessage = escapeHtml(options.message);
   const enableCongratsFx = options.enableCongratsFx === true;
+  const actionsHtml = options.actionsHtml ?? '<a href="/mood" class="link">Mood feed</a>';
 
   const statusIcon = options.status === 'success'
     ? `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>`
@@ -200,6 +202,41 @@ export function renderNotifyPage(options: {
         transform: translateX(4px);
       }
 
+      .actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        align-items: center;
+      }
+
+      .button {
+        appearance: none;
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        background: var(--fg);
+        color: var(--bg);
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font: inherit;
+        font-size: 13px;
+        font-weight: 600;
+        min-height: 40px;
+        padding: 0 16px;
+        text-decoration: none;
+        transition: opacity 0.15s ease;
+      }
+
+      .button:hover {
+        opacity: 0.82;
+      }
+
+      .button--ghost {
+        background: transparent;
+        color: var(--fg);
+      }
+
       .footer {
         text-align: center;
         margin-top: 24px;
@@ -242,9 +279,7 @@ export function renderNotifyPage(options: {
         </div>
         <p class="message animate delay-2">${safeMessage}</p>
         <hr class="divider animate delay-3" />
-        <div class="animate delay-4">
-          <a href="/mood" class="link">Mood feed</a>
-        </div>
+        <div class="actions animate delay-4">${actionsHtml}</div>
       </div>
       <div class="footer animate delay-4">
         <a href="/">buxx.me</a>
