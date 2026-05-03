@@ -1019,6 +1019,62 @@ function buildListUnsubscribeHeaders(unsubscribeUrl: string): Record<string, str
   };
 }
 
+async function sendAdminTelegramMessage(context: NotifyRequestContext, text: string): Promise<void> {
+  const config = getNotifyConfig(context);
+  const botToken = config.telegramBotToken.trim();
+  const chatId = config.notifyAdminTelegramChatId.trim();
+
+  if (!botToken || !chatId) {
+    return;
+  }
+
+  const response = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      chat_id: chatId,
+      text,
+      disable_web_page_preview: true,
+    }),
+  });
+
+  if (!response.ok) {
+    const body = await response.text().catch(() => '');
+    throw new Error(`Telegram admin notify failed: ${response.status} ${body}`.trim());
+  }
+}
+
+async function notifyAdminEvent(
+  context: NotifyRequestContext,
+  input: {
+    event: 'subscription_confirmed' | 'unsubscribed';
+    email: string;
+    deliveryMode?: DeliveryMode;
+  }
+): Promise<void> {
+  const siteUrl = getSiteUrl(context);
+  const source = detectNotifyRequestSource(context.request);
+  const lines = [
+    `Mood notify ${input.event === 'subscription_confirmed' ? 'subscribed' : 'unsubscribed'}`,
+    `Email: ${input.email}`,
+    `Source: ${source}`,
+  ];
+
+  if (input.deliveryMode) {
+    lines.push(`Mode: ${input.deliveryMode}`);
+  }
+
+  lines.push(`Site: ${siteUrl}`);
+
+  try {
+    await sendAdminTelegramMessage(context, lines.join('\n'));
+  } catch (error) {
+    console.error('Notify admin message failed:', error);
+  }
+}
+
 function pickDigestPostsForSubscriber(
   posts: Post[],
   subscriber: SubscriberRecord,
@@ -1509,6 +1565,12 @@ export async function confirmMoodSubscription(
     token,
   });
 
+  await notifyAdminEvent(context, {
+    event: 'subscription_confirmed',
+    email,
+    deliveryMode,
+  });
+
   return {
     status: 'subscribed',
     email,
@@ -1559,6 +1621,12 @@ export async function unsubscribeMoodSubscription(
     email,
     emailHash,
     token,
+  });
+
+  await notifyAdminEvent(context, {
+    event: 'unsubscribed',
+    email,
+    deliveryMode: existing?.deliveryMode,
   });
 
   return {

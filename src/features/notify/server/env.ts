@@ -12,6 +12,8 @@ export interface NotifyConfig {
   cloudflareAccountId: string;
   cloudflareApiToken: string;
   cloudflareNotifyD1DatabaseId: string;
+  telegramBotToken: string;
+  notifyAdminTelegramChatId: string;
 }
 
 interface RuntimeContext {
@@ -44,6 +46,8 @@ export function getNotifyConfig(context: RuntimeContext = {}): NotifyConfig {
     cloudflareAccountId: readEnv(locals, 'CLOUDFLARE_ACCOUNT_ID'),
     cloudflareApiToken: readEnv(locals, 'CLOUDFLARE_API_TOKEN'),
     cloudflareNotifyD1DatabaseId: d1DatabaseId,
+    telegramBotToken: readEnv(locals, 'TELEGRAM_BOT_TOKEN'),
+    notifyAdminTelegramChatId: readEnv(locals, 'NOTIFY_ADMIN_TELEGRAM_CHAT_ID'),
   };
 }
 
