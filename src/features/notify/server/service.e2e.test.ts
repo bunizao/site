@@ -27,6 +27,7 @@ class ExternalApiMock {
   private originalFetch: typeof fetch | null = null;
 
   public readonly emails: CapturedEmail[] = [];
+  public readonly adminMessages: Array<{ chatId: string; text: string }> = [];
   private readonly resendFailures = new Map<string, number>();
   private emailCounter = 1;
   private readonly subscribers = new Map<string, Record<string, unknown>>();
@@ -94,6 +95,20 @@ class ExternalApiMock {
     });
 
     return this.jsonResponse({ id }, 200);
+  }
+
+  private async handleTelegram(request: Request): Promise<Response> {
+    const body = await request.json() as {
+      chat_id?: string | number;
+      text?: string;
+    };
+
+    this.adminMessages.push({
+      chatId: String(body.chat_id ?? ''),
+      text: String(body.text ?? ''),
+    });
+
+    return this.jsonResponse({ ok: true, result: { message_id: this.adminMessages.length } }, 200);
   }
 
   private d1Success(results: unknown[] = [], changes = 0): Response {
@@ -306,6 +321,10 @@ class ExternalApiMock {
       return this.handleResend(request);
     }
 
+    if (url.origin === 'https://api.telegram.org' && /\/bot[^/]+\/sendMessage$/.test(url.pathname)) {
+      return this.handleTelegram(request);
+    }
+
     if (url.origin === 'https://api.cloudflare.com' && url.pathname.includes('/d1/database/')) {
       return this.handleCloudflareD1(request);
     }
@@ -327,6 +346,8 @@ const BASE_ENV = {
   CLOUDFLARE_ACCOUNT_ID: 'cf_account',
   CLOUDFLARE_API_TOKEN: 'cf_api_token',
   CLOUDFLARE_NOTIFY_D1_DATABASE_ID: 'notify_d1_db',
+  TELEGRAM_BOT_TOKEN: 'telegram_bot_token',
+  NOTIFY_ADMIN_TELEGRAM_CHAT_ID: '123456',
 };
 
 function createContext(path = '/api/test'): NotifyRequestContext {
@@ -903,6 +924,11 @@ describe('notify service integration e2e', () => {
       'subscription_confirmed',
     ]);
     expect(typeof confirmAudit[1]?.token_hash).toBe('string');
+    expect(mock.adminMessages).toHaveLength(1);
+    expect(mock.adminMessages[0]?.chatId).toBe('123456');
+    expect(mock.adminMessages[0]?.text).toContain('Mood notify subscribed');
+    expect(mock.adminMessages[0]?.text).toContain(`Email: ${email}`);
+    expect(mock.adminMessages[0]?.text).toContain('Mode: immediate');
 
     const unsubscribeToken = createNotifyToken(
       {
@@ -936,6 +962,10 @@ describe('notify service integration e2e', () => {
     ]);
     expect(unsubscribeAudit[2]?.source).toBe('user_click');
     expect(typeof unsubscribeAudit[2]?.ip_hash).toBe('string');
+    expect(mock.adminMessages).toHaveLength(2);
+    expect(mock.adminMessages[1]?.text).toContain('Mood notify unsubscribed');
+    expect(mock.adminMessages[1]?.text).toContain(`Email: ${email}`);
+    expect(mock.adminMessages[1]?.text).toContain('Source: user_click');
   });
 
   test('invalid delivery config is rejected', async () => {

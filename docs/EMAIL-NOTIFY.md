@@ -53,6 +53,7 @@ Set these in Vercel project settings:
 - `CLOUDFLARE_NOTIFY_D1_DATABASE_ID`
 - `PUBLIC_TURNSTILE_SITE_KEY` (optional, frontend widget site key)
 - `TURNSTILE_SECRET_KEY` (optional, enables anti-bot verification for subscribe endpoint)
+- `NOTIFY_ADMIN_TELEGRAM_CHAT_ID` (optional, sends admin alerts on confirmed subscribe and unsubscribe)
 
 If `TURNSTILE_SECRET_KEY` (or `CLOUDFLARE_TURNSTILE_SECRET_KEY`) is set, `POST /api/notify/subscribe` requires a valid Turnstile token.
 
@@ -176,6 +177,7 @@ curl -X POST "https://your-domain.com/api/notify/retry" \
 - Webhook dispatch is idempotent per `postId + emailHash`.
 - Immediate webhook-triggered dispatch now enters through the Cloudflare Worker and queue before reaching `/api/notify/dispatch`.
 - Unsubscribe links are signed and time-limited.
+- Confirmed subscribe and unsubscribe events can optionally send a Telegram admin alert when `NOTIFY_ADMIN_TELEGRAM_CHAT_ID` is configured.
 - Failed deliveries are retried with backoff.
 - Keep `NOTIFY_FROM_EMAIL` domain verified in Resend.
 - Use `NOTIFY_FROM_NAME` when you want a display name without embedding it in `NOTIFY_FROM_EMAIL`.
