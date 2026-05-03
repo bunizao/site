@@ -39,6 +39,9 @@ export default defineConfig({
   site: 'https://buxx.me',
   output: 'static',
   compressHTML: true,
+  security: {
+    checkOrigin: false,
+  },
   adapter: vercel(),
   server: {
     strictPort: isE2EStrictPort,

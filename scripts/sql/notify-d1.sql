@@ -55,3 +55,21 @@ CREATE TABLE IF NOT EXISTS notify_dead_letters (
   updated_at TEXT NOT NULL,
   last_error TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS notify_audit (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  event_type TEXT NOT NULL CHECK (event_type IN ('subscribe_requested', 'subscription_confirmed', 'unsubscribed')),
+  email_hash TEXT NOT NULL,
+  email TEXT NOT NULL,
+  source TEXT NOT NULL,
+  user_agent TEXT,
+  ip_hash TEXT,
+  token_hash TEXT,
+  created_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_notify_audit_email_hash_created_at
+ON notify_audit(email_hash, created_at);
+
+CREATE INDEX IF NOT EXISTS idx_notify_audit_event_type_created_at
+ON notify_audit(event_type, created_at);

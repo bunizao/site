@@ -1,5 +1,6 @@
 export type SubscriberStatus = 'pending' | 'active' | 'unsubscribed';
 export type DeliveryMode = 'immediate' | 'every_5h' | 'daily';
+export type NotifyAuditEventType = 'subscribe_requested' | 'subscription_confirmed' | 'unsubscribed';
 
 export interface SubscriberRecord {
   email: string;
@@ -35,6 +36,17 @@ export interface SentRecord {
   emailHash: string;
   sentAt: string;
   resendId?: string;
+}
+
+export interface NotifyAuditRecord {
+  eventType: NotifyAuditEventType;
+  email: string;
+  emailHash: string;
+  source: string;
+  userAgent?: string;
+  ipHash?: string;
+  tokenHash?: string;
+  createdAt: string;
 }
 
 export interface SubscribeResult {

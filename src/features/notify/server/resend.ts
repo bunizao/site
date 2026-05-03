@@ -7,6 +7,7 @@ export interface SendEmailInput {
   text: string;
   replyTo?: string;
   idempotencyKey?: string;
+  headers?: Record<string, string>;
 }
 
 interface ResendSendResponse {
@@ -31,6 +32,7 @@ export async function sendEmailWithResend(input: SendEmailInput): Promise<{ id: 
       html: input.html,
       text: input.text,
       ...(input.replyTo ? { reply_to: input.replyTo } : {}),
+      ...(input.headers ? { headers: input.headers } : {}),
     }),
   });
 
