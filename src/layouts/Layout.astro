@@ -37,6 +37,7 @@ const {
 const site = Astro.site ?? new URL('https://buxx.me');
 const canonicalUrl = url ?? new URL(Astro.url?.pathname ?? '/', site).href;
 const ogImageUrl = new URL(image, site).href;
+const isProduction = import.meta.env.PROD;
 const ogImageType = ogImageUrl.endsWith('.png')
   ? 'image/png'
   : ogImageUrl.endsWith('.webp')
@@ -448,7 +449,7 @@ const ogImageType = ogImageUrl.endsWith('.png')
       })();
     </script>
 
-    <SpeedInsights />
+    {isProduction ? <SpeedInsights /> : null}
 
     <!-- GSAP Header Button Animations -->
     <script>
@@ -991,20 +992,22 @@ const ogImageType = ogImageUrl.endsWith('.png')
       })();
     </script>
 
-    <script>
-      const scheduleAnalytics = (callback: () => void): void => {
-        if ('requestIdleCallback' in window) {
-          window.requestIdleCallback(() => callback(), { timeout: 2000 });
-        } else {
-          setTimeout(callback, 0);
-        }
-      };
+    {isProduction ? (
+      <script>
+        const scheduleAnalytics = (callback: () => void): void => {
+          if ('requestIdleCallback' in window) {
+            window.requestIdleCallback(() => callback(), { timeout: 2000 });
+          } else {
+            setTimeout(callback, 0);
+          }
+        };
 
-      scheduleAnalytics(() => {
-        import('@vercel/analytics')
-          .then(({ inject }) => inject())
-          .catch(() => {});
-      });
-    </script>
+        scheduleAnalytics(() => {
+          import('@vercel/analytics')
+            .then(({ inject }) => inject())
+            .catch(() => {});
+        });
+      </script>
+    ) : null}
   </body>
 </html>
