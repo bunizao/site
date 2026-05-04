@@ -164,8 +164,12 @@ test.describe('API behavior', () => {
     expect(payload.source?.channelTitle).toBe('E2E Channel');
     expect(payload.source?.latestPostId).toBeTruthy();
     expect(payload.subjects?.subscribe).toContain('Confirm');
+    expect(payload.subjects?.welcome).toContain('Welcome');
+    expect(payload.subjects?.cancel).toContain('canceled');
     expect(payload.html?.mood).toContain('/mood/');
     expect(payload.html?.digest).toContain('E2E Channel');
+    expect(payload.html?.welcome).toContain('/api/notify/unsubscribe?token=');
+    expect(payload.html?.cancel).toContain('/mood?subscribe=1');
   });
 
   test('notify, webhook, and static proxy endpoints handle unauthorized/invalid requests', async ({ request }) => {

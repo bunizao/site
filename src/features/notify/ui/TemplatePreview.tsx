@@ -13,13 +13,17 @@ interface PreviewResponse {
   };
   subjects: {
     subscribe: string;
+    welcome: string;
     mood: string;
     digest: string;
+    cancel: string;
   };
   html: {
     subscribe: string;
+    welcome: string;
     mood: string;
     digest: string;
+    cancel: string;
   };
 }
 
@@ -129,7 +133,7 @@ export default function TemplatePreview() {
         )}
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-3">
+      <div className="grid gap-6 xl:grid-cols-2 2xl:grid-cols-3">
         <article className="rounded-xl border border-border bg-card p-3">
           <div className="mb-3 border-b border-border pb-2">
             <h2 className="text-sm font-semibold uppercase tracking-[0.16em]">Subscribe Confirmation</h2>
@@ -138,6 +142,30 @@ export default function TemplatePreview() {
           <iframe
             title="Subscribe confirmation email preview"
             srcDoc={preview?.html.subscribe || ''}
+            className="h-[760px] w-full rounded-lg border border-border bg-white"
+          />
+        </article>
+
+        <article className="rounded-xl border border-border bg-card p-3">
+          <div className="mb-3 border-b border-border pb-2">
+            <h2 className="text-sm font-semibold uppercase tracking-[0.16em]">Welcome Email</h2>
+            <p className="mt-1 text-xs text-muted-foreground">{preview?.subjects.welcome || '-'}</p>
+          </div>
+          <iframe
+            title="Welcome email preview"
+            srcDoc={preview?.html.welcome || ''}
+            className="h-[760px] w-full rounded-lg border border-border bg-white"
+          />
+        </article>
+
+        <article className="rounded-xl border border-border bg-card p-3">
+          <div className="mb-3 border-b border-border pb-2">
+            <h2 className="text-sm font-semibold uppercase tracking-[0.16em]">Cancel Email</h2>
+            <p className="mt-1 text-xs text-muted-foreground">{preview?.subjects.cancel || '-'}</p>
+          </div>
+          <iframe
+            title="Cancel email preview"
+            srcDoc={preview?.html.cancel || ''}
             className="h-[760px] w-full rounded-lg border border-border bg-white"
           />
         </article>
