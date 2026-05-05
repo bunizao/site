@@ -3,7 +3,6 @@ import Typewriter from '@/features/home/ui/Typewriter.astro';
 import GitHubContributions from '@/features/home/ui/GitHubContributions.astro';
 import Listening from '@/features/home/ui/Listening.astro';
 import TechMarquee from '@/features/home/ui/TechMarquee.astro';
-import { AnimatedLogo } from '@/features/logos/ui/AnimatedLogo';
 import {Instagram, type LucideIcon} from 'lucide-react';
 import { FileText, Github, Mail, Send } from 'lucide-react';
 
@@ -56,17 +55,6 @@ const techRow2 = ['Frontend', 'BGP', 'Proxy', 'Docker', 'Linux', 'Web3', 'Optimi
 ---
 
 <header class="hero-section pt-14 pb-8 sm:pt-20 sm:pb-12">
-    <div class="hero-animate peek-mascot" data-hero-peek>
-      <AnimatedLogo
-        client:idle
-        id="peek"
-        animation="idle"
-        hoverAnimation="pop"
-        size={72}
-        title="peek"
-      />
-    </div>
-
     <!-- Status indicator -->
     <div class="hero-animate" data-hero-status>
       <div class="status mb-4">
@@ -194,26 +182,6 @@ const techRow2 = ['Frontend', 'BGP', 'Proxy', 'Docker', 'Linux', 'Web3', 'Optimi
   /* Personal info styling */
   .separator {
     opacity: 0.5;
-  }
-
-  .peek-mascot {
-    align-self: flex-end;
-    display: inline-flex;
-    color: hsl(var(--foreground));
-    margin-bottom: 1rem;
-    padding-right: clamp(0rem, 4vw, 2rem);
-  }
-
-  .peek-mascot :global(svg) {
-    display: block;
-    filter: drop-shadow(0 10px 20px hsl(var(--foreground) / 0.08));
-  }
-
-  @media (max-width: 639px) {
-    .peek-mascot {
-      margin-bottom: 0.75rem;
-      padding-right: 0.25rem;
-    }
   }
 
   /* Hidden SVG filter container */
