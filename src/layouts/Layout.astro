@@ -21,6 +21,7 @@ import '../styles/globals.css';
 import '../features/mood/styles/feed-rich-text.css';
 import { Moon, Sun, Monitor } from 'lucide-react';
 import SpeedInsights from '@vercel/speed-insights/astro';
+import { AnimatedLogo } from '@/features/logos/ui/AnimatedLogo';
 
 const {
   title,
@@ -68,7 +69,9 @@ const ogImageType = ogImageUrl.endsWith('.png')
     <meta name="twitter:description" content={description} />
     <meta name="twitter:image" content={ogImageUrl} />
     <meta name="twitter:image:alt" content={imageAlt} />
-    <link rel="icon" href="/favicon.ico" />
+    <link rel="icon" type="image/svg+xml" href="/logo/tutu.svg" />
+    <link rel="alternate icon" href="/favicon.ico" />
+    <link rel="mask-icon" href="/logo/tutu.svg" color="#0a0a0a" />
     {rss?.href ? (
       <link
         rel="alternate"
@@ -131,6 +134,17 @@ const ogImageType = ogImageUrl.endsWith('.png')
     {!hideSiteNav && (
       <nav class:list={['site-nav', { 'site-nav--mobile-visible': showSiteNav }]} data-site-nav aria-label="Page sections">
         <div class="nav-active-indicator" data-nav-indicator aria-hidden="true"></div>
+        <a href="/" class="site-brand" aria-label="buxx.me — home" data-site-brand>
+          <AnimatedLogo
+            client:idle
+            id="tutu"
+            animation="idle"
+            hoverAnimation="happy"
+            size={22}
+            title="tutu"
+          />
+        </a>
+        <span class="nav-separator nav-separator--brand" aria-hidden="true">/</span>
         <a href="#projects-section" class="nav-link" data-nav-link="projects" data-nav-index="01">Projects</a>
         <span class="nav-separator" aria-hidden="true">/</span>
         <a href="#writing-section" class="nav-link" data-nav-link="writing" data-nav-index="02">Writing</a>
