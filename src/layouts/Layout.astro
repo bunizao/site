@@ -708,6 +708,28 @@ const ogImageType = ogImageUrl.endsWith('.png')
         let isVertical = isHomeNav && desktopNavQuery.matches;
         let activeId = '';
         let ticking = false;
+        let scrollCueTimer = 0;
+        let lastScrollY = window.scrollY;
+
+        const cuePeekLock = () => {
+          if (!isHomeNav || !desktopNavQuery.matches) return;
+          nav.classList.remove('is-peek-locking');
+          void nav.offsetWidth;
+          nav.classList.add('is-peek-locking');
+        };
+
+        const cuePeekScroll = () => {
+          if (!isHomeNav || !desktopNavQuery.matches) return;
+          const currentScrollY = window.scrollY;
+          const direction = currentScrollY > lastScrollY ? 'down' : 'up';
+          lastScrollY = currentScrollY;
+          nav.dataset.scrollDir = direction;
+          nav.classList.add('is-peek-scanning');
+          window.clearTimeout(scrollCueTimer);
+          scrollCueTimer = window.setTimeout(() => {
+            nav.classList.remove('is-peek-scanning');
+          }, 140);
+        };
 
         const syncActiveSection = () => {
           const viewportH = window.innerHeight;
@@ -727,10 +749,14 @@ const ogImageType = ogImageUrl.endsWith('.png')
             const el = link as HTMLElement;
             el.classList.toggle('is-active', el.dataset.navLink === activeId);
           });
-          if (isVertical) updateIndicator();
+          if (isVertical) {
+            updateIndicator();
+            cuePeekLock();
+          }
         };
 
         const onScroll = () => {
+          cuePeekScroll();
           if (ticking) return;
           ticking = true;
           requestAnimationFrame(() => {
@@ -952,6 +978,8 @@ const ogImageType = ogImageUrl.endsWith('.png')
           const navRect = nav.getBoundingClientRect();
           const linkRect = activeLink.getBoundingClientRect();
           const targetY = linkRect.top - navRect.top + (linkRect.height - 20) / 2;
+          const peekY = linkRect.top - navRect.top + (linkRect.height - 24) / 2;
+          nav.style.setProperty('--peek-track-y', `${Math.round(peekY)}px`);
 
           if (animate) {
             gsap.to(indicator, {
