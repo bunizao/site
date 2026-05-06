@@ -7,6 +7,7 @@ interface Props {
   url?: string;
   hideSiteNav?: boolean;
   showSiteNav?: boolean;
+  navVariant?: 'home';
   rss?: {
     href: string;
     title?: string;
@@ -31,6 +32,7 @@ const {
   url,
   hideSiteNav = false,
   showSiteNav = false,
+  navVariant,
   rss,
   oembed,
 } = Astro.props;
@@ -131,7 +133,17 @@ const ogImageType = ogImageUrl.endsWith('.png')
 
     <!-- Site navigation -->
     {!hideSiteNav && (
-      <nav class:list={['site-nav', { 'site-nav--mobile-visible': showSiteNav }]} data-site-nav aria-label="Page sections">
+      <nav
+        class:list={[
+          'site-nav',
+          {
+            'site-nav--mobile-visible': showSiteNav,
+            'site-nav--home': navVariant === 'home',
+          },
+        ]}
+        data-site-nav
+        aria-label="Page sections"
+      >
         <div class="nav-active-indicator" data-nav-indicator aria-hidden="true"></div>
         <a href="/" class="site-brand" aria-label="buxx.me — home" data-site-brand>
           <AnimatedLogo
