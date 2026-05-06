@@ -23,29 +23,11 @@ const {
   description={description}
   url={url}
   showSiteNav={showSiteNav}
+  navVariant="page"
 >
   <script is:inline>
     (() => {
       document.body.classList.add('page-template-active');
-      const nav = document.querySelector('[data-site-nav]');
-      if (!nav) return;
-
-      nav.classList.add('page-home-nav');
-      nav.setAttribute('aria-label', 'Home');
-      nav.querySelector('[data-nav-indicator]')?.remove();
-
-      const links = Array.from(nav.querySelectorAll('.nav-link'));
-      const primaryLink = links[0];
-
-      if (primaryLink) {
-        primaryLink.textContent = 'buxx.me';
-        primaryLink.setAttribute('href', '/');
-        primaryLink.removeAttribute('data-nav-link');
-        primaryLink.removeAttribute('data-nav-index');
-      }
-
-      links.slice(1).forEach((link) => link.remove());
-      nav.querySelectorAll('.nav-separator').forEach((separator) => separator.remove());
     })();
   </script>
 
@@ -94,14 +76,14 @@ const {
     background: #000;
   }
 
-  :global(.page-home-nav) {
+  :global(.site-nav--page) {
     align-items: center;
     justify-content: flex-start;
     height: auto;
     gap: 0;
   }
 
-  :global(.page-home-nav .nav-link) {
+  :global(.site-nav--page .nav-link) {
     cursor: pointer;
     padding: 0;
     border-radius: 0;
@@ -112,8 +94,8 @@ const {
     background: transparent;
   }
 
-  :global(.page-home-nav .nav-link:hover),
-  :global(.page-home-nav .nav-link:focus-visible) {
+  :global(.site-nav--page .nav-link:hover),
+  :global(.site-nav--page .nav-link:focus-visible) {
     color: var(--page-chrome-fg);
     background: transparent;
   }
@@ -244,7 +226,7 @@ const {
       padding: 0 1rem;
     }
 
-    :global(body.page-template-active .page-home-nav) {
+    :global(body.page-template-active .site-nav--page) {
       top: 0;
       left: 0;
       right: 0;
@@ -260,7 +242,7 @@ const {
       -webkit-backdrop-filter: blur(14px) saturate(140%);
     }
 
-    :global(body.page-template-active .page-home-nav .nav-link) {
+    :global(body.page-template-active .site-nav--page .nav-link) {
       display: inline-flex;
       align-items: center;
       min-height: 2.75rem;
@@ -274,34 +256,8 @@ const {
       border-radius: 0;
     }
 
-    :global(body.page-template-active .page-home-nav .nav-link:hover) {
+    :global(body.page-template-active .site-nav--page .nav-link:hover) {
       background: transparent;
-    }
-
-    :global(body.page-template-active .global-header-actions) {
-      top: calc(env(safe-area-inset-top, 0px) + 0.3rem);
-      right: 1rem;
-      z-index: 61;
-    }
-
-    :global(body.page-template-active .header-action-btn) {
-      min-width: 2.75rem;
-      height: 2.75rem;
-      border-radius: 999px;
-      background: transparent;
-      border-color: transparent;
-      box-shadow: none;
-      backdrop-filter: none;
-      -webkit-backdrop-filter: none;
-    }
-
-    :global(body.page-template-active .header-action-btn:hover) {
-      background: rgb(17 17 17 / 0.06);
-      border-color: transparent;
-    }
-
-    :global(.dark body.page-template-active .header-action-btn:hover) {
-      background: rgb(255 255 255 / 0.08);
     }
 
     :global(.page-content h1) {
