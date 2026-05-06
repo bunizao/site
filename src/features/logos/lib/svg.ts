@@ -18,6 +18,7 @@ export type RenderOptions = {
   rounded?: boolean;        // tiny rounding on cells (default false — sharp pixels)
   className?: string;
   title?: string;           // adds <title> for a11y (also sets role="img")
+  style?: string;           // inline SVG stylesheet
 };
 
 // Render a grid as an SVG string. Cells with value 1 → fg; 3 → accent; 0/2 → empty.
@@ -37,6 +38,7 @@ export function gridToSvg(
     rounded = false,
     className,
     title,
+    style,
   } = opts;
 
   const w = width + pad * 2;
@@ -67,6 +69,7 @@ export function gridToSvg(
   return (
     `<svg xmlns="http://www.w3.org/2000/svg"${sizeAttr}${classAttr}${a11y} viewBox="0 0 ${w} ${h}" shape-rendering="crispEdges">` +
     (title ? `<title>${escapeText(title)}</title>` : '') +
+    (style ? `<style>${style}</style>` : '') +
     bgRect +
     cells.join('') +
     `</svg>`
