@@ -972,7 +972,7 @@
       align-items: center;
       min-height: calc(env(safe-area-inset-top, 0px) + 3.25rem);
       padding: calc(env(safe-area-inset-top, 0px) + 0.28rem) 4rem 0.3rem 1rem;
-      gap: 0.65rem;
+      gap: clamp(0.95rem, 3.8vw, 1.25rem);
       border-bottom: 1px solid hsl(var(--foreground) / 0.08);
       background: hsl(var(--background) / 0.58);
       backdrop-filter: blur(14px) saturate(140%);
@@ -1044,7 +1044,7 @@
     }
 
     .site-nav--home.is-brand-eaten .nav-link {
-      max-width: 4.2rem;
+      max-width: 7.25ch;
       opacity: 1;
       pointer-events: auto;
       transform: translateX(0);
