@@ -6,18 +6,25 @@ export function getStaticPaths() {
 }
 
 // Serves /logo/<id>.svg — used as a SVG favicon and anywhere an <img> source is needed.
-// Solid black body so it renders crisply in browser tab strips on both themes
-// (the site's monochrome system inverts via CSS, but tab chrome doesn't).
+const FAVICON_THEME_STYLE = `
+:root { --favicon-fg: #0a0a0a; }
+@media (prefers-color-scheme: dark) {
+  :root { --favicon-fg: #fafafa; }
+}
+`;
+
+// The favicon responds to browser chrome theme because tab strips cannot use site CSS.
 export const GET: APIRoute = ({ params }) => {
   const id = params.id as LogoId;
   if (!LOGOS[id]) {
     return new Response('Not found', { status: 404 });
   }
   const svg = logoToSvg(id, {
-    fg: '#0a0a0a',
+    fg: 'var(--favicon-fg)',
     accent: LOGOS[id].accent,
     pad: 1,
     title: `${id} — buxx.me`,
+    style: FAVICON_THEME_STYLE,
   });
   return new Response(svg, {
     headers: {
