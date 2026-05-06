@@ -147,13 +147,17 @@ const ogImageType = ogImageUrl.endsWith('.png')
       >
         <div class="nav-active-indicator" data-nav-indicator aria-hidden="true"></div>
         <a href="/" class="site-brand" aria-label="buxx.me — home" data-site-brand>
-          <AnimatedLogo
-            client:idle
-            id="peek"
-            animation="idle"
-            size={22}
-            title="peek"
-          />
+          <span class="site-brand-logo" aria-hidden="true">
+            <AnimatedLogo
+              client:idle
+              id="peek"
+              animation="idle"
+              hoverAnimation={navVariant === 'home' ? 'dart' : undefined}
+              size={24}
+              title="peek"
+            />
+          </span>
+          {navVariant === 'home' ? <span class="site-brand-text" data-mobile-brand-text>buxx.me</span> : null}
         </a>
         <span class="nav-separator nav-separator--brand" aria-hidden="true">/</span>
         <a href="#projects-section" class="nav-link" data-nav-link="projects" data-nav-index="01">Projects</a>
@@ -1002,6 +1006,27 @@ const ogImageType = ogImageUrl.endsWith('.png')
         initMagneticHover();
 
         if (isHomeNav) {
+          const brand = nav.querySelector('[data-site-brand]') as HTMLElement | null;
+
+          const syncBrandEaten = () => {
+            nav.classList.toggle('is-brand-eaten', !desktopNavQuery.matches && window.scrollY > 18);
+          };
+
+          const handlePointerMove = (event: PointerEvent) => {
+            if (!desktopNavQuery.matches || event.pointerType !== 'mouse') return;
+            if (!brand || !brand.matches(':hover')) return;
+            const rect = brand.getBoundingClientRect();
+            const dx = ((event.clientX - rect.left) / rect.width - 0.5) * 6;
+            const dy = ((event.clientY - rect.top) / rect.height - 0.5) * 4;
+            nav.style.setProperty('--peek-shift-x', `${dx.toFixed(2)}px`);
+            nav.style.setProperty('--peek-shift-y', `${dy.toFixed(2)}px`);
+          };
+
+          const resetPeekShift = () => {
+            nav.style.setProperty('--peek-shift-x', '0px');
+            nav.style.setProperty('--peek-shift-y', '0px');
+          };
+
           const syncHomeNavMode = () => {
             isVertical = desktopNavQuery.matches;
             nav.classList.toggle('is-vertical', isVertical);
@@ -1014,12 +1039,23 @@ const ogImageType = ogImageUrl.endsWith('.png')
               });
             });
             if (isVertical) {
+              nav.classList.remove('is-brand-eaten');
               updateIndicator();
             } else {
               hideIndicator();
+              syncBrandEaten();
             }
           };
 
+          brand?.addEventListener('pointermove', handlePointerMove);
+          brand?.addEventListener('pointerleave', resetPeekShift);
+          brand?.addEventListener('pointerdown', () => {
+            if (desktopNavQuery.matches) return;
+            nav.classList.remove('is-peek-tapping');
+            void nav.offsetWidth;
+            nav.classList.add('is-peek-tapping');
+          });
+          window.addEventListener('scroll', syncBrandEaten, { passive: true });
           syncHomeNavMode();
           desktopNavQuery.addEventListener?.('change', syncHomeNavMode);
           return;
