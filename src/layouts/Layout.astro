@@ -977,19 +977,18 @@ const ogImageType = ogImageUrl.endsWith('.png')
 
           const navRect = nav.getBoundingClientRect();
           const linkRect = activeLink.getBoundingClientRect();
-          const targetY = linkRect.top - navRect.top + (linkRect.height - 20) / 2;
-          const peekY = linkRect.top - navRect.top + (linkRect.height - 24) / 2;
-          nav.style.setProperty('--peek-track-y', `${Math.round(peekY)}px`);
+          const targetY = linkRect.top - navRect.top + (linkRect.height - 16) / 2;
 
           if (animate) {
             gsap.to(indicator, {
               y: targetY,
               opacity: 1,
-              duration: 0.5,
-              ease: 'elastic.out(1, 0.5)'
+              scaleX: 1,
+              duration: 0.28,
+              ease: 'steps(4)'
             });
           } else {
-            gsap.set(indicator, { y: targetY });
+            gsap.set(indicator, { y: targetY, scaleX: 1 });
           }
           return true;
         };
