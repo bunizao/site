@@ -643,7 +643,6 @@ const ogImageType = ogImageUrl.endsWith('.png')
         const links = document.querySelectorAll('[data-nav-link]');
         if (!links.length || !nav) return;
 
-        const indicator = nav.querySelector('[data-nav-indicator]') as HTMLElement | null;
         const separators = nav.querySelectorAll('.nav-separator');
         const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
         const isHomeNav = nav.classList.contains('site-nav--home');
@@ -749,7 +748,6 @@ const ogImageType = ogImageUrl.endsWith('.png')
             el.classList.toggle('is-active', el.dataset.navLink === activeId);
           });
           if (isVertical) {
-            updateIndicator();
             cuePeekLock();
           }
         };
@@ -797,7 +795,6 @@ const ogImageType = ogImageUrl.endsWith('.png')
               ld.chars.forEach(c => { c.style.opacity = '1'; });
               if (ld.indexSpan) ld.indexSpan.style.opacity = '1';
             });
-            showIndicator();
             animating = false;
             flushPending();
             return;
@@ -827,7 +824,6 @@ const ogImageType = ogImageUrl.endsWith('.png')
           // Phase 2: Layout switch
           nav.classList.add('is-vertical');
           syncActiveSection();
-          showIndicator();
           // Phase 3: Quick typewriter per link
           for (let i = 0; i < linkDataList.length; i++) {
             const { chars, indexSpan } = linkDataList[i];
@@ -866,7 +862,6 @@ const ogImageType = ogImageUrl.endsWith('.png')
           animating = true;
 
           if (reducedMotion) {
-            hideIndicator();
             nav.classList.remove('is-vertical');
             separators.forEach(s => (s as HTMLElement).style.opacity = '1');
             linkDataList.forEach(ld => {
@@ -879,8 +874,6 @@ const ogImageType = ogImageUrl.endsWith('.png')
           }
 
           const { default: gsap } = await import('gsap');
-
-          hideIndicator();
 
           // Hide index spans
           linkDataList.forEach(ld => {
@@ -931,72 +924,6 @@ const ogImageType = ogImageUrl.endsWith('.png')
         };
 
         // ─── 3e. Active indicator ─────────────────────────────────────
-        const showIndicator = async () => {
-          if (!indicator) return;
-          const { default: gsap } = await import('gsap');
-          gsap.killTweensOf(indicator);
-          const hasActiveLink = positionIndicator(gsap, false);
-          if (!hasActiveLink) {
-            gsap.set(indicator, { opacity: 0, scaleX: 0 });
-            return;
-          }
-          gsap.to(indicator, {
-            opacity: 1,
-            scaleX: 1,
-            duration: 0.3,
-            ease: 'power2.out'
-          });
-        };
-
-        const hideIndicator = async () => {
-          if (!indicator) return;
-          const { default: gsap } = await import('gsap');
-          gsap.killTweensOf(indicator);
-          gsap.to(indicator, {
-            opacity: 0,
-            scaleX: 0,
-            duration: 0.2,
-            ease: 'power2.in'
-          });
-        };
-
-        const updateIndicator = async () => {
-          if (!indicator || !isVertical) return;
-          const { default: gsap } = await import('gsap');
-          positionIndicator(gsap, true);
-        };
-
-        const positionIndicator = (gsap: any, animate: boolean) => {
-          if (!indicator) return;
-          const activeLink = nav.querySelector('.nav-link.is-active') as HTMLElement | null;
-          if (!activeLink) {
-            gsap.set(indicator, { opacity: 0, scaleX: 0 });
-            return false;
-          }
-
-          const navRect = nav.getBoundingClientRect();
-          const linkRect = activeLink.getBoundingClientRect();
-          const targetY = linkRect.top - navRect.top + (linkRect.height - 16) / 2;
-
-          if (animate) {
-            gsap.to(indicator, {
-              y: targetY,
-              opacity: 1,
-              scaleX: 1,
-              duration: 0.28,
-              ease: 'steps(4)'
-            });
-          } else {
-            gsap.set(indicator, { y: targetY, scaleX: 1 });
-          }
-          return true;
-        };
-
-        // Keep indicator positioned on resize
-        window.addEventListener('resize', () => {
-          if (isVertical && indicator) updateIndicator();
-        });
-
         // ─── 3f. Magnetic hover (desktop, vertical mode only) ─────────
         // Disabled — no hover box or physics effects
         const initMagneticHover = async () => {
@@ -1066,9 +993,7 @@ const ogImageType = ogImageUrl.endsWith('.png')
             });
             if (isVertical) {
               nav.classList.remove('is-brand-eaten');
-              updateIndicator();
             } else {
-              hideIndicator();
               syncBrandEaten();
             }
           };
