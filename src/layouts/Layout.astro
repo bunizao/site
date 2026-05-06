@@ -151,7 +151,6 @@ const ogImageType = ogImageUrl.endsWith('.png')
             client:idle
             id="peek"
             animation="idle"
-            hoverAnimation="pop"
             size={22}
             title="peek"
           />
@@ -644,6 +643,8 @@ const ogImageType = ogImageUrl.endsWith('.png')
         const indicator = nav.querySelector('[data-nav-indicator]') as HTMLElement | null;
         const separators = nav.querySelectorAll('.nav-separator');
         const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        const isHomeNav = nav.classList.contains('site-nav--home');
+        const desktopNavQuery = window.matchMedia('(min-width: 640px)');
 
         // ─── 3a. Character wrapping with index injection ─────────────
         interface LinkData {
@@ -700,6 +701,7 @@ const ogImageType = ogImageUrl.endsWith('.png')
           el: document.getElementById(`${id}-section`)
         })).filter(s => s.el);
 
+        let isVertical = isHomeNav && desktopNavQuery.matches;
         let activeId = '';
         let ticking = false;
 
@@ -740,7 +742,6 @@ const ogImageType = ogImageUrl.endsWith('.png')
         const statusEl = document.querySelector('[data-hero-status]');
         if (!statusEl) return;
 
-        let isVertical = false;
         let animating = false;
         let pendingDirection: 'vertical' | 'horizontal' | null = null;
 
@@ -999,6 +1000,30 @@ const ogImageType = ogImageUrl.endsWith('.png')
         };
 
         initMagneticHover();
+
+        if (isHomeNav) {
+          const syncHomeNavMode = () => {
+            isVertical = desktopNavQuery.matches;
+            nav.classList.toggle('is-vertical', isVertical);
+            separators.forEach(s => ((s as HTMLElement).style.opacity = isVertical ? '0' : '1'));
+            linkDataList.forEach(ld => {
+              if (ld.indexSpan) ld.indexSpan.style.opacity = isVertical ? '1' : '0';
+              ld.chars.forEach(c => {
+                c.style.opacity = '1';
+                c.style.transform = '';
+              });
+            });
+            if (isVertical) {
+              updateIndicator();
+            } else {
+              hideIndicator();
+            }
+          };
+
+          syncHomeNavMode();
+          desktopNavQuery.addEventListener?.('change', syncHomeNavMode);
+          return;
+        }
 
         // ─── IntersectionObserver ─────────────────────────────────────
         const navObserver = new IntersectionObserver(
