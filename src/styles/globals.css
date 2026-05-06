@@ -929,11 +929,24 @@
       display: inline-flex;
       align-items: center;
       min-height: 2.75rem;
+      max-width: 0;
       padding: 0;
+      overflow: hidden;
+      opacity: 0;
+      pointer-events: none;
+      transform: translateX(-0.4rem);
       font-size: 0.76rem;
       line-height: 1;
       font-weight: 600;
       color: hsl(var(--muted-foreground) / 0.74);
+      transition: max-width 0.28s ease, opacity 0.2s ease, transform 0.28s ease, color 0.16s ease;
+    }
+
+    .site-nav--home.is-brand-eaten .nav-link {
+      max-width: 4.2rem;
+      opacity: 1;
+      pointer-events: auto;
+      transform: translateX(0);
     }
 
     .site-nav--home .nav-link::after,
