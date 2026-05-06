@@ -762,6 +762,94 @@
     }
   }
 
+  .site-nav--home {
+    height: 36px;
+    padding: 3px;
+    gap: 4px;
+    background: hsl(var(--background) / 0.64);
+    border: 1px solid hsl(var(--foreground) / 0.08);
+    box-shadow:
+      inset 0 1px 0 hsl(var(--background) / 0.8),
+      0 8px 24px hsl(var(--foreground) / 0.04);
+    backdrop-filter: blur(12px) saturate(130%);
+    -webkit-backdrop-filter: blur(12px) saturate(130%);
+  }
+
+  .site-nav--home::after {
+    content: '';
+    position: absolute;
+    right: 6px;
+    bottom: -3px;
+    width: 5px;
+    height: 5px;
+    background: hsl(39 100% 50%);
+    box-shadow: -7px 0 0 hsl(39 100% 50% / 0.42);
+    opacity: 0.86;
+    pointer-events: none;
+  }
+
+  .site-nav--home .site-brand {
+    width: 30px;
+    height: 30px;
+    margin-right: 2px;
+    border-radius: 4px;
+    background: hsl(var(--foreground) / 0.035);
+  }
+
+  .site-nav--home .site-brand:hover {
+    background: hsl(39 100% 50% / 0.14);
+  }
+
+  .site-nav--home .nav-link {
+    position: relative;
+    padding: 5px 9px;
+    border-radius: 4px;
+    color: hsl(var(--muted-foreground) / 0.72);
+  }
+
+  .site-nav--home .nav-link::after {
+    content: '';
+    position: absolute;
+    left: 9px;
+    right: 9px;
+    bottom: 3px;
+    height: 2px;
+    background: hsl(39 100% 50%);
+    opacity: 0;
+    transform: scaleX(0);
+    transform-origin: left center;
+    transition: opacity 0.16s ease, transform 0.16s ease;
+  }
+
+  .site-nav--home .nav-link:hover {
+    background: hsl(var(--foreground) / 0.045);
+  }
+
+  .site-nav--home .nav-link:hover::after,
+  .site-nav--home .nav-link.is-active::after {
+    opacity: 1;
+    transform: scaleX(1);
+  }
+
+  .site-nav--home.is-vertical {
+    height: auto;
+    padding: 8px 3px;
+    gap: 2px;
+    background: hsl(var(--background) / 0.62);
+  }
+
+  .site-nav--home.is-vertical::after {
+    display: none;
+  }
+
+  .site-nav--home.is-vertical .nav-link::after {
+    left: 8px;
+    right: auto;
+    bottom: 5px;
+    width: 5px;
+    transform-origin: center;
+  }
+
   /* Global Header Actions */
   .global-header-actions {
     position: fixed;
