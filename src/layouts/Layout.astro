@@ -134,21 +134,26 @@ const ogImageType = ogImageUrl.endsWith('.png')
       <nav class:list={['site-nav', { 'site-nav--mobile-visible': showSiteNav }]} data-site-nav aria-label="Page sections">
         <div class="nav-active-indicator" data-nav-indicator aria-hidden="true"></div>
         <a href="/" class="site-brand" aria-label="buxx.me — home" data-site-brand>
-          <AnimatedLogo
-            client:idle
-            id="peek"
-            animation="idle"
-            hoverAnimation="pop"
-            size={22}
-            title="peek"
-          />
+          <span class="site-brand-mark" aria-hidden="true">
+            <AnimatedLogo
+              client:idle
+              id="peek"
+              animation="idle"
+              hoverAnimation="pop"
+              size={24}
+              title="peek"
+            />
+          </span>
+          <span class="site-brand-copy">
+            <span class="site-brand-name">peek</span>
+            <span class="site-brand-domain">buxx.me</span>
+          </span>
         </a>
-        <span class="nav-separator nav-separator--brand" aria-hidden="true">/</span>
-        <a href="#projects-section" class="nav-link" data-nav-link="projects" data-nav-index="01">Projects</a>
-        <span class="nav-separator" aria-hidden="true">/</span>
-        <a href="#writing-section" class="nav-link" data-nav-link="writing" data-nav-index="02">Writing</a>
-        <span class="nav-separator" aria-hidden="true">/</span>
-        <a href="#moods-section" class="nav-link" data-nav-link="moods" data-nav-index="03">Moods</a>
+        <div class="nav-link-group">
+          <a href="#projects-section" class="nav-link" data-nav-link="projects" data-nav-index="01">Projects</a>
+          <a href="#writing-section" class="nav-link" data-nav-link="writing" data-nav-index="02">Writing</a>
+          <a href="#moods-section" class="nav-link" data-nav-link="moods" data-nav-index="03">Moods</a>
+        </div>
       </nav>
     )}
 
@@ -630,6 +635,7 @@ const ogImageType = ogImageUrl.endsWith('.png')
 
         const indicator = nav.querySelector('[data-nav-indicator]') as HTMLElement | null;
         const separators = nav.querySelectorAll('.nav-separator');
+        const separatorList = Array.from(separators);
         const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
         // ─── 3a. Character wrapping with index injection ─────────────
@@ -779,7 +785,9 @@ const ogImageType = ogImageUrl.endsWith('.png')
           });
 
           // Also fade separators
-          gsap.set(Array.from(separators), { opacity: 0 });
+          if (separatorList.length) {
+            gsap.set(separatorList, { opacity: 0 });
+          }
 
           // Phase 2: Layout switch
           nav.classList.add('is-vertical');
@@ -875,16 +883,21 @@ const ogImageType = ogImageUrl.endsWith('.png')
             ease: 'back.out(1.7)'
           });
 
-          gsap.to(Array.from(separators), {
-            opacity: 1,
-            duration: 0.25,
-            delay: 0.1,
-            ease: 'power2.out',
-            onComplete: () => {
-              animating = false;
-              flushPending();
-            }
-          });
+          if (separatorList.length) {
+            gsap.to(separatorList, {
+              opacity: 1,
+              duration: 0.25,
+              delay: 0.1,
+              ease: 'power2.out',
+              onComplete: () => {
+                animating = false;
+                flushPending();
+              }
+            });
+          } else {
+            animating = false;
+            flushPending();
+          }
         };
 
         // ─── 3e. Active indicator ─────────────────────────────────────
