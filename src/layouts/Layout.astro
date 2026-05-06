@@ -1009,6 +1009,12 @@ const ogImageType = ogImageUrl.endsWith('.png')
             nav.style.setProperty('--peek-shift-y', '0px');
           };
 
+          const handleBrandClick = (event: MouseEvent) => {
+            event.preventDefault();
+            window.scrollTo({ top: 0, behavior: reducedMotion ? 'auto' : 'smooth' });
+            nav.classList.remove('is-brand-eaten');
+          };
+
           const syncHomeNavMode = () => {
             isVertical = desktopNavQuery.matches;
             nav.classList.toggle('is-vertical', isVertical);
@@ -1030,6 +1036,7 @@ const ogImageType = ogImageUrl.endsWith('.png')
 
           brand?.addEventListener('pointermove', handlePointerMove);
           brand?.addEventListener('pointerleave', resetPeekShift);
+          brand?.addEventListener('click', handleBrandClick);
           brand?.addEventListener('pointerdown', () => {
             if (desktopNavQuery.matches) return;
             nav.classList.remove('is-peek-tapping');
