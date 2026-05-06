@@ -7,7 +7,7 @@ interface Props {
   url?: string;
   hideSiteNav?: boolean;
   showSiteNav?: boolean;
-  navVariant?: 'home';
+  navVariant?: 'home' | 'page';
   rss?: {
     href: string;
     title?: string;
@@ -37,6 +37,8 @@ const {
   oembed,
 } = Astro.props;
 
+const isHomeNav = navVariant === 'home';
+const isPageNav = navVariant === 'page';
 const site = Astro.site ?? new URL('https://buxx.me');
 const canonicalUrl = url ?? new URL(Astro.url?.pathname ?? '/', site).href;
 const ogImageUrl = new URL(image, site).href;
@@ -138,32 +140,39 @@ const ogImageType = ogImageUrl.endsWith('.png')
           'site-nav',
           {
             'site-nav--mobile-visible': showSiteNav,
-            'site-nav--home': navVariant === 'home',
+            'site-nav--home': isHomeNav,
+            'site-nav--page': isPageNav,
           },
         ]}
         data-site-nav
-        aria-label="Page sections"
+        aria-label={isPageNav ? 'Home' : 'Page sections'}
       >
-        <div class="nav-active-indicator" data-nav-indicator aria-hidden="true"></div>
+        {!isPageNav ? <div class="nav-active-indicator" data-nav-indicator aria-hidden="true"></div> : null}
         <a href="/" class="site-brand" aria-label="buxx.me — home" data-site-brand>
           <span class="site-brand-logo" aria-hidden="true">
             <AnimatedLogo
               client:idle
               id="peek"
               animation="idle"
-              hoverAnimation={navVariant === 'home' ? 'dart' : undefined}
+              hoverAnimation={isHomeNav ? 'dart' : undefined}
               size={24}
               title="peek"
             />
           </span>
-          {navVariant === 'home' ? <span class="site-brand-text" data-mobile-brand-text>buxx.me</span> : null}
+          {isHomeNav ? <span class="site-brand-text" data-mobile-brand-text>buxx.me</span> : null}
         </a>
-        <span class="nav-separator nav-separator--brand" aria-hidden="true">/</span>
-        <a href="#projects-section" class="nav-link" data-nav-link="projects">Projects</a>
-        <span class="nav-separator" aria-hidden="true">/</span>
-        <a href="#writing-section" class="nav-link" data-nav-link="writing">Writing</a>
-        <span class="nav-separator" aria-hidden="true">/</span>
-        <a href="#moods-section" class="nav-link" data-nav-link="moods">Moods</a>
+        {isPageNav ? (
+          <a href="/" class="nav-link">buxx.me</a>
+        ) : (
+          <>
+            <span class="nav-separator nav-separator--brand" aria-hidden="true">/</span>
+            <a href="#projects-section" class="nav-link" data-nav-link="projects">Projects</a>
+            <span class="nav-separator" aria-hidden="true">/</span>
+            <a href="#writing-section" class="nav-link" data-nav-link="writing">Writing</a>
+            <span class="nav-separator" aria-hidden="true">/</span>
+            <a href="#moods-section" class="nav-link" data-nav-link="moods">Moods</a>
+          </>
+        )}
       </nav>
     )}
 
@@ -351,6 +360,14 @@ const ogImageType = ogImageUrl.endsWith('.png')
           typeof window.matchMedia === 'function'
             ? window.matchMedia('(prefers-color-scheme: dark)')
             : null;
+        const canHover =
+          typeof window.matchMedia === 'function'
+            ? window.matchMedia('(hover: hover) and (pointer: fine)')
+            : null;
+        const compactViewport =
+          typeof window.matchMedia === 'function'
+            ? window.matchMedia('(max-width: 639px)')
+            : null;
 
         const getStoredTheme = () => {
           try {
@@ -421,7 +438,7 @@ const ogImageType = ogImageUrl.endsWith('.png')
         updateIcons(currentSetting);
         updateToggle(currentSetting);
 
-        if (dropdown) {
+        if (dropdown && canHover?.matches && !compactViewport?.matches) {
           dropdown.addEventListener('mouseenter', openDropdown);
           dropdown.addEventListener('mouseleave', closeDropdown);
         }
