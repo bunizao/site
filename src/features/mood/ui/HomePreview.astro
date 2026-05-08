@@ -1,4 +1,11 @@
 ---
+import type { MoodFeedItem } from '@/features/mood/server/contracts';
+
+interface Props {
+  initialPosts?: MoodFeedItem[];
+}
+
+const { initialPosts = [] } = Astro.props;
 const SKELETON_COUNT = 5;
 const skeletonPatterns = [
   { line1: '72%', line2: '0%', lineCount: 1 },
@@ -17,6 +24,7 @@ const placeholders = Array.from({ length: SKELETON_COUNT }, (_, index) => ({
   <span class="section-label scroll-reveal">Moods</span>
 
   <div class="mood-timeline" data-mood-list role="region" aria-busy="true" aria-label="Recent moods">
+    <script type="application/json" data-mood-preview-initial set:html={JSON.stringify(initialPosts.slice(0, SKELETON_COUNT))}></script>
     {placeholders.map(({ index, pattern }) => (
       <div
         class="mood-item mood-item-skeleton"
@@ -548,9 +556,12 @@ const placeholders = Array.from({ length: SKELETON_COUNT }, (_, index) => ({
     let gsap!: (typeof import('gsap'))['default'];
     let ScrollTrigger!: (typeof import('gsap/ScrollTrigger'))['ScrollTrigger'];
     let hasLoaded = false;
+    let initialPreviewLoadedAt = 0;
+    let previewRevalidationTimer = 0;
 
     const MAX_MOODS = 5;
     const ALWAYS_LOADING = import.meta.env.PUBLIC_DEBUG_ALWAYS_LOADING === 'true';
+    const INITIAL_PREVIEW_REVALIDATE_MS = 60_000;
 
     const formatTime = (value: string): string => {
       const date = new Date(value);
@@ -741,6 +752,23 @@ const placeholders = Array.from({ length: SKELETON_COUNT }, (_, index) => ({
           .slice(0, MAX_MOODS);
       } catch (error) {
         debugPretextFallback('cache read failed', error);
+        return [];
+      }
+    };
+
+    const readInitialPreviewPosts = (): MoodData[] => {
+      const source = list?.querySelector('[data-mood-preview-initial]');
+      if (!(source instanceof HTMLScriptElement) || !source.textContent) return [];
+
+      try {
+        const parsed = JSON.parse(source.textContent) as unknown;
+        if (!Array.isArray(parsed)) return [];
+        return parsed
+          .map((post) => sanitizeCachedMood(post))
+          .filter((post): post is MoodPreviewCacheEntry => post !== null)
+          .slice(0, MAX_MOODS) as MoodData[];
+      } catch (error) {
+        debugPretextFallback('initial payload read failed', error);
         return [];
       }
     };
@@ -1017,6 +1045,23 @@ const placeholders = Array.from({ length: SKELETON_COUNT }, (_, index) => ({
       });
     };
 
+    const primeSkeletonsFromInitialPosts = async (): Promise<boolean> => {
+      const initialPosts = readInitialPreviewPosts();
+      if (!initialPosts.length) return false;
+
+      renderedMoodSignature = createMoodSignature(initialPosts);
+      initialPreviewLoadedAt = Date.now();
+      writeCachedPreviewPosts(initialPosts);
+      setVisibleSkeletonCount(initialPosts.length);
+      const reservations = await measureMoodReservations(initialPosts);
+      applyReservationsToSkeletons(reservations);
+      renderMoods(initialPosts, reservations, {
+        animate: true,
+        preserveBusy: true,
+      });
+      return true;
+    };
+
     const applyReservationToCard = (
       card: HTMLElement,
       text: HTMLElement | null,
@@ -1213,6 +1258,17 @@ const placeholders = Array.from({ length: SKELETON_COUNT }, (_, index) => ({
 
     const loadMoods = async (): Promise<void> => {
       if (ALWAYS_LOADING || hasLoaded || !list) return;
+
+      if (initialPreviewLoadedAt > 0) {
+        const age = Date.now() - initialPreviewLoadedAt;
+        if (age < INITIAL_PREVIEW_REVALIDATE_MS) {
+          schedulePreviewRevalidation(INITIAL_PREVIEW_REVALIDATE_MS - age);
+          return;
+        }
+
+        initialPreviewLoadedAt = 0;
+      }
+
       hasLoaded = true;
 
       try {
@@ -1248,6 +1304,14 @@ const placeholders = Array.from({ length: SKELETON_COUNT }, (_, index) => ({
         if (emptyState) emptyState.hidden = true;
         if (errorState) errorState.hidden = false;
       }
+    };
+
+    const schedulePreviewRevalidation = (delay: number): void => {
+      if (previewRevalidationTimer) return;
+      previewRevalidationTimer = window.setTimeout(() => {
+        previewRevalidationTimer = 0;
+        void loadMoods();
+      }, Math.max(1000, delay));
     };
 
     const navigateToMood = (target: HTMLElement | null): void => {
@@ -1320,15 +1384,15 @@ const placeholders = Array.from({ length: SKELETON_COUNT }, (_, index) => ({
       }, '+=0.3');
     };
 
-    await primeSkeletonsFromCache();
-
-    // Dynamic import GSAP only when needed after the cache prepass has had a chance to render.
+    // Dynamic import GSAP before the first animated render path can run.
     [{ default: gsap }, { ScrollTrigger }] = await Promise.all([
       import('gsap'),
       import('gsap/ScrollTrigger')
     ]);
 
     gsap.registerPlugin(ScrollTrigger);
+
+    await primeSkeletonsFromInitialPosts() || await primeSkeletonsFromCache();
     void initMoods();
   };
 

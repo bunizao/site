@@ -1,5 +1,6 @@
 ---
 import Hero from '@/features/mood/ui/Hero.astro';
+import type { MoodFeedItem, MoodChannelSummary } from '@/features/mood/server/contracts';
 
 interface SkeletonItem {
   index: number;
@@ -14,11 +15,21 @@ interface SkeletonGroup {
 
 interface Props {
   skeletonGroups: SkeletonGroup[];
+  initialPosts?: MoodFeedItem[];
+  initialChannel?: MoodChannelSummary;
 }
 
 const {
   skeletonGroups,
+  initialPosts = [],
+  initialChannel,
 } = Astro.props;
+
+const initialFeedPayload = {
+  posts: initialPosts,
+  channel: initialChannel,
+};
+const hasInitialFeedPayload = initialPosts.length > 0 || Boolean(initialChannel);
 ---
 
 <div class="mood-page">
@@ -58,6 +69,9 @@ const {
   </div>
 
   <div class="mood-feed is-hidden" data-mood-feed>
+    {hasInitialFeedPayload && (
+      <script type="application/json" data-mood-initial-feed set:html={JSON.stringify(initialFeedPayload)}></script>
+    )}
     <div class="mood-stream" data-mood-list role="feed" aria-label="Mood feed"></div>
     <div class="mood-load-controls">
       <p class="mood-load-status" data-load-status aria-live="polite"></p>
