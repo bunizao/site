@@ -588,7 +588,8 @@
     position: fixed;
     top: 16px;
     left: 16px;
-    z-index: 50;
+    z-index: 100;
+    isolation: isolate;
     display: flex;
     align-items: center;
     gap: 2px;
@@ -1101,7 +1102,8 @@
     position: fixed;
     top: 16px;
     right: 16px;
-    z-index: 50;
+    z-index: 100;
+    isolation: isolate;
     display: flex;
     align-items: center;
     gap: 6px;
