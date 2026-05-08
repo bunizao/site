@@ -995,19 +995,69 @@ const ogImageType = ogImageUrl.endsWith('.png')
             nav.classList.toggle('is-brand-eaten', !desktopNavQuery.matches && window.scrollY > 18);
           };
 
+          // Spring physics for peek — pointer-follow + idle bob.
+          // Gives it weight and overshoot instead of instant linear tracking.
+          const peekSpring = {
+            x: 0, y: 0, vx: 0, vy: 0, tx: 0, ty: 0,
+            bobY: 0, bobVY: 0, bobTargetY: 0, bobPhase: 0,
+            isHovered: false, rafId: 0, lastTime: 0,
+          };
+          // PS/PD = pointer spring stiffness/damping. BS/BD = bob spring. BA = bob amplitude px.
+          const PS = 220, PD = 14, BS = 28, BD = 5.2, BA = 2.2;
+
+          const tickPeekSpring = (now: number) => {
+            const dt = Math.min((now - peekSpring.lastTime) / 1000, 0.05);
+            peekSpring.rafId = 0;
+            peekSpring.vx += (PS * (peekSpring.tx - peekSpring.x) - PD * peekSpring.vx) * dt;
+            peekSpring.vy += (PS * (peekSpring.ty - peekSpring.y) - PD * peekSpring.vy) * dt;
+            peekSpring.x += peekSpring.vx * dt;
+            peekSpring.y += peekSpring.vy * dt;
+
+            // Idle bob: sinusoidal target (~one cycle per 8.7s), spring-smoothed
+            if (!peekSpring.isHovered) {
+              peekSpring.bobPhase += dt * 0.72;
+              peekSpring.bobTargetY = Math.sin(peekSpring.bobPhase) * BA;
+            } else {
+              peekSpring.bobTargetY = 0;
+            }
+            peekSpring.bobVY += (BS * (peekSpring.bobTargetY - peekSpring.bobY) - BD * peekSpring.bobVY) * dt;
+            peekSpring.bobY += peekSpring.bobVY * dt;
+
+            nav.style.setProperty('--peek-shift-x', `${peekSpring.x.toFixed(3)}px`);
+            nav.style.setProperty('--peek-shift-y', `${(peekSpring.y + peekSpring.bobY).toFixed(3)}px`);
+
+            const stillMoving =
+              Math.abs(peekSpring.tx - peekSpring.x) > 0.01 || Math.abs(peekSpring.vx) > 0.01 ||
+              Math.abs(peekSpring.ty - peekSpring.y) > 0.01 || Math.abs(peekSpring.vy) > 0.01 ||
+              Math.abs(peekSpring.bobTargetY - peekSpring.bobY) > 0.01 || Math.abs(peekSpring.bobVY) > 0.01 ||
+              !peekSpring.isHovered;
+
+            if (stillMoving) {
+              peekSpring.lastTime = now;
+              peekSpring.rafId = requestAnimationFrame(tickPeekSpring);
+            }
+          };
+
+          const startPeekSpring = () => {
+            if (peekSpring.rafId) return;
+            peekSpring.lastTime = performance.now();
+            peekSpring.rafId = requestAnimationFrame(tickPeekSpring);
+          };
+
           const handlePointerMove = (event: PointerEvent) => {
             if (!desktopNavQuery.matches || event.pointerType !== 'mouse') return;
             if (!brand || !brand.matches(':hover')) return;
             const rect = brand.getBoundingClientRect();
-            const dx = ((event.clientX - rect.left) / rect.width - 0.5) * 6;
-            const dy = ((event.clientY - rect.top) / rect.height - 0.5) * 4;
-            nav.style.setProperty('--peek-shift-x', `${dx.toFixed(2)}px`);
-            nav.style.setProperty('--peek-shift-y', `${dy.toFixed(2)}px`);
+            peekSpring.tx = ((event.clientX - rect.left) / rect.width - 0.5) * 10;
+            peekSpring.ty = ((event.clientY - rect.top) / rect.height - 0.5) * 7;
+            startPeekSpring();
           };
 
           const resetPeekShift = () => {
-            nav.style.setProperty('--peek-shift-x', '0px');
-            nav.style.setProperty('--peek-shift-y', '0px');
+            peekSpring.tx = 0;
+            peekSpring.ty = 0;
+            peekSpring.isHovered = false;
+            startPeekSpring();
           };
 
           const handleBrandClick = (event: MouseEvent) => {
@@ -1030,12 +1080,20 @@ const ogImageType = ogImageUrl.endsWith('.png')
             });
             if (isVertical) {
               nav.classList.remove('is-brand-eaten');
+              // Start idle bob when entering desktop vertical mode
+              peekSpring.isHovered = false;
+              startPeekSpring();
             } else {
               syncBrandEaten();
             }
           };
 
           brand?.addEventListener('pointermove', handlePointerMove);
+          brand?.addEventListener('pointerenter', () => {
+            if (!desktopNavQuery.matches) return;
+            peekSpring.isHovered = true;
+            startPeekSpring();
+          });
           brand?.addEventListener('pointerleave', resetPeekShift);
           brand?.addEventListener('click', handleBrandClick);
           brand?.addEventListener('pointerdown', () => {

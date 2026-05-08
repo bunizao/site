@@ -810,9 +810,7 @@
   .site-nav--home .site-brand-logo {
     display: inline-flex;
     transform: translate(var(--peek-shift-x), var(--peek-shift-y));
-    transition: transform 0.18s ease;
     will-change: transform;
-    animation: peek-sidebar-breathe 2.8s steps(2, end) infinite;
   }
 
   .site-nav--home .site-brand-logo svg {
@@ -869,7 +867,7 @@
     margin: 0 0 8px;
     color: hsl(var(--foreground));
     transform: translate(var(--peek-shift-x), var(--peek-shift-y));
-    transition: transform 0.18s ease, opacity 0.16s ease;
+    transition: opacity 0.16s ease;
     z-index: 2;
   }
 
