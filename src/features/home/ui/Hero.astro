@@ -5,6 +5,13 @@ import Listening from '@/features/home/ui/Listening.astro';
 import TechMarquee from '@/features/home/ui/TechMarquee.astro';
 import {Instagram, type LucideIcon} from 'lucide-react';
 import { FileText, Github, Mail, Send } from 'lucide-react';
+import type { ListeningTrack } from '@/features/home/server/listening';
+
+interface Props {
+  listeningTrack?: ListeningTrack;
+}
+
+const { listeningTrack } = Astro.props;
 
 const socials: Array<{
   name: string;
@@ -123,7 +130,7 @@ const techRow2 = ['Frontend', 'BGP', 'Proxy', 'Docker', 'Linux', 'Web3', 'Optimi
     </div>
 
     <div class="hero-animate mt-6 sm:mt-7" data-hero-motion data-hero-listening>
-      <Listening />
+      <Listening track={listeningTrack} />
     </div>
 
     <!-- GitHub Activity -->

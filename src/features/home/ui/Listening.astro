@@ -1,30 +1,50 @@
 ---
 import { Pause, Play } from 'lucide-react';
+import type { ListeningTrack } from '@/features/home/server/listening';
 
+interface Props {
+  track?: ListeningTrack;
+}
+
+const { track } = Astro.props;
 const blankArtwork =
   'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==';
+const title = track?.title?.trim() || 'Loading track';
+const artist = track?.artist?.trim() || 'Fetching';
+const collection = track?.collection?.trim() || 'Last.fm';
+const year = track?.year?.trim() || (track?.playedAt ? new Intl.DateTimeFormat(undefined, {
+  month: 'short',
+  day: 'numeric',
+}).format(new Date(track.playedAt)) : 'Live');
+const link = track?.appleMusicUrl?.trim() || track?.sourceUrl?.trim() || '#';
+const artwork = track?.thumbUrl?.trim() || track?.artworkUrl?.trim() || blankArtwork;
+const previewUrl = track?.previewUrl?.trim() || '';
+const isLive = Boolean(track?.isNowPlaying);
+const hasTrack = Boolean(track);
+const hasLink = hasTrack && link !== '#';
+const hasPreview = Boolean(previewUrl);
 ---
 
   <aside
-    class="listening is-loading is-recent"
+    class:list={['listening', isLive ? 'is-live' : 'is-recent', { 'is-loading': !hasTrack }]}
     data-listening
-    data-now-playing="false"
-    aria-label="Loading listening track"
+    data-now-playing={String(isLive)}
+    aria-label={hasTrack ? (isLive ? 'Now playing' : 'Recently played') : 'Loading listening track'}
   >
     <button
       type="button"
-      class="listening-art is-recent"
+      class:list={['listening-art', isLive ? 'is-live' : 'is-recent']}
       data-listening-play
-      data-preview-url=""
-      data-track-title="Track"
-      disabled
+      data-preview-url={previewUrl}
+      data-track-title={title}
+      disabled={!hasPreview}
       aria-pressed="false"
-      aria-label="Track preview unavailable"
+      aria-label={hasPreview ? `Play preview of ${title}` : `${title} preview unavailable`}
     >
       <span class="listening-art-frame">
         <span class="listening-art-record" aria-hidden="true"></span>
         <img
-          src={blankArtwork}
+          src={artwork}
           alt=""
           class="listening-art-img"
           data-listening-artwork
@@ -80,7 +100,7 @@ const blankArtwork =
       <p class="listening-eyebrow">
         <span class="listening-eyebrow-dot" aria-hidden="true"></span>
         <span class="listening-eyebrow-text" data-listening-status>
-          Now Playing
+          {isLive ? 'Now Playing' : 'Recently Played'}
         </span>
         <span class="listening-eyebrow-wave" aria-hidden="true">
           <span></span>
@@ -91,35 +111,35 @@ const blankArtwork =
       </p>
 
       <a
-        href="#"
+        href={link}
         target="_blank"
         rel="noopener noreferrer"
         class="listening-track is-inline"
         data-listening-link
-        aria-label="Loading listening track"
-        aria-disabled="true"
-        tabindex="-1"
+        aria-label={hasLink ? `Open ${title}` : 'Loading listening track'}
+        aria-disabled={hasLink ? undefined : 'true'}
+        tabindex={hasLink ? undefined : '-1'}
       >
         <span class="listening-title" data-listening-title>
           <span class="listening-title-text" data-listening-title-text>
-            <span data-listening-title-label>Loading track</span>
+            <span data-listening-title-label>{title}</span>
             <span
               class="listening-title-duplicate"
               data-listening-title-duplicate
               aria-hidden="true"
             >
-              Loading track
+              {title}
             </span>
           </span>
         </span>
         <span class="listening-sep" aria-hidden="true">—</span>
-        <span class="listening-artist" data-listening-artist>Fetching</span>
+        <span class="listening-artist" data-listening-artist>{artist}</span>
       </a>
 
       <p class="listening-meta">
-        <span data-listening-collection>Last.fm</span>
+        <span data-listening-collection>{collection}</span>
         <span class="listening-meta-dot" aria-hidden="true"></span>
-        <span data-listening-year>Live</span>
+        <span data-listening-year>{year}</span>
       </p>
     </div>
   </aside>
@@ -1067,7 +1087,7 @@ const blankArtwork =
         }
       };
 
-      void refreshListening();
+      window.setTimeout(refreshListening, 1000);
       window.setInterval(refreshListening, LISTENING_REFRESH_MS);
     });
   };

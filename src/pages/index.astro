@@ -6,18 +6,52 @@ import Projects from '@/features/home/ui/Projects.astro';
 import Posts from '@/features/home/ui/Posts.astro';
 import HomePreview from '@/features/mood/ui/HomePreview.astro';
 import Footer from '@/features/home/ui/Footer.astro';
+import { getCurrentListeningTrack } from '@/features/home/server/listening';
+import { loadMoodChannelSnapshot } from '@/features/mood/server/channel-service';
+import { buildMoodFeedResponse } from '@/features/mood/server/feed-service';
+
+export const prerender = false;
 
 const title = "Bunizao's Website";
 const description = "I make interesting things. Curious about frontend design, proxy systems, and open-source work. Obsessed with speed, optimization, and building things better.";
+
+const loadInitialMoodPreview = async () => {
+  try {
+    const { channelInfo, posts } = await loadMoodChannelSnapshot({
+      request: Astro.request,
+      locals: Astro.locals,
+    });
+    const response = await buildMoodFeedResponse(
+      {
+        request: Astro.request,
+        locals: Astro.locals,
+      },
+      channelInfo,
+      posts.slice(0, 5)
+    );
+    return response.posts;
+  } catch (error) {
+    console.warn('Failed to load initial mood preview:', error);
+    return [];
+  }
+};
+
+const [listeningResult, initialMoodPosts] = await Promise.all([
+  getCurrentListeningTrack(Astro.locals).catch((error) => {
+    console.warn('Failed to load initial listening track:', error);
+    return null;
+  }),
+  loadInitialMoodPreview(),
+]);
 ---
 
 <Layout title={title} description={description}>
   <ParallaxWrapper>
     <main class="page-container">
-      <Hero />
+      <Hero listeningTrack={listeningResult?.track} />
       <Projects />
       <Posts />
-      <HomePreview />
+      <HomePreview initialPosts={initialMoodPosts} />
       <Footer />
     </main>
   </ParallaxWrapper>

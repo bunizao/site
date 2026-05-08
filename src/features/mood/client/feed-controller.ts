@@ -111,6 +111,22 @@ export function initMoodFeedController(): void {
         return flushed;
       };
 
+      const readInitialFeed = (): { posts: MoodData[]; channel?: ChannelInfo } | null => {
+        const source = feedEl.querySelector('[data-mood-initial-feed]');
+        if (!(source instanceof HTMLScriptElement) || !source.textContent) return null;
+
+        try {
+          const parsed = JSON.parse(source.textContent) as { posts?: unknown; channel?: ChannelInfo };
+          return {
+            posts: Array.isArray(parsed.posts) ? parsed.posts as MoodData[] : [],
+            channel: parsed.channel,
+          };
+        } catch (error) {
+          console.error(error);
+          return null;
+        }
+      };
+
       const fetchMoods = async (beforeId?: string): Promise<{ posts: MoodData[]; channel?: ChannelInfo }> => {
         const url = beforeId ? `/api/moods?before=${encodeURIComponent(beforeId)}` : '/api/moods';
         const response = await fetch(url);
@@ -244,8 +260,53 @@ export function initMoodFeedController(): void {
         feedEl.classList.remove('is-hidden');
       };
 
+      const startObserver = (): void => {
+        if (!hasMore || observer) return;
+
+        observer = new IntersectionObserver(
+          (entries) => {
+            entries.forEach((entry) => {
+              if (entry.isIntersecting) {
+                loadMore();
+              }
+            });
+          },
+          {
+            rootMargin: '300px 0px',
+          }
+        );
+
+        observer.observe(sentinel);
+      };
+
       const loadInitial = async (): Promise<void> => {
         try {
+          const initialFeed = readInitialFeed();
+          if (initialFeed) {
+            const posts = Array.isArray(initialFeed.posts) ? initialFeed.posts : [];
+            if (initialFeed.channel) {
+              channelInfo = initialFeed.channel;
+              mediaHydrator.hydrateHero(channelInfo);
+            }
+
+            const ready = stagePostsForRender(posts);
+            if (ready.length) {
+              appendMoods(ready, totalCount);
+            }
+
+            showFeed();
+            updateWatcher.start();
+
+            if (!posts.length) {
+              handleNoMore();
+              setStatus('No moods yet.');
+              return;
+            }
+
+            startObserver();
+            return;
+          }
+
           let ready: MoodData[] = [];
           let beforeId = '';
           let lastBefore = '';
@@ -294,20 +355,7 @@ export function initMoodFeedController(): void {
             return;
           }
 
-          observer = new IntersectionObserver(
-            (entries) => {
-              entries.forEach((entry) => {
-                if (entry.isIntersecting) {
-                  loadMore();
-                }
-              });
-            },
-            {
-              rootMargin: '300px 0px',
-            }
-          );
-
-          observer.observe(sentinel);
+          startObserver();
         } catch (error) {
           console.error(error);
           showError();
