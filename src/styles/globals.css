@@ -863,9 +863,9 @@
 
   .site-nav--home.is-vertical .site-brand {
     display: inline-flex;
-    width: 44px;
-    height: 32px;
-    margin: 0 0 10px;
+    width: 40px;
+    height: 28px;
+    margin: 0 0 8px;
     color: hsl(var(--foreground));
     transform: translate(var(--peek-shift-x), var(--peek-shift-y));
     transition: opacity 0.16s ease;
