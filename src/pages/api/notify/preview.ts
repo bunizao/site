@@ -5,8 +5,6 @@ import {
   buildMoodDigestEmail,
   buildMoodNotificationEmail,
   buildSubscribeConfirmEmail,
-  buildSubscribeWelcomeEmail,
-  buildUnsubscribeNoticeEmail,
 } from '@/features/notify/server/templates';
 import { readPublicEnv } from '@/lib/runtime/env';
 import {
@@ -131,15 +129,6 @@ export const GET: APIRoute = async ({ request, locals }) => {
     siteUrl,
     confirmUrl,
   });
-  const welcomeEmail = buildSubscribeWelcomeEmail({
-    moodUrl: `${siteUrl}/mood`,
-    unsubscribeUrl,
-    deliveryMode: mode,
-  });
-  const cancelEmail = buildUnsubscribeNoticeEmail({
-    siteUrl,
-    subscribeUrl: `${siteUrl}/mood?subscribe=1`,
-  });
 
   const moodEmail = buildMoodNotificationEmail({
     moodUrl,
@@ -225,17 +214,13 @@ export const GET: APIRoute = async ({ request, locals }) => {
       },
       subjects: {
         subscribe: subscribeEmail.subject,
-        welcome: welcomeEmail.subject,
         mood: moodEmail.subject,
         digest: digestEmail.subject,
-        cancel: cancelEmail.subject,
       },
       html: {
         subscribe: subscribeEmail.html,
-        welcome: welcomeEmail.html,
         mood: moodEmail.html,
         digest: digestEmail.html,
-        cancel: cancelEmail.html,
       },
     },
     {

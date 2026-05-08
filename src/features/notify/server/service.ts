@@ -18,8 +18,6 @@ import {
   buildMoodDigestEmail,
   buildMoodNotificationEmail,
   buildSubscribeConfirmEmail,
-  buildSubscribeWelcomeEmail,
-  buildUnsubscribeNoticeEmail,
 } from './templates';
 import type {
   ConfirmResult,
@@ -1048,66 +1046,6 @@ async function sendAdminTelegramMessage(context: NotifyRequestContext, text: str
   }
 }
 
-async function sendWelcomeEmail(
-  context: NotifyRequestContext,
-  input: {
-    email: string;
-    deliveryMode: DeliveryMode;
-  }
-): Promise<void> {
-  const config = getNotifyConfig(context);
-  const siteUrl = getSiteUrl(context);
-  const unsubscribeToken = createNotifyToken(
-    {
-      action: 'unsubscribe',
-      email: input.email,
-      exp: unixNow() + UNSUBSCRIBE_TOKEN_TTL_SECONDS,
-    },
-    config.tokenSecret
-  );
-  const unsubscribeUrl = `${siteUrl}/api/notify/unsubscribe?token=${encodeURIComponent(unsubscribeToken)}`;
-  const email = buildSubscribeWelcomeEmail({
-    moodUrl: `${siteUrl}/mood`,
-    unsubscribeUrl,
-    deliveryMode: input.deliveryMode,
-  });
-
-  await sendEmailWithResend({
-    apiKey: config.resendApiKey,
-    from: getNotifyFromAddress(config),
-    to: input.email,
-    replyTo: config.notifyReplyTo || undefined,
-    subject: email.subject,
-    html: email.html,
-    text: email.text,
-    idempotencyKey: `welcome-${hashEmail(input.email)}-${input.deliveryMode}`,
-    headers: buildListUnsubscribeHeaders(unsubscribeUrl),
-  });
-}
-
-async function sendUnsubscribeNoticeEmail(
-  context: NotifyRequestContext,
-  emailAddress: string
-): Promise<void> {
-  const config = getNotifyConfig(context);
-  const siteUrl = getSiteUrl(context);
-  const email = buildUnsubscribeNoticeEmail({
-    siteUrl,
-    subscribeUrl: `${siteUrl}/mood?subscribe=1`,
-  });
-
-  await sendEmailWithResend({
-    apiKey: config.resendApiKey,
-    from: getNotifyFromAddress(config),
-    to: emailAddress,
-    replyTo: config.notifyReplyTo || undefined,
-    subject: email.subject,
-    html: email.html,
-    text: email.text,
-    idempotencyKey: `unsubscribe-${hashEmail(emailAddress)}`,
-  });
-}
-
 async function notifyAdminEvent(
   context: NotifyRequestContext,
   input: {
@@ -1627,15 +1565,6 @@ export async function confirmMoodSubscription(
     token,
   });
 
-  try {
-    await sendWelcomeEmail(context, {
-      email,
-      deliveryMode,
-    });
-  } catch (error) {
-    console.error('Welcome email send failed:', error);
-  }
-
   await notifyAdminEvent(context, {
     event: 'subscription_confirmed',
     email,
@@ -1693,12 +1622,6 @@ export async function unsubscribeMoodSubscription(
     emailHash,
     token,
   });
-
-  try {
-    await sendUnsubscribeNoticeEmail(context, email);
-  } catch (error) {
-    console.error('Unsubscribe notice email send failed:', error);
-  }
 
   await notifyAdminEvent(context, {
     event: 'unsubscribed',
