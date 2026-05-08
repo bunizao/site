@@ -1,0 +1,53 @@
+---
+import Layout from '@/layouts/Layout.astro';
+import TemplatePreview from '@/features/notify/ui/TemplatePreview';
+
+const title = 'Newsletter Live Preview';
+const description = 'Real-time preview for email notification templates.';
+---
+
+<Layout title={title} description={description} navVariant="page">
+  <main class="mx-auto flex w-full max-w-[1500px] flex-col gap-6 px-4 py-8 md:px-6 md:py-12">
+    <header class="space-y-2">
+      <p class="text-xs uppercase tracking-[0.18em] text-muted-foreground">Dev Preview</p>
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <div class="space-y-2">
+          <h1 class="text-xl font-semibold uppercase tracking-[0.18em]">Newsletter Live Preview</h1>
+          <p class="text-sm text-muted-foreground">
+            Live preview generated from current channel data and real notify templates.
+          </p>
+        </div>
+        <nav class="flex flex-wrap gap-2" aria-label="Preview routes">
+          <a class="preview-link" href="/dev/preview/mascot">Mascot</a>
+          <span class="preview-link preview-link--active" aria-current="page">Newsletter</span>
+        </nav>
+      </div>
+    </header>
+    <TemplatePreview client:load />
+  </main>
+</Layout>
+
+<style>
+  .preview-link {
+    border: 1px solid hsl(var(--border));
+    border-radius: 999px;
+    padding: 0.55rem 0.9rem;
+    font-size: 0.72rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: hsl(var(--muted-foreground));
+    transition: background-color 180ms ease, border-color 180ms ease, color 180ms ease;
+  }
+
+  .preview-link:hover {
+    border-color: hsl(var(--foreground) / 0.22);
+    background: hsl(var(--accent));
+    color: hsl(var(--foreground));
+  }
+
+  .preview-link--active {
+    border-color: hsl(var(--foreground) / 0.16);
+    background: hsl(var(--foreground));
+    color: hsl(var(--background));
+  }
+</style>

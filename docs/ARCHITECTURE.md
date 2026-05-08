@@ -3,6 +3,7 @@
 ## Detailed Implementation Docs
 
 - [Home](./HOME.md)
+- [Mascot](./MASCOT.md)
 - [Mood](./MOOD.md)
 - [Mood Decoupling Plan](./MOOD-DECOUPLING.md)
 - [Shared Layout](./SHARED-LAYOUT.md)
@@ -14,7 +15,9 @@
 
 - **`src/pages/`** — File-based routing. Includes `index.astro` (home), `mood.astro` (feed shell + route bootstrap), `mood/[id].astro` (detail shell + route bootstrap), `mood/embed.astro` (embeddable widget)
 - **`src/pages/api/`** — Server endpoints (moods, comments, SVG generators, oEmbed, notify endpoints, legacy telegram webhook fallback)
+- **`src/pages/dev/preview/`** — Internal development preview surfaces for mascot and newsletter rendering checks
 - **`src/features/`** — Feature-private code. `src/features/home/ui/` contains home-route sections and their private UI helpers. `src/features/mood/` contains mood-specific client controllers, feed renderer/media/update modules, server services, shared helpers, and private Astro UI shells in `ui/`. `src/features/notify/server/` contains notify delivery, subscription, token, email, and D1 persistence logic, while `src/features/notify/ui/` holds notify-private preview UI.
+- **`src/features/logos/`** — Pixel mascot definitions, SVG rendering helpers, and animated logo UI used by the navbar and favicon route
 - **`src/lib/`** — Shared utilities: `github.ts` (GitHub API), `e2e.ts` (shared E2E fixture flag), `utils.ts` (cn/clsx utility), `runtime/env.ts`, `http/*`, `media/responsive-image.ts`, and `security/*`
 - **`src/layouts/`** — `Layout.astro` base layout with meta tags, theme toggle, analytics
 - **`src/styles/`** — `globals.css` with Tailwind directives, CSS variable color system (HSL), JetBrains Mono font

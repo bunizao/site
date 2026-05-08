@@ -13,6 +13,21 @@ test.describe('Preview smoke', () => {
     await page.emulateMedia({ reducedMotion: 'reduce' });
   });
 
+  test('renders the mascot preview route', async ({ page }) => {
+    await page.goto('/dev/preview/mascot');
+
+    await expect(page.getByRole('heading', { name: 'Peek Mascot Preview' })).toBeVisible();
+    await expect(page.getByText('All mascot animations')).toBeVisible();
+    await expect(page.getByText('idle at rest, dart on hover')).toBeVisible();
+  });
+
+  test('renders the newsletter preview route', async ({ page }) => {
+    await page.goto('/dev/preview/newsletter');
+
+    await expect(page.getByRole('heading', { name: 'Newsletter Live Preview' })).toBeVisible();
+    await expect(page.getByText('Subscribe Confirmation')).toBeVisible();
+  });
+
   test('renders the home page shell', async ({ page }) => {
     await page.goto('/');
 
