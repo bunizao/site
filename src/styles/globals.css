@@ -596,7 +596,7 @@
     height: 32px;
   }
 
-  @media (min-width: 640px) {
+  @media (min-width: 900px) {
     .site-nav {
       top: 24px;
       left: 24px;
@@ -605,7 +605,7 @@
     }
   }
 
-  @media (max-width: 639px) {
+  @media (max-width: 899px) {
     .site-nav:not(.site-nav--mobile-visible) {
       display: none;
     }
@@ -755,7 +755,7 @@
     }
   }
 
-  @media (min-width: 640px) {
+  @media (min-width: 900px) {
     .nav-link {
       font-size: 12px;
       padding: 5px 8px;
@@ -773,7 +773,7 @@
     --peek-shift-y: 0px;
   }
 
-  @media (min-width: 640px) {
+  @media (min-width: 900px) {
     .site-nav--home {
       top: 38vh;
       left: max(32px, calc(50vw - 520px));
@@ -863,9 +863,9 @@
 
   .site-nav--home.is-vertical .site-brand {
     display: inline-flex;
-    width: 28px;
-    height: 28px;
-    margin: 0 0 8px;
+    width: 44px;
+    height: 32px;
+    margin: 0 0 10px;
     color: hsl(var(--foreground));
     transform: translate(var(--peek-shift-x), var(--peek-shift-y));
     transition: opacity 0.16s ease;
@@ -957,7 +957,7 @@
     overflow: hidden;
   }
 
-  @media (max-width: 639px) {
+  @media (max-width: 899px) {
     .site-nav--home:not(.site-nav--mobile-visible) {
       display: flex;
     }
@@ -1109,7 +1109,7 @@
     gap: 6px;
   }
 
-  @media (min-width: 640px) {
+  @media (min-width: 900px) {
     .global-header-actions {
       top: 24px;
       right: 24px;
@@ -1117,7 +1117,7 @@
     }
   }
 
-  @media (max-width: 639px) {
+  @media (max-width: 899px) {
     .global-header-actions {
       top: calc(env(safe-area-inset-top, 0px) + 0.3rem);
       right: 1rem;
@@ -1185,7 +1185,7 @@
     flex-shrink: 0;
   }
 
-  @media (min-width: 640px) {
+  @media (min-width: 900px) {
     .header-action-btn {
       height: 34px;
       min-width: 34px;
@@ -1198,7 +1198,7 @@
     }
   }
 
-  @media (max-width: 639px) {
+  @media (max-width: 899px) {
     .header-action-btn {
       min-width: 2.75rem;
       height: 2.75rem;
@@ -1309,7 +1309,7 @@
     flex-shrink: 0;
   }
 
-  @media (min-width: 640px) {
+  @media (min-width: 900px) {
     .theme-icon-container {
       width: 15px;
       height: 15px;
