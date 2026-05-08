@@ -18,6 +18,13 @@ export type AnimatedLogoProps = {
   title?: string;
   loop?: boolean;
   onCycle?: () => void;
+  /**
+   * If set, the component listens for `window` events named
+   *   `peek:<eventChannel>:set`       — payload { animation: string, holdMs?: number }
+   *   `peek:<eventChannel>:revert`    — reverts to the base animation prop
+   * Lets imperative nav code drive the mascot's expression without prop-drilling.
+   */
+  eventChannel?: string;
 };
 
 export function AnimatedLogo(props: AnimatedLogoProps) {
@@ -34,14 +41,60 @@ export function AnimatedLogo(props: AnimatedLogoProps) {
     title,
     loop,
     onCycle,
+    eventChannel,
   } = props;
 
   const def = LOGOS[id];
   const [hover, setHover] = useState(false);
-  const activeKey = hover && hoverAnimation ? hoverAnimation : animation;
+  // Animation override driven by external events (null = use prop).
+  const [override, setOverride] = useState<string | null>(null);
+  const propAnim = animation;
+  const activeKey = override
+    ? override
+    : hover && hoverAnimation
+      ? hoverAnimation
+      : propAnim;
   const anim = def.animations[activeKey] ?? def.animations.idle;
   const effectiveFps = fps ?? anim.fps;
   const accentColor = accent ?? def.accent;
+
+  // Subscribe to external override events when a channel is declared.
+  useEffect(() => {
+    if (!eventChannel || typeof window === 'undefined') return;
+    const setName = `peek:${eventChannel}:set`;
+    const revertName = `peek:${eventChannel}:revert`;
+    let holdTimer: ReturnType<typeof setTimeout> | null = null;
+    const clearHold = () => {
+      if (holdTimer !== null) {
+        clearTimeout(holdTimer);
+        holdTimer = null;
+      }
+    };
+    const onSet = (e: Event) => {
+      const detail = (e as CustomEvent<{ animation: string; holdMs?: number }>).detail;
+      if (!detail || !detail.animation) return;
+      if (!def.animations[detail.animation]) return;
+      clearHold();
+      setOverride(detail.animation);
+      if (typeof detail.holdMs === 'number' && detail.holdMs > 0) {
+        holdTimer = setTimeout(() => {
+          setOverride(null);
+          holdTimer = null;
+        }, detail.holdMs);
+      }
+    };
+    const onRevert = () => {
+      clearHold();
+      setOverride(null);
+    };
+    window.addEventListener(setName, onSet as EventListener);
+    window.addEventListener(revertName, onRevert);
+    return () => {
+      clearHold();
+      window.removeEventListener(setName, onSet as EventListener);
+      window.removeEventListener(revertName, onRevert);
+    };
+  }, [eventChannel, def]);
 
   const reducedMotion = useReducedMotion();
   const shouldLoop = loop ?? anim.loop ?? true;
@@ -51,8 +104,9 @@ export function AnimatedLogo(props: AnimatedLogoProps) {
     setFrameIndex(0);
   }, [activeKey]);
 
-  // When hoverAnimation is set, the brand is static at rest and only ticks on hover.
-  const idleAtRest = !!hoverAnimation && !hover;
+  // When hoverAnimation is set, the brand is static at rest and only ticks on
+  // hover — unless an external override is driving a specific expression.
+  const idleAtRest = !!hoverAnimation && !hover && !override;
   useEffect(() => {
     if (paused || reducedMotion || idleAtRest) return;
     if (anim.frames.length <= 1) return;

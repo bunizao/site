@@ -156,8 +156,9 @@ const ogImageType = ogImageUrl.endsWith('.png')
               id="peek"
               animation="idle"
               hoverAnimation={isHomeNav ? 'dart' : undefined}
-              size={24}
+              size={isHomeNav ? 40 : 24}
               title="peek"
+              eventChannel={isHomeNav ? 'nav' : undefined}
             />
           </span>
           {isHomeNav ? <span class="site-brand-text" data-mobile-brand-text>buxx.me</span> : null}
@@ -367,7 +368,7 @@ const ogImageType = ogImageUrl.endsWith('.png')
             : null;
         const compactViewport =
           typeof window.matchMedia === 'function'
-            ? window.matchMedia('(max-width: 639px)')
+            ? window.matchMedia('(max-width: 899px)')
             : null;
 
         const getStoredTheme = () => {
@@ -664,7 +665,7 @@ const ogImageType = ogImageUrl.endsWith('.png')
         const separators = nav.querySelectorAll('.nav-separator');
         const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
         const isHomeNav = nav.classList.contains('site-nav--home');
-        const desktopNavQuery = window.matchMedia('(min-width: 640px)');
+        const desktopNavQuery = window.matchMedia('(min-width: 900px)');
 
         // ─── 3a. Character wrapping with index injection ─────────────
         interface LinkData {
@@ -1105,6 +1106,91 @@ const ogImageType = ogImageUrl.endsWith('.png')
           window.addEventListener('scroll', syncBrandEaten, { passive: true });
           syncHomeNavMode();
           desktopNavQuery.addEventListener?.('change', syncHomeNavMode);
+
+          // ─── Peek expression triggers ─────────────────────────────────
+          // Dispatches CustomEvents consumed by AnimatedLogo (channel "nav").
+          const dispatchPeek = (
+            kind: 'set' | 'revert',
+            detail?: { animation: string; holdMs?: number },
+          ): void => {
+            window.dispatchEvent(
+              new CustomEvent(`peek:nav:${kind}`, detail ? { detail } : undefined),
+            );
+          };
+
+          // Hover any nav link → curious, revert on leave.
+          nav.querySelectorAll<HTMLElement>('.nav-link').forEach((link) => {
+            link.addEventListener('pointerenter', () => {
+              if (!desktopNavQuery.matches) return;
+              dispatchPeek('set', { animation: 'curious' });
+            });
+            link.addEventListener('pointerleave', () => {
+              if (!desktopNavQuery.matches) return;
+              dispatchPeek('revert');
+            });
+          });
+
+          // Active section change → happy burst (0.6s).
+          let lastActiveSection: string | null = null;
+          const watchActiveSection = (): void => {
+            const active = nav.querySelector<HTMLElement>('.nav-link.is-active');
+            const key = active?.getAttribute('data-section-id') ?? active?.getAttribute('href') ?? null;
+            if (key && key !== lastActiveSection) {
+              if (lastActiveSection !== null) {
+                dispatchPeek('set', { animation: 'happy', holdMs: 600 });
+              }
+              lastActiveSection = key;
+            }
+          };
+          const activeObserver = new MutationObserver(watchActiveSection);
+          activeObserver.observe(nav, {
+            attributes: true,
+            subtree: true,
+            attributeFilter: ['class'],
+          });
+          watchActiveSection();
+
+          // Fast scroll → dart (1s).
+          let lastScrollY = window.scrollY;
+          let lastScrollT = performance.now();
+          let dartUntil = 0;
+          window.addEventListener(
+            'scroll',
+            () => {
+              const now = performance.now();
+              const dt = now - lastScrollT;
+              if (dt < 16) return;
+              const dy = Math.abs(window.scrollY - lastScrollY);
+              const v = dy / dt; // px per ms
+              lastScrollY = window.scrollY;
+              lastScrollT = now;
+              if (v > 0.5 && now > dartUntil) {
+                dartUntil = now + 1000;
+                dispatchPeek('set', { animation: 'dart', holdMs: 1000 });
+              }
+            },
+            { passive: true },
+          );
+
+          // Idle > 10s (no pointer / scroll / key) → sleepy until next activity.
+          let idleTimer: ReturnType<typeof setTimeout> | null = null;
+          let isSleepy = false;
+          const wake = (): void => {
+            if (isSleepy) {
+              isSleepy = false;
+              dispatchPeek('revert');
+            }
+            if (idleTimer !== null) clearTimeout(idleTimer);
+            idleTimer = setTimeout(() => {
+              isSleepy = true;
+              dispatchPeek('set', { animation: 'sleepy' });
+            }, 10000);
+          };
+          ['pointermove', 'pointerdown', 'keydown', 'scroll', 'touchstart'].forEach((ev) => {
+            window.addEventListener(ev, wake, { passive: true });
+          });
+          wake();
+
           return;
         }
 
