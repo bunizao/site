@@ -556,9 +556,12 @@ const placeholders = Array.from({ length: SKELETON_COUNT }, (_, index) => ({
     let gsap!: (typeof import('gsap'))['default'];
     let ScrollTrigger!: (typeof import('gsap/ScrollTrigger'))['ScrollTrigger'];
     let hasLoaded = false;
+    let initialPreviewLoadedAt = 0;
+    let previewRevalidationTimer = 0;
 
     const MAX_MOODS = 5;
     const ALWAYS_LOADING = import.meta.env.PUBLIC_DEBUG_ALWAYS_LOADING === 'true';
+    const INITIAL_PREVIEW_REVALIDATE_MS = 60_000;
 
     const formatTime = (value: string): string => {
       const date = new Date(value);
@@ -1047,6 +1050,7 @@ const placeholders = Array.from({ length: SKELETON_COUNT }, (_, index) => ({
       if (!initialPosts.length) return false;
 
       renderedMoodSignature = createMoodSignature(initialPosts);
+      initialPreviewLoadedAt = Date.now();
       writeCachedPreviewPosts(initialPosts);
       setVisibleSkeletonCount(initialPosts.length);
       const reservations = await measureMoodReservations(initialPosts);
@@ -1254,6 +1258,17 @@ const placeholders = Array.from({ length: SKELETON_COUNT }, (_, index) => ({
 
     const loadMoods = async (): Promise<void> => {
       if (ALWAYS_LOADING || hasLoaded || !list) return;
+
+      if (initialPreviewLoadedAt > 0) {
+        const age = Date.now() - initialPreviewLoadedAt;
+        if (age < INITIAL_PREVIEW_REVALIDATE_MS) {
+          schedulePreviewRevalidation(INITIAL_PREVIEW_REVALIDATE_MS - age);
+          return;
+        }
+
+        initialPreviewLoadedAt = 0;
+      }
+
       hasLoaded = true;
 
       try {
@@ -1289,6 +1304,14 @@ const placeholders = Array.from({ length: SKELETON_COUNT }, (_, index) => ({
         if (emptyState) emptyState.hidden = true;
         if (errorState) errorState.hidden = false;
       }
+    };
+
+    const schedulePreviewRevalidation = (delay: number): void => {
+      if (previewRevalidationTimer) return;
+      previewRevalidationTimer = window.setTimeout(() => {
+        previewRevalidationTimer = 0;
+        void loadMoods();
+      }, Math.max(1000, delay));
     };
 
     const navigateToMood = (target: HTMLElement | null): void => {

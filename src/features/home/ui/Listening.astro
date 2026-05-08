@@ -28,6 +28,7 @@ const hasPreview = Boolean(previewUrl);
   <aside
     class:list={['listening', isLive ? 'is-live' : 'is-recent', { 'is-loading': !hasTrack }]}
     data-listening
+    data-has-initial-track={String(hasTrack)}
     data-now-playing={String(isLive)}
     aria-label={hasTrack ? (isLive ? 'Now playing' : 'Recently played') : 'Loading listening track'}
   >
@@ -882,6 +883,7 @@ const hasPreview = Boolean(previewUrl);
       let audio: HTMLAudioElement | null = null;
       let trackTitle = playButton.dataset.trackTitle ?? 'Track';
       let isLive = root.dataset.nowPlaying === 'true';
+      const hasInitialTrack = root.dataset.hasInitialTrack === 'true';
 
       const refreshArtworkAccent = () => {
         if (!(artwork instanceof HTMLImageElement)) return;
@@ -1087,8 +1089,14 @@ const hasPreview = Boolean(previewUrl);
         }
       };
 
-      window.setTimeout(refreshListening, 1000);
-      window.setInterval(refreshListening, LISTENING_REFRESH_MS);
+      const scheduleListeningRefresh = (delay: number) => {
+        window.setTimeout(async () => {
+          await refreshListening();
+          scheduleListeningRefresh(LISTENING_REFRESH_MS);
+        }, delay);
+      };
+
+      scheduleListeningRefresh(hasInitialTrack ? LISTENING_REFRESH_MS : 1000);
     });
   };
 
