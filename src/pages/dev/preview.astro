@@ -12,253 +12,301 @@ import {
   getPeekSlotKey,
   getPeekTrackingPoseKeys,
 } from '@/features/mascot/peek/catalog';
+import { PEEK_SLOTS } from '@/features/mascot/peek/slots';
 
 export const prerender = false;
 
 const mascot = getPeekBase();
-const animationAssets = getPeekAssets().filter(
-  (asset) => asset.kind === 'motion' || asset.kind === 'pose',
-);
+const allAssets = getPeekAssets();
+const motionAssets = allAssets.filter((asset) => asset.kind === 'motion');
+const poseAssets = allAssets.filter((asset) => asset.kind === 'pose');
+const expressionAssets = allAssets.filter((asset) => asset.kind === 'expression');
+const costumeAssets = allAssets.filter((asset) => asset.kind === 'costume');
 const previewSections = getPeekPreviewSections();
 const runtimeBehaviors = getPeekRuntimeBehaviors();
 const navbarDefaultAnimation = getPeekSlotKey('navbar.brand.default');
 const navbarHoverAnimation = getPeekSlotKey('navbar.brand.hover');
 const previewTrackerDefault = getPeekSlotKey('preview.tracker.default');
 const previewTrackPoses = getPeekTrackingPoseKeys('preview');
+
 const requestedView = Astro.url.searchParams.get('view')?.trim().toLowerCase();
 const activeView = requestedView === 'newsletter' ? 'newsletter' : 'mascot';
-const title = activeView === 'newsletter' ? 'Newsletter Live Preview' : 'Peek Mascot Preview';
+const title = activeView === 'newsletter' ? 'Newsletter Preview' : 'Peek Preview';
 const description = activeView === 'newsletter'
-  ? 'Real-time preview for email notification templates.'
-  : 'Development preview for the peek mascot states, runtime behavior, and added looks.';
+  ? 'Live preview for every notification email template.'
+  : 'Every peek state — motions, poses, expressions, costumes, and live behavior wiring.';
+
+const statRail = activeView === 'newsletter'
+  ? [
+      { label: 'Templates', value: '5' },
+      { label: 'Modes', value: '2' },
+      { label: 'Samples', value: '2' },
+      { label: 'Runtime', value: 'notify' },
+    ]
+  : [
+      { label: 'Motions', value: motionAssets.length },
+      { label: 'Poses', value: poseAssets.length },
+      { label: 'Expressions', value: expressionAssets.length },
+      { label: 'Costumes', value: costumeAssets.length },
+      { label: 'Slots', value: PEEK_SLOTS.length },
+      { label: 'Grid', value: `${mascot.width}×${mascot.height}` },
+    ];
+
+const sectionIndex = (() => {
+  let n = 0;
+  return () => String(n++).padStart(2, '0');
+})();
+
+const runtimeSectionNo = sectionIndex();
+const brandSectionNo = sectionIndex();
+const trackingSectionNo = sectionIndex();
+const librarySections = previewSections.map((section) => ({
+  ...section,
+  number: sectionIndex(),
+}));
 ---
 
 <Layout title={title} description={description} navVariant="page">
-  <main class="mx-auto flex w-full max-w-[1500px] flex-col gap-8 px-4 py-8 md:px-6 md:py-12">
-    <header class="space-y-2">
-      <p class="text-xs uppercase tracking-[0.18em] text-muted-foreground">Dev Preview</p>
-      <div class="flex flex-wrap items-center justify-between gap-3">
-        <div class="space-y-2">
-          <h1 class="text-xl font-semibold uppercase tracking-[0.18em]">{title}</h1>
-          <p class="max-w-3xl text-sm text-muted-foreground">
-            {
-              activeView === 'newsletter'
-                ? 'Live preview generated from current channel data and real notify templates.'
-                : 'Review the shipped navbar behavior, mascot motion library, and added peek looks from the codebase.'
-            }
-          </p>
-        </div>
-        <nav class="flex flex-wrap gap-2" aria-label="Preview routes">
-          <a
-            class:list={[
-              'preview-link',
-              { 'preview-link--active': activeView === 'mascot' },
-            ]}
-            href="/dev/preview?view=mascot"
-            aria-current={activeView === 'mascot' ? 'page' : undefined}
-          >
-            Mascot
-          </a>
-          <a
-            class:list={[
-              'preview-link',
-              { 'preview-link--active': activeView === 'newsletter' },
-            ]}
-            href="/dev/preview?view=newsletter"
-            aria-current={activeView === 'newsletter' ? 'page' : undefined}
-          >
-            Newsletter
-          </a>
-        </nav>
+  <main class="dev-console">
+    <header class="dev-console__head">
+      <div class="dev-console__eyebrow">
+        <span class="dev-console__tag">DEV</span>
+        <span class="dev-console__sep">/</span>
+        <span>Preview Console</span>
+        <span class="dev-console__sep">/</span>
+        <span class="dev-console__view">{activeView}</span>
       </div>
+
+      <div class="dev-console__headline">
+        <h1 class="dev-console__title">{title}</h1>
+        <p class="dev-console__description">{description}</p>
+      </div>
+
+      <nav class="dev-tabs" aria-label="Preview routes">
+        <a
+          class:list={['dev-tab', { 'dev-tab--active': activeView === 'mascot' }]}
+          href="/dev/preview?view=mascot"
+          aria-current={activeView === 'mascot' ? 'page' : undefined}
+        >
+          <span class="dev-tab__index">01</span>
+          <span class="dev-tab__label">Mascot</span>
+        </a>
+        <a
+          class:list={['dev-tab', { 'dev-tab--active': activeView === 'newsletter' }]}
+          href="/dev/preview?view=newsletter"
+          aria-current={activeView === 'newsletter' ? 'page' : undefined}
+        >
+          <span class="dev-tab__index">02</span>
+          <span class="dev-tab__label">Newsletter</span>
+        </a>
+      </nav>
+
+      <dl class="dev-stats">
+        {statRail.map((stat) => (
+          <div class="dev-stat">
+            <dt>{stat.label}</dt>
+            <dd>{stat.value}</dd>
+          </div>
+        ))}
+      </dl>
     </header>
 
     {activeView === 'newsletter' ? (
       <TemplatePreview client:load />
     ) : (
-      <>
-        <section class="preview-hero-grid">
-          <article class="preview-panel preview-panel--hero">
-            <div class="preview-stage preview-stage--hero">
+      <div class="dev-sections">
+        <section class="dev-section" id="runtime-map">
+          <header class="dev-section__head">
+            <span class="dev-section__index">{runtimeSectionNo}</span>
+            <div>
+              <h2 class="dev-section__title">Runtime Map</h2>
+              <p class="dev-section__description">
+                Where each peek state is wired into the live site. Hover the navbar or idle for ten seconds
+                to see these trigger for real.
+              </p>
+            </div>
+          </header>
+          <div class="runtime-grid">
+            {runtimeBehaviors.map((behavior) => (
+              <article class="runtime-card">
+                <span class="runtime-card__slot">{behavior.slotId}</span>
+                <h3 class="runtime-card__label">{behavior.label}</h3>
+                <p class="runtime-card__copy">{behavior.description}</p>
+                <div class="runtime-card__wire">
+                  <span class="runtime-card__arrow" aria-hidden="true">→</span>
+                  <code>{behavior.animation}</code>
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
+
+        <section class="dev-section" id="brand-behavior">
+          <header class="dev-section__head">
+            <span class="dev-section__index">{brandSectionNo}</span>
+            <div>
+              <h2 class="dev-section__title">Brand Behavior</h2>
+              <p class="dev-section__description">
+                The real navbar wiring — idle at rest, dart on hover — next to the base pixel source.
+              </p>
+            </div>
+          </header>
+          <div class="brand-grid">
+            <article class="brand-card">
+              <div class="brand-card__stage">
+                <AnimatedLogo
+                  client:load
+                  id="peek"
+                  animation={navbarDefaultAnimation}
+                  hoverAnimation={navbarHoverAnimation}
+                  size={144}
+                  title="peek navbar behavior"
+                />
+                <span class="brand-card__hint">Hover me</span>
+              </div>
+              <div class="brand-card__body">
+                <span class="brand-card__eyebrow">live behavior</span>
+                <h3 class="brand-card__title">idle at rest, dart on hover</h3>
+                <p class="brand-card__copy">
+                  Same component mounted in the site chrome. The idle loop holds until pointer enter,
+                  then the dart motion triggers and the slot reverts after its hold window.
+                </p>
+                <dl class="brand-card__meta">
+                  <div><dt>Rest</dt><dd><code>{navbarDefaultAnimation}</code></dd></div>
+                  <div><dt>Hover</dt><dd><code>{navbarHoverAnimation}</code></dd></div>
+                </dl>
+              </div>
+            </article>
+
+            <article class="brand-card">
+              <div class="brand-card__stage brand-card__stage--static">
+                <PixelLogo id="peek" size={144} title="peek base grid" />
+              </div>
+              <div class="brand-card__body">
+                <span class="brand-card__eyebrow">mascot source</span>
+                <h3 class="brand-card__title">{mascot.name} · {mascot.tagline}</h3>
+                <p class="brand-card__copy">{mascot.blurb}</p>
+                <dl class="brand-card__meta">
+                  <div><dt>Grid</dt><dd>{mascot.width} × {mascot.height}</dd></div>
+                  <div><dt>Accent</dt><dd>{mascot.accent}</dd></div>
+                  <div><dt>Assets</dt><dd>{allAssets.length}</dd></div>
+                </dl>
+              </div>
+            </article>
+          </div>
+        </section>
+
+        <section class="dev-section" id="tracking">
+          <header class="dev-section__head">
+            <span class="dev-section__index">{trackingSectionNo}</span>
+            <div>
+              <h2 class="dev-section__title">Tracking Stage</h2>
+              <p class="dev-section__description">
+                Pointer-driven pose switcher. Five track buckets snap to horizontal regions;
+                leaving the stage reverts to <code>scan</code>.
+              </p>
+            </div>
+          </header>
+          <article class="tracker-card">
+            <div
+              class="tracker-card__stage"
+              data-peek-tracker
+              data-peek-track-poses={JSON.stringify(previewTrackPoses)}
+              tabindex="0"
+              role="img"
+              aria-label="Interactive tracking pose demo"
+            >
               <AnimatedLogo
                 client:load
                 id="peek"
-                animation={navbarDefaultAnimation}
-                hoverAnimation={navbarHoverAnimation}
-                size={144}
-                title="peek navbar behavior"
+                animation={previewTrackerDefault}
+                eventChannel="preview-track"
+                size={156}
+                title="interactive tracking pose demo"
               />
-            </div>
-            <div class="space-y-3">
-              <div>
-                <p class="preview-eyebrow">Navbar behavior</p>
-                <h2 class="preview-title">idle at rest, dart on hover</h2>
+              <div class="tracker-card__bands" aria-hidden="true">
+                {previewTrackPoses.map((key) => (
+                  <span class="tracker-card__band"><code>{key}</code></span>
+                ))}
               </div>
-              <p class="preview-copy">
-                This is the real brand setup used in the site chrome: `idle` stays still until hover, then `dart`
-                kicks in.
+              <span class="tracker-card__hint">Move across the stage</span>
+            </div>
+            <div class="tracker-card__body">
+              <span class="brand-card__eyebrow">tracking demo</span>
+              <h3 class="brand-card__title">Pointer-driven pose switching</h3>
+              <p class="brand-card__copy">
+                Move across the stage and peek will snap between directional poses. This is the
+                same rig used on the 404 page.
               </p>
-            </div>
-          </article>
-
-          <article class="preview-panel preview-panel--hero">
-            <div class="preview-stage preview-stage--hero preview-stage--static">
-              <PixelLogo id="peek" size={144} title="peek base grid" />
-            </div>
-            <div class="space-y-3">
-              <div>
-                <p class="preview-eyebrow">Mascot source</p>
-                <h2 class="preview-title">{mascot.name} / {mascot.tagline}</h2>
-              </div>
-              <p class="preview-copy">{mascot.blurb}</p>
-              <dl class="preview-meta-grid">
-                <div>
-                  <dt>Grid</dt>
-                  <dd>{mascot.width} × {mascot.height}</dd>
-                </div>
-                <div>
-                  <dt>Accent</dt>
-                  <dd>{mascot.accent}</dd>
-                </div>
-                <div>
-                  <dt>Actions</dt>
-                  <dd>{animationAssets.length}</dd>
-                </div>
+              <dl class="brand-card__meta">
+                <div><dt>Base</dt><dd><code>{previewTrackerDefault}</code></dd></div>
+                <div><dt>Buckets</dt><dd>{previewTrackPoses.length} poses</dd></div>
+                <div><dt>Channel</dt><dd><code>preview-track</code></dd></div>
               </dl>
             </div>
           </article>
         </section>
 
-        {runtimeBehaviors.length > 0 && (
-          <section class="space-y-3">
-            <div class="space-y-1">
-              <p class="preview-eyebrow">Runtime map</p>
-              <h2 class="text-lg font-semibold tracking-[0.08em]">Live behavior wiring</h2>
-            </div>
-            <div class="runtime-grid">
-              {runtimeBehaviors.map((behavior) => (
-                <article class="runtime-card">
-                  <p class="runtime-card__label">{behavior.label}</p>
-                  <p class="runtime-card__animation">{behavior.animation}</p>
-                  <p class="preview-copy">{behavior.description}</p>
-                </article>
-              ))}
-            </div>
-          </section>
-        )}
-
-        {previewSections.map((section) => (
-          <section class="space-y-3" id={`gallery-${section.id}`}>
-            <div class="space-y-1">
-              <p class="preview-eyebrow">Mascot lab</p>
-              <h2 class="text-lg font-semibold tracking-[0.08em]">{section.label}</h2>
-              <p class="preview-copy">{section.description}</p>
-            </div>
-            {section.id === 'tracking' && (
-              <article class="preview-panel preview-panel--tracker">
-                <div
-                  class="preview-stage preview-stage--tracker"
-                  data-peek-tracker
-                  data-peek-track-poses={JSON.stringify(previewTrackPoses)}
-                  tabindex="0"
-                  role="img"
-                  aria-label="Interactive tracking pose demo"
-                >
-                  <AnimatedLogo
-                    client:load
-                    id="peek"
-                    animation={previewTrackerDefault}
-                    eventChannel="preview-track"
-                    size={156}
-                    title="interactive tracking pose demo"
-                  />
-                  <span class="preview-tracker__hint">Move across the stage</span>
-                </div>
-                <div class="space-y-3">
-                  <div>
-                    <p class="preview-eyebrow">Tracking demo</p>
-                    <h3 class="preview-title">Pointer-driven pose switching</h3>
-                  </div>
-                  <p class="preview-copy">
-                    The stage below uses the five `track_*` poses as actual buckets. Move left or right and peek
-                    will snap between them; leave the stage and it falls back to `scan`.
-                  </p>
-                  <dl class="preview-meta-grid">
-                    <div>
-                      <dt>Base</dt>
-                      <dd>{previewTrackerDefault}</dd>
-                    </div>
-                    <div>
-                      <dt>Buckets</dt>
-                      <dd>{previewTrackPoses.length} poses</dd>
-                    </div>
-                    <div>
-                      <dt>Channel</dt>
-                      <dd>preview-track</dd>
-                    </div>
-                  </dl>
-                </div>
-              </article>
-            )}
-            <div class="preview-card-grid">
+        {librarySections.map((section) => (
+          <section class="dev-section" id={`lib-${section.id}`}>
+            <header class="dev-section__head">
+              <span class="dev-section__index">{section.number}</span>
+              <div>
+                <h2 class="dev-section__title">{section.label}</h2>
+                <p class="dev-section__description">{section.description}</p>
+              </div>
+              <span class="dev-section__count">{section.items.length}</span>
+            </header>
+            <div class="library-grid">
               {section.items.map((item) => {
                 const isLook = item.kind === 'expression' || item.kind === 'costume';
                 const lookItem = isLook && item.grid
                   ? { grid: item.grid, label: item.label, palette: item.palette }
                   : null;
+                const kindTag = item.motionKind ?? item.kind;
                 return (
-                  <article class="preview-panel">
-                    <div class:list={['preview-stage', { 'preview-stage--look': isLook }]}>
+                  <article class="library-card" data-kind={kindTag}>
+                    <div class:list={['library-card__stage', { 'library-card__stage--look': isLook }]}>
                       {lookItem ? (
-                        <PeekLook look={lookItem} size={112} title={`peek ${item.label}`} />
+                        <PeekLook look={lookItem} size={108} title={`peek ${item.label}`} />
                       ) : (
                         <AnimatedLogo
                           client:load
                           id="peek"
                           animation={item.key}
                           loop={item.previewLoop ?? item.loop}
-                          size={112}
+                          size={108}
                           title={`peek ${item.key}`}
                         />
                       )}
                     </div>
-                    <div class="space-y-3">
-                      <div class="space-y-2">
-                        <div class="preview-card-head">
-                          <h3 class="preview-title">{item.label}</h3>
-                          <span class={`preview-kind preview-kind--${item.motionKind ?? item.kind}`}>
-                            {item.motionKind ?? item.kind}
-                          </span>
-                        </div>
-                        <p class="preview-copy">{item.summary}</p>
-                        {item.usage && <p class="preview-usage">{item.usage}</p>}
+                    <div class="library-card__body">
+                      <div class="library-card__head">
+                        <h3 class="library-card__title">{item.label}</h3>
+                        <span class="library-card__kind">{kindTag}</span>
                       </div>
-                      <dl class="preview-meta-grid">
-                        <div>
-                          <dt>Key</dt>
-                          <dd>{item.key}</dd>
-                        </div>
-                        <div>
-                          <dt>{isLook ? 'Kind' : 'Frames'}</dt>
-                          <dd>{isLook ? item.kind : (item.frames?.length ?? 1)}</dd>
-                        </div>
-                        <div>
-                          <dt>{isLook ? 'Status' : 'FPS'}</dt>
-                          <dd>{isLook ? item.status : (item.fps ?? '—')}</dd>
-                        </div>
-                      </dl>
-                      <dl class="preview-meta-grid">
-                        <div>
-                          <dt>Loop</dt>
-                          <dd>{item.loop === false ? 'No' : 'Yes'}</dd>
-                        </div>
-                        <div>
-                          <dt>Alias</dt>
-                          <dd>{item.aliasOf ?? '—'}</dd>
-                        </div>
+                      <p class="library-card__copy">{item.summary}</p>
+                      {item.usage && <p class="library-card__usage">{item.usage}</p>}
+                      <dl class="library-card__meta">
+                        <div><dt>Key</dt><dd><code>{item.key}</code></dd></div>
+                        {item.frames && (
+                          <div><dt>Frames</dt><dd>{item.frames.length}</dd></div>
+                        )}
+                        {item.fps !== undefined && (
+                          <div><dt>FPS</dt><dd>{item.fps}</dd></div>
+                        )}
+                        {item.loop !== undefined && !item.frames?.length ? null : (
+                          item.loop !== undefined && (
+                            <div><dt>Loop</dt><dd>{item.loop ? 'yes' : 'once'}</dd></div>
+                          )
+                        )}
                         <div>
                           <dt>Tags</dt>
-                          <dd>{item.tags.join(', ') || '—'}</dd>
+                          <dd>
+                            {item.tags.length ? item.tags.map((tag) => (
+                              <span class="library-card__tag">{tag}</span>
+                            )) : <span class="library-card__tag library-card__tag--empty">none</span>}
+                          </dd>
                         </div>
                       </dl>
                     </div>
@@ -268,7 +316,7 @@ const description = activeView === 'newsletter'
             </div>
           </section>
         ))}
-      </>
+      </div>
     )}
   </main>
 </Layout>
@@ -313,82 +361,570 @@ const description = activeView === 'newsletter'
 </script>
 
 <style>
-  .preview-link {
-    border: 1px solid hsl(var(--border));
-    border-radius: 999px;
-    padding: 0.55rem 0.9rem;
-    font-size: 0.72rem;
-    letter-spacing: 0.16em;
-    text-transform: uppercase;
-    color: hsl(var(--muted-foreground));
-    transition: background-color 180ms ease, border-color 180ms ease, color 180ms ease;
+  .dev-console {
+    width: 100%;
+    max-width: 1440px;
+    margin: 0 auto;
+    padding: 2rem 1.25rem 4rem;
+    display: flex;
+    flex-direction: column;
+    gap: 2.5rem;
   }
 
-  .preview-link:hover {
-    border-color: hsl(var(--foreground) / 0.22);
-    background: hsl(var(--accent));
+  @media (min-width: 768px) {
+    .dev-console {
+      padding: 3rem 2rem 5rem;
+      gap: 3rem;
+    }
+  }
+
+  /* ── Header ─────────────────────────────────────── */
+  .dev-console__head {
+    display: grid;
+    gap: 1.25rem;
+    padding-bottom: 1.5rem;
+    border-bottom: 1px solid hsl(var(--foreground) / 0.08);
+  }
+
+  .dev-console__eyebrow {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.55rem;
+    font-size: 0.68rem;
+    letter-spacing: 0.24em;
+    text-transform: uppercase;
+    color: hsl(var(--muted-foreground));
+  }
+
+  .dev-console__tag {
+    padding: 0.22rem 0.55rem;
+    border: 1px solid hsl(var(--foreground) / 0.18);
+    border-radius: 4px;
+    font-weight: 600;
+    letter-spacing: 0.28em;
     color: hsl(var(--foreground));
   }
 
-  .preview-link--active {
-    border-color: hsl(var(--foreground) / 0.16);
+  .dev-console__sep {
+    opacity: 0.4;
+  }
+
+  .dev-console__view {
+    color: hsl(var(--foreground));
+  }
+
+  .dev-console__headline {
+    display: grid;
+    gap: 0.5rem;
+  }
+
+  .dev-console__title {
+    font-size: clamp(1.6rem, 4vw, 2.4rem);
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    line-height: 1.1;
+  }
+
+  .dev-console__description {
+    max-width: 52ch;
+    font-size: 0.9rem;
+    color: hsl(var(--muted-foreground));
+    line-height: 1.55;
+  }
+
+  /* ── Tabs ──────────────────────────────────────── */
+  .dev-tabs {
+    display: inline-flex;
+    gap: 0;
+    border: 1px solid hsl(var(--foreground) / 0.1);
+    border-radius: 10px;
+    padding: 4px;
+    background: hsl(var(--background));
+    width: fit-content;
+  }
+
+  .dev-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55rem;
+    padding: 0.5rem 0.95rem;
+    border-radius: 6px;
+    font-size: 0.72rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: hsl(var(--muted-foreground));
+    transition: background-color 150ms ease, color 150ms ease;
+    cursor: pointer;
+  }
+
+  .dev-tab:hover {
+    color: hsl(var(--foreground));
+  }
+
+  .dev-tab__index {
+    font-variant-numeric: tabular-nums;
+    opacity: 0.55;
+    font-size: 0.64rem;
+  }
+
+  .dev-tab--active {
     background: hsl(var(--foreground));
     color: hsl(var(--background));
   }
 
-  .preview-hero-grid {
-    display: grid;
-    gap: 1rem;
+  .dev-tab--active .dev-tab__index {
+    opacity: 0.65;
+    color: hsl(var(--background));
   }
 
-  .preview-card-grid {
+  /* ── Stats rail ────────────────────────────────── */
+  .dev-stats {
     display: grid;
-    gap: 1rem;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0;
+    border: 1px solid hsl(var(--foreground) / 0.08);
+    border-radius: 12px;
+    overflow: hidden;
   }
 
-  .runtime-grid {
-    display: grid;
-    gap: 1rem;
+  @media (min-width: 640px) {
+    .dev-stats {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
   }
 
-  .preview-panel {
+  @media (min-width: 960px) {
+    .dev-stats {
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+    }
+  }
+
+  .dev-stat {
+    display: grid;
+    gap: 0.3rem;
+    padding: 0.85rem 1rem;
+    border-right: 1px solid hsl(var(--foreground) / 0.06);
+    border-bottom: 1px solid hsl(var(--foreground) / 0.06);
+  }
+
+  .dev-stat:last-child {
+    border-right: none;
+  }
+
+  .dev-stat dt {
+    font-size: 0.62rem;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: hsl(var(--muted-foreground));
+  }
+
+  .dev-stat dd {
+    font-size: 1rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.005em;
+    color: hsl(var(--foreground));
+  }
+
+  /* ── Sections ──────────────────────────────────── */
+  .dev-sections {
+    display: grid;
+    gap: 2.5rem;
+  }
+
+  .dev-section {
     display: grid;
     gap: 1.25rem;
-    border: 1px solid hsl(var(--border));
-    border-radius: 1.5rem;
-    background:
-      radial-gradient(circle at top, hsl(var(--foreground) / 0.05), transparent 48%),
-      hsl(var(--card));
-    padding: 1.25rem;
+    padding: 0;
+    border: 0;
   }
 
-  .preview-panel--hero {
-    grid-template-columns: minmax(0, 180px) minmax(0, 1fr);
+  .dev-section__head {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: baseline;
+    gap: 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px dashed hsl(var(--foreground) / 0.1);
+  }
+
+  .dev-section__index {
+    display: inline-block;
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.18em;
+    font-variant-numeric: tabular-nums;
+    color: hsl(var(--muted-foreground));
+    padding-top: 0.2rem;
+  }
+
+  .dev-section__title {
+    font-size: 1.1rem;
+    font-weight: 600;
+    letter-spacing: -0.005em;
+  }
+
+  .dev-section__description {
+    margin-top: 0.25rem;
+    max-width: 64ch;
+    font-size: 0.82rem;
+    color: hsl(var(--muted-foreground));
+    line-height: 1.55;
+  }
+
+  .dev-section__description code {
+    font-size: 0.8em;
+    padding: 0.05rem 0.3rem;
+    border-radius: 4px;
+    background: hsl(var(--foreground) / 0.06);
+  }
+
+  .dev-section__count {
+    font-size: 0.64rem;
+    letter-spacing: 0.24em;
+    text-transform: uppercase;
+    color: hsl(var(--muted-foreground));
+    padding: 0.3rem 0.55rem;
+    border: 1px solid hsl(var(--foreground) / 0.1);
+    border-radius: 999px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ── Runtime grid ──────────────────────────────── */
+  .runtime-grid {
+    display: grid;
+    gap: 10px;
+    grid-template-columns: 1fr;
+  }
+
+  @media (min-width: 640px) {
+    .runtime-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+
+  @media (min-width: 1100px) {
+    .runtime-grid {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+  }
+
+  .runtime-card {
+    display: grid;
+    gap: 0.55rem;
+    padding: 0.95rem 1rem 1rem;
+    border: 1px solid hsl(var(--foreground) / 0.08);
+    border-radius: 12px;
+    background: hsl(var(--background));
+    transition: box-shadow 0.2s ease, border-color 0.2s ease;
+  }
+
+  .runtime-card:hover {
+    border-color: hsl(var(--foreground) / 0.14);
+    box-shadow: 0 10px 30px -18px hsl(var(--foreground) / 0.25);
+  }
+
+  .runtime-card__slot {
+    font-size: 0.6rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: hsl(var(--muted-foreground));
+    font-variant-numeric: tabular-nums;
+  }
+
+  .runtime-card__label {
+    font-size: 0.95rem;
+    font-weight: 600;
+    letter-spacing: -0.005em;
+  }
+
+  .runtime-card__copy {
+    font-size: 0.8rem;
+    line-height: 1.55;
+    color: hsl(var(--muted-foreground));
+  }
+
+  .runtime-card__wire {
+    display: inline-flex;
     align-items: center;
+    gap: 0.4rem;
+    margin-top: 0.2rem;
+    font-size: 0.72rem;
+    letter-spacing: 0.06em;
   }
 
-  .preview-panel--tracker {
-    grid-template-columns: minmax(0, 240px) minmax(0, 1fr);
+  .runtime-card__arrow {
+    color: hsl(var(--muted-foreground));
+  }
+
+  .runtime-card__wire code {
+    padding: 0.18rem 0.5rem;
+    border: 1px solid hsl(var(--foreground) / 0.1);
+    border-radius: 4px;
+    background: hsl(var(--foreground) / 0.04);
+    font-weight: 600;
+    letter-spacing: 0.02em;
+  }
+
+  /* ── Brand grid ────────────────────────────────── */
+  .brand-grid {
+    display: grid;
+    gap: 12px;
+    grid-template-columns: 1fr;
+  }
+
+  @media (min-width: 900px) {
+    .brand-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+
+  .brand-card {
+    display: grid;
+    grid-template-columns: minmax(0, 210px) minmax(0, 1fr);
+    gap: 1.25rem;
     align-items: center;
+    padding: 1.1rem;
+    border: 1px solid hsl(var(--foreground) / 0.08);
+    border-radius: 14px;
+    background: hsl(var(--background));
   }
 
-  .preview-stage {
+  @media (max-width: 720px) {
+    .brand-card {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .brand-card__stage {
+    position: relative;
     display: grid;
     place-items: center;
-    min-height: 180px;
-    border: 1px solid hsl(var(--border));
-    border-radius: 1.2rem;
+    min-height: 200px;
+    border: 1px solid hsl(var(--foreground) / 0.06);
+    border-radius: 12px;
     background:
-      linear-gradient(180deg, hsl(var(--background)) 0%, hsl(var(--background) / 0.72) 100%),
-      linear-gradient(135deg, hsl(var(--accent) / 0.5), transparent 65%);
-    box-shadow: inset 0 1px 0 hsl(var(--foreground) / 0.04);
+      radial-gradient(circle, hsl(var(--grid)) 1px, transparent 1px) 0 0 / 16px 16px,
+      hsl(var(--background));
   }
 
-  .preview-stage--hero {
-    min-height: 220px;
+  .brand-card__stage--static {
+    background: hsl(var(--background));
   }
 
-  .preview-stage--look {
+  .brand-card__hint {
+    position: absolute;
+    bottom: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 0.6rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: hsl(var(--muted-foreground));
+    padding: 0.22rem 0.55rem;
+    border: 1px solid hsl(var(--foreground) / 0.08);
+    border-radius: 999px;
+    background: hsl(var(--background));
+  }
+
+  .brand-card__body {
+    display: grid;
+    gap: 0.6rem;
+  }
+
+  .brand-card__eyebrow {
+    font-size: 0.62rem;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: hsl(var(--muted-foreground));
+  }
+
+  .brand-card__title {
+    font-size: 1.02rem;
+    font-weight: 600;
+    letter-spacing: -0.005em;
+    line-height: 1.3;
+  }
+
+  .brand-card__copy {
+    font-size: 0.82rem;
+    line-height: 1.6;
+    color: hsl(var(--muted-foreground));
+  }
+
+  .brand-card__meta {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+    gap: 0.6rem;
+    margin-top: 0.25rem;
+  }
+
+  .brand-card__meta dt {
+    font-size: 0.6rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: hsl(var(--muted-foreground));
+  }
+
+  .brand-card__meta dd {
+    margin-top: 0.2rem;
+    font-size: 0.82rem;
+    font-weight: 500;
+    letter-spacing: -0.005em;
+  }
+
+  .brand-card__meta code,
+  .runtime-card code,
+  .tracker-card code,
+  .library-card__meta code {
+    font-size: 0.8em;
+    padding: 0.08rem 0.38rem;
+    border-radius: 4px;
+    background: hsl(var(--foreground) / 0.05);
+    font-weight: 500;
+  }
+
+  /* ── Tracker ───────────────────────────────────── */
+  .tracker-card {
+    display: grid;
+    grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
+    gap: 1.25rem;
+    align-items: stretch;
+    padding: 1.1rem;
+    border: 1px solid hsl(var(--foreground) / 0.08);
+    border-radius: 14px;
+    background: hsl(var(--background));
+  }
+
+  @media (max-width: 900px) {
+    .tracker-card {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .tracker-card__stage {
+    position: relative;
+    display: grid;
+    place-items: center;
+    min-height: 260px;
+    border: 1px solid hsl(var(--foreground) / 0.06);
+    border-radius: 12px;
+    background:
+      radial-gradient(circle, hsl(var(--grid)) 1px, transparent 1px) 0 0 / 20px 20px,
+      hsl(var(--background));
+    cursor: crosshair;
+    outline: none;
+    overflow: hidden;
+  }
+
+  .tracker-card__stage:focus-visible {
+    border-color: hsl(var(--foreground) / 0.25);
+  }
+
+  .tracker-card__bands {
+    position: absolute;
+    inset: auto 0 0 0;
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    pointer-events: none;
+  }
+
+  .tracker-card__band {
+    display: flex;
+    justify-content: center;
+    padding: 0.35rem 0.3rem;
+    border-right: 1px dashed hsl(var(--foreground) / 0.08);
+    font-size: 0.56rem;
+    letter-spacing: 0.12em;
+    color: hsl(var(--muted-foreground));
+  }
+
+  .tracker-card__band:last-child {
+    border-right: none;
+  }
+
+  .tracker-card__band code {
+    opacity: 0.7;
+    background: transparent;
+    padding: 0;
+  }
+
+  .tracker-card__hint {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    font-size: 0.6rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: hsl(var(--muted-foreground));
+    padding: 0.22rem 0.55rem;
+    border: 1px solid hsl(var(--foreground) / 0.08);
+    border-radius: 999px;
+    background: hsl(var(--background));
+    pointer-events: none;
+  }
+
+  .tracker-card__body {
+    display: grid;
+    gap: 0.6rem;
+    align-content: center;
+  }
+
+  /* ── Library grid ─────────────────────────────── */
+  .library-grid {
+    display: grid;
+    gap: 12px;
+    grid-template-columns: 1fr;
+  }
+
+  @media (min-width: 640px) {
+    .library-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+
+  @media (min-width: 1100px) {
+    .library-grid {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+  }
+
+  @media (min-width: 1360px) {
+    .library-grid {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+  }
+
+  .library-card {
+    display: grid;
+    gap: 0.85rem;
+    padding: 14px;
+    border: 1px solid hsl(var(--foreground) / 0.08);
+    border-radius: 12px;
+    background: hsl(var(--background));
+    transition: box-shadow 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+  }
+
+  .library-card:hover {
+    border-color: hsl(var(--foreground) / 0.14);
+    box-shadow:
+      0 10px 30px -18px hsl(var(--foreground) / 0.25),
+      0 0 0 1px hsl(var(--foreground) / 0.04);
+  }
+
+  .library-card__stage {
+    display: grid;
+    place-items: center;
+    min-height: 160px;
+    border: 1px solid hsl(var(--foreground) / 0.06);
+    border-radius: 10px;
+    background:
+      radial-gradient(circle, hsl(var(--grid)) 1px, transparent 1px) 0 0 / 14px 14px,
+      hsl(var(--background));
+  }
+
+  .library-card__stage--look {
     --peek-look-accent: oklch(0.62 0.13 25);
     --peek-look-red: #d23b2e;
     --peek-look-white: #fafaf7;
@@ -399,7 +935,7 @@ const description = activeView === 'newsletter'
     --peek-look-brown: #7a4a2b;
   }
 
-  :global(.dark) .preview-stage--look {
+  :global(.dark) .library-card__stage--look {
     --peek-look-red: #e85a4f;
     --peek-look-white: #fafaf7;
     --peek-look-gold: #f0c14b;
@@ -409,182 +945,423 @@ const description = activeView === 'newsletter'
     --peek-look-brown: #b48662;
   }
 
-  .preview-stage--tracker {
-    position: relative;
-    min-height: 240px;
-    cursor: ew-resize;
-    outline: none;
-    background:
-      radial-gradient(circle at center, hsl(var(--foreground) / 0.08), transparent 52%),
-      linear-gradient(90deg, hsl(var(--foreground) / 0.05) 0 1px, transparent 1px 20%),
-      linear-gradient(180deg, hsl(var(--background)) 0%, hsl(var(--background) / 0.72) 100%),
-      linear-gradient(135deg, hsl(var(--accent) / 0.5), transparent 65%);
-    background-size: auto, 20% 100%, auto, auto;
+  .library-card__body {
+    display: grid;
+    gap: 0.55rem;
   }
 
-  .preview-stage--tracker:focus-visible {
-    border-color: hsl(var(--foreground) / 0.26);
-    box-shadow: 0 0 0 3px hsl(var(--foreground) / 0.1);
-  }
-
-  .preview-stage--static :global(svg) {
-    width: 144px;
-    height: auto;
-  }
-
-  .preview-tracker__hint {
-    position: absolute;
-    left: 50%;
-    bottom: 1rem;
-    transform: translateX(-50%);
-    border-radius: 999px;
-    background: hsl(var(--background) / 0.82);
-    border: 1px solid hsl(var(--border));
-    padding: 0.3rem 0.65rem;
-    font-size: 0.68rem;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    color: hsl(var(--muted-foreground));
-    white-space: nowrap;
-    pointer-events: none;
-  }
-
-  .preview-eyebrow {
-    font-size: 0.72rem;
-    letter-spacing: 0.18em;
-    text-transform: uppercase;
-    color: hsl(var(--muted-foreground));
-  }
-
-  .preview-title {
-    font-size: 1rem;
-    font-weight: 600;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-  }
-
-  .preview-copy {
-    font-size: 0.92rem;
-    line-height: 1.65;
-    color: hsl(var(--muted-foreground));
-  }
-
-  .preview-usage {
-    font-size: 0.84rem;
-    line-height: 1.55;
-    color: hsl(var(--foreground) / 0.74);
-  }
-
-  .preview-card-head {
+  .library-card__head {
     display: flex;
-    flex-wrap: wrap;
     align-items: center;
     justify-content: space-between;
     gap: 0.6rem;
   }
 
-  .preview-kind {
-    display: inline-flex;
-    align-items: center;
+  .library-card__title {
+    font-size: 0.92rem;
+    font-weight: 600;
+    letter-spacing: -0.005em;
+  }
+
+  .library-card__kind {
+    font-size: 0.58rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: hsl(var(--muted-foreground));
+    padding: 0.2rem 0.5rem;
+    border: 1px solid hsl(var(--foreground) / 0.1);
     border-radius: 999px;
-    border: 1px solid hsl(var(--border));
-    padding: 0.28rem 0.6rem;
-    font-size: 0.65rem;
+  }
+
+  .library-card[data-kind='loop'] .library-card__kind,
+  .library-card[data-kind='pose'] .library-card__kind {
+    color: hsl(var(--foreground));
+    border-color: hsl(var(--foreground) / 0.2);
+  }
+
+  .library-card[data-kind='one-shot'] .library-card__kind,
+  .library-card[data-kind='alias'] .library-card__kind {
+    color: hsl(var(--foreground));
+    border-color: hsl(var(--foreground) / 0.14);
+    background: hsl(var(--foreground) / 0.04);
+  }
+
+  .library-card__copy {
+    font-size: 0.78rem;
+    line-height: 1.55;
+    color: hsl(var(--muted-foreground));
+  }
+
+  .library-card__usage {
+    font-size: 0.72rem;
+    line-height: 1.5;
+    padding: 0.45rem 0.6rem;
+    border-left: 2px solid hsl(var(--foreground) / 0.15);
+    color: hsl(var(--foreground) / 0.78);
+    background: hsl(var(--foreground) / 0.025);
+    border-radius: 0 6px 6px 0;
+  }
+
+  .library-card__meta {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(82px, 1fr));
+    gap: 0.5rem;
+    margin-top: 0.1rem;
+  }
+
+  .library-card__meta dt {
+    font-size: 0.56rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: hsl(var(--muted-foreground));
+  }
+
+  .library-card__meta dd {
+    margin-top: 0.2rem;
+    font-size: 0.74rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .library-card__tag {
+    font-size: 0.62rem;
+    letter-spacing: 0.06em;
+    padding: 0.12rem 0.45rem;
+    border-radius: 999px;
+    background: hsl(var(--foreground) / 0.05);
+    color: hsl(var(--foreground) / 0.8);
+  }
+
+  .library-card__tag--empty {
+    opacity: 0.5;
+  }
+</style>
+
+<style is:global>
+  /* ── Newsletter preview ─────────────────────────── */
+  .notify-preview {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+
+  .notify-control-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 1rem 1.25rem;
+    padding: 1rem 1.1rem;
+    border: 1px solid hsl(var(--foreground) / 0.08);
+    border-radius: 14px;
+    background: hsl(var(--background));
+  }
+
+  .notify-control-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+  }
+
+  .notify-control-label {
+    font-size: 0.6rem;
+    letter-spacing: 0.24em;
+    text-transform: uppercase;
+    color: hsl(var(--muted-foreground));
+  }
+
+  .notify-segment {
+    display: inline-flex;
+    gap: 0;
+    padding: 3px;
+    border: 1px solid hsl(var(--foreground) / 0.1);
+    border-radius: 8px;
+    background: hsl(var(--background));
+  }
+
+  .notify-segment__btn {
+    appearance: none;
+    background: transparent;
+    border: 0;
+    padding: 0.45rem 0.85rem;
+    font-size: 0.72rem;
     letter-spacing: 0.14em;
     text-transform: uppercase;
     color: hsl(var(--muted-foreground));
-    background: hsl(var(--background) / 0.75);
+    border-radius: 6px;
+    cursor: pointer;
+    font-family: inherit;
+    transition: background-color 140ms ease, color 140ms ease;
   }
 
-  .preview-kind--alias {
+  .notify-segment__btn:hover {
     color: hsl(var(--foreground));
   }
 
-  .preview-kind--one-shot {
-    color: hsl(var(--foreground));
+  .notify-segment__btn--active {
+    background: hsl(var(--foreground));
+    color: hsl(var(--background));
   }
 
-  .preview-kind--look {
-    color: hsl(var(--foreground));
-  }
-
-  .runtime-card {
-    display: grid;
-    gap: 0.45rem;
-    border: 1px solid hsl(var(--border));
-    border-radius: 1rem;
-    background: hsl(var(--card));
-    padding: 1rem 1.1rem;
-  }
-
-  .runtime-card__label {
-    font-size: 0.68rem;
-    letter-spacing: 0.16em;
+  .notify-refresh {
+    margin-left: auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55rem;
+    padding: 0.5rem 0.9rem;
+    border: 1px solid hsl(var(--foreground) / 0.12);
+    border-radius: 8px;
+    font-size: 0.72rem;
+    letter-spacing: 0.18em;
     text-transform: uppercase;
-    color: hsl(var(--muted-foreground));
+    color: hsl(var(--foreground));
+    background: hsl(var(--background));
+    cursor: pointer;
+    font-family: inherit;
+    transition: background-color 140ms ease, border-color 140ms ease;
   }
 
-  .runtime-card__animation {
-    font-size: 1rem;
-    font-weight: 600;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
+  .notify-refresh:hover {
+    background: hsl(var(--foreground) / 0.05);
+    border-color: hsl(var(--foreground) / 0.22);
   }
 
-  .preview-meta-grid {
+  .notify-refresh__dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 999px;
+    background: hsl(142 70% 45%);
+    box-shadow: 0 0 0 3px hsl(142 70% 45% / 0.18);
+  }
+
+  .notify-refresh__dot[data-loading='true'] {
+    background: hsl(var(--foreground));
+    box-shadow: 0 0 0 3px hsl(var(--foreground) / 0.18);
+    animation: notify-pulse 900ms ease-in-out infinite;
+  }
+
+  @keyframes notify-pulse {
+    0%, 100% { opacity: 0.55; transform: scale(0.9); }
+    50% { opacity: 1; transform: scale(1.1); }
+  }
+
+  .notify-meta {
     display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 0 1.25rem;
+    padding: 0.85rem 1.1rem;
+    border: 1px solid hsl(var(--foreground) / 0.06);
+    border-radius: 12px;
+    background: hsl(var(--foreground) / 0.02);
+  }
+
+  .notify-meta__row {
+    display: flex;
+    justify-content: space-between;
     gap: 0.75rem;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    padding: 0.35rem 0;
+    border-bottom: 1px dashed hsl(var(--foreground) / 0.08);
+    font-size: 0.72rem;
   }
 
-  .preview-meta-grid dt {
-    font-size: 0.68rem;
-    letter-spacing: 0.16em;
+  .notify-meta__row:last-child { border-bottom: 0; }
+  .notify-meta__row:nth-last-child(-n+2) { border-bottom: 0; }
+
+  @media (max-width: 640px) {
+    .notify-meta__row { border-bottom: 1px dashed hsl(var(--foreground) / 0.08); }
+    .notify-meta__row:last-child { border-bottom: 0; }
+  }
+
+  .notify-meta__row dt {
+    font-size: 0.6rem;
+    letter-spacing: 0.22em;
     text-transform: uppercase;
     color: hsl(var(--muted-foreground));
   }
 
-  .preview-meta-grid dd {
-    margin-top: 0.3rem;
-    font-size: 0.88rem;
-    word-break: break-word;
+  .notify-meta__row dd {
+    font-variant-numeric: tabular-nums;
+    color: hsl(var(--foreground));
+    text-align: right;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 60%;
+  }
+
+  .notify-error {
+    padding: 0.75rem 1rem;
+    border: 1px solid hsl(0 70% 55% / 0.3);
+    border-radius: 10px;
+    background: hsl(0 70% 55% / 0.08);
+    color: hsl(0 80% 40%);
+    font-size: 0.78rem;
+    letter-spacing: 0.04em;
+  }
+
+  :global(.dark) .notify-error { color: hsl(0 70% 75%); }
+
+  .notify-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1rem;
   }
 
   @media (min-width: 900px) {
-    .preview-hero-grid {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-
-    .runtime-grid {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-
-    .preview-card-grid {
+    .notify-grid {
       grid-template-columns: repeat(2, minmax(0, 1fr));
     }
   }
 
-  @media (min-width: 1320px) {
-    .runtime-grid {
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-    }
-
-    .preview-card-grid {
+  @media (min-width: 1400px) {
+    .notify-grid {
       grid-template-columns: repeat(3, minmax(0, 1fr));
     }
   }
 
-  @media (max-width: 720px) {
-    .preview-panel--hero {
-      grid-template-columns: minmax(0, 1fr);
-    }
+  .notify-grid--focused {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
 
-    .preview-panel--tracker {
-      grid-template-columns: minmax(0, 1fr);
-    }
+  .notify-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.7rem;
+    padding: 0.95rem 1rem;
+    border: 1px solid hsl(var(--foreground) / 0.08);
+    border-radius: 14px;
+    background: hsl(var(--background));
+    transition: border-color 160ms ease, box-shadow 160ms ease;
+  }
 
-    .preview-meta-grid {
-      grid-template-columns: 1fr;
-    }
+  .notify-card--hidden {
+    display: none;
+  }
+
+  .notify-card--active {
+    border-color: hsl(var(--foreground) / 0.2);
+    box-shadow: 0 12px 36px -20px hsl(var(--foreground) / 0.25);
+  }
+
+  .notify-card__head {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    padding-bottom: 0.35rem;
+    border-bottom: 1px solid hsl(var(--foreground) / 0.06);
+  }
+
+  .notify-card__index {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.68rem;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.12em;
+    color: hsl(var(--muted-foreground));
+    padding: 0.15rem 0.45rem;
+    border: 1px solid hsl(var(--foreground) / 0.1);
+    border-radius: 4px;
+  }
+
+  .notify-card__title {
+    font-size: 0.9rem;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    color: hsl(var(--foreground));
+    flex: 0 1 auto;
+  }
+
+  .notify-card__intent {
+    font-size: 0.6rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: hsl(var(--muted-foreground));
+  }
+
+  .notify-card__focus {
+    margin-left: auto;
+    appearance: none;
+    background: transparent;
+    border: 1px solid hsl(var(--foreground) / 0.12);
+    color: hsl(var(--muted-foreground));
+    font-family: inherit;
+    font-size: 0.62rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    padding: 0.35rem 0.7rem;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: color 140ms ease, border-color 140ms ease, background-color 140ms ease;
+  }
+
+  .notify-card__focus:hover {
+    color: hsl(var(--foreground));
+    border-color: hsl(var(--foreground) / 0.24);
+  }
+
+  .notify-card--active .notify-card__focus {
+    background: hsl(var(--foreground));
+    color: hsl(var(--background));
+    border-color: hsl(var(--foreground));
+  }
+
+  .notify-card__subject {
+    display: flex;
+    gap: 0.55rem;
+    align-items: baseline;
+    margin: 0;
+    font-size: 0.75rem;
+    color: hsl(var(--muted-foreground));
+    line-height: 1.4;
+    min-height: 1.4em;
+  }
+
+  .notify-card__subject-tag {
+    font-size: 0.55rem;
+    letter-spacing: 0.24em;
+    text-transform: uppercase;
+    color: hsl(var(--muted-foreground));
+    opacity: 0.75;
+    flex-shrink: 0;
+  }
+
+  .notify-card__subject-value {
+    color: hsl(var(--foreground));
+    font-weight: 500;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .notify-card__frame {
+    position: relative;
+    border: 1px solid hsl(var(--foreground) / 0.08);
+    border-radius: 10px;
+    overflow: hidden;
+    background: #ffffff;
+    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.02);
+  }
+
+  .notify-card__iframe {
+    display: block;
+    width: 100%;
+    height: 560px;
+    border: 0;
+    background: #ffffff;
+  }
+
+  .notify-card--active .notify-card__iframe {
+    height: 820px;
+  }
+
+  .notify-card__empty {
+    display: grid;
+    place-items: center;
+    height: 240px;
+    font-size: 0.78rem;
+    color: hsl(0 0% 40%);
+    letter-spacing: 0.06em;
   }
 </style>
