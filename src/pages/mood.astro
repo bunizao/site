@@ -37,10 +37,13 @@ const skeletonGroups = [
 ];
 ---
 
-<Layout title={title} description={description} rss={rss} oembed={oembed} navVariant="mood" navTitle="Moods">
+<Layout title={title} description={description} rss={rss} oembed={oembed}>
   <!-- Inject page-specific header actions -->
   <script is:inline define:vars={{ telegramUrl, turnstileSiteKey }}>
     (() => {
+      const siteNav = document.querySelector('[data-site-nav]');
+      if (siteNav) siteNav.style.display = 'none';
+
       const headerActions = document.querySelector('[data-header-actions]');
       if (!headerActions) return;
 
