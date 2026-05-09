@@ -1221,9 +1221,10 @@
   }
 
   @media (max-width: 899px) {
-    .header-action-btn {
+    .global-header-actions--home .header-action-btn[data-theme-toggle] {
       min-width: 2.75rem;
       height: 2.75rem;
+      padding: 0;
       border-radius: 999px;
       background: transparent;
       border-color: transparent;
@@ -1232,13 +1233,17 @@
       -webkit-backdrop-filter: none;
     }
 
-    .header-action-btn:hover {
+    .global-header-actions--home .header-action-btn[data-theme-toggle]:hover {
       background: rgb(17 17 17 / 0.06);
       border-color: transparent;
     }
 
-    .dark .header-action-btn:hover {
+    .dark .global-header-actions--home .header-action-btn[data-theme-toggle]:hover {
       background: rgb(255 255 255 / 0.08);
+    }
+
+    .global-header-actions--home .header-action-btn[data-theme-toggle] .theme-icon-container {
+      margin-inline: auto;
     }
   }
 

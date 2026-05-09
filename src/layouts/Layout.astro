@@ -193,7 +193,15 @@ const navbarIdleTimeoutAnimation = getPeekSlotKey('navbar.idle-timeout');
     )}
 
     <!-- Global header actions - theme dropdown will be added by pages -->
-    <div class="global-header-actions" data-header-actions>
+    <div
+      class:list={[
+        'global-header-actions',
+        {
+          'global-header-actions--home': isHomeNav,
+        },
+      ]}
+      data-header-actions
+    >
       <div class="theme-dropdown" data-theme-dropdown>
         <button class="header-action-btn" type="button" data-theme-toggle aria-label="Switch theme" aria-haspopup="true" aria-expanded="false">
           <span class="theme-icon-container">
