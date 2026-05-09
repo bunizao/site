@@ -18,9 +18,9 @@ test.describe('Preview smoke', () => {
 
     await expect(page.getByRole('heading', { name: 'Peek Mascot Preview' })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Live behavior wiring' })).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'Vendored Peek Lab' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Added Expressions' })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Tracking Poses' })).toBeVisible();
-    await expect(page.locator('iframe[title="Peek Lab preview"]')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'confused' })).toBeVisible();
     await expect(page.getByText('idle at rest, dart on hover')).toBeVisible();
   });
 

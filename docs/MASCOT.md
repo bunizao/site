@@ -6,13 +6,15 @@ The preview/gallery surface lives at `/dev/preview` when local dev is running.
 ## Files
 
 - `src/features/logos/data/peek.ts` — pixel grid, accent color, grouped gallery metadata, runtime behavior map, and every motion state
+- `src/features/logos/data/peek-looks.ts` — imported extra `peek` expressions and costumes from mascot lab
 - `src/features/logos/data/types.ts` — mascot data model
 - `src/features/logos/lib/svg.ts` — grid-to-SVG renderer and logo registry
 - `src/features/logos/ui/PixelLogo.astro` — static SVG embedding for Astro templates
+- `src/features/logos/ui/PeekLook.astro` — palette-aware renderer for added `peek` looks
 - `src/features/logos/ui/AnimatedLogo.tsx` — frame-based client animation renderer
 - `src/pages/logo/[id].svg.ts` — public SVG route used by favicon and image consumers
 - `src/pages/dev/preview.astro` — shared developer preview surface for mascot and newsletter states
-- `public/dev/mascot-lab/*` — vendored `peek` lab assets derived from the design system export
+- `public/dev/mascot-lab/*` — vendored reference assets from the design system export
 
 ## Current usage
 
@@ -40,7 +42,7 @@ The preview/gallery surface lives at `/dev/preview` when local dev is running.
 
 ## Preview routes
 
-- `/dev/preview` — mascot motion preview, tracking demo, and the vendored `peek` lab
+- `/dev/preview` — mascot motion preview, tracking demo, and native cards for added `peek` looks
 - `/dev/preview?view=newsletter` — notify email preview surface
 
 Keep new mascot work inside the existing grid-and-frame model unless there is a real reason to change the renderer. A mascot does not need a framework inside the framework.

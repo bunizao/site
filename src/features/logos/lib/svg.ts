@@ -21,6 +21,10 @@ export type RenderOptions = {
   style?: string;           // inline SVG stylesheet
 };
 
+export type PaletteRenderOptions = RenderOptions & {
+  extraPalette?: Record<number, string>;
+};
+
 // Render a grid as an SVG string. Cells with value 1 → fg; 3 → accent; 0/2 → empty.
 // Eyes (2) are intentionally transparent so the page background shows through.
 export function gridToSvg(
@@ -56,6 +60,64 @@ export function gridToSvg(
           `<rect x="${x + pad}" y="${y + pad}" width="1" height="1"${r ? ` rx="${r}" ry="${r}"` : ''} fill="${fill}"/>`,
         );
       }
+    }
+  }
+
+  const sizeAttr = size ? ` width="${size}" height="${(size * h) / w}"` : '';
+  const classAttr = className ? ` class="${className}"` : '';
+  const a11y = title
+    ? ` role="img" aria-label="${escapeAttr(title)}"`
+    : ' aria-hidden="true"';
+  const bgRect = bg !== 'transparent' ? `<rect width="${w}" height="${h}" fill="${bg}"/>` : '';
+
+  return (
+    `<svg xmlns="http://www.w3.org/2000/svg"${sizeAttr}${classAttr}${a11y} viewBox="0 0 ${w} ${h}" shape-rendering="crispEdges">` +
+    (title ? `<title>${escapeText(title)}</title>` : '') +
+    (style ? `<style>${style}</style>` : '') +
+    bgRect +
+    cells.join('') +
+    `</svg>`
+  );
+}
+
+export function paletteGridToSvg(
+  grid: Grid,
+  width: number,
+  height: number,
+  opts: PaletteRenderOptions = {},
+): string {
+  const {
+    size,
+    fg = 'currentColor',
+    accent,
+    bg = 'transparent',
+    pad = 0,
+    rounded = false,
+    className,
+    title,
+    style,
+    extraPalette = {},
+  } = opts;
+
+  const w = width + pad * 2;
+  const h = height + pad * 2;
+  const r = rounded ? 0.06 : 0;
+
+  const cells: string[] = [];
+  for (let y = 0; y < height; y++) {
+    const row = grid[y];
+    for (let x = 0; x < width; x++) {
+      const v = row[x];
+      if (!v || v === 2) continue;
+      const fill = v === 1
+        ? fg
+        : v === 3
+          ? accent ?? 'var(--logo-accent, currentColor)'
+          : extraPalette[v];
+      if (!fill) continue;
+      cells.push(
+        `<rect x="${x + pad}" y="${y + pad}" width="1" height="1"${r ? ` rx="${r}" ry="${r}"` : ''} fill="${fill}"/>`,
+      );
     }
   }
 

@@ -1,0 +1,31 @@
+---
+import { paletteGridToSvg } from '@/features/logos/lib/svg';
+import type { PeekLookDefinition } from '@/features/logos/data/types';
+
+export interface Props {
+  look: PeekLookDefinition;
+  size?: number;
+  title?: string;
+}
+
+const { look, size = 112, title } = Astro.props;
+const grid = look.grid;
+const width = grid[0]?.length ?? 0;
+const height = grid.length;
+const svg = paletteGridToSvg(grid, width, height, {
+  size,
+  fg: 'currentColor',
+  accent: 'var(--peek-look-accent)',
+  title: title ?? look.label,
+  extraPalette: {
+    4: 'var(--peek-look-red)',
+    5: 'var(--peek-look-white)',
+    6: 'var(--peek-look-gold)',
+    7: 'var(--peek-look-green)',
+    8: 'var(--peek-look-ink)',
+    9: 'var(--peek-look-purple)',
+    10: 'var(--peek-look-brown)',
+  },
+});
+---
+<Fragment set:html={svg} />

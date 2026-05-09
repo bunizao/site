@@ -1,7 +1,16 @@
 // Pixel logo data model.
 // 0 = empty · 1 = body (foreground) · 2 = eye-hole (transparent through body) · 3 = accent
-export type Cell = 0 | 1 | 2 | 3;
+export type Cell = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10;
 export type Grid = ReadonlyArray<ReadonlyArray<Cell>>;
+
+export type PeekLookKind = 'expression' | 'costume';
+
+export type PeekLookDefinition = {
+  kind: PeekLookKind;
+  label: string;
+  blurb: string;
+  grid: Grid;
+};
 
 export type Animation = {
   name: string;

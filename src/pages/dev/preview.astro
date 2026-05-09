@@ -1,9 +1,11 @@
 ---
 import Layout from '@/layouts/Layout.astro';
 import PixelLogo from '@/features/logos/ui/PixelLogo.astro';
+import PeekLook from '@/features/logos/ui/PeekLook.astro';
 import { getLogo } from '@/features/logos/lib/svg';
 import { AnimatedLogo } from '@/features/logos/ui/AnimatedLogo';
 import TemplatePreview from '@/features/notify/ui/TemplatePreview';
+import { PEEK_COSTUME_LOOKS, PEEK_EXPRESSION_LOOKS } from '@/features/logos/data/peek-looks';
 
 export const prerender = false;
 
@@ -21,12 +23,10 @@ const gallerySections = mascot.gallery ?? [
 const runtimeBehaviors = mascot.runtimeBehaviors ?? [];
 const requestedView = Astro.url.searchParams.get('view')?.trim().toLowerCase();
 const activeView = requestedView === 'newsletter' ? 'newsletter' : 'mascot';
-const mascotLabSrc = '/dev/mascot-lab/peek.html';
-
 const title = activeView === 'newsletter' ? 'Newsletter Live Preview' : 'Peek Mascot Preview';
 const description = activeView === 'newsletter'
   ? 'Real-time preview for email notification templates.'
-  : 'Development preview for the peek mascot states, runtime behavior, and lookbook.';
+  : 'Development preview for the peek mascot states, runtime behavior, and added looks.';
 ---
 
 <Layout title={title} description={description} navVariant="page">
@@ -40,7 +40,7 @@ const description = activeView === 'newsletter'
             {
               activeView === 'newsletter'
                 ? 'Live preview generated from current channel data and real notify templates.'
-                : 'Review the shipped navbar behavior, mascot motion library, and vendored lookbook from the codebase.'
+                : 'Review the shipped navbar behavior, mascot motion library, and added peek looks from the codebase.'
             }
           </p>
         </div>
@@ -145,25 +145,59 @@ const description = activeView === 'newsletter'
 
         <section class="space-y-3">
           <div class="space-y-1">
-            <p class="preview-eyebrow">Lookbook</p>
-            <h2 class="text-lg font-semibold tracking-[0.08em]">Vendored Peek Lab</h2>
+            <p class="preview-eyebrow">Added looks</p>
+            <h2 class="text-lg font-semibold tracking-[0.08em]">Added Expressions</h2>
             <p class="preview-copy">
-              This keeps only the `peek` design work from the design export: motion references, added expressions,
-              costumes, and in-situ compositions. The rest of mascot lab is not surfaced here.
+              These are the extra `peek` expressions pulled in from mascot lab and normalized into the same native
+              preview card system as the core motions.
             </p>
           </div>
-          <div class="preview-frame-wrap">
-            <iframe
-              title="Peek Lab preview"
-              src={mascotLabSrc}
-              class="preview-frame"
-              loading="lazy"
-              data-design-system-preview
-            />
+          <div class="preview-card-grid">
+            {PEEK_EXPRESSION_LOOKS.map((look) => (
+              <article class="preview-panel">
+                <div class="preview-stage preview-stage--look">
+                  <PeekLook look={look} size={112} title={`peek ${look.label}`} />
+                </div>
+                <div class="space-y-3">
+                  <div class="space-y-2">
+                    <div class="preview-card-head">
+                      <h3 class="preview-title">{look.label}</h3>
+                      <span class="preview-kind preview-kind--look">expression</span>
+                    </div>
+                    <p class="preview-copy">{look.blurb}</p>
+                  </div>
+                </div>
+              </article>
+            ))}
           </div>
-          <a class="preview-link preview-link--source" href={mascotLabSrc} target="_blank" rel="noreferrer">
-            Open Peek Lab
-          </a>
+        </section>
+
+        <section class="space-y-3">
+          <div class="space-y-1">
+            <p class="preview-eyebrow">Added looks</p>
+            <h2 class="text-lg font-semibold tracking-[0.08em]">Added Costumes</h2>
+            <p class="preview-copy">
+              The same imported `peek` design set also brings themed costume variants into the codebase preview.
+            </p>
+          </div>
+          <div class="preview-card-grid">
+            {PEEK_COSTUME_LOOKS.map((look) => (
+              <article class="preview-panel">
+                <div class="preview-stage preview-stage--look">
+                  <PeekLook look={look} size={112} title={`peek ${look.label}`} />
+                </div>
+                <div class="space-y-3">
+                  <div class="space-y-2">
+                    <div class="preview-card-head">
+                      <h3 class="preview-title">{look.label}</h3>
+                      <span class="preview-kind preview-kind--look">costume</span>
+                    </div>
+                    <p class="preview-copy">{look.blurb}</p>
+                  </div>
+                </div>
+              </article>
+            ))}
+          </div>
         </section>
 
         {gallerySections.map((section) => (
@@ -346,11 +380,6 @@ const description = activeView === 'newsletter'
     color: hsl(var(--background));
   }
 
-  .preview-link--source {
-    width: fit-content;
-    background: transparent;
-  }
-
   .preview-hero-grid {
     display: grid;
     gap: 1rem;
@@ -364,22 +393,6 @@ const description = activeView === 'newsletter'
   .runtime-grid {
     display: grid;
     gap: 1rem;
-  }
-
-  .preview-frame-wrap {
-    overflow: hidden;
-    border: 1px solid hsl(var(--border));
-    border-radius: 1.5rem;
-    background: hsl(var(--card));
-    box-shadow: inset 0 1px 0 hsl(var(--foreground) / 0.04);
-  }
-
-  .preview-frame {
-    display: block;
-    width: 100%;
-    min-height: 1860px;
-    border: 0;
-    background: hsl(var(--background));
   }
 
   .preview-panel {
@@ -417,6 +430,27 @@ const description = activeView === 'newsletter'
 
   .preview-stage--hero {
     min-height: 220px;
+  }
+
+  .preview-stage--look {
+    --peek-look-accent: oklch(0.62 0.13 25);
+    --peek-look-red: #d23b2e;
+    --peek-look-white: #fafaf7;
+    --peek-look-gold: #f0b73a;
+    --peek-look-green: #3a6b4a;
+    --peek-look-ink: #1a1a1a;
+    --peek-look-purple: #6b4ba8;
+    --peek-look-brown: #7a4a2b;
+  }
+
+  :global(.dark) .preview-stage--look {
+    --peek-look-red: #e85a4f;
+    --peek-look-white: #fafaf7;
+    --peek-look-gold: #f0c14b;
+    --peek-look-green: #6aa07c;
+    --peek-look-ink: #fafaf7;
+    --peek-look-purple: #9b80d8;
+    --peek-look-brown: #b48662;
   }
 
   .preview-stage--tracker {
@@ -511,6 +545,10 @@ const description = activeView === 'newsletter'
   }
 
   .preview-kind--one-shot {
+    color: hsl(var(--foreground));
+  }
+
+  .preview-kind--look {
     color: hsl(var(--foreground));
   }
 
