@@ -4,6 +4,11 @@ import { AnimatedLogo } from '@/features/logos/ui/AnimatedLogo';
 
 const title = '404 - page not found';
 const description = "The page you're looking for isn't here.";
+
+// Raw requested path — displayed under the digits. Trim anything too long so
+// it doesn't wrap or overflow the stage.
+const rawPath = Astro.url.pathname + Astro.url.search;
+const displayPath = rawPath.length > 48 ? rawPath.slice(0, 47) + '…' : rawPath;
 ---
 
 <Layout title={title} description={description} hideSiteNav>
@@ -15,6 +20,13 @@ const description = "The page you're looking for isn't here.";
         ><span class="nf-digit" style="--idx: 2">4</span
         ><span class="nf-scan" aria-hidden="true"></span
       ></div>
+
+      <div class="nf-path" aria-hidden="true">
+        <span class="nf-path-prefix">GET</span>
+        <span class="nf-path-url">{displayPath}</span>
+        <span class="nf-path-sep">·</span>
+        <span class="nf-path-status">page not found</span>
+      </div>
 
       <div class="nf-trace" aria-hidden="true">
         <span class="nf-trace-cell" style="--idx: 0">trace</span>
@@ -33,8 +45,8 @@ const description = "The page you're looking for isn't here.";
           <AnimatedLogo
             client:idle
             id="peek"
-            animation="nap"
-            size={28}
+            animation="scan"
+            size={72}
             title="peek"
             eventChannel="nf"
           />
@@ -52,11 +64,6 @@ const description = "The page you're looking for isn't here.";
       <span class="nf-status-dot"></span>
       <span class="nf-status-text">404 · not found</span>
     </div>
-
-    <p class="nf-line">
-      <span class="nf-line-prefix" aria-hidden="true">//</span>
-      this page slipped out of the index.
-    </p>
   </main>
 
   <script>
@@ -116,22 +123,64 @@ const description = "The page you're looking for isn't here.";
       });
     }
 
-    // Three-act story: nap (idle) → pop (startled awake) → hide (follows you out).
+    // Three-act story: scan (idle) → alert (hover) → dissolve (click).
+    // Peek also tracks the cursor across the whole page when idle.
+    const TRACK_POSES = [
+      'track_far_left',
+      'track_left',
+      'track_center',
+      'track_right',
+      'track_far_right',
+    ] as const;
+    let trackingBucket: number | null = null;
+    let revertTimer = 0;
+    let isHovering = false;
+    let isLeaving = false;
+
+    const applyTrack = (event: PointerEvent): void => {
+      if (isHovering || isLeaving) return;
+      const w = window.innerWidth || 1;
+      const bucket = Math.min(
+        TRACK_POSES.length - 1,
+        Math.max(0, Math.floor((event.clientX / w) * TRACK_POSES.length)),
+      );
+      if (bucket === trackingBucket) return;
+      trackingBucket = bucket;
+      dispatchPeek('set', { animation: TRACK_POSES[bucket] });
+    };
+
+    const releaseTrack = (): void => {
+      if (isHovering || isLeaving) return;
+      if (trackingBucket === null) return;
+      trackingBucket = null;
+      dispatchPeek('revert');
+    };
+
+    if (notFound && canAnimate.matches) {
+      notFound.addEventListener('pointermove', applyTrack);
+      notFound.addEventListener('pointerleave', releaseTrack);
+    }
+
     if (homeLink) {
-      homeLink.addEventListener('pointerenter', () => {
-        dispatchPeek('set', { animation: 'pop', holdMs: 600 });
-      });
-      homeLink.addEventListener('focus', () => {
-        dispatchPeek('set', { animation: 'pop', holdMs: 600 });
-      });
-      homeLink.addEventListener('pointerleave', () => {
+      const onHover = () => {
+        isHovering = true;
+        trackingBucket = null;
+        window.clearTimeout(revertTimer);
+        dispatchPeek('set', { animation: 'alert' });
+      };
+      const onUnhover = () => {
+        isHovering = false;
         dispatchPeek('revert');
-      });
-      homeLink.addEventListener('blur', () => {
-        dispatchPeek('revert');
-      });
+      };
+
+      homeLink.addEventListener('pointerenter', onHover);
+      homeLink.addEventListener('focus', onHover);
+      homeLink.addEventListener('pointerleave', onUnhover);
+      homeLink.addEventListener('blur', onUnhover);
+
       homeLink.addEventListener('click', () => {
-        dispatchPeek('set', { animation: 'hide' });
+        isLeaving = true;
+        dispatchPeek('set', { animation: 'dissolve' });
       });
     }
   </script>
@@ -305,6 +354,46 @@ const description = "The page you're looking for isn't here.";
     will-change: transform, opacity;
   }
 
+  .nf-path {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 10px;
+    max-width: min(68ch, 92vw);
+    padding: 6px 14px;
+    font-family: 'Geist Mono', 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: clamp(12px, 1.3svh, 14px);
+    line-height: 1.2;
+    color: var(--nf-secondary);
+    white-space: nowrap;
+    overflow: hidden;
+    pointer-events: none;
+    transition: color 360ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .nf-path-prefix {
+    color: var(--nf-prefix);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.08em;
+  }
+
+  .nf-path-url {
+    flex: 0 1 auto;
+    max-width: 48ch;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: var(--nf-trace-strong);
+  }
+
+  .nf-path-sep {
+    color: var(--nf-trace-dim);
+  }
+
+  .nf-path-status {
+    color: var(--nf-secondary);
+    text-transform: lowercase;
+    letter-spacing: 0.02em;
+  }
+
   .nf-trace {
     display: flex;
     flex-wrap: nowrap;
@@ -391,37 +480,11 @@ const description = "The page you're looking for isn't here.";
     animation: nf-status-ring 2.4s cubic-bezier(0.4, 0, 0.2, 1) infinite;
   }
 
-  .nf-line {
-    position: absolute;
-    left: clamp(20px, 3vw, 36px);
-    bottom: var(--nf-footer-bottom);
-    z-index: 3;
-    max-width: min(48ch, calc(100vw - 150px));
-    margin: 0;
-    font-family: 'Geist Mono', 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-    font-size: 12px;
-    line-height: 1;
-    letter-spacing: 0;
-    text-transform: lowercase;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    color: var(--nf-secondary);
-    pointer-events: none;
-  }
-
-  .nf-line-prefix {
-    display: inline-block;
-    margin-right: 0.55em;
-    color: var(--nf-prefix);
-    font-variant-numeric: tabular-nums;
-  }
-
   .nf-cta {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 10px;
+    gap: clamp(14px, 2.4svh, 26px);
     margin-top: clamp(8px, 2svh, 20px);
   }
 
@@ -429,15 +492,24 @@ const description = "The page you're looking for isn't here.";
     display: inline-flex;
     color: var(--nf-fg);
     opacity: 0;
-    transform: translateY(6px);
+    transform: translateY(8px) scale(0.98);
+    filter: drop-shadow(0 2px 0 hsl(var(--foreground) / 0.14))
+      drop-shadow(0 6px 14px hsl(var(--foreground) / 0.08));
     transition:
-      opacity 600ms cubic-bezier(0.16, 1, 0.3, 1) 200ms,
-      transform 600ms cubic-bezier(0.16, 1, 0.3, 1) 200ms;
+      opacity 720ms cubic-bezier(0.16, 1, 0.3, 1) 200ms,
+      transform 720ms cubic-bezier(0.16, 1, 0.3, 1) 200ms,
+      filter 360ms cubic-bezier(0.16, 1, 0.3, 1);
     pointer-events: none;
   }
 
+  :global(.dark) .nf-cta-peek {
+    filter: drop-shadow(0 2px 0 hsl(0 0% 0% / 0.55))
+      drop-shadow(0 6px 16px hsl(0 0% 0% / 0.35));
+  }
+
   .nf-cta-peek.is-peek-ready {
-    opacity: 0.7;
+    opacity: 0.88;
+    transform: translateY(0) scale(1);
     transform: translateY(0);
   }
 
@@ -605,11 +677,6 @@ const description = "The page you're looking for isn't here.";
       right: clamp(14px, 4vw, 22px);
       font-size: 10px;
       gap: 8px;
-    }
-
-    .nf-line {
-      font-size: 11px;
-      max-width: calc(100vw - 120px);
     }
 
     .nf-home {
