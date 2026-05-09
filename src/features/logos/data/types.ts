@@ -8,6 +8,26 @@ export type Animation = {
   fps: number;
   frames: ReadonlyArray<Grid>;
   loop?: boolean;
+  label?: string;
+  summary?: string;
+  usage?: string;
+  kind?: 'loop' | 'one-shot' | 'pose' | 'alias';
+  aliasOf?: string;
+  previewLoop?: boolean;
+  tags?: ReadonlyArray<string>;
+};
+
+export type LogoGallerySection = {
+  id: string;
+  label: string;
+  description: string;
+  items: ReadonlyArray<string>;
+};
+
+export type LogoRuntimeBehavior = {
+  label: string;
+  animation: string;
+  description: string;
 };
 
 export type LogoDefinition = {
@@ -20,4 +40,6 @@ export type LogoDefinition = {
   base: Grid;
   accent: string;
   animations: Record<string, Animation>;
+  gallery?: ReadonlyArray<LogoGallerySection>;
+  runtimeBehaviors?: ReadonlyArray<LogoRuntimeBehavior>;
 };

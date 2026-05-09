@@ -8,7 +8,17 @@ import TemplatePreview from '@/features/notify/ui/TemplatePreview';
 export const prerender = false;
 
 const mascot = getLogo('peek');
-const animations = Object.values(mascot.animations);
+const animationEntries = Object.entries(mascot.animations);
+const animationMap = new Map(animationEntries);
+const gallerySections = mascot.gallery ?? [
+  {
+    id: 'all',
+    label: 'All States',
+    description: 'Full mascot state list.',
+    items: animationEntries.map(([name]) => name),
+  },
+];
+const runtimeBehaviors = mascot.runtimeBehaviors ?? [];
 const requestedView = Astro.url.searchParams.get('view')?.trim().toLowerCase();
 const activeView = requestedView === 'newsletter' ? 'newsletter' : 'mascot';
 
@@ -107,57 +117,100 @@ const description = activeView === 'newsletter'
                 </div>
                 <div>
                   <dt>Actions</dt>
-                  <dd>{animations.length}</dd>
+                  <dd>{animationEntries.length}</dd>
                 </div>
               </dl>
             </div>
           </article>
         </section>
 
-        <section class="space-y-3">
-          <div class="space-y-1">
-            <p class="preview-eyebrow">Action library</p>
-            <h2 class="text-lg font-semibold tracking-[0.08em]">All mascot animations</h2>
-          </div>
-          <div class="preview-card-grid">
-            {animations.map((animation) => (
-              <article class="preview-panel">
-                <div class="preview-stage">
-                  <AnimatedLogo
-                    client:load
-                    id="peek"
-                    animation={animation.name}
-                    size={112}
-                    title={`peek ${animation.name}`}
-                  />
-                </div>
-                <div class="space-y-3">
-                  <div>
-                    <h3 class="preview-title">{animation.name}</h3>
-                    <p class="preview-copy">
-                      {animation.frames.length} frames at {animation.fps} fps
-                      {animation.loop === false ? ', plays once' : ', loops'}.
-                    </p>
-                  </div>
-                  <dl class="preview-meta-grid">
-                    <div>
-                      <dt>Frames</dt>
-                      <dd>{animation.frames.length}</dd>
+        {runtimeBehaviors.length > 0 && (
+          <section class="space-y-3">
+            <div class="space-y-1">
+              <p class="preview-eyebrow">Runtime map</p>
+              <h2 class="text-lg font-semibold tracking-[0.08em]">Live behavior wiring</h2>
+            </div>
+            <div class="runtime-grid">
+              {runtimeBehaviors.map((behavior) => (
+                <article class="runtime-card">
+                  <p class="runtime-card__label">{behavior.label}</p>
+                  <p class="runtime-card__animation">{behavior.animation}</p>
+                  <p class="preview-copy">{behavior.description}</p>
+                </article>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {gallerySections.map((section) => (
+          <section class="space-y-3" id={`gallery-${section.id}`}>
+            <div class="space-y-1">
+              <p class="preview-eyebrow">Mascot lab</p>
+              <h2 class="text-lg font-semibold tracking-[0.08em]">{section.label}</h2>
+              <p class="preview-copy">{section.description}</p>
+            </div>
+            <div class="preview-card-grid">
+              {section.items.map((key) => {
+                const animation = animationMap.get(key);
+                if (!animation) return null;
+                return (
+                  <article class="preview-panel">
+                    <div class="preview-stage">
+                      <AnimatedLogo
+                        client:load
+                        id="peek"
+                        animation={key}
+                        loop={animation.previewLoop ?? animation.loop}
+                        size={112}
+                        title={`peek ${key}`}
+                      />
                     </div>
-                    <div>
-                      <dt>FPS</dt>
-                      <dd>{animation.fps}</dd>
+                    <div class="space-y-3">
+                      <div class="space-y-2">
+                        <div class="preview-card-head">
+                          <h3 class="preview-title">{animation.label ?? key}</h3>
+                          <span class={`preview-kind preview-kind--${animation.kind ?? 'loop'}`}>
+                            {animation.kind ?? 'loop'}
+                          </span>
+                        </div>
+                        <p class="preview-copy">{animation.summary ?? 'No summary yet.'}</p>
+                        {animation.usage && <p class="preview-usage">{animation.usage}</p>}
+                      </div>
+                      <dl class="preview-meta-grid">
+                        <div>
+                          <dt>Key</dt>
+                          <dd>{key}</dd>
+                        </div>
+                        <div>
+                          <dt>Frames</dt>
+                          <dd>{animation.frames.length}</dd>
+                        </div>
+                        <div>
+                          <dt>FPS</dt>
+                          <dd>{animation.fps}</dd>
+                        </div>
+                      </dl>
+                      <dl class="preview-meta-grid">
+                        <div>
+                          <dt>Loop</dt>
+                          <dd>{animation.loop === false ? 'No' : 'Yes'}</dd>
+                        </div>
+                        <div>
+                          <dt>Alias</dt>
+                          <dd>{animation.aliasOf ?? '—'}</dd>
+                        </div>
+                        <div>
+                          <dt>Tags</dt>
+                          <dd>{animation.tags?.join(', ') ?? '—'}</dd>
+                        </div>
+                      </dl>
                     </div>
-                    <div>
-                      <dt>Loop</dt>
-                      <dd>{animation.loop === false ? 'No' : 'Yes'}</dd>
-                    </div>
-                  </dl>
-                </div>
-              </article>
-            ))}
-          </div>
-        </section>
+                  </article>
+                );
+              })}
+            </div>
+          </section>
+        ))}
       </>
     )}
   </main>
@@ -193,6 +246,11 @@ const description = activeView === 'newsletter'
   }
 
   .preview-card-grid {
+    display: grid;
+    gap: 1rem;
+  }
+
+  .runtime-grid {
     display: grid;
     gap: 1rem;
   }
@@ -254,6 +312,64 @@ const description = activeView === 'newsletter'
     color: hsl(var(--muted-foreground));
   }
 
+  .preview-usage {
+    font-size: 0.84rem;
+    line-height: 1.55;
+    color: hsl(var(--foreground) / 0.74);
+  }
+
+  .preview-card-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.6rem;
+  }
+
+  .preview-kind {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 999px;
+    border: 1px solid hsl(var(--border));
+    padding: 0.28rem 0.6rem;
+    font-size: 0.65rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: hsl(var(--muted-foreground));
+    background: hsl(var(--background) / 0.75);
+  }
+
+  .preview-kind--alias {
+    color: hsl(var(--foreground));
+  }
+
+  .preview-kind--one-shot {
+    color: hsl(var(--foreground));
+  }
+
+  .runtime-card {
+    display: grid;
+    gap: 0.45rem;
+    border: 1px solid hsl(var(--border));
+    border-radius: 1rem;
+    background: hsl(var(--card));
+    padding: 1rem 1.1rem;
+  }
+
+  .runtime-card__label {
+    font-size: 0.68rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: hsl(var(--muted-foreground));
+  }
+
+  .runtime-card__animation {
+    font-size: 1rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
   .preview-meta-grid {
     display: grid;
     gap: 0.75rem;
@@ -278,12 +394,20 @@ const description = activeView === 'newsletter'
       grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
+    .runtime-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
     .preview-card-grid {
       grid-template-columns: repeat(2, minmax(0, 1fr));
     }
   }
 
   @media (min-width: 1320px) {
+    .runtime-grid {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
     .preview-card-grid {
       grid-template-columns: repeat(3, minmax(0, 1fr));
     }

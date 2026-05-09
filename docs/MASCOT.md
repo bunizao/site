@@ -1,10 +1,11 @@
 # Mascot
 
 `peek` is the site mascot and current navbar brand mark. The source of truth lives in [`src/features/logos/data/peek.ts`](../src/features/logos/data/peek.ts).
+The preview/gallery surface lives at `/dev/preview` when local dev is running.
 
 ## Files
 
-- `src/features/logos/data/peek.ts` — pixel grid, accent color, blurb, and every animation state
+- `src/features/logos/data/peek.ts` — pixel grid, accent color, grouped gallery metadata, runtime behavior map, and every motion state
 - `src/features/logos/data/types.ts` — mascot data model
 - `src/features/logos/lib/svg.ts` — grid-to-SVG renderer and logo registry
 - `src/features/logos/ui/PixelLogo.astro` — static SVG embedding for Astro templates
@@ -16,19 +17,25 @@
 
 - `src/layouts/Layout.astro` uses `peek` as the navbar brand mark.
 - The live navbar setup is `animation="idle"` with `hoverAnimation="dart"`.
+- `AnimatedLogo` also listens for nav event overrides: `curious`, `happy`, and `sleepy`.
 - `/logo/peek.svg` is the favicon and Safari mask icon source.
 
-## Animation states
+## Motion groups
 
-| State | FPS | Frames | Notes |
-|------|-----|--------|-------|
-| `idle` | 6 | 6 | Resting blink and ear flick |
-| `hide` | 12 | 6 | Drops below the edge line |
-| `pop` | 16 | 8 | Fast surprise burst |
-| `curious` | 10 | 8 | Head tilt with eye tracking |
-| `purr` | 8 | 6 | Squint and nose pulse |
-| `dart` | 24 | 8 | Fast eye flick, used on navbar hover |
-| `nap` | 4 | 6 | Slow eye droop and breathing |
+- `Core Expressions` — `idle`, `hide`, `pop`, `curious`, `purr`, `dart`, `nap`
+- `Navbar Triggers` — the live site wiring: `idle`, `dart`, `curious`, `happy`, `sleepy`
+- `Tracking Poses` — `scan`, `track_far_left`, `track_left`, `track_center`, `track_right`, `track_far_right`
+- `Utility Motions` — `alert`, `dissolve`
+
+## Runtime behavior map
+
+| Trigger | Animation | Notes |
+|--------|-----------|-------|
+| Default navbar rest | `idle` | Base brand state |
+| Brand hover / fast scroll | `dart` | High-energy attention response |
+| Section link hover | `curious` | Desktop nav hover expression |
+| Active section change | `happy` | Alias of `purr` |
+| 10s inactivity | `sleepy` | Alias of `nap` |
 
 ## Preview routes
 

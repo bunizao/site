@@ -17,7 +17,8 @@ test.describe('Preview smoke', () => {
     await page.goto('/dev/preview');
 
     await expect(page.getByRole('heading', { name: 'Peek Mascot Preview' })).toBeVisible();
-    await expect(page.getByText('All mascot animations')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Live behavior wiring' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Tracking Poses' })).toBeVisible();
     await expect(page.getByText('idle at rest, dart on hover')).toBeVisible();
   });
 
