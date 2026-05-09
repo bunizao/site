@@ -1,4 +1,4 @@
-import type { MascotRuntimeBehavior, MascotSlot } from '../shared/types';
+import type { MascotRuntimeBehavior, MascotSlot } from './model';
 
 export const PEEK_SLOTS: ReadonlyArray<MascotSlot> = [
   {

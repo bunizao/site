@@ -1,11 +1,18 @@
-import { assertUniformFrames, assertUniformGrid } from '../shared/grid';
-import type { MascotAsset, MascotPreviewSection, MascotRuntimeBehavior, MascotSlot } from '../shared/types';
+import {
+  assertUniformFrames,
+  assertUniformGrid,
+  type MascotAsset,
+  type MascotPreviewSection,
+  type MascotRuntimeBehavior,
+  type MascotSlot,
+} from './model';
 import { PEEK_BASE } from './base';
 import { PEEK_LOOK_ASSETS } from './looks';
 import { PEEK_MOTION_ASSETS } from './motions';
+import { PEEK_POSE_ASSETS } from './poses';
 import { PEEK_RUNTIME_BEHAVIORS, PEEK_SLOTS } from './slots';
 
-const PEEK_ASSETS = [...PEEK_MOTION_ASSETS, ...PEEK_LOOK_ASSETS] as const;
+const PEEK_ASSETS = [...PEEK_MOTION_ASSETS, ...PEEK_POSE_ASSETS, ...PEEK_LOOK_ASSETS] as const;
 
 const PEEK_ASSET_MAP = new Map(PEEK_ASSETS.map((asset) => [asset.id, asset]));
 const PEEK_SLOT_MAP = new Map(PEEK_SLOTS.map((slot) => [slot.id, slot]));

@@ -1,5 +1,4 @@
-import { gridFromPatternRows } from '../shared/grid';
-import type { MascotIdentity } from '../shared/types';
+import { gridFromPatternRows, type MascotIdentity } from './model';
 
 export const PEEK_BASE: MascotIdentity = {
   id: 'peek',

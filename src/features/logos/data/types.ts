@@ -1,4 +1,4 @@
-import type { Cell, Grid } from '@/features/mascot/shared/types';
+import type { Cell, Grid } from '@/features/mascot/peek/model';
 
 export type { Cell, Grid };
 
