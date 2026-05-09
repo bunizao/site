@@ -149,6 +149,51 @@ const description = activeView === 'newsletter'
               <h2 class="text-lg font-semibold tracking-[0.08em]">{section.label}</h2>
               <p class="preview-copy">{section.description}</p>
             </div>
+            {section.id === 'tracking' && (
+              <article class="preview-panel preview-panel--tracker">
+                <div
+                  class="preview-stage preview-stage--tracker"
+                  data-peek-tracker
+                  tabindex="0"
+                  role="img"
+                  aria-label="Interactive tracking pose demo"
+                >
+                  <AnimatedLogo
+                    client:load
+                    id="peek"
+                    animation="scan"
+                    eventChannel="preview-track"
+                    size={156}
+                    title="interactive tracking pose demo"
+                  />
+                  <span class="preview-tracker__hint">Move across the stage</span>
+                </div>
+                <div class="space-y-3">
+                  <div>
+                    <p class="preview-eyebrow">Tracking demo</p>
+                    <h3 class="preview-title">Pointer-driven pose switching</h3>
+                  </div>
+                  <p class="preview-copy">
+                    The stage below uses the five `track_*` poses as actual buckets. Move left or right and peek
+                    will snap between them; leave the stage and it falls back to `scan`.
+                  </p>
+                  <dl class="preview-meta-grid">
+                    <div>
+                      <dt>Base</dt>
+                      <dd>scan</dd>
+                    </div>
+                    <div>
+                      <dt>Buckets</dt>
+                      <dd>5 poses</dd>
+                    </div>
+                    <div>
+                      <dt>Channel</dt>
+                      <dd>preview-track</dd>
+                    </div>
+                  </dl>
+                </div>
+              </article>
+            )}
             <div class="preview-card-grid">
               {section.items.map((key) => {
                 const animation = animationMap.get(key);
@@ -216,6 +261,43 @@ const description = activeView === 'newsletter'
   </main>
 </Layout>
 
+<script>
+  (() => {
+    const tracker = document.querySelector('[data-peek-tracker]');
+    if (!(tracker instanceof HTMLElement)) return;
+
+    const setPose = (animation) => {
+      window.dispatchEvent(new CustomEvent('peek:preview-track:set', { detail: { animation } }));
+    };
+
+    const revertPose = () => {
+      window.dispatchEvent(new CustomEvent('peek:preview-track:revert'));
+    };
+
+    const pickPose = (clientX) => {
+      const rect = tracker.getBoundingClientRect();
+      if (rect.width <= 0) return 'track_center';
+      const ratio = Math.min(0.9999, Math.max(0, (clientX - rect.left) / rect.width));
+      if (ratio < 0.2) return 'track_far_left';
+      if (ratio < 0.4) return 'track_left';
+      if (ratio < 0.6) return 'track_center';
+      if (ratio < 0.8) return 'track_right';
+      return 'track_far_right';
+    };
+
+    tracker.addEventListener('pointerenter', (event) => {
+      setPose(pickPose(event.clientX));
+    });
+
+    tracker.addEventListener('pointermove', (event) => {
+      setPose(pickPose(event.clientX));
+    });
+
+    tracker.addEventListener('pointerleave', revertPose);
+    tracker.addEventListener('blur', revertPose);
+  })();
+</script>
+
 <style>
   .preview-link {
     border: 1px solid hsl(var(--border));
@@ -271,6 +353,11 @@ const description = activeView === 'newsletter'
     align-items: center;
   }
 
+  .preview-panel--tracker {
+    grid-template-columns: minmax(0, 240px) minmax(0, 1fr);
+    align-items: center;
+  }
+
   .preview-stage {
     display: grid;
     place-items: center;
@@ -287,9 +374,44 @@ const description = activeView === 'newsletter'
     min-height: 220px;
   }
 
+  .preview-stage--tracker {
+    position: relative;
+    min-height: 240px;
+    cursor: ew-resize;
+    outline: none;
+    background:
+      radial-gradient(circle at center, hsl(var(--foreground) / 0.08), transparent 52%),
+      linear-gradient(90deg, hsl(var(--foreground) / 0.05) 0 1px, transparent 1px 20%),
+      linear-gradient(180deg, hsl(var(--background)) 0%, hsl(var(--background) / 0.72) 100%),
+      linear-gradient(135deg, hsl(var(--accent) / 0.5), transparent 65%);
+    background-size: auto, 20% 100%, auto, auto;
+  }
+
+  .preview-stage--tracker:focus-visible {
+    border-color: hsl(var(--foreground) / 0.26);
+    box-shadow: 0 0 0 3px hsl(var(--foreground) / 0.1);
+  }
+
   .preview-stage--static :global(svg) {
     width: 144px;
     height: auto;
+  }
+
+  .preview-tracker__hint {
+    position: absolute;
+    left: 50%;
+    bottom: 1rem;
+    transform: translateX(-50%);
+    border-radius: 999px;
+    background: hsl(var(--background) / 0.82);
+    border: 1px solid hsl(var(--border));
+    padding: 0.3rem 0.65rem;
+    font-size: 0.68rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: hsl(var(--muted-foreground));
+    white-space: nowrap;
+    pointer-events: none;
   }
 
   .preview-eyebrow {
@@ -415,6 +537,10 @@ const description = activeView === 'newsletter'
 
   @media (max-width: 720px) {
     .preview-panel--hero {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .preview-panel--tracker {
       grid-template-columns: minmax(0, 1fr);
     }
 
