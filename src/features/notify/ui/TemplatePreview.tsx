@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 interface PreviewResponse {
   generatedAt: string;
@@ -27,6 +27,21 @@ interface PreviewResponse {
   };
 }
 
+type TemplateKey = 'subscribe' | 'welcome' | 'mood' | 'digest' | 'cancel';
+
+const TEMPLATE_ORDER: ReadonlyArray<{
+  key: TemplateKey;
+  label: string;
+  index: string;
+  intent: string;
+}> = [
+  { key: 'subscribe', label: 'Subscribe Confirm', index: '01', intent: 'double-opt-in' },
+  { key: 'welcome', label: 'Welcome', index: '02', intent: 'post-confirm onboarding' },
+  { key: 'mood', label: 'Mood Notification', index: '03', intent: 'per-post push' },
+  { key: 'digest', label: 'Mood Digest', index: '04', intent: 'batched window' },
+  { key: 'cancel', label: 'Unsubscribe Notice', index: '05', intent: 'opt-out receipt' },
+];
+
 export default function TemplatePreview() {
   const [digestMode, setDigestMode] = useState<'daily' | 'every_5h'>('daily');
   const [sample, setSample] = useState<'live' | 'rich'>('live');
@@ -35,6 +50,8 @@ export default function TemplatePreview() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [refreshKey, setRefreshKey] = useState(0);
+  const [focused, setFocused] = useState<TemplateKey | null>(null);
+  const requestId = useRef(0);
 
   useEffect(() => {
     const resolved = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
@@ -42,6 +59,7 @@ export default function TemplatePreview() {
   }, []);
 
   const fetchPreview = useCallback(async () => {
+    const id = ++requestId.current;
     setLoading(true);
     setError('');
     try {
@@ -58,13 +76,19 @@ export default function TemplatePreview() {
       }
 
       const data = (await response.json()) as PreviewResponse;
-      setPreview(data);
+      if (id === requestId.current) {
+        setPreview(data);
+      }
     } catch (fetchError) {
-      const message = fetchError instanceof Error ? fetchError.message : 'Failed to load preview';
-      setError(message);
-      setPreview(null);
+      if (id === requestId.current) {
+        const message = fetchError instanceof Error ? fetchError.message : 'Failed to load preview';
+        setError(message);
+        setPreview(null);
+      }
     } finally {
-      setLoading(false);
+      if (id === requestId.current) {
+        setLoading(false);
+      }
     }
   }, [digestMode, sample, timezone, refreshKey]);
 
@@ -72,132 +96,156 @@ export default function TemplatePreview() {
     void fetchPreview();
   }, [fetchPreview]);
 
+  const generatedLabel = useMemo(() => {
+    if (!preview?.generatedAt) return '—';
+    try {
+      return new Date(preview.generatedAt).toLocaleString();
+    } catch {
+      return preview.generatedAt;
+    }
+  }, [preview?.generatedAt]);
+
+  const metaRows: ReadonlyArray<{ label: string; value: string }> = [
+    { label: 'Channel', value: preview?.source.channelTitle || '—' },
+    { label: 'Sample', value: preview?.sample || sample },
+    { label: 'Latest post', value: preview?.source.latestPostId || '—' },
+    { label: 'Digest count', value: String(preview?.source.digestPostIds.length ?? 0) },
+    { label: 'Generated', value: generatedLabel },
+  ];
+
   return (
-    <section className="mx-auto grid w-full max-w-[1400px] gap-6">
-      <div className="grid gap-4 rounded-xl border border-border bg-card p-4">
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="inline-flex items-center gap-2 rounded-md border border-border bg-background p-1">
+    <section className="notify-preview">
+      <div className="notify-control-bar">
+        <div className="notify-control-group" role="group" aria-label="Digest mode">
+          <span className="notify-control-label">Digest</span>
+          <div className="notify-segment">
             <button
               type="button"
               onClick={() => setDigestMode('daily')}
-              className={`rounded px-3 py-1.5 text-xs ${digestMode === 'daily' ? 'bg-foreground text-background' : 'text-foreground/70'}`}
+              className={`notify-segment__btn${digestMode === 'daily' ? ' notify-segment__btn--active' : ''}`}
+              aria-pressed={digestMode === 'daily'}
             >
               Daily
             </button>
             <button
               type="button"
               onClick={() => setDigestMode('every_5h')}
-              className={`rounded px-3 py-1.5 text-xs ${digestMode === 'every_5h' ? 'bg-foreground text-background' : 'text-foreground/70'}`}
+              className={`notify-segment__btn${digestMode === 'every_5h' ? ' notify-segment__btn--active' : ''}`}
+              aria-pressed={digestMode === 'every_5h'}
             >
               Every 5h
             </button>
           </div>
-          <div className="inline-flex items-center gap-2 rounded-md border border-border bg-background p-1">
+        </div>
+
+        <div className="notify-control-group" role="group" aria-label="Sample source">
+          <span className="notify-control-label">Source</span>
+          <div className="notify-segment">
             <button
               type="button"
               onClick={() => setSample('live')}
-              className={`rounded px-3 py-1.5 text-xs ${sample === 'live' ? 'bg-foreground text-background' : 'text-foreground/70'}`}
+              className={`notify-segment__btn${sample === 'live' ? ' notify-segment__btn--active' : ''}`}
+              aria-pressed={sample === 'live'}
             >
               Live
             </button>
             <button
               type="button"
               onClick={() => setSample('rich')}
-              className={`rounded px-3 py-1.5 text-xs ${sample === 'rich' ? 'bg-foreground text-background' : 'text-foreground/70'}`}
+              className={`notify-segment__btn${sample === 'rich' ? ' notify-segment__btn--active' : ''}`}
+              aria-pressed={sample === 'rich'}
             >
               Rich sample
             </button>
           </div>
-          <button
-            type="button"
-            onClick={() => setRefreshKey((value) => value + 1)}
-            className="rounded-md border border-border px-3 py-1.5 text-xs uppercase tracking-[0.14em] text-foreground/80 transition hover:bg-accent"
-          >
-            Refresh Live Data
-          </button>
-          <span className="text-xs text-muted-foreground">
-            Timezone: {timezone}
-          </span>
         </div>
 
-        <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
-          <span>Channel: {preview?.source.channelTitle || '-'}</span>
-          <span>Sample: {preview?.sample || sample}</span>
-          <span>Latest Post: {preview?.source.latestPostId || '-'}</span>
-          <span>Digest Count: {preview?.source.digestPostIds.length ?? 0}</span>
-          <span>Generated: {preview?.generatedAt ? new Date(preview.generatedAt).toLocaleString() : '-'}</span>
+        <button
+          type="button"
+          onClick={() => setRefreshKey((value) => value + 1)}
+          className="notify-refresh"
+        >
+          <span className="notify-refresh__dot" aria-hidden="true" data-loading={loading ? 'true' : 'false'} />
+          {loading ? 'Refreshing…' : 'Refresh live data'}
+        </button>
+      </div>
+
+      <dl className="notify-meta">
+        {metaRows.map((row) => (
+          <div key={row.label} className="notify-meta__row">
+            <dt>{row.label}</dt>
+            <dd title={row.value}>{row.value}</dd>
+          </div>
+        ))}
+        <div className="notify-meta__row">
+          <dt>Timezone</dt>
+          <dd title={timezone}>{timezone}</dd>
         </div>
+      </dl>
 
-        {error && (
-          <p className="text-xs text-red-500">{error}</p>
-        )}
-      </div>
-
-      <div className="grid gap-6 xl:grid-cols-2 2xl:grid-cols-3">
-        <article className="rounded-xl border border-border bg-card p-3">
-          <div className="mb-3 border-b border-border pb-2">
-            <h2 className="text-sm font-semibold uppercase tracking-[0.16em]">Subscribe Confirmation</h2>
-            <p className="mt-1 text-xs text-muted-foreground">{preview?.subjects.subscribe || '-'}</p>
-          </div>
-          <iframe
-            title="Subscribe confirmation email preview"
-            srcDoc={preview?.html.subscribe || ''}
-            className="h-[760px] w-full rounded-lg border border-border bg-white"
-          />
-        </article>
-
-        <article className="rounded-xl border border-border bg-card p-3">
-          <div className="mb-3 border-b border-border pb-2">
-            <h2 className="text-sm font-semibold uppercase tracking-[0.16em]">Welcome Email</h2>
-            <p className="mt-1 text-xs text-muted-foreground">{preview?.subjects.welcome || '-'}</p>
-          </div>
-          <iframe
-            title="Welcome email preview"
-            srcDoc={preview?.html.welcome || ''}
-            className="h-[760px] w-full rounded-lg border border-border bg-white"
-          />
-        </article>
-
-        <article className="rounded-xl border border-border bg-card p-3">
-          <div className="mb-3 border-b border-border pb-2">
-            <h2 className="text-sm font-semibold uppercase tracking-[0.16em]">Cancel Email</h2>
-            <p className="mt-1 text-xs text-muted-foreground">{preview?.subjects.cancel || '-'}</p>
-          </div>
-          <iframe
-            title="Cancel email preview"
-            srcDoc={preview?.html.cancel || ''}
-            className="h-[760px] w-full rounded-lg border border-border bg-white"
-          />
-        </article>
-
-        <article className="rounded-xl border border-border bg-card p-3">
-          <div className="mb-3 border-b border-border pb-2">
-            <h2 className="text-sm font-semibold uppercase tracking-[0.16em]">Mood Notification</h2>
-            <p className="mt-1 text-xs text-muted-foreground">{preview?.subjects.mood || '-'}</p>
-          </div>
-          <iframe
-            title="Mood notification email preview"
-            srcDoc={preview?.html.mood || ''}
-            className="h-[760px] w-full rounded-lg border border-border bg-white"
-          />
-        </article>
-
-        <article className="rounded-xl border border-border bg-card p-3">
-          <div className="mb-3 border-b border-border pb-2">
-            <h2 className="text-sm font-semibold uppercase tracking-[0.16em]">Mood Digest</h2>
-            <p className="mt-1 text-xs text-muted-foreground">{preview?.subjects.digest || '-'}</p>
-          </div>
-          <iframe
-            title="Mood digest email preview"
-            srcDoc={preview?.html.digest || ''}
-            className="h-[760px] w-full rounded-lg border border-border bg-white"
-          />
-        </article>
-      </div>
-
-      {loading && (
-        <p className="text-xs text-muted-foreground">Loading live preview…</p>
+      {error && (
+        <p className="notify-error" role="alert">
+          <span aria-hidden="true">⚠</span>
+          {error}
+        </p>
       )}
+
+      <div className={`notify-grid${focused ? ' notify-grid--focused' : ''}`}>
+        {TEMPLATE_ORDER.map((tpl) => {
+          const subject = preview?.subjects?.[tpl.key] ?? '';
+          const html = preview?.html?.[tpl.key] ?? '';
+          const isFocused = focused === tpl.key;
+          const isHidden = Boolean(focused) && !isFocused;
+          return (
+            <article
+              key={tpl.key}
+              className={[
+                'notify-card',
+                isFocused ? 'notify-card--active' : '',
+                isHidden ? 'notify-card--hidden' : '',
+              ].filter(Boolean).join(' ')}
+              data-template={tpl.key}
+            >
+              <header className="notify-card__head">
+                <div className="notify-card__heading">
+                  <span className="notify-card__index">{tpl.index}</span>
+                  <div>
+                    <h3 className="notify-card__title">{tpl.label}</h3>
+                    <p className="notify-card__intent">{tpl.intent}</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setFocused(isFocused ? null : tpl.key)}
+                  className="notify-card__focus"
+                  aria-pressed={isFocused}
+                >
+                  {isFocused ? 'Exit focus' : 'Focus'}
+                </button>
+              </header>
+              <p className="notify-card__subject" title={subject || undefined}>
+                <span className="notify-card__subject-tag">Subject</span>
+                <span className="notify-card__subject-value">{subject || '—'}</span>
+              </p>
+              <div className="notify-card__frame">
+                {html ? (
+                  <iframe
+                    title={`${tpl.label} preview`}
+                    srcDoc={html}
+                    className="notify-card__iframe"
+                    loading="lazy"
+                    sandbox="allow-same-origin"
+                  />
+                ) : (
+                  <div className="notify-card__empty">
+                    {loading ? 'Loading live preview…' : 'No content.'}
+                  </div>
+                )}
+              </div>
+            </article>
+          );
+        })}
+      </div>
     </section>
   );
 }
