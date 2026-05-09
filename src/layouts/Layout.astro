@@ -7,7 +7,8 @@ interface Props {
   url?: string;
   hideSiteNav?: boolean;
   showSiteNav?: boolean;
-  navVariant?: 'home' | 'page';
+  navVariant?: 'home' | 'page' | 'mood';
+  navTitle?: string;
   rss?: {
     href: string;
     title?: string;
@@ -34,12 +35,15 @@ const {
   hideSiteNav = false,
   showSiteNav = false,
   navVariant,
+  navTitle,
   rss,
   oembed,
 } = Astro.props;
 
 const isHomeNav = navVariant === 'home';
 const isPageNav = navVariant === 'page';
+const isMoodNav = navVariant === 'mood';
+const resolvedNavTitle = navTitle?.trim() || 'Moods';
 const site = Astro.site ?? new URL('https://buxx.me');
 const canonicalUrl = url ?? new URL(Astro.url?.pathname ?? '/', site).href;
 const ogImageUrl = new URL(image, site).href;
@@ -151,6 +155,7 @@ const navbarIdleTimeoutAnimation = getPeekSlotKey('navbar.idle-timeout');
             'site-nav--mobile-visible': showSiteNav,
             'site-nav--home': isHomeNav,
             'site-nav--page': isPageNav,
+            'site-nav--mood': isMoodNav,
           },
         ]}
         data-site-nav
@@ -160,7 +165,7 @@ const navbarIdleTimeoutAnimation = getPeekSlotKey('navbar.idle-timeout');
         data-peek-fast-scroll={navbarHoverAnimation}
         data-peek-fast-scroll-hold-ms={String(navbarFastScrollHoldMs)}
         data-peek-idle-timeout={navbarIdleTimeoutAnimation}
-        aria-label={isPageNav ? 'Home' : 'Page sections'}
+        aria-label={isPageNav ? 'Home' : isMoodNav ? 'Mood channel' : 'Page sections'}
       >
         {!isPageNav ? <div class="nav-active-indicator" data-nav-indicator aria-hidden="true"></div> : null}
         <a href="/" class="site-brand" aria-label="buxx.me — home" data-site-brand>
@@ -179,6 +184,8 @@ const navbarIdleTimeoutAnimation = getPeekSlotKey('navbar.idle-timeout');
         </a>
         {isPageNav ? (
           <a href="/" class="nav-link">buxx.me</a>
+        ) : isMoodNav ? (
+          <a href="/mood" class="nav-link nav-link--mood-title" data-mood-nav-title>{resolvedNavTitle}</a>
         ) : (
           <>
             <span class="nav-separator nav-separator--brand" aria-hidden="true">/</span>
@@ -673,13 +680,60 @@ const navbarIdleTimeoutAnimation = getPeekSlotKey('navbar.idle-timeout');
     <script>
       (() => {
         const nav = document.querySelector('[data-site-nav]') as HTMLElement | null;
-        const links = document.querySelectorAll('[data-nav-link]');
-        if (!links.length || !nav) return;
+        if (!nav) return;
 
-        const separators = nav.querySelectorAll('.nav-separator');
         const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
         const isHomeNav = nav.classList.contains('site-nav--home');
+        const isMoodNav = nav.classList.contains('site-nav--mood');
         const desktopNavQuery = window.matchMedia('(min-width: 900px)');
+        const brand = nav.querySelector('[data-site-brand]') as HTMLElement | null;
+
+        if (isMoodNav) {
+          const titleLink = nav.querySelector('[data-mood-nav-title]') as HTMLAnchorElement | null;
+          const heroEl = document.querySelector('[data-mood-hero]') as HTMLElement | null;
+
+          const syncMoodNavPresence = () => {
+            if (!desktopNavQuery.matches || !heroEl) {
+              nav.classList.remove('is-content-nav-visible');
+              return;
+            }
+            const rect = heroEl.getBoundingClientRect();
+            nav.classList.toggle('is-content-nav-visible', rect.bottom <= window.innerHeight * 0.4);
+          };
+
+          const syncMoodNavMode = () => {
+            const isDesktop = desktopNavQuery.matches;
+            nav.classList.toggle('is-vertical', isDesktop);
+            if (isDesktop) {
+              nav.classList.remove('is-peek-tapping');
+              syncMoodNavPresence();
+              return;
+            }
+            nav.classList.remove('is-content-nav-visible');
+          };
+
+          titleLink?.addEventListener('click', (event) => {
+            event.preventDefault();
+            window.scrollTo({ top: 0, behavior: reducedMotion ? 'auto' : 'smooth' });
+          });
+
+          brand?.addEventListener('pointerdown', () => {
+            if (desktopNavQuery.matches) return;
+            nav.classList.remove('is-peek-tapping');
+            void nav.offsetWidth;
+            nav.classList.add('is-peek-tapping');
+          });
+
+          window.addEventListener('scroll', syncMoodNavPresence, { passive: true });
+          desktopNavQuery.addEventListener?.('change', syncMoodNavMode);
+          syncMoodNavMode();
+          return;
+        }
+
+        const links = document.querySelectorAll('[data-nav-link]');
+        if (!links.length) return;
+
+        const separators = nav.querySelectorAll('.nav-separator');
 
         // ─── 3a. Character wrapping with index injection ─────────────
         interface LinkData {
@@ -1006,7 +1060,6 @@ const navbarIdleTimeoutAnimation = getPeekSlotKey('navbar.idle-timeout');
         initMagneticHover();
 
         if (isHomeNav) {
-          const brand = nav.querySelector('[data-site-brand]') as HTMLElement | null;
           const navPeekConfig = {
             linkHover: nav.dataset.peekLinkHover ?? 'curious',
             sectionActive: nav.dataset.peekSectionActive ?? 'happy',
