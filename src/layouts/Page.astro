@@ -7,6 +7,7 @@ interface Props {
   url?: string;
   updatedAt?: string;
   showSiteNav?: boolean;
+  headerActionsVariant?: 'default' | 'home';
 }
 
 const {
@@ -15,6 +16,7 @@ const {
   url,
   updatedAt,
   showSiteNav = true,
+  headerActionsVariant = 'default',
 } = Astro.props;
 ---
 
@@ -24,6 +26,7 @@ const {
   url={url}
   showSiteNav={showSiteNav}
   navVariant="page"
+  headerActionsVariant={headerActionsVariant}
 >
   <script is:inline>
     (() => {
