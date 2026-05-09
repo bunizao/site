@@ -10,7 +10,7 @@
 - `src/features/logos/ui/PixelLogo.astro` — static SVG embedding for Astro templates
 - `src/features/logos/ui/AnimatedLogo.tsx` — frame-based client animation renderer
 - `src/pages/logo/[id].svg.ts` — public SVG route used by favicon and image consumers
-- `src/pages/dev/preview/mascot.astro` — developer preview for the navbar behavior and all mascot actions
+- `src/pages/dev/preview.astro` — shared developer preview surface for mascot and newsletter states
 
 ## Current usage
 
@@ -32,7 +32,7 @@
 
 ## Preview routes
 
-- `/dev/preview/mascot` — mascot action gallery plus the real navbar interaction
-- `/dev/preview/newsletter` — notify email preview surface
+- `/dev/preview` — mascot action gallery plus the real navbar interaction
+- `/dev/preview?view=newsletter` — notify email preview surface
 
 Keep new mascot work inside the existing grid-and-frame model unless there is a real reason to change the renderer. A mascot does not need a framework inside the framework.

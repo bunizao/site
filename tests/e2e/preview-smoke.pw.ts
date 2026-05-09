@@ -14,7 +14,7 @@ test.describe('Preview smoke', () => {
   });
 
   test('renders the mascot preview route', async ({ page }) => {
-    await page.goto('/dev/preview/mascot');
+    await page.goto('/dev/preview');
 
     await expect(page.getByRole('heading', { name: 'Peek Mascot Preview' })).toBeVisible();
     await expect(page.getByText('All mascot animations')).toBeVisible();
@@ -22,7 +22,7 @@ test.describe('Preview smoke', () => {
   });
 
   test('renders the newsletter preview route', async ({ page }) => {
-    await page.goto('/dev/preview/newsletter');
+    await page.goto('/dev/preview?view=newsletter');
 
     await expect(page.getByRole('heading', { name: 'Newsletter Live Preview' })).toBeVisible();
     await expect(page.getByText('Subscribe Confirmation')).toBeVisible();
