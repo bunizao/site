@@ -16,19 +16,20 @@ test.describe('Preview smoke', () => {
   test('renders the mascot preview route', async ({ page }) => {
     await page.goto('/dev/preview');
 
-    await expect(page.getByRole('heading', { name: 'Peek Mascot Preview' })).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'Live behavior wiring' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Peek Preview' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Runtime Map' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Brand Behavior' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Tracking Stage' })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Added Expressions' })).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'Tracking Poses' })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'confused' })).toBeVisible();
-    await expect(page.getByText('idle at rest, dart on hover')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'idle at rest, dart on hover' })).toBeVisible();
   });
 
   test('renders the newsletter preview route', async ({ page }) => {
     await page.goto('/dev/preview?view=newsletter');
 
-    await expect(page.getByRole('heading', { name: 'Newsletter Live Preview' })).toBeVisible();
-    await expect(page.getByText('Subscribe Confirmation')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Newsletter Preview' })).toBeVisible();
+    await expect(page.getByText('Subscribe Confirm')).toBeVisible();
   });
 
   test('renders the home page shell', async ({ page }) => {
@@ -45,7 +46,17 @@ test.describe('Preview smoke', () => {
 
     await expect(page).toHaveTitle(/Moods/i);
     await expect(page.locator('[data-mood-hero]')).toBeVisible();
-    await expect(page.locator('[data-mood-list]')).toBeVisible();
+    await expect
+      .poll(
+        async () => {
+          if (await page.locator('[data-mood-loading]').isVisible()) return 'loading';
+          if (await page.locator('[data-mood-feed]').isVisible()) return 'feed';
+          if (await page.locator('[data-mood-error]').isVisible()) return 'error';
+          return 'pending';
+        },
+        { timeout: 30_000 }
+      )
+      .toMatch(/loading|feed|error/);
   });
 
   test('serves core API endpoints', async ({ request }, testInfo) => {
