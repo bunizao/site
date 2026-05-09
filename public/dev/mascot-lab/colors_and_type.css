@@ -1,0 +1,240 @@
+/* ============================================================
+   buxx.me — Colors & Type
+   Mirrors src/styles/globals.css from bunizao/site.
+   All tokens are HSL triplets so hsl(var(--token) / alpha) works.
+   ============================================================ */
+
+/* -------- Font -------- */
+/* Brand font: JetBrains Mono (variable) — matches the real site exactly.
+   Lives at fonts/jetbrains-mono-variable.woff2. */
+@font-face {
+  font-family: 'JetBrains Mono';
+  src: url('fonts/jetbrains-mono-variable.woff2') format('woff2-variations'),
+       url('fonts/jetbrains-mono-variable.woff2') format('woff2');
+  font-weight: 100 800;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  color-scheme: light;
+
+  /* ----- Grayscale palette (HSL triplets) ----- */
+  --background: 0 0% 100%;
+  --foreground: 0 0% 0%;
+  --card: 0 0% 100%;
+  --card-foreground: 0 0% 0%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 0 0% 0%;
+  --primary: 0 0% 0%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 0 0% 96%;
+  --secondary-foreground: 0 0% 0%;
+  --muted: 0 0% 40%;
+  --muted-foreground: 0 0% 40%;
+  --accent: 0 0% 0%;
+  --accent-foreground: 0 0% 100%;
+  --destructive: 0 84% 60%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 0 0% 0%;
+  --input: 0 0% 0%;
+  --ring: 0 0% 0%;
+
+  /* Grid + selection */
+  --grid: 0 0% 0% / 0.12;
+  --selection-bg: 0 0% 0%;
+  --selection-fg: 0 0% 100%;
+
+  /* Paid reaction (only warm accent in the system) */
+  --paid-bg: 45 100% 50% / 0.08;
+  --paid-fg: 45 70% 40%;
+
+  /* ----- Radii ----- */
+  --radius: 0.875rem;
+  --radius-sm: 0.5rem;
+  --radius-md: 0.75rem;
+  --radius-lg: 0.875rem;
+  --radius-xl: 1rem;
+  --radius-chip: 4px;
+  --radius-mood-card: 10px;
+  --radius-project-card: 12px;
+  --radius-pill: 999px;
+
+  /* ----- Typography ----- */
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+
+  --text-xxs: 10px;
+  --text-xs: 11px;
+  --text-sm: 12px;
+  --text-base: 13px;
+  --text-md: 14px;
+  --text-lg: 15px;
+  --text-xl: 16px;
+  --text-2xl: 20px;
+  --text-hero: 28px;
+  --text-hero-lg: 36px;
+  --text-og-h1: 96px;
+
+  --leading-tight: 1.2;
+  --leading-snug: 1.4;
+  --leading-normal: 1.55;
+  --leading-relaxed: 1.7;
+
+  --tracking-tight: -0.02em;
+  --tracking-wide: 0.1em;
+  --tracking-wider: 0.2em;
+
+  /* ----- Spacing (reflects site’s 4/6/8/12/16/24/32/48 rhythm) ----- */
+  --space-0: 0;
+  --space-1: 4px;
+  --space-2: 6px;
+  --space-3: 8px;
+  --space-4: 10px;
+  --space-5: 12px;
+  --space-6: 14px;
+  --space-7: 16px;
+  --space-8: 20px;
+  --space-9: 24px;
+  --space-10: 32px;
+  --space-11: 40px;
+  --space-12: 48px;
+
+  --container-max: 720px;
+
+  /* ----- Shadows ----- */
+  --shadow-card-hover:
+    0 10px 30px -10px hsl(var(--foreground) / 0.1),
+    0 0 0 1px hsl(var(--foreground) / 0.05);
+  --shadow-dropdown:
+    0 8px 24px hsl(var(--foreground) / 0.08),
+    0 2px 8px hsl(var(--foreground) / 0.04);
+  --shadow-mood-hover: -4px 0 0 hsl(var(--foreground) / 0.06);
+  --shadow-nav-indicator:
+    0 0 8px hsl(var(--foreground) / 0.15),
+    0 0 20px hsl(var(--foreground) / 0.06);
+}
+
+.dark {
+  color-scheme: dark;
+  --background: 0 0% 4%;
+  --foreground: 0 0% 100%;
+  --card: 0 0% 4%;
+  --card-foreground: 0 0% 100%;
+  --popover: 0 0% 4%;
+  --popover-foreground: 0 0% 100%;
+  --primary: 0 0% 100%;
+  --primary-foreground: 0 0% 0%;
+  --secondary: 0 0% 12%;
+  --secondary-foreground: 0 0% 100%;
+  --muted: 0 0% 53%;
+  --muted-foreground: 0 0% 53%;
+  --accent: 0 0% 100%;
+  --accent-foreground: 0 0% 0%;
+  --destructive: 0 62% 30%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 0 0% 100%;
+  --input: 0 0% 100%;
+  --ring: 0 0% 100%;
+  --grid: 0 0% 100% / 0.1;
+  --selection-bg: 0 0% 100%;
+  --selection-fg: 0 0% 0%;
+}
+
+/* -------- Base -------- */
+html {
+  font-size: 16px;
+}
+
+body {
+  font-family: var(--font-mono);
+  background: hsl(var(--background));
+  color: hsl(var(--foreground));
+  line-height: var(--leading-relaxed);
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection {
+  background: hsl(var(--selection-bg));
+  color: hsl(var(--selection-fg));
+}
+
+/* -------- Semantic type ramps -------- */
+
+/* Hero name (h1 at homepage) */
+.type-hero {
+  font-size: var(--text-hero);
+  font-weight: 600;
+  letter-spacing: var(--tracking-tight);
+  line-height: var(--leading-tight);
+}
+@media (min-width: 640px) {
+  .type-hero { font-size: var(--text-hero-lg); }
+}
+
+/* OG card H1 only */
+.type-og-h1 {
+  font-size: var(--text-og-h1);
+  font-weight: 700;
+  letter-spacing: var(--tracking-tight);
+}
+
+/* h2 / h3 (rare on this site) */
+.type-h2 {
+  font-size: var(--text-2xl);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+.type-h3 {
+  font-size: var(--text-xl);
+  font-weight: 600;
+}
+
+/* Section micro‑label: PROJECTS, WRITING, MOODS */
+.type-section-label {
+  display: inline-block;
+  font-size: var(--text-xs);
+  font-weight: 300;
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wider);
+  color: hsl(var(--muted-foreground));
+}
+
+/* Status pill text: BUILDING, WONDERING, ... */
+.type-status {
+  font-size: var(--text-sm);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
+  color: hsl(var(--muted-foreground));
+}
+
+/* Body */
+.type-body {
+  font-size: var(--text-md);
+  line-height: var(--leading-relaxed);
+  color: hsl(var(--muted-foreground));
+}
+@media (min-width: 640px) {
+  .type-body { font-size: var(--text-lg); }
+}
+
+/* Meta, dates, captions */
+.type-meta {
+  font-size: var(--text-sm);
+  color: hsl(var(--muted-foreground) / 0.6);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Code / inline mono — everything is mono, so this is just weight */
+.type-code {
+  font-family: var(--font-mono);
+  font-weight: 500;
+  font-size: var(--text-base);
+}
+
+/* Utility weights */
+.w-300 { font-weight: 300; }
+.w-400 { font-weight: 400; }
+.w-450 { font-weight: 450; }
+.w-500 { font-weight: 500; }
+.w-600 { font-weight: 600; }
+.w-700 { font-weight: 700; }

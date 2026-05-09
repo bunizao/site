@@ -8,24 +8,15 @@ import TemplatePreview from '@/features/notify/ui/TemplatePreview';
 export const prerender = false;
 
 const mascot = getLogo('peek');
-const animationEntries = Object.entries(mascot.animations);
-const animationMap = new Map(animationEntries);
-const gallerySections = mascot.gallery ?? [
-  {
-    id: 'all',
-    label: 'All States',
-    description: 'Full mascot state list.',
-    items: animationEntries.map(([name]) => name),
-  },
-];
 const runtimeBehaviors = mascot.runtimeBehaviors ?? [];
 const requestedView = Astro.url.searchParams.get('view')?.trim().toLowerCase();
 const activeView = requestedView === 'newsletter' ? 'newsletter' : 'mascot';
+const mascotLabSrc = '/dev/mascot-lab/index.html';
 
 const title = activeView === 'newsletter' ? 'Newsletter Live Preview' : 'Peek Mascot Preview';
 const description = activeView === 'newsletter'
   ? 'Real-time preview for email notification templates.'
-  : 'Development preview for the peek mascot states and navbar motion.';
+  : 'Development preview for the peek mascot system and navbar motion.';
 ---
 
 <Layout title={title} description={description} navVariant="page">
@@ -39,26 +30,20 @@ const description = activeView === 'newsletter'
             {
               activeView === 'newsletter'
                 ? 'Live preview generated from current channel data and real notify templates.'
-                : 'Review the shipped navbar behavior and every mascot animation from the logo source of truth.'
+                : 'Preview the live navbar mascot behavior and the vendored Mascot Lab from the codebase.'
             }
           </p>
         </div>
         <nav class="flex flex-wrap gap-2" aria-label="Preview routes">
           <a
-            class:list={[
-              'preview-link',
-              { 'preview-link--active': activeView === 'mascot' },
-            ]}
+            class:list={['preview-link', { 'preview-link--active': activeView === 'mascot' }]}
             href="/dev/preview?view=mascot"
             aria-current={activeView === 'mascot' ? 'page' : undefined}
           >
             Mascot
           </a>
           <a
-            class:list={[
-              'preview-link',
-              { 'preview-link--active': activeView === 'newsletter' },
-            ]}
+            class:list={['preview-link', { 'preview-link--active': activeView === 'newsletter' }]}
             href="/dev/preview?view=newsletter"
             aria-current={activeView === 'newsletter' ? 'page' : undefined}
           >
@@ -90,8 +75,8 @@ const description = activeView === 'newsletter'
                 <h2 class="preview-title">idle at rest, dart on hover</h2>
               </div>
               <p class="preview-copy">
-                This is the real brand setup used in the site chrome: `idle` stays still until hover, then `dart`
-                kicks in.
+                This is still the live chrome setup from the site: `idle` at rest, `dart` on hover, plus event-driven
+                overrides from the shared layout.
               </p>
             </div>
           </article>
@@ -116,8 +101,8 @@ const description = activeView === 'newsletter'
                   <dd>{mascot.accent}</dd>
                 </div>
                 <div>
-                  <dt>Actions</dt>
-                  <dd>{animationEntries.length}</dd>
+                  <dt>Lab</dt>
+                  <dd>Vendored</dd>
                 </div>
               </dl>
             </div>
@@ -142,161 +127,32 @@ const description = activeView === 'newsletter'
           </section>
         )}
 
-        {gallerySections.map((section) => (
-          <section class="space-y-3" id={`gallery-${section.id}`}>
-            <div class="space-y-1">
-              <p class="preview-eyebrow">Mascot lab</p>
-              <h2 class="text-lg font-semibold tracking-[0.08em]">{section.label}</h2>
-              <p class="preview-copy">{section.description}</p>
-            </div>
-            {section.id === 'tracking' && (
-              <article class="preview-panel preview-panel--tracker">
-                <div
-                  class="preview-stage preview-stage--tracker"
-                  data-peek-tracker
-                  tabindex="0"
-                  role="img"
-                  aria-label="Interactive tracking pose demo"
-                >
-                  <AnimatedLogo
-                    client:load
-                    id="peek"
-                    animation="scan"
-                    eventChannel="preview-track"
-                    size={156}
-                    title="interactive tracking pose demo"
-                  />
-                  <span class="preview-tracker__hint">Move across the stage</span>
-                </div>
-                <div class="space-y-3">
-                  <div>
-                    <p class="preview-eyebrow">Tracking demo</p>
-                    <h3 class="preview-title">Pointer-driven pose switching</h3>
-                  </div>
-                  <p class="preview-copy">
-                    The stage below uses the five `track_*` poses as actual buckets. Move left or right and peek
-                    will snap between them; leave the stage and it falls back to `scan`.
-                  </p>
-                  <dl class="preview-meta-grid">
-                    <div>
-                      <dt>Base</dt>
-                      <dd>scan</dd>
-                    </div>
-                    <div>
-                      <dt>Buckets</dt>
-                      <dd>5 poses</dd>
-                    </div>
-                    <div>
-                      <dt>Channel</dt>
-                      <dd>preview-track</dd>
-                    </div>
-                  </dl>
-                </div>
-              </article>
-            )}
-            <div class="preview-card-grid">
-              {section.items.map((key) => {
-                const animation = animationMap.get(key);
-                if (!animation) return null;
-                return (
-                  <article class="preview-panel">
-                    <div class="preview-stage">
-                      <AnimatedLogo
-                        client:load
-                        id="peek"
-                        animation={key}
-                        loop={animation.previewLoop ?? animation.loop}
-                        size={112}
-                        title={`peek ${key}`}
-                      />
-                    </div>
-                    <div class="space-y-3">
-                      <div class="space-y-2">
-                        <div class="preview-card-head">
-                          <h3 class="preview-title">{animation.label ?? key}</h3>
-                          <span class={`preview-kind preview-kind--${animation.kind ?? 'loop'}`}>
-                            {animation.kind ?? 'loop'}
-                          </span>
-                        </div>
-                        <p class="preview-copy">{animation.summary ?? 'No summary yet.'}</p>
-                        {animation.usage && <p class="preview-usage">{animation.usage}</p>}
-                      </div>
-                      <dl class="preview-meta-grid">
-                        <div>
-                          <dt>Key</dt>
-                          <dd>{key}</dd>
-                        </div>
-                        <div>
-                          <dt>Frames</dt>
-                          <dd>{animation.frames.length}</dd>
-                        </div>
-                        <div>
-                          <dt>FPS</dt>
-                          <dd>{animation.fps}</dd>
-                        </div>
-                      </dl>
-                      <dl class="preview-meta-grid">
-                        <div>
-                          <dt>Loop</dt>
-                          <dd>{animation.loop === false ? 'No' : 'Yes'}</dd>
-                        </div>
-                        <div>
-                          <dt>Alias</dt>
-                          <dd>{animation.aliasOf ?? '—'}</dd>
-                        </div>
-                        <div>
-                          <dt>Tags</dt>
-                          <dd>{animation.tags?.join(', ') ?? '—'}</dd>
-                        </div>
-                      </dl>
-                    </div>
-                  </article>
-                );
-              })}
-            </div>
-          </section>
-        ))}
+        <section class="space-y-3">
+          <div class="space-y-1">
+            <p class="preview-eyebrow">Mascot lab</p>
+            <h2 class="text-lg font-semibold tracking-[0.08em]">Codebase lookbook</h2>
+            <p class="preview-copy">
+              This frame loads the Mascot Lab that was brought into the repo from the design system export. The extra
+              expressions and costumes live in codebase files under `public/dev/mascot-lab/`, not in Downloads.
+            </p>
+          </div>
+          <div class="preview-frame-wrap">
+            <iframe
+              title="Mascot Lab preview"
+              src={mascotLabSrc}
+              class="preview-frame"
+              loading="lazy"
+              data-design-system-preview
+            />
+          </div>
+          <a class="preview-link preview-link--source" href={mascotLabSrc} target="_blank" rel="noreferrer">
+            Open Mascot Lab
+          </a>
+        </section>
       </>
     )}
   </main>
 </Layout>
-
-<script>
-  (() => {
-    const tracker = document.querySelector('[data-peek-tracker]');
-    if (!(tracker instanceof HTMLElement)) return;
-
-    const setPose = (animation) => {
-      window.dispatchEvent(new CustomEvent('peek:preview-track:set', { detail: { animation } }));
-    };
-
-    const revertPose = () => {
-      window.dispatchEvent(new CustomEvent('peek:preview-track:revert'));
-    };
-
-    const pickPose = (clientX) => {
-      const rect = tracker.getBoundingClientRect();
-      if (rect.width <= 0) return 'track_center';
-      const ratio = Math.min(0.9999, Math.max(0, (clientX - rect.left) / rect.width));
-      if (ratio < 0.2) return 'track_far_left';
-      if (ratio < 0.4) return 'track_left';
-      if (ratio < 0.6) return 'track_center';
-      if (ratio < 0.8) return 'track_right';
-      return 'track_far_right';
-    };
-
-    tracker.addEventListener('pointerenter', (event) => {
-      setPose(pickPose(event.clientX));
-    });
-
-    tracker.addEventListener('pointermove', (event) => {
-      setPose(pickPose(event.clientX));
-    });
-
-    tracker.addEventListener('pointerleave', revertPose);
-    tracker.addEventListener('blur', revertPose);
-  })();
-</script>
 
 <style>
   .preview-link {
@@ -322,12 +178,12 @@ const description = activeView === 'newsletter'
     color: hsl(var(--background));
   }
 
-  .preview-hero-grid {
-    display: grid;
-    gap: 1rem;
+  .preview-link--source {
+    width: fit-content;
+    background: transparent;
   }
 
-  .preview-card-grid {
+  .preview-hero-grid {
     display: grid;
     gap: 1rem;
   }
@@ -353,11 +209,6 @@ const description = activeView === 'newsletter'
     align-items: center;
   }
 
-  .preview-panel--tracker {
-    grid-template-columns: minmax(0, 240px) minmax(0, 1fr);
-    align-items: center;
-  }
-
   .preview-stage {
     display: grid;
     place-items: center;
@@ -374,44 +225,25 @@ const description = activeView === 'newsletter'
     min-height: 220px;
   }
 
-  .preview-stage--tracker {
-    position: relative;
-    min-height: 240px;
-    cursor: ew-resize;
-    outline: none;
-    background:
-      radial-gradient(circle at center, hsl(var(--foreground) / 0.08), transparent 52%),
-      linear-gradient(90deg, hsl(var(--foreground) / 0.05) 0 1px, transparent 1px 20%),
-      linear-gradient(180deg, hsl(var(--background)) 0%, hsl(var(--background) / 0.72) 100%),
-      linear-gradient(135deg, hsl(var(--accent) / 0.5), transparent 65%);
-    background-size: auto, 20% 100%, auto, auto;
-  }
-
-  .preview-stage--tracker:focus-visible {
-    border-color: hsl(var(--foreground) / 0.26);
-    box-shadow: 0 0 0 3px hsl(var(--foreground) / 0.1);
-  }
-
   .preview-stage--static :global(svg) {
     width: 144px;
     height: auto;
   }
 
-  .preview-tracker__hint {
-    position: absolute;
-    left: 50%;
-    bottom: 1rem;
-    transform: translateX(-50%);
-    border-radius: 999px;
-    background: hsl(var(--background) / 0.82);
+  .preview-frame-wrap {
+    overflow: hidden;
     border: 1px solid hsl(var(--border));
-    padding: 0.3rem 0.65rem;
-    font-size: 0.68rem;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    color: hsl(var(--muted-foreground));
-    white-space: nowrap;
-    pointer-events: none;
+    border-radius: 1.5rem;
+    background: hsl(var(--card));
+    box-shadow: inset 0 1px 0 hsl(var(--foreground) / 0.04);
+  }
+
+  .preview-frame {
+    display: block;
+    width: 100%;
+    min-height: 1860px;
+    border: 0;
+    background: hsl(var(--background));
   }
 
   .preview-eyebrow {
@@ -432,41 +264,6 @@ const description = activeView === 'newsletter'
     font-size: 0.92rem;
     line-height: 1.65;
     color: hsl(var(--muted-foreground));
-  }
-
-  .preview-usage {
-    font-size: 0.84rem;
-    line-height: 1.55;
-    color: hsl(var(--foreground) / 0.74);
-  }
-
-  .preview-card-head {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.6rem;
-  }
-
-  .preview-kind {
-    display: inline-flex;
-    align-items: center;
-    border-radius: 999px;
-    border: 1px solid hsl(var(--border));
-    padding: 0.28rem 0.6rem;
-    font-size: 0.65rem;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    color: hsl(var(--muted-foreground));
-    background: hsl(var(--background) / 0.75);
-  }
-
-  .preview-kind--alias {
-    color: hsl(var(--foreground));
-  }
-
-  .preview-kind--one-shot {
-    color: hsl(var(--foreground));
   }
 
   .runtime-card {
@@ -519,28 +316,16 @@ const description = activeView === 'newsletter'
     .runtime-grid {
       grid-template-columns: repeat(2, minmax(0, 1fr));
     }
-
-    .preview-card-grid {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
   }
 
   @media (min-width: 1320px) {
     .runtime-grid {
       grid-template-columns: repeat(3, minmax(0, 1fr));
     }
-
-    .preview-card-grid {
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-    }
   }
 
   @media (max-width: 720px) {
     .preview-panel--hero {
-      grid-template-columns: minmax(0, 1fr);
-    }
-
-    .preview-panel--tracker {
       grid-template-columns: minmax(0, 1fr);
     }
 
