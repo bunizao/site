@@ -1,9 +1,15 @@
 ---
 import { paletteGridToSvg } from '@/features/logos/lib/svg';
-import type { PeekLookDefinition } from '@/features/logos/data/types';
+import type { CellPalette, Grid } from '@/features/mascot/shared/types';
+
+type PeekLookLike = {
+  grid: Grid;
+  label: string;
+  palette?: CellPalette;
+};
 
 export interface Props {
-  look: PeekLookDefinition;
+  look: PeekLookLike;
   size?: number;
   title?: string;
 }
@@ -17,7 +23,7 @@ const svg = paletteGridToSvg(grid, width, height, {
   fg: 'currentColor',
   accent: 'var(--peek-look-accent)',
   title: title ?? look.label,
-  extraPalette: {
+  extraPalette: look.palette ?? {
     4: 'var(--peek-look-red)',
     5: 'var(--peek-look-white)',
     6: 'var(--peek-look-gold)',

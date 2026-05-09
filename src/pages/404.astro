@@ -1,9 +1,17 @@
 ---
 import Layout from '../layouts/Layout.astro';
 import { AnimatedLogo } from '@/features/logos/ui/AnimatedLogo';
+import {
+  getPeekSlotKey,
+  getPeekTrackingPoseKeys,
+} from '@/features/mascot/peek/catalog';
 
 const title = '404 - page not found';
 const description = "The page you're looking for isn't here.";
+const trackerDefaultAnimation = getPeekSlotKey('not-found.tracker.default');
+const trackerHoverAnimation = getPeekSlotKey('not-found.cta.hover');
+const trackerClickAnimation = getPeekSlotKey('not-found.cta.click');
+const trackerPoseKeys = getPeekTrackingPoseKeys('not-found');
 
 // Raw requested path — displayed under the digits. Trim anything too long so
 // it doesn't wrap or overflow the stage.
@@ -12,7 +20,12 @@ const displayPath = rawPath.length > 48 ? rawPath.slice(0, 47) + '…' : rawPath
 ---
 
 <Layout title={title} description={description} hideSiteNav>
-  <main class="not-found">
+  <main
+    class="not-found"
+    data-peek-hover={trackerHoverAnimation}
+    data-peek-click={trackerClickAnimation}
+    data-peek-track-poses={JSON.stringify(trackerPoseKeys)}
+  >
     <div class="nf-stage">
       <div class="nf-number" data-text="404" aria-hidden="true"
         ><span class="nf-digit" style="--idx: 0">4</span
@@ -45,7 +58,7 @@ const displayPath = rawPath.length > 48 ? rawPath.slice(0, 47) + '…' : rawPath
           <AnimatedLogo
             client:idle
             id="peek"
-            animation="scan"
+            animation={trackerDefaultAnimation}
             size={72}
             title="peek"
             eventChannel="nf"
@@ -125,13 +138,7 @@ const displayPath = rawPath.length > 48 ? rawPath.slice(0, 47) + '…' : rawPath
 
     // Three-act story: scan (idle) → alert (hover) → dissolve (click).
     // Peek also tracks the cursor across the whole page when idle.
-    const TRACK_POSES = [
-      'track_far_left',
-      'track_left',
-      'track_center',
-      'track_right',
-      'track_far_right',
-    ] as const;
+    const TRACK_POSES = JSON.parse(notFound?.dataset.peekTrackPoses ?? '[]') as string[];
     let trackingBucket: number | null = null;
     let revertTimer = 0;
     let isHovering = false;
@@ -166,7 +173,7 @@ const displayPath = rawPath.length > 48 ? rawPath.slice(0, 47) + '…' : rawPath
         isHovering = true;
         trackingBucket = null;
         window.clearTimeout(revertTimer);
-        dispatchPeek('set', { animation: 'alert' });
+        dispatchPeek('set', { animation: notFound?.dataset.peekHover ?? 'alert' });
       };
       const onUnhover = () => {
         isHovering = false;
@@ -180,7 +187,7 @@ const displayPath = rawPath.length > 48 ? rawPath.slice(0, 47) + '…' : rawPath
 
       homeLink.addEventListener('click', () => {
         isLeaving = true;
-        dispatchPeek('set', { animation: 'dissolve' });
+        dispatchPeek('set', { animation: notFound?.dataset.peekClick ?? 'dissolve' });
       });
     }
   </script>

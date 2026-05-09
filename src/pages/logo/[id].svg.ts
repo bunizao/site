@@ -1,5 +1,6 @@
 import type { APIRoute } from 'astro';
-import { LOGOS, logoToSvg, type LogoId } from '@/features/logos/lib/svg';
+import { getPeekBase, getPeekSlotAsset } from '@/features/mascot/peek/catalog';
+import { LOGOS, gridToSvg, logoToSvg, type LogoId } from '@/features/logos/lib/svg';
 
 export function getStaticPaths() {
   return (Object.keys(LOGOS) as LogoId[]).map((id) => ({ params: { id } }));
@@ -19,13 +20,25 @@ export const GET: APIRoute = ({ params }) => {
   if (!LOGOS[id]) {
     return new Response('Not found', { status: 404 });
   }
-  const svg = logoToSvg(id, {
-    fg: 'var(--favicon-fg)',
-    accent: LOGOS[id].accent,
-    pad: 1,
-    title: `${id} — buxx.me`,
-    style: FAVICON_THEME_STYLE,
-  });
+  const svg = id === 'peek'
+    ? (() => {
+        const asset = getPeekSlotAsset('favicon.default');
+        const base = getPeekBase();
+        return gridToSvg(asset.grid ?? base.base, base.width, base.height, {
+          fg: 'var(--favicon-fg)',
+          accent: base.accent,
+          pad: 1,
+          title: `${id} — buxx.me`,
+          style: FAVICON_THEME_STYLE,
+        });
+      })()
+    : logoToSvg(id, {
+        fg: 'var(--favicon-fg)',
+        accent: LOGOS[id].accent,
+        pad: 1,
+        title: `${id} — buxx.me`,
+        style: FAVICON_THEME_STYLE,
+      });
   return new Response(svg, {
     headers: {
       'Content-Type': 'image/svg+xml',

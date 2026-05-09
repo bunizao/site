@@ -23,6 +23,7 @@ import '../features/mood/styles/feed-rich-text.css';
 import { Moon, Sun, Monitor } from 'lucide-react';
 import SpeedInsights from '@vercel/speed-insights/astro';
 import { AnimatedLogo } from '@/features/logos/ui/AnimatedLogo';
+import { getPeekSlot, getPeekSlotKey } from '@/features/mascot/peek/catalog';
 
 const {
   title,
@@ -48,6 +49,13 @@ const ogImageType = ogImageUrl.endsWith('.png')
   : ogImageUrl.endsWith('.webp')
     ? 'image/webp'
     : 'image/jpeg';
+const navbarDefaultAnimation = getPeekSlotKey('navbar.brand.default');
+const navbarHoverAnimation = getPeekSlotKey('navbar.brand.hover');
+const navbarLinkHoverAnimation = getPeekSlotKey('navbar.nav-link.hover');
+const navbarSectionActiveAnimation = getPeekSlotKey('navbar.section.active');
+const navbarSectionActiveHoldMs = getPeekSlot('navbar.section.active').holdMs ?? 600;
+const navbarFastScrollHoldMs = getPeekSlot('navbar.brand.hover').holdMs ?? 1000;
+const navbarIdleTimeoutAnimation = getPeekSlotKey('navbar.idle-timeout');
 ---
 
 <!DOCTYPE html>
@@ -146,6 +154,12 @@ const ogImageType = ogImageUrl.endsWith('.png')
           },
         ]}
         data-site-nav
+        data-peek-link-hover={navbarLinkHoverAnimation}
+        data-peek-section-active={navbarSectionActiveAnimation}
+        data-peek-section-active-hold-ms={String(navbarSectionActiveHoldMs)}
+        data-peek-fast-scroll={navbarHoverAnimation}
+        data-peek-fast-scroll-hold-ms={String(navbarFastScrollHoldMs)}
+        data-peek-idle-timeout={navbarIdleTimeoutAnimation}
         aria-label={isPageNav ? 'Home' : 'Page sections'}
       >
         {!isPageNav ? <div class="nav-active-indicator" data-nav-indicator aria-hidden="true"></div> : null}
@@ -154,8 +168,8 @@ const ogImageType = ogImageUrl.endsWith('.png')
             <AnimatedLogo
               client:idle
               id="peek"
-              animation="idle"
-              hoverAnimation={isHomeNav ? 'dart' : undefined}
+              animation={navbarDefaultAnimation}
+              hoverAnimation={isHomeNav ? navbarHoverAnimation : undefined}
               size={isHomeNav ? 40 : 24}
               title="peek"
               eventChannel={isHomeNav ? 'nav' : undefined}
@@ -991,6 +1005,14 @@ const ogImageType = ogImageUrl.endsWith('.png')
 
         if (isHomeNav) {
           const brand = nav.querySelector('[data-site-brand]') as HTMLElement | null;
+          const navPeekConfig = {
+            linkHover: nav.dataset.peekLinkHover ?? 'curious',
+            sectionActive: nav.dataset.peekSectionActive ?? 'happy',
+            sectionActiveHoldMs: Number(nav.dataset.peekSectionActiveHoldMs ?? '600'),
+            fastScroll: nav.dataset.peekFastScroll ?? 'dart',
+            fastScrollHoldMs: Number(nav.dataset.peekFastScrollHoldMs ?? '1000'),
+            idleTimeout: nav.dataset.peekIdleTimeout ?? 'sleepy',
+          };
 
           const syncBrandEaten = () => {
             nav.classList.toggle('is-brand-eaten', !desktopNavQuery.matches && window.scrollY > 18);
@@ -1122,7 +1144,7 @@ const ogImageType = ogImageUrl.endsWith('.png')
           nav.querySelectorAll<HTMLElement>('.nav-link').forEach((link) => {
             link.addEventListener('pointerenter', () => {
               if (!desktopNavQuery.matches) return;
-              dispatchPeek('set', { animation: 'curious' });
+              dispatchPeek('set', { animation: navPeekConfig.linkHover });
             });
             link.addEventListener('pointerleave', () => {
               if (!desktopNavQuery.matches) return;
@@ -1137,7 +1159,10 @@ const ogImageType = ogImageUrl.endsWith('.png')
             const key = active?.getAttribute('data-section-id') ?? active?.getAttribute('href') ?? null;
             if (key && key !== lastActiveSection) {
               if (lastActiveSection !== null) {
-                dispatchPeek('set', { animation: 'happy', holdMs: 600 });
+                dispatchPeek('set', {
+                  animation: navPeekConfig.sectionActive,
+                  holdMs: navPeekConfig.sectionActiveHoldMs,
+                });
               }
               lastActiveSection = key;
             }
@@ -1165,8 +1190,11 @@ const ogImageType = ogImageUrl.endsWith('.png')
               lastScrollY = window.scrollY;
               lastScrollT = now;
               if (v > 0.5 && now > dartUntil) {
-                dartUntil = now + 1000;
-                dispatchPeek('set', { animation: 'dart', holdMs: 1000 });
+                dartUntil = now + navPeekConfig.fastScrollHoldMs;
+                dispatchPeek('set', {
+                  animation: navPeekConfig.fastScroll,
+                  holdMs: navPeekConfig.fastScrollHoldMs,
+                });
               }
             },
             { passive: true },
@@ -1183,7 +1211,7 @@ const ogImageType = ogImageUrl.endsWith('.png')
             if (idleTimer !== null) clearTimeout(idleTimer);
             idleTimer = setTimeout(() => {
               isSleepy = true;
-              dispatchPeek('set', { animation: 'sleepy' });
+              dispatchPeek('set', { animation: navPeekConfig.idleTimeout });
             }, 10000);
           };
           ['pointermove', 'pointerdown', 'keydown', 'scroll', 'touchstart'].forEach((ev) => {
