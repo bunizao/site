@@ -992,6 +992,7 @@
     .site-nav--home .site-brand,
     .site-nav--home.is-vertical .site-brand {
       width: auto;
+      min-width: calc(1.35rem + 0.5rem + 5.2rem);
       min-height: 2.75rem;
       margin: 0;
       padding-right: 0;
