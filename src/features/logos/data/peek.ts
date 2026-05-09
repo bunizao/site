@@ -86,14 +86,12 @@ const DART = [
   '.##....##.|###....###|##########|##########|##########|##o##*#o##|##########',
 ];
 
-// nap — slow eye-droop + nose breathing (* fades in/out). 6 frames @ 4 fps.
+// nap — eyes closed (solid body, no holes), nose pulses faintly. 4 frames @ 3 fps.
 const NAP = [
-  '.##....##.|###....###|##########|##########|##oooooo##|##o##*#o##|##########',
-  '.##....##.|###....###|##########|##########|##oooooo##|##o####o##|##########',
-  '.##....##.|###....###|##########|##########|##oooooo##|##o##*#o##|##########',
-  '.##....##.|###....###|##########|##########|##oooooo##|##o####o##|##########',
-  '.##....##.|###....###|##########|##########|##oooooo##|##o##*#o##|##########',
-  '.##....##.|###....###|##########|##########|##oooooo##|##o####o##|##########',
+  '.##....##.|###....###|##########|##########|##########|#####*####|##########',
+  '.##....##.|###....###|##########|##########|##########|##########|##########',
+  '.##....##.|###....###|##########|##########|##########|#####*####|##########',
+  '.##....##.|###....###|##########|##########|##########|##########|##########',
 ];
 
 export const PEEK: LogoDefinition = {
@@ -112,7 +110,7 @@ export const PEEK: LogoDefinition = {
     curious: { name: 'curious', fps: 10, frames: FArr(CURIOUS), loop: true },
     purr:    { name: 'purr',    fps: 8,  frames: FArr(PURR),    loop: true },
     dart:    { name: 'dart',    fps: 24, frames: FArr(DART),    loop: true },
-    nap:     { name: 'nap',     fps: 4,  frames: FArr(NAP),     loop: true },
+    nap:     { name: 'nap',     fps: 3,  frames: FArr(NAP),     loop: true },
     // aliases for nav event system
     happy:   { name: 'happy',   fps: 8,  frames: FArr(PURR),    loop: true },
     sleepy:  { name: 'sleepy',  fps: 4,  frames: FArr(NAP),     loop: true },
