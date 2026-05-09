@@ -54,19 +54,21 @@ const displayPath = rawPath.length > 48 ? rawPath.slice(0, 47) + '…' : rawPath
       </div>
 
       <div class="nf-cta" data-nf-cta>
-        <span class="nf-cta-peek" data-nf-peek aria-hidden="true">
-          <AnimatedLogo
-            client:idle
-            id="peek"
-            animation={trackerDefaultAnimation}
-            size={72}
-            title="peek"
-            eventChannel="nf"
-          />
-        </span>
         <a href="/" class="nf-home" data-nf-home>
-          <span class="nf-home-arrow" aria-hidden="true">←</span>
-          <span class="nf-home-text">go home</span>
+          <span class="nf-cta-peek" data-nf-peek aria-hidden="true">
+            <AnimatedLogo
+              client:idle
+              id="peek"
+              animation={trackerDefaultAnimation}
+              size={72}
+              title="peek"
+              eventChannel="nf"
+            />
+          </span>
+          <span class="nf-home-label">
+            <span class="nf-home-arrow" aria-hidden="true">←</span>
+            <span class="nf-home-text">go home</span>
+          </span>
         </a>
       </div>
     </div>
@@ -532,8 +534,9 @@ const displayPath = rawPath.length > 48 ? rawPath.slice(0, 47) + '…' : rawPath
     position: relative;
     z-index: 3;
     display: inline-flex;
+    flex-direction: column;
     align-items: center;
-    gap: 9px;
+    gap: clamp(12px, 2svh, 18px);
     font-family: 'Geist Mono', 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
     font-size: 13px;
     line-height: 1;
@@ -545,6 +548,13 @@ const displayPath = rawPath.length > 48 ? rawPath.slice(0, 47) + '…' : rawPath
     transition:
       gap 320ms cubic-bezier(0.16, 1, 0.3, 1),
       color 220ms ease;
+  }
+
+  .nf-home-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 9px;
+    transition: gap 320ms cubic-bezier(0.16, 1, 0.3, 1);
   }
 
   .nf-home-arrow {
@@ -576,13 +586,23 @@ const displayPath = rawPath.length > 48 ? rawPath.slice(0, 47) + '…' : rawPath
 
   .nf-home:hover,
   .nf-home:focus-visible {
-    gap: 14px;
     outline: none;
+  }
+
+  .nf-home:hover .nf-home-label,
+  .nf-home:focus-visible .nf-home-label {
+    gap: 14px;
   }
 
   .nf-home:hover .nf-home-arrow,
   .nf-home:focus-visible .nf-home-arrow {
     transform: translateX(-5px);
+  }
+
+  .nf-home:hover .nf-cta-peek,
+  .nf-home:focus-visible .nf-cta-peek {
+    filter: drop-shadow(0 3px 0 hsl(var(--foreground) / 0.16))
+      drop-shadow(0 10px 20px hsl(var(--foreground) / 0.1));
   }
 
   .nf-home:hover .nf-home-text::after,
@@ -727,6 +747,11 @@ const displayPath = rawPath.length > 48 ? rawPath.slice(0, 47) + '…' : rawPath
 
     .nf-home:hover,
     .nf-home:focus-visible {
+      gap: clamp(12px, 2svh, 18px);
+    }
+
+    .nf-home:hover .nf-home-label,
+    .nf-home:focus-visible .nf-home-label {
       gap: 9px;
     }
 
