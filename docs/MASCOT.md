@@ -12,7 +12,7 @@ The preview/gallery surface lives at `/dev/preview` when local dev is running.
 - `src/features/logos/ui/AnimatedLogo.tsx` — frame-based client animation renderer
 - `src/pages/logo/[id].svg.ts` — public SVG route used by favicon and image consumers
 - `src/pages/dev/preview.astro` — shared developer preview surface for mascot and newsletter states
-- `public/dev/mascot-lab/*` — vendored mascot lab files from the design system export
+- `public/dev/mascot-lab/*` — vendored `peek` lab assets derived from the design system export
 
 ## Current usage
 
@@ -40,7 +40,7 @@ The preview/gallery surface lives at `/dev/preview` when local dev is running.
 
 ## Preview routes
 
-- `/dev/preview` — mascot motion preview, tracking demo, and the vendored Mascot Lab
+- `/dev/preview` — mascot motion preview, tracking demo, and the vendored `peek` lab
 - `/dev/preview?view=newsletter` — notify email preview surface
 
 Keep new mascot work inside the existing grid-and-frame model unless there is a real reason to change the renderer. A mascot does not need a framework inside the framework.

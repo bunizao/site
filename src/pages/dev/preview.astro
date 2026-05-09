@@ -21,7 +21,7 @@ const gallerySections = mascot.gallery ?? [
 const runtimeBehaviors = mascot.runtimeBehaviors ?? [];
 const requestedView = Astro.url.searchParams.get('view')?.trim().toLowerCase();
 const activeView = requestedView === 'newsletter' ? 'newsletter' : 'mascot';
-const mascotLabSrc = '/dev/mascot-lab/index.html';
+const mascotLabSrc = '/dev/mascot-lab/peek.html';
 
 const title = activeView === 'newsletter' ? 'Newsletter Live Preview' : 'Peek Mascot Preview';
 const description = activeView === 'newsletter'
@@ -146,15 +146,15 @@ const description = activeView === 'newsletter'
         <section class="space-y-3">
           <div class="space-y-1">
             <p class="preview-eyebrow">Lookbook</p>
-            <h2 class="text-lg font-semibold tracking-[0.08em]">Vendored Mascot Lab</h2>
+            <h2 class="text-lg font-semibold tracking-[0.08em]">Vendored Peek Lab</h2>
             <p class="preview-copy">
-              This is the added `peek` look system from the design export, now vendored into the repo under
-              `public/dev/mascot-lab/`. It supplements the existing motion preview instead of replacing it.
+              This keeps only the `peek` design work from the design export: motion references, added expressions,
+              costumes, and in-situ compositions. The rest of mascot lab is not surfaced here.
             </p>
           </div>
           <div class="preview-frame-wrap">
             <iframe
-              title="Mascot Lab preview"
+              title="Peek Lab preview"
               src={mascotLabSrc}
               class="preview-frame"
               loading="lazy"
@@ -162,7 +162,7 @@ const description = activeView === 'newsletter'
             />
           </div>
           <a class="preview-link preview-link--source" href={mascotLabSrc} target="_blank" rel="noreferrer">
-            Open Mascot Lab
+            Open Peek Lab
           </a>
         </section>
 
