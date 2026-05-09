@@ -40,7 +40,7 @@ The preview/gallery surface lives at `/dev/preview` when local dev is running.
 
 ## Preview routes
 
-- `/dev/preview` — mascot navbar summary plus the vendored Mascot Lab
+- `/dev/preview` — mascot motion preview, tracking demo, and the vendored Mascot Lab
 - `/dev/preview?view=newsletter` — notify email preview surface
 
 Keep new mascot work inside the existing grid-and-frame model unless there is a real reason to change the renderer. A mascot does not need a framework inside the framework.
