@@ -54,7 +54,7 @@ const techRow1 = ['TypeScript', "JavaScript", 'Python', 'C#', 'C++', 'React', 'T
 const techRow2 = ['Frontend', 'BGP', 'Proxy', 'Docker', 'Linux', 'Web3', 'Optimization'];
 ---
 
-<header class="hero-section pt-14 pb-8 sm:pt-20 sm:pb-12">
+<header class="hero-section pb-8 sm:pb-12">
     <!-- Status indicator -->
     <div class="hero-animate" data-hero-status>
       <div class="status mb-4">
@@ -144,11 +144,13 @@ const techRow2 = ['Frontend', 'BGP', 'Proxy', 'Docker', 'Linux', 'Web3', 'Optimi
     flex-direction: column;
     justify-content: center;
     position: relative;
+    padding-top: calc(env(safe-area-inset-top, 0px) + 3.5rem);
   }
 
   @media (min-width: 640px) {
     .hero-section {
       min-height: calc(100vh - 140px);
+      padding-top: 5rem;
     }
   }
 
