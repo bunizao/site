@@ -1,7 +1,6 @@
-// Pixel logo data model.
-// 0 = empty · 1 = body (foreground) · 2 = eye-hole (transparent through body) · 3 = accent
-export type Cell = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10;
-export type Grid = ReadonlyArray<ReadonlyArray<Cell>>;
+import type { Cell, Grid } from '@/features/mascot/shared/types';
+
+export type { Cell, Grid };
 
 export type PeekLookKind = 'expression' | 'costume';
 
