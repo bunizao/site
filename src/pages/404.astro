@@ -101,17 +101,22 @@ const displayPath = rawPath.length > 48 ? rawPath.slice(0, 47) + '…' : rawPath
     }
 
     if (notFound && notFoundNumber && canAnimate.matches) {
+      let numberRect = notFoundNumber.getBoundingClientRect();
+      const syncNumberRect = () => {
+        numberRect = notFoundNumber.getBoundingClientRect();
+      };
+
       const onMove = (event: PointerEvent) => {
-        const rect = notFoundNumber.getBoundingClientRect();
-        const cx = rect.left + rect.width / 2;
-        const cy = rect.top + rect.height / 2;
-        const dx = (event.clientX - cx) / (rect.width / 2);
-        const dy = (event.clientY - cy) / (rect.height / 2);
+        const cx = numberRect.left + numberRect.width / 2;
+        const cy = numberRect.top + numberRect.height / 2;
+        const dx = (event.clientX - cx) / (numberRect.width / 2);
+        const dy = (event.clientY - cy) / (numberRect.height / 2);
         notFoundNumber.style.setProperty('--mx', Math.max(-1, Math.min(1, dx)).toFixed(3));
         notFoundNumber.style.setProperty('--my', Math.max(-1, Math.min(1, dy)).toFixed(3));
       };
 
       notFoundNumber.addEventListener('pointerenter', () => {
+        syncNumberRect();
         window.clearTimeout(recallTimer);
         notFound.classList.remove('is-number-recalling');
         notFoundNumber.classList.remove('is-number-recalling');
@@ -134,6 +139,9 @@ const displayPath = rawPath.length > 48 ? rawPath.slice(0, 47) + '…' : rawPath
           notFoundNumber.classList.remove('is-number-recalling');
         }, 940);
       });
+
+      window.addEventListener('resize', syncNumberRect, { passive: true });
+      window.addEventListener('scroll', syncNumberRect, { passive: true });
     }
 
     // Three-act story: scan (idle) → alert (hover) → dissolve (click).
