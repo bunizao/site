@@ -998,12 +998,14 @@
       padding-right: 0;
       gap: 0.5rem;
       overflow: hidden;
+      transition: min-width 0.32s ease;
     }
 
     .site-nav--home .site-brand-logo {
       position: relative;
       z-index: 2;
       flex: 0 0 auto;
+      width: 40px;
       transform: translateX(0);
     }
 
@@ -1020,6 +1022,8 @@
 
     .site-nav--home .site-brand-text {
       display: inline-block;
+      width: 5.2rem;
+      flex: 0 0 5.2rem;
       max-width: 5.2rem;
       font-size: 1.08rem;
       line-height: 1;
@@ -1029,11 +1033,17 @@
       transform: translateX(0);
       opacity: 1;
       clip-path: inset(0 0 0 0);
-      transition: max-width 0.32s ease, opacity 0.24s ease, transform 0.32s ease, clip-path 0.32s ease;
+      transition: width 0.32s ease, flex-basis 0.32s ease, max-width 0.32s ease, opacity 0.24s ease, transform 0.32s ease, clip-path 0.32s ease;
       white-space: nowrap;
     }
 
+    .site-nav--home.is-brand-eaten .site-brand {
+      min-width: 40px;
+    }
+
     .site-nav--home.is-brand-eaten .site-brand-text {
+      width: 0;
+      flex-basis: 0;
       max-width: 0;
       opacity: 0;
       transform: translateX(-1.15rem);
