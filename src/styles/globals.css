@@ -1065,7 +1065,7 @@
     }
 
     .site-nav--home.is-brand-eaten .nav-link {
-      max-width: 7.25ch;
+      max-width: calc(var(--nav-link-char-count, 0) * 1ch + 0.35rem);
       opacity: 1;
       pointer-events: auto;
       transform: translateX(0);

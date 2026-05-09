@@ -696,6 +696,8 @@ const navbarIdleTimeoutAnimation = getPeekSlotKey('navbar.idle-timeout');
           const chars: HTMLSpanElement[] = [];
           const navIndex = el.dataset.navIndex;
 
+          el.style.setProperty('--nav-link-char-count', String(text.length));
+
           el.textContent = '';
 
           // Inject section index span
