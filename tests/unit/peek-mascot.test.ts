@@ -120,19 +120,31 @@ describe('peek mascot catalog', () => {
 describe('peek legacy compatibility', () => {
   test('keeps the legacy logo definition powered by the mascot catalog', () => {
     const base = getPeekBase();
+    const idleAsset = getPeekAsset('peek.motion.idle');
+    if (!idleAsset.frames) {
+      throw new Error('peek.motion.idle should expose frames');
+    }
 
     expect(PEEK.id).toBe(base.id);
     expect(PEEK.width).toBe(base.width);
     expect(PEEK.height).toBe(base.height);
     expect(PEEK.base).toEqual(base.base);
     expect(PEEK.animations.idle.fps).toBe(2);
-    expect(PEEK.animations.idle.frames).toEqual(getPeekAsset('peek.motion.idle').frames);
+    expect(PEEK.animations.idle.frames).toEqual(idleAsset.frames);
     expect(PEEK.animations.happy.aliasOf).toBe('purr');
   });
 
   test('keeps legacy look registries aligned with the mascot catalog', () => {
     const expressionAssets = getPeekAssets({ kind: 'expression' });
     const costumeAssets = getPeekAssets({ kind: 'costume' });
+    const firstExpression = expressionAssets[0];
+    const firstCostume = costumeAssets[0];
+    const firstExpressionLook = PEEK_EXPRESSION_LOOKS[0];
+    const firstCostumeLook = PEEK_COSTUME_LOOKS[0];
+
+    if (!firstExpression?.grid || !firstCostume?.grid || !firstExpressionLook || !firstCostumeLook) {
+      throw new Error('peek look compatibility fixtures should exist');
+    }
 
     expect(PEEK_EXPRESSION_LOOKS.map((look) => look.label)).toEqual(
       expressionAssets.map((asset) => asset.key),
@@ -140,7 +152,7 @@ describe('peek legacy compatibility', () => {
     expect(PEEK_COSTUME_LOOKS.map((look) => look.label)).toEqual(
       costumeAssets.map((asset) => asset.key),
     );
-    expect(PEEK_EXPRESSION_LOOKS[0]?.grid).toEqual(expressionAssets[0]?.grid);
-    expect(PEEK_COSTUME_LOOKS[0]?.grid).toEqual(costumeAssets[0]?.grid);
+    expect(firstExpressionLook.grid).toEqual(firstExpression.grid);
+    expect(firstCostumeLook.grid).toEqual(firstCostume.grid);
   });
 });

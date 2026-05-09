@@ -159,6 +159,7 @@ const description = activeView === 'newsletter'
                 <div
                   class="preview-stage preview-stage--tracker"
                   data-peek-tracker
+                  data-peek-track-poses={JSON.stringify(previewTrackPoses)}
                   tabindex="0"
                   role="img"
                   aria-label="Interactive tracking pose demo"
@@ -202,11 +203,14 @@ const description = activeView === 'newsletter'
             <div class="preview-card-grid">
               {section.items.map((item) => {
                 const isLook = item.kind === 'expression' || item.kind === 'costume';
+                const lookItem = isLook && item.grid
+                  ? { grid: item.grid, label: item.label, palette: item.palette }
+                  : null;
                 return (
                   <article class="preview-panel">
                     <div class:list={['preview-stage', { 'preview-stage--look': isLook }]}>
-                      {isLook ? (
-                        <PeekLook look={item} size={112} title={`peek ${item.label}`} />
+                      {lookItem ? (
+                        <PeekLook look={lookItem} size={112} title={`peek ${item.label}`} />
                       ) : (
                         <AnimatedLogo
                           client:load
@@ -269,12 +273,12 @@ const description = activeView === 'newsletter'
   </main>
 </Layout>
 
-<script define:vars={{ previewTrackPoses }}>
+<script>
   (() => {
     const tracker = document.querySelector('[data-peek-tracker]');
     if (!(tracker instanceof HTMLElement)) return;
 
-    const setPose = (animation) => {
+    const setPose = (animation: string) => {
       window.dispatchEvent(new CustomEvent('peek:preview-track:set', { detail: { animation } }));
     };
 
@@ -282,9 +286,9 @@ const description = activeView === 'newsletter'
       window.dispatchEvent(new CustomEvent('peek:preview-track:revert'));
     };
 
-    const TRACK_POSES = previewTrackPoses;
+    const TRACK_POSES = JSON.parse(tracker.dataset.peekTrackPoses ?? '[]');
 
-    const pickPose = (clientX) => {
+    const pickPose = (clientX: number) => {
       const rect = tracker.getBoundingClientRect();
       if (rect.width <= 0) return TRACK_POSES[2];
       const ratio = Math.min(0.9999, Math.max(0, (clientX - rect.left) / rect.width));
