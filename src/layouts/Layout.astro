@@ -23,7 +23,7 @@ import '../styles/globals.css';
 import '../features/mood/styles/feed-rich-text.css';
 import { Moon, Sun, Monitor } from 'lucide-react';
 import SpeedInsights from '@vercel/speed-insights/astro';
-import { AnimatedLogo } from '@/features/logos/ui/AnimatedLogo';
+import AnimatedLogo from '@/features/logos/ui/AnimatedLogo.astro';
 import {
   PEEK_NAVBAR_LOGO,
   getPeekRuntimeSlot,
@@ -207,13 +207,20 @@ const navbarIdleTimeoutAnimation = getPeekRuntimeSlotKey('navbar.idle-timeout');
         <a href="/" class="site-brand" aria-label="buxx.me — home" data-site-brand>
           <span class="site-brand-logo" aria-hidden="true">
             <AnimatedLogo
-              client:idle
               definition={PEEK_NAVBAR_LOGO}
               animation={navbarDefaultAnimation}
               hoverAnimation={isHomeNav ? navbarHoverAnimation : undefined}
               size={isHomeNav ? 40 : 24}
               title="peek"
               eventChannel={isHomeNav ? 'nav' : undefined}
+              eventAnimations={isHomeNav
+                ? [
+                    navbarLinkHoverAnimation,
+                    navbarSectionActiveAnimation,
+                    navbarHoverAnimation,
+                    navbarIdleTimeoutAnimation,
+                  ]
+                : undefined}
             />
           </span>
           {showsBrandText ? <span class="site-brand-text" data-mobile-brand-text>buxx.me</span> : null}
@@ -561,9 +568,13 @@ const navbarIdleTimeoutAnimation = getPeekRuntimeSlotKey('navbar.idle-timeout');
 
     <!-- GSAP Header Button Animations -->
     <script>
-      import gsap from 'gsap';
-
       (() => {
+        let gsapPromise: Promise<typeof import('gsap')['default']> | null = null;
+        const loadGsap = () => {
+          gsapPromise ??= import('gsap').then(({ default: gsap }) => gsap);
+          return gsapPromise;
+        };
+
         const initHeaderAnimations = () => {
           const headerActions = document.querySelector('[data-header-actions]');
           if (!headerActions) return;
@@ -621,9 +632,10 @@ const navbarIdleTimeoutAnimation = getPeekRuntimeSlotKey('navbar.idle-timeout');
           });
 
           // Animation function for hover in
-          const animateIn = (btn: HTMLElement) => {
+          const animateIn = async (btn: HTMLElement) => {
             const data = buttonData.get(btn);
             if (!data) return;
+            const gsap = await loadGsap();
 
             btn.classList.add('is-hovered');
 
@@ -649,9 +661,10 @@ const navbarIdleTimeoutAnimation = getPeekRuntimeSlotKey('navbar.idle-timeout');
           };
 
           // Animation function for hover out
-          const animateOut = (btn: HTMLElement) => {
+          const animateOut = async (btn: HTMLElement) => {
             const data = buttonData.get(btn);
             if (!data) return;
+            const gsap = await loadGsap();
 
             btn.classList.remove('is-hovered');
 

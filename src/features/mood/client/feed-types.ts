@@ -1,4 +1,4 @@
-import type { MoodGallery } from '@/features/mood/shared/gallery';
+import type { MoodGallery } from '@/features/mood/shared/gallery-render';
 
 export interface ReactionData {
   emoji: string;

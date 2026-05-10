@@ -2,7 +2,7 @@
 import Layout from '@/layouts/Layout.astro';
 import PixelLogo from '@/features/logos/ui/PixelLogo.astro';
 import PeekLook from '@/features/logos/ui/PeekLook.astro';
-import { AnimatedLogo } from '@/features/logos/ui/AnimatedLogo';
+import AnimatedLogo from '@/features/logos/ui/AnimatedLogo.astro';
 import {
   PEEK_NAVBAR_LOGO,
   PEEK_PREVIEW_TRACKER_LOGO,
@@ -160,12 +160,12 @@ const librarySections = previewSections.map((section) => ({
             <article class="brand-card">
               <div class="brand-card__stage">
                 <AnimatedLogo
-                  client:load
                   definition={PEEK_NAVBAR_LOGO}
                   animation={navbarDefaultAnimation}
                   hoverAnimation={navbarHoverAnimation}
                   size={144}
                   title="peek navbar behavior"
+                  eventAnimations={[navbarHoverAnimation]}
                 />
                 <span class="brand-card__hint">Hover me</span>
               </div>
@@ -222,10 +222,10 @@ const librarySections = previewSections.map((section) => ({
               aria-label="Interactive tracking pose demo"
             >
               <AnimatedLogo
-                client:load
                 definition={PEEK_PREVIEW_TRACKER_LOGO}
                 animation={previewTrackerDefault}
                 eventChannel="preview-track"
+                eventAnimations={previewTrackPoses}
                 size={156}
                 title="interactive tracking pose demo"
               />
@@ -276,7 +276,6 @@ const librarySections = previewSections.map((section) => ({
                         <PeekLook look={lookItem} size={108} title={`peek ${item.label}`} />
                       ) : (
                         <AnimatedLogo
-                          client:load
                           definition={createPeekLogoFromAssets([item])}
                           animation={item.key}
                           loop={item.previewLoop ?? item.loop}

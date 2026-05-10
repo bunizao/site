@@ -1,0 +1,314 @@
+---
+import type { LogoRuntimeDefinition } from '@/features/logos/data/types';
+import { gridToSvg } from '@/features/logos/lib/render';
+
+type AnimationPayload = Record<string, {
+  fps: number;
+  frames: ReadonlyArray<string>;
+  loop?: boolean;
+}>;
+
+interface Props {
+  definition: LogoRuntimeDefinition;
+  animation?: string;
+  hoverAnimation?: string;
+  size?: number;
+  fps?: number;
+  paused?: boolean;
+  fg?: string;
+  accent?: string;
+  class?: string;
+  className?: string;
+  title?: string;
+  loop?: boolean;
+  eventChannel?: string;
+  eventAnimations?: ReadonlyArray<string | null | undefined>;
+}
+
+const {
+  definition,
+  animation = 'idle',
+  hoverAnimation,
+  size = 24,
+  fps,
+  paused = false,
+  fg = 'currentColor',
+  accent,
+  class: classProp,
+  className,
+  title,
+  loop,
+  eventChannel,
+  eventAnimations,
+} = Astro.props;
+
+const accentColor = accent ?? definition.accent;
+const aspect = definition.width / definition.height;
+const renderedHeight = Math.round(size / aspect);
+const classAttr = className ?? classProp;
+
+const renderFrame = (grid: LogoRuntimeDefinition['base']) =>
+  gridToSvg(grid, definition.width, definition.height, {
+    size,
+    fg,
+    accent: accentColor,
+    title,
+  });
+
+const encodeFrame = (grid: LogoRuntimeDefinition['base']) =>
+  grid.map((row) => row.map((cell) => cell.toString(36)).join('')).join('');
+
+const animationKeys = new Set(
+  [
+    'idle',
+    animation,
+    hoverAnimation,
+    ...(eventAnimations ?? []),
+  ].filter((key): key is string => typeof key === 'string' && key.length > 0),
+);
+const animationEntries = eventChannel && !eventAnimations
+  ? Object.entries(definition.animations)
+  : Object.entries(definition.animations).filter(([key]) => animationKeys.has(key));
+
+const animations = Object.fromEntries(
+  animationEntries.map(([key, item]) => [
+    key,
+    {
+      fps: item.fps,
+      frames: item.frames.map(encodeFrame),
+      loop: item.loop,
+    },
+  ]),
+) satisfies AnimationPayload;
+
+const initialFrame = definition.animations[animation]?.frames[0] ?? definition.base;
+const initialSvg = renderFrame(initialFrame);
+const style = `display:inline-flex;width:${size}px;height:${renderedHeight}px;color:${fg}`;
+---
+
+<span
+  class={classAttr}
+  style={style}
+  data-animated-logo
+  data-logo-animation={animation}
+  data-logo-hover-animation={hoverAnimation}
+  data-logo-fps={fps}
+  data-logo-paused={paused ? 'true' : undefined}
+  data-logo-loop={loop === undefined ? undefined : String(loop)}
+  data-logo-event-channel={eventChannel}
+  data-logo-width={definition.width}
+  data-logo-height={definition.height}
+  data-logo-size={size}
+  data-logo-fg={fg}
+  data-logo-accent={accentColor}
+  data-logo-title={title}
+  data-logo-animations={JSON.stringify(animations)}
+  set:html={initialSvg}
+></span>
+
+<script>
+  type AnimationPayload = Record<string, {
+    fps: number;
+    frames: string[];
+    loop?: boolean;
+  }>;
+
+  const parseOptionalBoolean = (value: string | undefined): boolean | undefined => {
+    if (value === 'true') return true;
+    if (value === 'false') return false;
+    return undefined;
+  };
+
+  const prefersReducedMotion = (): boolean =>
+    window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
+
+  const escapeText = (value: string): string =>
+    value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+  const escapeAttr = (value: string): string =>
+    escapeText(value).replace(/"/g, '&quot;');
+
+  const initAnimatedLogo = (mount: HTMLElement): void => {
+    if (mount.dataset.animatedLogoReady === 'true') return;
+    mount.dataset.animatedLogoReady = 'true';
+
+    let animations: AnimationPayload;
+    try {
+      animations = JSON.parse(mount.dataset.logoAnimations ?? '{}') as AnimationPayload;
+    } catch {
+      return;
+    }
+
+    const baseAnimation = mount.dataset.logoAnimation || 'idle';
+    const hoverAnimation = mount.dataset.logoHoverAnimation || '';
+    const fpsOverride = Number.parseFloat(mount.dataset.logoFps ?? '');
+    const loopOverride = parseOptionalBoolean(mount.dataset.logoLoop);
+    const paused = mount.dataset.logoPaused === 'true';
+    const eventChannel = mount.dataset.logoEventChannel || '';
+    const width = Number.parseInt(mount.dataset.logoWidth ?? '0', 10);
+    const height = Number.parseInt(mount.dataset.logoHeight ?? '0', 10);
+    const size = Number.parseFloat(mount.dataset.logoSize ?? '');
+    const fg = mount.dataset.logoFg || 'currentColor';
+    const accent = mount.dataset.logoAccent || 'var(--logo-accent, currentColor)';
+    const title = mount.dataset.logoTitle || '';
+    const renderedHeight = Number.isFinite(size) && width > 0
+      ? (size * height) / width
+      : 0;
+
+    let hover = false;
+    let override: string | null = null;
+    let frameIndex = 0;
+    let activeKey = '';
+    let raf: number | null = null;
+    let holdTimer: number | null = null;
+    let last = 0;
+    let acc = 0;
+
+    const clearHold = () => {
+      if (holdTimer !== null) {
+        window.clearTimeout(holdTimer);
+        holdTimer = null;
+      }
+    };
+
+    const clearRaf = () => {
+      if (raf !== null) {
+        window.cancelAnimationFrame(raf);
+        raf = null;
+      }
+    };
+
+    const getActiveKey = () => {
+      if (override) return override;
+      if (hover && hoverAnimation) return hoverAnimation;
+      return baseAnimation;
+    };
+
+    const renderFrame = (frame: string): string => {
+      if (!width || !height) return '';
+      const cells: string[] = [];
+      for (let y = 0; y < height; y += 1) {
+        for (let x = 0; x < width; x += 1) {
+          const cell = frame[y * width + x];
+          if (cell !== '1' && cell !== '3') continue;
+          const fill = cell === '3' ? accent : fg;
+          cells.push(`<rect x="${x}" y="${y}" width="1" height="1" fill="${escapeAttr(fill)}"/>`);
+        }
+      }
+      const sizeAttrs = Number.isFinite(size) && renderedHeight > 0
+        ? ` width="${size}" height="${renderedHeight}"`
+        : '';
+      const a11y = title
+        ? ` role="img" aria-label="${escapeAttr(title)}"`
+        : ' aria-hidden="true"';
+      return (
+        `<svg xmlns="http://www.w3.org/2000/svg"${sizeAttrs}${a11y} viewBox="0 0 ${width} ${height}" shape-rendering="crispEdges">` +
+        (title ? `<title>${escapeText(title)}</title>` : '') +
+        cells.join('') +
+        '</svg>'
+      );
+    };
+
+    const render = () => {
+      const animation = animations[activeKey] ?? animations.idle;
+      const frame = animation?.frames[frameIndex] ?? animation?.frames[0];
+      if (frame) mount.innerHTML = renderFrame(frame);
+    };
+
+    const sync = () => {
+      const nextKey = getActiveKey();
+      if (nextKey !== activeKey) {
+        activeKey = nextKey;
+        frameIndex = 0;
+        acc = 0;
+        last = performance.now();
+        render();
+      }
+    };
+
+    const tick = (now: number) => {
+      const animation = animations[activeKey] ?? animations.idle;
+      if (!animation || paused || prefersReducedMotion()) {
+        clearRaf();
+        return;
+      }
+
+      const idleAtRest = !!hoverAnimation && !hover && !override;
+      if (idleAtRest || animation.frames.length <= 1) {
+        clearRaf();
+        return;
+      }
+
+      const fps = Number.isFinite(fpsOverride) && fpsOverride > 0 ? fpsOverride : animation.fps;
+      const interval = 1000 / Math.max(1, fps);
+      acc += now - last;
+      last = now;
+      while (acc >= interval) {
+        acc -= interval;
+        const nextFrame = frameIndex + 1;
+        if (nextFrame >= animation.frames.length) {
+          if (loopOverride ?? animation.loop ?? true) {
+            frameIndex = 0;
+          } else {
+            frameIndex = animation.frames.length - 1;
+            render();
+            clearRaf();
+            return;
+          }
+        } else {
+          frameIndex = nextFrame;
+        }
+        render();
+      }
+      raf = window.requestAnimationFrame(tick);
+    };
+
+    const start = () => {
+      sync();
+      clearRaf();
+      last = performance.now();
+      raf = window.requestAnimationFrame(tick);
+    };
+
+    const setHover = (value: boolean) => {
+      hover = value;
+      start();
+    };
+
+    if (hoverAnimation) {
+      mount.addEventListener('mouseenter', () => setHover(true));
+      mount.addEventListener('mouseleave', () => setHover(false));
+      mount.addEventListener('focus', () => setHover(true));
+      mount.addEventListener('blur', () => setHover(false));
+    }
+
+    if (eventChannel) {
+      window.addEventListener(`peek:${eventChannel}:set`, (event) => {
+        const detail = (event as CustomEvent<{ animation: string; holdMs?: number }>).detail;
+        if (!detail?.animation || !animations[detail.animation]) return;
+        clearHold();
+        override = detail.animation;
+        start();
+        if (typeof detail.holdMs === 'number' && detail.holdMs > 0) {
+          holdTimer = window.setTimeout(() => {
+            override = null;
+            start();
+            holdTimer = null;
+          }, detail.holdMs);
+        }
+      });
+
+      window.addEventListener(`peek:${eventChannel}:revert`, () => {
+        clearHold();
+        override = null;
+        start();
+      });
+    }
+
+    start();
+  };
+
+  document
+    .querySelectorAll<HTMLElement>('[data-animated-logo]')
+    .forEach(initAnimatedLogo);
+</script>

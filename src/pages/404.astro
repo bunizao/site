@@ -1,6 +1,6 @@
 ---
 import Layout from '../layouts/Layout.astro';
-import { AnimatedLogo } from '@/features/logos/ui/AnimatedLogo';
+import AnimatedLogo from '@/features/logos/ui/AnimatedLogo.astro';
 import {
   PEEK_NOT_FOUND_LOGO,
   getPeekRuntimeSlotKey,
@@ -58,12 +58,16 @@ const displayPath = rawPath.length > 48 ? rawPath.slice(0, 47) + '…' : rawPath
         <a href="/" class="nf-home" data-nf-home>
           <span class="nf-cta-peek" data-nf-peek aria-hidden="true">
             <AnimatedLogo
-              client:idle
               definition={PEEK_NOT_FOUND_LOGO}
               animation={trackerDefaultAnimation}
               size={72}
               title="peek"
               eventChannel="nf"
+              eventAnimations={[
+                trackerHoverAnimation,
+                trackerClickAnimation,
+                ...trackerPoseKeys,
+              ]}
             />
           </span>
           <span class="nf-home-label">

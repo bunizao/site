@@ -3,7 +3,7 @@ import {
   renderMoodGalleryMarkup,
   type MoodGallery,
   type MoodGalleryVariant,
-} from '@/features/mood/shared/gallery';
+} from '@/features/mood/shared/gallery-render';
 
 interface CreateMoodGalleryElementOptions {
   variant: MoodGalleryVariant;

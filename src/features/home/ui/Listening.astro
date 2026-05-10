@@ -754,15 +754,6 @@ const blankArtwork =
 </style>
 
 <script>
-  import { Vibrant } from 'node-vibrant/browser';
-
-  type Rgb = { r: number; g: number; b: number };
-  type PaletteSwatch = {
-    hsl: [number, number, number];
-    rgb: [number, number, number];
-    population: number;
-  };
-  const isDefined = <T,>(value: T | null | undefined): value is T => value != null;
   type ListeningTrackPayload = {
     title?: string;
     artist?: string;
@@ -777,60 +768,7 @@ const blankArtwork =
     isNowPlaying?: boolean;
   };
 
-  const PALETTE_PRIORITY = [
-    'Vibrant',
-    'Muted',
-    'DarkVibrant',
-    'LightVibrant',
-    'DarkMuted',
-    'LightMuted'
-  ] as const;
   const LISTENING_REFRESH_MS = 45_000;
-
-  const scoreSwatch = (swatch: PaletteSwatch, priorityIndex: number) => {
-    const [, saturation, lightness] = swatch.hsl;
-    if (lightness < 0.18 || lightness > 0.82 || saturation < 0.12) {
-      return -1;
-    }
-
-    const populationScore = Math.min(1, Math.log10(swatch.population + 1) / 3);
-    const lightnessScore = 1 - Math.abs(lightness - 0.52) / 0.34;
-    return saturation * 0.45 + lightnessScore * 0.35 + populationScore * 0.2 - priorityIndex * 0.04;
-  };
-
-  const extractAccentColor = async (img: HTMLImageElement): Promise<Rgb | null> => {
-    try {
-      const palette = await Vibrant.from(img).getPalette();
-      const candidates = PALETTE_PRIORITY
-        .map((name, priorityIndex) => {
-          const swatch = palette[name];
-          return swatch ? { swatch, score: scoreSwatch(swatch, priorityIndex) } : null;
-        })
-        .filter(isDefined)
-        .filter((candidate) => candidate.score >= 0)
-        .sort((a, b) => b.score - a.score);
-
-      const selected = candidates[0]?.swatch ?? PALETTE_PRIORITY.map((name) => palette[name]).find(Boolean);
-      if (!selected) return null;
-
-      const [r, g, b] = selected.rgb;
-      return {
-        r: Math.round(r),
-        g: Math.round(g),
-        b: Math.round(b)
-      };
-    } catch {
-      return null;
-    }
-  };
-
-  const applyArtworkAccent = async (root: HTMLElement, img: HTMLImageElement) => {
-    const source = img.currentSrc || img.src;
-    const color = await extractAccentColor(img);
-    if (source !== (img.currentSrc || img.src)) return;
-    if (!color) return;
-    root.style.setProperty('--listening-accent', `rgb(${color.r} ${color.g} ${color.b})`);
-  };
 
   const initListeningSection = () => {
     const roots = document.querySelectorAll('[data-listening]');
@@ -862,16 +800,6 @@ const blankArtwork =
       let audio: HTMLAudioElement | null = null;
       let trackTitle = playButton.dataset.trackTitle ?? 'Track';
       let isLive = root.dataset.nowPlaying === 'true';
-
-      const refreshArtworkAccent = () => {
-        if (!(artwork instanceof HTMLImageElement)) return;
-
-        if (artwork.complete && artwork.naturalWidth > 0) {
-          void applyArtworkAccent(root, artwork);
-        } else {
-          artwork.addEventListener('load', () => void applyArtworkAccent(root, artwork), { once: true });
-        }
-      };
 
       const setLiveState = (nextIsLive: boolean) => {
         isLive = nextIsLive;
@@ -1004,7 +932,6 @@ const blankArtwork =
 
         if (artwork instanceof HTMLImageElement && nextArtwork && artwork.src !== nextArtwork) {
           artwork.src = nextArtwork;
-          refreshArtworkAccent();
         }
 
         if ((playButton.dataset.previewUrl ?? '') !== nextPreviewUrl) {
@@ -1019,7 +946,6 @@ const blankArtwork =
       };
 
       setLiveState(isLive);
-      refreshArtworkAccent();
       setPreview(playButton.dataset.previewUrl ?? '');
       syncTitleMarquee();
 
