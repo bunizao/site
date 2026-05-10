@@ -24,7 +24,11 @@ import '../features/mood/styles/feed-rich-text.css';
 import { Moon, Sun, Monitor } from 'lucide-react';
 import SpeedInsights from '@vercel/speed-insights/astro';
 import { AnimatedLogo } from '@/features/logos/ui/AnimatedLogo';
-import { getPeekSlot, getPeekSlotKey } from '@/features/mascot/peek/catalog';
+import {
+  PEEK_NAVBAR_LOGO,
+  getPeekRuntimeSlot,
+  getPeekRuntimeSlotKey,
+} from '@/features/logos/data/peek-runtime';
 
 const {
   title,
@@ -53,13 +57,13 @@ const ogImageType = ogImageUrl.endsWith('.png')
   : ogImageUrl.endsWith('.webp')
     ? 'image/webp'
     : 'image/jpeg';
-const navbarDefaultAnimation = getPeekSlotKey('navbar.brand.default');
-const navbarHoverAnimation = getPeekSlotKey('navbar.brand.hover');
-const navbarLinkHoverAnimation = getPeekSlotKey('navbar.nav-link.hover');
-const navbarSectionActiveAnimation = getPeekSlotKey('navbar.section.active');
-const navbarSectionActiveHoldMs = getPeekSlot('navbar.section.active').holdMs ?? 600;
-const navbarFastScrollHoldMs = getPeekSlot('navbar.brand.hover').holdMs ?? 1000;
-const navbarIdleTimeoutAnimation = getPeekSlotKey('navbar.idle-timeout');
+const navbarDefaultAnimation = getPeekRuntimeSlotKey('navbar.brand.default');
+const navbarHoverAnimation = getPeekRuntimeSlotKey('navbar.brand.hover');
+const navbarLinkHoverAnimation = getPeekRuntimeSlotKey('navbar.nav-link.hover');
+const navbarSectionActiveAnimation = getPeekRuntimeSlotKey('navbar.section.active');
+const navbarSectionActiveHoldMs = getPeekRuntimeSlot('navbar.section.active').holdMs ?? 600;
+const navbarFastScrollHoldMs = getPeekRuntimeSlot('navbar.brand.hover').holdMs ?? 1000;
+const navbarIdleTimeoutAnimation = getPeekRuntimeSlotKey('navbar.idle-timeout');
 ---
 
 <!DOCTYPE html>
@@ -204,7 +208,7 @@ const navbarIdleTimeoutAnimation = getPeekSlotKey('navbar.idle-timeout');
           <span class="site-brand-logo" aria-hidden="true">
             <AnimatedLogo
               client:idle
-              id="peek"
+              definition={PEEK_NAVBAR_LOGO}
               animation={navbarDefaultAnimation}
               hoverAnimation={isHomeNav ? navbarHoverAnimation : undefined}
               size={isHomeNav ? 40 : 24}

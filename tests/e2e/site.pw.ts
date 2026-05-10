@@ -650,7 +650,7 @@ test.describe('Home page', () => {
     expect(initial).not.toBeNull();
 
     await page.evaluate(() => {
-      (window as Window & { __setVisualViewportTop: (top: number) => void }).__setVisualViewportTop(24);
+      (window as unknown as Window & { __setVisualViewportTop: (top: number) => void }).__setVisualViewportTop(24);
     });
 
     await expect.poll(async () => (

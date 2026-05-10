@@ -1,5 +1,5 @@
 import type { APIRoute } from 'astro';
-import { getPeekBase, getPeekSlotAsset } from '@/features/mascot/peek/catalog';
+import { PEEK_BASE } from '@/features/mascot/peek/base';
 import { LOGOS, gridToSvg, logoToSvg, type LogoId } from '@/features/logos/lib/svg';
 
 export function getStaticPaths() {
@@ -22,11 +22,9 @@ export const GET: APIRoute = ({ params }) => {
   }
   const svg = id === 'peek'
     ? (() => {
-        const asset = getPeekSlotAsset('favicon.default');
-        const base = getPeekBase();
-        return gridToSvg(asset.grid ?? base.base, base.width, base.height, {
+        return gridToSvg(PEEK_BASE.base, PEEK_BASE.width, PEEK_BASE.height, {
           fg: 'var(--favicon-fg)',
-          accent: base.accent,
+          accent: PEEK_BASE.accent,
           pad: 1,
           title: `${id} — buxx.me`,
           style: FAVICON_THEME_STYLE,

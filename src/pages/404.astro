@@ -2,16 +2,17 @@
 import Layout from '../layouts/Layout.astro';
 import { AnimatedLogo } from '@/features/logos/ui/AnimatedLogo';
 import {
-  getPeekSlotKey,
-  getPeekTrackingPoseKeys,
-} from '@/features/mascot/peek/catalog';
+  PEEK_NOT_FOUND_LOGO,
+  getPeekRuntimeSlotKey,
+  getPeekRuntimeTrackingPoseKeys,
+} from '@/features/logos/data/peek-runtime';
 
 const title = '404 - page not found';
 const description = "The page you're looking for isn't here.";
-const trackerDefaultAnimation = getPeekSlotKey('not-found.tracker.default');
-const trackerHoverAnimation = getPeekSlotKey('not-found.cta.hover');
-const trackerClickAnimation = getPeekSlotKey('not-found.cta.click');
-const trackerPoseKeys = getPeekTrackingPoseKeys('not-found');
+const trackerDefaultAnimation = getPeekRuntimeSlotKey('not-found.tracker.default');
+const trackerHoverAnimation = getPeekRuntimeSlotKey('not-found.cta.hover');
+const trackerClickAnimation = getPeekRuntimeSlotKey('not-found.cta.click');
+const trackerPoseKeys = getPeekRuntimeTrackingPoseKeys('not-found');
 
 // Raw requested path — displayed under the digits. Trim anything too long so
 // it doesn't wrap or overflow the stage.
@@ -58,7 +59,7 @@ const displayPath = rawPath.length > 48 ? rawPath.slice(0, 47) + '…' : rawPath
           <span class="nf-cta-peek" data-nf-peek aria-hidden="true">
             <AnimatedLogo
               client:idle
-              id="peek"
+              definition={PEEK_NOT_FOUND_LOGO}
               animation={trackerDefaultAnimation}
               size={72}
               title="peek"

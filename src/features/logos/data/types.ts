@@ -51,3 +51,9 @@ export type LogoDefinition = {
   gallery?: ReadonlyArray<LogoGallerySection>;
   runtimeBehaviors?: ReadonlyArray<LogoRuntimeBehavior>;
 };
+
+export type LogoRuntimeAnimation = Pick<Animation, 'fps' | 'frames' | 'loop'>;
+
+export type LogoRuntimeDefinition = Pick<LogoDefinition, 'width' | 'height' | 'base' | 'accent'> & {
+  animations: Record<string, LogoRuntimeAnimation>;
+};

@@ -2,11 +2,11 @@
 // component works regardless of whether Vite's dep cache has the dev jsx-runtime
 // available. The SVG body is built as an HTML string and injected.
 import { createElement, useEffect, useMemo, useState } from 'react';
-import { LOGOS, gridToSvg, type LogoId } from '@/features/logos/lib/svg';
-import type { Grid } from '@/features/logos/data/types';
+import type { Grid, LogoRuntimeDefinition } from '@/features/logos/data/types';
+import { gridToSvg } from '@/features/logos/lib/render';
 
 export type AnimatedLogoProps = {
-  id: LogoId;
+  definition: LogoRuntimeDefinition;
   animation?: string;
   hoverAnimation?: string;
   size?: number;
@@ -29,7 +29,7 @@ export type AnimatedLogoProps = {
 
 export function AnimatedLogo(props: AnimatedLogoProps) {
   const {
-    id,
+    definition,
     animation = 'idle',
     hoverAnimation,
     size = 24,
@@ -44,7 +44,7 @@ export function AnimatedLogo(props: AnimatedLogoProps) {
     eventChannel,
   } = props;
 
-  const def = LOGOS[id];
+  const def = definition;
   const [hover, setHover] = useState(false);
   // Animation override driven by external events (null = use prop).
   const [override, setOverride] = useState<string | null>(null);

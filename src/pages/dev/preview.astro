@@ -3,6 +3,11 @@ import Layout from '@/layouts/Layout.astro';
 import PixelLogo from '@/features/logos/ui/PixelLogo.astro';
 import PeekLook from '@/features/logos/ui/PeekLook.astro';
 import { AnimatedLogo } from '@/features/logos/ui/AnimatedLogo';
+import {
+  PEEK_NAVBAR_LOGO,
+  PEEK_PREVIEW_TRACKER_LOGO,
+  createPeekLogoFromAssets,
+} from '@/features/logos/data/peek-runtime';
 import TemplatePreview from '@/features/notify/ui/TemplatePreview';
 import {
   getPeekAssets,
@@ -156,7 +161,7 @@ const librarySections = previewSections.map((section) => ({
               <div class="brand-card__stage">
                 <AnimatedLogo
                   client:load
-                  id="peek"
+                  definition={PEEK_NAVBAR_LOGO}
                   animation={navbarDefaultAnimation}
                   hoverAnimation={navbarHoverAnimation}
                   size={144}
@@ -218,7 +223,7 @@ const librarySections = previewSections.map((section) => ({
             >
               <AnimatedLogo
                 client:load
-                id="peek"
+                definition={PEEK_PREVIEW_TRACKER_LOGO}
                 animation={previewTrackerDefault}
                 eventChannel="preview-track"
                 size={156}
@@ -272,7 +277,7 @@ const librarySections = previewSections.map((section) => ({
                       ) : (
                         <AnimatedLogo
                           client:load
-                          id="peek"
+                          definition={createPeekLogoFromAssets([item])}
                           animation={item.key}
                           loop={item.previewLoop ?? item.loop}
                           size={108}
