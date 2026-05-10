@@ -22,7 +22,7 @@ test.describe('Standalone pages', () => {
       return Math.round((brandText.getBoundingClientRect().left - logo.getBoundingClientRect().right) * 100) / 100;
     });
 
-    expect(desktopBrandGap).toBe(4);
+    expect(desktopBrandGap).toBe(6);
   });
 
   test('uses the home mobile navbar sizing on privacy without hiding the wordmark', async ({ page }) => {
@@ -35,13 +35,15 @@ test.describe('Standalone pages', () => {
       const toggle = document.querySelector('[data-theme-toggle]');
       const brand = document.querySelector('[data-site-brand]');
       const brandText = document.querySelector('[data-mobile-brand-text]');
+      const logo = document.querySelector('.site-brand-logo');
 
       if (
         !(nav instanceof HTMLElement) ||
         !(headerActions instanceof HTMLElement) ||
         !(toggle instanceof HTMLElement) ||
         !(brand instanceof HTMLElement) ||
-        !(brandText instanceof HTMLElement)
+        !(brandText instanceof HTMLElement) ||
+        !(logo instanceof HTMLElement)
       ) {
         return null;
       }
@@ -56,6 +58,7 @@ test.describe('Standalone pages', () => {
         hasHomeNav: nav.classList.contains('site-nav--home'),
         navHeight: navRect.height,
         brandCenterDelta: Math.abs((brandRect.top + brandRect.height / 2) - (navRect.top + navRect.height / 2)),
+        brandGap: Math.round((brandText.getBoundingClientRect().left - logo.getBoundingClientRect().right) * 100) / 100,
         brandText: brandText.textContent,
         brandTextOpacity: brandTextStyles.opacity,
         brandTextWidth: brandText.getBoundingClientRect().width,
@@ -70,6 +73,7 @@ test.describe('Standalone pages', () => {
     expect(state?.hasHomeNav).toBe(false);
     expect(state?.navHeight).toBe(52);
     expect(state?.brandCenterDelta).toBeLessThanOrEqual(1);
+    expect(state?.brandGap).toBe(6);
     expect(state?.brandText).toBe('buxx.me');
     expect(state?.brandTextOpacity).toBe('1');
     expect(state?.brandTextWidth).toBeGreaterThan(70);
