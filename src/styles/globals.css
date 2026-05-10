@@ -596,6 +596,13 @@
     height: 32px;
   }
 
+  /* Transparent wrapper around links — collapses on desktop/vertical so it
+     doesn't affect existing layouts; only becomes a real flex container on
+     mobile (brand-eaten) to enable viewport-centered alignment. */
+  .nav-links {
+    display: contents;
+  }
+
   @media (min-width: 900px) {
     .site-nav {
       top: 24px;
@@ -1097,6 +1104,25 @@
       opacity: 1;
       pointer-events: auto;
       transform: translateX(0);
+    }
+
+    /* Center the link group on the viewport. The nav's content box is
+       asymmetric (brand on left, theme button reserved on right via
+       padding), so flex-centering the links inside it pulls them left of
+       true center. Absolute-position the wrapper at 50vw instead, after
+       the peek-eats-brand transition settles. */
+    .site-nav--home.is-brand-eaten .nav-links {
+      display: inline-flex;
+      align-items: center;
+      gap: clamp(0.95rem, 3.8vw, 1.25rem);
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+    }
+    .site-nav--home.is-brand-eaten .nav-links .nav-link {
+      pointer-events: auto;
     }
 
     .site-nav--home .nav-link::after,

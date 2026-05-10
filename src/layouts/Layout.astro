@@ -190,14 +190,14 @@ const navbarIdleTimeoutAnimation = getPeekSlotKey('navbar.idle-timeout');
         {isPageNav ? (
           <a href="/" class="nav-link">buxx.me</a>
         ) : (
-          <>
+          <div class="nav-links" data-nav-links>
             <span class="nav-separator nav-separator--brand" aria-hidden="true">/</span>
             <a href="#projects-section" class="nav-link" data-nav-link="projects">Projects</a>
             <span class="nav-separator" aria-hidden="true">/</span>
             <a href="#writing-section" class="nav-link" data-nav-link="writing">Writing</a>
             <span class="nav-separator" aria-hidden="true">/</span>
             <a href="#moods-section" class="nav-link" data-nav-link="moods">Moods</a>
-          </>
+          </div>
         )}
       </nav>
     )}
