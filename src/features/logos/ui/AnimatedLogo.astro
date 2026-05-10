@@ -84,6 +84,7 @@ const animations = Object.fromEntries(
 const initialFrame = definition.animations[animation]?.frames[0] ?? definition.base;
 const initialSvg = renderFrame(initialFrame);
 const style = `display:inline-flex;width:${size}px;height:${renderedHeight}px;color:${fg}`;
+const animationsJson = JSON.stringify(animations).replace(/</g, '\\u003c');
 ---
 
 <span
@@ -102,9 +103,9 @@ const style = `display:inline-flex;width:${size}px;height:${renderedHeight}px;co
   data-logo-fg={fg}
   data-logo-accent={accentColor}
   data-logo-title={title}
-  data-logo-animations={JSON.stringify(animations)}
   set:html={initialSvg}
 ></span>
+<script is:inline type="application/json" data-logo-payload set:html={animationsJson}></script>
 
 <script>
   type AnimationPayload = Record<string, {
@@ -132,9 +133,12 @@ const style = `display:inline-flex;width:${size}px;height:${renderedHeight}px;co
     if (mount.dataset.animatedLogoReady === 'true') return;
     mount.dataset.animatedLogoReady = 'true';
 
+    const payload = mount.nextElementSibling;
+    if (!(payload instanceof HTMLScriptElement) || payload.type !== 'application/json') return;
+
     let animations: AnimationPayload;
     try {
-      animations = JSON.parse(mount.dataset.logoAnimations ?? '{}') as AnimationPayload;
+      animations = JSON.parse(payload.textContent ?? '{}') as AnimationPayload;
     } catch {
       return;
     }
