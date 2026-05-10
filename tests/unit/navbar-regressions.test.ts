@@ -27,12 +27,24 @@ describe('navbar regression guards', () => {
     const source = read('src/styles/globals.css');
 
     expect(source).toContain('.site-nav--home {');
-    expect(source).toContain('top: env(safe-area-inset-top, 0px);');
+    expect(source).toContain('top: calc(env(safe-area-inset-top, 0px) + var(--visual-viewport-top, 0px));');
     expect(source).toContain('.site-nav--home::before');
     expect(source).toContain('height: env(safe-area-inset-top, 0px);');
     expect(source).toContain(".site-nav--home.is-brand-eaten .site-brand {");
     expect(source).toContain('min-width: 40px;');
     expect(source).toContain('.site-nav--home.is-brand-eaten .site-brand-text {');
     expect(source).toContain('flex-basis: 0;');
+  });
+
+  test('layout compensates fixed mobile chrome for visual viewport movement', () => {
+    const layoutSource = read('src/layouts/Layout.astro');
+    const globalStyles = read('src/styles/globals.css');
+    const pageStyles = read('src/layouts/Page.astro');
+
+    expect(layoutSource).toContain('const viewport = window.visualViewport;');
+    expect(layoutSource).toContain("root.style.setProperty('--visual-viewport-top'");
+    expect(globalStyles).toContain('top: calc(env(safe-area-inset-top, 0px) + var(--visual-viewport-top, 0px));');
+    expect(globalStyles).toContain('top: calc(env(safe-area-inset-top, 0px) + var(--visual-viewport-top, 0px) + 0.3rem);');
+    expect(pageStyles).toContain('top: calc(env(safe-area-inset-top, 0px) + var(--visual-viewport-top, 0px));');
   });
 });

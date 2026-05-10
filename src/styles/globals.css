@@ -981,7 +981,7 @@
     }
 
     .site-nav--home {
-      top: env(safe-area-inset-top, 0px);
+      top: calc(env(safe-area-inset-top, 0px) + var(--visual-viewport-top, 0px));
       left: 0;
       right: 0;
       z-index: 60;
@@ -1195,7 +1195,7 @@
 
   @media (max-width: 899px) {
     .global-header-actions {
-      top: calc(env(safe-area-inset-top, 0px) + 0.3rem);
+      top: calc(env(safe-area-inset-top, 0px) + var(--visual-viewport-top, 0px) + 0.3rem);
       right: 1rem;
       z-index: 61;
     }

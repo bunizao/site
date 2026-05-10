@@ -86,21 +86,40 @@ const {
     gap: 0;
   }
 
-  :global(.site-nav--page .nav-link) {
-    cursor: pointer;
-    padding: 0;
+  :global(.site-nav--page .site-brand) {
+    justify-content: flex-start;
+    width: auto;
+    height: 34px;
+    margin: 0;
+    gap: 0.25rem;
     border-radius: 0;
-    font-size: 1.08rem;
-    font-weight: 700;
-    letter-spacing: -0.03em;
     color: var(--page-chrome-fg);
     background: transparent;
   }
 
-  :global(.site-nav--page .nav-link:hover),
-  :global(.site-nav--page .nav-link:focus-visible) {
+  :global(.site-nav--page .site-brand:hover),
+  :global(.site-nav--page .site-brand:focus-visible) {
     color: var(--page-chrome-fg);
     background: transparent;
+    opacity: 0.72;
+  }
+
+  :global(.site-nav--page .site-brand-logo) {
+    display: inline-flex;
+    line-height: 0;
+  }
+
+  :global(.site-nav--page .site-brand-text) {
+    display: inline-block;
+    cursor: pointer;
+    padding: 0;
+    border-radius: 0;
+    font-size: 1.08rem;
+    line-height: 1;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    color: var(--page-chrome-fg);
+    white-space: nowrap;
   }
 
   .page-shell {
@@ -220,7 +239,7 @@ const {
     font-size: 0.95em;
   }
 
-  @media (max-width: 720px) {
+  @media (max-width: 899px) {
     .page-template {
       padding: calc(env(safe-area-inset-top, 0px) + 4.85rem) 0 5.5rem;
     }
@@ -230,37 +249,73 @@ const {
     }
 
     :global(body.page-template-active .site-nav--page) {
-      top: 0;
+      top: calc(env(safe-area-inset-top, 0px) + var(--visual-viewport-top, 0px));
       left: 0;
       right: 0;
       z-index: 60;
-      height: auto;
-      min-height: calc(env(safe-area-inset-top, 0px) + 3.25rem);
-      padding: calc(env(safe-area-inset-top, 0px) + 0.28rem) 1rem 0.3rem;
-      gap: 0;
-      border: none;
+      height: 3.25rem;
+      padding: 0 4rem 0 1rem;
+      gap: clamp(0.95rem, 3.8vw, 1.25rem);
       border-bottom: 1px solid var(--page-chrome-border);
       background: var(--page-chrome-bg);
       backdrop-filter: blur(14px) saturate(140%);
       -webkit-backdrop-filter: blur(14px) saturate(140%);
+      backface-visibility: hidden;
+      transform: translateZ(0);
     }
 
-    :global(body.page-template-active .site-nav--page .nav-link) {
-      display: inline-flex;
-      align-items: center;
+    :global(body.page-template-active .site-nav--page::before) {
+      content: '';
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: calc(env(safe-area-inset-top, 0px) * -1);
+      height: env(safe-area-inset-top, 0px);
+      background: var(--page-chrome-bg);
+      backdrop-filter: blur(14px) saturate(140%);
+      -webkit-backdrop-filter: blur(14px) saturate(140%);
+      pointer-events: none;
+      backface-visibility: hidden;
+      transform: translateZ(0);
+    }
+
+    :global(body.page-template-active .site-nav--page .site-brand) {
+      width: auto;
+      min-width: calc(1.35rem + 0.5rem + 5.2rem);
       min-height: 2.75rem;
-      padding: 0;
-      padding-right: 3.5rem;
-      font-size: 0.98rem;
+      margin: 0;
+      padding-right: 0;
+      gap: 0.5rem;
+      overflow: hidden;
+    }
+
+    :global(body.page-template-active .site-nav--page .site-brand-logo) {
+      position: relative;
+      z-index: 2;
+      flex: 0 0 auto;
+      width: 40px;
+      height: 1.35rem;
+      line-height: 0;
+      transform: translateX(0);
+    }
+
+    :global(body.page-template-active .site-nav--page .site-brand-logo > span),
+    :global(body.page-template-active .site-nav--page .site-brand-logo svg) {
+      width: auto !important;
+      height: 1.35rem !important;
+    }
+
+    :global(body.page-template-active .site-nav--page .site-brand-text) {
+      display: inline-block;
+      width: 5.2rem;
+      flex: 0 0 5.2rem;
+      max-width: 5.2rem;
+      font-size: 1.08rem;
       line-height: 1;
       font-weight: 600;
       letter-spacing: -0.01em;
       color: var(--page-chrome-fg);
-      border-radius: 0;
-    }
-
-    :global(body.page-template-active .site-nav--page .nav-link:hover) {
-      background: transparent;
+      white-space: nowrap;
     }
 
     :global(.page-content h1) {

@@ -616,4 +616,51 @@ test.describe('Home page', () => {
     expect(collapsed?.projectsCenterDelta).toBeLessThanOrEqual(1);
     expect(collapsed?.projectsLeft).toBeLessThan((initial?.projectsLeft ?? 0) - 20);
   });
+
+  test('keeps mobile navbar pinned when the visual viewport shifts', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.addInitScript(() => {
+      let offsetTop = 0;
+      const viewport = new EventTarget();
+
+      Object.defineProperties(viewport, {
+        offsetTop: { get: () => offsetTop },
+        offsetLeft: { get: () => 0 },
+        width: { get: () => window.innerWidth },
+        height: { get: () => window.innerHeight },
+        scale: { get: () => 1 },
+      });
+
+      Object.defineProperty(window, 'visualViewport', {
+        configurable: true,
+        value: viewport,
+      });
+
+      (window as Window & { __setVisualViewportTop?: (top: number) => void }).__setVisualViewportTop = (top) => {
+        offsetTop = top;
+        viewport.dispatchEvent(new Event('resize'));
+        viewport.dispatchEvent(new Event('scroll'));
+      };
+    });
+
+    await page.goto('/');
+    await expect(page.locator('[data-site-nav]')).toBeVisible();
+
+    const initial = await page.locator('[data-site-nav]').boundingBox();
+    expect(initial).not.toBeNull();
+
+    await page.evaluate(() => {
+      (window as Window & { __setVisualViewportTop: (top: number) => void }).__setVisualViewportTop(24);
+    });
+
+    await expect.poll(async () => (
+      await page.evaluate(() =>
+        window.getComputedStyle(document.documentElement).getPropertyValue('--visual-viewport-top').trim()
+      )
+    )).toBe('24px');
+
+    const shifted = await page.locator('[data-site-nav]').boundingBox();
+    expect(shifted).not.toBeNull();
+    expect(Math.round((shifted?.y ?? 0) - (initial?.y ?? 0))).toBe(24);
+  });
 });
