@@ -505,6 +505,9 @@ test.describe('Home page', () => {
   test('keeps mobile navbar spacing stable and releases brand space on scroll', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto('/');
+    await expect(page.locator('[data-site-nav]')).toBeVisible();
+    await expect(page.locator('[data-hero-status]')).toBeVisible();
+    await page.waitForFunction(() => document.querySelectorAll('.nav-char').length > 0);
 
     const initial = await page.evaluate(() => {
       const nav = document.querySelector('[data-site-nav]');
@@ -539,6 +542,8 @@ test.describe('Home page', () => {
         toggleBackground: toggleStyles.backgroundColor,
         toggleBorder: toggleStyles.borderTopColor,
         toggleCenterDelta: Math.abs((iconRect.left + iconRect.width / 2) - (toggleRect.left + toggleRect.width / 2)),
+        brandCenterDelta: Math.abs((brand.getBoundingClientRect().top + brand.getBoundingClientRect().height / 2) - (navRect.top + navRect.height / 2)),
+        projectsCenterDelta: Math.abs((projects.getBoundingClientRect().top + projects.getBoundingClientRect().height / 2) - (navRect.top + navRect.height / 2)),
         brandWidth: brand.getBoundingClientRect().width,
         projectsLeft: projects.getBoundingClientRect().left,
       };
@@ -550,10 +555,14 @@ test.describe('Home page', () => {
     expect(initial?.toggleBackground).toBe('rgba(0, 0, 0, 0)');
     expect(initial?.toggleBorder).toBe('rgba(0, 0, 0, 0)');
     expect(initial?.toggleCenterDelta).toBeLessThanOrEqual(1);
+    expect(initial?.brandCenterDelta).toBeLessThanOrEqual(1);
+    expect(initial?.projectsCenterDelta).toBeLessThanOrEqual(1);
 
     await page.evaluate(() => {
-      window.scrollTo({ top: 140, behavior: 'instant' });
+      window.scrollTo(0, 140);
+      window.dispatchEvent(new Event('scroll'));
     });
+    await page.waitForFunction(() => window.scrollY > 18);
 
     await expect.poll(async () => {
       return await page.locator('[data-site-nav]').evaluate((node) => node.classList.contains('is-brand-eaten'));
@@ -575,11 +584,22 @@ test.describe('Home page', () => {
 
         const brandStyles = window.getComputedStyle(brand);
         const brandTextStyles = window.getComputedStyle(brandText);
+        const nav = document.querySelector('[data-site-nav]');
+
+        if (!(nav instanceof HTMLElement)) {
+          return null;
+        }
+
+        const navRect = nav.getBoundingClientRect();
+        const brandRect = brand.getBoundingClientRect();
+        const projectsRect = projects.getBoundingClientRect();
 
         return {
           brandMinWidth: brandStyles.minWidth,
           brandTextMaxWidth: brandTextStyles.maxWidth,
           brandTextOpacity: brandTextStyles.opacity,
+          brandCenterDelta: Math.abs((brandRect.top + brandRect.height / 2) - (navRect.top + navRect.height / 2)),
+          projectsCenterDelta: Math.abs((projectsRect.top + projectsRect.height / 2) - (navRect.top + navRect.height / 2)),
           projectsLeft: projects.getBoundingClientRect().left,
         };
       });
@@ -592,6 +612,8 @@ test.describe('Home page', () => {
 
     const collapsed = await readCollapsed();
     expect(collapsed).not.toBeNull();
+    expect(collapsed?.brandCenterDelta).toBeLessThanOrEqual(1);
+    expect(collapsed?.projectsCenterDelta).toBeLessThanOrEqual(1);
     expect(collapsed?.projectsLeft).toBeLessThan((initial?.projectsLeft ?? 0) - 20);
   });
 });

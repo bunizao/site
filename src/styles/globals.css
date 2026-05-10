@@ -980,8 +980,8 @@
       z-index: 60;
       flex-direction: row;
       align-items: center;
-      min-height: 3.25rem;
-      padding: 0.28rem 4rem 0.3rem 1rem;
+      height: 3.25rem;
+      padding: 0 4rem 0 1rem;
       gap: clamp(0.95rem, 3.8vw, 1.25rem);
       border-bottom: 1px solid hsl(var(--foreground) / 0.08);
       background: hsl(var(--background) / 0.58);
