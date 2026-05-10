@@ -235,6 +235,73 @@ test.describe('Home page', () => {
     expect(consoleErrors).toEqual([]);
   });
 
+  test('keeps the home mood loading placeholder stable while data resolves', async ({ page }) => {
+    let releaseResponse: (() => void) | undefined;
+    const responseGate = new Promise<void>((resolve) => {
+      releaseResponse = resolve;
+    });
+
+    await page.route('**/api/moods', async (route) => {
+      await responseGate;
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(mixedHomeMoodPayload),
+      });
+    });
+
+    await page.goto('/');
+    await page.locator('#moods-section').scrollIntoViewIfNeeded();
+
+    await expect
+      .poll(async () => {
+        return await page.locator('#moods-section .mood-item-skeleton:visible').count();
+      })
+      .toBe(1);
+
+    await page.evaluate(() => {
+      const list = document.querySelector('#moods-section [data-mood-list]');
+      if (!list) return;
+
+      const state = window as typeof window & {
+        __homeMoodMaxVisibleSkeletons?: number;
+        __homeMoodSkeletonObserver?: MutationObserver;
+      };
+      const countVisibleSkeletons = () => (
+        Array.from(list.querySelectorAll('.mood-item-skeleton'))
+          .filter((item) => item instanceof HTMLElement && !item.hidden).length
+      );
+
+      state.__homeMoodMaxVisibleSkeletons = countVisibleSkeletons();
+      state.__homeMoodSkeletonObserver = new MutationObserver(() => {
+        state.__homeMoodMaxVisibleSkeletons = Math.max(
+          state.__homeMoodMaxVisibleSkeletons ?? 0,
+          countVisibleSkeletons(),
+        );
+      });
+      state.__homeMoodSkeletonObserver.observe(list, {
+        childList: true,
+        subtree: true,
+        attributes: true,
+        attributeFilter: ['hidden'],
+      });
+    });
+
+    releaseResponse?.();
+    await waitForHomeMoodState(page);
+
+    const maxVisibleSkeletons = await page.evaluate(() => {
+      const state = window as typeof window & {
+        __homeMoodMaxVisibleSkeletons?: number;
+        __homeMoodSkeletonObserver?: MutationObserver;
+      };
+      state.__homeMoodSkeletonObserver?.disconnect();
+      return state.__homeMoodMaxVisibleSkeletons ?? 0;
+    });
+
+    expect(maxVisibleSkeletons).toBe(1);
+  });
+
   test('loads GitHub contributions and shows tooltip details', async ({ page }) => {
     await page.route('**/github-contributions-api.jogruber.de/**', async (route) => {
       const contributions = Array.from({ length: 30 }, (_, index) => ({
