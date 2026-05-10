@@ -594,6 +594,17 @@
     align-items: center;
     gap: 2px;
     height: 32px;
+    --site-nav-brand-gap: 0.375rem;
+    --site-nav-mobile-top: calc(env(safe-area-inset-top, 0px) + var(--visual-viewport-top, 0px));
+    --site-nav-mobile-height: 3.25rem;
+    --site-nav-mobile-padding: 0 4rem 0 1rem;
+    --site-nav-mobile-gap: clamp(0.95rem, 3.8vw, 1.25rem);
+    --site-nav-mobile-brand-min-width: calc(var(--site-nav-mobile-logo-height) + var(--site-nav-brand-gap) + var(--site-nav-mobile-wordmark-width));
+    --site-nav-mobile-logo-width: 40px;
+    --site-nav-mobile-logo-height: 1.35rem;
+    --site-nav-mobile-wordmark-width: 5.2rem;
+    --site-nav-mobile-wordmark-size: 1.08rem;
+    --site-nav-mobile-action-size: 2.75rem;
   }
 
   /* Transparent wrapper around links — collapses on desktop/vertical so it
@@ -981,15 +992,15 @@
     }
 
     .site-nav--home {
-      top: calc(env(safe-area-inset-top, 0px) + var(--visual-viewport-top, 0px));
+      top: var(--site-nav-mobile-top);
       left: 0;
       right: 0;
       z-index: 60;
       flex-direction: row;
       align-items: center;
-      height: 3.25rem;
-      padding: 0 4rem 0 1rem;
-      gap: clamp(0.95rem, 3.8vw, 1.25rem);
+      height: var(--site-nav-mobile-height);
+      padding: var(--site-nav-mobile-padding);
+      gap: var(--site-nav-mobile-gap);
       border-bottom: 1px solid hsl(var(--foreground) / 0.08);
       background: hsl(var(--background) / 0.58);
       backdrop-filter: blur(14px) saturate(140%);
@@ -1016,11 +1027,11 @@
     .site-nav--home .site-brand,
     .site-nav--home.is-vertical .site-brand {
       width: auto;
-      min-width: calc(1.35rem + 0.5rem + 5.2rem);
-      min-height: 2.75rem;
+      min-width: var(--site-nav-mobile-brand-min-width);
+      min-height: var(--site-nav-mobile-action-size);
       margin: 0;
       padding-right: 0;
-      gap: 0.5rem;
+      gap: var(--site-nav-brand-gap);
       overflow: hidden;
       transition: min-width 0.32s ease;
     }
@@ -1029,27 +1040,26 @@
       position: relative;
       z-index: 2;
       flex: 0 0 auto;
-      width: 40px;
+      width: var(--site-nav-mobile-logo-width);
       transform: translateX(0);
     }
 
-    /* Mobile: rebalance peek against the wordmark — roughly 1.25:1 visual ratio. */
     .site-nav--home .site-brand-logo {
-      height: 1.35rem;
+      height: var(--site-nav-mobile-logo-height);
       line-height: 0;
     }
     .site-nav--home .site-brand-logo > span,
     .site-nav--home .site-brand-logo svg {
       width: auto !important;
-      height: 1.35rem !important;
+      height: var(--site-nav-mobile-logo-height) !important;
     }
 
     .site-nav--home .site-brand-text {
       display: inline-block;
-      width: 5.2rem;
-      flex: 0 0 5.2rem;
-      max-width: 5.2rem;
-      font-size: 1.08rem;
+      width: var(--site-nav-mobile-wordmark-width);
+      flex: 0 0 var(--site-nav-mobile-wordmark-width);
+      max-width: var(--site-nav-mobile-wordmark-width);
+      font-size: var(--site-nav-mobile-wordmark-size);
       line-height: 1;
       font-weight: 600;
       letter-spacing: -0.01em;
@@ -1062,7 +1072,7 @@
     }
 
     .site-nav--home.is-brand-eaten .site-brand {
-      min-width: 40px;
+      min-width: var(--site-nav-mobile-logo-width);
     }
 
     .site-nav--home.is-brand-eaten .site-brand-text {
@@ -1085,7 +1095,7 @@
     .site-nav--home .nav-link {
       display: inline-flex;
       align-items: center;
-      min-height: 2.75rem;
+      min-height: var(--site-nav-mobile-action-size);
       max-width: 0;
       padding: 0;
       overflow: hidden;
@@ -1114,7 +1124,7 @@
     .site-nav--home.is-brand-eaten .nav-links {
       display: inline-flex;
       align-items: center;
-      gap: clamp(0.95rem, 3.8vw, 1.25rem);
+      gap: var(--site-nav-mobile-gap);
       position: absolute;
       left: 50%;
       top: 50%;

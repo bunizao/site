@@ -27,11 +27,12 @@ describe('navbar regression guards', () => {
     const source = read('src/styles/globals.css');
 
     expect(source).toContain('.site-nav--home {');
-    expect(source).toContain('top: calc(env(safe-area-inset-top, 0px) + var(--visual-viewport-top, 0px));');
+    expect(source).toContain('--site-nav-mobile-top: calc(env(safe-area-inset-top, 0px) + var(--visual-viewport-top, 0px));');
+    expect(source).toContain('top: var(--site-nav-mobile-top);');
     expect(source).toContain('.site-nav--home::before');
     expect(source).toContain('height: env(safe-area-inset-top, 0px);');
     expect(source).toContain(".site-nav--home.is-brand-eaten .site-brand {");
-    expect(source).toContain('min-width: 40px;');
+    expect(source).toContain('min-width: var(--site-nav-mobile-logo-width);');
     expect(source).toContain('.site-nav--home.is-brand-eaten .site-brand-text {');
     expect(source).toContain('flex-basis: 0;');
   });
@@ -43,8 +44,25 @@ describe('navbar regression guards', () => {
 
     expect(layoutSource).toContain('const viewport = window.visualViewport;');
     expect(layoutSource).toContain("root.style.setProperty('--visual-viewport-top'");
-    expect(globalStyles).toContain('top: calc(env(safe-area-inset-top, 0px) + var(--visual-viewport-top, 0px));');
+    expect(globalStyles).toContain('--site-nav-mobile-top: calc(env(safe-area-inset-top, 0px) + var(--visual-viewport-top, 0px));');
+    expect(globalStyles).toContain('top: var(--site-nav-mobile-top);');
     expect(globalStyles).toContain('top: calc(env(safe-area-inset-top, 0px) + var(--visual-viewport-top, 0px) + 0.3rem);');
-    expect(pageStyles).toContain('top: calc(env(safe-area-inset-top, 0px) + var(--visual-viewport-top, 0px));');
+    expect(pageStyles).toContain('top: var(--site-nav-mobile-top);');
+  });
+
+  test('home and page navbars share brand chrome tokens', () => {
+    const globalStyles = read('src/styles/globals.css');
+    const pageStyles = read('src/layouts/Page.astro');
+
+    expect(globalStyles).toContain('--site-nav-brand-gap: 0.375rem;');
+    expect(globalStyles).toContain('--site-nav-mobile-height: 3.25rem;');
+    expect(globalStyles).toContain('--site-nav-mobile-padding: 0 4rem 0 1rem;');
+    expect(globalStyles).toContain('--site-nav-mobile-logo-height: 1.35rem;');
+    expect(globalStyles).toContain('--site-nav-mobile-wordmark-width: 5.2rem;');
+    expect(pageStyles).toContain('gap: var(--site-nav-brand-gap);');
+    expect(pageStyles).toContain('height: var(--site-nav-mobile-height);');
+    expect(pageStyles).toContain('padding: var(--site-nav-mobile-padding);');
+    expect(pageStyles).toContain('height: var(--site-nav-mobile-logo-height);');
+    expect(pageStyles).toContain('width: var(--site-nav-mobile-wordmark-width);');
   });
 });
