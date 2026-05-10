@@ -770,7 +770,20 @@ const blankArtwork =
 
   const LISTENING_REFRESH_MS = 45_000;
   const ARTWORK_SAMPLE_SIZE = 24;
+  const HUE_BUCKET_SIZE = 18;
+  const SATURATION_BUCKETS = 4;
+  const LIGHTNESS_BUCKETS = 4;
   const artworkAccentCache = new Map<string, string>();
+
+  type ColorBucket = {
+    redTotal: number;
+    greenTotal: number;
+    blueTotal: number;
+    weightTotal: number;
+    count: number;
+    saturationTotal: number;
+    lightnessTotal: number;
+  };
 
   const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 
@@ -803,6 +816,22 @@ const blankArtwork =
     return [hue * 60, saturation, lightness];
   };
 
+  const getColorBucketKey = (hue: number, saturation: number, lightness: number): string => {
+    const hueBucket = Math.floor(hue / HUE_BUCKET_SIZE);
+    const saturationBucket = Math.floor(clamp(saturation, 0, 0.999) * SATURATION_BUCKETS);
+    const lightnessBucket = Math.floor(clamp(lightness, 0, 0.999) * LIGHTNESS_BUCKETS);
+    return `${hueBucket}:${saturationBucket}:${lightnessBucket}`;
+  };
+
+  const scoreColorBucket = (bucket: ColorBucket): number => {
+    const saturation = bucket.saturationTotal / bucket.count;
+    const lightness = bucket.lightnessTotal / bucket.count;
+    const midLightness = 1 - Math.abs(lightness - 0.54) * 1.7;
+    const usableLightness = clamp(midLightness, 0.12, 1);
+
+    return bucket.count * Math.pow(clamp(saturation, 0.08, 1), 1.35) * usableLightness;
+  };
+
   const sampleArtworkAccent = (image: HTMLImageElement): string | null => {
     const canvas = document.createElement('canvas');
     const context = canvas.getContext('2d', { willReadFrequently: true });
@@ -815,10 +844,7 @@ const blankArtwork =
     context.drawImage(image, 0, 0, ARTWORK_SAMPLE_SIZE, ARTWORK_SAMPLE_SIZE);
 
     const { data } = context.getImageData(0, 0, ARTWORK_SAMPLE_SIZE, ARTWORK_SAMPLE_SIZE);
-    let redTotal = 0;
-    let greenTotal = 0;
-    let blueTotal = 0;
-    let weightTotal = 0;
+    const buckets = new Map<string, ColorBucket>();
 
     for (let index = 0; index < data.length; index += 4) {
       const alpha = data[index + 3] ?? 0;
@@ -827,27 +853,52 @@ const blankArtwork =
       const red = data[index] ?? 0;
       const green = data[index + 1] ?? 0;
       const blue = data[index + 2] ?? 0;
-      const [, saturation, lightness] = rgbToHsl(red, green, blue);
-      if (lightness < 0.12 || lightness > 0.9) continue;
+      const [hue, saturation, lightness] = rgbToHsl(red, green, blue);
+      if (saturation < 0.08 || lightness < 0.12 || lightness > 0.9) continue;
 
-      const weight = 0.2 + saturation * 1.8 + (1 - Math.abs(lightness - 0.52)) * 0.8;
-      redTotal += red * weight;
-      greenTotal += green * weight;
-      blueTotal += blue * weight;
-      weightTotal += weight;
+      const key = getColorBucketKey(hue, saturation, lightness);
+      const bucket = buckets.get(key) ?? {
+        redTotal: 0,
+        greenTotal: 0,
+        blueTotal: 0,
+        weightTotal: 0,
+        count: 0,
+        saturationTotal: 0,
+        lightnessTotal: 0
+      };
+      const weight = 0.35 + saturation * 1.8 + clamp(1 - Math.abs(lightness - 0.54) * 1.6, 0, 1);
+      bucket.redTotal += red * weight;
+      bucket.greenTotal += green * weight;
+      bucket.blueTotal += blue * weight;
+      bucket.weightTotal += weight;
+      bucket.count += 1;
+      bucket.saturationTotal += saturation;
+      bucket.lightnessTotal += lightness;
+      buckets.set(key, bucket);
     }
 
-    if (weightTotal <= 0) {
+    let selectedBucket: ColorBucket | null = null;
+    let selectedScore = 0;
+
+    for (const bucket of buckets.values()) {
+      const score = scoreColorBucket(bucket);
+      if (score > selectedScore) {
+        selectedBucket = bucket;
+        selectedScore = score;
+      }
+    }
+
+    if (!selectedBucket || selectedBucket.weightTotal <= 0) {
       return null;
     }
 
     const [hue, saturation, lightness] = rgbToHsl(
-      redTotal / weightTotal,
-      greenTotal / weightTotal,
-      blueTotal / weightTotal
+      selectedBucket.redTotal / selectedBucket.weightTotal,
+      selectedBucket.greenTotal / selectedBucket.weightTotal,
+      selectedBucket.blueTotal / selectedBucket.weightTotal
     );
-    const boostedSaturation = clamp(saturation * 1.18, 0.36, 0.82);
-    const boostedLightness = clamp(lightness * 1.06, 0.42, 0.68);
+    const boostedSaturation = clamp(saturation * 1.16, 0.4, 0.86);
+    const boostedLightness = clamp(lightness * 1.04, 0.42, 0.66);
 
     return `hsl(${Math.round(hue)} ${Math.round(boostedSaturation * 100)}% ${Math.round(boostedLightness * 100)}%)`;
   };
