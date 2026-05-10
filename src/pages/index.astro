@@ -10,11 +10,12 @@ import { getCurrentListeningTrack } from '@/features/home/server/listening';
 import { loadMoodChannelSnapshot } from '@/features/mood/server/channel-service';
 import { buildMoodFeedResponse } from '@/features/mood/server/feed-service';
 import { isE2ESiteFixtureEnabled } from '@/lib/e2e';
+import { profileJsonLd, siteDescription, websiteJsonLd } from '@/lib/seo';
 
 export const prerender = false;
 
 const title = "Bunizao's Website";
-const description = "I make interesting things. Curious about frontend design, proxy systems, and open-source work. Obsessed with speed, optimization, and building things better.";
+const description = siteDescription;
 const useClientRealtimeFixtures = isE2ESiteFixtureEnabled(Astro.locals);
 
 const loadInitialMoodPreview = async () => {
@@ -49,7 +50,7 @@ const [listeningResult, initialMoodPosts] = await Promise.all([
 ]);
 ---
 
-<Layout title={title} description={description}>
+<Layout title={title} description={description} structuredData={[websiteJsonLd, profileJsonLd]}>
   <ParallaxWrapper>
     <main class="page-container">
       <Hero listeningTrack={listeningResult?.track} />

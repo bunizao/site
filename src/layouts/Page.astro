@@ -5,6 +5,7 @@ interface Props {
   title: string;
   description: string;
   url?: string;
+  robots?: string;
   updatedAt?: string;
   showSiteNav?: boolean;
 }
@@ -13,6 +14,7 @@ const {
   title,
   description,
   url,
+  robots,
   updatedAt,
   showSiteNav = true,
 } = Astro.props;
@@ -22,6 +24,7 @@ const {
   title={title}
   description={description}
   url={url}
+  robots={robots}
   showSiteNav={showSiteNav}
 >
   <script is:inline>

@@ -5,8 +5,10 @@ interface Props {
   image?: string;
   imageAlt?: string;
   url?: string;
+  robots?: string;
   hideSiteNav?: boolean;
   showSiteNav?: boolean;
+  structuredData?: Record<string, unknown> | Array<Record<string, unknown>>;
   rss?: {
     href: string;
     title?: string;
@@ -28,16 +30,24 @@ const {
   image = '/og.png',
   imageAlt = 'Bunizao',
   url,
+  robots,
   hideSiteNav = false,
   showSiteNav = false,
+  structuredData,
   rss,
   oembed,
 } = Astro.props;
 
 const site = Astro.site ?? new URL('https://buxx.me');
-const canonicalUrl = url ?? new URL(Astro.url?.pathname ?? '/', site).href;
+const siteName = 'Bunizao';
+const canonicalUrl = new URL(url ?? Astro.url?.pathname ?? '/', site).href;
 const ogImageUrl = new URL(image, site).href;
 const isProduction = import.meta.env.PROD;
+const structuredDataItems = structuredData
+  ? Array.isArray(structuredData)
+    ? structuredData
+    : [structuredData]
+  : [];
 const ogImageType = ogImageUrl.endsWith('.png')
   ? 'image/png'
   : ogImageUrl.endsWith('.webp')
@@ -51,6 +61,7 @@ const ogImageType = ogImageUrl.endsWith('.png')
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content={description} />
+    {robots ? <meta name="robots" content={robots} /> : null}
     <link rel="canonical" href={canonicalUrl} />
     <meta property="og:title" content={title} />
     <meta property="og:description" content={description} />
@@ -62,7 +73,7 @@ const ogImageType = ogImageUrl.endsWith('.png')
     <meta property="og:image:alt" content={imageAlt} />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
-    <meta property="og:site_name" content={title} />
+    <meta property="og:site_name" content={siteName} />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content={title} />
     <meta name="twitter:description" content={description} />
@@ -85,6 +96,9 @@ const ogImageType = ogImageUrl.endsWith('.png')
         href={new URL(oembed.href, site).href}
       />
     ) : null}
+    {structuredDataItems.map((item) => (
+      <script type="application/ld+json" is:inline set:html={JSON.stringify(item)} />
+    ))}
 
     <script is:inline>
       (() => {
