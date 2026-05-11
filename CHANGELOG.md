@@ -1,183 +1,161 @@
 # Changelog
 
-This changelog is written from the full git history, but it is not a pasted commit log. It summarizes what the site actually gained, fixed, and improved over time.
+This changelog is based on the full git history, but it is written as a product timeline rather than a pasted commit log.
 
 Coverage: `2026-01-08` through `2026-05-12`.
 
 ## 2026-01
 
-### Early foundation
+### 2026-01-08 to 2026-01-09
 
-- The repository started as a rebuild around Astro, React, and Tailwind, replacing the earlier styling setup and establishing the current frontend stack.
-- The home page took shape quickly: Hero, Projects, Posts, GitHub contribution activity, the tech marquee, refreshed social links, and the first pass of the footer all landed in this phase.
-- Branding was standardized around `buxx.me`, with Open Graph and Twitter metadata, updated OG images, and the first production routing and deployment setup for Vercel.
+- The site was bootstrapped on Astro, React, and Tailwind, replacing the earlier styling setup and establishing the stack that still defines the project.
+- The homepage core landed almost immediately: Hero, Projects, Posts, GitHub contribution activity, the tech marquee, refreshed social links, and the first serious footer.
+- Branding was tightened around `buxx.me`, with Open Graph and Twitter metadata, updated OG images, and an initial Vercel deployment setup.
 
-### Moods became a real product surface
+### 2026-01-09 to 2026-01-12
 
-- The site gained its first Telegram-backed `Moods` experience: a home preview, a dedicated `/mood` feed, mood detail pages, and an API route for loading posts.
-- Mood rendering became much richer over the month: image previews, bookmark cards, grouped timelines, better date formatting, pagination, reactions, custom emoji, animated emoji, forwarded message handling, and richer quote previews.
-- The feed and detail pages also learned how to handle more real Telegram media cases: portrait images, video and audio previews, custom emoji images, author normalization, and cleaner text extraction via Cheerio.
-- A static Telegram media proxy was introduced so the site could serve mood assets more reliably instead of depending directly on Telegram URLs everywhere.
+- `Moods` became the first major content product on the site. The project gained a homepage preview, a full `/mood` feed, mood detail pages, and an API route for loading posts.
+- Over these few days, the feed learned how to show image previews, bookmark cards, grouped timelines, richer date formatting, pagination, and cleaner Telegram text extraction.
+- The visual side also moved fast: GSAP-based scroll reveal, parallax effects, magnetic interactions, and a more capable theme control surface started taking shape across the homepage.
 
-### Motion, theme, and interface work
+### 2026-01-10 to 2026-01-16
 
-- GSAP-based motion was introduced across Hero, Projects, Posts, and Moods, including scroll reveals, parallax effects, magnetic interactions, and more polished loading transitions.
-- The theme switcher evolved from a simple toggle into a fuller theme control surface with better animations and later support for system mode.
-- Header actions, RSS and Telegram links, and general page chrome kept getting refined so the homepage felt more like a complete product than a static portfolio.
+- Telegram media support deepened. The mood system gained better reactions, custom emoji, animated emoji, forwarded-message support, and more stable handling for portrait images, video, and audio previews.
+- A static Telegram media proxy was introduced so the site could serve mood assets more reliably instead of relying directly on Telegram URLs.
+- The repo also started to harden operationally, with license cleanup, dependency overrides, more documentation, and the first round of CI/security housekeeping.
 
-### Comments, embeds, and detail-page depth
+### 2026-01-17 to 2026-01-25
 
-- Late in the month, mood detail pages grew beyond “single post with media” into something closer to a discussion surface.
-- The site gained comment sections, comment counts, comment popovers, safer comment rendering, richer loading states, and cleaner pagination and reply handling.
-- Mood pages also gained `oEmbed` support and better embed-mode behavior, which pushed the detail pages closer to being reusable content endpoints rather than just internal pages.
+- The project migrated from `pnpm` to `bun`, and local development guidance was updated to match.
+- The site added richer quote previews, linkified mood text, cleaner responsive layout rules, and stronger accessibility and mobile behavior in the feed.
+- Homepage interaction work continued with better header actions, RSS and Telegram controls, improved theme switching, and more performance-aware GSAP loading.
 
-### Performance, platform, and maintenance
+### 2026-01-28 to 2026-01-31
 
-- The repo migrated from `pnpm` to `bun`, picked up better local development guidance, and gradually tightened its ignore rules and agent instructions.
-- Fonts were cleaned up and optimized more than once, including early JetBrains Mono adoption and later local font work.
-- Vercel Speed Insights and other performance-oriented changes started to appear by the second half of the month.
-- Security and project housekeeping also advanced: dependency overrides, Dependabot updates, license changes to AGPL, and early CI/security workflow experiments all landed here.
+- Mood detail pages turned into something more than static post views. The site gained comments, comment counts, loading states, reply handling, and comment popovers.
+- `oEmbed` support and embed-mode cleanup also arrived in this phase, pushing mood detail pages closer to reusable content endpoints.
+- By the end of January, the mood system had moved from “Telegram feed experiment” to a real product surface with media, interaction, comments, and embeds.
 
 ## 2026-02
 
-### Mood feed matured into a stronger reader
+### 2026-02-01 to 2026-02-06
 
-- February focused heavily on making the mood system feel like a proper product instead of a feed prototype.
-- The `MoodTimelineWheel` was added and iterated on with new loading states, better progress tracking, improved notch highlighting, and more polished motion behavior.
-- Responsive image handling improved on both the site and the Telegram image proxy, so feed images could load faster and scale more cleanly.
-- Rich text preservation got better, including line breaks, safer formatting retention, and fewer cases where markup was flattened or lost.
+- February opened with heavier work on the mood reading experience. Responsive image handling improved both on the site and in the Telegram image proxy.
+- The `MoodTimelineWheel` was introduced and quickly iterated on with loading skeletons, better progress tracking, stronger visual feedback, and smoother motion behavior.
+- The codebase also started to bend toward stricter structure and better agent guidance, even if the user-facing focus was still the mood product.
 
-### Notification and email delivery shipped
+### 2026-02-10
 
-- A full mood notification pipeline landed this month: subscription handling, delivery scheduling, sender configuration, email rendering, and user-facing subscription UX.
-- The site gained a notify panel, Turnstile protection, a subscribe modal route, email template previews, “already subscribed” handling, and better UI for the confirmation flow.
-- Notification templates became more realistic over time, with media markers, media previews, card redesigns, avatar proxying, and line-break preservation.
-- Storage for notification data was later moved to Cloudflare D1, and both the schema and tests were updated to match.
+- This was the big notification milestone. The site gained a full mood email notification pipeline with subscription handling, scheduling, sender configuration, delivery flow, and subscription UI.
+- The notify panel, Turnstile protection, subscribe modal route, already-subscribed handling, and template previewing all landed around the same time.
+- Playwright E2E tooling also arrived in earnest here, because once notifications shipped, hand-waving about behavior stopped being acceptable.
 
-### Image pipeline and worker infrastructure expanded
+### 2026-02-11 to 2026-02-19
 
-- Telegram image handling became much more serious. A Cloudflare Worker was added for high-resolution Telegram images, and the ingest pipeline kept getting reworked to reduce missing images and better recover assets.
-- The image worker was tightened so missing R2 assets could fail correctly, static fallbacks could be used when needed, and old KV fallback behavior could be removed.
-- A backfill script was added for recovering mood images from Telegram public pages, and webhook image indexing was routed through the worker ingest flow.
+- Notification templates got more realistic: media previews, avatar proxying, card redesigns, line-break preservation, and better button and panel UI all improved.
+- Storage for notify data moved to Cloudflare D1, with matching schema, migration, docs, and test updates.
+- Outside notify, the mood feed kept getting cleaned up on mobile and with custom emoji rendering.
 
-### Navigation and chrome experiments
+### 2026-02-15 to 2026-02-18
 
-- A new vertical navigation system appeared and was refined aggressively: index indicators, scramble/typewriter behavior, magnetic hover, liquid-glass tooltip effects, and scroll-driven visibility changes.
-- The navigation was then simplified and corrected several times so it would look lighter, move less awkwardly, and stay out of the way on Mood L1.
-- The header button area also became more responsive and better behaved on mobile, including auto-collapse behavior when scrolling past the hero.
+- JetBrains Mono was self-hosted and CSP rules were tightened, especially around fonts.
+- Rich text and emoji handling improved further, with fixes for mood previews, emoji-only navigation, and media-detection mistakes.
+- The repo was becoming less prototype-like: tighter security posture, better local assets, and fewer brittle remote dependencies.
 
-### Security, typography, and platform polish
+### 2026-02-26 to 2026-02-27
 
-- JetBrains Mono was self-hosted and generated content was adjusted to use local font assets more cleanly.
-- CSP was tightened, especially around font sources.
-- Playwright E2E tooling arrived in earnest, with page and API coverage added for the new notify and mood flows.
-- The repo documentation and agent rules were also updated repeatedly as the project became less like a prototype and more like a maintained product.
+- Telegram image handling got serious. A Cloudflare Worker was added for higher-quality Telegram images, along with backfill scripts, webhook-indexed ingest, and more explicit R2-miss behavior.
+- At the same time, a vertical navigation system arrived and was heavily explored with index indicators, typewriter effects, magnetic hover, and liquid-glass tooltip styling.
+- By the end of February, the site had both a stronger media pipeline and a much more experimental navigation language.
 
 ## 2026-03
 
-### Privacy page and page-level chrome
+### 2026-03-08 to 2026-03-10
 
-- March introduced a dedicated privacy page and then spent real effort making it fit the rest of the site rather than feeling bolted on.
-- That work included themed page styling, privacy links, a mobile privacy header bar, refined navbar behavior on smaller screens, and eventually a Markdown-backed privacy page.
-- Navigation behavior across page templates kept being adjusted so the privacy surface inherited the right amount of homepage chrome without acting like a clone of the home page.
+- March started by adding a dedicated privacy page and then repeatedly refining how it inherited site chrome.
+- This phase introduced privacy links, a mobile privacy header, page-specific navigation behavior, and eventually a Markdown-backed privacy page that felt integrated rather than bolted on.
+- Mood detail pages also gained better quote presentation and more detailed reply-card rendering during the same stretch.
 
-### Navigation rewrites continued
+### 2026-03-13 to 2026-03-16
 
-- The vertical nav from late February kept evolving: hover physics were reduced, active-indicator positioning was fixed, reveal timing was simplified, and the indicator was hidden when the nav was outside its intended state.
-- These changes were less about adding new UI and more about sanding down a flashy system until it stopped fighting the content.
+- Homepage project loading was upgraded to use pinned GitHub repos with fallback behavior, reducing dependence on live GitHub responses being perfect.
+- The Astro 6 upgrade landed here, along with type-check cleanup, runtime fixes, dependency refreshes, and stronger PR/preview workflows.
+- Playwright coverage expanded further, and preview smoke checks plus PR test automation started giving the repo a more serious delivery pipeline.
 
-### Platform upgrade and better CI
+### 2026-03-17 to 2026-03-19
 
-- The Astro 6 upgrade happened in this month, along with type-check cleanup, dependency updates, and fixes for runtime drift after the upgrade.
-- Playwright coverage expanded, new fixtures were added, and CI started to look more production-aware with PR test workflows, preview smoke checks, Node 22 alignment, and protected preview bypass handling.
-- Ops health checks were added as part of the project’s confidence story, alongside image health tests and better documentation for image ingest URLs.
-
-### Worker and backend-facing features
-
+- Ops health checks were added, especially around image probing and delivery reliability.
 - The Telegram image/webhook system gained a worker webhook, stronger ingest transport, and an authenticated activity panel path.
-- Homepage project loading was upgraded to use pinned GitHub repos with fallback behavior when live data was incomplete.
+- A global spotlight overlay and hero grid highlight effect were introduced and then tuned so the animation felt intentional rather than noisy.
 
-### Visual and content polish
+### 2026-03-20 to 2026-03-21
 
-- Mood detail pages picked up better reply cards, cleaner quote styling, and a flatter semi-transparent quote surface.
-- Comment rendering was unified and cleaned up, with tests added to keep rich comment display stable.
-- The site also gained a global spotlight grid overlay and hero highlight effect, followed by smoothing and fade-behavior fixes so the effect felt intentional instead of noisy.
+- The repo’s architecture docs were expanded and cleaned up, reflecting that the project now had enough moving parts to need a clearer map.
+- This late-March work was less flashy, but it mattered: the project was behaving more like a maintained system than a rapidly changing personal experiment.
 
 ## 2026-04
 
-### Mood media reliability became the main story
+### 2026-04-06 to 2026-04-10
 
-- April was dominated by real-world Telegram media correctness.
-- The site fixed live photo fallbacks, unsupported media handling, reply thumbnail inference, quote-media layout, video card alignment, video oversize handling, and several classes of duplicate or false-positive fallback behavior.
-- Home preview loading was stabilized multiple times, including smaller thumbnail loading and fixes for image layout instability.
-- Mood embeds and newsletter/digest previews were also brought closer to the site’s main rendering rules, so external and internal previews stopped drifting apart.
+- April was dominated by Telegram media correctness. The site fixed unsupported-media fallbacks, live photo handling, reply thumbnails, quote-media layout, video preview sizing, and oversize media behavior.
+- A full mood gallery feature landed, then immediately went through multiple layout passes until it respected aspect ratios and looked coherent in detail views.
+- Home mood previews were also stabilized more than once, which says a lot about how real the edge cases had become.
 
-### Galleries and detail-page presentation expanded
+### 2026-04-12 to 2026-04-19
 
-- A full mood gallery feature landed, followed by multiple passes on image bounds, aspect ratios, placeholder removal, collage behavior, and eventually justified-layout galleries for detail pages.
-- Quote cards inside mood detail pages were refined heavily: spacing, hierarchy, stacking, text scale, bookmark rendering, author hiding, and digest separator treatment were all revisited until the detail view felt coherent.
+- The mood feature went through a large internal refactor. Routes, services, shells, controllers, comment helpers, update watchers, media hydration logic, and utilities were pulled into clearer feature boundaries.
+- This was one of the most important non-visual changes in the repo’s history: the mood system stopped being one large tangle and became something maintainable.
+- In parallel, listening UI work started to become more ambitious, and the project kept tightening tests and operational docs.
 
-### Structural refactor of the mood feature
+### 2026-04-25 to 2026-04-26
 
-- A large codebase cleanup happened mid-month. The mood system was broken into clearer feature boundaries, with routes, shells, services, client utilities, controllers, update watchers, comment popovers, and media hydration logic pulled into more focused modules.
-- This was not a flashy user-facing feature, but it mattered: the mood feature stopped being one sprawling blob and became something easier to debug and extend.
+- The homepage gained a real listening system backed by Last.fm, later paired with an Apple Music demo path.
+- Animated listening artwork, live-vs-preview states, tonearm and record visuals, client hydration, responsive layout fixes, and vibrant accent extraction all landed in quick succession.
+- Performance work also sharpened during this window: below-the-fold home work was deferred, hero LCP was reduced, and static proxy redirects were avoided.
 
-### Listening system launched and then got serious
+### 2026-04-27 to 2026-04-29
 
-- The hero gained a real listening experience backed by Last.fm and later an Apple Music demo path.
-- Animated listening artwork, live vs preview state handling, client hydration, tonearm/record visuals, responsive layout fixes, and vibrant accent extraction were all introduced or refined during this period.
-- A large amount of late-April work was dedicated to making the listening module feel product-grade on mobile, especially with spacing, animation states, typography, and hover behavior.
-
-### Performance and operational work
-
-- Below-the-fold home work was deferred, hero LCP was reduced, static proxy redirects were avoided, and thumbnail loading was tightened for better real-world performance.
-- Ops health coverage kept growing, including timeout tuning and image URL fixes.
-- Several April changes were essentially “keep the site from lying to itself” work: stabilizing unresolved feed images, syncing listening panel state, and reducing runtime drift between dev and production behavior.
+- Mood detail and embed rendering were refined heavily: quote cards, digest previews, bookmark-card hierarchy, separator softness, text scaling, author hiding, and quote/media alignment all improved.
+- The listening panel and home preview cards kept getting real-world fixes, especially around compact scroll behavior, mobile layout, and animation state consistency.
+- By the end of April, the site felt less like separate feature islands and more like one coherent product.
 
 ## 2026-05
 
-### Error page became a first-class experience
+### 2026-05-01 to 2026-05-03
 
-- Early May turned the 404 page into a real designed surface instead of a dead end.
-- The error page gained animated canvas motion, hover and idle behavior, a Geist-driven visual treatment, trace interaction, refined dark-mode contrast, cleaner footer copy, and eventually integration with the mascot system.
-- By the end of that line of work, the 404 page felt like part of the brand rather than a utility page.
+- The 404 page became a first-class experience. It gained animated canvas motion, idle and hover behavior, trace interaction, refined contrast, cleaner footer copy, and a much stronger visual identity.
+- Mood embed rendering also kept getting fixes in parallel, especially around video and quote presentation.
 
-### Notify system got product-level follow-through
+### 2026-05-04
 
-- The notification flow kept improving with admin alerts, welcome and cancel emails, template previews, and dedicated unit-test coverage in CI.
-- Development-only behavior was also cleaned up, like skipping analytics injection where it would get in the way.
+- The notification system got follow-through instead of just shipping and being forgotten.
+- Admin alerts, welcome and cancel emails, template previews, and dedicated notify test coverage all landed here.
+- Development-only annoyances, like analytics injection where it did not belong, were also cleaned up.
 
-### Peek became the site mascot and the navbar centerpiece
+### 2026-05-06 to 2026-05-09
 
-- The biggest visible product shift in May was the introduction of the `peek` mascot as the site’s logo and interactive brand system.
-- That work touched the favicon, homepage navbar, desktop and mobile brand lockups, preview routes, mascot labs, 404 interactions, and multiple rounds of animation/state design.
-- The mascot system later moved into a more structured catalog-and-slot model so different surfaces could share expressions and animation states instead of hardcoding one-off behavior everywhere.
-- Navbar behavior then kept being tuned around that mascot: spacing, active states, mobile clipping, privacy-page brand chrome, scroll behavior, shared tokens, and smaller client-side runtime cost.
+- This was the start of the `peek` era. The mascot became the site logo and the center of the homepage/navbar brand system.
+- The work touched the favicon, navbar, brand lockups, mascot preview routes, lab assets, 404 integration, and multiple rounds of interaction design.
+- At the same time, mood performance kept improving with preloaded home/feed payloads and reduced realtime duplicate requests.
 
-### Moods kept getting fixed and made faster
+### 2026-05-10
 
-- The mood system did not stop moving while mascot work was happening.
-- Initial home/feed payload preloading landed, duplicate realtime requests were reduced, home preview placeholders were stabilized, roulette date tracking improved, scroll tracking was smoothed, and inline reply/quote thumbnail handling was hardened.
-- Tests were added or expanded to pin these fixes down, especially around quote media and navbar regressions.
+- The mascot system was reorganized into a more structured catalog-and-slot model so animations and expressions could be reused across surfaces instead of hardcoded ad hoc.
+- Mobile navbar behavior got a concentrated round of fixes: label clipping, theme toggle scope, header-action behavior, safe-area handling, brand centering, and preview-navbar visibility were all corrected.
+- The home mood placeholder was also stabilized here and backed with explicit regression tests.
 
-### Listening and home chrome polish continued
+### 2026-05-11 to 2026-05-12
 
-- The listening panel picked up accent-swatch selection fixes and artwork accent restoration.
-- Home and page navbar behavior on mobile Safari was corrected repeatedly: safe-area handling, brand centering, brand-space release, theme toggle scope, hero offsets, and privacy-page chrome alignment all received focused fixes.
-
-### Secondary product and platform work
-
-- SEO discovery metadata was added.
-- The old ascii moon dev page was removed.
-- The newsletter preview/dev console surface was restyled to better match the rest of the site’s visual language.
-- By the end of May 12, the branch history shows the site in a much more integrated state: mascot branding, stronger page chrome, more stable mood previews, and less client overhead in the navbar and mood systems.
+- Privacy-page brand chrome was aligned with the homepage more carefully, using shared navbar tokens instead of fragile one-off spacing rules.
+- Navbar runtime cost was reduced, logo payload handling was tightened, and listening accent selection was cleaned up.
+- Mood work continued all the way through May 12 with roulette date tracking fixes, smoother scroll behavior, stronger quote-thumbnail handling, and more test coverage around quote media.
 
 ## Summary
 
-Across its first five months, the site evolved from a polished personal homepage into a multi-surface product with:
+From January through May, the site evolved in a pretty clear sequence:
 
-- A Telegram-backed publishing system for feed, detail, embeds, galleries, and comments.
-- A full email notification pipeline with delivery, previews, storage, and abuse protection.
-- Dedicated infrastructure for Telegram image proxying, ingest, and media fallback recovery.
-- A richer homepage with live GitHub data, listening state, motion systems, and a distinctive mascot-driven brand layer.
-- Stronger operational confidence through Playwright coverage, worker tests, preview smoke checks, PR workflows, and ops health monitoring.
+1. It started as a polished Astro homepage with projects, posts, GitHub activity, motion, and branding.
+2. It grew a Telegram-backed `Moods` system with feed, detail pages, media handling, comments, embeds, and galleries.
+3. It added a full email notification product with delivery, previews, abuse protection, and durable storage.
+4. It built real infrastructure around media reliability through Telegram proxying, worker ingest, and fallback recovery.
+5. It ended this period with a much stronger brand layer, anchored by `peek`, plus better page chrome, stronger tests, and less fragile runtime behavior.
