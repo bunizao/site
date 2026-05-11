@@ -1,0 +1,181 @@
+// JSX is intentionally avoided here — we use React.createElement directly so the
+// component works regardless of whether Vite's dep cache has the dev jsx-runtime
+// available. The SVG body is built as an HTML string and injected.
+import { createElement, useEffect, useMemo, useState } from 'react';
+import type { Grid, LogoRuntimeDefinition } from '@/features/logos/data/types';
+import { gridToSvg } from '@/features/logos/lib/render';
+
+export type AnimatedLogoProps = {
+  definition: LogoRuntimeDefinition;
+  animation?: string;
+  hoverAnimation?: string;
+  size?: number;
+  fps?: number;
+  paused?: boolean;
+  fg?: string;
+  accent?: string;
+  className?: string;
+  title?: string;
+  loop?: boolean;
+  onCycle?: () => void;
+  /**
+   * If set, the component listens for `window` events named
+   *   `peek:<eventChannel>:set`       — payload { animation: string, holdMs?: number }
+   *   `peek:<eventChannel>:revert`    — reverts to the base animation prop
+   * Lets imperative nav code drive the mascot's expression without prop-drilling.
+   */
+  eventChannel?: string;
+};
+
+export function AnimatedLogo(props: AnimatedLogoProps) {
+  const {
+    definition,
+    animation = 'idle',
+    hoverAnimation,
+    size = 24,
+    fps,
+    paused = false,
+    fg = 'currentColor',
+    accent,
+    className,
+    title,
+    loop,
+    onCycle,
+    eventChannel,
+  } = props;
+
+  const def = definition;
+  const [hover, setHover] = useState(false);
+  // Animation override driven by external events (null = use prop).
+  const [override, setOverride] = useState<string | null>(null);
+  const propAnim = animation;
+  const activeKey = override
+    ? override
+    : hover && hoverAnimation
+      ? hoverAnimation
+      : propAnim;
+  const anim = def.animations[activeKey] ?? def.animations.idle;
+  const effectiveFps = fps ?? anim.fps;
+  const accentColor = accent ?? def.accent;
+
+  // Subscribe to external override events when a channel is declared.
+  useEffect(() => {
+    if (!eventChannel || typeof window === 'undefined') return;
+    const setName = `peek:${eventChannel}:set`;
+    const revertName = `peek:${eventChannel}:revert`;
+    let holdTimer: ReturnType<typeof setTimeout> | null = null;
+    const clearHold = () => {
+      if (holdTimer !== null) {
+        clearTimeout(holdTimer);
+        holdTimer = null;
+      }
+    };
+    const onSet = (e: Event) => {
+      const detail = (e as CustomEvent<{ animation: string; holdMs?: number }>).detail;
+      if (!detail || !detail.animation) return;
+      if (!def.animations[detail.animation]) return;
+      clearHold();
+      setOverride(detail.animation);
+      if (typeof detail.holdMs === 'number' && detail.holdMs > 0) {
+        holdTimer = setTimeout(() => {
+          setOverride(null);
+          holdTimer = null;
+        }, detail.holdMs);
+      }
+    };
+    const onRevert = () => {
+      clearHold();
+      setOverride(null);
+    };
+    window.addEventListener(setName, onSet as EventListener);
+    window.addEventListener(revertName, onRevert);
+    return () => {
+      clearHold();
+      window.removeEventListener(setName, onSet as EventListener);
+      window.removeEventListener(revertName, onRevert);
+    };
+  }, [eventChannel, def]);
+
+  const reducedMotion = useReducedMotion();
+  const shouldLoop = loop ?? anim.loop ?? true;
+  const [frameIndex, setFrameIndex] = useState(0);
+
+  useEffect(() => {
+    setFrameIndex(0);
+  }, [activeKey]);
+
+  // When hoverAnimation is set, the brand is static at rest and only ticks on
+  // hover — unless an external override is driving a specific expression.
+  const idleAtRest = !!hoverAnimation && !hover && !override;
+  useEffect(() => {
+    if (paused || reducedMotion || idleAtRest) return;
+    if (anim.frames.length <= 1) return;
+    const interval = 1000 / Math.max(1, effectiveFps);
+    let raf: number | null = null;
+    let last = performance.now();
+    let acc = 0;
+    const tick = (now: number) => {
+      acc += now - last;
+      last = now;
+      while (acc >= interval) {
+        acc -= interval;
+        setFrameIndex((f) => {
+          const next = f + 1;
+          if (next >= anim.frames.length) {
+            onCycle?.();
+            return shouldLoop ? 0 : f;
+          }
+          return next;
+        });
+      }
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => {
+      if (raf !== null) cancelAnimationFrame(raf);
+    };
+  }, [anim, effectiveFps, paused, reducedMotion, shouldLoop, idleAtRest, onCycle]);
+
+  const grid: Grid = anim.frames[frameIndex] ?? def.base;
+  const aspect = def.width / def.height;
+  const renderedHeight = Math.round(size / aspect);
+
+  const svg = useMemo(
+    () =>
+      gridToSvg(grid, def.width, def.height, {
+        size,
+        fg,
+        accent: accentColor,
+        title,
+      }),
+    [grid, def.width, def.height, size, fg, accentColor, title],
+  );
+
+  return createElement('span', {
+    className,
+    style: {
+      display: 'inline-flex',
+      width: size,
+      height: renderedHeight,
+      color: fg,
+    },
+    onMouseEnter: hoverAnimation ? () => setHover(true) : undefined,
+    onMouseLeave: hoverAnimation ? () => setHover(false) : undefined,
+    onFocus: hoverAnimation ? () => setHover(true) : undefined,
+    onBlur: hoverAnimation ? () => setHover(false) : undefined,
+    dangerouslySetInnerHTML: { __html: svg },
+  });
+}
+
+function useReducedMotion(): boolean {
+  const [reduced, setReduced] = useState(false);
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return;
+    const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
+    setReduced(mq.matches);
+    const handler = (e: MediaQueryListEvent) => setReduced(e.matches);
+    mq.addEventListener?.('change', handler);
+    return () => mq.removeEventListener?.('change', handler);
+  }, []);
+  return reduced;
+}

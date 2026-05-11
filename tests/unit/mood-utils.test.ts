@@ -117,6 +117,30 @@ describe('getQuotePreview', () => {
     expect(quote?.href).toBe('/mood/3314');
     expect(quote?.thumbnailSrc).toBeUndefined();
   });
+
+  test('uses inline reply thumbnails before HD fallback guesses', () => {
+    const content = `
+      <a class="tgme_widget_message_reply" href="/mood/3408">
+        <i
+          class="tgme_widget_message_reply_thumb"
+          style="background-image:url('https://cdn5.telesco.pe/file/reply-video-thumb.jpg')"
+        ></i>
+        <div class="tgme_widget_message_text tgme_widget_message_reply_text">
+          科研成果
+        </div>
+      </a>
+    `;
+
+    const quote = getQuotePreview(content, {
+      channel: 'tutumood',
+      channelTitle: 'Levitating',
+      hdImageBase: 'https://image.buxx.me',
+    });
+
+    expect(quote).not.toBeNull();
+    expect(quote?.href).toBe('/mood/3408');
+    expect(quote?.thumbnailSrc).toBe('/static/https:/cdn5.telesco.pe/file/reply-video-thumb.jpg');
+  });
 });
 
 describe('getRelatedLinks', () => {

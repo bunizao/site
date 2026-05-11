@@ -50,7 +50,12 @@ const [listeningResult, initialMoodPosts] = await Promise.all([
 ]);
 ---
 
-<Layout title={title} description={description} structuredData={[websiteJsonLd, profileJsonLd]}>
+<Layout
+  title={title}
+  description={description}
+  navVariant="home"
+  structuredData={[websiteJsonLd, profileJsonLd]}
+>
   <ParallaxWrapper>
     <main class="page-container">
       <Hero listeningTrack={listeningResult?.track} />

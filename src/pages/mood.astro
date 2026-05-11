@@ -158,22 +158,26 @@ const skeletonGroups = [
 
   <!-- Compact header buttons auto-collapse on scroll past hero -->
   <script>
-    import gsap from 'gsap';
-
     document.addEventListener('DOMContentLoaded', () => {
       const heroEl = document.querySelector('[data-mood-hero]');
       const headerActions = document.querySelector('[data-header-actions]');
       if (!heroEl || !headerActions) return;
 
       const isCompactViewport = () => window.innerWidth < 900;
+      let gsapPromise: Promise<typeof import('gsap')['default']> | null = null;
+      const loadGsap = () => {
+        gsapPromise ??= import('gsap').then(({ default: gsap }) => gsap);
+        return gsapPromise;
+      };
 
       let isCollapsed = false;
 
-      const collapseButtons = () => {
+      const collapseButtons = async () => {
         if (isCollapsed) return;
         isCollapsed = true;
         headerActions.classList.add('is-collapsed');
 
+        const gsap = await loadGsap();
         gsap.to(headerActions, {
           x: '100%',
           opacity: 0,
@@ -182,11 +186,12 @@ const skeletonGroups = [
         });
       };
 
-      const expandButtons = () => {
+      const expandButtons = async () => {
         if (!isCollapsed) return;
         isCollapsed = false;
         headerActions.classList.remove('is-collapsed');
 
+        const gsap = await loadGsap();
         gsap.to(headerActions, {
           x: 0,
           opacity: 1,
@@ -199,22 +204,19 @@ const skeletonGroups = [
       const observer = new IntersectionObserver(
         (entries) => {
           if (!isCompactViewport()) {
-            // On wide viewports, always expanded
             if (isCollapsed) {
               isCollapsed = false;
               headerActions.classList.remove('is-collapsed');
-              gsap.set(headerActions, { x: 0, opacity: 1 });
+              headerActions.removeAttribute('style');
             }
             return;
           }
 
           entries.forEach((entry) => {
             if (entry.isIntersecting) {
-              // Hero is visible - expand buttons
-              expandButtons();
+              void expandButtons();
             } else {
-              // Hero is not visible - collapse buttons
-              collapseButtons();
+              void collapseButtons();
             }
           });
         },
@@ -235,7 +237,7 @@ const skeletonGroups = [
           if (!isCompactViewport() && isCollapsed) {
             isCollapsed = false;
             headerActions.classList.remove('is-collapsed');
-            gsap.set(headerActions, { x: 0, opacity: 1 });
+            headerActions.removeAttribute('style');
           }
         }, 100);
       });

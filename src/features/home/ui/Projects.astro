@@ -401,25 +401,23 @@ const projects = await loadProjects();
   import gsap from 'gsap';
   import { ScrollTrigger } from 'gsap/ScrollTrigger';
 
-  gsap.registerPlugin(ScrollTrigger);
-
   const prefersReducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
   const projectsSection = document.getElementById('projects-section');
   const tiltCards = document.querySelectorAll('[data-tilt]');
 
-  // Set initial states early so transforms don't flash.
   if (projectsSection && !prefersReducedMotion) {
-    const cards = projectsSection.querySelectorAll('.scroll-reveal-card');
-    gsap.set(projectsSection, { y: 60 });
-    gsap.set(cards, { y: 40, scale: 0.95 });
+    projectsSection.style.transform = 'translateY(60px)';
+    projectsSection.querySelectorAll<HTMLElement>('.scroll-reveal-card').forEach((card) => {
+      card.style.transform = 'translateY(40px) scale(0.95)';
+    });
   }
 
-  const initProjects = () => {
-    // Scroll reveal animation with GSAP ScrollTrigger
+  const initProjects = async () => {
+    gsap.registerPlugin(ScrollTrigger);
+
     if (projectsSection) {
       const cards = projectsSection.querySelectorAll('.scroll-reveal-card');
 
-      // Animate from current state (set above) to target state
       gsap.to(projectsSection, {
         opacity: 1,
         y: 0,
@@ -432,7 +430,6 @@ const projects = await loadProjects();
         }
       });
 
-      // Animate cards with stagger and bouncy effect
       gsap.to(cards, {
         opacity: 1,
         y: 0,
@@ -448,7 +445,6 @@ const projects = await loadProjects();
       });
     }
 
-    // Enhanced 3D tilt with GSAP
     tiltCards.forEach((card) => {
       const item = card.querySelector('.project-item') as HTMLElement;
       const glare = card.querySelector('[data-glare]') as HTMLElement;
@@ -457,7 +453,6 @@ const projects = await loadProjects();
 
       const maxTilt = 12;
 
-      // Mouse tracking
       card.addEventListener('mouseenter', () => {
         if (glare) gsap.to(glare, { opacity: 1, duration: 0.2 });
       });
@@ -505,6 +500,18 @@ const projects = await loadProjects();
   };
 
   if (!prefersReducedMotion && (projectsSection || tiltCards.length > 0)) {
-    void initProjects();
+    if (projectsSection && 'IntersectionObserver' in window) {
+      const observer = new IntersectionObserver(
+        (entries) => {
+          if (!entries.some((entry) => entry.isIntersecting)) return;
+          observer.disconnect();
+          void initProjects();
+        },
+        { rootMargin: '500px 0px' }
+      );
+      observer.observe(projectsSection);
+    } else {
+      void initProjects();
+    }
   }
 </script>

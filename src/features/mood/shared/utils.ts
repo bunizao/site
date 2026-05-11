@@ -29,6 +29,23 @@ function extractBackgroundImageUrl(style: string): string {
   return (match?.[2] ?? '').trim();
 }
 
+function normalizeMediaUrl(value: string): string {
+  if (!value) return '';
+  if (value.startsWith('//')) return `https:${value}`;
+  return value;
+}
+
+function toStaticProxyUrl(value: string): string {
+  const normalized = normalizeMediaUrl(value);
+  if (!normalized) return '';
+  if (normalized.startsWith('/static/') || normalized.includes('/static/https:')) return normalized;
+  if (/^(data:|blob:)/i.test(normalized)) return normalized;
+  if (/^https?:\/\//i.test(normalized)) {
+    return `/static/${normalized.replace('://', ':/')}`;
+  }
+  return normalized;
+}
+
 function hasPhotoWrapImage($: cheerio.CheerioAPI): boolean {
   return $('.tgme_widget_message_photo_wrap').toArray().some((element) => {
     const style = ($(element).attr('style') ?? '').trim();
@@ -923,6 +940,18 @@ const getMoodQuoteThumbnailSrc = (href: string, hdImageBase?: string): string | 
   }
 };
 
+const getReplyThumbnailSrc = (reply: cheerio.Cheerio<any>): string | undefined => {
+  const thumb = reply
+    .find(
+      '.tgme_widget_message_reply_thumb, .tgme_widget_message_video_thumb, .tgme_widget_message_roundvideo_thumb'
+    )
+    .toArray()
+    .map((node) => extractBackgroundImageUrl(isCheerioElement(node) ? node.attribs?.style ?? '' : ''))
+    .find(Boolean);
+
+  return thumb ? toStaticProxyUrl(thumb) : undefined;
+};
+
 export function getQuotePreview(
   content: string,
   options: { channel?: string; channelTitle?: string; hdImageBase?: string } = {}
@@ -1004,9 +1033,14 @@ export function getQuotePreview(
   if (!text) return null;
 
   const href = normalizeText(reply.attr('href') ?? '');
-  const thumbnailSrc = hasInlineReplyMediaPreview && href
-    ? getMoodQuoteThumbnailSrc(href, options.hdImageBase)
+  const inlineThumbnailSrc = hasInlineReplyMediaPreview
+    ? getReplyThumbnailSrc(reply)
     : undefined;
+  const thumbnailSrc =
+    inlineThumbnailSrc ||
+    (hasInlineReplyMediaPreview && href
+      ? getMoodQuoteThumbnailSrc(href, options.hdImageBase)
+      : undefined);
 
   return {
     text,

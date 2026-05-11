@@ -181,13 +181,12 @@ const posts = useE2EFixture ? createE2EWritingPosts() : await getLatestPosts();
 </style>
 
 <script>
+  import gsap from 'gsap';
+  import { ScrollTrigger } from 'gsap/ScrollTrigger';
+
   const writingSection = document.getElementById('writing-section');
 
   const initWriting = async () => {
-    const [{ default: gsap }, { ScrollTrigger }] = await Promise.all([
-      import('gsap'),
-      import('gsap/ScrollTrigger')
-    ]);
     gsap.registerPlugin(ScrollTrigger);
 
     if (writingSection) {

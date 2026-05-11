@@ -6,7 +6,8 @@ interface Props {
 }
 
 const { initialPosts = [] } = Astro.props;
-const SKELETON_COUNT = 5;
+const SKELETON_COUNT = 1;
+const INITIAL_POST_COUNT = 5;
 const skeletonPatterns = [
   { line1: '72%', line2: '0%', lineCount: 1 },
   { line1: '64%', line2: '42%', lineCount: 2 },
@@ -24,7 +25,11 @@ const placeholders = Array.from({ length: SKELETON_COUNT }, (_, index) => ({
   <span class="section-label scroll-reveal">Moods</span>
 
   <div class="mood-timeline" data-mood-list role="region" aria-busy="true" aria-label="Recent moods">
-    <script type="application/json" data-mood-preview-initial set:html={JSON.stringify(initialPosts.slice(0, SKELETON_COUNT))}></script>
+    <script
+      type="application/json"
+      data-mood-preview-initial
+      set:html={JSON.stringify(initialPosts.slice(0, INITIAL_POST_COUNT))}
+    ></script>
     {placeholders.map(({ index, pattern }) => (
       <div
         class="mood-item mood-item-skeleton"
@@ -539,11 +544,12 @@ const placeholders = Array.from({ length: SKELETON_COUNT }, (_, index) => ({
 </style>
 
 <script>
+  import gsap from 'gsap';
+  import { ScrollTrigger } from 'gsap/ScrollTrigger';
   import * as pretext from '@chenglou/pretext';
   import { buildMoodPreviewFragment } from '@/features/mood/shared/preview';
   import { withWidthParam } from '@/lib/media/responsive-image';
 
-  // GSAP is dynamically imported to avoid blocking initial render
   const initMoodsAnimation = async () => {
     const moodsSection = document.getElementById('moods-section');
     if (!moodsSection) return;
@@ -553,8 +559,6 @@ const placeholders = Array.from({ length: SKELETON_COUNT }, (_, index) => ({
     const errorState = moodsSection.querySelector('[data-mood-error]') as HTMLElement | null;
     const label = moodsSection.querySelector('.scroll-reveal');
     const link = moodsSection.querySelector('.scroll-reveal-link');
-    let gsap!: (typeof import('gsap'))['default'];
-    let ScrollTrigger!: (typeof import('gsap/ScrollTrigger'))['ScrollTrigger'];
     let hasLoaded = false;
     let initialPreviewLoadedAt = 0;
     let previewRevalidationTimer = 0;
@@ -1342,6 +1346,14 @@ const placeholders = Array.from({ length: SKELETON_COUNT }, (_, index) => ({
     }
 
     const initMoods = () => {
+      const loadIfVisible = () => {
+        const rect = moodsSection.getBoundingClientRect();
+        const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
+        if (rect.top <= viewportHeight * 0.85) {
+          void loadMoods();
+        }
+      };
+
       if (ALWAYS_LOADING) {
         gsap.set(moodsSection, { opacity: 1, y: 0 });
         if (label) gsap.set(label, { opacity: 1, y: 0 });
@@ -1382,13 +1394,22 @@ const placeholders = Array.from({ length: SKELETON_COUNT }, (_, index) => ({
         duration: 0.4,
         ease: 'power2.out'
       }, '+=0.3');
-    };
 
-    // Dynamic import GSAP before the first animated render path can run.
-    [{ default: gsap }, { ScrollTrigger }] = await Promise.all([
-      import('gsap'),
-      import('gsap/ScrollTrigger')
-    ]);
+      if ('IntersectionObserver' in window) {
+        const observer = new IntersectionObserver(
+          (entries) => {
+            if (!entries.some((entry) => entry.isIntersecting)) return;
+            observer.disconnect();
+            void loadMoods();
+          },
+          { rootMargin: '0px 0px -15% 0px' },
+        );
+
+        observer.observe(moodsSection);
+      }
+
+      loadIfVisible();
+    };
 
     gsap.registerPlugin(ScrollTrigger);
 

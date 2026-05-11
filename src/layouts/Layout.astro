@@ -8,6 +8,8 @@ interface Props {
   robots?: string;
   hideSiteNav?: boolean;
   showSiteNav?: boolean;
+  navVariant?: 'home' | 'page';
+  headerActionsVariant?: 'default' | 'home';
   structuredData?: Record<string, unknown> | Array<Record<string, unknown>>;
   rss?: {
     href: string;
@@ -23,6 +25,12 @@ import '../styles/globals.css';
 import '../features/mood/styles/feed-rich-text.css';
 import { Moon, Sun, Monitor } from 'lucide-react';
 import SpeedInsights from '@vercel/speed-insights/astro';
+import AnimatedLogo from '@/features/logos/ui/AnimatedLogo.astro';
+import {
+  PEEK_NAVBAR_LOGO,
+  getPeekRuntimeSlot,
+  getPeekRuntimeSlotKey,
+} from '@/features/logos/data/peek-runtime';
 
 const {
   title,
@@ -33,11 +41,17 @@ const {
   robots,
   hideSiteNav = false,
   showSiteNav = false,
+  navVariant,
+  headerActionsVariant = 'default',
   structuredData,
   rss,
   oembed,
 } = Astro.props;
 
+const isHomeNav = navVariant === 'home';
+const isPageNav = navVariant === 'page';
+const showsBrandText = isHomeNav || isPageNav;
+const useHomeHeaderActions = isHomeNav || headerActionsVariant === 'home';
 const site = Astro.site ?? new URL('https://buxx.me');
 const siteName = 'Bunizao';
 const canonicalUrl = new URL(url ?? Astro.url?.pathname ?? '/', site).href;
@@ -53,6 +67,13 @@ const ogImageType = ogImageUrl.endsWith('.png')
   : ogImageUrl.endsWith('.webp')
     ? 'image/webp'
     : 'image/jpeg';
+const navbarDefaultAnimation = getPeekRuntimeSlotKey('navbar.brand.default');
+const navbarHoverAnimation = getPeekRuntimeSlotKey('navbar.brand.hover');
+const navbarLinkHoverAnimation = getPeekRuntimeSlotKey('navbar.nav-link.hover');
+const navbarSectionActiveAnimation = getPeekRuntimeSlotKey('navbar.section.active');
+const navbarSectionActiveHoldMs = getPeekRuntimeSlot('navbar.section.active').holdMs ?? 600;
+const navbarFastScrollHoldMs = getPeekRuntimeSlot('navbar.brand.hover').holdMs ?? 1000;
+const navbarIdleTimeoutAnimation = getPeekRuntimeSlotKey('navbar.idle-timeout');
 ---
 
 <!DOCTYPE html>
@@ -61,6 +82,13 @@ const ogImageType = ogImageUrl.endsWith('.png')
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content={description} />
+    <link
+      rel="preload"
+      href="/fonts/jetbrains-mono-variable.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
     {robots ? <meta name="robots" content={robots} /> : null}
     <link rel="canonical" href={canonicalUrl} />
     <meta property="og:title" content={title} />
@@ -79,7 +107,9 @@ const ogImageType = ogImageUrl.endsWith('.png')
     <meta name="twitter:description" content={description} />
     <meta name="twitter:image" content={ogImageUrl} />
     <meta name="twitter:image:alt" content={imageAlt} />
-    <link rel="icon" href="/favicon.ico" />
+    <link rel="icon" type="image/svg+xml" href="/logo/peek.svg?v=3" />
+    <link rel="alternate icon" href="/favicon.ico" />
+    <link rel="mask-icon" href="/logo/peek.svg" color="#0a0a0a" />
     {rss?.href ? (
       <link
         rel="alternate"
@@ -133,6 +163,32 @@ const ogImageType = ogImageUrl.endsWith('.png')
       })();
     </script>
 
+    <script is:inline>
+      (() => {
+        const viewport = window.visualViewport;
+        if (!viewport) return;
+
+        const root = document.documentElement;
+        let frame = 0;
+
+        const syncVisualViewportTop = () => {
+          frame = 0;
+          const offsetTop = Math.max(0, viewport.offsetTop || 0);
+          root.style.setProperty('--visual-viewport-top', offsetTop + 'px');
+        };
+
+        const requestSync = () => {
+          if (frame) return;
+          frame = window.requestAnimationFrame(syncVisualViewportTop);
+        };
+
+        syncVisualViewportTop();
+        viewport.addEventListener('resize', requestSync, { passive: true });
+        viewport.addEventListener('scroll', requestSync, { passive: true });
+        window.addEventListener('orientationchange', requestSync, { passive: true });
+      })();
+    </script>
+
     <title>{title}</title>
   </head>
   <body>
@@ -143,18 +199,69 @@ const ogImageType = ogImageUrl.endsWith('.png')
 
     <!-- Site navigation -->
     {!hideSiteNav && (
-      <nav class:list={['site-nav', { 'site-nav--mobile-visible': showSiteNav }]} data-site-nav aria-label="Page sections">
-        <div class="nav-active-indicator" data-nav-indicator aria-hidden="true"></div>
-        <a href="#projects-section" class="nav-link" data-nav-link="projects" data-nav-index="01">Projects</a>
-        <span class="nav-separator" aria-hidden="true">/</span>
-        <a href="#writing-section" class="nav-link" data-nav-link="writing" data-nav-index="02">Writing</a>
-        <span class="nav-separator" aria-hidden="true">/</span>
-        <a href="#moods-section" class="nav-link" data-nav-link="moods" data-nav-index="03">Moods</a>
+      <nav
+        class:list={[
+          'site-nav',
+          {
+            'site-nav--mobile-visible': showSiteNav,
+            'site-nav--home': isHomeNav,
+            'site-nav--page': isPageNav,
+          },
+        ]}
+        data-site-nav
+        data-peek-link-hover={navbarLinkHoverAnimation}
+        data-peek-section-active={navbarSectionActiveAnimation}
+        data-peek-section-active-hold-ms={String(navbarSectionActiveHoldMs)}
+        data-peek-fast-scroll={navbarHoverAnimation}
+        data-peek-fast-scroll-hold-ms={String(navbarFastScrollHoldMs)}
+        data-peek-idle-timeout={navbarIdleTimeoutAnimation}
+        aria-label={isPageNav ? 'Home' : 'Page sections'}
+      >
+        {!isPageNav ? <div class="nav-active-indicator" data-nav-indicator aria-hidden="true"></div> : null}
+        <a href="/" class="site-brand" aria-label="buxx.me — home" data-site-brand>
+          <span class="site-brand-logo" aria-hidden="true">
+            <AnimatedLogo
+              definition={PEEK_NAVBAR_LOGO}
+              animation={navbarDefaultAnimation}
+              hoverAnimation={isHomeNav ? navbarHoverAnimation : undefined}
+              size={isHomeNav ? 40 : 24}
+              title="peek"
+              eventChannel={isHomeNav ? 'nav' : undefined}
+              eventAnimations={isHomeNav
+                ? [
+                    navbarLinkHoverAnimation,
+                    navbarSectionActiveAnimation,
+                    navbarHoverAnimation,
+                    navbarIdleTimeoutAnimation,
+                  ]
+                : undefined}
+            />
+          </span>
+          {showsBrandText ? <span class="site-brand-text" data-mobile-brand-text>buxx.me</span> : null}
+        </a>
+        {!isPageNav && (
+          <div class="nav-links" data-nav-links>
+            <span class="nav-separator nav-separator--brand" aria-hidden="true">/</span>
+            <a href="#projects-section" class="nav-link" data-nav-link="projects">Projects</a>
+            <span class="nav-separator" aria-hidden="true">/</span>
+            <a href="#writing-section" class="nav-link" data-nav-link="writing">Writing</a>
+            <span class="nav-separator" aria-hidden="true">/</span>
+            <a href="#moods-section" class="nav-link" data-nav-link="moods">Moods</a>
+          </div>
+        )}
       </nav>
     )}
 
     <!-- Global header actions - theme dropdown will be added by pages -->
-    <div class="global-header-actions" data-header-actions>
+    <div
+      class:list={[
+        'global-header-actions',
+        {
+          'global-header-actions--home': useHomeHeaderActions,
+        },
+      ]}
+      data-header-actions
+    >
       <div class="theme-dropdown" data-theme-dropdown>
         <button class="header-action-btn" type="button" data-theme-toggle aria-label="Switch theme" aria-haspopup="true" aria-expanded="false">
           <span class="theme-icon-container">
@@ -337,6 +444,14 @@ const ogImageType = ogImageUrl.endsWith('.png')
           typeof window.matchMedia === 'function'
             ? window.matchMedia('(prefers-color-scheme: dark)')
             : null;
+        const canHover =
+          typeof window.matchMedia === 'function'
+            ? window.matchMedia('(hover: hover) and (pointer: fine)')
+            : null;
+        const compactViewport =
+          typeof window.matchMedia === 'function'
+            ? window.matchMedia('(max-width: 899px)')
+            : null;
 
         const getStoredTheme = () => {
           try {
@@ -407,7 +522,7 @@ const ogImageType = ogImageUrl.endsWith('.png')
         updateIcons(currentSetting);
         updateToggle(currentSetting);
 
-        if (dropdown) {
+        if (dropdown && canHover?.matches && !compactViewport?.matches) {
           dropdown.addEventListener('mouseenter', openDropdown);
           dropdown.addEventListener('mouseleave', closeDropdown);
         }
@@ -467,9 +582,13 @@ const ogImageType = ogImageUrl.endsWith('.png')
 
     <!-- GSAP Header Button Animations -->
     <script>
-      import gsap from 'gsap';
-
       (() => {
+        let gsapPromise: Promise<typeof import('gsap')['default']> | null = null;
+        const loadGsap = () => {
+          gsapPromise ??= import('gsap').then(({ default: gsap }) => gsap);
+          return gsapPromise;
+        };
+
         const initHeaderAnimations = () => {
           const headerActions = document.querySelector('[data-header-actions]');
           if (!headerActions) return;
@@ -527,9 +646,10 @@ const ogImageType = ogImageUrl.endsWith('.png')
           });
 
           // Animation function for hover in
-          const animateIn = (btn: HTMLElement) => {
+          const animateIn = async (btn: HTMLElement) => {
             const data = buttonData.get(btn);
             if (!data) return;
+            const gsap = await loadGsap();
 
             btn.classList.add('is-hovered');
 
@@ -555,9 +675,10 @@ const ogImageType = ogImageUrl.endsWith('.png')
           };
 
           // Animation function for hover out
-          const animateOut = (btn: HTMLElement) => {
+          const animateOut = async (btn: HTMLElement) => {
             const data = buttonData.get(btn);
             if (!data) return;
+            const gsap = await loadGsap();
 
             btn.classList.remove('is-hovered');
 
@@ -629,9 +750,10 @@ const ogImageType = ogImageUrl.endsWith('.png')
         const links = document.querySelectorAll('[data-nav-link]');
         if (!links.length || !nav) return;
 
-        const indicator = nav.querySelector('[data-nav-indicator]') as HTMLElement | null;
         const separators = nav.querySelectorAll('.nav-separator');
         const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        const isHomeNav = nav.classList.contains('site-nav--home');
+        const desktopNavQuery = window.matchMedia('(min-width: 900px)');
 
         // ─── 3a. Character wrapping with index injection ─────────────
         interface LinkData {
@@ -647,6 +769,8 @@ const ogImageType = ogImageUrl.endsWith('.png')
           const text = el.textContent || '';
           const chars: HTMLSpanElement[] = [];
           const navIndex = el.dataset.navIndex;
+
+          el.style.setProperty('--nav-link-char-count', String(text.length));
 
           el.textContent = '';
 
@@ -688,8 +812,42 @@ const ogImageType = ogImageUrl.endsWith('.png')
           el: document.getElementById(`${id}-section`)
         })).filter(s => s.el);
 
+        let isVertical = isHomeNav && desktopNavQuery.matches;
         let activeId = '';
         let ticking = false;
+        let scrollCueTimer = 0;
+        let lastScrollY = window.scrollY;
+
+        const syncHomeNavPresence = () => {
+          if (!isHomeNav || !desktopNavQuery.matches) {
+            nav.classList.remove('is-content-nav-visible');
+            return;
+          }
+          const firstSection = sections[0]?.el;
+          if (!firstSection) return;
+          const sectionTop = firstSection.getBoundingClientRect().top;
+          nav.classList.toggle('is-content-nav-visible', sectionTop <= window.innerHeight * 0.76);
+        };
+
+        const cuePeekLock = () => {
+          if (!isHomeNav || !desktopNavQuery.matches) return;
+          nav.classList.remove('is-peek-locking');
+          void nav.offsetWidth;
+          nav.classList.add('is-peek-locking');
+        };
+
+        const cuePeekScroll = () => {
+          if (!isHomeNav || !desktopNavQuery.matches) return;
+          const currentScrollY = window.scrollY;
+          const direction = currentScrollY > lastScrollY ? 'down' : 'up';
+          lastScrollY = currentScrollY;
+          nav.dataset.scrollDir = direction;
+          nav.classList.add('is-peek-scanning');
+          window.clearTimeout(scrollCueTimer);
+          scrollCueTimer = window.setTimeout(() => {
+            nav.classList.remove('is-peek-scanning');
+          }, 140);
+        };
 
         const syncActiveSection = () => {
           const viewportH = window.innerHeight;
@@ -709,10 +867,14 @@ const ogImageType = ogImageUrl.endsWith('.png')
             const el = link as HTMLElement;
             el.classList.toggle('is-active', el.dataset.navLink === activeId);
           });
-          if (isVertical) updateIndicator();
+          if (isVertical) {
+            cuePeekLock();
+          }
         };
 
         const onScroll = () => {
+          syncHomeNavPresence();
+          cuePeekScroll();
           if (ticking) return;
           ticking = true;
           requestAnimationFrame(() => {
@@ -728,7 +890,6 @@ const ogImageType = ogImageUrl.endsWith('.png')
         const statusEl = document.querySelector('[data-hero-status]');
         if (!statusEl) return;
 
-        let isVertical = false;
         let animating = false;
         let pendingDirection: 'vertical' | 'horizontal' | null = null;
 
@@ -755,7 +916,6 @@ const ogImageType = ogImageUrl.endsWith('.png')
               ld.chars.forEach(c => { c.style.opacity = '1'; });
               if (ld.indexSpan) ld.indexSpan.style.opacity = '1';
             });
-            showIndicator();
             animating = false;
             flushPending();
             return;
@@ -785,7 +945,6 @@ const ogImageType = ogImageUrl.endsWith('.png')
           // Phase 2: Layout switch
           nav.classList.add('is-vertical');
           syncActiveSection();
-          showIndicator();
           // Phase 3: Quick typewriter per link
           for (let i = 0; i < linkDataList.length; i++) {
             const { chars, indexSpan } = linkDataList[i];
@@ -824,7 +983,6 @@ const ogImageType = ogImageUrl.endsWith('.png')
           animating = true;
 
           if (reducedMotion) {
-            hideIndicator();
             nav.classList.remove('is-vertical');
             separators.forEach(s => (s as HTMLElement).style.opacity = '1');
             linkDataList.forEach(ld => {
@@ -837,8 +995,6 @@ const ogImageType = ogImageUrl.endsWith('.png')
           }
 
           const { default: gsap } = await import('gsap');
-
-          hideIndicator();
 
           // Hide index spans
           linkDataList.forEach(ld => {
@@ -889,71 +1045,6 @@ const ogImageType = ogImageUrl.endsWith('.png')
         };
 
         // ─── 3e. Active indicator ─────────────────────────────────────
-        const showIndicator = async () => {
-          if (!indicator) return;
-          const { default: gsap } = await import('gsap');
-          gsap.killTweensOf(indicator);
-          const hasActiveLink = positionIndicator(gsap, false);
-          if (!hasActiveLink) {
-            gsap.set(indicator, { opacity: 0, scaleX: 0 });
-            return;
-          }
-          gsap.to(indicator, {
-            opacity: 1,
-            scaleX: 1,
-            duration: 0.3,
-            ease: 'power2.out'
-          });
-        };
-
-        const hideIndicator = async () => {
-          if (!indicator) return;
-          const { default: gsap } = await import('gsap');
-          gsap.killTweensOf(indicator);
-          gsap.to(indicator, {
-            opacity: 0,
-            scaleX: 0,
-            duration: 0.2,
-            ease: 'power2.in'
-          });
-        };
-
-        const updateIndicator = async () => {
-          if (!indicator || !isVertical) return;
-          const { default: gsap } = await import('gsap');
-          positionIndicator(gsap, true);
-        };
-
-        const positionIndicator = (gsap: any, animate: boolean) => {
-          if (!indicator) return;
-          const activeLink = nav.querySelector('.nav-link.is-active') as HTMLElement | null;
-          if (!activeLink) {
-            gsap.set(indicator, { opacity: 0, scaleX: 0 });
-            return false;
-          }
-
-          const navRect = nav.getBoundingClientRect();
-          const linkRect = activeLink.getBoundingClientRect();
-          const targetY = linkRect.top - navRect.top + (linkRect.height - 20) / 2;
-
-          if (animate) {
-            gsap.to(indicator, {
-              y: targetY,
-              opacity: 1,
-              duration: 0.5,
-              ease: 'elastic.out(1, 0.5)'
-            });
-          } else {
-            gsap.set(indicator, { y: targetY });
-          }
-          return true;
-        };
-
-        // Keep indicator positioned on resize
-        window.addEventListener('resize', () => {
-          if (isVertical && indicator) updateIndicator();
-        });
-
         // ─── 3f. Magnetic hover (desktop, vertical mode only) ─────────
         // Disabled — no hover box or physics effects
         const initMagneticHover = async () => {
@@ -987,6 +1078,225 @@ const ogImageType = ogImageUrl.endsWith('.png')
         };
 
         initMagneticHover();
+
+        if (isHomeNav) {
+          const brand = nav.querySelector('[data-site-brand]') as HTMLElement | null;
+          const navPeekConfig = {
+            linkHover: nav.dataset.peekLinkHover ?? 'curious',
+            sectionActive: nav.dataset.peekSectionActive ?? 'happy',
+            sectionActiveHoldMs: Number(nav.dataset.peekSectionActiveHoldMs ?? '600'),
+            fastScroll: nav.dataset.peekFastScroll ?? 'dart',
+            fastScrollHoldMs: Number(nav.dataset.peekFastScrollHoldMs ?? '1000'),
+            idleTimeout: nav.dataset.peekIdleTimeout ?? 'sleepy',
+          };
+
+          const syncBrandEaten = () => {
+            nav.classList.toggle('is-brand-eaten', !desktopNavQuery.matches && window.scrollY > 18);
+          };
+
+          // Spring physics for peek — pointer-follow + idle bob.
+          // Gives it weight and overshoot instead of instant linear tracking.
+          const peekSpring = {
+            x: 0, y: 0, vx: 0, vy: 0, tx: 0, ty: 0,
+            bobY: 0, bobVY: 0, bobTargetY: 0, bobPhase: 0,
+            isHovered: false, rafId: 0, lastTime: 0,
+          };
+          // PS/PD = pointer spring stiffness/damping. BS/BD = bob spring. BA = bob amplitude px.
+          const PS = 220, PD = 14, BS = 28, BD = 5.2, BA = 2.2;
+
+          const tickPeekSpring = (now: number) => {
+            const dt = Math.min((now - peekSpring.lastTime) / 1000, 0.05);
+            peekSpring.rafId = 0;
+            peekSpring.vx += (PS * (peekSpring.tx - peekSpring.x) - PD * peekSpring.vx) * dt;
+            peekSpring.vy += (PS * (peekSpring.ty - peekSpring.y) - PD * peekSpring.vy) * dt;
+            peekSpring.x += peekSpring.vx * dt;
+            peekSpring.y += peekSpring.vy * dt;
+
+            // Idle bob: sinusoidal target (~one cycle per 8.7s), spring-smoothed
+            if (!peekSpring.isHovered) {
+              peekSpring.bobPhase += dt * 0.72;
+              peekSpring.bobTargetY = Math.sin(peekSpring.bobPhase) * BA;
+            } else {
+              peekSpring.bobTargetY = 0;
+            }
+            peekSpring.bobVY += (BS * (peekSpring.bobTargetY - peekSpring.bobY) - BD * peekSpring.bobVY) * dt;
+            peekSpring.bobY += peekSpring.bobVY * dt;
+
+            nav.style.setProperty('--peek-shift-x', `${peekSpring.x.toFixed(3)}px`);
+            nav.style.setProperty('--peek-shift-y', `${(peekSpring.y + peekSpring.bobY).toFixed(3)}px`);
+
+            const stillMoving =
+              Math.abs(peekSpring.tx - peekSpring.x) > 0.01 || Math.abs(peekSpring.vx) > 0.01 ||
+              Math.abs(peekSpring.ty - peekSpring.y) > 0.01 || Math.abs(peekSpring.vy) > 0.01 ||
+              Math.abs(peekSpring.bobTargetY - peekSpring.bobY) > 0.01 || Math.abs(peekSpring.bobVY) > 0.01 ||
+              !peekSpring.isHovered;
+
+            if (stillMoving) {
+              peekSpring.lastTime = now;
+              peekSpring.rafId = requestAnimationFrame(tickPeekSpring);
+            }
+          };
+
+          const startPeekSpring = () => {
+            if (peekSpring.rafId) return;
+            peekSpring.lastTime = performance.now();
+            peekSpring.rafId = requestAnimationFrame(tickPeekSpring);
+          };
+
+          const handlePointerMove = (event: PointerEvent) => {
+            if (!desktopNavQuery.matches || event.pointerType !== 'mouse') return;
+            if (!brand || !brand.matches(':hover')) return;
+            const rect = brand.getBoundingClientRect();
+            peekSpring.tx = ((event.clientX - rect.left) / rect.width - 0.5) * 10;
+            peekSpring.ty = ((event.clientY - rect.top) / rect.height - 0.5) * 7;
+            startPeekSpring();
+          };
+
+          const resetPeekShift = () => {
+            peekSpring.tx = 0;
+            peekSpring.ty = 0;
+            peekSpring.isHovered = false;
+            startPeekSpring();
+          };
+
+          const handleBrandClick = (event: MouseEvent) => {
+            event.preventDefault();
+            window.scrollTo({ top: 0, behavior: reducedMotion ? 'auto' : 'smooth' });
+            nav.classList.remove('is-brand-eaten');
+          };
+
+          const syncHomeNavMode = () => {
+            isVertical = desktopNavQuery.matches;
+            nav.classList.toggle('is-vertical', isVertical);
+            syncHomeNavPresence();
+            separators.forEach(s => ((s as HTMLElement).style.opacity = isVertical ? '0' : '1'));
+            linkDataList.forEach(ld => {
+              if (ld.indexSpan) ld.indexSpan.style.opacity = isVertical ? '1' : '0';
+              ld.chars.forEach(c => {
+                c.style.opacity = '1';
+                c.style.transform = '';
+              });
+            });
+            if (isVertical) {
+              nav.classList.remove('is-brand-eaten');
+              // Start idle bob when entering desktop vertical mode
+              peekSpring.isHovered = false;
+              startPeekSpring();
+            } else {
+              syncBrandEaten();
+            }
+          };
+
+          brand?.addEventListener('pointermove', handlePointerMove);
+          brand?.addEventListener('pointerenter', () => {
+            if (!desktopNavQuery.matches) return;
+            peekSpring.isHovered = true;
+            startPeekSpring();
+          });
+          brand?.addEventListener('pointerleave', resetPeekShift);
+          brand?.addEventListener('click', handleBrandClick);
+          brand?.addEventListener('pointerdown', () => {
+            if (desktopNavQuery.matches) return;
+            nav.classList.remove('is-peek-tapping');
+            void nav.offsetWidth;
+            nav.classList.add('is-peek-tapping');
+          });
+          window.addEventListener('scroll', syncBrandEaten, { passive: true });
+          syncHomeNavMode();
+          desktopNavQuery.addEventListener?.('change', syncHomeNavMode);
+
+          // ─── Peek expression triggers ─────────────────────────────────
+          // Dispatches CustomEvents consumed by AnimatedLogo (channel "nav").
+          const dispatchPeek = (
+            kind: 'set' | 'revert',
+            detail?: { animation: string; holdMs?: number },
+          ): void => {
+            window.dispatchEvent(
+              new CustomEvent(`peek:nav:${kind}`, detail ? { detail } : undefined),
+            );
+          };
+
+          // Hover any nav link → curious, revert on leave.
+          nav.querySelectorAll<HTMLElement>('.nav-link').forEach((link) => {
+            link.addEventListener('pointerenter', () => {
+              if (!desktopNavQuery.matches) return;
+              dispatchPeek('set', { animation: navPeekConfig.linkHover });
+            });
+            link.addEventListener('pointerleave', () => {
+              if (!desktopNavQuery.matches) return;
+              dispatchPeek('revert');
+            });
+          });
+
+          // Active section change → happy burst (0.6s).
+          let lastActiveSection: string | null = null;
+          const watchActiveSection = (): void => {
+            const active = nav.querySelector<HTMLElement>('.nav-link.is-active');
+            const key = active?.getAttribute('data-section-id') ?? active?.getAttribute('href') ?? null;
+            if (key && key !== lastActiveSection) {
+              if (lastActiveSection !== null) {
+                dispatchPeek('set', {
+                  animation: navPeekConfig.sectionActive,
+                  holdMs: navPeekConfig.sectionActiveHoldMs,
+                });
+              }
+              lastActiveSection = key;
+            }
+          };
+          const activeObserver = new MutationObserver(watchActiveSection);
+          activeObserver.observe(nav, {
+            attributes: true,
+            subtree: true,
+            attributeFilter: ['class'],
+          });
+          watchActiveSection();
+
+          // Fast scroll → dart (1s).
+          let lastScrollY = window.scrollY;
+          let lastScrollT = performance.now();
+          let dartUntil = 0;
+          window.addEventListener(
+            'scroll',
+            () => {
+              const now = performance.now();
+              const dt = now - lastScrollT;
+              if (dt < 16) return;
+              const dy = Math.abs(window.scrollY - lastScrollY);
+              const v = dy / dt; // px per ms
+              lastScrollY = window.scrollY;
+              lastScrollT = now;
+              if (v > 0.5 && now > dartUntil) {
+                dartUntil = now + navPeekConfig.fastScrollHoldMs;
+                dispatchPeek('set', {
+                  animation: navPeekConfig.fastScroll,
+                  holdMs: navPeekConfig.fastScrollHoldMs,
+                });
+              }
+            },
+            { passive: true },
+          );
+
+          // Idle > 10s (no pointer / scroll / key) → sleepy until next activity.
+          let idleTimer: ReturnType<typeof setTimeout> | null = null;
+          let isSleepy = false;
+          const wake = (): void => {
+            if (isSleepy) {
+              isSleepy = false;
+              dispatchPeek('revert');
+            }
+            if (idleTimer !== null) clearTimeout(idleTimer);
+            idleTimer = setTimeout(() => {
+              isSleepy = true;
+              dispatchPeek('set', { animation: navPeekConfig.idleTimeout });
+            }, 10000);
+          };
+          ['pointermove', 'pointerdown', 'keydown', 'scroll', 'touchstart'].forEach((ev) => {
+            window.addEventListener(ev, wake, { passive: true });
+          });
+          wake();
+
+          return;
+        }
 
         // ─── IntersectionObserver ─────────────────────────────────────
         const navObserver = new IntersectionObserver(

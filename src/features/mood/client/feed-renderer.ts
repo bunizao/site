@@ -97,6 +97,15 @@ function getQuoteTargetId(href: string): string | null {
   }
 }
 
+function removeBrokenQuoteMedia(img: HTMLImageElement, quoteWrap: HTMLElement): void {
+  img.addEventListener('error', () => {
+    img.closest('.mood-item-quote-media')?.remove();
+    quoteWrap.classList.remove('mood-item-quote--with-media', 'mood-item-quote--media-only');
+    if (quoteWrap.textContent?.trim()) return;
+    quoteWrap.remove();
+  }, { once: true });
+}
+
 function getCommentsCountInfo(value: MoodData['commentsCount']): { count: number; label: string } {
   if (typeof value === 'number' && Number.isFinite(value)) {
     return { count: value, label: String(value) };
@@ -284,6 +293,7 @@ export function createFeedRenderer({
         quoteImage.alt = '';
         quoteImage.loading = 'lazy';
         quoteImage.decoding = 'async';
+        removeBrokenQuoteMedia(quoteImage, quoteWrap);
 
         quoteMedia.appendChild(quoteImage);
         quoteWrap.appendChild(quoteMedia);

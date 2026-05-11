@@ -65,6 +65,8 @@ const feedPosts = await buildMoodFeedItems(context, channelInfoForFeed, posts);
 
 const responsiveImageWidths = [480, 800, 1200];
 const embedImageSizes = '(min-width: 640px) 520px, 100vw';
+const quoteImageErrorHandler =
+  "this.closest('.mood-item-quote-media')?.remove();const q=this.closest('.mood-item-quote');q?.classList.remove('mood-item-quote--with-media','mood-item-quote--media-only');if(q&&!q.textContent.trim())q.remove();";
 
 // Set embed-friendly headers
 const embedHeaders = getEmbedHeaders(refresh && refresh > 0 ? { maxAge: 0, staleWhileRevalidate: 0 } : { maxAge: 300 });
@@ -598,7 +600,13 @@ function getImageClassName(post: MoodFeedItem): string {
                 >
                   {post.quote.thumbnailSrc && (
                     <span class="mood-item-quote-media">
-                      <img class="mood-item-quote-image" src={post.quote.thumbnailSrc} alt="" loading="lazy" />
+                      <img
+                        class="mood-item-quote-image"
+                        src={post.quote.thumbnailSrc}
+                        alt=""
+                        loading="lazy"
+                        onerror={quoteImageErrorHandler}
+                      />
                     </span>
                   )}
                   <span class="mood-item-quote-body">

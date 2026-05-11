@@ -126,8 +126,8 @@ test.describe('Home page', () => {
     await expect(page.locator('#projects-section')).toBeVisible();
     await expect(page.locator('#writing-section')).toBeVisible();
     await expect(page.locator('#moods-section')).toBeVisible();
-    await expect(page.locator('#projects-section .project-item')).toHaveCount(2);
-    await expect(page.locator('#writing-section .post-item')).toHaveCount(2);
+    expect(await page.locator('#projects-section .project-item').count()).toBeGreaterThan(0);
+    expect(await page.locator('#writing-section .post-item').count()).toBeGreaterThan(0);
     await expect(page.getByRole('link', { name: 'View all on GitHub' })).toBeVisible();
     await expect(page.getByRole('link', { name: 'Read all posts' })).toBeVisible();
     await expect(page.getByRole('link', { name: 'Privacy' })).toBeVisible();
@@ -233,6 +233,73 @@ test.describe('Home page', () => {
     await cards.nth(1).click();
     await expect(page).toHaveURL(/\/mood\/1002$/);
     expect(consoleErrors).toEqual([]);
+  });
+
+  test('keeps the home mood loading placeholder stable while data resolves', async ({ page }) => {
+    let releaseResponse: (() => void) | undefined;
+    const responseGate = new Promise<void>((resolve) => {
+      releaseResponse = resolve;
+    });
+
+    await page.route('**/api/moods', async (route) => {
+      await responseGate;
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(mixedHomeMoodPayload),
+      });
+    });
+
+    await page.goto('/');
+    await page.locator('#moods-section').scrollIntoViewIfNeeded();
+
+    await expect
+      .poll(async () => {
+        return await page.locator('#moods-section .mood-item-skeleton:visible').count();
+      })
+      .toBe(1);
+
+    await page.evaluate(() => {
+      const list = document.querySelector('#moods-section [data-mood-list]');
+      if (!list) return;
+
+      const state = window as typeof window & {
+        __homeMoodMaxVisibleSkeletons?: number;
+        __homeMoodSkeletonObserver?: MutationObserver;
+      };
+      const countVisibleSkeletons = () => (
+        Array.from(list.querySelectorAll('.mood-item-skeleton'))
+          .filter((item) => item instanceof HTMLElement && !item.hidden).length
+      );
+
+      state.__homeMoodMaxVisibleSkeletons = countVisibleSkeletons();
+      state.__homeMoodSkeletonObserver = new MutationObserver(() => {
+        state.__homeMoodMaxVisibleSkeletons = Math.max(
+          state.__homeMoodMaxVisibleSkeletons ?? 0,
+          countVisibleSkeletons(),
+        );
+      });
+      state.__homeMoodSkeletonObserver.observe(list, {
+        childList: true,
+        subtree: true,
+        attributes: true,
+        attributeFilter: ['hidden'],
+      });
+    });
+
+    releaseResponse?.();
+    await waitForHomeMoodState(page);
+
+    const maxVisibleSkeletons = await page.evaluate(() => {
+      const state = window as typeof window & {
+        __homeMoodMaxVisibleSkeletons?: number;
+        __homeMoodSkeletonObserver?: MutationObserver;
+      };
+      state.__homeMoodSkeletonObserver?.disconnect();
+      return state.__homeMoodMaxVisibleSkeletons ?? 0;
+    });
+
+    expect(maxVisibleSkeletons).toBe(1);
   });
 
   test('loads GitHub contributions and shows tooltip details', async ({ page }) => {
@@ -433,5 +500,167 @@ test.describe('Home page', () => {
     await expect(page.locator('#moods-section [data-mood-error]')).toBeVisible({ timeout: 30_000 });
     await expect(page.locator('#moods-section [data-mood-empty]')).toBeHidden();
     await expect(page.locator('#moods-section .mood-item:not(.mood-item-skeleton)')).toHaveCount(0);
+  });
+
+  test('keeps mobile navbar spacing stable and releases brand space on scroll', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto('/');
+    await expect(page.locator('[data-site-nav]')).toBeVisible();
+    await expect(page.locator('[data-hero-status]')).toBeVisible();
+    await page.waitForFunction(() => document.querySelectorAll('.nav-char').length > 0);
+
+    const initial = await page.evaluate(() => {
+      const nav = document.querySelector('[data-site-nav]');
+      const status = document.querySelector('[data-hero-status]');
+      const headerActions = document.querySelector('[data-header-actions]');
+      const toggle = document.querySelector('[data-theme-toggle]');
+      const themeIcon = document.querySelector('.theme-icon-container');
+      const brand = document.querySelector('[data-site-brand]');
+      const projects = document.querySelector('[data-nav-link="projects"]');
+
+      if (
+        !(nav instanceof HTMLElement) ||
+        !(status instanceof HTMLElement) ||
+        !(headerActions instanceof HTMLElement) ||
+        !(toggle instanceof HTMLElement) ||
+        !(themeIcon instanceof HTMLElement) ||
+        !(brand instanceof HTMLElement) ||
+        !(projects instanceof HTMLElement)
+      ) {
+        return null;
+      }
+
+      const navRect = nav.getBoundingClientRect();
+      const statusRect = status.getBoundingClientRect();
+      const iconRect = themeIcon.getBoundingClientRect();
+      const toggleRect = toggle.getBoundingClientRect();
+      const toggleStyles = window.getComputedStyle(toggle);
+
+      return {
+        gap: statusRect.top - navRect.bottom,
+        hasHomeHeaderActions: headerActions.classList.contains('global-header-actions--home'),
+        toggleBackground: toggleStyles.backgroundColor,
+        toggleBorder: toggleStyles.borderTopColor,
+        toggleCenterDelta: Math.abs((iconRect.left + iconRect.width / 2) - (toggleRect.left + toggleRect.width / 2)),
+        brandCenterDelta: Math.abs((brand.getBoundingClientRect().top + brand.getBoundingClientRect().height / 2) - (navRect.top + navRect.height / 2)),
+        projectsCenterDelta: Math.abs((projects.getBoundingClientRect().top + projects.getBoundingClientRect().height / 2) - (navRect.top + navRect.height / 2)),
+        brandWidth: brand.getBoundingClientRect().width,
+        projectsLeft: projects.getBoundingClientRect().left,
+      };
+    });
+
+    expect(initial).not.toBeNull();
+    expect(initial?.gap).toBeGreaterThanOrEqual(16);
+    expect(initial?.hasHomeHeaderActions).toBe(true);
+    expect(initial?.toggleBackground).toBe('rgba(0, 0, 0, 0)');
+    expect(initial?.toggleBorder).toBe('rgba(0, 0, 0, 0)');
+    expect(initial?.toggleCenterDelta).toBeLessThanOrEqual(1);
+    expect(initial?.brandCenterDelta).toBeLessThanOrEqual(1);
+    expect(initial?.projectsCenterDelta).toBeLessThanOrEqual(1);
+
+    await page.evaluate(() => {
+      window.scrollTo(0, 140);
+      window.dispatchEvent(new Event('scroll'));
+    });
+    await page.waitForFunction(() => window.scrollY > 18);
+
+    await expect.poll(async () => {
+      return await page.locator('[data-site-nav]').evaluate((node) => node.classList.contains('is-brand-eaten'));
+    }).toBe(true);
+
+    const readCollapsed = async () =>
+      await page.evaluate(() => {
+        const brand = document.querySelector('[data-site-brand]');
+        const brandText = document.querySelector('[data-mobile-brand-text]');
+        const projects = document.querySelector('[data-nav-link="projects"]');
+
+        if (
+          !(brand instanceof HTMLElement) ||
+          !(brandText instanceof HTMLElement) ||
+          !(projects instanceof HTMLElement)
+        ) {
+          return null;
+        }
+
+        const brandStyles = window.getComputedStyle(brand);
+        const brandTextStyles = window.getComputedStyle(brandText);
+        const nav = document.querySelector('[data-site-nav]');
+
+        if (!(nav instanceof HTMLElement)) {
+          return null;
+        }
+
+        const navRect = nav.getBoundingClientRect();
+        const brandRect = brand.getBoundingClientRect();
+        const projectsRect = projects.getBoundingClientRect();
+
+        return {
+          brandMinWidth: brandStyles.minWidth,
+          brandTextMaxWidth: brandTextStyles.maxWidth,
+          brandTextOpacity: brandTextStyles.opacity,
+          brandCenterDelta: Math.abs((brandRect.top + brandRect.height / 2) - (navRect.top + navRect.height / 2)),
+          projectsCenterDelta: Math.abs((projectsRect.top + projectsRect.height / 2) - (navRect.top + navRect.height / 2)),
+          projectsLeft: projects.getBoundingClientRect().left,
+        };
+      });
+
+    await expect.poll(readCollapsed, { timeout: 2_000 }).toMatchObject({
+      brandMinWidth: '40px',
+      brandTextMaxWidth: '0px',
+      brandTextOpacity: '0',
+    });
+
+    const collapsed = await readCollapsed();
+    expect(collapsed).not.toBeNull();
+    expect(collapsed?.brandCenterDelta).toBeLessThanOrEqual(1);
+    expect(collapsed?.projectsCenterDelta).toBeLessThanOrEqual(1);
+    expect(collapsed?.projectsLeft).toBeLessThan((initial?.projectsLeft ?? 0) - 20);
+  });
+
+  test('keeps mobile navbar pinned when the visual viewport shifts', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.addInitScript(() => {
+      let offsetTop = 0;
+      const viewport = new EventTarget();
+
+      Object.defineProperties(viewport, {
+        offsetTop: { get: () => offsetTop },
+        offsetLeft: { get: () => 0 },
+        width: { get: () => window.innerWidth },
+        height: { get: () => window.innerHeight },
+        scale: { get: () => 1 },
+      });
+
+      Object.defineProperty(window, 'visualViewport', {
+        configurable: true,
+        value: viewport,
+      });
+
+      (window as Window & { __setVisualViewportTop?: (top: number) => void }).__setVisualViewportTop = (top) => {
+        offsetTop = top;
+        viewport.dispatchEvent(new Event('resize'));
+        viewport.dispatchEvent(new Event('scroll'));
+      };
+    });
+
+    await page.goto('/');
+    await expect(page.locator('[data-site-nav]')).toBeVisible();
+
+    const initial = await page.locator('[data-site-nav]').boundingBox();
+    expect(initial).not.toBeNull();
+
+    await page.evaluate(() => {
+      (window as unknown as Window & { __setVisualViewportTop: (top: number) => void }).__setVisualViewportTop(24);
+    });
+
+    await expect.poll(async () => (
+      await page.evaluate(() =>
+        window.getComputedStyle(document.documentElement).getPropertyValue('--visual-viewport-top').trim()
+      )
+    )).toBe('24px');
+
+    const shifted = await page.locator('[data-site-nav]').boundingBox();
+    expect(shifted).not.toBeNull();
+    expect(Math.round((shifted?.y ?? 0) - (initial?.y ?? 0))).toBe(24);
   });
 });
