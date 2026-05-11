@@ -83,6 +83,27 @@ const DETAIL_HTML_BY_URL: Record<string, string> = {
       </div>
     </div>
   `,
+  'https://t.me/imagebuxx/3410?embed=1&mode=tme': `
+    <div class="tgme_channel_info_header_title">Image Buxx</div>
+    <div class="tgme_widget_message_wrap">
+      <div class="tgme_widget_message text_not_supported_wrap" data-post="imagebuxx/3410">
+        <a class="tgme_widget_message_reply" href="https://t.me/imagebuxx/3408">
+          <i
+            class="tgme_widget_message_reply_thumb"
+            style="background-image:url('https://cdn5.telesco.pe/file/reply-video-thumb.jpg')"
+          ></i>
+          <div class="tgme_widget_message_author accent_color">
+            <span class="tgme_widget_message_author_name" dir="auto">Image Buxx</span>
+          </div>
+          <div class="tgme_widget_message_text js-message_reply_text" dir="auto">科研成果</div>
+        </a>
+        <div class="tgme_widget_message_text js-message_text">body text</div>
+        <div class="tgme_widget_message_date">
+          <time datetime="2026-04-26T09:36:12+00:00"></time>
+        </div>
+      </div>
+    </div>
+  `,
   'https://t.me/imagebuxx/3417?embed=1&mode=tme': `
     <div class="tgme_channel_info_header_title">Image Buxx</div>
     <div class="tgme_widget_message_wrap">
@@ -272,6 +293,15 @@ describe('getChannelInfo detail media rendering', () => {
     expect(content).toContain('mood-detail-quote-text mood-item-quote-text');
     expect(content).not.toContain('mood-item-quote-author');
     expect(content).toContain('body text should start after the quote');
+  });
+
+  test('uses the inline Telegram reply thumbnail before HD fallback guesses', async () => {
+    const { getChannelInfo } = await telegramModulePromise;
+    const post = await getChannelInfo(astro, { id: '3410', skipCache: true });
+    const content = (post as { content: string }).content;
+
+    expect(content).toContain('/static/https:/cdn5.telesco.pe/file/reply-video-thumb.jpg');
+    expect(content).not.toContain('https://image.buxx.me/mood/3408/0');
   });
 
   test('does not add unsupported media fallback when sticker media exists', async () => {

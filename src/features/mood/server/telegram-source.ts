@@ -1002,6 +1002,26 @@ const getReplyMediaLabel = (reply: cheerio.Cheerio<Element>): string => {
   return (reply.attr('href') ?? '').trim() ? 'Link' : '';
 };
 
+const getReplyThumbnailSrc = (
+  $: CheerioAPI,
+  reply: cheerio.Cheerio<Element>,
+  staticProxy = ''
+): string => {
+  const thumb = reply
+    .find(
+      '.tgme_widget_message_reply_thumb, .tgme_widget_message_video_thumb, .tgme_widget_message_roundvideo_thumb'
+    )
+    .toArray()
+    .map((node) => extractBackgroundImage($(node).attr('style') ?? ''))
+    .find(Boolean) ?? '';
+
+  if (!thumb || !staticProxy) {
+    return thumb;
+  }
+
+  return toStaticProxyUrl(thumb, staticProxy);
+};
+
 const stripLeadingReplyLabel = (value: string, labels: string[]): string => {
   let result = value;
   labels
@@ -1017,7 +1037,10 @@ const stripLeadingReplyLabel = (value: string, labels: string[]): string => {
 function buildDetailReplyCard(
   $: CheerioAPI,
   reply: cheerio.Cheerio<Element>,
-  { channel, channelTitle, hdImageBase }: Pick<ContentProcessorConfig, 'channel' | 'channelTitle' | 'hdImageBase'>
+  { channel, channelTitle, hdImageBase, staticProxy }: Pick<
+    ContentProcessorConfig,
+    'channel' | 'channelTitle' | 'hdImageBase' | 'staticProxy'
+  >
 ): string {
   const sourceName =
     [
@@ -1068,10 +1091,14 @@ function buildDetailReplyCard(
       return '';
     }
   })();
+  const inlineReplyThumb = hasInlineReplyMediaPreview
+    ? sanitizeUrlValue(getReplyThumbnailSrc($, reply, staticProxy), 'src')
+    : '';
   const replyPreviewSrc =
-    hasInlineReplyMediaPreview && replyTargetId && hdImageBase
+    inlineReplyThumb ||
+    (hasInlineReplyMediaPreview && replyTargetId && hdImageBase
       ? sanitizeUrlValue(buildHdImageUrl(hdImageBase, `/mood/${encodeURIComponent(replyTargetId)}/0`), 'src')
-      : '';
+      : '');
   const tagName = safeHref ? 'a' : 'div';
   const hrefAttr = safeHref ? ` href="${escapeHtml(safeHref)}"` : '';
   const externalAttrs = safeHref && /^https?:\/\//i.test(safeHref)
@@ -1155,13 +1182,13 @@ function sanitizeSrcSet(value: string): string {
 function getReply(
   $: CheerioAPI,
   item: Element,
-  { channel, channelTitle, hdImageBase, replyVariant = 'raw' }: ContentProcessorConfig
+  { channel, channelTitle, hdImageBase, staticProxy, replyVariant = 'raw' }: ContentProcessorConfig
 ): string {
   const reply = $(item).find('.tgme_widget_message_reply').first();
   if (!reply.length) return '';
 
   if (replyVariant === 'detail-card') {
-    return buildDetailReplyCard($, reply, { channel, channelTitle, hdImageBase });
+    return buildDetailReplyCard($, reply, { channel, channelTitle, hdImageBase, staticProxy });
   }
 
   const authorSelectors = [
