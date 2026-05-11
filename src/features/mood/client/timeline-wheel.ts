@@ -1,5 +1,6 @@
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
+import { getTimelineDateState } from '@/features/mood/client/timeline-date-tracker';
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -36,10 +37,6 @@ export function initMoodTimelineWheel(): void {
   const NOTCHES_PER_DATE = 6;
   const ANGLE_PER_NOTCH = 4;
   const SKELETON_GROUPS = 5;
-
-  const clamp = (value: number, min: number, max: number): number => {
-    return Math.min(Math.max(value, min), max);
-  };
 
   const parseDateKey = (dateKey: string): Date | null => {
     const [year, month, day] = dateKey.split('-').map(Number);
@@ -342,38 +339,6 @@ export function initMoodTimelineWheel(): void {
     });
   };
 
-  const getExactIndexFromScroll = (scrollY: number): number => {
-    const totalDates = dateGroups.length;
-    if (totalDates === 0 || dateAnchors.length === 0) return 0;
-
-    const focusY = scrollY + (window.innerHeight * 0.5);
-    const feedBottomY = window.scrollY + feedEl.getBoundingClientRect().bottom;
-
-    if (totalDates === 1 || dateAnchors.length === 1) {
-      const singleStart = dateAnchors[0];
-      const singleSpan = Math.max(feedBottomY - singleStart, 1);
-      return (focusY - singleStart) / singleSpan;
-    }
-
-    const lastIndex = totalDates - 1;
-    if (focusY <= dateAnchors[0]) return 0;
-
-    for (let i = 0; i < lastIndex; i++) {
-      const start = dateAnchors[i];
-      const end = dateAnchors[i + 1];
-      if (focusY <= end) {
-        const span = Math.max(end - start, 1);
-        const localProgress = clamp((focusY - start) / span, 0, 1);
-        return i + localProgress;
-      }
-    }
-
-    const lastStart = dateAnchors[lastIndex];
-    const lastSpan = Math.max(feedBottomY - lastStart, 1);
-    const tailProgress = (focusY - lastStart) / lastSpan;
-    return lastIndex + tailProgress;
-  };
-
   const applyScrollPosition = (scrollY: number, animate = true): void => {
     const totalDates = dateGroups.length;
     if (totalDates === 0) return;
@@ -382,14 +347,17 @@ export function initMoodTimelineWheel(): void {
       rebuildDateAnchors();
     }
 
-    const maxIndex = Math.max(totalDates - 1, 0);
-    const rawIndex = getExactIndexFromScroll(scrollY);
-    const labelIndexValue = clamp(rawIndex, 0, maxIndex);
-    const rotationIndex = Math.max(rawIndex, 0);
-    const closestIndex = Math.min(Math.round(labelIndexValue), totalDates - 1);
+    const feedBottomY = window.scrollY + feedEl.getBoundingClientRect().bottom;
+    const dateState = getTimelineDateState({
+      anchors: dateAnchors,
+      feedBottomY,
+      scrollY,
+      viewportHeight: window.innerHeight,
+    });
+    const rotationIndex = Math.max(dateState.progressIndex, 0);
 
     targetRotation = rotationIndex * NOTCHES_PER_DATE * ANGLE_PER_NOTCH;
-    updateActiveNotch(closestIndex);
+    updateActiveNotch(dateState.activeIndex);
 
     if (animate && !prefersReducedMotion) {
       startAnimation();
