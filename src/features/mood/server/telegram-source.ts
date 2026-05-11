@@ -250,6 +250,8 @@ const telegramEmbedStateCache = new LRUCache<string, CachedTelegramEmbedState>({
 });
 
 const TELEGRAM_PARSE_CACHE_VERSION = 'sticker-fallback-v1';
+const QUOTE_IMAGE_ERROR_HANDLER =
+  "this.closest('.mood-item-quote-media')?.remove();const q=this.closest('.mood-item-quote');q?.classList.remove('mood-item-quote--with-media','mood-item-quote--media-only','mood-detail-quote--with-media','mood-detail-quote--media-only');if(q&&!q.textContent.trim())q.remove();";
 
 // Helper function to get environment variables
 function getEnv(env: ImportMetaEnv, Astro: any, name: string): string {
@@ -491,7 +493,7 @@ async function enrichDetailPost(
 
     quoteEl.addClass('mood-detail-quote--with-media mood-item-quote--with-media');
     quoteEl.prepend(
-      `<span class="mood-detail-quote-media mood-item-quote-media"><img class="mood-detail-quote-image mood-item-quote-image" src="${escapeHtml(previewSrc)}" alt="" loading="lazy" /></span>`
+      `<span class="mood-detail-quote-media mood-item-quote-media"><img class="mood-detail-quote-image mood-item-quote-image" src="${escapeHtml(previewSrc)}" alt="" loading="lazy" onerror="${escapeHtml(QUOTE_IMAGE_ERROR_HANDLER)}" /></span>`
     );
   }
 
@@ -1109,7 +1111,7 @@ function buildDetailReplyCard(
     ? `<div class="mood-detail-quote-meta mood-item-quote-meta"><span class="mood-detail-quote-source mood-item-quote-author">${escapeHtml(sourceName)}</span></div>`
     : '';
   const previewMarkup = replyPreviewSrc
-    ? `<span class="mood-detail-quote-media mood-item-quote-media"><img class="mood-detail-quote-image mood-item-quote-image" src="${escapeHtml(replyPreviewSrc)}" alt="" loading="lazy" /></span>`
+    ? `<span class="mood-detail-quote-media mood-item-quote-media"><img class="mood-detail-quote-image mood-item-quote-image" src="${escapeHtml(replyPreviewSrc)}" alt="" loading="lazy" onerror="${escapeHtml(QUOTE_IMAGE_ERROR_HANDLER)}" /></span>`
     : '';
   const isMediaOnlyQuote = Boolean(replyPreviewSrc && /^(media|video)$/i.test(text));
   const textMarkup =

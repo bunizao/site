@@ -63,4 +63,46 @@ describe('buildMoodFeedItem', () => {
 
     expect(item.quote?.thumbnailSrc).toBe('/static/https:/cdn5.telesco.pe/file/video-poster.jpg');
   });
+
+  test('keeps inline reply thumbnails when the target post is not loaded', async () => {
+    const quotingPost = createPost(
+      '3410',
+      `
+        <a class="tgme_widget_message_reply" href="/mood/3408">
+          <i
+            class="tgme_widget_message_reply_thumb"
+            style="background-image:url('https://cdn5.telesco.pe/file/reply-video-thumb.jpg')"
+          ></i>
+          <div class="tgme_widget_message_reply_text">科研成果</div>
+        </a>
+        接了 last.fm
+      `
+    );
+    const channelInfo: ChannelInfo = {
+      posts: [quotingPost],
+      title: 'Levitating',
+      titleHTML: '',
+      description: '',
+      descriptionHTML: '',
+      avatar: '',
+    };
+
+    const item = await buildMoodFeedItem(
+      {
+        request: new Request('http://localhost:4321'),
+        locals: {
+          runtime: {
+            env: {
+              CHANNEL: 'tutumood',
+              PUBLIC_HD_IMAGE_URL: 'https://image.buxx.me',
+            },
+          },
+        },
+      },
+      quotingPost,
+      channelInfo
+    );
+
+    expect(item.quote?.thumbnailSrc).toBe('/static/https:/cdn5.telesco.pe/file/reply-video-thumb.jpg');
+  });
 });
