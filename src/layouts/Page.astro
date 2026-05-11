@@ -5,6 +5,7 @@ interface Props {
   title: string;
   description: string;
   url?: string;
+  robots?: string;
   updatedAt?: string;
   showSiteNav?: boolean;
   headerActionsVariant?: 'default' | 'home';
@@ -14,6 +15,7 @@ const {
   title,
   description,
   url,
+  robots,
   updatedAt,
   showSiteNav = true,
   headerActionsVariant = 'default',
@@ -24,6 +26,7 @@ const {
   title={title}
   description={description}
   url={url}
+  robots={robots}
   showSiteNav={showSiteNav}
   navVariant="page"
   headerActionsVariant={headerActionsVariant}

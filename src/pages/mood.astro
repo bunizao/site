@@ -3,6 +3,9 @@ import Layout from '../layouts/Layout.astro';
 import TimelineWheel from '@/features/mood/ui/TimelineWheel.astro';
 import FeedShell from '@/features/mood/ui/FeedShell.astro';
 import NotifyPanel from '@/features/mood/ui/NotifyPanel.astro';
+import { loadMoodChannelSnapshot } from '@/features/mood/server/channel-service';
+import { buildMoodFeedResponse } from '@/features/mood/server/feed-service';
+import { isE2ESiteFixtureEnabled } from '@/lib/e2e';
 import '@/styles/mood-gallery.css';
 
 export const prerender = false;
@@ -15,6 +18,24 @@ const oembed = { href: `/api/oembed.json?url=${encodeURIComponent(canonicalUrl)}
 const channel = import.meta.env.CHANNEL || Astro.locals?.runtime?.env?.CHANNEL || '';
 const telegramUrl = channel ? `https://t.me/${channel}` : '';
 const turnstileSiteKey = import.meta.env.PUBLIC_TURNSTILE_SITE_KEY || '';
+const initialFeed = isE2ESiteFixtureEnabled(Astro.locals)
+  ? null
+  : await loadMoodChannelSnapshot({
+      request: Astro.request,
+      locals: Astro.locals,
+    })
+      .then(({ channelInfo, posts }) => buildMoodFeedResponse(
+        {
+          request: Astro.request,
+          locals: Astro.locals,
+        },
+        channelInfo,
+        posts
+      ))
+      .catch((error) => {
+        console.warn('Failed to load initial mood feed:', error);
+        return null;
+      });
 // Skeleton structure: 2 date group cards to match actual content layout
 const skeletonGroups = [
   {
@@ -224,7 +245,11 @@ const skeletonGroups = [
   </script>
   <main class="page-container">
     <TimelineWheel />
-    <FeedShell skeletonGroups={skeletonGroups} />
+    <FeedShell
+      skeletonGroups={skeletonGroups}
+      initialPosts={initialFeed?.posts ?? []}
+      initialChannel={initialFeed?.channel}
+    />
   </main>
   <NotifyPanel turnstileSiteKey={turnstileSiteKey} />
 </Layout>

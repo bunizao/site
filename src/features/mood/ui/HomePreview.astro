@@ -1,5 +1,13 @@
 ---
+import type { MoodFeedItem } from '@/features/mood/server/contracts';
+
+interface Props {
+  initialPosts?: MoodFeedItem[];
+}
+
+const { initialPosts = [] } = Astro.props;
 const SKELETON_COUNT = 1;
+const INITIAL_POST_COUNT = 5;
 const skeletonPatterns = [
   { line1: '72%', line2: '0%', lineCount: 1 },
   { line1: '64%', line2: '42%', lineCount: 2 },
@@ -17,6 +25,11 @@ const placeholders = Array.from({ length: SKELETON_COUNT }, (_, index) => ({
   <span class="section-label scroll-reveal">Moods</span>
 
   <div class="mood-timeline" data-mood-list role="region" aria-busy="true" aria-label="Recent moods">
+    <script
+      type="application/json"
+      data-mood-preview-initial
+      set:html={JSON.stringify(initialPosts.slice(0, INITIAL_POST_COUNT))}
+    ></script>
     {placeholders.map(({ index, pattern }) => (
       <div
         class="mood-item mood-item-skeleton"
@@ -531,11 +544,12 @@ const placeholders = Array.from({ length: SKELETON_COUNT }, (_, index) => ({
 </style>
 
 <script>
+  import gsap from 'gsap';
+  import { ScrollTrigger } from 'gsap/ScrollTrigger';
   import * as pretext from '@chenglou/pretext';
   import { buildMoodPreviewFragment } from '@/features/mood/shared/preview';
   import { withWidthParam } from '@/lib/media/responsive-image';
 
-  // GSAP is dynamically imported to avoid blocking initial render
   const initMoodsAnimation = async () => {
     const moodsSection = document.getElementById('moods-section');
     if (!moodsSection) return;
@@ -545,12 +559,13 @@ const placeholders = Array.from({ length: SKELETON_COUNT }, (_, index) => ({
     const errorState = moodsSection.querySelector('[data-mood-error]') as HTMLElement | null;
     const label = moodsSection.querySelector('.scroll-reveal');
     const link = moodsSection.querySelector('.scroll-reveal-link');
-    let gsap!: (typeof import('gsap'))['default'];
-    let ScrollTrigger!: (typeof import('gsap/ScrollTrigger'))['ScrollTrigger'];
     let hasLoaded = false;
+    let initialPreviewLoadedAt = 0;
+    let previewRevalidationTimer = 0;
 
     const MAX_MOODS = 5;
     const ALWAYS_LOADING = import.meta.env.PUBLIC_DEBUG_ALWAYS_LOADING === 'true';
+    const INITIAL_PREVIEW_REVALIDATE_MS = 60_000;
 
     const formatTime = (value: string): string => {
       const date = new Date(value);
@@ -741,6 +756,23 @@ const placeholders = Array.from({ length: SKELETON_COUNT }, (_, index) => ({
           .slice(0, MAX_MOODS);
       } catch (error) {
         debugPretextFallback('cache read failed', error);
+        return [];
+      }
+    };
+
+    const readInitialPreviewPosts = (): MoodData[] => {
+      const source = list?.querySelector('[data-mood-preview-initial]');
+      if (!(source instanceof HTMLScriptElement) || !source.textContent) return [];
+
+      try {
+        const parsed = JSON.parse(source.textContent) as unknown;
+        if (!Array.isArray(parsed)) return [];
+        return parsed
+          .map((post) => sanitizeCachedMood(post))
+          .filter((post): post is MoodPreviewCacheEntry => post !== null)
+          .slice(0, MAX_MOODS) as MoodData[];
+      } catch (error) {
+        debugPretextFallback('initial payload read failed', error);
         return [];
       }
     };
@@ -1017,6 +1049,23 @@ const placeholders = Array.from({ length: SKELETON_COUNT }, (_, index) => ({
       });
     };
 
+    const primeSkeletonsFromInitialPosts = async (): Promise<boolean> => {
+      const initialPosts = readInitialPreviewPosts();
+      if (!initialPosts.length) return false;
+
+      renderedMoodSignature = createMoodSignature(initialPosts);
+      initialPreviewLoadedAt = Date.now();
+      writeCachedPreviewPosts(initialPosts);
+      setVisibleSkeletonCount(initialPosts.length);
+      const reservations = await measureMoodReservations(initialPosts);
+      applyReservationsToSkeletons(reservations);
+      renderMoods(initialPosts, reservations, {
+        animate: true,
+        preserveBusy: true,
+      });
+      return true;
+    };
+
     const applyReservationToCard = (
       card: HTMLElement,
       text: HTMLElement | null,
@@ -1213,6 +1262,17 @@ const placeholders = Array.from({ length: SKELETON_COUNT }, (_, index) => ({
 
     const loadMoods = async (): Promise<void> => {
       if (ALWAYS_LOADING || hasLoaded || !list) return;
+
+      if (initialPreviewLoadedAt > 0) {
+        const age = Date.now() - initialPreviewLoadedAt;
+        if (age < INITIAL_PREVIEW_REVALIDATE_MS) {
+          schedulePreviewRevalidation(INITIAL_PREVIEW_REVALIDATE_MS - age);
+          return;
+        }
+
+        initialPreviewLoadedAt = 0;
+      }
+
       hasLoaded = true;
 
       try {
@@ -1250,6 +1310,14 @@ const placeholders = Array.from({ length: SKELETON_COUNT }, (_, index) => ({
       }
     };
 
+    const schedulePreviewRevalidation = (delay: number): void => {
+      if (previewRevalidationTimer) return;
+      previewRevalidationTimer = window.setTimeout(() => {
+        previewRevalidationTimer = 0;
+        void loadMoods();
+      }, Math.max(1000, delay));
+    };
+
     const navigateToMood = (target: HTMLElement | null): void => {
       if (!target || target.closest('a')) return;
       const item = target.closest('.mood-item--clickable') as HTMLElement | null;
@@ -1278,6 +1346,14 @@ const placeholders = Array.from({ length: SKELETON_COUNT }, (_, index) => ({
     }
 
     const initMoods = () => {
+      const loadIfVisible = () => {
+        const rect = moodsSection.getBoundingClientRect();
+        const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
+        if (rect.top <= viewportHeight * 0.85) {
+          void loadMoods();
+        }
+      };
+
       if (ALWAYS_LOADING) {
         gsap.set(moodsSection, { opacity: 1, y: 0 });
         if (label) gsap.set(label, { opacity: 1, y: 0 });
@@ -1318,17 +1394,26 @@ const placeholders = Array.from({ length: SKELETON_COUNT }, (_, index) => ({
         duration: 0.4,
         ease: 'power2.out'
       }, '+=0.3');
+
+      if ('IntersectionObserver' in window) {
+        const observer = new IntersectionObserver(
+          (entries) => {
+            if (!entries.some((entry) => entry.isIntersecting)) return;
+            observer.disconnect();
+            void loadMoods();
+          },
+          { rootMargin: '0px 0px -15% 0px' },
+        );
+
+        observer.observe(moodsSection);
+      }
+
+      loadIfVisible();
     };
 
-    await primeSkeletonsFromCache();
-
-    // Dynamic import GSAP only when needed after the cache prepass has had a chance to render.
-    [{ default: gsap }, { ScrollTrigger }] = await Promise.all([
-      import('gsap'),
-      import('gsap/ScrollTrigger')
-    ]);
-
     gsap.registerPlugin(ScrollTrigger);
+
+    await primeSkeletonsFromInitialPosts() || await primeSkeletonsFromCache();
     void initMoods();
   };
 

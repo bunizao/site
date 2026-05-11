@@ -47,7 +47,7 @@ const canonicalUrl = new URL(Astro.url.pathname, Astro.url.origin).href;
 const oembed = id
   ? { href: `/api/oembed.json?url=${encodeURIComponent(canonicalUrl)}`, title: 'Mood Embed' }
   : undefined;
-const title = post ? `${post.title} | Moods` : 'Mood not found | Moods';
+const title = post && id ? `Mood #${id} | Bunizao` : 'Mood not found | Moods';
 const moodSummary = post ? (post.text.trim() || post.title.trim()) : '';
 const description = moodSummary ? moodSummary.slice(0, 160) : 'Mood not found.';
 const formattedDate = post ? dayjs(post.datetime).format('MMMM D, YYYY · HH:mm') : '';

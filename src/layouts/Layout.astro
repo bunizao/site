@@ -5,10 +5,12 @@ interface Props {
   image?: string;
   imageAlt?: string;
   url?: string;
+  robots?: string;
   hideSiteNav?: boolean;
   showSiteNav?: boolean;
   navVariant?: 'home' | 'page';
   headerActionsVariant?: 'default' | 'home';
+  structuredData?: Record<string, unknown> | Array<Record<string, unknown>>;
   rss?: {
     href: string;
     title?: string;
@@ -36,10 +38,12 @@ const {
   image = '/og.png',
   imageAlt = 'Bunizao',
   url,
+  robots,
   hideSiteNav = false,
   showSiteNav = false,
   navVariant,
   headerActionsVariant = 'default',
+  structuredData,
   rss,
   oembed,
 } = Astro.props;
@@ -49,9 +53,15 @@ const isPageNav = navVariant === 'page';
 const showsBrandText = isHomeNav || isPageNav;
 const useHomeHeaderActions = isHomeNav || headerActionsVariant === 'home';
 const site = Astro.site ?? new URL('https://buxx.me');
-const canonicalUrl = url ?? new URL(Astro.url?.pathname ?? '/', site).href;
+const siteName = 'Bunizao';
+const canonicalUrl = new URL(url ?? Astro.url?.pathname ?? '/', site).href;
 const ogImageUrl = new URL(image, site).href;
 const isProduction = import.meta.env.PROD;
+const structuredDataItems = structuredData
+  ? Array.isArray(structuredData)
+    ? structuredData
+    : [structuredData]
+  : [];
 const ogImageType = ogImageUrl.endsWith('.png')
   ? 'image/png'
   : ogImageUrl.endsWith('.webp')
@@ -79,6 +89,7 @@ const navbarIdleTimeoutAnimation = getPeekRuntimeSlotKey('navbar.idle-timeout');
       type="font/woff2"
       crossorigin
     />
+    {robots ? <meta name="robots" content={robots} /> : null}
     <link rel="canonical" href={canonicalUrl} />
     <meta property="og:title" content={title} />
     <meta property="og:description" content={description} />
@@ -90,7 +101,7 @@ const navbarIdleTimeoutAnimation = getPeekRuntimeSlotKey('navbar.idle-timeout');
     <meta property="og:image:alt" content={imageAlt} />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
-    <meta property="og:site_name" content={title} />
+    <meta property="og:site_name" content={siteName} />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content={title} />
     <meta name="twitter:description" content={description} />
@@ -115,6 +126,9 @@ const navbarIdleTimeoutAnimation = getPeekRuntimeSlotKey('navbar.idle-timeout');
         href={new URL(oembed.href, site).href}
       />
     ) : null}
+    {structuredDataItems.map((item) => (
+      <script type="application/ld+json" is:inline set:html={JSON.stringify(item)} />
+    ))}
 
     <script is:inline>
       (() => {

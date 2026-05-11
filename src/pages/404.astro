@@ -20,7 +20,7 @@ const rawPath = Astro.url.pathname + Astro.url.search;
 const displayPath = rawPath.length > 48 ? rawPath.slice(0, 47) + '…' : rawPath;
 ---
 
-<Layout title={title} description={description} hideSiteNav>
+<Layout title={title} description={description} robots="noindex, follow" hideSiteNav>
   <main
     class="not-found"
     data-peek-hover={trackerHoverAnimation}

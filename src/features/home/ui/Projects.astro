@@ -398,6 +398,9 @@ const projects = await loadProjects();
 </style>
 
 <script>
+  import gsap from 'gsap';
+  import { ScrollTrigger } from 'gsap/ScrollTrigger';
+
   const prefersReducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
   const projectsSection = document.getElementById('projects-section');
   const tiltCards = document.querySelectorAll('[data-tilt]');
@@ -410,10 +413,6 @@ const projects = await loadProjects();
   }
 
   const initProjects = async () => {
-    const [{ default: gsap }, { ScrollTrigger }] = await Promise.all([
-      import('gsap'),
-      import('gsap/ScrollTrigger')
-    ]);
     gsap.registerPlugin(ScrollTrigger);
 
     if (projectsSection) {
