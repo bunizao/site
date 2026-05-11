@@ -1,8 +1,5 @@
 import gsap from 'gsap';
-import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { getTimelineDateState } from '@/features/mood/client/timeline-date-tracker';
-
-gsap.registerPlugin(ScrollTrigger);
 
 export function initMoodTimelineWheel(): void {
   const wheel = document.querySelector('[data-timeline-wheel]') as HTMLElement | null;
@@ -24,10 +21,14 @@ export function initMoodTimelineWheel(): void {
   let velocity = 0;
   let scrollTimer = 0;
   let activeIndex = -1;
-  let wheelScrollTrigger: ScrollTrigger | null = null;
+  let scrollSyncActive = false;
+  let scrollSyncRaf = 0;
+  let anchorRefreshRaf = 0;
+  let cachedFeedBottomY = 0;
   let dateAnchors: number[] = [];
   let dateItemCount = 0;
   let wheelSyncRaf = 0;
+  let listResizeObserver: ResizeObserver | null = null;
   let isLoadingSpin = false;
   let loadingShimmerTl: gsap.core.Timeline | null = null;
   let loadingPendulumTl: gsap.core.Timeline | null = null;
@@ -84,7 +85,7 @@ export function initMoodTimelineWheel(): void {
   };
 
   const applyDialTransform = (): void => {
-    dial.style.transform = `translateY(-50%) rotate(${-currentRotation}deg)`;
+    dial.style.transform = `translate3d(0, -50%, 0) rotate(${-currentRotation}deg)`;
   };
 
   const destroyLoadingAnimation = (): void => {
@@ -337,6 +338,7 @@ export function initMoodTimelineWheel(): void {
       const y = window.scrollY + rect.top;
       return Number.isFinite(y) ? y : window.scrollY;
     });
+    cachedFeedBottomY = window.scrollY + feedEl.getBoundingClientRect().bottom;
   };
 
   const applyScrollPosition = (scrollY: number, animate = true): void => {
@@ -347,10 +349,9 @@ export function initMoodTimelineWheel(): void {
       rebuildDateAnchors();
     }
 
-    const feedBottomY = window.scrollY + feedEl.getBoundingClientRect().bottom;
     const dateState = getTimelineDateState({
       anchors: dateAnchors,
-      feedBottomY,
+      feedBottomY: cachedFeedBottomY,
       scrollY,
       viewportHeight: window.innerHeight,
     });
@@ -366,6 +367,25 @@ export function initMoodTimelineWheel(): void {
 
     currentRotation = targetRotation;
     applyDialTransform();
+  };
+
+  const scheduleScrollPositionSync = (animate = true): void => {
+    if (scrollSyncRaf !== 0) return;
+    scrollSyncRaf = requestAnimationFrame(() => {
+      scrollSyncRaf = 0;
+      if (!scrollSyncActive || dateGroups.length === 0 || !isDesktop()) return;
+      applyScrollPosition(window.scrollY, animate);
+    });
+  };
+
+  const scheduleAnchorRefresh = (): void => {
+    if (anchorRefreshRaf !== 0) return;
+    anchorRefreshRaf = requestAnimationFrame(() => {
+      anchorRefreshRaf = 0;
+      if (dateGroups.length === 0) return;
+      rebuildDateAnchors();
+      scheduleScrollPositionSync(false);
+    });
   };
 
   const setLoadingSpin = (active: boolean): void => {
@@ -400,33 +420,41 @@ export function initMoodTimelineWheel(): void {
     setLoadingSpin(shouldSpin);
   };
 
+  const handleWindowScroll = (): void => {
+    if (!scrollSyncActive || dateGroups.length === 0 || !isDesktop()) return;
+    wheel.classList.add('is-scrolling');
+    clearTimeout(scrollTimer);
+    scrollTimer = window.setTimeout(() => {
+      wheel.classList.remove('is-scrolling');
+    }, 150);
+    scheduleScrollPositionSync(true);
+  };
+
   const destroyScrollSync = (): void => {
-    if (wheelScrollTrigger) {
-      wheelScrollTrigger.kill();
-      wheelScrollTrigger = null;
+    if (scrollSyncActive) {
+      window.removeEventListener('scroll', handleWindowScroll);
+      scrollSyncActive = false;
+    }
+    if (scrollSyncRaf !== 0) {
+      cancelAnimationFrame(scrollSyncRaf);
+      scrollSyncRaf = 0;
+    }
+    clearTimeout(scrollTimer);
+    wheel.classList.remove('is-scrolling');
+
+    if (listResizeObserver) {
+      listResizeObserver.disconnect();
+      listResizeObserver = null;
     }
   };
 
   const setupScrollSync = (): void => {
     destroyScrollSync();
-    wheelScrollTrigger = ScrollTrigger.create({
-      trigger: list,
-      start: 'top top',
-      end: 'bottom bottom',
-      invalidateOnRefresh: true,
-      onRefresh: () => {
-        rebuildDateAnchors();
-        applyScrollPosition(window.scrollY, false);
-      },
-      onUpdate: (self) => {
-        applyScrollPosition(self.scroll(), true);
-        wheel.classList.add('is-scrolling');
-        clearTimeout(scrollTimer);
-        scrollTimer = window.setTimeout(() => {
-          wheel.classList.remove('is-scrolling');
-        }, 150);
-      },
-    });
+    scrollSyncActive = true;
+    window.addEventListener('scroll', handleWindowScroll, { passive: true });
+    listResizeObserver = new ResizeObserver(scheduleAnchorRefresh);
+    listResizeObserver.observe(list);
+    scheduleScrollPositionSync(false);
   };
 
   const rebuildWheel = (): void => {
@@ -444,7 +472,6 @@ export function initMoodTimelineWheel(): void {
     createNotches();
     rebuildDateAnchors();
     setupScrollSync();
-    wheelScrollTrigger?.refresh();
     applyScrollPosition(window.scrollY, false);
 
     if (isDesktop()) {
@@ -475,9 +502,7 @@ export function initMoodTimelineWheel(): void {
       }
 
       rebuildDateAnchors();
-      if (wheelScrollTrigger) {
-        wheelScrollTrigger.refresh();
-      } else {
+      if (!scrollSyncActive) {
         setupScrollSync();
       }
       applyScrollPosition(window.scrollY, false);
@@ -489,7 +514,6 @@ export function initMoodTimelineWheel(): void {
     if (isDesktop() && (dateGroups.length > 0 || isLoading)) {
       wheel.classList.add('is-visible');
       if (dateGroups.length > 0) {
-        wheelScrollTrigger?.refresh();
         rebuildDateAnchors();
         applyScrollPosition(window.scrollY, false);
       }
