@@ -16,6 +16,50 @@ const DETAIL_HTML_BY_URL: Record<string, string> = {
       </div>
     </div>
   `,
+  'https://t.me/imagebuxx/3333?embed=1&mode=tme': `
+    <div class="tgme_channel_info_header_title">Image Buxx</div>
+    <div class="tgme_widget_message_wrap">
+      <div class="tgme_widget_message text_not_supported_wrap" data-post="imagebuxx/3333">
+        <a
+          class="tgme_widget_message_photo_wrap grouped_media_wrap"
+          style="background-image:url('https://cdn5.telesco.pe/file/3333-a.jpg'); width:800px; padding-top:75%;"
+        ></a>
+        <a
+          class="tgme_widget_message_photo_wrap grouped_media_wrap"
+          style="background-image:url('https://cdn5.telesco.pe/file/3333-b.jpg'); width:800px; padding-top:75%;"
+        ></a>
+        <div class="tgme_widget_message_text js-message_text">multi photo</div>
+        <div class="tgme_widget_message_date">
+          <time datetime="2026-04-07T14:06:18+00:00"></time>
+        </div>
+      </div>
+    </div>
+  `,
+  'https://t.me/imagebuxx/3408?embed=1&mode=tme': `
+    <div class="tgme_channel_info_header_title">Image Buxx</div>
+    <div class="tgme_widget_message_wrap">
+      <div class="tgme_widget_message text_not_supported_wrap" data-post="imagebuxx/3408">
+        <a class="tgme_widget_message_video_player js-message_video_player" href="https://t.me/imagebuxx/3408">
+          <i
+            class="tgme_widget_message_video_thumb"
+            style="background-image:url('https://cdn5.telesco.pe/file/video-poster.jpg')"
+          ></i>
+          <div class="tgme_widget_message_video_wrap" style="width:1626px;padding-top:45.51%">
+            <video src="https://cdn5.telesco.pe/file/video.mp4" class="tgme_widget_message_video js-message_video"></video>
+          </div>
+          <div class="message_media_not_supported_wrap">
+            <div class="message_media_not_supported">
+              <div class="message_media_not_supported_label">This media is not supported in your browser</div>
+            </div>
+          </div>
+        </a>
+        <div class="tgme_widget_message_text js-message_text">video post</div>
+        <div class="tgme_widget_message_date">
+          <time datetime="2026-04-25T18:51:27+00:00"></time>
+        </div>
+      </div>
+    </div>
+  `,
   'https://t.me/imagebuxx/3327?embed=1&mode=tme': `
     <div class="tgme_channel_info_header_title">Image Buxx</div>
     <div class="tgme_widget_message_wrap">
@@ -221,6 +265,31 @@ describe('getChannelInfo detail media rendering', () => {
     expect(typeof post).toBe('object');
     expect((post as { content: string }).content.match(/image-preview-wrap/g)?.length).toBe(1);
     expect((post as { content: string }).content).not.toContain('modal-3332-unsupported');
+  });
+
+  test('renders all grouped static photos without unsupported fallback media', async () => {
+    const { getChannelInfo } = await telegramModulePromise;
+    const post = await getChannelInfo(astro, { id: '3333', skipCache: true });
+    const content = (post as { content: string }).content;
+
+    expect(content.match(/image-preview-wrap/g)?.length).toBe(2);
+    expect(content).toContain('https://image.buxx.me/mood/3333/0');
+    expect(content).toContain('https://image.buxx.me/mood/3333/1');
+    expect(content).toContain('/static/https:/cdn5.telesco.pe/file/3333-a.jpg?w=1280');
+    expect(content).toContain('/static/https:/cdn5.telesco.pe/file/3333-b.jpg?w=1280');
+    expect(content).not.toContain('modal-3333-unsupported');
+  });
+
+  test('renders playable videos instead of unsupported fallback media', async () => {
+    const { getChannelInfo } = await telegramModulePromise;
+    const post = await getChannelInfo(astro, { id: '3408', skipCache: true });
+    const content = (post as { content: string }).content;
+
+    expect(content).toContain('<video');
+    expect(content).toContain('/static/https:/cdn5.telesco.pe/file/video.mp4');
+    expect(content).toContain('poster="/static/https:/cdn5.telesco.pe/file/video-poster.jpg"');
+    expect(content).not.toContain('image-preview-wrap--fallback');
+    expect(content).not.toContain('https://image.buxx.me/mood/3408/0');
   });
 
   test('renders unsupported live photo fallback inside the standard image container markup', async () => {
