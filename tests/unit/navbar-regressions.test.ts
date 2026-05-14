@@ -43,8 +43,9 @@ describe('navbar regression guards', () => {
     const pageStyles = read('src/layouts/Page.astro');
 
     expect(layoutSource).toContain('const viewport = window.visualViewport;');
-    expect(layoutSource).toContain('const isAtScrollBottom = () => {');
-    expect(layoutSource).toContain('const offsetTop = isAtScrollBottom() ? 0 : Math.round(rawOffsetTop);');
+    expect(layoutSource).toContain('let bottomOverscrollLocked = false;');
+    expect(layoutSource).toContain('const bottomOverscrollReleaseDistance = 96;');
+    expect(layoutSource).toContain('const offsetTop = isBottomOverscrollOffset(rawOffsetTop) ? 0 : Math.round(rawOffsetTop);');
     expect(layoutSource).toContain("window.addEventListener('scroll', requestSync");
     expect(layoutSource).toContain("root.style.setProperty('--visual-viewport-top'");
     expect(globalStyles).toContain('--site-nav-mobile-top: calc(env(safe-area-inset-top, 0px) + var(--visual-viewport-top, 0px));');

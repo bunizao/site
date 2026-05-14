@@ -688,5 +688,32 @@ test.describe('Home page', () => {
     const bottomOverscrolled = await page.locator('[data-site-nav]').boundingBox();
     expect(bottomOverscrolled).not.toBeNull();
     expect(Math.round((bottomOverscrolled?.y ?? 0) - (bottomPinned?.y ?? 0))).toBe(0);
+
+    await page.evaluate(() => {
+      window.scrollBy(0, -36);
+      (window as unknown as Window & { __setVisualViewportTop: (top: number) => void }).__setVisualViewportTop(72);
+    });
+
+    await expect.poll(async () => (
+      await page.evaluate(() =>
+        window.getComputedStyle(document.documentElement).getPropertyValue('--visual-viewport-top').trim()
+      )
+    )).toBe('0px');
+
+    const bottomBounceRelease = await page.locator('[data-site-nav]').boundingBox();
+    expect(bottomBounceRelease).not.toBeNull();
+    expect(Math.round((bottomBounceRelease?.y ?? 0) - (bottomPinned?.y ?? 0))).toBe(0);
+
+    await page.evaluate(() => {
+      (window as unknown as Window & { __setVisualViewportTop: (top: number) => void }).__setVisualViewportTop(0);
+      window.scrollBy(0, -140);
+      (window as unknown as Window & { __setVisualViewportTop: (top: number) => void }).__setVisualViewportTop(24);
+    });
+
+    await expect.poll(async () => (
+      await page.evaluate(() =>
+        window.getComputedStyle(document.documentElement).getPropertyValue('--visual-viewport-top').trim()
+      )
+    )).toBe('24px');
   });
 });
