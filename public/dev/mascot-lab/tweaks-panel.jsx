@@ -227,13 +227,38 @@ function TweaksPanel({ title = 'Tweaks', children }) {
     window.addEventListener('mouseup', up);
   };
 
+  const onDragKeyDown = (e) => {
+    const step = e.shiftKey ? 24 : 8;
+    const moves = {
+      ArrowLeft: { x: step, y: 0 },
+      ArrowRight: { x: -step, y: 0 },
+      ArrowUp: { x: 0, y: step },
+      ArrowDown: { x: 0, y: -step },
+    };
+    const move = moves[e.key];
+    if (!move) return;
+    e.preventDefault();
+    offsetRef.current = {
+      x: offsetRef.current.x + move.x,
+      y: offsetRef.current.y + move.y,
+    };
+    clampToViewport();
+  };
+
   if (!open) return null;
   return (
     <>
       <style>{__TWEAKS_STYLE}</style>
       <div ref={dragRef} className="twk-panel"
            style={{ right: offsetRef.current.x, bottom: offsetRef.current.y }}>
-        <div className="twk-hd" onMouseDown={onDragStart}>
+        <div
+          className="twk-hd"
+          role="button"
+          tabIndex={0}
+          aria-label="Move tweaks panel"
+          onMouseDown={onDragStart}
+          onKeyDown={onDragKeyDown}
+        >
           <b>{title}</b>
           <button className="twk-x" aria-label="Close tweaks"
                   onMouseDown={(e) => e.stopPropagation()}

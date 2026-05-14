@@ -38,8 +38,8 @@ async function writePageCoverage(
 }
 
 export const test = base.extend({
-  context: async ({ context }, use, testInfo) => {
-    await use(context);
+  context: async ({ context }, runFixture, testInfo) => {
+    await runFixture(context);
 
     if (!isCoverageEnabled) {
       return;

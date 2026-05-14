@@ -1,9 +1,5 @@
-// JSX is intentionally avoided here — we use React.createElement directly so the
-// component works regardless of whether Vite's dep cache has the dev jsx-runtime
-// available. The SVG body is built as an HTML string and injected.
 import { createElement, useEffect, useMemo, useState } from 'react';
 import type { Grid, LogoRuntimeDefinition } from '@/features/logos/data/types';
-import { gridToSvg } from '@/features/logos/lib/render';
 
 export type AnimatedLogoProps = {
   definition: LogoRuntimeDefinition;
@@ -141,13 +137,14 @@ export function AnimatedLogo(props: AnimatedLogoProps) {
   const renderedHeight = Math.round(size / aspect);
 
   const svg = useMemo(
-    () =>
-      gridToSvg(grid, def.width, def.height, {
-        size,
-        fg,
-        accent: accentColor,
-        title,
-      }),
+    () => renderGridSvg(grid, {
+      width: def.width,
+      height: def.height,
+      size,
+      fg,
+      accent: accentColor,
+      title,
+    }),
     [grid, def.width, def.height, size, fg, accentColor, title],
   );
 
@@ -163,8 +160,7 @@ export function AnimatedLogo(props: AnimatedLogoProps) {
     onMouseLeave: hoverAnimation ? () => setHover(false) : undefined,
     onFocus: hoverAnimation ? () => setHover(true) : undefined,
     onBlur: hoverAnimation ? () => setHover(false) : undefined,
-    dangerouslySetInnerHTML: { __html: svg },
-  });
+  }, svg);
 }
 
 function useReducedMotion(): boolean {
@@ -178,4 +174,55 @@ function useReducedMotion(): boolean {
     return () => mq.removeEventListener?.('change', handler);
   }, []);
   return reduced;
+}
+
+function renderGridSvg(
+  grid: Grid,
+  opts: {
+    width: number;
+    height: number;
+    size: number;
+    fg: string;
+    accent?: string;
+    title?: string;
+  }
+) {
+  const { width, height, size, fg, accent, title } = opts;
+  const renderedHeight = (size * height) / width;
+  const cells = [];
+
+  for (let y = 0; y < height; y += 1) {
+    const row = grid[y];
+    for (let x = 0; x < width; x += 1) {
+      const value = row[x];
+      if (value !== 1 && value !== 3) {
+        continue;
+      }
+
+      cells.push(createElement('rect', {
+        key: `${x}:${y}`,
+        x,
+        y,
+        width: 1,
+        height: 1,
+        fill: value === 3 ? accent ?? 'var(--logo-accent, currentColor)' : fg,
+      }));
+    }
+  }
+
+  return createElement(
+    'svg',
+    {
+      xmlns: 'http://www.w3.org/2000/svg',
+      width: size,
+      height: renderedHeight,
+      role: title ? 'img' : undefined,
+      'aria-label': title,
+      'aria-hidden': title ? undefined : true,
+      viewBox: `0 0 ${width} ${height}`,
+      shapeRendering: 'crispEdges',
+    },
+    title ? createElement('title', { key: 'title' }, title) : null,
+    ...cells,
+  );
 }
