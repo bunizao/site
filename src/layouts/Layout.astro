@@ -170,10 +170,19 @@ const navbarIdleTimeoutAnimation = getPeekRuntimeSlotKey('navbar.idle-timeout');
 
         const root = document.documentElement;
         let frame = 0;
+        let currentTop = -1;
+
+        const isAtScrollBottom = () => {
+          const maxScrollY = Math.max(0, root.scrollHeight - window.innerHeight);
+          return maxScrollY > 0 && window.scrollY >= maxScrollY - 1;
+        };
 
         const syncVisualViewportTop = () => {
           frame = 0;
-          const offsetTop = Math.max(0, viewport.offsetTop || 0);
+          const rawOffsetTop = Math.max(0, viewport.offsetTop || 0);
+          const offsetTop = isAtScrollBottom() ? 0 : Math.round(rawOffsetTop);
+          if (offsetTop === currentTop) return;
+          currentTop = offsetTop;
           root.style.setProperty('--visual-viewport-top', offsetTop + 'px');
         };
 
@@ -185,6 +194,7 @@ const navbarIdleTimeoutAnimation = getPeekRuntimeSlotKey('navbar.idle-timeout');
         syncVisualViewportTop();
         viewport.addEventListener('resize', requestSync, { passive: true });
         viewport.addEventListener('scroll', requestSync, { passive: true });
+        window.addEventListener('scroll', requestSync, { passive: true });
         window.addEventListener('orientationchange', requestSync, { passive: true });
       })();
     </script>

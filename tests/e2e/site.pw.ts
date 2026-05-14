@@ -662,5 +662,31 @@ test.describe('Home page', () => {
     const shifted = await page.locator('[data-site-nav]').boundingBox();
     expect(shifted).not.toBeNull();
     expect(Math.round((shifted?.y ?? 0) - (initial?.y ?? 0))).toBe(24);
+
+    await page.evaluate(() => {
+      window.scrollTo(0, document.documentElement.scrollHeight);
+      window.dispatchEvent(new Event('scroll'));
+    });
+    await page.waitForFunction(() => {
+      const root = document.documentElement;
+      return Math.ceil(window.scrollY + window.innerHeight) >= root.scrollHeight - 2;
+    });
+
+    const bottomPinned = await page.locator('[data-site-nav]').boundingBox();
+    expect(bottomPinned).not.toBeNull();
+
+    await page.evaluate(() => {
+      (window as unknown as Window & { __setVisualViewportTop: (top: number) => void }).__setVisualViewportTop(160);
+    });
+
+    await expect.poll(async () => (
+      await page.evaluate(() =>
+        window.getComputedStyle(document.documentElement).getPropertyValue('--visual-viewport-top').trim()
+      )
+    )).toBe('0px');
+
+    const bottomOverscrolled = await page.locator('[data-site-nav]').boundingBox();
+    expect(bottomOverscrolled).not.toBeNull();
+    expect(Math.round((bottomOverscrolled?.y ?? 0) - (bottomPinned?.y ?? 0))).toBe(0);
   });
 });
