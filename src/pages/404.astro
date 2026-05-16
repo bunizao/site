@@ -14,8 +14,8 @@ const trackerHoverAnimation = getPeekRuntimeSlotKey('not-found.cta.hover');
 const trackerClickAnimation = getPeekRuntimeSlotKey('not-found.cta.click');
 const trackerPoseKeys = getPeekRuntimeTrackingPoseKeys('not-found');
 
-// Raw requested path — displayed under the digits. Trim anything too long so
-// it doesn't wrap or overflow the stage.
+// Static fallback path. The client script replaces it with the browser's real
+// requested URI because static 404 pages do not receive the missing route.
 const rawPath = Astro.url.pathname + Astro.url.search;
 const displayPath = rawPath.length > 48 ? rawPath.slice(0, 47) + '…' : rawPath;
 ---
@@ -37,7 +37,7 @@ const displayPath = rawPath.length > 48 ? rawPath.slice(0, 47) + '…' : rawPath
 
       <div class="nf-path" aria-hidden="true">
         <span class="nf-path-prefix">GET</span>
-        <span class="nf-path-url">{displayPath}</span>
+        <span class="nf-path-url" data-nf-path-url>{displayPath}</span>
         <span class="nf-path-sep">·</span>
         <span class="nf-path-status">page not found</span>
       </div>
@@ -105,6 +105,17 @@ const displayPath = rawPath.length > 48 ? rawPath.slice(0, 47) + '…' : rawPath
 
     if (peekMount) {
       window.requestAnimationFrame(() => peekMount.classList.add('is-peek-ready'));
+    }
+
+    const pathLabel = document.querySelector<HTMLElement>('[data-nf-path-url]');
+    const formatRequestedUri = (value: string): string => (
+      value.length > 48 ? `${value.slice(0, 47)}…` : value
+    );
+
+    if (pathLabel) {
+      pathLabel.textContent = formatRequestedUri(
+        `${window.location.pathname}${window.location.search}${window.location.hash}`,
+      );
     }
 
     if (notFound && notFoundNumber && canAnimate.matches) {

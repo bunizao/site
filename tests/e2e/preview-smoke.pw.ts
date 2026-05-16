@@ -59,6 +59,12 @@ test.describe('Preview smoke', () => {
       .toMatch(/loading|feed|error/);
   });
 
+  test('shows the requested URI on the 404 page', async ({ page }) => {
+    await page.goto('/missing-from-preview?source=e2e#section');
+
+    await expect(page.locator('[data-nf-path-url]')).toHaveText('/missing-from-preview?source=e2e#section');
+  });
+
   test('serves core API endpoints', async ({ request }, testInfo) => {
     const baseURL = requireBaseUrl(testInfo.project.use.baseURL as string | undefined);
 
