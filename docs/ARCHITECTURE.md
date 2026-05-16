@@ -45,6 +45,7 @@
 ## API Endpoints
 
 **JSON:**
+- `GET /api/health` — Aggregated API health. Default mode checks core app APIs; `?deep=1` adds slower external probes.
 - `GET /api/moods` — Mood feed with pagination (`?before=<id>`)
 - `GET /api/comments` — Comments
 - `GET /api/oembed.json` — oEmbed endpoint (docs: `docs/OEMBED-API.md`)

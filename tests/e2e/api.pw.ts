@@ -49,6 +49,57 @@ test.describe('API behavior', () => {
     expect(typeof probePayload.latestId).toBe('string');
   });
 
+  test('GET /api/health returns aggregated API health', async ({ request }) => {
+    const response = await request.get('/api/health');
+    expect(response.ok()).toBeTruthy();
+    expect(response.headers()['content-type']).toContain('application/json');
+
+    const payload = (await response.json()) as {
+      status?: string;
+      mode?: string;
+      checkedAt?: string;
+      durationMs?: number;
+      checks?: Array<{
+        id?: string;
+        label?: string;
+        status?: string;
+        critical?: boolean;
+        durationMs?: number;
+      }>;
+    };
+
+    expect(['ok', 'degraded']).toContain(payload.status);
+    expect(payload.mode).toBe('default');
+    expect(typeof payload.checkedAt).toBe('string');
+    expect(typeof payload.durationMs).toBe('number');
+    expect(Array.isArray(payload.checks)).toBe(true);
+
+    const checks = payload.checks ?? [];
+    const moodFeed = checks.find((check) => check.id === 'mood-feed');
+    expect(moodFeed?.status).toBe('ok');
+    expect(moodFeed?.critical).toBe(true);
+    expect(typeof moodFeed?.durationMs).toBe('number');
+    expect(checks.some((check) => check.id === 'listening')).toBe(true);
+    expect(checks.some((check) => check.id === 'comments')).toBe(true);
+    expect(checks.some((check) => check.id === 'notify-templates')).toBe(true);
+    expect(checks.some((check) => check.id === 'telegram-webhook')).toBe(false);
+  });
+
+  test('GET /api/health supports deep checks', async ({ request }) => {
+    const response = await request.get('/api/health?deep=1');
+    expect(response.ok()).toBeTruthy();
+
+    const payload = (await response.json()) as {
+      mode?: string;
+      checks?: Array<{ id?: string; status?: string }>;
+    };
+
+    expect(payload.mode).toBe('deep');
+    const checks = payload.checks ?? [];
+    expect(checks.some((check) => check.id === 'mood-image-worker')).toBe(true);
+    expect(checks.some((check) => check.id === 'telegram-webhook')).toBe(true);
+  });
+
   test('GET /api/comments validates params and returns comment payload', async ({ request }) => {
     const missing = await request.get('/api/comments');
     expect(missing.status()).toBe(400);
