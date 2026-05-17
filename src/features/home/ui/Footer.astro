@@ -3,53 +3,50 @@ const year = new Date().getFullYear();
 ---
 
 <footer class="footer">
-  <div class="footer-meta">
-    <div class="footer-links">
-      <a
-        href="https://github.com/bunizao/site"
-        target="_blank"
-        rel="noopener noreferrer"
-        class="footer-link"
-      >
-        Source
-      </a>
-      <span class="footer-divider">·</span>
-      <a
-        href="https://astro.build"
-        target="_blank"
-        rel="noopener noreferrer"
-        class="footer-link"
-      >
-        Built with Astro
-      </a>
-      <span class="footer-divider">·</span>
-      <a href="/privacy" class="footer-link">Privacy</a>
-    </div>
-    <p class="footer-copyright">© {year} bunizao. All rights reserved.</p>
-  </div>
-
-  <div class="footer-system">
+  <div class="footer-line">
     <a
       href="https://status.tuuhub.com"
       target="_blank"
       rel="noopener noreferrer"
       class="footer-status"
       data-footer-status="unknown"
+      aria-label="Service status"
     >
       <span class="footer-status-dot" aria-hidden="true"></span>
-      <span class="footer-status-label" data-footer-status-label>Status</span>
+      <span class="footer-region" data-footer-region>—</span>
     </a>
-    <span class="footer-region" data-footer-region hidden></span>
+    <span class="footer-divider">·</span>
+    <span class="footer-copyright">© {year} bunizao</span>
+    <span class="footer-divider">·</span>
+    <a
+      href="https://github.com/bunizao/site"
+      target="_blank"
+      rel="noopener noreferrer"
+      class="footer-link"
+    >
+      Source
+    </a>
+    <span class="footer-divider">·</span>
+    <a
+      href="https://astro.build"
+      target="_blank"
+      rel="noopener noreferrer"
+      class="footer-link"
+    >
+      Astro
+    </a>
+    <span class="footer-divider">·</span>
+    <a href="/privacy" class="footer-link">Privacy</a>
   </div>
 </footer>
 
 <script>
-  const STATUS_LABELS: Record<string, string> = {
-    operational: 'Operational',
-    degraded: 'Degraded',
+  const STATUS_TITLES: Record<string, string> = {
+    operational: 'All systems operational',
+    degraded: 'Degraded performance',
     down: 'Downtime',
-    maintenance: 'Maintenance',
-    unknown: 'Unknown',
+    maintenance: 'Under maintenance',
+    unknown: 'Status unknown',
   };
 
   function parseRegion(headerValue: string | null): string | null {
@@ -62,28 +59,25 @@ const year = new Date().getFullYear();
 
   async function hydrateFooter() {
     const root = document.querySelector<HTMLAnchorElement>('[data-footer-status]');
-    const labelEl = document.querySelector<HTMLElement>('[data-footer-status-label]');
     const regionEl = document.querySelector<HTMLElement>('[data-footer-region]');
-    if (!root || !labelEl) return;
+    if (!root || !regionEl) return;
 
     try {
       const res = await fetch('/api/footer', { headers: { Accept: 'application/json' } });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
       const data = (await res.json()) as { status?: string };
-      const status = (data?.status ?? 'unknown') as keyof typeof STATUS_LABELS;
-      root.setAttribute('data-footer-status', STATUS_LABELS[status] ? status : 'unknown');
-      labelEl.textContent = STATUS_LABELS[status] ?? STATUS_LABELS.unknown;
+      const status = (data?.status ?? 'unknown') as keyof typeof STATUS_TITLES;
+      const next = STATUS_TITLES[status] ? status : 'unknown';
+      root.setAttribute('data-footer-status', next);
+      root.title = STATUS_TITLES[next];
 
       const region = parseRegion(res.headers.get('x-vercel-id'));
-      if (region && regionEl) {
-        regionEl.textContent = region;
-        regionEl.hidden = false;
-      }
+      if (region) regionEl.textContent = region;
     } catch (error) {
       console.warn('Footer status fetch failed:', error);
       root.setAttribute('data-footer-status', 'unknown');
-      labelEl.textContent = STATUS_LABELS.unknown;
+      root.title = STATUS_TITLES.unknown;
     }
   }
 
@@ -96,32 +90,30 @@ const year = new Date().getFullYear();
 
 <style>
   .footer {
-    display: flex;
-    flex-direction: column;
-    gap: 18px;
     padding: 3rem 0 2rem;
   }
 
-  .footer-meta {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 6px;
-    font-size: 12px;
-    font-weight: 300;
-  }
-
-  .footer-links {
+  .footer-line {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
     justify-content: center;
     gap: 10px;
-    color: hsl(var(--muted-foreground) / 0.5);
+    font-size: 12px;
+    font-weight: 300;
+    color: hsl(var(--muted-foreground) / 0.55);
+  }
+
+  .footer-divider {
+    color: hsl(var(--muted-foreground) / 0.25);
+  }
+
+  .footer-copyright {
+    color: hsl(var(--muted-foreground) / 0.6);
   }
 
   .footer-link {
-    color: hsl(var(--muted-foreground) / 0.6);
+    color: hsl(var(--muted-foreground) / 0.55);
     transition: color 0.15s ease;
   }
 
@@ -129,33 +121,11 @@ const year = new Date().getFullYear();
     color: hsl(var(--muted-foreground));
   }
 
-  .footer-divider {
-    color: hsl(var(--muted-foreground) / 0.3);
-  }
-
-  .footer-copyright {
-    margin: 0;
-    color: hsl(var(--muted-foreground) / 0.45);
-  }
-
-  .footer-system {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    padding-top: 14px;
-    border-top: 1px solid hsl(var(--border) / 0.4);
-    font-size: 11px;
-    font-weight: 300;
-    color: hsl(var(--muted-foreground) / 0.4);
-    letter-spacing: 0.02em;
-  }
-
   .footer-status {
     display: inline-flex;
     align-items: center;
     gap: 7px;
-    color: hsl(var(--muted-foreground) / 0.55);
+    color: hsl(var(--muted-foreground) / 0.6);
     transition: color 0.15s ease;
   }
 
@@ -173,23 +143,19 @@ const year = new Date().getFullYear();
 
   [data-footer-status='operational'] .footer-status-dot {
     --footer-status-color: hsl(142 70% 45%);
-    box-shadow: 0 0 0 3px hsl(142 70% 45% / 0.15);
   }
 
   [data-footer-status='degraded'] .footer-status-dot,
   [data-footer-status='maintenance'] .footer-status-dot {
     --footer-status-color: hsl(38 92% 55%);
-    box-shadow: 0 0 0 3px hsl(38 92% 55% / 0.15);
   }
 
   [data-footer-status='down'] .footer-status-dot {
     --footer-status-color: hsl(0 75% 55%);
-    box-shadow: 0 0 0 3px hsl(0 75% 55% / 0.15);
   }
 
   .footer-region {
     font-variant-numeric: tabular-nums;
-    letter-spacing: 0.08em;
-    color: hsl(var(--muted-foreground) / 0.45);
+    letter-spacing: 0.06em;
   }
 </style>
