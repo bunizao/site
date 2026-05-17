@@ -35,6 +35,10 @@ export const GET: APIRoute = async ({ request, locals }) => {
   const headers = new Headers(rateLimit.headers);
   headers.set('Cache-Control', 'public, s-maxage=30, stale-while-revalidate=120');
 
+  if (import.meta.env.DEV && !request.headers.get('x-vercel-id')) {
+    headers.set('x-vercel-id', 'mel1::demo');
+  }
+
   if (!rateLimit.allowed) {
     return json(429, { error: 'Too Many Requests' }, headers);
   }
