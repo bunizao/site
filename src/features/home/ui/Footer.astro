@@ -5,30 +5,30 @@ const yearRange = currentYear > startYear ? `${startYear}–${currentYear}` : `$
 ---
 
 <footer class="footer">
-  <div class="footer-row footer-row--signals">
+  <div class="footer-bar">
     <a
       href="https://status.tuuhub.com"
       target="_blank"
       rel="noopener noreferrer"
-      class="footer-signal"
+      class="footer-bar-cell footer-bar-cell--status"
       data-footer-status="unknown"
     >
-      <span class="footer-signal-key">Status</span>
-      <span class="footer-signal-value">
-        <span class="footer-status-dot" aria-hidden="true"></span>
-        <span data-footer-status-label>Checking</span>
-      </span>
+      <span class="footer-status-dot" aria-hidden="true"></span>
+      <span class="footer-bar-text" data-footer-status-label>CHECKING</span>
     </a>
-    <span class="footer-signal footer-signal--region" data-footer-region hidden>
-      <span class="footer-signal-key">Edge</span>
-      <span class="footer-signal-value">
-        <span class="footer-region-code" data-footer-region-code>—</span>
-        <span class="footer-region-city" data-footer-region-city></span>
+    <span
+      class="footer-bar-cell footer-bar-cell--region"
+      data-footer-region
+      hidden
+    >
+      <span class="footer-bar-text">
+        <span data-footer-region-code>—</span>
+        <span data-footer-region-city class="footer-region-city"></span>
       </span>
     </span>
   </div>
 
-  <nav class="footer-row footer-row--nav" aria-label="Footer">
+  <nav class="footer-nav" aria-label="Footer">
     <a
       href="https://github.com/bunizao/site"
       target="_blank"
@@ -50,18 +50,18 @@ const yearRange = currentYear > startYear ? `${startYear}–${currentYear}` : `$
     <a href="/privacy" class="footer-link">Privacy</a>
   </nav>
 
-  <p class="footer-row footer-copyright">
+  <p class="footer-mark">
     © {yearRange} bunizao. All rights reserved.
   </p>
 </footer>
 
 <script>
   const STATUS_LABELS: Record<string, string> = {
-    operational: 'Operational',
-    degraded: 'Degraded',
-    down: 'Downtime',
-    maintenance: 'Maintenance',
-    unknown: 'Unknown',
+    operational: 'OPERATIONAL',
+    degraded: 'DEGRADED',
+    down: 'DOWNTIME',
+    maintenance: 'MAINTENANCE',
+    unknown: 'UNKNOWN',
   };
 
   const STATUS_TITLES: Record<string, string> = {
@@ -151,80 +151,61 @@ const yearRange = currentYear > startYear ? `${startYear}–${currentYear}` : `$
   .footer {
     display: flex;
     flex-direction: column;
-    align-items: center;
-    gap: 14px;
-    padding: 3rem 0 2rem;
-    font-weight: 300;
-  }
-
-  .footer-row {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: center;
-    margin: 0;
-  }
-
-  .footer-row--signals {
+    align-items: stretch;
     gap: 22px;
-    font-size: 11px;
+    padding: 3rem 0 2rem;
+  }
+
+  .footer-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 7px 14px;
+    border-radius: 6px;
+    background: hsl(var(--muted-foreground) / 0.04);
+    font-family: ui-monospace, 'SFMono-Regular', 'JetBrains Mono', Menlo, monospace;
+    font-size: 10px;
+    font-weight: 400;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
     color: hsl(var(--muted-foreground) / 0.55);
   }
 
-  .footer-row--nav {
-    gap: 10px;
-    font-size: 12px;
-    color: hsl(var(--muted-foreground) / 0.5);
-  }
-
-  .footer-copyright {
-    font-size: 11px;
-    color: hsl(var(--muted-foreground) / 0.4);
-    letter-spacing: 0.01em;
-  }
-
-  .footer-divider {
-    color: hsl(var(--muted-foreground) / 0.22);
-  }
-
-  .footer-link {
-    color: hsl(var(--muted-foreground) / 0.6);
-    transition: color 0.15s ease;
-  }
-
-  .footer-link:hover {
-    color: hsl(var(--muted-foreground));
-  }
-
-  .footer-signal {
+  .footer-bar-cell {
     display: inline-flex;
-    align-items: baseline;
-    gap: 7px;
+    align-items: center;
+    gap: 8px;
     color: inherit;
     transition: color 0.15s ease;
   }
 
-  .footer-signal[hidden] {
+  .footer-bar-cell[hidden] {
     display: none;
   }
 
-  a.footer-signal:hover {
+  a.footer-bar-cell:hover {
     color: hsl(var(--muted-foreground));
   }
 
-  .footer-signal-key {
-    font-size: 9.5px;
-    font-weight: 500;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
+  .footer-bar-cell--region {
+    color: hsl(var(--muted-foreground) / 0.5);
+  }
+
+  .footer-bar-text {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 4px;
+  }
+
+  .footer-region-city {
     color: hsl(var(--muted-foreground) / 0.4);
   }
 
-  .footer-signal-value {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    color: hsl(var(--muted-foreground) / 0.7);
+  .footer-region-city:not(:empty)::before {
+    content: '·';
+    margin: 0 4px 0 2px;
+    color: hsl(var(--muted-foreground) / 0.25);
   }
 
   .footer-status-dot {
@@ -237,31 +218,50 @@ const yearRange = currentYear > startYear ? `${startYear}–${currentYear}` : `$
 
   [data-footer-status='operational'] .footer-status-dot {
     --footer-status-color: hsl(142 70% 45%);
+    box-shadow: 0 0 0 3px hsl(142 70% 45% / 0.18);
   }
 
   [data-footer-status='degraded'] .footer-status-dot,
   [data-footer-status='maintenance'] .footer-status-dot {
     --footer-status-color: hsl(38 92% 55%);
+    box-shadow: 0 0 0 3px hsl(38 92% 55% / 0.18);
   }
 
   [data-footer-status='down'] .footer-status-dot {
     --footer-status-color: hsl(0 75% 55%);
+    box-shadow: 0 0 0 3px hsl(0 75% 55% / 0.18);
   }
 
-  .footer-region-code {
-    font-variant-numeric: tabular-nums;
-    letter-spacing: 0.08em;
+  .footer-nav {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    font-size: 13px;
     font-weight: 400;
+    color: hsl(var(--muted-foreground) / 0.7);
+  }
+
+  .footer-divider {
+    color: hsl(var(--muted-foreground) / 0.22);
+  }
+
+  .footer-link {
     color: hsl(var(--muted-foreground) / 0.75);
+    transition: color 0.15s ease;
   }
 
-  .footer-region-city {
-    color: hsl(var(--muted-foreground) / 0.5);
+  .footer-link:hover {
+    color: hsl(var(--foreground));
   }
 
-  .footer-region-city:not(:empty)::before {
-    content: '· ';
-    color: hsl(var(--muted-foreground) / 0.3);
-    margin-right: 1px;
+  .footer-mark {
+    margin: 0;
+    text-align: center;
+    font-size: 11px;
+    font-weight: 300;
+    letter-spacing: 0.02em;
+    color: hsl(var(--muted-foreground) / 0.4);
   }
 </style>
