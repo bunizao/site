@@ -42,8 +42,8 @@ const yearRange = currentYear > startYear ? `${startYear}–${currentYear}` : `$
     <span class="footer-copy">© {yearRange} bunizao. All rights reserved.</span>
     <span class="footer-sep" aria-hidden="true" data-footer-region-sep hidden>·</span>
     <span class="footer-region" data-footer-region hidden>
+      <span class="footer-region-label">Edge:</span>
       <span class="footer-region-code" data-footer-region-code>—</span>
-      <span class="footer-region-city" data-footer-region-city></span>
     </span>
   </p>
 </footer>
@@ -103,7 +103,6 @@ const yearRange = currentYear > startYear ? `${startYear}–${currentYear}` : `$
     const regionEl = document.querySelector<HTMLElement>('[data-footer-region]');
     const regionSepEl = document.querySelector<HTMLElement>('[data-footer-region-sep]');
     const regionCodeEl = document.querySelector<HTMLElement>('[data-footer-region-code]');
-    const regionCityEl = document.querySelector<HTMLElement>('[data-footer-region-city]');
     if (!root || !labelEl) return;
 
     try {
@@ -120,9 +119,6 @@ const yearRange = currentYear > startYear ? `${startYear}–${currentYear}` : `$
       const region = parseRegion(res.headers.get('x-vercel-id'));
       if (region && regionEl && regionCodeEl) {
         regionCodeEl.textContent = region;
-        if (regionCityEl) {
-          regionCityEl.textContent = REGION_NAMES[region] ?? '';
-        }
         regionEl.title = `Edge region: ${REGION_NAMES[region] ?? region}`;
         regionEl.hidden = false;
         if (regionSepEl) regionSepEl.hidden = false;
@@ -231,19 +227,19 @@ const yearRange = currentYear > startYear ? `${startYear}–${currentYear}` : `$
   .footer-region {
     display: inline-flex;
     align-items: baseline;
-    gap: 6px;
+    gap: 4px;
   }
 
   .footer-region[hidden] {
     display: none;
   }
 
-  .footer-region-code {
-    color: hsl(var(--muted-foreground) / 0.6);
-    letter-spacing: 0.04em;
+  .footer-region-label {
+    color: hsl(var(--muted-foreground) / 0.45);
   }
 
-  .footer-region-city {
-    color: hsl(var(--muted-foreground) / 0.4);
+  .footer-region-code {
+    color: hsl(var(--muted-foreground) / 0.7);
+    letter-spacing: 0.04em;
   }
 </style>
