@@ -5,29 +5,6 @@ const yearRange = currentYear > startYear ? `${startYear}–${currentYear}` : `$
 ---
 
 <footer class="footer">
-  <div class="footer-bar">
-    <a
-      href="https://status.tuuhub.com"
-      target="_blank"
-      rel="noopener noreferrer"
-      class="footer-bar-cell footer-bar-cell--status"
-      data-footer-status="unknown"
-    >
-      <span class="footer-status-dot" aria-hidden="true"></span>
-      <span class="footer-bar-text" data-footer-status-label>CHECKING</span>
-    </a>
-    <span
-      class="footer-bar-cell footer-bar-cell--region"
-      data-footer-region
-      hidden
-    >
-      <span class="footer-bar-text">
-        <span data-footer-region-code>—</span>
-        <span data-footer-region-city class="footer-region-city"></span>
-      </span>
-    </span>
-  </div>
-
   <nav class="footer-nav" aria-label="Footer">
     <a
       href="https://github.com/bunizao/site"
@@ -37,7 +14,7 @@ const yearRange = currentYear > startYear ? `${startYear}–${currentYear}` : `$
     >
       Source
     </a>
-    <span class="footer-divider" aria-hidden="true">·</span>
+    <span class="footer-sep" aria-hidden="true">·</span>
     <a
       href="https://astro.build"
       target="_blank"
@@ -46,22 +23,38 @@ const yearRange = currentYear > startYear ? `${startYear}–${currentYear}` : `$
     >
       Built with Astro
     </a>
-    <span class="footer-divider" aria-hidden="true">·</span>
+    <span class="footer-sep" aria-hidden="true">·</span>
     <a href="/privacy" class="footer-link">Privacy</a>
   </nav>
 
-  <p class="footer-mark">
-    © {yearRange} bunizao. All rights reserved.
+  <p class="footer-meta">
+    <a
+      href="https://status.tuuhub.com"
+      target="_blank"
+      rel="noopener noreferrer"
+      class="footer-status"
+      data-footer-status="unknown"
+    >
+      <span class="footer-status-dot" aria-hidden="true"></span>
+      <span data-footer-status-label>Checking</span>
+    </a>
+    <span class="footer-sep" aria-hidden="true">·</span>
+    <span class="footer-copy">© {yearRange} bunizao. All rights reserved.</span>
+    <span class="footer-sep" aria-hidden="true" data-footer-region-sep hidden>·</span>
+    <span class="footer-region" data-footer-region hidden>
+      <span class="footer-region-code" data-footer-region-code>—</span>
+      <span class="footer-region-city" data-footer-region-city></span>
+    </span>
   </p>
 </footer>
 
 <script>
   const STATUS_LABELS: Record<string, string> = {
-    operational: 'OPERATIONAL',
-    degraded: 'DEGRADED',
-    down: 'DOWNTIME',
-    maintenance: 'MAINTENANCE',
-    unknown: 'UNKNOWN',
+    operational: 'Operational',
+    degraded: 'Degraded',
+    down: 'Downtime',
+    maintenance: 'Maintenance',
+    unknown: 'Unknown',
   };
 
   const STATUS_TITLES: Record<string, string> = {
@@ -108,6 +101,7 @@ const yearRange = currentYear > startYear ? `${startYear}–${currentYear}` : `$
     const root = document.querySelector<HTMLAnchorElement>('[data-footer-status]');
     const labelEl = document.querySelector<HTMLElement>('[data-footer-status-label]');
     const regionEl = document.querySelector<HTMLElement>('[data-footer-region]');
+    const regionSepEl = document.querySelector<HTMLElement>('[data-footer-region-sep]');
     const regionCodeEl = document.querySelector<HTMLElement>('[data-footer-region-code]');
     const regionCityEl = document.querySelector<HTMLElement>('[data-footer-region-city]');
     if (!root || !labelEl) return;
@@ -131,6 +125,7 @@ const yearRange = currentYear > startYear ? `${startYear}–${currentYear}` : `$
         }
         regionEl.title = `Edge region: ${REGION_NAMES[region] ?? region}`;
         regionEl.hidden = false;
+        if (regionSepEl) regionSepEl.hidden = false;
       }
     } catch (error) {
       console.warn('Footer status fetch failed:', error);
@@ -151,61 +146,58 @@ const yearRange = currentYear > startYear ? `${startYear}–${currentYear}` : `$
   .footer {
     display: flex;
     flex-direction: column;
-    align-items: stretch;
-    gap: 22px;
+    align-items: center;
+    gap: 14px;
     padding: 3rem 0 2rem;
   }
 
-  .footer-bar {
+  .footer-nav,
+  .footer-meta {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
-    justify-content: space-between;
-    gap: 16px;
-    padding: 7px 14px;
-    border-radius: 6px;
-    background: hsl(var(--muted-foreground) / 0.04);
-    font-family: ui-monospace, 'SFMono-Regular', 'JetBrains Mono', Menlo, monospace;
-    font-size: 10px;
-    font-weight: 400;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
+    justify-content: center;
+    gap: 10px;
+    margin: 0;
+  }
+
+  .footer-nav {
+    font-size: 13px;
+    color: hsl(var(--muted-foreground) / 0.75);
+  }
+
+  .footer-meta {
+    font-size: 11px;
     color: hsl(var(--muted-foreground) / 0.55);
   }
 
-  .footer-bar-cell {
+  .footer-sep {
+    color: hsl(var(--muted-foreground) / 0.22);
+  }
+
+  .footer-sep[hidden] {
+    display: none;
+  }
+
+  .footer-link {
+    color: hsl(var(--muted-foreground) / 0.75);
+    transition: color 0.15s ease;
+  }
+
+  .footer-link:hover {
+    color: hsl(var(--foreground));
+  }
+
+  .footer-status {
     display: inline-flex;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
     color: inherit;
     transition: color 0.15s ease;
   }
 
-  .footer-bar-cell[hidden] {
-    display: none;
-  }
-
-  a.footer-bar-cell:hover {
+  .footer-status:hover {
     color: hsl(var(--muted-foreground));
-  }
-
-  .footer-bar-cell--region {
-    color: hsl(var(--muted-foreground) / 0.5);
-  }
-
-  .footer-bar-text {
-    display: inline-flex;
-    align-items: baseline;
-    gap: 4px;
-  }
-
-  .footer-region-city {
-    color: hsl(var(--muted-foreground) / 0.4);
-  }
-
-  .footer-region-city:not(:empty)::before {
-    content: '·';
-    margin: 0 4px 0 2px;
-    color: hsl(var(--muted-foreground) / 0.25);
   }
 
   .footer-status-dot {
@@ -232,36 +224,26 @@ const yearRange = currentYear > startYear ? `${startYear}–${currentYear}` : `$
     box-shadow: 0 0 0 3px hsl(0 75% 55% / 0.18);
   }
 
-  .footer-nav {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: center;
-    gap: 14px;
-    font-size: 13px;
-    font-weight: 400;
-    color: hsl(var(--muted-foreground) / 0.7);
+  .footer-copy {
+    color: inherit;
   }
 
-  .footer-divider {
-    color: hsl(var(--muted-foreground) / 0.22);
+  .footer-region {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 6px;
   }
 
-  .footer-link {
-    color: hsl(var(--muted-foreground) / 0.75);
-    transition: color 0.15s ease;
+  .footer-region[hidden] {
+    display: none;
   }
 
-  .footer-link:hover {
-    color: hsl(var(--foreground));
+  .footer-region-code {
+    color: hsl(var(--muted-foreground) / 0.6);
+    letter-spacing: 0.04em;
   }
 
-  .footer-mark {
-    margin: 0;
-    text-align: center;
-    font-size: 11px;
-    font-weight: 300;
-    letter-spacing: 0.02em;
+  .footer-region-city {
     color: hsl(var(--muted-foreground) / 0.4);
   }
 </style>
