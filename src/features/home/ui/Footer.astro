@@ -13,8 +13,25 @@ const year = new Date().getFullYear();
       aria-label="Service status"
     >
       <span class="footer-status-dot" aria-hidden="true"></span>
-      <span class="footer-region" data-footer-region>—</span>
     </a>
+    <span class="footer-region" data-footer-region hidden aria-label="Edge region">
+      <svg
+        class="footer-region-icon"
+        viewBox="0 0 12 12"
+        width="11"
+        height="11"
+        aria-hidden="true"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.1"
+        stroke-linecap="round"
+      >
+        <circle cx="6" cy="6" r="4.5" />
+        <path d="M1.5 6h9" />
+        <path d="M6 1.5c1.6 1.4 2.4 3 2.4 4.5S7.6 9.1 6 10.5C4.4 9.1 3.6 7.5 3.6 6S4.4 2.9 6 1.5z" />
+      </svg>
+      <span class="footer-region-code" data-footer-region-code></span>
+    </span>
     <span class="footer-divider">·</span>
     <span class="footer-copyright">© {year} bunizao</span>
     <span class="footer-divider">·</span>
@@ -49,6 +66,30 @@ const year = new Date().getFullYear();
     unknown: 'Status unknown',
   };
 
+  const REGION_NAMES: Record<string, string> = {
+    ARN: 'Stockholm',
+    BOM: 'Mumbai',
+    CDG: 'Paris',
+    CLE: 'Cleveland',
+    CPT: 'Cape Town',
+    DUB: 'Dublin',
+    FRA: 'Frankfurt',
+    GRU: 'São Paulo',
+    HKG: 'Hong Kong',
+    HND: 'Tokyo',
+    IAD: 'Washington, D.C.',
+    ICN: 'Seoul',
+    KIX: 'Osaka',
+    KUL: 'Kuala Lumpur',
+    LHR: 'London',
+    MEL: 'Melbourne',
+    PDX: 'Portland',
+    SFO: 'San Francisco',
+    SIN: 'Singapore',
+    SYD: 'Sydney',
+    YYZ: 'Toronto',
+  };
+
   function parseRegion(headerValue: string | null): string | null {
     if (!headerValue) return null;
     const head = headerValue.split(':')[0]?.trim();
@@ -60,7 +101,8 @@ const year = new Date().getFullYear();
   async function hydrateFooter() {
     const root = document.querySelector<HTMLAnchorElement>('[data-footer-status]');
     const regionEl = document.querySelector<HTMLElement>('[data-footer-region]');
-    if (!root || !regionEl) return;
+    const regionCodeEl = document.querySelector<HTMLElement>('[data-footer-region-code]');
+    if (!root) return;
 
     try {
       const res = await fetch('/api/footer', { headers: { Accept: 'application/json' } });
@@ -73,7 +115,11 @@ const year = new Date().getFullYear();
       root.title = STATUS_TITLES[next];
 
       const region = parseRegion(res.headers.get('x-vercel-id'));
-      if (region) regionEl.textContent = region;
+      if (region && regionEl && regionCodeEl) {
+        regionCodeEl.textContent = region;
+        regionEl.title = `Served from ${REGION_NAMES[region] ?? region}`;
+        regionEl.hidden = false;
+      }
     } catch (error) {
       console.warn('Footer status fetch failed:', error);
       root.setAttribute('data-footer-status', 'unknown');
@@ -124,7 +170,6 @@ const year = new Date().getFullYear();
   .footer-status {
     display: inline-flex;
     align-items: center;
-    gap: 7px;
     color: hsl(var(--muted-foreground) / 0.6);
     transition: color 0.15s ease;
   }
@@ -155,6 +200,28 @@ const year = new Date().getFullYear();
   }
 
   .footer-region {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    color: hsl(var(--muted-foreground) / 0.55);
+    cursor: help;
+    transition: color 0.15s ease;
+  }
+
+  .footer-region:hover {
+    color: hsl(var(--muted-foreground));
+  }
+
+  .footer-region[hidden] {
+    display: none;
+  }
+
+  .footer-region-icon {
+    flex: none;
+    opacity: 0.7;
+  }
+
+  .footer-region-code {
     font-variant-numeric: tabular-nums;
     letter-spacing: 0.06em;
   }
