@@ -1,189 +1,211 @@
 ---
 interface Props {
-  texts: string[];
-  speed?: number;
-  delay?: number;
-  pauseDuration?: number;
+  words: string[];
+  prefix?: string;
 }
 
-const { texts, speed = 80, delay = 0, pauseDuration = 2000 } = Astro.props;
-const initialText = texts[0] ?? '';
-const longestText = texts.reduce((a, b) => a.length > b.length ? a : b, '');
-const cycleTexts = texts.length ? texts : [''];
-const wordWindow = Math.max(1800, pauseDuration + longestText.length * speed);
-const cycleDuration = Math.max(1, cycleTexts.length) * wordWindow;
+const { words, prefix } = Astro.props;
+const safeWords = words.length ? words : [''];
+const initial = safeWords[0];
+const longest = safeWords.reduce((a, b) => (a.length > b.length ? a : b), '');
 ---
 
-<span
-  class="typewriter-wrapper"
-  style={`--typewriter-count: ${cycleTexts.length}; --typewriter-duration: ${cycleDuration}ms; --typewriter-window: ${wordWindow}ms; --typewriter-delay: ${delay}ms;`}
->
-  <!-- Hidden placeholder keeps the animated text width stable. -->
-  <span class="typewriter-placeholder" aria-hidden="true">{longestText}</span>
-  <span
-    class="typewriter"
-    aria-label={initialText}
-  >
-    <span class="typewriter-text">{initialText}</span>
-    <span class="typewriter-reel" aria-hidden="true">
-      <span class="typewriter-reel-track">
-        {cycleTexts.map((text) => <span class="typewriter-word">{text}</span>)}
-        <span class="typewriter-word">{cycleTexts[0]}</span>
-      </span>
+<span class="tw" data-tw data-tw-words={JSON.stringify(safeWords)}>
+  {prefix ? <span class="tw-prefix">{prefix}&nbsp;</span> : null}
+  <span class="tw-stage" aria-live="polite" aria-atomic="true">
+    <span class="tw-ghost" aria-hidden="true">{longest}</span>
+    <span class="tw-flow">
+      <span class="tw-word" data-tw-word>{initial}</span><span class="tw-cursor is-soft-blink" data-tw-cursor aria-hidden="true"></span>
     </span>
   </span>
 </span>
 
 <style>
-  .typewriter-wrapper {
-    display: inline-grid;
+  .tw {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0;
   }
 
-  .typewriter-wrapper > * {
-    grid-area: 1 / 1;
-  }
-
-  .typewriter-placeholder {
-    visibility: hidden;
-  }
-
-  .typewriter {
-    position: relative;
-    display: inline-grid;
+  .tw-prefix {
     white-space: pre;
   }
 
-  .typewriter > * {
-    grid-area: 1 / 1;
-  }
-
-  .typewriter-text {
+  .tw-stage {
     position: relative;
-    z-index: 0;
+    display: inline-block;
+    vertical-align: baseline;
   }
 
-  .typewriter-reel {
-    position: relative;
-    z-index: 1;
-    display: block;
-    height: 1.2em;
-    overflow: hidden;
-    background: hsl(var(--background));
-    isolation: isolate;
-    line-height: 1.2;
-  }
-
-  .typewriter-reel::before,
-  .typewriter-reel::after {
-    content: '';
-    position: absolute;
-    top: 0;
-    bottom: 0;
-    z-index: 2;
+  .tw-ghost {
+    display: inline-block;
+    visibility: hidden;
+    white-space: pre;
     pointer-events: none;
   }
 
-  .typewriter-reel::before {
-    width: 48%;
-    background: linear-gradient(
-      90deg,
-      transparent,
-      hsl(var(--foreground) / 0.08) 32%,
-      hsl(var(--foreground) / 0.34) 50%,
-      transparent 72%
-    );
-    filter: blur(0.2px);
-    mix-blend-mode: screen;
-    animation: stream-scan var(--typewriter-window) steps(18, end) var(--typewriter-delay) infinite;
+  .tw-flow {
+    position: absolute;
+    inset: 0;
+    white-space: pre;
+    display: inline-flex;
+    align-items: baseline;
   }
 
-  .typewriter-reel::after {
-    left: 0;
-    width: 2px;
-    background: hsl(var(--foreground));
-    box-shadow: 0 0 12px hsl(var(--foreground) / 0.45);
-    animation: stream-caret var(--typewriter-window) steps(18, end) var(--typewriter-delay) infinite;
+  .tw-word {
+    display: inline-block;
+    white-space: pre;
   }
 
-  .typewriter-reel-track {
-    display: flex;
-    flex-direction: column;
-    animation: word-reel var(--typewriter-duration) steps(var(--typewriter-count)) var(--typewriter-delay) infinite;
-    will-change: transform;
+  .tw-cursor {
+    display: inline-block;
+    width: 0.5ch;
+    height: 0.9em;
+    margin-left: 3px;
+    background: currentColor;
+    opacity: 0.85;
+    border-radius: 1px;
+    align-self: center;
   }
 
-  .typewriter-word {
-    display: block;
-    animation: stream-word var(--typewriter-window) steps(10, end) var(--typewriter-delay) infinite;
-    line-height: 1.2;
+  .tw-cursor.is-soft-blink {
+    animation: tw-soft-blink 1.15s ease-in-out infinite;
   }
 
-  @keyframes word-reel {
-    to {
-      transform: translateY(calc(var(--typewriter-count) * -1.2em));
-    }
-  }
-
-  @keyframes stream-scan {
-    0% {
-      opacity: 0;
-      transform: translateX(-120%);
-    }
-    12%,
-    72% {
-      opacity: 1;
-    }
-    88%,
-    100% {
-      opacity: 0;
-      transform: translateX(190%);
-    }
-  }
-
-  @keyframes stream-caret {
-    0% {
-      left: 0;
-      opacity: 0;
-    }
-    12% {
-      opacity: 1;
-    }
-    72% {
-      left: calc(100% - 2px);
-      opacity: 1;
-    }
-    88%,
-    100% {
-      left: calc(100% - 2px);
-      opacity: 0;
-    }
-  }
-
-  @keyframes stream-word {
-    0% {
-      filter: blur(0.4px);
-      opacity: 0.74;
-      text-shadow: none;
-    }
-    20%,
-    72% {
-      filter: none;
-      opacity: 1;
-      text-shadow: 0 0 14px hsl(var(--foreground) / 0.16);
-    }
-    100% {
-      filter: none;
-      opacity: 0.92;
-      text-shadow: none;
-    }
+  @keyframes tw-soft-blink {
+    0%, 100% { opacity: 0.9; }
+    50% { opacity: 0.18; }
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .typewriter-reel::before,
-    .typewriter-reel::after,
-    .typewriter-reel-track,
-    .typewriter-word {
+    .tw-cursor.is-soft-blink {
       animation: none;
     }
   }
 </style>
+
+<script>
+  type TwElement = HTMLElement & {
+    _twTimeline?: gsap.core.Timeline;
+    _twActive?: boolean;
+  };
+
+  const TYPE_STEP_MS = 70;
+  const DELETE_STEP_MS = 38;
+  const HOLD_MS = 1600;
+  const POST_DELETE_MS = 240;
+  const ENTER_LEAD_MS = 80;
+
+  const prefersReducedMotion = (): boolean =>
+    window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
+
+  const cleanupOne = (el: TwElement): void => {
+    el._twTimeline?.kill();
+    el._twTimeline = undefined;
+    el._twActive = false;
+  };
+
+  const dispatchCycle = (root: TwElement, word: string, index: number): void => {
+    window.dispatchEvent(
+      new CustomEvent('tw:cycle', { detail: { word, index, source: root } })
+    );
+  };
+
+  const initOne = async (root: TwElement): Promise<void> => {
+    if (root._twActive) return;
+    const wordEl = root.querySelector<HTMLElement>('[data-tw-word]');
+    const cursorEl = root.querySelector<HTMLElement>('[data-tw-cursor]');
+    let words: string[];
+    try {
+      words = JSON.parse(root.dataset.twWords || '[]');
+    } catch {
+      words = [];
+    }
+    if (!wordEl || !words.length) return;
+
+    if (prefersReducedMotion()) {
+      wordEl.textContent = words[0];
+      wordEl.classList.add('is-typing');
+      cursorEl?.classList.add('is-soft-blink');
+      dispatchCycle(root, words[0], 0);
+      return;
+    }
+
+    root._twActive = true;
+    const { default: gsap } = await import('gsap');
+    if (!root._twActive) return;
+
+    const tl = gsap.timeline({ repeat: -1 });
+    root._twTimeline = tl;
+
+    words.forEach((word, i) => {
+      const skipType = i === 0;
+
+      tl.call(() => {
+        cursorEl?.classList.remove('is-soft-blink');
+        if (!skipType) {
+          wordEl.textContent = '';
+        } else {
+          wordEl.textContent = word;
+        }
+      });
+
+      if (!skipType) {
+        for (let c = 1; c <= word.length; c++) {
+          tl.call(
+            () => {
+              wordEl.textContent = word.slice(0, c);
+            },
+            [],
+            `+=${TYPE_STEP_MS / 1000}`
+          );
+        }
+      }
+
+      tl.call(
+        () => cursorEl?.classList.add('is-soft-blink'),
+        [],
+        `+=${ENTER_LEAD_MS / 1000}`
+      );
+
+      tl.to({}, { duration: HOLD_MS / 1000 });
+
+      tl.call(() => {
+        cursorEl?.classList.remove('is-soft-blink');
+        const nextIndex = (i + 1) % words.length;
+        dispatchCycle(root, words[nextIndex], nextIndex);
+      });
+
+      for (let c = word.length - 1; c >= 0; c--) {
+        tl.call(
+          () => {
+            wordEl.textContent = word.slice(0, c);
+          },
+          [],
+          `+=${DELETE_STEP_MS / 1000}`
+        );
+      }
+
+      tl.to({}, { duration: POST_DELETE_MS / 1000 });
+    });
+  };
+
+  const initAll = (): void => {
+    document.querySelectorAll<TwElement>('[data-tw]').forEach((el) => {
+      void initOne(el);
+    });
+  };
+
+  const cleanupAll = (): void => {
+    document.querySelectorAll<TwElement>('[data-tw]').forEach(cleanupOne);
+  };
+
+  document.addEventListener('astro:page-load', initAll);
+  document.addEventListener('astro:before-swap', cleanupAll);
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initAll, { once: true });
+  } else {
+    initAll();
+  }
+</script>

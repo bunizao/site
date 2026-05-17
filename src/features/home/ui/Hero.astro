@@ -67,14 +67,14 @@ const techRow2 = ['Frontend', 'BGP', 'Proxy', 'Docker', 'Linux', 'Web3', 'Optimi
       <div class="status mb-4">
         <span class="status-dot"></span>
         <span class="status-text-wrapper">
-          <span class="status-text" id="status-text">Wondering</span>
+          <span class="status-text t-text-swap" id="status-text">Wondering</span>
         </span>
       </div>
     </div>
 
     <!-- Name -->
     <h1 class="hero-animate mb-2 text-[28px] font-semibold sm:text-[36px]" data-hero-name>
-      <Typewriter texts={["Lucian", "Bunizao", "Tutu", "Collapsar"]} speed={80} />
+      <Typewriter words={["Bunizao", "Lucian", "Tutu", "Collapsar"]} />
     </h1>
 
     <!-- Personal Info -->
@@ -162,31 +162,85 @@ const techRow2 = ['Frontend', 'BGP', 'Proxy', 'Docker', 'Linux', 'Web3', 'Optimi
     }
   }
 
+  .status-text-wrapper {
+    display: inline-block;
+    line-height: 1.2em;
+    vertical-align: middle;
+    position: relative;
+  }
+
   :global(html.js) .hero-animate:not([data-hero-name]) {
     opacity: 0;
     transform: translateY(20px);
+    animation: hero-fade-in 0.6s cubic-bezier(0.22, 1, 0.36, 1) forwards;
     will-change: opacity, transform;
+  }
+
+  :global(html.js) [data-hero-name] {
+    opacity: 0;
+    transform: translateY(20px);
+    animation: hero-fade-in 0.6s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    animation-delay: 0.04s;
+    will-change: opacity, transform;
+  }
+
+  :global(html.js) [data-hero-status] { animation-delay: 0s; }
+  :global(html.js) [data-hero-info] { animation-delay: 0.12s; }
+  :global(html.js) [data-hero-role] { animation-delay: 0.2s; }
+  :global(html.js) [data-hero-bio] { animation-delay: 0.28s; }
+  :global(html.js) [data-hero-socials] { animation-delay: 0.36s; }
+  :global(html.js) [data-hero-listening] { animation-delay: 0.44s; }
+  :global(html.js) [data-hero-github] { animation-delay: 0.52s; }
+  :global(html.js) [data-hero-tech] { animation-delay: 0.6s; }
+
+  @keyframes hero-fade-in {
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
   }
 
   @media (prefers-reduced-motion: reduce) {
     :global(html.js) .hero-animate {
+      animation: none;
       opacity: 1;
       transform: none;
     }
   }
 
-  .status-text-wrapper {
+  .t-text-swap {
+    --text-swap-dur: 220ms;
+    --text-swap-translate-y: 8px;
+    --text-swap-blur: 2px;
+    --text-swap-ease: cubic-bezier(0.22, 1, 0.36, 1);
     display: inline-block;
-    height: 1.2em;
-    line-height: 1.2em;
-    overflow: hidden;
-    vertical-align: middle;
-    position: relative;
+    transform: translateY(0);
+    filter: blur(0);
+    opacity: 1;
+    transition:
+      transform var(--text-swap-dur) var(--text-swap-ease),
+      filter var(--text-swap-dur) var(--text-swap-ease),
+      opacity var(--text-swap-dur) var(--text-swap-ease);
+    will-change: transform, filter, opacity;
   }
 
-  .status-text {
-    display: inline-block;
-    line-height: 1.2em;
+  .t-text-swap.is-exit {
+    transform: translateY(calc(var(--text-swap-translate-y) * -1));
+    filter: blur(var(--text-swap-blur));
+    opacity: 0;
+  }
+
+  .t-text-swap.is-enter-start {
+    transform: translateY(var(--text-swap-translate-y));
+    filter: blur(var(--text-swap-blur));
+    opacity: 0;
+    transition: none;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .t-text-swap {
+      transition: none !important;
+    }
   }
 
   /* Personal info styling */
@@ -218,7 +272,6 @@ const techRow2 = ['Frontend', 'BGP', 'Proxy', 'Docker', 'Linux', 'Web3', 'Optimi
 
 <script>
   const prefersReducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-  const heroElements = document.querySelectorAll('.hero-animate:not([data-hero-name])');
   const statusText = document.getElementById('status-text');
 
   // Status text rotation
@@ -250,27 +303,33 @@ const techRow2 = ['Frontend', 'BGP', 'Proxy', 'Docker', 'Linux', 'Web3', 'Optimi
     'Solving'
   ];
 
-  const initHero = async () => {
-    if (!heroElements.length) return;
+  const bindStatusRotation = () => {
+    if (!statusText) return;
+    let currentIndex = 0;
+    const SWAP_DUR = 220;
+
+    const rotateStatus = () => {
+      statusText.classList.add('is-exit');
+
+      setTimeout(() => {
+        currentIndex = (currentIndex + 1) % statusWords.length;
+        statusText.textContent = statusWords[currentIndex];
+        statusText.classList.remove('is-exit');
+        statusText.classList.add('is-enter-start');
+
+        void statusText.offsetWidth;
+        statusText.classList.remove('is-enter-start');
+      }, SWAP_DUR);
+    };
+
+    window.addEventListener('tw:cycle', rotateStatus);
+  };
+
+  const bindMagneticButtons = async () => {
+    const magneticButtons = document.querySelectorAll('[data-magnetic]');
+    if (!magneticButtons.length) return;
     const { default: gsap } = await import('gsap');
 
-    // Set initial states
-    gsap.set(heroElements, { opacity: 0, y: 20 });
-
-    // Create master timeline for hero section
-    const heroTl = gsap.timeline({
-      defaults: { ease: 'power3.out' }
-    });
-
-    // Animate each element with stagger
-    heroTl.to(heroElements, {
-      opacity: 1,
-      y: 0,
-      duration: 0.6,
-      stagger: 0.1
-    });
-
-    const magneticButtons = document.querySelectorAll('[data-magnetic]');
     magneticButtons.forEach((button) => {
       const element = button as HTMLElement;
       const strength = Number.parseFloat(element.getAttribute('data-strength') || '0.3');
@@ -327,38 +386,10 @@ const techRow2 = ['Frontend', 'BGP', 'Proxy', 'Docker', 'Linux', 'Web3', 'Optimi
       element.addEventListener('pointermove', handlePointerMove, { passive: true });
       element.addEventListener('pointerleave', handlePointerLeave, { passive: true });
     });
-
-    if (statusText) {
-      let currentIndex = 0;
-
-      const rotateStatus = () => {
-        // Animate out
-        gsap.to(statusText, {
-          y: '-120%',
-          opacity: 0,
-          duration: 0.3,
-          ease: 'power2.in',
-          onComplete: () => {
-            currentIndex = (currentIndex + 1) % statusWords.length;
-            statusText.textContent = statusWords[currentIndex];
-
-            // Reset position and animate in
-            gsap.fromTo(statusText,
-              { y: '120%', opacity: 0 },
-              { y: '0%', opacity: 1, duration: 0.3, ease: 'power2.out' }
-            );
-          }
-        });
-      };
-
-      // Start rotation after hero animation completes
-      heroTl.call(() => {
-        setInterval(rotateStatus, 3000);
-      });
-    }
   };
 
+  bindStatusRotation();
   if (!prefersReducedMotion) {
-    void initHero();
+    void bindMagneticButtons();
   }
 </script>
