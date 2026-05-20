@@ -1,0 +1,192 @@
+name: Lighthouse
+
+on:
+  deployment_status:
+  workflow_dispatch:
+    inputs:
+      deployment_url:
+        description: Deployment URL to test
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: lighthouse-${{ github.event.deployment.id || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  lighthouse:
+    name: Lighthouse
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (
+        github.event_name == 'deployment_status' &&
+        github.event.deployment_status.state == 'success' &&
+        (
+          github.event.deployment.environment == 'Preview' ||
+          github.event.deployment.environment == 'Production'
+        )
+      )
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Resolve deployment context
+        id: context
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const inputUrl = context.payload.inputs?.deployment_url;
+            const deployment = context.payload.deployment;
+            const deploymentStatus = context.payload.deployment_status;
+            const deploymentUrl = String(
+              inputUrl ||
+              deploymentStatus?.environment_url ||
+              deploymentStatus?.target_url ||
+              ''
+            ).trim();
+
+            if (!deploymentUrl) {
+              core.setFailed('Deployment URL is required.');
+              return;
+            }
+
+            let parsedUrl;
+            try {
+              parsedUrl = new URL(deploymentUrl);
+            } catch {
+              core.setFailed(`Invalid deployment URL: ${deploymentUrl}`);
+              return;
+            }
+
+            if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
+              core.setFailed(`Unsupported deployment URL protocol: ${parsedUrl.protocol}`);
+              return;
+            }
+
+            core.setOutput('deployment_url', parsedUrl.toString());
+            core.setOutput('environment', deployment?.environment || 'Manual');
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.6
+
+      - name: Run Lighthouse CI
+        id: lhci
+        env:
+          LHCI_DEPLOYMENT_URL: ${{ steps.context.outputs.deployment_url }}
+          LHCI_ENVIRONMENT: ${{ steps.context.outputs.environment }}
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+        run: |
+          bun x @lhci/cli@0.15.1 healthcheck --config=./lighthouserc.cjs
+          bun x @lhci/cli@0.15.1 collect --config=./lighthouserc.cjs
+          bun x @lhci/cli@0.15.1 upload --config=./lighthouserc.cjs
+          bun x @lhci/cli@0.15.1 assert --config=./lighthouserc.cjs
+
+      - name: Summarize Lighthouse result
+        if: always()
+        env:
+          LHCI_DEPLOYMENT_URL: ${{ steps.context.outputs.deployment_url }}
+          LHCI_ENVIRONMENT: ${{ steps.context.outputs.environment }}
+        run: node .github/scripts/summarize-lighthouse.mjs
+
+      - name: Redact Lighthouse artifacts
+        if: always()
+        env:
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+        run: node .github/scripts/redact-lighthouse-artifacts.mjs
+
+      - name: Upload Lighthouse artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lighthouse-report
+          path: .lighthouseci
+          if-no-files-found: ignore
+
+      - name: Notify abnormal Lighthouse result
+        if: always() && steps.lhci.outcome == 'failure'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const title = 'Lighthouse anomaly tracker';
+            const summaryPath = '.lighthouseci/summary.md';
+            const summary = fs.existsSync(summaryPath)
+              ? fs.readFileSync(summaryPath, 'utf8')
+              : 'Lighthouse failed before a summary could be generated.';
+            const body = `${summary}\n\nArtifacts are attached to this workflow run.`;
+
+            const { data: issues } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              per_page: 100,
+            });
+            const existing = issues.find((issue) => !issue.pull_request && issue.title === title);
+
+            if (existing) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: existing.number,
+                body,
+              });
+              core.notice(`Updated issue #${existing.number}.`);
+            } else {
+              const issue = await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title,
+                body,
+              });
+              core.notice(`Created issue #${issue.data.number}.`);
+            }
+
+      - name: Close resolved Lighthouse tracker
+        if: steps.lhci.outcome == 'success'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const title = 'Lighthouse anomaly tracker';
+            const summaryPath = '.lighthouseci/summary.md';
+            const summary = fs.existsSync(summaryPath)
+              ? fs.readFileSync(summaryPath, 'utf8')
+              : 'Lighthouse recovered.';
+
+            const { data: issues } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              per_page: 100,
+            });
+            const existing = issues.find((issue) => !issue.pull_request && issue.title === title);
+
+            if (!existing) return;
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: existing.number,
+              body: `${summary}\n\nThe latest deployment is back inside the Lighthouse gates.`,
+            });
+            await github.rest.issues.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: existing.number,
+              state: 'closed',
+              state_reason: 'completed',
+            });
