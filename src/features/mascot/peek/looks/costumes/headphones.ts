@@ -3,45 +3,35 @@ import { PEEK_LOOK_PALETTE } from '../../palette';
 import { withBody } from './body';
 
 const _ = 0;
+const W = 5;
 const K = 8;
 
 const HAT = [
   [_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_],
   [_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_],
-  [_,_,_,_,_,_,_,_,_,_,_,_,K,K,K,K,K,K,_,_,_,_,_,_,_,_,_,_,_,_],
-  [_,_,_,_,_,_,_,_,_,_,K,K,K,K,K,K,K,K,K,K,_,_,_,_,_,_,_,_,_,_],
-  [_,_,_,_,_,_,_,_,K,K,K,_,_,_,_,_,_,_,_,K,K,K,_,_,_,_,_,_,_,_],
-  [_,_,_,_,_,_,K,K,K,_,_,_,_,_,_,_,_,_,_,_,_,K,K,K,_,_,_,_,_,_],
-  [_,_,_,_,K,K,K,K,_,_,_,_,_,_,_,_,_,_,_,_,_,_,K,K,K,K,_,_,_,_],
-  [_,_,_,K,K,K,K,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,K,K,K,K,_,_,_],
-  [_,_,K,K,K,K,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,K,K,K,K,_,_],
-  [_,K,K,K,K,K,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,K,K,K,K,K,_],
-  [_,K,K,K,K,K,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,K,K,K,K,K,_],
-  [_,K,K,K,K,K,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,K,K,K,K,K,_],
-  [_,K,K,K,K,K,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,K,K,K,K,K,_],
-  [_,K,K,K,K,K,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,K,K,K,K,K,_],
-  [_,K,K,K,K,K,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,K,K,K,K,K,_],
+  [_,_,_,_,_,_,_,_,_,_,_,_,W,W,W,W,W,W,_,_,_,_,_,_,_,_,_,_,_,_],
+  [_,_,_,_,_,_,_,_,_,_,W,W,W,K,K,K,K,W,W,W,_,_,_,_,_,_,_,_,_,_],
+  [_,_,_,_,_,_,_,_,W,W,W,K,K,K,K,K,K,K,K,W,W,W,_,_,_,_,_,_,_,_],
+  [_,_,_,_,_,_,W,W,W,K,K,K,K,K,K,K,K,K,K,K,K,W,W,W,_,_,_,_,_,_],
+  [_,_,_,_,W,W,W,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,W,W,W,_,_,_,_],
+  [_,_,_,W,W,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,K,W,W,_,_,_],
+  [_,_,W,W,K,K,K,K,_,_,_,_,_,_,_,_,_,_,_,_,_,_,K,K,K,K,W,W,_,_],
+  [_,W,W,K,K,K,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,K,K,K,W,W,_],
+  [_,W,W,K,K,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,K,K,W,W,_],
+  [_,W,W,K,K,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,K,K,W,W,_],
+  [_,W,W,K,K,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,K,K,W,W,_],
+  [_,W,W,K,K,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,K,K,W,W,_],
+  [_,W,W,W,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,W,W,W,_],
 ];
-
-const CUP_OVERLAY: ReadonlyArray<readonly [number, number, number]> = [
-  ...range(15, 18).flatMap((y) => range(1, 6).map((x) => [x, y, K] as const)),
-  ...range(15, 18).flatMap((y) => range(24, 29).map((x) => [x, y, K] as const)),
-];
-
-function range(start: number, end: number): number[] {
-  const out: number[] = [];
-  for (let i = start; i <= end; i += 1) out.push(i);
-  return out;
-}
 
 export const PEEK_HEADPHONES_COSTUME = defineLook(
   'peek.costume.headphones',
   'headphones',
   'costume',
-  withBody(HAT, CUP_OVERLAY),
+  withBody(HAT),
   {
     label: 'headphones',
-    summary: 'Cups over the ears with an arched headband. Useful for links to listening surfaces.',
+    summary: 'White headband arching over the head with dark cups flanking the ears.',
     status: 'active',
     tags: ['costume'],
     palette: PEEK_LOOK_PALETTE,
