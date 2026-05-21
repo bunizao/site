@@ -91,12 +91,13 @@ const navItems = [
       .portal-sidebar-brand {
         display: flex;
         align-items: center;
-        gap: 8px;
         padding: 0 8px 16px;
-        font-size: 12px;
-        letter-spacing: 0.16em;
-        text-transform: uppercase;
-        color: hsl(var(--muted-foreground));
+      }
+      .portal-sidebar-brand img {
+        width: 24px;
+        height: 24px;
+        border-radius: 6px;
+        image-rendering: -webkit-optimize-contrast;
       }
       .portal-sidebar-link {
         position: relative;
@@ -295,8 +296,7 @@ const navItems = [
     <div class="portal-shell">
       <aside class="portal-sidebar">
         <div class="portal-sidebar-brand">
-          <span style="display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:6px;background:hsl(var(--primary));color:hsl(var(--primary-foreground));font-weight:700;font-size:12px;">b</span>
-          <span>Dev Portal</span>
+          <img src="/favicon.ico?v=portal" alt="" width="24" height="24" decoding="async" />
         </div>
         {navItems.map((item) => (
           <a
