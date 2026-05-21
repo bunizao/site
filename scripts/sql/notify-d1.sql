@@ -10,6 +10,7 @@ CREATE TABLE IF NOT EXISTS notify_subscribers (
   pending_daily_hour INTEGER CHECK (pending_daily_hour BETWEEN 0 AND 23),
   last_notified_at TEXT,
   last_notified_post_id TEXT,
+  channels TEXT NOT NULL DEFAULT '["mood"]',
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL,
   confirmed_at TEXT,
@@ -73,3 +74,24 @@ ON notify_audit(email_hash, created_at);
 
 CREATE INDEX IF NOT EXISTS idx_notify_audit_event_type_created_at
 ON notify_audit(event_type, created_at);
+
+CREATE TABLE IF NOT EXISTS notify_broadcasts (
+  id TEXT PRIMARY KEY,
+  subject TEXT NOT NULL,
+  body_html TEXT NOT NULL,
+  body_text TEXT,
+  audience_json TEXT NOT NULL,
+  recipient_count INTEGER NOT NULL,
+  sent_count INTEGER NOT NULL DEFAULT 0,
+  failed_count INTEGER NOT NULL DEFAULT 0,
+  status TEXT NOT NULL CHECK (status IN ('draft','sending','sent','failed')),
+  created_at TEXT NOT NULL,
+  sent_at TEXT,
+  sent_by TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_notify_broadcasts_created
+ON notify_broadcasts(created_at);
+
+CREATE INDEX IF NOT EXISTS idx_notify_broadcasts_status
+ON notify_broadcasts(status);

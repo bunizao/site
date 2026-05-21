@@ -136,10 +136,27 @@ class ExternalApiMock {
   }
 
   private toSubscriberRecord(row: Record<string, unknown>): SubscriberRecord {
+    const channelsRaw = row.channels;
+    let channels: SubscriberRecord['channels'] = ['mood'];
+    if (typeof channelsRaw === 'string' && channelsRaw.length) {
+      try {
+        const parsed = JSON.parse(channelsRaw);
+        if (Array.isArray(parsed) && parsed.length) {
+          channels = parsed.filter(
+            (entry): entry is SubscriberRecord['channels'][number] => typeof entry === 'string'
+          ) as SubscriberRecord['channels'];
+          if (!channels.length) channels = ['mood'];
+        }
+      } catch {
+        channels = ['mood'];
+      }
+    }
+
     return {
       email: String(row.email ?? ''),
       emailHash: String(row.email_hash ?? ''),
       status: row.status as SubscriberRecord['status'],
+      channels,
       deliveryMode: (row.delivery_mode as SubscriberRecord['deliveryMode']) ?? undefined,
       timezone: (row.timezone as string | null) ?? undefined,
       dailyHour: typeof row.daily_hour === 'number' ? row.daily_hour : undefined,

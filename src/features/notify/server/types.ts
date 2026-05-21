@@ -1,11 +1,23 @@
 export type SubscriberStatus = 'pending' | 'active' | 'unsubscribed';
 export type DeliveryMode = 'immediate' | 'every_5h' | 'daily';
-export type NotifyAuditEventType = 'subscribe_requested' | 'subscription_confirmed' | 'unsubscribed';
+export type NotifyChannel = 'mood' | 'blog' | 'privacy' | 'announcement';
+export type NotifyAuditEventType =
+  | 'subscribe_requested'
+  | 'subscription_confirmed'
+  | 'unsubscribed'
+  | 'admin_create'
+  | 'admin_update'
+  | 'admin_delete'
+  | 'admin_resend_confirm'
+  | 'broadcast_sent';
+
+export const NOTIFY_CHANNELS: readonly NotifyChannel[] = ['mood', 'blog', 'privacy', 'announcement'];
 
 export interface SubscriberRecord {
   email: string;
   emailHash: string;
   status: SubscriberStatus;
+  channels: NotifyChannel[];
   deliveryMode?: DeliveryMode;
   timezone?: string;
   dailyHour?: number;
