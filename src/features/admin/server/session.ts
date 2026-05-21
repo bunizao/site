@@ -1,4 +1,4 @@
-import { createHmac, createSecretKey, randomBytes, timingSafeEqual, type KeyObject } from 'node:crypto';
+import { createHmac, randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
 import { readEnv } from '@/lib/runtime/env';
 
 export interface AdminSession {
@@ -21,6 +21,8 @@ const SESSION_TTL_SECONDS = 7 * 24 * 60 * 60;
 const STATE_TTL_SECONDS = 10 * 60;
 const LOCALHOST_NAMES = new Set(['localhost', '::1']);
 const DEFAULT_ADMIN_NEXT_PATH = '/dev/portal';
+const SIGNING_KEY_CONTEXT = 'site-admin-session-signing-v1';
+const signingKeyCache = new Map<string, Buffer>();
 
 export function readAdminAuthConfig(locals: any): AdminAuthConfig {
   return {
@@ -95,12 +97,16 @@ function base64UrlDecode(value: string): Buffer {
   return Buffer.from(value, 'base64url');
 }
 
-function toSigningKey(value: string): KeyObject {
-  return createSecretKey(Buffer.from(value, 'utf8'));
+function deriveSigningKey(value: string): Buffer {
+  const cached = signingKeyCache.get(value);
+  if (cached) return cached;
+  const key = scryptSync(value, SIGNING_KEY_CONTEXT, 32);
+  signingKeyCache.set(value, key);
+  return key;
 }
 
 function signPayload(payload: string, signingKey: string): string {
-  return createHmac('sha256', toSigningKey(signingKey)).update(payload).digest('base64url');
+  return createHmac('sha256', deriveSigningKey(signingKey)).update(payload).digest('base64url');
 }
 
 function safeEqual(a: string, b: string): boolean {

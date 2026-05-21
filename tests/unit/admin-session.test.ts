@@ -2,8 +2,10 @@ import { describe, expect, test } from 'bun:test';
 
 import {
   createOauthState,
+  createSessionToken,
   readAdminDevSession,
   verifyOauthState,
+  verifySessionToken,
 } from '../../src/features/admin/server/session';
 
 describe('admin dev session', () => {
@@ -88,6 +90,14 @@ describe('admin dev session', () => {
 });
 
 describe('admin OAuth state', () => {
+  test('signs session tokens with a derived key', () => {
+    const now = Math.floor(Date.now() / 1000);
+    const token = createSessionToken('tester', 'test-signing-key', now);
+
+    expect(verifySessionToken(token, 'test-signing-key')?.login).toBe('tester');
+    expect(verifySessionToken(token, 'other-signing-key')).toBeNull();
+  });
+
   test('normalizes unsafe next paths back to the portal', () => {
     const signingKey = 'test-signing-key';
     const now = Math.floor(Date.now() / 1000);
