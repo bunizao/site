@@ -194,6 +194,10 @@ function getVariantObjectKey(baseKey: string, width: number): string {
   return `${baseKey}@w${width}`;
 }
 
+function getVariantHeader(width: number | null): string {
+  return width ? `w${width}` : 'original';
+}
+
 function buildPublicUrl(target: ImageTarget, requestUrl: URL): string {
   return new URL(target.publicPath, requestUrl.origin).toString();
 }
@@ -802,8 +806,14 @@ async function handleRead(request: Request, url: URL, env: Env, ctx: ExecutionCo
   const cache = (caches as CacheStorageWithDefault).default;
   const cached = await cache.match(cacheRequest);
   if (cached) {
-    return cached;
+    if (variantWidth && cached.headers.get('X-Image-Variant') !== getVariantHeader(variantWidth)) {
+      ctx.waitUntil(cache.delete(cacheRequest));
+    } else {
+      return cached;
+    }
   }
+
+  const variantHeader = getVariantHeader(variantWidth);
 
   const preferredKey = variantWidth ? getVariantObjectKey(target.objectKey, variantWidth) : target.objectKey;
   const preferredObject = await env.MOOD_IMAGES.get(preferredKey);
@@ -816,6 +826,7 @@ async function handleRead(request: Request, url: URL, env: Env, ctx: ExecutionCo
     preferredObject.writeHttpMetadata(headers);
     headers.set('ETag', preferredObject.httpEtag);
     headers.set('Vary', 'Accept');
+    headers.set('X-Image-Variant', variantHeader);
 
     const response = request.method === 'HEAD'
       ? new Response(null, { status: 200, headers })
@@ -839,6 +850,7 @@ async function handleRead(request: Request, url: URL, env: Env, ctx: ExecutionCo
           'Vary': 'Accept',
           ...corsHeaders,
         });
+        headers.set('X-Image-Variant', variantHeader);
         const response = request.method === 'HEAD'
           ? new Response(null, { status: 200, headers })
           : new Response(generated.bytes as unknown as BodyInit, { status: 200, headers });

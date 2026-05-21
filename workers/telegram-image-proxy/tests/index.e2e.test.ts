@@ -663,7 +663,37 @@ describe('telegram image worker e2e', () => {
 
     expect(response.status).toBe(200);
     expect(Array.from(bytes)).toEqual([225, 9, 8, 7]);
+    expect(response.headers.get('x-image-variant')).toBe('w480');
     expect(env.MOOD_IMAGES.has('mood/201/0@w480')).toBe(true);
+  });
+
+  test('read endpoint ignores stale original cache entries for width variants', async () => {
+    const env = createEnv();
+    const ctx = new FakeExecutionContext();
+    const fetchMock = new FetchMock();
+    registerWorkerPublicImageHandler(fetchMock, env);
+    globalThis.fetch = fetchMock.fetch as typeof fetch;
+
+    await env.MOOD_IMAGES.put('mood/202/0', new Uint8Array([10, 20, 30]), {
+      httpMetadata: {
+        contentType: 'image/jpeg',
+        cacheControl: 'public, max-age=31536000, immutable, no-transform',
+      },
+    });
+
+    const cacheRequest = new Request('https://image.example.test/mood/202/0?w=480');
+    await (globalThis.caches as any).default.put(cacheRequest, new Response(new Uint8Array([10, 20, 30]), {
+      headers: { 'Content-Type': 'image/jpeg' },
+    }));
+
+    const request = new Request('https://image.example.test/mood/202/0?w=480', { method: 'GET' });
+    const response = await worker.fetch(request, env as unknown as Env, ctx);
+    const bytes = new Uint8Array(await response.arrayBuffer());
+
+    expect(response.status).toBe(200);
+    expect(Array.from(bytes)).toEqual([225, 9, 8, 7]);
+    expect(response.headers.get('x-image-variant')).toBe('w480');
+    expect(env.MOOD_IMAGES.has('mood/202/0@w480')).toBe(true);
   });
 
   test('read endpoint returns 404 on R2 miss without telegram fallback fetch', async () => {
