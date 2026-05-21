@@ -3,9 +3,10 @@ import type { MoodFeedItem } from '@/features/mood/server/contracts';
 
 interface Props {
   initialPosts?: MoodFeedItem[];
+  runtimeDisabled?: boolean;
 }
 
-const { initialPosts = [] } = Astro.props;
+const { initialPosts = [], runtimeDisabled = false } = Astro.props;
 const SKELETON_COUNT = 1;
 const INITIAL_POST_COUNT = 5;
 const skeletonPatterns = [
@@ -21,16 +22,21 @@ const placeholders = Array.from({ length: SKELETON_COUNT }, (_, index) => ({
 }));
 ---
 
-<section id="moods-section" class="moods-section" data-parallax="off">
+<section
+  id="moods-section"
+  class="moods-section"
+  data-parallax="off"
+  data-mood-runtime-disabled={runtimeDisabled ? 'true' : undefined}
+>
   <span class="section-label scroll-reveal">Moods</span>
 
-  <div class="mood-timeline" data-mood-list role="region" aria-busy="true" aria-label="Recent moods">
+  <div class="mood-timeline" data-mood-list role="region" aria-busy={runtimeDisabled ? 'false' : 'true'} aria-label="Recent moods">
     <script
       type="application/json"
       data-mood-preview-initial
       set:html={JSON.stringify(initialPosts.slice(0, INITIAL_POST_COUNT))}
     ></script>
-    {placeholders.map(({ index, pattern }) => (
+    {!runtimeDisabled && placeholders.map(({ index, pattern }) => (
       <div
         class="mood-item mood-item-skeleton"
         style={`--item-index: ${index}; --line-1: ${pattern.line1}; --line-2: ${pattern.line2};`}
@@ -54,7 +60,9 @@ const placeholders = Array.from({ length: SKELETON_COUNT }, (_, index) => ({
     ))}
   </div>
 
-  <p class="mood-empty-state" data-mood-empty hidden>No moods yet.</p>
+  <p class="mood-empty-state" data-mood-empty hidden={!runtimeDisabled}>
+    {runtimeDisabled ? 'Mood preview paused in home dev.' : 'No moods yet.'}
+  </p>
   <p class="mood-error-state" data-mood-error hidden>Unable to load moods.</p>
 
   <a
@@ -559,6 +567,7 @@ const placeholders = Array.from({ length: SKELETON_COUNT }, (_, index) => ({
     const errorState = moodsSection.querySelector('[data-mood-error]') as HTMLElement | null;
     const label = moodsSection.querySelector('.scroll-reveal');
     const link = moodsSection.querySelector('.scroll-reveal-link');
+    const runtimeDisabled = moodsSection.dataset.moodRuntimeDisabled === 'true';
     let hasLoaded = false;
     let initialPreviewLoadedAt = 0;
     let previewRevalidationTimer = 0;
@@ -1261,7 +1270,7 @@ const placeholders = Array.from({ length: SKELETON_COUNT }, (_, index) => ({
     };
 
     const loadMoods = async (): Promise<void> => {
-      if (ALWAYS_LOADING || hasLoaded || !list) return;
+      if (runtimeDisabled || ALWAYS_LOADING || hasLoaded || !list) return;
 
       if (initialPreviewLoadedAt > 0) {
         const age = Date.now() - initialPreviewLoadedAt;
@@ -1413,7 +1422,9 @@ const placeholders = Array.from({ length: SKELETON_COUNT }, (_, index) => ({
 
     gsap.registerPlugin(ScrollTrigger);
 
-    await primeSkeletonsFromInitialPosts() || await primeSkeletonsFromCache();
+    if (!runtimeDisabled) {
+      await primeSkeletonsFromInitialPosts() || await primeSkeletonsFromCache();
+    }
     void initMoods();
   };
 

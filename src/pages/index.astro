@@ -17,6 +17,7 @@ export const prerender = false;
 const title = "Bunizao's Website";
 const description = siteDescription;
 const useClientRealtimeFixtures = isE2ESiteFixtureEnabled(Astro.locals);
+const isHomeDevSurface = import.meta.env.DEV && process.env.DEV_SURFACE === 'home';
 
 const loadInitialMoodPreview = async () => {
   try {
@@ -45,8 +46,8 @@ const [listeningResult, initialMoodPosts] = await Promise.all([
     : getCurrentListeningTrack(Astro.locals).catch((error) => {
         console.warn('Failed to load initial listening track:', error);
         return null;
-      }),
-  useClientRealtimeFixtures ? Promise.resolve([]) : loadInitialMoodPreview(),
+  }),
+  useClientRealtimeFixtures || isHomeDevSurface ? Promise.resolve([]) : loadInitialMoodPreview(),
 ]);
 ---
 
@@ -61,7 +62,7 @@ const [listeningResult, initialMoodPosts] = await Promise.all([
       <Hero listeningTrack={listeningResult?.track} />
       <Projects />
       <Posts />
-      <HomePreview initialPosts={initialMoodPosts} />
+      <HomePreview initialPosts={initialMoodPosts} runtimeDisabled={isHomeDevSurface} />
       <Footer />
     </main>
   </ParallaxWrapper>

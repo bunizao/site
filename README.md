@@ -23,6 +23,14 @@ bun install
 bun run dev
 ```
 
+Use focused dev scripts when working on one surface:
+
+```bash
+bun run dev:home     # homepage, with mood runtime loading paused
+bun run dev:mood     # mood feed/detail work
+bun run dev:preview  # internal preview pages
+```
+
 ## API Endpoints
 
 ### JSON
