@@ -26,6 +26,7 @@ describe('admin dev session', () => {
       login: 'tester',
       iat: 100,
       exp: 604900,
+      avatarUrl: 'https://github.com/tester.png?size=56',
     });
   });
 
@@ -86,6 +87,23 @@ describe('admin dev session', () => {
 
     expect(readAdminDevSession(locals, true, '127.0.0.1', 100)?.login).toBe('local-dev');
     expect(readAdminDevSession(locals, true, '[::1]', 100)?.login).toBe('local-dev');
+  });
+
+  test('uses an explicit dev avatar when configured', () => {
+    const session = readAdminDevSession(
+      {
+        env: {
+          ADMIN_DEV_BYPASS: '1',
+          ADMIN_DEV_LOGIN: 'tester',
+          ADMIN_DEV_AVATAR_URL: 'https://avatars.example/tester.png',
+        },
+      },
+      true,
+      'localhost',
+      100
+    );
+
+    expect(session?.avatarUrl).toBe('https://avatars.example/tester.png');
   });
 });
 

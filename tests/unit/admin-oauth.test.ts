@@ -1,7 +1,12 @@
 import { describe, expect, test } from 'bun:test';
 
 import { buildOauthStartResult } from '../../src/features/admin/server/oauth';
-import { ADMIN_SESSION_COOKIE, ADMIN_OAUTH_STATE_COOKIE } from '../../src/features/admin/server/session';
+import {
+  ADMIN_SESSION_COOKIE,
+  ADMIN_OAUTH_STATE_COOKIE,
+  readSessionFromCookieHeader,
+  verifySessionToken,
+} from '../../src/features/admin/server/session';
 
 describe('admin OAuth start', () => {
   test('mints a local session cookie for loopback dev login', async () => {
@@ -20,6 +25,9 @@ describe('admin OAuth start', () => {
 
     expect(result?.redirectUrl).toBe('/dev/portal/newsletter');
     expect(result?.cookies[0]).toContain(`${ADMIN_SESSION_COOKIE}=`);
+    const token = readSessionFromCookieHeader(result?.cookies[0]);
+    const session = await verifySessionToken(token, 'test-secret');
+    expect(session?.avatarUrl).toBe('https://github.com/tester.png?size=56');
   });
 
   test('falls back to GitHub OAuth outside dev bypass', async () => {

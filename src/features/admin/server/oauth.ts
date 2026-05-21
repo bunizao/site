@@ -82,7 +82,9 @@ export async function buildOauthStartResult(
 
   const devSession = readAdminDevSession(locals, isDev, url.hostname);
   if (devSession && config.sessionSigningKey) {
-    const sessionToken = await createSessionToken(devSession.login, config.sessionSigningKey);
+    const sessionToken = await createSessionToken(devSession.login, config.sessionSigningKey, undefined, {
+      avatarUrl: devSession.avatarUrl,
+    });
     return {
       redirectUrl: normalizeStartRedirectPath(nextPath),
       cookies: [buildSessionCookie(sessionToken)],

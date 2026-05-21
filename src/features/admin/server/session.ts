@@ -44,10 +44,13 @@ export function readAdminDevSession(
   }
 
   const login = readEnv(locals, 'ADMIN_DEV_LOGIN') || readEnv(locals, 'ADMIN_GITHUB_LOGIN') || 'local-dev';
+  const configuredAvatar = readEnv(locals, 'ADMIN_DEV_AVATAR_URL').trim();
+  const avatarUrl = configuredAvatar || (login === 'local-dev' ? '' : `https://github.com/${encodeURIComponent(login)}.png?size=56`);
   return {
     login,
     iat: now,
     exp: now + SESSION_TTL_SECONDS,
+    ...(avatarUrl ? { avatarUrl } : {}),
   };
 }
 

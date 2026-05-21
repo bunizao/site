@@ -47,7 +47,10 @@ export const onRequest = defineMiddleware(async (context, next) => {
       isAllowedLogin(session.login, config.allowedLogin)
       || (devSession && isAllowedLogin(session.login, devSession.login))
     ) {
-      (context.locals as Record<string, unknown>).adminSession = session;
+      (context.locals as Record<string, unknown>).adminSession = {
+        ...session,
+        avatarUrl: session.avatarUrl || devSession?.avatarUrl,
+      };
       return next();
     }
   }
