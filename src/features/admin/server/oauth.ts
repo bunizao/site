@@ -6,6 +6,7 @@ import {
   createSessionToken,
   isAllowedLogin,
   readAdminAuthConfig,
+  readAdminDevSession,
   readStateFromCookieHeader,
   verifyOauthState,
 } from './session';
@@ -13,6 +14,7 @@ import {
 const GITHUB_AUTHORIZE_URL = 'https://github.com/login/oauth/authorize';
 const GITHUB_TOKEN_URL = 'https://github.com/login/oauth/access_token';
 const GITHUB_USER_URL = 'https://api.github.com/user';
+const DEFAULT_ADMIN_NEXT_PATH = '/dev/portal';
 
 interface GithubTokenResponse {
   access_token?: string;
@@ -45,19 +47,54 @@ export function buildAuthorizeUrl(clientId: string, redirectUri: string, state: 
   return `${GITHUB_AUTHORIZE_URL}?${params.toString()}`;
 }
 
-export interface OauthStartResult {
-  redirectUrl: string;
-  stateCookie: string;
+function normalizeStartRedirectPath(value: string): string {
+  const trimmed = value.trim() || DEFAULT_ADMIN_NEXT_PATH;
+  if (!trimmed.startsWith('/') || trimmed.startsWith('//') || trimmed.includes('\\')) {
+    return DEFAULT_ADMIN_NEXT_PATH;
+  }
+
+  try {
+    const url = new URL(trimmed, 'https://buxx.me');
+    const next = `${url.pathname}${url.search}${url.hash}`;
+    if (next === DEFAULT_ADMIN_NEXT_PATH || next.startsWith(`${DEFAULT_ADMIN_NEXT_PATH}/`)) {
+      return next;
+    }
+  } catch {
+    return DEFAULT_ADMIN_NEXT_PATH;
+  }
+
+  return DEFAULT_ADMIN_NEXT_PATH;
 }
 
-export function buildOauthStartResult(request: Request, locals: any, nextPath: string): OauthStartResult | null {
+export interface OauthStartResult {
+  redirectUrl: string;
+  cookies: string[];
+}
+
+export function buildOauthStartResult(
+  request: Request,
+  locals: any,
+  nextPath: string,
+  isDev = false
+): OauthStartResult | null {
   const config = readAdminAuthConfig(locals);
+  const url = new URL(request.url);
+
+  const devSession = readAdminDevSession(locals, isDev, url.hostname);
+  if (devSession && config.sessionSecret) {
+    const sessionToken = createSessionToken(devSession.login, config.sessionSecret);
+    return {
+      redirectUrl: normalizeStartRedirectPath(nextPath),
+      cookies: [buildSessionCookie(sessionToken)],
+    };
+  }
+
   if (!config.clientId || !config.sessionSecret) return null;
 
   const stateToken = createOauthState(config.sessionSecret, nextPath);
   return {
     redirectUrl: buildAuthorizeUrl(config.clientId, getRedirectUri(request), stateToken),
-    stateCookie: buildStateCookie(stateToken),
+    cookies: [buildStateCookie(stateToken)],
   };
 }
 
