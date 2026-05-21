@@ -164,12 +164,6 @@ const navItems = [
         background: hsl(var(--card));
         border: 1px solid hsl(var(--border));
         font-size: 12px;
-        transition:
-          border-color 180ms cubic-bezier(0.2, 0, 0, 1),
-          background 180ms cubic-bezier(0.2, 0, 0, 1);
-      }
-      .portal-sidebar-user:hover {
-        border-color: hsl(var(--ring) / 0.6);
       }
       .portal-sidebar-user img {
         width: 28px;
@@ -219,16 +213,6 @@ const navItems = [
         padding: 28px 32px 64px;
         animation: portalPageEnter 320ms cubic-bezier(0.2, 0, 0, 1) both;
       }
-      .portal-page [class*="rounded-lg"][class*="border-border"] {
-        transition:
-          border-color 200ms cubic-bezier(0.2, 0, 0, 1),
-          background-color 200ms cubic-bezier(0.2, 0, 0, 1),
-          transform 200ms cubic-bezier(0.2, 0, 0, 1);
-      }
-      .portal-page [class*="rounded-lg"][class*="border-border"]:hover {
-        border-color: hsl(var(--ring) / 0.55);
-        transform: translateY(-1px);
-      }
       @keyframes portalPageEnter {
         from {
           opacity: 0;
@@ -266,7 +250,6 @@ const navItems = [
       @media (prefers-reduced-motion: reduce) {
         .portal-sidebar-link,
         .portal-sidebar-link svg,
-        .portal-sidebar-user,
         .portal-logout,
         .portal-page {
           animation: none !important;
