@@ -1,0 +1,622 @@
+---
+import PortalLayout from '@/layouts/PortalLayout.astro';
+import PixelLogo from '@/features/logos/ui/PixelLogo.astro';
+import PeekLook from '@/features/logos/ui/PeekLook.astro';
+import AnimatedLogo from '@/features/logos/ui/AnimatedLogo.astro';
+import {
+  PEEK_NAVBAR_LOGO,
+  PEEK_PREVIEW_TRACKER_LOGO,
+  createPeekLogoFromAssets,
+} from '@/features/logos/data/peek-runtime';
+import {
+  getPeekAssets,
+  getPeekBase,
+  getPeekPreviewSections,
+  getPeekRuntimeBehaviors,
+  getPeekSlotKey,
+  getPeekTrackingPoseKeys,
+} from '@/features/mascot/peek/catalog';
+import { PEEK_SLOTS } from '@/features/mascot/peek/slots';
+
+export const prerender = false;
+
+const session = (Astro.locals as any).adminSession;
+
+const mascot = getPeekBase();
+const allAssets = getPeekAssets();
+const motionAssets = allAssets.filter((asset) => asset.kind === 'motion');
+const poseAssets = allAssets.filter((asset) => asset.kind === 'pose');
+const expressionAssets = allAssets.filter((asset) => asset.kind === 'expression');
+const costumeAssets = allAssets.filter((asset) => asset.kind === 'costume');
+const previewSections = getPeekPreviewSections();
+const runtimeBehaviors = getPeekRuntimeBehaviors();
+const navbarDefaultAnimation = getPeekSlotKey('navbar.brand.default');
+const navbarHoverAnimation = getPeekSlotKey('navbar.brand.hover');
+const previewTrackerDefault = getPeekSlotKey('preview.tracker.default');
+const previewTrackPoses = getPeekTrackingPoseKeys('preview');
+---
+
+<PortalLayout
+  title="Mascot inspector"
+  description="Runtime wiring, library, and interactive tracking rig for peek."
+  active="mascot"
+  user={{ login: session?.login || 'admin' }}
+>
+  <div class="mascot-page">
+    <section class="mascot-summary">
+      <div class="mascot-summary-card">
+        <div class="mascot-summary-stage">
+          <PixelLogo id="peek" size={120} title="peek base grid" />
+        </div>
+        <div class="mascot-summary-body">
+          <h2>{mascot.name}</h2>
+          <p>{mascot.blurb}</p>
+          <dl>
+            <div><dt>Grid</dt><dd>{mascot.width} × {mascot.height}</dd></div>
+            <div><dt>Accent</dt><dd>{mascot.accent}</dd></div>
+            <div><dt>Assets</dt><dd>{allAssets.length}</dd></div>
+            <div><dt>Slots</dt><dd>{PEEK_SLOTS.length}</dd></div>
+          </dl>
+        </div>
+      </div>
+      <div class="mascot-stats">
+        <div><span>Motions</span><strong>{motionAssets.length}</strong></div>
+        <div><span>Poses</span><strong>{poseAssets.length}</strong></div>
+        <div><span>Expressions</span><strong>{expressionAssets.length}</strong></div>
+        <div><span>Costumes</span><strong>{costumeAssets.length}</strong></div>
+      </div>
+    </section>
+
+    <section class="mascot-block">
+      <header>
+        <span class="mascot-block-eyebrow">Runtime map</span>
+        <h3>Where each peek state ships in the live site</h3>
+        <p>Every slot below is wired to a real surface (navbar, hero, 404). Hover the navbar peek or idle the page to see them trigger.</p>
+      </header>
+      <div class="mascot-runtime-grid">
+        {runtimeBehaviors.map((behavior) => (
+          <article class="mascot-runtime-card">
+            <span class="mascot-runtime-slot">{behavior.slotId}</span>
+            <h4>{behavior.label}</h4>
+            <p>{behavior.description}</p>
+            <code>{behavior.animation}</code>
+          </article>
+        ))}
+      </div>
+    </section>
+
+    <section class="mascot-block">
+      <header>
+        <span class="mascot-block-eyebrow">Brand behavior</span>
+        <h3>Idle at rest, dart on hover</h3>
+        <p>Same component mounted in the site chrome. Real navbar wiring, no fake stage.</p>
+      </header>
+      <div class="mascot-brand-grid">
+        <article class="mascot-brand-card">
+          <div class="mascot-brand-stage">
+            <AnimatedLogo
+              definition={PEEK_NAVBAR_LOGO}
+              animation={navbarDefaultAnimation}
+              hoverAnimation={navbarHoverAnimation}
+              size={140}
+              title="peek navbar behavior"
+              eventAnimations={[navbarHoverAnimation]}
+            />
+          </div>
+          <div class="mascot-brand-body">
+            <span class="mascot-brand-label">Hover the peek</span>
+            <dl>
+              <div><dt>Rest</dt><dd><code>{navbarDefaultAnimation}</code></dd></div>
+              <div><dt>Hover</dt><dd><code>{navbarHoverAnimation}</code></dd></div>
+            </dl>
+          </div>
+        </article>
+
+        <article class="mascot-brand-card">
+          <div class="mascot-brand-stage mascot-brand-stage-static">
+            <PixelLogo id="peek" size={140} title="peek source" />
+          </div>
+          <div class="mascot-brand-body">
+            <span class="mascot-brand-label">Source</span>
+            <dl>
+              <div><dt>Tagline</dt><dd>{mascot.tagline}</dd></div>
+              <div><dt>Grid</dt><dd>{mascot.width} × {mascot.height}</dd></div>
+            </dl>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section class="mascot-block">
+      <header>
+        <span class="mascot-block-eyebrow">Tracking stage</span>
+        <h3>Pointer-driven pose switcher</h3>
+        <p>Five horizontal buckets, same rig used on the 404 page. Move across the stage to lock onto a pose.</p>
+      </header>
+      <article class="mascot-tracker">
+        <div
+          class="mascot-tracker-stage"
+          data-peek-tracker
+          data-peek-track-poses={JSON.stringify(previewTrackPoses)}
+          tabindex="0"
+          role="img"
+          aria-label="Interactive tracking pose demo"
+        >
+          <AnimatedLogo
+            definition={PEEK_PREVIEW_TRACKER_LOGO}
+            animation={previewTrackerDefault}
+            eventChannel="preview-track"
+            eventAnimations={previewTrackPoses}
+            size={156}
+            title="interactive tracking pose demo"
+          />
+          <div class="mascot-tracker-bands" aria-hidden="true">
+            {previewTrackPoses.map((key) => (
+              <span><code>{key}</code></span>
+            ))}
+          </div>
+        </div>
+        <dl class="mascot-tracker-meta">
+          <div><dt>Base</dt><dd><code>{previewTrackerDefault}</code></dd></div>
+          <div><dt>Buckets</dt><dd>{previewTrackPoses.length}</dd></div>
+          <div><dt>Channel</dt><dd><code>preview-track</code></dd></div>
+        </dl>
+      </article>
+    </section>
+
+    {previewSections.map((section) => (
+      <section class="mascot-block" id={`lib-${section.id}`}>
+        <header>
+          <span class="mascot-block-eyebrow">{section.label}</span>
+          <h3>{section.label}</h3>
+          <p>{section.description}</p>
+          <span class="mascot-section-count">{section.items.length} entries</span>
+        </header>
+        <div class="mascot-library">
+          {section.items.map((item) => {
+            const isLook = item.kind === 'expression' || item.kind === 'costume';
+            const lookItem = isLook && item.grid
+              ? { grid: item.grid, label: item.label, palette: item.palette }
+              : null;
+            const kindTag = item.motionKind ?? item.kind;
+            return (
+              <article class="mascot-library-card" data-kind={kindTag}>
+                <div class:list={["mascot-library-stage", { "mascot-library-stage-look": isLook }]}>
+                  {lookItem ? (
+                    <PeekLook look={lookItem} size={104} title={`peek ${item.label}`} />
+                  ) : (
+                    <AnimatedLogo
+                      definition={createPeekLogoFromAssets([item])}
+                      animation={item.key}
+                      loop={item.previewLoop ?? item.loop}
+                      size={104}
+                      title={`peek ${item.key}`}
+                    />
+                  )}
+                </div>
+                <div class="mascot-library-body">
+                  <header>
+                    <h4>{item.label}</h4>
+                    <span>{kindTag}</span>
+                  </header>
+                  <p>{item.summary}</p>
+                  {item.usage && <p class="mascot-library-usage">{item.usage}</p>}
+                  <dl>
+                    <div><dt>Key</dt><dd><code>{item.key}</code></dd></div>
+                    {item.frames && <div><dt>Frames</dt><dd>{item.frames.length}</dd></div>}
+                    {item.fps !== undefined && <div><dt>FPS</dt><dd>{item.fps}</dd></div>}
+                    {item.loop !== undefined && (
+                      <div><dt>Loop</dt><dd>{item.loop ? 'yes' : 'once'}</dd></div>
+                    )}
+                  </dl>
+                  {item.tags.length > 0 && (
+                    <div class="mascot-library-tags">
+                      {item.tags.map((tag) => <span>{tag}</span>)}
+                    </div>
+                  )}
+                </div>
+              </article>
+            );
+          })}
+        </div>
+      </section>
+    ))}
+  </div>
+</PortalLayout>
+
+<script>
+  (() => {
+    const tracker = document.querySelector('[data-peek-tracker]');
+    if (!(tracker instanceof HTMLElement)) return;
+
+    const setPose = (animation: string) => {
+      window.dispatchEvent(new CustomEvent('peek:preview-track:set', { detail: { animation } }));
+    };
+    const revertPose = () => {
+      window.dispatchEvent(new CustomEvent('peek:preview-track:revert'));
+    };
+
+    const TRACK_POSES = JSON.parse(tracker.dataset.peekTrackPoses ?? '[]');
+    const pickPose = (clientX: number) => {
+      const rect = tracker.getBoundingClientRect();
+      if (rect.width <= 0) return TRACK_POSES[2];
+      const ratio = Math.min(0.9999, Math.max(0, (clientX - rect.left) / rect.width));
+      if (ratio < 0.2) return TRACK_POSES[0];
+      if (ratio < 0.4) return TRACK_POSES[1];
+      if (ratio < 0.6) return TRACK_POSES[2];
+      if (ratio < 0.8) return TRACK_POSES[3];
+      return TRACK_POSES[4];
+    };
+
+    tracker.addEventListener('pointerenter', (event) => setPose(pickPose(event.clientX)));
+    tracker.addEventListener('pointermove', (event) => setPose(pickPose(event.clientX)));
+    tracker.addEventListener('pointerleave', revertPose);
+    tracker.addEventListener('blur', revertPose);
+  })();
+</script>
+
+<style>
+  .mascot-page {
+    display: flex;
+    flex-direction: column;
+    gap: 32px;
+  }
+  .mascot-summary {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+  @media (min-width: 900px) {
+    .mascot-summary {
+      grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+    }
+  }
+  .mascot-summary-card,
+  .mascot-stats {
+    background: hsl(var(--card));
+    border: 1px solid hsl(var(--border));
+    border-radius: 12px;
+    padding: 20px;
+  }
+  .mascot-summary-card {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 24px;
+    align-items: center;
+  }
+  .mascot-summary-stage {
+    width: 140px;
+    height: 140px;
+    border-radius: 12px;
+    background: hsl(240 6% 5%);
+    border: 1px solid hsl(var(--border));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .mascot-summary-body h2 {
+    font-size: 18px;
+    font-weight: 600;
+    letter-spacing: -0.015em;
+    margin: 0 0 6px;
+  }
+  .mascot-summary-body p {
+    font-size: 13px;
+    color: hsl(var(--muted-foreground));
+    margin: 0 0 12px;
+    line-height: 1.5;
+  }
+  .mascot-summary-body dl,
+  .mascot-stats {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px 18px;
+    font-size: 12px;
+  }
+  .mascot-summary-body dt,
+  .mascot-stats span {
+    color: hsl(var(--muted-foreground));
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-size: 10px;
+    margin-bottom: 4px;
+    display: block;
+  }
+  .mascot-summary-body dd {
+    margin: 0;
+    font-size: 13px;
+    color: hsl(var(--foreground));
+  }
+  .mascot-stats {
+    grid-template-columns: 1fr 1fr;
+    gap: 12px 16px;
+  }
+  .mascot-stats div {
+    background: hsl(var(--background));
+    border: 1px solid hsl(var(--border));
+    border-radius: 10px;
+    padding: 12px;
+  }
+  .mascot-stats strong {
+    display: block;
+    margin-top: 4px;
+    font-size: 22px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+  }
+
+  .mascot-block {
+    background: hsl(var(--card));
+    border: 1px solid hsl(var(--border));
+    border-radius: 12px;
+    padding: 22px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+  .mascot-block header {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    position: relative;
+  }
+  .mascot-block-eyebrow {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    color: hsl(var(--muted-foreground));
+  }
+  .mascot-block h3 {
+    font-size: 16px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    margin: 0;
+  }
+  .mascot-block header p {
+    font-size: 13px;
+    color: hsl(var(--muted-foreground));
+    margin: 0;
+    line-height: 1.55;
+  }
+  .mascot-section-count {
+    position: absolute;
+    right: 0;
+    top: 0;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: hsl(var(--muted-foreground));
+  }
+
+  .mascot-runtime-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 12px;
+  }
+  .mascot-runtime-card {
+    background: hsl(var(--background));
+    border: 1px solid hsl(var(--border));
+    border-radius: 10px;
+    padding: 14px 14px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .mascot-runtime-slot {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: hsl(var(--muted-foreground));
+  }
+  .mascot-runtime-card h4 {
+    font-size: 13px;
+    font-weight: 600;
+    margin: 0;
+  }
+  .mascot-runtime-card p {
+    font-size: 12px;
+    color: hsl(var(--muted-foreground));
+    line-height: 1.5;
+    margin: 0;
+  }
+  .mascot-runtime-card code {
+    margin-top: 4px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: hsl(var(--portal-accent));
+    word-break: break-all;
+  }
+
+  .mascot-brand-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+  @media (min-width: 720px) {
+    .mascot-brand-grid {
+      grid-template-columns: 1fr 1fr;
+    }
+  }
+  .mascot-brand-card {
+    background: hsl(var(--background));
+    border: 1px solid hsl(var(--border));
+    border-radius: 10px;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    align-items: center;
+  }
+  .mascot-brand-stage {
+    width: 100%;
+    aspect-ratio: 4 / 3;
+    background: hsl(240 6% 5%);
+    border: 1px solid hsl(var(--border));
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .mascot-brand-body {
+    width: 100%;
+  }
+  .mascot-brand-label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
+    color: hsl(var(--muted-foreground));
+    display: block;
+    margin-bottom: 8px;
+  }
+  .mascot-brand-body dl,
+  .mascot-tracker-meta {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px 16px;
+    margin: 0;
+  }
+  .mascot-brand-body dt,
+  .mascot-tracker-meta dt {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: hsl(var(--muted-foreground));
+    margin-bottom: 2px;
+  }
+  .mascot-brand-body dd,
+  .mascot-tracker-meta dd {
+    margin: 0;
+    font-size: 12px;
+  }
+  .mascot-brand-body code,
+  .mascot-tracker-meta code,
+  .mascot-runtime-card code {
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .mascot-tracker {
+    background: hsl(var(--background));
+    border: 1px solid hsl(var(--border));
+    border-radius: 12px;
+    padding: 20px;
+    display: grid;
+    gap: 16px;
+  }
+  @media (min-width: 768px) {
+    .mascot-tracker {
+      grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+    }
+  }
+  .mascot-tracker-stage {
+    position: relative;
+    border: 1px dashed hsl(var(--border));
+    border-radius: 10px;
+    aspect-ratio: 16 / 8;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: crosshair;
+    background: hsl(240 6% 5%);
+  }
+  .mascot-tracker-bands {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    pointer-events: none;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    color: hsl(var(--muted-foreground) / 0.7);
+  }
+  .mascot-tracker-bands span {
+    border-right: 1px solid hsl(var(--border));
+    padding: 6px;
+  }
+  .mascot-tracker-bands span:last-child {
+    border-right: none;
+  }
+
+  .mascot-library {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 14px;
+  }
+  .mascot-library-card {
+    background: hsl(var(--background));
+    border: 1px solid hsl(var(--border));
+    border-radius: 10px;
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .mascot-library-stage {
+    aspect-ratio: 1;
+    border-radius: 8px;
+    background: hsl(240 6% 4%);
+    border: 1px solid hsl(var(--border));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .mascot-library-body header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 4px;
+  }
+  .mascot-library-body h4 {
+    font-size: 13px;
+    font-weight: 600;
+    margin: 0;
+  }
+  .mascot-library-body header span {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: hsl(var(--muted-foreground));
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+  .mascot-library-body p {
+    font-size: 12px;
+    color: hsl(var(--muted-foreground));
+    line-height: 1.5;
+    margin: 0 0 8px;
+  }
+  .mascot-library-usage {
+    color: hsl(var(--portal-accent)) !important;
+    margin-top: -4px !important;
+  }
+  .mascot-library-body dl {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px 12px;
+    margin: 0 0 8px;
+  }
+  .mascot-library-body dt {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: hsl(var(--muted-foreground));
+  }
+  .mascot-library-body dd {
+    margin: 0;
+    font-size: 11px;
+    font-family: 'JetBrains Mono', monospace;
+    color: hsl(var(--foreground));
+    word-break: break-all;
+  }
+  .mascot-library-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+  .mascot-library-tags span {
+    font-size: 10px;
+    padding: 2px 6px;
+    border-radius: 999px;
+    background: hsl(var(--accent));
+    color: hsl(var(--muted-foreground));
+  }
+</style>

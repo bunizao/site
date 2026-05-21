@@ -1,0 +1,17 @@
+---
+import PortalLayout from '@/layouts/PortalLayout.astro';
+import TemplatePreview from '@/features/notify/ui/TemplatePreview';
+
+export const prerender = false;
+
+const session = (Astro.locals as any).adminSession;
+---
+
+<PortalLayout
+  title="Newsletter templates"
+  description="Live preview for every notification email template (subscribe, welcome, mood, digest, unsubscribe)."
+  active="newsletter"
+  user={{ login: session?.login || 'admin' }}
+>
+  <TemplatePreview client:load />
+</PortalLayout>
