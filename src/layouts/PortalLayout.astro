@@ -2,7 +2,7 @@
 interface Props {
   title: string;
   description?: string;
-  active?: 'overview' | 'subscribers' | 'broadcasts' | 'mascot' | 'newsletter';
+  active?: 'overview' | 'subscribers' | 'broadcasts' | 'mascot' | 'newsletter' | 'svg' | 'mood-embed';
   user?: {
     login: string;
     avatarUrl?: string;
@@ -10,17 +10,33 @@ interface Props {
 }
 
 import '@/styles/globals.css';
+import { ClientRouter } from 'astro:transitions';
 import {
   LayoutDashboard,
   Users,
   Send,
   Sparkles,
   Mail,
+  Image as ImageIcon,
+  MessageSquare,
   LogOut,
   ExternalLink,
 } from 'lucide-react';
 
-const { title, description, active = 'overview', user } = Astro.props;
+const { title, description, active = 'overview', user: userProp } = Astro.props;
+
+const sessionFromLocals = (Astro.locals as any)?.adminSession as
+  | { login?: string; avatarUrl?: string }
+  | undefined;
+
+const user = userProp
+  ? {
+      login: userProp.login,
+      avatarUrl: userProp.avatarUrl ?? sessionFromLocals?.avatarUrl,
+    }
+  : sessionFromLocals?.login
+    ? { login: sessionFromLocals.login, avatarUrl: sessionFromLocals.avatarUrl }
+    : undefined;
 
 const navItems = [
   { key: 'overview', label: 'Overview', href: '/dev/portal', Icon: LayoutDashboard },
@@ -28,6 +44,8 @@ const navItems = [
   { key: 'broadcasts', label: 'Broadcasts', href: '/dev/portal/broadcasts', Icon: Send },
   { key: 'mascot', label: 'Mascot', href: '/dev/portal/mascot', Icon: Sparkles },
   { key: 'newsletter', label: 'Newsletter', href: '/dev/portal/newsletter', Icon: Mail },
+  { key: 'svg', label: 'SVG gallery', href: '/dev/portal/svg', Icon: ImageIcon },
+  { key: 'mood-embed', label: 'Mood embed', href: '/dev/portal/mood-embed', Icon: MessageSquare },
 ] as const;
 ---
 
@@ -38,9 +56,11 @@ const navItems = [
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="robots" content="noindex, nofollow" />
     <meta name="color-scheme" content="dark" />
+    <link rel="icon" href="/favicon.ico" sizes="any" />
     <link rel="preload" href="/fonts/geist-sans-variable.woff2" as="font" type="font/woff2" crossorigin />
-    <title>{title} · Dev Portal</title>
+    <title>{title}</title>
     {description && <meta name="description" content={description} />}
+    <ClientRouter />
     <style is:global>
       html.theme-portal,
       html.theme-portal body {
@@ -79,6 +99,7 @@ const navItems = [
         color: hsl(var(--muted-foreground));
       }
       .portal-sidebar-link {
+        position: relative;
         display: flex;
         align-items: center;
         gap: 10px;
@@ -86,15 +107,48 @@ const navItems = [
         border-radius: 8px;
         font-size: 13px;
         color: hsl(var(--muted-foreground));
-        transition: background 0.15s ease, color 0.15s ease;
+        transition:
+          background 180ms cubic-bezier(0.2, 0, 0, 1),
+          color 180ms cubic-bezier(0.2, 0, 0, 1),
+          transform 180ms cubic-bezier(0.2, 0, 0, 1);
+      }
+      .portal-sidebar-link svg {
+        transition: transform 220ms cubic-bezier(0.2, 0, 0, 1);
       }
       .portal-sidebar-link:hover {
         background: hsl(var(--accent));
         color: hsl(var(--foreground));
       }
+      .portal-sidebar-link:hover svg {
+        transform: translateX(1px);
+      }
+      .portal-sidebar-link:active {
+        transform: scale(0.98);
+      }
       .portal-sidebar-link[aria-current='page'] {
         background: hsl(var(--accent));
         color: hsl(var(--foreground));
+      }
+      .portal-sidebar-link[aria-current='page']::before {
+        content: '';
+        position: absolute;
+        left: -16px;
+        top: 8px;
+        bottom: 8px;
+        width: 2px;
+        border-radius: 2px;
+        background: hsl(var(--primary));
+        animation: portalNavIndicator 240ms cubic-bezier(0.2, 0, 0, 1) both;
+      }
+      @keyframes portalNavIndicator {
+        from {
+          opacity: 0;
+          transform: scaleY(0.4);
+        }
+        to {
+          opacity: 1;
+          transform: scaleY(1);
+        }
       }
       .portal-sidebar-spacer {
         flex: 1;
@@ -108,11 +162,18 @@ const navItems = [
         background: hsl(var(--card));
         border: 1px solid hsl(var(--border));
         font-size: 12px;
+        transition:
+          border-color 180ms cubic-bezier(0.2, 0, 0, 1),
+          background 180ms cubic-bezier(0.2, 0, 0, 1);
+      }
+      .portal-sidebar-user:hover {
+        border-color: hsl(var(--ring) / 0.6);
       }
       .portal-sidebar-user img {
         width: 28px;
         height: 28px;
         border-radius: 999px;
+        object-fit: cover;
       }
       .portal-sidebar-user-name {
         flex: 1;
@@ -154,6 +215,17 @@ const navItems = [
       }
       .portal-page {
         padding: 28px 32px 64px;
+        animation: portalPageEnter 320ms cubic-bezier(0.2, 0, 0, 1) both;
+      }
+      @keyframes portalPageEnter {
+        from {
+          opacity: 0;
+          transform: translateY(6px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
       }
       .portal-logout {
         display: inline-flex;
@@ -166,6 +238,10 @@ const navItems = [
         background: transparent;
         border: 1px solid transparent;
         cursor: pointer;
+        transition:
+          color 160ms cubic-bezier(0.2, 0, 0, 1),
+          background 160ms cubic-bezier(0.2, 0, 0, 1),
+          border-color 160ms cubic-bezier(0.2, 0, 0, 1);
       }
       .portal-logout:hover {
         color: hsl(var(--foreground));
@@ -174,6 +250,46 @@ const navItems = [
       .portal-mono {
         font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
         font-feature-settings: 'tnum' 1;
+      }
+      ::view-transition-old(root),
+      ::view-transition-new(root) {
+        animation-duration: 220ms;
+        animation-timing-function: cubic-bezier(0.2, 0, 0, 1);
+      }
+      ::view-transition-old(root) {
+        animation-name: portalFadeOut;
+      }
+      ::view-transition-new(root) {
+        animation-name: portalFadeIn;
+      }
+      @keyframes portalFadeOut {
+        to {
+          opacity: 0;
+        }
+      }
+      @keyframes portalFadeIn {
+        from {
+          opacity: 0;
+          transform: translateY(4px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .portal-sidebar-link,
+        .portal-sidebar-link svg,
+        .portal-sidebar-user,
+        .portal-logout,
+        .portal-page {
+          animation: none !important;
+          transition: none !important;
+        }
+        ::view-transition-old(root),
+        ::view-transition-new(root) {
+          animation: none !important;
+        }
       }
       @media (max-width: 900px) {
         .portal-shell {
@@ -192,6 +308,9 @@ const navItems = [
         .portal-sidebar-user {
           display: none;
         }
+        .portal-sidebar-link[aria-current='page']::before {
+          display: none;
+        }
         .portal-page {
           padding: 20px 16px 48px;
         }
@@ -200,7 +319,7 @@ const navItems = [
   </head>
   <body>
     <div class="portal-shell">
-      <aside class="portal-sidebar">
+      <aside class="portal-sidebar" transition:persist>
         <div class="portal-sidebar-brand">
           <span style="display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:6px;background:hsl(var(--primary));color:hsl(var(--primary-foreground));font-weight:700;font-size:12px;">b</span>
           <span>Dev Portal</span>
@@ -223,7 +342,7 @@ const navItems = [
         {user && (
           <div class="portal-sidebar-user">
             {user.avatarUrl ? (
-              <img src={user.avatarUrl} alt={`@${user.login}`} loading="lazy" />
+              <img src={user.avatarUrl} alt={`@${user.login}`} loading="lazy" referrerpolicy="no-referrer" />
             ) : (
               <div style="width:28px;height:28px;border-radius:999px;background:hsl(var(--accent));display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;">
                 {user.login.slice(0, 1).toUpperCase()}
