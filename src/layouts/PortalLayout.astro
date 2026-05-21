@@ -251,32 +251,6 @@ const navItems = [
         font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
         font-feature-settings: 'tnum' 1;
       }
-      ::view-transition-old(root),
-      ::view-transition-new(root) {
-        animation-duration: 220ms;
-        animation-timing-function: cubic-bezier(0.2, 0, 0, 1);
-      }
-      ::view-transition-old(root) {
-        animation-name: portalFadeOut;
-      }
-      ::view-transition-new(root) {
-        animation-name: portalFadeIn;
-      }
-      @keyframes portalFadeOut {
-        to {
-          opacity: 0;
-        }
-      }
-      @keyframes portalFadeIn {
-        from {
-          opacity: 0;
-          transform: translateY(4px);
-        }
-        to {
-          opacity: 1;
-          transform: translateY(0);
-        }
-      }
       @media (prefers-reduced-motion: reduce) {
         .portal-sidebar-link,
         .portal-sidebar-link svg,
