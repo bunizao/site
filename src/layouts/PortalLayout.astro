@@ -218,6 +218,16 @@ const navItems = [
         padding: 28px 32px 64px;
         animation: portalPageEnter 320ms cubic-bezier(0.2, 0, 0, 1) both;
       }
+      .portal-page [class*="rounded-lg"][class*="border-border"] {
+        transition:
+          border-color 200ms cubic-bezier(0.2, 0, 0, 1),
+          background-color 200ms cubic-bezier(0.2, 0, 0, 1),
+          transform 200ms cubic-bezier(0.2, 0, 0, 1);
+      }
+      .portal-page [class*="rounded-lg"][class*="border-border"]:hover {
+        border-color: hsl(var(--ring) / 0.55);
+        transform: translateY(-1px);
+      }
       @keyframes portalPageEnter {
         from {
           opacity: 0;
