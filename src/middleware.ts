@@ -45,7 +45,7 @@ export const onRequest = defineMiddleware(async (context, next) => {
     return next();
   }
 
-  const devSession = readAdminDevSession(context.locals, import.meta.env.DEV);
+  const devSession = readAdminDevSession(context.locals, import.meta.env.DEV, url.hostname);
   if (devSession) {
     (context.locals as Record<string, unknown>).adminSession = devSession;
     return next();

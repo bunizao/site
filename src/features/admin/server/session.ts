@@ -19,6 +19,7 @@ export const ADMIN_OAUTH_STATE_COOKIE = 'admin_oauth_state';
 
 const SESSION_TTL_SECONDS = 7 * 24 * 60 * 60;
 const STATE_TTL_SECONDS = 10 * 60;
+const LOCALHOST_NAMES = new Set(['localhost', '::1']);
 
 export function readAdminAuthConfig(locals: any): AdminAuthConfig {
   return {
@@ -32,9 +33,10 @@ export function readAdminAuthConfig(locals: any): AdminAuthConfig {
 export function readAdminDevSession(
   locals: any,
   isDev: boolean,
+  hostname: string,
   now = Math.floor(Date.now() / 1000)
 ): AdminSession | null {
-  if (!isDev || readEnv(locals, 'ADMIN_DEV_BYPASS') !== '1') {
+  if (!isDev || readEnv(locals, 'ADMIN_DEV_BYPASS') !== '1' || !isLocalAdminDevHost(hostname)) {
     return null;
   }
 
@@ -44,6 +46,11 @@ export function readAdminDevSession(
     iat: now,
     exp: now + SESSION_TTL_SECONDS,
   };
+}
+
+export function isLocalAdminDevHost(hostname: string): boolean {
+  const normalized = hostname.trim().toLowerCase().replace(/^\[|\]$/g, '');
+  return LOCALHOST_NAMES.has(normalized) || normalized.startsWith('127.');
 }
 
 export function isAdminAuthConfigured(config: AdminAuthConfig): boolean {

@@ -12,6 +12,7 @@ describe('admin dev session', () => {
         },
       },
       true,
+      'localhost',
       100
     );
 
@@ -31,6 +32,7 @@ describe('admin dev session', () => {
         },
       },
       false,
+      'localhost',
       100
     );
 
@@ -46,9 +48,37 @@ describe('admin dev session', () => {
         },
       },
       true,
+      'localhost',
       100
     );
 
     expect(session?.login).toBe('bunizao');
+  });
+
+  test('rejects the bypass on non-local hosts', () => {
+    const session = readAdminDevSession(
+      {
+        env: {
+          ADMIN_DEV_BYPASS: '1',
+          ADMIN_DEV_LOGIN: 'tester',
+        },
+      },
+      true,
+      '192.168.1.20',
+      100
+    );
+
+    expect(session).toBeNull();
+  });
+
+  test('accepts loopback hosts only', () => {
+    const locals = {
+      env: {
+        ADMIN_DEV_BYPASS: '1',
+      },
+    };
+
+    expect(readAdminDevSession(locals, true, '127.0.0.1', 100)?.login).toBe('local-dev');
+    expect(readAdminDevSession(locals, true, '[::1]', 100)?.login).toBe('local-dev');
   });
 });

@@ -97,7 +97,7 @@ Accessed via `import.meta.env.*`:
 - `GITHUB_OAUTH_CLIENT_ID`, `GITHUB_OAUTH_CLIENT_SECRET` — GitHub OAuth app for the admin portal
 - `ADMIN_GITHUB_LOGIN` — single GitHub login allowed into `/dev/portal`
 - `ADMIN_SESSION_SECRET` — 32-byte random base64 used to HMAC-sign the admin session cookie
-- `ADMIN_DEV_BYPASS` — local-only OAuth bypass used by `bun run dev:portal`; ignored outside `astro dev`
+- `ADMIN_DEV_BYPASS` — loopback-only OAuth bypass used by `bun run dev:portal`; ignored outside `astro dev`
 
 Cloudflare Worker bindings and secrets are defined in [`workers/telegram-image-proxy/wrangler.toml`](../workers/telegram-image-proxy/wrangler.toml).
 
