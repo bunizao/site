@@ -296,6 +296,7 @@ export default function BroadcastConsole() {
             {previewHtml ? (
               <iframe
                 title="Broadcast preview"
+                sandbox=""
                 style={{
                   width: '100%',
                   height: '480px',

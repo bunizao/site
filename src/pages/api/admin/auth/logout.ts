@@ -5,12 +5,10 @@ export const prerender = false;
 
 export const POST: APIRoute = async () => {
   return new Response(null, {
-    status: 302,
+    status: 303,
     headers: {
       Location: '/dev/login',
       'Set-Cookie': buildClearSessionCookie(),
     },
   });
 };
-
-export const GET = POST;

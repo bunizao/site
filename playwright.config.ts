@@ -37,7 +37,13 @@ export default defineConfig({
   outputDir: 'test-results',
   webServer: shouldUseWebServer
     ? {
-        command: `ASTRO_E2E_STRICT_PORT=1 E2E_SITE_FIXTURE=1 astro dev --host ${host} --port ${port}`,
+        command: `astro dev --host ${host} --port ${port}`,
+        env: {
+          ...process.env,
+          ADMIN_DEV_BYPASS: '1',
+          ASTRO_E2E_STRICT_PORT: '1',
+          E2E_SITE_FIXTURE: '1',
+        },
         url: baseURL,
         reuseExistingServer: process.env.COVERAGE !== '1' && !process.env.CI,
         timeout: 120_000,

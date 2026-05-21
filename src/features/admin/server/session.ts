@@ -20,6 +20,7 @@ export const ADMIN_OAUTH_STATE_COOKIE = 'admin_oauth_state';
 const SESSION_TTL_SECONDS = 7 * 24 * 60 * 60;
 const STATE_TTL_SECONDS = 10 * 60;
 const LOCALHOST_NAMES = new Set(['localhost', '::1']);
+const DEFAULT_ADMIN_NEXT_PATH = '/dev/portal';
 
 export function readAdminAuthConfig(locals: any): AdminAuthConfig {
   return {
@@ -60,6 +61,29 @@ export function isAdminAuthConfigured(config: AdminAuthConfig): boolean {
     && config.allowedLogin
     && config.sessionSecret
   );
+}
+
+export function normalizeAdminNextPath(value: string | null | undefined): string {
+  const trimmed = value?.trim() || DEFAULT_ADMIN_NEXT_PATH;
+  if (!trimmed.startsWith('/') || trimmed.startsWith('//') || trimmed.includes('\\')) {
+    return DEFAULT_ADMIN_NEXT_PATH;
+  }
+
+  try {
+    const url = new URL(trimmed, 'https://buxx.me');
+    if (url.origin !== 'https://buxx.me') {
+      return DEFAULT_ADMIN_NEXT_PATH;
+    }
+
+    const next = `${url.pathname}${url.search}${url.hash}`;
+    if (next === DEFAULT_ADMIN_NEXT_PATH || next.startsWith(`${DEFAULT_ADMIN_NEXT_PATH}/`)) {
+      return next;
+    }
+  } catch {
+    return DEFAULT_ADMIN_NEXT_PATH;
+  }
+
+  return DEFAULT_ADMIN_NEXT_PATH;
 }
 
 function base64UrlEncode(value: string | Buffer): string {
@@ -118,7 +142,7 @@ export function verifySessionToken(token: string, secret: string): AdminSession 
 export function createOauthState(secret: string, next: string, now = Math.floor(Date.now() / 1000)): string {
   const payload = JSON.stringify({
     nonce: randomBytes(16).toString('hex'),
-    next: next || '/dev/portal',
+    next: normalizeAdminNextPath(next),
     exp: now + STATE_TTL_SECONDS,
   });
   const encoded = base64UrlEncode(payload);
@@ -145,7 +169,7 @@ export function verifyOauthState(token: string, secret: string): { next: string 
     return null;
   }
 
-  const next = typeof payload.next === 'string' && payload.next.startsWith('/') ? payload.next : '/dev/portal';
+  const next = normalizeAdminNextPath(payload.next);
   return { next };
 }
 

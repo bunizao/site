@@ -40,9 +40,9 @@ export const onRequest = defineMiddleware(async (context, next) => {
   const session = config.sessionSecret
     ? verifySessionToken(token, config.sessionSecret)
     : null;
+  const devSession = readAdminDevSession(context.locals, import.meta.env.DEV, url.hostname);
 
   if (session) {
-    const devSession = readAdminDevSession(context.locals, import.meta.env.DEV, url.hostname);
     if (
       isAllowedLogin(session.login, config.allowedLogin)
       || (devSession && isAllowedLogin(session.login, devSession.login))
@@ -50,6 +50,11 @@ export const onRequest = defineMiddleware(async (context, next) => {
       (context.locals as Record<string, unknown>).adminSession = session;
       return next();
     }
+  }
+
+  if (devSession) {
+    (context.locals as Record<string, unknown>).adminSession = devSession;
+    return next();
   }
 
   if (isAdminApi) {

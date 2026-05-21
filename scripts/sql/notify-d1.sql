@@ -59,7 +59,16 @@ CREATE TABLE IF NOT EXISTS notify_dead_letters (
 
 CREATE TABLE IF NOT EXISTS notify_audit (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
-  event_type TEXT NOT NULL CHECK (event_type IN ('subscribe_requested', 'subscription_confirmed', 'unsubscribed')),
+  event_type TEXT NOT NULL CHECK (event_type IN (
+    'subscribe_requested',
+    'subscription_confirmed',
+    'unsubscribed',
+    'admin_create',
+    'admin_update',
+    'admin_delete',
+    'admin_resend_confirm',
+    'broadcast_sent'
+  )),
   email_hash TEXT NOT NULL,
   email TEXT NOT NULL,
   source TEXT NOT NULL,

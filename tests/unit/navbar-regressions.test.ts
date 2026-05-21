@@ -46,7 +46,7 @@ describe('navbar regression guards', () => {
     expect(layoutSource).toContain('let bottomOverscrollLocked = false;');
     expect(layoutSource).toContain('const bottomOverscrollReleaseDistance = 96;');
     expect(layoutSource).toContain('const offsetTop = isBottomOverscrollOffset(rawOffsetTop) ? 0 : Math.round(rawOffsetTop);');
-    expect(layoutSource).toContain("window.addEventListener('scroll', requestSync");
+    expect(layoutSource).toContain("window.addEventListener('scroll', syncAfterScroll");
     expect(layoutSource).toContain("root.style.setProperty('--visual-viewport-top'");
     expect(globalStyles).toContain('--site-nav-mobile-top: calc(env(safe-area-inset-top, 0px) + var(--visual-viewport-top, 0px));');
     expect(globalStyles).toContain('top: var(--site-nav-mobile-top);');

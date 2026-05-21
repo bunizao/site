@@ -135,7 +135,7 @@ Required env vars:
 
 GitHub OAuth callback URL: `${PUBLIC_SITE_URL}/api/admin/auth/callback`.
 
-Local debugging can skip OAuth with `bun run dev:portal`. That script sets `ADMIN_DEV_BYPASS=1`, which is honored only by `astro dev` on loopback hosts (`localhost`, `127.*`, `::1`); production builds ignore it.
+Local debugging can skip GitHub OAuth with `bun run dev:portal`. That script sets `ADMIN_DEV_BYPASS=1`, which lets `/api/admin/auth/start` mint a normal signed `admin_session` cookie only under `astro dev` on loopback hosts (`localhost`, `127.*`, `::1`); production builds ignore it.
 
 ### Admin API surface
 
@@ -160,7 +160,7 @@ All `/api/admin/**` endpoints sit behind the same middleware gate as the portal 
 
 ### Broadcasts
 
-Admin broadcasts share infrastructure with mood emails: `sendEmailWithResend`, the retry table, and the `notify_audit` event log. Each broadcast row records `subject`, `body_html`, `body_text`, audience JSON, recipient/sent/failed counts, and `sent_by` (the GitHub login). Per-recipient sends use `Idempotency-Key: broadcast-<id>-<emailHash>`.
+Admin broadcasts share infrastructure with mood emails: `sendEmailWithResend`, the retry table, and the `notify_audit` event log. Each broadcast row records `subject`, sanitized `body_html`, `body_text`, audience JSON, recipient/sent/failed counts, status, and `sent_by` (the GitHub login). Any recipient failure marks the broadcast `failed` so partial delivery stays visible. Per-recipient sends use `Idempotency-Key: broadcast-<id>-<emailHash>`.
 
 ## Scheduling Strategy
 

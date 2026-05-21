@@ -1,4 +1,5 @@
 import { randomBytes } from 'node:crypto';
+import { load } from 'cheerio';
 import { CloudflareD1Client } from '@/features/notify/server/d1';
 import { getNotifyConfig, getNotifyFromAddress, requireConfigValue } from '@/features/notify/server/env';
 import { sendEmailWithResend } from '@/features/notify/server/resend';
@@ -129,6 +130,25 @@ export function isMarkdown(value: string): boolean {
 
 const INLINE_LINK = /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g;
 const BARE_URL = /(?<!["'>=])(https?:\/\/[^\s<]+)/g;
+const UNSAFE_HTML_SELECTOR = [
+  'base',
+  'button',
+  'embed',
+  'form',
+  'iframe',
+  'input',
+  'link',
+  'meta',
+  'noscript',
+  'object',
+  'option',
+  'script',
+  'select',
+  'style',
+  'template',
+  'textarea',
+].join(',');
+const URL_ATTRIBUTES = new Set(['action', 'formaction', 'href', 'poster', 'src', 'xlink:href']);
 
 function escapeHtml(value: string): string {
   return value
@@ -137,6 +157,50 @@ function escapeHtml(value: string): string {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
+}
+
+function isUnsafeAttributeUrl(value: string): boolean {
+  const normalized = value.replace(/[\u0000-\u001f\u007f\s]+/g, '').toLowerCase();
+  return normalized.startsWith('javascript:') || normalized.startsWith('vbscript:') || normalized.startsWith('data:text/html');
+}
+
+function isUnsafeStyle(value: string): boolean {
+  return /expression\s*\(|javascript\s*:|url\s*\(\s*['"]?\s*javascript:/i.test(value);
+}
+
+function sanitizeHtmlFragment(value: string): string {
+  const $ = load(value, { decodeEntities: false }, false);
+  $(UNSAFE_HTML_SELECTOR).remove();
+
+  $('*').each((_index, element) => {
+    if (!('attribs' in element)) {
+      return;
+    }
+    const attributes = element.attribs ?? {};
+    for (const [name, rawValue] of Object.entries(attributes)) {
+      const lowerName = name.toLowerCase();
+      const value = String(rawValue ?? '');
+      if (
+        lowerName.startsWith('on')
+        || (URL_ATTRIBUTES.has(lowerName) && isUnsafeAttributeUrl(value))
+        || (lowerName === 'style' && isUnsafeStyle(value))
+      ) {
+        $(element).removeAttr(name);
+      }
+    }
+  });
+
+  return $.root().html()?.trim() ?? '';
+}
+
+function htmlToPlainText(value: string): string {
+  const $ = load(sanitizeHtmlFragment(value), {}, false);
+  return $.root()
+    .text()
+    .replace(/\u00a0/g, ' ')
+    .replace(/[ \t]+\n/g, '\n')
+    .replace(/[ \t]{2,}/g, ' ')
+    .trim();
 }
 
 function renderInline(line: string): string {
@@ -152,7 +216,7 @@ export function renderBodyToHtml(body: string): string {
   const trimmed = body.trim();
   if (!trimmed) return '';
   if (!isMarkdown(trimmed)) {
-    return trimmed;
+    return sanitizeHtmlFragment(trimmed);
   }
   const blocks = trimmed.split(/\n{2,}/g);
   return blocks
@@ -169,10 +233,15 @@ export function renderBodyToHtml(body: string): string {
 }
 
 export function renderBodyToText(body: string): string {
-  return body
+  const trimmed = body.trim();
+  if (!trimmed) return '';
+  if (!isMarkdown(trimmed)) {
+    return htmlToPlainText(trimmed);
+  }
+
+  return trimmed
     .replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '$1 ($2)')
-    .replace(/<[^>]+>/g, '')
-    .replace(/ /g, ' ')
+    .replace(/\u00a0/g, ' ')
     .replace(/[ \t]+\n/g, '\n')
     .trim();
 }
@@ -346,11 +415,7 @@ async function finalizeBroadcastRow(
   failedCount: number
 ): Promise<BroadcastRecord['status']> {
   const status: BroadcastRecord['status'] =
-    failedCount === 0 && sentCount > 0
-      ? 'sent'
-      : sentCount > 0
-      ? 'sent'
-      : 'failed';
+    failedCount > 0 ? 'failed' : sentCount > 0 ? 'sent' : 'failed';
   const sentAt = new Date().toISOString();
   await d1.run(
     `UPDATE notify_broadcasts
@@ -359,6 +424,31 @@ async function finalizeBroadcastRow(
     [sentCount, failedCount, status, sentAt, id]
   );
   return status;
+}
+
+async function writeBroadcastAuditEvent(
+  d1: CloudflareD1Client,
+  input: {
+    id: string;
+    subject: string;
+    actor: string;
+  }
+): Promise<void> {
+  try {
+    await d1.run(
+      `INSERT INTO notify_audit (
+        event_type, email_hash, email, source, user_agent, ip_hash, token_hash, created_at
+      ) VALUES ('broadcast_sent', ?, ?, ?, NULL, NULL, NULL, ?)`,
+      [
+        input.id,
+        `broadcast:${input.subject.slice(0, 80)}`,
+        `admin:${input.actor}`,
+        new Date().toISOString(),
+      ]
+    );
+  } catch (error) {
+    console.error('Broadcast audit write failed:', error);
+  }
 }
 
 export async function sendBroadcast(
@@ -430,17 +520,11 @@ export async function sendBroadcast(
 
   const status = await finalizeBroadcastRow(d1, broadcastId, sentCount, failedCount);
 
-  await d1.run(
-    `INSERT INTO notify_audit (
-      event_type, email_hash, email, source, user_agent, ip_hash, token_hash, created_at
-    ) VALUES ('broadcast_sent', ?, ?, ?, NULL, NULL, NULL, ?)`,
-    [
-      broadcastId,
-      `broadcast:${subject.slice(0, 80)}`,
-      `admin:${context.actor}`,
-      new Date().toISOString(),
-    ]
-  );
+  await writeBroadcastAuditEvent(d1, {
+    id: broadcastId,
+    subject,
+    actor: context.actor,
+  });
 
   return {
     id: broadcastId,

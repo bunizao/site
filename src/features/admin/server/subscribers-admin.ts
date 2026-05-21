@@ -300,28 +300,32 @@ async function writeAuditEvent(
     source: string;
   }
 ): Promise<void> {
-  await d1.run(
-    `INSERT INTO notify_audit (
-      event_type,
-      email_hash,
-      email,
-      source,
-      user_agent,
-      ip_hash,
-      token_hash,
-      created_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-    [
-      input.eventType,
-      input.emailHash,
-      input.email,
-      input.source,
-      null,
-      null,
-      null,
-      new Date().toISOString(),
-    ]
-  );
+  try {
+    await d1.run(
+      `INSERT INTO notify_audit (
+        event_type,
+        email_hash,
+        email,
+        source,
+        user_agent,
+        ip_hash,
+        token_hash,
+        created_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        input.eventType,
+        input.emailHash,
+        input.email,
+        input.source,
+        null,
+        null,
+        null,
+        new Date().toISOString(),
+      ]
+    );
+  } catch (error) {
+    console.error('Admin audit write failed:', error);
+  }
 }
 
 async function persistSubscriber(d1: CloudflareD1Client, record: SubscriberRecord): Promise<void> {

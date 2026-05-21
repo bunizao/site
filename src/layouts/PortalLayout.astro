@@ -60,19 +60,6 @@ const navItems = [
         grid-template-columns: 240px 1fr;
         min-height: 100vh;
       }
-      @media (max-width: 900px) {
-        .portal-shell {
-          grid-template-columns: 1fr;
-        }
-        .portal-sidebar {
-          position: sticky;
-          top: 0;
-          z-index: 30;
-          flex-direction: row;
-          border-right: 0;
-          border-bottom: 1px solid hsl(var(--border));
-        }
-      }
       .portal-sidebar {
         display: flex;
         flex-direction: column;
@@ -187,6 +174,27 @@ const navItems = [
       .portal-mono {
         font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
         font-feature-settings: 'tnum' 1;
+      }
+      @media (max-width: 900px) {
+        .portal-shell {
+          grid-template-columns: 1fr;
+        }
+        .portal-sidebar {
+          position: sticky;
+          top: 0;
+          z-index: 30;
+          flex-direction: row;
+          overflow-x: auto;
+          border-right: 0;
+          border-bottom: 1px solid hsl(var(--border));
+        }
+        .portal-sidebar-spacer,
+        .portal-sidebar-user {
+          display: none;
+        }
+        .portal-page {
+          padding: 20px 16px 48px;
+        }
       }
     </style>
   </head>

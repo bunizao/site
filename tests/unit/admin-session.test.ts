@@ -1,6 +1,10 @@
 import { describe, expect, test } from 'bun:test';
 
-import { readAdminDevSession } from '../../src/features/admin/server/session';
+import {
+  createOauthState,
+  readAdminDevSession,
+  verifyOauthState,
+} from '../../src/features/admin/server/session';
 
 describe('admin dev session', () => {
   test('creates a local session only when dev bypass is enabled in dev mode', () => {
@@ -80,5 +84,19 @@ describe('admin dev session', () => {
 
     expect(readAdminDevSession(locals, true, '127.0.0.1', 100)?.login).toBe('local-dev');
     expect(readAdminDevSession(locals, true, '[::1]', 100)?.login).toBe('local-dev');
+  });
+});
+
+describe('admin OAuth state', () => {
+  test('normalizes unsafe next paths back to the portal', () => {
+    const secret = 'test-secret';
+    const now = Math.floor(Date.now() / 1000);
+
+    expect(verifyOauthState(createOauthState(secret, '/dev/portal/subscribers', now), secret)?.next)
+      .toBe('/dev/portal/subscribers');
+    expect(verifyOauthState(createOauthState(secret, '//evil.example/path', now), secret)?.next)
+      .toBe('/dev/portal');
+    expect(verifyOauthState(createOauthState(secret, 'https://evil.example/path', now), secret)?.next)
+      .toBe('/dev/portal');
   });
 });

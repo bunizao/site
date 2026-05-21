@@ -13,22 +13,23 @@ test.describe('Preview smoke', () => {
     await page.emulateMedia({ reducedMotion: 'reduce' });
   });
 
-  test('renders the mascot preview route', async ({ page }) => {
+  test('redirects the legacy mascot preview route into the portal', async ({ page }) => {
     await page.goto('/dev/preview');
 
-    await expect(page.getByRole('heading', { name: 'Peek Preview' })).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'Runtime Map' })).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'Brand Behavior' })).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'Tracking Stage' })).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'Added Expressions' })).toBeVisible();
+    await expect(page).toHaveURL(/\/dev\/portal\/mascot$/);
+    await expect(page.getByText('Mascot inspector')).toBeVisible();
+    await expect(page.getByText('Runtime map')).toBeVisible();
+    await expect(page.getByText('Brand behavior')).toBeVisible();
+    await expect(page.getByText('Tracking stage')).toBeVisible();
     await expect(page.getByRole('heading', { name: 'confused' })).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'idle at rest, dart on hover' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Idle at rest, dart on hover' })).toBeVisible();
   });
 
-  test('renders the newsletter preview route', async ({ page }) => {
-    await page.goto('/dev/preview?view=newsletter');
+  test('redirects the legacy newsletter preview route into the portal', async ({ page }) => {
+    await page.goto('/dev/newsletter-preview');
 
-    await expect(page.getByRole('heading', { name: 'Newsletter Preview' })).toBeVisible();
+    await expect(page).toHaveURL(/\/dev\/portal\/newsletter$/);
+    await expect(page.getByText('Newsletter templates')).toBeVisible();
     await expect(page.getByText('Subscribe Confirm')).toBeVisible();
   });
 
