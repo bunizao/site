@@ -161,7 +161,7 @@ function escapeHtml(value: string): string {
 
 function isUnsafeAttributeUrl(value: string): boolean {
   const normalized = value.replace(/[\u0000-\u001f\u007f\s]+/g, '').toLowerCase();
-  return normalized.startsWith('javascript:') || normalized.startsWith('vbscript:') || normalized.startsWith('data:text/html');
+  return normalized.startsWith('javascript:') || normalized.startsWith('vbscript:') || normalized.startsWith('data:');
 }
 
 function isUnsafeStyle(value: string): boolean {

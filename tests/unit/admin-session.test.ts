@@ -89,14 +89,14 @@ describe('admin dev session', () => {
 
 describe('admin OAuth state', () => {
   test('normalizes unsafe next paths back to the portal', () => {
-    const secret = 'test-secret';
+    const signingKey = 'test-signing-key';
     const now = Math.floor(Date.now() / 1000);
 
-    expect(verifyOauthState(createOauthState(secret, '/dev/portal/subscribers', now), secret)?.next)
+    expect(verifyOauthState(createOauthState(signingKey, '/dev/portal/subscribers', now), signingKey)?.next)
       .toBe('/dev/portal/subscribers');
-    expect(verifyOauthState(createOauthState(secret, '//evil.example/path', now), secret)?.next)
+    expect(verifyOauthState(createOauthState(signingKey, '//evil.example/path', now), signingKey)?.next)
       .toBe('/dev/portal');
-    expect(verifyOauthState(createOauthState(secret, 'https://evil.example/path', now), secret)?.next)
+    expect(verifyOauthState(createOauthState(signingKey, 'https://evil.example/path', now), signingKey)?.next)
       .toBe('/dev/portal');
   });
 });

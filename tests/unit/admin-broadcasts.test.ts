@@ -54,6 +54,7 @@ describe('admin broadcast rendering', () => {
   test('sanitizes raw HTML before previewing or storing broadcast bodies', () => {
     const html = renderBodyToHtml(`
       <p onclick="fetch('/api/admin/subscribers')">Hello <a href="javascript:alert(1)">link</a></p>
+      <img src="data:image/svg+xml,%3Csvg%20onload=alert(1)%3E" alt="avatar">
       <script>alert('owned')</script>
     `);
     const text = renderBodyToText(`
@@ -65,6 +66,7 @@ describe('admin broadcast rendering', () => {
     expect(html).not.toContain('<script');
     expect(html).not.toContain('onclick');
     expect(html).not.toContain('javascript:');
+    expect(html).not.toContain('data:');
     expect(text).toBe('Hello link');
   });
 });

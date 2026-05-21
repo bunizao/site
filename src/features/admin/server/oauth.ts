@@ -81,17 +81,17 @@ export function buildOauthStartResult(
   const url = new URL(request.url);
 
   const devSession = readAdminDevSession(locals, isDev, url.hostname);
-  if (devSession && config.sessionSecret) {
-    const sessionToken = createSessionToken(devSession.login, config.sessionSecret);
+  if (devSession && config.sessionSigningKey) {
+    const sessionToken = createSessionToken(devSession.login, config.sessionSigningKey);
     return {
       redirectUrl: normalizeStartRedirectPath(nextPath),
       cookies: [buildSessionCookie(sessionToken)],
     };
   }
 
-  if (!config.clientId || !config.sessionSecret) return null;
+  if (!config.clientId || !config.sessionSigningKey) return null;
 
-  const stateToken = createOauthState(config.sessionSecret, nextPath);
+  const stateToken = createOauthState(config.sessionSigningKey, nextPath);
   return {
     redirectUrl: buildAuthorizeUrl(config.clientId, getRedirectUri(request), stateToken),
     cookies: [buildStateCookie(stateToken)],
@@ -116,7 +116,7 @@ export async function handleOauthCallback(request: Request, locals: any): Promis
   const config = readAdminAuthConfig(locals);
   const cookies = [buildClearStateCookie()];
 
-  if (!config.clientId || !config.clientSecret || !config.allowedLogin || !config.sessionSecret) {
+  if (!config.clientId || !config.clientSecret || !config.allowedLogin || !config.sessionSigningKey) {
     return { ok: false, reason: 'config', cookies };
   }
 
@@ -133,7 +133,7 @@ export async function handleOauthCallback(request: Request, locals: any): Promis
     return { ok: false, reason: 'state', cookies };
   }
 
-  const verified = verifyOauthState(storedState, config.sessionSecret);
+  const verified = verifyOauthState(storedState, config.sessionSigningKey);
   if (!verified) {
     return { ok: false, reason: 'state', cookies };
   }
@@ -188,7 +188,7 @@ export async function handleOauthCallback(request: Request, locals: any): Promis
     return { ok: false, reason: 'forbidden', cookies };
   }
 
-  const sessionToken = createSessionToken(login, config.sessionSecret);
+  const sessionToken = createSessionToken(login, config.sessionSigningKey);
   cookies.push(buildSessionCookie(sessionToken));
   return { ok: true, redirectTo: verified.next, cookies };
 }

@@ -37,8 +37,8 @@ export const onRequest = defineMiddleware(async (context, next) => {
   const config = readAdminAuthConfig(context.locals);
   const cookieHeader = context.request.headers.get('cookie');
   const token = readSessionFromCookieHeader(cookieHeader);
-  const session = config.sessionSecret
-    ? verifySessionToken(token, config.sessionSecret)
+  const session = config.sessionSigningKey
+    ? verifySessionToken(token, config.sessionSigningKey)
     : null;
   const devSession = readAdminDevSession(context.locals, import.meta.env.DEV, url.hostname);
 
