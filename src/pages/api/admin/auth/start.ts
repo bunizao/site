@@ -7,7 +7,7 @@ export const GET: APIRoute = async ({ request, locals, redirect }) => {
   const url = new URL(request.url);
   const next = url.searchParams.get('next') || '/dev/portal';
 
-  const result = buildOauthStartResult(request, locals, next, import.meta.env.DEV);
+  const result = await buildOauthStartResult(request, locals, next, import.meta.env.DEV);
   if (!result) {
     return redirect(`/dev/login?error=config`, 302);
   }

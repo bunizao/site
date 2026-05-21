@@ -4,8 +4,8 @@ import { buildOauthStartResult } from '../../src/features/admin/server/oauth';
 import { ADMIN_SESSION_COOKIE, ADMIN_OAUTH_STATE_COOKIE } from '../../src/features/admin/server/session';
 
 describe('admin OAuth start', () => {
-  test('mints a local session cookie for loopback dev login', () => {
-    const result = buildOauthStartResult(
+  test('mints a local session cookie for loopback dev login', async () => {
+    const result = await buildOauthStartResult(
       new Request('http://localhost:4321/api/admin/auth/start?next=/dev/portal/newsletter'),
       {
         env: {
@@ -22,8 +22,8 @@ describe('admin OAuth start', () => {
     expect(result?.cookies[0]).toContain(`${ADMIN_SESSION_COOKIE}=`);
   });
 
-  test('falls back to GitHub OAuth outside dev bypass', () => {
-    const result = buildOauthStartResult(
+  test('falls back to GitHub OAuth outside dev bypass', async () => {
+    const result = await buildOauthStartResult(
       new Request('https://buxx.me/api/admin/auth/start?next=/dev/portal'),
       {
         env: {
@@ -39,8 +39,8 @@ describe('admin OAuth start', () => {
     expect(result?.cookies[0]).toContain(`${ADMIN_OAUTH_STATE_COOKIE}=`);
   });
 
-  test('does not mint a dev session for non-loopback hosts', () => {
-    const result = buildOauthStartResult(
+  test('does not mint a dev session for non-loopback hosts', async () => {
+    const result = await buildOauthStartResult(
       new Request('http://192.168.1.20:4321/api/admin/auth/start?next=/dev/portal'),
       {
         env: {

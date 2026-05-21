@@ -90,23 +90,33 @@ describe('admin dev session', () => {
 });
 
 describe('admin OAuth state', () => {
-  test('signs session tokens with a derived key', () => {
+  test('signs session tokens with the configured key', async () => {
     const now = Math.floor(Date.now() / 1000);
-    const token = createSessionToken('tester', 'test-signing-key', now);
+    const token = await createSessionToken('tester', 'test-signing-key', now);
 
-    expect(verifySessionToken(token, 'test-signing-key')?.login).toBe('tester');
-    expect(verifySessionToken(token, 'other-signing-key')).toBeNull();
+    expect((await verifySessionToken(token, 'test-signing-key'))?.login).toBe('tester');
+    expect(await verifySessionToken(token, 'other-signing-key')).toBeNull();
   });
 
-  test('normalizes unsafe next paths back to the portal', () => {
+  test('normalizes unsafe next paths back to the portal', async () => {
     const signingKey = 'test-signing-key';
     const now = Math.floor(Date.now() / 1000);
+    const validState = await createOauthState(signingKey, '/dev/portal/subscribers', now);
+    const protocolRelativeState = await createOauthState(signingKey, '//evil.example/path', now);
+    const absoluteUrlState = await createOauthState(signingKey, 'https://evil.example/path', now);
 
-    expect(verifyOauthState(createOauthState(signingKey, '/dev/portal/subscribers', now), signingKey)?.next)
+    expect((await verifyOauthState(validState, signingKey))?.next)
       .toBe('/dev/portal/subscribers');
-    expect(verifyOauthState(createOauthState(signingKey, '//evil.example/path', now), signingKey)?.next)
+    expect((await verifyOauthState(protocolRelativeState, signingKey))?.next)
       .toBe('/dev/portal');
-    expect(verifyOauthState(createOauthState(signingKey, 'https://evil.example/path', now), signingKey)?.next)
+    expect((await verifyOauthState(absoluteUrlState, signingKey))?.next)
       .toBe('/dev/portal');
+  });
+
+  test('rejects OAuth state signed with another key', async () => {
+    const now = Math.floor(Date.now() / 1000);
+    const state = await createOauthState('test-signing-key', '/dev/portal/subscribers', now);
+
+    expect(await verifyOauthState(state, 'other-signing-key')).toBeNull();
   });
 });

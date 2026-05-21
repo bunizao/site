@@ -1,4 +1,4 @@
-import { createHmac, randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
+import { randomBytes, timingSafeEqual } from 'node:crypto';
 import { readEnv } from '@/lib/runtime/env';
 
 export interface AdminSession {
@@ -21,8 +21,7 @@ const SESSION_TTL_SECONDS = 7 * 24 * 60 * 60;
 const STATE_TTL_SECONDS = 10 * 60;
 const LOCALHOST_NAMES = new Set(['localhost', '::1']);
 const DEFAULT_ADMIN_NEXT_PATH = '/dev/portal';
-const SIGNING_KEY_CONTEXT = 'site-admin-session-signing-v1';
-const signingKeyCache = new Map<string, Buffer>();
+const HMAC_ALGORITHM = { name: 'HMAC', hash: 'SHA-256' } as const;
 
 export function readAdminAuthConfig(locals: any): AdminAuthConfig {
   return {
@@ -97,16 +96,24 @@ function base64UrlDecode(value: string): Buffer {
   return Buffer.from(value, 'base64url');
 }
 
-function deriveSigningKey(value: string): Buffer {
-  const cached = signingKeyCache.get(value);
-  if (cached) return cached;
-  const key = scryptSync(value, SIGNING_KEY_CONTEXT, 32);
-  signingKeyCache.set(value, key);
-  return key;
+async function importSigningKey(signingKey: string): Promise<CryptoKey> {
+  return crypto.subtle.importKey(
+    'raw',
+    new TextEncoder().encode(signingKey),
+    HMAC_ALGORITHM,
+    false,
+    ['sign']
+  );
 }
 
-function signPayload(payload: string, signingKey: string): string {
-  return createHmac('sha256', deriveSigningKey(signingKey)).update(payload).digest('base64url');
+async function signPayload(payload: string, signingKey: string): Promise<string> {
+  const key = await importSigningKey(signingKey);
+  const signature = await crypto.subtle.sign(
+    HMAC_ALGORITHM.name,
+    key,
+    new TextEncoder().encode(payload)
+  );
+  return Buffer.from(signature).toString('base64url');
 }
 
 function safeEqual(a: string, b: string): boolean {
@@ -116,23 +123,27 @@ function safeEqual(a: string, b: string): boolean {
   return timingSafeEqual(aBuf, bBuf);
 }
 
-export function createSessionToken(login: string, signingKey: string, now = Math.floor(Date.now() / 1000)): string {
+export async function createSessionToken(
+  login: string,
+  signingKey: string,
+  now = Math.floor(Date.now() / 1000)
+): Promise<string> {
   const session: AdminSession = {
     login,
     iat: now,
     exp: now + SESSION_TTL_SECONDS,
   };
   const encoded = base64UrlEncode(JSON.stringify(session));
-  const signature = signPayload(encoded, signingKey);
+  const signature = await signPayload(encoded, signingKey);
   return `${encoded}.${signature}`;
 }
 
-export function verifySessionToken(token: string, signingKey: string): AdminSession | null {
+export async function verifySessionToken(token: string, signingKey: string): Promise<AdminSession | null> {
   if (!token || !signingKey) return null;
   const parts = token.split('.');
   if (parts.length !== 2) return null;
   const [encoded, signature] = parts;
-  const expected = signPayload(encoded, signingKey);
+  const expected = await signPayload(encoded, signingKey);
   if (!safeEqual(signature, expected)) return null;
 
   let session: AdminSession;
@@ -149,23 +160,27 @@ export function verifySessionToken(token: string, signingKey: string): AdminSess
   return session;
 }
 
-export function createOauthState(signingKey: string, next: string, now = Math.floor(Date.now() / 1000)): string {
+export async function createOauthState(
+  signingKey: string,
+  next: string,
+  now = Math.floor(Date.now() / 1000)
+): Promise<string> {
   const payload = JSON.stringify({
     nonce: randomBytes(16).toString('hex'),
     next: normalizeAdminNextPath(next),
     exp: now + STATE_TTL_SECONDS,
   });
   const encoded = base64UrlEncode(payload);
-  const signature = signPayload(encoded, signingKey);
+  const signature = await signPayload(encoded, signingKey);
   return `${encoded}.${signature}`;
 }
 
-export function verifyOauthState(token: string, signingKey: string): { next: string } | null {
+export async function verifyOauthState(token: string, signingKey: string): Promise<{ next: string } | null> {
   if (!token || !signingKey) return null;
   const parts = token.split('.');
   if (parts.length !== 2) return null;
   const [encoded, signature] = parts;
-  const expected = signPayload(encoded, signingKey);
+  const expected = await signPayload(encoded, signingKey);
   if (!safeEqual(signature, expected)) return null;
 
   let payload: { nonce?: string; next?: string; exp?: number };

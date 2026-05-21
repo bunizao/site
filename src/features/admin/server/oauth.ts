@@ -71,18 +71,18 @@ export interface OauthStartResult {
   cookies: string[];
 }
 
-export function buildOauthStartResult(
+export async function buildOauthStartResult(
   request: Request,
   locals: any,
   nextPath: string,
   isDev = false
-): OauthStartResult | null {
+): Promise<OauthStartResult | null> {
   const config = readAdminAuthConfig(locals);
   const url = new URL(request.url);
 
   const devSession = readAdminDevSession(locals, isDev, url.hostname);
   if (devSession && config.sessionSigningKey) {
-    const sessionToken = createSessionToken(devSession.login, config.sessionSigningKey);
+    const sessionToken = await createSessionToken(devSession.login, config.sessionSigningKey);
     return {
       redirectUrl: normalizeStartRedirectPath(nextPath),
       cookies: [buildSessionCookie(sessionToken)],
@@ -91,7 +91,7 @@ export function buildOauthStartResult(
 
   if (!config.clientId || !config.sessionSigningKey) return null;
 
-  const stateToken = createOauthState(config.sessionSigningKey, nextPath);
+  const stateToken = await createOauthState(config.sessionSigningKey, nextPath);
   return {
     redirectUrl: buildAuthorizeUrl(config.clientId, getRedirectUri(request), stateToken),
     cookies: [buildStateCookie(stateToken)],
@@ -133,7 +133,7 @@ export async function handleOauthCallback(request: Request, locals: any): Promis
     return { ok: false, reason: 'state', cookies };
   }
 
-  const verified = verifyOauthState(storedState, config.sessionSigningKey);
+  const verified = await verifyOauthState(storedState, config.sessionSigningKey);
   if (!verified) {
     return { ok: false, reason: 'state', cookies };
   }
@@ -188,7 +188,7 @@ export async function handleOauthCallback(request: Request, locals: any): Promis
     return { ok: false, reason: 'forbidden', cookies };
   }
 
-  const sessionToken = createSessionToken(login, config.sessionSigningKey);
+  const sessionToken = await createSessionToken(login, config.sessionSigningKey);
   cookies.push(buildSessionCookie(sessionToken));
   return { ok: true, redirectTo: verified.next, cookies };
 }
