@@ -52,6 +52,66 @@ The right direction is boring on purpose:
 
 Low complexity wins here. A mascot is branding content with behavior, not infrastructure.
 
+## Authoring New Expressions
+
+Pose and motion data lives in `src/features/mascot/peek/`. Each pose or motion frame is composed onto `PEEK_BASE.base` using small layer sources, so authors only describe what changes.
+
+### Layer sources
+
+Three forms cover all cases. Pick the one that fits the layer.
+
+```ts
+sparse([
+  [x, y, c],   // [x, y, cell]. c = -1 erases (paints cell 0)
+  ...
+])
+
+rows([           // pipe-string alphabet: . # o *
+  '..#####..',
+  ...
+])
+
+rle(width, height, [    // run-length encoded
+  [[1, 9]],             // row 0: nine cells of cell 1
+  ...
+])
+```
+
+### Composing
+
+```ts
+import { compose } from '../compose';
+import { sparse } from '../layer';
+import { PEEK_BASE } from '../base';
+
+const WINK_LEFT = compose(
+  PEEK_BASE.base,
+  sparse([
+    [2, 5, 1],
+    [7, 5, 2],
+  ]),
+);
+```
+
+Later layers overwrite earlier layers, pixel by pixel. Sparse pixels with `c = -1` paint cell 0 (background). Pixels that aren't listed are transparent — the underlying base or earlier layer shows through.
+
+For motions where the silhouette stays put (idle, dart, purr), each frame is a small sparse delta and repeated frames reuse the same constant by reference. For motions that reshape the silhouette (pop, hide, dissolve, alert's shell), pass full pipe-strings or `rows(...)` because the change covers most of the grid.
+
+### Visualizing
+
+```bash
+bun mascot:show peek.pose.track-center        # render one asset to the terminal
+bun mascot:show peek.motion.curious           # frames side-by-side
+bun mascot:show peek.motion.curious -- --png  # also write PNGs to .tmp/mascot/
+bun mascot:diff peek.pose.left peek.pose.right
+```
+
+The visualizer prints ANSI color blocks mapped from `palette.ts`. The `--png` flag is for human review only.
+
+### Looks
+
+Looks (`expressions/`, `costumes/`) stay full grids since they're variable height and replace the head silhouette outright. Use `defineLook` with numeric rows.
+
 ## Definition Of Done
 
 A mascot change is in good shape when:
