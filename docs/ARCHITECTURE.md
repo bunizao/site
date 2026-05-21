@@ -2,6 +2,7 @@
 
 ## Detailed Implementation Docs
 
+- [Roadmap](./ROADMAP.md)
 - [Home](./HOME.md)
 - [Mascot](./MASCOT.md)
 - [Mood](./MOOD.md)
