@@ -683,6 +683,11 @@ function getImageClassName(post: MoodFeedItem): string {
     function measureHeight() {
       const doc = document.documentElement;
       const body = document.body;
+      if (body) {
+        const rect = body.getBoundingClientRect();
+        const contentHeight = Math.ceil(rect.height);
+        if (contentHeight > 0) return contentHeight;
+      }
       return Math.max(doc.scrollHeight, body ? body.scrollHeight : 0);
     }
 

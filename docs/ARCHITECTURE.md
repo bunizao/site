@@ -9,18 +9,21 @@
 - [Shared Layout](./SHARED-LAYOUT.md)
 - [Security](./SECURITY.md)
 - [Privacy Policy](./PRIVACY-POLICY.md)
+- [Email Notify + Admin Portal](./EMAIL-NOTIFY.md)
 - [Worker and Site](./WORKER-SITE.md)
 
 ## Key Directories
 
 - **`src/pages/`** — File-based routing. Includes `index.astro` (home), `mood.astro` (feed shell + route bootstrap), `mood/[id].astro` (detail shell + route bootstrap), `mood/embed.astro` (embeddable widget)
-- **`src/pages/api/`** — Server endpoints (moods, comments, SVG generators, oEmbed, notify endpoints, legacy telegram webhook fallback)
-- **`src/pages/dev/preview.astro`** — Internal development preview surface for mascot and newsletter rendering checks
-- **`src/features/`** — Feature-private code. `src/features/home/ui/` contains home-route sections and their private UI helpers. `src/features/mood/` contains mood-specific client controllers, feed renderer/media/update modules, server services, shared helpers, and private Astro UI shells in `ui/`. `src/features/notify/server/` contains notify delivery, subscription, token, email, and D1 persistence logic, while `src/features/notify/ui/` holds notify-private preview UI.
+- **`src/pages/api/`** — Server endpoints (moods, comments, SVG generators, oEmbed, notify endpoints, admin endpoints, legacy telegram webhook fallback)
+- **`src/pages/dev/portal/`** — GitHub-OAuth-gated admin portal (overview, subscribers, broadcasts, mascot inspector, newsletter preview). `/dev/preview` and `/dev/newsletter-preview` 301-redirect into the portal.
+- **`src/middleware.ts`** — Astro middleware that gates `/dev/portal/**` and `/api/admin/**` against the `admin_session` cookie.
+- **`src/features/`** — Feature-private code. `src/features/home/ui/` contains home-route sections and their private UI helpers. `src/features/mood/` contains mood-specific client controllers, feed renderer/media/update modules, server services, shared helpers, and private Astro UI shells in `ui/`. `src/features/notify/server/` contains notify delivery, subscription, token, email, and D1 persistence logic, while `src/features/notify/ui/` holds notify-private preview UI. `src/features/admin/server/` holds OAuth/session, admin-side subscriber service, and broadcast service. `src/features/admin/ui/` holds the React consoles (subscribers, broadcasts).
 - **`src/features/logos/`** — Pixel mascot definitions, SVG rendering helpers, and animated logo UI used by the navbar and favicon route
 - **`src/lib/`** — Shared utilities: `github.ts` (GitHub API), `e2e.ts` (shared E2E fixture flag), `utils.ts` (cn/clsx utility), `runtime/env.ts`, `http/*`, `media/responsive-image.ts`, and `security/*`
-- **`src/layouts/`** — `Layout.astro` base layout with meta tags, theme toggle, analytics
-- **`src/styles/`** — `globals.css` with Tailwind directives, CSS variable color system (HSL), JetBrains Mono font
+- **`src/components/ui/`** — shadcn/ui primitives (Button, Card, Table, Dialog, etc.) used by the admin portal
+- **`src/layouts/`** — `Layout.astro` base layout for the public site; `PortalLayout.astro` shell for the admin portal (sidebar + topbar, scoped under `.theme-portal`)
+- **`src/styles/`** — `globals.css` with Tailwind directives, CSS variable color system (HSL), JetBrains Mono font, Geist Sans for the portal, `.theme-portal` token scope
 
 ## Component Patterns
 
@@ -51,6 +54,11 @@
 - `GET /api/oembed.json` — oEmbed endpoint (docs: `docs/OEMBED-API.md`)
 - `POST /api/notify/dispatch` — Internal notify dispatch endpoint
 - `POST /api/telegram-webhook` — Legacy Telegram webhook fallback endpoint
+
+**Admin (gated by `admin_session` cookie):**
+- `GET /api/admin/auth/start`, `GET /api/admin/auth/callback`, `POST /api/admin/auth/logout` — GitHub OAuth handshake
+- `GET|POST /api/admin/subscribers`, `GET|PATCH|DELETE /api/admin/subscribers/[hash]` — subscriber CRUD
+- `GET|POST /api/admin/broadcasts`, `POST /api/admin/broadcasts/preview`, `GET /api/admin/broadcasts/[id]` — broadcast compose, preview, send, history
 
 Telegram references:
 
@@ -86,6 +94,13 @@ Accessed via `import.meta.env.*`:
 - `NOTIFY_DISPATCH_SECRET` — Bearer secret accepted by `/api/notify/dispatch`
 - `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_NOTIFY_D1_DATABASE_ID` — Cloudflare account access and D1 notify database
 - `LASTFM_API_KEY`, `LASTFM_USER` — Last.fm recent tracks integration for the home listening widget
+- `GITHUB_OAUTH_CLIENT_ID`, `GITHUB_OAUTH_CLIENT_SECRET` — GitHub OAuth app for the admin portal
+- `ADMIN_GITHUB_LOGIN` — single GitHub login allowed into `/dev/portal`
+- `ADMIN_SESSION_SECRET` — 32-byte random base64 used to HMAC-sign the admin session cookie
+- `ADMIN_DEV_BYPASS` — loopback-only local login used by `bun run dev:portal`; ignored outside `astro dev`
+- `ADMIN_DEV_LOGIN`, `ADMIN_DEV_AVATAR_URL` — optional local-only login and avatar shown by the dev bypass session
+- `PUBLIC_SITE_URL`, `SITE_URL` — canonical base URLs for email links, previews, and health checks
+- `ACTIVITY_PANEL_SIGNING_SECRET` — optional signing secret for `/api/activity-panel.svg`
 
 Cloudflare Worker bindings and secrets are defined in [`workers/telegram-image-proxy/wrangler.toml`](../workers/telegram-image-proxy/wrangler.toml).
 

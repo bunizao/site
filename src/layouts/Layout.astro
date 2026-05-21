@@ -228,11 +228,18 @@ const navbarIdleTimeoutAnimation = getPeekRuntimeSlotKey('navbar.idle-timeout');
           if (frame) return;
           frame = window.requestAnimationFrame(syncVisualViewportTop);
         };
+        const syncAfterScroll = () => {
+          if (frame) {
+            window.cancelAnimationFrame(frame);
+            frame = 0;
+          }
+          syncVisualViewportTop();
+        };
 
         syncVisualViewportTop();
         viewport.addEventListener('resize', requestSync, { passive: true });
         viewport.addEventListener('scroll', requestSync, { passive: true });
-        window.addEventListener('scroll', requestSync, { passive: true });
+        window.addEventListener('scroll', syncAfterScroll, { passive: true });
         window.addEventListener('orientationchange', requestSync, { passive: true });
       })();
     </script>

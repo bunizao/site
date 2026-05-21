@@ -155,7 +155,16 @@ export function createFeedRenderer({
   const groupCache = new Map<string, { group: HTMLElement; items: HTMLElement }>();
   const renderedIdSet = new Set<string>();
   let interactionsBound = false;
-  let priorityMediaClaimed = false;
+  let priorityMediaClaimed = Boolean(
+    list.querySelector('[data-mood-gallery-priority="true"], img[fetchpriority="high"]')
+  );
+
+  list.querySelectorAll<HTMLElement>('[data-mood-id]').forEach((item) => {
+    const id = item.dataset.moodId;
+    if (id) {
+      renderedIdSet.add(id);
+    }
+  });
 
   const normalizeAuthorName = (value: string): string =>
     value.replace(/\s+/g, ' ').trim().replace(/^@/, '').toLowerCase().replace(/[^\w-]+$/g, '');

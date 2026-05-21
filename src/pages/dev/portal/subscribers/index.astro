@@ -1,0 +1,17 @@
+---
+import PortalLayout from '@/layouts/PortalLayout.astro';
+import SubscriberConsole from '@/features/admin/ui/SubscriberConsole';
+
+export const prerender = false;
+
+const session = (Astro.locals as any).adminSession;
+---
+
+<PortalLayout
+  title="Subscribers"
+  description="Manage subscribers, channel preferences, and delivery cadence."
+  active="subscribers"
+  user={{ login: session?.login || 'admin' }}
+>
+  <SubscriberConsole client:load />
+</PortalLayout>

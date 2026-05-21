@@ -59,6 +59,7 @@ If `TURNSTILE_SECRET_KEY` (or `CLOUDFLARE_TURNSTILE_SECRET_KEY`) is set, `POST /
 
 Telegram webhook and image ingest now use:
 - `PUBLIC_HD_IMAGE_URL`
+- `HD_IMAGE_INGEST_BASE_URL`
 - `HD_IMAGE_INGEST_TOKEN`
 - `TELEGRAM_WEBHOOK_SECRET`
 - `TELEGRAM_BOT_TOKEN`
@@ -76,14 +77,18 @@ That secret must match the Vercel production value because the Worker queue cons
 
 ## Notify D1 Tables
 
-- `notify_subscribers`
+- `notify_subscribers` (with `channels` column, default `["mood"]`)
 - `notify_sent`
 - `notify_retries`
 - `notify_dead_letters`
+- `notify_audit`
+- `notify_broadcasts` (admin-authored manual sends, see [Admin Portal](#admin-portal))
 
 Schema file:
 
 - [`scripts/sql/notify-d1.sql`](../scripts/sql/notify-d1.sql)
+
+Incremental migrations live under [`scripts/sql/migrations/`](../scripts/sql/migrations) — apply them in date order against existing databases.
 
 KV migration script:
 
@@ -98,9 +103,65 @@ bunx wrangler d1 create site-notify
 # Apply schema
 bunx wrangler d1 execute site-notify --remote --file scripts/sql/notify-d1.sql
 
+# Apply admin portal migration to an existing DB
+bunx wrangler d1 execute site-notify --remote --file scripts/sql/migrations/2026-05-21-admin-portal.sql
+
 # Migrate existing notify:* records from KV to D1
 bunx tsx scripts/migrate-notify-kv-to-d1.ts
 ```
+
+## Admin Portal
+
+The `/dev/portal` admin surface (GitHub-OAuth gated) replaces the public `/dev/preview` and `/dev/newsletter-preview` pages. It exposes:
+
+- `/dev/portal` — overview cards (subscribers, last broadcast, mascot library, templates) and recent audit feed
+- `/dev/portal/subscribers` — list, filter (status / channel / delivery mode), create, edit, delete (soft-delete to `unsubscribed`)
+- `/dev/portal/broadcasts` — compose (markdown or raw HTML) with audience filter, debounced live preview, send confirmation, history table
+- `/dev/portal/broadcasts/[id]` — broadcast detail with rendered email, audience, send counts
+- `/dev/portal/mascot` — runtime map, brand behavior, tracking stage, and full asset library
+- `/dev/portal/newsletter` — wraps the existing `TemplatePreview` component
+
+Old paths redirect (301): `/dev/preview` → `/dev/portal/mascot`, `/dev/newsletter-preview` → `/dev/portal/newsletter`.
+
+### Auth
+
+GitHub OAuth, allowlist of one (the `ADMIN_GITHUB_LOGIN` env var). HMAC-SHA256 signed HttpOnly session cookie (`admin_session`, 7-day expiry, format `<base64url(payload)>.<base64url(hmac)>`). State-cookie CSRF protection on the OAuth handshake.
+
+Required env vars:
+
+- `GITHUB_OAUTH_CLIENT_ID`
+- `GITHUB_OAUTH_CLIENT_SECRET`
+- `ADMIN_GITHUB_LOGIN` — the single GitHub login allowed (e.g. `bunizao`)
+- `ADMIN_SESSION_SECRET` — 32-byte random base64 string used for HMAC signing
+
+GitHub OAuth callback URL: `${PUBLIC_SITE_URL}/api/admin/auth/callback`.
+
+Local debugging can skip GitHub OAuth with `bun run dev:portal`. That script sets `ADMIN_DEV_BYPASS=1`, which lets `/api/admin/auth/start` mint a normal signed `admin_session` cookie only under `astro dev` on loopback hosts (`localhost`, `127.*`, `::1`); production builds ignore it. Use `ADMIN_DEV_LOGIN` and `ADMIN_DEV_AVATAR_URL` only for local display. When `ADMIN_DEV_AVATAR_URL` is empty, the dev session derives a GitHub avatar URL from `ADMIN_DEV_LOGIN` or `ADMIN_GITHUB_LOGIN`.
+
+### Admin API surface
+
+All `/api/admin/**` endpoints sit behind the same middleware gate as the portal pages:
+
+- `GET /api/admin/auth/start` — redirects to GitHub authorize
+- `GET /api/admin/auth/callback` — exchanges code, mints session cookie
+- `POST /api/admin/auth/logout` — clears session cookie
+- `GET /api/admin/subscribers` — paginated list with `status`, `channel`, `deliveryMode`, `search` filters
+- `POST /api/admin/subscribers` — create (audited as `admin_create`)
+- `GET /api/admin/subscribers/[hash]` — detail + audit timeline
+- `PATCH /api/admin/subscribers/[hash]` — update status / channels / delivery (audited as `admin_update`)
+- `DELETE /api/admin/subscribers/[hash]` — soft-delete (audited as `admin_delete`)
+- `GET /api/admin/broadcasts` — history (paginated)
+- `POST /api/admin/broadcasts` — preview audience count or send
+- `POST /api/admin/broadcasts/preview` — render an HTML iframe payload from subject + body
+- `GET /api/admin/broadcasts/[id]` — broadcast detail
+
+### Subscriber channels
+
+`notify_subscribers.channels` is a JSON-encoded list of `NotifyChannel` values: `mood | blog | privacy | announcement`. Existing rows default to `["mood"]`. Broadcasts intersect their audience with channel membership before dispatch — a subscriber who has unsubscribed from `privacy` will never receive a `privacy` broadcast.
+
+### Broadcasts
+
+Admin broadcasts share infrastructure with mood emails: `sendEmailWithResend`, the retry table, and the `notify_audit` event log. Each broadcast row records `subject`, sanitized `body_html`, `body_text`, audience JSON, recipient/sent/failed counts, status, and `sent_by` (the GitHub login). Any recipient failure marks the broadcast `failed` so partial delivery stays visible. Per-recipient sends use `Idempotency-Key: broadcast-<id>-<emailHash>`.
 
 ## Scheduling Strategy
 

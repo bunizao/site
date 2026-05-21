@@ -27,6 +27,7 @@ import type {
   DispatchResult,
   NotifyAuditEventType,
   NotifyAuditRecord,
+  NotifyChannel,
   RetryProcessResult,
   RetryRecord,
   ScheduledDispatchResult,
@@ -34,6 +35,7 @@ import type {
   SubscriberRecord,
   UnsubscribeResult,
 } from './types';
+import { NOTIFY_CHANNELS } from './types';
 
 export interface NotifyRequestContext {
   request: Request;
@@ -110,6 +112,7 @@ interface SubscriberRow {
   pending_daily_hour: number | null;
   last_notified_at: string | null;
   last_notified_post_id: string | null;
+  channels: string | null;
   created_at: string;
   updated_at: string;
   confirmed_at: string | null;
@@ -144,11 +147,34 @@ const SUBSCRIBER_COLUMNS = `
   pending_daily_hour,
   last_notified_at,
   last_notified_post_id,
+  channels,
   created_at,
   updated_at,
   confirmed_at,
   last_confirm_sent_at
 `;
+
+function parseChannels(value: string | null | undefined): NotifyChannel[] {
+  if (!value) return ['mood'];
+  try {
+    const parsed = JSON.parse(value);
+    if (!Array.isArray(parsed)) return ['mood'];
+    const valid = parsed
+      .filter((entry): entry is NotifyChannel =>
+        typeof entry === 'string' && (NOTIFY_CHANNELS as readonly string[]).includes(entry)
+      );
+    return valid.length ? Array.from(new Set(valid)) : ['mood'];
+  } catch {
+    return ['mood'];
+  }
+}
+
+function serializeChannels(channels: NotifyChannel[] | undefined): string {
+  if (!channels || !channels.length) return JSON.stringify(['mood']);
+  const valid = channels.filter((channel) => (NOTIFY_CHANNELS as readonly string[]).includes(channel));
+  const unique = Array.from(new Set(valid.length ? valid : ['mood']));
+  return JSON.stringify(unique);
+}
 
 function nullableText(value: string | undefined): string | null {
   if (typeof value !== 'string') return null;
@@ -177,6 +203,7 @@ function mapSubscriberRow(row: SubscriberRow): SubscriberRecord {
     email: row.email,
     emailHash: row.email_hash,
     status: row.status,
+    channels: parseChannels(row.channels),
     deliveryMode: row.delivery_mode ?? undefined,
     timezone: row.timezone ?? undefined,
     dailyHour: parseNullableInt(row.daily_hour),
@@ -560,12 +587,13 @@ async function upsertSubscriber(
       pending_daily_hour,
       last_notified_at,
       last_notified_post_id,
+      channels,
       created_at,
       updated_at,
       confirmed_at,
       last_confirm_sent_at
     )
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(email_hash) DO UPDATE SET
       email = excluded.email,
       status = excluded.status,
@@ -577,6 +605,7 @@ async function upsertSubscriber(
       pending_daily_hour = excluded.pending_daily_hour,
       last_notified_at = excluded.last_notified_at,
       last_notified_post_id = excluded.last_notified_post_id,
+      channels = excluded.channels,
       created_at = excluded.created_at,
       updated_at = excluded.updated_at,
       confirmed_at = excluded.confirmed_at,
@@ -593,6 +622,7 @@ async function upsertSubscriber(
       nullableInt(record.pendingDailyHour),
       nullableText(record.lastNotifiedAt),
       nullableText(record.lastNotifiedPostId),
+      serializeChannels(record.channels),
       record.createdAt,
       record.updatedAt,
       nullableText(record.confirmedAt),
@@ -1550,6 +1580,7 @@ export async function requestMoodSubscription(
     email,
     emailHash,
     status: existing?.status === 'active' ? 'active' : 'pending',
+    channels: existing?.channels ?? ['mood'],
     deliveryMode: existing?.deliveryMode ?? deliveryMode,
     timezone: existing?.timezone ?? timezone,
     dailyHour: existing?.dailyHour ?? dailyHour,
@@ -1607,6 +1638,7 @@ export async function confirmMoodSubscription(
     email,
     emailHash,
     status: 'active',
+    channels: existing?.channels ?? ['mood'],
     deliveryMode,
     timezone,
     dailyHour,
@@ -1671,6 +1703,7 @@ export async function unsubscribeMoodSubscription(
     email,
     emailHash,
     status: 'unsubscribed',
+    channels: existing?.channels ?? ['mood'],
     deliveryMode: existing?.deliveryMode,
     timezone: existing?.timezone,
     dailyHour: existing?.dailyHour,

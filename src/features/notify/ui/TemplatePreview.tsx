@@ -28,6 +28,7 @@ interface PreviewResponse {
 }
 
 type TemplateKey = 'subscribe' | 'welcome' | 'mood' | 'digest' | 'cancel';
+type CardSize = 'compacted' | 'regular' | 'expanded';
 
 const TEMPLATE_ORDER: ReadonlyArray<{
   key: TemplateKey;
@@ -42,6 +43,12 @@ const TEMPLATE_ORDER: ReadonlyArray<{
   { key: 'cancel', label: 'Unsubscribe Notice', index: '05', intent: 'opt-out receipt' },
 ];
 
+const CARD_SIZE_OPTIONS: ReadonlyArray<{ label: string; value: CardSize }> = [
+  { label: 'Compacted', value: 'compacted' },
+  { label: 'Regular', value: 'regular' },
+  { label: 'Expanded', value: 'expanded' },
+];
+
 export default function TemplatePreview() {
   const [digestMode, setDigestMode] = useState<'daily' | 'every_5h'>('daily');
   const [sample, setSample] = useState<'live' | 'rich'>('live');
@@ -51,6 +58,7 @@ export default function TemplatePreview() {
   const [error, setError] = useState('');
   const [refreshKey, setRefreshKey] = useState(0);
   const [focused, setFocused] = useState<TemplateKey | null>(null);
+  const [cardSize, setCardSize] = useState<CardSize>('regular');
   const requestId = useRef(0);
 
   useEffect(() => {
@@ -114,7 +122,7 @@ export default function TemplatePreview() {
   ];
 
   return (
-    <section className="notify-preview">
+    <section className={`notify-preview notify-preview--${cardSize}`}>
       <div className="notify-control-bar">
         <div className="notify-control-group" role="group" aria-label="Digest mode">
           <span className="notify-control-label">Digest</span>
@@ -157,6 +165,23 @@ export default function TemplatePreview() {
             >
               Rich sample
             </button>
+          </div>
+        </div>
+
+        <div className="notify-control-group" role="group" aria-label="Card size">
+          <span className="notify-control-label">Cards</span>
+          <div className="notify-segment">
+            {CARD_SIZE_OPTIONS.map((option) => (
+              <button
+                key={option.value}
+                type="button"
+                onClick={() => setCardSize(option.value)}
+                className={`notify-segment__btn${cardSize === option.value ? ' notify-segment__btn--active' : ''}`}
+                aria-pressed={cardSize === option.value}
+              >
+                {option.label}
+              </button>
+            ))}
           </div>
         </div>
 
