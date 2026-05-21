@@ -1,6 +1,8 @@
 ---
 import Hero from '@/features/mood/ui/Hero.astro';
 import type { MoodFeedItem, MoodChannelSummary } from '@/features/mood/server/contracts';
+import { renderMoodGalleryMarkup } from '@/features/mood/shared/gallery-render';
+import { buildSrcSet, withWidthParam } from '@/lib/media/responsive-image';
 
 interface SkeletonItem {
   index: number;
@@ -30,12 +32,179 @@ const initialFeedPayload = {
   channel: initialChannel,
 };
 const hasInitialFeedPayload = initialPosts.length > 0 || Boolean(initialChannel);
+const CRITICAL_INITIAL_POST_LIMIT = 8;
+const responsiveImageWidths = [480, 800, 1200];
+const thumbnailImageSizes = '(min-width: 1024px) 560px, (min-width: 640px) 480px, 100vw';
+
+function formatTime(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+}
+
+function formatDateKey(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
+
+function formatDateHeader(dateKey: string): string {
+  const [year, month, day] = dateKey.split('-').map(Number);
+  const date = new Date(year, month - 1, day);
+  const now = new Date();
+  const yesterday = new Date(now);
+  yesterday.setDate(yesterday.getDate() - 1);
+
+  const isSameDay = (candidate: Date, target: Date) => (
+    candidate.getFullYear() === target.getFullYear()
+    && candidate.getMonth() === target.getMonth()
+    && candidate.getDate() === target.getDate()
+  );
+
+  if (isSameDay(date, now)) return 'Today';
+  if (isSameDay(date, yesterday)) return 'Yesterday';
+
+  const months = [
+    'January',
+    'February',
+    'March',
+    'April',
+    'May',
+    'June',
+    'July',
+    'August',
+    'September',
+    'October',
+    'November',
+    'December',
+  ];
+
+  if (date.getFullYear() === now.getFullYear()) {
+    return `${months[date.getMonth()]} ${date.getDate()}`;
+  }
+
+  return `${months[date.getMonth()]} ${date.getDate()}, ${date.getFullYear()}`;
+}
+
+function hasRenderableMedia(post: MoodFeedItem): boolean {
+  return Boolean(
+    post.mediaHtml.trim()
+    || post.image
+    || (post.gallery?.items.length ?? 0) > 1
+  );
+}
+
+function getCriticalInitialPosts(posts: MoodFeedItem[]): MoodFeedItem[] {
+  const source = posts.filter((post) => post?.id);
+  const firstMediaIndex = source.findIndex(hasRenderableMedia);
+  const limit = firstMediaIndex >= 0 ? firstMediaIndex + 1 : CRITICAL_INITIAL_POST_LIMIT;
+
+  return source.slice(0, limit);
+}
+
+function groupPostsByDate(posts: MoodFeedItem[]): Array<{ dateKey: string; posts: MoodFeedItem[] }> {
+  const groups = new Map<string, MoodFeedItem[]>();
+  posts.forEach((post) => {
+    const dateKey = formatDateKey(post.datetime);
+    if (!dateKey) return;
+    if (!groups.has(dateKey)) {
+      groups.set(dateKey, []);
+    }
+    groups.get(dateKey)?.push(post);
+  });
+
+  return Array.from(groups, ([dateKey, groupPosts]) => ({ dateKey, posts: groupPosts }));
+}
+
+function getPostHref(post: MoodFeedItem): string | undefined {
+  return post.needsDetailPage && !post.mediaHtml.trim() ? `/mood/${post.id}` : undefined;
+}
+
+function getThumbClass(post: MoodFeedItem): string {
+  const classes = ['mood-item-thumb'];
+  if (post.previewMediaType === 'too-big-video' && post.image) {
+    classes.push('mood-item-thumb--video');
+  }
+  if (post.imageKind === 'sticker') {
+    classes.push('mood-item-thumb--sticker');
+  }
+  if (post.previewMediaType !== 'too-big-video') {
+    if (post.imageLayout === 'portrait') {
+      classes.push('mood-item-thumb--portrait');
+    } else if (post.imageLayout === 'ultra-tall') {
+      classes.push('mood-item-thumb--ultra-tall');
+    }
+  }
+  return classes.join(' ');
+}
+
+function getThumbStyle(post: MoodFeedItem): string | undefined {
+  if (post.imageWidth && post.imageHeight) {
+    return `aspect-ratio:${post.imageWidth} / ${post.imageHeight};`;
+  }
+  if (post.imageWidth && !post.imageHeight) {
+    return 'aspect-ratio:1 / 1;';
+  }
+  return undefined;
+}
+
+function getCommentsCountInfo(value: MoodFeedItem['commentsCount']): { count: number; label: string } {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return { count: value, label: String(value) };
+  }
+
+  if (typeof value !== 'string') {
+    return { count: 0, label: '' };
+  }
+
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return { count: 0, label: '' };
+  }
+
+  const direct = Number(trimmed.replace(/,/g, ''));
+  if (Number.isFinite(direct)) {
+    return { count: direct, label: trimmed };
+  }
+
+  const match = trimmed.match(/(\d+(?:[.,]\d+)?)(\s*[kKmM])?/);
+  if (!match) {
+    return { count: 0, label: '' };
+  }
+
+  let count = Number(match[1].replace(',', '.'));
+  const suffix = match[2]?.trim() ?? '';
+  if (/k/i.test(suffix)) {
+    count *= 1000;
+  } else if (/m/i.test(suffix)) {
+    count *= 1_000_000;
+  }
+
+  return Number.isFinite(count) ? { count, label: trimmed } : { count: 0, label: '' };
+}
+
+function normalizeAuthorName(value: string): string {
+  return value.replace(/\s+/g, ' ').trim().replace(/^@/, '').toLowerCase().replace(/[^\w-]+$/g, '');
+}
+
+function shouldHideQuoteAuthor(value?: string): boolean {
+  if (!value) return false;
+  const normalized = normalizeAuthorName(value);
+  const slug = initialChannel?.slug ? normalizeAuthorName(initialChannel.slug) : '';
+  const title = initialChannel?.title ? normalizeAuthorName(initialChannel.title) : '';
+  return Boolean((slug && normalized === slug) || (title && normalized === title));
+}
+
+const criticalInitialPosts = getCriticalInitialPosts(initialPosts);
+const criticalDateGroups = groupPostsByDate(criticalInitialPosts);
+const criticalPriorityPostId = criticalInitialPosts.find(hasRenderableMedia)?.id ?? '';
+const hasCriticalInitialPosts = criticalInitialPosts.length > 0;
 ---
 
 <div class="mood-page">
   <Hero />
 
-  <div class="mood-loading" data-mood-loading>
+  <div class={`mood-loading${hasCriticalInitialPosts ? ' is-hidden' : ''}`} data-mood-loading>
     <div class="mood-skeleton-stream" aria-hidden="true">
       {skeletonGroups.map((group) => (
         <div
@@ -68,11 +237,208 @@ const hasInitialFeedPayload = initialPosts.length > 0 || Boolean(initialChannel)
     <p class="text-sm text-muted-foreground">Unable to load moods. Please try again later.</p>
   </div>
 
-  <div class="mood-feed is-hidden" data-mood-feed>
+  <div class={`mood-feed${hasCriticalInitialPosts ? '' : ' is-hidden'}`} data-mood-feed>
     {hasInitialFeedPayload && (
       <script type="application/json" data-mood-initial-feed set:html={JSON.stringify(initialFeedPayload)}></script>
     )}
-    <div class="mood-stream" data-mood-list role="feed" aria-label="Mood feed"></div>
+    <div class="mood-stream" data-mood-list role="feed" aria-label="Mood feed">
+      {criticalDateGroups.map((group) => (
+        <div class="mood-date-group" data-date={group.dateKey}>
+          <div class="mood-date-header">
+            <span class="mood-date-text">{formatDateHeader(group.dateKey)}</span>
+            <div class="mood-date-line"></div>
+          </div>
+          <div class="mood-date-items">
+            {group.posts.map((post, index) => {
+              const href = getPostHref(post);
+              const mediaHtml = post.mediaHtml.trim();
+              const isLongPreview = post.previewText.length > 280;
+              const isPriorityMedia = post.id === criticalPriorityPostId;
+              const commentsInfo = getCommentsCountInfo(post.commentsCount);
+              const isTooBigVideoPreview = post.previewMediaType === 'too-big-video' && Boolean(post.image);
+              const hasGalleryPreview = !mediaHtml && !isTooBigVideoPreview && (post.gallery?.items.length ?? 0) > 1;
+
+              return (
+                <div
+                  class={`mood-item${href ? ' mood-item--clickable' : ''}`}
+                  data-mood-id={post.id}
+                  data-href={href}
+                  role={href ? 'link' : undefined}
+                  tabindex={href ? 0 : undefined}
+                  style={`--item-index: ${index};`}
+                >
+                  <a
+                    class="mood-item-expand-float"
+                    href={`/mood/${post.id}`}
+                    title="View full post"
+                    aria-label="View full post"
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M15 3h6v6"></path>
+                      <path d="M10 14 21 3"></path>
+                      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                    </svg>
+                  </a>
+                  <time class="mood-item-time" datetime={post.datetime}>{formatTime(post.datetime)}</time>
+                  <div class={`mood-item-content${isTooBigVideoPreview && !post.previewText.trim() && !mediaHtml && !post.forwardedFrom && !post.quote ? ' mood-item-content--media-only' : ''}`}>
+                    {post.forwardedFrom?.name ? (
+                      <div class="mood-item-forwarded">
+                        <span class="mood-forwarded-label">Forwarded from</span>
+                        {post.forwardedFrom.href ? (
+                          <a class="mood-forwarded-source" href={post.forwardedFrom.href} target="_blank" rel="noopener noreferrer">
+                            {post.forwardedFrom.name}
+                          </a>
+                        ) : (
+                          <span class="mood-forwarded-source">{post.forwardedFrom.name}</span>
+                        )}
+                        {post.forwardedFrom.author && post.forwardedFrom.author !== post.forwardedFrom.name ? (
+                          <span class="mood-forwarded-author">({post.forwardedFrom.author})</span>
+                        ) : null}
+                      </div>
+                    ) : null}
+
+                    {post.quote?.text ? (
+                      <Fragment>
+                        {post.quote.href ? (
+                          <a
+                            class={`mood-item-quote${post.quote.thumbnailSrc && /^(Media|Video)$/i.test(post.quote.text) ? ' mood-item-quote--media-only' : post.quote.thumbnailSrc ? ' mood-item-quote--with-media' : ''}`}
+                            href={post.quote.href}
+                            data-quote-id={post.quote.href.match(/\/mood\/(\d+)/)?.[1]}
+                            target={/^https?:\/\//i.test(post.quote.href) ? '_blank' : undefined}
+                            rel={/^https?:\/\//i.test(post.quote.href) ? 'noopener noreferrer' : undefined}
+                          >
+                            {post.quote.thumbnailSrc ? (
+                              <span class="mood-item-quote-media">
+                                <img class="mood-item-quote-image" src={post.quote.thumbnailSrc} alt="" loading="lazy" decoding="async" />
+                              </span>
+                            ) : null}
+                            <span class="mood-item-quote-body">
+                              {post.quote.author && !shouldHideQuoteAuthor(post.quote.author) ? (
+                                <div class="mood-item-quote-meta">
+                                  <span class="mood-item-quote-author">{post.quote.author}</span>
+                                </div>
+                              ) : null}
+                              {/^(Media|Video)$/i.test(post.quote.text) && post.quote.thumbnailSrc ? null : (
+                                <p class="mood-item-quote-text">{post.quote.text}</p>
+                              )}
+                            </span>
+                          </a>
+                        ) : (
+                          <div class={`mood-item-quote${post.quote.thumbnailSrc ? ' mood-item-quote--with-media' : ''}`}>
+                            {post.quote.thumbnailSrc ? (
+                              <span class="mood-item-quote-media">
+                                <img class="mood-item-quote-image" src={post.quote.thumbnailSrc} alt="" loading="lazy" decoding="async" />
+                              </span>
+                            ) : null}
+                            <span class="mood-item-quote-body">
+                              {post.quote.author && !shouldHideQuoteAuthor(post.quote.author) ? (
+                                <div class="mood-item-quote-meta">
+                                  <span class="mood-item-quote-author">{post.quote.author}</span>
+                                </div>
+                              ) : null}
+                              <p class="mood-item-quote-text">{post.quote.text}</p>
+                            </span>
+                          </div>
+                        )}
+                      </Fragment>
+                    ) : null}
+
+                    {post.previewHtml.trim() ? (
+                      <p
+                        class={`mood-item-text${isLongPreview ? ' mood-item-text--clamped' : ''}`}
+                        set:html={post.previewHtml}
+                      />
+                    ) : post.previewText.trim() ? (
+                      <p class={`mood-item-text${isLongPreview ? ' mood-item-text--clamped' : ''}`}>
+                        {post.previewText}
+                      </p>
+                    ) : null}
+
+                    {mediaHtml ? (
+                      <div class="mood-item-media" set:html={mediaHtml} />
+                    ) : hasGalleryPreview && post.gallery ? (
+                      <Fragment set:html={renderMoodGalleryMarkup(post.gallery, { variant: 'feed', priority: isPriorityMedia })} />
+                    ) : post.image ? (
+                      <div class={getThumbClass(post)} style={getThumbStyle(post)}>
+                        <img
+                          alt=""
+                          width={post.imageWidth ?? undefined}
+                          height={post.imageHeight ?? undefined}
+                          data-fallback-src={post.imageFallback ?? undefined}
+                          decoding="async"
+                          loading={isPriorityMedia ? 'eager' : 'lazy'}
+                          fetchpriority={isPriorityMedia ? 'high' : undefined}
+                          src={withWidthParam(post.image, 800)}
+                          srcset={buildSrcSet(post.image, responsiveImageWidths)}
+                          sizes={thumbnailImageSizes}
+                        />
+                        {isTooBigVideoPreview ? (
+                          <div class="mood-item-thumb-video-overlay" aria-hidden="true">
+                            <span class="mood-item-thumb-video-label">Media is too big</span>
+                            <span class="mood-item-thumb-video-cta">View details</span>
+                          </div>
+                        ) : null}
+                      </div>
+                    ) : null}
+
+                    {isLongPreview ? <a class="mood-item-details link" href={`/mood/${post.id}`}>View details</a> : null}
+
+                    <div class="mood-item-reactions">
+                      {post.reactions.map((reaction) => (
+                        <span class={reaction.isPaid ? 'mood-reaction mood-reaction--paid' : 'mood-reaction'}>
+                          <span class="mood-reaction-emoji">
+                            {reaction.isPaid ? '⭐' : reaction.emojiImage || reaction.emojiId ? (
+                              <span class="tg-emoji" data-emoji-id={reaction.emojiId || undefined}>
+                                {reaction.emojiImage ? (
+                                  <img src={reaction.emojiImage} alt={reaction.emoji || 'emoji'} loading="lazy" decoding="async" width="16" height="16" />
+                                ) : reaction.emoji}
+                              </span>
+                            ) : reaction.emoji}
+                          </span>
+                          <span class="mood-reaction-count">{reaction.count}</span>
+                        </span>
+                      ))}
+                      {commentsInfo.count > 0 ? (
+                        <div class="mood-comments-wrapper" data-post-id={post.id}>
+                          <a class="mood-item-comments" href={`/mood/${post.id}#comments`} title={`${commentsInfo.label} comment${commentsInfo.count === 1 ? '' : 's'}`}>
+                            <span class="mood-comments-icon">
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                              </svg>
+                            </span>
+                            <span class="mood-comments-count">{commentsInfo.label}</span>
+                          </a>
+                          <div class="mood-comments-popover">
+                            <div class="mood-comments-popover-loading">
+                              <div class="mood-popover-skeleton">
+                                <div class="mood-popover-skeleton-avatar"></div>
+                                <div class="mood-popover-skeleton-body">
+                                  <div class="mood-popover-skeleton-line mood-popover-skeleton-line--short"></div>
+                                  <div class="mood-popover-skeleton-line mood-popover-skeleton-line--long"></div>
+                                </div>
+                              </div>
+                              <div class="mood-popover-skeleton">
+                                <div class="mood-popover-skeleton-avatar"></div>
+                                <div class="mood-popover-skeleton-body">
+                                  <div class="mood-popover-skeleton-line mood-popover-skeleton-line--short"></div>
+                                  <div class="mood-popover-skeleton-line mood-popover-skeleton-line--long"></div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ) : null}
+                    </div>
+
+                    {post.tag ? <span class="mood-item-tag">#{post.tag}</span> : null}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      ))}
+    </div>
     <div class="mood-load-controls">
       <p class="mood-load-status" data-load-status aria-live="polite"></p>
     </div>

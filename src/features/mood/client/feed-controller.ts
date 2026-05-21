@@ -3,6 +3,7 @@ import { createFeedCommentsPopoverController } from '@/features/mood/client/feed
 import { createFeedMediaHydrator } from '@/features/mood/client/feed-media-hydration';
 import { createFeedRenderer } from '@/features/mood/client/feed-renderer';
 import { createFeedUpdateWatcher } from '@/features/mood/client/feed-update-watcher';
+import { initMoodGalleries } from '@/features/mood/client/gallery';
 import type {
   ChannelInfo,
   MoodData,
@@ -231,6 +232,11 @@ export function initMoodFeedController(): void {
       });
 
       commentsPopover.init();
+      const serverRenderedCount = list.querySelectorAll('.mood-item[data-mood-id]').length;
+      if (serverRenderedCount > 0) {
+        totalCount = serverRenderedCount;
+        initMoodGalleries(list);
+      }
 
       const appendMoods = (posts: MoodData[], startIndex = totalCount): void => {
         totalCount = renderer.appendMoods(posts, startIndex);
