@@ -1,0 +1,251 @@
+---
+interface Props {
+  title: string;
+  description?: string;
+  active?: 'overview' | 'subscribers' | 'broadcasts' | 'mascot' | 'newsletter';
+  user?: {
+    login: string;
+    avatarUrl?: string;
+  };
+}
+
+import '@/styles/globals.css';
+import {
+  LayoutDashboard,
+  Users,
+  Send,
+  Sparkles,
+  Mail,
+  LogOut,
+  ExternalLink,
+} from 'lucide-react';
+
+const { title, description, active = 'overview', user } = Astro.props;
+
+const navItems = [
+  { key: 'overview', label: 'Overview', href: '/dev/portal', Icon: LayoutDashboard },
+  { key: 'subscribers', label: 'Subscribers', href: '/dev/portal/subscribers', Icon: Users },
+  { key: 'broadcasts', label: 'Broadcasts', href: '/dev/portal/broadcasts', Icon: Send },
+  { key: 'mascot', label: 'Mascot', href: '/dev/portal/mascot', Icon: Sparkles },
+  { key: 'newsletter', label: 'Newsletter', href: '/dev/portal/newsletter', Icon: Mail },
+] as const;
+---
+
+<!doctype html>
+<html lang="en" class="theme-portal">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex, nofollow" />
+    <meta name="color-scheme" content="dark" />
+    <link rel="preload" href="/fonts/geist-sans-variable.woff2" as="font" type="font/woff2" crossorigin />
+    <title>{title} · Dev Portal</title>
+    {description && <meta name="description" content={description} />}
+    <style is:global>
+      html.theme-portal,
+      html.theme-portal body {
+        background: hsl(var(--background));
+        color: hsl(var(--foreground));
+        font-family: 'Geist', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      }
+      html.theme-portal body::before {
+        display: none;
+      }
+      html.theme-portal section {
+        padding: 0;
+        border-bottom: none;
+      }
+      .portal-shell {
+        display: grid;
+        grid-template-columns: 240px 1fr;
+        min-height: 100vh;
+      }
+      @media (max-width: 900px) {
+        .portal-shell {
+          grid-template-columns: 1fr;
+        }
+        .portal-sidebar {
+          position: sticky;
+          top: 0;
+          z-index: 30;
+          flex-direction: row;
+          border-right: 0;
+          border-bottom: 1px solid hsl(var(--border));
+        }
+      }
+      .portal-sidebar {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        padding: 24px 16px;
+        border-right: 1px solid hsl(var(--border));
+        background: hsl(240 6% 5%);
+      }
+      .portal-sidebar-brand {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 0 8px 16px;
+        font-size: 12px;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+        color: hsl(var(--muted-foreground));
+      }
+      .portal-sidebar-link {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 8px 10px;
+        border-radius: 8px;
+        font-size: 13px;
+        color: hsl(var(--muted-foreground));
+        transition: background 0.15s ease, color 0.15s ease;
+      }
+      .portal-sidebar-link:hover {
+        background: hsl(var(--accent));
+        color: hsl(var(--foreground));
+      }
+      .portal-sidebar-link[aria-current='page'] {
+        background: hsl(var(--accent));
+        color: hsl(var(--foreground));
+      }
+      .portal-sidebar-spacer {
+        flex: 1;
+      }
+      .portal-sidebar-user {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px;
+        border-radius: 8px;
+        background: hsl(var(--card));
+        border: 1px solid hsl(var(--border));
+        font-size: 12px;
+      }
+      .portal-sidebar-user img {
+        width: 28px;
+        height: 28px;
+        border-radius: 999px;
+      }
+      .portal-sidebar-user-name {
+        flex: 1;
+        font-weight: 500;
+        color: hsl(var(--foreground));
+      }
+      .portal-sidebar-user-email {
+        color: hsl(var(--muted-foreground));
+        font-size: 11px;
+      }
+      .portal-content {
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+      }
+      .portal-topbar {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        padding: 18px 32px;
+        border-bottom: 1px solid hsl(var(--border));
+        background: hsl(var(--background) / 0.92);
+        backdrop-filter: blur(8px);
+        position: sticky;
+        top: 0;
+        z-index: 20;
+      }
+      .portal-topbar-title {
+        font-size: 15px;
+        font-weight: 500;
+        letter-spacing: -0.01em;
+      }
+      .portal-topbar-description {
+        font-size: 12px;
+        color: hsl(var(--muted-foreground));
+      }
+      .portal-topbar-spacer {
+        flex: 1;
+      }
+      .portal-page {
+        padding: 28px 32px 64px;
+      }
+      .portal-logout {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 8px;
+        font-size: 12px;
+        color: hsl(var(--muted-foreground));
+        border-radius: 6px;
+        background: transparent;
+        border: 1px solid transparent;
+        cursor: pointer;
+      }
+      .portal-logout:hover {
+        color: hsl(var(--foreground));
+        background: hsl(var(--accent));
+      }
+      .portal-mono {
+        font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-feature-settings: 'tnum' 1;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="portal-shell">
+      <aside class="portal-sidebar">
+        <div class="portal-sidebar-brand">
+          <span style="display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:6px;background:hsl(var(--primary));color:hsl(var(--primary-foreground));font-weight:700;font-size:12px;">b</span>
+          <span>Dev Portal</span>
+        </div>
+        {navItems.map((item) => (
+          <a
+            href={item.href}
+            class="portal-sidebar-link"
+            aria-current={active === item.key ? 'page' : undefined}
+          >
+            <item.Icon size={15} />
+            <span>{item.label}</span>
+          </a>
+        ))}
+        <div class="portal-sidebar-spacer"></div>
+        <a class="portal-sidebar-link" href="/" target="_blank" rel="noreferrer">
+          <ExternalLink size={15} />
+          <span>View site</span>
+        </a>
+        {user && (
+          <div class="portal-sidebar-user">
+            {user.avatarUrl ? (
+              <img src={user.avatarUrl} alt={`@${user.login}`} loading="lazy" />
+            ) : (
+              <div style="width:28px;height:28px;border-radius:999px;background:hsl(var(--accent));display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;">
+                {user.login.slice(0, 1).toUpperCase()}
+              </div>
+            )}
+            <div style="flex:1;min-width:0;">
+              <div class="portal-sidebar-user-name" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">@{user.login}</div>
+              <div class="portal-sidebar-user-email">Admin</div>
+            </div>
+            <form method="post" action="/api/admin/auth/logout">
+              <button type="submit" class="portal-logout" aria-label="Sign out">
+                <LogOut size={13} />
+              </button>
+            </form>
+          </div>
+        )}
+      </aside>
+      <div class="portal-content">
+        <header class="portal-topbar">
+          <div>
+            <div class="portal-topbar-title">{title}</div>
+            {description && <div class="portal-topbar-description">{description}</div>}
+          </div>
+          <div class="portal-topbar-spacer"></div>
+          <slot name="actions" />
+        </header>
+        <main class="portal-page">
+          <slot />
+        </main>
+      </div>
+    </div>
+  </body>
+</html>
