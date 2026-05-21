@@ -59,6 +59,7 @@ If `TURNSTILE_SECRET_KEY` (or `CLOUDFLARE_TURNSTILE_SECRET_KEY`) is set, `POST /
 
 Telegram webhook and image ingest now use:
 - `PUBLIC_HD_IMAGE_URL`
+- `HD_IMAGE_INGEST_BASE_URL`
 - `HD_IMAGE_INGEST_TOKEN`
 - `TELEGRAM_WEBHOOK_SECRET`
 - `TELEGRAM_BOT_TOKEN`
@@ -135,7 +136,7 @@ Required env vars:
 
 GitHub OAuth callback URL: `${PUBLIC_SITE_URL}/api/admin/auth/callback`.
 
-Local debugging can skip GitHub OAuth with `bun run dev:portal`. That script sets `ADMIN_DEV_BYPASS=1`, which lets `/api/admin/auth/start` mint a normal signed `admin_session` cookie only under `astro dev` on loopback hosts (`localhost`, `127.*`, `::1`); production builds ignore it.
+Local debugging can skip GitHub OAuth with `bun run dev:portal`. That script sets `ADMIN_DEV_BYPASS=1`, which lets `/api/admin/auth/start` mint a normal signed `admin_session` cookie only under `astro dev` on loopback hosts (`localhost`, `127.*`, `::1`); production builds ignore it. Use `ADMIN_DEV_LOGIN` and `ADMIN_DEV_AVATAR_URL` only for local display. When `ADMIN_DEV_AVATAR_URL` is empty, the dev session derives a GitHub avatar URL from `ADMIN_DEV_LOGIN` or `ADMIN_GITHUB_LOGIN`.
 
 ### Admin API surface
 

@@ -98,6 +98,9 @@ Accessed via `import.meta.env.*`:
 - `ADMIN_GITHUB_LOGIN` — single GitHub login allowed into `/dev/portal`
 - `ADMIN_SESSION_SECRET` — 32-byte random base64 used to HMAC-sign the admin session cookie
 - `ADMIN_DEV_BYPASS` — loopback-only local login used by `bun run dev:portal`; ignored outside `astro dev`
+- `ADMIN_DEV_LOGIN`, `ADMIN_DEV_AVATAR_URL` — optional local-only login and avatar shown by the dev bypass session
+- `PUBLIC_SITE_URL`, `SITE_URL` — canonical base URLs for email links, previews, and health checks
+- `ACTIVITY_PANEL_SIGNING_SECRET` — optional signing secret for `/api/activity-panel.svg`
 
 Cloudflare Worker bindings and secrets are defined in [`workers/telegram-image-proxy/wrangler.toml`](../workers/telegram-image-proxy/wrangler.toml).
 

@@ -29,6 +29,7 @@ Use focused dev scripts when working on one surface:
 bun run dev:home     # homepage, with mood runtime loading paused
 bun run dev:mood     # mood feed/detail work
 bun run dev:preview  # internal preview pages
+bun run dev:portal   # admin portal, with loopback-only OAuth bypass
 ```
 
 ## API Endpoints
@@ -74,6 +75,10 @@ Query params:
 
 Documentation:
 - [`docs/EMAIL-NOTIFY.md`](docs/EMAIL-NOTIFY.md)
+
+Admin portal:
+- `/dev/portal` is GitHub OAuth gated in production.
+- Use `bun run dev:portal` locally. It sets the loopback-only `ADMIN_DEV_BYPASS=1` path, mints the same signed session cookie, and uses `ADMIN_DEV_LOGIN` / `ADMIN_DEV_AVATAR_URL` when configured.
 
 ### SVG
 
@@ -129,6 +134,16 @@ Documentation:
 Variable descriptions are maintained as inline comments in [`.env`](.env).
 
 Use `.env.local` for local secrets and keep [`.env`](.env) as the documented template.
+
+## Merge Preflight
+Before merging admin portal changes, run:
+
+```bash
+bun test tests/unit/admin-session.test.ts tests/unit/admin-oauth.test.ts
+E2E_HOST=localhost bunx playwright test tests/e2e/admin-portal.pw.ts
+bun run check
+bun run build
+```
 
 ## Acknowledgements
 - [miantiao-me/BroadcastChannel](https://github.com/miantiao-me/BroadcastChannel) - Inspiration and code reference for `moods` ideas.
