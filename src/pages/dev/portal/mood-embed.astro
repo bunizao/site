@@ -1,0 +1,523 @@
+---
+import PortalLayout from '@/layouts/PortalLayout.astro';
+
+export const prerender = false;
+
+const session = (Astro.locals as any).adminSession;
+---
+
+<PortalLayout
+  title="Mood embed"
+  description="Preview the public mood embed iframe with every supported query parameter."
+  active="mood-embed"
+  user={{ login: session?.login || 'admin' }}
+>
+  <section class="mood-embed-preview">
+    <aside class="moodp-controls" aria-label="Embed parameters">
+      <div class="moodp-control-block">
+        <span class="moodp-label">Theme</span>
+        <div class="moodp-segment" data-key="theme">
+          <button type="button" class="moodp-seg moodp-seg--active" data-value="auto" aria-pressed="true">Auto</button>
+          <button type="button" class="moodp-seg" data-value="light" aria-pressed="false">Light</button>
+          <button type="button" class="moodp-seg" data-value="dark" aria-pressed="false">Dark</button>
+        </div>
+      </div>
+
+      <div class="moodp-control-block">
+        <span class="moodp-label">Density</span>
+        <div class="moodp-segment" data-key="density">
+          <button type="button" class="moodp-seg moodp-seg--active" data-value="regular" aria-pressed="true">Regular</button>
+          <button type="button" class="moodp-seg" data-value="compact" aria-pressed="false">Compact</button>
+        </div>
+      </div>
+
+      <div class="moodp-control-block">
+        <span class="moodp-label">Font</span>
+        <div class="moodp-segment" data-key="font">
+          <button type="button" class="moodp-seg moodp-seg--active" data-value="mono" aria-pressed="true">Mono</button>
+          <button type="button" class="moodp-seg" data-value="system" aria-pressed="false">System</button>
+        </div>
+      </div>
+
+      <div class="moodp-control-block">
+        <span class="moodp-label">Frame</span>
+        <div class="moodp-segment" data-key="frame">
+          <button type="button" class="moodp-seg moodp-seg--active" data-value="true" aria-pressed="true">On</button>
+          <button type="button" class="moodp-seg" data-value="false" aria-pressed="false">Off</button>
+        </div>
+      </div>
+
+      <div class="moodp-control-block">
+        <span class="moodp-label">Show "View all" link</span>
+        <div class="moodp-segment" data-key="link">
+          <button type="button" class="moodp-seg moodp-seg--active" data-value="true" aria-pressed="true">On</button>
+          <button type="button" class="moodp-seg" data-value="false" aria-pressed="false">Off</button>
+        </div>
+      </div>
+
+      <label class="moodp-control-block">
+        <span class="moodp-label">Count</span>
+        <input
+          class="moodp-input"
+          type="number"
+          min="1"
+          max="10"
+          step="1"
+          value="3"
+          data-key="count"
+          inputmode="numeric"
+        />
+        <span class="moodp-hint">1–10. Ignored when a specific post id is set.</span>
+      </label>
+
+      <label class="moodp-control-block">
+        <span class="moodp-label">Pinned post id</span>
+        <input
+          class="moodp-input"
+          type="text"
+          placeholder="e.g. 3503"
+          data-key="id"
+          autocomplete="off"
+          spellcheck="false"
+        />
+        <span class="moodp-hint">Optional. Forces the embed to a single post.</span>
+      </label>
+
+      <label class="moodp-control-block">
+        <span class="moodp-label">Refresh interval (s)</span>
+        <input
+          class="moodp-input"
+          type="number"
+          min="0"
+          max="3600"
+          step="30"
+          value="0"
+          data-key="refresh"
+          inputmode="numeric"
+        />
+        <span class="moodp-hint">0 disables. Clamped to 30–3600 by the embed.</span>
+      </label>
+
+      <label class="moodp-control-block">
+        <span class="moodp-label">Frame backdrop</span>
+        <div class="moodp-segment" data-key="backdrop">
+          <button type="button" class="moodp-seg moodp-seg--active" data-value="auto" aria-pressed="true">Auto</button>
+          <button type="button" class="moodp-seg" data-value="dark" aria-pressed="false">Dark</button>
+          <button type="button" class="moodp-seg" data-value="light" aria-pressed="false">Light</button>
+          <button type="button" class="moodp-seg" data-value="checker" aria-pressed="false">Checker</button>
+        </div>
+        <span class="moodp-hint">Local preview backdrop. Not part of the embed URL.</span>
+      </label>
+
+      <button type="button" class="moodp-reload" data-action="reload">
+        <span aria-hidden="true">↻</span>
+        Force reload iframe
+      </button>
+    </aside>
+
+    <div class="moodp-stage">
+      <header class="moodp-stage__bar">
+        <div class="moodp-url" data-url-display>/mood/embed</div>
+        <div class="moodp-stage__actions">
+          <button type="button" class="moodp-action" data-action="copy">Copy URL</button>
+          <a class="moodp-action" data-action="open" href="/mood/embed" target="_blank" rel="noopener">Open ↗</a>
+        </div>
+      </header>
+      <div class="moodp-frame" data-backdrop="auto">
+        <iframe
+          class="moodp-iframe"
+          title="Mood embed preview"
+          src="/mood/embed?count=3&theme=auto"
+          loading="lazy"
+        />
+      </div>
+      <footer class="moodp-stage__foot">
+        <span data-iframe-status>Waiting for the embed to report its height…</span>
+      </footer>
+    </div>
+  </section>
+</PortalLayout>
+
+<script is:inline>
+  (() => {
+    const root = document.querySelector('.mood-embed-preview');
+    if (!(root instanceof HTMLElement)) return;
+
+    const iframe = root.querySelector('.moodp-iframe');
+    const urlDisplay = root.querySelector('[data-url-display]');
+    const openLink = root.querySelector('[data-action="open"]');
+    const copyButton = root.querySelector('[data-action="copy"]');
+    const reloadButton = root.querySelector('[data-action="reload"]');
+    const status = root.querySelector('[data-iframe-status]');
+    const frame = root.querySelector('.moodp-frame');
+
+    if (!(iframe instanceof HTMLIFrameElement)) return;
+
+    const state = {
+      theme: 'auto',
+      density: 'regular',
+      font: 'mono',
+      frame: 'true',
+      link: 'true',
+      count: '3',
+      id: '',
+      refresh: '0',
+      backdrop: 'auto',
+    };
+
+    const defaults = { ...state };
+
+    const buildUrl = () => {
+      const params = new URLSearchParams();
+      if (state.id.trim()) {
+        params.set('id', state.id.trim());
+      } else {
+        const count = Math.max(1, Math.min(10, Number.parseInt(state.count, 10) || 1));
+        params.set('count', String(count));
+      }
+      if (state.theme !== defaults.theme) params.set('theme', state.theme);
+      if (state.density !== defaults.density) params.set('density', state.density);
+      if (state.font !== defaults.font) params.set('font', state.font);
+      if (state.frame !== defaults.frame) params.set('frame', state.frame);
+      if (state.link !== defaults.link) params.set('link', state.link);
+      const refresh = Math.max(0, Math.min(3600, Number.parseInt(state.refresh, 10) || 0));
+      if (refresh > 0) params.set('refresh', String(refresh));
+      params.set('origin', window.location.origin);
+      return `/mood/embed?${params.toString()}`;
+    };
+
+    let lastUrl = '';
+    const applyUrl = () => {
+      const url = buildUrl();
+      if (urlDisplay) urlDisplay.textContent = url;
+      if (openLink instanceof HTMLAnchorElement) openLink.href = url;
+      if (url === lastUrl) return;
+      lastUrl = url;
+      iframe.src = url;
+      if (status) status.textContent = 'Loading embed…';
+    };
+
+    const setSegmentValue = (key, value) => {
+      const segment = root.querySelector(`.moodp-segment[data-key="${key}"]`);
+      if (!segment) return;
+      segment.querySelectorAll('button').forEach((btn) => {
+        const active = btn.getAttribute('data-value') === value;
+        btn.classList.toggle('moodp-seg--active', active);
+        btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+      });
+    };
+
+    root.querySelectorAll('.moodp-segment').forEach((segment) => {
+      const key = segment.getAttribute('data-key');
+      if (!key) return;
+      segment.querySelectorAll('button').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const value = btn.getAttribute('data-value');
+          if (value == null) return;
+          if (key === 'backdrop') {
+            state.backdrop = value;
+            setSegmentValue('backdrop', value);
+            if (frame instanceof HTMLElement) frame.dataset.backdrop = value;
+            return;
+          }
+          state[key] = value;
+          setSegmentValue(key, value);
+          applyUrl();
+        });
+      });
+    });
+
+    root.querySelectorAll('input[data-key]').forEach((input) => {
+      if (!(input instanceof HTMLInputElement)) return;
+      const key = input.dataset.key;
+      if (!key) return;
+      const update = () => {
+        state[key] = input.value;
+        applyUrl();
+      };
+      input.addEventListener('input', update);
+      input.addEventListener('change', update);
+    });
+
+    if (copyButton instanceof HTMLButtonElement) {
+      copyButton.addEventListener('click', async () => {
+        try {
+          const absolute = new URL(buildUrl(), window.location.origin).toString();
+          await navigator.clipboard.writeText(absolute);
+          const original = copyButton.textContent;
+          copyButton.textContent = 'Copied';
+          copyButton.dataset.copied = 'true';
+          setTimeout(() => {
+            copyButton.textContent = original;
+            delete copyButton.dataset.copied;
+          }, 1400);
+        } catch {
+          copyButton.textContent = 'Copy failed';
+          setTimeout(() => {
+            copyButton.textContent = 'Copy URL';
+          }, 1400);
+        }
+      });
+    }
+
+    if (reloadButton instanceof HTMLButtonElement) {
+      reloadButton.addEventListener('click', () => {
+        lastUrl = '';
+        applyUrl();
+      });
+    }
+
+    iframe.addEventListener('load', () => {
+      if (status) status.textContent = 'Embed loaded. Auto-resizing on height change.';
+    });
+
+    window.addEventListener('message', (event) => {
+      if (event.source !== iframe.contentWindow) return;
+      const data = event.data;
+      if (!data || data.type !== 'mood-embed-resize') return;
+      const height = Number(data.height);
+      if (!Number.isFinite(height)) return;
+      iframe.style.height = `${Math.max(120, Math.ceil(height))}px`;
+      if (status) status.textContent = `Reported height: ${Math.ceil(height)}px`;
+    });
+
+    applyUrl();
+  })();
+</script>
+
+<style is:global>
+  .mood-embed-preview {
+    display: grid;
+    grid-template-columns: 320px 1fr;
+    gap: 16px;
+    align-items: start;
+  }
+
+  @media (max-width: 1024px) {
+    .mood-embed-preview {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .moodp-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    padding: 16px;
+    background: hsl(var(--card));
+    border: 1px solid hsl(var(--border));
+    border-radius: 12px;
+    position: sticky;
+    top: 78px;
+  }
+
+  @media (max-width: 1024px) {
+    .moodp-controls {
+      position: static;
+    }
+  }
+
+  .moodp-control-block {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .moodp-label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
+    color: hsl(var(--muted-foreground));
+  }
+
+  .moodp-hint {
+    font-size: 11px;
+    color: hsl(var(--muted-foreground));
+  }
+
+  .moodp-segment {
+    display: inline-flex;
+    flex-wrap: wrap;
+    padding: 3px;
+    border-radius: 8px;
+    background: hsl(var(--background));
+    border: 1px solid hsl(var(--border));
+  }
+
+  .moodp-seg {
+    padding: 5px 10px;
+    font-size: 12px;
+    font-weight: 500;
+    color: hsl(var(--muted-foreground));
+    background: transparent;
+    border: 0;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease;
+  }
+
+  .moodp-seg:hover {
+    color: hsl(var(--foreground));
+  }
+
+  .moodp-seg--active,
+  .moodp-seg--active:hover {
+    background: hsl(var(--accent));
+    color: hsl(var(--accent-foreground));
+  }
+
+  .moodp-input {
+    padding: 8px 10px;
+    font-size: 13px;
+    font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+    color: hsl(var(--foreground));
+    background: hsl(var(--background));
+    border: 1px solid hsl(var(--border));
+    border-radius: 8px;
+    outline: none;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  }
+
+  .moodp-input:focus {
+    border-color: hsl(var(--ring));
+    box-shadow: 0 0 0 1px hsl(var(--ring) / 0.4);
+  }
+
+  .moodp-reload {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    margin-top: 4px;
+    padding: 8px 12px;
+    font-size: 12px;
+    font-weight: 500;
+    color: hsl(var(--foreground));
+    background: hsl(var(--background));
+    border: 1px solid hsl(var(--border));
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 0.15s ease, border-color 0.15s ease;
+  }
+
+  .moodp-reload:hover {
+    background: hsl(var(--accent) / 0.4);
+    border-color: hsl(var(--ring));
+  }
+
+  .moodp-stage {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    background: hsl(var(--card));
+    border: 1px solid hsl(var(--border));
+    border-radius: 12px;
+    overflow: hidden;
+    min-width: 0;
+  }
+
+  .moodp-stage__bar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 14px;
+    border-bottom: 1px solid hsl(var(--border));
+    background: hsl(var(--background));
+  }
+
+  .moodp-url {
+    flex: 1;
+    min-width: 0;
+    padding: 6px 8px;
+    font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 11px;
+    color: hsl(var(--muted-foreground));
+    background: hsl(var(--card));
+    border: 1px solid hsl(var(--border));
+    border-radius: 6px;
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+
+  .moodp-stage__actions {
+    display: inline-flex;
+    gap: 6px;
+    flex: 0 0 auto;
+  }
+
+  .moodp-action {
+    display: inline-flex;
+    align-items: center;
+    padding: 6px 10px;
+    font-size: 11px;
+    font-weight: 500;
+    color: hsl(var(--muted-foreground));
+    background: transparent;
+    border: 1px solid hsl(var(--border));
+    border-radius: 7px;
+    cursor: pointer;
+    text-decoration: none;
+    transition: color 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+  }
+
+  .moodp-action:hover {
+    color: hsl(var(--foreground));
+    background: hsl(var(--accent) / 0.4);
+  }
+
+  .moodp-action[data-copied='true'] {
+    color: hsl(var(--portal-success, 142 71% 45%));
+    border-color: hsl(var(--portal-success, 142 71% 45%) / 0.5);
+  }
+
+  .moodp-frame {
+    padding: 16px;
+    min-height: 320px;
+    transition: background 0.15s ease;
+  }
+
+  .moodp-frame[data-backdrop='auto'] {
+    background:
+      linear-gradient(180deg, hsl(0 0% 100% / 0.02), hsl(0 0% 100% / 0.06)),
+      hsl(240 6% 4%);
+  }
+
+  .moodp-frame[data-backdrop='dark'] {
+    background: hsl(240 6% 4%);
+  }
+
+  .moodp-frame[data-backdrop='light'] {
+    background: hsl(0 0% 98%);
+  }
+
+  .moodp-frame[data-backdrop='checker'] {
+    background-color: hsl(0 0% 96%);
+    background-image:
+      linear-gradient(45deg, hsl(0 0% 88%) 25%, transparent 25%),
+      linear-gradient(-45deg, hsl(0 0% 88%) 25%, transparent 25%),
+      linear-gradient(45deg, transparent 75%, hsl(0 0% 88%) 75%),
+      linear-gradient(-45deg, transparent 75%, hsl(0 0% 88%) 75%);
+    background-size: 16px 16px;
+    background-position: 0 0, 0 8px, 8px -8px, -8px 0;
+  }
+
+  .moodp-iframe {
+    width: 100%;
+    min-height: 320px;
+    height: 320px;
+    border: 0;
+    background: transparent;
+    color-scheme: dark light;
+    display: block;
+    transition: height 0.18s ease;
+  }
+
+  .moodp-stage__foot {
+    padding: 8px 14px;
+    border-top: 1px solid hsl(var(--border));
+    background: hsl(var(--background));
+    font-size: 11px;
+    color: hsl(var(--muted-foreground));
+    font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+</style>
