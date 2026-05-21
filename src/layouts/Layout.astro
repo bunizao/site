@@ -11,6 +11,11 @@ interface Props {
   navVariant?: 'home' | 'page';
   headerActionsVariant?: 'default' | 'home';
   structuredData?: Record<string, unknown> | Array<Record<string, unknown>>;
+  preloadImages?: Array<{
+    href: string;
+    imageSrcSet?: string;
+    imageSizes?: string;
+  }>;
   rss?: {
     href: string;
     title?: string;
@@ -44,6 +49,7 @@ const {
   navVariant,
   headerActionsVariant = 'default',
   structuredData,
+  preloadImages = [],
   rss,
   oembed,
 } = Astro.props;
@@ -90,6 +96,16 @@ const navbarIdleTimeoutAnimation = getPeekRuntimeSlotKey('navbar.idle-timeout');
       crossorigin
     />
     {robots ? <meta name="robots" content={robots} /> : null}
+    {preloadImages.map((image) => (
+      <link
+        rel="preload"
+        as="image"
+        href={image.href}
+        imagesrcset={image.imageSrcSet}
+        imagesizes={image.imageSizes}
+        fetchpriority="high"
+      />
+    ))}
     <link rel="canonical" href={canonicalUrl} />
     <meta property="og:title" content={title} />
     <meta property="og:description" content={description} />

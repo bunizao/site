@@ -6,6 +6,7 @@ import NotifyPanel from '@/features/mood/ui/NotifyPanel.astro';
 import { loadMoodChannelSnapshot } from '@/features/mood/server/channel-service';
 import { buildMoodFeedResponse } from '@/features/mood/server/feed-service';
 import { isE2ESiteFixtureEnabled } from '@/lib/e2e';
+import { buildSrcSet, withWidthParam } from '@/lib/media/responsive-image';
 import '@/styles/mood-gallery.css';
 
 export const prerender = false;
@@ -36,6 +37,16 @@ const initialFeed = isE2ESiteFixtureEnabled(Astro.locals)
         console.warn('Failed to load initial mood feed:', error);
         return null;
       });
+const preloadImageWidths = [480, 800, 1200];
+const preloadImageSizes = '(min-width: 1024px) 560px, (min-width: 640px) 480px, 100vw';
+const firstFeedImage = initialFeed?.posts.find((post) => post.image)?.image ?? '';
+const preloadImages = firstFeedImage
+  ? [{
+      href: withWidthParam(firstFeedImage, 800),
+      imageSrcSet: buildSrcSet(firstFeedImage, preloadImageWidths),
+      imageSizes: preloadImageSizes,
+    }]
+  : [];
 // Skeleton structure: 2 date group cards to match actual content layout
 const skeletonGroups = [
   {
@@ -58,7 +69,7 @@ const skeletonGroups = [
 ];
 ---
 
-<Layout title={title} description={description} rss={rss} oembed={oembed}>
+<Layout title={title} description={description} rss={rss} oembed={oembed} preloadImages={preloadImages}>
   <!-- Inject page-specific header actions -->
   <script is:inline define:vars={{ telegramUrl, turnstileSiteKey }}>
     (() => {

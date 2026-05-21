@@ -155,6 +155,7 @@ export function createFeedRenderer({
   const groupCache = new Map<string, { group: HTMLElement; items: HTMLElement }>();
   const renderedIdSet = new Set<string>();
   let interactionsBound = false;
+  let priorityMediaClaimed = false;
 
   const normalizeAuthorName = (value: string): string =>
     value.replace(/\s+/g, ' ').trim().replace(/^@/, '').toLowerCase().replace(/[^\w-]+$/g, '');
@@ -205,7 +206,6 @@ export function createFeedRenderer({
       ? mood.needsDetailPage
       : isLongContent(mood.previewText);
     const shouldLink = needsDetailPage && !hasMediaHtml;
-    const isPriorityItem = index === 0;
     const element = document.createElement('div');
 
     if (shouldLink) {
@@ -345,6 +345,12 @@ export function createFeedRenderer({
     }
 
     const isTooBigVideoPreview = previewMediaType === 'too-big-video' && Boolean(mood.image);
+    const hasGalleryPreview = !hasMediaHtml && !isTooBigVideoPreview && (mood.gallery?.items.length ?? 0) > 1;
+    const hasImagePreview = Boolean(mood.image);
+    const isPriorityMedia = !priorityMediaClaimed && (hasMediaHtml || hasGalleryPreview || hasImagePreview);
+    if (isPriorityMedia) {
+      priorityMediaClaimed = true;
+    }
     const isMediaOnlyVideoPreview =
       isTooBigVideoPreview && !hasTextPreview && !hasMediaHtml && !forwardedFrom && !quote;
 
@@ -357,16 +363,16 @@ export function createFeedRenderer({
       const media = document.createElement('div');
       media.className = 'mood-item-media';
       media.innerHTML = mediaHtml;
-      mediaHydrator.applyMediaHints(media, isPriorityItem);
+      mediaHydrator.applyMediaHints(media, isPriorityMedia);
       content.appendChild(media);
-    } else if (!isTooBigVideoPreview && (mood.gallery?.items.length ?? 0) > 1) {
+    } else if (hasGalleryPreview) {
       const galleryData = mood.gallery;
       if (!galleryData) {
         throw new Error(`Missing mood gallery payload for mood ${mood.id}`);
       }
       const gallery = createMoodGalleryElement(galleryData, {
         variant: 'feed',
-        priority: isPriorityItem,
+        priority: isPriorityMedia,
       });
       content.appendChild(gallery);
     } else if (mood.image) {
@@ -414,10 +420,12 @@ export function createFeedRenderer({
       }
 
       const hasResolvedImageLayout = Boolean(imageLayout) || isTooBigVideoPreview;
-      mediaHydrator.setImageHints(img, { priority: isPriorityItem });
+      mediaHydrator.setImageHints(img, { priority: isPriorityMedia });
       if (!hasResolvedImageLayout) {
         img.loading = 'eager';
-        img.removeAttribute('fetchpriority');
+        if (!isPriorityMedia) {
+          img.removeAttribute('fetchpriority');
+        }
       }
 
       const thumbMarker = document.createElement('span');
@@ -508,13 +516,13 @@ export function createFeedRenderer({
         content.appendChild(thumbMarker);
       }
 
-      if (isPriorityItem || !hasResolvedImageLayout) {
+      if (isPriorityMedia || !hasResolvedImageLayout) {
         mediaHydrator.applyResponsiveImage(img, mood.image);
       } else {
         img.dataset.deferredSrc = mood.image;
       }
 
-      if (!isPriorityItem && hasResolvedImageLayout) {
+      if (!isPriorityMedia && hasResolvedImageLayout) {
         mediaHydrator.registerDeferredImage(thumbWrap, () => {
           mediaHydrator.hydrateDeferredImage(img);
         });
