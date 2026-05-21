@@ -29,6 +29,23 @@ export function readAdminAuthConfig(locals: any): AdminAuthConfig {
   };
 }
 
+export function readAdminDevSession(
+  locals: any,
+  isDev: boolean,
+  now = Math.floor(Date.now() / 1000)
+): AdminSession | null {
+  if (!isDev || readEnv(locals, 'ADMIN_DEV_BYPASS') !== '1') {
+    return null;
+  }
+
+  const login = readEnv(locals, 'ADMIN_DEV_LOGIN') || readEnv(locals, 'ADMIN_GITHUB_LOGIN') || 'local-dev';
+  return {
+    login,
+    iat: now,
+    exp: now + SESSION_TTL_SECONDS,
+  };
+}
+
 export function isAdminAuthConfigured(config: AdminAuthConfig): boolean {
   return Boolean(
     config.clientId

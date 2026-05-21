@@ -135,6 +135,8 @@ Required env vars:
 
 GitHub OAuth callback URL: `${PUBLIC_SITE_URL}/api/admin/auth/callback`.
 
+Local debugging can skip OAuth with `bun run dev:portal`. That script sets `ADMIN_DEV_BYPASS=1`, which is honored only by `astro dev`; production builds ignore it.
+
 ### Admin API surface
 
 All `/api/admin/**` endpoints sit behind the same middleware gate as the portal pages:

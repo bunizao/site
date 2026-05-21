@@ -1,6 +1,7 @@
 import { defineMiddleware } from 'astro:middleware';
 import {
   readAdminAuthConfig,
+  readAdminDevSession,
   readSessionFromCookieHeader,
   verifySessionToken,
 } from '@/features/admin/server/session';
@@ -41,6 +42,12 @@ export const onRequest = defineMiddleware(async (context, next) => {
 
   if (session && session.login.toLowerCase() === config.allowedLogin.toLowerCase()) {
     (context.locals as Record<string, unknown>).adminSession = session;
+    return next();
+  }
+
+  const devSession = readAdminDevSession(context.locals, import.meta.env.DEV);
+  if (devSession) {
+    (context.locals as Record<string, unknown>).adminSession = devSession;
     return next();
   }
 
