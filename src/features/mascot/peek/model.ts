@@ -90,7 +90,7 @@ export function defineMotion(
   id: string,
   key: string,
   fps: number,
-  frames: ReadonlyArray<string>,
+  frames: ReadonlyArray<string | Grid>,
   meta: Omit<MascotAsset, 'id' | 'mascot' | 'key' | 'kind' | 'frames' | 'fps'>,
 ): MascotAsset {
   return {
@@ -99,7 +99,7 @@ export function defineMotion(
     key,
     kind: 'motion',
     fps,
-    frames: gridsFromPatterns(frames),
+    frames: frames.map((frame) => (typeof frame === 'string' ? gridFromPattern(frame) : frame)),
     ...meta,
   };
 }
