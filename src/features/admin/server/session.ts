@@ -5,6 +5,7 @@ export interface AdminSession {
   login: string;
   iat: number;
   exp: number;
+  avatarUrl?: string;
 }
 
 export interface AdminAuthConfig {
@@ -126,12 +127,14 @@ function safeEqual(a: string, b: string): boolean {
 export async function createSessionToken(
   login: string,
   signingKey: string,
-  now = Math.floor(Date.now() / 1000)
+  now = Math.floor(Date.now() / 1000),
+  extra: { avatarUrl?: string } = {}
 ): Promise<string> {
   const session: AdminSession = {
     login,
     iat: now,
     exp: now + SESSION_TTL_SECONDS,
+    ...(extra.avatarUrl ? { avatarUrl: extra.avatarUrl } : {}),
   };
   const encoded = base64UrlEncode(JSON.stringify(session));
   const signature = await signPayload(encoded, signingKey);
@@ -156,6 +159,9 @@ export async function verifySessionToken(token: string, signingKey: string): Pro
   if (typeof session.login !== 'string' || !session.login) return null;
   if (typeof session.exp !== 'number' || session.exp <= Math.floor(Date.now() / 1000)) {
     return null;
+  }
+  if (session.avatarUrl !== undefined && typeof session.avatarUrl !== 'string') {
+    session.avatarUrl = undefined;
   }
   return session;
 }

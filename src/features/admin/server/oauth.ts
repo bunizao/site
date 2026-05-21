@@ -188,7 +188,9 @@ export async function handleOauthCallback(request: Request, locals: any): Promis
     return { ok: false, reason: 'forbidden', cookies };
   }
 
-  const sessionToken = await createSessionToken(login, config.sessionSigningKey);
+  const sessionToken = await createSessionToken(login, config.sessionSigningKey, undefined, {
+    avatarUrl: typeof user.avatar_url === 'string' ? user.avatar_url : undefined,
+  });
   cookies.push(buildSessionCookie(sessionToken));
   return { ok: true, redirectTo: verified.next, cookies };
 }
