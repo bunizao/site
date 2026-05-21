@@ -42,8 +42,10 @@ jobs:
             const inputUrl = context.payload.inputs?.deployment_url;
             const deployment = context.payload.deployment;
             const deploymentStatus = context.payload.deployment_status;
+            const environment = deployment?.environment || 'Manual';
             const deploymentUrl = String(
               inputUrl ||
+              (environment === 'Production' ? 'https://buxx.me' : '') ||
               deploymentStatus?.environment_url ||
               deploymentStatus?.target_url ||
               ''
@@ -68,7 +70,7 @@ jobs:
             }
 
             core.setOutput('deployment_url', parsedUrl.toString());
-            core.setOutput('environment', deployment?.environment || 'Manual');
+            core.setOutput('environment', environment);
 
       - name: Checkout
         uses: actions/checkout@v4
@@ -93,9 +95,9 @@ jobs:
           bun x @lhci/cli@0.15.1 healthcheck --config=./lighthouserc.cjs
           bun x @lhci/cli@0.15.1 collect --config=./lighthouserc.cjs
           bun x @lhci/cli@0.15.1 upload --config=./lighthouserc.cjs
-          bun x @lhci/cli@0.15.1 assert --config=./lighthouserc.cjs
 
       - name: Summarize Lighthouse result
+        id: summary
         if: always()
         env:
           LHCI_DEPLOYMENT_URL: ${{ steps.context.outputs.deployment_url }}
@@ -115,9 +117,10 @@ jobs:
           name: lighthouse-report
           path: .lighthouseci
           if-no-files-found: ignore
+          include-hidden-files: true
 
       - name: Notify abnormal Lighthouse result
-        if: always() && steps.lhci.outcome == 'failure'
+        if: always() && (steps.lhci.outcome == 'failure' || steps.summary.outputs.anomaly == 'true')
         uses: actions/github-script@v7
         with:
           script: |
@@ -156,7 +159,7 @@ jobs:
             }
 
       - name: Close resolved Lighthouse tracker
-        if: steps.lhci.outcome == 'success'
+        if: steps.lhci.outcome == 'success' && steps.summary.outputs.anomaly == 'false'
         uses: actions/github-script@v7
         with:
           script: |

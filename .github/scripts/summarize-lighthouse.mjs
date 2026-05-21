@@ -3,7 +3,7 @@ import path from 'node:path';
 import { createRequire } from 'node:module';
 
 const require = createRequire(import.meta.url);
-const { categoryThresholds, metricThresholds } = require('../lighthouse/thresholds.cjs');
+const { getCategoryThresholds, metricThresholds } = require('../lighthouse/thresholds.cjs');
 
 const workspace = process.cwd();
 const lighthouseDir = path.join(workspace, '.lighthouseci');
@@ -35,6 +35,11 @@ function formatMetric(value, auditId) {
 
 function markdownLink(url) {
   return `[${url}](${url})`;
+}
+
+function writeOutput(name, value) {
+  if (!process.env.GITHUB_OUTPUT) return;
+  fs.appendFileSync(process.env.GITHUB_OUTPUT, `${name}=${value}\n`);
 }
 
 function getRunUrl() {
@@ -84,6 +89,7 @@ function buildSummary() {
     const categories = report.categories || {};
     const audits = report.audits || {};
     const rowFailures = [];
+    const categoryThresholds = getCategoryThresholds(entry.url);
 
     for (const [category, threshold] of Object.entries(categoryThresholds)) {
       const score = categories[category]?.score;
@@ -129,6 +135,7 @@ function buildSummary() {
     runUrl ? `Workflow: ${markdownLink(runUrl)}` : '',
     '',
     'Abnormal means any audited URL misses one of these gates: performance < 75, accessibility < 90, best practices < 90, SEO < 90, FCP > 3s, LCP > 4s, TBT > 300ms, or CLS > 0.1.',
+    'SEO is only gated on the canonical production host, because Vercel preview and deployment URLs are not meaningful SEO targets.',
     '',
     '| URL | Perf | A11y | Best | SEO | FCP | LCP | TBT | CLS | Result |',
     '| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |',
@@ -149,6 +156,7 @@ fs.mkdirSync(lighthouseDir, { recursive: true });
 const summary = buildSummary();
 fs.writeFileSync(summaryPath, summary.markdown);
 fs.writeFileSync(resultPath, `${JSON.stringify({ anomaly: summary.anomaly }, null, 2)}\n`);
+writeOutput('anomaly', String(summary.anomaly));
 
 if (process.env.GITHUB_STEP_SUMMARY) {
   fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, summary.markdown);

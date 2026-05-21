@@ -1,5 +1,3 @@
-const { assertions } = require('./.github/lighthouse/thresholds.cjs');
-
 const deploymentUrl = process.env.LHCI_DEPLOYMENT_URL || 'https://buxx.me';
 const paths = (process.env.LHCI_PATHS || '/,/mood')
   .split(',')
@@ -28,9 +26,6 @@ module.exports = {
       url: urls,
       numberOfRuns: Number(process.env.LHCI_RUNS || 3),
       settings,
-    },
-    assert: {
-      assertions,
     },
     upload: {
       target: 'filesystem',

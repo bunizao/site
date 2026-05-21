@@ -2,7 +2,6 @@ const categoryThresholds = {
   performance: 0.75,
   accessibility: 0.9,
   'best-practices': 0.9,
-  seo: 0.9,
 };
 
 const metricThresholds = {
@@ -12,19 +11,19 @@ const metricThresholds = {
   'cumulative-layout-shift': 0.1,
 };
 
-const assertions = Object.fromEntries([
-  ...Object.entries(categoryThresholds).map(([category, minScore]) => [
-    `categories:${category}`,
-    ['error', { minScore }],
-  ]),
-  ...Object.entries(metricThresholds).map(([audit, maxNumericValue]) => [
-    audit,
-    ['error', { maxNumericValue }],
-  ]),
-]);
+function getCategoryThresholds(url) {
+  const thresholds = { ...categoryThresholds };
+  const hostname = new URL(url).hostname;
+
+  if (hostname === 'buxx.me') {
+    thresholds.seo = 0.9;
+  }
+
+  return thresholds;
+}
 
 module.exports = {
-  assertions,
   categoryThresholds,
+  getCategoryThresholds,
   metricThresholds,
 };
