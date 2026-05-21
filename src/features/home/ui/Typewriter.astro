@@ -1,211 +1,95 @@
 ---
 interface Props {
-  words: string[];
-  prefix?: string;
+  texts: string[];
+  speed?: number;
+  delay?: number;
+  pauseDuration?: number;
 }
 
-const { words, prefix } = Astro.props;
-const safeWords = words.length ? words : [''];
-const initial = safeWords[0];
-const longest = safeWords.reduce((a, b) => (a.length > b.length ? a : b), '');
+const { texts, speed = 80, delay = 0, pauseDuration = 2000 } = Astro.props;
+const initialText = texts[0] ?? '';
+const longestText = texts.reduce((a, b) => a.length > b.length ? a : b, '');
 ---
 
-<span class="tw" data-tw data-tw-words={JSON.stringify(safeWords)}>
-  {prefix ? <span class="tw-prefix">{prefix}&nbsp;</span> : null}
-  <span class="tw-stage" aria-live="polite" aria-atomic="true">
-    <span class="tw-ghost" aria-hidden="true">{longest}</span>
-    <span class="tw-flow">
-      <span class="tw-word" data-tw-word>{initial}</span><span class="tw-cursor is-soft-blink" data-tw-cursor aria-hidden="true"></span>
-    </span>
+<span class="typewriter-wrapper">
+  <!-- Hidden placeholder keeps the animated text width stable. -->
+  <span class="typewriter-placeholder" aria-hidden="true">{longestText}</span>
+  <span
+    class="typewriter"
+    data-texts={JSON.stringify(texts)}
+    data-speed={speed}
+    data-delay={delay}
+    data-pause={pauseDuration}
+  >
+    <span class="typewriter-text">{initialText}</span><span class="typewriter-cursor"></span>
   </span>
 </span>
 
 <style>
-  .tw {
-    display: inline-flex;
-    align-items: baseline;
-    gap: 0;
+  .typewriter-wrapper {
+    display: inline-grid;
   }
 
-  .tw-prefix {
-    white-space: pre;
+  .typewriter-wrapper > * {
+    grid-area: 1 / 1;
   }
 
-  .tw-stage {
-    position: relative;
-    display: inline-block;
-    vertical-align: baseline;
-  }
-
-  .tw-ghost {
-    display: inline-block;
+  .typewriter-placeholder {
     visibility: hidden;
-    white-space: pre;
-    pointer-events: none;
   }
 
-  .tw-flow {
-    position: absolute;
-    inset: 0;
-    white-space: pre;
-    display: inline-flex;
-    align-items: baseline;
-  }
-
-  .tw-word {
-    display: inline-block;
-    white-space: pre;
-  }
-
-  .tw-cursor {
-    display: inline-block;
-    width: 0.5ch;
-    height: 0.9em;
-    margin-left: 3px;
-    background: currentColor;
-    opacity: 0.85;
-    border-radius: 1px;
-    align-self: center;
-  }
-
-  .tw-cursor.is-soft-blink {
-    animation: tw-soft-blink 1.15s ease-in-out infinite;
-  }
-
-  @keyframes tw-soft-blink {
-    0%, 100% { opacity: 0.9; }
-    50% { opacity: 0.18; }
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .tw-cursor.is-soft-blink {
-      animation: none;
-    }
+  .typewriter {
+    display: inline;
   }
 </style>
 
 <script>
-  type TwElement = HTMLElement & {
-    _twTimeline?: gsap.core.Timeline;
-    _twActive?: boolean;
-  };
+  document.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll('.typewriter').forEach((el) => {
+      const texts: string[] = JSON.parse(el.getAttribute('data-texts') || '[]');
+      const speed = parseInt(el.getAttribute('data-speed') || '80');
+      const delay = parseInt(el.getAttribute('data-delay') || '0');
+      const pauseDuration = parseInt(el.getAttribute('data-pause') || '2000');
+      const textEl = el.querySelector('.typewriter-text');
 
-  const TYPE_STEP_MS = 70;
-  const DELETE_STEP_MS = 38;
-  const HOLD_MS = 1600;
-  const POST_DELETE_MS = 240;
-  const ENTER_LEAD_MS = 80;
+      if (!textEl || texts.length === 0) return;
 
-  const prefersReducedMotion = (): boolean =>
-    window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
+      let textIndex = 0;
+      let charIndex = textEl.textContent?.length ?? 0;
+      let isDeleting = charIndex > 0;
 
-  const cleanupOne = (el: TwElement): void => {
-    el._twTimeline?.kill();
-    el._twTimeline = undefined;
-    el._twActive = false;
-  };
+      const type = () => {
+        const currentText = texts[textIndex];
 
-  const dispatchCycle = (root: TwElement, word: string, index: number): void => {
-    window.dispatchEvent(
-      new CustomEvent('tw:cycle', { detail: { word, index, source: root } })
-    );
-  };
+        if (isDeleting) {
+          // Remove characters
+          textEl.textContent = currentText.substring(0, charIndex - 1);
+          charIndex--;
 
-  const initOne = async (root: TwElement): Promise<void> => {
-    if (root._twActive) return;
-    const wordEl = root.querySelector<HTMLElement>('[data-tw-word]');
-    const cursorEl = root.querySelector<HTMLElement>('[data-tw-cursor]');
-    let words: string[];
-    try {
-      words = JSON.parse(root.dataset.twWords || '[]');
-    } catch {
-      words = [];
-    }
-    if (!wordEl || !words.length) return;
-
-    if (prefersReducedMotion()) {
-      wordEl.textContent = words[0];
-      wordEl.classList.add('is-typing');
-      cursorEl?.classList.add('is-soft-blink');
-      dispatchCycle(root, words[0], 0);
-      return;
-    }
-
-    root._twActive = true;
-    const { default: gsap } = await import('gsap');
-    if (!root._twActive) return;
-
-    const tl = gsap.timeline({ repeat: -1 });
-    root._twTimeline = tl;
-
-    words.forEach((word, i) => {
-      const skipType = i === 0;
-
-      tl.call(() => {
-        cursorEl?.classList.remove('is-soft-blink');
-        if (!skipType) {
-          wordEl.textContent = '';
+          if (charIndex === 0) {
+            isDeleting = false;
+            textIndex = (textIndex + 1) % texts.length;
+            setTimeout(type, speed);
+          } else {
+            setTimeout(type, speed / 2); // Delete faster
+          }
         } else {
-          wordEl.textContent = word;
+          // Add characters
+          textEl.textContent = currentText.substring(0, charIndex + 1);
+          charIndex++;
+
+          if (charIndex === currentText.length) {
+            // Pause after a word, then start deleting
+            isDeleting = true;
+            setTimeout(type, pauseDuration);
+          } else {
+            setTimeout(type, speed + Math.random() * 30);
+          }
         }
-      });
+      };
 
-      if (!skipType) {
-        for (let c = 1; c <= word.length; c++) {
-          tl.call(
-            () => {
-              wordEl.textContent = word.slice(0, c);
-            },
-            [],
-            `+=${TYPE_STEP_MS / 1000}`
-          );
-        }
-      }
-
-      tl.call(
-        () => cursorEl?.classList.add('is-soft-blink'),
-        [],
-        `+=${ENTER_LEAD_MS / 1000}`
-      );
-
-      tl.to({}, { duration: HOLD_MS / 1000 });
-
-      tl.call(() => {
-        cursorEl?.classList.remove('is-soft-blink');
-        const nextIndex = (i + 1) % words.length;
-        dispatchCycle(root, words[nextIndex], nextIndex);
-      });
-
-      for (let c = word.length - 1; c >= 0; c--) {
-        tl.call(
-          () => {
-            wordEl.textContent = word.slice(0, c);
-          },
-          [],
-          `+=${DELETE_STEP_MS / 1000}`
-        );
-      }
-
-      tl.to({}, { duration: POST_DELETE_MS / 1000 });
+      const startDelay = charIndex > 0 ? delay + pauseDuration : delay;
+      setTimeout(type, startDelay);
     });
-  };
-
-  const initAll = (): void => {
-    document.querySelectorAll<TwElement>('[data-tw]').forEach((el) => {
-      void initOne(el);
-    });
-  };
-
-  const cleanupAll = (): void => {
-    document.querySelectorAll<TwElement>('[data-tw]').forEach(cleanupOne);
-  };
-
-  document.addEventListener('astro:page-load', initAll);
-  document.addEventListener('astro:before-swap', cleanupAll);
-
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initAll, { once: true });
-  } else {
-    initAll();
-  }
+  });
 </script>
