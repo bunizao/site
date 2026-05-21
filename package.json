@@ -21,7 +21,9 @@
     "test:e2e:install": "playwright install chromium",
     "test:e2e:headed": "playwright test --headed",
     "test:e2e:ui": "playwright test --ui",
-    "test:e2e:report": "playwright show-report"
+    "test:e2e:report": "playwright show-report",
+    "mascot:show": "bun scripts/mascot.ts show",
+    "mascot:diff": "bun scripts/mascot.ts diff"
   },
   "devDependencies": {
     "@astrojs/check": "0.9.9",
