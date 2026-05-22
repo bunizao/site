@@ -37,14 +37,14 @@ export function renderNotifyPage(options: {
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>${safeTitle} — buxx.me</title>
     <link rel="icon" href="/favicon.ico" />
-    <link rel="preload" as="font" href="/fonts/jetbrains-mono-variable.woff2" type="font/woff2" crossorigin />
+    <link rel="preload" as="font" href="/fonts/geist-mono-variable.woff2" type="font/woff2" crossorigin />
     <style>
       @font-face {
-        font-family: 'JetBrains Mono';
+        font-family: 'Geist Mono';
         src:
-          url('/fonts/jetbrains-mono-variable.woff2') format('woff2-variations'),
-          url('/fonts/jetbrains-mono-variable.woff2') format('woff2');
-        font-weight: 100 800;
+          url('/fonts/geist-mono-variable.woff2') format('woff2-variations'),
+          url('/fonts/geist-mono-variable.woff2') format('woff2');
+        font-weight: 100 900;
         font-style: normal;
         font-display: swap;
       }
@@ -83,7 +83,7 @@ export function renderNotifyPage(options: {
       }
 
       body {
-        font-family: 'JetBrains Mono', 'SF Mono', Menlo, Monaco, Consolas, monospace;
+        font-family: 'Geist Mono', ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Monaco, Consolas, monospace;
         background: var(--bg);
         color: var(--fg);
         min-height: 100vh;

@@ -892,10 +892,10 @@ test.describe('Mood routes', () => {
     });
 
     expect(channel.text.length).toBeGreaterThan(0);
-    expect(channel.fontFamily.toLowerCase()).toContain('jetbrains mono');
-    expect(regular.fontFamily.toLowerCase()).toContain('jetbrains mono');
+    expect(channel.fontFamily.toLowerCase()).toContain('geist mono');
+    expect(regular.fontFamily.toLowerCase()).toContain('geist mono');
     expect(regular.fontSize).toBe('14px');
-    expect(compact.fontFamily.toLowerCase()).toContain('jetbrains mono');
+    expect(compact.fontFamily.toLowerCase()).toContain('geist mono');
     expect(compact.fontSize).toBe('13px');
   });
 

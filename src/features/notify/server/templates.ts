@@ -25,7 +25,7 @@ function escapeHtmlWithLineBreaks(value: string): string {
   return escapeHtml(value).replace(/\n/g, '<br />');
 }
 
-const MONO_FONT = "'JetBrains Mono', 'SF Mono', 'Fira Code', 'Cascadia Code', Menlo, Monaco, Consolas, 'Courier New', monospace";
+const MONO_FONT = "'Geist Mono', 'JetBrains Mono', 'SF Mono', 'Fira Code', 'Cascadia Code', Menlo, Monaco, Consolas, 'Courier New', monospace";
 const EMAIL_PREVIEW_STYLE = `font-family: ${MONO_FONT}; font-size: 14px; line-height: 1.65; color: #111;`;
 const EMAIL_PREVIEW_COMPACT_STYLE = `font-family: ${MONO_FONT}; font-size: 13px; line-height: 1.65; color: #111;`;
 const EMAIL_LINK_STYLE = 'color: #111; text-decoration: underline; text-decoration-thickness: 1px;';

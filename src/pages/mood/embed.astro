@@ -27,7 +27,7 @@ const idParam = url.searchParams.get('id');
 const count = idParam ? 1 : Math.min(10, Math.max(1, readIntQuery(url, 'count') ?? 1));
 const frame = readBooleanFlag(url, 'frame', true);
 const density = readEnumQuery(url, 'density', ['regular', 'compact'] as const, 'regular');
-const font = readEnumQuery(url, 'font', ['mono', 'system'] as const, 'mono');
+const font = readEnumQuery(url, 'font', ['mono', 'sans', 'system'] as const, 'mono');
 const originParam = url.searchParams.get('origin');
 const refreshRaw = readIntQuery(url, 'refresh');
 const refresh = refreshRaw !== null
@@ -157,28 +157,49 @@ function getImageClassName(post: MoodFeedItem): string {
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="robots" content="noindex, nofollow" />
   <title>Mood Embed</title>
-  {font !== 'system' && (
+  {font !== 'system' && font !== 'sans' && (
     <link
       rel="preload"
       as="font"
-      href="/fonts/jetbrains-mono-variable.woff2"
+      href="/fonts/geist-mono-variable.woff2"
+      type="font/woff2"
+      crossorigin
+    />
+  )}
+  {(font === 'sans' || font === 'system') && (
+    <link
+      rel="preload"
+      as="font"
+      href="/fonts/geist-sans-variable.woff2"
       type="font/woff2"
       crossorigin
     />
   )}
   <style is:inline>
     @font-face {
-      font-family: 'JetBrains Mono';
+      font-family: 'Geist Mono';
       src:
-        url('/fonts/jetbrains-mono-variable.woff2') format('woff2-variations'),
-        url('/fonts/jetbrains-mono-variable.woff2') format('woff2');
-      font-weight: 100 800;
+        url('/fonts/geist-mono-variable.woff2') format('woff2-variations'),
+        url('/fonts/geist-mono-variable.woff2') format('woff2');
+      font-weight: 100 900;
+      font-style: normal;
+      font-display: swap;
+    }
+
+    @font-face {
+      font-family: 'Geist';
+      src:
+        url('/fonts/geist-sans-variable.woff2') format('woff2-variations'),
+        url('/fonts/geist-sans-variable.woff2') format('woff2');
+      font-weight: 100 900;
       font-style: normal;
       font-display: swap;
     }
 
     :root {
-      --font-family: 'JetBrains Mono', monospace;
+      --font-mono: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      --font-sans: 'Geist', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+      --font-family: var(--font-mono);
       --background: 0 0% 100%;
       --foreground: 0 0% 0%;
       --muted: 0 0% 40%;
@@ -251,8 +272,9 @@ function getImageClassName(post: MoodFeedItem): string {
       text-decoration: none;
     }
 
+    html[data-embed-font="sans"],
     html[data-embed-font="system"] {
-      --font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      --font-family: var(--font-sans);
     }
 
     html[data-embed-density="compact"] {

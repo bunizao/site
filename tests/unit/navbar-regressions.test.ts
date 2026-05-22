@@ -12,7 +12,7 @@ describe('navbar regression guards', () => {
     expect(source).toContain("headerActionsVariant?: 'default' | 'home'");
     expect(source).toContain("const useHomeHeaderActions = isHomeNav || headerActionsVariant === 'home';");
     expect(source).toContain("rel=\"preload\"");
-    expect(source).toContain("/fonts/jetbrains-mono-variable.woff2");
+    expect(source).toContain("/fonts/geist-mono-variable.woff2");
     expect(source).toContain("'global-header-actions--home': useHomeHeaderActions");
   });
 
