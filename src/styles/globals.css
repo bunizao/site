@@ -497,11 +497,10 @@
   .section-label {
     display: block;
     font-family: var(--font-display);
-    font-style: italic;
-    font-weight: 360;
-    font-variation-settings: 'opsz' 32, 'SOFT' 80, 'WONK' 1;
+    font-weight: 380;
+    font-variation-settings: 'opsz' 32, 'SOFT' 60, 'WONK' 0;
     font-size: 22px;
-    letter-spacing: -0.005em;
+    letter-spacing: -0.015em;
     color: hsl(var(--foreground));
     text-transform: none;
     margin-bottom: 28px;
@@ -541,12 +540,11 @@
     align-items: baseline;
     gap: 8px;
     font-family: var(--font-display);
-    font-style: italic;
-    font-weight: 360;
-    font-variation-settings: 'opsz' 14, 'SOFT' 100, 'WONK' 1;
+    font-weight: 400;
+    font-variation-settings: 'opsz' 14, 'SOFT' 50, 'WONK' 0;
     font-size: 15px;
     color: hsl(var(--muted-foreground));
-    letter-spacing: 0;
+    letter-spacing: -0.005em;
     transition: color 0.2s ease;
   }
 
