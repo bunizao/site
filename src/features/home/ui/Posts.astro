@@ -131,15 +131,18 @@ const posts = useE2EFixture ? createE2EWritingPosts() : await getLatestPosts();
   }
 
   .post-title {
-    font-size: 15px;
-    font-weight: 400;
-    line-height: 1.45;
-    letter-spacing: 0.005em;
+    font-family: var(--font-display);
+    font-weight: 440;
+    font-variation-settings: 'opsz' 18, 'SOFT' 30, 'WONK' 0;
+    font-size: 17px;
+    line-height: 1.4;
+    letter-spacing: -0.01em;
+    color: hsl(var(--foreground));
   }
 
   @media (min-width: 640px) {
     .post-title {
-      font-size: 16px;
+      font-size: 18px;
     }
   }
 
