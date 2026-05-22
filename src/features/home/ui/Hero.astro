@@ -57,8 +57,7 @@ const socials: Array<{
   }
 ];
 
-const techRow1 = ['TypeScript', "JavaScript", 'Python', 'C#', 'C++', 'React', 'TailwindCSS', 'Astro'];
-const techRow2 = ['Frontend', 'BGP', 'Proxy', 'Docker', 'Linux', 'Web3', 'Optimization'];
+const tech = ['TypeScript', 'JavaScript', 'Python', 'C#', 'C++', 'React', 'TailwindCSS', 'Astro', 'Frontend', 'BGP', 'Proxy', 'Docker', 'Linux', 'Web3', 'Optimization'];
 ---
 
 <header class="hero-section pb-8 sm:pb-12">
@@ -126,7 +125,7 @@ const techRow2 = ['Frontend', 'BGP', 'Proxy', 'Docker', 'Linux', 'Web3', 'Optimi
 
     <!-- Tech Stack Marquee -->
     <div class="mt-6 hero-animate" data-hero-motion data-hero-tech>
-      <TechMarquee row1={techRow1} row2={techRow2} />
+      <TechMarquee items={tech} />
     </div>
 </header>
 
