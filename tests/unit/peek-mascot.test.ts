@@ -11,6 +11,7 @@ import {
 } from '../../src/features/mascot/peek/catalog';
 import { PEEK } from '../../src/features/logos/data/peek';
 import { PEEK_COSTUME_LOOKS, PEEK_EXPRESSION_LOOKS } from '../../src/features/logos/data/peek-looks';
+import { expandTimelineFrames } from '../../src/features/mascot/peek/timeline';
 
 describe('peek mascot catalog', () => {
   test('exposes stable brand and runtime slots', () => {
@@ -74,6 +75,18 @@ describe('peek mascot catalog', () => {
         }
       }
     }
+  });
+
+  test('models repeated motion with timeline beats instead of duplicated source frames', () => {
+    const idle = getPeekAsset('peek.motion.idle');
+
+    expect(idle.frames?.length).toBe(2);
+    expect(idle.frameLabels).toEqual(['open', 'blink']);
+    expect(idle.timeline).toEqual([
+      { frame: 0, holdFrames: 8, label: 'rest' },
+      { frame: 1, holdFrames: 1, label: 'blink' },
+    ]);
+    expect(expandTimelineFrames(idle).length).toBe(9);
   });
 
   test('exposes runtime behavior rows wired through slots', () => {

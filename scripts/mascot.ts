@@ -1,11 +1,12 @@
 #!/usr/bin/env bun
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import sharp from 'sharp';
 
 import { PEEK_BASE } from '../src/features/mascot/peek/base';
 import { getPeekAsset } from '../src/features/mascot/peek/catalog';
 import type { Cell, Grid } from '../src/features/mascot/peek/model';
+import { expandTimelineFrames } from '../src/features/mascot/peek/timeline';
 
 type Cmd = 'show' | 'diff';
 
@@ -97,7 +98,11 @@ function resolveAsset(id: string): { grid?: Grid; frames?: ReadonlyArray<Grid>; 
     return { grid: PEEK_BASE.base, label: 'peek.base' };
   }
   const asset = getPeekAsset(id);
-  return { grid: asset.grid, frames: asset.frames, label: asset.id };
+  return {
+    grid: asset.grid,
+    frames: asset.frames ? expandTimelineFrames(asset) : undefined,
+    label: asset.id,
+  };
 }
 
 async function show(id: string, opts: { png: boolean }): Promise<void> {

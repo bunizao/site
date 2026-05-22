@@ -42,19 +42,41 @@ That does not justify a CMS, database, or some overbuilt content system. It just
 
 ## Direction
 
-The right direction is boring on purpose:
+The right direction is animation-authoring first:
 
 - Keep mascot data static and typed.
-- Split large mixed files when they become hard to read.
-- Give mascot states stable names.
+- Give every source frame and runtime slot a stable name.
+- Prefer a small source-frame set plus timeline beats over duplicated frame arrays.
+- Use per-beat holds when timing matters; a flat FPS loop is only for truly even motion.
+- Keep SVG output as rectangles so the mascot can stay inspectable and easy to manipulate.
 - Keep rendering code separate from mascot content.
 - Make preview read from the same source of truth as the rest of the site.
 
 Low complexity wins here. A mascot is branding content with behavior, not infrastructure.
 
-## Authoring New Expressions
+## Authoring New Motions
 
-Pose and motion data lives in `src/features/mascot/peek/`. Each pose or motion frame is composed onto `PEEK_BASE.base` using small layer sources, so authors only describe what changes.
+Pose and motion data lives in `src/features/mascot/peek/`. For repeated animation, define named source frames and schedule them with timeline beats.
+
+```ts
+const OPEN = frame('open', PEEK_BASE.base);
+const BLINK = composeFrame('blink', PEEK_BASE.base, sparse([
+  [2, 4, 1],
+  [7, 4, 1],
+]));
+
+export const PEEK_IDLE_MOTION = defineTimelineMotion('peek.motion.idle', 'idle', 2, [
+  OPEN,
+  BLINK,
+], [
+  beat(0, 8, 'rest'),
+  beat(1, 1, 'blink'),
+], metadata);
+```
+
+This is the default authoring model: draw the frames that actually exist, then tune rhythm through `beat(...)` or `beatMs(...)`. Do not copy the same frame eight times just to make it hold longer.
+
+Sparse layers still exist, but only as a drawing shortcut for small deltas.
 
 ### Layer sources
 
@@ -80,11 +102,12 @@ rle(width, height, [    // run-length encoded
 ### Composing
 
 ```ts
-import { compose } from '../compose';
+import { composeFrame } from '../timeline';
 import { sparse } from '../layer';
 import { PEEK_BASE } from '../base';
 
-const WINK_LEFT = compose(
+const WINK_LEFT = composeFrame(
+  'wink-left',
   PEEK_BASE.base,
   sparse([
     [2, 5, 1],
@@ -95,7 +118,14 @@ const WINK_LEFT = compose(
 
 Later layers overwrite earlier layers, pixel by pixel. Sparse pixels with `c = -1` paint cell 0 (background). Pixels that aren't listed are transparent — the underlying base or earlier layer shows through.
 
-For motions where the silhouette stays put (idle, dart, purr), each frame is a small sparse delta and repeated frames reuse the same constant by reference. For motions that reshape the silhouette (pop, hide, dissolve, alert's shell), pass full pipe-strings or `rows(...)` because the change covers most of the grid.
+For motions where the silhouette stays put (idle, dart, purr), each source frame is a small sparse delta and the timeline holds or revisits it by index. For motions that reshape the silhouette (pop, hide, dissolve), pass full pipe-strings or `rows(...)` because the change covers most of the grid.
+
+For motion with uneven rhythm, keep the frame set small and put timing in the timeline:
+
+```ts
+beat(0, 2, 'wind-up');
+beatMs(1, 270, 'effort');
+```
 
 ### Visualizing
 
@@ -106,7 +136,7 @@ bun mascot:show peek.motion.curious -- --png  # also write PNGs to .tmp/mascot/
 bun mascot:diff peek.pose.left peek.pose.right
 ```
 
-The visualizer prints ANSI color blocks mapped from `palette.ts`. The `--png` flag is for human review only.
+The visualizer prints ANSI color blocks from the mascot cell palette. The `--png` flag is for human review only.
 
 ### Looks
 

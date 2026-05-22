@@ -15,6 +15,7 @@ import { PEEK_SCAN_MOTION } from '../../src/features/mascot/peek/motions/scan';
 import { compose } from '../../src/features/mascot/peek/compose';
 import { PEEK_BASE } from '../../src/features/mascot/peek/base';
 import { sparse } from '../../src/features/mascot/peek/layer';
+import { expandTimelineFrames } from '../../src/features/mascot/peek/timeline';
 
 const POSE_PATTERNS: Record<string, string> = {
   far_left:  '.#.....##.|##.....###|##########|##########|o####o####|o##*#o####|##########',
@@ -104,13 +105,13 @@ describe('peek layer snapshots', () => {
 
   test('migrated motions match original frame patterns', () => {
     const motions = {
-      idle: PEEK_IDLE_MOTION.frames!,
-      curious: PEEK_CURIOUS_MOTION.frames!,
-      dart: PEEK_DART_MOTION.frames!,
-      purr: PEEK_PURR_MOTION.frames!,
-      nap: PEEK_NAP_MOTION.frames!,
-      alert: PEEK_ALERT_MOTION.frames!,
-      scan: PEEK_SCAN_MOTION.frames!,
+      idle: expandTimelineFrames(PEEK_IDLE_MOTION),
+      curious: expandTimelineFrames(PEEK_CURIOUS_MOTION),
+      dart: expandTimelineFrames(PEEK_DART_MOTION),
+      purr: expandTimelineFrames(PEEK_PURR_MOTION),
+      nap: expandTimelineFrames(PEEK_NAP_MOTION),
+      alert: expandTimelineFrames(PEEK_ALERT_MOTION),
+      scan: expandTimelineFrames(PEEK_SCAN_MOTION),
     };
     for (const [name, frames] of Object.entries(MOTION_PATTERNS)) {
       const got = motions[name as keyof typeof motions];

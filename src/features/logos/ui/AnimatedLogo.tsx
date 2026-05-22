@@ -95,6 +95,8 @@ export function AnimatedLogo(props: AnimatedLogoProps) {
   const reducedMotion = useReducedMotion();
   const shouldLoop = loop ?? anim.loop ?? true;
   const [frameIndex, setFrameIndex] = useState(0);
+  const timeline = anim.timeline;
+  const hasTimeline = !!timeline?.length;
 
   useEffect(() => {
     setFrameIndex(0);
@@ -105,34 +107,51 @@ export function AnimatedLogo(props: AnimatedLogoProps) {
   const idleAtRest = !!hoverAnimation && !hover && !override;
   useEffect(() => {
     if (paused || reducedMotion || idleAtRest) return;
-    if (anim.frames.length <= 1) return;
-    const interval = 1000 / Math.max(1, effectiveFps);
+    const frameCount = hasTimeline ? timeline.length : anim.frames.length;
+    if (frameCount <= 1) return;
+    const getInterval = (index: number) => {
+      const beat = timeline?.[index];
+      if (beat?.holdMs !== undefined) return beat.holdMs;
+      if (beat?.holdFrames !== undefined) return (1000 / Math.max(1, effectiveFps)) * beat.holdFrames;
+      return 1000 / Math.max(1, effectiveFps);
+    };
     let raf: number | null = null;
     let last = performance.now();
     let acc = 0;
+    let currentIndex = 0;
+    let stopped = false;
     const tick = (now: number) => {
       acc += now - last;
       last = now;
-      while (acc >= interval) {
+      while (acc >= getInterval(currentIndex)) {
+        const interval = getInterval(currentIndex);
         acc -= interval;
-        setFrameIndex((f) => {
-          const next = f + 1;
-          if (next >= anim.frames.length) {
-            onCycle?.();
-            return shouldLoop ? 0 : f;
+        const next = currentIndex + 1;
+        if (next >= frameCount) {
+          onCycle?.();
+          if (!shouldLoop) {
+            currentIndex = frameCount - 1;
+            setFrameIndex(currentIndex);
+            stopped = true;
+            break;
           }
-          return next;
-        });
+          currentIndex = 0;
+        } else {
+          currentIndex = next;
+        }
+        setFrameIndex(currentIndex);
       }
+      if (stopped) return;
       raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
     return () => {
       if (raf !== null) cancelAnimationFrame(raf);
     };
-  }, [anim, effectiveFps, paused, reducedMotion, shouldLoop, idleAtRest, onCycle]);
+  }, [anim, effectiveFps, paused, reducedMotion, shouldLoop, idleAtRest, onCycle, hasTimeline, timeline]);
 
-  const grid: Grid = anim.frames[frameIndex] ?? def.base;
+  const gridIndex = hasTimeline ? timeline?.[frameIndex]?.frame ?? 0 : frameIndex;
+  const grid: Grid = anim.frames[gridIndex] ?? def.base;
   const aspect = def.width / def.height;
   const renderedHeight = Math.round(size / aspect);
 

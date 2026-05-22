@@ -1,7 +1,6 @@
 import { PEEK_BASE } from '../base';
-import { compose } from '../compose';
 import { sparse } from '../layer';
-import { defineMotion } from '../model';
+import { beat, composeFrame, defineTimelineMotion } from '../timeline';
 
 const SHELL_DELTA = sparse([
   [0, 1, -1],
@@ -12,14 +11,14 @@ const SHELL_DELTA = sparse([
   [6, 2, -1],
 ]);
 
-const WIDE = compose(PEEK_BASE.base, SHELL_DELTA, sparse([
+const WIDE = composeFrame('wide', PEEK_BASE.base, SHELL_DELTA, sparse([
   [3, 4, 2],
   [6, 4, 2],
   [3, 5, 2],
   [6, 5, 2],
 ]));
 
-const HOLD = compose(PEEK_BASE.base, SHELL_DELTA, sparse([
+const HOLD = composeFrame('hold', PEEK_BASE.base, SHELL_DELTA, sparse([
   [3, 4, 2],
   [6, 4, 2],
   [3, 5, 2],
@@ -27,12 +26,13 @@ const HOLD = compose(PEEK_BASE.base, SHELL_DELTA, sparse([
   [6, 5, 2],
 ]));
 
-export const PEEK_ALERT_MOTION = defineMotion('peek.motion.alert', 'alert', 14, [
+export const PEEK_ALERT_MOTION = defineTimelineMotion('peek.motion.alert', 'alert', 14, [
   WIDE,
   HOLD,
-  WIDE,
-  WIDE,
-  WIDE,
+], [
+  beat(0, 1, 'wide'),
+  beat(1, 1, 'hold'),
+  beat(0, 3, 'wide'),
 ], {
   label: 'Alert',
   summary: 'Snaps to center and opens into 2x2 eyes.',

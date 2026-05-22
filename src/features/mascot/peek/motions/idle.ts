@@ -1,18 +1,19 @@
 import { PEEK_BASE } from '../base';
-import { compose } from '../compose';
 import { sparse } from '../layer';
-import { defineMotion } from '../model';
+import { beat, composeFrame, defineTimelineMotion, frame } from '../timeline';
 
-const OPEN = PEEK_BASE.base;
-const BLINK = compose(PEEK_BASE.base, sparse([
+const OPEN = frame('open', PEEK_BASE.base);
+const BLINK = composeFrame('blink', PEEK_BASE.base, sparse([
   [2, 4, 1],
   [7, 4, 1],
 ]));
 
-export const PEEK_IDLE_MOTION = defineMotion('peek.motion.idle', 'idle', 2, [
-  OPEN, OPEN, OPEN, OPEN,
-  OPEN, OPEN, OPEN, OPEN,
+export const PEEK_IDLE_MOTION = defineTimelineMotion('peek.motion.idle', 'idle', 2, [
+  OPEN,
   BLINK,
+], [
+  beat(0, 8, 'rest'),
+  beat(1, 1, 'blink'),
 ], {
   label: 'Idle',
   summary: 'Rare slow blink with a steady rest state.',

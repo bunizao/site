@@ -118,6 +118,8 @@ function toAnimation(asset: MascotAsset): LogoRuntimeAnimation {
   return {
     fps: asset.fps ?? 1,
     frames: asset.frames ?? (asset.grid ? [asset.grid] : []),
+    frameLabels: asset.frameLabels,
+    timeline: asset.timeline,
     loop: asset.loop,
   };
 }

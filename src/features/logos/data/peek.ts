@@ -11,6 +11,8 @@ function toLegacyAnimation(name: string, asset: ReturnType<typeof getPeekAssets>
     name,
     fps: asset.fps ?? 1,
     frames: asset.frames ?? (asset.grid ? [asset.grid] : []),
+    frameLabels: asset.frameLabels,
+    timeline: asset.timeline,
     loop: asset.loop,
     label: asset.label,
     summary: asset.summary,

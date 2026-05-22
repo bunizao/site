@@ -1,4 +1,4 @@
-import type { Cell, Grid } from '@/features/mascot/peek/model';
+import type { Cell, Grid, MascotFrameBeat } from '@/features/mascot/peek/model';
 
 export type { Cell, Grid };
 
@@ -15,6 +15,8 @@ export type Animation = {
   name: string;
   fps: number;
   frames: ReadonlyArray<Grid>;
+  frameLabels?: ReadonlyArray<string>;
+  timeline?: ReadonlyArray<MascotFrameBeat>;
   loop?: boolean;
   label?: string;
   summary?: string;
@@ -52,7 +54,7 @@ export type LogoDefinition = {
   runtimeBehaviors?: ReadonlyArray<LogoRuntimeBehavior>;
 };
 
-export type LogoRuntimeAnimation = Pick<Animation, 'fps' | 'frames' | 'loop'>;
+export type LogoRuntimeAnimation = Pick<Animation, 'fps' | 'frames' | 'loop' | 'frameLabels' | 'timeline'>;
 
 export type LogoRuntimeDefinition = Pick<LogoDefinition, 'width' | 'height' | 'base' | 'accent'> & {
   animations: Record<string, LogoRuntimeAnimation>;

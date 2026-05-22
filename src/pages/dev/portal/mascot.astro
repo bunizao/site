@@ -28,6 +28,7 @@ const motionAssets = allAssets.filter((asset) => asset.kind === 'motion');
 const poseAssets = allAssets.filter((asset) => asset.kind === 'pose');
 const expressionAssets = allAssets.filter((asset) => asset.kind === 'expression');
 const costumeAssets = allAssets.filter((asset) => asset.kind === 'costume');
+const timelineAssets = allAssets.filter((asset) => asset.timeline);
 const previewSections = getPeekPreviewSections();
 const runtimeBehaviors = getPeekRuntimeBehaviors();
 const navbarDefaultAnimation = getPeekSlotKey('navbar.brand.default');
@@ -56,6 +57,7 @@ const previewTrackPoses = getPeekTrackingPoseKeys('preview');
             <div><dt>Accent</dt><dd>{mascot.accent}</dd></div>
             <div><dt>Assets</dt><dd>{allAssets.length}</dd></div>
             <div><dt>Slots</dt><dd>{PEEK_SLOTS.length}</dd></div>
+            <div><dt>Timelines</dt><dd>{timelineAssets.length}</dd></div>
           </dl>
         </div>
       </div>
@@ -204,6 +206,7 @@ const previewTrackPoses = getPeekTrackingPoseKeys('preview');
                   <dl>
                     <div><dt>Key</dt><dd><code>{item.key}</code></dd></div>
                     {item.frames && <div><dt>Frames</dt><dd>{item.frames.length}</dd></div>}
+                    {item.timeline && <div><dt>Beats</dt><dd>{item.timeline.length}</dd></div>}
                     {item.fps !== undefined && <div><dt>FPS</dt><dd>{item.fps}</dd></div>}
                     {item.loop !== undefined && (
                       <div><dt>Loop</dt><dd>{item.loop ? 'yes' : 'once'}</dd></div>

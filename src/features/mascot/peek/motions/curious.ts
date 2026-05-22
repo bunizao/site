@@ -1,9 +1,8 @@
 import { PEEK_BASE } from '../base';
-import { compose } from '../compose';
 import { sparse } from '../layer';
-import { defineMotion } from '../model';
+import { beat, composeFrame, defineTimelineMotion, frame } from '../timeline';
 
-const LEAN_LEFT = compose(PEEK_BASE.base, sparse([
+const LEAN_LEFT = composeFrame('lean-left', PEEK_BASE.base, sparse([
   [7, 1, -1],
   [8, 1, -1],
   [9, 1, -1],
@@ -19,9 +18,9 @@ const LEAN_LEFT = compose(PEEK_BASE.base, sparse([
   [7, 5, 1],
 ]));
 
-const REST = PEEK_BASE.base;
+const REST = frame('rest', PEEK_BASE.base);
 
-const LEAN_RIGHT = compose(PEEK_BASE.base, sparse([
+const LEAN_RIGHT = composeFrame('lean-right', PEEK_BASE.base, sparse([
   [0, 1, -1],
   [1, 1, -1],
   [2, 1, -1],
@@ -35,15 +34,15 @@ const LEAN_RIGHT = compose(PEEK_BASE.base, sparse([
   [8, 5, 2],
 ]));
 
-export const PEEK_CURIOUS_MOTION = defineMotion('peek.motion.curious', 'curious', 10, [
+export const PEEK_CURIOUS_MOTION = defineTimelineMotion('peek.motion.curious', 'curious', 10, [
   LEAN_LEFT,
   REST,
-  REST,
   LEAN_RIGHT,
-  LEAN_RIGHT,
-  REST,
-  REST,
-  REST,
+], [
+  beat(0, 1, 'look-left'),
+  beat(1, 2, 'settle'),
+  beat(2, 2, 'look-right'),
+  beat(1, 3, 'settle'),
 ], {
   label: 'Curious',
   summary: 'Head tilt with tracking eyes.',
