@@ -99,15 +99,8 @@ const hasPreview = Boolean(previewUrl);
 
     <div class="listening-copy">
       <p class="listening-eyebrow">
-        <span class="listening-eyebrow-dot" aria-hidden="true"></span>
         <span class="listening-eyebrow-text" data-listening-status>
-          {isLive ? 'Now Playing' : 'Recently Played'}
-        </span>
-        <span class="listening-eyebrow-wave" aria-hidden="true">
-          <span></span>
-          <span></span>
-          <span></span>
-          <span></span>
+          {isLive ? 'now playing' : 'last played'}
         </span>
       </p>
 
@@ -443,15 +436,13 @@ const hasPreview = Boolean(previewUrl);
 
   .listening-eyebrow {
     display: inline-flex;
-    align-items: center;
-    gap: 8px;
+    align-items: baseline;
     margin: 0 0 4px;
-    font-size: 10px;
-    line-height: 1.18;
-    letter-spacing: 0.18em;
-    text-transform: uppercase;
-    color: hsl(var(--muted-foreground) / 0.65);
-    font-feature-settings: 'tnum';
+    font-family: var(--font-mono);
+    font-size: 11px;
+    line-height: 1.2;
+    letter-spacing: 0.04em;
+    color: hsl(var(--muted-foreground) / 0.55);
   }
 
   .listening-eyebrow-dot {
@@ -994,7 +985,7 @@ const hasPreview = Boolean(previewUrl);
         root.classList.toggle('is-recent', !nextIsLive);
         playButton.classList.toggle('is-live', nextIsLive);
         playButton.classList.toggle('is-recent', !nextIsLive);
-        if (status) status.textContent = nextIsLive ? 'Now Playing' : 'Recently Played';
+        if (status) status.textContent = nextIsLive ? 'now playing' : 'last played';
       };
 
       const setPreviewState = (isPlaying: boolean) => {
