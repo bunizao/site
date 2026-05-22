@@ -1524,9 +1524,13 @@
   }
 
   .status {
-    @apply inline-flex items-center gap-2 text-[10px] uppercase;
-    letter-spacing: 0.18em;
-    color: hsl(var(--muted-foreground) / 0.65);
+    display: inline-flex;
+    align-items: baseline;
+    gap: 8px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    color: hsl(var(--muted-foreground) / 0.55);
   }
 
   .status-dot {
