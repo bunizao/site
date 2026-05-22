@@ -25,8 +25,6 @@ const CELL_RGB: Record<Cell, readonly [number, number, number]> = {
   8: [9, 9, 11],
   9: [168, 85, 247],
   10: [120, 53, 15],
-  11: [96, 165, 250],
-  12: [244, 114, 182],
 };
 
 function bg(cell: Cell): string {

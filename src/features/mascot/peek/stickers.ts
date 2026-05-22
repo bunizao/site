@@ -48,9 +48,20 @@ export const PEEK_FOCUS_STICKER = {
   sourceBox: [860, 520, 1268, 833],
 } as const satisfies PeekStickerAsset;
 
+export const PEEK_CHEERS_STICKER = {
+  id: 'peek.sticker.cheers',
+  label: 'Cheers',
+  summary: 'Party hat pose with confetti, preserved as source artwork.',
+  src: '/mascot/peek/stickers/cheers.svg',
+  width: 744,
+  height: 539,
+  sourceBox: [257, 335, 1001, 874],
+} as const satisfies PeekStickerAsset;
+
 export const PEEK_STICKER_ASSETS: readonly PeekStickerAsset[] = [
   PEEK_CODING_STICKER,
   PEEK_DEBUGGING_STICKER,
   PEEK_NOTES_STICKER,
   PEEK_FOCUS_STICKER,
+  PEEK_CHEERS_STICKER,
 ] as const;
