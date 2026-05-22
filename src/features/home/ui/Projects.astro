@@ -233,9 +233,9 @@ const projects = await loadProjects();
     height: 100%;
     padding: 18px;
     background: transparent;
-    border: 1px solid hsl(var(--foreground) / 0.06);
+    border: 1px solid transparent;
     border-radius: 4px;
-    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    transition: border-color 0.25s ease, background 0.25s ease;
     transform-style: preserve-3d;
     will-change: transform;
     overflow: hidden;
@@ -248,8 +248,8 @@ const projects = await loadProjects();
   }
 
   .project-item:hover {
-    border-color: hsl(var(--foreground) / 0.18);
-    box-shadow: none;
+    border-color: hsl(var(--foreground) / 0.1);
+    background: hsl(var(--foreground) / 0.015);
   }
 
   .card-glare {
