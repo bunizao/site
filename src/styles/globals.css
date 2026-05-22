@@ -113,7 +113,7 @@
   }
 
   body {
-    @apply bg-background text-foreground min-h-screen font-mono leading-relaxed antialiased;
+    @apply bg-background text-foreground min-h-screen font-sans leading-relaxed antialiased;
     position: relative;
   }
 
@@ -133,12 +133,14 @@
   }
 
   h1 {
-    @apply font-bold tracking-tight;
+    @apply tracking-tight;
+    font-weight: 600;
   }
 
   h2,
   h3 {
-    @apply font-semibold tracking-tight;
+    @apply tracking-tight;
+    font-weight: 500;
   }
 
   a {
@@ -468,6 +470,7 @@
   }
 
   .mood-reaction-count {
+    @apply font-mono;
     font-size: 12px;
     font-weight: 500;
     font-variant-numeric: tabular-nums;
@@ -772,6 +775,7 @@
 
   /* Section index numbers (editorial design touch) */
   .nav-index {
+    @apply font-mono;
     font-size: 9px;
     font-variant-numeric: tabular-nums;
     color: hsl(var(--muted-foreground) / 0.3);

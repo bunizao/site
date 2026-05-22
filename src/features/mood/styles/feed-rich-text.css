@@ -147,7 +147,7 @@
 }
 
 .mood-item-text {
-  font-size: var(--mood-item-text-size, 14px);
+  font-size: var(--mood-item-text-size, 15px);
   line-height: var(--mood-item-text-line-height, 1.6);
   color: hsl(var(--foreground));
   white-space: pre-wrap;
