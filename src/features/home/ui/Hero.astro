@@ -77,23 +77,14 @@ const techRow2 = ['Frontend', 'BGP', 'Proxy', 'Docker', 'Linux', 'Web3', 'Optimi
       <Typewriter texts={["Lucian", "Bunizao", "Tutu", "Collapsar"]} speed={80} />
     </h1>
 
-    <!-- Personal Info -->
-    <div class="hero-animate mb-3" data-hero-info>
-      <p class="hero-meta">
-        <span>18 y.o.</span>
-        <span class="hero-meta-sep" aria-hidden="true">/</span>
-        <span>INFP</span>
-        <span class="hero-meta-sep" aria-hidden="true">/</span>
-        <span>Libra</span>
+    <!-- Identity line -->
+    <div class="hero-animate hero-identity" data-hero-info>
+      <p class="hero-identity-line">
+        <span class="hero-identity-roles">Student, Developer, Blogger</span>
+        <span class="hero-identity-sep" aria-hidden="true"></span>
+        <span class="hero-identity-meta">18 · INFP · Libra</span>
       </p>
     </div>
-
-    <!-- Role -->
-    <p class="hero-animate hero-role" data-hero-role>
-      Student <span class="hero-role-sep" aria-hidden="true">·</span>
-      Developer <span class="hero-role-sep" aria-hidden="true">·</span>
-      Blogger
-    </p>
 
     <!-- Bio -->
     <div class="hero-animate" data-hero-bio>
@@ -183,31 +174,37 @@ const techRow2 = ['Frontend', 'BGP', 'Proxy', 'Docker', 'Linux', 'Web3', 'Optimi
     color: hsl(var(--foreground));
   }
 
-  .hero-meta {
+  .hero-identity {
+    margin: 0 0 30px;
+  }
+
+  .hero-identity-line {
     display: inline-flex;
     align-items: center;
-    gap: 10px;
+    flex-wrap: wrap;
+    gap: 14px;
+    margin: 0;
+    font-size: 13px;
+    line-height: 1.4;
+  }
+
+  .hero-identity-roles {
+    color: hsl(var(--foreground) / 0.85);
+    letter-spacing: 0.005em;
+  }
+
+  .hero-identity-sep {
+    width: 14px;
+    height: 1px;
+    background: hsl(var(--foreground) / 0.18);
+  }
+
+  .hero-identity-meta {
     font-family: var(--font-mono);
     font-size: 11px;
-    letter-spacing: 0.06em;
-    color: hsl(var(--muted-foreground) / 0.7);
+    letter-spacing: 0.16em;
     text-transform: uppercase;
-  }
-
-  .hero-meta-sep {
-    color: hsl(var(--muted-foreground) / 0.3);
-  }
-
-  .hero-role {
-    margin: 0 0 28px;
-    font-size: 14px;
-    color: hsl(var(--muted-foreground));
-    letter-spacing: 0.01em;
-  }
-
-  .hero-role-sep {
-    margin: 0 4px;
-    color: hsl(var(--muted-foreground) / 0.45);
+    color: hsl(var(--muted-foreground) / 0.55);
   }
 
   .hero-bio {
