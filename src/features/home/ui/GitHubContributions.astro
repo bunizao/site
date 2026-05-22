@@ -159,18 +159,19 @@ const placeholderBars = Array.from({ length: 30 });
 
 <style>
   .activity-section {
-    margin-top: 1.5rem;
+    margin-top: 1.75rem;
     display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 1.25rem;
-    min-height: 32px;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
     width: 100%;
+    max-width: 360px;
   }
 
   @media (min-width: 640px) {
     .activity-section {
       margin-top: 2rem;
+      max-width: 420px;
     }
   }
 
@@ -180,14 +181,13 @@ const placeholderBars = Array.from({ length: 30 });
     align-items: flex-end;
     gap: 3px;
     height: 28px;
-    flex: 1;
-    min-width: 0;
+    width: 100%;
   }
 
   @media (min-width: 640px) {
     .activity-wave {
       gap: 4px;
-      height: 30px;
+      height: 32px;
     }
   }
 
@@ -281,32 +281,21 @@ const placeholderBars = Array.from({ length: 30 });
 
   .activity-stats {
     display: flex;
-    flex-direction: column;
-    gap: 2px;
-    flex-shrink: 0;
-    text-align: right;
-  }
-
-  @media (min-width: 640px) {
-    .activity-stats {
-      text-align: left;
-    }
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    width: 100%;
+    text-align: left;
   }
 
   .github-link {
     font-family: var(--font-mono);
-    font-size: 12px;
+    font-size: 11px;
     font-weight: 400;
-    color: hsl(var(--muted-foreground) / 0.85);
+    color: hsl(var(--muted-foreground) / 0.7);
     text-decoration: none;
-    letter-spacing: 0.01em;
+    letter-spacing: 0.02em;
     transition: color 0.15s ease;
-  }
-
-  @media (min-width: 640px) {
-    .github-link {
-      font-size: 13px;
-    }
   }
 
   .github-link:hover {
@@ -316,19 +305,13 @@ const placeholderBars = Array.from({ length: 30 });
   .stat-label {
     font-family: var(--font-mono);
     font-size: 10px;
-    color: hsl(var(--muted-foreground) / 0.55);
+    color: hsl(var(--muted-foreground) / 0.5);
     letter-spacing: 0.04em;
     font-feature-settings: 'tnum';
   }
 
-  @media (min-width: 640px) {
-    .stat-label {
-      font-size: 11px;
-    }
-  }
-
   .stat-label strong {
     font-weight: 500;
-    color: hsl(var(--muted-foreground) / 0.85);
+    color: hsl(var(--muted-foreground) / 0.8);
   }
 </style>
