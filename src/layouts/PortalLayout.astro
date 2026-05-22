@@ -72,6 +72,9 @@ const navItems = [
       html.theme-portal body::before {
         display: none;
       }
+      html.theme-portal body[data-scroll-locked] {
+        margin-right: 0 !important;
+      }
       html.theme-portal section {
         padding: 0;
         border-bottom: none;
