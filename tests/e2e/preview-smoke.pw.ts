@@ -1,3 +1,4 @@
+import type { Page } from '@playwright/test';
 import { expect, test } from './fixtures';
 
 function requireBaseUrl(value: string | undefined): string {
@@ -13,10 +14,26 @@ test.describe('Preview smoke', () => {
     await page.emulateMedia({ reducedMotion: 'reduce' });
   });
 
-  test('redirects the legacy mascot preview route into the portal', async ({ page }) => {
+  async function expectProtectedPortalTarget(page: Page, targetPath: string): Promise<'portal' | 'login'> {
+    await expect(page).toHaveURL(/\/dev\/(?:portal|login)/);
+
+    const url = new URL(page.url());
+    if (url.pathname === '/dev/login') {
+      expect(url.searchParams.get('next')).toBe(targetPath);
+      await expect(page.getByRole('heading', { name: 'Sign in to the dev portal' })).toBeVisible();
+      return 'login';
+    }
+
+    expect(url.pathname).toBe(targetPath);
+    return 'portal';
+  }
+
+  test('routes the legacy mascot preview route through the protected portal', async ({ page }) => {
     await page.goto('/dev/preview');
 
-    await expect(page).toHaveURL(/\/dev\/portal\/mascot$/);
+    const result = await expectProtectedPortalTarget(page, '/dev/portal/mascot');
+    if (result === 'login') return;
+
     await expect(page.getByText('Mascot inspector')).toBeVisible();
     await expect(page.getByText('Runtime map')).toBeVisible();
     await expect(page.getByText('Brand behavior')).toBeVisible();
@@ -25,10 +42,12 @@ test.describe('Preview smoke', () => {
     await expect(page.getByRole('heading', { name: 'Idle at rest, dart on hover' })).toBeVisible();
   });
 
-  test('redirects the legacy newsletter preview route into the portal', async ({ page }) => {
+  test('routes the legacy newsletter preview route through the protected portal', async ({ page }) => {
     await page.goto('/dev/newsletter-preview');
 
-    await expect(page).toHaveURL(/\/dev\/portal\/newsletter$/);
+    const result = await expectProtectedPortalTarget(page, '/dev/portal/newsletter');
+    if (result === 'login') return;
+
     await expect(page.getByText('Newsletter templates')).toBeVisible();
     await expect(page.getByText('Subscribe Confirm')).toBeVisible();
   });
