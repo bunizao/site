@@ -1530,7 +1530,7 @@
     font-family: var(--font-mono);
     font-size: 11px;
     letter-spacing: 0.04em;
-    color: hsl(var(--muted-foreground) / 0.55);
+    color: hsl(var(--muted-foreground) / 0.85);
   }
 
   .status-dot {
