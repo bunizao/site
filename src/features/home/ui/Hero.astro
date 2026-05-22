@@ -230,17 +230,31 @@ const techRow2 = ['Frontend', 'BGP', 'Proxy', 'Docker', 'Linux', 'Web3', 'Optimi
   }
 
   .hero-bio em {
-    font-family: var(--font-display);
+    font-family: inherit;
     font-style: normal;
-    font-weight: 460;
-    font-variation-settings: 'opsz' 14, 'SOFT' 30, 'WONK' 0;
-    letter-spacing: -0.005em;
+    font-weight: 600;
     color: hsl(var(--foreground));
+    background-image: linear-gradient(
+      to bottom,
+      transparent 62%,
+      hsl(var(--foreground) / 0.18) 62%,
+      hsl(var(--foreground) / 0.18) 86%,
+      transparent 86%
+    );
+    background-repeat: no-repeat;
+    background-size: 100% 100%;
     padding: 0 1px;
+    transition: background-size 0.3s ease;
   }
 
   .hero-bio em:hover {
-    font-variation-settings: 'opsz' 14, 'SOFT' 80, 'WONK' 0;
+    background-image: linear-gradient(
+      to bottom,
+      transparent 62%,
+      hsl(var(--foreground) / 0.32) 62%,
+      hsl(var(--foreground) / 0.32) 86%,
+      transparent 86%
+    );
   }
 
   .hero-bio-aside {
