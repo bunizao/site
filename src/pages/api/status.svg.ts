@@ -60,16 +60,25 @@ export const GET: APIRoute = ({ url }) => {
       <defs>
         <style>
           @font-face {
-            font-family: 'JetBrains Mono';
+            font-family: 'Geist Mono';
             src:
-              url('/fonts/jetbrains-mono-variable.woff2') format('woff2-variations'),
-              url('/fonts/jetbrains-mono-variable.woff2') format('woff2');
-            font-weight: 100 800;
+              url('/fonts/geist-mono-variable.woff2') format('woff2-variations'),
+              url('/fonts/geist-mono-variable.woff2') format('woff2');
+            font-weight: 100 900;
+            font-style: normal;
+          }
+
+          @font-face {
+            font-family: 'Geist';
+            src:
+              url('/fonts/geist-sans-variable.woff2') format('woff2-variations'),
+              url('/fonts/geist-sans-variable.woff2') format('woff2');
+            font-weight: 100 900;
             font-style: normal;
           }
 
           .status-container {
-            font-family: 'JetBrains Mono', monospace;
+            font-family: 'Geist', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
           }
 
           .status-dot {
@@ -91,7 +100,7 @@ export const GET: APIRoute = ({ url }) => {
 
       <circle class="status-dot" cx="20" cy="20" r="4" fill="${colors.dot}"/>
 
-      <text x="32" y="25" font-family="JetBrains Mono, monospace" font-size="14" font-weight="400" fill="${colors.text}">
+      <text x="32" y="25" font-family="Geist, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="14" font-weight="500" fill="${colors.text}">
         ${status}
       </text>
     </svg>

@@ -83,11 +83,11 @@ export const GET: APIRoute = ({ url, locals }) => {
     const separatorY = paddingY + (i + 1) * lineHeight;
     const showSeparator = i < lines.length - 1;
     const valueMarkup = line.custom
-      ? `<text x="${width - paddingX}" y="${y}" font-family="JetBrains Mono, monospace" font-size="11" font-weight="600" text-anchor="end">${line.custom}</text>`
-      : `<text x="${width - paddingX}" y="${y}" font-family="JetBrains Mono, monospace" font-size="11" font-weight="600" fill="${colors.text}" text-anchor="end">${line.value}</text>`;
+      ? `<text x="${width - paddingX}" y="${y}" font-family="Geist Mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" font-weight="600" text-anchor="end">${line.custom}</text>`
+      : `<text x="${width - paddingX}" y="${y}" font-family="Geist Mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" font-weight="600" fill="${colors.text}" text-anchor="end">${line.value}</text>`;
     return `
       <g class="row" style="animation: fadeIn 0.4s ease ${i * 0.08}s both">
-        <text x="${paddingX}" y="${y}" font-family="JetBrains Mono, monospace" font-size="11" font-weight="400" fill="${colors.label}">${line.label}</text>
+        <text x="${paddingX}" y="${y}" font-family="Geist Mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" font-weight="400" fill="${colors.label}">${line.label}</text>
         ${valueMarkup}
         ${showSeparator ? `<line x1="${paddingX}" y1="${separatorY}" x2="${width - paddingX}" y2="${separatorY}" stroke="${colors.separator}" stroke-width="0.5" stroke-dasharray="2,2"/>` : ''}
       </g>
@@ -98,6 +98,15 @@ export const GET: APIRoute = ({ url, locals }) => {
     <svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
       <defs>
         <style>
+          @font-face {
+            font-family: 'Geist Mono';
+            src:
+              url('/fonts/geist-mono-variable.woff2') format('woff2-variations'),
+              url('/fonts/geist-mono-variable.woff2') format('woff2');
+            font-weight: 100 900;
+            font-style: normal;
+          }
+
           @keyframes fadeIn {
             from { opacity: 0; transform: translateY(4px); }
             to { opacity: 1; transform: translateY(0); }

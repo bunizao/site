@@ -51,16 +51,16 @@ export const GET: APIRoute = ({ url }) => {
       <defs>
         <style>
           @font-face {
-            font-family: 'JetBrains Mono';
+            font-family: 'Geist Mono';
             src:
-              url('/fonts/jetbrains-mono-variable.woff2') format('woff2-variations'),
-              url('/fonts/jetbrains-mono-variable.woff2') format('woff2');
-            font-weight: 100 800;
+              url('/fonts/geist-mono-variable.woff2') format('woff2-variations'),
+              url('/fonts/geist-mono-variable.woff2') format('woff2');
+            font-weight: 100 900;
             font-style: normal;
           }
 
           .tech-tag {
-            font-family: 'JetBrains Mono', monospace;
+            font-family: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
             animation: scroll ${techStack.length * 3}s linear infinite;
           }
 
@@ -83,7 +83,7 @@ export const GET: APIRoute = ({ url }) => {
           return `
             <g transform="translate(${x}, 20)">
               <rect width="100" height="24" rx="6" fill="${colors.tagBg}" stroke="${colors.border}" stroke-width="1"/>
-              <text x="50" y="16" font-family="JetBrains Mono, monospace" font-size="11" font-weight="500" fill="${colors.text}" text-anchor="middle">
+              <text x="50" y="16" font-family="Geist Mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" font-weight="500" fill="${colors.text}" text-anchor="middle">
                 ${tech}
               </text>
             </g>
@@ -94,7 +94,7 @@ export const GET: APIRoute = ({ url }) => {
           return `
             <g transform="translate(${x}, 20)">
               <rect width="100" height="24" rx="6" fill="${colors.tagBg}" stroke="${colors.border}" stroke-width="1"/>
-              <text x="50" y="16" font-family="JetBrains Mono, monospace" font-size="11" font-weight="500" fill="${colors.text}" text-anchor="middle">
+              <text x="50" y="16" font-family="Geist Mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" font-weight="500" fill="${colors.text}" text-anchor="middle">
                 ${tech}
               </text>
             </g>

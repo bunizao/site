@@ -69,16 +69,16 @@ export const GET: APIRoute = ({ url, request }) => {
       <defs>
         <style>
           @font-face {
-            font-family: 'JetBrains Mono';
+            font-family: 'Geist Mono';
             src:
-              url('/fonts/jetbrains-mono-variable.woff2') format('woff2-variations'),
-              url('/fonts/jetbrains-mono-variable.woff2') format('woff2');
-            font-weight: 100 800;
+              url('/fonts/geist-mono-variable.woff2') format('woff2-variations'),
+              url('/fonts/geist-mono-variable.woff2') format('woff2');
+            font-weight: 100 900;
             font-style: normal;
           }
 
           .badge-text {
-            font-family: 'JetBrains Mono', monospace;
+            font-family: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
             font-size: 13px;
             font-weight: 600;
             letter-spacing: -0.02em;
