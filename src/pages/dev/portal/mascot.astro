@@ -17,6 +17,7 @@ import {
   getPeekTrackingPoseKeys,
 } from '@/features/mascot/peek/catalog';
 import { PEEK_SLOTS } from '@/features/mascot/peek/slots';
+import { PEEK_STICKER_ASSETS } from '@/features/mascot/peek/stickers';
 
 export const prerender = false;
 
@@ -164,6 +165,43 @@ const previewTrackPoses = getPeekTrackingPoseKeys('preview');
           <div><dt>Channel</dt><dd><code>preview-track</code></dd></div>
         </dl>
       </article>
+    </section>
+
+    <section class="mascot-block">
+      <header>
+        <span class="mascot-block-eyebrow">Sticker assets</span>
+        <h3>Source-matched SVG stickers</h3>
+        <p>Self-contained SVG wrappers preserve the source artwork exactly while keeping a stable asset path for reuse.</p>
+        <span class="mascot-section-count">{PEEK_STICKER_ASSETS.length} entries</span>
+      </header>
+      <div class="mascot-sticker-grid">
+        {PEEK_STICKER_ASSETS.map((sticker) => (
+          <article class="mascot-sticker-card">
+            <div class="mascot-sticker-stage">
+              <img
+                src={sticker.src}
+                width={sticker.width}
+                height={sticker.height}
+                alt={`peek ${sticker.label}`}
+                loading="lazy"
+                decoding="async"
+              />
+            </div>
+            <div class="mascot-library-body">
+              <header>
+                <h4>{sticker.label}</h4>
+                <span>svg</span>
+              </header>
+              <p>{sticker.summary}</p>
+              <dl>
+                <div><dt>Id</dt><dd><code>{sticker.id}</code></dd></div>
+                <div><dt>Size</dt><dd>{sticker.width} × {sticker.height}</dd></div>
+                <div><dt>Path</dt><dd><code>{sticker.src}</code></dd></div>
+              </dl>
+            </div>
+          </article>
+        ))}
+      </div>
     </section>
 
     {previewSections.map((section) => (
@@ -543,6 +581,38 @@ const previewTrackPoses = getPeekTrackingPoseKeys('preview');
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
     gap: 14px;
+  }
+  .mascot-sticker-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 14px;
+  }
+  .mascot-sticker-card {
+    background: hsl(var(--background));
+    border: 1px solid hsl(var(--border));
+    border-radius: 10px;
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .mascot-sticker-stage {
+    height: 260px;
+    border-radius: 8px;
+    background: #616362;
+    border: 1px solid hsl(var(--border));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 18px;
+  }
+  .mascot-sticker-stage img {
+    display: block;
+    width: auto;
+    max-width: 100%;
+    max-height: 220px;
+    object-fit: contain;
+    image-rendering: auto;
   }
   .mascot-library-card {
     background: hsl(var(--background));

@@ -29,6 +29,7 @@ If a mascot change needs a pile of ceremony, the design is probably wrong.
 - Extra looks in [`src/features/logos/data/peek-looks.ts`](../src/features/logos/data/peek-looks.ts)
 - Preview surface in [`src/pages/dev/preview.astro`](../src/pages/dev/preview.astro)
 - SVG route in [`src/pages/logo/[id].svg.ts`](../src/pages/logo/[id].svg.ts)
+- Sticker assets in [`public/mascot/peek/stickers/`](../public/mascot/peek/stickers/) with metadata in [`src/features/mascot/peek/stickers.ts`](../src/features/mascot/peek/stickers.ts)
 
 ## Current Problem
 
@@ -141,6 +142,12 @@ The visualizer prints ANSI color blocks from the mascot cell palette. The `--png
 ### Looks
 
 Looks (`expressions/`, `costumes/`) stay full grids since they're variable height and replace the head silhouette outright. Use `defineLook` with numeric rows.
+
+### Stickers
+
+Sticker-style source art lives outside the grid catalog when exact raster fidelity matters. Keep each sticker on a stable public path and register its dimensions in `stickers.ts`.
+
+The current SVG stickers are self-contained wrappers around cropped source PNG data. That is deliberate: they preserve the supplied artwork exactly for review. Do not pretend these are pure vector assets until they have been redrawn or traced into editable paths or pixel rectangles.
 
 ## Definition Of Done
 
