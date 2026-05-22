@@ -1530,10 +1530,21 @@
   }
 
   .status-dot {
-    width: 5px;
-    height: 5px;
-    background: hsl(var(--foreground) / 0.85);
-    animation: pulse 2s ease-in-out infinite;
+    width: 6px;
+    height: 6px;
+    border-radius: 999px;
+    background: hsl(142 65% 55%);
+    box-shadow: 0 0 0 3px hsl(142 65% 55% / 0.18);
+    animation: status-pulse 2.4s ease-in-out infinite;
+  }
+
+  @keyframes status-pulse {
+    0%, 100% {
+      box-shadow: 0 0 0 3px hsl(142 65% 55% / 0.18);
+    }
+    50% {
+      box-shadow: 0 0 0 5px hsl(142 65% 55% / 0.08);
+    }
   }
 
   .typewriter-cursor {
