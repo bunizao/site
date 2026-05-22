@@ -1,5 +1,6 @@
 import type { MascotAsset } from '../model';
 import { PEEK_ALERT_MOTION } from './alert';
+import { PEEK_CHEER_MOTION } from './cheer';
 import { PEEK_CURIOUS_MOTION } from './curious';
 import { PEEK_DART_MOTION } from './dart';
 import { PEEK_DISSOLVE_MOTION } from './dissolve';
@@ -21,6 +22,7 @@ export const PEEK_MOTION_ASSETS: ReadonlyArray<MascotAsset> = [
   PEEK_DART_MOTION,
   PEEK_NAP_MOTION,
   PEEK_SCAN_MOTION,
+  PEEK_CHEER_MOTION,
   PEEK_ALERT_MOTION,
   PEEK_DISSOLVE_MOTION,
   PEEK_HAPPY_MOTION,

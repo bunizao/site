@@ -8,4 +8,6 @@ export const PEEK_LOOK_PALETTE: CellPalette = {
   8: 'var(--peek-look-ink)',
   9: 'var(--peek-look-purple)',
   10: 'var(--peek-look-brown)',
+  11: 'var(--peek-look-blue)',
+  12: 'var(--peek-look-pink)',
 };
