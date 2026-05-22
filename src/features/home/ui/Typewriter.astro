@@ -6,7 +6,7 @@ interface Props {
   pauseDuration?: number;
 }
 
-const { texts, speed = 80, delay = 0, pauseDuration = 2000 } = Astro.props;
+const { texts, speed = 110, delay = 0, pauseDuration = 2600 } = Astro.props;
 const initialText = texts[0] ?? '';
 const longestText = texts.reduce((a, b) => a.length > b.length ? a : b, '');
 ---
@@ -47,9 +47,9 @@ const longestText = texts.reduce((a, b) => a.length > b.length ? a : b, '');
   document.addEventListener('DOMContentLoaded', () => {
     document.querySelectorAll('.typewriter').forEach((el) => {
       const texts: string[] = JSON.parse(el.getAttribute('data-texts') || '[]');
-      const speed = parseInt(el.getAttribute('data-speed') || '80');
+      const speed = parseInt(el.getAttribute('data-speed') || '110');
       const delay = parseInt(el.getAttribute('data-delay') || '0');
-      const pauseDuration = parseInt(el.getAttribute('data-pause') || '2000');
+      const pauseDuration = parseInt(el.getAttribute('data-pause') || '2600');
       const textEl = el.querySelector('.typewriter-text');
 
       if (!textEl || texts.length === 0) return;
@@ -62,28 +62,26 @@ const longestText = texts.reduce((a, b) => a.length > b.length ? a : b, '');
         const currentText = texts[textIndex];
 
         if (isDeleting) {
-          // Remove characters
           textEl.textContent = currentText.substring(0, charIndex - 1);
           charIndex--;
 
           if (charIndex === 0) {
             isDeleting = false;
             textIndex = (textIndex + 1) % texts.length;
-            setTimeout(type, speed);
+            setTimeout(type, speed * 1.6);
           } else {
-            setTimeout(type, speed / 2); // Delete faster
+            setTimeout(type, speed * 0.4);
           }
         } else {
-          // Add characters
           textEl.textContent = currentText.substring(0, charIndex + 1);
           charIndex++;
 
           if (charIndex === currentText.length) {
-            // Pause after a word, then start deleting
             isDeleting = true;
             setTimeout(type, pauseDuration);
           } else {
-            setTimeout(type, speed + Math.random() * 30);
+            const jitter = (Math.random() - 0.5) * 24;
+            setTimeout(type, speed + jitter);
           }
         }
       };

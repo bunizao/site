@@ -1540,12 +1540,23 @@
 
   .typewriter-cursor {
     display: inline-block;
-    width: 10px;
-    height: 1.2em;
-    background: hsl(var(--foreground));
-    margin-left: 2px;
-    animation: blink 1s step-end infinite;
-    vertical-align: text-bottom;
+    width: 2px;
+    height: 0.82em;
+    background: hsl(var(--foreground) / 0.85);
+    margin-left: 4px;
+    border-radius: 1px;
+    animation: typewriter-blink 1.1s ease-in-out infinite;
+    vertical-align: baseline;
+    transform: translateY(-0.04em);
+  }
+
+  @keyframes typewriter-blink {
+    0%, 50% {
+      opacity: 1;
+    }
+    51%, 100% {
+      opacity: 0.15;
+    }
   }
 }
 

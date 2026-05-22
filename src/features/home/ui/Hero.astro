@@ -1,4 +1,5 @@
 ---
+import Typewriter from '@/features/home/ui/Typewriter.astro';
 import GitHubContributions from '@/features/home/ui/GitHubContributions.astro';
 import Listening from '@/features/home/ui/Listening.astro';
 import TechMarquee from '@/features/home/ui/TechMarquee.astro';
@@ -71,10 +72,9 @@ const techRow2 = ['Frontend', 'BGP', 'Proxy', 'Docker', 'Linux', 'Web3', 'Optimi
       </div>
     </div>
 
-    <!-- Editorial kicker -->
     <!-- Name -->
     <h1 class="hero-animate hero-name" data-hero-name>
-      Collapsar<span class="hero-name-mark" aria-hidden="true">.</span>
+      <Typewriter texts={["Lucian", "Bunizao", "Tutu", "Collapsar"]} speed={80} />
     </h1>
 
     <!-- Personal Info -->
@@ -98,10 +98,10 @@ const techRow2 = ['Frontend', 'BGP', 'Proxy', 'Docker', 'Linux', 'Web3', 'Optimi
     <!-- Bio -->
     <div class="hero-animate" data-hero-bio>
       <p class="hero-bio">
-        I build for the <em>web</em>, write about what I learn, and chase the kind of <em>speed</em> that feels invisible.
+        I make interesting things — curious about <em>frontend design</em>, <em>proxy systems</em>, and <em>open source</em>. Obsessed with <em>speed</em>, always asking how things can be better.
       </p>
       <p class="hero-bio hero-bio-aside">
-        Currently studying Computer Science at Monash.
+        Outside of coding, I read for curiosity and write to make sense of things. Currently studying Computer Science at Monash University.
       </p>
     </div>
 
@@ -181,13 +181,6 @@ const techRow2 = ['Frontend', 'BGP', 'Proxy', 'Docker', 'Linux', 'Web3', 'Optimi
     letter-spacing: -0.04em;
     line-height: 0.96;
     color: hsl(var(--foreground));
-  }
-
-  .hero-name-mark {
-    color: hsl(var(--muted-foreground) / 0.35);
-    font-style: italic;
-    font-variation-settings: 'opsz' 144, 'SOFT' 100, 'WONK' 1;
-    margin-left: 2px;
   }
 
   .hero-meta {
