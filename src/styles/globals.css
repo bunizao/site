@@ -538,14 +538,24 @@
 
   .link {
     display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    transition: all 0.15s ease;
+    align-items: baseline;
+    gap: 8px;
+    font-family: var(--font-display);
+    font-style: italic;
+    font-weight: 360;
+    font-variation-settings: 'opsz' 14, 'SOFT' 100, 'WONK' 1;
+    font-size: 15px;
+    color: hsl(var(--muted-foreground));
+    letter-spacing: 0;
+    transition: color 0.2s ease;
   }
 
   .link::after {
     content: '→';
-    transition: transform 0.15s ease;
+    font-family: var(--font-mono);
+    font-style: normal;
+    font-size: 13px;
+    transition: transform 0.2s ease;
   }
 
   .link:hover {
