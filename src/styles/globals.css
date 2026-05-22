@@ -12,6 +12,24 @@
 }
 
 @font-face {
+  font-family: 'Fraunces';
+  src: url('/fonts/fraunces-variable.woff2') format('woff2-variations'),
+       url('/fonts/fraunces-variable.woff2') format('woff2');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Fraunces';
+  src: url('/fonts/fraunces-italic-variable.woff2') format('woff2-variations'),
+       url('/fonts/fraunces-italic-variable.woff2') format('woff2');
+  font-weight: 100 900;
+  font-style: italic;
+  font-display: swap;
+}
+
+@font-face {
   font-family: 'Geist Mono';
   src: url('/fonts/geist-mono-variable.woff2') format('woff2-variations'),
        url('/fonts/geist-mono-variable.woff2') format('woff2');
@@ -32,6 +50,7 @@
   :root {
     --font-sans: 'Geist', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', Helvetica, Arial, sans-serif;
     --font-mono: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+    --font-display: 'Fraunces', ui-serif, Georgia, 'Times New Roman', serif;
     --font-pixel: 'Zpix', ui-monospace, monospace;
     color-scheme: light;
     --background: 0 0% 100%;
@@ -103,8 +122,10 @@
   }
 
   body {
-    @apply bg-background text-foreground min-h-screen font-sans leading-relaxed antialiased;
+    @apply bg-background text-foreground min-h-screen font-mono leading-relaxed antialiased;
     position: relative;
+    font-feature-settings: 'ss01', 'cv11';
+    letter-spacing: 0.018em;
   }
 
   body::before {
@@ -123,14 +144,20 @@
   }
 
   h1 {
-    @apply tracking-tight;
-    font-weight: 600;
+    font-family: var(--font-display);
+    font-weight: 460;
+    font-variation-settings: 'opsz' 144, 'SOFT' 100, 'WONK' 0;
+    letter-spacing: -0.02em;
+    line-height: 1.02;
   }
 
   h2,
   h3 {
-    @apply tracking-tight;
-    font-weight: 500;
+    font-family: var(--font-display);
+    font-weight: 480;
+    font-variation-settings: 'opsz' 32, 'SOFT' 50, 'WONK' 0;
+    letter-spacing: -0.015em;
+    line-height: 1.15;
   }
 
   a {
@@ -468,8 +495,23 @@
   }
 
   .section-label {
-    @apply inline-block text-[11px] font-light uppercase tracking-[0.2em] text-muted-foreground;
-    margin-bottom: 20px;
+    display: block;
+    font-family: var(--font-display);
+    font-style: italic;
+    font-weight: 360;
+    font-variation-settings: 'opsz' 32, 'SOFT' 80, 'WONK' 1;
+    font-size: 22px;
+    letter-spacing: -0.005em;
+    color: hsl(var(--foreground));
+    text-transform: none;
+    margin-bottom: 28px;
+  }
+
+  @media (min-width: 640px) {
+    .section-label {
+      font-size: 26px;
+      margin-bottom: 32px;
+    }
   }
 
   .item {
@@ -1474,13 +1516,15 @@
   }
 
   .status {
-    @apply inline-flex items-center gap-2 text-[12px] uppercase tracking-[0.1em];
+    @apply inline-flex items-center gap-2 text-[10px] uppercase;
+    letter-spacing: 0.18em;
+    color: hsl(var(--muted-foreground) / 0.65);
   }
 
   .status-dot {
-    width: 6px;
-    height: 6px;
-    background: hsl(var(--foreground));
+    width: 5px;
+    height: 5px;
+    background: hsl(var(--foreground) / 0.85);
     animation: pulse 2s ease-in-out infinite;
   }
 

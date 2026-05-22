@@ -64,7 +64,7 @@ const techRow2 = ['Frontend', 'BGP', 'Proxy', 'Docker', 'Linux', 'Web3', 'Optimi
 <header class="hero-section pb-8 sm:pb-12">
     <!-- Status indicator -->
     <div class="hero-animate" data-hero-status>
-      <div class="status mb-4">
+      <div class="status mb-5">
         <span class="status-dot"></span>
         <span class="status-text-wrapper">
           <span class="status-text" id="status-text">Wondering</span>
@@ -72,45 +72,50 @@ const techRow2 = ['Frontend', 'BGP', 'Proxy', 'Docker', 'Linux', 'Web3', 'Optimi
       </div>
     </div>
 
+    <!-- Editorial kicker -->
+    <p class="hero-animate hero-kicker" data-hero-kicker>
+      <span class="hero-kicker-num">N°</span>
+      <span class="hero-kicker-sep" aria-hidden="true"></span>
+      <span class="hero-kicker-label">Identity</span>
+    </p>
+
     <!-- Name -->
-    <h1 class="hero-animate mb-2 text-[28px] font-semibold sm:text-[36px]" data-hero-name>
+    <h1 class="hero-animate hero-name" data-hero-name>
       <Typewriter texts={["Lucian", "Bunizao", "Tutu", "Collapsar"]} speed={80} />
     </h1>
 
     <!-- Personal Info -->
     <div class="hero-animate mb-3" data-hero-info>
-      <p class="text-xs text-muted-foreground/70 tracking-wider font-mono">
-        <span class="inline-flex items-center gap-2">
-          <span>18 y.o.</span>
-          <span class="separator">•</span>
-          <span>INFP</span>
-          <span class="separator">•</span>
-          <span>Libra</span>
-        </span>
+      <p class="hero-meta">
+        <span>18 y.o.</span>
+        <span class="hero-meta-sep" aria-hidden="true">/</span>
+        <span>INFP</span>
+        <span class="hero-meta-sep" aria-hidden="true">/</span>
+        <span>Libra</span>
       </p>
     </div>
 
     <!-- Role -->
-    <p class="hero-animate mb-6 text-sm text-muted-foreground" data-hero-role>
-      Student / Developer / Blogger
+    <p class="hero-animate hero-role" data-hero-role>
+      Student <span class="hero-role-sep" aria-hidden="true">·</span>
+      Developer <span class="hero-role-sep" aria-hidden="true">·</span>
+      Blogger
     </p>
 
     <!-- Bio -->
     <div class="hero-animate" data-hero-bio>
-      <p class="text-[15px] leading-[1.7] text-muted-foreground sm:text-[16px]">
-        I make interesting things.<br>
-        Curious about <span class="text-foreground">frontend design</span>,
-        <span class="text-foreground">proxy systems</span>, and
-        contributing to <span class="text-foreground"> open source</span>.<br>
-        Obsessed with <span class="text-foreground">speed</span> and always asking how things can be <span class="text-foreground">better</span>.<br>
-        Outside of coding, I read for curiosity and write to make sense of things.<br>
-        Currently studying Computer Science at <span class="text-foreground">Monash University</span>.
+      <p class="hero-bio">
+        <span class="hero-bio-lead">I make interesting things.</span><br>
+        Curious about <em>frontend design</em>, <em>proxy systems</em>, and contributing to <em>open source</em>.<br>
+        Obsessed with <em>speed</em> and always asking how things can be <em>better</em>.<br>
+        <span class="hero-bio-aside">Outside of coding, I read for curiosity and write to make sense of things.</span><br>
+        <span class="hero-bio-aside">Currently studying Computer Science at <em>Monash University</em>.</span>
       </p>
     </div>
 
     <!-- Social Links -->
-    <div class="mt-6 flex flex-wrap items-center gap-4 hero-animate sm:mt-8" data-hero-motion data-hero-socials>
-      <span class="flex-none whitespace-nowrap text-[14px] text-muted-foreground sm:text-[15px]">Find me at</span>
+    <div class="mt-7 flex flex-wrap items-center gap-3 hero-animate sm:mt-9" data-hero-motion data-hero-socials>
+      <span class="hero-socials-label">Find me at</span>
       {socials.map((social) => (
         <div class="social-link-wrapper">
           <div class="magnetic-button" data-magnetic data-strength="0.4">
@@ -175,6 +180,119 @@ const techRow2 = ['Frontend', 'BGP', 'Proxy', 'Docker', 'Linux', 'Web3', 'Optimi
     }
   }
 
+  .hero-kicker {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    margin: 14px 0 6px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: hsl(var(--muted-foreground) / 0.55);
+  }
+
+  .hero-kicker-num {
+    font-feature-settings: 'tnum', 'ss01';
+    color: hsl(var(--foreground) / 0.65);
+  }
+
+  .hero-kicker-sep {
+    width: 18px;
+    height: 1px;
+    background: hsl(var(--foreground) / 0.35);
+    display: inline-block;
+  }
+
+  .hero-name {
+    margin: 0 0 14px;
+    font-family: var(--font-display);
+    font-size: clamp(48px, 8vw, 76px);
+    font-weight: 360;
+    font-variation-settings: 'opsz' 144, 'SOFT' 100, 'WONK' 0;
+    letter-spacing: -0.035em;
+    line-height: 0.98;
+    color: hsl(var(--foreground));
+  }
+
+  .hero-meta {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    color: hsl(var(--muted-foreground) / 0.7);
+    text-transform: uppercase;
+  }
+
+  .hero-meta-sep {
+    color: hsl(var(--muted-foreground) / 0.3);
+  }
+
+  .hero-role {
+    margin: 0 0 28px;
+    font-size: 14px;
+    color: hsl(var(--muted-foreground));
+    letter-spacing: 0.01em;
+  }
+
+  .hero-role-sep {
+    margin: 0 4px;
+    color: hsl(var(--muted-foreground) / 0.45);
+  }
+
+  .hero-bio {
+    font-size: 14px;
+    line-height: 1.7;
+    color: hsl(var(--foreground));
+    letter-spacing: 0.01em;
+    max-width: 56ch;
+  }
+
+  @media (min-width: 640px) {
+    .hero-bio {
+      font-size: 15px;
+    }
+  }
+
+  .hero-bio-lead {
+    color: hsl(var(--foreground));
+  }
+
+  .hero-bio em {
+    font-family: var(--font-display);
+    font-style: italic;
+    font-weight: 380;
+    font-variation-settings: 'opsz' 14, 'SOFT' 50, 'WONK' 1;
+    letter-spacing: 0;
+    color: hsl(var(--foreground));
+    padding: 0 1px;
+  }
+
+  .hero-bio em:hover {
+    font-variation-settings: 'opsz' 14, 'SOFT' 100, 'WONK' 1;
+  }
+
+  .hero-bio-aside {
+    color: hsl(var(--muted-foreground));
+  }
+
+  .hero-bio-aside em {
+    color: hsl(var(--foreground));
+  }
+
+  .hero-socials-label {
+    flex: none;
+    white-space: nowrap;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: hsl(var(--muted-foreground) / 0.65);
+  }
+
   .status-text-wrapper {
     display: inline-block;
     height: 1.2em;
@@ -187,11 +305,6 @@ const techRow2 = ['Frontend', 'BGP', 'Proxy', 'Docker', 'Linux', 'Web3', 'Optimi
   .status-text {
     display: inline-block;
     line-height: 1.2em;
-  }
-
-  /* Personal info styling */
-  .separator {
-    opacity: 0.5;
   }
 
   /* Hidden SVG filter container */

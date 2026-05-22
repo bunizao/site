@@ -231,11 +231,11 @@ const projects = await loadProjects();
     flex-direction: column;
     position: relative;
     height: 100%;
-    padding: 16px;
-    background: hsl(var(--background));
-    border: 1px solid hsl(var(--foreground) / 0.08);
-    border-radius: 12px;
-    transition: box-shadow 0.2s ease;
+    padding: 18px;
+    background: transparent;
+    border: 1px solid hsl(var(--foreground) / 0.06);
+    border-radius: 4px;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
     transform-style: preserve-3d;
     will-change: transform;
     overflow: hidden;
@@ -243,14 +243,13 @@ const projects = await loadProjects();
 
   @media (min-width: 640px) {
     .project-item {
-      padding: 18px;
+      padding: 20px;
     }
   }
 
   .project-item:hover {
-    box-shadow:
-      0 10px 30px -10px hsl(var(--foreground) / 0.1),
-      0 0 0 1px hsl(var(--foreground) / 0.05);
+    border-color: hsl(var(--foreground) / 0.18);
+    box-shadow: none;
   }
 
   .card-glare {
@@ -289,14 +288,15 @@ const projects = await loadProjects();
   }
 
   .project-name {
-    font-weight: 600;
-    font-size: 14px;
+    font-weight: 500;
+    font-size: 15px;
+    letter-spacing: 0.005em;
     color: hsl(var(--foreground));
   }
 
   @media (min-width: 640px) {
     .project-name {
-      font-size: 15px;
+      font-size: 16px;
     }
   }
 
@@ -316,20 +316,21 @@ const projects = await loadProjects();
   }
 
   .project-desc {
-    font-size: 12px;
+    font-size: 13px;
     color: hsl(var(--muted-foreground));
-    line-height: 1.5;
+    line-height: 1.65;
+    letter-spacing: 0.005em;
     display: -webkit-box;
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
-    min-height: calc(12px * 1.5 * 2);
+    min-height: calc(13px * 1.65 * 2);
   }
 
   @media (min-width: 640px) {
     .project-desc {
-      font-size: 13px;
-      min-height: calc(13px * 1.5 * 2);
+      font-size: 14px;
+      min-height: calc(14px * 1.65 * 2);
     }
   }
 
@@ -343,35 +344,45 @@ const projects = await loadProjects();
   }
 
   .project-role {
-    font-size: 10px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    color: hsl(var(--foreground) / 0.5);
-    padding: 2px 6px;
-    background: hsl(var(--foreground) / 0.05);
-    border-radius: 4px;
+    font-family: var(--font-display);
+    font-style: italic;
+    font-weight: 360;
+    font-variation-settings: 'opsz' 14, 'SOFT' 100, 'WONK' 1;
+    font-size: 12px;
+    text-transform: lowercase;
+    letter-spacing: 0;
+    color: hsl(var(--muted-foreground));
+    padding: 0;
+    background: transparent;
+    border-radius: 0;
     flex-shrink: 0;
+  }
+
+  .project-role::after {
+    content: '·';
+    margin-left: 8px;
+    opacity: 0.4;
   }
 
   .project-tags {
     display: flex;
     flex-wrap: wrap;
-    gap: 6px;
+    gap: 8px;
     flex: 1;
     min-width: 0;
   }
 
   .tag {
-    font-size: 10px;
+    font-size: 11px;
     font-weight: 400;
-    color: hsl(var(--muted-foreground) / 0.8);
+    letter-spacing: 0.02em;
+    color: hsl(var(--muted-foreground) / 0.75);
     white-space: nowrap;
   }
 
   .tag:not(:last-child)::after {
     content: '·';
-    margin-left: 6px;
+    margin-left: 8px;
     opacity: 0.4;
   }
 
