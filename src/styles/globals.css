@@ -3,16 +3,6 @@
 @tailwind utilities;
 
 @font-face {
-  font-family: 'JetBrains Mono';
-  src:
-    url('/fonts/jetbrains-mono-variable.woff2') format('woff2-variations'),
-    url('/fonts/jetbrains-mono-variable.woff2') format('woff2');
-  font-weight: 100 800;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
   font-family: 'Geist';
   src: url('/fonts/geist-sans-variable.woff2') format('woff2-variations'),
        url('/fonts/geist-sans-variable.woff2') format('woff2');
@@ -1690,7 +1680,7 @@ html.no-transition * {
 }
 
 .theme-portal-mono {
-  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-family: var(--font-mono);
   font-feature-settings: 'tnum' 1;
 }
 

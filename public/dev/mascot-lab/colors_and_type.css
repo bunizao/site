@@ -5,13 +5,22 @@
    ============================================================ */
 
 /* -------- Font -------- */
-/* Brand font: JetBrains Mono (variable) — matches the real site exactly.
-   Lives at fonts/jetbrains-mono-variable.woff2. */
+/* Brand fonts: Geist Sans + Geist Mono (variable) — matches the real site.
+   Lives at /fonts/geist-sans-variable.woff2 and /fonts/geist-mono-variable.woff2. */
 @font-face {
-  font-family: 'JetBrains Mono';
-  src: url('fonts/jetbrains-mono-variable.woff2') format('woff2-variations'),
-       url('fonts/jetbrains-mono-variable.woff2') format('woff2');
-  font-weight: 100 800;
+  font-family: 'Geist';
+  src: url('/fonts/geist-sans-variable.woff2') format('woff2-variations'),
+       url('/fonts/geist-sans-variable.woff2') format('woff2');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Geist Mono';
+  src: url('/fonts/geist-mono-variable.woff2') format('woff2-variations'),
+       url('/fonts/geist-mono-variable.woff2') format('woff2');
+  font-weight: 100 900;
   font-style: normal;
   font-display: swap;
 }
@@ -61,7 +70,8 @@
   --radius-pill: 999px;
 
   /* ----- Typography ----- */
-  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  --font-sans: 'Geist', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', Helvetica, Arial, sans-serif;
+  --font-mono: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 
   --text-xxs: 10px;
   --text-xs: 11px;
@@ -146,7 +156,7 @@ html {
 }
 
 body {
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   background: hsl(var(--background));
   color: hsl(var(--foreground));
   line-height: var(--leading-relaxed);

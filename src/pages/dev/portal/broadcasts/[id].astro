@@ -60,7 +60,7 @@ const audienceContentStyle = { display: 'flex', flexWrap: 'wrap', gap: 8 } as co
             <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;">
               <div>
                 <CardTitle style={titleLg}>{record.subject}</CardTitle>
-                <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:hsl(var(--muted-foreground));margin-top:4px;">{record.id}</div>
+                <div style="font-family:var(--font-mono);font-size:11px;color:hsl(var(--muted-foreground));margin-top:4px;">{record.id}</div>
               </div>
               <Badge variant={record.status === 'sent' ? 'success' : record.status === 'failed' ? 'destructive' : 'secondary'}>
                 {record.status}
