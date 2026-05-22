@@ -1,5 +1,4 @@
 ---
-import Typewriter from '@/features/home/ui/Typewriter.astro';
 import GitHubContributions from '@/features/home/ui/GitHubContributions.astro';
 import Listening from '@/features/home/ui/Listening.astro';
 import TechMarquee from '@/features/home/ui/TechMarquee.astro';
@@ -73,15 +72,9 @@ const techRow2 = ['Frontend', 'BGP', 'Proxy', 'Docker', 'Linux', 'Web3', 'Optimi
     </div>
 
     <!-- Editorial kicker -->
-    <p class="hero-animate hero-kicker" data-hero-kicker>
-      <span class="hero-kicker-num">N°</span>
-      <span class="hero-kicker-sep" aria-hidden="true"></span>
-      <span class="hero-kicker-label">Identity</span>
-    </p>
-
     <!-- Name -->
     <h1 class="hero-animate hero-name" data-hero-name>
-      <Typewriter texts={["Lucian", "Bunizao", "Tutu", "Collapsar"]} speed={80} />
+      Collapsar<span class="hero-name-mark" aria-hidden="true">.</span>
     </h1>
 
     <!-- Personal Info -->
@@ -105,11 +98,10 @@ const techRow2 = ['Frontend', 'BGP', 'Proxy', 'Docker', 'Linux', 'Web3', 'Optimi
     <!-- Bio -->
     <div class="hero-animate" data-hero-bio>
       <p class="hero-bio">
-        <span class="hero-bio-lead">I make interesting things.</span><br>
-        Curious about <em>frontend design</em>, <em>proxy systems</em>, and contributing to <em>open source</em>.<br>
-        Obsessed with <em>speed</em> and always asking how things can be <em>better</em>.<br>
-        <span class="hero-bio-aside">Outside of coding, I read for curiosity and write to make sense of things.</span><br>
-        <span class="hero-bio-aside">Currently studying Computer Science at <em>Monash University</em>.</span>
+        I build for the <em>web</em>, write about what I learn, and chase the kind of <em>speed</em> that feels invisible.
+      </p>
+      <p class="hero-bio hero-bio-aside">
+        Currently studying Computer Science at Monash.
       </p>
     </div>
 
@@ -180,40 +172,22 @@ const techRow2 = ['Frontend', 'BGP', 'Proxy', 'Docker', 'Linux', 'Web3', 'Optimi
     }
   }
 
-  .hero-kicker {
-    display: inline-flex;
-    align-items: center;
-    gap: 10px;
-    margin: 14px 0 6px;
-    font-family: var(--font-mono);
-    font-size: 11px;
-    font-weight: 500;
-    letter-spacing: 0.18em;
-    text-transform: uppercase;
-    color: hsl(var(--muted-foreground) / 0.55);
-  }
-
-  .hero-kicker-num {
-    font-feature-settings: 'tnum', 'ss01';
-    color: hsl(var(--foreground) / 0.65);
-  }
-
-  .hero-kicker-sep {
-    width: 18px;
-    height: 1px;
-    background: hsl(var(--foreground) / 0.35);
-    display: inline-block;
-  }
-
   .hero-name {
-    margin: 0 0 14px;
+    margin: 0 0 18px;
     font-family: var(--font-display);
-    font-size: clamp(48px, 8vw, 76px);
+    font-size: clamp(56px, 9vw, 88px);
     font-weight: 360;
     font-variation-settings: 'opsz' 144, 'SOFT' 100, 'WONK' 0;
-    letter-spacing: -0.035em;
-    line-height: 0.98;
+    letter-spacing: -0.04em;
+    line-height: 0.96;
     color: hsl(var(--foreground));
+  }
+
+  .hero-name-mark {
+    color: hsl(var(--muted-foreground) / 0.35);
+    font-style: italic;
+    font-variation-settings: 'opsz' 144, 'SOFT' 100, 'WONK' 1;
+    margin-left: 2px;
   }
 
   .hero-meta {
@@ -244,21 +218,22 @@ const techRow2 = ['Frontend', 'BGP', 'Proxy', 'Docker', 'Linux', 'Web3', 'Optimi
   }
 
   .hero-bio {
-    font-size: 14px;
+    margin: 0;
+    font-size: 15px;
     line-height: 1.7;
     color: hsl(var(--foreground));
     letter-spacing: 0.01em;
-    max-width: 56ch;
+    max-width: 52ch;
+  }
+
+  .hero-bio + .hero-bio {
+    margin-top: 8px;
   }
 
   @media (min-width: 640px) {
     .hero-bio {
-      font-size: 15px;
+      font-size: 16px;
     }
-  }
-
-  .hero-bio-lead {
-    color: hsl(var(--foreground));
   }
 
   .hero-bio em {
@@ -277,10 +252,6 @@ const techRow2 = ['Frontend', 'BGP', 'Proxy', 'Docker', 'Linux', 'Web3', 'Optimi
 
   .hero-bio-aside {
     color: hsl(var(--muted-foreground));
-  }
-
-  .hero-bio-aside em {
-    color: hsl(var(--foreground));
   }
 
   .hero-socials-label {
