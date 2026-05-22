@@ -17,6 +17,7 @@ import {
   getPeekTrackingPoseKeys,
 } from '@/features/mascot/peek/catalog';
 import { PEEK_SLOTS } from '@/features/mascot/peek/slots';
+import { PEEK_STICKER_ASSETS } from '@/features/mascot/peek/stickers';
 
 export const prerender = false;
 
@@ -28,6 +29,7 @@ const motionAssets = allAssets.filter((asset) => asset.kind === 'motion');
 const poseAssets = allAssets.filter((asset) => asset.kind === 'pose');
 const expressionAssets = allAssets.filter((asset) => asset.kind === 'expression');
 const costumeAssets = allAssets.filter((asset) => asset.kind === 'costume');
+const timelineAssets = allAssets.filter((asset) => asset.timeline);
 const previewSections = getPeekPreviewSections();
 const runtimeBehaviors = getPeekRuntimeBehaviors();
 const navbarDefaultAnimation = getPeekSlotKey('navbar.brand.default');
@@ -56,6 +58,7 @@ const previewTrackPoses = getPeekTrackingPoseKeys('preview');
             <div><dt>Accent</dt><dd>{mascot.accent}</dd></div>
             <div><dt>Assets</dt><dd>{allAssets.length}</dd></div>
             <div><dt>Slots</dt><dd>{PEEK_SLOTS.length}</dd></div>
+            <div><dt>Timelines</dt><dd>{timelineAssets.length}</dd></div>
           </dl>
         </div>
       </div>
@@ -164,6 +167,43 @@ const previewTrackPoses = getPeekTrackingPoseKeys('preview');
       </article>
     </section>
 
+    <section class="mascot-block">
+      <header>
+        <span class="mascot-block-eyebrow">Sticker assets</span>
+        <h3>Peek stickers</h3>
+        <p>Reusable SVG sticker assets.</p>
+        <span class="mascot-section-count">{PEEK_STICKER_ASSETS.length} entries</span>
+      </header>
+      <div class="mascot-sticker-grid">
+        {PEEK_STICKER_ASSETS.map((sticker) => (
+          <article class="mascot-sticker-card">
+            <div class="mascot-sticker-stage">
+              <img
+                src={sticker.src}
+                width={sticker.width}
+                height={sticker.height}
+                alt={`peek ${sticker.label}`}
+                loading="lazy"
+                decoding="async"
+              />
+            </div>
+            <div class="mascot-library-body">
+              <header>
+                <h4>{sticker.label}</h4>
+                <span>svg</span>
+              </header>
+              <p>{sticker.summary}</p>
+              <dl>
+                <div><dt>Id</dt><dd><code>{sticker.id}</code></dd></div>
+                <div><dt>Size</dt><dd>{sticker.width} × {sticker.height}</dd></div>
+                <div><dt>Path</dt><dd><code>{sticker.src}</code></dd></div>
+              </dl>
+            </div>
+          </article>
+        ))}
+      </div>
+    </section>
+
     {previewSections.map((section) => (
       <section class="mascot-block" id={`lib-${section.id}`}>
         <header>
@@ -204,6 +244,7 @@ const previewTrackPoses = getPeekTrackingPoseKeys('preview');
                   <dl>
                     <div><dt>Key</dt><dd><code>{item.key}</code></dd></div>
                     {item.frames && <div><dt>Frames</dt><dd>{item.frames.length}</dd></div>}
+                    {item.timeline && <div><dt>Beats</dt><dd>{item.timeline.length}</dd></div>}
                     {item.fps !== undefined && <div><dt>FPS</dt><dd>{item.fps}</dd></div>}
                     {item.loop !== undefined && (
                       <div><dt>Loop</dt><dd>{item.loop ? 'yes' : 'once'}</dd></div>
@@ -540,6 +581,38 @@ const previewTrackPoses = getPeekTrackingPoseKeys('preview');
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
     gap: 14px;
+  }
+  .mascot-sticker-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 14px;
+  }
+  .mascot-sticker-card {
+    background: hsl(var(--background));
+    border: 1px solid hsl(var(--border));
+    border-radius: 10px;
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .mascot-sticker-stage {
+    height: 260px;
+    border-radius: 8px;
+    background: #616362;
+    border: 1px solid hsl(var(--border));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 18px;
+  }
+  .mascot-sticker-stage img {
+    display: block;
+    width: auto;
+    max-width: 100%;
+    max-height: 220px;
+    object-fit: contain;
+    image-rendering: auto;
   }
   .mascot-library-card {
     background: hsl(var(--background));

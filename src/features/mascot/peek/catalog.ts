@@ -130,6 +130,34 @@ function validatePeekCatalog(): void {
     if (asset.frames) {
       assertUniformFrames(asset.frames, asset.id);
     }
+    if (asset.fps !== undefined && (!Number.isFinite(asset.fps) || asset.fps <= 0)) {
+      throw new Error(`Invalid fps for ${asset.id}`);
+    }
+    if (asset.frameLabels && asset.frames && asset.frameLabels.length !== asset.frames.length) {
+      throw new Error(`Frame labels for ${asset.id} do not match frame count`);
+    }
+    if (asset.timeline) {
+      if (!asset.frames) {
+        throw new Error(`Timeline asset ${asset.id} has no frames`);
+      }
+      for (const [index, beat] of asset.timeline.entries()) {
+        if (!Number.isInteger(beat.frame) || beat.frame < 0 || beat.frame >= asset.frames.length) {
+          throw new Error(`Timeline beat ${index} in ${asset.id} points at missing frame ${beat.frame}`);
+        }
+        if (
+          beat.holdFrames !== undefined &&
+          (!Number.isInteger(beat.holdFrames) || beat.holdFrames < 1)
+        ) {
+          throw new Error(`Timeline beat ${index} in ${asset.id} has invalid holdFrames`);
+        }
+        if (beat.holdMs !== undefined && beat.holdMs <= 0) {
+          throw new Error(`Timeline beat ${index} in ${asset.id} has invalid holdMs`);
+        }
+        if (beat.holdFrames !== undefined && beat.holdMs !== undefined) {
+          throw new Error(`Timeline beat ${index} in ${asset.id} mixes holdFrames and holdMs`);
+        }
+      }
+    }
     if (asset.aliasOf && !PEEK_ASSET_MAP.has(asset.aliasOf)) {
       throw new Error(`Alias target missing for ${asset.id}: ${asset.aliasOf}`);
     }

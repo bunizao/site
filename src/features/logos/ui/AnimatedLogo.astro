@@ -5,6 +5,11 @@ import { gridToSvg } from '@/features/logos/lib/render';
 type AnimationPayload = Record<string, {
   fps: number;
   frames: ReadonlyArray<string>;
+  timeline?: ReadonlyArray<{
+    frame: number;
+    holdFrames?: number;
+    holdMs?: number;
+  }>;
   loop?: boolean;
 }>;
 
@@ -76,6 +81,11 @@ const animations = Object.fromEntries(
     {
       fps: item.fps,
       frames: item.frames.map(encodeFrame),
+      timeline: item.timeline?.map(({ frame, holdFrames, holdMs }) => ({
+        frame,
+        ...(holdFrames === undefined ? {} : { holdFrames }),
+        ...(holdMs === undefined ? {} : { holdMs }),
+      })),
       loop: item.loop,
     },
   ]),
@@ -111,6 +121,11 @@ const animationsJson = JSON.stringify(animations).replace(/</g, '\\u003c');
   type AnimationPayload = Record<string, {
     fps: number;
     frames: string[];
+    timeline?: Array<{
+      frame: number;
+      holdFrames?: number;
+      holdMs?: number;
+    }>;
     loop?: boolean;
   }>;
 
@@ -161,6 +176,7 @@ const animationsJson = JSON.stringify(animations).replace(/</g, '\\u003c');
 
     let hover = false;
     let override: string | null = null;
+    let beatIndex = 0;
     let frameIndex = 0;
     let activeKey = '';
     let raf: number | null = null;
@@ -186,6 +202,19 @@ const animationsJson = JSON.stringify(animations).replace(/</g, '\\u003c');
       if (override) return override;
       if (hover && hoverAnimation) return hoverAnimation;
       return baseAnimation;
+    };
+
+    const getFrameIndex = (animation: AnimationPayload[string]) => {
+      const beat = animation.timeline?.[beatIndex];
+      return beat ? beat.frame : frameIndex;
+    };
+
+    const getBeatDuration = (animation: AnimationPayload[string]) => {
+      const beat = animation.timeline?.[beatIndex];
+      const fps = Number.isFinite(fpsOverride) && fpsOverride > 0 ? fpsOverride : animation.fps;
+      if (beat?.holdMs !== undefined) return beat.holdMs;
+      if (beat?.holdFrames !== undefined) return (1000 / Math.max(1, fps)) * beat.holdFrames;
+      return 1000 / Math.max(1, fps);
     };
 
     const renderFrame = (frame: string): string => {
@@ -215,7 +244,8 @@ const animationsJson = JSON.stringify(animations).replace(/</g, '\\u003c');
 
     const render = () => {
       const animation = animations[activeKey] ?? animations.idle;
-      const frame = animation?.frames[frameIndex] ?? animation?.frames[0];
+      const index = animation ? getFrameIndex(animation) : 0;
+      const frame = animation?.frames[index] ?? animation?.frames[0];
       if (frame) mount.innerHTML = renderFrame(frame);
     };
 
@@ -223,6 +253,7 @@ const animationsJson = JSON.stringify(animations).replace(/</g, '\\u003c');
       const nextKey = getActiveKey();
       if (nextKey !== activeKey) {
         activeKey = nextKey;
+        beatIndex = 0;
         frameIndex = 0;
         acc = 0;
         last = performance.now();
@@ -238,17 +269,40 @@ const animationsJson = JSON.stringify(animations).replace(/</g, '\\u003c');
       }
 
       const idleAtRest = !!hoverAnimation && !hover && !override;
-      if (idleAtRest || animation.frames.length <= 1) {
+      const timeline = animation.timeline;
+      const beatCount = timeline?.length ?? 0;
+      const hasTimeline = beatCount > 0;
+      if (idleAtRest || (!hasTimeline && animation.frames.length <= 1) || (hasTimeline && beatCount <= 1)) {
         clearRaf();
         return;
       }
 
-      const fps = Number.isFinite(fpsOverride) && fpsOverride > 0 ? fpsOverride : animation.fps;
-      const interval = 1000 / Math.max(1, fps);
       acc += now - last;
       last = now;
-      while (acc >= interval) {
+      while (acc >= getBeatDuration(animation)) {
+        const interval = getBeatDuration(animation);
         acc -= interval;
+        if (hasTimeline) {
+          const nextBeat = beatIndex + 1;
+          if (nextBeat >= beatCount) {
+            if (loopOverride ?? animation.loop ?? true) {
+              beatIndex = 0;
+              frameIndex = timeline?.[0]?.frame ?? 0;
+            } else {
+              beatIndex = beatCount - 1;
+              frameIndex = timeline?.[beatIndex]?.frame ?? animation.frames.length - 1;
+              render();
+              clearRaf();
+              return;
+            }
+          } else {
+            beatIndex = nextBeat;
+            frameIndex = timeline?.[beatIndex]?.frame ?? frameIndex;
+          }
+          render();
+          continue;
+        }
+
         const nextFrame = frameIndex + 1;
         if (nextFrame >= animation.frames.length) {
           if (loopOverride ?? animation.loop ?? true) {

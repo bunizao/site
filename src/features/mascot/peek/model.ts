@@ -6,6 +6,13 @@ export type MascotAssetKind = 'motion' | 'pose' | 'expression' | 'costume';
 export type MascotAssetStatus = 'active' | 'draft' | 'archived';
 export type MascotMotionKind = 'loop' | 'one-shot' | 'pose' | 'alias';
 
+export type MascotFrameBeat = {
+  frame: number;
+  holdFrames?: number;
+  holdMs?: number;
+  label?: string;
+};
+
 export type MascotIdentity = {
   id: string;
   name: string;
@@ -28,6 +35,8 @@ export type MascotAsset = {
   tags: ReadonlyArray<string>;
   grid?: Grid;
   frames?: ReadonlyArray<Grid>;
+  frameLabels?: ReadonlyArray<string>;
+  timeline?: ReadonlyArray<MascotFrameBeat>;
   fps?: number;
   loop?: boolean;
   motionKind?: MascotMotionKind;
@@ -90,7 +99,7 @@ export function defineMotion(
   id: string,
   key: string,
   fps: number,
-  frames: ReadonlyArray<string>,
+  frames: ReadonlyArray<string | Grid>,
   meta: Omit<MascotAsset, 'id' | 'mascot' | 'key' | 'kind' | 'frames' | 'fps'>,
 ): MascotAsset {
   return {
@@ -99,7 +108,7 @@ export function defineMotion(
     key,
     kind: 'motion',
     fps,
-    frames: gridsFromPatterns(frames),
+    frames: frames.map((frame) => (typeof frame === 'string' ? gridFromPattern(frame) : frame)),
     ...meta,
   };
 }
