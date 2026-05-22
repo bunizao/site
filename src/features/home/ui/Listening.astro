@@ -445,69 +445,6 @@ const hasPreview = Boolean(previewUrl);
     color: hsl(var(--muted-foreground) / 0.55);
   }
 
-  .listening-eyebrow-dot {
-    width: 3px;
-    height: 3px;
-    border-radius: 999px;
-    background: currentColor;
-    opacity: 0.42;
-    transition:
-      background 0.3s ease,
-      opacity 0.3s ease,
-      transform 0.3s ease;
-  }
-
-  .listening.is-live .listening-eyebrow-dot {
-    background: color-mix(in srgb, var(--listening-accent) 42%, currentColor);
-    opacity: 0.68;
-    transform: scale(1.08);
-  }
-
-  .listening-eyebrow-wave {
-    display: inline-flex;
-    align-items: flex-end;
-    gap: 2px;
-    height: 9px;
-    width: 0;
-    overflow: hidden;
-    transition: width 0.35s cubic-bezier(0.2, 0.8, 0.2, 1);
-  }
-
-  .listening-eyebrow-wave span {
-    display: block;
-    width: 2px;
-    height: 100%;
-    border-radius: 999px;
-    background: var(--listening-accent);
-    transform-origin: 50% 100%;
-    transform: scaleY(0.32);
-  }
-
-  .listening.is-live .listening-eyebrow-wave,
-  .listening.is-preview-playing .listening-eyebrow-wave {
-    width: 18px;
-  }
-
-  .listening.is-live .listening-eyebrow-wave span,
-  .listening.is-preview-playing .listening-eyebrow-wave span {
-    animation: listening-wave 0.92s ease-in-out infinite;
-  }
-
-  .listening.is-live .listening-eyebrow-wave span:nth-child(2),
-  .listening.is-preview-playing .listening-eyebrow-wave span:nth-child(2) {
-    animation-delay: 0.1s;
-  }
-
-  .listening.is-live .listening-eyebrow-wave span:nth-child(3),
-  .listening.is-preview-playing .listening-eyebrow-wave span:nth-child(3) {
-    animation-delay: 0.22s;
-  }
-
-  .listening.is-live .listening-eyebrow-wave span:nth-child(4),
-  .listening.is-preview-playing .listening-eyebrow-wave span:nth-child(4) {
-    animation-delay: 0.16s;
-  }
-
   /* Track line */
   .listening-track {
     display: inline-flex;
@@ -723,9 +660,7 @@ const hasPreview = Boolean(previewUrl);
     .listening-art-tonearm,
     .listening-art-tonearm-arm,
     .listening-title,
-    .listening-title-text,
-    .listening-eyebrow-wave,
-    .listening-eyebrow-dot {
+    .listening-title-text {
       transition: none;
     }
 
@@ -733,9 +668,7 @@ const hasPreview = Boolean(previewUrl);
     .listening-art.is-live .listening-art-img,
     .listening-art.is-preview-playing .listening-art-record,
     .listening-art.is-preview-playing .listening-art-img,
-    .listening-title.is-marquee .listening-title-text,
-    .listening.is-live .listening-eyebrow-wave span,
-    .listening.is-preview-playing .listening-eyebrow-wave span {
+    .listening-title.is-marquee .listening-title-text {
       animation: none;
     }
 
@@ -750,18 +683,6 @@ const hasPreview = Boolean(previewUrl);
   @keyframes listening-title-marquee {
     to {
       transform: translateX(calc(var(--title-marquee-distance) * -1));
-    }
-  }
-
-  @keyframes listening-wave {
-    0%,
-    100% {
-      transform: scaleY(0.32);
-      opacity: 0.6;
-    }
-    50% {
-      transform: scaleY(1);
-      opacity: 1;
     }
   }
 </style>
