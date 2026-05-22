@@ -100,7 +100,7 @@ const placeholders = Array.from({ length: SKELETON_COUNT }, (_, index) => ({
 
   #moods-section .mood-item {
     display: grid;
-    grid-template-columns: 52px 24px 1fr;
+    grid-template-columns: 64px 24px 1fr;
     gap: 0;
     text-decoration: none;
     color: inherit;
@@ -113,7 +113,7 @@ const placeholders = Array.from({ length: SKELETON_COUNT }, (_, index) => ({
 
   @media (min-width: 640px) {
     #moods-section .mood-item {
-      grid-template-columns: 56px 28px 1fr;
+      grid-template-columns: 72px 28px 1fr;
     }
   }
 
@@ -134,6 +134,7 @@ const placeholders = Array.from({ length: SKELETON_COUNT }, (_, index) => ({
     color: hsl(var(--muted-foreground) / 0.6);
     font-variant-numeric: tabular-nums;
     letter-spacing: -0.005em;
+    white-space: nowrap;
     transition: color 0.2s ease;
   }
 
