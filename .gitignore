@@ -33,3 +33,4 @@ playwright-report
 test-results
 .nyc_output
 coverage
+.env.prod
