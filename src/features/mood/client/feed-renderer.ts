@@ -25,6 +25,7 @@ interface FeedRendererOptions {
 interface FeedRenderer {
   bindInteractions(): void;
   appendMoods(posts: MoodData[], startIndex?: number): number;
+  scrollToMood(id: string, options?: { highlight?: boolean }): boolean;
 }
 
 function formatTime(value: string): string {
@@ -193,7 +194,17 @@ export function createFeedRenderer({
     return entry;
   };
 
-  const scrollToMood = (id: string): boolean => {
+  const highlightMood = (target: HTMLElement): void => {
+    target.classList.remove('mood-item--anchored');
+    window.requestAnimationFrame(() => {
+      target.classList.add('mood-item--anchored');
+      window.setTimeout(() => {
+        target.classList.remove('mood-item--anchored');
+      }, 2600);
+    });
+  };
+
+  const scrollToMood = (id: string, options: { highlight?: boolean } = {}): boolean => {
     const target = Array.from(list.querySelectorAll<HTMLElement>('[data-mood-id]')).find(
       (item) => item.dataset.moodId === id
     ) ?? null;
@@ -204,6 +215,9 @@ export function createFeedRenderer({
       behavior: prefersReducedMotion ? 'auto' : 'smooth',
       block: 'center',
     });
+    if (options.highlight) {
+      highlightMood(target);
+    }
     return true;
   };
 
@@ -672,7 +686,7 @@ export function createFeedRenderer({
     const quoteEl = target?.closest('.mood-item-quote') as HTMLElement | null;
     if (!quoteEl) return false;
     const quoteId = quoteEl.dataset.quoteId;
-    if (quoteId && scrollToMood(quoteId)) {
+    if (quoteId && scrollToMood(quoteId, { highlight: true })) {
       event.preventDefault();
       event.stopPropagation();
     }
@@ -750,5 +764,6 @@ export function createFeedRenderer({
   return {
     bindInteractions,
     appendMoods,
+    scrollToMood,
   };
 }
