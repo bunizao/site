@@ -1,55 +1,9 @@
-function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
-
-type PageStatus = 'success' | 'error' | 'info';
-
-const PEEK_LOGO_SVG = `<svg viewBox="0 0 12 9" shape-rendering="crispEdges" aria-hidden="true" focusable="false">
-  <g fill="currentColor">
-    <rect x="2" y="1" width="2" height="1"/><rect x="8" y="1" width="2" height="1"/>
-    <rect x="1" y="2" width="3" height="1"/><rect x="8" y="2" width="3" height="1"/>
-    <rect x="1" y="3" width="10" height="1"/>
-    <rect x="1" y="4" width="10" height="1"/>
-    <rect x="1" y="5" width="2" height="1"/><rect x="4" y="5" width="4" height="1"/><rect x="9" y="5" width="2" height="1"/>
-    <rect x="1" y="6" width="2" height="1"/><rect x="4" y="6" width="2" height="1"/><rect x="7" y="6" width="1" height="1"/><rect x="9" y="6" width="2" height="1"/>
-    <rect x="6" y="6" width="1" height="1" fill="var(--peek-accent)"/>
-    <rect x="1" y="7" width="10" height="1"/>
-  </g>
-</svg>`;
-
-export function buildNotifyPageHtml(options: {
-  label: string;
-  title: string;
-  message: string;
-  status: PageStatus;
-  enableCongratsFx?: boolean;
-  actionsHtml?: string;
-}): string {
-  // Label is intentionally unused in v2 layout — kept in API for backward-compat.
-  void options.label;
-  const safeTitle = escapeHtml(options.title);
-  const safeMessage = escapeHtml(options.message);
-  const enableCongratsFx = options.enableCongratsFx === true;
-  const defaultAction = `<a href="/mood" class="button"><span>Open mood feed</span><span class="button-arrow" aria-hidden="true">&rarr;</span></a>`;
-  const actionsHtml = options.actionsHtml ?? defaultAction;
-
-  const statusModifier = options.status === 'success'
-    ? 'is-success'
-    : options.status === 'error'
-      ? 'is-error'
-      : 'is-info';
-
-  const html = `<!doctype html>
+<!doctype html>
 <html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>${safeTitle} — buxx.me</title>
+    <title>You’re in. — buxx.me</title>
     <link rel="icon" type="image/svg+xml" href="/logo/peek.svg?v=3" />
     <link rel="alternate icon" href="/favicon.ico" />
     <link rel="preload" as="font" href="/fonts/geist-sans-variable.woff2" type="font/woff2" crossorigin />
@@ -434,20 +388,31 @@ export function buildNotifyPageHtml(options: {
   </head>
   <body>
     <div class="grid-bg" aria-hidden="true"></div>
-    ${enableCongratsFx ? '<div class="congrats-layer" aria-hidden="true"><canvas class="congrats-canvas" data-notify-congrats-fx></canvas></div>' : ''}
+    <div class="congrats-layer" aria-hidden="true"><canvas class="congrats-canvas" data-notify-congrats-fx></canvas></div>
     <div class="container">
-      <div class="card ${statusModifier}">
+      <div class="card is-success">
         <a class="brand animate" href="/" aria-label="bunizao home">
-          ${PEEK_LOGO_SVG}
+          <svg viewBox="0 0 12 9" shape-rendering="crispEdges" aria-hidden="true" focusable="false">
+  <g fill="currentColor">
+    <rect x="2" y="1" width="2" height="1"/><rect x="8" y="1" width="2" height="1"/>
+    <rect x="1" y="2" width="3" height="1"/><rect x="8" y="2" width="3" height="1"/>
+    <rect x="1" y="3" width="10" height="1"/>
+    <rect x="1" y="4" width="10" height="1"/>
+    <rect x="1" y="5" width="2" height="1"/><rect x="4" y="5" width="4" height="1"/><rect x="9" y="5" width="2" height="1"/>
+    <rect x="1" y="6" width="2" height="1"/><rect x="4" y="6" width="2" height="1"/><rect x="7" y="6" width="1" height="1"/><rect x="9" y="6" width="2" height="1"/>
+    <rect x="6" y="6" width="1" height="1" fill="var(--peek-accent)"/>
+    <rect x="1" y="7" width="10" height="1"/>
+  </g>
+</svg>
           <span class="brand-mark">bunizao</span>
         </a>
         <div class="eyebrow animate delay-1">
           <span class="eyebrow-dot" aria-hidden="true"></span>
-          <span>${escapeEyebrow(options.status)}</span>
+          <span>All set</span>
         </div>
-        <h1 class="animate delay-2">${safeTitle}</h1>
-        <p class="message animate delay-3">${safeMessage}</p>
-        <div class="actions animate delay-4">${actionsHtml}</div>
+        <h1 class="animate delay-2">You’re in.</h1>
+        <p class="message animate delay-3">Mood updates will start landing in your inbox. Welcome aboard.</p>
+        <div class="actions animate delay-4"><a href="/mood" class="button"><span>Open mood feed</span><span class="button-arrow" aria-hidden="true">&rarr;</span></a></div>
         <div class="footer-line animate delay-5" aria-hidden="true"></div>
         <div class="footer animate delay-5">
           <span>bunizao &middot; buxx.me</span>
@@ -455,38 +420,7 @@ export function buildNotifyPageHtml(options: {
         </div>
       </div>
     </div>
-    ${enableCongratsFx ? buildConfettiScript() : ''}
-  </body>
-</html>`;
-}
-
-export function renderNotifyPage(options: {
-  label: string;
-  title: string;
-  message: string;
-  status: PageStatus;
-  enableCongratsFx?: boolean;
-  actionsHtml?: string;
-  rateLimitHeaders?: Headers;
-}): Response {
-  const html = buildNotifyPageHtml(options);
-  const headers = new Headers({ 'Content-Type': 'text/html; charset=utf-8' });
-  if (options.rateLimitHeaders) {
-    options.rateLimitHeaders.forEach((value, key) => {
-      headers.set(key, value);
-    });
-  }
-  return new Response(html, { headers });
-}
-
-function escapeEyebrow(status: PageStatus): string {
-  if (status === 'success') return 'All set';
-  if (status === 'error') return 'Something went off';
-  return 'Quick check';
-}
-
-function buildConfettiScript(): string {
-  return `<script>
+    <script>
       (() => {
         const canvas = document.querySelector('[data-notify-congrats-fx]');
         if (!(canvas instanceof HTMLCanvasElement)) return;
@@ -693,5 +627,6 @@ function buildConfettiScript(): string {
 
         rafId = window.requestAnimationFrame(frame);
       })();
-    </script>`;
-}
+    </script>
+  </body>
+</html>

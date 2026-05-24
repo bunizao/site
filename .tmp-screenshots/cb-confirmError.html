@@ -1,55 +1,9 @@
-function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
-
-type PageStatus = 'success' | 'error' | 'info';
-
-const PEEK_LOGO_SVG = `<svg viewBox="0 0 12 9" shape-rendering="crispEdges" aria-hidden="true" focusable="false">
-  <g fill="currentColor">
-    <rect x="2" y="1" width="2" height="1"/><rect x="8" y="1" width="2" height="1"/>
-    <rect x="1" y="2" width="3" height="1"/><rect x="8" y="2" width="3" height="1"/>
-    <rect x="1" y="3" width="10" height="1"/>
-    <rect x="1" y="4" width="10" height="1"/>
-    <rect x="1" y="5" width="2" height="1"/><rect x="4" y="5" width="4" height="1"/><rect x="9" y="5" width="2" height="1"/>
-    <rect x="1" y="6" width="2" height="1"/><rect x="4" y="6" width="2" height="1"/><rect x="7" y="6" width="1" height="1"/><rect x="9" y="6" width="2" height="1"/>
-    <rect x="6" y="6" width="1" height="1" fill="var(--peek-accent)"/>
-    <rect x="1" y="7" width="10" height="1"/>
-  </g>
-</svg>`;
-
-export function buildNotifyPageHtml(options: {
-  label: string;
-  title: string;
-  message: string;
-  status: PageStatus;
-  enableCongratsFx?: boolean;
-  actionsHtml?: string;
-}): string {
-  // Label is intentionally unused in v2 layout — kept in API for backward-compat.
-  void options.label;
-  const safeTitle = escapeHtml(options.title);
-  const safeMessage = escapeHtml(options.message);
-  const enableCongratsFx = options.enableCongratsFx === true;
-  const defaultAction = `<a href="/mood" class="button"><span>Open mood feed</span><span class="button-arrow" aria-hidden="true">&rarr;</span></a>`;
-  const actionsHtml = options.actionsHtml ?? defaultAction;
-
-  const statusModifier = options.status === 'success'
-    ? 'is-success'
-    : options.status === 'error'
-      ? 'is-error'
-      : 'is-info';
-
-  const html = `<!doctype html>
+<!doctype html>
 <html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>${safeTitle} — buxx.me</title>
+    <title>Couldn’t confirm that. — buxx.me</title>
     <link rel="icon" type="image/svg+xml" href="/logo/peek.svg?v=3" />
     <link rel="alternate icon" href="/favicon.ico" />
     <link rel="preload" as="font" href="/fonts/geist-sans-variable.woff2" type="font/woff2" crossorigin />
@@ -434,20 +388,31 @@ export function buildNotifyPageHtml(options: {
   </head>
   <body>
     <div class="grid-bg" aria-hidden="true"></div>
-    ${enableCongratsFx ? '<div class="congrats-layer" aria-hidden="true"><canvas class="congrats-canvas" data-notify-congrats-fx></canvas></div>' : ''}
+    
     <div class="container">
-      <div class="card ${statusModifier}">
+      <div class="card is-error">
         <a class="brand animate" href="/" aria-label="bunizao home">
-          ${PEEK_LOGO_SVG}
+          <svg viewBox="0 0 12 9" shape-rendering="crispEdges" aria-hidden="true" focusable="false">
+  <g fill="currentColor">
+    <rect x="2" y="1" width="2" height="1"/><rect x="8" y="1" width="2" height="1"/>
+    <rect x="1" y="2" width="3" height="1"/><rect x="8" y="2" width="3" height="1"/>
+    <rect x="1" y="3" width="10" height="1"/>
+    <rect x="1" y="4" width="10" height="1"/>
+    <rect x="1" y="5" width="2" height="1"/><rect x="4" y="5" width="4" height="1"/><rect x="9" y="5" width="2" height="1"/>
+    <rect x="1" y="6" width="2" height="1"/><rect x="4" y="6" width="2" height="1"/><rect x="7" y="6" width="1" height="1"/><rect x="9" y="6" width="2" height="1"/>
+    <rect x="6" y="6" width="1" height="1" fill="var(--peek-accent)"/>
+    <rect x="1" y="7" width="10" height="1"/>
+  </g>
+</svg>
           <span class="brand-mark">bunizao</span>
         </a>
         <div class="eyebrow animate delay-1">
           <span class="eyebrow-dot" aria-hidden="true"></span>
-          <span>${escapeEyebrow(options.status)}</span>
+          <span>Something went off</span>
         </div>
-        <h1 class="animate delay-2">${safeTitle}</h1>
-        <p class="message animate delay-3">${safeMessage}</p>
-        <div class="actions animate delay-4">${actionsHtml}</div>
+        <h1 class="animate delay-2">Couldn’t confirm that.</h1>
+        <p class="message animate delay-3">This confirmation link has expired or already been used. Try subscribing again to get a fresh one.</p>
+        <div class="actions animate delay-4"><a href="/mood" class="button"><span>Open mood feed</span><span class="button-arrow" aria-hidden="true">&rarr;</span></a></div>
         <div class="footer-line animate delay-5" aria-hidden="true"></div>
         <div class="footer animate delay-5">
           <span>bunizao &middot; buxx.me</span>
@@ -455,243 +420,6 @@ export function buildNotifyPageHtml(options: {
         </div>
       </div>
     </div>
-    ${enableCongratsFx ? buildConfettiScript() : ''}
+    
   </body>
-</html>`;
-}
-
-export function renderNotifyPage(options: {
-  label: string;
-  title: string;
-  message: string;
-  status: PageStatus;
-  enableCongratsFx?: boolean;
-  actionsHtml?: string;
-  rateLimitHeaders?: Headers;
-}): Response {
-  const html = buildNotifyPageHtml(options);
-  const headers = new Headers({ 'Content-Type': 'text/html; charset=utf-8' });
-  if (options.rateLimitHeaders) {
-    options.rateLimitHeaders.forEach((value, key) => {
-      headers.set(key, value);
-    });
-  }
-  return new Response(html, { headers });
-}
-
-function escapeEyebrow(status: PageStatus): string {
-  if (status === 'success') return 'All set';
-  if (status === 'error') return 'Something went off';
-  return 'Quick check';
-}
-
-function buildConfettiScript(): string {
-  return `<script>
-      (() => {
-        const canvas = document.querySelector('[data-notify-congrats-fx]');
-        if (!(canvas instanceof HTMLCanvasElement)) return;
-
-        const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
-        if (reduceMotion.matches) return;
-
-        const ctx = canvas.getContext('2d', { alpha: true });
-        if (!ctx) return;
-
-        const darkScheme = window.matchMedia('(prefers-color-scheme: dark)');
-        const palette = () => darkScheme.matches
-          ? ['#fafafa', '#d4d4d8', '#9ca3af', '#f87171', '#fbbf24']
-          : ['#0a0a0a', '#404040', '#737373', '#c44848', '#f59e0b'];
-
-        const confetti = [];
-        const sparks = [];
-        const rings = [];
-        let width = 0;
-        let height = 0;
-        let dpr = 1;
-        let started = false;
-        let lastBurstAt = 0;
-        let lastPointerBurstAt = 0;
-        let rafId = 0;
-
-        const random = (min, max) => Math.random() * (max - min) + min;
-        const pickColor = () => {
-          const p = palette();
-          return p[(Math.random() * p.length) | 0];
-        };
-
-        function resize() {
-          dpr = Math.min(window.devicePixelRatio || 1, 1.5);
-          width = window.innerWidth;
-          height = window.innerHeight;
-          canvas.width = Math.floor(width * dpr);
-          canvas.height = Math.floor(height * dpr);
-          ctx.setTransform(1, 0, 0, 1, 0, 0);
-          ctx.scale(dpr, dpr);
-        }
-
-        function makeConfetti(ySeed) {
-          return {
-            x: random(0, width),
-            y: ySeed ?? random(-height, -16),
-            vx: random(-0.4, 0.4),
-            vy: random(0.9, 2.1),
-            spin: random(-0.09, 0.09),
-            rotation: random(0, Math.PI * 2),
-            size: random(2.4, 6.0),
-            phase: random(0, Math.PI * 2),
-            shape: Math.random() > 0.5 ? 'rect' : 'dot',
-            color: pickColor(),
-          };
-        }
-
-        function makeSpark(x, y, power) {
-          const angle = random(0, Math.PI * 2);
-          const speed = random(1.6, 6.4) * power;
-          return {
-            x, y,
-            vx: Math.cos(angle) * speed,
-            vy: Math.sin(angle) * speed - random(0.6, 1.8),
-            life: random(38, 78),
-            maxLife: random(38, 78),
-            size: random(1, 2.4),
-            drag: random(0.96, 0.985),
-            gravity: random(0.024, 0.05),
-            color: pickColor(),
-          };
-        }
-
-        function makeRing(x, y) {
-          return {
-            x, y,
-            radius: 0,
-            maxRadius: random(180, 260),
-            life: 0,
-            maxLife: 60,
-            color: darkScheme.matches ? 'rgba(250,250,250,1)' : 'rgba(10,10,10,1)',
-          };
-        }
-
-        function emitBurst(x, y, power) {
-          const count = Math.floor(28 + power * 56);
-          for (let i = 0; i < count; i += 1) sparks.push(makeSpark(x, y, power));
-        }
-
-        function drawConfetti(time) {
-          for (let i = 0; i < confetti.length; i += 1) {
-            const p = confetti[i];
-            p.x += p.vx + Math.sin(time * 0.001 + p.phase) * 0.36;
-            p.y += p.vy;
-            p.rotation += p.spin;
-            if (p.y > height + 16) {
-              confetti[i] = makeConfetti(random(-80, -16));
-              continue;
-            }
-            ctx.save();
-            ctx.translate(p.x, p.y);
-            ctx.rotate(p.rotation);
-            ctx.fillStyle = p.color;
-            if (p.shape === 'rect') {
-              ctx.fillRect(-p.size * 0.5, -p.size * 0.5, p.size, p.size * 0.52);
-            } else {
-              ctx.beginPath();
-              ctx.arc(0, 0, p.size * 0.36, 0, Math.PI * 2);
-              ctx.fill();
-            }
-            ctx.restore();
-          }
-        }
-
-        function drawSparks() {
-          for (let i = sparks.length - 1; i >= 0; i -= 1) {
-            const s = sparks[i];
-            s.life -= 1;
-            s.x += s.vx;
-            s.y += s.vy;
-            s.vx *= s.drag;
-            s.vy = s.vy * s.drag + s.gravity;
-            if (s.life <= 0) { sparks.splice(i, 1); continue; }
-            const alpha = Math.max(0, s.life / s.maxLife);
-            ctx.globalAlpha = alpha * 0.72;
-            ctx.fillStyle = s.color;
-            ctx.beginPath();
-            ctx.arc(s.x, s.y, s.size, 0, Math.PI * 2);
-            ctx.fill();
-          }
-          ctx.globalAlpha = 1;
-        }
-
-        function drawRings() {
-          for (let i = rings.length - 1; i >= 0; i -= 1) {
-            const r = rings[i];
-            r.life += 1;
-            const t = r.life / r.maxLife;
-            if (t >= 1) { rings.splice(i, 1); continue; }
-            r.radius = r.maxRadius * (1 - Math.pow(1 - t, 3));
-            ctx.save();
-            ctx.globalAlpha = (1 - t) * 0.45;
-            ctx.strokeStyle = r.color;
-            ctx.lineWidth = 1;
-            ctx.beginPath();
-            ctx.arc(r.x, r.y, r.radius, 0, Math.PI * 2);
-            ctx.stroke();
-            ctx.restore();
-          }
-        }
-
-        function frame(timestamp) {
-          if (!started) {
-            started = true;
-            const card = document.querySelector('.card');
-            if (card instanceof HTMLElement) {
-              const rect = card.getBoundingClientRect();
-              const cx = rect.left + rect.width / 2;
-              const cy = rect.top + rect.height / 2;
-              rings.push(makeRing(cx, cy));
-              emitBurst(rect.left + rect.width * 0.18, rect.top + rect.height * 0.22, 1.05);
-              emitBurst(rect.left + rect.width * 0.82, rect.top + rect.height * 0.22, 1.05);
-              emitBurst(cx, rect.top + rect.height * 0.6, 0.7);
-            } else {
-              emitBurst(width * 0.5, height * 0.4, 1.0);
-            }
-          }
-
-          ctx.clearRect(0, 0, width, height);
-          drawRings();
-          drawConfetti(timestamp);
-          drawSparks();
-
-          if (timestamp - lastBurstAt > 2400) {
-            const bx = random(width * 0.2, width * 0.8);
-            const by = random(height * 0.12, height * 0.42);
-            emitBurst(bx, by, random(0.4, 0.78));
-            lastBurstAt = timestamp;
-          }
-
-          rafId = window.requestAnimationFrame(frame);
-        }
-
-        function onPointerMove(event) {
-          const now = performance.now();
-          if (now - lastPointerBurstAt > 260) {
-            emitBurst(event.clientX, event.clientY, 0.22);
-            lastPointerBurstAt = now;
-          }
-        }
-
-        resize();
-        for (let i = 0; i < 90; i += 1) confetti.push(makeConfetti());
-
-        window.addEventListener('resize', resize, { passive: true });
-        window.addEventListener('pointermove', onPointerMove, { passive: true });
-        document.addEventListener('visibilitychange', () => {
-          if (document.hidden) {
-            window.cancelAnimationFrame(rafId);
-            return;
-          }
-          rafId = window.requestAnimationFrame(frame);
-        });
-
-        rafId = window.requestAnimationFrame(frame);
-      })();
-    </script>`;
-}
+</html>
