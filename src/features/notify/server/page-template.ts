@@ -9,6 +9,19 @@ function escapeHtml(value: string): string {
 
 type PageStatus = 'success' | 'error' | 'info';
 
+const PEEK_LOGO_SVG = `<svg viewBox="0 0 12 9" shape-rendering="crispEdges" aria-hidden="true" focusable="false">
+  <g fill="currentColor">
+    <rect x="2" y="1" width="2" height="1"/><rect x="8" y="1" width="2" height="1"/>
+    <rect x="1" y="2" width="3" height="1"/><rect x="8" y="2" width="3" height="1"/>
+    <rect x="1" y="3" width="10" height="1"/>
+    <rect x="1" y="4" width="10" height="1"/>
+    <rect x="1" y="5" width="2" height="1"/><rect x="4" y="5" width="4" height="1"/><rect x="9" y="5" width="2" height="1"/>
+    <rect x="1" y="6" width="2" height="1"/><rect x="4" y="6" width="2" height="1"/><rect x="7" y="6" width="1" height="1"/><rect x="9" y="6" width="2" height="1"/>
+    <rect x="6" y="6" width="1" height="1" fill="var(--peek-accent)"/>
+    <rect x="1" y="7" width="10" height="1"/>
+  </g>
+</svg>`;
+
 export function renderNotifyPage(options: {
   label: string;
   title: string;
@@ -22,13 +35,14 @@ export function renderNotifyPage(options: {
   const safeTitle = escapeHtml(options.title);
   const safeMessage = escapeHtml(options.message);
   const enableCongratsFx = options.enableCongratsFx === true;
-  const actionsHtml = options.actionsHtml ?? '<a href="/mood" class="link">Mood feed</a>';
+  const defaultAction = `<a href="/mood" class="button"><span>Mood feed</span><span class="button-arrow" aria-hidden="true">&rarr;</span></a>`;
+  const actionsHtml = options.actionsHtml ?? defaultAction;
 
-  const statusIcon = options.status === 'success'
-    ? `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>`
+  const statusModifier = options.status === 'success'
+    ? 'is-success'
     : options.status === 'error'
-      ? `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>`
-      : `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>`;
+      ? 'is-error'
+      : 'is-info';
 
   const html = `<!doctype html>
 <html lang="en">
@@ -36,7 +50,8 @@ export function renderNotifyPage(options: {
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>${safeTitle} — buxx.me</title>
-    <link rel="icon" href="/favicon.ico" />
+    <link rel="icon" type="image/svg+xml" href="/logo/peek.svg?v=3" />
+    <link rel="alternate icon" href="/favicon.ico" />
     <link rel="preload" as="font" href="/fonts/jetbrains-mono-variable.woff2" type="font/woff2" crossorigin />
     <style>
       @font-face {
@@ -50,36 +65,48 @@ export function renderNotifyPage(options: {
       }
 
       :root {
-        --bg: #fff;
-        --fg: #000;
+        --bg: #ffffff;
+        --fg: #0a0a0a;
         --muted: #666;
-        --border: #000;
-        --grid: rgba(0,0,0,0.12);
-        --card-bg: #fff;
-        --divider: #ccc;
-        --success: #000;
-        --error: #dc2626;
+        --hairline: rgba(10, 10, 10, 0.12);
+        --hairline-strong: rgba(10, 10, 10, 0.22);
+        --grid: rgba(10, 10, 10, 0.10);
+        --card: #ffffff;
+        --card-hover: rgba(10, 10, 10, 0.04);
+        --peek-accent: #c44848;
+        --status-info: #0a0a0a;
+        --status-success: #0a0a0a;
+        --status-error: #c44848;
+        color-scheme: light;
       }
 
       @media (prefers-color-scheme: dark) {
         :root {
           --bg: #0a0a0a;
-          --fg: #fff;
+          --fg: #fafafa;
           --muted: #888;
-          --border: #fff;
-          --grid: rgba(255,255,255,0.1);
-          --card-bg: #0a0a0a;
-          --divider: #333;
-          --success: #fff;
-          --error: #f87171;
+          --hairline: rgba(255, 255, 255, 0.12);
+          --hairline-strong: rgba(255, 255, 255, 0.22);
+          --grid: rgba(255, 255, 255, 0.08);
+          --card: #0a0a0a;
+          --card-hover: rgba(255, 255, 255, 0.06);
+          --peek-accent: #f87171;
+          --status-info: #fafafa;
+          --status-success: #fafafa;
+          --status-error: #f87171;
+          color-scheme: dark;
         }
       }
 
-      * {
+      *, *::before, *::after {
         margin: 0;
         padding: 0;
         box-sizing: border-box;
         -webkit-tap-highlight-color: transparent;
+      }
+
+      html, body {
+        height: 100%;
       }
 
       body {
@@ -93,23 +120,26 @@ export function renderNotifyPage(options: {
         line-height: 1.6;
         -webkit-font-smoothing: antialiased;
         -moz-osx-font-smoothing: grayscale;
+        position: relative;
+        overflow-x: hidden;
       }
 
-      body::before {
-        content: "";
+      .grid-bg {
         position: fixed;
         inset: 0;
         pointer-events: none;
+        z-index: 0;
         background-image: radial-gradient(circle, var(--grid) 1px, transparent 1px);
         background-size: 24px 24px;
-        z-index: 0;
+        mask-image: radial-gradient(ellipse at center, #000 38%, transparent 78%);
+        -webkit-mask-image: radial-gradient(ellipse at center, #000 38%, transparent 78%);
       }
 
       .congrats-layer {
         position: fixed;
         inset: 0;
         pointer-events: none;
-        z-index: 0;
+        z-index: 1;
         overflow: hidden;
       }
 
@@ -121,193 +151,304 @@ export function renderNotifyPage(options: {
 
       .container {
         position: relative;
-        z-index: 1;
+        z-index: 2;
         width: 100%;
-        max-width: 480px;
-        padding: 24px;
+        max-width: 520px;
+        padding: 32px 20px;
       }
 
       .card {
-        border: 1px solid var(--border);
-        border-radius: 14px;
-        padding: 32px;
+        position: relative;
+        background: var(--card);
+        border: 1px solid var(--hairline-strong);
+        border-radius: 18px;
+        padding: 28px 28px 24px;
+        box-shadow:
+          0 1px 0 rgba(255, 255, 255, 0.04) inset,
+          0 24px 60px -32px rgba(10, 10, 10, 0.18);
       }
 
-      .label {
-        display: inline-block;
-        font-size: 11px;
-        font-weight: 300;
-        letter-spacing: 0.2em;
+      @media (prefers-color-scheme: dark) {
+        .card {
+          box-shadow:
+            0 1px 0 rgba(255, 255, 255, 0.05) inset,
+            0 24px 80px -32px rgba(0, 0, 0, 0.6);
+        }
+      }
+
+      /* Brand header */
+      .brand {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding-bottom: 20px;
+        margin-bottom: 22px;
+        border-bottom: 1px solid var(--hairline);
+      }
+
+      .brand-mark {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        color: var(--fg);
+        text-decoration: none;
+      }
+
+      .brand-mark svg {
+        width: 20px;
+        height: 15px;
+        display: block;
+      }
+
+      .brand-mark-text {
+        font-size: 13px;
+        font-weight: 600;
+        letter-spacing: -0.01em;
+      }
+
+      .brand-label {
+        font-size: 10px;
+        font-weight: 500;
+        letter-spacing: 0.22em;
         text-transform: uppercase;
         color: var(--muted);
-        margin-bottom: 20px;
       }
 
+      /* Status + title */
       .status-row {
         display: flex;
         align-items: center;
         gap: 12px;
-        margin-bottom: 16px;
+        margin-bottom: 14px;
       }
 
-      .status-icon {
-        display: flex;
-        align-items: center;
-        justify-content: center;
+      .status-dot {
+        position: relative;
         flex-shrink: 0;
-        color: ${options.status === 'error' ? 'var(--error)' : 'var(--fg)'};
+        width: 8px;
+        height: 8px;
+        border-radius: 999px;
+      }
+
+      .is-info .status-dot { background: var(--status-info); }
+      .is-success .status-dot { background: var(--status-success); }
+      .is-error .status-dot { background: var(--status-error); }
+
+      .status-dot::before {
+        content: '';
+        position: absolute;
+        inset: -4px;
+        border-radius: 999px;
+        background: currentColor;
+        opacity: 0.18;
+        animation: pulse 2.4s ease-out infinite;
+      }
+
+      .is-info .status-dot::before { color: var(--status-info); }
+      .is-success .status-dot::before { color: var(--status-success); }
+      .is-error .status-dot::before { color: var(--status-error); }
+
+      @keyframes pulse {
+        0% { transform: scale(0.6); opacity: 0.32; }
+        70% { transform: scale(1.6); opacity: 0; }
+        100% { transform: scale(1.6); opacity: 0; }
       }
 
       h1 {
-        font-size: 20px;
-        font-weight: 600;
+        font-size: 22px;
+        font-weight: 700;
         letter-spacing: -0.02em;
+        line-height: 1.25;
       }
 
       .message {
-        font-size: 13px;
+        font-size: 14px;
         color: var(--muted);
         line-height: 1.7;
-        margin-bottom: 24px;
-      }
-
-      .divider {
-        border: none;
-        border-top: 1px dashed var(--divider);
-        margin: 0 0 20px;
-      }
-
-      .link {
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-        font-family: inherit;
-        font-size: 13px;
-        font-weight: 500;
-        color: var(--fg);
-        text-decoration: none;
-        transition: opacity 0.15s ease;
-      }
-
-      .link:hover {
-        opacity: 0.6;
-      }
-
-      .link::after {
-        content: '\\2192';
-        transition: transform 0.15s ease;
-      }
-
-      .link:hover::after {
-        transform: translateX(4px);
+        margin-bottom: 22px;
+        max-width: 44ch;
       }
 
       .actions {
         display: flex;
         flex-wrap: wrap;
-        gap: 12px;
+        gap: 10px;
         align-items: center;
+        margin-bottom: 26px;
       }
 
       .button {
         appearance: none;
-        border: 1px solid var(--border);
-        border-radius: 999px;
-        background: var(--fg);
-        color: var(--bg);
-        cursor: pointer;
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        font: inherit;
+        gap: 8px;
+        font-family: inherit;
         font-size: 13px;
         font-weight: 600;
-        min-height: 40px;
-        padding: 0 16px;
+        letter-spacing: 0.005em;
+        line-height: 1;
+        height: 40px;
+        padding: 0 18px;
+        background: var(--fg);
+        color: var(--bg);
+        border: 1px solid var(--fg);
+        border-radius: 999px;
+        cursor: pointer;
         text-decoration: none;
-        transition: opacity 0.15s ease;
+        transition: transform 0.15s ease, opacity 0.15s ease, background 0.15s ease;
       }
 
       .button:hover {
-        opacity: 0.82;
+        opacity: 0.86;
+      }
+
+      .button:active {
+        transform: translateY(1px);
+      }
+
+      .button-arrow {
+        display: inline-block;
+        transition: transform 0.15s ease;
+      }
+
+      .button:hover .button-arrow {
+        transform: translateX(3px);
       }
 
       .button--ghost {
         background: transparent;
         color: var(--fg);
+        border-color: var(--hairline-strong);
       }
 
-      .footer {
-        text-align: center;
-        margin-top: 24px;
+      .button--ghost:hover {
+        background: var(--card-hover);
+        opacity: 1;
       }
 
-      .footer a {
+      /* Dot divider */
+      .dot-divider {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 18px;
+        opacity: 0.45;
+      }
+
+      .dot-divider span {
+        width: 3px;
+        height: 3px;
+        border-radius: 999px;
+        background: var(--fg);
+      }
+
+      .footer-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
         font-size: 11px;
         color: var(--muted);
-        text-decoration: none;
-        letter-spacing: 0.02em;
       }
 
-      .footer a:hover {
+      .footer-row a {
+        color: var(--muted);
+        text-decoration: none;
+        transition: color 0.15s ease;
+      }
+
+      .footer-row a:hover {
         color: var(--fg);
       }
 
-      @keyframes fade-in {
-        from { opacity: 0; transform: translateY(8px); }
+      .footer-meta {
+        font-size: 10px;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+      }
+
+      /* Form (used by unsubscribe confirm) */
+      form {
+        margin: 0;
+      }
+
+      /* Animations */
+      @keyframes rise {
+        from { opacity: 0; transform: translateY(10px); }
         to { opacity: 1; transform: translateY(0); }
       }
 
       .animate {
-        animation: fade-in 0.4s ease-out forwards;
+        animation: rise 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
       }
 
-      .delay-1 { animation-delay: 0.05s; opacity: 0; }
-      .delay-2 { animation-delay: 0.1s; opacity: 0; }
-      .delay-3 { animation-delay: 0.15s; opacity: 0; }
-      .delay-4 { animation-delay: 0.2s; opacity: 0; }
+      .delay-1 { animation-delay: 0.04s; }
+      .delay-2 { animation-delay: 0.10s; }
+      .delay-3 { animation-delay: 0.16s; }
+      .delay-4 { animation-delay: 0.22s; }
+      .delay-5 { animation-delay: 0.28s; }
+      .delay-6 { animation-delay: 0.34s; }
+
+      @media (prefers-reduced-motion: reduce) {
+        .animate { animation: none; }
+        .status-dot::before { animation: none; }
+      }
+
+      @media (max-width: 480px) {
+        .container { padding: 20px 14px; }
+        .card { padding: 22px 20px 20px; border-radius: 16px; }
+        h1 { font-size: 19px; }
+        .message { font-size: 13px; }
+      }
     </style>
   </head>
   <body>
+    <div class="grid-bg" aria-hidden="true"></div>
     ${enableCongratsFx ? '<div class="congrats-layer" aria-hidden="true"><canvas class="congrats-canvas" data-notify-congrats-fx></canvas></div>' : ''}
     <div class="container">
-      <div class="card">
-        <span class="label animate">${safeLabel}</span>
+      <div class="card ${statusModifier}">
+        <div class="brand animate">
+          <a class="brand-mark" href="/" aria-label="bunizao home">
+            ${PEEK_LOGO_SVG}
+            <span class="brand-mark-text">bunizao</span>
+          </a>
+          <span class="brand-label">${safeLabel}</span>
+        </div>
         <div class="status-row animate delay-1">
-          <span class="status-icon">${statusIcon}</span>
+          <span class="status-dot" aria-hidden="true"></span>
           <h1>${safeTitle}</h1>
         </div>
         <p class="message animate delay-2">${safeMessage}</p>
-        <hr class="divider animate delay-3" />
-        <div class="actions animate delay-4">${actionsHtml}</div>
-      </div>
-      <div class="footer animate delay-4">
-        <a href="/">buxx.me</a>
+        <div class="actions animate delay-3">${actionsHtml}</div>
+        <div class="dot-divider animate delay-4" aria-hidden="true">
+          <span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+        </div>
+        <div class="footer-row animate delay-5">
+          <span class="footer-meta">buxx.me</span>
+          <a href="/mood">mood feed &rarr;</a>
+        </div>
       </div>
     </div>
     ${enableCongratsFx ? `<script>
       (() => {
         const canvas = document.querySelector('[data-notify-congrats-fx]');
-        if (!(canvas instanceof HTMLCanvasElement)) {
-          return;
-        }
+        if (!(canvas instanceof HTMLCanvasElement)) return;
 
-        const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
-        if (prefersReducedMotion.matches) {
-          return;
-        }
+        const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+        if (reduceMotion.matches) return;
 
-        const context = canvas.getContext('2d', { alpha: true });
-        if (!context) {
-          return;
-        }
+        const ctx = canvas.getContext('2d', { alpha: true });
+        if (!ctx) return;
 
-        const prefersDark = window.matchMedia('(prefers-color-scheme: dark)');
-        const colorPalette = prefersDark.matches
-          ? ['#f2f2f2', '#d4d4d8', '#a1a1aa', '#7dd3fc', '#60a5fa']
-          : ['#111827', '#374151', '#6b7280', '#0284c7', '#0ea5e9'];
+        const darkScheme = window.matchMedia('(prefers-color-scheme: dark)');
+        const palette = () => darkScheme.matches
+          ? ['#fafafa', '#d4d4d8', '#9ca3af', '#f87171', '#fbbf24']
+          : ['#0a0a0a', '#404040', '#737373', '#c44848', '#f59e0b'];
+
         const confetti = [];
         const sparks = [];
+        const rings = [];
         let width = 0;
         let height = 0;
         let dpr = 1;
@@ -316,189 +457,185 @@ export function renderNotifyPage(options: {
         let lastPointerBurstAt = 0;
         let rafId = 0;
 
-        function random(min, max) {
-          return Math.random() * (max - min) + min;
-        }
+        const random = (min, max) => Math.random() * (max - min) + min;
+        const pickColor = () => {
+          const p = palette();
+          return p[(Math.random() * p.length) | 0];
+        };
 
-        function randomColor() {
-          return colorPalette[(Math.random() * colorPalette.length) | 0];
-        }
-
-        function createConfettiPiece(ySeed) {
-          return {
-            x: random(0, width),
-            y: ySeed ?? random(-height, -12),
-            vx: random(-0.35, 0.35),
-            vy: random(0.8, 1.95),
-            spin: random(-0.08, 0.08),
-            rotation: random(0, Math.PI * 2),
-            size: random(2.8, 7.2),
-            phase: random(0, Math.PI * 2),
-            shape: Math.random() > 0.45 ? 'rect' : 'dot',
-            color: randomColor(),
-          };
-        }
-
-        function createSpark(x, y, power) {
-          const angle = random(0, Math.PI * 2);
-          const speed = random(1.4, 5.8) * power;
-          return {
-            x,
-            y,
-            vx: Math.cos(angle) * speed,
-            vy: Math.sin(angle) * speed - random(0.55, 1.7),
-            life: random(34, 70),
-            maxLife: random(34, 70),
-            size: random(1, 2.8),
-            drag: random(0.962, 0.987),
-            gravity: random(0.026, 0.052),
-            color: randomColor(),
-          };
-        }
-
-        function emitBurst(x, y, power) {
-          const amount = Math.floor(24 + power * 42);
-          for (let index = 0; index < amount; index += 1) {
-            sparks.push(createSpark(x, y, power));
-          }
-        }
-
-        function drawBackdrop() {
-          const gradient = context.createRadialGradient(
-            width * 0.5,
-            height * 0.36,
-            10,
-            width * 0.5,
-            height * 0.36,
-            Math.max(width, height) * 0.72
-          );
-          if (prefersDark.matches) {
-            gradient.addColorStop(0, 'rgba(125, 211, 252, 0.12)');
-            gradient.addColorStop(0.44, 'rgba(96, 165, 250, 0.08)');
-            gradient.addColorStop(1, 'rgba(15, 23, 42, 0)');
-          } else {
-            gradient.addColorStop(0, 'rgba(14, 116, 144, 0.11)');
-            gradient.addColorStop(0.44, 'rgba(15, 23, 42, 0.06)');
-            gradient.addColorStop(1, 'rgba(15, 23, 42, 0)');
-          }
-          context.fillStyle = gradient;
-          context.fillRect(0, 0, width, height);
-        }
-
-        function drawConfetti(time) {
-          for (let index = 0; index < confetti.length; index += 1) {
-            const piece = confetti[index];
-            piece.x += piece.vx + Math.sin(time * 0.001 + piece.phase) * 0.34;
-            piece.y += piece.vy;
-            piece.rotation += piece.spin;
-
-            if (piece.y > height + 14) {
-              confetti[index] = createConfettiPiece(random(-60, -12));
-              continue;
-            }
-
-            context.save();
-            context.translate(piece.x, piece.y);
-            context.rotate(piece.rotation);
-            context.fillStyle = piece.color;
-            if (piece.shape === 'rect') {
-              context.fillRect(-piece.size * 0.5, -piece.size * 0.5, piece.size, piece.size * 0.54);
-            } else {
-              context.beginPath();
-              context.arc(0, 0, piece.size * 0.34, 0, Math.PI * 2);
-              context.fill();
-            }
-            context.restore();
-          }
-        }
-
-        function drawSparks() {
-          for (let index = sparks.length - 1; index >= 0; index -= 1) {
-            const spark = sparks[index];
-            spark.life -= 1;
-            spark.x += spark.vx;
-            spark.y += spark.vy;
-            spark.vx *= spark.drag;
-            spark.vy = spark.vy * spark.drag + spark.gravity;
-
-            if (spark.life <= 0) {
-              sparks.splice(index, 1);
-              continue;
-            }
-
-            const alpha = Math.max(0, spark.life / spark.maxLife);
-            context.globalAlpha = alpha * 0.66;
-            context.beginPath();
-            context.fillStyle = spark.color;
-            context.arc(spark.x, spark.y, spark.size, 0, Math.PI * 2);
-            context.fill();
-          }
-          context.globalAlpha = 1;
-        }
-
-        function resizeCanvas() {
+        function resize() {
           dpr = Math.min(window.devicePixelRatio || 1, 1.5);
           width = window.innerWidth;
           height = window.innerHeight;
           canvas.width = Math.floor(width * dpr);
           canvas.height = Math.floor(height * dpr);
-          context.setTransform(1, 0, 0, 1, 0, 0);
-          context.scale(dpr, dpr);
+          ctx.setTransform(1, 0, 0, 1, 0, 0);
+          ctx.scale(dpr, dpr);
         }
 
-        function renderFrame(timestamp) {
+        function makeConfetti(ySeed) {
+          return {
+            x: random(0, width),
+            y: ySeed ?? random(-height, -16),
+            vx: random(-0.4, 0.4),
+            vy: random(0.9, 2.1),
+            spin: random(-0.09, 0.09),
+            rotation: random(0, Math.PI * 2),
+            size: random(2.6, 6.4),
+            phase: random(0, Math.PI * 2),
+            shape: Math.random() > 0.5 ? 'rect' : 'dot',
+            color: pickColor(),
+          };
+        }
+
+        function makeSpark(x, y, power) {
+          const angle = random(0, Math.PI * 2);
+          const speed = random(1.6, 6.4) * power;
+          return {
+            x, y,
+            vx: Math.cos(angle) * speed,
+            vy: Math.sin(angle) * speed - random(0.6, 1.8),
+            life: random(38, 78),
+            maxLife: random(38, 78),
+            size: random(1, 2.6),
+            drag: random(0.96, 0.985),
+            gravity: random(0.024, 0.05),
+            color: pickColor(),
+          };
+        }
+
+        function makeRing(x, y) {
+          return {
+            x, y,
+            radius: 0,
+            maxRadius: random(160, 240),
+            life: 0,
+            maxLife: 60,
+            color: darkScheme.matches ? 'rgba(250,250,250,1)' : 'rgba(10,10,10,1)',
+          };
+        }
+
+        function emitBurst(x, y, power) {
+          const count = Math.floor(28 + power * 56);
+          for (let i = 0; i < count; i += 1) sparks.push(makeSpark(x, y, power));
+        }
+
+        function drawConfetti(time) {
+          for (let i = 0; i < confetti.length; i += 1) {
+            const p = confetti[i];
+            p.x += p.vx + Math.sin(time * 0.001 + p.phase) * 0.36;
+            p.y += p.vy;
+            p.rotation += p.spin;
+            if (p.y > height + 16) {
+              confetti[i] = makeConfetti(random(-80, -16));
+              continue;
+            }
+            ctx.save();
+            ctx.translate(p.x, p.y);
+            ctx.rotate(p.rotation);
+            ctx.fillStyle = p.color;
+            if (p.shape === 'rect') {
+              ctx.fillRect(-p.size * 0.5, -p.size * 0.5, p.size, p.size * 0.52);
+            } else {
+              ctx.beginPath();
+              ctx.arc(0, 0, p.size * 0.36, 0, Math.PI * 2);
+              ctx.fill();
+            }
+            ctx.restore();
+          }
+        }
+
+        function drawSparks() {
+          for (let i = sparks.length - 1; i >= 0; i -= 1) {
+            const s = sparks[i];
+            s.life -= 1;
+            s.x += s.vx;
+            s.y += s.vy;
+            s.vx *= s.drag;
+            s.vy = s.vy * s.drag + s.gravity;
+            if (s.life <= 0) { sparks.splice(i, 1); continue; }
+            const alpha = Math.max(0, s.life / s.maxLife);
+            ctx.globalAlpha = alpha * 0.72;
+            ctx.fillStyle = s.color;
+            ctx.beginPath();
+            ctx.arc(s.x, s.y, s.size, 0, Math.PI * 2);
+            ctx.fill();
+          }
+          ctx.globalAlpha = 1;
+        }
+
+        function drawRings() {
+          for (let i = rings.length - 1; i >= 0; i -= 1) {
+            const r = rings[i];
+            r.life += 1;
+            const t = r.life / r.maxLife;
+            if (t >= 1) { rings.splice(i, 1); continue; }
+            r.radius = r.maxRadius * (1 - Math.pow(1 - t, 3));
+            ctx.save();
+            ctx.globalAlpha = (1 - t) * 0.5;
+            ctx.strokeStyle = r.color;
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.arc(r.x, r.y, r.radius, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.restore();
+          }
+        }
+
+        function frame(timestamp) {
           if (!started) {
             started = true;
             const card = document.querySelector('.card');
             if (card instanceof HTMLElement) {
               const rect = card.getBoundingClientRect();
-              emitBurst(rect.left + rect.width * 0.22, rect.top + rect.height * 0.2, 0.95);
-              emitBurst(rect.left + rect.width * 0.78, rect.top + rect.height * 0.2, 0.95);
+              const cx = rect.left + rect.width / 2;
+              const cy = rect.top + rect.height / 2;
+              rings.push(makeRing(cx, cy));
+              emitBurst(rect.left + rect.width * 0.18, rect.top + rect.height * 0.22, 1.05);
+              emitBurst(rect.left + rect.width * 0.82, rect.top + rect.height * 0.22, 1.05);
+              emitBurst(cx, rect.top + rect.height * 0.6, 0.7);
             } else {
-              emitBurst(width * 0.5, height * 0.42, 0.9);
+              emitBurst(width * 0.5, height * 0.4, 1.0);
             }
           }
 
-          context.clearRect(0, 0, width, height);
-          drawBackdrop();
+          ctx.clearRect(0, 0, width, height);
+          drawRings();
           drawConfetti(timestamp);
           drawSparks();
 
-          if (timestamp - lastBurstAt > 2200) {
-            const bx = random(width * 0.24, width * 0.76);
-            const by = random(height * 0.14, height * 0.44);
-            emitBurst(bx, by, random(0.42, 0.78));
+          if (timestamp - lastBurstAt > 2400) {
+            const bx = random(width * 0.2, width * 0.8);
+            const by = random(height * 0.12, height * 0.42);
+            emitBurst(bx, by, random(0.4, 0.78));
             lastBurstAt = timestamp;
           }
 
-          rafId = window.requestAnimationFrame(renderFrame);
+          rafId = window.requestAnimationFrame(frame);
         }
 
         function onPointerMove(event) {
           const now = performance.now();
-          if (now - lastPointerBurstAt > 280) {
+          if (now - lastPointerBurstAt > 260) {
             emitBurst(event.clientX, event.clientY, 0.22);
             lastPointerBurstAt = now;
           }
         }
 
-        resizeCanvas();
-        for (let index = 0; index < 84; index += 1) {
-          confetti.push(createConfettiPiece());
-        }
+        resize();
+        for (let i = 0; i < 90; i += 1) confetti.push(makeConfetti());
 
-        window.addEventListener('resize', resizeCanvas, { passive: true });
+        window.addEventListener('resize', resize, { passive: true });
         window.addEventListener('pointermove', onPointerMove, { passive: true });
-
         document.addEventListener('visibilitychange', () => {
           if (document.hidden) {
             window.cancelAnimationFrame(rafId);
             return;
           }
-          rafId = window.requestAnimationFrame(renderFrame);
+          rafId = window.requestAnimationFrame(frame);
         });
 
-        rafId = window.requestAnimationFrame(renderFrame);
+        rafId = window.requestAnimationFrame(frame);
       })();
     </script>` : ''}
   </body>

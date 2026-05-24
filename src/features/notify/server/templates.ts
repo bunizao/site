@@ -382,38 +382,46 @@ function emailShell(content: string): string {
     @media (prefers-color-scheme: dark) {
       .email-body { background-color: #0a0a0a !important; }
       .email-card { background-color: #0a0a0a !important; }
-      .email-text { color: #e5e5e5 !important; }
+      .email-shell { background-color: #0d0d0d !important; border-color: #242424 !important; }
+      .email-text { color: #fafafa !important; }
       .email-muted { color: #888 !important; }
-      .email-link { color: #e5e5e5 !important; }
-      .email-divider { border-color: #333 !important; }
+      .email-link { color: #fafafa !important; }
+      .email-divider { border-color: #242424 !important; }
       .email-label { color: #888 !important; }
+      .email-brand-text { color: #fafafa !important; }
+      .email-brand-row { border-color: #242424 !important; }
+      .email-status-dot { background-color: #fafafa !important; }
+      .email-status-dot--error { background-color: #f87171 !important; }
+      .email-btn-pill { background-color: #fafafa !important; color: #0a0a0a !important; border-color: #fafafa !important; }
+      .email-btn-text { color: #0a0a0a !important; -webkit-text-fill-color: #0a0a0a !important; }
       .email-grid-dot { opacity: 0.1 !important; }
       .email-embed-card { background-color: #0f0f0f !important; border-color: #2b2b2b !important; }
       .email-embed-header { border-color: #2b2b2b !important; }
       .email-embed-footer { border-color: #2b2b2b !important; }
-      .email-avatar { background-color: #242424 !important; color: #e5e5e5 !important; }
-      .email-channel-name { color: #e5e5e5 !important; }
+      .email-avatar { background-color: #242424 !important; color: #fafafa !important; }
+      .email-channel-name { color: #fafafa !important; }
       .email-channel-meta { color: #8a8a8a !important; }
-      .email-preview { color: #e5e5e5 !important; }
-      .email-view-link { color: #e5e5e5 !important; }
+      .email-preview { color: #fafafa !important; }
+      .email-view-link { color: #fafafa !important; }
       .email-meta { color: #8a8a8a !important; }
       .email-quote { color: #d4d4d4 !important; border-color: #444 !important; }
-      .email-code { background-color: #1f1f1f !important; color: #e5e5e5 !important; }
-      .email-code-block { background-color: #1f1f1f !important; color: #e5e5e5 !important; }
-      .email-bookmark-card { background-color: #0f0f0f !important; border-color: #2b2b2b !important; color: #e5e5e5 !important; }
-      .email-bookmark-title { color: #e5e5e5 !important; }
+      .email-code { background-color: #1f1f1f !important; color: #fafafa !important; }
+      .email-code-block { background-color: #1f1f1f !important; color: #fafafa !important; }
+      .email-bookmark-card { background-color: #0f0f0f !important; border-color: #2b2b2b !important; color: #fafafa !important; }
+      .email-bookmark-title { color: #fafafa !important; }
       .email-bookmark-description { color: #c7c7c7 !important; }
       .email-bookmark-meta { color: #8a8a8a !important; }
       .email-digest-date { color: #777 !important; }
       .email-digest-time { color: #777 !important; }
       .email-digest-content { border-color: #242424 !important; }
+      .email-dot-divider span { background-color: #fafafa !important; }
     }
   </style>
 </head>
-<body class="email-body" style="margin: 0; padding: 0; background-color: #fff; -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%;">
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #fff;" class="email-body">
+<body class="email-body" style="margin: 0; padding: 0; background-color: #f7f7f7; -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #f7f7f7;" class="email-body">
     <tr>
-      <td align="center" style="padding: 48px 16px;">
+      <td align="center" style="padding: 40px 16px;">
         <table role="presentation" width="560" cellpadding="0" cellspacing="0" border="0" class="email-card" style="max-width: 560px; width: 100%; background-color: #fff;">
           ${content}
         </table>
@@ -424,71 +432,131 @@ function emailShell(content: string): string {
 </html>`;
 }
 
+function buildBrandHeader(siteUrl: string, label: string): string {
+  const safeSite = escapeHtml(siteUrl);
+  const safeLabel = escapeHtml(label);
+  const peekUrl = `${siteUrl.replace(/\/$/, '')}/logo/peek.svg`;
+  return `
+          <tr>
+            <td class="email-brand-row" style="padding: 24px 28px 18px; border-bottom: 1px solid #eaeaea;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td valign="middle" align="left">
+                    <a href="${safeSite}" class="email-link" style="display: inline-block; text-decoration: none; color: #0a0a0a;">
+                      <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                        <tr>
+                          <td valign="middle" style="padding-right: 9px;">
+                            <img src="${escapeHtml(peekUrl)}" alt="" width="22" height="17" style="display: block; width: 22px; height: 17px; border: 0;" />
+                          </td>
+                          <td valign="middle">
+                            <span class="email-brand-text" style="font-family: ${MONO_FONT}; font-size: 14px; font-weight: 700; letter-spacing: -0.01em; color: #0a0a0a;">bunizao</span>
+                          </td>
+                        </tr>
+                      </table>
+                    </a>
+                  </td>
+                  <td valign="middle" align="right">
+                    <span class="email-label" style="font-family: ${MONO_FONT}; font-size: 10px; font-weight: 600; letter-spacing: 0.22em; text-transform: uppercase; color: #666;">${safeLabel}</span>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>`;
+}
+
+function buildDotDivider(): string {
+  const dot = `<span style="display: inline-block; width: 3px; height: 3px; margin: 0 4px; border-radius: 999px; background-color: #0a0a0a; opacity: 0.45;"></span>`;
+  return `
+          <tr>
+            <td class="email-dot-divider" style="padding: 8px 28px 0; line-height: 1; opacity: 0.7;">
+              ${dot.repeat(14)}
+            </td>
+          </tr>`;
+}
+
+function pillButton(href: string, label: string, variant: 'primary' | 'ghost' = 'primary'): string {
+  const isPrimary = variant === 'primary';
+  const bg = isPrimary ? '#0a0a0a' : '#ffffff';
+  const fg = isPrimary ? '#ffffff' : '#0a0a0a';
+  const border = isPrimary ? '#0a0a0a' : '#dcdcdc';
+  return `<a href="${escapeHtml(href)}" class="email-btn-pill" style="display: inline-block; font-family: ${MONO_FONT}; font-size: 13px; font-weight: 600; letter-spacing: 0.005em; color: ${fg}; background-color: ${bg}; text-decoration: none; padding: 11px 22px; border: 1px solid ${border}; border-radius: 999px; -webkit-text-size-adjust: none; mso-hide: all;">
+                <span class="email-btn-text" style="color: ${fg}; -webkit-text-fill-color: ${fg};">${escapeHtml(label)}&nbsp;&rarr;</span>
+              </a>`;
+}
+
 export function buildSubscribeConfirmEmail(options: {
   siteUrl: string;
   confirmUrl: string;
 }): { subject: string; html: string; text: string } {
   const subject = 'Confirm your mood subscription';
   const html = emailShell(`
-          <!-- Header label -->
+          ${buildBrandHeader(options.siteUrl, 'subscription')}
+          <!-- Status + Title -->
           <tr>
             <td style="padding: 28px 28px 0;">
-              <span class="email-label" style="font-family: ${MONO_FONT}; font-size: 11px; font-weight: 400; letter-spacing: 0.2em; text-transform: uppercase; color: #666;">subscription</span>
-            </td>
-          </tr>
-          <!-- Title -->
-          <tr>
-            <td class="email-text" style="padding: 16px 28px 0; font-family: ${MONO_FONT}; font-size: 18px; font-weight: 600; color: #000; letter-spacing: -0.01em;">
-              Confirm subscription
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td valign="middle" style="padding-right: 12px;">
+                    <span class="email-status-dot" style="display: inline-block; width: 8px; height: 8px; background-color: #0a0a0a; border-radius: 999px;"></span>
+                  </td>
+                  <td valign="middle">
+                    <span class="email-text" style="font-family: ${MONO_FONT}; font-size: 22px; font-weight: 700; color: #0a0a0a; letter-spacing: -0.02em; line-height: 1.25;">
+                      Confirm subscription
+                    </span>
+                  </td>
+                </tr>
+              </table>
             </td>
           </tr>
           <!-- Body text -->
           <tr>
-            <td class="email-muted" style="padding: 12px 28px 0; font-family: ${MONO_FONT}; font-size: 13px; line-height: 1.7; color: #666;">
-              Click the button below to activate your mood update notifications.
+            <td class="email-muted" style="padding: 14px 28px 0; font-family: ${MONO_FONT}; font-size: 14px; line-height: 1.7; color: #555;">
+              One quick tap and mood updates start landing in this inbox. Takes a sec.
             </td>
           </tr>
           <!-- CTA Button -->
           <tr>
-            <td style="padding: 24px 28px 0;">
-              <a href="${escapeHtml(options.confirmUrl)}" class="email-btn" style="display: inline-block; font-family: ${MONO_FONT}; font-size: 13px; font-weight: 500; color: #fff; background-color: #111; text-decoration: none; padding: 10px 20px; border: 2px solid #2b2b2b;">
-                <span class="email-btn-text" style="color: #fff; -webkit-text-fill-color: #fff;">Confirm &rarr;</span>
-              </a>
+            <td style="padding: 22px 28px 0;">
+              ${pillButton(options.confirmUrl, 'Confirm subscription')}
             </td>
           </tr>
-          <!-- Fallback confirm link -->
+          <!-- Fallback link -->
           <tr>
-            <td class="email-muted" style="padding: 12px 28px 0; font-family: ${MONO_FONT}; font-size: 11px; line-height: 1.7; color: #999;">
-              If you cannot see the button, open this link:
+            <td class="email-muted" style="padding: 16px 28px 0; font-family: ${MONO_FONT}; font-size: 11px; line-height: 1.65; color: #888;">
+              Button not loading? Open this link instead:
               <br />
-              <a href="${escapeHtml(options.confirmUrl)}" class="email-link" style="font-family: ${MONO_FONT}; font-size: 12px; color: #000; text-decoration: underline; word-break: break-all;">${escapeHtml(options.confirmUrl)}</a>
+              <a href="${escapeHtml(options.confirmUrl)}" class="email-link" style="font-family: ${MONO_FONT}; font-size: 11px; color: #0a0a0a; text-decoration: underline; word-break: break-all;">${escapeHtml(options.confirmUrl)}</a>
             </td>
           </tr>
-          <!-- Divider -->
-          <tr>
-            <td style="padding: 24px 28px 0;">
-              <hr class="email-divider" style="border: none; border-top: 1px dashed #ccc; margin: 0;" />
-            </td>
-          </tr>
+          ${buildDotDivider()}
           <!-- Footer -->
           <tr>
-            <td style="padding: 16px 28px 28px;">
-              <p class="email-muted" style="margin: 0 0 4px; font-family: ${MONO_FONT}; font-size: 11px; color: #999; line-height: 1.6;">If you did not request this, ignore this email.</p>
-              <a href="${escapeHtml(options.siteUrl)}" class="email-link" style="font-family: ${MONO_FONT}; font-size: 11px; color: #000; text-decoration: none;">${escapeHtml(options.siteUrl)}</a>
+            <td style="padding: 14px 28px 28px;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td valign="middle" align="left">
+                    <span class="email-muted" style="font-family: ${MONO_FONT}; font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase; color: #888;">buxx.me</span>
+                  </td>
+                  <td valign="middle" align="right">
+                    <span class="email-muted" style="font-family: ${MONO_FONT}; font-size: 11px; color: #888;">Didn't ask for this? Safe to ignore.</span>
+                  </td>
+                </tr>
+              </table>
             </td>
           </tr>`);
 
   const text = [
-    'SUBSCRIPTION',
-    '────────────',
+    'BUNIZAO · SUBSCRIPTION',
+    '──────────────────────',
     '',
     'Confirm your mood subscription',
     '',
-    `Open this link: ${options.confirmUrl}`,
-    'If the button is not visible, use the link above.',
+    'One quick tap and mood updates start landing in this inbox.',
     '',
-    'If you did not request this, ignore this email.',
-    `Site: ${options.siteUrl}`,
+    `→ ${options.confirmUrl}`,
+    '',
+    'Didn\'t ask for this? Safe to ignore.',
+    `${options.siteUrl}`,
   ].join('\n');
 
   return { subject, html, text };
@@ -501,51 +569,88 @@ export function buildSubscribeWelcomeEmail(options: {
 }): { subject: string; html: string; text: string } {
   const subject = 'Welcome to mood updates';
   const deliveryModeLabel = options.deliveryMode === 'daily'
-    ? 'Daily delivery is active.'
+    ? 'Daily delivery'
     : options.deliveryMode === 'every_5h'
-      ? '5-hour digest delivery is active.'
-      : 'Instant delivery is active.';
+      ? '5-hour digest'
+      : 'Instant delivery';
+  const deliveryModeBody = options.deliveryMode === 'daily'
+    ? 'You\'ll get one wrap-up per day with the moods that landed.'
+    : options.deliveryMode === 'every_5h'
+      ? 'Every five hours, the latest moods get bundled and sent your way.'
+      : 'New moods land in your inbox the moment they post.';
+  const siteUrl = options.moodUrl.replace(/\/mood\/?.*$/, '').replace(/\/$/, '');
   const html = emailShell(`
+          ${buildBrandHeader(siteUrl || options.moodUrl, 'welcome')}
           <tr>
             <td style="padding: 28px 28px 0;">
-              <span class="email-label" style="font-family: ${MONO_FONT}; font-size: 11px; font-weight: 400; letter-spacing: 0.2em; text-transform: uppercase; color: #666;">welcome</span>
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td valign="middle" style="padding-right: 12px;">
+                    <span class="email-status-dot" style="display: inline-block; width: 8px; height: 8px; background-color: #0a0a0a; border-radius: 999px;"></span>
+                  </td>
+                  <td valign="middle">
+                    <span class="email-text" style="font-family: ${MONO_FONT}; font-size: 22px; font-weight: 700; color: #0a0a0a; letter-spacing: -0.02em; line-height: 1.25;">
+                      You're in.
+                    </span>
+                  </td>
+                </tr>
+              </table>
             </td>
           </tr>
           <tr>
-            <td class="email-text" style="padding: 16px 28px 0; font-family: ${MONO_FONT}; font-size: 18px; font-weight: 600; color: #000; letter-spacing: -0.01em;">
-              Subscription active
+            <td class="email-muted" style="padding: 14px 28px 0; font-family: ${MONO_FONT}; font-size: 14px; line-height: 1.7; color: #555;">
+              ${escapeHtml(deliveryModeBody)}
+            </td>
+          </tr>
+          <!-- Mode chip -->
+          <tr>
+            <td style="padding: 16px 28px 0;">
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td class="email-embed-card" style="padding: 8px 12px; border: 1px solid #eaeaea; border-radius: 999px; background-color: #fafafa;">
+                    <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                      <tr>
+                        <td valign="middle" style="padding-right: 8px;">
+                          <span style="display: inline-block; width: 6px; height: 6px; background-color: #0a0a0a; border-radius: 999px;" class="email-status-dot"></span>
+                        </td>
+                        <td valign="middle">
+                          <span class="email-text" style="font-family: ${MONO_FONT}; font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #0a0a0a;">${escapeHtml(deliveryModeLabel)}</span>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
             </td>
           </tr>
           <tr>
-            <td class="email-muted" style="padding: 12px 28px 0; font-family: ${MONO_FONT}; font-size: 13px; line-height: 1.7; color: #666;">
-              You are in. ${escapeHtml(deliveryModeLabel)}
+            <td style="padding: 22px 28px 0;">
+              ${pillButton(options.moodUrl, 'Open mood feed')}
             </td>
           </tr>
+          ${buildDotDivider()}
           <tr>
-            <td style="padding: 24px 28px 0;">
-              <a href="${escapeHtml(options.moodUrl)}" class="email-btn" style="display: inline-block; font-family: ${MONO_FONT}; font-size: 13px; font-weight: 500; color: #fff; background-color: #111; text-decoration: none; padding: 10px 20px; border: 2px solid #2b2b2b;">
-                <span class="email-btn-text" style="color: #fff; -webkit-text-fill-color: #fff;">Open mood feed &rarr;</span>
-              </a>
-            </td>
-          </tr>
-          <tr>
-            <td style="padding: 24px 28px 0;">
-              <hr class="email-divider" style="border: none; border-top: 1px dashed #ccc; margin: 0;" />
-            </td>
-          </tr>
-          <tr>
-            <td style="padding: 16px 28px 28px;">
-              <p class="email-muted" style="margin: 0 0 8px; font-family: ${MONO_FONT}; font-size: 11px; color: #999; line-height: 1.6;">You can leave anytime from the link below.</p>
-              <a href="${escapeHtml(options.unsubscribeUrl)}" class="email-link" style="font-family: ${MONO_FONT}; font-size: 11px; color: #000; text-decoration: none;">Unsubscribe &rarr;</a>
+            <td style="padding: 14px 28px 28px;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td valign="middle" align="left">
+                    <span class="email-muted" style="font-family: ${MONO_FONT}; font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase; color: #888;">buxx.me</span>
+                  </td>
+                  <td valign="middle" align="right">
+                    <a href="${escapeHtml(options.unsubscribeUrl)}" class="email-link" style="font-family: ${MONO_FONT}; font-size: 11px; color: #888; text-decoration: none;">Unsubscribe &rarr;</a>
+                  </td>
+                </tr>
+              </table>
             </td>
           </tr>`);
 
   const text = [
-    'WELCOME',
-    '────────────',
+    'BUNIZAO · WELCOME',
+    '──────────────────',
     '',
-    'Your mood subscription is active.',
-    deliveryModeLabel,
+    'You\'re in.',
+    deliveryModeBody,
+    `Mode: ${deliveryModeLabel}`,
     '',
     `Feed: ${options.moodUrl}`,
     `Unsubscribe: ${options.unsubscribeUrl}`,
@@ -560,44 +665,55 @@ export function buildUnsubscribeNoticeEmail(options: {
 }): { subject: string; html: string; text: string } {
   const subject = 'Mood updates canceled';
   const html = emailShell(`
+          ${buildBrandHeader(options.siteUrl, 'unsubscribe')}
           <tr>
             <td style="padding: 28px 28px 0;">
-              <span class="email-label" style="font-family: ${MONO_FONT}; font-size: 11px; font-weight: 400; letter-spacing: 0.2em; text-transform: uppercase; color: #666;">unsubscribe</span>
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td valign="middle" style="padding-right: 12px;">
+                    <span class="email-status-dot email-status-dot--error" style="display: inline-block; width: 8px; height: 8px; background-color: #c44848; border-radius: 999px;"></span>
+                  </td>
+                  <td valign="middle">
+                    <span class="email-text" style="font-family: ${MONO_FONT}; font-size: 22px; font-weight: 700; color: #0a0a0a; letter-spacing: -0.02em; line-height: 1.25;">
+                      Subscription canceled
+                    </span>
+                  </td>
+                </tr>
+              </table>
             </td>
           </tr>
           <tr>
-            <td class="email-text" style="padding: 16px 28px 0; font-family: ${MONO_FONT}; font-size: 18px; font-weight: 600; color: #000; letter-spacing: -0.01em;">
-              Subscription canceled
+            <td class="email-muted" style="padding: 14px 28px 0; font-family: ${MONO_FONT}; font-size: 14px; line-height: 1.7; color: #555;">
+              No more mood updates for this inbox. Changed your mind? You can come back anytime.
             </td>
           </tr>
           <tr>
-            <td class="email-muted" style="padding: 12px 28px 0; font-family: ${MONO_FONT}; font-size: 13px; line-height: 1.7; color: #666;">
-              You will no longer receive mood updates for this address.
+            <td style="padding: 22px 28px 0;">
+              ${pillButton(options.subscribeUrl, 'Subscribe again')}
             </td>
           </tr>
+          ${buildDotDivider()}
           <tr>
-            <td style="padding: 24px 28px 0;">
-              <a href="${escapeHtml(options.subscribeUrl)}" class="email-btn" style="display: inline-block; font-family: ${MONO_FONT}; font-size: 13px; font-weight: 500; color: #fff; background-color: #111; text-decoration: none; padding: 10px 20px; border: 2px solid #2b2b2b;">
-                <span class="email-btn-text" style="color: #fff; -webkit-text-fill-color: #fff;">Subscribe again &rarr;</span>
-              </a>
-            </td>
-          </tr>
-          <tr>
-            <td style="padding: 24px 28px 0;">
-              <hr class="email-divider" style="border: none; border-top: 1px dashed #ccc; margin: 0;" />
-            </td>
-          </tr>
-          <tr>
-            <td style="padding: 16px 28px 28px;">
-              <a href="${escapeHtml(options.siteUrl)}" class="email-link" style="font-family: ${MONO_FONT}; font-size: 11px; color: #000; text-decoration: none;">${escapeHtml(options.siteUrl)}</a>
+            <td style="padding: 14px 28px 28px;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td valign="middle" align="left">
+                    <span class="email-muted" style="font-family: ${MONO_FONT}; font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase; color: #888;">buxx.me</span>
+                  </td>
+                  <td valign="middle" align="right">
+                    <a href="${escapeHtml(options.siteUrl)}" class="email-link" style="font-family: ${MONO_FONT}; font-size: 11px; color: #888; text-decoration: none;">Visit site &rarr;</a>
+                  </td>
+                </tr>
+              </table>
             </td>
           </tr>`);
 
   const text = [
-    'UNSUBSCRIBED',
-    '────────────',
+    'BUNIZAO · UNSUBSCRIBE',
+    '──────────────────────',
     '',
-    'Your mood subscription has been canceled.',
+    'Subscription canceled.',
+    'No more mood updates for this inbox.',
     '',
     `Subscribe again: ${options.subscribeUrl}`,
     `Site: ${options.siteUrl}`,
