@@ -443,52 +443,6 @@ export function buildNotifyPageHtml(options: {
         }
       }
 
-      /* Fallback link block */
-      .fallback {
-        margin-top: -8px;
-        margin-bottom: 28px;
-      }
-
-      .fallback-label {
-        display: block;
-        font-size: 12px;
-        color: var(--soft);
-        margin-bottom: 6px;
-      }
-
-      .fallback-url {
-        display: inline-block;
-        max-width: 100%;
-        font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
-        font-size: 12px;
-        color: var(--fg);
-        text-decoration: none;
-        word-break: break-all;
-        background: rgba(10, 10, 10, 0.04);
-        border: 1px solid var(--hairline);
-        border-radius: 8px;
-        padding: 8px 11px;
-        line-height: 1.5;
-        transition: background 0.15s ease, border-color 0.15s ease;
-      }
-
-      @media (prefers-color-scheme: dark) {
-        .fallback-url {
-          background: rgba(255, 255, 255, 0.04);
-        }
-      }
-
-      .fallback-url:hover {
-        background: rgba(10, 10, 10, 0.06);
-        border-color: var(--hairline-strong);
-      }
-
-      @media (prefers-color-scheme: dark) {
-        .fallback-url:hover {
-          background: rgba(255, 255, 255, 0.07);
-        }
-      }
-
       /* Footer */
       .footer-line {
         height: 1px;
