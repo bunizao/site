@@ -41,6 +41,10 @@ export function initMoodFeedController(): void {
         let hasNewer = false;
         let observer: IntersectionObserver;
         let newerObserver: IntersectionObserver | null = null;
+        let anchorNewerBaselineY = 0;
+        let anchorNewerScrollListenerActive = false;
+        let anchorOlderBaselineY = 0;
+        let anchorOlderScrollListenerActive = false;
 
         const inlineSkeletonConfig = {
           dateWidth: '68px',
@@ -298,14 +302,60 @@ export function initMoodFeedController(): void {
         formatDateKey,
       });
 
+      const waitForImageToSettle = (image: HTMLImageElement): Promise<void> => {
+        if (image.complete && image.naturalWidth > 0 && image.naturalHeight > 0) {
+          return Promise.resolve();
+        }
+
+        return new Promise((resolve) => {
+          const finish = (): void => {
+            image.removeEventListener('load', finish);
+            image.removeEventListener('error', finish);
+            resolve();
+          };
+          image.addEventListener('load', finish, { once: true });
+          image.addEventListener('error', finish, { once: true });
+        });
+      };
+
+      const waitForAnchorPrecedingMedia = async (id: string): Promise<void> => {
+        const target = list.querySelector<HTMLElement>(`[data-mood-id="${id}"]`);
+        if (!target) return;
+
+        const unsettledImages: HTMLImageElement[] = [];
+        const items = Array.from(list.querySelectorAll<HTMLElement>('.mood-item[data-mood-id]'));
+        for (const item of items) {
+          if (item === target) break;
+
+          item.querySelectorAll<HTMLImageElement>('img').forEach((image) => {
+            if (image.height > 0 || image.closest('.mood-gallery')) return;
+            if (image.complete && image.naturalWidth > 0 && image.naturalHeight > 0) return;
+            unsettledImages.push(image);
+          });
+        }
+
+        if (!unsettledImages.length) return;
+
+        await Promise.race([
+          Promise.all(unsettledImages.slice(0, 4).map(waitForImageToSettle)),
+          new Promise((resolve) => window.setTimeout(resolve, 1200)),
+        ]);
+      };
+
       const revealFeedAnchor = (): void => {
         if (!feedAnchorId || feedAnchorHandled) return;
 
-        window.requestAnimationFrame(() => {
+        window.requestAnimationFrame(async () => {
           if (feedAnchorHandled) return;
-          if (renderer.scrollToMood(feedAnchorId, { highlight: true })) {
+          await waitForAnchorPrecedingMedia(feedAnchorId);
+          if (feedAnchorHandled) return;
+          if (renderer.scrollToMood(feedAnchorId, { behavior: 'auto', highlight: true })) {
             feedAnchorHandled = true;
             setStatus('');
+            window.requestAnimationFrame(() => {
+              armAnchorNewerObserver();
+              armAnchorOlderObserver();
+            });
           }
         });
       };
@@ -406,7 +456,24 @@ export function initMoodFeedController(): void {
         observer.observe(sentinel);
       };
 
-      const startNewerObserver = (): void => {
+      function enableAnchorOlderObserverOnScroll(): void {
+        if (!anchorOlderScrollListenerActive) return;
+        if (window.scrollY < anchorOlderBaselineY + 80) return;
+
+        window.removeEventListener('scroll', enableAnchorOlderObserverOnScroll);
+        anchorOlderScrollListenerActive = false;
+        startObserver();
+      }
+
+      function armAnchorOlderObserver(): void {
+        if (!feedAnchorId || !hasMore || observer || anchorOlderScrollListenerActive) return;
+
+        anchorOlderBaselineY = window.scrollY;
+        anchorOlderScrollListenerActive = true;
+        window.addEventListener('scroll', enableAnchorOlderObserverOnScroll, { passive: true });
+      }
+
+      function startNewerObserver(): void {
         if (!feedAnchorId || !hasNewer || newerObserver) return;
 
         const newerSentinel = document.querySelector('[data-mood-newer-sentinel]');
@@ -426,7 +493,24 @@ export function initMoodFeedController(): void {
         );
 
         newerObserver.observe(newerSentinel);
-      };
+      }
+
+      function enableAnchorNewerObserverOnScroll(): void {
+        if (!anchorNewerScrollListenerActive) return;
+        if (window.scrollY > Math.max(0, anchorNewerBaselineY - 80)) return;
+
+        window.removeEventListener('scroll', enableAnchorNewerObserverOnScroll);
+        anchorNewerScrollListenerActive = false;
+        startNewerObserver();
+      }
+
+      function armAnchorNewerObserver(): void {
+        if (!feedAnchorId || !hasNewer || newerObserver || anchorNewerScrollListenerActive) return;
+
+        anchorNewerBaselineY = window.scrollY;
+        anchorNewerScrollListenerActive = true;
+        window.addEventListener('scroll', enableAnchorNewerObserverOnScroll, { passive: true });
+      }
 
       const loadAnchorWindow = async (): Promise<{ posts: MoodData[]; channel?: ChannelInfo }> => {
         const windowBeforeId = getMoodFeedAnchorWindowBeforeCursor(feedAnchorId);
@@ -474,7 +558,6 @@ export function initMoodFeedController(): void {
 
             showFeed();
             startUpdateWatcher();
-            startNewerObserver();
 
             if (!posts.length) {
               handleNoMore();
@@ -482,7 +565,9 @@ export function initMoodFeedController(): void {
               return;
             }
 
-            startObserver();
+            if (!feedAnchorId) {
+              startObserver();
+            }
             return;
           }
 
@@ -507,8 +592,9 @@ export function initMoodFeedController(): void {
             }
 
             showFeed();
-            startNewerObserver();
-            startObserver();
+            if (!feedAnchorId) {
+              startObserver();
+            }
             return;
           }
 
@@ -554,7 +640,6 @@ export function initMoodFeedController(): void {
           }
           showFeed();
           startUpdateWatcher();
-          startNewerObserver();
 
           if (!hasMore) {
             handleNoMore();

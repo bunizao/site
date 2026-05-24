@@ -248,6 +248,7 @@ test.describe('Mood routes', () => {
       avatar: '',
     };
     const afterRequests: string[] = [];
+    const beforeRequests: string[] = [];
 
     await page.route('**/api/moods**', async (route) => {
       const url = new URL(route.request().url());
@@ -256,6 +257,9 @@ test.describe('Mood routes', () => {
 
       if (after) {
         afterRequests.push(after);
+      }
+      if (before) {
+        beforeRequests.push(before);
       }
 
       if (before === '1011') {
@@ -329,6 +333,15 @@ test.describe('Mood routes', () => {
       (window as any).__moodScrollIntoViewCalls as Array<{ id: string }>
     ).filter((call) => call.id === '1000').length);
     expect(anchorScrollCalls).toBe(1);
+    expect(beforeRequests).not.toContain('1013');
+    await expect
+      .poll(async () => {
+        return page.locator('[data-mood-id="1000"]').evaluate((element) => {
+          const rect = element.getBoundingClientRect();
+          return rect.bottom > 0 && rect.top < window.innerHeight;
+        });
+      }, { timeout: 10_000 })
+      .toBe(true);
 
     await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
     await expect(page.locator('[data-mood-id="1003"]')).toBeVisible();
@@ -338,6 +351,7 @@ test.describe('Mood routes', () => {
     ));
     expect(updatedOrder.indexOf('1003')).toBeLessThan(updatedOrder.indexOf('1002'));
     expect(afterRequests).toEqual([]);
+    expect(beforeRequests).toContain('1013');
 
     const dateGroupsHaveItems = await page.locator('.mood-date-group').evaluateAll((groups) => (
       groups.every((group) => group.querySelectorAll('.mood-item').length > 0)
