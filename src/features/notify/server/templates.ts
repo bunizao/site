@@ -490,11 +490,11 @@ function eyebrowRow(text: string, variant: 'default' | 'error' | 'success' = 'de
             <td style="padding: 32px 32px 0;">
               <table role="presentation" cellpadding="0" cellspacing="0" border="0">
                 <tr>
-                  <td valign="middle" style="padding-right: 10px;">
-                    <span class="${dotClass}" style="display: inline-block; width: 7px; height: 7px; background-color: ${dotColor}; border-radius: 999px;"></span>
+                  <td valign="middle" style="padding-right: 8px;">
+                    <span class="${dotClass}" style="display: inline-block; width: 6px; height: 6px; background-color: ${dotColor}; border-radius: 999px;"></span>
                   </td>
                   <td valign="middle">
-                    <span class="email-eyebrow" style="font-family: ${SANS_FONT}; font-size: 13px; font-weight: 500; color: #0a0a0a; letter-spacing: -0.005em;">${escapeHtml(text)}</span>
+                    <span class="email-eyebrow" style="font-family: ${MONO_FONT}; font-size: 11px; font-weight: 500; color: #6b6b6b; letter-spacing: 0.04em; text-transform: uppercase;">${escapeHtml(text)}</span>
                   </td>
                 </tr>
               </table>
