@@ -149,10 +149,10 @@ describe('notify email templates', () => {
       deliveryMode: 'daily',
     });
 
-    expect(email.subject).toBe('Welcome to mood updates');
-    expect(email.html).toContain('Subscription active');
-    expect(email.html).toContain('Daily delivery is active.');
-    expect(email.text).toContain('Feed: https://example.com/mood');
+    expect(email.subject).toBe('Welcome aboard.');
+    expect(email.html).toContain('Subscription confirmed');
+    expect(email.html).toContain('You picked the daily digest.');
+    expect(email.text).toContain('Mood feed: https://example.com/mood');
     expect(email.text).toContain('Unsubscribe: https://example.com/api/notify/unsubscribe?token=abc123');
   });
 
@@ -162,8 +162,8 @@ describe('notify email templates', () => {
       subscribeUrl: 'https://example.com/mood?subscribe=1',
     });
 
-    expect(email.subject).toBe('Mood updates canceled');
-    expect(email.html).toContain('Subscription canceled');
+    expect(email.subject).toBe('Mood updates paused');
+    expect(email.html).toContain('Quiet hours');
     expect(email.html).toContain('https://example.com/mood?subscribe=1');
     expect(email.text).toContain('Subscribe again: https://example.com/mood?subscribe=1');
   });

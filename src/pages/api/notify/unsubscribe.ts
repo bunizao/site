@@ -22,7 +22,7 @@ function escapeAttr(value: string): string {
 function renderTokenError(rateLimitHeaders: Headers, message: string): Response {
   return renderNotifyPage({
     label: 'unsubscribe',
-    title: 'Invalid link',
+    title: 'That link looks off.',
     message,
     status: 'error',
     rateLimitHeaders,
@@ -42,7 +42,7 @@ export const GET: APIRoute = async ({ request, locals }) => {
 
   const token = await readNotifyTokenFromRequest(request);
   if (!token) {
-    return renderTokenError(rateLimitHeaders, 'The unsubscribe link is missing a required token.');
+    return renderTokenError(rateLimitHeaders, 'The unsubscribe link is missing a token. Try opening it again from the email.');
   }
 
   try {
@@ -50,22 +50,22 @@ export const GET: APIRoute = async ({ request, locals }) => {
 
     return renderNotifyPage({
       label: 'unsubscribe',
-      title: 'Confirm unsubscribe',
-      message: `Stop mood notifications for ${email}? This page no longer unsubscribes on load.`,
+      title: 'Pause mood updates?',
+      message: `We'll stop sending mood emails to ${email}. You can come back any time.`,
       status: 'info',
       actionsHtml: [
-        '<form method="post" action="" style="margin: 0;">',
+        '<form method="post" action="">',
         `  <input type="hidden" name="token" value="${escapeAttr(token)}" />`,
-        '  <button type="submit" class="button">Unsubscribe</button>',
+        '  <button type="submit" class="button"><span>Pause updates</span><span class="button-arrow" aria-hidden="true">&rarr;</span></button>',
         '</form>',
-        '<a href="/mood" class="button button--ghost">Keep subscription</a>',
+        '<a href="/mood" class="button button--ghost"><span>Keep them coming</span></a>',
       ].join(''),
       rateLimitHeaders,
     });
   } catch (error) {
     const message = error instanceof NotifyServiceError
       ? error.message
-      : 'Unexpected error. Please try again later.';
+      : 'Something went sideways on our end. Try again in a minute.';
     return renderTokenError(rateLimitHeaders, message);
   }
 };
@@ -83,25 +83,25 @@ export const POST: APIRoute = async ({ request, locals }) => {
 
   const token = await readNotifyTokenFromRequest(request);
   if (!token) {
-    return renderTokenError(rateLimitHeaders, 'The unsubscribe request is missing a required token.');
+    return renderTokenError(rateLimitHeaders, 'The unsubscribe request is missing a token.');
   }
 
   try {
     await unsubscribeMoodSubscription({ request, locals }, token);
     return renderNotifyPage({
       label: 'unsubscribe',
-      title: 'Unsubscribed',
-      message: 'You will no longer receive mood notifications.',
+      title: 'Mood updates paused.',
+      message: 'No more mood emails will land in this inbox. Come back anytime.',
       status: 'success',
       rateLimitHeaders,
     });
   } catch (error) {
     const message = error instanceof NotifyServiceError
       ? error.message
-      : 'Unexpected error. Please try again later.';
+      : 'Something went sideways on our end. Try again in a minute.';
     return renderNotifyPage({
       label: 'unsubscribe',
-      title: 'Unsubscribe failed',
+      title: 'Couldn’t pause updates.',
       message,
       status: 'error',
       rateLimitHeaders,

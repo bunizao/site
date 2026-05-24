@@ -22,8 +22,8 @@ export const GET: APIRoute = async ({ request, locals }) => {
   if (!token) {
     return renderNotifyPage({
       label: 'subscription',
-      title: 'Invalid link',
-      message: 'The confirmation link is missing a required token.',
+      title: 'That link looks off.',
+      message: 'The confirmation link is missing a token. Try opening it again from the email, or grab a fresh one.',
       status: 'error',
       rateLimitHeaders,
     });
@@ -33,8 +33,8 @@ export const GET: APIRoute = async ({ request, locals }) => {
     await confirmMoodSubscription({ request, locals }, token);
     return renderNotifyPage({
       label: 'subscription',
-      title: 'Subscribed',
-      message: 'Your email subscription is now active. You will receive mood notifications.',
+      title: 'You’re in.',
+      message: 'Mood updates will start landing in your inbox. Welcome aboard.',
       status: 'success',
       enableCongratsFx: true,
       rateLimitHeaders,
@@ -42,10 +42,10 @@ export const GET: APIRoute = async ({ request, locals }) => {
   } catch (error) {
     const message = error instanceof NotifyServiceError
       ? error.message
-      : 'Unexpected error. Please try again later.';
+      : 'Something went sideways on our end. Try again in a minute.';
     return renderNotifyPage({
       label: 'subscription',
-      title: 'Subscription failed',
+      title: 'Couldn’t confirm that.',
       message,
       status: 'error',
       rateLimitHeaders,

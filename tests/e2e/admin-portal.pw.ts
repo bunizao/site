@@ -40,10 +40,10 @@ const newsletterPreviewFixture = {
   },
   subjects: {
     subscribe: 'Confirm your mood subscription',
-    welcome: 'Welcome to mood updates',
+    welcome: 'Welcome aboard.',
     mood: 'New mood #3505',
     digest: 'Daily digest · 1 mood update',
-    cancel: 'Mood updates canceled',
+    cancel: 'Mood updates paused',
   },
   html: {
     subscribe: '<!doctype html><html><body style="margin:0;height:720px;background:#fff">Subscribe</body></html>',
@@ -51,6 +51,13 @@ const newsletterPreviewFixture = {
     mood: '<!doctype html><html><body style="margin:0;height:720px;background:#fff">Mood</body></html>',
     digest: '<!doctype html><html><body style="margin:0;height:720px;background:#fff">Digest</body></html>',
     cancel: '<!doctype html><html><body style="margin:0;height:720px;background:#fff">Cancel</body></html>',
+  },
+  callbackPages: {
+    confirmSuccess: '<!doctype html><html><body style="margin:0;height:720px;background:#fff">Confirm Success</body></html>',
+    confirmError: '<!doctype html><html><body style="margin:0;height:720px;background:#fff">Confirm Error</body></html>',
+    unsubscribePrompt: '<!doctype html><html><body style="margin:0;height:720px;background:#fff">Unsubscribe Prompt</body></html>',
+    unsubscribeSuccess: '<!doctype html><html><body style="margin:0;height:720px;background:#fff">Unsubscribe Success</body></html>',
+    unsubscribeError: '<!doctype html><html><body style="margin:0;height:720px;background:#fff">Unsubscribe Error</body></html>',
   },
 };
 
