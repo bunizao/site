@@ -51,22 +51,13 @@ export function buildNotifyPageHtml(options: {
   const titleHtml = safeTitle;
 
   const receiptHtml = heroTreatment
-    ? `<div class="receipt animate delay-3" aria-hidden="true">
-            <div class="receipt-row">
-              <span class="receipt-key">Status</span>
-              <span class="receipt-value">
-                <span class="receipt-pulse"></span>
-                Active
-              </span>
-            </div>
-            <div class="receipt-row">
-              <span class="receipt-key">Confirmed</span>
-              <span class="receipt-value receipt-mono" data-notify-confirmed-at>just now</span>
-            </div>
-            <div class="receipt-row">
-              <span class="receipt-key">Reference</span>
-              <span class="receipt-value receipt-mono">${generateStampId()}</span>
-            </div>
+    ? `<div class="stamp animate delay-3" aria-hidden="true">
+            <span class="stamp-pulse"></span>
+            <span class="stamp-text">Confirmed</span>
+            <span class="stamp-sep">/</span>
+            <span class="stamp-time" data-notify-confirmed-at>just now</span>
+            <span class="stamp-sep">/</span>
+            <span class="stamp-ref">${generateStampId()}</span>
           </div>`
     : '';
 
@@ -326,65 +317,29 @@ export function buildNotifyPageHtml(options: {
         .is-hero h1 { font-size: 32px; }
       }
 
-      /* Receipt — hairline-divided metadata, no box, no gradient */
-      .receipt {
-        display: grid;
-        grid-template-columns: auto 1fr;
-        gap: 0 24px;
-        margin: 24px 0 28px;
-        padding: 0;
-        border: none;
-        background: none;
-      }
-
-      .receipt-row {
-        display: contents;
-      }
-
-      .receipt-row > .receipt-key,
-      .receipt-row > .receipt-value {
-        padding: 10px 0;
-        border-top: 1px solid var(--hairline);
-      }
-
-      .receipt-row:last-of-type > .receipt-key,
-      .receipt-row:last-of-type > .receipt-value {
-        border-bottom: 1px solid var(--hairline);
-      }
-
-      .receipt-key {
-        font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
-        font-size: 10px;
-        font-weight: 500;
-        letter-spacing: 0.08em;
-        text-transform: uppercase;
-        color: var(--soft);
-        align-self: center;
-      }
-
-      .receipt-value {
+      /* Stamp — inline metadata whisper for the confirm-success moment */
+      .stamp {
         display: inline-flex;
         align-items: center;
-        gap: 8px;
-        font-size: 13px;
-        color: var(--fg);
-        line-height: 1.5;
-      }
-
-      .receipt-mono {
+        gap: 10px;
+        margin: 4px 0 28px;
         font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
-        font-size: 12px;
+        font-size: 11px;
+        font-weight: 500;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--soft);
       }
 
-      .receipt-pulse {
+      .stamp-pulse {
         position: relative;
-        width: 7px;
-        height: 7px;
+        width: 6px;
+        height: 6px;
         border-radius: 999px;
         background: var(--accent-success);
       }
 
-      .receipt-pulse::after {
+      .stamp-pulse::after {
         content: '';
         position: absolute;
         inset: -3px;
@@ -394,8 +349,26 @@ export function buildNotifyPageHtml(options: {
         animation: pulse 2.4s ease-out infinite;
       }
 
+      .stamp-text {
+        color: var(--fg);
+      }
+
+      .stamp-sep {
+        opacity: 0.4;
+      }
+
+      .stamp-time,
+      .stamp-ref {
+        color: var(--soft);
+        letter-spacing: 0.04em;
+      }
+
       @media (prefers-reduced-motion: reduce) {
-        .receipt-pulse::after { animation: none; }
+        .stamp-pulse::after { animation: none; }
+      }
+
+      @media (max-width: 480px) {
+        .stamp { font-size: 10px; gap: 8px; }
       }
 
       .message {

@@ -435,7 +435,7 @@ function emailShell(content: string, options: { siteUrl?: string } = {}): string
         <table role="presentation" width="540" cellpadding="0" cellspacing="0" border="0" style="max-width: 540px; width: 100%; margin-top: 16px;">
           <tr>
             <td align="center" style="padding: 0 12px;">
-              <span class="email-soft" style="font-family: ${MONO_FONT}; font-size: 11px; color: #94949b; letter-spacing: 0;">&copy; 2023&ndash;2026 bunizao &middot; <a href="${escapeHtml(privacyUrl)}" class="email-link email-soft" style="color: #94949b; text-decoration: none;">Privacy</a></span>
+              <span class="email-soft" style="font-family: ${MONO_FONT}; font-size: 11px; color: #94949b; letter-spacing: 0;">&copy; 2023&ndash;2026 bunizao &middot; <a href="${escapeHtml(privacyUrl)}" class="email-soft" style="color: #94949b; text-decoration: none;">Privacy</a></span>
             </td>
           </tr>
         </table>
@@ -561,12 +561,11 @@ export function buildSubscribeWelcomeEmail(options: {
   deliveryMode: 'immediate' | 'every_5h' | 'daily';
 }): { subject: string; html: string; text: string } {
   const subject = 'Welcome aboard.';
-  const modes: Array<{ key: 'immediate' | 'every_5h' | 'daily'; label: string }> = [
-    { key: 'immediate', label: 'Real-time' },
-    { key: 'every_5h', label: 'Every 5h' },
-    { key: 'daily', label: 'Daily digest' },
-  ];
-  const activeLabel = modes.find((m) => m.key === options.deliveryMode)?.label ?? 'Real-time';
+  const activeLabel = options.deliveryMode === 'daily'
+    ? 'Daily digest'
+    : options.deliveryMode === 'every_5h'
+      ? 'Every 5h'
+      : 'Real-time';
   const deliveryModeBody = options.deliveryMode === 'daily'
     ? 'You picked the daily digest. One bundle a day with everything that landed.'
     : options.deliveryMode === 'every_5h'
@@ -575,28 +574,6 @@ export function buildSubscribeWelcomeEmail(options: {
   const siteUrl = options.moodUrl.replace(/\/mood\/?.*$/, '').replace(/\/$/, '') || options.moodUrl;
   const settingsUrl = `${siteUrl}/mood?subscribe=1`;
 
-  const segmentCells = modes
-    .map((mode, index) => {
-      const active = mode.key === options.deliveryMode;
-      const isFirst = index === 0;
-      const isLast = index === modes.length - 1;
-      const radius = isFirst
-        ? '999px 0 0 999px'
-        : isLast
-          ? '0 999px 999px 0'
-          : '0';
-      const borderLeft = isFirst ? 'border-left: 1px solid rgba(10,10,10,0.10);' : 'border-left: none;';
-      const cellBg = active ? '#0a0a0a' : 'transparent';
-      const cellBorderColor = active ? '#0a0a0a' : 'rgba(10,10,10,0.10)';
-      const labelColor = active ? '#fafafa' : '#6b6b6b';
-      const cellClass = active ? 'email-chip email-chip--active' : 'email-chip';
-      return `
-                  <td valign="middle" align="center" class="${cellClass}" style="padding: 8px 16px; ${borderLeft} border-top: 1px solid ${cellBorderColor}; border-right: 1px solid ${cellBorderColor}; border-bottom: 1px solid ${cellBorderColor}; border-radius: ${radius}; background-color: ${cellBg};">
-                    <span class="email-chip-text" style="font-family: ${SANS_FONT}; font-size: 12px; font-weight: 500; color: ${labelColor}; letter-spacing: -0.005em; white-space: nowrap;">${escapeHtml(mode.label)}</span>
-                  </td>`;
-    })
-    .join('');
-
   const html = emailShell(`
           ${buildBrandHeader(siteUrl)}
           ${eyebrowRow('Subscription confirmed', 'success')}
@@ -604,13 +581,6 @@ export function buildSubscribeWelcomeEmail(options: {
           <tr>
             <td class="email-muted" style="padding: 14px 32px 0; font-family: ${SANS_FONT}; font-size: 15px; line-height: 1.65; color: #6b6b6b;">
               ${escapeHtml(deliveryModeBody)}
-            </td>
-          </tr>
-          <tr>
-            <td style="padding: 20px 32px 0;">
-              <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse: separate;">
-                <tr>${segmentCells}</tr>
-              </table>
             </td>
           </tr>
           <tr>
