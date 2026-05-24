@@ -31,11 +31,12 @@ export function renderNotifyPage(options: {
   actionsHtml?: string;
   rateLimitHeaders?: Headers;
 }): Response {
-  const safeLabel = escapeHtml(options.label);
+  // Label is intentionally unused in v2 layout — kept in API for backward-compat.
+  void options.label;
   const safeTitle = escapeHtml(options.title);
   const safeMessage = escapeHtml(options.message);
   const enableCongratsFx = options.enableCongratsFx === true;
-  const defaultAction = `<a href="/mood" class="button"><span>Mood feed</span><span class="button-arrow" aria-hidden="true">&rarr;</span></a>`;
+  const defaultAction = `<a href="/mood" class="button"><span>Open mood feed</span><span class="button-arrow" aria-hidden="true">&rarr;</span></a>`;
   const actionsHtml = options.actionsHtml ?? defaultAction;
 
   const statusModifier = options.status === 'success'
@@ -52,8 +53,19 @@ export function renderNotifyPage(options: {
     <title>${safeTitle} — buxx.me</title>
     <link rel="icon" type="image/svg+xml" href="/logo/peek.svg?v=3" />
     <link rel="alternate icon" href="/favicon.ico" />
+    <link rel="preload" as="font" href="/fonts/geist-sans-variable.woff2" type="font/woff2" crossorigin />
     <link rel="preload" as="font" href="/fonts/jetbrains-mono-variable.woff2" type="font/woff2" crossorigin />
     <style>
+      @font-face {
+        font-family: 'Geist';
+        src:
+          url('/fonts/geist-sans-variable.woff2') format('woff2-variations'),
+          url('/fonts/geist-sans-variable.woff2') format('woff2');
+        font-weight: 100 900;
+        font-style: normal;
+        font-display: swap;
+      }
+
       @font-face {
         font-family: 'JetBrains Mono';
         src:
@@ -65,35 +77,33 @@ export function renderNotifyPage(options: {
       }
 
       :root {
-        --bg: #ffffff;
-        --fg: #0a0a0a;
-        --muted: #666;
-        --hairline: rgba(10, 10, 10, 0.12);
-        --hairline-strong: rgba(10, 10, 10, 0.22);
-        --grid: rgba(10, 10, 10, 0.10);
+        --bg: #f7f7f5;
         --card: #ffffff;
-        --card-hover: rgba(10, 10, 10, 0.04);
+        --fg: #0a0a0a;
+        --muted: #6b6b6b;
+        --soft: #94949b;
+        --hairline: rgba(10, 10, 10, 0.08);
+        --hairline-strong: rgba(10, 10, 10, 0.14);
+        --grid: rgba(10, 10, 10, 0.07);
         --peek-accent: #c44848;
-        --status-info: #0a0a0a;
-        --status-success: #0a0a0a;
-        --status-error: #c44848;
+        --accent-error: #c44848;
+        --shadow: 0 1px 0 rgba(255, 255, 255, 0.6) inset, 0 18px 60px -28px rgba(20, 20, 30, 0.16);
         color-scheme: light;
       }
 
       @media (prefers-color-scheme: dark) {
         :root {
           --bg: #0a0a0a;
+          --card: #131313;
           --fg: #fafafa;
-          --muted: #888;
-          --hairline: rgba(255, 255, 255, 0.12);
-          --hairline-strong: rgba(255, 255, 255, 0.22);
-          --grid: rgba(255, 255, 255, 0.08);
-          --card: #0a0a0a;
-          --card-hover: rgba(255, 255, 255, 0.06);
+          --muted: #9b9b9b;
+          --soft: #6c6c70;
+          --hairline: rgba(255, 255, 255, 0.07);
+          --hairline-strong: rgba(255, 255, 255, 0.13);
+          --grid: rgba(255, 255, 255, 0.06);
           --peek-accent: #f87171;
-          --status-info: #fafafa;
-          --status-success: #fafafa;
-          --status-error: #f87171;
+          --accent-error: #f87171;
+          --shadow: 0 1px 0 rgba(255, 255, 255, 0.05) inset, 0 24px 60px -28px rgba(0, 0, 0, 0.6);
           color-scheme: dark;
         }
       }
@@ -110,16 +120,17 @@ export function renderNotifyPage(options: {
       }
 
       body {
-        font-family: 'JetBrains Mono', 'SF Mono', Menlo, Monaco, Consolas, monospace;
+        font-family: 'Geist', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
         background: var(--bg);
         color: var(--fg);
         min-height: 100vh;
         display: flex;
         align-items: center;
         justify-content: center;
-        line-height: 1.6;
+        line-height: 1.55;
         -webkit-font-smoothing: antialiased;
         -moz-osx-font-smoothing: grayscale;
+        text-rendering: optimizeLegibility;
         position: relative;
         overflow-x: hidden;
       }
@@ -130,9 +141,9 @@ export function renderNotifyPage(options: {
         pointer-events: none;
         z-index: 0;
         background-image: radial-gradient(circle, var(--grid) 1px, transparent 1px);
-        background-size: 24px 24px;
-        mask-image: radial-gradient(ellipse at center, #000 38%, transparent 78%);
-        -webkit-mask-image: radial-gradient(ellipse at center, #000 38%, transparent 78%);
+        background-size: 28px 28px;
+        mask-image: radial-gradient(ellipse at center, #000 32%, transparent 75%);
+        -webkit-mask-image: radial-gradient(ellipse at center, #000 32%, transparent 75%);
       }
 
       .congrats-layer {
@@ -153,121 +164,101 @@ export function renderNotifyPage(options: {
         position: relative;
         z-index: 2;
         width: 100%;
-        max-width: 520px;
+        max-width: 480px;
         padding: 32px 20px;
       }
 
       .card {
         position: relative;
         background: var(--card);
-        border: 1px solid var(--hairline-strong);
-        border-radius: 18px;
-        padding: 28px 28px 24px;
-        box-shadow:
-          0 1px 0 rgba(255, 255, 255, 0.04) inset,
-          0 24px 60px -32px rgba(10, 10, 10, 0.18);
+        border: 1px solid var(--hairline);
+        border-radius: 20px;
+        padding: 32px 36px 28px;
+        box-shadow: var(--shadow);
       }
 
-      @media (prefers-color-scheme: dark) {
-        .card {
-          box-shadow:
-            0 1px 0 rgba(255, 255, 255, 0.05) inset,
-            0 24px 80px -32px rgba(0, 0, 0, 0.6);
-        }
-      }
-
-      /* Brand header */
+      /* Brand row */
       .brand {
         display: flex;
         align-items: center;
-        justify-content: space-between;
-        gap: 12px;
-        padding-bottom: 20px;
-        margin-bottom: 22px;
-        border-bottom: 1px solid var(--hairline);
-      }
-
-      .brand-mark {
-        display: inline-flex;
-        align-items: center;
-        gap: 10px;
+        gap: 9px;
+        margin-bottom: 36px;
         color: var(--fg);
         text-decoration: none;
       }
 
-      .brand-mark svg {
-        width: 20px;
-        height: 15px;
+      .brand svg {
+        width: 18px;
+        height: 13.5px;
         display: block;
       }
 
-      .brand-mark-text {
-        font-size: 13px;
+      .brand-mark {
+        font-family: 'Geist', ui-sans-serif, system-ui, sans-serif;
+        font-size: 14px;
         font-weight: 600;
         letter-spacing: -0.01em;
       }
 
-      .brand-label {
-        font-size: 10px;
-        font-weight: 500;
-        letter-spacing: 0.22em;
-        text-transform: uppercase;
-        color: var(--muted);
-      }
-
-      /* Status + title */
-      .status-row {
-        display: flex;
+      /* Eyebrow + title */
+      .eyebrow {
+        display: inline-flex;
         align-items: center;
-        gap: 12px;
+        gap: 8px;
         margin-bottom: 14px;
+        font-size: 13px;
+        font-weight: 500;
+        color: var(--muted);
+        letter-spacing: -0.005em;
       }
 
-      .status-dot {
+      .eyebrow-dot {
         position: relative;
-        flex-shrink: 0;
-        width: 8px;
-        height: 8px;
+        width: 7px;
+        height: 7px;
         border-radius: 999px;
       }
 
-      .is-info .status-dot { background: var(--status-info); }
-      .is-success .status-dot { background: var(--status-success); }
-      .is-error .status-dot { background: var(--status-error); }
+      .is-info .eyebrow-dot { background: var(--fg); }
+      .is-success .eyebrow-dot { background: var(--fg); }
+      .is-error .eyebrow-dot { background: var(--accent-error); }
 
-      .status-dot::before {
+      .eyebrow-dot::before {
         content: '';
         position: absolute;
-        inset: -4px;
+        inset: -3px;
         border-radius: 999px;
         background: currentColor;
         opacity: 0.18;
-        animation: pulse 2.4s ease-out infinite;
+        animation: pulse 2.6s ease-out infinite;
       }
 
-      .is-info .status-dot::before { color: var(--status-info); }
-      .is-success .status-dot::before { color: var(--status-success); }
-      .is-error .status-dot::before { color: var(--status-error); }
+      .is-info .eyebrow-dot::before { color: var(--fg); }
+      .is-success .eyebrow-dot::before { color: var(--fg); }
+      .is-error .eyebrow-dot::before { color: var(--accent-error); }
 
       @keyframes pulse {
         0% { transform: scale(0.6); opacity: 0.32; }
-        70% { transform: scale(1.6); opacity: 0; }
-        100% { transform: scale(1.6); opacity: 0; }
+        70% { transform: scale(1.7); opacity: 0; }
+        100% { transform: scale(1.7); opacity: 0; }
       }
 
       h1 {
-        font-size: 22px;
-        font-weight: 700;
-        letter-spacing: -0.02em;
-        line-height: 1.25;
+        font-family: 'Geist', ui-sans-serif, system-ui, sans-serif;
+        font-size: 30px;
+        font-weight: 600;
+        letter-spacing: -0.025em;
+        line-height: 1.15;
+        color: var(--fg);
+        margin-bottom: 14px;
       }
 
       .message {
-        font-size: 14px;
+        font-size: 15px;
         color: var(--muted);
-        line-height: 1.7;
-        margin-bottom: 22px;
-        max-width: 44ch;
+        line-height: 1.65;
+        margin-bottom: 28px;
+        max-width: 36ch;
       }
 
       .actions {
@@ -275,7 +266,7 @@ export function renderNotifyPage(options: {
         flex-wrap: wrap;
         gap: 10px;
         align-items: center;
-        margin-bottom: 26px;
+        margin-bottom: 28px;
       }
 
       .button {
@@ -285,23 +276,23 @@ export function renderNotifyPage(options: {
         justify-content: center;
         gap: 8px;
         font-family: inherit;
-        font-size: 13px;
-        font-weight: 600;
-        letter-spacing: 0.005em;
+        font-size: 14px;
+        font-weight: 500;
+        letter-spacing: -0.005em;
         line-height: 1;
-        height: 40px;
+        height: 42px;
         padding: 0 18px;
         background: var(--fg);
-        color: var(--bg);
+        color: var(--card);
         border: 1px solid var(--fg);
-        border-radius: 999px;
+        border-radius: 10px;
         cursor: pointer;
         text-decoration: none;
         transition: transform 0.15s ease, opacity 0.15s ease, background 0.15s ease;
       }
 
       .button:hover {
-        opacity: 0.86;
+        opacity: 0.88;
       }
 
       .button:active {
@@ -310,7 +301,7 @@ export function renderNotifyPage(options: {
 
       .button-arrow {
         display: inline-block;
-        transition: transform 0.15s ease;
+        transition: transform 0.18s ease;
       }
 
       .button:hover .button-arrow {
@@ -324,82 +315,121 @@ export function renderNotifyPage(options: {
       }
 
       .button--ghost:hover {
-        background: var(--card-hover);
+        background: rgba(10, 10, 10, 0.04);
         opacity: 1;
       }
 
-      /* Dot divider */
-      .dot-divider {
-        display: flex;
-        gap: 8px;
-        margin-bottom: 18px;
-        opacity: 0.45;
+      @media (prefers-color-scheme: dark) {
+        .button--ghost:hover {
+          background: rgba(255, 255, 255, 0.06);
+        }
       }
 
-      .dot-divider span {
-        width: 3px;
-        height: 3px;
-        border-radius: 999px;
-        background: var(--fg);
+      /* Fallback link block */
+      .fallback {
+        margin-top: -8px;
+        margin-bottom: 28px;
       }
 
-      .footer-row {
+      .fallback-label {
+        display: block;
+        font-size: 12px;
+        color: var(--soft);
+        margin-bottom: 6px;
+      }
+
+      .fallback-url {
+        display: inline-block;
+        max-width: 100%;
+        font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 12px;
+        color: var(--fg);
+        text-decoration: none;
+        word-break: break-all;
+        background: rgba(10, 10, 10, 0.04);
+        border: 1px solid var(--hairline);
+        border-radius: 8px;
+        padding: 8px 11px;
+        line-height: 1.5;
+        transition: background 0.15s ease, border-color 0.15s ease;
+      }
+
+      @media (prefers-color-scheme: dark) {
+        .fallback-url {
+          background: rgba(255, 255, 255, 0.04);
+        }
+      }
+
+      .fallback-url:hover {
+        background: rgba(10, 10, 10, 0.06);
+        border-color: var(--hairline-strong);
+      }
+
+      @media (prefers-color-scheme: dark) {
+        .fallback-url:hover {
+          background: rgba(255, 255, 255, 0.07);
+        }
+      }
+
+      /* Footer */
+      .footer-line {
+        height: 1px;
+        background: var(--hairline);
+        margin: 0 0 16px;
+      }
+
+      .footer {
         display: flex;
         align-items: center;
         justify-content: space-between;
         gap: 12px;
+        font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
         font-size: 11px;
-        color: var(--muted);
+        color: var(--soft);
       }
 
-      .footer-row a {
-        color: var(--muted);
+      .footer a {
+        color: var(--soft);
         text-decoration: none;
         transition: color 0.15s ease;
       }
 
-      .footer-row a:hover {
+      .footer a:hover {
         color: var(--fg);
-      }
-
-      .footer-meta {
-        font-size: 10px;
-        letter-spacing: 0.18em;
-        text-transform: uppercase;
-      }
-
-      /* Form (used by unsubscribe confirm) */
-      form {
-        margin: 0;
       }
 
       /* Animations */
       @keyframes rise {
-        from { opacity: 0; transform: translateY(10px); }
+        from { opacity: 0; transform: translateY(8px); }
         to { opacity: 1; transform: translateY(0); }
       }
 
       .animate {
-        animation: rise 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+        animation: rise 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
       }
 
-      .delay-1 { animation-delay: 0.04s; }
+      .delay-1 { animation-delay: 0.05s; }
       .delay-2 { animation-delay: 0.10s; }
       .delay-3 { animation-delay: 0.16s; }
       .delay-4 { animation-delay: 0.22s; }
       .delay-5 { animation-delay: 0.28s; }
-      .delay-6 { animation-delay: 0.34s; }
 
       @media (prefers-reduced-motion: reduce) {
         .animate { animation: none; }
-        .status-dot::before { animation: none; }
+        .eyebrow-dot::before { animation: none; }
       }
 
       @media (max-width: 480px) {
         .container { padding: 20px 14px; }
-        .card { padding: 22px 20px 20px; border-radius: 16px; }
-        h1 { font-size: 19px; }
-        .message { font-size: 13px; }
+        .card { padding: 26px 22px 22px; border-radius: 18px; }
+        h1 { font-size: 25px; }
+        .message { font-size: 14px; }
+      }
+
+      /* Inline form (used by unsubscribe confirm) */
+      form {
+        display: inline-flex;
+        margin: 0;
       }
     </style>
   </head>
@@ -408,29 +438,46 @@ export function renderNotifyPage(options: {
     ${enableCongratsFx ? '<div class="congrats-layer" aria-hidden="true"><canvas class="congrats-canvas" data-notify-congrats-fx></canvas></div>' : ''}
     <div class="container">
       <div class="card ${statusModifier}">
-        <div class="brand animate">
-          <a class="brand-mark" href="/" aria-label="bunizao home">
-            ${PEEK_LOGO_SVG}
-            <span class="brand-mark-text">bunizao</span>
-          </a>
-          <span class="brand-label">${safeLabel}</span>
+        <a class="brand animate" href="/" aria-label="bunizao home">
+          ${PEEK_LOGO_SVG}
+          <span class="brand-mark">bunizao</span>
+        </a>
+        <div class="eyebrow animate delay-1">
+          <span class="eyebrow-dot" aria-hidden="true"></span>
+          <span>${escapeEyebrow(options.status)}</span>
         </div>
-        <div class="status-row animate delay-1">
-          <span class="status-dot" aria-hidden="true"></span>
-          <h1>${safeTitle}</h1>
-        </div>
-        <p class="message animate delay-2">${safeMessage}</p>
-        <div class="actions animate delay-3">${actionsHtml}</div>
-        <div class="dot-divider animate delay-4" aria-hidden="true">
-          <span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span>
-        </div>
-        <div class="footer-row animate delay-5">
-          <span class="footer-meta">buxx.me</span>
+        <h1 class="animate delay-2">${safeTitle}</h1>
+        <p class="message animate delay-3">${safeMessage}</p>
+        <div class="actions animate delay-4">${actionsHtml}</div>
+        <div class="footer-line animate delay-5" aria-hidden="true"></div>
+        <div class="footer animate delay-5">
+          <span>bunizao &middot; buxx.me</span>
           <a href="/mood">mood feed &rarr;</a>
         </div>
       </div>
     </div>
-    ${enableCongratsFx ? `<script>
+    ${enableCongratsFx ? buildConfettiScript() : ''}
+  </body>
+</html>`;
+
+  const headers = new Headers({ 'Content-Type': 'text/html; charset=utf-8' });
+  if (options.rateLimitHeaders) {
+    options.rateLimitHeaders.forEach((value, key) => {
+      headers.set(key, value);
+    });
+  }
+
+  return new Response(html, { headers });
+}
+
+function escapeEyebrow(status: PageStatus): string {
+  if (status === 'success') return 'All set';
+  if (status === 'error') return 'Something went off';
+  return 'Quick check';
+}
+
+function buildConfettiScript(): string {
+  return `<script>
       (() => {
         const canvas = document.querySelector('[data-notify-congrats-fx]');
         if (!(canvas instanceof HTMLCanvasElement)) return;
@@ -481,7 +528,7 @@ export function renderNotifyPage(options: {
             vy: random(0.9, 2.1),
             spin: random(-0.09, 0.09),
             rotation: random(0, Math.PI * 2),
-            size: random(2.6, 6.4),
+            size: random(2.4, 6.0),
             phase: random(0, Math.PI * 2),
             shape: Math.random() > 0.5 ? 'rect' : 'dot',
             color: pickColor(),
@@ -497,7 +544,7 @@ export function renderNotifyPage(options: {
             vy: Math.sin(angle) * speed - random(0.6, 1.8),
             life: random(38, 78),
             maxLife: random(38, 78),
-            size: random(1, 2.6),
+            size: random(1, 2.4),
             drag: random(0.96, 0.985),
             gravity: random(0.024, 0.05),
             color: pickColor(),
@@ -508,7 +555,7 @@ export function renderNotifyPage(options: {
           return {
             x, y,
             radius: 0,
-            maxRadius: random(160, 240),
+            maxRadius: random(180, 260),
             life: 0,
             maxLife: 60,
             color: darkScheme.matches ? 'rgba(250,250,250,1)' : 'rgba(10,10,10,1)',
@@ -572,7 +619,7 @@ export function renderNotifyPage(options: {
             if (t >= 1) { rings.splice(i, 1); continue; }
             r.radius = r.maxRadius * (1 - Math.pow(1 - t, 3));
             ctx.save();
-            ctx.globalAlpha = (1 - t) * 0.5;
+            ctx.globalAlpha = (1 - t) * 0.45;
             ctx.strokeStyle = r.color;
             ctx.lineWidth = 1;
             ctx.beginPath();
@@ -637,16 +684,5 @@ export function renderNotifyPage(options: {
 
         rafId = window.requestAnimationFrame(frame);
       })();
-    </script>` : ''}
-  </body>
-</html>`;
-
-  const headers = new Headers({ 'Content-Type': 'text/html; charset=utf-8' });
-  if (options.rateLimitHeaders) {
-    options.rateLimitHeaders.forEach((value, key) => {
-      headers.set(key, value);
-    });
-  }
-
-  return new Response(html, { headers });
+    </script>`;
 }
