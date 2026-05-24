@@ -5,7 +5,12 @@ import FeedShell from '@/features/mood/ui/FeedShell.astro';
 import NotifyPanel from '@/features/mood/ui/NotifyPanel.astro';
 import { loadMoodChannelSnapshot } from '@/features/mood/server/channel-service';
 import { buildMoodFeedResponse } from '@/features/mood/server/feed-service';
-import { getMoodFeedAnchorBeforeCursor, readMoodFeedAnchorId } from '@/features/mood/shared/feed-anchor';
+import {
+  getMoodFeedAnchorAfterCursor,
+  getMoodFeedAnchorBeforeCursor,
+  mergeMoodFeedWindowPosts,
+  readMoodFeedAnchorId,
+} from '@/features/mood/shared/feed-anchor';
 import { isE2ESiteFixtureEnabled } from '@/lib/e2e';
 import { buildSrcSet, withWidthParam } from '@/lib/media/responsive-image';
 import '@/styles/mood-gallery.css';
@@ -21,25 +26,40 @@ const channel = import.meta.env.CHANNEL || Astro.locals?.runtime?.env?.CHANNEL |
 const telegramUrl = channel ? `https://t.me/${channel}` : '';
 const turnstileSiteKey = import.meta.env.PUBLIC_TURNSTILE_SITE_KEY || '';
 const moodFeedAnchorId = readMoodFeedAnchorId(Astro.url);
+const moodFeedAnchorAfterCursor = getMoodFeedAnchorAfterCursor(moodFeedAnchorId);
 const moodFeedAnchorBeforeCursor = getMoodFeedAnchorBeforeCursor(moodFeedAnchorId);
-const initialFeed = isE2ESiteFixtureEnabled(Astro.locals)
-  ? null
-  : await loadMoodChannelSnapshot({
-      request: Astro.request,
-      locals: Astro.locals,
-    }, moodFeedAnchorBeforeCursor ? { before: moodFeedAnchorBeforeCursor } : {})
-      .then(({ channelInfo, posts }) => buildMoodFeedResponse(
-        {
-          request: Astro.request,
-          locals: Astro.locals,
-        },
-        channelInfo,
-        posts
-      ))
-      .catch((error) => {
-        console.warn('Failed to load initial mood feed:', error);
-        return null;
-      });
+
+async function loadInitialMoodFeed() {
+  if (isE2ESiteFixtureEnabled(Astro.locals)) return null;
+
+  const context = { request: Astro.request, locals: Astro.locals };
+
+  try {
+    if (moodFeedAnchorId) {
+      const [newer, older] = await Promise.all([
+        moodFeedAnchorAfterCursor
+          ? loadMoodChannelSnapshot(context, { after: moodFeedAnchorAfterCursor })
+          : Promise.resolve(null),
+        moodFeedAnchorBeforeCursor
+          ? loadMoodChannelSnapshot(context, { before: moodFeedAnchorBeforeCursor })
+          : Promise.resolve(null),
+      ]);
+      const posts = mergeMoodFeedWindowPosts(newer?.posts ?? [], older?.posts ?? []);
+      const channelInfo = newer?.channelInfo ?? older?.channelInfo;
+      if (channelInfo && posts.length > 0) {
+        return buildMoodFeedResponse(context, channelInfo, posts);
+      }
+    }
+
+    const latest = await loadMoodChannelSnapshot(context);
+    return buildMoodFeedResponse(context, latest.channelInfo, latest.posts);
+  } catch (error) {
+    console.warn('Failed to load initial mood feed:', error);
+    return null;
+  }
+}
+
+const initialFeed = await loadInitialMoodFeed();
 const preloadImageWidths = [480, 800, 1200];
 const preloadImageSizes = '(min-width: 1024px) 560px, (min-width: 640px) 480px, 100vw';
 const firstFeedImage = initialFeed?.posts.find((post) => post.image)?.image ?? '';
@@ -596,28 +616,39 @@ const skeletonGroups = [
   }
 
   :global(.mood-item--anchored) {
+    isolation: isolate;
+  }
+
+  :global(.mood-item--anchored)::before {
+    content: '';
+    position: absolute;
+    inset: 4px -12px;
     border-radius: 12px;
-    animation: mood-anchor-flash 2.6s ease-out;
+    background-color: transparent;
+    animation: mood-anchor-flash 1800ms cubic-bezier(0.4, 0, 0.2, 1);
+    pointer-events: none;
+    z-index: -1;
   }
 
   @keyframes mood-anchor-flash {
-    0%,
-    70% {
-      background: hsl(var(--foreground) / 0.06);
-      box-shadow: 0 0 0 1px hsl(var(--foreground) / 0.12);
+    0% {
+      background-color: transparent;
+    }
+
+    20%,
+    60% {
+      background-color: hsl(var(--foreground) / 0.05);
     }
 
     100% {
-      background: transparent;
-      box-shadow: 0 0 0 1px transparent;
+      background-color: transparent;
     }
   }
 
   @media (prefers-reduced-motion: reduce) {
-    :global(.mood-item--anchored) {
+    :global(.mood-item--anchored)::before {
       animation: none;
-      background: hsl(var(--foreground) / 0.06);
-      box-shadow: 0 0 0 1px hsl(var(--foreground) / 0.12);
+      background-color: hsl(var(--foreground) / 0.05);
     }
   }
 

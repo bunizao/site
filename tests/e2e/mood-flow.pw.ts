@@ -1,6 +1,33 @@
 import { expect, test } from './fixtures';
 import { getLatestMoodId } from './helpers';
 
+function createMoodFeedPost(
+  id: string,
+  text = `E2E mood feed item ${id}`,
+  overrides: Partial<{
+    image: string | null;
+    imageHeight: number | null;
+    imageLayout: string | null;
+    imageWidth: number | null;
+  }> = {}
+) {
+  return {
+    id,
+    datetime: '2026-02-10T13:00:00+00:00',
+    tag: 'e2e',
+    previewText: text,
+    previewHtml: text,
+    image: null,
+    mediaHtml: '',
+    needsDetailPage: true,
+    forwardedFrom: null,
+    quote: null,
+    reactions: [],
+    commentsCount: 0,
+    ...overrides,
+  };
+}
+
 function createMoodFeedPayload(moodId: string) {
   return {
     posts: [
@@ -194,6 +221,97 @@ test.describe('Mood routes', () => {
 
     await expandLink.click();
     await expect(page).toHaveURL(new RegExp(`${href}$`));
+  });
+
+  test('uses mood query ids as anchors without cutting newer context', async ({ page }) => {
+    const shiftingImage = 'https://image.example.test/mood/1001/0';
+    const channel = {
+      slug: 'e2e',
+      title: 'E2E Channel',
+      description: 'E2E mood feed',
+      avatar: '',
+    };
+
+    await page.route('**/api/moods**', async (route) => {
+      const url = new URL(route.request().url());
+      const after = url.searchParams.get('after');
+      const before = url.searchParams.get('before');
+
+      if (after === '1000') {
+        const imagePost = createMoodFeedPost('1001', 'E2E mood feed item 1001', {
+          image: shiftingImage,
+          imageHeight: null,
+          imageLayout: null,
+          imageWidth: null,
+        });
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({ posts: [createMoodFeedPost('1002'), imagePost], channel }),
+        });
+        return;
+      }
+
+      if (before === '1001') {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({ posts: [createMoodFeedPost('1000'), createMoodFeedPost('999')], channel }),
+        });
+        return;
+      }
+
+      if (after === '1002') {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({ posts: [createMoodFeedPost('1004'), createMoodFeedPost('1003')], channel }),
+        });
+        return;
+      }
+
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ posts: [], channel }),
+      });
+    });
+
+    await page.route('https://image.example.test/**', async (route) => {
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      await route.fulfill({
+        status: 200,
+        contentType: 'image/svg+xml',
+        body: '<svg xmlns="http://www.w3.org/2000/svg" width="800" height="1600"></svg>',
+      });
+    });
+
+    await page.goto('/mood?1000', { waitUntil: 'domcontentloaded' });
+
+    await expect(page.locator('[data-mood-id="1001"]')).toBeVisible();
+    await expect(page.locator('[data-mood-id="1000"]')).toBeVisible();
+
+    const initialOrder = await page.locator('[data-mood-list] .mood-item').evaluateAll((items) => (
+      items.map((item) => (item as HTMLElement).dataset.moodId)
+    ));
+    expect(initialOrder.indexOf('1001')).toBeLessThan(initialOrder.indexOf('1000'));
+
+    await expect
+      .poll(async () => {
+        return page.locator('[data-mood-id="1000"]').evaluate((element) => {
+          const rect = element.getBoundingClientRect();
+          return rect.top >= 0 && rect.bottom <= window.innerHeight;
+        });
+      }, { timeout: 30_000 })
+      .toBe(true);
+
+    await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
+    await expect(page.locator('[data-mood-id="1003"]')).toBeVisible();
+
+    const updatedOrder = await page.locator('[data-mood-list] .mood-item').evaluateAll((items) => (
+      items.map((item) => (item as HTMLElement).dataset.moodId)
+    ));
+    expect(updatedOrder.indexOf('1003')).toBeLessThan(updatedOrder.indexOf('1002'));
   });
 
   test('collapses header actions on compact mood feed scroll', async ({ page }) => {

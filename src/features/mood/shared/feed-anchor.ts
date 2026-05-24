@@ -25,3 +25,28 @@ export function getMoodFeedAnchorBeforeCursor(anchorId: string): string {
   const cursor = nextId.toString();
   return cursor.length <= 20 ? cursor : anchorId;
 }
+
+export function getMoodFeedAnchorAfterCursor(anchorId: string): string {
+  return isMoodFeedAnchorId(anchorId) ? anchorId : '';
+}
+
+function compareMoodFeedIdsDescending(a: string, b: string): number {
+  const left = BigInt(a);
+  const right = BigInt(b);
+  if (left === right) return 0;
+  return left > right ? -1 : 1;
+}
+
+export function mergeMoodFeedWindowPosts<T extends { id?: string | null }>(...groups: T[][]): T[] {
+  const postsById = new Map<string, T>();
+
+  groups.flat().forEach((post) => {
+    const id = post.id?.trim() ?? '';
+    if (!isMoodFeedAnchorId(id) || postsById.has(id)) return;
+    postsById.set(id, post);
+  });
+
+  return Array.from(postsById.values()).sort((a, b) => {
+    return compareMoodFeedIdsDescending(a.id ?? '0', b.id ?? '0');
+  });
+}
