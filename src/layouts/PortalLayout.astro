@@ -2,7 +2,7 @@
 interface Props {
   title: string;
   description?: string;
-  active?: 'overview' | 'subscribers' | 'broadcasts' | 'mascot' | 'newsletter' | 'svg' | 'mood-embed';
+  active?: 'overview' | 'oauth' | 'subscribers' | 'broadcasts' | 'mascot' | 'newsletter' | 'svg' | 'mood-embed';
   user?: {
     login: string;
     avatarUrl?: string;
@@ -13,6 +13,7 @@ import '@/styles/globals.css';
 import { ClientRouter } from 'astro:transitions';
 import {
   LayoutDashboard,
+  KeyRound,
   Users,
   Send,
   Sparkles,
@@ -41,6 +42,7 @@ const user = userProp
 
 const navItems = [
   { key: 'overview', label: 'Overview', href: '/dev/portal', Icon: LayoutDashboard },
+  { key: 'oauth', label: 'OAuth Hub', href: '/dev/portal/oauth', Icon: KeyRound },
   { key: 'subscribers', label: 'Subscribers', href: '/dev/portal/subscribers', Icon: Users },
   { key: 'broadcasts', label: 'Broadcasts', href: '/dev/portal/broadcasts', Icon: Send },
   { key: 'mascot', label: 'Mascot', href: '/dev/portal/mascot', Icon: Sparkles },
@@ -201,8 +203,10 @@ const navItems = [
         z-index: 20;
       }
       .portal-topbar-title {
+        margin: 0;
         font-size: 15px;
         font-weight: 500;
+        line-height: 1.2;
         letter-spacing: -0.01em;
       }
       .portal-topbar-description {
@@ -340,7 +344,7 @@ const navItems = [
       <div class="portal-content">
         <header class="portal-topbar">
           <div>
-            <div class="portal-topbar-title">{title}</div>
+            <h1 class="portal-topbar-title">{title}</h1>
             {description && <div class="portal-topbar-description">{description}</div>}
           </div>
           <div class="portal-topbar-spacer"></div>

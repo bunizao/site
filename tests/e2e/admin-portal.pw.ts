@@ -120,6 +120,16 @@ async function readElementHeight(page: Page, selector: string): Promise<number> 
 }
 
 test.describe('Admin portal polish', () => {
+  test('shows the OAuth hub as a protected portal surface', async ({ page }) => {
+    await page.goto('/oauth');
+
+    await expect(page).toHaveURL(/\/dev\/portal\/oauth$/);
+    await expect(page.getByRole('heading', { name: 'OAuth Hub' })).toBeVisible();
+    await expect(page.getByText('Owner identity', { exact: true })).toBeVisible();
+    await expect(page.getByText('Agent sandbox', { exact: true })).toBeVisible();
+    await expect(page.getByText('MCP clients', { exact: true })).toBeVisible();
+  });
+
   test('opens subscriber row menus without squeezing the page', async ({ page }) => {
     await stubSubscribers(page);
     await page.goto('/dev/portal/subscribers');
