@@ -223,7 +223,39 @@ test.describe('Mood routes', () => {
     await expect(page).toHaveURL(new RegExp(`${href}$`));
   });
 
-  test('uses mood query ids as anchors without cutting newer context', async ({ page }) => {
+  test('redirects legacy query mood ids to canonical detail routes', async ({ page }) => {
+    const moodRequests: string[] = [];
+    page.on('request', (request) => {
+      const url = new URL(request.url());
+      if (url.pathname === '/api/moods') {
+        moodRequests.push(request.url());
+      }
+    });
+
+    await page.goto('/mood?1000', { waitUntil: 'domcontentloaded' });
+
+    await expect(page).toHaveURL(/\/mood\/1000$/);
+    await expect(page.locator('.mood-post-content')).toContainText('E2E fallback mood 1000');
+    expect(moodRequests).toEqual([]);
+  });
+
+  test('uses explicit post query ids as anchors without repeated scroll correction', async ({ page }) => {
+    await page.addInitScript(() => {
+      const original = Element.prototype.scrollIntoView;
+      (window as any).__moodScrollIntoViewCalls = [];
+      Element.prototype.scrollIntoView = function patchedScrollIntoView(
+        arg?: boolean | ScrollIntoViewOptions
+      ) {
+        if (this instanceof HTMLElement && this.dataset.moodId) {
+          (window as any).__moodScrollIntoViewCalls.push({
+            id: this.dataset.moodId,
+            time: performance.now(),
+          });
+        }
+        return original.call(this, arg as any);
+      };
+    });
+
     const shiftingImage = 'https://image.example.test/mood/1001/0';
     const channel = {
       slug: 'e2e',
@@ -286,7 +318,7 @@ test.describe('Mood routes', () => {
       });
     });
 
-    await page.goto('/mood?1000', { waitUntil: 'domcontentloaded' });
+    await page.goto('/mood?post=1000', { waitUntil: 'domcontentloaded' });
 
     await expect(page.locator('[data-mood-id="1001"]')).toBeVisible();
     await expect(page.locator('[data-mood-id="1000"]')).toBeVisible();
@@ -305,6 +337,12 @@ test.describe('Mood routes', () => {
       }, { timeout: 30_000 })
       .toBe(true);
 
+    await page.waitForTimeout(1200);
+    const anchorScrollCalls = await page.evaluate(() => (
+      (window as any).__moodScrollIntoViewCalls as Array<{ id: string }>
+    ).filter((call) => call.id === '1000').length);
+    expect(anchorScrollCalls).toBe(1);
+
     await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
     await expect(page.locator('[data-mood-id="1003"]')).toBeVisible();
 
@@ -312,6 +350,11 @@ test.describe('Mood routes', () => {
       items.map((item) => (item as HTMLElement).dataset.moodId)
     ));
     expect(updatedOrder.indexOf('1003')).toBeLessThan(updatedOrder.indexOf('1002'));
+
+    const dateGroupsHaveItems = await page.locator('.mood-date-group').evaluateAll((groups) => (
+      groups.every((group) => group.querySelectorAll('.mood-item').length > 0)
+    ));
+    expect(dateGroupsHaveItems).toBe(true);
   });
 
   test('collapses header actions on compact mood feed scroll', async ({ page }) => {

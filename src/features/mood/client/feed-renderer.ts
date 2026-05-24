@@ -729,6 +729,9 @@ export function createFeedRenderer({
     const listFragment = document.createDocumentFragment();
 
     grouped.forEach((datePosts, dateKey) => {
+      const insertablePosts = datePosts.filter((post) => post?.id && !renderedIdSet.has(post.id));
+      if (insertablePosts.length === 0) return;
+
       let entry = getGroupEntry(dateKey);
       let group = entry?.group ?? null;
       let itemsContainer = entry?.items ?? null;
@@ -745,8 +748,7 @@ export function createFeedRenderer({
       if (!itemsContainer) return;
 
       const itemsFragment = document.createDocumentFragment();
-      datePosts.forEach((post) => {
-        if (!post?.id || renderedIdSet.has(post.id)) return;
+      insertablePosts.forEach((post) => {
         itemsFragment.appendChild(createMoodItem(post, globalIndex));
         renderedIdSet.add(post.id);
         globalIndex += 1;
@@ -779,6 +781,9 @@ export function createFeedRenderer({
     const firstListChild = list.firstChild;
 
     grouped.forEach((datePosts, dateKey) => {
+      const insertablePosts = datePosts.filter((post) => post?.id && !renderedIdSet.has(post.id));
+      if (insertablePosts.length === 0) return;
+
       let entry = getGroupEntry(dateKey);
       let group = entry?.group ?? null;
       let itemsContainer = entry?.items ?? null;
@@ -795,8 +800,7 @@ export function createFeedRenderer({
       if (!itemsContainer) return;
 
       const itemsFragment = document.createDocumentFragment();
-      datePosts.forEach((post) => {
-        if (!post?.id || renderedIdSet.has(post.id)) return;
+      insertablePosts.forEach((post) => {
         itemsFragment.appendChild(createMoodItem(post, globalIndex));
         renderedIdSet.add(post.id);
         globalIndex += 1;

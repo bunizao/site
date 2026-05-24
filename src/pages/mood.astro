@@ -6,9 +6,11 @@ import NotifyPanel from '@/features/mood/ui/NotifyPanel.astro';
 import { loadMoodChannelSnapshot } from '@/features/mood/server/channel-service';
 import { buildMoodFeedResponse } from '@/features/mood/server/feed-service';
 import {
+  getMoodDetailRedirectPath,
   getMoodFeedAnchorAfterCursor,
   getMoodFeedAnchorBeforeCursor,
   mergeMoodFeedWindowPosts,
+  readMoodDetailRedirectId,
   readMoodFeedAnchorId,
 } from '@/features/mood/shared/feed-anchor';
 import { isE2ESiteFixtureEnabled } from '@/lib/e2e';
@@ -25,6 +27,10 @@ const oembed = { href: `/api/oembed.json?url=${encodeURIComponent(canonicalUrl)}
 const channel = import.meta.env.CHANNEL || Astro.locals?.runtime?.env?.CHANNEL || '';
 const telegramUrl = channel ? `https://t.me/${channel}` : '';
 const turnstileSiteKey = import.meta.env.PUBLIC_TURNSTILE_SITE_KEY || '';
+const moodDetailRedirectId = readMoodDetailRedirectId(Astro.url);
+if (moodDetailRedirectId) {
+  return Astro.redirect(getMoodDetailRedirectPath(Astro.url, moodDetailRedirectId), 308);
+}
 const moodFeedAnchorId = readMoodFeedAnchorId(Astro.url);
 const moodFeedAnchorAfterCursor = getMoodFeedAnchorAfterCursor(moodFeedAnchorId);
 const moodFeedAnchorBeforeCursor = getMoodFeedAnchorBeforeCursor(moodFeedAnchorId);

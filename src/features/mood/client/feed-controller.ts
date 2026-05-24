@@ -81,8 +81,6 @@ export function initMoodFeedController(): void {
       let pendingPosts: MoodData[] = [];
       const feedAnchorId = getMoodFeedAnchorId();
       let feedAnchorHandled = !feedAnchorId;
-      let feedAnchorCorrectionCancelled = false;
-      let feedAnchorCorrectionStopAt = 0;
       hasNewer = Boolean(feedAnchorId);
       const updateWatcher = createFeedUpdateWatcher({
         list,
@@ -288,37 +286,6 @@ export function initMoodFeedController(): void {
         formatDateKey,
       });
 
-      const cancelFeedAnchorCorrection = (): void => {
-        feedAnchorCorrectionCancelled = true;
-      };
-
-      const startFeedAnchorCorrection = (): void => {
-        feedAnchorCorrectionCancelled = false;
-        feedAnchorCorrectionStopAt = window.performance.now() + 4500;
-        window.addEventListener('wheel', cancelFeedAnchorCorrection, { once: true, passive: true });
-        window.addEventListener('touchstart', cancelFeedAnchorCorrection, { once: true, passive: true });
-        window.addEventListener('keydown', cancelFeedAnchorCorrection, { once: true });
-
-        const correctAnchor = (): void => {
-          if (feedAnchorCorrectionCancelled) return;
-
-          const target = list.querySelector<HTMLElement>(`[data-mood-id="${feedAnchorId}"]`);
-          if (!target) return;
-
-          const rect = target.getBoundingClientRect();
-          const isInView = rect.top >= 96 && rect.bottom <= window.innerHeight - 48;
-          if (!isInView) {
-            renderer.scrollToMood(feedAnchorId, { behavior: 'auto' });
-          }
-
-          if (window.performance.now() < feedAnchorCorrectionStopAt) {
-            window.setTimeout(correctAnchor, 300);
-          }
-        };
-
-        window.setTimeout(correctAnchor, 250);
-      };
-
       const revealFeedAnchor = (): void => {
         if (!feedAnchorId || feedAnchorHandled) return;
 
@@ -326,7 +293,6 @@ export function initMoodFeedController(): void {
           if (feedAnchorHandled) return;
           if (renderer.scrollToMood(feedAnchorId, { highlight: true })) {
             feedAnchorHandled = true;
-            startFeedAnchorCorrection();
             setStatus('');
           }
         });
