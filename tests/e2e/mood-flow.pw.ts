@@ -278,7 +278,7 @@ test.describe('Mood routes', () => {
     });
 
     await page.route('https://image.example.test/**', async (route) => {
-      await page.waitForTimeout(500);
+      await new Promise((resolve) => setTimeout(resolve, 500));
       await route.fulfill({
         status: 200,
         contentType: 'image/svg+xml',
