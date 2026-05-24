@@ -4,7 +4,6 @@ import { createFeedMediaHydrator } from '@/features/mood/client/feed-media-hydra
 import { createFeedRenderer } from '@/features/mood/client/feed-renderer';
 import { createFeedUpdateWatcher } from '@/features/mood/client/feed-update-watcher';
 import { initMoodGalleries } from '@/features/mood/client/gallery';
-import { readMoodFeedAnchorId } from '@/features/mood/shared/feed-anchor';
 import type {
   ChannelInfo,
   MoodData,
@@ -13,7 +12,7 @@ import type {
 export function initMoodFeedController(): void {
     const loadingEl = document.querySelector('[data-mood-loading]');
     const errorEl = document.querySelector('[data-mood-error]');
-    const feedEl = document.querySelector('[data-mood-feed]') as HTMLElement | null;
+    const feedEl = document.querySelector('[data-mood-feed]');
     const list = document.querySelector('[data-mood-list]') as HTMLElement | null;
     const status = document.querySelector('[data-load-status]');
     const sentinel = document.querySelector('[data-mood-sentinel]');
@@ -42,17 +41,6 @@ export function initMoodFeedController(): void {
           ],
         };
 
-      const getMoodFeedAnchorId = (): string => {
-        const configuredAnchorId = feedEl.dataset.moodAnchorId?.trim() ?? '';
-        if (configuredAnchorId) return configuredAnchorId;
-
-        try {
-          return readMoodFeedAnchorId(new URL(window.location.href));
-        } catch {
-          return '';
-        }
-      };
-
       const formatDateKey = (value: string): string => {
         const date = new Date(value);
         if (Number.isNaN(date.getTime())) return '';
@@ -68,8 +56,6 @@ export function initMoodFeedController(): void {
       let fallbackOldestId = '';
       let pendingDateKey: string | null = null;
       let pendingPosts: MoodData[] = [];
-      const feedAnchorId = getMoodFeedAnchorId();
-      let feedAnchorHandled = !feedAnchorId;
       const updateWatcher = createFeedUpdateWatcher({
         list,
         updateNoticeEl,
@@ -245,34 +231,6 @@ export function initMoodFeedController(): void {
         formatDateKey,
       });
 
-      const revealFeedAnchor = (): void => {
-        if (!feedAnchorId || feedAnchorHandled) return;
-
-        window.requestAnimationFrame(() => {
-          if (feedAnchorHandled) return;
-          if (renderer.scrollToMood(feedAnchorId, { highlight: true })) {
-            feedAnchorHandled = true;
-            setStatus('');
-          }
-        });
-      };
-
-      const reportMissingFeedAnchor = (): void => {
-        if (!feedAnchorId || feedAnchorHandled) return;
-
-        window.setTimeout(() => {
-          if (!feedAnchorHandled) {
-            setStatus(`Mood ${feedAnchorId} is not available in this feed.`);
-          }
-        }, 250);
-      };
-
-      const startUpdateWatcher = (): void => {
-        if (!feedAnchorId) {
-          updateWatcher.start();
-        }
-      };
-
       commentsPopover.init();
       const serverRenderedCount = list.querySelectorAll('.mood-item[data-mood-id]').length;
       if (serverRenderedCount > 0) {
@@ -282,10 +240,7 @@ export function initMoodFeedController(): void {
 
       const appendMoods = (posts: MoodData[], startIndex = totalCount): void => {
         totalCount = renderer.appendMoods(posts, startIndex);
-        if (!feedAnchorId) {
-          updateWatcher.syncLatestSeenId();
-        }
-        revealFeedAnchor();
+        updateWatcher.syncLatestSeenId();
       };
 
       const handleNoMore = (): void => {
@@ -309,8 +264,6 @@ export function initMoodFeedController(): void {
         loadingEl.classList.add('is-hidden');
         errorEl.classList.add('is-hidden');
         feedEl.classList.remove('is-hidden');
-        revealFeedAnchor();
-        reportMissingFeedAnchor();
       };
 
       const startObserver = (): void => {
@@ -348,7 +301,7 @@ export function initMoodFeedController(): void {
             }
 
             showFeed();
-            startUpdateWatcher();
+            updateWatcher.start();
 
             if (!posts.length) {
               handleNoMore();
@@ -393,7 +346,7 @@ export function initMoodFeedController(): void {
             showFeed();
             handleNoMore();
             setStatus('No moods yet.');
-            startUpdateWatcher();
+            updateWatcher.start();
             return;
           }
 
@@ -401,7 +354,7 @@ export function initMoodFeedController(): void {
             appendMoods(ready, totalCount);
           }
           showFeed();
-          startUpdateWatcher();
+          updateWatcher.start();
 
           if (!hasMore) {
             handleNoMore();
@@ -486,9 +439,7 @@ export function initMoodFeedController(): void {
           loadButton.addEventListener('click', loadMore);
         }
 
-        if (!feedAnchorId) {
-          updateWatcher.init();
-        }
+        updateWatcher.init();
         renderer.bindInteractions();
         animatedEmoji.observe(list);
         loadInitial();

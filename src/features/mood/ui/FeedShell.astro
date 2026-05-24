@@ -19,20 +19,17 @@ interface Props {
   skeletonGroups: SkeletonGroup[];
   initialPosts?: MoodFeedItem[];
   initialChannel?: MoodChannelSummary;
-  anchorId?: string;
 }
 
 const {
   skeletonGroups,
   initialPosts = [],
   initialChannel,
-  anchorId = '',
 } = Astro.props;
 
 const initialFeedPayload = {
   posts: initialPosts,
   channel: initialChannel,
-  anchorId: anchorId || undefined,
 };
 const hasInitialFeedPayload = initialPosts.length > 0 || Boolean(initialChannel);
 const CRITICAL_INITIAL_POST_LIMIT = 8;
@@ -97,16 +94,10 @@ function hasRenderableMedia(post: MoodFeedItem): boolean {
   );
 }
 
-function getCriticalInitialPosts(posts: MoodFeedItem[], requiredPostId = ''): MoodFeedItem[] {
+function getCriticalInitialPosts(posts: MoodFeedItem[]): MoodFeedItem[] {
   const source = posts.filter((post) => post?.id);
   const firstMediaIndex = source.findIndex(hasRenderableMedia);
-  const mediaLimit = firstMediaIndex >= 0 ? firstMediaIndex + 1 : CRITICAL_INITIAL_POST_LIMIT;
-  const requiredIndex = requiredPostId
-    ? source.findIndex((post) => post.id === requiredPostId)
-    : -1;
-  const limit = requiredIndex >= 0
-    ? Math.max(mediaLimit, requiredIndex + 1)
-    : mediaLimit;
+  const limit = firstMediaIndex >= 0 ? firstMediaIndex + 1 : CRITICAL_INITIAL_POST_LIMIT;
 
   return source.slice(0, limit);
 }
@@ -204,7 +195,7 @@ function shouldHideQuoteAuthor(value?: string): boolean {
   return Boolean((slug && normalized === slug) || (title && normalized === title));
 }
 
-const criticalInitialPosts = getCriticalInitialPosts(initialPosts, anchorId);
+const criticalInitialPosts = getCriticalInitialPosts(initialPosts);
 const criticalDateGroups = groupPostsByDate(criticalInitialPosts);
 const criticalPriorityPostId = criticalInitialPosts.find(hasRenderableMedia)?.id ?? '';
 const hasCriticalInitialPosts = criticalInitialPosts.length > 0;
@@ -246,11 +237,7 @@ const hasCriticalInitialPosts = criticalInitialPosts.length > 0;
     <p class="text-sm text-muted-foreground">Unable to load moods. Please try again later.</p>
   </div>
 
-  <div
-    class={`mood-feed${hasCriticalInitialPosts ? '' : ' is-hidden'}`}
-    data-mood-feed
-    data-mood-anchor-id={anchorId || undefined}
-  >
+  <div class={`mood-feed${hasCriticalInitialPosts ? '' : ' is-hidden'}`} data-mood-feed>
     {hasInitialFeedPayload && (
       <script type="application/json" data-mood-initial-feed set:html={JSON.stringify(initialFeedPayload)}></script>
     )}
