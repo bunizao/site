@@ -2,6 +2,7 @@
 import Hero from '@/features/mood/ui/Hero.astro';
 import type { MoodFeedItem, MoodChannelSummary } from '@/features/mood/server/contracts';
 import { renderMoodGalleryMarkup } from '@/features/mood/shared/gallery-render';
+import { getMoodFeedThumbnailStyle } from '@/features/mood/shared/feed-thumbnail';
 import { buildSrcSet, withWidthParam } from '@/lib/media/responsive-image';
 
 interface SkeletonItem {
@@ -145,16 +146,6 @@ function getThumbClass(post: MoodFeedItem): string {
     }
   }
   return classes.join(' ');
-}
-
-function getThumbStyle(post: MoodFeedItem): string | undefined {
-  if (post.imageWidth && post.imageHeight) {
-    return `aspect-ratio:${post.imageWidth} / ${post.imageHeight};`;
-  }
-  if (post.imageWidth && !post.imageHeight) {
-    return 'aspect-ratio:1 / 1;';
-  }
-  return undefined;
 }
 
 function getCommentsCountInfo(value: MoodFeedItem['commentsCount']): { count: number; label: string } {
@@ -373,7 +364,7 @@ const hasCriticalInitialPosts = criticalInitialPosts.length > 0;
                     ) : hasGalleryPreview && post.gallery ? (
                       <Fragment set:html={renderMoodGalleryMarkup(post.gallery, { variant: 'feed', priority: isPriorityMedia })} />
                     ) : post.image ? (
-                      <div class={getThumbClass(post)} style={getThumbStyle(post)}>
+                      <div class={getThumbClass(post)} style={getMoodFeedThumbnailStyle(post)}>
                         <img
                           alt=""
                           width={post.imageWidth ?? undefined}
