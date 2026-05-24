@@ -223,23 +223,7 @@ test.describe('Mood routes', () => {
     await expect(page).toHaveURL(new RegExp(`${href}$`));
   });
 
-  test('redirects legacy query mood ids to canonical detail routes', async ({ page }) => {
-    const moodRequests: string[] = [];
-    page.on('request', (request) => {
-      const url = new URL(request.url());
-      if (url.pathname === '/api/moods') {
-        moodRequests.push(request.url());
-      }
-    });
-
-    await page.goto('/mood?1000', { waitUntil: 'domcontentloaded' });
-
-    await expect(page).toHaveURL(/\/mood\/1000$/);
-    await expect(page.locator('.mood-post-content')).toContainText('E2E fallback mood 1000');
-    expect(moodRequests).toEqual([]);
-  });
-
-  test('uses explicit post query ids as anchors without repeated scroll correction', async ({ page }) => {
+  test('uses short query ids as bounded feed anchors without repeated scroll correction', async ({ page }) => {
     await page.addInitScript(() => {
       const original = Element.prototype.scrollIntoView;
       (window as any).__moodScrollIntoViewCalls = [];
@@ -263,13 +247,18 @@ test.describe('Mood routes', () => {
       description: 'E2E mood feed',
       avatar: '',
     };
+    const afterRequests: string[] = [];
 
     await page.route('**/api/moods**', async (route) => {
       const url = new URL(route.request().url());
       const after = url.searchParams.get('after');
       const before = url.searchParams.get('before');
 
-      if (after === '1000') {
+      if (after) {
+        afterRequests.push(after);
+      }
+
+      if (before === '1011') {
         const imagePost = createMoodFeedPost('1001', 'E2E mood feed item 1001', {
           image: shiftingImage,
           imageHeight: null,
@@ -279,25 +268,22 @@ test.describe('Mood routes', () => {
         await route.fulfill({
           status: 200,
           contentType: 'application/json',
-          body: JSON.stringify({ posts: [createMoodFeedPost('1002'), imagePost], channel }),
+          body: JSON.stringify({
+            posts: [createMoodFeedPost('1002'), imagePost, createMoodFeedPost('1000'), createMoodFeedPost('999')],
+            channel,
+          }),
         });
         return;
       }
 
-      if (before === '1001') {
+      if (before === '1013') {
         await route.fulfill({
           status: 200,
           contentType: 'application/json',
-          body: JSON.stringify({ posts: [createMoodFeedPost('1000'), createMoodFeedPost('999')], channel }),
-        });
-        return;
-      }
-
-      if (after === '1002') {
-        await route.fulfill({
-          status: 200,
-          contentType: 'application/json',
-          body: JSON.stringify({ posts: [createMoodFeedPost('1004'), createMoodFeedPost('1003')], channel }),
+          body: JSON.stringify({
+            posts: [createMoodFeedPost('1004'), createMoodFeedPost('1003'), createMoodFeedPost('1002')],
+            channel,
+          }),
         });
         return;
       }
@@ -318,10 +304,11 @@ test.describe('Mood routes', () => {
       });
     });
 
-    await page.goto('/mood?post=1000', { waitUntil: 'domcontentloaded' });
+    await page.goto('/mood?1000', { waitUntil: 'domcontentloaded' });
 
     await expect(page.locator('[data-mood-id="1001"]')).toBeVisible();
     await expect(page.locator('[data-mood-id="1000"]')).toBeVisible();
+    await expect(page).toHaveURL(/\/mood\?1000$/);
 
     const initialOrder = await page.locator('[data-mood-list] .mood-item').evaluateAll((items) => (
       items.map((item) => (item as HTMLElement).dataset.moodId)
@@ -350,6 +337,7 @@ test.describe('Mood routes', () => {
       items.map((item) => (item as HTMLElement).dataset.moodId)
     ));
     expect(updatedOrder.indexOf('1003')).toBeLessThan(updatedOrder.indexOf('1002'));
+    expect(afterRequests).toEqual([]);
 
     const dateGroupsHaveItems = await page.locator('.mood-date-group').evaluateAll((groups) => (
       groups.every((group) => group.querySelectorAll('.mood-item').length > 0)

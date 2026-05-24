@@ -1,18 +1,12 @@
 const MOOD_FEED_ANCHOR_PATTERN = /^[1-9]\d{0,19}$/;
+const MOOD_FEED_ANCHOR_WINDOW_OFFSET = 10n;
 
 export function isMoodFeedAnchorId(value: string): boolean {
   return MOOD_FEED_ANCHOR_PATTERN.test(value.trim());
 }
 
 export function readMoodFeedAnchorId(url: URL): string {
-  const named = (url.searchParams.get('post') ?? '').trim();
-  if (isMoodFeedAnchorId(named)) return named;
-
-  return '';
-}
-
-export function readMoodDetailRedirectId(url: URL): string {
-  const named = (url.searchParams.get('id') ?? '').trim();
+  const named = (url.searchParams.get('post') ?? url.searchParams.get('id') ?? '').trim();
   if (isMoodFeedAnchorId(named)) return named;
 
   for (const [key, value] of url.searchParams) {
@@ -25,28 +19,19 @@ export function readMoodDetailRedirectId(url: URL): string {
   return '';
 }
 
-export function getMoodDetailRedirectPath(url: URL, id: string): string {
-  const redirectUrl = new URL(`/mood/${id}`, url);
-
-  for (const [key, value] of url.searchParams) {
-    const isBareId = !value.trim() && key.trim() === id;
-    if (key === 'id' || isBareId) continue;
-    redirectUrl.searchParams.append(key, value);
-  }
-
-  return `${redirectUrl.pathname}${redirectUrl.search}`;
-}
-
-export function getMoodFeedAnchorBeforeCursor(anchorId: string): string {
+function addMoodFeedCursorOffset(anchorId: string, offset: bigint): string {
   if (!isMoodFeedAnchorId(anchorId)) return '';
 
-  const nextId = BigInt(anchorId) + 1n;
-  const cursor = nextId.toString();
+  const cursor = (BigInt(anchorId) + offset).toString();
   return cursor.length <= 20 ? cursor : anchorId;
 }
 
-export function getMoodFeedAnchorAfterCursor(anchorId: string): string {
-  return isMoodFeedAnchorId(anchorId) ? anchorId : '';
+export function getMoodFeedAnchorBeforeCursor(anchorId: string): string {
+  return addMoodFeedCursorOffset(anchorId, 1n);
+}
+
+export function getMoodFeedAnchorWindowBeforeCursor(anchorId: string): string {
+  return addMoodFeedCursorOffset(anchorId, MOOD_FEED_ANCHOR_WINDOW_OFFSET + 1n);
 }
 
 function compareMoodFeedIdsDescending(a: string, b: string): number {

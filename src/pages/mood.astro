@@ -6,11 +6,9 @@ import NotifyPanel from '@/features/mood/ui/NotifyPanel.astro';
 import { loadMoodChannelSnapshot } from '@/features/mood/server/channel-service';
 import { buildMoodFeedResponse } from '@/features/mood/server/feed-service';
 import {
-  getMoodDetailRedirectPath,
-  getMoodFeedAnchorAfterCursor,
   getMoodFeedAnchorBeforeCursor,
+  getMoodFeedAnchorWindowBeforeCursor,
   mergeMoodFeedWindowPosts,
-  readMoodDetailRedirectId,
   readMoodFeedAnchorId,
 } from '@/features/mood/shared/feed-anchor';
 import { isE2ESiteFixtureEnabled } from '@/lib/e2e';
@@ -27,13 +25,9 @@ const oembed = { href: `/api/oembed.json?url=${encodeURIComponent(canonicalUrl)}
 const channel = import.meta.env.CHANNEL || Astro.locals?.runtime?.env?.CHANNEL || '';
 const telegramUrl = channel ? `https://t.me/${channel}` : '';
 const turnstileSiteKey = import.meta.env.PUBLIC_TURNSTILE_SITE_KEY || '';
-const moodDetailRedirectId = readMoodDetailRedirectId(Astro.url);
-if (moodDetailRedirectId) {
-  return Astro.redirect(getMoodDetailRedirectPath(Astro.url, moodDetailRedirectId), 308);
-}
 const moodFeedAnchorId = readMoodFeedAnchorId(Astro.url);
-const moodFeedAnchorAfterCursor = getMoodFeedAnchorAfterCursor(moodFeedAnchorId);
 const moodFeedAnchorBeforeCursor = getMoodFeedAnchorBeforeCursor(moodFeedAnchorId);
+const moodFeedAnchorWindowBeforeCursor = getMoodFeedAnchorWindowBeforeCursor(moodFeedAnchorId);
 
 async function loadInitialMoodFeed() {
   if (isE2ESiteFixtureEnabled(Astro.locals)) return null;
@@ -42,18 +36,31 @@ async function loadInitialMoodFeed() {
 
   try {
     if (moodFeedAnchorId) {
-      const [newer, older] = await Promise.all([
-        moodFeedAnchorAfterCursor
-          ? loadMoodChannelSnapshot(context, { after: moodFeedAnchorAfterCursor })
-          : Promise.resolve(null),
+      const focused = moodFeedAnchorWindowBeforeCursor
+        ? await loadMoodChannelSnapshot(context, { before: moodFeedAnchorWindowBeforeCursor })
+        : null;
+      const focusedPosts = focused?.posts ?? [];
+      if (focused && focusedPosts.some((post) => post.id === moodFeedAnchorId)) {
+        return buildMoodFeedResponse(context, focused.channelInfo, focusedPosts);
+      }
+
+      const fallback = (
         moodFeedAnchorBeforeCursor
-          ? loadMoodChannelSnapshot(context, { before: moodFeedAnchorBeforeCursor })
-          : Promise.resolve(null),
-      ]);
-      const posts = mergeMoodFeedWindowPosts(newer?.posts ?? [], older?.posts ?? []);
-      const channelInfo = newer?.channelInfo ?? older?.channelInfo;
-      if (channelInfo && posts.length > 0) {
-        return buildMoodFeedResponse(context, channelInfo, posts);
+        && moodFeedAnchorBeforeCursor !== moodFeedAnchorWindowBeforeCursor
+      )
+        ? await loadMoodChannelSnapshot(context, { before: moodFeedAnchorBeforeCursor })
+        : null;
+      const fallbackPosts = fallback?.posts ?? [];
+      if (fallback && fallbackPosts.length > 0) {
+        return buildMoodFeedResponse(context, fallback.channelInfo, fallbackPosts);
+      }
+
+      if (focused && focusedPosts.length > 0) {
+        return buildMoodFeedResponse(
+          context,
+          focused.channelInfo,
+          mergeMoodFeedWindowPosts(focusedPosts)
+        );
       }
     }
 

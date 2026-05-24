@@ -5,8 +5,8 @@ import { createFeedRenderer } from '@/features/mood/client/feed-renderer';
 import { createFeedUpdateWatcher } from '@/features/mood/client/feed-update-watcher';
 import { initMoodGalleries } from '@/features/mood/client/gallery';
 import {
-  getMoodFeedAnchorAfterCursor,
   getMoodFeedAnchorBeforeCursor,
+  getMoodFeedAnchorWindowBeforeCursor,
   mergeMoodFeedWindowPosts,
   readMoodFeedAnchorId,
 } from '@/features/mood/shared/feed-anchor';
@@ -113,6 +113,18 @@ export function initMoodFeedController(): void {
 
       const getAfterId = (): string => {
         return newestId || fallbackNewestId;
+      };
+
+      const isMoodIdGreaterThan = (candidate?: string | null, target?: string | null): boolean => {
+        const left = candidate?.trim() ?? '';
+        const right = target?.trim() ?? '';
+        if (!left || !right) return false;
+
+        try {
+          return BigInt(left) > BigInt(right);
+        } catch {
+          return left > right;
+        }
       };
 
       const stagePostsForRender = (posts: MoodData[]): MoodData[] => {
@@ -417,20 +429,31 @@ export function initMoodFeedController(): void {
       };
 
       const loadAnchorWindow = async (): Promise<{ posts: MoodData[]; channel?: ChannelInfo }> => {
-        const afterId = getMoodFeedAnchorAfterCursor(feedAnchorId);
+        const windowBeforeId = getMoodFeedAnchorWindowBeforeCursor(feedAnchorId);
         const beforeId = getMoodFeedAnchorBeforeCursor(feedAnchorId);
-        const emptyFeed: Promise<{ posts: MoodData[]; channel?: ChannelInfo }> = Promise.resolve({ posts: [] });
-        const [newer, older] = await Promise.all([
-          afterId ? fetchMoods({ afterId }) : emptyFeed,
-          beforeId ? fetchMoods({ beforeId }) : emptyFeed,
-        ]);
+        const emptyFeed: { posts: MoodData[]; channel?: ChannelInfo } = { posts: [] };
+        const focused = windowBeforeId
+          ? await fetchMoods({ beforeId: windowBeforeId })
+          : emptyFeed;
+        const focusedPosts = Array.isArray(focused.posts) ? focused.posts : [];
+        if (focusedPosts.some((post) => post.id === feedAnchorId)) {
+          return { posts: focusedPosts, channel: focused.channel };
+        }
+
+        const fallback = (
+          beforeId
+          && beforeId !== windowBeforeId
+        )
+          ? await fetchMoods({ beforeId })
+          : emptyFeed;
+        const fallbackPosts = Array.isArray(fallback.posts) ? fallback.posts : [];
+        if (fallbackPosts.length > 0) {
+          return { posts: fallbackPosts, channel: fallback.channel ?? focused.channel };
+        }
 
         return {
-          posts: mergeMoodFeedWindowPosts(
-            Array.isArray(newer.posts) ? newer.posts : [],
-            Array.isArray(older.posts) ? older.posts : []
-          ),
-          channel: newer.channel ?? older.channel,
+          posts: mergeMoodFeedWindowPosts(focusedPosts),
+          channel: focused.channel,
         };
       };
 
@@ -550,8 +573,9 @@ export function initMoodFeedController(): void {
           return;
         }
 
-        const afterId = getAfterId();
-        if (!afterId) {
+        const currentNewestId = getAfterId();
+        const beforeId = getMoodFeedAnchorWindowBeforeCursor(currentNewestId);
+        if (!currentNewestId || !beforeId) {
           handleNoMoreNewer();
           return;
         }
@@ -559,8 +583,10 @@ export function initMoodFeedController(): void {
         isLoadingNewer = true;
 
         try {
-          const data = await fetchMoods({ afterId });
-          const posts = Array.isArray(data.posts) ? data.posts : [];
+          const data = await fetchMoods({ beforeId });
+          const posts = Array.isArray(data.posts)
+            ? data.posts.filter((post) => isMoodIdGreaterThan(post.id, currentNewestId))
+            : [];
           if (data.channel) {
             channelInfo = data.channel;
           }
