@@ -44,6 +44,34 @@ export function buildNotifyPageHtml(options: {
       ? 'is-error'
       : 'is-info';
 
+  // Hero treatment is reserved for the confirm-success moment: editorial typography + receipt strip.
+  // Confetti carries the celebration; the layout stays confident and quiet.
+  const heroTreatment = enableCongratsFx;
+
+  const titleHtml = safeTitle;
+
+  const receiptHtml = heroTreatment
+    ? `<div class="receipt animate delay-3" aria-hidden="true">
+            <div class="receipt-row">
+              <span class="receipt-key">Status</span>
+              <span class="receipt-value">
+                <span class="receipt-pulse"></span>
+                Active
+              </span>
+            </div>
+            <div class="receipt-row">
+              <span class="receipt-key">Confirmed</span>
+              <span class="receipt-value receipt-mono" data-notify-confirmed-at>just now</span>
+            </div>
+            <div class="receipt-row">
+              <span class="receipt-key">Reference</span>
+              <span class="receipt-value receipt-mono">${generateStampId()}</span>
+            </div>
+          </div>`
+    : '';
+
+  const cardModifier = `${statusModifier}${heroTreatment ? ' is-hero' : ''}`;
+
   return `<!doctype html>
 <html lang="en">
   <head>
@@ -86,6 +114,10 @@ export function buildNotifyPageHtml(options: {
         --grid: rgba(10, 10, 10, 0.07);
         --peek-accent: #c44848;
         --accent-error: #c44848;
+        --accent-success: #16a34a;
+        --halo-a: rgba(196, 72, 72, 0.32);
+        --halo-b: rgba(245, 158, 11, 0.22);
+        --halo-c: rgba(34, 197, 94, 0.20);
         --shadow: 0 1px 0 rgba(255, 255, 255, 0.6) inset, 0 18px 60px -28px rgba(20, 20, 30, 0.16);
         color-scheme: light;
       }
@@ -102,6 +134,10 @@ export function buildNotifyPageHtml(options: {
           --grid: rgba(255, 255, 255, 0.06);
           --peek-accent: #f87171;
           --accent-error: #f87171;
+          --accent-success: #22c55e;
+          --halo-a: rgba(248, 113, 113, 0.28);
+          --halo-b: rgba(251, 191, 36, 0.20);
+          --halo-c: rgba(34, 197, 94, 0.20);
           --shadow: 0 1px 0 rgba(255, 255, 255, 0.05) inset, 0 24px 60px -28px rgba(0, 0, 0, 0.6);
           color-scheme: dark;
         }
@@ -145,6 +181,30 @@ export function buildNotifyPageHtml(options: {
         -webkit-mask-image: radial-gradient(ellipse at center, #000 32%, transparent 75%);
       }
 
+      .halo {
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+        z-index: 0;
+        background:
+          radial-gradient(48vmin 48vmin at 18% 22%, var(--halo-a), transparent 62%),
+          radial-gradient(58vmin 58vmin at 82% 30%, var(--halo-b), transparent 68%),
+          radial-gradient(60vmin 60vmin at 50% 110%, var(--halo-c), transparent 64%);
+        opacity: 0;
+        transition: opacity 0.8s ease-out;
+        animation: halo-drift 16s ease-in-out infinite alternate;
+      }
+
+      .is-success ~ .halo,
+      body:has(.is-success) .halo {
+        opacity: 0.7;
+      }
+
+      @keyframes halo-drift {
+        0% { transform: translate3d(0, 0, 0) scale(1); }
+        100% { transform: translate3d(-2%, 1.4%, 0) scale(1.05); }
+      }
+
       .congrats-layer {
         position: fixed;
         inset: 0;
@@ -174,29 +234,30 @@ export function buildNotifyPageHtml(options: {
         border-radius: 20px;
         padding: 32px 36px 28px;
         box-shadow: var(--shadow);
+        overflow: hidden;
       }
 
       /* Brand row */
       .brand {
         display: flex;
         align-items: center;
-        gap: 9px;
+        gap: 10px;
         margin-bottom: 36px;
         color: var(--fg);
         text-decoration: none;
       }
 
       .brand svg {
-        width: 18px;
-        height: 13.5px;
+        width: 24px;
+        height: 18px;
         display: block;
       }
 
       .brand-mark {
-        font-family: 'Geist', ui-sans-serif, system-ui, sans-serif;
+        font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
         font-size: 14px;
         font-weight: 600;
-        letter-spacing: -0.01em;
+        letter-spacing: 0;
       }
 
       /* Eyebrow + title */
@@ -207,7 +268,7 @@ export function buildNotifyPageHtml(options: {
         margin-bottom: 14px;
         font-size: 13px;
         font-weight: 500;
-        color: var(--muted);
+        color: var(--fg);
         letter-spacing: -0.005em;
       }
 
@@ -219,7 +280,7 @@ export function buildNotifyPageHtml(options: {
       }
 
       .is-info .eyebrow-dot { background: var(--fg); }
-      .is-success .eyebrow-dot { background: var(--fg); }
+      .is-success .eyebrow-dot { background: var(--accent-success); }
       .is-error .eyebrow-dot { background: var(--accent-error); }
 
       .eyebrow-dot::before {
@@ -233,7 +294,7 @@ export function buildNotifyPageHtml(options: {
       }
 
       .is-info .eyebrow-dot::before { color: var(--fg); }
-      .is-success .eyebrow-dot::before { color: var(--fg); }
+      .is-success .eyebrow-dot::before { color: var(--accent-success); }
       .is-error .eyebrow-dot::before { color: var(--accent-error); }
 
       @keyframes pulse {
@@ -250,6 +311,85 @@ export function buildNotifyPageHtml(options: {
         line-height: 1.15;
         color: var(--fg);
         margin-bottom: 14px;
+      }
+
+      .is-hero h1 {
+        font-size: 44px;
+        line-height: 1.05;
+        letter-spacing: -0.035em;
+        margin-bottom: 16px;
+      }
+
+      @media (max-width: 480px) {
+        .is-hero h1 { font-size: 32px; }
+      }
+
+      /* Receipt strip — quiet authenticity for the confirm-success moment */
+      .receipt {
+        display: grid;
+        grid-template-columns: auto 1fr;
+        gap: 6px 18px;
+        margin: 22px 0 28px;
+        padding: 14px 16px;
+        border: 1px solid var(--hairline);
+        border-radius: 12px;
+        background: linear-gradient(180deg, rgba(10,10,10,0.02), transparent);
+      }
+
+      @media (prefers-color-scheme: dark) {
+        .receipt {
+          background: linear-gradient(180deg, rgba(255,255,255,0.03), transparent);
+        }
+      }
+
+      .receipt-row {
+        display: contents;
+      }
+
+      .receipt-key {
+        font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 10px;
+        font-weight: 500;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--soft);
+        align-self: center;
+      }
+
+      .receipt-value {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 13px;
+        color: var(--fg);
+        line-height: 1.5;
+      }
+
+      .receipt-mono {
+        font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 12px;
+      }
+
+      .receipt-pulse {
+        position: relative;
+        width: 7px;
+        height: 7px;
+        border-radius: 999px;
+        background: var(--accent-success);
+      }
+
+      .receipt-pulse::after {
+        content: '';
+        position: absolute;
+        inset: -3px;
+        border-radius: 999px;
+        background: var(--accent-success);
+        opacity: 0.22;
+        animation: pulse 2.4s ease-out infinite;
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .receipt-pulse::after { animation: none; }
       }
 
       .message {
@@ -397,6 +537,16 @@ export function buildNotifyPageHtml(options: {
         color: var(--fg);
       }
 
+      .footer-meta {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+      }
+
+      .footer-meta-sep {
+        opacity: 0.6;
+      }
+
       /* Animations */
       @keyframes rise {
         from { opacity: 0; transform: translateY(8px); }
@@ -433,29 +583,36 @@ export function buildNotifyPageHtml(options: {
     </style>
   </head>
   <body>
+    <div class="halo" aria-hidden="true"></div>
     <div class="grid-bg" aria-hidden="true"></div>
     ${enableCongratsFx ? '<div class="congrats-layer" aria-hidden="true"><canvas class="congrats-canvas" data-notify-congrats-fx></canvas></div>' : ''}
     <div class="container">
-      <div class="card ${statusModifier}">
+      <div class="card ${cardModifier}">
         <a class="brand animate" href="/" aria-label="bunizao home">
           ${PEEK_LOGO_SVG}
           <span class="brand-mark">bunizao</span>
         </a>
         <div class="eyebrow animate delay-1">
           <span class="eyebrow-dot" aria-hidden="true"></span>
-          <span>${escapeEyebrow(options.status)}</span>
+          <span>${escapeEyebrow(options.status, heroTreatment)}</span>
         </div>
-        <h1 class="animate delay-2">${safeTitle}</h1>
+        <h1 class="animate delay-2">${titleHtml}</h1>
         <p class="message animate delay-3">${safeMessage}</p>
+        ${receiptHtml}
         <div class="actions animate delay-4">${actionsHtml}</div>
         <div class="footer-line animate delay-5" aria-hidden="true"></div>
         <div class="footer animate delay-5">
-          <span>bunizao &middot; buxx.me</span>
+          <span class="footer-meta">
+            <span>&copy; 2023&ndash;2026 bunizao</span>
+            <span class="footer-meta-sep">&middot;</span>
+            <a href="/privacy">Privacy</a>
+          </span>
           <a href="/mood">mood feed &rarr;</a>
         </div>
       </div>
     </div>
     ${enableCongratsFx ? buildConfettiScript() : ''}
+    ${heroTreatment ? buildReceiptTimestampScript() : ''}
   </body>
 </html>`;
 }
@@ -479,10 +636,32 @@ export function renderNotifyPage(options: {
   return new Response(html, { headers });
 }
 
-function escapeEyebrow(status: PageStatus): string {
-  if (status === 'success') return 'All set';
+function escapeEyebrow(status: PageStatus, hero: boolean): string {
+  if (status === 'success') return hero ? 'Subscription confirmed' : 'Quiet hours';
   if (status === 'error') return 'Something went off';
-  return 'Quick check';
+  return 'Confirm to continue';
+}
+
+function generateStampId(): string {
+  // Short, base36-like reference identifier. Pure ornamental — adds tactile authenticity to the success page.
+  const seed = Date.now().toString(36).toUpperCase().slice(-4);
+  const tail = Math.floor(Math.random() * 0xfff).toString(16).toUpperCase().padStart(3, '0');
+  return `${seed}-${tail}`;
+}
+
+function buildReceiptTimestampScript(): string {
+  return `<script>
+      (() => {
+        const target = document.querySelector('[data-notify-confirmed-at]');
+        if (!target) return;
+        try {
+          const now = new Date();
+          const time = new Intl.DateTimeFormat(undefined, { hour: '2-digit', minute: '2-digit', hour12: false }).format(now);
+          const date = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' }).format(now);
+          target.textContent = date + ' · ' + time;
+        } catch {}
+      })();
+    </script>`;
 }
 
 function buildConfettiScript(): string {
