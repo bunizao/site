@@ -372,7 +372,9 @@ function buildRelatedLinksTextLines(
 
 const SANS_FONT = "'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
 
-function emailShell(content: string): string {
+function emailShell(content: string, options: { siteUrl?: string } = {}): string {
+  const siteUrl = (options.siteUrl || 'https://buxx.me').replace(/\/$/, '');
+  const privacyUrl = `${siteUrl}/privacy`;
   return `<!doctype html>
 <html lang="en" xmlns="http://www.w3.org/1999/xhtml">
 <head>
@@ -393,11 +395,14 @@ function emailShell(content: string): string {
       .email-brand-text { color: #fafafa !important; }
       .email-status-dot { background-color: #fafafa !important; }
       .email-status-dot--error { background-color: #f87171 !important; }
+      .email-status-dot--success { background-color: #22c55e !important; }
       .email-btn-pill { background-color: #fafafa !important; color: #0a0a0a !important; border-color: #fafafa !important; }
       .email-btn-text { color: #0a0a0a !important; -webkit-text-fill-color: #0a0a0a !important; }
       .email-fallback-url { background-color: rgba(255,255,255,0.04) !important; border-color: rgba(255,255,255,0.08) !important; color: #fafafa !important; }
       .email-chip { background-color: rgba(255,255,255,0.04) !important; border-color: rgba(255,255,255,0.08) !important; }
+      .email-chip--active { background-color: #fafafa !important; border-color: #fafafa !important; }
       .email-chip-text { color: #fafafa !important; }
+      .email-chip--active .email-chip-text { color: #0a0a0a !important; }
       .email-embed-card { background-color: #0f0f0f !important; border-color: #2b2b2b !important; }
       .email-embed-header { border-color: #2b2b2b !important; }
       .email-embed-footer { border-color: #2b2b2b !important; }
@@ -427,10 +432,10 @@ function emailShell(content: string): string {
         <table role="presentation" width="540" cellpadding="0" cellspacing="0" border="0" class="email-card" style="max-width: 540px; width: 100%; background-color: #ffffff; border: 1px solid rgba(10,10,10,0.08); border-radius: 18px;">
           ${content}
         </table>
-        <table role="presentation" width="540" cellpadding="0" cellspacing="0" border="0" style="max-width: 540px; width: 100%; margin-top: 14px;">
+        <table role="presentation" width="540" cellpadding="0" cellspacing="0" border="0" style="max-width: 540px; width: 100%; margin-top: 16px;">
           <tr>
             <td align="center" style="padding: 0 12px;">
-              <span class="email-soft" style="font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px; color: #94949b; letter-spacing: 0;">bunizao &middot; buxx.me</span>
+              <span class="email-soft" style="font-family: ${MONO_FONT}; font-size: 11px; color: #94949b; letter-spacing: 0;">&copy; 2023&ndash;2026 bunizao &middot; <a href="${escapeHtml(privacyUrl)}" class="email-link email-soft" style="color: #94949b; text-decoration: none;">Privacy</a></span>
             </td>
           </tr>
         </table>
@@ -450,11 +455,11 @@ function buildBrandHeader(siteUrl: string): string {
               <a href="${safeSite}" class="email-link" style="display: inline-block; text-decoration: none; color: #0a0a0a;">
                 <table role="presentation" cellpadding="0" cellspacing="0" border="0">
                   <tr>
-                    <td valign="middle" style="padding-right: 8px;">
-                      <img src="${escapeHtml(peekUrl)}" alt="" width="20" height="15" style="display: block; width: 20px; height: 15px; border: 0;" />
+                    <td valign="middle" style="padding-right: 10px;">
+                      <img src="${escapeHtml(peekUrl)}" alt="" width="32" height="24" style="display: block; width: 32px; height: 24px; border: 0;" />
                     </td>
                     <td valign="middle">
-                      <span class="email-brand-text" style="font-family: ${SANS_FONT}; font-size: 14px; font-weight: 600; letter-spacing: -0.01em; color: #0a0a0a;">bunizao</span>
+                      <span class="email-brand-text" style="font-family: ${MONO_FONT}; font-size: 14px; font-weight: 600; letter-spacing: 0; color: #0a0a0a;">bunizao</span>
                     </td>
                   </tr>
                 </table>
@@ -469,19 +474,27 @@ function pillButton(href: string, label: string): string {
               </a>`;
 }
 
-function eyebrowRow(text: string, variant: 'default' | 'error' = 'default'): string {
-  const dotClass = variant === 'error' ? 'email-status-dot email-status-dot--error' : 'email-status-dot';
-  const dotColor = variant === 'error' ? '#c44848' : '#0a0a0a';
+function eyebrowRow(text: string, variant: 'default' | 'error' | 'success' = 'default'): string {
+  const dotClass = variant === 'error'
+    ? 'email-status-dot email-status-dot--error'
+    : variant === 'success'
+      ? 'email-status-dot email-status-dot--success'
+      : 'email-status-dot';
+  const dotColor = variant === 'error'
+    ? '#c44848'
+    : variant === 'success'
+      ? '#16a34a'
+      : '#0a0a0a';
   return `
           <tr>
             <td style="padding: 32px 32px 0;">
               <table role="presentation" cellpadding="0" cellspacing="0" border="0">
                 <tr>
-                  <td valign="middle" style="padding-right: 9px;">
+                  <td valign="middle" style="padding-right: 10px;">
                     <span class="${dotClass}" style="display: inline-block; width: 7px; height: 7px; background-color: ${dotColor}; border-radius: 999px;"></span>
                   </td>
                   <td valign="middle">
-                    <span class="email-eyebrow" style="font-family: ${SANS_FONT}; font-size: 13px; font-weight: 500; color: #6b6b6b; letter-spacing: -0.005em;">${escapeHtml(text)}</span>
+                    <span class="email-eyebrow" style="font-family: ${SANS_FONT}; font-size: 13px; font-weight: 500; color: #0a0a0a; letter-spacing: -0.005em;">${escapeHtml(text)}</span>
                   </td>
                 </tr>
               </table>
@@ -502,25 +515,18 @@ export function buildSubscribeConfirmEmail(options: {
   siteUrl: string;
   confirmUrl: string;
 }): { subject: string; html: string; text: string } {
-  const subject = 'One tap to confirm your mood subscription';
+  const subject = 'Confirm your mood subscription';
   const html = emailShell(`
           ${buildBrandHeader(options.siteUrl)}
-          ${eyebrowRow('Quick check')}
           ${titleRow('Almost there.')}
           <tr>
             <td class="email-muted" style="padding: 14px 32px 0; font-family: ${SANS_FONT}; font-size: 15px; line-height: 1.65; color: #6b6b6b; max-width: 36ch;">
-              Tap below to confirm this is your inbox. After that, mood updates start landing in here.
+              One tap and mood updates start landing in this inbox. Do nothing and nothing happens.
             </td>
           </tr>
           <tr>
             <td style="padding: 24px 32px 0;">
               ${pillButton(options.confirmUrl, 'Confirm email')}
-            </td>
-          </tr>
-          <tr>
-            <td style="padding: 22px 32px 0;">
-              <p class="email-soft" style="margin: 0 0 8px; font-family: ${SANS_FONT}; font-size: 12px; color: #94949b;">Button stuck? Open this link instead:</p>
-              <a href="${escapeHtml(options.confirmUrl)}" class="email-fallback-url email-link" style="display: inline-block; max-width: 100%; font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; color: #0a0a0a; text-decoration: none; word-break: break-all; background-color: rgba(10,10,10,0.04); border: 1px solid rgba(10,10,10,0.08); border-radius: 8px; padding: 8px 11px; line-height: 1.5;">${escapeHtml(options.confirmUrl)}</a>
             </td>
           </tr>
           <tr>
@@ -530,20 +536,20 @@ export function buildSubscribeConfirmEmail(options: {
           </tr>
           <tr>
             <td class="email-soft" style="padding: 14px 32px 28px; font-family: ${SANS_FONT}; font-size: 12px; color: #94949b; line-height: 1.6;">
-              Didn&rsquo;t ask for this? You can safely ignore the email &mdash; nothing happens until you confirm.
+              Didn&rsquo;t ask for this? Ignore the email &mdash; the link expires on its own.
             </td>
-          </tr>`);
+          </tr>`, { siteUrl: options.siteUrl });
 
   const text = [
     'Almost there.',
     '',
-    'Tap below to confirm this is your inbox. After that, mood updates start landing in here.',
+    'One tap and mood updates start landing in this inbox. Do nothing and nothing happens.',
     '',
     `→ ${options.confirmUrl}`,
     '',
-    'Didn\'t ask for this? You can safely ignore the email — nothing happens until you confirm.',
+    'Didn\'t ask for this? Ignore the email — the link expires on its own.',
     '',
-    `bunizao · ${options.siteUrl}`,
+    `© 2023–2026 bunizao · ${options.siteUrl}`,
   ].join('\n');
 
   return { subject, html, text };
@@ -554,44 +560,59 @@ export function buildSubscribeWelcomeEmail(options: {
   unsubscribeUrl: string;
   deliveryMode: 'immediate' | 'every_5h' | 'daily';
 }): { subject: string; html: string; text: string } {
-  const subject = 'You\'re in.';
-  const deliveryModeChip = options.deliveryMode === 'daily'
-    ? 'Daily wrap-up'
-    : options.deliveryMode === 'every_5h'
-      ? 'Every 5 hours'
-      : 'Real-time';
+  const subject = 'Welcome aboard.';
+  const modes: Array<{ key: 'immediate' | 'every_5h' | 'daily'; label: string }> = [
+    { key: 'immediate', label: 'Real-time' },
+    { key: 'every_5h', label: 'Every 5h' },
+    { key: 'daily', label: 'Daily digest' },
+  ];
+  const activeLabel = modes.find((m) => m.key === options.deliveryMode)?.label ?? 'Real-time';
   const deliveryModeBody = options.deliveryMode === 'daily'
-    ? 'You\'ll get one wrap-up per day with the moods that landed.'
+    ? 'You picked the daily digest. One bundle a day with everything that landed.'
     : options.deliveryMode === 'every_5h'
-      ? 'Every five hours, the latest moods get bundled and sent your way.'
-      : 'New moods will land in your inbox the moment they post.';
+      ? 'You picked the 5-hour digest. New moods get bundled and sent every five hours.'
+      : 'You picked real-time. New moods land in this inbox the moment they post.';
   const siteUrl = options.moodUrl.replace(/\/mood\/?.*$/, '').replace(/\/$/, '') || options.moodUrl;
+  const settingsUrl = `${siteUrl}/mood?subscribe=1`;
+
+  const chipsHtml = modes
+    .map((mode) => {
+      const active = mode.key === options.deliveryMode;
+      const wrapStyle = active
+        ? 'padding: 7px 12px; border: 1px solid #0a0a0a; border-radius: 999px; background-color: #0a0a0a;'
+        : 'padding: 7px 12px; border: 1px solid rgba(10,10,10,0.10); border-radius: 999px; background-color: #ffffff;';
+      const dotColor = active ? '#22c55e' : '#c7c7c7';
+      const labelColor = active ? '#fafafa' : '#0a0a0a';
+      const chipClass = active ? 'email-chip email-chip--active' : 'email-chip';
+      return `
+                  <td valign="middle" style="padding-right: 6px;">
+                    <table role="presentation" cellpadding="0" cellspacing="0" border="0" class="${chipClass}" style="${wrapStyle}">
+                      <tr>
+                        <td valign="middle" style="padding-right: 8px;">
+                          <span class="email-status-dot" style="display: inline-block; width: 6px; height: 6px; background-color: ${dotColor}; border-radius: 999px;"></span>
+                        </td>
+                        <td valign="middle">
+                          <span class="email-chip-text" style="font-family: ${SANS_FONT}; font-size: 12px; font-weight: 500; color: ${labelColor}; letter-spacing: -0.005em;">${escapeHtml(mode.label)}</span>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>`;
+    })
+    .join('');
+
   const html = emailShell(`
           ${buildBrandHeader(siteUrl)}
-          ${eyebrowRow('All set')}
-          ${titleRow('You’re in.')}
+          ${eyebrowRow('Subscription confirmed', 'success')}
+          ${titleRow('Congratulations!')}
           <tr>
             <td class="email-muted" style="padding: 14px 32px 0; font-family: ${SANS_FONT}; font-size: 15px; line-height: 1.65; color: #6b6b6b;">
               ${escapeHtml(deliveryModeBody)}
             </td>
           </tr>
           <tr>
-            <td style="padding: 18px 32px 0;">
+            <td style="padding: 20px 32px 0;">
               <table role="presentation" cellpadding="0" cellspacing="0" border="0">
-                <tr>
-                  <td class="email-chip" style="padding: 7px 12px; border: 1px solid rgba(10,10,10,0.08); border-radius: 999px; background-color: rgba(10,10,10,0.04);">
-                    <table role="presentation" cellpadding="0" cellspacing="0" border="0">
-                      <tr>
-                        <td valign="middle" style="padding-right: 8px;">
-                          <span class="email-status-dot" style="display: inline-block; width: 6px; height: 6px; background-color: #0a0a0a; border-radius: 999px;"></span>
-                        </td>
-                        <td valign="middle">
-                          <span class="email-chip-text" style="font-family: ${SANS_FONT}; font-size: 12px; font-weight: 500; color: #0a0a0a; letter-spacing: -0.005em;">${escapeHtml(deliveryModeChip)}</span>
-                        </td>
-                      </tr>
-                    </table>
-                  </td>
-                </tr>
+                <tr>${chipsHtml}</tr>
               </table>
             </td>
           </tr>
@@ -607,20 +628,22 @@ export function buildSubscribeWelcomeEmail(options: {
           </tr>
           <tr>
             <td style="padding: 14px 32px 28px;">
-              <a href="${escapeHtml(options.unsubscribeUrl)}" class="email-link email-soft" style="font-family: ${SANS_FONT}; font-size: 12px; color: #94949b; text-decoration: none;">Unsubscribe anytime &rarr;</a>
+              <a href="${escapeHtml(settingsUrl)}" class="email-link email-soft" style="font-family: ${SANS_FONT}; font-size: 12px; color: #94949b; text-decoration: none; margin-right: 14px;">Change frequency &rarr;</a>
+              <a href="${escapeHtml(options.unsubscribeUrl)}" class="email-link email-soft" style="font-family: ${SANS_FONT}; font-size: 12px; color: #94949b; text-decoration: none;">Unsubscribe &rarr;</a>
             </td>
-          </tr>`);
+          </tr>`, { siteUrl });
 
   const text = [
-    'You\'re in.',
+    'Congratulations!',
     '',
     deliveryModeBody,
-    `Mode: ${deliveryModeChip}`,
+    `Mode: ${activeLabel}`,
     '',
     `Mood feed: ${options.moodUrl}`,
+    `Change frequency: ${settingsUrl}`,
     `Unsubscribe: ${options.unsubscribeUrl}`,
     '',
-    'bunizao · buxx.me',
+    `© 2023–2026 bunizao · ${siteUrl}`,
   ].join('\n');
 
   return { subject, html, text };
@@ -633,11 +656,11 @@ export function buildUnsubscribeNoticeEmail(options: {
   const subject = 'Mood updates paused';
   const html = emailShell(`
           ${buildBrandHeader(options.siteUrl)}
-          ${eyebrowRow('Done', 'error')}
+          ${eyebrowRow('Quiet hours', 'error')}
           ${titleRow('Mood updates paused.')}
           <tr>
             <td class="email-muted" style="padding: 14px 32px 0; font-family: ${SANS_FONT}; font-size: 15px; line-height: 1.65; color: #6b6b6b; max-width: 36ch;">
-              No more mood emails will land in this inbox. Changed your mind? You can come back whenever.
+              No more mood emails will land in this inbox. Changed your mind? Come back whenever.
             </td>
           </tr>
           <tr>
@@ -654,16 +677,16 @@ export function buildUnsubscribeNoticeEmail(options: {
             <td style="padding: 14px 32px 28px;">
               <a href="${escapeHtml(options.siteUrl)}" class="email-link email-soft" style="font-family: ${SANS_FONT}; font-size: 12px; color: #94949b; text-decoration: none;">Back to site &rarr;</a>
             </td>
-          </tr>`);
+          </tr>`, { siteUrl: options.siteUrl });
 
   const text = [
     'Mood updates paused.',
     '',
-    'No more mood emails will land in this inbox. Changed your mind? You can come back whenever.',
+    'No more mood emails will land in this inbox. Changed your mind? Come back whenever.',
     '',
     `Subscribe again: ${options.subscribeUrl}`,
     '',
-    `bunizao · ${options.siteUrl}`,
+    `© 2023–2026 bunizao · ${options.siteUrl}`,
   ].join('\n');
 
   return { subject, html, text };
