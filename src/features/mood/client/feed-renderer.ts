@@ -25,7 +25,8 @@ interface FeedRendererOptions {
 interface FeedRenderer {
   bindInteractions(): void;
   appendMoods(posts: MoodData[], startIndex?: number): number;
-  scrollToMood(id: string, options?: { highlight?: boolean }): boolean;
+  prependMoods(posts: MoodData[], startIndex?: number): number;
+  scrollToMood(id: string, options?: { behavior?: ScrollBehavior; highlight?: boolean }): boolean;
 }
 
 function formatTime(value: string): string {
@@ -200,11 +201,11 @@ export function createFeedRenderer({
       target.classList.add('mood-item--anchored');
       window.setTimeout(() => {
         target.classList.remove('mood-item--anchored');
-      }, 2600);
+      }, 1800);
     });
   };
 
-  const scrollToMood = (id: string, options: { highlight?: boolean } = {}): boolean => {
+  const scrollToMood = (id: string, options: { behavior?: ScrollBehavior; highlight?: boolean } = {}): boolean => {
     const target = Array.from(list.querySelectorAll<HTMLElement>('[data-mood-id]')).find(
       (item) => item.dataset.moodId === id
     ) ?? null;
@@ -212,7 +213,7 @@ export function createFeedRenderer({
 
     const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     target.scrollIntoView({
-      behavior: prefersReducedMotion ? 'auto' : 'smooth',
+      behavior: options.behavior ?? (prefersReducedMotion ? 'auto' : 'smooth'),
       block: 'center',
     });
     if (options.highlight) {
@@ -761,9 +762,64 @@ export function createFeedRenderer({
     return globalIndex;
   };
 
+  const prependMoods = (posts: MoodData[], startIndex = 0): number => {
+    const grouped = new Map<string, MoodData[]>();
+
+    posts.forEach((post) => {
+      const dateKey = formatDateKey(post.datetime);
+      if (!grouped.has(dateKey)) {
+        grouped.set(dateKey, []);
+      }
+      grouped.get(dateKey)?.push(post);
+    });
+
+    let insertedCount = 0;
+    let globalIndex = startIndex;
+    const listFragment = document.createDocumentFragment();
+    const firstListChild = list.firstChild;
+
+    grouped.forEach((datePosts, dateKey) => {
+      let entry = getGroupEntry(dateKey);
+      let group = entry?.group ?? null;
+      let itemsContainer = entry?.items ?? null;
+
+      if (!group) {
+        group = createDateGroup(dateKey);
+        itemsContainer = group.querySelector<HTMLElement>('.mood-date-items');
+        if (itemsContainer) {
+          groupCache.set(dateKey, { group, items: itemsContainer });
+        }
+        listFragment.appendChild(group);
+      }
+
+      if (!itemsContainer) return;
+
+      const itemsFragment = document.createDocumentFragment();
+      datePosts.forEach((post) => {
+        if (!post?.id || renderedIdSet.has(post.id)) return;
+        itemsFragment.appendChild(createMoodItem(post, globalIndex));
+        renderedIdSet.add(post.id);
+        globalIndex += 1;
+        insertedCount += 1;
+      });
+      itemsContainer.insertBefore(itemsFragment, itemsContainer.firstChild);
+    });
+
+    if (listFragment.childNodes.length > 0) {
+      list.insertBefore(listFragment, firstListChild);
+    }
+
+    if (insertedCount > 0) {
+      initMoodGalleries(list);
+    }
+
+    return insertedCount;
+  };
+
   return {
     bindInteractions,
     appendMoods,
+    prependMoods,
     scrollToMood,
   };
 }

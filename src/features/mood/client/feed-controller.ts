@@ -4,7 +4,12 @@ import { createFeedMediaHydrator } from '@/features/mood/client/feed-media-hydra
 import { createFeedRenderer } from '@/features/mood/client/feed-renderer';
 import { createFeedUpdateWatcher } from '@/features/mood/client/feed-update-watcher';
 import { initMoodGalleries } from '@/features/mood/client/gallery';
-import { readMoodFeedAnchorId } from '@/features/mood/shared/feed-anchor';
+import {
+  getMoodFeedAnchorAfterCursor,
+  getMoodFeedAnchorBeforeCursor,
+  mergeMoodFeedWindowPosts,
+  readMoodFeedAnchorId,
+} from '@/features/mood/shared/feed-anchor';
 import type {
   ChannelInfo,
   MoodData,
@@ -31,8 +36,11 @@ export function initMoodFeedController(): void {
         list.setAttribute('aria-busy', 'true');
       } else {
         let isLoading = false;
+        let isLoadingNewer = false;
         let hasMore = true;
+        let hasNewer = false;
         let observer: IntersectionObserver;
+        let newerObserver: IntersectionObserver | null = null;
 
         const inlineSkeletonConfig = {
           dateWidth: '68px',
@@ -63,6 +71,9 @@ export function initMoodFeedController(): void {
       };
       const moodIdSet = new Set<string>();
       let totalCount = 0;
+      let newestNumericId = Number.NEGATIVE_INFINITY;
+      let newestId = '';
+      let fallbackNewestId = '';
       let oldestNumericId = Number.POSITIVE_INFINITY;
       let oldestId = '';
       let fallbackOldestId = '';
@@ -70,6 +81,9 @@ export function initMoodFeedController(): void {
       let pendingPosts: MoodData[] = [];
       const feedAnchorId = getMoodFeedAnchorId();
       let feedAnchorHandled = !feedAnchorId;
+      let feedAnchorCorrectionCancelled = false;
+      let feedAnchorCorrectionStopAt = 0;
+      hasNewer = Boolean(feedAnchorId);
       const updateWatcher = createFeedUpdateWatcher({
         list,
         updateNoticeEl,
@@ -82,8 +96,13 @@ export function initMoodFeedController(): void {
       const registerMoodId = (id?: string | null): void => {
         if (!id || moodIdSet.has(id)) return;
         moodIdSet.add(id);
+        fallbackNewestId ||= id;
         fallbackOldestId = id;
         const numericId = Number.parseInt(id, 10);
+        if (!Number.isNaN(numericId) && numericId > newestNumericId) {
+          newestNumericId = numericId;
+          newestId = id;
+        }
         if (!Number.isNaN(numericId) && numericId < oldestNumericId) {
           oldestNumericId = numericId;
           oldestId = id;
@@ -92,6 +111,10 @@ export function initMoodFeedController(): void {
 
       const getBeforeId = (): string => {
         return oldestId || fallbackOldestId;
+      };
+
+      const getAfterId = (): string => {
+        return newestId || fallbackNewestId;
       };
 
       const stagePostsForRender = (posts: MoodData[]): MoodData[] => {
@@ -126,6 +149,16 @@ export function initMoodFeedController(): void {
         return flushed;
       };
 
+      const collectUnseenPosts = (posts: MoodData[]): MoodData[] => {
+        const ready: MoodData[] = [];
+        posts.forEach((post) => {
+          if (!post?.id || moodIdSet.has(post.id)) return;
+          registerMoodId(post.id);
+          ready.push(post);
+        });
+        return ready;
+      };
+
       const readInitialFeed = (): { posts: MoodData[]; channel?: ChannelInfo } | null => {
         const source = feedEl.querySelector('[data-mood-initial-feed]');
         if (!(source instanceof HTMLScriptElement) || !source.textContent) return null;
@@ -142,8 +175,18 @@ export function initMoodFeedController(): void {
         }
       };
 
-      const fetchMoods = async (beforeId?: string): Promise<{ posts: MoodData[]; channel?: ChannelInfo }> => {
-        const url = beforeId ? `/api/moods?before=${encodeURIComponent(beforeId)}` : '/api/moods';
+      const fetchMoods = async (
+        options: { beforeId?: string; afterId?: string } = {}
+      ): Promise<{ posts: MoodData[]; channel?: ChannelInfo }> => {
+        const query = new URLSearchParams();
+        if (options.beforeId) {
+          query.set('before', options.beforeId);
+        }
+        if (options.afterId) {
+          query.set('after', options.afterId);
+        }
+        const queryString = query.toString();
+        const url = queryString ? `/api/moods?${queryString}` : '/api/moods';
         const response = await fetch(url);
         if (!response.ok) {
           throw new Error('Failed to load moods.');
@@ -245,6 +288,37 @@ export function initMoodFeedController(): void {
         formatDateKey,
       });
 
+      const cancelFeedAnchorCorrection = (): void => {
+        feedAnchorCorrectionCancelled = true;
+      };
+
+      const startFeedAnchorCorrection = (): void => {
+        feedAnchorCorrectionCancelled = false;
+        feedAnchorCorrectionStopAt = window.performance.now() + 4500;
+        window.addEventListener('wheel', cancelFeedAnchorCorrection, { once: true, passive: true });
+        window.addEventListener('touchstart', cancelFeedAnchorCorrection, { once: true, passive: true });
+        window.addEventListener('keydown', cancelFeedAnchorCorrection, { once: true });
+
+        const correctAnchor = (): void => {
+          if (feedAnchorCorrectionCancelled) return;
+
+          const target = list.querySelector<HTMLElement>(`[data-mood-id="${feedAnchorId}"]`);
+          if (!target) return;
+
+          const rect = target.getBoundingClientRect();
+          const isInView = rect.top >= 96 && rect.bottom <= window.innerHeight - 48;
+          if (!isInView) {
+            renderer.scrollToMood(feedAnchorId, { behavior: 'auto' });
+          }
+
+          if (window.performance.now() < feedAnchorCorrectionStopAt) {
+            window.setTimeout(correctAnchor, 300);
+          }
+        };
+
+        window.setTimeout(correctAnchor, 250);
+      };
+
       const revealFeedAnchor = (): void => {
         if (!feedAnchorId || feedAnchorHandled) return;
 
@@ -252,6 +326,7 @@ export function initMoodFeedController(): void {
           if (feedAnchorHandled) return;
           if (renderer.scrollToMood(feedAnchorId, { highlight: true })) {
             feedAnchorHandled = true;
+            startFeedAnchorCorrection();
             setStatus('');
           }
         });
@@ -288,6 +363,19 @@ export function initMoodFeedController(): void {
         revealFeedAnchor();
       };
 
+      const prependMoods = (posts: MoodData[]): void => {
+        const previousScrollHeight = document.documentElement.scrollHeight;
+        const insertedCount = renderer.prependMoods(posts, 0);
+        if (insertedCount <= 0) return;
+
+        totalCount += insertedCount;
+        const nextScrollHeight = document.documentElement.scrollHeight;
+        const heightDelta = nextScrollHeight - previousScrollHeight;
+        if (heightDelta > 0) {
+          window.scrollTo({ top: window.scrollY + heightDelta, behavior: 'auto' });
+        }
+      };
+
       const handleNoMore = (): void => {
         hasMore = false;
         if (loadButton) {
@@ -296,6 +384,14 @@ export function initMoodFeedController(): void {
         setStatus('No more moods.');
         if (observer) {
           observer.disconnect();
+        }
+      };
+
+      const handleNoMoreNewer = (): void => {
+        hasNewer = false;
+        if (newerObserver) {
+          newerObserver.disconnect();
+          newerObserver = null;
         }
       };
 
@@ -332,6 +428,46 @@ export function initMoodFeedController(): void {
         observer.observe(sentinel);
       };
 
+      const startNewerObserver = (): void => {
+        if (!feedAnchorId || !hasNewer || newerObserver) return;
+
+        const newerSentinel = document.querySelector('[data-mood-newer-sentinel]');
+        if (!newerSentinel) return;
+
+        newerObserver = new IntersectionObserver(
+          (entries) => {
+            entries.forEach((entry) => {
+              if (entry.isIntersecting) {
+                loadNewer();
+              }
+            });
+          },
+          {
+            rootMargin: '600px 0px 0px',
+          }
+        );
+
+        newerObserver.observe(newerSentinel);
+      };
+
+      const loadAnchorWindow = async (): Promise<{ posts: MoodData[]; channel?: ChannelInfo }> => {
+        const afterId = getMoodFeedAnchorAfterCursor(feedAnchorId);
+        const beforeId = getMoodFeedAnchorBeforeCursor(feedAnchorId);
+        const emptyFeed: Promise<{ posts: MoodData[]; channel?: ChannelInfo }> = Promise.resolve({ posts: [] });
+        const [newer, older] = await Promise.all([
+          afterId ? fetchMoods({ afterId }) : emptyFeed,
+          beforeId ? fetchMoods({ beforeId }) : emptyFeed,
+        ]);
+
+        return {
+          posts: mergeMoodFeedWindowPosts(
+            Array.isArray(newer.posts) ? newer.posts : [],
+            Array.isArray(older.posts) ? older.posts : []
+          ),
+          channel: newer.channel ?? older.channel,
+        };
+      };
+
       const loadInitial = async (): Promise<void> => {
         try {
           const initialFeed = readInitialFeed();
@@ -349,6 +485,7 @@ export function initMoodFeedController(): void {
 
             showFeed();
             startUpdateWatcher();
+            startNewerObserver();
 
             if (!posts.length) {
               handleNoMore();
@@ -360,11 +497,37 @@ export function initMoodFeedController(): void {
             return;
           }
 
+          if (feedAnchorId) {
+            const data = await loadAnchorWindow();
+            const posts = Array.isArray(data.posts) ? data.posts : [];
+            if (data.channel) {
+              channelInfo = data.channel;
+              mediaHydrator.hydrateHero(channelInfo);
+            }
+
+            if (!posts.length) {
+              showFeed();
+              handleNoMore();
+              setStatus(`Mood ${feedAnchorId} is not available in this feed.`);
+              return;
+            }
+
+            const ready = collectUnseenPosts(posts);
+            if (ready.length) {
+              appendMoods(ready, totalCount);
+            }
+
+            showFeed();
+            startNewerObserver();
+            startObserver();
+            return;
+          }
+
           let ready: MoodData[] = [];
           let beforeId = '';
           let lastBefore = '';
           while (hasMore && ready.length === 0) {
-            const data = await fetchMoods(beforeId);
+            const data = await fetchMoods(beforeId ? { beforeId } : {});
             const posts = Array.isArray(data.posts) ? data.posts : [];
             if (data.channel && !channelInfo) {
               channelInfo = data.channel;
@@ -402,6 +565,7 @@ export function initMoodFeedController(): void {
           }
           showFeed();
           startUpdateWatcher();
+          startNewerObserver();
 
           if (!hasMore) {
             handleNoMore();
@@ -412,6 +576,44 @@ export function initMoodFeedController(): void {
         } catch (error) {
           console.error(error);
           showError();
+        }
+      };
+
+      const loadNewer = async (): Promise<void> => {
+        if (isLoadingNewer || !hasNewer) {
+          return;
+        }
+
+        const afterId = getAfterId();
+        if (!afterId) {
+          handleNoMoreNewer();
+          return;
+        }
+
+        isLoadingNewer = true;
+
+        try {
+          const data = await fetchMoods({ afterId });
+          const posts = Array.isArray(data.posts) ? data.posts : [];
+          if (data.channel) {
+            channelInfo = data.channel;
+          }
+          if (!posts.length) {
+            handleNoMoreNewer();
+            return;
+          }
+
+          const ready = collectUnseenPosts(posts);
+          if (!ready.length) {
+            handleNoMoreNewer();
+            return;
+          }
+
+          prependMoods(ready);
+        } catch (error) {
+          console.error(error);
+        } finally {
+          isLoadingNewer = false;
         }
       };
 
@@ -435,7 +637,7 @@ export function initMoodFeedController(): void {
           let ready: MoodData[] = [];
           let lastBefore = beforeId;
           while (hasMore && ready.length === 0) {
-            const data = await fetchMoods(beforeId);
+            const data = await fetchMoods({ beforeId });
             const posts = Array.isArray(data.posts) ? data.posts : [];
             if (data.channel) {
               channelInfo = data.channel;
