@@ -44,7 +44,7 @@ export function buildNotifyPageHtml(options: {
       ? 'is-error'
       : 'is-info';
 
-  const html = `<!doctype html>
+  return `<!doctype html>
 <html lang="en">
   <head>
     <meta charset="utf-8" />
