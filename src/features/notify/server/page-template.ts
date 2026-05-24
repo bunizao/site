@@ -324,26 +324,30 @@ export function buildNotifyPageHtml(options: {
         .is-hero h1 { font-size: 32px; }
       }
 
-      /* Receipt strip — quiet authenticity for the confirm-success moment */
+      /* Receipt — hairline-divided metadata, no box, no gradient */
       .receipt {
         display: grid;
         grid-template-columns: auto 1fr;
-        gap: 6px 18px;
-        margin: 22px 0 28px;
-        padding: 14px 16px;
-        border: 1px solid var(--hairline);
-        border-radius: 12px;
-        background: linear-gradient(180deg, rgba(10,10,10,0.02), transparent);
-      }
-
-      @media (prefers-color-scheme: dark) {
-        .receipt {
-          background: linear-gradient(180deg, rgba(255,255,255,0.03), transparent);
-        }
+        gap: 0 24px;
+        margin: 24px 0 28px;
+        padding: 0;
+        border: none;
+        background: none;
       }
 
       .receipt-row {
         display: contents;
+      }
+
+      .receipt-row > .receipt-key,
+      .receipt-row > .receipt-value {
+        padding: 10px 0;
+        border-top: 1px solid var(--hairline);
+      }
+
+      .receipt-row:last-of-type > .receipt-key,
+      .receipt-row:last-of-type > .receipt-value {
+        border-bottom: 1px solid var(--hairline);
       }
 
       .receipt-key {
@@ -537,6 +541,11 @@ export function buildNotifyPageHtml(options: {
         color: var(--fg);
       }
 
+      .footer a.footer-link--quiet,
+      .footer a.footer-link--quiet:hover {
+        color: var(--soft);
+      }
+
       .footer-meta {
         display: inline-flex;
         align-items: center;
@@ -605,7 +614,7 @@ export function buildNotifyPageHtml(options: {
           <span class="footer-meta">
             <span>&copy; 2023&ndash;2026 bunizao</span>
             <span class="footer-meta-sep">&middot;</span>
-            <a href="/privacy">Privacy</a>
+            <a href="/privacy" class="footer-link--quiet">Privacy</a>
           </span>
           <a href="/mood">mood feed &rarr;</a>
         </div>

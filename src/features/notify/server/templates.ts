@@ -575,27 +575,24 @@ export function buildSubscribeWelcomeEmail(options: {
   const siteUrl = options.moodUrl.replace(/\/mood\/?.*$/, '').replace(/\/$/, '') || options.moodUrl;
   const settingsUrl = `${siteUrl}/mood?subscribe=1`;
 
-  const chipsHtml = modes
-    .map((mode) => {
+  const segmentCells = modes
+    .map((mode, index) => {
       const active = mode.key === options.deliveryMode;
-      const wrapStyle = active
-        ? 'padding: 7px 12px; border: 1px solid #0a0a0a; border-radius: 999px; background-color: #0a0a0a;'
-        : 'padding: 7px 12px; border: 1px solid rgba(10,10,10,0.10); border-radius: 999px; background-color: #ffffff;';
-      const dotColor = active ? '#22c55e' : '#c7c7c7';
-      const labelColor = active ? '#fafafa' : '#0a0a0a';
-      const chipClass = active ? 'email-chip email-chip--active' : 'email-chip';
+      const isFirst = index === 0;
+      const isLast = index === modes.length - 1;
+      const radius = isFirst
+        ? '999px 0 0 999px'
+        : isLast
+          ? '0 999px 999px 0'
+          : '0';
+      const borderLeft = isFirst ? 'border-left: 1px solid rgba(10,10,10,0.10);' : 'border-left: none;';
+      const cellBg = active ? '#0a0a0a' : 'transparent';
+      const cellBorderColor = active ? '#0a0a0a' : 'rgba(10,10,10,0.10)';
+      const labelColor = active ? '#fafafa' : '#6b6b6b';
+      const cellClass = active ? 'email-chip email-chip--active' : 'email-chip';
       return `
-                  <td valign="middle" style="padding-right: 6px;">
-                    <table role="presentation" cellpadding="0" cellspacing="0" border="0" class="${chipClass}" style="${wrapStyle}">
-                      <tr>
-                        <td valign="middle" style="padding-right: 8px;">
-                          <span class="email-status-dot" style="display: inline-block; width: 6px; height: 6px; background-color: ${dotColor}; border-radius: 999px;"></span>
-                        </td>
-                        <td valign="middle">
-                          <span class="email-chip-text" style="font-family: ${SANS_FONT}; font-size: 12px; font-weight: 500; color: ${labelColor}; letter-spacing: -0.005em;">${escapeHtml(mode.label)}</span>
-                        </td>
-                      </tr>
-                    </table>
+                  <td valign="middle" align="center" class="${cellClass}" style="padding: 8px 16px; ${borderLeft} border-top: 1px solid ${cellBorderColor}; border-right: 1px solid ${cellBorderColor}; border-bottom: 1px solid ${cellBorderColor}; border-radius: ${radius}; background-color: ${cellBg};">
+                    <span class="email-chip-text" style="font-family: ${SANS_FONT}; font-size: 12px; font-weight: 500; color: ${labelColor}; letter-spacing: -0.005em; white-space: nowrap;">${escapeHtml(mode.label)}</span>
                   </td>`;
     })
     .join('');
@@ -611,8 +608,8 @@ export function buildSubscribeWelcomeEmail(options: {
           </tr>
           <tr>
             <td style="padding: 20px 32px 0;">
-              <table role="presentation" cellpadding="0" cellspacing="0" border="0">
-                <tr>${chipsHtml}</tr>
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse: separate;">
+                <tr>${segmentCells}</tr>
               </table>
             </td>
           </tr>
