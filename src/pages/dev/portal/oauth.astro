@@ -1,0 +1,171 @@
+---
+import PortalLayout from '@/layouts/PortalLayout.astro';
+import { Badge } from '@/components/ui/badge';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Blocks,
+  Database,
+  GitBranch,
+  KeyRound,
+  Network,
+  ShieldCheck,
+  SquareTerminal,
+} from 'lucide-react';
+
+export const prerender = false;
+
+const session = (Astro.locals as any).adminSession;
+
+const cardHeaderStyle = { paddingBottom: 8 } as const;
+const cardContentStyle = { paddingTop: 0 } as const;
+const iconStyle = { color: 'hsl(var(--muted-foreground))' } as const;
+const mutedTextStyle = { color: 'hsl(var(--muted-foreground))' } as const;
+
+const surfaces = [
+  {
+    title: 'Owner identity',
+    status: 'Live',
+    description: 'GitHub OAuth allow-list, signed session cookie, no provider token persistence.',
+    Icon: ShieldCheck,
+  },
+  {
+    title: 'Agent sandbox',
+    status: 'Next',
+    description: 'Short-lived handoff tokens should be minted here before sandbox jobs can touch private data.',
+    Icon: SquareTerminal,
+  },
+  {
+    title: 'Knowledge connectors',
+    status: 'Next',
+    description: 'Source adapters belong behind this gate; non-OAuth sources should be imported as scoped credentials.',
+    Icon: Database,
+  },
+  {
+    title: 'MCP clients',
+    status: 'Next',
+    description: 'External model clients should receive only MCP-scoped capabilities, never site admin cookies.',
+    Icon: Network,
+  },
+] as const;
+
+const rules = [
+  'One owner session authority: the existing GitHub login remains the human gate.',
+  'No browser-exposed platform tokens; connector secrets stay server-side.',
+  'Machine access uses explicit scopes, short TTLs, and audit records.',
+  'Each knowledge source gets its own adapter boundary instead of a shared scraping blob.',
+] as const;
+
+const phases = [
+  'Define an internal app registry for sandbox, connector, and MCP clients.',
+  'Add a token exchange endpoint that turns the owner session into short-lived machine credentials.',
+  'Store connector credentials in a server-side vault table with per-source scopes.',
+  'Publish MCP auth metadata after the resource model is real.',
+] as const;
+---
+
+<PortalLayout
+  title="OAuth Hub"
+  description="Single owner-auth entry for the admin portal, future sandbox jobs, knowledge connectors, and MCP clients."
+  active="oauth"
+  user={{ login: session?.login || 'admin' }}
+>
+  <section style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(280px,100%),1fr));gap:16px;margin-bottom:24px;">
+    <Card>
+      <CardHeader style={cardHeaderStyle}>
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;">
+          <div>
+            <CardTitle style={{ fontSize: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
+              <KeyRound size={16} />
+              Unified entry
+            </CardTitle>
+            <CardDescription>The OAuth hub is the control plane, not a connector dump.</CardDescription>
+          </div>
+          <Badge variant="outline">Owner gated</Badge>
+        </div>
+      </CardHeader>
+      <CardContent style={cardContentStyle}>
+        <p style="margin:0;font-size:13px;line-height:1.7;color:hsl(var(--muted-foreground));">
+          The current GitHub OAuth session is already enough for human access. The next move is to let this
+          hub mint narrower credentials for agent sandboxes, knowledge ingestion, and MCP clients without
+          leaking admin cookies or raw platform tokens.
+        </p>
+      </CardContent>
+    </Card>
+
+    <Card>
+      <CardHeader style={cardHeaderStyle}>
+        <CardTitle style={{ fontSize: 14, display: 'flex', alignItems: 'center', gap: 8 }}>
+          <GitBranch size={14} />
+          Current session
+        </CardTitle>
+        <CardDescription>Authenticated actor for future audit trails.</CardDescription>
+      </CardHeader>
+      <CardContent style={cardContentStyle}>
+        <div style="font-size:24px;font-weight:600;letter-spacing:-0.02em;">@{session?.login || 'admin'}</div>
+        <div style="font-size:12px;margin-top:6px;color:hsl(var(--muted-foreground));">
+          Session cookie: <span class="portal-mono">admin_session</span>
+        </div>
+      </CardContent>
+    </Card>
+  </section>
+
+  <section style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;margin-bottom:24px;">
+    {surfaces.map(({ title, status, description, Icon }) => (
+      <Card>
+        <CardHeader style={cardHeaderStyle}>
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
+            <CardTitle style={{ fontSize: 14, display: 'flex', alignItems: 'center', gap: 8 }}>
+              <Icon size={14} style={iconStyle} />
+              {title}
+            </CardTitle>
+            <Badge variant={status === 'Live' ? 'default' : 'secondary'}>{status}</Badge>
+          </div>
+        </CardHeader>
+        <CardContent style={cardContentStyle}>
+          <p style="margin:0;font-size:12px;line-height:1.65;color:hsl(var(--muted-foreground));">{description}</p>
+        </CardContent>
+      </Card>
+    ))}
+  </section>
+
+  <section style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(320px,100%),1fr));gap:16px;">
+    <Card>
+      <CardHeader>
+        <CardTitle style={{ fontSize: 14, display: 'flex', alignItems: 'center', gap: 8 }}>
+          <ShieldCheck size={14} />
+          Rules
+        </CardTitle>
+        <CardDescription>These constraints keep the auth surface boring in the best way.</CardDescription>
+      </CardHeader>
+      <CardContent style={cardContentStyle}>
+        <ul style="list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:10px;">
+          {rules.map((rule) => (
+            <li style="display:flex;gap:10px;font-size:13px;line-height:1.55;color:hsl(var(--foreground));">
+              <span style="margin-top:8px;width:5px;height:5px;border-radius:999px;background:hsl(var(--primary));flex:0 0 auto;"></span>
+              <span>{rule}</span>
+            </li>
+          ))}
+        </ul>
+      </CardContent>
+    </Card>
+
+    <Card>
+      <CardHeader>
+        <CardTitle style={{ fontSize: 14, display: 'flex', alignItems: 'center', gap: 8 }}>
+          <Blocks size={14} />
+          Build order
+        </CardTitle>
+        <CardDescription>Do this in slices; auth spaghetti is how good tools die young.</CardDescription>
+      </CardHeader>
+      <CardContent style={cardContentStyle}>
+        <ol style="padding-left:18px;margin:0;display:flex;flex-direction:column;gap:10px;">
+          {phases.map((phase) => (
+            <li style="font-size:13px;line-height:1.55;color:hsl(var(--foreground));">
+              <span style={mutedTextStyle}>{phase}</span>
+            </li>
+          ))}
+        </ol>
+      </CardContent>
+    </Card>
+  </section>
+</PortalLayout>

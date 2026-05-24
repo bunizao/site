@@ -8,6 +8,7 @@
 - [Mood Decoupling Plan](./MOOD-DECOUPLING.md)
 - [Shared Layout](./SHARED-LAYOUT.md)
 - [Security](./SECURITY.md)
+- [OAuth Hub](./OAUTH-HUB.md)
 - [Privacy Policy](./PRIVACY-POLICY.md)
 - [Email Notify + Admin Portal](./EMAIL-NOTIFY.md)
 - [Worker and Site](./WORKER-SITE.md)
@@ -16,7 +17,7 @@
 
 - **`src/pages/`** — File-based routing. Includes `index.astro` (home), `mood.astro` (feed shell + route bootstrap), `mood/[id].astro` (detail shell + route bootstrap), `mood/embed.astro` (embeddable widget)
 - **`src/pages/api/`** — Server endpoints (moods, comments, SVG generators, oEmbed, notify endpoints, admin endpoints, legacy telegram webhook fallback)
-- **`src/pages/dev/portal/`** — GitHub-OAuth-gated admin portal (overview, subscribers, broadcasts, mascot inspector, newsletter preview). `/dev/preview` and `/dev/newsletter-preview` 301-redirect into the portal.
+- **`src/pages/dev/portal/`** — GitHub-OAuth-gated admin portal (overview, OAuth hub, subscribers, broadcasts, mascot inspector, newsletter preview). `/dev/preview` and `/dev/newsletter-preview` 301-redirect into the portal.
 - **`src/middleware.ts`** — Astro middleware that gates `/dev/portal/**` and `/api/admin/**` against the `admin_session` cookie.
 - **`src/features/`** — Feature-private code. `src/features/home/ui/` contains home-route sections and their private UI helpers. `src/features/mood/` contains mood-specific client controllers, feed renderer/media/update modules, server services, shared helpers, and private Astro UI shells in `ui/`. `src/features/notify/server/` contains notify delivery, subscription, token, email, and D1 persistence logic, while `src/features/notify/ui/` holds notify-private preview UI. `src/features/admin/server/` holds OAuth/session, admin-side subscriber service, and broadcast service. `src/features/admin/ui/` holds the React consoles (subscribers, broadcasts).
 - **`src/features/logos/`** — Pixel mascot definitions, SVG rendering helpers, and animated logo UI used by the navbar and favicon route
@@ -59,6 +60,10 @@
 - `GET /api/admin/auth/start`, `GET /api/admin/auth/callback`, `POST /api/admin/auth/logout` — GitHub OAuth handshake
 - `GET|POST /api/admin/subscribers`, `GET|PATCH|DELETE /api/admin/subscribers/[hash]` — subscriber CRUD
 - `GET|POST /api/admin/broadcasts`, `POST /api/admin/broadcasts/preview`, `GET /api/admin/broadcasts/[id]` — broadcast compose, preview, send, history
+
+**Owner auth surface:**
+- `GET /oauth` — Short public entry that redirects to the protected OAuth hub.
+- `GET /dev/portal/oauth` — Protected OAuth hub that documents the owner-auth boundary for future sandbox handoff tokens, knowledge connectors, and MCP clients.
 
 Telegram references:
 
