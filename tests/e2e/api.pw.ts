@@ -216,7 +216,7 @@ test.describe('API behavior', () => {
     expect(payload.source?.latestPostId).toBeTruthy();
     expect(payload.subjects?.subscribe).toContain('Confirm');
     expect(payload.subjects?.welcome).toContain('Welcome');
-    expect(payload.subjects?.cancel).toContain('canceled');
+    expect(payload.subjects?.cancel).toContain('paused');
     expect(payload.html?.mood).toContain('/mood/');
     expect(payload.html?.digest).toContain('E2E Channel');
     expect(payload.html?.welcome).toContain('/api/notify/unsubscribe?token=');
@@ -245,15 +245,15 @@ test.describe('API behavior', () => {
 
     const confirmNoToken = await request.get('/api/notify/confirm');
     expect(confirmNoToken.status()).toBe(200);
-    expect(await confirmNoToken.text()).toContain('Invalid link');
+    expect(await confirmNoToken.text()).toContain('missing a token');
 
     const unsubscribeNoToken = await request.get('/api/notify/unsubscribe');
     expect(unsubscribeNoToken.status()).toBe(200);
-    expect(await unsubscribeNoToken.text()).toContain('Invalid link');
+    expect(await unsubscribeNoToken.text()).toContain('missing a token');
 
     const unsubscribePostNoToken = await request.post('/api/notify/unsubscribe');
     expect(unsubscribePostNoToken.status()).toBe(200);
-    expect(await unsubscribePostNoToken.text()).toContain('missing a required token');
+    expect(await unsubscribePostNoToken.text()).toContain('missing a token');
 
     const dispatchUnauthorized = await request.post('/api/notify/dispatch', { data: {} });
     expect(dispatchUnauthorized.status()).toBe(401);

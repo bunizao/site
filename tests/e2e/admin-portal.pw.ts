@@ -52,6 +52,13 @@ const newsletterPreviewFixture = {
     digest: '<!doctype html><html><body style="margin:0;height:720px;background:#fff">Digest</body></html>',
     cancel: '<!doctype html><html><body style="margin:0;height:720px;background:#fff">Cancel</body></html>',
   },
+  callbackPages: {
+    confirmSuccess: '<!doctype html><html><body style="margin:0;height:720px;background:#fff">Confirm Success</body></html>',
+    confirmError: '<!doctype html><html><body style="margin:0;height:720px;background:#fff">Confirm Error</body></html>',
+    unsubscribePrompt: '<!doctype html><html><body style="margin:0;height:720px;background:#fff">Unsubscribe Prompt</body></html>',
+    unsubscribeSuccess: '<!doctype html><html><body style="margin:0;height:720px;background:#fff">Unsubscribe Success</body></html>',
+    unsubscribeError: '<!doctype html><html><body style="margin:0;height:720px;background:#fff">Unsubscribe Error</body></html>',
+  },
 };
 
 async function stubSubscribers(page: Page): Promise<void> {
