@@ -313,39 +313,8 @@ export function buildNotifyPageHtml(options: {
         margin-bottom: 16px;
       }
 
-      .is-info h1 {
-        font-size: 36px;
-        line-height: 1.1;
-        letter-spacing: -0.03em;
-      }
-
       @media (max-width: 480px) {
         .is-hero h1 { font-size: 32px; }
-        .is-info h1 { font-size: 28px; }
-      }
-
-      /* Action group with optional hint sub-label (used on the unsubscribe prompt to weight the decision) */
-      .actions-row {
-        display: flex;
-        flex-wrap: wrap;
-        align-items: flex-start;
-        gap: 22px;
-      }
-
-      .action-group {
-        display: inline-flex;
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 8px;
-      }
-
-      .action-hint {
-        font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
-        font-size: 10px;
-        font-weight: 500;
-        letter-spacing: 0.06em;
-        text-transform: uppercase;
-        color: var(--soft);
       }
 
       /* Stamp — inline metadata whisper for the confirm-success moment */
