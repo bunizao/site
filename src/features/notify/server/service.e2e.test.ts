@@ -458,8 +458,8 @@ describe('notify service integration e2e', () => {
     expect(confirmResult.status).toBe('subscribed');
     expect(confirmResult.deliveryMode).toBe('immediate');
     expect(mock.emails).toHaveLength(2);
-    expect(mock.emails[1]?.subject).toBe('Welcome to mood updates');
-    expect(mock.emails[1]?.text).toContain('Instant delivery is active.');
+    expect(mock.emails[1]?.subject).toBe('Welcome aboard.');
+    expect(mock.emails[1]?.text).toContain('You picked real-time.');
 
     const subscriber = readSubscriber(mock, 'user-immediate@recipient.testmail');
     expect(subscriber?.status).toBe('active');
@@ -905,7 +905,7 @@ describe('notify service integration e2e', () => {
       BASE_ENV.EMAIL_NOTIFY_SECRET
     );
     await unsubscribeMoodSubscription(context, unsubscribeToken);
-    expect(mock.emails[mock.emails.length - 1]?.subject).toBe('Mood updates canceled');
+    expect(mock.emails[mock.emails.length - 1]?.subject).toBe('Mood updates paused');
     expect(mock.emails[mock.emails.length - 1]?.text).toContain('Subscribe again: https://example.com/mood?subscribe=1');
 
     mock.clearEmails();
@@ -939,7 +939,7 @@ describe('notify service integration e2e', () => {
 
     const subscribeToken = extractTokenFromEmailText(mock.emails[0].text);
     await confirmMoodSubscription(context, subscribeToken);
-    expect(mock.emails[1]?.subject).toBe('Welcome to mood updates');
+    expect(mock.emails[1]?.subject).toBe('Welcome aboard.');
 
     const confirmAudit = readAudit(mock, email);
     expect(confirmAudit.map((entry) => entry.event_type)).toEqual([
@@ -976,7 +976,7 @@ describe('notify service integration e2e', () => {
     };
 
     await unsubscribeMoodSubscription(unsubscribeContext, unsubscribeToken);
-    expect(mock.emails[mock.emails.length - 1]?.subject).toBe('Mood updates canceled');
+    expect(mock.emails[mock.emails.length - 1]?.subject).toBe('Mood updates paused');
 
     const unsubscribeAudit = readAudit(mock, email);
     expect(unsubscribeAudit.map((entry) => entry.event_type)).toEqual([

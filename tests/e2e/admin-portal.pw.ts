@@ -40,10 +40,10 @@ const newsletterPreviewFixture = {
   },
   subjects: {
     subscribe: 'Confirm your mood subscription',
-    welcome: 'Welcome to mood updates',
+    welcome: 'Welcome aboard.',
     mood: 'New mood #3505',
     digest: 'Daily digest · 1 mood update',
-    cancel: 'Mood updates canceled',
+    cancel: 'Mood updates paused',
   },
   html: {
     subscribe: '<!doctype html><html><body style="margin:0;height:720px;background:#fff">Subscribe</body></html>',
