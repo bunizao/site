@@ -266,16 +266,18 @@ export function buildNotifyPageHtml(options: {
         align-items: center;
         gap: 8px;
         margin-bottom: 14px;
-        font-size: 13px;
+        font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 11px;
         font-weight: 500;
-        color: var(--fg);
-        letter-spacing: -0.005em;
+        color: var(--muted);
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
       }
 
       .eyebrow-dot {
         position: relative;
-        width: 7px;
-        height: 7px;
+        width: 6px;
+        height: 6px;
         border-radius: 999px;
       }
 
