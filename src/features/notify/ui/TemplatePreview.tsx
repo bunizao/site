@@ -25,28 +25,52 @@ interface PreviewResponse {
     digest: string;
     cancel: string;
   };
+  callbackPages: {
+    confirmSuccess: string;
+    confirmError: string;
+    unsubscribePrompt: string;
+    unsubscribeSuccess: string;
+    unsubscribeError: string;
+  };
 }
 
-type TemplateKey = 'subscribe' | 'welcome' | 'mood' | 'digest' | 'cancel';
+type EmailKey = 'subscribe' | 'welcome' | 'mood' | 'digest' | 'cancel';
+type CallbackKey = 'confirmSuccess' | 'confirmError' | 'unsubscribePrompt' | 'unsubscribeSuccess' | 'unsubscribeError';
+type TemplateKey = EmailKey | CallbackKey;
 type CardSize = 'compacted' | 'regular' | 'expanded';
+type Surface = 'email' | 'page';
 
-const TEMPLATE_ORDER: ReadonlyArray<{
+interface TemplateMeta {
   key: TemplateKey;
+  surface: Surface;
   label: string;
   index: string;
   intent: string;
-}> = [
-  { key: 'subscribe', label: 'Subscribe Confirm', index: '01', intent: 'double-opt-in' },
-  { key: 'welcome', label: 'Welcome', index: '02', intent: 'post-confirm onboarding' },
-  { key: 'mood', label: 'Mood Notification', index: '03', intent: 'per-post push' },
-  { key: 'digest', label: 'Mood Digest', index: '04', intent: 'batched window' },
-  { key: 'cancel', label: 'Unsubscribe Notice', index: '05', intent: 'opt-out receipt' },
+}
+
+const TEMPLATE_ORDER: ReadonlyArray<TemplateMeta> = [
+  { key: 'subscribe', surface: 'email', label: 'Subscribe Confirm', index: 'E1', intent: 'double-opt-in email' },
+  { key: 'welcome', surface: 'email', label: 'Welcome', index: 'E2', intent: 'post-confirm onboarding' },
+  { key: 'mood', surface: 'email', label: 'Mood Notification', index: 'E3', intent: 'per-post push' },
+  { key: 'digest', surface: 'email', label: 'Mood Digest', index: 'E4', intent: 'batched window' },
+  { key: 'cancel', surface: 'email', label: 'Unsubscribe Notice', index: 'E5', intent: 'opt-out receipt' },
+  { key: 'confirmSuccess', surface: 'page', label: 'Confirm — Success', index: 'P1', intent: 'callback after confirm OK' },
+  { key: 'confirmError', surface: 'page', label: 'Confirm — Error', index: 'P2', intent: 'expired / used token' },
+  { key: 'unsubscribePrompt', surface: 'page', label: 'Unsubscribe — Prompt', index: 'P3', intent: 'GET unsubscribe link' },
+  { key: 'unsubscribeSuccess', surface: 'page', label: 'Unsubscribe — Success', index: 'P4', intent: 'POST unsubscribe' },
+  { key: 'unsubscribeError', surface: 'page', label: 'Unsubscribe — Error', index: 'P5', intent: 'invalid / failed' },
 ];
 
 const CARD_SIZE_OPTIONS: ReadonlyArray<{ label: string; value: CardSize }> = [
   { label: 'Compacted', value: 'compacted' },
   { label: 'Regular', value: 'regular' },
   { label: 'Expanded', value: 'expanded' },
+];
+
+const SURFACE_FILTERS: ReadonlyArray<{ label: string; value: Surface | 'all' }> = [
+  { label: 'All', value: 'all' },
+  { label: 'Emails', value: 'email' },
+  { label: 'Pages', value: 'page' },
 ];
 
 export default function TemplatePreview() {
@@ -59,6 +83,7 @@ export default function TemplatePreview() {
   const [refreshKey, setRefreshKey] = useState(0);
   const [focused, setFocused] = useState<TemplateKey | null>(null);
   const [cardSize, setCardSize] = useState<CardSize>('regular');
+  const [surfaceFilter, setSurfaceFilter] = useState<Surface | 'all'>('all');
   const requestId = useRef(0);
 
   useEffect(() => {
@@ -121,9 +146,39 @@ export default function TemplatePreview() {
     { label: 'Generated', value: generatedLabel },
   ];
 
+  const visibleTemplates = useMemo(
+    () => TEMPLATE_ORDER.filter((tpl) => surfaceFilter === 'all' || tpl.surface === surfaceFilter),
+    [surfaceFilter]
+  );
+
+  function getTemplateContent(key: TemplateKey): { subject?: string; html: string } {
+    if (!preview) return { html: '' };
+    if (key === 'subscribe' || key === 'welcome' || key === 'mood' || key === 'digest' || key === 'cancel') {
+      return { subject: preview.subjects[key], html: preview.html[key] };
+    }
+    return { html: preview.callbackPages[key] };
+  }
+
   return (
     <section className={`notify-preview notify-preview--${cardSize}`}>
       <div className="notify-control-bar">
+        <div className="notify-control-group" role="group" aria-label="Surface filter">
+          <span className="notify-control-label">Surface</span>
+          <div className="notify-segment">
+            {SURFACE_FILTERS.map((option) => (
+              <button
+                key={option.value}
+                type="button"
+                onClick={() => setSurfaceFilter(option.value)}
+                className={`notify-segment__btn${surfaceFilter === option.value ? ' notify-segment__btn--active' : ''}`}
+                aria-pressed={surfaceFilter === option.value}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
         <div className="notify-control-group" role="group" aria-label="Digest mode">
           <span className="notify-control-label">Digest</span>
           <div className="notify-segment">
@@ -216,9 +271,8 @@ export default function TemplatePreview() {
       )}
 
       <div className={`notify-grid${focused ? ' notify-grid--focused' : ''}`}>
-        {TEMPLATE_ORDER.map((tpl) => {
-          const subject = preview?.subjects?.[tpl.key] ?? '';
-          const html = preview?.html?.[tpl.key] ?? '';
+        {visibleTemplates.map((tpl) => {
+          const { subject, html } = getTemplateContent(tpl.key);
           const isFocused = focused === tpl.key;
           const isHidden = Boolean(focused) && !isFocused;
           return (
@@ -226,6 +280,7 @@ export default function TemplatePreview() {
               key={tpl.key}
               className={[
                 'notify-card',
+                `notify-card--${tpl.surface}`,
                 isFocused ? 'notify-card--active' : '',
                 isHidden ? 'notify-card--hidden' : '',
               ].filter(Boolean).join(' ')}
@@ -248,10 +303,12 @@ export default function TemplatePreview() {
                   {isFocused ? 'Exit focus' : 'Focus'}
                 </button>
               </header>
-              <p className="notify-card__subject" title={subject || undefined}>
-                <span className="notify-card__subject-tag">Subject</span>
-                <span className="notify-card__subject-value">{subject || '—'}</span>
-              </p>
+              {tpl.surface === 'email' ? (
+                <p className="notify-card__subject" title={subject || undefined}>
+                  <span className="notify-card__subject-tag">Subject</span>
+                  <span className="notify-card__subject-value">{subject || '—'}</span>
+                </p>
+              ) : null}
               <div className="notify-card__frame">
                 {html ? (
                   <iframe
@@ -259,7 +316,7 @@ export default function TemplatePreview() {
                     srcDoc={html}
                     className="notify-card__iframe"
                     loading="lazy"
-                    sandbox="allow-same-origin"
+                    sandbox={tpl.surface === 'page' ? 'allow-same-origin allow-scripts' : 'allow-same-origin'}
                   />
                 ) : (
                   <div className="notify-card__empty">

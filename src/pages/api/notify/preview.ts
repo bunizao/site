@@ -8,6 +8,7 @@ import {
   buildSubscribeWelcomeEmail,
   buildUnsubscribeNoticeEmail,
 } from '@/features/notify/server/templates';
+import { buildNotifyPageHtml } from '@/features/notify/server/page-template';
 import { readPublicEnv } from '@/lib/runtime/env';
 import {
   loadMoodChannelSnapshot,
@@ -211,6 +212,47 @@ export const GET: APIRoute = async ({ request, locals }) => {
     posts: digestPosts,
   });
 
+  const sampleEmail = 'reader@example.com';
+  const callbackPages = {
+    confirmSuccess: buildNotifyPageHtml({
+      label: 'subscription',
+      title: 'You’re in.',
+      message: 'Mood updates will start landing in your inbox. Welcome aboard.',
+      status: 'success',
+      enableCongratsFx: true,
+    }),
+    confirmError: buildNotifyPageHtml({
+      label: 'subscription',
+      title: 'Couldn’t confirm that.',
+      message: 'This confirmation link has expired or already been used. Try subscribing again to get a fresh one.',
+      status: 'error',
+    }),
+    unsubscribePrompt: buildNotifyPageHtml({
+      label: 'unsubscribe',
+      title: 'Pause mood updates?',
+      message: `We'll stop sending mood emails to ${sampleEmail}. You can come back any time.`,
+      status: 'info',
+      actionsHtml: [
+        '<form method="post" action="#preview-noop">',
+        '  <button type="submit" class="button"><span>Pause updates</span><span class="button-arrow" aria-hidden="true">&rarr;</span></button>',
+        '</form>',
+        '<a href="/mood" class="button button--ghost"><span>Keep them coming</span></a>',
+      ].join(''),
+    }),
+    unsubscribeSuccess: buildNotifyPageHtml({
+      label: 'unsubscribe',
+      title: 'Mood updates paused.',
+      message: 'No more mood emails will land in this inbox. Come back anytime.',
+      status: 'success',
+    }),
+    unsubscribeError: buildNotifyPageHtml({
+      label: 'unsubscribe',
+      title: 'Couldn’t pause updates.',
+      message: 'This unsubscribe link looks off. Try again from a recent email.',
+      status: 'error',
+    }),
+  };
+
   return jsonOk(
     {
       generatedAt: now.toISOString(),
@@ -237,6 +279,7 @@ export const GET: APIRoute = async ({ request, locals }) => {
         digest: digestEmail.html,
         cancel: cancelEmail.html,
       },
+      callbackPages,
     },
     {
       'Cache-Control': 'no-store, max-age=0',
