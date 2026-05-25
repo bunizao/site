@@ -6,9 +6,11 @@ function createMoodFeedPost(
   text = `E2E mood feed item ${id}`,
   overrides: Partial<{
     image: string | null;
+    imageFallback: string | null;
     imageHeight: number | null;
     imageLayout: string | null;
     imageWidth: number | null;
+    previewMediaType: string;
   }> = {}
 ) {
   return {
@@ -357,6 +359,54 @@ test.describe('Mood routes', () => {
       groups.every((group) => group.querySelectorAll('.mood-item').length > 0)
     ));
     expect(dateGroupsHaveItems).toBe(true);
+  });
+
+  test('renders a too-big video placeholder on anchored feed posts without a poster image', async ({ page }) => {
+    const moodId = '9903515';
+    const payload = {
+      posts: [
+        createMoodFeedPost(moodId, 'Forwarded from E2E Source', {
+          image: null,
+          imageFallback: null,
+          imageHeight: null,
+          imageLayout: null,
+          imageWidth: null,
+          previewMediaType: 'too-big-video',
+        }),
+      ],
+      channel: {
+        slug: 'e2e',
+        title: 'E2E Channel',
+        description: 'E2E mood feed',
+        avatar: '',
+      },
+    };
+
+    await page.route('**/api/moods**', async (route) => {
+      const url = new URL(route.request().url());
+      if (url.searchParams.get('probe') === '1') {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({ latestId: moodId }),
+        });
+        return;
+      }
+
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(payload),
+      });
+    });
+
+    await page.goto(`/mood?${moodId}`, { waitUntil: 'domcontentloaded' });
+
+    const item = page.locator(`[data-mood-id="${moodId}"]`);
+    await expect(item).toBeVisible();
+    await expect(item.locator('.mood-item-thumb--video')).toBeVisible();
+    await expect(item.locator('.mood-item-thumb-video-label')).toHaveText('Media is too big');
+    await expect(item.locator('.mood-item-thumb img')).toHaveCount(0);
   });
 
   test('collapses header actions on compact mood feed scroll', async ({ page }) => {

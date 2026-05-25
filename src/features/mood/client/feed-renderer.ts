@@ -368,10 +368,16 @@ export function createFeedRenderer({
       text.classList.add('mood-item-text--clamped');
     }
 
-    const isTooBigVideoPreview = previewMediaType === 'too-big-video' && Boolean(mood.image);
+    const isTooBigVideoPreview = previewMediaType === 'too-big-video';
     const hasGalleryPreview = !hasMediaHtml && !isTooBigVideoPreview && (mood.gallery?.items.length ?? 0) > 1;
-    const hasImagePreview = Boolean(mood.image);
-    const isPriorityMedia = !priorityMediaClaimed && (hasMediaHtml || hasGalleryPreview || hasImagePreview);
+    const imageSrc = typeof mood.image === 'string' ? mood.image.trim() : '';
+    const hasImagePreview = Boolean(imageSrc);
+    const isPriorityMedia = !priorityMediaClaimed && (
+      hasMediaHtml
+      || hasGalleryPreview
+      || hasImagePreview
+      || isTooBigVideoPreview
+    );
     if (isPriorityMedia) {
       priorityMediaClaimed = true;
     }
@@ -399,7 +405,7 @@ export function createFeedRenderer({
         priority: isPriorityMedia,
       });
       content.appendChild(gallery);
-    } else if (mood.image) {
+    } else if (hasImagePreview || isTooBigVideoPreview) {
       const thumbWrap = document.createElement('div');
       thumbWrap.className = 'mood-item-thumb';
       if (isTooBigVideoPreview) {
@@ -422,83 +428,6 @@ export function createFeedRenderer({
         thumbWrap.classList.add('mood-item-thumb--ultra-tall');
       }
 
-      const img = document.createElement('img');
-      img.alt = '';
-      if (typeof mood.imageWidth === 'number' && mood.imageWidth > 0) {
-        img.width = mood.imageWidth;
-      }
-      if (typeof mood.imageHeight === 'number' && mood.imageHeight > 0) {
-        img.height = mood.imageHeight;
-      }
-
-      const fallback = typeof mood.imageFallback === 'string' ? mood.imageFallback.trim() : '';
-      if (fallback) {
-        img.dataset.fallbackSrc = fallback;
-        img.onerror = () => {
-          if (img.dataset.fallbackApplied === '1') return;
-          const fallbackSrc = img.dataset.fallbackSrc || '';
-          if (!fallbackSrc) return;
-          img.dataset.fallbackApplied = '1';
-          mediaHydrator.applyResponsiveImage(img, fallbackSrc);
-        };
-      }
-
-      const hasResolvedImageLayout = Boolean(imageLayout) || isTooBigVideoPreview;
-      mediaHydrator.setImageHints(img, { priority: isPriorityMedia });
-      if (!hasResolvedImageLayout) {
-        img.loading = 'eager';
-        if (!isPriorityMedia) {
-          img.removeAttribute('fetchpriority');
-        }
-      }
-
-      const thumbMarker = document.createElement('span');
-      thumbMarker.style.display = 'block';
-      thumbMarker.style.width = '100%';
-      thumbMarker.style.minHeight = '1px';
-      let thumbInserted = false;
-      const insertThumb = (): void => {
-        if (thumbInserted) return;
-        thumbInserted = true;
-        if (thumbMarker.parentNode) {
-          thumbMarker.parentNode.insertBefore(thumbWrap, thumbMarker);
-        }
-        thumbMarker.remove();
-      };
-
-      const classifyLoadedImage = () => {
-        if (!img.naturalWidth || !img.naturalHeight) return;
-        if (isTooBigVideoPreview) {
-          const aspectRatio = img.naturalWidth / img.naturalHeight;
-          thumbWrap.style.setProperty('--mood-thumb-ratio', `${img.naturalWidth} / ${img.naturalHeight}`);
-          if (aspectRatio < 0.6) {
-            thumbWrap.classList.add('mood-item-thumb--video-ultra-tall');
-          } else if (aspectRatio < 0.8) {
-            thumbWrap.classList.add('mood-item-thumb--video-portrait');
-          }
-          return;
-        }
-
-        const aspectRatio = img.naturalWidth / img.naturalHeight;
-        if (aspectRatio < 0.6) {
-          thumbWrap.classList.add('mood-item-thumb--ultra-tall');
-        } else if (aspectRatio < 0.8) {
-          thumbWrap.classList.add('mood-item-thumb--portrait');
-        }
-      };
-
-      const resolveUnknownLayoutThumb = (): void => {
-        classifyLoadedImage();
-        insertThumb();
-      };
-      if (!hasResolvedImageLayout) {
-        if (img.complete && img.naturalWidth > 0 && img.naturalHeight > 0) {
-          resolveUnknownLayoutThumb();
-        } else {
-          img.addEventListener('load', resolveUnknownLayoutThumb, { once: true });
-        }
-      }
-
       if (
         isTooBigVideoPreview
         && typeof mood.imageWidth === 'number'
@@ -515,8 +444,7 @@ export function createFeedRenderer({
         }
       }
 
-      thumbWrap.appendChild(img);
-      if (isTooBigVideoPreview) {
+      const appendTooBigVideoOverlay = (): void => {
         const overlay = document.createElement('div');
         overlay.className = 'mood-item-thumb-video-overlay';
         overlay.setAttribute('aria-hidden', 'true');
@@ -532,24 +460,111 @@ export function createFeedRenderer({
         overlay.appendChild(label);
         overlay.appendChild(cta);
         thumbWrap.appendChild(overlay);
-      }
+      };
 
-      if (hasResolvedImageLayout) {
+      if (hasImagePreview) {
+        const img = document.createElement('img');
+        img.alt = '';
+        if (typeof mood.imageWidth === 'number' && mood.imageWidth > 0) {
+          img.width = mood.imageWidth;
+        }
+        if (typeof mood.imageHeight === 'number' && mood.imageHeight > 0) {
+          img.height = mood.imageHeight;
+        }
+
+        const fallback = typeof mood.imageFallback === 'string' ? mood.imageFallback.trim() : '';
+        if (fallback) {
+          img.dataset.fallbackSrc = fallback;
+          img.onerror = () => {
+            if (img.dataset.fallbackApplied === '1') return;
+            const fallbackSrc = img.dataset.fallbackSrc || '';
+            if (!fallbackSrc) return;
+            img.dataset.fallbackApplied = '1';
+            mediaHydrator.applyResponsiveImage(img, fallbackSrc);
+          };
+        }
+
+        const hasResolvedImageLayout = Boolean(imageLayout) || isTooBigVideoPreview;
+        mediaHydrator.setImageHints(img, { priority: isPriorityMedia });
+        if (!hasResolvedImageLayout) {
+          img.loading = 'eager';
+          if (!isPriorityMedia) {
+            img.removeAttribute('fetchpriority');
+          }
+        }
+
+        const thumbMarker = document.createElement('span');
+        thumbMarker.style.display = 'block';
+        thumbMarker.style.width = '100%';
+        thumbMarker.style.minHeight = '1px';
+        let thumbInserted = false;
+        const insertThumb = (): void => {
+          if (thumbInserted) return;
+          thumbInserted = true;
+          if (thumbMarker.parentNode) {
+            thumbMarker.parentNode.insertBefore(thumbWrap, thumbMarker);
+          }
+          thumbMarker.remove();
+        };
+
+        const classifyLoadedImage = () => {
+          if (!img.naturalWidth || !img.naturalHeight) return;
+          if (isTooBigVideoPreview) {
+            const aspectRatio = img.naturalWidth / img.naturalHeight;
+            thumbWrap.style.setProperty('--mood-thumb-ratio', `${img.naturalWidth} / ${img.naturalHeight}`);
+            if (aspectRatio < 0.6) {
+              thumbWrap.classList.add('mood-item-thumb--video-ultra-tall');
+            } else if (aspectRatio < 0.8) {
+              thumbWrap.classList.add('mood-item-thumb--video-portrait');
+            }
+            return;
+          }
+
+          const aspectRatio = img.naturalWidth / img.naturalHeight;
+          if (aspectRatio < 0.6) {
+            thumbWrap.classList.add('mood-item-thumb--ultra-tall');
+          } else if (aspectRatio < 0.8) {
+            thumbWrap.classList.add('mood-item-thumb--portrait');
+          }
+        };
+
+        const resolveUnknownLayoutThumb = (): void => {
+          classifyLoadedImage();
+          insertThumb();
+        };
+        if (!hasResolvedImageLayout) {
+          if (img.complete && img.naturalWidth > 0 && img.naturalHeight > 0) {
+            resolveUnknownLayoutThumb();
+          } else {
+            img.addEventListener('load', resolveUnknownLayoutThumb, { once: true });
+          }
+        }
+
+        thumbWrap.appendChild(img);
+        if (isTooBigVideoPreview) {
+          appendTooBigVideoOverlay();
+        }
+
+        if (hasResolvedImageLayout) {
+          content.appendChild(thumbWrap);
+        } else {
+          content.appendChild(thumbMarker);
+        }
+
+        if (isPriorityMedia || !hasResolvedImageLayout) {
+          mediaHydrator.applyResponsiveImage(img, imageSrc);
+        } else {
+          img.dataset.deferredSrc = imageSrc;
+        }
+
+        if (!isPriorityMedia && hasResolvedImageLayout) {
+          mediaHydrator.registerDeferredImage(thumbWrap, () => {
+            mediaHydrator.hydrateDeferredImage(img);
+          });
+        }
+      } else {
+        appendTooBigVideoOverlay();
         content.appendChild(thumbWrap);
-      } else {
-        content.appendChild(thumbMarker);
-      }
-
-      if (isPriorityMedia || !hasResolvedImageLayout) {
-        mediaHydrator.applyResponsiveImage(img, mood.image);
-      } else {
-        img.dataset.deferredSrc = mood.image;
-      }
-
-      if (!isPriorityMedia && hasResolvedImageLayout) {
-        mediaHydrator.registerDeferredImage(thumbWrap, () => {
-          mediaHydrator.hydrateDeferredImage(img);
-        });
       }
     }
 

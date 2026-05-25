@@ -93,6 +93,7 @@ function formatDateHeader(dateKey: string): string {
 function hasRenderableMedia(post: MoodFeedItem): boolean {
   return Boolean(
     post.mediaHtml.trim()
+    || post.previewMediaType === 'too-big-video'
     || post.image
     || (post.gallery?.items.length ?? 0) > 1
   );
@@ -132,7 +133,7 @@ function getPostHref(post: MoodFeedItem): string | undefined {
 
 function getThumbClass(post: MoodFeedItem): string {
   const classes = ['mood-item-thumb'];
-  if (post.previewMediaType === 'too-big-video' && post.image) {
+  if (post.previewMediaType === 'too-big-video') {
     classes.push('mood-item-thumb--video');
   }
   if (post.imageKind === 'sticker') {
@@ -260,7 +261,7 @@ const hasCriticalInitialPosts = criticalInitialPosts.length > 0;
               const isLongPreview = post.previewText.length > 280;
               const isPriorityMedia = post.id === criticalPriorityPostId;
               const commentsInfo = getCommentsCountInfo(post.commentsCount);
-              const isTooBigVideoPreview = post.previewMediaType === 'too-big-video' && Boolean(post.image);
+              const isTooBigVideoPreview = post.previewMediaType === 'too-big-video';
               const hasGalleryPreview = !mediaHtml && !isTooBigVideoPreview && (post.gallery?.items.length ?? 0) > 1;
 
               return (
@@ -363,20 +364,22 @@ const hasCriticalInitialPosts = criticalInitialPosts.length > 0;
                       <div class="mood-item-media" set:html={mediaHtml} />
                     ) : hasGalleryPreview && post.gallery ? (
                       <Fragment set:html={renderMoodGalleryMarkup(post.gallery, { variant: 'feed', priority: isPriorityMedia })} />
-                    ) : post.image ? (
+                    ) : post.image || isTooBigVideoPreview ? (
                       <div class={getThumbClass(post)} style={getMoodFeedThumbnailStyle(post)}>
-                        <img
-                          alt=""
-                          width={post.imageWidth ?? undefined}
-                          height={post.imageHeight ?? undefined}
-                          data-fallback-src={post.imageFallback ?? undefined}
-                          decoding="async"
-                          loading={isPriorityMedia ? 'eager' : 'lazy'}
-                          fetchpriority={isPriorityMedia ? 'high' : undefined}
-                          src={withWidthParam(post.image, 800)}
-                          srcset={buildSrcSet(post.image, responsiveImageWidths)}
-                          sizes={thumbnailImageSizes}
-                        />
+                        {post.image ? (
+                          <img
+                            alt=""
+                            width={post.imageWidth ?? undefined}
+                            height={post.imageHeight ?? undefined}
+                            data-fallback-src={post.imageFallback ?? undefined}
+                            decoding="async"
+                            loading={isPriorityMedia ? 'eager' : 'lazy'}
+                            fetchpriority={isPriorityMedia ? 'high' : undefined}
+                            src={withWidthParam(post.image, 800)}
+                            srcset={buildSrcSet(post.image, responsiveImageWidths)}
+                            sizes={thumbnailImageSizes}
+                          />
+                        ) : null}
                         {isTooBigVideoPreview ? (
                           <div class="mood-item-thumb-video-overlay" aria-hidden="true">
                             <span class="mood-item-thumb-video-label">Media is too big</span>
