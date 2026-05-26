@@ -7,19 +7,18 @@ export const prerender = false;
 
 type FooterStatus = 'operational' | 'degraded' | 'down' | 'maintenance' | 'unknown';
 
-const OPENSTATUS_URL = 'https://api.openstatus.dev/public/status/status';
+const BETTER_STACK_STATUS_URL = 'https://status.tuuhub.com/index.json';
 
-function normalize(raw: unknown): FooterStatus {
+export function normalizeBetterStackAggregateState(raw: unknown): FooterStatus {
   if (typeof raw !== 'string') return 'unknown';
   switch (raw) {
     case 'operational':
       return 'operational';
-    case 'degraded_performance':
+    case 'degraded':
       return 'degraded';
     case 'downtime':
-    case 'incident':
       return 'down';
-    case 'under_maintenance':
+    case 'maintenance':
       return 'maintenance';
     default:
       return 'unknown';
@@ -44,15 +43,25 @@ export const GET: APIRoute = async ({ request, locals }) => {
   }
 
   let status: FooterStatus = 'unknown';
+  let updatedAt = '';
   try {
-    const payload = await $fetch<{ status?: string }>(OPENSTATUS_URL, {
+    const payload = await $fetch<{
+      data?: {
+        attributes?: {
+          aggregate_state?: string;
+          updated_at?: string;
+        };
+      };
+    }>(BETTER_STACK_STATUS_URL, {
       timeout: 5_000,
       retry: 0,
     });
-    status = normalize(payload?.status);
+    const attributes = payload?.data?.attributes;
+    status = normalizeBetterStackAggregateState(attributes?.aggregate_state);
+    updatedAt = attributes?.updated_at ?? '';
   } catch (error) {
-    console.warn('OpenStatus probe failed:', error);
+    console.warn('Better Stack status probe failed:', error);
   }
 
-  return json(200, { status }, headers);
+  return json(200, { status, provider: 'betterstack', updatedAt }, headers);
 };

@@ -45,11 +45,14 @@
 3. **Last.fm + Apple iTunes Search** (`src/features/home/ui/Listening.astro`, `src/features/home/server/listening.ts`, `src/pages/api/listening.ts`) — Recent listening status from Last.fm, with client-side home hydration and iTunes enrichment for preview URLs and stronger artwork
 4. **GitHub Contributions** (`src/features/home/ui/GitHubContributions.astro`) — Contribution graph from external API
 5. **Telegram/BroadcastChannel** — Mood posts sourced from Telegram channel, with webhook ingress on Cloudflare Worker and content parsing in the site app
+6. **Better Stack Status Page** (`src/pages/api/footer.ts`) — Footer service status from `https://status.tuuhub.com/index.json`
 
 ## API Endpoints
 
 **JSON:**
-- `GET /api/health` — Aggregated API health. Default mode checks core app APIs; `?deep=1` adds slower external probes.
+- `GET|HEAD /api/ping` — Tiny uncached uptime endpoint for Better Stack monitors.
+- `GET /api/footer` — Cached footer status proxy backed by the Better Stack status page JSON API.
+- `GET /api/health` — Owner diagnostic health report. It checks application dependencies and should not be used as an external uptime monitor; `?deep=1` adds slower external probes.
 - `GET /api/moods` — Mood feed with pagination (`?before=<id>`)
 - `GET /api/comments` — Comments
 - `GET /api/oembed.json` — oEmbed endpoint (docs: `docs/OEMBED-API.md`)
