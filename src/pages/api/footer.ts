@@ -9,6 +9,15 @@ type FooterStatus = 'operational' | 'degraded' | 'down' | 'maintenance' | 'unkno
 
 const BETTER_STACK_STATUS_URL = 'https://status.tuuhub.com/index.json';
 
+interface BetterStackStatusPayload {
+  data?: {
+    attributes?: {
+      aggregate_state?: string;
+      updated_at?: string;
+    };
+  };
+}
+
 export function normalizeBetterStackAggregateState(raw: unknown): FooterStatus {
   if (typeof raw !== 'string') return 'unknown';
   switch (raw) {
@@ -23,6 +32,30 @@ export function normalizeBetterStackAggregateState(raw: unknown): FooterStatus {
     default:
       return 'unknown';
   }
+}
+
+function parseBetterStackPayload(payload: unknown): BetterStackStatusPayload | null {
+  if (typeof payload === 'string') {
+    try {
+      return JSON.parse(payload) as BetterStackStatusPayload;
+    } catch {
+      return null;
+    }
+  }
+
+  if (typeof payload === 'object' && payload !== null) {
+    return payload as BetterStackStatusPayload;
+  }
+
+  return null;
+}
+
+export function getBetterStackFooterState(payload: unknown): { status: FooterStatus; updatedAt: string } {
+  const attributes = parseBetterStackPayload(payload)?.data?.attributes;
+  return {
+    status: normalizeBetterStackAggregateState(attributes?.aggregate_state),
+    updatedAt: attributes?.updated_at ?? '',
+  };
 }
 
 export const GET: APIRoute = async ({ request, locals }) => {
@@ -45,20 +78,11 @@ export const GET: APIRoute = async ({ request, locals }) => {
   let status: FooterStatus = 'unknown';
   let updatedAt = '';
   try {
-    const payload = await $fetch<{
-      data?: {
-        attributes?: {
-          aggregate_state?: string;
-          updated_at?: string;
-        };
-      };
-    }>(BETTER_STACK_STATUS_URL, {
+    const payload = await $fetch<BetterStackStatusPayload | string>(BETTER_STACK_STATUS_URL, {
       timeout: 5_000,
       retry: 0,
     });
-    const attributes = payload?.data?.attributes;
-    status = normalizeBetterStackAggregateState(attributes?.aggregate_state);
-    updatedAt = attributes?.updated_at ?? '';
+    ({ status, updatedAt } = getBetterStackFooterState(payload));
   } catch (error) {
     console.warn('Better Stack status probe failed:', error);
   }

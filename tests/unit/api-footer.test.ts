@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, test } from 'bun:test';
 import {
   GET as getFooter,
+  getBetterStackFooterState,
   normalizeBetterStackAggregateState,
 } from '../../src/pages/api/footer';
 
@@ -56,6 +57,22 @@ describe('api footer', () => {
     expect(payload).toEqual({
       status: 'down',
       provider: 'betterstack',
+      updatedAt: '2026-05-26T09:15:05.416Z',
+    });
+  });
+
+  test('parses Better Stack JSON even when the upstream content type is text/html', () => {
+    const payload = JSON.stringify({
+      data: {
+        attributes: {
+          aggregate_state: 'operational',
+          updated_at: '2026-05-26T09:15:05.416Z',
+        },
+      },
+    });
+
+    expect(getBetterStackFooterState(payload)).toEqual({
+      status: 'operational',
       updatedAt: '2026-05-26T09:15:05.416Z',
     });
   });
