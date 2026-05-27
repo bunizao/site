@@ -1688,7 +1688,6 @@ export async function getPostComments(
   const headers = buildTelegramRequestHeaders(Astro.request);
 
   try {
-    console.info('Fetching comments', url, { postId, before });
     const html = await $fetch<string>(url, {
       headers,
       query: before ? { before } : undefined,
@@ -1753,7 +1752,6 @@ export async function getChannelInfo(
   if (!skipCache) {
     const cachedResult = cache.get(cacheKey);
     if (cachedResult) {
-      console.info('Match Cache', { before, after, q, type, id });
       return JSON.parse(JSON.stringify(cachedResult));
     }
   }
@@ -1767,7 +1765,6 @@ export async function getChannelInfo(
   const url = id ? `https://${host}/${channel}/${id}?embed=1&mode=tme` : `https://${host}/s/${channel}`;
   const headers = buildTelegramRequestHeaders(Astro.request);
 
-  console.info('Fetching', url, { before, after, q, type, id, skipCache });
   const html = await $fetch<string>(url, {
     headers,
     query: {
