@@ -552,11 +552,23 @@ const placeholders = Array.from({ length: SKELETON_COUNT }, (_, index) => ({
 </style>
 
 <script>
-  import gsap from 'gsap';
-  import { ScrollTrigger } from 'gsap/ScrollTrigger';
-  import * as pretext from '@chenglou/pretext';
   import { buildMoodPreviewFragment } from '@/features/mood/shared/preview';
   import { withWidthParam } from '@/lib/media/responsive-image';
+
+  let gsapPromise: Promise<typeof import('gsap')['default']> | null = null;
+  let pretextPromise: Promise<typeof import('@chenglou/pretext')> | null = null;
+
+  const loadGsap = async (): Promise<typeof import('gsap')['default']> => {
+    gsapPromise ??= Promise.all([
+      import('gsap'),
+      import('gsap/ScrollTrigger'),
+    ]).then(([{ default: gsap }, { ScrollTrigger }]) => {
+      gsap.registerPlugin(ScrollTrigger);
+      return gsap;
+    });
+
+    return gsapPromise;
+  };
 
   const initMoodsAnimation = async () => {
     const moodsSection = document.getElementById('moods-section');
@@ -575,6 +587,7 @@ const placeholders = Array.from({ length: SKELETON_COUNT }, (_, index) => ({
     const MAX_MOODS = 5;
     const ALWAYS_LOADING = import.meta.env.PUBLIC_DEBUG_ALWAYS_LOADING === 'true';
     const INITIAL_PREVIEW_REVALIDATE_MS = 60_000;
+    const gsap = await loadGsap();
 
     const formatTime = (value: string): string => {
       const date = new Date(value);
@@ -678,7 +691,7 @@ const placeholders = Array.from({ length: SKELETON_COUNT }, (_, index) => ({
       thumbnailHeight: number;
     }
 
-    type PretextModule = typeof pretext;
+    type PretextModule = typeof import('@chenglou/pretext');
 
     const MAX_PREVIEW_LINES = 2;
     const DEFAULT_VISIBLE_SKELETONS = 1;
@@ -843,7 +856,13 @@ const placeholders = Array.from({ length: SKELETON_COUNT }, (_, index) => ({
     };
 
     const loadPretextModule = async (): Promise<PretextModule | null> => {
-      return pretext;
+      try {
+        pretextPromise ??= import('@chenglou/pretext');
+        return await pretextPromise;
+      } catch (error) {
+        debugPretextFallback('pretext import failed', error);
+        return null;
+      }
     };
 
     const buildCanvasFontShorthand = (styles: CSSStyleDeclaration): string | null => {
@@ -1419,8 +1438,6 @@ const placeholders = Array.from({ length: SKELETON_COUNT }, (_, index) => ({
 
       loadIfVisible();
     };
-
-    gsap.registerPlugin(ScrollTrigger);
 
     if (!runtimeDisabled) {
       await primeSkeletonsFromInitialPosts() || await primeSkeletonsFromCache();

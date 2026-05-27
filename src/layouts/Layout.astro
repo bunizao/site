@@ -928,11 +928,11 @@ const navbarIdleTimeoutAnimation = getPeekRuntimeSlotKey('navbar.idle-timeout');
         };
 
         const onScroll = () => {
-          syncHomeNavPresence();
-          cuePeekScroll();
           if (ticking) return;
           ticking = true;
           requestAnimationFrame(() => {
+            syncHomeNavPresence();
+            cuePeekScroll();
             syncActiveSection();
             ticking = false;
           });
