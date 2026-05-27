@@ -345,9 +345,7 @@ export function initMoodTimelineWheel(): void {
     const totalDates = dateGroups.length;
     if (totalDates === 0) return;
 
-    if (dateAnchors.length !== totalDates) {
-      rebuildDateAnchors();
-    }
+    if (dateAnchors.length !== totalDates) return;
 
     const dateState = getTimelineDateState({
       anchors: dateAnchors,

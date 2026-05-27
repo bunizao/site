@@ -176,7 +176,8 @@ export function createAnimatedEmojiManager(
   };
 
   const hydrate = async (root: ParentNode = document): Promise<void> => {
-    const nodes = Array.from(root.querySelectorAll('[data-emoji-id]')).filter((node) => {
+    const rootNode = root instanceof HTMLElement && root.matches('[data-emoji-id]') ? [root] : [];
+    const nodes = [...rootNode, ...Array.from(root.querySelectorAll('[data-emoji-id]'))].filter((node) => {
       return node instanceof HTMLElement && !node.dataset.emojiAnimated;
     }) as HTMLElement[];
 
@@ -235,8 +236,13 @@ export function createAnimatedEmojiManager(
     }
 
     const observer = new MutationObserver((mutations) => {
-      if (!mutations.some((mutation) => mutation.addedNodes.length > 0)) return;
-      void hydrate(root);
+      mutations.forEach((mutation) => {
+        mutation.addedNodes.forEach((node) => {
+          if (node instanceof HTMLElement || node instanceof DocumentFragment) {
+            void hydrate(node);
+          }
+        });
+      });
     });
 
     observer.observe(root, { childList: true, subtree: true });
