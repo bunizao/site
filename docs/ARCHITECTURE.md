@@ -52,7 +52,7 @@
 **JSON:**
 - `GET|HEAD /api/ping` — Tiny uncached uptime endpoint for Better Stack monitors.
 - `GET /api/footer` — Cached footer status proxy backed by the Better Stack status page JSON API.
-- `GET /api/health` — Owner diagnostic health report. It checks application dependencies and should not be used as an external uptime monitor; `?deep=1` adds slower external probes.
+- `GET /api/health` — Lightweight compatibility health response for stale monitors. Use `?diagnostic=1` for the owner diagnostic report; add `&deep=1` for slower external probes.
 - `GET /api/moods` — Mood feed with pagination (`?before=<id>`)
 - `GET /api/comments` — Comments
 - `GET /api/oembed.json` — oEmbed endpoint (docs: `docs/OEMBED-API.md`)

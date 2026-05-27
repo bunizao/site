@@ -8,10 +8,11 @@ export const prerender = false;
 
 export const GET: APIRoute = async ({ request, locals }) => {
   const url = new URL(request.url);
+  const diagnostic = readBooleanFlag(url, 'diagnostic');
   const deep = readBooleanFlag(url, 'deep');
   const rateLimit = withRateLimit(
     request,
-    deep
+    diagnostic && deep
       ? { windowMs: 60_000, max: 12, prefix: 'api:health:deep' }
       : { windowMs: 60_000, max: 60, prefix: 'api:health' },
     locals
@@ -21,6 +22,15 @@ export const GET: APIRoute = async ({ request, locals }) => {
 
   if (!rateLimit.allowed) {
     return json(429, { error: 'Too Many Requests' }, headers);
+  }
+
+  if (!diagnostic) {
+    return json(200, {
+      status: 'ok',
+      mode: 'ping',
+      checkedAt: new Date().toISOString(),
+      diagnostic: '/api/health?diagnostic=1',
+    }, headers);
   }
 
   const report = await runApiHealth({ request, locals, deep });

@@ -29,10 +29,10 @@ function restoreEnv(): void {
   savedEnv.clear();
 }
 
-function createHealthRequest(deep = false): Request {
-  const url = deep
-    ? 'https://buxx.me/api/health?deep=1'
-    : 'https://buxx.me/api/health';
+function createHealthRequest(options: { deep?: boolean; diagnostic?: boolean } = {}): Request {
+  const url = new URL('https://buxx.me/api/health');
+  if (options.diagnostic) url.searchParams.set('diagnostic', '1');
+  if (options.deep) url.searchParams.set('deep', '1');
 
   return new Request(url);
 }
@@ -78,7 +78,7 @@ describe('api health', () => {
 
   test('adds deep external probes without making skipped probes fail the report', async () => {
     const report = await runApiHealth({
-      request: createHealthRequest(true),
+      request: createHealthRequest({ deep: true }),
       locals: {},
       deep: true,
     });
@@ -90,15 +90,29 @@ describe('api health', () => {
     expect(report.checks.find((check) => check.id === 'telegram-webhook')?.status).toBe('skipped');
   });
 
-  test('route returns 200 unless a critical check is down', async () => {
+  test('route returns a lightweight compatibility response by default', async () => {
     const response = await getApiHealth({
       request: createHealthRequest(),
       locals: {},
     } as any);
-    const payload = await response.json() as { status?: string };
+    const payload = await response.json() as { status?: string; mode?: string; diagnostic?: string };
+
+    expect(response.status).toBe(200);
+    expect(payload.status).toBe('ok');
+    expect(payload.mode).toBe('ping');
+    expect(payload.diagnostic).toBe('/api/health?diagnostic=1');
+    expect(response.headers.get('cache-control')).toBe('no-store, max-age=0');
+  });
+
+  test('route runs aggregated checks only in diagnostic mode', async () => {
+    const response = await getApiHealth({
+      request: createHealthRequest({ diagnostic: true }),
+      locals: {},
+    } as any);
+    const payload = await response.json() as { status?: string; mode?: string };
 
     expect(response.status).toBe(200);
     expect(payload.status).toBe('degraded');
-    expect(response.headers.get('cache-control')).toBe('no-store, max-age=0');
+    expect(payload.mode).toBe('default');
   });
 });

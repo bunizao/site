@@ -49,7 +49,7 @@ test.describe('API behavior', () => {
     expect(typeof probePayload.latestId).toBe('string');
   });
 
-  test('GET /api/health returns aggregated API health', async ({ request }) => {
+  test('GET /api/health returns lightweight monitor-safe health', async ({ request }) => {
     const response = await request.get('/api/health');
     expect(response.ok()).toBeTruthy();
     expect(response.headers()['content-type']).toContain('application/json');
@@ -58,7 +58,7 @@ test.describe('API behavior', () => {
       status?: string;
       mode?: string;
       checkedAt?: string;
-      durationMs?: number;
+      diagnostic?: string;
       checks?: Array<{
         id?: string;
         label?: string;
@@ -68,25 +68,15 @@ test.describe('API behavior', () => {
       }>;
     };
 
-    expect(['ok', 'degraded']).toContain(payload.status);
-    expect(payload.mode).toBe('default');
+    expect(payload.status).toBe('ok');
+    expect(payload.mode).toBe('ping');
     expect(typeof payload.checkedAt).toBe('string');
-    expect(typeof payload.durationMs).toBe('number');
-    expect(Array.isArray(payload.checks)).toBe(true);
-
-    const checks = payload.checks ?? [];
-    const moodFeed = checks.find((check) => check.id === 'mood-feed');
-    expect(moodFeed?.status).toBe('ok');
-    expect(moodFeed?.critical).toBe(true);
-    expect(typeof moodFeed?.durationMs).toBe('number');
-    expect(checks.some((check) => check.id === 'listening')).toBe(true);
-    expect(checks.some((check) => check.id === 'comments')).toBe(true);
-    expect(checks.some((check) => check.id === 'notify-templates')).toBe(true);
-    expect(checks.some((check) => check.id === 'telegram-webhook')).toBe(false);
+    expect(payload.diagnostic).toBe('/api/health?diagnostic=1');
+    expect(payload.checks).toBeUndefined();
   });
 
-  test('GET /api/health supports deep checks', async ({ request }) => {
-    const response = await request.get('/api/health?deep=1');
+  test('GET /api/health supports diagnostic deep checks', async ({ request }) => {
+    const response = await request.get('/api/health?diagnostic=1&deep=1');
     expect(response.ok()).toBeTruthy();
 
     const payload = (await response.json()) as {
