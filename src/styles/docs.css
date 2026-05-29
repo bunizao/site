@@ -1,6 +1,7 @@
-/* buxx docs theme — make Starlight a native extension of buxx.me, not a recolored
-   template. Body is Geist Sans (Inter-class), code is JetBrains Mono. Pure
-   monochrome, no hue accent. Aim: OAI Codex CLI restraint, our typography. */
+/* buxx docs theme — restraint over ornament. Body is Geist Sans (Inter-class),
+   code is JetBrains Mono. Pure monochrome, no hue accent. Density and rhythm
+   modeled on OAI Codex CLI docs: sentence-case sidebar groups, pill-active
+   items, tight title block, no splash gestures. */
 
 @font-face {
   font-family: 'Geist';
@@ -21,17 +22,21 @@
   --sl-font: 'Geist', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
     'Segoe UI', Roboto, sans-serif;
   --sl-font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
-  --docs-radius: 0.875rem;
-  --docs-radius-sm: 0.5rem;
+  --docs-radius-sm: 0.375rem;
+  --docs-radius: 0.5rem;
 
   /* Tighter type scale — closer to Codex CLI than to a marketing splash. */
-  --sl-text-h1: 2rem;
-  --sl-text-h2: 1.375rem;
-  --sl-text-h3: 1.0625rem;
-  --sl-text-h4: 1rem;
+  --sl-text-h1: 1.625rem;
+  --sl-text-h2: 1.25rem;
+  --sl-text-h3: 1rem;
+  --sl-text-h4: 0.9375rem;
   --sl-text-body: 0.9375rem;
   --sl-text-body-sm: 0.875rem;
+  --sl-text-code: 0.875rem;
   --sl-text-code-sm: 0.8125rem;
+
+  /* Sidebar token — used for group label spacing and active-pill geometry. */
+  --sl-sidebar-item-padding-inline: 0.625rem;
 }
 
 /* ── Dark (default) — matches --background: 0 0% 4%, monochrome ─────────────── */
@@ -40,7 +45,7 @@
   --sl-color-white: hsl(0 0% 100%);
   --sl-color-gray-1: hsl(0 0% 90%);
   --sl-color-gray-2: hsl(0 0% 78%);
-  --sl-color-gray-3: hsl(0 0% 53%);
+  --sl-color-gray-3: hsl(0 0% 56%);
   --sl-color-gray-4: hsl(0 0% 34%);
   --sl-color-gray-5: hsl(0 0% 18%);
   --sl-color-gray-6: hsl(0 0% 12%);
@@ -53,26 +58,26 @@
   --sl-color-bg-inline-code: hsl(0 0% 12%);
 
   /* Monochrome accent: links read as foreground + underline, never a hue. */
-  --sl-color-accent-low: hsl(0 0% 18%);
+  --sl-color-accent-low: hsl(0 0% 14%);
   --sl-color-accent: hsl(0 0% 100%);
   --sl-color-accent-high: hsl(0 0% 100%);
   --sl-color-text-accent: hsl(0 0% 100%);
 
-  --sl-color-hairline: hsl(0 0% 16%);
-  --sl-color-hairline-light: hsl(0 0% 14%);
-  --sl-color-hairline-shade: hsl(0 0% 10%);
+  --sl-color-hairline: hsl(0 0% 14%);
+  --sl-color-hairline-light: hsl(0 0% 12%);
+  --sl-color-hairline-shade: hsl(0 0% 9%);
 }
 
 /* ── Light — matches --background: 0 0% 100%, pure black text/borders ───────── */
 :root[data-theme='light'] {
   --sl-color-white: hsl(0 0% 0%);
-  --sl-color-gray-1: hsl(0 0% 12%);
-  --sl-color-gray-2: hsl(0 0% 28%);
-  --sl-color-gray-3: hsl(0 0% 40%);
-  --sl-color-gray-4: hsl(0 0% 55%);
-  --sl-color-gray-5: hsl(0 0% 88%);
-  --sl-color-gray-6: hsl(0 0% 94%);
-  --sl-color-gray-7: hsl(0 0% 96%);
+  --sl-color-gray-1: hsl(0 0% 14%);
+  --sl-color-gray-2: hsl(0 0% 32%);
+  --sl-color-gray-3: hsl(0 0% 44%);
+  --sl-color-gray-4: hsl(0 0% 60%);
+  --sl-color-gray-5: hsl(0 0% 90%);
+  --sl-color-gray-6: hsl(0 0% 95%);
+  --sl-color-gray-7: hsl(0 0% 97%);
   --sl-color-black: hsl(0 0% 100%);
 
   --sl-color-bg: hsl(0 0% 100%);
@@ -80,14 +85,14 @@
   --sl-color-bg-sidebar: hsl(0 0% 100%);
   --sl-color-bg-inline-code: hsl(0 0% 96%);
 
-  --sl-color-accent-low: hsl(0 0% 92%);
+  --sl-color-accent-low: hsl(0 0% 93%);
   --sl-color-accent: hsl(0 0% 0%);
   --sl-color-accent-high: hsl(0 0% 0%);
   --sl-color-text-accent: hsl(0 0% 0%);
 
-  --sl-color-hairline: hsl(0 0% 88%);
-  --sl-color-hairline-light: hsl(0 0% 90%);
-  --sl-color-hairline-shade: hsl(0 0% 92%);
+  --sl-color-hairline: hsl(0 0% 90%);
+  --sl-color-hairline-light: hsl(0 0% 92%);
+  --sl-color-hairline-shade: hsl(0 0% 94%);
 }
 
 /* ── Typography ─────────────────────────────────────────────────────────────── */
@@ -97,121 +102,222 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-.sl-markdown-content h1,
-.sl-markdown-content h2,
-.sl-markdown-content h3,
-.sl-markdown-content h4,
-h1#_top,
-.content-panel h1,
-site-title,
-.site-title {
-  letter-spacing: -0.018em;
+.sl-markdown-content :is(h1, h2, h3, h4, h5, h6) {
   font-weight: 600;
+  letter-spacing: -0.013em;
 }
 
 .sl-markdown-content h1,
 h1#_top,
 .content-panel h1 {
-  letter-spacing: -0.024em;
+  letter-spacing: -0.022em;
+  font-weight: 600;
 }
 
 .sl-markdown-content :is(h2, h3, h4) {
-  margin-top: 2.25rem;
+  margin-top: 2rem;
+  margin-bottom: 0.5rem;
 }
 
 .sl-markdown-content p,
 .sl-markdown-content li {
-  letter-spacing: -0.005em;
+  letter-spacing: -0.003em;
+  line-height: 1.65;
 }
 
-a.site-title {
-  font-weight: 600;
-  letter-spacing: -0.01em;
+.sl-markdown-content p + p,
+.sl-markdown-content p + ul,
+.sl-markdown-content p + ol {
+  margin-top: 0.85rem;
 }
 
-/* Monochrome links need a non-color affordance: underline in body content. */
+/* ── Page title block — tight, no rule beneath ──────────────────────────────── */
+.content-panel + .content-panel {
+  border-top: none;
+}
+
+.content-panel:first-child {
+  padding-block: 1.75rem 0.5rem;
+}
+
+.content-panel h1#_top {
+  margin-bottom: 0.25rem;
+}
+
+/* Frontmatter description (Starlight renders it as a sibling <p> after h1) is
+   what we want to read as a quiet tagline — gray, no italic, slightly larger. */
+.content-panel:first-child > div > p:first-of-type {
+  margin-top: 0;
+  color: var(--sl-color-gray-2);
+  font-size: 1rem;
+  line-height: 1.5;
+}
+
+/* Hide Starlight's rule under the title — we use whitespace instead. */
+.content-panel hr,
+.content-panel:first-child + .content-panel {
+  border-top: none;
+}
+
+/* ── Links — underline as the affordance, not color ────────────────────────── */
 .sl-markdown-content a:not(:where(.not-content *)) {
   text-decoration: underline;
-  text-underline-offset: 0.2em;
+  text-underline-offset: 0.22em;
   text-decoration-thickness: 1px;
-  text-decoration-color: var(--sl-color-gray-3);
+  text-decoration-color: var(--sl-color-gray-4);
+  color: var(--sl-color-text-accent);
 }
 .sl-markdown-content a:hover:not(:where(.not-content *)) {
   text-decoration-color: currentColor;
 }
 
-/* ── Sidebar — quieter weight, tighter rhythm ──────────────────────────────── */
-.sidebar-content ul.top-level > li > a,
-.sidebar-content ul.top-level > li > details > summary {
-  font-size: 0.78rem;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  font-weight: 600;
-  color: var(--sl-color-gray-3);
-}
-
-.sidebar-content a {
+/* ── Sidebar — sentence case, pill-active, dense rhythm ────────────────────── */
+.sidebar-content {
+  padding-top: 1rem;
   font-size: 0.875rem;
 }
 
-.sidebar-content a[aria-current='page'] {
-  font-weight: 500;
-  background: transparent;
-  color: var(--sl-color-text-accent);
+.sidebar-content ul {
+  --sl-sidebar-item-padding-inline: 0.625rem;
 }
 
-/* ── Splash hero & cards — neutralise Starlight's pastel icon palette ─────── */
+.sidebar-content ul.top-level > li + li {
+  margin-top: 1rem;
+}
+
+/* Group label: sentence-case, semibold, foreground color — not a shouty caps run. */
+.sidebar-content ul.top-level > li > details > summary > .group-label > span,
+.sidebar-content ul.top-level > li > a > span {
+  font-size: 0.875rem;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  text-transform: none;
+  color: var(--sl-color-white);
+}
+
+.sidebar-content ul.top-level > li > details > summary {
+  padding: 0.25rem 0.5rem;
+}
+
+/* Item rows: smaller, gray-2, normal weight; lift on hover. */
+.sidebar-content a {
+  font-size: 0.8125rem;
+  font-weight: 400;
+  color: var(--sl-color-gray-2);
+  border-radius: var(--docs-radius-sm);
+  padding-block: 0.3125rem;
+  transition: background-color 120ms ease, color 120ms ease;
+}
+
+.sidebar-content a:hover {
+  color: var(--sl-color-white);
+  background: var(--sl-color-hairline-shade);
+}
+
+/* Active item: rounded pill background, foreground text. No left bar. */
+.sidebar-content a[aria-current='page'] {
+  font-weight: 500;
+  color: var(--sl-color-text-accent);
+  background: var(--sl-color-accent-low);
+}
+
+/* Caret on collapsible groups — quieter, never recoloured. */
+.sidebar-content ul.top-level > li > details > summary svg {
+  color: var(--sl-color-gray-3);
+}
+
+/* ── Right rail (table of contents) ────────────────────────────────────────── */
+.right-sidebar-panel h2 {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  text-transform: none;
+  color: var(--sl-color-white);
+  margin-bottom: 0.5rem;
+}
+
+.right-sidebar-panel a {
+  font-size: 0.8125rem;
+  color: var(--sl-color-gray-3);
+}
+
+.right-sidebar-panel a[aria-current='true'] {
+  color: var(--sl-color-text-accent);
+  font-weight: 500;
+}
+
+/* ── Cards (used in homepage "browse" grid) ────────────────────────────────── */
 .card {
   background: transparent;
-  border-color: var(--sl-color-hairline);
+  border: 1px solid var(--sl-color-hairline);
+  border-radius: var(--docs-radius);
+  padding: 1.125rem 1.25rem;
+  gap: 0.5rem;
+  transition: border-color 120ms ease, background-color 120ms ease;
+}
+
+.card:hover,
+a.card:hover {
+  border-color: var(--sl-color-gray-4);
+  background: var(--sl-color-hairline-shade);
+}
+
+.card .title {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  color: var(--sl-color-text-accent);
+  gap: 0.5rem;
 }
 
 .card .icon {
+  width: 1.125rem;
+  height: 1.125rem;
+  color: var(--sl-color-gray-3);
+  background: transparent;
+  border: none;
+  padding: 0;
+}
+
+.card p,
+.card .body {
+  font-size: 0.8125rem;
+  line-height: 1.55;
   color: var(--sl-color-gray-2);
-  background: var(--sl-color-gray-6);
-  border-color: transparent;
+  margin: 0;
 }
 
-:root[data-theme='light'] .card .icon {
-  background: var(--sl-color-gray-7);
-  color: var(--sl-color-gray-2);
+/* CardGrid — two columns, equal gutter, dense. */
+.card-grid {
+  gap: 0.75rem;
 }
 
-.action.primary {
-  background: var(--sl-color-text-accent);
-  color: var(--sl-color-bg);
-  border-color: var(--sl-color-text-accent);
-}
-
-.action.minimal {
-  color: var(--sl-color-text-accent);
-}
-
-/* ── Rounded, brand-matched surfaces ───────────────────────────────────────── */
-.sl-markdown-content :is(pre, .expressive-code .frame pre),
-.card,
-.sl-markdown-content .starlight-aside,
-.sl-markdown-content :not(pre) > code {
-  border-radius: var(--docs-radius-sm);
-}
-.card {
-  border-radius: var(--docs-radius);
-}
-
-/* Inline code — mono, but tuned down so it stops shouting next to sans prose. */
+/* ── Inline code — mono, tuned down so it doesn't shout next to sans prose. ─ */
 .sl-markdown-content :not(pre) > code {
   font-size: var(--sl-text-code-sm);
   padding: 0.08em 0.34em;
   font-weight: 500;
+  border-radius: var(--docs-radius-sm);
+  background: var(--sl-color-bg-inline-code);
+  color: var(--sl-color-white);
+  border: 1px solid var(--sl-color-hairline);
+}
+
+.sl-markdown-content :is(pre, .expressive-code .frame pre) {
+  border-radius: var(--docs-radius);
 }
 
 /* ── Asides/callouts — monochrome, no hue. Brand has no amber/blue. ────────── */
 .sl-markdown-content .starlight-aside {
-  background: var(--sl-color-gray-6);
-  border-inline-start-color: var(--sl-color-gray-3);
+  background: var(--sl-color-hairline-shade);
+  border-inline-start-color: var(--sl-color-gray-4);
+  border-radius: var(--docs-radius);
+  padding: 1rem 1.125rem;
 }
 .sl-markdown-content .starlight-aside__title {
   color: var(--sl-color-white);
+  font-weight: 600;
+  font-size: 0.875rem;
 }
 .sl-markdown-content .starlight-aside__icon {
   color: var(--sl-color-gray-3);
@@ -220,11 +326,13 @@ a.site-title {
 /* ── "internal" lock chip — quiet outline, mono, lowercase ─────────────────── */
 .sl-badge {
   font-family: var(--sl-font-mono);
-  font-size: 0.6875rem;
+  font-size: 0.625rem;
   font-weight: 500;
   text-transform: lowercase;
   letter-spacing: 0;
   border-radius: 999px;
+  padding: 0.05rem 0.4rem;
+  vertical-align: 0.05em;
 }
 .sl-badge.caution {
   color: var(--sl-color-gray-3);
@@ -234,4 +342,39 @@ a.site-title {
 .sl-badge.caution::before {
   /* U+1F512 LOCK + U+00A0 NBSP — encoded so file charset can't mojibake them. */
   content: '\01F512\00A0';
+}
+
+/* ── Header / search — match OAI's quiet chrome ────────────────────────────── */
+header.header {
+  border-bottom: 1px solid var(--sl-color-hairline);
+}
+
+site-search button[data-open-modal] {
+  background: var(--sl-color-bg);
+  border: 1px solid var(--sl-color-hairline);
+  border-radius: var(--docs-radius-sm);
+}
+
+/* ── Pagination ("Previous / Next" cards) — slimmer, no bordered cards ────── */
+.pagination-links a {
+  border: 1px solid var(--sl-color-hairline);
+  border-radius: var(--docs-radius);
+  background: transparent;
+  padding: 0.875rem 1rem;
+  transition: border-color 120ms ease, background-color 120ms ease;
+}
+
+.pagination-links a:hover {
+  border-color: var(--sl-color-gray-4);
+  background: var(--sl-color-hairline-shade);
+}
+
+.pagination-links a span:first-child {
+  color: var(--sl-color-gray-3);
+  font-size: 0.75rem;
+}
+
+.pagination-links a span:last-child {
+  font-weight: 500;
+  font-size: 0.9375rem;
 }
