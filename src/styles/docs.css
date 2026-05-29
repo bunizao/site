@@ -228,22 +228,32 @@ h1#_top,
 
 /* ── Right rail (table of contents) ────────────────────────────────────────── */
 .right-sidebar-panel h2 {
-  font-size: 0.8125rem;
+  font-size: 0.75rem;
   font-weight: 600;
   letter-spacing: -0.005em;
   text-transform: none;
   color: var(--sl-color-white);
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.625rem;
 }
 
 .right-sidebar-panel a {
   font-size: 0.8125rem;
   color: var(--sl-color-gray-3);
+  padding-block: 0.25rem;
+  border-inline-start: 2px solid transparent;
+  padding-inline-start: 0.75rem;
+  margin-inline-start: -0.75rem;
+  transition: color 120ms ease, border-color 120ms ease;
+}
+
+.right-sidebar-panel a:hover {
+  color: var(--sl-color-white);
 }
 
 .right-sidebar-panel a[aria-current='true'] {
   color: var(--sl-color-text-accent);
   font-weight: 500;
+  border-inline-start-color: var(--sl-color-text-accent);
 }
 
 /* ── Cards (used in homepage "browse" grid) ────────────────────────────────── */
