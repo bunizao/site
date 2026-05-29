@@ -1,0 +1,12 @@
+---
+// Override Starlight's MobileTableOfContents so internal pages don't leak
+// section names on mobile when their bodies are redacted in production.
+import MobileTableOfContents from '@astrojs/starlight/components/MobileTableOfContents.astro';
+
+const route = Astro.locals.starlightRoute;
+const data = route.entry.data as { internal?: boolean };
+const isInternal = data.internal === true;
+const redact = isInternal && import.meta.env.PROD;
+---
+
+{!redact && <MobileTableOfContents />}

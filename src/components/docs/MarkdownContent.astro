@@ -1,0 +1,66 @@
+---
+// Override Starlight's MarkdownContent so internal pages get their bodies
+// redacted in production builds. The page title, description, and the
+// "Internal — visible to authenticated admins" pill from PageTitle.astro
+// still render — what's hidden is the doc body itself, replaced with a
+// quiet sign-in stub.
+//
+// This is a build-time gate, not a runtime gate. Astro middleware does not
+// run for prerendered pages with `output: 'static'`, so we can't ask the
+// CDN whether the request has a valid `admin_session` cookie. The honest
+// fix is to either (a) redact at build time and never ship the body to
+// public HTML (this file), or (b) move /docs off prerender and check the
+// session in middleware. We picked (a) because it ships today; the runtime
+// gate is the right long-term direction. See docs/PUBLIC-PLAN.md.
+import '@astrojs/starlight/style/markdown.css';
+
+const route = Astro.locals.starlightRoute;
+const data = route.entry.data as { internal?: boolean };
+const isInternal = data.internal === true;
+const redact = isInternal && import.meta.env.PROD;
+---
+
+{redact ? (
+  <div class="sl-markdown-content">
+    <div class="docs-internal-stub">
+      <p>
+        This page documents an internal surface and isn't published publicly.
+        The body lives in the project's <code>docs/</code> source folder for
+        admins and contributors.
+      </p>
+      <p class="docs-internal-stub-foot">
+        Future: <a href="/dev/login">sign in</a> to read internal pages in place.
+      </p>
+    </div>
+  </div>
+) : (
+  <div class="sl-markdown-content"><slot /></div>
+)}
+
+<style>
+  @layer starlight.core {
+    .docs-internal-stub {
+      margin: 1rem 0 0;
+      padding: 1.25rem 1.5rem;
+      border: 1px solid var(--sl-color-hairline);
+      border-radius: 0.5rem;
+      background: var(--sl-color-hairline-shade);
+    }
+
+    .docs-internal-stub p {
+      margin: 0;
+      font-size: 0.9375rem;
+      line-height: 1.6;
+      color: var(--sl-color-gray-2);
+    }
+
+    .docs-internal-stub p + p {
+      margin-top: 0.85rem;
+    }
+
+    .docs-internal-stub-foot {
+      font-size: 0.875rem !important;
+      color: var(--sl-color-gray-3) !important;
+    }
+  }
+</style>
