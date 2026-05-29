@@ -1,0 +1,84 @@
+---
+// Override Starlight's SiteTitle so /docs wears buxx.me's brand. Mirrors the
+// nav on /privacy — peek logo + buxx.me wordmark — with a faint "docs"
+// breadcrumb tail. Static SVG, no animation runtime: docs pages have no need
+// for the peek expressions the home nav uses.
+const { siteTitleHref } = Astro.locals.starlightRoute;
+---
+
+<a href={siteTitleHref} class="docs-brand sl-flex" aria-label="buxx.me docs">
+  <span class="docs-brand-logo" aria-hidden="true">
+    <img src="/logo/peek.svg" alt="" width="22" height="22" />
+  </span>
+  <span class="docs-brand-text">
+    <span class="docs-brand-name">buxx.me</span>
+    <span class="docs-brand-sep" aria-hidden="true">/</span>
+    <span class="docs-brand-section">docs</span>
+  </span>
+</a>
+
+<style>
+  @layer starlight.core {
+    .docs-brand {
+      align-items: center;
+      gap: 0.625rem;
+      min-width: 0;
+      color: var(--sl-color-text-accent);
+      text-decoration: none;
+      font-family: var(--sl-font);
+      font-size: 0.9375rem;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+      transition: opacity 160ms ease;
+    }
+
+    .docs-brand:hover,
+    .docs-brand:focus-visible {
+      opacity: 0.72;
+    }
+
+    .docs-brand-logo {
+      display: inline-flex;
+      flex: 0 0 auto;
+      width: 22px;
+      height: 22px;
+      line-height: 0;
+    }
+
+    .docs-brand-logo img {
+      width: 22px;
+      height: 22px;
+      display: block;
+    }
+
+    .docs-brand-text {
+      display: inline-flex;
+      align-items: baseline;
+      gap: 0.4em;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .docs-brand-name {
+      color: var(--sl-color-text-accent);
+    }
+
+    .docs-brand-sep {
+      color: var(--sl-color-gray-3);
+      font-weight: 400;
+    }
+
+    .docs-brand-section {
+      color: var(--sl-color-gray-2);
+      font-weight: 500;
+    }
+
+    @media (max-width: 50rem) {
+      .docs-brand-section,
+      .docs-brand-sep {
+        display: none;
+      }
+    }
+  }
+</style>

@@ -39,6 +39,12 @@ export default defineConfig({
       // `docs/` and the site serves them at /docs/* alongside the main app.
       customCss: ['./src/styles/docs.css'],
       pagefind: true,
+      // Replace Starlight's default brand block with the buxx.me peek logo +
+      // wordmark used on /privacy, keeping the rest of the header (search,
+      // theme toggle, mobile menu) intact.
+      components: {
+        SiteTitle: './src/components/docs/SiteTitle.astro',
+      },
       social: [
         { icon: 'github', label: 'GitHub', href: 'https://github.com/bunizao' },
       ],
