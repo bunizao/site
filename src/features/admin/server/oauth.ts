@@ -59,6 +59,12 @@ function normalizeStartRedirectPath(value: string): string {
     if (next === DEFAULT_ADMIN_NEXT_PATH || next.startsWith(`${DEFAULT_ADMIN_NEXT_PATH}/`)) {
       return next;
     }
+    // Allow returning to internal docs pages so the auth-gated body can swap
+    // in place after sign-in. Same-origin only — the URL constructor above
+    // strips anything else.
+    if (next === '/docs' || next.startsWith('/docs/')) {
+      return next;
+    }
   } catch {
     return DEFAULT_ADMIN_NEXT_PATH;
   }
