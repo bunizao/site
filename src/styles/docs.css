@@ -284,8 +284,37 @@ a.card:hover {
 .sl-markdown-content .card .title,
 .sl-markdown-content .card .title a,
 .sl-markdown-content a.card,
-.sl-markdown-content a.card:hover {
+.sl-markdown-content a.card:hover,
+.sl-markdown-content .sl-link-card a,
+.sl-markdown-content .sl-link-card a:hover {
   text-decoration: none;
+}
+
+/* ── LinkCard — distinct from Card; tighter padding, hover lifts entire card ── */
+.sl-link-card {
+  background: transparent;
+  border: 1px solid var(--sl-color-hairline);
+  border-radius: var(--docs-radius);
+  padding: 1.125rem 1.25rem;
+  transition: border-color 120ms ease, background-color 120ms ease;
+}
+
+.sl-link-card:hover {
+  border-color: var(--sl-color-gray-4);
+  background: var(--sl-color-hairline-shade);
+}
+
+.sl-link-card .title {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  color: var(--sl-color-text-accent);
+}
+
+.sl-link-card .description {
+  font-size: 0.8125rem;
+  line-height: 1.55;
+  color: var(--sl-color-gray-2);
 }
 
 .card .icon {
