@@ -39,18 +39,25 @@ export default defineConfig({
       // `docs/` and the site serves them at /docs/* alongside the main app.
       customCss: ['./src/styles/docs.css'],
       pagefind: true,
-      // Replace Starlight's default brand block with the buxx.me peek logo +
-      // wordmark used on /privacy, keeping the rest of the header (search,
-      // theme toggle, mobile menu) intact.
+      // Component overrides: brand the header with the buxx peek logo, render
+      // an internal-page banner inside the doc body (instead of a sidebar
+      // badge), redact internal page bodies and TOCs in production builds,
+      // and drop Starlight's Previous/Next rail since these pages do not
+      // read sequentially.
       components: {
         SiteTitle: './src/components/docs/SiteTitle.astro',
+        PageTitle: './src/components/docs/PageTitle.astro',
+        MarkdownContent: './src/components/docs/MarkdownContent.astro',
+        TableOfContents: './src/components/docs/TableOfContents.astro',
+        MobileTableOfContents: './src/components/docs/MobileTableOfContents.astro',
+        Pagination: './src/components/docs/Pagination.astro',
       },
       social: [
         { icon: 'github', label: 'GitHub', href: 'https://github.com/bunizao' },
       ],
-      // A lock badge marks pages gated behind the admin OAuth session. Visibility
-      // is static (frontmatter `internal: true`); the actual gate lives in
-      // middleware. See docs/PUBLIC-PLAN.md.
+      // Internal status is rendered inside the doc body via PageTitle.astro
+      // (frontmatter `internal: true`); the actual gate lives in middleware.
+      // See docs/PUBLIC-PLAN.md.
       sidebar: [
         {
           label: 'Overview',
@@ -62,21 +69,21 @@ export default defineConfig({
         {
           label: 'Surfaces',
           items: [
-            { label: 'Home', slug: 'docs/surfaces/home', badge: { text: 'internal', variant: 'caution' } },
+            { label: 'Home', slug: 'docs/surfaces/home' },
             { label: 'Mood feed', slug: 'docs/surfaces/mood-feed' },
-            { label: 'Mood decoupling', slug: 'docs/surfaces/mood-decoupling', badge: { text: 'internal', variant: 'caution' } },
+            { label: 'Mood decoupling', slug: 'docs/surfaces/mood-decoupling' },
             { label: 'Mascot', slug: 'docs/surfaces/mascot' },
-            { label: 'Spotlight overlay', slug: 'docs/surfaces/spotlight-overlay', badge: { text: 'internal', variant: 'caution' } },
-            { label: 'Shared layout', slug: 'docs/surfaces/shared-layout', badge: { text: 'internal', variant: 'caution' } },
+            { label: 'Spotlight overlay', slug: 'docs/surfaces/spotlight-overlay' },
+            { label: 'Shared layout', slug: 'docs/surfaces/shared-layout' },
           ],
         },
         {
           label: 'Content pipeline',
           items: [
             { label: 'Telegram ingestion', slug: 'docs/pipeline/telegram' },
-            { label: 'Live photo issue', slug: 'docs/pipeline/live-photo-issue', badge: { text: 'internal', variant: 'caution' } },
-            { label: 'Image quality', slug: 'docs/pipeline/image-quality', badge: { text: 'internal', variant: 'caution' } },
-            { label: 'Email notify', slug: 'docs/pipeline/email-notify', badge: { text: 'internal', variant: 'caution' } },
+            { label: 'Live photo issue', slug: 'docs/pipeline/live-photo-issue' },
+            { label: 'Image quality', slug: 'docs/pipeline/image-quality' },
+            { label: 'Email notify', slug: 'docs/pipeline/email-notify' },
           ],
         },
         {
@@ -96,8 +103,8 @@ export default defineConfig({
         {
           label: 'Quality',
           items: [
-            { label: 'E2E behavior scope', slug: 'docs/quality/e2e-scope', badge: { text: 'internal', variant: 'caution' } },
-            { label: 'Debug logs', slug: 'docs/quality/debug-logs', badge: { text: 'internal', variant: 'caution' } },
+            { label: 'E2E behavior scope', slug: 'docs/quality/e2e-scope' },
+            { label: 'Debug logs', slug: 'docs/quality/debug-logs' },
           ],
         },
         {

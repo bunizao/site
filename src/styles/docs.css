@@ -371,6 +371,8 @@ a.card:hover {
 }
 
 /* ── "internal" lock chip — quiet outline, mono, lowercase ─────────────────── */
+/* The chip was once rendered as a Starlight sidebar badge; it now lives only
+   inside the doc body via PageTitle override. Styles kept narrow scope. */
 .sl-badge {
   font-family: var(--sl-font-mono);
   font-size: 0.625rem;
@@ -386,10 +388,6 @@ a.card:hover {
   background-color: transparent;
   border: 1px solid var(--sl-color-hairline);
 }
-.sl-badge.caution::before {
-  /* U+1F512 LOCK + U+00A0 NBSP — encoded so file charset can't mojibake them. */
-  content: '\01F512\00A0';
-}
 
 /* ── Header / search — match OAI's quiet chrome ────────────────────────────── */
 header.header {
@@ -402,26 +400,4 @@ site-search button[data-open-modal] {
   border-radius: var(--docs-radius-sm);
 }
 
-/* ── Pagination ("Previous / Next" cards) — slimmer, no bordered cards ────── */
-.pagination-links a {
-  border: 1px solid var(--sl-color-hairline);
-  border-radius: var(--docs-radius);
-  background: transparent;
-  padding: 0.875rem 1rem;
-  transition: border-color 120ms ease, background-color 120ms ease;
-}
-
-.pagination-links a:hover {
-  border-color: var(--sl-color-gray-4);
-  background: var(--sl-color-hairline-shade);
-}
-
-.pagination-links a span:first-child {
-  color: var(--sl-color-gray-3);
-  font-size: 0.75rem;
-}
-
-.pagination-links a span:last-child {
-  font-weight: 500;
-  font-size: 0.9375rem;
-}
+/* ── Pagination override removes the rail entirely — see Pagination.astro. ─ */
