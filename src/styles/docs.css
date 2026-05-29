@@ -280,6 +280,14 @@ a.card:hover {
   gap: 0.5rem;
 }
 
+/* LinkCard renders its title as <a> inside markdown — strip the body underline. */
+.sl-markdown-content .card .title,
+.sl-markdown-content .card .title a,
+.sl-markdown-content a.card,
+.sl-markdown-content a.card:hover {
+  text-decoration: none;
+}
+
 .card .icon {
   width: 1.125rem;
   height: 1.125rem;
