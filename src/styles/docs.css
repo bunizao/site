@@ -1,0 +1,24 @@
+/* buxx docs theme — aligns Starlight with the main site's monochrome palette.
+   Accent reuses the dev portal blue (--portal-accent: 217 91% 60%) so links feel
+   native to the rest of buxx.me. */
+
+:root {
+  --sl-color-accent-low: hsl(217 60% 20%);
+  --sl-color-accent: hsl(217 91% 55%);
+  --sl-color-accent-high: hsl(217 90% 85%);
+}
+
+:root[data-theme='dark'] {
+  /* Match the main site's dark surface (--background: 240 6% 7%). */
+  --sl-color-bg: hsl(240 6% 7%);
+  --sl-color-bg-nav: hsl(240 6% 9%);
+  --sl-color-bg-sidebar: hsl(240 6% 8%);
+  --sl-color-accent-low: hsl(217 50% 18%);
+  --sl-color-accent: hsl(217 91% 60%);
+  --sl-color-accent-high: hsl(217 90% 82%);
+}
+
+/* Tighten the "internal" lock badge into something quieter than a warning. */
+.sidebar-content .astro-badge[data-variant='caution'] {
+  opacity: 0.85;
+}

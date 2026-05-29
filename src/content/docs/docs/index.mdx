@@ -1,0 +1,31 @@
+---
+title: buxx docs
+description: Documentation for buxx.me — surfaces, content pipeline, APIs, and infrastructure.
+template: splash
+hero:
+  tagline: How buxx.me is built — surfaces, pipeline, APIs, and the bits that run it.
+  actions:
+    - text: Start with the architecture
+      link: /docs/overview/architecture
+      icon: right-arrow
+    - text: Browse the APIs
+      link: /docs/apis/oembed
+      variant: minimal
+---
+
+import { Card, CardGrid } from '@astrojs/starlight/components';
+
+<CardGrid stagger>
+  <Card title="Surfaces" icon="laptop">
+    The pages you see — home, mood feed, mascot, overlays.
+  </Card>
+  <Card title="Content pipeline" icon="random">
+    How posts flow from Telegram into the site.
+  </Card>
+  <Card title="APIs" icon="seti:json">
+    oEmbed and SVG endpoints for embedding buxx.me content.
+  </Card>
+  <Card title="Infrastructure" icon="cloud-download">
+    The Cloudflare Worker and OAuth Hub that keep it running.
+  </Card>
+</CardGrid>
