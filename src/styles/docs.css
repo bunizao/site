@@ -1,14 +1,7 @@
 /* buxx docs theme — make Starlight a native extension of buxx.me, not a recolored
-   template. The site is austere monochrome: JetBrains Mono body, Geist headings,
-   pure black/white, no color accent. */
+   template. Body is Geist Sans (Inter-class), code is JetBrains Mono. Pure
+   monochrome, no hue accent. Aim: OAI Codex CLI restraint, our typography. */
 
-@font-face {
-  font-family: 'JetBrains Mono';
-  src: url('/fonts/jetbrains-mono-variable.woff2') format('woff2-variations');
-  font-weight: 100 800;
-  font-style: normal;
-  font-display: swap;
-}
 @font-face {
   font-family: 'Geist';
   src: url('/fonts/geist-sans-variable.woff2') format('woff2-variations');
@@ -16,13 +9,29 @@
   font-style: normal;
   font-display: swap;
 }
+@font-face {
+  font-family: 'JetBrains Mono';
+  src: url('/fonts/jetbrains-mono-variable.woff2') format('woff2-variations');
+  font-weight: 100 800;
+  font-style: normal;
+  font-display: swap;
+}
 
 :root {
-  --sl-font: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  --sl-font: 'Geist', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+    'Segoe UI', Roboto, sans-serif;
   --sl-font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
-  --docs-font-heading: 'Geist', ui-sans-serif, system-ui, -apple-system, sans-serif;
   --docs-radius: 0.875rem;
   --docs-radius-sm: 0.5rem;
+
+  /* Tighter type scale — closer to Codex CLI than to a marketing splash. */
+  --sl-text-h1: 2rem;
+  --sl-text-h2: 1.375rem;
+  --sl-text-h3: 1.0625rem;
+  --sl-text-h4: 1rem;
+  --sl-text-body: 0.9375rem;
+  --sl-text-body-sm: 0.875rem;
+  --sl-text-code-sm: 0.8125rem;
 }
 
 /* ── Dark (default) — matches --background: 0 0% 4%, monochrome ─────────────── */
@@ -82,6 +91,12 @@
 }
 
 /* ── Typography ─────────────────────────────────────────────────────────────── */
+body {
+  font-feature-settings: 'cv11', 'ss01', 'ss03';
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
 .sl-markdown-content h1,
 .sl-markdown-content h2,
 .sl-markdown-content h3,
@@ -90,14 +105,28 @@ h1#_top,
 .content-panel h1,
 site-title,
 .site-title {
-  font-family: var(--docs-font-heading);
-  letter-spacing: -0.02em;
+  letter-spacing: -0.018em;
+  font-weight: 600;
 }
 
-/* Brand wordmark in the header uses Geist, like the main site. */
+.sl-markdown-content h1,
+h1#_top,
+.content-panel h1 {
+  letter-spacing: -0.024em;
+}
+
+.sl-markdown-content :is(h2, h3, h4) {
+  margin-top: 2.25rem;
+}
+
+.sl-markdown-content p,
+.sl-markdown-content li {
+  letter-spacing: -0.005em;
+}
+
 a.site-title {
-  font-family: var(--docs-font-heading);
   font-weight: 600;
+  letter-spacing: -0.01em;
 }
 
 /* Monochrome links need a non-color affordance: underline in body content. */
@@ -111,6 +140,53 @@ a.site-title {
   text-decoration-color: currentColor;
 }
 
+/* ── Sidebar — quieter weight, tighter rhythm ──────────────────────────────── */
+.sidebar-content ul.top-level > li > a,
+.sidebar-content ul.top-level > li > details > summary {
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: 600;
+  color: var(--sl-color-gray-3);
+}
+
+.sidebar-content a {
+  font-size: 0.875rem;
+}
+
+.sidebar-content a[aria-current='page'] {
+  font-weight: 500;
+  background: transparent;
+  color: var(--sl-color-text-accent);
+}
+
+/* ── Splash hero & cards — neutralise Starlight's pastel icon palette ─────── */
+.card {
+  background: transparent;
+  border-color: var(--sl-color-hairline);
+}
+
+.card .icon {
+  color: var(--sl-color-gray-2);
+  background: var(--sl-color-gray-6);
+  border-color: transparent;
+}
+
+:root[data-theme='light'] .card .icon {
+  background: var(--sl-color-gray-7);
+  color: var(--sl-color-gray-2);
+}
+
+.action.primary {
+  background: var(--sl-color-text-accent);
+  color: var(--sl-color-bg);
+  border-color: var(--sl-color-text-accent);
+}
+
+.action.minimal {
+  color: var(--sl-color-text-accent);
+}
+
 /* ── Rounded, brand-matched surfaces ───────────────────────────────────────── */
 .sl-markdown-content :is(pre, .expressive-code .frame pre),
 .card,
@@ -120,6 +196,13 @@ a.site-title {
 }
 .card {
   border-radius: var(--docs-radius);
+}
+
+/* Inline code — mono, but tuned down so it stops shouting next to sans prose. */
+.sl-markdown-content :not(pre) > code {
+  font-size: var(--sl-text-code-sm);
+  padding: 0.08em 0.34em;
+  font-weight: 500;
 }
 
 /* ── Asides/callouts — monochrome, no hue. Brand has no amber/blue. ────────── */
@@ -149,5 +232,6 @@ a.site-title {
   border: 1px solid var(--sl-color-hairline);
 }
 .sl-badge.caution::before {
-  content: '🔒 ';
+  /* U+1F512 LOCK + U+00A0 NBSP — encoded so file charset can't mojibake them. */
+  content: '\01F512\00A0';
 }
