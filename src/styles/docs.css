@@ -1,24 +1,153 @@
-/* buxx docs theme — aligns Starlight with the main site's monochrome palette.
-   Accent reuses the dev portal blue (--portal-accent: 217 91% 60%) so links feel
-   native to the rest of buxx.me. */
+/* buxx docs theme — make Starlight a native extension of buxx.me, not a recolored
+   template. The site is austere monochrome: JetBrains Mono body, Geist headings,
+   pure black/white, no color accent. */
+
+@font-face {
+  font-family: 'JetBrains Mono';
+  src: url('/fonts/jetbrains-mono-variable.woff2') format('woff2-variations');
+  font-weight: 100 800;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Geist';
+  src: url('/fonts/geist-sans-variable.woff2') format('woff2-variations');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
 
 :root {
-  --sl-color-accent-low: hsl(217 60% 20%);
-  --sl-color-accent: hsl(217 91% 55%);
-  --sl-color-accent-high: hsl(217 90% 85%);
+  --sl-font: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  --sl-font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  --docs-font-heading: 'Geist', ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --docs-radius: 0.875rem;
+  --docs-radius-sm: 0.5rem;
 }
 
+/* ── Dark (default) — matches --background: 0 0% 4%, monochrome ─────────────── */
+:root,
 :root[data-theme='dark'] {
-  /* Match the main site's dark surface (--background: 240 6% 7%). */
-  --sl-color-bg: hsl(240 6% 7%);
-  --sl-color-bg-nav: hsl(240 6% 9%);
-  --sl-color-bg-sidebar: hsl(240 6% 8%);
-  --sl-color-accent-low: hsl(217 50% 18%);
-  --sl-color-accent: hsl(217 91% 60%);
-  --sl-color-accent-high: hsl(217 90% 82%);
+  --sl-color-white: hsl(0 0% 100%);
+  --sl-color-gray-1: hsl(0 0% 90%);
+  --sl-color-gray-2: hsl(0 0% 78%);
+  --sl-color-gray-3: hsl(0 0% 53%);
+  --sl-color-gray-4: hsl(0 0% 34%);
+  --sl-color-gray-5: hsl(0 0% 18%);
+  --sl-color-gray-6: hsl(0 0% 12%);
+  --sl-color-gray-7: hsl(0 0% 15%);
+  --sl-color-black: hsl(0 0% 4%);
+
+  --sl-color-bg: hsl(0 0% 4%);
+  --sl-color-bg-nav: hsl(0 0% 4%);
+  --sl-color-bg-sidebar: hsl(0 0% 4%);
+  --sl-color-bg-inline-code: hsl(0 0% 12%);
+
+  /* Monochrome accent: links read as foreground + underline, never a hue. */
+  --sl-color-accent-low: hsl(0 0% 18%);
+  --sl-color-accent: hsl(0 0% 100%);
+  --sl-color-accent-high: hsl(0 0% 100%);
+  --sl-color-text-accent: hsl(0 0% 100%);
+
+  --sl-color-hairline: hsl(0 0% 16%);
+  --sl-color-hairline-light: hsl(0 0% 14%);
+  --sl-color-hairline-shade: hsl(0 0% 10%);
 }
 
-/* Tighten the "internal" lock badge into something quieter than a warning. */
-.sidebar-content .astro-badge[data-variant='caution'] {
-  opacity: 0.85;
+/* ── Light — matches --background: 0 0% 100%, pure black text/borders ───────── */
+:root[data-theme='light'] {
+  --sl-color-white: hsl(0 0% 0%);
+  --sl-color-gray-1: hsl(0 0% 12%);
+  --sl-color-gray-2: hsl(0 0% 28%);
+  --sl-color-gray-3: hsl(0 0% 40%);
+  --sl-color-gray-4: hsl(0 0% 55%);
+  --sl-color-gray-5: hsl(0 0% 88%);
+  --sl-color-gray-6: hsl(0 0% 94%);
+  --sl-color-gray-7: hsl(0 0% 96%);
+  --sl-color-black: hsl(0 0% 100%);
+
+  --sl-color-bg: hsl(0 0% 100%);
+  --sl-color-bg-nav: hsl(0 0% 100%);
+  --sl-color-bg-sidebar: hsl(0 0% 100%);
+  --sl-color-bg-inline-code: hsl(0 0% 96%);
+
+  --sl-color-accent-low: hsl(0 0% 92%);
+  --sl-color-accent: hsl(0 0% 0%);
+  --sl-color-accent-high: hsl(0 0% 0%);
+  --sl-color-text-accent: hsl(0 0% 0%);
+
+  --sl-color-hairline: hsl(0 0% 88%);
+  --sl-color-hairline-light: hsl(0 0% 90%);
+  --sl-color-hairline-shade: hsl(0 0% 92%);
+}
+
+/* ── Typography ─────────────────────────────────────────────────────────────── */
+.sl-markdown-content h1,
+.sl-markdown-content h2,
+.sl-markdown-content h3,
+.sl-markdown-content h4,
+h1#_top,
+.content-panel h1,
+site-title,
+.site-title {
+  font-family: var(--docs-font-heading);
+  letter-spacing: -0.02em;
+}
+
+/* Brand wordmark in the header uses Geist, like the main site. */
+a.site-title {
+  font-family: var(--docs-font-heading);
+  font-weight: 600;
+}
+
+/* Monochrome links need a non-color affordance: underline in body content. */
+.sl-markdown-content a:not(:where(.not-content *)) {
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+  text-decoration-thickness: 1px;
+  text-decoration-color: var(--sl-color-gray-3);
+}
+.sl-markdown-content a:hover:not(:where(.not-content *)) {
+  text-decoration-color: currentColor;
+}
+
+/* ── Rounded, brand-matched surfaces ───────────────────────────────────────── */
+.sl-markdown-content :is(pre, .expressive-code .frame pre),
+.card,
+.sl-markdown-content .starlight-aside,
+.sl-markdown-content :not(pre) > code {
+  border-radius: var(--docs-radius-sm);
+}
+.card {
+  border-radius: var(--docs-radius);
+}
+
+/* ── Asides/callouts — monochrome, no hue. Brand has no amber/blue. ────────── */
+.sl-markdown-content .starlight-aside {
+  background: var(--sl-color-gray-6);
+  border-inline-start-color: var(--sl-color-gray-3);
+}
+.sl-markdown-content .starlight-aside__title {
+  color: var(--sl-color-white);
+}
+.sl-markdown-content .starlight-aside__icon {
+  color: var(--sl-color-gray-3);
+}
+
+/* ── "internal" lock chip — quiet outline, mono, lowercase ─────────────────── */
+.sl-badge {
+  font-family: var(--sl-font-mono);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  text-transform: lowercase;
+  letter-spacing: 0;
+  border-radius: 999px;
+}
+.sl-badge.caution {
+  color: var(--sl-color-gray-3);
+  background-color: transparent;
+  border: 1px solid var(--sl-color-hairline);
+}
+.sl-badge.caution::before {
+  content: '🔒 ';
 }
