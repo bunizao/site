@@ -91,6 +91,21 @@ describe('video-only feed preview heuristic', () => {
     expect(bookmarkPreview?.type).toBe('bookmark');
     expect(bookmarkPreview?.html).toContain('Article');
   });
+
+  test('extracts location cards as inline previews', () => {
+    const mediaPreview = getInlineMediaPreview(`
+      <a class="tgme_widget_message_location_wrap" href="https://foursquare.com/v/example">
+        <div class="tgme_widget_message_location" style="background-image:url('/static/map.jpg')"></div>
+        <div class="tgme_widget_message_location_info">
+          <div class="tgme_widget_message_location_title">Mannings Venetian</div>
+          <div class="tgme_widget_message_location_address">Macau</div>
+        </div>
+      </a>
+    `);
+
+    expect(mediaPreview?.type).toBe('location');
+    expect(mediaPreview?.html).toContain('Mannings Venetian');
+  });
 });
 
 describe('getQuotePreview', () => {

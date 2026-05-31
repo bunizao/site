@@ -588,9 +588,9 @@ export function isLongContent(text: string): boolean {
 }
 
 /**
- * Get inline media preview (video, audio, document, or bookmark)
+ * Get inline media preview (video, audio, document, location, or bookmark)
  */
-export function getInlineMediaPreview(content: string): { type: 'video' | 'audio' | 'document' | 'bookmark'; html: string } | null {
+export function getInlineMediaPreview(content: string): { type: 'video' | 'audio' | 'document' | 'location' | 'bookmark'; html: string } | null {
   const $ = cheerio.load(content);
 
   const video = $('video').first();
@@ -613,6 +613,11 @@ export function getInlineMediaPreview(content: string): { type: 'video' | 'audio
   const documentPreview = $('.tgme_widget_message_document_wrap').first();
   if (documentPreview.length) {
     return { type: 'document', html: $.html(documentPreview) };
+  }
+
+  const locationPreview = $('.tgme_widget_message_location_wrap').first();
+  if (locationPreview.length) {
+    return { type: 'location', html: $.html(locationPreview) };
   }
 
   const bookmark = $('.bookmark-card').first();

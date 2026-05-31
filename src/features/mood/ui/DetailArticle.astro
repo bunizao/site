@@ -1082,6 +1082,49 @@ const {
     line-height: 1.5;
   }
 
+  .mood-post-content :global(.tgme_widget_message_location_wrap) {
+    display: block;
+    width: min(100%, 480px);
+    margin: 1.5em 0;
+    border: 1px solid hsl(var(--foreground) / 0.12);
+    border-radius: 14px;
+    background: hsl(var(--background));
+    color: inherit;
+    text-decoration: none;
+    overflow: hidden;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  }
+
+  .mood-post-content :global(.tgme_widget_message_location_wrap:hover) {
+    border-color: hsl(var(--foreground) / 0.2);
+    box-shadow: 0 12px 30px hsl(var(--foreground) / 0.05);
+  }
+
+  .mood-post-content :global(.tgme_widget_message_location) {
+    min-height: 190px;
+    background-position: center;
+    background-size: cover;
+  }
+
+  .mood-post-content :global(.tgme_widget_message_location_info) {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    padding: 12px 14px 14px;
+  }
+
+  .mood-post-content :global(.tgme_widget_message_location_title) {
+    font-size: 15px;
+    font-weight: 600;
+    line-height: 1.4;
+  }
+
+  .mood-post-content :global(.tgme_widget_message_location_address) {
+    font-size: 13px;
+    color: hsl(var(--muted-foreground));
+    line-height: 1.5;
+  }
+
   @keyframes fade-in {
     from {
       opacity: 0;

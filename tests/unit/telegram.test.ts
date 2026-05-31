@@ -168,6 +168,26 @@ const DETAIL_HTML_BY_URL: Record<string, string> = {
       </div>
     </div>
   `,
+  'https://t.me/imagebuxx/4106?embed=1&mode=tme': `
+    <div class="tgme_channel_info_header_title">Image Buxx</div>
+    <div class="tgme_widget_message_wrap">
+      <div class="tgme_widget_message text_not_supported_wrap" data-post="imagebuxx/4106">
+        <a class="tgme_widget_message_location_wrap" href="https://foursquare.com/v/example">
+          <div
+            class="tgme_widget_message_location"
+            style="background-image:url('https://static-maps.yandex.ru/1.x/?ll=113.561,22.149&z=16&l=map&size=450,180')"
+          ></div>
+          <div class="tgme_widget_message_location_info">
+            <div class="tgme_widget_message_location_title" dir="auto">Mannings Venetian</div>
+            <div class="tgme_widget_message_location_address" dir="auto">Macau</div>
+          </div>
+        </a>
+        <div class="tgme_widget_message_date">
+          <time datetime="2026-04-28T09:36:12+00:00"></time>
+        </div>
+      </div>
+    </div>
+  `,
 };
 
 const DISCUSSION_HTML_BY_URL: Record<string, string> = {
@@ -382,6 +402,17 @@ describe('getChannelInfo detail media rendering', () => {
     expect(content).toContain('/static/https:/cdn5.telesco.pe/file/sticker.webp');
     expect(content).not.toContain('image-preview-wrap--fallback');
     expect(content).not.toContain('https://image.buxx.me/mood/3417/0');
+  });
+
+  test('keeps Telegram location map URLs readable by the browser', async () => {
+    const { getChannelInfo } = await telegramModulePromise;
+    const post = await getChannelInfo(astro, { id: '4106', skipCache: true });
+    const content = (post as { content: string }).content;
+
+    expect(content).toContain('tgme_widget_message_location_wrap');
+    expect(content).toContain('Mannings Venetian');
+    expect(content).toContain('https://static-maps.yandex.ru/1.x/?ll=113.561,22.149');
+    expect(content).not.toContain('/static/https:/static-maps.yandex.ru');
   });
 });
 

@@ -161,6 +161,27 @@ describe('buildMoodFeedItem', () => {
         mediaHtmlIncludes: 'My Vibe.pdf',
       },
     },
+    {
+      name: 'location',
+      post: createPost(
+        '4106',
+        `
+          <a class="tgme_widget_message_location_wrap" href="https://foursquare.com/v/example">
+            <div class="tgme_widget_message_location" style="background-image:url('/static/map.jpg')"></div>
+            <div class="tgme_widget_message_location_info">
+              <div class="tgme_widget_message_location_title" dir="auto">Mannings Venetian</div>
+              <div class="tgme_widget_message_location_address" dir="auto">Macau</div>
+            </div>
+          </a>
+        `
+      ),
+      expected: {
+        image: null,
+        imageFallback: null,
+        galleryCount: 0,
+        mediaHtmlIncludes: 'Mannings Venetian',
+      },
+    },
   ] satisfies Array<{
     name: string;
     post: Post;
