@@ -187,6 +187,11 @@ function toStaticProxyUrl(value: string, staticProxy: string): string {
   return normalized;
 }
 
+function shouldKeepExternalCssUrl(source: string, urlPrefixEnd: number): boolean {
+  const remainingUrl = source.slice(urlPrefixEnd);
+  return remainingUrl.startsWith('static-maps.yandex.ru/');
+}
+
 function extractBackgroundImage(style: string): string {
   if (!style) return '';
   const match = style.match(/url\((['"]?)(.*?)\1\)/i);
@@ -1571,11 +1576,11 @@ async function getPost(
     ]
       .filter(Boolean)
       .join('')
-      .replace(/(url\(["'])((https?:)?\/\/)/g, (match, p1, p2, _p3) => {
+      .replace(/(url\(["'])((https?:)?\/\/)/g, (match, p1, p2, _p3, offset, source) => {
         if (p2 === '//') {
           p2 = 'https://';
         }
-        if (p2?.startsWith('t.me')) {
+        if (shouldKeepExternalCssUrl(source, offset + match.length)) {
           return match;
         }
         return `${p1}${toStaticProxyUrl(p2, staticProxy)}`;

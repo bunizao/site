@@ -140,6 +140,48 @@ describe('buildMoodFeedItem', () => {
         mediaHtmlIncludes: '',
       },
     },
+    {
+      name: 'document',
+      post: createPost(
+        '4105',
+        `
+          <a class="tgme_widget_message_document_wrap" href="https://t.me/tutumood/4105">
+            <div class="tgme_widget_message_document_icon accent_bg"></div>
+            <div class="tgme_widget_message_document">
+              <div class="tgme_widget_message_document_title accent_color" dir="auto">My Vibe.pdf</div>
+              <div class="tgme_widget_message_document_extra" dir="auto">113.9 KB</div>
+            </div>
+          </a>
+        `
+      ),
+      expected: {
+        image: null,
+        imageFallback: null,
+        galleryCount: 0,
+        mediaHtmlIncludes: 'My Vibe.pdf',
+      },
+    },
+    {
+      name: 'location',
+      post: createPost(
+        '4106',
+        `
+          <a class="tgme_widget_message_location_wrap" href="https://foursquare.com/v/example">
+            <div class="tgme_widget_message_location" style="background-image:url('/static/map.jpg')"></div>
+            <div class="tgme_widget_message_location_info">
+              <div class="tgme_widget_message_location_title" dir="auto">Mannings Venetian</div>
+              <div class="tgme_widget_message_location_address" dir="auto">Macau</div>
+            </div>
+          </a>
+        `
+      ),
+      expected: {
+        image: null,
+        imageFallback: null,
+        galleryCount: 0,
+        mediaHtmlIncludes: 'Mannings Venetian',
+      },
+    },
   ] satisfies Array<{
     name: string;
     post: Post;
