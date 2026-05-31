@@ -35,6 +35,7 @@ export default defineConfig({
     react(),
     starlight({
       title: 'buxx docs',
+      favicon: '/logo/peek.svg',
       // Docs are nested under src/content/docs/docs/, so every slug starts with
       // `docs/` and the site serves them at /docs/* alongside the main app.
       customCss: ['./src/styles/docs.css'],
