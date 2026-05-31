@@ -1,5 +1,4 @@
 import type { APIRoute } from 'astro';
-import { $fetch } from 'ofetch';
 import { json } from '@/lib/http/json-response';
 import { withRateLimit } from '@/lib/http/rate-limited';
 
@@ -78,11 +77,17 @@ export const GET: APIRoute = async ({ request, locals }) => {
   let status: FooterStatus = 'unknown';
   let updatedAt = '';
   try {
-    const payload = await $fetch<BetterStackStatusPayload | string>(BETTER_STACK_STATUS_URL, {
-      timeout: 5_000,
-      retry: 0,
-    });
-    ({ status, updatedAt } = getBetterStackFooterState(payload));
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5_000);
+    try {
+      const response = await fetch(BETTER_STACK_STATUS_URL, { signal: controller.signal });
+      if (!response.ok) {
+        throw new Error(`Better Stack status returned ${response.status}`);
+      }
+      ({ status, updatedAt } = getBetterStackFooterState(await response.text()));
+    } finally {
+      clearTimeout(timeout);
+    }
   } catch (error) {
     console.warn('Better Stack status probe failed:', error);
   }

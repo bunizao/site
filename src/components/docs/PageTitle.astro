@@ -1,0 +1,73 @@
+---
+// Override Starlight's PageTitle so protected docs are marked inside
+// the doc body itself (frontmatter `public: true` skips this) instead of shouting it
+// from the sidebar. Description renders right under the title — the OAI Codex
+// CLI tagline pattern, but driven by the frontmatter we already have.
+const PAGE_TITLE_ID = '_top';
+const { entry } = Astro.locals.starlightRoute;
+const data = entry.data as { title: string; description?: string; public?: boolean };
+const isProtected = data.public !== true;
+---
+
+<div class="docs-page-title">
+  <h1 id={PAGE_TITLE_ID}>{data.title}</h1>
+  {data.description ? <p class="docs-page-tagline">{data.description}</p> : null}
+  {isProtected ? (
+    <p class="docs-page-internal" role="note">
+      <span class="docs-page-internal-glyph" aria-hidden="true">🔒</span>
+      <span class="docs-page-internal-label">Protected — authenticated admins only.</span>
+    </p>
+  ) : null}
+</div>
+
+<style>
+  @layer starlight.core {
+    .docs-page-title {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      margin-block: 0.5rem 1.25rem;
+    }
+
+    .docs-page-title h1 {
+      margin: 0;
+      font-size: var(--sl-text-h1);
+      line-height: 1.15;
+      font-weight: 600;
+      letter-spacing: -0.022em;
+      color: var(--sl-color-white);
+    }
+
+    .docs-page-tagline {
+      margin: 0;
+      font-size: 1rem;
+      line-height: 1.55;
+      color: var(--sl-color-gray-2);
+      max-width: 60ch;
+    }
+
+    .docs-page-internal {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin: 0.25rem 0 0;
+      padding: 0.4rem 0.7rem;
+      align-self: flex-start;
+      font-size: 0.8125rem;
+      font-weight: 500;
+      color: var(--sl-color-gray-2);
+      background: var(--sl-color-hairline-shade);
+      border: 1px solid var(--sl-color-hairline);
+      border-radius: 999px;
+    }
+
+    .docs-page-internal-glyph {
+      font-size: 0.75rem;
+      line-height: 1;
+    }
+
+    .docs-page-internal-label {
+      font-feature-settings: 'cv11', 'ss01';
+    }
+  }
+</style>

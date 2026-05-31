@@ -132,6 +132,8 @@ test.describe('Home page', () => {
     await expect(page.getByRole('link', { name: 'Read all posts' })).toBeVisible();
     await expect(page.getByRole('link', { name: 'Privacy' })).toBeVisible();
 
+    const themeToggle = page.locator('[data-theme-toggle]');
+    await expect(themeToggle).toHaveAttribute('aria-label', /mode$/);
     const themeDropdown = page.locator('[data-theme-dropdown]');
     await themeDropdown.hover();
     const darkOption = page.locator('[data-theme-option="dark"]');

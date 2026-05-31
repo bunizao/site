@@ -1,0 +1,53 @@
+---
+title: buxx docs
+description: How buxx.me is built — surfaces, the content pipeline, the APIs you can embed, and the infrastructure underneath.
+public: true
+---
+
+import { Card, CardGrid, LinkCard } from '@astrojs/starlight/components';
+
+buxx.me is a personal site that turns a Telegram channel into a public mood feed, hosts a few embeddable APIs, and runs on Cloudflare. These docs are the map: how the surfaces are wired up, how content moves through the pipeline, what the APIs return, and what keeps it alive.
+
+## Where to start
+
+<CardGrid>
+  <LinkCard
+    title="Architecture"
+    description="The shape of the system — Astro frontend, Cloudflare worker, Telegram source of truth."
+    href="/docs/overview/architecture"
+  />
+  <LinkCard
+    title="Mood feed"
+    description="How posts are fetched, normalised, paginated, and rendered."
+    href="/docs/surfaces/mood-feed"
+  />
+  <LinkCard
+    title="oEmbed API"
+    description="Drop a buxx.me URL into anything that speaks oEmbed."
+    href="/docs/apis/oembed"
+  />
+  <LinkCard
+    title="Telegram pipeline"
+    description="The path from a message in the channel to a card on the feed."
+    href="/docs/pipeline/telegram"
+  />
+</CardGrid>
+
+## What's covered
+
+<CardGrid>
+  <Card title="Surfaces">
+    The pages you see — home, mood feed, mascot, overlays, shared layout primitives.
+  </Card>
+  <Card title="Content pipeline">
+    Telegram ingestion, image quality, live photos, email notifications.
+  </Card>
+  <Card title="APIs">
+    oEmbed and SVG endpoints for embedding buxx.me content elsewhere.
+  </Card>
+  <Card title="Infrastructure">
+    The Cloudflare Worker, OAuth Hub, and the bits that keep it running.
+  </Card>
+</CardGrid>
+
+Some pages are marked **internal** — working notes behind a feature, gated behind the admin OAuth session in production. The page body itself flags it; the sidebar stays clean.

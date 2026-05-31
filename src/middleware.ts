@@ -6,8 +6,11 @@ import {
   readSessionFromCookieHeader,
   verifySessionToken,
 } from '@/features/admin/server/session';
+import { getDocsVisibilityFromContent } from '@/features/docs/server/content';
+import { isDocsPath } from '@/features/docs/server/visibility';
 
 const PORTAL_PREFIX = '/dev/portal';
+const OAUTH_LOGIN_PATH = '/oauth/login';
 const ADMIN_API_PREFIX = '/api/admin/';
 const PUBLIC_ADMIN_API_PATHS = new Set<string>([
   '/api/admin/auth/start',
@@ -29,8 +32,10 @@ export const onRequest = defineMiddleware(async (context, next) => {
   const pathname = url.pathname;
 
   const isPortal = isPortalPath(pathname);
+  const docsVisibility = isDocsPath(pathname) ? await getDocsVisibilityFromContent(pathname) : 'missing';
+  const isProtectedDocs = docsVisibility === 'protected';
   const isAdminApi = isProtectedAdminApi(pathname);
-  if (!isPortal && !isAdminApi) {
+  if (!isPortal && !isProtectedDocs && !isAdminApi) {
     return next();
   }
 
@@ -41,13 +46,15 @@ export const onRequest = defineMiddleware(async (context, next) => {
     ? await verifySessionToken(token, config.sessionSigningKey)
     : null;
   const devSession = readAdminDevSession(context.locals, import.meta.env.DEV, url.hostname);
+  const directDevSession = devSession && !isProtectedDocs ? devSession : null;
+  const mutableLocals = context.locals as unknown as Record<string, unknown>;
 
   if (session) {
     if (
       isAllowedLogin(session.login, config.allowedLogin)
       || (devSession && isAllowedLogin(session.login, devSession.login))
     ) {
-      (context.locals as Record<string, unknown>).adminSession = {
+      mutableLocals.adminSession = {
         ...session,
         avatarUrl: session.avatarUrl || devSession?.avatarUrl,
       };
@@ -55,8 +62,8 @@ export const onRequest = defineMiddleware(async (context, next) => {
     }
   }
 
-  if (devSession) {
-    (context.locals as Record<string, unknown>).adminSession = devSession;
+  if (directDevSession) {
+    mutableLocals.adminSession = directDevSession;
     return next();
   }
 
@@ -70,5 +77,10 @@ export const onRequest = defineMiddleware(async (context, next) => {
   }
 
   const next_ = encodeURIComponent(pathname + url.search);
-  return Response.redirect(`${url.origin}/dev/login?next=${next_}`, 302);
+  return new Response(null, {
+    status: 302,
+    headers: {
+      Location: `${OAUTH_LOGIN_PATH}?next=${next_}`,
+    },
+  });
 });

@@ -30,6 +30,23 @@ describe('admin OAuth start', () => {
     expect(session?.avatarUrl).toBe('https://github.com/tester.png?size=56');
   });
 
+  test('preserves docs redirects through dev login', async () => {
+    const result = await buildOauthStartResult(
+      new Request('http://localhost:4321/api/admin/auth/start?next=/docs/overview/architecture'),
+      {
+        env: {
+          ADMIN_DEV_BYPASS: '1',
+          ADMIN_DEV_LOGIN: 'tester',
+          ADMIN_SESSION_SECRET: 'test-secret',
+        },
+      },
+      '/docs/overview/architecture',
+      true
+    );
+
+    expect(result?.redirectUrl).toBe('/docs/overview/architecture');
+  });
+
   test('falls back to GitHub OAuth outside dev bypass', async () => {
     const result = await buildOauthStartResult(
       new Request('https://buxx.me/api/admin/auth/start?next=/dev/portal'),
