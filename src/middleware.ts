@@ -46,6 +46,7 @@ export const onRequest = defineMiddleware(async (context, next) => {
     ? await verifySessionToken(token, config.sessionSigningKey)
     : null;
   const devSession = readAdminDevSession(context.locals, import.meta.env.DEV, url.hostname);
+  const directDevSession = devSession && !isProtectedDocs ? devSession : null;
   const mutableLocals = context.locals as unknown as Record<string, unknown>;
 
   if (session) {
@@ -61,8 +62,8 @@ export const onRequest = defineMiddleware(async (context, next) => {
     }
   }
 
-  if (devSession) {
-    mutableLocals.adminSession = devSession;
+  if (directDevSession) {
+    mutableLocals.adminSession = directDevSession;
     return next();
   }
 

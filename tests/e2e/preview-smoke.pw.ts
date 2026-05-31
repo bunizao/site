@@ -81,6 +81,23 @@ test.describe('Preview smoke', () => {
       .toMatch(/loading|feed|error/);
   });
 
+  test('keeps protected docs behind login during dev bypass', async ({ page }) => {
+    await page.goto('/docs/quality/debug-logs/');
+
+    await expect(page).toHaveURL(/\/oauth\/login/);
+    const url = new URL(page.url());
+    expect(url.searchParams.get('next')).toBe('/docs/quality/debug-logs/');
+    await expect(page.getByRole('heading', { name: 'Sign in to docs' })).toBeVisible();
+  });
+
+  test('renders public docs without login', async ({ page }) => {
+    await page.goto('/docs/overview/architecture/');
+
+    await expect(page).toHaveURL(/\/docs\/overview\/architecture\/?$/);
+    await expect(page.getByRole('heading', { name: 'Architecture' })).toBeVisible();
+    await expect(page.getByText('Protected — authenticated admins only.')).toHaveCount(0);
+  });
+
   test('shows the requested URI on the 404 page', async ({ page }) => {
     await page.goto('/missing-from-preview?source=e2e#section');
 
