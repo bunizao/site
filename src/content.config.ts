@@ -14,8 +14,7 @@ const pages = defineCollection({
 
 const docs = defineCollection({
   loader: docsLoader(),
-  // Extend Starlight's schema with an `internal` flag that drives the auth gate
-  // and the lock badge in the sidebar.
+  // Extend Starlight's schema with an `internal` flag for the page-level badge.
   schema: docsSchema({
     extend: z.object({
       internal: z.boolean().default(false),

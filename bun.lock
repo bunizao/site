@@ -43,6 +43,7 @@
       "devDependencies": {
         "@astrojs/check": "0.9.9",
         "@astrojs/react": "5.0.4",
+        "@astrojs/sitemap": "3.7.3",
         "@astrojs/vercel": "10.0.6",
         "@cloudflare/workers-types": "^4.20260527.1",
         "@playwright/test": "^1.60.0",

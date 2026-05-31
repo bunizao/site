@@ -15,6 +15,7 @@ const GITHUB_AUTHORIZE_URL = 'https://github.com/login/oauth/authorize';
 const GITHUB_TOKEN_URL = 'https://github.com/login/oauth/access_token';
 const GITHUB_USER_URL = 'https://api.github.com/user';
 const DEFAULT_ADMIN_NEXT_PATH = '/dev/portal';
+const DOCS_NEXT_PATH = '/docs';
 
 interface GithubTokenResponse {
   access_token?: string;
@@ -59,10 +60,7 @@ function normalizeStartRedirectPath(value: string): string {
     if (next === DEFAULT_ADMIN_NEXT_PATH || next.startsWith(`${DEFAULT_ADMIN_NEXT_PATH}/`)) {
       return next;
     }
-    // Allow returning to internal docs pages so the auth-gated body can swap
-    // in place after sign-in. Same-origin only — the URL constructor above
-    // strips anything else.
-    if (next === '/docs' || next.startsWith('/docs/')) {
+    if (next === DOCS_NEXT_PATH || next.startsWith(`${DOCS_NEXT_PATH}/`)) {
       return next;
     }
   } catch {

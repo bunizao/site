@@ -8,6 +8,7 @@ import {
 } from '@/features/admin/server/session';
 
 const PORTAL_PREFIX = '/dev/portal';
+const DOCS_PREFIX = '/docs';
 const ADMIN_API_PREFIX = '/api/admin/';
 const PUBLIC_ADMIN_API_PATHS = new Set<string>([
   '/api/admin/auth/start',
@@ -17,6 +18,10 @@ const PUBLIC_ADMIN_API_PATHS = new Set<string>([
 
 function isPortalPath(pathname: string): boolean {
   return pathname === PORTAL_PREFIX || pathname.startsWith(`${PORTAL_PREFIX}/`);
+}
+
+function isDocsPath(pathname: string): boolean {
+  return pathname === DOCS_PREFIX || pathname.startsWith(`${DOCS_PREFIX}/`);
 }
 
 function isProtectedAdminApi(pathname: string): boolean {
@@ -29,8 +34,9 @@ export const onRequest = defineMiddleware(async (context, next) => {
   const pathname = url.pathname;
 
   const isPortal = isPortalPath(pathname);
+  const isDocs = isDocsPath(pathname);
   const isAdminApi = isProtectedAdminApi(pathname);
-  if (!isPortal && !isAdminApi) {
+  if (!isPortal && !isDocs && !isAdminApi) {
     return next();
   }
 
@@ -71,5 +77,10 @@ export const onRequest = defineMiddleware(async (context, next) => {
   }
 
   const next_ = encodeURIComponent(pathname + url.search);
-  return Response.redirect(`${url.origin}/dev/login?next=${next_}`, 302);
+  return new Response(null, {
+    status: 302,
+    headers: {
+      Location: `/dev/login?next=${next_}`,
+    },
+  });
 });

@@ -120,11 +120,14 @@ describe('admin OAuth state', () => {
     const signingKey = 'test-signing-key';
     const now = Math.floor(Date.now() / 1000);
     const validState = await createOauthState(signingKey, '/dev/portal/subscribers', now);
+    const docsState = await createOauthState(signingKey, '/docs/overview/architecture#runtime', now);
     const protocolRelativeState = await createOauthState(signingKey, '//evil.example/path', now);
     const absoluteUrlState = await createOauthState(signingKey, 'https://evil.example/path', now);
 
     expect((await verifyOauthState(validState, signingKey))?.next)
       .toBe('/dev/portal/subscribers');
+    expect((await verifyOauthState(docsState, signingKey))?.next)
+      .toBe('/docs/overview/architecture#runtime');
     expect((await verifyOauthState(protocolRelativeState, signingKey))?.next)
       .toBe('/dev/portal');
     expect((await verifyOauthState(absoluteUrlState, signingKey))?.next)

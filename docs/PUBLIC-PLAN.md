@@ -1,26 +1,32 @@
-# Public Docs Plan (buxx.me/docs)
+# Private Docs Plan (buxx.me/docs)
 
-Starlight-powered docs served at `/docs`, alongside the main Astro app. Pages
-marked `internal: true` are gated behind the existing admin OAuth session.
+Starlight-powered docs served at `/docs`, alongside the main Astro app. The
+docs remain Markdown files in this repository and the deployed docs surface is
+gated behind the existing admin OAuth session.
 
 ## Phases
 
 - **Phase 1 (done)**: Starlight skeleton, full IA, navigable stubs, brand theme.
-- **Phase 2**: Auth gating — extract middleware guards into a registry, add a
-  docs guard driven by a build-time internal-slug manifest, render a "this page
-  is private" notice (keeps URL), exclude internal bodies from Pagefind.
+- **Phase 2 (done)**: Auth gating — render Starlight docs on demand, protect
+  `/docs/**` in middleware, and preserve the requested docs URL through the
+  GitHub OAuth flow.
 - **Phase 3**: Migrate the 20 source docs into the collection; rewrite the 9
   public pages, move the 11 internal pages in as-is.
 
 ## Decisions (signed off)
 
 - URL: `buxx.me/docs` (subpath, no separate DNS).
-- Internal entries: shown in the sidebar with a lock badge (visibility is
-  static, from frontmatter). Slugs/titles are always public.
-- Unauthorized access to an internal page: render a private notice at the same
-  URL with a sign-in link; do not 404 or silently redirect.
+- Source: Markdown stays in the repo so agents and humans can update the same
+  operational docs during development.
+- Repository visibility: make the GitHub repository private if the raw source
+  should not be public outside the deployed site.
+- Internal entries: shown with a lock badge driven by frontmatter. This is a
+  reading cue, not the auth boundary.
+- Unauthorized access to `/docs/**`: redirect to `/dev/login?next=...` and
+  return to the requested docs URL after successful sign-in.
 - Auth scope: reuse the existing single-admin GitHub OAuth (`ADMIN_GITHUB_LOGIN`).
-- Search: internal page bodies excluded from the Pagefind index; titles remain.
+- Search: disabled for now because Starlight Pagefind requires prerendered
+  pages, while this docs surface must be rendered on demand for middleware auth.
 
 ## Source doc → docs slug map
 

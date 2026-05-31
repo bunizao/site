@@ -22,6 +22,7 @@ const SESSION_TTL_SECONDS = 7 * 24 * 60 * 60;
 const STATE_TTL_SECONDS = 10 * 60;
 const LOCALHOST_NAMES = new Set(['localhost', '::1']);
 const DEFAULT_ADMIN_NEXT_PATH = '/dev/portal';
+const DOCS_NEXT_PATH = '/docs';
 const HMAC_ALGORITHM = { name: 'HMAC', hash: 'SHA-256' } as const;
 
 export function readAdminAuthConfig(locals: any): AdminAuthConfig {
@@ -82,6 +83,9 @@ export function normalizeAdminNextPath(value: string | null | undefined): string
 
     const next = `${url.pathname}${url.search}${url.hash}`;
     if (next === DEFAULT_ADMIN_NEXT_PATH || next.startsWith(`${DEFAULT_ADMIN_NEXT_PATH}/`)) {
+      return next;
+    }
+    if (next === DOCS_NEXT_PATH || next.startsWith(`${DOCS_NEXT_PATH}/`)) {
       return next;
     }
   } catch {

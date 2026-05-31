@@ -3,10 +3,12 @@ import { fileURLToPath } from 'node:url';
 import react from '@astrojs/react';
 import vercel from '@astrojs/vercel';
 import starlight from '@astrojs/starlight';
+import sitemap from '@astrojs/sitemap';
 
 const isCoverageEnabled = process.env.COVERAGE === '1';
 const isE2EStrictPort = process.env.ASTRO_E2E_STRICT_PORT === '1';
 const coveragePlugins = [];
+const publicSitemapPaths = new Set(['/', '/mood/', '/privacy/']);
 
 if (isCoverageEnabled) {
   const { default: istanbul } = await import('vite-plugin-istanbul');
@@ -37,28 +39,24 @@ export default defineConfig({
       title: 'buxx docs',
       favicon: '/logo/peek.svg',
       disable404Route: true,
+      prerender: false,
+      pagefind: false,
       // Docs are nested under src/content/docs/docs/, so every slug starts with
       // `docs/` and the site serves them at /docs/* alongside the main app.
       customCss: ['./src/styles/docs.css'],
-      pagefind: true,
       // Component overrides: brand the header with the buxx peek logo, render
-      // an internal-page banner inside the doc body (instead of a sidebar
-      // badge), redact internal page bodies and TOCs in production builds,
-      // and drop Starlight's Previous/Next rail since these pages do not
-      // read sequentially.
+      // an internal-page banner inside the doc body, and drop Starlight's
+      // Previous/Next rail since these pages do not read sequentially.
       components: {
         SiteTitle: './src/components/docs/SiteTitle.astro',
         PageTitle: './src/components/docs/PageTitle.astro',
-        MarkdownContent: './src/components/docs/MarkdownContent.astro',
-        TableOfContents: './src/components/docs/TableOfContents.astro',
-        MobileTableOfContents: './src/components/docs/MobileTableOfContents.astro',
         Pagination: './src/components/docs/Pagination.astro',
       },
       social: [
         { icon: 'github', label: 'GitHub', href: 'https://github.com/bunizao' },
       ],
       // Internal status is rendered inside the doc body via PageTitle.astro
-      // (frontmatter `internal: true`); the actual gate lives in middleware.
+      // (frontmatter `internal: true`); /docs itself is gated in middleware.
       // See docs/PUBLIC-PLAN.md.
       sidebar: [
         {
@@ -117,6 +115,9 @@ export default defineConfig({
           ],
         },
       ],
+    }),
+    sitemap({
+      filter: (page) => publicSitemapPaths.has(new URL(page).pathname),
     }),
   ],
   devToolbar: {
