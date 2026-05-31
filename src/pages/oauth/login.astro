@@ -8,6 +8,19 @@ const url = new URL(Astro.request.url);
 const next = url.searchParams.get('next') || '/dev/portal';
 const error = url.searchParams.get('error');
 
+function getSignInTarget(value: string): string {
+  try {
+    const pathname = new URL(value, 'https://buxx.me').pathname;
+    if (pathname === '/docs' || pathname.startsWith('/docs/')) return 'docs';
+    if (pathname === '/dev/portal/oauth' || pathname.startsWith('/dev/portal/oauth/')) return 'OAuth hub';
+    if (pathname === '/dev/portal' || pathname.startsWith('/dev/portal/')) return 'dev portal';
+  } catch {
+    return 'buxx.me';
+  }
+
+  return 'buxx.me';
+}
+
 const errorMessages: Record<string, string> = {
   state: 'Sign-in session expired. Please try again.',
   forbidden: 'Your GitHub account is not allowed to access this portal.',
@@ -16,6 +29,7 @@ const errorMessages: Record<string, string> = {
   config: 'Admin auth is not configured on the server.',
 };
 const errorMessage = error ? errorMessages[error] ?? 'Sign-in failed. Please try again.' : null;
+const signInTarget = getSignInTarget(next);
 
 const startUrl = `/api/admin/auth/start?next=${encodeURIComponent(next)}`;
 ---
@@ -80,12 +94,6 @@ const startUrl = `/api/admin/auth/start?next=${encodeURIComponent(next)}`;
         letter-spacing: -0.015em;
         text-align: center;
       }
-      .login-sub {
-        font-size: 13px;
-        color: hsl(var(--muted-foreground));
-        line-height: 1.55;
-        text-align: center;
-      }
       .login-button {
         margin-top: 24px;
         display: inline-flex;
@@ -107,6 +115,14 @@ const startUrl = `/api/admin/auth/start?next=${encodeURIComponent(next)}`;
         font-size: 11px;
         color: hsl(var(--muted-foreground));
         line-height: 1.6;
+        text-align: center;
+      }
+      .login-meta a {
+        color: hsl(var(--foreground));
+        text-decoration: none;
+      }
+      .login-meta a:hover {
+        text-decoration: underline;
       }
       .login-error {
         margin-top: 16px;
@@ -132,8 +148,7 @@ const startUrl = `/api/admin/auth/start?next=${encodeURIComponent(next)}`;
             decoding="async"
           />
         </span>
-        <h1 class="login-title">Sign in with OAuth</h1>
-        <p class="login-sub">Restricted access. GitHub authentication is required for private site surfaces.</p>
+        <h1 class="login-title">Sign in to {signInTarget}</h1>
 
         {errorMessage && <div class="login-error">{errorMessage}</div>}
 
@@ -144,7 +159,7 @@ const startUrl = `/api/admin/auth/start?next=${encodeURIComponent(next)}`;
           Sign in with GitHub
         </a>
 
-        <p class="login-meta">By signing in you agree that your GitHub login is recorded for audit. No other personal data is collected.</p>
+        <p class="login-meta"><a href="/privacy">Privacy Policy</a></p>
       </section>
     </main>
   </body>
