@@ -36,6 +36,7 @@ export default defineConfig({
     starlight({
       title: 'buxx docs',
       favicon: '/logo/peek.svg',
+      disable404Route: true,
       // Docs are nested under src/content/docs/docs/, so every slug starts with
       // `docs/` and the site serves them at /docs/* alongside the main app.
       customCss: ['./src/styles/docs.css'],
