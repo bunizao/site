@@ -21,6 +21,7 @@ test.describe('Preview smoke', () => {
     if (url.pathname === '/oauth/login') {
       expect(url.searchParams.get('next')).toBe(targetPath);
       await expect(page.getByRole('heading', { name: 'Sign in to dev portal' })).toBeVisible();
+      await expect(page.locator('.login-meta')).toContainText('GitHub verifies access.');
       await expect(page.getByRole('link', { name: 'Privacy Policy' })).toHaveAttribute('href', '/privacy');
       return 'login';
     }
