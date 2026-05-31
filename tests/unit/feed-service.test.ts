@@ -140,6 +140,27 @@ describe('buildMoodFeedItem', () => {
         mediaHtmlIncludes: '',
       },
     },
+    {
+      name: 'document',
+      post: createPost(
+        '4105',
+        `
+          <a class="tgme_widget_message_document_wrap" href="https://t.me/tutumood/4105">
+            <div class="tgme_widget_message_document_icon accent_bg"></div>
+            <div class="tgme_widget_message_document">
+              <div class="tgme_widget_message_document_title accent_color" dir="auto">My Vibe.pdf</div>
+              <div class="tgme_widget_message_document_extra" dir="auto">113.9 KB</div>
+            </div>
+          </a>
+        `
+      ),
+      expected: {
+        image: null,
+        imageFallback: null,
+        galleryCount: 0,
+        mediaHtmlIncludes: 'My Vibe.pdf',
+      },
+    },
   ] satisfies Array<{
     name: string;
     post: Post;

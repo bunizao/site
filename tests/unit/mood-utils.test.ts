@@ -52,6 +52,45 @@ describe('video-only feed preview heuristic', () => {
     expect(firstImage).toBe('/static/https://cdn5.telesco.pe/file/example-poster.jpg');
     expect(preferStaticImagePreview).toBe(true);
   });
+
+  test('keeps audio documents ahead of generic document previews', () => {
+    const content = `
+      <a class="tgme_widget_message_document_wrap" href="https://t.me/tutumood/4106">
+        <div class="tgme_widget_message_document_icon audio accent_bg"></div>
+        <div class="tgme_widget_message_document">
+          <div class="tgme_widget_message_document_title accent_color">voice.mp3</div>
+        </div>
+      </a>
+    `;
+
+    const mediaPreview = getInlineMediaPreview(content);
+
+    expect(mediaPreview?.type).toBe('audio');
+    expect(mediaPreview?.html).toContain('voice.mp3');
+  });
+
+  test('extracts generic documents without affecting bookmark-only previews', () => {
+    const documentPreview = getInlineMediaPreview(`
+      <a class="tgme_widget_message_document_wrap" href="https://t.me/tutumood/4105">
+        <div class="tgme_widget_message_document_icon accent_bg"></div>
+        <div class="tgme_widget_message_document">
+          <div class="tgme_widget_message_document_title accent_color">My Vibe.pdf</div>
+        </div>
+      </a>
+    `);
+    const bookmarkPreview = getInlineMediaPreview(`
+      <a class="bookmark-card" href="https://example.org/article">
+        <span class="bookmark-card__content">
+          <span class="bookmark-card__title">Article</span>
+        </span>
+      </a>
+    `);
+
+    expect(documentPreview?.type).toBe('document');
+    expect(documentPreview?.html).toContain('My Vibe.pdf');
+    expect(bookmarkPreview?.type).toBe('bookmark');
+    expect(bookmarkPreview?.html).toContain('Article');
+  });
 });
 
 describe('getQuotePreview', () => {
