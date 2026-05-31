@@ -41,13 +41,14 @@ export const onRequest = defineMiddleware(async (context, next) => {
     ? await verifySessionToken(token, config.sessionSigningKey)
     : null;
   const devSession = readAdminDevSession(context.locals, import.meta.env.DEV, url.hostname);
+  const mutableLocals = context.locals as unknown as Record<string, unknown>;
 
   if (session) {
     if (
       isAllowedLogin(session.login, config.allowedLogin)
       || (devSession && isAllowedLogin(session.login, devSession.login))
     ) {
-      (context.locals as Record<string, unknown>).adminSession = {
+      mutableLocals.adminSession = {
         ...session,
         avatarUrl: session.avatarUrl || devSession?.avatarUrl,
       };
@@ -56,7 +57,7 @@ export const onRequest = defineMiddleware(async (context, next) => {
   }
 
   if (devSession) {
-    (context.locals as Record<string, unknown>).adminSession = devSession;
+    mutableLocals.adminSession = devSession;
     return next();
   }
 
