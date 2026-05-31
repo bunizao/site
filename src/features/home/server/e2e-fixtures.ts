@@ -17,7 +17,7 @@ export interface E2EWritingTag {
 export interface E2EWritingPost {
   id: string;
   title: string;
-  url: string;
+  slug: string;
   published_at: string;
   tags: E2EWritingTag[];
 }
@@ -48,7 +48,7 @@ export function createE2EWritingPosts(): E2EWritingPost[] {
     {
       id: 'ghost-post-1',
       title: 'Designing a fast personal site',
-      url: 'https://blog.buxx.me/designing-a-fast-personal-site/',
+      slug: 'designing-a-fast-personal-site',
       published_at: '2026-02-01T08:00:00.000Z',
       tags: [
         {
@@ -62,7 +62,7 @@ export function createE2EWritingPosts(): E2EWritingPost[] {
     {
       id: 'ghost-post-2',
       title: 'Running Telegram mood feeds at scale',
-      url: 'https://blog.buxx.me/running-telegram-mood-feeds-at-scale/',
+      slug: 'running-telegram-mood-feeds-at-scale',
       published_at: '2026-01-15T08:00:00.000Z',
       tags: [
         {

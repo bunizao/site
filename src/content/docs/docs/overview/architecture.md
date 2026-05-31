@@ -25,7 +25,7 @@ Telegram is the source of truth for mood content. The Worker hears Telegram's we
 
 The site reads from six external sources:
 
-- **Ghost CMS** — blog posts shown on the home page.
+- **Private Ghost origin** — writing metadata fetched server-side for the home page; the CMS URL is not a public navigation target.
 - **GitHub GraphQL** — repository metadata and stars for project cards.
 - **Last.fm + Apple Music search** — recent listening status, with iTunes enrichment for artwork and previews.
 - **Telegram** — mood post bodies (scraped) and image bytes (via the Worker).

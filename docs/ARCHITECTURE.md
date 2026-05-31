@@ -40,7 +40,7 @@
 
 ## Data Sources
 
-1. **Ghost CMS** (`src/features/home/ui/Posts.astro`) — Blog posts via Ghost Content API
+1. **Private Ghost origin** (`src/features/home/ui/Posts.astro`) — Writing metadata via the Ghost Content API, without exposing the CMS URL in browser-facing links
 2. **GitHub API** (`src/features/home/ui/Projects.astro`, `src/lib/github.ts`) — Repository data and stars via GraphQL
 3. **Last.fm + Apple iTunes Search** (`src/features/home/ui/Listening.astro`, `src/features/home/server/listening.ts`, `src/pages/api/listening.ts`) — Recent listening status from Last.fm, with client-side home hydration and iTunes enrichment for preview URLs and stronger artwork
 4. **GitHub Contributions** (`src/features/home/ui/GitHubContributions.astro`) — Contribution graph from external API
@@ -89,8 +89,9 @@ Telegram references:
 ## Environment Variables
 
 Accessed via `import.meta.env.*`:
-- `GHOST_URL` — Ghost CMS URL (default: https://blog.buxx.me)
+- `GHOST_URL` — private Ghost CMS origin used server-side
 - `GHOST_CONTENT_APIKEY` — Ghost CMS content API key
+- `WRITING_PUBLIC_URL` — optional public writing frontend; when unset, home writing rows stay unlinked
 - `GITHUB_TOKEN` — GitHub GraphQL token for project data
 - `PUBLIC_HD_IMAGE_URL` — Cloudflare Worker URL for HD mood images
 - `HD_IMAGE_INGEST_BASE_URL` — Internal Worker base URL for webhook image ingest when the public image domain has extra edge protections

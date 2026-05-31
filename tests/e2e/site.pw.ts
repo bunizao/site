@@ -129,7 +129,8 @@ test.describe('Home page', () => {
     expect(await page.locator('#projects-section .project-item').count()).toBeGreaterThan(0);
     expect(await page.locator('#writing-section .post-item').count()).toBeGreaterThan(0);
     await expect(page.getByRole('link', { name: 'View all on GitHub' })).toBeVisible();
-    await expect(page.getByRole('link', { name: 'Read all posts' })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Read all posts' })).toHaveCount(0);
+    await expect(page.locator('a[href*="blog.buxx.me"]')).toHaveCount(0);
     await expect(page.getByRole('link', { name: 'Privacy' })).toBeVisible();
 
     const themeDropdown = page.locator('[data-theme-dropdown]');

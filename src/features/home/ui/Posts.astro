@@ -13,17 +13,49 @@ interface Tag {
 interface PostMeta {
   id: string;
   title: string;
-  url: string;
+  slug: string;
   published_at: string;
   tags: Tag[];
 }
 
-const ghostUrl = import.meta.env.GHOST_URL || 'https://blog.buxx.me';
+const ghostOrigin = readEnv(import.meta.env.GHOST_URL);
+const writingPublicUrl = normalizeBaseUrl(readEnv(import.meta.env.WRITING_PUBLIC_URL));
 const useE2EFixture = isE2ESiteFixtureEnabled(Astro.locals);
 
+function readEnv(value: unknown): string {
+  return typeof value === 'string' ? value.trim() : '';
+}
+
+function normalizeBaseUrl(value: string): string {
+  return value.replace(/\/+$/, '');
+}
+
+function isExternalHref(href: string): boolean {
+  return /^https?:\/\//i.test(href);
+}
+
+function getWritingHref(post: PostMeta): string {
+  if (!writingPublicUrl || !post.slug) return '';
+  return `${writingPublicUrl}/${encodeURIComponent(post.slug)}/`;
+}
+
 async function getLatestPosts(): Promise<PostMeta[]> {
-  const apiKey = import.meta.env.GHOST_CONTENT_APIKEY;
-  const apiUrl = `${ghostUrl}/ghost/api/v3/content/posts/?key=${apiKey}&limit=5&fields=id,title,url,published_at&include=tags&filter=visibility:public`;
+  const apiKey = readEnv(import.meta.env.GHOST_CONTENT_APIKEY);
+  if (!ghostOrigin || !apiKey) return [];
+
+  let apiUrl: string;
+  try {
+    const url = new URL('/ghost/api/v3/content/posts/', ghostOrigin);
+    url.searchParams.set('key', apiKey);
+    url.searchParams.set('limit', '5');
+    url.searchParams.set('fields', 'id,title,slug,published_at');
+    url.searchParams.set('include', 'tags');
+    url.searchParams.set('filter', 'visibility:public');
+    apiUrl = url.href;
+  } catch (error) {
+    console.error('Invalid Ghost URL:', error);
+    return [];
+  }
 
   try {
     const res = await fetch(apiUrl);
@@ -45,8 +77,11 @@ const posts = useE2EFixture ? createE2EWritingPosts() : await getLatestPosts();
     <div class="post-list">
       {posts.map((post, index) => {
         const primaryTag = post.tags?.find(t => t.visibility === 'public');
-        return (
-          <a href={post.url} target="_blank" rel="noopener noreferrer" class="post-item scroll-reveal-item" style={`--item-index: ${index}`}>
+        const href = getWritingHref(post);
+        const isExternal = isExternalHref(href);
+        const itemClass = `post-item scroll-reveal-item${href ? '' : ' post-item--static'}`;
+        const content = (
+          <>
             <span class="post-title">{post.title}</span>
             <span class="post-meta">
               {primaryTag && (
@@ -54,7 +89,24 @@ const posts = useE2EFixture ? createE2EWritingPosts() : await getLatestPosts();
               )}
               <span class="post-date">{dayjs(post.published_at).format('YYYY.MM')}</span>
             </span>
-          </a>
+          </>
+        );
+        return (
+          href ? (
+            <a
+              href={href}
+              target={isExternal ? '_blank' : undefined}
+              rel={isExternal ? 'noopener noreferrer' : undefined}
+              class={itemClass}
+              style={`--item-index: ${index}`}
+            >
+              {content}
+            </a>
+          ) : (
+            <div class={itemClass} style={`--item-index: ${index}`}>
+              {content}
+            </div>
+          )
         );
       })}
     </div>
@@ -62,13 +114,16 @@ const posts = useE2EFixture ? createE2EWritingPosts() : await getLatestPosts();
     <p class="text-sm text-muted-foreground">No posts yet.</p>
   )}
 
-  <a
-    href={ghostUrl}
-    target="_blank"
-    class="link scroll-reveal-link mt-6 text-sm text-muted-foreground"
-  >
-    Read all posts
-  </a>
+  {writingPublicUrl ? (
+    <a
+      href={writingPublicUrl}
+      target={isExternalHref(writingPublicUrl) ? '_blank' : undefined}
+      rel={isExternalHref(writingPublicUrl) ? 'noopener noreferrer' : undefined}
+      class="link scroll-reveal-link mt-6 text-sm text-muted-foreground"
+    >
+      Read all posts
+    </a>
+  ) : null}
 </section>
 
 <style>
@@ -126,8 +181,12 @@ const posts = useE2EFixture ? createE2EWritingPosts() : await getLatestPosts();
     display: none;
   }
 
-  .post-item:hover {
+  .post-item:not(.post-item--static):hover {
     padding-left: 8px;
+  }
+
+  .post-item--static {
+    cursor: default;
   }
 
   .post-title {
@@ -174,8 +233,8 @@ const posts = useE2EFixture ? createE2EWritingPosts() : await getLatestPosts();
     }
   }
 
-  .post-item:hover .post-date,
-  .post-item:hover .post-tag {
+  .post-item:not(.post-item--static):hover .post-date,
+  .post-item:not(.post-item--static):hover .post-tag {
     color: hsl(var(--muted-foreground));
   }
 </style>

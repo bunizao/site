@@ -4,7 +4,7 @@ import GitHubContributions from '@/features/home/ui/GitHubContributions.astro';
 import Listening from '@/features/home/ui/Listening.astro';
 import TechMarquee from '@/features/home/ui/TechMarquee.astro';
 import {Instagram, type LucideIcon} from 'lucide-react';
-import { FileText, Github, Mail, Send } from 'lucide-react';
+import { Github, Mail, Send } from 'lucide-react';
 import type { ListeningTrack } from '@/features/home/server/listening';
 
 interface Props {
@@ -20,13 +20,6 @@ const socials: Array<{
   description: string;
   handle: string;
 }> = [
-  {
-    name: 'Blog',
-    url: 'https://blog.buxx.me',
-    icon: FileText,
-    description: 'Read my articles',
-    handle: 'blog.buxx.me'
-  },
   {
     name: 'GitHub',
     url: 'https://tuu.cat/gh',
@@ -92,7 +85,7 @@ const techRow2 = ['Frontend', 'BGP', 'Proxy', 'Docker', 'Linux', 'Web3', 'Optimi
 
     <!-- Role -->
     <p class="hero-animate mb-6 text-sm text-muted-foreground" data-hero-role>
-      Student / Developer / Blogger
+      Student / Developer / Writer
     </p>
 
     <!-- Bio -->

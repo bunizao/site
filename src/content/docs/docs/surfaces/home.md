@@ -28,7 +28,7 @@ The widget refreshes every 45 seconds. The preview button plays/pauses the curre
 
 ## Writing
 
-SSR fetches the latest 5 public Ghost posts from `GHOST_URL` using `GHOST_CONTENT_APIKEY`. Only `id`, `title`, `url`, `published_at`, `tags` are fetched. Each row links externally; first public tag is metadata; date is `YYYY.MM`; failure shows `No posts yet.`.
+SSR fetches the latest 5 public Ghost posts from the private `GHOST_URL` origin using `GHOST_CONTENT_APIKEY`. Only `id`, `title`, `slug`, `published_at`, and `tags` are fetched. Rows are inert by default so the CMS origin is not exposed to browsers; set `WRITING_PUBLIC_URL` only when there is a separate public writing frontend. First public tag is metadata; date is `YYYY.MM`; failure shows `No posts yet.`.
 
 GSAP reveals once. List items slide in from the left. Trailing link fades in last.
 

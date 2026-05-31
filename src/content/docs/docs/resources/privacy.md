@@ -52,7 +52,7 @@ Markdown-backed means policy edits don't require layout changes, route logic sta
 
 ### Third-party content sources
 
-- Ghost CMS for writing links: `src/features/home/ui/Posts.astro`.
+- Private Ghost origin for writing metadata: `src/features/home/ui/Posts.astro`. The browser only gets writing links when `WRITING_PUBLIC_URL` is deliberately configured.
 - GitHub for project data: `src/features/home/ui/Projects.astro`, `src/lib/github.ts`.
 - Telegram-derived content: `src/features/mood/server/telegram-source.ts`.
 

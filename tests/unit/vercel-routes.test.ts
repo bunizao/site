@@ -28,12 +28,13 @@ function findRedirect(pathname: string): string | null {
   return null;
 }
 
-describe('Vercel blog redirects', () => {
-  test('redirects only Ghost sitemap paths', () => {
-    expect(findRedirect('/sacrifice')).toBe('https://blog.buxx.me/sacrifice/');
-    expect(findRedirect('/sacrifice/')).toBe('https://blog.buxx.me/sacrifice/');
-    expect(findRedirect('/author/murray')).toBe('https://blog.buxx.me/author/murray/');
-    expect(findRedirect('/tag/prose/')).toBe('https://blog.buxx.me/tag/prose/');
+describe('Vercel redirects', () => {
+  test('does not expose Ghost CMS routes', () => {
+    expect(redirectRoutes).toHaveLength(0);
+    expect(findRedirect('/sacrifice')).toBeNull();
+    expect(findRedirect('/sacrifice/')).toBeNull();
+    expect(findRedirect('/author/murray')).toBeNull();
+    expect(findRedirect('/tag/prose/')).toBeNull();
   });
 
   test('does not keep a global fallback redirect', () => {
