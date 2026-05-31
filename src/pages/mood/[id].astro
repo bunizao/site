@@ -7,6 +7,7 @@ import '@/styles/mood-gallery.css';
 import { renderMoodContentWithGalleries } from '@/features/mood/shared/gallery';
 import DetailArticle from '@/features/mood/ui/DetailArticle.astro';
 import { createE2EPost } from '@/features/mood/server/e2e-fixtures';
+import { buildMoodDetailMetadata } from '@/features/mood/server/detail-metadata';
 
 export const prerender = false;
 
@@ -47,16 +48,23 @@ const canonicalUrl = new URL(Astro.url.pathname, Astro.url.origin).href;
 const oembed = id
   ? { href: `/api/oembed.json?url=${encodeURIComponent(canonicalUrl)}`, title: 'Mood Embed' }
   : undefined;
-const title = post && id ? `Mood #${id} | Bunizao` : 'Mood not found | Moods';
-const moodSummary = post ? (post.text.trim() || post.title.trim()) : '';
-const description = moodSummary ? moodSummary.slice(0, 160) : 'Mood not found.';
+const metadata = buildMoodDetailMetadata(post, id);
 const formattedDate = post ? dayjs(post.datetime).format('MMMM D, YYYY · HH:mm') : '';
 const channel = import.meta.env.CHANNEL || Astro.locals?.runtime?.env?.CHANNEL || '';
 const telegramCommentUrl = channel && id ? `https://t.me/${channel}/${id}?comment=1` : '';
 const renderedPostContent = post ? renderMoodContentWithGalleries(post.content) : '';
 ---
 
-<Layout title={title} description={description} oembed={oembed} hideSiteNav>
+<Layout
+  title={metadata.title}
+  description={metadata.description}
+  image={metadata.image}
+  imageAlt={metadata.imageAlt}
+  imageWidth={metadata.imageWidth}
+  imageHeight={metadata.imageHeight}
+  oembed={oembed}
+  hideSiteNav
+>
   <main class="page-container">
     <DetailArticle
       post={post}
