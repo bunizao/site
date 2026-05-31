@@ -1,6 +1,7 @@
 ---
 title: Privacy policy
 description: How buxx.me handles your data — what's collected, where it's stored, and which third parties touch it.
+public: true
 ---
 
 This page mirrors the technical implementation of the privacy policy. The full policy text lives at [/privacy](/privacy) and is rendered from `src/content/pages/privacy.md`. This page documents what that policy covers and where each behavior lives in the code.

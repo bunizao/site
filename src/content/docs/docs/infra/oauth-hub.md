@@ -1,6 +1,7 @@
 ---
 title: OAuth hub
 description: The owner-auth control plane — how the site grants short-lived credentials to sandboxes, connectors, and MCP clients.
+public: true
 ---
 
 The OAuth hub is the owner-auth control plane. It starts with the existing GitHub OAuth admin session and gives future sandbox jobs, knowledge connectors, and MCP clients one place to request narrower credentials.

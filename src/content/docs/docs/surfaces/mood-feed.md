@@ -1,6 +1,7 @@
 ---
 title: Mood feed
 description: How the mood feed and detail pages work, from the API down to the comment scrape.
+public: true
 ---
 
 The mood feed is the public surface for posts pulled from the Telegram channel. It lives at three levels: a small home preview, the full feed at `/mood`, and detail pages at `/mood/[id]`.

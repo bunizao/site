@@ -1,21 +1,21 @@
 ---
-// Override Starlight's PageTitle so we can quietly mark internal pages inside
-// the doc body itself (frontmatter `internal: true`) instead of shouting it
+// Override Starlight's PageTitle so protected docs are marked inside
+// the doc body itself (frontmatter `public: true` skips this) instead of shouting it
 // from the sidebar. Description renders right under the title — the OAI Codex
 // CLI tagline pattern, but driven by the frontmatter we already have.
 const PAGE_TITLE_ID = '_top';
 const { entry } = Astro.locals.starlightRoute;
-const data = entry.data as { title: string; description?: string; internal?: boolean };
-const isInternal = data.internal === true;
+const data = entry.data as { title: string; description?: string; public?: boolean };
+const isProtected = data.public !== true;
 ---
 
 <div class="docs-page-title">
   <h1 id={PAGE_TITLE_ID}>{data.title}</h1>
   {data.description ? <p class="docs-page-tagline">{data.description}</p> : null}
-  {isInternal ? (
+  {isProtected ? (
     <p class="docs-page-internal" role="note">
       <span class="docs-page-internal-glyph" aria-hidden="true">🔒</span>
-      <span class="docs-page-internal-label">Internal — visible to authenticated admins.</span>
+      <span class="docs-page-internal-label">Protected — authenticated admins only.</span>
     </p>
   ) : null}
 </div>

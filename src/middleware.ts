@@ -6,9 +6,10 @@ import {
   readSessionFromCookieHeader,
   verifySessionToken,
 } from '@/features/admin/server/session';
+import { getDocsVisibilityFromContent } from '@/features/docs/server/content';
+import { isDocsPath } from '@/features/docs/server/visibility';
 
 const PORTAL_PREFIX = '/dev/portal';
-const DOCS_PREFIX = '/docs';
 const OAUTH_LOGIN_PATH = '/oauth/login';
 const ADMIN_API_PREFIX = '/api/admin/';
 const PUBLIC_ADMIN_API_PATHS = new Set<string>([
@@ -21,10 +22,6 @@ function isPortalPath(pathname: string): boolean {
   return pathname === PORTAL_PREFIX || pathname.startsWith(`${PORTAL_PREFIX}/`);
 }
 
-function isDocsPath(pathname: string): boolean {
-  return pathname === DOCS_PREFIX || pathname.startsWith(`${DOCS_PREFIX}/`);
-}
-
 function isProtectedAdminApi(pathname: string): boolean {
   if (!pathname.startsWith(ADMIN_API_PREFIX)) return false;
   return !PUBLIC_ADMIN_API_PATHS.has(pathname);
@@ -35,9 +32,10 @@ export const onRequest = defineMiddleware(async (context, next) => {
   const pathname = url.pathname;
 
   const isPortal = isPortalPath(pathname);
-  const isDocs = isDocsPath(pathname);
+  const docsVisibility = isDocsPath(pathname) ? await getDocsVisibilityFromContent(pathname) : 'missing';
+  const isProtectedDocs = docsVisibility === 'protected';
   const isAdminApi = isProtectedAdminApi(pathname);
-  if (!isPortal && !isDocs && !isAdminApi) {
+  if (!isPortal && !isProtectedDocs && !isAdminApi) {
     return next();
   }
 

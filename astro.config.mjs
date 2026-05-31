@@ -55,8 +55,8 @@ export default defineConfig({
       social: [
         { icon: 'github', label: 'GitHub', href: 'https://github.com/bunizao' },
       ],
-      // Internal status is rendered inside the doc body via PageTitle.astro
-      // (frontmatter `internal: true`); /docs itself is gated in middleware.
+      // Public docs opt out of auth with frontmatter `public: true`; protected
+      // docs stay behind the admin session and get a body-level badge.
       // See docs/PUBLIC-PLAN.md.
       sidebar: [
         {

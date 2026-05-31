@@ -1,6 +1,7 @@
 ---
 title: SVG API
 description: Server-rendered SVG endpoints designed to drop into a GitHub README without a build step.
+public: true
 ---
 
 Every endpoint here is a server-rendered Astro API route. They're intended for GitHub READMEs and other Markdown surfaces that only support static images. All accept a `theme` query parameter (`dark` or `light`), and most pair well with `<picture>` + `<source media="(prefers-color-scheme: ...)">` for automatic theme switching.

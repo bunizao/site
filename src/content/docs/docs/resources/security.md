@@ -1,6 +1,7 @@
 ---
 title: Security
 description: Rate limiting, Turnstile, signed URLs, and where response hardening starts and stops.
+public: true
 ---
 
 Security on buxx.me is endpoint-focused, not centralized in one middleware layer. Rate limiting is the common baseline; Turnstile, signed URLs, and CSP are layered in where the threat model demands.

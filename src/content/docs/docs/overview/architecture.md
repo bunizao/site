@@ -1,6 +1,7 @@
 ---
 title: Architecture
 description: High-level map of the Astro app, the worker, and how the pieces fit together.
+public: true
 ---
 
 ## The shape
@@ -14,7 +15,7 @@ Telegram is the source of truth for mood content. The Worker hears Telegram's we
 - `src/pages/` — file-based routing. `index.astro` (home), `mood.astro` (feed shell), `mood/[id].astro` (detail), `mood/embed.astro` (embeddable widget).
 - `src/pages/api/` — server endpoints (moods, comments, SVG generators, oEmbed, notify, admin).
 - `src/pages/dev/portal/` — GitHub-OAuth-gated admin portal: overview, OAuth hub, subscribers, broadcasts, mascot inspector, newsletter preview.
-- `src/middleware.ts` — Astro middleware that gates `/dev/portal/**` and `/api/admin/**` against the `admin_session` cookie.
+- `src/middleware.ts` — Astro middleware that gates `/dev/portal/**`, protected `/docs/**` pages, and `/api/admin/**` against the `admin_session` cookie.
 - `src/features/` — feature-private code (`home/`, `mood/`, `notify/`, `admin/`, `logos/`).
 - `src/lib/` — shared utilities (GitHub API, security, HTTP, media helpers).
 - `src/components/ui/` — shadcn/ui primitives used in the admin portal.

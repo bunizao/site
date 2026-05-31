@@ -1,6 +1,7 @@
 ---
 title: Mascot
 description: peek — the site mascot — its placement, animation states, and authoring model.
+public: true
 ---
 
 `peek` is the site mascot. It's a small pixel cat that lives in the navbar, runs through a handful of motion and expression states, and doubles as the favicon. The mascot system stays deliberately simple — branded content with behavior, not infrastructure.

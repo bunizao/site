@@ -1,6 +1,7 @@
 ---
 title: Telegram ingestion
 description: How posts flow from a Telegram channel into the mood feed and email inboxes.
+public: true
 ---
 
 The Telegram pipeline turns a channel post into three things: a card in the public mood feed, an HD image stored in R2, and an email to subscribers. Two services own different parts: the Cloudflare image worker and the Astro/Vercel app.

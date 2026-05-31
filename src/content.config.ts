@@ -14,9 +14,10 @@ const pages = defineCollection({
 
 const docs = defineCollection({
   loader: docsLoader(),
-  // Extend Starlight's schema with an `internal` flag for the page-level badge.
+  // Public docs skip auth; non-public docs stay behind the admin session.
   schema: docsSchema({
     extend: z.object({
+      public: z.boolean().default(false),
       internal: z.boolean().default(false),
     }),
   }),

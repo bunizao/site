@@ -1,6 +1,7 @@
 ---
 title: Worker site
 description: Where the Cloudflare worker ends and the Vercel app begins.
+public: true
 ---
 
 The site has two production runtimes: an Astro app on Vercel and Cloudflare workers. The split is deliberate.

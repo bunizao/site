@@ -1,6 +1,7 @@
 ---
 title: oEmbed API
 description: Drop a buxx.me URL into anything that speaks oEmbed, get back a styled mood embed.
+public: true
 ---
 
 The oEmbed endpoint lets external platforms (and any oEmbed-aware client) embed mood posts without scraping. It follows the [oEmbed 1.0](https://oembed.com/) spec and returns rich JSON with an iframe `html` payload.
