@@ -1034,6 +1034,7 @@ const {
   }
 
   .mood-post-content :global(.tgme_widget_message_document_icon) {
+    --mood-document-file-icon: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='24'%20height='24'%20viewBox='0%200%2024%2024'%20fill='none'%20stroke='black'%20stroke-width='2'%20stroke-linecap='round'%20stroke-linejoin='round'%3E%3Cpath%20d='M15%202H6a2%202%200%200%200-2%202v16a2%202%200%200%200%202%202h12a2%202%200%200%200%202-2V7Z'/%3E%3Cpath%20d='M14%202v4a2%202%200%200%200%202%202h4'/%3E%3Cpath%20d='M10%209H8'/%3E%3Cpath%20d='M16%2013H8'/%3E%3Cpath%20d='M16%2017H8'/%3E%3C/svg%3E");
     width: 46px;
     height: 46px;
     border-radius: 12px;
@@ -1043,6 +1044,15 @@ const {
     justify-content: center;
     flex-shrink: 0;
     position: relative;
+  }
+
+  .mood-post-content :global(.tgme_widget_message_document_icon:not(.audio)::before) {
+    content: '';
+    width: 54%;
+    height: 54%;
+    background: hsl(var(--foreground) / 0.72);
+    -webkit-mask: var(--mood-document-file-icon) center / contain no-repeat;
+    mask: var(--mood-document-file-icon) center / contain no-repeat;
   }
 
   .mood-post-content :global(.tgme_widget_message_document_icon.audio::before) {
