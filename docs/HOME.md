@@ -130,19 +130,18 @@ Implementation files:
 
 Data flow:
 
-- Server-side render fetches the latest 5 public Ghost posts from the private `GHOST_URL` origin.
+- Server-side render fetches the latest 5 public Ghost posts from `GHOST_URL`.
 - The request uses `GHOST_CONTENT_APIKEY`.
 - Only metadata needed by the section is fetched:
   - `id`
   - `title`
-  - `slug`
+  - `url`
   - `published_at`
   - `tags`
 
 Rendering rules:
 
-- rows are inert by default so the CMS origin is not exposed to browsers
-- rows link through `WRITING_PUBLIC_URL` only when a separate public writing frontend is configured
+- each row links to the external Ghost post
 - the first public tag is used as display metadata
 - publish date is formatted as `YYYY.MM`
 - fetch failure returns an empty list and shows `No posts yet.`

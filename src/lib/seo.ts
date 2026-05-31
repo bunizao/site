@@ -21,12 +21,13 @@ export const profileJsonLd = {
     alternateName: profileAlternateNames,
     url: siteUrl,
     email: 'mailto:me@buxx.me',
-    jobTitle: 'Student / Developer / Writer',
+    jobTitle: 'Student / Developer / Blogger',
     affiliation: {
       '@type': 'CollegeOrUniversity',
       name: 'Monash University',
     },
     sameAs: [
+      'https://blog.buxx.me',
       'https://github.com/bunizao',
       'https://tuu.cat/gh',
       'https://tuu.cat/tg',

@@ -117,7 +117,7 @@ Covered implementation:
 
 Covered implementation:
 
-- A private Ghost origin is used for writing metadata in [`src/features/home/ui/Posts.astro`](../src/features/home/ui/Posts.astro); browser-facing writing links require `WRITING_PUBLIC_URL`
+- Ghost is used for writing links in [`src/features/home/ui/Posts.astro`](../src/features/home/ui/Posts.astro)
 - GitHub is used for project data in [`src/features/home/ui/Projects.astro`](../src/features/home/ui/Projects.astro) and [`src/lib/github.ts`](../src/lib/github.ts)
 - Telegram-derived content is parsed in [`src/features/mood/server/telegram-source.ts`](../src/features/mood/server/telegram-source.ts)
 
