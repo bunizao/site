@@ -15,12 +15,12 @@ test.describe('Preview smoke', () => {
   });
 
   async function expectProtectedPortalTarget(page: Page, targetPath: string): Promise<'portal' | 'login'> {
-    await expect(page).toHaveURL(/\/dev\/(?:portal|login)/);
+    await expect(page).toHaveURL(/\/(?:dev\/portal|oauth\/login)/);
 
     const url = new URL(page.url());
-    if (url.pathname === '/dev/login') {
+    if (url.pathname === '/oauth/login') {
       expect(url.searchParams.get('next')).toBe(targetPath);
-      await expect(page.getByRole('heading', { name: 'Sign in to the dev portal' })).toBeVisible();
+      await expect(page.getByRole('heading', { name: 'Sign in with OAuth' })).toBeVisible();
       return 'login';
     }
 

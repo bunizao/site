@@ -7,7 +7,7 @@ export const POST: APIRoute = async () => {
   return new Response(null, {
     status: 303,
     headers: {
-      Location: '/dev/login',
+      Location: '/oauth/login',
       'Set-Cookie': buildClearSessionCookie(),
     },
   });

@@ -13,6 +13,6 @@ export const GET: APIRoute = async ({ request, locals }) => {
     return new Response(null, { status: 302, headers });
   }
 
-  headers.set('Location', `/dev/login?error=${encodeURIComponent(result.reason)}`);
+  headers.set('Location', `/oauth/login?error=${encodeURIComponent(result.reason)}`);
   return new Response(null, { status: 302, headers });
 };

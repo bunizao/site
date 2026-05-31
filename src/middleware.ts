@@ -9,6 +9,7 @@ import {
 
 const PORTAL_PREFIX = '/dev/portal';
 const DOCS_PREFIX = '/docs';
+const OAUTH_LOGIN_PATH = '/oauth/login';
 const ADMIN_API_PREFIX = '/api/admin/';
 const PUBLIC_ADMIN_API_PATHS = new Set<string>([
   '/api/admin/auth/start',
@@ -80,7 +81,7 @@ export const onRequest = defineMiddleware(async (context, next) => {
   return new Response(null, {
     status: 302,
     headers: {
-      Location: `/dev/login?next=${next_}`,
+      Location: `${OAUTH_LOGIN_PATH}?next=${next_}`,
     },
   });
 });

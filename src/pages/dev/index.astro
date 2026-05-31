@@ -1,5 +1,4 @@
 ---
 export const prerender = false;
-const adminSession = (Astro.locals as any).adminSession;
-return Astro.redirect(adminSession ? '/dev/portal' : '/dev/login', 302);
+return Astro.redirect((Astro.locals as any).adminSession ? '/dev/portal' : '/oauth/login', 302);
 ---

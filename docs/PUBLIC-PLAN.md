@@ -22,7 +22,7 @@ gated behind the existing admin OAuth session.
   should not be public outside the deployed site.
 - Internal entries: shown with a lock badge driven by frontmatter. This is a
   reading cue, not the auth boundary.
-- Unauthorized access to `/docs/**`: redirect to `/dev/login?next=...` and
+- Unauthorized access to `/docs/**`: redirect to `/oauth/login?next=...` and
   return to the requested docs URL after successful sign-in.
 - Auth scope: reuse the existing single-admin GitHub OAuth (`ADMIN_GITHUB_LOGIN`).
 - Search: disabled for now because Starlight Pagefind requires prerendered
