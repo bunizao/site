@@ -510,19 +510,114 @@ test.describe('Mood routes', () => {
 
     const commentsWrapper = firstItem.locator('.mood-comments-wrapper');
     await expect(commentsWrapper).toBeVisible();
+    const popoverId = await commentsWrapper.locator('.mood-item-comments').getAttribute('aria-controls');
+    expect(popoverId).toBeTruthy();
+    if (!popoverId) throw new Error('Missing comments popover id');
+    const popover = page.locator(`#${popoverId}`);
     await commentsWrapper.hover();
 
     await expect
-      .poll(async () => commentsWrapper.locator('.mood-popover-comment').count(), { timeout: 30_000 })
+      .poll(async () => popover.locator('.mood-popover-comment').count(), { timeout: 30_000 })
       .toBe(1);
 
-    const popoverContent = commentsWrapper.locator('.mood-popover-comment-content').first();
+    const popoverContent = popover.locator('.mood-popover-comment-content').first();
     await expect(popoverContent.locator('.mood-comment-quote')).toBeVisible();
     await expect(popoverContent.locator('.mood-item-quote-author')).toHaveText('Reply Author');
     await expect(popoverContent.locator('.mood-item-quote-text')).toContainText(/First line\s+Second line/);
     await expect(popoverContent.locator('strong')).toHaveText('Bold');
     await expect(popoverContent.locator('p a')).toHaveAttribute('href', `/mood/${moodId}#comments`);
     await expect(popoverContent).toContainText('🙂');
+  });
+
+  test('keeps the feed comments popover open and scrollable under the pointer', async ({ page }) => {
+    const moodId = '12345';
+    const viewport = { width: 828, height: 620 };
+    const moodFeedPayload = createMoodFeedPayload(moodId);
+    moodFeedPayload.posts[0].commentsCount = 8;
+
+    const commentsPayload = {
+      comments: Array.from({ length: 8 }, (_value, index) => createComment({
+        id: String(9100 + index),
+        author: `E2E ${index + 1}`,
+        content: `<p>Scrollable comment ${index + 1} ${'preview text '.repeat(18)}</p>`,
+      })),
+      hasMore: false,
+      nextBefore: '',
+    };
+
+    await page.setViewportSize(viewport);
+
+    await page.route('**/api/moods**', async (route) => {
+      const url = new URL(route.request().url());
+      if (url.searchParams.get('probe') === '1') {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({ latestId: moodId }),
+        });
+        return;
+      }
+
+      if (url.searchParams.has('before')) {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({ posts: [], channel: moodFeedPayload.channel }),
+        });
+        return;
+      }
+
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(moodFeedPayload),
+      });
+    });
+
+    await page.route('**/api/comments?postId=*', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(commentsPayload),
+      });
+    });
+
+    await page.goto('/mood', { waitUntil: 'domcontentloaded' });
+    await expect(page.locator('[data-mood-feed]')).not.toHaveClass(/is-hidden/, { timeout: 30_000 });
+
+    const firstItem = page.locator('[data-mood-list] .mood-item').first();
+    const commentsWrapper = firstItem.locator('.mood-comments-wrapper');
+    await expect(commentsWrapper).toBeVisible();
+    const popoverId = await commentsWrapper.locator('.mood-item-comments').getAttribute('aria-controls');
+    expect(popoverId).toBeTruthy();
+    if (!popoverId) throw new Error('Missing comments popover id');
+    const popover = page.locator(`#${popoverId}`);
+    await commentsWrapper.hover();
+
+    await expect
+      .poll(async () => popover.locator('.mood-popover-comment').count(), { timeout: 30_000 })
+      .toBe(8);
+    await expect(popover).toBeVisible();
+
+    const box = await popover.boundingBox();
+    expect(box).toBeTruthy();
+    if (!box) throw new Error('Missing comments popover box');
+    expect(box.x).toBeGreaterThanOrEqual(0);
+    expect(box.y).toBeGreaterThanOrEqual(0);
+    expect(box.x + box.width).toBeLessThanOrEqual(viewport.width);
+    expect(box.y + box.height).toBeLessThanOrEqual(viewport.height);
+
+    await page.mouse.move(
+      box.x + (box.width / 2),
+      box.y + Math.min(box.height - 16, Math.max(16, box.height / 2))
+    );
+    await page.waitForTimeout(250);
+    await expect(popover).toBeVisible();
+
+    await page.mouse.wheel(0, 360);
+    await expect
+      .poll(async () => popover.evaluate((element) => Math.round(element.scrollTop)), { timeout: 5_000 })
+      .toBeGreaterThan(0);
   });
 
   test('loads comments on detail page and fallback back-button navigation works', async ({ page, request }) => {
