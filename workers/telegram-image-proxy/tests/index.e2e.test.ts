@@ -174,7 +174,12 @@ function createEnv(overrides?: Partial<FakeEnv>): FakeEnv {
   };
 }
 
-function registerTelegramImageHandlers(fetchMock: FetchMock, filePaths: Record<string, string>, failingFileIds: string[] = []): void {
+function registerTelegramImageHandlers(
+  fetchMock: FetchMock,
+  filePaths: Record<string, string>,
+  failingFileIds: string[] = [],
+  contentType = 'image/jpeg'
+): void {
   fetchMock.register(async (url, init) => {
     if (url.hostname === 'api.telegram.org' && url.pathname.includes('/getFile')) {
       const fileId = url.searchParams.get('file_id') ?? '';
@@ -210,7 +215,7 @@ function registerTelegramImageHandlers(fetchMock: FetchMock, filePaths: Record<s
       const bytes = width ? [width % 255, 2, 3, 4] : [1, 2, 3, 4];
       return new Response(new Uint8Array(bytes), {
         status: 200,
-        headers: { 'Content-Type': 'image/jpeg' },
+        headers: { 'Content-Type': contentType },
       });
     }
 
@@ -307,6 +312,35 @@ describe('telegram image worker e2e', () => {
     expect(env.MOOD_IMAGES.has('mood/123/0@w800')).toBe(true);
     expect(env.MOOD_IMAGES.has('mood/123/0@w1200')).toBe(true);
     expect(env.MOOD_IMAGES.has('mood/123/0@w1600')).toBe(true);
+  });
+
+  test('ingest endpoint normalizes Telegram octet-stream images', async () => {
+    const env = createEnv();
+    const ctx = new FakeExecutionContext();
+    const fetchMock = new FetchMock();
+
+    registerTelegramImageHandlers(
+      fetchMock,
+      { 'file-id-octet': 'photos/file_octet.jpg' },
+      [],
+      'application/octet-stream'
+    );
+    registerWorkerPublicImageHandler(fetchMock, env);
+    globalThis.fetch = fetchMock.fetch as typeof fetch;
+
+    const request = new Request('https://image.example.test/ingest/mood/124/0', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${env.HD_IMAGE_INGEST_TOKEN}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ fileId: 'file-id-octet' }),
+    });
+
+    const response = await worker.fetch(request, env as unknown as Env, ctx);
+
+    expect(response.status).toBe(200);
+    expect(env.MOOD_IMAGES.read('mood/124/0')?.contentType).toBe('image/jpeg');
   });
 
   test('webhook rejects invalid secret', async () => {
@@ -641,6 +675,56 @@ describe('telegram image worker e2e', () => {
     expect(response.headers.get('content-type')).toContain('image/jpeg');
     expect((await response.arrayBuffer()).byteLength).toBeGreaterThan(0);
     expect(env.MOOD_IMAGES.has('mood/200/0@w1200')).toBe(true);
+  });
+
+  test('read endpoint normalizes legacy octet-stream R2 metadata', async () => {
+    const env = createEnv();
+    const ctx = new FakeExecutionContext();
+    const fetchMock = new FetchMock();
+    registerWorkerPublicImageHandler(fetchMock, env);
+    globalThis.fetch = fetchMock.fetch as typeof fetch;
+
+    await env.MOOD_IMAGES.put('mood/203/0', new Uint8Array([10, 20, 30]), {
+      httpMetadata: {
+        contentType: 'application/octet-stream',
+        cacheControl: 'public, max-age=31536000, immutable, no-transform',
+      },
+    });
+
+    const request = new Request('https://image.example.test/mood/203/0', { method: 'HEAD' });
+    const response = await worker.fetch(request, env as unknown as Env, ctx);
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get('content-type')).toContain('image/jpeg');
+    expect(await response.text()).toBe('');
+  });
+
+  test('read endpoint bypasses stale cached octet-stream responses', async () => {
+    const env = createEnv();
+    const ctx = new FakeExecutionContext();
+    const fetchMock = new FetchMock();
+    registerWorkerPublicImageHandler(fetchMock, env);
+    globalThis.fetch = fetchMock.fetch as typeof fetch;
+
+    await env.MOOD_IMAGES.put('mood/204/0', new Uint8Array([10, 20, 30]), {
+      httpMetadata: {
+        contentType: 'image/jpeg',
+        cacheControl: 'public, max-age=31536000, immutable, no-transform',
+      },
+    });
+    const cacheRequest = new Request('https://image.example.test/mood/204/0');
+    await (globalThis.caches as any).default.put(cacheRequest, new Response(new Uint8Array([1]), {
+      headers: { 'Content-Type': 'application/octet-stream' },
+    }));
+
+    const request = new Request('https://image.example.test/mood/204/0', { method: 'GET' });
+    const response = await worker.fetch(request, env as unknown as Env, ctx);
+    const bytes = new Uint8Array(await response.arrayBuffer());
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get('content-type')).toContain('image/jpeg');
+    expect(Array.from(bytes)).toEqual([10, 20, 30]);
+    await ctx.drain();
   });
 
   test('read endpoint repairs a missing width variant from the stored original', async () => {

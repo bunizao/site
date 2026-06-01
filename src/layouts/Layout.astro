@@ -66,6 +66,7 @@ const site = Astro.site ?? new URL('https://buxx.me');
 const siteName = 'Bunizao';
 const canonicalUrl = new URL(url ?? Astro.url?.pathname ?? '/', site).href;
 const ogImageUrl = new URL(image, site).href;
+const ogLogoUrl = new URL('/logo/peek.svg?v=3', site).href;
 const isProduction = import.meta.env.PROD;
 const structuredDataItems = structuredData
   ? Array.isArray(structuredData)
@@ -127,6 +128,7 @@ const navbarIdleTimeoutAnimation = getPeekRuntimeSlotKey('navbar.idle-timeout');
         <meta property="og:image:height" content={String(imageHeight)} />
       </>
     ) : null}
+    <meta property="og:logo" content={ogLogoUrl} />
     <meta property="og:site_name" content={siteName} />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content={title} />

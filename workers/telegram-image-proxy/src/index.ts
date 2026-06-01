@@ -161,6 +161,7 @@ const corsHeaders = {
 const CACHE_CONTROL = 'public, max-age=31536000, immutable, no-transform';
 const VARIANT_WIDTHS = [480, 800, 1200, 1600] as const;
 const VARIANT_QUALITY = 82;
+const DEFAULT_IMAGE_CONTENT_TYPE = 'image/jpeg';
 
 type CfImageRequestInit = RequestInit & {
   cf: {
@@ -196,6 +197,22 @@ function getVariantObjectKey(baseKey: string, width: number): string {
 
 function getVariantHeader(width: number | null): string {
   return width ? `w${width}` : 'original';
+}
+
+function normalizeImageContentType(value: string | null): string {
+  const trimmed = value?.trim() ?? '';
+  const type = trimmed.split(';', 1)[0]?.trim().toLowerCase() ?? '';
+
+  if (!type || type === 'application/octet-stream' || type === 'binary/octet-stream') {
+    return DEFAULT_IMAGE_CONTENT_TYPE;
+  }
+
+  return type === 'image/jpg' ? DEFAULT_IMAGE_CONTENT_TYPE : trimmed;
+}
+
+function hasAmbiguousImageContentType(value: string | null): boolean {
+  const type = value?.split(';', 1)[0]?.trim().toLowerCase() ?? '';
+  return !type || type === 'application/octet-stream' || type === 'binary/octet-stream';
 }
 
 function buildPublicUrl(target: ImageTarget, requestUrl: URL): string {
@@ -503,7 +520,7 @@ async function ingestImageFromSource(
   }
 
   const updatedAt = new Date().toISOString();
-  const contentType = originalResponse.headers.get('Content-Type') || 'image/jpeg';
+  const contentType = normalizeImageContentType(originalResponse.headers.get('Content-Type'));
 
   await env.MOOD_IMAGES.put(target.objectKey, originalResponse.body, {
     httpMetadata: {
@@ -536,7 +553,7 @@ async function ingestImageFromSource(
         return;
       }
 
-      const variantType = variantResponse.headers.get('Content-Type') || contentType;
+      const variantType = normalizeImageContentType(variantResponse.headers.get('Content-Type') || contentType);
       await env.MOOD_IMAGES.put(getVariantObjectKey(target.objectKey, width), variantResponse.body, {
         httpMetadata: {
           contentType: variantType,
@@ -590,7 +607,7 @@ async function generateMissingVariant(
     return null;
   }
 
-  const contentType = response.headers.get('Content-Type') || 'image/jpeg';
+  const contentType = normalizeImageContentType(response.headers.get('Content-Type'));
   await env.MOOD_IMAGES.put(getVariantObjectKey(target.objectKey, variantWidth), bytes, {
     httpMetadata: {
       contentType,
@@ -808,6 +825,8 @@ async function handleRead(request: Request, url: URL, env: Env, ctx: ExecutionCo
   if (cached) {
     if (variantWidth && cached.headers.get('X-Image-Variant') !== getVariantHeader(variantWidth)) {
       ctx.waitUntil(cache.delete(cacheRequest));
+    } else if (hasAmbiguousImageContentType(cached.headers.get('Content-Type'))) {
+      ctx.waitUntil(cache.delete(cacheRequest));
     } else {
       return cached;
     }
@@ -819,11 +838,12 @@ async function handleRead(request: Request, url: URL, env: Env, ctx: ExecutionCo
   const preferredObject = await env.MOOD_IMAGES.get(preferredKey);
   if (preferredObject) {
     const headers = new Headers({
-      'Content-Type': 'image/jpeg',
+      'Content-Type': DEFAULT_IMAGE_CONTENT_TYPE,
       'Cache-Control': CACHE_CONTROL,
       ...corsHeaders,
     });
     preferredObject.writeHttpMetadata(headers);
+    headers.set('Content-Type', normalizeImageContentType(headers.get('Content-Type')));
     headers.set('ETag', preferredObject.httpEtag);
     headers.set('Vary', 'Accept');
     headers.set('X-Image-Variant', variantHeader);
@@ -845,7 +865,7 @@ async function handleRead(request: Request, url: URL, env: Env, ctx: ExecutionCo
       const generated = await generateMissingVariant(target, variantWidth, url, env);
       if (generated) {
         const headers = new Headers({
-          'Content-Type': generated.contentType,
+          'Content-Type': normalizeImageContentType(generated.contentType),
           'Cache-Control': CACHE_CONTROL,
           'Vary': 'Accept',
           ...corsHeaders,
@@ -864,11 +884,12 @@ async function handleRead(request: Request, url: URL, env: Env, ctx: ExecutionCo
     }
 
     const headers = new Headers({
-      'Content-Type': 'image/jpeg',
+      'Content-Type': DEFAULT_IMAGE_CONTENT_TYPE,
       'Cache-Control': CACHE_CONTROL,
       ...corsHeaders,
     });
     originalObject.writeHttpMetadata(headers);
+    headers.set('Content-Type', normalizeImageContentType(headers.get('Content-Type')));
     headers.set('ETag', originalObject.httpEtag);
     headers.set('Vary', 'Accept');
     if (variantWidth) {
