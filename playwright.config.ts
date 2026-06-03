@@ -5,6 +5,7 @@ const port = Number(process.env.E2E_PORT || 4321);
 const remoteBaseURL = process.env.E2E_BASE_URL?.trim();
 const baseURL = remoteBaseURL || `http://${host}:${port}`;
 const shouldUseWebServer = !remoteBaseURL;
+const shouldReuseWebServer = process.env.E2E_REUSE_SERVER === '1';
 const vercelBypassSecret = process.env.E2E_VERCEL_BYPASS_SECRET?.trim();
 const extraHTTPHeaders = vercelBypassSecret
   ? {
@@ -45,7 +46,7 @@ export default defineConfig({
           E2E_SITE_FIXTURE: '1',
         },
         url: baseURL,
-        reuseExistingServer: process.env.COVERAGE !== '1' && !process.env.CI,
+        reuseExistingServer: shouldReuseWebServer,
         timeout: 120_000,
       }
     : undefined,

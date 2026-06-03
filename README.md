@@ -140,7 +140,7 @@ Before merging admin portal changes, run:
 
 ```bash
 bun test tests/unit/admin-session.test.ts tests/unit/admin-oauth.test.ts
-E2E_HOST=localhost bunx playwright test tests/e2e/admin-portal.pw.ts
+E2E_PORT=4331 bunx playwright test tests/e2e/admin-portal.pw.ts
 bun run check
 bun run build
 ```
