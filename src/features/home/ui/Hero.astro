@@ -1,5 +1,6 @@
 ---
 import Typewriter from '@/features/home/ui/Typewriter.astro';
+import DecodeText from '@/features/home/ui/DecodeText.astro';
 import GitHubContributions from '@/features/home/ui/GitHubContributions.astro';
 import Listening from '@/features/home/ui/Listening.astro';
 import TechMarquee from '@/features/home/ui/TechMarquee.astro';
@@ -97,15 +98,17 @@ const techRow2 = ['Frontend', 'BGP', 'Proxy', 'Docker', 'Linux', 'Web3', 'Optimi
 
     <!-- Bio -->
     <div class="hero-animate" data-hero-bio>
-      <p class="text-[14px] leading-[1.7] text-muted-foreground sm:text-[15px]">
-        I make interesting things.<br>
-        Curious about <span class="text-foreground">frontend design</span>,
-        <span class="text-foreground">proxy systems</span>, and
-        contributing to <span class="text-foreground"> open source</span>.<br>
-        Obsessed with <span class="text-foreground">speed</span> and always asking how things can be <span class="text-foreground">better</span>.<br>
-        Outside of coding, I read for curiosity and write to make sense of things.<br>
-        Currently studying Computer Science at <span class="text-foreground">Monash University</span>.
-      </p>
+      <DecodeText delay={420}>
+        <p class="text-[14px] leading-[1.7] text-muted-foreground sm:text-[15px]">
+          I make interesting things.<br>
+          Curious about <span class="text-foreground">frontend design</span>,
+          <span class="text-foreground">proxy systems</span>, and
+          contributing to <span class="text-foreground"> open source</span>.<br>
+          Obsessed with <span class="text-foreground">speed</span> and always asking how things can be <span class="text-foreground">better</span>.<br>
+          Outside of coding, I read for curiosity and write to make sense of things.<br>
+          Currently studying Computer Science at <span class="text-foreground">Monash University</span>.
+        </p>
+      </DecodeText>
     </div>
 
     <!-- Social Links -->
