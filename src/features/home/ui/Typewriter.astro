@@ -9,6 +9,7 @@ interface Props {
 const { texts, speed = 80, delay = 0, pauseDuration = 2000 } = Astro.props;
 const initialText = texts[0] ?? '';
 const longestText = texts.reduce((a, b) => a.length > b.length ? a : b, '');
+const placeholderText = `${longestText}_`;
 ---
 
 <span
@@ -19,21 +20,17 @@ const longestText = texts.reduce((a, b) => a.length > b.length ? a : b, '');
   data-delay={delay}
   data-pause={pauseDuration}
 >
-  <!-- Hidden placeholder keeps the animated text width stable. -->
-  <span class="typewriter-placeholder" aria-hidden="true">{longestText}</span>
-  <span
-    class="typewriter"
-    data-typewriter-visual
-  >
-    <span class="typewriter-text" data-typewriter-text>{initialText}</span>
-    <canvas class="typewriter-canvas" data-typewriter-canvas aria-hidden="true"></canvas>
-    <span class="typewriter-cursor" aria-hidden="true"></span>
-  </span>
+  <!-- Hidden placeholder keeps the canvas stage stable. -->
+  <span class="typewriter-placeholder" aria-hidden="true">{placeholderText}</span>
+  <span class="typewriter" data-typewriter-visual aria-label={initialText}><span class="typewriter-text" data-typewriter-text>{initialText}</span><canvas class="typewriter-canvas" data-typewriter-canvas aria-hidden="true"></canvas></span>
 </span>
 
 <style>
   .typewriter-wrapper {
     display: inline-grid;
+    grid-template-columns: max-content;
+    align-items: baseline;
+    vertical-align: baseline;
   }
 
   .typewriter-wrapper > * {
@@ -42,19 +39,21 @@ const longestText = texts.reduce((a, b) => a.length > b.length ? a : b, '');
 
   .typewriter-placeholder {
     visibility: hidden;
+    white-space: pre;
   }
 
   .typewriter {
     position: relative;
-    display: inline-flex;
-    align-items: baseline;
+    display: block;
     width: 100%;
     white-space: pre;
+    line-height: inherit;
   }
 
   .typewriter-canvas {
     position: absolute;
-    inset: 0;
+    top: 0;
+    left: 0;
     display: block;
     width: 100%;
     height: 100%;
@@ -63,19 +62,9 @@ const longestText = texts.reduce((a, b) => a.length > b.length ? a : b, '');
   }
 
   .typewriter-text {
-    display: inline-block;
+    display: block;
     width: 100%;
-  }
-
-  .typewriter-cursor {
-    display: inline-block;
-    width: 0.5ch;
-    height: 0.9em;
-    margin-left: 3px;
-    border-radius: 1px;
-    background: currentColor;
-    opacity: 0;
-    align-self: center;
+    white-space: pre;
   }
 
   .typewriter.is-enhanced .typewriter-text {
@@ -86,23 +75,12 @@ const longestText = texts.reduce((a, b) => a.length > b.length ? a : b, '');
     opacity: 1;
   }
 
-  .typewriter.is-typing .typewriter-cursor,
-  .typewriter.is-typed .typewriter-cursor {
-    opacity: 0;
-    animation: none;
-  }
-
   @media (prefers-reduced-motion: reduce) {
-    .typewriter-cursor {
-      animation: none !important;
-    }
-
     .typewriter.is-enhanced .typewriter-text {
       color: currentColor;
     }
 
-    .typewriter.is-enhanced .typewriter-canvas,
-    .typewriter-cursor {
+    .typewriter.is-enhanced .typewriter-canvas {
       opacity: 0;
     }
   }
@@ -114,9 +92,11 @@ const longestText = texts.reduce((a, b) => a.length > b.length ? a : b, '');
     _typewriterStarted?: boolean;
     _typewriterStartTimer?: number;
     _typewriterLoopTimer?: number;
-    _typewriterTextTimer?: number;
+    _typewriterFrame?: number;
     _typewriterCursorTimer?: number;
     _typewriterAbort?: AbortController;
+    _typewriterCurrentText?: string;
+    _typewriterResizeObserver?: ResizeObserver;
   };
 
   interface CanvasState {
@@ -125,10 +105,14 @@ const longestText = texts.reduce((a, b) => a.length > b.length ? a : b, '');
     height: number;
     font: string;
     color: string;
+    baseline: number;
+    cursorY: number;
+    cursorHeight: number;
   }
 
   const HERO_NAME_READY_EVENT = 'home:hero-name-ready';
   const FALLBACK_START_MS = 1100;
+  const SCRAMBLE_CHARS = '_-—/\\|<>'.split('');
 
   const prefersReducedMotion = (): boolean =>
     window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
@@ -145,6 +129,12 @@ const longestText = texts.reduce((a, b) => a.length > b.length ? a : b, '');
   const stepDelayFor = (speed: number): number =>
     Math.max(36, Math.min(64, Math.round(speed * 0.6)));
 
+  const durationFor = (text: string, speed: number): number =>
+    Math.max(260, Math.min(560, text.length * stepDelayFor(speed)));
+
+  const randomScrambleChar = (): string =>
+    SCRAMBLE_CHARS[Math.floor(Math.random() * SCRAMBLE_CHARS.length)] ?? '_';
+
   const setupCanvas = (visual: HTMLElement, canvas: HTMLCanvasElement): CanvasState | null => {
     const context = canvas.getContext('2d');
     if (!context) return null;
@@ -153,43 +143,83 @@ const longestText = texts.reduce((a, b) => a.length > b.length ? a : b, '');
     const styles = window.getComputedStyle(visual);
     const dpr = Math.max(1, window.devicePixelRatio || 1);
     const fontSize = Number.parseFloat(styles.fontSize) || 36;
-    const width = Math.max(1, Math.ceil(rect.width));
-    const height = Math.max(1, Math.ceil(rect.height || fontSize * 1.2));
+    const width = Math.max(1, rect.width);
+    const height = Math.max(1, rect.height || fontSize * 1.2);
+    const bitmapWidth = Math.max(1, Math.round(width * dpr));
+    const bitmapHeight = Math.max(1, Math.round(height * dpr));
 
-    canvas.width = Math.ceil(width * dpr);
-    canvas.height = Math.ceil(height * dpr);
-    canvas.style.width = `${width}px`;
-    canvas.style.height = `${height}px`;
+    if (canvas.width !== bitmapWidth) {
+      canvas.width = bitmapWidth;
+    }
 
-    context.setTransform(dpr, 0, 0, dpr, 0, 0);
+    if (canvas.height !== bitmapHeight) {
+      canvas.height = bitmapHeight;
+    }
+
+    canvas.style.width = '100%';
+    canvas.style.height = '100%';
+
+    context.setTransform(bitmapWidth / width, 0, 0, bitmapHeight / height, 0, 0);
+    const font = styles.font || `${styles.fontWeight} ${styles.fontSize} ${styles.fontFamily}`;
+    context.font = font;
+
+    const metrics = context.measureText('Hgj');
+    const ascent = metrics.actualBoundingBoxAscent || fontSize * 0.72;
+    const descent = metrics.actualBoundingBoxDescent || fontSize * 0.24;
+    const baseline = (height - ascent - descent) / 2 + ascent;
+    const cursorHeight = Math.max(1, fontSize * 0.9);
 
     return {
       context,
       width,
       height,
-      font: styles.font || `${styles.fontWeight} ${styles.fontSize} ${styles.fontFamily}`,
+      font,
       color: styles.color,
+      baseline,
+      cursorY: Math.max(0, (height - cursorHeight) / 2),
+      cursorHeight,
     };
   };
 
   const drawWord = (state: CanvasState, word: string, showCursor = true): void => {
-    const { context, width, height, font, color } = state;
+    const { context, width, height, font, color, baseline, cursorY, cursorHeight } = state;
     const cursorWidth = 2;
     const cursorGap = 3;
-    const cursorHeight = Math.max(1, height * 0.72);
-    const cursorY = (height - cursorHeight) / 2;
-    const textY = height / 2;
 
     context.clearRect(0, 0, width, height);
     context.font = font;
     context.fillStyle = color;
-    context.textBaseline = 'middle';
-    context.fillText(word, 0, textY);
+    context.textBaseline = 'alphabetic';
+    context.fillText(word, 0, baseline);
 
     if (!showCursor) return;
 
-    const cursorX = context.measureText(word).width + cursorGap;
+    const cursorX = Math.min(width - cursorWidth, context.measureText(word).width + cursorGap);
     context.fillRect(cursorX, cursorY, cursorWidth, cursorHeight);
+  };
+
+  const drawDecodeFrame = (state: CanvasState, text: string, progress: number): void => {
+    if (progress >= 1) {
+      drawWord(state, text, true);
+      return;
+    }
+
+    const visibleCount = Math.max(1, Math.ceil(progress * text.length));
+    const settledCount = Math.floor(Math.max(0, progress - 0.18) / 0.82 * text.length);
+    let frameText = '';
+
+    for (let index = 0; index < visibleCount; index += 1) {
+      frameText += index < settledCount ? text[index] : randomScrambleChar();
+    }
+
+    drawWord(state, frameText, true);
+  };
+
+  const cancelFrame = (root: TypewriterRoot): void => {
+    if (root._typewriterFrame !== undefined) {
+      window.cancelAnimationFrame(root._typewriterFrame);
+      root._typewriterFrame = undefined;
+    }
   };
 
   const clearCursorTimer = (root: TypewriterRoot): void => {
@@ -212,7 +242,7 @@ const longestText = texts.reduce((a, b) => a.length > b.length ? a : b, '');
     }, 575);
   };
 
-  const typeText = (
+  const animateText = (
     root: TypewriterRoot,
     visual: HTMLElement,
     canvas: HTMLCanvasElement,
@@ -223,32 +253,34 @@ const longestText = texts.reduce((a, b) => a.length > b.length ? a : b, '');
     const state = setupCanvas(visual, canvas);
     if (!state) return;
 
+    cancelFrame(root);
     clearCursorTimer(root);
+    root._typewriterCurrentText = text;
     visual.setAttribute('aria-label', text);
     visual.classList.remove('is-typed');
     visual.classList.add('is-enhanced', 'is-typing');
 
-    let charIndex = 0;
-    const stepDelay = stepDelayFor(speed);
-    drawWord(state, '', true);
+    const duration = durationFor(text, speed);
+    const startedAt = performance.now();
+    drawDecodeFrame(state, text, 0.08);
 
-    const typeNext = (): void => {
-      charIndex += 1;
-      const nextWord = text.slice(0, charIndex);
-      drawWord(state, nextWord, true);
+    const drawNext = (now: number): void => {
+      const progress = Math.min(1, (now - startedAt) / duration);
+      drawDecodeFrame(state, text, progress);
 
-      if (charIndex < text.length) {
-        root._typewriterTextTimer = window.setTimeout(typeNext, stepDelay);
+      if (progress < 1) {
+        root._typewriterFrame = window.requestAnimationFrame(drawNext);
         return;
       }
 
+      root._typewriterFrame = undefined;
       visual.classList.remove('is-typing');
       visual.classList.add('is-typed');
       startCursorBlink(root, state, text);
       onDone?.();
     };
 
-    root._typewriterTextTimer = window.setTimeout(typeNext, stepDelay);
+    root._typewriterFrame = window.requestAnimationFrame(drawNext);
   };
 
   const initOne = (root: TypewriterRoot): void => {
@@ -270,11 +302,27 @@ const longestText = texts.reduce((a, b) => a.length > b.length ? a : b, '');
     let index = 0;
     root._typewriterAbort = abort;
 
+    const redrawSettledText = (): void => {
+      if (!root._typewriterCurrentText || !visual.classList.contains('is-typed')) return;
+
+      const state = setupCanvas(visual, canvas);
+      if (state) {
+        startCursorBlink(root, state, root._typewriterCurrentText);
+      }
+    };
+
+    if ('ResizeObserver' in window) {
+      root._typewriterResizeObserver = new ResizeObserver(redrawSettledText);
+      root._typewriterResizeObserver.observe(visual);
+    }
+
+    document.fonts?.ready.then(redrawSettledText).catch(() => {});
+
     const startFirstRun = (): void => {
       if (root._typewriterStarted) return;
       root._typewriterStarted = true;
       window.clearTimeout(root._typewriterStartTimer);
-      typeText(root, visual, canvas, texts[index], speed, () => {
+      animateText(root, visual, canvas, texts[index], speed, () => {
         if (texts.length > 1) {
           root._typewriterLoopTimer = window.setTimeout(runLoop, pauseDuration);
         }
@@ -285,15 +333,11 @@ const longestText = texts.reduce((a, b) => a.length > b.length ? a : b, '');
       index = (index + 1) % texts.length;
       const nextText = texts[index];
 
-      visual.classList.remove('is-typing', 'is-typed');
-
-      window.setTimeout(() => {
-        requestAnimationFrame(() => {
-          typeText(root, visual, canvas, nextText, speed, () => {
-            root._typewriterLoopTimer = window.setTimeout(runLoop, pauseDuration);
-          });
+      requestAnimationFrame(() => {
+        animateText(root, visual, canvas, nextText, speed, () => {
+          root._typewriterLoopTimer = window.setTimeout(runLoop, pauseDuration);
         });
-      }, 80);
+      });
     };
 
     window.addEventListener(HERO_NAME_READY_EVENT, startFirstRun, {
@@ -311,9 +355,12 @@ const longestText = texts.reduce((a, b) => a.length > b.length ? a : b, '');
     document.querySelectorAll<TypewriterRoot>('[data-typewriter-root]').forEach((root) => {
       window.clearTimeout(root._typewriterStartTimer);
       window.clearTimeout(root._typewriterLoopTimer);
-      window.clearTimeout(root._typewriterTextTimer);
+      cancelFrame(root);
       clearCursorTimer(root);
       root._typewriterAbort?.abort();
+      root._typewriterResizeObserver?.disconnect();
+      root._typewriterResizeObserver = undefined;
+      root._typewriterCurrentText = undefined;
       root._typewriterReady = false;
       root._typewriterStarted = false;
     });
