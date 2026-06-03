@@ -49,6 +49,7 @@ describe('GitHub contributions', () => {
       expect(input).toBe('https://api.github.com/graphql');
       expect(init?.method).toBe('POST');
       expect(new Headers(init?.headers).get('Authorization')).toBe('Bearer test-token');
+      expect(init?.signal).toBeInstanceOf(AbortSignal);
 
       const body = JSON.parse(String(init?.body)) as {
         variables: {
@@ -256,6 +257,57 @@ describe('GitHub contributions', () => {
     });
   });
 
+  test('falls back to the external API when GitHub GraphQL rejects', async () => {
+    const calls: string[] = [];
+    globalThis.fetch = (async (input: Parameters<typeof fetch>[0]): Promise<Response> => {
+      const url = input instanceof Request ? input.url : String(input);
+      calls.push(url);
+
+      if (url === 'https://api.github.com/graphql') {
+        throw new DOMException('timed out', 'AbortError');
+      }
+
+      return new Response(JSON.stringify({
+        contributions: [
+          {
+            date: '2026-06-04',
+            count: 5,
+            level: 4,
+          },
+        ],
+      }), {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+    }) as unknown as typeof fetch;
+
+    const data = await fetchGitHubContributions(
+      'bunizao',
+      { GITHUB_TOKEN: 'test-token' } as unknown as ImportMetaEnv,
+      undefined,
+      { now: new Date('2026-06-04T13:30:00.000Z') }
+    );
+
+    expect(calls).toEqual([
+      'https://api.github.com/graphql',
+      'https://github-contributions-api.jogruber.de/v4/bunizao?y=last',
+    ]);
+    expect(data).toEqual({
+      total: {
+        lastYear: 5,
+      },
+      contributions: [
+        {
+          date: '2026-06-04',
+          count: 5,
+          level: 4,
+        },
+      ],
+    });
+  });
+
   test('rejects unsupported usernames at the API boundary', async () => {
     process.env.E2E_SITE_FIXTURE = '1';
 
@@ -267,6 +319,18 @@ describe('GitHub contributions', () => {
     expect(response.status).toBe(400);
     expect(response.headers.get('cache-control')).toBe('no-store, max-age=0');
     expect(await response.json()).toEqual({ error: 'Unsupported GitHub username' });
+  });
+
+  test('accepts the allowed username case-insensitively at the API boundary', async () => {
+    process.env.E2E_SITE_FIXTURE = '1';
+
+    const response = await getGitHubContributions({
+      request: createRequest('/api/github/contributions?username=BUNIZAO'),
+      locals: {},
+    } as any);
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get('cache-control')).toContain('s-maxage=3600');
   });
 
   test('serves fixture data in E2E mode', async () => {
