@@ -27,6 +27,23 @@ interface FeedCommentsPopoverController {
   createIndicator(options: CommentsIndicatorOptions): HTMLElement;
 }
 
+const OPEN_CLASS = 'is-popover-open';
+const ITEM_OPEN_CLASS = 'mood-item--comments-open';
+const CLOSE_DELAY_MS = 180;
+const POPOVER_MARGIN = 12;
+const POPOVER_GAP = 10;
+const MIN_POPOVER_HEIGHT = 160;
+const MAX_POPOVER_HEIGHT = 420;
+const MAX_PREVIEW_COMMENTS = 8;
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(Math.max(value, min), max);
+}
+
+function getCommentsPopoverId(postId: string): string {
+  return `mood-comments-popover-${postId.replace(/[^\w-]/g, '-')}`;
+}
+
 function getInitials(name: string): string {
   return name
     .split(' ')
@@ -36,9 +53,12 @@ function getInitials(name: string): string {
     .toUpperCase() || '?';
 }
 
-function createLoadingPopover(): HTMLElement {
+function createLoadingPopover({ postId, label, count }: CommentsIndicatorOptions): HTMLElement {
   const popover = document.createElement('div');
   popover.className = 'mood-comments-popover';
+  popover.id = getCommentsPopoverId(postId);
+  popover.setAttribute('role', 'dialog');
+  popover.setAttribute('aria-label', `${label} comment${count === 1 ? '' : 's'} preview`);
   popover.innerHTML = `
     <div class="mood-comments-popover-loading">
       <div class="mood-popover-skeleton">
@@ -116,6 +136,8 @@ export function createFeedCommentsPopoverController(
 ): FeedCommentsPopoverController {
   const cache = new Map<string, CommentPreviewData[]>();
   const pendingFetches = new Map<string, Promise<CommentPreviewData[]>>();
+  const popoversByWrapper = new WeakMap<HTMLElement, HTMLElement>();
+  const wrappersByPopover = new WeakMap<HTMLElement, HTMLElement>();
   let initialized = false;
 
   const fetchComments = async (postId: string): Promise<CommentPreviewData[]> => {
@@ -146,10 +168,32 @@ export function createFeedCommentsPopoverController(
     return promise;
   };
 
-  const renderPopover = (popover: HTMLElement, comments: CommentPreviewData[], postId: string): void => {
-    const maxComments = 3;
-    const displayComments = comments.slice(0, maxComments);
-    const hasMore = comments.length > maxComments;
+  const getPopover = (wrapper: HTMLElement): HTMLElement | null => (
+    popoversByWrapper.get(wrapper)
+    ?? wrapper.querySelector<HTMLElement>('.mood-comments-popover')
+  );
+
+  const getTrigger = (wrapper: HTMLElement): HTMLElement => (
+    wrapper.querySelector<HTMLElement>('.mood-item-comments') ?? wrapper
+  );
+
+  const readTotalCount = (wrapper: HTMLElement, fallback: number): number => {
+    const rawCount = Number(wrapper.dataset.commentsCount);
+    return Number.isFinite(rawCount) && rawCount > 0 ? rawCount : fallback;
+  };
+
+  const readTotalLabel = (wrapper: HTMLElement, fallback: number): string => (
+    wrapper.dataset.commentsLabel?.trim() || String(fallback)
+  );
+
+  const renderPopover = (
+    popover: HTMLElement,
+    comments: CommentPreviewData[],
+    postId: string,
+    options: { totalCount: number; totalLabel: string }
+  ): void => {
+    const displayComments = comments.slice(0, MAX_PREVIEW_COMMENTS);
+    const hasMore = options.totalCount > displayComments.length || comments.length > MAX_PREVIEW_COMMENTS;
 
     if (displayComments.length === 0) {
       const empty = document.createElement('div');
@@ -171,7 +215,7 @@ export function createFeedCommentsPopoverController(
       const viewAll = document.createElement('a');
       viewAll.className = 'mood-popover-view-all';
       viewAll.href = `/mood/${postId}#comments`;
-      viewAll.textContent = `View all ${comments.length} comments`;
+      viewAll.textContent = `View all ${options.totalLabel} comment${options.totalCount === 1 ? '' : 's'}`;
       fragment.appendChild(viewAll);
     }
 
@@ -179,19 +223,162 @@ export function createFeedCommentsPopoverController(
     void animatedEmoji.hydrate(popover);
   };
 
-  const handleHover = async (wrapper: HTMLElement): Promise<void> => {
+  const updateExpandedState = (wrapper: HTMLElement, isOpen: boolean): void => {
+    const trigger = wrapper.querySelector<HTMLElement>('.mood-item-comments');
+    trigger?.setAttribute('aria-expanded', String(isOpen));
+  };
+
+  const mountPopoverOverlay = (wrapper: HTMLElement, popover: HTMLElement): void => {
+    popoversByWrapper.set(wrapper, popover);
+    wrappersByPopover.set(popover, wrapper);
+    if (popover.parentElement !== document.body) {
+      document.body.appendChild(popover);
+    }
+  };
+
+  const restorePopover = (wrapper: HTMLElement): void => {
+    const popover = popoversByWrapper.get(wrapper);
+    if (!popover) return;
+    popover.classList.remove(OPEN_CLASS);
+    delete popover.dataset.positioned;
+    delete popover.dataset.side;
+    popover.style.removeProperty('--mood-comments-popover-left');
+    popover.style.removeProperty('--mood-comments-popover-top');
+    popover.style.removeProperty('--mood-comments-popover-width');
+    popover.style.removeProperty('--mood-comments-popover-max-height');
+    popover.style.removeProperty('--mood-comments-popover-arrow-left');
+    if (wrapper.isConnected && popover.parentElement === document.body) {
+      wrapper.appendChild(popover);
+    }
+  };
+
+  const positionPopover = (wrapper: HTMLElement): void => {
+    if (!wrapper.classList.contains(OPEN_CLASS)) return;
+
+    const popover = getPopover(wrapper);
+    if (!popover) return;
+
+    const trigger = getTrigger(wrapper);
+    const triggerRect = trigger.getBoundingClientRect();
+    const viewportWidth = document.documentElement.clientWidth || window.innerWidth;
+    const viewportHeight = window.innerHeight;
+    const availableAbove = triggerRect.top - POPOVER_MARGIN - POPOVER_GAP;
+    const availableBelow = viewportHeight - triggerRect.bottom - POPOVER_MARGIN - POPOVER_GAP;
+    const side = availableAbove >= availableBelow || availableAbove >= MIN_POPOVER_HEIGHT ? 'top' : 'bottom';
+    const availableHeight = Math.max(side === 'top' ? availableAbove : availableBelow, MIN_POPOVER_HEIGHT);
+    const maxHeight = clamp(availableHeight, MIN_POPOVER_HEIGHT, MAX_POPOVER_HEIGHT);
+    const width = Math.min(360, Math.max(260, viewportWidth - (POPOVER_MARGIN * 2)));
+
+    popover.dataset.positioned = 'true';
+    popover.dataset.side = side;
+    popover.style.setProperty('--mood-comments-popover-width', `${width}px`);
+    popover.style.setProperty('--mood-comments-popover-max-height', `${maxHeight}px`);
+
+    const popoverRect = popover.getBoundingClientRect();
+    const popoverWidth = popoverRect.width || width;
+    const popoverHeight = Math.min(popoverRect.height || maxHeight, maxHeight);
+    const halfWidth = popoverWidth / 2;
+    const triggerCenter = triggerRect.left + (triggerRect.width / 2);
+    const left = clamp(
+      triggerCenter,
+      POPOVER_MARGIN + halfWidth,
+      viewportWidth - POPOVER_MARGIN - halfWidth
+    );
+    const top = side === 'top'
+      ? clamp(triggerRect.top - POPOVER_GAP - popoverHeight, POPOVER_MARGIN, viewportHeight - POPOVER_MARGIN - popoverHeight)
+      : clamp(triggerRect.bottom + POPOVER_GAP, POPOVER_MARGIN, viewportHeight - POPOVER_MARGIN - popoverHeight);
+    const popoverLeftEdge = left - halfWidth;
+    const arrowLeft = clamp(triggerCenter - popoverLeftEdge, 18, popoverWidth - 18);
+
+    popover.style.setProperty('--mood-comments-popover-left', `${left}px`);
+    popover.style.setProperty('--mood-comments-popover-top', `${top}px`);
+    popover.style.setProperty('--mood-comments-popover-arrow-left', `${arrowLeft}px`);
+  };
+
+  const closePopover = (wrapper: HTMLElement): void => {
+    wrapper.classList.remove(OPEN_CLASS);
+    wrapper.closest('.mood-item')?.classList.remove(ITEM_OPEN_CLASS);
+    updateExpandedState(wrapper, false);
+    restorePopover(wrapper);
+  };
+
+  const closeOtherPopovers = (currentWrapper: HTMLElement): void => {
+    document.querySelectorAll<HTMLElement>(`.mood-comments-wrapper.${OPEN_CLASS}`).forEach((wrapper) => {
+      if (wrapper !== currentWrapper) {
+        closePopover(wrapper);
+      }
+    });
+  };
+
+  const openPopover = async (wrapper: HTMLElement): Promise<void> => {
     const postId = wrapper.dataset.postId;
     if (!postId) return;
 
-    const popover = wrapper.querySelector<HTMLElement>('.mood-comments-popover');
+    const popover = getPopover(wrapper);
     if (!popover) return;
+
+    closeOtherPopovers(wrapper);
+    mountPopoverOverlay(wrapper, popover);
+    wrapper.classList.add(OPEN_CLASS);
+    popover.classList.add(OPEN_CLASS);
+    wrapper.closest('.mood-item')?.classList.add(ITEM_OPEN_CLASS);
+    updateExpandedState(wrapper, true);
+    positionPopover(wrapper);
 
     if (popover.dataset.loaded === 'true' || popover.dataset.loaded === 'pending') return;
 
     popover.dataset.loaded = 'pending';
     const comments = await fetchComments(postId);
-    renderPopover(popover, comments, postId);
+    const totalCount = readTotalCount(wrapper, comments.length);
+    const totalLabel = readTotalLabel(wrapper, totalCount);
+    renderPopover(popover, comments, postId, { totalCount, totalLabel });
     popover.dataset.loaded = 'true';
+    positionPopover(wrapper);
+  };
+
+  const closeTimers = new WeakMap<HTMLElement, number>();
+
+  const cancelClose = (wrapper: HTMLElement): void => {
+    const timer = closeTimers.get(wrapper);
+    if (timer) {
+      window.clearTimeout(timer);
+      closeTimers.delete(wrapper);
+    }
+  };
+
+  const scheduleClose = (wrapper: HTMLElement): void => {
+    cancelClose(wrapper);
+    const timer = window.setTimeout(() => {
+      closePopover(wrapper);
+      closeTimers.delete(wrapper);
+    }, CLOSE_DELAY_MS);
+    closeTimers.set(wrapper, timer);
+  };
+
+  const getEventWrapper = (target: EventTarget | null): HTMLElement | null => {
+    if (!(target instanceof Element)) return null;
+    const wrapper = target.closest('.mood-comments-wrapper') as HTMLElement | null;
+    if (wrapper) return wrapper;
+    const popover = target.closest('.mood-comments-popover') as HTMLElement | null;
+    return popover ? wrappersByPopover.get(popover) ?? null : null;
+  };
+
+  const getPopoverOwnerFromTarget = (target: EventTarget | null): HTMLElement | null => {
+    if (!(target instanceof Element)) return null;
+    const popover = target.closest('.mood-comments-popover') as HTMLElement | null;
+    return popover ? wrappersByPopover.get(popover) ?? null : null;
+  };
+
+  const isStillInsideWrapper = (wrapper: HTMLElement, nextTarget: EventTarget | null): boolean => (
+    nextTarget instanceof Node
+    && (
+      wrapper.contains(nextTarget)
+      || getPopoverOwnerFromTarget(nextTarget) === wrapper
+    )
+  );
+
+  const positionOpenPopovers = (): void => {
+    document.querySelectorAll<HTMLElement>(`.mood-comments-wrapper.${OPEN_CLASS}`).forEach(positionPopover);
   };
 
   const init = (): void => {
@@ -199,27 +386,63 @@ export function createFeedCommentsPopoverController(
     initialized = true;
 
     document.addEventListener(
-      'mouseenter',
+      'pointerover',
       (event) => {
-        const target = event.target;
-        if (!(target instanceof Element)) return;
-        const wrapper = target.closest('.mood-comments-wrapper') as HTMLElement | null;
+        const wrapper = getEventWrapper(event.target);
         if (wrapper) {
-          void handleHover(wrapper);
+          cancelClose(wrapper);
+          if (wrapper.classList.contains(OPEN_CLASS)) return;
+          void openPopover(wrapper);
         }
-      },
-      true
+      }
     );
+
+    document.addEventListener(
+      'pointerout',
+      (event) => {
+        const wrapper = getEventWrapper(event.target);
+        if (!wrapper || isStillInsideWrapper(wrapper, event.relatedTarget)) return;
+        scheduleClose(wrapper);
+      }
+    );
+
+    document.addEventListener('focusin', (event) => {
+      const wrapper = getEventWrapper(event.target);
+      if (wrapper) {
+        cancelClose(wrapper);
+        if (wrapper.classList.contains(OPEN_CLASS)) return;
+        void openPopover(wrapper);
+      }
+    });
+
+    document.addEventListener('focusout', (event) => {
+      const wrapper = getEventWrapper(event.target);
+      if (!wrapper || isStillInsideWrapper(wrapper, event.relatedTarget)) return;
+      scheduleClose(wrapper);
+    });
+
+    document.addEventListener('keydown', (event) => {
+      if (event.key !== 'Escape') return;
+      document.querySelectorAll<HTMLElement>(`.mood-comments-wrapper.${OPEN_CLASS}`).forEach(closePopover);
+    });
+
+    window.addEventListener('resize', positionOpenPopovers);
+    window.addEventListener('scroll', positionOpenPopovers, { passive: true });
   };
 
   const createIndicator = ({ postId, count, label }: CommentsIndicatorOptions): HTMLElement => {
     const wrapper = document.createElement('div');
     wrapper.className = 'mood-comments-wrapper';
     wrapper.dataset.postId = postId;
+    wrapper.dataset.commentsCount = String(count);
+    wrapper.dataset.commentsLabel = label;
 
     const commentsLink = document.createElement('a');
     commentsLink.className = 'mood-item-comments';
     commentsLink.href = `/mood/${postId}#comments`;
+    commentsLink.setAttribute('aria-haspopup', 'dialog');
+    commentsLink.setAttribute('aria-expanded', 'false');
+    commentsLink.setAttribute('aria-controls', getCommentsPopoverId(postId));
 
     const countLabel = label || String(count);
     commentsLink.title = `${countLabel} comment${count === 1 ? '' : 's'}`;
@@ -235,7 +458,7 @@ export function createFeedCommentsPopoverController(
     commentsLink.appendChild(iconSpan);
     commentsLink.appendChild(countSpan);
     wrapper.appendChild(commentsLink);
-    wrapper.appendChild(createLoadingPopover());
+    wrapper.appendChild(createLoadingPopover({ postId, count, label: countLabel }));
 
     return wrapper;
   };

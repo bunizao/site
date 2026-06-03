@@ -184,6 +184,10 @@ function getCommentsCountInfo(value: MoodFeedItem['commentsCount']): { count: nu
   return Number.isFinite(count) ? { count, label: trimmed } : { count: 0, label: '' };
 }
 
+function getCommentsPopoverId(postId: string): string {
+  return `mood-comments-popover-${postId.replace(/[^\w-]/g, '-')}`;
+}
+
 function normalizeAuthorName(value: string): string {
   return value.replace(/\s+/g, ' ').trim().replace(/^@/, '').toLowerCase().replace(/[^\w-]+$/g, '');
 }
@@ -407,8 +411,20 @@ const hasCriticalInitialPosts = criticalInitialPosts.length > 0;
                         </span>
                       ))}
                       {commentsInfo.count > 0 ? (
-                        <div class="mood-comments-wrapper" data-post-id={post.id}>
-                          <a class="mood-item-comments" href={`/mood/${post.id}#comments`} title={`${commentsInfo.label} comment${commentsInfo.count === 1 ? '' : 's'}`}>
+                        <div
+                          class="mood-comments-wrapper"
+                          data-post-id={post.id}
+                          data-comments-count={commentsInfo.count}
+                          data-comments-label={commentsInfo.label}
+                        >
+                          <a
+                            class="mood-item-comments"
+                            href={`/mood/${post.id}#comments`}
+                            title={`${commentsInfo.label} comment${commentsInfo.count === 1 ? '' : 's'}`}
+                            aria-haspopup="dialog"
+                            aria-expanded="false"
+                            aria-controls={getCommentsPopoverId(post.id)}
+                          >
                             <span class="mood-comments-icon">
                               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                 <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
@@ -416,7 +432,12 @@ const hasCriticalInitialPosts = criticalInitialPosts.length > 0;
                             </span>
                             <span class="mood-comments-count">{commentsInfo.label}</span>
                           </a>
-                          <div class="mood-comments-popover">
+                          <div
+                            class="mood-comments-popover"
+                            id={getCommentsPopoverId(post.id)}
+                            role="dialog"
+                            aria-label={`${commentsInfo.label} comment${commentsInfo.count === 1 ? '' : 's'} preview`}
+                          >
                             <div class="mood-comments-popover-loading">
                               <div class="mood-popover-skeleton">
                                 <div class="mood-popover-skeleton-avatar"></div>
