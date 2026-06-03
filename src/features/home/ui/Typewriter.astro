@@ -106,26 +106,39 @@ const placeholderText = `${longestText}_`;
     font: string;
     color: string;
     baseline: number;
-    cursorY: number;
-    cursorHeight: number;
   }
 
   interface GlyphToken {
     char: string;
     alpha: number;
+    advance: string;
+    ghostChar?: string;
+    ghostAlpha?: number;
+  }
+
+  interface DecodeGlyph {
+    target: string;
+    temp: string;
+    previousTemp: string;
+    placeholder: string;
+    startAt: number;
+    mashAt: number;
+    settleAt: number;
   }
 
   interface DecodeAnimation {
     text: string;
     pool: string[];
-    tempChars: string[];
+    glyphs: DecodeGlyph[];
     lastMutationFrame: number;
   }
 
   const HERO_NAME_READY_EVENT = 'home:hero-name-ready';
   const FALLBACK_START_MS = 1100;
   const SCRAMBLE_CHARS = '_-—/\\|<>'.split('');
-  const SCRAMBLE_MUTATION_MS = 82;
+  const SCRAMBLE_MUTATION_MS = 58;
+  const CURSOR_CHAR = '_';
+  const CURSOR_BLINK_MS = 575;
 
   const prefersReducedMotion = (): boolean =>
     window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
@@ -140,10 +153,10 @@ const placeholderText = `${longestText}_`;
   };
 
   const stepDelayFor = (speed: number): number =>
-    Math.max(36, Math.min(64, Math.round(speed * 0.6)));
+    Math.max(34, Math.min(58, Math.round(speed * 0.58)));
 
   const durationFor = (text: string, speed: number): number =>
-    Math.max(420, Math.min(760, text.length * stepDelayFor(speed) * 1.45));
+    Math.max(480, Math.min(860, text.length * stepDelayFor(speed) * 1.55));
 
   const clamp01 = (value: number): number =>
     Math.max(0, Math.min(1, value));
@@ -156,16 +169,33 @@ const placeholderText = `${longestText}_`;
   const randomFrom = (pool: string[]): string =>
     pool[Math.floor(Math.random() * pool.length)] ?? '_';
 
+  const randomBetween = (min: number, max: number): number =>
+    min + Math.random() * (max - min);
+
   const createDecodeAnimation = (text: string): DecodeAnimation => {
     const inputChars = Array.from(new Set(text.toLowerCase().split('').filter(Boolean)));
     const pool = [...SCRAMBLE_CHARS, ...inputChars];
+    const glyphCount = Math.max(1, text.length);
+    const slotSpan = 0.68 / glyphCount;
+    const glyphs = Array.from(text).map((target, index): DecodeGlyph => {
+      const startAt = Math.min(0.72, index * slotSpan * 0.92 + randomBetween(0, slotSpan * 0.18));
+      const mashAt = Math.min(0.84, startAt + randomBetween(0.06, 0.1));
+      const settleDelay = index === 0 ? randomBetween(0.13, 0.18) : randomBetween(0.22, 0.32);
+      const settleAt = Math.min(0.96, startAt + settleDelay);
+      const temp = randomFrom(pool);
 
-    return {
-      text,
-      pool,
-      tempChars: Array.from({ length: text.length }, () => randomFrom(pool)),
-      lastMutationFrame: -1,
-    };
+      return {
+        target,
+        temp,
+        previousTemp: temp,
+        placeholder: randomFrom(['-', '_']),
+        startAt,
+        mashAt,
+        settleAt,
+      };
+    });
+
+    return { text, pool, glyphs, lastMutationFrame: -1 };
   };
 
   const setupCanvas = (visual: HTMLElement, canvas: HTMLCanvasElement): CanvasState | null => {
@@ -200,7 +230,6 @@ const placeholderText = `${longestText}_`;
     const ascent = metrics.actualBoundingBoxAscent || fontSize * 0.72;
     const descent = metrics.actualBoundingBoxDescent || fontSize * 0.24;
     const baseline = (height - ascent - descent) / 2 + ascent;
-    const cursorHeight = Math.max(1, fontSize * 0.9);
 
     return {
       context,
@@ -209,8 +238,6 @@ const placeholderText = `${longestText}_`;
       font,
       color: styles.color,
       baseline,
-      cursorY: Math.max(0, (height - cursorHeight) / 2),
-      cursorHeight,
     };
   };
 
@@ -220,9 +247,7 @@ const placeholderText = `${longestText}_`;
     showCursor = true,
     cursorAlpha = 1
   ): void => {
-    const { context, width, height, font, color, baseline, cursorY, cursorHeight } = state;
-    const cursorWidth = 2;
-    const cursorGap = 3;
+    const { context, width, height, font, color, baseline } = state;
 
     context.clearRect(0, 0, width, height);
     context.font = font;
@@ -231,9 +256,14 @@ const placeholderText = `${longestText}_`;
 
     let cursorX = 0;
     glyphs.forEach((glyph) => {
+      if (glyph.ghostChar && glyph.ghostAlpha && glyph.ghostChar !== glyph.char) {
+        context.globalAlpha = glyph.ghostAlpha;
+        context.fillText(glyph.ghostChar, cursorX, baseline);
+      }
+
       context.globalAlpha = glyph.alpha;
       context.fillText(glyph.char, cursorX, baseline);
-      cursorX += context.measureText(glyph.char).width;
+      cursorX += context.measureText(glyph.advance).width;
     });
 
     if (!showCursor) {
@@ -242,22 +272,21 @@ const placeholderText = `${longestText}_`;
     }
 
     context.globalAlpha = cursorAlpha;
-    context.fillRect(Math.min(width - cursorWidth, cursorX + cursorGap), cursorY, cursorWidth, cursorHeight);
+    context.fillText(CURSOR_CHAR, cursorX, baseline);
     context.globalAlpha = 1;
   };
 
   const drawWord = (state: CanvasState, word: string, showCursor = true): void => {
     drawGlyphs(
       state,
-      word.split('').map((char) => ({ char, alpha: 1 })),
+      Array.from(word).map((char) => ({ char, alpha: 1, advance: char })),
       showCursor
     );
   };
 
   const mutateTempChars = (
     animation: DecodeAnimation,
-    settledCount: number,
-    visibleCount: number,
+    progress: number,
     elapsed: number
   ): void => {
     const mutationFrame = Math.floor(elapsed / SCRAMBLE_MUTATION_MS);
@@ -265,11 +294,14 @@ const placeholderText = `${longestText}_`;
 
     animation.lastMutationFrame = mutationFrame;
 
-    for (let index = settledCount; index < visibleCount; index += 1) {
-      if (Math.random() < 0.42) {
-        animation.tempChars[index] = randomFrom(animation.pool);
+    animation.glyphs.forEach((glyph) => {
+      if (progress < glyph.mashAt || progress >= glyph.settleAt) return;
+
+      if (Math.random() < 0.64) {
+        glyph.previousTemp = glyph.temp;
+        glyph.temp = randomFrom(animation.pool);
       }
-    }
+    });
   };
 
   const drawDecodeFrame = (
@@ -285,26 +317,49 @@ const placeholderText = `${longestText}_`;
       return;
     }
 
-    const visibleCount = Math.min(text.length, Math.max(1, Math.ceil(easeOutCubic(progress * 1.08) * text.length)));
-    const settledCount = Math.min(
-      visibleCount,
-      Math.floor(easeOutCubic((progress - 0.2) / 0.8) * text.length)
-    );
     const glyphs: GlyphToken[] = [];
 
-    mutateTempChars(animation, settledCount, visibleCount, elapsed);
+    mutateTempChars(animation, progress, elapsed);
 
-    for (let index = 0; index < visibleCount; index += 1) {
-      const isSettled = index < settledCount;
-      const tempAlpha = 0.26 + (index % 2) * 0.08;
+    for (const glyph of animation.glyphs) {
+      if (progress < glyph.startAt) break;
+
+      const slotProgress = clamp01((progress - glyph.startAt) / Math.max(0.001, glyph.settleAt - glyph.startAt));
+
+      if (progress >= glyph.settleAt) {
+        const settleFade = easeOutCubic((progress - glyph.settleAt) / 0.1);
+        glyphs.push({
+          char: glyph.target,
+          alpha: 0.82 + settleFade * 0.18,
+          advance: glyph.target,
+          ghostChar: glyph.temp,
+          ghostAlpha: 0.12 * (1 - settleFade),
+        });
+        continue;
+      }
+
+      if (progress < glyph.mashAt) {
+        glyphs.push({
+          char: glyph.placeholder,
+          alpha: 0.12 + easeOutCubic(slotProgress / 0.35) * 0.15,
+          advance: glyph.target,
+        });
+        continue;
+      }
+
+      const mashProgress = clamp01((progress - glyph.mashAt) / Math.max(0.001, glyph.settleAt - glyph.mashAt));
+      const pulse = Math.sin(mashProgress * Math.PI);
 
       glyphs.push({
-        char: isSettled ? text[index] : animation.tempChars[index],
-        alpha: isSettled ? 1 : tempAlpha,
+        char: glyph.temp,
+        alpha: 0.24 + pulse * 0.18,
+        advance: glyph.target,
+        ghostChar: glyph.previousTemp,
+        ghostAlpha: 0.06 + pulse * 0.05,
       });
     }
 
-    drawGlyphs(state, glyphs, true, 0.72);
+    drawGlyphs(state, glyphs, true, 0.5 + Math.sin(progress * Math.PI) * 0.22);
   };
 
   const cancelFrame = (root: TypewriterRoot): void => {
@@ -331,7 +386,7 @@ const placeholderText = `${longestText}_`;
     root._typewriterCursorTimer = window.setInterval(() => {
       showCursor = !showCursor;
       drawWord(state, word, showCursor);
-    }, 575);
+    }, CURSOR_BLINK_MS);
   };
 
   const animateText = (
