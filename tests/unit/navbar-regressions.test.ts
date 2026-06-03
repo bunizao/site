@@ -16,6 +16,13 @@ describe('navbar regression guards', () => {
     expect(source).toContain("'global-header-actions--home': useHomeHeaderActions");
   });
 
+  test('layout emits a site logo Open Graph tag', () => {
+    const source = read('src/layouts/Layout.astro');
+
+    expect(source).toContain("const ogLogoUrl = new URL('/logo/peek.svg?v=3', site).href;");
+    expect(source).toContain('<meta property="og:logo" content={ogLogoUrl} />');
+  });
+
   test('home hero spacing stays tied to safe-area and small viewport height', () => {
     const source = read('src/features/home/ui/Hero.astro');
 
