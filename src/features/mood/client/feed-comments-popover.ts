@@ -240,6 +240,13 @@ export function createFeedCommentsPopoverController(
     const popover = popoversByWrapper.get(wrapper);
     if (!popover) return;
     popover.classList.remove(OPEN_CLASS);
+    delete popover.dataset.positioned;
+    delete popover.dataset.side;
+    popover.style.removeProperty('--mood-comments-popover-left');
+    popover.style.removeProperty('--mood-comments-popover-top');
+    popover.style.removeProperty('--mood-comments-popover-width');
+    popover.style.removeProperty('--mood-comments-popover-max-height');
+    popover.style.removeProperty('--mood-comments-popover-arrow-left');
     if (wrapper.isConnected && popover.parentElement === document.body) {
       wrapper.appendChild(popover);
     }
@@ -384,6 +391,7 @@ export function createFeedCommentsPopoverController(
         const wrapper = getEventWrapper(event.target);
         if (wrapper) {
           cancelClose(wrapper);
+          if (wrapper.classList.contains(OPEN_CLASS)) return;
           void openPopover(wrapper);
         }
       }
@@ -402,6 +410,7 @@ export function createFeedCommentsPopoverController(
       const wrapper = getEventWrapper(event.target);
       if (wrapper) {
         cancelClose(wrapper);
+        if (wrapper.classList.contains(OPEN_CLASS)) return;
         void openPopover(wrapper);
       }
     });
