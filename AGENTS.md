@@ -16,13 +16,18 @@
 ## Development Commands
 
 ```bash
-bun install          # Install dependencies (uses Bun, not npm/yarn/pnpm)
-bun dev              # Dev server at http://localhost:4321
-bun run build        # Production build → dist/
-bun preview          # Preview production build locally
+bun install              # Install dependencies (uses Bun, not npm/yarn/pnpm)
+bun dev                  # Dev server at http://localhost:4321
+bun run check            # Astro type/content check
+bun run build            # Production build
+bun run test:unit        # Unit tests plus notify service e2e tests
+bun run test:e2e:site    # Playwright site e2e tests
+bun run test:e2e:worker  # Telegram image proxy worker e2e tests
+bun run test:ops         # Scheduled ops health tests
+bun preview              # Preview production build locally
 ```
 
-No test suite or linter is configured.
+No separate linter is configured.
 
 ## Architecture
 
