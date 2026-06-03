@@ -142,14 +142,118 @@ describe('GitHub contributions', () => {
     });
   });
 
-  test('does not call GitHub when the token is missing', async () => {
-    globalThis.fetch = (async () => {
-      throw new Error('unexpected fetch');
+  test('uses the external contributions API when the GitHub token is missing', async () => {
+    const calls: string[] = [];
+    globalThis.fetch = (async (input: Parameters<typeof fetch>[0]): Promise<Response> => {
+      const url = input instanceof Request ? input.url : String(input);
+      calls.push(url);
+
+      return new Response(JSON.stringify({
+        total: {
+          lastYear: 7,
+        },
+        contributions: [
+          {
+            date: '2025-06-04',
+            count: 99,
+            level: 4,
+          },
+          {
+            date: '2025-06-05',
+            count: 2,
+            level: 2,
+          },
+        ],
+      }), {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
     }) as unknown as typeof fetch;
 
-    const data = await fetchGitHubContributions('bunizao', {} as ImportMetaEnv);
+    const data = await fetchGitHubContributions(
+      'bunizao',
+      {} as ImportMetaEnv,
+      undefined,
+      { now: new Date('2026-06-04T13:30:00.000Z') }
+    );
 
-    expect(data).toBeNull();
+    expect(calls).toEqual(['https://github-contributions-api.jogruber.de/v4/bunizao?y=last']);
+    expect(data).toEqual({
+      total: {
+        lastYear: 7,
+      },
+      contributions: [
+        {
+          date: '2025-06-05',
+          count: 2,
+          level: 2,
+        },
+      ],
+    });
+  });
+
+  test('falls back to the external API when GitHub GraphQL returns errors', async () => {
+    const calls: string[] = [];
+    globalThis.fetch = (async (input: Parameters<typeof fetch>[0]): Promise<Response> => {
+      const url = input instanceof Request ? input.url : String(input);
+      calls.push(url);
+
+      if (url === 'https://api.github.com/graphql') {
+        return new Response(JSON.stringify({
+          errors: [
+            {
+              message: 'rate limited',
+            },
+          ],
+        }), {
+          status: 200,
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        });
+      }
+
+      return new Response(JSON.stringify({
+        contributions: [
+          {
+            date: '2026-06-04',
+            count: 3,
+            level: 3,
+          },
+        ],
+      }), {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+    }) as unknown as typeof fetch;
+
+    const data = await fetchGitHubContributions(
+      'bunizao',
+      { GITHUB_TOKEN: 'test-token' } as unknown as ImportMetaEnv,
+      undefined,
+      { now: new Date('2026-06-04T13:30:00.000Z') }
+    );
+
+    expect(calls).toEqual([
+      'https://api.github.com/graphql',
+      'https://github-contributions-api.jogruber.de/v4/bunizao?y=last',
+    ]);
+    expect(data).toEqual({
+      total: {
+        lastYear: 3,
+      },
+      contributions: [
+        {
+          date: '2026-06-04',
+          count: 3,
+          level: 3,
+        },
+      ],
+    });
   });
 
   test('rejects unsupported usernames at the API boundary', async () => {

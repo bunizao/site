@@ -65,6 +65,17 @@ interface GitHubContributionsResponse {
   errors?: { message: string }[];
 }
 
+interface GitHubContributionsFallbackResponse {
+  total?: {
+    lastYear?: number | null;
+  } | null;
+  contributions?: Array<{
+    date?: string | null;
+    count?: number | null;
+    level?: number | null;
+  } | null> | null;
+}
+
 export interface GitHubRepoData {
   description: string;
   stars: number;
@@ -157,6 +168,24 @@ function normalizeContributionLevel(level: string | null | undefined): number {
     default:
       return 0;
   }
+}
+
+function normalizeExternalContributionDay(day: NonNullable<NonNullable<GitHubContributionsFallbackResponse['contributions']>[number]>): GitHubContributionDay | null {
+  const date = day.date?.trim() ?? '';
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return null;
+
+  const count = typeof day.count === 'number' && Number.isFinite(day.count)
+    ? Math.max(0, Math.round(day.count))
+    : 0;
+  const level = typeof day.level === 'number' && Number.isFinite(day.level)
+    ? Math.min(4, Math.max(0, Math.round(day.level)))
+    : 0;
+
+  return {
+    date,
+    count,
+    level
+  };
 }
 
 async function fetchGitHubRepoGraphQL(repo: string, token: string): Promise<GitHubRepoData | null> {
@@ -394,7 +423,7 @@ export async function fetchGitHubContributions(
   options: GitHubContributionsOptions = {}
 ): Promise<GitHubContributionsData | null> {
   const token = getGitHubToken(env, runtimeEnv);
-  if (!token) return null;
+  if (!token) return fetchGitHubContributionsFallback(username, options);
 
   const range = getGitHubContributionRange(options.now);
 
@@ -433,13 +462,13 @@ export async function fetchGitHubContributions(
       })
     });
 
-    if (!response.ok) return null;
+    if (!response.ok) return fetchGitHubContributionsFallback(username, options);
 
     const payload = (await response.json()) as GitHubContributionsResponse;
-    if (payload.errors?.length) return null;
+    if (payload.errors?.length) return fetchGitHubContributionsFallback(username, options);
 
     const calendar = payload.data?.user?.contributionsCollection?.contributionCalendar;
-    if (!calendar) return null;
+    if (!calendar) return fetchGitHubContributionsFallback(username, options);
 
     const contributions = (calendar.weeks ?? [])
       .flatMap((week) => week?.contributionDays ?? [])
@@ -458,6 +487,49 @@ export async function fetchGitHubContributions(
     return {
       total: {
         lastYear: calendar.totalContributions ?? contributions.reduce((sum, day) => sum + day.count, 0)
+      },
+      contributions
+    };
+  } catch {
+    return fetchGitHubContributionsFallback(username, options);
+  }
+}
+
+async function fetchGitHubContributionsFallback(
+  username: string,
+  options: GitHubContributionsOptions = {}
+): Promise<GitHubContributionsData | null> {
+  const range = getGitHubContributionRange(options.now);
+
+  try {
+    const response = await fetch(
+      `https://github-contributions-api.jogruber.de/v4/${encodeURIComponent(username)}?y=last`,
+      {
+        headers: {
+          Accept: 'application/json',
+          'User-Agent': 'astro-site'
+        },
+        signal: AbortSignal.timeout(5_000)
+      }
+    );
+
+    if (!response.ok) return null;
+
+    const payload = (await response.json()) as GitHubContributionsFallbackResponse;
+    const contributions = (payload.contributions ?? [])
+      .flatMap((day) => {
+        if (!day) return [];
+        const normalized = normalizeExternalContributionDay(day);
+        return normalized ? [normalized] : [];
+      })
+      .filter((day) => day.date >= range.fromDate && day.date <= range.toDate)
+      .sort((left, right) => left.date.localeCompare(right.date));
+
+    return {
+      total: {
+        lastYear: typeof payload.total?.lastYear === 'number' && Number.isFinite(payload.total.lastYear)
+          ? payload.total.lastYear
+          : contributions.reduce((sum, day) => sum + day.count, 0)
       },
       contributions
     };
