@@ -35,6 +35,7 @@ The goal is full behavior coverage for the first-party public site surface under
 ## Fixture Rules
 
 - `E2E_SITE_FIXTURE=1` makes the site deterministic for Playwright.
+- Playwright starts its own fixture server by default. Set `E2E_REUSE_SERVER=1` only when the existing server was started with the same fixture environment.
 - Public mood, comment, project, writing, preview, RSS, and static proxy fixtures avoid external network dependencies.
 - Browser-only third-party requests, such as GitHub contributions, are mocked in the test itself when the behavior needs explicit control.
 
