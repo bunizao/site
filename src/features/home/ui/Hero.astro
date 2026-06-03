@@ -98,7 +98,7 @@ const techRow2 = ['Frontend', 'BGP', 'Proxy', 'Docker', 'Linux', 'Web3', 'Optimi
 
     <!-- Bio -->
     <div class="hero-animate" data-hero-bio>
-      <DecodeText delay={420}>
+      <DecodeText>
         <p class="text-[14px] leading-[1.7] text-muted-foreground sm:text-[15px]">
           I make interesting things.<br>
           Curious about <span class="text-foreground">frontend design</span>,
@@ -265,26 +265,44 @@ const techRow2 = ['Frontend', 'BGP', 'Proxy', 'Docker', 'Linux', 'Web3', 'Optimi
     if (!heroElements.length) return;
     const { default: gsap } = await import('gsap');
 
-    // Set initial states
+    // Split the hero into two phases so the chain reads top-to-bottom:
+    // identity text resolves first, then the supporting widgets rise in.
+    const identity = heroElements.filter((el) => !el.hasAttribute('data-hero-motion'));
+    const widgets = heroElements.filter((el) => el.hasAttribute('data-hero-motion'));
+
     gsap.set(heroElements, { opacity: 0, y: 20 });
 
-    // Create master timeline for hero section
     const heroTl = gsap.timeline({
       defaults: { ease: 'power3.out' }
     });
 
-    // Animate each element with stagger
-    heroTl.to(heroElements, {
+    // Phase 1: status -> name -> info -> role -> bio.
+    heroTl.to(identity, {
       opacity: 1,
       y: 0,
       duration: 0.6,
       stagger: 0.08,
       ease: 'back.out(1.25)'
-    });
+    }, 0);
 
+    // Kick the name decoder as its line settles in.
     heroTl.call(() => {
       window.dispatchEvent(new CustomEvent('home:hero-name-ready'));
     }, [], 0.1);
+
+    // Hand off to the bio decoder once the name is resolving.
+    heroTl.call(() => {
+      window.dispatchEvent(new CustomEvent('home:hero-bio-ready'));
+    }, [], 0.7);
+
+    // Phase 2: socials, listening, GitHub, tech — after the identity is set.
+    heroTl.to(widgets, {
+      opacity: 1,
+      y: 0,
+      duration: 0.6,
+      stagger: 0.08,
+      ease: 'back.out(1.25)'
+    }, 1.15);
 
     const magneticButtons = document.querySelectorAll('[data-magnetic]');
     magneticButtons.forEach((button) => {

@@ -1,33 +1,48 @@
 ---
-// Soulwire-style line-by-line decode reveal.
-// Wraps slotted prose and resolves it from scramble noise after fonts are ready.
-// Relies on the body monospace (JetBrains Mono): every glyph is 1ch, so swapping
-// characters per frame never reflows. No width measurement needed.
+// Soulwire-style decode reveal, faithful to the live site's algorithm.
+// Each visual line resolves left-to-right through a three-zone wave
+// (resolved | scramble | cursor edge), lines staggered top-to-bottom.
+//
+// Body is monospace (JetBrains Mono): every glyph is 1ch, so we reserve each
+// slot as a space up front and resolve characters in place. No reflow, no line
+// measurement, no flash of full text before the animation starts.
 interface Props {
-  delay?: number; // ms after the hero name is ready before decoding starts
   class?: string;
 }
 
-const { delay = 350, class: className } = Astro.props;
+const { class: className } = Astro.props;
 ---
 
-<div class:list={['decode-text', className]} data-decode-root data-delay={delay}>
+<div class:list={['decode-text', className]} data-decode-root>
   <slot />
 </div>
 
 <style>
+  /* Hide until JS has blanked the slot, so the full text never paints first. */
+  :global(html.js) .decode-text:not(.dt-prepared) {
+    visibility: hidden;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    :global(html.js) .decode-text {
+      visibility: visible;
+    }
+  }
+
   .decode-text :global(.dt-c) {
-    display: inline;
     white-space: pre;
   }
 
-  /* While decoding, dim the trailing scramble characters relative to settled text. */
-  .decode-text :global(.dt-c[data-state='scramble']) {
-    color: color-mix(in oklab, currentColor 60%, transparent);
+  .decode-text :global(.dt-c[data-state='idle']) {
+    color: transparent;
   }
 
   .decode-text :global(.dt-c[data-state='cursor']) {
-    color: color-mix(in oklab, currentColor 45%, transparent);
+    color: color-mix(in oklab, currentColor 32%, transparent);
+  }
+
+  .decode-text :global(.dt-c[data-state='scramble']) {
+    color: color-mix(in oklab, currentColor 55%, transparent);
   }
 </style>
 
@@ -40,20 +55,20 @@ const { delay = 350, class: className } = Astro.props;
     _decodeOriginal?: string;
   };
 
-  type Char = {
-    el: HTMLElement;
-    final: string;
-    startAt: number;
-    mashAt: number;
-    settleAt: number;
-    cur: string;
-    lastMut: number;
-  };
+  type Cell = { el: HTMLElement; final: string; temp: string };
 
-  const HERO_NAME_READY_EVENT = 'home:hero-name-ready';
-  const FALLBACK_START_MS = 1200;
-  const SCRAMBLE_POOL = '_-/\\|<>=+*[]{}:.'.split('');
-  const MUTATION_MS = 46;
+  const BIO_READY_EVENT = 'home:hero-bio-ready';
+  const FALLBACK_START_MS = 1500;
+
+  // Soulwire's homepage parameters for the long paragraph.
+  const SCRAMBLE = '_-/\\|<>'.split('');
+  const CURSOR = '-';
+  const SHOW_POWER = 0.8;
+  const MASH_POWER = 2;
+  const DONE_POWER = 6;
+  const MUTATION = 0.15;
+  const LINE_DURATION_PER_CHAR = 0.0215;
+  const LINE_DELAY_FACTOR = 0.172;
 
   const prefersReducedMotion = (): boolean =>
     window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
@@ -61,38 +76,28 @@ const { delay = 350, class: className } = Astro.props;
   const randomFrom = (pool: string[]): string =>
     pool[Math.floor(Math.random() * pool.length)] ?? '_';
 
-  const shuffle = <T,>(items: T[]): T[] => {
-    const copy = items.slice();
-    for (let i = copy.length - 1; i > 0; i -= 1) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [copy[i], copy[j]] = [copy[j], copy[i]];
-    }
-    return copy;
-  };
-
   // Walk the slotted markup, wrapping every visible character in a span while
   // preserving spaces, <br> line breaks, and inline color spans. Returns the
-  // characters grouped by visual line (one group per <br>-separated run).
-  const tokenize = (root: HTMLElement): Char[][] => {
-    const lines: HTMLElement[][] = [[]];
+  // characters grouped by visual line, in document order (no shuffle).
+  const tokenize = (root: HTMLElement): Cell[][] => {
+    const lines: Cell[][] = [[]];
 
     const walk = (parent: Node): void => {
-      const nodes = Array.from(parent.childNodes);
-      for (const node of nodes) {
+      for (const node of Array.from(parent.childNodes)) {
         if (node.nodeType === Node.TEXT_NODE) {
           const text = node.textContent ?? '';
           const fragment = document.createDocumentFragment();
           for (const ch of text) {
-            if (ch === ' ' || ch === '\n' || ch === '\t') {
-              fragment.appendChild(document.createTextNode(ch === '\n' ? ' ' : ch));
+            if (/\s/.test(ch)) {
+              fragment.appendChild(document.createTextNode(' '));
               continue;
             }
             const span = document.createElement('span');
             span.className = 'dt-c';
-            span.dataset.final = ch;
+            span.dataset.state = 'idle';
             span.textContent = ' ';
             fragment.appendChild(span);
-            lines[lines.length - 1].push(span);
+            lines[lines.length - 1].push({ el: span, final: ch, temp: '' });
           }
           parent.replaceChild(fragment, node);
         } else if (node.nodeType === Node.ELEMENT_NODE) {
@@ -107,109 +112,75 @@ const { delay = 350, class: className } = Astro.props;
     };
 
     walk(root);
-
-    return lines
-      .filter((line) => line.length > 0)
-      .map((line) => {
-        const order = shuffle(line.map((_, index) => index));
-        const count = line.length;
-        return line.map((el, index): Char => {
-          const rank = order[index] / Math.max(1, count - 1);
-          const startAt = rank * 0.58;
-          const mashAt = startAt + 0.04;
-          const settleAt = Math.min(0.99, startAt + 0.34);
-          return {
-            el,
-            final: el.dataset.final ?? '',
-            startAt,
-            mashAt,
-            settleAt,
-            cur: randomFrom(SCRAMBLE_POOL),
-            lastMut: 0,
-          };
-        });
-      });
+    return lines.filter((line) => line.length > 0);
   };
 
-  const renderLine = (line: Char[], progress: number, now: number): void => {
-    for (const ch of line) {
-      if (progress < ch.startAt) {
-        if (ch.el.dataset.state !== 'blank') {
-          ch.el.textContent = ' ';
-          ch.el.dataset.state = 'blank';
-        }
-        continue;
-      }
+  const setState = (cell: Cell, state: string, text: string): void => {
+    if (cell.el.dataset.state !== state) cell.el.dataset.state = state;
+    if (cell.el.textContent !== text) cell.el.textContent = text;
+  };
 
-      if (progress >= ch.settleAt) {
-        if (ch.el.dataset.state !== 'done') {
-          ch.el.textContent = ch.final;
-          ch.el.dataset.state = 'done';
-        }
-        continue;
-      }
+  // One frame of a line: [0..done] real, (done..mash] scramble, (mash..show)
+  // cursor, [show..] blank. done <= mash <= show because the powers are ordered.
+  const renderLine = (cells: Cell[], progress: number): void => {
+    const len = cells.length;
+    const show = Math.floor(Math.pow(progress, SHOW_POWER) * len);
+    const mash = Math.floor(Math.pow(progress, MASH_POWER) * len);
+    const done = Math.floor(Math.pow(progress, DONE_POWER) * len);
 
-      if (progress < ch.mashAt) {
-        ch.el.textContent = '_';
-        ch.el.dataset.state = 'cursor';
-        continue;
+    for (let l = 0; l < len; l += 1) {
+      const cell = cells[l];
+      if (l >= show) {
+        setState(cell, 'idle', ' ');
+      } else if (l <= done) {
+        setState(cell, 'done', cell.final);
+      } else if (l <= mash) {
+        if (!cell.temp || Math.random() < MUTATION) cell.temp = randomFrom(SCRAMBLE);
+        setState(cell, 'scramble', cell.temp);
+      } else {
+        setState(cell, 'cursor', CURSOR);
       }
-
-      if (now - ch.lastMut > MUTATION_MS) {
-        ch.cur = randomFrom(SCRAMBLE_POOL);
-        ch.lastMut = now;
-      }
-      ch.el.textContent = ch.cur;
-      ch.el.dataset.state = 'scramble';
     }
   };
 
-  const run = async (root: DecodeRoot): Promise<void> => {
+  const play = async (root: DecodeRoot, lines: Cell[][]): Promise<void> => {
     if (root._decodeStarted) return;
     root._decodeStarted = true;
-
-    await document.fonts?.ready.catch(() => {});
-
-    const lines = tokenize(root);
-    if (lines.length === 0) return;
 
     const original = root._decodeOriginal ?? root.innerHTML;
     root.setAttribute('aria-hidden', 'true');
 
     const { default: gsap } = await import('gsap');
 
-    const states = lines.map(() => ({ p: 0 }));
-    const timeline = gsap.timeline({
-      onComplete: () => {
-        // Restore clean semantic text: tidy DOM, correct copy/paste, accessible.
-        root.innerHTML = original;
-        root.removeAttribute('aria-hidden');
-      },
-    });
+    const restore = (): void => {
+      root.innerHTML = original;
+      root.removeAttribute('aria-hidden');
+    };
 
-    let cursor = 0;
-    lines.forEach((line, index) => {
-      const duration = Math.max(0.45, Math.min(0.95, line.length * 0.02));
+    const timeline = gsap.timeline({ onComplete: restore });
+
+    let cumulative = 0;
+    for (const cells of lines) {
+      const duration = Math.min(1.6, Math.max(0.5, LINE_DURATION_PER_CHAR * cells.length));
+      const state = { p: 0 };
       timeline.to(
-        states[index],
+        state,
         {
           p: 1,
           duration,
-          ease: 'none',
+          ease: 'power4.inOut',
           onUpdate() {
-            renderLine(line, states[index].p, performance.now());
+            renderLine(cells, state.p);
           },
         },
-        cursor
+        LINE_DELAY_FACTOR * cumulative
       );
-      // Overlap the next line so the paragraph resolves as a cascade, not a queue.
-      cursor += duration * 0.55;
-    });
+      cumulative += duration;
+    }
 
     root._decodeKill = () => {
       timeline.kill();
-      root.innerHTML = original;
-      root.removeAttribute('aria-hidden');
+      restore();
     };
   };
 
@@ -218,20 +189,39 @@ const { delay = 350, class: className } = Astro.props;
     root._decodeReady = true;
     root._decodeOriginal = root.innerHTML;
 
-    if (prefersReducedMotion()) return;
+    const reveal = () => root.classList.add('dt-prepared');
 
-    const delay = Number.parseInt(root.dataset.delay || '350', 10);
+    if (prefersReducedMotion()) {
+      reveal();
+      return;
+    }
+
+    let lines: Cell[][];
+    try {
+      lines = tokenize(root);
+      if (lines.length === 0) {
+        reveal();
+        return;
+      }
+    } catch {
+      // On any failure, fall back to the original semantic text.
+      root.innerHTML = root._decodeOriginal;
+      reveal();
+      return;
+    }
+
+    reveal(); // visible, but every slot is blank — no full-text flash
+
     let started = false;
-
     const start = (): void => {
       if (started) return;
       started = true;
       window.clearTimeout(root._decodeTimer);
-      window.setTimeout(() => void run(root), delay);
+      void play(root, lines);
     };
 
-    window.addEventListener(HERO_NAME_READY_EVENT, start, { once: true });
-    root._decodeTimer = window.setTimeout(start, FALLBACK_START_MS + delay);
+    window.addEventListener(BIO_READY_EVENT, start, { once: true });
+    root._decodeTimer = window.setTimeout(start, FALLBACK_START_MS);
   };
 
   const initAll = (): void => {
