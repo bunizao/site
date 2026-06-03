@@ -43,7 +43,7 @@
 1. **Ghost CMS** (`src/features/home/ui/Posts.astro`) — Blog posts via Ghost Content API
 2. **GitHub API** (`src/features/home/ui/Projects.astro`, `src/lib/github.ts`) — Repository data and stars via GraphQL
 3. **Last.fm + Apple iTunes Search** (`src/features/home/ui/Listening.astro`, `src/features/home/server/listening.ts`, `src/pages/api/listening.ts`) — Recent listening status from Last.fm, with client-side home hydration and iTunes enrichment for preview URLs and stronger artwork
-4. **GitHub Contributions** (`src/features/home/ui/GitHubContributions.astro`, `src/pages/api/github/contributions.ts`) — Contribution graph from an internal API backed by GitHub GraphQL
+4. **GitHub Contributions** (`src/features/home/ui/GitHubContributions.astro`, `src/pages/api/github/contributions.ts`) — Contribution graph from an internal API backed by GitHub GraphQL, with the public contributions API as a fallback
 5. **Telegram/BroadcastChannel** — Mood posts sourced from Telegram channel, with webhook ingress on Cloudflare Worker and content parsing in the site app
 6. **Better Stack Status Page** (`src/pages/api/footer.ts`) — Footer service status from `https://status.tuuhub.com/index.json`
 

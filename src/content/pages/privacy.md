@@ -27,7 +27,7 @@ Depending on how you use the site, we may collect or process the following categ
 - **Theme preference data.** If you change the site theme, that preference is stored locally in your browser using local storage so the site can remember it later.
 - **Subscription record metadata.** For mood subscriptions, this includes status fields such as pending, active, or unsubscribed, plus timestamps such as created, updated, confirmed, last confirmation sent, and last notification sent.
 - **Security and anti-abuse data.** If Turnstile is enabled for the mood subscription flow, anti-bot verification data may include a challenge token and the client IP address used during verification.
-- **Public-content request data.** The site loads or displays public content from services such as Ghost, GitHub, and Telegram-related sources, which may involve server-side or browser-side requests to those services.
+- **Public-content request data.** The site loads or displays public content from services such as Ghost, GitHub, a GitHub contributions fallback API, and Telegram-related sources, which may involve server-side or browser-side requests to those services.
 
 For mood subscriptions, the site also maintains an email hash alongside the email address to index, deduplicate, and manage subscription records.
 
@@ -83,6 +83,7 @@ The site also relies on third-party services to load public content and metadata
 - **Apple services.** Used to enrich listening results with track metadata, artwork, preview audio, and Apple Music links.
 - **Ghost.** Used to display writing links and post metadata.
 - **GitHub.** Used to display repository data, related project metadata, and the homepage contributions graph through this site's internal API route.
+- **GitHub contributions fallback API.** Used only when the internal GitHub GraphQL contribution lookup is unavailable.
 - **Telegram-related sources.** Used to fetch and display mood content and comment threads.
 
 Depending on the page and feature you use, requests associated with delivering that content may involve those services directly or through this site's server-side integrations.

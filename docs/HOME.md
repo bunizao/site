@@ -76,7 +76,7 @@ Data flow:
 
 - Server-side render fetches pinned repositories from GitHub.
 - Primary path uses GraphQL when `GITHUB_TOKEN` exists.
-- The contribution waveform uses the same GitHub token through the internal `/api/github/contributions` route.
+- The contribution waveform uses the same GitHub token through the internal `/api/github/contributions` route, then falls back to the public contributions API if GraphQL is unavailable.
 - Fallback path uses a local curated list and enriches it with repo metadata when possible.
 - E2E mode swaps live data with fixtures.
 
