@@ -31,8 +31,9 @@ export const GET: APIRoute = async ({ request, locals }) => {
     return jsonError(429, 'Too Many Requests', errorHeaders);
   }
 
-  const username = readRequestedUsername(request);
-  if (!GITHUB_LOGIN_PATTERN.test(username) || !ALLOWED_USERS.has(username.toLowerCase())) {
+  const requestedUsername = readRequestedUsername(request);
+  const username = requestedUsername.toLowerCase();
+  if (!GITHUB_LOGIN_PATTERN.test(requestedUsername) || !ALLOWED_USERS.has(username)) {
     return jsonBadRequest('Unsupported GitHub username', errorHeaders);
   }
 

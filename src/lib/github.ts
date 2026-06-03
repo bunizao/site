@@ -109,6 +109,8 @@ interface GitHubContributionsOptions {
   now?: Date;
 }
 
+const GITHUB_REQUEST_TIMEOUT_MS = 5_000;
+
 function getGitHubToken(env: ImportMetaEnv, runtimeEnv?: Record<string, string | undefined>): string {
   return env.GITHUB_TOKEN ?? runtimeEnv?.GITHUB_TOKEN ?? '';
 }
@@ -435,6 +437,7 @@ export async function fetchGitHubContributions(
         'Authorization': `Bearer ${token}`,
         'User-Agent': 'astro-site'
       },
+      signal: AbortSignal.timeout(GITHUB_REQUEST_TIMEOUT_MS),
       body: JSON.stringify({
         query: `
           query Contributions($username: String!, $from: DateTime!, $to: DateTime!) {
@@ -509,7 +512,7 @@ async function fetchGitHubContributionsFallback(
           Accept: 'application/json',
           'User-Agent': 'astro-site'
         },
-        signal: AbortSignal.timeout(5_000)
+        signal: AbortSignal.timeout(GITHUB_REQUEST_TIMEOUT_MS)
       }
     );
 
