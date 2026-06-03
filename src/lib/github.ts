@@ -45,6 +45,26 @@ interface GitHubPinnedRepositoriesResponse {
   errors?: { message: string }[];
 }
 
+interface GitHubContributionsResponse {
+  data?: {
+    user?: {
+      contributionsCollection?: {
+        contributionCalendar?: {
+          totalContributions?: number | null;
+          weeks?: Array<{
+            contributionDays?: Array<{
+              date?: string | null;
+              contributionCount?: number | null;
+              contributionLevel?: string | null;
+            } | null> | null;
+          } | null> | null;
+        } | null;
+      } | null;
+    } | null;
+  } | null;
+  errors?: { message: string }[];
+}
+
 export interface GitHubRepoData {
   description: string;
   stars: number;
@@ -59,6 +79,23 @@ export interface GitHubPinnedRepoData {
   owner: string;
   primaryLanguage: string | null;
   topics: string[];
+}
+
+export interface GitHubContributionDay {
+  date: string;
+  count: number;
+  level: number;
+}
+
+export interface GitHubContributionsData {
+  total: {
+    lastYear: number;
+  };
+  contributions: GitHubContributionDay[];
+}
+
+interface GitHubContributionsOptions {
+  now?: Date;
 }
 
 function getGitHubToken(env: ImportMetaEnv, runtimeEnv?: Record<string, string | undefined>): string {
@@ -79,6 +116,47 @@ function parseGitHubCount(value: string): number {
 
   const multiplier = match[2] === 'm' ? 1_000_000 : match[2] === 'k' ? 1_000 : 1;
   return Math.round(count * multiplier);
+}
+
+function formatDateKey(date: Date): string {
+  return date.toISOString().slice(0, 10);
+}
+
+export function getGitHubContributionRange(now = new Date()): { from: string; to: string; fromDate: string; toDate: string } {
+  const to = new Date(Date.UTC(
+    now.getUTCFullYear(),
+    now.getUTCMonth(),
+    now.getUTCDate(),
+    23,
+    59,
+    59,
+    999
+  ));
+  const from = new Date(to);
+  from.setUTCDate(from.getUTCDate() - 364);
+  from.setUTCHours(0, 0, 0, 0);
+
+  return {
+    from: from.toISOString(),
+    to: to.toISOString(),
+    fromDate: formatDateKey(from),
+    toDate: formatDateKey(to)
+  };
+}
+
+function normalizeContributionLevel(level: string | null | undefined): number {
+  switch (level) {
+    case 'FIRST_QUARTILE':
+      return 1;
+    case 'SECOND_QUARTILE':
+      return 2;
+    case 'THIRD_QUARTILE':
+      return 3;
+    case 'FOURTH_QUARTILE':
+      return 4;
+    default:
+      return 0;
+  }
 }
 
 async function fetchGitHubRepoGraphQL(repo: string, token: string): Promise<GitHubRepoData | null> {
@@ -307,4 +385,83 @@ export async function fetchGitHubPinnedRepos(
   }
 
   return fetchGitHubPinnedReposHtml(username, limit);
+}
+
+export async function fetchGitHubContributions(
+  username: string,
+  env: ImportMetaEnv,
+  runtimeEnv?: Record<string, string | undefined>,
+  options: GitHubContributionsOptions = {}
+): Promise<GitHubContributionsData | null> {
+  const token = getGitHubToken(env, runtimeEnv);
+  if (!token) return null;
+
+  const range = getGitHubContributionRange(options.now);
+
+  try {
+    const response = await fetch('https://api.github.com/graphql', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+        'User-Agent': 'astro-site'
+      },
+      body: JSON.stringify({
+        query: `
+          query Contributions($username: String!, $from: DateTime!, $to: DateTime!) {
+            user(login: $username) {
+              contributionsCollection(from: $from, to: $to) {
+                contributionCalendar {
+                  totalContributions
+                  weeks {
+                    contributionDays {
+                      date
+                      contributionCount
+                      contributionLevel
+                    }
+                  }
+                }
+              }
+            }
+          }
+        `,
+        variables: {
+          username,
+          from: range.from,
+          to: range.to
+        }
+      })
+    });
+
+    if (!response.ok) return null;
+
+    const payload = (await response.json()) as GitHubContributionsResponse;
+    if (payload.errors?.length) return null;
+
+    const calendar = payload.data?.user?.contributionsCollection?.contributionCalendar;
+    if (!calendar) return null;
+
+    const contributions = (calendar.weeks ?? [])
+      .flatMap((week) => week?.contributionDays ?? [])
+      .filter((day): day is NonNullable<typeof day> => Boolean(day?.date))
+      .filter((day) => {
+        const date = day.date ?? '';
+        return date >= range.fromDate && date <= range.toDate;
+      })
+      .map((day) => ({
+        date: day.date ?? '',
+        count: day.contributionCount ?? 0,
+        level: normalizeContributionLevel(day.contributionLevel)
+      }))
+      .sort((left, right) => left.date.localeCompare(right.date));
+
+    return {
+      total: {
+        lastYear: calendar.totalContributions ?? contributions.reduce((sum, day) => sum + day.count, 0)
+      },
+      contributions
+    };
+  } catch {
+    return null;
+  }
 }

@@ -22,6 +22,12 @@ export interface E2EWritingPost {
   tags: E2EWritingTag[];
 }
 
+export interface E2EGitHubContributionDay {
+  date: string;
+  count: number;
+  level: number;
+}
+
 export function createE2EProjects(): E2EProject[] {
   return [
     {
@@ -74,4 +80,27 @@ export function createE2EWritingPosts(): E2EWritingPost[] {
       ],
     },
   ];
+}
+
+export function createE2EGitHubContributions(): {
+  total: { lastYear: number };
+  contributions: E2EGitHubContributionDay[];
+} {
+  const contributions = Array.from({ length: 365 }, (_, index) => {
+    const date = new Date(Date.UTC(2025, 5, 5 + index));
+    const count = index % 6;
+
+    return {
+      date: date.toISOString().slice(0, 10),
+      count,
+      level: Math.min(count, 4),
+    };
+  });
+
+  return {
+    total: {
+      lastYear: contributions.reduce((sum, day) => sum + day.count, 0),
+    },
+    contributions,
+  };
 }

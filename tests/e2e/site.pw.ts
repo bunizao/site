@@ -193,7 +193,7 @@ test.describe('Home page', () => {
       }
     });
 
-    await page.route('**/github-contributions-api.jogruber.de/**', async (route) => {
+    await page.route('**/api/github/contributions**', async (route) => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -305,7 +305,7 @@ test.describe('Home page', () => {
   });
 
   test('loads GitHub contributions and shows tooltip details', async ({ page }) => {
-    await page.route('**/github-contributions-api.jogruber.de/**', async (route) => {
+    await page.route('**/api/github/contributions**', async (route) => {
       const contributions = Array.from({ length: 30 }, (_, index) => ({
         date: `2026-02-${String(index + 1).padStart(2, '0')}`,
         count: (index % 5) + 1,
@@ -455,7 +455,7 @@ test.describe('Home page', () => {
   });
 
   test('shows the GitHub contributions fallback state when the request fails', async ({ page }) => {
-    await page.route('**/github-contributions-api.jogruber.de/**', async (route) => {
+    await page.route('**/api/github/contributions**', async (route) => {
       await route.abort('failed');
     });
 

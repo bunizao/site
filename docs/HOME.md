@@ -53,7 +53,7 @@ Implementation shape:
 - Astro renders mostly static markup.
 - The displayed name uses `Typewriter.astro`, which renders a hidden longest-string placeholder to avoid layout shift during typing.
 - Social links are local config in the component, not CMS-driven.
-- GitHub activity is client-fetched after idle time and rendered as a compact contribution waveform.
+- GitHub activity is client-fetched from `/api/github/contributions` after idle time and rendered as a compact contribution waveform.
 - Tech rows are local arrays duplicated into CSS marquee tracks.
 
 Client behavior:
@@ -76,6 +76,7 @@ Data flow:
 
 - Server-side render fetches pinned repositories from GitHub.
 - Primary path uses GraphQL when `GITHUB_TOKEN` exists.
+- The contribution waveform uses the same GitHub token through the internal `/api/github/contributions` route.
 - Fallback path uses a local curated list and enriches it with repo metadata when possible.
 - E2E mode swaps live data with fixtures.
 
