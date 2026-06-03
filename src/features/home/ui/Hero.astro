@@ -218,7 +218,7 @@ const techRow2 = ['Frontend', 'BGP', 'Proxy', 'Docker', 'Linux', 'Web3', 'Optimi
 
 <script>
   const prefersReducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-  const heroElements = document.querySelectorAll('.hero-animate');
+  const heroElements = Array.from(document.querySelectorAll<HTMLElement>('.hero-animate'));
   const statusText = document.getElementById('status-text');
 
   // Status text rotation
