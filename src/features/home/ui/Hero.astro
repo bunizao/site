@@ -187,6 +187,13 @@ const techRow2 = ['Frontend', 'BGP', 'Proxy', 'Docker', 'Linux', 'Web3', 'Optimi
   .status-text {
     display: inline-block;
     line-height: 1.2em;
+    will-change: transform, opacity;
+  }
+
+  .status-dot {
+    animation: none;
+    transform-origin: center;
+    will-change: transform, opacity;
   }
 
   /* Personal info styling */
@@ -220,6 +227,7 @@ const techRow2 = ['Frontend', 'BGP', 'Proxy', 'Docker', 'Linux', 'Web3', 'Optimi
   const prefersReducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
   const heroElements = Array.from(document.querySelectorAll<HTMLElement>('.hero-animate'));
   const statusText = document.getElementById('status-text');
+  const statusDot = document.querySelector<HTMLElement>('.status-dot');
 
   // Status text rotation
   const statusWords = [
@@ -267,7 +275,8 @@ const techRow2 = ['Frontend', 'BGP', 'Proxy', 'Docker', 'Linux', 'Web3', 'Optimi
       opacity: 1,
       y: 0,
       duration: 0.6,
-      stagger: 0.1
+      stagger: 0.08,
+      ease: 'back.out(1.25)'
     });
 
     heroTl.call(() => {
@@ -332,62 +341,53 @@ const techRow2 = ['Frontend', 'BGP', 'Proxy', 'Docker', 'Linux', 'Web3', 'Optimi
       element.addEventListener('pointerleave', handlePointerLeave, { passive: true });
     });
 
+    heroTl.call(() => {
+      if (statusDot) {
+        gsap.to(statusDot, {
+          scale: 1.5,
+          opacity: 0.42,
+          duration: 0.82,
+          ease: 'sine.inOut',
+          repeat: -1,
+          yoyo: true
+        });
+      }
+    });
+
     if (statusText) {
       let currentIndex = 0;
-      let statusRotationStarted = false;
-      const statusRotationAbort = new AbortController();
+      let statusRotationCall: ReturnType<typeof gsap.delayedCall> | null = null;
 
       const rotateStatus = () => {
-        // Animate out
-        gsap.to(statusText, {
-          y: '-120%',
-          opacity: 0,
-          duration: 0.3,
-          ease: 'power2.in',
-          onComplete: () => {
-            currentIndex = (currentIndex + 1) % statusWords.length;
+        currentIndex = (currentIndex + 1) % statusWords.length;
+
+        gsap.timeline()
+          .to(statusText, {
+            yPercent: -115,
+            autoAlpha: 0,
+            duration: 0.24,
+            ease: 'power2.in'
+          })
+          .call(() => {
             statusText.textContent = statusWords[currentIndex];
-
-            // Reset position and animate in
-            gsap.fromTo(statusText,
-              { y: '120%', opacity: 0 },
-              { y: '0%', opacity: 1, duration: 0.3, ease: 'power2.out' }
-            );
-          }
-        });
+            gsap.set(statusText, { yPercent: 115 });
+          })
+          .to(statusText, {
+            yPercent: 0,
+            autoAlpha: 1,
+            duration: 0.36,
+            ease: 'back.out(1.5)'
+          })
+          .call(scheduleStatusRotation);
       };
 
-      const startStatusRotation = () => {
-        if (statusRotationStarted) return;
-        statusRotationStarted = true;
-        statusRotationAbort.abort();
-        setInterval(rotateStatus, 3000);
-      };
-
-      const armStatusRotation = () => {
-        window.addEventListener('pointerdown', startStatusRotation, {
-          once: true,
-          passive: true,
-          signal: statusRotationAbort.signal,
-        });
-        window.addEventListener('keydown', startStatusRotation, {
-          once: true,
-          signal: statusRotationAbort.signal,
-        });
-        window.addEventListener('scroll', startStatusRotation, {
-          once: true,
-          passive: true,
-          signal: statusRotationAbort.signal,
-        });
-        window.addEventListener('touchstart', startStatusRotation, {
-          once: true,
-          passive: true,
-          signal: statusRotationAbort.signal,
-        });
-      };
+      function scheduleStatusRotation() {
+        statusRotationCall?.kill();
+        statusRotationCall = gsap.delayedCall(2.4, rotateStatus);
+      }
 
       heroTl.call(() => {
-        armStatusRotation();
+        scheduleStatusRotation();
       });
     }
   };
