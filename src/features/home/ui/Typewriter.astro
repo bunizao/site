@@ -11,17 +11,23 @@ const initialText = texts[0] ?? '';
 const longestText = texts.reduce((a, b) => a.length > b.length ? a : b, '');
 ---
 
-<span class="typewriter-wrapper">
+<span
+  class="typewriter-wrapper"
+  data-typewriter-root
+  data-texts={JSON.stringify(texts)}
+  data-speed={speed}
+  data-delay={delay}
+  data-pause={pauseDuration}
+>
   <!-- Hidden placeholder keeps the animated text width stable. -->
   <span class="typewriter-placeholder" aria-hidden="true">{longestText}</span>
   <span
     class="typewriter"
-    data-texts={JSON.stringify(texts)}
-    data-speed={speed}
-    data-delay={delay}
-    data-pause={pauseDuration}
+    data-typewriter-visual
   >
-    <span class="typewriter-text">{initialText}</span><span class="typewriter-cursor"></span>
+    <span class="typewriter-text" data-typewriter-text>{initialText}</span>
+    <canvas class="typewriter-canvas" data-typewriter-canvas aria-hidden="true"></canvas>
+    <span class="typewriter-cursor" aria-hidden="true"></span>
   </span>
 </span>
 
@@ -39,57 +45,286 @@ const longestText = texts.reduce((a, b) => a.length > b.length ? a : b, '');
   }
 
   .typewriter {
-    display: inline;
+    position: relative;
+    display: inline-flex;
+    align-items: baseline;
+    width: 100%;
+    white-space: pre;
+  }
+
+  .typewriter-canvas {
+    position: absolute;
+    inset: 0;
+    display: block;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .typewriter-text {
+    display: inline-block;
+    width: 100%;
+  }
+
+  .typewriter-cursor {
+    display: inline-block;
+    width: 0.5ch;
+    height: 0.9em;
+    margin-left: 3px;
+    border-radius: 1px;
+    background: currentColor;
+    opacity: 0;
+    align-self: center;
+  }
+
+  .typewriter.is-enhanced .typewriter-text {
+    color: transparent;
+  }
+
+  .typewriter.is-enhanced .typewriter-canvas {
+    opacity: 1;
+  }
+
+  .typewriter.is-typing .typewriter-cursor,
+  .typewriter.is-typed .typewriter-cursor {
+    opacity: 0;
+    animation: none;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .typewriter-cursor {
+      animation: none !important;
+    }
+
+    .typewriter.is-enhanced .typewriter-text {
+      color: currentColor;
+    }
+
+    .typewriter.is-enhanced .typewriter-canvas,
+    .typewriter-cursor {
+      opacity: 0;
+    }
   }
 </style>
 
 <script>
-  document.addEventListener('DOMContentLoaded', () => {
-    document.querySelectorAll('.typewriter').forEach((el) => {
-      const texts: string[] = JSON.parse(el.getAttribute('data-texts') || '[]');
-      const speed = parseInt(el.getAttribute('data-speed') || '80');
-      const delay = parseInt(el.getAttribute('data-delay') || '0');
-      const pauseDuration = parseInt(el.getAttribute('data-pause') || '2000');
-      const textEl = el.querySelector('.typewriter-text');
+  type TypewriterRoot = HTMLElement & {
+    _typewriterReady?: boolean;
+    _typewriterStarted?: boolean;
+    _typewriterStartTimer?: number;
+    _typewriterLoopTimer?: number;
+    _typewriterTextTimer?: number;
+    _typewriterCursorTimer?: number;
+    _typewriterAbort?: AbortController;
+  };
 
-      if (!textEl || texts.length === 0) return;
+  interface CanvasState {
+    context: CanvasRenderingContext2D;
+    width: number;
+    height: number;
+    font: string;
+    color: string;
+  }
 
-      let textIndex = 0;
-      let charIndex = textEl.textContent?.length ?? 0;
-      let isDeleting = charIndex > 0;
+  const HERO_NAME_READY_EVENT = 'home:hero-name-ready';
+  const FALLBACK_START_MS = 1100;
 
-      const type = () => {
-        const currentText = texts[textIndex];
+  const prefersReducedMotion = (): boolean =>
+    window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
 
-        if (isDeleting) {
-          // Remove characters
-          textEl.textContent = currentText.substring(0, charIndex - 1);
-          charIndex--;
+  const parseTexts = (root: TypewriterRoot): string[] => {
+    try {
+      const parsed = JSON.parse(root.dataset.texts || '[]');
+      return Array.isArray(parsed) ? parsed.filter((text): text is string => typeof text === 'string') : [];
+    } catch {
+      return [];
+    }
+  };
 
-          if (charIndex === 0) {
-            isDeleting = false;
-            textIndex = (textIndex + 1) % texts.length;
-            setTimeout(type, speed);
-          } else {
-            setTimeout(type, speed / 2); // Delete faster
-          }
-        } else {
-          // Add characters
-          textEl.textContent = currentText.substring(0, charIndex + 1);
-          charIndex++;
+  const stepDelayFor = (speed: number): number =>
+    Math.max(36, Math.min(64, Math.round(speed * 0.6)));
 
-          if (charIndex === currentText.length) {
-            // Pause after a word, then start deleting
-            isDeleting = true;
-            setTimeout(type, pauseDuration);
-          } else {
-            setTimeout(type, speed + Math.random() * 30);
-          }
+  const setupCanvas = (visual: HTMLElement, canvas: HTMLCanvasElement): CanvasState | null => {
+    const context = canvas.getContext('2d');
+    if (!context) return null;
+
+    const rect = visual.getBoundingClientRect();
+    const styles = window.getComputedStyle(visual);
+    const dpr = Math.max(1, window.devicePixelRatio || 1);
+    const fontSize = Number.parseFloat(styles.fontSize) || 36;
+    const width = Math.max(1, Math.ceil(rect.width));
+    const height = Math.max(1, Math.ceil(rect.height || fontSize * 1.2));
+
+    canvas.width = Math.ceil(width * dpr);
+    canvas.height = Math.ceil(height * dpr);
+    canvas.style.width = `${width}px`;
+    canvas.style.height = `${height}px`;
+
+    context.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+    return {
+      context,
+      width,
+      height,
+      font: styles.font || `${styles.fontWeight} ${styles.fontSize} ${styles.fontFamily}`,
+      color: styles.color,
+    };
+  };
+
+  const drawWord = (state: CanvasState, word: string, showCursor = true): void => {
+    const { context, width, height, font, color } = state;
+    const cursorWidth = 2;
+    const cursorGap = 3;
+    const cursorHeight = Math.max(1, height * 0.72);
+    const cursorY = (height - cursorHeight) / 2;
+    const textY = height / 2;
+
+    context.clearRect(0, 0, width, height);
+    context.font = font;
+    context.fillStyle = color;
+    context.textBaseline = 'middle';
+    context.fillText(word, 0, textY);
+
+    if (!showCursor) return;
+
+    const cursorX = context.measureText(word).width + cursorGap;
+    context.fillRect(cursorX, cursorY, cursorWidth, cursorHeight);
+  };
+
+  const clearCursorTimer = (root: TypewriterRoot): void => {
+    window.clearInterval(root._typewriterCursorTimer);
+    root._typewriterCursorTimer = undefined;
+  };
+
+  const startCursorBlink = (
+    root: TypewriterRoot,
+    state: CanvasState,
+    word: string
+  ): void => {
+    let showCursor = true;
+    clearCursorTimer(root);
+    drawWord(state, word, showCursor);
+
+    root._typewriterCursorTimer = window.setInterval(() => {
+      showCursor = !showCursor;
+      drawWord(state, word, showCursor);
+    }, 575);
+  };
+
+  const typeText = (
+    root: TypewriterRoot,
+    visual: HTMLElement,
+    canvas: HTMLCanvasElement,
+    text: string,
+    speed: number,
+    onDone?: () => void
+  ): void => {
+    const state = setupCanvas(visual, canvas);
+    if (!state) return;
+
+    clearCursorTimer(root);
+    visual.setAttribute('aria-label', text);
+    visual.classList.remove('is-typed');
+    visual.classList.add('is-enhanced', 'is-typing');
+
+    let charIndex = 0;
+    const stepDelay = stepDelayFor(speed);
+    drawWord(state, '', true);
+
+    const typeNext = (): void => {
+      charIndex += 1;
+      const nextWord = text.slice(0, charIndex);
+      drawWord(state, nextWord, true);
+
+      if (charIndex < text.length) {
+        root._typewriterTextTimer = window.setTimeout(typeNext, stepDelay);
+        return;
+      }
+
+      visual.classList.remove('is-typing');
+      visual.classList.add('is-typed');
+      startCursorBlink(root, state, text);
+      onDone?.();
+    };
+
+    root._typewriterTextTimer = window.setTimeout(typeNext, stepDelay);
+  };
+
+  const initOne = (root: TypewriterRoot): void => {
+    if (root._typewriterReady) return;
+    root._typewriterReady = true;
+
+    const visual = root.querySelector<HTMLElement>('[data-typewriter-visual]');
+    const canvas = root.querySelector<HTMLCanvasElement>('[data-typewriter-canvas]');
+    const texts = parseTexts(root);
+    const speed = Number.parseInt(root.dataset.speed || '80', 10);
+    const delay = Number.parseInt(root.dataset.delay || '0', 10);
+    const pauseDuration = Number.parseInt(root.dataset.pause || '2000', 10);
+
+    if (!visual || !canvas || texts.length === 0 || prefersReducedMotion()) {
+      return;
+    }
+
+    const abort = new AbortController();
+    let index = 0;
+    root._typewriterAbort = abort;
+
+    const startFirstRun = (): void => {
+      if (root._typewriterStarted) return;
+      root._typewriterStarted = true;
+      window.clearTimeout(root._typewriterStartTimer);
+      typeText(root, visual, canvas, texts[index], speed, () => {
+        if (texts.length > 1) {
+          root._typewriterLoopTimer = window.setTimeout(runLoop, pauseDuration);
         }
-      };
+      });
+    };
 
-      const startDelay = charIndex > 0 ? delay + pauseDuration : delay;
-      setTimeout(type, startDelay);
+    const runLoop = (): void => {
+      index = (index + 1) % texts.length;
+      const nextText = texts[index];
+
+      visual.classList.remove('is-typing', 'is-typed');
+
+      window.setTimeout(() => {
+        requestAnimationFrame(() => {
+          typeText(root, visual, canvas, nextText, speed, () => {
+            root._typewriterLoopTimer = window.setTimeout(runLoop, pauseDuration);
+          });
+        });
+      }, 80);
+    };
+
+    window.addEventListener(HERO_NAME_READY_EVENT, startFirstRun, {
+      once: true,
+      signal: abort.signal,
     });
-  });
+    root._typewriterStartTimer = window.setTimeout(startFirstRun, delay + FALLBACK_START_MS);
+  };
+
+  const initAll = (): void => {
+    document.querySelectorAll<TypewriterRoot>('[data-typewriter-root]').forEach(initOne);
+  };
+
+  const cleanupAll = (): void => {
+    document.querySelectorAll<TypewriterRoot>('[data-typewriter-root]').forEach((root) => {
+      window.clearTimeout(root._typewriterStartTimer);
+      window.clearTimeout(root._typewriterLoopTimer);
+      window.clearTimeout(root._typewriterTextTimer);
+      clearCursorTimer(root);
+      root._typewriterAbort?.abort();
+      root._typewriterReady = false;
+      root._typewriterStarted = false;
+    });
+  };
+
+  document.addEventListener('astro:page-load', initAll);
+  document.addEventListener('astro:before-swap', cleanupAll);
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initAll, { once: true });
+  } else {
+    initAll();
+  }
 </script>

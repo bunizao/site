@@ -270,6 +270,10 @@ const techRow2 = ['Frontend', 'BGP', 'Proxy', 'Docker', 'Linux', 'Web3', 'Optimi
       stagger: 0.1
     });
 
+    heroTl.call(() => {
+      window.dispatchEvent(new CustomEvent('home:hero-name-ready'));
+    }, [], 0.1);
+
     const magneticButtons = document.querySelectorAll('[data-magnetic]');
     magneticButtons.forEach((button) => {
       const element = button as HTMLElement;
@@ -330,6 +334,8 @@ const techRow2 = ['Frontend', 'BGP', 'Proxy', 'Docker', 'Linux', 'Web3', 'Optimi
 
     if (statusText) {
       let currentIndex = 0;
+      let statusRotationStarted = false;
+      const statusRotationAbort = new AbortController();
 
       const rotateStatus = () => {
         // Animate out
@@ -351,9 +357,37 @@ const techRow2 = ['Frontend', 'BGP', 'Proxy', 'Docker', 'Linux', 'Web3', 'Optimi
         });
       };
 
-      // Start rotation after hero animation completes
-      heroTl.call(() => {
+      const startStatusRotation = () => {
+        if (statusRotationStarted) return;
+        statusRotationStarted = true;
+        statusRotationAbort.abort();
         setInterval(rotateStatus, 3000);
+      };
+
+      const armStatusRotation = () => {
+        window.addEventListener('pointerdown', startStatusRotation, {
+          once: true,
+          passive: true,
+          signal: statusRotationAbort.signal,
+        });
+        window.addEventListener('keydown', startStatusRotation, {
+          once: true,
+          signal: statusRotationAbort.signal,
+        });
+        window.addEventListener('scroll', startStatusRotation, {
+          once: true,
+          passive: true,
+          signal: statusRotationAbort.signal,
+        });
+        window.addEventListener('touchstart', startStatusRotation, {
+          once: true,
+          passive: true,
+          signal: statusRotationAbort.signal,
+        });
+      };
+
+      heroTl.call(() => {
+        armStatusRotation();
       });
     }
   };
