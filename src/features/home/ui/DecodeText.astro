@@ -61,7 +61,7 @@ const { class: className } = Astro.props;
   const FALLBACK_START_MS = 1500;
 
   // Soulwire's homepage parameters for the long paragraph.
-  const SCRAMBLE = '_-/\\|<>'.split('');
+  const SCRAMBLE = '__--/\\|<>'.split('');
   const CURSOR = '-';
   const SHOW_POWER = 0.8;
   const MASH_POWER = 2;
@@ -76,9 +76,18 @@ const { class: className } = Astro.props;
   const randomFrom = (pool: string[]): string =>
     pool[Math.floor(Math.random() * pool.length)] ?? '_';
 
+  const shuffle = <T,>(items: T[]): T[] => {
+    const copy = items.slice();
+    for (let i = copy.length - 1; i > 0; i -= 1) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [copy[i], copy[j]] = [copy[j], copy[i]];
+    }
+    return copy;
+  };
+
   // Walk the slotted markup, wrapping every visible character in a span while
   // preserving spaces, <br> line breaks, and inline color spans. Returns the
-  // characters grouped by visual line, in document order (no shuffle).
+  // characters grouped by visual line, in document order.
   const tokenize = (root: HTMLElement): Cell[][] => {
     const lines: Cell[][] = [[]];
 
@@ -120,16 +129,18 @@ const { class: className } = Astro.props;
     if (cell.el.textContent !== text) cell.el.textContent = text;
   };
 
-  // One frame of a line: [0..done] real, (done..mash] scramble, (mash..show)
-  // cursor, [show..] blank. done <= mash <= show because the powers are ordered.
-  const renderLine = (cells: Cell[], progress: number): void => {
-    const len = cells.length;
+  // One frame of a line. `order` is the shuffled resolve order: queue position l
+  // gets [0..done] real, (done..mash] scramble, (mash..show) cursor, [show..]
+  // blank. Because the order is shuffled, the line boils with noise across its
+  // full width and condenses into text at scattered positions (Soulwire's look).
+  const renderLine = (order: Cell[], progress: number): void => {
+    const len = order.length;
     const show = Math.floor(Math.pow(progress, SHOW_POWER) * len);
     const mash = Math.floor(Math.pow(progress, MASH_POWER) * len);
     const done = Math.floor(Math.pow(progress, DONE_POWER) * len);
 
     for (let l = 0; l < len; l += 1) {
-      const cell = cells[l];
+      const cell = order[l];
       if (l >= show) {
         setState(cell, 'idle', ' ');
       } else if (l <= done) {
@@ -161,6 +172,7 @@ const { class: className } = Astro.props;
 
     let cumulative = 0;
     for (const cells of lines) {
+      const order = shuffle(cells);
       const duration = Math.min(1.6, Math.max(0.5, LINE_DURATION_PER_CHAR * cells.length));
       const state = { p: 0 };
       timeline.to(
@@ -170,7 +182,7 @@ const { class: className } = Astro.props;
           duration,
           ease: 'power4.inOut',
           onUpdate() {
-            renderLine(cells, state.p);
+            renderLine(order, state.p);
           },
         },
         LINE_DELAY_FACTOR * cumulative
