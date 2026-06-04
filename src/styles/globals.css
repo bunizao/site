@@ -196,6 +196,18 @@
 }
 
 @layer components {
+  /* Reading context — long-form prose in the readable sans (Inter), with code
+     resetting to the mono code face. The site default stays mono (identity);
+     content surfaces opt in. Apply to any new content page (mood, future blog)
+     and its type is handled without re-declaring font-family. */
+  .reading {
+    font-family: var(--font-sans);
+  }
+
+  .reading :where(code, kbd, samp, pre) {
+    font-family: var(--font-code);
+  }
+
   .site-shell,
   .site-nav,
   .global-header-actions {

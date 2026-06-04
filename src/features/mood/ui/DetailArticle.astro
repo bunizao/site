@@ -58,7 +58,7 @@ const {
         )}
       </div>
     </div>
-    <div class="mood-post-content" set:html={renderedPostContent} />
+    <div class="mood-post-content reading" set:html={renderedPostContent} />
     {post.reactions.length > 0 && (
       <div class="mood-post-reactions" aria-label="Reactions">
         {post.reactions.map((reaction) => (
