@@ -42,6 +42,13 @@ const placeholderBars = Array.from({ length: contributionDays });
 
 <script is:inline>
   const sections = document.querySelectorAll('[data-contributions]');
+  const GITHUB_READY_EVENT = 'home:hero-github-ready';
+  const GITHUB_READY_FALLBACK_MS = 2600;
+  const pendingGraphUpdates = new Set();
+  let graphCanRender = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+    || window.__homeHeroGithubReady === true;
+  let graphFallbackTimer;
+
   const renderNextFrame = (callback) => {
     if ('requestAnimationFrame' in window) {
       window.requestAnimationFrame(() => callback());
@@ -50,6 +57,33 @@ const placeholderBars = Array.from({ length: contributionDays });
 
     setTimeout(callback, 0);
   };
+
+  const flushGraphUpdates = () => {
+    if (graphCanRender) return;
+
+    graphCanRender = true;
+    window.clearTimeout(graphFallbackTimer);
+    pendingGraphUpdates.forEach((callback) => renderNextFrame(callback));
+    pendingGraphUpdates.clear();
+  };
+
+  const renderWithHeroChain = (callback) => {
+    if (!graphCanRender && window.__homeHeroGithubReady === true) {
+      flushGraphUpdates();
+    }
+
+    if (graphCanRender) {
+      renderNextFrame(callback);
+      return;
+    }
+
+    pendingGraphUpdates.add(callback);
+  };
+
+  if (!graphCanRender) {
+    window.addEventListener(GITHUB_READY_EVENT, flushGraphUpdates, { once: true });
+    graphFallbackTimer = window.setTimeout(flushGraphUpdates, GITHUB_READY_FALLBACK_MS);
+  }
 
   const schedule = (callback) => {
     const runWhenIdle = () => {
@@ -175,10 +209,10 @@ const placeholderBars = Array.from({ length: contributionDays });
       });
       if (!response.ok) throw new Error('Failed to fetch contributions');
       const data = await response.json();
-      renderNextFrame(() => updateSection(section, data));
+      renderWithHeroChain(() => updateSection(section, data));
     } catch (error) {
       console.error('Failed to fetch GitHub contributions:', error);
-      renderNextFrame(() => {
+      renderWithHeroChain(() => {
         const totalEl = section.querySelector('[data-total]');
         if (totalEl) {
           totalEl.textContent = 'Contributions unavailable';

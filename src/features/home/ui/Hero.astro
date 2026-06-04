@@ -231,6 +231,7 @@ const techRow2 = ['Frontend', 'BGP', 'Proxy', 'Docker', 'Linux', 'Web3', 'Optimi
   const heroElements = Array.from(document.querySelectorAll<HTMLElement>('.hero-animate'));
   const statusText = document.getElementById('status-text');
   const statusDot = document.querySelector<HTMLElement>('.status-dot');
+  const HOME_HERO_GITHUB_READY_EVENT = 'home:hero-github-ready';
 
   // Status text rotation
   const statusWords = [
@@ -303,6 +304,15 @@ const techRow2 = ['Frontend', 'BGP', 'Proxy', 'Docker', 'Linux', 'Web3', 'Optimi
       stagger: 0.08,
       ease: 'back.out(1.25)'
     }, 1.15);
+
+    const githubWidget = widgets.find((el) => el.hasAttribute('data-hero-github'));
+    const githubWidgetIndex = githubWidget ? widgets.indexOf(githubWidget) : 0;
+    const githubRevealAt = 1.15 + Math.max(0, githubWidgetIndex) * 0.08;
+
+    heroTl.call(() => {
+      (window as Window & { __homeHeroGithubReady?: boolean }).__homeHeroGithubReady = true;
+      window.dispatchEvent(new CustomEvent(HOME_HERO_GITHUB_READY_EVENT));
+    }, [], githubRevealAt);
 
     const magneticButtons = document.querySelectorAll('[data-magnetic]');
     magneticButtons.forEach((button) => {
