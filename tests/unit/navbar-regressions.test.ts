@@ -6,13 +6,13 @@ const repoRoot = process.cwd();
 const read = (filePath: string): string => readFileSync(path.join(repoRoot, filePath), 'utf8');
 
 describe('navbar regression guards', () => {
-  test('layout preloads the mono font and supports home-style header actions', () => {
+  test('layout preloads the site mono font and supports home-style header actions', () => {
     const source = read('src/layouts/Layout.astro');
 
     expect(source).toContain("headerActionsVariant?: 'default' | 'home'");
     expect(source).toContain("const useHomeHeaderActions = isHomeNav || headerActionsVariant === 'home';");
     expect(source).toContain("rel=\"preload\"");
-    expect(source).toContain("/fonts/jetbrains-mono-variable.woff2");
+    expect(source).toContain("/fonts/geist-mono-variable.woff2");
     expect(source).toContain("'global-header-actions--home': useHomeHeaderActions");
   });
 
