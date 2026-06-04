@@ -52,7 +52,7 @@
 **JSON:**
 - `GET|HEAD /api/ping` — Tiny uncached uptime endpoint for Better Stack monitors.
 - `GET /api/footer` — Cached footer status proxy backed by the Better Stack status page JSON API.
-- `GET /api/github/contributions` — Cached GitHub contribution calendar for the homepage activity graph.
+- `GET /api/github/contributions` — Cached GitHub contribution calendar for the homepage activity graph; `days` narrows the returned contribution days while preserving the last-year total.
 - `GET /api/health` — Lightweight compatibility health response for stale monitors. Use `?diagnostic=1` for the owner diagnostic report; add `&deep=1` for slower external probes.
 - `GET /api/moods` — Mood feed with pagination (`?before=<id>`)
 - `GET /api/comments` — Comments

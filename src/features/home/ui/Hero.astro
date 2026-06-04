@@ -1,5 +1,6 @@
 ---
 import Typewriter from '@/features/home/ui/Typewriter.astro';
+import DecodeText from '@/features/home/ui/DecodeText.astro';
 import GitHubContributions from '@/features/home/ui/GitHubContributions.astro';
 import Listening from '@/features/home/ui/Listening.astro';
 import TechMarquee from '@/features/home/ui/TechMarquee.astro';
@@ -97,15 +98,17 @@ const techRow2 = ['Frontend', 'BGP', 'Proxy', 'Docker', 'Linux', 'Web3', 'Optimi
 
     <!-- Bio -->
     <div class="hero-animate" data-hero-bio>
-      <p class="text-[14px] leading-[1.7] text-muted-foreground sm:text-[15px]">
-        I make interesting things.<br>
-        Curious about <span class="text-foreground">frontend design</span>,
-        <span class="text-foreground">proxy systems</span>, and
-        contributing to <span class="text-foreground"> open source</span>.<br>
-        Obsessed with <span class="text-foreground">speed</span> and always asking how things can be <span class="text-foreground">better</span>.<br>
-        Outside of coding, I read for curiosity and write to make sense of things.<br>
-        Currently studying Computer Science at <span class="text-foreground">Monash University</span>.
-      </p>
+      <DecodeText>
+        <p class="text-[14px] leading-[1.7] text-muted-foreground sm:text-[15px]">
+          I make interesting things.<br>
+          Curious about <span class="text-foreground">frontend design</span>,
+          <span class="text-foreground">proxy systems</span>, and
+          contributing to <span class="text-foreground"> open source</span>.<br>
+          Obsessed with <span class="text-foreground">speed</span> and always asking how things can be <span class="text-foreground">better</span>.<br>
+          Outside of coding, I read for curiosity and write to make sense of things.<br>
+          Currently studying Computer Science at <span class="text-foreground">Monash University</span>.
+        </p>
+      </DecodeText>
     </div>
 
     <!-- Social Links -->
@@ -228,6 +231,7 @@ const techRow2 = ['Frontend', 'BGP', 'Proxy', 'Docker', 'Linux', 'Web3', 'Optimi
   const heroElements = Array.from(document.querySelectorAll<HTMLElement>('.hero-animate'));
   const statusText = document.getElementById('status-text');
   const statusDot = document.querySelector<HTMLElement>('.status-dot');
+  const HOME_HERO_GITHUB_READY_EVENT = 'home:hero-github-ready';
 
   // Status text rotation
   const statusWords = [
@@ -262,26 +266,53 @@ const techRow2 = ['Frontend', 'BGP', 'Proxy', 'Docker', 'Linux', 'Web3', 'Optimi
     if (!heroElements.length) return;
     const { default: gsap } = await import('gsap');
 
-    // Set initial states
+    // Split the hero into two phases so the chain reads top-to-bottom:
+    // identity text resolves first, then the supporting widgets rise in.
+    const identity = heroElements.filter((el) => !el.hasAttribute('data-hero-motion'));
+    const widgets = heroElements.filter((el) => el.hasAttribute('data-hero-motion'));
+
     gsap.set(heroElements, { opacity: 0, y: 20 });
 
-    // Create master timeline for hero section
     const heroTl = gsap.timeline({
       defaults: { ease: 'power3.out' }
     });
 
-    // Animate each element with stagger
-    heroTl.to(heroElements, {
+    // Phase 1: status -> name -> info -> role -> bio.
+    heroTl.to(identity, {
       opacity: 1,
       y: 0,
       duration: 0.6,
       stagger: 0.08,
       ease: 'back.out(1.25)'
-    });
+    }, 0);
 
+    // Kick the name decoder as its line settles in.
     heroTl.call(() => {
       window.dispatchEvent(new CustomEvent('home:hero-name-ready'));
     }, [], 0.1);
+
+    // Hand off to the bio decoder once the name is resolving.
+    heroTl.call(() => {
+      window.dispatchEvent(new CustomEvent('home:hero-bio-ready'));
+    }, [], 0.7);
+
+    // Phase 2: socials, listening, GitHub, tech — after the identity is set.
+    heroTl.to(widgets, {
+      opacity: 1,
+      y: 0,
+      duration: 0.6,
+      stagger: 0.08,
+      ease: 'back.out(1.25)'
+    }, 1.15);
+
+    const githubWidget = widgets.find((el) => el.hasAttribute('data-hero-github'));
+    const githubWidgetIndex = githubWidget ? widgets.indexOf(githubWidget) : 0;
+    const githubRevealAt = 1.15 + Math.max(0, githubWidgetIndex) * 0.08;
+
+    heroTl.call(() => {
+      (window as Window & { __homeHeroGithubReady?: boolean }).__homeHeroGithubReady = true;
+      window.dispatchEvent(new CustomEvent(HOME_HERO_GITHUB_READY_EVENT));
+    }, [], githubRevealAt);
 
     const magneticButtons = document.querySelectorAll('[data-magnetic]');
     magneticButtons.forEach((button) => {

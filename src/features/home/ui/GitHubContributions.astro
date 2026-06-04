@@ -1,12 +1,14 @@
 ---
 const username = 'bunizao';
-const placeholderBars = Array.from({ length: 30 });
+const contributionDays = 30;
+const placeholderBars = Array.from({ length: contributionDays });
 ---
 
 <div
   class="activity-section is-loading"
   data-contributions
   data-username={username}
+  data-days={contributionDays}
   aria-busy="true"
 >
   <div class="activity-wave" aria-hidden="true">
@@ -40,51 +42,48 @@ const placeholderBars = Array.from({ length: 30 });
 
 <script is:inline>
   const sections = document.querySelectorAll('[data-contributions]');
-  const deferredUpdates = new Set();
-  const interactionAbort = new AbortController();
-  let canRenderDeferredData = false;
-  let deferredFallbackTimer;
+  const GITHUB_READY_EVENT = 'home:hero-github-ready';
+  const GITHUB_READY_FALLBACK_MS = 2600;
+  const pendingGraphUpdates = new Set();
+  let graphCanRender = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+    || window.__homeHeroGithubReady === true;
+  let graphFallbackTimer;
 
-  const flushDeferredUpdates = () => {
-    if (canRenderDeferredData) return;
-
-    canRenderDeferredData = true;
-    interactionAbort.abort();
-    window.clearTimeout(deferredFallbackTimer);
-
-    deferredUpdates.forEach((callback) => callback());
-    deferredUpdates.clear();
-  };
-
-  const renderAfterInteraction = (callback) => {
-    if (canRenderDeferredData) {
-      callback();
+  const renderNextFrame = (callback) => {
+    if ('requestAnimationFrame' in window) {
+      window.requestAnimationFrame(() => callback());
       return;
     }
 
-    deferredUpdates.add(callback);
+    setTimeout(callback, 0);
   };
 
-  window.addEventListener('pointerdown', flushDeferredUpdates, {
-    once: true,
-    passive: true,
-    signal: interactionAbort.signal,
-  });
-  window.addEventListener('keydown', flushDeferredUpdates, {
-    once: true,
-    signal: interactionAbort.signal,
-  });
-  window.addEventListener('scroll', flushDeferredUpdates, {
-    once: true,
-    passive: true,
-    signal: interactionAbort.signal,
-  });
-  window.addEventListener('touchstart', flushDeferredUpdates, {
-    once: true,
-    passive: true,
-    signal: interactionAbort.signal,
-  });
-  deferredFallbackTimer = window.setTimeout(flushDeferredUpdates, 5000);
+  const flushGraphUpdates = () => {
+    if (graphCanRender) return;
+
+    graphCanRender = true;
+    window.clearTimeout(graphFallbackTimer);
+    pendingGraphUpdates.forEach((callback) => renderNextFrame(callback));
+    pendingGraphUpdates.clear();
+  };
+
+  const renderWithHeroChain = (callback) => {
+    if (!graphCanRender && window.__homeHeroGithubReady === true) {
+      flushGraphUpdates();
+    }
+
+    if (graphCanRender) {
+      renderNextFrame(callback);
+      return;
+    }
+
+    pendingGraphUpdates.add(callback);
+  };
+
+  if (!graphCanRender) {
+    window.addEventListener(GITHUB_READY_EVENT, flushGraphUpdates, { once: true });
+    graphFallbackTimer = window.setTimeout(flushGraphUpdates, GITHUB_READY_FALLBACK_MS);
+  }
 
   const schedule = (callback) => {
     const runWhenIdle = () => {
@@ -145,25 +144,34 @@ const placeholderBars = Array.from({ length: 30 });
     });
   };
 
+  // Bars grow from right (newest) to left (oldest), mirroring the bio decode
+  // that grows left-to-right above. GROW_STEP is the per-bar stagger; once the
+  // last bar has unfurled we hand off to the ambient breathing wave.
+  const GROW_STEP = 0.025;
+  const GROW_DURATION = 450;
+
   const updateSection = (section, data) => {
     const bars = Array.from(section.querySelectorAll('[data-bar]'));
     const totalEl = section.querySelector('[data-total]');
 
     const contributions = Array.isArray(data?.contributions) ? data.contributions : [];
-    const last30Days = contributions.slice(-30);
-    const maxCount = Math.max(...last30Days.map((day) => day.count || 0), 1);
+    const visibleDays = contributions.slice(-bars.length);
+    const maxCount = Math.max(...visibleDays.map((day) => day.count || 0), 1);
 
-    last30Days.forEach((day, index) => {
+    visibleDays.forEach((day, index) => {
       const bar = bars[index];
       if (!bar) return;
       const baseHeight = 8;
       const dynamicHeight = (day.count / maxCount) * 36;
       const height = baseHeight + dynamicHeight;
+      // Reverse the index so the rightmost bar leads and the wave unfurls left.
+      const growDelay = (bars.length - 1 - index) * GROW_STEP;
+      bar.style.transitionDelay = `${growDelay}s`;
       bar.style.setProperty('--height', `${height}px`);
       bar.style.height = `${height}px`;
     });
 
-    setupTooltip(section, last30Days);
+    setupTooltip(section, visibleDays);
 
     const totalContributions = data?.total?.lastYear ?? 0;
     if (totalEl) {
@@ -173,14 +181,27 @@ const placeholderBars = Array.from({ length: 30 });
     section.classList.remove('is-loading');
     section.classList.add('is-ready');
     section.setAttribute('aria-busy', 'false');
+
+    // After the grow-in finishes, drop the stagger and let the bars breathe.
+    const totalGrow = (bars.length - 1) * GROW_STEP * 1000 + GROW_DURATION;
+    window.setTimeout(() => {
+      bars.forEach((bar) => {
+        bar.style.transitionDelay = '';
+      });
+      section.classList.add('is-breathing');
+    }, totalGrow);
   };
 
   const loadContributions = async (section) => {
     const username = section.getAttribute('data-username');
+    const days = section.getAttribute('data-days');
     if (!username) return;
 
     try {
-      const params = new URLSearchParams({ username });
+      const params = new URLSearchParams({
+        username,
+        ...(days ? { days } : {}),
+      });
       const response = await fetch(`/api/github/contributions?${params.toString()}`, {
         headers: {
           Accept: 'application/json',
@@ -188,10 +209,10 @@ const placeholderBars = Array.from({ length: 30 });
       });
       if (!response.ok) throw new Error('Failed to fetch contributions');
       const data = await response.json();
-      renderAfterInteraction(() => updateSection(section, data));
+      renderWithHeroChain(() => updateSection(section, data));
     } catch (error) {
       console.error('Failed to fetch GitHub contributions:', error);
-      renderAfterInteraction(() => {
+      renderWithHeroChain(() => {
         const totalEl = section.querySelector('[data-total]');
         if (totalEl) {
           totalEl.textContent = 'Contributions unavailable';
@@ -230,6 +251,10 @@ const placeholderBars = Array.from({ length: 30 });
     position: relative;
     display: flex;
     align-items: flex-end;
+    /* space-between distributes any slack between the bars once they hit their
+       max-width, so the wave fills the column at every width instead of
+       clustering left and leaving a gap before the stats. */
+    justify-content: space-between;
     gap: 2px;
     height: 28px;
     flex: 1;
@@ -248,11 +273,15 @@ const placeholderBars = Array.from({ length: 30 });
     max-width: 10px;
     height: var(--height);
     background: hsl(var(--foreground) / 0.35);
+    transform-origin: bottom;
+    transition: height 0.45s cubic-bezier(0.22, 1, 0.36, 1), background 0.2s ease;
+    will-change: transform;
+  }
+
+  /* Ambient breathing wave — handed off after the right-to-left grow-in. */
+  .activity-section.is-breathing .wave-bar {
     animation: wave 2s ease-in-out infinite;
     animation-delay: var(--delay);
-    transform-origin: bottom;
-    transition: height 0.3s ease, opacity 0.2s ease;
-    will-change: transform;
   }
 
   @media (min-width: 640px) {
@@ -337,8 +366,17 @@ const placeholderBars = Array.from({ length: 30 });
   }
 
   .activity-section.is-loading .wave-bar {
-    animation-play-state: paused;
     opacity: 0.25;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .wave-bar {
+      transition: none;
+    }
+
+    .activity-section.is-breathing .wave-bar {
+      animation: none;
+    }
   }
 
   .activity-stats {

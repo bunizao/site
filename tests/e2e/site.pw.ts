@@ -305,7 +305,40 @@ test.describe('Home page', () => {
   });
 
   test('loads GitHub contributions and shows tooltip details', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'no-preference' });
+    await page.addInitScript(() => {
+      const chain = {
+        heroReadyAt: 0,
+        renderedAt: 0,
+      };
+      (window as typeof window & { __githubContributionChain?: typeof chain }).__githubContributionChain = chain;
+
+      window.addEventListener('home:hero-github-ready', () => {
+        chain.heroReadyAt = performance.now();
+      });
+
+      document.addEventListener('DOMContentLoaded', () => {
+        const section = document.querySelector('[data-contributions]');
+        if (!section) return;
+
+        const recordRendered = () => {
+          if (chain.renderedAt === 0 && section.getAttribute('aria-busy') === 'false') {
+            chain.renderedAt = performance.now();
+          }
+        };
+
+        recordRendered();
+        new MutationObserver(recordRendered).observe(section, {
+          attributes: true,
+          attributeFilter: ['aria-busy'],
+        });
+      }, { once: true });
+    });
+
     await page.route('**/api/github/contributions**', async (route) => {
+      const url = new URL(route.request().url());
+      expect(url.searchParams.get('days')).toBe('30');
+
       const contributions = Array.from({ length: 30 }, (_, index) => ({
         date: `2026-02-${String(index + 1).padStart(2, '0')}`,
         count: (index % 5) + 1,
@@ -325,8 +358,15 @@ test.describe('Home page', () => {
     await page.goto('/');
 
     const section = page.locator('[data-contributions]');
-    await expect(section).toHaveAttribute('aria-busy', 'false', { timeout: 30_000 });
+    await expect(section).toHaveAttribute('aria-busy', 'false', { timeout: 4_000 });
     await expect(page.locator('[data-total]')).toContainText('321');
+    const chain = await page.evaluate(() => (
+      window as typeof window & {
+        __githubContributionChain?: { heroReadyAt: number; renderedAt: number };
+      }
+    ).__githubContributionChain);
+    expect(chain?.heroReadyAt).toBeGreaterThan(0);
+    expect(chain?.renderedAt).toBeGreaterThanOrEqual(chain?.heroReadyAt ?? Number.POSITIVE_INFINITY);
 
     const bars = page.locator('[data-bar]');
     await expect(bars).toHaveCount(30);

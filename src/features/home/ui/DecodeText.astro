@@ -1,0 +1,336 @@
+---
+// Soulwire-inspired decode reveal, tuned for silky motion.
+//
+// Key mechanics (Soulwire recorded frame-by-frame; smoothness decoupled):
+//  - Measure real VISUAL lines (offsetTop grouping), render each as a
+//    `white-space: nowrap` block. This lets a line grow without re-wrapping.
+//  - Occupancy advances in DOCUMENT ORDER, so the line only ever extends at its
+//    right edge — buttery left-to-right growth, no mid-line jitter. Unshown
+//    characters collapse to zero width; unshown spaces hold their gap.
+//  - Resolution (scramble -> real glyph) fires at a RANDOMISED time per cell, so
+//    text condenses at scattered positions (the decrypt "boil"). Glyph and
+//    scramble are both 1ch, so resolving never shifts anything.
+//  - Lines stagger top-to-bottom.
+//  - Slots stay blank behind a visibility gate until JS runs: no full-text flash.
+//  - contain:layout + a locked height keep the per-frame churn off the page.
+interface Props {
+  class?: string;
+}
+
+const { class: className } = Astro.props;
+---
+
+<div class:list={['decode-text', className]} data-decode-root>
+  <slot />
+</div>
+
+<style>
+  /* Hide until JS has measured + blanked the slot, so full text never paints. */
+  :global(html.js) .decode-text:not(.dt-prepared) {
+    visibility: hidden;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    :global(html.js) .decode-text {
+      visibility: visible;
+    }
+  }
+
+  /* During the reveal, isolate the per-frame DOM churn so it cannot force a
+     reflow of the sections below. Height is locked separately in JS. */
+  .decode-text.dt-animating {
+    contain: layout paint;
+  }
+
+  .decode-text :global(.dt-line) {
+    display: block;
+    white-space: nowrap;
+  }
+
+  .decode-text :global(.dt-c[data-state='cursor']) {
+    color: color-mix(in oklab, currentColor 30%, transparent);
+  }
+
+  .decode-text :global(.dt-c[data-state='scramble']) {
+    color: color-mix(in oklab, currentColor 55%, transparent);
+  }
+</style>
+
+<script>
+  type DecodeRoot = HTMLElement & {
+    _decodeReady?: boolean;
+    _decodeStarted?: boolean;
+    _decodeTimer?: number;
+    _decodeKill?: () => void;
+    _decodeOriginal?: string;
+  };
+
+  // `appear` = when this cell first takes width (ordered left-to-right, so the
+  // line grows only at its right edge — no mid-line jitter). `settle` = when it
+  // resolves to its real glyph (randomised, so resolution scatters: the boil).
+  type Cell = {
+    el: HTMLElement;
+    ch: string;
+    space: boolean;
+    temp: string;
+    appear: number;
+    settle: number;
+  };
+
+  const BIO_READY_EVENT = 'home:hero-bio-ready';
+  const FALLBACK_START_MS = 1500;
+
+  const SCRAMBLE = '__--/\\|<>'.split('');
+  const CURSOR = '-';
+  const MUTATION = 0.16;
+  // Occupancy spreads over the first SPREAD of each line's timeline; the rest
+  // is resolution. A cell scrambles for [MIN_HOLD, MAX_HOLD] after appearing.
+  const SPREAD = 0.55;
+  const MIN_HOLD = 0.28;
+  const MAX_HOLD = 0.45;
+  const CURSOR_HOLD = 0.05;
+  const LINE_DURATION_PER_CHAR = 0.024;
+  const LINE_DELAY_FACTOR = 0.16;
+
+  const prefersReducedMotion = (): boolean =>
+    window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
+
+  const randomFrom = (pool: string[]): string =>
+    pool[Math.floor(Math.random() * pool.length)] ?? '_';
+
+  // Replace the paragraph content with one span per visible character (real
+  // glyph, so widths/wrapping measure correctly) and one span per whitespace
+  // run, keeping <br>. Colors are baked onto each cell so it survives reparenting.
+  const buildCells = (host: HTMLElement, fgColor: string): Cell[] => {
+    const cells: Cell[] = [];
+    const frag = document.createDocumentFragment();
+
+    const walk = (node: Node, parent: Node, fg: boolean): void => {
+      for (const child of Array.from(node.childNodes)) {
+        if (child.nodeType === Node.TEXT_NODE) {
+          const text = child.textContent ?? '';
+          let i = 0;
+          while (i < text.length) {
+            if (/\s/.test(text[i])) {
+              while (i < text.length && /\s/.test(text[i])) i += 1;
+              const sp = document.createElement('span');
+              sp.className = 'dt-c';
+              sp.textContent = ' ';
+              cells.push({ el: sp, ch: ' ', space: true, temp: '', appear: 0, settle: 0 });
+              parent.appendChild(sp);
+            } else {
+              const span = document.createElement('span');
+              span.className = 'dt-c';
+              span.textContent = text[i];
+              if (fg) span.style.color = fgColor;
+              cells.push({ el: span, ch: text[i], space: false, temp: '', appear: 0, settle: 0 });
+              parent.appendChild(span);
+              i += 1;
+            }
+          }
+        } else if (child.nodeType === Node.ELEMENT_NODE) {
+          const el = child as HTMLElement;
+          if (el.tagName === 'BR') {
+            parent.appendChild(document.createElement('br'));
+          } else {
+            walk(el, parent, fg || el.classList.contains('text-foreground'));
+          }
+        }
+      }
+    };
+
+    walk(host, frag, false);
+    host.replaceChildren(frag);
+    return cells;
+  };
+
+  // Group cells into visual lines by their measured top offset, then re-home
+  // each line into its own nowrap block. Leading/trailing spaces are dropped.
+  const layoutLines = (host: HTMLElement, cells: Cell[]): Cell[][] => {
+    const lines: Cell[][] = [];
+    let top = Number.NaN;
+    for (const cell of cells) {
+      const cellTop = Math.round(cell.el.offsetTop);
+      if (cellTop !== top) {
+        top = cellTop;
+        lines.push([]);
+      }
+      lines[lines.length - 1].push(cell);
+    }
+
+    const trimmed = lines.map((line) => {
+      let start = 0;
+      let end = line.length;
+      while (start < end && line[start].space) start += 1;
+      while (end > start && line[end - 1].space) end -= 1;
+      return line.slice(start, end);
+    });
+
+    host.replaceChildren();
+    for (const line of trimmed) {
+      const block = document.createElement('span');
+      block.className = 'dt-line';
+      for (const cell of line) block.appendChild(cell.el);
+      host.appendChild(block);
+    }
+    return trimmed.filter((line) => line.some((cell) => !cell.space));
+  };
+
+  const setCell = (cell: Cell, state: string, text: string): void => {
+    if (cell.el.dataset.state !== state) {
+      if (state) cell.el.dataset.state = state;
+      else delete cell.el.dataset.state;
+    }
+    if (cell.el.textContent !== text) cell.el.textContent = text;
+  };
+
+  // One frame of a line. Cells are walked in document order. A cell appears in
+  // order (smooth left-to-right growth), shows a brief cursor, scrambles, then
+  // resolves at its randomised `settle` (scattered = the boil). Glyph and
+  // scramble are both 1ch, so resolving never changes width — no jitter.
+  const renderLine = (cells: Cell[], progress: number): void => {
+    for (const cell of cells) {
+      if (progress < cell.appear) {
+        setCell(cell, '', cell.space ? ' ' : '');
+      } else if (progress >= cell.settle) {
+        setCell(cell, '', cell.ch);
+      } else if (progress < cell.appear + CURSOR_HOLD) {
+        setCell(cell, 'cursor', CURSOR);
+      } else {
+        if (!cell.temp || Math.random() < MUTATION) cell.temp = randomFrom(SCRAMBLE);
+        setCell(cell, 'scramble', cell.temp);
+      }
+    }
+  };
+
+  const play = async (root: DecodeRoot, lines: Cell[][]): Promise<void> => {
+    if (root._decodeStarted) return;
+    root._decodeStarted = true;
+
+    const original = root._decodeOriginal ?? root.innerHTML;
+    root.setAttribute('aria-hidden', 'true');
+    root.classList.add('dt-animating');
+
+    const { default: gsap } = await import('gsap');
+
+    const restore = (): void => {
+      root.classList.remove('dt-animating');
+      root.style.removeProperty('min-height');
+      root.innerHTML = original;
+      root.removeAttribute('aria-hidden');
+    };
+
+    const timeline = gsap.timeline({ onComplete: restore });
+
+    let cumulative = 0;
+    for (const line of lines) {
+      const n = line.length;
+      line.forEach((cell, i) => {
+        cell.appear = (i / n) * SPREAD;
+        cell.settle = Math.min(0.999, cell.appear + MIN_HOLD + Math.random() * (MAX_HOLD - MIN_HOLD));
+      });
+      const duration = Math.min(1.8, Math.max(0.5, LINE_DURATION_PER_CHAR * n));
+      const state = { p: 0 };
+      timeline.to(
+        state,
+        {
+          p: 1,
+          duration,
+          ease: 'sine.inOut',
+          onUpdate() {
+            renderLine(line, state.p);
+          },
+        },
+        LINE_DELAY_FACTOR * cumulative
+      );
+      cumulative += duration;
+    }
+
+    root._decodeKill = () => {
+      timeline.kill();
+      restore();
+    };
+  };
+
+  const prepare = async (root: DecodeRoot): Promise<Cell[][] | null> => {
+    const host = root.querySelector<HTMLElement>('p') ?? root;
+    const mutedColor = getComputedStyle(host).color;
+    const fgEl = host.querySelector<HTMLElement>('.text-foreground');
+    const fgColor = fgEl ? getComputedStyle(fgEl).color : mutedColor;
+
+    // Fonts must be ready before measuring so visual line breaks are correct.
+    await document.fonts?.ready.catch(() => {});
+
+    // Lock the footprint so swapping text -> blocks -> text never shifts the page.
+    root.style.minHeight = `${root.getBoundingClientRect().height}px`;
+
+    const cells = buildCells(host, fgColor);
+    if (cells.length === 0) return null;
+
+    const lines = layoutLines(host, cells);
+    // Blank every slot: spaces hold their gap, characters collapse to nothing.
+    for (const cell of cells) setCell(cell, '', cell.space ? ' ' : '');
+    return lines;
+  };
+
+  const initOne = (root: DecodeRoot): void => {
+    if (root._decodeReady) return;
+    root._decodeReady = true;
+    root._decodeOriginal = root.innerHTML;
+
+    const reveal = () => root.classList.add('dt-prepared');
+
+    if (prefersReducedMotion()) {
+      reveal();
+      return;
+    }
+
+    let started = false;
+    const start = (lines: Cell[][]): void => {
+      if (started) return;
+      started = true;
+      window.clearTimeout(root._decodeTimer);
+      void play(root, lines);
+    };
+
+    prepare(root)
+      .then((lines) => {
+        if (!lines) {
+          root.style.removeProperty('min-height');
+          root.innerHTML = root._decodeOriginal ?? root.innerHTML;
+          reveal();
+          return;
+        }
+        reveal(); // visible, but every slot is blank — no full-text flash
+        window.addEventListener(BIO_READY_EVENT, () => start(lines), { once: true });
+        root._decodeTimer = window.setTimeout(() => start(lines), FALLBACK_START_MS);
+      })
+      .catch(() => {
+        root.style.removeProperty('min-height');
+        root.innerHTML = root._decodeOriginal ?? root.innerHTML;
+        reveal();
+      });
+  };
+
+  const initAll = (): void => {
+    document.querySelectorAll<DecodeRoot>('[data-decode-root]').forEach(initOne);
+  };
+
+  const cleanupAll = (): void => {
+    document.querySelectorAll<DecodeRoot>('[data-decode-root]').forEach((root) => {
+      window.clearTimeout(root._decodeTimer);
+      root._decodeKill?.();
+      root._decodeReady = false;
+      root._decodeStarted = false;
+    });
+  };
+
+  document.addEventListener('astro:page-load', initAll);
+  document.addEventListener('astro:before-swap', cleanupAll);
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initAll, { once: true });
+  } else {
+    initAll();
+  }
+</script>
