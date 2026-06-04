@@ -1,5 +1,6 @@
 import { randomBytes } from 'node:crypto';
 import { load } from 'cheerio';
+import { FONT_DISPLAY } from '@/lib/fonts';
 import { CloudflareD1Client } from '@/features/notify/server/d1';
 import { getNotifyConfig, getNotifyFromAddress, requireConfigValue } from '@/features/notify/server/env';
 import { sendEmailWithResend } from '@/features/notify/server/resend';
@@ -224,10 +225,10 @@ export function renderBodyToHtml(body: string): string {
       const heading = /^(#{1,3})\s+(.*)$/.exec(block.trim());
       if (heading) {
         const level = Math.min(heading[1].length + 1, 4);
-        return `<h${level} style="margin:0 0 12px;font-family:'Geist',-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:${level === 2 ? 22 : level === 3 ? 18 : 16}px;font-weight:600;color:#111;">${escapeHtml(heading[2])}</h${level}>`;
+        return `<h${level} style="margin:0 0 12px;font-family:${FONT_DISPLAY};font-size:${level === 2 ? 22 : level === 3 ? 18 : 16}px;font-weight:600;color:#111;">${escapeHtml(heading[2])}</h${level}>`;
       }
       const lines = block.split(/\n/g).map(renderInline).join('<br />');
-      return `<p style="margin:0 0 14px;font-family:'Geist',-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:15px;line-height:1.65;color:#111;">${lines}</p>`;
+      return `<p style="margin:0 0 14px;font-family:${FONT_DISPLAY};font-size:15px;line-height:1.65;color:#111;">${lines}</p>`;
     })
     .join('\n');
 }
@@ -248,7 +249,7 @@ export function renderBodyToText(body: string): string {
 
 function broadcastShell(subject: string, bodyHtml: string, unsubscribeUrl: string | null): string {
   const unsubscribeFooter = unsubscribeUrl
-    ? `<p style="margin:24px 0 0;font-size:12px;color:#888;font-family:'Geist',-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;">You're receiving this because you subscribed at buxx.me. <a href="${unsubscribeUrl}" style="color:#888;text-decoration:underline;">Unsubscribe</a>.</p>`
+    ? `<p style="margin:24px 0 0;font-size:12px;color:#888;font-family:${FONT_DISPLAY};">You're receiving this because you subscribed at buxx.me. <a href="${unsubscribeUrl}" style="color:#888;text-decoration:underline;">Unsubscribe</a>.</p>`
     : '';
 
   return `<!doctype html>

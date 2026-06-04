@@ -1,4 +1,5 @@
 import * as cheerio from 'cheerio';
+import { FONT_CODE, FONT_DISPLAY } from '@/lib/fonts';
 
 function escapeHtml(value: string): string {
   return value
@@ -25,7 +26,10 @@ function escapeHtmlWithLineBreaks(value: string): string {
   return escapeHtml(value).replace(/\n/g, '<br />');
 }
 
-const MONO_FONT = "'JetBrains Mono', 'SF Mono', 'Fira Code', 'Cascadia Code', Menlo, Monaco, Consolas, 'Courier New', monospace";
+// Email type derives from the shared font system (src/lib/fonts.ts) so a face
+// swap there carries into outbound mail. Same faces as the site: JetBrains
+// Mono for labels/code, Geist for display copy.
+const MONO_FONT = FONT_CODE;
 const EMAIL_PREVIEW_STYLE = `font-family: ${MONO_FONT}; font-size: 14px; line-height: 1.65; color: #111;`;
 const EMAIL_PREVIEW_COMPACT_STYLE = `font-family: ${MONO_FONT}; font-size: 13px; line-height: 1.65; color: #111;`;
 const EMAIL_LINK_STYLE = 'color: #111; text-decoration: underline; text-decoration-thickness: 1px;';
@@ -370,7 +374,7 @@ function buildRelatedLinksTextLines(
   return lines;
 }
 
-const SANS_FONT = "'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
+const SANS_FONT = FONT_DISPLAY;
 
 function emailShell(content: string, options: { siteUrl?: string } = {}): string {
   const siteUrl = (options.siteUrl || 'https://buxx.me').replace(/\/$/, '');
