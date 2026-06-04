@@ -204,11 +204,11 @@ const posts = useE2EFixture ? createE2EWritingPosts() : await getLatestPosts();
       gsap.set(writingSection, { opacity: 0, y: 40 });
 
       const label = writingSection.querySelector('.scroll-reveal');
-      const items = writingSection.querySelectorAll('.scroll-reveal-item');
+      const items = Array.from(writingSection.querySelectorAll('.scroll-reveal-item'));
       const link = writingSection.querySelector('.scroll-reveal-link');
 
       if (label) gsap.set(label, { opacity: 0, y: 16 });
-      gsap.set(items, { opacity: 0, x: -20 });
+      if (items.length) gsap.set(items, { opacity: 0, x: -20 });
       if (link) gsap.set(link, { opacity: 0 });
 
       // Create timeline
@@ -225,25 +225,34 @@ const posts = useE2EFixture ? createE2EWritingPosts() : await getLatestPosts();
         y: 0,
         duration: 0.6,
         ease: 'power2.out'
-      })
-      .to(label, {
-        opacity: 1,
-        y: 0,
-        duration: 0.4,
-        ease: 'power2.out'
-      }, '-=0.3')
-      .to(items, {
-        opacity: 1,
-        x: 0,
-        duration: 0.4,
-        ease: 'power2.out',
-        stagger: 0.06
-      }, '-=0.2')
-      .to(link, {
-        opacity: 1,
-        duration: 0.4,
-        ease: 'power2.out'
-      }, '-=0.1');
+      });
+
+      if (label) {
+        tl.to(label, {
+          opacity: 1,
+          y: 0,
+          duration: 0.4,
+          ease: 'power2.out'
+        }, '-=0.3');
+      }
+
+      if (items.length) {
+        tl.to(items, {
+          opacity: 1,
+          x: 0,
+          duration: 0.4,
+          ease: 'power2.out',
+          stagger: 0.06
+        }, '-=0.2');
+      }
+
+      if (link) {
+        tl.to(link, {
+          opacity: 1,
+          duration: 0.4,
+          ease: 'power2.out'
+        }, '-=0.1');
+      }
     }
   };
 
