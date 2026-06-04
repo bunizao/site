@@ -42,51 +42,14 @@ const placeholderBars = Array.from({ length: contributionDays });
 
 <script is:inline>
   const sections = document.querySelectorAll('[data-contributions]');
-  const deferredUpdates = new Set();
-  const interactionAbort = new AbortController();
-  let canRenderDeferredData = false;
-  let deferredFallbackTimer;
-
-  const flushDeferredUpdates = () => {
-    if (canRenderDeferredData) return;
-
-    canRenderDeferredData = true;
-    interactionAbort.abort();
-    window.clearTimeout(deferredFallbackTimer);
-
-    deferredUpdates.forEach((callback) => callback());
-    deferredUpdates.clear();
-  };
-
-  const renderAfterInteraction = (callback) => {
-    if (canRenderDeferredData) {
-      callback();
+  const renderNextFrame = (callback) => {
+    if ('requestAnimationFrame' in window) {
+      window.requestAnimationFrame(() => callback());
       return;
     }
 
-    deferredUpdates.add(callback);
+    setTimeout(callback, 0);
   };
-
-  window.addEventListener('pointerdown', flushDeferredUpdates, {
-    once: true,
-    passive: true,
-    signal: interactionAbort.signal,
-  });
-  window.addEventListener('keydown', flushDeferredUpdates, {
-    once: true,
-    signal: interactionAbort.signal,
-  });
-  window.addEventListener('scroll', flushDeferredUpdates, {
-    once: true,
-    passive: true,
-    signal: interactionAbort.signal,
-  });
-  window.addEventListener('touchstart', flushDeferredUpdates, {
-    once: true,
-    passive: true,
-    signal: interactionAbort.signal,
-  });
-  deferredFallbackTimer = window.setTimeout(flushDeferredUpdates, 5000);
 
   const schedule = (callback) => {
     const runWhenIdle = () => {
@@ -212,10 +175,10 @@ const placeholderBars = Array.from({ length: contributionDays });
       });
       if (!response.ok) throw new Error('Failed to fetch contributions');
       const data = await response.json();
-      renderAfterInteraction(() => updateSection(section, data));
+      renderNextFrame(() => updateSection(section, data));
     } catch (error) {
       console.error('Failed to fetch GitHub contributions:', error);
-      renderAfterInteraction(() => {
+      renderNextFrame(() => {
         const totalEl = section.querySelector('[data-total]');
         if (totalEl) {
           totalEl.textContent = 'Contributions unavailable';

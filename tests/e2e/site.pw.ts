@@ -328,7 +328,7 @@ test.describe('Home page', () => {
     await page.goto('/');
 
     const section = page.locator('[data-contributions]');
-    await expect(section).toHaveAttribute('aria-busy', 'false', { timeout: 30_000 });
+    await expect(section).toHaveAttribute('aria-busy', 'false', { timeout: 4_000 });
     await expect(page.locator('[data-total]')).toContainText('321');
 
     const bars = page.locator('[data-bar]');
