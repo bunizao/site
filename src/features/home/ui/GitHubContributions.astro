@@ -145,6 +145,12 @@ const placeholderBars = Array.from({ length: 30 });
     });
   };
 
+  // Bars grow from right (newest) to left (oldest), mirroring the bio decode
+  // that grows left-to-right above. GROW_STEP is the per-bar stagger; once the
+  // last bar has unfurled we hand off to the ambient breathing wave.
+  const GROW_STEP = 0.025;
+  const GROW_DURATION = 450;
+
   const updateSection = (section, data) => {
     const bars = Array.from(section.querySelectorAll('[data-bar]'));
     const totalEl = section.querySelector('[data-total]');
@@ -159,6 +165,9 @@ const placeholderBars = Array.from({ length: 30 });
       const baseHeight = 8;
       const dynamicHeight = (day.count / maxCount) * 36;
       const height = baseHeight + dynamicHeight;
+      // Reverse the index so the rightmost bar leads and the wave unfurls left.
+      const growDelay = (bars.length - 1 - index) * GROW_STEP;
+      bar.style.transitionDelay = `${growDelay}s`;
       bar.style.setProperty('--height', `${height}px`);
       bar.style.height = `${height}px`;
     });
@@ -173,6 +182,15 @@ const placeholderBars = Array.from({ length: 30 });
     section.classList.remove('is-loading');
     section.classList.add('is-ready');
     section.setAttribute('aria-busy', 'false');
+
+    // After the grow-in finishes, drop the stagger and let the bars breathe.
+    const totalGrow = (bars.length - 1) * GROW_STEP * 1000 + GROW_DURATION;
+    window.setTimeout(() => {
+      bars.forEach((bar) => {
+        bar.style.transitionDelay = '';
+      });
+      section.classList.add('is-breathing');
+    }, totalGrow);
   };
 
   const loadContributions = async (section) => {
@@ -248,11 +266,15 @@ const placeholderBars = Array.from({ length: 30 });
     max-width: 10px;
     height: var(--height);
     background: hsl(var(--foreground) / 0.35);
+    transform-origin: bottom;
+    transition: height 0.45s cubic-bezier(0.22, 1, 0.36, 1), background 0.2s ease;
+    will-change: transform;
+  }
+
+  /* Ambient breathing wave — handed off after the right-to-left grow-in. */
+  .activity-section.is-breathing .wave-bar {
     animation: wave 2s ease-in-out infinite;
     animation-delay: var(--delay);
-    transform-origin: bottom;
-    transition: height 0.3s ease, opacity 0.2s ease;
-    will-change: transform;
   }
 
   @media (min-width: 640px) {
@@ -337,8 +359,17 @@ const placeholderBars = Array.from({ length: 30 });
   }
 
   .activity-section.is-loading .wave-bar {
-    animation-play-state: paused;
     opacity: 0.25;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .wave-bar {
+      transition: none;
+    }
+
+    .activity-section.is-breathing .wave-bar {
+      animation: none;
+    }
   }
 
   .activity-stats {
