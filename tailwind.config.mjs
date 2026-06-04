@@ -50,6 +50,8 @@ export default {
         // system has a single source of truth shared by CSS and Tailwind.
         sans: ["var(--font-sans)"],
         mono: ["var(--font-mono)"],
+        code: ["var(--font-code)"],
+        display: ["var(--font-display)"],
       },
     },
   },
