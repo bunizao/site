@@ -1,5 +1,6 @@
 import type { APIRoute } from 'astro';
 import { svgResponse } from '../../lib/svg-response';
+import { FONT_CODE, fontFace } from '@/lib/fonts';
 
 export const prerender = false;
 
@@ -59,17 +60,10 @@ export const GET: APIRoute = ({ url }) => {
     <svg width="200" height="40" xmlns="http://www.w3.org/2000/svg">
       <defs>
         <style>
-          @font-face {
-            font-family: 'JetBrains Mono';
-            src:
-              url('/fonts/jetbrains-mono-variable.woff2') format('woff2-variations'),
-              url('/fonts/jetbrains-mono-variable.woff2') format('woff2');
-            font-weight: 100 800;
-            font-style: normal;
-          }
+          ${fontFace('code')}
 
           .status-container {
-            font-family: 'JetBrains Mono', monospace;
+            font-family: ${FONT_CODE};
           }
 
           .status-dot {
@@ -91,7 +85,7 @@ export const GET: APIRoute = ({ url }) => {
 
       <circle class="status-dot" cx="20" cy="20" r="4" fill="${colors.dot}"/>
 
-      <text x="32" y="25" font-family="JetBrains Mono, monospace" font-size="14" font-weight="400" fill="${colors.text}">
+      <text x="32" y="25" font-family="${FONT_CODE}" font-size="14" font-weight="400" fill="${colors.text}">
         ${status}
       </text>
     </svg>
