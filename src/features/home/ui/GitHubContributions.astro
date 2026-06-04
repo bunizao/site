@@ -251,6 +251,10 @@ const placeholderBars = Array.from({ length: contributionDays });
     position: relative;
     display: flex;
     align-items: flex-end;
+    /* space-between distributes any slack between the bars once they hit their
+       max-width, so the wave fills the column at every width instead of
+       clustering left and leaving a gap before the stats. */
+    justify-content: space-between;
     gap: 2px;
     height: 28px;
     flex: 1;
