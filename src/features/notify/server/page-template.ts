@@ -72,7 +72,6 @@ export function buildNotifyPageHtml(options: {
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>${safeTitle} — buxx.me</title>
     <link rel="icon" type="image/svg+xml" href="/logo/peek.svg?v=3" />
-    <link rel="alternate icon" href="/favicon.ico" />
     <link rel="preload" as="font" href="${FONT_FILES.display}" type="font/woff2" crossorigin />
     <link rel="preload" as="font" href="${FONT_FILES.code}" type="font/woff2" crossorigin />
     <style>
