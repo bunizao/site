@@ -33,6 +33,12 @@ const { class: className } = Astro.props;
     }
   }
 
+  /* During the reveal, isolate the per-frame DOM churn so it cannot force a
+     reflow of the sections below. Height is locked separately in JS. */
+  .decode-text.dt-animating {
+    contain: layout paint;
+  }
+
   .decode-text :global(.dt-line) {
     display: block;
     white-space: nowrap;
@@ -203,10 +209,13 @@ const { class: className } = Astro.props;
 
     const original = root._decodeOriginal ?? root.innerHTML;
     root.setAttribute('aria-hidden', 'true');
+    root.classList.add('dt-animating');
 
     const { default: gsap } = await import('gsap');
 
     const restore = (): void => {
+      root.classList.remove('dt-animating');
+      root.style.removeProperty('min-height');
       root.innerHTML = original;
       root.removeAttribute('aria-hidden');
     };
@@ -248,6 +257,9 @@ const { class: className } = Astro.props;
     // Fonts must be ready before measuring so visual line breaks are correct.
     await document.fonts?.ready.catch(() => {});
 
+    // Lock the footprint so swapping text -> blocks -> text never shifts the page.
+    root.style.minHeight = `${root.getBoundingClientRect().height}px`;
+
     const cells = buildCells(host, fgColor);
     if (cells.length === 0) return null;
 
@@ -280,6 +292,7 @@ const { class: className } = Astro.props;
     prepare(root)
       .then((lines) => {
         if (!lines) {
+          root.style.removeProperty('min-height');
           root.innerHTML = root._decodeOriginal ?? root.innerHTML;
           reveal();
           return;
@@ -289,6 +302,7 @@ const { class: className } = Astro.props;
         root._decodeTimer = window.setTimeout(() => start(lines), FALLBACK_START_MS);
       })
       .catch(() => {
+        root.style.removeProperty('min-height');
         root.innerHTML = root._decodeOriginal ?? root.innerHTML;
         reveal();
       });
