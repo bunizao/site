@@ -306,6 +306,9 @@ test.describe('Home page', () => {
 
   test('loads GitHub contributions and shows tooltip details', async ({ page }) => {
     await page.route('**/api/github/contributions**', async (route) => {
+      const url = new URL(route.request().url());
+      expect(url.searchParams.get('days')).toBe('30');
+
       const contributions = Array.from({ length: 30 }, (_, index) => ({
         date: `2026-02-${String(index + 1).padStart(2, '0')}`,
         count: (index % 5) + 1,

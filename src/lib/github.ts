@@ -45,21 +45,29 @@ interface GitHubPinnedRepositoriesResponse {
   errors?: { message: string }[];
 }
 
+interface GitHubContributionDayResponse {
+  date?: string | null;
+  contributionCount?: number | null;
+  contributionLevel?: string | null;
+}
+
+interface GitHubContributionCalendarResponse {
+  totalContributions?: number | null;
+  weeks?: Array<{
+    contributionDays?: Array<GitHubContributionDayResponse | null> | null;
+  } | null> | null;
+}
+
+interface GitHubContributionsCollectionResponse {
+  contributionCalendar?: GitHubContributionCalendarResponse | null;
+}
+
 interface GitHubContributionsResponse {
   data?: {
     user?: {
-      contributionsCollection?: {
-        contributionCalendar?: {
-          totalContributions?: number | null;
-          weeks?: Array<{
-            contributionDays?: Array<{
-              date?: string | null;
-              contributionCount?: number | null;
-              contributionLevel?: string | null;
-            } | null> | null;
-          } | null> | null;
-        } | null;
-      } | null;
+      contributionsCollection?: GitHubContributionsCollectionResponse | null;
+      yearlyContributions?: GitHubContributionsCollectionResponse | null;
+      visibleContributions?: GitHubContributionsCollectionResponse | null;
     } | null;
   } | null;
   errors?: { message: string }[];
@@ -107,8 +115,10 @@ export interface GitHubContributionsData {
 
 interface GitHubContributionsOptions {
   now?: Date;
+  days?: number;
 }
 
+const MAX_CONTRIBUTION_DAYS = 365;
 const GITHUB_REQUEST_TIMEOUT_MS = 5_000;
 
 function getGitHubToken(env: ImportMetaEnv, runtimeEnv?: Record<string, string | undefined>): string {
@@ -135,7 +145,13 @@ function formatDateKey(date: Date): string {
   return date.toISOString().slice(0, 10);
 }
 
-export function getGitHubContributionRange(now = new Date()): { from: string; to: string; fromDate: string; toDate: string } {
+function normalizeContributionWindow(days = MAX_CONTRIBUTION_DAYS): number {
+  if (!Number.isInteger(days)) return MAX_CONTRIBUTION_DAYS;
+  return Math.min(MAX_CONTRIBUTION_DAYS, Math.max(1, days));
+}
+
+export function getGitHubContributionRange(now = new Date(), days = MAX_CONTRIBUTION_DAYS): { from: string; to: string; fromDate: string; toDate: string } {
+  const windowDays = normalizeContributionWindow(days);
   const to = new Date(Date.UTC(
     now.getUTCFullYear(),
     now.getUTCMonth(),
@@ -146,7 +162,7 @@ export function getGitHubContributionRange(now = new Date()): { from: string; to
     999
   ));
   const from = new Date(to);
-  from.setUTCDate(from.getUTCDate() - 364);
+  from.setUTCDate(from.getUTCDate() - (windowDays - 1));
   from.setUTCHours(0, 0, 0, 0);
 
   return {
@@ -188,6 +204,25 @@ function normalizeExternalContributionDay(day: NonNullable<NonNullable<GitHubCon
     count,
     level
   };
+}
+
+function normalizeGraphQLContributionDays(
+  calendar: GitHubContributionCalendarResponse,
+  range: ReturnType<typeof getGitHubContributionRange>
+): GitHubContributionDay[] {
+  return (calendar.weeks ?? [])
+    .flatMap((week) => week?.contributionDays ?? [])
+    .filter((day): day is GitHubContributionDayResponse => Boolean(day?.date))
+    .filter((day) => {
+      const date = day.date ?? '';
+      return date >= range.fromDate && date <= range.toDate;
+    })
+    .map((day) => ({
+      date: day.date ?? '',
+      count: day.contributionCount ?? 0,
+      level: normalizeContributionLevel(day.contributionLevel)
+    }))
+    .sort((left, right) => left.date.localeCompare(right.date));
 }
 
 async function fetchGitHubRepoGraphQL(repo: string, token: string): Promise<GitHubRepoData | null> {
@@ -427,7 +462,10 @@ export async function fetchGitHubContributions(
   const token = getGitHubToken(env, runtimeEnv);
   if (!token) return fetchGitHubContributionsFallback(username, options);
 
-  const range = getGitHubContributionRange(options.now);
+  const days = normalizeContributionWindow(options.days);
+  const totalRange = getGitHubContributionRange(options.now);
+  const visibleRange = getGitHubContributionRange(options.now, days);
+  const useVisibleWindow = days < MAX_CONTRIBUTION_DAYS;
 
   try {
     const response = await fetch('https://api.github.com/graphql', {
@@ -439,29 +477,59 @@ export async function fetchGitHubContributions(
       },
       signal: AbortSignal.timeout(GITHUB_REQUEST_TIMEOUT_MS),
       body: JSON.stringify({
-        query: `
-          query Contributions($username: String!, $from: DateTime!, $to: DateTime!) {
-            user(login: $username) {
-              contributionsCollection(from: $from, to: $to) {
-                contributionCalendar {
-                  totalContributions
-                  weeks {
-                    contributionDays {
-                      date
-                      contributionCount
-                      contributionLevel
+        query: useVisibleWindow
+          ? `
+            query Contributions($username: String!, $from: DateTime!, $visibleFrom: DateTime!, $to: DateTime!) {
+              user(login: $username) {
+                yearlyContributions: contributionsCollection(from: $from, to: $to) {
+                  contributionCalendar {
+                    totalContributions
+                  }
+                }
+                visibleContributions: contributionsCollection(from: $visibleFrom, to: $to) {
+                  contributionCalendar {
+                    weeks {
+                      contributionDays {
+                        date
+                        contributionCount
+                        contributionLevel
+                      }
                     }
                   }
                 }
               }
             }
+          `
+          : `
+            query Contributions($username: String!, $from: DateTime!, $to: DateTime!) {
+              user(login: $username) {
+                contributionsCollection(from: $from, to: $to) {
+                  contributionCalendar {
+                    totalContributions
+                    weeks {
+                      contributionDays {
+                        date
+                        contributionCount
+                        contributionLevel
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          `,
+        variables: useVisibleWindow
+          ? {
+            username,
+            from: totalRange.from,
+            visibleFrom: visibleRange.from,
+            to: totalRange.to
           }
-        `,
-        variables: {
-          username,
-          from: range.from,
-          to: range.to
-        }
+          : {
+            username,
+            from: totalRange.from,
+            to: totalRange.to
+          }
       })
     });
 
@@ -470,26 +538,20 @@ export async function fetchGitHubContributions(
     const payload = (await response.json()) as GitHubContributionsResponse;
     if (payload.errors?.length) return fetchGitHubContributionsFallback(username, options);
 
-    const calendar = payload.data?.user?.contributionsCollection?.contributionCalendar;
-    if (!calendar) return fetchGitHubContributionsFallback(username, options);
+    const user = payload.data?.user;
+    const totalCalendar = useVisibleWindow
+      ? user?.yearlyContributions?.contributionCalendar
+      : user?.contributionsCollection?.contributionCalendar;
+    const visibleCalendar = useVisibleWindow
+      ? user?.visibleContributions?.contributionCalendar
+      : totalCalendar;
+    if (!totalCalendar || !visibleCalendar) return fetchGitHubContributionsFallback(username, options);
 
-    const contributions = (calendar.weeks ?? [])
-      .flatMap((week) => week?.contributionDays ?? [])
-      .filter((day): day is NonNullable<typeof day> => Boolean(day?.date))
-      .filter((day) => {
-        const date = day.date ?? '';
-        return date >= range.fromDate && date <= range.toDate;
-      })
-      .map((day) => ({
-        date: day.date ?? '',
-        count: day.contributionCount ?? 0,
-        level: normalizeContributionLevel(day.contributionLevel)
-      }))
-      .sort((left, right) => left.date.localeCompare(right.date));
+    const contributions = normalizeGraphQLContributionDays(visibleCalendar, visibleRange);
 
     return {
       total: {
-        lastYear: calendar.totalContributions ?? contributions.reduce((sum, day) => sum + day.count, 0)
+        lastYear: totalCalendar.totalContributions ?? contributions.reduce((sum, day) => sum + day.count, 0)
       },
       contributions
     };
@@ -502,7 +564,7 @@ async function fetchGitHubContributionsFallback(
   username: string,
   options: GitHubContributionsOptions = {}
 ): Promise<GitHubContributionsData | null> {
-  const range = getGitHubContributionRange(options.now);
+  const range = getGitHubContributionRange(options.now, options.days);
 
   try {
     const response = await fetch(

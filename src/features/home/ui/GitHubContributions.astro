@@ -1,12 +1,14 @@
 ---
 const username = 'bunizao';
-const placeholderBars = Array.from({ length: 30 });
+const contributionDays = 30;
+const placeholderBars = Array.from({ length: contributionDays });
 ---
 
 <div
   class="activity-section is-loading"
   data-contributions
   data-username={username}
+  data-days={contributionDays}
   aria-busy="true"
 >
   <div class="activity-wave" aria-hidden="true">
@@ -156,10 +158,10 @@ const placeholderBars = Array.from({ length: 30 });
     const totalEl = section.querySelector('[data-total]');
 
     const contributions = Array.isArray(data?.contributions) ? data.contributions : [];
-    const last30Days = contributions.slice(-30);
-    const maxCount = Math.max(...last30Days.map((day) => day.count || 0), 1);
+    const visibleDays = contributions.slice(-bars.length);
+    const maxCount = Math.max(...visibleDays.map((day) => day.count || 0), 1);
 
-    last30Days.forEach((day, index) => {
+    visibleDays.forEach((day, index) => {
       const bar = bars[index];
       if (!bar) return;
       const baseHeight = 8;
@@ -172,7 +174,7 @@ const placeholderBars = Array.from({ length: 30 });
       bar.style.height = `${height}px`;
     });
 
-    setupTooltip(section, last30Days);
+    setupTooltip(section, visibleDays);
 
     const totalContributions = data?.total?.lastYear ?? 0;
     if (totalEl) {
@@ -195,10 +197,14 @@ const placeholderBars = Array.from({ length: 30 });
 
   const loadContributions = async (section) => {
     const username = section.getAttribute('data-username');
+    const days = section.getAttribute('data-days');
     if (!username) return;
 
     try {
-      const params = new URLSearchParams({ username });
+      const params = new URLSearchParams({
+        username,
+        ...(days ? { days } : {}),
+      });
       const response = await fetch(`/api/github/contributions?${params.toString()}`, {
         headers: {
           Accept: 'application/json',
