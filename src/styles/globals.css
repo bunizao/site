@@ -3,6 +3,19 @@
 @tailwind utilities;
 
 @font-face {
+  font-family: 'Geist Mono';
+  src:
+    url('/fonts/geist-mono-variable.woff2') format('woff2-variations'),
+    url('/fonts/geist-mono-variable.woff2') format('woff2');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* JetBrains Mono stays loaded for subsystems that name it directly (mood feed
+   code, portal .theme-portal-mono, docs). The homepage uses Geist Mono via the
+   --font-mono token; these are deliberate, scoped exceptions. */
+@font-face {
   font-family: 'JetBrains Mono';
   src:
     url('/fonts/jetbrains-mono-variable.woff2') format('woff2-variations'),
@@ -19,6 +32,17 @@
   font-weight: 100 900;
   font-style: normal;
   font-display: swap;
+}
+
+/* Font system tokens — single source of truth for the type stacks.
+   --font-mono carries the site identity (terminal/craft); --font-sans is the
+   readable workhorse, reserved for prose. Tailwind's font-mono/font-sans map
+   to these (see tailwind.config.mjs). */
+:root {
+  --font-mono: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, Monaco,
+    Consolas, 'Liberation Mono', 'Courier New', monospace;
+  --font-sans: 'Geist', ui-sans-serif, system-ui, -apple-system,
+    BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
 }
 
 @layer base {
