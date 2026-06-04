@@ -1,15 +1,18 @@
 ---
-// Soulwire-style decode reveal, faithful to the live site.
+// Soulwire-inspired decode reveal, tuned for silky motion.
 //
-// Key mechanics (verified by recording soulwire.co.uk frame-by-frame):
+// Key mechanics (Soulwire recorded frame-by-frame; smoothness decoupled):
 //  - Measure real VISUAL lines (offsetTop grouping), render each as a
 //    `white-space: nowrap` block. This lets a line grow without re-wrapping.
-//  - Unshown characters collapse to zero width, so each line BUILDS OUTWARD
-//    instead of sitting full-width. That is the left-to-right "growing" read.
-//  - Within a line the resolve order is shuffled, so noise condenses at
-//    scattered positions (the decrypt "boil"), not a clean typewriter wipe.
+//  - Occupancy advances in DOCUMENT ORDER, so the line only ever extends at its
+//    right edge — buttery left-to-right growth, no mid-line jitter. Unshown
+//    characters collapse to zero width; unshown spaces hold their gap.
+//  - Resolution (scramble -> real glyph) fires at a RANDOMISED time per cell, so
+//    text condenses at scattered positions (the decrypt "boil"). Glyph and
+//    scramble are both 1ch, so resolving never shifts anything.
 //  - Lines stagger top-to-bottom.
 //  - Slots stay blank behind a visibility gate until JS runs: no full-text flash.
+//  - contain:layout + a locked height keep the per-frame churn off the page.
 interface Props {
   class?: string;
 }
@@ -62,35 +65,38 @@ const { class: className } = Astro.props;
     _decodeOriginal?: string;
   };
 
-  type Cell = { el: HTMLElement; ch: string; space: boolean; temp: string };
+  // `appear` = when this cell first takes width (ordered left-to-right, so the
+  // line grows only at its right edge — no mid-line jitter). `settle` = when it
+  // resolves to its real glyph (randomised, so resolution scatters: the boil).
+  type Cell = {
+    el: HTMLElement;
+    ch: string;
+    space: boolean;
+    temp: string;
+    appear: number;
+    settle: number;
+  };
 
   const BIO_READY_EVENT = 'home:hero-bio-ready';
   const FALLBACK_START_MS = 1500;
 
-  // Soulwire's homepage parameters for the long paragraph.
   const SCRAMBLE = '__--/\\|<>'.split('');
   const CURSOR = '-';
-  const SHOW_POWER = 0.8;
-  const MASH_POWER = 2;
-  const DONE_POWER = 6;
-  const MUTATION = 0.15;
-  const LINE_DURATION_PER_CHAR = 0.0215;
-  const LINE_DELAY_FACTOR = 0.172;
+  const MUTATION = 0.16;
+  // Occupancy spreads over the first SPREAD of each line's timeline; the rest
+  // is resolution. A cell scrambles for [MIN_HOLD, MAX_HOLD] after appearing.
+  const SPREAD = 0.55;
+  const MIN_HOLD = 0.28;
+  const MAX_HOLD = 0.45;
+  const CURSOR_HOLD = 0.05;
+  const LINE_DURATION_PER_CHAR = 0.024;
+  const LINE_DELAY_FACTOR = 0.16;
 
   const prefersReducedMotion = (): boolean =>
     window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
 
   const randomFrom = (pool: string[]): string =>
     pool[Math.floor(Math.random() * pool.length)] ?? '_';
-
-  const shuffle = <T,>(items: T[]): T[] => {
-    const copy = items.slice();
-    for (let i = copy.length - 1; i > 0; i -= 1) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [copy[i], copy[j]] = [copy[j], copy[i]];
-    }
-    return copy;
-  };
 
   // Replace the paragraph content with one span per visible character (real
   // glyph, so widths/wrapping measure correctly) and one span per whitespace
@@ -110,14 +116,14 @@ const { class: className } = Astro.props;
               const sp = document.createElement('span');
               sp.className = 'dt-c';
               sp.textContent = ' ';
-              cells.push({ el: sp, ch: ' ', space: true, temp: '' });
+              cells.push({ el: sp, ch: ' ', space: true, temp: '', appear: 0, settle: 0 });
               parent.appendChild(sp);
             } else {
               const span = document.createElement('span');
               span.className = 'dt-c';
               span.textContent = text[i];
               if (fg) span.style.color = fgColor;
-              cells.push({ el: span, ch: text[i], space: false, temp: '' });
+              cells.push({ el: span, ch: text[i], space: false, temp: '', appear: 0, settle: 0 });
               parent.appendChild(span);
               i += 1;
             }
@@ -178,27 +184,21 @@ const { class: className } = Astro.props;
     if (cell.el.textContent !== text) cell.el.textContent = text;
   };
 
-  // One frame of a line. `order` is the shuffled resolve order over ALL cells,
-  // spaces included — so word gaps fill with noise and the line reads as one
-  // condensing ribbon. Unshown characters collapse (empty) so the line grows
-  // outward; unshown spaces hold their gap.
-  const renderLine = (order: Cell[], progress: number): void => {
-    const len = order.length;
-    const show = Math.floor(Math.pow(progress, SHOW_POWER) * len);
-    const mash = Math.floor(Math.pow(progress, MASH_POWER) * len);
-    const done = Math.floor(Math.pow(progress, DONE_POWER) * len);
-
-    for (let l = 0; l < len; l += 1) {
-      const cell = order[l];
-      if (l >= show) {
+  // One frame of a line. Cells are walked in document order. A cell appears in
+  // order (smooth left-to-right growth), shows a brief cursor, scrambles, then
+  // resolves at its randomised `settle` (scattered = the boil). Glyph and
+  // scramble are both 1ch, so resolving never changes width — no jitter.
+  const renderLine = (cells: Cell[], progress: number): void => {
+    for (const cell of cells) {
+      if (progress < cell.appear) {
         setCell(cell, '', cell.space ? ' ' : '');
-      } else if (l <= done) {
+      } else if (progress >= cell.settle) {
         setCell(cell, '', cell.ch);
-      } else if (l <= mash) {
+      } else if (progress < cell.appear + CURSOR_HOLD) {
+        setCell(cell, 'cursor', CURSOR);
+      } else {
         if (!cell.temp || Math.random() < MUTATION) cell.temp = randomFrom(SCRAMBLE);
         setCell(cell, 'scramble', cell.temp);
-      } else {
-        setCell(cell, 'cursor', CURSOR);
       }
     }
   };
@@ -224,17 +224,21 @@ const { class: className } = Astro.props;
 
     let cumulative = 0;
     for (const line of lines) {
-      const order = shuffle(line);
-      const duration = Math.min(1.6, Math.max(0.45, LINE_DURATION_PER_CHAR * line.length));
+      const n = line.length;
+      line.forEach((cell, i) => {
+        cell.appear = (i / n) * SPREAD;
+        cell.settle = Math.min(0.999, cell.appear + MIN_HOLD + Math.random() * (MAX_HOLD - MIN_HOLD));
+      });
+      const duration = Math.min(1.8, Math.max(0.5, LINE_DURATION_PER_CHAR * n));
       const state = { p: 0 };
       timeline.to(
         state,
         {
           p: 1,
           duration,
-          ease: 'power4.inOut',
+          ease: 'sine.inOut',
           onUpdate() {
-            renderLine(order, state.p);
+            renderLine(line, state.p);
           },
         },
         LINE_DELAY_FACTOR * cumulative
