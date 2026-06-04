@@ -1,11 +1,15 @@
 ---
-// Soulwire-style decode reveal, faithful to the live site's algorithm.
-// Each visual line resolves left-to-right through a three-zone wave
-// (resolved | scramble | cursor edge), lines staggered top-to-bottom.
+// Soulwire-style decode reveal, faithful to the live site.
 //
-// Body is monospace (JetBrains Mono): every glyph is 1ch, so we reserve each
-// slot as a space up front and resolve characters in place. No reflow, no line
-// measurement, no flash of full text before the animation starts.
+// Key mechanics (verified by recording soulwire.co.uk frame-by-frame):
+//  - Measure real VISUAL lines (offsetTop grouping), render each as a
+//    `white-space: nowrap` block. This lets a line grow without re-wrapping.
+//  - Unshown characters collapse to zero width, so each line BUILDS OUTWARD
+//    instead of sitting full-width. That is the left-to-right "growing" read.
+//  - Within a line the resolve order is shuffled, so noise condenses at
+//    scattered positions (the decrypt "boil"), not a clean typewriter wipe.
+//  - Lines stagger top-to-bottom.
+//  - Slots stay blank behind a visibility gate until JS runs: no full-text flash.
 interface Props {
   class?: string;
 }
@@ -18,7 +22,7 @@ const { class: className } = Astro.props;
 </div>
 
 <style>
-  /* Hide until JS has blanked the slot, so the full text never paints first. */
+  /* Hide until JS has measured + blanked the slot, so full text never paints. */
   :global(html.js) .decode-text:not(.dt-prepared) {
     visibility: hidden;
   }
@@ -29,16 +33,13 @@ const { class: className } = Astro.props;
     }
   }
 
-  .decode-text :global(.dt-c) {
-    white-space: pre;
-  }
-
-  .decode-text :global(.dt-c[data-state='idle']) {
-    color: transparent;
+  .decode-text :global(.dt-line) {
+    display: block;
+    white-space: nowrap;
   }
 
   .decode-text :global(.dt-c[data-state='cursor']) {
-    color: color-mix(in oklab, currentColor 32%, transparent);
+    color: color-mix(in oklab, currentColor 30%, transparent);
   }
 
   .decode-text :global(.dt-c[data-state='scramble']) {
@@ -55,7 +56,7 @@ const { class: className } = Astro.props;
     _decodeOriginal?: string;
   };
 
-  type Cell = { el: HTMLElement; final: string; temp: string };
+  type Cell = { el: HTMLElement; ch: string; space: boolean; temp: string };
 
   const BIO_READY_EVENT = 'home:hero-bio-ready';
   const FALLBACK_START_MS = 1500;
@@ -85,54 +86,96 @@ const { class: className } = Astro.props;
     return copy;
   };
 
-  // Walk the slotted markup, wrapping every visible character in a span while
-  // preserving spaces, <br> line breaks, and inline color spans. Returns the
-  // characters grouped by visual line, in document order.
-  const tokenize = (root: HTMLElement): Cell[][] => {
-    const lines: Cell[][] = [[]];
+  // Replace the paragraph content with one span per visible character (real
+  // glyph, so widths/wrapping measure correctly) and one span per whitespace
+  // run, keeping <br>. Colors are baked onto each cell so it survives reparenting.
+  const buildCells = (host: HTMLElement, fgColor: string): Cell[] => {
+    const cells: Cell[] = [];
+    const frag = document.createDocumentFragment();
 
-    const walk = (parent: Node): void => {
-      for (const node of Array.from(parent.childNodes)) {
-        if (node.nodeType === Node.TEXT_NODE) {
-          const text = node.textContent ?? '';
-          const fragment = document.createDocumentFragment();
-          for (const ch of text) {
-            if (/\s/.test(ch)) {
-              fragment.appendChild(document.createTextNode(' '));
-              continue;
+    const walk = (node: Node, parent: Node, fg: boolean): void => {
+      for (const child of Array.from(node.childNodes)) {
+        if (child.nodeType === Node.TEXT_NODE) {
+          const text = child.textContent ?? '';
+          let i = 0;
+          while (i < text.length) {
+            if (/\s/.test(text[i])) {
+              while (i < text.length && /\s/.test(text[i])) i += 1;
+              const sp = document.createElement('span');
+              sp.className = 'dt-c';
+              sp.textContent = ' ';
+              cells.push({ el: sp, ch: ' ', space: true, temp: '' });
+              parent.appendChild(sp);
+            } else {
+              const span = document.createElement('span');
+              span.className = 'dt-c';
+              span.textContent = text[i];
+              if (fg) span.style.color = fgColor;
+              cells.push({ el: span, ch: text[i], space: false, temp: '' });
+              parent.appendChild(span);
+              i += 1;
             }
-            const span = document.createElement('span');
-            span.className = 'dt-c';
-            span.dataset.state = 'idle';
-            span.textContent = ' ';
-            fragment.appendChild(span);
-            lines[lines.length - 1].push({ el: span, final: ch, temp: '' });
           }
-          parent.replaceChild(fragment, node);
-        } else if (node.nodeType === Node.ELEMENT_NODE) {
-          const el = node as HTMLElement;
+        } else if (child.nodeType === Node.ELEMENT_NODE) {
+          const el = child as HTMLElement;
           if (el.tagName === 'BR') {
-            lines.push([]);
+            parent.appendChild(document.createElement('br'));
           } else {
-            walk(el);
+            walk(el, parent, fg || el.classList.contains('text-foreground'));
           }
         }
       }
     };
 
-    walk(root);
-    return lines.filter((line) => line.length > 0);
+    walk(host, frag, false);
+    host.replaceChildren(frag);
+    return cells;
   };
 
-  const setState = (cell: Cell, state: string, text: string): void => {
-    if (cell.el.dataset.state !== state) cell.el.dataset.state = state;
+  // Group cells into visual lines by their measured top offset, then re-home
+  // each line into its own nowrap block. Leading/trailing spaces are dropped.
+  const layoutLines = (host: HTMLElement, cells: Cell[]): Cell[][] => {
+    const lines: Cell[][] = [];
+    let top = Number.NaN;
+    for (const cell of cells) {
+      const cellTop = Math.round(cell.el.offsetTop);
+      if (cellTop !== top) {
+        top = cellTop;
+        lines.push([]);
+      }
+      lines[lines.length - 1].push(cell);
+    }
+
+    const trimmed = lines.map((line) => {
+      let start = 0;
+      let end = line.length;
+      while (start < end && line[start].space) start += 1;
+      while (end > start && line[end - 1].space) end -= 1;
+      return line.slice(start, end);
+    });
+
+    host.replaceChildren();
+    for (const line of trimmed) {
+      const block = document.createElement('span');
+      block.className = 'dt-line';
+      for (const cell of line) block.appendChild(cell.el);
+      host.appendChild(block);
+    }
+    return trimmed.filter((line) => line.some((cell) => !cell.space));
+  };
+
+  const setCell = (cell: Cell, state: string, text: string): void => {
+    if (cell.el.dataset.state !== state) {
+      if (state) cell.el.dataset.state = state;
+      else delete cell.el.dataset.state;
+    }
     if (cell.el.textContent !== text) cell.el.textContent = text;
   };
 
-  // One frame of a line. `order` is the shuffled resolve order: queue position l
-  // gets [0..done] real, (done..mash] scramble, (mash..show) cursor, [show..]
-  // blank. Because the order is shuffled, the line boils with noise across its
-  // full width and condenses into text at scattered positions (Soulwire's look).
+  // One frame of a line. `order` is the shuffled resolve order over ALL cells,
+  // spaces included — so word gaps fill with noise and the line reads as one
+  // condensing ribbon. Unshown characters collapse (empty) so the line grows
+  // outward; unshown spaces hold their gap.
   const renderLine = (order: Cell[], progress: number): void => {
     const len = order.length;
     const show = Math.floor(Math.pow(progress, SHOW_POWER) * len);
@@ -142,14 +185,14 @@ const { class: className } = Astro.props;
     for (let l = 0; l < len; l += 1) {
       const cell = order[l];
       if (l >= show) {
-        setState(cell, 'idle', ' ');
+        setCell(cell, '', cell.space ? ' ' : '');
       } else if (l <= done) {
-        setState(cell, 'done', cell.final);
+        setCell(cell, '', cell.ch);
       } else if (l <= mash) {
         if (!cell.temp || Math.random() < MUTATION) cell.temp = randomFrom(SCRAMBLE);
-        setState(cell, 'scramble', cell.temp);
+        setCell(cell, 'scramble', cell.temp);
       } else {
-        setState(cell, 'cursor', CURSOR);
+        setCell(cell, 'cursor', CURSOR);
       }
     }
   };
@@ -171,9 +214,9 @@ const { class: className } = Astro.props;
     const timeline = gsap.timeline({ onComplete: restore });
 
     let cumulative = 0;
-    for (const cells of lines) {
-      const order = shuffle(cells);
-      const duration = Math.min(1.6, Math.max(0.5, LINE_DURATION_PER_CHAR * cells.length));
+    for (const line of lines) {
+      const order = shuffle(line);
+      const duration = Math.min(1.6, Math.max(0.45, LINE_DURATION_PER_CHAR * line.length));
       const state = { p: 0 };
       timeline.to(
         state,
@@ -196,6 +239,24 @@ const { class: className } = Astro.props;
     };
   };
 
+  const prepare = async (root: DecodeRoot): Promise<Cell[][] | null> => {
+    const host = root.querySelector<HTMLElement>('p') ?? root;
+    const mutedColor = getComputedStyle(host).color;
+    const fgEl = host.querySelector<HTMLElement>('.text-foreground');
+    const fgColor = fgEl ? getComputedStyle(fgEl).color : mutedColor;
+
+    // Fonts must be ready before measuring so visual line breaks are correct.
+    await document.fonts?.ready.catch(() => {});
+
+    const cells = buildCells(host, fgColor);
+    if (cells.length === 0) return null;
+
+    const lines = layoutLines(host, cells);
+    // Blank every slot: spaces hold their gap, characters collapse to nothing.
+    for (const cell of cells) setCell(cell, '', cell.space ? ' ' : '');
+    return lines;
+  };
+
   const initOne = (root: DecodeRoot): void => {
     if (root._decodeReady) return;
     root._decodeReady = true;
@@ -208,32 +269,29 @@ const { class: className } = Astro.props;
       return;
     }
 
-    let lines: Cell[][];
-    try {
-      lines = tokenize(root);
-      if (lines.length === 0) {
-        reveal();
-        return;
-      }
-    } catch {
-      // On any failure, fall back to the original semantic text.
-      root.innerHTML = root._decodeOriginal;
-      reveal();
-      return;
-    }
-
-    reveal(); // visible, but every slot is blank — no full-text flash
-
     let started = false;
-    const start = (): void => {
+    const start = (lines: Cell[][]): void => {
       if (started) return;
       started = true;
       window.clearTimeout(root._decodeTimer);
       void play(root, lines);
     };
 
-    window.addEventListener(BIO_READY_EVENT, start, { once: true });
-    root._decodeTimer = window.setTimeout(start, FALLBACK_START_MS);
+    prepare(root)
+      .then((lines) => {
+        if (!lines) {
+          root.innerHTML = root._decodeOriginal ?? root.innerHTML;
+          reveal();
+          return;
+        }
+        reveal(); // visible, but every slot is blank — no full-text flash
+        window.addEventListener(BIO_READY_EVENT, () => start(lines), { once: true });
+        root._decodeTimer = window.setTimeout(() => start(lines), FALLBACK_START_MS);
+      })
+      .catch(() => {
+        root.innerHTML = root._decodeOriginal ?? root.innerHTML;
+        reveal();
+      });
   };
 
   const initAll = (): void => {
