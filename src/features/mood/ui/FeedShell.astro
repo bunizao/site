@@ -3,6 +3,7 @@ import Hero from '@/features/mood/ui/Hero.astro';
 import type { MoodFeedItem, MoodChannelSummary } from '@/features/mood/server/contracts';
 import { renderMoodGalleryMarkup } from '@/features/mood/shared/gallery-render';
 import { getMoodFeedThumbnailStyle } from '@/features/mood/shared/feed-thumbnail';
+import { getMoodFeedAnchorFragmentId } from '@/features/mood/shared/feed-anchor';
 import { buildSrcSet, withWidthParam } from '@/lib/media/responsive-image';
 
 interface SkeletonItem {
@@ -267,10 +268,12 @@ const hasCriticalInitialPosts = criticalInitialPosts.length > 0;
               const commentsInfo = getCommentsCountInfo(post.commentsCount);
               const isTooBigVideoPreview = post.previewMediaType === 'too-big-video';
               const hasGalleryPreview = !mediaHtml && !isTooBigVideoPreview && (post.gallery?.items.length ?? 0) > 1;
+              const fragmentId = getMoodFeedAnchorFragmentId(post.id);
 
               return (
                 <div
                   class={`mood-item${href ? ' mood-item--clickable' : ''}`}
+                  id={fragmentId || undefined}
                   data-mood-id={post.id}
                   data-href={href}
                   role={href ? 'link' : undefined}

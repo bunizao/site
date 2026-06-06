@@ -9,6 +9,7 @@ interface Props {
   renderedPostContent?: string;
   formattedDate?: string;
   telegramCommentUrl?: string;
+  backHref?: string;
 }
 
 const {
@@ -18,13 +19,14 @@ const {
   renderedPostContent = '',
   formattedDate = '',
   telegramCommentUrl = '',
+  backHref = '/mood',
 } = Astro.props;
 ---
 
 {post ? (
   <article class="mood-post">
     <div class="mood-post-header">
-      <button type="button" class="back-link" data-back-button>← Back to Moods</button>
+      <button type="button" class="back-link" data-back-button data-back-fallback-href={backHref}>← Back to Moods</button>
       <div class="mood-post-meta">
         <time datetime={post.datetime} class="mood-post-date">
           {formattedDate}
@@ -97,7 +99,7 @@ const {
 ) : (
   <article class="mood-post">
     <div class="mood-post-header">
-      <a href="/mood" class="back-link">← Back to Moods</a>
+      <a href={backHref} class="back-link">← Back to Moods</a>
       <div class="mood-post-meta">
         <time class="mood-post-date">Unavailable</time>
       </div>

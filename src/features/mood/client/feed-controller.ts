@@ -45,6 +45,7 @@ export function initMoodFeedController(): void {
         let anchorNewerScrollListenerActive = false;
         let anchorOlderBaselineY = 0;
         let anchorOlderScrollListenerActive = false;
+        const initialFeedPageHref = window.location.href;
 
         const inlineSkeletonConfig = {
           dateWidth: '68px',
@@ -58,6 +59,10 @@ export function initMoodFeedController(): void {
         const configuredAnchorId = feedEl.dataset.moodAnchorId?.trim() ?? '';
         if (configuredAnchorId) return configuredAnchorId;
 
+        return readCurrentUrlAnchorId();
+      };
+
+      const readCurrentUrlAnchorId = (): string => {
         try {
           return readMoodFeedAnchorId(new URL(window.location.href));
         } catch {
@@ -357,6 +362,24 @@ export function initMoodFeedController(): void {
               armAnchorOlderObserver();
             });
           }
+        });
+      };
+
+      const revealCurrentUrlFeedAnchor = (): void => {
+        if (window.location.href === initialFeedPageHref) return;
+        const currentAnchorId = readCurrentUrlAnchorId();
+        if (!currentAnchorId) return;
+
+        const reveal = async (highlight: boolean): Promise<void> => {
+          await waitForAnchorPrecedingMedia(currentAnchorId);
+          renderer.scrollToMood(currentAnchorId, { behavior: 'auto', highlight });
+        };
+
+        window.requestAnimationFrame(async () => {
+          await reveal(true);
+          window.setTimeout(() => {
+            void reveal(false);
+          }, 450);
         });
       };
 
@@ -768,6 +791,9 @@ export function initMoodFeedController(): void {
         if (!feedAnchorId) {
           updateWatcher.init();
         }
+        window.addEventListener('pageshow', revealCurrentUrlFeedAnchor);
+        window.addEventListener('popstate', revealCurrentUrlFeedAnchor);
+        window.addEventListener('hashchange', revealCurrentUrlFeedAnchor);
         renderer.bindInteractions();
         animatedEmoji.observe(list);
         loadInitial();
