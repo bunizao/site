@@ -114,8 +114,7 @@ const renderedPostContent = post
   const backButton = document.querySelector('[data-back-button]');
 
   if (backButton instanceof HTMLElement) {
-    backButton.addEventListener('click', () => {
-      const fallbackHref = backButton.dataset.backFallbackHref || '/mood';
+    backButton.addEventListener('click', (event) => {
       let referrerPath = '';
       try {
         const referrerUrl = document.referrer ? new URL(document.referrer) : null;
@@ -127,9 +126,8 @@ const renderedPostContent = post
       }
 
       if ((referrerPath === '/mood' || referrerPath === '/mood/') && window.history.length > 1) {
+        event.preventDefault();
         window.history.back();
-      } else {
-        window.location.href = fallbackHref;
       }
     });
   }

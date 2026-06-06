@@ -288,6 +288,72 @@ test.describe('Mood routes', () => {
       .toBe(true);
   });
 
+  test('keeps anchored feed position when returning from detail to the same URL', async ({ page }) => {
+    const channel = {
+      slug: 'e2e',
+      title: 'E2E Channel',
+      description: 'E2E mood feed',
+      avatar: '',
+    };
+    const posts = Array.from({ length: 32 }, (_, index) => {
+      const id = String(990050 - index);
+      return createMoodFeedPost(
+        id,
+        `E2E same-url return item ${id} ${'body '.repeat(18)}`
+      );
+    });
+    const targetId = '990030';
+
+    await page.route('**/api/moods**', async (route) => {
+      const url = new URL(route.request().url());
+      if (url.searchParams.get('probe') === '1') {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({ latestId: posts[0].id }),
+        });
+        return;
+      }
+
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ posts, channel }),
+      });
+    });
+
+    await page.goto(`/mood?${targetId}#mood-${targetId}`, { waitUntil: 'domcontentloaded' });
+    await expect(page.locator('[data-mood-feed]')).not.toHaveClass(/is-hidden/, { timeout: 30_000 });
+
+    const targetItem = page.locator(`[data-mood-id="${targetId}"]`);
+    await expect(targetItem).toBeVisible();
+    await expect
+      .poll(async () => {
+        return targetItem.evaluate((element) => {
+          const rect = element.getBoundingClientRect();
+          return rect.bottom > 0 && rect.top < window.innerHeight;
+        });
+      })
+      .toBe(true);
+
+    await targetItem.hover();
+    const expandLink = targetItem.locator('.mood-item-expand-float');
+    await expect(expandLink).toBeVisible();
+    await expandLink.click();
+    await expect(page).toHaveURL(new RegExp(`/mood/${targetId}$`));
+
+    await page.locator('[data-back-button]').click();
+    await expect(page).toHaveURL(new RegExp(`/mood\\?${targetId}#mood-${targetId}$`));
+    await expect
+      .poll(async () => {
+        return targetItem.evaluate((element) => {
+          const rect = element.getBoundingClientRect();
+          return rect.bottom > 0 && rect.top < window.innerHeight;
+        });
+      })
+      .toBe(true);
+  });
+
   test('uses short query ids as bounded feed anchors without repeated scroll correction', async ({ page }) => {
     await page.addInitScript(() => {
       const original = Element.prototype.scrollIntoView;

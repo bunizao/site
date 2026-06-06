@@ -365,8 +365,8 @@ export function initMoodFeedController(): void {
         });
       };
 
-      const revealCurrentUrlFeedAnchor = (): void => {
-        if (window.location.href === initialFeedPageHref) return;
+      const revealCurrentUrlFeedAnchor = (options: { force?: boolean } = {}): void => {
+        if (!options.force && window.location.href === initialFeedPageHref) return;
         const currentAnchorId = readCurrentUrlAnchorId();
         if (!currentAnchorId) return;
 
@@ -791,9 +791,11 @@ export function initMoodFeedController(): void {
         if (!feedAnchorId) {
           updateWatcher.init();
         }
-        window.addEventListener('pageshow', revealCurrentUrlFeedAnchor);
-        window.addEventListener('popstate', revealCurrentUrlFeedAnchor);
-        window.addEventListener('hashchange', revealCurrentUrlFeedAnchor);
+        window.addEventListener('pageshow', (event) => {
+          revealCurrentUrlFeedAnchor({ force: (event as PageTransitionEvent).persisted });
+        });
+        window.addEventListener('popstate', () => revealCurrentUrlFeedAnchor());
+        window.addEventListener('hashchange', () => revealCurrentUrlFeedAnchor());
         renderer.bindInteractions();
         animatedEmoji.observe(list);
         loadInitial();
