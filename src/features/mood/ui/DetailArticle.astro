@@ -350,15 +350,18 @@ const {
 
   .back-link {
     display: inline-block;
-    font-size: 13px;
-    color: hsl(var(--muted-foreground));
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: hsl(var(--muted-foreground) / 0.75);
     margin-bottom: 28px;
     transition: color 0.15s ease;
     background: none;
     border: none;
     padding: 0;
     cursor: pointer;
-    font-family: inherit;
   }
 
   @media (min-width: 640px) {
@@ -384,15 +387,20 @@ const {
   }
 
   .mood-post-date {
-    font-size: 13px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
     color: hsl(var(--muted-foreground));
     font-variant-numeric: tabular-nums;
+    font-feature-settings: 'tnum' 1, 'zero' 1;
     line-height: 1.5;
   }
 
   @media (min-width: 640px) {
     .mood-post-date {
-      font-size: 14px;
+      font-size: 13px;
     }
   }
 
@@ -404,13 +412,17 @@ const {
   }
 
   .mood-post-tag {
-    font-size: 12px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
     color: hsl(var(--muted-foreground) / 0.7);
-    padding: 5px 12px;
-    background: hsl(var(--foreground) / 0.06);
+    padding: 4px 10px;
+    background: hsl(var(--foreground) / 0.05);
     border-radius: 6px;
     transition: all 0.15s ease;
-    border: 1px solid transparent;
+    border: 1px solid hsl(var(--foreground) / 0.06);
   }
 
   .mood-post-tag:hover {

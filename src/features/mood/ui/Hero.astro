@@ -116,16 +116,36 @@
   }
 
   .mood-hero-title {
-    font-size: 24px;
-    font-weight: 600;
-    margin-bottom: 8px;
-    line-height: 1.2;
+    font-family: var(--font-sans);
+    font-size: 27px;
+    font-weight: 700;
+    letter-spacing: -0.025em;
+    margin-bottom: 10px;
+    line-height: 1.08;
+    will-change: transform;
   }
 
   @media (min-width: 640px) {
     .mood-hero-title {
-      font-size: 28px;
-      margin-bottom: 10px;
+      font-size: 33px;
+      margin-bottom: 12px;
+    }
+  }
+
+  /* Levitate — the hero's signature idle gesture, only once the name is in. */
+  @media (prefers-reduced-motion: no-preference) {
+    .mood-hero-title.is-loaded {
+      animation: mood-hero-levitate 7s ease-in-out infinite;
+    }
+  }
+
+  @keyframes mood-hero-levitate {
+    0%,
+    100% {
+      transform: translateY(0);
+    }
+    50% {
+      transform: translateY(-3px);
     }
   }
 
@@ -193,14 +213,17 @@
   }
 
   .mood-hero-description {
-    font-size: 14px;
+    font-family: var(--font-sans);
+    font-size: 15px;
+    font-weight: 400;
     color: hsl(var(--muted-foreground));
-    line-height: 1.5;
+    line-height: 1.6;
+    max-width: 54ch;
   }
 
   @media (min-width: 640px) {
     .mood-hero-description {
-      font-size: 15px;
+      font-size: 16px;
     }
   }
 
@@ -268,8 +291,12 @@
 
   .back-link {
     display: inline-block;
-    font-size: 13px;
-    color: hsl(var(--muted-foreground));
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: hsl(var(--muted-foreground) / 0.75);
     margin-bottom: 24px;
     transition: color 0.15s ease;
   }
@@ -283,7 +310,6 @@
   @media (max-width: 480px) {
     .back-link {
       margin-bottom: 16px;
-      font-size: 13px;
     }
   }
 

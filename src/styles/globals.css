@@ -444,13 +444,14 @@
   .mood-reaction {
     display: inline-flex;
     align-items: center;
-    gap: 3px;
-    padding: 3px 8px 3px 6px;
+    gap: 4px;
+    padding: 3px 9px 3px 7px;
+    font-family: var(--font-mono);
     font-size: 12px;
-    background: hsl(var(--foreground) / 0.05);
+    background: hsl(var(--foreground) / 0.04);
     border-radius: 999px;
     color: hsl(var(--muted-foreground));
-    border: 1px solid transparent;
+    border: 1px solid hsl(var(--foreground) / 0.08);
   }
 
   .mood-reaction--paid {
@@ -503,10 +504,13 @@
   }
 
   .mood-reaction-count {
-    font-size: 12px;
-    font-weight: 500;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 600;
     font-variant-numeric: tabular-nums;
-    opacity: 0.8;
+    font-feature-settings: 'tnum' 1, 'zero' 1;
+    letter-spacing: 0.02em;
+    opacity: 0.85;
   }
 
   .section-label {
@@ -1327,6 +1331,11 @@
     max-width: 0;
     opacity: 0;
     overflow: hidden;
+    font-family: var(--font-mono);
+    font-weight: 600;
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
   }
 
   .header-action-btn svg {
