@@ -290,7 +290,7 @@ const skeletonGroups = [
       });
     });
   </script>
-  <main class="page-container">
+  <main class="page-container mood-route">
     <TimelineWheel />
     <FeedShell
       skeletonGroups={skeletonGroups}
@@ -303,6 +303,10 @@ const skeletonGroups = [
 </Layout>
 
 <style>
+  :global(.mood-route) {
+    font-family: var(--font-sans);
+  }
+
   /* Loading State - Card-based Skeleton */
   :global(.mood-loading) {
     display: block;
