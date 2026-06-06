@@ -188,6 +188,28 @@ const DETAIL_HTML_BY_URL: Record<string, string> = {
       </div>
     </div>
   `,
+  'https://t.me/imagebuxx/3539?embed=1&mode=tme': `
+    <div class="tgme_channel_info_header_title">Image Buxx</div>
+    <div class="tgme_widget_message_wrap">
+      <div class="tgme_widget_message text_not_supported_wrap" data-post="imagebuxx/3539">
+        <div class="tgme_widget_message_text js-message_text" dir="auto">
+          <a href="https://x.com/dviolettchan/status/2060659248959299645" target="_blank" rel="noopener">https://x.com/dviolettchan/status/2060659248959299645</a><br/><br/>看哭了
+        </div>
+        <a class="tgme_widget_message_link_preview" href="https://x.com/dviolettchan/status/2060659248959299645">
+          <i
+            class="link_preview_right_image"
+            style="background-image:url('https://cdn4.telesco.pe/file/x-avatar.jpg')"
+          ></i>
+          <div class="link_preview_site_name accent_color" dir="auto">X (formerly Twitter)</div>
+          <div class="link_preview_title" dir="auto">紫云 (@dviolettchan) on X</div>
+          <div class="link_preview_description" dir="auto">紫雪风老师屡次劝退 CS，总有推油觉得我是在恶意贩卖焦虑。<br/><br/>但 CS 大概率就是 AI 大潮下死得最快、就业减少最多的专业之一。SWE、MLE 这些曾经包揽 90% 就业去向的岗位，迟早会被疯狂演进的 LLM，以及科技封建主们杀得干干净净。</div>
+        </a>
+        <div class="tgme_widget_message_date">
+          <time datetime="2026-05-31T18:23:44+00:00"></time>
+        </div>
+      </div>
+    </div>
+  `,
 };
 
 const DISCUSSION_HTML_BY_URL: Record<string, string> = {
@@ -413,6 +435,20 @@ describe('getChannelInfo detail media rendering', () => {
     expect(content).toContain('Mannings Venetian');
     expect(content).toContain('https://static-maps.yandex.ru/1.x/?ll=113.561,22.149');
     expect(content).not.toContain('/static/https:/static-maps.yandex.ru');
+  });
+
+  test('preserves Telegram right-side link preview images in bookmark cards', async () => {
+    const { getChannelInfo } = await telegramModulePromise;
+    const post = await getChannelInfo(astro, { id: '3539', skipCache: true });
+    const content = (post as { content: string }).content;
+
+    expect(content).toContain('bookmark-card bookmark-card--side-media');
+    expect(content).toContain('bookmark-card__media bookmark-card__media--side');
+    expect(content).toContain('/static/https:/cdn4.telesco.pe/file/x-avatar.jpg');
+    expect(content).toContain('紫云 (@dviolettchan) on X');
+    expect(content).toContain('科技封建主们杀得干干净净');
+    const bookmarkContent = content.slice(content.indexOf('bookmark-card__content'));
+    expect(bookmarkContent.indexOf('X (formerly Twitter)')).toBeLessThan(bookmarkContent.indexOf('紫云 (@dviolettchan) on X'));
   });
 });
 

@@ -1005,6 +1005,47 @@ const skeletonGroups = [
     aspect-ratio: 1.91 / 1;
   }
 
+  :global(.mood-item-media .bookmark-card--side-media) {
+    display: block;
+    max-width: 360px;
+    padding: 10px 12px 11px;
+    border-color: hsl(204 70% 52% / 0.16);
+    border-left: 3px solid hsl(204 70% 52% / 0.72);
+    background: hsl(204 70% 96%);
+  }
+
+  :global(.mood-item-media .bookmark-card--side-media::after) {
+    content: '';
+    display: block;
+    clear: both;
+  }
+
+  :global(.dark .mood-item-media .bookmark-card--side-media) {
+    border-color: hsl(204 78% 64% / 0.2);
+    border-left-color: hsl(204 78% 64% / 0.72);
+    background: hsl(204 36% 16%);
+  }
+
+  :global(.mood-item-media .bookmark-card--side-media .bookmark-card__media) {
+    float: right;
+    width: 76px;
+    height: 76px;
+    margin: 0 0 8px 12px;
+    border-radius: 9px;
+    overflow: hidden;
+  }
+
+  :global(.mood-item-media .bookmark-card--side-media .bookmark-card__media img) {
+    width: 100%;
+    height: 100%;
+    aspect-ratio: 1 / 1;
+  }
+
+  :global(.mood-item-media .bookmark-card--side-media .bookmark-card__content) {
+    display: block;
+    padding: 0;
+  }
+
   :global(.mood-item-media .bookmark-card__content) {
     display: flex;
     flex-direction: column;
@@ -1030,9 +1071,28 @@ const skeletonGroups = [
     line-height: 1.48;
     display: -webkit-box;
     -webkit-box-orient: vertical;
-    -webkit-line-clamp: 2;
+    -webkit-line-clamp: 3;
     overflow: hidden;
     overflow-wrap: break-word;
+  }
+
+  :global(.mood-item-media .bookmark-card--side-media .bookmark-card__description) {
+    display: -webkit-box;
+    -webkit-line-clamp: 5;
+  }
+
+  :global(.mood-item-media .bookmark-card--side-media .bookmark-card__meta) {
+    order: initial;
+    display: block;
+    margin-bottom: 4px;
+    color: hsl(204 70% 45%);
+    font-size: 11px;
+    letter-spacing: 0;
+    text-transform: none;
+  }
+
+  :global(.dark .mood-item-media .bookmark-card--side-media .bookmark-card__meta) {
+    color: hsl(204 78% 72%);
   }
 
   :global(.mood-item-media .bookmark-card__meta) {

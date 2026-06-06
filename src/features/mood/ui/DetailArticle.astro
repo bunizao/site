@@ -257,7 +257,7 @@ const {
 
     .mood-post-content :global(.bookmark-card__description) {
       font-size: 12px;
-      -webkit-line-clamp: 2;
+      -webkit-line-clamp: 3;
     }
 
     .mood-post-content :global(.bookmark-card__meta) {
@@ -961,6 +961,47 @@ const {
     aspect-ratio: 1.91 / 1;
   }
 
+  .mood-post-content :global(.bookmark-card--side-media) {
+    display: block;
+    max-width: 460px;
+    padding: 12px 14px 13px;
+    border-color: hsl(204 70% 52% / 0.16);
+    border-left: 3px solid hsl(204 70% 52% / 0.72);
+    background: hsl(204 70% 96%);
+  }
+
+  .mood-post-content :global(.bookmark-card--side-media::after) {
+    content: '';
+    display: block;
+    clear: both;
+  }
+
+  :global(.dark) .mood-post-content :global(.bookmark-card--side-media) {
+    border-color: hsl(204 78% 64% / 0.2);
+    border-left-color: hsl(204 78% 64% / 0.72);
+    background: hsl(204 36% 16%);
+  }
+
+  .mood-post-content :global(.bookmark-card--side-media .bookmark-card__media) {
+    float: right;
+    width: 92px;
+    height: 92px;
+    margin: 0 0 8px 14px;
+    border-radius: 10px;
+    overflow: hidden;
+  }
+
+  .mood-post-content :global(.bookmark-card--side-media .bookmark-card__media img) {
+    width: 100%;
+    height: 100%;
+    aspect-ratio: 1 / 1;
+  }
+
+  .mood-post-content :global(.bookmark-card--side-media .bookmark-card__content) {
+    display: block;
+    padding: 0;
+  }
+
   .mood-post-content :global(.bookmark-card__content) {
     display: flex;
     flex-direction: column;
@@ -986,9 +1027,28 @@ const {
     line-height: 1.5;
     display: -webkit-box;
     -webkit-box-orient: vertical;
-    -webkit-line-clamp: 2;
+    -webkit-line-clamp: 3;
     overflow: hidden;
     overflow-wrap: break-word;
+  }
+
+  .mood-post-content :global(.bookmark-card--side-media .bookmark-card__description) {
+    display: block;
+    -webkit-line-clamp: unset;
+  }
+
+  .mood-post-content :global(.bookmark-card--side-media .bookmark-card__meta) {
+    order: initial;
+    display: block;
+    margin-bottom: 5px;
+    color: hsl(204 70% 45%);
+    font-size: 12px;
+    letter-spacing: 0;
+    text-transform: none;
+  }
+
+  :global(.dark) .mood-post-content :global(.bookmark-card--side-media .bookmark-card__meta) {
+    color: hsl(204 78% 72%);
   }
 
   .mood-post-content :global(.bookmark-card__meta) {
@@ -999,6 +1059,23 @@ const {
     letter-spacing: 0.06em;
     text-transform: uppercase;
     color: hsl(var(--muted-foreground) / 0.58);
+  }
+
+  @media (max-width: 540px) {
+    .mood-post-content :global(.bookmark-card--side-media) {
+      padding: 11px 12px 12px;
+    }
+
+    .mood-post-content :global(.bookmark-card--side-media .bookmark-card__media),
+    .mood-post-content :global(.bookmark-card--side-media .bookmark-card__media img) {
+      width: 76px;
+      height: 76px;
+    }
+
+    .mood-post-content :global(.bookmark-card--side-media .bookmark-card__description) {
+      display: -webkit-box;
+      -webkit-line-clamp: 5;
+    }
   }
 
   .mood-post-content :global(.spoiler-button) {
