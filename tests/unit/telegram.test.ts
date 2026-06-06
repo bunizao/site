@@ -445,6 +445,7 @@ describe('getChannelInfo detail media rendering', () => {
     expect(content).toContain('bookmark-card bookmark-card--side-media');
     expect(content).toContain('bookmark-card__media bookmark-card__media--side');
     expect(content).toContain('/static/https:/cdn4.telesco.pe/file/x-avatar.jpg');
+    expect(content).toContain('loading="eager"');
     expect(content).toContain('紫云 (@dviolettchan) on X');
     expect(content).toContain('科技封建主们杀得干干净净');
     const bookmarkContent = content.slice(content.indexOf('bookmark-card__content'));

@@ -824,7 +824,7 @@ test.describe('Mood routes', () => {
       .toBe(true);
 
     await page.locator('[data-back-button]').click();
-    await expect(page).toHaveURL(/\/mood$/);
+    await expect(page).toHaveURL(new RegExp(`/mood\\?${latestMoodId}$`));
   });
 
   test('renders image media in detail comments', async ({ page, request }) => {
