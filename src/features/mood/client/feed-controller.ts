@@ -8,6 +8,7 @@ import {
   getMoodFeedAnchorBeforeCursor,
   getMoodFeedAnchorWindowBeforeCursor,
   mergeMoodFeedWindowPosts,
+  MOOD_FEED_RETURN_ANCHOR_STORAGE_KEY,
   readMoodFeedAnchorId,
 } from '@/features/mood/shared/feed-anchor';
 import type {
@@ -26,6 +27,11 @@ export function initMoodFeedController(): void {
     const updateNoticeTextEl = document.querySelector('[data-mood-update-text]') as HTMLElement | null;
     const updateRefreshBtn = document.querySelector('[data-mood-update-refresh]') as HTMLButtonElement | null;
     const ALWAYS_LOADING = import.meta.env.PUBLIC_DEBUG_ALWAYS_LOADING === 'true';
+    const ANCHOR_COMPENSATION_MAX_MS = 2600;
+    const ANCHOR_COMPENSATION_MIN_MS = 1000;
+    const ANCHOR_COMPENSATION_QUIET_FRAMES = 8;
+    const ANCHOR_COMPENSATION_EPSILON = 0.5;
+    const RETURN_ANCHOR_MAX_AGE_MS = 5 * 60 * 1000;
 
     if (loadingEl && errorEl && feedEl && list && status && sentinel) {
       const loadButton = document.querySelector('[data-load-more]') as HTMLButtonElement | null;
@@ -90,6 +96,7 @@ export function initMoodFeedController(): void {
       let pendingPosts: MoodData[] = [];
       const feedAnchorId = getMoodFeedAnchorId();
       let feedAnchorHandled = !feedAnchorId;
+      let feedAnchorRevealInFlight = false;
       hasNewer = Boolean(feedAnchorId);
       const updateWatcher = createFeedUpdateWatcher({
         list,
@@ -347,20 +354,158 @@ export function initMoodFeedController(): void {
         ]);
       };
 
+      const getMoodAnchorTarget = (id: string): HTMLElement | null => (
+        Array.from(list.querySelectorAll<HTMLElement>('[data-mood-id]')).find(
+          (item) => item.dataset.moodId === id
+        ) ?? null
+      );
+
+      const readStoredReturnAnchorTop = (id: string): number | null => {
+        try {
+          const raw = window.sessionStorage.getItem(MOOD_FEED_RETURN_ANCHOR_STORAGE_KEY);
+          if (!raw) return null;
+          const parsed = JSON.parse(raw) as {
+            createdAt?: unknown;
+            id?: unknown;
+            top?: unknown;
+          };
+          if (parsed.id !== id) return null;
+          const createdAt = typeof parsed.createdAt === 'number' ? parsed.createdAt : 0;
+          if (!createdAt || Date.now() - createdAt > RETURN_ANCHOR_MAX_AGE_MS) return null;
+          const top = typeof parsed.top === 'number' ? parsed.top : Number.NaN;
+          return Number.isFinite(top) ? top : null;
+        } catch {
+          return null;
+        }
+      };
+
+      const alignAnchorToTop = (id: string, top: number): boolean => {
+        const target = getMoodAnchorTarget(id);
+        if (!target) return false;
+        const delta = target.getBoundingClientRect().top - top;
+        if (Math.abs(delta) > ANCHOR_COMPENSATION_EPSILON) {
+          window.scrollBy({ top: delta, behavior: 'auto' });
+        }
+        return true;
+      };
+
+      const isScrollIntentKey = (event: KeyboardEvent): boolean => (
+        event.key === 'ArrowDown'
+        || event.key === 'ArrowUp'
+        || event.key === 'End'
+        || event.key === 'Home'
+        || event.key === 'PageDown'
+        || event.key === 'PageUp'
+        || event.key === ' '
+      );
+
+      const stabilizeAnchorPosition = async (id: string, preferredTop?: number | null): Promise<boolean> => {
+        const target = getMoodAnchorTarget(id);
+        if (!target) return false;
+
+        const expectedTop = typeof preferredTop === 'number' && Number.isFinite(preferredTop)
+          ? preferredTop
+          : target.getBoundingClientRect().top;
+
+        return new Promise((resolve) => {
+          let frame = 0;
+          let quietFrames = 0;
+          let stopped = false;
+          const startedAt = performance.now();
+
+          const cleanup = (): void => {
+            if (frame) {
+              window.cancelAnimationFrame(frame);
+              frame = 0;
+            }
+            window.removeEventListener('wheel', stop);
+            window.removeEventListener('touchstart', stop);
+            window.removeEventListener('keydown', stopOnScrollKey);
+          };
+
+          const finish = (result: boolean): void => {
+            if (stopped) return;
+            stopped = true;
+            cleanup();
+            resolve(result);
+          };
+
+          const stop = (): void => finish(false);
+          const stopOnScrollKey = (event: KeyboardEvent): void => {
+            if (isScrollIntentKey(event)) stop();
+          };
+
+          const compensate = (): void => {
+            const delta = target.getBoundingClientRect().top - expectedTop;
+            if (Math.abs(delta) <= ANCHOR_COMPENSATION_EPSILON) {
+              quietFrames += 1;
+              return;
+            }
+
+            quietFrames = 0;
+            window.scrollBy({ top: delta, behavior: 'auto' });
+          };
+
+          const tick = (now: number): void => {
+            if (stopped) return;
+            if (!target.isConnected) {
+              finish(false);
+              return;
+            }
+
+            compensate();
+
+            const elapsed = now - startedAt;
+            if (
+              elapsed >= ANCHOR_COMPENSATION_MAX_MS
+              || (elapsed >= ANCHOR_COMPENSATION_MIN_MS && quietFrames >= ANCHOR_COMPENSATION_QUIET_FRAMES)
+            ) {
+              finish(true);
+              return;
+            }
+
+            frame = window.requestAnimationFrame(tick);
+          };
+
+          window.addEventListener('wheel', stop, { passive: true });
+          window.addEventListener('touchstart', stop, { passive: true });
+          window.addEventListener('keydown', stopOnScrollKey);
+          frame = window.requestAnimationFrame(tick);
+        });
+      };
+
+      const revealAndStabilizeAnchor = async (
+        id: string,
+        options: { highlight?: boolean; preferredTop?: number | null } = {}
+      ): Promise<boolean> => {
+        await waitForAnchorPrecedingMedia(id);
+        const preferredTop = options.preferredTop ?? null;
+        const aligned = typeof preferredTop === 'number'
+          ? alignAnchorToTop(id, preferredTop)
+          : renderer.scrollToMood(id, { behavior: 'auto', highlight: options.highlight });
+        if (!aligned) return false;
+
+        await stabilizeAnchorPosition(id, preferredTop);
+        return true;
+      };
+
       const revealFeedAnchor = (): void => {
-        if (!feedAnchorId || feedAnchorHandled) return;
+        if (!feedAnchorId || feedAnchorHandled || feedAnchorRevealInFlight) return;
 
         window.requestAnimationFrame(async () => {
-          if (feedAnchorHandled) return;
-          await waitForAnchorPrecedingMedia(feedAnchorId);
-          if (feedAnchorHandled) return;
-          if (renderer.scrollToMood(feedAnchorId, { behavior: 'auto', highlight: true })) {
-            feedAnchorHandled = true;
-            setStatus('');
-            window.requestAnimationFrame(() => {
-              armAnchorNewerObserver();
-              armAnchorOlderObserver();
-            });
+          if (feedAnchorHandled || feedAnchorRevealInFlight) return;
+          feedAnchorRevealInFlight = true;
+          try {
+            if (await revealAndStabilizeAnchor(feedAnchorId, { highlight: true }) && !feedAnchorHandled) {
+              feedAnchorHandled = true;
+              setStatus('');
+              window.requestAnimationFrame(() => {
+                armAnchorNewerObserver();
+                armAnchorOlderObserver();
+              });
+            }
+          } finally {
+            feedAnchorRevealInFlight = false;
           }
         });
       };
@@ -370,16 +515,13 @@ export function initMoodFeedController(): void {
         const currentAnchorId = readCurrentUrlAnchorId();
         if (!currentAnchorId) return;
 
-        const reveal = async (highlight: boolean): Promise<void> => {
-          await waitForAnchorPrecedingMedia(currentAnchorId);
-          renderer.scrollToMood(currentAnchorId, { behavior: 'auto', highlight });
-        };
+        const preferredTop = readStoredReturnAnchorTop(currentAnchorId);
 
         window.requestAnimationFrame(async () => {
-          await reveal(true);
-          window.setTimeout(() => {
-            void reveal(false);
-          }, 450);
+          await revealAndStabilizeAnchor(currentAnchorId, {
+            highlight: preferredTop === null,
+            preferredTop,
+          });
         });
       };
 

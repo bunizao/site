@@ -1,5 +1,6 @@
 const MOOD_FEED_ANCHOR_PATTERN = /^[1-9]\d{0,19}$/;
 const MOOD_FEED_ANCHOR_WINDOW_OFFSET = 10n;
+export const MOOD_FEED_RETURN_ANCHOR_STORAGE_KEY = 'mood-feed-return-anchor';
 
 export function isMoodFeedAnchorId(value: string): boolean {
   return MOOD_FEED_ANCHOR_PATTERN.test(value.trim());

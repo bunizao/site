@@ -2,6 +2,7 @@ import { createMoodGalleryElement, initMoodGalleries } from '@/features/mood/cli
 import {
   getMoodFeedAnchorFragmentId,
   getMoodFeedAnchorHref,
+  MOOD_FEED_RETURN_ANCHOR_STORAGE_KEY,
 } from '@/features/mood/shared/feed-anchor';
 import { buildMoodPreviewFragment } from '@/features/mood/shared/preview';
 import type { ChannelInfo, MoodData } from '@/features/mood/client/feed-types';
@@ -723,6 +724,23 @@ export function createFeedRenderer({
     const returnHref = getMoodFeedAnchorHref(id);
     if (returnHref === '/mood') return;
     window.history.replaceState(window.history.state, '', returnHref);
+    const target = Array.from(list.querySelectorAll<HTMLElement>('[data-mood-id]')).find(
+      (item) => item.dataset.moodId === id
+    );
+    const top = target?.getBoundingClientRect().top ?? null;
+    try {
+      window.sessionStorage.setItem(
+        MOOD_FEED_RETURN_ANCHOR_STORAGE_KEY,
+        JSON.stringify({
+          createdAt: Date.now(),
+          href: returnHref,
+          id,
+          top: typeof top === 'number' && Number.isFinite(top) ? top : null,
+        })
+      );
+    } catch {
+      // History state still carries the semantic anchor when storage is unavailable.
+    }
   };
 
   const navigateToMood = (target: HTMLElement | null): void => {
