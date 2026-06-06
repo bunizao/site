@@ -37,7 +37,7 @@ All values are passed as query parameters — the server renders them verbatim i
 4. `code delta` — `{added}` / `{removed}` / net `{net}` (green/red/neutral colored)
 5. `avg output` — `{lph} lines/hr`
 
-**Dimensions:** 330 × 126px (height is computed: `paddingY×2 + rows×22`)
+**Dimensions:** 330 × 142px (height is computed: `paddingY×2 + rows×22`)
 **Cache:** `public, max-age=300, s-maxage=300` (5 minutes)
 **Animation:** Each row fades in with a staggered 80ms delay
 **Auth:** When `ACTIVITY_PANEL_SIGNING_SECRET` is configured, requests must include valid `exp` and `sig` values.
@@ -202,7 +202,7 @@ An infinite-scrolling horizontal marquee of technology tags.
 ## Common Notes
 
 - All endpoints are SSR — no prerendering, no static files.
-- SVGs use JetBrains Mono throughout for consistent monospace aesthetics.
+- SVGs use the shared `FONT_CODE` server stack from `src/lib/fonts.ts`, the server-side mirror of the CSS `--font-code` token.
 - GitHub proxies embedded images through [Camo](https://github.com/atmos/camo), which respects `Cache-Control` headers. A 5-minute TTL means updates propagate within ~5 minutes.
 - SVG animations (`@keyframes`) work in GitHub's Markdown renderer as of 2024, but may not display in some third-party Markdown viewers.
 - The `activity-panel.svg` endpoint does **not** fetch live data — all values come from query parameters. The GitHub Actions workflow in `bunizao/bunizao` is responsible for computing and injecting the correct values on a schedule.

@@ -21,10 +21,10 @@
 - **`src/middleware.ts`** — Astro middleware that gates `/dev/portal/**` and `/api/admin/**` against the `admin_session` cookie.
 - **`src/features/`** — Feature-private code. `src/features/home/ui/` contains home-route sections and their private UI helpers. `src/features/mood/` contains mood-specific client controllers, feed renderer/media/update modules, server services, shared helpers, and private Astro UI shells in `ui/`. `src/features/notify/server/` contains notify delivery, subscription, token, email, and D1 persistence logic, while `src/features/notify/ui/` holds notify-private preview UI. `src/features/admin/server/` holds OAuth/session, admin-side subscriber service, and broadcast service. `src/features/admin/ui/` holds the React consoles (subscribers, broadcasts).
 - **`src/features/logos/`** — Pixel mascot definitions, SVG rendering helpers, and animated logo UI used by the navbar and favicon route
-- **`src/lib/`** — Shared utilities: `github.ts` (GitHub API), `e2e.ts` (shared E2E fixture flag), `utils.ts` (cn/clsx utility), `runtime/env.ts`, `http/*`, `media/responsive-image.ts`, and `security/*`
+- **`src/lib/`** — Shared utilities: `github.ts` (GitHub API), `e2e.ts` (shared E2E fixture flag), `utils.ts` (cn/clsx utility), `fonts.ts` (server-side mirrors of the font tokens), `runtime/env.ts`, `http/*`, `media/responsive-image.ts`, and `security/*`
 - **`src/components/ui/`** — shadcn/ui primitives (Button, Card, Table, Dialog, etc.) used by the admin portal
 - **`src/layouts/`** — `Layout.astro` base layout for the public site; `PortalLayout.astro` shell for the admin portal (sidebar + topbar, scoped under `.theme-portal`)
-- **`src/styles/`** — `globals.css` with Tailwind directives, CSS variable color system (HSL), JetBrains Mono font, Geist Sans for the portal, `.theme-portal` token scope
+- **`src/styles/`** — `globals.css` with Tailwind directives, CSS variable color system (HSL), shared font tokens (`--font-mono`, `--font-code`, `--font-sans`, `--font-display`), and `.theme-portal` token scope
 
 ## Component Patterns
 
@@ -83,6 +83,7 @@ Telegram references:
 **SVG** (all accept `?theme=light|dark`):
 - `GET /api/status.svg`, `GET /api/tech-stack.svg`, `GET /api/site-badge.svg`
 - `GET /api/project.svg` (requires `?project=<name>`)
+- SVG font stacks come from `src/lib/fonts.ts`, which mirrors the CSS font tokens for server-rendered documents.
 - Full docs: `docs/SVG-API.md`
 
 **RSS:** `GET /mood/rss.xml`
