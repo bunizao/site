@@ -276,7 +276,7 @@ test.describe('Mood routes', () => {
     await expect(page).toHaveURL(new RegExp(`/mood/${targetId}$`));
 
     await page.locator('[data-back-button]').click();
-    await expect(page).toHaveURL(new RegExp(`/mood\\?${targetId}#mood-${targetId}$`));
+    await expect(page).toHaveURL(new RegExp(`/mood\\?${targetId}$`));
     await expect(page.locator(`[data-mood-id="${targetId}"]`)).toBeVisible();
     await expect
       .poll(async () => {
@@ -342,7 +342,7 @@ test.describe('Mood routes', () => {
       });
     });
 
-    await page.goto(`/mood?${targetId}#mood-${targetId}`, { waitUntil: 'domcontentloaded' });
+    await page.goto(`/mood?${targetId}`, { waitUntil: 'domcontentloaded' });
     await expect(page.locator('[data-mood-feed]')).not.toHaveClass(/is-hidden/, { timeout: 30_000 });
 
     const targetItem = page.locator(`[data-mood-id="${targetId}"]`);
@@ -367,7 +367,7 @@ test.describe('Mood routes', () => {
       window.sessionStorage.setItem('mood-test-shift-on-return', '1');
     });
     await page.locator('[data-back-button]').click();
-    await expect(page).toHaveURL(new RegExp(`/mood\\?${targetId}#mood-${targetId}$`));
+    await expect(page).toHaveURL(new RegExp(`/mood\\?${targetId}$`));
     await expect(page.locator('[data-test-anchor-shift]')).toBeAttached({ timeout: 3_000 });
     await expect
       .poll(async () => {

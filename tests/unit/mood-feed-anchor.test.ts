@@ -26,7 +26,7 @@ describe('mood feed anchors', () => {
 
   test('builds deterministic feed return anchors', () => {
     expect(getMoodFeedAnchorFragmentId('3196')).toBe('mood-3196');
-    expect(getMoodFeedAnchorHref('3196')).toBe('/mood?3196#mood-3196');
+    expect(getMoodFeedAnchorHref('3196')).toBe('/mood?3196');
     expect(getMoodFeedAnchorFragmentId('bad')).toBe('');
     expect(getMoodFeedAnchorHref('bad')).toBe('/mood');
   });

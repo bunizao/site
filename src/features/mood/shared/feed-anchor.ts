@@ -27,8 +27,7 @@ export function getMoodFeedAnchorFragmentId(anchorId: string): string {
 
 export function getMoodFeedAnchorHref(anchorId: string): string {
   const id = anchorId.trim();
-  const fragmentId = getMoodFeedAnchorFragmentId(id);
-  return fragmentId ? `/mood?${id}#${fragmentId}` : '/mood';
+  return isMoodFeedAnchorId(id) ? `/mood?${id}` : '/mood';
 }
 
 function addMoodFeedCursorOffset(anchorId: string, offset: bigint): string {
