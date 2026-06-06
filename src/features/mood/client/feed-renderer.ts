@@ -457,8 +457,14 @@ export function createFeedRenderer({
         cta.className = 'mood-item-thumb-video-cta';
         cta.textContent = 'View details';
 
+        const time = document.createElement('time');
+        time.className = 'mood-item-thumb-video-time';
+        time.dateTime = mood.datetime;
+        time.textContent = formatTime(mood.datetime);
+
         overlay.appendChild(label);
         overlay.appendChild(cta);
+        overlay.appendChild(time);
         thumbWrap.appendChild(overlay);
       };
 

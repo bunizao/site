@@ -403,9 +403,11 @@ test.describe('Mood routes', () => {
     await page.goto(`/mood?${moodId}`, { waitUntil: 'domcontentloaded' });
 
     const item = page.locator(`[data-mood-id="${moodId}"]`);
+    const expectedTime = new Date(payload.posts[0].datetime).toTimeString().slice(0, 5);
     await expect(item).toBeVisible();
     await expect(item.locator('.mood-item-thumb--video')).toBeVisible();
     await expect(item.locator('.mood-item-thumb-video-label')).toHaveText('Media is too big');
+    await expect(item.locator('.mood-item-thumb-video-time')).toHaveText(expectedTime);
     await expect(item.locator('.mood-item-thumb img')).toHaveCount(0);
   });
 

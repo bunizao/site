@@ -388,6 +388,7 @@ const hasCriticalInitialPosts = criticalInitialPosts.length > 0;
                           <div class="mood-item-thumb-video-overlay" aria-hidden="true">
                             <span class="mood-item-thumb-video-label">Media is too big</span>
                             <span class="mood-item-thumb-video-cta">View details</span>
+                            <time class="mood-item-thumb-video-time" datetime={post.datetime}>{formatTime(post.datetime)}</time>
                           </div>
                         ) : null}
                       </div>

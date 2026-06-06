@@ -5,6 +5,7 @@ import { isE2ESiteFixtureEnabled } from '@/lib/e2e';
 import { getChannelInfo, type Post } from '@/features/mood/server/telegram-source';
 import '@/styles/mood-gallery.css';
 import { renderMoodContentWithGalleries } from '@/features/mood/shared/gallery';
+import { addTooBigVideoTimestamp } from '@/features/mood/shared/video-placeholder';
 import DetailArticle from '@/features/mood/ui/DetailArticle.astro';
 import { createE2EPost } from '@/features/mood/server/e2e-fixtures';
 import { buildMoodDetailMetadata } from '@/features/mood/server/detail-metadata';
@@ -52,7 +53,9 @@ const metadata = buildMoodDetailMetadata(post, id);
 const formattedDate = post ? dayjs(post.datetime).format('MMMM D, YYYY · HH:mm') : '';
 const channel = import.meta.env.CHANNEL || Astro.locals?.runtime?.env?.CHANNEL || '';
 const telegramCommentUrl = channel && id ? `https://t.me/${channel}/${id}?comment=1` : '';
-const renderedPostContent = post ? renderMoodContentWithGalleries(post.content) : '';
+const renderedPostContent = post
+  ? addTooBigVideoTimestamp(renderMoodContentWithGalleries(post.content), post.datetime)
+  : '';
 ---
 
 <Layout

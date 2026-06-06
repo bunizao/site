@@ -847,6 +847,24 @@ const {
     transition: background 0.15s ease, border-color 0.15s ease;
   }
 
+  .mood-post-content :global(.video-too-big__timestamp) {
+    position: absolute;
+    right: 10px;
+    bottom: 10px;
+    z-index: 2;
+    padding: 4px 7px;
+    border: 1px solid rgba(255, 255, 255, 0.22);
+    border-radius: 999px;
+    background: rgba(0, 0, 0, 0.48);
+    color: rgba(255, 255, 255, 0.92);
+    font-family: var(--font-code);
+    font-size: 11px;
+    line-height: 1;
+    letter-spacing: 0;
+    font-variant-numeric: tabular-nums;
+    backdrop-filter: blur(8px);
+  }
+
   .mood-post-content :global(.video-too-big:hover .video-too-big__btn) {
     background: rgba(255, 255, 255, 0.15);
     border-color: rgba(255, 255, 255, 0.95);

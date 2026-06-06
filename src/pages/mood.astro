@@ -1179,6 +1179,23 @@ const skeletonGroups = [
     white-space: nowrap;
   }
 
+  :global(.mood-item-thumb-video-time) {
+    position: absolute;
+    right: 10px;
+    bottom: 10px;
+    padding: 4px 7px;
+    border: 1px solid rgba(255, 255, 255, 0.22);
+    border-radius: 999px;
+    background: rgba(0, 0, 0, 0.48);
+    color: rgba(255, 255, 255, 0.92);
+    font-family: var(--font-code);
+    font-size: 11px;
+    line-height: 1;
+    letter-spacing: 0;
+    font-variant-numeric: tabular-nums;
+    backdrop-filter: blur(8px);
+  }
+
   :global(.mood-item--clickable:hover .mood-item-thumb-video-cta),
   :global(.mood-item--clickable:focus-visible .mood-item-thumb-video-cta) {
     background: rgba(255, 255, 255, 0.15);
