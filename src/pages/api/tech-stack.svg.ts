@@ -1,5 +1,6 @@
 import type { APIRoute } from 'astro';
 import { svgResponse } from '../../lib/svg-response';
+import { FONT_CODE, fontFace } from '@/lib/fonts';
 
 export const prerender = false;
 
@@ -50,17 +51,10 @@ export const GET: APIRoute = ({ url }) => {
     <svg width="${svgWidth}" height="60" xmlns="http://www.w3.org/2000/svg">
       <defs>
         <style>
-          @font-face {
-            font-family: 'JetBrains Mono';
-            src:
-              url('/fonts/jetbrains-mono-variable.woff2') format('woff2-variations'),
-              url('/fonts/jetbrains-mono-variable.woff2') format('woff2');
-            font-weight: 100 800;
-            font-style: normal;
-          }
+          ${fontFace('code')}
 
           .tech-tag {
-            font-family: 'JetBrains Mono', monospace;
+            font-family: ${FONT_CODE};
             animation: scroll ${techStack.length * 3}s linear infinite;
           }
 
@@ -83,7 +77,7 @@ export const GET: APIRoute = ({ url }) => {
           return `
             <g transform="translate(${x}, 20)">
               <rect width="100" height="24" rx="6" fill="${colors.tagBg}" stroke="${colors.border}" stroke-width="1"/>
-              <text x="50" y="16" font-family="JetBrains Mono, monospace" font-size="11" font-weight="500" fill="${colors.text}" text-anchor="middle">
+              <text x="50" y="16" font-family="${FONT_CODE}" font-size="11" font-weight="500" fill="${colors.text}" text-anchor="middle">
                 ${tech}
               </text>
             </g>
@@ -94,7 +88,7 @@ export const GET: APIRoute = ({ url }) => {
           return `
             <g transform="translate(${x}, 20)">
               <rect width="100" height="24" rx="6" fill="${colors.tagBg}" stroke="${colors.border}" stroke-width="1"/>
-              <text x="50" y="16" font-family="JetBrains Mono, monospace" font-size="11" font-weight="500" fill="${colors.text}" text-anchor="middle">
+              <text x="50" y="16" font-family="${FONT_CODE}" font-size="11" font-weight="500" fill="${colors.text}" text-anchor="middle">
                 ${tech}
               </text>
             </g>

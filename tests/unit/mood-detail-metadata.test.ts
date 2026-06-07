@@ -61,6 +61,32 @@ describe('buildMoodDetailMetadata', () => {
     expect(metadata.imageHeight).toBeNull();
   });
 
+  test('uses bookmark descriptions before short link captions', () => {
+    const post = createPost({
+      id: '3539',
+      text: 'https://x.com/dviolettchan/status/2060659248959299645\n\n看哭了',
+      content: `
+        <a href="https://x.com/dviolettchan/status/2060659248959299645">https://x.com/dviolettchan/status/2060659248959299645</a><br><br>看哭了
+        <a class="bookmark-card bookmark-card--side-media" href="https://x.com/dviolettchan/status/2060659248959299645">
+          <span class="bookmark-card__media bookmark-card__media--side">
+            <img src="/static/https:/cdn4.telesco.pe/file/x-avatar.jpg" alt="紫云 (@dviolettchan) on X" />
+          </span>
+          <span class="bookmark-card__content">
+            <span class="bookmark-card__title">紫云 (@dviolettchan) on X</span>
+            <span class="bookmark-card__description">紫雪风老师屡次劝退 CS，总有推油觉得我是在恶意贩卖焦虑。</span>
+            <span class="bookmark-card__meta">X (formerly Twitter)</span>
+          </span>
+        </a>
+      `,
+    });
+
+    const metadata = buildMoodDetailMetadata(post, '3539');
+
+    expect(metadata.description).toBe('紫雪风老师屡次劝退 CS，总有推油觉得我是在恶意贩卖焦虑。');
+    expect(metadata.description).not.toContain('https://x.com');
+    expect(metadata.image).toBeUndefined();
+  });
+
   test('keeps not found copy only for missing posts', () => {
     const metadata = buildMoodDetailMetadata(null, '999');
 

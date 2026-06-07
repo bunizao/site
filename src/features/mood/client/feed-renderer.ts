@@ -1,4 +1,9 @@
 import { createMoodGalleryElement, initMoodGalleries } from '@/features/mood/client/gallery';
+import {
+  getMoodFeedAnchorFragmentId,
+  getMoodFeedAnchorHref,
+  MOOD_FEED_RETURN_ANCHOR_STORAGE_KEY,
+} from '@/features/mood/shared/feed-anchor';
 import { buildMoodPreviewFragment } from '@/features/mood/shared/preview';
 import type { ChannelInfo, MoodData } from '@/features/mood/client/feed-types';
 
@@ -97,6 +102,28 @@ function getQuoteTargetId(href: string): string | null {
   } catch {
     return null;
   }
+}
+
+function getMoodDetailIdFromHref(href: string): string {
+  if (!href) return '';
+  try {
+    const url = new URL(href, window.location.origin);
+    if (url.origin !== window.location.origin) return '';
+    const match = url.pathname.match(/^\/mood\/([1-9]\d{0,19})\/?$/);
+    return match?.[1] ?? '';
+  } catch {
+    return '';
+  }
+}
+
+function shouldTrackClickForCurrentTab(event: MouseEvent): boolean {
+  return (
+    event.button === 0
+    && !event.altKey
+    && !event.ctrlKey
+    && !event.metaKey
+    && !event.shiftKey
+  );
 }
 
 function removeBrokenQuoteMedia(img: HTMLImageElement, quoteWrap: HTMLElement): void {
@@ -242,6 +269,10 @@ export function createFeedRenderer({
     }
 
     element.dataset.moodId = mood.id;
+    const fragmentId = getMoodFeedAnchorFragmentId(mood.id);
+    if (fragmentId) {
+      element.id = fragmentId;
+    }
     element.style.setProperty('--item-index', String(index));
 
     const time = document.createElement('time');
@@ -457,8 +488,14 @@ export function createFeedRenderer({
         cta.className = 'mood-item-thumb-video-cta';
         cta.textContent = 'View details';
 
+        const time = document.createElement('time');
+        time.className = 'mood-item-thumb-video-time';
+        time.dateTime = mood.datetime;
+        time.textContent = formatTime(mood.datetime);
+
         overlay.appendChild(label);
         overlay.appendChild(cta);
+        overlay.appendChild(time);
         thumbWrap.appendChild(overlay);
       };
 
@@ -683,6 +720,29 @@ export function createFeedRenderer({
     return group;
   };
 
+  const rememberMoodReturnTarget = (id: string): void => {
+    const returnHref = getMoodFeedAnchorHref(id);
+    if (returnHref === '/mood') return;
+    window.history.replaceState(window.history.state, '', returnHref);
+    const target = Array.from(list.querySelectorAll<HTMLElement>('[data-mood-id]')).find(
+      (item) => item.dataset.moodId === id
+    );
+    const top = target?.getBoundingClientRect().top ?? null;
+    try {
+      window.sessionStorage.setItem(
+        MOOD_FEED_RETURN_ANCHOR_STORAGE_KEY,
+        JSON.stringify({
+          createdAt: Date.now(),
+          href: returnHref,
+          id,
+          top: typeof top === 'number' && Number.isFinite(top) ? top : null,
+        })
+      );
+    } catch {
+      // History state still carries the semantic anchor when storage is unavailable.
+    }
+  };
+
   const navigateToMood = (target: HTMLElement | null): void => {
     if (!target) return;
     if (target.closest('.mood-item-quote')) return;
@@ -694,6 +754,7 @@ export function createFeedRenderer({
 
     const href = item.dataset.href;
     if (href) {
+      rememberMoodReturnTarget(item.dataset.moodId ?? getMoodDetailIdFromHref(href));
       window.location.href = href;
     }
   };
@@ -716,6 +777,13 @@ export function createFeedRenderer({
     list.addEventListener('click', (event) => {
       const target = event.target as HTMLElement | null;
       if (handleQuoteJump(target, event)) return;
+      if (target && shouldTrackClickForCurrentTab(event as MouseEvent)) {
+        const detailLink = target.closest<HTMLAnchorElement>('a[href]');
+        const detailId = getMoodDetailIdFromHref(detailLink?.href ?? '');
+        if (detailId) {
+          rememberMoodReturnTarget(detailId);
+        }
+      }
       navigateToMood(target);
     });
 

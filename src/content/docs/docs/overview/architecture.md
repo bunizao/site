@@ -41,7 +41,7 @@ Admin endpoints under `/api/admin/` are gated by the `admin_session` cookie. The
 
 ## Styling
 
-TailwindCSS with class-based dark mode. Color tokens are CSS variables in HSL. JetBrains Mono is the public-site display face; Geist Sans powers the portal and these docs. The portal scopes its theme under `.theme-portal`.
+TailwindCSS with class-based dark mode. Color tokens are CSS variables in HSL. Type runs on four tokens defined once in `src/styles/globals.css` (mirrored in `src/lib/fonts.ts` for SVG/email): `--font-mono` (Geist Mono) is the public-site identity, `--font-code` (JetBrains Mono) is code and data readouts, `--font-sans` (Inter) is long-form reading prose via the `.reading` context, and `--font-display` (Geist Sans) powers the portal and these docs. The portal scopes its theme under `.theme-portal`.
 
 ## Component patterns
 

@@ -2,6 +2,7 @@ import type { APIRoute } from 'astro';
 import { isE2ESiteFixtureEnabled } from '@/lib/e2e';
 import { fetchGitHubRepo } from '../../lib/github';
 import { svgResponse } from '../../lib/svg-response';
+import { FONT_CODE, fontFace } from '@/lib/fonts';
 
 export const prerender = false;
 
@@ -102,17 +103,10 @@ export const GET: APIRoute = async ({ request, locals }) => {
     <svg width="400" height="160" xmlns="http://www.w3.org/2000/svg">
       <defs>
         <style>
-          @font-face {
-            font-family: 'JetBrains Mono';
-            src:
-              url('/fonts/jetbrains-mono-variable.woff2') format('woff2-variations'),
-              url('/fonts/jetbrains-mono-variable.woff2') format('woff2');
-            font-weight: 100 800;
-            font-style: normal;
-          }
+          ${fontFace('code')}
 
           .project-card {
-            font-family: 'JetBrains Mono', monospace;
+            font-family: ${FONT_CODE};
           }
         </style>
       </defs>
@@ -120,7 +114,7 @@ export const GET: APIRoute = async ({ request, locals }) => {
       <rect width="400" height="160" rx="12" fill="${colors.bg}" stroke="${colors.border}" stroke-width="1"/>
 
       <!-- Project Name -->
-      <text x="20" y="35" font-family="JetBrains Mono, monospace" font-size="16" font-weight="600" fill="${colors.text}">
+      <text x="20" y="35" font-family="${FONT_CODE}" font-size="16" font-weight="600" fill="${colors.text}">
         ${escapeXml(project.name)}
       </text>
 
@@ -129,18 +123,18 @@ export const GET: APIRoute = async ({ request, locals }) => {
         <g transform="translate(350, 25)">
           <path d="M8 .25a.75.75 0 0 1 .673.418l1.882 3.815 4.21.612a.75.75 0 0 1 .416 1.279l-3.046 2.97.719 4.192a.75.75 0 0 1-1.088.791L8 12.347l-3.766 1.98a.75.75 0 0 1-1.088-.79l.72-4.194L.818 6.374a.75.75 0 0 1 .416-1.28l4.21-.611L7.327.668A.75.75 0 0 1 8 .25z"
                 fill="${colors.starColor}" transform="scale(0.8)"/>
-          <text x="16" y="10" font-family="JetBrains Mono, monospace" font-size="11" font-weight="500" fill="${colors.muted}">
+          <text x="16" y="10" font-family="${FONT_CODE}" font-size="11" font-weight="500" fill="${colors.muted}">
             ${stars}
           </text>
         </g>
       ` : ''}
 
       <!-- Description -->
-      <text x="20" y="60" font-family="JetBrains Mono, monospace" font-size="12" fill="${colors.muted}">
+      <text x="20" y="60" font-family="${FONT_CODE}" font-size="12" fill="${colors.muted}">
         ${escapeXml(project.description.substring(0, 50))}
       </text>
       ${project.description.length > 50 ? `
-        <text x="20" y="78" font-family="JetBrains Mono, monospace" font-size="12" fill="${colors.muted}">
+        <text x="20" y="78" font-family="${FONT_CODE}" font-size="12" fill="${colors.muted}">
           ${escapeXml(project.description.substring(50, 100))}
         </text>
       ` : ''}
@@ -148,14 +142,14 @@ export const GET: APIRoute = async ({ request, locals }) => {
       <!-- Role Badge -->
       <g transform="translate(20, 100)">
         <rect width="60" height="20" rx="4" fill="${colors.roleBg}" stroke="${colors.border}" stroke-width="1"/>
-        <text x="30" y="14" font-family="JetBrains Mono, monospace" font-size="9" font-weight="600" fill="${colors.muted}" text-anchor="middle">
+        <text x="30" y="14" font-family="${FONT_CODE}" font-size="9" font-weight="600" fill="${colors.muted}" text-anchor="middle">
           ${project.role.toUpperCase()}
         </text>
       </g>
 
       <!-- Tags -->
       ${project.tags.slice(0, 3).map((tag, i) => `
-        <text x="${90 + i * 80}" y="114" font-family="JetBrains Mono, monospace" font-size="10" fill="${colors.muted}">
+        <text x="${90 + i * 80}" y="114" font-family="${FONT_CODE}" font-size="10" fill="${colors.muted}">
           ${escapeXml(tag)}${i < Math.min(project.tags.length, 3) - 1 ? ' ·' : ''}
         </text>
       `).join('')}

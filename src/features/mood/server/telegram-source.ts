@@ -115,6 +115,16 @@ const INLINE_IMAGE_WIDTHS = [480, 800, 1200];
 const MODAL_IMAGE_WIDTHS = [800, 1200, 1600];
 const INLINE_IMAGE_SIZES = '(min-width: 1024px) 720px, (min-width: 640px) 90vw, 100vw';
 const MODAL_IMAGE_SIZES = '(min-width: 1024px) 900px, 90vw';
+const LINK_PREVIEW_DESCRIPTION_MAX_LENGTH = 260;
+const EAGER_FEED_IMAGE_MAX_INDEX = 15;
+
+function getFeedImageLoading(index?: number): 'eager' | 'lazy' {
+  return (index ?? 0) > EAGER_FEED_IMAGE_MAX_INDEX ? 'lazy' : 'eager';
+}
+
+function getFeedVideoPreload(index?: number): 'auto' | 'metadata' {
+  return (index ?? 0) > EAGER_FEED_IMAGE_MAX_INDEX ? 'metadata' : 'auto';
+}
 
 function buildHdImageUrl(hdImageBase: string, path: string): string {
   if (!hdImageBase) return '';
@@ -518,7 +528,7 @@ function getVideoStickers($: CheerioAPI, item: Element, { staticProxy, index }: 
       if (!videoSrc) {
         return '';
       }
-      const loading = (index ?? 0) > 15 ? 'eager' : 'lazy';
+      const loading = getFeedImageLoading(index);
       const posterMarkup = posterSrc
         ? `<img class="sticker" src="${escapeHtml(posterSrc)}" alt="Video Sticker" loading="${loading}" />`
         : '';
@@ -544,7 +554,7 @@ function getImageStickers($: CheerioAPI, item: Element, { staticProxy, index }: 
       if (!imageSrc) {
         return '';
       }
-      return `<img class="sticker" src="${escapeHtml(imageSrc)}" style="width: 256px;" alt="Sticker" loading="${(index ?? 0) > 15 ? 'eager' : 'lazy'}" />`;
+      return `<img class="sticker" src="${escapeHtml(imageSrc)}" style="width: 256px;" alt="Sticker" loading="${getFeedImageLoading(index)}" />`;
     })
     ?.get()
     ?.join('') ?? '';
@@ -613,7 +623,7 @@ function getImages($: CheerioAPI, item: Element, { staticProxy, hdImageBase = ''
 
       return `
       <button class="image-preview-button image-preview-wrap${portraitClass}" popovertarget="${popoverId}" popovertargetaction="show"${widthStyle}>
-        <img src="${escapeHtml(imgSrc)}"${srcSetAttr}${fallbackAttr} alt="${escapedTitle}" loading="${(index ?? 0) > 15 ? 'eager' : 'lazy'}"${widthAttr}${heightAttr} />
+        <img src="${escapeHtml(imgSrc)}"${srcSetAttr}${fallbackAttr} alt="${escapedTitle}" loading="${getFeedImageLoading(index)}"${widthAttr}${heightAttr} />
       </button>
       <button class="image-preview-button modal" id="${popoverId}" popovertarget="${popoverId}" popovertargetaction="hide" popover>
         <img class="modal-img" src="${escapeHtml(imgSrc)}"${modalSrcSetAttr}${fallbackModalAttr} alt="${escapedTitle}" loading="lazy" />
@@ -669,7 +679,7 @@ async function getUnsupportedMediaFallback(
   return `
       <div class="image-list-container image-list-odd">
         <button class="image-preview-button image-preview-wrap image-preview-wrap--fallback" popovertarget="${popoverId}" popovertargetaction="show">
-          <img src="${escapeHtml(imgSrc)}" alt="${escapedTitle}" loading="${(index ?? 0) > 15 ? 'eager' : 'lazy'}" style="${fallbackImageStyle}" />
+          <img src="${escapeHtml(imgSrc)}" alt="${escapedTitle}" loading="${getFeedImageLoading(index)}" style="${fallbackImageStyle}" />
         </button>
         <button class="image-preview-button modal" id="${popoverId}" popovertarget="${popoverId}" popovertargetaction="hide" popover>
           <img class="modal-img" src="${escapeHtml(imgSrc)}" alt="${escapedTitle}" loading="lazy" />
@@ -732,7 +742,7 @@ function getVideo($: CheerioAPI, item: Element, { staticProxy, index }: ContentP
       .removeAttr('width')
       .removeAttr('height')
       .attr('controls', 'true')
-      .attr('preload', (index ?? 0) > 15 ? 'auto' : 'metadata')
+      .attr('preload', getFeedVideoPreload(index))
       .attr('muted', 'true')
       .attr('autoplay', 'true')
       .attr('loop', 'true')
@@ -878,7 +888,7 @@ function getLinkPreview($: CheerioAPI, item: Element, { staticProxy, index }: Co
   const rawSiteName = $(item).find('.link_preview_site_name')?.text() || '';
 
   const cleanedDescription = rawDescription.replace(/\s+/g, ' ').trim();
-  const shortDescription = cleanedDescription ? truncateText(cleanedDescription, 160) : '';
+  const shortDescription = cleanedDescription ? truncateText(cleanedDescription, LINK_PREVIEW_DESCRIPTION_MAX_LENGTH) : '';
 
   let domain = '';
   try {
@@ -889,12 +899,15 @@ function getLinkPreview($: CheerioAPI, item: Element, { staticProxy, index }: Co
   }
   const metaText = rawSiteName || domain || safeHref;
 
-  const image = $(item).find('.link_preview_image');
-  const src = image?.attr('style')?.match(/url\(["'](.*?)["']/i)?.[1];
+  const image = $(item).find('.link_preview_image, .link_preview_right_image').first();
+  const isSideImage = image.hasClass('link_preview_right_image');
+  const src = extractBackgroundImage(image.attr('style') ?? '');
   const imageSrc = src ? sanitizeUrlValue(toStaticProxyUrl(src, staticProxy), 'src') : '';
+  const cardClass = isSideImage ? 'bookmark-card bookmark-card--side-media' : 'bookmark-card';
+  const mediaClass = isSideImage ? 'bookmark-card__media bookmark-card__media--side' : 'bookmark-card__media';
 
   const imageMarkup = imageSrc
-    ? `<span class="bookmark-card__media"><img src="${escapeHtml(imageSrc)}" alt="${escapeHtml(rawTitle)}" loading="${(index ?? 0) > 15 ? 'eager' : 'lazy'}" /></span>`
+    ? `<span class="${mediaClass}"><img src="${escapeHtml(imageSrc)}" alt="${escapeHtml(rawTitle)}" loading="${getFeedImageLoading(index)}" /></span>`
     : '';
   const descriptionMarkup = shortDescription
     ? `<span class="bookmark-card__description">${escapeHtml(shortDescription)}</span>`
@@ -902,12 +915,12 @@ function getLinkPreview($: CheerioAPI, item: Element, { staticProxy, index }: Co
   const metaMarkup = metaText ? `<span class="bookmark-card__meta">${escapeHtml(metaText)}</span>` : '';
 
   return `
-    <a class="bookmark-card" href="${escapeHtml(safeHref)}" target="_blank" rel="noopener noreferrer">
+    <a class="${cardClass}" href="${escapeHtml(safeHref)}" target="_blank" rel="noopener noreferrer">
       ${imageMarkup}
       <span class="bookmark-card__content">
+        ${metaMarkup}
         <span class="bookmark-card__title">${escapeHtml(rawTitle)}</span>
         ${descriptionMarkup}
-        ${metaMarkup}
       </span>
     </a>
   `;

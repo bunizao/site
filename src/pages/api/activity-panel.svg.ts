@@ -1,6 +1,7 @@
 import type { APIRoute } from 'astro';
 import { readRuntimeEnv, verifySignedRequestUrl } from '@/lib/security/signed-url';
 import { svgResponse } from '../../lib/svg-response';
+import { FONT_CODE } from '@/lib/fonts';
 
 export const prerender = false;
 
@@ -83,11 +84,11 @@ export const GET: APIRoute = ({ url, locals }) => {
     const separatorY = paddingY + (i + 1) * lineHeight;
     const showSeparator = i < lines.length - 1;
     const valueMarkup = line.custom
-      ? `<text x="${width - paddingX}" y="${y}" font-family="JetBrains Mono, monospace" font-size="11" font-weight="600" text-anchor="end">${line.custom}</text>`
-      : `<text x="${width - paddingX}" y="${y}" font-family="JetBrains Mono, monospace" font-size="11" font-weight="600" fill="${colors.text}" text-anchor="end">${line.value}</text>`;
+      ? `<text x="${width - paddingX}" y="${y}" font-family="${FONT_CODE}" font-size="11" font-weight="600" text-anchor="end">${line.custom}</text>`
+      : `<text x="${width - paddingX}" y="${y}" font-family="${FONT_CODE}" font-size="11" font-weight="600" fill="${colors.text}" text-anchor="end">${line.value}</text>`;
     return `
       <g class="row" style="animation: fadeIn 0.4s ease ${i * 0.08}s both">
-        <text x="${paddingX}" y="${y}" font-family="JetBrains Mono, monospace" font-size="11" font-weight="400" fill="${colors.label}">${line.label}</text>
+        <text x="${paddingX}" y="${y}" font-family="${FONT_CODE}" font-size="11" font-weight="400" fill="${colors.label}">${line.label}</text>
         ${valueMarkup}
         ${showSeparator ? `<line x1="${paddingX}" y1="${separatorY}" x2="${width - paddingX}" y2="${separatorY}" stroke="${colors.separator}" stroke-width="0.5" stroke-dasharray="2,2"/>` : ''}
       </g>

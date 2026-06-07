@@ -1,3 +1,5 @@
+import { FONT_CODE, FONT_DISPLAY, FONT_FILES, fontFace } from '@/lib/fonts';
+
 function escapeHtml(value: string): string {
   return value
     .replace(/&/g, '&amp;')
@@ -70,29 +72,12 @@ export function buildNotifyPageHtml(options: {
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>${safeTitle} — buxx.me</title>
     <link rel="icon" type="image/svg+xml" href="/logo/peek.svg?v=3" />
-    <link rel="alternate icon" href="/favicon.ico" />
-    <link rel="preload" as="font" href="/fonts/geist-sans-variable.woff2" type="font/woff2" crossorigin />
-    <link rel="preload" as="font" href="/fonts/jetbrains-mono-variable.woff2" type="font/woff2" crossorigin />
+    <link rel="preload" as="font" href="${FONT_FILES.display}" type="font/woff2" crossorigin />
+    <link rel="preload" as="font" href="${FONT_FILES.code}" type="font/woff2" crossorigin />
     <style>
-      @font-face {
-        font-family: 'Geist';
-        src:
-          url('/fonts/geist-sans-variable.woff2') format('woff2-variations'),
-          url('/fonts/geist-sans-variable.woff2') format('woff2');
-        font-weight: 100 900;
-        font-style: normal;
-        font-display: swap;
-      }
+      ${fontFace('display')}
 
-      @font-face {
-        font-family: 'JetBrains Mono';
-        src:
-          url('/fonts/jetbrains-mono-variable.woff2') format('woff2-variations'),
-          url('/fonts/jetbrains-mono-variable.woff2') format('woff2');
-        font-weight: 100 800;
-        font-style: normal;
-        font-display: swap;
-      }
+      ${fontFace('code')}
 
       :root {
         --bg: #f7f7f5;
@@ -146,7 +131,7 @@ export function buildNotifyPageHtml(options: {
       }
 
       body {
-        font-family: 'Geist', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+        font-family: ${FONT_DISPLAY};
         background: var(--bg);
         color: var(--fg);
         min-height: 100vh;
@@ -245,7 +230,7 @@ export function buildNotifyPageHtml(options: {
       }
 
       .brand-mark {
-        font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-family: ${FONT_CODE};
         font-size: 14px;
         font-weight: 600;
         letter-spacing: 0;
@@ -257,7 +242,7 @@ export function buildNotifyPageHtml(options: {
         align-items: center;
         gap: 8px;
         margin-bottom: 14px;
-        font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-family: ${FONT_CODE};
         font-size: 11px;
         font-weight: 500;
         color: var(--muted);
@@ -297,7 +282,7 @@ export function buildNotifyPageHtml(options: {
       }
 
       h1 {
-        font-family: 'Geist', ui-sans-serif, system-ui, sans-serif;
+        font-family: ${FONT_DISPLAY};
         font-size: 30px;
         font-weight: 600;
         letter-spacing: -0.025em;
@@ -323,7 +308,7 @@ export function buildNotifyPageHtml(options: {
         align-items: center;
         gap: 10px;
         margin: 4px 0 28px;
-        font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-family: ${FONT_CODE};
         font-size: 11px;
         font-weight: 500;
         letter-spacing: 0.06em;
@@ -455,7 +440,7 @@ export function buildNotifyPageHtml(options: {
         align-items: center;
         justify-content: space-between;
         gap: 12px;
-        font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-family: ${FONT_CODE};
         font-size: 11px;
         color: var(--soft);
       }

@@ -369,7 +369,7 @@ const session = (Astro.locals as any).adminSession;
   .moodp-input {
     padding: 8px 10px;
     font-size: 13px;
-    font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-family: var(--font-code);
     color: hsl(var(--foreground));
     background: hsl(var(--background));
     border: 1px solid hsl(var(--border));
@@ -429,7 +429,7 @@ const session = (Astro.locals as any).adminSession;
     flex: 1;
     min-width: 0;
     padding: 6px 8px;
-    font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-family: var(--font-code);
     font-size: 11px;
     color: hsl(var(--muted-foreground));
     background: hsl(var(--card));
@@ -518,6 +518,6 @@ const session = (Astro.locals as any).adminSession;
     background: hsl(var(--background));
     font-size: 11px;
     color: hsl(var(--muted-foreground));
-    font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-family: var(--font-code);
   }
 </style>

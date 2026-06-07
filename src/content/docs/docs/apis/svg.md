@@ -24,7 +24,7 @@ A stats panel with recent GitHub coding activity. All values come from query par
 | `lph` | `0` | Average lines per hour. |
 | `exp`, `sig` | — | Unix expiry + HMAC signature for signed access when `ACTIVITY_PANEL_SIGNING_SECRET` is set. |
 
-Dimensions: 330 × 126px (height computed from row count). Cache: `public, max-age=300, s-maxage=300`. Each row fades in with an 80ms stagger.
+Dimensions: 330 × 142px (height computed from row count). Cache: `public, max-age=300, s-maxage=300`. Each row fades in with an 80ms stagger.
 
 ### `GET /api/status.svg`
 
@@ -90,6 +90,6 @@ GitHub respects `prefers-color-scheme` switching via `<picture>`. Camo (GitHub's
 ## Notes
 
 - All endpoints are SSR. No prerendering, no static files in `public/`.
-- SVGs use JetBrains Mono for monospace consistency.
+- SVGs use the shared `FONT_CODE` server stack from `src/lib/fonts.ts`, the server-side mirror of the CSS `--font-code` token.
 - SVG `@keyframes` work in GitHub Markdown as of 2024 but may not render in all third-party Markdown viewers.
 - `activity-panel.svg` does **not** fetch live data — values are query-driven, refreshed on a schedule by GitHub Actions.

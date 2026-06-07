@@ -147,6 +147,9 @@
 }
 
 .mood-item-text {
+  /* Readable sans on the site; falls back to inherit so the standalone embed
+     (no globals.css cascade) keeps its own mono identity. */
+  font-family: var(--font-sans, inherit);
   font-size: var(--mood-item-text-size, 14px);
   line-height: var(--mood-item-text-line-height, 1.6);
   color: hsl(var(--foreground));
@@ -183,7 +186,7 @@
 }
 
 .mood-item-text code {
-  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-family: var(--font-code);
   font-size: 0.88em;
   background: hsl(var(--foreground) / 0.06);
   padding: 1px 5px;

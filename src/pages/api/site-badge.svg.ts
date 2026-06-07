@@ -1,5 +1,6 @@
 import type { APIRoute } from 'astro';
 import { svgResponse } from '../../lib/svg-response';
+import { FONT_CODE, fontFace } from '@/lib/fonts';
 
 export const prerender = false;
 
@@ -68,17 +69,10 @@ export const GET: APIRoute = ({ url, request }) => {
     <svg width="130" height="32" xmlns="http://www.w3.org/2000/svg">
       <defs>
         <style>
-          @font-face {
-            font-family: 'JetBrains Mono';
-            src:
-              url('/fonts/jetbrains-mono-variable.woff2') format('woff2-variations'),
-              url('/fonts/jetbrains-mono-variable.woff2') format('woff2');
-            font-weight: 100 800;
-            font-style: normal;
-          }
+          ${fontFace('code')}
 
           .badge-text {
-            font-family: 'JetBrains Mono', monospace;
+            font-family: ${FONT_CODE};
             font-size: 13px;
             font-weight: 600;
             letter-spacing: -0.02em;

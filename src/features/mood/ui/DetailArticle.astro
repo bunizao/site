@@ -9,6 +9,7 @@ interface Props {
   renderedPostContent?: string;
   formattedDate?: string;
   telegramCommentUrl?: string;
+  backHref?: string;
 }
 
 const {
@@ -18,13 +19,14 @@ const {
   renderedPostContent = '',
   formattedDate = '',
   telegramCommentUrl = '',
+  backHref = '/mood',
 } = Astro.props;
 ---
 
 {post ? (
   <article class="mood-post">
     <div class="mood-post-header">
-      <button type="button" class="back-link" data-back-button>← Back to Moods</button>
+      <a href={backHref} class="back-link" data-back-button>← Back to Moods</a>
       <div class="mood-post-meta">
         <time datetime={post.datetime} class="mood-post-date">
           {formattedDate}
@@ -58,7 +60,7 @@ const {
         )}
       </div>
     </div>
-    <div class="mood-post-content" set:html={renderedPostContent} />
+    <div class="mood-post-content reading" set:html={renderedPostContent} />
     {post.reactions.length > 0 && (
       <div class="mood-post-reactions" aria-label="Reactions">
         {post.reactions.map((reaction) => (
@@ -97,7 +99,7 @@ const {
 ) : (
   <article class="mood-post">
     <div class="mood-post-header">
-      <a href="/mood" class="back-link">← Back to Moods</a>
+      <a href={backHref} class="back-link">← Back to Moods</a>
       <div class="mood-post-meta">
         <time class="mood-post-date">Unavailable</time>
       </div>
@@ -113,6 +115,7 @@ const {
     padding: 80px 0 60px;
     max-width: 680px;
     margin: 0 auto;
+    font-family: var(--font-sans);
     animation: fade-in 0.5s ease-out;
   }
 
@@ -256,7 +259,7 @@ const {
 
     .mood-post-content :global(.bookmark-card__description) {
       font-size: 12px;
-      -webkit-line-clamp: 2;
+      -webkit-line-clamp: 3;
     }
 
     .mood-post-content :global(.bookmark-card__meta) {
@@ -349,15 +352,19 @@ const {
 
   .back-link {
     display: inline-block;
-    font-size: 13px;
-    color: hsl(var(--muted-foreground));
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: hsl(var(--muted-foreground) / 0.75);
     margin-bottom: 28px;
     transition: color 0.15s ease;
     background: none;
     border: none;
     padding: 0;
     cursor: pointer;
-    font-family: inherit;
+    text-decoration: none;
   }
 
   @media (min-width: 640px) {
@@ -383,15 +390,20 @@ const {
   }
 
   .mood-post-date {
-    font-size: 13px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
     color: hsl(var(--muted-foreground));
     font-variant-numeric: tabular-nums;
+    font-feature-settings: 'tnum' 1, 'zero' 1;
     line-height: 1.5;
   }
 
   @media (min-width: 640px) {
     .mood-post-date {
-      font-size: 14px;
+      font-size: 13px;
     }
   }
 
@@ -403,13 +415,17 @@ const {
   }
 
   .mood-post-tag {
-    font-size: 12px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
     color: hsl(var(--muted-foreground) / 0.7);
-    padding: 5px 12px;
-    background: hsl(var(--foreground) / 0.06);
+    padding: 4px 10px;
+    background: hsl(var(--foreground) / 0.05);
     border-radius: 6px;
     transition: all 0.15s ease;
-    border: 1px solid transparent;
+    border: 1px solid hsl(var(--foreground) / 0.06);
   }
 
   .mood-post-tag:hover {
@@ -421,7 +437,7 @@ const {
   .mood-post-forwarded {
     display: inline-flex;
     flex-wrap: wrap;
-    align-items: center;
+    align-items: baseline;
     gap: 8px;
     font-size: 12px;
     color: hsl(var(--muted-foreground));
@@ -432,11 +448,13 @@ const {
     text-transform: uppercase;
     letter-spacing: 0.08em;
     font-size: 10px;
+    line-height: 1.2;
     color: hsl(var(--muted-foreground) / 0.7);
   }
 
   .mood-forwarded-source {
     font-weight: 500;
+    line-height: 1.2;
     color: hsl(var(--foreground) / 0.85);
     text-decoration: none;
     border-bottom: 1px solid transparent;
@@ -448,6 +466,7 @@ const {
   }
 
   .mood-forwarded-author {
+    line-height: 1.2;
     color: hsl(var(--muted-foreground) / 0.7);
   }
 
@@ -831,6 +850,24 @@ const {
     transition: background 0.15s ease, border-color 0.15s ease;
   }
 
+  .mood-post-content :global(.video-too-big__timestamp) {
+    position: absolute;
+    right: 10px;
+    bottom: 10px;
+    z-index: 2;
+    padding: 4px 7px;
+    border: 1px solid rgba(255, 255, 255, 0.22);
+    border-radius: 999px;
+    background: rgba(0, 0, 0, 0.48);
+    color: rgba(255, 255, 255, 0.92);
+    font-family: var(--font-code);
+    font-size: 11px;
+    line-height: 1;
+    letter-spacing: 0;
+    font-variant-numeric: tabular-nums;
+    backdrop-filter: blur(8px);
+  }
+
   .mood-post-content :global(.video-too-big:hover .video-too-big__btn) {
     background: rgba(255, 255, 255, 0.15);
     border-color: rgba(255, 255, 255, 0.95);
@@ -879,7 +916,7 @@ const {
   }
 
   .mood-post-content :global(code) {
-    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-family: var(--font-code);
     font-size: 0.88em;
     background: hsl(var(--foreground) / 0.06);
     padding: 1px 5px;
@@ -945,6 +982,38 @@ const {
     aspect-ratio: 1.91 / 1;
   }
 
+  .mood-post-content :global(.bookmark-card--side-media) {
+    display: block;
+    max-width: 460px;
+    padding: 12px 14px 13px;
+  }
+
+  .mood-post-content :global(.bookmark-card--side-media::after) {
+    content: '';
+    display: block;
+    clear: both;
+  }
+
+  .mood-post-content :global(.bookmark-card--side-media .bookmark-card__media) {
+    float: right;
+    width: 92px;
+    height: 92px;
+    margin: 0 0 8px 14px;
+    border-radius: 10px;
+    overflow: hidden;
+  }
+
+  .mood-post-content :global(.bookmark-card--side-media .bookmark-card__media img) {
+    width: 100%;
+    height: 100%;
+    aspect-ratio: 1 / 1;
+  }
+
+  .mood-post-content :global(.bookmark-card--side-media .bookmark-card__content) {
+    display: block;
+    padding: 0;
+  }
+
   .mood-post-content :global(.bookmark-card__content) {
     display: flex;
     flex-direction: column;
@@ -970,9 +1039,23 @@ const {
     line-height: 1.5;
     display: -webkit-box;
     -webkit-box-orient: vertical;
-    -webkit-line-clamp: 2;
+    -webkit-line-clamp: 3;
     overflow: hidden;
     overflow-wrap: break-word;
+  }
+
+  .mood-post-content :global(.bookmark-card--side-media .bookmark-card__description) {
+    display: block;
+    -webkit-line-clamp: unset;
+  }
+
+  .mood-post-content :global(.bookmark-card--side-media .bookmark-card__meta) {
+    order: initial;
+    display: block;
+    margin-bottom: 5px;
+    font-size: 12px;
+    letter-spacing: 0;
+    text-transform: none;
   }
 
   .mood-post-content :global(.bookmark-card__meta) {
@@ -980,9 +1063,26 @@ const {
     font-size: 10px;
     font-weight: 600;
     line-height: 1.2;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
+    letter-spacing: 0;
+    text-transform: none;
     color: hsl(var(--muted-foreground) / 0.58);
+  }
+
+  @media (max-width: 540px) {
+    .mood-post-content :global(.bookmark-card--side-media) {
+      padding: 11px 12px 12px;
+    }
+
+    .mood-post-content :global(.bookmark-card--side-media .bookmark-card__media),
+    .mood-post-content :global(.bookmark-card--side-media .bookmark-card__media img) {
+      width: 76px;
+      height: 76px;
+    }
+
+    .mood-post-content :global(.bookmark-card--side-media .bookmark-card__description) {
+      display: -webkit-box;
+      -webkit-line-clamp: 5;
+    }
   }
 
   .mood-post-content :global(.spoiler-button) {

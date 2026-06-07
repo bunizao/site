@@ -2,6 +2,8 @@ import { describe, expect, test } from 'bun:test';
 
 import {
   getMoodFeedAnchorBeforeCursor,
+  getMoodFeedAnchorFragmentId,
+  getMoodFeedAnchorHref,
   getMoodFeedAnchorWindowBeforeCursor,
   isMoodFeedAnchorId,
   mergeMoodFeedWindowPosts,
@@ -20,6 +22,13 @@ describe('mood feed anchors', () => {
     expect(isMoodFeedAnchorId('0')).toBe(false);
     expect(isMoodFeedAnchorId('3196x')).toBe(false);
     expect(readMoodFeedAnchorId(new URL('https://example.com/mood?tag=life'))).toBe('');
+  });
+
+  test('builds deterministic feed return anchors', () => {
+    expect(getMoodFeedAnchorFragmentId('3196')).toBe('mood-3196');
+    expect(getMoodFeedAnchorHref('3196')).toBe('/mood?3196');
+    expect(getMoodFeedAnchorFragmentId('bad')).toBe('');
+    expect(getMoodFeedAnchorHref('bad')).toBe('/mood');
   });
 
   test('builds an inclusive before cursor for Telegram', () => {

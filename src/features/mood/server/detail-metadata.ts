@@ -1,8 +1,9 @@
+import * as cheerio from 'cheerio';
 import { getFirstImageMeta, getTextPreview } from '@/features/mood/shared/utils';
 import type { Post } from '@/features/mood/server/telegram-source';
 
 const SITE_NAME = 'Bunizao';
-const DESCRIPTION_MAX_LENGTH = 160;
+const DESCRIPTION_MAX_LENGTH = 220;
 
 export interface MoodDetailMetadata {
   title: string;
@@ -39,6 +40,15 @@ function getShareableImageUrl(value: string | null): string | undefined {
   return trimmed;
 }
 
+function getBookmarkDescription(content: string): string {
+  if (!content.includes('bookmark-card__description')) {
+    return '';
+  }
+
+  const $ = cheerio.load(content);
+  return compactText($('.bookmark-card__description').first().text());
+}
+
 export function buildMoodDetailMetadata(post: Post | null, id: string | undefined): MoodDetailMetadata {
   if (!post) {
     return {
@@ -48,7 +58,9 @@ export function buildMoodDetailMetadata(post: Post | null, id: string | undefine
   }
 
   const moodLabel = getMoodLabel(id);
-  const summary = compactText(getTextPreview(post) || post.text || post.title);
+  const summary = compactText(
+    getBookmarkDescription(post.content) || getTextPreview(post) || post.text || post.title
+  );
   const description = summary
     ? truncateDescription(summary)
     : `${moodLabel} from ${SITE_NAME}.`;

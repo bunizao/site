@@ -3,6 +3,7 @@ import Hero from '@/features/mood/ui/Hero.astro';
 import type { MoodFeedItem, MoodChannelSummary } from '@/features/mood/server/contracts';
 import { renderMoodGalleryMarkup } from '@/features/mood/shared/gallery-render';
 import { getMoodFeedThumbnailStyle } from '@/features/mood/shared/feed-thumbnail';
+import { getMoodFeedAnchorFragmentId } from '@/features/mood/shared/feed-anchor';
 import { buildSrcSet, withWidthParam } from '@/lib/media/responsive-image';
 
 interface SkeletonItem {
@@ -267,10 +268,12 @@ const hasCriticalInitialPosts = criticalInitialPosts.length > 0;
               const commentsInfo = getCommentsCountInfo(post.commentsCount);
               const isTooBigVideoPreview = post.previewMediaType === 'too-big-video';
               const hasGalleryPreview = !mediaHtml && !isTooBigVideoPreview && (post.gallery?.items.length ?? 0) > 1;
+              const fragmentId = getMoodFeedAnchorFragmentId(post.id);
 
               return (
                 <div
                   class={`mood-item${href ? ' mood-item--clickable' : ''}`}
+                  id={fragmentId || undefined}
                   data-mood-id={post.id}
                   data-href={href}
                   role={href ? 'link' : undefined}
@@ -388,6 +391,7 @@ const hasCriticalInitialPosts = criticalInitialPosts.length > 0;
                           <div class="mood-item-thumb-video-overlay" aria-hidden="true">
                             <span class="mood-item-thumb-video-label">Media is too big</span>
                             <span class="mood-item-thumb-video-cta">View details</span>
+                            <time class="mood-item-thumb-video-time" datetime={post.datetime}>{formatTime(post.datetime)}</time>
                           </div>
                         ) : null}
                       </div>
@@ -510,6 +514,7 @@ const hasCriticalInitialPosts = criticalInitialPosts.length > 0;
 <style>
   .mood-page {
     padding: 80px 0 60px;
+    font-family: var(--font-sans);
   }
 
   @media (min-width: 640px) {

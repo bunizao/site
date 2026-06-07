@@ -5,6 +5,8 @@ import { isE2ESiteFixtureEnabled } from '@/lib/e2e';
 import { getChannelInfo, type Post } from '@/features/mood/server/telegram-source';
 import '@/styles/mood-gallery.css';
 import { renderMoodContentWithGalleries } from '@/features/mood/shared/gallery';
+import { getMoodFeedAnchorHref } from '@/features/mood/shared/feed-anchor';
+import { addTooBigVideoTimestamp } from '@/features/mood/shared/video-placeholder';
 import DetailArticle from '@/features/mood/ui/DetailArticle.astro';
 import { createE2EPost } from '@/features/mood/server/e2e-fixtures';
 import { buildMoodDetailMetadata } from '@/features/mood/server/detail-metadata';
@@ -50,9 +52,12 @@ const oembed = id
   : undefined;
 const metadata = buildMoodDetailMetadata(post, id);
 const formattedDate = post ? dayjs(post.datetime).format('MMMM D, YYYY · HH:mm') : '';
+const moodFeedBackHref = getMoodFeedAnchorHref(id ?? '');
 const channel = import.meta.env.CHANNEL || Astro.locals?.runtime?.env?.CHANNEL || '';
 const telegramCommentUrl = channel && id ? `https://t.me/${channel}/${id}?comment=1` : '';
-const renderedPostContent = post ? renderMoodContentWithGalleries(post.content) : '';
+const renderedPostContent = post
+  ? addTooBigVideoTimestamp(renderMoodContentWithGalleries(post.content), post.datetime)
+  : '';
 ---
 
 <Layout
@@ -73,6 +78,7 @@ const renderedPostContent = post ? renderMoodContentWithGalleries(post.content) 
       renderedPostContent={renderedPostContent}
       formattedDate={formattedDate}
       telegramCommentUrl={telegramCommentUrl}
+      backHref={moodFeedBackHref}
     />
   </main>
 </Layout>
@@ -107,12 +113,21 @@ const renderedPostContent = post ? renderMoodContentWithGalleries(post.content) 
 
   const backButton = document.querySelector('[data-back-button]');
 
-  if (backButton) {
-    backButton.addEventListener('click', () => {
-      if (document.referrer && document.referrer.includes('/mood')) {
+  if (backButton instanceof HTMLElement) {
+    backButton.addEventListener('click', (event) => {
+      let referrerPath = '';
+      try {
+        const referrerUrl = document.referrer ? new URL(document.referrer) : null;
+        if (referrerUrl?.origin === window.location.origin) {
+          referrerPath = referrerUrl.pathname;
+        }
+      } catch {
+        referrerPath = '';
+      }
+
+      if ((referrerPath === '/mood' || referrerPath === '/mood/') && window.history.length > 1) {
+        event.preventDefault();
         window.history.back();
-      } else {
-        window.location.href = '/mood';
       }
     });
   }

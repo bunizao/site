@@ -225,6 +225,162 @@ test.describe('Mood routes', () => {
     await expect(page).toHaveURL(new RegExp(`${href}$`));
   });
 
+  test('returns from detail to the originating feed anchor', async ({ page }) => {
+    const channel = {
+      slug: 'e2e',
+      title: 'E2E Channel',
+      description: 'E2E mood feed',
+      avatar: '',
+    };
+    const posts = Array.from({ length: 32 }, (_, index) => {
+      const id = String(990050 - index);
+      return createMoodFeedPost(
+        id,
+        `E2E return anchor item ${id} ${'body '.repeat(18)}`
+      );
+    });
+    const targetId = '990030';
+
+    await page.route('**/api/moods**', async (route) => {
+      const url = new URL(route.request().url());
+      if (url.searchParams.get('probe') === '1') {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({ latestId: posts[0].id }),
+        });
+        return;
+      }
+
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ posts, channel }),
+      });
+    });
+
+    await page.goto('/mood', { waitUntil: 'domcontentloaded' });
+    await expect(page.locator('[data-mood-feed]')).not.toHaveClass(/is-hidden/, { timeout: 30_000 });
+
+    const targetItem = page.locator(`[data-mood-id="${targetId}"]`);
+    await expect(targetItem).toBeVisible();
+    await targetItem.scrollIntoViewIfNeeded();
+    await expect
+      .poll(async () => page.evaluate(() => window.scrollY))
+      .toBeGreaterThan(0);
+
+    await targetItem.hover();
+    const expandLink = targetItem.locator('.mood-item-expand-float');
+    await expect(expandLink).toBeVisible();
+    await expandLink.click();
+    await expect(page).toHaveURL(new RegExp(`/mood/${targetId}$`));
+
+    await page.locator('[data-back-button]').click();
+    await expect(page).toHaveURL(new RegExp(`/mood\\?${targetId}$`));
+    await expect(page.locator(`[data-mood-id="${targetId}"]`)).toBeVisible();
+    await expect
+      .poll(async () => {
+        return page.locator(`[data-mood-id="${targetId}"]`).evaluate((element) => {
+          const rect = element.getBoundingClientRect();
+          return rect.bottom > 0 && rect.top < window.innerHeight;
+        });
+      })
+      .toBe(true);
+  });
+
+  test('keeps anchored feed position when returning from detail to the same URL', async ({ page }) => {
+    const channel = {
+      slug: 'e2e',
+      title: 'E2E Channel',
+      description: 'E2E mood feed',
+      avatar: '',
+    };
+    const posts = Array.from({ length: 32 }, (_, index) => {
+      const id = String(990050 - index);
+      return createMoodFeedPost(
+        id,
+        `E2E same-url return item ${id} ${'body '.repeat(18)}`
+      );
+    });
+    const targetId = '990030';
+
+    await page.addInitScript((id) => {
+      window.addEventListener('pageshow', () => {
+        if (window.sessionStorage.getItem('mood-test-shift-on-return') !== '1') return;
+        if (window.location.pathname !== '/mood' || !window.location.search.includes(id)) return;
+        window.sessionStorage.removeItem('mood-test-shift-on-return');
+
+        window.setTimeout(() => {
+          if (document.querySelector('[data-test-anchor-shift]')) return;
+          const target = document.querySelector(`[data-mood-id="${id}"]`);
+          if (!target?.parentElement) return;
+
+          const spacer = document.createElement('div');
+          spacer.dataset.testAnchorShift = 'true';
+          spacer.style.height = '320px';
+          spacer.style.flex = '0 0 auto';
+          target.parentElement.insertBefore(spacer, target);
+        }, 700);
+      });
+    }, targetId);
+
+    await page.route('**/api/moods**', async (route) => {
+      const url = new URL(route.request().url());
+      if (url.searchParams.get('probe') === '1') {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({ latestId: posts[0].id }),
+        });
+        return;
+      }
+
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ posts, channel }),
+      });
+    });
+
+    await page.goto(`/mood?${targetId}`, { waitUntil: 'domcontentloaded' });
+    await expect(page.locator('[data-mood-feed]')).not.toHaveClass(/is-hidden/, { timeout: 30_000 });
+
+    const targetItem = page.locator(`[data-mood-id="${targetId}"]`);
+    await expect(targetItem).toBeVisible();
+    await expect
+      .poll(async () => {
+        return targetItem.evaluate((element) => {
+          const rect = element.getBoundingClientRect();
+          return rect.bottom > 0 && rect.top < window.innerHeight;
+        });
+      })
+      .toBe(true);
+    const beforeTop = await targetItem.evaluate((element) => element.getBoundingClientRect().top);
+
+    await targetItem.hover();
+    const expandLink = targetItem.locator('.mood-item-expand-float');
+    await expect(expandLink).toBeVisible();
+    await expandLink.click();
+    await expect(page).toHaveURL(new RegExp(`/mood/${targetId}$`));
+
+    await page.evaluate(() => {
+      window.sessionStorage.setItem('mood-test-shift-on-return', '1');
+    });
+    await page.locator('[data-back-button]').click();
+    await expect(page).toHaveURL(new RegExp(`/mood\\?${targetId}$`));
+    await expect(page.locator('[data-test-anchor-shift]')).toBeAttached({ timeout: 3_000 });
+    await expect
+      .poll(async () => {
+        return targetItem.evaluate((element) => {
+          const rect = element.getBoundingClientRect();
+          return rect.bottom > 0 && rect.top < window.innerHeight;
+        });
+      })
+      .toBe(true);
+    const afterTop = await targetItem.evaluate((element) => element.getBoundingClientRect().top);
+    expect(Math.abs(afterTop - beforeTop)).toBeLessThanOrEqual(24);
+  });
+
   test('uses short query ids as bounded feed anchors without repeated scroll correction', async ({ page }) => {
     await page.addInitScript(() => {
       const original = Element.prototype.scrollIntoView;
@@ -403,9 +559,11 @@ test.describe('Mood routes', () => {
     await page.goto(`/mood?${moodId}`, { waitUntil: 'domcontentloaded' });
 
     const item = page.locator(`[data-mood-id="${moodId}"]`);
+    const expectedTime = new Date(payload.posts[0].datetime).toTimeString().slice(0, 5);
     await expect(item).toBeVisible();
     await expect(item.locator('.mood-item-thumb--video')).toBeVisible();
     await expect(item.locator('.mood-item-thumb-video-label')).toHaveText('Media is too big');
+    await expect(item.locator('.mood-item-thumb-video-time')).toHaveText(expectedTime);
     await expect(item.locator('.mood-item-thumb img')).toHaveCount(0);
   });
 
@@ -666,7 +824,7 @@ test.describe('Mood routes', () => {
       .toBe(true);
 
     await page.locator('[data-back-button]').click();
-    await expect(page).toHaveURL(/\/mood$/);
+    await expect(page).toHaveURL(new RegExp(`/mood\\?${latestMoodId}$`));
   });
 
   test('renders image media in detail comments', async ({ page, request }) => {

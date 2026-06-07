@@ -12,9 +12,8 @@
   font-display: swap;
 }
 
-/* JetBrains Mono stays loaded for subsystems that name it directly (mood feed
-   code, portal .theme-portal-mono, docs). The homepage uses Geist Mono via the
-   --font-mono token; these are deliberate, scoped exceptions. */
+/* JetBrains Mono is the code/terminal voice — reached via --font-code, never
+   named directly anymore (mood code, .theme-portal-mono, docs, SVG readouts). */
 @font-face {
   font-family: 'JetBrains Mono';
   src:
@@ -25,6 +24,7 @@
   font-display: swap;
 }
 
+/* Geist Sans — display/UI voice for the portal and docs subsystem (--font-display). */
 @font-face {
   font-family: 'Geist';
   src: url('/fonts/geist-sans-variable.woff2') format('woff2-variations'),
@@ -34,14 +34,33 @@
   font-display: swap;
 }
 
-/* Font system tokens — single source of truth for the type stacks.
-   --font-mono carries the site identity (terminal/craft); --font-sans is the
-   readable workhorse, reserved for prose. Tailwind's font-mono/font-sans map
-   to these (see tailwind.config.mjs). */
+/* Inter — the reading workhorse for long-form prose (mood, future blog). */
+@font-face {
+  font-family: 'Inter';
+  src: url('/fonts/inter-variable.woff2') format('woff2-variations'),
+       url('/fonts/inter-variable.woff2') format('woff2');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Font system tokens — the single source of truth for every type stack.
+   Mirror in src/lib/fonts.ts for server-rendered surfaces (SVG, email) that
+   cannot read CSS variables. Tailwind maps font-mono/font-code/font-sans/
+   font-display to these (see tailwind.config.mjs).
+
+     --font-mono     site identity, terminal/craft   (Geist Mono)
+     --font-code     literal code + data readouts     (JetBrains Mono)
+     --font-sans     long-form reading prose          (Inter)
+     --font-display  portal & docs UI                 (Geist Sans) */
 :root {
   --font-mono: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, Monaco,
     Consolas, 'Liberation Mono', 'Courier New', monospace;
-  --font-sans: 'Geist', ui-sans-serif, system-ui, -apple-system,
+  --font-code: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco,
+    Consolas, 'Liberation Mono', 'Courier New', monospace;
+  --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system,
+    BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+  --font-display: 'Geist', ui-sans-serif, system-ui, -apple-system,
     BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
 }
 
@@ -177,6 +196,18 @@
 }
 
 @layer components {
+  /* Reading context — long-form prose in the readable sans (Inter), with code
+     resetting to the mono code face. The site default stays mono (identity);
+     content surfaces opt in. Apply to any new content page (mood, future blog)
+     and its type is handled without re-declaring font-family. */
+  .reading {
+    font-family: var(--font-sans);
+  }
+
+  .reading :where(code, kbd, samp, pre) {
+    font-family: var(--font-code);
+  }
+
   .site-shell,
   .site-nav,
   .global-header-actions {
@@ -413,13 +444,14 @@
   .mood-reaction {
     display: inline-flex;
     align-items: center;
-    gap: 3px;
-    padding: 3px 8px 3px 6px;
+    gap: 4px;
+    padding: 3px 9px 3px 7px;
+    font-family: var(--font-mono);
     font-size: 12px;
-    background: hsl(var(--foreground) / 0.05);
+    background: hsl(var(--foreground) / 0.04);
     border-radius: 999px;
     color: hsl(var(--muted-foreground));
-    border: 1px solid transparent;
+    border: 1px solid hsl(var(--foreground) / 0.08);
   }
 
   .mood-reaction--paid {
@@ -472,10 +504,13 @@
   }
 
   .mood-reaction-count {
-    font-size: 12px;
-    font-weight: 500;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 600;
     font-variant-numeric: tabular-nums;
-    opacity: 0.8;
+    font-feature-settings: 'tnum' 1, 'zero' 1;
+    letter-spacing: 0.02em;
+    opacity: 0.85;
   }
 
   .section-label {
@@ -1296,6 +1331,11 @@
     max-width: 0;
     opacity: 0;
     overflow: hidden;
+    font-family: var(--font-mono);
+    font-weight: 600;
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
   }
 
   .header-action-btn svg {
@@ -1675,7 +1715,7 @@ html.no-transition * {
   --portal-danger: 0 72% 55%;
   background: hsl(var(--background));
   color: hsl(var(--foreground));
-  font-family: 'Geist', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+  font-family: var(--font-display);
 }
 
 .theme-portal *,
@@ -1690,7 +1730,7 @@ html.no-transition * {
 }
 
 .theme-portal-mono {
-  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-family: var(--font-code);
   font-feature-settings: 'tnum' 1;
 }
 

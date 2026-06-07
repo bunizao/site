@@ -66,6 +66,10 @@ function getFirstValidImageElement($: cheerio.CheerioAPI, selector: string): che
         return false;
       }
 
+      if ($(element).closest('.bookmark-card').length > 0) {
+        return false;
+      }
+
       const src = ($(element).attr('src') ?? '').trim();
       return Boolean(src);
     });
