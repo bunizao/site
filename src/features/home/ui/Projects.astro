@@ -1,5 +1,5 @@
 ---
-import { ArrowUpRight } from 'lucide-react';
+import ProjectDeck from '@/components/home/ProjectDeck';
 import { createE2EProjects } from '@/features/home/server/e2e-fixtures';
 import { isE2ESiteFixtureEnabled } from '@/lib/e2e';
 import {
@@ -128,50 +128,12 @@ const projects = await loadProjects();
 <section id="projects-section" class="projects-section" data-parallax="off">
   <span class="section-label scroll-reveal">Projects</span>
 
-  <div class="project-list">
-    {projects.map((project, index) => (
-      <div class="tilt-card scroll-reveal-card" data-tilt style={`--card-index: ${index}`}>
-        <a
-          href={project.url}
-          target="_blank"
-          rel="noopener noreferrer"
-          class="project-item"
-        >
-          <div class="card-glare" data-glare></div>
-          <div class="project-content">
-            <div class="project-header">
-              <span class="project-name">{project.name}</span>
-              {project.stars !== null && (
-                <span class="project-stars">
-                  <svg viewBox="0 0 16 16" width="12" height="12" fill="currentColor">
-                    <path d="M8 .25a.75.75 0 0 1 .673.418l1.882 3.815 4.21.612a.75.75 0 0 1 .416 1.279l-3.046 2.97.719 4.192a.75.75 0 0 1-1.088.791L8 12.347l-3.766 1.98a.75.75 0 0 1-1.088-.79l.72-4.194L.818 6.374a.75.75 0 0 1 .416-1.28l4.21-.611L7.327.668A.75.75 0 0 1 8 .25z"/>
-                  </svg>
-                  {project.stars}
-                </span>
-              )}
-            </div>
-            <p class="project-desc">{project.description}</p>
-          </div>
-          <div class="project-footer">
-            <span class="project-role">{project.role}</span>
-            <div class="project-tags">
-              {project.tags.slice(0, 3).map((tag) => (
-                <span class="tag">{tag}</span>
-              ))}
-            </div>
-          </div>
-          <ArrowUpRight className="project-arrow" aria-hidden="true" />
-        </a>
-      </div>
-    ))}
+  <div class="project-deck-stage scroll-reveal-card">
+    <ProjectDeck client:visible projects={projects} />
   </div>
 
-  <a
-    href="https://github.com/bunizao"
-    target="_blank"
-    class="link mt-6 text-sm text-muted-foreground"
-  >
-    View all on GitHub
+  <a href="/projects" class="link mt-6 text-sm text-muted-foreground">
+    View all projects
   </a>
 </section>
 
@@ -194,211 +156,20 @@ const projects = await loadProjects();
     }
   }
 
-  .project-list {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: 12px;
-    max-width: 100%;
-    /* Center the grid and add horizontal padding on mobile */
-    padding: 0 16px;
-  }
-
-  @media (min-width: 480px) {
-    .project-list {
-      /* Limit max width on larger phones */
-      max-width: 420px;
-      margin: 0 auto;
-      padding: 0;
-    }
-  }
-
-  @media (min-width: 640px) {
-    .project-list {
-      grid-template-columns: repeat(2, 1fr);
-      gap: 14px;
-      max-width: 100%;
-      margin: 0;
-    }
-  }
-
-  .tilt-card {
-    perspective: 1000px;
-    height: 100%;
-  }
-
-  .project-item {
+  /* The deck leans back and overflows its own box; the stage reserves height
+     and clips the cast shadow that bleeds past the edges. */
+  .project-deck-stage {
     display: flex;
-    flex-direction: column;
-    position: relative;
-    height: 100%;
-    padding: 16px;
-    background: hsl(var(--background));
-    border: 1px solid hsl(var(--foreground) / 0.08);
-    border-radius: 12px;
-    transition: box-shadow 0.2s ease;
-    transform-style: preserve-3d;
-    will-change: transform;
-    overflow: hidden;
-  }
-
-  @media (min-width: 640px) {
-    .project-item {
-      padding: 18px;
-    }
-  }
-
-  .project-item:hover {
-    box-shadow:
-      0 10px 30px -10px hsl(var(--foreground) / 0.1),
-      0 0 0 1px hsl(var(--foreground) / 0.05);
-  }
-
-  .card-glare {
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    pointer-events: none;
-    border-radius: inherit;
-    opacity: 0;
-    transition: opacity 0.2s ease;
-    background: radial-gradient(
-      600px circle at var(--glare-x, 50%) var(--glare-y, 50%),
-      hsl(var(--foreground) / 0.06),
-      transparent 40%
-    );
-  }
-
-  .tilt-card:hover .card-glare {
-    opacity: 1;
-  }
-
-  .project-content {
-    flex: 1;
-    min-height: 0;
-  }
-
-  .project-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
-    margin-bottom: 8px;
-    padding-right: 24px;
-  }
-
-  .project-name {
-    font-weight: 600;
-    font-size: 14px;
-    color: hsl(var(--foreground));
-  }
-
-  @media (min-width: 640px) {
-    .project-name {
-      font-size: 15px;
-    }
-  }
-
-  .project-stars {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    font-size: 11px;
-    font-weight: 500;
-    color: hsl(var(--muted-foreground) / 0.7);
-    font-variant-numeric: tabular-nums;
-  }
-
-  .project-stars svg {
-    opacity: 0.6;
-  }
-
-  .project-desc {
-    font-size: 12px;
-    color: hsl(var(--muted-foreground));
-    line-height: 1.5;
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-    min-height: calc(12px * 1.5 * 2);
-  }
-
-  @media (min-width: 640px) {
-    .project-desc {
-      font-size: 13px;
-      min-height: calc(13px * 1.5 * 2);
-    }
-  }
-
-  .project-footer {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    margin-top: 14px;
-  }
-
-  .project-role {
-    font-size: 10px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    color: hsl(var(--foreground) / 0.5);
-    padding: 2px 6px;
-    background: hsl(var(--foreground) / 0.05);
-    border-radius: 4px;
-    flex-shrink: 0;
-  }
-
-  .project-tags {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-    flex: 1;
-    min-width: 0;
-  }
-
-  .tag {
-    font-size: 10px;
-    font-weight: 400;
-    color: hsl(var(--muted-foreground) / 0.8);
-    white-space: nowrap;
-  }
-
-  .tag:not(:last-child)::after {
-    content: '·';
-    margin-left: 6px;
-    opacity: 0.4;
-  }
-
-  .project-arrow {
-    position: absolute;
-    right: 14px;
-    top: 14px;
-    width: 14px;
-    height: 14px;
-    color: hsl(var(--muted-foreground) / 0.25);
-    transition: all 0.2s ease;
-  }
-
-  @media (min-width: 640px) {
-    .project-arrow {
-      right: 16px;
-      top: 16px;
-    }
-  }
-
-  .tilt-card:hover .project-arrow {
-    color: hsl(var(--foreground) / 0.6);
-    transform: translate(2px, -2px);
+    justify-content: center;
+    width: 100%;
+    min-height: 480px;
+    padding: 1.5rem 1rem 0.5rem;
   }
 </style>
 
 <script>
   const prefersReducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
   const projectsSection = document.getElementById('projects-section');
-  const tiltCards = document.querySelectorAll('[data-tilt]');
   let gsapPromise: Promise<typeof import('gsap')['default']> | null = null;
 
   const loadGsap = async (): Promise<typeof import('gsap')['default']> => {
@@ -416,99 +187,44 @@ const projects = await loadProjects();
   if (projectsSection && !prefersReducedMotion) {
     projectsSection.style.transform = 'translateY(60px)';
     projectsSection.querySelectorAll<HTMLElement>('.scroll-reveal-card').forEach((card) => {
-      card.style.transform = 'translateY(40px) scale(0.95)';
+      card.style.transform = 'translateY(40px)';
     });
   }
 
   const initProjects = async () => {
     const gsap = await loadGsap();
+    if (!projectsSection) return;
 
-    if (projectsSection) {
-      const cards = projectsSection.querySelectorAll('.scroll-reveal-card');
+    const cards = projectsSection.querySelectorAll('.scroll-reveal-card');
 
-      gsap.to(projectsSection, {
-        opacity: 1,
-        y: 0,
-        duration: 0.6,
-        ease: 'power2.out',
-        scrollTrigger: {
-          trigger: projectsSection,
-          start: 'top 85%',
-          once: true
-        }
-      });
+    gsap.to(projectsSection, {
+      opacity: 1,
+      y: 0,
+      duration: 0.6,
+      ease: 'power2.out',
+      scrollTrigger: {
+        trigger: projectsSection,
+        start: 'top 85%',
+        once: true
+      }
+    });
 
-      gsap.to(cards, {
-        opacity: 1,
-        y: 0,
-        scale: 1,
-        duration: 0.5,
-        ease: 'back.out(1.7)',
-        stagger: 0.08,
-        scrollTrigger: {
-          trigger: projectsSection,
-          start: 'top 85%',
-          once: true
-        }
-      });
-    }
-
-    tiltCards.forEach((card) => {
-      const item = card.querySelector('.project-item') as HTMLElement;
-      const glare = card.querySelector('[data-glare]') as HTMLElement;
-
-      if (!item) return;
-
-      const maxTilt = 12;
-
-      card.addEventListener('mouseenter', () => {
-        if (glare) gsap.to(glare, { opacity: 1, duration: 0.2 });
-      });
-
-      card.addEventListener('mousemove', (e: Event) => {
-        const event = e as MouseEvent;
-        const rect = card.getBoundingClientRect();
-        const x = event.clientX - rect.left;
-        const y = event.clientY - rect.top;
-        const centerX = rect.width / 2;
-        const centerY = rect.height / 2;
-
-        const rotateY = ((x - centerX) / centerX) * maxTilt;
-        const rotateX = ((centerY - y) / centerY) * maxTilt;
-
-        gsap.to(item, {
-          rotationX: rotateX,
-          rotationY: rotateY,
-          duration: 0.3,
-          ease: 'power2.out'
-        });
-
-        if (glare) {
-          const glareX = (x / rect.width) * 100;
-          const glareY = (y / rect.height) * 100;
-          gsap.to(glare, {
-            '--glare-x': `${glareX}%`,
-            '--glare-y': `${glareY}%`,
-            duration: 0.2
-          });
-        }
-      });
-
-      card.addEventListener('mouseleave', () => {
-        gsap.to(item, {
-          rotationX: 0,
-          rotationY: 0,
-          duration: 0.5,
-          ease: 'elastic.out(1, 0.3)'
-        });
-
-        if (glare) gsap.to(glare, { opacity: 0, duration: 0.2 });
-      });
+    gsap.to(cards, {
+      opacity: 1,
+      y: 0,
+      duration: 0.5,
+      ease: 'power2.out',
+      stagger: 0.08,
+      scrollTrigger: {
+        trigger: projectsSection,
+        start: 'top 85%',
+        once: true
+      }
     });
   };
 
-  if (!prefersReducedMotion && (projectsSection || tiltCards.length > 0)) {
-    if (projectsSection && 'IntersectionObserver' in window) {
+  if (projectsSection && !prefersReducedMotion) {
+    if ('IntersectionObserver' in window) {
       const observer = new IntersectionObserver(
         (entries) => {
           if (!entries.some((entry) => entry.isIntersecting)) return;
