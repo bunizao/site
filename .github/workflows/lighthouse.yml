@@ -125,38 +125,38 @@ jobs:
         with:
           script: |
             const fs = require('fs');
-            const title = 'Lighthouse anomaly tracker';
+            const trackerIssueNumber = 24;
             const summaryPath = '.lighthouseci/summary.md';
             const summary = fs.existsSync(summaryPath)
               ? fs.readFileSync(summaryPath, 'utf8')
               : 'Lighthouse failed before a summary could be generated.';
-            const body = `${summary}\n\nArtifacts are attached to this workflow run.`;
+            const body = [
+              summary.trim(),
+              '',
+              '---',
+              '',
+              'Artifacts are attached to this workflow run.',
+            ].join('\n');
 
-            const { data: issues } = await github.rest.issues.listForRepo({
+            await github.rest.issues.get({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              state: 'open',
-              per_page: 100,
+              issue_number: trackerIssueNumber,
             });
-            const existing = issues.find((issue) => !issue.pull_request && issue.title === title);
 
-            if (existing) {
-              await github.rest.issues.createComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: existing.number,
-                body,
-              });
-              core.notice(`Updated issue #${existing.number}.`);
-            } else {
-              const issue = await github.rest.issues.create({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                title,
-                body,
-              });
-              core.notice(`Created issue #${issue.data.number}.`);
-            }
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: trackerIssueNumber,
+              body,
+            });
+            await github.rest.issues.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: trackerIssueNumber,
+              state: 'open',
+            });
+            core.notice(`Updated and reopened issue #${trackerIssueNumber}.`);
 
       - name: Close resolved Lighthouse tracker
         if: steps.lhci.outcome == 'success' && steps.summary.outputs.anomaly == 'false'
@@ -164,32 +164,36 @@ jobs:
         with:
           script: |
             const fs = require('fs');
-            const title = 'Lighthouse anomaly tracker';
+            const trackerIssueNumber = 24;
             const summaryPath = '.lighthouseci/summary.md';
             const summary = fs.existsSync(summaryPath)
               ? fs.readFileSync(summaryPath, 'utf8')
               : 'Lighthouse recovered.';
+            const body = [
+              summary.trim(),
+              '',
+              '---',
+              '',
+              'The latest deployment is back inside the Lighthouse gates.',
+            ].join('\n');
 
-            const { data: issues } = await github.rest.issues.listForRepo({
+            await github.rest.issues.get({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              state: 'open',
-              per_page: 100,
+              issue_number: trackerIssueNumber,
             });
-            const existing = issues.find((issue) => !issue.pull_request && issue.title === title);
-
-            if (!existing) return;
 
             await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              issue_number: existing.number,
-              body: `${summary}\n\nThe latest deployment is back inside the Lighthouse gates.`,
+              issue_number: trackerIssueNumber,
+              body,
             });
             await github.rest.issues.update({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              issue_number: existing.number,
+              issue_number: trackerIssueNumber,
               state: 'closed',
               state_reason: 'completed',
             });
+            core.notice(`Updated and closed issue #${trackerIssueNumber}.`);

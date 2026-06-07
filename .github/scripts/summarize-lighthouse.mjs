@@ -27,14 +27,50 @@ function scorePercent(score) {
   return typeof score === 'number' ? Math.round(score * 100) : 'n/a';
 }
 
+function formatScoreCell(score, threshold) {
+  if (typeof score !== 'number') return '❌ n/a';
+  const percent = scorePercent(score);
+  return score >= threshold ? `✅ ${percent}` : `❌ ${percent}`;
+}
+
 function formatMetric(value, auditId) {
   if (typeof value !== 'number') return 'n/a';
   if (auditId === 'cumulative-layout-shift') return value.toFixed(3);
   return value >= 1000 ? `${(value / 1000).toFixed(1)}s` : `${Math.round(value)}ms`;
 }
 
+function formatMetricCell(value, threshold, auditId) {
+  const formatted = formatMetric(value, auditId);
+  if (typeof value !== 'number') return `❌ ${formatted}`;
+  return value <= threshold ? `✅ ${formatted}` : `❌ ${formatted}`;
+}
+
+function formatCategoryName(category) {
+  const names = {
+    performance: 'Performance',
+    accessibility: 'Accessibility',
+    'best-practices': 'Best Practices',
+    seo: 'SEO',
+  };
+  return names[category] || category;
+}
+
+function formatAuditName(auditId) {
+  const names = {
+    'first-contentful-paint': 'FCP',
+    'largest-contentful-paint': 'LCP',
+    'total-blocking-time': 'TBT',
+    'cumulative-layout-shift': 'CLS',
+  };
+  return names[auditId] || auditId;
+}
+
 function markdownLink(url) {
   return `[${url}](${url})`;
+}
+
+function compactLines(lines) {
+  return lines.filter((line) => line !== null && line !== undefined);
 }
 
 function writeOutput(name, value) {
@@ -51,15 +87,17 @@ function getRunUrl() {
 
 function buildMissingManifestSummary() {
   const runUrl = getRunUrl();
-  const lines = [
-    '## Lighthouse result',
+  const lines = compactLines([
+    '## Lighthouse report',
     '',
-    'Lighthouse did not produce a manifest. Treat this as an abnormal run because the deployed site was not measured.',
+    '> ❌ Lighthouse did not produce a manifest. Treat this as abnormal because the deployment was not measured.',
     '',
-    `Deployment: ${process.env.LHCI_DEPLOYMENT_URL || 'unknown'}`,
-    `Environment: ${process.env.LHCI_ENVIRONMENT || 'unknown'}`,
-    runUrl ? `Workflow: ${markdownLink(runUrl)}` : '',
-  ].filter(Boolean);
+    '| Field | Value |',
+    '| --- | --- |',
+    `| Deployment | ${process.env.LHCI_DEPLOYMENT_URL ? markdownLink(process.env.LHCI_DEPLOYMENT_URL) : 'unknown'} |`,
+    `| Environment | ${process.env.LHCI_ENVIRONMENT || 'unknown'} |`,
+    runUrl ? `| Workflow | ${markdownLink(runUrl)} |` : null,
+  ]);
 
   return {
     anomaly: true,
@@ -94,14 +132,14 @@ function buildSummary() {
     for (const [category, threshold] of Object.entries(categoryThresholds)) {
       const score = categories[category]?.score;
       if (typeof score !== 'number' || score < threshold) {
-        rowFailures.push(`${category} ${scorePercent(score)} < ${scorePercent(threshold)}`);
+        rowFailures.push(`${formatCategoryName(category)} ${scorePercent(score)} < ${scorePercent(threshold)}`);
       }
     }
 
     for (const [auditId, threshold] of Object.entries(metricThresholds)) {
       const value = audits[auditId]?.numericValue;
       if (typeof value !== 'number' || value > threshold) {
-        rowFailures.push(`${auditId} ${formatMetric(value, auditId)} > ${formatMetric(threshold, auditId)}`);
+        rowFailures.push(`${formatAuditName(auditId)} ${formatMetric(value, auditId)} > ${formatMetric(threshold, auditId)}`);
       }
     }
 
@@ -111,39 +149,63 @@ function buildSummary() {
 
     rows.push([
       entry.url,
-      scorePercent(categories.performance?.score),
-      scorePercent(categories.accessibility?.score),
-      scorePercent(categories['best-practices']?.score),
-      scorePercent(categories.seo?.score),
-      formatMetric(audits['first-contentful-paint']?.numericValue, 'first-contentful-paint'),
-      formatMetric(audits['largest-contentful-paint']?.numericValue, 'largest-contentful-paint'),
-      formatMetric(audits['total-blocking-time']?.numericValue, 'total-blocking-time'),
-      formatMetric(audits['cumulative-layout-shift']?.numericValue, 'cumulative-layout-shift'),
-      rowFailures.length > 0 ? 'Fail' : 'Pass',
+      formatScoreCell(categories.performance?.score, categoryThresholds.performance),
+      formatScoreCell(categories.accessibility?.score, categoryThresholds.accessibility),
+      formatScoreCell(categories['best-practices']?.score, categoryThresholds['best-practices']),
+      typeof categoryThresholds.seo === 'number' ? formatScoreCell(categories.seo?.score, categoryThresholds.seo) : 'Not gated',
+      formatMetricCell(
+        audits['first-contentful-paint']?.numericValue,
+        metricThresholds['first-contentful-paint'],
+        'first-contentful-paint'
+      ),
+      formatMetricCell(
+        audits['largest-contentful-paint']?.numericValue,
+        metricThresholds['largest-contentful-paint'],
+        'largest-contentful-paint'
+      ),
+      formatMetricCell(
+        audits['total-blocking-time']?.numericValue,
+        metricThresholds['total-blocking-time'],
+        'total-blocking-time'
+      ),
+      formatMetricCell(
+        audits['cumulative-layout-shift']?.numericValue,
+        metricThresholds['cumulative-layout-shift'],
+        'cumulative-layout-shift'
+      ),
+      rowFailures.length > 0 ? '❌ Fail' : '✅ Pass',
     ]);
   }
 
   const runUrl = getRunUrl();
-  const lines = [
-    '## Lighthouse result',
+  const lines = compactLines([
+    '## Lighthouse report',
     '',
-    anomalies.length > 0 ? 'Status: abnormal.' : 'Status: healthy.',
+    anomalies.length > 0 ? '> ❌ **Action needed.** One or more Lighthouse gates failed.' : '> ✅ **Healthy.** The latest deployment is inside the Lighthouse gates.',
     '',
-    `Deployment: ${process.env.LHCI_DEPLOYMENT_URL || 'unknown'}`,
-    `Environment: ${process.env.LHCI_ENVIRONMENT || 'unknown'}`,
-    process.env.GITHUB_SHA ? `Commit: ${process.env.GITHUB_SHA}` : '',
-    runUrl ? `Workflow: ${markdownLink(runUrl)}` : '',
+    '| Field | Value |',
+    '| --- | --- |',
+    `| Deployment | ${process.env.LHCI_DEPLOYMENT_URL ? markdownLink(process.env.LHCI_DEPLOYMENT_URL) : 'unknown'} |`,
+    `| Environment | ${process.env.LHCI_ENVIRONMENT || 'unknown'} |`,
+    process.env.GITHUB_SHA ? `| Commit | \`${process.env.GITHUB_SHA.slice(0, 12)}\` |` : null,
+    runUrl ? `| Workflow | ${markdownLink(runUrl)} |` : null,
     '',
-    'Abnormal means any audited URL misses one of these gates: performance < 75, accessibility < 90, best practices < 90, SEO < 90, FCP > 3s, LCP > 4s, TBT > 300ms, or CLS > 0.1.',
-    'SEO is only gated on the canonical production host, because Vercel preview and deployment URLs are not meaningful SEO targets.',
+    '### Gate summary',
+    '',
+    '- Performance must be at least 75.',
+    '- Accessibility, Best Practices, and canonical-host SEO must be at least 90.',
+    '- FCP must be at most 3s, LCP at most 4s, TBT at most 300ms, and CLS at most 0.1.',
+    '- SEO is only gated on `buxx.me`; preview URLs are not meaningful SEO targets.',
+    '',
+    '### Audited URLs',
     '',
     '| URL | Perf | A11y | Best | SEO | FCP | LCP | TBT | CLS | Result |',
     '| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |',
     ...rows.map((row) => `| ${markdownLink(row[0])} | ${row.slice(1).join(' | ')} |`),
-  ].filter(Boolean);
+  ]);
 
   if (anomalies.length > 0) {
-    lines.push('', '### Failures', ...anomalies.map((item) => `- ${item}`));
+    lines.push('', '### Failed gates', '', ...anomalies.map((item) => `- ${item}`));
   }
 
   return {
