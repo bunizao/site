@@ -1,0 +1,223 @@
+---
+import { ArrowUpRight } from 'lucide-react';
+import Layout from '@/layouts/Layout.astro';
+import ProjectStackShowcase from '@/components/ProjectStackShowcase';
+
+export const prerender = true;
+
+const title = 'Projects';
+const description = 'Selected projects by Bunizao, shown as a 3D stacked card carousel.';
+---
+
+<Layout
+  title={title}
+  description={description}
+  url="/projects"
+  navVariant="page"
+  showSiteNav
+>
+  <main class="projects-page">
+    <section class="projects-stage" aria-labelledby="projects-title">
+      <div class="projects-copy">
+        <p class="projects-kicker">Projects</p>
+        <h1 id="projects-title">Selected work</h1>
+        <p class="projects-intro">
+          Tools, themes, image systems, and automation projects with enough surface area to deserve
+          their own visual language.
+        </p>
+        <a
+          href="https://github.com/bunizao"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="projects-link"
+        >
+          GitHub
+          <ArrowUpRight className="h-4 w-4" aria-hidden="true" />
+        </a>
+      </div>
+
+      <div class="projects-stack">
+        <ProjectStackShowcase client:load />
+      </div>
+    </section>
+  </main>
+</Layout>
+
+<style>
+  :global(body) {
+    background:
+      radial-gradient(circle at 18% 16%, rgb(20 184 166 / 0.12), transparent 26rem),
+      radial-gradient(circle at 78% 12%, rgb(249 115 22 / 0.11), transparent 24rem),
+      hsl(var(--background));
+  }
+
+  :global(.site-nav--page) {
+    align-items: center;
+    justify-content: flex-start;
+    height: auto;
+    gap: 0;
+  }
+
+  :global(.site-nav--page .site-brand) {
+    justify-content: flex-start;
+    width: auto;
+    height: 34px;
+    margin: 0;
+    gap: var(--site-nav-brand-gap);
+    border-radius: 0;
+    color: hsl(var(--foreground));
+    background: transparent;
+  }
+
+  :global(.site-nav--page .site-brand:hover),
+  :global(.site-nav--page .site-brand:focus-visible) {
+    color: hsl(var(--foreground));
+    background: transparent;
+    opacity: 0.72;
+  }
+
+  :global(.site-nav--page .site-brand-logo) {
+    display: inline-flex;
+    line-height: 0;
+  }
+
+  :global(.site-nav--page .site-brand-text) {
+    display: inline-block;
+    cursor: pointer;
+    padding: 0;
+    border-radius: 0;
+    font-size: 1.08rem;
+    line-height: 1;
+    font-weight: 700;
+    letter-spacing: 0;
+    color: hsl(var(--foreground));
+    white-space: nowrap;
+  }
+
+  .projects-page {
+    min-height: 100vh;
+    padding: 7.5rem 0 4rem;
+    overflow: hidden;
+  }
+
+  .projects-stage {
+    display: grid;
+    width: min(100%, 1180px);
+    min-height: calc(100vh - 11.5rem);
+    margin: 0 auto;
+    padding: 0 1rem;
+    align-items: center;
+    gap: 2rem;
+    border-bottom: 0;
+  }
+
+  .projects-copy {
+    max-width: 33rem;
+  }
+
+  .projects-kicker {
+    margin: 0 0 1.2rem;
+    font-size: 0.72rem;
+    line-height: 1;
+    font-weight: 500;
+    letter-spacing: 0;
+    text-transform: uppercase;
+    color: hsl(var(--muted-foreground));
+  }
+
+  .projects-copy h1 {
+    margin: 0;
+    max-width: 100%;
+    font-family: var(--font-display);
+    font-size: clamp(4.2rem, 7vw, 5.8rem);
+    font-weight: 800;
+    line-height: 0.86;
+    letter-spacing: 0;
+  }
+
+  .projects-intro {
+    max-width: 31rem;
+    margin: 1.5rem 0 0;
+    font-family: var(--font-sans);
+    font-size: clamp(1rem, 2vw, 1.14rem);
+    line-height: 1.7;
+    color: hsl(var(--foreground) / 0.68);
+  }
+
+  .projects-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    width: fit-content;
+    margin-top: 1.6rem;
+    border-bottom: 1px solid hsl(var(--foreground) / 0.22);
+    font-family: var(--font-code);
+    font-size: 0.78rem;
+    font-weight: 650;
+    line-height: 1.8;
+    letter-spacing: 0;
+    text-transform: uppercase;
+    color: hsl(var(--foreground) / 0.74);
+    transition: color 0.18s ease, border-color 0.18s ease;
+  }
+
+  .projects-link:hover {
+    color: hsl(var(--foreground));
+    border-color: hsl(var(--foreground));
+  }
+
+  .projects-link svg {
+    transition: transform 0.18s ease;
+  }
+
+  .projects-link:hover svg {
+    transform: translate(2px, -2px);
+  }
+
+  .projects-stack {
+    width: 100%;
+    min-width: 0;
+  }
+
+  @media (min-width: 980px) {
+    .projects-stage {
+      grid-template-columns: minmax(18rem, 0.8fr) minmax(36rem, 1.2fr);
+      padding: 0 2rem;
+      gap: 3.5rem;
+    }
+  }
+
+  @media (max-width: 979px) {
+    .projects-page {
+      padding-top: 6.5rem;
+    }
+
+    .projects-stage {
+      min-height: auto;
+      align-items: start;
+    }
+
+    .projects-copy {
+      max-width: 42rem;
+    }
+
+    .projects-copy h1 {
+      max-width: 8ch;
+    }
+  }
+
+  @media (max-width: 640px) {
+    .projects-page {
+      padding-top: 5.75rem;
+    }
+
+    .projects-stage {
+      padding: 0 0.85rem;
+      gap: 1.5rem;
+    }
+
+    .projects-intro {
+      margin-top: 1.2rem;
+    }
+  }
+</style>
