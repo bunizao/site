@@ -13,7 +13,7 @@ This document covers the home page entry and the sections rendered on `/`:
 
 Entry file: [`src/pages/index.astro`](../src/pages/index.astro)
 
-The page is a thin composition layer:
+The page is a prerendered shell:
 
 - mounts [`src/layouts/Layout.astro`](../src/layouts/Layout.astro)
 - wraps content in [`src/features/home/ui/ParallaxWrapper.astro`](../src/features/home/ui/ParallaxWrapper.astro)
@@ -24,6 +24,7 @@ The page is a thin composition layer:
   - [`src/features/home/ui/Posts.astro`](../src/features/home/ui/Posts.astro)
   - [`src/features/mood/ui/HomePreview.astro`](../src/features/mood/ui/HomePreview.astro)
   - [`src/features/home/ui/Footer.astro`](../src/features/home/ui/Footer.astro)
+- keeps runtime-only data out of the route frontmatter so `/` can be served as static HTML
 
 Section anchors are owned by the shared layout navbar:
 
@@ -53,7 +54,7 @@ Implementation shape:
 - Astro renders mostly static markup.
 - The displayed name uses `Typewriter.astro`, which renders a hidden longest-string placeholder to avoid layout shift during typing.
 - Social links are local config in the component, not CMS-driven.
-- GitHub activity is client-fetched from `/api/github/contributions?days=30` after idle time; the API keeps the last-year total but returns only the visible waveform window.
+- GitHub activity is client-fetched from `/api/github/contributions?days=30` after DOM ready; the API keeps the last-year total but returns only the visible waveform window.
 - Tech rows are local arrays duplicated into CSS marquee tracks.
 
 Client behavior:
@@ -74,7 +75,7 @@ Implementation files:
 
 Data flow:
 
-- Server-side render fetches pinned repositories from GitHub.
+- Build-time render fetches pinned repositories from GitHub.
 - Primary path uses GraphQL when `GITHUB_TOKEN` exists.
 - The contribution waveform uses the same GitHub token through the internal `/api/github/contributions` route, requesting the visible day window plus the last-year total, then falls back to the public contributions API if GraphQL is unavailable.
 - Fallback path uses a local curated list and enriches it with repo metadata when possible.
@@ -131,7 +132,7 @@ Implementation files:
 
 Data flow:
 
-- Server-side render fetches the latest 5 public Ghost posts from `GHOST_URL`.
+- Build-time render fetches the latest 5 public Ghost posts from `GHOST_URL`.
 - The request uses `GHOST_CONTENT_APIKEY`.
 - Only metadata needed by the section is fetched:
   - `id`

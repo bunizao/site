@@ -86,19 +86,14 @@ const placeholderBars = Array.from({ length: contributionDays });
   }
 
   const schedule = (callback) => {
-    const runWhenIdle = () => {
-      if ('requestIdleCallback' in window) {
-        window.requestIdleCallback(callback, { timeout: 3500 });
-      } else {
-        setTimeout(callback, 1500);
-      }
-    };
+    const runAfterMarkup = () => renderNextFrame(callback);
 
-    if (document.readyState === 'complete') {
-      runWhenIdle();
-    } else {
-      window.addEventListener('load', runWhenIdle, { once: true });
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', runAfterMarkup, { once: true });
+      return;
     }
+
+    runAfterMarkup();
   };
 
   const formatDate = (dateStr) => {

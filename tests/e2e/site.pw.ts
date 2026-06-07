@@ -155,7 +155,7 @@ test.describe('Home page', () => {
       .toBe(true);
   });
 
-  test('does not inline stale listening data or server islands into the home HTML', async ({ page }) => {
+  test('keeps runtime home data out of the initial HTML', async ({ page }) => {
     const response = await page.request.get('/');
     expect(response.ok()).toBeTruthy();
 
@@ -163,6 +163,8 @@ test.describe('Home page', () => {
     expect(html).not.toContain('_server-islands/Listening');
     expect(html).not.toContain('Mr. Rager');
     expect(html).not.toContain('data-track-title="Mr. Rager"');
+    expect(html).toContain('data-has-initial-track="false"');
+    expect(html).toMatch(/data-mood-preview-initial[^>]*>\s*\[\]\s*<\/script>/);
   });
 
   test('loads mood preview and navigates to /mood', async ({ page }) => {

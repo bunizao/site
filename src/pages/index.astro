@@ -6,49 +6,13 @@ import Projects from '@/features/home/ui/Projects.astro';
 import Posts from '@/features/home/ui/Posts.astro';
 import HomePreview from '@/features/mood/ui/HomePreview.astro';
 import Footer from '@/features/home/ui/Footer.astro';
-import { getCurrentListeningTrack } from '@/features/home/server/listening';
-import { loadMoodChannelSnapshot } from '@/features/mood/server/channel-service';
-import { buildMoodFeedResponse } from '@/features/mood/server/feed-service';
-import { isE2ESiteFixtureEnabled } from '@/lib/e2e';
 import { profileJsonLd, siteDescription, websiteJsonLd } from '@/lib/seo';
 
-export const prerender = false;
+export const prerender = true;
 
 const title = "Bunizao's Website";
 const description = siteDescription;
-const useClientRealtimeFixtures = isE2ESiteFixtureEnabled(Astro.locals);
 const isHomeDevSurface = import.meta.env.DEV && process.env.DEV_SURFACE === 'home';
-
-const loadInitialMoodPreview = async () => {
-  try {
-    const { channelInfo, posts } = await loadMoodChannelSnapshot({
-      request: Astro.request,
-      locals: Astro.locals,
-    });
-    const response = await buildMoodFeedResponse(
-      {
-        request: Astro.request,
-        locals: Astro.locals,
-      },
-      channelInfo,
-      posts.slice(0, 5)
-    );
-    return response.posts;
-  } catch (error) {
-    console.warn('Failed to load initial mood preview:', error);
-    return [];
-  }
-};
-
-const [listeningResult, initialMoodPosts] = await Promise.all([
-  useClientRealtimeFixtures
-    ? Promise.resolve(null)
-    : getCurrentListeningTrack(Astro.locals).catch((error) => {
-        console.warn('Failed to load initial listening track:', error);
-        return null;
-  }),
-  useClientRealtimeFixtures || isHomeDevSurface ? Promise.resolve([]) : loadInitialMoodPreview(),
-]);
 ---
 
 <Layout
@@ -59,10 +23,10 @@ const [listeningResult, initialMoodPosts] = await Promise.all([
 >
   <ParallaxWrapper>
     <main class="page-container">
-      <Hero listeningTrack={listeningResult?.track} />
+      <Hero />
       <Projects />
       <Posts />
-      <HomePreview initialPosts={initialMoodPosts} runtimeDisabled={isHomeDevSurface} />
+      <HomePreview runtimeDisabled={isHomeDevSurface} />
       <Footer />
     </main>
   </ParallaxWrapper>

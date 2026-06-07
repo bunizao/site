@@ -4,19 +4,19 @@ description: The composition of /, the sections it renders, and how each section
 internal: true
 ---
 
-The home page is a thin composition layer. `src/pages/index.astro` mounts `Layout.astro`, wraps content in `ParallaxWrapper`, and renders sections in fixed order: hero, listening, projects, posts, mood preview, footer.
+The home page is a prerendered shell. `src/pages/index.astro` mounts `Layout.astro`, wraps content in `ParallaxWrapper`, and renders sections in fixed order: hero, listening, projects, posts, mood preview, footer. Runtime-only data stays out of the route frontmatter so `/` can be served as static HTML.
 
 Section anchors are owned by the shared layout navbar: `#projects-section`, `#writing-section`, `#moods-section`. The hero block has no anchor.
 
 ## Hero
 
-Static markup. The displayed name uses `Typewriter.astro`, which renders a hidden longest-string placeholder so layout doesn't shift while typing. Social links are local config in the component, not CMS-driven. GitHub activity client-fetches after idle and renders as a contribution waveform. Tech rows are local arrays duplicated into CSS marquee tracks.
+Static markup. The displayed name uses `Typewriter.astro`, which renders a hidden longest-string placeholder so layout doesn't shift while typing. Social links are local config in the component, not CMS-driven. GitHub activity fetches from `/api/github/contributions` after DOM ready and renders into the hero animation chain. Tech rows are local arrays duplicated into CSS marquee tracks.
 
 GSAP reveals `.hero-animate` elements with staggered fade-up. Status text rotates through a fixed word list. Social buttons use a magnetic hover effect. Reduced-motion users skip the initial hidden state.
 
 ## Projects
 
-Server-side renders pinned repositories from GitHub. Primary path uses GraphQL when `GITHUB_TOKEN` exists; fallback uses a curated list and enriches with repo metadata when possible. E2E mode swaps live data with fixtures.
+Build-time render fetches pinned repositories from GitHub. Primary path uses GraphQL when `GITHUB_TOKEN` exists; fallback uses a curated list and enriches with repo metadata when possible. E2E mode swaps live data with fixtures.
 
 Tags are derived from `primaryLanguage + repositoryTopics`, deduped, truncated to 3. Ownership decides Author vs Contributor. GSAP `ScrollTrigger` reveals; cards apply pointer-based 3D tilt; radial glare is driven by CSS variables on hover.
 
@@ -28,7 +28,7 @@ The widget refreshes every 45 seconds. The preview button plays/pauses the curre
 
 ## Writing
 
-SSR fetches the latest 5 public Ghost posts from `GHOST_URL` using `GHOST_CONTENT_APIKEY`. Only `id`, `title`, `url`, `published_at`, `tags` are fetched. Each row links externally; first public tag is metadata; date is `YYYY.MM`; failure shows `No posts yet.`.
+Build-time render fetches the latest 5 public Ghost posts from `GHOST_URL` using `GHOST_CONTENT_APIKEY`. Only `id`, `title`, `url`, `published_at`, `tags` are fetched. Each row links externally; first public tag is metadata; date is `YYYY.MM`; failure shows `No posts yet.`.
 
 GSAP reveals once. List items slide in from the left. Trailing link fades in last.
 
