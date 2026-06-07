@@ -16,6 +16,7 @@ dist-ssr
 .claude
 .codex
 .agents
+skills-lock.json
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
