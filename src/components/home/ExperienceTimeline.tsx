@@ -1,7 +1,7 @@
 import { useState, type FocusEvent, type PointerEvent, type ReactNode } from 'react';
 import { GraduationCap, MapPin } from 'lucide-react';
 import { OpenAIIcon, AnthropicIcon } from '@/components/icons';
-import { ParticleVeil } from './ParticleVeil';
+import { FogReveal } from './FogReveal';
 
 interface ExperienceItem {
   org: string;
@@ -135,9 +135,9 @@ export default function ExperienceTimeline() {
           className="relative before:absolute before:left-[17px] before:top-0 before:bottom-0 before:w-px before:bg-[hsl(var(--foreground)/0.12)] first:before:top-[34px] last:before:bottom-auto last:before:h-[34px]"
         >
           {item.joke ? (
-            <ParticleVeil revealed={revealed} className={ROW_FLEX}>
+            <FogReveal revealed={revealed} className={ROW_FLEX}>
               <RowBody item={item} />
-            </ParticleVeil>
+            </FogReveal>
           ) : (
             <div className={ROW_FLEX}>
               <RowBody item={item} />
