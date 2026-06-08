@@ -1,5 +1,5 @@
 ---
-import { Star } from 'lucide-react';
+import ProjectList from '@/components/home/ProjectList';
 import { createE2EProjects } from '@/features/home/server/e2e-fixtures';
 import { isE2ESiteFixtureEnabled } from '@/lib/e2e';
 import {
@@ -123,168 +123,27 @@ async function loadProjects(): Promise<Project[]> {
 }
 
 const projects = await loadProjects();
-
-// 55102 reads as noise; 55.1k reads as a number.
-function formatStars(stars: number): string {
-  if (stars < 1000) return String(stars);
-  const k = stars / 1000;
-  return `${k >= 10 ? Math.round(k) : k.toFixed(1)}k`;
-}
 ---
 
 <section id="projects-section" class="projects-section" data-parallax="off">
   <span class="section-label scroll-reveal">Projects</span>
 
-  <div class="project-list">
-    {projects.map((project, index) => (
-      <div class="project-item scroll-reveal-item" style={`--item-index: ${index}`}>
-        <span class="project-logo" aria-hidden="true">
-          {project.name.charAt(0).toUpperCase()}
-        </span>
-        <div class="project-body">
-          <span class="project-heading">
-            <a
-              href={project.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              class="project-name"
-            >
-              {project.name}
-            </a>
-            <span class="project-role">{project.role}</span>
-          </span>
-          <span class="project-desc">{project.description}</span>
-        </div>
-        {typeof project.stars === 'number' && (
-          <span class="project-stars">
-            <Star className="project-star-icon" aria-hidden="true" />
-            {formatStars(project.stars)}
-          </span>
-        )}
-      </div>
-    ))}
+  <div class="scroll-reveal-card">
+    <ProjectList client:visible projects={projects} max={4} />
   </div>
-
-  <a href="/projects" class="link scroll-reveal-link mt-6 text-sm text-muted-foreground">
-    View all projects
-  </a>
 </section>
 
 <style>
-  .project-list {
-    display: flex;
-    flex-direction: column;
+  .projects-section,
+  .scroll-reveal-card {
+    opacity: 0;
   }
 
-  .project-item {
-    display: flex;
-    align-items: center;
-    gap: 14px;
-    padding: 14px 0;
-    position: relative;
-    transition: padding 0.15s ease;
-  }
-
-  .project-item::after {
-    content: '';
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    height: 1px;
-    background: linear-gradient(to right, hsl(var(--foreground) / 0.1), transparent);
-  }
-
-  .project-item:last-child::after {
-    display: none;
-  }
-
-  .project-item:hover {
-    padding-left: 8px;
-  }
-
-  .project-logo {
-    flex-shrink: 0;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 40px;
-    height: 40px;
-    border-radius: 11px;
-    border: 1px solid hsl(var(--foreground) / 0.1);
-    background: hsl(var(--foreground) / 0.03);
-    color: hsl(var(--foreground) / 0.7);
-    font-family: var(--font-code);
-    font-size: 16px;
-    font-weight: 500;
-    line-height: 1;
-  }
-
-  .project-body {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    flex: 1;
-    min-width: 0;
-  }
-
-  .project-heading {
-    display: flex;
-    align-items: baseline;
-    gap: 8px;
-    min-width: 0;
-  }
-
-  .project-name {
-    font-size: 14px;
-    font-weight: 500;
-    line-height: 1.4;
-    color: hsl(var(--foreground));
-    transition: opacity 0.15s ease;
-    white-space: nowrap;
-  }
-
-  .project-name:hover {
-    opacity: 0.6;
-  }
-
-  .project-role {
-    flex-shrink: 0;
-    font-family: var(--font-code);
-    font-size: 10px;
-    font-weight: 500;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    color: hsl(var(--muted-foreground) / 0.7);
-  }
-
-  .project-desc {
-    font-size: 13px;
-    line-height: 1.4;
-    color: hsl(var(--muted-foreground));
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .project-stars {
-    flex-shrink: 0;
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    font-size: 12px;
-    font-weight: 300;
-    color: hsl(var(--muted-foreground) / 0.6);
-    font-variant-numeric: tabular-nums;
-  }
-
-  .project-stars :global(.project-star-icon) {
-    width: 12px;
-    height: 12px;
-  }
-
-  .project-item:hover .project-stars {
-    color: hsl(var(--muted-foreground));
+  @media (prefers-reduced-motion: reduce) {
+    .projects-section,
+    .scroll-reveal-card {
+      opacity: 1;
+    }
   }
 </style>
 
@@ -309,13 +168,10 @@ function formatStars(stars: number): string {
     const gsap = await loadGsap();
     if (!projectsSection) return;
 
-    gsap.set(projectsSection, { opacity: 0, y: 40 });
     const label = projectsSection.querySelector('.scroll-reveal');
-    const items = Array.from(projectsSection.querySelectorAll('.scroll-reveal-item'));
-    const link = projectsSection.querySelector('.scroll-reveal-link');
+    const card = projectsSection.querySelector('.scroll-reveal-card');
     if (label) gsap.set(label, { opacity: 0, y: 16 });
-    if (items.length) gsap.set(items, { opacity: 0, x: -20 });
-    if (link) gsap.set(link, { opacity: 0 });
+    if (card) gsap.set(card, { opacity: 0, y: 24 });
 
     const tl = gsap.timeline({
       scrollTrigger: { trigger: projectsSection, start: 'top 85%', once: true }
@@ -323,8 +179,7 @@ function formatStars(stars: number): string {
 
     tl.to(projectsSection, { opacity: 1, y: 0, duration: 0.6, ease: 'power2.out' });
     if (label) tl.to(label, { opacity: 1, y: 0, duration: 0.4, ease: 'power2.out' }, '-=0.3');
-    if (items.length) tl.to(items, { opacity: 1, x: 0, duration: 0.4, ease: 'power2.out', stagger: 0.06 }, '-=0.2');
-    if (link) tl.to(link, { opacity: 1, duration: 0.4, ease: 'power2.out' }, '-=0.1');
+    if (card) tl.to(card, { opacity: 1, y: 0, duration: 0.45, ease: 'power2.out' }, '-=0.25');
   };
 
   if (projectsSection && !prefersReducedMotion) {
