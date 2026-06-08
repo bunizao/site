@@ -12,12 +12,13 @@ interface FogRevealProps {
 // Soft wind-out: quick to lift, gentle to settle.
 const EASE = [0.22, 1, 0.36, 1] as const;
 
-// Two soft cloud layers — the second drifts faster for a wispy parallax.
+// Two translucent cloud layers — a veil, not a cover: the blurred text must
+// still read as text underneath. The second drifts faster for a wispy parallax.
 const FOG_BACK =
-  'radial-gradient(75% 130% at 22% 35%, hsl(var(--background)/0.98), hsl(var(--background)/0) 76%),' +
-  'radial-gradient(72% 125% at 72% 60%, hsl(var(--background)/0.95), hsl(var(--background)/0) 78%)';
+  'radial-gradient(75% 130% at 22% 35%, hsl(var(--background)/0.55), hsl(var(--background)/0) 78%),' +
+  'radial-gradient(72% 125% at 72% 60%, hsl(var(--background)/0.5), hsl(var(--background)/0) 80%)';
 const FOG_WISP =
-  'radial-gradient(60% 110% at 45% 50%, hsl(var(--background)/0.7), hsl(var(--background)/0) 72%)';
+  'radial-gradient(60% 110% at 45% 50%, hsl(var(--background)/0.38), hsl(var(--background)/0) 74%)';
 
 /**
  * Hides its content behind a soft fog. On hover/focus the fog is blown away —
@@ -33,7 +34,7 @@ export function FogReveal({ children, revealed, className }: FogRevealProps) {
       <motion.div
         className={className}
         initial={false}
-        animate={{ filter: show ? 'blur(0px)' : 'blur(7px)', opacity: show ? 1 : 0.5 }}
+        animate={{ filter: show ? 'blur(0px)' : 'blur(5px)', opacity: show ? 1 : 0.7 }}
         transition={{ duration: 0.6, ease: EASE }}
       >
         {children}
