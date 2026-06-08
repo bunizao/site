@@ -1,0 +1,193 @@
+---
+import { GraduationCap, Sparkles, Asterisk, type LucideIcon } from 'lucide-react';
+
+interface ExperienceItem {
+  org: string;
+  role: string;
+  date: string;
+  url: string;
+  icon: LucideIcon;
+}
+
+// Mixed timeline: education plus the tools I live in. Kept honest and literal.
+const experiences: ExperienceItem[] = [
+  {
+    org: 'Monash University',
+    role: 'Data Science (Honours)',
+    date: 'Jul 2025 — Present',
+    url: 'https://www.monash.edu',
+    icon: GraduationCap
+  },
+  {
+    org: 'ChatGPT',
+    role: 'Subscriber',
+    date: '2023 — Present',
+    url: 'https://chatgpt.com',
+    icon: Sparkles
+  },
+  {
+    org: 'Claude',
+    role: 'Subscriber',
+    date: '2026 — Present',
+    url: 'https://claude.ai',
+    icon: Asterisk
+  }
+];
+---
+
+<section id="experience-section" class="experience-section" data-parallax="off">
+  <span class="section-label scroll-reveal">Experience</span>
+
+  <div class="exp-list">
+    {experiences.map((item, index) => (
+      <div class="exp-item scroll-reveal-item" style={`--item-index: ${index}`}>
+        <span class="exp-logo" aria-hidden="true">
+          <item.icon className="exp-icon" />
+        </span>
+        <div class="exp-body">
+          <a
+            href={item.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            class="exp-org"
+          >
+            {item.org}
+          </a>
+          <span class="exp-role">{item.role}</span>
+        </div>
+        <span class="exp-date">{item.date}</span>
+      </div>
+    ))}
+  </div>
+</section>
+
+<style>
+  .exp-list {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .exp-item {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 14px 0;
+    position: relative;
+    transition: padding 0.15s ease;
+  }
+
+  .exp-item::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: linear-gradient(to right, hsl(var(--foreground) / 0.1), transparent);
+  }
+
+  .exp-item:last-child::after {
+    display: none;
+  }
+
+  .exp-item:hover {
+    padding-left: 8px;
+  }
+
+  .exp-logo {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border-radius: 11px;
+    border: 1px solid hsl(var(--foreground) / 0.1);
+    background: hsl(var(--foreground) / 0.03);
+    color: hsl(var(--foreground) / 0.65);
+  }
+
+  .exp-logo :global(.exp-icon) {
+    width: 18px;
+    height: 18px;
+  }
+
+  .exp-body {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .exp-org {
+    font-size: 14px;
+    font-weight: 500;
+    line-height: 1.4;
+    color: hsl(var(--foreground));
+    width: fit-content;
+    transition: opacity 0.15s ease;
+  }
+
+  .exp-org:hover {
+    opacity: 0.6;
+  }
+
+  .exp-role {
+    font-size: 13px;
+    line-height: 1.4;
+    color: hsl(var(--muted-foreground));
+  }
+
+  .exp-date {
+    flex-shrink: 0;
+    font-size: 12px;
+    font-weight: 300;
+    color: hsl(var(--muted-foreground) / 0.6);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .exp-item:hover .exp-date {
+    color: hsl(var(--muted-foreground));
+  }
+</style>
+
+<script>
+  const experienceSection = document.getElementById('experience-section');
+  let gsapPromise: Promise<typeof import('gsap')['default']> | null = null;
+
+  const loadGsap = async (): Promise<typeof import('gsap')['default']> => {
+    gsapPromise ??= Promise.all([
+      import('gsap'),
+      import('gsap/ScrollTrigger'),
+    ]).then(([{ default: gsap }, { ScrollTrigger }]) => {
+      gsap.registerPlugin(ScrollTrigger);
+      return gsap;
+    });
+
+    return gsapPromise;
+  };
+
+  const initExperience = async () => {
+    const gsap = await loadGsap();
+    if (!experienceSection) return;
+
+    gsap.set(experienceSection, { opacity: 0, y: 40 });
+    const label = experienceSection.querySelector('.scroll-reveal');
+    const items = Array.from(experienceSection.querySelectorAll('.scroll-reveal-item'));
+    if (label) gsap.set(label, { opacity: 0, y: 16 });
+    if (items.length) gsap.set(items, { opacity: 0, x: -20 });
+
+    const tl = gsap.timeline({
+      scrollTrigger: { trigger: experienceSection, start: 'top 85%', once: true }
+    });
+
+    tl.to(experienceSection, { opacity: 1, y: 0, duration: 0.6, ease: 'power2.out' });
+    if (label) tl.to(label, { opacity: 1, y: 0, duration: 0.4, ease: 'power2.out' }, '-=0.3');
+    if (items.length) tl.to(items, { opacity: 1, x: 0, duration: 0.4, ease: 'power2.out', stagger: 0.06 }, '-=0.2');
+  };
+
+  if (experienceSection) {
+    window.addEventListener('load', () => { void initExperience(); }, { once: true });
+  }
+</script>

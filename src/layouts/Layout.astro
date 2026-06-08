@@ -308,6 +308,8 @@ const navbarIdleTimeoutAnimation = getPeekRuntimeSlotKey('navbar.idle-timeout');
         {!isPageNav && (
           <div class="nav-links" data-nav-links>
             <span class="nav-separator nav-separator--brand" aria-hidden="true">/</span>
+            <a href="#experience-section" class="nav-link" data-nav-link="experience">Experience</a>
+            <span class="nav-separator" aria-hidden="true">/</span>
             <a href="#projects-section" class="nav-link" data-nav-link="projects">Projects</a>
             <span class="nav-separator" aria-hidden="true">/</span>
             <a href="#writing-section" class="nav-link" data-nav-link="writing">Writing</a>
@@ -873,7 +875,7 @@ const navbarIdleTimeoutAnimation = getPeekRuntimeSlotKey('navbar.idle-timeout');
           });
         });
 
-        const sections = ['projects', 'writing', 'moods'].map(id => ({
+        const sections = ['experience', 'projects', 'writing', 'moods'].map(id => ({
           id,
           el: document.getElementById(`${id}-section`)
         })).filter(s => s.el);
