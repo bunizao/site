@@ -1,7 +1,7 @@
-import type { ReactNode } from 'react';
+import { useState, type FocusEvent, type PointerEvent, type ReactNode } from 'react';
 import { GraduationCap, MapPin } from 'lucide-react';
 import { OpenAIIcon, AnthropicIcon } from '@/components/icons';
-import { BlurReveal } from './BlurReveal';
+import { ParticleVeil } from './ParticleVeil';
 
 interface ExperienceItem {
   org: string;
@@ -108,17 +108,36 @@ const ROW_FLEX =
   'flex flex-wrap items-start gap-[14px] py-4 min-[481px]:flex-nowrap';
 
 export default function ExperienceTimeline() {
+  // The joke rows share one reveal state — hovering either dissolves both veils.
+  const [revealed, setRevealed] = useState(false);
+
+  const leavingGroup = (next: EventTarget | null) =>
+    !(next instanceof Element) || !next.closest('[data-joke-group]');
+
+  const show = () => setRevealed(true);
+  const onPointerLeave = (e: PointerEvent) => {
+    if (leavingGroup(e.relatedTarget)) setRevealed(false);
+  };
+  const onBlur = (e: FocusEvent) => {
+    if (leavingGroup(e.relatedTarget)) setRevealed(false);
+  };
+
   return (
     <ol className="m-0 list-none p-0">
       {experiences.map((item) => (
         <li
           key={item.org}
+          data-joke-group={item.joke ? '' : undefined}
+          onPointerEnter={item.joke ? show : undefined}
+          onPointerLeave={item.joke ? onPointerLeave : undefined}
+          onFocusCapture={item.joke ? show : undefined}
+          onBlurCapture={item.joke ? onBlur : undefined}
           className="relative before:absolute before:left-[17px] before:top-0 before:bottom-0 before:w-px before:bg-[hsl(var(--foreground)/0.12)] first:before:top-[34px] last:before:bottom-auto last:before:h-[34px]"
         >
           {item.joke ? (
-            <BlurReveal className={ROW_FLEX}>
+            <ParticleVeil revealed={revealed} className={ROW_FLEX}>
               <RowBody item={item} />
-            </BlurReveal>
+            </ParticleVeil>
           ) : (
             <div className={ROW_FLEX}>
               <RowBody item={item} />
