@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { ArrowUpRight, Star, X } from "lucide-react";
+import RiveCubeHero from "@/components/project-cards/RiveCubeHero";
 
 // ---------------------------------------------------------------------------
 // Data model. Each project carries the ONE hero that best represents it:
@@ -14,7 +15,8 @@ type TerminalLine = { text: string; tone?: "dim" | "normal" | "strong" };
 type Hero =
   | { kind: "terminal"; title: string; lines: TerminalLine[] }
   | { kind: "screenshot"; src: string; url: string; alt: string }
-  | { kind: "generated"; src: string; caption: string; alt: string };
+  | { kind: "generated"; src: string; caption: string; alt: string }
+  | { kind: "rive" };
 
 interface ShowcaseProject {
   id: string;
@@ -54,6 +56,20 @@ const projects: ShowcaseProject[] = [
         { text: "FINAL,Proxy", tone: "strong" },
       ],
     },
+  },
+  {
+    id: "cli-tools",
+    name: "CLI Tools",
+    type: "Student Automation",
+    url: "https://github.com/bunizao?tab=repositories&q=cli",
+    blurb: "A cluster of small CLIs — Moodle, Ed, OnTrack, attendance — that automate student busywork.",
+    story: [
+      "Five small command-line tools for the tedious parts of being a student: pulling assignments from Moodle, browsing Ed threads, syncing OnTrack tasks, submitting attendance, Okta SSO. Each does one thing, from the shell.",
+      "Some ship an MCP server too, so an agent can drive them. The boring parts of uni, scripted away.",
+    ],
+    tags: ["CLI", "MCP", "Automation"],
+    stars: null,
+    hero: { kind: "rive" },
   },
   {
     id: "attegi",
@@ -174,6 +190,8 @@ function renderHero(hero: Hero) {
       return <ScreenshotHero hero={hero} />;
     case "generated":
       return <GeneratedHero hero={hero} />;
+    case "rive":
+      return <RiveCubeHero />;
   }
 }
 
