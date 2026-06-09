@@ -1,0 +1,105 @@
+---
+import '@/styles/globals.css';
+import CliTerminalShowcase from '@/components/effects/CliTerminalShowcase';
+
+export const prerender = true;
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex" />
+    <title>CLI tools showcase</title>
+  </head>
+  <body>
+    <main class="stage">
+      <section class="hero" aria-labelledby="cli-tools-title">
+        <div class="copy">
+          <p class="eyebrow">Command-line tooling</p>
+          <h1 id="cli-tools-title">Student life, automated</h1>
+          <p class="summary">
+            A cluster of small CLIs that handle the tedious parts of being a student —
+            attendance, assignments, course threads, submissions — without ever leaving the shell.
+          </p>
+        </div>
+
+        <div class="motion-frame">
+          <CliTerminalShowcase client:load />
+        </div>
+      </section>
+    </main>
+
+    <style is:global>
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        min-height: 100vh;
+        margin: 0;
+        color: #fafafa;
+        background: #0a0a0b;
+        font-family: var(--font-sans);
+      }
+
+      .stage {
+        display: grid;
+        min-height: 100vh;
+        place-items: center;
+        padding: clamp(24px, 5vw, 72px);
+      }
+
+      .hero {
+        display: grid;
+        width: min(100%, 1160px);
+        grid-template-columns: minmax(0, 0.7fr) minmax(420px, 1.1fr);
+        align-items: center;
+        gap: clamp(32px, 6vw, 88px);
+      }
+
+      .copy {
+        max-width: 520px;
+      }
+
+      .eyebrow {
+        margin: 0 0 16px;
+        color: rgba(250, 250, 250, 0.45);
+        font-family: var(--font-code);
+        font-size: 12px;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+      }
+
+      h1 {
+        margin: 0;
+        font-family: var(--font-display);
+        font-size: clamp(40px, 6vw, 76px);
+        font-weight: 800;
+        letter-spacing: -0.01em;
+        line-height: 0.98;
+      }
+
+      .summary {
+        margin: 24px 0 0;
+        max-width: 48ch;
+        color: rgba(250, 250, 250, 0.55);
+        font-size: 16px;
+        line-height: 1.7;
+      }
+
+      .motion-frame {
+        display: grid;
+        place-items: center;
+      }
+
+      @media (max-width: 820px) {
+        .hero {
+          grid-template-columns: 1fr;
+          gap: 28px;
+        }
+      }
+    </style>
+  </body>
+</html>
