@@ -52,7 +52,7 @@ export default function OgCarouselHero() {
           alt={i === active ? slide.alt : ""}
           loading={i === 0 ? "eager" : "lazy"}
           aria-hidden={i !== active}
-          className="absolute inset-0 h-full w-full object-cover transition-opacity duration-[1100ms] ease-in-out"
+          className="absolute inset-0 h-full w-full object-contain transition-opacity duration-[1100ms] ease-in-out"
           style={{ opacity: i === active ? 1 : 0 }}
         />
       ))}
