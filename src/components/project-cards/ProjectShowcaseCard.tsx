@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { ArrowUpRight, Star, X } from "lucide-react";
 import CliCubeHero from "@/components/project-cards/CliCubeHero";
-import RuleRouterHero from "@/components/project-cards/RuleRouterHero";
+import HarmonicWaveHero from "@/components/project-cards/HarmonicWaveHero";
 
 // ---------------------------------------------------------------------------
 // Data model. Each project carries the ONE hero that best represents it:
@@ -12,7 +12,7 @@ import RuleRouterHero from "@/components/project-cards/RuleRouterHero";
 // ---------------------------------------------------------------------------
 
 type Hero =
-  | { kind: "router" }
+  | { kind: "waves" }
   | { kind: "screenshot"; src: string; url: string; alt: string }
   | { kind: "generated"; src: string; caption: string; alt: string }
   | { kind: "cube" };
@@ -42,7 +42,7 @@ const projects: ShowcaseProject[] = [
     ],
     tags: ["Surge", "Clash", "Shadowrocket", "QX"],
     stars: 391,
-    hero: { kind: "router" },
+    hero: { kind: "waves" },
   },
   {
     id: "cli-tools",
@@ -143,8 +143,8 @@ function GeneratedHero({ hero }: { hero: Extract<Hero, { kind: "generated" }> })
 
 function renderHero(hero: Hero) {
   switch (hero.kind) {
-    case "router":
-      return <RuleRouterHero />;
+    case "waves":
+      return <HarmonicWaveHero />;
     case "screenshot":
       return <ScreenshotHero hero={hero} />;
     case "generated":
