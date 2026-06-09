@@ -1,6 +1,6 @@
 ---
 import '@/styles/globals.css';
-import ProjectShowcaseCard from '@/components/project-cards/ProjectShowcaseCard';
+import ProjectShowcase from '@/components/project-cards/ProjectShowcaseCard';
 
 export const prerender = true;
 ---
@@ -11,12 +11,11 @@ export const prerender = true;
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="robots" content="noindex" />
-    <title>Project card — MVP</title>
+    <title>Project cards — showcase</title>
   </head>
   <body>
     <main class="stage">
-      <div class="texture" aria-hidden="true"></div>
-      <ProjectShowcaseCard client:load />
+      <ProjectShowcase client:load />
     </main>
 
     <style is:global>
@@ -33,53 +32,15 @@ export const prerender = true;
       body {
         margin: 0;
         font-family: var(--font-sans);
+        /* Plain background — the cards carry all the visual energy. */
+        background: #0a0a0b;
       }
 
       .stage {
-        position: relative;
         display: grid;
         place-items: center;
         min-height: 100vh;
-        padding: 2rem;
-        overflow: hidden;
-      }
-
-      /* ASCII-sunset texture: gradient + pixel grid + scanlines. */
-      .texture {
-        position: fixed;
-        inset: 0;
-        z-index: -1;
-        background:
-          linear-gradient(
-            160deg,
-            #7fd1d6 0%,
-            #b9b6e0 30%,
-            #e6a7c4 56%,
-            #f4c9a0 80%,
-            #f6d98f 100%
-          );
-      }
-
-      .texture::before {
-        content: '';
-        position: absolute;
-        inset: 0;
-        opacity: 0.4;
-        mix-blend-mode: overlay;
-        background-image: radial-gradient(rgba(15, 15, 25, 0.85) 0.5px, transparent 0.6px);
-        background-size: 5px 5px;
-      }
-
-      .texture::after {
-        content: '';
-        position: absolute;
-        inset: 0;
-        opacity: 0.16;
-        background-image: repeating-linear-gradient(
-          0deg,
-          rgba(0, 0, 0, 0.4) 0 1px,
-          transparent 1px 5px
-        );
+        padding: 4rem 2rem;
       }
     </style>
   </body>
