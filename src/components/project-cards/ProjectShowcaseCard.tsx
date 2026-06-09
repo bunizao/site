@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { ArrowUpRight, Star, X } from "lucide-react";
-import RiveCubeHero from "@/components/project-cards/RiveCubeHero";
+import CliCubeHero from "@/components/project-cards/CliCubeHero";
 
 // ---------------------------------------------------------------------------
 // Data model. Each project carries the ONE hero that best represents it:
@@ -16,7 +16,7 @@ type Hero =
   | { kind: "terminal"; title: string; lines: TerminalLine[] }
   | { kind: "screenshot"; src: string; url: string; alt: string }
   | { kind: "generated"; src: string; caption: string; alt: string }
-  | { kind: "rive" };
+  | { kind: "cube" };
 
 interface ShowcaseProject {
   id: string;
@@ -69,7 +69,7 @@ const projects: ShowcaseProject[] = [
     ],
     tags: ["CLI", "MCP", "Automation"],
     stars: null,
-    hero: { kind: "rive" },
+    hero: { kind: "cube" },
   },
   {
     id: "attegi",
@@ -190,8 +190,8 @@ function renderHero(hero: Hero) {
       return <ScreenshotHero hero={hero} />;
     case "generated":
       return <GeneratedHero hero={hero} />;
-    case "rive":
-      return <RiveCubeHero />;
+    case "cube":
+      return <CliCubeHero />;
   }
 }
 
