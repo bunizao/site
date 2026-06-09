@@ -6,15 +6,18 @@ import { ArrowUpRight, Star, X } from "lucide-react";
 // Later this becomes a prop fed from the GitHub pipeline in Projects.astro.
 interface ShowcaseProject {
   name: string;
+  type: string; // category label shown on the hero
   url: string;
   blurb: string; // one line, shown at L0
   story: string[]; // narrative paragraphs, shown only at L1
   tags: string[]; // shown only at L1
   stars: number | null;
+  isActive: boolean; // drives the Live / Building status
 }
 
 const project: ShowcaseProject = {
   name: "TutuBetterRules",
+  type: "Proxy Rules",
   url: "https://github.com/bunizao/TutuBetterRules",
   blurb: "Cross-platform proxy rules — Surge-first, syncs to Clash, Shadowrocket & QX.",
   story: [
@@ -23,6 +26,7 @@ const project: ShowcaseProject = {
   ],
   tags: ["Surge", "Clash", "Shadowrocket", "QX"],
   stars: 391,
+  isActive: true,
 };
 
 // Sunset + pixel-grid + scanline — the ASCII-texture look, as a hero stand-in.
@@ -65,6 +69,23 @@ function StarBadge({ stars }: { stars: number }) {
   );
 }
 
+// Pinging-dot status, borrowed from the reference — the one functional accent.
+function StatusDot({ active }: { active: boolean }) {
+  const tone = active ? "text-emerald-400" : "text-amber-400";
+  const dot = active ? "bg-emerald-400" : "bg-amber-400";
+  return (
+    <span className={`inline-flex items-center gap-1.5 text-[11px] font-medium ${tone}`}>
+      <span className="relative flex h-2 w-2">
+        <span
+          className={`absolute inline-flex h-full w-full animate-ping rounded-full opacity-70 ${dot}`}
+        />
+        <span className={`relative inline-flex h-2 w-2 rounded-full ${dot}`} />
+      </span>
+      {active ? "Live" : "Building"}
+    </span>
+  );
+}
+
 export default function ProjectShowcaseCard() {
   const [open, setOpen] = useState(false);
   const reduce = useReducedMotion();
@@ -103,28 +124,39 @@ export default function ProjectShowcaseCard() {
           layoutId="showcase-hero"
           className="relative aspect-[16/10] w-full overflow-hidden"
         >
-          <HeroTexture />
+          {/* Texture wakes up on hover: slow zoom + scanlines clear. */}
+          <div className="absolute inset-0 scale-100 transition-transform duration-700 ease-out group-hover:scale-105">
+            <HeroTexture />
+          </div>
+          {/* Type label glides from top-left to a centered pill on hover. */}
+          <span className="absolute left-3 top-3 rounded-md border border-transparent px-0 py-1 font-code text-[11px] uppercase tracking-wide text-white/70 transition-all duration-300 group-hover:left-1/2 group-hover:-translate-x-1/2 group-hover:border-white/15 group-hover:bg-black/40 group-hover:px-2.5 group-hover:text-white group-hover:backdrop-blur-md">
+            {project.type}
+          </span>
         </motion.div>
 
         <div className="p-5">
           <div className="flex items-center justify-between gap-3">
             <motion.h3
               layoutId="showcase-title"
-              className="font-display text-[22px] font-extrabold leading-none tracking-tight"
+              className="relative font-display text-[22px] font-extrabold leading-none tracking-tight"
             >
               {project.name}
+              <span className="absolute -bottom-1 left-0 h-px w-0 bg-white/70 transition-all duration-700 ease-out group-hover:w-full" />
             </motion.h3>
             {project.stars != null && <StarBadge stars={project.stars} />}
           </div>
 
-          <p className="mt-3 font-sans text-[13.5px] leading-relaxed text-white/65">
+          <p className="mt-3 font-sans text-[13.5px] leading-relaxed text-white/55 transition-colors duration-300 group-hover:text-white/75">
             {project.blurb}
           </p>
 
-          <span className="mt-4 inline-flex items-center gap-1 font-code text-[12px] font-semibold uppercase tracking-wide text-white/45 opacity-0 transition-opacity duration-300 group-hover:opacity-100">
-            Tell me more
-            <ArrowUpRight className="h-3.5 w-3.5" />
-          </span>
+          <div className="mt-4 flex items-center justify-between">
+            <StatusDot active={project.isActive} />
+            <span className="inline-flex items-center gap-1 font-code text-[11px] font-semibold uppercase tracking-wide text-white/40 transition-colors duration-300 group-hover:text-white/70">
+              Tell me more
+              <ArrowUpRight className="h-0 w-0 scale-0 transition-all duration-300 group-hover:h-3.5 group-hover:w-3.5 group-hover:scale-100" />
+            </span>
+          </div>
         </div>
       </motion.button>
 
@@ -172,7 +204,10 @@ export default function ProjectShowcaseCard() {
                   >
                     {project.name}
                   </motion.h3>
-                  {project.stars != null && <StarBadge stars={project.stars} />}
+                  <div className="flex shrink-0 items-center gap-3">
+                    <StatusDot active={project.isActive} />
+                    {project.stars != null && <StarBadge stars={project.stars} />}
+                  </div>
                 </div>
 
                 <motion.div
