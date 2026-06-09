@@ -12,7 +12,6 @@ interface ShowcaseProject {
   story: string[]; // narrative paragraphs, shown only at L1
   tags: string[]; // shown only at L1
   stars: number | null;
-  isActive: boolean; // drives the Live / Building status
 }
 
 const project: ShowcaseProject = {
@@ -26,7 +25,6 @@ const project: ShowcaseProject = {
   ],
   tags: ["Surge", "Clash", "Shadowrocket", "QX"],
   stars: 391,
-  isActive: true,
 };
 
 // Sunset + pixel-grid + scanline — the ASCII-texture look, as a hero stand-in.
@@ -65,23 +63,6 @@ function StarBadge({ stars }: { stars: number }) {
     <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 font-code text-[12px] font-semibold text-white/85 backdrop-blur-md">
       <Star className="h-3 w-3 fill-amber-300 text-amber-300" />
       {stars}
-    </span>
-  );
-}
-
-// Pinging-dot status, borrowed from the reference — the one functional accent.
-function StatusDot({ active }: { active: boolean }) {
-  const tone = active ? "text-emerald-400" : "text-amber-400";
-  const dot = active ? "bg-emerald-400" : "bg-amber-400";
-  return (
-    <span className={`inline-flex items-center gap-1.5 text-[11px] font-medium ${tone}`}>
-      <span className="relative flex h-2 w-2">
-        <span
-          className={`absolute inline-flex h-full w-full animate-ping rounded-full opacity-70 ${dot}`}
-        />
-        <span className={`relative inline-flex h-2 w-2 rounded-full ${dot}`} />
-      </span>
-      {active ? "Live" : "Building"}
     </span>
   );
 }
@@ -150,8 +131,7 @@ export default function ProjectShowcaseCard() {
             {project.blurb}
           </p>
 
-          <div className="mt-4 flex items-center justify-between">
-            <StatusDot active={project.isActive} />
+          <div className="mt-4 flex items-center justify-end">
             <span className="inline-flex items-center gap-1 font-code text-[11px] font-semibold uppercase tracking-wide text-white/40 transition-colors duration-300 group-hover:text-white/70">
               Tell me more
               <ArrowUpRight className="h-0 w-0 scale-0 transition-all duration-300 group-hover:h-3.5 group-hover:w-3.5 group-hover:scale-100" />
@@ -204,10 +184,7 @@ export default function ProjectShowcaseCard() {
                   >
                     {project.name}
                   </motion.h3>
-                  <div className="flex shrink-0 items-center gap-3">
-                    <StatusDot active={project.isActive} />
-                    {project.stars != null && <StarBadge stars={project.stars} />}
-                  </div>
+                  {project.stars != null && <StarBadge stars={project.stars} />}
                 </div>
 
                 <motion.div
