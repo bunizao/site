@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { ArrowUpRight, Star, X } from "lucide-react";
 import CliCubeHero from "@/components/project-cards/CliCubeHero";
+import RuleRouterHero from "@/components/project-cards/RuleRouterHero";
 
 // ---------------------------------------------------------------------------
 // Data model. Each project carries the ONE hero that best represents it:
@@ -10,10 +11,8 @@ import CliCubeHero from "@/components/project-cards/CliCubeHero";
 //   generated  → show what the project produces (image services)
 // ---------------------------------------------------------------------------
 
-type TerminalLine = { text: string; tone?: "dim" | "normal" | "strong" };
-
 type Hero =
-  | { kind: "terminal"; title: string; lines: TerminalLine[] }
+  | { kind: "router" }
   | { kind: "screenshot"; src: string; url: string; alt: string }
   | { kind: "generated"; src: string; caption: string; alt: string }
   | { kind: "cube" };
@@ -43,19 +42,7 @@ const projects: ShowcaseProject[] = [
     ],
     tags: ["Surge", "Clash", "Shadowrocket", "QX"],
     stars: 391,
-    hero: {
-      kind: "terminal",
-      title: "Surge · TutuBetterRules",
-      lines: [
-        { text: "# TutuBetterRules", tone: "dim" },
-        { text: "[Rule]", tone: "dim" },
-        { text: "DOMAIN-SUFFIX,github.com,Proxy" },
-        { text: "DOMAIN-KEYWORD,google,Proxy" },
-        { text: "GEOIP,CN,DIRECT" },
-        { text: "RULE-SET,reject.list,REJECT", tone: "dim" },
-        { text: "FINAL,Proxy", tone: "strong" },
-      ],
-    },
+    hero: { kind: "router" },
   },
   {
     id: "cli-tools",
@@ -115,34 +102,6 @@ const projects: ShowcaseProject[] = [
 // Hero renderers
 // ---------------------------------------------------------------------------
 
-function TerminalHero({ hero }: { hero: Extract<Hero, { kind: "terminal" }> }) {
-  const toneClass = {
-    dim: "text-white/35",
-    normal: "text-white/75",
-    strong: "text-white",
-  } as const;
-
-  return (
-    <div className="flex h-full w-full flex-col bg-[#0c0d10]">
-      <div className="flex items-center gap-1.5 border-b border-white/10 px-3 py-2">
-        <span className="h-2 w-2 rounded-full bg-white/20" />
-        <span className="h-2 w-2 rounded-full bg-white/20" />
-        <span className="h-2 w-2 rounded-full bg-white/20" />
-        <span className="ml-2 truncate font-code text-[10px] text-white/40">
-          {hero.title}
-        </span>
-      </div>
-      <div className="flex-1 overflow-hidden p-3 font-code text-[11px] leading-[1.5]">
-        {hero.lines.map((line, i) => (
-          <div key={i} className={`truncate ${toneClass[line.tone ?? "normal"]}`}>
-            {line.text}
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
 function ScreenshotHero({ hero }: { hero: Extract<Hero, { kind: "screenshot" }> }) {
   return (
     <div className="flex h-full w-full flex-col bg-[#0c0d10]">
@@ -184,8 +143,8 @@ function GeneratedHero({ hero }: { hero: Extract<Hero, { kind: "generated" }> })
 
 function renderHero(hero: Hero) {
   switch (hero.kind) {
-    case "terminal":
-      return <TerminalHero hero={hero} />;
+    case "router":
+      return <RuleRouterHero />;
     case "screenshot":
       return <ScreenshotHero hero={hero} />;
     case "generated":
