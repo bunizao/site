@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 const root = join(import.meta.dir, '../..');
@@ -13,6 +13,10 @@ function readText(path: string): string {
 }
 
 describe('Cloudflare runtime configuration', () => {
+  test('does not keep Vercel deployment configuration', () => {
+    expect(existsSync(join(root, 'vercel.json'))).toBe(false);
+  });
+
   test('uses the Cloudflare Astro adapter and root Wrangler scripts', () => {
     const packageJson = readJson('package.json') as {
       scripts?: Record<string, string>;
