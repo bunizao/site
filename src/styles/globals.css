@@ -138,6 +138,10 @@
   body {
     @apply bg-background text-foreground min-h-screen font-mono leading-relaxed antialiased;
     position: relative;
+    /* Clip (not hide — keeps sticky working) horizontal overflow at the viewport
+       so a dragged project card slides off the screen edge instead of being
+       sliced by a narrower container, and never widens the page. */
+    overflow-x: clip;
   }
 
   body::before {
