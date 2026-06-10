@@ -20,18 +20,19 @@ const slides: Slide[] = [
 
 const INTERVAL_MS = 4200;
 
-export default function OgCarouselHero() {
+export default function OgCarouselHero({ hovered = false }: { hovered?: boolean }) {
   const reduced = useReducedMotion();
   const [active, setActive] = useState(0);
+  const live = hovered && !reduced;
 
   useEffect(() => {
     if (reduced) return;
     const id = window.setInterval(
       () => setActive((a) => (a + 1) % slides.length),
-      INTERVAL_MS,
+      live ? 2100 : INTERVAL_MS,
     );
     return () => window.clearInterval(id);
-  }, [reduced]);
+  }, [reduced, live]);
 
   const slide = slides[active];
 
@@ -57,7 +58,11 @@ export default function OgCarouselHero() {
       <div className="absolute inset-0 flex items-center justify-center p-4 sm:p-5">
         <div
           className="relative w-full overflow-hidden rounded-lg border border-white/10 shadow-2xl shadow-black/60 ring-1 ring-white/5"
-          style={{ aspectRatio: "1200 / 630" }}
+          style={{
+            aspectRatio: "1200 / 630",
+            transform: live ? "scale(1.035)" : "scale(1)",
+            transition: "transform 450ms cubic-bezier(0.22,1,0.36,1)",
+          }}
         >
           <AnimatePresence initial={false}>
             <motion.img

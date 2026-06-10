@@ -4,22 +4,23 @@ import { ArrowUpRight, Star, X } from "lucide-react";
 import CliCubeHero from "@/components/project-cards/CliCubeHero";
 import HarmonicWaveHero from "@/components/project-cards/HarmonicWaveHero";
 import OgCarouselHero from "@/components/project-cards/OgCarouselHero";
+import AttegiTourHero from "@/components/project-cards/AttegiTourHero";
 
 // ---------------------------------------------------------------------------
 // Data model. Each project carries the ONE hero that best represents it:
-//   waves      → an animated signature (abstract products like proxy rules)
-//   cube       → an owned isometric diagram (tool clusters)
-//   screenshot → show real pixels (visual products like themes)
-//   carousel   → show what the project produces (the OG image service)
+//   waves    → an animated signature (abstract products like proxy rules)
+//   cube     → an owned isometric diagram (tool clusters)
+//   tour     → a live-site walkthrough of real pixels (visual products like themes)
+//   carousel → show what the project produces (the OG image service)
 // ---------------------------------------------------------------------------
 
-type Hero =
+export type Hero =
   | { kind: "waves" }
-  | { kind: "screenshot"; src: string; url: string; alt: string }
+  | { kind: "tour" }
   | { kind: "carousel" }
   | { kind: "cube" };
 
-interface ShowcaseProject {
+export interface ShowcaseProject {
   id: string;
   name: string;
   type: string;
@@ -31,7 +32,7 @@ interface ShowcaseProject {
   hero: Hero;
 }
 
-const projects: ShowcaseProject[] = [
+export const projects: ShowcaseProject[] = [
   {
     id: "tutubetterrules",
     name: "TutuBetterRules",
@@ -72,12 +73,7 @@ const projects: ShowcaseProject[] = [
     ],
     tags: ["Ghost", "Theme", "TailwindCSS"],
     stars: 27,
-    hero: {
-      kind: "screenshot",
-      src: "https://raw.githubusercontent.com/bunizao/Attegi/main/screenshots/homepage-dark.png",
-      url: "attegi.tuuhub.com",
-      alt: "Attegi Ghost theme homepage in dark mode",
-    },
+    hero: { kind: "tour" },
   },
   {
     id: "ogis",
@@ -99,43 +95,20 @@ const projects: ShowcaseProject[] = [
 // Hero renderers
 // ---------------------------------------------------------------------------
 
-function ScreenshotHero({ hero }: { hero: Extract<Hero, { kind: "screenshot" }> }) {
-  return (
-    <div className="flex h-full w-full flex-col bg-[#0c0d10]">
-      <div className="flex items-center gap-1.5 border-b border-white/10 px-3 py-2">
-        <span className="h-2 w-2 rounded-full bg-white/20" />
-        <span className="h-2 w-2 rounded-full bg-white/20" />
-        <span className="h-2 w-2 rounded-full bg-white/20" />
-        <span className="ml-2 flex-1 truncate rounded-[4px] bg-white/[0.06] px-2 py-0.5 text-center font-code text-[10px] text-white/40">
-          {hero.url}
-        </span>
-      </div>
-      <div className="relative flex-1 overflow-hidden">
-        <img
-          src={hero.src}
-          alt={hero.alt}
-          loading="lazy"
-          className="absolute inset-0 h-full w-full object-cover object-top transition-transform duration-700 ease-out group-hover:scale-105"
-        />
-      </div>
-    </div>
-  );
-}
-
-function renderHero(hero: Hero) {
+export function renderHero(hero: Hero, hovered: boolean) {
   switch (hero.kind) {
     case "waves":
-      return <HarmonicWaveHero />;
-    case "screenshot":
-      return <ScreenshotHero hero={hero} />;
+      return <HarmonicWaveHero hovered={hovered} />;
+    case "tour":
+      return <AttegiTourHero hovered={hovered} />;
     case "carousel":
-      return <OgCarouselHero />;
+      return <OgCarouselHero hovered={hovered} />;
     case "cube":
-      return <CliCubeHero />;
+      return <CliCubeHero hovered={hovered} />;
   }
 }
 
-function StarBadge({ stars }: { stars: number }) {
+export function StarBadge({ stars }: { stars: number }) {
   return (
     <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 font-code text-[12px] font-semibold text-white/85 backdrop-blur-md">
       <Star className="h-3 w-3 fill-amber-300 text-amber-300" />
@@ -150,6 +123,7 @@ function StarBadge({ stars }: { stars: number }) {
 
 function ProjectShowcaseCard({ project }: { project: ShowcaseProject }) {
   const [open, setOpen] = useState(false);
+  const [hovered, setHovered] = useState(false);
   const reduce = useReducedMotion();
 
   const ids = {
@@ -183,6 +157,8 @@ function ProjectShowcaseCard({ project }: { project: ShowcaseProject }) {
         layoutId={ids.card}
         type="button"
         onClick={() => setOpen(true)}
+        onHoverStart={() => setHovered(true)}
+        onHoverEnd={() => setHovered(false)}
         transition={spring}
         whileHover={reduce ? undefined : { y: -5 }}
         className="group relative block w-[340px] max-w-full overflow-hidden rounded-[18px] border border-white/12 bg-neutral-950/85 text-left text-white shadow-2xl shadow-black/40 outline-none backdrop-blur-xl focus-visible:ring-2 focus-visible:ring-white/60"
@@ -191,7 +167,7 @@ function ProjectShowcaseCard({ project }: { project: ShowcaseProject }) {
           layoutId={ids.hero}
           className="relative aspect-[16/10] w-full overflow-hidden"
         >
-          {renderHero(project.hero)}
+          {renderHero(project.hero, hovered)}
         </motion.div>
 
         <div className="p-5">
@@ -246,7 +222,7 @@ function ProjectShowcaseCard({ project }: { project: ShowcaseProject }) {
                 layoutId={ids.hero}
                 className="relative aspect-[16/9] w-full overflow-hidden"
               >
-                {renderHero(project.hero)}
+                {renderHero(project.hero, false)}
               </motion.div>
 
               <button

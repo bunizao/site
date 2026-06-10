@@ -50,21 +50,32 @@ function usePrefersReducedMotion() {
   return reduced;
 }
 
-export default function CliCubeHero() {
+export default function CliCubeHero({ hovered = false }: { hovered?: boolean }) {
   const reduced = usePrefersReducedMotion();
   const [active, setActive] = useState(0);
+  const live = hovered && !reduced;
 
   useEffect(() => {
     if (reduced) return;
     const id = window.setInterval(
       () => setActive((a) => (a + 1) % layers.length),
-      1500,
+      live ? 650 : 1500,
     );
     return () => window.clearInterval(id);
-  }, [reduced]);
+  }, [reduced, live]);
 
   return (
-    <div className="absolute inset-0 bg-[#0c0d10]">
+    <div
+      className="absolute inset-0 bg-[#0c0d10]"
+      style={{
+        transform: live
+          ? "perspective(720px) translateY(-6px) rotateX(5deg) rotateY(-13deg) scale(1.035)"
+          : "perspective(720px) translateY(0) rotateX(0deg) rotateY(0deg) scale(1)",
+        transformStyle: "preserve-3d",
+        transition: "transform 560ms cubic-bezier(0.22,1,0.36,1)",
+        willChange: "transform",
+      }}
+    >
       <svg
         viewBox="0 0 400 250"
         preserveAspectRatio="xMidYMid meet"

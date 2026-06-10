@@ -1,0 +1,46 @@
+---
+import '@/styles/globals.css';
+import ProjectStack from '@/components/project-cards/ProjectStack';
+
+export const prerender = true;
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex" />
+    <title>Project stack — showcase</title>
+  </head>
+  <body>
+    <main class="stage">
+      <ProjectStack client:load />
+    </main>
+
+    <style is:global>
+      :root {
+        --font-display: 'Inter', system-ui, sans-serif;
+        --font-sans: 'Inter', system-ui, sans-serif;
+        --font-code: ui-monospace, 'SFMono-Regular', monospace;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        font-family: var(--font-sans);
+        background: #0a0a0b;
+      }
+
+      .stage {
+        display: grid;
+        place-items: center;
+        min-height: 100vh;
+        padding: 4rem 2rem;
+      }
+    </style>
+  </body>
+</html>

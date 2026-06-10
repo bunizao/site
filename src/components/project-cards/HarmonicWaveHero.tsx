@@ -95,11 +95,19 @@ function usePrefersReducedMotion() {
   return r;
 }
 
-export default function HarmonicWaveHero() {
+export default function HarmonicWaveHero({ hovered = false }: { hovered?: boolean }) {
   const reduced = usePrefersReducedMotion();
+  const live = hovered && !reduced;
 
   return (
-    <div className="relative h-full w-full overflow-hidden bg-[#0c0d10]">
+    <div
+      className="relative h-full w-full overflow-hidden bg-[#0c0d10]"
+      style={{
+        transform: live ? "scaleY(1.12)" : "scaleY(1)",
+        transformOrigin: "bottom",
+        transition: "transform 500ms cubic-bezier(0.22,1,0.36,1)",
+      }}
+    >
       <svg
         viewBox={`0 0 ${VW} ${VH}`}
         preserveAspectRatio="xMidYMid slice"
@@ -111,7 +119,7 @@ export default function HarmonicWaveHero() {
           <g
             key={i}
             className={reduced ? undefined : `wave-scroll wave-${i}`}
-            style={{ ["--dur" as string]: `${layer.duration}s` }}
+            style={{ ["--dur" as string]: `${live ? layer.duration * 0.55 : layer.duration}s` }}
           >
             <path d={area} fill={layer.fill} />
             {layer.stroke && (
