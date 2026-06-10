@@ -1,3 +1,5 @@
+import { readRuntimeValue } from '@/lib/runtime/env';
+
 interface RateLimitConfig {
   windowMs: number;
   max: number;
@@ -42,10 +44,16 @@ function normalizeIpCandidate(
 }
 
 function getClientIp(request: Request, locals?: any): string {
+  let runtimeClientIp = '';
+  try {
+    runtimeClientIp = typeof locals?.runtime?.ip === 'string' ? locals.runtime.ip : '';
+  } catch {
+    runtimeClientIp = '';
+  }
+
   const runtimeIp =
-    locals?.runtime?.ip ??
-    locals?.runtime?.env?.REMOTE_ADDR ??
-    locals?.env?.REMOTE_ADDR ??
+    runtimeClientIp ||
+    readRuntimeValue(locals, 'REMOTE_ADDR') ||
     '';
   const normalizedRuntimeIp = normalizeIpCandidate(runtimeIp);
   if (normalizedRuntimeIp) return normalizedRuntimeIp;

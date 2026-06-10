@@ -11,6 +11,7 @@ import { request as httpsRequest } from 'node:https';
 import { load } from 'cheerio';
 import { dispatchMoodNotification } from '@/features/notify/server/service';
 import { getNotifyConfig } from '@/features/notify/server/env';
+import { readEnv } from '@/lib/runtime/env';
 import { secureCompareText } from '@/features/notify/server/security';
 import { checkRateLimit, createRateLimitHeaders } from '@/lib/security/rate-limit';
 
@@ -72,20 +73,6 @@ interface TelegramGetChatResponse {
 interface MoodImageTarget {
   postId: string;
   imageIndex: number;
-}
-
-function readEnv(locals: any, name: string): string {
-  const buildValue = import.meta.env[name];
-  if (typeof buildValue === 'string' && buildValue.trim()) {
-    return buildValue.trim();
-  }
-
-  const runtimeValue = locals?.runtime?.env?.[name] ?? locals?.env?.[name];
-  if (typeof runtimeValue === 'string' && runtimeValue.trim()) {
-    return runtimeValue.trim();
-  }
-
-  return '';
 }
 
 interface WebhookConfig {

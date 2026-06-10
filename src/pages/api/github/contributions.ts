@@ -4,6 +4,7 @@ import { isE2ESiteFixtureEnabled } from '@/lib/e2e';
 import { fetchGitHubContributions, type GitHubContributionsData } from '@/lib/github';
 import { jsonBadRequest, jsonError, jsonOk } from '@/lib/http/json-response';
 import { withRateLimit } from '@/lib/http/rate-limited';
+import { readRuntimeEnvSource } from '@/lib/runtime/env';
 
 export const prerender = false;
 
@@ -72,7 +73,7 @@ export const GET: APIRoute = async ({ request, locals }) => {
   const data = await fetchGitHubContributions(
     username,
     import.meta.env,
-    locals?.runtime?.env,
+    readRuntimeEnvSource(locals),
     { days }
   );
 

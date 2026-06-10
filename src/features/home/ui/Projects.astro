@@ -7,6 +7,7 @@ import {
   fetchGitHubRepo,
   type GitHubPinnedRepoData
 } from '@/lib/github';
+import { readRuntimeEnvSource } from '@/lib/runtime/env';
 
 const githubUsername = 'bunizao';
 
@@ -79,7 +80,7 @@ const fallbackProjectConfigs: FallbackProjectConfig[] = [
   }
 ];
 
-const runtimeEnv = Astro.locals?.runtime?.env;
+const runtimeEnv = readRuntimeEnvSource(Astro.locals);
 const useE2EFixture = isE2ESiteFixtureEnabled(Astro.locals);
 
 function mapPinnedRepoToProject(repo: GitHubPinnedRepoData): Project {

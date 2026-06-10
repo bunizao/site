@@ -1,3 +1,5 @@
+import { readEnv, readRuntimeValue } from '@/lib/runtime/env';
+
 interface TurnstileVerifyResponse {
   success?: boolean;
   'error-codes'?: string[];
@@ -26,23 +28,10 @@ interface TurnstileVerifyOptions {
   expectedAction?: string;
 }
 
-function readRuntimeEnv(locals: any, name: string): string {
-  const runtimeValue = locals?.runtime?.env?.[name] ?? locals?.env?.[name];
-  return typeof runtimeValue === 'string' ? runtimeValue : '';
-}
-
 function readTurnstileSecret(locals?: any): string {
-  const buildSecret =
-    import.meta.env.TURNSTILE_SECRET_KEY
-    || import.meta.env.CLOUDFLARE_TURNSTILE_SECRET_KEY
-    || '';
-  if (buildSecret.trim()) {
-    return buildSecret.trim();
-  }
-
   return (
-    readRuntimeEnv(locals, 'TURNSTILE_SECRET_KEY')
-    || readRuntimeEnv(locals, 'CLOUDFLARE_TURNSTILE_SECRET_KEY')
+    readEnv(locals, 'TURNSTILE_SECRET_KEY')
+    || readEnv(locals, 'CLOUDFLARE_TURNSTILE_SECRET_KEY')
     || ''
   ).trim();
 }
@@ -60,11 +49,17 @@ function normalizeIpCandidate(value: string | null): string {
 }
 
 function getClientIp(request: Request, locals?: any): string {
+  let runtimeClientIp = '';
+  try {
+    runtimeClientIp = typeof locals?.runtime?.ip === 'string' ? locals.runtime.ip : '';
+  } catch {
+    runtimeClientIp = '';
+  }
+
   const runtimeIp =
-    locals?.runtime?.ip
-    ?? locals?.runtime?.env?.REMOTE_ADDR
-    ?? locals?.env?.REMOTE_ADDR
-    ?? '';
+    runtimeClientIp
+    || readRuntimeValue(locals, 'REMOTE_ADDR')
+    || '';
   const normalizedRuntimeIp = normalizeIpCandidate(runtimeIp);
   if (normalizedRuntimeIp) return normalizedRuntimeIp;
 

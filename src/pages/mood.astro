@@ -13,6 +13,7 @@ import {
 } from '@/features/mood/shared/feed-anchor';
 import { isE2ESiteFixtureEnabled } from '@/lib/e2e';
 import { buildSrcSet, withWidthParam } from '@/lib/media/responsive-image';
+import { readEnv } from '@/lib/runtime/env';
 import '@/styles/mood-gallery.css';
 
 export const prerender = false;
@@ -22,7 +23,7 @@ const description = "Thoughts and moments from my Telegram channel";
 const rss = { href: '/mood/rss.xml', title: 'Moods RSS' };
 const canonicalUrl = new URL(Astro.url.pathname, Astro.url.origin).href;
 const oembed = { href: `/api/oembed.json?url=${encodeURIComponent(canonicalUrl)}`, title: 'Mood Embed' };
-const channel = import.meta.env.CHANNEL || Astro.locals?.runtime?.env?.CHANNEL || '';
+const channel = readEnv(Astro.locals, 'CHANNEL');
 const telegramUrl = channel ? `https://t.me/${channel}` : '';
 const turnstileSiteKey = import.meta.env.PUBLIC_TURNSTILE_SITE_KEY || '';
 const moodFeedAnchorId = readMoodFeedAnchorId(Astro.url);
