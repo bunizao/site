@@ -205,6 +205,15 @@ function StoryGallery({
 
   const go = (n: number) => setIndex(Math.max(0, Math.min(count - 1, n)));
 
+  // Staged entrance: the tapped card zooms up first (the "it got bigger" beat),
+  // then the neighbours fade in. `entered` gates the second beat.
+  const [entered, setEntered] = useState(Boolean(reduce));
+  useEffect(() => {
+    if (reduce) return;
+    const t = window.setTimeout(() => setEntered(true), 240);
+    return () => window.clearTimeout(t);
+  }, [reduce]);
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
@@ -244,9 +253,12 @@ function StoryGallery({
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
+      // Backdrop snaps opaque quickly so the card zooms against a clean blur,
+      // not the lingering stack behind it.
+      transition={{ duration: 0.18, ease: "easeOut" }}
     >
       <div
-        className="absolute inset-0 bg-stone-900/40 backdrop-blur-md dark:bg-black/65"
+        className="absolute inset-0 bg-stone-900/55 backdrop-blur-lg dark:bg-black/72"
         onClick={onClose}
       />
 
@@ -255,6 +267,9 @@ function StoryGallery({
         <motion.div
           className="pointer-events-auto flex items-center"
           style={{ gap }}
+          // Start already centered on the opened card so it zooms in place,
+          // not slide-then-zoom; navigation still springs between indices.
+          initial={{ x: centerOffset }}
           animate={{ x: centerOffset }}
           transition={reduce ? { duration: 0 } : spring}
           drag={reduce ? false : "x"}
@@ -274,11 +289,30 @@ function StoryGallery({
               onClick={() => i !== index && go(i)}
             >
               <motion.div
-                animate={{
-                  scale: i === index ? 1 : 0.9,
-                  opacity: i === index ? 1 : 0.45,
-                }}
-                transition={reduce ? { duration: 0 } : spring}
+                initial={
+                  reduce
+                    ? false
+                    : i === index
+                      ? { scale: 0.46, opacity: 0 }
+                      : { scale: 0.9, opacity: 0 }
+                }
+                animate={
+                  i === index
+                    ? { scale: 1, opacity: 1 }
+                    : { scale: 0.9, opacity: entered ? 0.45 : 0 }
+                }
+                exit={
+                  i === index
+                    ? { scale: 0.5, opacity: 0 }
+                    : { opacity: 0 }
+                }
+                transition={
+                  reduce
+                    ? { duration: 0 }
+                    : i === index
+                      ? { type: "spring", stiffness: 240, damping: 22 }
+                      : { duration: 0.32, ease: "easeOut" }
+                }
                 className={cn(i !== index && "pointer-events-none")}
               >
                 <StoryCard project={p} active={i === index} />
