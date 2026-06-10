@@ -526,11 +526,13 @@ export default function ProjectStack({ className }: { className?: string }) {
           return (
             <motion.article
               key={project.id}
-              className="absolute inset-x-0 top-0 mx-auto w-full max-w-[400px] select-none"
+              // !touch-pan-y overrides framer's auto `touch-action: none` for
+              // both-axis drag: on touch, vertical still scrolls the page and only
+              // horizontal drags; a mouse ignores touch-action and drags freely.
+              className="absolute inset-x-0 top-0 mx-auto w-full max-w-[400px] select-none !touch-pan-y"
               style={{
                 transformStyle: "preserve-3d",
                 transformOrigin: "center center",
-                touchAction: "pan-y",
                 zIndex: projects.length - depth,
                 pointerEvents: depth <= visibleDepth ? "auto" : "none",
                 cursor: active ? "grab" : "pointer",
@@ -544,9 +546,10 @@ export default function ProjectStack({ className }: { className?: string }) {
                 mass: 0.82,
                 delay: hasEntered || reduce ? 0 : depth * 0.08,
               }}
-              drag={active && !reduce ? "x" : false}
+              // Free drag in both axes — toss it anywhere, it springs home.
+              drag={active && !reduce}
               dragSnapToOrigin
-              dragElastic={0.4}
+              dragElastic={0.6}
               whileHover={active && !reduce ? { y: -6 } : undefined}
               whileDrag={{ cursor: "grabbing" }}
               onPointerDown={() => {
