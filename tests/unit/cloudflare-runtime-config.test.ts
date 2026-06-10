@@ -68,6 +68,9 @@ describe('Cloudflare runtime configuration', () => {
     expect(config.assets?.run_worker_first).toEqual([
       '/api/*',
       '/mood*',
+      '/channel/avatar',
+      '/ingest/*',
+      '/webhook',
       '/dev/*',
       '/oauth*',
       '/docs*',

@@ -10,6 +10,9 @@
     "run_worker_first": [
       "/api/*",
       "/mood*",
+      "/channel/avatar",
+      "/ingest/*",
+      "/webhook",
       "/dev/*",
       "/oauth*",
       "/docs*"

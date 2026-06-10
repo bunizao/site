@@ -1,4 +1,5 @@
 import astroWorker from '@astrojs/cloudflare/entrypoints/server';
+import imageWorker from '../workers/telegram-image-proxy/src/index';
 import {
   dispatchNotifyQueue,
   runScheduledNotifyTasks,
@@ -6,6 +7,7 @@ import {
   type QueueBatch,
   type WorkerTaskEnv,
 } from './worker-tasks';
+import { isImageWorkerRequest } from './worker-routing';
 
 interface WorkerExecutionContext {
   waitUntil(promise: Promise<unknown>): void;
@@ -15,12 +17,17 @@ interface AstroWorker {
   fetch(request: Request, env: WorkerTaskEnv, context: WorkerExecutionContext): Promise<Response>;
 }
 
+interface ImageWorker {
+  fetch(request: Request, env: WorkerTaskEnv, context: WorkerExecutionContext): Promise<Response>;
+}
+
 interface ScheduledController {
   cron?: string;
   scheduledTime?: number;
 }
 
 const siteWorker = astroWorker as AstroWorker;
+const moodImageWorker = imageWorker as ImageWorker;
 
 async function fetchSite(
   request: Request,
@@ -56,6 +63,10 @@ async function runScheduled(
 
 export default {
   fetch(request: Request, env: WorkerTaskEnv, context: WorkerExecutionContext): Promise<Response> {
+    if (isImageWorkerRequest(request)) {
+      return moodImageWorker.fetch(request, env, context);
+    }
+
     return fetchSite(request, env, context);
   },
 
