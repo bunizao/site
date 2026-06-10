@@ -56,13 +56,14 @@ Page-shell behavior:
 
 The content in [`src/content/pages/privacy.md`](../src/content/pages/privacy.md) matches active site features.
 
-### Hosting, Analytics, and Performance
+### Hosting, Observability, and Performance
 
 Covered implementation:
 
-- site pages are hosted on Vercel
-- [`src/layouts/Layout.astro`](../src/layouts/Layout.astro) mounts `@vercel/speed-insights/astro`
-- [`src/layouts/Layout.astro`](../src/layouts/Layout.astro) also lazy-loads `@vercel/analytics`
+- site pages and API routes run on the Cloudflare Worker target `buxx-site`
+- [`wrangler.jsonc`](../wrangler.jsonc) binds the Worker to `buxx.me`, `www.buxx.me`, and `image.buxx.me`
+- Cloudflare Worker observability and request logs cover operational monitoring
+- [`src/layouts/Layout.astro`](../src/layouts/Layout.astro) does not mount a third-party analytics script
 
 ### Homepage Listening
 
@@ -111,7 +112,7 @@ Covered implementation:
 - Turnstile verification runs in [`src/lib/security/turnstile.ts`](../src/lib/security/turnstile.ts)
 - the mood subscribe endpoint uses that verification when the secret is configured
 - Cloudflare D1 is used by the notify service
-- Cloudflare workers participate in image ingest and scheduling
+- Cloudflare Worker bindings provide D1, R2, queue, and scheduled-event infrastructure
 
 ### Third-Party Content Sources
 

@@ -42,4 +42,4 @@ Loading is gated by `ScrollTrigger`. Skeleton shimmer is CSS-only. Loaded items 
 
 ## Cross-cutting
 
-Theme is applied before paint from `localStorage.theme` or `prefers-color-scheme`. Navbar is section-anchor based, not route-aware — labels are split into character spans, active sections are tracked while scrolling. `ParallaxWrapper.astro` adds section drift without changing section ownership. Vercel Speed Insights is mounted in the base layout.
+Theme is applied before paint from `localStorage.theme` or `prefers-color-scheme`. Navbar is section-anchor based, not route-aware — labels are split into character spans, active sections are tracked while scrolling. `ParallaxWrapper.astro` adds section drift without changing section ownership. The base layout does not mount a third-party analytics script.

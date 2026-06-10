@@ -211,4 +211,4 @@ Cross-cutting behavior:
 - navbar is section-anchor based, not route-aware
 - navbar text is split into character spans and tracks active sections while scrolling
 - `ParallaxWrapper.astro` adds section drift without changing section ownership
-- Vercel Speed Insights is mounted in the base layout, so the home page inherits it automatically
+- the base layout does not mount a third-party analytics script

@@ -6,9 +6,9 @@ public: true
 
 ## The shape
 
-buxx.me is two pieces: an Astro app on Vercel that renders the public site and admin portal, and a Cloudflare Worker that owns Telegram ingestion, image storage, and the notify scheduler. They talk over HTTP — neither side imports the other.
+buxx.me is moving to one Cloudflare Worker target: `buxx-site`. That Worker serves `buxx.me`, `www.buxx.me`, and `image.buxx.me`, including the Astro site, API routes, mood image routes, queue consumer, and Cloudflare Cron-triggered notify tasks.
 
-Telegram is the source of truth for mood content. The Worker hears Telegram's webhook, pulls images into R2, and enqueues notify jobs. The Vercel app scrapes Telegram for the canonical post text, renders the mood feed and detail pages, sends emails through Resend, and stores subscriber state in Cloudflare D1 over the HTTP API.
+Telegram is the source of truth for mood content. The Worker hears Telegram's webhook, pulls images into R2, enqueues notify jobs, renders the mood feed and detail pages through Astro, sends emails through Resend, and stores subscriber state in Cloudflare D1 through the `NOTIFY_DB` binding. The older standalone image worker and notify scheduler are rollback history until production cutover is verified.
 
 ## Key directories
 
@@ -37,7 +37,7 @@ The site reads from six external sources:
 
 Public JSON: `/api/moods`, `/api/comments`, `/api/oembed.json`, `/api/footer`, `/api/health`. SVG generators (all accept `?theme=light|dark`): `/api/status.svg`, `/api/tech-stack.svg`, `/api/site-badge.svg`, `/api/project.svg`, `/api/activity-panel.svg`. RSS at `/mood/rss.xml`.
 
-Admin endpoints under `/api/admin/` are gated by the `admin_session` cookie. The Worker exposes `https://image.buxx.me/webhook` (Telegram), `https://image.buxx.me/mood/:postId/:imageIndex` (public reads), and authenticated `https://image.buxx.me/ingest/...` write paths.
+Admin endpoints under `/api/admin/` are gated by the `admin_session` cookie. The Cloudflare Worker exposes `https://image.buxx.me/webhook` (Telegram), `https://image.buxx.me/mood/:postId/:imageIndex` (public reads), and authenticated `https://image.buxx.me/ingest/...` write paths. Cloudflare Cron owns scheduled notify runs; the final cadence belongs in Cloudflare configuration.
 
 ## Styling
 

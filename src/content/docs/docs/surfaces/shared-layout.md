@@ -8,7 +8,7 @@ The shared layout splits two concerns: `Layout.astro` owns the global HTML shell
 
 ## Layout.astro
 
-`src/layouts/Layout.astro` owns the HTML shell for most routes. It sets canonical, OG, and Twitter metadata, exposes optional RSS and oEmbed discovery links, mounts the shared section navbar by default, mounts the shared theme dropdown, mounts Vercel Speed Insights, and lazy-loads Vercel Analytics.
+`src/layouts/Layout.astro` owns the HTML shell for most routes. It sets canonical, OG, and Twitter metadata, exposes optional RSS and oEmbed discovery links, mounts the shared section navbar by default, mounts the shared theme dropdown, and avoids mounting third-party analytics scripts.
 
 Theme behavior runs before paint via an inline script: reads `localStorage.theme`, falls back to `prefers-color-scheme`, applies `html.dark`, stores the current selection in `html[data-theme-setting]`.
 

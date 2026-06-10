@@ -31,7 +31,7 @@ No separate linter is configured.
 
 ## Architecture
 
-**Astro v5** + **React** (@astrojs/react) + **TailwindCSS** + **TypeScript**. Deployed on **Vercel**.
+**Astro v5** + **React** (@astrojs/react) + **TailwindCSS** + **TypeScript**. Runtime target: **Cloudflare Workers** (`buxx-site`).
 
 - `@` maps to `./src` (configured in `astro.config.mjs`). Use `@/lib/utils` instead of relative paths.
 - See `docs/ARCHITECTURE.md` for full directory structure, API endpoints, data sources, and environment variables.

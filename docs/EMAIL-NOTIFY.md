@@ -38,7 +38,7 @@ curl -X POST "https://your-domain.com/api/notify/subscribe" \
 
 ## Environment Variables
 
-Set these in Vercel project settings:
+Set these as Cloudflare Worker secrets or vars for `buxx-site`:
 
 - `RESEND_API_KEY`
 - `NOTIFY_FROM_NAME` (optional, example: `Mood`)
@@ -48,9 +48,7 @@ Set these in Vercel project settings:
 - `NOTIFY_DISPATCH_SECRET` (long random string)
 - `PUBLIC_SITE_URL` (for email links, example: `https://buxx.me`)
 - `CRON_SECRET`
-- `CLOUDFLARE_ACCOUNT_ID`
-- `CLOUDFLARE_API_TOKEN`
-- `CLOUDFLARE_NOTIFY_D1_DATABASE_ID`
+- `NOTIFY_DB` D1 binding
 - `PUBLIC_TURNSTILE_SITE_KEY` (optional, frontend widget site key)
 - `TURNSTILE_SECRET_KEY` (optional, enables anti-bot verification for subscribe endpoint)
 - `NOTIFY_ADMIN_TELEGRAM_CHAT_ID` (optional, sends admin alerts on confirmed subscribe and unsubscribe)
@@ -71,7 +69,7 @@ The Cloudflare Worker also needs:
 
 - `NOTIFY_DISPATCH_SECRET`
 
-That secret must match the Vercel production value because the Worker queue consumer calls `POST /api/notify/dispatch`.
+That secret must match the value accepted by `/api/notify/dispatch` because the queue consumer calls that endpoint inside the Worker runtime.
 
 `CLOUDFLARE_KV_NAMESPACE_ID` is no longer required for Telegram image lookup after the R2 migration.
 
@@ -183,25 +181,17 @@ Notes:
 
 - The Worker does not send email directly.
 - `/api/notify/dispatch` remains the notify entrypoint for actual delivery, idempotency, and per-subscriber retry scheduling.
-- The queue exists only to make the Worker-to-Vercel notify handoff durable.
+- The queue exists only to make immediate notify dispatch durable.
 
-### Vercel Cron
+### Cloudflare Cron
 
-`vercel.json` keeps a low-frequency fallback cron:
+Cloudflare Cron owns scheduled notify and retry execution for `buxx-site`.
 
-```json
-{
-  "crons": [{ "path": "/api/notify/retry", "schedule": "0 3 * * *" }]
-}
-```
+The final cadence belongs in Cloudflare configuration. This document should not treat the current migration value as product policy.
 
-This daily fallback exists for Vercel Hobby plan compatibility.
+### Legacy Scheduler Worker
 
-### Primary Scheduler (Cloudflare Worker)
-
-Use `workers/notify-scheduler` as the primary scheduler (every 15 minutes).
-
-It calls:
+The standalone `workers/notify-scheduler` deployment is rollback history until production cutover is verified. The scheduled task still calls:
 
 - `POST /api/notify/schedule`
 - `POST /api/notify/retry`

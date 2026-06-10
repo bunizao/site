@@ -35,16 +35,16 @@ If `TURNSTILE_SECRET_KEY` (or `CLOUDFLARE_TURNSTILE_SECRET_KEY`) is set, subscri
 
 ## Environment
 
-Vercel needs:
+`buxx-site` needs:
 
 - `RESEND_API_KEY`, `NOTIFY_FROM_NAME` (optional), `NOTIFY_FROM_EMAIL`, `NOTIFY_REPLY_TO_EMAIL` (optional).
 - `EMAIL_NOTIFY_SECRET`, `NOTIFY_DISPATCH_SECRET`, `CRON_SECRET` (long random strings).
 - `PUBLIC_SITE_URL`.
-- `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_NOTIFY_D1_DATABASE_ID`.
+- `NOTIFY_DB` D1 binding.
 - `PUBLIC_TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET_KEY` (optional).
 - `NOTIFY_ADMIN_TELEGRAM_CHAT_ID` (optional, sends admin alerts on confirmed subscribe and unsubscribe).
 
-The Cloudflare worker also needs `NOTIFY_DISPATCH_SECRET` — must match the Vercel value because the worker queue consumer calls `POST /api/notify/dispatch`.
+The queue consumer also needs `NOTIFY_DISPATCH_SECRET`; it must match the value accepted by `/api/notify/dispatch`.
 
 ## D1 tables
 
@@ -85,13 +85,13 @@ Telegram → Cloudflare Worker /webhook → Cloudflare Queue
         → notify service → Resend
 ```
 
-The worker doesn't send email directly. `/api/notify/dispatch` is the notify entrypoint for delivery, idempotency, and per-subscriber retry scheduling. The queue exists only to make the worker → Vercel handoff durable.
+The worker doesn't send email directly. `/api/notify/dispatch` is the notify entrypoint for delivery, idempotency, and per-subscriber retry scheduling. The queue exists only to make immediate notify dispatch durable.
 
 ### Scheduler
 
-Primary: `workers/notify-scheduler` runs every 15 minutes and POSTs `/api/notify/schedule` and `/api/notify/retry` with `Authorization: Bearer <CRON_SECRET>`.
+Cloudflare Cron owns scheduled notify and retry execution for `buxx-site`. The final cadence belongs in Cloudflare configuration, not this page.
 
-Fallback: Vercel cron in `vercel.json` posts `/api/notify/retry` daily at 03:00 UTC for Vercel Hobby plan compatibility.
+The standalone `workers/notify-scheduler` deployment is rollback history until production cutover is verified.
 
 ### Manual
 

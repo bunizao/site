@@ -17,10 +17,12 @@ Markdown-backed means policy edits don't require layout changes, route logic sta
 
 ## What the policy covers
 
-### Hosting, analytics, performance
+### Hosting, observability, performance
 
-- Site pages are hosted on Vercel.
-- `src/layouts/Layout.astro` mounts `@vercel/speed-insights/astro` and lazy-loads `@vercel/analytics`.
+- Site pages and API routes run on the Cloudflare Worker target `buxx-site`.
+- `wrangler.jsonc` binds the Worker to `buxx.me`, `www.buxx.me`, and `image.buxx.me`.
+- Cloudflare Worker observability and request logs cover operational monitoring.
+- `src/layouts/Layout.astro` does not mount a third-party analytics script.
 
 ### Homepage listening
 
@@ -49,7 +51,7 @@ Markdown-backed means policy edits don't require layout changes, route logic sta
 
 - Turnstile verification: `src/lib/security/turnstile.ts`. Used by mood subscribe when `TURNSTILE_SECRET` is configured.
 - Cloudflare D1 backs subscriber state.
-- Cloudflare workers handle image ingest and the notify scheduler.
+- Cloudflare Worker bindings provide D1, R2, queue, and scheduled-event infrastructure.
 
 ### Third-party content sources
 
