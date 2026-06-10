@@ -17,6 +17,28 @@ describe('Cloudflare runtime configuration', () => {
     expect(existsSync(join(root, 'vercel.json'))).toBe(false);
   });
 
+  test('does not keep legacy host deployment configuration', () => {
+    expect(existsSync(join(root, 'netlify.toml'))).toBe(false);
+  });
+
+  test('keeps preview and Lighthouse checks platform-neutral', () => {
+    const files = [
+      '.github/workflows/preview-smoke.yml',
+      '.github/workflows/lighthouse.yml',
+      '.github/scripts/redact-lighthouse-artifacts.mjs',
+      'lighthouserc.cjs',
+      'playwright.config.ts',
+    ];
+    const configText = files.map(readText).join('\n');
+
+    expect(configText).not.toContain('VERCEL_AUTOMATION_BYPASS_SECRET');
+    expect(configText).not.toContain('E2E_VERCEL_BYPASS_SECRET');
+    expect(configText).not.toContain('x-vercel-protection-bypass');
+    expect(configText).not.toContain('x-vercel-set-bypass-cookie');
+    expect(configText).toContain('Cloudflare preview URL to test');
+    expect(configText).toContain('Cloudflare deployment URL to audit');
+  });
+
   test('uses the Cloudflare Astro adapter and root Wrangler scripts', () => {
     const packageJson = readJson('package.json') as {
       scripts?: Record<string, string>;
