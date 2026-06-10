@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   AnimatePresence,
@@ -26,9 +26,7 @@ import { cn } from "@/lib/utils";
 
 const visibleDepth = 3; // four projects → depths 0..3, all peek
 const autoAdvanceMs = 5500; // slow enough to read; hover pauses it entirely
-const dragAdvanceThreshold = 90;
-
-const depthRotations = [0, 1.8, 3.4, 4.8];
+const dragAdvanceThreshold = 70;
 
 const spring = { type: "spring", stiffness: 260, damping: 30 } as const;
 
@@ -133,7 +131,7 @@ function StoryCard({
         {renderHero(project.hero, active)}
       </div>
 
-      <div className="overflow-y-auto overscroll-contain px-4 pb-3 pt-5 sm:px-5 sm:pb-4">
+      <div className="touch-pan-y overflow-y-auto overscroll-contain px-4 pb-3 pt-5 sm:px-5 sm:pb-4">
         <p className="mb-2 font-code text-[11px] uppercase tracking-[0.16em] text-stone-400 dark:text-white/40">
           {project.type}
         </p>
@@ -239,6 +237,9 @@ function StoryGallery({
 
   return createPortal(
     <motion.div
+      role="dialog"
+      aria-modal="true"
+      aria-label="Project gallery"
       className="fixed inset-0 z-[100] overflow-hidden"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
@@ -257,7 +258,12 @@ function StoryGallery({
           animate={{ x: centerOffset }}
           transition={reduce ? { duration: 0 } : spring}
           drag={reduce ? false : "x"}
-          dragElastic={0.12}
+          dragElastic={0.14}
+          // Clamp to first/last centered so dragging never reveals empty space.
+          dragConstraints={{
+            left: -stride * ((count - 1) / 2),
+            right: stride * ((count - 1) / 2),
+          }}
           onDragEnd={onDragEnd}
         >
           {projects.map((p, i) => (
@@ -291,6 +297,8 @@ function StoryGallery({
         <X className="h-4 w-4" />
       </button>
 
+      {/* Arrows on desktop only — on mobile the card fills the width, so the
+          scrubber below is the control instead. */}
       <GalleryArrow side="left" disabled={index === 0} onClick={() => go(index - 1)} />
       <GalleryArrow
         side="right"
@@ -298,25 +306,58 @@ function StoryGallery({
         onClick={() => go(index + 1)}
       />
 
-      <div className="absolute bottom-5 left-1/2 z-10 flex -translate-x-1/2 items-center gap-2">
-        {projects.map((p, i) => (
-          <button
-            key={p.id}
-            type="button"
-            onClick={() => go(i)}
-            aria-label={`Show ${p.name}`}
-            aria-current={i === index}
-            className={cn(
-              "h-1.5 rounded-full transition-all duration-300",
-              i === index
-                ? "w-6 bg-white/85"
-                : "w-1.5 bg-white/30 hover:bg-white/55",
-            )}
-          />
-        ))}
-      </div>
+      <GalleryScrubber count={count} index={index} go={go} />
     </motion.div>,
     document.body,
+  );
+}
+
+function GalleryScrubber({
+  count,
+  index,
+  go,
+}: {
+  count: number;
+  index: number;
+  go: (n: number) => void;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [dragging, setDragging] = useState(false);
+
+  const update = (clientX: number) => {
+    const el = ref.current;
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    go(Math.round(((clientX - r.left) / r.width) * (count - 1)));
+  };
+
+  return (
+    <div className="absolute bottom-6 left-1/2 z-10 -translate-x-1/2">
+      <div
+        ref={ref}
+        role="slider"
+        aria-label="Project"
+        aria-valuemin={1}
+        aria-valuemax={count}
+        aria-valuenow={index + 1}
+        className="relative h-2.5 w-[min(72vw,340px)] cursor-grab touch-none rounded-full bg-white/15 active:cursor-grabbing"
+        onPointerDown={(e) => {
+          setDragging(true);
+          ref.current?.setPointerCapture(e.pointerId);
+          update(e.clientX);
+        }}
+        onPointerMove={(e) => dragging && update(e.clientX)}
+        onPointerUp={() => setDragging(false)}
+        onPointerCancel={() => setDragging(false)}
+      >
+        <motion.div
+          className="absolute inset-y-0 rounded-full bg-white/90"
+          style={{ width: `${100 / count}%` }}
+          animate={{ left: `${(index * 100) / count}%` }}
+          transition={spring}
+        />
+      </div>
+    </div>
   );
 }
 
@@ -336,8 +377,8 @@ function GalleryArrow({
       disabled={disabled}
       aria-label={side === "left" ? "Previous" : "Next"}
       className={cn(
-        "absolute top-1/2 z-10 grid h-11 w-11 -translate-y-1/2 place-items-center rounded-full border border-white/15 bg-stone-900/35 text-white backdrop-blur-md transition-all hover:bg-stone-900/55",
-        side === "left" ? "left-3 sm:left-6" : "right-3 sm:right-6",
+        "absolute top-1/2 z-10 hidden h-11 w-11 -translate-y-1/2 place-items-center rounded-full border border-white/15 bg-stone-900/35 text-white backdrop-blur-md transition-all hover:bg-stone-900/55 sm:grid",
+        side === "left" ? "left-6" : "right-6",
         disabled && "pointer-events-none opacity-0",
       )}
     >
@@ -357,17 +398,17 @@ function GalleryArrow({
 function getStackPose(depth: number): TargetAndTransition {
   const layer = Math.min(depth, visibleDepth);
 
-  // Directional cascade: each card behind drops down + drifts right + tilts,
-  // so the deck unmistakably reads as a pile with every card peeking.
+  // Right-fanned reveal: each card behind drifts right and tilts so a strip of
+  // its own content shows along the edge — the deck reads as a fan of cards.
   return {
-    x: layer * 14,
-    y: layer * 30,
-    z: -layer * 50,
-    scale: 1 - layer * 0.04,
-    rotateX: layer * 1.2,
-    rotateZ: depthRotations[layer] ?? 0,
-    opacity: depth > visibleDepth ? 0 : 1 - layer * 0.04,
-    filter: `blur(${Math.max(0, layer - 1) * 0.45}px)`,
+    x: layer * 22,
+    y: layer * 5,
+    z: -layer * 36,
+    scale: 1 - layer * 0.015,
+    rotateX: 0,
+    rotateZ: layer * 3.2,
+    opacity: depth > visibleDepth ? 0 : 1 - layer * 0.03,
+    filter: `blur(${Math.max(0, layer - 2) * 0.6}px)`,
   };
 }
 
@@ -400,6 +441,10 @@ export default function ProjectStack({ className }: { className?: string }) {
     setOrder((o) => [id, ...o.filter((x) => x !== id)]);
   const openGallery = (id: string) =>
     setGalleryIndex(projects.findIndex((p) => p.id === id));
+
+  // Reset on each pointer-down, set true once a drag actually moves — onTap then
+  // reliably opens only on a real tap, never on the tail of a stack flip.
+  const draggedRef = useRef(false);
 
   // Entrance: fan the deck out once after mount.
   useEffect(() => {
@@ -450,7 +495,8 @@ export default function ProjectStack({ className }: { className?: string }) {
               className="absolute inset-x-0 top-0 mx-auto w-full max-w-[400px] select-none"
               style={{
                 transformStyle: "preserve-3d",
-                transformOrigin: "center top",
+                transformOrigin: "center center",
+                touchAction: "pan-y",
                 zIndex: projects.length - depth,
                 pointerEvents: depth <= visibleDepth ? "auto" : "none",
                 cursor: active ? "grab" : "pointer",
@@ -466,17 +512,24 @@ export default function ProjectStack({ className }: { className?: string }) {
               }}
               drag={active && !reduce ? "x" : false}
               dragSnapToOrigin
-              dragElastic={0.5}
-              dragConstraints={{ left: 0, right: 0 }}
+              dragElastic={0.4}
               whileHover={active && !reduce ? { y: -6 } : undefined}
               whileDrag={{ cursor: "grabbing" }}
+              onPointerDown={() => {
+                draggedRef.current = false;
+              }}
               onDragStart={(e) => e.preventDefault()}
+              onDrag={() => {
+                draggedRef.current = true;
+              }}
               onDragEnd={onDragEnd}
-              onClick={
-                active
-                  ? () => openGallery(project.id)
-                  : () => promote(project.id)
-              }
+              // onTap opens L1, but only when this gesture wasn't a drag — a flick
+              // flips the stack and never falls through to opening.
+              onTap={() => {
+                if (draggedRef.current) return;
+                if (active) openGallery(project.id);
+                else promote(project.id);
+              }}
               aria-hidden={!active}
             >
               <CardFace

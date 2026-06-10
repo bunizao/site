@@ -16,6 +16,12 @@ import ProjectStack from '@/components/project-cards/ProjectStack';
     opacity: 0;
   }
 
+  /* The fanned / dragged cards extend past the deck box; clip horizontally so
+     they never widen the page and jolt the sticky navbar. */
+  .projects-section {
+    overflow-x: clip;
+  }
+
   @media (prefers-reduced-motion: reduce) {
     .projects-section,
     .scroll-reveal-card {
