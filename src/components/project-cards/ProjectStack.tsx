@@ -69,7 +69,7 @@ function CardFace({
   onOpen: () => void;
 }) {
   return (
-    <div className="overflow-hidden rounded-[18px] border border-white/12 bg-neutral-950/90 text-left text-white shadow-2xl shadow-black/50 backdrop-blur-xl">
+    <div className="overflow-hidden rounded-[18px] border border-white/12 bg-neutral-950 text-left text-white shadow-2xl shadow-black/50">
       <div className="relative aspect-[16/10] w-full overflow-hidden">
         {renderHero(project.hero, active)}
       </div>
@@ -250,7 +250,7 @@ export default function ProjectStack({ className }: { className?: string }) {
 
   return (
     <div
-      className={cn("relative mx-auto w-[440px] max-w-full", className)}
+      className={cn("relative mx-auto w-full max-w-[440px]", className)}
       onPointerEnter={() => setPaused(true)}
       onPointerLeave={() => setPaused(false)}
     >
