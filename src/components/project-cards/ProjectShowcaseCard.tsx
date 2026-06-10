@@ -110,8 +110,8 @@ export function renderHero(hero: Hero, hovered: boolean) {
 
 export function StarBadge({ stars }: { stars: number }) {
   return (
-    <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 font-code text-[12px] font-semibold text-white/85 backdrop-blur-md">
-      <Star className="h-3 w-3 fill-amber-300 text-amber-300" />
+    <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-stone-900/10 bg-stone-900/[0.035] px-2.5 py-1 font-code text-[12px] font-semibold text-stone-600 backdrop-blur-md dark:border-white/12 dark:bg-white/[0.07] dark:text-white/80">
+      <Star className="h-3 w-3 fill-amber-400 text-amber-400 dark:fill-amber-300 dark:text-amber-300" />
       {stars}
     </span>
   );

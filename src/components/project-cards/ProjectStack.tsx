@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   AnimatePresence,
   motion,
@@ -30,34 +31,19 @@ const dragAdvanceThreshold = 90;
 
 const depthRotations = [0, -4.6, 4, -3];
 
-function getStackPose(depth: number): TargetAndTransition {
-  const layer = Math.min(depth, visibleDepth);
-  const side = layer % 2 === 0 ? -1 : 1;
+// Shared chrome. Warm neutral, never pure black/white: a cream card under the
+// dark hero in light mode (magazine cut), a soft near-black in dark mode.
+// Hairline borders + layered shadow instead of a harsh white stroke.
+const surface =
+  "border bg-[#fbfaf7] border-stone-900/[0.07] " +
+  "shadow-[0_1px_2px_-1px_rgba(28,25,23,0.10),0_16px_36px_-18px_rgba(28,25,23,0.28)] " +
+  "dark:bg-[#131417] dark:border-white/[0.06] " +
+  "dark:shadow-[0_2px_6px_-2px_rgba(0,0,0,0.55),0_28px_60px_-26px_rgba(0,0,0,0.75)]";
 
-  return {
-    x: side * layer * 11,
-    y: layer * 30,
-    z: -layer * 90,
-    scale: 1 - layer * 0.05,
-    rotateX: layer * 3,
-    rotateZ: depthRotations[layer] ?? 0,
-    opacity: depth > visibleDepth ? 0 : 1 - layer * 0.1,
-    filter: `blur(${Math.max(0, layer - 1) * 0.4}px)`,
-  };
-}
-
-function getEntrancePose(depth: number): TargetAndTransition {
-  return {
-    x: 0,
-    y: 46,
-    z: -depth * 16,
-    scale: 0.84,
-    rotateX: 0,
-    rotateZ: 0,
-    opacity: 0,
-    filter: "blur(8px)",
-  };
-}
+// The seam where the dark hero meets the body — a 1px highlight, not a slab edge.
+const seam =
+  "after:pointer-events-none after:absolute after:inset-x-0 after:top-0 after:h-px " +
+  "after:bg-stone-900/[0.06] dark:after:bg-white/[0.07]";
 
 function CardFace({
   project,
@@ -69,13 +55,19 @@ function CardFace({
   onOpen: () => void;
 }) {
   return (
-    <div className="overflow-hidden rounded-[18px] border border-white/12 bg-neutral-950 text-left text-white shadow-2xl shadow-black/50">
-      <div className="relative aspect-[16/10] w-full overflow-hidden">
+    <div
+      className={cn(
+        "overflow-hidden rounded-[18px] text-left text-stone-900 dark:text-stone-100",
+        surface,
+      )}
+    >
+      {/* Hero is inert: it must not steal drags or let the image be selected. */}
+      <div className="pointer-events-none relative aspect-[16/10] w-full select-none overflow-hidden">
         {renderHero(project.hero, active)}
       </div>
 
-      <div className="p-5">
-        <p className="font-code text-[10px] uppercase tracking-[0.14em] text-white/35">
+      <div className={cn("relative p-5", seam)}>
+        <p className="font-code text-[10px] uppercase tracking-[0.14em] text-stone-400 dark:text-white/35">
           {project.type}
         </p>
         <div className="mt-1.5 flex items-center justify-between gap-3">
@@ -85,7 +77,7 @@ function CardFace({
           {project.stars != null && <StarBadge stars={project.stars} />}
         </div>
 
-        <p className="mt-3 font-sans text-[13.5px] leading-relaxed text-white/55">
+        <p className="mt-3 font-sans text-[13.5px] leading-relaxed text-stone-500 dark:text-white/55">
           {project.blurb}
         </p>
 
@@ -95,7 +87,7 @@ function CardFace({
             // Only the front card is interactive; back cards are inert until promoted.
             onClick={active ? onOpen : undefined}
             tabIndex={active ? 0 : -1}
-            className="inline-flex items-center gap-1 font-code text-[11px] font-semibold uppercase tracking-wide text-white/45 outline-none transition-colors hover:text-white/85 focus-visible:text-white/85"
+            className="inline-flex items-center gap-1 font-code text-[11px] font-semibold uppercase tracking-wide text-stone-400 outline-none transition-colors hover:text-stone-700 focus-visible:text-stone-700 dark:text-white/45 dark:hover:text-white/85 dark:focus-visible:text-white/85"
           >
             Tell me more
             <ArrowUpRight className="h-3.5 w-3.5" />
@@ -128,85 +120,126 @@ function StoryModal({
     };
   }, [onClose]);
 
-  return (
-    <div className="fixed inset-0 z-50 grid place-items-center p-4 sm:p-6">
+  // Portaled to <body>: the home section's gsap transform would otherwise
+  // become the containing block for `fixed`, throwing the modal off-center.
+  if (typeof document === "undefined") return null;
+
+  return createPortal(
+    // Wrapper scrolls; the inner flex centers when it fits and top-aligns when
+    // it doesn't — so tall content is never clipped on mobile.
+    <div className="fixed inset-0 z-[100] overflow-y-auto overscroll-contain">
       <motion.div
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+        className="fixed inset-0 bg-stone-900/40 backdrop-blur-md dark:bg-black/60"
         onClick={onClose}
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
       />
 
-      <motion.div
-        role="dialog"
-        aria-modal="true"
-        aria-label={project.name}
-        initial={reduce ? { opacity: 0 } : { opacity: 0, y: 18, scale: 0.96 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
-        exit={reduce ? { opacity: 0 } : { opacity: 0, y: 18, scale: 0.96 }}
-        transition={{ type: "spring", stiffness: 240, damping: 26 }}
-        className="relative z-10 w-[680px] max-w-full overflow-hidden rounded-[22px] border border-white/12 bg-neutral-950/95 text-white shadow-2xl shadow-black/60 backdrop-blur-xl"
-      >
-        <div className="relative aspect-[16/9] w-full overflow-hidden">
-          {renderHero(project.hero, false)}
-        </div>
-
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label="Close"
-          className="absolute right-4 top-4 grid h-9 w-9 place-items-center rounded-full border border-white/15 bg-black/50 text-white/80 backdrop-blur-md transition-colors hover:bg-black/70 hover:text-white"
+      <div className="relative flex min-h-full items-center justify-center p-4 sm:p-6">
+        <motion.div
+          role="dialog"
+          aria-modal="true"
+          aria-label={project.name}
+          initial={reduce ? { opacity: 0 } : { opacity: 0, y: 18, scale: 0.97 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          exit={reduce ? { opacity: 0 } : { opacity: 0, y: 18, scale: 0.97 }}
+          transition={{ type: "spring", stiffness: 240, damping: 26 }}
+          className={cn(
+            "relative w-full max-w-[640px] overflow-hidden rounded-[22px] text-stone-900 dark:text-stone-100",
+            surface,
+          )}
         >
-          <X className="h-4 w-4" />
-        </button>
-
-        <div className="p-6 sm:p-8">
-          <p className="mb-2 font-code text-[11px] uppercase tracking-[0.14em] text-white/40">
-            {project.type}
-          </p>
-          <div className="flex items-center justify-between gap-3">
-            <h3 className="font-display text-[34px] font-extrabold leading-none tracking-tight sm:text-[40px]">
-              {project.name}
-            </h3>
-            {project.stars != null && <StarBadge stars={project.stars} />}
+          <div className="pointer-events-none relative aspect-[16/9] w-full select-none overflow-hidden">
+            {renderHero(project.hero, false)}
           </div>
 
-          <div className="mt-4 flex flex-wrap gap-2">
-            {project.tags.map((tag) => (
-              <span
-                key={tag}
-                className="rounded-full border border-white/12 bg-white/[0.06] px-3 py-1 font-code text-[11px] text-white/65"
-              >
-                {tag}
-              </span>
-            ))}
-          </div>
-
-          <div className="mt-5 space-y-4">
-            {project.story.map((paragraph, i) => (
-              <p
-                key={i}
-                className="font-sans text-[15px] leading-relaxed text-white/75"
-              >
-                {paragraph}
-              </p>
-            ))}
-          </div>
-
-          <a
-            href={project.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="mt-7 inline-flex items-center gap-1.5 border-b border-white/25 pb-0.5 font-code text-[13px] font-semibold uppercase tracking-wide text-white/80 transition-colors hover:border-white hover:text-white"
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close"
+            className="absolute right-4 top-4 grid h-9 w-9 place-items-center rounded-full border border-white/15 bg-black/40 text-white/85 backdrop-blur-md transition-colors hover:bg-black/60 hover:text-white"
           >
-            View on GitHub
-            <ArrowUpRight className="h-4 w-4" />
-          </a>
-        </div>
-      </motion.div>
-    </div>
+            <X className="h-4 w-4" />
+          </button>
+
+          <div className={cn("relative p-6 sm:p-8", seam)}>
+            <p className="mb-2 font-code text-[11px] uppercase tracking-[0.14em] text-stone-400 dark:text-white/40">
+              {project.type}
+            </p>
+            <div className="flex items-center justify-between gap-3">
+              <h3 className="min-w-0 font-display text-[26px] font-extrabold leading-none tracking-tight sm:text-[40px]">
+                {project.name}
+              </h3>
+              {project.stars != null && <StarBadge stars={project.stars} />}
+            </div>
+
+            <div className="mt-4 flex flex-wrap gap-2">
+              {project.tags.map((tag) => (
+                <span
+                  key={tag}
+                  className="rounded-full border border-stone-900/10 bg-stone-900/[0.035] px-3 py-1 font-code text-[11px] text-stone-600 dark:border-white/10 dark:bg-white/[0.06] dark:text-white/65"
+                >
+                  {tag}
+                </span>
+              ))}
+            </div>
+
+            <div className="mt-5 space-y-4">
+              {project.story.map((paragraph, i) => (
+                <p
+                  key={i}
+                  className="font-sans text-[15px] leading-relaxed text-stone-600 dark:text-white/75"
+                >
+                  {paragraph}
+                </p>
+              ))}
+            </div>
+
+            <a
+              href={project.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-7 inline-flex items-center gap-1.5 border-b border-stone-900/25 pb-0.5 font-code text-[13px] font-semibold uppercase tracking-wide text-stone-700 transition-colors hover:border-stone-900 hover:text-stone-900 dark:border-white/25 dark:text-white/80 dark:hover:border-white dark:hover:text-white"
+            >
+              View on GitHub
+              <ArrowUpRight className="h-4 w-4" />
+            </a>
+          </div>
+        </motion.div>
+      </div>
+    </div>,
+    document.body,
   );
+}
+
+function getStackPose(depth: number): TargetAndTransition {
+  const layer = Math.min(depth, visibleDepth);
+  const side = layer % 2 === 0 ? -1 : 1;
+
+  return {
+    x: side * layer * 11,
+    y: layer * 30,
+    z: -layer * 90,
+    scale: 1 - layer * 0.05,
+    rotateX: layer * 3,
+    rotateZ: depthRotations[layer] ?? 0,
+    opacity: depth > visibleDepth ? 0 : 1 - layer * 0.1,
+    filter: `blur(${Math.max(0, layer - 1) * 0.4}px)`,
+  };
+}
+
+function getEntrancePose(): TargetAndTransition {
+  return {
+    x: 0,
+    y: 46,
+    z: 0,
+    scale: 0.84,
+    rotateX: 0,
+    rotateZ: 0,
+    opacity: 0,
+    filter: "blur(8px)",
+  };
 }
 
 export default function ProjectStack({ className }: { className?: string }) {
@@ -265,7 +298,7 @@ export default function ProjectStack({ className }: { className?: string }) {
           return (
             <motion.article
               key={project.id}
-              className="absolute inset-x-0 top-0 mx-auto w-full max-w-[400px]"
+              className="absolute inset-x-0 top-0 mx-auto w-full max-w-[400px] select-none"
               style={{
                 transformStyle: "preserve-3d",
                 transformOrigin: "center top",
@@ -273,7 +306,7 @@ export default function ProjectStack({ className }: { className?: string }) {
                 pointerEvents: depth <= visibleDepth ? "auto" : "none",
                 cursor: active ? "grab" : "pointer",
               }}
-              initial={reduce ? getStackPose(depth) : getEntrancePose(depth)}
+              initial={reduce ? getStackPose(depth) : getEntrancePose()}
               animate={getStackPose(depth)}
               transition={{
                 type: "spring",
@@ -287,6 +320,7 @@ export default function ProjectStack({ className }: { className?: string }) {
               dragElastic={0.5}
               dragConstraints={{ left: 0, right: 0 }}
               whileDrag={{ cursor: "grabbing" }}
+              onDragStart={(e) => e.preventDefault()}
               onDragEnd={onDragEnd}
               onClick={active ? undefined : () => promote(project.id)}
               aria-hidden={!active}
@@ -326,10 +360,7 @@ export default function ProjectStack({ className }: { className?: string }) {
 
       <AnimatePresence>
         {activeProject && (
-          <StoryModal
-            project={activeProject}
-            onClose={() => setActiveId(null)}
-          />
+          <StoryModal project={activeProject} onClose={() => setActiveId(null)} />
         )}
       </AnimatePresence>
     </div>
