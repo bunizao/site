@@ -1,12 +1,12 @@
 ---
 import { ArrowUpRight } from 'lucide-react';
 import Layout from '@/layouts/Layout.astro';
-import ProjectStackShowcase from '@/components/ProjectStackShowcase';
+import ProjectStack from '@/components/project-cards/ProjectStack';
 
 export const prerender = true;
 
 const title = 'Projects';
-const description = 'Selected projects by Bunizao, shown as a 3D stacked card carousel.';
+const description = 'Selected projects by Bunizao, shown as a stacked card deck.';
 ---
 
 <Layout
@@ -37,7 +37,7 @@ const description = 'Selected projects by Bunizao, shown as a 3D stacked card ca
       </div>
 
       <div class="projects-stack">
-        <ProjectStackShowcase client:load />
+        <ProjectStack client:load />
       </div>
     </section>
   </main>

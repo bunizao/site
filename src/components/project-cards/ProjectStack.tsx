@@ -314,7 +314,10 @@ export default function ProjectStack({ className }: { className?: string }) {
               aria-current={isTop}
               className={cn(
                 "h-1.5 rounded-full transition-all duration-300",
-                isTop ? "w-6 bg-white/80" : "w-1.5 bg-white/25 hover:bg-white/50",
+                // Dots sit on the page background, not the card — track the theme.
+                isTop
+                  ? "w-6 bg-[hsl(var(--foreground)/0.85)]"
+                  : "w-1.5 bg-[hsl(var(--foreground)/0.22)] hover:bg-[hsl(var(--foreground)/0.45)]",
               )}
             />
           );
