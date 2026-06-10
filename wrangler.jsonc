@@ -1,0 +1,70 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "buxx-site",
+  "main": "@astrojs/cloudflare/entrypoints/server",
+  "compatibility_date": "2026-04-15",
+  "compatibility_flags": ["nodejs_compat"],
+  "assets": {
+    "directory": "./dist",
+    "binding": "ASSETS",
+    "run_worker_first": [
+      "/api/*",
+      "/mood*",
+      "/dev/*",
+      "/oauth*",
+      "/docs*"
+    ]
+  },
+  "routes": [
+    { "pattern": "buxx.me", "custom_domain": true },
+    { "pattern": "www.buxx.me", "custom_domain": true },
+    { "pattern": "image.buxx.me", "custom_domain": true }
+  ],
+  "vars": {
+    "NOTIFY_DISPATCH_URL": "https://buxx.me/api/notify/dispatch",
+    "TELEGRAM_HOST": "t.me"
+  },
+  "observability": {
+    "enabled": true,
+    "logs": {
+      "enabled": true,
+      "invocation_logs": true,
+      "persist": true
+    }
+  },
+  "kv_namespaces": [
+    { "binding": "SESSION" }
+  ],
+  "d1_databases": [
+    {
+      "binding": "NOTIFY_DB",
+      "database_name": "site-notify",
+      "migrations_dir": "scripts/sql/migrations"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "MOOD_IMAGES",
+      "bucket_name": "mood-images"
+    }
+  ],
+  "queues": {
+    "producers": [
+      {
+        "binding": "NOTIFY_DISPATCH_QUEUE",
+        "queue": "telegram-notify-dispatch"
+      }
+    ],
+    "consumers": [
+      {
+        "queue": "telegram-notify-dispatch",
+        "max_batch_size": 10,
+        "max_batch_timeout": 5,
+        "max_retries": 5
+      }
+    ]
+  },
+  "triggers": {
+    "crons": ["0 3 * * *"]
+  }
+}
