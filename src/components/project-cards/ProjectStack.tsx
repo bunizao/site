@@ -29,21 +29,22 @@ const visibleDepth = 3; // four projects → depths 0..3, all peek
 const autoAdvanceMs = 5500; // slow enough to read; hover pauses it entirely
 const dragAdvanceThreshold = 90;
 
-const depthRotations = [0, -4.6, 4, -3];
+const depthRotations = [0, -3.4, 2.9, -2.2];
 
-// Shared chrome. Warm neutral, never pure black/white: a cream card under the
-// dark hero in light mode (magazine cut), a soft near-black in dark mode.
-// Hairline borders + layered shadow instead of a harsh white stroke.
+// Shared chrome. Warm neutral, never pure black/white: a cream surface that
+// frames the dark hero like a matte in light mode, a soft near-black in dark.
+// Layered ambient+key shadow instead of one harsh slab; hairline borders.
 const surface =
-  "border bg-[#fbfaf7] border-stone-900/[0.07] " +
-  "shadow-[0_1px_2px_-1px_rgba(28,25,23,0.10),0_16px_36px_-18px_rgba(28,25,23,0.28)] " +
-  "dark:bg-[#131417] dark:border-white/[0.06] " +
-  "dark:shadow-[0_2px_6px_-2px_rgba(0,0,0,0.55),0_28px_60px_-26px_rgba(0,0,0,0.75)]";
+  "border bg-[#fbfaf7] border-stone-900/[0.055] " +
+  "shadow-[0_1px_1px_rgba(28,25,23,0.04),0_5px_10px_-4px_rgba(28,25,23,0.06),0_20px_44px_-18px_rgba(28,25,23,0.20)] " +
+  "dark:bg-[#141518] dark:border-white/[0.05] " +
+  "dark:shadow-[0_1px_2px_rgba(0,0,0,0.5),0_14px_30px_-12px_rgba(0,0,0,0.6),0_44px_90px_-34px_rgba(0,0,0,0.55)]";
 
-// The seam where the dark hero meets the body — a 1px highlight, not a slab edge.
-const seam =
-  "after:pointer-events-none after:absolute after:inset-x-0 after:top-0 after:h-px " +
-  "after:bg-stone-900/[0.06] dark:after:bg-white/[0.07]";
+// The hero sits as a framed tile inside the surface — the cream/near-black mat
+// mediates the dark image into the card, no blunt two-tone seam.
+const heroFrame =
+  "pointer-events-none relative w-full select-none overflow-hidden " +
+  "ring-1 ring-inset ring-stone-900/[0.06] dark:ring-white/[0.07]";
 
 function CardFace({
   project,
@@ -57,27 +58,27 @@ function CardFace({
   return (
     <div
       className={cn(
-        "overflow-hidden rounded-[18px] text-left text-stone-900 dark:text-stone-100",
+        "rounded-[22px] p-2 text-left text-stone-900 dark:text-stone-100",
         surface,
       )}
     >
       {/* Hero is inert: it must not steal drags or let the image be selected. */}
-      <div className="pointer-events-none relative aspect-[16/10] w-full select-none overflow-hidden">
+      <div className={cn("aspect-[16/10] rounded-[15px]", heroFrame)}>
         {renderHero(project.hero, active)}
       </div>
 
-      <div className={cn("relative p-5", seam)}>
-        <p className="font-code text-[10px] uppercase tracking-[0.14em] text-stone-400 dark:text-white/35">
+      <div className="px-3.5 pb-3 pt-4">
+        <p className="font-code text-[10px] uppercase tracking-[0.16em] text-stone-400 dark:text-white/35">
           {project.type}
         </p>
-        <div className="mt-1.5 flex items-center justify-between gap-3">
-          <h3 className="font-display text-[22px] font-extrabold leading-none tracking-tight">
+        <div className="mt-2 flex items-center justify-between gap-3">
+          <h3 className="font-display text-[22px] font-extrabold leading-none tracking-[-0.01em]">
             {project.name}
           </h3>
           {project.stars != null && <StarBadge stars={project.stars} />}
         </div>
 
-        <p className="mt-3 font-sans text-[13.5px] leading-relaxed text-stone-500 dark:text-white/55">
+        <p className="mt-2.5 font-sans text-[13.5px] leading-relaxed text-stone-500 dark:text-white/55">
           {project.blurb}
         </p>
 
@@ -146,11 +147,11 @@ function StoryModal({
           exit={reduce ? { opacity: 0 } : { opacity: 0, y: 18, scale: 0.97 }}
           transition={{ type: "spring", stiffness: 240, damping: 26 }}
           className={cn(
-            "relative w-full max-w-[640px] overflow-hidden rounded-[22px] text-stone-900 dark:text-stone-100",
+            "relative w-full max-w-[640px] rounded-[26px] p-2.5 text-stone-900 dark:text-stone-100",
             surface,
           )}
         >
-          <div className="pointer-events-none relative aspect-[16/9] w-full select-none overflow-hidden">
+          <div className={cn("aspect-[16/9] rounded-[18px]", heroFrame)}>
             {renderHero(project.hero, false)}
           </div>
 
@@ -158,17 +159,17 @@ function StoryModal({
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className="absolute right-4 top-4 grid h-9 w-9 place-items-center rounded-full border border-white/15 bg-black/40 text-white/85 backdrop-blur-md transition-colors hover:bg-black/60 hover:text-white"
+            className="absolute right-5 top-5 z-10 grid h-9 w-9 place-items-center rounded-full border border-white/15 bg-black/35 text-white/85 backdrop-blur-md transition-colors hover:bg-black/55 hover:text-white"
           >
             <X className="h-4 w-4" />
           </button>
 
-          <div className={cn("relative p-6 sm:p-8", seam)}>
-            <p className="mb-2 font-code text-[11px] uppercase tracking-[0.14em] text-stone-400 dark:text-white/40">
+          <div className="px-4 pb-3 pt-5 sm:px-5 sm:pb-4">
+            <p className="mb-2 font-code text-[11px] uppercase tracking-[0.16em] text-stone-400 dark:text-white/40">
               {project.type}
             </p>
             <div className="flex items-center justify-between gap-3">
-              <h3 className="min-w-0 font-display text-[26px] font-extrabold leading-none tracking-tight sm:text-[40px]">
+              <h3 className="min-w-0 font-display text-[26px] font-extrabold leading-none tracking-[-0.01em] sm:text-[38px]">
                 {project.name}
               </h3>
               {project.stars != null && <StarBadge stars={project.stars} />}
@@ -319,6 +320,7 @@ export default function ProjectStack({ className }: { className?: string }) {
               dragSnapToOrigin
               dragElastic={0.5}
               dragConstraints={{ left: 0, right: 0 }}
+              whileHover={active && !reduce ? { y: -6 } : undefined}
               whileDrag={{ cursor: "grabbing" }}
               onDragStart={(e) => e.preventDefault()}
               onDragEnd={onDragEnd}
