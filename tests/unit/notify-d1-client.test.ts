@@ -47,7 +47,7 @@ describe('notify D1 client', () => {
     const d1 = createD1Binding([{ email: 'reader@example.com' }]);
     globalThis.fetch = (() => {
       throw new Error('HTTP D1 fallback should not run when NOTIFY_DB is bound');
-    }) as typeof fetch;
+    }) as unknown as typeof fetch;
 
     try {
       const client = createNotifyD1Client({

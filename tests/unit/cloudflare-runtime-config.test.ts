@@ -62,7 +62,7 @@ describe('Cloudflare runtime configuration', () => {
     };
 
     expect(config.name).toBe('buxx-site');
-    expect(config.main).toBe('@astrojs/cloudflare/entrypoints/server');
+    expect(config.main).toBe('src/worker.ts');
     expect(config.assets?.directory).toBe('./dist');
     expect(config.assets?.binding).toBe('ASSETS');
     expect(config.assets?.run_worker_first).toEqual([
