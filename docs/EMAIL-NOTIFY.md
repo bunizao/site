@@ -185,9 +185,7 @@ Notes:
 
 ### Cloudflare Cron
 
-Cloudflare Cron owns scheduled notify and retry execution for `buxx-site`.
-
-The final cadence belongs in Cloudflare configuration. This document should not treat the current migration value as product policy.
+Cloudflare Cron owns scheduled notify and retry execution for `buxx-site` every 15 minutes.
 
 ### Legacy Scheduler Worker
 

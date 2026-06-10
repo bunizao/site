@@ -37,7 +37,7 @@ The site reads from six external sources:
 
 Public JSON: `/api/moods`, `/api/comments`, `/api/oembed.json`, `/api/footer`, `/api/health`. SVG generators (all accept `?theme=light|dark`): `/api/status.svg`, `/api/tech-stack.svg`, `/api/site-badge.svg`, `/api/project.svg`, `/api/activity-panel.svg`. RSS at `/mood/rss.xml`.
 
-Admin endpoints under `/api/admin/` are gated by the `admin_session` cookie. The Cloudflare Worker exposes `https://image.buxx.me/webhook` (Telegram), `https://image.buxx.me/mood/:postId/:imageIndex` (public reads), and authenticated `https://image.buxx.me/ingest/...` write paths. Cloudflare Cron owns scheduled notify runs; the final cadence belongs in Cloudflare configuration.
+Admin endpoints under `/api/admin/` are gated by the `admin_session` cookie. The Cloudflare Worker exposes `https://image.buxx.me/webhook` (Telegram), `https://image.buxx.me/mood/:postId/:imageIndex` (public reads), and authenticated `https://image.buxx.me/ingest/...` write paths. Cloudflare Cron owns scheduled notify runs every 15 minutes.
 
 ## Styling
 

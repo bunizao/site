@@ -56,7 +56,7 @@ The older standalone image worker and notify scheduler are rollback history unti
 - Cloudflare Cron-triggered calls into `/api/notify/schedule`
 - Cloudflare Cron-triggered calls into `/api/notify/retry`
 
-Cloudflare Cron owns scheduled execution. The final cadence belongs in Cloudflare configuration and is not fixed by this document.
+Cloudflare Cron owns scheduled execution every 15 minutes.
 
 ## Legacy Rollback Paths
 

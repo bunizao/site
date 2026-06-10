@@ -38,7 +38,7 @@ It validates Telegram webhook requests, resolves media-group image indexes, writ
 
 `/api/notify/dispatch` requires `NOTIFY_DISPATCH_SECRET`. `/api/notify/schedule` and `/api/notify/retry` accept either `CRON_SECRET` or `NOTIFY_DISPATCH_SECRET`. Subscribe intake is rate-limited and gated by Turnstile when configured. Confirm and unsubscribe are token-based GET flows.
 
-Cloudflare Cron owns scheduled notify and retry execution. The final cadence belongs in Cloudflare configuration, not this page.
+Cloudflare Cron owns scheduled notify and retry execution every 15 minutes.
 
 ## D1 and bindings
 

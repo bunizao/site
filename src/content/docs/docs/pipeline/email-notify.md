@@ -89,7 +89,7 @@ The worker doesn't send email directly. `/api/notify/dispatch` is the notify ent
 
 ### Scheduler
 
-Cloudflare Cron owns scheduled notify and retry execution for `buxx-site`. The final cadence belongs in Cloudflare configuration, not this page.
+Cloudflare Cron owns scheduled notify and retry execution for `buxx-site` every 15 minutes.
 
 The standalone `workers/notify-scheduler` deployment is rollback history until production cutover is verified.
 

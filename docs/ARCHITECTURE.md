@@ -85,7 +85,7 @@ Telegram references:
 - `GET https://image.buxx.me/mood/:postId/:imageIndex` — Public mood image reads
 - `GET https://image.buxx.me/channel/avatar` — Public channel avatar reads
 - `POST https://image.buxx.me/ingest/...` — Authenticated manual/backfill ingest routes
-- Cloudflare Cron scheduled events run notify schedule and retry tasks; the final cadence is owned by Cloudflare configuration.
+- Cloudflare Cron scheduled events run notify schedule and retry tasks every 15 minutes.
 
 **SVG** (all accept `?theme=light|dark`):
 - `GET /api/status.svg`, `GET /api/tech-stack.svg`, `GET /api/site-badge.svg`

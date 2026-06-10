@@ -100,6 +100,6 @@ describe('Cloudflare runtime configuration', () => {
     expect(config.routes).toContainEqual({ pattern: 'buxx.me', custom_domain: true });
     expect(config.routes).toContainEqual({ pattern: 'www.buxx.me', custom_domain: true });
     expect(config.routes).toContainEqual({ pattern: 'image.buxx.me', custom_domain: true });
-    expect(config.triggers?.crons).toContain('0 3 * * *');
+    expect(config.triggers?.crons).toContain('*/15 * * * *');
   });
 });
