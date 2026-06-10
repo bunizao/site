@@ -1,7 +1,20 @@
+import { readRuntimeEnvSource } from '@/lib/runtime/env';
+import { getNotifyConfig, requireConfigValue } from './env';
+
 export interface CloudflareD1Config {
   accountId: string;
   apiToken: string;
   databaseId: string;
+}
+
+export interface NotifyD1Client {
+  query<T>(sql: string, params?: unknown[]): Promise<T[]>;
+  first<T>(sql: string, params?: unknown[]): Promise<T | null>;
+  run(sql: string, params?: unknown[]): Promise<{ changes: number; lastRowId: number | null }>;
+}
+
+interface NotifyD1ClientContext {
+  locals?: any;
 }
 
 interface CloudflareErrorEntry {
@@ -26,6 +39,24 @@ interface CloudflareD1Response {
   result?: CloudflareD1ResultSet[];
 }
 
+interface WorkerD1Result<T = unknown> {
+  success?: boolean;
+  error?: string;
+  results?: T[];
+  meta?: CloudflareD1Meta;
+}
+
+interface WorkerD1PreparedStatement {
+  bind(...params: unknown[]): WorkerD1PreparedStatement;
+  all<T = unknown>(): Promise<WorkerD1Result<T>>;
+  first<T = unknown>(): Promise<T | null>;
+  run(): Promise<WorkerD1Result>;
+}
+
+interface WorkerD1Database {
+  prepare(sql: string): WorkerD1PreparedStatement;
+}
+
 function buildBaseUrl(config: CloudflareD1Config): string {
   return `https://api.cloudflare.com/client/v4/accounts/${config.accountId}/d1/database/${config.databaseId}/query`;
 }
@@ -47,7 +78,61 @@ async function readErrorMessage(response: Response): Promise<string> {
   }
 }
 
-export class CloudflareD1Client {
+function mapMeta(meta: CloudflareD1Meta | undefined): { changes: number; lastRowId: number | null } {
+  const changes = Number(meta?.changes ?? 0);
+  const lastRowIdRaw = meta?.last_row_id;
+  const lastRowId = Number.isFinite(lastRowIdRaw) ? Number(lastRowIdRaw) : null;
+  return {
+    changes: Number.isFinite(changes) ? changes : 0,
+    lastRowId,
+  };
+}
+
+function isWorkerD1Database(value: unknown): value is WorkerD1Database {
+  return typeof value === 'object'
+    && value !== null
+    && typeof (value as { prepare?: unknown }).prepare === 'function';
+}
+
+function getWorkerD1Database(context: NotifyD1ClientContext): WorkerD1Database | undefined {
+  const source = readRuntimeEnvSource(context.locals);
+  const binding = source?.NOTIFY_DB;
+  return isWorkerD1Database(binding) ? binding : undefined;
+}
+
+function assertWorkerD1Result(result: WorkerD1Result, operation: string): void {
+  if (result.success === false) {
+    const details = (result.error || '').trim();
+    throw new Error(`Cloudflare D1 binding ${operation} failed${details ? `: ${details}` : ''}`);
+  }
+}
+
+class WorkerD1Client implements NotifyD1Client {
+  constructor(private readonly database: WorkerD1Database) {}
+
+  private prepare(sql: string, params: unknown[]): WorkerD1PreparedStatement {
+    const statement = this.database.prepare(sql);
+    return params.length ? statement.bind(...params) : statement;
+  }
+
+  async query<T>(sql: string, params: unknown[] = []): Promise<T[]> {
+    const result = await this.prepare(sql, params).all<T>();
+    assertWorkerD1Result(result, 'query');
+    return result.results ?? [];
+  }
+
+  async first<T>(sql: string, params: unknown[] = []): Promise<T | null> {
+    return await this.prepare(sql, params).first<T>() ?? null;
+  }
+
+  async run(sql: string, params: unknown[] = []): Promise<{ changes: number; lastRowId: number | null }> {
+    const result = await this.prepare(sql, params).run();
+    assertWorkerD1Result(result, 'statement');
+    return mapMeta(result.meta);
+  }
+}
+
+export class CloudflareD1Client implements NotifyD1Client {
   constructor(private readonly config: CloudflareD1Config) {}
 
   private async executeStatement(
@@ -115,12 +200,24 @@ export class CloudflareD1Client {
 
   async run(sql: string, params: unknown[] = []): Promise<{ changes: number; lastRowId: number | null }> {
     const result = await this.executeStatement(sql, params);
-    const changes = Number(result.meta?.changes ?? 0);
-    const lastRowIdRaw = result.meta?.last_row_id;
-    const lastRowId = Number.isFinite(lastRowIdRaw) ? Number(lastRowIdRaw) : null;
-    return {
-      changes: Number.isFinite(changes) ? changes : 0,
-      lastRowId,
-    };
+    return mapMeta(result.meta);
   }
+}
+
+export function createNotifyD1Client(context: NotifyD1ClientContext = {}): NotifyD1Client {
+  const workerDatabase = getWorkerD1Database(context);
+  if (workerDatabase) {
+    return new WorkerD1Client(workerDatabase);
+  }
+
+  const config = getNotifyConfig(context);
+  requireConfigValue(config.cloudflareAccountId, 'CLOUDFLARE_ACCOUNT_ID');
+  requireConfigValue(config.cloudflareApiToken, 'CLOUDFLARE_API_TOKEN');
+  requireConfigValue(config.cloudflareNotifyD1DatabaseId, 'CLOUDFLARE_NOTIFY_D1_DATABASE_ID');
+
+  return new CloudflareD1Client({
+    accountId: config.cloudflareAccountId,
+    apiToken: config.cloudflareApiToken,
+    databaseId: config.cloudflareNotifyD1DatabaseId,
+  });
 }

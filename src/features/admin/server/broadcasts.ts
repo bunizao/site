@@ -1,7 +1,7 @@
 import { randomBytes } from 'node:crypto';
 import { load } from 'cheerio';
 import { FONT_DISPLAY } from '@/lib/fonts';
-import { CloudflareD1Client } from '@/features/notify/server/d1';
+import type { NotifyD1Client } from '@/features/notify/server/d1';
 import { getNotifyConfig, getNotifyFromAddress, requireConfigValue } from '@/features/notify/server/env';
 import { sendEmailWithResend } from '@/features/notify/server/resend';
 import { hashEmail, isValidEmail, normalizeEmail } from '@/features/notify/server/security';
@@ -297,7 +297,7 @@ function audienceWhereClause(audience: BroadcastAudience): { sql: string; params
 }
 
 async function resolveAudience(
-  d1: CloudflareD1Client,
+  d1: NotifyD1Client,
   audience: BroadcastAudience
 ): Promise<SubscriberRow[]> {
   const { sql, params } = audienceWhereClause(audience);
@@ -386,7 +386,7 @@ interface BroadcastInsertInput {
 }
 
 async function insertBroadcastRow(
-  d1: CloudflareD1Client,
+  d1: NotifyD1Client,
   input: BroadcastInsertInput
 ): Promise<void> {
   const now = new Date().toISOString();
@@ -410,7 +410,7 @@ async function insertBroadcastRow(
 }
 
 async function finalizeBroadcastRow(
-  d1: CloudflareD1Client,
+  d1: NotifyD1Client,
   id: string,
   sentCount: number,
   failedCount: number
@@ -428,7 +428,7 @@ async function finalizeBroadcastRow(
 }
 
 async function writeBroadcastAuditEvent(
-  d1: CloudflareD1Client,
+  d1: NotifyD1Client,
   input: {
     id: string;
     subject: string;

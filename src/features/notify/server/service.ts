@@ -4,7 +4,7 @@ import { getChannelInfo } from '@/features/mood/server/telegram-source';
 import { getRelatedLinks, getTextPreviewHtml, getTextPreviewWithMedia } from '@/features/mood/shared/utils';
 import { readPublicEnv } from '@/lib/runtime/env';
 import { getNotifyConfig, getNotifyFromAddress, requireConfigValue } from './env';
-import { CloudflareD1Client } from './d1';
+import { createNotifyD1Client, type NotifyD1Client } from './d1';
 import {
   createNotifyToken,
   hashEmail,
@@ -314,17 +314,8 @@ function detectNotifyRequestSource(request: Request): string {
   return 'unknown';
 }
 
-function createD1Client(context: NotifyRequestContext): CloudflareD1Client {
-  const config = getNotifyConfig(context);
-  requireConfigValue(config.cloudflareAccountId, 'CLOUDFLARE_ACCOUNT_ID');
-  requireConfigValue(config.cloudflareApiToken, 'CLOUDFLARE_API_TOKEN');
-  requireConfigValue(config.cloudflareNotifyD1DatabaseId, 'CLOUDFLARE_NOTIFY_D1_DATABASE_ID');
-
-  return new CloudflareD1Client({
-    accountId: config.cloudflareAccountId,
-    apiToken: config.cloudflareApiToken,
-    databaseId: config.cloudflareNotifyD1DatabaseId,
-  });
+function createD1Client(context: NotifyRequestContext): NotifyD1Client {
+  return createNotifyD1Client(context);
 }
 
 function requireEmailSendingConfig(context: NotifyRequestContext): void {
@@ -553,14 +544,14 @@ function isMatchingPendingPreferences(
 }
 
 async function getSubscriberByEmail(
-  d1: CloudflareD1Client,
+  d1: NotifyD1Client,
   email: string
 ): Promise<SubscriberRecord | null> {
   return getSubscriberByEmailHash(d1, hashEmail(email));
 }
 
 async function getSubscriberByEmailHash(
-  d1: CloudflareD1Client,
+  d1: NotifyD1Client,
   emailHash: string
 ): Promise<SubscriberRecord | null> {
   const row = await d1.first<SubscriberRow>(
@@ -571,7 +562,7 @@ async function getSubscriberByEmailHash(
 }
 
 async function upsertSubscriber(
-  d1: CloudflareD1Client,
+  d1: NotifyD1Client,
   record: SubscriberRecord
 ): Promise<void> {
   await d1.run(
@@ -632,7 +623,7 @@ async function upsertSubscriber(
 }
 
 async function insertAuditRecord(
-  d1: CloudflareD1Client,
+  d1: NotifyD1Client,
   record: NotifyAuditRecord
 ): Promise<void> {
   await d1.run(
@@ -661,7 +652,7 @@ async function insertAuditRecord(
 
 async function recordAuditEvent(
   context: NotifyRequestContext,
-  d1: CloudflareD1Client,
+  d1: NotifyD1Client,
   input: {
     eventType: NotifyAuditEventType;
     email: string;
@@ -692,7 +683,7 @@ async function recordAuditEvent(
 }
 
 async function updateSubscriberDeliveryState(
-  d1: CloudflareD1Client,
+  d1: NotifyD1Client,
   subscriber: SubscriberRecord,
   postId: string,
   timestamp = nowIso()
@@ -706,7 +697,7 @@ async function updateSubscriberDeliveryState(
   });
 }
 
-async function listActiveSubscribers(d1: CloudflareD1Client): Promise<SubscriberRecord[]> {
+async function listActiveSubscribers(d1: NotifyD1Client): Promise<SubscriberRecord[]> {
   const rows = await d1.query<SubscriberRow>(
     `SELECT ${SUBSCRIBER_COLUMNS}
      FROM notify_subscribers
@@ -729,7 +720,7 @@ function getRetryDelayMinutes(attempt: number): number {
 }
 
 async function scheduleRetry(
-  d1: CloudflareD1Client,
+  d1: NotifyD1Client,
   input: {
     postId: string;
     email: string;
@@ -832,7 +823,7 @@ async function scheduleRetry(
 }
 
 async function deleteRetryRecord(
-  d1: CloudflareD1Client,
+  d1: NotifyD1Client,
   postId: string,
   emailHash: string
 ): Promise<void> {
@@ -843,7 +834,7 @@ async function deleteRetryRecord(
 }
 
 async function markAsSent(
-  d1: CloudflareD1Client,
+  d1: NotifyD1Client,
   postId: string,
   emailHash: string,
   resendId?: string
@@ -864,7 +855,7 @@ async function markAsSent(
 }
 
 async function hasBeenSent(
-  d1: CloudflareD1Client,
+  d1: NotifyD1Client,
   postId: string,
   emailHash: string
 ): Promise<boolean> {
@@ -1300,7 +1291,7 @@ async function loadChannelMeta(context: NotifyRequestContext): Promise<ChannelMe
 
 async function sendMoodEmail(
   context: NotifyRequestContext,
-  d1: CloudflareD1Client,
+  d1: NotifyD1Client,
   input: {
     post: Post;
     previewText: string;
@@ -1375,7 +1366,7 @@ async function sendMoodEmail(
 
 async function sendMoodDigestEmail(
   context: NotifyRequestContext,
-  d1: CloudflareD1Client,
+  d1: NotifyD1Client,
   input: {
     posts: Post[];
     subscriber: SubscriberRecord;
