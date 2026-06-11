@@ -8,6 +8,18 @@ const url = new URL(Astro.request.url);
 const next = url.searchParams.get('next') || '/dev/portal';
 const error = url.searchParams.get('error');
 
+function getSignInTarget(value: string): string {
+  try {
+    const pathname = new URL(value, 'https://buxx.me').pathname;
+    if (pathname === '/docs' || pathname.startsWith('/docs/')) return 'docs';
+    if (pathname === '/dev/portal' || pathname.startsWith('/dev/portal/')) return 'dev portal';
+  } catch {
+    return 'buxx.me';
+  }
+
+  return 'buxx.me';
+}
+
 const errorMessages: Record<string, string> = {
   state: 'Sign-in session expired. Please try again.',
   forbidden: 'Your Cloudflare account is not allowed to access this portal.',
@@ -17,6 +29,7 @@ const errorMessages: Record<string, string> = {
   config: 'Admin auth is not configured on the server.',
 };
 const errorMessage = error ? errorMessages[error] ?? 'Sign-in failed. Please try again.' : null;
+const signInTarget = getSignInTarget(next);
 
 const startUrl = `/api/admin/auth/start?next=${encodeURIComponent(next)}`;
 ---
@@ -134,7 +147,7 @@ const startUrl = `/api/admin/auth/start?next=${encodeURIComponent(next)}`;
             decoding="async"
           />
         </span>
-        <h1 class="login-title">Sign in</h1>
+        <h1 class="login-title">Sign in to {signInTarget}</h1>
 
         {errorMessage && <div class="login-error">{errorMessage}</div>}
 
