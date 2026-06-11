@@ -1,4 +1,13 @@
-import { useState, type FocusEvent, type PointerEvent, type ReactNode } from 'react';
+import {
+  useEffect,
+  useRef,
+  useState,
+  type FocusEvent,
+  type MouseEvent,
+  type PointerEvent,
+  type ReactNode,
+  type TouchEvent,
+} from 'react';
 import { GraduationCap, MapPin } from 'lucide-react';
 import { OpenAIIcon, AnthropicIcon } from '@/components/icons';
 import { FogReveal } from './FogReveal';
@@ -109,26 +118,83 @@ const ROW_FLEX =
 
 export default function ExperienceTimeline() {
   // The joke rows share one reveal state — hovering either dissolves both veils.
-  const [revealed, setRevealed] = useState(false);
+  const [hoverRevealed, setHoverRevealed] = useState(false);
+  const [lockedRevealed, setLockedRevealed] = useState(false);
+  const [hydrated, setHydrated] = useState(false);
+  const blockNextTouchClick = useRef(false);
+  const resetTouchClickBlock = useRef<number | null>(null);
+  const revealed = hoverRevealed || lockedRevealed;
+
+  useEffect(() => {
+    setHydrated(true);
+  }, []);
 
   const leavingGroup = (next: EventTarget | null) =>
     !(next instanceof Element) || !next.closest('[data-joke-group]');
 
-  const show = () => setRevealed(true);
+  const show = () => setHoverRevealed(true);
+  const clearTouchClickBlockTimer = () => {
+    if (resetTouchClickBlock.current === null) return;
+
+    window.clearTimeout(resetTouchClickBlock.current);
+    resetTouchClickBlock.current = null;
+  };
+  const clearTouchClickBlockSoon = () => {
+    clearTouchClickBlockTimer();
+    resetTouchClickBlock.current = window.setTimeout(() => {
+      blockNextTouchClick.current = false;
+      resetTouchClickBlock.current = null;
+    }, 350);
+  };
+  const lockReveal = () => {
+    setLockedRevealed(true);
+    setHoverRevealed(true);
+  };
+  const onPointerDownCapture = (e: PointerEvent) => {
+    if (e.pointerType === 'mouse') return;
+
+    blockNextTouchClick.current = !lockedRevealed;
+    lockReveal();
+  };
+  const onTouchStartCapture = () => {
+    blockNextTouchClick.current = !lockedRevealed;
+    lockReveal();
+  };
+  const onTouchEndCapture = (e: TouchEvent) => {
+    if (!blockNextTouchClick.current) return;
+
+    e.preventDefault();
+    e.stopPropagation();
+    clearTouchClickBlockSoon();
+  };
+  const onClickCapture = (e: MouseEvent) => {
+    if (!blockNextTouchClick.current) return;
+
+    clearTouchClickBlockTimer();
+    blockNextTouchClick.current = false;
+    e.preventDefault();
+    e.stopPropagation();
+  };
   const onPointerLeave = (e: PointerEvent) => {
-    if (leavingGroup(e.relatedTarget)) setRevealed(false);
+    if (!lockedRevealed && leavingGroup(e.relatedTarget)) setHoverRevealed(false);
   };
   const onBlur = (e: FocusEvent) => {
-    if (leavingGroup(e.relatedTarget)) setRevealed(false);
+    if (!lockedRevealed && leavingGroup(e.relatedTarget)) setHoverRevealed(false);
   };
 
   return (
-    <ol className="m-0 list-none p-0">
+    <ol className="m-0 list-none p-0" data-experience-timeline={hydrated ? 'hydrated' : 'ssr'}>
       {experiences.map((item) => (
         <li
           key={item.org}
           data-joke-group={item.joke ? '' : undefined}
+          data-experience-joke-row={item.joke ? '' : undefined}
+          data-revealed={item.joke ? String(revealed) : undefined}
           onPointerEnter={item.joke ? show : undefined}
+          onPointerDownCapture={item.joke ? onPointerDownCapture : undefined}
+          onTouchStartCapture={item.joke ? onTouchStartCapture : undefined}
+          onTouchEndCapture={item.joke ? onTouchEndCapture : undefined}
+          onClickCapture={item.joke ? onClickCapture : undefined}
           onPointerLeave={item.joke ? onPointerLeave : undefined}
           onFocusCapture={item.joke ? show : undefined}
           onBlurCapture={item.joke ? onBlur : undefined}
