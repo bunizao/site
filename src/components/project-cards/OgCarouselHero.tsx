@@ -54,29 +54,38 @@ export default function OgCarouselHero({ hovered = false }: { hovered?: boolean 
       </AnimatePresence>
       <div className="absolute inset-0 bg-[#f4f2ec]/40 dark:bg-[#0c0d10]/30" />
 
-      {/* The framed OG card, centered at native ratio. */}
-      <div className="absolute inset-0 flex items-center justify-center p-4 sm:p-5">
+      {/* The OG card floats in a liquid-glass mount: a frosted slab that blurs
+          and saturates the ambient backdrop showing through its margin, a bright
+          specular rim along the top edge, and a soft drop so it lifts off the
+          surface. No hard border — the glass IS the frame. */}
+      <div className="absolute inset-0 flex items-center justify-center p-6 sm:p-7">
         <div
-          className="relative w-full overflow-hidden rounded-lg border border-stone-900/10 shadow-2xl shadow-stone-900/25 ring-1 ring-stone-900/[0.04] dark:border-white/10 dark:shadow-black/60 dark:ring-white/5"
+          className="relative w-full rounded-[20px] border border-white/40 p-[10px] backdrop-blur-xl backdrop-saturate-150 dark:border-white/15"
           style={{
             aspectRatio: "1200 / 630",
             transform: live ? "scale(1.035)" : "scale(1)",
             transition: "transform 450ms cubic-bezier(0.22,1,0.36,1)",
+            // Frosted fill + specular top highlight + a faint bottom lip + float.
+            background: "rgba(255,255,255,0.14)",
+            boxShadow:
+              "inset 0 1px 0 rgba(255,255,255,0.65), inset 0 -1px 2px rgba(0,0,0,0.12), 0 16px 48px -14px rgba(0,0,0,0.5)",
           }}
         >
-          <AnimatePresence initial={false}>
-            <motion.img
-              key={slide.src}
-              src={slide.src}
-              alt={slide.alt}
-              loading={active === 0 ? "eager" : "lazy"}
-              className="absolute inset-0 h-full w-full object-cover"
-              initial={reduced ? false : { opacity: 0, scale: 1.05 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={reduced ? { opacity: 0 } : { opacity: 0, scale: 0.97 }}
-              transition={{ duration: 0.75, ease: [0.22, 1, 0.36, 1] }}
-            />
-          </AnimatePresence>
+          <div className="relative h-full w-full overflow-hidden rounded-[11px]">
+            <AnimatePresence initial={false}>
+              <motion.img
+                key={slide.src}
+                src={slide.src}
+                alt={slide.alt}
+                loading={active === 0 ? "eager" : "lazy"}
+                className="absolute inset-0 h-full w-full object-cover"
+                initial={reduced ? false : { opacity: 0, scale: 1.05 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={reduced ? { opacity: 0 } : { opacity: 0, scale: 0.97 }}
+                transition={{ duration: 0.75, ease: [0.22, 1, 0.36, 1] }}
+              />
+            </AnimatePresence>
+          </div>
         </div>
       </div>
     </div>
