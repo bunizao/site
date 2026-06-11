@@ -1,0 +1,8 @@
+https://buxx.me/
+  Content-Security-Policy: script-src 'unsafe-inline' https://buxx.me/_astro/ http://localhost:* http://127.0.0.1:*; base-uri 'self'; object-src 'none'
+
+https://www.buxx.me/
+  Content-Security-Policy: script-src 'unsafe-inline' https://www.buxx.me/_astro/ http://localhost:* http://127.0.0.1:*; base-uri 'self'; object-src 'none'
+
+https://cf-migration.buxx.me/
+  Content-Security-Policy: script-src 'unsafe-inline' https://cf-migration.buxx.me/_astro/ http://localhost:* http://127.0.0.1:*; base-uri 'self'; object-src 'none'

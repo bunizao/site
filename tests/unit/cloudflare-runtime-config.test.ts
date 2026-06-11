@@ -131,6 +131,16 @@ describe('Cloudflare runtime configuration', () => {
     expect(config.triggers?.crons).toContain('*/15 * * * *');
   });
 
+  test('keeps the home shell CSP narrow enough to block injected zone scripts', () => {
+    const headers = readText('public/_headers');
+
+    expect(headers).toContain('https://buxx.me/');
+    expect(headers).toContain("script-src 'unsafe-inline' https://buxx.me/_astro/");
+    expect(headers).not.toContain("script-src 'self'");
+    expect(headers).not.toContain('/cdn-cgi/');
+    expect(headers).not.toContain('/gmetrics/');
+  });
+
   test('reads Turnstile site key from runtime public env on the mood route', () => {
     const moodRoute = readText('src/pages/mood.astro');
 
