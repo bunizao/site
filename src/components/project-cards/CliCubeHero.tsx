@@ -28,10 +28,9 @@ const TOP_CY = 82;
 const LEFT_X = 98;
 const RIGHT_X = 302;
 
-// Spin in radians/second; one plate completes a turn in ~2*PI / SPEED seconds.
-const SPIN_SPEED = Math.PI * 0.7;
-// Per-layer phase lag so the stack twists like independent Rubik slices.
-const LAYER_LAG = 0.55;
+// How long a single plate takes to complete one clockwise twist (ms).
+// Kept under the live highlight dwell so each slice finishes before the next.
+const TWIST_MS = 560;
 
 // The flat top face is a unit square (half-size 0.5) lying on the ground plane.
 const SQUARE: [number, number][] = [
@@ -97,7 +96,9 @@ export default function CliCubeHero({ hovered = false }: { hovered?: boolean }) 
     return () => window.clearInterval(id);
   }, [reduced, live]);
 
-  // Drive the clockwise spin with rAF only while live, then settle back to flat.
+  // Twist only the active plate, one clean turn per highlight step. Re-running
+  // on every `active` change makes the slices rotate one at a time down the
+  // stack, Rubik-style — never all together.
   useEffect(() => {
     if (!live) {
       setPhi(0);
@@ -107,25 +108,18 @@ export default function CliCubeHero({ hovered = false }: { hovered?: boolean }) 
     let start: number | null = null;
     const loop = (t: number) => {
       if (start === null) start = t;
-      setPhi(((t - start) / 1000) * SPIN_SPEED);
-      raf = window.requestAnimationFrame(loop);
+      const p = Math.min((t - start) / TWIST_MS, 1);
+      // easeInOutCubic for a weighted twist that settles flat.
+      const e = p < 0.5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2;
+      setPhi(e * Math.PI * 2);
+      if (p < 1) raf = window.requestAnimationFrame(loop);
     };
     raf = window.requestAnimationFrame(loop);
     return () => window.cancelAnimationFrame(raf);
-  }, [live]);
+  }, [live, active]);
 
   return (
-    <div
-      className="absolute inset-0 bg-[#0c0d10]"
-      style={{
-        transform: live
-          ? "perspective(720px) translateY(-6px) rotateX(5deg) rotateY(-13deg) scale(1.035)"
-          : "perspective(720px) translateY(0) rotateX(0deg) rotateY(0deg) scale(1)",
-        transformStyle: "preserve-3d",
-        transition: "transform 560ms cubic-bezier(0.22,1,0.36,1)",
-        willChange: "transform",
-      }}
-    >
+    <div className="absolute inset-0 overflow-hidden bg-[#0c0d10]">
       <svg
         viewBox="0 0 400 250"
         preserveAspectRatio="xMidYMid meet"
@@ -193,9 +187,8 @@ export default function CliCubeHero({ hovered = false }: { hovered?: boolean }) 
             .map(({ layer, i }) => {
               const cy = TOP_CY + i * GAP;
               const on = i === active;
-              // Each plate trails the one above it, so the slices twist in
-              // sequence rather than as one rigid block.
-              const { top, sides } = plateFaces(cy, phi - i * LAYER_LAG);
+              // Only the active plate twists; the rest stay flat.
+              const { top, sides } = plateFaces(cy, on ? phi : 0);
               return (
                 <g key={`p-${layer.label}`}>
                   {sides.map((quad, s) => (
