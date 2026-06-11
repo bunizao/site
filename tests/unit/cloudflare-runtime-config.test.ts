@@ -162,4 +162,15 @@ describe('Cloudflare runtime configuration', () => {
     expect(docsText).toContain('Post published');
     expect(docsText).not.toContain(['https://api.vercel.com', 'v1/integrations/deploy'].join('/'));
   });
+
+  test('keeps Writing runtime hydration behind the Worker API', () => {
+    const writingRoute = readText('src/pages/api/writing.ts');
+    const postsComponent = readText('src/features/home/ui/Posts.astro');
+
+    expect(writingRoute).toContain('export const prerender = false');
+    expect(writingRoute).toContain('fetchLatestGhostPosts');
+    expect(postsComponent).toContain("fetch('/api/writing'");
+    expect(postsComponent).toContain('await hydrateWritingPosts();');
+    expect(postsComponent).toContain('void initWriting();');
+  });
 });
