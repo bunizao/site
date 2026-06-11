@@ -231,6 +231,7 @@ function StoryGallery({
     : Math.min(620, Math.round(vw * 0.52));
   const gap = compact ? 14 : 40;
   const stride = cardW + gap;
+  const trackPx = Math.min(Math.round(vw * 0.72), 340);
   // Symmetric padding lets the first and last card snap to the exact centre, so
   // scrollLeft 0 == card 0 centred, and card i sits at i * stride.
   const sidePad = Math.max(0, Math.round((vw - cardW) / 2));
@@ -287,11 +288,29 @@ function StoryGallery({
       else if (e.key === "ArrowLeft") go(curRef.current - 1);
     };
     document.addEventListener("keydown", onKey);
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
+    // iOS-proof scroll lock: Safari ignores `overflow: hidden` for touch
+    // scrolling, so the page leaks behind the modal. Pin the body with
+    // position: fixed and restore the scroll offset on close.
+    const body = document.body;
+    const scrollY = window.scrollY;
+    const prev = {
+      position: body.style.position,
+      top: body.style.top,
+      left: body.style.left,
+      right: body.style.right,
+      width: body.style.width,
+      overflow: body.style.overflow,
+    };
+    body.style.position = "fixed";
+    body.style.top = `-${scrollY}px`;
+    body.style.left = "0";
+    body.style.right = "0";
+    body.style.width = "100%";
+    body.style.overflow = "hidden";
     return () => {
       document.removeEventListener("keydown", onKey);
-      document.body.style.overflow = prev;
+      Object.assign(body.style, prev);
+      window.scrollTo(0, scrollY);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [onClose]);
@@ -326,8 +345,11 @@ function StoryGallery({
     >
       <style>{".gallery-scroller::-webkit-scrollbar{display:none}"}</style>
 
+      {/* Solid scrim, no backdrop-filter: a viewport-sized blur is the single
+          most expensive thing to sustain on mobile Safari (heat + dropped
+          frames). A flat dark wash reads the same and costs nothing per frame. */}
       <div
-        className="absolute inset-0 bg-stone-900/60 backdrop-blur-md dark:bg-black/75"
+        className="absolute inset-0 bg-stone-900/85 dark:bg-black/88"
         onClick={onClose}
       />
 
@@ -390,6 +412,7 @@ function StoryGallery({
         count={count}
         cur={cur}
         progress={progress}
+        trackPx={trackPx}
         onScrub={onScrub}
       />
     </motion.div>,
@@ -405,11 +428,13 @@ function GalleryScrubber({
   count,
   cur,
   progress,
+  trackPx,
   onScrub,
 }: {
   count: number;
   cur: number;
   progress: number;
+  trackPx: number;
   onScrub: (ratio: number, commit: boolean) => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -425,7 +450,10 @@ function GalleryScrubber({
     onScrub(ratio, false);
   };
 
-  const seg = 100 / count;
+  const pillPx = trackPx / count;
+  // Travel in pixels so the pill moves via transform (compositor) instead of
+  // animating `left` (layout + paint every scroll frame — jank and heat).
+  const x = progress * (trackPx - pillPx);
   return (
     <div className="absolute bottom-6 left-1/2 z-10 -translate-x-1/2">
       <div
@@ -435,7 +463,8 @@ function GalleryScrubber({
         aria-valuemin={1}
         aria-valuemax={count}
         aria-valuenow={cur + 1}
-        className="relative h-2.5 w-[min(72vw,340px)] cursor-grab touch-none select-none rounded-full bg-white/15 active:cursor-grabbing"
+        className="relative h-2.5 cursor-grab touch-none select-none rounded-full bg-white/15 active:cursor-grabbing"
+        style={{ width: trackPx }}
         onPointerDown={(e) => {
           setDragging(true);
           ref.current?.setPointerCapture(e.pointerId);
@@ -449,11 +478,11 @@ function GalleryScrubber({
         onPointerCancel={() => setDragging(false)}
       >
         <motion.div
-          className="absolute inset-y-0 rounded-full bg-white/90"
-          style={{ width: `${seg}%` }}
+          className="absolute inset-y-0 left-0 rounded-full bg-white/90"
+          style={{ width: pillPx }}
           // Continuous progress → the pill rides the swipe; the spring gives the
           // settle its elasticity. Stiffer while dragging so it hugs the finger.
-          animate={{ left: `${progress * (100 - seg)}%` }}
+          animate={{ x }}
           transition={
             dragging
               ? { type: "spring", stiffness: 900, damping: 60 }
@@ -696,10 +725,13 @@ export default function ProjectStack({ className }: { className?: string }) {
                           : 0,
                     }
               }
-              // Free drag in both axes — toss it anywhere, it springs home.
-              drag={active && !shouldReduce}
+              // Horizontal-only drag. The card keeps touch-action: pan-y, so a
+              // vertical swipe scrolls the page cleanly while a horizontal flick
+              // flips the deck — no axis fight, no jitter-then-page-scroll.
+              drag={active && !shouldReduce ? "x" : false}
+              dragDirectionLock
               dragSnapToOrigin
-              dragElastic={0.6}
+              dragElastic={0.5}
               whileHover={active && !shouldReduce && !compact ? { y: -6 } : undefined}
               whileDrag={{ cursor: "grabbing" }}
               onPointerDown={() => {
