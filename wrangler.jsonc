@@ -4,6 +4,9 @@
   "main": "src/worker.ts",
   "compatibility_date": "2026-04-15",
   "compatibility_flags": ["nodejs_compat"],
+  "placement": {
+    "mode": "smart"
+  },
   "assets": {
     "directory": "./dist",
     "binding": "ASSETS",
@@ -35,7 +38,10 @@
     "PUBLIC_TURNSTILE_SITE_KEY": "0x4AAAAAACaDQzCbYalmO_xV",
     "HD_IMAGE_INGEST_BASE_URL": "https://image.buxx.me",
     "CHANNEL": "tutumood",
-    "TELEGRAM_HOST": "t.me"
+    "TELEGRAM_HOST": "t.me",
+    "ADMIN_GITHUB_LOGIN": "bunizao",
+    "CLOUDFLARE_ACCOUNT_ID": "545faed61bc6b0c8ef2c417303555d6f",
+    "CLOUDFLARE_NOTIFY_D1_DATABASE_ID": "bf8cd2f1-29c7-44c1-b9bb-555265dd40b3"
   },
   "observability": {
     "enabled": true,

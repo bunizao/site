@@ -76,6 +76,9 @@ describe('Cloudflare runtime configuration', () => {
     const config = readJson('wrangler.jsonc') as {
       name?: string;
       main?: string;
+      placement?: {
+        mode?: string;
+      };
       assets?: {
         directory?: string;
         binding?: string;
@@ -88,6 +91,7 @@ describe('Cloudflare runtime configuration', () => {
 
     expect(config.name).toBe('site');
     expect(config.main).toBe('src/worker.ts');
+    expect(config.placement?.mode).toBe('smart');
     expect(config.assets?.directory).toBe('./dist');
     expect(config.assets?.binding).toBe('ASSETS');
     expect(config.assets?.run_worker_first).toEqual([
@@ -120,6 +124,9 @@ describe('Cloudflare runtime configuration', () => {
       HD_IMAGE_INGEST_BASE_URL: 'https://image.buxx.me',
       CHANNEL: 'tutumood',
       TELEGRAM_HOST: 't.me',
+      ADMIN_GITHUB_LOGIN: 'bunizao',
+      CLOUDFLARE_ACCOUNT_ID: '545faed61bc6b0c8ef2c417303555d6f',
+      CLOUDFLARE_NOTIFY_D1_DATABASE_ID: 'bf8cd2f1-29c7-44c1-b9bb-555265dd40b3',
     });
     expect(config.triggers?.crons).toContain('*/15 * * * *');
   });
