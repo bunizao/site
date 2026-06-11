@@ -6,6 +6,7 @@ describe('Cloudflare Worker routing', () => {
     expect(isImageWorkerRequest(new Request('https://image.buxx.me/channel/avatar'))).toBe(true);
     expect(isImageWorkerRequest(new Request('https://buxx.me/channel/avatar'))).toBe(false);
     expect(isImageWorkerRequest(new Request('https://www.buxx.me/channel/avatar'))).toBe(false);
+    expect(isImageWorkerRequest(new Request('https://cf-migration.buxx.me/channel/avatar'))).toBe(false);
   });
 
   test('uses the host header when the request URL host is local', () => {

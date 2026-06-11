@@ -79,8 +79,9 @@ describe('Cloudflare runtime configuration', () => {
         binding?: string;
         run_worker_first?: string[];
       };
-      routes?: Array<{ pattern?: string; custom_domain?: boolean }>;
+      routes?: Array<{ pattern?: string; zone_name?: string; custom_domain?: boolean }>;
       triggers?: { crons?: string[] };
+      vars?: Record<string, string>;
     };
 
     expect(config.name).toBe('buxx-site');
@@ -97,9 +98,23 @@ describe('Cloudflare runtime configuration', () => {
       '/oauth*',
       '/docs*',
     ]);
-    expect(config.routes).toContainEqual({ pattern: 'buxx.me', custom_domain: true });
-    expect(config.routes).toContainEqual({ pattern: 'www.buxx.me', custom_domain: true });
-    expect(config.routes).toContainEqual({ pattern: 'image.buxx.me', custom_domain: true });
+    expect(config.routes).toContainEqual({ pattern: 'buxx.me', zone_name: 'buxx.me', custom_domain: true });
+    expect(config.routes).toContainEqual({ pattern: 'www.buxx.me', zone_name: 'buxx.me', custom_domain: true });
+    expect(config.routes).toContainEqual({
+      pattern: 'cf-migration.buxx.me',
+      zone_name: 'buxx.me',
+      custom_domain: true,
+    });
+    expect(config.routes).toContainEqual({ pattern: 'image.buxx.me', zone_name: 'buxx.me', custom_domain: true });
+    expect(config.vars).toMatchObject({
+      SITE_URL: 'https://buxx.me',
+      PUBLIC_SITE_URL: 'https://buxx.me',
+      NOTIFY_BASE_URL: 'https://buxx.me',
+      NOTIFY_DISPATCH_URL: 'https://buxx.me/api/notify/dispatch',
+      PUBLIC_HD_IMAGE_URL: 'https://image.buxx.me',
+      HD_IMAGE_INGEST_BASE_URL: 'https://image.buxx.me',
+      TELEGRAM_HOST: 't.me',
+    });
     expect(config.triggers?.crons).toContain('*/15 * * * *');
   });
 });

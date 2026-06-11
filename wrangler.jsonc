@@ -19,12 +19,18 @@
     ]
   },
   "routes": [
-    { "pattern": "buxx.me", "custom_domain": true },
-    { "pattern": "www.buxx.me", "custom_domain": true },
-    { "pattern": "image.buxx.me", "custom_domain": true }
+    { "pattern": "buxx.me", "zone_name": "buxx.me", "custom_domain": true },
+    { "pattern": "www.buxx.me", "zone_name": "buxx.me", "custom_domain": true },
+    { "pattern": "cf-migration.buxx.me", "zone_name": "buxx.me", "custom_domain": true },
+    { "pattern": "image.buxx.me", "zone_name": "buxx.me", "custom_domain": true }
   ],
   "vars": {
+    "SITE_URL": "https://buxx.me",
+    "PUBLIC_SITE_URL": "https://buxx.me",
+    "NOTIFY_BASE_URL": "https://buxx.me",
     "NOTIFY_DISPATCH_URL": "https://buxx.me/api/notify/dispatch",
+    "PUBLIC_HD_IMAGE_URL": "https://image.buxx.me",
+    "HD_IMAGE_INGEST_BASE_URL": "https://image.buxx.me",
     "TELEGRAM_HOST": "t.me"
   },
   "observability": {
