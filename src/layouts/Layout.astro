@@ -31,7 +31,6 @@ interface Props {
 import '../styles/globals.css';
 import '../features/mood/styles/feed-rich-text.css';
 import { Moon, Sun, Monitor } from 'lucide-react';
-import SpeedInsights from '@vercel/speed-insights/astro';
 import AnimatedLogo from '@/features/logos/ui/AnimatedLogo.astro';
 import {
   PEEK_NAVBAR_LOGO,
@@ -67,7 +66,6 @@ const siteName = 'Bunizao';
 const canonicalUrl = new URL(url ?? Astro.url?.pathname ?? '/', site).href;
 const ogImageUrl = new URL(image, site).href;
 const ogLogoUrl = new URL('/logo/peek.svg?v=3', site).href;
-const isProduction = import.meta.env.PROD;
 const structuredDataItems = structuredData
   ? Array.isArray(structuredData)
     ? structuredData
@@ -645,8 +643,6 @@ const navbarIdleTimeoutAnimation = getPeekRuntimeSlotKey('navbar.idle-timeout');
         }
       })();
     </script>
-
-    {isProduction ? <SpeedInsights /> : null}
 
     <!-- GSAP Header Button Animations -->
     <script>
@@ -1384,22 +1380,5 @@ const navbarIdleTimeoutAnimation = getPeekRuntimeSlotKey('navbar.idle-timeout');
       })();
     </script>
 
-    {isProduction ? (
-      <script>
-        const scheduleAnalytics = (callback: () => void): void => {
-          if ('requestIdleCallback' in window) {
-            window.requestIdleCallback(() => callback(), { timeout: 2000 });
-          } else {
-            setTimeout(callback, 0);
-          }
-        };
-
-        scheduleAnalytics(() => {
-          import('@vercel/analytics')
-            .then(({ inject }) => inject())
-            .catch(() => {});
-        });
-      </script>
-    ) : null}
   </body>
 </html>

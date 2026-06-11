@@ -1,5 +1,6 @@
 import type { APIRoute } from 'astro';
 import { isE2ESiteFixtureEnabled } from '@/lib/e2e';
+import { readEnv } from '@/lib/runtime/env';
 import { checkRateLimit, createRateLimitHeaders } from '@/lib/security/rate-limit';
 
 export const prerender = false;
@@ -60,20 +61,6 @@ const normalizeTarget = (value: string): string => {
   }
   return value;
 };
-
-function readEnv(locals: any, name: string): string {
-  const buildValue = import.meta.env[name];
-  if (typeof buildValue === 'string' && buildValue.trim()) {
-    return buildValue;
-  }
-
-  const runtimeValue = locals?.runtime?.env?.[name] ?? locals?.env?.[name];
-  if (typeof runtimeValue === 'string') {
-    return runtimeValue;
-  }
-
-  return '';
-}
 
 function getAllowedDomains(locals: any): string[] {
   const domains = new Set(TELEGRAM_ALLOWED_DOMAINS);

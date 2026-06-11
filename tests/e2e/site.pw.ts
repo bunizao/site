@@ -126,8 +126,10 @@ test.describe('Home page', () => {
     await expect(page.locator('#projects-section')).toBeVisible();
     await expect(page.locator('#writing-section')).toBeVisible();
     await expect(page.locator('#moods-section')).toBeVisible();
-    expect(await page.locator('#projects-section article').count()).toBeGreaterThan(0);
+    expect(await page.locator('#projects-section [aria-label="Projects"] article').count()).toBeGreaterThan(0);
     expect(await page.locator('#writing-section .post-item').count()).toBeGreaterThan(0);
+    await expect(page.locator('#writing-section .post-item').first()).toHaveCSS('display', 'flex');
+    await expect(page.locator('#writing-section .post-meta').first()).toHaveCSS('display', 'flex');
     await expect(page.getByRole('link', { name: 'View all on GitHub' })).toBeVisible();
     await expect(page.getByRole('link', { name: 'Read all posts' })).toBeVisible();
     await expect(page.getByRole('link', { name: 'Privacy' })).toBeVisible();

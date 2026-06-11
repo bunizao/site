@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, test } from 'bun:test';
 import {
   GET as getFooter,
+  getCloudflareColo,
   getBetterStackFooterState,
   normalizeBetterStackAggregateState,
 } from '../../src/pages/api/footer';
@@ -59,6 +60,29 @@ describe('api footer', () => {
       provider: 'betterstack',
       updatedAt: '2026-05-26T09:15:05.416Z',
     });
+  });
+
+  test('returns Cloudflare colo metadata without Vercel headers', async () => {
+    mockFetch({
+      data: {
+        attributes: {
+          aggregate_state: 'operational',
+          updated_at: '2026-05-26T09:15:05.416Z',
+        },
+      },
+    });
+    const request = Object.assign(createFooterRequest(), {
+      cf: { colo: 'sin' },
+    });
+
+    const response = await getFooter({
+      request,
+      locals: {},
+    } as any);
+
+    expect(getCloudflareColo(request)).toBe('SIN');
+    expect(response.headers.get('x-cloudflare-colo')).toBe('SIN');
+    expect(response.headers.get('x-vercel-id')).toBeNull();
   });
 
   test('parses Better Stack JSON even when the upstream content type is text/html', () => {

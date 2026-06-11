@@ -10,6 +10,7 @@ import { addTooBigVideoTimestamp } from '@/features/mood/shared/video-placeholde
 import DetailArticle from '@/features/mood/ui/DetailArticle.astro';
 import { createE2EPost } from '@/features/mood/server/e2e-fixtures';
 import { buildMoodDetailMetadata } from '@/features/mood/server/detail-metadata';
+import { readEnv } from '@/lib/runtime/env';
 
 export const prerender = false;
 
@@ -53,7 +54,7 @@ const oembed = id
 const metadata = buildMoodDetailMetadata(post, id);
 const formattedDate = post ? dayjs(post.datetime).format('MMMM D, YYYY · HH:mm') : '';
 const moodFeedBackHref = getMoodFeedAnchorHref(id ?? '');
-const channel = import.meta.env.CHANNEL || Astro.locals?.runtime?.env?.CHANNEL || '';
+const channel = readEnv(Astro.locals, 'CHANNEL');
 const telegramCommentUrl = channel && id ? `https://t.me/${channel}/${id}?comment=1` : '';
 const renderedPostContent = post
   ? addTooBigVideoTimestamp(renderMoodContentWithGalleries(post.content), post.datetime)

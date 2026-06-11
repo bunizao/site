@@ -24,6 +24,25 @@ describe('rate-limit helper', () => {
     expect(state.headers.get('Retry-After')).toBeNull();
   });
 
+  test('does not read removed Astro runtime env getter', () => {
+    const locals = {
+      runtime: {
+        get env() {
+          throw new Error('Astro.locals.runtime.env has been removed');
+        },
+      },
+    };
+
+    const state = withRateLimit(
+      createRequest('203.0.113.12'),
+      { windowMs: 60_000, max: 2, prefix: `test:runtime:${Date.now()}` },
+      locals
+    );
+
+    expect(state.allowed).toBe(true);
+    expect(state.result.key).toContain('203.0.113.12');
+  });
+
   test('marks subsequent over-limit requests as blocked', () => {
     const prefix = `test:blocked:${Date.now()}`;
 

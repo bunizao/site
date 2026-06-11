@@ -4,7 +4,7 @@ description: How posts flow from a Telegram channel into the mood feed and email
 public: true
 ---
 
-The Telegram pipeline turns a channel post into three things: a card in the public mood feed, an HD image stored in R2, and an email to subscribers. Two services own different parts: the Cloudflare image worker and the Astro/Vercel app.
+The Telegram pipeline turns a channel post into three things: a card in the public mood feed, an HD image stored in R2, and an email to subscribers. The Cloudflare Worker target `site` owns the webhook, image routes, queue consumer, and Astro site runtime.
 
 ## The flow
 
@@ -21,15 +21,15 @@ flowchart TD
   H --> I
   I --> J["Public reads use /mood/:postId/:imageIndex"]
   B --> K["Worker enqueues notify dispatch job"]
-  K --> L["Queue consumer POSTs /api/notify/dispatch on Vercel"]
+  K --> L["Queue consumer POSTs /api/notify/dispatch in site"]
   L --> M["Immediate notify emails sent via Resend"]
 ```
 
 ## Who owns what
 
-**Cloudflare image worker** (`workers/telegram-image-proxy/`) owns webhook validation, media-group indexing, image ingest into R2, and queueing immediate notify jobs. It serves public reads at `https://image.buxx.me/mood/:postId/:imageIndex` and `/channel/avatar`, and authenticated writes at `/ingest/...` (gated by `HD_IMAGE_INGEST_TOKEN`).
+**Image routes in `site`** reuse `workers/telegram-image-proxy/` for webhook validation, media-group indexing, image ingest into R2, and queueing immediate notify jobs. They serve public reads at `https://image.buxx.me/mood/:postId/:imageIndex` and `/channel/avatar`, and authenticated writes at `/ingest/...` (gated by `HD_IMAGE_INGEST_TOKEN`).
 
-**Astro/Vercel app** owns Telegram content scraping, public mood pages, subscriber state, email delivery via Resend, idempotency, and retry logic. The site never reads bytes from Telegram for images — that's the worker's job. It does still scrape Telegram for post bodies; the worker doesn't provide canonical text.
+**Astro inside `site`** owns Telegram content scraping, public mood pages, subscriber state, email delivery via Resend, idempotency, and retry logic. The site never reads bytes from Telegram for images. It does still scrape Telegram for post bodies; the image worker code doesn't provide canonical text.
 
 A legacy webhook lives at `/api/telegram-webhook` as a rollback target. It's not the preferred production path.
 
@@ -44,16 +44,15 @@ These are embedded in feed payloads, mood detail HTML, and email image links. Pa
 
 ## Environment
 
-Vercel:
+`site` Worker:
 - `PUBLIC_HD_IMAGE_URL`, `HD_IMAGE_INGEST_BASE_URL`
 - `NOTIFY_DISPATCH_SECRET`, `CRON_SECRET`
-- `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_NOTIFY_D1_DATABASE_ID`
+- `NOTIFY_DB` D1 binding, `MOOD_IMAGES` R2 binding, `NOTIFY_DISPATCH_QUEUE` queue binding
 
-Cloudflare worker:
+Worker secrets and Telegram config:
 - `TELEGRAM_BOT_TOKEN`, `HD_IMAGE_INGEST_TOKEN`, `TELEGRAM_WEBHOOK_SECRET`
 - `NOTIFY_DISPATCH_SECRET`, `NOTIFY_DISPATCH_URL`
 - `CHANNEL`, `TELEGRAM_CHANNEL_ID`, `TELEGRAM_HOST`
-- `MOOD_IMAGES` R2 binding, `NOTIFY_DISPATCH_QUEUE` queue binding.
 
 ## Failure modes
 
@@ -72,8 +71,8 @@ Cloudflare worker:
 - Browser-side fallback from HD image to Telegram CDN.
 - Ops Health GitHub Actions checks Telegram webhook registration and recent HD image readability.
 - Cloudflare custom rule allowing `POST /ingest/*` on `image.buxx.me`.
-- `workers_dev = true` on the image worker for debugging.
+- The standalone image worker remains available as rollback/debug history until production cutover is verified.
 
 ## Coupling that still matters
 
-The webhook still triggers image ingest before returning. Immediate notify still depends on the worker → Vercel handoff (now queue-backed). Public mood pages can fall back to Telegram CDN, but email links cannot auto-fallback after delivery — once the email is out, broken HD URLs stay broken.
+The webhook still triggers image ingest before returning. Immediate notify still depends on the queue-backed dispatch into `/api/notify/dispatch`. Public mood pages can fall back to Telegram CDN, but email links cannot auto-fallback after delivery — once the email is out, broken HD URLs stay broken.

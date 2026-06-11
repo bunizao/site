@@ -116,7 +116,7 @@ const yearRange = currentYear > startYear ? `${startYear}–${currentYear}` : `$
       labelEl.textContent = STATUS_LABELS[next];
       root.title = STATUS_TITLES[next];
 
-      const region = parseRegion(res.headers.get('x-vercel-id'));
+      const region = parseRegion(res.headers.get('x-cloudflare-colo'));
       if (region && regionEl && regionCodeEl) {
         regionCodeEl.textContent = region;
         regionEl.title = `Edge region: ${REGION_NAMES[region] ?? region}`;

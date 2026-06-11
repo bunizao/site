@@ -38,7 +38,7 @@ curl -X POST "https://your-domain.com/api/notify/subscribe" \
 
 ## Environment Variables
 
-Set these in Vercel project settings:
+Set these as Cloudflare Worker secrets or vars for `site`:
 
 - `RESEND_API_KEY`
 - `NOTIFY_FROM_NAME` (optional, example: `Mood`)
@@ -48,9 +48,7 @@ Set these in Vercel project settings:
 - `NOTIFY_DISPATCH_SECRET` (long random string)
 - `PUBLIC_SITE_URL` (for email links, example: `https://buxx.me`)
 - `CRON_SECRET`
-- `CLOUDFLARE_ACCOUNT_ID`
-- `CLOUDFLARE_API_TOKEN`
-- `CLOUDFLARE_NOTIFY_D1_DATABASE_ID`
+- `NOTIFY_DB` D1 binding
 - `PUBLIC_TURNSTILE_SITE_KEY` (optional, frontend widget site key)
 - `TURNSTILE_SECRET_KEY` (optional, enables anti-bot verification for subscribe endpoint)
 - `NOTIFY_ADMIN_TELEGRAM_CHAT_ID` (optional, sends admin alerts on confirmed subscribe and unsubscribe)
@@ -71,7 +69,7 @@ The Cloudflare Worker also needs:
 
 - `NOTIFY_DISPATCH_SECRET`
 
-That secret must match the Vercel production value because the Worker queue consumer calls `POST /api/notify/dispatch`.
+That secret must match the value accepted by `/api/notify/dispatch` because the queue consumer calls that endpoint inside the Worker runtime.
 
 `CLOUDFLARE_KV_NAMESPACE_ID` is no longer required for Telegram image lookup after the R2 migration.
 
@@ -131,12 +129,12 @@ Required env vars:
 
 - `GITHUB_OAUTH_CLIENT_ID`
 - `GITHUB_OAUTH_CLIENT_SECRET`
-- `ADMIN_GITHUB_LOGIN` — the single GitHub login allowed (e.g. `bunizao`)
+- `ADMIN_GITHUB_LOGIN` — the single GitHub login allowed
 - `ADMIN_SESSION_SECRET` — 32-byte random base64 string used for HMAC signing
 
 GitHub OAuth callback URL: `${PUBLIC_SITE_URL}/api/admin/auth/callback`.
 
-Local debugging can skip GitHub OAuth with `bun run dev:portal`. That script sets `ADMIN_DEV_BYPASS=1`, which lets `/api/admin/auth/start` mint a normal signed `admin_session` cookie only under `astro dev` on loopback hosts (`localhost`, `127.*`, `::1`); production builds ignore it. Use `ADMIN_DEV_LOGIN` and `ADMIN_DEV_AVATAR_URL` only for local display. When `ADMIN_DEV_AVATAR_URL` is empty, the dev session derives a GitHub avatar URL from `ADMIN_DEV_LOGIN` or `ADMIN_GITHUB_LOGIN`.
+Local debugging can skip GitHub OAuth with `bun run dev:portal`. That script sets `ADMIN_DEV_BYPASS=1`, which lets `/api/admin/auth/start` mint a normal signed `admin_session` cookie only under `astro dev` on loopback hosts (`localhost`, `127.*`, `::1`); production builds ignore it. Use `ADMIN_DEV_LOGIN` and `ADMIN_DEV_AVATAR_URL` only for local display.
 
 ### Admin API surface
 
@@ -183,25 +181,15 @@ Notes:
 
 - The Worker does not send email directly.
 - `/api/notify/dispatch` remains the notify entrypoint for actual delivery, idempotency, and per-subscriber retry scheduling.
-- The queue exists only to make the Worker-to-Vercel notify handoff durable.
+- The queue exists only to make immediate notify dispatch durable.
 
-### Vercel Cron
+### Cloudflare Cron
 
-`vercel.json` keeps a low-frequency fallback cron:
+Cloudflare Cron owns scheduled notify and retry execution for `site` every 15 minutes.
 
-```json
-{
-  "crons": [{ "path": "/api/notify/retry", "schedule": "0 3 * * *" }]
-}
-```
+### Legacy Scheduler Worker
 
-This daily fallback exists for Vercel Hobby plan compatibility.
-
-### Primary Scheduler (Cloudflare Worker)
-
-Use `workers/notify-scheduler` as the primary scheduler (every 15 minutes).
-
-It calls:
+The standalone `workers/notify-scheduler` deployment is rollback history until production cutover is verified. The scheduled task still calls:
 
 - `POST /api/notify/schedule`
 - `POST /api/notify/retry`

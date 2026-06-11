@@ -5,7 +5,7 @@ on:
   workflow_dispatch:
     inputs:
       deployment_url:
-        description: Deployment URL to test
+        description: Cloudflare deployment URL to audit
         required: true
         type: string
 
@@ -90,11 +90,10 @@ jobs:
         env:
           LHCI_DEPLOYMENT_URL: ${{ steps.context.outputs.deployment_url }}
           LHCI_ENVIRONMENT: ${{ steps.context.outputs.environment }}
-          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
         run: |
-          bun x @lhci/cli@0.15.1 healthcheck --config=./lighthouserc.cjs
-          bun x @lhci/cli@0.15.1 collect --config=./lighthouserc.cjs
-          bun x @lhci/cli@0.15.1 upload --config=./lighthouserc.cjs
+          bun x @lhci/cli@0.15.1 healthcheck --config=./config/lighthouse.cjs
+          bun x @lhci/cli@0.15.1 collect --config=./config/lighthouse.cjs
+          bun x @lhci/cli@0.15.1 upload --config=./config/lighthouse.cjs
 
       - name: Summarize Lighthouse result
         id: summary
@@ -106,8 +105,6 @@ jobs:
 
       - name: Redact Lighthouse artifacts
         if: always()
-        env:
-          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
         run: node .github/scripts/redact-lighthouse-artifacts.mjs
 
       - name: Upload Lighthouse artifacts

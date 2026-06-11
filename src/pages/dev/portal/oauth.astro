@@ -49,7 +49,7 @@ const surfaces = [
 ] as const;
 
 const rules = [
-  'One owner session authority: the existing GitHub login remains the human gate.',
+  'One owner session authority: the allowed GitHub login remains the human gate.',
   'No browser-exposed platform tokens; connector secrets stay server-side.',
   'Machine access uses explicit scopes, short TTLs, and audit records.',
   'Each knowledge source gets its own adapter boundary instead of a shared scraping blob.',

@@ -1,48 +1,19 @@
 ---
 import dayjs from 'dayjs';
 import { createE2EWritingPosts } from '@/features/home/server/e2e-fixtures';
+import { fetchLatestGhostPosts, readGhostUrl } from '@/features/home/server/ghost-posts';
 import { isE2ESiteFixtureEnabled } from '@/lib/e2e';
 
-interface Tag {
-  id: string;
-  name: string;
-  slug: string;
-  visibility: 'public' | 'internal';
-}
-
-interface PostMeta {
-  id: string;
-  title: string;
-  url: string;
-  published_at: string;
-  tags: Tag[];
-}
-
-const ghostUrl = import.meta.env.GHOST_URL || 'https://blog.buxx.me';
+const ghostUrl = readGhostUrl(Astro.locals);
 const useE2EFixture = isE2ESiteFixtureEnabled(Astro.locals);
-
-async function getLatestPosts(): Promise<PostMeta[]> {
-  const apiKey = import.meta.env.GHOST_CONTENT_APIKEY;
-  const apiUrl = `${ghostUrl}/ghost/api/v3/content/posts/?key=${apiKey}&limit=5&fields=id,title,url,published_at&include=tags&filter=visibility:public`;
-
-  try {
-    const res = await fetch(apiUrl);
-    const result = await res.json() as { posts?: PostMeta[] };
-    return Array.isArray(result.posts) ? result.posts : [];
-  } catch (error) {
-    console.error('Failed to fetch posts:', error);
-    return [];
-  }
-}
-
-const posts = useE2EFixture ? createE2EWritingPosts() : await getLatestPosts();
+const posts = useE2EFixture ? createE2EWritingPosts() : await fetchLatestGhostPosts({ locals: Astro.locals });
 ---
 
 <section id="writing-section" class="writing-section" data-parallax="off">
   <span class="section-label scroll-reveal">Writing</span>
 
   {posts.length > 0 ? (
-    <div class="post-list">
+    <div class="post-list" data-writing-post-list>
       {posts.map((post, index) => {
         const primaryTag = post.tags?.find(t => t.visibility === 'public');
         return (
@@ -59,7 +30,10 @@ const posts = useE2EFixture ? createE2EWritingPosts() : await getLatestPosts();
       })}
     </div>
   ) : (
-    <p class="text-sm text-muted-foreground">No posts yet.</p>
+    <>
+      <div class="post-list" data-writing-post-list hidden></div>
+      <p class="text-sm text-muted-foreground" data-writing-empty>No posts yet.</p>
+    </>
   )}
 
   <a
@@ -88,12 +62,12 @@ const posts = useE2EFixture ? createE2EWritingPosts() : await getLatestPosts();
     /* Initial state handled by GSAP */
   }
 
-  .post-list {
+  :global(#writing-section .post-list) {
     display: flex;
     flex-direction: column;
   }
 
-  .post-item {
+  :global(#writing-section .post-item) {
     display: flex;
     flex-direction: column;
     gap: 4px;
@@ -103,7 +77,7 @@ const posts = useE2EFixture ? createE2EWritingPosts() : await getLatestPosts();
   }
 
   @media (min-width: 640px) {
-    .post-item {
+    :global(#writing-section .post-item) {
       flex-direction: row;
       justify-content: space-between;
       align-items: baseline;
@@ -112,7 +86,7 @@ const posts = useE2EFixture ? createE2EWritingPosts() : await getLatestPosts();
     }
   }
 
-  .post-item::after {
+  :global(#writing-section .post-item::after) {
     content: '';
     position: absolute;
     bottom: 0;
@@ -122,21 +96,21 @@ const posts = useE2EFixture ? createE2EWritingPosts() : await getLatestPosts();
     background: linear-gradient(to right, hsl(var(--foreground) / 0.1), transparent);
   }
 
-  .post-item:last-child::after {
+  :global(#writing-section .post-item:last-child::after) {
     display: none;
   }
 
-  .post-item:hover {
+  :global(#writing-section .post-item:hover) {
     padding-left: 8px;
   }
 
-  .post-title {
+  :global(#writing-section .post-title) {
     font-size: 14px;
     font-weight: 500;
     line-height: 1.4;
   }
 
-  .post-meta {
+  :global(#writing-section .post-meta) {
     display: flex;
     align-items: baseline;
     gap: 8px;
@@ -144,24 +118,24 @@ const posts = useE2EFixture ? createE2EWritingPosts() : await getLatestPosts();
   }
 
   @media (min-width: 640px) {
-    .post-meta {
+    :global(#writing-section .post-meta) {
       gap: 12px;
     }
   }
 
-  .post-tag {
+  :global(#writing-section .post-tag) {
     font-size: 11px;
     font-weight: 400;
     color: hsl(var(--muted-foreground) / 0.7);
   }
 
   @media (min-width: 640px) {
-    .post-tag {
+    :global(#writing-section .post-tag) {
       font-size: 12px;
     }
   }
 
-  .post-date {
+  :global(#writing-section .post-date) {
     font-size: 11px;
     font-weight: 300;
     color: hsl(var(--muted-foreground) / 0.5);
@@ -169,20 +143,87 @@ const posts = useE2EFixture ? createE2EWritingPosts() : await getLatestPosts();
   }
 
   @media (min-width: 640px) {
-    .post-date {
+    :global(#writing-section .post-date) {
       font-size: 12px;
     }
   }
 
-  .post-item:hover .post-date,
-  .post-item:hover .post-tag {
+  :global(#writing-section .post-item:hover .post-date),
+  :global(#writing-section .post-item:hover .post-tag) {
     color: hsl(var(--muted-foreground));
   }
 </style>
 
 <script>
   const writingSection = document.getElementById('writing-section');
+  const writingPostList = writingSection?.querySelector<HTMLElement>('[data-writing-post-list]');
+  const writingEmptyState = writingSection?.querySelector<HTMLElement>('[data-writing-empty]');
   let gsapPromise: Promise<typeof import('gsap')['default']> | null = null;
+
+  interface WritingTag {
+    name: string;
+    visibility: 'public' | 'internal';
+  }
+
+  interface WritingPost {
+    title: string;
+    url: string;
+    published_at: string;
+    tags?: WritingTag[];
+  }
+
+  const escapeHtml = (value: string): string => value
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;');
+
+  const formatPostDate = (value: string): string => {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '';
+
+    return `${date.getUTCFullYear()}.${String(date.getUTCMonth() + 1).padStart(2, '0')}`;
+  };
+
+  const renderWritingPost = (post: WritingPost, index: number): string => {
+    const primaryTag = post.tags?.find(tag => tag.visibility === 'public');
+    const tagHtml = primaryTag
+      ? `<span class="post-tag">${escapeHtml(primaryTag.name)}</span>`
+      : '';
+    const dateHtml = formatPostDate(post.published_at);
+
+    return [
+      `<a href="${escapeHtml(post.url)}" target="_blank" rel="noopener noreferrer" class="post-item scroll-reveal-item" style="--item-index: ${index}">`,
+      `<span class="post-title">${escapeHtml(post.title)}</span>`,
+      '<span class="post-meta">',
+      tagHtml,
+      dateHtml ? `<span class="post-date">${escapeHtml(dateHtml)}</span>` : '',
+      '</span>',
+      '</a>',
+    ].join('');
+  };
+
+  const hydrateWritingPosts = async (): Promise<void> => {
+    if (!writingPostList || writingPostList.querySelector('.post-item')) return;
+
+    try {
+      const response = await fetch('/api/writing', {
+        headers: { Accept: 'application/json' },
+      });
+      if (!response.ok) return;
+
+      const payload = await response.json() as { posts?: WritingPost[] };
+      const posts = Array.isArray(payload.posts) ? payload.posts : [];
+      if (!posts.length) return;
+
+      writingPostList.innerHTML = posts.map(renderWritingPost).join('');
+      writingPostList.hidden = false;
+      writingEmptyState?.remove();
+    } catch {
+      // Keep the build-time empty state when runtime Ghost hydration fails.
+    }
+  };
 
   const loadGsap = async (): Promise<typeof import('gsap')['default']> => {
     gsapPromise ??= Promise.all([
@@ -257,7 +298,8 @@ const posts = useE2EFixture ? createE2EWritingPosts() : await getLatestPosts();
   };
 
   if (writingSection) {
-    window.addEventListener('load', () => {
+    window.addEventListener('load', async () => {
+      await hydrateWritingPosts();
       void initWriting();
     }, { once: true });
   }

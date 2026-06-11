@@ -2,7 +2,7 @@
 
 This document describes the current Telegram ingestion pipeline for mood posts, HD images, and email notifications.
 
-Current state: March 18, 2026.
+Current state: Cloudflare-first migration target, June 10, 2026.
 
 ## Scope
 
@@ -31,18 +31,19 @@ flowchart TD
   H --> I
   I --> J["Public reads use /mood/:postId/:imageIndex"]
   B --> K["Worker enqueues notify dispatch job"]
-  K --> L["Queue consumer POSTs /api/notify/dispatch on Vercel"]
+  K --> L["Queue consumer POSTs /api/notify/dispatch in site"]
   L --> M["Immediate notify emails include mood page and image links"]
 ```
 
 ## Responsibility Split
 
-### Telegram webhook on Cloudflare Worker
+### Telegram webhook in `site`
 
 Files:
 
+- [`src/worker.ts`](../src/worker.ts)
 - [`workers/telegram-image-proxy/src/index.ts`](../workers/telegram-image-proxy/src/index.ts)
-- [`workers/telegram-image-proxy/wrangler.toml`](../workers/telegram-image-proxy/wrangler.toml)
+- [`wrangler.jsonc`](../wrangler.jsonc)
 
 Responsibilities:
 
@@ -52,21 +53,22 @@ Responsibilities:
 - Ingest channel avatar and mood images directly into R2
 - Enqueue durable immediate notify dispatch jobs
 
-### Legacy webhook fallback on Vercel
+### Legacy site webhook fallback
 
 File: [`src/pages/api/telegram-webhook.ts`](../src/pages/api/telegram-webhook.ts)
 
 Responsibilities:
 
 - Remain available as a rollback target
-- Preserve the older Vercel-owned webhook path until cleanup is explicitly approved
+- Preserve the older site-hosted webhook path until cleanup is explicitly approved
 
-### Telegram image worker on Cloudflare
+### Image routes in `site`
 
 Files:
 
+- [`src/worker-routing.ts`](../src/worker-routing.ts)
 - [`workers/telegram-image-proxy/src/index.ts`](../workers/telegram-image-proxy/src/index.ts)
-- [`workers/telegram-image-proxy/wrangler.toml`](../workers/telegram-image-proxy/wrangler.toml)
+- [`wrangler.jsonc`](../wrangler.jsonc)
 
 Responsibilities:
 
@@ -129,17 +131,17 @@ These endpoints are intended for Telegram or server-to-server ingestion only.
 
 ## Environment Variables
 
-### Vercel
+### `site` Worker
 
 - `PUBLIC_HD_IMAGE_URL`
 - `HD_IMAGE_INGEST_BASE_URL`
 - `NOTIFY_DISPATCH_SECRET`
 - `CRON_SECRET`
-- `CLOUDFLARE_ACCOUNT_ID`
-- `CLOUDFLARE_API_TOKEN`
-- `CLOUDFLARE_NOTIFY_D1_DATABASE_ID`
+- `NOTIFY_DB` D1 binding
+- `MOOD_IMAGES` R2 binding
+- `NOTIFY_DISPATCH_QUEUE` queue binding
 
-### Cloudflare worker
+### Worker secrets and Telegram config
 
 - `TELEGRAM_BOT_TOKEN`
 - `HD_IMAGE_INGEST_TOKEN`
@@ -149,8 +151,6 @@ These endpoints are intended for Telegram or server-to-server ingestion only.
 - `CHANNEL`
 - `TELEGRAM_CHANNEL_ID`
 - `TELEGRAM_HOST`
-- `NOTIFY_DISPATCH_QUEUE` queue binding
-- `MOOD_IMAGES` R2 binding
 
 ## Failure Modes
 
@@ -226,12 +226,12 @@ Visible impact:
   - Telegram webhook registration
   - Readability of recent HD image URLs
 - Cloudflare custom rule allowing `POST /ingest/*` on `image.buxx.me`
-- `workers_dev = true` enabled on the image worker for additional debugging paths
+- the standalone image worker remains available as rollback/debug history until production cutover is verified
 
 ## Known Coupling
 
 Current coupling that still matters:
 
 - Telegram webhook still triggers image ingest before the request returns
-- Immediate notify still depends on a Worker-to-Vercel handoff, but that handoff is now queue-backed instead of best-effort
+- Immediate notify still depends on a queue-backed dispatch handoff into `/api/notify/dispatch`
 - Public mood pages can still fall back to Telegram CDN, but email links cannot auto-fallback after delivery

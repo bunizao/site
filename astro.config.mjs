@@ -1,7 +1,7 @@
 import { defineConfig } from 'astro/config';
 import { fileURLToPath } from 'node:url';
 import react from '@astrojs/react';
-import vercel from '@astrojs/vercel';
+import cloudflare from '@astrojs/cloudflare';
 import starlight from '@astrojs/starlight';
 import sitemap from '@astrojs/sitemap';
 
@@ -129,7 +129,10 @@ export default defineConfig({
   security: {
     checkOrigin: false,
   },
-  adapter: vercel(),
+  adapter: cloudflare({
+    imageService: 'passthrough',
+    prerenderEnvironment: 'node',
+  }),
   server: {
     strictPort: isE2EStrictPort,
   },
