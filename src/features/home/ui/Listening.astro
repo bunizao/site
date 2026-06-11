@@ -23,6 +23,11 @@ const isLive = Boolean(track?.isNowPlaying);
 const hasTrack = Boolean(track);
 const hasLink = hasTrack && link !== '#';
 const hasPreview = Boolean(previewUrl);
+const playLabel = hasPreview
+  ? `Play preview of ${title}`
+  : hasLink
+    ? `Open ${title}`
+    : `${title} preview unavailable`;
 ---
 
   <aside
@@ -37,10 +42,11 @@ const hasPreview = Boolean(previewUrl);
       class:list={['listening-art', isLive ? 'is-live' : 'is-recent']}
       data-listening-play
       data-preview-url={previewUrl}
+      data-track-url={hasLink ? link : ''}
       data-track-title={title}
-      disabled={!hasPreview}
+      disabled={!hasPreview && !hasLink}
       aria-pressed="false"
-      aria-label={hasPreview ? `Play preview of ${title}` : `${title} preview unavailable`}
+      aria-label={playLabel}
     >
       <span class="listening-art-frame">
         <span class="listening-art-record" aria-hidden="true"></span>
@@ -963,6 +969,7 @@ const hasPreview = Boolean(previewUrl);
 
       let audio: HTMLAudioElement | null = null;
       let trackTitle = playButton.dataset.trackTitle ?? 'Track';
+      let trackUrl = playButton.dataset.trackUrl ?? '';
       let isLive = root.dataset.nowPlaying === 'true';
       const hasInitialTrack = root.dataset.hasInitialTrack === 'true';
 
@@ -1058,6 +1065,25 @@ const hasPreview = Boolean(previewUrl);
         });
       };
 
+      const syncPlayAction = () => {
+        const previewUrl = playButton.dataset.previewUrl ?? '';
+
+        if (previewUrl) {
+          playButton.disabled = false;
+          playButton.setAttribute('aria-label', `Play preview of ${trackTitle}`);
+          return;
+        }
+
+        if (trackUrl) {
+          playButton.disabled = false;
+          playButton.setAttribute('aria-label', `Open ${trackTitle}`);
+          return;
+        }
+
+        playButton.disabled = true;
+        playButton.setAttribute('aria-label', `${trackTitle} preview unavailable`);
+      };
+
       const setPreview = (previewUrl: string) => {
         if (audio) {
           audio.pause();
@@ -1067,15 +1093,7 @@ const hasPreview = Boolean(previewUrl);
 
         setPreviewState(false);
         playButton.dataset.previewUrl = previewUrl;
-
-        if (!previewUrl) {
-          playButton.disabled = true;
-          playButton.setAttribute('aria-label', `${trackTitle} preview unavailable`);
-          return;
-        }
-
-        playButton.disabled = false;
-        playButton.setAttribute('aria-label', `Play preview of ${trackTitle}`);
+        syncPlayAction();
       };
 
       const getPreviewAudio = () => {
@@ -1119,9 +1137,11 @@ const hasPreview = Boolean(previewUrl);
         const nextIsLive = Boolean(track.isNowPlaying);
 
         trackTitle = nextTitle;
+        trackUrl = nextLink;
         root.classList.remove('is-loading');
         root.setAttribute('aria-label', nextIsLive ? 'Now playing' : 'Recently played');
         playButton.dataset.trackTitle = nextTitle;
+        playButton.dataset.trackUrl = nextLink;
 
         if (titleLabel instanceof HTMLElement && titleDuplicate instanceof HTMLElement) {
           titleLabel.textContent = nextTitle;
@@ -1153,10 +1173,8 @@ const hasPreview = Boolean(previewUrl);
 
         if ((playButton.dataset.previewUrl ?? '') !== nextPreviewUrl) {
           setPreview(nextPreviewUrl);
-        } else if (!audio) {
-          playButton.setAttribute('aria-label', `${trackTitle} preview unavailable`);
         } else {
-          playButton.setAttribute('aria-label', `Play preview of ${trackTitle}`);
+          syncPlayAction();
         }
 
         syncTitleMarquee();
@@ -1171,6 +1189,9 @@ const hasPreview = Boolean(previewUrl);
       playButton.addEventListener('click', async () => {
         const previewAudio = getPreviewAudio();
         if (!previewAudio) {
+          if (trackUrl) {
+            window.open(trackUrl, '_blank', 'noopener,noreferrer');
+          }
           return;
         }
 

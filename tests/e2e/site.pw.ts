@@ -511,6 +511,32 @@ test.describe('Home page', () => {
     expect(waveWidth).toBeGreaterThan(0);
   });
 
+  test('opens the listening track when artwork has no preview audio', async ({ page }) => {
+    await page.route('**/api/listening', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(createListeningPayload({
+          previewUrl: '',
+          appleMusicUrl: 'https://music.apple.com/test-listening-click',
+        })),
+      });
+    });
+
+    await page.goto('/');
+
+    const playButton = page.locator('[data-listening-play]');
+    await expect(playButton).toBeEnabled();
+    await expect(playButton).toHaveAttribute('aria-label', 'Open All of the Lights');
+
+    const popupPromise = page.waitForEvent('popup');
+    await playButton.click();
+    const popup = await popupPromise;
+
+    expect(popup.url()).toBe('https://music.apple.com/test-listening-click');
+    await popup.close();
+  });
+
   test('shows the GitHub contributions fallback state when the request fails', async ({ page }) => {
     await page.route('**/api/github/contributions**', async (route) => {
       await route.abort('failed');
