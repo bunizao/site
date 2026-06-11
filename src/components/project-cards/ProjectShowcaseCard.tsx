@@ -30,6 +30,10 @@ export interface ShowcaseProject {
   tags: string[];
   stars: number | null;
   hero: Hero;
+  // Card surface tint, paired with the hero's accent so the whole card reads as
+  // one family. Kept high-key in light (paper hues) and low-key in dark (hinted
+  // near-blacks) so the four cards differ without breaking the monochrome calm.
+  tint: { light: string; dark: string };
 }
 
 export const projects: ShowcaseProject[] = [
@@ -46,6 +50,7 @@ export const projects: ShowcaseProject[] = [
     tags: ["CLI", "MCP", "Automation"],
     stars: null,
     hero: { kind: "cube" },
+    tint: { light: "#f6f2e8", dark: "#16140f" }, // warm sand, matches amber linework
   },
   {
     id: "ogis",
@@ -60,6 +65,7 @@ export const projects: ShowcaseProject[] = [
     tags: ["Next.js", "OG Image", "Edge"],
     stars: 5,
     hero: { kind: "carousel" },
+    tint: { light: "#eef1f6", dark: "#101216" }, // cool slate paper
   },
   {
     id: "attegi",
@@ -74,6 +80,7 @@ export const projects: ShowcaseProject[] = [
     tags: ["Ghost", "Theme", "TailwindCSS"],
     stars: 27,
     hero: { kind: "tour" },
+    tint: { light: "#f4eff3", dark: "#151318" }, // soft mauve, editorial warmth
   },
   {
     id: "tutubetterrules",
@@ -88,6 +95,7 @@ export const projects: ShowcaseProject[] = [
     tags: ["Surge", "Clash", "Shadowrocket", "QX"],
     stars: 391,
     hero: { kind: "waves" },
+    tint: { light: "#ecf3f0", dark: "#0f1513" }, // mint paper, matches teal waves
   },
 ];
 
