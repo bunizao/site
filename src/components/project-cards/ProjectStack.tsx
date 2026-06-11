@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   AnimatePresence,
@@ -47,34 +47,6 @@ const heroFrame =
   "pointer-events-none relative w-full select-none overflow-hidden " +
   "ring-1 ring-inset ring-stone-900/[0.06] dark:ring-white/[0.07]";
 
-// The hero behind a sheet of glass: a soft top-left gloss plus one crisp
-// diagonal streak read as light catching a window pane, and a hairline top
-// highlight gives the pane an edge. Inert and theme-stable — white at low alpha
-// sits fine on both the dark hero and its light mat. Lives here once so both the
-// collapsed card and the story card pick up the same glass.
-function HeroTile({
-  className,
-  children,
-}: {
-  className?: string;
-  children: ReactNode;
-}) {
-  return (
-    <div className={cn(heroFrame, className)}>
-      {children}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0 shadow-[inset_0_1px_0_rgba(255,255,255,0.28),inset_0_-1px_0_rgba(0,0,0,0.05)]"
-        style={{
-          background:
-            "linear-gradient(133deg, rgba(255,255,255,0.26) 0%, rgba(255,255,255,0.08) 16%, transparent 34%), " +
-            "linear-gradient(133deg, transparent 49%, rgba(255,255,255,0.14) 55%, transparent 61%)",
-        }}
-      />
-    </div>
-  );
-}
-
 // ---------------------------------------------------------------------------
 // L0 — collapsed card in the pile
 // ---------------------------------------------------------------------------
@@ -96,9 +68,9 @@ function CardFace({
       )}
     >
       {/* Hero is inert: it must not steal drags or let the image be selected. */}
-      <HeroTile className="aspect-[16/10] rounded-[15px]">
+      <div className={cn("aspect-[16/10] rounded-[15px]", heroFrame)}>
         {renderHero(project.hero, active)}
-      </HeroTile>
+      </div>
 
       <div className="px-3.5 pb-3 pt-4">
         <p className="font-code text-[10px] uppercase tracking-[0.16em] text-stone-400 dark:text-white/35">
@@ -157,9 +129,9 @@ function StoryCard({
         surface,
       )}
     >
-      <HeroTile className="aspect-[16/9] shrink-0 rounded-[18px]">
+      <div className={cn("aspect-[16/9] shrink-0 rounded-[18px]", heroFrame)}>
         {renderHero(project.hero, active)}
-      </HeroTile>
+      </div>
 
       <div className="touch-pan-y overflow-y-auto overscroll-contain px-4 pb-3 pt-5 sm:px-5 sm:pb-4">
         <p className="mb-2 font-code text-[11px] uppercase tracking-[0.16em] text-stone-400 dark:text-white/40">
