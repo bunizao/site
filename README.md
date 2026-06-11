@@ -1,13 +1,11 @@
-# Site
+# buxx.me
 
-Personal bio/portfolio website.  
-
-Live at:
+My personal website. Runs entirely on the edge ☁️.
 
 <a href="https://buxx.me">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="https://buxx.me/api/site-badge.svg?theme=dark">
-    <img alt="buxx.me badge" src="https://buxx.me/api/site-badge.svg?theme=light" />
+    <img alt="buxx.me" src="https://buxx.me/api/site-badge.svg?theme=light" />
   </picture>
 </a>
 
@@ -18,144 +16,50 @@ Live at:
 - TailwindCSS
 
 ## Dev
+
 ```bash
 bun install
-bun run dev
+bun dev
 ```
 
-Use focused dev scripts when working on one surface:
+Focused servers:
 
 ```bash
-bun run dev:home     # homepage, with mood runtime loading paused
-bun run dev:mood     # mood feed/detail work
-bun run dev:preview  # internal preview pages
-bun run dev:portal   # admin portal, with loopback-only OAuth bypass
+bun run dev:home
+bun run dev:mood
+bun run dev:preview
+bun run dev:portal
 ```
 
-## API Endpoints
+## Docs
 
-### JSON
-
-`GET /api/moods`
-
-Query params:
-- `before` (string, optional): pagination cursor (oldest mood id currently loaded).
-
-<details>
-<summary>Response shape</summary>
-
-```json
-{
-  "posts": [
-    {
-      "id": "12345",
-      "datetime": "2025-01-01T12:34:56+00:00",
-      "tag": "life",
-      "previewText": "text preview",
-      "previewHtml": "<p>text preview</p>",
-      "image": "https://...",
-      "mediaHtml": "<div>...</div>",
-      "needsDetailPage": true,
-      "forwardedFrom": { "name": "source", "href": "https://t.me/..." },
-      "quote": { "text": "quoted text", "author": "someone", "href": "/mood/123" },
-      "reactions": [
-        { "emoji": "👍", "emojiId": "123", "emojiImage": "https://...", "count": "2", "isPaid": false }
-      ]
-    }
-  ],
-  "channel": {
-    "slug": "my_channel",
-    "title": "My Channel"
-  }
-}
-```
-</details>
-
-### Notifications (Email)
-
-Documentation:
-- [`docs/EMAIL-NOTIFY.md`](docs/EMAIL-NOTIFY.md)
-
-Admin portal:
-- `/dev/portal` is GitHub OAuth gated in production.
-- Use `bun run dev:portal` locally. It sets the loopback-only `ADMIN_DEV_BYPASS=1` path, mints the same signed session cookie, and uses `ADMIN_DEV_LOGIN` / `ADMIN_DEV_AVATAR_URL` when configured.
-
-### SVG
-
-Documentation:
+- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
 - [`docs/SVG-API.md`](docs/SVG-API.md)
-
-### oEmbed
-
-Documentation:
 - [`docs/OEMBED-API.md`](docs/OEMBED-API.md)
-
-## Image Quality Upgrade (Cloudflare Worker)
-
-Mood photos can be served via a Cloudflare Worker for higher quality and edge caching.
-Use `PUBLIC_HD_IMAGE_URL` for public reads and `HD_IMAGE_INGEST_BASE_URL` for webhook ingest if the public image domain is protected by Cloudflare challenges or WAF rules.
-
-Documentation:
+- [`docs/EMAIL-NOTIFY.md`](docs/EMAIL-NOTIFY.md)
+- [`docs/TELEGRAM-PIPELINE.md`](docs/TELEGRAM-PIPELINE.md)
 - [`docs/IMAGE-QUALITY-UPGRADE.md`](docs/IMAGE-QUALITY-UPGRADE.md)
 
-## Project Structure
-```text
-.
-├── src/                              # Application source code
-│   ├── pages/                        # Astro routes and API endpoints
-│   │   ├── index.astro               # Homepage
-│   │   ├── mood.astro                # Mood feed page
-│   │   ├── mood/[id].astro           # Mood detail page
-│   │   ├── mood/embed.astro          # Embeddable widget page
-│   │   ├── api/                      # JSON/SVG/oEmbed/webhook endpoints
-│   │   └── static/                   # Static proxy/helper routes
-│   ├── components/                   # Reusable Astro/React components
-│   │   └── ui/                       # UI primitives
-│   ├── layouts/                      # Shared layout wrappers
-│   ├── lib/                          # Utilities and service integrations
-│   │   ├── notify/                   # Email notify domain logic
-│   │   └── security/                 # Turnstile and security helpers
-│   └── styles/                       # Global styles and Tailwind layers
-├── public/                           # Public static assets
-│   └── fonts/                        # Font files
-├── docs/                             # API and feature documentation
-├── workers/                          # Cloudflare Worker projects
-│   ├── notify-scheduler/             # Scheduled notify dispatcher
-│   └── telegram-image-proxy/         # Telegram image proxy worker
-├── scripts/                          # Maintenance/migration scripts
-├── tests/                            # Automated tests
-│   └── e2e/                          # Playwright e2e test cases
-├── astro.config.mjs                  # Astro config and integrations
-├── tailwind.config.mjs               # Tailwind theme/config
-└── .env                              # Environment template with comments
-```
+Environment variables are documented in [`.env`](.env).
 
-## Environment Variables
-Variable descriptions are maintained as inline comments in [`.env`](.env).
-
-Use `.env.local` for local secrets and keep [`.env`](.env) as the documented template.
-
-## Merge Preflight
-Before merging admin portal changes, run:
-
-```bash
-bun test tests/unit/admin-session.test.ts tests/unit/admin-oauth.test.ts
-E2E_PORT=4331 bunx playwright test tests/e2e/admin-portal.pw.ts
-bun run check
-bun run build
-```
 
 ## Acknowledgements
-- [miantiao-me/BroadcastChannel](https://github.com/miantiao-me/BroadcastChannel) - Inspiration and code reference for `moods` ideas.
-- [ddiu8081/ddiu.io](https://github.com/ddiu8081/ddiu.io) - Inspiration and code reference for `Ghost API` integration.
-- [zmh-program/zmh-program.github.io](https://github.com/zmh-program/zmh-program.github.io) - Inspiration for layout and style ideas.
+
 - [antfu/antfu.me](https://antfu.me/) - Inspiration for personal website design and content ideas.
+- [Astro Starlight](https://starlight.astro.build/) - Docs site framework for the internal documentation.
+- [Simple Card Stack by Daniel Destefanis](https://www.figma.com/community/file/1543265632442908675) - Figma prototype reference for the projects card stack interaction.
+- [ddiu8081/ddiu.io](https://github.com/ddiu8081/ddiu.io) - Inspiration and code reference for `Ghost API` integration.
 - [hritish.com](https://hritish.com/) - Reference for the listening / recently played section and the `last.fm` driven now playing presentation.
 - [John Tornow - Now Playing: A Web Component](https://johntornow.com/etc/now-playing/) - Reference for the now playing component pattern and lightweight playback status presentation.
+- [miantiao-me/BroadcastChannel](https://github.com/miantiao-me/BroadcastChannel) - Inspiration and code reference for `moods` ideas.
+- [shadcn/ui](https://ui.shadcn.com/) - UI component primitives used in the admin portal.
+- [soulwire.co.uk](https://soulwire.co.uk/) - Reference for the hero bio decode reveal effect.
+- [zmh-program/zmh-program.github.io](https://github.com/zmh-program/zmh-program.github.io) - Inspiration for layout and style ideas.
 - The [Astro](https://astro.build/), [React](https://react.dev/), and [Tailwind CSS](https://tailwindcss.com/) communities for great tooling and docs.
-- Open-source maintainers whose libraries power this site.
+- Open-source maintainers whose libraries power this project!
 
 ## License
+
 Copyright (c) 2026 bunizao. All rights reserved.
 
 This repository is publicly visible for source inspection. No permission is granted to use, copy, modify, distribute, deploy, or commercialize this code without prior written approval from bunizao.
