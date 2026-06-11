@@ -172,5 +172,7 @@ describe('Cloudflare runtime configuration', () => {
     expect(postsComponent).toContain("fetch('/api/writing'");
     expect(postsComponent).toContain('await hydrateWritingPosts();');
     expect(postsComponent).toContain('void initWriting();');
+    expect(postsComponent).toContain(':global(#writing-section .post-item)');
+    expect(postsComponent).toContain(':global(#writing-section .post-meta)');
   });
 });

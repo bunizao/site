@@ -62,12 +62,12 @@ const posts = useE2EFixture ? createE2EWritingPosts() : await fetchLatestGhostPo
     /* Initial state handled by GSAP */
   }
 
-  .post-list {
+  :global(#writing-section .post-list) {
     display: flex;
     flex-direction: column;
   }
 
-  .post-item {
+  :global(#writing-section .post-item) {
     display: flex;
     flex-direction: column;
     gap: 4px;
@@ -77,7 +77,7 @@ const posts = useE2EFixture ? createE2EWritingPosts() : await fetchLatestGhostPo
   }
 
   @media (min-width: 640px) {
-    .post-item {
+    :global(#writing-section .post-item) {
       flex-direction: row;
       justify-content: space-between;
       align-items: baseline;
@@ -86,7 +86,7 @@ const posts = useE2EFixture ? createE2EWritingPosts() : await fetchLatestGhostPo
     }
   }
 
-  .post-item::after {
+  :global(#writing-section .post-item::after) {
     content: '';
     position: absolute;
     bottom: 0;
@@ -96,21 +96,21 @@ const posts = useE2EFixture ? createE2EWritingPosts() : await fetchLatestGhostPo
     background: linear-gradient(to right, hsl(var(--foreground) / 0.1), transparent);
   }
 
-  .post-item:last-child::after {
+  :global(#writing-section .post-item:last-child::after) {
     display: none;
   }
 
-  .post-item:hover {
+  :global(#writing-section .post-item:hover) {
     padding-left: 8px;
   }
 
-  .post-title {
+  :global(#writing-section .post-title) {
     font-size: 14px;
     font-weight: 500;
     line-height: 1.4;
   }
 
-  .post-meta {
+  :global(#writing-section .post-meta) {
     display: flex;
     align-items: baseline;
     gap: 8px;
@@ -118,24 +118,24 @@ const posts = useE2EFixture ? createE2EWritingPosts() : await fetchLatestGhostPo
   }
 
   @media (min-width: 640px) {
-    .post-meta {
+    :global(#writing-section .post-meta) {
       gap: 12px;
     }
   }
 
-  .post-tag {
+  :global(#writing-section .post-tag) {
     font-size: 11px;
     font-weight: 400;
     color: hsl(var(--muted-foreground) / 0.7);
   }
 
   @media (min-width: 640px) {
-    .post-tag {
+    :global(#writing-section .post-tag) {
       font-size: 12px;
     }
   }
 
-  .post-date {
+  :global(#writing-section .post-date) {
     font-size: 11px;
     font-weight: 300;
     color: hsl(var(--muted-foreground) / 0.5);
@@ -143,13 +143,13 @@ const posts = useE2EFixture ? createE2EWritingPosts() : await fetchLatestGhostPo
   }
 
   @media (min-width: 640px) {
-    .post-date {
+    :global(#writing-section .post-date) {
       font-size: 12px;
     }
   }
 
-  .post-item:hover .post-date,
-  .post-item:hover .post-tag {
+  :global(#writing-section .post-item:hover .post-date),
+  :global(#writing-section .post-item:hover .post-tag) {
     color: hsl(var(--muted-foreground));
   }
 </style>
