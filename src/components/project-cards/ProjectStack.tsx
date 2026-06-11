@@ -461,32 +461,17 @@ function getEntrancePose(): TargetAndTransition {
 }
 
 // How long the front card takes to recede to the back of the fan.
-const dealMs = 820;
+const dealMs = 720;
 
-// Quiet hand-off, not a flourish: the front card settles down a hair and fades
-// out in place while the deck glides forward to fill its spot, then it fades
-// back in already seated at the rear. The opacity holds at 0 through the middle
-// of the arc, so its travel to the back slot happens unseen — no card ever
-// floats across the pile. First frame matches the live front pose (no snap),
-// last frame equals the rear stack pose (clean landing).
-const dealMotion: TargetAndTransition = (() => {
-  const back = getStackPose(visibleDepth) as unknown as Record<string, number>;
-  const backBlur = `blur(${Math.max(0, visibleDepth - 2) * 0.6}px)`;
-  return {
-    x: [0, 0, back.x, back.x],
-    y: [0, 26, back.y, back.y],
-    z: [0, 8, back.z, back.z],
-    scale: [1, 0.985, back.scale, back.scale],
-    rotateZ: [0, 0, back.rotateZ, back.rotateZ],
-    opacity: [1, 0, 0, back.opacity],
-    filter: ["blur(0px)", "blur(0px)", "blur(0px)", backBlur],
-  };
-})();
-
+// No fade, no arc — the front card just slides to the rear pose while staying
+// fully opaque. The trick is z-order: the instant it leaves, it becomes the
+// lowest card in the deck, so the three cards now in front of it cover its
+// travel. You see it slip under the pile and reappear at the back of the fan,
+// never floating across the top, never blinking out. A soft deceleration curve
+// keeps the slide silky and bounce-free.
 const dealTransition: Transition = {
-  duration: 0.82,
-  times: [0, 0.4, 0.62, 1],
-  ease: "easeInOut",
+  duration: 0.72,
+  ease: [0.32, 0.72, 0, 1],
 };
 
 export default function ProjectStack({ className }: { className?: string }) {
@@ -566,7 +551,8 @@ export default function ProjectStack({ className }: { className?: string }) {
       >
         {ordered.map((project, depth) => {
           const active = depth === 0;
-          // The dealt card rides its lift arc and floats above the whole deck.
+          // The card just dealt away. It keeps the lowest z-index (it is now the
+          // rear card), so it slides to the back hidden behind the rest.
           const leaving = project.id === leavingId;
           return (
             <motion.article
@@ -578,7 +564,7 @@ export default function ProjectStack({ className }: { className?: string }) {
               style={{
                 transformStyle: "preserve-3d",
                 transformOrigin: "center center",
-                zIndex: leaving ? projects.length + 5 : projects.length - depth,
+                zIndex: projects.length - depth,
                 pointerEvents: leaving
                   ? "none"
                   : depth <= visibleDepth
@@ -587,16 +573,24 @@ export default function ProjectStack({ className }: { className?: string }) {
                 cursor: active ? "grab" : "pointer",
               }}
               initial={reduce ? getStackPose(depth) : getEntrancePose()}
-              animate={leaving ? dealMotion : getStackPose(depth)}
+              animate={getStackPose(depth)}
               transition={
                 leaving
                   ? dealTransition
                   : {
                       type: "spring",
-                      stiffness: hasEntered ? 140 : 96,
-                      damping: hasEntered ? 23 : 24,
+                      stiffness: hasEntered ? 150 : 96,
+                      damping: hasEntered ? 24 : 24,
                       mass: 0.9,
-                      delay: hasEntered || reduce ? 0 : depth * 0.08,
+                      // During a cycle the deck ripples forward: front card
+                      // leads, those behind follow a beat later.
+                      delay: !hasEntered
+                        ? reduce
+                          ? 0
+                          : depth * 0.08
+                        : leavingId
+                          ? depth * 0.05
+                          : 0,
                     }
               }
               // Free drag in both axes — toss it anywhere, it springs home.
