@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   AnimatePresence,
@@ -28,8 +28,6 @@ import { cn } from "@/lib/utils";
 const visibleDepth = 3; // four projects → depths 0..3, all peek
 const autoAdvanceMs = 5500; // slow enough to read; hover pauses it entirely
 const dragAdvanceThreshold = 70;
-
-const spring = { type: "spring", stiffness: 260, damping: 30 } as const;
 
 // Shared chrome. Warm neutral, never pure black/white: a single cream surface
 // that frames the dark hero like a matte in light mode, a soft near-black in
@@ -118,14 +116,18 @@ function CardFace({
 function StoryCard({
   project,
   active,
+  dim = false,
 }: {
   project: ShowcaseProject;
   active: boolean;
+  dim?: boolean;
 }) {
   return (
     <div
       className={cn(
-        "flex max-h-[86vh] w-full flex-col rounded-[26px] p-2.5 text-stone-900 dark:text-stone-100",
+        "flex max-h-[86vh] w-full flex-col rounded-[26px] p-2.5 text-stone-900 transition-opacity duration-300 dark:text-stone-100",
+        // Neighbours sit quietly behind the focused card; the centred one is full.
+        dim ? "opacity-45" : "opacity-100",
         surface,
       )}
     >
@@ -207,24 +209,82 @@ function StoryGallery({
 }) {
   const reduce = useReducedMotion();
   const vw = useViewportWidth();
+  const compact = vw < 640;
   const count = projects.length;
 
-  const go = (n: number) => setIndex(Math.max(0, Math.min(count - 1, n)));
+  const scrollerRef = useRef<HTMLDivElement>(null);
+  const [cur, setCurState] = useState(index);
+  const [progress, setProgress] = useState(
+    count > 1 ? index / (count - 1) : 0,
+  );
+  const [entered, setEntered] = useState(false);
+  // curRef mirrors `cur` so size-change re-centering and click handlers read the
+  // live value without re-subscribing the scroll listener.
+  const curRef = useRef(index);
+  const setCur = (n: number) => {
+    curRef.current = n;
+    setCurState(n);
+  };
 
-  // Staged entrance: the tapped card zooms up first (the "it got bigger" beat),
-  // then the neighbours fade in. `entered` gates the second beat.
-  const [entered, setEntered] = useState(Boolean(reduce));
+  const cardW = compact
+    ? Math.round(vw * 0.84)
+    : Math.min(620, Math.round(vw * 0.52));
+  const gap = compact ? 14 : 40;
+  const stride = cardW + gap;
+  // Symmetric padding lets the first and last card snap to the exact centre, so
+  // scrollLeft 0 == card 0 centred, and card i sits at i * stride.
+  const sidePad = Math.max(0, Math.round((vw - cardW) / 2));
+
+  const go = (n: number) => {
+    const t = Math.max(0, Math.min(count - 1, n));
+    scrollerRef.current?.scrollTo({
+      left: t * stride,
+      behavior: reduce ? "auto" : "smooth",
+    });
+  };
+
+  // Native scroll drives the source of truth: read scrollLeft, derive the live
+  // index + continuous progress (for the scrubber). rAF-throttled, passive.
   useEffect(() => {
-    if (reduce) return;
-    const t = window.setTimeout(() => setEntered(true), 240);
-    return () => window.clearTimeout(t);
+    const el = scrollerRef.current;
+    if (!el) return;
+    let raf = 0;
+    const onScroll = () => {
+      if (raf) return;
+      raf = requestAnimationFrame(() => {
+        raf = 0;
+        const max = el.scrollWidth - el.clientWidth;
+        setProgress(max > 0 ? Math.min(1, Math.max(0, el.scrollLeft / max)) : 0);
+        setCur(Math.round(el.scrollLeft / stride));
+      });
+    };
+    el.addEventListener("scroll", onScroll, { passive: true });
+    return () => {
+      el.removeEventListener("scroll", onScroll);
+      if (raf) cancelAnimationFrame(raf);
+    };
+  }, [stride]);
+
+  // Jump to the opened card before paint (no animated slide-in from card 0), and
+  // keep the current card centred when the viewport / card width changes.
+  useLayoutEffect(() => {
+    const el = scrollerRef.current;
+    if (el) el.scrollLeft = curRef.current * stride;
+  }, [stride]);
+
+  // Entrance zoom: scale the whole track up from the tapped card's footprint.
+  // CSS transform/opacity transition — compositor-driven, no JS per frame.
+  useLayoutEffect(() => {
+    if (reduce) return setEntered(true);
+    const r = requestAnimationFrame(() => setEntered(true));
+    return () => cancelAnimationFrame(r);
   }, [reduce]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
-      else if (e.key === "ArrowRight") go(index + 1);
-      else if (e.key === "ArrowLeft") go(index - 1);
+      else if (e.key === "ArrowRight") go(curRef.current + 1);
+      else if (e.key === "ArrowLeft") go(curRef.current - 1);
     };
     document.addEventListener("keydown", onKey);
     const prev = document.body.style.overflow;
@@ -234,20 +294,22 @@ function StoryGallery({
       document.body.style.overflow = prev;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [index, onClose]);
+  }, [onClose]);
+
+  useEffect(() => setIndex(cur), [cur, setIndex]);
 
   if (typeof document === "undefined") return null;
 
-  const cardW = Math.min(620, Math.round(vw * 0.86));
-  const gap = vw < 640 ? 16 : 40;
-  const stride = cardW + gap;
-  // Track is flex-centered, so x=0 centers the midpoint card; shift to `index`.
-  const centerOffset = stride * ((count - 1) / 2 - index);
-
-  const onDragEnd = (_: unknown, info: PanInfo) => {
-    const threshold = stride * 0.2;
-    if (info.offset.x < -threshold || info.velocity.x < -500) go(index + 1);
-    else if (info.offset.x > threshold || info.velocity.x > 500) go(index - 1);
+  // Scrubber joystick: ratio 0..1 → scrollLeft. While dragging, set scrollLeft
+  // directly for 1:1 tracking; on release, snap to the nearest card.
+  const onScrub = (ratio: number, commit: boolean) => {
+    const el = scrollerRef.current;
+    if (!el) return;
+    if (commit) {
+      go(Math.round(ratio * (count - 1)));
+    } else {
+      el.scrollLeft = ratio * (el.scrollWidth - el.clientWidth);
+    }
   };
 
   return createPortal(
@@ -256,76 +318,55 @@ function StoryGallery({
       aria-modal="true"
       aria-label="Project gallery"
       className="fixed inset-0 z-[100] overflow-hidden"
+      style={{ overscrollBehavior: "none" }}
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      // Backdrop snaps opaque quickly so the card zooms against a clean blur,
-      // not the lingering stack behind it.
       transition={{ duration: 0.18, ease: "easeOut" }}
     >
+      <style>{".gallery-scroller::-webkit-scrollbar{display:none}"}</style>
+
       <div
         className="absolute inset-0 bg-stone-900/60 backdrop-blur-md dark:bg-black/75"
         onClick={onClose}
       />
 
-      {/* Card track — empty space falls through to the backdrop (click to close). */}
-      <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-        <motion.div
-          className="pointer-events-auto flex items-center"
-          style={{ gap, willChange: "transform", WebkitBackfaceVisibility: "hidden" }}
-          // Start already centered on the opened card so it zooms in place,
-          // not slide-then-zoom; navigation still springs between indices.
-          initial={{ x: centerOffset }}
-          animate={{ x: centerOffset }}
-          transition={reduce ? { duration: 0 } : spring}
-          drag={reduce ? false : "x"}
-          dragElastic={0.14}
-          // Clamp to first/last centered so dragging never reveals empty space.
-          dragConstraints={{
-            left: -stride * ((count - 1) / 2),
-            right: stride * ((count - 1) / 2),
-          }}
-          onDragEnd={onDragEnd}
-        >
-          {projects.map((p, i) => (
-            <div
-              key={p.id}
-              className={cn("shrink-0", i !== index && "cursor-pointer")}
-              style={{ width: cardW }}
-              onClick={() => i !== index && go(i)}
-            >
-              <motion.div
-                initial={
-                  reduce
-                    ? false
-                    : i === index
-                      ? { scale: 0.46, opacity: 0 }
-                      : { scale: 0.9, opacity: 0 }
-                }
-                animate={
-                  i === index
-                    ? { scale: 1, opacity: 1 }
-                    : { scale: 0.9, opacity: entered ? 0.45 : 0 }
-                }
-                exit={
-                  i === index
-                    ? { scale: 0.5, opacity: 0 }
-                    : { opacity: 0 }
-                }
-                transition={
-                  reduce
-                    ? { duration: 0 }
-                    : i === index
-                      ? { type: "spring", stiffness: 240, damping: 22 }
-                      : { duration: 0.32, ease: "easeOut" }
-                }
-                className={cn(i !== index && "pointer-events-none")}
-              >
-                <StoryCard project={p} active={i === index} />
-              </motion.div>
-            </div>
-          ))}
-        </motion.div>
+      {/* Native horizontal snap scroller — owns the swipe gesture (so it can't
+          chain to the page) and runs on the compositor. A tap on the empty
+          padding (target === the scroller itself) closes. */}
+      <div
+        ref={scrollerRef}
+        className="gallery-scroller absolute inset-0 flex items-center overflow-x-auto overflow-y-hidden"
+        style={{
+          gap,
+          paddingInline: sidePad,
+          scrollPaddingInline: sidePad,
+          scrollSnapType: reduce ? "none" : "x mandatory",
+          overscrollBehavior: "contain",
+          WebkitOverflowScrolling: "touch",
+          touchAction: "pan-x",
+          scrollbarWidth: "none",
+          opacity: entered ? 1 : 0,
+          transform: entered ? "scale(1)" : "scale(0.7)",
+          transformOrigin: "center center",
+          transition: reduce
+            ? undefined
+            : "transform 0.42s cubic-bezier(0.2,0.7,0,1), opacity 0.26s ease-out",
+        }}
+        onClick={(e) => {
+          if (e.target === scrollerRef.current) onClose();
+        }}
+      >
+        {projects.map((p, i) => (
+          <div
+            key={p.id}
+            className={cn("shrink-0 snap-center", i !== cur && "cursor-pointer")}
+            style={{ width: cardW, transform: "translateZ(0)" }}
+            onClick={() => i !== curRef.current && go(i)}
+          >
+            <StoryCard project={p} active={i === cur} dim={i !== cur} />
+          </div>
+        ))}
       </div>
 
       <button
@@ -337,38 +378,50 @@ function StoryGallery({
         <X className="h-4 w-4" />
       </button>
 
-      {/* Arrows on desktop only — on mobile the card fills the width, so the
-          scrubber below is the control instead. */}
-      <GalleryArrow side="left" disabled={index === 0} onClick={() => go(index - 1)} />
+      {/* Arrows on desktop only — on mobile the scrubber below is the control. */}
+      <GalleryArrow side="left" disabled={cur === 0} onClick={() => go(cur - 1)} />
       <GalleryArrow
         side="right"
-        disabled={index === count - 1}
-        onClick={() => go(index + 1)}
+        disabled={cur === count - 1}
+        onClick={() => go(cur + 1)}
       />
 
-      <GalleryScrubber count={count} index={index} go={go} />
+      <GalleryScrubber
+        count={count}
+        cur={cur}
+        progress={progress}
+        onScrub={onScrub}
+      />
     </motion.div>,
     document.body,
   );
 }
 
+// A draggable joystick: drag anywhere along the rail to scrub the gallery, the
+// thumb tracks the live scroll progress. `left`-positioned (a 16px dot — repaint
+// is negligible) so it reads the exact fractional scroll, not just snap points.
 function GalleryScrubber({
   count,
-  index,
-  go,
+  cur,
+  progress,
+  onScrub,
 }: {
   count: number;
-  index: number;
-  go: (n: number) => void;
+  cur: number;
+  progress: number;
+  onScrub: (ratio: number, commit: boolean) => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
+  const lastRatio = useRef(progress);
   const [dragging, setDragging] = useState(false);
 
-  const update = (clientX: number) => {
+  const at = (clientX: number) => {
     const el = ref.current;
     if (!el) return;
     const r = el.getBoundingClientRect();
-    go(Math.round(((clientX - r.left) / r.width) * (count - 1)));
+    const ratio = Math.min(1, Math.max(0, (clientX - r.left) / r.width));
+    lastRatio.current = ratio;
+    onScrub(ratio, false);
   };
 
   return (
@@ -379,23 +432,34 @@ function GalleryScrubber({
         aria-label="Project"
         aria-valuemin={1}
         aria-valuemax={count}
-        aria-valuenow={index + 1}
-        className="relative h-2.5 w-[min(72vw,340px)] cursor-grab touch-none rounded-full bg-white/15 active:cursor-grabbing"
+        aria-valuenow={cur + 1}
+        className="flex h-9 w-[min(74vw,360px)] cursor-grab touch-none select-none items-center active:cursor-grabbing"
         onPointerDown={(e) => {
           setDragging(true);
           ref.current?.setPointerCapture(e.pointerId);
-          update(e.clientX);
+          at(e.clientX);
         }}
-        onPointerMove={(e) => dragging && update(e.clientX)}
-        onPointerUp={() => setDragging(false)}
+        onPointerMove={(e) => dragging && at(e.clientX)}
+        onPointerUp={() => {
+          setDragging(false);
+          onScrub(lastRatio.current, true);
+        }}
         onPointerCancel={() => setDragging(false)}
       >
-        <motion.div
-          className="absolute inset-y-0 rounded-full bg-white/90"
-          style={{ width: `${100 / count}%` }}
-          animate={{ left: `${(index * 100) / count}%` }}
-          transition={spring}
-        />
+        <div className="relative h-1.5 w-full rounded-full bg-white/15">
+          <div
+            className="absolute inset-y-0 left-0 rounded-full bg-white/30"
+            style={{ width: `${progress * 100}%` }}
+          />
+          <div
+            className="absolute top-1/2 h-4 w-4 rounded-full bg-white shadow-[0_1px_4px_rgba(0,0,0,0.4)]"
+            style={{
+              left: `${progress * 100}%`,
+              transform: "translate(-50%, -50%)",
+              willChange: "left",
+            }}
+          />
+        </div>
       </div>
     </div>
   );
@@ -511,8 +575,8 @@ export default function ProjectStack({ className }: { className?: string }) {
     tilt: compact ? 2.2 : 3.2,
     shift: Math.round((visibleDepth * fanX) / 2),
   };
-  const cardMax = compact ? Math.min(Math.round(vw * 0.8), 360) : 400;
-  const regionH = compact ? 470 : 540;
+  const cardMax = compact ? Math.min(Math.round(vw * 0.74), 340) : 400;
+  const regionH = compact ? 452 : 540;
 
   const advance = () => {
     if (order.length < 2) return;
