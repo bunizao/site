@@ -38,55 +38,44 @@ export default function OgCarouselHero({ hovered = false }: { hovered?: boolean 
 
   return (
     <div className="relative h-full w-full overflow-hidden bg-[#f4f2ec] dark:bg-[#0c0d10]">
-      {/* Ambient backdrop: a blurred, dimmed copy of the active card fills the
-          frame so the surrounding space glows with the card's own colors. */}
+      {/* The same card, enlarged and blurred, bleeds to the tile edges — so the
+          sharp card on top melts into its own colour instead of sitting inside a
+          frame. No border, no mount: the only edge is the hero tile's ring. */}
       <AnimatePresence initial={false}>
         <motion.img
           key={`bg-${slide.src}`}
           src={slide.src}
           aria-hidden
-          className="absolute inset-0 h-full w-full scale-125 object-cover blur-2xl"
+          className="absolute inset-0 h-full w-full scale-[1.4] object-cover blur-3xl"
           initial={{ opacity: 0 }}
-          animate={{ opacity: 0.45 }}
+          animate={{ opacity: 0.7 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 1 }}
         />
       </AnimatePresence>
-      <div className="absolute inset-0 bg-[#f4f2ec]/40 dark:bg-[#0c0d10]/30" />
 
-      {/* The OG card floats in a liquid-glass mount: a frosted slab that blurs
-          and saturates the ambient backdrop showing through its margin, a bright
-          specular rim along the top edge, and a soft drop so it lifts off the
-          surface. No hard border — the glass IS the frame. */}
-      <div className="absolute inset-0 flex items-center justify-center p-6 sm:p-7">
-        <div
-          className="relative w-full rounded-[20px] border border-white/40 p-[10px] backdrop-blur-xl backdrop-saturate-150 dark:border-white/15"
-          style={{
-            aspectRatio: "1200 / 630",
-            transform: live ? "scale(1.035)" : "scale(1)",
-            transition: "transform 450ms cubic-bezier(0.22,1,0.36,1)",
-            // Frosted fill + specular top highlight + a faint bottom lip + float.
-            background: "rgba(255,255,255,0.14)",
-            boxShadow:
-              "inset 0 1px 0 rgba(255,255,255,0.65), inset 0 -1px 2px rgba(0,0,0,0.12), 0 16px 48px -14px rgba(0,0,0,0.5)",
-          }}
-        >
-          <div className="relative h-full w-full overflow-hidden rounded-[11px]">
-            <AnimatePresence initial={false}>
-              <motion.img
-                key={slide.src}
-                src={slide.src}
-                alt={slide.alt}
-                loading={active === 0 ? "eager" : "lazy"}
-                className="absolute inset-0 h-full w-full object-cover"
-                initial={reduced ? false : { opacity: 0, scale: 1.05 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={reduced ? { opacity: 0 } : { opacity: 0, scale: 0.97 }}
-                transition={{ duration: 0.75, ease: [0.22, 1, 0.36, 1] }}
-              />
-            </AnimatePresence>
-          </div>
-        </div>
+      {/* The real 1200×630 card, shown whole and edge-to-edge across the width;
+          top and bottom dissolve into the blurred bleed. Hover zooms it gently. */}
+      <div
+        className="absolute inset-0"
+        style={{
+          transform: live ? "scale(1.03)" : "scale(1)",
+          transition: "transform 450ms cubic-bezier(0.22,1,0.36,1)",
+        }}
+      >
+        <AnimatePresence initial={false}>
+          <motion.img
+            key={slide.src}
+            src={slide.src}
+            alt={slide.alt}
+            loading={active === 0 ? "eager" : "lazy"}
+            className="absolute inset-0 h-full w-full object-contain"
+            initial={reduced ? false : { opacity: 0, scale: 1.04 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={reduced ? { opacity: 0 } : { opacity: 0, scale: 0.98 }}
+            transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
+          />
+        </AnimatePresence>
       </div>
     </div>
   );
