@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   AnimatePresence,
@@ -31,24 +31,15 @@ const dragAdvanceThreshold = 70;
 
 const spring = { type: "spring", stiffness: 260, damping: 30 } as const;
 
-// Shared chrome. Warm neutral, never pure black/white. The fill is per-card:
-// each project sets `--card-surface` / `--card-surface-dark` from its `tint`, so
-// the borders and layered ambient+key shadows stay shared while the paper hue
-// varies. Light mode reads as a matte framing the dark hero; dark as a hinted
-// near-black. Adding a card just means adding a tint to the data — no glue here.
+// Shared chrome. Warm neutral, never pure black/white: a single cream surface
+// that frames the dark hero like a matte in light mode, a soft near-black in
+// dark. Uniform across the deck — the heroes carry the colour, the paper stays
+// quiet. Layered ambient+key shadow instead of one harsh slab; hairline borders.
 const surface =
-  "border bg-[var(--card-surface)] border-stone-900/[0.055] " +
+  "border bg-[#fbfaf7] border-stone-900/[0.055] " +
   "shadow-[0_1px_1px_rgba(28,25,23,0.04),0_5px_10px_-4px_rgba(28,25,23,0.06),0_20px_44px_-18px_rgba(28,25,23,0.20)] " +
-  "dark:bg-[var(--card-surface-dark)] dark:border-white/[0.05] " +
+  "dark:bg-[#141518] dark:border-white/[0.05] " +
   "dark:shadow-[0_1px_2px_rgba(0,0,0,0.5),0_14px_30px_-12px_rgba(0,0,0,0.6),0_44px_90px_-34px_rgba(0,0,0,0.55)]";
-
-// Map a project's tint to the CSS vars the surface reads. One place, used by
-// both the collapsed card and the story card.
-const tintVars = (project: ShowcaseProject) =>
-  ({
-    "--card-surface": project.tint.light,
-    "--card-surface-dark": project.tint.dark,
-  }) as CSSProperties;
 
 // The hero sits as a framed tile inside the surface — the cream/near-black mat
 // mediates the dark image into the card, no blunt two-tone seam.
@@ -71,7 +62,6 @@ function CardFace({
 }) {
   return (
     <div
-      style={tintVars(project)}
       className={cn(
         "rounded-[22px] p-2 text-left text-stone-900 dark:text-stone-100",
         surface,
@@ -134,7 +124,6 @@ function StoryCard({
 }) {
   return (
     <div
-      style={tintVars(project)}
       className={cn(
         "flex max-h-[86vh] w-full flex-col rounded-[26px] p-2.5 text-stone-900 dark:text-stone-100",
         surface,
