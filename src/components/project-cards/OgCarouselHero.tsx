@@ -1,10 +1,10 @@
-import { useEffect, useState } from "react";
-import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import { useReducedMotion } from "framer-motion";
 
-// A framed carousel of OG cards — each one generated live by ogis from a
-// different background and headline. The hero IS the demo. The card floats at
-// its native 1200x630 ratio over a soft, blurred copy of itself, so the OG
-// aspect never fights the card box. Slides cross-dissolve with a gentle scale.
+// ogis turns titles into share images at scale, so the hero shows a feed of
+// them: real generated cards stacked flush and scrolling up in a seamless loop.
+// Each card is whole at its native 1200x630 — no crop, no letterbox, no frame.
+// The aspect mismatch that plagues a single centred card just disappears when
+// the cards tile vertically and the column scrolls. Hover speeds the drift.
 
 interface Slide {
   src: string;
@@ -18,65 +18,42 @@ const slides: Slide[] = [
   { src: "/dev/ogis/og-4.webp", alt: "OG card: Generated live by ogis" },
 ];
 
-const INTERVAL_MS = 4200;
-
 export default function OgCarouselHero({ hovered = false }: { hovered?: boolean }) {
   const reduced = useReducedMotion();
-  const [active, setActive] = useState(0);
   const live = hovered && !reduced;
 
-  useEffect(() => {
-    if (reduced) return;
-    const id = window.setInterval(
-      () => setActive((a) => (a + 1) % slides.length),
-      live ? 2100 : INTERVAL_MS,
-    );
-    return () => window.clearInterval(id);
-  }, [reduced, live]);
-
-  const slide = slides[active];
+  // Two stacked copies: the column scrolls up by exactly one copy, so the loop
+  // is seamless. Flush stacking (no gap) means translateY(-50%) lands perfectly.
+  const loop = [...slides, ...slides];
 
   return (
     <div className="relative h-full w-full overflow-hidden bg-[#f4f2ec] dark:bg-[#0c0d10]">
-      {/* The same card, enlarged and blurred, bleeds to the tile edges — so the
-          sharp card on top melts into its own colour instead of sitting inside a
-          frame. No border, no mount: the only edge is the hero tile's ring. */}
-      <AnimatePresence initial={false}>
-        <motion.img
-          key={`bg-${slide.src}`}
-          src={slide.src}
-          aria-hidden
-          className="absolute inset-0 h-full w-full scale-[1.4] object-cover blur-3xl"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 0.7 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 1 }}
-        />
-      </AnimatePresence>
-
-      {/* The real 1200×630 card, shown whole and edge-to-edge across the width;
-          top and bottom dissolve into the blurred bleed. Hover zooms it gently. */}
       <div
-        className="absolute inset-0"
-        style={{
-          transform: live ? "scale(1.03)" : "scale(1)",
-          transition: "transform 450ms cubic-bezier(0.22,1,0.36,1)",
-        }}
+        className={reduced ? undefined : "og-feed"}
+        style={{ ["--dur" as string]: live ? "11s" : "26s" }}
       >
-        <AnimatePresence initial={false}>
-          <motion.img
-            key={slide.src}
-            src={slide.src}
-            alt={slide.alt}
-            loading={active === 0 ? "eager" : "lazy"}
-            className="absolute inset-0 h-full w-full object-contain"
-            initial={reduced ? false : { opacity: 0, scale: 1.04 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={reduced ? { opacity: 0 } : { opacity: 0, scale: 0.98 }}
-            transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
+        {loop.map((s, i) => (
+          <img
+            key={i}
+            src={s.src}
+            alt={i < slides.length ? s.alt : ""}
+            aria-hidden={i >= slides.length}
+            loading={i === 0 ? "eager" : "lazy"}
+            className="block w-full"
           />
-        </AnimatePresence>
+        ))}
       </div>
+
+      <style>{`
+        .og-feed {
+          will-change: transform;
+          animation: og-feed-scroll var(--dur) linear infinite;
+        }
+        @keyframes og-feed-scroll {
+          from { transform: translateY(0); }
+          to   { transform: translateY(-50%); }
+        }
+      `}</style>
     </div>
   );
 }
