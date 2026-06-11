@@ -91,7 +91,6 @@ describe('Cloudflare runtime configuration', () => {
     expect(config.assets?.directory).toBe('./dist');
     expect(config.assets?.binding).toBe('ASSETS');
     expect(config.assets?.run_worker_first).toEqual([
-      '/',
       '/api/*',
       '/mood*',
       '/channel/avatar',
