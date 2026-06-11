@@ -33,6 +33,7 @@
     "GHOST_URL": "https://blog.buxx.me",
     "LASTFM_USER": "bunizao",
     "PUBLIC_HD_IMAGE_URL": "https://image.buxx.me",
+    "PUBLIC_TURNSTILE_SITE_KEY": "0x4AAAAAACaDQzCbYalmO_xV",
     "HD_IMAGE_INGEST_BASE_URL": "https://image.buxx.me",
     "CHANNEL": "tutumood",
     "TELEGRAM_HOST": "t.me"

@@ -117,11 +117,19 @@ describe('Cloudflare runtime configuration', () => {
       GHOST_URL: 'https://blog.buxx.me',
       LASTFM_USER: 'bunizao',
       PUBLIC_HD_IMAGE_URL: 'https://image.buxx.me',
+      PUBLIC_TURNSTILE_SITE_KEY: '0x4AAAAAACaDQzCbYalmO_xV',
       HD_IMAGE_INGEST_BASE_URL: 'https://image.buxx.me',
       CHANNEL: 'tutumood',
       TELEGRAM_HOST: 't.me',
     });
     expect(config.triggers?.crons).toContain('*/15 * * * *');
+  });
+
+  test('reads Turnstile site key from runtime public env on the mood route', () => {
+    const moodRoute = readText('src/pages/mood.astro');
+
+    expect(moodRoute).toContain("readPublicEnv(Astro.locals, 'TURNSTILE_SITE_KEY')");
+    expect(moodRoute).not.toContain('import.meta.env.PUBLIC_TURNSTILE_SITE_KEY');
   });
 
   test('documents Ghost publishing through Cloudflare deploy hooks', () => {

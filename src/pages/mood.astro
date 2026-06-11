@@ -13,7 +13,7 @@ import {
 } from '@/features/mood/shared/feed-anchor';
 import { isE2ESiteFixtureEnabled } from '@/lib/e2e';
 import { buildSrcSet, withWidthParam } from '@/lib/media/responsive-image';
-import { readEnv } from '@/lib/runtime/env';
+import { readEnv, readPublicEnv } from '@/lib/runtime/env';
 import '@/styles/mood-gallery.css';
 
 export const prerender = false;
@@ -25,7 +25,7 @@ const canonicalUrl = new URL(Astro.url.pathname, Astro.url.origin).href;
 const oembed = { href: `/api/oembed.json?url=${encodeURIComponent(canonicalUrl)}`, title: 'Mood Embed' };
 const channel = readEnv(Astro.locals, 'CHANNEL');
 const telegramUrl = channel ? `https://t.me/${channel}` : '';
-const turnstileSiteKey = import.meta.env.PUBLIC_TURNSTILE_SITE_KEY || '';
+const turnstileSiteKey = readPublicEnv(Astro.locals, 'TURNSTILE_SITE_KEY');
 const moodFeedAnchorId = readMoodFeedAnchorId(Astro.url);
 const moodFeedAnchorBeforeCursor = getMoodFeedAnchorBeforeCursor(moodFeedAnchorId);
 const moodFeedAnchorWindowBeforeCursor = getMoodFeedAnchorWindowBeforeCursor(moodFeedAnchorId);
