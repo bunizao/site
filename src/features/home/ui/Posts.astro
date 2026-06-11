@@ -2,6 +2,7 @@
 import dayjs from 'dayjs';
 import { createE2EWritingPosts } from '@/features/home/server/e2e-fixtures';
 import { isE2ESiteFixtureEnabled } from '@/lib/e2e';
+import { readEnv } from '@/lib/runtime/env';
 
 interface Tag {
   id: string;
@@ -18,11 +19,15 @@ interface PostMeta {
   tags: Tag[];
 }
 
-const ghostUrl = import.meta.env.GHOST_URL || 'https://blog.buxx.me';
+const ghostUrl = readEnv(Astro.locals, 'GHOST_URL') || 'https://blog.buxx.me';
 const useE2EFixture = isE2ESiteFixtureEnabled(Astro.locals);
 
 async function getLatestPosts(): Promise<PostMeta[]> {
-  const apiKey = import.meta.env.GHOST_CONTENT_APIKEY;
+  const apiKey = readEnv(Astro.locals, 'GHOST_CONTENT_APIKEY');
+  if (!apiKey) {
+    return [];
+  }
+
   const apiUrl = `${ghostUrl}/ghost/api/v3/content/posts/?key=${apiKey}&limit=5&fields=id,title,url,published_at&include=tags&filter=visibility:public`;
 
   try {

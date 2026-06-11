@@ -91,6 +91,7 @@ describe('Cloudflare runtime configuration', () => {
     expect(config.assets?.directory).toBe('./dist');
     expect(config.assets?.binding).toBe('ASSETS');
     expect(config.assets?.run_worker_first).toEqual([
+      '/',
       '/api/*',
       '/mood*',
       '/channel/avatar',
@@ -115,6 +116,7 @@ describe('Cloudflare runtime configuration', () => {
       NOTIFY_DISPATCH_URL: 'https://buxx.me/api/notify/dispatch',
       PUBLIC_HD_IMAGE_URL: 'https://image.buxx.me',
       HD_IMAGE_INGEST_BASE_URL: 'https://image.buxx.me',
+      CHANNEL: 'tutumood',
       TELEGRAM_HOST: 't.me',
     });
     expect(config.triggers?.crons).toContain('*/15 * * * *');
