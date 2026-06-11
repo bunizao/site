@@ -116,7 +116,7 @@ export interface OauthCallbackOk {
 
 export interface OauthCallbackError {
   ok: false;
-  reason: 'state' | 'forbidden' | 'token' | 'user' | 'config';
+  reason: 'state' | 'forbidden' | 'scope' | 'token' | 'user' | 'config';
   cookies: string[];
 }
 
@@ -135,7 +135,8 @@ export async function handleOauthCallback(request: Request, locals: any): Promis
   const code = url.searchParams.get('code')?.trim();
   const incomingState = url.searchParams.get('state')?.trim();
   if (oauthError) {
-    return { ok: false, reason: 'token', cookies };
+    logOauthProviderError(oauthError, url.searchParams.get('error_description'));
+    return { ok: false, reason: oauthError === 'invalid_scope' ? 'scope' : 'token', cookies };
   }
   if (!code || !incomingState) {
     return { ok: false, reason: 'state', cookies };
@@ -218,5 +219,12 @@ async function logOauthTokenError(response: Response): Promise<void> {
     errorDescription: typeof payload?.error_description === 'string'
       ? payload.error_description.slice(0, 160)
       : undefined,
+  });
+}
+
+function logOauthProviderError(error: string, description: string | null): void {
+  console.warn('Cloudflare OAuth provider rejected authorization', {
+    error,
+    errorDescription: description?.slice(0, 160),
   });
 }

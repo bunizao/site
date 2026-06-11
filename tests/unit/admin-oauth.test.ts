@@ -146,4 +146,25 @@ describe('admin OAuth callback', () => {
       globalThis.fetch = originalFetch;
     }
   });
+
+  test('reports Cloudflare scope authorization failures clearly', async () => {
+    const state = await createOauthState('test-secret', '/dev/portal');
+    const result = await handleOauthCallback(
+      new Request(
+        `https://buxx.me/api/admin/auth/callback?error=invalid_scope&error_description=not_allowed&state=${encodeURIComponent(state)}`
+      ),
+      {
+        env: {
+          CLOUDFLARE_OAUTH_CLIENT_ID: 'client-id',
+          CLOUDFLARE_OAUTH_CLIENT_SECRET: 'client-secret',
+          ADMIN_CLOUDFLARE_EMAIL: 'admin@example.com',
+          ADMIN_SESSION_SECRET: 'test-secret',
+        },
+      }
+    );
+
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.reason).toBe('scope');
+  });
 });
