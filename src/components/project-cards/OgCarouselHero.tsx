@@ -12,10 +12,10 @@ interface Slide {
 }
 
 const slides: Slide[] = [
-  { src: "/dev/ogis/og-1.jpg", alt: "OG card: Link previews, on the edge" },
-  { src: "/dev/ogis/og-2.jpg", alt: "OG card: Frosted glass, zero cold starts" },
-  { src: "/dev/ogis/og-3.jpg", alt: "OG card: Every share, intentional" },
-  { src: "/dev/ogis/og-4.jpg", alt: "OG card: Generated live by ogis" },
+  { src: "/dev/ogis/og-1.webp", alt: "OG card: Link previews, on the edge" },
+  { src: "/dev/ogis/og-2.webp", alt: "OG card: Frosted glass, zero cold starts" },
+  { src: "/dev/ogis/og-3.webp", alt: "OG card: Every share, intentional" },
+  { src: "/dev/ogis/og-4.webp", alt: "OG card: Generated live by ogis" },
 ];
 
 const INTERVAL_MS = 4200;

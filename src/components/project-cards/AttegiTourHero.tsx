@@ -14,17 +14,17 @@ interface Slide {
 
 const slides: Slide[] = [
   {
-    src: "/dev/attegi/home.jpg",
+    src: "/dev/attegi/home.webp",
     url: "attegi.tuuhub.com",
     alt: "Attegi homepage in dark mode",
   },
   {
-    src: "/dev/attegi/toc.jpg",
+    src: "/dev/attegi/toc.webp",
     url: "attegi.tuuhub.com/blog/typography",
     alt: "Attegi post with editorial table of contents",
   },
   {
-    src: "/dev/attegi/code.jpg",
+    src: "/dev/attegi/code.webp",
     url: "attegi.tuuhub.com/blog/code-blocks",
     alt: "Attegi post with syntax-highlighted code blocks",
   },
