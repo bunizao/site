@@ -28,15 +28,47 @@ const TOP_CY = 82;
 const LEFT_X = 98;
 const RIGHT_X = 302;
 
-function diamond(cy: number) {
-  return `${CX},${cy - HH} ${CX + HW},${cy} ${CX},${cy + HH} ${CX - HW},${cy}`;
+// Spin in radians/second; one plate completes a turn in ~2*PI / SPEED seconds.
+const SPIN_SPEED = Math.PI * 0.7;
+// Per-layer phase lag so the stack twists like independent Rubik slices.
+const LAYER_LAG = 0.55;
+
+// The flat top face is a unit square (half-size 0.5) lying on the ground plane.
+const SQUARE: [number, number][] = [
+  [0.5, -0.5],
+  [0.5, 0.5],
+  [-0.5, 0.5],
+  [-0.5, -0.5],
+];
+
+// Rotate the square in its own plane by phi, then project to isometric screen
+// space. Because the rotation happens before projection, the plate stays flat
+// on the horizontal plane and spins clockwise — it never tips edge-on.
+function plateFaces(cy: number, phi: number) {
+  const cos = Math.cos(phi);
+  const sin = Math.sin(phi);
+  const top = SQUARE.map(([x, y]) => {
+    const rx = x * cos + y * sin;
+    const ry = -x * sin + y * cos;
+    return [CX + (rx - ry) * HW, cy + (rx + ry) * HH] as [number, number];
+  });
+
+  const midY = top.reduce((s, p) => s + p[1], 0) / top.length;
+  const sides: [number, number][][] = [];
+  for (let i = 0; i < top.length; i++) {
+    const p = top[i];
+    const q = top[(i + 1) % top.length];
+    // An edge sits on the front (viewer-facing) silhouette when it runs below
+    // the face center — that's where the extruded depth wall is visible.
+    if ((p[1] + q[1]) / 2 > midY) {
+      sides.push([p, q, [q[0], q[1] + THICK], [p[0], p[1] + THICK]]);
+    }
+  }
+  return { top, sides };
 }
-function leftFace(cy: number) {
-  return `${CX - HW},${cy} ${CX},${cy + HH} ${CX},${cy + HH + THICK} ${CX - HW},${cy + THICK}`;
-}
-function rightFace(cy: number) {
-  return `${CX + HW},${cy} ${CX},${cy + HH} ${CX},${cy + HH + THICK} ${CX + HW},${cy + THICK}`;
-}
+
+const toPoints = (pts: [number, number][]) =>
+  pts.map(([x, y]) => `${x.toFixed(2)},${y.toFixed(2)}`).join(" ");
 
 function usePrefersReducedMotion() {
   const [reduced, setReduced] = useState(false);
@@ -53,6 +85,7 @@ function usePrefersReducedMotion() {
 export default function CliCubeHero({ hovered = false }: { hovered?: boolean }) {
   const reduced = usePrefersReducedMotion();
   const [active, setActive] = useState(0);
+  const [phi, setPhi] = useState(0);
   const live = hovered && !reduced;
 
   useEffect(() => {
@@ -63,6 +96,23 @@ export default function CliCubeHero({ hovered = false }: { hovered?: boolean }) 
     );
     return () => window.clearInterval(id);
   }, [reduced, live]);
+
+  // Drive the clockwise spin with rAF only while live, then settle back to flat.
+  useEffect(() => {
+    if (!live) {
+      setPhi(0);
+      return;
+    }
+    let raf = 0;
+    let start: number | null = null;
+    const loop = (t: number) => {
+      if (start === null) start = t;
+      setPhi(((t - start) / 1000) * SPIN_SPEED);
+      raf = window.requestAnimationFrame(loop);
+    };
+    raf = window.requestAnimationFrame(loop);
+    return () => window.cancelAnimationFrame(raf);
+  }, [live]);
 
   return (
     <div
@@ -143,34 +193,25 @@ export default function CliCubeHero({ hovered = false }: { hovered?: boolean }) 
             .map(({ layer, i }) => {
               const cy = TOP_CY + i * GAP;
               const on = i === active;
+              // Each plate trails the one above it, so the slices twist in
+              // sequence rather than as one rigid block.
+              const { top, sides } = plateFaces(cy, phi - i * LAYER_LAG);
               return (
-                <g
-                  key={`p-${layer.label}`}
-                  style={{
-                    transform: on ? "translateY(-4px)" : "translateY(0)",
-                    transition: "transform 400ms ease",
-                  }}
-                >
+                <g key={`p-${layer.label}`}>
+                  {sides.map((quad, s) => (
+                    <polygon
+                      key={s}
+                      points={toPoints(quad)}
+                      style={{
+                        fill: on ? "rgba(255,255,255,0.07)" : "rgba(255,255,255,0.02)",
+                        stroke: on ? "rgba(255,255,255,0.7)" : "rgba(255,255,255,0.16)",
+                        transition: "fill 400ms ease, stroke 400ms ease",
+                      }}
+                      strokeWidth={1}
+                    />
+                  ))}
                   <polygon
-                    points={leftFace(cy)}
-                    style={{
-                      fill: on ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.025)",
-                      stroke: on ? "rgba(255,255,255,0.7)" : "rgba(255,255,255,0.16)",
-                      transition: "fill 400ms ease, stroke 400ms ease",
-                    }}
-                    strokeWidth={1}
-                  />
-                  <polygon
-                    points={rightFace(cy)}
-                    style={{
-                      fill: on ? "rgba(255,255,255,0.05)" : "rgba(255,255,255,0.015)",
-                      stroke: on ? "rgba(255,255,255,0.7)" : "rgba(255,255,255,0.16)",
-                      transition: "fill 400ms ease, stroke 400ms ease",
-                    }}
-                    strokeWidth={1}
-                  />
-                  <polygon
-                    points={diamond(cy)}
+                    points={toPoints(top)}
                     style={{
                       fill: on ? "rgba(255,255,255,0.16)" : "rgba(255,255,255,0.04)",
                       stroke: on ? "rgba(255,255,255,0.95)" : "rgba(255,255,255,0.22)",
