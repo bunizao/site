@@ -65,6 +65,12 @@ Covered implementation:
 - Cloudflare Worker observability and request logs cover operational monitoring
 - [`src/layouts/Layout.astro`](../src/layouts/Layout.astro) does not mount a third-party analytics script
 
+Edge connection diagnostics:
+
+- [`src/features/home/ui/Footer.astro`](../src/features/home/ui/Footer.astro) renders the edge indicator and its hover popover
+- [`src/pages/api/edge.ts`](../src/pages/api/edge.ts) reads Cloudflare `request.cf` (colo, protocol, TLS, TCP RTT, approximate location, network) and returns it with `Cache-Control: no-store`
+- values are per-request and reflected only to the requesting visitor; nothing is stored
+
 ### Homepage Listening
 
 Covered implementation:
@@ -142,3 +148,4 @@ Typical triggers:
 - changing subscription storage or email delivery providers
 - changing anti-abuse controls
 - changing public content sources or media proxy behavior
+- changing what edge connection diagnostics `/api/edge` exposes

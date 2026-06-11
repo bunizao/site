@@ -58,6 +58,7 @@ The older standalone image worker and notify scheduler remain useful as rollback
 **JSON:**
 - `GET|HEAD /api/ping` — Tiny uncached uptime endpoint for Better Stack monitors.
 - `GET /api/footer` — Cached footer status proxy backed by the Better Stack status page JSON API.
+- `GET /api/edge` — Uncached per-request edge diagnostics from Cloudflare `request.cf` (colo, protocol, TLS, TCP RTT, approximate visitor location, network) for the footer hover popover. Never cached, since values are visitor-specific.
 - `GET /api/github/contributions` — Cached GitHub contribution calendar for the homepage activity graph; `days` narrows the returned contribution days while preserving the last-year total.
 - `GET /api/health` — Lightweight compatibility health response for stale monitors. Use `?diagnostic=1` for the owner diagnostic report; add `&deep=1` for slower external probes.
 - `GET /api/moods` — Mood feed with pagination (`?before=<id>`)

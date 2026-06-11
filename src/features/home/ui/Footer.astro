@@ -366,14 +366,12 @@ const yearRange = currentYear > startYear ? `${startYear}–${currentYear}` : `$
   .footer-region-code {
     color: hsl(var(--muted-foreground) / 0.7);
     letter-spacing: 0.04em;
-    border-bottom: 1px dotted hsl(var(--muted-foreground) / 0.3);
-    transition: color 0.15s ease, border-color 0.15s ease;
+    transition: color 0.15s ease;
   }
 
   .footer-region-trigger:hover .footer-region-code,
   .footer-region-trigger:focus-visible .footer-region-code {
     color: hsl(var(--foreground));
-    border-color: hsl(var(--muted-foreground) / 0.6);
   }
 
   .footer-region-trigger:focus-visible {
@@ -390,12 +388,15 @@ const yearRange = currentYear > startYear ? `${startYear}–${currentYear}` : `$
     left: 50%;
     z-index: 20;
     min-width: 220px;
-    padding: 10px 12px;
-    border-radius: 10px;
-    border: 1px solid hsl(var(--border) / 0.7);
-    background: hsl(var(--card) / 0.92);
-    backdrop-filter: blur(8px);
-    box-shadow: 0 12px 32px -12px hsl(var(--foreground) / 0.35);
+    padding: 11px 13px;
+    border-radius: 12px;
+    border: 1px solid hsl(var(--foreground) / 0.08);
+    background: hsl(var(--card) / 0.55);
+    backdrop-filter: blur(18px) saturate(160%);
+    -webkit-backdrop-filter: blur(18px) saturate(160%);
+    box-shadow:
+      0 16px 40px -16px hsl(var(--foreground) / 0.28),
+      inset 0 1px 0 hsl(0 0% 100% / 0.06);
     text-align: left;
     opacity: 0;
     transform: translate(-50%, 4px);
@@ -418,9 +419,11 @@ const yearRange = currentYear > startYear ? `${startYear}–${currentYear}` : `$
     height: 10px;
     margin-left: -5px;
     margin-top: -5px;
-    border-right: 1px solid hsl(var(--border) / 0.7);
-    border-bottom: 1px solid hsl(var(--border) / 0.7);
-    background: hsl(var(--card) / 0.92);
+    border-right: 1px solid hsl(var(--foreground) / 0.08);
+    border-bottom: 1px solid hsl(var(--foreground) / 0.08);
+    background: hsl(var(--card) / 0.55);
+    backdrop-filter: blur(18px) saturate(160%);
+    -webkit-backdrop-filter: blur(18px) saturate(160%);
     transform: rotate(45deg);
   }
 

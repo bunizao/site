@@ -1,7 +1,7 @@
 ---
 title: Privacy Policy | Bunizao
-description: Privacy Policy for this website, including Cloudflare hosting, operational data, homepage listening data, mood subscriptions, and third-party services.
-updatedAt: June 10, 2026
+description: Privacy Policy for this website, including Cloudflare hosting, operational data, edge connection diagnostics, homepage listening data, mood subscriptions, and third-party services.
+updatedAt: June 12, 2026
 ---
 
 # Privacy Policy
@@ -23,6 +23,7 @@ Depending on how you use the site, we may collect or process the following categ
 - **Information you provide directly.** If you use the mood subscription form, this includes your email address, delivery preferences, timezone, and related subscription settings.
 - **Technical and request data.** When you visit pages or call API routes, infrastructure and security systems may process request metadata needed to serve the site, operate rate limits, prevent abuse, and keep the service available.
 - **Operational and performance data.** Cloudflare may process request metadata, logs, and performance signals needed to serve the site, prevent abuse, debug failures, and keep the service reliable.
+- **Edge connection diagnostics.** The footer can display details about your current connection, derived by Cloudflare from your request: the edge datacenter that served you, the HTTP protocol and TLS version in use, the TCP round-trip time, your approximate location (such as city, region, and country), and your network or internet provider. These values are computed per request and shown back only to you; the site does not store them.
 - **Listening feature request data.** The homepage listening card may trigger server-side requests to Last.fm and Apple services to fetch the most recent track, album metadata, artwork, preview URLs, and related listening status for display.
 - **Theme preference data.** If you change the site theme, that preference is stored locally in your browser using local storage so the site can remember it later.
 - **Subscription record metadata.** For mood subscriptions, this includes status fields such as pending, active, or unsubscribed, plus timestamps such as created, updated, confirmed, last confirmation sent, and last notification sent.
@@ -38,6 +39,7 @@ We use the data described above to operate and improve the site, including to:
 - host, render, and secure the website and its API routes;
 - remember your local theme preference;
 - monitor page performance and reliability;
+- show you live edge connection diagnostics in the footer when you hover or focus the edge indicator;
 - load and refresh homepage listening data from Last.fm and Apple services;
 - load public content from connected sources such as Ghost, GitHub, and Telegram-related data;
 - send subscription confirmation emails and mood notifications if you opt in;
@@ -51,6 +53,8 @@ We do not use personal data collected through this site for data brokerage or un
 This site uses Cloudflare Workers as the hosting runtime for public pages, API routes, mood image routes, queue consumers, and scheduled notification tasks.
 
 Cloudflare may process standard request metadata, security signals, logs, and Worker observability data needed to serve the site, protect it from abuse, and investigate operational issues.
+
+The footer also includes an optional edge indicator. When you hover or focus it, the site calls its own `/api/edge` route, which reads Cloudflare's per-request connection properties and returns the serving datacenter, HTTP protocol, TLS version, TCP round-trip time, approximate location, and network or provider. This response is never cached and is shown only to you; the site does not log or retain it.
 
 ## Homepage listening feature
 
