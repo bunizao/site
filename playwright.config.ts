@@ -30,7 +30,7 @@ export default defineConfig({
   outputDir: 'test-results',
   webServer: shouldUseWebServer
     ? {
-        command: `bunx --bun astro dev --host ${host} --port ${port}`,
+        command: `node_modules/.bin/astro dev --host ${host} --port ${port}`,
         env: {
           ...process.env,
           ADMIN_DEV_BYPASS: '1',

@@ -35,6 +35,8 @@ describe('Cloudflare runtime configuration', () => {
     expect(configText).not.toContain('E2E_VERCEL_BYPASS_SECRET');
     expect(configText).not.toContain('x-vercel-protection-bypass');
     expect(configText).not.toContain('x-vercel-set-bypass-cookie');
+    expect(configText).not.toContain('bunx --bun astro dev');
+    expect(configText).toContain('command: `node_modules/.bin/astro dev --host ${host} --port ${port}`');
     expect(configText).toContain('Cloudflare preview URL to test');
     expect(configText).toContain('Cloudflare deployment URL to audit');
   });
