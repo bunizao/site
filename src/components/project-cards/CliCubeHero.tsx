@@ -123,7 +123,7 @@ export default function CliCubeHero({ hovered = false }: { hovered?: boolean }) 
   }, [live, active]);
 
   return (
-    <div className="absolute inset-0 overflow-hidden bg-[#0c0d10]">
+    <div className="absolute inset-0 overflow-hidden bg-[#f4f2ec] [--hero-accent:180_83_9] dark:bg-[#0c0d10] dark:[--hero-accent:251_191_36]">
       <svg
         viewBox="0 0 400 250"
         preserveAspectRatio="xMidYMid meet"
@@ -153,7 +153,9 @@ export default function CliCubeHero({ hovered = false }: { hovered?: boolean }) 
                   x2={endX}
                   y2={cy}
                   style={{
-                    stroke: on ? "rgba(255,255,255,0.85)" : "rgba(255,255,255,0.16)",
+                    stroke: on
+                      ? "rgb(var(--hero-accent) / 0.9)"
+                      : "hsl(var(--foreground) / 0.16)",
                     transition: "stroke 400ms ease",
                   }}
                   strokeWidth={1}
@@ -163,7 +165,9 @@ export default function CliCubeHero({ hovered = false }: { hovered?: boolean }) 
                   cy={cy}
                   r={on ? 3 : 2}
                   style={{
-                    fill: on ? "#ffffff" : "rgba(255,255,255,0.3)",
+                    fill: on
+                      ? "rgb(var(--hero-accent))"
+                      : "hsl(var(--foreground) / 0.3)",
                     transition: "fill 400ms ease, r 400ms ease",
                   }}
                 />
@@ -172,7 +176,9 @@ export default function CliCubeHero({ hovered = false }: { hovered?: boolean }) 
                   y={cy + 3}
                   textAnchor={isLeft ? "end" : "start"}
                   style={{
-                    fill: on ? "rgba(255,255,255,0.92)" : "rgba(255,255,255,0.4)",
+                    fill: on
+                      ? "hsl(var(--foreground) / 0.92)"
+                      : "hsl(var(--foreground) / 0.4)",
                     transition: "fill 400ms ease",
                   }}
                   fontFamily="ui-monospace, monospace"
@@ -200,8 +206,12 @@ export default function CliCubeHero({ hovered = false }: { hovered?: boolean }) 
                       key={s}
                       points={toPoints(quad)}
                       style={{
-                        fill: on ? "rgba(255,255,255,0.07)" : "rgba(255,255,255,0.02)",
-                        stroke: on ? "rgba(255,255,255,0.7)" : "rgba(255,255,255,0.16)",
+                        fill: on
+                          ? "rgb(var(--hero-accent) / 0.1)"
+                          : "hsl(var(--foreground) / 0.04)",
+                        stroke: on
+                          ? "rgb(var(--hero-accent) / 0.75)"
+                          : "hsl(var(--foreground) / 0.18)",
                         transition: "fill 400ms ease, stroke 400ms ease",
                       }}
                       strokeWidth={1}
@@ -210,8 +220,12 @@ export default function CliCubeHero({ hovered = false }: { hovered?: boolean }) 
                   <polygon
                     points={toPoints(top)}
                     style={{
-                      fill: on ? "rgba(255,255,255,0.16)" : "rgba(255,255,255,0.04)",
-                      stroke: on ? "rgba(255,255,255,0.95)" : "rgba(255,255,255,0.22)",
+                      fill: on
+                        ? "rgb(var(--hero-accent) / 0.18)"
+                        : "hsl(var(--foreground) / 0.05)",
+                      stroke: on
+                        ? "rgb(var(--hero-accent) / 0.95)"
+                        : "hsl(var(--foreground) / 0.24)",
                       transition: "fill 400ms ease, stroke 400ms ease",
                     }}
                     strokeWidth={1}

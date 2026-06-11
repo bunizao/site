@@ -50,17 +50,17 @@ export default function AttegiTourHero({ hovered = false }: { hovered?: boolean 
   const slide = slides[active];
 
   return (
-    <div className="flex h-full w-full flex-col bg-[#0c0d10]">
+    <div className="flex h-full w-full flex-col bg-[#f4f2ec] dark:bg-[#0c0d10]">
       {/* Browser chrome — the URL follows the active slide. */}
-      <div className="flex items-center gap-1.5 border-b border-white/10 px-3 py-2">
-        <span className="h-2 w-2 rounded-full bg-white/20" />
-        <span className="h-2 w-2 rounded-full bg-white/20" />
-        <span className="h-2 w-2 rounded-full bg-white/20" />
-        <div className="ml-2 flex-1 overflow-hidden rounded-[4px] bg-white/[0.06] px-2 py-0.5">
+      <div className="flex items-center gap-1.5 border-b border-stone-900/10 px-3 py-2 dark:border-white/10">
+        <span className="h-2 w-2 rounded-full bg-[#ff5f57]" />
+        <span className="h-2 w-2 rounded-full bg-[#febc2e]" />
+        <span className="h-2 w-2 rounded-full bg-[#28c840]" />
+        <div className="ml-2 flex-1 overflow-hidden rounded-[4px] bg-stone-900/[0.05] px-2 py-0.5 dark:bg-white/[0.06]">
           <AnimatePresence mode="wait" initial={false}>
             <motion.span
               key={slide.url}
-              className="block truncate text-center font-code text-[10px] text-white/40"
+              className="block truncate text-center font-code text-[10px] text-stone-500 dark:text-white/40"
               initial={reduced ? false : { opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}

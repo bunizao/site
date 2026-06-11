@@ -37,7 +37,7 @@ export default function OgCarouselHero({ hovered = false }: { hovered?: boolean 
   const slide = slides[active];
 
   return (
-    <div className="relative h-full w-full overflow-hidden bg-[#0c0d10]">
+    <div className="relative h-full w-full overflow-hidden bg-[#f4f2ec] dark:bg-[#0c0d10]">
       {/* Ambient backdrop: a blurred, dimmed copy of the active card fills the
           frame so the surrounding space glows with the card's own colors. */}
       <AnimatePresence initial={false}>
@@ -52,12 +52,12 @@ export default function OgCarouselHero({ hovered = false }: { hovered?: boolean 
           transition={{ duration: 1 }}
         />
       </AnimatePresence>
-      <div className="absolute inset-0 bg-[#0c0d10]/30" />
+      <div className="absolute inset-0 bg-[#f4f2ec]/40 dark:bg-[#0c0d10]/30" />
 
       {/* The framed OG card, centered at native ratio. */}
       <div className="absolute inset-0 flex items-center justify-center p-4 sm:p-5">
         <div
-          className="relative w-full overflow-hidden rounded-lg border border-white/10 shadow-2xl shadow-black/60 ring-1 ring-white/5"
+          className="relative w-full overflow-hidden rounded-lg border border-stone-900/10 shadow-2xl shadow-stone-900/25 ring-1 ring-stone-900/[0.04] dark:border-white/10 dark:shadow-black/60 dark:ring-white/5"
           style={{
             aspectRatio: "1200 / 630",
             transform: live ? "scale(1.035)" : "scale(1)",

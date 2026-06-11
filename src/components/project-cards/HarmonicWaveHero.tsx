@@ -30,7 +30,7 @@ const layers: WaveLayer[] = [
   {
     midY: 150,
     harmonics: [{ k: 1, amp: 30, phase: 0 }],
-    fill: "rgba(255,255,255,0.045)",
+    fill: "rgb(var(--hero-accent) / 0.1)",
     duration: 17,
   },
   {
@@ -39,7 +39,7 @@ const layers: WaveLayer[] = [
       { k: 2, amp: 20, phase: 0.6 },
       { k: 1, amp: 12, phase: 0 },
     ],
-    fill: "rgba(255,255,255,0.06)",
+    fill: "rgb(var(--hero-accent) / 0.16)",
     duration: 11,
   },
   {
@@ -48,8 +48,8 @@ const layers: WaveLayer[] = [
       { k: 3, amp: 13, phase: 2.1 },
       { k: 5, amp: 6, phase: 0.4 },
     ],
-    fill: "rgba(255,255,255,0.085)",
-    stroke: "rgba(255,255,255,0.55)",
+    fill: "rgb(var(--hero-accent) / 0.24)",
+    stroke: "rgb(var(--hero-accent) / 0.75)",
     duration: 7,
   },
 ];
@@ -101,7 +101,7 @@ export default function HarmonicWaveHero({ hovered = false }: { hovered?: boolea
 
   return (
     <div
-      className="relative h-full w-full overflow-hidden bg-[#0c0d10]"
+      className="relative h-full w-full overflow-hidden bg-[#f4f2ec] [--hero-accent:13_148_136] dark:bg-[#0c0d10] dark:[--hero-accent:45_212_191]"
       style={{
         transform: live ? "scaleY(1.12)" : "scaleY(1)",
         transformOrigin: "bottom",
@@ -121,16 +121,20 @@ export default function HarmonicWaveHero({ hovered = false }: { hovered?: boolea
             className={reduced ? undefined : `wave-scroll wave-${i}`}
             style={{ ["--dur" as string]: `${live ? layer.duration * 0.55 : layer.duration}s` }}
           >
-            <path d={area} fill={layer.fill} />
+            <path d={area} style={{ fill: layer.fill }} />
             {layer.stroke && (
-              <path d={line} fill="none" stroke={layer.stroke} strokeWidth={1.25} />
+              <path
+                d={line}
+                strokeWidth={1.25}
+                style={{ fill: "none", stroke: layer.stroke }}
+              />
             )}
           </g>
         ))}
       </svg>
 
-      {/* Fade the top so the waves emerge from darkness rather than hard-cut */}
-      <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-[#0c0d10] via-transparent to-transparent" />
+      {/* Fade the top so the waves emerge from the surface rather than hard-cut */}
+      <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-[#f4f2ec] via-transparent to-transparent dark:from-[#0c0d10]" />
 
       <style>{`
         @keyframes wave-scroll {
