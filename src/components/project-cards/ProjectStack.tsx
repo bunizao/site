@@ -6,6 +6,7 @@ import {
   useReducedMotion,
   type PanInfo,
   type TargetAndTransition,
+  type Transition,
 } from "framer-motion";
 import { ArrowUpRight, ChevronLeft, ChevronRight, X } from "lucide-react";
 import {
@@ -459,6 +460,35 @@ function getEntrancePose(): TargetAndTransition {
   };
 }
 
+// How long the top card takes to be dealt to the back of the fan.
+const dealMs = 940;
+
+// "Deal to the back": instead of the front card sliding straight through the
+// pile to the rear slot, it lifts toward the viewer, drifts along the fan, then
+// sinks behind — the motion of a hand tucking the top card underneath. Keyframe
+// arrays animate the arc; the first frame matches the live front pose so there
+// is no snap, the last frame equals the rear stack pose so it lands clean.
+const dealMotion: TargetAndTransition = (() => {
+  const back = getStackPose(visibleDepth) as unknown as Record<string, number>;
+  const backBlur = `blur(${Math.max(0, visibleDepth - 2) * 0.6}px)`;
+  return {
+    x: [0, 38, back.x],
+    y: [0, -48, back.y],
+    z: [0, 84, back.z],
+    scale: [1, 1.035, back.scale],
+    rotateX: [0, 8, 0],
+    rotateZ: [0, 4, back.rotateZ],
+    opacity: [1, 1, back.opacity],
+    filter: ["blur(0px)", "blur(0px)", backBlur],
+  };
+})();
+
+const dealTransition: Transition = {
+  duration: 0.94,
+  times: [0, 0.46, 1],
+  ease: "easeInOut",
+};
+
 export default function ProjectStack({ className }: { className?: string }) {
   const reduce = useReducedMotion();
   const ids = useMemo(() => projects.map((p) => p.id), []);
@@ -466,11 +496,22 @@ export default function ProjectStack({ className }: { className?: string }) {
   const [hasEntered, setHasEntered] = useState(Boolean(reduce));
   const [paused, setPaused] = useState(false);
   const [galleryIndex, setGalleryIndex] = useState<number | null>(null);
+  // The card currently being dealt to the back, so we can give it the lift arc
+  // and float it above the rest while it travels.
+  const [leavingId, setLeavingId] = useState<string | null>(null);
+  const dealTimer = useRef<number | undefined>(undefined);
 
   const byId = useMemo(() => new Map(projects.map((p) => [p.id, p])), []);
 
-  const advance = () =>
+  const advance = () => {
+    if (order.length < 2) return;
+    if (!reduce) {
+      setLeavingId(order[0]);
+      window.clearTimeout(dealTimer.current);
+      dealTimer.current = window.setTimeout(() => setLeavingId(null), dealMs);
+    }
     setOrder((o) => (o.length < 2 ? o : [...o.slice(1), o[0]]));
+  };
   const promote = (id: string) =>
     setOrder((o) => [id, ...o.filter((x) => x !== id)]);
   const openGallery = (id: string) =>
@@ -501,6 +542,8 @@ export default function ProjectStack({ className }: { className?: string }) {
     return () => window.clearTimeout(t);
   }, [reduce, hasEntered, paused, galleryIndex, order]);
 
+  useEffect(() => () => window.clearTimeout(dealTimer.current), []);
+
   const ordered = order
     .map((id) => byId.get(id))
     .filter((p): p is ShowcaseProject => Boolean(p));
@@ -523,6 +566,8 @@ export default function ProjectStack({ className }: { className?: string }) {
       >
         {ordered.map((project, depth) => {
           const active = depth === 0;
+          // The dealt card rides its lift arc and floats above the whole deck.
+          const leaving = project.id === leavingId;
           return (
             <motion.article
               key={project.id}
@@ -533,19 +578,27 @@ export default function ProjectStack({ className }: { className?: string }) {
               style={{
                 transformStyle: "preserve-3d",
                 transformOrigin: "center center",
-                zIndex: projects.length - depth,
-                pointerEvents: depth <= visibleDepth ? "auto" : "none",
+                zIndex: leaving ? projects.length + 5 : projects.length - depth,
+                pointerEvents: leaving
+                  ? "none"
+                  : depth <= visibleDepth
+                    ? "auto"
+                    : "none",
                 cursor: active ? "grab" : "pointer",
               }}
               initial={reduce ? getStackPose(depth) : getEntrancePose()}
-              animate={getStackPose(depth)}
-              transition={{
-                type: "spring",
-                stiffness: hasEntered ? 130 : 96,
-                damping: hasEntered ? 21 : 24,
-                mass: 0.82,
-                delay: hasEntered || reduce ? 0 : depth * 0.08,
-              }}
+              animate={leaving ? dealMotion : getStackPose(depth)}
+              transition={
+                leaving
+                  ? dealTransition
+                  : {
+                      type: "spring",
+                      stiffness: hasEntered ? 140 : 96,
+                      damping: hasEntered ? 23 : 24,
+                      mass: 0.9,
+                      delay: hasEntered || reduce ? 0 : depth * 0.08,
+                    }
+              }
               // Free drag in both axes — toss it anywhere, it springs home.
               drag={active && !reduce}
               dragSnapToOrigin
