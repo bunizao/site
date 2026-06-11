@@ -39,9 +39,23 @@ const yearRange = currentYear > startYear ? `${startYear}–${currentYear}` : `$
       <span data-footer-status-label>Checking</span>
     </a>
     <span class="footer-sep" aria-hidden="true" data-footer-region-sep hidden>·</span>
-    <span class="footer-region" data-footer-region hidden>
-      <span class="footer-region-label">Edge:</span>
-      <span class="footer-region-code" data-footer-region-code>—</span>
+    <span class="footer-region" data-footer-region data-edge-state="idle" hidden>
+      <button
+        type="button"
+        class="footer-region-trigger"
+        data-footer-region-trigger
+        aria-expanded="false"
+        aria-describedby="footer-edge-pop"
+      >
+        <span class="footer-region-label">Edge:</span>
+        <span class="footer-region-code" data-footer-region-code>—</span>
+      </button>
+      <span class="footer-edge-pop" id="footer-edge-pop" role="tooltip" data-footer-edge-pop>
+        <span class="footer-edge-arrow" aria-hidden="true"></span>
+        <span class="footer-edge-rows" data-footer-edge-rows>
+          <span class="footer-edge-loading">Tracing route…</span>
+        </span>
+      </span>
     </span>
   </p>
 
@@ -131,10 +145,111 @@ const yearRange = currentYear > startYear ? `${startYear}–${currentYear}` : `$
     }
   }
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', hydrateFooter, { once: true });
-  } else {
+  interface EdgeInfo {
+    colo: string | null;
+    country: string | null;
+    city: string | null;
+    region: string | null;
+    protocol: string | null;
+    tls: string | null;
+    rtt: number | null;
+    network: string | null;
+  }
+
+  function edgeRow(label: string, value: string): string {
+    return `<span class="footer-edge-row"><span class="footer-edge-key">${label}</span><span class="footer-edge-val">${value}</span></span>`;
+  }
+
+  function rttHue(ms: number): number {
+    // 0ms → green (140), 200ms+ → amber (40); linear in between.
+    const clamped = Math.min(Math.max(ms, 0), 200);
+    return 140 - (clamped / 200) * 100;
+  }
+
+  function renderEdge(info: EdgeInfo): string {
+    const rows: string[] = [];
+
+    if (info.colo) {
+      const place = REGION_NAMES[info.colo];
+      rows.push(edgeRow('Datacenter', place ? `${info.colo} · ${place}` : info.colo));
+    }
+    if (info.protocol || info.tls) {
+      const proto = [info.protocol, info.tls?.replace('TLSv', 'TLS ')].filter(Boolean).join(' · ');
+      rows.push(edgeRow('Route', proto));
+    }
+    if (typeof info.rtt === 'number') {
+      const hue = rttHue(info.rtt);
+      rows.push(
+        edgeRow(
+          'Round-trip',
+          `<span class="footer-edge-rtt" style="--rtt-hue:${hue}">${info.rtt} ms</span>`
+        )
+      );
+    }
+    const here = [info.city, info.region, info.country].filter(Boolean).join(', ');
+    if (here) rows.push(edgeRow('You', here));
+    if (info.network) rows.push(edgeRow('Network', info.network));
+
+    return rows.length ? rows.join('') : '<span class="footer-edge-loading">No edge data</span>';
+  }
+
+  function setupEdgePopover() {
+    const regionMaybe = document.querySelector<HTMLElement>('[data-footer-region]');
+    const trigger = document.querySelector<HTMLButtonElement>('[data-footer-region-trigger]');
+    const rowsMaybe = document.querySelector<HTMLElement>('[data-footer-edge-rows]');
+    if (!regionMaybe || !trigger || !rowsMaybe) return;
+    const region = regionMaybe;
+    const rowsEl = rowsMaybe;
+
+    let loaded = false;
+    let inflight: Promise<void> | null = null;
+
+    const open = () => trigger.setAttribute('aria-expanded', 'true');
+    const close = () => trigger.setAttribute('aria-expanded', 'false');
+
+    async function load() {
+      if (loaded || inflight) return inflight ?? undefined;
+      region.setAttribute('data-edge-state', 'loading');
+      inflight = (async () => {
+        try {
+          const res = await fetch('/api/edge', { headers: { Accept: 'application/json' } });
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          const info = (await res.json()) as EdgeInfo;
+          rowsEl.innerHTML = renderEdge(info);
+          region.setAttribute('data-edge-state', 'ready');
+          loaded = true;
+        } catch (error) {
+          console.warn('Edge info fetch failed:', error);
+          rowsEl.innerHTML = '<span class="footer-edge-loading">Edge data unavailable</span>';
+          region.setAttribute('data-edge-state', 'error');
+        } finally {
+          inflight = null;
+        }
+      })();
+      return inflight;
+    }
+
+    region.addEventListener('pointerenter', () => void load());
+    trigger.addEventListener('focus', () => void load());
+    trigger.addEventListener('pointerenter', open);
+    trigger.addEventListener('pointerleave', close);
+    trigger.addEventListener('focus', open);
+    trigger.addEventListener('blur', close);
+    trigger.addEventListener('click', () => {
+      void load();
+      trigger.getAttribute('aria-expanded') === 'true' ? close() : open();
+    });
+  }
+
+  function initFooter() {
     hydrateFooter();
+    setupEdgePopover();
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initFooter, { once: true });
+  } else {
+    initFooter();
   }
 </script>
 
@@ -221,22 +336,142 @@ const yearRange = currentYear > startYear ? `${startYear}–${currentYear}` : `$
   }
 
   .footer-region {
+    position: relative;
     display: inline-flex;
     align-items: baseline;
-    gap: 4px;
   }
 
   .footer-region[hidden] {
     display: none;
   }
 
+  .footer-region-trigger {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 4px;
+    padding: 0;
+    border: 0;
+    background: none;
+    font: inherit;
+    line-height: inherit;
+    color: inherit;
+    cursor: help;
+  }
+
   .footer-region-label {
     color: hsl(var(--muted-foreground) / 0.45);
+    transition: color 0.15s ease;
   }
 
   .footer-region-code {
     color: hsl(var(--muted-foreground) / 0.7);
     letter-spacing: 0.04em;
+    border-bottom: 1px dotted hsl(var(--muted-foreground) / 0.3);
+    transition: color 0.15s ease, border-color 0.15s ease;
+  }
+
+  .footer-region-trigger:hover .footer-region-code,
+  .footer-region-trigger:focus-visible .footer-region-code {
+    color: hsl(var(--foreground));
+    border-color: hsl(var(--muted-foreground) / 0.6);
+  }
+
+  .footer-region-trigger:focus-visible {
+    outline: none;
+  }
+
+  .footer-region-trigger:focus-visible .footer-region-label {
+    color: hsl(var(--muted-foreground) / 0.75);
+  }
+
+  .footer-edge-pop {
+    position: absolute;
+    bottom: calc(100% + 10px);
+    left: 50%;
+    z-index: 20;
+    min-width: 220px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    border: 1px solid hsl(var(--border) / 0.7);
+    background: hsl(var(--card) / 0.92);
+    backdrop-filter: blur(8px);
+    box-shadow: 0 12px 32px -12px hsl(var(--foreground) / 0.35);
+    text-align: left;
+    opacity: 0;
+    transform: translate(-50%, 4px);
+    transform-origin: bottom center;
+    pointer-events: none;
+    transition: opacity 0.18s ease, transform 0.18s ease;
+  }
+
+  .footer-region-trigger[aria-expanded='true'] + .footer-edge-pop {
+    opacity: 1;
+    transform: translate(-50%, 0);
+    pointer-events: auto;
+  }
+
+  .footer-edge-arrow {
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    width: 10px;
+    height: 10px;
+    margin-left: -5px;
+    margin-top: -5px;
+    border-right: 1px solid hsl(var(--border) / 0.7);
+    border-bottom: 1px solid hsl(var(--border) / 0.7);
+    background: hsl(var(--card) / 0.92);
+    transform: rotate(45deg);
+  }
+
+  .footer-edge-rows {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  /* Rows are injected via innerHTML at runtime, so they don't carry Astro's
+     scoped-style attribute — target them with :global under the static popover. */
+  .footer-edge-pop :global(.footer-edge-row) {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 18px;
+    font-size: 11px;
+    line-height: 1.3;
+    white-space: nowrap;
+  }
+
+  .footer-edge-pop :global(.footer-edge-key) {
+    color: hsl(var(--muted-foreground) / 0.55);
+    letter-spacing: 0.02em;
+  }
+
+  .footer-edge-pop :global(.footer-edge-val) {
+    color: hsl(var(--foreground) / 0.85);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .footer-edge-pop :global(.footer-edge-rtt) {
+    color: hsl(var(--rtt-hue, 140) 70% 45%);
+    font-weight: 500;
+  }
+
+  .footer-edge-pop :global(.footer-edge-loading) {
+    display: block;
+    font-size: 11px;
+    color: hsl(var(--muted-foreground) / 0.55);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .footer-edge-pop {
+      transition: opacity 0.18s ease;
+      transform: translate(-50%, 0);
+    }
+
+    .footer-region-trigger[aria-expanded='true'] + .footer-edge-pop {
+      transform: translate(-50%, 0);
+    }
   }
 
   .footer-mark {
