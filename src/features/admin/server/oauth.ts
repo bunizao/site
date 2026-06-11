@@ -13,7 +13,7 @@ import {
 
 const CLOUDFLARE_AUTHORIZE_URL = 'https://dash.cloudflare.com/oauth2/auth';
 const CLOUDFLARE_TOKEN_URL = 'https://dash.cloudflare.com/oauth2/token';
-const CLOUDFLARE_USERINFO_URL = 'https://dash.cloudflare.com/oauth2/userinfo';
+const CLOUDFLARE_USER_URL = 'https://api.cloudflare.com/client/v4/user';
 const DEFAULT_ADMIN_NEXT_PATH = '/dev/portal';
 const DOCS_NEXT_PATH = '/docs';
 
@@ -27,11 +27,14 @@ interface CloudflareTokenResponse {
 }
 
 interface CloudflareUserInfoResponse {
-  sub?: string;
-  email?: string;
-  email_verified?: boolean;
-  picture?: string;
-  name?: string;
+  success?: boolean;
+  result?: {
+    id?: string;
+    email?: string;
+    first_name?: string;
+    last_name?: string;
+    username?: string;
+  };
 }
 
 export function getRedirectUri(request: Request): string {
@@ -45,7 +48,7 @@ export function buildAuthorizeUrl(clientId: string, redirectUri: string, state: 
     client_id: clientId,
     redirect_uri: redirectUri,
     state,
-    scope: 'openid email profile',
+    scope: 'user:read',
   });
   return `${CLOUDFLARE_AUTHORIZE_URL}?${params.toString()}`;
 }
@@ -178,7 +181,7 @@ export async function handleOauthCallback(request: Request, locals: any): Promis
 
   let user: CloudflareUserInfoResponse;
   try {
-    const userResponse = await fetch(CLOUDFLARE_USERINFO_URL, {
+    const userResponse = await fetch(CLOUDFLARE_USER_URL, {
       headers: {
         Accept: 'application/json',
         Authorization: `Bearer ${accessToken}`,
@@ -192,17 +195,12 @@ export async function handleOauthCallback(request: Request, locals: any): Promis
     return { ok: false, reason: 'user', cookies };
   }
 
-  const email = user.email?.trim() ?? '';
-  if (user.email_verified === false) {
-    return { ok: false, reason: 'forbidden', cookies };
-  }
+  const email = user.result?.email?.trim() ?? '';
   if (!isAllowedEmail(email, config.allowedEmail)) {
     return { ok: false, reason: 'forbidden', cookies };
   }
 
-  const sessionToken = await createSessionToken(email, config.sessionSigningKey, undefined, {
-    avatarUrl: typeof user.picture === 'string' ? user.picture : undefined,
-  });
+  const sessionToken = await createSessionToken(email, config.sessionSigningKey);
   cookies.push(buildSessionCookie(sessionToken));
   return { ok: true, redirectTo: verified.next, cookies };
 }

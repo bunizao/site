@@ -62,7 +62,7 @@ describe('admin OAuth start', () => {
     );
 
     expect(result?.redirectUrl).toStartWith('https://dash.cloudflare.com/oauth2/auth?');
-    expect(result?.redirectUrl).toContain('scope=openid+email+profile');
+    expect(result?.redirectUrl).toContain('scope=user%3Aread');
     expect(result?.cookies[0]).toContain(`${ADMIN_OAUTH_STATE_COOKIE}=`);
   });
 
@@ -102,12 +102,13 @@ describe('admin OAuth callback', () => {
         });
       }
 
-      if (url === 'https://dash.cloudflare.com/oauth2/userinfo') {
+      if (url === 'https://api.cloudflare.com/client/v4/user') {
         expect((init?.headers as Record<string, string>).Authorization).toBe('Bearer access-token');
         return new Response(JSON.stringify({
-          email: 'admin@example.com',
-          email_verified: true,
-          picture: 'https://dash.cloudflare.com/avatar.png',
+          success: true,
+          result: {
+            email: 'admin@example.com',
+          },
         }), {
           headers: { 'Content-Type': 'application/json' },
         });
@@ -138,13 +139,13 @@ describe('admin OAuth callback', () => {
       expect(result.redirectTo).toBe('/dev/portal/subscribers');
       expect(requests).toEqual([
         'https://dash.cloudflare.com/oauth2/token',
-        'https://dash.cloudflare.com/oauth2/userinfo',
+        'https://api.cloudflare.com/client/v4/user',
       ]);
       const sessionCookie = result.cookies.find((cookie) => cookie.startsWith(`${ADMIN_SESSION_COOKIE}=`));
       const token = readSessionFromCookieHeader(sessionCookie);
       const session = await verifySessionToken(token, 'test-secret');
       expect(session?.login).toBe('admin@example.com');
-      expect(session?.avatarUrl).toBe('https://dash.cloudflare.com/avatar.png');
+      expect(session?.avatarUrl).toBeUndefined();
     } finally {
       globalThis.fetch = originalFetch;
     }
