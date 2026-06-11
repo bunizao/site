@@ -62,6 +62,7 @@ describe('Cloudflare runtime configuration', () => {
     expect(astroConfig).toContain("imageService: 'passthrough'");
     expect(astroConfig).toContain("prerenderEnvironment: 'node'");
     expect(astroConfig).not.toContain("from '@astrojs/vercel'");
+    expect(packageJson.scripts?.preview).toBe('bun run preview:cloudflare');
     expect(packageJson.scripts?.['deploy:cloudflare']).toBe('bun run build && wrangler deploy --config dist/server/wrangler.json');
     expect(packageJson.scripts?.['preview:cloudflare']).toBe('bun run build && wrangler dev --config dist/server/wrangler.json');
     expect(packageJson.scripts?.['tail:cloudflare']).toBe('wrangler tail');
