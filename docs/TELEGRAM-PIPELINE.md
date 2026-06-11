@@ -31,13 +31,13 @@ flowchart TD
   H --> I
   I --> J["Public reads use /mood/:postId/:imageIndex"]
   B --> K["Worker enqueues notify dispatch job"]
-  K --> L["Queue consumer POSTs /api/notify/dispatch in buxx-site"]
+  K --> L["Queue consumer POSTs /api/notify/dispatch in site"]
   L --> M["Immediate notify emails include mood page and image links"]
 ```
 
 ## Responsibility Split
 
-### Telegram webhook in `buxx-site`
+### Telegram webhook in `site`
 
 Files:
 
@@ -62,7 +62,7 @@ Responsibilities:
 - Remain available as a rollback target
 - Preserve the older site-hosted webhook path until cleanup is explicitly approved
 
-### Image routes in `buxx-site`
+### Image routes in `site`
 
 Files:
 
@@ -131,7 +131,7 @@ These endpoints are intended for Telegram or server-to-server ingestion only.
 
 ## Environment Variables
 
-### `buxx-site` Worker
+### `site` Worker
 
 - `PUBLIC_HD_IMAGE_URL`
 - `HD_IMAGE_INGEST_BASE_URL`

@@ -15,7 +15,7 @@
 
 ## Runtime Shape
 
-The Cloudflare Worker `buxx-site` is the runtime target for `buxx.me`, `www.buxx.me`, and `image.buxx.me`. It serves the Astro site, API routes, mood image routes, queue consumer, and Cloudflare Cron-triggered notify tasks from one Worker boundary.
+The Cloudflare Worker `site` is the runtime target for `buxx.me`, `www.buxx.me`, and `image.buxx.me`. It serves the Astro site, API routes, mood image routes, queue consumer, and Cloudflare Cron-triggered notify tasks from one Worker boundary.
 
 The older standalone image worker and notify scheduler remain useful as rollback history until production cutover is verified, but they are not the architecture this branch documents as the target.
 
@@ -99,7 +99,7 @@ Telegram references:
 
 Accessed via `import.meta.env.*`:
 - `GHOST_URL` — Ghost CMS URL (default: https://blog.buxx.me)
-- `GHOST_CONTENT_APIKEY` — Ghost CMS content API key
+- `GHOST_CONTENT_APIKEY` — Ghost CMS content API key; required in the Cloudflare build environment for the prerendered Writing section
 - `GITHUB_TOKEN` — GitHub GraphQL token for project data
 - `PUBLIC_HD_IMAGE_URL` — Cloudflare Worker URL for HD mood images
 - `HD_IMAGE_INGEST_BASE_URL` — Internal Worker base URL for webhook image ingest when the public image domain has extra edge protections

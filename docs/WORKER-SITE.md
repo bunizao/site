@@ -12,7 +12,7 @@ This document explains the Cloudflare Worker target for:
 
 ## Runtime Target
 
-The target runtime is one Cloudflare Worker named `buxx-site`.
+The target runtime is one Cloudflare Worker named `site`.
 
 It serves:
 
@@ -31,7 +31,18 @@ Main files:
 
 The older standalone image worker and notify scheduler are rollback history until production cutover is verified. Do not describe them as the current production architecture.
 
-## Responsibility Split Inside `buxx-site`
+## Ghost Publishing Hook
+
+The Writing section is rendered at build time by `src/features/home/ui/Posts.astro`. Ghost post changes do not appear on `buxx.me` until the Cloudflare Worker is rebuilt and redeployed.
+
+Production setup:
+
+- Create a Cloudflare Workers Builds deploy hook for the `cloudflare-runtime` production branch.
+- Configure Ghost's `Post published` webhook to `POST` that Cloudflare deploy hook URL.
+- Remove the old Vercel deploy hook URL from Ghost.
+- Keep `GHOST_URL` and `GHOST_CONTENT_APIKEY` in the Cloudflare build environment. Worker runtime secrets are useful for runtime code, but they do not affect prerendered Writing HTML.
+
+## Responsibility Split Inside `site`
 
 **Astro entrypoint** owns:
 
@@ -192,6 +203,6 @@ Existing pipeline docs cover operations:
 
 This document is narrower:
 
-- it names the `buxx-site` runtime target
+- it names the `site` runtime target
 - it makes the Worker-internal ownership split explicit
 - it documents endpoint auth, bindings, and rollback roles in one place

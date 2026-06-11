@@ -35,7 +35,7 @@ If `TURNSTILE_SECRET_KEY` (or `CLOUDFLARE_TURNSTILE_SECRET_KEY`) is set, subscri
 
 ## Environment
 
-`buxx-site` needs:
+`site` needs:
 
 - `RESEND_API_KEY`, `NOTIFY_FROM_NAME` (optional), `NOTIFY_FROM_EMAIL`, `NOTIFY_REPLY_TO_EMAIL` (optional).
 - `EMAIL_NOTIFY_SECRET`, `NOTIFY_DISPATCH_SECRET`, `CRON_SECRET` (long random strings).
@@ -89,7 +89,7 @@ The worker doesn't send email directly. `/api/notify/dispatch` is the notify ent
 
 ### Scheduler
 
-Cloudflare Cron owns scheduled notify and retry execution for `buxx-site` every 15 minutes.
+Cloudflare Cron owns scheduled notify and retry execution for `site` every 15 minutes.
 
 The standalone `workers/notify-scheduler` deployment is rollback history until production cutover is verified.
 

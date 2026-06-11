@@ -4,7 +4,7 @@ description: How posts flow from a Telegram channel into the mood feed and email
 public: true
 ---
 
-The Telegram pipeline turns a channel post into three things: a card in the public mood feed, an HD image stored in R2, and an email to subscribers. The Cloudflare Worker target `buxx-site` owns the webhook, image routes, queue consumer, and Astro site runtime.
+The Telegram pipeline turns a channel post into three things: a card in the public mood feed, an HD image stored in R2, and an email to subscribers. The Cloudflare Worker target `site` owns the webhook, image routes, queue consumer, and Astro site runtime.
 
 ## The flow
 
@@ -21,15 +21,15 @@ flowchart TD
   H --> I
   I --> J["Public reads use /mood/:postId/:imageIndex"]
   B --> K["Worker enqueues notify dispatch job"]
-  K --> L["Queue consumer POSTs /api/notify/dispatch in buxx-site"]
+  K --> L["Queue consumer POSTs /api/notify/dispatch in site"]
   L --> M["Immediate notify emails sent via Resend"]
 ```
 
 ## Who owns what
 
-**Image routes in `buxx-site`** reuse `workers/telegram-image-proxy/` for webhook validation, media-group indexing, image ingest into R2, and queueing immediate notify jobs. They serve public reads at `https://image.buxx.me/mood/:postId/:imageIndex` and `/channel/avatar`, and authenticated writes at `/ingest/...` (gated by `HD_IMAGE_INGEST_TOKEN`).
+**Image routes in `site`** reuse `workers/telegram-image-proxy/` for webhook validation, media-group indexing, image ingest into R2, and queueing immediate notify jobs. They serve public reads at `https://image.buxx.me/mood/:postId/:imageIndex` and `/channel/avatar`, and authenticated writes at `/ingest/...` (gated by `HD_IMAGE_INGEST_TOKEN`).
 
-**Astro inside `buxx-site`** owns Telegram content scraping, public mood pages, subscriber state, email delivery via Resend, idempotency, and retry logic. The site never reads bytes from Telegram for images. It does still scrape Telegram for post bodies; the image worker code doesn't provide canonical text.
+**Astro inside `site`** owns Telegram content scraping, public mood pages, subscriber state, email delivery via Resend, idempotency, and retry logic. The site never reads bytes from Telegram for images. It does still scrape Telegram for post bodies; the image worker code doesn't provide canonical text.
 
 A legacy webhook lives at `/api/telegram-webhook` as a rollback target. It's not the preferred production path.
 
@@ -44,7 +44,7 @@ These are embedded in feed payloads, mood detail HTML, and email image links. Pa
 
 ## Environment
 
-`buxx-site` Worker:
+`site` Worker:
 - `PUBLIC_HD_IMAGE_URL`, `HD_IMAGE_INGEST_BASE_URL`
 - `NOTIFY_DISPATCH_SECRET`, `CRON_SECRET`
 - `NOTIFY_DB` D1 binding, `MOOD_IMAGES` R2 binding, `NOTIFY_DISPATCH_QUEUE` queue binding

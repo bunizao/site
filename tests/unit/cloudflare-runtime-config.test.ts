@@ -86,7 +86,7 @@ describe('Cloudflare runtime configuration', () => {
       vars?: Record<string, string>;
     };
 
-    expect(config.name).toBe('buxx-site');
+    expect(config.name).toBe('site');
     expect(config.main).toBe('src/worker.ts');
     expect(config.assets?.directory).toBe('./dist');
     expect(config.assets?.binding).toBe('ASSETS');
@@ -118,5 +118,20 @@ describe('Cloudflare runtime configuration', () => {
       TELEGRAM_HOST: 't.me',
     });
     expect(config.triggers?.crons).toContain('*/15 * * * *');
+  });
+
+  test('documents Ghost publishing through Cloudflare deploy hooks', () => {
+    const docsText = [
+      'docs/HOME.md',
+      'docs/WORKER-SITE.md',
+      'src/content/docs/docs/surfaces/home.md',
+      'src/content/docs/docs/infra/worker-site.md',
+    ].map(readText).join('\n');
+
+    expect(docsText).toContain('Cloudflare Workers Builds deploy hook');
+    expect(docsText).toContain('GHOST_CONTENT_APIKEY');
+    expect(docsText).toContain('Cloudflare build environment');
+    expect(docsText).toContain('Post published');
+    expect(docsText).not.toContain(['https://api.vercel.com', 'v1/integrations/deploy'].join('/'));
   });
 });

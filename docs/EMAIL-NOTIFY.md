@@ -38,7 +38,7 @@ curl -X POST "https://your-domain.com/api/notify/subscribe" \
 
 ## Environment Variables
 
-Set these as Cloudflare Worker secrets or vars for `buxx-site`:
+Set these as Cloudflare Worker secrets or vars for `site`:
 
 - `RESEND_API_KEY`
 - `NOTIFY_FROM_NAME` (optional, example: `Mood`)
@@ -185,7 +185,7 @@ Notes:
 
 ### Cloudflare Cron
 
-Cloudflare Cron owns scheduled notify and retry execution for `buxx-site` every 15 minutes.
+Cloudflare Cron owns scheduled notify and retry execution for `site` every 15 minutes.
 
 ### Legacy Scheduler Worker
 

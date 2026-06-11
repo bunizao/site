@@ -80,7 +80,7 @@ Primary references:
 
 ## Target Runtime
 
-Use one primary Worker script, tentatively `buxx-site`, for:
+Use one primary Worker script, tentatively `site`, for:
 
 - `https://buxx.me/*`
 - `https://www.buxx.me/*`

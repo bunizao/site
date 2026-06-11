@@ -4,7 +4,15 @@ description: How the Cloudflare Worker target owns the site, image routes, queue
 public: true
 ---
 
-The target runtime is one Cloudflare Worker named `buxx-site`. It serves `buxx.me`, `www.buxx.me`, and `image.buxx.me`.
+The target runtime is one Cloudflare Worker named `site`. It serves `buxx.me`, `www.buxx.me`, and `image.buxx.me`.
+
+## Ghost Publishing Hook
+
+The Writing section is prerendered from Ghost during the Cloudflare build. Ghost post changes need a fresh Cloudflare build before they appear on `buxx.me`.
+
+Configure Ghost's `Post published` webhook to `POST` the Cloudflare Workers Builds deploy hook for the production branch. The old Vercel deploy hook should be removed because it only rebuilds the previous Vercel deployment.
+
+`GHOST_URL` and `GHOST_CONTENT_APIKEY` must be present in the Cloudflare build environment, not only as Worker runtime secrets.
 
 ## What runs where
 

@@ -6,7 +6,7 @@ public: true
 
 ## The shape
 
-buxx.me is moving to one Cloudflare Worker target: `buxx-site`. That Worker serves `buxx.me`, `www.buxx.me`, and `image.buxx.me`, including the Astro site, API routes, mood image routes, queue consumer, and Cloudflare Cron-triggered notify tasks.
+buxx.me is moving to one Cloudflare Worker target: `site`. That Worker serves `buxx.me`, `www.buxx.me`, and `image.buxx.me`, including the Astro site, API routes, mood image routes, queue consumer, and Cloudflare Cron-triggered notify tasks.
 
 Telegram is the source of truth for mood content. The Worker hears Telegram's webhook, pulls images into R2, enqueues notify jobs, renders the mood feed and detail pages through Astro, sends emails through Resend, and stores subscriber state in Cloudflare D1 through the `NOTIFY_DB` binding. The older standalone image worker and notify scheduler are rollback history until production cutover is verified.
 
