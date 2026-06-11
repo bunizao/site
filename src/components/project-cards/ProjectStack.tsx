@@ -477,21 +477,23 @@ const dealTransition: Transition = {
 
 export default function ProjectStack({ className }: { className?: string }) {
   const reduce = useReducedMotion();
+  const [mounted, setMounted] = useState(false);
   const ids = useMemo(() => projects.map((p) => p.id), []);
   const [order, setOrder] = useState(ids);
-  const [hasEntered, setHasEntered] = useState(Boolean(reduce));
+  const [hasEntered, setHasEntered] = useState(false);
   const [paused, setPaused] = useState(false);
   const [galleryIndex, setGalleryIndex] = useState<number | null>(null);
   // The card currently being dealt to the back, so we can give it the lift arc
   // and float it above the rest while it travels.
   const [leavingId, setLeavingId] = useState<string | null>(null);
   const dealTimer = useRef<number | undefined>(undefined);
+  const shouldReduce = mounted && reduce === true;
 
   const byId = useMemo(() => new Map(projects.map((p) => [p.id, p])), []);
 
   const advance = () => {
     if (order.length < 2) return;
-    if (!reduce) {
+    if (!shouldReduce) {
       setLeavingId(order[0]);
       window.clearTimeout(dealTimer.current);
       dealTimer.current = window.setTimeout(() => setLeavingId(null), dealMs);
@@ -507,17 +509,21 @@ export default function ProjectStack({ className }: { className?: string }) {
   // reliably opens only on a real tap, never on the tail of a stack flip.
   const draggedRef = useRef(false);
 
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   // Entrance: fan the deck out once after mount.
   useEffect(() => {
-    if (reduce) return setHasEntered(true);
+    if (shouldReduce) return setHasEntered(true);
     const t = window.setTimeout(() => setHasEntered(true), 1000);
     return () => window.clearTimeout(t);
-  }, [reduce]);
+  }, [shouldReduce]);
 
   // Slow auto-advance, suspended while hovered or while the gallery is open.
   useEffect(() => {
     if (
-      reduce ||
+      shouldReduce ||
       !hasEntered ||
       paused ||
       galleryIndex != null ||
@@ -526,7 +532,7 @@ export default function ProjectStack({ className }: { className?: string }) {
       return;
     const t = window.setTimeout(advance, autoAdvanceMs);
     return () => window.clearTimeout(t);
-  }, [reduce, hasEntered, paused, galleryIndex, order]);
+  }, [shouldReduce, hasEntered, paused, galleryIndex, order]);
 
   useEffect(() => () => window.clearTimeout(dealTimer.current), []);
 
@@ -573,7 +579,7 @@ export default function ProjectStack({ className }: { className?: string }) {
                     : "none",
                 cursor: active ? "grab" : "pointer",
               }}
-              initial={reduce ? getStackPose(depth) : getEntrancePose()}
+              initial={getEntrancePose()}
               animate={getStackPose(depth)}
               transition={
                 leaving
@@ -586,7 +592,7 @@ export default function ProjectStack({ className }: { className?: string }) {
                       // During a cycle the deck ripples forward: front card
                       // leads, those behind follow a beat later.
                       delay: !hasEntered
-                        ? reduce
+                        ? shouldReduce
                           ? 0
                           : depth * 0.08
                         : leavingId
@@ -595,10 +601,10 @@ export default function ProjectStack({ className }: { className?: string }) {
                     }
               }
               // Free drag in both axes — toss it anywhere, it springs home.
-              drag={active && !reduce}
+              drag={active && !shouldReduce}
               dragSnapToOrigin
               dragElastic={0.6}
-              whileHover={active && !reduce ? { y: -6 } : undefined}
+              whileHover={active && !shouldReduce ? { y: -6 } : undefined}
               whileDrag={{ cursor: "grabbing" }}
               onPointerDown={() => {
                 draggedRef.current = false;

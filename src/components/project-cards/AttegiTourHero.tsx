@@ -14,17 +14,17 @@ interface Slide {
 
 const slides: Slide[] = [
   {
-    src: "/dev/attegi/home.webp",
+    src: "/projects/attegi/home.webp",
     url: "attegi.tuuhub.com",
     alt: "Attegi homepage in dark mode",
   },
   {
-    src: "/dev/attegi/toc.webp",
+    src: "/projects/attegi/toc.webp",
     url: "attegi.tuuhub.com/blog/typography",
     alt: "Attegi post with editorial table of contents",
   },
   {
-    src: "/dev/attegi/code.webp",
+    src: "/projects/attegi/code.webp",
     url: "attegi.tuuhub.com/blog/code-blocks",
     alt: "Attegi post with syntax-highlighted code blocks",
   },
@@ -34,18 +34,24 @@ const INTERVAL_MS = 5200;
 
 export default function AttegiTourHero({ hovered = false }: { hovered?: boolean }) {
   const reduced = useReducedMotion();
+  const [mounted, setMounted] = useState(false);
   const [active, setActive] = useState(0);
-  const live = hovered && !reduced;
+  const shouldReduce = mounted && reduced === true;
+  const live = hovered && !shouldReduce;
   const intervalMs = live ? 2600 : INTERVAL_MS;
 
   useEffect(() => {
-    if (reduced) return;
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (shouldReduce) return;
     const id = window.setInterval(
       () => setActive((a) => (a + 1) % slides.length),
       intervalMs,
     );
     return () => window.clearInterval(id);
-  }, [reduced, intervalMs]);
+  }, [shouldReduce, intervalMs]);
 
   const slide = slides[active];
 
@@ -61,7 +67,7 @@ export default function AttegiTourHero({ hovered = false }: { hovered?: boolean 
             <motion.span
               key={slide.url}
               className="block truncate text-center font-code text-[10px] text-stone-500 dark:text-white/40"
-              initial={reduced ? false : { opacity: 0 }}
+              initial={shouldReduce ? false : { opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.3 }}
@@ -82,13 +88,13 @@ export default function AttegiTourHero({ hovered = false }: { hovered?: boolean 
             loading={active === 0 ? "eager" : "lazy"}
             className="absolute inset-0 h-full w-full object-cover"
             initial={
-              reduced
+              shouldReduce
                 ? { opacity: 0, objectPosition: "50% 50%" }
                 : { opacity: 0, objectPosition: "50% 0%" }
             }
             animate={{
               opacity: 1,
-              objectPosition: reduced ? "50% 50%" : "50% 100%",
+              objectPosition: shouldReduce ? "50% 50%" : "50% 100%",
               scale: live ? 1.06 : 1,
             }}
             exit={{ opacity: 0 }}

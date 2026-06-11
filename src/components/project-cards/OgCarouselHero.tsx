@@ -12,27 +12,33 @@ interface Slide {
 }
 
 const slides: Slide[] = [
-  { src: "/dev/ogis/og-1.webp", alt: "OG card: Link previews, on the edge" },
-  { src: "/dev/ogis/og-2.webp", alt: "OG card: Frosted glass, zero cold starts" },
-  { src: "/dev/ogis/og-3.webp", alt: "OG card: Every share, intentional" },
-  { src: "/dev/ogis/og-4.webp", alt: "OG card: Generated live by ogis" },
+  { src: "/projects/ogis/og-1.webp", alt: "OG card: Link previews, on the edge" },
+  { src: "/projects/ogis/og-2.webp", alt: "OG card: Frosted glass, zero cold starts" },
+  { src: "/projects/ogis/og-3.webp", alt: "OG card: Every share, intentional" },
+  { src: "/projects/ogis/og-4.webp", alt: "OG card: Generated live by ogis" },
 ];
 
 const INTERVAL_MS = 4200;
 
 export default function OgCarouselHero({ hovered = false }: { hovered?: boolean }) {
   const reduced = useReducedMotion();
+  const [mounted, setMounted] = useState(false);
   const [active, setActive] = useState(0);
-  const live = hovered && !reduced;
+  const shouldReduce = mounted && reduced === true;
+  const live = hovered && !shouldReduce;
 
   useEffect(() => {
-    if (reduced) return;
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (shouldReduce) return;
     const id = window.setInterval(
       () => setActive((a) => (a + 1) % slides.length),
       live ? 2100 : INTERVAL_MS,
     );
     return () => window.clearInterval(id);
-  }, [reduced, live]);
+  }, [shouldReduce, live]);
 
   const slide = slides[active];
 
@@ -70,9 +76,9 @@ export default function OgCarouselHero({ hovered = false }: { hovered?: boolean 
             alt={slide.alt}
             loading={active === 0 ? "eager" : "lazy"}
             className="absolute inset-0 h-full w-full object-contain"
-            initial={reduced ? false : { opacity: 0, scale: 1.04 }}
+            initial={shouldReduce ? false : { opacity: 0, scale: 1.04 }}
             animate={{ opacity: 1, scale: 1 }}
-            exit={reduced ? { opacity: 0 } : { opacity: 0, scale: 0.98 }}
+            exit={shouldReduce ? { opacity: 0 } : { opacity: 0, scale: 0.98 }}
             transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
           />
         </AnimatePresence>
