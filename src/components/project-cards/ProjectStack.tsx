@@ -181,11 +181,15 @@ function StoryCard({
 }
 
 function useViewportWidth() {
-  const [vw, setVw] = useState(
-    typeof window === "undefined" ? 1280 : window.innerWidth,
-  );
+  // Init to a stable constant so server and client render identically — reading
+  // window.innerWidth here instead would mismatch on hydration, and React 19
+  // refuses to patch the resulting attributes ("won't be patched up"), freezing
+  // mobile at the desktop geometry. The real width is read in the mount effect,
+  // whose setVw flips state (1280 → actual) and triggers the patching re-render.
+  const [vw, setVw] = useState(1280);
   useEffect(() => {
     const onResize = () => setVw(window.innerWidth);
+    onResize();
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
   }, []);
@@ -260,7 +264,7 @@ function StoryGallery({
       transition={{ duration: 0.18, ease: "easeOut" }}
     >
       <div
-        className="absolute inset-0 bg-stone-900/55 backdrop-blur-lg dark:bg-black/72"
+        className="absolute inset-0 bg-stone-900/60 backdrop-blur-md dark:bg-black/75"
         onClick={onClose}
       />
 
@@ -268,7 +272,7 @@ function StoryGallery({
       <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
         <motion.div
           className="pointer-events-auto flex items-center"
-          style={{ gap }}
+          style={{ gap, willChange: "transform", WebkitBackfaceVisibility: "hidden" }}
           // Start already centered on the opened card so it zooms in place,
           // not slide-then-zoom; navigation still springs between indices.
           initial={{ x: centerOffset }}
@@ -431,33 +435,36 @@ function GalleryArrow({
 // Stack poses
 // ---------------------------------------------------------------------------
 
-function getStackPose(depth: number): TargetAndTransition {
+type Fan = { x: number; y: number; tilt: number; shift: number };
+
+function getStackPose(depth: number, fan: Fan): TargetAndTransition {
   const layer = Math.min(depth, visibleDepth);
 
   // Right-fanned reveal: each card behind drifts right and tilts so a strip of
   // its own content shows along the edge — the deck reads as a fan of cards.
+  // `shift` re-centers the whole fan around the midpoint so the visual mass sits
+  // centered, not biased right. No `filter` here: animating blur forces Safari
+  // to re-raster the 3D scene every frame — opacity alone carries the depth cue.
   return {
-    x: layer * 22,
-    y: layer * 5,
+    x: layer * fan.x - fan.shift,
+    y: layer * fan.y,
     z: -layer * 36,
     scale: 1 - layer * 0.015,
     rotateX: 0,
-    rotateZ: layer * 3.2,
+    rotateZ: layer * fan.tilt,
     opacity: depth > visibleDepth ? 0 : 1 - layer * 0.03,
-    filter: `blur(${Math.max(0, layer - 2) * 0.6}px)`,
   };
 }
 
-function getEntrancePose(): TargetAndTransition {
+function getEntrancePose(shift: number): TargetAndTransition {
   return {
-    x: 0,
+    x: -shift,
     y: 46,
     z: 0,
     scale: 0.84,
     rotateX: 0,
     rotateZ: 0,
     opacity: 0,
-    filter: "blur(8px)",
   };
 }
 
@@ -490,6 +497,22 @@ export default function ProjectStack({ className }: { className?: string }) {
   const shouldReduce = mounted && reduce === true;
 
   const byId = useMemo(() => new Map(projects.map((p) => [p.id, p])), []);
+
+  // Responsive geometry. On phones the fan must stay inside the viewport, so the
+  // card shrinks and the fan tightens; `shift` recenters the fanned mass so the
+  // deck reads centered instead of biased right (the cause of the "off-center"
+  // overflow on small screens).
+  const vw = useViewportWidth();
+  const compact = vw < 640;
+  const fanX = compact ? 12 : 22;
+  const fan: Fan = {
+    x: fanX,
+    y: compact ? 4 : 5,
+    tilt: compact ? 2.2 : 3.2,
+    shift: Math.round((visibleDepth * fanX) / 2),
+  };
+  const cardMax = compact ? Math.min(Math.round(vw * 0.8), 360) : 400;
+  const regionH = compact ? 470 : 540;
 
   const advance = () => {
     if (order.length < 2) return;
@@ -546,13 +569,14 @@ export default function ProjectStack({ className }: { className?: string }) {
 
   return (
     <div
-      className={cn("relative mx-auto w-full max-w-[440px]", className)}
+      className={cn("relative mx-auto w-full", className)}
+      style={{ maxWidth: cardMax + 40 }}
       onPointerEnter={() => setPaused(true)}
       onPointerLeave={() => setPaused(false)}
     >
       <div
-        className="relative h-[520px] w-full sm:h-[540px]"
-        style={{ perspective: 1200 }}
+        className="relative w-full"
+        style={{ height: regionH, perspective: 1200 }}
         aria-roledescription="carousel"
         aria-label="Projects"
       >
@@ -567,10 +591,17 @@ export default function ProjectStack({ className }: { className?: string }) {
               // !touch-pan-y overrides framer's auto `touch-action: none` for
               // both-axis drag: on touch, vertical still scrolls the page and only
               // horizontal drags; a mouse ignores touch-action and drags freely.
-              className="absolute inset-x-0 top-0 mx-auto w-full max-w-[400px] select-none !touch-pan-y"
+              className="absolute inset-x-0 top-0 mx-auto w-full select-none !touch-pan-y"
               style={{
+                maxWidth: cardMax,
                 transformStyle: "preserve-3d",
                 transformOrigin: "center center",
+                // Promote the moving card to its own GPU layer and skip back-face
+                // rasterisation — Safari then translates a cached texture instead
+                // of repainting the card + its heavy shadow on every drag frame.
+                willChange: active ? "transform" : "auto",
+                WebkitBackfaceVisibility: "hidden",
+                backfaceVisibility: "hidden",
                 zIndex: projects.length - depth,
                 pointerEvents: leaving
                   ? "none"
@@ -579,8 +610,8 @@ export default function ProjectStack({ className }: { className?: string }) {
                     : "none",
                 cursor: active ? "grab" : "pointer",
               }}
-              initial={getEntrancePose()}
-              animate={getStackPose(depth)}
+              initial={getEntrancePose(fan.shift)}
+              animate={getStackPose(depth, fan)}
               transition={
                 leaving
                   ? dealTransition
@@ -604,7 +635,7 @@ export default function ProjectStack({ className }: { className?: string }) {
               drag={active && !shouldReduce}
               dragSnapToOrigin
               dragElastic={0.6}
-              whileHover={active && !shouldReduce ? { y: -6 } : undefined}
+              whileHover={active && !shouldReduce && !compact ? { y: -6 } : undefined}
               whileDrag={{ cursor: "grabbing" }}
               onPointerDown={() => {
                 draggedRef.current = false;
