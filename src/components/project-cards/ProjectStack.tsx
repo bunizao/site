@@ -397,9 +397,10 @@ function StoryGallery({
   );
 }
 
-// A draggable joystick: drag anywhere along the rail to scrub the gallery, the
-// thumb tracks the live scroll progress. `left`-positioned (a 16px dot — repaint
-// is negligible) so it reads the exact fractional scroll, not just snap points.
+// A draggable segment pill: drag anywhere along the rail to scrub. The pill is
+// 1/count wide so the four cards read as four fixed points, and its position is
+// driven by the *continuous* scroll progress — so it slides through the motion
+// as you swipe and settles onto each point with a spring (the elastic beat).
 function GalleryScrubber({
   count,
   cur,
@@ -424,6 +425,7 @@ function GalleryScrubber({
     onScrub(ratio, false);
   };
 
+  const seg = 100 / count;
   return (
     <div className="absolute bottom-6 left-1/2 z-10 -translate-x-1/2">
       <div
@@ -433,7 +435,7 @@ function GalleryScrubber({
         aria-valuemin={1}
         aria-valuemax={count}
         aria-valuenow={cur + 1}
-        className="flex h-9 w-[min(74vw,360px)] cursor-grab touch-none select-none items-center active:cursor-grabbing"
+        className="relative h-2.5 w-[min(72vw,340px)] cursor-grab touch-none select-none rounded-full bg-white/15 active:cursor-grabbing"
         onPointerDown={(e) => {
           setDragging(true);
           ref.current?.setPointerCapture(e.pointerId);
@@ -446,20 +448,18 @@ function GalleryScrubber({
         }}
         onPointerCancel={() => setDragging(false)}
       >
-        <div className="relative h-1.5 w-full rounded-full bg-white/15">
-          <div
-            className="absolute inset-y-0 left-0 rounded-full bg-white/30"
-            style={{ width: `${progress * 100}%` }}
-          />
-          <div
-            className="absolute top-1/2 h-4 w-4 rounded-full bg-white shadow-[0_1px_4px_rgba(0,0,0,0.4)]"
-            style={{
-              left: `${progress * 100}%`,
-              transform: "translate(-50%, -50%)",
-              willChange: "left",
-            }}
-          />
-        </div>
+        <motion.div
+          className="absolute inset-y-0 rounded-full bg-white/90"
+          style={{ width: `${seg}%` }}
+          // Continuous progress → the pill rides the swipe; the spring gives the
+          // settle its elasticity. Stiffer while dragging so it hugs the finger.
+          animate={{ left: `${progress * (100 - seg)}%` }}
+          transition={
+            dragging
+              ? { type: "spring", stiffness: 900, damping: 60 }
+              : { type: "spring", stiffness: 380, damping: 24 }
+          }
+        />
       </div>
     </div>
   );
@@ -499,18 +499,17 @@ function GalleryArrow({
 // Stack poses
 // ---------------------------------------------------------------------------
 
-type Fan = { x: number; y: number; tilt: number; shift: number };
+type Fan = { x: number; y: number; tilt: number };
 
 function getStackPose(depth: number, fan: Fan): TargetAndTransition {
   const layer = Math.min(depth, visibleDepth);
 
-  // Right-fanned reveal: each card behind drifts right and tilts so a strip of
-  // its own content shows along the edge — the deck reads as a fan of cards.
-  // `shift` re-centers the whole fan around the midpoint so the visual mass sits
-  // centered, not biased right. No `filter` here: animating blur forces Safari
-  // to re-raster the 3D scene every frame — opacity alone carries the depth cue.
+  // Right-fanned reveal: the front card stays centred (x 0); each card behind
+  // drifts right and tilts so a strip of its own content peeks along the edge.
+  // No `filter` here: animating blur forces Safari to re-raster the 3D scene
+  // every frame — opacity alone carries the depth cue.
   return {
-    x: layer * fan.x - fan.shift,
+    x: layer * fan.x,
     y: layer * fan.y,
     z: -layer * 36,
     scale: 1 - layer * 0.015,
@@ -520,9 +519,9 @@ function getStackPose(depth: number, fan: Fan): TargetAndTransition {
   };
 }
 
-function getEntrancePose(shift: number): TargetAndTransition {
+function getEntrancePose(): TargetAndTransition {
   return {
-    x: -shift,
+    x: 0,
     y: 46,
     z: 0,
     scale: 0.84,
@@ -573,10 +572,12 @@ export default function ProjectStack({ className }: { className?: string }) {
     x: fanX,
     y: compact ? 4 : 5,
     tilt: compact ? 2.2 : 3.2,
-    shift: Math.round((visibleDepth * fanX) / 2),
   };
   const cardMax = compact ? Math.min(Math.round(vw * 0.74), 340) : 400;
-  const regionH = compact ? 452 : 540;
+  // Region height tracks the tallest card (+ the fan's downward peek) so the
+  // deck has no dead space below it — the dots sit right under the cards and the
+  // block reads balanced against the heading, not floating high.
+  const regionH = compact ? 390 : 462;
 
   const advance = () => {
     if (order.length < 2) return;
@@ -674,7 +675,7 @@ export default function ProjectStack({ className }: { className?: string }) {
                     : "none",
                 cursor: active ? "grab" : "pointer",
               }}
-              initial={getEntrancePose(fan.shift)}
+              initial={getEntrancePose()}
               animate={getStackPose(depth, fan)}
               transition={
                 leaving
