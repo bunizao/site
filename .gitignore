@@ -29,6 +29,7 @@ skills-lock.json
 *.sw?
 .env
 .vercel
+.wrangler
 .env*.local
 playwright-report
 test-results

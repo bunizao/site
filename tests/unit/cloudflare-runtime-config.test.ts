@@ -26,7 +26,7 @@ describe('Cloudflare runtime configuration', () => {
       '.github/workflows/preview-smoke.yml',
       '.github/workflows/lighthouse.yml',
       '.github/scripts/redact-lighthouse-artifacts.mjs',
-      'lighthouserc.cjs',
+      'config/lighthouse.cjs',
       'playwright.config.ts',
     ];
     const configText = files.map(readText).join('\n');

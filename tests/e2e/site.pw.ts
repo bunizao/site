@@ -1,4 +1,4 @@
-import type { Page } from '@playwright/test';
+import { devices, type Page } from '@playwright/test';
 import { expect, test } from './fixtures';
 
 function isIgnorableDevConsoleError(message: string): boolean {
@@ -126,11 +126,11 @@ test.describe('Home page', () => {
     await expect(page.locator('#projects-section')).toBeVisible();
     await expect(page.locator('#writing-section')).toBeVisible();
     await expect(page.locator('#moods-section')).toBeVisible();
-    expect(await page.locator('#projects-section .project-item').count()).toBeGreaterThan(0);
+    await expect(page.locator('#projects-section [aria-label="Projects"] article')).toHaveCount(4);
     expect(await page.locator('#writing-section .post-item').count()).toBeGreaterThan(0);
     await expect(page.locator('#writing-section .post-item').first()).toHaveCSS('display', 'flex');
     await expect(page.locator('#writing-section .post-meta').first()).toHaveCSS('display', 'flex');
-    await expect(page.getByRole('link', { name: 'View all on GitHub' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Tell me more' }).first()).toBeVisible();
     await expect(page.getByRole('link', { name: 'Read all posts' })).toBeVisible();
     await expect(page.getByRole('link', { name: 'Privacy' })).toBeVisible();
 
@@ -191,10 +191,14 @@ test.describe('Home page', () => {
 
   test('reserves mixed home mood preview heights without runtime errors', async ({ page }) => {
     const consoleErrors: string[] = [];
+    const notFoundResponses: string[] = [];
     page.on('console', (message) => {
       if (message.type() === 'error' && !isIgnorableDevConsoleError(message.text())) {
         consoleErrors.push(message.text());
       }
+    });
+    page.on('response', (response) => {
+      if (response.status() === 404) notFoundResponses.push(response.url());
     });
 
     await page.route('**/api/github/contributions**', async (route) => {
@@ -225,6 +229,12 @@ test.describe('Home page', () => {
     await expect(cards).toHaveCount(3);
     await expect(page.locator('#moods-section [data-mood-error]')).toBeHidden();
 
+    await expect.poll(async () => {
+      return await cards.evaluateAll((nodes) =>
+        nodes.filter((node) => node.getAttribute('data-reserved') === 'true').length
+      );
+    }).toBe(3);
+
     const reservedLines = await cards.evaluateAll((nodes) =>
       nodes.map((node) => node.getAttribute('data-reserved-lines'))
     );
@@ -238,7 +248,10 @@ test.describe('Home page', () => {
 
     await cards.nth(1).click();
     await expect(page).toHaveURL(/\/mood\/1002$/);
-    expect(consoleErrors).toEqual([]);
+    expect({ consoleErrors, notFoundResponses }).toEqual({
+      consoleErrors: [],
+      notFoundResponses: [],
+    });
   });
 
   test('keeps the home mood loading placeholder stable while data resolves', async ({ page }) => {
@@ -660,7 +673,7 @@ test.describe('Home page', () => {
     expect(collapsed).not.toBeNull();
     expect(collapsed?.brandCenterDelta).toBeLessThanOrEqual(1);
     expect(collapsed?.projectsCenterDelta).toBeLessThanOrEqual(1);
-    expect(collapsed?.projectsLeft).toBeLessThan((initial?.projectsLeft ?? 0) - 20);
+    expect((initial?.projectsLeft ?? 0) - (collapsed?.projectsLeft ?? 0)).toBeGreaterThan(12);
   });
 
   test('keeps mobile navbar pinned when the visual viewport shifts', async ({ page }) => {
@@ -761,5 +774,60 @@ test.describe('Home page', () => {
         window.getComputedStyle(document.documentElement).getPropertyValue('--visual-viewport-top').trim()
       )
     )).toBe('24px');
+  });
+});
+
+test.describe('Home page mobile touch', () => {
+  test('reveals hidden experience rows on tap and keeps them open', async ({ browser }, testInfo) => {
+    const iphone = devices['iPhone 13'];
+    const context = await browser.newContext({
+      baseURL: String(testInfo.project.use.baseURL),
+      deviceScaleFactor: iphone.deviceScaleFactor,
+      hasTouch: iphone.hasTouch,
+      isMobile: iphone.isMobile,
+      screen: { width: 390, height: 844 },
+      userAgent: iphone.userAgent,
+      viewport: iphone.viewport,
+    });
+    const page = await context.newPage();
+
+    try {
+      await page.emulateMedia({ reducedMotion: 'no-preference' });
+
+      await page.goto('/');
+      expect(page.url()).toBe(`${String(testInfo.project.use.baseURL)}/`);
+      await expect(page.locator('[data-experience-timeline="hydrated"]')).toHaveCount(1);
+      await page.locator('#experience-section').scrollIntoViewIfNeeded();
+
+      const jokeRows = page.locator('#experience-section [data-experience-joke-row]');
+      await expect(jokeRows).toHaveCount(2);
+      await expect(jokeRows.first()).toHaveAttribute('data-revealed', 'false');
+
+      const firstLink = jokeRows.first().getByRole('link', { name: 'Anthropic' });
+      const firstTapResult = await firstLink.evaluate((node) => {
+        node.dispatchEvent(new TouchEvent('touchstart', { bubbles: true, cancelable: true }));
+        const touchEnd = new TouchEvent('touchend', { bubbles: true, cancelable: true });
+        const click = new MouseEvent('click', { bubbles: true, cancelable: true });
+        const touchEndWasPrevented = !node.dispatchEvent(touchEnd);
+        const clickWasPrevented = !node.dispatchEvent(click);
+
+        return {
+          clickWasPrevented,
+          touchEndWasPrevented,
+        };
+      });
+
+      await expect(jokeRows.first()).toHaveAttribute('data-revealed', 'true');
+      await expect(jokeRows.nth(1)).toHaveAttribute('data-revealed', 'true');
+      expect(firstTapResult).toEqual({
+        clickWasPrevented: true,
+        touchEndWasPrevented: true,
+      });
+
+      await page.touchscreen.tap(10, 10);
+      await expect(jokeRows.first()).toHaveAttribute('data-revealed', 'true');
+    } finally {
+      await context.close();
+    }
   });
 });

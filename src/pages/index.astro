@@ -2,6 +2,7 @@
 import Layout from '../layouts/Layout.astro';
 import Hero from '@/features/home/ui/Hero.astro';
 import ParallaxWrapper from '@/features/home/ui/ParallaxWrapper.astro';
+import Experience from '@/features/home/ui/Experience.astro';
 import Projects from '@/features/home/ui/Projects.astro';
 import Posts from '@/features/home/ui/Posts.astro';
 import HomePreview from '@/features/mood/ui/HomePreview.astro';
@@ -24,6 +25,7 @@ const isHomeDevSurface = import.meta.env.DEV && process.env.DEV_SURFACE === 'hom
   <ParallaxWrapper>
     <main class="page-container">
       <Hero />
+      <Experience />
       <Projects />
       <Posts />
       <HomePreview runtimeDisabled={isHomeDevSurface} />
