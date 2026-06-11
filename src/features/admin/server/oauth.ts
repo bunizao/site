@@ -7,7 +7,6 @@ import {
   isAllowedEmail,
   readAdminAuthConfig,
   readAdminDevSession,
-  readStateFromCookieHeader,
   verifyOauthState,
 } from './session';
 
@@ -132,19 +131,17 @@ export async function handleOauthCallback(request: Request, locals: any): Promis
   }
 
   const url = new URL(request.url);
+  const oauthError = url.searchParams.get('error')?.trim();
   const code = url.searchParams.get('code')?.trim();
   const incomingState = url.searchParams.get('state')?.trim();
+  if (oauthError) {
+    return { ok: false, reason: 'token', cookies };
+  }
   if (!code || !incomingState) {
     return { ok: false, reason: 'state', cookies };
   }
 
-  const cookieHeader = request.headers.get('cookie');
-  const storedState = readStateFromCookieHeader(cookieHeader);
-  if (!storedState || storedState !== incomingState) {
-    return { ok: false, reason: 'state', cookies };
-  }
-
-  const verified = await verifyOauthState(storedState, config.sessionSigningKey);
+  const verified = await verifyOauthState(incomingState, config.sessionSigningKey);
   if (!verified) {
     return { ok: false, reason: 'state', cookies };
   }

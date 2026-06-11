@@ -119,11 +119,7 @@ describe('admin OAuth callback', () => {
 
     try {
       const result = await handleOauthCallback(
-        new Request(`https://buxx.me/api/admin/auth/callback?code=oauth-code&state=${encodeURIComponent(state)}`, {
-          headers: {
-            cookie: `${ADMIN_OAUTH_STATE_COOKIE}=${state}`,
-          },
-        }),
+        new Request(`https://buxx.me/api/admin/auth/callback?code=oauth-code&state=${encodeURIComponent(state)}`),
         {
           env: {
             CLOUDFLARE_OAUTH_CLIENT_ID: 'client-id',

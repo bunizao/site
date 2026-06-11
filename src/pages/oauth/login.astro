@@ -151,11 +151,7 @@ const startUrl = `/api/admin/auth/start?next=${encodeURIComponent(next)}`;
         {errorMessage && <div class="login-error">{errorMessage}</div>}
 
         <a class="login-button" href={startUrl}>
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <path d="M17.5 19H8a6 6 0 1 1 5.76-7.68A4.5 4.5 0 1 1 17.5 19Z" />
-            <path d="M17.5 19H19a3 3 0 0 0 0-6h-.5" />
-          </svg>
-          Sign in with Cloudflare
+          Sign in
         </a>
 
         <p class="login-meta">This is a protected page. Only approved users may view it. See the <a href="/privacy">Privacy Policy</a> for verification details.</p>
