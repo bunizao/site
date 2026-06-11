@@ -4,6 +4,7 @@ import type { CheerioAPI, Element } from 'cheerio';
 import { LRUCache } from 'lru-cache';
 import flourite from 'flourite';
 import Prism from 'prismjs';
+import { readEnv as readRuntimeEnv } from '@/lib/runtime/env';
 
 // Import Prism language components
 import 'prismjs-components-importer/cjs/prism-c';
@@ -268,19 +269,8 @@ const TELEGRAM_PARSE_CACHE_VERSION = 'sticker-fallback-v1';
 const QUOTE_IMAGE_ERROR_HANDLER =
   "this.closest('.mood-item-quote-media')?.remove();const q=this.closest('.mood-item-quote');q?.classList.remove('mood-item-quote--with-media','mood-item-quote--media-only','mood-detail-quote--with-media','mood-detail-quote--media-only');if(q&&!q.textContent.trim())q.remove();";
 
-// Helper function to get environment variables
 function getEnv(env: ImportMetaEnv, Astro: any, name: string): string {
-  const buildValue = env[name];
-  if (typeof buildValue === 'string' && buildValue.trim()) {
-    return buildValue.trim();
-  }
-
-  const runtimeValue = Astro.locals?.runtime?.env?.[name] ?? Astro.locals?.env?.[name];
-  if (typeof runtimeValue === 'string' && runtimeValue.trim()) {
-    return runtimeValue.trim();
-  }
-
-  return '';
+  return readRuntimeEnv(Astro.locals, name, env);
 }
 
 const telegramHeaderAllowList = [

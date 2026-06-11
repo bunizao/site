@@ -1,6 +1,6 @@
 # OAuth Hub
 
-The OAuth hub is the owner-auth control plane for the site. It starts with the existing GitHub OAuth admin session and gives future sandbox jobs, knowledge connectors, and MCP clients one place to request narrower credentials.
+The OAuth hub is the owner-auth control plane for the site. It starts with the GitHub OAuth admin session and gives future sandbox jobs, knowledge connectors, and MCP clients one place to request narrower credentials.
 
 ## Current Scope
 
@@ -15,7 +15,7 @@ The current implementation does not store GitHub access tokens after login. That
 
 ## Design Rules
 
-- Keep one human authority: the allow-listed GitHub account.
+- Keep one human authority: the allow-listed GitHub login.
 - Do not expose connector credentials or provider tokens to the browser.
 - Do not pass `admin_session` into sandboxes, MCP servers, or external model clients.
 - Mint short-lived machine credentials from the owner session when a non-browser client needs access.

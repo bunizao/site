@@ -56,6 +56,21 @@ describe('runtime env helpers', () => {
     expect(readEnv(locals, 'SITE_URL', {})).toBe('https://edge.example');
   });
 
+  test('does not read removed Astro runtime env getter', () => {
+    const locals: any = {
+      env: {
+        SITE_URL: ' https://edge.example ',
+      },
+      runtime: {
+        get env() {
+          throw new Error('Astro.locals.runtime.env has been removed');
+        },
+      },
+    };
+
+    expect(readEnv(locals, 'SITE_URL', {})).toBe('https://edge.example');
+  });
+
   test('reads public env values with the PUBLIC_ prefix', () => {
     const locals = {
       runtime: {

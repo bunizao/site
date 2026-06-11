@@ -5,20 +5,10 @@ const paths = (process.env.LHCI_PATHS || '/,/mood')
   .filter(Boolean);
 
 const urls = paths.map((path) => new URL(path, deploymentUrl).toString());
-const extraHeaders = {};
-
-if (process.env.VERCEL_AUTOMATION_BYPASS_SECRET) {
-  extraHeaders['x-vercel-protection-bypass'] = process.env.VERCEL_AUTOMATION_BYPASS_SECRET;
-  extraHeaders['x-vercel-set-bypass-cookie'] = 'true';
-}
 
 const settings = {
   chromeFlags: '--headless=new --no-sandbox',
 };
-
-if (Object.keys(extraHeaders).length > 0) {
-  settings.extraHeaders = JSON.stringify(extraHeaders);
-}
 
 module.exports = {
   ci: {

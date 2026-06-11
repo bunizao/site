@@ -17,6 +17,12 @@ interface BetterStackStatusPayload {
   };
 }
 
+type CloudflareRequest = Request & {
+  cf?: {
+    colo?: unknown;
+  };
+};
+
 export function normalizeBetterStackAggregateState(raw: unknown): FooterStatus {
   if (typeof raw !== 'string') return 'unknown';
   switch (raw) {
@@ -57,6 +63,14 @@ export function getBetterStackFooterState(payload: unknown): { status: FooterSta
   };
 }
 
+export function getCloudflareColo(request: Request): string | null {
+  const raw = (request as CloudflareRequest).cf?.colo;
+  if (typeof raw !== 'string') return null;
+
+  const colo = raw.trim().toUpperCase();
+  return /^[A-Z]{3}$/.test(colo) ? colo : null;
+}
+
 export const GET: APIRoute = async ({ request, locals }) => {
   const rateLimit = withRateLimit(
     request,
@@ -66,8 +80,9 @@ export const GET: APIRoute = async ({ request, locals }) => {
   const headers = new Headers(rateLimit.headers);
   headers.set('Cache-Control', 'public, s-maxage=30, stale-while-revalidate=120');
 
-  if (import.meta.env.DEV && !request.headers.get('x-vercel-id')) {
-    headers.set('x-vercel-id', 'mel1::demo');
+  const colo = getCloudflareColo(request);
+  if (colo) {
+    headers.set('x-cloudflare-colo', colo);
   }
 
   if (!rateLimit.allowed) {

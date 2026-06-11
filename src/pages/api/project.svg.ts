@@ -1,6 +1,7 @@
 import type { APIRoute } from 'astro';
 import { isE2ESiteFixtureEnabled } from '@/lib/e2e';
 import { fetchGitHubRepo } from '../../lib/github';
+import { readRuntimeEnvSource } from '@/lib/runtime/env';
 import { svgResponse } from '../../lib/svg-response';
 import { FONT_CODE, fontFace } from '@/lib/fonts';
 
@@ -75,7 +76,7 @@ export const GET: APIRoute = async ({ request, locals }) => {
   // Fetch live GitHub stars
   const githubData = isE2ESiteFixtureEnabled(locals)
     ? { stars: 128 }
-    : await fetchGitHubRepo(project.repo, import.meta.env, locals?.runtime?.env);
+    : await fetchGitHubRepo(project.repo, import.meta.env, readRuntimeEnvSource(locals));
   const stars = githubData?.stars ?? null;
 
   // Theme colors

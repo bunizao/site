@@ -20,7 +20,7 @@ IP resolution order:
 
 Responses include `X-RateLimit-Limit`, `X-RateLimit-Remaining`, `X-RateLimit-Reset`, and `Retry-After` on rejection.
 
-Operational caveat: state is process-local and not durable — Vercel's serverless instances each maintain their own buckets. This is acceptable for the current traffic shape; it would not be acceptable for a high-volume API.
+Operational caveat: state is isolate-local and not durable. Cloudflare Worker isolates maintain their own buckets, so this is acceptable for the current traffic shape but not enough for a high-volume API.
 
 ## Turnstile
 
@@ -42,11 +42,11 @@ Currently protects selected generated resources, like `/api/activity-panel.svg` 
 
 Hardening is selective.
 
-- Public HTML pages do **not** apply a site-wide CSP via `src/layouts/Layout.astro`. The mood embed and SVG endpoints are stricter, but the main site is permissive enough that inline scripts and third-party analytics work.
+- Public HTML pages do **not** apply a site-wide CSP via `src/layouts/Layout.astro`. The mood embed and SVG endpoints are stricter, but the main site still allows the inline scripts required by the current shell.
 - Embed responses use stricter headers in `src/lib/embed-response.ts` — frame-ancestors, sandbox-friendly defaults.
 - SVG responses use CSP and hardening headers in `src/lib/svg-response.ts`.
 
-This is the trade we've made: the public site stays compatible with broad analytics and embeds; isolated surfaces (embed, SVG) carry the strict policies that matter.
+This is the trade we've made: the public site keeps compatibility for its shared shell and embeds; isolated surfaces (embed, SVG) carry the strict policies that matter.
 
 ## Disclosure
 

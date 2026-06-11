@@ -134,6 +134,8 @@ Data flow:
 
 - Build-time render fetches the latest 5 public Ghost posts from `GHOST_URL`.
 - The request uses `GHOST_CONTENT_APIKEY`.
+- `GHOST_URL` and `GHOST_CONTENT_APIKEY` must exist in the Cloudflare build environment. Worker runtime secrets alone are not enough because the home page is prerendered into static HTML.
+- Ghost's `Post published` webhook should call the Cloudflare Workers Builds deploy hook for the production branch. The old Vercel deploy hook does not rebuild the Cloudflare Worker.
 - Only metadata needed by the section is fetched:
   - `id`
   - `title`
@@ -147,6 +149,13 @@ Rendering rules:
 - the first public tag is used as display metadata
 - publish date is formatted as `YYYY.MM`
 - fetch failure returns an empty list and shows `No posts yet.`
+
+Publishing flow:
+
+- In Cloudflare, create a Workers Builds deploy hook for the `cloudflare-runtime` production branch.
+- In Ghost, replace the old Vercel deploy hook URL with that Cloudflare deploy hook URL.
+- Keep the Ghost hook event as `Post published`.
+- After changing build variables or the hook URL, trigger one fresh Cloudflare build and verify that the deployed HTML no longer contains `No posts yet.` inside `#writing-section`.
 
 Client behavior:
 
@@ -211,4 +220,4 @@ Cross-cutting behavior:
 - navbar is section-anchor based, not route-aware
 - navbar text is split into character spans and tracks active sections while scrolling
 - `ParallaxWrapper.astro` adds section drift without changing section ownership
-- Vercel Speed Insights is mounted in the base layout, so the home page inherits it automatically
+- the base layout does not mount a third-party analytics script

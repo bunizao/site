@@ -20,8 +20,7 @@ Responsibilities:
 - exposes optional RSS and oEmbed discovery links
 - mounts the shared section navbar by default
 - mounts the shared theme dropdown
-- mounts Vercel Speed Insights
-- lazy-loads Vercel Analytics
+- avoids mounting third-party analytics scripts
 
 Theme behavior:
 

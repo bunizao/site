@@ -1,5 +1,4 @@
-import { CloudflareD1Client } from '@/features/notify/server/d1';
-import { getNotifyConfig, requireConfigValue } from '@/features/notify/server/env';
+import { createNotifyD1Client, type NotifyD1Client } from '@/features/notify/server/d1';
 import { hashEmail, isValidEmail, normalizeEmail } from '@/features/notify/server/security';
 import {
   NOTIFY_CHANNELS,
@@ -156,17 +155,8 @@ function nullable<T>(value: T | undefined | null): T | null {
   return value;
 }
 
-export function createAdminD1(context: AdminContext): CloudflareD1Client {
-  const config = getNotifyConfig({ locals: context.locals });
-  requireConfigValue(config.cloudflareAccountId, 'CLOUDFLARE_ACCOUNT_ID');
-  requireConfigValue(config.cloudflareApiToken, 'CLOUDFLARE_API_TOKEN');
-  requireConfigValue(config.cloudflareNotifyD1DatabaseId, 'CLOUDFLARE_NOTIFY_D1_DATABASE_ID');
-
-  return new CloudflareD1Client({
-    accountId: config.cloudflareAccountId,
-    apiToken: config.cloudflareApiToken,
-    databaseId: config.cloudflareNotifyD1DatabaseId,
-  });
+export function createAdminD1(context: AdminContext): NotifyD1Client {
+  return createNotifyD1Client({ locals: context.locals });
 }
 
 export async function listSubscribers(
@@ -292,7 +282,7 @@ export async function listRecentAuditEvents(
 }
 
 async function writeAuditEvent(
-  d1: CloudflareD1Client,
+  d1: NotifyD1Client,
   input: {
     eventType: NotifyAuditEventType;
     email: string;
@@ -328,7 +318,7 @@ async function writeAuditEvent(
   }
 }
 
-async function persistSubscriber(d1: CloudflareD1Client, record: SubscriberRecord): Promise<void> {
+async function persistSubscriber(d1: NotifyD1Client, record: SubscriberRecord): Promise<void> {
   await d1.run(
     `INSERT INTO notify_subscribers (
       email,

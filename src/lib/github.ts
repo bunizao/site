@@ -121,8 +121,14 @@ interface GitHubContributionsOptions {
 const MAX_CONTRIBUTION_DAYS = 365;
 const GITHUB_REQUEST_TIMEOUT_MS = 5_000;
 
-function getGitHubToken(env: ImportMetaEnv, runtimeEnv?: Record<string, string | undefined>): string {
-  return env.GITHUB_TOKEN ?? runtimeEnv?.GITHUB_TOKEN ?? '';
+function getGitHubToken(env: ImportMetaEnv, runtimeEnv?: Record<string, unknown>): string {
+  const buildToken = env.GITHUB_TOKEN;
+  if (typeof buildToken === 'string' && buildToken.trim()) {
+    return buildToken.trim();
+  }
+
+  const runtimeToken = runtimeEnv?.GITHUB_TOKEN;
+  return typeof runtimeToken === 'string' ? runtimeToken.trim() : '';
 }
 
 function normalizeText(value: string): string {
@@ -292,7 +298,7 @@ async function fetchGitHubRepoRest(repo: string, token?: string): Promise<GitHub
 export async function fetchGitHubRepo(
   repo: string,
   env: ImportMetaEnv,
-  runtimeEnv?: Record<string, string | undefined>
+  runtimeEnv?: Record<string, unknown>
 ): Promise<GitHubRepoData | null> {
   const token = getGitHubToken(env, runtimeEnv);
   if (token) {
@@ -441,7 +447,7 @@ async function fetchGitHubPinnedReposHtml(
 export async function fetchGitHubPinnedRepos(
   username: string,
   env: ImportMetaEnv,
-  runtimeEnv?: Record<string, string | undefined>,
+  runtimeEnv?: Record<string, unknown>,
   limit = 6
 ): Promise<GitHubPinnedRepoData[] | null> {
   const token = getGitHubToken(env, runtimeEnv);
@@ -456,7 +462,7 @@ export async function fetchGitHubPinnedRepos(
 export async function fetchGitHubContributions(
   username: string,
   env: ImportMetaEnv,
-  runtimeEnv?: Record<string, string | undefined>,
+  runtimeEnv?: Record<string, unknown>,
   options: GitHubContributionsOptions = {}
 ): Promise<GitHubContributionsData | null> {
   const token = getGitHubToken(env, runtimeEnv);

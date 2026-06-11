@@ -10,5 +10,5 @@ NOTIFY_BASE_URL = "https://buxx.me"
 crons = ["*/15 * * * *"]
 
 # Secrets (set via `npx wrangler secret put <NAME>`):
-# - NOTIFY_CRON_SECRET    (same value as Vercel CRON_SECRET)
+# - NOTIFY_CRON_SECRET    (same value accepted by the site CRON_SECRET)
 # - WORKER_MANUAL_TOKEN   (optional, used to trigger POST manually)

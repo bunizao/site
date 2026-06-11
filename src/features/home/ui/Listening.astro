@@ -924,6 +924,16 @@ const hasPreview = Boolean(previewUrl);
     return `hsl(${Math.round(hue)} ${Math.round(boostedSaturation * 100)}% ${Math.round(boostedLightness * 100)}%)`;
   };
 
+  const runWhenIdle = (callback: () => void, timeout = 1500) => {
+    const requestIdle = window.requestIdleCallback;
+    if (typeof requestIdle === 'function') {
+      requestIdle(callback, { timeout });
+      return;
+    }
+
+    window.setTimeout(callback, 0);
+  };
+
   const initListeningSection = () => {
     const roots = document.querySelectorAll('[data-listening]');
 
@@ -972,14 +982,16 @@ const hasPreview = Boolean(previewUrl);
           return;
         }
 
-        try {
-          const accent = sampleArtworkAccent(artwork);
-          if (!accent) return;
-          artworkAccentCache.set(artworkSrc, accent);
-          root.style.setProperty('--listening-accent', accent);
-        } catch {
-          root.style.removeProperty('--listening-accent');
-        }
+        runWhenIdle(() => {
+          try {
+            const accent = sampleArtworkAccent(artwork);
+            if (!accent) return;
+            artworkAccentCache.set(artworkSrc, accent);
+            root.style.setProperty('--listening-accent', accent);
+          } catch {
+            root.style.removeProperty('--listening-accent');
+          }
+        });
       };
 
       if (artwork instanceof HTMLImageElement) {
@@ -1050,24 +1062,38 @@ const hasPreview = Boolean(previewUrl);
         if (audio) {
           audio.pause();
           audio.currentTime = 0;
+          audio = null;
         }
 
         setPreviewState(false);
         playButton.dataset.previewUrl = previewUrl;
-        audio = previewUrl ? new Audio(previewUrl) : null;
 
-        if (!audio) {
+        if (!previewUrl) {
           playButton.disabled = true;
           playButton.setAttribute('aria-label', `${trackTitle} preview unavailable`);
           return;
         }
 
+        playButton.disabled = false;
+        playButton.setAttribute('aria-label', `Play preview of ${trackTitle}`);
+      };
+
+      const getPreviewAudio = () => {
+        const previewUrl = playButton.dataset.previewUrl ?? '';
+        if (!previewUrl) {
+          return null;
+        }
+
+        if (audio) {
+          return audio;
+        }
+
+        audio = new Audio(previewUrl);
         audio.preload = 'none';
         audio.addEventListener('ended', () => {
           setPreviewState(false);
         });
-        playButton.disabled = false;
-        playButton.setAttribute('aria-label', `Play preview of ${trackTitle}`);
+        return audio;
       };
 
       const formatPlayedAt = (playedAt: string) => {
@@ -1143,15 +1169,16 @@ const hasPreview = Boolean(previewUrl);
       window.addEventListener('resize', syncTitleMarquee, { passive: true });
 
       playButton.addEventListener('click', async () => {
-        if (!audio) {
+        const previewAudio = getPreviewAudio();
+        if (!previewAudio) {
           return;
         }
 
-        if (audio.paused) {
+        if (previewAudio.paused) {
           setPreviewState(true);
 
           try {
-            await audio.play();
+            await previewAudio.play();
           } catch {
             setPreviewState(false);
           }
@@ -1159,8 +1186,8 @@ const hasPreview = Boolean(previewUrl);
           return;
         }
 
-        audio.pause();
-        audio.currentTime = 0;
+        previewAudio.pause();
+        previewAudio.currentTime = 0;
         setPreviewState(false);
       });
 

@@ -1,5 +1,6 @@
 import { createHmac } from 'node:crypto';
 import { secureCompareText } from '@/features/notify/server/security';
+import { readEnv } from '@/lib/runtime/env';
 
 function normalizeSearchParams(searchParams: URLSearchParams): string {
   const entries = Array.from(searchParams.entries())
@@ -21,8 +22,7 @@ function buildSignedPayload(pathname: string, searchParams: URLSearchParams): st
 }
 
 export function readRuntimeEnv(locals: any, name: string): string {
-  const runtimeValue = locals?.runtime?.env?.[name] ?? locals?.env?.[name];
-  return typeof runtimeValue === 'string' ? runtimeValue.trim() : '';
+  return readEnv(locals, name);
 }
 
 export function signRequestPath(

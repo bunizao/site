@@ -1,6 +1,6 @@
 # Notify Scheduler Worker
 
-Cloudflare Worker that drives notification scheduling independent of Vercel Cron limits.
+Cloudflare Worker that drove notification scheduling before the consolidated `buxx-site` Worker owned Cloudflare Cron.
 
 ## What It Does
 
@@ -13,7 +13,7 @@ Both requests send `Authorization: Bearer <NOTIFY_CRON_SECRET>`.
 
 ## Required Site APIs
 
-This worker expects the site to expose:
+This worker expects the site runtime to expose:
 
 - `https://<SITE>/api/notify/schedule`
 - `https://<SITE>/api/notify/retry`
@@ -49,5 +49,5 @@ curl -X POST "https://<worker-domain>" \
 
 ## Notes
 
-- Keep Vercel cron as low-frequency fallback.
-- Worker cron is the primary scheduler for `every_5h` and `daily` modes.
+- The consolidated `buxx-site` Worker is the primary scheduler target for `every_5h` and `daily` modes.
+- Keep this standalone worker as rollback history until production cutover is verified.

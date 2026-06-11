@@ -2,7 +2,14 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 const root = path.join(process.cwd(), '.lighthouseci');
-const secrets = [process.env.VERCEL_AUTOMATION_BYPASS_SECRET].filter(Boolean);
+const secrets = (process.env.LIGHTHOUSE_ARTIFACT_REDACTIONS || '')
+  .split(/\r?\n|,/)
+  .map((value) => value.trim())
+  .filter(Boolean);
+
+if (secrets.length === 0) {
+  process.exit(0);
+}
 
 function walk(dir) {
   if (!fs.existsSync(dir)) return [];
