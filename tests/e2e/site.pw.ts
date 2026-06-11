@@ -857,3 +857,93 @@ test.describe('Home page mobile touch', () => {
     }
   });
 });
+
+test.describe('Projects page mobile touch', () => {
+  test('swipes the enlarged project card from the story body', async ({ browser }, testInfo) => {
+    const iphone = devices['iPhone 13'];
+    const context = await browser.newContext({
+      baseURL: String(testInfo.project.use.baseURL),
+      deviceScaleFactor: iphone.deviceScaleFactor,
+      hasTouch: iphone.hasTouch,
+      isMobile: iphone.isMobile,
+      screen: { width: 390, height: 844 },
+      userAgent: iphone.userAgent,
+      viewport: iphone.viewport,
+    });
+    const page = await context.newPage();
+
+    try {
+      await page.emulateMedia({ reducedMotion: 'no-preference' });
+      await page.goto('/projects');
+      await page.waitForLoadState('networkidle');
+      await expect(page.getByRole('heading', { name: 'Selected work' })).toBeVisible();
+
+      const stack = page.locator('[aria-roledescription="carousel"][aria-label="Projects"]');
+      await stack.scrollIntoViewIfNeeded();
+      await expect(page.locator('[data-project-stack="hydrated"]')).toHaveCount(1);
+      await expect(stack.locator('article')).toHaveCount(4);
+      await stack.getByRole('button', { name: /Tell me more/i }).click();
+
+      const dialog = page.getByRole('dialog', { name: 'Project gallery' });
+      await expect(dialog).toBeVisible();
+      const slider = page.getByRole('slider', { name: 'Project' });
+      await expect(slider).toHaveAttribute('aria-valuenow', '1');
+
+      await dialog.evaluate(async (node) => {
+        const body = node.querySelector('[data-project-story-body]');
+        if (!(body instanceof HTMLElement)) {
+          throw new Error('Missing project story body');
+        }
+
+        const rect = body.getBoundingClientRect();
+        const target = body;
+        const y = rect.top + Math.min(110, rect.height * 0.55);
+        const startX = rect.left + rect.width * 0.82;
+        const endX = rect.left + rect.width * 0.18;
+        const steps = 6;
+
+        const touchAt = (x: number): Touch => {
+          const init = {
+            identifier: 1,
+            target,
+            clientX: x,
+            clientY: y,
+            screenX: x,
+            screenY: y,
+            pageX: x + window.scrollX,
+            pageY: y + window.scrollY,
+            radiusX: 8,
+            radiusY: 8,
+            rotationAngle: 0,
+            force: 0.7,
+          };
+
+          return typeof Touch === 'function' ? new Touch(init) : (init as unknown as Touch);
+        };
+
+        const dispatch = (type: 'touchstart' | 'touchmove' | 'touchend', x: number) => {
+          const touch = touchAt(x);
+          target.dispatchEvent(new TouchEvent(type, {
+            bubbles: true,
+            cancelable: true,
+            touches: type === 'touchend' ? [] : [touch],
+            targetTouches: type === 'touchend' ? [] : [touch],
+            changedTouches: [touch],
+          }));
+        };
+
+        dispatch('touchstart', startX);
+        for (let i = 1; i <= steps; i += 1) {
+          const x = startX + ((endX - startX) * i) / steps;
+          dispatch('touchmove', x);
+          await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+        }
+        dispatch('touchend', endX);
+      });
+
+      await expect(slider).toHaveAttribute('aria-valuenow', '2');
+    } finally {
+      await context.close();
+    }
+  });
+});

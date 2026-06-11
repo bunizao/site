@@ -1,4 +1,13 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import {
+  forwardRef,
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { createPortal } from "react-dom";
 import {
   AnimatePresence,
@@ -28,6 +37,14 @@ import { cn } from "@/lib/utils";
 const visibleDepth = 3; // four projects → depths 0..3, all peek
 const autoAdvanceMs = 5500; // slow enough to read; hover pauses it entirely
 const dragAdvanceThreshold = 70;
+const swipeAxisLockPx = 8;
+const swipeAxisBias = 1.14;
+const swipeFlickVelocity = 0.34;
+const swipeProjectionMs = 190;
+const swipeDistanceRatio = 0.16;
+
+const clamp = (value: number, min: number, max: number) =>
+  Math.min(max, Math.max(min, value));
 
 // Shared chrome. Warm neutral, never pure black/white: a single cream surface
 // that frames the dark hero like a matte in light mode, a soft near-black in
@@ -135,7 +152,10 @@ function StoryCard({
         {renderHero(project.hero, active)}
       </div>
 
-      <div className="min-h-0 flex-1 touch-pan-y overflow-y-auto overscroll-contain px-4 pb-3 pt-5 sm:px-5 sm:pb-4">
+      <div
+        data-project-story-body
+        className="min-h-0 flex-1 touch-pan-y overflow-y-auto overscroll-contain px-4 pb-3 pt-5 sm:px-5 sm:pb-4"
+      >
         <p className="mb-2 font-code text-[11px] uppercase tracking-[0.16em] text-stone-400 dark:text-white/40">
           {project.type}
         </p>
@@ -213,18 +233,23 @@ function StoryGallery({
   const count = projects.length;
 
   const scrollerRef = useRef<HTMLDivElement>(null);
+  const scrubberRef = useRef<GalleryScrubberHandle>(null);
+  const touchGestureActiveRef = useRef(false);
+  const latestProgressRef = useRef(count > 1 ? index / (count - 1) : 0);
   const [cur, setCurState] = useState(index);
-  const [progress, setProgress] = useState(
-    count > 1 ? index / (count - 1) : 0,
-  );
   const [entered, setEntered] = useState(false);
   // curRef mirrors `cur` so size-change re-centering and click handlers read the
   // live value without re-subscribing the scroll listener.
   const curRef = useRef(index);
-  const setCur = (n: number) => {
-    curRef.current = n;
-    setCurState(n);
-  };
+  const setCur = useCallback(
+    (n: number) => {
+      const next = clamp(n, 0, count - 1);
+      if (curRef.current === next) return;
+      curRef.current = next;
+      setCurState(next);
+    },
+    [count],
+  );
 
   const cardW = compact
     ? Math.round(vw * 0.84)
@@ -236,13 +261,13 @@ function StoryGallery({
   // scrollLeft 0 == card 0 centred, and card i sits at i * stride.
   const sidePad = Math.max(0, Math.round((vw - cardW) / 2));
 
-  const go = (n: number) => {
-    const t = Math.max(0, Math.min(count - 1, n));
+  const go = useCallback((n: number) => {
+    const t = clamp(n, 0, count - 1);
     scrollerRef.current?.scrollTo({
       left: t * stride,
       behavior: reduce ? "auto" : "smooth",
     });
-  };
+  }, [count, reduce, stride]);
 
   // Native scroll drives the source of truth: read scrollLeft, derive the live
   // index + continuous progress (for the scrubber). rAF-throttled, passive.
@@ -255,16 +280,147 @@ function StoryGallery({
       raf = requestAnimationFrame(() => {
         raf = 0;
         const max = el.scrollWidth - el.clientWidth;
-        setProgress(max > 0 ? Math.min(1, Math.max(0, el.scrollLeft / max)) : 0);
-        setCur(Math.round(el.scrollLeft / stride));
+        const nextProgress = max > 0 ? clamp(el.scrollLeft / max, 0, 1) : 0;
+        latestProgressRef.current = nextProgress;
+        scrubberRef.current?.setProgress(nextProgress);
+
+        if (!touchGestureActiveRef.current) {
+          setCur(Math.round(el.scrollLeft / stride));
+        }
       });
     };
     el.addEventListener("scroll", onScroll, { passive: true });
+    onScroll();
     return () => {
       el.removeEventListener("scroll", onScroll);
       if (raf) cancelAnimationFrame(raf);
     };
-  }, [stride]);
+  }, [setCur, stride]);
+
+  // Mobile Safari is awful at nested horizontal gallery + vertical card body
+  // arbitration. Axis-lock once, then do the minimum: horizontal swipes drive
+  // scrollLeft directly; vertical swipes stay native so the story body scrolls.
+  useEffect(() => {
+    const el = scrollerRef.current;
+    if (!el) return;
+
+    let active = false;
+    let axis: "x" | "y" | null = null;
+    let startX = 0;
+    let startY = 0;
+    let startScrollLeft = 0;
+    let lastX = 0;
+    let lastT = 0;
+    let velocity = 0;
+    let raf = 0;
+    let pendingLeft: number | null = null;
+
+    const snap = () => {
+      el.style.scrollSnapType = reduce ? "none" : "x mandatory";
+    };
+    const unsnap = () => {
+      el.style.scrollSnapType = "none";
+    };
+    const flushScrollLeft = () => {
+      raf = 0;
+      if (pendingLeft == null) return;
+      el.scrollLeft = pendingLeft;
+      pendingLeft = null;
+    };
+    const setScrollLeft = (next: number) => {
+      const max = Math.max(0, el.scrollWidth - el.clientWidth);
+      pendingLeft = clamp(next, 0, max);
+      if (!raf) raf = requestAnimationFrame(flushScrollLeft);
+    };
+    const finish = () => {
+      if (!active) return;
+      active = false;
+      touchGestureActiveRef.current = false;
+
+      if (raf) {
+        cancelAnimationFrame(raf);
+        flushScrollLeft();
+      }
+
+      if (axis === "x") {
+        const moved = el.scrollLeft - startScrollLeft;
+        const projected = el.scrollLeft + velocity * swipeProjectionMs;
+        let target = Math.round(projected / stride);
+
+        if (
+          target === curRef.current &&
+          (Math.abs(velocity) > swipeFlickVelocity ||
+            Math.abs(moved) > stride * swipeDistanceRatio)
+        ) {
+          target += Math.sign(moved || velocity);
+        }
+
+        snap();
+        go(target);
+      } else {
+        snap();
+      }
+
+      axis = null;
+    };
+    const onTouchStart = (event: TouchEvent) => {
+      if (event.touches.length !== 1) return;
+      const touch = event.touches[0];
+      active = true;
+      axis = null;
+      startX = touch.clientX;
+      startY = touch.clientY;
+      startScrollLeft = el.scrollLeft;
+      lastX = touch.clientX;
+      lastT = performance.now();
+      velocity = 0;
+    };
+    const onTouchMove = (event: TouchEvent) => {
+      if (!active || event.touches.length !== 1) return;
+      const touch = event.touches[0];
+      const dx = startX - touch.clientX;
+      const dy = startY - touch.clientY;
+      const ax = Math.abs(dx);
+      const ay = Math.abs(dy);
+
+      if (axis == null) {
+        if (ax < swipeAxisLockPx && ay < swipeAxisLockPx) return;
+        axis = ax > ay * swipeAxisBias ? "x" : "y";
+        if (axis === "x") {
+          touchGestureActiveRef.current = true;
+          unsnap();
+        } else {
+          snap();
+          return;
+        }
+      }
+
+      if (axis !== "x") return;
+
+      event.preventDefault();
+      const now = performance.now();
+      velocity = (lastX - touch.clientX) / Math.max(1, now - lastT);
+      lastX = touch.clientX;
+      lastT = now;
+      setScrollLeft(startScrollLeft + dx);
+    };
+
+    const passiveCapture: AddEventListenerOptions = { passive: true, capture: true };
+    const activeCapture: AddEventListenerOptions = { passive: false, capture: true };
+    el.addEventListener("touchstart", onTouchStart, passiveCapture);
+    el.addEventListener("touchmove", onTouchMove, activeCapture);
+    el.addEventListener("touchend", finish, passiveCapture);
+    el.addEventListener("touchcancel", finish, passiveCapture);
+
+    return () => {
+      el.removeEventListener("touchstart", onTouchStart, passiveCapture);
+      el.removeEventListener("touchmove", onTouchMove, activeCapture);
+      el.removeEventListener("touchend", finish, passiveCapture);
+      el.removeEventListener("touchcancel", finish, passiveCapture);
+      if (raf) cancelAnimationFrame(raf);
+      touchGestureActiveRef.current = false;
+    };
+  }, [go, reduce, stride]);
 
   // Jump to the opened card before paint (no animated slide-in from card 0), and
   // keep the current card centred when the viewport / card width changes.
@@ -358,6 +514,7 @@ function StoryGallery({
           padding (target === the scroller itself) closes. */}
       <div
         ref={scrollerRef}
+        data-project-gallery-scroller
         className="gallery-scroller absolute inset-0 flex items-center overflow-x-auto overflow-y-hidden"
         style={{
           gap,
@@ -366,7 +523,7 @@ function StoryGallery({
           scrollSnapType: reduce ? "none" : "x mandatory",
           overscrollBehavior: "contain",
           WebkitOverflowScrolling: "touch",
-          touchAction: "pan-x",
+          touchAction: "pan-y pinch-zoom",
           scrollbarWidth: "none",
           // Keep the cards fully opaque (the dialog's own opacity fade handles
           // the appear). Only a subtle scale settle here — fading the scroller
@@ -411,9 +568,10 @@ function StoryGallery({
       />
 
       <GalleryScrubber
+        ref={scrubberRef}
         count={count}
         cur={cur}
-        progress={progress}
+        initialProgress={latestProgressRef.current}
         trackPx={trackPx}
         onScrub={onScrub}
       />
@@ -422,54 +580,93 @@ function StoryGallery({
   );
 }
 
-// A draggable segment pill: drag anywhere along the rail to scrub. The pill is
-// 1/count wide so the four cards read as four fixed points, and its position is
-// driven by the *continuous* scroll progress — so it slides through the motion
-// as you swipe and settles onto each point with a spring (the elastic beat).
-function GalleryScrubber({
-  count,
-  cur,
-  progress,
-  trackPx,
-  onScrub,
-}: {
+// A draggable segment pill: drag anywhere along the rail to scrub. Scroll
+// progress updates the pill imperatively, so a card swipe does not re-render the
+// whole gallery on every frame.
+type GalleryScrubberHandle = {
+  setProgress: (progress: number) => void;
+};
+
+type GalleryScrubberProps = {
   count: number;
   cur: number;
-  progress: number;
+  initialProgress: number;
   trackPx: number;
   onScrub: (ratio: number, commit: boolean) => void;
-}) {
-  const ref = useRef<HTMLDivElement>(null);
-  const lastRatio = useRef(progress);
-  const [dragging, setDragging] = useState(false);
+};
 
-  const at = (clientX: number) => {
-    const el = ref.current;
+const GalleryScrubber = forwardRef<GalleryScrubberHandle, GalleryScrubberProps>(function GalleryScrubber({
+  count,
+  cur,
+  initialProgress,
+  trackPx,
+  onScrub,
+}, forwardedRef) {
+  const railRef = useRef<HTMLDivElement>(null);
+  const pillRef = useRef<HTMLDivElement>(null);
+  const progressRef = useRef(initialProgress);
+  const lastRatio = useRef(initialProgress);
+  const [dragging, setDragging] = useState(false);
+  const pillPx = trackPx / count;
+  const travelPx = trackPx - pillPx;
+
+  const applyProgress = useCallback((next: number) => {
+    const progress = clamp(next, 0, 1);
+    progressRef.current = progress;
+    const x = progress * travelPx;
+    if (pillRef.current) {
+      pillRef.current.style.transform = `translate3d(${x}px,0,0)`;
+    }
+  }, [travelPx]);
+
+  useImperativeHandle(forwardedRef, () => ({ setProgress: applyProgress }), [applyProgress]);
+
+  useLayoutEffect(() => {
+    applyProgress(progressRef.current);
+  }, [applyProgress]);
+
+  const at = useCallback((clientX: number) => {
+    const el = railRef.current;
     if (!el) return;
     const r = el.getBoundingClientRect();
-    const ratio = Math.min(1, Math.max(0, (clientX - r.left) / r.width));
+    const ratio = clamp((clientX - r.left) / r.width, 0, 1);
     lastRatio.current = ratio;
+    applyProgress(ratio);
     onScrub(ratio, false);
+  }, [applyProgress, onScrub]);
+
+  const commitKeyboardStep = (next: number) => {
+    if (count <= 1) return;
+    const ratio = clamp(next, 0, count - 1) / (count - 1);
+    lastRatio.current = ratio;
+    applyProgress(ratio);
+    onScrub(ratio, true);
   };
 
-  const pillPx = trackPx / count;
-  // Travel in pixels so the pill moves via transform (compositor) instead of
-  // animating `left` (layout + paint every scroll frame — jank and heat).
-  const x = progress * (trackPx - pillPx);
   return (
     <div className="absolute bottom-6 left-1/2 z-10 -translate-x-1/2">
       <div
-        ref={ref}
+        ref={railRef}
         role="slider"
         aria-label="Project"
         aria-valuemin={1}
         aria-valuemax={count}
         aria-valuenow={cur + 1}
+        tabIndex={0}
         className="relative h-2.5 cursor-grab touch-none select-none rounded-full bg-white/15 active:cursor-grabbing"
         style={{ width: trackPx }}
+        onKeyDown={(e) => {
+          if (e.key === "ArrowRight") {
+            e.preventDefault();
+            commitKeyboardStep(cur + 1);
+          } else if (e.key === "ArrowLeft") {
+            e.preventDefault();
+            commitKeyboardStep(cur - 1);
+          }
+        }}
         onPointerDown={(e) => {
           setDragging(true);
-          ref.current?.setPointerCapture(e.pointerId);
+          railRef.current?.setPointerCapture(e.pointerId);
           at(e.clientX);
         }}
         onPointerMove={(e) => dragging && at(e.clientX)}
@@ -479,22 +676,21 @@ function GalleryScrubber({
         }}
         onPointerCancel={() => setDragging(false)}
       >
-        <motion.div
+        <div
+          ref={pillRef}
           className="absolute inset-y-0 left-0 rounded-full bg-white/90"
-          style={{ width: pillPx }}
-          // Continuous progress → the pill rides the swipe; the spring gives the
-          // settle its elasticity. Stiffer while dragging so it hugs the finger.
-          animate={{ x }}
-          transition={
-            dragging
-              ? { type: "spring", stiffness: 900, damping: 60 }
-              : { type: "spring", stiffness: 380, damping: 24 }
-          }
+          style={{
+            width: pillPx,
+            transform: `translate3d(${progressRef.current * travelPx}px,0,0)`,
+            transition: dragging
+              ? "none"
+              : "transform 120ms cubic-bezier(0.2,0.7,0,1)",
+          }}
         />
       </div>
     </div>
   );
-}
+});
 
 function GalleryArrow({
   side,
@@ -665,6 +861,7 @@ export default function ProjectStack({ className }: { className?: string }) {
 
   return (
     <div
+      data-project-stack={mounted ? "hydrated" : "ssr"}
       className={cn("relative mx-auto w-full", className)}
       style={{ maxWidth: cardMax + 40 }}
       onPointerEnter={() => setPaused(true)}
@@ -690,11 +887,9 @@ export default function ProjectStack({ className }: { className?: string }) {
               className="absolute inset-x-0 top-0 mx-auto w-full select-none"
               style={{
                 maxWidth: cardMax,
-                // Active card owns every gesture (touch-action: none) so it drags
-                // freely in any direction with no browser scroll stealing it — no
-                // jitter-then-page-scroll. Cards behind keep pan-y so a vertical
-                // swipe on them still scrolls the page.
-                touchAction: active ? "none" : "pan-y",
+                // Horizontal flip only. Vertical touch starts still scroll the
+                // page, which matters on mobile where this card fills the viewport.
+                touchAction: "pan-y pinch-zoom",
                 transformStyle: "preserve-3d",
                 transformOrigin: "center center",
                 // Promote the moving card to its own GPU layer and skip back-face
@@ -732,10 +927,10 @@ export default function ProjectStack({ className }: { className?: string }) {
                           : 0,
                     }
               }
-              // Free drag in any direction — toss it anywhere, it springs home.
-              // touch-action: none on the active card (above) means this never
-              // fights the browser's scroll, so no jitter on fast/diagonal flicks.
-              drag={active && !shouldReduce}
+              // Desktop keeps the playful free-card feel. Touch screens keep the
+              // gesture bounded so the deck never hijacks page scroll.
+              drag={active && !shouldReduce ? (compact ? "x" : true) : false}
+              dragDirectionLock={compact}
               dragSnapToOrigin
               dragElastic={0.5}
               whileHover={active && !shouldReduce && !compact ? { y: -6 } : undefined}
