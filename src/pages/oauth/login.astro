@@ -22,10 +22,9 @@ function getSignInTarget(value: string): string {
 
 const errorMessages: Record<string, string> = {
   state: 'Sign-in session expired. Please try again.',
-  forbidden: 'Your Cloudflare account is not allowed to access this portal.',
-  scope: 'Cloudflare OAuth is missing the required user read scope.',
-  token: 'Cloudflare did not return a valid token. Please try again.',
-  user: 'Could not load your Cloudflare profile. Please try again.',
+  forbidden: 'Your GitHub account is not allowed to access this portal.',
+  token: 'GitHub did not return a valid token. Please try again.',
+  user: 'Could not load your GitHub profile. Please try again.',
   config: 'Admin auth is not configured on the server.',
 };
 const errorMessage = error ? errorMessages[error] ?? 'Sign-in failed. Please try again.' : null;

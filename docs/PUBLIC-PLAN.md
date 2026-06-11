@@ -10,7 +10,7 @@ behind the existing admin OAuth session.
 - **Phase 1 (done)**: Starlight skeleton, full IA, navigable stubs, brand theme.
 - **Phase 2 (done)**: Visibility gating — render Starlight docs on demand,
   protect only non-public `/docs/**` pages in middleware, and preserve the
-  requested docs URL through the Cloudflare OAuth flow.
+  requested docs URL through the GitHub OAuth flow.
 - **Phase 3**: Migrate the source docs into the collection; rewrite public
   pages and move protected pages in with minimal cleanup.
 
@@ -26,7 +26,7 @@ behind the existing admin OAuth session.
   authentication.
 - Unauthorized access to protected docs: redirect to `/oauth/login?next=...`
   and return to the requested docs URL after successful sign-in.
-- Auth scope: reuse the existing single-admin Cloudflare OAuth (`ADMIN_CLOUDFLARE_EMAIL`).
+- Auth scope: reuse the existing single-admin GitHub OAuth (`ADMIN_GITHUB_LOGIN`).
 - Search: disabled for now because Starlight Pagefind requires prerendered
   pages, while this docs surface must be rendered on demand for middleware auth.
 

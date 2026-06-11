@@ -25,7 +25,7 @@ const surfaces = [
   {
     title: 'Owner identity',
     status: 'Live',
-    description: 'Cloudflare OAuth allow-list, signed session cookie, no provider token persistence.',
+    description: 'GitHub OAuth allow-list, signed session cookie, no provider token persistence.',
     Icon: ShieldCheck,
   },
   {
@@ -49,7 +49,7 @@ const surfaces = [
 ] as const;
 
 const rules = [
-  'One owner session authority: the existing Cloudflare account remains the human gate.',
+  'One owner session authority: the allowed GitHub login remains the human gate.',
   'No browser-exposed platform tokens; connector secrets stay server-side.',
   'Machine access uses explicit scopes, short TTLs, and audit records.',
   'Each knowledge source gets its own adapter boundary instead of a shared scraping blob.',
@@ -85,7 +85,7 @@ const phases = [
       </CardHeader>
       <CardContent style={cardContentStyle}>
         <p style="margin:0;font-size:13px;line-height:1.7;color:hsl(var(--muted-foreground));">
-          The current Cloudflare OAuth session is already enough for human access. The next move is to let this
+          The current GitHub OAuth session is already enough for human access. The next move is to let this
           hub mint narrower credentials for agent sandboxes, knowledge ingestion, and MCP clients without
           leaking admin cookies or raw platform tokens.
         </p>

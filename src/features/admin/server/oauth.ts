@@ -4,36 +4,32 @@ import {
   buildClearStateCookie,
   createOauthState,
   createSessionToken,
-  isAllowedEmail,
+  isAllowedLogin,
   readAdminAuthConfig,
   readAdminDevSession,
+  readStateFromCookieHeader,
   verifyOauthState,
 } from './session';
 
-const CLOUDFLARE_AUTHORIZE_URL = 'https://dash.cloudflare.com/oauth2/auth';
-const CLOUDFLARE_TOKEN_URL = 'https://dash.cloudflare.com/oauth2/token';
-const CLOUDFLARE_USER_URL = 'https://api.cloudflare.com/client/v4/user';
+const GITHUB_AUTHORIZE_URL = 'https://github.com/login/oauth/authorize';
+const GITHUB_TOKEN_URL = 'https://github.com/login/oauth/access_token';
+const GITHUB_USER_URL = 'https://api.github.com/user';
 const DEFAULT_ADMIN_NEXT_PATH = '/dev/portal';
 const DOCS_NEXT_PATH = '/docs';
 
-interface CloudflareTokenResponse {
+interface GithubTokenResponse {
   access_token?: string;
   error?: string;
   error_description?: string;
   scope?: string;
-  id_token?: string;
   token_type?: string;
 }
 
-interface CloudflareUserInfoResponse {
-  success?: boolean;
-  result?: {
-    id?: string;
-    email?: string;
-    first_name?: string;
-    last_name?: string;
-    username?: string;
-  };
+interface GithubUserResponse {
+  login?: string;
+  id?: number;
+  avatar_url?: string;
+  name?: string;
 }
 
 export function getRedirectUri(request: Request): string {
@@ -43,13 +39,13 @@ export function getRedirectUri(request: Request): string {
 
 export function buildAuthorizeUrl(clientId: string, redirectUri: string, state: string): string {
   const params = new URLSearchParams({
-    response_type: 'code',
     client_id: clientId,
     redirect_uri: redirectUri,
     state,
-    scope: 'user.read',
+    scope: 'read:user',
+    allow_signup: 'false',
   });
-  return `${CLOUDFLARE_AUTHORIZE_URL}?${params.toString()}`;
+  return `${GITHUB_AUTHORIZE_URL}?${params.toString()}`;
 }
 
 function normalizeStartRedirectPath(value: string): string {
@@ -116,7 +112,7 @@ export interface OauthCallbackOk {
 
 export interface OauthCallbackError {
   ok: false;
-  reason: 'state' | 'forbidden' | 'scope' | 'token' | 'user' | 'config';
+  reason: 'state' | 'forbidden' | 'token' | 'user' | 'config';
   cookies: string[];
 }
 
@@ -126,49 +122,47 @@ export async function handleOauthCallback(request: Request, locals: any): Promis
   const config = readAdminAuthConfig(locals);
   const cookies = [buildClearStateCookie()];
 
-  if (!config.clientId || !config.clientSecret || !config.allowedEmail || !config.sessionSigningKey) {
+  if (!config.clientId || !config.clientSecret || !config.allowedLogin || !config.sessionSigningKey) {
     return { ok: false, reason: 'config', cookies };
   }
 
   const url = new URL(request.url);
-  const oauthError = url.searchParams.get('error')?.trim();
   const code = url.searchParams.get('code')?.trim();
   const incomingState = url.searchParams.get('state')?.trim();
-  if (oauthError) {
-    logOauthProviderError(oauthError, url.searchParams.get('error_description'));
-    return { ok: false, reason: oauthError === 'invalid_scope' ? 'scope' : 'token', cookies };
-  }
   if (!code || !incomingState) {
     return { ok: false, reason: 'state', cookies };
   }
 
-  const verified = await verifyOauthState(incomingState, config.sessionSigningKey);
+  const cookieHeader = request.headers.get('cookie');
+  const storedState = readStateFromCookieHeader(cookieHeader);
+  if (!storedState || storedState !== incomingState) {
+    return { ok: false, reason: 'state', cookies };
+  }
+
+  const verified = await verifyOauthState(storedState, config.sessionSigningKey);
   if (!verified) {
     return { ok: false, reason: 'state', cookies };
   }
 
-  let tokenPayload: CloudflareTokenResponse;
+  let tokenPayload: GithubTokenResponse;
   try {
-    const body = new URLSearchParams({
-      grant_type: 'authorization_code',
-      client_id: config.clientId,
-      client_secret: config.clientSecret,
-      code,
-      redirect_uri: getRedirectUri(request),
-    });
-    const tokenResponse = await fetch(CLOUDFLARE_TOKEN_URL, {
+    const tokenResponse = await fetch(GITHUB_TOKEN_URL, {
       method: 'POST',
       headers: {
         Accept: 'application/json',
-        'Content-Type': 'application/x-www-form-urlencoded',
+        'Content-Type': 'application/json',
       },
-      body: body.toString(),
+      body: JSON.stringify({
+        client_id: config.clientId,
+        client_secret: config.clientSecret,
+        code,
+        redirect_uri: getRedirectUri(request),
+      }),
     });
     if (!tokenResponse.ok) {
-      await logOauthTokenError(tokenResponse);
       return { ok: false, reason: 'token', cookies };
     }
-    tokenPayload = (await tokenResponse.json()) as CloudflareTokenResponse;
+    tokenPayload = (await tokenResponse.json()) as GithubTokenResponse;
   } catch {
     return { ok: false, reason: 'token', cookies };
   }
@@ -178,53 +172,31 @@ export async function handleOauthCallback(request: Request, locals: any): Promis
     return { ok: false, reason: 'token', cookies };
   }
 
-  let user: CloudflareUserInfoResponse;
+  let user: GithubUserResponse;
   try {
-    const userResponse = await fetch(CLOUDFLARE_USER_URL, {
+    const userResponse = await fetch(GITHUB_USER_URL, {
       headers: {
-        Accept: 'application/json',
+        Accept: 'application/vnd.github+json',
         Authorization: `Bearer ${accessToken}`,
+        'User-Agent': 'buxx-dev-portal',
       },
     });
     if (!userResponse.ok) {
       return { ok: false, reason: 'user', cookies };
     }
-    user = (await userResponse.json()) as CloudflareUserInfoResponse;
+    user = (await userResponse.json()) as GithubUserResponse;
   } catch {
     return { ok: false, reason: 'user', cookies };
   }
 
-  const email = user.result?.email?.trim() ?? '';
-  if (!isAllowedEmail(email, config.allowedEmail)) {
+  const login = user.login?.trim() ?? '';
+  if (!isAllowedLogin(login, config.allowedLogin)) {
     return { ok: false, reason: 'forbidden', cookies };
   }
 
-  const sessionToken = await createSessionToken(email, config.sessionSigningKey);
+  const sessionToken = await createSessionToken(login, config.sessionSigningKey, undefined, {
+    avatarUrl: typeof user.avatar_url === 'string' ? user.avatar_url : undefined,
+  });
   cookies.push(buildSessionCookie(sessionToken));
   return { ok: true, redirectTo: verified.next, cookies };
-}
-
-async function logOauthTokenError(response: Response): Promise<void> {
-  let payload: { error?: unknown; error_description?: unknown } | null = null;
-  try {
-    payload = await response.clone().json() as { error?: unknown; error_description?: unknown };
-  } catch {
-    payload = null;
-  }
-
-  console.warn('Cloudflare OAuth token exchange failed', {
-    status: response.status,
-    statusText: response.statusText,
-    error: typeof payload?.error === 'string' ? payload.error : undefined,
-    errorDescription: typeof payload?.error_description === 'string'
-      ? payload.error_description.slice(0, 160)
-      : undefined,
-  });
-}
-
-function logOauthProviderError(error: string, description: string | null): void {
-  console.warn('Cloudflare OAuth provider rejected authorization', {
-    error,
-    errorDescription: description?.slice(0, 160),
-  });
 }

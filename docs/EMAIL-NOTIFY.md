@@ -123,18 +123,18 @@ Old paths redirect (301): `/dev/preview` → `/dev/portal/mascot`, `/dev/newslet
 
 ### Auth
 
-Cloudflare OAuth, allowlist of one (the `ADMIN_CLOUDFLARE_EMAIL` env var). HMAC-SHA256 signed HttpOnly session cookie (`admin_session`, 7-day expiry, format `<base64url(payload)>.<base64url(hmac)>`). State-cookie CSRF protection on the OAuth handshake.
+GitHub OAuth, allowlist of one (the `ADMIN_GITHUB_LOGIN` env var). HMAC-SHA256 signed HttpOnly session cookie (`admin_session`, 7-day expiry, format `<base64url(payload)>.<base64url(hmac)>`). State-cookie CSRF protection on the OAuth handshake.
 
 Required env vars:
 
-- `CLOUDFLARE_OAUTH_CLIENT_ID`
-- `CLOUDFLARE_OAUTH_CLIENT_SECRET`
-- `ADMIN_CLOUDFLARE_EMAIL` — the single Cloudflare account email allowed
+- `GITHUB_OAUTH_CLIENT_ID`
+- `GITHUB_OAUTH_CLIENT_SECRET`
+- `ADMIN_GITHUB_LOGIN` — the single GitHub login allowed
 - `ADMIN_SESSION_SECRET` — 32-byte random base64 string used for HMAC signing
 
-Cloudflare OAuth callback URL: `${PUBLIC_SITE_URL}/api/admin/auth/callback`.
+GitHub OAuth callback URL: `${PUBLIC_SITE_URL}/api/admin/auth/callback`.
 
-Local debugging can skip Cloudflare OAuth with `bun run dev:portal`. That script sets `ADMIN_DEV_BYPASS=1`, which lets `/api/admin/auth/start` mint a normal signed `admin_session` cookie only under `astro dev` on loopback hosts (`localhost`, `127.*`, `::1`); production builds ignore it. Use `ADMIN_DEV_LOGIN` and `ADMIN_DEV_AVATAR_URL` only for local display.
+Local debugging can skip GitHub OAuth with `bun run dev:portal`. That script sets `ADMIN_DEV_BYPASS=1`, which lets `/api/admin/auth/start` mint a normal signed `admin_session` cookie only under `astro dev` on loopback hosts (`localhost`, `127.*`, `::1`); production builds ignore it. Use `ADMIN_DEV_LOGIN` and `ADMIN_DEV_AVATAR_URL` only for local display.
 
 ### Admin API surface
 

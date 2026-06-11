@@ -26,6 +26,7 @@ describe('admin dev session', () => {
       login: 'tester',
       iat: 100,
       exp: 604900,
+      avatarUrl: 'https://github.com/tester.png?size=56',
     });
   });
 
@@ -45,12 +46,12 @@ describe('admin dev session', () => {
     expect(session).toBeNull();
   });
 
-  test('uses the allowed Cloudflare email when no dev login is configured', () => {
+  test('uses the allowed GitHub login when no dev login is configured', () => {
     const session = readAdminDevSession(
       {
         env: {
           ADMIN_DEV_BYPASS: '1',
-          ADMIN_CLOUDFLARE_EMAIL: 'admin@example.com',
+          ADMIN_GITHUB_LOGIN: 'admin-login',
         },
       },
       true,
@@ -58,7 +59,8 @@ describe('admin dev session', () => {
       100
     );
 
-    expect(session?.login).toBe('admin@example.com');
+    expect(session?.login).toBe('admin-login');
+    expect(session?.avatarUrl).toBe('https://github.com/admin-login.png?size=56');
   });
 
   test('rejects the bypass on non-local hosts', () => {
