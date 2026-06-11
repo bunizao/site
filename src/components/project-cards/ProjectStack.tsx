@@ -135,7 +135,7 @@ function StoryCard({
         {renderHero(project.hero, active)}
       </div>
 
-      <div className="touch-pan-y overflow-y-auto overscroll-contain px-4 pb-3 pt-5 sm:px-5 sm:pb-4">
+      <div className="min-h-0 flex-1 touch-pan-y overflow-y-auto overscroll-contain px-4 pb-3 pt-5 sm:px-5 sm:pb-4">
         <p className="mb-2 font-code text-[11px] uppercase tracking-[0.16em] text-stone-400 dark:text-white/40">
           {project.type}
         </p>
@@ -368,12 +368,14 @@ function StoryGallery({
           WebkitOverflowScrolling: "touch",
           touchAction: "pan-x",
           scrollbarWidth: "none",
-          opacity: entered ? 1 : 0,
-          transform: entered ? "scale(1)" : "scale(0.7)",
+          // Keep the cards fully opaque (the dialog's own opacity fade handles
+          // the appear). Only a subtle scale settle here — fading the scroller
+          // separately made the card translucent against the dark scrim: a mess.
+          transform: entered ? "scale(1)" : "scale(0.96)",
           transformOrigin: "center center",
           transition: reduce
             ? undefined
-            : "transform 0.42s cubic-bezier(0.2,0.7,0,1), opacity 0.26s ease-out",
+            : "transform 0.3s cubic-bezier(0.2,0.7,0,1)",
         }}
         onClick={(e) => {
           if (e.target === scrollerRef.current) onClose();
@@ -685,9 +687,14 @@ export default function ProjectStack({ className }: { className?: string }) {
               // !touch-pan-y overrides framer's auto `touch-action: none` for
               // both-axis drag: on touch, vertical still scrolls the page and only
               // horizontal drags; a mouse ignores touch-action and drags freely.
-              className="absolute inset-x-0 top-0 mx-auto w-full select-none !touch-pan-y"
+              className="absolute inset-x-0 top-0 mx-auto w-full select-none"
               style={{
                 maxWidth: cardMax,
+                // Active card owns every gesture (touch-action: none) so it drags
+                // freely in any direction with no browser scroll stealing it — no
+                // jitter-then-page-scroll. Cards behind keep pan-y so a vertical
+                // swipe on them still scrolls the page.
+                touchAction: active ? "none" : "pan-y",
                 transformStyle: "preserve-3d",
                 transformOrigin: "center center",
                 // Promote the moving card to its own GPU layer and skip back-face
@@ -725,11 +732,10 @@ export default function ProjectStack({ className }: { className?: string }) {
                           : 0,
                     }
               }
-              // Horizontal-only drag. The card keeps touch-action: pan-y, so a
-              // vertical swipe scrolls the page cleanly while a horizontal flick
-              // flips the deck — no axis fight, no jitter-then-page-scroll.
-              drag={active && !shouldReduce ? "x" : false}
-              dragDirectionLock
+              // Free drag in any direction — toss it anywhere, it springs home.
+              // touch-action: none on the active card (above) means this never
+              // fights the browser's scroll, so no jitter on fast/diagonal flicks.
+              drag={active && !shouldReduce}
               dragSnapToOrigin
               dragElastic={0.5}
               whileHover={active && !shouldReduce && !compact ? { y: -6 } : undefined}
