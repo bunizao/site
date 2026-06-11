@@ -62,7 +62,7 @@ describe('admin OAuth start', () => {
     );
 
     expect(result?.redirectUrl).toStartWith('https://dash.cloudflare.com/oauth2/auth?');
-    expect(result?.redirectUrl).toContain('scope=user%3Aread');
+    expect(result?.redirectUrl).toContain('scope=user.read');
     expect(result?.cookies[0]).toContain(`${ADMIN_OAUTH_STATE_COOKIE}=`);
   });
 

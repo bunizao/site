@@ -47,7 +47,7 @@ export function buildAuthorizeUrl(clientId: string, redirectUri: string, state: 
     client_id: clientId,
     redirect_uri: redirectUri,
     state,
-    scope: 'user:read',
+    scope: 'user.read',
   });
   return `${CLOUDFLARE_AUTHORIZE_URL}?${params.toString()}`;
 }
