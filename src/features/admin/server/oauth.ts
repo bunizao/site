@@ -164,6 +164,7 @@ export async function handleOauthCallback(request: Request, locals: any): Promis
       body: body.toString(),
     });
     if (!tokenResponse.ok) {
+      await logOauthTokenError(tokenResponse);
       return { ok: false, reason: 'token', cookies };
     }
     tokenPayload = (await tokenResponse.json()) as CloudflareTokenResponse;
@@ -200,4 +201,22 @@ export async function handleOauthCallback(request: Request, locals: any): Promis
   const sessionToken = await createSessionToken(email, config.sessionSigningKey);
   cookies.push(buildSessionCookie(sessionToken));
   return { ok: true, redirectTo: verified.next, cookies };
+}
+
+async function logOauthTokenError(response: Response): Promise<void> {
+  let payload: { error?: unknown; error_description?: unknown } | null = null;
+  try {
+    payload = await response.clone().json() as { error?: unknown; error_description?: unknown };
+  } catch {
+    payload = null;
+  }
+
+  console.warn('Cloudflare OAuth token exchange failed', {
+    status: response.status,
+    statusText: response.statusText,
+    error: typeof payload?.error === 'string' ? payload.error : undefined,
+    errorDescription: typeof payload?.error_description === 'string'
+      ? payload.error_description.slice(0, 160)
+      : undefined,
+  });
 }
