@@ -67,7 +67,7 @@ The older standalone image worker and notify scheduler remain useful as rollback
 - `POST /api/telegram-webhook` — Legacy Telegram webhook rollback endpoint
 
 **Admin (gated by `admin_session` cookie):**
-- `GET /api/admin/auth/start`, `GET /api/admin/auth/callback`, `POST /api/admin/auth/logout` — GitHub OAuth handshake
+- `GET /api/admin/auth/start`, `GET /api/admin/auth/callback`, `POST /api/admin/auth/logout` — Cloudflare OAuth handshake
 - `GET|POST /api/admin/subscribers`, `GET|PATCH|DELETE /api/admin/subscribers/[hash]` — subscriber CRUD
 - `GET|POST /api/admin/broadcasts`, `POST /api/admin/broadcasts/preview`, `GET /api/admin/broadcasts/[id]` — broadcast compose, preview, send, history
 
@@ -110,8 +110,8 @@ Accessed via `import.meta.env.*`:
 - `TELEGRAM_HOST` — Telegram public host for embed lookups (default: `t.me`)
 - `NOTIFY_DISPATCH_SECRET` — Bearer secret accepted by `/api/notify/dispatch`
 - `LASTFM_API_KEY`, `LASTFM_USER` — Last.fm recent tracks integration for the home listening widget
-- `GITHUB_OAUTH_CLIENT_ID`, `GITHUB_OAUTH_CLIENT_SECRET` — GitHub OAuth app for the admin portal
-- `ADMIN_GITHUB_LOGIN` — single GitHub login allowed into `/dev/portal`
+- `CLOUDFLARE_OAUTH_CLIENT_ID`, `CLOUDFLARE_OAUTH_CLIENT_SECRET` — Cloudflare OAuth app for the admin portal
+- `ADMIN_CLOUDFLARE_EMAIL` — single Cloudflare account email allowed into `/dev/portal`
 - `ADMIN_SESSION_SECRET` — 32-byte random base64 used to HMAC-sign the admin session cookie
 - `ADMIN_DEV_BYPASS` — loopback-only local login used by `bun run dev:portal`; ignored outside `astro dev`
 - `ADMIN_DEV_LOGIN`, `ADMIN_DEV_AVATAR_URL` — optional local-only login and avatar shown by the dev bypass session

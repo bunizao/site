@@ -1,6 +1,6 @@
 import { defineMiddleware } from 'astro:middleware';
 import {
-  isAllowedLogin,
+  isAllowedEmail,
   readAdminAuthConfig,
   readAdminDevSession,
   readSessionFromCookieHeader,
@@ -51,8 +51,8 @@ export const onRequest = defineMiddleware(async (context, next) => {
 
   if (session) {
     if (
-      isAllowedLogin(session.login, config.allowedLogin)
-      || (devSession && isAllowedLogin(session.login, devSession.login))
+      isAllowedEmail(session.login, config.allowedEmail)
+      || (devSession && isAllowedEmail(session.login, devSession.login))
     ) {
       mutableLocals.adminSession = {
         ...session,

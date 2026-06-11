@@ -11,7 +11,7 @@ export interface AdminSession {
 export interface AdminAuthConfig {
   clientId: string;
   clientSecret: string;
-  allowedLogin: string;
+  allowedEmail: string;
   sessionSigningKey: string;
 }
 
@@ -27,9 +27,9 @@ const HMAC_ALGORITHM = { name: 'HMAC', hash: 'SHA-256' } as const;
 
 export function readAdminAuthConfig(locals: any): AdminAuthConfig {
   return {
-    clientId: readEnv(locals, 'GITHUB_OAUTH_CLIENT_ID'),
-    clientSecret: readEnv(locals, 'GITHUB_OAUTH_CLIENT_SECRET'),
-    allowedLogin: readEnv(locals, 'ADMIN_GITHUB_LOGIN'),
+    clientId: readEnv(locals, 'CLOUDFLARE_OAUTH_CLIENT_ID'),
+    clientSecret: readEnv(locals, 'CLOUDFLARE_OAUTH_CLIENT_SECRET'),
+    allowedEmail: readEnv(locals, 'ADMIN_CLOUDFLARE_EMAIL'),
     sessionSigningKey: readEnv(locals, 'ADMIN_SESSION_SECRET'),
   };
 }
@@ -44,9 +44,9 @@ export function readAdminDevSession(
     return null;
   }
 
-  const login = readEnv(locals, 'ADMIN_DEV_LOGIN') || readEnv(locals, 'ADMIN_GITHUB_LOGIN') || 'local-dev';
+  const login = readEnv(locals, 'ADMIN_DEV_LOGIN') || readEnv(locals, 'ADMIN_CLOUDFLARE_EMAIL') || 'local-dev';
   const configuredAvatar = readEnv(locals, 'ADMIN_DEV_AVATAR_URL').trim();
-  const avatarUrl = configuredAvatar || (login === 'local-dev' ? '' : `https://github.com/${encodeURIComponent(login)}.png?size=56`);
+  const avatarUrl = configuredAvatar || '';
   return {
     login,
     iat: now,
@@ -64,7 +64,7 @@ export function isAdminAuthConfigured(config: AdminAuthConfig): boolean {
   return Boolean(
     config.clientId
     && config.clientSecret
-    && config.allowedLogin
+    && config.allowedEmail
     && config.sessionSigningKey
   );
 }
@@ -249,7 +249,7 @@ export function readStateFromCookieHeader(cookieHeader: string | null | undefine
   return '';
 }
 
-export function isAllowedLogin(login: string, allowed: string): boolean {
-  if (!login || !allowed) return false;
-  return login.trim().toLowerCase() === allowed.trim().toLowerCase();
+export function isAllowedEmail(email: string, allowed: string): boolean {
+  if (!email || !allowed) return false;
+  return email.trim().toLowerCase() === allowed.trim().toLowerCase();
 }

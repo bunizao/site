@@ -126,9 +126,9 @@ Old paths 301: `/dev/preview` → `/dev/portal/mascot`, `/dev/newsletter-preview
 
 ### Auth
 
-GitHub OAuth, allowlist of one (`ADMIN_GITHUB_LOGIN`). HMAC-SHA256 signed HttpOnly session cookie (`admin_session`, 7-day expiry, format `<base64url(payload)>.<base64url(hmac)>`). State-cookie CSRF protection on the OAuth handshake.
+Cloudflare OAuth, allowlist of one (`ADMIN_CLOUDFLARE_EMAIL`). HMAC-SHA256 signed HttpOnly session cookie (`admin_session`, 7-day expiry, format `<base64url(payload)>.<base64url(hmac)>`). State-cookie CSRF protection on the OAuth handshake.
 
-Required env: `GITHUB_OAUTH_CLIENT_ID`, `GITHUB_OAUTH_CLIENT_SECRET`, `ADMIN_GITHUB_LOGIN`, `ADMIN_SESSION_SECRET` (32-byte random base64).
+Required env: `CLOUDFLARE_OAUTH_CLIENT_ID`, `CLOUDFLARE_OAUTH_CLIENT_SECRET`, `ADMIN_CLOUDFLARE_EMAIL`, `ADMIN_SESSION_SECRET` (32-byte random base64).
 
 OAuth callback URL: `${PUBLIC_SITE_URL}/api/admin/auth/callback`.
 

@@ -1,9 +1,10 @@
 import { describe, expect, test } from 'bun:test';
 
-import { buildOauthStartResult } from '../../src/features/admin/server/oauth';
+import { buildOauthStartResult, handleOauthCallback } from '../../src/features/admin/server/oauth';
 import {
   ADMIN_SESSION_COOKIE,
   ADMIN_OAUTH_STATE_COOKIE,
+  createOauthState,
   readSessionFromCookieHeader,
   verifySessionToken,
 } from '../../src/features/admin/server/session';
@@ -27,7 +28,7 @@ describe('admin OAuth start', () => {
     expect(result?.cookies[0]).toContain(`${ADMIN_SESSION_COOKIE}=`);
     const token = readSessionFromCookieHeader(result?.cookies[0]);
     const session = await verifySessionToken(token, 'test-secret');
-    expect(session?.avatarUrl).toBe('https://github.com/tester.png?size=56');
+    expect(session?.avatarUrl).toBeUndefined();
   });
 
   test('preserves docs redirects through dev login', async () => {
@@ -47,12 +48,12 @@ describe('admin OAuth start', () => {
     expect(result?.redirectUrl).toBe('/docs/overview/architecture');
   });
 
-  test('falls back to GitHub OAuth outside dev bypass', async () => {
+  test('starts Cloudflare OAuth outside dev bypass', async () => {
     const result = await buildOauthStartResult(
       new Request('https://buxx.me/api/admin/auth/start?next=/dev/portal'),
       {
         env: {
-          GITHUB_OAUTH_CLIENT_ID: 'client-id',
+          CLOUDFLARE_OAUTH_CLIENT_ID: 'client-id',
           ADMIN_SESSION_SECRET: 'test-secret',
         },
       },
@@ -60,7 +61,8 @@ describe('admin OAuth start', () => {
       false
     );
 
-    expect(result?.redirectUrl).toStartWith('https://github.com/login/oauth/authorize?');
+    expect(result?.redirectUrl).toStartWith('https://dash.cloudflare.com/oauth2/auth?');
+    expect(result?.redirectUrl).toContain('scope=openid+email+profile');
     expect(result?.cookies[0]).toContain(`${ADMIN_OAUTH_STATE_COOKIE}=`);
   });
 
@@ -79,5 +81,72 @@ describe('admin OAuth start', () => {
     );
 
     expect(result).toBeNull();
+  });
+});
+
+describe('admin OAuth callback', () => {
+  test('mints a session for the allowed Cloudflare email', async () => {
+    const originalFetch = globalThis.fetch;
+    const state = await createOauthState('test-secret', '/dev/portal/subscribers');
+    const requests: string[] = [];
+
+    globalThis.fetch = (async (input: Parameters<typeof fetch>[0], init?: RequestInit) => {
+      const url = String(input);
+      requests.push(url);
+
+      if (url === 'https://dash.cloudflare.com/oauth2/token') {
+        expect(init?.method).toBe('POST');
+        expect(String(init?.body)).toContain('grant_type=authorization_code');
+        return new Response(JSON.stringify({ access_token: 'access-token', token_type: 'Bearer' }), {
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+
+      if (url === 'https://dash.cloudflare.com/oauth2/userinfo') {
+        expect((init?.headers as Record<string, string>).Authorization).toBe('Bearer access-token');
+        return new Response(JSON.stringify({
+          email: 'admin@example.com',
+          email_verified: true,
+          picture: 'https://dash.cloudflare.com/avatar.png',
+        }), {
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+
+      return new Response('unexpected request', { status: 500 });
+    }) as typeof fetch;
+
+    try {
+      const result = await handleOauthCallback(
+        new Request(`https://buxx.me/api/admin/auth/callback?code=oauth-code&state=${encodeURIComponent(state)}`, {
+          headers: {
+            cookie: `${ADMIN_OAUTH_STATE_COOKIE}=${state}`,
+          },
+        }),
+        {
+          env: {
+            CLOUDFLARE_OAUTH_CLIENT_ID: 'client-id',
+            CLOUDFLARE_OAUTH_CLIENT_SECRET: 'client-secret',
+            ADMIN_CLOUDFLARE_EMAIL: 'admin@example.com',
+            ADMIN_SESSION_SECRET: 'test-secret',
+          },
+        }
+      );
+
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.redirectTo).toBe('/dev/portal/subscribers');
+      expect(requests).toEqual([
+        'https://dash.cloudflare.com/oauth2/token',
+        'https://dash.cloudflare.com/oauth2/userinfo',
+      ]);
+      const sessionCookie = result.cookies.find((cookie) => cookie.startsWith(`${ADMIN_SESSION_COOKIE}=`));
+      const token = readSessionFromCookieHeader(sessionCookie);
+      const session = await verifySessionToken(token, 'test-secret');
+      expect(session?.login).toBe('admin@example.com');
+      expect(session?.avatarUrl).toBe('https://dash.cloudflare.com/avatar.png');
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
   });
 });

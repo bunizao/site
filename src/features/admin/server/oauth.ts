@@ -4,31 +4,33 @@ import {
   buildClearStateCookie,
   createOauthState,
   createSessionToken,
-  isAllowedLogin,
+  isAllowedEmail,
   readAdminAuthConfig,
   readAdminDevSession,
   readStateFromCookieHeader,
   verifyOauthState,
 } from './session';
 
-const GITHUB_AUTHORIZE_URL = 'https://github.com/login/oauth/authorize';
-const GITHUB_TOKEN_URL = 'https://github.com/login/oauth/access_token';
-const GITHUB_USER_URL = 'https://api.github.com/user';
+const CLOUDFLARE_AUTHORIZE_URL = 'https://dash.cloudflare.com/oauth2/auth';
+const CLOUDFLARE_TOKEN_URL = 'https://dash.cloudflare.com/oauth2/token';
+const CLOUDFLARE_USERINFO_URL = 'https://dash.cloudflare.com/oauth2/userinfo';
 const DEFAULT_ADMIN_NEXT_PATH = '/dev/portal';
 const DOCS_NEXT_PATH = '/docs';
 
-interface GithubTokenResponse {
+interface CloudflareTokenResponse {
   access_token?: string;
   error?: string;
   error_description?: string;
   scope?: string;
+  id_token?: string;
   token_type?: string;
 }
 
-interface GithubUserResponse {
-  login?: string;
-  id?: number;
-  avatar_url?: string;
+interface CloudflareUserInfoResponse {
+  sub?: string;
+  email?: string;
+  email_verified?: boolean;
+  picture?: string;
   name?: string;
 }
 
@@ -39,13 +41,13 @@ export function getRedirectUri(request: Request): string {
 
 export function buildAuthorizeUrl(clientId: string, redirectUri: string, state: string): string {
   const params = new URLSearchParams({
+    response_type: 'code',
     client_id: clientId,
     redirect_uri: redirectUri,
     state,
-    scope: 'read:user',
-    allow_signup: 'false',
+    scope: 'openid email profile',
   });
-  return `${GITHUB_AUTHORIZE_URL}?${params.toString()}`;
+  return `${CLOUDFLARE_AUTHORIZE_URL}?${params.toString()}`;
 }
 
 function normalizeStartRedirectPath(value: string): string {
@@ -122,7 +124,7 @@ export async function handleOauthCallback(request: Request, locals: any): Promis
   const config = readAdminAuthConfig(locals);
   const cookies = [buildClearStateCookie()];
 
-  if (!config.clientId || !config.clientSecret || !config.allowedLogin || !config.sessionSigningKey) {
+  if (!config.clientId || !config.clientSecret || !config.allowedEmail || !config.sessionSigningKey) {
     return { ok: false, reason: 'config', cookies };
   }
 
@@ -144,25 +146,27 @@ export async function handleOauthCallback(request: Request, locals: any): Promis
     return { ok: false, reason: 'state', cookies };
   }
 
-  let tokenPayload: GithubTokenResponse;
+  let tokenPayload: CloudflareTokenResponse;
   try {
-    const tokenResponse = await fetch(GITHUB_TOKEN_URL, {
+    const body = new URLSearchParams({
+      grant_type: 'authorization_code',
+      client_id: config.clientId,
+      client_secret: config.clientSecret,
+      code,
+      redirect_uri: getRedirectUri(request),
+    });
+    const tokenResponse = await fetch(CLOUDFLARE_TOKEN_URL, {
       method: 'POST',
       headers: {
         Accept: 'application/json',
-        'Content-Type': 'application/json',
+        'Content-Type': 'application/x-www-form-urlencoded',
       },
-      body: JSON.stringify({
-        client_id: config.clientId,
-        client_secret: config.clientSecret,
-        code,
-        redirect_uri: getRedirectUri(request),
-      }),
+      body: body.toString(),
     });
     if (!tokenResponse.ok) {
       return { ok: false, reason: 'token', cookies };
     }
-    tokenPayload = (await tokenResponse.json()) as GithubTokenResponse;
+    tokenPayload = (await tokenResponse.json()) as CloudflareTokenResponse;
   } catch {
     return { ok: false, reason: 'token', cookies };
   }
@@ -172,30 +176,32 @@ export async function handleOauthCallback(request: Request, locals: any): Promis
     return { ok: false, reason: 'token', cookies };
   }
 
-  let user: GithubUserResponse;
+  let user: CloudflareUserInfoResponse;
   try {
-    const userResponse = await fetch(GITHUB_USER_URL, {
+    const userResponse = await fetch(CLOUDFLARE_USERINFO_URL, {
       headers: {
-        Accept: 'application/vnd.github+json',
+        Accept: 'application/json',
         Authorization: `Bearer ${accessToken}`,
-        'User-Agent': 'buxx-dev-portal',
       },
     });
     if (!userResponse.ok) {
       return { ok: false, reason: 'user', cookies };
     }
-    user = (await userResponse.json()) as GithubUserResponse;
+    user = (await userResponse.json()) as CloudflareUserInfoResponse;
   } catch {
     return { ok: false, reason: 'user', cookies };
   }
 
-  const login = user.login?.trim() ?? '';
-  if (!isAllowedLogin(login, config.allowedLogin)) {
+  const email = user.email?.trim() ?? '';
+  if (user.email_verified === false) {
+    return { ok: false, reason: 'forbidden', cookies };
+  }
+  if (!isAllowedEmail(email, config.allowedEmail)) {
     return { ok: false, reason: 'forbidden', cookies };
   }
 
-  const sessionToken = await createSessionToken(login, config.sessionSigningKey, undefined, {
-    avatarUrl: typeof user.avatar_url === 'string' ? user.avatar_url : undefined,
+  const sessionToken = await createSessionToken(email, config.sessionSigningKey, undefined, {
+    avatarUrl: typeof user.picture === 'string' ? user.picture : undefined,
   });
   cookies.push(buildSessionCookie(sessionToken));
   return { ok: true, redirectTo: verified.next, cookies };

@@ -1,11 +1,11 @@
 # OAuth Hub
 
-The OAuth hub is the owner-auth control plane for the site. It starts with the existing GitHub OAuth admin session and gives future sandbox jobs, knowledge connectors, and MCP clients one place to request narrower credentials.
+The OAuth hub is the owner-auth control plane for the site. It starts with the Cloudflare OAuth admin session and gives future sandbox jobs, knowledge connectors, and MCP clients one place to request narrower credentials.
 
 ## Current Scope
 
 - `/oauth/login` starts the human login flow.
-- `/api/admin/auth/start` and `/api/admin/auth/callback` perform GitHub OAuth.
+- `/api/admin/auth/start` and `/api/admin/auth/callback` perform Cloudflare OAuth.
 - `admin_session` is the signed owner session cookie.
 - `/oauth` routes to the protected hub; unauthenticated requests end at `/oauth/login`.
 - `/dev/portal/oauth` shows the protected hub status and the intended auth boundary.
@@ -15,7 +15,7 @@ The current implementation does not store GitHub access tokens after login. That
 
 ## Design Rules
 
-- Keep one human authority: the allow-listed GitHub account.
+- Keep one human authority: the allow-listed Cloudflare account email.
 - Do not expose connector credentials or provider tokens to the browser.
 - Do not pass `admin_session` into sandboxes, MCP servers, or external model clients.
 - Mint short-lived machine credentials from the owner session when a non-browser client needs access.
