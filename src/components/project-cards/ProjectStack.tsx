@@ -460,32 +460,32 @@ function getEntrancePose(): TargetAndTransition {
   };
 }
 
-// How long the top card takes to be dealt to the back of the fan.
-const dealMs = 940;
+// How long the front card takes to recede to the back of the fan.
+const dealMs = 820;
 
-// "Deal to the back": instead of the front card sliding straight through the
-// pile to the rear slot, it lifts toward the viewer, drifts along the fan, then
-// sinks behind — the motion of a hand tucking the top card underneath. Keyframe
-// arrays animate the arc; the first frame matches the live front pose so there
-// is no snap, the last frame equals the rear stack pose so it lands clean.
+// Quiet hand-off, not a flourish: the front card settles down a hair and fades
+// out in place while the deck glides forward to fill its spot, then it fades
+// back in already seated at the rear. The opacity holds at 0 through the middle
+// of the arc, so its travel to the back slot happens unseen — no card ever
+// floats across the pile. First frame matches the live front pose (no snap),
+// last frame equals the rear stack pose (clean landing).
 const dealMotion: TargetAndTransition = (() => {
   const back = getStackPose(visibleDepth) as unknown as Record<string, number>;
   const backBlur = `blur(${Math.max(0, visibleDepth - 2) * 0.6}px)`;
   return {
-    x: [0, 38, back.x],
-    y: [0, -48, back.y],
-    z: [0, 84, back.z],
-    scale: [1, 1.035, back.scale],
-    rotateX: [0, 8, 0],
-    rotateZ: [0, 4, back.rotateZ],
-    opacity: [1, 1, back.opacity],
-    filter: ["blur(0px)", "blur(0px)", backBlur],
+    x: [0, 0, back.x, back.x],
+    y: [0, 26, back.y, back.y],
+    z: [0, 8, back.z, back.z],
+    scale: [1, 0.985, back.scale, back.scale],
+    rotateZ: [0, 0, back.rotateZ, back.rotateZ],
+    opacity: [1, 0, 0, back.opacity],
+    filter: ["blur(0px)", "blur(0px)", "blur(0px)", backBlur],
   };
 })();
 
 const dealTransition: Transition = {
-  duration: 0.94,
-  times: [0, 0.46, 1],
+  duration: 0.82,
+  times: [0, 0.4, 0.62, 1],
   ease: "easeInOut",
 };
 
