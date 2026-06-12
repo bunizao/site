@@ -39,6 +39,15 @@ const visibleDepth = 3; // four projects → depths 0..3, all peek
 const autoAdvanceMs = 5500; // slow enough to read; hover pauses it entirely
 const dragAdvanceThreshold = 70;
 
+// Mobile L0 swipe tuning. The axis lock is biased hard toward horizontal so a
+// thumb-arced flick still flips the card instead of leaking to page scroll:
+// `x` wins unless the vertical component beats the horizontal by this factor.
+const swipeAxisLockPx = 6; // movement before an axis is committed
+const swipeAxisBias = 1.5; // x wins while ax * bias > ay (≈ up to 56° off-axis)
+const swipeCommitPx = 52; // travel that flips the deck
+const swipeFlickVelocity = 0.3; // px/ms flick that flips regardless of distance
+const tapSlopPx = 8; // movement under this with no lock counts as a tap
+
 const clamp = (value: number, min: number, max: number) =>
   Math.min(max, Math.max(min, value));
 
@@ -912,6 +921,7 @@ export default function ProjectStack({ className }: { className?: string }) {
   const [leavingId, setLeavingId] = useState<string | null>(null);
   const dealTimer = useRef<number | undefined>(undefined);
   const frontCardRef = useRef<HTMLElement | null>(null);
+  const dragLayerRef = useRef<HTMLDivElement | null>(null);
   const shouldReduce = mounted && reduce === true;
 
   const byId = useMemo(() => new Map(projects.map((p) => [p.id, p])), []);
@@ -989,6 +999,129 @@ export default function ProjectStack({ className }: { className?: string }) {
 
   useEffect(() => () => window.clearTimeout(dealTimer.current), []);
 
+  // Keep the latest closures reachable from the (re-attached-per-order) touch
+  // listeners without re-running the effect on every unrelated render.
+  const actionsRef = useRef({ advance, openGallery, activeId: order[0] });
+  actionsRef.current = { advance, openGallery, activeId: order[0] };
+
+  // Mobile L0 gesture. framer's drag + `touch-action: pan-y` lets the browser
+  // claim vertical on any drift — that is the accidental scroll. Here we own
+  // the touch sequence: lock an axis with a strong horizontal bias, and the
+  // instant we commit to horizontal call preventDefault, which tells WebKit to
+  // stop scrolling for the rest of this touch (pointer events can't do that).
+  // A clearly-vertical start is left untouched, so the page still scrolls.
+  useEffect(() => {
+    if (!compact || shouldReduce) return;
+    const card = frontCardRef.current;
+    const layer = dragLayerRef.current;
+    if (!card || !layer) return;
+
+    const g = {
+      active: false,
+      axis: null as "x" | "y" | null,
+      startX: 0,
+      startY: 0,
+      dx: 0,
+      lastX: 0,
+      lastT: 0,
+      v: 0,
+      moved: false,
+      raf: 0,
+    };
+
+    const write = () => {
+      g.raf = 0;
+      layer.style.transition = "none";
+      layer.style.transform = `translate3d(${g.dx}px,0,0)`;
+    };
+
+    const onStart = (e: TouchEvent) => {
+      if (e.touches.length !== 1) return;
+      const t = e.touches[0];
+      g.active = true;
+      g.axis = null;
+      g.startX = t.clientX;
+      g.startY = t.clientY;
+      g.dx = 0;
+      g.lastX = t.clientX;
+      g.lastT = performance.now();
+      g.v = 0;
+      g.moved = false;
+    };
+
+    const onMove = (e: TouchEvent) => {
+      if (!g.active || e.touches.length !== 1) return;
+      const t = e.touches[0];
+      const dx = t.clientX - g.startX;
+      const dy = t.clientY - g.startY;
+      const ax = Math.abs(dx);
+      const ay = Math.abs(dy);
+
+      if (g.axis == null) {
+        if (ax < swipeAxisLockPx && ay < swipeAxisLockPx) return;
+        g.axis = ax * swipeAxisBias > ay ? "x" : "y";
+        // Vertical intent: bow out entirely and let the page scroll natively.
+        if (g.axis === "y") {
+          g.active = false;
+          return;
+        }
+      }
+      if (g.axis !== "x") return;
+
+      // Claim the gesture: suppresses the page scroll for the rest of the touch.
+      e.preventDefault();
+      g.moved = true;
+      const now = performance.now();
+      g.v = (t.clientX - g.lastX) / Math.max(1, now - g.lastT);
+      g.lastX = t.clientX;
+      g.lastT = now;
+      g.dx = dx;
+      if (!g.raf) g.raf = requestAnimationFrame(write);
+    };
+
+    const onEnd = () => {
+      if (g.raf) {
+        cancelAnimationFrame(g.raf);
+        g.raf = 0;
+      }
+      const wasX = g.axis === "x";
+      const commit =
+        wasX &&
+        (Math.abs(g.dx) > swipeCommitPx || Math.abs(g.v) > swipeFlickVelocity);
+      const tap = !g.moved && g.axis == null && Math.abs(g.dx) < tapSlopPx;
+
+      if (commit) {
+        // The deal animation slides the article away; the inner layer just
+        // snaps back to 0 instantly behind it.
+        layer.style.transition = "none";
+        layer.style.transform = "translate3d(0,0,0)";
+      } else if (wasX) {
+        layer.style.transition = "transform 200ms cubic-bezier(0.2,0.7,0,1)";
+        layer.style.transform = "translate3d(0,0,0)";
+      }
+
+      g.active = false;
+      g.axis = null;
+      g.dx = 0;
+      g.v = 0;
+
+      if (commit) actionsRef.current.advance();
+      else if (tap) actionsRef.current.openGallery(actionsRef.current.activeId);
+    };
+
+    card.addEventListener("touchstart", onStart, { passive: true });
+    card.addEventListener("touchmove", onMove, { passive: false });
+    card.addEventListener("touchend", onEnd, { passive: true });
+    card.addEventListener("touchcancel", onEnd, { passive: true });
+    return () => {
+      card.removeEventListener("touchstart", onStart);
+      card.removeEventListener("touchmove", onMove);
+      card.removeEventListener("touchend", onEnd);
+      card.removeEventListener("touchcancel", onEnd);
+      if (g.raf) cancelAnimationFrame(g.raf);
+    };
+  }, [compact, shouldReduce, order]);
+
   const ordered = order
     .map((id) => byId.get(id))
     .filter((p): p is ShowcaseProject => Boolean(p));
@@ -1063,10 +1196,10 @@ export default function ProjectStack({ className }: { className?: string }) {
                           : 0,
                     }
               }
-              // Desktop keeps the playful free-card feel. Touch screens keep the
-              // gesture bounded so the deck never hijacks page scroll.
-              drag={active && !shouldReduce ? (compact ? "x" : true) : false}
-              dragDirectionLock={compact}
+              // Desktop drives the deck with framer's free-card drag. Mobile is
+              // owned by the custom touch effect above (framer drag off), so a
+              // horizontal swipe never competes with the browser's pan-y.
+              drag={active && !shouldReduce && !compact}
               dragSnapToOrigin
               dragElastic={0.5}
               whileHover={
@@ -1081,20 +1214,32 @@ export default function ProjectStack({ className }: { className?: string }) {
                 draggedRef.current = true;
               }}
               onDragEnd={onDragEnd}
-              // onTap opens L1, but only when this gesture wasn't a drag — a flick
-              // flips the stack and never falls through to opening.
+              // Desktop tap/back-card promote. On mobile the active card's
+              // tap+swipe is handled by the touch effect; only back cards
+              // promote through framer here.
               onTap={() => {
+                if (compact) {
+                  if (!active) promote(project.id);
+                  return;
+                }
                 if (draggedRef.current) return;
                 if (active) openGallery(project.id);
                 else promote(project.id);
               }}
               aria-hidden={!active}
             >
-              <CardFace
-                project={project}
-                active={active}
-                onOpen={() => openGallery(project.id)}
-              />
+              <div
+                ref={active ? dragLayerRef : undefined}
+                style={
+                  active && compact ? { willChange: "transform" } : undefined
+                }
+              >
+                <CardFace
+                  project={project}
+                  active={active}
+                  onOpen={() => openGallery(project.id)}
+                />
+              </div>
             </motion.article>
           );
         })}

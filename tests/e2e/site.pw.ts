@@ -975,4 +975,106 @@ test.describe('Projects page mobile touch', () => {
       await context.close();
     }
   });
+
+  test('L0 swipe locks to horizontal with a bias and lets vertical scroll', async ({
+    browser,
+  }, testInfo) => {
+    const iphone = devices['iPhone 13'];
+    const context = await browser.newContext({
+      baseURL: String(testInfo.project.use.baseURL),
+      deviceScaleFactor: iphone.deviceScaleFactor,
+      hasTouch: iphone.hasTouch,
+      isMobile: iphone.isMobile,
+      screen: { width: 390, height: 844 },
+      userAgent: iphone.userAgent,
+      viewport: iphone.viewport,
+    });
+    const page = await context.newPage();
+
+    try {
+      await page.emulateMedia({ reducedMotion: 'no-preference' });
+
+      const reset = async () => {
+        await page.goto('/projects');
+        const shell = page.locator('[data-project-stack]');
+        await expect(shell).toHaveAttribute('data-project-stack', 'hydrated', {
+          timeout: 30_000,
+        });
+        await page.waitForTimeout(1400); // entrance settles
+      };
+
+      const activeName = () =>
+        page.locator('article[aria-hidden="false"] h3').first().innerText();
+
+      // Dispatch a single-finger touch swipe over the active card and report
+      // whether any move was claimed (preventDefault) or left to the page.
+      const swipe = (dx: number, dy: number) =>
+        page.evaluate(
+          async ({ dx, dy }) => {
+            const card = document.querySelector('article[aria-hidden="false"]');
+            if (!card) return { prevented: false, scrollable: false };
+            const r = card.getBoundingClientRect();
+            const sx = r.left + r.width / 2;
+            const sy = r.top + r.height / 2;
+            const steps = 8;
+            const mk = (type: string, x: number, y: number) => {
+              const touch = new Touch({
+                identifier: 1,
+                target: card,
+                clientX: x,
+                clientY: y,
+              });
+              const ev = new TouchEvent(type, {
+                touches: type === 'touchend' ? [] : [touch],
+                changedTouches: [touch],
+                bubbles: true,
+                cancelable: true,
+              });
+              card.dispatchEvent(ev);
+              return ev;
+            };
+            const sleep = (ms: number) =>
+              new Promise<void>((res) => setTimeout(res, ms));
+            mk('touchstart', sx, sy);
+            let prevented = false;
+            let scrollable = false;
+            for (let i = 1; i <= steps; i += 1) {
+              const ev = mk(
+                'touchmove',
+                sx + (dx * i) / steps,
+                sy + (dy * i) / steps
+              );
+              if (ev.defaultPrevented) prevented = true;
+              else scrollable = true;
+              await sleep(12);
+            }
+            mk('touchend', sx + dx, sy + dy);
+            return { prevented, scrollable };
+          },
+          { dx, dy }
+        );
+
+      // A diagonal (~31° off horizontal) must still flip the deck and claim the
+      // gesture — this is exactly the swipe that used to leak to page scroll.
+      await reset();
+      const beforeDiag = await activeName();
+      const diag = await swipe(-100, -60);
+      await page.waitForTimeout(900);
+      expect(diag.prevented).toBe(true);
+      expect(diag.scrollable).toBe(false);
+      expect(await activeName()).not.toBe(beforeDiag);
+
+      // A clearly vertical swipe must NOT flip and must stay unclaimed so the
+      // page can scroll underneath.
+      await reset();
+      const beforeVert = await activeName();
+      const vert = await swipe(-18, -150);
+      await page.waitForTimeout(900);
+      expect(vert.prevented).toBe(false);
+      expect(vert.scrollable).toBe(true);
+      expect(await activeName()).toBe(beforeVert);
+    } finally {
+      await context.close();
+    }
+  });
 });
