@@ -953,6 +953,37 @@ test.describe('Projects page desktop gallery', () => {
     await page.mouse.click(cardBox.x + 12, cardBox.y + cardBox.height * 0.2);
     await expect(slider).toHaveAttribute('aria-valuenow', String(idx + 1));
   });
+
+  test('does not select story text while dragging cards with the mouse', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.goto('/projects');
+    const shell = page.locator('[data-project-stack]');
+    await expect(shell).toHaveAttribute('data-project-stack', 'hydrated', {
+      timeout: 30_000,
+    });
+    await page.locator('.projects-stack').scrollIntoViewIfNeeded();
+    const frontButton = shell
+      .locator('article[aria-hidden="false"]')
+      .getByRole('button', { name: /Tell me more/i });
+    await frontButton.evaluate((node) => (node as HTMLButtonElement).click());
+
+    const storyText = page
+      .locator('[data-project-gallery-scroller] [data-project-story-body] p')
+      .nth(1);
+    const box = await storyText.boundingBox();
+    if (!box) throw new Error('no story paragraph');
+
+    await page.mouse.move(box.x + box.width * 0.25, box.y + box.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(box.x + box.width * 0.85, box.y + box.height / 2, {
+      steps: 8,
+    });
+    await page.mouse.up();
+
+    await expect
+      .poll(() => page.evaluate(() => window.getSelection()?.toString() ?? ''))
+      .toBe('');
+  });
 });
 
 test.describe('Projects page mobile touch', () => {

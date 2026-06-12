@@ -145,7 +145,7 @@ function StoryCard({
   return (
     <div
       className={cn(
-        "flex h-full w-full flex-col rounded-[26px] p-2.5 text-stone-900 dark:text-stone-100",
+        "flex h-full w-full select-none flex-col rounded-[26px] p-2.5 text-stone-900 dark:text-stone-100",
         surface,
       )}
     >
@@ -155,7 +155,7 @@ function StoryCard({
 
       <div
         data-project-story-body
-        className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-3 pt-5 sm:px-5 sm:pb-4"
+        className="min-h-0 flex-1 select-none overflow-y-auto overscroll-contain px-4 pb-3 pt-5 sm:px-5 sm:pb-4"
         // pan-y scrolls this body; pan-x stays free so a horizontal swipe that
         // starts on the text still pans the outer gallery scroller.
         style={{ touchAction: "pan-x pan-y" }}
