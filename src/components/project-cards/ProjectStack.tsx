@@ -427,29 +427,51 @@ function StoryGallery({
 
   useEffect(() => setIndex(cur), [cur, setIndex]);
 
-  // Wheel paging for desktop mice: a vertical tick flips one card. Trackpad
-  // horizontal pans keep native momentum (dominant deltaX is left untouched).
+  // Desktop wheel / trackpad. Vertical over a card's story text scrolls the
+  // text natively until it hits an edge; everything else (horizontal pans,
+  // or vertical once the text is exhausted) drives the gallery horizontally —
+  // so two-finger left/right AND up/down both move through cards. We translate
+  // the dominant delta into scrollLeft ourselves rather than trusting native
+  // horizontal scroll (macOS hijacks two-finger-horizontal for history-nav),
+  // suspend snap while moving, then smooth-settle onto the nearest card.
   useEffect(() => {
     if (compact) return;
     const el = scrollerRef.current;
     if (!el) return;
-    let acc = 0;
-    let cooldownUntil = 0;
+    let settle = 0;
     const onWheel = (e: WheelEvent) => {
-      if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;
-      e.preventDefault();
-      const now = performance.now();
-      if (now < cooldownUntil) return;
-      acc += e.deltaY;
-      if (Math.abs(acc) > 50) {
-        go(curRef.current + (acc > 0 ? 1 : -1));
-        acc = 0;
-        cooldownUntil = now + 350;
+      const body = (e.target as HTMLElement | null)?.closest?.(
+        "[data-project-story-body]",
+      );
+      if (body instanceof HTMLElement && Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
+        const atTop = body.scrollTop <= 0;
+        const atBottom =
+          Math.ceil(body.scrollTop + body.clientHeight) >= body.scrollHeight;
+        if ((e.deltaY < 0 && !atTop) || (e.deltaY > 0 && !atBottom)) return;
       }
+      const delta = Math.abs(e.deltaX) >= Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
+      if (!delta) return;
+      e.preventDefault();
+      el.style.scrollSnapType = "none";
+      el.scrollLeft += delta;
+      window.clearTimeout(settle);
+      settle = window.setTimeout(() => {
+        const target = clamp(Math.round(el.scrollLeft / stride), 0, count - 1);
+        el.scrollTo({
+          left: target * stride,
+          behavior: reduce ? "auto" : "smooth",
+        });
+        window.setTimeout(() => {
+          if (!reduce) el.style.scrollSnapType = "x mandatory";
+        }, 260);
+      }, 90);
     };
     el.addEventListener("wheel", onWheel, { passive: false });
-    return () => el.removeEventListener("wheel", onWheel);
-  }, [compact, go]);
+    return () => {
+      el.removeEventListener("wheel", onWheel);
+      window.clearTimeout(settle);
+    };
+  }, [compact, count, reduce, stride]);
 
   // Mouse drag-to-scroll. Touch never enters this path — the native scroller
   // already owns touch pans on the compositor.
@@ -476,8 +498,9 @@ function StoryGallery({
     d.velocity = 0;
     d.startScroll = el.scrollLeft;
     d.moved = false;
-    el.setPointerCapture(e.pointerId);
-    suspendSnap();
+    // Capture is deferred until the pointer actually moves — capturing on
+    // pointerdown would retarget the click off the card, so a plain click to
+    // switch cards would never reach the card's onClick.
   };
 
   const onScrollerPointerMove = (e: ReactPointerEvent<HTMLDivElement>) => {
@@ -486,7 +509,12 @@ function StoryGallery({
     const el = scrollerRef.current;
     if (!el) return;
     const dx = e.clientX - d.startX;
-    if (Math.abs(dx) > 4) d.moved = true;
+    if (!d.moved) {
+      if (Math.abs(dx) <= 5) return; // not a drag yet — leave the click intact
+      d.moved = true;
+      el.setPointerCapture(e.pointerId);
+      suspendSnap();
+    }
     const now = performance.now();
     d.velocity = (e.clientX - d.lastX) / Math.max(1, now - d.lastT);
     d.lastX = e.clientX;
@@ -500,6 +528,7 @@ function StoryGallery({
     d.id = null;
     const el = scrollerRef.current;
     if (!el) return;
+    if (!d.moved) return; // a click, not a drag — let the card onClick switch
     let target = Math.round(el.scrollLeft / stride);
     if (Math.abs(d.velocity) > 0.4) {
       const from = Math.round(d.startScroll / stride);

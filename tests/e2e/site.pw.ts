@@ -892,6 +892,67 @@ test.describe('Projects page desktop gallery', () => {
       );
     expect(visibleCards).toBeGreaterThanOrEqual(2);
   });
+
+  test('switches cards via horizontal wheel, card click, and scrolls text with vertical wheel', async ({
+    page,
+  }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.goto('/projects');
+    const shell = page.locator('[data-project-stack]');
+    await expect(shell).toHaveAttribute('data-project-stack', 'hydrated', {
+      timeout: 30_000,
+    });
+    await page.locator('.projects-stack').scrollIntoViewIfNeeded();
+    const frontButton = shell
+      .locator('article[aria-hidden="false"]')
+      .getByRole('button', { name: /Tell me more/i });
+    await frontButton.evaluate((node) => (node as HTMLButtonElement).click());
+
+    const slider = page.getByRole('slider', { name: 'Project' });
+    await expect(slider).toHaveAttribute('aria-valuenow', '1');
+
+    const scroller = page.locator('[data-project-gallery-scroller]');
+    const box = await scroller.boundingBox();
+    if (!box) throw new Error('no scroller');
+
+    // Two-finger horizontal (deltaX) flips forward, then back.
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.mouse.wheel(400, 0);
+    await expect(slider).toHaveAttribute('aria-valuenow', '2');
+    await page.mouse.wheel(-400, 0);
+    await expect(slider).toHaveAttribute('aria-valuenow', '1');
+
+    // Vertical wheel over the story text scrolls the text, not the gallery.
+    const body = page
+      .locator('[data-project-gallery-scroller] [data-project-story-body]')
+      .first();
+    const bb = await body.boundingBox();
+    if (!bb) throw new Error('no story body');
+    await page.mouse.move(bb.x + bb.width / 2, bb.y + bb.height / 2);
+    const before = await body.evaluate((n) => (n as HTMLElement).scrollTop);
+    await page.mouse.wheel(0, 200);
+    await expect
+      .poll(() => body.evaluate((n) => (n as HTMLElement).scrollTop))
+      .toBeGreaterThan(before);
+    await expect(slider).toHaveAttribute('aria-valuenow', '1');
+
+    // Left-clicking a peeking neighbour switches to it.
+    const cards = page.locator('[data-project-gallery-scroller] > div');
+    const idx = await cards.evaluateAll((nodes) => {
+      for (let i = 0; i < nodes.length; i += 1) {
+        const r = nodes[i].getBoundingClientRect();
+        if (r.left > window.innerWidth * 0.5 && r.left < window.innerWidth) {
+          return i;
+        }
+      }
+      return -1;
+    });
+    expect(idx).toBeGreaterThan(0);
+    const cardBox = await cards.nth(idx).boundingBox();
+    if (!cardBox) throw new Error('no neighbour card');
+    await page.mouse.click(cardBox.x + 12, cardBox.y + cardBox.height * 0.2);
+    await expect(slider).toHaveAttribute('aria-valuenow', String(idx + 1));
+  });
 });
 
 test.describe('Projects page mobile touch', () => {
