@@ -295,6 +295,10 @@ function StoryGallery({
   const scrubberRef = useRef<GalleryScrubberHandle>(null);
   const latestProgressRef = useRef(count > 1 ? index / (count - 1) : 0);
   const snapTimer = useRef<number | undefined>(undefined);
+  // Mandatory scroll-snap inside an element that is being `scale()`-animated
+  // makes WebKit re-snap every frame, jittering the card. Keep snap off until
+  // the grow-in finishes (flipped in the entrance's onAnimationComplete).
+  const enteredRef = useRef(false);
   const [cur, setCurState] = useState(index);
   const curRef = useRef(index);
   useLockedBodyScroll();
@@ -304,7 +308,7 @@ function StoryGallery({
     : Math.min(620, Math.round(vw * 0.52));
   const gap = compact ? 16 : 40;
   const stride = cardW + gap;
-  const trackPx = Math.min(Math.round(vw * 0.72), 340);
+  const trackPx = Math.min(Math.round(vw * 0.58), 240);
   const sidePad = Math.max(0, Math.round((vw - cardW) / 2));
   // Uniform height for every card: content differences no longer make outer
   // cards taller than inner ones, and svh keeps the card on screen even when
@@ -397,7 +401,8 @@ function StoryGallery({
     const el = scrollerRef.current;
     if (!el) return;
     el.scrollLeft = curRef.current * stride;
-    el.style.scrollSnapType = reduce ? "none" : "x mandatory";
+    el.style.scrollSnapType =
+      !reduce && enteredRef.current ? "x mandatory" : "none";
     applyPose(el.scrollLeft);
   }, [applyPose, reduce, stride]);
 
@@ -543,26 +548,39 @@ function StoryGallery({
       <div
         className={cn(
           "absolute inset-0 bg-[#f6f4f0]/85 dark:bg-[#0b0b0c]/80",
-          compact ? "backdrop-blur-lg" : "backdrop-blur-2xl",
+          compact ? "backdrop-blur-md" : "backdrop-blur-xl",
         )}
         onClick={onClose}
       />
 
       <motion.div
         className="absolute inset-0"
+        // Promote to its own layer so the whole card subtree (heavy shadows
+        // included) rasterises once and just composites during the grow-in —
+        // otherwise Safari repaints the shadows every frame and drops them.
+        style={{
+          willChange: "transform",
+          WebkitBackfaceVisibility: "hidden",
+          backfaceVisibility: "hidden",
+        }}
         initial={originPose}
         animate={{ x: 0, y: 0, scale: 1 }}
         exit={{
           ...originPose,
           transition: reduce
             ? { duration: 0 }
-            : { type: "spring", stiffness: 460, damping: 42, mass: 0.9 },
+            : { duration: 0.3, ease: [0.4, 0, 1, 1] },
         }}
+        // A tween, not a spring: a spring's tail overshoot reads as a shiver at
+        // the end of the zoom. Ease-out lands clean.
         transition={
-          reduce
-            ? { duration: 0 }
-            : { type: "spring", stiffness: 340, damping: 34, mass: 0.9 }
+          reduce ? { duration: 0 } : { duration: 0.42, ease: [0.32, 0.72, 0, 1] }
         }
+        onAnimationComplete={() => {
+          enteredRef.current = true;
+          const el = scrollerRef.current;
+          if (el && !reduce) el.style.scrollSnapType = "x mandatory";
+        }}
       >
         <div
           ref={scrollerRef}
@@ -731,8 +749,11 @@ const GalleryScrubber = forwardRef<GalleryScrubberHandle, GalleryScrubberProps>(
     return (
       <div
         className="pointer-events-auto absolute left-1/2 z-10 -translate-x-1/2"
-        style={{ bottom: "max(24px, env(safe-area-inset-bottom))" }}
+        style={{ bottom: "max(20px, env(safe-area-inset-bottom))" }}
       >
+        {/* Tall, transparent hit area holds a hairline rail at rest. The rail
+            and thumb thicken on hover/drag so it reads as a quiet line until
+            you reach for it, then becomes a grabbable scrubber. */}
         <div
           ref={railRef}
           role="slider"
@@ -741,7 +762,7 @@ const GalleryScrubber = forwardRef<GalleryScrubberHandle, GalleryScrubberProps>(
           aria-valuemax={count}
           aria-valuenow={cur + 1}
           tabIndex={0}
-          className="relative h-2.5 cursor-grab touch-none select-none rounded-full bg-stone-900/[0.12] active:cursor-grabbing dark:bg-white/15"
+          className="group flex h-6 cursor-grab touch-none select-none items-center outline-none active:cursor-grabbing"
           style={{ width: trackPx }}
           onKeyDown={(event) => {
             if (event.key === "ArrowRight") {
@@ -765,16 +786,28 @@ const GalleryScrubber = forwardRef<GalleryScrubberHandle, GalleryScrubberProps>(
           onPointerCancel={() => setDragging(false)}
         >
           <div
-            ref={pillRef}
-            className="absolute inset-y-0 left-0 rounded-full bg-stone-700/90 dark:bg-white/90"
-            style={{
-              width: pillPx,
-              transform: `translate3d(${progressRef.current * travelPx}px,0,0)`,
-              transition: dragging
-                ? "none"
-                : "transform 120ms cubic-bezier(0.2,0.7,0,1)",
-            }}
-          />
+            className={cn(
+              "relative w-full overflow-hidden rounded-full bg-stone-900/[0.06] transition-[height] duration-200 ease-out dark:bg-white/10",
+              dragging ? "h-1.5" : "h-1 group-hover:h-1.5",
+            )}
+          >
+            <div
+              ref={pillRef}
+              className={cn(
+                "absolute inset-y-0 left-0 rounded-full",
+                dragging
+                  ? "bg-stone-700/85 dark:bg-white/85"
+                  : "bg-stone-500/55 group-hover:bg-stone-600/75 dark:bg-white/45 dark:group-hover:bg-white/70",
+              )}
+              style={{
+                width: pillPx,
+                transform: `translate3d(${progressRef.current * travelPx}px,0,0)`,
+                transition: dragging
+                  ? "background-color 200ms ease-out"
+                  : "transform 120ms cubic-bezier(0.2,0.7,0,1), background-color 200ms ease-out",
+              }}
+            />
+          </div>
         </div>
       </div>
     );
