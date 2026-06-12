@@ -858,6 +858,42 @@ test.describe('Home page mobile touch', () => {
   });
 });
 
+test.describe('Projects page desktop gallery', () => {
+  test('keeps the expanded gallery with an adjacent card visible', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.goto('/projects');
+    await expect(page.getByRole('heading', { name: 'Selected work' })).toBeVisible();
+
+    const stackShell = page.locator('[data-project-stack]');
+    await expect(stackShell).toHaveAttribute('data-project-stack', 'hydrated', { timeout: 30_000 });
+
+    await page.locator('.projects-stack').scrollIntoViewIfNeeded();
+    const frontCard = stackShell.locator('article[aria-hidden="false"]');
+    const frontButton = frontCard.getByRole('button', { name: /Tell me more/i });
+    await expect(frontButton).toBeVisible();
+    await frontButton.evaluate((node) => (node as HTMLButtonElement).click());
+
+    const dialog = page.getByRole('dialog', { name: 'Project gallery' });
+    await expect(dialog).toBeVisible();
+    await expect(page.locator('[data-project-gallery-scroller]')).toBeVisible();
+    await expect(page.locator('[data-project-gallery-card]')).toHaveCount(0);
+
+    const visibleCards = await page
+      .locator('[data-project-gallery-scroller] > div')
+      .evaluateAll((nodes) =>
+        nodes.filter((node) => {
+          const rect = node.getBoundingClientRect();
+          const visibleWidth = Math.max(
+            0,
+            Math.min(rect.right, window.innerWidth) - Math.max(rect.left, 0)
+          );
+          return visibleWidth > 80;
+        }).length
+      );
+    expect(visibleCards).toBeGreaterThanOrEqual(2);
+  });
+});
+
 test.describe('Projects page mobile touch', () => {
   test('swipes the enlarged project card from the story body', async ({ browser }, testInfo) => {
     const iphone = devices['iPhone 13'];
@@ -875,12 +911,13 @@ test.describe('Projects page mobile touch', () => {
     try {
       await page.emulateMedia({ reducedMotion: 'no-preference' });
       await page.goto('/projects');
-      await page.waitForLoadState('networkidle');
       await expect(page.getByRole('heading', { name: 'Selected work' })).toBeVisible();
 
+      const stackShell = page.locator('[data-project-stack]');
+      await expect(stackShell).toHaveAttribute('data-project-stack', 'hydrated', { timeout: 30_000 });
+      await page.locator('.projects-stack').scrollIntoViewIfNeeded();
+
       const stack = page.locator('[aria-roledescription="carousel"][aria-label="Projects"]');
-      await stack.scrollIntoViewIfNeeded();
-      await expect(page.locator('[data-project-stack="hydrated"]')).toHaveCount(1);
       await expect(stack.locator('article')).toHaveCount(4);
       await stack.getByRole('button', { name: /Tell me more/i }).click();
 
@@ -889,56 +926,51 @@ test.describe('Projects page mobile touch', () => {
       const slider = page.getByRole('slider', { name: 'Project' });
       await expect(slider).toHaveAttribute('aria-valuenow', '1');
 
-      await dialog.evaluate(async (node) => {
-        const body = node.querySelector('[data-project-story-body]');
-        if (!(body instanceof HTMLElement)) {
-          throw new Error('Missing project story body');
-        }
+      const storyBody = page.locator('[data-project-gallery-card] [data-project-story-body]');
+      await expect(storyBody).toBeVisible();
 
-        const rect = body.getBoundingClientRect();
-        const target = body;
+      await storyBody.evaluate(async (node) => {
+        const target = node as HTMLElement;
+        const rect = target.getBoundingClientRect();
         const y = rect.top + Math.min(110, rect.height * 0.55);
-        const startX = rect.left + rect.width * 0.82;
-        const endX = rect.left + rect.width * 0.18;
-        const steps = 6;
+        const startX = rect.left + rect.width * 0.84;
+        const endX = rect.left + rect.width * 0.16;
+        const steps = 8;
+        let pointerCaptureTarget: Element | null = null;
 
-        const touchAt = (x: number): Touch => {
-          const init = {
-            identifier: 1,
-            target,
-            clientX: x,
-            clientY: y,
-            screenX: x,
-            screenY: y,
-            pageX: x + window.scrollX,
-            pageY: y + window.scrollY,
-            radiusX: 8,
-            radiusY: 8,
-            rotationAngle: 0,
-            force: 0.7,
-          };
-
-          return typeof Touch === 'function' ? new Touch(init) : (init as unknown as Touch);
-        };
-
-        const dispatch = (type: 'touchstart' | 'touchmove' | 'touchend', x: number) => {
-          const touch = touchAt(x);
-          target.dispatchEvent(new TouchEvent(type, {
+        const dispatch = (
+          type: 'pointerdown' | 'pointermove' | 'pointerup',
+          x: number
+        ) => {
+          const event = new PointerEvent(type, {
             bubbles: true,
             cancelable: true,
-            touches: type === 'touchend' ? [] : [touch],
-            targetTouches: type === 'touchend' ? [] : [touch],
-            changedTouches: [touch],
-          }));
+            pointerId: 1,
+            pointerType: 'touch',
+            isPrimary: true,
+            button: type === 'pointerdown' ? 0 : -1,
+            buttons: type === 'pointerup' ? 0 : 1,
+            clientX: x,
+            clientY: y,
+          });
+
+          (pointerCaptureTarget ?? target).dispatchEvent(event);
         };
 
-        dispatch('touchstart', startX);
+        Element.prototype.setPointerCapture = function setPointerCapture() {
+          pointerCaptureTarget = this;
+        };
+        Element.prototype.releasePointerCapture = function releasePointerCapture() {
+          pointerCaptureTarget = null;
+        };
+
+        dispatch('pointerdown', startX);
         for (let i = 1; i <= steps; i += 1) {
           const x = startX + ((endX - startX) * i) / steps;
-          dispatch('touchmove', x);
+          dispatch('pointermove', x);
           await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
         }
-        dispatch('touchend', endX);
+        dispatch('pointerup', endX);
       });
 
       await expect(slider).toHaveAttribute('aria-valuenow', '2');

@@ -7,8 +7,10 @@ import {
   useMemo,
   useRef,
   useState,
+  type PointerEvent as ReactPointerEvent,
 } from "react";
 import { createPortal } from "react-dom";
+import * as Dialog from "@radix-ui/react-dialog";
 import {
   AnimatePresence,
   motion,
@@ -37,11 +39,10 @@ import { cn } from "@/lib/utils";
 const visibleDepth = 3; // four projects → depths 0..3, all peek
 const autoAdvanceMs = 5500; // slow enough to read; hover pauses it entirely
 const dragAdvanceThreshold = 70;
-const swipeAxisLockPx = 8;
-const swipeAxisBias = 1.14;
-const swipeFlickVelocity = 0.34;
-const swipeProjectionMs = 190;
-const swipeDistanceRatio = 0.16;
+const mobileSwipeAxisLockPx = 8;
+const mobileSwipeAxisBias = 1.08;
+const mobileSwipeDistancePx = 54;
+const mobileSwipeFlickVelocity = 0.34;
 
 const clamp = (value: number, min: number, max: number) =>
   Math.min(max, Math.max(min, value));
@@ -143,7 +144,6 @@ function StoryCard({
     <div
       className={cn(
         "flex max-h-[86vh] w-full flex-col rounded-[26px] p-2.5 text-stone-900 transition-opacity duration-300 dark:text-stone-100",
-        // Neighbours sit quietly behind the focused card; the centred one is full.
         dim ? "opacity-45" : "opacity-100",
         surface,
       )}
@@ -218,29 +218,106 @@ function useViewportWidth() {
   return vw;
 }
 
+function useLockedBodyScroll() {
+  useLayoutEffect(() => {
+    const root = document.documentElement;
+    const body = document.body;
+    const scrollY = window.scrollY;
+    const previous = {
+      rootOverflow: root.style.overflow,
+      rootOverscroll: root.style.overscrollBehavior,
+      bodyPosition: body.style.position,
+      bodyTop: body.style.top,
+      bodyLeft: body.style.left,
+      bodyRight: body.style.right,
+      bodyWidth: body.style.width,
+      bodyOverflow: body.style.overflow,
+      bodyOverscroll: body.style.overscrollBehavior,
+    };
+
+    root.style.overflow = "hidden";
+    root.style.overscrollBehavior = "none";
+    body.style.position = "fixed";
+    body.style.top = `-${scrollY}px`;
+    body.style.left = "0";
+    body.style.right = "0";
+    body.style.width = "100%";
+    body.style.overflow = "hidden";
+    body.style.overscrollBehavior = "none";
+
+    return () => {
+      root.style.overflow = previous.rootOverflow;
+      root.style.overscrollBehavior = previous.rootOverscroll;
+      body.style.position = previous.bodyPosition;
+      body.style.top = previous.bodyTop;
+      body.style.left = previous.bodyLeft;
+      body.style.right = previous.bodyRight;
+      body.style.width = previous.bodyWidth;
+      body.style.overflow = previous.bodyOverflow;
+      body.style.overscrollBehavior = previous.bodyOverscroll;
+      window.scrollTo(0, scrollY);
+    };
+  }, []);
+}
+
 function StoryGallery({
   index,
   setIndex,
   onClose,
+  vw,
+  compact,
 }: {
   index: number;
   setIndex: (n: number) => void;
   onClose: () => void;
+  vw: number;
+  compact: boolean;
+}) {
+  return compact ? (
+    <MobileStoryGallery
+      index={index}
+      setIndex={setIndex}
+      onClose={onClose}
+      vw={vw}
+    />
+  ) : (
+    <DesktopStoryGallery
+      index={index}
+      setIndex={setIndex}
+      onClose={onClose}
+      vw={vw}
+    />
+  );
+}
+
+function DesktopStoryGallery({
+  index,
+  setIndex,
+  onClose,
+  vw,
+}: {
+  index: number;
+  setIndex: (n: number) => void;
+  onClose: () => void;
+  vw: number;
 }) {
   const reduce = useReducedMotion();
-  const vw = useViewportWidth();
-  const compact = vw < 640;
   const count = projects.length;
 
   const scrollerRef = useRef<HTMLDivElement>(null);
   const scrubberRef = useRef<GalleryScrubberHandle>(null);
-  const touchGestureActiveRef = useRef(false);
   const latestProgressRef = useRef(count > 1 ? index / (count - 1) : 0);
   const [cur, setCurState] = useState(index);
   const [entered, setEntered] = useState(false);
-  // curRef mirrors `cur` so size-change re-centering and click handlers read the
-  // live value without re-subscribing the scroll listener.
   const curRef = useRef(index);
+  useLockedBodyScroll();
+
+  const cardW = Math.min(620, Math.round(vw * 0.52));
+  const gap = 40;
+  const stride = cardW + gap;
+  const trackPx = Math.min(Math.round(vw * 0.72), 340);
+  const sidePad = Math.max(0, Math.round((vw - cardW) / 2));
+
   const setCur = useCallback(
     (n: number) => {
       const next = clamp(n, 0, count - 1);
@@ -251,26 +328,17 @@ function StoryGallery({
     [count],
   );
 
-  const cardW = compact
-    ? Math.round(vw * 0.84)
-    : Math.min(620, Math.round(vw * 0.52));
-  const gap = compact ? 14 : 40;
-  const stride = cardW + gap;
-  const trackPx = Math.min(Math.round(vw * 0.72), 340);
-  // Symmetric padding lets the first and last card snap to the exact centre, so
-  // scrollLeft 0 == card 0 centred, and card i sits at i * stride.
-  const sidePad = Math.max(0, Math.round((vw - cardW) / 2));
+  const go = useCallback(
+    (n: number) => {
+      const target = clamp(n, 0, count - 1);
+      scrollerRef.current?.scrollTo({
+        left: target * stride,
+        behavior: reduce ? "auto" : "smooth",
+      });
+    },
+    [count, reduce, stride],
+  );
 
-  const go = useCallback((n: number) => {
-    const t = clamp(n, 0, count - 1);
-    scrollerRef.current?.scrollTo({
-      left: t * stride,
-      behavior: reduce ? "auto" : "smooth",
-    });
-  }, [count, reduce, stride]);
-
-  // Native scroll drives the source of truth: read scrollLeft, derive the live
-  // index + continuous progress (for the scrubber). rAF-throttled, passive.
   useEffect(() => {
     const el = scrollerRef.current;
     if (!el) return;
@@ -283,10 +351,7 @@ function StoryGallery({
         const nextProgress = max > 0 ? clamp(el.scrollLeft / max, 0, 1) : 0;
         latestProgressRef.current = nextProgress;
         scrubberRef.current?.setProgress(nextProgress);
-
-        if (!touchGestureActiveRef.current) {
-          setCur(Math.round(el.scrollLeft / stride));
-        }
+        setCur(Math.round(el.scrollLeft / stride));
       });
     };
     el.addEventListener("scroll", onScroll, { passive: true });
@@ -297,140 +362,11 @@ function StoryGallery({
     };
   }, [setCur, stride]);
 
-  // Mobile Safari is awful at nested horizontal gallery + vertical card body
-  // arbitration. Axis-lock once, then do the minimum: horizontal swipes drive
-  // scrollLeft directly; vertical swipes stay native so the story body scrolls.
-  useEffect(() => {
-    const el = scrollerRef.current;
-    if (!el) return;
-
-    let active = false;
-    let axis: "x" | "y" | null = null;
-    let startX = 0;
-    let startY = 0;
-    let startScrollLeft = 0;
-    let lastX = 0;
-    let lastT = 0;
-    let velocity = 0;
-    let raf = 0;
-    let pendingLeft: number | null = null;
-
-    const snap = () => {
-      el.style.scrollSnapType = reduce ? "none" : "x mandatory";
-    };
-    const unsnap = () => {
-      el.style.scrollSnapType = "none";
-    };
-    const flushScrollLeft = () => {
-      raf = 0;
-      if (pendingLeft == null) return;
-      el.scrollLeft = pendingLeft;
-      pendingLeft = null;
-    };
-    const setScrollLeft = (next: number) => {
-      const max = Math.max(0, el.scrollWidth - el.clientWidth);
-      pendingLeft = clamp(next, 0, max);
-      if (!raf) raf = requestAnimationFrame(flushScrollLeft);
-    };
-    const finish = () => {
-      if (!active) return;
-      active = false;
-      touchGestureActiveRef.current = false;
-
-      if (raf) {
-        cancelAnimationFrame(raf);
-        flushScrollLeft();
-      }
-
-      if (axis === "x") {
-        const moved = el.scrollLeft - startScrollLeft;
-        const projected = el.scrollLeft + velocity * swipeProjectionMs;
-        let target = Math.round(projected / stride);
-
-        if (
-          target === curRef.current &&
-          (Math.abs(velocity) > swipeFlickVelocity ||
-            Math.abs(moved) > stride * swipeDistanceRatio)
-        ) {
-          target += Math.sign(moved || velocity);
-        }
-
-        snap();
-        go(target);
-      } else {
-        snap();
-      }
-
-      axis = null;
-    };
-    const onTouchStart = (event: TouchEvent) => {
-      if (event.touches.length !== 1) return;
-      const touch = event.touches[0];
-      active = true;
-      axis = null;
-      startX = touch.clientX;
-      startY = touch.clientY;
-      startScrollLeft = el.scrollLeft;
-      lastX = touch.clientX;
-      lastT = performance.now();
-      velocity = 0;
-    };
-    const onTouchMove = (event: TouchEvent) => {
-      if (!active || event.touches.length !== 1) return;
-      const touch = event.touches[0];
-      const dx = startX - touch.clientX;
-      const dy = startY - touch.clientY;
-      const ax = Math.abs(dx);
-      const ay = Math.abs(dy);
-
-      if (axis == null) {
-        if (ax < swipeAxisLockPx && ay < swipeAxisLockPx) return;
-        axis = ax > ay * swipeAxisBias ? "x" : "y";
-        if (axis === "x") {
-          touchGestureActiveRef.current = true;
-          unsnap();
-        } else {
-          snap();
-          return;
-        }
-      }
-
-      if (axis !== "x") return;
-
-      event.preventDefault();
-      const now = performance.now();
-      velocity = (lastX - touch.clientX) / Math.max(1, now - lastT);
-      lastX = touch.clientX;
-      lastT = now;
-      setScrollLeft(startScrollLeft + dx);
-    };
-
-    const passiveCapture: AddEventListenerOptions = { passive: true, capture: true };
-    const activeCapture: AddEventListenerOptions = { passive: false, capture: true };
-    el.addEventListener("touchstart", onTouchStart, passiveCapture);
-    el.addEventListener("touchmove", onTouchMove, activeCapture);
-    el.addEventListener("touchend", finish, passiveCapture);
-    el.addEventListener("touchcancel", finish, passiveCapture);
-
-    return () => {
-      el.removeEventListener("touchstart", onTouchStart, passiveCapture);
-      el.removeEventListener("touchmove", onTouchMove, activeCapture);
-      el.removeEventListener("touchend", finish, passiveCapture);
-      el.removeEventListener("touchcancel", finish, passiveCapture);
-      if (raf) cancelAnimationFrame(raf);
-      touchGestureActiveRef.current = false;
-    };
-  }, [go, reduce, stride]);
-
-  // Jump to the opened card before paint (no animated slide-in from card 0), and
-  // keep the current card centred when the viewport / card width changes.
   useLayoutEffect(() => {
     const el = scrollerRef.current;
     if (el) el.scrollLeft = curRef.current * stride;
   }, [stride]);
 
-  // Entrance zoom: scale the whole track up from the tapped card's footprint.
-  // CSS transform/opacity transition — compositor-driven, no JS per frame.
   useLayoutEffect(() => {
     if (reduce) return setEntered(true);
     const r = requestAnimationFrame(() => setEntered(true));
@@ -444,39 +380,13 @@ function StoryGallery({
       else if (e.key === "ArrowLeft") go(curRef.current - 1);
     };
     document.addEventListener("keydown", onKey);
-    // iOS-proof scroll lock: Safari ignores `overflow: hidden` for touch
-    // scrolling, so the page leaks behind the modal. Pin the body with
-    // position: fixed and restore the scroll offset on close.
-    const body = document.body;
-    const scrollY = window.scrollY;
-    const prev = {
-      position: body.style.position,
-      top: body.style.top,
-      left: body.style.left,
-      right: body.style.right,
-      width: body.style.width,
-      overflow: body.style.overflow,
-    };
-    body.style.position = "fixed";
-    body.style.top = `-${scrollY}px`;
-    body.style.left = "0";
-    body.style.right = "0";
-    body.style.width = "100%";
-    body.style.overflow = "hidden";
-    return () => {
-      document.removeEventListener("keydown", onKey);
-      Object.assign(body.style, prev);
-      window.scrollTo(0, scrollY);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [onClose]);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [go, onClose]);
 
   useEffect(() => setIndex(cur), [cur, setIndex]);
 
   if (typeof document === "undefined") return null;
 
-  // Scrubber joystick: ratio 0..1 → scrollLeft. While dragging, set scrollLeft
-  // directly for 1:1 tracking; on release, snap to the nearest card.
   const onScrub = (ratio: number, commit: boolean) => {
     const el = scrollerRef.current;
     if (!el) return;
@@ -497,21 +407,15 @@ function StoryGallery({
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      transition={{ duration: 0.18, ease: "easeOut" }}
+      transition={{ duration: reduce ? 0 : 0.18, ease: "easeOut" }}
     >
       <style>{".gallery-scroller::-webkit-scrollbar{display:none}"}</style>
 
-      {/* Solid scrim, no backdrop-filter: a viewport-sized blur is the single
-          most expensive thing to sustain on mobile Safari (heat + dropped
-          frames). A flat dark wash reads the same and costs nothing per frame. */}
       <div
-        className="absolute inset-0 bg-stone-900/85 dark:bg-black/88"
+        className="absolute inset-0 bg-[#11100e] dark:bg-black"
         onClick={onClose}
       />
 
-      {/* Native horizontal snap scroller — owns the swipe gesture (so it can't
-          chain to the page) and runs on the compositor. A tap on the empty
-          padding (target === the scroller itself) closes. */}
       <div
         ref={scrollerRef}
         data-project-gallery-scroller
@@ -525,9 +429,6 @@ function StoryGallery({
           WebkitOverflowScrolling: "touch",
           touchAction: "pan-y pinch-zoom",
           scrollbarWidth: "none",
-          // Keep the cards fully opaque (the dialog's own opacity fade handles
-          // the appear). Only a subtle scale settle here — fading the scroller
-          // separately made the card translucent against the dark scrim: a mess.
           transform: entered ? "scale(1)" : "scale(0.96)",
           transformOrigin: "center center",
           transition: reduce
@@ -538,14 +439,14 @@ function StoryGallery({
           if (e.target === scrollerRef.current) onClose();
         }}
       >
-        {projects.map((p, i) => (
+        {projects.map((project, i) => (
           <div
-            key={p.id}
+            key={project.id}
             className={cn("shrink-0 snap-center", i !== cur && "cursor-pointer")}
             style={{ width: cardW, transform: "translateZ(0)" }}
             onClick={() => i !== curRef.current && go(i)}
           >
-            <StoryCard project={p} active={i === cur} dim={i !== cur} />
+            <StoryCard project={project} active={i === cur} dim={i !== cur} />
           </div>
         ))}
       </div>
@@ -554,12 +455,11 @@ function StoryGallery({
         type="button"
         onClick={onClose}
         aria-label="Close"
-        className="absolute right-4 top-4 z-10 grid h-10 w-10 place-items-center rounded-full border border-white/15 bg-stone-900/35 text-white/85 backdrop-blur-md transition-colors hover:bg-stone-900/55 hover:text-white sm:right-6 sm:top-6"
+        className="absolute right-4 top-4 z-10 grid h-10 w-10 place-items-center rounded-full border border-white/15 bg-white/[0.08] text-white/85 transition-colors hover:bg-white/[0.14] hover:text-white sm:right-6 sm:top-6"
       >
         <X className="h-4 w-4" />
       </button>
 
-      {/* Arrows on desktop only — on mobile the scrubber below is the control. */}
       <GalleryArrow side="left" disabled={cur === 0} onClick={() => go(cur - 1)} />
       <GalleryArrow
         side="right"
@@ -580,9 +480,392 @@ function StoryGallery({
   );
 }
 
-// A draggable segment pill: drag anywhere along the rail to scrub. Scroll
-// progress updates the pill imperatively, so a card swipe does not re-render the
-// whole gallery on every frame.
+function MobileStoryGallery({
+  index,
+  setIndex,
+  onClose,
+  vw,
+}: {
+  index: number;
+  setIndex: (n: number) => void;
+  onClose: () => void;
+  vw: number;
+}) {
+  const reduce = useReducedMotion();
+  const count = projects.length;
+  const [cur, setCurState] = useState(index);
+  const [direction, setDirection] = useState(1);
+  const curRef = useRef(index);
+  const cardRef = useRef<HTMLDivElement>(null);
+  const dragSurfaceRef = useRef<HTMLDivElement>(null);
+  const resetTimerRef = useRef<number | undefined>(undefined);
+  const gestureRef = useRef({
+    active: false,
+    axis: null as "x" | "y" | null,
+    startX: 0,
+    startY: 0,
+    lastX: 0,
+    lastT: 0,
+    velocity: 0,
+    raf: 0,
+    pendingX: 0,
+    appliedX: 0,
+    pointerId: null as number | null,
+  });
+  const cardW = Math.round(vw * 0.88);
+  const trackPx = Math.min(Math.round(vw * 0.72), 340);
+  useLockedBodyScroll();
+
+  const setCur = useCallback(
+    (n: number) => {
+      const next = clamp(n, 0, count - 1);
+      if (next === curRef.current) return;
+      setDirection(next > curRef.current ? 1 : -1);
+      curRef.current = next;
+      setCurState(next);
+      setIndex(next);
+    },
+    [count, setIndex],
+  );
+
+  const resetDragOffset = useCallback(
+    (animated: boolean) => {
+      const el = dragSurfaceRef.current;
+      if (!el) return;
+
+      window.clearTimeout(resetTimerRef.current);
+      el.style.transition =
+        animated && !reduce
+          ? "transform 180ms cubic-bezier(0.2,0.7,0,1)"
+          : "none";
+      el.style.transform = "translate3d(0,0,0)";
+
+      if (animated && !reduce) {
+        resetTimerRef.current = window.setTimeout(() => {
+          if (dragSurfaceRef.current) dragSurfaceRef.current.style.transition = "";
+        }, 190);
+      }
+    },
+    [reduce],
+  );
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+      else if (e.key === "ArrowRight") setCur(curRef.current + 1);
+      else if (e.key === "ArrowLeft") setCur(curRef.current - 1);
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onClose, setCur]);
+
+  useEffect(() => {
+    resetDragOffset(false);
+  }, [cur, resetDragOffset]);
+
+  const applyGestureX = useCallback(() => {
+    const gesture = gestureRef.current;
+    gesture.raf = 0;
+    gesture.appliedX = gesture.pendingX;
+    const surface = dragSurfaceRef.current;
+    if (!surface) return;
+    surface.style.transition = "none";
+    surface.style.transform = `translate3d(${gesture.pendingX}px,0,0)`;
+  }, []);
+
+  const setGestureX = useCallback(
+    (next: number) => {
+      const gesture = gestureRef.current;
+      const atStart = curRef.current === 0 && next > 0;
+      const atEnd = curRef.current === count - 1 && next < 0;
+      gesture.pendingX = atStart || atEnd ? next * 0.35 : next;
+      if (!gesture.raf) gesture.raf = requestAnimationFrame(applyGestureX);
+    },
+    [applyGestureX, count],
+  );
+
+  const beginGesture = useCallback((clientX: number, clientY: number) => {
+    const gesture = gestureRef.current;
+    gesture.active = true;
+    gesture.axis = null;
+    gesture.startX = clientX;
+    gesture.startY = clientY;
+    gesture.lastX = clientX;
+    gesture.lastT = performance.now();
+    gesture.velocity = 0;
+    gesture.pendingX = 0;
+    gesture.appliedX = 0;
+  }, []);
+
+  const moveGesture = useCallback(
+    (
+      clientX: number,
+      clientY: number,
+      preventDefault: () => void,
+    ) => {
+      const gesture = gestureRef.current;
+      if (!gesture.active) return;
+
+      const dx = clientX - gesture.startX;
+      const dy = clientY - gesture.startY;
+      const ax = Math.abs(dx);
+      const ay = Math.abs(dy);
+
+      if (gesture.axis == null) {
+        if (ax < mobileSwipeAxisLockPx && ay < mobileSwipeAxisLockPx) return;
+        gesture.axis = ax > ay * mobileSwipeAxisBias ? "x" : "y";
+        if (gesture.axis === "y") return;
+      }
+
+      if (gesture.axis !== "x") return;
+
+      preventDefault();
+      const now = performance.now();
+      gesture.velocity = (clientX - gesture.lastX) / Math.max(1, now - gesture.lastT);
+      gesture.lastX = clientX;
+      gesture.lastT = now;
+      setGestureX(dx);
+    },
+    [setGestureX],
+  );
+
+  const finishGesture = useCallback(() => {
+    const gesture = gestureRef.current;
+    if (!gesture.active) return;
+    gesture.active = false;
+
+    if (gesture.raf) {
+      cancelAnimationFrame(gesture.raf);
+      applyGestureX();
+    }
+
+    let changed = false;
+    const current = curRef.current;
+    if (gesture.axis === "x") {
+      if (
+        current < count - 1 &&
+        (gesture.appliedX < -mobileSwipeDistancePx ||
+          gesture.velocity < -mobileSwipeFlickVelocity)
+      ) {
+        setCur(current + 1);
+        changed = true;
+      } else if (
+        current > 0 &&
+        (gesture.appliedX > mobileSwipeDistancePx ||
+          gesture.velocity > mobileSwipeFlickVelocity)
+      ) {
+        setCur(current - 1);
+        changed = true;
+      }
+    }
+
+    if (!changed) resetDragOffset(gesture.axis === "x");
+    gesture.axis = null;
+    gesture.pendingX = 0;
+    gesture.appliedX = 0;
+    gesture.pointerId = null;
+  }, [applyGestureX, count, resetDragOffset, setCur]);
+
+  const onPointerDownCapture = useCallback(
+    (event: ReactPointerEvent<HTMLDivElement>) => {
+      if (!event.isPrimary || event.button !== 0) return;
+      gestureRef.current.pointerId = event.pointerId;
+      event.currentTarget.setPointerCapture?.(event.pointerId);
+      beginGesture(event.clientX, event.clientY);
+    },
+    [beginGesture],
+  );
+
+  const onPointerMoveCapture = useCallback(
+    (event: ReactPointerEvent<HTMLDivElement>) => {
+      if (gestureRef.current.pointerId !== event.pointerId) return;
+      moveGesture(event.clientX, event.clientY, () => event.preventDefault());
+    },
+    [moveGesture],
+  );
+
+  const onPointerEndCapture = useCallback(
+    (event: ReactPointerEvent<HTMLDivElement>) => {
+      if (gestureRef.current.pointerId !== event.pointerId) return;
+      finishGesture();
+    },
+    [finishGesture],
+  );
+
+  useEffect(
+    () => () => {
+      window.clearTimeout(resetTimerRef.current);
+      const gesture = gestureRef.current;
+      if (gesture.raf) cancelAnimationFrame(gesture.raf);
+    },
+    [],
+  );
+
+  useEffect(() => {
+    if ("PointerEvent" in window) return;
+    const el = cardRef.current;
+    if (!el) return;
+
+    const passiveCapture: AddEventListenerOptions = { passive: true, capture: true };
+    const activeCapture: AddEventListenerOptions = { passive: false, capture: true };
+
+    const onTouchStart = (event: TouchEvent) => {
+      if (event.touches.length !== 1) return;
+      const touch = event.touches[0];
+      beginGesture(touch.clientX, touch.clientY);
+    };
+
+    const onTouchMove = (event: TouchEvent) => {
+      if (event.touches.length !== 1) return;
+      const touch = event.touches[0];
+      moveGesture(touch.clientX, touch.clientY, () => event.preventDefault());
+    };
+
+    el.addEventListener("touchstart", onTouchStart, passiveCapture);
+    el.addEventListener("touchmove", onTouchMove, activeCapture);
+    el.addEventListener("touchend", finishGesture, passiveCapture);
+    el.addEventListener("touchcancel", finishGesture, passiveCapture);
+
+    return () => {
+      el.removeEventListener("touchstart", onTouchStart, passiveCapture);
+      el.removeEventListener("touchmove", onTouchMove, activeCapture);
+      el.removeEventListener("touchend", finishGesture, passiveCapture);
+      el.removeEventListener("touchcancel", finishGesture, passiveCapture);
+    };
+  }, [beginGesture, finishGesture, moveGesture]);
+
+  const activeProject = projects[cur] ?? projects[0];
+  const cardVariants = {
+    enter: (dir: number) => ({
+      x: reduce ? 0 : dir * 42,
+      opacity: reduce ? 1 : 0,
+      scale: reduce ? 1 : 0.985,
+    }),
+    center: {
+      x: 0,
+      opacity: 1,
+      scale: 1,
+    },
+    exit: (dir: number) => ({
+      x: reduce ? 0 : dir * -42,
+      opacity: reduce ? 1 : 0,
+      scale: reduce ? 1 : 0.985,
+    }),
+  };
+
+  return (
+    <Dialog.Root open onOpenChange={(open) => !open && onClose()}>
+      <Dialog.Portal forceMount>
+        <Dialog.Overlay asChild forceMount>
+          <div
+            className="fixed inset-0 z-[100] bg-[#11100e] dark:bg-black"
+            onClick={onClose}
+          />
+        </Dialog.Overlay>
+
+        <Dialog.Content
+          asChild
+          forceMount
+          aria-label="Project gallery"
+          aria-describedby={undefined}
+          onOpenAutoFocus={(event) => event.preventDefault()}
+        >
+          <motion.div
+            className="fixed inset-0 z-[101] flex items-center justify-center overflow-hidden px-4 py-14 sm:px-10 sm:py-10"
+            style={{ overscrollBehavior: "none" }}
+            initial={{ opacity: 0, scale: reduce ? 1 : 0.985 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: reduce ? 1 : 0.985 }}
+            transition={{ duration: reduce ? 0 : 0.18, ease: [0.2, 0.7, 0, 1] }}
+          >
+            <Dialog.Title className="sr-only">Project gallery</Dialog.Title>
+
+            <div
+              ref={cardRef}
+              data-project-gallery-card
+              className="relative"
+              onPointerDownCapture={onPointerDownCapture}
+              onPointerMoveCapture={onPointerMoveCapture}
+              onPointerUpCapture={onPointerEndCapture}
+              onPointerCancelCapture={onPointerEndCapture}
+              style={{
+                width: cardW,
+                maxWidth: "100%",
+                touchAction: "pan-y pinch-zoom",
+              }}
+            >
+              <AnimatePresence initial={false} custom={direction} mode="popLayout">
+                <motion.div
+                  key={activeProject.id}
+                  custom={direction}
+                  variants={cardVariants}
+                  initial="enter"
+                  animate="center"
+                  exit="exit"
+                  transition={{
+                    type: "spring",
+                    stiffness: reduce ? 1000 : 420,
+                    damping: reduce ? 100 : 36,
+                    mass: 0.9,
+                  }}
+                  className="relative will-change-transform"
+                  style={{
+                    WebkitBackfaceVisibility: "hidden",
+                    backfaceVisibility: "hidden",
+                  }}
+                >
+                  <div
+                    ref={dragSurfaceRef}
+                    className="will-change-transform"
+                    style={{
+                      transform: "translate3d(0,0,0)",
+                      WebkitBackfaceVisibility: "hidden",
+                      backfaceVisibility: "hidden",
+                    }}
+                  >
+                    <StoryCard project={activeProject} active />
+                  </div>
+                </motion.div>
+              </AnimatePresence>
+            </div>
+
+            <Dialog.Close asChild>
+              <button
+                type="button"
+                aria-label="Close"
+                className="absolute right-4 top-4 z-10 grid h-10 w-10 place-items-center rounded-full border border-white/15 bg-white/[0.08] text-white/85 transition-colors hover:bg-white/[0.14] hover:text-white sm:right-6 sm:top-6"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </Dialog.Close>
+
+            <GalleryArrow
+              side="left"
+              disabled={cur === 0}
+              onClick={() => setCur(cur - 1)}
+            />
+            <GalleryArrow
+              side="right"
+              disabled={cur === count - 1}
+              onClick={() => setCur(cur + 1)}
+            />
+
+            <GalleryScrubber
+              count={count}
+              cur={cur}
+              trackPx={trackPx}
+              syncWithIndex
+              onScrub={(ratio, commit) => {
+                if (commit) setCur(Math.round(ratio * (count - 1)));
+              }}
+            />
+          </motion.div>
+        </Dialog.Content>
+      </Dialog.Portal>
+    </Dialog.Root>
+  );
+}
+
 type GalleryScrubberHandle = {
   setProgress: (progress: number) => void;
 };
@@ -590,34 +873,39 @@ type GalleryScrubberHandle = {
 type GalleryScrubberProps = {
   count: number;
   cur: number;
-  initialProgress: number;
+  initialProgress?: number;
   trackPx: number;
+  syncWithIndex?: boolean;
   onScrub: (ratio: number, commit: boolean) => void;
 };
 
 const GalleryScrubber = forwardRef<GalleryScrubberHandle, GalleryScrubberProps>(function GalleryScrubber({
   count,
   cur,
-  initialProgress,
   trackPx,
+  initialProgress,
+  syncWithIndex = false,
   onScrub,
 }, forwardedRef) {
   const railRef = useRef<HTMLDivElement>(null);
   const pillRef = useRef<HTMLDivElement>(null);
-  const progressRef = useRef(initialProgress);
-  const lastRatio = useRef(initialProgress);
+  const progressRef = useRef(initialProgress ?? (count > 1 ? cur / (count - 1) : 0));
+  const lastRatio = useRef(progressRef.current);
   const [dragging, setDragging] = useState(false);
   const pillPx = trackPx / count;
   const travelPx = trackPx - pillPx;
 
-  const applyProgress = useCallback((next: number) => {
-    const progress = clamp(next, 0, 1);
-    progressRef.current = progress;
-    const x = progress * travelPx;
-    if (pillRef.current) {
-      pillRef.current.style.transform = `translate3d(${x}px,0,0)`;
-    }
-  }, [travelPx]);
+  const applyProgress = useCallback(
+    (next: number) => {
+      const progress = clamp(next, 0, 1);
+      progressRef.current = progress;
+      const x = progress * travelPx;
+      if (pillRef.current) {
+        pillRef.current.style.transform = `translate3d(${x}px,0,0)`;
+      }
+    },
+    [travelPx],
+  );
 
   useImperativeHandle(forwardedRef, () => ({ setProgress: applyProgress }), [applyProgress]);
 
@@ -625,15 +913,23 @@ const GalleryScrubber = forwardRef<GalleryScrubberHandle, GalleryScrubberProps>(
     applyProgress(progressRef.current);
   }, [applyProgress]);
 
-  const at = useCallback((clientX: number) => {
-    const el = railRef.current;
-    if (!el) return;
-    const r = el.getBoundingClientRect();
-    const ratio = clamp((clientX - r.left) / r.width, 0, 1);
-    lastRatio.current = ratio;
-    applyProgress(ratio);
-    onScrub(ratio, false);
-  }, [applyProgress, onScrub]);
+  useLayoutEffect(() => {
+    if (!syncWithIndex || dragging) return;
+    applyProgress(count > 1 ? cur / (count - 1) : 0);
+  }, [applyProgress, count, cur, dragging, syncWithIndex]);
+
+  const at = useCallback(
+    (clientX: number) => {
+      const el = railRef.current;
+      if (!el) return;
+      const r = el.getBoundingClientRect();
+      const ratio = clamp((clientX - r.left) / r.width, 0, 1);
+      lastRatio.current = ratio;
+      applyProgress(ratio);
+      onScrub(ratio, false);
+    },
+    [applyProgress, onScrub],
+  );
 
   const commitKeyboardStep = (next: number) => {
     if (count <= 1) return;
@@ -655,21 +951,21 @@ const GalleryScrubber = forwardRef<GalleryScrubberHandle, GalleryScrubberProps>(
         tabIndex={0}
         className="relative h-2.5 cursor-grab touch-none select-none rounded-full bg-white/15 active:cursor-grabbing"
         style={{ width: trackPx }}
-        onKeyDown={(e) => {
-          if (e.key === "ArrowRight") {
-            e.preventDefault();
+        onKeyDown={(event) => {
+          if (event.key === "ArrowRight") {
+            event.preventDefault();
             commitKeyboardStep(cur + 1);
-          } else if (e.key === "ArrowLeft") {
-            e.preventDefault();
+          } else if (event.key === "ArrowLeft") {
+            event.preventDefault();
             commitKeyboardStep(cur - 1);
           }
         }}
-        onPointerDown={(e) => {
+        onPointerDown={(event) => {
           setDragging(true);
-          railRef.current?.setPointerCapture(e.pointerId);
-          at(e.clientX);
+          railRef.current?.setPointerCapture(event.pointerId);
+          at(event.clientX);
         }}
-        onPointerMove={(e) => dragging && at(e.clientX)}
+        onPointerMove={(event) => dragging && at(event.clientX)}
         onPointerUp={() => {
           setDragging(false);
           onScrub(lastRatio.current, true);
@@ -991,6 +1287,8 @@ export default function ProjectStack({ className }: { className?: string }) {
             index={galleryIndex}
             setIndex={(n) => setGalleryIndex(n)}
             onClose={() => setGalleryIndex(null)}
+            vw={vw}
+            compact={compact}
           />
         )}
       </AnimatePresence>
