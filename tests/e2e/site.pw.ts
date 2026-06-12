@@ -926,54 +926,51 @@ test.describe('Projects page mobile touch', () => {
       const slider = page.getByRole('slider', { name: 'Project' });
       await expect(slider).toHaveAttribute('aria-valuenow', '1');
 
-      const storyBody = page.locator('[data-project-gallery-card] [data-project-story-body]');
+      const storyBody = page
+        .locator('[data-project-gallery-scroller] [data-project-story-body]')
+        .first();
       await expect(storyBody).toBeVisible();
 
-      await storyBody.evaluate(async (node) => {
-        const target = node as HTMLElement;
-        const rect = target.getBoundingClientRect();
-        const y = rect.top + Math.min(110, rect.height * 0.55);
-        const startX = rect.left + rect.width * 0.84;
-        const endX = rect.left + rect.width * 0.16;
-        const steps = 8;
-        let pointerCaptureTarget: Element | null = null;
+      // A horizontal swipe that starts on the story text must stay available
+      // to the outer scroller: pan-x has to survive alongside pan-y.
+      const bodyTouchAction = await storyBody.evaluate(
+        (node) => getComputedStyle(node as HTMLElement).touchAction
+      );
+      expect(bodyTouchAction).toContain('pan-x');
 
-        const dispatch = (
-          type: 'pointerdown' | 'pointermove' | 'pointerup',
-          x: number
-        ) => {
-          const event = new PointerEvent(type, {
-            bubbles: true,
-            cancelable: true,
-            pointerId: 1,
-            pointerType: 'touch',
-            isPrimary: true,
-            button: type === 'pointerdown' ? 0 : -1,
-            buttons: type === 'pointerup' ? 0 : 1,
-            clientX: x,
-            clientY: y,
-          });
-
-          (pointerCaptureTarget ?? target).dispatchEvent(event);
-        };
-
-        Element.prototype.setPointerCapture = function setPointerCapture() {
-          pointerCaptureTarget = this;
-        };
-        Element.prototype.releasePointerCapture = function releasePointerCapture() {
-          pointerCaptureTarget = null;
-        };
-
-        dispatch('pointerdown', startX);
-        for (let i = 1; i <= steps; i += 1) {
-          const x = startX + ((endX - startX) * i) / steps;
-          dispatch('pointermove', x);
-          await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
-        }
-        dispatch('pointerup', endX);
+      // The gallery is a native scroll-snap track; synthetic PointerEvents
+      // cannot drive compositor scrolling, so advance it the way a momentum
+      // scroll ends: land scrollLeft on the next snap stop.
+      await page.locator('[data-project-gallery-scroller]').evaluate((node) => {
+        const el = node as HTMLElement;
+        const card = el.firstElementChild as HTMLElement;
+        const gap = Number.parseFloat(getComputedStyle(el).columnGap || '0');
+        el.scrollTo({ left: card.getBoundingClientRect().width + gap });
       });
 
       await expect(slider).toHaveAttribute('aria-valuenow', '2');
+
+      // Scroll-linked pose: the new current card carries scale(1); the card
+      // left behind recedes below 1.
+      await expect
+        .poll(() =>
+          page
+            .locator('[data-project-gallery-scroller] > div')
+            .evaluateAll((nodes) =>
+              nodes.map((node) => {
+                const match = /scale\(([\d.]+)\)/.exec(
+                  (node as HTMLElement).style.transform
+                );
+                return match ? Number.parseFloat(match[1]) : 1;
+              })
+            )
+        )
+        .toEqual([
+          expect.closeTo(0.925, 2),
+          expect.closeTo(1, 2),
+          expect.closeTo(0.925, 2),
+          expect.closeTo(0.925, 2),
+        ]);
     } finally {
       await context.close();
     }
