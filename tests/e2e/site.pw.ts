@@ -1016,7 +1016,7 @@ test.describe('Projects page mobile touch', () => {
       await expect
         .poll(() =>
           page
-            .locator('[data-project-gallery-scroller] > div')
+            .locator('[data-gallery-card]')
             .evaluateAll((nodes) =>
               nodes.map((node) => {
                 const match = /scale\(([\d.]+)\)/.exec(

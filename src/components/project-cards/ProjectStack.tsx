@@ -689,26 +689,36 @@ function StoryGallery({
           }}
         >
           {projects.map((project, i) => (
+            // Outer box is the snap target: fixed size, never transformed, so
+            // its snap point stays put. If the scale/opacity lived here, scaling
+            // a snap child under `mandatory` would shift its own snap point and
+            // the browser would re-snap → scroll → re-pose → re-snap forever
+            // (the opacity-never-settles tremble). The pose goes on the inner.
             <div
               key={project.id}
-              ref={(node) => {
-                cardRefs.current[i] = node;
-              }}
               className={cn(
                 "shrink-0 snap-center",
                 i !== cur && "cursor-pointer",
               )}
-              style={{
-                width: cardW,
-                height: cardH,
-                // Promotion is added only once the zoom settles (applyPose then
-                // writes translateZ + scale). Promoting during the grow-in is
-                // exactly what makes the card shiver under the ancestor scale.
-                willChange: entered ? "transform, opacity" : "auto",
-              }}
+              style={{ width: cardW, height: cardH }}
               onClick={() => i !== curRef.current && go(i)}
             >
-              <StoryCard project={project} active={i === cur} />
+              <div
+                data-gallery-card
+                ref={(node) => {
+                  cardRefs.current[i] = node;
+                }}
+                className="h-full w-full"
+                style={{
+                  transformOrigin: "center center",
+                  // Promotion is added only once the zoom settles (applyPose
+                  // then writes translateZ + scale). Promoting during the
+                  // grow-in is what makes the card shiver under the ancestor.
+                  willChange: entered ? "transform, opacity" : "auto",
+                }}
+              >
+                <StoryCard project={project} active={i === cur} />
+              </div>
             </div>
           ))}
         </div>
