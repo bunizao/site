@@ -355,22 +355,23 @@ function StoryGallery({
   const applyPose = useCallback(
     (scrollLeft: number) => {
       const t = stride > 0 ? scrollLeft / stride : 0;
-      // Before the zoom settles, leave every card flat and un-promoted so the
-      // whole subtree bakes into the wrapper's single layer and scales as one
-      // texture. A promoted child here is what shivers.
+      // The depth pose is written from the very first frame — through the
+      // grow-in too — so neighbours open already receded instead of flashing
+      // from full-size to small the instant `entered` flips. The catch is
+      // promotion: a child on its OWN GPU layer (translateZ/will-change) under
+      // the scaling wrapper is re-composited every frame → shiver. So during
+      // the zoom the pose is a plain static transform that bakes into the
+      // wrapper's single layer; only once entered do we add translateZ to
+      // promote the cards for smooth scroll-linked motion.
       const promoted = enteredRef.current;
       cardRefs.current.forEach((node, i) => {
         if (!node) return;
-        if (!promoted) {
-          node.style.transform = "";
-          node.style.opacity = "1";
-          return;
-        }
         const d = Math.min(1, Math.abs(t - i));
-        node.style.transform = reduce
-          ? "translateZ(0)"
-          : `translateZ(0) scale(${1 - 0.075 * d})`;
-        node.style.opacity = String(1 - 0.55 * d);
+        const scale = reduce ? 1 : 1 - 0.075 * d;
+        node.style.transform = promoted
+          ? `translateZ(0) scale(${scale})`
+          : `scale(${scale})`;
+        node.style.opacity = reduce ? "1" : String(1 - 0.55 * d);
       });
     },
     [reduce, stride],
@@ -472,16 +473,14 @@ function StoryGallery({
     if (!el) return;
     let settle = 0;
     const onWheel = (e: WheelEvent) => {
-      const body = (e.target as HTMLElement | null)?.closest?.(
-        "[data-project-story-body]",
-      );
-      if (body instanceof HTMLElement && Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
-        const atTop = body.scrollTop <= 0;
-        const atBottom =
-          Math.ceil(body.scrollTop + body.clientHeight) >= body.scrollHeight;
-        if ((e.deltaY < 0 && !atTop) || (e.deltaY > 0 && !atBottom)) return;
-      }
-      const delta = Math.abs(e.deltaX) >= Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
+      // Two axes, two jobs, and they never cross. Vertical intent scrolls the
+      // story text natively (the body owns the overflow) and is ignored here,
+      // so up/down never pages the gallery — that accidental card-switch was
+      // the jank. Only horizontal intent moves between cards; we drive
+      // scrollLeft ourselves because macOS otherwise hijacks two-finger
+      // horizontal for history back/forward navigation.
+      if (Math.abs(e.deltaY) >= Math.abs(e.deltaX)) return;
+      const delta = e.deltaX;
       if (!delta) return;
       e.preventDefault();
       el.style.scrollSnapType = "none";
