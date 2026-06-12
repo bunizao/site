@@ -304,10 +304,14 @@ function StoryGallery({
   const scrubberRef = useRef<GalleryScrubberHandle>(null);
   const latestProgressRef = useRef(count > 1 ? index / (count - 1) : 0);
   const snapTimer = useRef<number | undefined>(undefined);
-  // Mandatory scroll-snap inside an element that is being `scale()`-animated
-  // makes WebKit re-snap every frame, jittering the card. Keep snap off until
-  // the grow-in finishes (flipped in the entrance's onAnimationComplete).
+  // The grow-in scales an ancestor of the cards. Anything promoted to its own
+  // GPU layer underneath (snap container, per-card `scale()`/`will-change`)
+  // gets re-composited with subpixel rounding every frame → the card shivers.
+  // So through the zoom the cards stay un-promoted and flat; `entered` flips
+  // on the entrance's onAnimationComplete and only then do we layer them for
+  // scroll-linked posing and turn on scroll-snap.
   const enteredRef = useRef(false);
+  const [entered, setEntered] = useState(false);
   const [cur, setCurState] = useState(index);
   const curRef = useRef(index);
   useLockedBodyScroll();
@@ -351,8 +355,17 @@ function StoryGallery({
   const applyPose = useCallback(
     (scrollLeft: number) => {
       const t = stride > 0 ? scrollLeft / stride : 0;
+      // Before the zoom settles, leave every card flat and un-promoted so the
+      // whole subtree bakes into the wrapper's single layer and scales as one
+      // texture. A promoted child here is what shivers.
+      const promoted = enteredRef.current;
       cardRefs.current.forEach((node, i) => {
         if (!node) return;
+        if (!promoted) {
+          node.style.transform = "";
+          node.style.opacity = "1";
+          return;
+        }
         const d = Math.min(1, Math.abs(t - i));
         node.style.transform = reduce
           ? "translateZ(0)"
@@ -419,6 +432,20 @@ function StoryGallery({
       !reduce && enteredRef.current ? "x mandatory" : "none";
     applyPose(el.scrollLeft);
   }, [applyPose, reduce, stride]);
+
+  // Reduced motion skips the grow-in entirely, so promote/pose right away.
+  useEffect(() => {
+    if (!reduce) return;
+    enteredRef.current = true;
+    setEntered(true);
+  }, [reduce]);
+
+  // Re-pose when the zoom settles: cards go from flat/un-promoted to layered
+  // with their depth scale.
+  useEffect(() => {
+    const el = scrollerRef.current;
+    if (el) applyPose(el.scrollLeft);
+  }, [entered, applyPose]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -621,6 +648,7 @@ function StoryGallery({
         }
         onAnimationComplete={() => {
           enteredRef.current = true;
+          setEntered(true);
           const el = scrollerRef.current;
           if (!el) return;
           // Becoming a scroll container only now: while the wrapper was being
@@ -629,6 +657,7 @@ function StoryGallery({
           // plain (overflow:hidden) block through the grow-in.
           el.style.overflowX = "auto";
           if (!reduce) el.style.scrollSnapType = "x mandatory";
+          applyPose(el.scrollLeft);
         }}
       >
         <div
@@ -672,8 +701,10 @@ function StoryGallery({
               style={{
                 width: cardW,
                 height: cardH,
-                transform: "translateZ(0)",
-                willChange: "transform, opacity",
+                // Promotion is added only once the zoom settles (applyPose then
+                // writes translateZ + scale). Promoting during the grow-in is
+                // exactly what makes the card shiver under the ancestor scale.
+                willChange: entered ? "transform, opacity" : "auto",
               }}
               onClick={() => i !== curRef.current && go(i)}
             >
