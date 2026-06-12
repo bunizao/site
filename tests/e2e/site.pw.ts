@@ -1123,7 +1123,15 @@ test.describe('Projects page mobile touch', () => {
       await page.waitForTimeout(900);
       expect(diag.prevented).toBe(true);
       expect(diag.scrollable).toBe(false);
-      expect(await activeName()).not.toBe(beforeDiag);
+      const afterDiag = await activeName();
+      expect(afterDiag).not.toBe(beforeDiag);
+
+      // ...and again without reloading — the gesture must keep working after a
+      // flip (a shared ref across the reordering cards used to die after one).
+      const diag2 = await swipe(-100, -60);
+      await page.waitForTimeout(900);
+      expect(diag2.prevented).toBe(true);
+      expect(await activeName()).not.toBe(afterDiag);
 
       // A clearly vertical swipe must NOT flip and must stay unclaimed so the
       // page can scroll underneath.

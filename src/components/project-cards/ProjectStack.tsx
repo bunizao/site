@@ -409,6 +409,11 @@ function StoryGallery({
   useLayoutEffect(() => {
     const el = scrollerRef.current;
     if (!el) return;
+    // Held as a plain block until the grow-in finishes (see onAnimationComplete)
+    // so scaling its ancestor doesn't reproject scrolled content and shimmer.
+    // Reduced motion has no scale animation, so it can scroll immediately.
+    const settled = reduce || enteredRef.current;
+    el.style.overflowX = settled ? "auto" : "hidden";
     el.scrollLeft = curRef.current * stride;
     el.style.scrollSnapType =
       !reduce && enteredRef.current ? "x mandatory" : "none";
@@ -617,13 +622,19 @@ function StoryGallery({
         onAnimationComplete={() => {
           enteredRef.current = true;
           const el = scrollerRef.current;
-          if (el && !reduce) el.style.scrollSnapType = "x mandatory";
+          if (!el) return;
+          // Becoming a scroll container only now: while the wrapper was being
+          // scaled, an `overflow:auto` descendant made WebKit reproject its
+          // scrolled content every frame → the card shimmered. Held it as a
+          // plain (overflow:hidden) block through the grow-in.
+          el.style.overflowX = "auto";
+          if (!reduce) el.style.scrollSnapType = "x mandatory";
         }}
       >
         <div
           ref={scrollerRef}
           data-project-gallery-scroller
-          className="gallery-scroller absolute inset-0 flex items-center overflow-x-auto overflow-y-hidden"
+          className="gallery-scroller absolute inset-0 flex items-center overflow-y-hidden"
           style={{
             gap,
             paddingInline: sidePad,
@@ -949,8 +960,11 @@ export default function ProjectStack({ className }: { className?: string }) {
   // and float it above the rest while it travels.
   const [leavingId, setLeavingId] = useState<string | null>(null);
   const dealTimer = useRef<number | undefined>(undefined);
-  const frontCardRef = useRef<HTMLElement | null>(null);
-  const dragLayerRef = useRef<HTMLDivElement | null>(null);
+  // One stable ref on the carousel region (it never reorders). The active card
+  // and its drag layer are queried from it per-gesture — a shared ref across
+  // the four reordering articles would null out when React detaches the old
+  // active node after attaching the new one, killing the gesture after one flip.
+  const regionRef = useRef<HTMLDivElement | null>(null);
   const shouldReduce = mounted && reduce === true;
 
   const byId = useMemo(() => new Map(projects.map((p) => [p.id, p])), []);
@@ -987,7 +1001,9 @@ export default function ProjectStack({ className }: { className?: string }) {
   const openGallery = (id: string) => {
     // Snapshot the front card's viewport rect before the body locks — the
     // gallery uses it as the shared-element origin to grow out of the deck.
-    const node = frontCardRef.current;
+    const node = regionRef.current?.querySelector(
+      'article[aria-hidden="false"]',
+    );
     if (node) {
       const r = node.getBoundingClientRect();
       setGalleryOrigin({ x: r.x, y: r.y, width: r.width, height: r.height });
@@ -1041,12 +1057,12 @@ export default function ProjectStack({ className }: { className?: string }) {
   // A clearly-vertical start is left untouched, so the page still scrolls.
   useEffect(() => {
     if (!compact || shouldReduce) return;
-    const card = frontCardRef.current;
-    const layer = dragLayerRef.current;
-    if (!card || !layer) return;
+    const region = regionRef.current;
+    if (!region) return;
 
     const g = {
-      active: false,
+      began: false, // this touch started on the active card
+      active: false, // still tracking (cleared once we lock to vertical)
       axis: null as "x" | "y" | null,
       startX: 0,
       startY: 0,
@@ -1056,17 +1072,30 @@ export default function ProjectStack({ className }: { className?: string }) {
       v: 0,
       moved: false,
       raf: 0,
+      layer: null as HTMLElement | null,
     };
 
     const write = () => {
       g.raf = 0;
-      layer.style.transition = "none";
-      layer.style.transform = `translate3d(${g.dx}px,0,0)`;
+      if (g.layer) {
+        g.layer.style.transition = "none";
+        g.layer.style.transform = `translate3d(${g.dx}px,0,0)`;
+      }
     };
 
     const onStart = (e: TouchEvent) => {
       if (e.touches.length !== 1) return;
+      const activeCard = region.querySelector('article[aria-hidden="false"]');
+      if (
+        !activeCard ||
+        !(e.target instanceof Node) ||
+        !activeCard.contains(e.target)
+      )
+        return; // touch began on a back card → leave it to framer's promote
+      const layer = activeCard.querySelector("[data-l0-drag]");
+      if (!(layer instanceof HTMLElement)) return;
       const t = e.touches[0];
+      g.began = true;
       g.active = true;
       g.axis = null;
       g.startX = t.clientX;
@@ -1076,6 +1105,7 @@ export default function ProjectStack({ className }: { className?: string }) {
       g.lastT = performance.now();
       g.v = 0;
       g.moved = false;
+      g.layer = layer;
     };
 
     const onMove = (e: TouchEvent) => {
@@ -1117,39 +1147,43 @@ export default function ProjectStack({ className }: { className?: string }) {
       const commit =
         wasX &&
         (Math.abs(g.dx) > swipeCommitPx || Math.abs(g.v) > swipeFlickVelocity);
-      const tap = !g.moved && g.axis == null && Math.abs(g.dx) < tapSlopPx;
+      const tap = g.began && !g.moved && g.axis == null;
 
-      if (commit) {
-        // The deal animation slides the article away; the inner layer just
-        // snaps back to 0 instantly behind it.
-        layer.style.transition = "none";
-        layer.style.transform = "translate3d(0,0,0)";
-      } else if (wasX) {
-        layer.style.transition = "transform 200ms cubic-bezier(0.2,0.7,0,1)";
-        layer.style.transform = "translate3d(0,0,0)";
+      if (g.layer) {
+        if (commit) {
+          // The deal animation slides the article away; the inner layer just
+          // snaps back to 0 instantly behind it.
+          g.layer.style.transition = "none";
+          g.layer.style.transform = "translate3d(0,0,0)";
+        } else if (wasX) {
+          g.layer.style.transition = "transform 200ms cubic-bezier(0.2,0.7,0,1)";
+          g.layer.style.transform = "translate3d(0,0,0)";
+        }
       }
 
+      g.began = false;
       g.active = false;
       g.axis = null;
       g.dx = 0;
       g.v = 0;
+      g.layer = null;
 
       if (commit) actionsRef.current.advance();
       else if (tap) actionsRef.current.openGallery(actionsRef.current.activeId);
     };
 
-    card.addEventListener("touchstart", onStart, { passive: true });
-    card.addEventListener("touchmove", onMove, { passive: false });
-    card.addEventListener("touchend", onEnd, { passive: true });
-    card.addEventListener("touchcancel", onEnd, { passive: true });
+    region.addEventListener("touchstart", onStart, { passive: true });
+    region.addEventListener("touchmove", onMove, { passive: false });
+    region.addEventListener("touchend", onEnd, { passive: true });
+    region.addEventListener("touchcancel", onEnd, { passive: true });
     return () => {
-      card.removeEventListener("touchstart", onStart);
-      card.removeEventListener("touchmove", onMove);
-      card.removeEventListener("touchend", onEnd);
-      card.removeEventListener("touchcancel", onEnd);
+      region.removeEventListener("touchstart", onStart);
+      region.removeEventListener("touchmove", onMove);
+      region.removeEventListener("touchend", onEnd);
+      region.removeEventListener("touchcancel", onEnd);
       if (g.raf) cancelAnimationFrame(g.raf);
     };
-  }, [compact, shouldReduce, order]);
+  }, [compact, shouldReduce]);
 
   const ordered = order
     .map((id) => byId.get(id))
@@ -1168,6 +1202,7 @@ export default function ProjectStack({ className }: { className?: string }) {
       onPointerLeave={() => setPaused(false)}
     >
       <div
+        ref={regionRef}
         className="relative w-full"
         style={{ height: regionH, perspective: 1200 }}
         aria-roledescription="carousel"
@@ -1181,7 +1216,6 @@ export default function ProjectStack({ className }: { className?: string }) {
           return (
             <motion.article
               key={project.id}
-              ref={active ? frontCardRef : undefined}
               className="absolute inset-x-0 top-0 mx-auto w-full select-none"
               style={{
                 maxWidth: cardMax,
@@ -1258,10 +1292,8 @@ export default function ProjectStack({ className }: { className?: string }) {
               aria-hidden={!active}
             >
               <div
-                ref={active ? dragLayerRef : undefined}
-                style={
-                  active && compact ? { willChange: "transform" } : undefined
-                }
+                data-l0-drag
+                style={compact ? { willChange: "transform" } : undefined}
               >
                 <CardFace
                   project={project}
