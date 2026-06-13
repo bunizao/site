@@ -8,52 +8,24 @@ import { hashEmail, isValidEmail, normalizeEmail } from '@/features/notify/serve
 import {
   NOTIFY_CHANNELS,
   type DeliveryMode,
-  type NotifyChannel,
   type SubscriberStatus,
 } from '@/features/notify/server/types';
+import type {
+  BroadcastAudience,
+  BroadcastInput,
+  BroadcastPreviewResult,
+  BroadcastRecord,
+  BroadcastSendResult,
+} from '@bunizao/contracts/admin';
 import { createAdminD1, type AdminContext } from './subscribers-admin';
 
-export interface BroadcastAudience {
-  status: SubscriberStatus | 'active';
-  channels: NotifyChannel[];
-  deliveryModes?: DeliveryMode[];
-}
-
-export interface BroadcastInput {
-  subject: string;
-  body: string;
-  audience: BroadcastAudience;
-}
-
-export interface BroadcastRecord {
-  id: string;
-  subject: string;
-  bodyHtml: string;
-  bodyText: string | null;
-  audience: BroadcastAudience;
-  recipientCount: number;
-  sentCount: number;
-  failedCount: number;
-  status: 'draft' | 'sending' | 'sent' | 'failed';
-  createdAt: string;
-  sentAt: string | null;
-  sentBy: string;
-}
-
-export interface BroadcastPreviewResult {
-  subject: string;
-  html: string;
-  text: string;
-  recipientCount: number;
-}
-
-export interface BroadcastSendResult {
-  id: string;
-  recipientCount: number;
-  sentCount: number;
-  failedCount: number;
-  status: BroadcastRecord['status'];
-}
+export type {
+  BroadcastAudience,
+  BroadcastInput,
+  BroadcastPreviewResult,
+  BroadcastRecord,
+  BroadcastSendResult,
+} from '@bunizao/contracts/admin';
 
 interface BroadcastRow {
   id: string;

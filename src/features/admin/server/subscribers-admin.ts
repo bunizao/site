@@ -8,55 +8,26 @@ import {
   type SubscriberRecord,
   type SubscriberStatus,
 } from '@/features/notify/server/types';
+import type {
+  AdminSubscriberInput,
+  AdminSubscriberPatch,
+  AuditEntry,
+  SubscriberFilter,
+  SubscriberListResult,
+} from '@bunizao/contracts/admin';
+
+export type {
+  AdminSubscriberInput,
+  AdminSubscriberPatch,
+  AuditEntry,
+  SubscriberFilter,
+  SubscriberListResult,
+} from '@bunizao/contracts/admin';
 
 export interface AdminContext {
   request: Request;
   locals?: any;
   actor: string;
-}
-
-export interface SubscriberFilter {
-  status?: SubscriberStatus | 'all';
-  channel?: NotifyChannel;
-  deliveryMode?: DeliveryMode;
-  search?: string;
-  limit?: number;
-  offset?: number;
-}
-
-export interface SubscriberListResult {
-  rows: SubscriberRecord[];
-  total: number;
-  pendingCount: number;
-  activeCount: number;
-  unsubscribedCount: number;
-}
-
-export interface AuditEntry {
-  id: number;
-  eventType: NotifyAuditEventType;
-  email: string;
-  emailHash: string;
-  source: string;
-  createdAt: string;
-  userAgent?: string;
-}
-
-export interface AdminSubscriberInput {
-  email: string;
-  status: SubscriberStatus;
-  channels: NotifyChannel[];
-  deliveryMode: DeliveryMode;
-  timezone?: string;
-  dailyHour?: number;
-}
-
-export interface AdminSubscriberPatch {
-  status?: SubscriberStatus;
-  channels?: NotifyChannel[];
-  deliveryMode?: DeliveryMode;
-  timezone?: string | null;
-  dailyHour?: number | null;
 }
 
 const SUBSCRIBER_COLUMNS = `

@@ -29,7 +29,7 @@ import type {
   NotifyChannel,
   SubscriberRecord,
   SubscriberStatus,
-} from '@/features/notify/server/types';
+} from '@bunizao/contracts/notify';
 
 interface AuditEntry {
   id: number;

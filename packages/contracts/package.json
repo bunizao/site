@@ -1,0 +1,35 @@
+{
+  "name": "@bunizao/contracts",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "sideEffects": false,
+  "types": "./src/index.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "import": "./src/index.ts",
+      "default": "./src/index.ts"
+    },
+    "./admin": {
+      "types": "./src/admin.ts",
+      "import": "./src/admin.ts",
+      "default": "./src/admin.ts"
+    },
+    "./content": {
+      "types": "./src/content.ts",
+      "import": "./src/content.ts",
+      "default": "./src/content.ts"
+    },
+    "./mood": {
+      "types": "./src/mood.ts",
+      "import": "./src/mood.ts",
+      "default": "./src/mood.ts"
+    },
+    "./notify": {
+      "types": "./src/notify.ts",
+      "import": "./src/notify.ts",
+      "default": "./src/notify.ts"
+    }
+  }
+}
