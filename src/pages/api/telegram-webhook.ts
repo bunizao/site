@@ -9,6 +9,7 @@
 import type { APIRoute } from 'astro';
 import { request as httpsRequest } from 'node:https';
 import { load } from 'cheerio';
+import { createTelegramMoodSource } from '@/features/mood/server/notify-source';
 import { dispatchMoodNotification } from '@/features/notify/server/service';
 import { getNotifyConfig } from '@/features/notify/server/env';
 import { readEnv } from '@/lib/runtime/env';
@@ -359,6 +360,7 @@ async function triggerMoodDispatch(context: { request: Request; locals?: any }, 
   try {
     const result = await dispatchMoodNotification(context, postId, {
       deliveryModes: ['immediate'],
+      moodSource: createTelegramMoodSource(),
     });
     if (result.failed > 0) {
       console.warn(`Mood notify dispatch finished with failures for post ${postId}:`, result);

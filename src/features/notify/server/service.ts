@@ -1,10 +1,14 @@
 import { createHash } from 'node:crypto';
-import type { ChannelInfo, Post } from '@/features/mood/server/telegram-source';
-import { getChannelInfo } from '@/features/mood/server/telegram-source';
-import { getRelatedLinks, getTextPreviewHtml, getTextPreviewWithMedia } from '@/features/mood/shared/utils';
 import { readPublicEnv } from '@/lib/runtime/env';
 import { getNotifyConfig, getNotifyFromAddress, requireConfigValue } from './env';
 import { createNotifyD1Client, type NotifyD1Client } from './d1';
+import type {
+  NotifyChannelMeta,
+  NotifyEmailRelatedLink,
+  NotifyMoodEmailContent,
+  NotifyMoodPost,
+  NotifyMoodSource,
+} from './mood-source';
 import {
   createNotifyToken,
   hashEmail,
@@ -49,20 +53,20 @@ export interface SubscriptionRequestInput {
   dailyHour?: number | string | null;
 }
 
-interface ChannelMeta {
-  title?: string;
-  avatarUrl?: string;
-}
-
 interface NotifyTestHooks {
   now?: () => Date;
-  loadMoodPost?: (context: NotifyRequestContext, postId: string) => Promise<Post | null>;
-  loadLatestMoodPost?: (context: NotifyRequestContext) => Promise<Post | null>;
+  loadMoodPost?: (context: NotifyRequestContext, postId: string) => Promise<NotifyMoodPost | null>;
+  loadLatestMoodPost?: (context: NotifyRequestContext) => Promise<NotifyMoodPost | null>;
   loadRecentMoodPosts?: (
     context: NotifyRequestContext,
     input: { since: Date; until: Date }
-  ) => Promise<Post[]>;
-  loadChannelMeta?: (context: NotifyRequestContext) => Promise<ChannelMeta | null>;
+  ) => Promise<NotifyMoodPost[]>;
+  loadChannelMeta?: (context: NotifyRequestContext) => Promise<NotifyChannelMeta | null>;
+  renderMoodPostForEmail?: (
+    context: NotifyRequestContext,
+    post: NotifyMoodPost,
+    options: { relatedLinkMaxCount: number }
+  ) => NotifyMoodEmailContent;
 }
 
 export class NotifyServiceError extends Error {
@@ -95,8 +99,6 @@ const DEFAULT_RETRY_PROCESS_LIMIT = 50;
 const EVERY_5H_WINDOW_MS = 5 * 60 * 60 * 1000;
 const DEFAULT_DAILY_LOOKBACK_MS = 36 * 60 * 60 * 1000;
 const MAX_DIGEST_POSTS = 20;
-const MAX_DIGEST_FETCH_POSTS = 180;
-const MAX_DIGEST_FETCH_PAGES = 12;
 const DEFAULT_DAILY_TIMEZONE = 'Asia/Shanghai';
 const DEFAULT_DAILY_HOUR = 9;
 
@@ -128,11 +130,6 @@ interface RetryRow {
   updated_at: string;
   next_attempt_at: string;
   last_error: string;
-}
-
-interface EmailRelatedLink {
-  url: string;
-  type: 'link' | 'image';
 }
 
 const SUBSCRIBER_COLUMNS = `
@@ -450,7 +447,7 @@ function getLocalDateLabel(date: Date, timeZone: string): string {
   }).format(date);
 }
 
-function getPostTimestamp(post: Post): number {
+function getPostTimestamp(post: NotifyMoodPost): number {
   const parsed = Date.parse(post.datetime);
   return Number.isFinite(parsed) ? parsed : 0;
 }
@@ -882,157 +879,43 @@ async function hasBeenSent(
   return true;
 }
 
-async function loadMoodPost(
-  context: NotifyRequestContext,
-  postId: string
-): Promise<Post | null> {
-  if (notifyTestHooks?.loadMoodPost) {
-    return notifyTestHooks.loadMoodPost(context, postId);
-  }
-
-  try {
-    const result = (await getChannelInfo(
-      {
-        request: context.request,
-        locals: context.locals,
-      } as any,
-      {
-        type: 'single',
-        id: postId,
-        skipCache: true,
-      }
-    )) as Post;
-
-    if (!result || !result.id || result.type !== 'text') {
-      return null;
-    }
-
-    return result;
-  } catch (error) {
-    console.error('Notify failed to load mood post:', error);
-    return null;
-  }
+function renderBasicMoodPostForEmail(post: NotifyMoodPost): NotifyMoodEmailContent {
+  const previewText = (post.text || post.content || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+  return {
+    previewText: previewText || '(No text preview)',
+    previewHtml: post.content || '',
+    relatedLinks: [],
+  };
 }
 
-async function loadLatestMoodPost(context: NotifyRequestContext): Promise<Post | null> {
-  if (notifyTestHooks?.loadLatestMoodPost) {
-    return notifyTestHooks.loadLatestMoodPost(context);
-  }
-
-  try {
-    const result = (await getChannelInfo(
-      {
-        request: context.request,
-        locals: context.locals,
-      } as any,
-      {
-        type: 'list',
-        skipCache: true,
-      }
-    )) as ChannelInfo;
-
-    const posts = (result?.posts ?? [])
-      .filter((post) => post?.id && post.type === 'text')
-      .sort((a, b) => Number.parseInt(b.id, 10) - Number.parseInt(a.id, 10));
-
-    return posts[0] ?? null;
-  } catch (error) {
-    console.error('Notify failed to load latest mood post:', error);
+function createTestMoodSource(): NotifyMoodSource | null {
+  if (!notifyTestHooks) {
     return null;
   }
+
+  return {
+    loadPost: (context, postId) => notifyTestHooks?.loadMoodPost?.(context, postId) ?? Promise.resolve(null),
+    loadLatestPost: (context) => notifyTestHooks?.loadLatestMoodPost?.(context) ?? Promise.resolve(null),
+    async loadPostsInWindow(context, input) {
+      if (notifyTestHooks?.loadRecentMoodPosts) {
+        return notifyTestHooks.loadRecentMoodPosts(context, input);
+      }
+
+      const latest = await notifyTestHooks?.loadLatestMoodPost?.(context);
+      return latest ? [latest] : [];
+    },
+    loadChannelMeta: (context) => notifyTestHooks?.loadChannelMeta?.(context) ?? Promise.resolve(null),
+    renderPostForEmail(context, post, options) {
+      if (notifyTestHooks?.renderMoodPostForEmail) {
+        return notifyTestHooks.renderMoodPostForEmail(context, post, options);
+      }
+      return renderBasicMoodPostForEmail(post);
+    },
+  };
 }
 
-async function loadMoodPostsInWindow(
-  context: NotifyRequestContext,
-  input: { since: Date; until: Date }
-): Promise<Post[]> {
-  if (notifyTestHooks?.loadRecentMoodPosts) {
-    return notifyTestHooks.loadRecentMoodPosts(context, input);
-  }
-
-  if (notifyTestHooks?.loadLatestMoodPost) {
-    const latest = await notifyTestHooks.loadLatestMoodPost(context);
-    return latest ? [latest] : [];
-  }
-
-  const sinceMs = input.since.getTime();
-  const untilMs = input.until.getTime();
-  if (!Number.isFinite(sinceMs) || !Number.isFinite(untilMs) || sinceMs >= untilMs) {
-    return [];
-  }
-
-  const collected: Post[] = [];
-  const seenIds = new Set<string>();
-  let before = '';
-  let pageCount = 0;
-  let reachedWindowStart = false;
-
-  while (
-    pageCount < MAX_DIGEST_FETCH_PAGES
-    && collected.length < MAX_DIGEST_FETCH_POSTS
-  ) {
-    pageCount += 1;
-
-    let result: ChannelInfo;
-    try {
-      result = (await getChannelInfo(
-        {
-          request: context.request,
-          locals: context.locals,
-        } as any,
-        {
-          type: 'list',
-          before,
-          skipCache: true,
-        }
-      )) as ChannelInfo;
-    } catch (error) {
-      console.error('Notify failed to load mood list for digest:', error);
-      break;
-    }
-
-    const pagePosts = (result?.posts ?? [])
-      .filter((post) => post?.id && post.type === 'text')
-      .sort((a, b) => Number.parseInt(b.id, 10) - Number.parseInt(a.id, 10));
-
-    if (!pagePosts.length) {
-      break;
-    }
-
-    for (const post of pagePosts) {
-      if (seenIds.has(post.id)) {
-        continue;
-      }
-      seenIds.add(post.id);
-
-      const timestamp = getPostTimestamp(post);
-      if (!timestamp) {
-        continue;
-      }
-
-      if (timestamp <= sinceMs) {
-        reachedWindowStart = true;
-        break;
-      }
-
-      if (timestamp > untilMs) {
-        continue;
-      }
-
-      collected.push(post);
-      if (collected.length >= MAX_DIGEST_FETCH_POSTS) {
-        break;
-      }
-    }
-
-    const nextBefore = pagePosts[pagePosts.length - 1]?.id?.trim() || '';
-    if (!nextBefore || nextBefore === before || reachedWindowStart) {
-      break;
-    }
-    before = nextBefore;
-  }
-
-  return collected.sort((a, b) => getPostTimestamp(b) - getPostTimestamp(a));
+function resolveMoodSource(source: NotifyMoodSource | undefined): NotifyMoodSource | null {
+  return source ?? createTestMoodSource();
 }
 
 function buildListUnsubscribeHeaders(unsubscribeUrl: string): Record<string, string> {
@@ -1159,10 +1042,10 @@ async function notifyAdminEvent(
 }
 
 function pickDigestPostsForSubscriber(
-  posts: Post[],
+  posts: NotifyMoodPost[],
   subscriber: SubscriberRecord,
   now: Date
-): Post[] {
+): NotifyMoodPost[] {
   const mode = getSubscriberDeliveryMode(subscriber);
   const lastNotified = parseIsoDate(subscriber.lastNotifiedAt);
   const lastNotifiedMs = lastNotified?.getTime() ?? Number.NEGATIVE_INFINITY;
@@ -1255,51 +1138,17 @@ function toEmailImageUrl(
   return `${staticPrefix}${absoluteUrl}`;
 }
 
-async function loadChannelMeta(context: NotifyRequestContext): Promise<ChannelMeta | null> {
-  if (notifyTestHooks) {
-    if (notifyTestHooks.loadChannelMeta) {
-      return notifyTestHooks.loadChannelMeta(context);
-    }
-    return null;
-  }
-
-  try {
-    const result = (await getChannelInfo(
-      {
-        request: context.request,
-        locals: context.locals,
-      } as any,
-      {
-        type: 'list',
-      }
-    )) as ChannelInfo;
-
-    if (!result || !('posts' in result)) {
-      return null;
-    }
-
-    const siteUrl = getSiteUrl(context);
-    const title = (result.title || '').trim() || undefined;
-    const avatarUrl = normalizeAbsoluteUrl(result.avatar, siteUrl);
-
-    return { title, avatarUrl };
-  } catch (error) {
-    console.error('Notify failed to load channel metadata:', error);
-    return null;
-  }
-}
-
 async function sendMoodEmail(
   context: NotifyRequestContext,
   d1: NotifyD1Client,
   input: {
-    post: Post;
+    post: NotifyMoodPost;
     previewText: string;
     previewHtml: string;
-    relatedLinks?: EmailRelatedLink[];
+    relatedLinks?: NotifyEmailRelatedLink[];
     subscriber: SubscriberRecord;
     force: boolean;
-    channelMeta?: ChannelMeta | null;
+    channelMeta?: NotifyChannelMeta | null;
   }
 ): Promise<{ sent: boolean; resendId?: string }> {
   const config = getNotifyConfig(context);
@@ -1326,21 +1175,13 @@ async function sendMoodEmail(
   const unsubscribeUrl = `${siteUrl}/api/notify/unsubscribe?token=${encodeURIComponent(unsubscribeToken)}`;
   const channelTitle = input.channelMeta?.title || 'Mood Feed';
   const channelAvatarUrl = toEmailImageUrl(input.channelMeta?.avatarUrl, siteUrl, context.locals);
-  const relatedLinks = input.relatedLinks?.length
-    ? input.relatedLinks
-    : getRelatedLinks(input.post, {
-      baseUrl: siteUrl,
-      maxCount: 8,
-      excludeInlineAnchors: true,
-      excludeInternalLinks: true,
-    });
 
   const email = buildMoodNotificationEmail({
     moodUrl,
     unsubscribeUrl,
     previewText: input.previewText,
     previewHtml: input.previewHtml,
-    relatedLinks,
+    relatedLinks: input.relatedLinks ?? [],
     postId: input.post.id,
     channelTitle,
     channelAvatarUrl,
@@ -1368,15 +1209,16 @@ async function sendMoodDigestEmail(
   context: NotifyRequestContext,
   d1: NotifyD1Client,
   input: {
-    posts: Post[];
+    posts: NotifyMoodPost[];
     subscriber: SubscriberRecord;
-    channelMeta?: ChannelMeta | null;
+    channelMeta?: NotifyChannelMeta | null;
+    moodSource: NotifyMoodSource;
     force: boolean;
   }
 ): Promise<{ sent: boolean; resendId?: string; latestPostId?: string }> {
   const config = getNotifyConfig(context);
 
-  const uniquePosts = new Map<string, Post>();
+  const uniquePosts = new Map<string, NotifyMoodPost>();
   for (const post of input.posts) {
     if (!post?.id || post.type !== 'text') continue;
     if (!uniquePosts.has(post.id)) {
@@ -1392,7 +1234,7 @@ async function sendMoodDigestEmail(
     return { sent: false };
   }
 
-  const postsToSend: Post[] = [];
+  const postsToSend: NotifyMoodPost[] = [];
   for (const post of orderedPosts) {
     if (!input.force) {
       const alreadySent = await hasBeenSent(d1, post.id, input.subscriber.emailHash);
@@ -1427,17 +1269,15 @@ async function sendMoodDigestEmail(
 
   const digestItems = postsToSend.map((post) => {
     const postDate = new Date(getPostTimestamp(post));
+    const emailContent = input.moodSource.renderPostForEmail(context, post, {
+      relatedLinkMaxCount: 5,
+    });
     return {
       postId: post.id,
       moodUrl: `${siteUrl}/mood/${post.id}`,
-      previewText: getTextPreviewWithMedia(post),
-      previewHtml: getTextPreviewHtml(post, { preserveBookmarks: true }),
-      relatedLinks: getRelatedLinks(post, {
-        baseUrl: siteUrl,
-        maxCount: 5,
-        excludeInlineAnchors: true,
-        excludeInternalLinks: true,
-      }),
+      previewText: emailContent.previewText,
+      previewHtml: emailContent.previewHtml,
+      relatedLinks: emailContent.relatedLinks,
       timeLabel: getLocalTimeLabel(postDate, timezone),
       dateLabel: getLocalDateLabel(postDate, timezone),
     };
@@ -1739,7 +1579,7 @@ export async function unsubscribeMoodSubscription(
 export async function dispatchMoodNotification(
   context: NotifyRequestContext,
   postIdInput: string,
-  options: { force?: boolean; deliveryModes?: DeliveryMode[] } = {}
+  options: { force?: boolean; deliveryModes?: DeliveryMode[]; moodSource?: NotifyMoodSource } = {}
 ): Promise<DispatchResult> {
   requireEmailSendingConfig(context);
 
@@ -1749,7 +1589,19 @@ export async function dispatchMoodNotification(
   }
 
   const d1 = createD1Client(context);
-  const post = await loadMoodPost(context, postId);
+  const moodSource = resolveMoodSource(options.moodSource);
+  if (!moodSource) {
+    return {
+      postId,
+      subscribers: 0,
+      sent: 0,
+      skipped: 0,
+      failed: 0,
+      skippedReason: 'post_not_found_or_not_supported',
+    };
+  }
+
+  const post = await moodSource.loadPost(context, postId);
 
   if (!post) {
     return {
@@ -1763,15 +1615,10 @@ export async function dispatchMoodNotification(
   }
 
   const subscribers = await listActiveSubscribers(d1);
-  const previewText = getTextPreviewWithMedia(post);
-  const previewHtml = getTextPreviewHtml(post, { preserveBookmarks: true });
-  const relatedLinks = getRelatedLinks(post, {
-    baseUrl: getSiteUrl(context),
-    maxCount: 8,
-    excludeInlineAnchors: true,
-    excludeInternalLinks: true,
+  const emailContent = moodSource.renderPostForEmail(context, post, {
+    relatedLinkMaxCount: 8,
   });
-  const channelMeta = await loadChannelMeta(context);
+  const channelMeta = await moodSource.loadChannelMeta(context);
   const allowedModes = options.deliveryModes ? new Set(options.deliveryModes) : null;
 
   const result: DispatchResult = {
@@ -1796,9 +1643,9 @@ export async function dispatchMoodNotification(
     try {
       const sendResult = await sendMoodEmail(context, d1, {
         post,
-        previewText,
-        previewHtml,
-        relatedLinks,
+        previewText: emailContent.previewText,
+        previewHtml: emailContent.previewHtml,
+        relatedLinks: emailContent.relatedLinks,
         subscriber,
         force: Boolean(options.force),
         channelMeta,
@@ -1826,12 +1673,26 @@ export async function dispatchMoodNotification(
 }
 
 export async function dispatchScheduledMoodNotifications(
-  context: NotifyRequestContext
+  context: NotifyRequestContext,
+  options: { moodSource?: NotifyMoodSource } = {}
 ): Promise<ScheduledDispatchResult> {
   requireEmailSendingConfig(context);
 
   const d1 = createD1Client(context);
-  const latestPost = await loadLatestMoodPost(context);
+  const moodSource = resolveMoodSource(options.moodSource);
+  if (!moodSource) {
+    return {
+      postId: '',
+      scanned: 0,
+      due: 0,
+      sent: 0,
+      skipped: 0,
+      failed: 0,
+      skippedReason: 'no_mood_post',
+    };
+  }
+
+  const latestPost = await moodSource.loadLatestPost(context);
 
   if (!latestPost) {
     return {
@@ -1859,7 +1720,7 @@ export async function dispatchScheduledMoodNotifications(
     return isScheduledDue(subscriber, now);
   });
 
-  const channelMeta = await loadChannelMeta(context);
+  const channelMeta = await moodSource.loadChannelMeta(context);
   const result: ScheduledDispatchResult = {
     postId: latestPost.id,
     scanned: scheduledSubscribers.length,
@@ -1881,7 +1742,7 @@ export async function dispatchScheduledMoodNotifications(
     }
   }
 
-  const candidatePosts = await loadMoodPostsInWindow(context, {
+  const candidatePosts = await moodSource.loadPostsInWindow(context, {
     since: globalWindowStart,
     until: now,
   });
@@ -1897,6 +1758,7 @@ export async function dispatchScheduledMoodNotifications(
       const sendResult = await sendMoodDigestEmail(context, d1, {
         posts: digestPosts,
         subscriber,
+        moodSource,
         force: false,
         channelMeta,
       });
@@ -1932,6 +1794,7 @@ export async function processNotifyRetries(
   options: {
     scanLimit?: number;
     processLimit?: number;
+    moodSource?: NotifyMoodSource;
   } = {}
 ): Promise<RetryProcessResult> {
   requireEmailSendingConfig(context);
@@ -1982,8 +1845,9 @@ export async function processNotifyRetries(
     failed: 0,
   };
 
-  const postCache = new Map<string, Post | null>();
-  const channelMeta = await loadChannelMeta(context);
+  const moodSource = resolveMoodSource(options.moodSource);
+  const postCache = new Map<string, NotifyMoodPost | null>();
+  const channelMeta = await moodSource?.loadChannelMeta(context) ?? null;
 
   for (const record of dueRecords) {
     output.processed += 1;
@@ -2004,7 +1868,7 @@ export async function processNotifyRetries(
 
     let post = postCache.get(record.postId);
     if (post === undefined) {
-      post = await loadMoodPost(context, record.postId);
+      post = await moodSource?.loadPost(context, record.postId) ?? null;
       postCache.set(record.postId, post);
     }
 
@@ -2015,19 +1879,14 @@ export async function processNotifyRetries(
     }
 
     try {
-      const previewText = getTextPreviewWithMedia(post);
-      const previewHtml = getTextPreviewHtml(post, { preserveBookmarks: true });
-      const relatedLinks = getRelatedLinks(post, {
-        baseUrl: getSiteUrl(context),
-        maxCount: 8,
-        excludeInlineAnchors: true,
-        excludeInternalLinks: true,
-      });
+      const emailContent = moodSource?.renderPostForEmail(context, post, {
+        relatedLinkMaxCount: 8,
+      }) ?? renderBasicMoodPostForEmail(post);
       const sendResult = await sendMoodEmail(context, d1, {
         post,
-        previewText,
-        previewHtml,
-        relatedLinks,
+        previewText: emailContent.previewText,
+        previewHtml: emailContent.previewHtml,
+        relatedLinks: emailContent.relatedLinks,
         subscriber: activeSubscriber,
         force: false,
         channelMeta,

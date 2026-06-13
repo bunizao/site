@@ -1,5 +1,6 @@
 import type { APIRoute } from 'astro';
 import { getNotifyConfig } from '@/features/notify/server/env';
+import { createTelegramMoodSource } from '@/features/mood/server/notify-source';
 import {
   dispatchScheduledMoodNotifications,
   isAuthorizedSecret,
@@ -59,7 +60,9 @@ async function handleSchedule(request: Request, locals: any): Promise<Response> 
   }
 
   try {
-    const result = await dispatchScheduledMoodNotifications({ request, locals });
+    const result = await dispatchScheduledMoodNotifications({ request, locals }, {
+      moodSource: createTelegramMoodSource(),
+    });
     return new Response(JSON.stringify(result), {
       headers: {
         'Content-Type': 'application/json',

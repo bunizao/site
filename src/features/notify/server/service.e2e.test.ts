@@ -10,6 +10,7 @@ import {
   type NotifyRequestContext,
 } from './service';
 import { createNotifyToken, hashEmail } from './security';
+import { createTelegramMoodSource } from '@/features/mood/server/notify-source';
 import type { DeliveryMode, SubscriberRecord } from './types';
 
 interface CapturedEmail {
@@ -391,6 +392,8 @@ function createPost(id: string, text = `Post ${id}`): any {
   };
 }
 
+const testMoodSource = createTelegramMoodSource();
+
 function extractTokenFromEmailText(text: string): string {
   const tokenMatch = text.match(/token=([^\s]+)/);
   if (!tokenMatch) {
@@ -568,6 +571,7 @@ describe('notify service integration e2e', () => {
     const post = createPost('500', 'Immediate only');
     setNotifyTestHooksForTesting({
       loadMoodPost: async (_context, postId) => (postId === post.id ? post : null),
+      renderMoodPostForEmail: testMoodSource.renderPostForEmail,
     });
 
     const result = await dispatchMoodNotification(context, '500', {
@@ -639,6 +643,7 @@ describe('notify service integration e2e', () => {
 
     setNotifyTestHooksForTesting({
       loadMoodPost: async (_context, postId) => (postId === post.id ? post : null),
+      renderMoodPostForEmail: testMoodSource.renderPostForEmail,
     });
 
     const result = await dispatchMoodNotification(context, post.id, {
@@ -675,6 +680,7 @@ describe('notify service integration e2e', () => {
 
     setNotifyTestHooksForTesting({
       loadMoodPost: async (_context, postId) => (postId === post.id ? post : null),
+      renderMoodPostForEmail: testMoodSource.renderPostForEmail,
     });
 
     const result = await dispatchMoodNotification(context, post.id, {

@@ -1,5 +1,6 @@
 import type { APIRoute } from 'astro';
 import { getNotifyConfig } from '@/features/notify/server/env';
+import { createTelegramMoodSource } from '@/features/mood/server/notify-source';
 import {
   isAuthorizedSecret,
   NotifyServiceError,
@@ -59,7 +60,9 @@ async function handleRetry(request: Request, locals: any): Promise<Response> {
   }
 
   try {
-    const result = await processNotifyRetries({ request, locals });
+    const result = await processNotifyRetries({ request, locals }, {
+      moodSource: createTelegramMoodSource(),
+    });
     return new Response(JSON.stringify(result), {
       headers: {
         'Content-Type': 'application/json',

@@ -1,5 +1,6 @@
 import type { APIRoute } from 'astro';
 import { getNotifyConfig } from '@/features/notify/server/env';
+import { createTelegramMoodSource } from '@/features/mood/server/notify-source';
 import {
   dispatchMoodNotification,
   isAuthorizedSecret,
@@ -76,6 +77,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
       {
         force: Boolean(body.force),
         deliveryModes: Array.isArray(body.deliveryModes) ? body.deliveryModes : undefined,
+        moodSource: createTelegramMoodSource(),
       }
     );
 
