@@ -6,17 +6,17 @@ public: true
 
 ## The shape
 
-buxx.me is moving to one Cloudflare Worker target: `site`. That Worker serves `buxx.me`, `www.buxx.me`, and `image.buxx.me`, including the Astro site, API routes, mood image routes, queue consumer, and Cloudflare Cron-triggered notify tasks.
+buxx.me is split across two Cloudflare Workers during the API privatization rollout. The public `site` Worker serves `buxx.me` and `www.buxx.me`. The private `site-api` Worker serves `https://api.buxx.me/v1/` and owns admin, notify, webhook, image, and future mood API work.
 
-Telegram is the source of truth for mood content. The Worker hears Telegram's webhook, pulls images into R2, enqueues notify jobs, renders the mood feed and detail pages through Astro, sends emails through Resend, and stores subscriber state in Cloudflare D1 through the `NOTIFY_DB` binding. The older standalone image worker and notify scheduler are rollback history until production cutover is verified.
+The public Worker keeps `buxx.me/api/*` as a compatibility surface. Compatibility requests that are no longer public-site-owned proxy to `site-api` through a Cloudflare Worker service binding.
 
 ## Key directories
 
 - `src/pages/` — file-based routing. `index.astro` (home), `mood.astro` (feed shell), `mood/[id].astro` (detail), `mood/embed.astro` (embeddable widget).
-- `src/pages/api/` — server endpoints (moods, comments, SVG generators, oEmbed, notify, admin).
-- `src/pages/dev/portal/` — GitHub-OAuth-gated admin portal: overview, OAuth hub, subscribers, broadcasts, mascot inspector, newsletter preview.
-- `src/middleware.ts` — Astro middleware that gates `/dev/portal/**`, protected `/docs/**` pages, and `/api/admin/**` against the `admin_session` cookie.
-- `src/features/` — feature-private code (`home/`, `mood/`, `notify/`, `admin/`, `logos/`).
+- `src/pages/api/` — public endpoints (moods, comments, SVG generators, oEmbed, health, Ghost/listening/footer) plus the compatibility proxy.
+- `src/pages/dev/` and `src/pages/oauth*` — compatibility proxy routes to the private admin/OAuth app.
+- `src/middleware.ts` — Astro middleware that gates protected docs by checking the private admin session through the `API` service binding.
+- `src/features/` — feature-private code (`home/`, `mood/`, `logos/`).
 - `src/lib/` — shared utilities (GitHub API, security, HTTP, media helpers).
 - `src/components/ui/` — shadcn/ui primitives used in the admin portal.
 - `src/layouts/` — `Layout.astro` for the public site, `PortalLayout.astro` for the admin portal.
@@ -29,7 +29,7 @@ The site reads from six external sources:
 - **Ghost CMS** — blog posts shown on the home page.
 - **GitHub GraphQL** — repository metadata and stars for project cards.
 - **Last.fm + Apple Music search** — recent listening status, with iTunes enrichment for artwork and previews.
-- **Telegram** — mood post bodies (scraped) and image bytes (via the Worker).
+- **Telegram** — mood post bodies are still scraped by the public site in this wave; webhook/image/notify ownership is moving to `site-api`.
 - **GitHub contribution graph** — rendered into the home page.
 - **Better Stack status** — footer service indicator.
 
@@ -37,7 +37,7 @@ The site reads from six external sources:
 
 Public JSON: `/api/moods`, `/api/comments`, `/api/oembed.json`, `/api/footer`, `/api/health`. SVG generators (all accept `?theme=light|dark`): `/api/status.svg`, `/api/tech-stack.svg`, `/api/site-badge.svg`, `/api/project.svg`, `/api/activity-panel.svg`. RSS at `/mood/rss.xml`.
 
-Admin endpoints under `/api/admin/` are gated by the `admin_session` cookie. The Cloudflare Worker exposes `https://image.buxx.me/webhook` (Telegram), `https://image.buxx.me/mood/:postId/:imageIndex` (public reads), and authenticated `https://image.buxx.me/ingest/...` write paths. Cloudflare Cron owns scheduled notify runs every 15 minutes.
+Private API canonical base: `https://api.buxx.me/v1/`. Admin, OAuth, notify, Telegram webhook, image ingest, and scheduled notify work are private API responsibilities. Public `buxx.me/api/*` remains a compatibility proxy where needed.
 
 ## Styling
 

@@ -97,28 +97,24 @@ Covered implementation:
 
 Covered implementation:
 
-- subscribe: [`src/pages/api/notify/subscribe.ts`](../src/pages/api/notify/subscribe.ts)
-- confirm: [`src/pages/api/notify/confirm.ts`](../src/pages/api/notify/confirm.ts)
-- unsubscribe: [`src/pages/api/notify/unsubscribe.ts`](../src/pages/api/notify/unsubscribe.ts)
-- dispatch / schedule / retry:
-  - [`src/pages/api/notify/dispatch.ts`](../src/pages/api/notify/dispatch.ts)
-  - [`src/pages/api/notify/schedule.ts`](../src/pages/api/notify/schedule.ts)
-  - [`src/pages/api/notify/retry.ts`](../src/pages/api/notify/retry.ts)
+- subscribe: `site-api /v1/notify/subscribe`
+- confirm: `site-api /v1/notify/confirm`
+- unsubscribe: `site-api /v1/notify/unsubscribe`
+- dispatch / schedule / retry: `site-api /v1/notify/*`
 
 Supporting infrastructure:
 
-- subscriber state and delivery records live in Cloudflare D1 through [`src/features/notify/server/d1.ts`](../src/features/notify/server/d1.ts)
-- email delivery is handled through Resend in [`src/features/notify/server/resend.ts`](../src/features/notify/server/resend.ts)
-- token creation and verification live in [`src/features/notify/server/security.ts`](../src/features/notify/server/security.ts)
+- subscriber state and delivery records live in the private API `NOTIFY_DB`
+- email delivery is handled through Resend in `site-api`
+- token creation and verification live in `site-api`
 
 ### Cloudflare Anti-Abuse and Infrastructure
 
 Covered implementation:
 
 - Turnstile verification runs in [`src/lib/security/turnstile.ts`](../src/lib/security/turnstile.ts)
-- the mood subscribe endpoint uses that verification when the secret is configured
-- Cloudflare D1 is used by the notify service
-- Cloudflare Worker bindings provide D1, R2, queue, and scheduled-event infrastructure
+- the private mood subscribe endpoint uses that verification when the secret is configured
+- Cloudflare D1, R2, queue, and scheduled-event infrastructure for notify live in `site-api`
 
 ### Third-Party Content Sources
 

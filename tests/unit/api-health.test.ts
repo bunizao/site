@@ -64,7 +64,6 @@ describe('api health', () => {
       'mood-feed',
       'listening',
       'comments',
-      'notify-templates',
     ]);
 
     const moodFeed = report.checks.find((check) => check.id === 'mood-feed');
@@ -86,8 +85,7 @@ describe('api health', () => {
     expect(report.mode).toBe('deep');
     expect(report.status).toBe('degraded');
     expect(report.checks.some((check) => check.id === 'mood-image-worker')).toBe(true);
-    expect(report.checks.some((check) => check.id === 'telegram-webhook')).toBe(true);
-    expect(report.checks.find((check) => check.id === 'telegram-webhook')?.status).toBe('skipped');
+    expect(report.checks.some((check) => check.id === 'telegram-webhook')).toBe(false);
   });
 
   test('route returns a lightweight compatibility response by default', async () => {

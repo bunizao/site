@@ -9,11 +9,10 @@ The OAuth hub is the owner-auth control plane. It starts with the GitHub OAuth a
 ## Current scope
 
 - `/oauth/login` starts the human login flow.
-- `/api/admin/auth/start` and `/api/admin/auth/callback` perform the GitHub OAuth handshake.
+- `site-api /v1/admin/auth/start` and `/v1/admin/auth/callback` perform the GitHub OAuth handshake.
 - `admin_session` is the signed owner session cookie.
 - `/oauth` routes to the protected hub; unauthenticated requests end at `/oauth/login`.
-- `/dev/portal/oauth` shows the protected hub status and the intended auth boundary.
-- `/dev/login` remains a compatibility redirect to `/oauth/login`.
+- `/dev/*`, `/oauth*`, and `/api/admin/*` on the public site are compatibility proxy routes into `site-api`.
 
 The current implementation does not store GitHub access tokens after login. That's deliberate: the session proves the owner is present, it is not a provider-token vault.
 

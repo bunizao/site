@@ -1,4 +1,3 @@
-import type { Page } from '@playwright/test';
 import { expect, test } from './fixtures';
 
 function requireBaseUrl(value: string | undefined): string {
@@ -12,46 +11,6 @@ function requireBaseUrl(value: string | undefined): string {
 test.describe('Preview smoke', () => {
   test.beforeEach(async ({ page }) => {
     await page.emulateMedia({ reducedMotion: 'reduce' });
-  });
-
-  async function expectProtectedPortalTarget(page: Page, targetPath: string): Promise<'portal' | 'login'> {
-    await expect(page).toHaveURL(/\/(?:dev\/portal|oauth\/login)/);
-
-    const url = new URL(page.url());
-    if (url.pathname === '/oauth/login') {
-      expect(url.searchParams.get('next')).toBe(targetPath);
-      await expect(page.getByRole('heading', { name: 'Sign in to dev portal' })).toBeVisible();
-      await expect(page.locator('.login-meta')).toContainText('Only approved users may view it.');
-      await expect(page.getByRole('link', { name: 'Privacy Policy' })).toHaveAttribute('href', '/privacy');
-      return 'login';
-    }
-
-    expect(url.pathname).toBe(targetPath);
-    return 'portal';
-  }
-
-  test('routes the legacy mascot preview route through the protected portal', async ({ page }) => {
-    await page.goto('/dev/preview');
-
-    const result = await expectProtectedPortalTarget(page, '/dev/portal/mascot');
-    if (result === 'login') return;
-
-    await expect(page.getByText('Mascot inspector')).toBeVisible();
-    await expect(page.getByText('Runtime map')).toBeVisible();
-    await expect(page.getByText('Brand behavior')).toBeVisible();
-    await expect(page.getByText('Tracking stage')).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'confused' })).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'Idle at rest, dart on hover' })).toBeVisible();
-  });
-
-  test('routes the legacy newsletter preview route through the protected portal', async ({ page }) => {
-    await page.goto('/dev/newsletter-preview');
-
-    const result = await expectProtectedPortalTarget(page, '/dev/portal/newsletter');
-    if (result === 'login') return;
-
-    await expect(page.getByText('Newsletter templates')).toBeVisible();
-    await expect(page.getByText('Subscribe Confirm')).toBeVisible();
   });
 
   test('renders the home page shell', async ({ page }) => {
@@ -87,7 +46,6 @@ test.describe('Preview smoke', () => {
     await expect(page).toHaveURL(/\/oauth\/login/);
     const url = new URL(page.url());
     expect(url.searchParams.get('next')).toBe('/docs/quality/debug-logs/');
-    await expect(page.getByRole('heading', { name: 'Sign in to docs' })).toBeVisible();
   });
 
   test('renders public docs without login', async ({ page }) => {

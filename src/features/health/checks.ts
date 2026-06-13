@@ -4,14 +4,7 @@ import {
 } from '@/features/mood/server/channel-service';
 import { loadMoodCommentsPage } from '@/features/mood/server/comments-service';
 import { getCurrentListeningTrack } from '@/features/home/server/listening';
-import {
-  buildMoodDigestEmail,
-  buildMoodNotificationEmail,
-  buildSubscribeConfirmEmail,
-  buildSubscribeWelcomeEmail,
-  buildUnsubscribeNoticeEmail,
-} from '@/features/notify/server/templates';
-import { readEnv, readPublicEnv } from '@/lib/runtime/env';
+import { readPublicEnv } from '@/lib/runtime/env';
 import type {
   ApiHealthCheck,
   ApiHealthCheckReport,
@@ -169,67 +162,6 @@ async function checkComments(
   };
 }
 
-async function checkNotifyTemplates(
-  context: ApiHealthContext,
-  state: ApiHealthState
-): Promise<ApiHealthCheckResult> {
-  const siteUrl = getSiteUrl(context);
-  const moodUrl = state.latestMoodId
-    ? `${siteUrl}/mood/${state.latestMoodId}`
-    : `${siteUrl}/mood`;
-  const unsubscribeUrl = `${siteUrl}/api/notify/unsubscribe?token=health_check`;
-  const channelTitle = state.moodFeed?.channel.title ?? 'Mood Feed';
-
-  const emails = [
-    buildSubscribeConfirmEmail({
-      siteUrl,
-      confirmUrl: `${siteUrl}/api/notify/confirm?token=health_check`,
-    }),
-    buildSubscribeWelcomeEmail({
-      moodUrl: `${siteUrl}/mood`,
-      unsubscribeUrl,
-      deliveryMode: 'daily',
-    }),
-    buildUnsubscribeNoticeEmail({
-      siteUrl,
-      subscribeUrl: `${siteUrl}/mood?subscribe=1`,
-    }),
-    buildMoodNotificationEmail({
-      moodUrl,
-      unsubscribeUrl,
-      previewText: 'Health check mood preview',
-      previewHtml: '<p>Health check mood preview</p>',
-      relatedLinks: [],
-      postId: state.latestMoodId ?? 'health-check',
-      channelTitle,
-      channelAvatarUrl: state.moodFeed?.channel.avatar ?? '',
-    }),
-    buildMoodDigestEmail({
-      mode: 'daily',
-      moodUrl: `${siteUrl}/mood`,
-      unsubscribeUrl,
-      channelTitle,
-      channelAvatarUrl: state.moodFeed?.channel.avatar ?? '',
-      posts: [],
-    }),
-  ];
-
-  const invalidEmail = emails.find((email) => !email.subject || !email.html);
-  if (invalidEmail) {
-    return {
-      status: 'degraded',
-      message: 'Notify template rendering returned an incomplete email',
-    };
-  }
-
-  return {
-    status: 'ok',
-    metadata: {
-      templateCount: emails.length,
-    },
-  };
-}
-
 async function checkMoodImageWorker(
   context: ApiHealthContext,
   state: ApiHealthState
@@ -280,77 +212,6 @@ async function checkMoodImageWorker(
   };
 }
 
-async function checkTelegramWebhook(
-  context: ApiHealthContext
-): Promise<ApiHealthCheckResult> {
-  const botToken = readEnv(context.locals, 'TELEGRAM_BOT_TOKEN');
-  if (!botToken) {
-    return {
-      status: 'skipped',
-      message: 'TELEGRAM_BOT_TOKEN is not configured',
-    };
-  }
-
-  const expectedUrl = readEnv(context.locals, 'TELEGRAM_EXPECTED_WEBHOOK_URL')
-    || `${getSiteUrl(context)}/api/telegram-webhook`;
-  const response = await fetch(`https://api.telegram.org/bot${botToken}/getWebhookInfo`, {
-    signal: AbortSignal.timeout(5_000),
-  });
-
-  if (!response.ok) {
-    return {
-      status: 'degraded',
-      message: `Telegram webhook info returned ${response.status}`,
-    };
-  }
-
-  const payload = await response.json() as {
-    ok?: boolean;
-    result?: {
-      url?: string;
-      pending_update_count?: number;
-      allowed_updates?: string[];
-      last_error_message?: string;
-    };
-  };
-
-  if (!payload.ok) {
-    return {
-      status: 'degraded',
-      message: 'Telegram webhook info returned ok=false',
-    };
-  }
-
-  if ((payload.result?.url ?? '') !== expectedUrl) {
-    return {
-      status: 'degraded',
-      message: 'Telegram bot points at an unexpected webhook URL',
-      metadata: {
-        expectedUrl,
-        actualUrl: payload.result?.url ?? '',
-      },
-    };
-  }
-
-  if (payload.result?.last_error_message) {
-    return {
-      status: 'degraded',
-      message: payload.result.last_error_message,
-      metadata: {
-        pendingUpdateCount: payload.result.pending_update_count ?? 0,
-      },
-    };
-  }
-
-  return {
-    status: 'ok',
-    metadata: {
-      pendingUpdateCount: payload.result?.pending_update_count ?? 0,
-      allowedUpdates: payload.result?.allowed_updates ?? [],
-    },
-  };
-}
-
 const healthChecks: ApiHealthCheck[] = [
   {
     id: 'mood-feed',
@@ -371,26 +232,12 @@ const healthChecks: ApiHealthCheck[] = [
     run: checkComments,
   },
   {
-    id: 'notify-templates',
-    label: 'Notify templates',
-    critical: false,
-    run: checkNotifyTemplates,
-  },
-  {
     id: 'mood-image-worker',
     label: 'Mood image worker',
     critical: false,
     deepOnly: true,
     timeoutMs: DEEP_CHECK_TIMEOUT_MS,
     run: checkMoodImageWorker,
-  },
-  {
-    id: 'telegram-webhook',
-    label: 'Telegram webhook API',
-    critical: false,
-    deepOnly: true,
-    timeoutMs: DEEP_CHECK_TIMEOUT_MS,
-    run: checkTelegramWebhook,
   },
 ];
 

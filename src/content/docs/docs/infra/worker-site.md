@@ -1,10 +1,12 @@
 ---
 title: Worker site
-description: How the Cloudflare Worker target owns the site, image routes, queues, and scheduled notify tasks.
+description: How the public Cloudflare Worker serves buxx.me and proxies private API surfaces.
 public: true
 ---
 
-The target runtime is one Cloudflare Worker named `site`. It serves `buxx.me`, `www.buxx.me`, and `image.buxx.me`.
+The public runtime is one Cloudflare Worker named `site`. It serves `buxx.me` and `www.buxx.me`.
+
+Private admin, OAuth, notify, Telegram webhook, image ingest, queue, and cron work belong to the separate `site-api` Worker at `https://api.buxx.me/v1/`.
 
 ## Ghost Publishing Hook
 
@@ -16,57 +18,43 @@ Configure Ghost's `Post published` webhook to `POST` the Cloudflare Workers Buil
 
 ## What runs where
 
-`src/worker.ts` composes three pieces inside the same Worker boundary:
+The public Worker owns:
 
-- Astro's Cloudflare entrypoint for public pages, API routes, and the admin portal.
-- The existing Telegram image worker module for webhook, ingest, and public image routes.
-- Worker task handlers for queue consumption and Cloudflare Cron-triggered notify work.
+- public pages
+- public mood feed/detail shells
+- public mood scraping during this migration wave
+- SVG, oEmbed, Ghost, listening, footer, ping, and health endpoints
+- protected docs checks through the private admin session endpoint
 
-The older standalone image worker and notify scheduler remain rollback history until production cutover is verified. They are not the Cloudflare-first runtime target.
+The private `site-api` Worker owns:
 
-## Image routes
+- `/v1/notify/*`
+- `/v1/admin/*`
+- `/oauth*`
+- `/dev/*`
+- `/v1/telegram/webhook`
+- mood image ingest and serving
+- queue consumers and cron-triggered notify work
 
-The image worker module owns:
+## Compatibility proxy
 
-- `POST https://image.buxx.me/webhook`
-- `GET https://image.buxx.me/mood/:postId/:imageIndex`
-- `GET https://image.buxx.me/channel/avatar`
-- `POST https://image.buxx.me/ingest/...`
+`buxx.me/api/*` remains the public compatibility surface. Requests that are no longer public-site-owned proxy to `site-api` through the `API` service binding.
 
-It validates Telegram webhook requests, resolves media-group image indexes, writes images and width variants into R2 through `MOOD_IMAGES`, and serves cached public reads.
-
-`/api/telegram-webhook` is rollback-only for the older site-hosted webhook flow.
-
-## Notify path
-
-1. Telegram POSTs `https://image.buxx.me/webhook`.
-2. The Worker validates, ingests images into R2, and enqueues a notify job.
-3. The queue consumer calls `/api/notify/dispatch` through the same Worker runtime.
-4. The notify service loads the post, resolves recipients, sends through Resend, records idempotency, and schedules retries on failure.
-
-`/api/notify/dispatch` requires `NOTIFY_DISPATCH_SECRET`. `/api/notify/schedule` and `/api/notify/retry` accept either `CRON_SECRET` or `NOTIFY_DISPATCH_SECRET`. Subscribe intake is rate-limited and gated by Turnstile when configured. Confirm and unsubscribe are token-based GET flows.
-
-Cloudflare Cron owns scheduled notify and retry execution every 15 minutes.
+The public Worker also proxies `/dev/*` and `/oauth*` to private admin/OAuth routes without adding a `/v1` prefix.
 
 ## D1 and bindings
 
-The Cloudflare runtime target uses direct bindings from `wrangler.jsonc`:
+The public Worker only needs the `API` service binding to call `site-api`.
 
-- `SESSION` for session storage.
-- `NOTIFY_DB` for notify/admin state.
-- `MOOD_IMAGES` for HD mood images.
-- `NOTIFY_DISPATCH_QUEUE` for immediate notification dispatch.
-
-D1 HTTP API credentials are migration-era compatibility, not the preferred Cloudflare runtime path.
+Notify D1, mood D1, R2 image storage, queue bindings, session KV, Telegram secrets, Resend secrets, and cron triggers belong to `site-api`.
 
 ## Failure behavior
 
-- If the Worker can't enqueue notify, it returns 503 to Telegram and Telegram retries.
-- If image ingest fails but enqueue succeeds, the webhook can still return 200; the UI falls back to the Telegram CDN proxy.
-- If image routes are unavailable, the site can still scrape Telegram content, but HD image URLs may 404. Email links can't auto-fallback after delivery.
-- Retry durability is notify-service owned via the `notify_retries` table.
+- If the `API` service binding is missing, proxied private routes return 503.
+- Protected docs deny access when `site-api /v1/admin/session` is unavailable.
+- Public mood pages can still render from the current public scraper until the mood API wave finishes.
 
 ## Related docs
 
-- [Telegram ingestion](/docs/pipeline/telegram) — the full webhook flow and failure modes.
+- [Telegram ingestion](/docs/pipeline/telegram) — the private webhook and image flow.
 - [OAuth hub](/docs/infra/oauth-hub) — the auth boundary between human admins, sandboxes, and connectors.

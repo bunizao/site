@@ -1,7 +1,8 @@
-# Image Quality Upgrade (Cloudflare Worker)
+# Image Quality Upgrade
 
-This site can serve Mood photos through a Cloudflare Worker to improve image quality and cache results at the edge.
+Mood photos are served through the private `site-api` Worker to improve image quality and cache results at the edge.
 
-Canonical documentation (kept next to the Worker source):
-- `workers/telegram-image-proxy/README.md`
+Canonical documentation:
 
+- `docs/TELEGRAM-PIPELINE.md`
+- `src/content/docs/docs/pipeline/image-quality.md`

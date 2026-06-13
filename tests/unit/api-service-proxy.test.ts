@@ -20,6 +20,13 @@ describe('api service proxy', () => {
     expect(url.toString()).toBe('https://site-api.internal/v1/health?probe=1');
   });
 
+  test('passes private app routes through without v1 prefixing', () => {
+    expect(rewriteApiServiceUrl('https://buxx.me/oauth/login?next=%2Fdocs').toString())
+      .toBe('https://site-api.internal/oauth/login?next=%2Fdocs');
+    expect(rewriteApiServiceUrl('https://buxx.me/dev/portal').toString())
+      .toBe('https://site-api.internal/dev/portal');
+  });
+
   test('passes method, body, and headers through to the service binding', async () => {
     const request = new Request('https://buxx.me/api/notify/dispatch?dry=1', {
       method: 'POST',
@@ -34,6 +41,10 @@ describe('api service proxy', () => {
     expect(proxied.url).toBe('https://site-api.internal/v1/notify/dispatch?dry=1');
     expect(proxied.method).toBe('POST');
     expect(proxied.headers.get('authorization')).toBe('Bearer test');
+    expect(proxied.headers.get('x-forwarded-host')).toBe('buxx.me');
+    expect(proxied.headers.get('x-forwarded-proto')).toBe('https');
+    expect(proxied.headers.get('x-forwarded-origin')).toBe('https://buxx.me');
+    expect(proxied.headers.get('x-buxx-forwarded-url')).toBe('https://buxx.me/api/notify/dispatch?dry=1');
     expect(await proxied.json()).toEqual({ postId: '123' });
   });
 
