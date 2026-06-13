@@ -3,8 +3,7 @@ import Layout from '../layouts/Layout.astro';
 import TimelineWheel from '@/features/mood/ui/TimelineWheel.astro';
 import FeedShell from '@/features/mood/ui/FeedShell.astro';
 import NotifyPanel from '@/features/mood/ui/NotifyPanel.astro';
-import { loadMoodChannelSnapshot } from '@/features/mood/server/channel-service';
-import { buildMoodFeedResponse } from '@/features/mood/server/feed-service';
+import { loadMoodFeed } from '@/features/mood/server/api-client';
 import {
   getMoodFeedAnchorBeforeCursor,
   getMoodFeedAnchorWindowBeforeCursor,
@@ -38,35 +37,33 @@ async function loadInitialMoodFeed() {
   try {
     if (moodFeedAnchorId) {
       const focused = moodFeedAnchorWindowBeforeCursor
-        ? await loadMoodChannelSnapshot(context, { before: moodFeedAnchorWindowBeforeCursor })
+        ? await loadMoodFeed(context, { before: moodFeedAnchorWindowBeforeCursor })
         : null;
       const focusedPosts = focused?.posts ?? [];
       if (focused && focusedPosts.some((post) => post.id === moodFeedAnchorId)) {
-        return buildMoodFeedResponse(context, focused.channelInfo, focusedPosts);
+        return focused;
       }
 
       const fallback = (
         moodFeedAnchorBeforeCursor
         && moodFeedAnchorBeforeCursor !== moodFeedAnchorWindowBeforeCursor
       )
-        ? await loadMoodChannelSnapshot(context, { before: moodFeedAnchorBeforeCursor })
+        ? await loadMoodFeed(context, { before: moodFeedAnchorBeforeCursor })
         : null;
       const fallbackPosts = fallback?.posts ?? [];
       if (fallback && fallbackPosts.length > 0) {
-        return buildMoodFeedResponse(context, fallback.channelInfo, fallbackPosts);
+        return fallback;
       }
 
       if (focused && focusedPosts.length > 0) {
-        return buildMoodFeedResponse(
-          context,
-          focused.channelInfo,
-          mergeMoodFeedWindowPosts(focusedPosts)
-        );
+        return {
+          ...focused,
+          posts: mergeMoodFeedWindowPosts(focusedPosts),
+        };
       }
     }
 
-    const latest = await loadMoodChannelSnapshot(context);
-    return buildMoodFeedResponse(context, latest.channelInfo, latest.posts);
+    return await loadMoodFeed(context);
   } catch (error) {
     console.warn('Failed to load initial mood feed:', error);
     return null;

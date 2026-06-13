@@ -50,7 +50,7 @@ Private API ownership is moving to the separate `site-api` Worker at `https://ap
 2. **GitHub API** (`src/features/home/ui/Projects.astro`, `src/lib/github.ts`) — Repository data and stars via GraphQL
 3. **Last.fm + Apple iTunes Search** (`src/features/home/ui/Listening.astro`, `src/features/home/server/listening.ts`, `src/pages/api/listening.ts`) — Recent listening status from Last.fm, with client-side home hydration and iTunes enrichment for preview URLs and stronger artwork
 4. **GitHub Contributions** (`src/features/home/ui/GitHubContributions.astro`, `src/pages/api/github/contributions.ts`) — Contribution graph from an internal API backed by GitHub GraphQL, with the public contributions API as a fallback
-5. **Telegram/BroadcastChannel** — Mood posts are still scraped by the public site during this migration wave; webhook ingress, image storage, queue dispatch, notify, and admin move to `site-api`.
+5. **Telegram/BroadcastChannel** — Mood posts are ingested and normalized by the private `site-api` Worker, then read by the public site through the `API` service binding.
 6. **Better Stack Status Page** (`src/pages/api/footer.ts`) — Footer service status from `https://status.tuuhub.com/index.json`
 
 ## API Endpoints

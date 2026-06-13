@@ -29,7 +29,7 @@ The site reads from six external sources:
 - **Ghost CMS** — blog posts shown on the home page.
 - **GitHub GraphQL** — repository metadata and stars for project cards.
 - **Last.fm + Apple Music search** — recent listening status, with iTunes enrichment for artwork and previews.
-- **Telegram** — mood post bodies are still scraped by the public site in this wave; webhook/image/notify ownership is moving to `site-api`.
+- **Telegram** — mood content is ingested and normalized by the private `site-api` Worker, then read by the public site through the `API` service binding.
 - **GitHub contribution graph** — rendered into the home page.
 - **Better Stack status** — footer service indicator.
 

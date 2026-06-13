@@ -4,8 +4,7 @@ import {
   readCursorQuery,
 } from '@/lib/http/query';
 import { withRateLimit } from '@/lib/http/rate-limited';
-import { loadMoodChannelSnapshot } from '@/features/mood/server/channel-service';
-import { buildMoodFeedResponse } from '@/features/mood/server/feed-service';
+import { loadMoodFeed } from '@/features/mood/server/api-client';
 import { buildMoodAgentMarkdown } from '@/features/mood/server/serializers';
 
 export const prerender = false;
@@ -38,11 +37,7 @@ export const GET: APIRoute = async ({ request, locals, site }) => {
   }
 
   try {
-    const { channelInfo, posts } = await loadMoodChannelSnapshot(
-      { request, locals },
-      { before, after }
-    );
-    const feed = await buildMoodFeedResponse({ request, locals }, channelInfo, posts);
+    const feed = await loadMoodFeed({ request, locals }, { before, after });
     const requestUrl = new URL(request.url);
     const baseUrl = site ?? new URL(requestUrl.origin);
     const markdown = buildMoodAgentMarkdown(feed, baseUrl, { before, after });

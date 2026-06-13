@@ -64,6 +64,6 @@ Public compatibility:
 
 **Webhook not configured.** New posts do not enter private ingest, R2 objects do not update, and immediate notification dispatch does not run.
 
-**Image ingest fails.** Public mood pages can still fall back to Telegram CDN while the current public scraper exists, but email links cannot auto-fallback after delivery.
+**Image ingest fails.** Public mood pages can use stored Telegram CDN fallbacks when `site-api` returns them, but email links cannot auto-fallback after delivery.
 
 **Notify queue handoff fails.** The webhook should return a retryable failure so Telegram can redeliver the update.

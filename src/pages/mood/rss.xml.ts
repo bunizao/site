@@ -1,5 +1,5 @@
 import type { APIRoute } from 'astro';
-import { loadMoodChannelSnapshot } from '@/features/mood/server/channel-service';
+import { loadMoodFeed } from '@/features/mood/server/api-client';
 import { buildMoodRssXml } from '@/features/mood/server/serializers';
 
 export const prerender = false;
@@ -11,8 +11,8 @@ export const GET: APIRoute = async ({ request, locals, site }) => {
   const baseUrl = site ?? new URL(requestUrl.origin);
 
   try {
-    const { channelInfo, posts } = await loadMoodChannelSnapshot({ request, locals });
-    const xml = buildMoodRssXml(channelInfo, posts.slice(0, MAX_ITEMS), baseUrl);
+    const feed = await loadMoodFeed({ request, locals }, { limit: MAX_ITEMS });
+    const xml = buildMoodRssXml(feed.channel, feed.posts.slice(0, MAX_ITEMS), baseUrl);
 
     return new Response(xml, {
       headers: {

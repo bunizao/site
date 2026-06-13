@@ -89,9 +89,9 @@ Provider behavior the policy now needs to reflect:
 
 Covered implementation:
 
-- `/mood` and `/mood/[id]` fetch public Telegram-derived content
-- [`src/pages/api/moods.ts`](../src/pages/api/moods.ts) and [`src/pages/api/comments.ts`](../src/pages/api/comments.ts) expose public data derived from Telegram scraping
-- [`src/features/mood/server/telegram-source.ts`](../src/features/mood/server/telegram-source.ts) and [`src/features/mood/shared/utils.ts`](../src/features/mood/shared/utils.ts) shape public mood content and media references
+- `/mood` and `/mood/[id]` fetch public Telegram-derived content through the private `site-api` Worker
+- [`src/pages/api/moods.ts`](../src/pages/api/moods.ts) and [`src/pages/api/comments.ts`](../src/pages/api/comments.ts) expose public data proxied from `site-api`
+- [`src/features/mood/server/api-client.ts`](../src/features/mood/server/api-client.ts) and [`src/features/mood/shared/utils.ts`](../src/features/mood/shared/utils.ts) shape public mood content and media references
 
 ### Mood Subscription Flow
 
@@ -122,7 +122,7 @@ Covered implementation:
 
 - Ghost is used for writing links in [`src/features/home/ui/Posts.astro`](../src/features/home/ui/Posts.astro)
 - GitHub is used for project data in [`src/features/home/ui/Projects.astro`](../src/features/home/ui/Projects.astro) and [`src/lib/github.ts`](../src/lib/github.ts)
-- Telegram-derived content is parsed in [`src/features/mood/server/telegram-source.ts`](../src/features/mood/server/telegram-source.ts)
+- Telegram-derived content is ingested and parsed in the private `site-api` Worker
 
 ## Why the Policy Is Markdown-Backed
 

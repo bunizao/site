@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import { buildMoodFeedItem } from '../../src/features/mood/server/feed-service';
-import type { ChannelInfo, Post } from '../../src/features/mood/server/telegram-source';
+import type { ChannelInfo, Post } from '../../src/features/mood/server/legacy-types';
 
 const context = {
   request: new Request('http://localhost:4321'),

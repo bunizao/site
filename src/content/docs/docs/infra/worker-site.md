@@ -22,7 +22,7 @@ The public Worker owns:
 
 - public pages
 - public mood feed/detail shells
-- public mood scraping during this migration wave
+- public mood rendering from `site-api`
 - SVG, oEmbed, Ghost, listening, footer, ping, and health endpoints
 - protected docs checks through the private admin session endpoint
 
@@ -52,7 +52,7 @@ Notify D1, mood D1, R2 image storage, queue bindings, session KV, Telegram secre
 
 - If the `API` service binding is missing, proxied private routes return 503.
 - Protected docs deny access when `site-api /v1/admin/session` is unavailable.
-- Public mood pages can still render from the current public scraper until the mood API wave finishes.
+- Public mood pages fail closed when the private mood API is unavailable.
 
 ## Related docs
 

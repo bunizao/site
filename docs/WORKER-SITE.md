@@ -57,7 +57,7 @@ The public Worker owns:
 
 - public HTML routes
 - public mood feed/detail shells
-- public mood scraping during this migration wave
+- public mood rendering from `site-api`
 - public SVG and oEmbed endpoints
 - Ghost/listening/footer data hydration
 - protected docs gating through `site-api /v1/admin/session`

@@ -1,10 +1,12 @@
 ---
 import {
-  loadMoodChannelSnapshot,
-  loadMoodPostSnapshot,
   toMoodAvatarUrl,
 } from '@/features/mood/server/channel-service';
-import { buildMoodFeedItems } from '@/features/mood/server/feed-service';
+import {
+  loadMoodDocument,
+  loadMoodFeed,
+  moodDocumentToFeedItem,
+} from '@/features/mood/server/api-client';
 import { renderMoodGalleryMarkup } from '@/features/mood/shared/gallery';
 import {
   readBooleanFlag,
@@ -13,7 +15,6 @@ import {
 } from '@/lib/http/query';
 import { buildSrcSet } from '@/lib/media/responsive-image';
 import type { MoodFeedItem } from '@/features/mood/server/contracts';
-import type { ChannelInfo, Post } from '@/features/mood/server/telegram-source';
 import { getEmbedHeaders } from '../../lib/embed-response';
 import '@/features/mood/styles/feed-rich-text.css';
 import '@/styles/mood-gallery.css';
@@ -35,33 +36,21 @@ const refresh = refreshRaw !== null
   : null;
 const showLink = readBooleanFlag(url, 'link', true);
 const context = { request: Astro.request, locals: Astro.locals };
-let posts: Post[] = [];
+let feedPosts: MoodFeedItem[] = [];
 let channelTitle = '';
 let channelAvatar = '';
-let channelInfoForFeed: ChannelInfo = {
-  posts: [],
-  title: '',
-  titleHTML: '',
-  description: '',
-  descriptionHTML: '',
-  avatar: '',
-};
 
 if (idParam) {
-  const { post, channelInfo } = await loadMoodPostSnapshot(context, idParam);
-  posts = post ? [post] : [];
-  channelInfoForFeed = channelInfo ?? channelInfoForFeed;
-  channelTitle = channelInfoForFeed.title || 'Levitating';
-  channelAvatar = toMoodAvatarUrl(channelInfoForFeed.avatar || '', Astro.locals);
+  const post = await loadMoodDocument(context, idParam);
+  feedPosts = post ? [moodDocumentToFeedItem(post)] : [];
+  channelTitle = post?.channel?.title || 'Levitating';
+  channelAvatar = toMoodAvatarUrl(post?.channel?.avatar || '', Astro.locals);
 } else {
-  const { channelInfo, posts: channelPosts } = await loadMoodChannelSnapshot(context);
-  posts = channelPosts.slice(0, count);
-  channelInfoForFeed = channelInfo;
-  channelTitle = channelInfo.title || 'Levitating';
-  channelAvatar = toMoodAvatarUrl(channelInfo.avatar || '', Astro.locals);
+  const feed = await loadMoodFeed(context, { limit: count });
+  feedPosts = feed.posts.slice(0, count);
+  channelTitle = feed.channel.title || 'Levitating';
+  channelAvatar = toMoodAvatarUrl(feed.channel.avatar || '', Astro.locals);
 }
-
-const feedPosts = await buildMoodFeedItems(context, channelInfoForFeed, posts);
 
 const responsiveImageWidths = [480, 800, 1200];
 const embedImageSizes = '(min-width: 640px) 520px, 100vw';
@@ -560,7 +549,7 @@ function getImageClassName(post: MoodFeedItem): string {
   </style>
 </head>
 <body>
-  {posts.length === 0 ? (
+  {feedPosts.length === 0 ? (
     <div class="empty-state">No moods to display</div>
   ) : (
     <>
@@ -670,7 +659,7 @@ function getImageClassName(post: MoodFeedItem): string {
           </article>
         );
       })}
-      {showLink && posts.length > 0 && (
+      {showLink && feedPosts.length > 0 && (
         <a class="view-more" href="/mood" target="_blank" rel="noopener">
           View all moods
         </a>

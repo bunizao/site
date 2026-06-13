@@ -1,8 +1,7 @@
-import { buildMoodFeedResponse } from '@/features/mood/server/feed-service';
 import {
-  loadMoodChannelSnapshot,
-} from '@/features/mood/server/channel-service';
-import { loadMoodCommentsPage } from '@/features/mood/server/comments-service';
+  loadMoodComments,
+  loadMoodFeed,
+} from '@/features/mood/server/api-client';
 import { getCurrentListeningTrack } from '@/features/home/server/listening';
 import { readPublicEnv } from '@/lib/runtime/env';
 import type {
@@ -60,18 +59,13 @@ async function checkMoodFeed(
   context: ApiHealthContext,
   state: ApiHealthState
 ): Promise<ApiHealthCheckResult> {
-  const { channelInfo, posts } = await loadMoodChannelSnapshot(
+  const feed = await loadMoodFeed(
     { request: context.request, locals: context.locals },
-    { skipCache: context.deep }
-  );
-  const feed = await buildMoodFeedResponse(
-    { request: context.request, locals: context.locals },
-    channelInfo,
-    posts
+    { fresh: context.deep }
   );
 
   state.moodFeed = feed;
-  state.latestMoodId = feed.posts[0]?.id ?? posts[0]?.id;
+  state.latestMoodId = feed.posts[0]?.id;
 
   if (!state.latestMoodId) {
     return {
@@ -140,9 +134,9 @@ async function checkComments(
     };
   }
 
-  const comments = await loadMoodCommentsPage(
+  const comments = await loadMoodComments(
     { request: context.request, locals: context.locals },
-    { postId: state.latestMoodId }
+    state.latestMoodId
   );
 
   if (!Array.isArray(comments.comments) || typeof comments.hasMore !== 'boolean') {

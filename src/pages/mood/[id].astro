@@ -1,15 +1,16 @@
 ---
 import Layout from '../../layouts/Layout.astro';
 import dayjs from 'dayjs';
-import { isE2ESiteFixtureEnabled } from '@/lib/e2e';
-import { getChannelInfo, type Post } from '@/features/mood/server/telegram-source';
+import type { MoodContentDocument } from '@bunizao/contracts';
+import { loadMoodDocument } from '@/features/mood/server/api-client';
 import '@/styles/mood-gallery.css';
+import { isE2ESiteFixtureEnabled } from '@/lib/e2e';
 import { renderMoodContentWithGalleries } from '@/features/mood/shared/gallery';
 import { getMoodFeedAnchorHref } from '@/features/mood/shared/feed-anchor';
 import { addTooBigVideoTimestamp } from '@/features/mood/shared/video-placeholder';
 import DetailArticle from '@/features/mood/ui/DetailArticle.astro';
-import { createE2EPost } from '@/features/mood/server/e2e-fixtures';
 import { buildMoodDetailMetadata } from '@/features/mood/server/detail-metadata';
+import { renderRichContentDocument } from '@/features/content/rich-content';
 import { readEnv } from '@/lib/runtime/env';
 
 export const prerender = false;
@@ -27,16 +28,12 @@ if (isEmbed && id) {
   return Astro.redirect(`${embedUrl.pathname}${embedUrl.search}`);
 }
 
-let post: Post | null = null;
+let post: MoodContentDocument | null = null;
 let error = false;
 
 try {
   if (id) {
-    if (isE2ESiteFixtureEnabled(Astro.locals)) {
-      post = createE2EPost(id);
-    } else {
-      post = await getChannelInfo(Astro, { id }) as Post;
-    }
+    post = await loadMoodDocument({ request: Astro.request, locals: Astro.locals }, id);
   }
 } catch (fetchError) {
   console.error('Failed to fetch mood:', fetchError);
@@ -57,7 +54,12 @@ const moodFeedBackHref = getMoodFeedAnchorHref(id ?? '');
 const channel = readEnv(Astro.locals, 'CHANNEL');
 const telegramCommentUrl = channel && id ? `https://t.me/${channel}/${id}?comment=1` : '';
 const renderedPostContent = post
-  ? addTooBigVideoTimestamp(renderMoodContentWithGalleries(post.content), post.datetime)
+  ? isE2ESiteFixtureEnabled(Astro.locals)
+    ? addTooBigVideoTimestamp(renderMoodContentWithGalleries(post.bodyHtml), post.datetime)
+    : renderRichContentDocument(post, {
+        bodyClassName: 'mood-post-rich-body',
+        mediaClassName: 'mood-post-rich-media',
+      }).html
   : '';
 ---
 
