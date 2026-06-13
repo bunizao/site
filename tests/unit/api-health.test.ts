@@ -120,6 +120,24 @@ describe('api health', () => {
     expect(response.headers.get('etag')).toBe('"health"');
   });
 
+  test('route falls back to local ping when service binding is unavailable', async () => {
+    const response = await getApiHealth({
+      request: createHealthRequest(),
+      locals: { env: {} },
+    } as any);
+    const payload = await response.json() as {
+      status?: string;
+      mode?: string;
+      diagnostic?: string;
+    };
+
+    expect(response.status).toBe(200);
+    expect(payload.status).toBe('ok');
+    expect(payload.mode).toBe('ping');
+    expect(payload.diagnostic).toBe('/api/health?diagnostic=1');
+    expect(response.headers.get('cache-control')).toBe('no-store, max-age=0');
+  });
+
   test('route runs aggregated checks only in diagnostic mode', async () => {
     const api = {
       fetch: async (request: Request) => {

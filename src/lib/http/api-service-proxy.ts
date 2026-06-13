@@ -87,6 +87,10 @@ export async function proxyApiRequest(request: Request, locals: RuntimeEnvLocals
     });
   }
 
+  return proxyApiBindingRequest(request, api);
+}
+
+export async function proxyApiBindingRequest(request: Request, api: ApiServiceBinding): Promise<Response> {
   const response = await api.fetch(createApiServiceRequest(request));
 
   return new Response(response.body, {
