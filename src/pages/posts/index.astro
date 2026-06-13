@@ -1,0 +1,59 @@
+---
+import Layout from '@/layouts/Layout.astro';
+import { readEnv } from '@/lib/runtime/env';
+
+export const prerender = false;
+
+const isEnabled = ['1', 'true', 'yes', 'on', 'enabled'].includes(
+  readEnv(Astro.locals, 'ENABLE_POSTS_PAGE').trim().toLowerCase(),
+);
+
+if (!isEnabled) {
+  Astro.response.status = 404;
+}
+---
+
+<Layout
+  title={isEnabled ? 'Posts' : '404 - page not found'}
+  description={isEnabled ? 'Posts are coming soon.' : "The page you're looking for isn't here."}
+  robots="noindex, nofollow"
+>
+  <main class="page-container posts-placeholder">
+    {isEnabled ? (
+      <>
+        <p class="posts-kicker">Posts</p>
+        <h1>Coming soon</h1>
+      </>
+    ) : (
+      <>
+        <p class="posts-kicker">404</p>
+        <h1>Page not found</h1>
+      </>
+    )}
+  </main>
+</Layout>
+
+<style>
+  .posts-placeholder {
+    min-height: 62vh;
+    display: grid;
+    align-content: center;
+    gap: 0.75rem;
+  }
+
+  .posts-kicker {
+    margin: 0;
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    color: var(--color-text-muted);
+  }
+
+  h1 {
+    margin: 0;
+    max-width: 12ch;
+    font-size: clamp(2.4rem, 7vw, 5.5rem);
+    line-height: 0.95;
+    letter-spacing: 0;
+  }
+</style>
