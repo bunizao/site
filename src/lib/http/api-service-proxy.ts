@@ -6,7 +6,7 @@ export interface ApiServiceBinding {
   fetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response>;
 }
 
-export const API_SERVICE_ORIGIN = 'https://api.buxx.me';
+export const API_SERVICE_BINDING_ORIGIN = 'https://site-api.internal';
 
 function isApiServiceBinding(value: unknown): value is ApiServiceBinding {
   return typeof value === 'object'
@@ -56,7 +56,7 @@ export async function getApiServiceBinding(
 
 export function rewriteApiServiceUrl(requestUrl: string): URL {
   const target = new URL(requestUrl);
-  const origin = new URL(API_SERVICE_ORIGIN);
+  const origin = new URL(API_SERVICE_BINDING_ORIGIN);
   target.protocol = origin.protocol;
   target.hostname = origin.hostname;
   target.port = origin.port;
