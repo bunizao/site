@@ -86,6 +86,7 @@ describe('Cloudflare runtime configuration', () => {
         run_worker_first?: string[];
       };
       routes?: Array<{ pattern?: string; zone_name?: string; custom_domain?: boolean }>;
+      services?: Array<{ binding?: string; service?: string }>;
       triggers?: { crons?: string[] };
       vars?: Record<string, string>;
     };
@@ -113,6 +114,7 @@ describe('Cloudflare runtime configuration', () => {
       custom_domain: true,
     });
     expect(config.routes).toContainEqual({ pattern: 'image.buxx.me', zone_name: 'buxx.me', custom_domain: true });
+    expect(config.services).toContainEqual({ binding: 'API', service: 'site-api' });
     expect(config.vars).toMatchObject({
       SITE_URL: 'https://buxx.me',
       PUBLIC_SITE_URL: 'https://buxx.me',

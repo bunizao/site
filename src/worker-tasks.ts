@@ -1,4 +1,7 @@
+import type { ApiServiceBinding } from '@/lib/http/api-service-proxy';
+
 export interface WorkerTaskEnv {
+  API?: ApiServiceBinding;
   PUBLIC_SITE_URL?: string;
   SITE_URL?: string;
   NOTIFY_BASE_URL?: string;

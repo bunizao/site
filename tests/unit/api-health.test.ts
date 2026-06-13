@@ -91,23 +91,53 @@ describe('api health', () => {
   });
 
   test('route returns a lightweight compatibility response by default', async () => {
+    const api = {
+      fetch: async (request: Request) => {
+        expect(request.url).toBe('https://api.buxx.me/api/health');
+        return new Response(JSON.stringify({
+          status: 'ok',
+          mode: 'private-api',
+        }), {
+          status: 200,
+          headers: {
+            'Cache-Control': 'public, max-age=30',
+            ETag: '"health"',
+            'Content-Type': 'application/json',
+          },
+        });
+      },
+    };
     const response = await getApiHealth({
       request: createHealthRequest(),
-      locals: {},
+      locals: { env: { API: api } },
     } as any);
-    const payload = await response.json() as { status?: string; mode?: string; diagnostic?: string };
+    const payload = await response.json() as { status?: string; mode?: string };
 
     expect(response.status).toBe(200);
     expect(payload.status).toBe('ok');
-    expect(payload.mode).toBe('ping');
-    expect(payload.diagnostic).toBe('/api/health?diagnostic=1');
-    expect(response.headers.get('cache-control')).toBe('no-store, max-age=0');
+    expect(payload.mode).toBe('private-api');
+    expect(response.headers.get('cache-control')).toBe('public, max-age=30');
+    expect(response.headers.get('etag')).toBe('"health"');
   });
 
   test('route runs aggregated checks only in diagnostic mode', async () => {
+    const api = {
+      fetch: async (request: Request) => {
+        expect(request.url).toBe('https://api.buxx.me/api/health?diagnostic=1');
+        return new Response(JSON.stringify({
+          status: 'degraded',
+          mode: 'default',
+        }), {
+          status: 200,
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        });
+      },
+    };
     const response = await getApiHealth({
       request: createHealthRequest({ diagnostic: true }),
-      locals: {},
+      locals: { env: { API: api } },
     } as any);
     const payload = await response.json() as { status?: string; mode?: string };
 

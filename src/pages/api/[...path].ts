@@ -2,5 +2,4 @@ import { proxyApiRoute } from '@/lib/http/api-service-proxy';
 
 export const prerender = false;
 
-export const GET = proxyApiRoute;
-export const HEAD = proxyApiRoute;
+export const ALL = proxyApiRoute;

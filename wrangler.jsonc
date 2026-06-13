@@ -21,6 +21,9 @@
       "/docs*"
     ]
   },
+  "services": [
+    { "binding": "API", "service": "site-api" }
+  ],
   "routes": [
     { "pattern": "buxx.me", "zone_name": "buxx.me", "custom_domain": true },
     { "pattern": "www.buxx.me", "zone_name": "buxx.me", "custom_domain": true },
