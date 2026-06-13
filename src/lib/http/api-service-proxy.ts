@@ -60,7 +60,20 @@ export function rewriteApiServiceUrl(requestUrl: string): URL {
   target.protocol = origin.protocol;
   target.hostname = origin.hostname;
   target.port = origin.port;
+  target.pathname = rewriteApiServicePath(target.pathname);
   return target;
+}
+
+function rewriteApiServicePath(pathname: string): string {
+  if (pathname === '/api') {
+    return '/v1';
+  }
+
+  if (pathname.startsWith('/api/')) {
+    return `/v1${pathname.slice('/api'.length)}`;
+  }
+
+  return pathname.startsWith('/v1') ? pathname : `/v1${pathname}`;
 }
 
 export function createApiServiceRequest(request: Request): Request {
