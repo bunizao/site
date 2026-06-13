@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import {
   createApiServiceRequest,
+  getApiServiceBinding,
   proxyApiRequest,
   rewriteApiServiceUrl,
   type ApiServiceBinding,
@@ -68,5 +69,25 @@ describe('api service proxy', () => {
     expect(response.headers.get('cache-control')).toBe('public, max-age=30');
     expect(response.headers.get('etag')).toBe('"abc"');
     expect(await response.json()).toEqual({ status: 'ok', service: 'site-api' });
+  });
+
+  test('falls back to runtime env when direct locals env lacks the binding', async () => {
+    const api = createApiBinding(() => new Response('ok'));
+    const response = await proxyApiRequest(new Request('https://buxx.me/api/health'), {
+      env: {},
+      runtime: {
+        env: { API: api },
+      },
+    });
+
+    expect(response.status).toBe(200);
+    expect(await response.text()).toBe('ok');
+  });
+
+  test('falls back to the Cloudflare Workers env binding', async () => {
+    const api = createApiBinding(() => new Response('ok'));
+    const binding = await getApiServiceBinding({ env: {} }, async () => ({ API: api }));
+
+    expect(binding).toBe(api);
   });
 });

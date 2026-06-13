@@ -1,6 +1,6 @@
 import type { APIRoute } from 'astro';
 import { jsonError } from '@/lib/http/json-response';
-import { readRuntimeEnvSource, type RuntimeEnvLocals } from '@/lib/runtime/env';
+import { readRuntimeEnvSource, type EnvSource, type RuntimeEnvLocals } from '@/lib/runtime/env';
 
 export interface ApiServiceBinding {
   fetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response>;
@@ -15,10 +15,43 @@ function isApiServiceBinding(value: unknown): value is ApiServiceBinding {
     && typeof (value as { fetch?: unknown }).fetch === 'function';
 }
 
-export function getApiServiceBinding(locals: RuntimeEnvLocals | undefined): ApiServiceBinding | null {
-  const env = readRuntimeEnvSource(locals);
-  const binding = env?.API;
-  return isApiServiceBinding(binding) ? binding : null;
+type CloudflareEnvReader = () => Promise<EnvSource | undefined>;
+
+async function readCloudflareWorkersEnv(): Promise<EnvSource | undefined> {
+  try {
+    const workers = await import('cloudflare:workers');
+    return workers.env as EnvSource;
+  } catch {
+    return undefined;
+  }
+}
+
+export async function getApiServiceBinding(
+  locals: RuntimeEnvLocals | undefined,
+  readCloudflareEnv: CloudflareEnvReader = readCloudflareWorkersEnv
+): Promise<ApiServiceBinding | null> {
+  const directBinding = locals?.env?.API;
+  if (isApiServiceBinding(directBinding)) {
+    return directBinding;
+  }
+
+  let binding: unknown;
+  try {
+    binding = locals?.runtime?.env?.API;
+  } catch {
+    binding = undefined;
+  }
+
+  if (!binding) {
+    binding = readRuntimeEnvSource(locals)?.API;
+  }
+
+  if (isApiServiceBinding(binding)) {
+    return binding;
+  }
+
+  const cloudflareBinding = (await readCloudflareEnv())?.API;
+  return isApiServiceBinding(cloudflareBinding) ? cloudflareBinding : null;
 }
 
 export function rewriteApiServiceUrl(requestUrl: string): URL {
@@ -47,7 +80,7 @@ export function createApiServiceRequest(request: Request): Request {
 }
 
 export async function proxyApiRequest(request: Request, locals: RuntimeEnvLocals | undefined): Promise<Response> {
-  const api = getApiServiceBinding(locals);
+  const api = await getApiServiceBinding(locals);
   if (!api) {
     return jsonError(503, 'API service binding unavailable', {
       'Cache-Control': 'no-store, max-age=0',
