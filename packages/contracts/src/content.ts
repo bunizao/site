@@ -1,13 +1,22 @@
 export const CONTENT_DOCUMENT_SOURCES = ['mood', 'post'] as const;
 
 export type ContentDocumentSource = (typeof CONTENT_DOCUMENT_SOURCES)[number];
-export type ContentMediaType = 'image' | 'video' | 'audio' | 'document' | 'embed' | 'sticker';
+export type ContentMediaType =
+  | 'image'
+  | 'video'
+  | 'audio'
+  | 'document'
+  | 'embed'
+  | 'sticker'
+  | 'link-preview'
+  | 'location';
 export type ContentMediaLayout = 'landscape' | 'portrait' | 'ultra-tall';
 
 export interface MediaItem {
   id?: string;
   type: ContentMediaType;
-  src: string;
+  src?: string;
+  href?: string;
   fallbackSrc?: string | null;
   posterSrc?: string | null;
   thumbnailSrc?: string | null;
@@ -15,6 +24,11 @@ export interface MediaItem {
   height?: number | null;
   layout?: ContentMediaLayout | null;
   alt?: string;
+  title?: string;
+  description?: string;
+  siteName?: string;
+  fileName?: string;
+  fileSizeLabel?: string;
   mimeType?: string;
   durationSeconds?: number | null;
   originalUrl?: string;

@@ -14,7 +14,19 @@ describe('@bunizao/contracts', () => {
       source: 'mood',
       datetime: '2026-06-13T00:00:00.000Z',
       bodyHtml: '<p>hello</p>',
-      media: [],
+      media: [
+        {
+          type: 'link-preview',
+          href: 'https://example.com/story',
+          title: 'Example story',
+          description: 'A structured link preview.',
+          siteName: 'Example',
+        },
+        {
+          type: 'location',
+          title: 'Kuala Lumpur',
+        },
+      ],
       reactions: [],
       commentsCount: 0,
     } satisfies ContentDocument;
