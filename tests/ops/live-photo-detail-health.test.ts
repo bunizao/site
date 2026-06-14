@@ -34,7 +34,7 @@ describe('live photo detail health', () => {
       expect(response.ok).toBe(true);
 
       const html = await response.text();
-      expect(html).toContain(`https://image.buxx.me/mood/${id}/0`);
+      expect(html).toContain(`https://api.buxx.me/v1/images/mood/${id}/0`);
       expect(html).not.toContain('Open Telegram to view this live photo');
     }
   });

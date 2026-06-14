@@ -11,7 +11,6 @@ import {
   API_SERVICE_BINDING_ORIGIN,
   getApiServiceBinding,
 } from '@/lib/http/api-service-proxy';
-import { readEnv } from '@/lib/runtime/env';
 import {
   createE2EChannelInfo,
   createE2EComments,
@@ -33,28 +32,11 @@ export interface MoodCommentsQuery {
   limit?: number;
 }
 
-const DEFAULT_API_BASE_URL = 'https://api.buxx.me/v1/';
-
-function buildVersionedApiUrl(baseUrl: string, versionedPath: string): string {
-  const base = baseUrl.trim().replace(/\/+$/, '');
-  const path = `/${versionedPath.replace(/^\/+/, '')}`;
-
-  if (!base) return path;
-  if (base.endsWith('/v1')) {
-    return `${base}${path.replace(/^\/v1(?=\/|$)/, '')}`;
-  }
-  return `${base}${path}`;
-}
-
 function appendSearchParams(url: URL, values: Record<string, string | number | boolean | undefined>): void {
   for (const [key, value] of Object.entries(values)) {
     if (value === undefined || value === false || value === '') continue;
     url.searchParams.set(key, value === true ? '1' : String(value));
   }
-}
-
-function fallbackApiBaseUrl(locals: MoodServerContext['locals']): string {
-  return readEnv(locals, 'API_BASE_URL') || DEFAULT_API_BASE_URL;
 }
 
 function createApiRequest(context: MoodServerContext, path: string): Request {
@@ -75,15 +57,11 @@ function createApiRequest(context: MoodServerContext, path: string): Request {
 
 async function fetchMoodApi(context: MoodServerContext, path: string): Promise<Response> {
   const api = await getApiServiceBinding(context.locals);
-  if (api) {
-    return api.fetch(createApiRequest(context, path));
+  if (!api) {
+    throw new Error('API service binding unavailable');
   }
 
-  return fetch(buildVersionedApiUrl(fallbackApiBaseUrl(context.locals), path), {
-    headers: {
-      Accept: 'application/json',
-    },
-  });
+  return api.fetch(createApiRequest(context, path));
 }
 
 async function readApiJson<T>(response: Response, label: string): Promise<T> {

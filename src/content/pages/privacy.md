@@ -50,7 +50,7 @@ We do not use personal data collected through this site for data brokerage or un
 
 ## Cloudflare hosting, security, and observability
 
-This site uses Cloudflare Workers as the hosting runtime for public pages, API routes, mood image routes, queue consumers, and scheduled notification tasks.
+This site uses Cloudflare Workers as the hosting runtime for public pages and API proxy routes. Private API, mood image, queue consumer, and scheduled notification work runs in `site-api`.
 
 Cloudflare may process standard request metadata, security signals, logs, and Worker observability data needed to serve the site, protect it from abuse, and investigate operational issues.
 

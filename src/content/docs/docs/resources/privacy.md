@@ -20,7 +20,7 @@ Markdown-backed means policy edits don't require layout changes, route logic sta
 ### Hosting, observability, performance
 
 - Site pages and API routes run on the Cloudflare Worker target `site`.
-- `wrangler.jsonc` binds the Worker to `buxx.me`, `www.buxx.me`, and `image.buxx.me`.
+- `wrangler.jsonc` binds the public Worker to `buxx.me` and `www.buxx.me`.
 - Cloudflare Worker observability and request logs cover operational monitoring.
 - `src/layouts/Layout.astro` does not mount a third-party analytics script.
 
@@ -51,7 +51,7 @@ Markdown-backed means policy edits don't require layout changes, route logic sta
 
 - Turnstile verification: `src/lib/security/turnstile.ts`. Used by mood subscribe when `TURNSTILE_SECRET` is configured.
 - Cloudflare D1 backs subscriber state.
-- Cloudflare Worker bindings provide D1, R2, queue, and scheduled-event infrastructure.
+- Cloudflare Worker bindings provide D1, R2, queue, and scheduled-event infrastructure in `site-api`.
 
 ### Third-party content sources
 
