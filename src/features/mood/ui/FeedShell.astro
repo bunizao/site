@@ -4,7 +4,8 @@ import type { MoodFeedItem, MoodChannelSummary } from '@/features/mood/server/co
 import { renderMoodGalleryMarkup } from '@/features/mood/shared/gallery-render';
 import { hasStructuredMoodFeedMedia, renderStructuredMoodFeedMediaMarkup } from '@/features/mood/shared/feed-media';
 import { getMoodFeedThumbnailStyle } from '@/features/mood/shared/feed-thumbnail';
-import { getMoodFeedAnchorFragmentId } from '@/features/mood/shared/feed-anchor';
+import { getMoodDetailHref, getMoodFeedAnchorFragmentId } from '@/features/mood/shared/feed-anchor';
+import type { MoodApiModeQueryValue } from '@/features/mood/shared/api-mode';
 import { buildSrcSet, withWidthParam } from '@/lib/media/responsive-image';
 
 interface SkeletonItem {
@@ -23,6 +24,7 @@ interface Props {
   initialPosts?: MoodFeedItem[];
   initialChannel?: MoodChannelSummary;
   anchorId?: string;
+  apiModeQueryValue?: MoodApiModeQueryValue | null;
 }
 
 const {
@@ -30,6 +32,7 @@ const {
   initialPosts = [],
   initialChannel,
   anchorId = '',
+  apiModeQueryValue = null,
 } = Astro.props;
 
 const initialFeedPayload = {
@@ -132,7 +135,7 @@ function groupPostsByDate(posts: MoodFeedItem[]): Array<{ dateKey: string; posts
 
 function getPostHref(post: MoodFeedItem): string | undefined {
   return post.needsDetailPage && !post.mediaHtml.trim() && !hasStructuredMoodFeedMedia(post.media)
-    ? `/mood/${post.id}`
+    ? getMoodDetailHref(post.id, apiModeQueryValue)
     : undefined;
 }
 
@@ -265,6 +268,7 @@ const hasCriticalInitialPosts = criticalInitialPosts.length > 0;
           </div>
           <div class="mood-date-items">
             {group.posts.map((post, index) => {
+              const detailHref = getMoodDetailHref(post.id, apiModeQueryValue);
               const href = getPostHref(post);
               const mediaHtml = post.mediaHtml.trim();
               const structuredMediaHtml = renderStructuredMoodFeedMediaMarkup(post.media);
@@ -288,7 +292,7 @@ const hasCriticalInitialPosts = criticalInitialPosts.length > 0;
                 >
                   <a
                     class="mood-item-expand-float"
-                    href={`/mood/${post.id}`}
+                    href={detailHref}
                     title="View full post"
                     aria-label="View full post"
                   >
@@ -403,7 +407,7 @@ const hasCriticalInitialPosts = criticalInitialPosts.length > 0;
                       </div>
                     ) : null}
 
-                    {isLongPreview ? <a class="mood-item-details link" href={`/mood/${post.id}`}>View details</a> : null}
+                    {isLongPreview ? <a class="mood-item-details link" href={detailHref}>View details</a> : null}
 
                     <div class="mood-item-reactions">
                       {post.reactions.map((reaction) => (
@@ -429,7 +433,7 @@ const hasCriticalInitialPosts = criticalInitialPosts.length > 0;
                         >
                           <a
                             class="mood-item-comments"
-                            href={`/mood/${post.id}#comments`}
+                            href={getMoodDetailHref(post.id, apiModeQueryValue, '#comments')}
                             title={`${commentsInfo.label} comment${commentsInfo.count === 1 ? '' : 's'}`}
                             aria-haspopup="dialog"
                             aria-expanded="false"

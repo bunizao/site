@@ -10,6 +10,8 @@ import {
 import { resolveMoodApiV2Mode } from '@/features/mood/server/api-mode';
 import { renderMoodGalleryMarkup } from '@/features/mood/shared/gallery';
 import { renderStructuredMoodFeedMediaMarkup } from '@/features/mood/shared/feed-media';
+import { readMoodApiModeQueryValue } from '@/features/mood/shared/api-mode';
+import { getMoodDetailHref, getMoodFeedAnchorHref } from '@/features/mood/shared/feed-anchor';
 import {
   readBooleanFlag,
   readEnumQuery,
@@ -31,6 +33,7 @@ const count = idParam ? 1 : Math.min(10, Math.max(1, readIntQuery(url, 'count') 
 const frame = readBooleanFlag(url, 'frame', true);
 const density = readEnumQuery(url, 'density', ['regular', 'compact'] as const, 'regular');
 const font = readEnumQuery(url, 'font', ['mono', 'system'] as const, 'mono');
+const apiModeQueryValue = readMoodApiModeQueryValue(url);
 const useApiV2 = resolveMoodApiV2Mode(url, Astro.locals);
 const originParam = url.searchParams.get('origin');
 const refreshRaw = readIntQuery(url, 'refresh');
@@ -563,8 +566,8 @@ function getImageClassName(post: MoodFeedItem): string {
         const structuredMediaHtml = renderStructuredMoodFeedMediaMarkup(post.media);
         const mediaHtml = structuredMediaHtml || post.mediaHtml;
         const datetime = formatDateTime(post.datetime);
-        const postUrl = `/mood/${post.id}`;
-        const channelUrl = '/mood';
+        const postUrl = getMoodDetailHref(post.id, apiModeQueryValue);
+        const channelUrl = getMoodFeedAnchorHref('', apiModeQueryValue);
         const initial = channelTitle.charAt(0).toUpperCase();
         const quoteHref = post.quote?.href;
         const QuoteElement = quoteHref ? 'a' : 'div';

@@ -1,6 +1,7 @@
 import type { APIRoute } from 'astro';
 import { loadMoodFeed } from '@/features/mood/server/api-client';
 import { resolveMoodApiV2Mode } from '@/features/mood/server/api-mode';
+import { readMoodApiModeQueryValue } from '@/features/mood/shared/api-mode';
 import { buildMoodRssXml } from '@/features/mood/server/serializers';
 
 export const prerender = false;
@@ -10,11 +11,14 @@ const MAX_ITEMS = 50;
 export const GET: APIRoute = async ({ request, locals, site }) => {
   const requestUrl = new URL(request.url);
   const baseUrl = site ?? new URL(requestUrl.origin);
+  const apiModeQueryValue = readMoodApiModeQueryValue(requestUrl);
   const useApiV2 = resolveMoodApiV2Mode(requestUrl, locals);
 
   try {
     const feed = await loadMoodFeed({ request, locals }, { limit: MAX_ITEMS, useApiV2 });
-    const xml = buildMoodRssXml(feed.channel, feed.posts.slice(0, MAX_ITEMS), baseUrl);
+    const xml = buildMoodRssXml(feed.channel, feed.posts.slice(0, MAX_ITEMS), baseUrl, {
+      apiModeQueryValue,
+    });
 
     return new Response(xml, {
       headers: {

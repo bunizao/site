@@ -67,5 +67,17 @@ describe('buildMoodRssXml', () => {
     expect(xml).toContain('href="https://buxx.me/legacy"');
     expect(xml).toContain('legacy media');
   });
-});
 
+  test('keeps explicit API mode in feed and item links', () => {
+    const xml = buildMoodRssXml(
+      { title: 'Mood' },
+      [createPost()],
+      new URL('https://buxx.me'),
+      { apiModeQueryValue: 'false' }
+    );
+
+    expect(xml).toContain('<link>https://buxx.me/mood?api-v2=false</link>');
+    expect(xml).toContain('<atom:link href="https://buxx.me/mood/rss.xml?api-v2=false"');
+    expect(xml).toContain('<guid isPermaLink="true">https://buxx.me/mood/990001?api-v2=false</guid>');
+  });
+});

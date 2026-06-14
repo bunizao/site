@@ -231,6 +231,11 @@ test.describe('Mood routes', () => {
     const rssAction = page.locator('[data-header-actions] a[href="/mood/rss.xml?api-v2=false"]');
     await expect(rssAction).toBeVisible();
 
+    const firstItem = page.locator('[data-mood-list] .mood-item').first();
+    await firstItem.hover();
+    const expandHref = await firstItem.locator('.mood-item-expand-float').getAttribute('href');
+    expect(expandHref).toMatch(/^\/mood\/\d+\?api-v2=false$/);
+
     const feedOembedHref = await page
       .locator('link[type="application/json+oembed"]')
       .getAttribute('href');
@@ -239,6 +244,8 @@ test.describe('Mood routes', () => {
     expect(feedOembedTargetUrl.searchParams.get('api-v2')).toBe('false');
 
     await page.goto('/mood/990777?api-v2=false', { waitUntil: 'domcontentloaded' });
+
+    await expect(page.locator('[data-back-button]')).toHaveAttribute('href', '/mood?990777&api-v2=false');
 
     const detailOembedHref = await page
       .locator('link[type="application/json+oembed"]')

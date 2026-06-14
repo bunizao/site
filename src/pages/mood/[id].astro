@@ -62,7 +62,7 @@ const oembed = id
   : undefined;
 const metadata = buildMoodDetailMetadata(post, id);
 const formattedDate = post ? dayjs(post.datetime).format('MMMM D, YYYY · HH:mm') : '';
-const moodFeedBackHref = getMoodFeedAnchorHref(id ?? '');
+const moodFeedBackHref = getMoodFeedAnchorHref(id ?? '', apiModeQueryValue);
 const channel = readEnv(Astro.locals, 'CHANNEL');
 const telegramCommentUrl = channel && id ? `https://t.me/${channel}/${id}?comment=1` : '';
 const renderedPostContent = post

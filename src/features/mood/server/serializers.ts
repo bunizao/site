@@ -79,12 +79,21 @@ const absolutizeHtml = (html: string, base: URL): string => {
   return $.root().html() ?? html;
 };
 
-export function buildMoodRssXml(channel: ContentChannelSummary, posts: MoodFeedItem[], baseUrl: URL): string {
+export function buildMoodRssXml(
+  channel: ContentChannelSummary,
+  posts: MoodFeedItem[],
+  baseUrl: URL,
+  options: { apiModeQueryValue?: MoodApiModeQueryValue | null } = {}
+): string {
   const channelTitle = channel.title?.trim() || 'Moods';
   const channelDescription =
     channel.description?.trim() || 'Thoughts and moments from my Telegram channel.';
-  const channelLink = new URL('/mood', baseUrl).href;
-  const selfLink = new URL('/mood/rss.xml', baseUrl).href;
+  const channelUrl = new URL('/mood', baseUrl);
+  appendMoodApiModeQueryValue(channelUrl.searchParams, options.apiModeQueryValue ?? null);
+  const selfUrl = new URL('/mood/rss.xml', baseUrl);
+  appendMoodApiModeQueryValue(selfUrl.searchParams, options.apiModeQueryValue ?? null);
+  const channelLink = channelUrl.href;
+  const selfLink = selfUrl.href;
   const latestDate = posts[0]?.datetime;
   const lastBuildDate = latestDate && !Number.isNaN(new Date(latestDate).getTime())
     ? new Date(latestDate).toUTCString()
@@ -94,7 +103,9 @@ export function buildMoodRssXml(channel: ContentChannelSummary, posts: MoodFeedI
     const title = truncateText(post.previewText || '', 120)
       || `Mood ${post.id}`;
     const summary = truncateText(post.previewText || '', 220);
-    const link = new URL(`/mood/${post.id}`, baseUrl).href;
+    const itemUrl = new URL(`/mood/${post.id}`, baseUrl);
+    appendMoodApiModeQueryValue(itemUrl.searchParams, options.apiModeQueryValue ?? null);
+    const link = itemUrl.href;
     const pubDate = new Date(post.datetime);
     const pubDateText = Number.isNaN(pubDate.getTime()) ? '' : pubDate.toUTCString();
     const structuredMediaHtml = renderStructuredMoodFeedMediaMarkup(post.media);

@@ -1,9 +1,11 @@
 import { createMoodGalleryElement, initMoodGalleries } from '@/features/mood/client/gallery';
 import {
+  getMoodDetailHref,
   getMoodFeedAnchorFragmentId,
   getMoodFeedAnchorHref,
   MOOD_FEED_RETURN_ANCHOR_STORAGE_KEY,
 } from '@/features/mood/shared/feed-anchor';
+import { readMoodApiModeQueryValue } from '@/features/mood/shared/api-mode';
 import { buildMoodPreviewFragment } from '@/features/mood/shared/preview';
 import { renderStructuredMoodFeedMediaMarkup } from '@/features/mood/shared/feed-media';
 import type { ChannelInfo, MoodData } from '@/features/mood/client/feed-types';
@@ -41,6 +43,14 @@ function formatTime(value: string): string {
   const hours = String(date.getHours()).padStart(2, '0');
   const minutes = String(date.getMinutes()).padStart(2, '0');
   return `${hours}:${minutes}`;
+}
+
+function getCurrentApiModeQueryValue(): 'true' | 'false' | null {
+  try {
+    return readMoodApiModeQueryValue(new URL(window.location.href));
+  } catch {
+    return null;
+  }
 }
 
 function formatDateHeader(dateKey: string): string {
@@ -251,6 +261,7 @@ export function createFeedRenderer({
   };
 
   const createMoodItem = (mood: MoodData, index: number): HTMLElement => {
+    const detailHref = getMoodDetailHref(mood.id, getCurrentApiModeQueryValue());
     const mediaHtml = typeof mood.mediaHtml === 'string' ? mood.mediaHtml.trim() : '';
     const hasMediaHtml = mediaHtml.length > 0;
     const structuredMediaHtml = renderStructuredMoodFeedMediaMarkup(mood.media);
@@ -264,7 +275,7 @@ export function createFeedRenderer({
 
     if (shouldLink) {
       element.className = 'mood-item mood-item--clickable';
-      element.dataset.href = `/mood/${mood.id}`;
+      element.dataset.href = detailHref;
       element.setAttribute('role', 'link');
       element.tabIndex = 0;
     } else {
@@ -612,7 +623,7 @@ export function createFeedRenderer({
     if (isLongPreview) {
       const details = document.createElement('a');
       details.className = 'mood-item-details link';
-      details.href = `/mood/${mood.id}`;
+      details.href = detailHref;
       details.textContent = 'View details';
       content.appendChild(details);
     }
@@ -680,7 +691,7 @@ export function createFeedRenderer({
 
     const expandBtn = document.createElement('a');
     expandBtn.className = 'mood-item-expand-float';
-    expandBtn.href = `/mood/${mood.id}`;
+    expandBtn.href = detailHref;
     expandBtn.title = 'View full post';
     expandBtn.setAttribute('aria-label', 'View full post');
     expandBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>';
@@ -725,7 +736,7 @@ export function createFeedRenderer({
   };
 
   const rememberMoodReturnTarget = (id: string): void => {
-    const returnHref = getMoodFeedAnchorHref(id);
+    const returnHref = getMoodFeedAnchorHref(id, getCurrentApiModeQueryValue());
     if (returnHref === '/mood') return;
     window.history.replaceState(window.history.state, '', returnHref);
     const target = Array.from(list.querySelectorAll<HTMLElement>('[data-mood-id]')).find(

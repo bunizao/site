@@ -553,6 +553,8 @@ const placeholders = Array.from({ length: SKELETON_COUNT }, (_, index) => ({
 
 <script>
   import type { MediaItem } from '@bunizao/contracts/content';
+  import { readMoodApiModeQueryValue } from '@/features/mood/shared/api-mode';
+  import { getMoodDetailHref } from '@/features/mood/shared/feed-anchor';
   import { buildMoodPreviewFragment } from '@/features/mood/shared/preview';
   import { withWidthParam } from '@/lib/media/responsive-image';
 
@@ -715,6 +717,14 @@ const placeholders = Array.from({ length: SKELETON_COUNT }, (_, index) => ({
         return `/api/moods?${query}`;
       } catch {
         return '/api/moods';
+      }
+    };
+
+    const getCurrentApiModeQueryValue = (): 'true' | 'false' | null => {
+      try {
+        return readMoodApiModeQueryValue(new URL(window.location.href));
+      } catch {
+        return null;
       }
     };
 
@@ -1224,7 +1234,7 @@ const placeholders = Array.from({ length: SKELETON_COUNT }, (_, index) => ({
     ): HTMLElement => {
       const item = document.createElement('div');
       item.className = 'mood-item mood-item--clickable';
-      item.dataset.href = `/mood/${mood.id}`;
+      item.dataset.href = getMoodDetailHref(mood.id, getCurrentApiModeQueryValue());
       item.setAttribute('role', 'link');
       item.tabIndex = 0;
       item.style.cssText = `--item-index: ${index}`;
