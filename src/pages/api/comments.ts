@@ -4,7 +4,7 @@ import {
   jsonBadRequest,
   jsonTooManyRequests,
 } from '@/lib/http/json-response';
-import { isValidCursor, readCursorQuery } from '@/lib/http/query';
+import { isValidCursor, readBooleanFlag, readCursorQuery } from '@/lib/http/query';
 import { withRateLimit } from '@/lib/http/rate-limited';
 import { loadMoodCommentsPage } from '@/features/mood/server/comments-service';
 
@@ -23,6 +23,7 @@ export const GET: APIRoute = async ({ request, locals }) => {
   const url = new URL(request.url);
   const postId = readCursorQuery(url, 'postId');
   const before = readCursorQuery(url, 'before');
+  const useApiV2 = readBooleanFlag(url, 'api-v2');
 
   if (!postId) {
     return jsonBadRequest('Missing postId parameter', rateLimit.headers);
@@ -37,7 +38,7 @@ export const GET: APIRoute = async ({ request, locals }) => {
   }
 
   try {
-    const body = await loadMoodCommentsPage({ request, locals }, { postId, before });
+    const body = await loadMoodCommentsPage({ request, locals }, { postId, before, useApiV2 });
     return json(200, body, rateLimit.headers);
   } catch (error) {
     console.error('Failed to fetch comments:', error);

@@ -28,6 +28,7 @@ const turnstileSiteKey = readPublicEnv(Astro.locals, 'TURNSTILE_SITE_KEY');
 const moodFeedAnchorId = readMoodFeedAnchorId(Astro.url);
 const moodFeedAnchorBeforeCursor = getMoodFeedAnchorBeforeCursor(moodFeedAnchorId);
 const moodFeedAnchorWindowBeforeCursor = getMoodFeedAnchorWindowBeforeCursor(moodFeedAnchorId);
+const useApiV2 = Astro.url.searchParams.get('api-v2') === 'true';
 
 async function loadInitialMoodFeed() {
   if (isE2ESiteFixtureEnabled(Astro.locals)) return null;
@@ -37,7 +38,7 @@ async function loadInitialMoodFeed() {
   try {
     if (moodFeedAnchorId) {
       const focused = moodFeedAnchorWindowBeforeCursor
-        ? await loadMoodFeed(context, { before: moodFeedAnchorWindowBeforeCursor })
+        ? await loadMoodFeed(context, { before: moodFeedAnchorWindowBeforeCursor, useApiV2 })
         : null;
       const focusedPosts = focused?.posts ?? [];
       if (focused && focusedPosts.some((post) => post.id === moodFeedAnchorId)) {
@@ -48,7 +49,7 @@ async function loadInitialMoodFeed() {
         moodFeedAnchorBeforeCursor
         && moodFeedAnchorBeforeCursor !== moodFeedAnchorWindowBeforeCursor
       )
-        ? await loadMoodFeed(context, { before: moodFeedAnchorBeforeCursor })
+        ? await loadMoodFeed(context, { before: moodFeedAnchorBeforeCursor, useApiV2 })
         : null;
       const fallbackPosts = fallback?.posts ?? [];
       if (fallback && fallbackPosts.length > 0) {
@@ -63,7 +64,7 @@ async function loadInitialMoodFeed() {
       }
     }
 
-    return await loadMoodFeed(context);
+    return await loadMoodFeed(context, { useApiV2 });
   } catch (error) {
     console.warn('Failed to load initial mood feed:', error);
     return null;

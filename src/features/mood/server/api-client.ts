@@ -13,23 +13,38 @@ import {
 } from '@/lib/http/api-service-proxy';
 import {
   createE2EChannelInfo,
-  createE2EComments,
   createE2EPost,
 } from './e2e-fixtures';
-import { buildMoodFeedResponse } from './feed-service';
+import {
+  buildMoodFeedResponse,
+  buildMoodFeedItem,
+} from './feed-service';
 import { getMoodGallery } from '../shared/gallery';
-import type { MoodServerContext } from './channel-service';
+import {
+  loadMoodChannelSnapshot,
+  loadMoodPostSnapshot,
+  loadMoodCommentsFixture,
+  getMoodChannelSlug,
+  type MoodServerContext,
+} from './channel-service';
+import { getPostComments } from './telegram-source';
 
 export interface MoodFeedQuery {
   before?: string;
   after?: string;
   fresh?: boolean;
   limit?: number;
+  useApiV2?: boolean;
 }
 
 export interface MoodCommentsQuery {
   before?: string;
   limit?: number;
+  useApiV2?: boolean;
+}
+
+export interface MoodDocumentQuery {
+  useApiV2?: boolean;
 }
 
 function appendSearchParams(url: URL, values: Record<string, string | number | boolean | undefined>): void {
@@ -93,6 +108,20 @@ function e2ePostMedia(postContent: string): MediaItem[] {
   })) ?? [];
 }
 
+function legacyPostMedia(postContent: string): MediaItem[] {
+  const gallery = getMoodGallery(postContent);
+  return gallery?.items.map((item, index) => ({
+    id: `legacy-${index}`,
+    type: 'image',
+    src: item.src,
+    fallbackSrc: item.fallbackSrc,
+    width: item.width,
+    height: item.height,
+    layout: item.layout,
+    alt: item.alt,
+  })) ?? [];
+}
+
 export async function loadMoodFeed(
   context: MoodServerContext,
   query: MoodFeedQuery = {},
@@ -100,6 +129,16 @@ export async function loadMoodFeed(
   if (isE2ESiteFixtureEnabled(context.locals)) {
     const channelInfo = createE2EChannelInfo();
     return buildMoodFeedResponse(context, channelInfo, channelInfo.posts);
+  }
+
+  if (!query.useApiV2) {
+    const { channelInfo, posts } = await loadMoodChannelSnapshot(context, {
+      before: query.before,
+      after: query.after,
+      skipCache: query.fresh,
+    });
+    const limitedPosts = typeof query.limit === 'number' ? posts.slice(0, query.limit) : posts;
+    return buildMoodFeedResponse(context, channelInfo, limitedPosts);
   }
 
   const url = new URL('/v1/mood', API_SERVICE_BINDING_ORIGIN);
@@ -113,10 +152,15 @@ export async function loadMoodFeed(
   return readApiJson<MoodFeedResponse>(response, 'Mood feed');
 }
 
-export async function loadMoodProbe(context: MoodServerContext): Promise<MoodProbeResult> {
+export async function loadMoodProbe(context: MoodServerContext, options: { useApiV2?: boolean } = {}): Promise<MoodProbeResult> {
   if (isE2ESiteFixtureEnabled(context.locals)) {
     const channelInfo = createE2EChannelInfo();
     return { latestId: channelInfo.posts[0]?.id ?? '' };
+  }
+
+  if (!options.useApiV2) {
+    const { posts } = await loadMoodChannelSnapshot(context, { skipCache: true });
+    return { latestId: posts[0]?.id ?? '' };
   }
 
   const response = await fetchMoodApi(context, '/v1/mood?probe=1&fresh=1');
@@ -126,6 +170,7 @@ export async function loadMoodProbe(context: MoodServerContext): Promise<MoodPro
 export async function loadMoodDocument(
   context: MoodServerContext,
   id: string,
+  query: MoodDocumentQuery = {},
 ): Promise<MoodContentDocument | null> {
   if (isE2ESiteFixtureEnabled(context.locals)) {
     const post = createE2EPost(id);
@@ -150,6 +195,34 @@ export async function loadMoodDocument(
     };
   }
 
+  const useApiV2 = query.useApiV2 ?? new URL(context.request.url).searchParams.get('api-v2') === 'true';
+  if (!useApiV2) {
+    const { post, channelInfo } = await loadMoodPostSnapshot(context, id);
+    if (!post) return null;
+    const feedItem = channelInfo ? await buildMoodFeedItem(context, post, channelInfo) : null;
+    const media = legacyPostMedia(post.content);
+
+    return {
+      id: post.id,
+      source: 'mood',
+      datetime: post.datetime,
+      tag: post.tags[0],
+      bodyHtml: post.content,
+      previewText: post.text,
+      previewHtml: feedItem?.previewHtml ?? post.text,
+      hero: media[0] ?? null,
+      media,
+      forwardedFrom: post.forwardedFrom ?? null,
+      quote: feedItem?.quote ?? null,
+      reactions: feedItem?.reactions ?? post.reactions,
+      commentsCount: post.commentsCount ?? 0,
+      channel: {
+        slug: getMoodChannelSlug(context.locals) || undefined,
+        title: channelInfo?.title,
+      },
+    };
+  }
+
   const response = await fetchMoodApi(context, `/v1/mood/${encodeURIComponent(id)}`);
   if (response.status === 404) return null;
   return readApiJson<MoodContentDocument>(response, 'Mood document');
@@ -161,7 +234,36 @@ export async function loadMoodComments(
   query: MoodCommentsQuery = {},
 ): Promise<MoodCommentsPage> {
   if (isE2ESiteFixtureEnabled(context.locals)) {
-    return createE2EComments(postId) as MoodCommentsPage;
+    return loadMoodCommentsFixture(postId);
+  }
+
+  if (!query.useApiV2) {
+    const result = await getPostComments(
+      { request: context.request, locals: context.locals } as any,
+      {
+        postId,
+        before: query.before ?? '',
+      }
+    );
+
+    return {
+      comments: result.comments.map((comment) => ({
+        id: comment.id,
+        author: comment.author,
+        authorAvatar: comment.authorAvatar,
+        datetime: comment.datetime,
+        content: comment.content,
+        reactions: comment.reactions.map((reaction) => ({
+          emoji: reaction.emoji,
+          emojiId: reaction.emojiId,
+          emojiImage: reaction.emojiImage,
+          count: reaction.count,
+          isPaid: reaction.isPaid,
+        })),
+      })),
+      hasMore: result.hasMore,
+      nextBefore: result.nextBefore || '',
+    };
   }
 
   const url = new URL(`/v1/mood/${encodeURIComponent(postId)}/comments`, API_SERVICE_BINDING_ORIGIN);

@@ -4,6 +4,7 @@ import {
   formatRelativeCommentDate,
   sanitizeImageUrl,
 } from '@/features/mood/shared/comments';
+import { appendMoodApiMode } from '@/features/mood/client/api-mode';
 
 interface CommentReactionData {
   emoji?: string;
@@ -200,8 +201,10 @@ export async function initMoodDetailComments(
 
   const loadComments = async (before = ''): Promise<void> => {
     try {
-      const url = `/api/comments?postId=${postId}${before ? `&before=${before}` : ''}`;
-      const response = await fetch(url);
+      const query = new URLSearchParams({ postId });
+      if (before) query.set('before', before);
+      appendMoodApiMode(query);
+      const response = await fetch(`/api/comments?${query}`);
       const data = await response.json() as {
         comments?: CommentData[];
         nextBefore?: string;

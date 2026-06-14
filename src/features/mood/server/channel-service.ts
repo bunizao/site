@@ -6,6 +6,7 @@ import {
 import { isE2ESiteFixtureEnabled } from '@/lib/e2e';
 import { getNumericId } from '@/features/mood/shared/utils';
 import { readEnv, readPublicEnv } from '@/lib/runtime/env';
+import { getChannelInfo } from '@/features/mood/server/telegram-source';
 import type { ChannelInfo, Post } from '@/features/mood/server/legacy-types';
 import type { MoodCommentsPage } from './contracts';
 
@@ -31,6 +32,10 @@ export interface MoodPostSnapshot {
   channelInfo: ChannelInfo | null;
 }
 
+function isPostResult(value: unknown): value is Post {
+  return typeof value === 'object' && value !== null && 'id' in value && 'content' in value;
+}
+
 export function sortMoodPosts(posts: Post[], options: { textOnly?: boolean } = {}): Post[] {
   const filtered = options.textOnly
     ? posts.filter((post) => post?.id && post.type === 'text')
@@ -43,11 +48,17 @@ export async function loadMoodChannelSnapshot(
   context: MoodServerContext,
   input: LoadMoodChannelInput = {}
 ): Promise<MoodChannelSnapshot> {
-  if (!isE2ESiteFixtureEnabled(context.locals)) {
-    throw new Error('Mood channel snapshots must be loaded from the private mood API.');
-  }
-
-  const channelInfo = createE2EChannelInfo();
+  const channelInfo = isE2ESiteFixtureEnabled(context.locals)
+    ? createE2EChannelInfo()
+    : await getChannelInfo(
+        { request: context.request, locals: context.locals } as any,
+        {
+          type: 'list',
+          before: input.before ?? '',
+          after: input.after ?? '',
+          skipCache: input.skipCache,
+        }
+      ) as ChannelInfo;
 
   return {
     channelInfo,
@@ -59,13 +70,21 @@ export async function loadMoodPostSnapshot(
   context: MoodServerContext,
   id: string
 ): Promise<MoodPostSnapshot> {
-  if (!isE2ESiteFixtureEnabled(context.locals)) {
-    throw new Error('Mood post snapshots must be loaded from the private mood API.');
+  if (isE2ESiteFixtureEnabled(context.locals)) {
+    return {
+      post: createE2EPost(id),
+      channelInfo: createE2EChannelInfo([id]),
+    };
   }
 
+  const [postResult, channelInfo] = await Promise.all([
+    getChannelInfo({ request: context.request, locals: context.locals } as any, { id }),
+    getChannelInfo({ request: context.request, locals: context.locals } as any, { type: 'list' }),
+  ]);
+
   return {
-    post: createE2EPost(id),
-    channelInfo: createE2EChannelInfo([id]),
+    post: isPostResult(postResult) ? postResult : null,
+    channelInfo: channelInfo as ChannelInfo,
   };
 }
 
