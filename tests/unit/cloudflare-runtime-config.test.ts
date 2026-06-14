@@ -172,9 +172,18 @@ describe('Cloudflare runtime configuration', () => {
 
   test('keeps non-priority mood images lazy when dimensions are incomplete', () => {
     const renderer = readText('src/features/mood/client/feed-renderer.ts');
+    const feedShell = readText('src/features/mood/ui/FeedShell.astro');
 
     expect(renderer).toContain('const shouldWaitForImageBeforeInsert = isPriorityMedia && !hasResolvedImageLayout');
     expect(renderer).not.toContain("img.loading = 'eager'");
+    expect(feedShell).toContain("decoding={isPriorityMedia ? 'sync' : 'async'}");
+  });
+
+  test('keeps home hero LCP text visible before motion scripts run', () => {
+    const globals = readText('src/styles/globals.css');
+
+    expect(globals).toContain('.js .hero-animate[data-hero-motion]');
+    expect(globals).not.toContain('.js .hero-animate {');
   });
 
   test('reads Turnstile site key from runtime public env on the mood route', () => {
