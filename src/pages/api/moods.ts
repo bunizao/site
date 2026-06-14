@@ -25,6 +25,7 @@ export const GET: APIRoute = async ({ request, locals }) => {
   const after = readCursorQuery(url, 'after');
   const isProbe = readBooleanFlag(url, 'probe');
   const skipCache = readBooleanFlag(url, 'fresh');
+  const useApiV2 = readBooleanFlag(url, 'api-v2');
   const rateLimit = withRateLimit(
     request,
     isProbe
@@ -45,7 +46,7 @@ export const GET: APIRoute = async ({ request, locals }) => {
 
   try {
     if (isProbe) {
-      const body: MoodProbeResult = await loadMoodProbe({ request, locals });
+      const body: MoodProbeResult = await loadMoodProbe({ request, locals }, { useApiV2 });
       const headers = new Headers(rateLimit.headers);
       headers.set('Cache-Control', 'no-store, max-age=0');
       return jsonOk(body, headers);
@@ -57,6 +58,7 @@ export const GET: APIRoute = async ({ request, locals }) => {
       before,
       after,
       fresh: skipCache,
+      useApiV2,
     });
 
     return jsonOk(body, headers);

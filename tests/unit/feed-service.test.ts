@@ -209,6 +209,27 @@ describe('buildMoodFeedItem', () => {
     });
   }
 
+  test('keeps unsupported media on the detail path without inventing a broken image', async () => {
+    const post = createPost(
+      '3568',
+      `
+        <a class="mood-detail-quote mood-item-quote mood-comment-quote mood-unsupported-media-card" href="https://t.me/tutumood/3568">
+          <div class="mood-detail-quote-meta mood-item-quote-meta">
+            <span class="mood-detail-quote-source mood-item-quote-author">Telegram</span>
+          </div>
+          <p class="mood-detail-quote-text mood-item-quote-text">Open Telegram to view this media</p>
+        </a>
+      `
+    );
+
+    const item = await buildMoodFeedItem(context, post, createChannelInfo([post]));
+
+    expect(item.image).toBeNull();
+    expect(item.imageFallback).toBeNull();
+    expect(item.gallery).toBeNull();
+    expect(item.needsDetailPage).toBe(true);
+  });
+
   const quoteCases = [
     {
       name: 'static photo quote',

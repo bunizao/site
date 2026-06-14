@@ -4,6 +4,7 @@ import {
   formatRelativeCommentDate,
   sanitizeImageUrl,
 } from '@/features/mood/shared/comments';
+import { appendMoodApiMode } from '@/features/mood/client/api-mode';
 
 interface AnimatedEmojiHydrator {
   hydrate(root?: ParentNode): Promise<void>;
@@ -151,7 +152,9 @@ export function createFeedCommentsPopoverController(
 
     const promise = (async () => {
       try {
-        const response = await fetch(`/api/comments?postId=${encodeURIComponent(postId)}`);
+        const query = new URLSearchParams({ postId });
+        appendMoodApiMode(query);
+        const response = await fetch(`/api/comments?${query}`);
         const data = await response.json() as { comments?: CommentPreviewData[] };
         const comments = Array.isArray(data.comments) ? data.comments : [];
         cache.set(postId, comments);

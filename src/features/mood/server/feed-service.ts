@@ -58,7 +58,8 @@ export async function buildMoodFeedItem(
   if (quote && quoteTargetVideoPoster) {
     quote.thumbnailSrc = quoteTargetVideoPoster;
   }
-  const hasDetailMedia = hasMedia(post.content) || hasEmojiImageMedia(post.content);
+  const hasUnsupportedMedia = post.content.includes('mood-unsupported-media-card');
+  const hasDetailMedia = hasUnsupportedMedia || hasMedia(post.content) || hasEmojiImageMedia(post.content);
 
   const needsDetailPage = !mediaPreview && (hasDetailMedia || tooBigVideo || isLongContent(previewText));
 

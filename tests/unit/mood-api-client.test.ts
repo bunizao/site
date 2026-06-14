@@ -16,13 +16,13 @@ function createApiBinding(handler: (request: Request) => Response | Promise<Resp
 }
 
 describe('mood private API client', () => {
-  test('requires the API service binding instead of falling back to public HTTP', async () => {
+  test('requires the API service binding only for explicit v2 reads', async () => {
     try {
       await loadMoodFeed(createContext({
         env: {
           API_BASE_URL: 'https://api.buxx.me/v1/',
         },
-      }));
+      }), { useApiV2: true });
       throw new Error('Expected mood feed loading to fail');
     } catch (error) {
       expect((error as Error).message).toBe('API service binding unavailable');
@@ -47,7 +47,7 @@ describe('mood private API client', () => {
       });
     });
 
-    const feed = await loadMoodFeed(createContext({ env: { API: api } }), { limit: 1 });
+    const feed = await loadMoodFeed(createContext({ env: { API: api } }), { limit: 1, useApiV2: true });
 
     expect(feed.posts).toEqual([]);
   });
