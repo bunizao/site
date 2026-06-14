@@ -8,6 +8,7 @@ import {
   moodDocumentToFeedItem,
 } from '@/features/mood/server/api-client';
 import { renderMoodGalleryMarkup } from '@/features/mood/shared/gallery';
+import { renderStructuredMoodFeedMediaMarkup } from '@/features/mood/shared/feed-media';
 import {
   readBooleanFlag,
   readEnumQuery,
@@ -558,6 +559,8 @@ function getImageClassName(post: MoodFeedItem): string {
         const previewHtml = post.previewHtml;
         const image = post.image;
         const gallery = (post.gallery?.items.length ?? 0) > 1 ? post.gallery : null;
+        const structuredMediaHtml = renderStructuredMoodFeedMediaMarkup(post.media);
+        const mediaHtml = structuredMediaHtml || post.mediaHtml;
         const datetime = formatDateTime(post.datetime);
         const postUrl = `/mood/${post.id}`;
         const channelUrl = '/mood';
@@ -617,12 +620,12 @@ function getImageClassName(post: MoodFeedItem): string {
               {previewHtml && (
                 <div class="mood-item-text" set:html={previewHtml} />
               )}
-              {post.mediaHtml && (
-                <div class="mood-item-media" set:html={post.mediaHtml} />
+              {mediaHtml && (
+                <div class="mood-item-media" set:html={mediaHtml} />
               )}
-              {gallery ? (
+              {!structuredMediaHtml && gallery ? (
                 <Fragment set:html={renderMoodGalleryMarkup(gallery, { variant: 'feed' })} />
-              ) : image && (
+              ) : !structuredMediaHtml && image && (
                 <div class={getImageClassName(post)}>
                   <img
                     src={image}

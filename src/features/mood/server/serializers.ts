@@ -1,6 +1,7 @@
 import * as cheerio from 'cheerio';
 import type { ContentChannelSummary } from '@bunizao/contracts';
 import type { MoodFeedItem, MoodFeedResponse } from '@/features/mood/server/contracts';
+import { renderStructuredMoodFeedMediaMarkup } from '@/features/mood/shared/feed-media';
 
 const stripInvalidXmlChars = (value: string): string =>
   value.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, '');
@@ -92,7 +93,11 @@ export function buildMoodRssXml(channel: ContentChannelSummary, posts: MoodFeedI
     const link = new URL(`/mood/${post.id}`, baseUrl).href;
     const pubDate = new Date(post.datetime);
     const pubDateText = Number.isNaN(pubDate.getTime()) ? '' : pubDate.toUTCString();
-    const content = absolutizeHtml([post.previewHtml, post.mediaHtml].filter(Boolean).join('\n'), baseUrl);
+    const structuredMediaHtml = renderStructuredMoodFeedMediaMarkup(post.media);
+    const content = absolutizeHtml(
+      [post.previewHtml, structuredMediaHtml || post.mediaHtml].filter(Boolean).join('\n'),
+      baseUrl
+    );
     const categories = [post.tag]
       .map((tag) => tag?.trim() ?? '')
       .filter(Boolean)
