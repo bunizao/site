@@ -1,15 +1,18 @@
 # Mood v2 PRD — Structured Read Migration
 
-Status: draft · Owner: bunizao · Last updated: 2026-06-14
+Status: draft · Owner: bunizao · Last updated: 2026-06-14 (rev 2: keep both sources, `mediaHtml` as escape hatch)
 
 ## 1. North Star
 
-Mood is served entirely from structured data in `site-api` D1, rendered from typed
-`MediaItem[]` and Telegram entities. The public `site` Worker stops live-scraping
-`t.me`, `mediaHtml` is deleted, and mood becomes one instance of a source-agnostic
-`ContentDocument` shared with blog posts.
+Mood is served primarily from structured data in `site-api` D1, rendered from typed
+`MediaItem[]` and Telegram entities, with the live `t.me` scrape retained as a fallback
+**source** inside `site-api`. The public `site` Worker keeps a single structured renderer and
+stops carrying its own redundant scraper. `mediaHtml` is demoted to a thin escape hatch for
+content the structured model does not yet cover. Mood becomes one instance of a
+source-agnostic `ContentDocument` shared with blog posts.
 
-One sentence: **kill the HTML blob; render mood from structured data; unify mood and post.**
+One sentence: **render mood from structured data; keep t.me as a fallback source, not a
+second renderer; unify mood and post.**
 
 ## 2. Current State (grounded)
 
@@ -31,14 +34,32 @@ One sentence: **kill the HTML blob; render mood from structured data; unify mood
   `gallery` (images) + `previewMediaType` but has no structured field for
   video/file/link-preview. `MoodContentDocument.media: MediaItem[]` (detail) is complete.
 
+### Naming: three independent axes (do not conflate)
+
+1. **`site` `?api-v2=true` flag** — selects the public site's backend: scrape `t.me` itself
+   (legacy) vs delegate to `site-api`. This is the migration toggle.
+2. **`site-api` URL `/v1/mood*`** — the version of the mood *read contract*. It is **not** a
+   "telegram proxy": `src/pages/v1/mood.ts` resolves a D1-first repository with the `t.me`
+   scrape merged in as fallback (`telegram-fallback-repository.ts`), both normalized to the
+   same structured contract. `/mood` 302-redirects here.
+3. **`site-api` URL `/v2/*`** — newer private surfaces (notify, admin, images, posts). Mood
+   does **not** live here.
+
+So "keep both APIs in parallel" is already satisfied: `/v1/mood` fuses D1 + `t.me` behind one
+contract. The redundancy to remove is the public site's *own* second scraper, not a data source.
+
 ## 3. Goals / Non-Goals
 
 ### Goals
-1. Public site reads all mood data from `site-api` via the `API` service binding.
-2. Feed, detail, home preview, embed, RSS, comments, and update-probe all run on v2.
+1. Public site reads mood from `site-api` via the `API` service binding; the public Worker
+   keeps no mood parsing of its own.
+2. Feed, detail, home preview, embed, RSS, comments, and update-probe all run on the v2 path.
 3. Every legacy component renders at visual parity from structured `MediaItem[]`.
-4. `mediaHtml` and the public-site `t.me` scraper are deleted.
-5. Parity is guarded by automated tests (CI gate + production smoke).
+4. **Both data sources preserved.** `site-api` serves D1-first with the `t.me` scrape merged
+   in as fallback. Only the redundant scraper inside the public `site` Worker is retired.
+5. `mediaHtml` survives as an optional escape hatch for unmodeled content, not a primary path.
+6. `?api-v2` is kept as a permanent backend selector / escape hatch (no removal step).
+7. Parity is guarded by automated tests (CI gate + production smoke).
 
 ### Non-Goals (this effort)
 - Redesigning the mood UI.
@@ -68,8 +89,10 @@ Worker can drop its own scraper entirely.
 1. **Add `media: MediaItem[]` to `MoodFeedItem`** (and optional on `MoodData`). This is
    the structural fix: the feed must carry typed video/file/link-preview/audio, not only
    images. Keep `gallery`/`image*` as derived convenience fields during transition.
-2. **Deprecate then remove `mediaHtml`** from `MoodFeedItem`. Mark optional first; delete
-   after the client renderer no longer reads it.
+2. **Keep `mediaHtml` as an optional escape hatch.** Structured-first: the renderer reads
+   `media[]`; `mediaHtml` is consumed only for content the structured model does not yet
+   cover (exotic embeds, future Telegram message types). Do not delete it — this is the
+   "keep both" hedge at the field level.
 3. **Add `poll` (or reuse `embed`)** to `ContentMediaType` — legacy content includes polls,
    the enum currently omits them.
 4. Sync every change into `site-api` via `bun run sync:contracts`.
@@ -121,12 +144,14 @@ Worker can drop its own scraper entirely.
   forwarded, reactions, comments, code block, location, poll.
 - **Exit:** registry is the merge gate; adding a component = one registry row.
 
-### Phase 6 — Cutover & cleanup
-- Flip the default to v2 server-side (env/flag), keep `?api-v2=false` as an escape hatch.
-- Bake, monitor, then remove the flag.
-- Delete the public-site `t.me` scraper, `mediaHtml` from the contract and renderers, and
-  the legacy `else` branches.
-- **Exit:** one code path; `?api-v2` retired; no live-scrape in the public Worker.
+### Phase 6 — Cutover (no demolition)
+- Flip the server-side default to the v2 path; keep `?api-v2=false` as a per-request escape
+  hatch and permanent backend selector.
+- Retire the **public-site** `t.me` scraper + its `mediaHtml` render path once the structured
+  renderer is at parity. The `t.me` *source* survives inside `site-api`'s fallback repository.
+- Keep `mediaHtml` in the contract as the escape-hatch field.
+- **Exit:** one structured renderer in the public Worker; no second scraper there; both data
+  sources still reachable through `site-api`; `?api-v2` retained.
 
 ## 7. Parity Strategy
 
@@ -137,9 +162,10 @@ asserted `v2 ≡ legacy` in both the offline CI gate and the live ops smoke.
 
 ## 8. Cutover & Rollback
 
-- Per-request override (`?api-v2`) → server-side default → flag removal.
-- Rollback at any pre-removal stage is flipping the default back to legacy.
-- The empty-D1 risk is covered by `site-api`'s built-in t.me fallback repository.
+- Per-request override (`?api-v2`) → server-side default. The flag stays (no removal step).
+- Rollback at any stage is flipping the default back to legacy.
+- The empty-D1 risk is covered by `site-api`'s built-in t.me fallback repository — both
+  sources stay live behind one contract.
 
 ## 9. Risks
 
@@ -155,16 +181,22 @@ asserted `v2 ≡ legacy` in both the offline CI gate and the live ops smoke.
 
 ## 10. Success Metrics
 
-- 100% of mood surfaces served from `site-api`; zero `t.me` fetches from the public Worker.
+- 100% of mood surfaces served through `site-api`; the public Worker runs no mood scraper.
+- Both sources reachable behind one contract (D1-first, t.me fallback) — resilience verified
+  by forcing the fallback path.
 - Component registry covers every `ContentMediaType` + structured field; CI gate green.
-- `mediaHtml` and the legacy scraper deleted from `site`.
+- `mediaHtml` reduced to the escape-hatch field only; the redundant public-site scraper removed.
 - Feed/detail visual parity confirmed on the full production sample set.
 
 ## 11. Open Decisions
 
-- **D1.** Keep `MediaItem[]` on `MoodFeedItem` long-term, or have the feed re-derive media
-  client-side from a single source? (Recommendation: carry `media[]`; drop the derived
+- **Feed shape.** Keep `MediaItem[]` on `MoodFeedItem` long-term, or have the feed re-derive
+  media client-side from a single source? (Recommendation: carry `media[]`; drop the derived
   `image*`/`gallery` once the renderer is structured.)
+- **`MediaItem` typing.** Flat optional-bag (current) vs a discriminated union per media type.
+  A union is type-safer (no reading `.fileName` off a video) but more verbose across two repos
+  and on the wire. Recommendation: keep the flat bag for cross-repo + JSON simplicity; accept
+  the looser typing.
 - **Stretch / north star.** Unify mood and Ghost posts under `ContentDocument`
-  (`source: 'mood' | 'post'`) with a shared renderer. Out of scope here; this PRD keeps the
-  contract shaped for it.
+  (`source: 'mood' | 'post'`) with a shared renderer. Out of scope here; the contract is
+  already shaped for it.
