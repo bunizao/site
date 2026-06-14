@@ -12,7 +12,7 @@ import { getMoodFeedAnchorHref } from '@/features/mood/shared/feed-anchor';
 import { addTooBigVideoTimestamp } from '@/features/mood/shared/video-placeholder';
 import DetailArticle from '@/features/mood/ui/DetailArticle.astro';
 import { buildMoodDetailMetadata } from '@/features/mood/server/detail-metadata';
-import { renderRichContentDocument } from '@/features/content/rich-content';
+import { renderStructuredMoodDetailContent } from '@/features/mood/shared/detail-content';
 import { readEnv } from '@/lib/runtime/env';
 
 export const prerender = false;
@@ -63,10 +63,7 @@ const telegramCommentUrl = channel && id ? `https://t.me/${channel}/${id}?commen
 const renderedPostContent = post
   ? !useApiV2 || isE2ESiteFixtureEnabled(Astro.locals)
     ? addTooBigVideoTimestamp(renderMoodContentWithGalleries(post.bodyHtml), post.datetime)
-    : renderRichContentDocument(post, {
-        bodyClassName: 'mood-post-rich-body',
-        mediaClassName: 'mood-post-rich-media',
-      }).html
+    : renderStructuredMoodDetailContent(post)
   : '';
 ---
 
