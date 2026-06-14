@@ -179,11 +179,16 @@ describe('Cloudflare runtime configuration', () => {
     expect(feedShell).toContain("decoding={isPriorityMedia ? 'sync' : 'async'}");
   });
 
-  test('keeps home hero LCP text visible before motion scripts run', () => {
+  test('keeps the home hero reveal chain intact', () => {
     const globals = readText('src/styles/globals.css');
+    const hero = readText('src/features/home/ui/Hero.astro');
 
-    expect(globals).toContain('.js .hero-animate[data-hero-motion]');
-    expect(globals).not.toContain('.js .hero-animate {');
+    expect(globals).toContain('.js .hero-animate {');
+    expect(hero).toContain('const identity = heroElements.filter((el) => !el.hasAttribute');
+    expect(hero).toContain('gsap.set(heroElements, { opacity: 0, y: 20 });');
+    expect(hero).toContain('heroTl.to(identity, {');
+    expect(hero).toContain('heroTl.to(widgets, {');
+    expect(hero).toContain("window.dispatchEvent(new CustomEvent('home:hero-bio-ready'))");
   });
 
   test('reads Turnstile site key from runtime public env on the mood route', () => {

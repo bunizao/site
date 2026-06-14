@@ -1579,7 +1579,7 @@
     opacity: 0;
   }
 
-  .js .hero-animate[data-hero-motion] {
+  .js .hero-animate {
     opacity: 0;
     transform: translateY(20px);
   }
