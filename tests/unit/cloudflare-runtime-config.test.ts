@@ -38,7 +38,20 @@ describe('Cloudflare runtime configuration', () => {
     expect(configText).not.toContain('bunx --bun astro dev');
     expect(configText).toContain('command: `node_modules/.bin/astro dev --host ${host} --port ${port}`');
     expect(configText).toContain('Cloudflare preview URL to test');
-    expect(configText).toContain('Cloudflare deployment URL to audit');
+    expect(configText).toContain('URL to audit; defaults to the production Worker');
+  });
+
+  test('runs Lighthouse without Vercel deployment events', () => {
+    const lighthouseWorkflow = readText('.github/workflows/lighthouse.yml');
+
+    expect(lighthouseWorkflow).toContain('push:');
+    expect(lighthouseWorkflow).toContain('schedule:');
+    expect(lighthouseWorkflow).toContain('workflow_dispatch:');
+    expect(lighthouseWorkflow).toContain("inputUrl || 'https://buxx.me'");
+    expect(lighthouseWorkflow).toContain('Wait for Cloudflare production deploy');
+    expect(lighthouseWorkflow).toContain('node-version-file: .node-version');
+    expect(lighthouseWorkflow).not.toContain('deployment_status:');
+    expect(lighthouseWorkflow).not.toContain('github.event.deployment');
   });
 
   test('uses the Cloudflare Astro adapter and root Wrangler scripts', () => {

@@ -1,12 +1,16 @@
 name: Lighthouse
 
 on:
-  deployment_status:
+  push:
+    branches:
+      - main
+  schedule:
+    - cron: '37 2 * * *'
   workflow_dispatch:
     inputs:
       deployment_url:
-        description: Cloudflare deployment URL to audit
-        required: true
+        description: URL to audit; defaults to the production Worker
+        required: false
         type: string
 
 permissions:
@@ -14,22 +18,12 @@ permissions:
   issues: write
 
 concurrency:
-  group: lighthouse-${{ github.event.deployment.id || github.run_id }}
+  group: lighthouse-${{ github.event_name == 'push' && github.ref || github.run_id }}
   cancel-in-progress: true
 
 jobs:
   lighthouse:
     name: Lighthouse
-    if: >-
-      github.event_name == 'workflow_dispatch' ||
-      (
-        github.event_name == 'deployment_status' &&
-        github.event.deployment_status.state == 'success' &&
-        (
-          github.event.deployment.environment == 'Preview' ||
-          github.event.deployment.environment == 'Production'
-        )
-      )
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
@@ -40,16 +34,10 @@ jobs:
         with:
           script: |
             const inputUrl = context.payload.inputs?.deployment_url;
-            const deployment = context.payload.deployment;
-            const deploymentStatus = context.payload.deployment_status;
-            const environment = deployment?.environment || 'Manual';
-            const deploymentUrl = String(
-              inputUrl ||
-              (environment === 'Production' ? 'https://buxx.me' : '') ||
-              deploymentStatus?.environment_url ||
-              deploymentStatus?.target_url ||
-              ''
-            ).trim();
+            const deploymentUrl = String(inputUrl || 'https://buxx.me').trim();
+            const environment = context.eventName === 'workflow_dispatch' && inputUrl
+              ? 'Manual'
+              : 'Production';
 
             if (!deploymentUrl) {
               core.setFailed('Deployment URL is required.');
@@ -72,13 +60,17 @@ jobs:
             core.setOutput('deployment_url', parsedUrl.toString());
             core.setOutput('environment', environment);
 
+      - name: Wait for Cloudflare production deploy
+        if: github.event_name == 'push'
+        run: sleep 180
+
       - name: Checkout
         uses: actions/checkout@v4
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version-file: .nvmrc
+          node-version-file: .node-version
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
