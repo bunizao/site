@@ -37,8 +37,21 @@ describe('Cloudflare runtime configuration', () => {
     expect(configText).not.toContain('x-vercel-set-bypass-cookie');
     expect(configText).not.toContain('bunx --bun astro dev');
     expect(configText).toContain('command: `node_modules/.bin/astro dev --host ${host} --port ${port}`');
-    expect(configText).toContain('Cloudflare preview URL to test');
+    expect(configText).toContain('Remote URL to test; omit to run against the local checked-out build');
     expect(configText).toContain('URL to audit; defaults to the production Worker');
+  });
+
+  test('runs preview smoke without Vercel deployment events', () => {
+    const previewWorkflow = readText('.github/workflows/preview-smoke.yml');
+
+    expect(previewWorkflow).toContain('pull_request:');
+    expect(previewWorkflow).toContain('workflow_dispatch:');
+    expect(previewWorkflow).toContain('node-version-file: .node-version');
+    expect(previewWorkflow).toContain('E2E_BASE_URL: ${{ steps.context.outputs.preview_url }}');
+    expect(previewWorkflow).toContain('local checked-out build');
+    expect(previewWorkflow).not.toContain('deployment_status:');
+    expect(previewWorkflow).not.toContain('github.event.deployment');
+    expect(previewWorkflow).not.toContain('should_run');
   });
 
   test('runs Lighthouse without Vercel deployment events', () => {
