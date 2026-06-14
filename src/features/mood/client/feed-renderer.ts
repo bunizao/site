@@ -5,6 +5,7 @@ import {
   MOOD_FEED_RETURN_ANCHOR_STORAGE_KEY,
 } from '@/features/mood/shared/feed-anchor';
 import { buildMoodPreviewFragment } from '@/features/mood/shared/preview';
+import { renderStructuredMoodFeedMediaMarkup } from '@/features/mood/shared/feed-media';
 import type { ChannelInfo, MoodData } from '@/features/mood/client/feed-types';
 
 interface FeedCommentsPopover {
@@ -252,11 +253,13 @@ export function createFeedRenderer({
   const createMoodItem = (mood: MoodData, index: number): HTMLElement => {
     const mediaHtml = typeof mood.mediaHtml === 'string' ? mood.mediaHtml.trim() : '';
     const hasMediaHtml = mediaHtml.length > 0;
+    const structuredMediaHtml = renderStructuredMoodFeedMediaMarkup(mood.media);
+    const hasStructuredMedia = structuredMediaHtml.length > 0;
     const previewMediaType = typeof mood.previewMediaType === 'string' ? mood.previewMediaType.trim() : '';
     const needsDetailPage = typeof mood.needsDetailPage === 'boolean'
       ? mood.needsDetailPage
       : isLongContent(mood.previewText);
-    const shouldLink = needsDetailPage && !hasMediaHtml;
+    const shouldLink = needsDetailPage && !hasMediaHtml && !hasStructuredMedia;
     const element = document.createElement('div');
 
     if (shouldLink) {
@@ -400,11 +403,12 @@ export function createFeedRenderer({
     }
 
     const isTooBigVideoPreview = previewMediaType === 'too-big-video';
-    const hasGalleryPreview = !hasMediaHtml && !isTooBigVideoPreview && (mood.gallery?.items.length ?? 0) > 1;
+    const hasGalleryPreview = !hasStructuredMedia && !hasMediaHtml && !isTooBigVideoPreview && (mood.gallery?.items.length ?? 0) > 1;
     const imageSrc = typeof mood.image === 'string' ? mood.image.trim() : '';
     const hasImagePreview = Boolean(imageSrc);
     const isPriorityMedia = !priorityMediaClaimed && (
-      hasMediaHtml
+      hasStructuredMedia
+      || hasMediaHtml
       || hasGalleryPreview
       || hasImagePreview
       || isTooBigVideoPreview
@@ -413,17 +417,17 @@ export function createFeedRenderer({
       priorityMediaClaimed = true;
     }
     const isMediaOnlyVideoPreview =
-      isTooBigVideoPreview && !hasTextPreview && !hasMediaHtml && !forwardedFrom && !quote;
+      isTooBigVideoPreview && !hasTextPreview && !hasStructuredMedia && !hasMediaHtml && !forwardedFrom && !quote;
 
     if (isMediaOnlyVideoPreview) {
       element.classList.add('mood-item--media-only');
       content.classList.add('mood-item-content--media-only');
     }
 
-    if (hasMediaHtml) {
+    if (hasStructuredMedia || hasMediaHtml) {
       const media = document.createElement('div');
       media.className = 'mood-item-media';
-      media.innerHTML = mediaHtml;
+      media.innerHTML = hasStructuredMedia ? structuredMediaHtml : mediaHtml;
       mediaHydrator.applyMediaHints(media, isPriorityMedia);
       content.appendChild(media);
     } else if (hasGalleryPreview) {

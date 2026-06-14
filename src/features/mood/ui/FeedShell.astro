@@ -2,6 +2,7 @@
 import Hero from '@/features/mood/ui/Hero.astro';
 import type { MoodFeedItem, MoodChannelSummary } from '@/features/mood/server/contracts';
 import { renderMoodGalleryMarkup } from '@/features/mood/shared/gallery-render';
+import { hasStructuredMoodFeedMedia, renderStructuredMoodFeedMediaMarkup } from '@/features/mood/shared/feed-media';
 import { getMoodFeedThumbnailStyle } from '@/features/mood/shared/feed-thumbnail';
 import { getMoodFeedAnchorFragmentId } from '@/features/mood/shared/feed-anchor';
 import { buildSrcSet, withWidthParam } from '@/lib/media/responsive-image';
@@ -93,7 +94,8 @@ function formatDateHeader(dateKey: string): string {
 
 function hasRenderableMedia(post: MoodFeedItem): boolean {
   return Boolean(
-    post.mediaHtml.trim()
+    hasStructuredMoodFeedMedia(post.media)
+    || post.mediaHtml.trim()
     || post.previewMediaType === 'too-big-video'
     || post.image
     || (post.gallery?.items.length ?? 0) > 1
@@ -129,7 +131,9 @@ function groupPostsByDate(posts: MoodFeedItem[]): Array<{ dateKey: string; posts
 }
 
 function getPostHref(post: MoodFeedItem): string | undefined {
-  return post.needsDetailPage && !post.mediaHtml.trim() ? `/mood/${post.id}` : undefined;
+  return post.needsDetailPage && !post.mediaHtml.trim() && !hasStructuredMoodFeedMedia(post.media)
+    ? `/mood/${post.id}`
+    : undefined;
 }
 
 function getThumbClass(post: MoodFeedItem): string {
@@ -263,11 +267,13 @@ const hasCriticalInitialPosts = criticalInitialPosts.length > 0;
             {group.posts.map((post, index) => {
               const href = getPostHref(post);
               const mediaHtml = post.mediaHtml.trim();
+              const structuredMediaHtml = renderStructuredMoodFeedMediaMarkup(post.media);
+              const hasStructuredMedia = structuredMediaHtml.length > 0;
               const isLongPreview = post.previewText.length > 280;
               const isPriorityMedia = post.id === criticalPriorityPostId;
               const commentsInfo = getCommentsCountInfo(post.commentsCount);
               const isTooBigVideoPreview = post.previewMediaType === 'too-big-video';
-              const hasGalleryPreview = !mediaHtml && !isTooBigVideoPreview && (post.gallery?.items.length ?? 0) > 1;
+              const hasGalleryPreview = !hasStructuredMedia && !mediaHtml && !isTooBigVideoPreview && (post.gallery?.items.length ?? 0) > 1;
               const fragmentId = getMoodFeedAnchorFragmentId(post.id);
 
               return (
@@ -293,7 +299,7 @@ const hasCriticalInitialPosts = criticalInitialPosts.length > 0;
                     </svg>
                   </a>
                   <time class="mood-item-time" datetime={post.datetime}>{formatTime(post.datetime)}</time>
-                  <div class={`mood-item-content${isTooBigVideoPreview && !post.previewText.trim() && !mediaHtml && !post.forwardedFrom && !post.quote ? ' mood-item-content--media-only' : ''}`}>
+                  <div class={`mood-item-content${isTooBigVideoPreview && !post.previewText.trim() && !hasStructuredMedia && !mediaHtml && !post.forwardedFrom && !post.quote ? ' mood-item-content--media-only' : ''}`}>
                     {post.forwardedFrom?.name ? (
                       <div class="mood-item-forwarded">
                         <span class="mood-forwarded-label">Forwarded from</span>
@@ -367,8 +373,8 @@ const hasCriticalInitialPosts = criticalInitialPosts.length > 0;
                       </p>
                     ) : null}
 
-                    {mediaHtml ? (
-                      <div class="mood-item-media" set:html={mediaHtml} />
+                    {hasStructuredMedia || mediaHtml ? (
+                      <div class="mood-item-media" set:html={hasStructuredMedia ? structuredMediaHtml : mediaHtml} />
                     ) : hasGalleryPreview && post.gallery ? (
                       <Fragment set:html={renderMoodGalleryMarkup(post.gallery, { variant: 'feed', priority: isPriorityMedia })} />
                     ) : post.image || isTooBigVideoPreview ? (
