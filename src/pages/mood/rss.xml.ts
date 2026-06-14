@@ -1,6 +1,7 @@
 import type { APIRoute } from 'astro';
 import { loadMoodFeed } from '@/features/mood/server/api-client';
 import { buildMoodRssXml } from '@/features/mood/server/serializers';
+import { readBooleanFlag } from '@/lib/http/query';
 
 export const prerender = false;
 
@@ -9,9 +10,10 @@ const MAX_ITEMS = 50;
 export const GET: APIRoute = async ({ request, locals, site }) => {
   const requestUrl = new URL(request.url);
   const baseUrl = site ?? new URL(requestUrl.origin);
+  const useApiV2 = readBooleanFlag(requestUrl, 'api-v2');
 
   try {
-    const feed = await loadMoodFeed({ request, locals }, { limit: MAX_ITEMS });
+    const feed = await loadMoodFeed({ request, locals }, { limit: MAX_ITEMS, useApiV2 });
     const xml = buildMoodRssXml(feed.channel, feed.posts.slice(0, MAX_ITEMS), baseUrl);
 
     return new Response(xml, {

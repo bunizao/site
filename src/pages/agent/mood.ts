@@ -1,6 +1,7 @@
 import type { APIRoute } from 'astro';
 import {
   isValidCursor,
+  readBooleanFlag,
   readCursorQuery,
 } from '@/lib/http/query';
 import { withRateLimit } from '@/lib/http/rate-limited';
@@ -22,6 +23,7 @@ export const GET: APIRoute = async ({ request, locals, site }) => {
   const url = new URL(request.url);
   const before = readCursorQuery(url, 'before');
   const after = readCursorQuery(url, 'after');
+  const useApiV2 = readBooleanFlag(url, 'api-v2');
   const rateLimit = withRateLimit(
     request,
     { windowMs: 60_000, max: 180, prefix: 'agent:mood' },
@@ -37,10 +39,10 @@ export const GET: APIRoute = async ({ request, locals, site }) => {
   }
 
   try {
-    const feed = await loadMoodFeed({ request, locals }, { before, after });
+    const feed = await loadMoodFeed({ request, locals }, { before, after, useApiV2 });
     const requestUrl = new URL(request.url);
     const baseUrl = site ?? new URL(requestUrl.origin);
-    const markdown = buildMoodAgentMarkdown(feed, baseUrl, { before, after });
+    const markdown = buildMoodAgentMarkdown(feed, baseUrl, { before, after, useApiV2 });
 
     return markdownResponse(markdown, 200, rateLimit.headers);
   } catch (error) {

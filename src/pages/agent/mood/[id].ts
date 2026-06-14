@@ -1,5 +1,5 @@
 import type { APIRoute } from 'astro';
-import { isValidCursor } from '@/lib/http/query';
+import { isValidCursor, readBooleanFlag } from '@/lib/http/query';
 import { withRateLimit } from '@/lib/http/rate-limited';
 import {
   loadMoodDocument,
@@ -20,6 +20,7 @@ function markdownResponse(body: string, status = 200, headers?: HeadersInit): Re
 
 export const GET: APIRoute = async ({ params, request, locals, site }) => {
   const id = (params.id ?? '').trim();
+  const useApiV2 = readBooleanFlag(new URL(request.url), 'api-v2');
   const rateLimit = withRateLimit(
     request,
     { windowMs: 60_000, max: 180, prefix: 'agent:mood:post' },
@@ -35,7 +36,7 @@ export const GET: APIRoute = async ({ params, request, locals, site }) => {
   }
 
   try {
-    const post = await loadMoodDocument({ request, locals }, id);
+    const post = await loadMoodDocument({ request, locals }, id, { useApiV2 });
     if (!post) {
       return markdownResponse('Mood post not found.\n', 404, rateLimit.headers);
     }
@@ -43,7 +44,7 @@ export const GET: APIRoute = async ({ params, request, locals, site }) => {
     const feedItem = moodDocumentToFeedItem(post);
     const requestUrl = new URL(request.url);
     const baseUrl = site ?? new URL(requestUrl.origin);
-    const markdown = buildMoodAgentPostPageMarkdown(feedItem, baseUrl);
+    const markdown = buildMoodAgentPostPageMarkdown(feedItem, baseUrl, { useApiV2 });
 
     return markdownResponse(markdown, 200, rateLimit.headers);
   } catch (error) {

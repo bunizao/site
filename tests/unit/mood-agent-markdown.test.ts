@@ -116,4 +116,41 @@ describe('buildMoodAgentMarkdown', () => {
     expect(markdown).toContain('Agent: https://buxx.me/agent/mood/43');
     expect(markdown).toContain('Feed: https://buxx.me/agent/mood');
   });
+
+  test('keeps api-v2 mode in agent markdown links', () => {
+    const feed: MoodFeedResponse = {
+      channel: {},
+      posts: [
+        {
+          id: '44',
+          datetime: '2026-04-30T10:00:00.000Z',
+          tag: '',
+          previewText: 'Structured post',
+          previewHtml: '',
+          media: [],
+          gallery: null,
+          image: null,
+          imageFallback: null,
+          imageWidth: null,
+          imageHeight: null,
+          imageLayout: null,
+          imageKind: null,
+          mediaHtml: '',
+          needsDetailPage: false,
+          forwardedFrom: null,
+          quote: null,
+          reactions: [],
+          commentsCount: 0,
+        },
+      ],
+    };
+
+    const markdown = buildMoodAgentMarkdown(feed, new URL('https://buxx.me'), { useApiV2: true });
+    const postMarkdown = buildMoodAgentPostPageMarkdown(feed.posts[0], new URL('https://buxx.me'), { useApiV2: true });
+
+    expect(markdown).toContain('Source: https://buxx.me/mood?api-v2=true');
+    expect(markdown).toContain('JSON: https://buxx.me/api/moods?api-v2=true');
+    expect(markdown).toContain('Next: https://buxx.me/agent/mood?before=44&api-v2=true');
+    expect(postMarkdown).toContain('Feed: https://buxx.me/agent/mood?api-v2=true');
+  });
 });

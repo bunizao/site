@@ -704,6 +704,17 @@ const placeholders = Array.from({ length: SKELETON_COUNT }, (_, index) => ({
     const reservedCards = new Set<HTMLElement>();
     let renderedMoodSignature = '';
 
+    const getMoodFeedUrl = (): string => {
+      try {
+        const currentUrl = new URL(window.location.href);
+        if (currentUrl.searchParams.get('api-v2') !== 'true') return '/api/moods';
+        const query = new URLSearchParams({ 'api-v2': 'true' });
+        return `/api/moods?${query}`;
+      } catch {
+        return '/api/moods';
+      }
+    };
+
     interface MoodPreviewCacheEntry {
       id: string;
       datetime: string;
@@ -1304,7 +1315,7 @@ const placeholders = Array.from({ length: SKELETON_COUNT }, (_, index) => ({
       hasLoaded = true;
 
       try {
-        const response = await fetch('/api/moods');
+        const response = await fetch(getMoodFeedUrl());
         if (!response.ok) {
           throw new Error('Failed to fetch moods.');
         }
