@@ -552,6 +552,7 @@ const placeholders = Array.from({ length: SKELETON_COUNT }, (_, index) => ({
 </style>
 
 <script>
+  import type { MediaItem } from '@bunizao/contracts/content';
   import { buildMoodPreviewFragment } from '@/features/mood/shared/preview';
   import { withWidthParam } from '@/lib/media/responsive-image';
 
@@ -669,6 +670,7 @@ const placeholders = Array.from({ length: SKELETON_COUNT }, (_, index) => ({
       tag?: string;
       previewText: string;
       previewHtml?: string;
+      media?: MediaItem[];
       image?: string | null;
       imageFallback?: string | null;
       mediaHtml?: string;
@@ -722,6 +724,7 @@ const placeholders = Array.from({ length: SKELETON_COUNT }, (_, index) => ({
       tag?: string;
       previewText: string;
       previewHtml?: string;
+      media?: MediaItem[];
       image?: string | null;
       imageFallback?: string | null;
     }
@@ -764,6 +767,7 @@ const placeholders = Array.from({ length: SKELETON_COUNT }, (_, index) => ({
         tag: typeof candidate.tag === 'string' ? candidate.tag : undefined,
         previewText: typeof candidate.previewText === 'string' ? candidate.previewText : '',
         previewHtml: typeof candidate.previewHtml === 'string' ? candidate.previewHtml : '',
+        media: sanitizeCachedMedia(candidate.media),
         image: typeof candidate.image === 'string' ? candidate.image : null,
         imageFallback: typeof candidate.imageFallback === 'string' ? candidate.imageFallback : null,
       };
@@ -821,6 +825,7 @@ const placeholders = Array.from({ length: SKELETON_COUNT }, (_, index) => ({
             tag: post.tag,
             previewText: typeof post.previewText === 'string' ? post.previewText : '',
             previewHtml: typeof post.previewHtml === 'string' ? post.previewHtml : '',
+            media: sanitizeCachedMedia(post.media),
             image: typeof post.image === 'string' ? post.image : null,
             imageFallback: typeof post.imageFallback === 'string' ? post.imageFallback : null,
           })),
@@ -841,10 +846,98 @@ const placeholders = Array.from({ length: SKELETON_COUNT }, (_, index) => ({
         tag: post.tag ?? '',
         previewText: post.previewText ?? '',
         previewHtml: post.previewHtml ?? '',
+        media: compactMediaSignature(post.media),
         image: post.image ?? '',
         imageFallback: post.imageFallback ?? '',
       })),
     );
+
+    const sanitizeCachedMedia = (value: unknown): MediaItem[] => {
+      if (!Array.isArray(value)) return [];
+
+      return value
+        .map((item) => {
+          if (!item || typeof item !== 'object') return null;
+          const candidate = item as Partial<MediaItem>;
+          if (typeof candidate.type !== 'string') return null;
+
+          const safeTypes: MediaItem['type'][] = [
+            'image',
+            'video',
+            'audio',
+            'document',
+            'embed',
+            'sticker',
+            'link-preview',
+            'location',
+            'poll',
+          ];
+          if (!safeTypes.includes(candidate.type as MediaItem['type'])) return null;
+
+          const media: MediaItem = {
+            type: candidate.type as MediaItem['type'],
+          };
+          if (typeof candidate.src === 'string') media.src = candidate.src;
+          if (typeof candidate.href === 'string') media.href = candidate.href;
+          if (typeof candidate.posterSrc === 'string') media.posterSrc = candidate.posterSrc;
+          if (typeof candidate.thumbnailSrc === 'string') media.thumbnailSrc = candidate.thumbnailSrc;
+          if (typeof candidate.title === 'string') media.title = candidate.title;
+          if (typeof candidate.description === 'string') media.description = candidate.description;
+          if (typeof candidate.siteName === 'string') media.siteName = candidate.siteName;
+          if (typeof candidate.fileName === 'string') media.fileName = candidate.fileName;
+          if (typeof candidate.mimeType === 'string') media.mimeType = candidate.mimeType;
+
+          return media;
+        })
+        .filter((item): item is MediaItem => item !== null)
+        .slice(0, 4);
+    };
+
+    const compactMediaSignature = (media: readonly MediaItem[] | undefined): string => (
+      sanitizeCachedMedia(media).map((item) => [
+        item.type,
+        item.src ?? '',
+        item.href ?? '',
+        item.posterSrc ?? '',
+        item.thumbnailSrc ?? '',
+        item.title ?? '',
+        item.fileName ?? '',
+      ].join(':')).join('|')
+    );
+
+    const getStructuredMediaPreview = (
+      mood: Pick<MoodData, 'media' | 'image'>,
+    ): { label: string; thumbnail: string } | null => {
+      const media = sanitizeCachedMedia(mood.media);
+      if (!media.length) return null;
+
+      const rich = media.find((item) => item.type !== 'image' && item.type !== 'sticker') ?? media[0];
+      if (!rich) return null;
+
+      const thumbnail = (
+        rich.thumbnailSrc
+        || rich.posterSrc
+        || (rich.type === 'image' || rich.type === 'sticker' ? rich.src : '')
+        || ''
+      ).trim();
+      const title = (rich.title || rich.fileName || rich.siteName || '').trim();
+      const fallbackLabels: Partial<Record<MediaItem['type'], string>> = {
+        video: 'Video',
+        audio: 'Voice',
+        document: 'Document',
+        embed: 'Embed',
+        sticker: 'Sticker',
+        'link-preview': 'Link preview',
+        location: 'Location',
+        poll: 'Poll',
+        image: 'Photo',
+      };
+
+      return {
+        label: title || fallbackLabels[rich.type] || 'Media post',
+        thumbnail,
+      };
+    };
 
     const appendMediaFallback = (card: HTMLElement): void => {
       if (card.querySelector('.mood-text, .mood-media-fallback, .mood-meta')) return;
@@ -998,7 +1091,8 @@ const placeholders = Array.from({ length: SKELETON_COUNT }, (_, index) => ({
         return formatReservationWidth(line?.width ?? config.textWidth * 0.7, config.textWidth);
       });
       const textHeight = Math.ceil(config.lineHeight * lineCount);
-      const metaHeight = mood.image
+      const structuredMediaPreview = getStructuredMediaPreview(mood);
+      const metaHeight = mood.image || structuredMediaPreview?.thumbnail || structuredMediaPreview?.label
         ? config.thumbnailHeight
         : mood.tag
           ? config.tagHeight
@@ -1161,17 +1255,21 @@ const placeholders = Array.from({ length: SKELETON_COUNT }, (_, index) => ({
       text.className = 'mood-text';
       const previewText = mood.previewText || '';
       const previewHtml = mood.previewHtml || '';
+      const structuredMediaPreview = getStructuredMediaPreview(mood);
       const hasText = previewText.trim().length > 0 || previewHtml.trim().length > 0;
-      if (hasText || !mood.image) {
+      if (hasText || structuredMediaPreview || !mood.image) {
         if (hasText) {
           appendPreviewLines(text, previewText, previewHtml);
+        } else if (structuredMediaPreview) {
+          text.textContent = structuredMediaPreview.label;
         } else {
           text.textContent = '(No text)';
         }
         card.appendChild(text);
       }
 
-      const hasMetaContent = mood.tag || mood.image;
+      const structuredThumbnail = structuredMediaPreview?.thumbnail ?? '';
+      const hasMetaContent = mood.tag || mood.image || structuredThumbnail;
       if (hasMetaContent) {
         const meta = document.createElement('div');
         meta.className = 'mood-meta';
@@ -1183,12 +1281,13 @@ const placeholders = Array.from({ length: SKELETON_COUNT }, (_, index) => ({
           meta.appendChild(tag);
         }
 
-        if (mood.image) {
+        const thumbnailSrc = mood.image || structuredThumbnail;
+        if (thumbnailSrc) {
           const thumbnail = document.createElement('div');
           thumbnail.className = 'mood-thumbnail';
           const img = document.createElement('img');
-          img.src = withWidthParam(mood.image, HOME_THUMBNAIL_WIDTH);
-          const fallback = typeof mood.imageFallback === 'string' ? mood.imageFallback.trim() : '';
+          img.src = withWidthParam(thumbnailSrc, HOME_THUMBNAIL_WIDTH);
+          const fallback = mood.image && typeof mood.imageFallback === 'string' ? mood.imageFallback.trim() : '';
           if (fallback) {
             img.dataset.fallbackSrc = withWidthParam(fallback, HOME_THUMBNAIL_WIDTH);
           }

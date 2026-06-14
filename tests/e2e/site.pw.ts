@@ -189,6 +189,54 @@ test.describe('Home page', () => {
     await expect(page).toHaveURL(/\/mood$/);
   });
 
+  test('renders structured media-only mood previews on the home page', async ({ page }) => {
+    await page.addInitScript(() => {
+      window.localStorage.removeItem('home-moods-preview-cache:v2');
+    });
+
+    await page.route('**/api/moods', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          posts: [
+            {
+              id: '1004',
+              datetime: '2026-02-10T12:30:00+00:00',
+              previewText: '',
+              previewHtml: '',
+              media: [
+                {
+                  type: 'link-preview',
+                  href: 'https://example.test/story',
+                  title: 'Structured link preview',
+                  siteName: 'Example',
+                  thumbnailSrc: '/avatar.webp',
+                },
+              ],
+              image: null,
+              mediaHtml: '',
+              needsDetailPage: true,
+              reactions: [],
+              commentsCount: 0,
+            },
+          ],
+          channel: homeMoodPayload.channel,
+        }),
+      });
+    });
+
+    await page.goto('/');
+    await page.locator('#moods-section').scrollIntoViewIfNeeded();
+
+    await waitForHomeMoodState(page);
+
+    const moodCard = page.locator('#moods-section .mood-card').first();
+    await expect(moodCard).toContainText('Structured link preview');
+    await expect(moodCard).not.toContainText('(No text)');
+    await expect(moodCard.locator('.mood-thumbnail img')).toHaveAttribute('src', /avatar\.webp/);
+  });
+
   test('reserves mixed home mood preview heights without runtime errors', async ({ page }) => {
     const consoleErrors: string[] = [];
     const notFoundResponses: string[] = [];
