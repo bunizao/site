@@ -9,7 +9,7 @@
     url('/fonts/geist-mono-variable.woff2') format('woff2');
   font-weight: 100 900;
   font-style: normal;
-  font-display: swap;
+  font-display: optional;
 }
 
 /* JetBrains Mono is the code/terminal voice — reached via --font-code, never

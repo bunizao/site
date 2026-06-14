@@ -1,5 +1,6 @@
 ---
 import Typewriter from '@/features/home/ui/Typewriter.astro';
+import DecodeText from '@/features/home/ui/DecodeText.astro';
 import GitHubContributions from '@/features/home/ui/GitHubContributions.astro';
 import Listening from '@/features/home/ui/Listening.astro';
 import TechMarquee from '@/features/home/ui/TechMarquee.astro';
@@ -73,7 +74,7 @@ const techRow2 = ['Frontend', 'BGP', 'Proxy', 'Docker', 'Linux', 'Web3', 'Optimi
     </div>
 
     <!-- Name -->
-    <h1 class="hero-animate mb-2 text-[28px] font-semibold sm:text-[36px]" data-hero-name>
+    <h1 class="mb-2 text-[28px] font-semibold sm:text-[36px]" data-hero-name>
       <Typewriter texts={["Lucian", "Bunizao", "Tutu", "Collapsar"]} speed={80} />
     </h1>
 
@@ -97,15 +98,17 @@ const techRow2 = ['Frontend', 'BGP', 'Proxy', 'Docker', 'Linux', 'Web3', 'Optimi
 
     <!-- Bio -->
     <div class="hero-animate" data-hero-bio>
-      <p class="text-[14px] leading-[1.7] text-muted-foreground sm:text-[15px]">
-        I make interesting things.<br>
-        Curious about <span class="text-foreground">frontend design</span>,
-        <span class="text-foreground">proxy systems</span>, and
-        contributing to <span class="text-foreground"> open source</span>.<br>
-        Obsessed with <span class="text-foreground">speed</span> and always asking how things can be <span class="text-foreground">better</span>.<br>
-        Outside of coding, I read for curiosity and write to make sense of things.<br>
-        Currently studying Computer Science at <span class="text-foreground">Monash University</span>.
-      </p>
+      <DecodeText>
+        <p class="text-[14px] leading-[1.7] text-muted-foreground sm:text-[15px]">
+          I make interesting things.<br>
+          Curious about <span class="text-foreground">frontend design</span>,
+          <span class="text-foreground">proxy systems</span>, and
+          contributing to <span class="text-foreground"> open source</span>.<br>
+          Obsessed with <span class="text-foreground">speed</span> and always asking how things can be <span class="text-foreground">better</span>.<br>
+          Outside of coding, I read for curiosity and write to make sense of things.<br>
+          Currently studying Computer Science at <span class="text-foreground">Monash University</span>.
+        </p>
+      </DecodeText>
     </div>
 
     <!-- Social Links -->
@@ -162,14 +165,14 @@ const techRow2 = ['Frontend', 'BGP', 'Proxy', 'Docker', 'Linux', 'Web3', 'Optimi
     }
   }
 
-  :global(html.js) .hero-animate[data-hero-motion] {
+  :global(html.js) .hero-animate {
     opacity: 0;
     transform: translateY(20px);
     will-change: opacity, transform;
   }
 
   @media (prefers-reduced-motion: reduce) {
-    :global(html.js) .hero-animate[data-hero-motion] {
+    :global(html.js) .hero-animate {
       opacity: 1;
       transform: none;
     }
@@ -264,7 +267,7 @@ const techRow2 = ['Frontend', 'BGP', 'Proxy', 'Docker', 'Linux', 'Web3', 'Optimi
     const { default: gsap } = await import('gsap');
 
     // Split the hero into two phases so the chain reads top-to-bottom:
-    // identity text resolves first, then the supporting widgets rise in.
+    // static identity details resolve first, then the supporting widgets rise in.
     const identity = heroElements.filter((el) => !el.hasAttribute('data-hero-motion'));
     const widgets = heroElements.filter((el) => el.hasAttribute('data-hero-motion'));
 
@@ -274,7 +277,7 @@ const techRow2 = ['Frontend', 'BGP', 'Proxy', 'Docker', 'Linux', 'Web3', 'Optimi
       defaults: { ease: 'power3.out' }
     });
 
-    // Phase 1: status -> name -> info -> role -> bio.
+    // Phase 1: status -> info -> role -> bio.
     heroTl.to(identity, {
       opacity: 1,
       y: 0,
@@ -283,7 +286,7 @@ const techRow2 = ['Frontend', 'BGP', 'Proxy', 'Docker', 'Linux', 'Web3', 'Optimi
       ease: 'back.out(1.25)'
     }, 0);
 
-    // Kick the name decoder as its line settles in.
+    // Kick the name decoder after the hero timeline has started.
     heroTl.call(() => {
       window.dispatchEvent(new CustomEvent('home:hero-name-ready'));
     }, [], 0.1);
@@ -291,7 +294,7 @@ const techRow2 = ['Frontend', 'BGP', 'Proxy', 'Docker', 'Linux', 'Web3', 'Optimi
     // Hand off to the bio decoder once the name is resolving.
     heroTl.call(() => {
       window.dispatchEvent(new CustomEvent('home:hero-bio-ready'));
-    }, [], 0.7);
+    }, [], 0.5);
 
     // Phase 2: socials, listening, GitHub, and tech after the identity is set.
     heroTl.to(widgets, {

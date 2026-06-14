@@ -179,11 +179,28 @@ describe('Cloudflare runtime configuration', () => {
     expect(feedShell).toContain("decoding={isPriorityMedia ? 'sync' : 'async'}");
   });
 
+  test('keeps the mood feed accessible under Lighthouse', () => {
+    const moodRoute = readText('src/pages/mood.astro');
+    const feedShell = readText('src/features/mood/ui/FeedShell.astro');
+
+    expect(feedShell).toContain('data-mood-list role="region" aria-label="Mood feed"');
+    expect(moodRoute).toMatch(
+      /:global\(\.mood-load-status\) \{[\s\S]*?color: hsl\(var\(--muted-foreground\)\);/
+    );
+  });
+
   test('keeps the home hero reveal chain intact', () => {
     const globals = readText('src/styles/globals.css');
     const hero = readText('src/features/home/ui/Hero.astro');
+    const decodeText = readText('src/features/home/ui/DecodeText.astro');
 
     expect(globals).toContain('.js .hero-animate {');
+    expect(globals).toMatch(/font-family: 'Geist Mono';[\s\S]*?font-display: optional;/);
+    expect(hero).toContain("import DecodeText from '@/features/home/ui/DecodeText.astro';");
+    expect(hero).toContain('<DecodeText>');
+    expect(hero).not.toContain('<h1 class="hero-animate');
+    expect(decodeText).not.toContain('document.fonts?.ready');
+    expect(decodeText).toContain('const FALLBACK_START_MS = 900;');
     expect(hero).toContain('const identity = heroElements.filter((el) => !el.hasAttribute');
     expect(hero).toContain('gsap.set(heroElements, { opacity: 0, y: 20 });');
     expect(hero).toContain('heroTl.to(identity, {');

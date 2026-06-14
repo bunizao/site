@@ -259,7 +259,7 @@ const hasCriticalInitialPosts = criticalInitialPosts.length > 0;
       <script type="application/json" data-mood-initial-feed set:html={JSON.stringify(initialFeedPayload)}></script>
     )}
     {anchorId && <div class="mood-sentinel mood-sentinel--newer" data-mood-newer-sentinel aria-hidden="true"></div>}
-    <div class="mood-stream" data-mood-list aria-label="Mood feed">
+    <div class="mood-stream" data-mood-list role="region" aria-label="Mood feed">
       {criticalDateGroups.map((group) => (
         <div class="mood-date-group" data-date={group.dateKey}>
           <div class="mood-date-header">

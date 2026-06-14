@@ -118,6 +118,39 @@ test.describe('Home page', () => {
     await page.emulateMedia({ reducedMotion: 'reduce' });
   });
 
+  test('starts the bio decode after the hero identity reveal', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'no-preference' });
+    await page.addInitScript(() => {
+      const chain = {
+        bioReadyAt: 0,
+      };
+      (window as typeof window & { __heroBioDecodeChain?: typeof chain }).__heroBioDecodeChain = chain;
+
+      window.addEventListener('home:hero-bio-ready', () => {
+        chain.bioReadyAt = performance.now();
+      });
+    });
+
+    await page.goto('/');
+
+    const decodeRoot = page.locator('[data-hero-bio] [data-decode-root]');
+    await expect(decodeRoot).toHaveClass(/dt-prepared/, { timeout: 4_000 });
+    await expect
+      .poll(
+        async () => page.evaluate(() => {
+          const root = document.querySelector('[data-hero-bio] [data-decode-root]');
+          return Boolean((root as HTMLElement & { _decodeStarted?: boolean } | null)?._decodeStarted);
+        }),
+        { timeout: 4_000 }
+      )
+      .toBe(true);
+
+    const chain = await page.evaluate(() => (
+      window as typeof window & { __heroBioDecodeChain?: { bioReadyAt: number } }
+    ).__heroBioDecodeChain);
+    expect(chain?.bioReadyAt).toBeGreaterThan(0);
+  });
+
   test('renders core sections and persists selected theme', async ({ page }) => {
     await page.goto('/');
 
