@@ -11,6 +11,10 @@ import {
   readIntQuery,
 } from '@/lib/http/query';
 import { withRateLimit } from '@/lib/http/rate-limited';
+import {
+  appendMoodApiModeQueryValue,
+  readMoodApiModeQueryValue,
+} from '@/features/mood/shared/api-mode';
 import { getCorsHeaders } from '../../lib/embed-response';
 
 export const prerender = false;
@@ -131,6 +135,7 @@ export const GET: APIRoute = async ({ url, request, locals }) => {
   const font = readEnumQuery(url, 'font', ['mono', 'system'] as const, 'mono');
   const originParam = url.searchParams.get('origin');
   const linkParam = url.searchParams.get('link');
+  const apiModeQueryValue = readMoodApiModeQueryValue(url) ?? readMoodApiModeQueryValue(parsedUrl);
   const frame = readBooleanFlag(url, 'frame', true);
   const link = readBooleanFlag(url, 'link', true);
   const allowedOrigin = normalizeOrigin(originParam);
@@ -170,6 +175,7 @@ export const GET: APIRoute = async ({ url, request, locals }) => {
   if (linkParam) {
     embedParams.set('link', linkParam);
   }
+  appendMoodApiModeQueryValue(embedParams, apiModeQueryValue);
 
   const embedUrl = `${baseUrl}/mood/embed?${embedParams.toString()}`;
 
