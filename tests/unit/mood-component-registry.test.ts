@@ -8,13 +8,33 @@ describe('mood component registry', () => {
       'gallery',
       'sticker',
       'voice',
+      'video',
       'roundvideo',
+      'oversized-video',
       'forwarded',
+      'quote',
       'reactions',
       'comments',
       'code-block',
       'location',
       'poll',
+      'link-preview',
+      'document',
+    ]);
+  });
+
+  test('marks only verified production samples for live parity', () => {
+    const productionSamples = moodComponentRegistry
+      .filter((entry) => entry.prodId && entry.prodWindowBefore)
+      .map((entry) => entry.kind);
+
+    expect(productionSamples).toEqual([
+      'video',
+      'oversized-video',
+      'forwarded',
+      'quote',
+      'reactions',
+      'comments',
       'link-preview',
       'document',
     ]);

@@ -1,12 +1,15 @@
 import { expect } from 'bun:test';
 import type { MediaItem, MoodFeedItem } from '@bunizao/contracts';
 
-type ComponentKind =
+export type MoodComponentKind =
   | 'gallery'
   | 'sticker'
   | 'voice'
+  | 'video'
   | 'roundvideo'
+  | 'oversized-video'
   | 'forwarded'
+  | 'quote'
   | 'reactions'
   | 'comments'
   | 'code-block'
@@ -16,8 +19,9 @@ type ComponentKind =
   | 'document';
 
 export interface MoodComponentRegistryEntry {
-  kind: ComponentKind;
-  prodId: string;
+  kind: MoodComponentKind;
+  prodId: string | null;
+  prodWindowBefore?: string;
   fixtureFactory(): MoodFeedItem;
   assert(post: MoodFeedItem, renderedMediaHtml: string): void;
 }
@@ -57,7 +61,7 @@ function createPost(overrides: Partial<MoodFeedItem>): MoodFeedItem {
 export const moodComponentRegistry: MoodComponentRegistryEntry[] = [
   {
     kind: 'gallery',
-    prodId: '4102',
+    prodId: null,
     fixtureFactory: () => createPost({
       id: 'gallery-fixture',
       media: [
@@ -82,7 +86,7 @@ export const moodComponentRegistry: MoodComponentRegistryEntry[] = [
   },
   {
     kind: 'sticker',
-    prodId: '4107',
+    prodId: null,
     fixtureFactory: () => createPost({
       id: 'sticker-fixture',
       media: [mediaItem({ type: 'sticker', src: 'https://image.example.test/mood/4107/sticker.webp', alt: 'Sticker' })],
@@ -97,7 +101,7 @@ export const moodComponentRegistry: MoodComponentRegistryEntry[] = [
   },
   {
     kind: 'voice',
-    prodId: '4108',
+    prodId: null,
     fixtureFactory: () => createPost({
       id: 'voice-fixture',
       media: [mediaItem({ type: 'audio', src: 'https://image.example.test/mood/4108/voice.ogg', durationSeconds: 12 })],
@@ -110,8 +114,28 @@ export const moodComponentRegistry: MoodComponentRegistryEntry[] = [
     },
   },
   {
-    kind: 'roundvideo',
+    kind: 'video',
     prodId: '3559',
+    prodWindowBefore: '3600',
+    fixtureFactory: () => createPost({
+      id: 'video-fixture',
+      media: [mediaItem({
+        type: 'video',
+        src: 'https://image.example.test/mood/3559/video.mp4',
+        posterSrc: 'https://image.example.test/mood/3559/poster.jpg',
+        width: 720,
+        height: 720,
+      })],
+    }),
+    assert(post, renderedMediaHtml) {
+      expect(post.media[0]?.type).toBe('video');
+      expect(renderedMediaHtml).toContain('<video');
+      expect(renderedMediaHtml).toContain('poster.jpg');
+    },
+  },
+  {
+    kind: 'roundvideo',
+    prodId: null,
     fixtureFactory: () => createPost({
       id: 'roundvideo-fixture',
       previewMediaType: 'roundvideo',
@@ -131,8 +155,36 @@ export const moodComponentRegistry: MoodComponentRegistryEntry[] = [
     },
   },
   {
+    kind: 'oversized-video',
+    prodId: '3567',
+    prodWindowBefore: '3600',
+    fixtureFactory: () => createPost({
+      id: 'oversized-video-fixture',
+      previewMediaType: 'too-big-video',
+      media: [mediaItem({
+        type: 'video',
+        src: 'https://image.example.test/mood/3567/video.mp4',
+        posterSrc: 'https://image.example.test/mood/3567/poster.jpg',
+        width: 720,
+        height: 1280,
+        layout: 'ultra-tall',
+      })],
+      image: 'https://image.example.test/mood/3567/poster.jpg',
+      imageLayout: 'ultra-tall',
+      needsDetailPage: true,
+    }),
+    assert(post, renderedMediaHtml) {
+      expect(post.previewMediaType).toBe('too-big-video');
+      expect(post.media[0]?.type).toBe('video');
+      expect(post.needsDetailPage).toBe(true);
+      expect(renderedMediaHtml).toContain('<video');
+      expect(renderedMediaHtml).toContain('poster.jpg');
+    },
+  },
+  {
     kind: 'forwarded',
-    prodId: '3558',
+    prodId: '3572',
+    prodWindowBefore: '3600',
     fixtureFactory: () => createPost({
       id: 'forwarded-fixture',
       forwardedFrom: {
@@ -147,8 +199,26 @@ export const moodComponentRegistry: MoodComponentRegistryEntry[] = [
     },
   },
   {
-    kind: 'reactions',
+    kind: 'quote',
     prodId: '3558',
+    prodWindowBefore: '3600',
+    fixtureFactory: () => createPost({
+      id: 'quote-fixture',
+      quote: {
+        text: 'Quoted post text',
+        href: '/mood/3557',
+        author: 'Levitating',
+      },
+    }),
+    assert(post) {
+      expect(post.quote?.text).toBe('Quoted post text');
+      expect(post.quote?.href).toBe('/mood/3557');
+    },
+  },
+  {
+    kind: 'reactions',
+    prodId: '3559',
+    prodWindowBefore: '3600',
     fixtureFactory: () => createPost({
       id: 'reactions-fixture',
       reactions: [{ emoji: '🔥', count: '3', isPaid: false }],
@@ -159,7 +229,8 @@ export const moodComponentRegistry: MoodComponentRegistryEntry[] = [
   },
   {
     kind: 'comments',
-    prodId: '3558',
+    prodId: '1979',
+    prodWindowBefore: '2000',
     fixtureFactory: () => createPost({
       id: 'comments-fixture',
       commentsCount: 7,
@@ -170,7 +241,7 @@ export const moodComponentRegistry: MoodComponentRegistryEntry[] = [
   },
   {
     kind: 'code-block',
-    prodId: '1991',
+    prodId: null,
     fixtureFactory: () => createPost({
       id: 'code-block-fixture',
       previewText: 'const value = 1;',
@@ -184,7 +255,7 @@ export const moodComponentRegistry: MoodComponentRegistryEntry[] = [
   },
   {
     kind: 'location',
-    prodId: '4106',
+    prodId: null,
     fixtureFactory: () => createPost({
       id: 'location-fixture',
       media: [mediaItem({
@@ -203,7 +274,7 @@ export const moodComponentRegistry: MoodComponentRegistryEntry[] = [
   },
   {
     kind: 'poll',
-    prodId: '4109',
+    prodId: null,
     fixtureFactory: () => createPost({
       id: 'poll-fixture',
       media: [mediaItem({ type: 'poll', title: 'Choose one', description: 'Yes or no' })],
@@ -218,6 +289,7 @@ export const moodComponentRegistry: MoodComponentRegistryEntry[] = [
   {
     kind: 'link-preview',
     prodId: '3572',
+    prodWindowBefore: '3600',
     fixtureFactory: () => createPost({
       id: 'link-preview-fixture',
       media: [mediaItem({
@@ -237,6 +309,7 @@ export const moodComponentRegistry: MoodComponentRegistryEntry[] = [
   {
     kind: 'document',
     prodId: '1991',
+    prodWindowBefore: '2000',
     fixtureFactory: () => createPost({
       id: 'document-fixture',
       media: [mediaItem({
