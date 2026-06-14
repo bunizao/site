@@ -6,6 +6,10 @@ import NotifyPanel from '@/features/mood/ui/NotifyPanel.astro';
 import { loadMoodFeed } from '@/features/mood/server/api-client';
 import { resolveMoodApiV2Mode } from '@/features/mood/server/api-mode';
 import {
+  appendMoodApiModeQueryValue,
+  readMoodApiModeQueryValue,
+} from '@/features/mood/shared/api-mode';
+import {
   getMoodFeedAnchorBeforeCursor,
   getMoodFeedAnchorWindowBeforeCursor,
   mergeMoodFeedWindowPosts,
@@ -20,9 +24,15 @@ export const prerender = false;
 
 const title = "Moods | Bunizao's Website";
 const description = "Thoughts and moments from my Telegram channel";
-const rss = { href: '/mood/rss.xml', title: 'Moods RSS' };
 const canonicalUrl = new URL(Astro.url.pathname, Astro.url.origin).href;
-const oembed = { href: `/api/oembed.json?url=${encodeURIComponent(canonicalUrl)}`, title: 'Mood Embed' };
+const apiModeQueryValue = readMoodApiModeQueryValue(Astro.url);
+const moodAlternateUrl = new URL(canonicalUrl);
+appendMoodApiModeQueryValue(moodAlternateUrl.searchParams, apiModeQueryValue);
+const rssQuery = new URLSearchParams();
+appendMoodApiModeQueryValue(rssQuery, apiModeQueryValue);
+const rssHref = `/mood/rss.xml${rssQuery.size > 0 ? `?${rssQuery.toString()}` : ''}`;
+const rss = { href: rssHref, title: 'Moods RSS' };
+const oembed = { href: `/api/oembed.json?url=${encodeURIComponent(moodAlternateUrl.href)}`, title: 'Mood Embed' };
 const channel = readEnv(Astro.locals, 'CHANNEL');
 const telegramUrl = channel ? `https://t.me/${channel}` : '';
 const turnstileSiteKey = readPublicEnv(Astro.locals, 'TURNSTILE_SITE_KEY');
@@ -107,7 +117,7 @@ const skeletonGroups = [
 
 <Layout title={title} description={description} rss={rss} oembed={oembed} preloadImages={preloadImages}>
   <!-- Inject page-specific header actions -->
-  <script is:inline define:vars={{ telegramUrl, turnstileSiteKey }}>
+  <script is:inline define:vars={{ rssHref, telegramUrl, turnstileSiteKey }}>
     (() => {
       const siteNav = document.querySelector('[data-site-nav]');
       if (siteNav) siteNav.style.display = 'none';
@@ -121,7 +131,7 @@ const skeletonGroups = [
 
       const rssBtn = document.createElement('a');
       rssBtn.className = 'header-action-btn';
-      rssBtn.href = '/mood/rss.xml';
+      rssBtn.href = rssHref;
       rssBtn.title = 'Subscribe to RSS feed';
       rssBtn.dataset.moodHeaderAction = 'rss';
       rssBtn.innerHTML = `

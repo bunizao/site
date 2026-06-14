@@ -4,7 +4,10 @@ import dayjs from 'dayjs';
 import type { MoodContentDocument } from '@bunizao/contracts';
 import { loadMoodDocument } from '@/features/mood/server/api-client';
 import { resolveMoodApiV2Mode } from '@/features/mood/server/api-mode';
-import { readMoodApiModeQueryValue } from '@/features/mood/shared/api-mode';
+import {
+  appendMoodApiModeQueryValue,
+  readMoodApiModeQueryValue,
+} from '@/features/mood/shared/api-mode';
 import '@/styles/mood-gallery.css';
 import { isE2ESiteFixtureEnabled } from '@/lib/e2e';
 import { renderMoodContentWithGalleries } from '@/features/mood/shared/gallery';
@@ -52,8 +55,10 @@ if (!post) {
 }
 
 const canonicalUrl = new URL(Astro.url.pathname, Astro.url.origin).href;
+const moodAlternateUrl = new URL(canonicalUrl);
+appendMoodApiModeQueryValue(moodAlternateUrl.searchParams, apiModeQueryValue);
 const oembed = id
-  ? { href: `/api/oembed.json?url=${encodeURIComponent(canonicalUrl)}`, title: 'Mood Embed' }
+  ? { href: `/api/oembed.json?url=${encodeURIComponent(moodAlternateUrl.href)}`, title: 'Mood Embed' }
   : undefined;
 const metadata = buildMoodDetailMetadata(post, id);
 const formattedDate = post ? dayjs(post.datetime).format('MMMM D, YYYY · HH:mm') : '';
