@@ -1,33 +1,21 @@
 import { describe, expect, test } from 'bun:test';
 import type { MediaItem } from '@bunizao/contracts';
-import {
-  moodComponentRegistry,
-  type MoodComponentKind,
-} from '../fixtures/mood-component-registry';
+
+// Live production smoke. The mood read paths (`?api-v2=false` legacy and
+// `?api-v2=true`) both resolve to the structured `site-api` reader now, so this
+// test asserts the two paths stay identical and that production actually serves
+// structured content. Per-kind rendering correctness is covered offline and
+// drift-proof in `tests/unit/mood-component-registry.test.ts`; pinning exact
+// production message ids here only rots as posts are edited or deleted.
 
 interface MoodPost {
   id?: string;
   previewMediaType?: string;
   media?: MediaItem[];
   mediaHtml?: string;
-  forwardedFrom?: {
-    name?: string;
-    href?: string;
-    author?: string;
-  } | null;
-  quote?: {
-    text?: string;
-    author?: string;
-    href?: string;
-    thumbnailSrc?: string;
-  } | null;
-  reactions?: Array<{
-    emoji?: string;
-    emojiId?: string;
-    emojiImage?: string;
-    count?: string;
-    isPaid?: boolean;
-  }>;
+  forwardedFrom?: { name?: string; href?: string; author?: string } | null;
+  quote?: { text?: string; author?: string; href?: string; thumbnailSrc?: string } | null;
+  reactions?: Array<{ emoji?: string; count?: string }>;
   image?: string | null;
   gallery?: unknown;
   needsDetailPage?: boolean;
@@ -38,14 +26,8 @@ interface MoodApiResponse {
   posts?: MoodPost[];
 }
 
-interface ParitySample {
-  kind: MoodComponentKind;
-  before: string;
-  id: string;
-  label: string;
-  assertLegacy(post: MoodPost): void;
-  assertApiV2(post: MoodPost): void;
-}
+// Windows covering both historical id ranges that carry the richer component mix.
+const PRODUCTION_WINDOWS = ['3600', '2000'];
 
 function readEnv(name: string): string {
   return (process.env[name] ?? '').trim();
@@ -55,176 +37,76 @@ function getSiteUrl(): string {
   return (readEnv('SITE_URL') || readEnv('PUBLIC_SITE_URL') || 'https://buxx.me').replace(/\/+$/, '');
 }
 
-async function fetchMoodWindow(siteUrl: string, sample: ParitySample, apiV2: boolean): Promise<MoodPost> {
+async function fetchWindow(siteUrl: string, before: string, apiV2: boolean): Promise<MoodPost[]> {
   const url = new URL('/api/moods', siteUrl);
-  url.searchParams.set('before', sample.before);
+  url.searchParams.set('before', before);
   url.searchParams.set('fresh', '1');
   if (apiV2) {
     url.searchParams.set('api-v2', 'true');
   }
 
   const response = await fetch(url, {
-    headers: {
-      Accept: 'application/json',
-      'Cache-Control': 'no-cache',
-    },
+    headers: { Accept: 'application/json', 'Cache-Control': 'no-cache' },
   });
-
-  expect(response.ok).toBe(true);
+  expect(response.ok, `GET ${url} -> ${response.status}`).toBe(true);
 
   const payload = await response.json() as MoodApiResponse;
-  const post = (payload.posts ?? []).find((candidate) => candidate.id === sample.id);
-
-  if (!post) {
-    throw new Error(`${sample.label} sample ${sample.id} missing from ${url}`);
-  }
-
-  return post as MoodPost;
+  return payload.posts ?? [];
 }
 
-function comparablePost(post: MoodPost): MoodPost {
+// The fields that must be byte-identical across both read paths. Includes the
+// structured media types so any divergence in non-image media is caught.
+function comparablePost(post: MoodPost) {
   return {
     previewMediaType: post.previewMediaType ?? '',
+    mediaTypes: (post.media ?? []).map((item) => item.type),
     quote: post.quote ?? null,
     image: post.image ?? null,
     gallery: post.gallery ?? null,
+    forwardedFrom: post.forwardedFrom ?? null,
+    reactions: (post.reactions ?? []).map((reaction) => ({
+      emoji: reaction.emoji ?? '',
+      count: String(reaction.count ?? ''),
+    })),
     needsDetailPage: post.needsDetailPage ?? false,
-    commentsCount: post.commentsCount ?? 0,
+    commentsCount: Number(post.commentsCount ?? 0),
   };
 }
 
-function mediaTypes(post: MoodPost): string[] {
-  return (post.media ?? []).map((item) => item.type);
-}
-
-const productionAssertions: Partial<Record<MoodComponentKind, Pick<ParitySample, 'label' | 'assertLegacy' | 'assertApiV2'>>> = {
-  'link-preview': {
-    label: 'bookmark card',
-    assertLegacy(post: MoodPost) {
-      expect(post.mediaHtml ?? '').toContain('bookmark-card');
-    },
-    assertApiV2(post: MoodPost) {
-      expect(mediaTypes(post)).toContain('link-preview');
-      expect(post.mediaHtml ?? '').toBe('');
-    },
-  },
-  'oversized-video': {
-    label: 'oversized video',
-    assertLegacy(post: MoodPost) {
-      expect(post.previewMediaType).toBe('too-big-video');
-      expect(post.image).toBeTruthy();
-      expect(post.gallery).toBeNull();
-      expect(post.needsDetailPage).toBe(true);
-    },
-    assertApiV2(post: MoodPost) {
-      expect(mediaTypes(post)).toContain('video');
-      expect(post.needsDetailPage).toBe(true);
-    },
-  },
-  video: {
-    label: 'inline video',
-    assertLegacy(post: MoodPost) {
-      expect(post.mediaHtml ?? '').toContain('<video');
-    },
-    assertApiV2(post: MoodPost) {
-      expect(mediaTypes(post)).toContain('video');
-      expect(post.mediaHtml ?? '').toBe('');
-    },
-  },
-  quote: {
-    label: 'reply quote',
-    assertLegacy(post: MoodPost) {
-      expect(post.quote?.text ?? '').not.toBe('');
-    },
-    assertApiV2(post: MoodPost) {
-      expect(post.quote?.text ?? '').not.toBe('');
-    },
-  },
-  forwarded: {
-    label: 'forwarded source',
-    assertLegacy(post: MoodPost) {
-      expect(post.forwardedFrom?.name ?? '').not.toBe('');
-    },
-    assertApiV2(post: MoodPost) {
-      expect(post.forwardedFrom?.name ?? '').not.toBe('');
-    },
-  },
-  reactions: {
-    label: 'reactions',
-    assertLegacy(post: MoodPost) {
-      expect(post.reactions?.length ?? 0).toBeGreaterThan(0);
-    },
-    assertApiV2(post: MoodPost) {
-      expect(post.reactions?.length ?? 0).toBeGreaterThan(0);
-    },
-  },
-  comments: {
-    label: 'comment count',
-    assertLegacy(post: MoodPost) {
-      expect(Number(post.commentsCount ?? 0)).toBeGreaterThan(0);
-    },
-    assertApiV2(post: MoodPost) {
-      expect(Number(post.commentsCount ?? 0)).toBeGreaterThan(0);
-    },
-  },
-  document: {
-    label: 'file attachment',
-    assertLegacy(post: MoodPost) {
-      expect(post.mediaHtml ?? '').toContain('tgme_widget_message_document_wrap');
-    },
-    assertApiV2(post: MoodPost) {
-      expect(mediaTypes(post)).toContain('document');
-      expect(post.mediaHtml ?? '').toBe('');
-    },
-  },
-};
-
-function verifiedProductionSamples(): ParitySample[] {
-  return moodComponentRegistry.flatMap((entry) => {
-    if (!entry.prodId || !entry.prodWindowBefore) return [];
-
-    const assertion = productionAssertions[entry.kind];
-    if (!assertion) return [];
-
-    return [{
-      kind: entry.kind,
-      before: entry.prodWindowBefore,
-      id: entry.prodId,
-      ...assertion,
-    }];
-  });
-}
-
-const samples = verifiedProductionSamples();
-
-const expectedProductionKinds: MoodComponentKind[] = [
-  'video',
-  'oversized-video',
-  'forwarded',
-  'quote',
-  'reactions',
-  'comments',
-  'link-preview',
-  'document',
-];
-
-describe('mood api-v2 production parity registry', () => {
-  test('uses verified production samples from the component registry', () => {
-    expect(samples.map((sample) => sample.kind)).toEqual(expectedProductionKinds);
-  });
-});
-
-describe('mood api-v2 production parity', () => {
-  test('preserves legacy rendering features for known production samples', async () => {
+describe('mood production read-path parity', () => {
+  test('legacy and api-v2 return identical structured posts', async () => {
     const siteUrl = getSiteUrl();
+    let compared = 0;
+    let withMedia = 0;
 
-    for (const sample of samples) {
-      const legacyPost = await fetchMoodWindow(siteUrl, sample, false);
-      const apiV2Post = await fetchMoodWindow(siteUrl, sample, true);
+    for (const before of PRODUCTION_WINDOWS) {
+      const [legacy, apiV2] = await Promise.all([
+        fetchWindow(siteUrl, before, false),
+        fetchWindow(siteUrl, before, true),
+      ]);
 
-      sample.assertLegacy(legacyPost);
-      sample.assertApiV2(apiV2Post);
-      expect(comparablePost(apiV2Post)).toEqual(comparablePost(legacyPost));
+      expect(legacy.length, `legacy window before=${before} is empty`).toBeGreaterThan(0);
+
+      const apiV2ById = new Map(apiV2.map((post) => [post.id, post]));
+      expect(
+        new Set(apiV2ById.keys()),
+        `window before=${before} returns a different post set across read paths`,
+      ).toEqual(new Set(legacy.map((post) => post.id)));
+
+      for (const legacyPost of legacy) {
+        const apiV2Post = apiV2ById.get(legacyPost.id);
+        expect(apiV2Post, `post ${legacyPost.id} missing from api-v2`).toBeDefined();
+        expect(comparablePost(apiV2Post!)).toEqual(comparablePost(legacyPost));
+
+        compared += 1;
+        if ((legacyPost.media?.length ?? 0) > 0) {
+          withMedia += 1;
+        }
+      }
     }
+
+    // Guard against both paths silently degrading to empty payloads.
+    expect(compared, 'no production posts were compared').toBeGreaterThan(0);
+    expect(withMedia, 'production feed served no structured media').toBeGreaterThan(0);
   }, { timeout: 30_000 });
 });
