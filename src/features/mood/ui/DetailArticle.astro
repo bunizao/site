@@ -1,9 +1,9 @@
 ---
-import type { Post } from '@/features/mood/server/telegram-source';
+import type { MoodContentDocument } from '@bunizao/contracts';
 import CommentsSection from '@/features/mood/ui/CommentsSection.astro';
 
 interface Props {
-  post: Post | null;
+  post: MoodContentDocument | null;
   error?: boolean;
   postId?: string;
   renderedPostContent?: string;
@@ -21,6 +21,9 @@ const {
   telegramCommentUrl = '',
   backHref = '/mood',
 } = Astro.props;
+
+const postTags = post ? post.tags ?? (post.tag ? [post.tag] : []) : [];
+const postReactions = post?.reactions ?? [];
 ---
 
 {post ? (
@@ -31,9 +34,9 @@ const {
         <time datetime={post.datetime} class="mood-post-date">
           {formattedDate}
         </time>
-        {post.tags.length > 0 && (
+        {postTags.length > 0 && (
           <div class="mood-post-tags">
-            {post.tags.map((tag) => (
+            {postTags.map((tag) => (
               <span class="mood-post-tag">#{tag}</span>
             ))}
           </div>
@@ -61,9 +64,9 @@ const {
       </div>
     </div>
     <div class="mood-post-content reading" set:html={renderedPostContent} />
-    {post.reactions.length > 0 && (
+    {postReactions.length > 0 && (
       <div class="mood-post-reactions" aria-label="Reactions">
-        {post.reactions.map((reaction) => (
+        {postReactions.map((reaction) => (
           <span class={reaction.isPaid ? 'mood-reaction mood-reaction--paid' : 'mood-reaction'}>
             <span class="mood-reaction-emoji">
               {reaction.isPaid ? (

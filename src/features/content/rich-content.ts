@@ -76,8 +76,10 @@ const PRESERVED_BODY_CLASSES = new Set([
   'bookmark-card__media',
   'bookmark-card__meta',
   'bookmark-card__title',
+  'tg-blockquote-expandable',
   'tg-emoji',
   'tg-emoji-fallback',
+  'tg-spoiler',
 ]);
 
 const MEDIA_LAYOUTS = new Set<ContentMediaLayout>(['landscape', 'portrait', 'ultra-tall']);
@@ -141,6 +143,14 @@ function sanitizeDataValue(value: unknown): string {
   if (typeof value !== 'string') return '';
   const trimmed = value.trim();
   return /^[a-z0-9_:.+-]{1,96}$/i.test(trimmed) ? trimmed : '';
+}
+
+function sanitizeCodeClass(value: string): string {
+  return value
+    .split(/\s+/)
+    .map((part) => part.trim())
+    .filter((part) => /^language-[a-z0-9_-]+$/i.test(part))
+    .join(' ');
 }
 
 function normalizeDimension(value: unknown): number | null {
@@ -292,6 +302,22 @@ export function sanitizeRichContentHtml(bodyHtml: string): string {
         }
         if (animated === 'true' || animated === 'false') {
           $(element).attr('data-emoji-animated', animated);
+        }
+        return;
+      }
+
+      if (tag === 'blockquote') {
+        const className = sanitizeClassList(rawAttributes.class ?? '', PRESERVED_BODY_CLASSES);
+        if (className) {
+          $(element).attr('class', className);
+        }
+        return;
+      }
+
+      if (tag === 'code') {
+        const className = sanitizeCodeClass(rawAttributes.class ?? '');
+        if (className) {
+          $(element).attr('class', className);
         }
         return;
       }

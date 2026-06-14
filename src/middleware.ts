@@ -1,86 +1,53 @@
 import { defineMiddleware } from 'astro:middleware';
 import {
-  isAllowedLogin,
-  readAdminAuthConfig,
-  readAdminDevSession,
-  readSessionFromCookieHeader,
-  verifySessionToken,
-} from '@/features/admin/server/session';
+  createApiServiceRequest,
+  getApiServiceBinding,
+} from '@/lib/http/api-service-proxy';
+import type { RuntimeEnvLocals } from '@/lib/runtime/env';
 import { getDocsVisibilityFromContent } from '@/features/docs/server/content';
 import { isDocsPath } from '@/features/docs/server/visibility';
 
-const PORTAL_PREFIX = '/dev/portal';
 const OAUTH_LOGIN_PATH = '/oauth/login';
-const ADMIN_API_PREFIX = '/api/admin/';
-const PUBLIC_ADMIN_API_PATHS = new Set<string>([
-  '/api/admin/auth/start',
-  '/api/admin/auth/callback',
-  '/api/admin/auth/logout',
-]);
 
-function isPortalPath(pathname: string): boolean {
-  return pathname === PORTAL_PREFIX || pathname.startsWith(`${PORTAL_PREFIX}/`);
-}
+async function hasPrivateAdminSession(request: Request, locals: RuntimeEnvLocals | undefined): Promise<boolean> {
+  const api = await getApiServiceBinding(locals);
+  if (!api) return false;
 
-function isProtectedAdminApi(pathname: string): boolean {
-  if (!pathname.startsWith(ADMIN_API_PREFIX)) return false;
-  return !PUBLIC_ADMIN_API_PATHS.has(pathname);
+  const url = new URL(request.url);
+  url.pathname = '/v2/admin/session';
+  url.search = '';
+
+  const headers = new Headers();
+  const cookie = request.headers.get('cookie');
+  if (cookie) {
+    headers.set('cookie', cookie);
+  }
+
+  const response = await api.fetch(createApiServiceRequest(new Request(url, {
+    method: 'GET',
+    headers,
+  })));
+  return response.status === 204;
 }
 
 export const onRequest = defineMiddleware(async (context, next) => {
   const url = new URL(context.request.url);
   const pathname = url.pathname;
-
-  const isPortal = isPortalPath(pathname);
   const docsVisibility = isDocsPath(pathname) ? await getDocsVisibilityFromContent(pathname) : 'missing';
-  const isProtectedDocs = docsVisibility === 'protected';
-  const isAdminApi = isProtectedAdminApi(pathname);
-  if (!isPortal && !isProtectedDocs && !isAdminApi) {
+
+  if (docsVisibility !== 'protected') {
     return next();
   }
 
-  const config = readAdminAuthConfig(context.locals);
-  const cookieHeader = context.request.headers.get('cookie');
-  const token = readSessionFromCookieHeader(cookieHeader);
-  const session = config.sessionSigningKey
-    ? await verifySessionToken(token, config.sessionSigningKey)
-    : null;
-  const devSession = readAdminDevSession(context.locals, import.meta.env.DEV, url.hostname);
-  const directDevSession = devSession && !isProtectedDocs ? devSession : null;
-  const mutableLocals = context.locals as unknown as Record<string, unknown>;
-
-  if (session) {
-    if (
-      isAllowedLogin(session.login, config.allowedLogin)
-      || (devSession && isAllowedLogin(session.login, devSession.login))
-    ) {
-      mutableLocals.adminSession = {
-        ...session,
-        avatarUrl: session.avatarUrl || devSession?.avatarUrl,
-      };
-      return next();
-    }
-  }
-
-  if (directDevSession) {
-    mutableLocals.adminSession = directDevSession;
+  if (await hasPrivateAdminSession(context.request, context.locals)) {
     return next();
   }
 
-  if (isAdminApi) {
-    return new Response(JSON.stringify({ error: 'unauthorized' }), {
-      status: 401,
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
-  }
-
-  const next_ = encodeURIComponent(pathname + url.search);
+  const nextPath = encodeURIComponent(pathname + url.search);
   return new Response(null, {
     status: 302,
     headers: {
-      Location: `${OAUTH_LOGIN_PATH}?next=${next_}`,
+      Location: `${OAUTH_LOGIN_PATH}?next=${nextPath}`,
     },
   });
 });

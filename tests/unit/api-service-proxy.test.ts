@@ -17,7 +17,14 @@ describe('api service proxy', () => {
   test('rewrites public API URLs to the private API origin', () => {
     const url = rewriteApiServiceUrl('https://buxx.me/api/health?probe=1');
 
-    expect(url.toString()).toBe('https://site-api.internal/v1/health?probe=1');
+    expect(url.toString()).toBe('https://site-api.internal/v2/health?probe=1');
+  });
+
+  test('passes private app routes through without version prefixing', () => {
+    expect(rewriteApiServiceUrl('https://buxx.me/oauth/login?next=%2Fdocs').toString())
+      .toBe('https://site-api.internal/oauth/login?next=%2Fdocs');
+    expect(rewriteApiServiceUrl('https://buxx.me/dev/portal').toString())
+      .toBe('https://site-api.internal/dev/portal');
   });
 
   test('passes method, body, and headers through to the service binding', async () => {
@@ -31,9 +38,13 @@ describe('api service proxy', () => {
     });
     const proxied = createApiServiceRequest(request);
 
-    expect(proxied.url).toBe('https://site-api.internal/v1/notify/dispatch?dry=1');
+    expect(proxied.url).toBe('https://site-api.internal/v2/notify/dispatch?dry=1');
     expect(proxied.method).toBe('POST');
     expect(proxied.headers.get('authorization')).toBe('Bearer test');
+    expect(proxied.headers.get('x-forwarded-host')).toBe('buxx.me');
+    expect(proxied.headers.get('x-forwarded-proto')).toBe('https');
+    expect(proxied.headers.get('x-forwarded-origin')).toBe('https://buxx.me');
+    expect(proxied.headers.get('x-buxx-forwarded-url')).toBe('https://buxx.me/api/notify/dispatch?dry=1');
     expect(await proxied.json()).toEqual({ postId: '123' });
   });
 
@@ -48,7 +59,7 @@ describe('api service proxy', () => {
 
   test('preserves service response status and cache headers', async () => {
     const api = createApiBinding((request) => {
-      expect(request.url).toBe('https://site-api.internal/v1/health');
+      expect(request.url).toBe('https://site-api.internal/v2/health');
       return new Response(JSON.stringify({ status: 'ok', service: 'site-api' }), {
         status: 203,
         statusText: 'Non-Authoritative Information',

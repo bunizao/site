@@ -13,6 +13,9 @@ describe('rich content rendering', () => {
       '<p onclick="bad()">Hello <a href="javascript:alert(1)" onclick="bad()">bad</a>',
       '<a href="https://example.com/article" style="color:red">safe</a>',
       '<span class="tg-emoji unsafe" data-emoji-id="5368324170671202286" data-emoji-animated="true" onclick="bad()">🙂</span>',
+      '<span class="tg-spoiler unsafe">secret</span>',
+      '<blockquote class="tg-blockquote-expandable unsafe">more</blockquote>',
+      '<pre><code class="language-typescript unsafe">const ok = true</code></pre>',
       '<time datetime="2026-06-13T00:00:00.000Z" onclick="bad()">June 13</time>',
       '<script>alert(1)</script><img src="https://example.com/inline.jpg" alt="">',
       '</p>',
@@ -21,6 +24,9 @@ describe('rich content rendering', () => {
     expect(html).toContain('Hello bad');
     expect(html).toContain('<a href="https://example.com/article" target="_blank" rel="noopener noreferrer">safe</a>');
     expect(html).toContain('class="tg-emoji"');
+    expect(html).toContain('class="tg-spoiler"');
+    expect(html).toContain('class="tg-blockquote-expandable"');
+    expect(html).toContain('class="language-typescript"');
     expect(html).toContain('data-emoji-id="5368324170671202286"');
     expect(html).toContain('data-emoji-animated="true"');
     expect(html).toContain('datetime="2026-06-13T00:00:00.000Z"');

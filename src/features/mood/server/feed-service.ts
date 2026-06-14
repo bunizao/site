@@ -11,7 +11,7 @@ import {
   hasTooBigVideo,
   isLongContent,
 } from '@/features/mood/shared/utils';
-import { getTelegramPostFallbackInfo, type ChannelInfo, type Post } from '@/features/mood/server/telegram-source';
+import type { ChannelInfo, Post } from '@/features/mood/server/legacy-types';
 import type { MoodFeedItem, MoodFeedResponse } from './contracts';
 import {
   getMoodChannelEmojiId,
@@ -20,37 +20,6 @@ import {
   toMoodAvatarUrl,
   type MoodServerContext,
 } from './channel-service';
-
-function escapeHtml(value: string): string {
-  return value.replace(/[&<>"']/g, (char) => {
-    switch (char) {
-      case '&':
-        return '&amp;';
-      case '<':
-        return '&lt;';
-      case '>':
-        return '&gt;';
-      case '"':
-        return '&quot;';
-      case '\'':
-        return '&#39;';
-      default:
-        return char;
-    }
-  });
-}
-
-function buildPlainPreviewHtml(text: string): string {
-  const normalized = text
-    .replace(/\r\n?/g, '\n')
-    .split('\n')
-    .map((line) => line.trim())
-    .join('\n')
-    .trim();
-
-  if (!normalized) return '';
-  return escapeHtml(normalized).replace(/\n/g, '<br>');
-}
 
 function getLocalMoodId(href: string | undefined): string {
   if (!href) return '';
@@ -90,33 +59,6 @@ export async function buildMoodFeedItem(
     quote.thumbnailSrc = quoteTargetVideoPoster;
   }
   const hasDetailMedia = hasMedia(post.content) || hasEmojiImageMedia(post.content);
-  const isUnsupportedFallbackImage = post.content.includes('image-preview-wrap--fallback');
-
-  if (isUnsupportedFallbackImage && !previewText.trim()) {
-    const fallbackInfo = await getTelegramPostFallbackInfo(
-      { request: context.request, locals: context.locals } as any,
-      post.id
-    );
-    if (fallbackInfo.hasUnsupportedMediaNotice && !fallbackInfo.hasVisibleText && fallbackInfo.description) {
-      previewText = fallbackInfo.description;
-      previewHtml = buildPlainPreviewHtml(fallbackInfo.description);
-    }
-  }
-
-  if (quote && !quote.thumbnailSrc && quote.href) {
-    const match = quote.href.match(/^\/mood\/(\d+)$/);
-    const targetId = match?.[1] ?? '';
-    const hdImageBase = getMoodHdImageBase(context.locals);
-    if (targetId && hdImageBase) {
-      const fallbackInfo = await getTelegramPostFallbackInfo(
-        { request: context.request, locals: context.locals } as any,
-        targetId
-      );
-      if (fallbackInfo.hasUnsupportedMediaNotice && !fallbackInfo.hasVisibleText) {
-        quote.thumbnailSrc = `${hdImageBase}/mood/${encodeURIComponent(targetId)}/0`;
-      }
-    }
-  }
 
   const needsDetailPage = !mediaPreview && (hasDetailMedia || tooBigVideo || isLongContent(previewText));
 

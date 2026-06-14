@@ -65,24 +65,39 @@ export function rewriteApiServiceUrl(requestUrl: string): URL {
 }
 
 function rewriteApiServicePath(pathname: string): string {
+  if (
+    pathname === '/dev'
+    || pathname.startsWith('/dev/')
+    || pathname === '/oauth'
+    || pathname.startsWith('/oauth/')
+  ) {
+    return pathname;
+  }
+
   if (pathname === '/api') {
-    return '/v1';
+    return '/v2';
   }
 
   if (pathname.startsWith('/api/')) {
-    return `/v1${pathname.slice('/api'.length)}`;
+    return `/v2${pathname.slice('/api'.length)}`;
   }
 
-  return pathname.startsWith('/v1') ? pathname : `/v1${pathname}`;
+  return pathname.startsWith('/v1') || pathname.startsWith('/v2') ? pathname : `/v2${pathname}`;
 }
 
 export function createApiServiceRequest(request: Request): Request {
   const target = rewriteApiServiceUrl(request.url);
+  const source = new URL(request.url);
+  const headers = new Headers(request.headers);
   const init: RequestInit & { duplex?: 'half' } = {
     method: request.method,
-    headers: new Headers(request.headers),
+    headers,
     redirect: 'manual',
   };
+  headers.set('X-Forwarded-Host', source.host);
+  headers.set('X-Forwarded-Proto', source.protocol.replace(':', ''));
+  headers.set('X-Forwarded-Origin', source.origin);
+  headers.set('X-Buxx-Forwarded-Url', source.toString());
 
   if (request.method !== 'GET' && request.method !== 'HEAD') {
     init.body = request.body;

@@ -13,9 +13,6 @@
     "run_worker_first": [
       "/api/*",
       "/mood*",
-      "/channel/avatar",
-      "/ingest/*",
-      "/webhook",
       "/dev/*",
       "/oauth*",
       "/docs*"
@@ -26,25 +23,17 @@
   ],
   "routes": [
     { "pattern": "buxx.me", "zone_name": "buxx.me", "custom_domain": true },
-    { "pattern": "www.buxx.me", "zone_name": "buxx.me", "custom_domain": true },
-    { "pattern": "cf-migration.buxx.me", "zone_name": "buxx.me", "custom_domain": true },
-    { "pattern": "image.buxx.me", "zone_name": "buxx.me", "custom_domain": true }
+    { "pattern": "www.buxx.me", "zone_name": "buxx.me", "custom_domain": true }
   ],
   "vars": {
     "SITE_URL": "https://buxx.me",
     "PUBLIC_SITE_URL": "https://buxx.me",
-    "NOTIFY_BASE_URL": "https://buxx.me",
-    "NOTIFY_DISPATCH_URL": "https://buxx.me/api/notify/dispatch",
     "GHOST_URL": "https://blog.buxx.me",
     "LASTFM_USER": "bunizao",
-    "PUBLIC_HD_IMAGE_URL": "https://image.buxx.me",
+    "PUBLIC_HD_IMAGE_URL": "https://api.buxx.me/v2/images",
     "PUBLIC_TURNSTILE_SITE_KEY": "0x4AAAAAACaDQzCbYalmO_xV",
-    "HD_IMAGE_INGEST_BASE_URL": "https://image.buxx.me",
     "CHANNEL": "tutumood",
-    "TELEGRAM_HOST": "t.me",
-    "ADMIN_GITHUB_LOGIN": "bunizao",
-    "CLOUDFLARE_ACCOUNT_ID": "545faed61bc6b0c8ef2c417303555d6f",
-    "CLOUDFLARE_NOTIFY_D1_DATABASE_ID": "bf8cd2f1-29c7-44c1-b9bb-555265dd40b3"
+    "TELEGRAM_HOST": "t.me"
   },
   "observability": {
     "enabled": true,
@@ -53,40 +42,5 @@
       "invocation_logs": true,
       "persist": true
     }
-  },
-  "kv_namespaces": [
-    { "binding": "SESSION" }
-  ],
-  "d1_databases": [
-    {
-      "binding": "NOTIFY_DB",
-      "database_name": "site-notify",
-      "migrations_dir": "scripts/sql/migrations"
-    }
-  ],
-  "r2_buckets": [
-    {
-      "binding": "MOOD_IMAGES",
-      "bucket_name": "mood-images"
-    }
-  ],
-  "queues": {
-    "producers": [
-      {
-        "binding": "NOTIFY_DISPATCH_QUEUE",
-        "queue": "telegram-notify-dispatch"
-      }
-    ],
-    "consumers": [
-      {
-        "queue": "telegram-notify-dispatch",
-        "max_batch_size": 10,
-        "max_batch_timeout": 5,
-        "max_retries": 5
-      }
-    ]
-  },
-  "triggers": {
-    "crons": ["*/15 * * * *"]
   }
 }

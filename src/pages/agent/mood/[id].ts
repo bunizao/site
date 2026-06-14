@@ -1,8 +1,10 @@
 import type { APIRoute } from 'astro';
 import { isValidCursor } from '@/lib/http/query';
 import { withRateLimit } from '@/lib/http/rate-limited';
-import { loadMoodPostSnapshot } from '@/features/mood/server/channel-service';
-import { buildMoodFeedItem } from '@/features/mood/server/feed-service';
+import {
+  loadMoodDocument,
+  moodDocumentToFeedItem,
+} from '@/features/mood/server/api-client';
 import { buildMoodAgentPostPageMarkdown } from '@/features/mood/server/serializers';
 
 export const prerender = false;
@@ -33,12 +35,12 @@ export const GET: APIRoute = async ({ params, request, locals, site }) => {
   }
 
   try {
-    const { post, channelInfo } = await loadMoodPostSnapshot({ request, locals }, id);
-    if (!post || !channelInfo) {
+    const post = await loadMoodDocument({ request, locals }, id);
+    if (!post) {
       return markdownResponse('Mood post not found.\n', 404, rateLimit.headers);
     }
 
-    const feedItem = await buildMoodFeedItem({ request, locals }, post, channelInfo);
+    const feedItem = moodDocumentToFeedItem(post);
     const requestUrl = new URL(request.url);
     const baseUrl = site ?? new URL(requestUrl.origin);
     const markdown = buildMoodAgentPostPageMarkdown(feedItem, baseUrl);

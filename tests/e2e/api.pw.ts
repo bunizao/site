@@ -87,7 +87,7 @@ test.describe('API behavior', () => {
     expect(payload.mode).toBe('deep');
     const checks = payload.checks ?? [];
     expect(checks.some((check) => check.id === 'mood-image-worker')).toBe(true);
-    expect(checks.some((check) => check.id === 'telegram-webhook')).toBe(true);
+    expect(checks.some((check) => check.id === 'telegram-webhook')).toBe(false);
   });
 
   test('GET /api/comments validates params and returns comment payload', async ({ request }) => {
@@ -188,72 +188,7 @@ test.describe('API behavior', () => {
     expect(projectNotFound.status()).toBe(404);
   });
 
-  test('GET /api/notify/preview returns deterministic preview payload in e2e mode', async ({ request }) => {
-    const preview = await request.get('/api/notify/preview?mode=daily&timezone=Asia/Kuala_Lumpur');
-    expect(preview.ok()).toBeTruthy();
-
-    const payload = (await preview.json()) as {
-      mode?: string;
-      timezone?: string;
-      source?: { channelTitle?: string; latestPostId?: string | null };
-      subjects?: Record<string, string>;
-      html?: Record<string, string>;
-    };
-
-    expect(payload.mode).toBe('daily');
-    expect(payload.timezone).toBe('Asia/Kuala_Lumpur');
-    expect(payload.source?.channelTitle).toBe('E2E Channel');
-    expect(payload.source?.latestPostId).toBeTruthy();
-    expect(payload.subjects?.subscribe).toContain('Confirm');
-    expect(payload.subjects?.welcome).toContain('Welcome');
-    expect(payload.subjects?.cancel).toContain('paused');
-    expect(payload.html?.mood).toContain('/mood/');
-    expect(payload.html?.digest).toContain('E2E Channel');
-    expect(payload.html?.welcome).toContain('/api/notify/unsubscribe?token=');
-    expect(payload.html?.cancel).toContain('/mood?subscribe=1');
-  });
-
-  test('notify, webhook, and static proxy endpoints handle unauthorized/invalid requests', async ({ request }) => {
-    const webhookGet = await request.get('/api/telegram-webhook');
-    expect(webhookGet.status()).toBe(405);
-
-    const webhookPost = await request.post('/api/telegram-webhook', {
-      data: {},
-    });
-    expect(webhookPost.status()).toBe(401);
-
-    const subscribeGet = await request.get('/api/notify/subscribe');
-    expect(subscribeGet.status()).toBe(405);
-
-    const subscribeInvalidJson = await request.post('/api/notify/subscribe', {
-      headers: {
-        'content-type': 'application/json',
-      },
-      data: 'not-json',
-    });
-    expect(subscribeInvalidJson.status()).toBe(400);
-
-    const confirmNoToken = await request.get('/api/notify/confirm');
-    expect(confirmNoToken.status()).toBe(200);
-    expect(await confirmNoToken.text()).toContain('missing a token');
-
-    const unsubscribeNoToken = await request.get('/api/notify/unsubscribe');
-    expect(unsubscribeNoToken.status()).toBe(200);
-    expect(await unsubscribeNoToken.text()).toContain('missing a token');
-
-    const unsubscribePostNoToken = await request.post('/api/notify/unsubscribe');
-    expect(unsubscribePostNoToken.status()).toBe(200);
-    expect(await unsubscribePostNoToken.text()).toContain('missing a token');
-
-    const dispatchUnauthorized = await request.post('/api/notify/dispatch', { data: {} });
-    expect(dispatchUnauthorized.status()).toBe(401);
-
-    const scheduleUnauthorized = await request.get('/api/notify/schedule');
-    expect(scheduleUnauthorized.status()).toBe(401);
-
-    const retryUnauthorized = await request.get('/api/notify/retry');
-    expect(retryUnauthorized.status()).toBe(401);
-
+  test('static proxy endpoints handle invalid requests', async ({ request }) => {
     const staticInvalidTarget = await request.get('/static/not-a-url');
     expect(staticInvalidTarget.status()).toBe(400);
 

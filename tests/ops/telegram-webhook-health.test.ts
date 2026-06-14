@@ -20,8 +20,8 @@ function getExpectedWebhookUrl(): string {
     return explicitUrl;
   }
 
-  const siteUrl = readEnv('SITE_URL') || readEnv('PUBLIC_SITE_URL') || 'https://buxx.me';
-  return `${siteUrl.replace(/\/+$/, '')}/api/telegram-webhook`;
+  const apiUrl = readEnv('API_URL') || 'https://api.buxx.me';
+  return `${apiUrl.replace(/\/+$/, '')}/v2/telegram/webhook`;
 }
 
 describe('telegram webhook health', () => {

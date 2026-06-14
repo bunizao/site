@@ -1,15 +1,13 @@
 import { describe, expect, test } from 'bun:test';
+import type { MoodContentDocument } from '@bunizao/contracts';
 import { buildMoodDetailMetadata } from '../../src/features/mood/server/detail-metadata';
-import type { Post } from '../../src/features/mood/server/telegram-source';
 
-const createPost = (overrides: Partial<Post> = {}): Post => ({
+const createPost = (overrides: Partial<MoodContentDocument> = {}): MoodContentDocument => ({
   id: '655',
-  title: '',
-  type: 'text',
+  source: 'mood',
   datetime: '2023-06-02T14:09:23+00:00',
-  tags: [],
-  text: '',
-  content: '',
+  bodyHtml: '',
+  media: [],
   reactions: [],
   commentsCount: 0,
   ...overrides,
@@ -18,15 +16,15 @@ const createPost = (overrides: Partial<Post> = {}): Post => ({
 describe('buildMoodDetailMetadata', () => {
   test('uses the first detail image as the share image', () => {
     const post = createPost({
-      text: 'Strawberry milk',
-      content: `
-        <div class="image-list-container image-list-odd">
-          <button class="image-preview-wrap" style="--image-width:800px;--image-height:600px">
-            <img src="https://image.buxx.me/mood/655/0" width="800" height="600" alt="Strawberry milk" />
-          </button>
-        </div>
-        Strawberry milk
-      `,
+      previewText: 'Strawberry milk',
+      bodyHtml: '<p>Strawberry milk</p>',
+      media: [{
+        type: 'image',
+        src: 'https://image.buxx.me/mood/655/0',
+        width: 800,
+        height: 600,
+        alt: 'Strawberry milk',
+      }],
     });
 
     const metadata = buildMoodDetailMetadata(post, '655');
@@ -42,13 +40,12 @@ describe('buildMoodDetailMetadata', () => {
   test('does not describe an existing media-only mood as missing', () => {
     const post = createPost({
       id: '664',
-      content: `
-        <div class="image-list-container image-list-odd">
-          <button class="image-preview-wrap">
-            <img src="https://image.buxx.me/mood/664/0" alt="" />
-          </button>
-        </div>
-      `,
+      bodyHtml: '',
+      media: [{
+        type: 'image',
+        src: 'https://image.buxx.me/mood/664/0',
+        alt: '',
+      }],
     });
 
     const metadata = buildMoodDetailMetadata(post, '664');
@@ -64,8 +61,8 @@ describe('buildMoodDetailMetadata', () => {
   test('uses bookmark descriptions before short link captions', () => {
     const post = createPost({
       id: '3539',
-      text: 'https://x.com/dviolettchan/status/2060659248959299645\n\n看哭了',
-      content: `
+      previewText: 'https://x.com/dviolettchan/status/2060659248959299645\n\n看哭了',
+      bodyHtml: `
         <a href="https://x.com/dviolettchan/status/2060659248959299645">https://x.com/dviolettchan/status/2060659248959299645</a><br><br>看哭了
         <a class="bookmark-card bookmark-card--side-media" href="https://x.com/dviolettchan/status/2060659248959299645">
           <span class="bookmark-card__media bookmark-card__media--side">

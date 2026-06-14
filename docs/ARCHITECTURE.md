@@ -15,17 +15,17 @@
 
 ## Runtime Shape
 
-The Cloudflare Worker `site` is the runtime target for `buxx.me`, `www.buxx.me`, and `image.buxx.me`. It serves the Astro site, API routes, mood image routes, queue consumer, and Cloudflare Cron-triggered notify tasks from one Worker boundary.
+The Cloudflare Worker `site` is the public runtime target for `buxx.me` and `www.buxx.me`. It serves the Astro site and public compatibility routes.
 
-The older standalone image worker and notify scheduler remain useful as rollback history until production cutover is verified, but they are not the architecture this branch documents as the target.
+Private API ownership is moving to the separate `site-api` Worker. The original mood read API remains at `https://api.buxx.me/v1/mood*`; new private admin, notify, webhook, image, health, and posts surfaces use `https://api.buxx.me/v2/`. The public `site` Worker calls that service through the `API` service binding and keeps `buxx.me/api/*` as a compatibility proxy.
 
 ## Key Directories
 
 - **`src/pages/`** — File-based routing. Includes `index.astro` (home), `mood.astro` (feed shell + route bootstrap), `mood/[id].astro` (detail shell + route bootstrap), `mood/embed.astro` (embeddable widget)
-- **`src/pages/api/`** — Server endpoints (moods, comments, SVG generators, oEmbed, notify endpoints, admin endpoints, legacy Telegram webhook rollback)
-- **`src/pages/dev/portal/`** — GitHub-OAuth-gated admin portal (overview, OAuth hub, subscribers, broadcasts, mascot inspector, newsletter preview). `/dev/preview` and `/dev/newsletter-preview` 301-redirect into the portal.
-- **`src/middleware.ts`** — Astro middleware that gates `/dev/portal/**` and `/api/admin/**` against the `admin_session` cookie.
-- **`src/features/`** — Feature-private code. `src/features/home/ui/` contains home-route sections and their private UI helpers. `src/features/mood/` contains mood-specific client controllers, feed renderer/media/update modules, server services, shared helpers, and private Astro UI shells in `ui/`. `src/features/notify/server/` contains notify delivery, subscription, token, email, and D1 persistence logic, while `src/features/notify/ui/` holds notify-private preview UI. `src/features/admin/server/` holds OAuth/session, admin-side subscriber service, and broadcast service. `src/features/admin/ui/` holds the React consoles (subscribers, broadcasts).
+- **`src/pages/api/`** — Public server endpoints (moods, comments, SVG generators, oEmbed, health, Ghost/listening/footer) plus a catch-all compatibility proxy to `site-api`.
+- **`src/pages/dev/` and `src/pages/oauth*`** — Compatibility proxy routes to the private admin/OAuth app in `site-api`.
+- **`src/middleware.ts`** — Astro middleware that gates protected docs by asking `site-api` for the admin session state through the `API` service binding.
+- **`src/features/`** — Feature-private code. `src/features/home/ui/` contains home-route sections and their private UI helpers. `src/features/mood/` contains mood-specific client controllers, feed renderer/media/update modules, server services, shared helpers, and private Astro UI shells in `ui/`.
 - **`src/features/logos/`** — Pixel mascot definitions, SVG rendering helpers, and animated logo UI used by the navbar and favicon route
 - **`src/lib/`** — Shared utilities: `github.ts` (GitHub API), `e2e.ts` (shared E2E fixture flag), `utils.ts` (cn/clsx utility), `fonts.ts` (server-side mirrors of the font tokens), `runtime/env.ts`, `http/*`, `media/responsive-image.ts`, and `security/*`
 - **`src/components/ui/`** — shadcn/ui primitives (Button, Card, Table, Dialog, etc.) used by the admin portal
@@ -50,12 +50,12 @@ The older standalone image worker and notify scheduler remain useful as rollback
 2. **GitHub API** (`src/features/home/ui/Projects.astro`, `src/lib/github.ts`) — Repository data and stars via GraphQL
 3. **Last.fm + Apple iTunes Search** (`src/features/home/ui/Listening.astro`, `src/features/home/server/listening.ts`, `src/pages/api/listening.ts`) — Recent listening status from Last.fm, with client-side home hydration and iTunes enrichment for preview URLs and stronger artwork
 4. **GitHub Contributions** (`src/features/home/ui/GitHubContributions.astro`, `src/pages/api/github/contributions.ts`) — Contribution graph from an internal API backed by GitHub GraphQL, with the public contributions API as a fallback
-5. **Telegram/BroadcastChannel** — Mood posts sourced from Telegram channel, with webhook ingress, image storage, queue dispatch, and scheduled notify tasks owned by the Cloudflare Worker runtime
+5. **Telegram/BroadcastChannel** — Mood posts are ingested and normalized by the private `site-api` Worker, then read by the public site through the `API` service binding.
 6. **Better Stack Status Page** (`src/pages/api/footer.ts`) — Footer service status from `https://status.tuuhub.com/index.json`
 
 ## API Endpoints
 
-**JSON:**
+**Public JSON:**
 - `GET|HEAD /api/ping` — Tiny uncached uptime endpoint for Better Stack monitors.
 - `GET /api/footer` — Cached footer status proxy backed by the Better Stack status page JSON API.
 - `GET /api/edge` — Uncached per-request edge diagnostics from Cloudflare `request.cf` (colo, protocol, TLS, TCP RTT, approximate visitor location, network) for the footer hover popover. Never cached, since values are visitor-specific.
@@ -64,13 +64,12 @@ The older standalone image worker and notify scheduler remain useful as rollback
 - `GET /api/moods` — Mood feed with pagination (`?before=<id>`)
 - `GET /api/comments` — Comments
 - `GET /api/oembed.json` — oEmbed endpoint (docs: `docs/OEMBED-API.md`)
-- `POST /api/notify/dispatch` — Internal notify dispatch endpoint
-- `POST /api/telegram-webhook` — Legacy Telegram webhook rollback endpoint
 
-**Admin (gated by `admin_session` cookie):**
-- `GET /api/admin/auth/start`, `GET /api/admin/auth/callback`, `POST /api/admin/auth/logout` — GitHub OAuth handshake
-- `GET|POST /api/admin/subscribers`, `GET|PATCH|DELETE /api/admin/subscribers/[hash]` — subscriber CRUD
-- `GET|POST /api/admin/broadcasts`, `POST /api/admin/broadcasts/preview`, `GET /api/admin/broadcasts/[id]` — broadcast compose, preview, send, history
+**Private API (`site-api`):**
+- Canonical base URL for new private surfaces: `https://api.buxx.me/v2/`.
+- Mood read API: `https://api.buxx.me/v1/mood*`.
+- Public compatibility: `https://buxx.me/api/*` proxies to `site-api` via the `API` service binding.
+- Admin/OAuth/notify/webhook/image routes are owned by `site-api`, not by this public Worker.
 
 **Owner auth surface:**
 - `GET /oauth` — Short public entry that redirects to the protected OAuth hub.
@@ -80,13 +79,6 @@ Telegram references:
 
 - `docs/TELEGRAM-PIPELINE.md`
 - `docs/debug/README.md` for local-only investigation notes and temporary debug artifacts
-
-**Cloudflare Worker routes:**
-- `POST https://image.buxx.me/webhook` — Telegram webhook receiver
-- `GET https://image.buxx.me/mood/:postId/:imageIndex` — Public mood image reads
-- `GET https://image.buxx.me/channel/avatar` — Public channel avatar reads
-- `POST https://image.buxx.me/ingest/...` — Authenticated manual/backfill ingest routes
-- Cloudflare Cron scheduled events run notify schedule and retry tasks every 15 minutes.
 
 **SVG** (all accept `?theme=light|dark`):
 - `GET /api/status.svg`, `GET /api/tech-stack.svg`, `GET /api/site-badge.svg`
@@ -102,28 +94,16 @@ Accessed via `import.meta.env.*`:
 - `GHOST_URL` — Ghost CMS URL (default: https://blog.buxx.me)
 - `GHOST_CONTENT_APIKEY` — Ghost CMS content API key; required in the Cloudflare build environment for the prerendered Writing section
 - `GITHUB_TOKEN` — GitHub GraphQL token for project data
-- `PUBLIC_HD_IMAGE_URL` — Cloudflare Worker URL for HD mood images
-- `HD_IMAGE_INGEST_BASE_URL` — Internal Worker base URL for webhook image ingest when the public image domain has extra edge protections
-- `TELEGRAM_WEBHOOK_SECRET` — Secret shared by the Telegram webhook endpoints
-- `TELEGRAM_BOT_TOKEN` — Telegram Bot API token
-- `TELEGRAM_CHANNEL_ID` — Telegram channel id for avatar lookups and bot-side reads
+- `PUBLIC_HD_IMAGE_URL` — HD mood image base URL served by `site-api`
 - `CHANNEL` — Telegram public channel slug used for media-group indexing
 - `TELEGRAM_HOST` — Telegram public host for embed lookups (default: `t.me`)
-- `NOTIFY_DISPATCH_SECRET` — Bearer secret accepted by `/api/notify/dispatch`
 - `LASTFM_API_KEY`, `LASTFM_USER` — Last.fm recent tracks integration for the home listening widget
-- `GITHUB_OAUTH_CLIENT_ID`, `GITHUB_OAUTH_CLIENT_SECRET` — GitHub OAuth app for the admin portal
-- `ADMIN_GITHUB_LOGIN` — single GitHub login allowed into `/dev/portal`
-- `ADMIN_SESSION_SECRET` — 32-byte random base64 used to HMAC-sign the admin session cookie
-- `ADMIN_DEV_BYPASS` — loopback-only local login used by `bun run dev:portal`; ignored outside `astro dev`
-- `ADMIN_DEV_LOGIN`, `ADMIN_DEV_AVATAR_URL` — optional local-only login and avatar shown by the dev bypass session
 - `PUBLIC_SITE_URL`, `SITE_URL` — canonical base URLs for email links, previews, and health checks
 - `ACTIVITY_PANEL_SIGNING_SECRET` — optional signing secret for `/api/activity-panel.svg`
 
 Cloudflare Worker bindings and non-secret vars are defined in [`wrangler.jsonc`](../wrangler.jsonc):
 
-- `NOTIFY_DB` — D1 binding for notify/admin state
-- `MOOD_IMAGES` — R2 binding for mood images
-- `NOTIFY_DISPATCH_QUEUE` — Queue binding for immediate notification dispatch
+- `API` — Cloudflare Worker service binding to `site-api`
 
 ## Key Dependencies
 
