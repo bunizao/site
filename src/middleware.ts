@@ -9,6 +9,30 @@ import { isDocsPath } from '@/features/docs/server/visibility';
 
 const OAUTH_LOGIN_PATH = '/oauth/login';
 
+export function createHtmlScriptCsp(origin: string): string {
+  const cleanOrigin = origin.replace(/\/+$/, '');
+  return [
+    `script-src 'unsafe-inline' ${cleanOrigin}/_astro/ https://challenges.cloudflare.com http://localhost:* http://127.0.0.1:*`,
+    "base-uri 'self'",
+    "object-src 'none'",
+  ].join('; ');
+}
+
+function withHtmlSecurityHeaders(request: Request, response: Response): Response {
+  const contentType = response.headers.get('content-type') ?? '';
+  if (!contentType.toLowerCase().includes('text/html')) {
+    return response;
+  }
+
+  const headers = new Headers(response.headers);
+  headers.set('Content-Security-Policy', createHtmlScriptCsp(new URL(request.url).origin));
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers,
+  });
+}
+
 async function hasPrivateAdminSession(request: Request, locals: RuntimeEnvLocals | undefined): Promise<boolean> {
   const api = await getApiServiceBinding(locals);
   if (!api) return false;
@@ -36,11 +60,11 @@ export const onRequest = defineMiddleware(async (context, next) => {
   const docsVisibility = isDocsPath(pathname) ? await getDocsVisibilityFromContent(pathname) : 'missing';
 
   if (docsVisibility !== 'protected') {
-    return next();
+    return withHtmlSecurityHeaders(context.request, await next());
   }
 
   if (await hasPrivateAdminSession(context.request, context.locals)) {
-    return next();
+    return withHtmlSecurityHeaders(context.request, await next());
   }
 
   const nextPath = encodeURIComponent(pathname + url.search);

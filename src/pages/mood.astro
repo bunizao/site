@@ -755,7 +755,7 @@ const skeletonGroups = [
     font-weight: 500;
     letter-spacing: 0.04em;
     text-transform: uppercase;
-    color: hsl(var(--muted-foreground) / 0.55);
+    color: hsl(var(--muted-foreground));
     font-variant-numeric: tabular-nums;
     font-feature-settings: 'tnum' 1, 'zero' 1;
     min-width: 46px;
@@ -817,6 +817,9 @@ const skeletonGroups = [
   }
 
   :global(.mood-forwarded-source) {
+    display: inline-flex;
+    align-items: center;
+    min-height: 24px;
     font-weight: 500;
     line-height: 1.2;
     color: hsl(var(--foreground) / 0.85);
@@ -1099,7 +1102,7 @@ const skeletonGroups = [
     line-height: 1.2;
     letter-spacing: 0;
     text-transform: none;
-    color: hsl(var(--muted-foreground) / 0.58);
+    color: hsl(var(--muted-foreground));
   }
 
   :global(.mood-item-details) {

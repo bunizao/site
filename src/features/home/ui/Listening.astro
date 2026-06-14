@@ -23,6 +23,7 @@ const isLive = Boolean(track?.isNowPlaying);
 const hasTrack = Boolean(track);
 const hasLink = hasTrack && link !== '#';
 const hasPreview = Boolean(previewUrl);
+const trackLabel = `${title} — ${artist}`;
 const playLabel = hasPreview
   ? `Play preview of ${title}`
   : hasLink
@@ -123,7 +124,7 @@ const playLabel = hasPreview
         rel="noopener noreferrer"
         class="listening-track is-inline"
         data-listening-link
-        aria-label={hasLink ? `Open ${title}` : 'Loading listening track'}
+        aria-label={hasLink ? `Open ${trackLabel}` : 'Loading listening track'}
         aria-disabled={hasLink ? undefined : 'true'}
         tabindex={hasLink ? undefined : '-1'}
       >
@@ -1156,7 +1157,7 @@ const playLabel = hasPreview
 
         if (link instanceof HTMLAnchorElement && nextLink) {
           link.href = nextLink;
-          link.setAttribute('aria-label', `Open ${nextTitle}`);
+          link.setAttribute('aria-label', `Open ${nextTitle} — ${nextArtist}`);
           link.removeAttribute('aria-disabled');
           link.removeAttribute('tabindex');
         }

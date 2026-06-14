@@ -159,6 +159,24 @@ describe('Cloudflare runtime configuration', () => {
     expect(headers).not.toContain('/gmetrics/');
   });
 
+  test('adds the same narrow script CSP to Worker-rendered HTML', () => {
+    const middleware = readText('src/middleware.ts');
+
+    expect(middleware).toContain('Content-Security-Policy');
+    expect(middleware).toContain("script-src 'unsafe-inline'");
+    expect(middleware).toContain('/_astro/');
+    expect(middleware).toContain('https://challenges.cloudflare.com');
+    expect(middleware).not.toContain('/cdn-cgi/');
+    expect(middleware).not.toContain('/gmetrics/');
+  });
+
+  test('keeps non-priority mood images lazy when dimensions are incomplete', () => {
+    const renderer = readText('src/features/mood/client/feed-renderer.ts');
+
+    expect(renderer).toContain('const shouldWaitForImageBeforeInsert = isPriorityMedia && !hasResolvedImageLayout');
+    expect(renderer).not.toContain("img.loading = 'eager'");
+  });
+
   test('reads Turnstile site key from runtime public env on the mood route', () => {
     const moodRoute = readText('src/pages/mood.astro');
 

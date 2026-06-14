@@ -97,9 +97,9 @@ function CardFace({
           {project.type}
         </p>
         <div className="mt-2 flex items-center justify-between gap-3">
-          <h3 className="font-display text-[22px] font-extrabold leading-none tracking-[-0.01em]">
+          <div className="font-display text-[22px] font-extrabold leading-none tracking-[-0.01em]">
             {project.name}
-          </h3>
+          </div>
           {project.stars != null && <StarBadge stars={project.stars} />}
         </div>
 
@@ -1330,6 +1330,7 @@ export default function ProjectStack({ className }: { className?: string }) {
                 else promote(project.id);
               }}
               aria-hidden={!active}
+              tabIndex={active ? 0 : -1}
             >
               <div
                 data-l0-drag

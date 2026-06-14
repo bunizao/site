@@ -79,9 +79,10 @@ function RowBody({ item }: { item: ExperienceItem }) {
             {item.org}
           </a>
           {item.current && (
-            <span className="relative flex h-[7px] w-[7px] items-center justify-center" aria-label="Current">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[hsl(var(--foreground)/0.4)]" />
-              <span className="relative inline-flex h-[6px] w-[6px] rounded-full bg-[hsl(var(--foreground)/0.55)]" />
+            <span className="relative flex h-[7px] w-[7px] items-center justify-center">
+              <span className="sr-only">Current</span>
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[hsl(var(--foreground)/0.4)]" aria-hidden="true" />
+              <span className="relative inline-flex h-[6px] w-[6px] rounded-full bg-[hsl(var(--foreground)/0.55)]" aria-hidden="true" />
             </span>
           )}
         </span>

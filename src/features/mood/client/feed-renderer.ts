@@ -98,6 +98,10 @@ function isLongContent(text: string): boolean {
   return (text || '').length > 280;
 }
 
+function isPositiveDimension(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value) && value > 0;
+}
+
 function buildPreviewFragment(previewText: string, previewHtml?: string): DocumentFragment {
   return buildMoodPreviewFragment(previewText, previewHtml, {
     preserveRichTextTags: true,
@@ -536,14 +540,14 @@ export function createFeedRenderer({
           };
         }
 
-        const hasResolvedImageLayout = Boolean(imageLayout) || isTooBigVideoPreview;
-        mediaHydrator.setImageHints(img, { priority: isPriorityMedia });
-        if (!hasResolvedImageLayout) {
-          img.loading = 'eager';
-          if (!isPriorityMedia) {
-            img.removeAttribute('fetchpriority');
-          }
+        const hasKnownImageBox = isPositiveDimension(mood.imageWidth) && isPositiveDimension(mood.imageHeight);
+        if (hasKnownImageBox) {
+          thumbWrap.style.setProperty('--mood-thumb-ratio', `${mood.imageWidth} / ${mood.imageHeight}`);
         }
+
+        const hasResolvedImageLayout = Boolean(imageLayout) || isTooBigVideoPreview || hasKnownImageBox;
+        const shouldWaitForImageBeforeInsert = isPriorityMedia && !hasResolvedImageLayout;
+        mediaHydrator.setImageHints(img, { priority: isPriorityMedia });
 
         const thumbMarker = document.createElement('span');
         thumbMarker.style.display = 'block';
@@ -597,7 +601,7 @@ export function createFeedRenderer({
           appendTooBigVideoOverlay();
         }
 
-        if (hasResolvedImageLayout) {
+        if (hasResolvedImageLayout || !shouldWaitForImageBeforeInsert) {
           content.appendChild(thumbWrap);
         } else {
           content.appendChild(thumbMarker);
