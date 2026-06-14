@@ -75,14 +75,14 @@ function rewriteApiServicePath(pathname: string): string {
   }
 
   if (pathname === '/api') {
-    return '/v1';
+    return '/v2';
   }
 
   if (pathname.startsWith('/api/')) {
-    return `/v1${pathname.slice('/api'.length)}`;
+    return `/v2${pathname.slice('/api'.length)}`;
   }
 
-  return pathname.startsWith('/v1') ? pathname : `/v1${pathname}`;
+  return pathname.startsWith('/v1') || pathname.startsWith('/v2') ? pathname : `/v2${pathname}`;
 }
 
 export function createApiServiceRequest(request: Request): Request {

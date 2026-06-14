@@ -32,7 +32,7 @@ describe('api queue bridge', () => {
     }, env);
 
     expect(env.requests).toHaveLength(1);
-    expect(new URL(env.requests[0]!.url).pathname).toBe('/v1/notify/dispatch');
+    expect(new URL(env.requests[0]!.url).pathname).toBe('/v2/notify/dispatch');
     expect(env.requests[0]!.headers.get('Authorization')).toBe('Bearer dispatch-secret');
     expect(await env.requests[0]!.json()).toEqual({
       postId: '123',

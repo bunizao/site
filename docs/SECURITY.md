@@ -55,7 +55,7 @@ Behavior:
 
 Current primary usage:
 
-- `site-api /v1/notify/subscribe` with expected action `notify_subscribe`
+- `site-api /v2/notify/subscribe` with expected action `notify_subscribe`
 
 ## Signed URLs
 

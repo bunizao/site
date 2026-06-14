@@ -6,8 +6,8 @@ This document describes the private Telegram ingestion pipeline for mood posts, 
 
 The Telegram pipeline affects:
 
-- `POST https://api.buxx.me/v1/telegram/webhook`
-- `https://api.buxx.me/v1/images/*`
+- `POST https://api.buxx.me/v2/telegram/webhook`
+- `https://api.buxx.me/v2/images/*`
 - immediate email notify dispatch
 - public mood pages that still consume Telegram content during this migration wave
 
@@ -15,14 +15,14 @@ The Telegram pipeline affects:
 
 ```mermaid
 flowchart TD
-  A["Telegram channel post"] --> B["Telegram calls https://api.buxx.me/v1/telegram/webhook"]
+  A["Telegram channel post"] --> B["Telegram calls https://api.buxx.me/v2/telegram/webhook"]
   B --> C["Validate X-Telegram-Bot-Api-Secret-Token"]
   C --> D["Resolve postId/imageIndex"]
   D --> E["Fetch Telegram media bytes"]
   E --> F["site-api writes originals and variants to R2"]
   F --> G["Public reads use private image routes"]
   B --> H["site-api enqueues notify dispatch job"]
-  H --> I["Queue consumer calls /v1/notify/dispatch"]
+  H --> I["Queue consumer calls /v2/notify/dispatch"]
   I --> J["Resend sends immediate notify emails"]
 ```
 
@@ -37,7 +37,7 @@ Responsibilities:
 - resolve media-group image indexing
 - ingest mood images into R2
 - enqueue durable immediate notify dispatch jobs
-- dispatch notification email through `/v1/notify/dispatch`
+- dispatch notification email through `/v2/notify/dispatch`
 
 ### Public `site`
 
@@ -52,9 +52,9 @@ Responsibilities during this migration wave:
 
 Canonical private URLs:
 
-- `https://api.buxx.me/v1/telegram/webhook`
-- `https://api.buxx.me/v1/images/*`
-- `https://api.buxx.me/v1/notify/dispatch`
+- `https://api.buxx.me/v2/telegram/webhook`
+- `https://api.buxx.me/v2/images/*`
+- `https://api.buxx.me/v2/notify/dispatch`
 
 Public compatibility:
 

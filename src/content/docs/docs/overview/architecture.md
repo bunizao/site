@@ -6,7 +6,7 @@ public: true
 
 ## The shape
 
-buxx.me is split across two Cloudflare Workers during the API privatization rollout. The public `site` Worker serves `buxx.me` and `www.buxx.me`. The private `site-api` Worker serves `https://api.buxx.me/v1/` and owns admin, notify, webhook, image, and future mood API work.
+buxx.me is split across two Cloudflare Workers during the API privatization rollout. The public `site` Worker serves `buxx.me` and `www.buxx.me`. The private `site-api` Worker serves new private surfaces from `https://api.buxx.me/v2/` and keeps the original mood read API at `https://api.buxx.me/v1/mood*`.
 
 The public Worker keeps `buxx.me/api/*` as a compatibility surface. Compatibility requests that are no longer public-site-owned proxy to `site-api` through a Cloudflare Worker service binding.
 
@@ -37,7 +37,7 @@ The site reads from six external sources:
 
 Public JSON: `/api/moods`, `/api/comments`, `/api/oembed.json`, `/api/footer`, `/api/health`. SVG generators (all accept `?theme=light|dark`): `/api/status.svg`, `/api/tech-stack.svg`, `/api/site-badge.svg`, `/api/project.svg`, `/api/activity-panel.svg`. RSS at `/mood/rss.xml`.
 
-Private API canonical base: `https://api.buxx.me/v1/`. Admin, OAuth, notify, Telegram webhook, image ingest, and scheduled notify work are private API responsibilities. Public `buxx.me/api/*` remains a compatibility proxy where needed.
+Private API canonical base for new surfaces: `https://api.buxx.me/v2/`. Admin, OAuth, notify, Telegram webhook, image ingest, and scheduled notify work are private API responsibilities. Public `buxx.me/api/*` remains a compatibility proxy where needed.
 
 ## Styling
 

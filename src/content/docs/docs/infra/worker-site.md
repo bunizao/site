@@ -6,7 +6,7 @@ public: true
 
 The public runtime is one Cloudflare Worker named `site`. It serves `buxx.me` and `www.buxx.me`.
 
-Private admin, OAuth, notify, Telegram webhook, image ingest, queue, and cron work belong to the separate `site-api` Worker at `https://api.buxx.me/v1/`.
+Private admin, OAuth, notify, Telegram webhook, image ingest, queue, and cron work belong to the separate `site-api` Worker at `https://api.buxx.me/v2/`.
 
 ## Ghost Publishing Hook
 
@@ -28,11 +28,11 @@ The public Worker owns:
 
 The private `site-api` Worker owns:
 
-- `/v1/notify/*`
-- `/v1/admin/*`
+- `/v2/notify/*`
+- `/v2/admin/*`
 - `/oauth*`
 - `/dev/*`
-- `/v1/telegram/webhook`
+- `/v2/telegram/webhook`
 - mood image ingest and serving
 - queue consumers and cron-triggered notify work
 
@@ -51,7 +51,7 @@ Notify D1, mood D1, R2 image storage, queue bindings, session KV, Telegram secre
 ## Failure behavior
 
 - If the `API` service binding is missing, proxied private routes return 503.
-- Protected docs deny access when `site-api /v1/admin/session` is unavailable.
+- Protected docs deny access when `site-api /v2/admin/session` is unavailable.
 - Public mood pages fail closed when the private mood API is unavailable.
 
 ## Related docs

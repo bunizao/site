@@ -10,14 +10,14 @@ Telegram ingestion now belongs to the private `site-api` Worker.
 
 ```mermaid
 flowchart TD
-  A["Telegram channel post"] --> B["POST https://api.buxx.me/v1/telegram/webhook"]
+  A["Telegram channel post"] --> B["POST https://api.buxx.me/v2/telegram/webhook"]
   B --> C["Validate Telegram secret"]
   C --> D["Resolve postId and image index"]
   D --> E["Fetch media bytes from Telegram"]
   E --> F["Write originals and variants to R2"]
   F --> G["Serve private image routes"]
   B --> H["Enqueue notify dispatch job"]
-  H --> I["Queue consumer calls /v1/notify/dispatch"]
+  H --> I["Queue consumer calls /v2/notify/dispatch"]
   I --> J["Resend sends immediate notify emails"]
 ```
 
@@ -43,9 +43,9 @@ The public `site` Worker still owns, during this migration wave:
 
 Canonical private URLs:
 
-- `https://api.buxx.me/v1/telegram/webhook`
-- `https://api.buxx.me/v1/images/*`
-- `https://api.buxx.me/v1/notify/dispatch`
+- `https://api.buxx.me/v2/telegram/webhook`
+- `https://api.buxx.me/v2/images/*`
+- `https://api.buxx.me/v2/notify/dispatch`
 
 Public compatibility:
 

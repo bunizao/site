@@ -39,10 +39,10 @@ Markdown-backed means policy edits don't require layout changes, route logic sta
 
 ### Mood subscription flow
 
-- Subscribe: `site-api /v1/notify/subscribe`.
-- Confirm: `site-api /v1/notify/confirm`.
-- Unsubscribe: `site-api /v1/notify/unsubscribe`.
-- Dispatch / schedule / retry: `site-api /v1/notify/*`.
+- Subscribe: `site-api /v2/notify/subscribe`.
+- Confirm: `site-api /v2/notify/confirm`.
+- Unsubscribe: `site-api /v2/notify/unsubscribe`.
+- Dispatch / schedule / retry: `site-api /v2/notify/*`.
 - Subscriber state in Cloudflare D1: private `NOTIFY_DB`.
 - Email delivery via Resend: private `site-api`.
 - Tokens: private `site-api`.

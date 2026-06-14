@@ -10,13 +10,13 @@ Mood email notifications are deployed with Resend from `site-api`.
 
 Canonical private API:
 
-- `POST https://api.buxx.me/v1/notify/subscribe`
-- `GET https://api.buxx.me/v1/notify/confirm`
-- `GET https://api.buxx.me/v1/notify/unsubscribe`
-- `POST https://api.buxx.me/v1/notify/dispatch`
-- `GET|POST https://api.buxx.me/v1/notify/schedule`
-- `GET|POST https://api.buxx.me/v1/notify/retry`
-- `POST https://api.buxx.me/v1/telegram/webhook`
+- `POST https://api.buxx.me/v2/notify/subscribe`
+- `GET https://api.buxx.me/v2/notify/confirm`
+- `GET https://api.buxx.me/v2/notify/unsubscribe`
+- `POST https://api.buxx.me/v2/notify/dispatch`
+- `GET|POST https://api.buxx.me/v2/notify/schedule`
+- `GET|POST https://api.buxx.me/v2/notify/retry`
+- `POST https://api.buxx.me/v2/telegram/webhook`
 
 Public compatibility:
 
@@ -24,7 +24,7 @@ Public compatibility:
 
 ## Subscribing
 
-`POST /v1/notify/subscribe`:
+`POST /v2/notify/subscribe`:
 
 - `deliveryMode`: `immediate` | `every_5h` | `daily`
 - `timezone`: required for accurate local-day behavior in `daily` mode
@@ -32,7 +32,7 @@ Public compatibility:
 - `turnstileToken`: recommended when Turnstile is enabled
 
 ```bash
-curl -X POST "https://api.buxx.me/v1/notify/subscribe" \
+curl -X POST "https://api.buxx.me/v2/notify/subscribe" \
   -H "content-type: application/json" \
   -d '{"email":"user@example.com","deliveryMode":"daily","timezone":"Asia/Shanghai","dailyHour":9,"turnstileToken":"<TURNSTILE_TOKEN>"}'
 ```
@@ -60,19 +60,19 @@ Bindings:
 
 ## Scheduling
 
-- Immediate sends are triggered by `POST /v1/telegram/webhook`.
-- Scheduled sends are triggered by `/v1/notify/schedule`.
-- Failed sends are retried by `/v1/notify/retry`.
+- Immediate sends are triggered by `POST /v2/telegram/webhook`.
+- Scheduled sends are triggered by `/v2/notify/schedule`.
+- Failed sends are retried by `/v2/notify/retry`.
 
 ### Immediate flow
 
 ```text
-Telegram -> site-api /v1/telegram/webhook -> Cloudflare Queue
-         -> queue consumer -> /v1/notify/dispatch
+Telegram -> site-api /v2/telegram/webhook -> Cloudflare Queue
+         -> queue consumer -> /v2/notify/dispatch
          -> notify service -> Resend
 ```
 
-The webhook and queue worker do not send email directly. `/v1/notify/dispatch` remains the notify entrypoint for delivery, idempotency, and per-subscriber retry scheduling.
+The webhook and queue worker do not send email directly. `/v2/notify/dispatch` remains the notify entrypoint for delivery, idempotency, and per-subscriber retry scheduling.
 
 ## Admin portal
 
@@ -82,7 +82,7 @@ Admin pages and APIs are served by `site-api` and reached from the public site t
 - `/oauth*`
 - `/api/admin/*`
 
-Protected docs on the public site check `site-api /v1/admin/session` through the `API` service binding.
+Protected docs on the public site check `site-api /v2/admin/session` through the `API` service binding.
 
 ## Operational notes
 

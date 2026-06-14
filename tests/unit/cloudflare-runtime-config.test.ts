@@ -113,7 +113,7 @@ describe('Cloudflare runtime configuration', () => {
       PUBLIC_SITE_URL: 'https://buxx.me',
       GHOST_URL: 'https://blog.buxx.me',
       LASTFM_USER: 'bunizao',
-      PUBLIC_HD_IMAGE_URL: 'https://api.buxx.me/v1/images',
+      PUBLIC_HD_IMAGE_URL: 'https://api.buxx.me/v2/images',
       PUBLIC_TURNSTILE_SITE_KEY: '0x4AAAAAACaDQzCbYalmO_xV',
       CHANNEL: 'tutumood',
       TELEGRAM_HOST: 't.me',

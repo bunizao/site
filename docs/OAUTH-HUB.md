@@ -5,7 +5,7 @@ The OAuth hub is the owner-auth control plane for the site. It starts with the G
 ## Current Scope
 
 - `/oauth/login` starts the human login flow.
-- `site-api /v1/admin/auth/start` and `/v1/admin/auth/callback` perform GitHub OAuth.
+- `site-api /v2/admin/auth/start` and `/v2/admin/auth/callback` perform GitHub OAuth.
 - `admin_session` is the signed owner session cookie.
 - `/oauth` routes to the protected hub; unauthenticated requests end at `/oauth/login`.
 - `/dev/*`, `/oauth*`, and `/api/admin/*` on the public site are compatibility proxy routes into `site-api`.

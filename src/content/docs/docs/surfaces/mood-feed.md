@@ -49,7 +49,7 @@ The private `site-api` Worker ingests Telegram updates:
 - channel posts from the Telegram webhook,
 - edited posts, comments, and reaction count updates.
 
-It normalizes media URLs to `https://api.buxx.me/v1/images/*` and returns `MoodFeedResponse`, `MoodContentDocument`, and `MoodCommentsPage` through `https://api.buxx.me/v1/`.
+It normalizes media URLs to `https://api.buxx.me/v2/images/*` and returns `MoodFeedResponse`, `MoodContentDocument`, and `MoodCommentsPage` through `https://api.buxx.me/v1/`.
 
 `src/features/mood/shared/utils.ts` strips Telegram HTML into preview text, keeps a limited preview HTML subset, extracts first image and fallback, detects media-heavy or long posts, derives quote previews, and groups posts by date.
 

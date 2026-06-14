@@ -14,7 +14,7 @@ async function hasPrivateAdminSession(request: Request, locals: RuntimeEnvLocals
   if (!api) return false;
 
   const url = new URL(request.url);
-  url.pathname = '/api/admin/session';
+  url.pathname = '/v2/admin/session';
   url.search = '';
 
   const headers = new Headers();

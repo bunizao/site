@@ -17,7 +17,7 @@
 
 The Cloudflare Worker `site` is the public runtime target for `buxx.me` and `www.buxx.me`. It serves the Astro site and public compatibility routes.
 
-Private API ownership is moving to the separate `site-api` Worker at `https://api.buxx.me/v1/`. The public `site` Worker calls that service through the `API` service binding and keeps `buxx.me/api/*` as a compatibility proxy.
+Private API ownership is moving to the separate `site-api` Worker. The original mood read API remains at `https://api.buxx.me/v1/mood*`; new private admin, notify, webhook, image, health, and posts surfaces use `https://api.buxx.me/v2/`. The public `site` Worker calls that service through the `API` service binding and keeps `buxx.me/api/*` as a compatibility proxy.
 
 ## Key Directories
 
@@ -66,7 +66,8 @@ Private API ownership is moving to the separate `site-api` Worker at `https://ap
 - `GET /api/oembed.json` — oEmbed endpoint (docs: `docs/OEMBED-API.md`)
 
 **Private API (`site-api`):**
-- Canonical base URL: `https://api.buxx.me/v1/`.
+- Canonical base URL for new private surfaces: `https://api.buxx.me/v2/`.
+- Mood read API: `https://api.buxx.me/v1/mood*`.
 - Public compatibility: `https://buxx.me/api/*` proxies to `site-api` via the `API` service binding.
 - Admin/OAuth/notify/webhook/image routes are owned by `site-api`, not by this public Worker.
 

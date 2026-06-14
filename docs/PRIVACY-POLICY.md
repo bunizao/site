@@ -97,10 +97,10 @@ Covered implementation:
 
 Covered implementation:
 
-- subscribe: `site-api /v1/notify/subscribe`
-- confirm: `site-api /v1/notify/confirm`
-- unsubscribe: `site-api /v1/notify/unsubscribe`
-- dispatch / schedule / retry: `site-api /v1/notify/*`
+- subscribe: `site-api /v2/notify/subscribe`
+- confirm: `site-api /v2/notify/confirm`
+- unsubscribe: `site-api /v2/notify/unsubscribe`
+- dispatch / schedule / retry: `site-api /v2/notify/*`
 
 Supporting infrastructure:
 

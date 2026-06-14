@@ -91,7 +91,7 @@ describe('api health', () => {
   test('route returns a lightweight compatibility response by default', async () => {
     const api = {
       fetch: async (request: Request) => {
-        expect(request.url).toBe('https://site-api.internal/v1/health');
+        expect(request.url).toBe('https://site-api.internal/v2/health');
         return new Response(JSON.stringify({
           status: 'ok',
           mode: 'private-api',
@@ -139,7 +139,7 @@ describe('api health', () => {
   test('route runs aggregated checks only in diagnostic mode', async () => {
     const api = {
       fetch: async (request: Request) => {
-        expect(request.url).toBe('https://site-api.internal/v1/health?diagnostic=1');
+        expect(request.url).toBe('https://site-api.internal/v2/health?diagnostic=1');
         return new Response(JSON.stringify({
           status: 'degraded',
           mode: 'default',

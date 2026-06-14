@@ -51,7 +51,7 @@ export async function dispatchApiNotifyQueue(
       continue;
     }
 
-    const response = await api.fetch(new Request(`${API_SERVICE_ORIGIN}/v1/notify/dispatch`, {
+    const response = await api.fetch(new Request(`${API_SERVICE_ORIGIN}/v2/notify/dispatch`, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${secret}`,

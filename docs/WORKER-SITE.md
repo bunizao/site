@@ -34,12 +34,12 @@ The private API Worker is `site-api`.
 
 Canonical base URL:
 
-- `https://api.buxx.me/v1/`
+- `https://api.buxx.me/v2/`
 
 Public compatibility:
 
 - `https://buxx.me/api/*` proxies through the `API` service binding.
-- `/dev/*` and `/oauth*` proxy to private admin/OAuth routes without adding a `/v1` prefix.
+- `/dev/*` and `/oauth*` proxy to private admin/OAuth routes without adding a version prefix.
 
 `wrangler.jsonc` binds the public Worker to the private Worker:
 
@@ -60,7 +60,7 @@ The public Worker owns:
 - public mood rendering from `site-api`
 - public SVG and oEmbed endpoints
 - Ghost/listening/footer data hydration
-- protected docs gating through `site-api /v1/admin/session`
+- protected docs gating through `site-api /v2/admin/session`
 
 The public Worker does not own:
 

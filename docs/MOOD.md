@@ -166,7 +166,7 @@ Core files:
 `site-api` responsibilities:
 
 - ingest Telegram webhook updates into D1
-- normalize media URLs into `https://api.buxx.me/v1/images/*`
+- normalize media URLs into `https://api.buxx.me/v2/images/*`
 - return `MoodFeedResponse`, `MoodContentDocument`, and `MoodCommentsPage`
 - parse:
   - forwarded metadata
