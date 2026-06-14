@@ -707,8 +707,9 @@ const placeholders = Array.from({ length: SKELETON_COUNT }, (_, index) => ({
     const getMoodFeedUrl = (): string => {
       try {
         const currentUrl = new URL(window.location.href);
-        if (currentUrl.searchParams.get('api-v2') !== 'true') return '/api/moods';
-        const query = new URLSearchParams({ 'api-v2': 'true' });
+        const apiMode = currentUrl.searchParams.get('api-v2');
+        if (!apiMode) return '/api/moods';
+        const query = new URLSearchParams({ 'api-v2': apiMode });
         return `/api/moods?${query}`;
       } catch {
         return '/api/moods';

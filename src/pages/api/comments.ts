@@ -4,9 +4,10 @@ import {
   jsonBadRequest,
   jsonTooManyRequests,
 } from '@/lib/http/json-response';
-import { isValidCursor, readBooleanFlag, readCursorQuery } from '@/lib/http/query';
+import { isValidCursor, readCursorQuery } from '@/lib/http/query';
 import { withRateLimit } from '@/lib/http/rate-limited';
 import { loadMoodCommentsPage } from '@/features/mood/server/comments-service';
+import { resolveMoodApiV2Mode } from '@/features/mood/server/api-mode';
 
 export const prerender = false;
 
@@ -23,7 +24,7 @@ export const GET: APIRoute = async ({ request, locals }) => {
   const url = new URL(request.url);
   const postId = readCursorQuery(url, 'postId');
   const before = readCursorQuery(url, 'before');
-  const useApiV2 = readBooleanFlag(url, 'api-v2');
+  const useApiV2 = resolveMoodApiV2Mode(url, locals);
 
   if (!postId) {
     return jsonBadRequest('Missing postId parameter', rateLimit.headers);

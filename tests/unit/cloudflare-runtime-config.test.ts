@@ -115,6 +115,7 @@ describe('Cloudflare runtime configuration', () => {
       LASTFM_USER: 'bunizao',
       PUBLIC_HD_IMAGE_URL: 'https://api.buxx.me/v2/images',
       PUBLIC_TURNSTILE_SITE_KEY: '0x4AAAAAACaDQzCbYalmO_xV',
+      MOOD_API_V2_DEFAULT: 'true',
       CHANNEL: 'tutumood',
       TELEGRAM_HOST: 't.me',
     });

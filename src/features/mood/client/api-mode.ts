@@ -1,13 +1,17 @@
+import { appendMoodApiModeQueryValue, readMoodApiModeQueryValue } from '@/features/mood/shared/api-mode';
+
 export function isMoodApiV2Enabled(): boolean {
   try {
-    return new URL(window.location.href).searchParams.get('api-v2') === 'true';
+    return readMoodApiModeQueryValue(new URL(window.location.href)) === 'true';
   } catch {
     return false;
   }
 }
 
 export function appendMoodApiMode(query: URLSearchParams): void {
-  if (isMoodApiV2Enabled()) {
-    query.set('api-v2', 'true');
+  try {
+    appendMoodApiModeQueryValue(query, readMoodApiModeQueryValue(new URL(window.location.href)));
+  } catch {
+    // Leave the query untouched when the current URL cannot be parsed.
   }
 }

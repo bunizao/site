@@ -2,6 +2,7 @@ import {
   loadMoodComments,
   loadMoodFeed,
 } from '@/features/mood/server/api-client';
+import { resolveMoodApiV2Mode } from '@/features/mood/server/api-mode';
 import { getCurrentListeningTrack } from '@/features/home/server/listening';
 import { readPublicEnv } from '@/lib/runtime/env';
 import type {
@@ -61,7 +62,10 @@ async function checkMoodFeed(
 ): Promise<ApiHealthCheckResult> {
   const feed = await loadMoodFeed(
     { request: context.request, locals: context.locals },
-    { fresh: context.deep }
+    {
+      fresh: context.deep,
+      useApiV2: resolveMoodApiV2Mode(new URL(context.request.url), context.locals),
+    }
   );
 
   state.moodFeed = feed;
@@ -136,7 +140,8 @@ async function checkComments(
 
   const comments = await loadMoodComments(
     { request: context.request, locals: context.locals },
-    state.latestMoodId
+    state.latestMoodId,
+    { useApiV2: resolveMoodApiV2Mode(new URL(context.request.url), context.locals) }
   );
 
   if (!Array.isArray(comments.comments) || typeof comments.hasMore !== 'boolean') {

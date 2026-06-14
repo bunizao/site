@@ -7,6 +7,7 @@ import {
   loadMoodFeed,
   moodDocumentToFeedItem,
 } from '@/features/mood/server/api-client';
+import { resolveMoodApiV2Mode } from '@/features/mood/server/api-mode';
 import { renderMoodGalleryMarkup } from '@/features/mood/shared/gallery';
 import { renderStructuredMoodFeedMediaMarkup } from '@/features/mood/shared/feed-media';
 import {
@@ -30,7 +31,7 @@ const count = idParam ? 1 : Math.min(10, Math.max(1, readIntQuery(url, 'count') 
 const frame = readBooleanFlag(url, 'frame', true);
 const density = readEnumQuery(url, 'density', ['regular', 'compact'] as const, 'regular');
 const font = readEnumQuery(url, 'font', ['mono', 'system'] as const, 'mono');
-const useApiV2 = readBooleanFlag(url, 'api-v2');
+const useApiV2 = resolveMoodApiV2Mode(url, Astro.locals);
 const originParam = url.searchParams.get('origin');
 const refreshRaw = readIntQuery(url, 'refresh');
 const refresh = refreshRaw !== null

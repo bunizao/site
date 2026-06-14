@@ -8,6 +8,7 @@ const testEnvKeys = [
   'LASTFM_API_KEY',
   'LASTFM_USER',
   'LASTFM_USERNAME',
+  'MOOD_API_V2_DEFAULT',
   'TELEGRAM_BOT_TOKEN',
 ];
 
@@ -44,6 +45,7 @@ describe('api health', () => {
     delete process.env.LASTFM_API_KEY;
     delete process.env.LASTFM_USER;
     delete process.env.LASTFM_USERNAME;
+    delete process.env.MOOD_API_V2_DEFAULT;
     delete process.env.TELEGRAM_BOT_TOKEN;
   });
 

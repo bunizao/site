@@ -15,6 +15,7 @@ import {
   loadMoodFeed,
   loadMoodProbe,
 } from '@/features/mood/server/api-client';
+import { resolveMoodApiV2Mode } from '@/features/mood/server/api-mode';
 import type { MoodProbeResult } from '@/features/mood/server/contracts';
 
 export const prerender = false;
@@ -25,7 +26,7 @@ export const GET: APIRoute = async ({ request, locals }) => {
   const after = readCursorQuery(url, 'after');
   const isProbe = readBooleanFlag(url, 'probe');
   const skipCache = readBooleanFlag(url, 'fresh');
-  const useApiV2 = readBooleanFlag(url, 'api-v2');
+  const useApiV2 = resolveMoodApiV2Mode(url, locals);
   const rateLimit = withRateLimit(
     request,
     isProbe

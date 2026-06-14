@@ -1,6 +1,10 @@
 import * as cheerio from 'cheerio';
 import type { ContentChannelSummary } from '@bunizao/contracts';
 import type { MoodFeedItem, MoodFeedResponse } from '@/features/mood/server/contracts';
+import {
+  appendMoodApiModeQueryValue,
+  type MoodApiModeQueryValue,
+} from '@/features/mood/shared/api-mode';
 import { renderStructuredMoodFeedMediaMarkup } from '@/features/mood/shared/feed-media';
 
 const stripInvalidXmlChars = (value: string): string =>
@@ -261,14 +265,18 @@ export function buildMoodAgentPostMarkdown(
 export function buildMoodAgentMarkdown(
   feed: MoodFeedResponse,
   baseUrl: URL,
-  options: { before?: string; after?: string; useApiV2?: boolean } = {}
+  options: {
+    before?: string;
+    after?: string;
+    useApiV2?: boolean;
+    apiModeQueryValue?: MoodApiModeQueryValue | null;
+  } = {}
 ): string {
   const sourceUrl = new URL('/mood', baseUrl);
   const jsonUrl = new URL('/api/moods', baseUrl);
-  if (options.useApiV2) {
-    sourceUrl.searchParams.set('api-v2', 'true');
-    jsonUrl.searchParams.set('api-v2', 'true');
-  }
+  const apiModeQueryValue = options.apiModeQueryValue ?? (options.useApiV2 ? 'true' : null);
+  appendMoodApiModeQueryValue(sourceUrl.searchParams, apiModeQueryValue);
+  appendMoodApiModeQueryValue(jsonUrl.searchParams, apiModeQueryValue);
   if (options.before) {
     jsonUrl.searchParams.set('before', options.before);
   }
@@ -292,9 +300,7 @@ export function buildMoodAgentMarkdown(
   if (nextBefore) {
     const nextUrl = new URL('/agent/mood', baseUrl);
     nextUrl.searchParams.set('before', nextBefore);
-    if (options.useApiV2) {
-      nextUrl.searchParams.set('api-v2', 'true');
-    }
+    appendMoodApiModeQueryValue(nextUrl.searchParams, apiModeQueryValue);
     lines.push(`Next: ${nextUrl.href}`);
   }
 
@@ -314,11 +320,16 @@ export function buildMoodAgentMarkdown(
   return `${lines.join('\n')}\n`;
 }
 
-export function buildMoodAgentPostPageMarkdown(post: MoodFeedItem, baseUrl: URL, options: { useApiV2?: boolean } = {}): string {
+export function buildMoodAgentPostPageMarkdown(
+  post: MoodFeedItem,
+  baseUrl: URL,
+  options: { useApiV2?: boolean; apiModeQueryValue?: MoodApiModeQueryValue | null } = {}
+): string {
   const feedUrl = new URL('/agent/mood', baseUrl);
-  if (options.useApiV2) {
-    feedUrl.searchParams.set('api-v2', 'true');
-  }
+  appendMoodApiModeQueryValue(
+    feedUrl.searchParams,
+    options.apiModeQueryValue ?? (options.useApiV2 ? 'true' : null)
+  );
   return [
     buildMoodAgentPostMarkdown(post, baseUrl, { headingLevel: 1 }),
     '',
