@@ -20,6 +20,7 @@ import {
   toMoodAvatarUrl,
   type MoodServerContext,
 } from './channel-service';
+import type { MediaItem } from '@bunizao/contracts';
 
 function getLocalMoodId(href: string | undefined): string {
   if (!href) return '';
@@ -44,6 +45,16 @@ export async function buildMoodFeedItem(
   const gallery = getMoodGallery(post.content);
   const leadItem = gallery?.items[0] ?? null;
   const imageMeta = getFirstImageMeta(post.content);
+  const media: MediaItem[] = gallery?.items.map((item, index) => ({
+    id: `legacy-${post.id}-${index}`,
+    type: 'image',
+    src: item.src,
+    fallbackSrc: item.fallbackSrc,
+    width: item.width,
+    height: item.height,
+    layout: item.layout,
+    alt: item.alt,
+  })) ?? [];
   const rawQuote = getQuotePreview(post.content, {
     channel: getMoodChannelSlug(context.locals),
     channelTitle: channelInfo.title?.trim() ?? '',
@@ -70,6 +81,7 @@ export async function buildMoodFeedItem(
     previewText,
     previewHtml,
     previewMediaType: tooBigVideo ? 'too-big-video' : '',
+    media,
     gallery: mediaPreview ? null : gallery,
     image: mediaPreview ? null : leadItem?.src ?? imageMeta.src,
     imageFallback: mediaPreview ? null : leadItem?.fallbackSrc ?? imageMeta.fallbackSrc,

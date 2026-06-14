@@ -2,6 +2,7 @@ import type {
   ContentChannelSummary,
   ContentMediaLayout,
   ForwardedFrom,
+  MediaItem,
   QuoteRef,
   Reaction,
 } from './content';
@@ -37,6 +38,7 @@ export interface MoodFeedItem {
   previewText: string;
   previewHtml: string;
   previewMediaType?: string;
+  media: MediaItem[];
   gallery?: MoodGallery | null;
   image?: string | null;
   imageFallback?: string | null;
@@ -59,6 +61,7 @@ export interface MoodData {
   previewText: string;
   previewHtml?: string;
   previewMediaType?: string;
+  media?: MediaItem[];
   gallery?: MoodGallery | null;
   image?: string | null;
   imageFallback?: string | null;

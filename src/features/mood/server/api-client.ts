@@ -6,6 +6,10 @@ import type {
   MoodFeedResponse,
   MoodProbeResult,
 } from '@bunizao/contracts';
+import {
+  createApiServiceRequest,
+  getApiServiceBinding,
+} from '@/lib/http/api-service-proxy';
 import { isE2ESiteFixtureEnabled } from '@/lib/e2e';
 import {
   createE2EChannelInfo,
@@ -41,6 +45,52 @@ export interface MoodCommentsQuery {
 
 export interface MoodDocumentQuery {
   useApiV2?: boolean;
+}
+
+type MoodApiPath = `/v1/mood${string}`;
+
+function createMoodApiRequest(context: MoodServerContext, path: MoodApiPath, params: URLSearchParams = new URLSearchParams()): Request {
+  const source = new URL(context.request.url);
+  source.pathname = path;
+  source.search = params.toString();
+  return createApiServiceRequest(new Request(source, {
+    method: 'GET',
+    headers: context.request.headers,
+  }));
+}
+
+async function fetchMoodApiJson<T>(
+  context: MoodServerContext,
+  path: MoodApiPath,
+  params: URLSearchParams = new URLSearchParams(),
+): Promise<T> {
+  const api = await getApiServiceBinding(context.locals);
+  if (!api) {
+    throw new Error('API service binding unavailable for mood api-v2 reads.');
+  }
+
+  const response = await api.fetch(createMoodApiRequest(context, path, params));
+  if (!response.ok) {
+    throw new Error(`Mood api-v2 request failed: ${response.status} ${response.statusText}`);
+  }
+
+  return response.json() as Promise<T>;
+}
+
+function moodFeedParams(query: MoodFeedQuery): URLSearchParams {
+  const params = new URLSearchParams();
+  if (query.before) params.set('before', query.before);
+  if (query.after) params.set('after', query.after);
+  if (query.fresh) params.set('fresh', 'true');
+  if (typeof query.limit === 'number') params.set('limit', String(query.limit));
+  return params;
+}
+
+function moodCommentsParams(query: MoodCommentsQuery): URLSearchParams {
+  const params = new URLSearchParams();
+  if (query.before) params.set('before', query.before);
+  if (typeof query.limit === 'number') params.set('limit', String(query.limit));
+  return params;
 }
 
 function imageMediaItems(media: readonly MediaItem[]): MediaItem[] {
@@ -88,6 +138,10 @@ export async function loadMoodFeed(
     return buildMoodFeedResponse(context, channelInfo, channelInfo.posts);
   }
 
+  if (query.useApiV2) {
+    return fetchMoodApiJson<MoodFeedResponse>(context, '/v1/mood', moodFeedParams(query));
+  }
+
   // D1 stays useful for indexing and ingestion, but production mood rendering
   // still depends on Telegram widget HTML for link previews, files, video
   // fallbacks, and reply cards.
@@ -100,10 +154,15 @@ export async function loadMoodFeed(
   return buildMoodFeedResponse(context, channelInfo, limitedPosts);
 }
 
-export async function loadMoodProbe(context: MoodServerContext, _options: { useApiV2?: boolean } = {}): Promise<MoodProbeResult> {
+export async function loadMoodProbe(context: MoodServerContext, options: { useApiV2?: boolean } = {}): Promise<MoodProbeResult> {
   if (isE2ESiteFixtureEnabled(context.locals)) {
     const channelInfo = createE2EChannelInfo();
     return { latestId: channelInfo.posts[0]?.id ?? '' };
+  }
+
+  if (options.useApiV2) {
+    const params = new URLSearchParams({ probe: 'true', fresh: 'true' });
+    return fetchMoodApiJson<MoodProbeResult>(context, '/v1/mood', params);
   }
 
   const { posts } = await loadMoodChannelSnapshot(context, { skipCache: true });
@@ -113,7 +172,7 @@ export async function loadMoodProbe(context: MoodServerContext, _options: { useA
 export async function loadMoodDocument(
   context: MoodServerContext,
   id: string,
-  _query: MoodDocumentQuery = {},
+  query: MoodDocumentQuery = {},
 ): Promise<MoodContentDocument | null> {
   if (isE2ESiteFixtureEnabled(context.locals)) {
     const post = createE2EPost(id);
@@ -136,6 +195,10 @@ export async function loadMoodDocument(
         title: 'Levitating',
       },
     };
+  }
+
+  if (query.useApiV2) {
+    return fetchMoodApiJson<MoodContentDocument | null>(context, `/v1/mood/${encodeURIComponent(id)}`);
   }
 
   const { post, channelInfo } = await loadMoodPostSnapshot(context, id);
@@ -171,6 +234,14 @@ export async function loadMoodComments(
 ): Promise<MoodCommentsPage> {
   if (isE2ESiteFixtureEnabled(context.locals)) {
     return loadMoodCommentsFixture(postId);
+  }
+
+  if (query.useApiV2) {
+    return fetchMoodApiJson<MoodCommentsPage>(
+      context,
+      `/v1/mood/${encodeURIComponent(postId)}/comments`,
+      moodCommentsParams(query),
+    );
   }
 
   const result = await getPostComments(
@@ -212,6 +283,7 @@ export function moodDocumentToFeedItem(document: MoodContentDocument): MoodFeedI
     previewText: document.previewText ?? '',
     previewHtml: document.previewHtml ?? document.bodyHtml,
     previewMediaType: document.hero?.type,
+    media: document.media,
     gallery: imageItems.length > 0
       ? {
           count: imageItems.length,

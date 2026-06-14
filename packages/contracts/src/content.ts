@@ -9,7 +9,8 @@ export type ContentMediaType =
   | 'embed'
   | 'sticker'
   | 'link-preview'
-  | 'location';
+  | 'location'
+  | 'poll';
 export type ContentMediaLayout = 'landscape' | 'portrait' | 'ultra-tall';
 
 export interface MediaItem {

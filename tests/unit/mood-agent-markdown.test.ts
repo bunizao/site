@@ -18,6 +18,16 @@ describe('buildMoodAgentMarkdown', () => {
           tag: 'note',
           previewText: 'Line one\nLine two',
           previewHtml: '<p>Line one</p>',
+          media: [{
+            id: '42-0',
+            type: 'image',
+            src: '/media/42.jpg',
+            fallbackSrc: null,
+            width: 1200,
+            height: 800,
+            layout: 'landscape',
+            alt: '',
+          }],
           gallery: {
             count: 1,
             items: [
@@ -81,6 +91,7 @@ describe('buildMoodAgentMarkdown', () => {
           tag: '',
           previewText: 'Single post',
           previewHtml: '',
+          media: [],
           gallery: null,
           image: null,
           imageFallback: null,
