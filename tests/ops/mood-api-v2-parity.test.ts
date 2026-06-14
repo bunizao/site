@@ -1,8 +1,10 @@
 import { describe, expect, test } from 'bun:test';
+import type { MediaItem } from '@bunizao/contracts';
 
 interface MoodPost {
   id?: string;
   previewMediaType?: string;
+  media?: MediaItem[];
   mediaHtml?: string;
   quote?: {
     text?: string;
@@ -21,10 +23,12 @@ interface MoodApiResponse {
 }
 
 interface ParitySample {
+  kind: string;
   before: string;
   id: string;
   label: string;
-  assert(post: MoodPost): void;
+  assertLegacy(post: MoodPost): void;
+  assertApiV2(post: MoodPost): void;
 }
 
 function readEnv(name: string): string {
@@ -65,7 +69,6 @@ async function fetchMoodWindow(siteUrl: string, sample: ParitySample, apiV2: boo
 function comparablePost(post: MoodPost): MoodPost {
   return {
     previewMediaType: post.previewMediaType ?? '',
-    mediaHtml: post.mediaHtml ?? '',
     quote: post.quote ?? null,
     image: post.image ?? null,
     gallery: post.gallery ?? null,
@@ -74,48 +77,76 @@ function comparablePost(post: MoodPost): MoodPost {
   };
 }
 
+function mediaTypes(post: MoodPost): string[] {
+  return (post.media ?? []).map((item) => item.type);
+}
+
 const samples: ParitySample[] = [
   {
+    kind: 'link-preview',
     before: '3600',
     id: '3572',
     label: 'bookmark card',
-    assert(post) {
+    assertLegacy(post) {
       expect(post.mediaHtml ?? '').toContain('bookmark-card');
+    },
+    assertApiV2(post) {
+      expect(mediaTypes(post)).toContain('link-preview');
+      expect(post.mediaHtml ?? '').toBe('');
     },
   },
   {
+    kind: 'oversized-video',
     before: '3600',
     id: '3567',
     label: 'oversized video',
-    assert(post) {
+    assertLegacy(post) {
       expect(post.previewMediaType).toBe('too-big-video');
       expect(post.image).toBeTruthy();
       expect(post.gallery).toBeNull();
       expect(post.needsDetailPage).toBe(true);
     },
-  },
-  {
-    before: '3600',
-    id: '3559',
-    label: 'inline video',
-    assert(post) {
-      expect(post.mediaHtml ?? '').toContain('<video');
+    assertApiV2(post) {
+      expect(mediaTypes(post)).toContain('video');
+      expect(post.needsDetailPage).toBe(true);
     },
   },
   {
+    kind: 'video',
+    before: '3600',
+    id: '3559',
+    label: 'inline video',
+    assertLegacy(post) {
+      expect(post.mediaHtml ?? '').toContain('<video');
+    },
+    assertApiV2(post) {
+      expect(mediaTypes(post)).toContain('video');
+      expect(post.mediaHtml ?? '').toBe('');
+    },
+  },
+  {
+    kind: 'reply',
     before: '3600',
     id: '3558',
     label: 'reply quote',
-    assert(post) {
+    assertLegacy(post) {
+      expect(post.quote?.text ?? '').not.toBe('');
+    },
+    assertApiV2(post) {
       expect(post.quote?.text ?? '').not.toBe('');
     },
   },
   {
+    kind: 'document',
     before: '2000',
     id: '1991',
     label: 'file attachment',
-    assert(post) {
+    assertLegacy(post) {
       expect(post.mediaHtml ?? '').toContain('tgme_widget_message_document_wrap');
+    },
+    assertApiV2(post) {
+      expect(mediaTypes(post)).toContain('document');
+      expect(post.mediaHtml ?? '').toBe('');
     },
   },
 ];
@@ -128,7 +159,8 @@ describe('mood api-v2 production parity', () => {
       const legacyPost = await fetchMoodWindow(siteUrl, sample, false);
       const apiV2Post = await fetchMoodWindow(siteUrl, sample, true);
 
-      sample.assert(legacyPost);
+      sample.assertLegacy(legacyPost);
+      sample.assertApiV2(apiV2Post);
       expect(comparablePost(apiV2Post)).toEqual(comparablePost(legacyPost));
     }
   }, { timeout: 30_000 });
