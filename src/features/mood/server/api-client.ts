@@ -8,10 +8,6 @@ import type {
 } from '@bunizao/contracts';
 import { isE2ESiteFixtureEnabled } from '@/lib/e2e';
 import {
-  API_SERVICE_BINDING_ORIGIN,
-  getApiServiceBinding,
-} from '@/lib/http/api-service-proxy';
-import {
   createE2EChannelInfo,
   createE2EPost,
 } from './e2e-fixtures';
@@ -45,45 +41,6 @@ export interface MoodCommentsQuery {
 
 export interface MoodDocumentQuery {
   useApiV2?: boolean;
-}
-
-function appendSearchParams(url: URL, values: Record<string, string | number | boolean | undefined>): void {
-  for (const [key, value] of Object.entries(values)) {
-    if (value === undefined || value === false || value === '') continue;
-    url.searchParams.set(key, value === true ? '1' : String(value));
-  }
-}
-
-function createApiRequest(context: MoodServerContext, path: string): Request {
-  const headers = new Headers({
-    Accept: 'application/json',
-  });
-  const source = new URL(context.request.url);
-
-  headers.set('X-Forwarded-Host', source.host);
-  headers.set('X-Forwarded-Proto', source.protocol.replace(':', ''));
-  headers.set('X-Forwarded-Origin', source.origin);
-  headers.set('X-Buxx-Forwarded-Url', source.toString());
-
-  return new Request(new URL(path, API_SERVICE_BINDING_ORIGIN), {
-    headers,
-  });
-}
-
-async function fetchMoodApi(context: MoodServerContext, path: string): Promise<Response> {
-  const api = await getApiServiceBinding(context.locals);
-  if (!api) {
-    throw new Error('API service binding unavailable');
-  }
-
-  return api.fetch(createApiRequest(context, path));
-}
-
-async function readApiJson<T>(response: Response, label: string): Promise<T> {
-  if (!response.ok) {
-    throw new Error(`${label} failed with ${response.status}`);
-  }
-  return await response.json() as T;
 }
 
 function imageMediaItems(media: readonly MediaItem[]): MediaItem[] {
@@ -131,46 +88,32 @@ export async function loadMoodFeed(
     return buildMoodFeedResponse(context, channelInfo, channelInfo.posts);
   }
 
-  if (!query.useApiV2) {
-    const { channelInfo, posts } = await loadMoodChannelSnapshot(context, {
-      before: query.before,
-      after: query.after,
-      skipCache: query.fresh,
-    });
-    const limitedPosts = typeof query.limit === 'number' ? posts.slice(0, query.limit) : posts;
-    return buildMoodFeedResponse(context, channelInfo, limitedPosts);
-  }
-
-  const url = new URL('/v1/mood', API_SERVICE_BINDING_ORIGIN);
-  appendSearchParams(url, {
+  // D1 stays useful for indexing and ingestion, but production mood rendering
+  // still depends on Telegram widget HTML for link previews, files, video
+  // fallbacks, and reply cards.
+  const { channelInfo, posts } = await loadMoodChannelSnapshot(context, {
     before: query.before,
     after: query.after,
-    fresh: query.fresh,
-    limit: query.limit,
+    skipCache: query.fresh,
   });
-  const response = await fetchMoodApi(context, `${url.pathname}${url.search}`);
-  return readApiJson<MoodFeedResponse>(response, 'Mood feed');
+  const limitedPosts = typeof query.limit === 'number' ? posts.slice(0, query.limit) : posts;
+  return buildMoodFeedResponse(context, channelInfo, limitedPosts);
 }
 
-export async function loadMoodProbe(context: MoodServerContext, options: { useApiV2?: boolean } = {}): Promise<MoodProbeResult> {
+export async function loadMoodProbe(context: MoodServerContext, _options: { useApiV2?: boolean } = {}): Promise<MoodProbeResult> {
   if (isE2ESiteFixtureEnabled(context.locals)) {
     const channelInfo = createE2EChannelInfo();
     return { latestId: channelInfo.posts[0]?.id ?? '' };
   }
 
-  if (!options.useApiV2) {
-    const { posts } = await loadMoodChannelSnapshot(context, { skipCache: true });
-    return { latestId: posts[0]?.id ?? '' };
-  }
-
-  const response = await fetchMoodApi(context, '/v1/mood?probe=1&fresh=1');
-  return readApiJson<MoodProbeResult>(response, 'Mood probe');
+  const { posts } = await loadMoodChannelSnapshot(context, { skipCache: true });
+  return { latestId: posts[0]?.id ?? '' };
 }
 
 export async function loadMoodDocument(
   context: MoodServerContext,
   id: string,
-  query: MoodDocumentQuery = {},
+  _query: MoodDocumentQuery = {},
 ): Promise<MoodContentDocument | null> {
   if (isE2ESiteFixtureEnabled(context.locals)) {
     const post = createE2EPost(id);
@@ -195,37 +138,30 @@ export async function loadMoodDocument(
     };
   }
 
-  const useApiV2 = query.useApiV2 ?? new URL(context.request.url).searchParams.get('api-v2') === 'true';
-  if (!useApiV2) {
-    const { post, channelInfo } = await loadMoodPostSnapshot(context, id);
-    if (!post) return null;
-    const feedItem = channelInfo ? await buildMoodFeedItem(context, post, channelInfo) : null;
-    const media = legacyPostMedia(post.content);
+  const { post, channelInfo } = await loadMoodPostSnapshot(context, id);
+  if (!post) return null;
+  const feedItem = channelInfo ? await buildMoodFeedItem(context, post, channelInfo) : null;
+  const media = legacyPostMedia(post.content);
 
-    return {
-      id: post.id,
-      source: 'mood',
-      datetime: post.datetime,
-      tag: post.tags[0],
-      bodyHtml: post.content,
-      previewText: post.text,
-      previewHtml: feedItem?.previewHtml ?? post.text,
-      hero: media[0] ?? null,
-      media,
-      forwardedFrom: post.forwardedFrom ?? null,
-      quote: feedItem?.quote ?? null,
-      reactions: feedItem?.reactions ?? post.reactions,
-      commentsCount: post.commentsCount ?? 0,
-      channel: {
-        slug: getMoodChannelSlug(context.locals) || undefined,
-        title: channelInfo?.title,
-      },
-    };
-  }
-
-  const response = await fetchMoodApi(context, `/v1/mood/${encodeURIComponent(id)}`);
-  if (response.status === 404) return null;
-  return readApiJson<MoodContentDocument>(response, 'Mood document');
+  return {
+    id: post.id,
+    source: 'mood',
+    datetime: post.datetime,
+    tag: post.tags[0],
+    bodyHtml: post.content,
+    previewText: post.text,
+    previewHtml: feedItem?.previewHtml ?? post.text,
+    hero: media[0] ?? null,
+    media,
+    forwardedFrom: post.forwardedFrom ?? null,
+    quote: feedItem?.quote ?? null,
+    reactions: feedItem?.reactions ?? post.reactions,
+    commentsCount: post.commentsCount ?? 0,
+    channel: {
+      slug: getMoodChannelSlug(context.locals) || undefined,
+      title: channelInfo?.title,
+    },
+  };
 }
 
 export async function loadMoodComments(
@@ -237,42 +173,32 @@ export async function loadMoodComments(
     return loadMoodCommentsFixture(postId);
   }
 
-  if (!query.useApiV2) {
-    const result = await getPostComments(
-      { request: context.request, locals: context.locals } as any,
-      {
-        postId,
-        before: query.before ?? '',
-      }
-    );
+  const result = await getPostComments(
+    { request: context.request, locals: context.locals } as any,
+    {
+      postId,
+      before: query.before ?? '',
+    }
+  );
 
-    return {
-      comments: result.comments.map((comment) => ({
-        id: comment.id,
-        author: comment.author,
-        authorAvatar: comment.authorAvatar,
-        datetime: comment.datetime,
-        content: comment.content,
-        reactions: comment.reactions.map((reaction) => ({
-          emoji: reaction.emoji,
-          emojiId: reaction.emojiId,
-          emojiImage: reaction.emojiImage,
-          count: reaction.count,
-          isPaid: reaction.isPaid,
-        })),
+  return {
+    comments: result.comments.map((comment) => ({
+      id: comment.id,
+      author: comment.author,
+      authorAvatar: comment.authorAvatar,
+      datetime: comment.datetime,
+      content: comment.content,
+      reactions: comment.reactions.map((reaction) => ({
+        emoji: reaction.emoji,
+        emojiId: reaction.emojiId,
+        emojiImage: reaction.emojiImage,
+        count: reaction.count,
+        isPaid: reaction.isPaid,
       })),
-      hasMore: result.hasMore,
-      nextBefore: result.nextBefore || '',
-    };
-  }
-
-  const url = new URL(`/v1/mood/${encodeURIComponent(postId)}/comments`, API_SERVICE_BINDING_ORIGIN);
-  appendSearchParams(url, {
-    before: query.before,
-    limit: query.limit,
-  });
-  const response = await fetchMoodApi(context, `${url.pathname}${url.search}`);
-  return readApiJson<MoodCommentsPage>(response, 'Mood comments');
+    })),
+    hasMore: result.hasMore,
+    nextBefore: result.nextBefore || '',
+  };
 }
 
 export function moodDocumentToFeedItem(document: MoodContentDocument): MoodFeedItem {

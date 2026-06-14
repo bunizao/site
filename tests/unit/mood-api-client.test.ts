@@ -1,6 +1,10 @@
 import { describe, expect, test } from 'bun:test';
-import { loadMoodFeed, loadMoodProbe } from '../../src/features/mood/server/api-client';
-import type { ApiServiceBinding } from '../../src/lib/http/api-service-proxy';
+import {
+  loadMoodComments,
+  loadMoodDocument,
+  loadMoodFeed,
+  loadMoodProbe,
+} from '../../src/features/mood/server/api-client';
 
 function createContext(locals: Record<string, unknown> = {}) {
   return {
@@ -9,47 +13,17 @@ function createContext(locals: Record<string, unknown> = {}) {
   };
 }
 
-function createApiBinding(handler: (request: Request) => Response | Promise<Response>): ApiServiceBinding {
-  return {
-    fetch: async (input) => handler(input as Request),
-  };
-}
+describe('mood API client', () => {
+  test('keeps explicit api-v2 mood reads independent from the private API binding', async () => {
+    const context = createContext({ env: { E2E_SITE_FIXTURE: '1' } });
 
-describe('mood private API client', () => {
-  test('requires the API service binding only for explicit v2 reads', async () => {
-    try {
-      await loadMoodFeed(createContext({
-        env: {
-          API_BASE_URL: 'https://api.buxx.me/v1/',
-        },
-      }), { useApiV2: true });
-      throw new Error('Expected mood feed loading to fail');
-    } catch (error) {
-      expect((error as Error).message).toBe('API service binding unavailable');
-    }
-  });
+    const feed = await loadMoodFeed(context, { limit: 1, useApiV2: true });
+    const document = await loadMoodDocument(context, feed.posts[0]?.id ?? '990001', { useApiV2: true });
+    const comments = await loadMoodComments(context, feed.posts[0]?.id ?? '990001', { useApiV2: true });
 
-  test('loads mood data through the API service binding', async () => {
-    const api = createApiBinding((request) => {
-      expect(request.url).toBe('https://site-api.internal/v1/mood?limit=1');
-      expect(request.headers.get('accept')).toBe('application/json');
-      expect(request.headers.get('x-forwarded-host')).toBe('buxx.me');
-
-      return Response.json({
-        channel: {
-          slug: 'tutumood',
-          title: 'Mood',
-        },
-        posts: [],
-        pagination: {
-          nextCursor: null,
-        },
-      });
-    });
-
-    const feed = await loadMoodFeed(createContext({ env: { API: api } }), { limit: 1, useApiV2: true });
-
-    expect(feed.posts).toEqual([]);
+    expect(feed.posts.length).toBeGreaterThan(0);
+    expect(document?.id).toBe(feed.posts[0]?.id);
+    expect(Array.isArray(comments.comments)).toBe(true);
   });
 
   test('keeps E2E fixture mode independent from the service binding', async () => {
