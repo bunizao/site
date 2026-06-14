@@ -1,7 +1,6 @@
 import * as cheerio from 'cheerio';
-import { getTextPreview } from '@/features/mood/shared/utils';
+import type { ContentChannelSummary } from '@bunizao/contracts';
 import type { MoodFeedItem, MoodFeedResponse } from '@/features/mood/server/contracts';
-import type { ChannelInfo, Post } from '@/features/mood/server/telegram-source';
 
 const stripInvalidXmlChars = (value: string): string =>
   value.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, '');
@@ -75,7 +74,7 @@ const absolutizeHtml = (html: string, base: URL): string => {
   return $.root().html() ?? html;
 };
 
-export function buildMoodRssXml(channel: ChannelInfo, posts: Post[], baseUrl: URL): string {
+export function buildMoodRssXml(channel: ContentChannelSummary, posts: MoodFeedItem[], baseUrl: URL): string {
   const channelTitle = channel.title?.trim() || 'Moods';
   const channelDescription =
     channel.description?.trim() || 'Thoughts and moments from my Telegram channel.';
@@ -87,19 +86,15 @@ export function buildMoodRssXml(channel: ChannelInfo, posts: Post[], baseUrl: UR
     : new Date().toUTCString();
 
   const items = posts.map((post) => {
-    const title = post.title?.trim()
-      || truncateText(post.text || '', 120)
+    const title = truncateText(post.previewText || '', 120)
       || `Mood ${post.id}`;
-    const summary = truncateText(
-      getTextPreview({ text: post.text, content: post.content }) || post.text || '',
-      220
-    );
+    const summary = truncateText(post.previewText || '', 220);
     const link = new URL(`/mood/${post.id}`, baseUrl).href;
     const pubDate = new Date(post.datetime);
     const pubDateText = Number.isNaN(pubDate.getTime()) ? '' : pubDate.toUTCString();
-    const content = absolutizeHtml(post.content, baseUrl);
-    const categories = (post.tags ?? [])
-      .map((tag) => tag.trim())
+    const content = absolutizeHtml([post.previewHtml, post.mediaHtml].filter(Boolean).join('\n'), baseUrl);
+    const categories = [post.tag]
+      .map((tag) => tag?.trim() ?? '')
       .filter(Boolean)
       .map((tag) => `<category>${escapeXml(tag)}</category>`)
       .join('\n        ');

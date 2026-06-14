@@ -1,6 +1,18 @@
 import { createHmac } from 'node:crypto';
-import { secureCompareText } from '@/features/notify/server/security';
 import { readEnv } from '@/lib/runtime/env';
+
+function secureCompareText(left: string, right: string): boolean {
+  const leftBytes = new TextEncoder().encode(left);
+  const rightBytes = new TextEncoder().encode(right);
+  let mismatch = leftBytes.length ^ rightBytes.length;
+  const maxLength = Math.max(leftBytes.length, rightBytes.length);
+
+  for (let index = 0; index < maxLength; index += 1) {
+    mismatch |= (leftBytes[index] ?? 0) ^ (rightBytes[index] ?? 0);
+  }
+
+  return mismatch === 0;
+}
 
 function normalizeSearchParams(searchParams: URLSearchParams): string {
   const entries = Array.from(searchParams.entries())

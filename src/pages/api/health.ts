@@ -1,5 +1,9 @@
 import type { APIRoute } from 'astro';
 import { runApiHealth } from '@/features/health/checks';
+import {
+  getApiServiceBinding,
+  proxyApiBindingRequest,
+} from '@/lib/http/api-service-proxy';
 import { json } from '@/lib/http/json-response';
 import { readBooleanFlag } from '@/lib/http/query';
 import { withRateLimit } from '@/lib/http/rate-limited';
@@ -7,6 +11,13 @@ import { withRateLimit } from '@/lib/http/rate-limited';
 export const prerender = false;
 
 export const GET: APIRoute = async ({ request, locals }) => {
+  if (!import.meta.env.DEV) {
+    const api = await getApiServiceBinding(locals);
+    if (api) {
+      return proxyApiBindingRequest(request, api);
+    }
+  }
+
   const url = new URL(request.url);
   const diagnostic = readBooleanFlag(url, 'diagnostic');
   const deep = readBooleanFlag(url, 'deep');
@@ -36,3 +47,5 @@ export const GET: APIRoute = async ({ request, locals }) => {
   const report = await runApiHealth({ request, locals, deep });
   return json(report.status === 'down' ? 503 : 200, report, headers);
 };
+
+export const HEAD = GET;

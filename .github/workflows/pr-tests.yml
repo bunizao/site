@@ -18,7 +18,7 @@ concurrency:
 
 jobs:
   quality:
-    name: Check, Unit, Build, Worker Tests
+    name: Check, Unit, Build, Cloudflare Dry Run
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
@@ -48,8 +48,8 @@ jobs:
       - name: Production build
         run: bun run build
 
-      - name: Worker e2e tests
-        run: bun run test:e2e:worker
+      - name: Cloudflare deploy dry run
+        run: bunx wrangler deploy --config dist/server/wrangler.json --dry-run
 
   site-e2e:
     name: Site E2E

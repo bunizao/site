@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 
-import { readEnv, readOptionalEnv, readPublicEnv } from '../../src/lib/runtime/env';
+import { readEnv, readOptionalEnv, readPublicEnv, readRuntimeEnvSource } from '../../src/lib/runtime/env';
 
 describe('runtime env helpers', () => {
   test('prefers process env values over build and runtime values', () => {
@@ -86,5 +86,19 @@ describe('runtime env helpers', () => {
   test('returns undefined for missing optional env values', () => {
     expect(readOptionalEnv(undefined, 'MISSING_ENV', {})).toBeUndefined();
     expect(readEnv(undefined, 'MISSING_ENV', {})).toBe('');
+  });
+
+  test('keeps non-string service bindings available without reading them as strings', () => {
+    const api = {
+      fetch: async () => new Response('ok'),
+    };
+    const locals = {
+      env: {
+        API: api,
+      },
+    };
+
+    expect(readRuntimeEnvSource(locals)?.API).toBe(api);
+    expect(readEnv(locals, 'API', {})).toBe('');
   });
 });

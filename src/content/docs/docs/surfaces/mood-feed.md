@@ -1,6 +1,6 @@
 ---
 title: Mood feed
-description: How the mood feed and detail pages work, from the API down to the comment scrape.
+description: How the mood feed and detail pages work, from the API down to comments.
 public: true
 ---
 
@@ -34,22 +34,22 @@ Long text-only posts clamp and link to the detail page. Inline media stays expan
 
 ## Detail page
 
-The detail route fetches a single post through `getChannelInfo({ id })`, sets a `404` when missing, and renders a controlled fallback rather than crashing. The body is inserted with `set:html={renderedPostContent}` after sanitization. Forwarded metadata, reactions, and tags come from parsed Telegram data.
+The detail route fetches a single `MoodContentDocument` from `site-api`, sets a `404` when missing, and renders a controlled fallback rather than crashing. The body is inserted with `set:html={renderedPostContent}` after sanitization. Forwarded metadata, reactions, and tags come from normalized mood data.
 
 Back navigation prefers browser history; otherwise it falls back to `/mood`.
 
 ## Comments
 
-`GET /api/comments?postId=...` validates the post id and an optional `before` cursor, then calls `getPostComments` which scrapes Telegram's discussion embed. The client renders sanitized comments and paginates via `before=<commentId>`. Reply blocks become quote cards; loose text nodes get wrapped in paragraphs; avatar and image URLs are sanitized; duplicate comment ids are filtered client-side.
+`GET /api/comments?postId=...` validates the post id and an optional `before` cursor, then reads normalized comments from `site-api`. The client renders sanitized comments and paginates via `before=<commentId>`. Reply blocks become quote cards; loose text nodes get wrapped in paragraphs; avatar and image URLs are sanitized; duplicate comment ids are filtered client-side.
 
-## Telegram parsing
+## Telegram ingest
 
-`src/features/mood/server/telegram-source.ts` scrapes:
+The private `site-api` Worker ingests Telegram updates:
 
-- list pages from `https://{host}/s/{channel}`,
-- detail pages from `https://{host}/{channel}/{id}?embed=1&mode=tme`.
+- channel posts from the Telegram webhook,
+- edited posts, comments, and reaction count updates.
 
-It normalizes media URLs through `/static/`, upgrades preferred images to worker-hosted HD, and parses forwarded metadata, reactions, quotes, link previews, video/audio/sticker blocks, custom emoji images, and comment counts.
+It normalizes media URLs to `https://api.buxx.me/v2/images/*` and returns `MoodFeedResponse`, `MoodContentDocument`, and `MoodCommentsPage` through `https://api.buxx.me/v1/`.
 
 `src/features/mood/shared/utils.ts` strips Telegram HTML into preview text, keeps a limited preview HTML subset, extracts first image and fallback, detects media-heavy or long posts, derives quote previews, and groups posts by date.
 

@@ -64,7 +64,6 @@ describe('api health', () => {
       'mood-feed',
       'listening',
       'comments',
-      'notify-templates',
     ]);
 
     const moodFeed = report.checks.find((check) => check.id === 'mood-feed');
@@ -86,16 +85,49 @@ describe('api health', () => {
     expect(report.mode).toBe('deep');
     expect(report.status).toBe('degraded');
     expect(report.checks.some((check) => check.id === 'mood-image-worker')).toBe(true);
-    expect(report.checks.some((check) => check.id === 'telegram-webhook')).toBe(true);
-    expect(report.checks.find((check) => check.id === 'telegram-webhook')?.status).toBe('skipped');
+    expect(report.checks.some((check) => check.id === 'telegram-webhook')).toBe(false);
   });
 
   test('route returns a lightweight compatibility response by default', async () => {
+    const api = {
+      fetch: async (request: Request) => {
+        expect(request.url).toBe('https://site-api.internal/v2/health');
+        return new Response(JSON.stringify({
+          status: 'ok',
+          mode: 'private-api',
+        }), {
+          status: 200,
+          headers: {
+            'Cache-Control': 'public, max-age=30',
+            ETag: '"health"',
+            'Content-Type': 'application/json',
+          },
+        });
+      },
+    };
     const response = await getApiHealth({
       request: createHealthRequest(),
-      locals: {},
+      locals: { env: { API: api } },
     } as any);
-    const payload = await response.json() as { status?: string; mode?: string; diagnostic?: string };
+    const payload = await response.json() as { status?: string; mode?: string };
+
+    expect(response.status).toBe(200);
+    expect(payload.status).toBe('ok');
+    expect(payload.mode).toBe('private-api');
+    expect(response.headers.get('cache-control')).toBe('public, max-age=30');
+    expect(response.headers.get('etag')).toBe('"health"');
+  });
+
+  test('route falls back to local ping when service binding is unavailable', async () => {
+    const response = await getApiHealth({
+      request: createHealthRequest(),
+      locals: { env: {} },
+    } as any);
+    const payload = await response.json() as {
+      status?: string;
+      mode?: string;
+      diagnostic?: string;
+    };
 
     expect(response.status).toBe(200);
     expect(payload.status).toBe('ok');
@@ -105,9 +137,23 @@ describe('api health', () => {
   });
 
   test('route runs aggregated checks only in diagnostic mode', async () => {
+    const api = {
+      fetch: async (request: Request) => {
+        expect(request.url).toBe('https://site-api.internal/v2/health?diagnostic=1');
+        return new Response(JSON.stringify({
+          status: 'degraded',
+          mode: 'default',
+        }), {
+          status: 200,
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        });
+      },
+    };
     const response = await getApiHealth({
       request: createHealthRequest({ diagnostic: true }),
-      locals: {},
+      locals: { env: { API: api } },
     } as any);
     const payload = await response.json() as { status?: string; mode?: string };
 

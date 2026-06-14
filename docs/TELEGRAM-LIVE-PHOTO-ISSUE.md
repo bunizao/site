@@ -59,13 +59,7 @@ If Telegram represents live photo motion through video-like markup, current inde
 
 ### 3. Parsing already has partial video support, but not live-photo-aware modeling
 
-Telegram parsing can already emit `<video>` tags from embed HTML:
-
-- [src/features/mood/server/telegram-source.ts](../src/features/mood/server/telegram-source.ts#L372)
-
-It separately emits image blocks from `.tgme_widget_message_photo_wrap`:
-
-- [src/features/mood/server/telegram-source.ts](../src/features/mood/server/telegram-source.ts#L298)
+Private `site-api` mood ingest can emit structured video and image media from Telegram updates.
 
 This is enough for plain video and plain photo, but there is no explicit "live photo" normalization step.
 

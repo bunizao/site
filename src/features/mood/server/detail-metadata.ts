@@ -1,6 +1,5 @@
 import * as cheerio from 'cheerio';
-import { getFirstImageMeta, getTextPreview } from '@/features/mood/shared/utils';
-import type { Post } from '@/features/mood/server/telegram-source';
+import type { MediaItem, MoodContentDocument } from '@bunizao/contracts';
 
 const SITE_NAME = 'Bunizao';
 const DESCRIPTION_MAX_LENGTH = 220;
@@ -49,7 +48,28 @@ function getBookmarkDescription(content: string): string {
   return compactText($('.bookmark-card__description').first().text());
 }
 
-export function buildMoodDetailMetadata(post: Post | null, id: string | undefined): MoodDetailMetadata {
+function htmlToText(html: string): string {
+  if (!html) return '';
+  const $ = cheerio.load(html);
+  return compactText($.text());
+}
+
+function firstShareableImage(document: MoodContentDocument): MediaItem | null {
+  const candidates = [
+    document.hero,
+    ...document.media,
+  ];
+  return candidates.find((item) =>
+    item
+    && (item.type === 'image' || item.type === 'sticker')
+    && (item.src || item.fallbackSrc)
+  ) ?? null;
+}
+
+export function buildMoodDetailMetadata(
+  post: MoodContentDocument | null,
+  id: string | undefined
+): MoodDetailMetadata {
   if (!post) {
     return {
       title: 'Mood not found | Moods',
@@ -59,21 +79,26 @@ export function buildMoodDetailMetadata(post: Post | null, id: string | undefine
 
   const moodLabel = getMoodLabel(id);
   const summary = compactText(
-    getBookmarkDescription(post.content) || getTextPreview(post) || post.text || post.title
+    getBookmarkDescription(post.bodyHtml)
+    || post.previewText
+    || htmlToText(post.bodyHtml)
+    || post.title
+    || ''
   );
   const description = summary
     ? truncateDescription(summary)
     : `${moodLabel} from ${SITE_NAME}.`;
-  const imageMeta = getFirstImageMeta(post.content);
-  const image = getShareableImageUrl(imageMeta.src) ?? getShareableImageUrl(imageMeta.fallbackSrc);
-  const hasImageDimensions = Boolean(image && imageMeta.width && imageMeta.height);
+  const imageMeta = firstShareableImage(post);
+  const image = getShareableImageUrl(imageMeta?.src ?? null)
+    ?? getShareableImageUrl(imageMeta?.fallbackSrc ?? null);
+  const hasImageDimensions = Boolean(image && imageMeta?.width && imageMeta?.height);
 
   return {
     title: `${moodLabel} | ${SITE_NAME}`,
     description,
     image,
     imageAlt: image ? description : undefined,
-    imageWidth: image ? (hasImageDimensions ? imageMeta.width : null) : undefined,
-    imageHeight: image ? (hasImageDimensions ? imageMeta.height : null) : undefined,
+    imageWidth: image ? (hasImageDimensions ? imageMeta?.width ?? null : null) : undefined,
+    imageHeight: image ? (hasImageDimensions ? imageMeta?.height ?? null : null) : undefined,
   };
 }

@@ -86,6 +86,7 @@ describe('Cloudflare runtime configuration', () => {
         run_worker_first?: string[];
       };
       routes?: Array<{ pattern?: string; zone_name?: string; custom_domain?: boolean }>;
+      services?: Array<{ binding?: string; service?: string }>;
       triggers?: { crons?: string[] };
       vars?: Record<string, string>;
     };
@@ -98,38 +99,26 @@ describe('Cloudflare runtime configuration', () => {
     expect(config.assets?.run_worker_first).toEqual([
       '/api/*',
       '/mood*',
-      '/channel/avatar',
-      '/ingest/*',
-      '/webhook',
       '/dev/*',
       '/oauth*',
       '/docs*',
     ]);
     expect(config.routes).toContainEqual({ pattern: 'buxx.me', zone_name: 'buxx.me', custom_domain: true });
     expect(config.routes).toContainEqual({ pattern: 'www.buxx.me', zone_name: 'buxx.me', custom_domain: true });
-    expect(config.routes).toContainEqual({
-      pattern: 'cf-migration.buxx.me',
-      zone_name: 'buxx.me',
-      custom_domain: true,
-    });
-    expect(config.routes).toContainEqual({ pattern: 'image.buxx.me', zone_name: 'buxx.me', custom_domain: true });
+    expect(config.routes?.some((route) => route.pattern === 'cf-migration.buxx.me')).toBe(false);
+    expect(config.routes?.some((route) => route.pattern === 'image.buxx.me')).toBe(false);
+    expect(config.services).toContainEqual({ binding: 'API', service: 'site-api' });
     expect(config.vars).toMatchObject({
       SITE_URL: 'https://buxx.me',
       PUBLIC_SITE_URL: 'https://buxx.me',
-      NOTIFY_BASE_URL: 'https://buxx.me',
-      NOTIFY_DISPATCH_URL: 'https://buxx.me/api/notify/dispatch',
       GHOST_URL: 'https://blog.buxx.me',
       LASTFM_USER: 'bunizao',
-      PUBLIC_HD_IMAGE_URL: 'https://image.buxx.me',
+      PUBLIC_HD_IMAGE_URL: 'https://api.buxx.me/v2/images',
       PUBLIC_TURNSTILE_SITE_KEY: '0x4AAAAAACaDQzCbYalmO_xV',
-      HD_IMAGE_INGEST_BASE_URL: 'https://image.buxx.me',
       CHANNEL: 'tutumood',
       TELEGRAM_HOST: 't.me',
-      ADMIN_GITHUB_LOGIN: 'bunizao',
-      CLOUDFLARE_ACCOUNT_ID: '545faed61bc6b0c8ef2c417303555d6f',
-      CLOUDFLARE_NOTIFY_D1_DATABASE_ID: 'bf8cd2f1-29c7-44c1-b9bb-555265dd40b3',
     });
-    expect(config.triggers?.crons).toContain('*/15 * * * *');
+    expect(config.triggers).toBeUndefined();
   });
 
   test('keeps the home shell CSP narrow enough to block injected zone scripts', () => {

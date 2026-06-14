@@ -6,9 +6,9 @@ declare global {
   namespace App {
     interface Locals {
       runtime?: {
-        env?: Record<string, string | undefined>;
+        env?: Record<string, unknown>;
       };
-      env?: Record<string, string | undefined>;
+      env?: Record<string, unknown>;
     }
   }
 

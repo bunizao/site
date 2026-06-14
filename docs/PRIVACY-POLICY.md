@@ -89,36 +89,32 @@ Provider behavior the policy now needs to reflect:
 
 Covered implementation:
 
-- `/mood` and `/mood/[id]` fetch public Telegram-derived content
-- [`src/pages/api/moods.ts`](../src/pages/api/moods.ts) and [`src/pages/api/comments.ts`](../src/pages/api/comments.ts) expose public data derived from Telegram scraping
-- [`src/features/mood/server/telegram-source.ts`](../src/features/mood/server/telegram-source.ts) and [`src/features/mood/shared/utils.ts`](../src/features/mood/shared/utils.ts) shape public mood content and media references
+- `/mood` and `/mood/[id]` fetch public Telegram-derived content through the private `site-api` Worker
+- [`src/pages/api/moods.ts`](../src/pages/api/moods.ts) and [`src/pages/api/comments.ts`](../src/pages/api/comments.ts) expose public data proxied from `site-api`
+- [`src/features/mood/server/api-client.ts`](../src/features/mood/server/api-client.ts) and [`src/features/mood/shared/utils.ts`](../src/features/mood/shared/utils.ts) shape public mood content and media references
 
 ### Mood Subscription Flow
 
 Covered implementation:
 
-- subscribe: [`src/pages/api/notify/subscribe.ts`](../src/pages/api/notify/subscribe.ts)
-- confirm: [`src/pages/api/notify/confirm.ts`](../src/pages/api/notify/confirm.ts)
-- unsubscribe: [`src/pages/api/notify/unsubscribe.ts`](../src/pages/api/notify/unsubscribe.ts)
-- dispatch / schedule / retry:
-  - [`src/pages/api/notify/dispatch.ts`](../src/pages/api/notify/dispatch.ts)
-  - [`src/pages/api/notify/schedule.ts`](../src/pages/api/notify/schedule.ts)
-  - [`src/pages/api/notify/retry.ts`](../src/pages/api/notify/retry.ts)
+- subscribe: `site-api /v2/notify/subscribe`
+- confirm: `site-api /v2/notify/confirm`
+- unsubscribe: `site-api /v2/notify/unsubscribe`
+- dispatch / schedule / retry: `site-api /v2/notify/*`
 
 Supporting infrastructure:
 
-- subscriber state and delivery records live in Cloudflare D1 through [`src/features/notify/server/d1.ts`](../src/features/notify/server/d1.ts)
-- email delivery is handled through Resend in [`src/features/notify/server/resend.ts`](../src/features/notify/server/resend.ts)
-- token creation and verification live in [`src/features/notify/server/security.ts`](../src/features/notify/server/security.ts)
+- subscriber state and delivery records live in the private API `NOTIFY_DB`
+- email delivery is handled through Resend in `site-api`
+- token creation and verification live in `site-api`
 
 ### Cloudflare Anti-Abuse and Infrastructure
 
 Covered implementation:
 
 - Turnstile verification runs in [`src/lib/security/turnstile.ts`](../src/lib/security/turnstile.ts)
-- the mood subscribe endpoint uses that verification when the secret is configured
-- Cloudflare D1 is used by the notify service
-- Cloudflare Worker bindings provide D1, R2, queue, and scheduled-event infrastructure
+- the private mood subscribe endpoint uses that verification when the secret is configured
+- Cloudflare D1, R2, queue, and scheduled-event infrastructure for notify live in `site-api`
 
 ### Third-Party Content Sources
 
@@ -126,7 +122,7 @@ Covered implementation:
 
 - Ghost is used for writing links in [`src/features/home/ui/Posts.astro`](../src/features/home/ui/Posts.astro)
 - GitHub is used for project data in [`src/features/home/ui/Projects.astro`](../src/features/home/ui/Projects.astro) and [`src/lib/github.ts`](../src/lib/github.ts)
-- Telegram-derived content is parsed in [`src/features/mood/server/telegram-source.ts`](../src/features/mood/server/telegram-source.ts)
+- Telegram-derived content is ingested and parsed in the private `site-api` Worker
 
 ## Why the Policy Is Markdown-Backed
 

@@ -20,7 +20,7 @@ Markdown-backed means policy edits don't require layout changes, route logic sta
 ### Hosting, observability, performance
 
 - Site pages and API routes run on the Cloudflare Worker target `site`.
-- `wrangler.jsonc` binds the Worker to `buxx.me`, `www.buxx.me`, and `image.buxx.me`.
+- `wrangler.jsonc` binds the public Worker to `buxx.me` and `www.buxx.me`.
 - Cloudflare Worker observability and request logs cover operational monitoring.
 - `src/layouts/Layout.astro` does not mount a third-party analytics script.
 
@@ -33,31 +33,31 @@ Markdown-backed means policy edits don't require layout changes, route logic sta
 
 ### Mood pages and public content
 
-- `/mood` and `/mood/[id]` fetch Telegram-derived content.
+- `/mood` and `/mood/[id]` fetch Telegram-derived content from the private `site-api` Worker.
 - Public APIs: `/api/moods`, `/api/comments`.
-- Parsing and shaping: `src/features/mood/server/telegram-source.ts`, `src/features/mood/shared/utils.ts`.
+- Parsing and shaping: private `site-api` mood ingest, `src/features/mood/server/api-client.ts`, `src/features/mood/shared/utils.ts`.
 
 ### Mood subscription flow
 
-- Subscribe: `src/pages/api/notify/subscribe.ts`.
-- Confirm: `src/pages/api/notify/confirm.ts`.
-- Unsubscribe: `src/pages/api/notify/unsubscribe.ts`.
-- Dispatch / schedule / retry: `src/pages/api/notify/dispatch.ts`, `schedule.ts`, `retry.ts`.
-- Subscriber state in Cloudflare D1: `src/features/notify/server/d1.ts`.
-- Email delivery via Resend: `src/features/notify/server/resend.ts`.
-- Tokens: `src/features/notify/server/security.ts`.
+- Subscribe: `site-api /v2/notify/subscribe`.
+- Confirm: `site-api /v2/notify/confirm`.
+- Unsubscribe: `site-api /v2/notify/unsubscribe`.
+- Dispatch / schedule / retry: `site-api /v2/notify/*`.
+- Subscriber state in Cloudflare D1: private `NOTIFY_DB`.
+- Email delivery via Resend: private `site-api`.
+- Tokens: private `site-api`.
 
 ### Cloudflare anti-abuse
 
 - Turnstile verification: `src/lib/security/turnstile.ts`. Used by mood subscribe when `TURNSTILE_SECRET` is configured.
 - Cloudflare D1 backs subscriber state.
-- Cloudflare Worker bindings provide D1, R2, queue, and scheduled-event infrastructure.
+- Cloudflare Worker bindings provide D1, R2, queue, and scheduled-event infrastructure in `site-api`.
 
 ### Third-party content sources
 
 - Ghost CMS for writing links: `src/features/home/ui/Posts.astro`.
 - GitHub for project data: `src/features/home/ui/Projects.astro`, `src/lib/github.ts`.
-- Telegram-derived content: `src/features/mood/server/telegram-source.ts`.
+- Telegram-derived content: private `site-api` mood ingest.
 
 ## When to update the policy
 

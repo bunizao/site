@@ -156,9 +156,9 @@ Important contracts to preserve first:
 
 ### 4. Do not rewrite the Telegram parser in the same effort
 
-[`src/features/mood/server/telegram-source.ts`](../src/features/mood/server/telegram-source.ts) is upstream parsing infrastructure.
+`site-api` is upstream parsing infrastructure for mood content.
 
-It should be wrapped by feature services first, not deeply refactored during the first decoupling passes.
+It should be consumed through feature services and the Cloudflare `API` service binding.
 
 ### 5. Prefer route-level helpers over global middleware
 
@@ -465,7 +465,7 @@ Current duplication exists in:
 - [`src/pages/mood.astro`](../src/pages/mood.astro)
 - [`src/features/mood/ui/HomePreview.astro`](../src/features/mood/ui/HomePreview.astro)
 - [`src/pages/mood/embed.astro`](../src/pages/mood/embed.astro)
-- [`src/features/mood/server/telegram-source.ts`](../src/features/mood/server/telegram-source.ts)
+- `site-api` mood ingest and rich-text rendering
 
 ## Migration Mapping
 

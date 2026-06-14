@@ -55,7 +55,7 @@ Behavior:
 
 Current primary usage:
 
-- `[src/pages/api/notify/subscribe.ts](../src/pages/api/notify/subscribe.ts)` with expected action `notify_subscribe`
+- `site-api /v2/notify/subscribe` with expected action `notify_subscribe`
 
 ## Signed URLs
 
@@ -102,4 +102,3 @@ Current boundaries:
 - Turnstile protects subscription intake
 - signed URLs protect selected generated resources
 - response hardening exists for specific response types, not for the full site shell
-

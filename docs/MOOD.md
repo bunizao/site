@@ -62,7 +62,7 @@ Implementation file: [`src/pages/api/moods.ts`](../src/pages/api/moods.ts)
 
 Upstream dependency:
 
-- [`src/features/mood/server/telegram-source.ts`](../src/features/mood/server/telegram-source.ts) via `getChannelInfo({ type: 'list', before, after, skipCache })`
+- `site-api` via the Cloudflare `API` service binding, using `GET /v1/mood`
 
 Returned post shape is optimized for feed rendering:
 
@@ -82,7 +82,7 @@ Important shaping rules:
 - `needsDetailPage` becomes `true` when there is no inline media preview and the post is either long text or media-heavy.
 - primary image URLs prefer `PUBLIC_HD_IMAGE_URL`.
 - fallback image URLs point at Telegram media through the site proxy when needed.
-- the feed can run in E2E fixture mode instead of live Telegram scraping.
+- the feed can run in E2E fixture mode instead of the live private API.
 
 ## Feed Rendering Strategy
 
@@ -116,7 +116,7 @@ Entry file: [`src/pages/mood/[id].astro`](../src/pages/mood/[id].astro)
 
 Server-side responsibilities:
 
-- fetches one post by id through `getChannelInfo({ id })`
+- fetches one post by id through `site-api`
 - sets `404` when the post is missing
 - renders a controlled not-found or unavailable state instead of crashing
 - composes [`src/features/mood/ui/DetailArticle.astro`](../src/features/mood/ui/DetailArticle.astro), which in turn mounts [`src/features/mood/ui/CommentsSection.astro`](../src/features/mood/ui/CommentsSection.astro)
@@ -138,7 +138,6 @@ Implementation files:
 
 - [`src/pages/api/comments.ts`](../src/pages/api/comments.ts)
 - [`src/features/mood/client/detail-comments-controller.ts`](../src/features/mood/client/detail-comments-controller.ts)
-- [`src/features/mood/server/telegram-source.ts`](../src/features/mood/server/telegram-source.ts)
 - [`src/features/mood/shared/comments.ts`](../src/features/mood/shared/comments.ts)
 
 Data flow:
@@ -146,8 +145,8 @@ Data flow:
 1. [`src/features/mood/ui/CommentsSection.astro`](../src/features/mood/ui/CommentsSection.astro) renders a skeleton comments section.
 2. [`src/features/mood/client/detail-comments-controller.ts`](../src/features/mood/client/detail-comments-controller.ts) fetches `GET /api/comments?postId=...`.
 3. API validates `postId` and optional `before`.
-4. API calls `getPostComments`.
-5. `getPostComments` scrapes Telegram discussion embeds.
+4. API calls `site-api` via the Cloudflare `API` service binding.
+5. `site-api` reads normalized comments from the private mood database.
 6. Client renders sanitized comments and paginates with `before=<commentId>`.
 
 Comment normalization:
@@ -157,19 +156,18 @@ Comment normalization:
 - avatar and image URLs are sanitized before insertion
 - duplicate comment ids are filtered client-side
 
-## Telegram Parsing and Mood Shaping
+## Mood Shaping
 
 Core files:
 
-- [`src/features/mood/server/telegram-source.ts`](../src/features/mood/server/telegram-source.ts)
+- [`src/features/mood/server/api-client.ts`](../src/features/mood/server/api-client.ts)
 - [`src/features/mood/shared/utils.ts`](../src/features/mood/shared/utils.ts)
 
-`src/features/mood/server/telegram-source.ts` responsibilities:
+`site-api` responsibilities:
 
-- scrape list pages from `https://{host}/s/{channel}`
-- scrape detail pages from `https://{host}/{channel}/{id}?embed=1&mode=tme`
-- normalize media URLs through `/static/`
-- upgrade preferred mood images to worker-hosted HD URLs
+- ingest Telegram webhook updates into D1
+- normalize media URLs into `https://api.buxx.me/v2/images/*`
+- return `MoodFeedResponse`, `MoodContentDocument`, and `MoodCommentsPage`
 - parse:
   - forwarded metadata
   - reactions

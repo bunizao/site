@@ -12,11 +12,9 @@ import {
 } from '@/lib/http/query';
 import { withRateLimit } from '@/lib/http/rate-limited';
 import {
-  buildMoodFeedResponse,
-} from '@/features/mood/server/feed-service';
-import {
-  loadMoodChannelSnapshot,
-} from '@/features/mood/server/channel-service';
+  loadMoodFeed,
+  loadMoodProbe,
+} from '@/features/mood/server/api-client';
 import type { MoodProbeResult } from '@/features/mood/server/contracts';
 
 export const prerender = false;
@@ -46,27 +44,20 @@ export const GET: APIRoute = async ({ request, locals }) => {
   }
 
   try {
-    const { channelInfo, posts } = await loadMoodChannelSnapshot(
-      { request, locals },
-      {
-        before,
-        after,
-        skipCache,
-      }
-    );
-
     if (isProbe) {
+      const body: MoodProbeResult = await loadMoodProbe({ request, locals });
       const headers = new Headers(rateLimit.headers);
       headers.set('Cache-Control', 'no-store, max-age=0');
-      const body: MoodProbeResult = {
-        latestId: posts[0]?.id ?? '',
-      };
       return jsonOk(body, headers);
     }
 
     const headers = new Headers(rateLimit.headers);
     headers.set('Cache-Control', skipCache ? 'no-store, max-age=0' : 'public, max-age=0');
-    const body = await buildMoodFeedResponse({ request, locals }, channelInfo, posts);
+    const body = await loadMoodFeed({ request, locals }, {
+      before,
+      after,
+      fresh: skipCache,
+    });
 
     return jsonOk(body, headers);
   } catch (error) {

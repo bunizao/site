@@ -1,237 +1,69 @@
 # Telegram Pipeline
 
-This document describes the current Telegram ingestion pipeline for mood posts, HD images, and email notifications.
-
-Current state: Cloudflare-first migration target, June 10, 2026.
+This document describes the private Telegram ingestion pipeline for mood posts, HD images, and email notifications.
 
 ## Scope
 
 The Telegram pipeline affects:
 
-- `GET /api/moods`
-- `GET /mood/[id]`
-- `POST https://image.buxx.me/webhook`
-- `POST /api/telegram-webhook`
-- `https://image.buxx.me/mood/:postId/:imageIndex`
-- `https://image.buxx.me/ingest/...`
-- Immediate email notify dispatch triggered by Telegram webhook events
+- `POST https://api.buxx.me/v2/telegram/webhook`
+- `https://api.buxx.me/v2/images/*`
+- immediate email notify dispatch
+- public mood pages that still consume Telegram content during this migration wave
 
 ## Current Flow
 
 ```mermaid
 flowchart TD
-  A["Telegram channel post"] --> B["Telegram calls https://image.buxx.me/webhook on Cloudflare"]
+  A["Telegram channel post"] --> B["Telegram calls https://api.buxx.me/v2/telegram/webhook"]
   B --> C["Validate X-Telegram-Bot-Api-Secret-Token"]
   C --> D["Resolve postId/imageIndex"]
-  D --> E["Fetch Telegram channel avatar file_id if needed"]
-  D --> F["Select largest photo file_id"]
-  E --> G["Worker fetches avatar bytes from Telegram"]
-  F --> H["Worker fetches image bytes from Telegram"]
-  G --> I["Worker writes original image and variants to R2"]
-  H --> I
-  I --> J["Public reads use /mood/:postId/:imageIndex"]
-  B --> K["Worker enqueues notify dispatch job"]
-  K --> L["Queue consumer POSTs /api/notify/dispatch in site"]
-  L --> M["Immediate notify emails include mood page and image links"]
+  D --> E["Fetch Telegram media bytes"]
+  E --> F["site-api writes originals and variants to R2"]
+  F --> G["Public reads use private image routes"]
+  B --> H["site-api enqueues notify dispatch job"]
+  H --> I["Queue consumer calls /v2/notify/dispatch"]
+  I --> J["Resend sends immediate notify emails"]
 ```
 
 ## Responsibility Split
 
-### Telegram webhook in `site`
-
-Files:
-
-- [`src/worker.ts`](../src/worker.ts)
-- [`workers/telegram-image-proxy/src/index.ts`](../workers/telegram-image-proxy/src/index.ts)
-- [`wrangler.jsonc`](../wrangler.jsonc)
+### `site-api`
 
 Responsibilities:
 
-- Validate Telegram webhook secret
-- Parse `channel_post`
-- Resolve media-group image indexing
-- Ingest channel avatar and mood images directly into R2
-- Enqueue durable immediate notify dispatch jobs
+- validate Telegram webhook secrets
+- parse `channel_post`
+- resolve media-group image indexing
+- ingest mood images into R2
+- enqueue durable immediate notify dispatch jobs
+- dispatch notification email through `/v2/notify/dispatch`
 
-### Legacy site webhook fallback
+### Public `site`
 
-File: [`src/pages/api/telegram-webhook.ts`](../src/pages/api/telegram-webhook.ts)
+Responsibilities during this migration wave:
 
-Responsibilities:
-
-- Remain available as a rollback target
-- Preserve the older site-hosted webhook path until cleanup is explicitly approved
-
-### Image routes in `site`
-
-Files:
-
-- [`src/worker-routing.ts`](../src/worker-routing.ts)
-- [`workers/telegram-image-proxy/src/index.ts`](../workers/telegram-image-proxy/src/index.ts)
-- [`wrangler.jsonc`](../wrangler.jsonc)
-
-Responsibilities:
-
-- Receive `POST /webhook` from Telegram
-- Authenticate `POST /ingest/*` with `HD_IMAGE_INGEST_TOKEN`
-- Resolve Telegram `file_id` to `file_path`
-- Download original bytes from Telegram
-- Write original plus resized variants into R2
-- Consume `telegram-notify-dispatch` queue messages
-- Call `POST /api/notify/dispatch` with `NOTIFY_DISPATCH_SECRET`
-- Serve `GET /mood/:postId/:imageIndex` and `GET /channel/avatar`
-
-### Mood pages and feed
-
-Files:
-
-- [`src/pages/api/moods.ts`](../src/pages/api/moods.ts)
-- [`src/features/mood/server/telegram-source.ts`](../src/features/mood/server/telegram-source.ts)
-- [`src/features/mood/shared/utils.ts`](../src/features/mood/shared/utils.ts)
-
-Responsibilities:
-
-- Prefer `PUBLIC_HD_IMAGE_URL` for primary image URLs
-- Preserve `/static/...telegram CDN...` as fallback
-- Render `data-fallback-src` attributes so the browser can swap to Telegram CDN if HD image lookup fails
-
-### Notify
-
-Files:
-
-- [`src/features/notify/server/service.ts`](../src/features/notify/server/service.ts)
-- [`docs/EMAIL-NOTIFY.md`](./EMAIL-NOTIFY.md)
-
-Responsibilities:
-
-- Immediate notify dispatch is triggered by the Worker queue consumer calling `POST /api/notify/dispatch`
-- Email templates include related image links extracted from post content
-- Notify delivery depends on the Worker queue handoff and `/api/notify/dispatch`, but HD image reads are still separate from email sending
+- render mood feed and detail pages
+- keep `/api/moods` and `/api/comments` public until the mood API wave lands
+- use `PUBLIC_HD_IMAGE_URL` for primary image URLs
+- preserve `/static/...telegram CDN...` fallback behavior
 
 ## Key URLs
 
-### Public reads
+Canonical private URLs:
 
-- `https://image.buxx.me/mood/:postId/:imageIndex`
-- `https://image.buxx.me/channel/avatar`
+- `https://api.buxx.me/v2/telegram/webhook`
+- `https://api.buxx.me/v2/images/*`
+- `https://api.buxx.me/v2/notify/dispatch`
 
-These URLs are embedded into:
+Public compatibility:
 
-- Mood feed payloads from `/api/moods`
-- Mood detail page HTML
-- Email preview and notify HTML when image links are extracted from post content
-
-### Internal writes
-
-- `https://image.buxx.me/ingest/mood/:postId/:imageIndex`
-- `https://image.buxx.me/ingest/channel/avatar`
-- `POST https://image.buxx.me/webhook`
-
-These endpoints are intended for Telegram or server-to-server ingestion only.
-
-## Environment Variables
-
-### `site` Worker
-
-- `PUBLIC_HD_IMAGE_URL`
-- `HD_IMAGE_INGEST_BASE_URL`
-- `NOTIFY_DISPATCH_SECRET`
-- `CRON_SECRET`
-- `NOTIFY_DB` D1 binding
-- `MOOD_IMAGES` R2 binding
-- `NOTIFY_DISPATCH_QUEUE` queue binding
-
-### Worker secrets and Telegram config
-
-- `TELEGRAM_BOT_TOKEN`
-- `HD_IMAGE_INGEST_TOKEN`
-- `TELEGRAM_WEBHOOK_SECRET`
-- `NOTIFY_DISPATCH_SECRET`
-- `NOTIFY_DISPATCH_URL`
-- `CHANNEL`
-- `TELEGRAM_CHANNEL_ID`
-- `TELEGRAM_HOST`
+- `https://buxx.me/api/notify/*` proxies to `site-api`
 
 ## Failure Modes
 
-### 1. Telegram webhook is not configured
+**Webhook not configured.** New posts do not enter private ingest, R2 objects do not update, and immediate notification dispatch does not run.
 
-Symptoms:
+**Image ingest fails.** Public mood pages can use stored Telegram CDN fallbacks when `site-api` returns them, but email links cannot auto-fallback after delivery.
 
-- New mood posts appear only through public page scraping
-- New HD image objects do not show up in R2
-- `Ops Health` webhook check fails
-
-Visible impact:
-
-- New images on `image.buxx.me/mood/...` return `404`
-- Pages fall back to Telegram CDN
-- Newsletter image links may point at `404` HD URLs
-
-### 2. Webhook executes but ingest fails
-
-Symptoms:
-
-- `POST https://image.buxx.me/webhook` returns `200`, but Worker logs contain ingest failures
-- Telegram `getWebhookInfo` shows `last_error_message`
-- Worker logs contain `Webhook mood image ingest failed`
-
-Visible impact:
-
-- New R2 objects are missing
-- `image.buxx.me/mood/...` returns `404`
-- Pages fall back to `/static/...`
-- Email HTML may still contain HD image URLs that resolve to `404`
-
-### 3. R2 object exists but stale `404` is cached at the edge
-
-Symptoms:
-
-- Backfill verification reports `200`
-- Public URL still returns `404` for a short period
-
-Visible impact:
-
-- `Ops Health` may fail temporarily immediately after backfill
-- Pages may continue using fallback until cache expires or is purged
-
-### 4. Media-group indexing is wrong
-
-Symptoms:
-
-- A later image in a Telegram album points at the wrong `postId/imageIndex`
-
-Visible impact:
-
-- Wrong image URL in page payload
-- Wrong image shown or `404`
-
-### 5. Notify queue handoff fails
-
-Symptoms:
-
-- `POST https://image.buxx.me/webhook` returns `503`
-- Worker logs contain `Failed to enqueue notify dispatch`
-- Telegram retries the same webhook delivery
-
-Visible impact:
-
-- Immediate notify is delayed until queue persistence succeeds
-- Image ingest may already have completed even though Telegram will retry
-
-## Current Operational Safeguards
-
-- Browser fallback from HD image to Telegram CDN on page render
-- `Ops Health` GitHub Actions workflow checks:
-  - Telegram webhook registration
-  - Readability of recent HD image URLs
-- Cloudflare custom rule allowing `POST /ingest/*` on `image.buxx.me`
-- the standalone image worker remains available as rollback/debug history until production cutover is verified
-
-## Known Coupling
-
-Current coupling that still matters:
-
-- Telegram webhook still triggers image ingest before the request returns
-- Immediate notify still depends on a queue-backed dispatch handoff into `/api/notify/dispatch`
-- Public mood pages can still fall back to Telegram CDN, but email links cannot auto-fallback after delivery
+**Notify queue handoff fails.** The webhook should return a retryable failure so Telegram can redeliver the update.
