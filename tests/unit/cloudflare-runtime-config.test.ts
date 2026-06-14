@@ -63,6 +63,7 @@ describe('Cloudflare runtime configuration', () => {
     expect(lighthouseWorkflow).toContain("inputUrl || 'https://buxx.me'");
     expect(lighthouseWorkflow).toContain('Wait for Cloudflare production deploy');
     expect(lighthouseWorkflow).toContain('node-version-file: .node-version');
+    expect(lighthouseWorkflow).not.toContain('branches:');
     expect(lighthouseWorkflow).not.toContain('deployment_status:');
     expect(lighthouseWorkflow).not.toContain('github.event.deployment');
   });
