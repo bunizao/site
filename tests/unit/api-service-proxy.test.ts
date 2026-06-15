@@ -25,6 +25,8 @@ describe('api service proxy', () => {
       .toBe('https://site-api.internal/oauth/login?next=%2Fdocs');
     expect(rewriteApiServiceUrl('https://buxx.me/dev/portal').toString())
       .toBe('https://site-api.internal/dev/portal');
+    expect(rewriteApiServiceUrl('https://buxx.me/v2/admin/auth/start?next=%2Fdev%2Fportal').toString())
+      .toBe('https://site-api.internal/v2/admin/auth/start?next=%2Fdev%2Fportal');
   });
 
   test('passes method, body, and headers through to the service binding', async () => {

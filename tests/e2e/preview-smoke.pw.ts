@@ -54,6 +54,14 @@ test.describe('Preview smoke', () => {
     await expect(page).toHaveURL(/\/dev\/portal$/);
   });
 
+  test('routes direct private API URLs through the Worker proxy', async ({ request }) => {
+    const response = await request.get('/v2/admin/auth/start?next=%2Fdev%2Fportal', {
+      maxRedirects: 0,
+    });
+
+    expect(response.status()).not.toBe(404);
+  });
+
   test('renders public docs without login', async ({ page }) => {
     await page.goto('/docs/overview/architecture/');
 

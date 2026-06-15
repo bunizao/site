@@ -137,6 +137,7 @@ describe('Cloudflare runtime configuration', () => {
       '/dev',
       '/dev/*',
       '/oauth*',
+      '/v2/*',
       '/docs*',
     ]);
     expect(config.routes).toContainEqual({ pattern: 'buxx.me', zone_name: 'buxx.me', custom_domain: true });
