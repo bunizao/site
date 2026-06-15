@@ -1,0 +1,11 @@
+---
+import { logoToSvg, type LogoId, type RenderOptions } from '@/features/logos/lib/svg';
+
+export interface Props extends RenderOptions {
+  id: LogoId;
+}
+
+const { id, ...opts } = Astro.props;
+const svg = logoToSvg(id, opts);
+---
+<Fragment set:html={svg} />
