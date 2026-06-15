@@ -1,0 +1,17 @@
+---
+import PortalLayout from '@/layouts/PortalLayout.astro';
+import BroadcastConsole from '@/features/admin/ui/BroadcastConsole';
+
+export const prerender = false;
+
+const session = (Astro.locals as any).adminSession;
+---
+
+<PortalLayout
+  title="Broadcasts"
+  description="Compose and send manual emails to a filtered slice of subscribers."
+  active="broadcasts"
+  user={{ login: session?.login || 'admin' }}
+>
+  <BroadcastConsole client:load />
+</PortalLayout>

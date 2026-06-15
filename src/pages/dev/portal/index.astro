@@ -1,0 +1,173 @@
+---
+import PortalLayout from '@/layouts/PortalLayout.astro';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Users, Send, Sparkles, Mail, Activity } from 'lucide-react';
+import { getPeekAssets } from '@/features/mascot/peek/catalog';
+import { PEEK_SLOTS } from '@/features/mascot/peek/slots';
+import { loadPortalOverview, type PortalOverview } from '@/features/admin/server/portal-client';
+
+export const prerender = false;
+
+const session = (Astro.locals as any).adminSession;
+
+let overview: PortalOverview = {
+  subscriberStats: { total: 0, pendingCount: 0, activeCount: 0, unsubscribedCount: 0 },
+  auditEvents: [],
+  broadcasts: [],
+};
+let loadError: string | null = null;
+
+try {
+  overview = await loadPortalOverview(Astro.request, Astro.locals);
+} catch (error) {
+  loadError = error instanceof Error ? error.message : 'unknown';
+}
+
+const { subscriberStats, auditEvents, broadcasts } = overview;
+const allAssets = getPeekAssets();
+const lastBroadcast = broadcasts[0];
+
+function formatDate(iso: string): string {
+  try {
+    const date = new Date(iso);
+    return date.toLocaleString(undefined, {
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  } catch {
+    return iso;
+  }
+}
+
+const cardHeaderStyle = { paddingBottom: 8, display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' } as const;
+const cardContentStyle = { paddingTop: 0 } as const;
+const iconStyle = { color: 'hsl(var(--muted-foreground))' } as const;
+const cardTitleSm = { fontSize: 14 } as const;
+const cardTitleSmFlex = { fontSize: 14, display: 'flex', alignItems: 'center', gap: 8 } as const;
+---
+
+<PortalLayout
+  title="Overview"
+  description="At-a-glance view of subscribers, broadcasts, and mascot inventory."
+  active="overview"
+  user={{ login: session?.login || 'admin' }}
+>
+  {loadError && (
+    <div style="margin-bottom:24px;padding:12px 14px;border-radius:10px;border:1px solid hsl(var(--destructive) / 0.5);background:hsl(var(--destructive) / 0.1);color:hsl(0 80% 80%);font-size:13px;">
+      Failed to load some data: <span class="portal-mono">{loadError}</span>
+    </div>
+  )}
+
+  <section style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:32px;">
+    <Card>
+      <CardHeader style={cardHeaderStyle}>
+        <CardDescription>Active subscribers</CardDescription>
+        <Users size={16} style={iconStyle} />
+      </CardHeader>
+      <CardContent style={cardContentStyle}>
+        <div style="font-size:28px;font-weight:600;letter-spacing:-0.02em;">{subscriberStats.activeCount}</div>
+        <div style="font-size:12px;color:hsl(var(--muted-foreground));margin-top:4px;">
+          of {subscriberStats.total} total · {subscriberStats.pendingCount} pending
+        </div>
+      </CardContent>
+    </Card>
+
+    <Card>
+      <CardHeader style={cardHeaderStyle}>
+        <CardDescription>Last broadcast</CardDescription>
+        <Send size={16} style={iconStyle} />
+      </CardHeader>
+      <CardContent style={cardContentStyle}>
+        {lastBroadcast ? (
+          <Fragment>
+            <div style="font-size:14px;font-weight:500;letter-spacing:-0.01em;line-height:1.3;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">{lastBroadcast.subject}</div>
+            <div style="font-size:12px;color:hsl(var(--muted-foreground));margin-top:6px;">
+              {lastBroadcast.sentCount} sent · {lastBroadcast.failedCount} failed
+            </div>
+            <div style="font-size:11px;color:hsl(var(--muted-foreground));margin-top:2px;">{lastBroadcast.sentAt ? formatDate(lastBroadcast.sentAt) : 'never'}</div>
+          </Fragment>
+        ) : (
+          <div style="font-size:13px;color:hsl(var(--muted-foreground));padding:8px 0;">No broadcasts yet</div>
+        )}
+      </CardContent>
+    </Card>
+
+    <Card>
+      <CardHeader style={cardHeaderStyle}>
+        <CardDescription>Mascot library</CardDescription>
+        <Sparkles size={16} style={iconStyle} />
+      </CardHeader>
+      <CardContent style={cardContentStyle}>
+        <div style="font-size:28px;font-weight:600;letter-spacing:-0.02em;">{allAssets.length}</div>
+        <div style="font-size:12px;color:hsl(var(--muted-foreground));margin-top:4px;">
+          {PEEK_SLOTS.length} runtime slots
+        </div>
+      </CardContent>
+    </Card>
+
+    <Card>
+      <CardHeader style={cardHeaderStyle}>
+        <CardDescription>Templates</CardDescription>
+        <Mail size={16} style={iconStyle} />
+      </CardHeader>
+      <CardContent style={cardContentStyle}>
+        <div style="font-size:28px;font-weight:600;letter-spacing:-0.02em;">5</div>
+        <div style="font-size:12px;color:hsl(var(--muted-foreground));margin-top:4px;">
+          subscribe, welcome, mood, digest, unsub
+        </div>
+      </CardContent>
+    </Card>
+  </section>
+
+  <section style="display:grid;grid-template-columns:repeat(auto-fit,minmax(360px,1fr));gap:16px;">
+    <Card>
+      <CardHeader>
+        <CardTitle style={cardTitleSmFlex}><Activity size={14} />Recent activity</CardTitle>
+        <CardDescription>Latest audit events across subscribe, confirm, unsubscribe, admin, and broadcast.</CardDescription>
+      </CardHeader>
+      <CardContent style={cardContentStyle}>
+        {auditEvents.length === 0 ? (
+          <div style="font-size:13px;color:hsl(var(--muted-foreground));padding:12px 0;">No events yet.</div>
+        ) : (
+          <ul style="list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:8px;">
+            {auditEvents.map((event) => (
+              <li style="display:grid;grid-template-columns:120px 1fr auto;align-items:center;gap:12px;padding:10px 0;border-top:1px solid hsl(var(--border));">
+                <span class="portal-mono" style="font-size:11px;color:hsl(var(--muted-foreground));">{event.eventType}</span>
+                <span style="font-size:13px;color:hsl(var(--foreground));overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{event.email}</span>
+                <span style="font-size:11px;color:hsl(var(--muted-foreground));">{formatDate(event.createdAt)}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </CardContent>
+    </Card>
+
+    <Card>
+      <CardHeader>
+        <CardTitle style={cardTitleSm}>Recent broadcasts</CardTitle>
+        <CardDescription>The five most recent manual broadcasts.</CardDescription>
+      </CardHeader>
+      <CardContent style={cardContentStyle}>
+        {broadcasts.length === 0 ? (
+          <div style="font-size:13px;color:hsl(var(--muted-foreground));padding:12px 0;">No broadcasts yet. Try composing one.</div>
+        ) : (
+          <ul style="list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:8px;">
+            {broadcasts.map((bc) => (
+              <li style="padding:10px 0;border-top:1px solid hsl(var(--border));display:grid;grid-template-columns:1fr auto;gap:12px;align-items:start;">
+                <div>
+                  <a href={`/dev/portal/broadcasts/${bc.id}`} style="font-size:13px;color:hsl(var(--foreground));text-decoration:none;line-height:1.35;">{bc.subject}</a>
+                  <div style="font-size:11px;color:hsl(var(--muted-foreground));margin-top:4px;">
+                    {bc.sentCount}/{bc.recipientCount} sent · {bc.failedCount} failed
+                  </div>
+                </div>
+                <span style="font-size:11px;color:hsl(var(--muted-foreground));">{bc.sentAt ? formatDate(bc.sentAt) : 'pending'}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </CardContent>
+    </Card>
+  </section>
+</PortalLayout>
