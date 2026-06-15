@@ -25,8 +25,8 @@
     { "binding": "API", "service": "site-api" }
   ],
   "routes": [
-    { "pattern": "buxx.me", "zone_name": "buxx.me", "custom_domain": true },
-    { "pattern": "www.buxx.me", "zone_name": "buxx.me", "custom_domain": true }
+    { "pattern": "buxx.me/*", "zone_name": "buxx.me" },
+    { "pattern": "www.buxx.me/*", "zone_name": "buxx.me" }
   ],
   "vars": {
     "SITE_URL": "https://buxx.me",

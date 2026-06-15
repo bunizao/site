@@ -140,8 +140,9 @@ describe('Cloudflare runtime configuration', () => {
       '/v2/*',
       '/docs*',
     ]);
-    expect(config.routes).toContainEqual({ pattern: 'buxx.me', zone_name: 'buxx.me', custom_domain: true });
-    expect(config.routes).toContainEqual({ pattern: 'www.buxx.me', zone_name: 'buxx.me', custom_domain: true });
+    expect(config.routes).toContainEqual({ pattern: 'buxx.me/*', zone_name: 'buxx.me' });
+    expect(config.routes).toContainEqual({ pattern: 'www.buxx.me/*', zone_name: 'buxx.me' });
+    expect(config.routes?.some((route) => route.custom_domain === true)).toBe(false);
     expect(config.routes?.some((route) => route.pattern === 'cf-migration.buxx.me')).toBe(false);
     expect(config.routes?.some((route) => route.pattern === 'image.buxx.me')).toBe(false);
     expect(config.services).toContainEqual({ binding: 'API', service: 'site-api' });
