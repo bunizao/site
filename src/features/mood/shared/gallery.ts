@@ -220,7 +220,10 @@ function extractGalleryItemsFromImageListContainer(
 
 function extractGalleryItemFromPhotoWrap($: cheerio.CheerioAPI, wrapper: cheerio.Element): MoodGalleryItem | null {
   const image = $(wrapper).find('img:not(.modal-img)').first();
-  const style = ($(wrapper).attr('style') ?? '').trim();
+  const style = [
+    $(wrapper).attr('style') ?? '',
+    $(wrapper).find('.tgme_widget_message_photo').first().attr('style') ?? '',
+  ].join(';').trim();
   const className = $(wrapper).attr('class') ?? '';
 
   if (image.length) {

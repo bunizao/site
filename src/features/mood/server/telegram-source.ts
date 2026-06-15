@@ -117,7 +117,7 @@ const MODAL_IMAGE_WIDTHS = [800, 1200, 1600];
 const INLINE_IMAGE_SIZES = '(min-width: 1024px) 720px, (min-width: 640px) 90vw, 100vw';
 const MODAL_IMAGE_SIZES = '(min-width: 1024px) 900px, 90vw';
 const LINK_PREVIEW_DESCRIPTION_MAX_LENGTH = 260;
-const EAGER_FEED_IMAGE_MAX_INDEX = 15;
+const EAGER_FEED_IMAGE_MAX_INDEX = 0;
 
 function getFeedImageLoading(index?: number): 'eager' | 'lazy' {
   return (index ?? 0) > EAGER_FEED_IMAGE_MAX_INDEX ? 'lazy' : 'eager';
@@ -587,10 +587,11 @@ function getImages($: CheerioAPI, item: Element, { staticProxy, hdImageBase = ''
         ? buildImageFallbackAttrs(fallbackUrl, fallbackModalSrcSet, MODAL_IMAGE_SIZES)
         : '';
 
+      const photoStyle = $(photo).find('.tgme_widget_message_photo').first().attr('style') ?? '';
       const widthMatch = style.match(/width:\s*(\d+)px/i);
       const heightMatch = style.match(/height:\s*(\d+)px/i);
       // Telegram uses padding-top percentage for aspect ratio (height/width * 100)
-      const paddingMatch = style.match(/padding-top:\s*([\d.]+)%/i);
+      const paddingMatch = `${style};${photoStyle}`.match(/padding-top:\s*([\d.]+)%/i);
       const imageWidth = widthMatch ? Number.parseInt(widthMatch[1], 10) : 0;
       let imageHeight = heightMatch ? Number.parseInt(heightMatch[1], 10) : 0;
       // Calculate height from padding-top if not directly available
@@ -603,7 +604,11 @@ function getImages($: CheerioAPI, item: Element, { staticProxy, hdImageBase = ''
       const isPortrait = imageHeight > 0 && imageHeight > imageWidth * 1.2;
       const isUltraTall = imageHeight > 0 && imageHeight > imageWidth * 2.5;
       const portraitClass = isUltraTall ? ' image-preview-wrap--ultra-tall' : isPortrait ? ' image-preview-wrap--portrait' : '';
-      const widthStyle = imageWidth ? ` style="--image-width:${imageWidth}px;--image-height:${imageHeight}px"` : '';
+      const imageSizeVars = [
+        imageWidth ? `--image-width:${imageWidth}px` : '',
+        imageHeight ? `--image-height:${imageHeight}px` : '',
+      ].filter(Boolean).join(';');
+      const widthStyle = imageSizeVars ? ` style="${imageSizeVars}"` : '';
       const widthAttr = imageWidth ? ` width="${imageWidth}"` : '';
       const heightAttr = imageHeight ? ` height="${imageHeight}"` : '';
       const safePostId = (id ?? '').replace(/[^a-z0-9_-]/gi, '');

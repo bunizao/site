@@ -147,7 +147,7 @@ export function createFeedMediaHydrator(
       img.src = channel.avatar;
       img.alt = channel.title || 'Channel avatar';
       img.className = 'mood-hero-avatar-img';
-      setImageHints(img, { priority: true, lazy: false });
+      setImageHints(img, { lazy: false });
       img.onload = () => {
         avatarEl.classList.add('is-loaded');
       };

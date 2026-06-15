@@ -215,7 +215,10 @@ function readFirstImageDimensions(
   const inlineWidth = parsePositiveInteger($(image).attr('width'));
   const inlineHeight = parsePositiveInteger($(image).attr('height'));
   const wrapper = $(image).closest('.image-preview-wrap, .tgme_widget_message_photo_wrap, .video-too-big').first();
-  const wrapperStyle = (wrapper.attr('style') ?? '').trim();
+  const wrapperStyle = [
+    wrapper.attr('style') ?? '',
+    wrapper.find('.tgme_widget_message_photo').first().attr('style') ?? '',
+  ].join(';').trim();
   const wrapperDimensions = wrapperStyle ? parseStyleDimensions(wrapperStyle) : { width: null, height: null };
 
   return {
@@ -281,7 +284,10 @@ export function getFirstImageMeta(content: string): MoodImageMeta {
   }
 
   const photoWrap = $('.tgme_widget_message_photo_wrap').first();
-  const style = (photoWrap.attr('style') ?? '').trim();
+  const style = [
+    photoWrap.attr('style') ?? '',
+    photoWrap.find('.tgme_widget_message_photo').first().attr('style') ?? '',
+  ].join(';').trim();
   const { width, height } = style ? parseStyleDimensions(style) : { width: null, height: null };
 
   return {

@@ -30,6 +30,21 @@ describe('getFirstImage', () => {
       kind: 'sticker',
     });
   });
+
+  test('reads Telegram photo dimensions from child aspect-ratio placeholder', () => {
+    const content = [
+      '<a class="tgme_widget_message_photo_wrap" href="https://t.me/tutumood/3579" style="width:800px;background-image:url(\'https://cdn5.telesco.pe/file/photo.jpg\')">',
+      '  <div class="tgme_widget_message_photo" style="padding-top:20.625%"></div>',
+      '</a>',
+    ].join('');
+
+    expect(getFirstImageMeta(content)).toMatchObject({
+      src: 'https://cdn5.telesco.pe/file/photo.jpg',
+      width: 800,
+      height: 165,
+      layout: 'landscape',
+    });
+  });
 });
 
 describe('video-only feed preview heuristic', () => {

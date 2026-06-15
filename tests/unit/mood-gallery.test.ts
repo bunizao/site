@@ -49,6 +49,21 @@ describe('mood gallery extraction', () => {
     expect(gallery?.items[2]?.layout).toBe('ultra-tall');
   });
 
+  test('reads Telegram photo aspect ratio from the child placeholder', () => {
+    const gallery = getMoodGallery([
+      '<a class="tgme_widget_message_photo_wrap" href="https://t.me/tutumood/3579" style="width:800px;background-image:url(\'https://cdn5.telesco.pe/file/photo.jpg\')">',
+      '  <div class="tgme_widget_message_photo" style="padding-top:20.625%"></div>',
+      '</a>',
+    ].join(''));
+
+    expect(gallery?.items[0]).toMatchObject({
+      src: 'https://cdn5.telesco.pe/file/photo.jpg',
+      width: 800,
+      height: 165,
+      layout: 'landscape',
+    });
+  });
+
   test('replaces gallery blocks with placeholders before rendering', () => {
     const result = replaceMoodGalleryWithPlaceholders(multiImageContent);
 
