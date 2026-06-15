@@ -18,7 +18,6 @@ The public Worker keeps `buxx.me/api/*` as a compatibility surface. Compatibilit
 - `src/middleware.ts` — Astro middleware that gates protected docs by checking the private admin session through the `API` service binding.
 - `src/features/` — feature-private code (`home/`, `mood/`, `logos/`).
 - `src/lib/` — shared utilities (GitHub API, security, HTTP, media helpers).
-- `src/components/ui/` — shadcn/ui primitives used in the admin portal.
 - `src/layouts/` — `Layout.astro` for the public site, `PortalLayout.astro` for the admin portal.
 - `src/styles/` — Tailwind directives, CSS variable color system, font wiring.
 
