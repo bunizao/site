@@ -49,7 +49,7 @@ Markdown-backed means policy edits don't require layout changes, route logic sta
 
 ### Cloudflare anti-abuse
 
-- Turnstile verification: `src/lib/security/turnstile.ts`. Used by mood subscribe when `TURNSTILE_SECRET` is configured.
+- Turnstile verification runs in `site-api` (`/v2/notify/subscribe`), gated on `TURNSTILE_SECRET`.
 - Cloudflare D1 backs subscriber state.
 - Cloudflare Worker bindings provide D1, R2, queue, and scheduled-event infrastructure in `site-api`.
 

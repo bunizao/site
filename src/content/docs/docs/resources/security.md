@@ -24,7 +24,7 @@ Operational caveat: state is isolate-local and not durable. Cloudflare Worker is
 
 ## Turnstile
 
-`src/lib/security/turnstile.ts` reads the secret from build env or runtime env, posts verification to Cloudflare Turnstile, forwards `remoteip` when available, validates the challenge hostname against the current request host, optionally validates `action`, and returns structured result codes instead of throwing.
+Turnstile verification lives in `site-api`: it reads the secret from build env or runtime env, posts verification to Cloudflare Turnstile, forwards `remoteip` when available, validates the challenge hostname against the current request host, optionally validates `action`, and returns structured result codes instead of throwing.
 
 Currently used by `site-api /v2/notify/subscribe` with the expected action `notify_subscribe`. When `TURNSTILE_SECRET` is unset, the check is skipped — useful in local dev, dangerous in production.
 
