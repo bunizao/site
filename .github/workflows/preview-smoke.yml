@@ -28,6 +28,9 @@ jobs:
     if: github.event_name == 'workflow_dispatch' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    env:
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
 
     steps:
       - name: Resolve preview context
@@ -78,9 +81,35 @@ jobs:
       - name: Install Playwright Chromium
         run: bunx playwright install --with-deps chromium
 
+      - name: Build Cloudflare preview
+        if: steps.context.outputs.preview_url == '' && env.CLOUDFLARE_API_TOKEN != ''
+        run: bun run build
+
+      - name: Configure Cloudflare Access preview
+        if: steps.context.outputs.preview_url == '' && env.CLOUDFLARE_API_TOKEN != ''
+        env:
+          WORKER_NAME: site
+        run: node .github/scripts/configure-cloudflare-access-preview.mjs
+
+      - name: Upload Cloudflare preview
+        id: cloudflare-preview
+        if: steps.context.outputs.preview_url == '' && env.CLOUDFLARE_API_TOKEN != ''
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          PREVIEW_ALIAS: pr-${{ github.event.pull_request.number || github.run_id }}
+          WORKER_NAME: site
+        run: |
+          set -o pipefail
+          bunx wrangler versions upload \
+            --config dist/server/wrangler.json \
+            --preview-alias "$PREVIEW_ALIAS" \
+            --message "ci: preview smoke ${GITHUB_SHA}" \
+            2>&1 | tee wrangler-preview.log
+          node .github/scripts/read-wrangler-preview-url.mjs wrangler-preview.log
+
       - name: Run preview smoke tests
         env:
-          E2E_BASE_URL: ${{ steps.context.outputs.preview_url }}
+          E2E_BASE_URL: ${{ steps.context.outputs.preview_url || steps.cloudflare-preview.outputs.preview_url }}
         run: bunx playwright test tests/e2e/preview-smoke.pw.ts
 
       - name: Upload Playwright report

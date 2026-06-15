@@ -47,7 +47,13 @@ describe('Cloudflare runtime configuration', () => {
     expect(previewWorkflow).toContain('pull_request:');
     expect(previewWorkflow).toContain('workflow_dispatch:');
     expect(previewWorkflow).toContain('node-version-file: .node-version');
-    expect(previewWorkflow).toContain('E2E_BASE_URL: ${{ steps.context.outputs.preview_url }}');
+    expect(previewWorkflow).toContain('Configure Cloudflare Access preview');
+    expect(previewWorkflow).toContain('configure-cloudflare-access-preview.mjs');
+    expect(previewWorkflow).toContain('wrangler versions upload');
+    expect(previewWorkflow).toContain('--preview-alias "$PREVIEW_ALIAS"');
+    expect(previewWorkflow).toContain(
+      'E2E_BASE_URL: ${{ steps.context.outputs.preview_url || steps.cloudflare-preview.outputs.preview_url }}'
+    );
     expect(previewWorkflow).toContain('local checked-out build');
     expect(previewWorkflow).not.toContain('deployment_status:');
     expect(previewWorkflow).not.toContain('github.event.deployment');
@@ -104,6 +110,7 @@ describe('Cloudflare runtime configuration', () => {
     const config = readJson('wrangler.jsonc') as {
       name?: string;
       main?: string;
+      preview_urls?: boolean;
       placement?: {
         mode?: string;
       };
@@ -120,6 +127,7 @@ describe('Cloudflare runtime configuration', () => {
 
     expect(config.name).toBe('site');
     expect(config.main).toBe('src/worker.ts');
+    expect(config.preview_urls).toBe(true);
     expect(config.placement?.mode).toBe('smart');
     expect(config.assets?.directory).toBe('./dist');
     expect(config.assets?.binding).toBe('ASSETS');
@@ -142,7 +150,7 @@ describe('Cloudflare runtime configuration', () => {
       LASTFM_USER: 'bunizao',
       PUBLIC_HD_IMAGE_URL: 'https://api.buxx.me/v2/images',
       PUBLIC_TURNSTILE_SITE_KEY: '0x4AAAAAACaDQzCbYalmO_xV',
-      MOOD_API_V2_DEFAULT: 'false',
+      MOOD_API_V2_DEFAULT: 'true',
       CHANNEL: 'tutumood',
       TELEGRAM_HOST: 't.me',
     });
