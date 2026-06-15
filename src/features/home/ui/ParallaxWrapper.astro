@@ -37,14 +37,25 @@
 </style>
 
 <script>
-  import gsap from 'gsap';
-  import { ScrollTrigger } from 'gsap/ScrollTrigger';
+  let gsapPromise: Promise<typeof import('gsap')['default']> | null = null;
+
+  const loadGsap = async (): Promise<typeof import('gsap')['default']> => {
+    gsapPromise ??= Promise.all([
+      import('gsap'),
+      import('gsap/ScrollTrigger'),
+    ]).then(([{ default: gsap }, { ScrollTrigger }]) => {
+      gsap.registerPlugin(ScrollTrigger);
+      return gsap;
+    });
+
+    return gsapPromise;
+  };
 
   const initSkatingEffects = async () => {
     const prefersReducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
     if (prefersReducedMotion) return;
 
-    gsap.registerPlugin(ScrollTrigger);
+    const gsap = await loadGsap();
 
     // ===== SMOOTH SCROLL DRIFT (SIMPLE & FLUID) =====
     const floatingSections = document.querySelectorAll('section:not(#projects-section)');
@@ -114,5 +125,32 @@
 
   };
 
-  void initSkatingEffects();
+  const scheduleSkatingEffects = () => {
+    let scheduled = false;
+    const run = () => { void initSkatingEffects(); };
+
+    const schedule = () => {
+      if (scheduled) return;
+      scheduled = true;
+
+      const requestIdle = window.requestIdleCallback;
+      if (typeof requestIdle === 'function') {
+        requestIdle(run, { timeout: 1600 });
+        return;
+      }
+
+      globalThis.setTimeout(run, 0);
+    };
+
+    window.addEventListener('wheel', schedule, { once: true, passive: true });
+    window.addEventListener('touchstart', schedule, { once: true, passive: true });
+    window.addEventListener('keydown', schedule, { once: true });
+    window.setTimeout(schedule, 5000);
+  };
+
+  if (document.readyState === 'complete') {
+    scheduleSkatingEffects();
+  } else {
+    window.addEventListener('load', scheduleSkatingEffects, { once: true });
+  }
 </script>

@@ -193,19 +193,31 @@ describe('Cloudflare runtime configuration', () => {
     const globals = readText('src/styles/globals.css');
     const hero = readText('src/features/home/ui/Hero.astro');
     const decodeText = readText('src/features/home/ui/DecodeText.astro');
+    const experience = readText('src/features/home/ui/Experience.astro');
+    const parallax = readText('src/features/home/ui/ParallaxWrapper.astro');
+    const homePage = readText('src/pages/index.astro');
 
     expect(globals).toContain('.js .hero-animate {');
     expect(globals).toMatch(/font-family: 'Geist Mono';[\s\S]*?font-display: optional;/);
     expect(hero).toContain("import DecodeText from '@/features/home/ui/DecodeText.astro';");
     expect(hero).toContain('<DecodeText>');
-    expect(hero).not.toContain('<h1 class="hero-animate');
-    expect(decodeText).not.toContain('document.fonts?.ready');
-    expect(decodeText).toContain('const FALLBACK_START_MS = 900;');
+    expect(hero).toContain('<h1 class="hero-animate');
+    expect(hero).toContain('import gsap from \'gsap\';');
+    expect(hero).toContain('<span class="hero-lcp-anchor" aria-hidden="true">Lucian</span>');
+    expect(decodeText).toContain('await document.fonts?.ready');
+    expect(decodeText).toContain('const FALLBACK_START_MS = 1500;');
+    expect(decodeText).toContain('const LINE_DURATION_PER_CHAR = 0.024;');
+    expect(decodeText).toContain('const LINE_DELAY_FACTOR = 0.16;');
+    expect(decodeText).toContain('const timeline = gsap.timeline({ onComplete: finish });');
     expect(hero).toContain('const identity = heroElements.filter((el) => !el.hasAttribute');
     expect(hero).toContain('gsap.set(heroElements, { opacity: 0, y: 20 });');
     expect(hero).toContain('heroTl.to(identity, {');
     expect(hero).toContain('heroTl.to(widgets, {');
     expect(hero).toContain("window.dispatchEvent(new CustomEvent('home:hero-bio-ready'))");
+    expect(experience).toContain('<ExperienceTimeline client:visible />');
+    expect(parallax).toContain("import('gsap/ScrollTrigger')");
+    expect(parallax).toContain("window.addEventListener('load', scheduleSkatingEffects");
+    expect(homePage).toContain('content-visibility: auto;');
   });
 
   test('reads Turnstile site key from runtime public env on the mood route', () => {

@@ -74,9 +74,12 @@ const techRow2 = ['Frontend', 'BGP', 'Proxy', 'Docker', 'Linux', 'Web3', 'Optimi
     </div>
 
     <!-- Name -->
-    <h1 class="mb-2 text-[28px] font-semibold sm:text-[36px]" data-hero-name>
-      <Typewriter texts={["Lucian", "Bunizao", "Tutu", "Collapsar"]} speed={80} />
-    </h1>
+    <div class="hero-name-shell mb-2 text-[28px] font-semibold sm:text-[36px]">
+      <span class="hero-lcp-anchor" aria-hidden="true">Lucian</span>
+      <h1 class="hero-animate m-0" data-hero-name>
+        <Typewriter texts={["Lucian", "Bunizao", "Tutu", "Collapsar"]} speed={80} />
+      </h1>
+    </div>
 
     <!-- Personal Info -->
     <div class="hero-animate mb-3" data-hero-info>
@@ -171,6 +174,26 @@ const techRow2 = ['Frontend', 'BGP', 'Proxy', 'Docker', 'Linux', 'Web3', 'Optimi
     will-change: opacity, transform;
   }
 
+  .hero-name-shell {
+    position: relative;
+  }
+
+  .hero-lcp-anchor {
+    position: absolute;
+    inset: 0 auto auto 0;
+    z-index: 0;
+    color: currentColor;
+    line-height: inherit;
+    opacity: 0.01;
+    pointer-events: none;
+    white-space: pre;
+  }
+
+  [data-hero-name] {
+    position: relative;
+    z-index: 1;
+  }
+
   @media (prefers-reduced-motion: reduce) {
     :global(html.js) .hero-animate {
       opacity: 1;
@@ -227,6 +250,8 @@ const techRow2 = ['Frontend', 'BGP', 'Proxy', 'Docker', 'Linux', 'Web3', 'Optimi
 </style>
 
 <script>
+  import gsap from 'gsap';
+
   const prefersReducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
   const heroElements = Array.from(document.querySelectorAll<HTMLElement>('.hero-animate'));
   const statusText = document.getElementById('status-text');
@@ -262,12 +287,11 @@ const techRow2 = ['Frontend', 'BGP', 'Proxy', 'Docker', 'Linux', 'Web3', 'Optimi
     'Solving'
   ];
 
-  const initHero = async () => {
+  const initHero = () => {
     if (!heroElements.length) return;
-    const { default: gsap } = await import('gsap');
 
     // Split the hero into two phases so the chain reads top-to-bottom:
-    // static identity details resolve first, then the supporting widgets rise in.
+    // identity text resolves first, then the supporting widgets rise in.
     const identity = heroElements.filter((el) => !el.hasAttribute('data-hero-motion'));
     const widgets = heroElements.filter((el) => el.hasAttribute('data-hero-motion'));
 
@@ -277,7 +301,7 @@ const techRow2 = ['Frontend', 'BGP', 'Proxy', 'Docker', 'Linux', 'Web3', 'Optimi
       defaults: { ease: 'power3.out' }
     });
 
-    // Phase 1: status -> info -> role -> bio.
+    // Phase 1: status -> name -> info -> role -> bio.
     heroTl.to(identity, {
       opacity: 1,
       y: 0,
@@ -286,7 +310,7 @@ const techRow2 = ['Frontend', 'BGP', 'Proxy', 'Docker', 'Linux', 'Web3', 'Optimi
       ease: 'back.out(1.25)'
     }, 0);
 
-    // Kick the name decoder after the hero timeline has started.
+    // Kick the name decoder as its line settles in.
     heroTl.call(() => {
       window.dispatchEvent(new CustomEvent('home:hero-name-ready'));
     }, [], 0.1);
@@ -294,9 +318,9 @@ const techRow2 = ['Frontend', 'BGP', 'Proxy', 'Docker', 'Linux', 'Web3', 'Optimi
     // Hand off to the bio decoder once the name is resolving.
     heroTl.call(() => {
       window.dispatchEvent(new CustomEvent('home:hero-bio-ready'));
-    }, [], 0.5);
+    }, [], 0.7);
 
-    // Phase 2: socials, listening, GitHub, and tech after the identity is set.
+    // Phase 2: socials, listening, GitHub, tech — after the identity is set.
     heroTl.to(widgets, {
       opacity: 1,
       y: 0,

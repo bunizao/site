@@ -78,7 +78,7 @@ const { class: className } = Astro.props;
   };
 
   const BIO_READY_EVENT = 'home:hero-bio-ready';
-  const FALLBACK_START_MS = 900;
+  const FALLBACK_START_MS = 1500;
 
   const SCRAMBLE = '__--/\\|<>'.split('');
   const CURSOR = '-';
@@ -89,8 +89,8 @@ const { class: className } = Astro.props;
   const MIN_HOLD = 0.28;
   const MAX_HOLD = 0.45;
   const CURSOR_HOLD = 0.05;
-  const LINE_DURATION_PER_CHAR = 0.01;
-  const LINE_DELAY_FACTOR = 0.07;
+  const LINE_DURATION_PER_CHAR = 0.024;
+  const LINE_DELAY_FACTOR = 0.16;
 
   const prefersReducedMotion = (): boolean =>
     window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
@@ -233,7 +233,7 @@ const { class: className } = Astro.props;
         cell.appear = (i / n) * SPREAD;
         cell.settle = Math.min(0.999, cell.appear + MIN_HOLD + Math.random() * (MAX_HOLD - MIN_HOLD));
       });
-      const duration = Math.min(0.82, Math.max(0.28, LINE_DURATION_PER_CHAR * n));
+      const duration = Math.min(1.8, Math.max(0.5, LINE_DURATION_PER_CHAR * n));
       const state = { p: 0 };
       timeline.to(
         state,
@@ -262,11 +262,8 @@ const { class: className } = Astro.props;
     const fgEl = host.querySelector<HTMLElement>('.text-foreground');
     const fgColor = fgEl ? getComputedStyle(fgEl).color : mutedColor;
 
-    // Wait one layout frame after CSS applies. Waiting for every document font
-    // pushes the bio reveal past Lighthouse's LCP window.
-    await new Promise<void>((resolve) => {
-      window.requestAnimationFrame(() => resolve());
-    });
+    // Fonts must be ready before measuring so visual line breaks are correct.
+    await document.fonts?.ready.catch(() => {});
 
     // Lock the footprint so swapping text -> blocks -> text never shifts the page.
     root.style.minHeight = `${root.getBoundingClientRect().height}px`;

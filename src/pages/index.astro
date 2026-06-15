@@ -33,3 +33,15 @@ const isHomeDevSurface = import.meta.env.DEV && process.env.DEV_SURFACE === 'hom
     </main>
   </ParallaxWrapper>
 </Layout>
+
+<style>
+  :global(.page-container > section) {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 720px;
+  }
+
+  :global(.page-container > footer) {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 320px;
+  }
+</style>

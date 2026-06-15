@@ -71,7 +71,7 @@ const placeholderText = `${longestText}_`;
     color: transparent;
   }
 
-  .typewriter.is-canvas-active .typewriter-canvas {
+  .typewriter.is-enhanced .typewriter-canvas {
     opacity: 1;
   }
 
@@ -80,7 +80,7 @@ const placeholderText = `${longestText}_`;
       color: currentColor;
     }
 
-    .typewriter.is-canvas-active .typewriter-canvas {
+    .typewriter.is-enhanced .typewriter-canvas {
       opacity: 0;
     }
   }
@@ -395,8 +395,7 @@ const placeholderText = `${longestText}_`;
     canvas: HTMLCanvasElement,
     text: string,
     speed: number,
-    onDone?: () => void,
-    keepTextVisible = false
+    onDone?: () => void
   ): void => {
     const state = setupCanvas(visual, canvas);
     if (!state) return;
@@ -406,8 +405,7 @@ const placeholderText = `${longestText}_`;
     root._typewriterCurrentText = text;
     visual.setAttribute('aria-label', text);
     visual.classList.remove('is-typed');
-    visual.classList.toggle('is-enhanced', !keepTextVisible);
-    visual.classList.add('is-canvas-active', 'is-typing');
+    visual.classList.add('is-enhanced', 'is-typing');
 
     const duration = durationFor(text, speed);
     const startedAt = performance.now();
@@ -477,7 +475,7 @@ const placeholderText = `${longestText}_`;
         if (texts.length > 1) {
           root._typewriterLoopTimer = window.setTimeout(runLoop, pauseDuration);
         }
-      }, true);
+      });
     };
 
     const runLoop = (): void => {
