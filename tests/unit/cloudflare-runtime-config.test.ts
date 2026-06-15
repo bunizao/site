@@ -217,6 +217,7 @@ describe('Cloudflare runtime configuration', () => {
     expect(experience).toContain('<ExperienceTimeline client:visible />');
     expect(parallax).toContain("import('gsap/ScrollTrigger')");
     expect(parallax).toContain("window.addEventListener('load', scheduleSkatingEffects");
+    expect(homePage).toContain(':global(.page-container > section:not(#projects-section))');
     expect(homePage).toContain('content-visibility: auto;');
   });
 

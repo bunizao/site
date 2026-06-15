@@ -35,7 +35,7 @@ const isHomeDevSurface = import.meta.env.DEV && process.env.DEV_SURFACE === 'hom
 </Layout>
 
 <style>
-  :global(.page-container > section) {
+  :global(.page-container > section:not(#projects-section)) {
     content-visibility: auto;
     contain-intrinsic-size: auto 720px;
   }

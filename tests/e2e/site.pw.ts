@@ -159,6 +159,7 @@ test.describe('Home page', () => {
     await expect(page.locator('#projects-section')).toBeVisible();
     await expect(page.locator('#writing-section')).toBeVisible();
     await expect(page.locator('#moods-section')).toBeVisible();
+    await expect(page.locator('#projects-section')).not.toHaveCSS('content-visibility', 'auto');
     await expect(page.locator('#projects-section [aria-label="Projects"] article')).toHaveCount(4);
     expect(await page.locator('#writing-section .post-item').count()).toBeGreaterThan(0);
     await expect(page.locator('#writing-section .post-item').first()).toHaveCSS('display', 'flex');
