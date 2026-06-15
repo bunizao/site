@@ -6,14 +6,13 @@ import {
 import type { RuntimeEnvLocals } from '@/lib/runtime/env';
 import { getDocsVisibilityFromContent } from '@/features/docs/server/content';
 import { isDocsPath } from '@/features/docs/server/visibility';
+import {
+  readAdminDevBypassSession,
+  type AdminSessionIdentity,
+} from '@/features/admin/server/dev-bypass';
 
 const OAUTH_LOGIN_PATH = '/oauth/login';
 const DEV_PORTAL_PREFIX = '/dev';
-
-interface AdminSessionIdentity {
-  login: string;
-  avatarUrl?: string;
-}
 
 function isDevPortalPath(pathname: string): boolean {
   return pathname === DEV_PORTAL_PREFIX || pathname.startsWith(`${DEV_PORTAL_PREFIX}/`);
@@ -93,7 +92,8 @@ export const onRequest = defineMiddleware(async (context, next) => {
 
   // Admin portal: served by this worker, gated on the private admin session.
   if (isDevPortalPath(pathname)) {
-    const session = await fetchAdminSession(context.request, context.locals);
+    const session = readAdminDevBypassSession(context.locals, url.hostname)
+      ?? await fetchAdminSession(context.request, context.locals);
     if (!session) {
       return redirectToLogin(pathname, url.search);
     }
