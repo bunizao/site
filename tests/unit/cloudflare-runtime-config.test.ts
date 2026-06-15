@@ -134,6 +134,7 @@ describe('Cloudflare runtime configuration', () => {
     expect(config.assets?.run_worker_first).toEqual([
       '/api/*',
       '/mood*',
+      '/dev',
       '/dev/*',
       '/oauth*',
       '/docs*',

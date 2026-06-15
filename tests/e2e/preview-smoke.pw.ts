@@ -48,6 +48,12 @@ test.describe('Preview smoke', () => {
     expect(url.searchParams.get('next')).toBe('/docs/quality/debug-logs/');
   });
 
+  test('redirects the dev root to the admin portal', async ({ page }) => {
+    await page.goto('/dev');
+
+    await expect(page).toHaveURL(/\/dev\/portal$/);
+  });
+
   test('renders public docs without login', async ({ page }) => {
     await page.goto('/docs/overview/architecture/');
 
