@@ -66,9 +66,7 @@ export function rewriteApiServiceUrl(requestUrl: string): URL {
 
 function rewriteApiServicePath(pathname: string): string {
   if (
-    pathname === '/dev'
-    || pathname.startsWith('/dev/')
-    || pathname === '/oauth'
+    pathname === '/oauth'
     || pathname.startsWith('/oauth/')
   ) {
     return pathname;

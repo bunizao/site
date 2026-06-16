@@ -76,11 +76,10 @@ The webhook and queue worker do not send email directly. `/v2/notify/dispatch` r
 
 ## Admin portal
 
-Admin pages and APIs are served by `site-api` and reached from the public site through compatibility routes:
+Admin pages are served by the public `site` Worker. Admin data and auth endpoints are served by `site-api`:
 
-- `/dev/*`
-- `/oauth*`
-- `/api/admin/*`
+- public UI: `/dev/*`, `/oauth/login`
+- private API: `/v2/admin/*`
 
 Protected docs on the public site check `site-api /v2/admin/session` through the `API` service binding.
 

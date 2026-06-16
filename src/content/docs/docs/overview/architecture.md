@@ -14,7 +14,7 @@ The public Worker keeps `buxx.me/api/*` as a compatibility surface. Compatibilit
 
 - `src/pages/` — file-based routing. `index.astro` (home), `mood.astro` (feed shell), `mood/[id].astro` (detail), `mood/embed.astro` (embeddable widget).
 - `src/pages/api/` — public endpoints (moods, comments, SVG generators, oEmbed, health, Ghost/listening/footer) plus the compatibility proxy.
-- `src/pages/dev/` and `src/pages/oauth*` — compatibility proxy routes to the private admin/OAuth app.
+- `src/pages/dev/` and `src/pages/oauth/login.astro` — public admin UI routes. They call private admin APIs through `/v2/admin/*`.
 - `src/middleware.ts` — Astro middleware that gates protected docs by checking the private admin session through the `API` service binding.
 - `src/features/` — feature-private code (`home/`, `mood/`, `logos/`).
 - `src/lib/` — shared utilities (GitHub API, security, HTTP, media helpers).
@@ -36,7 +36,7 @@ The site reads from six external sources:
 
 Public JSON: `/api/moods`, `/api/comments`, `/api/oembed.json`, `/api/footer`, `/api/health`. SVG generators (all accept `?theme=light|dark`): `/api/status.svg`, `/api/tech-stack.svg`, `/api/site-badge.svg`, `/api/project.svg`, `/api/activity-panel.svg`. RSS at `/mood/rss.xml`.
 
-Private API canonical base for new surfaces: `https://api.buxx.me/v2/`. Admin, OAuth, notify, Telegram webhook, image ingest, and scheduled notify work are private API responsibilities. Public `buxx.me/api/*` remains a compatibility proxy where needed.
+Private API canonical base for new surfaces: `https://api.buxx.me/v2/`. Admin data APIs, OAuth callbacks, notify, Telegram webhook, image ingest, and scheduled notify work are private API responsibilities. Public `buxx.me/api/*` remains a compatibility proxy where needed. The private API Worker does not render `/dev/*` UI.
 
 ## Styling
 

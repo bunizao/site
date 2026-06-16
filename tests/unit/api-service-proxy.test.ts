@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'bun:test';
+import { readFileSync } from 'node:fs';
 import {
   createApiServiceRequest,
   getApiServiceBinding,
@@ -14,19 +15,29 @@ function createApiBinding(handler: (request: Request) => Response | Promise<Resp
 }
 
 describe('api service proxy', () => {
+  test('serves the OAuth login UI from the public site', () => {
+    const source = readFileSync(new URL('../../src/pages/oauth/login.astro', import.meta.url), 'utf8');
+
+    expect(source).toContain('Sign in with GitHub');
+    expect(source).toContain('/v2/admin/auth/start');
+  });
+
   test('rewrites public API URLs to the private API origin', () => {
     const url = rewriteApiServiceUrl('https://buxx.me/api/health?probe=1');
 
     expect(url.toString()).toBe('https://site-api.internal/v2/health?probe=1');
   });
 
-  test('passes private app routes through without version prefixing', () => {
+  test('passes private oauth and API routes through without version prefixing', () => {
     expect(rewriteApiServiceUrl('https://buxx.me/oauth/login?next=%2Fdocs').toString())
       .toBe('https://site-api.internal/oauth/login?next=%2Fdocs');
-    expect(rewriteApiServiceUrl('https://buxx.me/dev/portal').toString())
-      .toBe('https://site-api.internal/dev/portal');
     expect(rewriteApiServiceUrl('https://buxx.me/v2/admin/auth/start?next=%2Fdev%2Fportal').toString())
       .toBe('https://site-api.internal/v2/admin/auth/start?next=%2Fdev%2Fportal');
+  });
+
+  test('never proxies public dev portal pages into the API worker', () => {
+    expect(rewriteApiServiceUrl('https://buxx.me/dev/portal').toString())
+      .toBe('https://site-api.internal/v2/dev/portal');
   });
 
   test('passes method, body, and headers through to the service binding', async () => {
