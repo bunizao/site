@@ -66,9 +66,12 @@ const moodFeedBackHref = getMoodFeedAnchorHref(id ?? '', apiModeQueryValue);
 const channel = readEnv(Astro.locals, 'CHANNEL');
 const telegramCommentUrl = channel && id ? `https://t.me/${channel}/${id}?comment=1` : '';
 const renderedPostContent = post
-  ? !useApiV2 || isE2ESiteFixtureEnabled(Astro.locals)
-    ? addTooBigVideoTimestamp(renderMoodContentWithGalleries(post.bodyHtml), post.datetime)
-    : renderStructuredMoodDetailContent(post)
+  ? addTooBigVideoTimestamp(
+      !useApiV2 || isE2ESiteFixtureEnabled(Astro.locals)
+        ? renderMoodContentWithGalleries(post.bodyHtml)
+        : renderStructuredMoodDetailContent(post),
+      post.datetime,
+    )
   : '';
 ---
 

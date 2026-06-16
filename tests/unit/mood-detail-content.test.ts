@@ -90,4 +90,29 @@ describe('structured mood detail content rendering', () => {
     expect(html).not.toContain('javascript:');
     expect(html).not.toContain('Unsafe');
   });
+
+  test('renders oversized video documents as Telegram video placeholders', () => {
+    const html = renderStructuredMoodDetailContent(createDocument({
+      media: [
+        {
+          id: 'telegram-3567-video-0',
+          type: 'document',
+          href: 'https://t.me/tutumood/3567',
+          originalUrl: 'https://t.me/tutumood/3567',
+          title: 'Media is too big',
+          fileName: 'Media is too big',
+          mimeType: 'video',
+          width: 2286,
+          height: 1440,
+          thumbnailSrc: '/static/https:/cdn.example.test/video-thumb.jpg',
+        },
+      ],
+    }));
+
+    expect(html).toContain('class="video-too-big"');
+    expect(html).toContain('href="https://t.me/tutumood/3567"');
+    expect(html).toContain('class="video-too-big__thumb"');
+    expect(html).toContain('Media is too big');
+    expect(html).not.toContain('tgme_widget_message_document_wrap');
+  });
 });

@@ -48,6 +48,34 @@ function videoClass(media: MediaItem): string {
   return '';
 }
 
+function isTooBigVideoDocument(media: MediaItem): boolean {
+  if (media.type !== 'document' || media.mimeType?.toLowerCase() !== 'video') return false;
+
+  const label = (media.title || media.fileName || '').trim().toLowerCase();
+  return label === 'media is too big';
+}
+
+function renderTooBigVideo(media: MediaItem): string {
+  const href = safeUrl(media.originalUrl || media.href, 'href');
+  if (!href) return '';
+
+  const thumbnail = safeUrl(media.thumbnailSrc || media.posterSrc || media.src, 'media');
+  const width = dimension(media.width);
+  const height = dimension(media.height);
+  const aspectStyle = width && height ? ` style="aspect-ratio: ${(width / height).toFixed(4)} / 1"` : '';
+
+  return [
+    `<a class="video-too-big" href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer"${aspectStyle}>`,
+    thumbnail ? `<img class="video-too-big__thumb" src="${escapeHtml(thumbnail)}" alt="" loading="lazy" />` : '',
+    '<span class="video-too-big__scrim" aria-hidden="true"></span>',
+    '<span class="video-too-big__content">',
+    '<span class="video-too-big__label">Media is too big</span>',
+    '<span class="video-too-big__btn">View in Telegram</span>',
+    '</span>',
+    '</a>',
+  ].join('');
+}
+
 function renderVideo(media: MediaItem): string {
   const src = safeUrl(media.src, 'media');
   if (!src) return '';
@@ -138,6 +166,10 @@ function renderPoll(media: MediaItem): string {
 }
 
 function renderMediaItem(media: MediaItem): string {
+  if (isTooBigVideoDocument(media)) {
+    return renderTooBigVideo(media);
+  }
+
   switch (media.type) {
     case 'video':
       return renderVideo(media);
