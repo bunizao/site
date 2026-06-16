@@ -160,25 +160,27 @@ describe('Cloudflare runtime configuration', () => {
     expect(config.triggers).toBeUndefined();
   });
 
-  test('keeps the home shell CSP narrow enough to block injected zone scripts', () => {
+  test('allows Cloudflare scripts needed by production HTML', () => {
     const headers = readText('public/_headers');
 
     expect(headers).toContain('https://buxx.me/');
-    expect(headers).toContain("script-src 'unsafe-inline' https://buxx.me/_astro/");
-    expect(headers).not.toContain("script-src 'self'");
-    expect(headers).not.toContain('/cdn-cgi/');
-    expect(headers).not.toContain('/gmetrics/');
+    expect(headers).toContain("script-src 'self' 'unsafe-inline' https://buxx.me/_astro/");
+    expect(headers).toContain('https://static.cloudflareinsights.com');
+    expect(headers).toContain('https://challenges.cloudflare.com');
+    expect(headers).toContain('https://www.googletagmanager.com');
+    expect(headers).toContain("base-uri 'self'");
+    expect(headers).toContain("object-src 'none'");
   });
 
-  test('adds the same narrow script CSP to Worker-rendered HTML', () => {
+  test('adds the same production script CSP to Worker-rendered HTML', () => {
     const middleware = readText('src/middleware.ts');
 
     expect(middleware).toContain('Content-Security-Policy');
-    expect(middleware).toContain("script-src 'unsafe-inline'");
+    expect(middleware).toContain("script-src 'self' 'unsafe-inline'");
     expect(middleware).toContain('/_astro/');
+    expect(middleware).toContain('https://static.cloudflareinsights.com');
     expect(middleware).toContain('https://challenges.cloudflare.com');
-    expect(middleware).not.toContain('/cdn-cgi/');
-    expect(middleware).not.toContain('/gmetrics/');
+    expect(middleware).toContain('https://www.googletagmanager.com');
   });
 
   test('keeps non-priority mood images lazy when dimensions are incomplete', () => {
