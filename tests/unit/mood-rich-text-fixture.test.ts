@@ -35,6 +35,15 @@ describe('mood rich-text fixture', () => {
     // Custom emoji.
     expect(html).toContain('<span class="tg-emoji" data-emoji-id="5458403743835889060">');
 
+    // Auto-detected entities: mention resolves to a t.me link, the rest are
+    // preserved as styled spans through the sanitizer's class allowlist.
+    expect(html).toContain('href="https://t.me/durov"');
+    expect(html).toContain('<span class="tg-mention">Pavel</span>');
+    expect(html).toContain('<span class="tg-hashtag">#telegram</span>');
+    expect(html).toContain('<span class="tg-cashtag">$TON</span>');
+    expect(html).toContain('<span class="tg-bot-command">/start</span>');
+    expect(html).toContain('<span class="tg-datetime">June 17, 2026</span>');
+
     // Blockquotes: normal and expandable.
     expect(html).toContain('<blockquote>A normal blockquote');
     expect(html).toContain('<blockquote class="tg-blockquote-expandable">');

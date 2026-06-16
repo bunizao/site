@@ -40,6 +40,10 @@ const FIXTURE_BODY_HTML = [
     + 'a <a href="mailto:hi@buxx.me">mailto link</a>, and an <a href="/mood">internal link</a>.</p>',
   '<p>Inline <code>code()</code> sits next to a custom emoji '
     + '<span class="tg-emoji" data-emoji-id="5458403743835889060">😂</span> on the same line.</p>',
+  '<p>Auto entities: mention <a href="https://t.me/durov" rel="noopener noreferrer" target="_blank">@durov</a>, '
+    + 'text mention <span class="tg-mention">Pavel</span>, hashtag <span class="tg-hashtag">#telegram</span>, '
+    + 'cashtag <span class="tg-cashtag">$TON</span>, command <span class="tg-bot-command">/start</span>, '
+    + 'and a date <span class="tg-datetime">June 17, 2026</span>.</p>',
   '<pre><code class="language-typescript">export function greet(name: string): string {\n'
     + '  return `Hello, ${name}!`; // language-tagged block\n'
     + '}</code></pre>',

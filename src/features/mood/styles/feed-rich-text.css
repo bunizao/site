@@ -264,6 +264,22 @@
   border-bottom: none;
 }
 
+/* Telegram auto-detected entities (mention/hashtag/cashtag/bot_command). They
+   open in-app search with no stable public URL, so they read as accented text
+   rather than links. @username mentions resolve to a real t.me link instead. */
+.tg-mention,
+.tg-hashtag,
+.tg-cashtag,
+.tg-bot-command {
+  color: hsl(var(--foreground));
+  font-weight: 500;
+}
+
+.tg-datetime {
+  text-decoration: underline dotted;
+  text-underline-offset: 2px;
+}
+
 /* Telegram Bot API spoiler — blurred by default on every mood surface, revealed
    on activation by hydrateMoodRichText. */
 .tg-spoiler {
