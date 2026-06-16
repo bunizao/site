@@ -10,6 +10,7 @@ function createMoodFeedPost(
     imageHeight: number | null;
     imageLayout: string | null;
     imageWidth: number | null;
+    media: Array<Record<string, unknown>>;
     previewMediaType: string;
   }> = {}
 ) {
@@ -20,6 +21,7 @@ function createMoodFeedPost(
     previewText: text,
     previewHtml: text,
     image: null,
+    media: [],
     mediaHtml: '',
     needsDetailPage: true,
     forwardedFrom: null,
@@ -596,6 +598,70 @@ test.describe('Mood routes', () => {
     await expect(item.locator('.mood-item-thumb-video-label')).toHaveText('Media is too big');
     await expect(item.locator('.mood-item-thumb-video-time')).toHaveText(expectedTime);
     await expect(item.locator('.mood-item-thumb img')).toHaveCount(0);
+  });
+
+  test('renders structured too-big video media with the existing feed thumbnail UI', async ({ page }) => {
+    const moodId = '9903567';
+    const payload = {
+      posts: [
+        createMoodFeedPost(moodId, 'build w/ claude fable & opus', {
+          image: null,
+          imageFallback: null,
+          imageHeight: null,
+          imageLayout: null,
+          imageWidth: null,
+          media: [
+            {
+              id: 'telegram-3567-video-0',
+              type: 'document',
+              href: `https://t.me/tutumood/${moodId}`,
+              originalUrl: `https://t.me/tutumood/${moodId}`,
+              title: 'Media is too big',
+              fileName: 'Media is too big',
+              mimeType: 'video',
+              width: 2286,
+              height: 1440,
+              thumbnailSrc: '/static/https:/cdn.example.test/video-thumb.jpg',
+            },
+          ],
+          previewMediaType: 'document',
+        }),
+      ],
+      channel: {
+        slug: 'e2e',
+        title: 'E2E Channel',
+        description: 'E2E mood feed',
+        avatar: '',
+      },
+    };
+
+    await page.route('**/api/moods**', async (route) => {
+      const url = new URL(route.request().url());
+      if (url.searchParams.get('probe') === '1') {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({ latestId: moodId }),
+        });
+        return;
+      }
+
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(payload),
+      });
+    });
+
+    await page.goto(`/mood?${moodId}`, { waitUntil: 'domcontentloaded' });
+
+    const item = page.locator(`[data-mood-id="${moodId}"]`);
+    const expectedTime = new Date(payload.posts[0].datetime).toTimeString().slice(0, 5);
+    await expect(item.locator('.mood-item-thumb--video')).toBeVisible();
+    await expect(item.locator('.mood-item-thumb--video img')).toBeVisible();
+    await expect(item.locator('.mood-item-thumb-video-label')).toHaveText('Media is too big');
+    await expect(item.locator('.mood-item-thumb-video-time')).toHaveText(expectedTime);
+    await expect(item.locator('.mood-item-media .video-too-big')).toHaveCount(0);
   });
 
   test('collapses header actions on compact mood feed scroll', async ({ page }) => {

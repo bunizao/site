@@ -7,7 +7,7 @@ import {
 } from '@/features/mood/shared/feed-anchor';
 import { readMoodApiModeQueryValue } from '@/features/mood/shared/api-mode';
 import { buildMoodPreviewFragment } from '@/features/mood/shared/preview';
-import { renderStructuredMoodFeedMediaMarkup } from '@/features/mood/shared/feed-media';
+import { findTooBigVideoMedia, renderStructuredMoodFeedMediaMarkup } from '@/features/mood/shared/feed-media';
 import type { ChannelInfo, MoodData } from '@/features/mood/client/feed-types';
 
 interface FeedCommentsPopover {
@@ -268,7 +268,9 @@ export function createFeedRenderer({
     const detailHref = getMoodDetailHref(mood.id, getCurrentApiModeQueryValue());
     const mediaHtml = typeof mood.mediaHtml === 'string' ? mood.mediaHtml.trim() : '';
     const hasMediaHtml = mediaHtml.length > 0;
-    const structuredMediaHtml = renderStructuredMoodFeedMediaMarkup(mood.media);
+    const tooBigVideoMedia = findTooBigVideoMedia(mood.media);
+    const feedMedia = tooBigVideoMedia ? mood.media?.filter((item) => item !== tooBigVideoMedia) : mood.media;
+    const structuredMediaHtml = renderStructuredMoodFeedMediaMarkup(feedMedia);
     const hasStructuredMedia = structuredMediaHtml.length > 0;
     const previewMediaType = typeof mood.previewMediaType === 'string' ? mood.previewMediaType.trim() : '';
     const needsDetailPage = typeof mood.needsDetailPage === 'boolean'
@@ -417,9 +419,16 @@ export function createFeedRenderer({
       text.classList.add('mood-item-text--clamped');
     }
 
-    const isTooBigVideoPreview = previewMediaType === 'too-big-video';
+    const isTooBigVideoPreview = previewMediaType === 'too-big-video' || Boolean(tooBigVideoMedia);
     const hasGalleryPreview = !hasStructuredMedia && !hasMediaHtml && !isTooBigVideoPreview && (mood.gallery?.items.length ?? 0) > 1;
-    const imageSrc = typeof mood.image === 'string' ? mood.image.trim() : '';
+    const tooBigVideoThumb = typeof tooBigVideoMedia?.thumbnailSrc === 'string' ? tooBigVideoMedia.thumbnailSrc.trim() : '';
+    const imageSrc = typeof mood.image === 'string' && mood.image.trim()
+      ? mood.image.trim()
+      : isTooBigVideoPreview
+        ? tooBigVideoThumb
+        : '';
+    const imageWidth = typeof mood.imageWidth === 'number' ? mood.imageWidth : tooBigVideoMedia?.width ?? null;
+    const imageHeight = typeof mood.imageHeight === 'number' ? mood.imageHeight : tooBigVideoMedia?.height ?? null;
     const hasImagePreview = Boolean(imageSrc);
     const isPriorityMedia = !priorityMediaClaimed && (
       hasStructuredMedia
@@ -480,13 +489,13 @@ export function createFeedRenderer({
 
       if (
         isTooBigVideoPreview
-        && typeof mood.imageWidth === 'number'
-        && mood.imageWidth > 0
-        && typeof mood.imageHeight === 'number'
-        && mood.imageHeight > 0
+        && typeof imageWidth === 'number'
+        && imageWidth > 0
+        && typeof imageHeight === 'number'
+        && imageHeight > 0
       ) {
-        thumbWrap.style.setProperty('--mood-thumb-ratio', `${mood.imageWidth} / ${mood.imageHeight}`);
-        const aspectRatio = mood.imageWidth / mood.imageHeight;
+        thumbWrap.style.setProperty('--mood-thumb-ratio', `${imageWidth} / ${imageHeight}`);
+        const aspectRatio = imageWidth / imageHeight;
         if (aspectRatio < 0.6) {
           thumbWrap.classList.add('mood-item-thumb--video-ultra-tall');
         } else if (aspectRatio < 0.8) {
@@ -521,11 +530,11 @@ export function createFeedRenderer({
       if (hasImagePreview) {
         const img = document.createElement('img');
         img.alt = '';
-        if (typeof mood.imageWidth === 'number' && mood.imageWidth > 0) {
-          img.width = mood.imageWidth;
+        if (typeof imageWidth === 'number' && imageWidth > 0) {
+          img.width = imageWidth;
         }
-        if (typeof mood.imageHeight === 'number' && mood.imageHeight > 0) {
-          img.height = mood.imageHeight;
+        if (typeof imageHeight === 'number' && imageHeight > 0) {
+          img.height = imageHeight;
         }
 
         const fallback = typeof mood.imageFallback === 'string' ? mood.imageFallback.trim() : '';
@@ -540,9 +549,9 @@ export function createFeedRenderer({
           };
         }
 
-        const hasKnownImageBox = isPositiveDimension(mood.imageWidth) && isPositiveDimension(mood.imageHeight);
+        const hasKnownImageBox = isPositiveDimension(imageWidth) && isPositiveDimension(imageHeight);
         if (hasKnownImageBox) {
-          thumbWrap.style.setProperty('--mood-thumb-ratio', `${mood.imageWidth} / ${mood.imageHeight}`);
+          thumbWrap.style.setProperty('--mood-thumb-ratio', `${imageWidth} / ${imageHeight}`);
         }
 
         const hasResolvedImageLayout = Boolean(imageLayout) || isTooBigVideoPreview || hasKnownImageBox;

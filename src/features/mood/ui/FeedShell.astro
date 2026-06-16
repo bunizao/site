@@ -2,7 +2,7 @@
 import Hero from '@/features/mood/ui/Hero.astro';
 import type { MoodFeedItem, MoodChannelSummary } from '@/features/mood/server/contracts';
 import { renderMoodGalleryMarkup } from '@/features/mood/shared/gallery-render';
-import { hasStructuredMoodFeedMedia, renderStructuredMoodFeedMediaMarkup } from '@/features/mood/shared/feed-media';
+import { findTooBigVideoMedia, hasStructuredMoodFeedMedia, renderStructuredMoodFeedMediaMarkup } from '@/features/mood/shared/feed-media';
 import { getMoodFeedThumbnailStyle } from '@/features/mood/shared/feed-thumbnail';
 import { getMoodDetailHref, getMoodFeedAnchorFragmentId } from '@/features/mood/shared/feed-anchor';
 import type { MoodApiModeQueryValue } from '@/features/mood/shared/api-mode';
@@ -96,8 +96,10 @@ function formatDateHeader(dateKey: string): string {
 }
 
 function hasRenderableMedia(post: MoodFeedItem): boolean {
+  const tooBigVideoMedia = findTooBigVideoMedia(post.media);
   return Boolean(
-    hasStructuredMoodFeedMedia(post.media)
+    hasStructuredMoodFeedMedia(tooBigVideoMedia ? post.media.filter((item) => item !== tooBigVideoMedia) : post.media)
+    || tooBigVideoMedia
     || post.mediaHtml.trim()
     || post.previewMediaType === 'too-big-video'
     || post.image
@@ -134,20 +136,22 @@ function groupPostsByDate(posts: MoodFeedItem[]): Array<{ dateKey: string; posts
 }
 
 function getPostHref(post: MoodFeedItem): string | undefined {
-  return post.needsDetailPage && !post.mediaHtml.trim() && !hasStructuredMoodFeedMedia(post.media)
+  const tooBigVideoMedia = findTooBigVideoMedia(post.media);
+  const structuredMedia = tooBigVideoMedia ? post.media.filter((item) => item !== tooBigVideoMedia) : post.media;
+  return post.needsDetailPage && !post.mediaHtml.trim() && !hasStructuredMoodFeedMedia(structuredMedia)
     ? getMoodDetailHref(post.id, apiModeQueryValue)
     : undefined;
 }
 
-function getThumbClass(post: MoodFeedItem): string {
+function getThumbClass(post: MoodFeedItem, isTooBigVideoPreview = post.previewMediaType === 'too-big-video'): string {
   const classes = ['mood-item-thumb'];
-  if (post.previewMediaType === 'too-big-video') {
+  if (isTooBigVideoPreview) {
     classes.push('mood-item-thumb--video');
   }
   if (post.imageKind === 'sticker') {
     classes.push('mood-item-thumb--sticker');
   }
-  if (post.previewMediaType !== 'too-big-video') {
+  if (!isTooBigVideoPreview) {
     if (post.imageLayout === 'portrait') {
       classes.push('mood-item-thumb--portrait');
     } else if (post.imageLayout === 'ultra-tall') {
@@ -270,13 +274,18 @@ const hasCriticalInitialPosts = criticalInitialPosts.length > 0;
             {group.posts.map((post, index) => {
               const detailHref = getMoodDetailHref(post.id, apiModeQueryValue);
               const href = getPostHref(post);
+              const tooBigVideoMedia = findTooBigVideoMedia(post.media);
               const mediaHtml = post.mediaHtml.trim();
-              const structuredMediaHtml = renderStructuredMoodFeedMediaMarkup(post.media);
+              const feedMedia = tooBigVideoMedia ? post.media.filter((item) => item !== tooBigVideoMedia) : post.media;
+              const structuredMediaHtml = renderStructuredMoodFeedMediaMarkup(feedMedia);
               const hasStructuredMedia = structuredMediaHtml.length > 0;
               const isLongPreview = post.previewText.length > 280;
               const isPriorityMedia = post.id === criticalPriorityPostId;
               const commentsInfo = getCommentsCountInfo(post.commentsCount);
-              const isTooBigVideoPreview = post.previewMediaType === 'too-big-video';
+              const isTooBigVideoPreview = post.previewMediaType === 'too-big-video' || Boolean(tooBigVideoMedia);
+              const thumbImage = isTooBigVideoPreview ? (post.image || tooBigVideoMedia?.thumbnailSrc || null) : post.image;
+              const thumbWidth = isTooBigVideoPreview ? (post.imageWidth ?? tooBigVideoMedia?.width ?? null) : post.imageWidth;
+              const thumbHeight = isTooBigVideoPreview ? (post.imageHeight ?? tooBigVideoMedia?.height ?? null) : post.imageHeight;
               const hasGalleryPreview = !hasStructuredMedia && !mediaHtml && !isTooBigVideoPreview && (post.gallery?.items.length ?? 0) > 1;
               const fragmentId = getMoodFeedAnchorFragmentId(post.id);
 
@@ -381,19 +390,19 @@ const hasCriticalInitialPosts = criticalInitialPosts.length > 0;
                       <div class="mood-item-media" set:html={hasStructuredMedia ? structuredMediaHtml : mediaHtml} />
                     ) : hasGalleryPreview && post.gallery ? (
                       <Fragment set:html={renderMoodGalleryMarkup(post.gallery, { variant: 'feed', priority: isPriorityMedia })} />
-                    ) : post.image || isTooBigVideoPreview ? (
-                      <div class={getThumbClass(post)} style={getMoodFeedThumbnailStyle(post)}>
-                        {post.image ? (
+                    ) : thumbImage || isTooBigVideoPreview ? (
+                      <div class={getThumbClass(post, isTooBigVideoPreview)} style={getMoodFeedThumbnailStyle({ imageWidth: thumbWidth, imageHeight: thumbHeight })}>
+                        {thumbImage ? (
                           <img
                             alt=""
-                            width={post.imageWidth ?? undefined}
-                            height={post.imageHeight ?? undefined}
+                            width={thumbWidth ?? undefined}
+                            height={thumbHeight ?? undefined}
                             data-fallback-src={post.imageFallback ?? undefined}
                             decoding={isPriorityMedia ? 'sync' : 'async'}
                             loading={isPriorityMedia ? 'eager' : 'lazy'}
                             fetchpriority={isPriorityMedia ? 'high' : undefined}
-                            src={withWidthParam(post.image, 800)}
-                            srcset={buildSrcSet(post.image, responsiveImageWidths)}
+                            src={withWidthParam(thumbImage, 800)}
+                            srcset={buildSrcSet(thumbImage, responsiveImageWidths)}
                             sizes={thumbnailImageSizes}
                           />
                         ) : null}

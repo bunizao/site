@@ -55,6 +55,10 @@ function isTooBigVideoDocument(media: MediaItem): boolean {
   return label === 'media is too big';
 }
 
+export function findTooBigVideoMedia(media: readonly MediaItem[] | undefined): MediaItem | null {
+  return media?.find(isTooBigVideoDocument) ?? null;
+}
+
 function renderTooBigVideo(media: MediaItem): string {
   const href = safeUrl(media.originalUrl || media.href, 'href');
   if (!href) return '';
