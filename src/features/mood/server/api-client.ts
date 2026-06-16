@@ -28,6 +28,11 @@ import {
   type MoodServerContext,
 } from './channel-service';
 import { getPostComments } from './telegram-source';
+import {
+  MOOD_RICH_TEXT_FIXTURE_ID,
+  buildMoodRichTextFixtureDocument,
+  isMoodRichTextFixtureEnabled,
+} from './rich-text-fixture';
 
 export interface MoodFeedQuery {
   before?: string;
@@ -138,6 +143,14 @@ export async function loadMoodFeed(
     return buildMoodFeedResponse(context, channelInfo, channelInfo.posts);
   }
 
+  if (isMoodRichTextFixtureEnabled(context.locals)) {
+    const document = buildMoodRichTextFixtureDocument(getMoodChannelSlug(context.locals));
+    return {
+      posts: [moodDocumentToFeedItem(document)],
+      channel: { slug: document.channel?.slug, title: document.channel?.title },
+    };
+  }
+
   if (query.useApiV2) {
     return fetchMoodApiJson<MoodFeedResponse>(context, '/v1/mood', moodFeedParams(query));
   }
@@ -158,6 +171,10 @@ export async function loadMoodProbe(context: MoodServerContext, options: { useAp
   if (isE2ESiteFixtureEnabled(context.locals)) {
     const channelInfo = createE2EChannelInfo();
     return { latestId: channelInfo.posts[0]?.id ?? '' };
+  }
+
+  if (isMoodRichTextFixtureEnabled(context.locals)) {
+    return { latestId: MOOD_RICH_TEXT_FIXTURE_ID };
   }
 
   if (options.useApiV2) {
@@ -197,6 +214,10 @@ export async function loadMoodDocument(
     };
   }
 
+  if (isMoodRichTextFixtureEnabled(context.locals) && id === MOOD_RICH_TEXT_FIXTURE_ID) {
+    return buildMoodRichTextFixtureDocument(getMoodChannelSlug(context.locals));
+  }
+
   if (query.useApiV2) {
     return fetchMoodApiJson<MoodContentDocument | null>(context, `/v1/mood/${encodeURIComponent(id)}`);
   }
@@ -234,6 +255,10 @@ export async function loadMoodComments(
 ): Promise<MoodCommentsPage> {
   if (isE2ESiteFixtureEnabled(context.locals)) {
     return loadMoodCommentsFixture(postId);
+  }
+
+  if (isMoodRichTextFixtureEnabled(context.locals)) {
+    return { comments: [], hasMore: false, nextBefore: '' };
   }
 
   if (query.useApiV2) {
