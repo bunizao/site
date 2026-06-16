@@ -105,6 +105,7 @@ const renderedPostContent = post
   import { createAnimatedEmojiManager } from '@/features/mood/client/animated-emoji';
   import { initMoodDetailComments } from '@/features/mood/client/detail-comments-controller';
   import { initMoodGalleries } from '@/features/mood/client/gallery';
+  import { hydrateMoodRichText } from '@/features/mood/client/rich-text';
 
   document.querySelectorAll('.mood-post-content video').forEach((node) => {
     if (!(node instanceof HTMLVideoElement)) return;
@@ -151,6 +152,7 @@ const renderedPostContent = post
   if (moodPostContent instanceof HTMLElement) {
     replaceReplyNodesWithCommentQuotes(moodPostContent);
     initMoodGalleries(moodPostContent);
+    hydrateMoodRichText(moodPostContent);
   }
 
   const animatedEmoji = createAnimatedEmojiManager();

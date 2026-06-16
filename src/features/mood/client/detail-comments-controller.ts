@@ -5,6 +5,7 @@ import {
   sanitizeImageUrl,
 } from '@/features/mood/shared/comments';
 import { appendMoodApiMode } from '@/features/mood/client/api-mode';
+import { hydrateMoodRichText } from '@/features/mood/client/rich-text';
 
 interface CommentReactionData {
   emoji?: string;
@@ -235,6 +236,7 @@ export async function initMoodDetailComments(
         }
 
         options.hydrateAnimatedEmoji?.(commentsList);
+        hydrateMoodRichText(commentsList);
       } else if (!before) {
         commentsList.replaceChildren();
         if (emptyEl) emptyEl.hidden = false;
