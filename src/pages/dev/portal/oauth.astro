@@ -25,7 +25,7 @@ const surfaces = [
   {
     title: 'Owner identity',
     status: 'Live',
-    description: 'GitHub OAuth allow-list, signed session cookie, no provider token persistence.',
+    description: 'Cloudflare Access allow-list, verified JWT, no app-owned login callback.',
     Icon: ShieldCheck,
   },
   {
@@ -49,7 +49,7 @@ const surfaces = [
 ] as const;
 
 const rules = [
-  'One owner session authority: the allowed GitHub login remains the human gate.',
+  'One owner session authority: the allowed Cloudflare Access email remains the human gate.',
   'No browser-exposed platform tokens; connector secrets stay server-side.',
   'Machine access uses explicit scopes, short TTLs, and audit records.',
   'Each knowledge source gets its own adapter boundary instead of a shared scraping blob.',
@@ -64,10 +64,10 @@ const phases = [
 ---
 
 <PortalLayout
-  title="OAuth Hub"
-  description="Single owner-auth entry for the admin portal, future sandbox jobs, knowledge connectors, and MCP clients."
+  title="Access Hub"
+  description="Cloudflare Access entry for the admin portal, future sandbox jobs, knowledge connectors, and MCP clients."
   active="oauth"
-  user={{ login: session?.login || 'admin' }}
+  user={{ login: session?.login || 'admin', email: session?.email }}
 >
   <section style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(280px,100%),1fr));gap:16px;margin-bottom:24px;">
     <Card>
@@ -78,16 +78,16 @@ const phases = [
               <KeyRound size={16} />
               Unified entry
             </CardTitle>
-            <CardDescription>The OAuth hub is the control plane, not a connector dump.</CardDescription>
+            <CardDescription>The Access hub is the control plane, not a connector dump.</CardDescription>
           </div>
           <Badge variant="outline">Owner gated</Badge>
         </div>
       </CardHeader>
       <CardContent style={cardContentStyle}>
         <p style="margin:0;font-size:13px;line-height:1.7;color:hsl(var(--muted-foreground));">
-          The current GitHub OAuth session is already enough for human access. The next move is to let this
-          hub mint narrower credentials for agent sandboxes, knowledge ingestion, and MCP clients without
-          leaking admin cookies or raw platform tokens.
+          Cloudflare Access now owns the human login path. The app only verifies the signed Access JWT,
+          then future slices can mint narrower credentials for agent sandboxes, knowledge ingestion, and
+          MCP clients without leaking raw platform tokens.
         </p>
       </CardContent>
     </Card>
@@ -103,7 +103,7 @@ const phases = [
       <CardContent style={cardContentStyle}>
         <div style="font-size:24px;font-weight:600;letter-spacing:-0.02em;">@{session?.login || 'admin'}</div>
         <div style="font-size:12px;margin-top:6px;color:hsl(var(--muted-foreground));">
-          Session cookie: <span class="portal-mono">admin_session</span>
+          Access email: <span class="portal-mono">{session?.email || 'local-dev'}</span>
         </div>
       </CardContent>
     </Card>

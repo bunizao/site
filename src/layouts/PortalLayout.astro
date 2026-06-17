@@ -5,6 +5,7 @@ interface Props {
   active?: 'overview' | 'oauth' | 'subscribers' | 'broadcasts' | 'mascot' | 'newsletter' | 'svg' | 'mood-embed';
   user?: {
     login: string;
+    email?: string;
     avatarUrl?: string;
   };
 }
@@ -29,21 +30,22 @@ const BRAND_MARK = { src: '/logo/peek.svg?v=3', width: 88, height: 80 };
 const { title, description, active = 'overview', user: userProp } = Astro.props;
 
 const sessionFromLocals = (Astro.locals as any)?.adminSession as
-  | { login?: string; avatarUrl?: string }
+  | { login?: string; email?: string; avatarUrl?: string }
   | undefined;
 
 const user = userProp
   ? {
       login: userProp.login,
+      email: userProp.email ?? sessionFromLocals?.email,
       avatarUrl: userProp.avatarUrl ?? sessionFromLocals?.avatarUrl,
     }
   : sessionFromLocals?.login
-    ? { login: sessionFromLocals.login, avatarUrl: sessionFromLocals.avatarUrl }
+    ? { login: sessionFromLocals.login, email: sessionFromLocals.email, avatarUrl: sessionFromLocals.avatarUrl }
     : undefined;
 
 const navItems = [
   { key: 'overview', label: 'Overview', href: '/dev/portal', Icon: LayoutDashboard },
-  { key: 'oauth', label: 'OAuth Hub', href: '/dev/portal/oauth', Icon: KeyRound },
+  { key: 'oauth', label: 'Access Hub', href: '/dev/portal/oauth', Icon: KeyRound },
   { key: 'subscribers', label: 'Subscribers', href: '/dev/portal/subscribers', Icon: Users },
   { key: 'broadcasts', label: 'Broadcasts', href: '/dev/portal/broadcasts', Icon: Send },
   { key: 'mascot', label: 'Mascot', href: '/dev/portal/mascot', Icon: Sparkles },
@@ -330,14 +332,12 @@ const navItems = [
               </div>
             )}
             <div style="flex:1;min-width:0;">
-              <div class="portal-sidebar-user-name" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">@{user.login}</div>
-              <div class="portal-sidebar-user-email">Admin</div>
+              <div class="portal-sidebar-user-name" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{user.login}</div>
+              <div class="portal-sidebar-user-email">{user.email ?? 'Admin'}</div>
             </div>
-            <form method="post" action="/api/admin/auth/logout">
-              <button type="submit" class="portal-logout" aria-label="Sign out">
+            <a href="/cdn-cgi/access/logout?returnTo=https%3A%2F%2Fbuxx.me%2F" class="portal-logout" aria-label="Sign out">
                 <LogOut size={13} />
-              </button>
-            </form>
+            </a>
           </div>
         )}
       </aside>

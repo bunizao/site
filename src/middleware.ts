@@ -1,17 +1,13 @@
 import { defineMiddleware } from 'astro:middleware';
-import {
-  createApiServiceRequest,
-  getApiServiceBinding,
-} from '@/lib/http/api-service-proxy';
-import type { RuntimeEnvLocals } from '@/lib/runtime/env';
 import { getDocsVisibilityFromContent } from '@/features/docs/server/content';
 import { isDocsPath } from '@/features/docs/server/visibility';
+import { readCloudflareAccessIdentity } from '@/features/admin/server/access';
+import type { RuntimeEnvLocals } from '@/lib/runtime/env';
 import {
   readAdminDevBypassSession,
   type AdminSessionIdentity,
 } from '@/features/admin/server/dev-bypass';
 
-const OAUTH_LOGIN_PATH = '/oauth/login';
 const DEV_PORTAL_PREFIX = '/dev';
 
 function isDevPortalPath(pathname: string): boolean {
@@ -42,60 +38,35 @@ function withHtmlSecurityHeaders(request: Request, response: Response): Response
   });
 }
 
-// Reads the admin identity from the private worker. site-api validates the
-// signed session cookie and returns the login (or 401 when unauthenticated).
-async function fetchAdminSession(
-  request: Request,
-  locals: RuntimeEnvLocals | undefined,
-): Promise<AdminSessionIdentity | null> {
-  const api = await getApiServiceBinding(locals);
-  if (!api) return null;
-
-  const url = new URL(request.url);
-  url.pathname = '/v2/admin/session';
-  url.search = '';
-
-  const headers = new Headers();
-  const cookie = request.headers.get('cookie');
-  if (cookie) {
-    headers.set('cookie', cookie);
-  }
-
-  const response = await api.fetch(createApiServiceRequest(new Request(url, {
-    method: 'GET',
-    headers,
-  })));
-  if (!response.ok) return null;
-
-  try {
-    const data = (await response.json()) as Partial<AdminSessionIdentity>;
-    if (!data?.login) return null;
-    return { login: data.login, avatarUrl: data.avatarUrl };
-  } catch {
-    return null;
-  }
-}
-
-function redirectToLogin(pathname: string, search: string): Response {
-  const nextPath = encodeURIComponent(pathname + search);
+function accessRequired(): Response {
   return new Response(null, {
-    status: 302,
+    status: 401,
     headers: {
-      Location: `${OAUTH_LOGIN_PATH}?next=${nextPath}`,
+      'Cache-Control': 'no-store, max-age=0',
+      'Content-Type': 'text/plain; charset=utf-8',
     },
   });
+}
+
+async function readAdminSession(context: {
+  request: Request;
+  locals: unknown;
+}): Promise<AdminSessionIdentity | null> {
+  const url = new URL(context.request.url);
+  const locals = context.locals as RuntimeEnvLocals | undefined;
+  return readAdminDevBypassSession(locals, url.hostname)
+    ?? await readCloudflareAccessIdentity(context.request, locals);
 }
 
 export const onRequest = defineMiddleware(async (context, next) => {
   const url = new URL(context.request.url);
   const pathname = url.pathname;
 
-  // Admin portal: served by this worker, gated on the private admin session.
+  // Admin portal: served by this worker, gated by Cloudflare Access in production.
   if (isDevPortalPath(pathname)) {
-    const session = readAdminDevBypassSession(context.locals, url.hostname)
-      ?? await fetchAdminSession(context.request, context.locals);
+    const session = await readAdminSession(context);
     if (!session) {
-      return redirectToLogin(pathname, url.search);
+      return accessRequired();
     }
     (context.locals as unknown as Record<string, unknown>).adminSession = session;
     return withHtmlSecurityHeaders(context.request, await next());
@@ -107,9 +78,11 @@ export const onRequest = defineMiddleware(async (context, next) => {
     return withHtmlSecurityHeaders(context.request, await next());
   }
 
-  if (await fetchAdminSession(context.request, context.locals)) {
+  const session = await readAdminSession(context);
+  if (session) {
+    (context.locals as unknown as Record<string, unknown>).adminSession = session;
     return withHtmlSecurityHeaders(context.request, await next());
   }
 
-  return redirectToLogin(pathname, url.search);
+  return accessRequired();
 });
