@@ -53,7 +53,7 @@ const mark = copyrightMark(new Date().getFullYear());
     </span>
   </p>
 
-  <p class="footer-mark">{mark}</p>
+  <p class="footer-mark" data-footer-mark>{mark}</p>
 </footer>
 
 <script>
@@ -235,9 +235,28 @@ const mark = copyrightMark(new Date().getFullYear());
     });
   }
 
+  // The copyright year is baked at build time; refresh it to the visitor's
+  // current year so a quiet year-boundary never leaves it stale. Only the
+  // digits are touched — the sealed "bunizao. All rights reserved." text is
+  // left exactly as rendered (see copyrightMark in src/data/site.ts).
+  function refreshCopyrightYear() {
+    const mark = document.querySelector<HTMLElement>('[data-footer-mark]');
+    const text = mark?.textContent;
+    if (!mark || !text) return;
+
+    const startMatch = text.match(/\d{4}/);
+    if (!startMatch) return;
+
+    const startYear = Number(startMatch[0]);
+    const now = new Date().getFullYear();
+    const range = now > startYear ? `${startYear}–${now}` : `${startYear}`;
+    mark.textContent = text.replace(/\d{4}(?:–\d{4})?/, range);
+  }
+
   function initFooter() {
     hydrateFooter();
     setupEdgePopover();
+    refreshCopyrightYear();
   }
 
   if (document.readyState === 'loading') {
