@@ -8,10 +8,11 @@ import Posts from '@/features/home/ui/Posts.astro';
 import HomePreview from '@/features/mood/ui/HomePreview.astro';
 import Footer from '@/features/home/ui/Footer.astro';
 import { profileJsonLd, siteDescription, websiteJsonLd } from '@/lib/seo';
+import { meta } from '@/data/site';
 
 export const prerender = true;
 
-const title = "Bunizao's Website";
+const title = meta.homeTitle;
 const description = siteDescription;
 const isHomeDevSurface = import.meta.env.DEV && process.env.DEV_SURFACE === 'home';
 ---

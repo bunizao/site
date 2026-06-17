@@ -6,6 +6,19 @@ import type { ComponentType } from 'react';
 import { FileText, Github, Mail, Send, Instagram, GraduationCap, type LucideIcon } from 'lucide-react';
 import { OpenAIIcon, AnthropicIcon } from '@/components/icons';
 
+// --- Site meta --------------------------------------------------------------
+// Site-level identity strings: page titles, og:site_name, and the default
+// OG/meta description. seo.ts and Layout.astro read these instead of inlining.
+
+export const meta = {
+  siteName: 'Bunizao',
+  siteUrl: 'https://buxx.me',
+  homeTitle: "Bunizao's Website",
+  // Default OG / meta description used on the home page and as the fallback.
+  description:
+    'Build and then polish. Ship and then reflect. Write, shoot, and think in between. I\'m Lucian.',
+};
+
 // --- Identity ---------------------------------------------------------------
 // The canonical "who I am" facts. seo.ts reads name/jobTitle/knowsAbout/links
 // from here instead of re-declaring them.

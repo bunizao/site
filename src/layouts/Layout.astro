@@ -37,12 +37,13 @@ import {
   getPeekRuntimeSlot,
   getPeekRuntimeSlotKey,
 } from '@/features/logos/data/peek-runtime';
+import { meta } from '@/data/site';
 
 const {
   title,
   description,
   image = '/og.png',
-  imageAlt = 'Bunizao',
+  imageAlt = meta.siteName,
   imageWidth = 1200,
   imageHeight = 630,
   url,
@@ -62,7 +63,7 @@ const isPageNav = navVariant === 'page';
 const showsBrandText = isHomeNav || isPageNav;
 const useHomeHeaderActions = isHomeNav || headerActionsVariant === 'home';
 const site = Astro.site ?? new URL('https://buxx.me');
-const siteName = 'Bunizao';
+const siteName = meta.siteName;
 const canonicalUrl = new URL(url ?? Astro.url?.pathname ?? '/', site).href;
 const ogImageUrl = new URL(image, site).href;
 const ogLogoUrl = new URL('/logo/peek.svg?v=3', site).href;

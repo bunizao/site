@@ -1,11 +1,10 @@
-import { profile } from '@/data/site';
+import { profile, meta } from '@/data/site';
 
-export const siteUrl = 'https://buxx.me';
-export const siteName = 'Bunizao';
+export const siteUrl = meta.siteUrl;
+export const siteName = meta.siteName;
 export const profileName = profile.name;
 export const profileAlternateNames = [...profile.alternateNames];
-export const siteDescription =
-  'Build and then polish. Ship and then reflect. Write, shoot, and think in between. I\'m Lucian.';
+export const siteDescription = meta.description;
 
 export const canonical = (path = '/') => new URL(path, siteUrl).href;
 
