@@ -227,7 +227,7 @@ describe('Cloudflare runtime configuration', () => {
     expect(hero).toContain('<DecodeText>');
     expect(hero).toContain('<h1 class="hero-animate');
     expect(hero).toContain('import gsap from \'gsap\';');
-    expect(hero).toContain('<span class="hero-lcp-anchor" aria-hidden="true">Lucian</span>');
+    expect(hero).toContain('<span class="hero-lcp-anchor" aria-hidden="true">{typewriterNames[0]}</span>');
     expect(decodeText).toContain('await document.fonts?.ready');
     expect(decodeText).toContain('const FALLBACK_START_MS = 1500;');
     expect(decodeText).toContain('const LINE_DURATION_PER_CHAR = 0.024;');
