@@ -1,0 +1,141 @@
+---
+// Minimal back-to-top control for the long mood surfaces (feed + detail).
+// Hidden until the reader has scrolled past the first viewport, then fades in
+// bottom-right. Pure CSS for the resting/hover states; a tiny script toggles
+// visibility on scroll and runs the smooth scroll (honouring reduced motion).
+interface Props {
+  /** Scroll distance in px before the control appears. */
+  threshold?: number;
+}
+
+const { threshold = 600 } = Astro.props;
+---
+
+<button
+  type="button"
+  class="mood-back-to-top"
+  data-back-to-top
+  data-threshold={threshold}
+  aria-label="Back to top"
+  hidden
+>
+  <svg
+    width="18"
+    height="18"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="2"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    aria-hidden="true"
+  >
+    <line x1="12" y1="19" x2="12" y2="5"></line>
+    <polyline points="6 11 12 5 18 11"></polyline>
+  </svg>
+</button>
+
+<style>
+  .mood-back-to-top {
+    position: fixed;
+    right: clamp(16px, 4vw, 32px);
+    bottom: clamp(20px, 4vh, 32px);
+    z-index: 55;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    border: 1px solid hsl(var(--foreground) / 0.1);
+    border-radius: 999px;
+    background: hsl(var(--background) / 0.7);
+    color: hsl(var(--foreground) / 0.7);
+    cursor: pointer;
+    -webkit-backdrop-filter: blur(12px) saturate(1.3);
+    backdrop-filter: blur(12px) saturate(1.3);
+    box-shadow: 0 4px 16px hsl(0 0% 0% / 0.08);
+    /* Resting hidden state — lifted out and faded down. */
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(8px) scale(0.92);
+    transition:
+      opacity 0.25s ease,
+      transform 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+      visibility 0.25s ease,
+      color 0.15s ease,
+      border-color 0.15s ease;
+  }
+
+  .mood-back-to-top[hidden] {
+    display: none;
+  }
+
+  .mood-back-to-top.is-visible {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0) scale(1);
+  }
+
+  .mood-back-to-top svg {
+    transition: transform 0.2s ease;
+  }
+
+  .mood-back-to-top:hover {
+    color: hsl(var(--foreground));
+    border-color: hsl(var(--foreground) / 0.2);
+  }
+
+  .mood-back-to-top:hover svg {
+    transform: translateY(-2px);
+  }
+
+  .mood-back-to-top:active {
+    transform: translateY(0) scale(0.96);
+  }
+
+  .mood-back-to-top:focus-visible {
+    outline: 2px solid hsl(var(--foreground) / 0.5);
+    outline-offset: 3px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .mood-back-to-top,
+    .mood-back-to-top svg {
+      transition: opacity 0.2s ease, visibility 0.2s ease;
+    }
+  }
+</style>
+
+<script>
+  function initBackToTop() {
+    const button = document.querySelector<HTMLButtonElement>('[data-back-to-top]');
+    if (!button) return;
+
+    const threshold = Number(button.dataset.threshold) || 600;
+    button.hidden = false;
+
+    let ticking = false;
+    const sync = () => {
+      button.classList.toggle('is-visible', window.scrollY > threshold);
+      ticking = false;
+    };
+
+    const onScroll = () => {
+      if (ticking) return;
+      ticking = true;
+      requestAnimationFrame(sync);
+    };
+
+    button.addEventListener('click', () => {
+      const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      window.scrollTo({ top: 0, behavior: reduceMotion ? 'auto' : 'smooth' });
+    });
+
+    window.addEventListener('scroll', onScroll, { passive: true });
+    sync();
+  }
+
+  initBackToTop();
+  document.addEventListener('astro:page-load', initBackToTop);
+</script>
