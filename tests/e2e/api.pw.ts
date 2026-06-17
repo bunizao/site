@@ -14,15 +14,6 @@ function requireBaseUrl(value: string | undefined): string {
   return value;
 }
 
-function readOembedIframeSrc(html: string | undefined): URL {
-  const src = html?.match(/<iframe[^>]+src="([^"]+)"/)?.[1];
-  if (!src) {
-    throw new Error('Expected oEmbed payload to include an iframe src.');
-  }
-
-  return new URL(src);
-}
-
 test.describe('API behavior', () => {
   test('GET /api/moods returns payload with expected shape', async ({ request }) => {
     const response = await request.get('/api/moods');
@@ -153,24 +144,6 @@ test.describe('API behavior', () => {
 
     const detailPayload = (await moodDetail.json()) as { html?: string };
     expect(detailPayload.html).toContain('id=1');
-
-    const explicitRequestMode = await request.get(
-      `/api/oembed.json?api-v2=false&url=${encodeURIComponent(`${baseURL}/mood?api-v2=true`)}`
-    );
-    expect(explicitRequestMode.ok()).toBeTruthy();
-
-    const explicitRequestPayload = (await explicitRequestMode.json()) as { html?: string };
-    expect(readOembedIframeSrc(explicitRequestPayload.html).searchParams.get('api-v2')).toBe('false');
-
-    const embeddedUrlMode = await request.get(
-      `/api/oembed.json?url=${encodeURIComponent(`${baseURL}/mood/2?api-v2=true`)}`
-    );
-    expect(embeddedUrlMode.ok()).toBeTruthy();
-
-    const embeddedUrlPayload = (await embeddedUrlMode.json()) as { html?: string };
-    const embeddedIframeUrl = readOembedIframeSrc(embeddedUrlPayload.html);
-    expect(embeddedIframeUrl.searchParams.get('id')).toBe('2');
-    expect(embeddedIframeUrl.searchParams.get('api-v2')).toBe('true');
 
     const optionsResponse = await request.fetch('/api/oembed.json', { method: 'OPTIONS' });
     expect(optionsResponse.status()).toBe(204);

@@ -4,7 +4,7 @@ import { createFeedMediaHydrator } from '@/features/mood/client/feed-media-hydra
 import { createFeedRenderer } from '@/features/mood/client/feed-renderer';
 import { createFeedUpdateWatcher } from '@/features/mood/client/feed-update-watcher';
 import { initMoodGalleries } from '@/features/mood/client/gallery';
-import { appendMoodApiMode } from '@/features/mood/client/api-mode';
+import { hydrateMoodRichText } from '@/features/mood/client/rich-text';
 import {
   getMoodFeedAnchorBeforeCursor,
   getMoodFeedAnchorWindowBeforeCursor,
@@ -212,7 +212,6 @@ export function initMoodFeedController(): void {
         if (options.afterId) {
           query.set('after', options.afterId);
         }
-        appendMoodApiMode(query);
         const queryString = query.toString();
         const url = queryString ? `/api/moods?${queryString}` : '/api/moods';
         const response = await fetch(url);
@@ -555,6 +554,7 @@ export function initMoodFeedController(): void {
         if (!feedAnchorId) {
           updateWatcher.syncLatestSeenId();
         }
+        hydrateMoodRichText(list);
         revealFeedAnchor();
       };
 
@@ -942,6 +942,7 @@ export function initMoodFeedController(): void {
         window.addEventListener('hashchange', () => revealCurrentUrlFeedAnchor());
         renderer.bindInteractions();
         animatedEmoji.observe(list);
+        hydrateMoodRichText(list);
         loadInitial();
       }
     }

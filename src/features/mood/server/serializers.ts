@@ -1,10 +1,6 @@
 import * as cheerio from 'cheerio';
 import type { ContentChannelSummary } from '@bunizao/contracts';
 import type { MoodFeedItem, MoodFeedResponse } from '@/features/mood/server/contracts';
-import {
-  appendMoodApiModeQueryValue,
-  type MoodApiModeQueryValue,
-} from '@/features/mood/shared/api-mode';
 import { renderStructuredMoodFeedMediaMarkup } from '@/features/mood/shared/feed-media';
 
 const stripInvalidXmlChars = (value: string): string =>
@@ -82,16 +78,13 @@ const absolutizeHtml = (html: string, base: URL): string => {
 export function buildMoodRssXml(
   channel: ContentChannelSummary,
   posts: MoodFeedItem[],
-  baseUrl: URL,
-  options: { apiModeQueryValue?: MoodApiModeQueryValue | null } = {}
+  baseUrl: URL
 ): string {
   const channelTitle = channel.title?.trim() || 'Moods';
   const channelDescription =
     channel.description?.trim() || 'Thoughts and moments from my Telegram channel.';
   const channelUrl = new URL('/mood', baseUrl);
-  appendMoodApiModeQueryValue(channelUrl.searchParams, options.apiModeQueryValue ?? null);
   const selfUrl = new URL('/mood/rss.xml', baseUrl);
-  appendMoodApiModeQueryValue(selfUrl.searchParams, options.apiModeQueryValue ?? null);
   const channelLink = channelUrl.href;
   const selfLink = selfUrl.href;
   const latestDate = posts[0]?.datetime;
@@ -104,7 +97,6 @@ export function buildMoodRssXml(
       || `Mood ${post.id}`;
     const summary = truncateText(post.previewText || '', 220);
     const itemUrl = new URL(`/mood/${post.id}`, baseUrl);
-    appendMoodApiModeQueryValue(itemUrl.searchParams, options.apiModeQueryValue ?? null);
     const link = itemUrl.href;
     const pubDate = new Date(post.datetime);
     const pubDateText = Number.isNaN(pubDate.getTime()) ? '' : pubDate.toUTCString();
@@ -279,15 +271,10 @@ export function buildMoodAgentMarkdown(
   options: {
     before?: string;
     after?: string;
-    useApiV2?: boolean;
-    apiModeQueryValue?: MoodApiModeQueryValue | null;
   } = {}
 ): string {
   const sourceUrl = new URL('/mood', baseUrl);
   const jsonUrl = new URL('/api/moods', baseUrl);
-  const apiModeQueryValue = options.apiModeQueryValue ?? (options.useApiV2 ? 'true' : null);
-  appendMoodApiModeQueryValue(sourceUrl.searchParams, apiModeQueryValue);
-  appendMoodApiModeQueryValue(jsonUrl.searchParams, apiModeQueryValue);
   if (options.before) {
     jsonUrl.searchParams.set('before', options.before);
   }
@@ -311,7 +298,6 @@ export function buildMoodAgentMarkdown(
   if (nextBefore) {
     const nextUrl = new URL('/agent/mood', baseUrl);
     nextUrl.searchParams.set('before', nextBefore);
-    appendMoodApiModeQueryValue(nextUrl.searchParams, apiModeQueryValue);
     lines.push(`Next: ${nextUrl.href}`);
   }
 
@@ -333,14 +319,9 @@ export function buildMoodAgentMarkdown(
 
 export function buildMoodAgentPostPageMarkdown(
   post: MoodFeedItem,
-  baseUrl: URL,
-  options: { useApiV2?: boolean; apiModeQueryValue?: MoodApiModeQueryValue | null } = {}
+  baseUrl: URL
 ): string {
   const feedUrl = new URL('/agent/mood', baseUrl);
-  appendMoodApiModeQueryValue(
-    feedUrl.searchParams,
-    options.apiModeQueryValue ?? (options.useApiV2 ? 'true' : null)
-  );
   return [
     buildMoodAgentPostMarkdown(post, baseUrl, { headingLevel: 1 }),
     '',

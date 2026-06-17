@@ -42,7 +42,7 @@ pages / api routes
 ## Stages
 
 1. **Freeze contracts and shared route helpers.** Add `src/lib/runtime/env.ts`, `src/lib/http/json-response.ts`, `src/lib/http/query.ts`, `src/lib/http/rate-limited.ts`, `src/features/mood/server/contracts.ts`. Adapt `moods/comments/oembed/notify` routes.
-2. **Extract feature server services.** `channel-service`, `feed-service`, `comments-service`, plus serializers for feed/embed/rss/notify preview. Stops independent reshaping in each entrypoint.
+2. **Extract feature server services.** `channel-service`, `feed-service`, `api-routes`, plus serializers for feed/embed/rss/notify preview. Stops independent reshaping in each entrypoint.
 3. **Extract shared client utilities.** `shared/preview.ts`, `shared/comments.ts`, `client/animated-emoji.ts`, `src/lib/media/responsive-image.ts`. Eliminates duplicated preview, image, emoji, and comment helpers.
 4. **Extract controllers** in this order: detail comments, notify panel, feed controller, timeline wheel. Order matters — detail comments has the clearest boundary; timeline wheel is tightly coupled to feed DOM and should move last.
 5. **Extract Astro UI shells.** Page files end up holding only route metadata, params, service calls, component composition, and controller bootstrap.

@@ -5,8 +5,7 @@
 This document explains the public Cloudflare Worker target for:
 
 - Astro pages on `buxx.me` and `www.buxx.me`
-- public API endpoints that still belong to the site
-- compatibility proxying from `buxx.me/api/*` to `site-api`
+- public API fallback proxying to `site-api`
 - protected docs auth checks through the private admin session
 
 Private admin, OAuth, notify, Telegram webhook, image ingest, queue, and cron work belong to the separate `site-api` Worker.
@@ -38,7 +37,8 @@ Canonical base URL:
 
 Public compatibility:
 
-- `https://buxx.me/api/*` proxies through the `API` service binding.
+- `https://buxx.me/api/*` is directly routed to `site-api` in production.
+- The public `site` Worker keeps a thin `/api/*` fallback proxy through the `API` service binding for local and preview environments.
 - `/dev/*` and `/oauth*` proxy to private admin/OAuth routes without adding a version prefix.
 
 `wrangler.jsonc` binds the public Worker to the private Worker:
@@ -58,8 +58,7 @@ The public Worker owns:
 - public HTML routes
 - public mood feed/detail shells
 - public mood rendering from `site-api`
-- public SVG and oEmbed endpoints
-- Ghost/listening/footer data hydration
+- local and preview fallback proxying for public API URLs
 - protected docs gating through `site-api /v2/admin/session`
 
 The public Worker does not own:
@@ -69,6 +68,7 @@ The public Worker does not own:
 - GitHub OAuth session issuance
 - Telegram webhook ingress
 - HD image ingest/storage routes
+- concrete public API endpoints under `buxx.me/api/*`
 - queue consumers or cron triggers
 
 ## Ghost Publishing Hook

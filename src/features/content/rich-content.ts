@@ -77,8 +77,13 @@ const PRESERVED_BODY_CLASSES = new Set([
   'bookmark-card__meta',
   'bookmark-card__title',
   'tg-blockquote-expandable',
+  'tg-bot-command',
+  'tg-cashtag',
+  'tg-datetime',
   'tg-emoji',
   'tg-emoji-fallback',
+  'tg-hashtag',
+  'tg-mention',
   'tg-spoiler',
 ]);
 

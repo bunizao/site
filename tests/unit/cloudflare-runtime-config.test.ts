@@ -151,9 +151,8 @@ describe('Cloudflare runtime configuration', () => {
       PUBLIC_SITE_URL: 'https://buxx.me',
       GHOST_URL: 'https://blog.buxx.me',
       LASTFM_USER: 'bunizao',
-      PUBLIC_HD_IMAGE_URL: 'https://api.buxx.me/v2/images',
+      PUBLIC_HD_IMAGE_URL: 'https://buxx.me/api/v2/images',
       PUBLIC_TURNSTILE_SITE_KEY: '0x4AAAAAACaDQzCbYalmO_xV',
-      MOOD_API_V2_DEFAULT: 'false',
       CHANNEL: 'tutumood',
       TELEGRAM_HOST: 't.me',
     });
@@ -256,12 +255,10 @@ describe('Cloudflare runtime configuration', () => {
     expect(docsText).not.toContain(['https://api.vercel.com', 'v1/integrations/deploy'].join('/'));
   });
 
-  test('keeps Writing runtime hydration behind the Worker API', () => {
-    const writingRoute = readText('src/pages/api/writing.ts');
+  test('keeps Writing runtime hydration behind the private API fallback', () => {
+    expect(existsSync(join(root, 'src/pages/api/writing.ts'))).toBe(false);
     const postsComponent = readText('src/features/home/ui/Posts.astro');
 
-    expect(writingRoute).toContain('export const prerender = false');
-    expect(writingRoute).toContain('fetchLatestGhostPosts');
     expect(postsComponent).toContain("fetch('/api/writing'");
     expect(postsComponent).toContain('await hydrateWritingPosts();');
     expect(postsComponent).toContain('void initWriting();');

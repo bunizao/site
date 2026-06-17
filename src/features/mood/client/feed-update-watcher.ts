@@ -1,5 +1,4 @@
 import gsap from 'gsap';
-import { appendMoodApiMode } from '@/features/mood/client/api-mode';
 
 interface FeedUpdateWatcherOptions {
   list: HTMLElement;
@@ -289,8 +288,6 @@ export function createFeedUpdateWatcher({
       probe: '1',
       fresh: '1',
     });
-    appendMoodApiMode(query);
-
     const response = await fetch(`/api/moods?${query}`, {
       cache: 'no-store',
       headers: {

@@ -553,7 +553,6 @@ const placeholders = Array.from({ length: SKELETON_COUNT }, (_, index) => ({
 
 <script>
   import type { MediaItem } from '@bunizao/contracts/content';
-  import { readMoodApiModeQueryValue } from '@/features/mood/shared/api-mode';
   import { getMoodDetailHref } from '@/features/mood/shared/feed-anchor';
   import { buildMoodPreviewFragment } from '@/features/mood/shared/preview';
   import { withWidthParam } from '@/lib/media/responsive-image';
@@ -708,25 +707,7 @@ const placeholders = Array.from({ length: SKELETON_COUNT }, (_, index) => ({
     const reservedCards = new Set<HTMLElement>();
     let renderedMoodSignature = '';
 
-    const getMoodFeedUrl = (): string => {
-      try {
-        const currentUrl = new URL(window.location.href);
-        const apiMode = currentUrl.searchParams.get('api-v2');
-        if (!apiMode) return '/api/moods';
-        const query = new URLSearchParams({ 'api-v2': apiMode });
-        return `/api/moods?${query}`;
-      } catch {
-        return '/api/moods';
-      }
-    };
-
-    const getCurrentApiModeQueryValue = (): 'true' | 'false' | null => {
-      try {
-        return readMoodApiModeQueryValue(new URL(window.location.href));
-      } catch {
-        return null;
-      }
-    };
+    const getMoodFeedUrl = (): string => '/api/moods';
 
     interface MoodPreviewCacheEntry {
       id: string;
@@ -1234,7 +1215,7 @@ const placeholders = Array.from({ length: SKELETON_COUNT }, (_, index) => ({
     ): HTMLElement => {
       const item = document.createElement('div');
       item.className = 'mood-item mood-item--clickable';
-      item.dataset.href = getMoodDetailHref(mood.id, getCurrentApiModeQueryValue());
+      item.dataset.href = getMoodDetailHref(mood.id);
       item.setAttribute('role', 'link');
       item.tabIndex = 0;
       item.style.cssText = `--item-index: ${index}`;

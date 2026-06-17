@@ -5,7 +5,6 @@ import { renderMoodGalleryMarkup } from '@/features/mood/shared/gallery-render';
 import { findTooBigVideoMedia, hasStructuredMoodFeedMedia, renderStructuredMoodFeedMediaMarkup } from '@/features/mood/shared/feed-media';
 import { getMoodFeedThumbnailStyle } from '@/features/mood/shared/feed-thumbnail';
 import { getMoodDetailHref, getMoodFeedAnchorFragmentId } from '@/features/mood/shared/feed-anchor';
-import type { MoodApiModeQueryValue } from '@/features/mood/shared/api-mode';
 import { buildSrcSet, withWidthParam } from '@/lib/media/responsive-image';
 
 interface SkeletonItem {
@@ -24,7 +23,6 @@ interface Props {
   initialPosts?: MoodFeedItem[];
   initialChannel?: MoodChannelSummary;
   anchorId?: string;
-  apiModeQueryValue?: MoodApiModeQueryValue | null;
 }
 
 const {
@@ -32,7 +30,6 @@ const {
   initialPosts = [],
   initialChannel,
   anchorId = '',
-  apiModeQueryValue = null,
 } = Astro.props;
 
 const initialFeedPayload = {
@@ -139,7 +136,7 @@ function getPostHref(post: MoodFeedItem): string | undefined {
   const tooBigVideoMedia = findTooBigVideoMedia(post.media);
   const structuredMedia = tooBigVideoMedia ? post.media.filter((item) => item !== tooBigVideoMedia) : post.media;
   return post.needsDetailPage && !post.mediaHtml.trim() && !hasStructuredMoodFeedMedia(structuredMedia)
-    ? getMoodDetailHref(post.id, apiModeQueryValue)
+    ? getMoodDetailHref(post.id)
     : undefined;
 }
 
@@ -272,7 +269,7 @@ const hasCriticalInitialPosts = criticalInitialPosts.length > 0;
           </div>
           <div class="mood-date-items">
             {group.posts.map((post, index) => {
-              const detailHref = getMoodDetailHref(post.id, apiModeQueryValue);
+              const detailHref = getMoodDetailHref(post.id);
               const href = getPostHref(post);
               const tooBigVideoMedia = findTooBigVideoMedia(post.media);
               const mediaHtml = post.mediaHtml.trim();
@@ -442,7 +439,7 @@ const hasCriticalInitialPosts = criticalInitialPosts.length > 0;
                         >
                           <a
                             class="mood-item-comments"
-                            href={getMoodDetailHref(post.id, apiModeQueryValue, '#comments')}
+                            href={getMoodDetailHref(post.id, '#comments')}
                             title={`${commentsInfo.label} comment${commentsInfo.count === 1 ? '' : 's'}`}
                             aria-haspopup="dialog"
                             aria-expanded="false"

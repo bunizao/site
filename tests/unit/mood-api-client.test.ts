@@ -20,7 +20,7 @@ function createContext(locals: Record<string, unknown> = {}) {
 }
 
 describe('mood API client', () => {
-  test('routes explicit api-v2 mood reads through the private API binding', async () => {
+  test('routes explicit archive mood reads through the private API binding', async () => {
     const paths: string[] = [];
     const feed: MoodFeedResponse = {
       posts: [{
@@ -84,19 +84,19 @@ describe('mood API client', () => {
         const url = new URL(request.url);
         paths.push(`${url.pathname}${url.search}`);
 
-        if (url.pathname === '/v1/mood' && url.searchParams.get('probe') === 'true') {
+        if (url.pathname === '/v2/mood' && url.searchParams.get('probe') === 'true') {
           return Response.json(probe);
         }
 
-        if (url.pathname === '/v1/mood') {
+        if (url.pathname === '/v2/mood') {
           return Response.json(feed);
         }
 
-        if (url.pathname === '/v1/mood/990001') {
+        if (url.pathname === '/v2/mood/990001') {
           return Response.json(document);
         }
 
-        if (url.pathname === '/v1/mood/990001/comments') {
+        if (url.pathname === '/v2/mood/990001/comments') {
           return Response.json(comments);
         }
 
@@ -105,30 +105,30 @@ describe('mood API client', () => {
     };
     const context = createContext({ env: { API: api } });
 
-    const feedResult = await loadMoodFeed(context, { limit: 1, useApiV2: true });
-    const documentResult = await loadMoodDocument(context, '990001', { useApiV2: true });
-    const commentsResult = await loadMoodComments(context, '990001', { before: '990000', useApiV2: true });
-    const probeResult = await loadMoodProbe(context, { useApiV2: true });
+    const feedResult = await loadMoodFeed(context, { limit: 1, source: 'archive' });
+    const documentResult = await loadMoodDocument(context, '990001', { source: 'archive' });
+    const commentsResult = await loadMoodComments(context, '990001', { before: '990000', source: 'archive' });
+    const probeResult = await loadMoodProbe(context, { source: 'archive' });
 
     expect(feedResult.posts[0]?.media[0]?.type).toBe('video');
     expect(documentResult?.id).toBe('990001');
     expect(commentsResult.comments[0]?.id).toBe('990000');
     expect(probeResult.latestId).toBe('990001');
     expect(paths).toEqual([
-      '/v1/mood?limit=1',
-      '/v1/mood/990001',
-      '/v1/mood/990001/comments?before=990000',
-      '/v1/mood?probe=true&fresh=true',
+      '/v2/mood?limit=1',
+      '/v2/mood/990001',
+      '/v2/mood/990001/comments?before=990000',
+      '/v2/mood?probe=true&fresh=true',
     ]);
   });
 
   test('keeps E2E fixture mode independent from the service binding', async () => {
     const context = createContext({ env: { E2E_SITE_FIXTURE: '1' } });
 
-    const feed = await loadMoodFeed(context, { limit: 1, useApiV2: true });
-    const document = await loadMoodDocument(context, feed.posts[0]?.id ?? '990001', { useApiV2: true });
-    const comments = await loadMoodComments(context, feed.posts[0]?.id ?? '990001', { useApiV2: true });
-    const probe = await loadMoodProbe(context, { useApiV2: true });
+    const feed = await loadMoodFeed(context, { limit: 1, source: 'archive' });
+    const document = await loadMoodDocument(context, feed.posts[0]?.id ?? '990001', { source: 'archive' });
+    const comments = await loadMoodComments(context, feed.posts[0]?.id ?? '990001', { source: 'archive' });
+    const probe = await loadMoodProbe(context, { source: 'archive' });
 
     expect(feed.posts.length).toBeGreaterThan(0);
     expect(document?.id).toBe(feed.posts[0]?.id);

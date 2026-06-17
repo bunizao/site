@@ -5,8 +5,6 @@ import {
 } from '@/lib/http/query';
 import { withRateLimit } from '@/lib/http/rate-limited';
 import { loadMoodFeed } from '@/features/mood/server/api-client';
-import { resolveMoodApiV2Mode } from '@/features/mood/server/api-mode';
-import { readMoodApiModeQueryValue } from '@/features/mood/shared/api-mode';
 import { buildMoodAgentMarkdown } from '@/features/mood/server/serializers';
 
 export const prerender = false;
@@ -24,8 +22,6 @@ export const GET: APIRoute = async ({ request, locals, site }) => {
   const url = new URL(request.url);
   const before = readCursorQuery(url, 'before');
   const after = readCursorQuery(url, 'after');
-  const apiModeQueryValue = readMoodApiModeQueryValue(url);
-  const useApiV2 = resolveMoodApiV2Mode(url, locals);
   const rateLimit = withRateLimit(
     request,
     { windowMs: 60_000, max: 180, prefix: 'agent:mood' },
@@ -41,14 +37,12 @@ export const GET: APIRoute = async ({ request, locals, site }) => {
   }
 
   try {
-    const feed = await loadMoodFeed({ request, locals }, { before, after, useApiV2 });
+    const feed = await loadMoodFeed({ request, locals }, { before, after });
     const requestUrl = new URL(request.url);
     const baseUrl = site ?? new URL(requestUrl.origin);
     const markdown = buildMoodAgentMarkdown(feed, baseUrl, {
       before,
       after,
-      useApiV2,
-      apiModeQueryValue,
     });
 
     return markdownResponse(markdown, 200, rateLimit.headers);

@@ -44,7 +44,7 @@ The public `site` Worker still owns, during this migration wave:
 Canonical private URLs:
 
 - `https://api.buxx.me/v2/telegram/webhook`
-- `https://api.buxx.me/v2/images/*`
+- `https://buxx.me/api/v2/images/*`
 - `https://api.buxx.me/v2/notify/dispatch`
 
 Public compatibility:

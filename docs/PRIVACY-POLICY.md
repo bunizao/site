@@ -68,7 +68,7 @@ Covered implementation:
 Edge connection diagnostics:
 
 - [`src/features/home/ui/Footer.astro`](../src/features/home/ui/Footer.astro) renders the edge indicator and its hover popover
-- [`src/pages/api/edge.ts`](../src/pages/api/edge.ts) reads Cloudflare `request.cf` (colo, protocol, TLS, TCP RTT, approximate location, network) and returns it with `Cache-Control: no-store`
+- `site-api /api/edge` reads Cloudflare `request.cf` (colo, protocol, TLS, TCP RTT, approximate location, network) and returns it with `Cache-Control: no-store`
 - values are per-request and reflected only to the requesting visitor; nothing is stored
 
 ### Homepage Listening
@@ -76,7 +76,7 @@ Edge connection diagnostics:
 Covered implementation:
 
 - [`src/features/home/ui/Listening.astro`](../src/features/home/ui/Listening.astro) renders the listening card on the homepage
-- [`src/pages/api/listening.ts`](../src/pages/api/listening.ts) exposes the data used by the client
+- `site-api /api/listening` exposes the data used by the client
 - [`src/features/home/server/listening.ts`](../src/features/home/server/listening.ts) fetches the latest Last.fm track and enriches it with Apple music metadata
 
 Provider behavior the policy now needs to reflect:
@@ -89,8 +89,8 @@ Provider behavior the policy now needs to reflect:
 
 Covered implementation:
 
-- `/mood` and `/mood/[id]` fetch public Telegram-derived content through the private `site-api` Worker
-- [`src/pages/api/moods.ts`](../src/pages/api/moods.ts) and [`src/pages/api/comments.ts`](../src/pages/api/comments.ts) expose public data proxied from `site-api`
+- `/mood` and `/mood/[id]` fetch public Telegram-derived content through the live v1 mood mirror
+- `site-api /api/moods` and `site-api /api/comments` expose public data used by the mood pages
 - [`src/features/mood/server/api-client.ts`](../src/features/mood/server/api-client.ts) and [`src/features/mood/shared/utils.ts`](../src/features/mood/shared/utils.ts) shape public mood content and media references
 
 ### Mood Subscription Flow
@@ -121,8 +121,8 @@ Covered implementation:
 Covered implementation:
 
 - Ghost is used for writing links in [`src/features/home/ui/Posts.astro`](../src/features/home/ui/Posts.astro)
-- GitHub is used for project data in [`src/features/home/ui/Projects.astro`](../src/features/home/ui/Projects.astro) and [`src/lib/github.ts`](../src/lib/github.ts)
-- Telegram-derived content is ingested and parsed in the private `site-api` Worker
+- GitHub is used for the contribution graph through `site-api /api/github/contributions`
+- Telegram-derived content is read live for user-facing mood pages; the private API also ingests Telegram updates into D1 as a structured archive
 
 ## Why the Policy Is Markdown-Backed
 

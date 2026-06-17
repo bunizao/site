@@ -6,7 +6,7 @@ public: true
 
 The public runtime is one Cloudflare Worker named `site`. It serves `buxx.me` and `www.buxx.me`.
 
-Private admin, OAuth, notify, Telegram webhook, image ingest, queue, and cron work belong to the separate `site-api` Worker at `https://api.buxx.me/v2/`.
+Private admin, OAuth, notify, Telegram webhook, image ingest, queue, cron work, and concrete public API implementations belong to the separate `site-api` Worker.
 
 ## Ghost Publishing Hook
 
@@ -23,13 +23,14 @@ The public Worker owns:
 - public pages
 - public mood feed/detail shells
 - public mood rendering from `site-api`
-- SVG, oEmbed, Ghost, listening, footer, ping, and health endpoints
+- local and preview fallback proxying for public API URLs
 - protected docs checks through the private admin session endpoint
 
 The private `site-api` Worker owns:
 
 - `/v2/notify/*`
 - `/v2/admin/*`
+- `/api/*`
 - `/oauth*`
 - `/dev/*`
 - `/v2/telegram/webhook`
@@ -38,7 +39,7 @@ The private `site-api` Worker owns:
 
 ## Compatibility proxy
 
-`buxx.me/api/*` remains the public compatibility surface. Requests that are no longer public-site-owned proxy to `site-api` through the `API` service binding.
+`buxx.me/api/*` remains the public compatibility surface, but production traffic is directly routed to `site-api`. The public Worker keeps a thin `/api/*` service-binding fallback for local and preview environments.
 
 The public Worker also proxies `/dev/*` and `/oauth*` to private admin/OAuth routes without adding a `/v1` prefix.
 

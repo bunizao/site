@@ -11,6 +11,7 @@
     "dev:site": "op run --environment l57xmsivlnctkio4zz673luf64 -- astro dev",
     "dev:home": "DEV_SURFACE=home PUBLIC_DEV_SURFACE=home op run --environment l57xmsivlnctkio4zz673luf64 -- astro dev",
     "dev:mood": "DEV_SURFACE=mood PUBLIC_DEV_SURFACE=mood op run --environment l57xmsivlnctkio4zz673luf64 -- astro dev",
+    "dev:richtext": "MOOD_RICHTEXT_FIXTURE=1 DEV_SURFACE=mood PUBLIC_DEV_SURFACE=mood op run --environment l57xmsivlnctkio4zz673luf64 -- astro dev",
     "dev:preview": "DEV_SURFACE=preview PUBLIC_DEV_SURFACE=preview op run --environment l57xmsivlnctkio4zz673luf64 -- astro dev",
     "dev:portal": "ADMIN_DEV_BYPASS=1 DEV_SURFACE=preview PUBLIC_DEV_SURFACE=preview op run --environment l57xmsivlnctkio4zz673luf64 -- astro dev",
     "build": "astro build",

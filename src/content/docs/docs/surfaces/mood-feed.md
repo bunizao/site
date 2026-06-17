@@ -6,6 +6,8 @@ public: true
 
 The mood feed is the public surface for posts pulled from the Telegram channel. It lives at three levels: a small home preview, the full feed at `/mood`, and detail pages at `/mood/[id]`.
 
+Mood API taxonomy: v1 (`/api/v1/mood*`) is the live Telegram mirror and canonical for user-facing reads. v2 (`/api/v2/mood*`) is the D1 archive / structured read for search, AI, debugging, and ops. `?api-v2=true` is deprecated migration scaffolding and should not appear in canonical links.
+
 ## Routes
 
 - `/mood` — the feed shell (`src/pages/mood.astro`). Dynamic, not prerendered.
@@ -34,22 +36,22 @@ Long text-only posts clamp and link to the detail page. Inline media stays expan
 
 ## Detail page
 
-The detail route fetches a single `MoodContentDocument` from `site-api`, sets a `404` when missing, and renders a controlled fallback rather than crashing. The body is inserted with `set:html={renderedPostContent}` after sanitization. Forwarded metadata, reactions, and tags come from normalized mood data.
+The detail route fetches a single `MoodContentDocument` from the canonical live mood reader, sets a `404` when missing, and renders a controlled fallback rather than crashing. The body is inserted with `set:html={renderedPostContent}` after sanitization. Forwarded metadata, reactions, and tags come from normalized mood data.
 
 Back navigation prefers browser history; otherwise it falls back to `/mood`.
 
 ## Comments
 
-`GET /api/comments?postId=...` validates the post id and an optional `before` cursor, then reads normalized comments from `site-api`. The client renders sanitized comments and paginates via `before=<commentId>`. Reply blocks become quote cards; loose text nodes get wrapped in paragraphs; avatar and image URLs are sanitized; duplicate comment ids are filtered client-side.
+`GET /api/comments?postId=...` validates the post id and an optional `before` cursor, then reads from the live v1 Telegram mirror. The client renders sanitized comments and paginates via `before=<commentId>`. Reply blocks become quote cards; loose text nodes get wrapped in paragraphs; avatar and image URLs are sanitized; duplicate comment ids are filtered client-side.
 
 ## Telegram ingest
 
-The private `site-api` Worker ingests Telegram updates:
+Machine-ingress services ingest Telegram updates:
 
 - channel posts from the Telegram webhook,
 - edited posts, comments, and reaction count updates.
 
-It normalizes media URLs to `https://api.buxx.me/v2/images/*` and returns `MoodFeedResponse`, `MoodContentDocument`, and `MoodCommentsPage` through `https://api.buxx.me/v1/`.
+They normalize media URLs to `https://buxx.me/api/v2/images/*`, expose `/api/v1/mood*` as the live mirror, and expose `/api/v2/mood*` as the structured D1 archive. `api.buxx.me` is machine ingress, not the public mood API users should build links against.
 
 `src/features/mood/shared/utils.ts` strips Telegram HTML into preview text, keeps a limited preview HTML subset, extracts first image and fallback, detects media-heavy or long posts, derives quote previews, and groups posts by date.
 

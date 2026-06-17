@@ -28,17 +28,14 @@ describe('mood feed anchors', () => {
   test('builds deterministic feed return anchors', () => {
     expect(getMoodFeedAnchorFragmentId('3196')).toBe('mood-3196');
     expect(getMoodFeedAnchorHref('3196')).toBe('/mood?3196');
-    expect(getMoodFeedAnchorHref('3196', 'false')).toBe('/mood?3196&api-v2=false');
     expect(getMoodFeedAnchorFragmentId('bad')).toBe('');
     expect(getMoodFeedAnchorHref('bad')).toBe('/mood');
-    expect(getMoodFeedAnchorHref('bad', 'false')).toBe('/mood?api-v2=false');
   });
 
-  test('builds detail links with explicit API mode', () => {
+  test('builds clean detail links', () => {
     expect(getMoodDetailHref('3196')).toBe('/mood/3196');
-    expect(getMoodDetailHref('3196', 'false')).toBe('/mood/3196?api-v2=false');
-    expect(getMoodDetailHref('3196', 'false', '#comments')).toBe('/mood/3196?api-v2=false#comments');
-    expect(getMoodDetailHref('bad', 'false')).toBe('/mood');
+    expect(getMoodDetailHref('3196', '#comments')).toBe('/mood/3196#comments');
+    expect(getMoodDetailHref('bad')).toBe('/mood');
   });
 
   test('builds an inclusive before cursor for Telegram', () => {

@@ -28,28 +28,35 @@ import {
   type MoodServerContext,
 } from './channel-service';
 import { getPostComments } from './telegram-source';
+import {
+  MOOD_RICH_TEXT_FIXTURE_ID,
+  buildMoodRichTextFixtureDocument,
+  isMoodRichTextFixtureEnabled,
+} from './rich-text-fixture';
 
 export interface MoodFeedQuery {
   before?: string;
   after?: string;
   fresh?: boolean;
   limit?: number;
-  useApiV2?: boolean;
+  source?: MoodApiSource;
 }
 
 export interface MoodCommentsQuery {
   before?: string;
   limit?: number;
-  useApiV2?: boolean;
+  source?: MoodApiSource;
 }
 
 export interface MoodDocumentQuery {
-  useApiV2?: boolean;
+  source?: MoodApiSource;
 }
 
-type MoodApiPath = `/v1/mood${string}`;
+export type MoodApiSource = 'live' | 'archive';
 
-function createMoodApiRequest(context: MoodServerContext, path: MoodApiPath, params: URLSearchParams = new URLSearchParams()): Request {
+type MoodArchiveApiPath = `/v2/mood${string}`;
+
+function createMoodArchiveApiRequest(context: MoodServerContext, path: MoodArchiveApiPath, params: URLSearchParams = new URLSearchParams()): Request {
   const source = new URL(context.request.url);
   source.pathname = path;
   source.search = params.toString();
@@ -59,19 +66,19 @@ function createMoodApiRequest(context: MoodServerContext, path: MoodApiPath, par
   }));
 }
 
-async function fetchMoodApiJson<T>(
+async function fetchMoodArchiveApiJson<T>(
   context: MoodServerContext,
-  path: MoodApiPath,
+  path: MoodArchiveApiPath,
   params: URLSearchParams = new URLSearchParams(),
 ): Promise<T> {
   const api = await getApiServiceBinding(context.locals);
   if (!api) {
-    throw new Error('API service binding unavailable for mood api-v2 reads.');
+    throw new Error('API service binding unavailable for mood archive reads.');
   }
 
-  const response = await api.fetch(createMoodApiRequest(context, path, params));
+  const response = await api.fetch(createMoodArchiveApiRequest(context, path, params));
   if (!response.ok) {
-    throw new Error(`Mood api-v2 request failed: ${response.status} ${response.statusText}`);
+    throw new Error(`Mood archive request failed: ${response.status} ${response.statusText}`);
   }
 
   return response.json() as Promise<T>;
@@ -138,13 +145,18 @@ export async function loadMoodFeed(
     return buildMoodFeedResponse(context, channelInfo, channelInfo.posts);
   }
 
-  if (query.useApiV2) {
-    return fetchMoodApiJson<MoodFeedResponse>(context, '/v1/mood', moodFeedParams(query));
+  if (isMoodRichTextFixtureEnabled(context.locals)) {
+    const document = buildMoodRichTextFixtureDocument(getMoodChannelSlug(context.locals));
+    return {
+      posts: [moodDocumentToFeedItem(document)],
+      channel: { slug: document.channel?.slug, title: document.channel?.title },
+    };
   }
 
-  // D1 stays useful for indexing and ingestion, but production mood rendering
-  // still depends on Telegram widget HTML for link previews, files, video
-  // fallbacks, and reply cards.
+  if (query.source === 'archive') {
+    return fetchMoodArchiveApiJson<MoodFeedResponse>(context, '/v2/mood', moodFeedParams(query));
+  }
+
   const { channelInfo, posts } = await loadMoodChannelSnapshot(context, {
     before: query.before,
     after: query.after,
@@ -154,15 +166,19 @@ export async function loadMoodFeed(
   return buildMoodFeedResponse(context, channelInfo, limitedPosts);
 }
 
-export async function loadMoodProbe(context: MoodServerContext, options: { useApiV2?: boolean } = {}): Promise<MoodProbeResult> {
+export async function loadMoodProbe(context: MoodServerContext, options: { source?: MoodApiSource } = {}): Promise<MoodProbeResult> {
   if (isE2ESiteFixtureEnabled(context.locals)) {
     const channelInfo = createE2EChannelInfo();
     return { latestId: channelInfo.posts[0]?.id ?? '' };
   }
 
-  if (options.useApiV2) {
+  if (isMoodRichTextFixtureEnabled(context.locals)) {
+    return { latestId: MOOD_RICH_TEXT_FIXTURE_ID };
+  }
+
+  if (options.source === 'archive') {
     const params = new URLSearchParams({ probe: 'true', fresh: 'true' });
-    return fetchMoodApiJson<MoodProbeResult>(context, '/v1/mood', params);
+    return fetchMoodArchiveApiJson<MoodProbeResult>(context, '/v2/mood', params);
   }
 
   const { posts } = await loadMoodChannelSnapshot(context, { skipCache: true });
@@ -197,8 +213,12 @@ export async function loadMoodDocument(
     };
   }
 
-  if (query.useApiV2) {
-    return fetchMoodApiJson<MoodContentDocument | null>(context, `/v1/mood/${encodeURIComponent(id)}`);
+  if (isMoodRichTextFixtureEnabled(context.locals) && id === MOOD_RICH_TEXT_FIXTURE_ID) {
+    return buildMoodRichTextFixtureDocument(getMoodChannelSlug(context.locals));
+  }
+
+  if (query.source === 'archive') {
+    return fetchMoodArchiveApiJson<MoodContentDocument | null>(context, `/v2/mood/${encodeURIComponent(id)}`);
   }
 
   const { post, channelInfo } = await loadMoodPostSnapshot(context, id);
@@ -236,10 +256,14 @@ export async function loadMoodComments(
     return loadMoodCommentsFixture(postId);
   }
 
-  if (query.useApiV2) {
-    return fetchMoodApiJson<MoodCommentsPage>(
+  if (isMoodRichTextFixtureEnabled(context.locals)) {
+    return { comments: [], hasMore: false, nextBefore: '' };
+  }
+
+  if (query.source === 'archive') {
+    return fetchMoodArchiveApiJson<MoodCommentsPage>(
       context,
-      `/v1/mood/${encodeURIComponent(postId)}/comments`,
+      `/v2/mood/${encodeURIComponent(postId)}/comments`,
       moodCommentsParams(query),
     );
   }

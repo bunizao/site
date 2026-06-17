@@ -30,7 +30,7 @@ Currently used by `site-api /v2/notify/subscribe` with the expected action `noti
 
 ## Signed URLs
 
-`src/lib/security/signed-url.ts` signs `pathname + normalized search params` with HMAC-SHA256, excludes `sig` from the signing payload, requires a numeric `exp`, and rejects expired signatures.
+Signed URL verification lives in `site-api`. It signs `pathname + normalized search params` with HMAC-SHA256, excludes `sig` from the signing payload, requires a numeric `exp`, and rejects expired signatures.
 
 Currently protects selected generated resources, like `/api/activity-panel.svg` when `ACTIVITY_PANEL_SIGNING_SECRET` is configured.
 
@@ -44,7 +44,7 @@ Hardening is selective.
 
 - Public HTML pages do **not** apply a site-wide CSP via `src/layouts/Layout.astro`. The mood embed and SVG endpoints are stricter, but the main site still allows the inline scripts required by the current shell.
 - Embed responses use stricter headers in `src/lib/embed-response.ts` — frame-ancestors, sandbox-friendly defaults.
-- SVG responses use CSP and hardening headers in `src/lib/svg-response.ts`.
+- SVG API responses use CSP and hardening headers in `site-api`.
 
 This is the trade we've made: the public site keeps compatibility for its shared shell and embeds; isolated surfaces (embed, SVG) carry the strict policies that matter.
 

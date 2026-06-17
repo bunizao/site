@@ -7,7 +7,7 @@ This document describes the private Telegram ingestion pipeline for mood posts, 
 The Telegram pipeline affects:
 
 - `POST https://api.buxx.me/v2/telegram/webhook`
-- `https://api.buxx.me/v2/images/*`
+- `https://buxx.me/api/v2/images/*`
 - immediate email notify dispatch
 - public mood pages that still consume Telegram content during this migration wave
 
@@ -41,10 +41,10 @@ Responsibilities:
 
 ### Public `site`
 
-Responsibilities during this migration wave:
+Responsibilities:
 
 - render mood feed and detail pages
-- keep `/api/moods` and `/api/comments` public until the mood API wave lands
+- consume `/api/moods` and `/api/comments` from `site-api`
 - use `PUBLIC_HD_IMAGE_URL` for primary image URLs
 - preserve `/static/...telegram CDN...` fallback behavior
 
@@ -53,12 +53,12 @@ Responsibilities during this migration wave:
 Canonical private URLs:
 
 - `https://api.buxx.me/v2/telegram/webhook`
-- `https://api.buxx.me/v2/images/*`
+- `https://buxx.me/api/v2/images/*`
 - `https://api.buxx.me/v2/notify/dispatch`
 
 Public compatibility:
 
-- `https://buxx.me/api/notify/*` proxies to `site-api`
+- `https://buxx.me/api/*` is directly routed to `site-api`
 
 ## Failure Modes
 
