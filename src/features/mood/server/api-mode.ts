@@ -1,5 +1,6 @@
 import { readOptionalEnv, type RuntimeEnvLocals } from '@/lib/runtime/env';
 import { readMoodApiModeQueryValue } from '../shared/api-mode';
+import { isMoodRichTextFixtureEnabled } from './rich-text-fixture';
 
 const DEFAULT_ENV_NAME = 'MOOD_API_V2_DEFAULT';
 
@@ -22,6 +23,10 @@ export function isMoodApiV2DefaultEnabled(locals: RuntimeEnvLocals | undefined):
 export function resolveMoodApiV2Mode(url: URL, locals: RuntimeEnvLocals | undefined): boolean {
   const explicitMode = readMoodApiModeQueryValue(url);
   if (explicitMode) return explicitMode === 'true';
+
+  // The rich-text fixture is served as structured v2 documents, so it must use
+  // the structured render path even without the API binding.
+  if (isMoodRichTextFixtureEnabled(locals)) return true;
 
   return isMoodApiV2DefaultEnabled(locals);
 }

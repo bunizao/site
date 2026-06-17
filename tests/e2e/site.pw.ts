@@ -904,8 +904,8 @@ test.describe('Home page mobile touch', () => {
 
       await page.goto('/');
       expect(page.url()).toBe(`${String(testInfo.project.use.baseURL)}/`);
-      await expect(page.locator('[data-experience-timeline="hydrated"]')).toHaveCount(1);
       await page.locator('#experience-section').scrollIntoViewIfNeeded();
+      await expect(page.locator('[data-experience-timeline="hydrated"]')).toHaveCount(1);
 
       const jokeRows = page.locator('#experience-section [data-experience-joke-row]');
       await expect(jokeRows).toHaveCount(2);
@@ -1177,8 +1177,8 @@ test.describe('Projects page mobile touch', () => {
         await page.waitForTimeout(1400); // entrance settles
       };
 
-      const activeName = () =>
-        page.locator('article[aria-hidden="false"] h3').first().innerText();
+      const activeLabel = () =>
+        page.locator('article[aria-hidden="false"] p').first().innerText();
 
       // Dispatch a single-finger touch swipe over the active card and report
       // whether any move was claimed (preventDefault) or left to the page.
@@ -1231,12 +1231,12 @@ test.describe('Projects page mobile touch', () => {
       // A diagonal (~31° off horizontal) must still flip the deck and claim the
       // gesture — this is exactly the swipe that used to leak to page scroll.
       await reset();
-      const beforeDiag = await activeName();
+      const beforeDiag = await activeLabel();
       const diag = await swipe(-100, -60);
       await page.waitForTimeout(900);
       expect(diag.prevented).toBe(true);
       expect(diag.scrollable).toBe(false);
-      const afterDiag = await activeName();
+      const afterDiag = await activeLabel();
       expect(afterDiag).not.toBe(beforeDiag);
 
       // ...and again without reloading — the gesture must keep working after a
@@ -1244,17 +1244,17 @@ test.describe('Projects page mobile touch', () => {
       const diag2 = await swipe(-100, -60);
       await page.waitForTimeout(900);
       expect(diag2.prevented).toBe(true);
-      expect(await activeName()).not.toBe(afterDiag);
+      expect(await activeLabel()).not.toBe(afterDiag);
 
       // A clearly vertical swipe must NOT flip and must stay unclaimed so the
       // page can scroll underneath.
       await reset();
-      const beforeVert = await activeName();
+      const beforeVert = await activeLabel();
       const vert = await swipe(-18, -150);
       await page.waitForTimeout(900);
       expect(vert.prevented).toBe(false);
       expect(vert.scrollable).toBe(true);
-      expect(await activeName()).toBe(beforeVert);
+      expect(await activeLabel()).toBe(beforeVert);
     } finally {
       await context.close();
     }
