@@ -1,6 +1,7 @@
 // Regenerate public/og.png from source. Run: node scripts/generate-og.mjs
-// Refined horizontal lockup: peek grounded by a soft shadow on warm paper, name
-// in Geist, one terracotta rule, a single mono handle. No grid, no clutter.
+// Vertical identity lockup: peek as the mark, name as the wordmark, buxx.me as a
+// quiet caption. Warm paper, warm near-black ink, no accent lines — the mascot
+// is the only color. Centered, symmetric, generous air.
 import { chromium } from '@playwright/test';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -24,22 +25,18 @@ const html = `<!doctype html><meta charset="utf-8">
 @font-face{font-family:'Geist Mono';src:url(data:font/woff2;base64,${monoB64}) format('woff2');font-weight:100 900;font-style:normal}
 *{margin:0;padding:0;box-sizing:border-box}
 body{width:${WIDTH}px;height:${HEIGHT}px;overflow:hidden;font-family:'Geist',sans-serif;
-  -webkit-font-smoothing:antialiased;display:flex;align-items:center;justify-content:center;
-  background:radial-gradient(125% 120% at 50% 18%,#faf9f7 0%,#f2f0ec 72%,#ece9e3 100%)}
-.lockup{display:flex;align-items:center;gap:60px;transform:translateY(-6px)}
-.sticker{width:190px;height:auto;display:block;image-rendering:pixelated;
-  filter:drop-shadow(0 20px 28px rgba(40,30,20,.14))}
-h1{font-size:88px;font-weight:600;letter-spacing:-.035em;line-height:.92;color:#181614}
-.rule{width:68px;height:5px;background:#cf4a36;border-radius:2px;margin:24px 0 20px}
-.handle{font-family:'Geist Mono',monospace;font-size:25px;letter-spacing:.02em;color:#8a847b}
+  -webkit-font-smoothing:antialiased;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  background:#f4f2ee}
+.lockup{display:flex;flex-direction:column;align-items:center;transform:translateY(-10px)}
+.sticker{width:132px;height:auto;display:block;image-rendering:pixelated;
+  filter:drop-shadow(0 16px 22px rgba(40,30,20,.11))}
+h1{margin-top:44px;font-size:92px;font-weight:600;letter-spacing:-.035em;line-height:1;color:#1b1917}
+.handle{margin-top:20px;font-family:'Geist Mono',monospace;font-size:23px;letter-spacing:.06em;color:#a8a195}
 </style>
 <div class="lockup">
   <img class="sticker" src="data:image/svg+xml;base64,${stickerB64}" alt="">
-  <div>
-    <h1>${NAME}</h1>
-    <div class="rule"></div>
-    <div class="handle">${HANDLE}</div>
-  </div>
+  <h1>${NAME}</h1>
+  <div class="handle">${HANDLE}</div>
 </div>`;
 
 const browser = await chromium.launch();
