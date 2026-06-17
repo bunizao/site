@@ -1743,3 +1743,14 @@ html.no-transition * {
     display: none;
   }
 }
+
+/* Project card accent. The hero frame carries per-project RGB triplets in
+   --ha-l / --ha-d (set from src/data/site.ts); resolve --hero-accent by theme
+   so the hero visuals inherit the right accent without hardcoding it. */
+[data-hero-accent] {
+  --hero-accent: var(--ha-l);
+}
+
+.dark [data-hero-accent] {
+  --hero-accent: var(--ha-d);
+}

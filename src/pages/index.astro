@@ -8,7 +8,7 @@ import Posts from '@/features/home/ui/Posts.astro';
 import HomePreview from '@/features/mood/ui/HomePreview.astro';
 import Footer from '@/features/home/ui/Footer.astro';
 import { profileJsonLd, siteDescription, websiteJsonLd } from '@/lib/seo';
-import { meta } from '@/data/site';
+import { meta, sections } from '@/data/site';
 
 export const prerender = true;
 
@@ -25,12 +25,12 @@ const isHomeDevSurface = import.meta.env.DEV && process.env.DEV_SURFACE === 'hom
 >
   <ParallaxWrapper>
     <main class="page-container">
-      <Hero />
-      <Experience />
-      <Projects />
-      <Posts />
-      <HomePreview runtimeDisabled={isHomeDevSurface} />
-      <Footer />
+      {sections.hero && <Hero />}
+      {sections.experience && <Experience />}
+      {sections.projects && <Projects />}
+      {sections.posts && <Posts />}
+      {sections.mood && <HomePreview runtimeDisabled={isHomeDevSurface} />}
+      {sections.footer && <Footer />}
     </main>
   </ParallaxWrapper>
 </Layout>

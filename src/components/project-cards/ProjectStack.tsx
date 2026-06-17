@@ -7,6 +7,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type CSSProperties,
   type PointerEvent as ReactPointerEvent,
 } from "react";
 import { createPortal } from "react-dom";
@@ -67,6 +68,19 @@ const heroFrame =
   "pointer-events-none relative w-full select-none overflow-hidden " +
   "ring-1 ring-inset ring-stone-900/[0.06] dark:ring-white/[0.07]";
 
+// Project accent (from site.ts) feeds --hero-accent on the frame; globals.css
+// resolves it to the light/dark triplet. Heroes that don't use an accent skip it.
+function accentProps(project: ShowcaseProject) {
+  if (!project.accent) return {};
+  return {
+    "data-hero-accent": "",
+    style: {
+      "--ha-l": project.accent.light,
+      "--ha-d": project.accent.dark,
+    } as CSSProperties,
+  };
+}
+
 // ---------------------------------------------------------------------------
 // L0 — collapsed card in the pile
 // ---------------------------------------------------------------------------
@@ -88,7 +102,7 @@ function CardFace({
       )}
     >
       {/* Hero is inert: it must not steal drags or let the image be selected. */}
-      <div className={cn("aspect-[16/10] rounded-[15px]", heroFrame)}>
+      <div className={cn("aspect-[16/10] rounded-[15px]", heroFrame)} {...accentProps(project)}>
         {renderHero(project.hero, active)}
       </div>
 
@@ -149,7 +163,7 @@ function StoryCard({
         surface,
       )}
     >
-      <div className={cn("aspect-[16/9] shrink-0 rounded-[18px]", heroFrame)}>
+      <div className={cn("aspect-[16/9] shrink-0 rounded-[18px]", heroFrame)} {...accentProps(project)}>
         {renderHero(project.hero, active)}
       </div>
 

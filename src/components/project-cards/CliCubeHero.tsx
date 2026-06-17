@@ -123,7 +123,7 @@ export default function CliCubeHero({ hovered = false }: { hovered?: boolean }) 
   }, [live, active]);
 
   return (
-    <div className="absolute inset-0 overflow-hidden bg-[#f4f2ec] [--hero-accent:180_83_9] dark:bg-[#0c0d10] dark:[--hero-accent:251_191_36]">
+    <div className="absolute inset-0 overflow-hidden bg-[#f4f2ec] dark:bg-[#0c0d10]">
       <svg
         viewBox="0 0 400 250"
         preserveAspectRatio="xMidYMid meet"

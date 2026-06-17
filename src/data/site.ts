@@ -143,3 +143,144 @@ export const experience: ExperienceItem[] = [
     joke: true,
   },
 ];
+
+// --- Section visibility -----------------------------------------------------
+// Toggle whole homepage sections on/off. Default every section on; flip one to
+// false to drop it from the page (index.astro guards each render on this).
+
+export const sections = {
+  hero: true,
+  experience: true,
+  projects: true,
+  posts: true,
+  mood: true, // the HomePreview / mood teaser block
+  footer: true,
+};
+
+// --- Footer -----------------------------------------------------------------
+// Nav links + status endpoint are editable here. The copyright credit is NOT:
+// see copyrightMark() below.
+
+export const footer = {
+  links: [
+    { label: 'Source', url: 'https://github.com/bunizao/site', external: true },
+    { label: 'Built with Astro', url: 'https://astro.build', external: true },
+    { label: 'Privacy', url: '/privacy' },
+  ],
+  statusUrl: 'https://status.tuuhub.com',
+};
+
+// The copyright credit is LOAD-BEARING. copyrightMark() rebuilds it from the
+// sealed owner/rights/start-year below and verifies them against CREDIT_SEAL
+// (an FNV-1a hash baked at authoring time). Edit the owner or the
+// "All rights reserved." text and the seal stops matching — the function throws
+// and the whole build/render dies. The ONLY moving part is the end year, which
+// tracks the current year. Yes, this guard is on purpose. Put it back. 🫷
+const CREDIT_OWNER = 'bunizao';
+const CREDIT_RIGHTS = 'All rights reserved.';
+const CREDIT_START_YEAR = 2023;
+const CREDIT_SEAL = 0x3abdc18;
+
+function fnv1a(input: string): number {
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < input.length; i += 1) {
+    hash ^= input.charCodeAt(i);
+    hash = Math.imul(hash, 0x01000193) >>> 0;
+  }
+  return hash >>> 0;
+}
+
+export function copyrightMark(year: number): string {
+  if (fnv1a(`${CREDIT_OWNER}|${CREDIT_RIGHTS}|${CREDIT_START_YEAR}`) !== CREDIT_SEAL) {
+    throw new Error('Copyright credit tampered with — refusing to render. Put it back. 🫷');
+  }
+  const range = year > CREDIT_START_YEAR ? `${CREDIT_START_YEAR}–${year}` : `${CREDIT_START_YEAR}`;
+  return `© ${range} ${CREDIT_OWNER}. ${CREDIT_RIGHTS}`;
+}
+
+// --- Projects ---------------------------------------------------------------
+// Copy + per-project accent live here; the hero VISUALS and their renderer stay
+// in src/components/project-cards (they're JSX). `hero.kind` picks which visual.
+// `accent` (space-separated RGB triplets) drives `--hero-accent` for the heroes
+// that use it (cube, waves); the others ignore it.
+
+export type ProjectHero =
+  | { kind: 'waves' }
+  | { kind: 'tour' }
+  | { kind: 'carousel' }
+  | { kind: 'cube' };
+
+export interface ShowcaseProject {
+  id: string;
+  name: string;
+  type: string;
+  url: string;
+  blurb: string;
+  story: string[];
+  tags: string[];
+  stars: number | null;
+  hero: ProjectHero;
+  /** RGB triplets ("r g b") for `--hero-accent`, light + dark. */
+  accent?: { light: string; dark: string };
+}
+
+export const projects: ShowcaseProject[] = [
+  {
+    id: 'cli-tools',
+    name: 'Tools for Agents',
+    type: 'CLI + MCP',
+    url: 'https://github.com/bunizao?tab=repositories&q=cli',
+    blurb: 'Small CLIs for the dull parts of being a student. Each one speaks MCP, so an agent can run it for you.',
+    story: [
+      "I kept doing the same chores by hand: pulling assignments off Moodle, reading Ed threads, syncing OnTrack tasks, signing in through Okta, marking attendance. So I wrote a CLI for each one. They do a single job and stay out of the way.",
+      "Then I gave them an MCP server. Now an agent drives them while I'm doing something better with my afternoon.",
+    ],
+    tags: ['CLI', 'MCP', 'Automation'],
+    stars: null,
+    hero: { kind: 'cube' },
+    accent: { light: '180 83 9', dark: '251 191 36' },
+  },
+  {
+    id: 'ogis',
+    name: 'ogis',
+    type: 'OG Image Service',
+    url: 'https://github.com/bunizao/ogis',
+    blurb: 'Turn a title into a share image. Themed, signed, rendered at the edge.',
+    story: [
+      'Give ogis a title and a site name and it builds a clean Open Graph card on the edge. Pick a theme, sign the request so nobody hotlinks your generator, and every share gets its own image.',
+      "The card you're looking at came out of ogis. That's the whole pitch.",
+    ],
+    tags: ['Next.js', 'OG Image', 'Edge'],
+    stars: 5,
+    hero: { kind: 'carousel' },
+  },
+  {
+    id: 'attegi',
+    name: 'Attegi',
+    type: 'Ghost Theme',
+    url: 'https://github.com/bunizao/Attegi',
+    blurb: 'A Ghost theme with an editorial spine. Fast pages, a real table of contents, a dark mode that looks designed.',
+    story: [
+      "I set up my own Ghost blog and none of the themes fit, so I built Attegi. Sharp type, pages that load quick, a table of contents that tracks where you're reading, code blocks that leave you alone.",
+      "27 blogs run it now. It's the theme I wanted on day one.",
+    ],
+    tags: ['Ghost', 'Theme', 'TailwindCSS'],
+    stars: 27,
+    hero: { kind: 'tour' },
+  },
+  {
+    id: 'tutubetterrules',
+    name: 'TutuBetterRules',
+    type: 'Proxy Rules',
+    url: 'https://github.com/bunizao/TutuBetterRules',
+    blurb: 'Cross-platform proxy rules. Surge-first, syncs to Clash, Shadowrocket, and QX.',
+    story: [
+      'It started as my own Surge config, the kind you tweak at 1am until traffic finally routes the way you want. Then it grew into one source of truth that compiles out to Surge, Clash, Shadowrocket, and Quantumult X.',
+      'About 400 people run it now. Modules, rewrites, and policy groups stay in sync, so you update once instead of babysitting four configs.',
+    ],
+    tags: ['Surge', 'Clash', 'Shadowrocket', 'QX'],
+    stars: 391,
+    hero: { kind: 'waves' },
+    accent: { light: '13 148 136', dark: '45 212 191' },
+  },
+];

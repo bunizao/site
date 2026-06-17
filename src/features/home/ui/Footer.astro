@@ -1,35 +1,29 @@
 ---
-const startYear = 2023;
-const currentYear = new Date().getFullYear();
-const yearRange = currentYear > startYear ? `${startYear}–${currentYear}` : `${currentYear}`;
+import { footer, copyrightMark } from '@/data/site';
+
+const { links, statusUrl } = footer;
+const mark = copyrightMark(new Date().getFullYear());
 ---
 
 <footer class="footer">
   <nav class="footer-nav" aria-label="Footer">
-    <a
-      href="https://github.com/bunizao/site"
-      target="_blank"
-      rel="noopener noreferrer"
-      class="footer-link"
-    >
-      Source
-    </a>
-    <span class="footer-sep" aria-hidden="true">·</span>
-    <a
-      href="https://astro.build"
-      target="_blank"
-      rel="noopener noreferrer"
-      class="footer-link"
-    >
-      Built with Astro
-    </a>
-    <span class="footer-sep" aria-hidden="true">·</span>
-    <a href="/privacy" class="footer-link">Privacy</a>
+    {links.map((link, i) => (
+      <>
+        {i > 0 && <span class="footer-sep" aria-hidden="true">·</span>}
+        <a
+          href={link.url}
+          class="footer-link"
+          {...(link.external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
+        >
+          {link.label}
+        </a>
+      </>
+    ))}
   </nav>
 
   <p class="footer-meta">
     <a
-      href="https://status.tuuhub.com"
+      href={statusUrl}
       target="_blank"
       rel="noopener noreferrer"
       class="footer-status"
@@ -59,7 +53,7 @@ const yearRange = currentYear > startYear ? `${startYear}–${currentYear}` : `$
     </span>
   </p>
 
-  <p class="footer-mark">© {yearRange} bunizao. All rights reserved.</p>
+  <p class="footer-mark">{mark}</p>
 </footer>
 
 <script>

@@ -101,7 +101,7 @@ export default function HarmonicWaveHero({ hovered = false }: { hovered?: boolea
 
   return (
     <div
-      className="relative h-full w-full overflow-hidden bg-[#f4f2ec] [--hero-accent:13_148_136] dark:bg-[#0c0d10] dark:[--hero-accent:45_212_191]"
+      className="relative h-full w-full overflow-hidden bg-[#f4f2ec] dark:bg-[#0c0d10]"
       style={{
         transform: live ? "scaleY(1.12)" : "scaleY(1)",
         transformOrigin: "bottom",

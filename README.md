@@ -31,6 +31,10 @@ bun run dev:preview
 bun run dev:portal
 ```
 
+## Content
+
+Homepage copy, section toggles, footer, projects, and SEO/OG meta are curated in one file: [`src/data/site.ts`](src/data/site.ts). Details are in the file's comments.
+
 ## Docs
 
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
