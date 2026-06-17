@@ -65,7 +65,7 @@ Freshness behavior:
 
 ## Feed API
 
-Implementation file: [`src/pages/api/moods.ts`](../src/pages/api/moods.ts)
+Implementation owner: `site-api /api/moods`
 
 Upstream dependency:
 
@@ -143,7 +143,7 @@ Back navigation:
 
 Implementation files:
 
-- [`src/pages/api/comments.ts`](../src/pages/api/comments.ts)
+- `site-api /api/comments`
 - [`src/features/mood/client/detail-comments-controller.ts`](../src/features/mood/client/detail-comments-controller.ts)
 - [`src/features/mood/shared/comments.ts`](../src/features/mood/shared/comments.ts)
 
@@ -182,7 +182,7 @@ Machine-ingress responsibilities:
 - expose `/api/v1/mood*` as the live Telegram mirror
 - expose `/api/v2/mood*` as the D1 archive / structured read
 - ingest Telegram webhook updates into D1 for backup, search, AI, and debugging
-- normalize media URLs into `https://api.buxx.me/v2/images/*`
+- normalize media URLs into `https://buxx.me/api/v2/images/*`
 - keep `api.buxx.me` as machine ingress rather than the canonical public API surface
 
 `src/features/mood/shared/utils.ts` responsibilities:

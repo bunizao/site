@@ -59,7 +59,7 @@ Current primary usage:
 
 ## Signed URLs
 
-File: `[src/lib/security/signed-url.ts](../src/lib/security/signed-url.ts)`
+Owner: `site-api`
 
 Behavior:
 
@@ -93,7 +93,7 @@ Current boundaries:
 
 - normal HTML pages do not apply a site-wide CSP in `[src/layouts/Layout.astro](../src/layouts/Layout.astro)`
 - embed responses use stricter headers in `[src/lib/embed-response.ts](../src/lib/embed-response.ts)`
-- SVG responses use CSP and hardening headers in `[src/lib/svg-response.ts](../src/lib/svg-response.ts)`
+- SVG API responses use CSP and hardening headers in `site-api`
 
 ## Implementation Summary
 

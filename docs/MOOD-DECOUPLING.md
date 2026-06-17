@@ -1,5 +1,10 @@
 # Mood Decoupling Plan
 
+> Historical note: concrete `/api/*` implementations have moved to the private
+> `site-api` repo. References below to `src/pages/api/*` and
+> `src/features/mood/server/api-routes.ts` describe the old public-site
+> implementation, not the current owner.
+
 ## Scope
 
 This document defines the target architecture and migration plan for decoupling the mood feature.

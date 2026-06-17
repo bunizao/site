@@ -33,10 +33,10 @@ No separate linter is configured.
 
 ## Related Repository (site-api)
 
-This is the public Worker. The private Worker `site-api` lives in the sibling repo `../site-api` (separate git repo, same `Dropbox/Dev/` parent). It owns D1, KV, R2, queues, crons, admin/OAuth, notify, the Telegram webhook, and the image proxy at `api.buxx.me`. This site reaches it through the `API` service binding and proxies `buxx.me/api/*`. Keep them split — it is the public/private security boundary.
+This is the public Worker. The private Worker `site-api` lives in the sibling repo `../site-api` (separate git repo, same `Dropbox/Dev/` parent). It owns D1, KV, R2, queues, crons, admin/OAuth, notify, the Telegram webhook, the image proxy, and concrete public API implementations. Production `buxx.me/api/*` is directly routed to `site-api`; this repo keeps only a thin `/api/*` service-binding fallback for local and preview environments. Keep them split — it is the public/private security boundary.
 
 - `@bunizao/contracts` is duplicated in both repos as byte-identical copies; **this repo (`site`) is canonical**. After editing contracts, sync the copy in `../site-api` via `bun run sync:contracts` there.
-- The `API` binding only resolves under `wrangler dev`/deploy, not plain `astro dev`, so `bun dev` alone cannot exercise the mood `?api-v2=true` path. Run `site-api` under `wrangler dev` and wire it via multi-worker dev to test v2 locally.
+- The `API` binding only resolves under `wrangler dev`/deploy, not plain `astro dev`, so `bun dev` alone cannot exercise fallback-proxied `/api/*` paths. Run `site-api` under `wrangler dev` and wire it via multi-worker dev to test API fallback locally.
 
 ## Architecture
 
@@ -57,4 +57,4 @@ This is the public Worker. The private Worker `site-api` lives in the sibling re
 2. **Level 1 (Mood Feed)**: `/mood` with `src/features/mood/ui/TimelineWheel.astro`
 3. **Level 2 (Mood Detail)**: `/mood/[id]`
 
-Read path is `src/features/mood/server/api-client.ts`. The `?api-v2=true` flag is plumbed but not yet wired — both modes currently run the legacy live `t.me` scrape. The structured D1 read (v2) is built in `../site-api`.
+Read path is `src/features/mood/server/api-client.ts`. User-facing reads stay on the live v1 Telegram mirror; the structured D1 archive read (v2) is built in `../site-api`.

@@ -72,12 +72,8 @@ function rewriteApiServicePath(pathname: string): string {
     return pathname;
   }
 
-  if (pathname === '/api') {
-    return '/v2';
-  }
-
-  if (pathname.startsWith('/api/')) {
-    return `/v2${pathname.slice('/api'.length)}`;
+  if (pathname === '/api' || pathname.startsWith('/api/')) {
+    return pathname;
   }
 
   return pathname.startsWith('/v1') || pathname.startsWith('/v2') ? pathname : `/v2${pathname}`;

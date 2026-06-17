@@ -51,7 +51,7 @@ Machine-ingress services ingest Telegram updates:
 - channel posts from the Telegram webhook,
 - edited posts, comments, and reaction count updates.
 
-They normalize media URLs to `https://api.buxx.me/v2/images/*`, expose `/api/v1/mood*` as the live mirror, and expose `/api/v2/mood*` as the structured D1 archive. `api.buxx.me` is machine ingress, not the public mood API users should build links against.
+They normalize media URLs to `https://buxx.me/api/v2/images/*`, expose `/api/v1/mood*` as the live mirror, and expose `/api/v2/mood*` as the structured D1 archive. `api.buxx.me` is machine ingress, not the public mood API users should build links against.
 
 `src/features/mood/shared/utils.ts` strips Telegram HTML into preview text, keeps a limited preview HTML subset, extracts first image and fallback, detects media-heavy or long posts, derives quote previews, and groups posts by date.
 

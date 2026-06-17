@@ -27,7 +27,7 @@ Markdown-backed means policy edits don't require layout changes, route logic sta
 ### Homepage listening
 
 - Card: `src/features/home/ui/Listening.astro`.
-- API: `src/pages/api/listening.ts`.
+- API: `site-api /api/listening`.
 - Provider chain: `src/features/home/server/listening.ts` fetches the latest Last.fm track and enriches it with Apple Music search data (album, artwork, preview audio, Apple Music links).
 - The card refreshes through this site's API rather than baking listening data into the prerendered HTML.
 
@@ -56,7 +56,7 @@ Markdown-backed means policy edits don't require layout changes, route logic sta
 ### Third-party content sources
 
 - Ghost CMS for writing links: `src/features/home/ui/Posts.astro`.
-- GitHub for project data: `src/features/home/ui/Projects.astro`, `src/lib/github.ts`.
+- GitHub for the contribution graph: `site-api /api/github/contributions`.
 - Telegram-derived content: live reads for user-facing mood pages, plus private D1 archive ingest for search, AI, debugging, and ops.
 
 ## When to update the policy

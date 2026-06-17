@@ -70,15 +70,12 @@ Implementation files:
 
 - [`src/features/home/ui/Projects.astro`](../src/features/home/ui/Projects.astro)
 - [`src/features/home/server/e2e-fixtures.ts`](../src/features/home/server/e2e-fixtures.ts)
-- [`src/lib/github.ts`](../src/lib/github.ts)
 - [`src/lib/e2e.ts`](../src/lib/e2e.ts)
 
 Data flow:
 
-- Build-time render fetches pinned repositories from GitHub.
-- Primary path uses GraphQL when `GITHUB_TOKEN` exists.
-- The contribution waveform uses the same GitHub token through the internal `/api/github/contributions` route, requesting the visible day window plus the last-year total, then falls back to the public contributions API if GraphQL is unavailable.
-- Fallback path uses a local curated list and enriches it with repo metadata when possible.
+- Project cards are rendered from local card data.
+- The contribution waveform fetches `/api/github/contributions`; production traffic is served by `site-api`.
 - E2E mode swaps live data with fixtures.
 
 Mapping rules:
@@ -99,12 +96,12 @@ Implementation files:
 
 - [`src/features/home/ui/Listening.astro`](../src/features/home/ui/Listening.astro)
 - [`src/features/home/server/listening.ts`](../src/features/home/server/listening.ts)
-- [`src/pages/api/listening.ts`](../src/pages/api/listening.ts)
+- `site-api /api/listening`
 
 Data flow:
 
 - The initial render uses a neutral loading shell so the static home page never freezes an old track into the HTML.
-- The client fetches `/api/listening`, which reads Last.fm `user.getRecentTracks`, as soon as the listening script loads.
+- The client fetches `/api/listening`, served by `site-api`, as soon as the listening script loads.
 - Last.fm provides the current or latest track; iTunes Search enriches it with preview audio and higher-confidence artwork when available.
 - Missing Last.fm configuration keeps the static fallback in place.
 
@@ -168,7 +165,7 @@ Client behavior:
 Implementation files:
 
 - [`src/features/mood/ui/HomePreview.astro`](../src/features/mood/ui/HomePreview.astro)
-- [`src/pages/api/moods.ts`](../src/pages/api/moods.ts)
+- `site-api /api/moods`
 
 Rendering strategy:
 
