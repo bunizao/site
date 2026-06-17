@@ -5,6 +5,7 @@ import { renderMoodGalleryMarkup } from '@/features/mood/shared/gallery-render';
 import { findTooBigVideoMedia, hasStructuredMoodFeedMedia, renderStructuredMoodFeedMediaMarkup } from '@/features/mood/shared/feed-media';
 import { getMoodFeedThumbnailStyle } from '@/features/mood/shared/feed-thumbnail';
 import { getMoodDetailHref, getMoodFeedAnchorFragmentId } from '@/features/mood/shared/feed-anchor';
+import { getCriticalInitialPosts, hasRenderableMoodFeedMedia } from '@/features/mood/shared/initial-feed';
 import { buildSrcSet, withWidthParam } from '@/lib/media/responsive-image';
 
 interface SkeletonItem {
@@ -38,7 +39,6 @@ const initialFeedPayload = {
   anchorId: anchorId || undefined,
 };
 const hasInitialFeedPayload = initialPosts.length > 0 || Boolean(initialChannel);
-const CRITICAL_INITIAL_POST_LIMIT = 8;
 const responsiveImageWidths = [480, 800, 1200];
 const thumbnailImageSizes = '(min-width: 1024px) 560px, (min-width: 640px) 480px, 100vw';
 
@@ -90,32 +90,6 @@ function formatDateHeader(dateKey: string): string {
   }
 
   return `${months[date.getMonth()]} ${date.getDate()}, ${date.getFullYear()}`;
-}
-
-function hasRenderableMedia(post: MoodFeedItem): boolean {
-  const tooBigVideoMedia = findTooBigVideoMedia(post.media);
-  return Boolean(
-    hasStructuredMoodFeedMedia(tooBigVideoMedia ? post.media.filter((item) => item !== tooBigVideoMedia) : post.media)
-    || tooBigVideoMedia
-    || post.mediaHtml.trim()
-    || post.previewMediaType === 'too-big-video'
-    || post.image
-    || (post.gallery?.items.length ?? 0) > 1
-  );
-}
-
-function getCriticalInitialPosts(posts: MoodFeedItem[], requiredPostId = ''): MoodFeedItem[] {
-  const source = posts.filter((post) => post?.id);
-  const firstMediaIndex = source.findIndex(hasRenderableMedia);
-  const mediaLimit = firstMediaIndex >= 0 ? firstMediaIndex + 1 : CRITICAL_INITIAL_POST_LIMIT;
-  const requiredIndex = requiredPostId
-    ? source.findIndex((post) => post.id === requiredPostId)
-    : -1;
-  const limit = requiredIndex >= 0
-    ? Math.max(mediaLimit, requiredIndex + 1)
-    : mediaLimit;
-
-  return source.slice(0, limit);
 }
 
 function groupPostsByDate(posts: MoodFeedItem[]): Array<{ dateKey: string; posts: MoodFeedItem[] }> {
@@ -211,12 +185,12 @@ function shouldHideQuoteAuthor(value?: string): boolean {
 
 const criticalInitialPosts = getCriticalInitialPosts(initialPosts, anchorId);
 const criticalDateGroups = groupPostsByDate(criticalInitialPosts);
-const criticalPriorityPostId = criticalInitialPosts.find(hasRenderableMedia)?.id ?? '';
+const criticalPriorityPostId = criticalInitialPosts.find(hasRenderableMoodFeedMedia)?.id ?? '';
 const hasCriticalInitialPosts = criticalInitialPosts.length > 0;
 ---
 
 <div class="mood-page">
-  <Hero />
+  <Hero initialChannel={initialChannel} />
 
   <div class={`mood-loading${hasCriticalInitialPosts ? ' is-hidden' : ''}`} data-mood-loading>
     <div class="mood-skeleton-stream" aria-hidden="true">

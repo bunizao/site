@@ -1,17 +1,52 @@
-<div class="mood-hero" data-mood-hero>
+---
+import type { MoodChannelSummary } from '@/features/mood/server/contracts';
+
+interface Props {
+  initialChannel?: MoodChannelSummary;
+}
+
+const { initialChannel } = Astro.props;
+const titleHtml = initialChannel?.titleHTML?.trim() ?? '';
+const titleText = initialChannel?.title?.trim() ?? '';
+const descriptionHtml = initialChannel?.descriptionHTML?.trim() ?? '';
+const descriptionText = initialChannel?.description?.trim() ?? '';
+const avatar = initialChannel?.avatar?.trim() ?? '';
+const emojiId = initialChannel?.emojiId?.trim() ?? '';
+const hasTitle = Boolean(titleHtml || titleText);
+const hasDescription = Boolean(descriptionHtml || descriptionText);
+const hasChannel = Boolean(initialChannel);
+---
+
+<div class={`mood-hero${hasChannel ? ' is-loaded' : ''}`} data-mood-hero>
   <a href="/" class="back-link">← Back</a>
 
   <div class="mood-hero-content">
-    <div class="mood-hero-avatar" data-hero-avatar>
+    <div class={`mood-hero-avatar${hasChannel ? ' is-loaded' : ''}`} data-hero-avatar>
       <div class="mood-hero-avatar-skeleton"></div>
+      {avatar ? (
+        <img
+          src={avatar}
+          alt={titleText || 'Channel avatar'}
+          class="mood-hero-avatar-img"
+          loading="lazy"
+          decoding="async"
+        />
+      ) : null}
     </div>
 
     <div class="mood-hero-info">
-      <h1 class="mood-hero-title" data-hero-title>
-        <span class="mood-hero-title-skeleton"></span>
+      <h1 class={`mood-hero-title${hasTitle ? ' is-loaded' : ''}`} data-hero-title>
+        {titleHtml ? <Fragment set:html={titleHtml} /> : titleText}
+        {emojiId ? (
+          <span class="tg-emoji mood-hero-emoji" data-emoji-id={emojiId}>
+            <img src={`/static/https:/t.me/i/emoji/${emojiId}.webp`} alt="emoji" loading="lazy" decoding="async" />
+          </span>
+        ) : null}
+        {!hasTitle ? <span class="mood-hero-title-skeleton"></span> : null}
       </h1>
-      <div class="mood-hero-description" data-hero-description>
-        <span class="mood-hero-desc-skeleton"></span>
+      <div class={`mood-hero-description${hasDescription ? ' is-loaded' : ''}`} data-hero-description>
+        {descriptionHtml ? <Fragment set:html={descriptionHtml} /> : descriptionText}
+        {!hasDescription ? <span class="mood-hero-desc-skeleton"></span> : null}
       </div>
     </div>
   </div>

@@ -143,28 +143,35 @@ export function createFeedMediaHydrator(
     const descEl = heroEl.querySelector('[data-hero-description]');
 
     if (avatarEl && channel.avatar) {
-      const img = document.createElement('img');
-      img.src = channel.avatar;
-      img.alt = channel.title || 'Channel avatar';
-      img.className = 'mood-hero-avatar-img';
-      setImageHints(img, { lazy: false });
-      img.onload = () => {
+      const existingImage = avatarEl.querySelector('img');
+      if (existingImage) {
         avatarEl.classList.add('is-loaded');
-      };
-      avatarEl.appendChild(img);
+      } else {
+        const img = document.createElement('img');
+        img.src = channel.avatar;
+        img.alt = channel.title || 'Channel avatar';
+        img.className = 'mood-hero-avatar-img';
+        setImageHints(img, { lazy: false });
+        img.onload = () => {
+          avatarEl.classList.add('is-loaded');
+        };
+        avatarEl.appendChild(img);
+      }
     } else if (avatarEl) {
       avatarEl.classList.add('is-loaded');
     }
 
     if (titleEl) {
-      if (channel.titleHTML) {
-        titleEl.innerHTML = channel.titleHTML;
-        void animatedEmoji.hydrate(titleEl);
-      } else if (channel.title) {
-        titleEl.textContent = channel.title;
+      if (!titleEl.classList.contains('is-loaded')) {
+        if (channel.titleHTML) {
+          titleEl.innerHTML = channel.titleHTML;
+          void animatedEmoji.hydrate(titleEl);
+        } else if (channel.title) {
+          titleEl.textContent = channel.title;
+        }
       }
 
-      if (channel.emojiId) {
+      if (channel.emojiId && !titleEl.querySelector('.mood-hero-emoji[data-emoji-id]')) {
         const emojiSpan = document.createElement('span');
         emojiSpan.className = 'tg-emoji mood-hero-emoji';
         emojiSpan.dataset.emojiId = channel.emojiId;
@@ -181,11 +188,13 @@ export function createFeedMediaHydrator(
     }
 
     if (descEl) {
-      if (channel.descriptionHTML) {
-        descEl.innerHTML = channel.descriptionHTML;
-        void animatedEmoji.hydrate(descEl);
-      } else if (channel.description) {
-        descEl.textContent = channel.description;
+      if (!descEl.classList.contains('is-loaded')) {
+        if (channel.descriptionHTML) {
+          descEl.innerHTML = channel.descriptionHTML;
+          void animatedEmoji.hydrate(descEl);
+        } else if (channel.description) {
+          descEl.textContent = channel.description;
+        }
       }
       descEl.classList.add('is-loaded');
     }
