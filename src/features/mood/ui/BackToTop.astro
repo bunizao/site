@@ -6,14 +6,16 @@
 interface Props {
   /** Scroll distance in px before the control appears. */
   threshold?: number;
+  /** Hide on desktop, where the timeline wheel owns the back-to-top gesture. */
+  hideOnDesktop?: boolean;
 }
 
-const { threshold = 600 } = Astro.props;
+const { threshold = 600, hideOnDesktop = false } = Astro.props;
 ---
 
 <button
   type="button"
-  class="mood-back-to-top"
+  class:list={['mood-back-to-top', { 'mood-back-to-top--compact': hideOnDesktop }]}
   data-back-to-top
   data-threshold={threshold}
   aria-label="Back to top"
@@ -69,6 +71,14 @@ const { threshold = 600 } = Astro.props;
 
   .mood-back-to-top[hidden] {
     display: none;
+  }
+
+  /* On desktop the timeline wheel becomes the back-to-top control, so the
+     floating button steps aside there. */
+  @media (min-width: 1024px) {
+    .mood-back-to-top--compact {
+      display: none !important;
+    }
   }
 
   .mood-back-to-top.is-visible {

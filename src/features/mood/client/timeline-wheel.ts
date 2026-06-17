@@ -15,6 +15,13 @@ export function initMoodTimelineWheel(): void {
   const isDesktop = (): boolean => window.innerWidth >= 1024;
   const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
+  // The wheel doubles as a back-to-top control: clicking it returns to the
+  // feed top, and the existing scroll sync winds the dial back as you go.
+  const topButton = wheel.querySelector('[data-timeline-top]') as HTMLButtonElement | null;
+  topButton?.addEventListener('click', () => {
+    window.scrollTo({ top: 0, behavior: prefersReducedMotion ? 'auto' : 'smooth' });
+  });
+
   let dateGroups: HTMLElement[] = [];
   let notches: HTMLElement[] = [];
   let currentRotation = 0;
