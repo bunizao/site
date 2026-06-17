@@ -1,5 +1,7 @@
-import gsap from 'gsap';
+import type gsap from 'gsap';
 import { getTimelineDateState } from '@/features/mood/client/timeline-date-tracker';
+
+type GsapModule = typeof gsap;
 
 export function initMoodTimelineWheel(): void {
   const wheel = document.querySelector('[data-timeline-wheel]') as HTMLElement | null;
@@ -30,10 +32,12 @@ export function initMoodTimelineWheel(): void {
   let wheelSyncRaf = 0;
   let listResizeObserver: ResizeObserver | null = null;
   let isLoadingSpin = false;
-  let loadingShimmerTl: gsap.core.Timeline | null = null;
-  let loadingPendulumTl: gsap.core.Timeline | null = null;
-  let loadingDelayedCall: gsap.core.Tween | null = null;
+  let loadingShimmerTl: GSAPTimeline | null = null;
+  let loadingPendulumTl: GSAPTimeline | null = null;
+  let loadingDelayedCall: GSAPTween | null = null;
   let loadingTickActive = false;
+  let loadedGsap: GsapModule | null = null;
+  let gsapPromise: Promise<GsapModule> | null = null;
 
   const NOTCHES_PER_DATE = 6;
   const ANGLE_PER_NOTCH = 4;
@@ -88,6 +92,15 @@ export function initMoodTimelineWheel(): void {
     dial.style.transform = `translate3d(0, -50%, 0) rotate(${-currentRotation}deg)`;
   };
 
+  const loadGsap = async (): Promise<GsapModule> => {
+    if (loadedGsap) return loadedGsap;
+    gsapPromise ??= import('gsap').then(({ default: gsap }) => {
+      loadedGsap = gsap;
+      return gsap;
+    });
+    return gsapPromise;
+  };
+
   const destroyLoadingAnimation = (): void => {
     loadingTickActive = false;
 
@@ -106,6 +119,9 @@ export function initMoodTimelineWheel(): void {
       loadingDelayedCall = null;
     }
 
+    const gsap = loadedGsap;
+    if (!gsap) return;
+
     const skeletonNotches = dial.querySelectorAll('.timeline-notch.is-skeleton');
     skeletonNotches.forEach((element) => gsap.killTweensOf(element));
 
@@ -122,9 +138,13 @@ export function initMoodTimelineWheel(): void {
     }
   };
 
-  const createLoadingAnimation = (): void => {
+  const createLoadingAnimation = async (): Promise<void> => {
     if (prefersReducedMotion) return;
     destroyLoadingAnimation();
+    loadingTickActive = true;
+
+    const gsap = await loadGsap();
+    if (!loadingTickActive || !isLoadingSpin) return;
 
     const glowEl = wheel.querySelector('.timeline-wheel-glow') as HTMLElement | null;
     const skeletonNotches = Array.from(
@@ -143,8 +163,6 @@ export function initMoodTimelineWheel(): void {
         }
       );
     }
-
-    loadingTickActive = true;
 
     const SWEEP_ARC = ANGLE_PER_NOTCH * 7;
     const FORWARD_DUR = 2.2;
@@ -401,7 +419,7 @@ export function initMoodTimelineWheel(): void {
     isLoadingSpin = active;
 
     if (isLoadingSpin) {
-      createLoadingAnimation();
+      void createLoadingAnimation();
       return;
     }
 
@@ -538,7 +556,9 @@ export function initMoodTimelineWheel(): void {
   loadingStateObserver.observe(feedEl, { attributes: true, attributeFilter: ['class'] });
   loadingStateObserver.observe(list, { attributes: true, attributeFilter: ['aria-busy'] });
 
-  if (isDesktop()) {
+  const feedStartsHidden = feedEl.classList.contains('is-hidden');
+
+  if (isDesktop() && feedStartsHidden) {
     createSkeletonNotches();
     wheel.classList.add('is-visible', 'is-loading');
     syncLoadingSpinState();
@@ -556,7 +576,7 @@ export function initMoodTimelineWheel(): void {
     contentObserver.observe(list, { childList: true, subtree: true });
   };
 
-  if (!feedEl.classList.contains('is-hidden')) {
+  if (!feedStartsHidden) {
     onFeedReady();
   } else {
     const feedClassObserver = new MutationObserver(() => {

@@ -203,6 +203,18 @@ describe('Cloudflare runtime configuration', () => {
     expect(feedShell).toContain("decoding={isPriorityMedia ? 'sync' : 'async'}");
   });
 
+  test('keeps mood timeline animation code out of the initial chunk', () => {
+    const timelineWheel = readText('src/features/mood/client/timeline-wheel.ts');
+    const updateWatcher = readText('src/features/mood/client/feed-update-watcher.ts');
+
+    expect(timelineWheel).not.toContain("import gsap from 'gsap'");
+    expect(timelineWheel).toContain("import('gsap')");
+    expect(timelineWheel).toContain("const feedStartsHidden = feedEl.classList.contains('is-hidden')");
+    expect(timelineWheel).toContain('if (isDesktop() && feedStartsHidden)');
+    expect(updateWatcher).not.toContain("import gsap from 'gsap'");
+    expect(updateWatcher).toContain("import('gsap')");
+  });
+
   test('keeps the mood feed accessible under Lighthouse', () => {
     const moodRoute = readText('src/pages/mood.astro');
     const feedShell = readText('src/features/mood/ui/FeedShell.astro');

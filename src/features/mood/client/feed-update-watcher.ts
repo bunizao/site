@@ -1,4 +1,6 @@
-import gsap from 'gsap';
+import type gsap from 'gsap';
+
+type GsapModule = typeof gsap;
 
 interface FeedUpdateWatcherOptions {
   list: HTMLElement;
@@ -38,12 +40,24 @@ export function createFeedUpdateWatcher({
   let autoRefreshPending = false;
   let initialized = false;
   let started = false;
+  let loadedGsap: GsapModule | null = null;
+  let gsapPromise: Promise<GsapModule> | null = null;
+  let noticeRequestId = 0;
 
-  let noticeShowTl: gsap.core.Timeline | null = null;
-  let noticeCountdownTween: gsap.core.Tween | null = null;
-  let noticeSpinnerTween: gsap.core.Tween | null = null;
-  let noticeRefreshTl: gsap.core.Timeline | null = null;
-  let noticeReloadCall: gsap.core.Tween | null = null;
+  let noticeShowTl: GSAPTimeline | null = null;
+  let noticeCountdownTween: GSAPTween | null = null;
+  let noticeSpinnerTween: GSAPTween | null = null;
+  let noticeRefreshTl: GSAPTimeline | null = null;
+  let noticeReloadCall: GSAPTween | null = null;
+
+  const loadGsap = async (): Promise<GsapModule> => {
+    if (loadedGsap) return loadedGsap;
+    gsapPromise ??= import('gsap').then(({ default: gsap }) => {
+      loadedGsap = gsap;
+      return gsap;
+    });
+    return gsapPromise;
+  };
 
   const toNumericMoodId = (value: string): number => {
     const parsed = Number.parseInt(value, 10);
@@ -87,7 +101,7 @@ export function createFeedUpdateWatcher({
     noticeReloadCall = null;
   };
 
-  const resetUpdateNoticeLayout = (): void => {
+  const resetUpdateNoticeLayout = (gsap: GsapModule): void => {
     clearRefreshMotion();
     if (!updateNoticeEl) return;
 
@@ -128,7 +142,7 @@ export function createFeedUpdateWatcher({
     }
   };
 
-  const triggerPageRefresh = (): void => {
+  const triggerPageRefresh = async (): Promise<void> => {
     cancelAutoRefresh();
     clearRefreshMotion();
 
@@ -136,6 +150,8 @@ export function createFeedUpdateWatcher({
       window.setTimeout(() => window.location.reload(), 100);
       return;
     }
+
+    const gsap = await loadGsap();
 
     const progressEl = updateNoticeEl.querySelector<HTMLElement>('.mood-update-progress');
     const refreshBtn = updateRefreshBtn as HTMLElement | null;
@@ -205,6 +221,7 @@ export function createFeedUpdateWatcher({
   };
 
   const hideUpdateNotice = (): void => {
+    noticeRequestId += 1;
     cancelAutoRefresh();
     clearRefreshMotion();
     if (!updateNoticeEl) return;
@@ -213,6 +230,12 @@ export function createFeedUpdateWatcher({
     noticeShowTl = null;
     noticeSpinnerTween?.kill();
     noticeSpinnerTween = null;
+
+    const gsap = loadedGsap;
+    if (!gsap) {
+      updateNoticeEl.style.display = 'none';
+      return;
+    }
 
     gsap.to(updateNoticeEl, {
       autoAlpha: 0,
@@ -225,16 +248,17 @@ export function createFeedUpdateWatcher({
         if (actionsEl) {
           gsap.set(actionsEl, { clearProps: 'opacity,visibility,x' });
         }
-        resetUpdateNoticeLayout();
+        resetUpdateNoticeLayout(gsap);
         gsap.set(updateNoticeEl, { display: 'none' });
       },
     });
   };
 
-  const showUpdateNotice = (autoRefresh: boolean): void => {
+  const showUpdateNotice = async (autoRefresh: boolean): Promise<void> => {
+    const requestId = ++noticeRequestId;
     if (!updateNoticeEl || !updateNoticeTextEl) {
       if (autoRefresh) {
-        triggerPageRefresh();
+        void triggerPageRefresh();
       }
       return;
     }
@@ -247,9 +271,12 @@ export function createFeedUpdateWatcher({
     noticeSpinnerTween?.kill();
     noticeSpinnerTween = null;
 
+    const gsap = await loadGsap();
+    if (requestId !== noticeRequestId) return;
+
     const progressEl = updateNoticeEl.querySelector<HTMLElement>('.mood-update-progress');
     const actionsEl = updateNoticeEl.querySelector<HTMLElement>('[data-mood-update-actions]');
-    resetUpdateNoticeLayout();
+    resetUpdateNoticeLayout(gsap);
 
     if (actionsEl) {
       gsap.set(actionsEl, { clearProps: 'opacity,visibility,x' });
@@ -273,7 +300,7 @@ export function createFeedUpdateWatcher({
         ease: 'none',
       });
       autoRefreshTimer = window.setTimeout(() => {
-        triggerPageRefresh();
+        void triggerPageRefresh();
       }, AUTO_REFRESH_DELAY_MS);
       return;
     }
@@ -310,7 +337,7 @@ export function createFeedUpdateWatcher({
 
     const canAutoRefresh =
       document.visibilityState === 'visible' && window.scrollY <= AUTO_REFRESH_MAX_SCROLL_Y;
-    showUpdateNotice(canAutoRefresh);
+    void showUpdateNotice(canAutoRefresh);
   };
 
   const checkForUpdates = async (): Promise<void> => {
@@ -372,7 +399,9 @@ export function createFeedUpdateWatcher({
   const initRefreshButton = (): void => {
     if (!updateRefreshBtn) return;
 
-    updateRefreshBtn.addEventListener('click', triggerPageRefresh);
+    updateRefreshBtn.addEventListener('click', () => {
+      void triggerPageRefresh();
+    });
 
     const isRefreshLocked = (): boolean => (
       updateRefreshBtn.classList.contains('is-refreshing')
@@ -395,7 +424,9 @@ export function createFeedUpdateWatcher({
     initialized = true;
 
     if (updateNoticeEl) {
-      gsap.set(updateNoticeEl, { autoAlpha: 0, x: -10, display: 'none' });
+      updateNoticeEl.style.opacity = '0';
+      updateNoticeEl.style.transform = 'translateX(-10px)';
+      updateNoticeEl.style.display = 'none';
     }
 
     initRefreshButton();
@@ -411,7 +442,7 @@ export function createFeedUpdateWatcher({
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'visible') {
         if (pendingUpdateId && isNewerMoodId(pendingUpdateId, latestSeenId)) {
-          showUpdateNotice(window.scrollY <= AUTO_REFRESH_MAX_SCROLL_Y);
+          void showUpdateNotice(window.scrollY <= AUTO_REFRESH_MAX_SCROLL_Y);
         }
         void checkForUpdates();
         return;
@@ -429,7 +460,7 @@ export function createFeedUpdateWatcher({
       () => {
         if (!autoRefreshPending) return;
         if (window.scrollY > AUTO_REFRESH_CANCEL_SCROLL_Y) {
-          showUpdateNotice(false);
+          void showUpdateNotice(false);
         }
       },
       { passive: true }
