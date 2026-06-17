@@ -39,7 +39,7 @@ export interface ProfileLink {
 }
 
 export const profile = {
-  name: 'Lucian Tutu',
+  name: 'Lucian Bu',
   alternateNames: ['Bunizao', 'Tutu', 'Collapsar'],
   jobTitle: 'Student / Developer / Blogger',
   email: 'me@buxx.me',
@@ -74,12 +74,15 @@ export const hero = {
   ],
   socials: profile.links,
 
-  // TODO(you): decide how the bio is modeled. See the note in chat — this is
-  // the one real design call. The bio has inline emphasis:
-  //   "Curious about <em>frontend design</em>, <em>proxy systems</em>, ..."
-  // Pick a representation and add it here, e.g. a `bio: BioLine[]` shape where
-  // each line is an array of `{ text, emphasis }` segments the component maps
-  // over — or leave the bio JSX in Hero.astro and only centralize the rest.
+  // One line per visual line; `**...**` marks the single highlight effect
+  // (rendered as <span class="text-foreground"> for the hero decode reveal).
+  bio: [
+    'I make interesting things.',
+    'Curious about **frontend design**, **proxy systems**, and contributing to **open source**.',
+    'Obsessed with **speed** and always asking how things can be **better**.',
+    'Outside of coding, I read for curiosity and write to make sense of things.',
+    'Currently studying Computer Science at **Monash University**.',
+  ],
 };
 
 // --- Tech marquee -----------------------------------------------------------

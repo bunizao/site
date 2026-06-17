@@ -13,7 +13,10 @@ interface Props {
 
 const { listeningTrack } = Astro.props;
 
-const { socials, typewriterNames, infoChips } = hero;
+const { socials, typewriterNames, infoChips, bio } = hero;
+
+// Split each bio line on the `**` highlight marker: odd chunks are emphasized.
+const bioLines = bio.map((line) => line.split('**'));
 ---
 
 <header class="hero-section pb-8 sm:pb-12">
@@ -58,13 +61,14 @@ const { socials, typewriterNames, infoChips } = hero;
     <div class="hero-animate" data-hero-bio>
       <DecodeText>
         <p class="text-[14px] leading-[1.7] text-muted-foreground sm:text-[15px]">
-          I make interesting things.<br>
-          Curious about <span class="text-foreground">frontend design</span>,
-          <span class="text-foreground">proxy systems</span>, and
-          contributing to <span class="text-foreground"> open source</span>.<br>
-          Obsessed with <span class="text-foreground">speed</span> and always asking how things can be <span class="text-foreground">better</span>.<br>
-          Outside of coding, I read for curiosity and write to make sense of things.<br>
-          Currently studying Computer Science at <span class="text-foreground">Monash University</span>.
+          {bioLines.map((segments, line) => (
+            <>
+              {line > 0 && <br />}
+              {segments.map((seg, i) => (
+                i % 2 === 1 ? <span class="text-foreground">{seg}</span> : seg
+              ))}
+            </>
+          ))}
         </p>
       </DecodeText>
     </div>
