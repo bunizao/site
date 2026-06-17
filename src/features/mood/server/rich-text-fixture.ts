@@ -4,11 +4,11 @@ import { readOptionalEnv, type RuntimeEnvLocals } from '@/lib/runtime/env';
 /**
  * Self-contained fixture that exercises the full Telegram Bot API rich HTML set
  * (https://core.telegram.org/bots/api#html-style) in the exact normalized form
- * `site-api` emits. It runs through the real v2 sanitizer + CSS + hydration, so
+ * `site-api` emits. It runs through the structured sanitizer, CSS, and hydration, so
  * it doubles as a local dev demo and a rendering regression baseline.
  *
  * Enable with `MOOD_RICHTEXT_FIXTURE=1` (dev only). When enabled, the mood
- * surface serves this document instead of hitting the API service binding.
+ * surface serves this document instead of hitting Telegram or archive sources.
  */
 export const MOOD_RICH_TEXT_FIXTURE_ID = '3568';
 

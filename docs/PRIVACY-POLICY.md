@@ -89,8 +89,8 @@ Provider behavior the policy now needs to reflect:
 
 Covered implementation:
 
-- `/mood` and `/mood/[id]` fetch public Telegram-derived content through the private `site-api` Worker
-- [`src/pages/api/moods.ts`](../src/pages/api/moods.ts) and [`src/pages/api/comments.ts`](../src/pages/api/comments.ts) expose public data proxied from `site-api`
+- `/mood` and `/mood/[id]` fetch public Telegram-derived content through the live v1 mood mirror
+- [`src/pages/api/moods.ts`](../src/pages/api/moods.ts) and [`src/pages/api/comments.ts`](../src/pages/api/comments.ts) expose public data used by the mood pages
 - [`src/features/mood/server/api-client.ts`](../src/features/mood/server/api-client.ts) and [`src/features/mood/shared/utils.ts`](../src/features/mood/shared/utils.ts) shape public mood content and media references
 
 ### Mood Subscription Flow
@@ -122,7 +122,7 @@ Covered implementation:
 
 - Ghost is used for writing links in [`src/features/home/ui/Posts.astro`](../src/features/home/ui/Posts.astro)
 - GitHub is used for project data in [`src/features/home/ui/Projects.astro`](../src/features/home/ui/Projects.astro) and [`src/lib/github.ts`](../src/lib/github.ts)
-- Telegram-derived content is ingested and parsed in the private `site-api` Worker
+- Telegram-derived content is read live for user-facing mood pages; the private API also ingests Telegram updates into D1 as a structured archive
 
 ## Why the Policy Is Markdown-Backed
 

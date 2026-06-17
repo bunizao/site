@@ -5,7 +5,6 @@ import {
   getMoodFeedAnchorHref,
   MOOD_FEED_RETURN_ANCHOR_STORAGE_KEY,
 } from '@/features/mood/shared/feed-anchor';
-import { readMoodApiModeQueryValue } from '@/features/mood/shared/api-mode';
 import { buildMoodPreviewFragment } from '@/features/mood/shared/preview';
 import { findTooBigVideoMedia, renderStructuredMoodFeedMediaMarkup } from '@/features/mood/shared/feed-media';
 import type { ChannelInfo, MoodData } from '@/features/mood/client/feed-types';
@@ -43,14 +42,6 @@ function formatTime(value: string): string {
   const hours = String(date.getHours()).padStart(2, '0');
   const minutes = String(date.getMinutes()).padStart(2, '0');
   return `${hours}:${minutes}`;
-}
-
-function getCurrentApiModeQueryValue(): 'true' | 'false' | null {
-  try {
-    return readMoodApiModeQueryValue(new URL(window.location.href));
-  } catch {
-    return null;
-  }
 }
 
 function formatDateHeader(dateKey: string): string {
@@ -265,7 +256,7 @@ export function createFeedRenderer({
   };
 
   const createMoodItem = (mood: MoodData, index: number): HTMLElement => {
-    const detailHref = getMoodDetailHref(mood.id, getCurrentApiModeQueryValue());
+    const detailHref = getMoodDetailHref(mood.id);
     const mediaHtml = typeof mood.mediaHtml === 'string' ? mood.mediaHtml.trim() : '';
     const hasMediaHtml = mediaHtml.length > 0;
     const tooBigVideoMedia = findTooBigVideoMedia(mood.media);
@@ -749,7 +740,7 @@ export function createFeedRenderer({
   };
 
   const rememberMoodReturnTarget = (id: string): void => {
-    const returnHref = getMoodFeedAnchorHref(id, getCurrentApiModeQueryValue());
+    const returnHref = getMoodFeedAnchorHref(id);
     if (returnHref === '/mood') return;
     window.history.replaceState(window.history.state, '', returnHref);
     const target = Array.from(list.querySelectorAll<HTMLElement>('[data-mood-id]')).find(

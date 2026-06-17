@@ -17,7 +17,7 @@
 
 The Cloudflare Worker `site` is the public runtime target for `buxx.me` and `www.buxx.me`. It serves the Astro site and public compatibility routes.
 
-Private API ownership is moving to the separate `site-api` Worker. The original mood read API remains at `https://api.buxx.me/v1/mood*`; new private admin, notify, webhook, image, health, and posts surfaces use `https://api.buxx.me/v2/`. The public `site` Worker calls that service through the `API` service binding and keeps `buxx.me/api/*` as a compatibility proxy.
+Private API ownership lives in the separate `site-api` Worker. `api.buxx.me` is machine ingress for webhooks, notify, image processing, archive reads, and internal automation; it is not the canonical public API surface. Mood taxonomy is split by source semantics: `/api/v1/mood*` is the live Telegram mirror and canonical upstream for user-facing reads, while `/api/v2/mood*` is the D1 archive / structured read for search, AI, debugging, and ops. The public `site` Worker keeps `buxx.me/api/*` compatibility routes where needed.
 
 ## Key Directories
 
@@ -50,7 +50,7 @@ Private API ownership is moving to the separate `site-api` Worker. The original 
 2. **GitHub API** (`src/features/home/ui/Projects.astro`, `src/lib/github.ts`) — Repository data and stars via GraphQL
 3. **Last.fm + Apple iTunes Search** (`src/features/home/ui/Listening.astro`, `src/features/home/server/listening.ts`, `src/pages/api/listening.ts`) — Recent listening status from Last.fm, with client-side home hydration and iTunes enrichment for preview URLs and stronger artwork
 4. **GitHub Contributions** (`src/features/home/ui/GitHubContributions.astro`, `src/pages/api/github/contributions.ts`) — Contribution graph from an internal API backed by GitHub GraphQL, with the public contributions API as a fallback
-5. **Telegram/BroadcastChannel** — Mood posts are ingested and normalized by the private `site-api` Worker, then read by the public site through the `API` service binding.
+5. **Telegram/BroadcastChannel** — Mood pages read through the live v1 Telegram mirror for realtime comments, reactions, and media. The private API also ingests Telegram updates into D1 as a structured archive.
 6. **Better Stack Status Page** (`src/pages/api/footer.ts`) — Footer service status from `https://status.tuuhub.com/index.json`
 
 ## API Endpoints
@@ -66,9 +66,9 @@ Private API ownership is moving to the separate `site-api` Worker. The original 
 - `GET /api/oembed.json` — oEmbed endpoint (docs: `docs/OEMBED-API.md`)
 
 **Private API (`site-api`):**
-- Canonical base URL for new private surfaces: `https://api.buxx.me/v2/`.
-- Mood read API: `https://api.buxx.me/v1/mood*`.
-- Public compatibility: `https://buxx.me/api/*` proxies to `site-api` via the `API` service binding.
+- `api.buxx.me` is machine ingress, not the canonical public API surface.
+- `/api/v1/mood*` — live Telegram mirror; canonical upstream for user-facing mood reads.
+- `/api/v2/mood*` — D1 archive / structured read; non-canonical, used for search, AI, debugging, and ops.
 - Admin/OAuth/notify/webhook/image routes are owned by `site-api`, not by this public Worker.
 
 **Owner auth surface:**

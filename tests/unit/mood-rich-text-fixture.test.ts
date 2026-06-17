@@ -4,8 +4,13 @@ import {
   isMoodRichTextFixtureEnabled,
   MOOD_RICH_TEXT_FIXTURE_ID,
 } from '../../src/features/mood/server/rich-text-fixture';
+import {
+  loadMoodComments,
+  loadMoodDocument,
+  loadMoodFeed,
+  loadMoodProbe,
+} from '../../src/features/mood/server/api-client';
 import { renderStructuredMoodDetailContent } from '../../src/features/mood/shared/detail-content';
-import { resolveMoodApiV2Mode } from '../../src/features/mood/server/api-mode';
 
 describe('mood rich-text fixture', () => {
   test('renders the full Telegram Bot API entity set through the structured pipeline', () => {
@@ -60,10 +65,21 @@ describe('mood rich-text fixture', () => {
     expect(isMoodRichTextFixtureEnabled({ env: {} })).toBe(false);
   });
 
-  test('fixture mode forces the structured v2 render path', () => {
+  test('fixture mode serves structured data through live reader helpers', async () => {
     const locals = { env: { MOOD_RICHTEXT_FIXTURE: '1' } };
-    expect(resolveMoodApiV2Mode(new URL(`https://buxx.me/mood/${MOOD_RICH_TEXT_FIXTURE_ID}`), locals)).toBe(true);
-    // Explicit opt-out still wins.
-    expect(resolveMoodApiV2Mode(new URL('https://buxx.me/mood?api-v2=false'), locals)).toBe(false);
+    const context = {
+      request: new Request(`https://buxx.me/mood/${MOOD_RICH_TEXT_FIXTURE_ID}`),
+      locals,
+    };
+
+    const feed = await loadMoodFeed(context);
+    const document = await loadMoodDocument(context, MOOD_RICH_TEXT_FIXTURE_ID);
+    const probe = await loadMoodProbe(context);
+    const comments = await loadMoodComments(context, MOOD_RICH_TEXT_FIXTURE_ID);
+
+    expect(feed.posts[0]?.id).toBe(MOOD_RICH_TEXT_FIXTURE_ID);
+    expect(document?.id).toBe(MOOD_RICH_TEXT_FIXTURE_ID);
+    expect(probe.latestId).toBe(MOOD_RICH_TEXT_FIXTURE_ID);
+    expect(comments).toEqual({ comments: [], hasMore: false, nextBefore: '' });
   });
 });

@@ -227,37 +227,6 @@ test.describe('Mood routes', () => {
     await expect(page).toHaveURL(new RegExp(`${href}$`));
   });
 
-  test('preserves explicit API mode in mood alternate links', async ({ page }) => {
-    await page.goto('/mood?api-v2=false', { waitUntil: 'domcontentloaded' });
-
-    const rssAction = page.locator('[data-header-actions] a[href="/mood/rss.xml?api-v2=false"]');
-    await expect(rssAction).toBeVisible();
-
-    const firstItem = page.locator('[data-mood-list] .mood-item').first();
-    await firstItem.hover();
-    const expandHref = await firstItem.locator('.mood-item-expand-float').getAttribute('href');
-    expect(expandHref).toMatch(/^\/mood\/\d+\?api-v2=false$/);
-
-    const feedOembedHref = await page
-      .locator('link[type="application/json+oembed"]')
-      .getAttribute('href');
-    const feedOembedUrl = new URL(feedOembedHref ?? '');
-    const feedOembedTargetUrl = new URL(feedOembedUrl.searchParams.get('url') ?? '');
-    expect(feedOembedTargetUrl.searchParams.get('api-v2')).toBe('false');
-
-    await page.goto('/mood/990777?api-v2=false', { waitUntil: 'domcontentloaded' });
-
-    await expect(page.locator('[data-back-button]')).toHaveAttribute('href', '/mood?990777&api-v2=false');
-
-    const detailOembedHref = await page
-      .locator('link[type="application/json+oembed"]')
-      .getAttribute('href');
-    const detailOembedUrl = new URL(detailOembedHref ?? '');
-    const detailOembedTargetUrl = new URL(detailOembedUrl.searchParams.get('url') ?? '');
-    expect(detailOembedTargetUrl.pathname).toBe('/mood/990777');
-    expect(detailOembedTargetUrl.searchParams.get('api-v2')).toBe('false');
-  });
-
   test('returns from detail to the originating feed anchor', async ({ page }) => {
     const channel = {
       slug: 'e2e',
@@ -1402,14 +1371,13 @@ test.describe('Mood routes', () => {
   test('redirects /mood/:id?embed=1 to the embed endpoint with expected params', async ({ page }) => {
     const moodId = '12345';
 
-    await page.goto(`/mood/${moodId}?embed=1&theme=dark&api-v2=false`);
+    await page.goto(`/mood/${moodId}?embed=1&theme=dark`);
 
     const redirected = new URL(page.url());
     expect(redirected.pathname).toBe('/mood/embed');
     expect(redirected.searchParams.get('id')).toBe(moodId);
     expect(redirected.searchParams.get('theme')).toBe('dark');
     expect(redirected.searchParams.get('link')).toBe('false');
-    expect(redirected.searchParams.get('api-v2')).toBe('false');
   });
 
   test('applies embed query options to root attributes', async ({ page }) => {

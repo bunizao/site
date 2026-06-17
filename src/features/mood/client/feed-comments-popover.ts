@@ -5,8 +5,6 @@ import {
   sanitizeImageUrl,
 } from '@/features/mood/shared/comments';
 import { getMoodDetailHref } from '@/features/mood/shared/feed-anchor';
-import { appendMoodApiMode } from '@/features/mood/client/api-mode';
-import { readMoodApiModeQueryValue } from '@/features/mood/shared/api-mode';
 
 interface AnimatedEmojiHydrator {
   hydrate(root?: ParentNode): Promise<void>;
@@ -23,14 +21,6 @@ interface CommentsIndicatorOptions {
   postId: string;
   count: number;
   label: string;
-}
-
-function getCurrentApiModeQueryValue(): 'true' | 'false' | null {
-  try {
-    return readMoodApiModeQueryValue(new URL(window.location.href));
-  } catch {
-    return null;
-  }
 }
 
 interface FeedCommentsPopoverController {
@@ -163,7 +153,6 @@ export function createFeedCommentsPopoverController(
     const promise = (async () => {
       try {
         const query = new URLSearchParams({ postId });
-        appendMoodApiMode(query);
         const response = await fetch(`/api/comments?${query}`);
         const data = await response.json() as { comments?: CommentPreviewData[] };
         const comments = Array.isArray(data.comments) ? data.comments : [];
@@ -227,7 +216,7 @@ export function createFeedCommentsPopoverController(
     if (hasMore) {
       const viewAll = document.createElement('a');
       viewAll.className = 'mood-popover-view-all';
-      viewAll.href = getMoodDetailHref(postId, getCurrentApiModeQueryValue(), '#comments');
+      viewAll.href = getMoodDetailHref(postId, '#comments');
       viewAll.textContent = `View all ${options.totalLabel} comment${options.totalCount === 1 ? '' : 's'}`;
       fragment.appendChild(viewAll);
     }
@@ -452,7 +441,7 @@ export function createFeedCommentsPopoverController(
 
     const commentsLink = document.createElement('a');
     commentsLink.className = 'mood-item-comments';
-    commentsLink.href = getMoodDetailHref(postId, getCurrentApiModeQueryValue(), '#comments');
+    commentsLink.href = getMoodDetailHref(postId, '#comments');
     commentsLink.setAttribute('aria-haspopup', 'dialog');
     commentsLink.setAttribute('aria-expanded', 'false');
     commentsLink.setAttribute('aria-controls', getCommentsPopoverId(postId));

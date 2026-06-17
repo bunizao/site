@@ -199,7 +199,7 @@ pages / api routes
 - `src/features/mood/server/contracts.ts`
 - `src/features/mood/server/channel-service.ts`
 - `src/features/mood/server/feed-service.ts`
-- `src/features/mood/server/comments-service.ts`
+- `src/features/mood/server/api-routes.ts`
 - `src/features/mood/server/serializers.ts`
 
 ### Project-Wide Shared Layer
@@ -265,15 +265,16 @@ Expected responsibilities:
 - derive channel avatar URL
 - produce `MoodFeedItem[]`
 
-### `src/features/mood/server/comments-service.ts`
+### `src/features/mood/server/api-routes.ts`
 
-Responsible for loading and normalizing comments data.
+Responsible for shared mood API route validation and response handling.
 
 Expected responsibilities:
 
-- read comments thread
-- map upstream comment data into a stable client-facing shape
-- centralize cursor handling and pagination response shape
+- validate feed, detail, and comments parameters
+- apply route-specific rate limits
+- call the explicit live or archive source
+- return stable JSON error shapes
 
 ### `src/features/mood/server/serializers.ts`
 
@@ -594,7 +595,7 @@ Changes:
 
 - add `channel-service`
 - add `feed-service`
-- add `comments-service`
+- add `api-routes`
 - add serializers for feed/embed/rss/notify preview
 
 Files expected to change:

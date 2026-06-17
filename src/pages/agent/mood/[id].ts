@@ -5,8 +5,6 @@ import {
   loadMoodDocument,
   moodDocumentToFeedItem,
 } from '@/features/mood/server/api-client';
-import { resolveMoodApiV2Mode } from '@/features/mood/server/api-mode';
-import { readMoodApiModeQueryValue } from '@/features/mood/shared/api-mode';
 import { buildMoodAgentPostPageMarkdown } from '@/features/mood/server/serializers';
 
 export const prerender = false;
@@ -22,9 +20,6 @@ function markdownResponse(body: string, status = 200, headers?: HeadersInit): Re
 
 export const GET: APIRoute = async ({ params, request, locals, site }) => {
   const id = (params.id ?? '').trim();
-  const url = new URL(request.url);
-  const apiModeQueryValue = readMoodApiModeQueryValue(url);
-  const useApiV2 = resolveMoodApiV2Mode(url, locals);
   const rateLimit = withRateLimit(
     request,
     { windowMs: 60_000, max: 180, prefix: 'agent:mood:post' },
@@ -40,7 +35,7 @@ export const GET: APIRoute = async ({ params, request, locals, site }) => {
   }
 
   try {
-    const post = await loadMoodDocument({ request, locals }, id, { useApiV2 });
+    const post = await loadMoodDocument({ request, locals }, id);
     if (!post) {
       return markdownResponse('Mood post not found.\n', 404, rateLimit.headers);
     }
@@ -48,10 +43,7 @@ export const GET: APIRoute = async ({ params, request, locals, site }) => {
     const feedItem = moodDocumentToFeedItem(post);
     const requestUrl = new URL(request.url);
     const baseUrl = site ?? new URL(requestUrl.origin);
-    const markdown = buildMoodAgentPostPageMarkdown(feedItem, baseUrl, {
-      useApiV2,
-      apiModeQueryValue,
-    });
+    const markdown = buildMoodAgentPostPageMarkdown(feedItem, baseUrl);
 
     return markdownResponse(markdown, 200, rateLimit.headers);
   } catch (error) {

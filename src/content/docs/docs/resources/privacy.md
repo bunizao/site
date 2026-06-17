@@ -33,9 +33,9 @@ Markdown-backed means policy edits don't require layout changes, route logic sta
 
 ### Mood pages and public content
 
-- `/mood` and `/mood/[id]` fetch Telegram-derived content from the private `site-api` Worker.
+- `/mood` and `/mood/[id]` fetch Telegram-derived content through the live v1 mood mirror.
 - Public APIs: `/api/moods`, `/api/comments`.
-- Parsing and shaping: private `site-api` mood ingest, `src/features/mood/server/api-client.ts`, `src/features/mood/shared/utils.ts`.
+- Parsing and shaping: live mood reader, `src/features/mood/server/api-client.ts`, `src/features/mood/shared/utils.ts`.
 
 ### Mood subscription flow
 
@@ -57,7 +57,7 @@ Markdown-backed means policy edits don't require layout changes, route logic sta
 
 - Ghost CMS for writing links: `src/features/home/ui/Posts.astro`.
 - GitHub for project data: `src/features/home/ui/Projects.astro`, `src/lib/github.ts`.
-- Telegram-derived content: private `site-api` mood ingest.
+- Telegram-derived content: live reads for user-facing mood pages, plus private D1 archive ingest for search, AI, debugging, and ops.
 
 ## When to update the policy
 

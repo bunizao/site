@@ -4,11 +4,6 @@ import TimelineWheel from '@/features/mood/ui/TimelineWheel.astro';
 import FeedShell from '@/features/mood/ui/FeedShell.astro';
 import NotifyPanel from '@/features/mood/ui/NotifyPanel.astro';
 import { loadMoodFeed } from '@/features/mood/server/api-client';
-import { resolveMoodApiV2Mode } from '@/features/mood/server/api-mode';
-import {
-  appendMoodApiModeQueryValue,
-  readMoodApiModeQueryValue,
-} from '@/features/mood/shared/api-mode';
 import {
   getMoodFeedAnchorBeforeCursor,
   getMoodFeedAnchorWindowBeforeCursor,
@@ -25,12 +20,8 @@ export const prerender = false;
 const title = "Moods | Bunizao's Website";
 const description = "Thoughts and moments from my Telegram channel";
 const canonicalUrl = new URL(Astro.url.pathname, Astro.url.origin).href;
-const apiModeQueryValue = readMoodApiModeQueryValue(Astro.url);
 const moodAlternateUrl = new URL(canonicalUrl);
-appendMoodApiModeQueryValue(moodAlternateUrl.searchParams, apiModeQueryValue);
-const rssQuery = new URLSearchParams();
-appendMoodApiModeQueryValue(rssQuery, apiModeQueryValue);
-const rssHref = `/mood/rss.xml${rssQuery.size > 0 ? `?${rssQuery.toString()}` : ''}`;
+const rssHref = '/mood/rss.xml';
 const rss = { href: rssHref, title: 'Moods RSS' };
 const oembed = { href: `/api/oembed.json?url=${encodeURIComponent(moodAlternateUrl.href)}`, title: 'Mood Embed' };
 const channel = readEnv(Astro.locals, 'CHANNEL');
@@ -39,7 +30,6 @@ const turnstileSiteKey = readPublicEnv(Astro.locals, 'TURNSTILE_SITE_KEY');
 const moodFeedAnchorId = readMoodFeedAnchorId(Astro.url);
 const moodFeedAnchorBeforeCursor = getMoodFeedAnchorBeforeCursor(moodFeedAnchorId);
 const moodFeedAnchorWindowBeforeCursor = getMoodFeedAnchorWindowBeforeCursor(moodFeedAnchorId);
-const useApiV2 = resolveMoodApiV2Mode(Astro.url, Astro.locals);
 
 async function loadInitialMoodFeed() {
   if (isE2ESiteFixtureEnabled(Astro.locals)) return null;
@@ -49,7 +39,7 @@ async function loadInitialMoodFeed() {
   try {
     if (moodFeedAnchorId) {
       const focused = moodFeedAnchorWindowBeforeCursor
-        ? await loadMoodFeed(context, { before: moodFeedAnchorWindowBeforeCursor, useApiV2 })
+        ? await loadMoodFeed(context, { before: moodFeedAnchorWindowBeforeCursor })
         : null;
       const focusedPosts = focused?.posts ?? [];
       if (focused && focusedPosts.some((post) => post.id === moodFeedAnchorId)) {
@@ -60,7 +50,7 @@ async function loadInitialMoodFeed() {
         moodFeedAnchorBeforeCursor
         && moodFeedAnchorBeforeCursor !== moodFeedAnchorWindowBeforeCursor
       )
-        ? await loadMoodFeed(context, { before: moodFeedAnchorBeforeCursor, useApiV2 })
+        ? await loadMoodFeed(context, { before: moodFeedAnchorBeforeCursor })
         : null;
       const fallbackPosts = fallback?.posts ?? [];
       if (fallback && fallbackPosts.length > 0) {
@@ -75,7 +65,7 @@ async function loadInitialMoodFeed() {
       }
     }
 
-    return await loadMoodFeed(context, { useApiV2 });
+    return await loadMoodFeed(context);
   } catch (error) {
     console.warn('Failed to load initial mood feed:', error);
     return null;
@@ -307,7 +297,6 @@ const skeletonGroups = [
       initialPosts={initialFeed?.posts ?? []}
       initialChannel={initialFeed?.channel}
       anchorId={moodFeedAnchorId}
-      apiModeQueryValue={apiModeQueryValue}
     />
   </main>
   <NotifyPanel turnstileSiteKey={turnstileSiteKey} />

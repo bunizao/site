@@ -10,6 +10,13 @@ This document covers:
 - shared Telegram parsing and mood shaping
 - embed, RSS, and subscribe entrypoints
 
+## Mood API Taxonomy
+
+- **v1** (`/api/v1/mood*`) is the live Telegram mirror. It is real-time and canonical for user-facing reads.
+- **v2** (`/api/v2/mood*`) is the D1 archive / structured read. It is non-canonical and exists for search, AI, debugging, and operational inspection.
+- `?api-v2=true` is deprecated migration scaffolding. Do not add it to canonical docs, RSS links, oEmbed targets, or user-facing URLs.
+- `api.buxx.me` is machine ingress, not the canonical public API surface. The public contract remains the `buxx.me` pages and compatibility JSON routes.
+
 ## Route Map
 
 Main files:
@@ -62,7 +69,7 @@ Implementation file: [`src/pages/api/moods.ts`](../src/pages/api/moods.ts)
 
 Upstream dependency:
 
-- `site-api` via the Cloudflare `API` service binding, using `GET /v1/mood`
+- the canonical v1 live Telegram mirror, exposed to site users through `GET /api/moods`
 
 Returned post shape is optimized for feed rendering:
 
@@ -82,7 +89,7 @@ Important shaping rules:
 - `needsDetailPage` becomes `true` when there is no inline media preview and the post is either long text or media-heavy.
 - primary image URLs prefer `PUBLIC_HD_IMAGE_URL`.
 - fallback image URLs point at Telegram media through the site proxy when needed.
-- the feed can run in E2E fixture mode instead of the live private API.
+- the feed can run in E2E fixture mode instead of the live source.
 
 ## Feed Rendering Strategy
 
@@ -116,7 +123,7 @@ Entry file: [`src/pages/mood/[id].astro`](../src/pages/mood/[id].astro)
 
 Server-side responsibilities:
 
-- fetches one post by id through `site-api`
+- fetches one post by id through the canonical live mood reader
 - sets `404` when the post is missing
 - renders a controlled not-found or unavailable state instead of crashing
 - composes [`src/features/mood/ui/DetailArticle.astro`](../src/features/mood/ui/DetailArticle.astro), which in turn mounts [`src/features/mood/ui/CommentsSection.astro`](../src/features/mood/ui/CommentsSection.astro)
@@ -145,9 +152,8 @@ Data flow:
 1. [`src/features/mood/ui/CommentsSection.astro`](../src/features/mood/ui/CommentsSection.astro) renders a skeleton comments section.
 2. [`src/features/mood/client/detail-comments-controller.ts`](../src/features/mood/client/detail-comments-controller.ts) fetches `GET /api/comments?postId=...`.
 3. API validates `postId` and optional `before`.
-4. API calls `site-api` via the Cloudflare `API` service binding.
-5. `site-api` reads normalized comments from the private mood database.
-6. Client renders sanitized comments and paginates with `before=<commentId>`.
+4. API reads the live Telegram mirror through the canonical v1 mood path.
+5. Client renders sanitized comments and paginates with `before=<commentId>`.
 
 Comment normalization:
 
@@ -161,31 +167,23 @@ Comment normalization:
 ### Read source — live, not D1
 
 User-facing reads (feed, detail, comments, probe, RSS, agent, home preview) are served **live
-from `t.me`**, the same as before the v2 migration, so comment counts and reactions stay
-real-time. `MOOD_API_V2_DEFAULT` is `"false"`; the D1-backed v2 path is reachable only via an
-explicit `?api-v2=true` and is kept as a test escape hatch. D1 is a write-only ingestion sink for
-backup and future structured search/AI — it is never on the read path because its mutable fields
-(`comments_count`, reactions) are frozen at ingest time. See
-[`docs/MOOD-V2-PRD.md`](./MOOD-V2-PRD.md) (2026-06-17 decision) for the full rationale.
+from Telegram** through the v1 live mirror, so comment counts and reactions stay real-time. D1
+backs the v2 archive / structured read only; it is not canonical for user-facing reads because
+mutable fields such as comments and reactions can be stale. See [`docs/MOOD-V2-PRD.md`](./MOOD-V2-PRD.md)
+for the superseded migration plan and the current taxonomy.
 
 Core files:
 
 - [`src/features/mood/server/api-client.ts`](../src/features/mood/server/api-client.ts)
 - [`src/features/mood/shared/utils.ts`](../src/features/mood/shared/utils.ts)
 
-`site-api` responsibilities:
+Machine-ingress responsibilities:
 
-- ingest Telegram webhook updates into D1 (backup + structured archive; not the read path)
+- expose `/api/v1/mood*` as the live Telegram mirror
+- expose `/api/v2/mood*` as the D1 archive / structured read
+- ingest Telegram webhook updates into D1 for backup, search, AI, and debugging
 - normalize media URLs into `https://api.buxx.me/v2/images/*`
-- return `MoodFeedResponse`, `MoodContentDocument`, and `MoodCommentsPage`
-- parse:
-  - forwarded metadata
-  - reactions
-  - quotes and replies
-  - link previews
-  - video/audio/sticker blocks
-  - custom emoji images
-  - comments count
+- keep `api.buxx.me` as machine ingress rather than the canonical public API surface
 
 `src/features/mood/shared/utils.ts` responsibilities:
 

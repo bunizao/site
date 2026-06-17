@@ -4,7 +4,6 @@ import { createFeedMediaHydrator } from '@/features/mood/client/feed-media-hydra
 import { createFeedRenderer } from '@/features/mood/client/feed-renderer';
 import { createFeedUpdateWatcher } from '@/features/mood/client/feed-update-watcher';
 import { initMoodGalleries } from '@/features/mood/client/gallery';
-import { appendMoodApiMode } from '@/features/mood/client/api-mode';
 import { hydrateMoodRichText } from '@/features/mood/client/rich-text';
 import {
   getMoodFeedAnchorBeforeCursor,
@@ -213,7 +212,6 @@ export function initMoodFeedController(): void {
         if (options.afterId) {
           query.set('after', options.afterId);
         }
-        appendMoodApiMode(query);
         const queryString = query.toString();
         const url = queryString ? `/api/moods?${queryString}` : '/api/moods';
         const response = await fetch(url);

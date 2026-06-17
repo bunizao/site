@@ -1,7 +1,6 @@
 const MOOD_FEED_ANCHOR_PATTERN = /^[1-9]\d{0,19}$/;
 const MOOD_FEED_ANCHOR_WINDOW_OFFSET = 10n;
 export const MOOD_FEED_RETURN_ANCHOR_STORAGE_KEY = 'mood-feed-return-anchor';
-type MoodApiModeQueryValue = 'true' | 'false' | null;
 
 export function isMoodFeedAnchorId(value: string): boolean {
   return MOOD_FEED_ANCHOR_PATTERN.test(value.trim());
@@ -26,27 +25,21 @@ export function getMoodFeedAnchorFragmentId(anchorId: string): string {
   return isMoodFeedAnchorId(id) ? `mood-${id}` : '';
 }
 
-function moodApiModeQuery(mode: MoodApiModeQueryValue): string {
-  return mode ? `api-v2=${mode}` : '';
-}
-
-export function getMoodDetailHref(postId: string, mode: MoodApiModeQueryValue = null, hash = ''): string {
+export function getMoodDetailHref(postId: string, hash = ''): string {
   const id = postId.trim();
   if (!isMoodFeedAnchorId(id)) return '/mood';
 
-  const query = moodApiModeQuery(mode);
   const safeHash = hash.startsWith('#') ? hash : '';
-  return `/mood/${id}${query ? `?${query}` : ''}${safeHash}`;
+  return `/mood/${id}${safeHash}`;
 }
 
-export function getMoodFeedAnchorHref(anchorId: string, mode: MoodApiModeQueryValue = null): string {
+export function getMoodFeedAnchorHref(anchorId: string): string {
   const id = anchorId.trim();
-  const modeQuery = moodApiModeQuery(mode);
   if (!isMoodFeedAnchorId(id)) {
-    return modeQuery ? `/mood?${modeQuery}` : '/mood';
+    return '/mood';
   }
 
-  return `/mood?${id}${modeQuery ? `&${modeQuery}` : ''}`;
+  return `/mood?${id}`;
 }
 
 function addMoodFeedCursorOffset(anchorId: string, offset: bigint): string {

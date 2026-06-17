@@ -6,7 +6,7 @@ public: true
 
 ## The shape
 
-buxx.me is split across two Cloudflare Workers during the API privatization rollout. The public `site` Worker serves `buxx.me` and `www.buxx.me`. The private `site-api` Worker serves new private surfaces from `https://api.buxx.me/v2/` and keeps the original mood read API at `https://api.buxx.me/v1/mood*`.
+buxx.me is split across two Cloudflare Workers. The public `site` Worker serves `buxx.me` and `www.buxx.me`. The private `site-api` Worker owns machine ingress at `api.buxx.me`: webhooks, notify, image processing, archive reads, and internal automation. `api.buxx.me` is not the canonical public API surface.
 
 The public Worker keeps `buxx.me/api/*` as a compatibility surface. Compatibility requests that are no longer public-site-owned proxy to `site-api` through a Cloudflare Worker service binding.
 
@@ -28,7 +28,7 @@ The site reads from six external sources:
 - **Ghost CMS** — blog posts shown on the home page.
 - **GitHub GraphQL** — repository metadata and stars for project cards.
 - **Last.fm + Apple Music search** — recent listening status, with iTunes enrichment for artwork and previews.
-- **Telegram** — mood content is ingested and normalized by the private `site-api` Worker, then read by the public site through the `API` service binding.
+- **Telegram** — mood pages read through the live v1 Telegram mirror for realtime comments, reactions, and media. The private API also ingests Telegram updates into D1 as a structured archive.
 - **GitHub contribution graph** — rendered into the home page.
 - **Better Stack status** — footer service indicator.
 
@@ -36,7 +36,7 @@ The site reads from six external sources:
 
 Public JSON: `/api/moods`, `/api/comments`, `/api/oembed.json`, `/api/footer`, `/api/health`. SVG generators (all accept `?theme=light|dark`): `/api/status.svg`, `/api/tech-stack.svg`, `/api/site-badge.svg`, `/api/project.svg`, `/api/activity-panel.svg`. RSS at `/mood/rss.xml`.
 
-Private API canonical base for new surfaces: `https://api.buxx.me/v2/`. Admin data APIs, OAuth callbacks, notify, Telegram webhook, image ingest, and scheduled notify work are private API responsibilities. Public `buxx.me/api/*` remains a compatibility proxy where needed. The private API Worker does not render `/dev/*` UI.
+Machine mood API taxonomy: `/api/v1/mood*` is the live Telegram mirror and canonical upstream for user-facing mood reads; `/api/v2/mood*` is the D1 archive / structured read for search, AI, debugging, and ops. Admin data APIs, OAuth callbacks, notify, Telegram webhook, image ingest, and scheduled notify work are private API responsibilities. Public `buxx.me/api/*` remains a compatibility proxy where needed. The private API Worker does not render `/dev/*` UI.
 
 ## Styling
 

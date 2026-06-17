@@ -3,7 +3,7 @@ import { handleMoodFeedApiRoute } from '@/features/mood/server/api-routes';
 
 export const prerender = false;
 
-export const GET: APIRoute = async ({ request, locals }) => handleMoodFeedApiRoute(
+export const GET: APIRoute = ({ request, locals }) => handleMoodFeedApiRoute(
   { request, locals },
-  { source: 'live', rateLimitPrefix: 'api:moods' }
+  { source: 'archive', rateLimitPrefix: 'api:v2:mood' }
 );

@@ -4,7 +4,6 @@ import {
   formatRelativeCommentDate,
   sanitizeImageUrl,
 } from '@/features/mood/shared/comments';
-import { appendMoodApiMode } from '@/features/mood/client/api-mode';
 import { hydrateMoodRichText } from '@/features/mood/client/rich-text';
 
 interface CommentReactionData {
@@ -204,7 +203,6 @@ export async function initMoodDetailComments(
     try {
       const query = new URLSearchParams({ postId });
       if (before) query.set('before', before);
-      appendMoodApiMode(query);
       const response = await fetch(`/api/comments?${query}`);
       const data = await response.json() as {
         comments?: CommentData[];
