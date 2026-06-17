@@ -186,6 +186,14 @@ describe('Cloudflare runtime configuration', () => {
     expect(middleware).not.toContain('https://www.googletagmanager.com');
   });
 
+  test('blocks Cloudflare JavaScript detections on mood HTML', () => {
+    const middleware = readText('src/middleware.ts');
+
+    expect(middleware).toContain("pathname === '/mood'");
+    expect(middleware).toContain("pathname.startsWith('/mood/')");
+    expect(middleware).toContain('allowCloudflareDetections: !isMoodPath(url.pathname)');
+  });
+
   test('keeps non-priority mood images lazy when dimensions are incomplete', () => {
     const renderer = readText('src/features/mood/client/feed-renderer.ts');
     const feedShell = readText('src/features/mood/ui/FeedShell.astro');
