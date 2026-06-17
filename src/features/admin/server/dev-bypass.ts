@@ -2,6 +2,7 @@ import { readOptionalEnv, type RuntimeEnvLocals } from '@/lib/runtime/env';
 
 export interface AdminSessionIdentity {
   login: string;
+  email?: string;
   avatarUrl?: string;
 }
 
@@ -19,6 +20,7 @@ export function readAdminDevBypassSession(
 
   return {
     login: readOptionalEnv(locals, 'ADMIN_DEV_LOGIN') ?? 'admin',
+    email: readOptionalEnv(locals, 'ADMIN_DEV_EMAIL'),
     avatarUrl: readOptionalEnv(locals, 'ADMIN_DEV_AVATAR_URL'),
   };
 }

@@ -76,12 +76,12 @@ The webhook and queue worker do not send email directly. `/v2/notify/dispatch` r
 
 ## Admin portal
 
-Admin pages are served by the public `site` Worker. Admin data and auth endpoints are served by `site-api`:
+Admin pages are served by the public `site` Worker. Cloudflare Access gates the human entry path, and admin data endpoints are served by `site-api`:
 
-- public UI: `/dev/*`, `/oauth/login`
+- public UI: `/dev/*`
 - private API: `/v2/admin/*`
 
-Protected docs on the public site check `site-api /v2/admin/session` through the `API` service binding.
+Protected docs on the public site validate the same Cloudflare Access identity.
 
 ## Operational notes
 

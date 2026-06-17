@@ -7,8 +7,8 @@ import type { RuntimeEnvLocals } from '@/lib/runtime/env';
 
 // Server-side reader for the admin portal. The portal pages render inside the
 // public `site` worker; the data lives behind the private `site-api` worker.
-// We reach it through the API service binding, forwarding the caller's cookie so
-// site-api can authenticate the admin session.
+// We reach it through the API service binding, forwarding the Cloudflare Access
+// JWT so site-api authenticates the same admin identity.
 async function adminGet<T>(
   path: string,
   request: Request,
@@ -23,8 +23,8 @@ async function adminGet<T>(
   url.search = query;
 
   const headers = new Headers();
-  const cookie = request.headers.get('cookie');
-  if (cookie) headers.set('cookie', cookie);
+  const accessJwt = request.headers.get('cf-access-jwt-assertion');
+  if (accessJwt) headers.set('cf-access-jwt-assertion', accessJwt);
   headers.set('accept', 'application/json');
 
   const response = await api.fetch(createApiServiceRequest(new Request(url, { headers })));

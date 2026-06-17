@@ -14,8 +14,8 @@ The public Worker keeps `buxx.me/api/*` as a compatibility surface. Compatibilit
 
 - `src/pages/` — file-based routing. `index.astro` (home), `mood.astro` (feed shell), `mood/[id].astro` (detail), `mood/embed.astro` (embeddable widget).
 - `src/pages/api/` — public endpoints (moods, comments, SVG generators, oEmbed, health, Ghost/listening/footer) plus the compatibility proxy.
-- `src/pages/dev/` and `src/pages/oauth/login.astro` — public admin UI routes. They call private admin APIs through `/v2/admin/*`.
-- `src/middleware.ts` — Astro middleware that gates protected docs by checking the private admin session through the `API` service binding.
+- `src/pages/dev/` and `src/pages/oauth/login.ts` — admin UI routes. Production access is enforced by Cloudflare Access; the legacy login route only redirects back to the requested admin path.
+- `src/middleware.ts` — Astro middleware that gates protected docs and the admin portal by validating the Cloudflare Access JWT or the local dev bypass.
 - `src/features/` — feature-private code (`home/`, `mood/`, `logos/`).
 - `src/lib/` — shared utilities (GitHub API, security, HTTP, media helpers).
 - `src/layouts/` — `Layout.astro` for the public site, `PortalLayout.astro` for the admin portal.
@@ -36,7 +36,7 @@ The site reads from six external sources:
 
 Public JSON: `/api/moods`, `/api/comments`, `/api/oembed.json`, `/api/footer`, `/api/health`. SVG generators (all accept `?theme=light|dark`): `/api/status.svg`, `/api/tech-stack.svg`, `/api/site-badge.svg`, `/api/project.svg`, `/api/activity-panel.svg`. RSS at `/mood/rss.xml`.
 
-Private API canonical base for new surfaces: `https://api.buxx.me/v2/`. Admin data APIs, OAuth callbacks, notify, Telegram webhook, image ingest, and scheduled notify work are private API responsibilities. Public `buxx.me/api/*` remains a compatibility proxy where needed. The private API Worker does not render `/dev/*` UI.
+Private API canonical base for new surfaces: `https://api.buxx.me/v2/`. Admin data APIs, notify, Telegram webhook, image ingest, and scheduled notify work are private API responsibilities. Public `buxx.me/api/*` remains a compatibility proxy where needed. The private API Worker does not render `/dev/*` UI.
 
 ## Styling
 

@@ -37,7 +37,10 @@
     "PUBLIC_TURNSTILE_SITE_KEY": "0x4AAAAAACaDQzCbYalmO_xV",
     "MOOD_API_V2_DEFAULT": "false",
     "CHANNEL": "tutumood",
-    "TELEGRAM_HOST": "t.me"
+    "TELEGRAM_HOST": "t.me",
+    "CLOUDFLARE_ACCESS_TEAM_DOMAIN": "bunizao.cloudflareaccess.com",
+    "CLOUDFLARE_ACCESS_AUDS": "8bd92a4e41eee3c88870f802a5fa28d1ef0f65fe75dcc6c78f5162244f2ea06f,56837be46147be20223380ecba8c9aa32ab17ac68aa1f6399b92c114fcc278d0,08e857ebe5f511e9aeaadb89e3dd8d7930e33134fac46bc5817a9c0845100cd2",
+    "CLOUDFLARE_ACCESS_ALLOWED_EMAILS": "bunizaoccc@gmail.com"
   },
   "observability": {
     "enabled": true,

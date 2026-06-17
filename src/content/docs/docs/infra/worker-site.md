@@ -51,10 +51,10 @@ Notify D1, mood D1, R2 image storage, queue bindings, session KV, Telegram secre
 ## Failure behavior
 
 - If the `API` service binding is missing, proxied private routes return 503.
-- Protected docs deny access when `site-api /v2/admin/session` is unavailable.
+- Protected docs deny access when the Cloudflare Access identity is unavailable.
 - Public mood pages fail closed when the private mood API is unavailable.
 
 ## Related docs
 
 - [Telegram ingestion](/docs/pipeline/telegram) — the private webhook and image flow.
-- [OAuth hub](/docs/infra/oauth-hub) — the auth boundary between human admins, sandboxes, and connectors.
+- [Access hub](/docs/infra/oauth-hub) — the auth boundary between human admins, sandboxes, and connectors.
