@@ -59,6 +59,18 @@ export function findTooBigVideoMedia(media: readonly MediaItem[] | undefined): M
   return media?.find(isTooBigVideoDocument) ?? null;
 }
 
+function formatDuration(seconds: number | null | undefined): string {
+  if (typeof seconds !== 'number' || !Number.isFinite(seconds) || seconds <= 0) return '';
+
+  const total = Math.round(seconds);
+  const hours = Math.floor(total / 3600);
+  const minutes = Math.floor((total % 3600) / 60);
+  const secs = total % 60;
+  const pad = (value: number) => String(value).padStart(2, '0');
+
+  return hours > 0 ? `${hours}:${pad(minutes)}:${pad(secs)}` : `${minutes}:${pad(secs)}`;
+}
+
 function renderTooBigVideo(media: MediaItem): string {
   const href = safeUrl(media.originalUrl || media.href, 'href');
   if (!href) return '';
@@ -67,6 +79,7 @@ function renderTooBigVideo(media: MediaItem): string {
   const width = dimension(media.width);
   const height = dimension(media.height);
   const aspectStyle = width && height ? ` style="aspect-ratio: ${(width / height).toFixed(4)} / 1"` : '';
+  const duration = formatDuration(media.durationSeconds);
 
   return [
     `<a class="video-too-big" href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer"${aspectStyle}>`,
@@ -76,6 +89,7 @@ function renderTooBigVideo(media: MediaItem): string {
     '<span class="video-too-big__label">Media is too big</span>',
     '<span class="video-too-big__btn">View in Telegram</span>',
     '</span>',
+    duration ? `<span class="video-too-big__duration">${escapeHtml(duration)}</span>` : '',
     '</a>',
   ].join('');
 }
