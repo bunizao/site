@@ -5,58 +5,13 @@ import {
   type FocusEvent,
   type MouseEvent,
   type PointerEvent,
-  type ReactNode,
   type TouchEvent,
 } from 'react';
-import { GraduationCap, MapPin } from 'lucide-react';
-import { OpenAIIcon, AnthropicIcon } from '@/components/icons';
+import { MapPin } from 'lucide-react';
+import { experience, type ExperienceItem } from '@/data/site';
 import { FogReveal } from './FogReveal';
 
-interface ExperienceItem {
-  org: string;
-  url: string;
-  period: string;
-  icon: ReactNode;
-  /** Primary line under the org (subscription roles). */
-  role?: string;
-  /** Monash carries a fuller description + location instead of a role. */
-  description?: string;
-  location?: string;
-  /** Pulsing dot — the one role that's genuinely current. */
-  current?: boolean;
-  /** Hidden behind a blur until hovered; reveals with a particle burst. */
-  joke?: boolean;
-}
-
 const GLYPH = 'h-[17px] w-[17px]';
-
-const experiences: ExperienceItem[] = [
-  {
-    org: 'Monash University',
-    url: 'https://www.monash.edu',
-    period: 'Jul 2025 — Present',
-    icon: <GraduationCap className={GLYPH} strokeWidth={1.8} />,
-    description: "Studying for a Bachelor's degree in Data Science (Honours)",
-    location: 'Clayton, Melbourne, Australia',
-    current: true,
-  },
-  {
-    org: 'Anthropic',
-    url: 'https://www.anthropic.com',
-    period: '2025 — Present',
-    icon: <AnthropicIcon className={GLYPH} />,
-    role: 'Subscriber, Claude',
-    joke: true,
-  },
-  {
-    org: 'OpenAI',
-    url: 'https://openai.com',
-    period: '2023 — Present',
-    icon: <OpenAIIcon className={GLYPH} />,
-    role: 'Subscriber, ChatGPT & Codex',
-    joke: true,
-  },
-];
 
 function RowBody({ item }: { item: ExperienceItem }) {
   return (
@@ -65,7 +20,7 @@ function RowBody({ item }: { item: ExperienceItem }) {
         className="relative z-[1] flex h-9 w-9 shrink-0 items-center justify-center rounded-[11px] border border-[hsl(var(--foreground)/0.14)] bg-[hsl(var(--card))] text-[hsl(var(--foreground)/0.82)] shadow-[0_0_0_3px_hsl(var(--background)),0_1px_2px_hsl(var(--foreground)/0.06)]"
         aria-hidden="true"
       >
-        {item.icon}
+        <item.icon className={GLYPH} strokeWidth={item.strokeWidth} />
       </span>
 
       <div className="flex min-w-0 flex-1 flex-col gap-0.5 pt-px">
@@ -185,7 +140,7 @@ export default function ExperienceTimeline() {
 
   return (
     <ol className="m-0 list-none p-0" data-experience-timeline={hydrated ? 'hydrated' : 'ssr'}>
-      {experiences.map((item) => (
+      {experience.map((item) => (
         <li
           key={item.org}
           data-joke-group={item.joke ? '' : undefined}

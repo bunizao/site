@@ -4,9 +4,8 @@ import DecodeText from '@/features/home/ui/DecodeText.astro';
 import GitHubContributions from '@/features/home/ui/GitHubContributions.astro';
 import Listening from '@/features/home/ui/Listening.astro';
 import TechMarquee from '@/features/home/ui/TechMarquee.astro';
-import {Instagram, type LucideIcon} from 'lucide-react';
-import { FileText, Github, Mail, Send } from 'lucide-react';
 import type { ListeningTrack } from '@/features/home/server/listening';
+import { hero, tech, profile } from '@/data/site';
 
 interface Props {
   listeningTrack?: ListeningTrack;
@@ -14,70 +13,25 @@ interface Props {
 
 const { listeningTrack } = Astro.props;
 
-const socials: Array<{
-  name: string;
-  url: string;
-  icon: LucideIcon;
-  description: string;
-  handle: string;
-}> = [
-  {
-    name: 'Blog',
-    url: 'https://blog.buxx.me',
-    icon: FileText,
-    description: 'Read my articles',
-    handle: 'blog.buxx.me'
-  },
-  {
-    name: 'GitHub',
-    url: 'https://tuu.cat/gh',
-    icon: Github,
-    description: 'Check out my code',
-    handle: '@bunizao'
-  },
-  {
-    name: 'Email',
-    url: 'mailto:me@buxx.me',
-    icon: Mail,
-    description: 'Send me a message',
-    handle: 'me@buxx.me'
-  },
-  {
-    name: 'Telegram',
-    url: 'https://tuu.cat/tg',
-    icon: Send,
-    description: 'Chat with me',
-    handle: 'tuu.cat/tg'
-  },
-  {
-    name: 'Instagram',
-    url: 'https://tuu.cat/ig',
-    icon: Instagram,
-    description: 'See my photos',
-    handle: 'tuu.cat/ig'
-  }
-];
-
-const techRow1 = ['TypeScript', "JavaScript", 'Python', 'C#', 'C++', 'React', 'TailwindCSS', 'Astro'];
-const techRow2 = ['Frontend', 'BGP', 'Proxy', 'Docker', 'Linux', 'Web3', 'Optimization'];
+const { socials, typewriterNames, infoChips } = hero;
 ---
 
 <header class="hero-section pb-8 sm:pb-12">
     <!-- Status indicator -->
-    <div class="hero-animate" data-hero-status>
+    <div class="hero-animate" data-hero-status data-status-words={JSON.stringify(hero.statusWords)}>
       <div class="status mb-4">
         <span class="status-dot"></span>
         <span class="status-text-wrapper">
-          <span class="status-text" id="status-text">Wondering</span>
+          <span class="status-text" id="status-text">{hero.statusWords[0]}</span>
         </span>
       </div>
     </div>
 
     <!-- Name -->
     <div class="hero-name-shell mb-2 text-[28px] font-semibold sm:text-[36px]">
-      <span class="hero-lcp-anchor" aria-hidden="true">Lucian</span>
+      <span class="hero-lcp-anchor" aria-hidden="true">{typewriterNames[0]}</span>
       <h1 class="hero-animate m-0" data-hero-name>
-        <Typewriter texts={["Lucian", "Bunizao", "Tutu", "Collapsar"]} speed={80} />
+        <Typewriter texts={typewriterNames} speed={80} />
       </h1>
     </div>
 
@@ -85,18 +39,19 @@ const techRow2 = ['Frontend', 'BGP', 'Proxy', 'Docker', 'Linux', 'Web3', 'Optimi
     <div class="hero-animate mb-3" data-hero-info>
       <p class="text-xs text-muted-foreground/70 tracking-wider font-mono">
         <span class="inline-flex items-center gap-2">
-          <span>18 y.o.</span>
-          <span class="separator">•</span>
-          <span>INFP</span>
-          <span class="separator">•</span>
-          <span>Libra</span>
+          {infoChips.map((chip, i) => (
+            <>
+              {i > 0 && <span class="separator">•</span>}
+              <span>{chip}</span>
+            </>
+          ))}
         </span>
       </p>
     </div>
 
     <!-- Role -->
     <p class="hero-animate mb-6 text-sm text-muted-foreground" data-hero-role>
-      Student / Developer / Blogger
+      {profile.jobTitle}
     </p>
 
     <!-- Bio -->
@@ -146,7 +101,7 @@ const techRow2 = ['Frontend', 'BGP', 'Proxy', 'Docker', 'Linux', 'Web3', 'Optimi
 
     <!-- Tech Stack Marquee -->
     <div class="mt-6 hero-animate" data-hero-motion data-hero-tech>
-      <TechMarquee row1={techRow1} row2={techRow2} />
+      <TechMarquee row1={tech.row1} row2={tech.row2} />
     </div>
 </header>
 
@@ -258,34 +213,11 @@ const techRow2 = ['Frontend', 'BGP', 'Proxy', 'Docker', 'Linux', 'Web3', 'Optimi
   const statusDot = document.querySelector<HTMLElement>('.status-dot');
   const HOME_HERO_GITHUB_READY_EVENT = 'home:hero-github-ready';
 
-  // Status text rotation
-  const statusWords = [
-    'Wondering',
-    'Building',
-    'Learning',
-    'Exploring',
-    'Creating',
-    'Thinking',
-    'Coding',
-    'Designing',
-    'Reading',
-    'Writing',
-    'Debugging',
-    'Shipping',
-    'Dreaming',
-    'Hacking',
-    'Optimizing',
-    'Iterating',
-    'Refactoring',
-    'Brewing',
-    'Crafting',
-    'Tinkering',
-    'Pondering',
-    'Researching',
-    'Prototyping',
-    'Deploying',
-    'Solving'
-  ];
+  // Status verbs are curated in src/data/site.ts and passed through a data
+  // attribute so the client bundle never imports the data module (which would
+  // pull in the icon components).
+  const statusHost = document.querySelector<HTMLElement>('[data-status-words]');
+  const statusWords: string[] = JSON.parse(statusHost?.dataset.statusWords || '[]');
 
   const initHero = () => {
     if (!heroElements.length) return;

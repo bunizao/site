@@ -1,11 +1,19 @@
+import { profile } from '@/data/site';
+
 export const siteUrl = 'https://buxx.me';
 export const siteName = 'Bunizao';
-export const profileName = 'Lucian Tutu';
-export const profileAlternateNames = ['Bunizao', 'Tutu', 'Collapsar'];
+export const profileName = profile.name;
+export const profileAlternateNames = [...profile.alternateNames];
 export const siteDescription =
-  'Personal website of Lucian Tutu, a computer science student and developer building frontend, proxy, automation, and open-source projects.';
+  'Build and then polish. Ship and then reflect. Write, shoot, and think in between. I\'m Lucian.';
 
 export const canonical = (path = '/') => new URL(path, siteUrl).href;
+
+// schema.org `sameAs` is derived from the profile links flagged for it, so the
+// social list lives in exactly one place.
+const sameAs = profile.links
+  .filter((link) => link.sameAs)
+  .map((link) => link.canonicalUrl ?? link.url);
 
 export const profileJsonLd = {
   '@context': 'https://schema.org',
@@ -20,26 +28,14 @@ export const profileJsonLd = {
     name: profileName,
     alternateName: profileAlternateNames,
     url: siteUrl,
-    email: 'mailto:me@buxx.me',
-    jobTitle: 'Student / Developer / Blogger',
+    email: `mailto:${profile.email}`,
+    jobTitle: profile.jobTitle,
     affiliation: {
       '@type': 'CollegeOrUniversity',
       name: 'Monash University',
     },
-    sameAs: [
-      'https://blog.buxx.me',
-      'https://github.com/bunizao',
-      'https://tuu.cat/gh',
-      'https://tuu.cat/tg',
-      'https://tuu.cat/ig',
-    ],
-    knowsAbout: [
-      'Frontend design',
-      'Proxy systems',
-      'Open source software',
-      'Automation',
-      'Performance optimization',
-    ],
+    sameAs,
+    knowsAbout: [...profile.knowsAbout],
   },
 };
 
