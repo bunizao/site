@@ -17,7 +17,7 @@ function isDevPortalPath(pathname: string): boolean {
 export function createHtmlScriptCsp(origin: string): string {
   const cleanOrigin = origin.replace(/\/+$/, '');
   return [
-    `script-src 'self' 'unsafe-inline' ${cleanOrigin}/_astro/ https://static.cloudflareinsights.com https://challenges.cloudflare.com https://www.googletagmanager.com http://localhost:* http://127.0.0.1:*`,
+    `script-src 'unsafe-inline' ${cleanOrigin}/_astro/ ${cleanOrigin}/cdn-cgi/challenge-platform/ https://static.cloudflareinsights.com https://challenges.cloudflare.com http://localhost:* http://127.0.0.1:*`,
     "base-uri 'self'",
     "object-src 'none'",
   ].join('; ');

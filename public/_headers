@@ -1,5 +1,5 @@
 https://buxx.me/
-  Content-Security-Policy: script-src 'self' 'unsafe-inline' https://buxx.me/_astro/ https://static.cloudflareinsights.com https://challenges.cloudflare.com https://www.googletagmanager.com http://localhost:* http://127.0.0.1:*; base-uri 'self'; object-src 'none'
+  Content-Security-Policy: script-src 'unsafe-inline' https://buxx.me/_astro/ https://buxx.me/cdn-cgi/challenge-platform/ https://static.cloudflareinsights.com https://challenges.cloudflare.com http://localhost:* http://127.0.0.1:*; base-uri 'self'; object-src 'none'
 
 https://www.buxx.me/
-  Content-Security-Policy: script-src 'self' 'unsafe-inline' https://www.buxx.me/_astro/ https://static.cloudflareinsights.com https://challenges.cloudflare.com https://www.googletagmanager.com http://localhost:* http://127.0.0.1:*; base-uri 'self'; object-src 'none'
+  Content-Security-Policy: script-src 'unsafe-inline' https://www.buxx.me/_astro/ https://www.buxx.me/cdn-cgi/challenge-platform/ https://static.cloudflareinsights.com https://challenges.cloudflare.com http://localhost:* http://127.0.0.1:*; base-uri 'self'; object-src 'none'

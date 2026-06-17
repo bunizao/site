@@ -163,10 +163,12 @@ describe('Cloudflare runtime configuration', () => {
     const headers = readText('public/_headers');
 
     expect(headers).toContain('https://buxx.me/');
-    expect(headers).toContain("script-src 'self' 'unsafe-inline' https://buxx.me/_astro/");
+    expect(headers).toContain("script-src 'unsafe-inline' https://buxx.me/_astro/");
+    expect(headers).toContain('https://buxx.me/cdn-cgi/challenge-platform/');
     expect(headers).toContain('https://static.cloudflareinsights.com');
     expect(headers).toContain('https://challenges.cloudflare.com');
-    expect(headers).toContain('https://www.googletagmanager.com');
+    expect(headers).not.toContain("'self' 'unsafe-inline'");
+    expect(headers).not.toContain('https://www.googletagmanager.com');
     expect(headers).toContain("base-uri 'self'");
     expect(headers).toContain("object-src 'none'");
   });
@@ -175,11 +177,13 @@ describe('Cloudflare runtime configuration', () => {
     const middleware = readText('src/middleware.ts');
 
     expect(middleware).toContain('Content-Security-Policy');
-    expect(middleware).toContain("script-src 'self' 'unsafe-inline'");
+    expect(middleware).toContain("script-src 'unsafe-inline'");
     expect(middleware).toContain('/_astro/');
+    expect(middleware).toContain('/cdn-cgi/challenge-platform/');
     expect(middleware).toContain('https://static.cloudflareinsights.com');
     expect(middleware).toContain('https://challenges.cloudflare.com');
-    expect(middleware).toContain('https://www.googletagmanager.com');
+    expect(middleware).not.toContain("script-src 'self' 'unsafe-inline'");
+    expect(middleware).not.toContain('https://www.googletagmanager.com');
   });
 
   test('keeps non-priority mood images lazy when dimensions are incomplete', () => {
