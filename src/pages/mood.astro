@@ -1671,6 +1671,8 @@ const skeletonGroups = [
   :global(.mood-popover-comment-body) {
     flex: 1;
     min-width: 0;
+    /* Read comments in sans, not the inherited site mono. */
+    font-family: var(--font-sans);
     background: hsl(var(--foreground) / 0.04);
     border: 1px solid hsl(var(--foreground) / 0.05);
     border-radius: 14px;
