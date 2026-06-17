@@ -54,7 +54,7 @@ export interface MoodDocumentQuery {
 
 export type MoodApiSource = 'live' | 'archive';
 
-type MoodArchiveApiPath = `/v1/mood${string}`;
+type MoodArchiveApiPath = `/v2/mood${string}`;
 
 function createMoodArchiveApiRequest(context: MoodServerContext, path: MoodArchiveApiPath, params: URLSearchParams = new URLSearchParams()): Request {
   const source = new URL(context.request.url);
@@ -154,7 +154,7 @@ export async function loadMoodFeed(
   }
 
   if (query.source === 'archive') {
-    return fetchMoodArchiveApiJson<MoodFeedResponse>(context, '/v1/mood', moodFeedParams(query));
+    return fetchMoodArchiveApiJson<MoodFeedResponse>(context, '/v2/mood', moodFeedParams(query));
   }
 
   const { channelInfo, posts } = await loadMoodChannelSnapshot(context, {
@@ -178,7 +178,7 @@ export async function loadMoodProbe(context: MoodServerContext, options: { sourc
 
   if (options.source === 'archive') {
     const params = new URLSearchParams({ probe: 'true', fresh: 'true' });
-    return fetchMoodArchiveApiJson<MoodProbeResult>(context, '/v1/mood', params);
+    return fetchMoodArchiveApiJson<MoodProbeResult>(context, '/v2/mood', params);
   }
 
   const { posts } = await loadMoodChannelSnapshot(context, { skipCache: true });
@@ -218,7 +218,7 @@ export async function loadMoodDocument(
   }
 
   if (query.source === 'archive') {
-    return fetchMoodArchiveApiJson<MoodContentDocument | null>(context, `/v1/mood/${encodeURIComponent(id)}`);
+    return fetchMoodArchiveApiJson<MoodContentDocument | null>(context, `/v2/mood/${encodeURIComponent(id)}`);
   }
 
   const { post, channelInfo } = await loadMoodPostSnapshot(context, id);
@@ -263,7 +263,7 @@ export async function loadMoodComments(
   if (query.source === 'archive') {
     return fetchMoodArchiveApiJson<MoodCommentsPage>(
       context,
-      `/v1/mood/${encodeURIComponent(postId)}/comments`,
+      `/v2/mood/${encodeURIComponent(postId)}/comments`,
       moodCommentsParams(query),
     );
   }

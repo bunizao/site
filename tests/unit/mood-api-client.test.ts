@@ -84,19 +84,19 @@ describe('mood API client', () => {
         const url = new URL(request.url);
         paths.push(`${url.pathname}${url.search}`);
 
-        if (url.pathname === '/v1/mood' && url.searchParams.get('probe') === 'true') {
+        if (url.pathname === '/v2/mood' && url.searchParams.get('probe') === 'true') {
           return Response.json(probe);
         }
 
-        if (url.pathname === '/v1/mood') {
+        if (url.pathname === '/v2/mood') {
           return Response.json(feed);
         }
 
-        if (url.pathname === '/v1/mood/990001') {
+        if (url.pathname === '/v2/mood/990001') {
           return Response.json(document);
         }
 
-        if (url.pathname === '/v1/mood/990001/comments') {
+        if (url.pathname === '/v2/mood/990001/comments') {
           return Response.json(comments);
         }
 
@@ -115,10 +115,10 @@ describe('mood API client', () => {
     expect(commentsResult.comments[0]?.id).toBe('990000');
     expect(probeResult.latestId).toBe('990001');
     expect(paths).toEqual([
-      '/v1/mood?limit=1',
-      '/v1/mood/990001',
-      '/v1/mood/990001/comments?before=990000',
-      '/v1/mood?probe=true&fresh=true',
+      '/v2/mood?limit=1',
+      '/v2/mood/990001',
+      '/v2/mood/990001/comments?before=990000',
+      '/v2/mood?probe=true&fresh=true',
     ]);
   });
 
