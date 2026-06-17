@@ -1,8 +1,33 @@
 # Mood v2 PRD — Structured Read Migration
 
-Status: draft · Owner: bunizao · Last updated: 2026-06-14 (rev 2: keep both sources, `mediaHtml` as escape hatch)
+Status: **superseded for the read path** (2026-06-17) · Owner: bunizao · Last updated: 2026-06-14 (rev 2: keep both sources, `mediaHtml` as escape hatch)
 
-## 1. North Star
+> ## Decision — 2026-06-17: reads stay live, D1 is a sink (supersedes §1 North Star)
+>
+> The D1-first read path shipped (`MOOD_API_V2_DEFAULT=true`) and was reverted. **User-facing
+> mood reads are served live from `t.me`, exactly as before the migration. D1 is a write-only
+> ingestion sink for backup and future structured search/AI — never on the read path.**
+> `MOOD_API_V2_DEFAULT` is `"false"`; `?api-v2=true` stays as a per-request escape hatch to test
+> D1 reads.
+>
+> **Why.** D1 populates mutable fields (`comments_count`, reactions, views) once at ingest from
+> the Telegram webhook payload — when the count is 0 — and never refreshes. So the v2 feed
+> returned `commentsCount: 0` for every post, the L1 comment badge never rendered, and reactions
+> froze at post-time state. The live scrape reads the current widget, so it is always real-time.
+>
+> Real-time interaction is a hard requirement. Once it is, a live `t.me` fetch on every render is
+> unavoidable — and the moment that fetch is unavoidable, serving static content from D1 buys
+> nothing, because it cannot skip the live call it would have to make anyway. So D1 on the read
+> path is pure cost. Its real value (backup + queryable structured archive) is fully satisfied by
+> a pure ingestion sink. A periodic reconcile cron was rejected: not real-time enough, and it
+> piles onto worker runtime.
+>
+> **Still valid below:** the ingest/normalizer into D1 (§2 v2 server-side, §4 the
+> `webhook → ingest → D1` arm). **No longer the target:** §1 North Star, §3 Goals 1–4, §4's
+> `D1 → read path` arm, and §6 Phase 6 cutover. The mood↔post `ContentDocument` unification (§10)
+> remains a possible future, but on the live read model, not D1-first.
+
+## 1. North Star (historical — superseded; see decision above)
 
 Mood is served primarily from structured data in `site-api` D1, rendered from typed
 `MediaItem[]` and Telegram entities, with the live `t.me` scrape retained as a fallback

@@ -158,6 +158,16 @@ Comment normalization:
 
 ## Mood Shaping
 
+### Read source — live, not D1
+
+User-facing reads (feed, detail, comments, probe, RSS, agent, home preview) are served **live
+from `t.me`**, the same as before the v2 migration, so comment counts and reactions stay
+real-time. `MOOD_API_V2_DEFAULT` is `"false"`; the D1-backed v2 path is reachable only via an
+explicit `?api-v2=true` and is kept as a test escape hatch. D1 is a write-only ingestion sink for
+backup and future structured search/AI — it is never on the read path because its mutable fields
+(`comments_count`, reactions) are frozen at ingest time. See
+[`docs/MOOD-V2-PRD.md`](./MOOD-V2-PRD.md) (2026-06-17 decision) for the full rationale.
+
 Core files:
 
 - [`src/features/mood/server/api-client.ts`](../src/features/mood/server/api-client.ts)
@@ -165,7 +175,7 @@ Core files:
 
 `site-api` responsibilities:
 
-- ingest Telegram webhook updates into D1
+- ingest Telegram webhook updates into D1 (backup + structured archive; not the read path)
 - normalize media URLs into `https://api.buxx.me/v2/images/*`
 - return `MoodFeedResponse`, `MoodContentDocument`, and `MoodCommentsPage`
 - parse:
