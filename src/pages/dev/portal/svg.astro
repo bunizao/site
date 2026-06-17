@@ -1,9 +1,14 @@
 ---
 import PortalLayout from '@/layouts/PortalLayout.astro';
+import { readRuntimeEnv, signedRequestPath } from '@/lib/security/signed-url';
 
 export const prerender = false;
 
 const session = (Astro.locals as any).adminSession;
+const activityPanelSigningSecret = readRuntimeEnv(Astro.locals, 'ACTIVITY_PANEL_SIGNING_SECRET')
+  || import.meta.env.ACTIVITY_PANEL_SIGNING_SECRET
+  || '';
+const svgPreviewExpiry = Math.floor(Date.now() / 1000) + 60 * 60;
 
 interface SvgEntry {
   id: string;
@@ -13,6 +18,19 @@ interface SvgEntry {
   themeParam?: 'theme';
   notes?: string;
   height?: number;
+}
+
+function withQuery(pathname: string, values: Record<string, string>): string {
+  const params = new URLSearchParams(values);
+  return `${pathname}?${params.toString()}`;
+}
+
+function signedActivityPanelSrc(theme: 'dark' | 'light'): string {
+  const pathname = '/api/activity-panel.svg';
+  const searchParams = new URLSearchParams({ theme });
+  return activityPanelSigningSecret
+    ? signedRequestPath(pathname, searchParams, activityPanelSigningSecret, svgPreviewExpiry)
+    : withQuery(pathname, { theme });
 }
 
 const entries: SvgEntry[] = [
@@ -45,7 +63,7 @@ const entries: SvgEntry[] = [
     id: 'activity-panel',
     name: 'Activity panel',
     intent: 'Recent commit activity summary',
-    src: '/api/activity-panel.svg',
+    src: signedActivityPanelSrc('dark'),
     themeParam: 'theme',
     notes: 'Accepts days, projects, commits, added, removed, net, lph',
     height: 240,
@@ -100,6 +118,8 @@ const entries: SvgEntry[] = [
     <div class="svg-grid">
       {entries.map((entry) => {
         const themed = Boolean(entry.themeParam);
+        const darkSrc = entry.id === 'activity-panel' ? signedActivityPanelSrc('dark') : undefined;
+        const lightSrc = entry.id === 'activity-panel' ? signedActivityPanelSrc('light') : undefined;
         return (
           <article class="svg-card" data-themed={themed ? 'true' : 'false'} data-id={entry.id}>
             <header class="svg-card__head">
@@ -114,6 +134,8 @@ const entries: SvgEntry[] = [
                 class="svg-card__image"
                 src={entry.src}
                 data-base-src={entry.src}
+                data-src-dark={darkSrc}
+                data-src-light={lightSrc}
                 data-themed={themed ? 'true' : 'false'}
                 alt={entry.name}
                 loading="lazy"
@@ -152,6 +174,14 @@ const entries: SvgEntry[] = [
         const base = img.dataset.baseSrc || img.src;
         if (!themed) {
           img.src = base;
+          return;
+        }
+        const signedThemeSrc = currentTheme === 'light' ? img.dataset.srcLight : img.dataset.srcDark;
+        if (signedThemeSrc) {
+          img.src = signedThemeSrc;
+          const card = img.closest('.svg-card');
+          const display = card?.querySelector('[data-url-display]');
+          if (display) display.textContent = signedThemeSrc;
           return;
         }
         const url = new URL(base, window.location.origin);

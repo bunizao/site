@@ -47,6 +47,19 @@ export function signRequestPath(
     .digest('base64url');
 }
 
+export function signedRequestPath(
+  pathname: string,
+  searchParams: URLSearchParams,
+  secret: string,
+  expiresAt: number
+): string {
+  const signedParams = new URLSearchParams(searchParams);
+  signedParams.set('exp', String(expiresAt));
+  signedParams.set('sig', signRequestPath(pathname, signedParams, secret));
+  const query = signedParams.toString();
+  return query ? `${pathname}?${query}` : pathname;
+}
+
 export function verifySignedRequestUrl(requestUrl: URL, secret: string): boolean {
   const signature = requestUrl.searchParams.get('sig')?.trim() ?? '';
   const expiresAt = Number(requestUrl.searchParams.get('exp') ?? '');
