@@ -40,7 +40,7 @@
     pointer-events: none;
     transition:
       opacity 0.6s cubic-bezier(0.16, 1, 0.3, 1),
-      transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+      transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
     overflow: visible;
   }
 
@@ -321,6 +321,11 @@
   /* ── Hover: the instrument quietly illuminates under the cursor ── */
   /* The readout brightens, a soft halo blooms at the active centre, and the
      live mark leans out a touch — minimal, no layout shift, no extra chrome. */
+  /* Magnetic nudge: the whole instrument leans out toward the content. */
+  .timeline-wheel.is-visible:hover {
+    transform: translateY(-50%) translateX(6px);
+  }
+
   .timeline-wheel:hover .timeline-wheel-label {
     color: hsl(var(--foreground));
     border-color: hsl(var(--foreground) / 0.14);
