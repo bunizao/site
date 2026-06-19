@@ -74,12 +74,12 @@ async function loadInitialMoodFeed() {
 }
 
 const initialFeed = await loadInitialMoodFeed();
-const preloadImageWidths = [480, 800, 1200];
-const preloadImageSizes = '(min-width: 1024px) 560px, (min-width: 640px) 480px, 100vw';
+const preloadImageWidths = [320, 480, 640, 800, 1200];
+const preloadImageSizes = '(min-width: 1024px) 560px, (min-width: 640px) 480px, 180px';
 const firstFeedImage = initialFeed?.posts.find((post) => post.image)?.image ?? '';
 const preloadImages = firstFeedImage
   ? [{
-      href: withWidthParam(firstFeedImage, 800),
+      href: withWidthParam(firstFeedImage, 320),
       imageSrcSet: buildSrcSet(firstFeedImage, preloadImageWidths),
       imageSizes: preloadImageSizes,
     }]
