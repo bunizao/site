@@ -676,10 +676,20 @@ const playLabel = hasPreview
     gap: 8px;
     margin: 3px 0 0;
     min-width: 0;
+    max-width: min(100%, 260px);
     font-size: 12px;
     line-height: 1.36;
     color: hsl(var(--muted-foreground) / 0.78);
     font-feature-settings: 'tnum';
+  }
+
+  [data-listening-collection] {
+    display: inline-block;
+    min-width: 0;
+    max-width: min(18ch, calc(100% - 48px));
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .listening-meta-dot {

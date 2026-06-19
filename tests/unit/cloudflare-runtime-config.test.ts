@@ -200,6 +200,26 @@ describe('Cloudflare runtime configuration', () => {
     expect(middleware).not.toContain('cdn-cgi/challenge-platform');
   });
 
+  test('caches only fully rendered mood feed HTML at the edge', () => {
+    const middleware = readText('src/middleware.ts');
+
+    expect(middleware).toContain('MOOD_PAGE_CACHE_TTL_SECONDS = 60');
+    expect(middleware).toContain("url.pathname !== '/mood' || url.search");
+    expect(middleware).toContain('data-mood-initial-feed');
+    expect(middleware).toContain('data-mood-id=');
+    expect(middleware).toContain('X-Buxx-Mood-Page-Cache');
+    expect(middleware).toContain('caches?.default');
+  });
+
+  test('warms the rendered mood cache before Lighthouse', () => {
+    const workflow = readText('.github/workflows/lighthouse.yml');
+
+    expect(workflow).toContain('Warm production mood cache');
+    expect(workflow).toContain('data-mood-initial-feed');
+    expect(workflow).toContain('x-buxx-mood-page-cache');
+    expect(workflow).toContain("cacheState === 'HIT'");
+  });
+
   test('keeps non-priority mood images lazy when dimensions are incomplete', () => {
     const renderer = readText('src/features/mood/client/feed-renderer.ts');
     const feedShell = readText('src/features/mood/ui/FeedShell.astro');
@@ -257,6 +277,7 @@ describe('Cloudflare runtime configuration', () => {
     expect(hero).toContain('heroTl.to(identity, {');
     expect(hero).toContain('heroTl.to(widgets, {');
     expect(hero).toContain("window.dispatchEvent(new CustomEvent('home:hero-bio-ready'))");
+    expect(readText('src/features/home/ui/Listening.astro')).toContain('max-width: min(18ch, calc(100% - 48px));');
     expect(experience).toContain('<ExperienceTimeline client:visible />');
     expect(parallax).toContain("import('gsap/ScrollTrigger')");
     expect(parallax).toContain("window.addEventListener('load', scheduleSkatingEffects");
