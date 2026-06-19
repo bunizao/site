@@ -215,6 +215,7 @@ describe('Cloudflare runtime configuration', () => {
     const workflow = readText('.github/workflows/lighthouse.yml');
 
     expect(workflow).toContain('Warm production mood cache');
+    expect(workflow).toContain('moto g power (2022)');
     expect(workflow).toContain('data-mood-initial-feed');
     expect(workflow).toContain('x-buxx-mood-page-cache');
     expect(workflow).toContain("cacheState === 'HIT'");
