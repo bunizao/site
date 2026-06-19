@@ -1,4 +1,6 @@
 import type gsap from 'gsap';
+import { slotText, type SlotOptions, type SlotTextController } from 'slot-text';
+import 'slot-text/style.css';
 import { getTimelineDateState } from '@/features/mood/client/timeline-date-tracker';
 
 type GsapModule = typeof gsap;
@@ -22,32 +24,50 @@ export function initMoodTimelineWheel(): void {
     window.scrollTo({ top: 0, behavior: prefersReducedMotion ? 'auto' : 'smooth' });
   });
 
-  // Discoverability: a back-to-top affordance is only useful once you're deep
-  // in the feed. Rather than a permanent badge, the date label briefly reveals
-  // the "Top" cue each time scrolling settles past ~one viewport — taught at
-  // the exact moment it becomes relevant, then folded back to the date.
+  // The readout is a slot-text display: the active date rolls in as you scroll,
+  // and rolls to "↑ TOP" to expose the back-to-top role — on hover, and as a
+  // brief self-reveal each time scrolling settles deep in the feed (taught at
+  // the exact moment the jump becomes useful, then rolled back to the date).
+  const TOP_TEXT = '↑ TOP';
+  const rollBase: SlotOptions = prefersReducedMotion
+    ? { stagger: 0, duration: 0, bounce: 0 }
+    : {};
+  const dateRoll: SlotOptions = { direction: 'down', ...rollBase };
+  const topRoll: SlotOptions = { direction: 'up', ...rollBase };
+
+  let roll: SlotTextController | null = null;
+  let currentDateText = '';
   let isHoveringWheel = false;
   let hintSettleTimer = 0;
-  let hintHideTimer = 0;
   let hintCooldownUntil = 0;
-  wheel.addEventListener('mouseenter', () => { isHoveringWheel = true; });
-  wheel.addEventListener('mouseleave', () => { isHoveringWheel = false; });
 
-  const revealTopHint = (): void => {
-    // Hover already exposes the cue; don't fight it, and only offer when the
-    // jump is worth taking and we're not spamming the user on every micro-pause.
-    if (isHoveringWheel || !isDesktop()) return;
+  const showDate = (text: string): void => {
+    currentDateText = text;
+    roll ??= slotText(label, '', dateRoll);
+    // Hold "↑ TOP" while the pointer rests on the wheel; the date catches up on leave.
+    if (isHoveringWheel) return;
+    roll.set(text, dateRoll);
+  };
+
+  const flashTopHint = (): void => {
+    // Don't fight hover, only offer when the jump is worth taking, and stay off
+    // a hair-trigger so the readout doesn't churn on every micro-pause.
+    if (isHoveringWheel || !isDesktop() || !roll) return;
     if (window.scrollY < window.innerHeight * 1.2) return;
     const now = performance.now();
     if (now < hintCooldownUntil) return;
     hintCooldownUntil = now + 4000;
-
-    wheel.classList.add('is-hinting');
-    clearTimeout(hintHideTimer);
-    hintHideTimer = window.setTimeout(() => {
-      wheel.classList.remove('is-hinting');
-    }, 1500);
+    roll.flash(TOP_TEXT, { revertAfter: 1600, enter: topRoll, exit: dateRoll });
   };
+
+  wheel.addEventListener('mouseenter', () => {
+    isHoveringWheel = true;
+    roll?.set(TOP_TEXT, topRoll);
+  });
+  wheel.addEventListener('mouseleave', () => {
+    isHoveringWheel = false;
+    roll?.set(currentDateText, dateRoll);
+  });
 
   let dateGroups: HTMLElement[] = [];
   let notches: HTMLElement[] = [];
@@ -325,7 +345,7 @@ export function initMoodTimelineWheel(): void {
     if (index === activeIndex && notches.length > 0) return;
 
     if (index < 0 || index >= dateGroups.length) {
-      label.textContent = '';
+      showDate('');
       activeIndex = -1;
       return;
     }
@@ -343,7 +363,7 @@ export function initMoodTimelineWheel(): void {
     if (notches[index + 2]) notches[index + 2].classList.add('is-near');
 
     const dateKey = dateGroups[index]?.dataset.date || '';
-    label.textContent = formatDate(dateKey);
+    showDate(formatDate(dateKey));
 
     activeIndex = index;
   };
@@ -473,15 +493,14 @@ export function initMoodTimelineWheel(): void {
   const handleWindowScroll = (): void => {
     if (!scrollSyncActive || dateGroups.length === 0 || !isDesktop()) return;
     wheel.classList.add('is-scrolling');
-    // While actively scrolling, keep the live date visible — don't let the
-    // hint fight it. The reveal only fires once motion settles.
-    wheel.classList.remove('is-hinting');
     clearTimeout(scrollTimer);
     clearTimeout(hintSettleTimer);
     scrollTimer = window.setTimeout(() => {
       wheel.classList.remove('is-scrolling');
     }, 150);
-    hintSettleTimer = window.setTimeout(revealTopHint, 450);
+    // The live date rolls in while scrolling; the "↑ TOP" cue only flashes once
+    // motion settles, so it never fights the date readout.
+    hintSettleTimer = window.setTimeout(flashTopHint, 450);
     scheduleScrollPositionSync(true);
   };
 
@@ -496,8 +515,7 @@ export function initMoodTimelineWheel(): void {
     }
     clearTimeout(scrollTimer);
     clearTimeout(hintSettleTimer);
-    clearTimeout(hintHideTimer);
-    wheel.classList.remove('is-scrolling', 'is-hinting');
+    wheel.classList.remove('is-scrolling');
 
     if (listResizeObserver) {
       listResizeObserver.disconnect();
