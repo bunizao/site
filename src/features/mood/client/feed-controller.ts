@@ -17,16 +17,6 @@ import type {
   MoodData,
 } from '@/features/mood/client/feed-types';
 
-// Run non-critical work off the first-paint/interaction path.
-function scheduleIdle(run: () => void, timeout = 800): void {
-  const requestIdle = window.requestIdleCallback;
-  if (typeof requestIdle === 'function') {
-    requestIdle(run, { timeout });
-  } else {
-    window.setTimeout(run, 0);
-  }
-}
-
 export function initMoodFeedController(): void {
     const loadingEl = document.querySelector('[data-mood-loading]');
     const errorEl = document.querySelector('[data-mood-error]');
@@ -729,6 +719,9 @@ export function initMoodFeedController(): void {
             }
 
             const ready = stagePostsForRender(posts);
+            if (ready.length) {
+              appendMoods(ready, totalCount);
+            }
 
             showFeed();
             startUpdateWatcher();
@@ -739,23 +732,8 @@ export function initMoodFeedController(): void {
               return;
             }
 
-            // SSR already painted the critical posts (deduped via renderedIdSet);
-            // building the remaining tail is the main-thread cost behind the TBT
-            // spike. Defer it to idle so it never blocks first paint/interaction.
-            // A deep-linked anchor must be present synchronously to scroll to it.
-            const renderTail = (): void => {
-              if (ready.length) {
-                appendMoods(ready, totalCount);
-              }
-              if (!feedAnchorId) {
-                startObserver();
-              }
-            };
-
-            if (feedAnchorId) {
-              renderTail();
-            } else {
-              scheduleIdle(renderTail);
+            if (!feedAnchorId) {
+              startObserver();
             }
             return;
           }
@@ -963,14 +941,8 @@ export function initMoodFeedController(): void {
         window.addEventListener('popstate', () => revealCurrentUrlFeedAnchor());
         window.addEventListener('hashchange', () => revealCurrentUrlFeedAnchor());
         renderer.bindInteractions();
-        // Emoji hydration pulls in lottie/pako and walks the whole list; rich-text
-        // hydration forces synchronous layout reads. Neither is needed for first
-        // paint — run at idle so they stay off the TBT-critical path. The emoji
-        // MutationObserver still catches posts appended later.
-        scheduleIdle(() => {
-          animatedEmoji.observe(list);
-          hydrateMoodRichText(list);
-        });
+        animatedEmoji.observe(list);
+        hydrateMoodRichText(list);
         loadInitial();
       }
     }
