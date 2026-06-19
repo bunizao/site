@@ -32,8 +32,13 @@ export function initMoodTimelineWheel(): void {
   const rollBase: SlotOptions = prefersReducedMotion
     ? { stagger: 0, duration: 0, bounce: 0 }
     : {};
-  const dateRoll: SlotOptions = { direction: 'down', ...rollBase };
-  const topRoll: SlotOptions = { direction: 'up', ...rollBase };
+  // Date → date: keep shared characters static so only what changed rolls
+  // (within a month, just the day digit ticks over).
+  const dateRoll: SlotOptions = { direction: 'down', skipUnchanged: true, ...rollBase };
+  // Transitions to/from "↑ TOP" are fully misaligned, so roll the whole line
+  // uniformly instead of freezing stray matching glyphs.
+  const topRoll: SlotOptions = { direction: 'up', skipUnchanged: false, ...rollBase };
+  const dateReturnRoll: SlotOptions = { direction: 'down', skipUnchanged: false, ...rollBase };
 
   let roll: SlotTextController | null = null;
   let currentDateText = '';
@@ -57,7 +62,7 @@ export function initMoodTimelineWheel(): void {
     const now = performance.now();
     if (now < hintCooldownUntil) return;
     hintCooldownUntil = now + 4000;
-    roll.flash(TOP_TEXT, { revertAfter: 1600, enter: topRoll, exit: dateRoll });
+    roll.flash(TOP_TEXT, { revertAfter: 1600, enter: topRoll, exit: dateReturnRoll });
   };
 
   wheel.addEventListener('mouseenter', () => {
@@ -66,7 +71,7 @@ export function initMoodTimelineWheel(): void {
   });
   wheel.addEventListener('mouseleave', () => {
     isHoveringWheel = false;
-    roll?.set(currentDateText, dateRoll);
+    roll?.set(currentDateText, dateReturnRoll);
   });
 
   let dateGroups: HTMLElement[] = [];
