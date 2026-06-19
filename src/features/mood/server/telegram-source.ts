@@ -641,10 +641,51 @@ function buildUnsupportedMediaCard(
   return `<${tagName} class="mood-detail-quote mood-item-quote mood-comment-quote mood-unsupported-media-card"${hrefAttr}${externalAttrs}><div class="mood-detail-quote-meta mood-item-quote-meta"><span class="mood-detail-quote-source mood-item-quote-author">Telegram</span></div><p class="mood-detail-quote-text mood-item-quote-text">${safeLabel}</p></${tagName}>`;
 }
 
+function buildUnsupportedMediaImageFallback(
+  {
+    hdImageBase,
+    id,
+    index,
+    title,
+  }: Pick<ContentProcessorConfig, 'hdImageBase' | 'id' | 'index' | 'title'>
+): string {
+  if (!hdImageBase || !id) {
+    return '';
+  }
+
+  const imgSrc = sanitizeUrlValue(buildHdImageUrl(hdImageBase, `/mood/${encodeURIComponent(id)}/0`), 'src');
+  if (!imgSrc) {
+    return '';
+  }
+
+  const inlineSrcSet = sanitizeSrcSet(buildSrcSet(imgSrc, INLINE_IMAGE_WIDTHS));
+  const modalSrcSet = sanitizeSrcSet(buildSrcSet(imgSrc, MODAL_IMAGE_WIDTHS));
+  const srcSetAttr = inlineSrcSet
+    ? ` srcset="${escapeHtml(inlineSrcSet)}" sizes="${escapeHtml(INLINE_IMAGE_SIZES)}"`
+    : '';
+  const modalSrcSetAttr = modalSrcSet
+    ? ` srcset="${escapeHtml(modalSrcSet)}" sizes="${escapeHtml(MODAL_IMAGE_SIZES)}"`
+    : '';
+  const safePostId = id.replace(/[^a-z0-9_-]/gi, '');
+  const popoverId = `modal-${safePostId || 'post'}-unsupported`;
+  const escapedTitle = escapeHtml(title || 'Telegram media');
+
+  return `
+      <div class="image-list-container image-list-odd">
+        <button class="image-preview-button image-preview-wrap image-preview-wrap--fallback" popovertarget="${popoverId}" popovertargetaction="show">
+          <img src="${escapeHtml(imgSrc)}"${srcSetAttr} alt="${escapedTitle}" loading="${getFeedImageLoading(index)}" style="aspect-ratio:auto;" />
+        </button>
+        <button class="image-preview-button modal" id="${popoverId}" popovertarget="${popoverId}" popovertargetaction="hide" popover>
+          <img class="modal-img" src="${escapeHtml(imgSrc)}"${modalSrcSetAttr} alt="${escapedTitle}" loading="lazy" />
+        </button>
+      </div>
+    `;
+}
+
 async function getUnsupportedMediaFallback(
   $: CheerioAPI,
   item: Element,
-  { id, title, channel }: ContentProcessorConfig
+  { hdImageBase = '', id, index, title, channel }: ContentProcessorConfig
 ): Promise<string> {
   const className = $(item).attr('class') ?? '';
   const hasUnsupportedMediaNotice = $(item).find('.message_media_not_supported_wrap, .message_media_not_supported_label').length > 0;
@@ -658,6 +699,11 @@ async function getUnsupportedMediaFallback(
 
   if (!className.includes('text_not_supported_wrap') || !hasUnsupportedMediaNotice || !id) {
     return '';
+  }
+
+  const imageFallback = buildUnsupportedMediaImageFallback({ hdImageBase, id, index, title });
+  if (imageFallback) {
+    return imageFallback;
   }
 
   return buildUnsupportedMediaCard(
