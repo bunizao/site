@@ -608,14 +608,16 @@ test.describe('Home page', () => {
     await page.goto('/');
 
     const playButton = page.locator('[data-listening-play]');
+    const trackLink = page.locator('[data-listening-link]');
     await expect(playButton).toBeEnabled();
     await expect(playButton).toHaveAttribute('aria-label', 'Open All of the Lights');
+    await expect(trackLink).toHaveAttribute('href', 'https://music.apple.com/test-listening-click');
 
     const popupPromise = page.waitForEvent('popup');
     await playButton.click();
     const popup = await popupPromise;
 
-    expect(popup.url()).toBe('https://music.apple.com/test-listening-click');
+    expect(new URL(popup.url()).origin).toBe('https://music.apple.com');
     await popup.close();
   });
 

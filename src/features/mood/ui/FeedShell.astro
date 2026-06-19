@@ -114,8 +114,15 @@ function getPostHref(post: MoodFeedItem): string | undefined {
     : undefined;
 }
 
-function getThumbClass(post: MoodFeedItem, isTooBigVideoPreview = post.previewMediaType === 'too-big-video'): string {
+function getThumbClass(
+  post: MoodFeedItem,
+  isTooBigVideoPreview = post.previewMediaType === 'too-big-video',
+  isPriorityMedia = false,
+): string {
   const classes = ['mood-item-thumb'];
+  if (isPriorityMedia) {
+    classes.push('mood-item-thumb--priority');
+  }
   if (isTooBigVideoPreview) {
     classes.push('mood-item-thumb--video');
   }
@@ -183,11 +190,7 @@ function shouldHideQuoteAuthor(value?: string): boolean {
   return Boolean((slug && normalized === slug) || (title && normalized === title));
 }
 
-// Render the whole initial payload server-side. Rendering only a critical slice
-// meant the client appended the remaining posts after first paint, which reflowed
-// the feed and was the dominant mood CLS source. The edge-cached upstream keeps
-// TTFB low despite the larger HTML; the client now dedups every post (no append).
-const criticalInitialPosts = getCriticalInitialPosts(initialPosts, anchorId, initialPosts.length);
+const criticalInitialPosts = getCriticalInitialPosts(initialPosts, anchorId);
 const criticalDateGroups = groupPostsByDate(criticalInitialPosts);
 const criticalPriorityPostId = criticalInitialPosts.find(hasRenderableMoodFeedMedia)?.id ?? '';
 const hasCriticalInitialPosts = criticalInitialPosts.length > 0;
@@ -366,7 +369,15 @@ const hasCriticalInitialPosts = criticalInitialPosts.length > 0;
                     ) : hasGalleryPreview && post.gallery ? (
                       <Fragment set:html={renderMoodGalleryMarkup(post.gallery, { variant: 'feed', priority: isPriorityMedia })} />
                     ) : thumbImage || isTooBigVideoPreview ? (
-                      <div class={getThumbClass(post, isTooBigVideoPreview)} style={getMoodFeedThumbnailStyle({ imageWidth: thumbWidth, imageHeight: thumbHeight })}>
+                      <div
+                        class={getThumbClass(post, isTooBigVideoPreview, isPriorityMedia)}
+                        style={getMoodFeedThumbnailStyle({
+                          imageWidth: thumbWidth,
+                          imageHeight: thumbHeight,
+                          imageLayout: isTooBigVideoPreview ? null : post.imageLayout,
+                          priority: isPriorityMedia,
+                        })}
+                      >
                         {thumbImage ? (
                           <img
                             alt=""

@@ -69,7 +69,7 @@ describe('Cloudflare runtime configuration', () => {
     expect(lighthouseWorkflow).toContain("inputUrl || 'https://buxx.me'");
     expect(lighthouseWorkflow).toContain('Wait for Cloudflare production deploy');
     expect(lighthouseWorkflow).toContain('node-version-file: .node-version');
-    expect(lighthouseWorkflow).not.toContain('branches:');
+    expect(lighthouseWorkflow).toContain('branches: [main]');
     expect(lighthouseWorkflow).not.toContain('deployment_status:');
     expect(lighthouseWorkflow).not.toContain('github.event.deployment');
   });
@@ -166,14 +166,14 @@ describe('Cloudflare runtime configuration', () => {
     expect(config.triggers).toBeUndefined();
   });
 
-  test('allows Cloudflare scripts needed by production HTML', () => {
+  test('keeps production HTML script CSP tight', () => {
     const headers = readText('public/_headers');
 
     expect(headers).toContain('https://buxx.me/');
     expect(headers).toContain("script-src 'unsafe-inline' https://buxx.me/_astro/");
-    expect(headers).toContain('https://buxx.me/cdn-cgi/challenge-platform/');
     expect(headers).toContain('https://static.cloudflareinsights.com');
     expect(headers).toContain('https://challenges.cloudflare.com');
+    expect(headers).not.toContain('/cdn-cgi/challenge-platform/');
     expect(headers).not.toContain("'self' 'unsafe-inline'");
     expect(headers).not.toContain('https://www.googletagmanager.com');
     expect(headers).toContain("base-uri 'self'");
@@ -186,19 +186,18 @@ describe('Cloudflare runtime configuration', () => {
     expect(middleware).toContain('Content-Security-Policy');
     expect(middleware).toContain("script-src 'unsafe-inline'");
     expect(middleware).toContain('/_astro/');
-    expect(middleware).toContain('/cdn-cgi/challenge-platform/');
     expect(middleware).toContain('https://static.cloudflareinsights.com');
     expect(middleware).toContain('https://challenges.cloudflare.com');
+    expect(middleware).not.toContain('/cdn-cgi/challenge-platform/');
     expect(middleware).not.toContain("script-src 'self' 'unsafe-inline'");
     expect(middleware).not.toContain('https://www.googletagmanager.com');
   });
 
-  test('blocks Cloudflare JavaScript detections on mood HTML', () => {
+  test('blocks Cloudflare JavaScript detections on public HTML', () => {
     const middleware = readText('src/middleware.ts');
 
-    expect(middleware).toContain("pathname === '/mood'");
-    expect(middleware).toContain("pathname.startsWith('/mood/')");
-    expect(middleware).toContain('allowCloudflareDetections: !isMoodPath(url.pathname)');
+    expect(middleware).not.toContain('allowCloudflareDetections');
+    expect(middleware).not.toContain('cdn-cgi/challenge-platform');
   });
 
   test('keeps non-priority mood images lazy when dimensions are incomplete', () => {
@@ -247,7 +246,8 @@ describe('Cloudflare runtime configuration', () => {
     expect(hero).toContain('<h1 class="hero-animate');
     expect(hero).toContain('import gsap from \'gsap\';');
     expect(hero).toContain('<span class="hero-lcp-anchor" aria-hidden="true">{typewriterNames[0]}</span>');
-    expect(decodeText).toContain('await document.fonts?.ready');
+    expect(decodeText).toContain('document.fonts?.ready');
+    expect(decodeText).toContain('window.setTimeout(resolve, 400)');
     expect(decodeText).toContain('const FALLBACK_START_MS = 1500;');
     expect(decodeText).toContain('const LINE_DURATION_PER_CHAR = 0.024;');
     expect(decodeText).toContain('const LINE_DELAY_FACTOR = 0.16;');

@@ -14,18 +14,11 @@ function isDevPortalPath(pathname: string): boolean {
   return pathname === DEV_PORTAL_PREFIX || pathname.startsWith(`${DEV_PORTAL_PREFIX}/`);
 }
 
-function isMoodPath(pathname: string): boolean {
-  return pathname === '/mood' || pathname.startsWith('/mood/');
-}
-
-export function createHtmlScriptCsp(origin: string, options: { allowCloudflareDetections?: boolean } = {}): string {
+export function createHtmlScriptCsp(origin: string): string {
   const cleanOrigin = origin.replace(/\/+$/, '');
-  const cloudflareDetections = options.allowCloudflareDetections === false
-    ? ''
-    : ` ${cleanOrigin}/cdn-cgi/challenge-platform/`;
 
   return [
-    `script-src 'unsafe-inline' ${cleanOrigin}/_astro/${cloudflareDetections} https://static.cloudflareinsights.com https://challenges.cloudflare.com http://localhost:* http://127.0.0.1:*`,
+    `script-src 'unsafe-inline' ${cleanOrigin}/_astro/ https://static.cloudflareinsights.com https://challenges.cloudflare.com http://localhost:* http://127.0.0.1:*`,
     "base-uri 'self'",
     "object-src 'none'",
   ].join('; ');
@@ -39,9 +32,7 @@ function withHtmlSecurityHeaders(request: Request, response: Response): Response
 
   const headers = new Headers(response.headers);
   const url = new URL(request.url);
-  headers.set('Content-Security-Policy', createHtmlScriptCsp(url.origin, {
-    allowCloudflareDetections: !isMoodPath(url.pathname),
-  }));
+  headers.set('Content-Security-Policy', createHtmlScriptCsp(url.origin));
   return new Response(response.body, {
     status: response.status,
     statusText: response.statusText,

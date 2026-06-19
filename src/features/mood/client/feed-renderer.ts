@@ -7,6 +7,7 @@ import {
 } from '@/features/mood/shared/feed-anchor';
 import { buildMoodPreviewFragment } from '@/features/mood/shared/preview';
 import { findTooBigVideoMedia, renderStructuredMoodFeedMediaMarkup } from '@/features/mood/shared/feed-media';
+import { getMoodFeedThumbnailStyle } from '@/features/mood/shared/feed-thumbnail';
 import type { ChannelInfo, MoodData } from '@/features/mood/client/feed-types';
 
 interface FeedCommentsPopover {
@@ -458,6 +459,9 @@ export function createFeedRenderer({
     } else if (hasImagePreview || isTooBigVideoPreview) {
       const thumbWrap = document.createElement('div');
       thumbWrap.className = 'mood-item-thumb';
+      if (isPriorityMedia) {
+        thumbWrap.classList.add('mood-item-thumb--priority');
+      }
       if (isTooBigVideoPreview) {
         thumbWrap.classList.add('mood-item-thumb--video');
       }
@@ -491,6 +495,18 @@ export function createFeedRenderer({
           thumbWrap.classList.add('mood-item-thumb--video-ultra-tall');
         } else if (aspectRatio < 0.8) {
           thumbWrap.classList.add('mood-item-thumb--video-portrait');
+        }
+      }
+
+      if (!isTooBigVideoPreview) {
+        const thumbnailStyle = getMoodFeedThumbnailStyle({
+          imageWidth,
+          imageHeight,
+          imageLayout,
+          priority: isPriorityMedia,
+        });
+        if (thumbnailStyle) {
+          thumbWrap.setAttribute('style', thumbnailStyle);
         }
       }
 
@@ -541,7 +557,7 @@ export function createFeedRenderer({
         }
 
         const hasKnownImageBox = isPositiveDimension(imageWidth) && isPositiveDimension(imageHeight);
-        if (hasKnownImageBox) {
+        if (hasKnownImageBox && isTooBigVideoPreview) {
           thumbWrap.style.setProperty('--mood-thumb-ratio', `${imageWidth} / ${imageHeight}`);
         }
 
