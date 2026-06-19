@@ -5,6 +5,7 @@ function createMoodFeedPost(
   id: string,
   text = `E2E mood feed item ${id}`,
   overrides: Partial<{
+    datetime: string;
     image: string | null;
     imageFallback: string | null;
     imageHeight: number | null;
@@ -684,6 +685,126 @@ test.describe('Mood routes', () => {
         return await headerActions.evaluate((element) => Number(getComputedStyle(element).opacity));
       }, { timeout: 30_000 })
       .toBeLessThan(0.1);
+  });
+
+  test('keeps the desktop timeline wheel flat on hover while preserving the top control', async ({ page }) => {
+    const moodId = '991000';
+    const channel = {
+      slug: 'e2e',
+      title: 'E2E Channel',
+      description: 'E2E mood feed',
+      avatar: '',
+    };
+    const posts = Array.from({ length: 36 }, (_value, index) => {
+      const date = new Date(Date.UTC(2026, 1, 10 - Math.floor(index / 6), 13, index));
+      const id = String(Number(moodId) - index);
+      return createMoodFeedPost(
+        id,
+        `E2E timeline wheel item ${id} ${'body '.repeat(24)}`,
+        { datetime: date.toISOString() }
+      );
+    });
+
+    await page.setViewportSize({ width: 1280, height: 720 });
+
+    await page.route('**/api/moods**', async (route) => {
+      const url = new URL(route.request().url());
+      if (url.searchParams.get('probe') === '1') {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({ latestId: moodId }),
+        });
+        return;
+      }
+
+      if (url.searchParams.has('before') || url.searchParams.has('after')) {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({ posts: [], channel }),
+        });
+        return;
+      }
+
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ posts, channel }),
+      });
+    });
+
+    await page.goto('/mood', { waitUntil: 'domcontentloaded' });
+    await expect(page.locator('[data-mood-feed]')).not.toHaveClass(/is-hidden/, { timeout: 30_000 });
+
+    const wheel = page.locator('[data-timeline-wheel]');
+    const topButton = page.locator('[data-timeline-top]');
+    const label = page.locator('[data-timeline-label]');
+    await expect(wheel).toHaveClass(/is-visible/, { timeout: 30_000 });
+    await expect(topButton).toBeVisible();
+    await expect.poll(() => label.evaluate((element) => element.textContent?.trim() ?? '')).not.toBe('');
+
+    const beforeHover = await page.evaluate(() => {
+      const notches = Array.from(document.querySelectorAll<HTMLElement>('.timeline-notch.is-major'));
+      const active = document.querySelector<HTMLElement>('.timeline-notch.is-major.is-active');
+      const top = document.querySelector<HTMLElement>('[data-timeline-top]');
+      if (!active || !top) throw new Error('Timeline wheel is missing active controls');
+
+      return {
+        activeTransform: getComputedStyle(active).transform,
+        activeWidth: active.getBoundingClientRect().width,
+        cursor: getComputedStyle(top).cursor,
+        transforms: notches.map((notch) => getComputedStyle(notch).transform),
+        wheelTransform: getComputedStyle(document.querySelector<HTMLElement>('[data-timeline-wheel]')!).transform,
+      };
+    });
+
+    await topButton.hover();
+    await expect
+      .poll(() => label.evaluate((element) => (
+        element.textContent?.replace(/(.)\1+/g, '$1').replace(/\s+/g, ' ').trim() ?? ''
+      )))
+      .toContain('TOP');
+    await page.waitForTimeout(350);
+
+    const afterHover = await page.evaluate(() => {
+      const notches = Array.from(document.querySelectorAll<HTMLElement>('.timeline-notch.is-major'));
+      const active = document.querySelector<HTMLElement>('.timeline-notch.is-major.is-active');
+      const top = document.querySelector<HTMLElement>('[data-timeline-top]');
+      if (!active || !top) throw new Error('Timeline wheel is missing active controls');
+
+      return {
+        activeTransform: getComputedStyle(active).transform,
+        activeWidth: active.getBoundingClientRect().width,
+        cursor: getComputedStyle(top).cursor,
+        transforms: notches.map((notch) => getComputedStyle(notch).transform),
+        wheelTransform: getComputedStyle(document.querySelector<HTMLElement>('[data-timeline-wheel]')!).transform,
+      };
+    });
+
+    expect(afterHover.transforms).toEqual(beforeHover.transforms);
+    expect(afterHover.activeTransform).toBe(beforeHover.activeTransform);
+    expect(afterHover.activeWidth).toBeGreaterThan(beforeHover.activeWidth);
+    expect(afterHover.wheelTransform).toBe(beforeHover.wheelTransform);
+    expect(afterHover.cursor).toBe('pointer');
+    expect(beforeHover.cursor).toBe('pointer');
+
+    await page.evaluate(() => window.scrollTo({ top: document.body.scrollHeight * 0.7, behavior: 'instant' }));
+    await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(720);
+
+    const labelBox = await label.boundingBox();
+    expect(labelBox).not.toBeNull();
+    const labelCenter = {
+      x: labelBox!.x + labelBox!.width / 2,
+      y: labelBox!.y + labelBox!.height / 2,
+    };
+    const topButtonOwnsLabelHitArea = await page.evaluate(({ x, y }) => {
+      return document.elementFromPoint(x, y)?.closest('[data-timeline-top]') !== null;
+    }, labelCenter);
+    expect(topButtonOwnsLabelHitArea).toBe(true);
+
+    await page.mouse.click(labelCenter.x, labelCenter.y);
+    await expect.poll(() => page.evaluate(() => Math.round(window.scrollY))).toBe(0);
   });
 
   test('renders rich comment content in the feed popover', async ({ page }) => {
