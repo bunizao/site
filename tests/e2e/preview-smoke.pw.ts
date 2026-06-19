@@ -40,18 +40,18 @@ test.describe('Preview smoke', () => {
       .toMatch(/loading|feed|error/);
   });
 
-  test('keeps protected docs behind login during dev bypass', async ({ page }) => {
-    await page.goto('/docs/quality/debug-logs/');
+  test('keeps protected docs behind Access without an identity', async ({ request }) => {
+    const response = await request.get('/docs/quality/debug-logs/');
 
-    await expect(page).toHaveURL(/\/oauth\/login/);
-    const url = new URL(page.url());
-    expect(url.searchParams.get('next')).toBe('/docs/quality/debug-logs/');
+    expect(response.status()).toBe(401);
+    expect(response.headers()['cache-control']).toContain('no-store');
   });
 
-  test('redirects the dev root to the admin portal', async ({ page }) => {
-    await page.goto('/dev');
+  test('redirects the dev root to the admin portal', async ({ request }) => {
+    const response = await request.get('/dev', { maxRedirects: 0 });
 
-    await expect(page).toHaveURL(/\/dev\/portal$/);
+    expect(response.status()).toBe(302);
+    expect(response.headers().location).toBe('/dev/portal');
   });
 
   test('routes direct private API URLs through the Worker proxy', async ({ request }) => {

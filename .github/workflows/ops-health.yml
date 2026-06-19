@@ -39,7 +39,7 @@ jobs:
         env:
           SITE_URL: https://buxx.me
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_EXPECTED_WEBHOOK_URL: https://image.buxx.me/webhook
+          TELEGRAM_EXPECTED_WEBHOOK_URL: https://api.buxx.me/v2/telegram/webhook
           HD_IMAGE_HEALTH_SAMPLE_SIZE: 4
           HD_IMAGE_HEALTH_TIMEOUT_MS: 4000
           LIVE_PHOTO_DETAIL_IDS: 3327

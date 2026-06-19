@@ -62,10 +62,11 @@ function accessRequired(): Response {
 async function readAdminSession(context: {
   request: Request;
   locals: unknown;
+  allowDevBypass?: boolean;
 }): Promise<AdminSessionIdentity | null> {
   const url = new URL(context.request.url);
   const locals = context.locals as RuntimeEnvLocals | undefined;
-  return readAdminDevBypassSession(locals, url.hostname)
+  return (context.allowDevBypass ? readAdminDevBypassSession(locals, url.hostname) : null)
     ?? await readCloudflareAccessIdentity(context.request, locals);
 }
 
@@ -75,7 +76,7 @@ export const onRequest = defineMiddleware(async (context, next) => {
 
   // Admin portal: served by this worker, gated by Cloudflare Access in production.
   if (isDevPortalPath(pathname)) {
-    const session = await readAdminSession(context);
+    const session = await readAdminSession({ ...context, allowDevBypass: true });
     if (!session) {
       return accessRequired();
     }

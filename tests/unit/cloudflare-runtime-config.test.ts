@@ -74,6 +74,13 @@ describe('Cloudflare runtime configuration', () => {
     expect(lighthouseWorkflow).not.toContain('github.event.deployment');
   });
 
+  test('runs ops health against the current Telegram webhook route', () => {
+    const opsWorkflow = readText('.github/workflows/ops-health.yml');
+
+    expect(opsWorkflow).toContain('TELEGRAM_EXPECTED_WEBHOOK_URL: https://api.buxx.me/v2/telegram/webhook');
+    expect(opsWorkflow).not.toContain('TELEGRAM_EXPECTED_WEBHOOK_URL: https://image.buxx.me/webhook');
+  });
+
   test('uses the Cloudflare Astro adapter and root Wrangler scripts', () => {
     const packageJson = readJson('package.json') as {
       scripts?: Record<string, string>;
@@ -262,6 +269,13 @@ describe('Cloudflare runtime configuration', () => {
 
     expect(moodRoute).toContain("readPublicEnv(Astro.locals, 'TURNSTILE_SITE_KEY')");
     expect(moodRoute).not.toContain('import.meta.env.PUBLIC_TURNSTILE_SITE_KEY');
+  });
+
+  test('keeps the homepage dev surface flag away from Vite import.meta transforms', () => {
+    const homePage = readText('src/pages/index.astro');
+
+    expect(homePage).toContain("process.env.DEV_SURFACE === 'home'");
+    expect(homePage).not.toContain('import.meta.env.DEV');
   });
 
   test('documents Ghost publishing through Cloudflare deploy hooks', () => {
