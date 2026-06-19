@@ -27,6 +27,13 @@ function scorePercent(score) {
   return typeof score === 'number' ? Math.round(score * 100) : 'n/a';
 }
 
+function median(values) {
+  const nums = values.filter((value) => typeof value === 'number').sort((a, b) => a - b);
+  if (nums.length === 0) return undefined;
+  const mid = Math.floor(nums.length / 2);
+  return nums.length % 2 ? nums[mid] : (nums[mid - 1] + nums[mid]) / 2;
+}
+
 function formatScoreCell(score, threshold) {
   if (typeof score !== 'number') return '❌ n/a';
   const percent = scorePercent(score);
@@ -110,69 +117,66 @@ function buildSummary() {
   if (!manifestPath) return buildMissingManifestSummary();
 
   const manifest = readJson(manifestPath);
-  const representatives = manifest.filter((entry) => entry.isRepresentativeRun);
-  const entries = representatives.length > 0 ? representatives : manifest;
+  // Gate on the median of EACH metric across all runs, not on a single
+  // "representative" run. Lighthouse's simulated throttling amplifies the
+  // runner's CPU jitter, so any one run can spike LCP/CLS/TBT well past the
+  // others; reporting one run's snapshot let that noise flap the gate. A
+  // per-metric median is the objective signal.
+  const runsByUrl = new Map();
+  for (const entry of manifest) {
+    if (!runsByUrl.has(entry.url)) runsByUrl.set(entry.url, []);
+    runsByUrl.get(entry.url).push(entry);
+  }
+
   const rows = [];
   const anomalies = [];
 
-  for (const entry of entries) {
-    const reportPath = resolveReportPath(entry.jsonPath);
-    if (!reportPath || !fs.existsSync(reportPath)) {
-      anomalies.push(`${entry.url}: missing JSON report`);
-      rows.push([entry.url, 'n/a', 'n/a', 'n/a', 'n/a', 'n/a', 'n/a', 'n/a', 'n/a', 'Fail']);
+  for (const [url, urlEntries] of runsByUrl) {
+    const reports = urlEntries
+      .map((entry) => resolveReportPath(entry.jsonPath))
+      .filter((reportPath) => reportPath && fs.existsSync(reportPath))
+      .map((reportPath) => readJson(reportPath));
+
+    if (reports.length === 0) {
+      anomalies.push(`${url}: missing JSON report`);
+      rows.push([url, 'n/a', 'n/a', 'n/a', 'n/a', 'n/a', 'n/a', 'n/a', 'n/a', 'Fail']);
       continue;
     }
 
-    const report = readJson(reportPath);
-    const categories = report.categories || {};
-    const audits = report.audits || {};
+    const categoryMedian = (category) => median(reports.map((report) => report.categories?.[category]?.score));
+    const auditMedian = (auditId) => median(reports.map((report) => report.audits?.[auditId]?.numericValue));
+
     const rowFailures = [];
-    const categoryThresholds = getCategoryThresholds(entry.url);
+    const categoryThresholds = getCategoryThresholds(url);
 
     for (const [category, threshold] of Object.entries(categoryThresholds)) {
-      const score = categories[category]?.score;
+      const score = categoryMedian(category);
       if (typeof score !== 'number' || score < threshold) {
         rowFailures.push(`${formatCategoryName(category)} ${scorePercent(score)} < ${scorePercent(threshold)}`);
       }
     }
 
     for (const [auditId, threshold] of Object.entries(metricThresholds)) {
-      const value = audits[auditId]?.numericValue;
+      const value = auditMedian(auditId);
       if (typeof value !== 'number' || value > threshold) {
         rowFailures.push(`${formatAuditName(auditId)} ${formatMetric(value, auditId)} > ${formatMetric(threshold, auditId)}`);
       }
     }
 
     if (rowFailures.length > 0) {
-      anomalies.push(`${entry.url}: ${rowFailures.join(', ')}`);
+      anomalies.push(`${url}: ${rowFailures.join(', ')}`);
     }
 
     rows.push([
-      entry.url,
-      formatScoreCell(categories.performance?.score, categoryThresholds.performance),
-      formatScoreCell(categories.accessibility?.score, categoryThresholds.accessibility),
-      formatScoreCell(categories['best-practices']?.score, categoryThresholds['best-practices']),
-      typeof categoryThresholds.seo === 'number' ? formatScoreCell(categories.seo?.score, categoryThresholds.seo) : 'Not gated',
-      formatMetricCell(
-        audits['first-contentful-paint']?.numericValue,
-        metricThresholds['first-contentful-paint'],
-        'first-contentful-paint'
-      ),
-      formatMetricCell(
-        audits['largest-contentful-paint']?.numericValue,
-        metricThresholds['largest-contentful-paint'],
-        'largest-contentful-paint'
-      ),
-      formatMetricCell(
-        audits['total-blocking-time']?.numericValue,
-        metricThresholds['total-blocking-time'],
-        'total-blocking-time'
-      ),
-      formatMetricCell(
-        audits['cumulative-layout-shift']?.numericValue,
-        metricThresholds['cumulative-layout-shift'],
-        'cumulative-layout-shift'
-      ),
+      url,
+      formatScoreCell(categoryMedian('performance'), categoryThresholds.performance),
+      formatScoreCell(categoryMedian('accessibility'), categoryThresholds.accessibility),
+      formatScoreCell(categoryMedian('best-practices'), categoryThresholds['best-practices']),
+      typeof categoryThresholds.seo === 'number' ? formatScoreCell(categoryMedian('seo'), categoryThresholds.seo) : 'Not gated',
+      formatMetricCell(auditMedian('first-contentful-paint'), metricThresholds['first-contentful-paint'], 'first-contentful-paint'),
+      formatMetricCell(auditMedian('largest-contentful-paint'), metricThresholds['largest-contentful-paint'], 'largest-contentful-paint'),
+      formatMetricCell(auditMedian('total-blocking-time'), metricThresholds['total-blocking-time'], 'total-blocking-time'),
+      formatMetricCell(auditMedian('cumulative-layout-shift'), metricThresholds['cumulative-layout-shift'], 'cumulative-layout-shift'),
       rowFailures.length > 0 ? '❌ Fail' : '✅ Pass',
     ]);
   }
