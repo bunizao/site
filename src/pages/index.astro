@@ -14,7 +14,7 @@ export const prerender = true;
 
 const title = meta.homeTitle;
 const description = siteDescription;
-const isHomeDevSurface = import.meta.env.DEV && process.env.DEV_SURFACE === 'home';
+const isHomeDevSurface = process.env.DEV_SURFACE === 'home';
 ---
 
 <Layout

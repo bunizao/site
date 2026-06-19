@@ -271,6 +271,13 @@ describe('Cloudflare runtime configuration', () => {
     expect(moodRoute).not.toContain('import.meta.env.PUBLIC_TURNSTILE_SITE_KEY');
   });
 
+  test('keeps the homepage dev surface flag away from Vite import.meta transforms', () => {
+    const homePage = readText('src/pages/index.astro');
+
+    expect(homePage).toContain("process.env.DEV_SURFACE === 'home'");
+    expect(homePage).not.toContain('import.meta.env.DEV');
+  });
+
   test('documents Ghost publishing through Cloudflare deploy hooks', () => {
     const docsText = [
       'docs/HOME.md',
