@@ -3,6 +3,7 @@ import Layout from '../layouts/Layout.astro';
 import TimelineWheel from '@/features/mood/ui/TimelineWheel.astro';
 import FeedShell from '@/features/mood/ui/FeedShell.astro';
 import NotifyPanel from '@/features/mood/ui/NotifyPanel.astro';
+import BackToTop from '@/features/mood/ui/BackToTop.astro';
 import { loadMoodFeed } from '@/features/mood/server/api-client';
 import {
   getMoodFeedAnchorBeforeCursor,
@@ -300,6 +301,7 @@ const skeletonGroups = [
     />
   </main>
   <NotifyPanel turnstileSiteKey={turnstileSiteKey} />
+  <BackToTop hideOnDesktop />
 </Layout>
 
 <style>
@@ -1671,6 +1673,8 @@ const skeletonGroups = [
   :global(.mood-popover-comment-body) {
     flex: 1;
     min-width: 0;
+    /* Read comments in sans, not the inherited site mono. */
+    font-family: var(--font-sans);
     background: hsl(var(--foreground) / 0.04);
     border: 1px solid hsl(var(--foreground) / 0.05);
     border-radius: 14px;

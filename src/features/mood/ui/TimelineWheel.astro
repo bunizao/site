@@ -13,11 +13,14 @@
   </div>
   <!-- Ambient glow at active center -->
   <div class="timeline-wheel-glow"></div>
-  <!-- Label with connector -->
+  <!-- Label with connector. The label is a slot-text readout: the active date
+       rolls as you scroll, and rolls to "↑ TOP" when you pause deep in the feed. -->
   <div class="timeline-wheel-label-wrap">
     <div class="timeline-wheel-connector"></div>
     <div class="timeline-wheel-label" data-timeline-label></div>
   </div>
+  <!-- Click anywhere on the wheel to wind back to the top of the feed -->
+  <button type="button" class="timeline-wheel-top" data-timeline-top aria-label="Back to top"></button>
 </nav>
 
 <style>
@@ -37,7 +40,7 @@
     pointer-events: none;
     transition:
       opacity 0.6s cubic-bezier(0.16, 1, 0.3, 1),
-      transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+      transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
     overflow: visible;
   }
 
@@ -267,7 +270,8 @@
     flex-shrink: 0;
   }
 
-  /* Date label */
+  /* Date label — a slot-text readout. The active date rolls in as you scroll;
+     the controller rolls it to "↑ TOP" on hover and on a pause deep in the feed. */
   .timeline-wheel-label {
     font-size: 10px;
     font-weight: 600;
@@ -291,6 +295,70 @@
     transition:
       border-color 0.3s ease,
       box-shadow 0.3s ease;
+  }
+
+  /* The wheel telegraphs its back-to-top role on hover: the readout brightens
+     and the cursor turns actionable. The hit target includes the visible
+     readout, not just the narrow arc at the viewport edge. */
+  .timeline-wheel-top {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: calc(var(--visible-width) + 120px);
+    z-index: 3;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    cursor: pointer;
+    -webkit-appearance: none;
+    appearance: none;
+  }
+
+  .timeline-wheel-top:focus-visible {
+    outline: 2px solid hsl(var(--foreground) / 0.5);
+    outline-offset: 4px;
+    border-radius: 10px;
+  }
+
+  /* ── Hover: the instrument quietly illuminates under the cursor ── */
+  /* The readout brightens, a soft halo blooms at the active centre, and the
+     live mark extends a touch — minimal, no layout shift, no extra chrome. */
+  .timeline-wheel:hover .timeline-wheel-label {
+    color: hsl(var(--foreground));
+    border-color: hsl(var(--foreground) / 0.14);
+  }
+
+  .timeline-wheel:hover .timeline-wheel-glow {
+    opacity: 1;
+  }
+
+  .timeline-wheel:hover .timeline-wheel-connector {
+    background: linear-gradient(
+      to right,
+      hsl(var(--foreground) / 0.32),
+      hsl(var(--foreground) / 0.1)
+    );
+  }
+
+  .timeline-wheel:hover :global(.timeline-notch.is-major.is-active) {
+    width: 42px;
+    background: hsl(var(--foreground));
+    box-shadow:
+      0 0 10px hsl(var(--foreground) / 0.16),
+      0 0 26px hsl(var(--foreground) / 0.08);
+  }
+
+  /* ── Hint pulse: the rare auto cue gets a single glow bloom for weight ── */
+  .timeline-wheel.is-hinting .timeline-wheel-glow {
+    animation: wheel-hint-pulse 0.9s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  @keyframes wheel-hint-pulse {
+    0% { opacity: 0.5; transform: translateY(-50%) scale(1); }
+    35% { opacity: 1; transform: translateY(-50%) scale(1.4); }
+    100% { opacity: 0.5; transform: translateY(-50%) scale(1); }
   }
 
   /* ── Loading skeleton state (GSAP-driven) ── */

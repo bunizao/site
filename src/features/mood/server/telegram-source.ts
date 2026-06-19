@@ -883,6 +883,11 @@ function getNotSupportedVideo(
     ? `<img class="video-too-big__thumb" src="${escapeHtml(proxiedThumb)}" alt="" loading="lazy" />`
     : '';
 
+  const durationText = player.find('.message_video_duration').first().text().trim();
+  const durationMarkup = durationText
+    ? `<span class="video-too-big__duration">${escapeHtml(durationText)}</span>`
+    : '';
+
   return `
     <a class="video-too-big" href="${escapeHtml(postUrl)}" target="_blank" rel="noopener noreferrer"${aspectStyle}>
       ${thumbMarkup}
@@ -891,6 +896,7 @@ function getNotSupportedVideo(
         <span class="video-too-big__label">Media is too big</span>
         <span class="video-too-big__btn">View in Telegram</span>
       </span>
+      ${durationMarkup}
     </a>
   `;
 }

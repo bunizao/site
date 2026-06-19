@@ -288,6 +288,9 @@ const {
     width: fit-content;
     max-width: 100%;
     min-width: 0;
+    /* Comments are human prose — read in sans, not the site's mono identity
+       that body inherits by default. */
+    font-family: var(--font-sans);
     background: hsl(var(--foreground) / 0.035);
     border: 1px solid hsl(var(--foreground) / 0.08);
     border-radius: var(--comment-body-radius, 12px);

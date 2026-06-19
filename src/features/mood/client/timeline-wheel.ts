@@ -1,4 +1,6 @@
 import type gsap from 'gsap';
+import { slotText, type SlotOptions, type SlotTextController } from 'slot-text';
+import 'slot-text/style.css';
 import { getTimelineDateState } from '@/features/mood/client/timeline-date-tracker';
 
 type GsapModule = typeof gsap;
@@ -14,6 +16,83 @@ export function initMoodTimelineWheel(): void {
 
   const isDesktop = (): boolean => window.innerWidth >= 1024;
   const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  // The wheel doubles as a back-to-top control: clicking it returns to the
+  // feed top, and the existing scroll sync winds the dial back as you go.
+  const topButton = wheel.querySelector('[data-timeline-top]') as HTMLButtonElement | null;
+  topButton?.addEventListener('click', () => {
+    window.scrollTo({ top: 0, behavior: prefersReducedMotion ? 'auto' : 'smooth' });
+  });
+
+  // The readout is a slot-text display: the active date rolls in as you scroll
+  // down, and rolls to "↑ TOP" to expose the back-to-top role — on hover, and
+  // whenever the reader scrolls back up past the first screen (the moment they
+  // are likely heading for the top), then rolls back to the date on the way down.
+  const TOP_TEXT = '↑ TOP';
+  const REVEAL_AT = (): number => window.innerHeight;
+  const DIR_DELTA = 6; // px of travel before a direction flip counts (anti-jitter)
+  const rollBase: SlotOptions = prefersReducedMotion
+    ? { stagger: 0, duration: 0, bounce: 0 }
+    : {};
+  // Date → date: keep shared characters static so only what changed rolls
+  // (within a month, just the day digit ticks over).
+  const dateRoll: SlotOptions = { direction: 'down', skipUnchanged: true, ...rollBase };
+  // Transitions to/from "↑ TOP" are fully misaligned, so roll the whole line
+  // uniformly instead of freezing stray matching glyphs.
+  const topRoll: SlotOptions = { direction: 'up', skipUnchanged: false, ...rollBase };
+  const dateReturnRoll: SlotOptions = { direction: 'down', skipUnchanged: false, ...rollBase };
+
+  let roll: SlotTextController | null = null;
+  let currentDateText = '';
+  let shownText = '';
+  let isHoveringWheel = false;
+  let topRevealed = false;
+  let hintPulseTimer = 0;
+  let dirAnchorY = 0;
+  let scrollDir: 'up' | 'down' = 'down';
+
+  const wantsTop = (): boolean => topRevealed || isHoveringWheel;
+
+  // Render whatever the readout should currently show, picking the right roll
+  // for the transition and skipping no-op re-rolls.
+  const renderReadout = (): void => {
+    roll ??= slotText(label, '', dateRoll);
+    const target = wantsTop() ? TOP_TEXT : currentDateText;
+    if (shownText === target) return;
+    const opts = target === TOP_TEXT ? topRoll : shownText === TOP_TEXT ? dateReturnRoll : dateRoll;
+    roll.set(target, opts);
+    shownText = target;
+  };
+
+  const showDate = (text: string): void => {
+    currentDateText = text;
+    renderReadout();
+  };
+
+  // A brief glow pulse on the wheel when the cue surfaces — a little sensory
+  // weight so the moment registers instead of arriving silently.
+  const pulseWheelHint = (): void => {
+    if (prefersReducedMotion) return;
+    wheel.classList.add('is-hinting');
+    clearTimeout(hintPulseTimer);
+    hintPulseTimer = window.setTimeout(() => wheel.classList.remove('is-hinting'), 900);
+  };
+
+  const setTopRevealed = (next: boolean): void => {
+    if (next === topRevealed) return;
+    topRevealed = next;
+    renderReadout();
+    if (next && !isHoveringWheel) pulseWheelHint();
+  };
+
+  wheel.addEventListener('mouseenter', () => {
+    isHoveringWheel = true;
+    renderReadout();
+  });
+  wheel.addEventListener('mouseleave', () => {
+    isHoveringWheel = false;
+    renderReadout();
+  });
 
   let dateGroups: HTMLElement[] = [];
   let notches: HTMLElement[] = [];
@@ -291,7 +370,7 @@ export function initMoodTimelineWheel(): void {
     if (index === activeIndex && notches.length > 0) return;
 
     if (index < 0 || index >= dateGroups.length) {
-      label.textContent = '';
+      showDate('');
       activeIndex = -1;
       return;
     }
@@ -309,7 +388,7 @@ export function initMoodTimelineWheel(): void {
     if (notches[index + 2]) notches[index + 2].classList.add('is-near');
 
     const dateKey = dateGroups[index]?.dataset.date || '';
-    label.textContent = formatDate(dateKey);
+    showDate(formatDate(dateKey));
 
     activeIndex = index;
   };
@@ -438,6 +517,17 @@ export function initMoodTimelineWheel(): void {
 
   const handleWindowScroll = (): void => {
     if (!scrollSyncActive || dateGroups.length === 0 || !isDesktop()) return;
+    // Track direction with a small dead zone, then reveal "↑ TOP" only while the
+    // reader is scrolling back up past the first screen — the moment a jump to
+    // the top is most likely wanted. Scrolling down (or nearing the top) hides it.
+    const y = window.scrollY;
+    const dy = y - dirAnchorY;
+    if (Math.abs(dy) >= DIR_DELTA) {
+      scrollDir = dy < 0 ? 'up' : 'down';
+      dirAnchorY = y;
+    }
+    setTopRevealed(scrollDir === 'up' && y > REVEAL_AT());
+
     wheel.classList.add('is-scrolling');
     clearTimeout(scrollTimer);
     scrollTimer = window.setTimeout(() => {
@@ -456,7 +546,8 @@ export function initMoodTimelineWheel(): void {
       scrollSyncRaf = 0;
     }
     clearTimeout(scrollTimer);
-    wheel.classList.remove('is-scrolling');
+    clearTimeout(hintPulseTimer);
+    wheel.classList.remove('is-scrolling', 'is-hinting');
 
     if (listResizeObserver) {
       listResizeObserver.disconnect();
@@ -467,6 +558,8 @@ export function initMoodTimelineWheel(): void {
   const setupScrollSync = (): void => {
     destroyScrollSync();
     scrollSyncActive = true;
+    dirAnchorY = window.scrollY;
+    scrollDir = 'down';
     window.addEventListener('scroll', handleWindowScroll, { passive: true });
     listResizeObserver = new ResizeObserver(scheduleAnchorRefresh);
     listResizeObserver.observe(list);

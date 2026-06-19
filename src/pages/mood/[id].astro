@@ -6,8 +6,8 @@ import { loadMoodDocument } from '@/features/mood/server/api-client';
 import '@/styles/mood-gallery.css';
 import { renderMoodContentWithGalleries } from '@/features/mood/shared/gallery';
 import { getMoodFeedAnchorHref } from '@/features/mood/shared/feed-anchor';
-import { addTooBigVideoTimestamp } from '@/features/mood/shared/video-placeholder';
 import DetailArticle from '@/features/mood/ui/DetailArticle.astro';
+import BackToTop from '@/features/mood/ui/BackToTop.astro';
 import { buildMoodDetailMetadata } from '@/features/mood/server/detail-metadata';
 import { readEnv } from '@/lib/runtime/env';
 
@@ -53,7 +53,7 @@ const moodFeedBackHref = getMoodFeedAnchorHref(id ?? '');
 const channel = readEnv(Astro.locals, 'CHANNEL');
 const telegramCommentUrl = channel && id ? `https://t.me/${channel}/${id}?comment=1` : '';
 const renderedPostContent = post
-  ? addTooBigVideoTimestamp(renderMoodContentWithGalleries(post.bodyHtml), post.datetime)
+  ? renderMoodContentWithGalleries(post.bodyHtml)
   : '';
 ---
 
@@ -78,6 +78,7 @@ const renderedPostContent = post
       backHref={moodFeedBackHref}
     />
   </main>
+  <BackToTop />
 </Layout>
 
 <script>
