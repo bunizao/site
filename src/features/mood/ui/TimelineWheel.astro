@@ -318,9 +318,43 @@
     border-radius: 10px;
   }
 
+  /* ── Hover: the instrument quietly illuminates under the cursor ── */
+  /* The readout brightens, a soft halo blooms at the active centre, and the
+     live mark leans out a touch — minimal, no layout shift, no extra chrome. */
   .timeline-wheel:hover .timeline-wheel-label {
     color: hsl(var(--foreground));
     border-color: hsl(var(--foreground) / 0.14);
+  }
+
+  .timeline-wheel:hover .timeline-wheel-glow {
+    opacity: 1;
+  }
+
+  .timeline-wheel:hover .timeline-wheel-connector {
+    background: linear-gradient(
+      to right,
+      hsl(var(--foreground) / 0.32),
+      hsl(var(--foreground) / 0.1)
+    );
+  }
+
+  .timeline-wheel:hover :global(.timeline-notch.is-major.is-active) {
+    width: 42px;
+    background: hsl(var(--foreground));
+    box-shadow:
+      0 0 10px hsl(var(--foreground) / 0.16),
+      0 0 26px hsl(var(--foreground) / 0.08);
+  }
+
+  /* ── Hint pulse: the rare auto cue gets a single glow bloom for weight ── */
+  .timeline-wheel.is-hinting .timeline-wheel-glow {
+    animation: wheel-hint-pulse 0.9s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  @keyframes wheel-hint-pulse {
+    0% { opacity: 0.5; transform: translateY(-50%) scale(1); }
+    35% { opacity: 1; transform: translateY(-50%) scale(1.4); }
+    100% { opacity: 0.5; transform: translateY(-50%) scale(1); }
   }
 
   /* ── Loading skeleton state (GSAP-driven) ── */

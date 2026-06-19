@@ -44,7 +44,11 @@ export function initMoodTimelineWheel(): void {
   let currentDateText = '';
   let isHoveringWheel = false;
   let hintSettleTimer = 0;
-  let hintCooldownUntil = 0;
+  let hintPulseTimer = 0;
+  // The auto "↑ TOP" cue fires at most once per descent: armed near the top,
+  // spent when it shows, re-armed only after the reader scrolls back up. This
+  // keeps it from churning on every pause — the rarity is the point.
+  let topHintArmed = true;
 
   const showDate = (text: string): void => {
     currentDateText = text;
@@ -54,15 +58,21 @@ export function initMoodTimelineWheel(): void {
     roll.set(text, dateRoll);
   };
 
+  // A brief glow pulse on the wheel when the cue fires — the rare moment earns
+  // a little sensory weight instead of arriving silently.
+  const pulseWheelHint = (): void => {
+    if (prefersReducedMotion) return;
+    wheel.classList.add('is-hinting');
+    clearTimeout(hintPulseTimer);
+    hintPulseTimer = window.setTimeout(() => wheel.classList.remove('is-hinting'), 900);
+  };
+
   const flashTopHint = (): void => {
-    // Don't fight hover, only offer when the jump is worth taking, and stay off
-    // a hair-trigger so the readout doesn't churn on every micro-pause.
-    if (isHoveringWheel || !isDesktop() || !roll) return;
+    if (isHoveringWheel || !isDesktop() || !roll || !topHintArmed) return;
     if (window.scrollY < window.innerHeight * 1.2) return;
-    const now = performance.now();
-    if (now < hintCooldownUntil) return;
-    hintCooldownUntil = now + 4000;
+    topHintArmed = false;
     roll.flash(TOP_TEXT, { revertAfter: 1600, enter: topRoll, exit: dateReturnRoll });
+    pulseWheelHint();
   };
 
   wheel.addEventListener('mouseenter', () => {
@@ -497,6 +507,9 @@ export function initMoodTimelineWheel(): void {
 
   const handleWindowScroll = (): void => {
     if (!scrollSyncActive || dateGroups.length === 0 || !isDesktop()) return;
+    // Re-arm the cue once the reader returns near the top (hysteresis against the
+    // 1.2-viewport fire line so a single descent never double-fires).
+    if (window.scrollY < window.innerHeight * 0.5) topHintArmed = true;
     wheel.classList.add('is-scrolling');
     clearTimeout(scrollTimer);
     clearTimeout(hintSettleTimer);
@@ -520,7 +533,8 @@ export function initMoodTimelineWheel(): void {
     }
     clearTimeout(scrollTimer);
     clearTimeout(hintSettleTimer);
-    wheel.classList.remove('is-scrolling');
+    clearTimeout(hintPulseTimer);
+    wheel.classList.remove('is-scrolling', 'is-hinting');
 
     if (listResizeObserver) {
       listResizeObserver.disconnect();
