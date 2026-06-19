@@ -14,6 +14,10 @@ interface Props {
 const { listeningTrack } = Astro.props;
 
 const { socials, typewriterNames, infoChips, bio } = hero;
+const lcpAnchorName = typewriterNames.reduce(
+  (longest, name) => (name.length > longest.length ? name : longest),
+  typewriterNames[0] ?? '',
+);
 
 // Split each bio line on the `**` highlight marker: odd chunks are emphasized.
 const bioLines = bio.map((line) => line.split('**'));
@@ -32,7 +36,7 @@ const bioLines = bio.map((line) => line.split('**'));
 
     <!-- Name -->
     <div class="hero-name-shell mb-2 text-[28px] font-semibold sm:text-[36px]">
-      <span class="hero-lcp-anchor" aria-hidden="true">{typewriterNames[0]}</span>
+      <span class="hero-lcp-anchor" aria-hidden="true">{lcpAnchorName}</span>
       <h1 class="hero-animate m-0" data-hero-name>
         <Typewriter texts={typewriterNames} speed={80} />
       </h1>

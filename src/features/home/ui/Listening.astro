@@ -130,10 +130,11 @@ const playLabel = hasPreview
       >
         <span class="listening-title" data-listening-title>
           <span class="listening-title-text" data-listening-title-text>
-            <span data-listening-title-label>{title}</span>
+            <span data-listening-title-label data-title={title}>{title}</span>
             <span
               class="listening-title-duplicate"
               data-listening-title-duplicate
+              data-title={title}
               aria-hidden="true"
             >
               {title}
@@ -553,10 +554,11 @@ const playLabel = hasPreview
     --title-marquee-duration: 14s;
     --title-marquee-distance: 0px;
     --title-marquee-width: 360px;
+    --listening-title-font-size: 15px;
     position: relative;
     flex: 0 1 auto;
     max-width: 100%;
-    font-size: 15px;
+    font-size: var(--listening-title-font-size);
     line-height: 1.28;
     color: hsl(var(--foreground));
     text-overflow: clip;
@@ -632,6 +634,19 @@ const playLabel = hasPreview
 
   [data-listening-title-label] {
     display: inline-block;
+  }
+
+  [data-listening-title-label],
+  [data-listening-title-duplicate] {
+    font-size: 0;
+  }
+
+  [data-listening-title-label]::before,
+  [data-listening-title-duplicate]::before {
+    content: attr(data-title);
+    display: inline-block;
+    font-size: var(--listening-title-font-size);
+    line-height: inherit;
   }
 
   .listening-title.is-marquee .listening-title-text {
@@ -720,7 +735,7 @@ const playLabel = hasPreview
     }
 
     .listening-title {
-      font-size: 14px;
+      --listening-title-font-size: 14px;
     }
 
     .listening-artist {
@@ -1156,7 +1171,9 @@ const playLabel = hasPreview
 
         if (titleLabel instanceof HTMLElement && titleDuplicate instanceof HTMLElement) {
           titleLabel.textContent = nextTitle;
+          titleLabel.dataset.title = nextTitle;
           titleDuplicate.textContent = nextTitle;
+          titleDuplicate.dataset.title = nextTitle;
         } else if (title) {
           title.textContent = nextTitle;
         }

@@ -39,8 +39,8 @@ const initialFeedPayload = {
   anchorId: anchorId || undefined,
 };
 const hasInitialFeedPayload = initialPosts.length > 0 || Boolean(initialChannel);
-const responsiveImageWidths = [480, 800, 1200];
-const thumbnailImageSizes = '(min-width: 1024px) 560px, (min-width: 640px) 480px, 100vw';
+const responsiveImageWidths = [320, 480, 640, 800, 1200];
+const thumbnailImageSizes = '(min-width: 1024px) 560px, (min-width: 640px) 480px, 180px';
 
 function formatTime(value: string): string {
   const date = new Date(value);
@@ -387,7 +387,7 @@ const hasCriticalInitialPosts = criticalInitialPosts.length > 0;
                             decoding={isPriorityMedia ? 'sync' : 'async'}
                             loading={isPriorityMedia ? 'eager' : 'lazy'}
                             fetchpriority={isPriorityMedia ? 'high' : undefined}
-                            src={withWidthParam(thumbImage, 800)}
+                            src={withWidthParam(thumbImage, 480)}
                             srcset={buildSrcSet(thumbImage, responsiveImageWidths)}
                             sizes={thumbnailImageSizes}
                           />

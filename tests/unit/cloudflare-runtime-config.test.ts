@@ -225,7 +225,13 @@ describe('Cloudflare runtime configuration', () => {
   test('keeps non-priority mood images lazy when dimensions are incomplete', () => {
     const renderer = readText('src/features/mood/client/feed-renderer.ts');
     const feedShell = readText('src/features/mood/ui/FeedShell.astro');
+    const mediaHydration = readText('src/features/mood/client/feed-media-hydration.ts');
 
+    expect(feedShell).toContain("const responsiveImageWidths = [320, 480, 640, 800, 1200]");
+    expect(feedShell).toContain("const thumbnailImageSizes = '(min-width: 1024px) 560px, (min-width: 640px) 480px, 180px'");
+    expect(feedShell).toContain('src={withWidthParam(thumbImage, 480)}');
+    expect(mediaHydration).toContain('const responsiveImageWidths = [320, 480, 640, 800, 1200]');
+    expect(mediaHydration).toContain("const thumbnailImageSizes = '(min-width: 1024px) 560px, (min-width: 640px) 480px, 180px'");
     expect(renderer).toContain('const shouldWaitForImageBeforeInsert = isPriorityMedia && !hasResolvedImageLayout');
     expect(renderer).not.toContain("img.loading = 'eager'");
     expect(feedShell).toContain("decoding={isPriorityMedia ? 'sync' : 'async'}");
@@ -267,7 +273,8 @@ describe('Cloudflare runtime configuration', () => {
     expect(hero).toContain('<DecodeText>');
     expect(hero).toContain('<h1 class="hero-animate');
     expect(hero).toContain('import gsap from \'gsap\';');
-    expect(hero).toContain('<span class="hero-lcp-anchor" aria-hidden="true">{typewriterNames[0]}</span>');
+    expect(hero).toContain('const lcpAnchorName = typewriterNames.reduce');
+    expect(hero).toContain('<span class="hero-lcp-anchor" aria-hidden="true">{lcpAnchorName}</span>');
     expect(decodeText).toContain('document.fonts?.ready');
     expect(decodeText).toContain('window.setTimeout(resolve, 400)');
     expect(decodeText).toContain('const FALLBACK_START_MS = 1500;');
@@ -279,7 +286,11 @@ describe('Cloudflare runtime configuration', () => {
     expect(hero).toContain('heroTl.to(identity, {');
     expect(hero).toContain('heroTl.to(widgets, {');
     expect(hero).toContain("window.dispatchEvent(new CustomEvent('home:hero-bio-ready'))");
-    expect(readText('src/features/home/ui/Listening.astro')).toContain('max-width: min(18ch, calc(100% - 48px));');
+    const listening = readText('src/features/home/ui/Listening.astro');
+    expect(listening).toContain('data-title={title}');
+    expect(listening).toContain('content: attr(data-title);');
+    expect(listening).toContain('titleLabel.dataset.title = nextTitle;');
+    expect(listening).toContain('max-width: min(18ch, calc(100% - 48px));');
     expect(experience).toContain('<ExperienceTimeline client:visible />');
     expect(parallax).toContain("import('gsap/ScrollTrigger')");
     expect(parallax).toContain("window.addEventListener('load', scheduleSkatingEffects");

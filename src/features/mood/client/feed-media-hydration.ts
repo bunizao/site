@@ -22,8 +22,8 @@ interface FeedMediaHydrator {
 export function createFeedMediaHydrator(
   animatedEmoji: AnimatedEmojiHydrator
 ): FeedMediaHydrator {
-  const responsiveImageWidths = [480, 800, 1200];
-  const thumbnailImageSizes = '(min-width: 1024px) 560px, (min-width: 640px) 480px, 100vw';
+  const responsiveImageWidths = [320, 480, 640, 800, 1200];
+  const thumbnailImageSizes = '(min-width: 1024px) 560px, (min-width: 640px) 480px, 180px';
   const deferredImageRootMargin = '600px 0px';
   let deferredImageObserver: IntersectionObserver | null = null;
   const deferredImageHydrators = new WeakMap<Element, () => void>();
