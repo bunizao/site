@@ -215,10 +215,11 @@ describe('Cloudflare runtime configuration', () => {
     const workflow = readText('.github/workflows/lighthouse.yml');
 
     expect(workflow).toContain('Warm production mood cache');
+    expect(workflow).toContain('google-chrome');
+    expect(workflow).toContain('--dump-dom');
     expect(workflow).toContain('moto g power (2022)');
     expect(workflow).toContain('data-mood-initial-feed');
-    expect(workflow).toContain('x-buxx-mood-page-cache');
-    expect(workflow).toContain("cacheState === 'HIT'");
+    expect(workflow).toContain('ready_count');
   });
 
   test('keeps non-priority mood images lazy when dimensions are incomplete', () => {

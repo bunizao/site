@@ -84,35 +84,37 @@ jobs:
         env:
           LHCI_DEPLOYMENT_URL: ${{ steps.context.outputs.deployment_url }}
         run: |
-          node <<'NODE'
-          const deploymentUrl = process.env.LHCI_DEPLOYMENT_URL || 'https://buxx.me';
-          const moodUrl = new URL('/mood', deploymentUrl);
-          const readyMarkers = ['data-mood-initial-feed', 'data-mood-id='];
-          const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-          const headers = {
-            'User-Agent': 'Mozilla/5.0 (Linux; Android 11; moto g power (2022)) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Mobile Safari/537.36',
-            Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
-            'Accept-Language': 'en-US,en;q=0.9',
-            'Upgrade-Insecure-Requests': '1',
-          };
+          set -euo pipefail
 
-          for (let attempt = 1; attempt <= 4; attempt += 1) {
-            const response = await fetch(moodUrl, { headers });
-            const body = await response.text();
-            const cacheState = response.headers.get('x-buxx-mood-page-cache') || 'none';
-            const ready = response.ok && readyMarkers.every((marker) => body.includes(marker));
-            const ray = response.headers.get('cf-ray') || 'none';
-            console.log(`warm mood attempt ${attempt}: ${response.status} cache=${cacheState} ready=${ready} ray=${ray}`);
+          mood_url="$(node -e "console.log(new URL('/mood', process.env.LHCI_DEPLOYMENT_URL || 'https://buxx.me').toString())")"
+          chrome_bin="${CHROME_BIN:-google-chrome}"
+          user_agent="Mozilla/5.0 (Linux; Android 11; moto g power (2022)) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Mobile Safari/537.36"
+          ready_count=0
 
-            if (ready && cacheState === 'HIT') {
-              process.exit(0);
-            }
+          for attempt in 1 2 3; do
+            html="$("$chrome_bin" \
+              --headless=new \
+              --no-sandbox \
+              --disable-gpu \
+              --user-agent="$user_agent" \
+              --dump-dom "$mood_url" 2>/tmp/mood-warm-chrome.log || true)"
 
-            await sleep(1500);
-          }
+            if [[ "$html" == *"data-mood-initial-feed"* && "$html" == *"data-mood-id="* ]]; then
+              ready_count=$((ready_count + 1))
+            fi
 
-          throw new Error('Mood page cache did not warm with real feed HTML.');
-          NODE
+            echo "warm mood attempt ${attempt}: ready_count=${ready_count}"
+
+            if [[ "$ready_count" -ge 2 ]]; then
+              exit 0
+            fi
+
+            sleep 1.5
+          done
+
+          cat /tmp/mood-warm-chrome.log || true
+          echo "Mood page did not render real feed HTML through Chrome warm-up." >&2
+          exit 1
 
       - name: Run Lighthouse CI
         id: lhci
