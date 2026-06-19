@@ -1811,6 +1811,9 @@ export async function getChannelInfo(
   const url = id ? `https://${host}/${channel}/${id}?embed=1&mode=tme` : `https://${host}/s/${channel}`;
   const headers = buildTelegramRequestHeaders(Astro.request);
 
+  // Cap the upstream wait: an unbounded fetch (retry: 3, no timeout) lets a slow
+  // t.me response block the SSR document for seconds, which was the mood LCP tail.
+  // On timeout the caller falls back to the client-rendered skeleton path.
   const html = await $fetch<string>(url, {
     headers,
     query: {
@@ -1818,8 +1821,9 @@ export async function getChannelInfo(
       after: after || undefined,
       q: q || undefined,
     },
-    retry: 3,
+    retry: 1,
     retryDelay: 100,
+    timeout: 3000,
   });
 
   const $ = cheerio.load(html, {}, false);
