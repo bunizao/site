@@ -22,6 +22,33 @@ export function initMoodTimelineWheel(): void {
     window.scrollTo({ top: 0, behavior: prefersReducedMotion ? 'auto' : 'smooth' });
   });
 
+  // Discoverability: a back-to-top affordance is only useful once you're deep
+  // in the feed. Rather than a permanent badge, the date label briefly reveals
+  // the "Top" cue each time scrolling settles past ~one viewport — taught at
+  // the exact moment it becomes relevant, then folded back to the date.
+  let isHoveringWheel = false;
+  let hintSettleTimer = 0;
+  let hintHideTimer = 0;
+  let hintCooldownUntil = 0;
+  wheel.addEventListener('mouseenter', () => { isHoveringWheel = true; });
+  wheel.addEventListener('mouseleave', () => { isHoveringWheel = false; });
+
+  const revealTopHint = (): void => {
+    // Hover already exposes the cue; don't fight it, and only offer when the
+    // jump is worth taking and we're not spamming the user on every micro-pause.
+    if (isHoveringWheel || !isDesktop()) return;
+    if (window.scrollY < window.innerHeight * 1.2) return;
+    const now = performance.now();
+    if (now < hintCooldownUntil) return;
+    hintCooldownUntil = now + 4000;
+
+    wheel.classList.add('is-hinting');
+    clearTimeout(hintHideTimer);
+    hintHideTimer = window.setTimeout(() => {
+      wheel.classList.remove('is-hinting');
+    }, 1500);
+  };
+
   let dateGroups: HTMLElement[] = [];
   let notches: HTMLElement[] = [];
   let currentRotation = 0;
@@ -446,10 +473,15 @@ export function initMoodTimelineWheel(): void {
   const handleWindowScroll = (): void => {
     if (!scrollSyncActive || dateGroups.length === 0 || !isDesktop()) return;
     wheel.classList.add('is-scrolling');
+    // While actively scrolling, keep the live date visible — don't let the
+    // hint fight it. The reveal only fires once motion settles.
+    wheel.classList.remove('is-hinting');
     clearTimeout(scrollTimer);
+    clearTimeout(hintSettleTimer);
     scrollTimer = window.setTimeout(() => {
       wheel.classList.remove('is-scrolling');
     }, 150);
+    hintSettleTimer = window.setTimeout(revealTopHint, 450);
     scheduleScrollPositionSync(true);
   };
 
@@ -463,7 +495,9 @@ export function initMoodTimelineWheel(): void {
       scrollSyncRaf = 0;
     }
     clearTimeout(scrollTimer);
-    wheel.classList.remove('is-scrolling');
+    clearTimeout(hintSettleTimer);
+    clearTimeout(hintHideTimer);
+    wheel.classList.remove('is-scrolling', 'is-hinting');
 
     if (listResizeObserver) {
       listResizeObserver.disconnect();

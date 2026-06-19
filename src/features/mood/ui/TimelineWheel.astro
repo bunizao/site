@@ -16,22 +16,24 @@
   <!-- Label with connector -->
   <div class="timeline-wheel-label-wrap">
     <div class="timeline-wheel-connector"></div>
-    <div class="timeline-wheel-label" data-timeline-label></div>
-    <div class="timeline-wheel-hint" aria-hidden="true">
-      <svg
-        width="11"
-        height="11"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        stroke-width="2.5"
-        stroke-linecap="round"
-        stroke-linejoin="round"
-      >
-        <line x1="12" y1="19" x2="12" y2="5"></line>
-        <polyline points="6 11 12 5 18 11"></polyline>
-      </svg>
-      <span>Top</span>
+    <div class="timeline-wheel-readout">
+      <div class="timeline-wheel-label" data-timeline-label></div>
+      <div class="timeline-wheel-hint" aria-hidden="true">
+        <svg
+          width="11"
+          height="11"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2.5"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <line x1="12" y1="19" x2="12" y2="5"></line>
+          <polyline points="6 11 12 5 18 11"></polyline>
+        </svg>
+        <span>Top</span>
+      </div>
     </div>
   </div>
   <!-- Click anywhere on the wheel to wind back to the top of the feed -->
@@ -285,6 +287,13 @@
     flex-shrink: 0;
   }
 
+  /* Readout box: date label and the back-to-top hint share this slot and
+     cross-fade — the label sizes the box, the hint overlays it. */
+  .timeline-wheel-readout {
+    position: relative;
+    display: inline-flex;
+  }
+
   /* Date label */
   .timeline-wheel-label {
     font-size: 10px;
@@ -307,6 +316,7 @@
 
     font-variant-numeric: tabular-nums;
     transition:
+      opacity 0.35s ease,
       border-color 0.3s ease,
       box-shadow 0.3s ease;
   }
@@ -332,12 +342,16 @@
     border-radius: 10px;
   }
 
-  /* On hover the date label gives way to an up-arrow "Top" cue. */
+  /* The date label gives way to an up-arrow "Top" cue — on hover, and on a
+     brief self-reveal each time the user pauses deep in the feed. */
   .timeline-wheel-hint {
-    display: none;
+    position: absolute;
+    inset: 0;
+    display: flex;
     align-items: center;
+    justify-content: center;
     gap: 4px;
-    padding: 5px 10px 5px 8px;
+    padding: 5px 10px;
     font-size: 10px;
     font-weight: 600;
     letter-spacing: 0.06em;
@@ -352,18 +366,22 @@
     box-shadow:
       0 1px 2px rgba(0, 0, 0, 0.03),
       0 4px 12px -2px rgba(0, 0, 0, 0.06);
+    opacity: 0;
+    transition: opacity 0.35s ease;
   }
 
   .timeline-wheel-hint svg {
     color: hsl(var(--foreground) / 0.7);
   }
 
-  .timeline-wheel:hover .timeline-wheel-label {
-    display: none;
+  .timeline-wheel:hover .timeline-wheel-label,
+  .timeline-wheel.is-hinting .timeline-wheel-label {
+    opacity: 0;
   }
 
-  .timeline-wheel:hover .timeline-wheel-hint {
-    display: inline-flex;
+  .timeline-wheel:hover .timeline-wheel-hint,
+  .timeline-wheel.is-hinting .timeline-wheel-hint {
+    opacity: 1;
   }
 
   /* ── Loading skeleton state (GSAP-driven) ── */
