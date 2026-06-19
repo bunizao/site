@@ -1811,20 +1811,57 @@ export async function getChannelInfo(
   const url = id ? `https://${host}/${channel}/${id}?embed=1&mode=tme` : `https://${host}/s/${channel}`;
   const headers = buildTelegramRequestHeaders(Astro.request);
 
-  // Cap the upstream wait: an unbounded fetch (retry: 3, no timeout) lets a slow
-  // t.me response block the SSR document for seconds, which was the mood LCP tail.
-  // On timeout the caller falls back to the client-rendered skeleton path.
-  const html = await $fetch<string>(url, {
-    headers,
-    query: {
-      before: before || undefined,
-      after: after || undefined,
-      q: q || undefined,
-    },
-    retry: 1,
-    retryDelay: 100,
-    timeout: 3000,
-  });
+  // Cross-isolate edge cache for the raw t.me HTML. The in-memory LRU above is
+  // per-isolate, so every cold isolate paid the full ~3s t.me round-trip — which
+  // is ~65% of the mood LCP. caches.default is shared across isolates at the edge,
+  // so a warm entry lets cold isolates skip the round-trip. Everything here is
+  // best-effort and fail-safe: any miss or error falls through to a live fetch.
+  const edgeCache = (globalThis as { caches?: { default?: Cache } }).caches?.default;
+  const edgeCacheRequest = edgeCache
+    ? new Request(`https://mood-edge-cache.internal/tg?${new URLSearchParams({
+        u: url, before, after, q, type, id, v: TELEGRAM_PARSE_CACHE_VERSION,
+      }).toString()}`)
+    : null;
+
+  let html: string | undefined;
+  if (edgeCache && edgeCacheRequest && !skipCache) {
+    try {
+      const hit = await edgeCache.match(edgeCacheRequest);
+      if (hit) html = await hit.text();
+    } catch {
+      // Edge cache unavailable — fall through to a live fetch.
+    }
+  }
+
+  if (typeof html !== 'string') {
+    // Cap the upstream wait: an unbounded fetch (retry: 3, no timeout) lets a slow
+    // t.me response block the SSR document for seconds, which was the mood LCP tail.
+    // On timeout the caller falls back to the client-rendered skeleton path.
+    html = await $fetch<string>(url, {
+      headers,
+      query: {
+        before: before || undefined,
+        after: after || undefined,
+        q: q || undefined,
+      },
+      retry: 1,
+      retryDelay: 100,
+      timeout: 3000,
+    });
+
+    // Populate the edge cache. 60s TTL is fresher than the 5min per-isolate parse
+    // cache; the client update-watcher still surfaces newer posts after that.
+    if (edgeCache && edgeCacheRequest && !skipCache && html) {
+      try {
+        await edgeCache.put(
+          edgeCacheRequest,
+          new Response(html, { headers: { 'Cache-Control': 'public, max-age=60' } }),
+        );
+      } catch {
+        // Best-effort: a failed put just means the next isolate refetches.
+      }
+    }
+  }
 
   const $ = cheerio.load(html, {}, false);
   const channelTitle = $('.tgme_channel_info_header_title')?.text() ?? '';
