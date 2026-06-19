@@ -24,11 +24,13 @@ export function initMoodTimelineWheel(): void {
     window.scrollTo({ top: 0, behavior: prefersReducedMotion ? 'auto' : 'smooth' });
   });
 
-  // The readout is a slot-text display: the active date rolls in as you scroll,
-  // and rolls to "↑ TOP" to expose the back-to-top role — on hover, and as a
-  // brief self-reveal each time scrolling settles deep in the feed (taught at
-  // the exact moment the jump becomes useful, then rolled back to the date).
+  // The readout is a slot-text display: the active date rolls in as you scroll
+  // down, and rolls to "↑ TOP" to expose the back-to-top role — on hover, and
+  // whenever the reader scrolls back up past the first screen (the moment they
+  // are likely heading for the top), then rolls back to the date on the way down.
   const TOP_TEXT = '↑ TOP';
+  const REVEAL_AT = (): number => window.innerHeight;
+  const DIR_DELTA = 6; // px of travel before a direction flip counts (anti-jitter)
   const rollBase: SlotOptions = prefersReducedMotion
     ? { stagger: 0, duration: 0, bounce: 0 }
     : {};
@@ -42,24 +44,33 @@ export function initMoodTimelineWheel(): void {
 
   let roll: SlotTextController | null = null;
   let currentDateText = '';
+  let shownText = '';
   let isHoveringWheel = false;
-  let hintSettleTimer = 0;
+  let topRevealed = false;
   let hintPulseTimer = 0;
-  // The auto "↑ TOP" cue fires at most once per descent: armed near the top,
-  // spent when it shows, re-armed only after the reader scrolls back up. This
-  // keeps it from churning on every pause — the rarity is the point.
-  let topHintArmed = true;
+  let dirAnchorY = 0;
+  let scrollDir: 'up' | 'down' = 'down';
+
+  const wantsTop = (): boolean => topRevealed || isHoveringWheel;
+
+  // Render whatever the readout should currently show, picking the right roll
+  // for the transition and skipping no-op re-rolls.
+  const renderReadout = (): void => {
+    roll ??= slotText(label, '', dateRoll);
+    const target = wantsTop() ? TOP_TEXT : currentDateText;
+    if (shownText === target) return;
+    const opts = target === TOP_TEXT ? topRoll : shownText === TOP_TEXT ? dateReturnRoll : dateRoll;
+    roll.set(target, opts);
+    shownText = target;
+  };
 
   const showDate = (text: string): void => {
     currentDateText = text;
-    roll ??= slotText(label, '', dateRoll);
-    // Hold "↑ TOP" while the pointer rests on the wheel; the date catches up on leave.
-    if (isHoveringWheel) return;
-    roll.set(text, dateRoll);
+    renderReadout();
   };
 
-  // A brief glow pulse on the wheel when the cue fires — the rare moment earns
-  // a little sensory weight instead of arriving silently.
+  // A brief glow pulse on the wheel when the cue surfaces — a little sensory
+  // weight so the moment registers instead of arriving silently.
   const pulseWheelHint = (): void => {
     if (prefersReducedMotion) return;
     wheel.classList.add('is-hinting');
@@ -67,21 +78,20 @@ export function initMoodTimelineWheel(): void {
     hintPulseTimer = window.setTimeout(() => wheel.classList.remove('is-hinting'), 900);
   };
 
-  const flashTopHint = (): void => {
-    if (isHoveringWheel || !isDesktop() || !roll || !topHintArmed) return;
-    if (window.scrollY < window.innerHeight * 1.2) return;
-    topHintArmed = false;
-    roll.flash(TOP_TEXT, { revertAfter: 1600, enter: topRoll, exit: dateReturnRoll });
-    pulseWheelHint();
+  const setTopRevealed = (next: boolean): void => {
+    if (next === topRevealed) return;
+    topRevealed = next;
+    renderReadout();
+    if (next && !isHoveringWheel) pulseWheelHint();
   };
 
   wheel.addEventListener('mouseenter', () => {
     isHoveringWheel = true;
-    roll?.set(TOP_TEXT, topRoll);
+    renderReadout();
   });
   wheel.addEventListener('mouseleave', () => {
     isHoveringWheel = false;
-    roll?.set(currentDateText, dateReturnRoll);
+    renderReadout();
   });
 
   let dateGroups: HTMLElement[] = [];
@@ -507,18 +517,22 @@ export function initMoodTimelineWheel(): void {
 
   const handleWindowScroll = (): void => {
     if (!scrollSyncActive || dateGroups.length === 0 || !isDesktop()) return;
-    // Re-arm the cue once the reader returns near the top (hysteresis against the
-    // 1.2-viewport fire line so a single descent never double-fires).
-    if (window.scrollY < window.innerHeight * 0.5) topHintArmed = true;
+    // Track direction with a small dead zone, then reveal "↑ TOP" only while the
+    // reader is scrolling back up past the first screen — the moment a jump to
+    // the top is most likely wanted. Scrolling down (or nearing the top) hides it.
+    const y = window.scrollY;
+    const dy = y - dirAnchorY;
+    if (Math.abs(dy) >= DIR_DELTA) {
+      scrollDir = dy < 0 ? 'up' : 'down';
+      dirAnchorY = y;
+    }
+    setTopRevealed(scrollDir === 'up' && y > REVEAL_AT());
+
     wheel.classList.add('is-scrolling');
     clearTimeout(scrollTimer);
-    clearTimeout(hintSettleTimer);
     scrollTimer = window.setTimeout(() => {
       wheel.classList.remove('is-scrolling');
     }, 150);
-    // The live date rolls in while scrolling; the "↑ TOP" cue only flashes once
-    // motion settles, so it never fights the date readout.
-    hintSettleTimer = window.setTimeout(flashTopHint, 450);
     scheduleScrollPositionSync(true);
   };
 
@@ -532,7 +546,6 @@ export function initMoodTimelineWheel(): void {
       scrollSyncRaf = 0;
     }
     clearTimeout(scrollTimer);
-    clearTimeout(hintSettleTimer);
     clearTimeout(hintPulseTimer);
     wheel.classList.remove('is-scrolling', 'is-hinting');
 
@@ -545,6 +558,8 @@ export function initMoodTimelineWheel(): void {
   const setupScrollSync = (): void => {
     destroyScrollSync();
     scrollSyncActive = true;
+    dirAnchorY = window.scrollY;
+    scrollDir = 'down';
     window.addEventListener('scroll', handleWindowScroll, { passive: true });
     listResizeObserver = new ResizeObserver(scheduleAnchorRefresh);
     listResizeObserver.observe(list);

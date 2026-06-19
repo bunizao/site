@@ -57,10 +57,10 @@ const { threshold = 600, hideOnDesktop = false } = Astro.props;
     -webkit-backdrop-filter: blur(12px) saturate(1.3);
     backdrop-filter: blur(12px) saturate(1.3);
     box-shadow: 0 4px 16px hsl(0 0% 0% / 0.08);
-    /* Resting hidden state — lifted out and faded down. */
+    /* Resting hidden state — folded down below the screen edge. */
     opacity: 0;
     visibility: hidden;
-    transform: translateY(8px) scale(0.92);
+    transform: translateY(calc(100% + clamp(20px, 4vh, 32px))) scale(0.96);
     transition:
       opacity 0.25s ease,
       transform 0.25s cubic-bezier(0.4, 0, 0.2, 1),
@@ -123,11 +123,23 @@ const { threshold = 600, hideOnDesktop = false } = Astro.props;
     if (!button) return;
 
     const threshold = Number(button.dataset.threshold) || 600;
+    const DIR_DELTA = 6; // px of travel before a direction flip counts (anti-jitter)
     button.hidden = false;
 
+    // Fold the control away while reading forward (scrolling down) and unfold it
+    // when the reader scrolls back up past the first screen — the moment a jump
+    // to the top is most likely wanted.
+    let anchorY = window.scrollY;
+    let dir: 'up' | 'down' = 'down';
     let ticking = false;
     const sync = () => {
-      button.classList.toggle('is-visible', window.scrollY > threshold);
+      const y = window.scrollY;
+      const dy = y - anchorY;
+      if (Math.abs(dy) >= DIR_DELTA) {
+        dir = dy < 0 ? 'up' : 'down';
+        anchorY = y;
+      }
+      button.classList.toggle('is-visible', dir === 'up' && y > threshold);
       ticking = false;
     };
 
