@@ -13,8 +13,12 @@ const settings = {
 module.exports = {
   ci: {
     collect: {
+      // 5 runs (LHCI keeps the median as the representative run). Lighthouse's
+      // simulated throttling amplifies the runner's CPU jitter, so a median of 3
+      // can still be dragged by a single noisy run — TBT was swinging ~900ms
+      // between back-to-back runs of the same URL. A wider sample tightens it.
       url: urls,
-      numberOfRuns: Number(process.env.LHCI_RUNS || 3),
+      numberOfRuns: Number(process.env.LHCI_RUNS || 5),
       settings,
     },
     upload: {

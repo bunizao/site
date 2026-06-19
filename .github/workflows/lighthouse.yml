@@ -2,6 +2,10 @@ name: Lighthouse
 
 on:
   push:
+    # Only audit production when production can actually change. Auditing buxx.me
+    # on every feature-branch push just samples the same deployment under variable
+    # runner load, which is what made the tracker flap open/closed on noise.
+    branches: [main]
   schedule:
     - cron: '37 2 * * *'
   workflow_dispatch:
