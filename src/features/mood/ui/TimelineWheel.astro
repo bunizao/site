@@ -298,10 +298,14 @@
   }
 
   /* The wheel telegraphs its back-to-top role on hover: the readout brightens
-     and the cursor turns actionable. */
+     and the cursor turns actionable. The hit target includes the visible
+     readout, not just the narrow arc at the viewport edge. */
   .timeline-wheel-top {
     position: absolute;
-    inset: 0;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: calc(var(--visible-width) + 120px);
     z-index: 3;
     margin: 0;
     padding: 0;
@@ -320,12 +324,7 @@
 
   /* ── Hover: the instrument quietly illuminates under the cursor ── */
   /* The readout brightens, a soft halo blooms at the active centre, and the
-     live mark leans out a touch — minimal, no layout shift, no extra chrome. */
-  /* Magnetic nudge: the whole instrument leans out toward the content. */
-  .timeline-wheel.is-visible:hover {
-    transform: translateY(-50%) translateX(6px);
-  }
-
+     live mark extends a touch — minimal, no layout shift, no extra chrome. */
   .timeline-wheel:hover .timeline-wheel-label {
     color: hsl(var(--foreground));
     border-color: hsl(var(--foreground) / 0.14);
