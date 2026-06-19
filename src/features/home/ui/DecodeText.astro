@@ -262,8 +262,14 @@ const { class: className } = Astro.props;
     const fgEl = host.querySelector<HTMLElement>('.text-foreground');
     const fgColor = fgEl ? getComputedStyle(fgEl).color : mutedColor;
 
-    // Fonts must be ready before measuring so visual line breaks are correct.
-    await document.fonts?.ready.catch(() => {});
+    // Measure against the final font when it is ready, but never block the LCP
+    // text on it: the hero font is `font-display: optional`, so if it is not
+    // ready within the cap the browser keeps the fallback for this load anyway —
+    // measuring against that fallback is then the correct footprint.
+    await Promise.race([
+      document.fonts?.ready,
+      new Promise((resolve) => window.setTimeout(resolve, 400)),
+    ]).catch(() => {});
 
     // Lock the footprint so swapping text -> blocks -> text never shifts the page.
     root.style.minHeight = `${root.getBoundingClientRect().height}px`;
