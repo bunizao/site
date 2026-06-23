@@ -30,10 +30,14 @@ test.describe('Mood advanced surfaces', () => {
     await expect(page.getByText('Primary')).toBeVisible();
     await expect(page.getByText('Fallback')).toBeVisible();
     await expect(page.getByText('Archive search')).toBeVisible();
-    await page.getByLabel('Primary').fill('custom/model-alpha');
-    await page.getByLabel('Fallback').fill('custom/model-beta');
+    const primaryModel = page.getByLabel('Primary');
+    const fallbackModel = page.getByLabel('Fallback');
+    await expect(primaryModel).toBeEnabled();
+    await expect(fallbackModel).toBeEnabled();
+    await primaryModel.fill('custom/model-alpha');
+    await fallbackModel.fill('custom/model-beta');
     await page.getByRole('button', { name: 'Test AI model config' }).click();
-    await expect(page.getByText('custom/model-alpha: calm 0.25')).toBeVisible();
+    await expect(page.getByText('custom/model-alpha: ok')).toBeVisible();
 
     const result = await page.evaluate(async () => {
       const response = await fetch('/v2/admin/mood/ai-config', {

@@ -111,23 +111,21 @@ export default function MoodDataConsole() {
     setTestResult(null);
     setConfigError(null);
     try {
-      const response = await fetch('/v2/admin/mood/ai-test', {
+      const response = await fetch('/v2/admin/ai/test', {
         method: 'POST',
         headers: {
           Accept: 'application/json',
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          primary: primaryModel,
-          fallback: fallbackModel,
-          text: 'quiet morning coffee after a long week',
+          model: primaryModel,
         }),
       });
       if (!response.ok) {
         throw new Error(await readError(response));
       }
-      const payload = await response.json() as { label?: string; score?: number; model?: string };
-      setTestResult(`${payload.model ?? primaryModel}: ${payload.label ?? 'unknown'} ${typeof payload.score === 'number' ? payload.score.toFixed(2) : ''}`.trim());
+      const payload = await response.json() as { model?: string; text?: string };
+      setTestResult(`${payload.model ?? primaryModel}: ${payload.text ?? 'ok'}`.trim());
     } catch (err) {
       setConfigError(err instanceof Error ? err.message : 'unknown_error');
     } finally {

@@ -189,17 +189,16 @@ async function moodAiConfigFixtureResponse(request: Request): Promise<Response> 
 }
 
 async function moodAiTestFixtureResponse(request: Request): Promise<Response> {
-  const input = await request.json().catch(() => ({})) as Partial<MoodAiConfig>;
-  const primary = parseMoodAiModelText(input.primary);
+  const input = await request.json().catch(() => ({})) as { model?: unknown };
+  const model = parseMoodAiModelText(input.model);
 
-  if (!primary) {
+  if (!model) {
     return jsonBadRequest('invalid_mood_ai_model', noStore());
   }
 
   return jsonOk({
-    label: 'calm',
-    score: 0.25,
-    model: primary,
+    model,
+    text: 'ok',
     at: new Date(0).toISOString(),
   }, noStore());
 }
@@ -228,7 +227,7 @@ export async function createE2EApiFixtureResponse(context: FixtureContext): Prom
   if (url.pathname === '/v2/admin/mood/ai-config') {
     return moodAiConfigFixtureResponse(context.request);
   }
-  if (url.pathname === '/v2/admin/mood/ai-test') {
+  if (url.pathname === '/v2/admin/ai/test') {
     return moodAiTestFixtureResponse(context.request);
   }
   if (url.pathname === '/api/writing') {
