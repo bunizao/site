@@ -19,8 +19,12 @@ Requires Node.js >= 22.12 (`.node-version` is set to 22). A node 18 shell silent
 
 ```bash
 bun install              # Install dependencies (uses Bun, not npm/yarn/pnpm)
-bun dev                  # Dev server (astro dev, native Node SSR). /api/* proxies to prod buxx.me.
-bun dev:api              # Dev server + proxy /api/* to local site-api at 127.0.0.1:8787
+bun dev -- --background       # Default dev server form; runs at http://localhost:4321 without occupying the terminal
+bunx astro dev status         # Check the background dev server
+bunx astro dev logs --follow  # Follow background dev server logs
+bunx astro dev stop           # Stop the background dev server
+bun dev                  # Foreground fallback only when interactive server logs are required
+bun dev:api              # Background dev server + proxy /api/* to local site-api at 127.0.0.1:8787
 bun run check            # Astro type/content check
 bun run build            # Production build (Cloudflare adapter applies here, not in dev)
 bun run test:unit        # Unit tests plus notify service e2e tests
@@ -43,7 +47,7 @@ This is the public Worker. The private Worker `site-api` lives in the sibling re
 
 ## Architecture
 
-**Astro v5** + **React** (@astrojs/react) + **TailwindCSS** + **TypeScript**. Runtime target: **Cloudflare Workers** (`site`).
+**Astro v7** + **React** (@astrojs/react) + **TailwindCSS** + **TypeScript**. Runtime target: **Cloudflare Workers** (`site`).
 
 - `@` maps to `./src` (configured in `astro.config.mjs`). Use `@/lib/utils` instead of relative paths.
 - See `docs/ARCHITECTURE.md` for full directory structure, API endpoints, data sources, and environment variables.
