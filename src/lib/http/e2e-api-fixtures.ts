@@ -29,6 +29,8 @@ async function moodFixtureResponse(context: FixtureContext, url: URL): Promise<R
   return jsonOk(await loadMoodFeed(context, {
     before: before ?? undefined,
     fresh: url.searchParams.get('fresh') === '1',
+    limit: Number(url.searchParams.get('limit') || 0) || undefined,
+    tag: url.searchParams.get('tag') ?? undefined,
   }), noStore());
 }
 

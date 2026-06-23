@@ -178,4 +178,14 @@ describe('mood API client', () => {
     expect(Array.isArray(comments.comments)).toBe(true);
     expect(probe.latestId).toBeTruthy();
   });
+
+  test('filters E2E fixture moods by tag', async () => {
+    const context = createContext({ env: { E2E_SITE_FIXTURE: '1' } });
+
+    const matching = await loadMoodFeed(context, { tag: 'e2e', source: 'archive' });
+    const unknown = await loadMoodFeed(context, { tag: 'unknown', source: 'archive' });
+
+    expect(matching.posts.length).toBeGreaterThan(0);
+    expect(unknown.posts).toEqual([]);
+  });
 });

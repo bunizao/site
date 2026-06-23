@@ -22,6 +22,7 @@ import {
   buildMoodFeedItem,
 } from './feed-service';
 import { getMoodGallery } from '../shared/gallery';
+import { normalizeMoodTag } from '../shared/tags';
 import {
   loadMoodChannelSnapshot,
   loadMoodPostSnapshot,
@@ -145,7 +146,15 @@ export async function loadMoodFeed(
 ): Promise<MoodFeedResponse> {
   if (isE2ESiteFixtureEnabled(context.locals)) {
     const channelInfo = createE2EChannelInfo();
-    return buildMoodFeedResponse(context, channelInfo, channelInfo.posts);
+    const tag = normalizeMoodTag(query.tag);
+    const posts = tag
+      ? channelInfo.posts.filter((post) => post.tags.some((postTag) => normalizeMoodTag(postTag) === tag))
+      : channelInfo.posts;
+    return buildMoodFeedResponse(
+      context,
+      { ...channelInfo, posts },
+      typeof query.limit === 'number' ? posts.slice(0, query.limit) : posts,
+    );
   }
 
   if (isMoodRichTextFixtureEnabled(context.locals)) {
