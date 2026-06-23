@@ -1,6 +1,7 @@
 import type {
   MediaItem,
   MoodCommentsPage,
+  MoodFeedQuery as MoodArchiveFeedQuery,
   MoodContentDocument,
   MoodFeedItem,
   MoodFeedResponse,
@@ -34,7 +35,7 @@ import {
   isMoodRichTextFixtureEnabled,
 } from './rich-text-fixture';
 
-export interface MoodFeedQuery {
+export interface MoodFeedQuery extends MoodArchiveFeedQuery {
   before?: string;
   after?: string;
   fresh?: boolean;
@@ -90,6 +91,7 @@ function moodFeedParams(query: MoodFeedQuery): URLSearchParams {
   if (query.after) params.set('after', query.after);
   if (query.fresh) params.set('fresh', 'true');
   if (typeof query.limit === 'number') params.set('limit', String(query.limit));
+  if (query.tag) params.set('tag', query.tag);
   return params;
 }
 

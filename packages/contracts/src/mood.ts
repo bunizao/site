@@ -17,6 +17,101 @@ export type MoodForwardedFrom = ForwardedFrom;
 export type MoodQuote = QuoteRef;
 export type MoodChannelSummary = ContentChannelSummary;
 
+export const MOOD_SENTIMENT_LABELS = ['joy', 'calm', 'melancholy', 'anger', 'anxiety', 'neutral'] as const;
+export const MOOD_AI_MODELS = ['claude-haiku-4-5', 'claude-sonnet-4-6', 'claude-opus-4-8'] as const;
+
+export type MoodSentimentLabel = (typeof MOOD_SENTIMENT_LABELS)[number];
+export type MoodAiModel = (typeof MOOD_AI_MODELS)[number];
+
+export interface MoodSentiment {
+  label: MoodSentimentLabel;
+  score: number;
+  model: string;
+  at: string;
+}
+
+export interface MoodStatsActivityBucket {
+  date: string;
+  count: number;
+}
+
+export interface MoodStatsSentimentBucket {
+  bucketStart: string;
+  avgValence: number | null;
+  dominantLabel: MoodSentimentLabel | null;
+  scoredCount: number;
+}
+
+export interface MoodStatsSnapshot {
+  activity: MoodStatsActivityBucket[];
+  rhythm: number[][];
+  sentimentTimeline: MoodStatsSentimentBucket[];
+  streaks: {
+    current: number;
+    longest: number;
+  };
+  media: {
+    text: number;
+    photo: number;
+    video: number;
+    other: number;
+  };
+  totals: {
+    posts: number;
+    firstPostAt: string | null;
+    lastPostAt: string | null;
+  };
+  generatedAt: string;
+}
+
+export interface MoodAiConfig {
+  primary: MoodAiModel;
+  fallback: MoodAiModel;
+  updatedAt: string;
+}
+
+export interface MoodCoverageSummary {
+  total: number;
+  covered: number;
+  percent: number;
+}
+
+export interface MoodIngestHealth {
+  lastIngested: {
+    id: string;
+    datetime: string;
+  } | null;
+  liveLatest: {
+    id: string;
+    datetime?: string;
+  } | null;
+  drift: {
+    messages: number | null;
+    seconds: number | null;
+  };
+  coverage: {
+    sentiment: MoodCoverageSummary;
+    tags: MoodCoverageSummary;
+  };
+  snapshotGeneratedAt: string | null;
+}
+
+export interface MoodSearchResult {
+  id: string;
+  datetime: string;
+  snippet: string;
+  tags: string[];
+  sentiment_label: MoodSentimentLabel | null;
+}
+
+export interface MoodFeedQuery {
+  before?: string;
+  after?: string;
+  fresh?: boolean;
+  limit?: number;
+  tag?: string;
+}
+
 export interface MoodGalleryItem {
   src: string;
   fallbackSrc: string | null;
