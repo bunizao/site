@@ -92,12 +92,13 @@ export function initMoodFeedController(): void {
       let fallbackNewestId = '';
       let oldestNumericId = Number.POSITIVE_INFINITY;
       let oldestId = '';
-      let fallbackOldestId = '';
-      let pendingDateKey: string | null = null;
-      let pendingPosts: MoodData[] = [];
-      const feedAnchorId = getMoodFeedAnchorId();
-      let feedAnchorHandled = !feedAnchorId;
-      let feedAnchorRevealInFlight = false;
+        let fallbackOldestId = '';
+        let pendingDateKey: string | null = null;
+        let pendingPosts: MoodData[] = [];
+        const feedAnchorId = getMoodFeedAnchorId();
+        const activeTag = feedEl.dataset.moodFilterTag?.trim() ?? '';
+        let feedAnchorHandled = !feedAnchorId;
+        let feedAnchorRevealInFlight = false;
       hasNewer = Boolean(feedAnchorId);
       const updateWatcher = createFeedUpdateWatcher({
         list,
@@ -211,6 +212,9 @@ export function initMoodFeedController(): void {
         }
         if (options.afterId) {
           query.set('after', options.afterId);
+        }
+        if (activeTag) {
+          query.set('tag', activeTag);
         }
         const queryString = query.toString();
         const url = queryString ? `/api/moods?${queryString}` : '/api/moods';
@@ -537,7 +541,7 @@ export function initMoodFeedController(): void {
       };
 
       const startUpdateWatcher = (): void => {
-        if (!feedAnchorId) {
+        if (!feedAnchorId && !activeTag) {
           updateWatcher.start();
         }
       };
@@ -728,8 +732,8 @@ export function initMoodFeedController(): void {
 
             if (!posts.length) {
               handleNoMore();
-              setStatus('No moods yet.');
-              return;
+            setStatus(activeTag ? `No moods tagged #${activeTag}.` : 'No moods yet.');
+            return;
             }
 
             if (!feedAnchorId) {
@@ -797,7 +801,7 @@ export function initMoodFeedController(): void {
           if (!ready.length && !pendingPosts.length) {
             showFeed();
             handleNoMore();
-            setStatus('No moods yet.');
+            setStatus(activeTag ? `No moods tagged #${activeTag}.` : 'No moods yet.');
             startUpdateWatcher();
             return;
           }
@@ -932,7 +936,7 @@ export function initMoodFeedController(): void {
           loadButton.addEventListener('click', loadMore);
         }
 
-        if (!feedAnchorId) {
+        if (!feedAnchorId && !activeTag) {
           updateWatcher.init();
         }
         window.addEventListener('pageshow', (event) => {

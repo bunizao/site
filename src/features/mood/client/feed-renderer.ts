@@ -8,6 +8,7 @@ import {
 import { buildMoodPreviewFragment } from '@/features/mood/shared/preview';
 import { findTooBigVideoMedia, renderStructuredMoodFeedMediaMarkup } from '@/features/mood/shared/feed-media';
 import { getMoodFeedThumbnailStyle } from '@/features/mood/shared/feed-thumbnail';
+import { getMoodTagHref } from '@/features/mood/shared/tags';
 import type { ChannelInfo, MoodData } from '@/features/mood/client/feed-types';
 
 interface FeedCommentsPopover {
@@ -718,8 +719,9 @@ export function createFeedRenderer({
     element.appendChild(expandBtn);
 
     if (mood.tag) {
-      const tag = document.createElement('span');
+      const tag = document.createElement('a');
       tag.className = 'mood-item-tag';
+      tag.href = getMoodTagHref(mood.tag);
       tag.textContent = `#${mood.tag}`;
       content.appendChild(tag);
     }
