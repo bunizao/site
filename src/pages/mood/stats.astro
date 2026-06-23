@@ -1,0 +1,517 @@
+---
+import type { MoodStatsSnapshot } from '@bunizao/contracts';
+import Layout from '../../layouts/Layout.astro';
+import { loadMoodStatsSnapshot } from '@/features/mood/server/api-client';
+
+export const prerender = false;
+
+const title = "Mood Stats | Bunizao's Website";
+const description = 'Activity patterns from the mood archive';
+
+let snapshot: MoodStatsSnapshot | null = null;
+let loadFailed = false;
+
+try {
+  snapshot = await loadMoodStatsSnapshot({ request: Astro.request, locals: Astro.locals });
+} catch (error) {
+  console.warn('Failed to load mood stats:', error);
+  loadFailed = true;
+}
+
+const activity = snapshot?.activity ?? [];
+const rhythm = normalizeRhythm(snapshot?.rhythm);
+const maxActivity = Math.max(1, ...activity.map((bucket) => bucket.count));
+const maxRhythm = Math.max(1, ...rhythm.flat());
+const sentimentTimeline = snapshot?.sentimentTimeline ?? [];
+const media = snapshot?.media ?? { text: 0, photo: 0, video: 0, other: 0 };
+const mediaTotal = media.text + media.photo + media.video + media.other;
+const mediaItems = [
+  { key: 'text', label: 'Text', value: media.text },
+  { key: 'photo', label: 'Photo', value: media.photo },
+  { key: 'video', label: 'Video', value: media.video },
+  { key: 'other', label: 'Other', value: media.other },
+];
+const generatedAt = snapshot?.generatedAt ? formatDateTime(snapshot.generatedAt) : '';
+
+function normalizeRhythm(value: number[][] | undefined): number[][] {
+  return Array.from({ length: 7 }, (_day, dayIndex) => {
+    const row = value?.[dayIndex] ?? [];
+    return Array.from({ length: 24 }, (_hour, hourIndex) => Number(row[hourIndex] ?? 0));
+  });
+}
+
+function formatDate(value: string): string {
+  const date = new Date(`${value}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat('en', { month: 'short', day: 'numeric' }).format(date);
+}
+
+function formatDateTime(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat('en', {
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(date);
+}
+
+function level(value: number, max: number): string {
+  if (value <= 0) return '0';
+  return String(Math.max(1, Math.ceil((value / max) * 4)));
+}
+
+function heatColor(value: number, max: number): string {
+  const colors = [
+    'hsl(var(--foreground) / 0.05)',
+    'hsl(170 24% 79%)',
+    'hsl(172 31% 63%)',
+    'hsl(174 36% 48%)',
+    'hsl(176 42% 34%)',
+  ];
+  return colors[Number(level(value, max))] ?? colors[0];
+}
+
+function sentimentPosition(value: number | null): string {
+  if (value === null) return '50%';
+  return `${Math.max(0, Math.min(100, 50 - value * 50))}%`;
+}
+
+function formatValence(value: number | null): string {
+  if (value === null) return 'gap';
+  return value > 0 ? `+${value.toFixed(2)}` : value.toFixed(2);
+}
+
+function sentimentColor(label: string | null): string {
+  switch (label) {
+    case 'joy':
+      return 'hsl(42 82% 58%)';
+    case 'calm':
+      return 'hsl(176 42% 44%)';
+    case 'melancholy':
+      return 'hsl(218 30% 58%)';
+    case 'anger':
+      return 'hsl(5 68% 54%)';
+    case 'anxiety':
+      return 'hsl(284 42% 58%)';
+    case 'neutral':
+      return 'hsl(208 12% 55%)';
+    default:
+      return 'hsl(var(--muted-foreground))';
+  }
+}
+
+const weekdays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const hourLabels = Array.from({ length: 24 }, (_item, index) => String(index).padStart(2, '0'));
+---
+
+<Layout title={title} description={description}>
+  <main class="mood-stats">
+    <header class="mood-stats-header">
+      <a class="mood-stats-back" href="/mood">Back to mood</a>
+      <div>
+        <p class="mood-stats-kicker">Mood archive</p>
+        <h1>Mood stats</h1>
+        {generatedAt ? <p class="mood-stats-generated">Updated {generatedAt}</p> : null}
+      </div>
+    </header>
+
+    {!snapshot ? (
+      <section class="mood-stats-empty" aria-live="polite">
+        <h2>Stats not ready yet</h2>
+        <p>{loadFailed ? 'The stats endpoint is unavailable.' : 'The first archive snapshot has not been generated.'}</p>
+      </section>
+    ) : (
+      <div class="mood-stats-grid">
+        <section class="mood-stats-panel mood-stats-panel--wide" aria-labelledby="activity-title">
+          <div class="mood-stats-section-head">
+            <h2 id="activity-title">Activity</h2>
+            <span>{snapshot.totals.posts} posts</span>
+          </div>
+          <div class="activity-grid" aria-label="Posts by day">
+            {activity.length > 0 ? activity.map((bucket) => (
+              <span
+                class="activity-cell"
+                style={`--cell-color:${heatColor(bucket.count, maxActivity)}`}
+                title={`${formatDate(bucket.date)}: ${bucket.count} post${bucket.count === 1 ? '' : 's'}`}
+                aria-label={`${formatDate(bucket.date)}: ${bucket.count} post${bucket.count === 1 ? '' : 's'}`}
+              ></span>
+            )) : Array.from({ length: 35 }, () => (
+              <span class="activity-cell" style={`--cell-color:${heatColor(0, maxActivity)}`} aria-hidden="true"></span>
+            ))}
+          </div>
+        </section>
+
+        <section class="mood-stats-panel mood-stats-panel--wide" aria-labelledby="sentiment-title">
+          <div class="mood-stats-section-head">
+            <h2 id="sentiment-title">Mood curve</h2>
+            <span>{sentimentTimeline.length} scored bucket{sentimentTimeline.length === 1 ? '' : 's'}</span>
+          </div>
+          {sentimentTimeline.length > 0 ? (
+            <div class="sentiment-chart" aria-label="Average sentiment valence by week">
+              <div class="sentiment-axis sentiment-axis--top" aria-hidden="true">+1</div>
+              <div class="sentiment-axis sentiment-axis--mid" aria-hidden="true">0</div>
+              <div class="sentiment-axis sentiment-axis--bottom" aria-hidden="true">-1</div>
+              <div class="sentiment-track" style={`--sentiment-count:${sentimentTimeline.length}`}>
+                {sentimentTimeline.map((bucket) => {
+                  const gap = bucket.avgValence === null || bucket.scoredCount === 0;
+                  const title = gap
+                    ? `${formatDate(bucket.bucketStart)}: no scored posts`
+                    : `${formatDate(bucket.bucketStart)}: ${formatValence(bucket.avgValence)} ${bucket.dominantLabel ?? 'neutral'} (${bucket.scoredCount})`;
+                  return (
+                    <span
+                      class={`sentiment-point${gap ? ' sentiment-point--gap' : ''}`}
+                      style={`--sentiment-y:${sentimentPosition(bucket.avgValence)};--sentiment-color:${sentimentColor(bucket.dominantLabel)}`}
+                      title={title}
+                      aria-label={title}
+                    >
+                      <span></span>
+                    </span>
+                  );
+                })}
+              </div>
+            </div>
+          ) : (
+            <div class="sentiment-empty">Not enough scored data yet.</div>
+          )}
+        </section>
+
+        <section class="mood-stats-panel mood-stats-panel--wide" aria-labelledby="rhythm-title">
+          <div class="mood-stats-section-head">
+            <h2 id="rhythm-title">Rhythm</h2>
+            <span>weekday by hour</span>
+          </div>
+          <div class="rhythm-grid" aria-label="Posting rhythm by weekday and hour">
+            <div class="rhythm-corner" aria-hidden="true"></div>
+            {hourLabels.map((hour) => <span class="rhythm-hour">{Number(hour) % 6 === 0 ? hour : ''}</span>)}
+            {rhythm.map((row, dayIndex) => (
+              <Fragment>
+                <span class="rhythm-day">{weekdays[dayIndex]}</span>
+                {row.map((count, hourIndex) => (
+                  <span
+                    class="rhythm-cell"
+                    style={`--cell-color:${heatColor(count, maxRhythm)}`}
+                    title={`${weekdays[dayIndex]} ${hourLabels[hourIndex]}:00: ${count} post${count === 1 ? '' : 's'}`}
+                    aria-label={`${weekdays[dayIndex]} ${hourLabels[hourIndex]}:00: ${count} post${count === 1 ? '' : 's'}`}
+                  ></span>
+                ))}
+              </Fragment>
+            ))}
+          </div>
+        </section>
+
+        <section class="mood-stats-panel" aria-labelledby="streak-title">
+          <h2 id="streak-title">Streaks</h2>
+          <dl class="streak-list">
+            <div>
+              <dt>Current streak</dt>
+              <dd>{snapshot.streaks.current} days</dd>
+            </div>
+            <div>
+              <dt>Longest streak</dt>
+              <dd>{snapshot.streaks.longest} days</dd>
+            </div>
+          </dl>
+        </section>
+
+        <section class="mood-stats-panel" aria-labelledby="media-title">
+          <h2 id="media-title">Media</h2>
+          <div class="media-bar" aria-label="Media composition">
+            {mediaItems.map((item) => (
+              <span
+                class={`media-segment media-segment--${item.key}`}
+                style={`--share:${mediaTotal > 0 ? (item.value / mediaTotal) * 100 : 0}`}
+                title={`${item.label}: ${item.value}`}
+              ></span>
+            ))}
+          </div>
+          <dl class="media-list">
+            {mediaItems.map((item) => (
+              <div>
+                <dt>{item.label}</dt>
+                <dd>{item.value}</dd>
+              </div>
+            ))}
+          </dl>
+        </section>
+      </div>
+    )}
+  </main>
+</Layout>
+
+<style>
+  .mood-stats {
+    width: min(1120px, calc(100% - 32px));
+    margin: 0 auto;
+    padding: 112px 0 72px;
+    color: hsl(var(--foreground));
+  }
+
+  .mood-stats-header {
+    display: grid;
+    gap: 18px;
+    margin-bottom: 32px;
+  }
+
+  .mood-stats-back {
+    width: max-content;
+    color: hsl(var(--muted-foreground));
+    font-size: 13px;
+    text-decoration: none;
+  }
+
+  .mood-stats-back:hover,
+  .mood-stats-back:focus-visible {
+    color: hsl(var(--foreground));
+    text-decoration: underline;
+    text-underline-offset: 4px;
+  }
+
+  .mood-stats-kicker,
+  .mood-stats-generated {
+    margin: 0;
+    color: hsl(var(--muted-foreground));
+    font-size: 13px;
+  }
+
+  .mood-stats h1 {
+    margin: 4px 0 8px;
+    font-size: clamp(34px, 5vw, 64px);
+    line-height: 0.95;
+    letter-spacing: 0;
+  }
+
+  .mood-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 18px;
+  }
+
+  .mood-stats-panel,
+  .mood-stats-empty {
+    border: 1px solid hsl(var(--foreground) / 0.08);
+    border-radius: 8px;
+    padding: 20px;
+    background: hsl(var(--background));
+  }
+
+  .mood-stats-panel--wide {
+    grid-column: 1 / -1;
+  }
+
+  .mood-stats-section-head {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 16px;
+    color: hsl(var(--muted-foreground));
+    font-size: 13px;
+  }
+
+  .mood-stats h2 {
+    margin: 0 0 16px;
+    font-size: 15px;
+    line-height: 1.2;
+  }
+
+  .mood-stats-section-head h2 {
+    margin: 0;
+  }
+
+  .activity-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(14px, 1fr));
+    gap: 5px;
+  }
+
+  .activity-cell,
+  .rhythm-cell {
+    display: block;
+    aspect-ratio: 1;
+    border-radius: 3px;
+    background: var(--cell-color);
+    outline: 1px solid hsl(var(--foreground) / 0.04);
+  }
+
+  .rhythm-grid {
+    display: grid;
+    grid-template-columns: 34px repeat(24, minmax(10px, 1fr));
+    gap: 4px;
+    overflow-x: auto;
+    padding-bottom: 4px;
+  }
+
+  .sentiment-chart {
+    position: relative;
+    min-height: 132px;
+    padding: 8px 0 18px 34px;
+    border-radius: 8px;
+    background:
+      linear-gradient(to bottom, transparent 49%, hsl(var(--foreground) / 0.16) 49%, hsl(var(--foreground) / 0.16) 51%, transparent 51%),
+      linear-gradient(to bottom, hsl(var(--foreground) / 0.08), transparent 1px),
+      linear-gradient(to top, hsl(var(--foreground) / 0.08), transparent 1px);
+  }
+
+  .sentiment-track {
+    position: relative;
+    display: grid;
+    grid-template-columns: repeat(var(--sentiment-count), minmax(12px, 1fr));
+    gap: 6px;
+    height: 96px;
+    overflow-x: auto;
+  }
+
+  .sentiment-axis {
+    position: absolute;
+    left: 0;
+    color: hsl(var(--muted-foreground));
+    font-size: 10px;
+    line-height: 1;
+  }
+
+  .sentiment-axis--top {
+    top: 6px;
+  }
+
+  .sentiment-axis--mid {
+    top: calc(50% - 5px);
+  }
+
+  .sentiment-axis--bottom {
+    bottom: 15px;
+  }
+
+  .sentiment-point {
+    position: relative;
+    min-width: 12px;
+  }
+
+  .sentiment-point::before {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: min(50%, var(--sentiment-y));
+    bottom: min(50%, calc(100% - var(--sentiment-y)));
+    width: 2px;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--sentiment-color) 54%, transparent);
+    transform: translateX(-50%);
+  }
+
+  .sentiment-point > span {
+    position: absolute;
+    left: 50%;
+    top: var(--sentiment-y);
+    width: 9px;
+    height: 9px;
+    border-radius: 999px;
+    background: var(--sentiment-color);
+    box-shadow: 0 0 0 2px hsl(var(--background));
+    transform: translate(-50%, -50%);
+  }
+
+  .sentiment-point--gap::before {
+    background: repeating-linear-gradient(
+      to bottom,
+      hsl(var(--muted-foreground) / 0.35),
+      hsl(var(--muted-foreground) / 0.35) 3px,
+      transparent 3px,
+      transparent 6px
+    );
+  }
+
+  .sentiment-point--gap > span {
+    background: hsl(var(--background));
+    border: 1px dashed hsl(var(--muted-foreground) / 0.6);
+  }
+
+  .sentiment-empty {
+    border: 1px dashed hsl(var(--foreground) / 0.12);
+    border-radius: 8px;
+    padding: 28px 12px;
+    color: hsl(var(--muted-foreground));
+    text-align: center;
+    font-size: 13px;
+  }
+
+  .rhythm-hour,
+  .rhythm-day {
+    color: hsl(var(--muted-foreground));
+    font-size: 10px;
+    line-height: 1;
+  }
+
+  .rhythm-day {
+    display: flex;
+    align-items: center;
+  }
+
+  .streak-list,
+  .media-list {
+    display: grid;
+    gap: 14px;
+    margin: 0;
+  }
+
+  .streak-list div,
+  .media-list div {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+  }
+
+  .streak-list dt,
+  .media-list dt {
+    color: hsl(var(--muted-foreground));
+  }
+
+  .streak-list dd,
+  .media-list dd {
+    margin: 0;
+    font-weight: 650;
+  }
+
+  .media-bar {
+    display: flex;
+    height: 14px;
+    overflow: hidden;
+    border-radius: 7px;
+    background: hsl(var(--foreground) / 0.06);
+    margin-bottom: 16px;
+  }
+
+  .media-segment {
+    width: calc(var(--share) * 1%);
+    min-width: calc(min(var(--share), 1) * 8px);
+  }
+
+  .media-segment--text { background: hsl(176 39% 43%); }
+  .media-segment--photo { background: hsl(36 74% 54%); }
+  .media-segment--video { background: hsl(265 42% 58%); }
+  .media-segment--other { background: hsl(208 15% 50%); }
+
+  .mood-stats-empty h2 {
+    margin: 0 0 8px;
+  }
+
+  .mood-stats-empty p {
+    margin: 0;
+    color: hsl(var(--muted-foreground));
+  }
+
+  @media (max-width: 760px) {
+    .mood-stats {
+      width: min(100% - 24px, 1120px);
+      padding-top: 88px;
+    }
+
+    .mood-stats-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .mood-stats-panel {
+      padding: 16px;
+    }
+  }
+</style>

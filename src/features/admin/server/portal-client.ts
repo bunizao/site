@@ -1,4 +1,9 @@
-import type { AuditEntry, BroadcastRecord, SubscriberListResult } from '@bunizao/contracts';
+import type {
+  AuditEntry,
+  BroadcastRecord,
+  MoodIngestHealth,
+  SubscriberListResult,
+} from '@bunizao/contracts';
 import {
   createApiServiceRequest,
   getApiServiceBinding,
@@ -72,6 +77,17 @@ export async function loadBroadcast(
       locals,
     );
     return data.broadcast ?? null;
+  } catch {
+    return null;
+  }
+}
+
+export async function loadMoodIngestHealth(
+  request: Request,
+  locals: RuntimeEnvLocals | undefined,
+): Promise<MoodIngestHealth | null> {
+  try {
+    return await adminGet<MoodIngestHealth>('/v2/admin/mood/health', request, locals);
   } catch {
     return null;
   }

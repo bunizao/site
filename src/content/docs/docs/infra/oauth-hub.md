@@ -4,23 +4,23 @@ description: The owner-auth control plane — how the site grants short-lived cr
 public: true
 ---
 
-The OAuth hub is the owner-auth control plane. It starts with the GitHub OAuth admin session and gives future sandbox jobs, knowledge connectors, and MCP clients one place to request narrower credentials.
+The OAuth hub is the owner-auth control plane. Human login is handled by Cloudflare Access; the site verifies that identity and gives future sandbox jobs, knowledge connectors, and MCP clients one place to request narrower credentials.
 
 ## Current scope
 
-- `/oauth/login` starts the human login flow.
-- `site-api /v2/admin/auth/start` and `/v2/admin/auth/callback` perform the GitHub OAuth handshake.
-- `admin_session` is the signed owner session cookie.
-- `/oauth` routes to the protected hub; unauthenticated requests end at `/oauth/login`.
-- `/dev/*` and `/oauth/login` are public-site UI routes. `site-api` only owns `/v2/admin/*` API and OAuth endpoints.
+- Cloudflare Access owns the human login challenge and allow-list.
+- The public site verifies the signed Access JWT before serving `/dev/*` and protected docs.
+- `/oauth/login` is a compatibility handoff that redirects to the requested local path.
+- `site-api /v2/admin/session` validates forwarded admin identity for private API reads.
+- `/dev/*` and `/oauth/login` are public-site routes. `site-api` owns private `/v2/admin/*` APIs.
 
-The current implementation does not store GitHub access tokens after login. That's deliberate: the session proves the owner is present, it is not a provider-token vault.
+The current implementation does not store GitHub access tokens for admin login. That's deliberate: the Access identity proves the owner is present, it is not a provider-token vault.
 
 ## Design rules
 
-- Keep one human authority — the allow-listed GitHub login in `ADMIN_GITHUB_LOGIN`.
+- Keep one human authority — the allow-listed Cloudflare Access identity.
 - Don't expose connector credentials or provider tokens to the browser.
-- Don't pass `admin_session` into sandboxes, MCP servers, or external model clients.
+- Don't pass the Access JWT into sandboxes, MCP servers, or external model clients.
 - Mint short-lived machine credentials from the owner session when a non-browser client needs access.
 - Give every client an explicit scope and an audit trail.
 - Treat non-standard sources (X, Substack, Xiaohongshu, Zhihu) as connector credentials, not fake OAuth providers.
@@ -32,7 +32,7 @@ The current implementation does not store GitHub access tokens after login. That
 | Agent sandbox | Runs user-approved jobs against private site resources | Short-lived sandbox token |
 | Knowledge connector | Imports or syncs saved content from external platforms | Source-scoped connector credential |
 | MCP server | Exposes selected tools/resources to external model clients | MCP-scoped bearer token |
-| Admin portal | Human-only control plane | `admin_session` |
+| Admin portal | Human-only control plane | Verified Access identity |
 
 ## Build order
 
@@ -47,4 +47,4 @@ The current implementation does not store GitHub access tokens after login. That
 - No generic OAuth provider before there are real clients.
 - No connecting X, Zhihu, Substack, Xiaohongshu, or other sources directly in the login flow.
 - No long-lived platform tokens stored in client-side state.
-- No second admin login system.
+- No app-owned second admin login system.

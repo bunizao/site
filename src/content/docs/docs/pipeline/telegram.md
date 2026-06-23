@@ -49,7 +49,7 @@ Canonical private URLs:
 
 Public compatibility:
 
-- `https://buxx.me/api/notify/*`
+- `https://buxx.me/api/*` is directly routed to `site-api`
 
 ## Failure modes
 

@@ -67,6 +67,7 @@
     "@radix-ui/react-label": "^2.1.9",
     "@radix-ui/react-select": "^2.3.0",
     "@radix-ui/react-slot": "^1.2.5",
+    "@tryghost/content-api": "^1.12.6",
     "astro": "^7.0.0",
     "cheerio": "1.0.0-rc.12",
     "class-variance-authority": "^0.7.1",

@@ -6,6 +6,7 @@ import { findTooBigVideoMedia, hasStructuredMoodFeedMedia, renderStructuredMoodF
 import { getMoodFeedThumbnailStyle } from '@/features/mood/shared/feed-thumbnail';
 import { getMoodDetailHref, getMoodFeedAnchorFragmentId } from '@/features/mood/shared/feed-anchor';
 import { getCriticalInitialPosts, hasRenderableMoodFeedMedia } from '@/features/mood/shared/initial-feed';
+import { getMoodTagHref } from '@/features/mood/shared/tags';
 import { buildSrcSet, withWidthParam } from '@/lib/media/responsive-image';
 
 interface SkeletonItem {
@@ -24,6 +25,7 @@ interface Props {
   initialPosts?: MoodFeedItem[];
   initialChannel?: MoodChannelSummary;
   anchorId?: string;
+  filteredTag?: string;
 }
 
 const {
@@ -31,6 +33,7 @@ const {
   initialPosts = [],
   initialChannel,
   anchorId = '',
+  filteredTag = '',
 } = Astro.props;
 
 const initialFeedPayload = {
@@ -194,6 +197,7 @@ const criticalInitialPosts = getCriticalInitialPosts(initialPosts, anchorId);
 const criticalDateGroups = groupPostsByDate(criticalInitialPosts);
 const criticalPriorityPostId = criticalInitialPosts.find(hasRenderableMoodFeedMedia)?.id ?? '';
 const hasCriticalInitialPosts = criticalInitialPosts.length > 0;
+const filteredTagLabel = filteredTag ? `#${filteredTag}` : '';
 ---
 
 <div class="mood-page">
@@ -232,10 +236,18 @@ const hasCriticalInitialPosts = criticalInitialPosts.length > 0;
     <p class="text-sm text-muted-foreground">Unable to load moods. Please try again later.</p>
   </div>
 
+  {filteredTag ? (
+    <div class="mood-filter" data-mood-filter>
+      <p class="mood-filter-label">Filtered by <span>{filteredTagLabel}</span></p>
+      <a class="mood-filter-clear" href="/mood">Clear</a>
+    </div>
+  ) : null}
+
   <div
     class={`mood-feed${hasCriticalInitialPosts ? '' : ' is-hidden'}`}
     data-mood-feed
     data-mood-anchor-id={anchorId || undefined}
+    data-mood-filter-tag={filteredTag || undefined}
   >
     {hasInitialFeedPayload && (
       <script type="application/json" data-mood-initial-feed set:html={JSON.stringify(initialFeedPayload)}></script>
@@ -468,7 +480,7 @@ const hasCriticalInitialPosts = criticalInitialPosts.length > 0;
                       ) : null}
                     </div>
 
-                    {post.tag ? <span class="mood-item-tag">#{post.tag}</span> : null}
+                    {post.tag ? <a class="mood-item-tag" href={getMoodTagHref(post.tag)}>#{post.tag}</a> : null}
                   </div>
                 </div>
               );
@@ -547,6 +559,37 @@ const hasCriticalInitialPosts = criticalInitialPosts.length > 0;
 
   .mood-error.is-hidden {
     display: none;
+  }
+
+  .mood-filter {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    width: min(100%, 720px);
+    margin: -24px auto 36px;
+    font-size: 13px;
+    color: hsl(var(--muted-foreground));
+  }
+
+  .mood-filter-label {
+    margin: 0;
+  }
+
+  .mood-filter-label span {
+    color: hsl(var(--foreground));
+    font-weight: 600;
+  }
+
+  .mood-filter-clear {
+    color: hsl(var(--foreground) / 0.72);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+
+  .mood-filter-clear:hover,
+  .mood-filter-clear:focus-visible {
+    color: hsl(var(--foreground));
   }
 
   .mood-feed.is-hidden {

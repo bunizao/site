@@ -55,6 +55,13 @@ They normalize media URLs to `https://buxx.me/api/v2/images/*`, expose `/api/v1/
 
 `src/features/mood/shared/utils.ts` strips Telegram HTML into preview text, keeps a limited preview HTML subset, extracts first image and fallback, detects media-heavy or long posts, derives quote previews, and groups posts by date.
 
+## Edge cases
+
+- Missing detail pages render a controlled fallback UI instead of crashing.
+- Feed rendering deduplicates post ids; comment pagination deduplicates comment ids and stops when Telegram stops returning a usable cursor.
+- E2E fixtures can replace live Telegram calls for feed, detail, and comments.
+- Animated Telegram emoji enhance progressively and fall back safely when loading fails.
+
 ## Embed, RSS, subscribe
 
 Embed parameters: `id`, `count` (1–10), `theme`, `frame`, `density`, `font`, `origin`, `refresh`, `link`. The widget posts a `mood-embed-resize` message to the parent for dynamic iframe height; with `origin` set, it's locked to that parent.

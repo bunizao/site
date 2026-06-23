@@ -49,6 +49,21 @@ The public Worker only needs the `API` service binding to call `site-api`.
 
 Notify D1, mood D1, R2 image storage, queue bindings, session KV, Telegram secrets, Resend secrets, and cron triggers belong to `site-api`.
 
+## Public runtime vars
+
+The public Worker reads only the values it needs to render public pages and proxy compatible API paths:
+
+- `SITE_URL`
+- `PUBLIC_SITE_URL`
+- `GHOST_URL`
+- `LASTFM_USER`
+- `PUBLIC_HD_IMAGE_URL`
+- `PUBLIC_TURNSTILE_SITE_KEY`
+- `CHANNEL`
+- `TELEGRAM_HOST`
+
+Notify, admin, Telegram webhook, D1, R2, queue, and cron secrets stay in `site-api`.
+
 ## Failure behavior
 
 - If the `API` service binding is missing, proxied private routes return 503.

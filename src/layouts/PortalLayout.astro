@@ -2,7 +2,7 @@
 interface Props {
   title: string;
   description?: string;
-  active?: 'overview' | 'oauth' | 'subscribers' | 'broadcasts' | 'mascot' | 'newsletter' | 'svg' | 'mood-embed';
+  active?: 'overview' | 'oauth' | 'subscribers' | 'broadcasts' | 'mascot' | 'newsletter' | 'svg' | 'mood-embed' | 'mood-data';
   user?: {
     login: string;
     email?: string;
@@ -21,6 +21,7 @@ import {
   Mail,
   Image as ImageIcon,
   MessageSquare,
+  Search,
   LogOut,
   ExternalLink,
 } from 'lucide-react';
@@ -52,6 +53,7 @@ const navItems = [
   { key: 'newsletter', label: 'Newsletter', href: '/dev/portal/newsletter', Icon: Mail },
   { key: 'svg', label: 'SVG gallery', href: '/dev/portal/svg', Icon: ImageIcon },
   { key: 'mood-embed', label: 'Mood embed', href: '/dev/portal/mood-embed', Icon: MessageSquare },
+  { key: 'mood-data', label: 'Mood data', href: '/dev/portal/mood-data', Icon: Search },
 ] as const;
 ---
 

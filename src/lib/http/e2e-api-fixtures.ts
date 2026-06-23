@@ -1,4 +1,5 @@
 import type { APIContext } from 'astro';
+import type { MoodAiConfig, MoodAiModel } from '@bunizao/contracts';
 import { loadMoodComments, loadMoodFeed, loadMoodProbe } from '@/features/mood/server/api-client';
 import { json, jsonBadRequest, jsonError, jsonOk } from '@/lib/http/json-response';
 import { isE2ESiteFixtureEnabled } from '@/lib/e2e';
@@ -28,6 +29,8 @@ async function moodFixtureResponse(context: FixtureContext, url: URL): Promise<R
   return jsonOk(await loadMoodFeed(context, {
     before: before ?? undefined,
     fresh: url.searchParams.get('fresh') === '1',
+    limit: Number(url.searchParams.get('limit') || 0) || undefined,
+    tag: url.searchParams.get('tag') ?? undefined,
   }), noStore());
 }
 
@@ -161,6 +164,51 @@ function listeningFixtureResponse(): Response {
   }, noStore());
 }
 
+async function moodAiConfigFixtureResponse(request: Request): Promise<Response> {
+  if (request.method === 'PUT') {
+    const input = await request.json().catch(() => ({})) as Partial<MoodAiConfig>;
+    const primary = parseMoodAiModelText(input.primary);
+    const fallback = parseMoodAiModelText(input.fallback);
+
+    if (!primary || !fallback) {
+      return jsonBadRequest('invalid_mood_ai_model', noStore());
+    }
+
+    return jsonOk({
+      primary,
+      fallback,
+      updatedAt: new Date(0).toISOString(),
+    } satisfies MoodAiConfig, noStore());
+  }
+
+  return jsonOk({
+    primary: 'gpt-5.5',
+    fallback: 'gpt-5',
+    updatedAt: new Date(0).toISOString(),
+  } satisfies MoodAiConfig, noStore());
+}
+
+async function moodAiTestFixtureResponse(request: Request): Promise<Response> {
+  const input = await request.json().catch(() => ({})) as { model?: unknown };
+  const model = parseMoodAiModelText(input.model);
+
+  if (!model) {
+    return jsonBadRequest('invalid_mood_ai_model', noStore());
+  }
+
+  return jsonOk({
+    model,
+    text: 'ok',
+    at: new Date(0).toISOString(),
+  }, noStore());
+}
+
+function parseMoodAiModelText(value: unknown): MoodAiModel | null {
+  return typeof value === 'string' && value.trim()
+    ? value.trim()
+    : null;
+}
+
 export async function createE2EApiFixtureResponse(context: FixtureContext): Promise<Response | null> {
   if (!isE2ESiteFixtureEnabled(context.locals)) {
     return null;
@@ -175,6 +223,12 @@ export async function createE2EApiFixtureResponse(context: FixtureContext): Prom
   }
   if (url.pathname === '/api/listening') {
     return listeningFixtureResponse();
+  }
+  if (url.pathname === '/v2/admin/mood/ai-config') {
+    return moodAiConfigFixtureResponse(context.request);
+  }
+  if (url.pathname === '/v2/admin/ai/test') {
+    return moodAiTestFixtureResponse(context.request);
   }
   if (url.pathname === '/api/writing') {
     return jsonOk({ posts: [] }, noStore());

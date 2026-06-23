@@ -11,6 +11,7 @@ import {
   mergeMoodFeedWindowPosts,
   readMoodFeedAnchorId,
 } from '@/features/mood/shared/feed-anchor';
+import { normalizeMoodTag } from '@/features/mood/shared/tags';
 import { isE2ESiteFixtureEnabled } from '@/lib/e2e';
 import { buildSrcSet, withWidthParam } from '@/lib/media/responsive-image';
 import { readEnv, readPublicEnv } from '@/lib/runtime/env';
@@ -31,6 +32,8 @@ const turnstileSiteKey = readPublicEnv(Astro.locals, 'TURNSTILE_SITE_KEY');
 const moodFeedAnchorId = readMoodFeedAnchorId(Astro.url);
 const moodFeedAnchorBeforeCursor = getMoodFeedAnchorBeforeCursor(moodFeedAnchorId);
 const moodFeedAnchorWindowBeforeCursor = getMoodFeedAnchorWindowBeforeCursor(moodFeedAnchorId);
+const activeTag = normalizeMoodTag(Astro.url.searchParams.get('tag'));
+const activeTagQuery = activeTag ? { tag: activeTag, source: 'archive' as const } : {};
 
 async function loadInitialMoodFeed() {
   if (isE2ESiteFixtureEnabled(Astro.locals)) return null;
@@ -40,7 +43,7 @@ async function loadInitialMoodFeed() {
   try {
     if (moodFeedAnchorId) {
       const focused = moodFeedAnchorWindowBeforeCursor
-        ? await loadMoodFeed(context, { before: moodFeedAnchorWindowBeforeCursor })
+        ? await loadMoodFeed(context, { ...activeTagQuery, before: moodFeedAnchorWindowBeforeCursor })
         : null;
       const focusedPosts = focused?.posts ?? [];
       if (focused && focusedPosts.some((post) => post.id === moodFeedAnchorId)) {
@@ -51,7 +54,7 @@ async function loadInitialMoodFeed() {
         moodFeedAnchorBeforeCursor
         && moodFeedAnchorBeforeCursor !== moodFeedAnchorWindowBeforeCursor
       )
-        ? await loadMoodFeed(context, { before: moodFeedAnchorBeforeCursor })
+        ? await loadMoodFeed(context, { ...activeTagQuery, before: moodFeedAnchorBeforeCursor })
         : null;
       const fallbackPosts = fallback?.posts ?? [];
       if (fallback && fallbackPosts.length > 0) {
@@ -66,7 +69,7 @@ async function loadInitialMoodFeed() {
       }
     }
 
-    return await loadMoodFeed(context);
+    return await loadMoodFeed(context, activeTagQuery);
   } catch (error) {
     console.warn('Failed to load initial mood feed:', error);
     return null;
@@ -298,6 +301,7 @@ const skeletonGroups = [
       initialPosts={initialFeed?.posts ?? []}
       initialChannel={initialFeed?.channel}
       anchorId={moodFeedAnchorId}
+      filteredTag={activeTag}
     />
   </main>
   <NotifyPanel turnstileSiteKey={turnstileSiteKey} />
@@ -1412,6 +1416,15 @@ const skeletonGroups = [
     font-size: 11px;
     color: hsl(var(--muted-foreground) / 0.6);
     align-self: flex-start;
+    text-decoration: none;
+    transition: color 0.18s ease;
+  }
+
+  :global(.mood-item-tag:hover),
+  :global(.mood-item-tag:focus-visible) {
+    color: hsl(var(--foreground) / 0.82);
+    text-decoration: underline;
+    text-underline-offset: 3px;
   }
 
   /* Reactions */

@@ -4,12 +4,14 @@ import {
   loadMoodDocument,
   loadMoodFeed,
   loadMoodProbe,
+  loadMoodStatsSnapshot,
 } from '../../src/features/mood/server/api-client';
 import type {
   MoodCommentsPage,
   MoodContentDocument,
   MoodFeedResponse,
   MoodProbeResult,
+  MoodStatsSnapshot,
 } from '@bunizao/contracts';
 
 function createContext(locals: Record<string, unknown> = {}) {
@@ -78,6 +80,15 @@ describe('mood API client', () => {
       nextBefore: '',
     };
     const probe: MoodProbeResult = { latestId: '990001' };
+    const stats: MoodStatsSnapshot = {
+      activity: [{ date: '2026-06-18', count: 1 }],
+      rhythm: Array.from({ length: 7 }, () => Array.from({ length: 24 }, () => 0)),
+      sentimentTimeline: [],
+      streaks: { current: 1, longest: 1 },
+      media: { text: 1, photo: 0, video: 0, other: 0 },
+      totals: { posts: 1, firstPostAt: '2026-06-18T00:00:00.000Z', lastPostAt: '2026-06-18T00:00:00.000Z' },
+      generatedAt: '2026-06-18T10:00:00.000Z',
+    };
     const api = {
       async fetch(input: RequestInfo | URL) {
         const request = input instanceof Request ? input : new Request(input);
@@ -86,6 +97,10 @@ describe('mood API client', () => {
 
         if (url.pathname === '/v2/mood' && url.searchParams.get('probe') === 'true') {
           return Response.json(probe);
+        }
+
+        if (url.pathname === '/v2/mood/stats') {
+          return Response.json(stats);
         }
 
         if (url.pathname === '/v2/mood') {
@@ -105,20 +120,48 @@ describe('mood API client', () => {
     };
     const context = createContext({ env: { API: api } });
 
-    const feedResult = await loadMoodFeed(context, { limit: 1, source: 'archive' });
+    const feedResult = await loadMoodFeed(context, { limit: 1, tag: 'travel', source: 'archive' });
     const documentResult = await loadMoodDocument(context, '990001', { source: 'archive' });
     const commentsResult = await loadMoodComments(context, '990001', { before: '990000', source: 'archive' });
     const probeResult = await loadMoodProbe(context, { source: 'archive' });
+    const statsResult = await loadMoodStatsSnapshot(context);
 
     expect(feedResult.posts[0]?.media[0]?.type).toBe('video');
     expect(documentResult?.id).toBe('990001');
     expect(commentsResult.comments[0]?.id).toBe('990000');
     expect(probeResult.latestId).toBe('990001');
+    expect(statsResult?.totals.posts).toBe(1);
     expect(paths).toEqual([
-      '/v2/mood?limit=1',
+      '/v2/mood?limit=1&tag=travel',
       '/v2/mood/990001',
       '/v2/mood/990001/comments?before=990000',
       '/v2/mood?probe=true&fresh=true',
+      '/v2/mood/stats',
+    ]);
+  });
+
+  test('returns null when the stats snapshot is unavailable', async () => {
+    const api = {
+      async fetch() {
+        return Response.json({ error: { code: 'mood_stats_unavailable' } }, { status: 503 });
+      },
+    };
+
+    const result = await loadMoodStatsSnapshot(createContext({ env: { API: api } }));
+    expect(result).toBeNull();
+  });
+
+  test('serves a sentiment stats snapshot in E2E fixture mode', async () => {
+    const stats = await loadMoodStatsSnapshot(createContext({
+      env: {
+        E2E_SITE_FIXTURE: '1',
+      },
+    }));
+
+    expect(stats?.sentimentTimeline).toEqual([
+      { bucketStart: '2026-06-01', avgValence: 0.36, dominantLabel: 'calm', scoredCount: 7 },
+      { bucketStart: '2026-06-08', avgValence: null, dominantLabel: null, scoredCount: 0 },
+      { bucketStart: '2026-06-15', avgValence: -0.18, dominantLabel: 'melancholy', scoredCount: 4 },
     ]);
   });
 
@@ -134,5 +177,15 @@ describe('mood API client', () => {
     expect(document?.id).toBe(feed.posts[0]?.id);
     expect(Array.isArray(comments.comments)).toBe(true);
     expect(probe.latestId).toBeTruthy();
+  });
+
+  test('filters E2E fixture moods by tag', async () => {
+    const context = createContext({ env: { E2E_SITE_FIXTURE: '1' } });
+
+    const matching = await loadMoodFeed(context, { tag: 'e2e', source: 'archive' });
+    const unknown = await loadMoodFeed(context, { tag: 'unknown', source: 'archive' });
+
+    expect(matching.posts.length).toBeGreaterThan(0);
+    expect(unknown.posts).toEqual([]);
   });
 });
