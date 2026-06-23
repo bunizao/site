@@ -4,12 +4,14 @@ import {
   loadMoodDocument,
   loadMoodFeed,
   loadMoodProbe,
+  loadMoodStatsSnapshot,
 } from '../../src/features/mood/server/api-client';
 import type {
   MoodCommentsPage,
   MoodContentDocument,
   MoodFeedResponse,
   MoodProbeResult,
+  MoodStatsSnapshot,
 } from '@bunizao/contracts';
 
 function createContext(locals: Record<string, unknown> = {}) {
@@ -78,6 +80,15 @@ describe('mood API client', () => {
       nextBefore: '',
     };
     const probe: MoodProbeResult = { latestId: '990001' };
+    const stats: MoodStatsSnapshot = {
+      activity: [{ date: '2026-06-18', count: 1 }],
+      rhythm: Array.from({ length: 7 }, () => Array.from({ length: 24 }, () => 0)),
+      sentimentTimeline: [],
+      streaks: { current: 1, longest: 1 },
+      media: { text: 1, photo: 0, video: 0, other: 0 },
+      totals: { posts: 1, firstPostAt: '2026-06-18T00:00:00.000Z', lastPostAt: '2026-06-18T00:00:00.000Z' },
+      generatedAt: '2026-06-18T10:00:00.000Z',
+    };
     const api = {
       async fetch(input: RequestInfo | URL) {
         const request = input instanceof Request ? input : new Request(input);
@@ -86,6 +97,10 @@ describe('mood API client', () => {
 
         if (url.pathname === '/v2/mood' && url.searchParams.get('probe') === 'true') {
           return Response.json(probe);
+        }
+
+        if (url.pathname === '/v2/mood/stats') {
+          return Response.json(stats);
         }
 
         if (url.pathname === '/v2/mood') {
@@ -109,17 +124,31 @@ describe('mood API client', () => {
     const documentResult = await loadMoodDocument(context, '990001', { source: 'archive' });
     const commentsResult = await loadMoodComments(context, '990001', { before: '990000', source: 'archive' });
     const probeResult = await loadMoodProbe(context, { source: 'archive' });
+    const statsResult = await loadMoodStatsSnapshot(context);
 
     expect(feedResult.posts[0]?.media[0]?.type).toBe('video');
     expect(documentResult?.id).toBe('990001');
     expect(commentsResult.comments[0]?.id).toBe('990000');
     expect(probeResult.latestId).toBe('990001');
+    expect(statsResult?.totals.posts).toBe(1);
     expect(paths).toEqual([
       '/v2/mood?limit=1&tag=travel',
       '/v2/mood/990001',
       '/v2/mood/990001/comments?before=990000',
       '/v2/mood?probe=true&fresh=true',
+      '/v2/mood/stats',
     ]);
+  });
+
+  test('returns null when the stats snapshot is unavailable', async () => {
+    const api = {
+      async fetch() {
+        return Response.json({ error: { code: 'mood_stats_unavailable' } }, { status: 503 });
+      },
+    };
+
+    const result = await loadMoodStatsSnapshot(createContext({ env: { API: api } }));
+    expect(result).toBeNull();
   });
 
   test('keeps E2E fixture mode independent from the service binding', async () => {

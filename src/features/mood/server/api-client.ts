@@ -6,6 +6,7 @@ import type {
   MoodFeedItem,
   MoodFeedResponse,
   MoodProbeResult,
+  MoodStatsSnapshot,
 } from '@bunizao/contracts';
 import {
   createApiServiceRequest,
@@ -185,6 +186,23 @@ export async function loadMoodProbe(context: MoodServerContext, options: { sourc
 
   const { posts } = await loadMoodChannelSnapshot(context, { skipCache: true });
   return { latestId: posts[0]?.id ?? '' };
+}
+
+export async function loadMoodStatsSnapshot(context: MoodServerContext): Promise<MoodStatsSnapshot | null> {
+  const api = await getApiServiceBinding(context.locals);
+  if (!api) {
+    throw new Error('API service binding unavailable for mood stats reads.');
+  }
+
+  const response = await api.fetch(createMoodArchiveApiRequest(context, '/v2/mood/stats'));
+  if (response.status === 503 || response.status === 404) {
+    return null;
+  }
+  if (!response.ok) {
+    throw new Error(`Mood stats request failed: ${response.status} ${response.statusText}`);
+  }
+
+  return response.json() as Promise<MoodStatsSnapshot>;
 }
 
 export async function loadMoodDocument(
