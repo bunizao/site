@@ -189,6 +189,28 @@ export async function loadMoodProbe(context: MoodServerContext, options: { sourc
 }
 
 export async function loadMoodStatsSnapshot(context: MoodServerContext): Promise<MoodStatsSnapshot | null> {
+  if (isE2ESiteFixtureEnabled(context.locals)) {
+    return {
+      activity: [
+        { date: '2026-06-15', count: 2 },
+        { date: '2026-06-16', count: 1 },
+        { date: '2026-06-17', count: 3 },
+      ],
+      rhythm: Array.from({ length: 7 }, (_day, dayIndex) => {
+        return Array.from({ length: 24 }, (_hour, hourIndex) => dayIndex === 1 && hourIndex === 9 ? 2 : 0);
+      }),
+      sentimentTimeline: [
+        { bucketStart: '2026-06-01', avgValence: 0.36, dominantLabel: 'calm', scoredCount: 7 },
+        { bucketStart: '2026-06-08', avgValence: null, dominantLabel: null, scoredCount: 0 },
+        { bucketStart: '2026-06-15', avgValence: -0.18, dominantLabel: 'melancholy', scoredCount: 4 },
+      ],
+      streaks: { current: 3, longest: 5 },
+      media: { text: 3, photo: 2, video: 1, other: 0 },
+      totals: { posts: 6, firstPostAt: '2026-06-15T00:00:00.000Z', lastPostAt: '2026-06-17T00:00:00.000Z' },
+      generatedAt: '2026-06-18T10:00:00.000Z',
+    };
+  }
+
   const api = await getApiServiceBinding(context.locals);
   if (!api) {
     throw new Error('API service binding unavailable for mood stats reads.');

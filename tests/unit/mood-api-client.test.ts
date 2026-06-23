@@ -151,6 +151,20 @@ describe('mood API client', () => {
     expect(result).toBeNull();
   });
 
+  test('serves a sentiment stats snapshot in E2E fixture mode', async () => {
+    const stats = await loadMoodStatsSnapshot(createContext({
+      env: {
+        E2E_SITE_FIXTURE: '1',
+      },
+    }));
+
+    expect(stats?.sentimentTimeline).toEqual([
+      { bucketStart: '2026-06-01', avgValence: 0.36, dominantLabel: 'calm', scoredCount: 7 },
+      { bucketStart: '2026-06-08', avgValence: null, dominantLabel: null, scoredCount: 0 },
+      { bucketStart: '2026-06-15', avgValence: -0.18, dominantLabel: 'melancholy', scoredCount: 4 },
+    ]);
+  });
+
   test('keeps E2E fixture mode independent from the service binding', async () => {
     const context = createContext({ env: { E2E_SITE_FIXTURE: '1' } });
 

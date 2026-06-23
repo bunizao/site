@@ -22,6 +22,7 @@ const activity = snapshot?.activity ?? [];
 const rhythm = normalizeRhythm(snapshot?.rhythm);
 const maxActivity = Math.max(1, ...activity.map((bucket) => bucket.count));
 const maxRhythm = Math.max(1, ...rhythm.flat());
+const sentimentTimeline = snapshot?.sentimentTimeline ?? [];
 const media = snapshot?.media ?? { text: 0, photo: 0, video: 0, other: 0 };
 const mediaTotal = media.text + media.photo + media.video + media.other;
 const mediaItems = [
@@ -72,6 +73,35 @@ function heatColor(value: number, max: number): string {
   return colors[Number(level(value, max))] ?? colors[0];
 }
 
+function sentimentPosition(value: number | null): string {
+  if (value === null) return '50%';
+  return `${Math.max(0, Math.min(100, 50 - value * 50))}%`;
+}
+
+function formatValence(value: number | null): string {
+  if (value === null) return 'gap';
+  return value > 0 ? `+${value.toFixed(2)}` : value.toFixed(2);
+}
+
+function sentimentColor(label: string | null): string {
+  switch (label) {
+    case 'joy':
+      return 'hsl(42 82% 58%)';
+    case 'calm':
+      return 'hsl(176 42% 44%)';
+    case 'melancholy':
+      return 'hsl(218 30% 58%)';
+    case 'anger':
+      return 'hsl(5 68% 54%)';
+    case 'anxiety':
+      return 'hsl(284 42% 58%)';
+    case 'neutral':
+      return 'hsl(208 12% 55%)';
+    default:
+      return 'hsl(var(--muted-foreground))';
+  }
+}
+
 const weekdays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const hourLabels = Array.from({ length: 24 }, (_item, index) => String(index).padStart(2, '0'));
 ---
@@ -111,6 +141,40 @@ const hourLabels = Array.from({ length: 24 }, (_item, index) => String(index).pa
               <span class="activity-cell" style={`--cell-color:${heatColor(0, maxActivity)}`} aria-hidden="true"></span>
             ))}
           </div>
+        </section>
+
+        <section class="mood-stats-panel mood-stats-panel--wide" aria-labelledby="sentiment-title">
+          <div class="mood-stats-section-head">
+            <h2 id="sentiment-title">Mood curve</h2>
+            <span>{sentimentTimeline.length} scored bucket{sentimentTimeline.length === 1 ? '' : 's'}</span>
+          </div>
+          {sentimentTimeline.length > 0 ? (
+            <div class="sentiment-chart" aria-label="Average sentiment valence by week">
+              <div class="sentiment-axis sentiment-axis--top" aria-hidden="true">+1</div>
+              <div class="sentiment-axis sentiment-axis--mid" aria-hidden="true">0</div>
+              <div class="sentiment-axis sentiment-axis--bottom" aria-hidden="true">-1</div>
+              <div class="sentiment-track" style={`--sentiment-count:${sentimentTimeline.length}`}>
+                {sentimentTimeline.map((bucket) => {
+                  const gap = bucket.avgValence === null || bucket.scoredCount === 0;
+                  const title = gap
+                    ? `${formatDate(bucket.bucketStart)}: no scored posts`
+                    : `${formatDate(bucket.bucketStart)}: ${formatValence(bucket.avgValence)} ${bucket.dominantLabel ?? 'neutral'} (${bucket.scoredCount})`;
+                  return (
+                    <span
+                      class={`sentiment-point${gap ? ' sentiment-point--gap' : ''}`}
+                      style={`--sentiment-y:${sentimentPosition(bucket.avgValence)};--sentiment-color:${sentimentColor(bucket.dominantLabel)}`}
+                      title={title}
+                      aria-label={title}
+                    >
+                      <span></span>
+                    </span>
+                  );
+                })}
+              </div>
+            </div>
+          ) : (
+            <div class="sentiment-empty">Not enough scored data yet.</div>
+          )}
         </section>
 
         <section class="mood-stats-panel mood-stats-panel--wide" aria-labelledby="rhythm-title">
@@ -276,6 +340,99 @@ const hourLabels = Array.from({ length: 24 }, (_item, index) => String(index).pa
     gap: 4px;
     overflow-x: auto;
     padding-bottom: 4px;
+  }
+
+  .sentiment-chart {
+    position: relative;
+    min-height: 132px;
+    padding: 8px 0 18px 34px;
+    border-radius: 8px;
+    background:
+      linear-gradient(to bottom, transparent 49%, hsl(var(--foreground) / 0.16) 49%, hsl(var(--foreground) / 0.16) 51%, transparent 51%),
+      linear-gradient(to bottom, hsl(var(--foreground) / 0.08), transparent 1px),
+      linear-gradient(to top, hsl(var(--foreground) / 0.08), transparent 1px);
+  }
+
+  .sentiment-track {
+    position: relative;
+    display: grid;
+    grid-template-columns: repeat(var(--sentiment-count), minmax(12px, 1fr));
+    gap: 6px;
+    height: 96px;
+    overflow-x: auto;
+  }
+
+  .sentiment-axis {
+    position: absolute;
+    left: 0;
+    color: hsl(var(--muted-foreground));
+    font-size: 10px;
+    line-height: 1;
+  }
+
+  .sentiment-axis--top {
+    top: 6px;
+  }
+
+  .sentiment-axis--mid {
+    top: calc(50% - 5px);
+  }
+
+  .sentiment-axis--bottom {
+    bottom: 15px;
+  }
+
+  .sentiment-point {
+    position: relative;
+    min-width: 12px;
+  }
+
+  .sentiment-point::before {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: min(50%, var(--sentiment-y));
+    bottom: min(50%, calc(100% - var(--sentiment-y)));
+    width: 2px;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--sentiment-color) 54%, transparent);
+    transform: translateX(-50%);
+  }
+
+  .sentiment-point > span {
+    position: absolute;
+    left: 50%;
+    top: var(--sentiment-y);
+    width: 9px;
+    height: 9px;
+    border-radius: 999px;
+    background: var(--sentiment-color);
+    box-shadow: 0 0 0 2px hsl(var(--background));
+    transform: translate(-50%, -50%);
+  }
+
+  .sentiment-point--gap::before {
+    background: repeating-linear-gradient(
+      to bottom,
+      hsl(var(--muted-foreground) / 0.35),
+      hsl(var(--muted-foreground) / 0.35) 3px,
+      transparent 3px,
+      transparent 6px
+    );
+  }
+
+  .sentiment-point--gap > span {
+    background: hsl(var(--background));
+    border: 1px dashed hsl(var(--muted-foreground) / 0.6);
+  }
+
+  .sentiment-empty {
+    border: 1px dashed hsl(var(--foreground) / 0.12);
+    border-radius: 8px;
+    padding: 28px 12px;
+    color: hsl(var(--muted-foreground));
+    text-align: center;
+    font-size: 13px;
   }
 
   .rhythm-hour,

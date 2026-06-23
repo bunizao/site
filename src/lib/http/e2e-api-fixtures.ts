@@ -1,4 +1,5 @@
 import type { APIContext } from 'astro';
+import { MOOD_AI_MODELS, type MoodAiConfig, type MoodAiModel } from '@bunizao/contracts';
 import { loadMoodComments, loadMoodFeed, loadMoodProbe } from '@/features/mood/server/api-client';
 import { json, jsonBadRequest, jsonError, jsonOk } from '@/lib/http/json-response';
 import { isE2ESiteFixtureEnabled } from '@/lib/e2e';
@@ -161,6 +162,36 @@ function listeningFixtureResponse(): Response {
   }, noStore());
 }
 
+async function moodAiConfigFixtureResponse(request: Request): Promise<Response> {
+  if (request.method === 'PUT') {
+    const input = await request.json().catch(() => ({})) as Partial<MoodAiConfig>;
+    const primary = parseMoodAiModel(input.primary);
+    const fallback = parseMoodAiModel(input.fallback);
+
+    if (!primary || !fallback) {
+      return jsonBadRequest('invalid_mood_ai_model', noStore());
+    }
+
+    return jsonOk({
+      primary,
+      fallback,
+      updatedAt: new Date(0).toISOString(),
+    } satisfies MoodAiConfig, noStore());
+  }
+
+  return jsonOk({
+    primary: 'claude-haiku-4-5',
+    fallback: 'claude-sonnet-4-6',
+    updatedAt: new Date(0).toISOString(),
+  } satisfies MoodAiConfig, noStore());
+}
+
+function parseMoodAiModel(value: unknown): MoodAiModel | null {
+  return typeof value === 'string' && (MOOD_AI_MODELS as readonly string[]).includes(value)
+    ? value as MoodAiModel
+    : null;
+}
+
 export async function createE2EApiFixtureResponse(context: FixtureContext): Promise<Response | null> {
   if (!isE2ESiteFixtureEnabled(context.locals)) {
     return null;
@@ -175,6 +206,9 @@ export async function createE2EApiFixtureResponse(context: FixtureContext): Prom
   }
   if (url.pathname === '/api/listening') {
     return listeningFixtureResponse();
+  }
+  if (url.pathname === '/v2/admin/mood/ai-config') {
+    return moodAiConfigFixtureResponse(context.request);
   }
   if (url.pathname === '/api/writing') {
     return jsonOk({ posts: [] }, noStore());
