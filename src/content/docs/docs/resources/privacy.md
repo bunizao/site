@@ -24,6 +24,12 @@ Markdown-backed means policy edits don't require layout changes, route logic sta
 - Cloudflare Worker observability and request logs cover operational monitoring.
 - `src/layouts/Layout.astro` does not mount a third-party analytics script.
 
+### Edge diagnostics
+
+- Footer edge diagnostics come from `site-api /api/edge`.
+- Values are read from Cloudflare `request.cf`: colo, protocol, TLS, TCP RTT, approximate location, and network details.
+- The response is reflected only to the requesting visitor and sent with `Cache-Control: no-store`.
+
 ### Homepage listening
 
 - Card: `src/features/home/ui/Listening.astro`.
