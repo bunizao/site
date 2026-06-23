@@ -81,7 +81,7 @@ describe('@bunizao/contracts', () => {
     const sentiment = {
       label: 'calm',
       score: 0.2,
-      model: 'claude-haiku-4-5',
+      model: 'gpt-5.5',
       at: '2026-06-18T10:00:00.000Z',
     } satisfies MoodSentiment;
 
@@ -105,8 +105,8 @@ describe('@bunizao/contracts', () => {
     } satisfies MoodStatsSnapshot;
 
     const aiConfig = {
-      primary: 'claude-haiku-4-5',
-      fallback: 'claude-sonnet-4-6',
+      primary: 'gpt-5.5',
+      fallback: 'claude-sonnet-4.6',
       updatedAt: '2026-06-18T10:00:00.000Z',
     } satisfies MoodAiConfig;
 
@@ -136,16 +136,15 @@ describe('@bunizao/contracts', () => {
 
     // @ts-expect-error unknown sentiment labels must stay out of the shared API.
     const invalidSentiment: MoodSentiment = { ...sentiment, label: 'excited' };
-    // @ts-expect-error AI model selection is allowlisted.
-    const invalidConfig: MoodAiConfig = { ...aiConfig, primary: 'claude-random-9' };
+    const customConfig: MoodAiConfig = { ...aiConfig, primary: 'local/model-name' };
 
     expect(MOOD_SENTIMENT_LABELS).toEqual(['joy', 'calm', 'melancholy', 'anger', 'anxiety', 'neutral']);
-    expect(MOOD_AI_MODELS).toEqual(['claude-haiku-4-5', 'claude-sonnet-4-6', 'claude-opus-4-8']);
+    expect(MOOD_AI_MODELS).toEqual(['gpt-5.5', 'gpt-5', 'claude-sonnet-4.6']);
     expect(sentiment.label).toBe('calm');
     expect(health.coverage.tags.covered).toBe(70);
     expect(searchResult.tags).toEqual(['travel']);
     expect(query.tag).toBe('travel');
     void invalidSentiment;
-    void invalidConfig;
+    expect(customConfig.primary).toBe('local/model-name');
   });
 });

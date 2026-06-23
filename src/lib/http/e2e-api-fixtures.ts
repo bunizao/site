@@ -1,5 +1,5 @@
 import type { APIContext } from 'astro';
-import { MOOD_AI_MODELS, type MoodAiConfig, type MoodAiModel } from '@bunizao/contracts';
+import type { MoodAiConfig, MoodAiModel } from '@bunizao/contracts';
 import { loadMoodComments, loadMoodFeed, loadMoodProbe } from '@/features/mood/server/api-client';
 import { json, jsonBadRequest, jsonError, jsonOk } from '@/lib/http/json-response';
 import { isE2ESiteFixtureEnabled } from '@/lib/e2e';
@@ -167,8 +167,8 @@ function listeningFixtureResponse(): Response {
 async function moodAiConfigFixtureResponse(request: Request): Promise<Response> {
   if (request.method === 'PUT') {
     const input = await request.json().catch(() => ({})) as Partial<MoodAiConfig>;
-    const primary = parseMoodAiModel(input.primary);
-    const fallback = parseMoodAiModel(input.fallback);
+    const primary = parseMoodAiModelText(input.primary);
+    const fallback = parseMoodAiModelText(input.fallback);
 
     if (!primary || !fallback) {
       return jsonBadRequest('invalid_mood_ai_model', noStore());
@@ -182,15 +182,31 @@ async function moodAiConfigFixtureResponse(request: Request): Promise<Response> 
   }
 
   return jsonOk({
-    primary: 'claude-haiku-4-5',
-    fallback: 'claude-sonnet-4-6',
+    primary: 'gpt-5.5',
+    fallback: 'gpt-5',
     updatedAt: new Date(0).toISOString(),
   } satisfies MoodAiConfig, noStore());
 }
 
-function parseMoodAiModel(value: unknown): MoodAiModel | null {
-  return typeof value === 'string' && (MOOD_AI_MODELS as readonly string[]).includes(value)
-    ? value as MoodAiModel
+async function moodAiTestFixtureResponse(request: Request): Promise<Response> {
+  const input = await request.json().catch(() => ({})) as Partial<MoodAiConfig>;
+  const primary = parseMoodAiModelText(input.primary);
+
+  if (!primary) {
+    return jsonBadRequest('invalid_mood_ai_model', noStore());
+  }
+
+  return jsonOk({
+    label: 'calm',
+    score: 0.25,
+    model: primary,
+    at: new Date(0).toISOString(),
+  }, noStore());
+}
+
+function parseMoodAiModelText(value: unknown): MoodAiModel | null {
+  return typeof value === 'string' && value.trim()
+    ? value.trim()
     : null;
 }
 
@@ -211,6 +227,9 @@ export async function createE2EApiFixtureResponse(context: FixtureContext): Prom
   }
   if (url.pathname === '/v2/admin/mood/ai-config') {
     return moodAiConfigFixtureResponse(context.request);
+  }
+  if (url.pathname === '/v2/admin/mood/ai-test') {
+    return moodAiTestFixtureResponse(context.request);
   }
   if (url.pathname === '/api/writing') {
     return jsonOk({ posts: [] }, noStore());

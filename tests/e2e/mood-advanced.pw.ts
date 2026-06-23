@@ -30,6 +30,10 @@ test.describe('Mood advanced surfaces', () => {
     await expect(page.getByText('Primary')).toBeVisible();
     await expect(page.getByText('Fallback')).toBeVisible();
     await expect(page.getByText('Archive search')).toBeVisible();
+    await page.getByLabel('Primary').fill('custom/model-alpha');
+    await page.getByLabel('Fallback').fill('custom/model-beta');
+    await page.getByRole('button', { name: 'Test AI model config' }).click();
+    await expect(page.getByText('custom/model-alpha: calm 0.25')).toBeVisible();
 
     const result = await page.evaluate(async () => {
       const response = await fetch('/v2/admin/mood/ai-config', {
@@ -39,8 +43,8 @@ test.describe('Mood advanced surfaces', () => {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          primary: 'claude-opus-4-8',
-          fallback: 'claude-sonnet-4-6',
+          primary: 'custom/model-alpha',
+          fallback: 'custom/model-beta',
         }),
       });
       return {
@@ -52,8 +56,8 @@ test.describe('Mood advanced surfaces', () => {
     expect(result).toEqual({
       status: 200,
       body: {
-        primary: 'claude-opus-4-8',
-        fallback: 'claude-sonnet-4-6',
+        primary: 'custom/model-alpha',
+        fallback: 'custom/model-beta',
         updatedAt: '1970-01-01T00:00:00.000Z',
       },
     });

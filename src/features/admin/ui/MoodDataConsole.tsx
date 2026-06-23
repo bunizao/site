@@ -1,9 +1,8 @@
 import * as React from 'react';
-import { RefreshCw, Search, SlidersHorizontal } from 'lucide-react';
+import { FlaskConical, RefreshCw, Save, Search, SlidersHorizontal } from 'lucide-react';
 import {
   MOOD_AI_MODELS,
   type MoodAiConfig,
-  type MoodAiModel,
   type MoodSearchResult,
 } from '@bunizao/contracts';
 import { Button } from '@/components/ui/button';
@@ -11,13 +10,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 
 function formatDate(value: string): string {
   try {
@@ -36,10 +28,6 @@ function formatSnippet(value: string): string {
   return value.replace(/<\/?mark>/g, '');
 }
 
-function modelLabel(value: MoodAiModel): string {
-  return value.replace(/^claude-/, '').replace(/-/g, ' ');
-}
-
 export default function MoodDataConsole() {
   const [query, setQuery] = React.useState('');
   const [debounced, setDebounced] = React.useState('');
@@ -50,6 +38,10 @@ export default function MoodDataConsole() {
   const [configLoading, setConfigLoading] = React.useState(true);
   const [configSaving, setConfigSaving] = React.useState(false);
   const [configError, setConfigError] = React.useState<string | null>(null);
+  const [primaryModel, setPrimaryModel] = React.useState('gpt-5.5');
+  const [fallbackModel, setFallbackModel] = React.useState('gpt-5');
+  const [testLoading, setTestLoading] = React.useState(false);
+  const [testResult, setTestResult] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     const id = window.setTimeout(() => setDebounced(query.trim()), 240);
@@ -71,7 +63,10 @@ export default function MoodDataConsole() {
       if (!response.ok) {
         throw new Error(await readError(response));
       }
-      setConfig((await response.json()) as MoodAiConfig);
+      const next = (await response.json()) as MoodAiConfig;
+      setConfig(next);
+      setPrimaryModel(next.primary);
+      setFallbackModel(next.fallback);
     } catch (err) {
       setConfigError(err instanceof Error ? err.message : 'unknown_error');
     } finally {
@@ -100,13 +95,45 @@ export default function MoodDataConsole() {
       if (!response.ok) {
         throw new Error(await readError(response));
       }
-      setConfig((await response.json()) as MoodAiConfig);
+      const saved = (await response.json()) as MoodAiConfig;
+      setConfig(saved);
+      setPrimaryModel(saved.primary);
+      setFallbackModel(saved.fallback);
     } catch (err) {
       setConfigError(err instanceof Error ? err.message : 'unknown_error');
     } finally {
       setConfigSaving(false);
     }
   }, [config, readError]);
+
+  const testConfig = React.useCallback(async () => {
+    setTestLoading(true);
+    setTestResult(null);
+    setConfigError(null);
+    try {
+      const response = await fetch('/v2/admin/mood/ai-test', {
+        method: 'POST',
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          primary: primaryModel,
+          fallback: fallbackModel,
+          text: 'quiet morning coffee after a long week',
+        }),
+      });
+      if (!response.ok) {
+        throw new Error(await readError(response));
+      }
+      const payload = await response.json() as { label?: string; score?: number; model?: string };
+      setTestResult(`${payload.model ?? primaryModel}: ${payload.label ?? 'unknown'} ${typeof payload.score === 'number' ? payload.score.toFixed(2) : ''}`.trim());
+    } catch (err) {
+      setConfigError(err instanceof Error ? err.message : 'unknown_error');
+    } finally {
+      setTestLoading(false);
+    }
+  }, [fallbackModel, primaryModel, readError]);
 
   const search = React.useCallback(async (value: string) => {
     if (!value) {
@@ -159,52 +186,66 @@ export default function MoodDataConsole() {
           <div className="grid gap-4 md:grid-cols-2">
             <div className="grid gap-2">
               <Label htmlFor="mood-primary-model">Primary</Label>
-              <Select
-                value={config?.primary ?? 'claude-haiku-4-5'}
-                disabled={!config || configLoading || configSaving}
-                onValueChange={(value) => void saveConfig({
-                  primary: value as MoodAiModel,
-                  fallback: config?.fallback ?? 'claude-sonnet-4-6',
-                })}
-              >
-                <SelectTrigger id="mood-primary-model">
-                  <SelectValue placeholder={configLoading ? 'Loading...' : 'Select model'} />
-                </SelectTrigger>
-                <SelectContent>
-                  {MOOD_AI_MODELS.map((model) => (
-                    <SelectItem key={model} value={model}>{modelLabel(model)}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Input
+                id="mood-primary-model"
+                value={primaryModel}
+                list="mood-ai-model-suggestions"
+                disabled={!config || configLoading || configSaving || testLoading}
+                onChange={(event) => setPrimaryModel(event.target.value)}
+              />
             </div>
 
             <div className="grid gap-2">
               <Label htmlFor="mood-fallback-model">Fallback</Label>
-              <Select
-                value={config?.fallback ?? 'claude-sonnet-4-6'}
-                disabled={!config || configLoading || configSaving}
-                onValueChange={(value) => void saveConfig({
-                  primary: config?.primary ?? 'claude-haiku-4-5',
-                  fallback: value as MoodAiModel,
-                })}
-              >
-                <SelectTrigger id="mood-fallback-model">
-                  <SelectValue placeholder={configLoading ? 'Loading...' : 'Select model'} />
-                </SelectTrigger>
-                <SelectContent>
-                  {MOOD_AI_MODELS.map((model) => (
-                    <SelectItem key={model} value={model}>{modelLabel(model)}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Input
+                id="mood-fallback-model"
+                value={fallbackModel}
+                list="mood-ai-model-suggestions"
+                disabled={!config || configLoading || configSaving || testLoading}
+                onChange={(event) => setFallbackModel(event.target.value)}
+              />
             </div>
           </div>
+          <datalist id="mood-ai-model-suggestions">
+            {MOOD_AI_MODELS.map((model) => (
+              <option key={model} value={model} />
+            ))}
+          </datalist>
 
           <div className="flex items-center justify-between gap-3 text-xs text-muted-foreground">
-            <span>{config?.updatedAt ? `Updated ${formatDate(config.updatedAt)}` : 'Model config controls subsequent classifications.'}</span>
-            <Button type="button" size="sm" variant="outline" onClick={() => void loadConfig()} disabled={configLoading || configSaving}>
-              {configLoading ? <RefreshCw className="size-3 animate-spin" /> : <RefreshCw className="size-3" />}
-            </Button>
+            <span>{testResult ?? (config?.updatedAt ? `Updated ${formatDate(config.updatedAt)}` : 'Model config controls subsequent classifications.')}</span>
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                aria-label="Save AI model config"
+                onClick={() => void saveConfig({ primary: primaryModel, fallback: fallbackModel })}
+                disabled={!config || configLoading || configSaving || testLoading}
+              >
+                {configSaving ? <RefreshCw className="size-3 animate-spin" /> : <Save className="size-3" />}
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                aria-label="Test AI model config"
+                onClick={() => void testConfig()}
+                disabled={!config || configLoading || configSaving || testLoading}
+              >
+                {testLoading ? <RefreshCw className="size-3 animate-spin" /> : <FlaskConical className="size-3" />}
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                aria-label="Reload AI model config"
+                onClick={() => void loadConfig()}
+                disabled={configLoading || configSaving || testLoading}
+              >
+                {configLoading ? <RefreshCw className="size-3 animate-spin" /> : <RefreshCw className="size-3" />}
+              </Button>
+            </div>
           </div>
         </CardContent>
       </Card>

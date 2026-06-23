@@ -18,10 +18,10 @@ export type MoodQuote = QuoteRef;
 export type MoodChannelSummary = ContentChannelSummary;
 
 export const MOOD_SENTIMENT_LABELS = ['joy', 'calm', 'melancholy', 'anger', 'anxiety', 'neutral'] as const;
-export const MOOD_AI_MODELS = ['claude-haiku-4-5', 'claude-sonnet-4-6', 'claude-opus-4-8'] as const;
+export const MOOD_AI_MODELS = ['gpt-5.5', 'gpt-5', 'claude-sonnet-4.6'] as const;
 
 export type MoodSentimentLabel = (typeof MOOD_SENTIMENT_LABELS)[number];
-export type MoodAiModel = (typeof MOOD_AI_MODELS)[number];
+export type MoodAiModel = string;
 
 export interface MoodSentiment {
   label: MoodSentimentLabel;
