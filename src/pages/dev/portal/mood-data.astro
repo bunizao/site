@@ -1,0 +1,157 @@
+---
+import PortalLayout from '@/layouts/PortalLayout.astro';
+import MoodDataConsole from '@/features/admin/ui/MoodDataConsole';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Activity, Clock, Database, Gauge, Tags } from 'lucide-react';
+import { loadMoodIngestHealth } from '@/features/admin/server/portal-client';
+import type { MoodIngestHealth } from '@bunizao/contracts';
+
+export const prerender = false;
+
+const session = (Astro.locals as any).adminSession;
+
+let health: MoodIngestHealth | null = null;
+let loadError: string | null = null;
+
+try {
+  health = await loadMoodIngestHealth(Astro.request, Astro.locals);
+} catch (error) {
+  loadError = error instanceof Error ? error.message : 'unknown';
+}
+
+function formatDate(value: string | null | undefined): string {
+  if (!value) return 'unknown';
+
+  try {
+    return new Date(value).toLocaleString(undefined, {
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  } catch {
+    return value;
+  }
+}
+
+function formatDrift(value: number | null, unit: 'messages' | 'seconds'): string {
+  if (value === null) return 'unknown';
+  if (unit === 'seconds') {
+    const minutes = Math.floor(value / 60);
+    const seconds = value % 60;
+    return minutes > 0 ? `${minutes}m ${seconds}s` : `${seconds}s`;
+  }
+
+  return `${value}`;
+}
+
+function coverageLine(coverage: MoodIngestHealth['coverage']['sentiment'] | undefined): string {
+  if (!coverage) return '0 of 0';
+  return `${coverage.covered} of ${coverage.total}`;
+}
+
+const cardHeaderStyle = { paddingBottom: 8, display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' } as const;
+const cardContentStyle = { paddingTop: 0 } as const;
+const iconStyle = { color: 'hsl(var(--muted-foreground))' } as const;
+const metricStyle = { fontSize: 28, fontWeight: 600, letterSpacing: '-0.02em' } as const;
+const metaStyle = { fontSize: 12, color: 'hsl(var(--muted-foreground))', marginTop: 4 } as const;
+const cardTitleSm = { fontSize: 14 } as const;
+---
+
+<PortalLayout
+  title="Mood data"
+  description="Archive ingest health, coverage, and private search over the mood mirror."
+  active="mood-data"
+  user={{ login: session?.login || 'admin' }}
+>
+  {loadError && (
+    <div style="margin-bottom:24px;padding:12px 14px;border-radius:10px;border:1px solid hsl(var(--destructive) / 0.5);background:hsl(var(--destructive) / 0.1);color:hsl(0 80% 80%);font-size:13px;">
+      Failed to load mood health: <span class="portal-mono">{loadError}</span>
+    </div>
+  )}
+
+  <section style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:16px;margin-bottom:24px;">
+    <Card>
+      <CardHeader style={cardHeaderStyle}>
+        <CardDescription>Last ingested</CardDescription>
+        <Database size={16} style={iconStyle} />
+      </CardHeader>
+      <CardContent style={cardContentStyle}>
+        <div style={metricStyle}>{health?.lastIngested?.id ?? 'none'}</div>
+        <div style={metaStyle}>{formatDate(health?.lastIngested?.datetime)}</div>
+      </CardContent>
+    </Card>
+
+    <Card>
+      <CardHeader style={cardHeaderStyle}>
+        <CardDescription>Live latest</CardDescription>
+        <Activity size={16} style={iconStyle} />
+      </CardHeader>
+      <CardContent style={cardContentStyle}>
+        <div style={metricStyle}>{health?.liveLatest?.id ?? 'unknown'}</div>
+        <div style={metaStyle}>{formatDate(health?.liveLatest?.datetime)}</div>
+      </CardContent>
+    </Card>
+
+    <Card>
+      <CardHeader style={cardHeaderStyle}>
+        <CardDescription>Message drift</CardDescription>
+        <Gauge size={16} style={iconStyle} />
+      </CardHeader>
+      <CardContent style={cardContentStyle}>
+        <div style={metricStyle}>{formatDrift(health?.drift.messages ?? null, 'messages')}</div>
+        <div style={metaStyle}>messages behind live mirror</div>
+      </CardContent>
+    </Card>
+
+    <Card>
+      <CardHeader style={cardHeaderStyle}>
+        <CardDescription>Time drift</CardDescription>
+        <Clock size={16} style={iconStyle} />
+      </CardHeader>
+      <CardContent style={cardContentStyle}>
+        <div style={metricStyle}>{formatDrift(health?.drift.seconds ?? null, 'seconds')}</div>
+        <div style={metaStyle}>latest archive timestamp gap</div>
+      </CardContent>
+    </Card>
+  </section>
+
+  <section style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;margin-bottom:24px;">
+    <Card>
+      <CardHeader>
+        <CardTitle style={cardTitleSm}>Sentiment coverage</CardTitle>
+        <CardDescription>Posts with an assigned sentiment label.</CardDescription>
+      </CardHeader>
+      <CardContent style={cardContentStyle}>
+        <div style={metricStyle}>{health?.coverage.sentiment.percent ?? 0}%</div>
+        <div style={metaStyle}>{coverageLine(health?.coverage.sentiment)}</div>
+      </CardContent>
+    </Card>
+
+    <Card>
+      <CardHeader style={cardHeaderStyle}>
+        <div>
+          <CardTitle style={cardTitleSm}>Tag coverage</CardTitle>
+          <CardDescription>Posts with at least one extracted tag.</CardDescription>
+        </div>
+        <Tags size={16} style={iconStyle} />
+      </CardHeader>
+      <CardContent style={cardContentStyle}>
+        <div style={metricStyle}>{health?.coverage.tags.percent ?? 0}%</div>
+        <div style={metaStyle}>{coverageLine(health?.coverage.tags)}</div>
+      </CardContent>
+    </Card>
+
+    <Card>
+      <CardHeader>
+        <CardTitle style={cardTitleSm}>Stats snapshot</CardTitle>
+        <CardDescription>Latest generated activity snapshot timestamp.</CardDescription>
+      </CardHeader>
+      <CardContent style={cardContentStyle}>
+        <div style="font-size:15px;font-weight:500;line-height:1.4;">{formatDate(health?.snapshotGeneratedAt)}</div>
+      </CardContent>
+    </Card>
+  </section>
+
+  <MoodDataConsole client:load />
+</PortalLayout>
