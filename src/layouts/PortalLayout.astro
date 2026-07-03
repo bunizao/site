@@ -312,6 +312,7 @@ const navItems = [
             href={item.href}
             class="portal-sidebar-link"
             aria-current={active === item.key ? 'page' : undefined}
+            data-astro-prefetch="false"
           >
             <item.Icon size={15} />
             <span>{item.label}</span>

@@ -126,6 +126,13 @@ export default defineConfig({
   site: 'https://buxx.me',
   output: 'static',
   compressHTML: true,
+  // Prefetch internal links on hover/focus. Portal (`/dev/*`) pages set
+  // `data-astro-prefetch="false"` on their own links so authenticated routes
+  // are never speculatively fetched.
+  prefetch: {
+    prefetchAll: true,
+    defaultStrategy: 'hover',
+  },
   security: {
     checkOrigin: false,
   },

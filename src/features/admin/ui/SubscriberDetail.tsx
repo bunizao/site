@@ -179,7 +179,7 @@ export default function SubscriberDetail({ emailHash }: { emailHash: string }) {
     <div className="flex flex-col gap-6">
       <div className="flex items-center gap-3">
         <Button asChild variant="ghost" size="sm">
-          <a href="/dev/portal/subscribers"><ArrowLeft className="size-3.5" /> Back to subscribers</a>
+          <a href="/dev/portal/subscribers" data-astro-prefetch="false"><ArrowLeft className="size-3.5" /> Back to subscribers</a>
         </Button>
       </div>
 
