@@ -1,0 +1,20 @@
+JetBrains Mono
+==============
+
+Copyright 2020 The JetBrains Mono Project Authors
+(https://github.com/JetBrains/JetBrainsMono)
+
+This Font Software is licensed under the SIL Open Font License, Version 1.1.
+The full license text is available at https://scripts.sil.org/OFL and in the
+upstream repository above.
+
+Modification note
+-----------------
+
+`jetbrains-mono-variable.woff2` in this directory is a SUBSET of the upstream
+JetBrains Mono variable font, produced with fontTools (pyftsubset). The weight
+axis (wght 100-800) and coding ligatures are preserved; glyph coverage is
+reduced to the Unicode ranges code blocks and data readouts on this site use
+(Latin-1, common punctuation and symbols, currency, arrows, math operators,
+box-drawing and block elements). The SIL OFL permits this modification. The
+subset remains under the SIL OFL 1.1 and must not be sold on its own.

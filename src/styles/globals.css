@@ -13,7 +13,10 @@
 }
 
 /* JetBrains Mono is the code/terminal voice — reached via --font-code, never
-   named directly anymore (mood code, .theme-portal-mono, docs, SVG readouts). */
+   named directly anymore (mood code, .theme-portal-mono, docs, SVG readouts).
+   Shipped as a subset (see public/fonts/jetbrains-license.txt): the weight axis
+   and coding ligatures are kept, but glyph coverage is trimmed to Latin, common
+   symbols, arrows, box-drawing and block characters that code samples use. */
 @font-face {
   font-family: 'JetBrains Mono';
   src:
