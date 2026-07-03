@@ -54,7 +54,7 @@ Full-system audit of the two-repo Cloudflare deployment: `site` (public worker, 
 
 - **`/mood` and `/mood/[id]` LCP is held hostage by the `t.me` round-trip.** The code documents it itself (`telegram-source.ts:1816`): "every cold isolate paid the full ~3s t.me round-trip — which is ~65% of the mood LCP". Existing mitigations are short-TTL, per-PoP layers (LRU 5–10 min, `caches.default` for raw HTML, fetch timeout + skeleton fallback, 60s HTML edge cache for `/mood` only). The detail page is outside the middleware cache (`pathname === '/mood'` only) and ships no cache headers — cold-PoP detail views pay the scrape in SSR.
 - **Double payload on `/mood`**: `FeedShell.astro` inlines the full initial-feed JSON (`data-mood-initial-feed`, including `mediaHtml` strings) *and* SSR-renders the critical posts markup — the same content twice per response.
-- `Layout.astro` (~1390 lines) ships five bundled script blocks (~1000 lines: spotlight overlay, theme dropdown, GSAP nav collapse, nav underline) plus an inline ~60-line visualViewport handler repeated in every HTML response.
+- `Layout.astro` (~1390 lines) ships four bundled script blocks (~1000 lines: spotlight overlay, theme dropdown, GSAP nav collapse, nav underline) plus an inline ~60-line visualViewport handler repeated in every HTML response.
 - Fonts: two overlapping mono families; JetBrains Mono (113 KB) is the largest single asset. Geist Mono is preloaded with `font-display: optional` (good); JetBrains Mono is not subset.
 - `Hero.astro:216` statically imports GSAP (eager chunk on the home page) while every other consumer lazy-imports it.
 - Astro `prefetch` is not enabled.
