@@ -46,15 +46,17 @@ describe('navbar regression guards', () => {
 
   test('layout compensates fixed mobile chrome for visual viewport movement', () => {
     const layoutSource = read('src/layouts/Layout.astro');
+    const viewportSource = read('src/layouts/client/visual-viewport.ts');
     const globalStyles = read('src/styles/globals.css');
     const pageStyles = read('src/layouts/Page.astro');
 
-    expect(layoutSource).toContain('const viewport = window.visualViewport;');
-    expect(layoutSource).toContain('let bottomOverscrollLocked = false;');
-    expect(layoutSource).toContain('const bottomOverscrollReleaseDistance = 96;');
-    expect(layoutSource).toContain('const offsetTop = isBottomOverscrollOffset(rawOffsetTop) ? 0 : Math.round(rawOffsetTop);');
-    expect(layoutSource).toContain("window.addEventListener('scroll', syncAfterScroll");
-    expect(layoutSource).toContain("root.style.setProperty('--visual-viewport-top'");
+    expect(layoutSource).toContain("import('@/layouts/client/visual-viewport')");
+    expect(viewportSource).toContain('const viewport = window.visualViewport;');
+    expect(viewportSource).toContain('let bottomOverscrollLocked = false;');
+    expect(viewportSource).toContain('const bottomOverscrollReleaseDistance = 96;');
+    expect(viewportSource).toContain('const offsetTop = isBottomOverscrollOffset(rawOffsetTop) ? 0 : Math.round(rawOffsetTop);');
+    expect(viewportSource).toContain("window.addEventListener('scroll', syncAfterScroll");
+    expect(viewportSource).toContain("root.style.setProperty('--visual-viewport-top'");
     expect(globalStyles).toContain('--site-nav-mobile-top: calc(env(safe-area-inset-top, 0px) + var(--visual-viewport-top, 0px));');
     expect(globalStyles).toContain('top: var(--site-nav-mobile-top);');
     expect(globalStyles).toContain('top: calc(env(safe-area-inset-top, 0px) + var(--visual-viewport-top, 0px) + 0.3rem);');
