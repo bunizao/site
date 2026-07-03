@@ -95,20 +95,20 @@ Each workstream is a separate PR carrying its executive plan under `docs/plans/<
 
 | Branch | Impact / risk | Scope |
 | --- | --- | --- |
-| `claude/audit-ingest-reliability` | High / medium | Webhook slimming (ExecutionContext, async offload, module extraction), queue DLQ + per-message ack/retry, `db.batch()`, cron/queue direct function calls |
-| `claude/audit-platform-bindings` | Medium / low | KV split + pinned ids, `MUSICKIT_TOKEN_CACHE`, delete D1 REST fallback, Rate Limiting binding, `preview_urls` off, Ghost secret, header alignment, AI Gateway (optional) |
-| `claude/audit-route-consolidation` | High / medium-high | Entry-path normalization, alias-tree deletion, de-versioning fake-versioned paths, 308 window, external registration switch-list |
-| `claude/audit-mood-live-meta` | High value / low | New `GET /v1/mood/meta` endpoint (prerequisite of hybrid read) |
-| `claude/audit-notify-service-split` | Maintainability / low | Split the 2,757-line notify service into four modules; zero behavior change |
-| `claude/audit-admin-portal-migration` | High / medium | Portal UI into `site-api` behind `admin.buxx.me` + Cloudflare Access |
+| `claude/audit-ingest-reliability` ([site-api#5](https://github.com/bunizao/site-api/pull/5)) | High / medium | Webhook slimming (ExecutionContext, async offload, module extraction), queue DLQ + per-message ack/retry, `db.batch()`, cron/queue direct function calls |
+| `claude/audit-platform-bindings` ([site-api#6](https://github.com/bunizao/site-api/pull/6)) | Medium / low | KV split + pinned ids, `MUSICKIT_TOKEN_CACHE`, delete D1 REST fallback, Rate Limiting binding, `preview_urls` off, Ghost secret, header alignment, AI Gateway (optional) |
+| `claude/audit-route-consolidation` ([site-api#7](https://github.com/bunizao/site-api/pull/7)) | High / medium-high | Entry-path normalization, alias-tree deletion, de-versioning fake-versioned paths, 308 window, external registration switch-list |
+| `claude/audit-mood-live-meta` ([site-api#8](https://github.com/bunizao/site-api/pull/8)) | High value / low | New `GET /v1/mood/meta` endpoint (prerequisite of hybrid read) |
+| `claude/audit-notify-service-split` ([site-api#9](https://github.com/bunizao/site-api/pull/9)) | Maintainability / low | Split the 2,757-line notify service into four modules; zero behavior change |
+| `claude/audit-admin-portal-migration` ([site-api#10](https://github.com/bunizao/site-api/pull/10)) | High / medium | Portal UI into `site-api` behind `admin.buxx.me` + Cloudflare Access |
 
 ### site
 
 | Branch | Impact / risk | Scope |
 | --- | --- | --- |
-| `claude/audit-mood-hybrid-read` | High / medium | Default read source to archive, client meta patching, reconcile hook, parity gate; scraper deletion as phase 2. Depends on `audit-mood-live-meta` |
-| `claude/audit-frontend-performance` | Medium / low | `/mood` payload dedup, layout script cleanup, font subsetting, GSAP lazy import, `prefetch`, dead queue-bridge removal |
-| `claude/audit-route-contracts` | Medium / low | `routes.ts` path constants in contracts, `sync-contracts --check` in both CIs, `/v2` catch-all 308, e2e fixture branch out of the hot path. Pairs with `audit-route-consolidation` |
-| `claude/audit-admin-portal-removal` | Medium / low | Remove portal UI + `/dev/portal/api` + `/oauth` catch-alls + duplicated Access config. Depends on `audit-admin-portal-migration` |
+| `claude/audit-mood-hybrid-read` ([#65](https://github.com/bunizao/site/pull/65)) | High / medium | Default read source to archive, client meta patching, reconcile hook, parity gate; scraper deletion as phase 2. Depends on `audit-mood-live-meta` |
+| `claude/audit-frontend-performance` ([#66](https://github.com/bunizao/site/pull/66)) | Medium / low | `/mood` payload dedup, layout script cleanup, font subsetting, GSAP lazy import, `prefetch`, dead queue-bridge removal |
+| `claude/audit-route-contracts` ([#67](https://github.com/bunizao/site/pull/67)) | Medium / low | `routes.ts` path constants in contracts, `sync-contracts --check` in both CIs, `/v2` catch-all 308, e2e fixture branch out of the hot path. Pairs with `audit-route-consolidation` |
+| `claude/audit-admin-portal-removal` ([#68](https://github.com/bunizao/site/pull/68)) | Medium / low | Remove portal UI + `/dev/portal/api` + `/oauth` catch-alls + duplicated Access config. Depends on `audit-admin-portal-migration` |
 
 Dependency order: `ingest-reliability`, `platform-bindings`, `notify-service-split`, `frontend-performance` are independent; `route-contracts` precedes/pairs with `route-consolidation`; `mood-live-meta` → `mood-hybrid-read`; `admin-portal-migration` → `admin-portal-removal`.
