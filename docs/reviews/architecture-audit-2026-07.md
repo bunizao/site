@@ -74,7 +74,7 @@ Full-system audit of the two-repo Cloudflare deployment: `site` (public worker, 
 | Two repos (`site` open source, `site-api` private) | Keep split; no monorepo. |
 | Image proxy worker | Keep in `site-api` (serves mood + blog, two R2 buckets); only extract the webhook out of the image-proxy module. |
 | Admin portal | Migrate into `site-api` behind `admin.buxx.me`; then remove the portal + proxies from `site`. |
-| Mood read path | Adopt the hybrid design: D1 archive for structure/SSR, live meta patching for reactions/comment counts. See `docs/plans/mood-hybrid-read.md`. |
+| Mood read path | Adopt the hybrid design: D1 archive for structure/SSR, live meta patching for reactions/comment counts. See the `claude/audit-mood-hybrid-read` workstream PR. |
 
 ## 5. Hybrid mood read (the flagship change)
 
