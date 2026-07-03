@@ -272,7 +272,7 @@ describe('Cloudflare runtime configuration', () => {
     expect(hero).toContain("import DecodeText from '@/features/home/ui/DecodeText.astro';");
     expect(hero).toContain('<DecodeText>');
     expect(hero).toContain('<h1 class="hero-animate');
-    expect(hero).toContain('import gsap from \'gsap\';');
+    expect(hero).toContain("const { default: gsap } = await import('gsap');");
     expect(hero).toContain('const lcpAnchorName = typewriterNames.reduce');
     expect(hero).toContain('<span class="hero-lcp-anchor" aria-hidden="true">{lcpAnchorName}</span>');
     expect(decodeText).toContain('document.fonts?.ready');
