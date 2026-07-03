@@ -1,6 +1,6 @@
 # Executive Plan: Frontend Performance
 
-Workstream of the July 2026 architecture audit (`docs/reviews/architecture-audit-2026-07.md`).
+Workstream of the July 2026 architecture audit — report `docs/reviews/architecture-audit-2026-07.md` ([#64](https://github.com/bunizao/site/pull/64)).
 
 ## Objective
 
@@ -13,7 +13,7 @@ Remove the site-wide payload and loading inefficiencies identified in the audit'
    - Trim the inline JSON to what the client renderer actually consumes (or embed only the non-SSR remainder); verify the hydration path against `feed-renderer.ts` expectations.
 2. **Layout script weight** (`src/layouts/Layout.astro`)
    - Move the ~60-line inline `visualViewport` overscroll handler into a bundled script so it is HTTP-cached instead of repeated in every HTML response.
-   - Review the five bundled blocks (spotlight overlay, theme dropdown, GSAP nav collapse, nav underline) for conditional loading where a page cannot use them; keep theme init inline (correct as-is).
+   - Review the four bundled blocks (spotlight overlay, theme dropdown, GSAP nav collapse, nav underline) for conditional loading where a page cannot use them; keep theme init inline (correct as-is).
 3. **Fonts**
    - JetBrains Mono (113 KB, largest single asset) overlaps Geist Mono (`--font-code` vs `--font-mono`). Subset JetBrains Mono to the character ranges code blocks use, or consolidate on one mono family. Keep Geist Mono's `preload` + `font-display: optional` treatment.
 4. **GSAP import consistency** (`src/features/home/ui/Hero.astro`)
@@ -25,7 +25,7 @@ Remove the site-wide payload and loading inefficiencies identified in the audit'
 
 ## Non-goals
 
-- No changes to the mood read source (see `docs/plans/mood-hybrid-read.md`).
+- No changes to the mood read source (see the mood-hybrid-read plan, [#65](https://github.com/bunizao/site/pull/65)).
 - No caching changes to the intentionally-uncached realtime APIs (owner decision; header alignment happens in `site-api`).
 - No visual/design changes; no framework or island architecture changes (current island usage is already good).
 
