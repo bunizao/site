@@ -213,8 +213,6 @@ const bioLines = bio.map((line) => line.split('**'));
 </style>
 
 <script>
-  import gsap from 'gsap';
-
   const prefersReducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
   const heroElements = Array.from(document.querySelectorAll<HTMLElement>('.hero-animate'));
   const statusText = document.getElementById('status-text');
@@ -227,8 +225,11 @@ const bioLines = bio.map((line) => line.split('**'));
   const statusHost = document.querySelector<HTMLElement>('[data-status-words]');
   const statusWords: string[] = JSON.parse(statusHost?.dataset.statusWords || '[]');
 
-  const initHero = () => {
+  const initHero = async () => {
     if (!heroElements.length) return;
+
+    // Lazy-load GSAP so the home page does not eagerly fetch the chunk on load.
+    const { default: gsap } = await import('gsap');
 
     // Split the hero into two phases so the chain reads top-to-bottom:
     // identity text resolves first, then the supporting widgets rise in.
