@@ -1,6 +1,6 @@
 # Executive Plan: Mood Hybrid Read
 
-Workstream of the July 2026 architecture audit (`docs/reviews/architecture-audit-2026-07.md`). Depends on the `claude/audit-mood-live-meta` workstream in `site-api` (bunizao/site-api#8).
+Workstream of the July 2026 architecture audit — report `docs/reviews/architecture-audit-2026-07.md` ([#64](https://github.com/bunizao/site/pull/64)). Depends on the `claude/audit-mood-live-meta` workstream in `site-api` (bunizao/site-api#8).
 
 ## Objective
 
