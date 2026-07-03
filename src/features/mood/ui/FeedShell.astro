@@ -33,8 +33,25 @@ const {
   anchorId = '',
 } = Astro.props;
 
+const criticalInitialPosts = getCriticalInitialPosts(initialPosts, anchorId);
+const criticalDateGroups = groupPostsByDate(criticalInitialPosts);
+const criticalPriorityPostId = criticalInitialPosts.find(hasRenderableMoodFeedMedia)?.id ?? '';
+const hasCriticalInitialPosts = criticalInitialPosts.length > 0;
+
+// The critical posts above are already SSR-rendered into the feed markup, and
+// the client renderer dedupes them by `data-mood-id`. Their full payload in the
+// inline JSON would be dead weight — the client only needs their id + datetime
+// to keep the newest/oldest pagination cursors correct. Ship a stub for those
+// and the full object only for the non-SSR remainder.
+const criticalInitialPostIds = new Set(criticalInitialPosts.map((post) => post.id));
+const inlineInitialPosts = initialPosts.map((post) =>
+  criticalInitialPostIds.has(post.id)
+    ? { id: post.id, datetime: post.datetime }
+    : post
+);
+
 const initialFeedPayload = {
-  posts: initialPosts,
+  posts: inlineInitialPosts,
   channel: initialChannel,
   anchorId: anchorId || undefined,
 };
@@ -189,11 +206,6 @@ function shouldHideQuoteAuthor(value?: string): boolean {
   const title = initialChannel?.title ? normalizeAuthorName(initialChannel.title) : '';
   return Boolean((slug && normalized === slug) || (title && normalized === title));
 }
-
-const criticalInitialPosts = getCriticalInitialPosts(initialPosts, anchorId);
-const criticalDateGroups = groupPostsByDate(criticalInitialPosts);
-const criticalPriorityPostId = criticalInitialPosts.find(hasRenderableMoodFeedMedia)?.id ?? '';
-const hasCriticalInitialPosts = criticalInitialPosts.length > 0;
 ---
 
 <div class="mood-page">
