@@ -357,7 +357,7 @@ export default function SubscriberConsole() {
               data.rows.map((row) => (
                 <TableRow key={row.emailHash}>
                   <TableCell>
-                    <a className="text-foreground hover:underline" href={`/dev/portal/subscribers/${row.emailHash}`}>{row.email}</a>
+                    <a className="text-foreground hover:underline" href={`/dev/portal/subscribers/${row.emailHash}`} data-astro-prefetch="false">{row.email}</a>
                     <div className="font-mono text-[10px] text-muted-foreground mt-0.5 truncate max-w-[200px]" title={row.emailHash}>
                       {row.emailHash.slice(0, 12)}…
                     </div>

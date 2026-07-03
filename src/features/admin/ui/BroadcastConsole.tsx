@@ -341,7 +341,7 @@ export default function BroadcastConsole() {
                   {history.map((bc) => (
                     <TableRow key={bc.id}>
                       <TableCell>
-                        <a className="hover:underline" href={`/dev/portal/broadcasts/${bc.id}`}>{bc.subject}</a>
+                        <a className="hover:underline" href={`/dev/portal/broadcasts/${bc.id}`} data-astro-prefetch="false">{bc.subject}</a>
                         <div className="flex items-center gap-2 mt-1">
                           <Badge variant={STATUS_VARIANTS[bc.status]} className="text-[10px] py-0">{bc.status}</Badge>
                           <span className="text-[11px] text-muted-foreground">{bc.sentCount}/{bc.recipientCount} · {bc.failedCount} failed</span>
