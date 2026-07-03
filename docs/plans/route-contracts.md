@@ -1,6 +1,6 @@
 # Executive Plan: Route Contracts and Proxy Cleanup
 
-Workstream of the July 2026 architecture audit (`docs/reviews/architecture-audit-2026-07.md`). Pairs with the `claude/audit-route-consolidation` workstream in `site-api` (bunizao/site-api#7).
+Workstream of the July 2026 architecture audit — report `docs/reviews/architecture-audit-2026-07.md` ([#64](https://github.com/bunizao/site/pull/64)). Pairs with the `claude/audit-route-consolidation` workstream in `site-api` (bunizao/site-api#7).
 
 ## Objective
 
