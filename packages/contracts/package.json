@@ -30,6 +30,11 @@
       "types": "./src/notify.ts",
       "import": "./src/notify.ts",
       "default": "./src/notify.ts"
+    },
+    "./routes": {
+      "types": "./src/routes.ts",
+      "import": "./src/routes.ts",
+      "default": "./src/routes.ts"
     }
   }
 }
