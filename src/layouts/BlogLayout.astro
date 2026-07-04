@@ -75,6 +75,12 @@ const paletteCss = [
     <title>{fullTitle}</title>
     <meta name="description" content={metaDescription} />
     <link rel="canonical" href={canonical} />
+    <link
+      rel="alternate"
+      type="application/rss+xml"
+      title={`${blog.name} RSS`}
+      href={new URL(blog.feed, meta.siteUrl).href}
+    />
     <!-- SVG mark carries its own dark-mode swap; webp is the legacy fallback. -->
     <link rel="icon" href="/blog-mark.svg" type="image/svg+xml" />
     <link rel="icon" href={blog.mark} type="image/webp" />

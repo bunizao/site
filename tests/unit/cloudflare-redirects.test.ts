@@ -49,6 +49,34 @@ describe('Cloudflare blog redirects', () => {
     });
   });
 
+  test('redirects blog reserved path aliases to canonical feeds and sitemaps', () => {
+    expect(findRedirect('/blog/rss')).toEqual({
+      source: '/blog/rss',
+      target: '/blog/rss.xml',
+      status: 301,
+    });
+    expect(findRedirect('/blog/rss/')).toMatchObject({
+      target: '/blog/rss.xml',
+      status: 301,
+    });
+    expect(findRedirect('/blog/feed')).toMatchObject({
+      target: '/blog/rss.xml',
+      status: 301,
+    });
+    expect(findRedirect('/blog/feed/')).toMatchObject({
+      target: '/blog/rss.xml',
+      status: 301,
+    });
+    expect(findRedirect('/blog/sitemap.xml')).toMatchObject({
+      target: '/sitemap.xml',
+      status: 301,
+    });
+    expect(findRedirect('/blog/sitemap-posts.xml')).toMatchObject({
+      target: '/sitemap.xml',
+      status: 301,
+    });
+  });
+
   test('redirects the Ghost subdomain into canonical blog URLs', () => {
     const redirectModule = readFileSync(join(import.meta.dir, '../../src/lib/http/legacy-ghost-redirect.ts'), 'utf8');
 
@@ -101,9 +129,9 @@ describe('Cloudflare blog redirects', () => {
   });
 
   test('keeps redirects in Cloudflare static asset format', () => {
-    expect(rules).toHaveLength(48);
+    expect(rules).toHaveLength(57);
     expect(rules.every((rule) => rule.source.startsWith('/'))).toBe(true);
-    expect(rules.every((rule) => rule.target.startsWith('/blog'))).toBe(true);
+    expect(rules.every((rule) => rule.target.startsWith('/blog') || rule.target === '/sitemap.xml')).toBe(true);
     expect(rules.every((rule) => rule.status === 301)).toBe(true);
   });
 });

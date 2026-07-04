@@ -50,3 +50,14 @@
 /tag/novelist/ /blog/tag/novelist 301
 /tag/resonance /blog/tag/resonance 301
 /tag/resonance/ /blog/tag/resonance 301
+
+# Blog reserved path aliases.
+/blog/rss /blog/rss.xml 301
+/blog/rss/ /blog/rss.xml 301
+/blog/feed /blog/rss.xml 301
+/blog/feed/ /blog/rss.xml 301
+/blog/sitemap.xml /sitemap.xml 301
+/blog/sitemap-posts.xml /sitemap.xml 301
+/blog/sitemap-pages.xml /sitemap.xml 301
+/blog/sitemap-tags.xml /sitemap.xml 301
+/blog/sitemap-authors.xml /sitemap.xml 301
