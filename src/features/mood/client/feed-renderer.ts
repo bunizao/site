@@ -8,6 +8,7 @@ import {
 import { buildMoodPreviewFragment } from '@/features/mood/shared/preview';
 import { findTooBigVideoMedia, renderStructuredMoodFeedMediaMarkup } from '@/features/mood/shared/feed-media';
 import { getMoodFeedThumbnailStyle } from '@/features/mood/shared/feed-thumbnail';
+import { getMoodReactionKey } from '@/features/mood/client/meta-patcher';
 import type { ChannelInfo, MoodData } from '@/features/mood/client/feed-types';
 
 interface FeedCommentsPopover {
@@ -658,6 +659,7 @@ export function createFeedRenderer({
       (mood.reactions ?? []).forEach((reaction) => {
         const pill = document.createElement('span');
         pill.className = reaction.isPaid ? 'mood-reaction mood-reaction--paid' : 'mood-reaction';
+        pill.dataset.moodReactionKey = getMoodReactionKey(reaction);
 
         const emojiSpan = document.createElement('span');
         emojiSpan.className = 'mood-reaction-emoji';

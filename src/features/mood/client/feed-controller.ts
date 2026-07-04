@@ -4,6 +4,7 @@ import { createFeedMediaHydrator } from '@/features/mood/client/feed-media-hydra
 import { createFeedRenderer } from '@/features/mood/client/feed-renderer';
 import { createFeedUpdateWatcher } from '@/features/mood/client/feed-update-watcher';
 import { initMoodGalleries } from '@/features/mood/client/gallery';
+import { createMoodMetaPatcher } from '@/features/mood/client/meta-patcher';
 import { hydrateMoodRichText } from '@/features/mood/client/rich-text';
 import {
   getMoodFeedAnchorBeforeCursor,
@@ -107,6 +108,19 @@ export function initMoodFeedController(): void {
         isLoading: () => isLoading,
         getTotalCount: () => totalCount,
       });
+      const metaPatcher = createMoodMetaPatcher({
+        root: feedEl,
+        readSource: feedEl.dataset.moodReadSource,
+      });
+      let metaPatchFrame = 0;
+
+      const patchVisibleMoodMeta = (): void => {
+        if (metaPatchFrame) return;
+        metaPatchFrame = window.requestAnimationFrame(() => {
+          metaPatchFrame = 0;
+          void metaPatcher.patchVisible();
+        });
+      };
 
       const registerMoodId = (id?: string | null): void => {
         if (!id || moodIdSet.has(id)) return;
@@ -555,6 +569,7 @@ export function initMoodFeedController(): void {
           updateWatcher.syncLatestSeenId();
         }
         hydrateMoodRichText(list);
+        patchVisibleMoodMeta();
         revealFeedAnchor();
       };
 
@@ -569,6 +584,7 @@ export function initMoodFeedController(): void {
         if (heightDelta > 0) {
           window.scrollTo({ top: window.scrollY + heightDelta, behavior: 'auto' });
         }
+        patchVisibleMoodMeta();
       };
 
       const handleNoMore = (): void => {
@@ -602,6 +618,7 @@ export function initMoodFeedController(): void {
         feedEl.classList.remove('is-hidden');
         revealFeedAnchor();
         reportMissingFeedAnchor();
+        patchVisibleMoodMeta();
       };
 
       const startObserver = (): void => {
@@ -937,9 +954,11 @@ export function initMoodFeedController(): void {
         }
         window.addEventListener('pageshow', (event) => {
           revealCurrentUrlFeedAnchor({ force: (event as PageTransitionEvent).persisted });
+          patchVisibleMoodMeta();
         });
         window.addEventListener('popstate', () => revealCurrentUrlFeedAnchor());
         window.addEventListener('hashchange', () => revealCurrentUrlFeedAnchor());
+        window.addEventListener('scroll', patchVisibleMoodMeta, { passive: true });
         renderer.bindInteractions();
         animatedEmoji.observe(list);
         hydrateMoodRichText(list);

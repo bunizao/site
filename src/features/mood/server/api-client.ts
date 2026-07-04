@@ -12,6 +12,7 @@ import {
   getApiServiceBinding,
 } from '@/lib/http/api-service-proxy';
 import { isE2ESiteFixtureEnabled } from '@/lib/e2e';
+import { readOptionalEnv, type RuntimeEnvLocals } from '@/lib/runtime/env';
 import {
   createE2EChannelInfo,
   createE2EPost,
@@ -56,6 +57,22 @@ export interface MoodDocumentQuery {
 export type MoodApiSource = 'live' | 'archive';
 
 type MoodArchiveApiPath = `${typeof MOOD_ARCHIVE_FEED_PATH}${string}`;
+const DEFAULT_MOOD_API_SOURCE: MoodApiSource = 'live';
+
+export function normalizeMoodApiSource(value: unknown): MoodApiSource | null {
+  if (typeof value !== 'string') return null;
+  const normalized = value.trim().toLowerCase();
+  return normalized === 'live' || normalized === 'archive' ? normalized : null;
+}
+
+export function resolveMoodReadSource(
+  locals: RuntimeEnvLocals | undefined,
+  source?: MoodApiSource,
+): MoodApiSource {
+  return source
+    ?? normalizeMoodApiSource(readOptionalEnv(locals, 'MOOD_READ_SOURCE'))
+    ?? DEFAULT_MOOD_API_SOURCE;
+}
 
 function createMoodArchiveApiRequest(context: MoodServerContext, path: MoodArchiveApiPath, params: URLSearchParams = new URLSearchParams()): Request {
   const source = new URL(context.request.url);
@@ -141,6 +158,8 @@ export async function loadMoodFeed(
   context: MoodServerContext,
   query: MoodFeedQuery = {},
 ): Promise<MoodFeedResponse> {
+  const source = resolveMoodReadSource(context.locals, query.source);
+
   if (isE2ESiteFixtureEnabled(context.locals)) {
     const channelInfo = createE2EChannelInfo();
     return buildMoodFeedResponse(context, channelInfo, channelInfo.posts);
@@ -154,7 +173,7 @@ export async function loadMoodFeed(
     };
   }
 
-  if (query.source === 'archive') {
+  if (source === 'archive') {
     return fetchMoodArchiveApiJson<MoodFeedResponse>(context, MOOD_ARCHIVE_FEED_PATH, moodFeedParams(query));
   }
 
@@ -191,6 +210,8 @@ export async function loadMoodDocument(
   id: string,
   query: MoodDocumentQuery = {},
 ): Promise<MoodContentDocument | null> {
+  const source = resolveMoodReadSource(context.locals, query.source);
+
   if (isE2ESiteFixtureEnabled(context.locals)) {
     const post = createE2EPost(id);
     return {
@@ -218,7 +239,7 @@ export async function loadMoodDocument(
     return buildMoodRichTextFixtureDocument(getMoodChannelSlug(context.locals));
   }
 
-  if (query.source === 'archive') {
+  if (source === 'archive') {
     return fetchMoodArchiveApiJson<MoodContentDocument | null>(context, `${MOOD_ARCHIVE_FEED_PATH}/${encodeURIComponent(id)}`);
   }
 

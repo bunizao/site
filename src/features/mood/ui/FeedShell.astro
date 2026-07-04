@@ -7,6 +7,7 @@ import { getMoodFeedThumbnailStyle } from '@/features/mood/shared/feed-thumbnail
 import { getMoodDetailHref, getMoodFeedAnchorFragmentId } from '@/features/mood/shared/feed-anchor';
 import { getCriticalInitialPosts, hasRenderableMoodFeedMedia } from '@/features/mood/shared/initial-feed';
 import { buildSrcSet, withWidthParam } from '@/lib/media/responsive-image';
+import { getMoodReactionKey } from '@/features/mood/client/meta-patcher';
 
 interface SkeletonItem {
   index: number;
@@ -24,6 +25,7 @@ interface Props {
   initialPosts?: MoodFeedItem[];
   initialChannel?: MoodChannelSummary;
   anchorId?: string;
+  readSource?: 'live' | 'archive';
 }
 
 const {
@@ -31,6 +33,7 @@ const {
   initialPosts = [],
   initialChannel,
   anchorId = '',
+  readSource = 'live',
 } = Astro.props;
 
 const initialFeedPayload = {
@@ -236,6 +239,7 @@ const hasCriticalInitialPosts = criticalInitialPosts.length > 0;
     class={`mood-feed${hasCriticalInitialPosts ? '' : ' is-hidden'}`}
     data-mood-feed
     data-mood-anchor-id={anchorId || undefined}
+    data-mood-read-source={readSource}
   >
     {hasInitialFeedPayload && (
       <script type="application/json" data-mood-initial-feed set:html={JSON.stringify(initialFeedPayload)}></script>
@@ -406,7 +410,10 @@ const hasCriticalInitialPosts = criticalInitialPosts.length > 0;
 
                     <div class="mood-item-reactions">
                       {post.reactions.map((reaction) => (
-                        <span class={reaction.isPaid ? 'mood-reaction mood-reaction--paid' : 'mood-reaction'}>
+                        <span
+                          class={reaction.isPaid ? 'mood-reaction mood-reaction--paid' : 'mood-reaction'}
+                          data-mood-reaction-key={getMoodReactionKey(reaction)}
+                        >
                           <span class="mood-reaction-emoji">
                             {reaction.isPaid ? '⭐' : reaction.emojiImage || reaction.emojiId ? (
                               <span class="tg-emoji" data-emoji-id={reaction.emojiId || undefined}>

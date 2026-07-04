@@ -1,6 +1,7 @@
 ---
 import type { MoodContentDocument } from '@bunizao/contracts';
 import CommentsSection from '@/features/mood/ui/CommentsSection.astro';
+import { getMoodReactionKey } from '@/features/mood/client/meta-patcher';
 
 interface Props {
   post: MoodContentDocument | null;
@@ -10,6 +11,7 @@ interface Props {
   formattedDate?: string;
   telegramCommentUrl?: string;
   backHref?: string;
+  readSource?: 'live' | 'archive';
 }
 
 const {
@@ -20,6 +22,7 @@ const {
   formattedDate = '',
   telegramCommentUrl = '',
   backHref = '/mood',
+  readSource = 'live',
 } = Astro.props;
 
 const postTags = post ? post.tags ?? (post.tag ? [post.tag] : []) : [];
@@ -27,7 +30,11 @@ const postReactions = post?.reactions ?? [];
 ---
 
 {post ? (
-  <article class="mood-post">
+  <article
+    class="mood-post"
+    data-mood-id={postId || post.id}
+    data-mood-read-source={readSource}
+  >
     <div class="mood-post-header">
       <a href={backHref} class="back-link" data-back-button>← Back to Moods</a>
       <div class="mood-post-meta">
@@ -67,7 +74,10 @@ const postReactions = post?.reactions ?? [];
     {postReactions.length > 0 && (
       <div class="mood-post-reactions" aria-label="Reactions">
         {postReactions.map((reaction) => (
-          <span class={reaction.isPaid ? 'mood-reaction mood-reaction--paid' : 'mood-reaction'}>
+          <span
+            class={reaction.isPaid ? 'mood-reaction mood-reaction--paid' : 'mood-reaction'}
+            data-mood-reaction-key={getMoodReactionKey(reaction)}
+          >
             <span class="mood-reaction-emoji">
               {reaction.isPaid ? (
                 '⭐'
