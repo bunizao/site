@@ -1,0 +1,1967 @@
+/* Blog visual zone — a faithful clone of chl.ee, intentionally NOT harmonized
+   with the main buxx.me hero/identity system (see BLOG-MIGRATION-PRD.md).
+   Everything is scoped under .blog-zone so it cannot leak into other routes.
+
+   Greys are expressed as the theme foreground at low alpha rather than fixed
+   hex, so the calm light palette and a tuned dark variant both fall out of the
+   existing token system for free. */
+
+/* Masthead wordmark only. LXGW WenKai TC (SIL OFL 1.1) subset to the four
+   glyphs of 無人之境 — see public/fonts/wenkai-wordmark-license.txt. The
+   unicode-range scopes it to exactly those codepoints, so it can never leak
+   onto body text even if the family name is reused. Self-hosted because Google
+   Fonts is blocked in China and this blog is Chinese-primary. */
+@font-face {
+  font-family: 'LXGW WenKai Wordmark';
+  font-style: normal;
+  font-weight: 400;
+  font-display: block;
+  src: url('/fonts/wenkai-wordmark.woff2') format('woff2');
+  unicode-range: U+7121, U+4EBA, U+4E4B, U+5883;
+}
+
+.blog-zone {
+  --blog-ink: hsl(var(--foreground));            /* titles, strong text */
+  --blog-body: hsl(var(--foreground) / 0.78);    /* article body copy (chl.ee greys it) */
+  --blog-muted: hsl(var(--foreground) / 0.58);   /* list excerpts */
+  --blog-faint: hsl(var(--foreground) / 0.42);   /* dates, meta, year ticks */
+  --blog-line: hsl(var(--foreground) / 0.1);     /* hairline dividers */
+  --blog-fill: hsl(var(--foreground) / 0.045);   /* sliding hover pill */
+  /* Image hairline — pure black/white, NOT the tinted foreground neutral used
+     elsewhere. A tinted edge picks up the surface under it and reads as dirt on
+     the photo. Light here; dark variant flips it below. */
+  --blog-img-edge: inset 0 0 0 1px rgba(0, 0, 0, 0.1);
+  /* Ink set (--blog-accent / --blog-dai / --blog-dian / --blog-ji) is emitted
+     by BlogLayout from blogPalette in src/data/site.ts — the single source of
+     truth. All three are blue; --blog-accent aliases dai (the primary ink). */
+  --blog-measure: 720px;                          /* content column */
+  /* Masthead wordmark face — LXGW WenKai TC, subset to 無人之境 only (~1.9KB). */
+  --blog-display: 'LXGW WenKai Wordmark', 'Songti SC', 'Noto Serif CJK SC', serif;
+
+  min-height: 100svh;
+  color: var(--blog-body);
+  background: hsl(var(--background));
+  /* Refined reading numerals: lining, tabular dates read tidier. */
+  font-feature-settings: 'cv11', 'ss01';
+}
+
+.dark .blog-zone {
+  /* Dark ink values also come from blogPalette (emitted by BlogLayout). */
+  --blog-img-edge: inset 0 0 0 1px rgba(255, 255, 255, 0.1);
+}
+
+/* chl.ee is a flat surface — drop the site's ambient dot grid in this zone. */
+body.blog-zone::before {
+  display: none;
+}
+
+.blog-shell {
+  margin-inline: auto;
+  max-width: var(--blog-measure);
+  padding: 40px 24px 48px;
+}
+
+/* The shared site footer keeps its own top breathing room, but in the blog zone
+   the shell already supplies the bottom gutter — drop the footer's bottom pad so
+   the page doesn't end in a cavern of empty space. */
+.blog-zone .footer {
+  padding-bottom: 0;
+}
+
+/* --- Top bar: publication mark + theme toggle --------------------------- */
+.blog-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 72px;
+}
+
+.blog-topbar__controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* The mark is line art on a transparent ground, not a cropped avatar — so it
+   is contained, never cover-cropped, and carries no rounded mask. */
+.blog-mark {
+  display: inline-flex;
+  width: 40px;
+  height: 40px;
+  transition: opacity 0.15s ease;
+}
+
+.blog-mark:hover {
+  opacity: 0.65;
+}
+
+.blog-mark img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+/* Monochrome line art on a transparent ground vanishes on the dark surface —
+   flip it so the strokes read as light. Transparent pixels stay transparent. */
+.dark .blog-mark img {
+  filter: invert(1);
+}
+
+.blog-theme-toggle {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  color: var(--blog-faint);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: color 0.15s ease, background 0.15s ease, scale 0.12s ease;
+}
+
+/* Keep the 34px visual but extend the tap target to 40×40 (34 + 3 + 3). */
+.blog-theme-toggle::before {
+  content: '';
+  position: absolute;
+  inset: -3px;
+}
+
+.blog-theme-toggle:hover {
+  color: var(--blog-ink);
+  background: hsl(var(--foreground) / 0.05);
+}
+
+.blog-theme-toggle:active {
+  scale: 0.96;
+}
+
+.blog-theme-toggle svg {
+  width: 18px;
+  height: 18px;
+}
+
+/* Only the icon matching the active setting is shown. */
+.blog-theme-toggle [data-blog-icon] {
+  display: none;
+}
+html[data-theme-setting='light'] .blog-theme-toggle [data-blog-icon='light'],
+html[data-theme-setting='dark'] .blog-theme-toggle [data-blog-icon='dark'],
+html[data-theme-setting='system'] .blog-theme-toggle [data-blog-icon='system'] {
+  display: inline-flex;
+}
+
+/* --- Masthead ----------------------------------------------------------- */
+/* The publication's landing identity: wordmark + tagline + author byline. The
+   warm hand-brushed kai wordmark (LXGW WenKai TC) gives 無人之境 a literary
+   register distinct from the sans homepage, so the reader feels they've entered
+   a different place. Weight stays at the font's natural 400 — a brush face
+   faux-bolds badly. */
+.blog-masthead {
+  margin-bottom: 88px;
+}
+
+.blog-masthead__wordmark {
+  font-family: var(--blog-display);
+  font-size: 50px;
+  line-height: 1.15;
+  font-weight: 400;
+  letter-spacing: -0.03em;
+  color: var(--blog-ink);
+}
+
+.blog-masthead__tagline {
+  margin-top: 20px;
+  font-size: 16px;
+  line-height: 25px;
+  color: var(--blog-muted);
+}
+
+/* --- Year sections ------------------------------------------------------ */
+.blog-year {
+  scroll-margin-top: 24px;
+}
+
+.blog-year + .blog-year {
+  margin-top: 40px;
+}
+
+/* Plain year heading above each group. On wide screens the left rail carries
+   the navigation, so this heading is hidden there to avoid duplication. */
+.blog-year__heading {
+  margin-bottom: 4px;
+  font-size: 13px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+  color: var(--blog-faint);
+}
+
+/* Single coherent hover: a soft pill glides behind the hovered row and the
+   un-hovered siblings recede. NO per-row hairlines — the pill is the only
+   hover decoration, so nothing crosses or competes. Rows breathe with their
+   own padding instead of dividers. The pill is one absolutely-positioned
+   element per list, moved by JS (see PostHover.astro); CSS owns the springy
+   transition. */
+.blog-list {
+  position: relative;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.blog-indicator {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 0;
+  border-radius: 12px;
+  background: var(--blog-fill);
+  opacity: 0;
+  pointer-events: none;
+  /* The pill springs to a new row on every hover; pre-promote it so Safari
+     composites the transform on the GPU instead of stuttering on frame one. */
+  will-change: transform;
+  transition:
+    transform 0.46s cubic-bezier(0.25, 1.18, 0.45, 1.04),
+    width 0.4s cubic-bezier(0.25, 1, 0.3, 1),
+    height 0.4s cubic-bezier(0.25, 1, 0.3, 1),
+    opacity 0.25s ease-out;
+}
+
+.blog-row {
+  position: relative;
+  z-index: 1;
+  transition: opacity 0.3s ease;
+}
+
+/* While the cursor is on the list, non-hovered rows recede. The class is
+   toggled on .blog-list by the hover script so it never fights touch devices. */
+.blog-list.is-hovering .blog-row:not(:hover) {
+  opacity: 0.45;
+}
+
+/* The post link covers only the title + excerpt, but its ::after stretches over
+   the whole row (.blog-row is the positioned ancestor) so clicking anywhere —
+   including the meta line — opens the post. The tag chips below sit above this
+   overlay via z-index, staying independently clickable. */
+.blog-row__link {
+  display: block;
+  padding: 16px 0 0;
+}
+
+.blog-row__link::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+}
+
+.blog-row__title {
+  font-size: 19px;
+  line-height: 1.45;
+  font-weight: 550;
+  letter-spacing: -0.012em;
+  text-wrap: balance;
+  color: var(--blog-ink);
+  transition: color 0.3s ease;
+}
+
+.blog-row__excerpt {
+  margin-top: 5px;
+  font-size: 15px;
+  line-height: 1.55;
+  color: var(--blog-muted);
+  /* Ghost auto-excerpts (no custom excerpt) can be long; keep rows tight. */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Date + tag links share one quiet metadata line under each row. Owns the row's
+   bottom rhythm now that the link no longer pads its underside. */
+.blog-row__meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 10px;
+  margin-top: 9px;
+  padding-bottom: 16px;
+}
+
+.blog-row__date {
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--blog-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.blog-row__tags {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+/* Real links to each tag archive. Lifted above the post link's stretched
+   overlay (position + z-index) so they stay clickable. Accent on direct hover;
+   a quiet lift when the row as a whole is hovered. */
+.blog-row__tag {
+  position: relative;
+  z-index: 1;
+  font-size: 11.5px;
+  line-height: 1;
+  padding: 4px 9px;
+  border-radius: 999px;
+  color: var(--blog-faint);
+  background: hsl(var(--foreground) / 0.04);
+  transition: color 0.2s ease, background-color 0.2s ease;
+}
+
+.blog-row:hover .blog-row__tag {
+  color: var(--blog-muted);
+  background: hsl(var(--foreground) / 0.07);
+}
+
+/* Match the row-hover selector's specificity (and come later) so a directly
+   hovered chip wins the accent state instead of the row's muted one. */
+.blog-row:hover .blog-row__tag:hover,
+.blog-row__tag:hover {
+  color: var(--blog-accent);
+  background: color-mix(in srgb, var(--blog-accent) 12%, transparent);
+}
+
+/* --- Left year rail (chl.ee) -------------------------------------------- */
+/* Desktop-only jump nav: a fixed vertical rail in the left margin that
+   highlights the year in view and reveals labels on hover. Hidden below 1200px
+   because a horizontal strip there just duplicates the per-section
+   .blog-year__heading (both would render "2026" stacked). On narrow screens the
+   headings alone label each group. */
+.blog-yearrail {
+  display: none;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 2px;
+  margin-bottom: 12px;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+.blog-yearrail__year {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 8px;
+  border-radius: 6px;
+  color: var(--blog-faint);
+  transition: color 0.15s ease, background 0.15s ease;
+}
+
+.blog-yearrail__year:first-child {
+  padding-left: 0;
+}
+
+.blog-yearrail__tick {
+  display: none;
+}
+
+.blog-yearrail__year:hover,
+.blog-yearrail__year.is-active {
+  color: var(--blog-ink);
+}
+
+@media (min-width: 1200px) {
+  /* The reading column stays centered; the rail floats in the left gutter. */
+  .blog-yearrail {
+    display: flex;
+    position: fixed;
+    top: 50%;
+    left: max(20px, calc((100vw - var(--blog-measure)) / 2 - 132px));
+    transform: translateY(-50%);
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0;
+    margin: 0;
+    z-index: 20;
+  }
+
+  .blog-yearrail__year {
+    gap: 12px;
+    padding: 7px 0;
+    border-radius: 0;
+    color: var(--blog-faint);
+  }
+
+  .blog-yearrail__tick {
+    display: block;
+    width: 18px;
+    height: 1px;
+    background: hsl(var(--foreground) / 0.25);
+    transition: width 0.2s ease, background 0.2s ease;
+  }
+
+  /* Labels hide until hover/active so the resting rail is just calm ticks. */
+  .blog-yearrail__label {
+    opacity: 0.45;
+    transform: translateX(-4px);
+    transition: opacity 0.2s ease, transform 0.2s ease;
+  }
+
+  .blog-yearrail:hover .blog-yearrail__label {
+    opacity: 1;
+    transform: none;
+  }
+
+  .blog-yearrail__year:hover .blog-yearrail__tick,
+  .blog-yearrail__year.is-active .blog-yearrail__tick {
+    width: 28px;
+    background: var(--blog-ink);
+  }
+
+  .blog-yearrail__year.is-active .blog-yearrail__label {
+    opacity: 1;
+    color: var(--blog-ink);
+    font-weight: 550;
+  }
+
+  /* The rail carries the year nav; the per-section heading is redundant here. */
+  .blog-year__heading {
+    display: none;
+  }
+}
+
+/* --- Floating hero preview (cai.im) ------------------------------------- */
+/* A single image pinned near the cursor, swapped per hovered row. Springy
+   fade+scale in, quick fade out. Fixed-position so it never causes layout
+   shift; transform is driven by rAF in PostHover.astro. */
+.blog-preview {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 40;
+  width: 240px;
+  pointer-events: none;
+  will-change: transform;
+}
+
+.blog-preview img {
+  display: block;
+  width: 100%;
+  /* Crop to the same landscape band the article hero uses (max-height 420 +
+     object-fit:cover), so the shared `blog-hero` morph is a pure scale instead
+     of a square→landscape stretch. The fixed ratio also reserves height before
+     the lazy image decodes, so a fast click never morphs from a 0-height box. */
+  aspect-ratio: 16 / 10;
+  height: auto;
+  object-fit: cover;
+  border-radius: 12px;
+  box-shadow: 0 18px 50px hsl(var(--foreground) / 0.14), var(--blog-img-edge);
+  /* Scale/fade live on the img so transform on the wrapper stays free for
+     cursor tracking. Springy ease on the way in; grows from the left edge since
+     the preview is pinned to the right of the column. */
+  transform-origin: left center;
+  transform: scale(0.92);
+  opacity: 0;
+  transition:
+    transform 0.34s cubic-bezier(0.22, 1.2, 0.4, 1),
+    opacity 0.22s ease-out;
+}
+
+.blog-preview.is-visible img {
+  transform: scale(1);
+  opacity: 1;
+}
+
+/* Share the article hero's view-transition-name while the preview is on screen,
+   so clicking the hovered row morphs this gutter card into the post hero (paired
+   in globals.css). Named only when visible — off-screen it must not claim the
+   name or collide with the real hero. */
+.blog-preview.is-visible {
+  view-transition-name: blog-hero;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .blog-preview img {
+    transition: opacity 0.15s ease;
+    transform: none;
+  }
+  .blog-preview.is-visible img {
+    transform: none;
+  }
+}
+
+/* --- Article (post detail) --------------------------------------------- */
+.blog-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 40px;
+  font-size: 14px;
+  color: var(--blog-faint);
+  transition: color 0.15s ease;
+}
+
+.blog-back:hover {
+  color: var(--blog-ink);
+}
+
+/* On wide screens the gutter rail (.blog-back-rail) replaces the inline link, so
+   exactly one back affordance is visible at any width. */
+@media (min-width: 1280px) {
+  .blog-back {
+    display: none;
+  }
+}
+
+.blog-article__header {
+  margin-bottom: 44px;
+}
+
+.blog-article__title {
+  font-size: clamp(27px, 4.4vw, 34px);
+  line-height: 1.3;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  text-wrap: balance;
+  color: var(--blog-ink);
+  margin-bottom: 14px;
+}
+
+.blog-article__meta {
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--blog-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.blog-article__meta span + span::before {
+  content: '·';
+  margin: 0 8px;
+}
+
+/* Prose — chl.ee greys the body. CJK reads better with a roomier leading and a
+   hair of tracking, so the column runs at 17.5px / 1.85 with optimized wrapping. */
+.blog-prose {
+  font-size: 17.5px;
+  line-height: 1.85;
+  letter-spacing: 0.003em;
+  color: var(--blog-body);
+  /* NOT text-wrap: pretty — Safari/WebKit's `pretty` over-optimizes CJK line
+     breaking and breaks lines short, leaving a large ragged gap on the right
+     (Chrome fills lines greedily and looks fine). `wrap` is standard greedy
+     wrapping, identical across engines: lines fill to the edge, ~1 glyph of rag.
+     Inherited by the body paragraphs/lists; headings keep their own balance. */
+  text-wrap: wrap;
+}
+
+.blog-prose > * + * {
+  margin-top: 1.4em;
+}
+
+.blog-prose h2 {
+  font-size: 22px;
+  line-height: 1.4;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  text-wrap: balance;
+  color: var(--blog-ink);
+  margin-top: 2.6em;
+  margin-bottom: -0.2em;
+}
+
+.blog-prose h3 {
+  font-size: 19px;
+  line-height: 1.45;
+  font-weight: 600;
+  text-wrap: balance;
+  color: var(--blog-ink);
+  margin-top: 2em;
+  margin-bottom: -0.3em;
+}
+
+.blog-prose a {
+  color: var(--blog-ink);
+  text-decoration: underline;
+  text-decoration-color: hsl(var(--foreground) / 0.3);
+  text-underline-offset: 3px;
+  transition: text-decoration-color 0.15s ease;
+}
+
+.blog-prose a:hover {
+  text-decoration-color: currentColor;
+}
+
+.blog-prose strong {
+  color: var(--blog-ink);
+  font-weight: 600;
+}
+
+/* No italic — CJK has no true italic and faux-slanting reads as broken. Lean on
+   the left rule and a slightly muted, larger measure to set quotes apart. */
+.blog-prose blockquote {
+  padding-left: 22px;
+  border-left: 2px solid hsl(var(--foreground) / 0.18);
+  color: var(--blog-muted);
+}
+
+.blog-prose blockquote p {
+  margin-top: 0.6em;
+}
+
+/* Tailwind preflight strips list markers globally; re-enable them for prose. */
+.blog-prose ul {
+  padding-left: 24px;
+  list-style: disc;
+}
+
+.blog-prose ol {
+  padding-left: 24px;
+  list-style: decimal;
+}
+
+.blog-prose li::marker {
+  color: var(--blog-faint);
+}
+
+.blog-prose li + li {
+  margin-top: 8px;
+}
+
+.blog-prose :where(code, kbd, samp) {
+  font-family: var(--font-code);
+  font-size: 0.875em;
+  padding: 0.15em 0.4em;
+  border-radius: 6px;
+  background: hsl(var(--foreground) / 0.06);
+}
+
+.blog-prose pre {
+  font-family: var(--font-code);
+  font-size: 14px;
+  line-height: 1.6;
+  padding: 16px 18px;
+  border-radius: 12px;
+  background: hsl(var(--foreground) / 0.05);
+  overflow-x: auto;
+}
+
+.blog-prose pre code {
+  padding: 0;
+  background: none;
+}
+
+/* Standalone inline images: never let a tall portrait shot dominate the column.
+   Cap the height and center; landscape shots still fill the measure. */
+.blog-prose > img,
+.blog-prose p > img {
+  display: block;
+  width: auto;
+  max-width: 100%;
+  max-height: 70vh;
+  margin-inline: auto;
+  height: auto;
+  border-radius: 10px;
+  box-shadow: var(--blog-img-edge);
+}
+
+/* --- Article foot ------------------------------------------------------- */
+/* One bracketed zone for everything after the prose: a hairline, the actions
+   row (human pledge + subscribe/share), a second hairline, then prev/next.
+   Each piece used to invent its own top margin — this gives them one rhythm. */
+.blog-end {
+  margin-top: 44px;
+  padding-top: 28px;
+  border-top: 1px solid var(--blog-line);
+}
+
+/* Pledge sits left, action pills hug right. With only the pills present (no
+   #not-by-ai tag) the single child falls back to the left edge. */
+.blog-end__bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 20px 24px;
+}
+
+/* Stack the pledge above the pills on narrow screens (the pills keep their own
+   left alignment), so the in-flow pledge card pushes them down cleanly. */
+@media (max-width: 639px) {
+  .blog-end__bar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+
+/* --- Prev / next -------------------------------------------------------- */
+.blog-adjacent {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-top: 44px;
+  padding-top: 28px;
+  border-top: 1px solid var(--blog-line);
+}
+
+.blog-adjacent__item {
+  display: block;
+}
+
+.blog-adjacent__item--next {
+  text-align: right;
+}
+
+.blog-adjacent__dir {
+  display: block;
+  font-size: 12.5px;
+  color: var(--blog-faint);
+}
+
+.blog-adjacent__title {
+  display: block;
+  margin-top: 6px;
+  font-size: 16px;
+  line-height: 22px;
+  font-weight: 600;
+  text-wrap: balance;
+  color: var(--blog-muted);
+  transition: color 0.15s ease;
+}
+
+.blog-adjacent__item:hover .blog-adjacent__title {
+  color: var(--blog-ink);
+}
+
+/* --- Tags --------------------------------------------------------------- */
+.blog-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  list-style: none;
+  margin: 16px 0 0;
+  padding: 0;
+}
+
+/* Post-page tag chips: soft filled pill — the original rounded shape. */
+.blog-tag {
+  display: inline-flex;
+  font-size: 12.5px;
+  line-height: 1;
+  padding: 6px 11px;
+  border-radius: 999px;
+  color: var(--blog-muted);
+  background: hsl(var(--foreground) / 0.05);
+  transition:
+    color 0.16s ease,
+    background-color 0.16s ease;
+}
+
+.blog-tag:hover {
+  color: var(--blog-ink);
+  background: hsl(var(--foreground) / 0.09);
+}
+
+/* --- Table of contents: dotted progress rail (ported from chl.ee) ------- */
+/* A vertical dotted rail whose accent dots "fill" as you read, a sliding pill
+   that springs to hug the active heading's label, and a quiet text list (full
+   opacity only for the active section). Built client-side, so all selectors are
+   global. Wide screens only (the right gutter is reserved in blog-prose.css). */
+/* The wrapper is the positioning context: .blog-aside is an absolute child
+   spanning the article's full height, so its sticky inner aligns with the
+   article at the top, scrolls up glued to it, then pins — and scrolls away near
+   the end. */
+.blog-article-wrap {
+  position: relative;
+}
+
+/* Gutter aside: one sticky column holding the back link and (when present) the
+   TOC. A single sticky element means both align with the article top, scroll up
+   glued to it, then pin together — the back link is always there, the TOC is
+   appended below it. This keeps the TOC's original align→scroll→pin choreography
+   intact instead of fighting it with a second sticky element in the same gutter. */
+.blog-aside {
+  display: none;
+}
+
+@media (min-width: 1280px) {
+  .blog-aside {
+    display: block;
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: -240px;
+    width: 210px;
+    z-index: 45;
+  }
+}
+
+.blog-aside__sticky {
+  position: sticky;
+  top: 96px;
+  padding-left: 16px;
+  /* Keep a generous breath of space toward the article: long headings wrap
+     within this narrower column instead of running up against the prose. */
+  padding-right: 30px;
+}
+
+.blog-back-rail {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--blog-faint);
+  transition: color 0.15s ease;
+}
+
+.blog-back-rail:hover {
+  color: var(--blog-ink);
+}
+
+/* Gap the dotted rail below the back link only when a TOC actually follows. */
+.blog-back-rail + .toc-container:not([hidden]) {
+  margin-top: 22px;
+}
+
+/* The aside owns positioning now; the TOC is plain in-flow content inside it. */
+.toc-container {
+  display: none;
+}
+
+@media (min-width: 1280px) {
+  .toc-container:not([hidden]) {
+    display: block;
+  }
+}
+
+.toc-inner {
+  position: static;
+}
+
+.toc-content-wrapper {
+  position: relative;
+}
+
+/* Highlight that springs to the active link; JS sets top/left/width/height. */
+.toc-sliding-pill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 0;
+  height: 0;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--blog-accent) 20%, transparent);
+  opacity: 0;
+  z-index: 0;
+  pointer-events: none;
+  transition:
+    top 0.48s cubic-bezier(0.25, 1.22, 0.45, 1.04),
+    height 0.48s cubic-bezier(0.25, 1.22, 0.45, 1.04),
+    left 0.48s cubic-bezier(0.25, 1.22, 0.45, 1.04),
+    width 0.48s cubic-bezier(0.25, 1.22, 0.45, 1.04),
+    opacity 0.25s ease-out;
+}
+
+/* Dotted rail: a 2px dot every 8px. The fill is the same pattern in the accent,
+   clipped to a JS-driven height so the dots colour in as you read. */
+.toc-progress-timeline {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -16px;
+  width: 4px;
+  overflow: hidden;
+  opacity: 0.6;
+  background: linear-gradient(var(--blog-line) 2px, transparent 2px);
+  background-size: 100% 8px;
+  z-index: 1;
+}
+
+.toc-progress-fill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 4px;
+  height: 0;
+  background: linear-gradient(var(--blog-accent) 2px, transparent 2px);
+  background-size: 100% 8px;
+  transition: height 0.1s linear;
+}
+
+.toc-list {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.toc-item {
+  position: relative;
+  z-index: 1;
+}
+
+.toc-link {
+  display: inline-block;
+  padding: 6px 0;
+  border-radius: 8px;
+  font-size: 12px;
+  line-height: 1.35;
+  color: var(--blog-muted);
+  transition: color 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.toc-item.depth-3 .toc-link {
+  padding-left: 16px;
+}
+
+.toc-text {
+  display: block;
+  padding: 0 8px;
+  opacity: 0.3;
+  transition:
+    opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+    color 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.toc-link:hover {
+  color: var(--blog-ink);
+}
+
+.toc-link:hover .toc-text {
+  opacity: 0.7;
+}
+
+.toc-link.active {
+  color: var(--blog-ink);
+}
+
+.toc-link.active .toc-text {
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .toc-sliding-pill,
+  .toc-progress-fill,
+  .toc-text,
+  .toc-link {
+    transition: none;
+  }
+}
+
+/* --- Mobile TOC: chl.ee-style reading topbar --------------------------- */
+/* Below the desktop breakpoint the gutter rail is hidden; this gives the same
+   heading map as a fixed reading bar — logo left, active section title centred,
+   back-to-top right. Bar and dropdown share ONE frosted surface (.toc-topbar__
+   fade, sized via inset:0 to the whole control): opening the menu simply grows
+   the control's height and the glass follows, so the menu reads as the bar
+   extending downward, not a separate card. The surface dissolves at its bottom
+   edge via a mask, so there is never a hard boundary. */
+.toc-topbar {
+  display: none;
+}
+
+@media (max-width: 1279px) {
+  .toc-topbar:not([hidden]) {
+    display: block;
+  }
+}
+
+.toc-topbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 55;
+  /* Soft tail below the content: the glass keeps blurring here, then the mask
+     fades it to nothing — no edge to catch the eye. Taps pass through (the
+     surface is pointer-events:none). */
+  padding-bottom: 40px;
+  /* The bar slides down only after the reader passes the article header. */
+  opacity: 0;
+  transform: translateY(-100%);
+  pointer-events: none;
+  transition: opacity 0.25s ease, transform 0.32s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.toc-topbar.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* The single frosted surface behind bar + menu. inset:0 stretches it over the
+   whole control, so it grows with the menu for free. The mask dissolves the
+   bottom 40px (the padding tail) into the page. */
+.toc-topbar__fade {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  /* Translucent and gradient, not a solid sheet: the tint thins toward the
+     bottom while strong blur keeps text legible — the chl.ee "通透" look. */
+  background: linear-gradient(to bottom, hsl(var(--background) / 0.55), hsl(var(--background) / 0.28));
+  backdrop-filter: blur(22px) saturate(1.7);
+  -webkit-backdrop-filter: blur(22px) saturate(1.7);
+  -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 44px), transparent);
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 44px), transparent);
+}
+
+/* This surface blurs the page scrolling beneath it, so WebKit re-filters it
+   every frame — and backdrop-filter cost scales with the kernel radius. A
+   tighter blur with a slightly stronger tint reads the same through the mask
+   but stays inside the scroll frame budget on iOS. */
+.ua-webkit .toc-topbar__fade {
+  background: linear-gradient(to bottom, hsl(var(--background) / 0.66), hsl(var(--background) / 0.36));
+  backdrop-filter: blur(12px) saturate(1.5);
+  -webkit-backdrop-filter: blur(12px) saturate(1.5);
+}
+
+.toc-topbar__bar {
+  position: relative;
+  /* Equal side rails (logo / back-to-top both 30px) so the centre column lands
+     the title on the page axis, not just between its neighbours. */
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 12px;
+  height: 52px;
+  padding: 0 16px;
+  /* The row is transparent; only its controls catch taps. */
+  pointer-events: none;
+}
+
+.toc-topbar__logo,
+.toc-topbar__title,
+.toc-topbar__totop {
+  pointer-events: auto;
+}
+
+.toc-topbar__logo {
+  display: inline-flex;
+  width: 30px;
+  height: 30px;
+  flex: none;
+  justify-self: start;
+  transition: opacity 0.15s ease;
+}
+
+.toc-topbar__logo:hover {
+  opacity: 0.65;
+}
+
+.toc-topbar__logo img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+/* Monochrome line art on a transparent ground — flip it on the dark surface. */
+.dark .toc-topbar__logo img {
+  filter: invert(1);
+}
+
+/* Fixed "ghost" mark that flies from the page header logo into the bar's slot
+   as you scroll — a scroll-driven FLIP. JS sizes it and drives translate+scale;
+   it rides above the bar glass (z 56 > 55) so it reads as the mark docking just
+   before the chrome assembles around it. */
+.toc-logo-ghost {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 56;
+  opacity: 0;
+  pointer-events: none;
+  transform-origin: top left;
+  will-change: transform;
+}
+
+.toc-logo-ghost img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.dark .toc-logo-ghost img {
+  filter: invert(1);
+}
+
+/* While the handoff owns the mark, the bar's own logo stays a live (clickable)
+   link but cedes the pixels to the ghost — otherwise the two double up at the
+   dock. */
+.toc-topbar.logo-handoff .toc-topbar__logo img {
+  opacity: 0;
+}
+
+/* Fixed "ghost" title that flies the article H1 up and shrinks it into the
+   bar's centre slot — the iOS large-title collapse. JS wears the H1's type on
+   it and drives translate+scale; it crossfades into the real bar title at the
+   dock. nowrap so the FLIP scales a single clean line. */
+.toc-title-ghost {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 56;
+  max-width: 92vw;
+  margin: 0;
+  opacity: 0;
+  color: var(--blog-ink);
+  white-space: nowrap;
+  pointer-events: none;
+  transform-origin: top left;
+  will-change: transform, opacity;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .toc-logo-ghost,
+  .toc-title-ghost {
+    display: none;
+  }
+}
+
+.toc-topbar__title {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  max-width: min(70vw, 360px);
+  margin: 0;
+  padding: 6px 4px;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--blog-ink);
+  cursor: pointer;
+  justify-self: center;
+  transition: color 0.15s ease;
+}
+
+/* No section map (no-toc post or a thin one): the centre is a plain reading
+   marker — no chevron, no tap target. */
+.toc-topbar--static .toc-topbar__chevron {
+  display: none;
+}
+
+.toc-topbar--static .toc-topbar__title {
+  cursor: default;
+  pointer-events: none;
+}
+
+.toc-topbar__title-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.toc-topbar__chevron {
+  width: 15px;
+  height: 15px;
+  flex: none;
+  color: var(--blog-faint);
+  transition: transform 0.2s ease;
+}
+
+.toc-topbar.menu-open .toc-topbar__chevron {
+  transform: rotate(180deg);
+}
+
+/* Back-to-top on the right. ~Logo-width so the title stays optically centred. */
+.toc-topbar__totop {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  flex: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: none;
+  color: var(--blog-faint);
+  cursor: pointer;
+  justify-self: end;
+  transition: color 0.15s ease, scale 0.12s ease;
+}
+
+.toc-topbar__totop:hover {
+  color: var(--blog-ink);
+}
+
+.toc-topbar__totop:active {
+  scale: 0.92;
+}
+
+.toc-topbar__totop svg {
+  width: 18px;
+  height: 18px;
+}
+
+/* Dropdown: no frame of its own — it rides the bar's glass. Opening grows the
+   max-height, which grows the control, which the surface follows. */
+.toc-topbar__menu {
+  position: relative;
+  max-height: 0;
+  overflow: hidden;
+  padding: 0 8px;
+  pointer-events: auto;
+  opacity: 0;
+  transition:
+    max-height 0.3s cubic-bezier(0.32, 0.72, 0, 1),
+    padding 0.3s cubic-bezier(0.32, 0.72, 0, 1),
+    opacity 0.2s ease;
+}
+
+.toc-topbar.menu-open .toc-topbar__menu {
+  max-height: min(60vh, 460px);
+  overflow-y: auto;
+  padding: 2px 8px 6px;
+  opacity: 1;
+}
+
+.toc-topbar__list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+}
+
+/* Centred list: an indent would read as off-axis, so subordinate H3 rows lean
+   on a quieter weight instead. */
+.toc-topbar__item.depth-3 .toc-topbar__link {
+  font-size: 13px;
+  opacity: 0.8;
+}
+
+/* Inline-block so the active tint hugs the heading instead of stretching the
+   whole row — a one-character heading gets a small pill, not a long empty box. */
+.toc-topbar__link {
+  display: inline-block;
+  max-width: 100%;
+  padding: 7px 12px;
+  border-radius: 12px;
+  font-size: 14px;
+  line-height: 1.35;
+  text-align: center;
+  color: var(--blog-faint);
+  transition: color 0.15s ease, background 0.15s ease;
+}
+
+.toc-topbar__link:hover {
+  color: var(--blog-ink);
+}
+
+.toc-topbar__link.active {
+  color: var(--blog-accent);
+  font-weight: 600;
+  background: color-mix(in srgb, var(--blog-accent) 12%, transparent);
+}
+
+/* With the bar's own to-top button in the menu, the floating FAB is redundant
+   on mobile — hide it wherever the reading topbar is live. */
+@media (max-width: 1279px) {
+  body:has(.toc-topbar:not([hidden])) .blog-totop {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .toc-topbar,
+  .toc-topbar__menu,
+  .toc-topbar__chevron,
+  .toc-topbar__totop {
+    transition: none;
+  }
+}
+
+/* --- Back to top -------------------------------------------------------- */
+.blog-totop {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
+  border: 1px solid var(--blog-line);
+  background: hsl(var(--background));
+  color: var(--blog-faint);
+  cursor: pointer;
+  opacity: 0;
+  transform: translateY(8px);
+  /* Soft layered lift so it floats above the column instead of relying on the
+     hairline alone — the border can vanish over a same-tone background. */
+  box-shadow: 0 4px 12px hsl(var(--foreground) / 0.08), 0 1px 3px hsl(var(--foreground) / 0.06);
+  transition: opacity 0.2s ease, transform 0.2s ease, color 0.15s ease, scale 0.12s ease;
+}
+
+.blog-totop.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.blog-totop:hover {
+  color: var(--blog-ink);
+}
+
+.blog-totop:active {
+  scale: 0.96;
+}
+
+/* Press-scale is motion — honour the reduced-motion preference for every
+   control that uses it in this zone. */
+@media (prefers-reduced-motion: reduce) {
+  .blog-theme-toggle:active,
+  .blog-search-trigger:active,
+  .blog-totop:active {
+    scale: 1;
+  }
+}
+
+.blog-totop svg {
+  width: 18px;
+  height: 18px;
+}
+
+/* --- Lightbox ----------------------------------------------------------- */
+.blog-lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 5vmin;
+  background: hsl(var(--background) / 0.92);
+  opacity: 0;
+  pointer-events: none;
+  cursor: zoom-out;
+  transition: opacity 0.2s ease;
+}
+
+.blog-lightbox.is-open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.blog-lightbox img {
+  max-width: 100%;
+  max-height: 100%;
+  border-radius: 12px;
+  object-fit: contain;
+  box-shadow: var(--blog-img-edge);
+}
+
+/* --- Footer ------------------------------------------------------------- */
+/* The article foot reuses the shared site Footer (src/features/home/ui).
+   The reading column adds top breathing room before it. */
+.blog-zone .footer {
+  margin-top: 72px;
+}
+
+
+/* --- Tag directory (/blog/tags) ---------------------------------------- */
+/* Left-aligned to share the masthead's axis, so the page reads as part of the
+   same publication. A grid of calm, light cards — each previews the tag's
+   recent posts. See TagCard.astro. */
+.tags-page-header {
+  margin: 8px 0 56px;
+}
+
+.tags-page-label {
+  display: inline-block;
+  margin-bottom: 14px;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--blog-faint);
+}
+
+/* Reading sans, not the masthead wordmark: --blog-display is subset to the four
+   glyphs 無人之境 only, so any other text falls back to a heavy serif. Tag
+   titles share the post-list voice instead. */
+.tags-page-title {
+  margin: 0 0 14px;
+  font-family: var(--font-sans);
+  font-size: 46px;
+  line-height: 1.1;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  color: var(--blog-ink);
+}
+
+.tags-page-description {
+  margin: 0;
+  max-width: 34rem;
+  font-size: 16px;
+  line-height: 1.55;
+  color: var(--blog-muted);
+}
+
+.tag-index__empty {
+  color: var(--blog-faint);
+}
+
+/* Mobile: the masthead's generous 72px gap + a 46px title pushes the first card
+   below the fold. Tighten the chrome here (scoped to the tags page via :has) so
+   a card is visible on first screen. The logo already returns home, so there is
+   no back link to spend vertical space on. */
+@media (max-width: 767px) {
+  .blog-shell:has(.tag-marquee) .blog-topbar {
+    margin-bottom: 28px;
+  }
+  .tags-page-header {
+    margin: 0 0 24px;
+  }
+  .tags-page-title {
+    font-size: 34px;
+  }
+}
+
+/* --- Tag marquee (/blog/tags) ------------------------------------------ */
+/* Progressive enhancement. Base layout (mobile + no-JS) is a single vertical
+   column of glass cards. On desktop, JS adds `tags-pinned` to <html>: the page
+   locks, and the two rows become a full-bleed horizontal marquee driven by the
+   wheel — top row drifts right, bottom row left, looping forever. */
+.tag-marquee {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 8px;
+}
+
+.tag-marquee__track {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.tag-marquee__track > .tag-card {
+  width: 100%;
+  max-width: 560px;
+  margin-inline: auto;
+}
+
+/* --- Pinned marquee (desktop, JS-enabled) ------------------------------- */
+html.tags-pinned,
+html.tags-pinned body {
+  height: 100%;
+  overflow: hidden;
+}
+
+.tags-pinned .blog-shell {
+  display: flex;
+  flex-direction: column;
+  height: 100svh;
+  padding-bottom: 24px;
+}
+
+.tags-pinned .tags-page-header {
+  margin: 0 0 20px;
+}
+
+.tags-pinned .tag-marquee {
+  flex: 1;
+  min-height: 0;
+  width: 100vw;
+  margin-inline: calc(50% - 50vw);
+  justify-content: center;
+  gap: 24px;
+  overflow: hidden;
+}
+
+/* Each row takes half the marquee height (capped on tall screens). Cards fill
+   the row exactly so their bottom post-panel is never clipped. */
+.tags-pinned .tag-marquee__row {
+  flex: 1 1 0;
+  min-height: 0;
+  max-height: 460px;
+  overflow: hidden;
+}
+
+.tags-pinned .tag-marquee__track {
+  flex-direction: row;
+  align-items: stretch;
+  gap: 24px;
+  height: 100%;
+  width: max-content;
+  will-change: transform;
+}
+
+.tags-pinned .tag-marquee__track > .tag-card {
+  flex: 0 0 360px;
+  width: 360px;
+  height: 100%;
+  min-height: 0;
+  max-width: none;
+  margin-inline: 0;
+}
+
+/* Plain cards: column layout so the post list sits at the bottom edge when the
+   card is stretched to the row height. (Image cards pin their panel absolutely.) */
+.tags-pinned .tag-card:not(.has-image) {
+  display: flex;
+  flex-direction: column;
+}
+
+.tags-pinned .tag-card:not(.has-image) .tag-card-posts {
+  margin-top: auto;
+}
+
+/* --- Glass tag card (ported from Attegi, in blog tokens) ---------------- */
+.tag-card {
+  --tag-accent: var(--blog-accent);
+  --tag-color: var(--tag-accent);
+  /* Fixed post-row height so the scrollable list always shows whole rows:
+     1/2/3 rows in full, or 2.5 rows (a half-row peek) once it scrolls. */
+  --row-h: 46px;
+  /* One horizontal inset shared by the header and the post rows so the tag name
+     and the post titles sit on the same left edge. Tightens on mobile. */
+  --tag-pad-x: 24px;
+  position: relative;
+  border-radius: 20px;
+  overflow: hidden;
+  background: color-mix(in oklab, hsl(var(--foreground)) 4%, hsl(var(--background)));
+  border: 1px solid var(--blog-line);
+  /* No transform on hover: cards are in constant marquee motion, and lifting a
+     moving card reads as jank. Hover speaks through the border + a soft halo. */
+  transition:
+    border-color 0.25s ease,
+    box-shadow 0.25s ease;
+}
+
+.tag-card:hover {
+  border-color: var(--tag-color);
+  box-shadow: 0 10px 34px hsl(var(--foreground) / 0.09);
+}
+
+.dark .tag-card {
+  background: hsl(var(--foreground) / 0.04);
+  border-color: hsl(var(--foreground) / 0.08);
+}
+
+.dark .tag-card:hover {
+  box-shadow: 0 10px 34px rgb(0 0 0 / 0.3);
+}
+
+.tag-card.has-accent:not(.has-image) {
+  border-color: color-mix(in srgb, var(--tag-color) 25%, var(--blog-line));
+}
+
+.tag-card.has-accent:not(.has-image):hover {
+  border-color: var(--tag-color);
+  box-shadow: 0 12px 40px color-mix(in srgb, var(--tag-color) 15%, transparent);
+}
+
+/* Plain card (no feature image) */
+.tag-card-link {
+  display: block;
+  padding: var(--tag-pad-x);
+  color: inherit;
+}
+
+.tag-card-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 14px;
+}
+
+.tag-card-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  flex-shrink: 0;
+  border-radius: 14px;
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--tag-color) 15%, hsl(var(--background))),
+    color-mix(in srgb, var(--tag-color) 8%, hsl(var(--background)))
+  );
+  border: 1px solid color-mix(in srgb, var(--tag-color) 20%, transparent);
+}
+
+.tag-card-icon svg {
+  width: 24px;
+  height: 24px;
+  color: var(--tag-color);
+}
+
+.tag-card-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.tag-card-name {
+  margin: 0 0 2px;
+  font-family: var(--font-sans);
+  font-size: 19px;
+  font-weight: 650;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+  color: var(--blog-ink);
+  transition: color 0.2s ease;
+}
+
+.tag-card:not(.has-image):hover .tag-card-name {
+  color: var(--tag-color);
+}
+
+.tag-card-count {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--blog-muted);
+}
+
+.tag-card-description {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--blog-muted);
+  text-wrap: pretty;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Post-preview rows */
+.tag-card-posts {
+  position: relative;
+  border-top: 1px solid var(--blog-line);
+}
+
+.tag-card-posts.is-scrollable .tag-posts-scroll {
+  max-height: calc(var(--row-h) * 2.5); /* 2.5-row peek when >3 posts */
+  overflow-y: auto;
+  scroll-behavior: smooth;
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--tag-color) 30%, transparent) transparent;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+}
+
+.tag-card-posts.is-scrollable .tag-posts-scroll::-webkit-scrollbar {
+  width: 4px;
+}
+
+.tag-card-posts.is-scrollable .tag-posts-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.tag-card-posts.is-scrollable .tag-posts-scroll::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--tag-color) 30%, transparent);
+  border-radius: 2px;
+}
+
+.tag-card-posts.is-scrollable .tag-posts-scroll::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--tag-color) 50%, transparent);
+}
+
+/* Fade cue at the bottom of a scrollable list (plain cards only). */
+.tag-card:not(.has-image) .tag-card-posts.is-scrollable::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 24px;
+  background: linear-gradient(
+    to bottom,
+    transparent,
+    color-mix(in oklab, hsl(var(--foreground)) 4%, hsl(var(--background)))
+  );
+  pointer-events: none;
+  z-index: 2;
+}
+
+.tag-post-preview {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  height: var(--row-h);
+  box-sizing: border-box;
+  padding: 0 var(--tag-pad-x);
+  color: inherit;
+  border-bottom: 1px solid var(--blog-line);
+  transition: background 0.15s ease;
+}
+
+.tag-post-preview:last-child {
+  border-bottom: none;
+}
+
+.tag-post-preview:hover {
+  background: color-mix(in srgb, var(--tag-color) 5%, transparent);
+}
+
+.tag-post-preview:hover .tag-post-title {
+  color: var(--tag-color);
+}
+
+.tag-post-title {
+  flex: 1;
+  min-width: 0;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.4;
+  color: var(--blog-body);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: color 0.15s ease;
+}
+
+.tag-post-date {
+  flex-shrink: 0;
+  font-size: 12px;
+  color: var(--blog-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Feature-image card — full-cover photo with floating glass posts panel. */
+.tag-card.has-image {
+  min-height: 360px;
+  --image-color: var(--tag-image-color, hsl(var(--foreground) / 0.15));
+  border-color: transparent;
+  /* Calm neutral surface under the photo — never a flat black slab while it
+     loads (or if it fails). The LQIP blur (when present) paints over this. */
+  background: color-mix(in oklab, hsl(var(--foreground)) 8%, hsl(var(--background)));
+}
+
+.dark .tag-card.has-image {
+  background: hsl(var(--foreground) / 0.06);
+}
+
+.tag-card.has-image:hover {
+  border-color: color-mix(in srgb, var(--image-color) 50%, transparent);
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--image-color) 25%, rgb(0 0 0 / 0.1));
+}
+
+.tag-card-bg {
+  display: block;
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  color: inherit;
+}
+
+.tag-card-bg > img {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: filter 0.3s ease;
+}
+
+/* No zoom — scaling a child inside a rounded, clipped card leaks past the corners
+   mid-transform. Hover just warms the image instead. */
+.tag-card.has-image:hover .tag-card-bg > img {
+  filter: brightness(1.06) saturate(1.05);
+}
+
+/* Blurred low-res preview behind the photo — same treatment as posts'
+   .blog-media. Sits under the image (z 0) and fades out once the photo loads. */
+.tag-card-bg.has-lqip::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background: var(--tag-lqip) center / cover no-repeat;
+  filter: blur(14px);
+  transform: scale(1.1);
+}
+
+/* Crossfade the real photo in once it loads (the page script adds .is-loaded). */
+.js .tag-card.has-image .tag-card-bg > img {
+  opacity: 0;
+  transition: opacity 0.6s ease;
+}
+
+.js .tag-card.has-image .tag-card-bg.is-loaded > img {
+  opacity: 1;
+}
+
+.js .tag-card.has-image .tag-card-bg.is-loaded.has-lqip::before {
+  opacity: 0;
+  transition: opacity 0.6s ease 0.1s;
+}
+
+/* Gradient scrim for header legibility — above image + LQIP, below text. */
+.tag-card-bg::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  background: linear-gradient(to bottom, rgb(0 0 0 / 0.1) 0%, rgb(0 0 0 / 0.55) 100%);
+  pointer-events: none;
+}
+
+.tag-card.has-image .tag-card-header {
+  position: absolute;
+  top: var(--tag-pad-x);
+  left: var(--tag-pad-x);
+  z-index: 3;
+  margin-bottom: 0;
+}
+
+.tag-card.has-image .tag-card-name {
+  color: #fff;
+  font-size: 22px;
+  font-weight: 700;
+  text-shadow: 0 1px 3px rgb(0 0 0 / 0.4);
+}
+
+.tag-card.has-image .tag-card-count {
+  color: rgb(255 255 255 / 0.9);
+  text-shadow: 0 1px 2px rgb(0 0 0 / 0.3);
+}
+
+/* Liquid-glass posts panel pinned to the bottom of the image. */
+.tag-card.has-image .tag-card-posts {
+  position: absolute;
+  inset: auto 0 0 0;
+  z-index: 3;
+  border-top: none;
+  background: rgb(0 0 0 / 0.15);
+  backdrop-filter: blur(24px) saturate(180%) brightness(1.1);
+  -webkit-backdrop-filter: blur(24px) saturate(180%) brightness(1.1);
+  box-shadow: inset 0 0.5px 0 rgb(255 255 255 / 0.3);
+}
+
+.dark .tag-card.has-image .tag-card-posts {
+  background: rgb(0 0 0 / 0.25);
+  box-shadow: inset 0 0.5px 0 rgb(255 255 255 / 0.15);
+}
+
+.tag-card.has-image .tag-card-posts.is-scrollable .tag-posts-scroll {
+  scrollbar-color: rgb(255 255 255 / 0.3) transparent;
+}
+
+.tag-card.has-image .tag-card-posts.is-scrollable .tag-posts-scroll::-webkit-scrollbar-thumb {
+  background: rgb(255 255 255 / 0.3);
+}
+
+.tag-card.has-image .tag-post-preview {
+  border-bottom-color: rgb(255 255 255 / 0.15);
+}
+
+.tag-card.has-image .tag-post-preview:hover {
+  background: rgb(255 255 255 / 0.1);
+}
+
+.tag-card.has-image .tag-post-title {
+  color: rgb(255 255 255 / 0.95);
+  text-shadow: 0 1px 2px rgb(0 0 0 / 0.3);
+}
+
+.tag-card.has-image .tag-post-preview:hover .tag-post-title {
+  color: #fff;
+}
+
+.tag-card.has-image .tag-post-date {
+  color: rgb(255 255 255 / 0.7);
+  text-shadow: 0 1px 2px rgb(0 0 0 / 0.3);
+}
+
+/* Mobile: tighter inset (header + rows keep sharing one edge) and slightly
+   larger post titles for CJK legibility. Placed after the .tag-card base rules
+   so the cascade actually applies the override on narrow screens. */
+@media (max-width: 767px) {
+  .tag-card {
+    --tag-pad-x: 18px;
+  }
+  .tag-card.has-image .tag-card-name {
+    font-size: 20px;
+  }
+  .tag-post-title {
+    font-size: 15px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tag-card,
+  .tag-card-bg > img {
+    transition: none;
+  }
+  .tag-card:hover {
+    transform: none;
+  }
+  .tags-pinned .tag-marquee__track {
+    transform: none !important;
+  }
+}
+
+/* --- Tag archive (/blog/tag/:slug) ------------------------------------- */
+.tag-index__back {
+  display: inline-flex;
+  font-size: 13px;
+  color: var(--blog-faint);
+  transition: color 0.16s ease;
+}
+
+.tag-index__back:hover {
+  color: var(--blog-ink);
+}
+
+.tag-archive__head {
+  margin-bottom: 48px;
+}
+
+.tag-archive__title {
+  margin-top: 18px;
+  font-family: var(--font-sans);
+  font-size: 40px;
+  line-height: 1.1;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  color: var(--blog-ink);
+}
+
+.tag-archive__hash {
+  color: color-mix(in oklab, var(--tag-accent) 80%, var(--blog-faint));
+}
+
+.tag-archive__desc {
+  margin-top: 14px;
+  max-width: 60ch;
+  font-size: 16px;
+  line-height: 25px;
+  color: var(--blog-muted);
+}
+
+.tag-archive__count {
+  margin-top: 16px;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  color: var(--blog-faint);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tag-card,
+  .tag-card__enter,
+  .tag-deck__pill,
+  .tag-deck__pill-active {
+    transition: none;
+  }
+  .tag-card:active {
+    transform: none;
+  }
+  .tag-deck__track {
+    scroll-snap-type: none;
+  }
+}

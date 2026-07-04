@@ -30,28 +30,26 @@ const slides: Slide[] = [
   },
 ];
 
-const INTERVAL_MS = 5200;
-
 export default function AttegiTourHero({ hovered = false }: { hovered?: boolean }) {
   const reduced = useReducedMotion();
   const [mounted, setMounted] = useState(false);
   const [active, setActive] = useState(0);
   const shouldReduce = mounted && reduced === true;
   const live = hovered && !shouldReduce;
-  const intervalMs = live ? 2600 : INTERVAL_MS;
+  const intervalMs = 2600;
 
   useEffect(() => {
     setMounted(true);
   }, []);
 
   useEffect(() => {
-    if (shouldReduce) return;
+    if (!live) return;
     const id = window.setInterval(
       () => setActive((a) => (a + 1) % slides.length),
       intervalMs,
     );
     return () => window.clearInterval(id);
-  }, [shouldReduce, intervalMs]);
+  }, [live, intervalMs]);
 
   const slide = slides[active];
 
@@ -80,31 +78,37 @@ export default function AttegiTourHero({ hovered = false }: { hovered?: boolean 
 
       {/* Viewport — slides cross-dissolve, each panning down as if scrolled. */}
       <div className="relative flex-1 overflow-hidden">
-        <AnimatePresence initial={false}>
-          <motion.img
-            key={slide.src}
-            src={slide.src}
-            alt={slide.alt}
-            loading={active === 0 ? "eager" : "lazy"}
-            className="absolute inset-0 h-full w-full object-cover"
-            initial={
-              shouldReduce
-                ? { opacity: 0, objectPosition: "50% 50%" }
-                : { opacity: 0, objectPosition: "50% 0%" }
-            }
-            animate={{
-              opacity: 1,
-              objectPosition: shouldReduce ? "50% 50%" : "50% 100%",
-              scale: live ? 1.06 : 1,
-            }}
-            exit={{ opacity: 0 }}
-            transition={{
-              opacity: { duration: 0.9, ease: [0.22, 1, 0.36, 1] },
-              objectPosition: { duration: intervalMs / 1000 + 0.9, ease: "linear" },
-              scale: { duration: 0.45, ease: [0.22, 1, 0.36, 1] },
-            }}
-          />
-        </AnimatePresence>
+        {slides.map((candidate, index) => {
+          const current = index === active;
+          const objectDuration = current && live ? intervalMs + 900 : 300;
+          return (
+            <img
+              key={candidate.src}
+              src={candidate.src}
+              alt={current ? candidate.alt : ""}
+              aria-hidden={current ? undefined : true}
+              loading={index === 0 ? "eager" : "lazy"}
+              decoding="async"
+              draggable={false}
+              className="absolute inset-0 h-full w-full object-cover"
+              style={{
+                opacity: current ? 1 : 0,
+                zIndex: current ? 1 : 0,
+                objectPosition:
+                  shouldReduce || !live
+                    ? "50% 50%"
+                    : current
+                      ? "50% 100%"
+                      : "50% 0%",
+                transform: current && live ? "scale(1.06)" : "scale(1)",
+                transition:
+                  `opacity 900ms cubic-bezier(0.22,1,0.36,1), ` +
+                  `object-position ${objectDuration}ms linear, ` +
+                  "transform 450ms cubic-bezier(0.22,1,0.36,1)",
+              }}
+            />
+          );
+        })}
       </div>
     </div>
   );

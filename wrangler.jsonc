@@ -26,12 +26,14 @@
   ],
   "routes": [
     { "pattern": "buxx.me/*", "zone_name": "buxx.me" },
-    { "pattern": "www.buxx.me/*", "zone_name": "buxx.me" }
+    { "pattern": "www.buxx.me/*", "zone_name": "buxx.me" },
+    { "pattern": "blog.buxx.me/*", "zone_name": "buxx.me" }
   ],
   "vars": {
     "SITE_URL": "https://buxx.me",
     "PUBLIC_SITE_URL": "https://buxx.me",
-    "GHOST_URL": "https://blog.buxx.me",
+    "PUBLIC_GHOST_URL": "https://blog.buxx.me",
+    "PUBLIC_BLOG_OG_IMAGE_ENDPOINT": "https://og.tuuhub.com/api/og",
     "LASTFM_USER": "bunizao",
     "PUBLIC_HD_IMAGE_URL": "https://buxx.me/api/v2/images",
     "PUBLIC_TURNSTILE_SITE_KEY": "0x4AAAAAACaDQzCbYalmO_xV",

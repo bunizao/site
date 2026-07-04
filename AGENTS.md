@@ -19,24 +19,27 @@ Requires Node.js >= 22.12 (`.node-version` is set to 22). A node 18 shell silent
 
 ```bash
 bun install              # Install dependencies (uses Bun, not npm/yarn/pnpm)
-bun dev                  # Dev server at http://localhost:4321 (op run + astro dev)
+bun dev                  # Dev server (astro dev, native Node SSR). /api/* proxies to prod buxx.me.
+bun dev:api              # Dev server + proxy /api/* to local site-api at 127.0.0.1:8787
 bun run check            # Astro type/content check
-bun run build            # Production build
+bun run build            # Production build (Cloudflare adapter applies here, not in dev)
 bun run test:unit        # Unit tests plus notify service e2e tests
 bun run test:e2e:site    # Playwright site e2e tests
 bun run test:e2e:worker  # Telegram image proxy worker e2e tests
 bun run test:ops         # Scheduled ops health tests
-bun preview              # Preview production build locally
+bun preview              # Preview production build locally (wrangler dev on built worker)
 ```
 
 No separate linter is configured.
 
+**Dev runtime note:** `astro dev` runs on Astro's native Node SSR — the Cloudflare adapter (and its workerd runner) only applies during `build`. In dev, `/api/*`, `/v2/*`, and `/oauth*` are proxied over HTTP via `API_DEV_ORIGIN` (default `https://buxx.me`). Use `bun dev:api` to redirect that proxy to a local `wrangler dev` site-api instead. Set `API_DEV_ORIGIN` in `.env.local` to target a preview deployment or any other origin.
+
 ## Related Repository (site-api)
 
-This is the public Worker. The private Worker `site-api` lives in the sibling repo `../site-api` (separate git repo, same `Dropbox/Dev/` parent). It owns D1, KV, R2, queues, crons, admin/OAuth, notify, the Telegram webhook, the image proxy, and concrete public API implementations. Production `buxx.me/api/*` is directly routed to `site-api`; this repo keeps only a thin `/api/*` service-binding fallback for local and preview environments. Keep them split — it is the public/private security boundary.
+This is the public Worker. The private Worker `site-api` lives in the sibling repo `../site-api` (separate git repo, same `Dropbox/Dev/` parent). It owns D1, KV, R2, queues, crons, admin/OAuth, notify, the Telegram webhook, the image proxy, and concrete public API implementations. Production `buxx.me/api/*` is directly routed to `site-api`; this repo keeps only a thin `/api/*` service-binding fallback for deploy/preview environments. Keep them split — it is the public/private security boundary.
 
 - `@bunizao/contracts` is duplicated in both repos as byte-identical copies; **this repo (`site`) is canonical**. After editing contracts, sync the copy in `../site-api` via `bun run sync:contracts` there.
-- The `API` binding only resolves under `wrangler dev`/deploy, not plain `astro dev`, so `bun dev` alone cannot exercise fallback-proxied `/api/*` paths. Run `site-api` under `wrangler dev` and wire it via multi-worker dev to test API fallback locally.
+- To develop against a local site-api: run `bun run dev` in `../site-api` (boots wrangler on `127.0.0.1:8787`), then use `bun dev:api` here. The `API` service binding only resolves at deploy/`wrangler dev` time; `bun dev` is not broken without it — it just proxies to prod.
 
 ## Architecture
 

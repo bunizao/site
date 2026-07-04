@@ -9,6 +9,7 @@ import { readEnv, readPublicEnv } from '@/lib/runtime/env';
 import { getChannelInfo } from '@/features/mood/server/telegram-source';
 import type { ChannelInfo, Post } from '@/features/mood/server/legacy-types';
 import type { MoodCommentsPage } from './contracts';
+import { normalizeMoodImageBase, normalizeMoodImageUrl } from './image-base';
 
 export interface MoodServerContext {
   request: Request;
@@ -97,11 +98,11 @@ export function getMoodChannelEmojiId(locals?: any): string {
 }
 
 export function getMoodHdImageBase(locals?: any): string {
-  return readPublicEnv(locals, 'HD_IMAGE_URL').replace(/\/+$/, '');
+  return normalizeMoodImageBase(readPublicEnv(locals, 'HD_IMAGE_URL'));
 }
 
 export function getMoodHdImageOrigin(locals?: any): string {
-  const hdImageUrl = readPublicEnv(locals, 'HD_IMAGE_URL');
+  const hdImageUrl = getMoodHdImageBase(locals);
   if (!hdImageUrl) return '';
 
   try {
@@ -115,7 +116,7 @@ export function toMoodAvatarUrl(avatar: string, locals?: any): string {
   if (!avatar) return '';
   if (avatar.startsWith('/static/')) return avatar;
 
-  const normalized = avatar.startsWith('http') ? avatar : `https:${avatar}`;
+  const normalized = normalizeMoodImageUrl(avatar.startsWith('http') ? avatar : `https:${avatar}`);
   const hdImageOrigin = getMoodHdImageOrigin(locals);
 
   if (hdImageOrigin) {

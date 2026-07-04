@@ -375,6 +375,23 @@ export function initMoodFeedController(): void {
         ) ?? null
       );
 
+      const isTargetFullyVisible = (target: HTMLElement): boolean => {
+        const rect = target.getBoundingClientRect();
+        return rect.top >= 0 && rect.bottom <= window.innerHeight;
+      };
+
+      const runOnNextFrame = (callback: () => void): void => {
+        let hasRun = false;
+        const run = (): void => {
+          if (hasRun) return;
+          hasRun = true;
+          callback();
+        };
+
+        window.requestAnimationFrame(run);
+        window.setTimeout(run, 50);
+      };
+
       const readStoredReturnAnchorTop = (id: string): number | null => {
         try {
           const raw = window.sessionStorage.getItem(MOOD_FEED_RETURN_ANCHOR_STORAGE_KEY);
@@ -424,15 +441,24 @@ export function initMoodFeedController(): void {
 
         return new Promise((resolve) => {
           let frame = 0;
+          let timer = 0;
           let quietFrames = 0;
           let stopped = false;
           const startedAt = performance.now();
 
-          const cleanup = (): void => {
+          const clearScheduledTick = (): void => {
             if (frame) {
               window.cancelAnimationFrame(frame);
               frame = 0;
             }
+            if (timer) {
+              window.clearTimeout(timer);
+              timer = 0;
+            }
+          };
+
+          const cleanup = (): void => {
+            clearScheduledTick();
             window.removeEventListener('wheel', stop);
             window.removeEventListener('touchstart', stop);
             window.removeEventListener('keydown', stopOnScrollKey);
@@ -473,19 +499,37 @@ export function initMoodFeedController(): void {
             const elapsed = now - startedAt;
             if (
               elapsed >= ANCHOR_COMPENSATION_MAX_MS
-              || (elapsed >= ANCHOR_COMPENSATION_MIN_MS && quietFrames >= ANCHOR_COMPENSATION_QUIET_FRAMES)
+              || (
+                preferredTop === null
+                && elapsed >= ANCHOR_COMPENSATION_MIN_MS
+                && quietFrames >= ANCHOR_COMPENSATION_QUIET_FRAMES
+              )
             ) {
               finish(true);
               return;
             }
 
-            frame = window.requestAnimationFrame(tick);
+            scheduleTick();
           };
+
+          function scheduleTick(): void {
+            clearScheduledTick();
+            let hasRun = false;
+            const run = (now = performance.now()): void => {
+              if (hasRun) return;
+              hasRun = true;
+              clearScheduledTick();
+              tick(now);
+            };
+
+            frame = window.requestAnimationFrame(run);
+            timer = window.setTimeout(run, 50);
+          }
 
           window.addEventListener('wheel', stop, { passive: true });
           window.addEventListener('touchstart', stop, { passive: true });
           window.addEventListener('keydown', stopOnScrollKey);
-          frame = window.requestAnimationFrame(tick);
+          scheduleTick();
         });
       };
 
@@ -495,9 +539,12 @@ export function initMoodFeedController(): void {
       ): Promise<boolean> => {
         await waitForAnchorPrecedingMedia(id);
         const preferredTop = options.preferredTop ?? null;
+        const target = getMoodAnchorTarget(id);
+        if (!target) return false;
+
         const aligned = typeof preferredTop === 'number'
           ? alignAnchorToTop(id, preferredTop)
-          : renderer.scrollToMood(id, { behavior: 'auto', highlight: options.highlight });
+          : isTargetFullyVisible(target) || renderer.scrollToMood(id, { behavior: 'auto', highlight: options.highlight });
         if (!aligned) return false;
 
         await stabilizeAnchorPosition(id, preferredTop);
@@ -507,21 +554,26 @@ export function initMoodFeedController(): void {
       const revealFeedAnchor = (): void => {
         if (!feedAnchorId || feedAnchorHandled || feedAnchorRevealInFlight) return;
 
-        window.requestAnimationFrame(async () => {
-          if (feedAnchorHandled || feedAnchorRevealInFlight) return;
-          feedAnchorRevealInFlight = true;
-          try {
-            if (await revealAndStabilizeAnchor(feedAnchorId, { highlight: true }) && !feedAnchorHandled) {
-              feedAnchorHandled = true;
-              setStatus('');
-              window.requestAnimationFrame(() => {
-                armAnchorNewerObserver();
-                armAnchorOlderObserver();
-              });
+        feedAnchorRevealInFlight = true;
+        runOnNextFrame(() => {
+          void (async () => {
+            if (feedAnchorHandled) {
+              feedAnchorRevealInFlight = false;
+              return;
             }
-          } finally {
-            feedAnchorRevealInFlight = false;
-          }
+            try {
+              if (await revealAndStabilizeAnchor(feedAnchorId, { highlight: true }) && !feedAnchorHandled) {
+                feedAnchorHandled = true;
+                setStatus('');
+                runOnNextFrame(() => {
+                  armAnchorNewerObserver();
+                  armAnchorOlderObserver();
+                });
+              }
+            } finally {
+              feedAnchorRevealInFlight = false;
+            }
+          })();
         });
       };
 
@@ -532,8 +584,8 @@ export function initMoodFeedController(): void {
 
         const preferredTop = readStoredReturnAnchorTop(currentAnchorId);
 
-        window.requestAnimationFrame(async () => {
-          await revealAndStabilizeAnchor(currentAnchorId, {
+        runOnNextFrame(() => {
+          void revealAndStabilizeAnchor(currentAnchorId, {
             highlight: preferredTop === null,
             preferredTop,
           });
@@ -544,7 +596,7 @@ export function initMoodFeedController(): void {
         if (!feedAnchorId || feedAnchorHandled) return;
 
         window.setTimeout(() => {
-          if (!feedAnchorHandled) {
+          if (!feedAnchorHandled && !getMoodAnchorTarget(feedAnchorId)) {
             setStatus(`Mood ${feedAnchorId} is not available in this feed.`);
           }
         }, 250);
@@ -952,17 +1004,30 @@ export function initMoodFeedController(): void {
         if (!feedAnchorId) {
           updateWatcher.init();
         }
-        window.addEventListener('pageshow', (event) => {
-          revealCurrentUrlFeedAnchor({ force: (event as PageTransitionEvent).persisted });
+        const scheduleCurrentUrlFeedAnchorReveal = (): void => {
+          runOnNextFrame(() => {
+            revealCurrentUrlFeedAnchor({ force: true });
+          });
+        };
+        const scheduleStoredReturnAnchorReveal = (): void => {
+          runOnNextFrame(() => {
+            const currentAnchorId = readCurrentUrlAnchorId();
+            if (!currentAnchorId || readStoredReturnAnchorTop(currentAnchorId) === null) return;
+            revealCurrentUrlFeedAnchor({ force: true });
+          });
+        };
+
+        window.addEventListener('pageshow', () => {
+          scheduleCurrentUrlFeedAnchorReveal();
           patchVisibleMoodMeta();
         });
-        window.addEventListener('popstate', () => revealCurrentUrlFeedAnchor());
-        window.addEventListener('hashchange', () => revealCurrentUrlFeedAnchor());
+        window.addEventListener('popstate', scheduleCurrentUrlFeedAnchorReveal);
+        window.addEventListener('hashchange', scheduleCurrentUrlFeedAnchorReveal);
         window.addEventListener('scroll', patchVisibleMoodMeta, { passive: true });
         renderer.bindInteractions();
         animatedEmoji.observe(list);
         hydrateMoodRichText(list);
-        loadInitial();
+        void loadInitial().then(scheduleStoredReturnAnchorReveal);
       }
     }
 }

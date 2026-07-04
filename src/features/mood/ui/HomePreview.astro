@@ -32,6 +32,7 @@ const placeholders = Array.from({ length: SKELETON_COUNT }, (_, index) => ({
 
   <div class="mood-timeline" data-mood-list role="region" aria-busy={runtimeDisabled ? 'false' : 'true'} aria-label="Recent moods">
     <script
+      is:inline
       type="application/json"
       data-mood-preview-initial
       set:html={JSON.stringify(initialPosts.slice(0, INITIAL_POST_COUNT))}
@@ -77,6 +78,19 @@ const placeholders = Array.from({ length: SKELETON_COUNT }, (_, index) => ({
 <style is:global>
   #moods-section {
     /* Initial state handled by GSAP */
+  }
+
+  /* The feed reads in the human voice (Inter); the timeline spine — label, time
+     stamps, tags — stays mono, the same identity thread as Hero and Experience.
+     Pretext measures the live computed font, so reservations follow this. */
+  #moods-section {
+    font-family: var(--font-sans);
+  }
+
+  #moods-section .section-label,
+  #moods-section .mood-time,
+  #moods-section .mood-tag {
+    font-family: var(--font-mono);
   }
 
   #moods-section .scroll-reveal {

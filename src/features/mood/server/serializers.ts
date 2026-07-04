@@ -51,7 +51,7 @@ const toAbsoluteSrcset = (value: string, base: URL): string => {
 
 const absolutizeHtml = (html: string, base: URL): string => {
   if (!html) return '';
-  const $ = cheerio.load(html, { decodeEntities: false });
+  const $ = cheerio.load(html);
   const updateAttr = (selector: string, attr: string, mapper: (value: string) => string) => {
     $(selector).each((_index, el) => {
       const current = $(el).attr(attr);

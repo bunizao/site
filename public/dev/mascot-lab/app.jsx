@@ -16,8 +16,6 @@ const Mascot = ({ id, size = 96, mono = false }) => {
     const ctx = cv.getContext('2d');
     ctx.clearRect(0, 0, w, h);
     const fg = getComputedStyle(cv).color;
-    // Eye color is slightly darker than body when on light, lighter when on dark.
-    const eye = mono ? 'transparent' : fg;
     for (let y = 0; y < h; y++) {
       for (let x = 0; x < w; x++) {
         const v = grid[y][x];

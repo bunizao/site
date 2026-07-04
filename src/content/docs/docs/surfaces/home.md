@@ -28,9 +28,9 @@ The widget refreshes every 45 seconds. The preview button plays/pauses the curre
 
 ## Writing
 
-Build-time render fetches the latest 5 public Ghost posts from `GHOST_URL` using `GHOST_CONTENT_APIKEY`. Only `id`, `title`, `url`, `published_at`, `tags` are fetched. Each row links externally; first public tag is metadata; date is `YYYY.MM`; failure shows `No posts yet.`.
+Build-time render fetches the latest 5 public Ghost posts from `PUBLIC_GHOST_URL` using `GHOST_CONTENT_API_KEY`. Only `id`, `title`, `url`, `published_at`, `tags` are fetched. Each row links externally; first public tag is metadata; date is `YYYY.MM`; failure shows `No posts yet.`.
 
-`GHOST_URL` and `GHOST_CONTENT_APIKEY` must be configured in the Cloudflare build environment, not only as Worker runtime secrets. The home page is prerendered, so runtime secrets cannot repair already-generated static HTML.
+`PUBLIC_GHOST_URL` and `GHOST_CONTENT_API_KEY` must be configured in the Cloudflare build environment, not only as Worker runtime secrets. The home page is prerendered, so runtime secrets cannot repair already-generated static HTML.
 
 Ghost's `Post published` webhook should call the Cloudflare Workers Builds deploy hook for the production branch. The old Vercel deploy hook only rebuilt the previous Vercel deployment and does not refresh the Cloudflare Worker output.
 

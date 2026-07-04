@@ -46,9 +46,13 @@ jobs:
         run: bun run test:unit
 
       - name: Production build
+        env:
+          GHOST_MOCK_CONTENT: '1'
         run: bun run build
 
       - name: Cloudflare deploy dry run
+        env:
+          GHOST_MOCK_CONTENT: '1'
         run: bunx wrangler deploy --config dist/server/wrangler.json --dry-run
 
   site-e2e:

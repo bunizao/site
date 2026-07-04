@@ -1,6 +1,11 @@
 import type { APIRoute } from 'astro';
 import { jsonError } from '@/lib/http/json-response';
-import { readRuntimeEnvSource, type EnvSource, type RuntimeEnvLocals } from '@/lib/runtime/env';
+import {
+  readOptionalEnv,
+  readRuntimeEnvSource,
+  type EnvSource,
+  type RuntimeEnvLocals,
+} from '@/lib/runtime/env';
 
 export interface ApiServiceBinding {
   fetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response>;
@@ -54,9 +59,9 @@ export async function getApiServiceBinding(
   return isApiServiceBinding(cloudflareBinding) ? cloudflareBinding : null;
 }
 
-export function rewriteApiServiceUrl(requestUrl: string): URL {
+export function rewriteApiServiceUrl(requestUrl: string, originUrl: string = API_SERVICE_BINDING_ORIGIN): URL {
   const target = new URL(requestUrl);
-  const origin = new URL(API_SERVICE_BINDING_ORIGIN);
+  const origin = new URL(originUrl);
   target.protocol = origin.protocol;
   target.hostname = origin.hostname;
   target.port = origin.port;
@@ -79,8 +84,8 @@ function rewriteApiServicePath(pathname: string): string {
   return pathname.startsWith('/v1') || pathname.startsWith('/v2') ? pathname : `/v2${pathname}`;
 }
 
-export function createApiServiceRequest(request: Request): Request {
-  const target = rewriteApiServiceUrl(request.url);
+export function createApiServiceRequest(request: Request, originUrl: string = API_SERVICE_BINDING_ORIGIN): Request {
+  const target = rewriteApiServiceUrl(request.url, originUrl);
   const source = new URL(request.url);
   const headers = new Headers(request.headers);
   const init: RequestInit & { duplex?: 'half' } = {
@@ -101,15 +106,50 @@ export function createApiServiceRequest(request: Request): Request {
   return new Request(target, init);
 }
 
-export async function proxyApiRequest(request: Request, locals: RuntimeEnvLocals | undefined): Promise<Response> {
-  const api = await getApiServiceBinding(locals);
-  if (!api) {
-    return jsonError(503, 'API service binding unavailable', {
-      'Cache-Control': 'no-store, max-age=0',
-    });
+// Default origin for the dev HTTP fallback. buxx.me/* already routes /api,
+// /v2 and /oauth straight to the deployed site-api worker, so frontend-only
+// dev works with no extra setup. Override API_DEV_ORIGIN in .env.local to a
+// local `wrangler dev` site-api (e.g. http://localhost:8787) or a preview URL
+// when you are debugging the API itself.
+const DEFAULT_DEV_API_ORIGIN = 'https://buxx.me';
+
+function resolveDevApiOrigin(locals: RuntimeEnvLocals | undefined): string | null {
+  // Only ever fall back to plain HTTP under `astro dev`. In production the
+  // service binding is always present, so this branch is never reached there.
+  if (!import.meta.env.DEV) {
+    return null;
   }
 
-  return proxyApiBindingRequest(request, api);
+  return readOptionalEnv(locals, 'API_DEV_ORIGIN') ?? DEFAULT_DEV_API_ORIGIN;
+}
+
+export async function proxyApiRequest(request: Request, locals: RuntimeEnvLocals | undefined): Promise<Response> {
+  const api = await getApiServiceBinding(locals);
+  if (api) {
+    return proxyApiBindingRequest(request, api);
+  }
+
+  const devOrigin = resolveDevApiOrigin(locals);
+  if (devOrigin) {
+    return proxyApiHttpRequest(request, devOrigin);
+  }
+
+  return jsonError(503, 'API service binding unavailable', {
+    'Cache-Control': 'no-store, max-age=0',
+  });
+}
+
+async function proxyApiHttpRequest(request: Request, origin: string): Promise<Response> {
+  const response = await fetch(createApiServiceRequest(request, origin));
+  const headers = new Headers(response.headers);
+  headers.delete('content-encoding');
+  headers.delete('content-length');
+
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers,
+  });
 }
 
 export async function proxyApiBindingRequest(request: Request, api: ApiServiceBinding): Promise<Response> {

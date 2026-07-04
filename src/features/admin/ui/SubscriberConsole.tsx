@@ -46,6 +46,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
+import { adminApiEndpoint } from './api';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -151,7 +152,7 @@ export default function SubscriberConsole() {
       if (deliveryFilter !== 'all') params.set('deliveryMode', deliveryFilter);
       if (debounced) params.set('search', debounced);
       params.set('limit', '100');
-      const response = await fetch(`/api/admin/subscribers?${params.toString()}`, {
+      const response = await fetch(`${adminApiEndpoint('/subscribers')}?${params.toString()}`, {
         headers: { Accept: 'application/json' },
       });
       if (!response.ok) {
@@ -206,7 +207,7 @@ export default function SubscriberConsole() {
     });
   }
 
-  async function submitForm(event: React.FormEvent) {
+  async function submitForm(event: { preventDefault(): void }) {
     event.preventDefault();
     setSubmitting(true);
     setError(null);
@@ -222,8 +223,8 @@ export default function SubscriberConsole() {
 
       const url =
         form.mode === 'create'
-          ? '/api/admin/subscribers'
-          : `/api/admin/subscribers/${form.emailHash}`;
+          ? adminApiEndpoint('/subscribers')
+          : adminApiEndpoint(`/subscribers/${form.emailHash}`);
       const method = form.mode === 'create' ? 'POST' : 'PATCH';
       const response = await fetch(url, {
         method,
@@ -247,7 +248,7 @@ export default function SubscriberConsole() {
     if (!deleteCandidate) return;
     setSubmitting(true);
     try {
-      const response = await fetch(`/api/admin/subscribers/${deleteCandidate.emailHash}`, {
+      const response = await fetch(adminApiEndpoint(`/subscribers/${deleteCandidate.emailHash}`), {
         method: 'DELETE',
       });
       if (!response.ok && response.status !== 204) {

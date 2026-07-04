@@ -91,8 +91,9 @@ Telegram references:
 ## Environment Variables
 
 Accessed via `import.meta.env.*`:
-- `GHOST_URL` — Ghost CMS URL (default: https://blog.buxx.me)
-- `GHOST_CONTENT_APIKEY` — Ghost CMS content API key; required in the Cloudflare build environment for the prerendered Writing section
+- `PUBLIC_GHOST_URL` — Ghost CMS URL (default: https://blog.buxx.me)
+- `GHOST_CONTENT_API_KEY` — Ghost CMS content API key; required in the Cloudflare build environment for the prerendered Writing section
+- `PUBLIC_BLOG_OG_IMAGE_ENDPOINT` — OGIS endpoint for generated `/blog` Open Graph images
 - `GITHUB_TOKEN` — GitHub GraphQL token for project data
 - `PUBLIC_HD_IMAGE_URL` — HD mood image base URL served by `site-api`
 - `CHANNEL` — Telegram public channel slug used for media-group indexing

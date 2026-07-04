@@ -1,0 +1,204 @@
+---
+import {
+  BLOG_ANALYTICS_COMPLETION_SCROLL_DEPTH,
+  BLOG_ANALYTICS_EVENT_ENDPOINT,
+} from '@bunizao/contracts/analytics';
+
+interface Props {
+  slug: string;
+  endpoint?: string;
+}
+
+const {
+  slug,
+  endpoint = BLOG_ANALYTICS_EVENT_ENDPOINT,
+} = Astro.props;
+---
+
+<script
+  is:inline
+  define:vars={{
+    slug,
+    endpoint,
+    completionScrollDepth: BLOG_ANALYTICS_COMPLETION_SCROLL_DEPTH,
+  }}
+>
+  (() => {
+    if (!slug || typeof window === 'undefined' || typeof document === 'undefined') return;
+    if (!isPublicAnalyticsHost(window.location.hostname)) return;
+
+    const visitorKey = 'buxx:blog-analytics:visitor-id';
+    const sessionKey = 'buxx:blog-analytics:session-id';
+    const eventId = createId();
+    const visitorId = readStoredId('localStorage', visitorKey);
+    const sessionId = readStoredId('sessionStorage', sessionKey);
+    let dwellMs = 0;
+    let visibleSince = document.visibilityState === 'visible' ? now() : 0;
+    let maxScrollDepth = readScrollDepth();
+    let scrollPending = false;
+
+    function now() {
+      return typeof performance !== 'undefined' && typeof performance.now === 'function'
+        ? performance.now()
+        : Date.now();
+    }
+
+    function isPublicAnalyticsHost(hostname) {
+      return hostname === 'buxx.me' || hostname === 'www.buxx.me';
+    }
+
+    function createId() {
+      if (window.crypto && typeof window.crypto.randomUUID === 'function') {
+        return window.crypto.randomUUID();
+      }
+
+      return '10000000-1000-4000-8000-100000000000'.replace(/[018]/g, (char) => {
+        const random = window.crypto && typeof window.crypto.getRandomValues === 'function'
+          ? window.crypto.getRandomValues(new Uint8Array(1))[0]
+          : Math.floor(Math.random() * 256);
+        return (Number(char) ^ (random & (15 >> (Number(char) / 4)))).toString(16);
+      });
+    }
+
+    function readStorage(name) {
+      try {
+        return window[name];
+      } catch {
+        return null;
+      }
+    }
+
+    function readStoredId(storageName, key) {
+      const storage = readStorage(storageName);
+      let existing = null;
+      try {
+        existing = storage ? storage.getItem(key) : null;
+      } catch {
+        existing = null;
+      }
+      if (existing) return existing;
+
+      const next = createId();
+      try {
+        storage?.setItem(key, next);
+      } catch {
+        // Private browsing can deny storage; a per-page id still keeps the payload valid.
+      }
+      return next;
+    }
+
+    function readScrollDepth() {
+      const root = document.documentElement;
+      const body = document.body;
+      const scrollTop = window.scrollY || root.scrollTop || body.scrollTop || 0;
+      const viewportHeight = window.innerHeight || root.clientHeight || 1;
+      const pageHeight = Math.max(
+        root.scrollHeight,
+        body.scrollHeight,
+        root.offsetHeight,
+        body.offsetHeight,
+        root.clientHeight,
+      );
+      const maxScroll = pageHeight - viewportHeight;
+      if (maxScroll <= 0) return 1;
+      return clamp(scrollTop / maxScroll, 0, 1);
+    }
+
+    function clamp(value, min, max) {
+      return Math.min(max, Math.max(min, value));
+    }
+
+    function refreshScrollDepth() {
+      maxScrollDepth = Math.max(maxScrollDepth, readScrollDepth());
+    }
+
+    function captureDwell() {
+      if (!visibleSince) return;
+
+      const current = now();
+      dwellMs += Math.max(0, current - visibleSince);
+      visibleSince = current;
+    }
+
+    function pauseDwell() {
+      captureDwell();
+      visibleSince = 0;
+    }
+
+    function resumeDwell() {
+      if (!visibleSince && document.visibilityState === 'visible') {
+        visibleSince = now();
+      }
+    }
+
+    function sanitizedReferrer() {
+      if (!document.referrer) return null;
+
+      try {
+        const ref = new URL(document.referrer);
+        return `${ref.origin}${ref.pathname}`;
+      } catch {
+        return null;
+      }
+    }
+
+    function createPayload(captureVisibleDwell) {
+      refreshScrollDepth();
+      if (captureVisibleDwell && document.visibilityState === 'visible') {
+        captureDwell();
+      }
+
+      return {
+        eventId,
+        slug,
+        visitorId,
+        sessionId,
+        dwellMs: Math.round(dwellMs),
+        scrollDepth: Math.round(clamp(maxScrollDepth, 0, 1) * 1000) / 1000,
+        completed: maxScrollDepth >= completionScrollDepth,
+        referrer: sanitizedReferrer(),
+      };
+    }
+
+    function sendBeacon(captureVisibleDwell = true) {
+      const body = JSON.stringify(createPayload(captureVisibleDwell));
+      const blob = new Blob([body], { type: 'application/json' });
+
+      if (navigator.sendBeacon && navigator.sendBeacon(endpoint, blob)) return;
+
+      fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body,
+        credentials: 'same-origin',
+        keepalive: true,
+      }).catch(() => {});
+    }
+
+    window.addEventListener('scroll', () => {
+      if (scrollPending) return;
+      scrollPending = true;
+      window.requestAnimationFrame(() => {
+        scrollPending = false;
+        refreshScrollDepth();
+      });
+    }, { passive: true });
+
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'hidden') {
+        pauseDwell();
+        sendBeacon();
+        return;
+      }
+
+      resumeDwell();
+    });
+
+    window.addEventListener('pagehide', () => {
+      pauseDwell();
+      sendBeacon();
+    }, { capture: true });
+
+    sendBeacon(false);
+  })();
+</script>

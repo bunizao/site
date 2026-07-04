@@ -1,18 +1,18 @@
 ---
 title: Privacy Policy | Bunizao
-description: Privacy Policy for this website, including Cloudflare hosting, operational data, edge connection diagnostics, homepage listening data, mood subscriptions, and third-party services.
-updatedAt: June 12, 2026
+description: Privacy Policy for this website, including Cloudflare hosting, operational data, blog reading analytics, edge connection diagnostics, homepage listening data, mood subscriptions, and third-party services.
+updatedAt: June 28, 2026
 ---
 
 # Privacy Policy
 
-This Privacy Policy explains how this website collects, uses, and shares personal data. It applies to the site as a whole, including page visits, theme preferences, operational monitoring, the homepage listening card, public content loading, API access, and the mood subscription flow available from [/mood](/mood).
+This Privacy Policy explains how this website collects, uses, and shares personal data. It applies to the site as a whole, including page visits, blog reading analytics, theme preferences, operational monitoring, the homepage listening card, public content loading, API access, and the mood subscription flow available from [/mood](/mood).
 
 It also covers the infrastructure and services used to run the site, including Cloudflare for hosting, anti-abuse checks, operational logs, and mood notification infrastructure, Last.fm and Apple services for the homepage listening feature, and other third-party services used to load public content or deliver email.
 
 ## Scope
 
-This policy covers personal data processed in connection with this website, including the homepage, homepage listening API route, mood pages, privacy page, other API routes, mood comments views, and the optional email subscription feature.
+This policy covers personal data processed in connection with this website, including the homepage, blog pages, homepage listening API route, mood pages, privacy page, other API routes, mood comments views, and the optional email subscription feature.
 
 It does not govern third-party websites, external links, or services you visit independently after leaving this site.
 
@@ -23,6 +23,7 @@ Depending on how you use the site, we may collect or process the following categ
 - **Information you provide directly.** If you use the mood subscription form, this includes your email address, delivery preferences, timezone, and related subscription settings.
 - **Technical and request data.** When you visit pages or call API routes, infrastructure and security systems may process request metadata needed to serve the site, operate rate limits, prevent abuse, and keep the service available.
 - **Operational and performance data.** Cloudflare may process request metadata, logs, and performance signals needed to serve the site, prevent abuse, debug failures, and keep the service reliable.
+- **Blog reading analytics.** Blog article pages may send first-party reading events to this site's own API. These events can include the post slug, event and visitor identifiers, session identifier, dwell time, scroll depth, completion state, referrer, IP address, approximate location and network metadata derived by Cloudflare, language, browser, operating system, device type, and user agent.
 - **Edge connection diagnostics.** The footer can display details about your current connection, derived by Cloudflare from your request: the edge datacenter that served you, the HTTP protocol and TLS version in use, the TCP round-trip time, your approximate location (such as city, region, and country), and your network or internet provider. These values are computed per request and shown back only to you; the site does not store them.
 - **Listening feature request data.** The homepage listening card may trigger server-side requests to Last.fm and Apple services to fetch the most recent track, album metadata, artwork, preview URLs, and related listening status for display.
 - **Theme preference data.** If you change the site theme, that preference is stored locally in your browser using local storage so the site can remember it later.
@@ -39,6 +40,7 @@ We use the data described above to operate and improve the site, including to:
 - host, render, and secure the website and its API routes;
 - remember your local theme preference;
 - monitor page performance and reliability;
+- understand which blog posts are read, how long articles are read, how readers reach posts, and whether the reading experience is working;
 - show you live edge connection diagnostics in the footer when you hover or focus the edge indicator;
 - load and refresh homepage listening data from Last.fm and Apple services;
 - load public content from connected sources such as Ghost, GitHub, and Telegram-related data;
@@ -55,6 +57,14 @@ This site uses Cloudflare Workers as the hosting runtime for public pages and AP
 Cloudflare may process standard request metadata, security signals, logs, and Worker observability data needed to serve the site, protect it from abuse, and investigate operational issues.
 
 The footer also includes an optional edge indicator. When you hover or focus it, the site calls its own `/api/edge` route, which reads Cloudflare's per-request connection properties and returns the serving datacenter, HTTP protocol, TLS version, TCP round-trip time, approximate location, and network or provider. This response is never cached and is shown only to you; the site does not log or retain it.
+
+## Blog reading analytics
+
+Blog article pages use first-party reading analytics served by this site's own API. The script does not load a third-party analytics vendor. It stores a visitor identifier in local storage and a session identifier in session storage so repeated page events can be grouped without requiring an account.
+
+Analytics events are used to understand article readership, completion, referrers, platform mix, and operational quality. The server derives network and browser signals from the request, including IP address, approximate Cloudflare location metadata, ASN or network provider metadata, user agent, language, browser, operating system, and device type.
+
+Raw blog reading analytics may be retained while the analytics feature is operated and reviewed. They are not used for unrelated advertising profiles, and they are not sold. You can clear the browser-stored visitor and session identifiers through your browser storage controls.
 
 ## Homepage listening feature
 
@@ -107,7 +117,7 @@ We do not sell personal data collected through this site, and we do not share su
 
 We retain data for as long as reasonably necessary to operate the site, maintain security, understand performance, and provide optional features such as mood subscriptions.
 
-Some data is short-lived, such as temporary rate-limit state or local theme settings stored in your browser. Subscription records may be retained longer to maintain opt-in status, unsubscribe status, and delivery history. Data handled by Cloudflare, Resend, Ghost, GitHub, Telegram-related sources, or other providers is also subject to those providers' own retention practices.
+Some data is short-lived, such as temporary rate-limit state, local theme settings, or blog analytics session identifiers stored in your browser. Blog reading analytics may be retained while the feature remains useful for understanding readership and operating the site. Subscription records may be retained longer to maintain opt-in status, unsubscribe status, and delivery history. Data handled by Cloudflare, Resend, Ghost, GitHub, Telegram-related sources, or other providers is also subject to those providers' own retention practices.
 
 ## Your choices
 
@@ -118,7 +128,7 @@ You have several choices in relation to this site:
 - you can unsubscribe at any time using the unsubscribe link in subscription emails; and
 - you can request access, correction, or deletion related to your subscription record by contacting [me@buxx.me](mailto:me@buxx.me).
 
-You can also clear locally stored theme preferences through your browser storage controls. If Turnstile is required when you submit the subscription form, completing the anti-bot check is part of that process.
+You can also clear locally stored theme preferences and blog analytics identifiers through your browser storage controls. If Turnstile is required when you submit the subscription form, completing the anti-bot check is part of that process.
 
 ## International processing
 

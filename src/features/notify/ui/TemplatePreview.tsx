@@ -14,6 +14,7 @@ interface PreviewResponse {
   subjects: {
     subscribe: string;
     welcome: string;
+    blog: string;
     mood: string;
     digest: string;
     cancel: string;
@@ -21,6 +22,7 @@ interface PreviewResponse {
   html: {
     subscribe: string;
     welcome: string;
+    blog: string;
     mood: string;
     digest: string;
     cancel: string;
@@ -34,7 +36,7 @@ interface PreviewResponse {
   };
 }
 
-type EmailKey = 'subscribe' | 'welcome' | 'mood' | 'digest' | 'cancel';
+type EmailKey = 'subscribe' | 'welcome' | 'blog' | 'mood' | 'digest' | 'cancel';
 type CallbackKey = 'confirmSuccess' | 'confirmError' | 'unsubscribePrompt' | 'unsubscribeSuccess' | 'unsubscribeError';
 type TemplateKey = EmailKey | CallbackKey;
 type CardSize = 'compacted' | 'regular' | 'expanded';
@@ -51,9 +53,10 @@ interface TemplateMeta {
 const TEMPLATE_ORDER: ReadonlyArray<TemplateMeta> = [
   { key: 'subscribe', surface: 'email', label: 'Subscribe Confirm', index: 'E1', intent: 'double-opt-in email' },
   { key: 'welcome', surface: 'email', label: 'Welcome', index: 'E2', intent: 'post-confirm onboarding' },
-  { key: 'mood', surface: 'email', label: 'Mood Notification', index: 'E3', intent: 'per-post push' },
-  { key: 'digest', surface: 'email', label: 'Mood Digest', index: 'E4', intent: 'batched window' },
-  { key: 'cancel', surface: 'email', label: 'Unsubscribe Notice', index: 'E5', intent: 'opt-out receipt' },
+  { key: 'blog', surface: 'email', label: 'Blog Newsletter', index: 'E3', intent: 'editorial post send' },
+  { key: 'mood', surface: 'email', label: 'Mood Notification', index: 'E4', intent: 'per-post push' },
+  { key: 'digest', surface: 'email', label: 'Mood Digest', index: 'E5', intent: 'batched window' },
+  { key: 'cancel', surface: 'email', label: 'Unsubscribe Notice', index: 'E6', intent: 'opt-out receipt' },
   { key: 'confirmSuccess', surface: 'page', label: 'Confirm — Success', index: 'P1', intent: 'callback after confirm OK' },
   { key: 'confirmError', surface: 'page', label: 'Confirm — Error', index: 'P2', intent: 'expired / used token' },
   { key: 'unsubscribePrompt', surface: 'page', label: 'Unsubscribe — Prompt', index: 'P3', intent: 'GET unsubscribe link' },
@@ -153,7 +156,7 @@ export default function TemplatePreview() {
 
   function getTemplateContent(key: TemplateKey): { subject?: string; html: string } {
     if (!preview) return { html: '' };
-    if (key === 'subscribe' || key === 'welcome' || key === 'mood' || key === 'digest' || key === 'cancel') {
+    if (key === 'subscribe' || key === 'welcome' || key === 'blog' || key === 'mood' || key === 'digest' || key === 'cancel') {
       return { subject: preview.subjects[key], html: preview.html[key] };
     }
     return { html: preview.callbackPages[key] };

@@ -16,6 +16,18 @@ import ExperienceTimeline from '@/components/home/ExperienceTimeline';
     opacity: 0;
   }
 
+  /* The swap moved Experience below Projects, off the Hero mono spine, so it
+     joins the human voice (Inter). Hero is now the lone mono anchor. The
+     metadata spine — label and the tabular-nums period stamps — stays mono. */
+  :global(#experience-section) {
+    font-family: var(--font-sans);
+  }
+
+  :global(#experience-section .section-label),
+  :global(#experience-section .tabular-nums) {
+    font-family: var(--font-mono);
+  }
+
   @media (prefers-reduced-motion: reduce) {
     .experience-section,
     .scroll-reveal-card {

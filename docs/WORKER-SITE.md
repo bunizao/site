@@ -18,6 +18,7 @@ It serves:
 
 - `buxx.me`
 - `www.buxx.me`
+- `blog.buxx.me` redirects into `buxx.me/blog`
 
 Main files:
 
@@ -56,6 +57,7 @@ Public compatibility:
 The public Worker owns:
 
 - public HTML routes
+- legacy Ghost/blog-subdomain redirects into `/blog`
 - public mood feed/detail shells
 - public mood rendering from `site-api`
 - local and preview fallback proxying for public API URLs
@@ -71,16 +73,32 @@ The public Worker does not own:
 - concrete public API endpoints under `buxx.me/api/*`
 - queue consumers or cron triggers
 
+## Blog Cutover
+
+`blog.buxx.me` is routed to the public `site` Worker. The Worker/static redirect
+table owns the cutover:
+
+- `https://blog.buxx.me/` -> `https://buxx.me/blog`
+- `https://blog.buxx.me/<slug>` -> `https://buxx.me/blog/<slug>`
+- legacy root Ghost slugs on `buxx.me`, such as `/sacrifice`, also redirect to
+  their new `/blog/<slug>` permalink.
+- legacy Ghost taxonomy routes redirect to the matching `/blog/tags` or
+  `/blog/tag/<slug>` route.
+
 ## Ghost Publishing Hook
 
-The Writing section is rendered at build time by `src/features/home/ui/Posts.astro`. Ghost post changes do not appear on `buxx.me` until the Cloudflare Worker is rebuilt and redeployed.
+The Writing section and `/blog` routes are rendered at build time from the Ghost
+Content API. Ghost post changes do not appear on `buxx.me` until the Cloudflare
+Worker is rebuilt and redeployed.
 
 Production setup:
 
 - Create a Cloudflare Workers Builds deploy hook for the production branch.
 - Configure Ghost's `Post published` webhook to `POST` that Cloudflare deploy hook URL.
 - Remove the old Vercel deploy hook URL from Ghost.
-- Keep `GHOST_URL` and `GHOST_CONTENT_APIKEY` in the Cloudflare build environment.
+- Keep `PUBLIC_GHOST_URL` and `GHOST_CONTENT_API_KEY` in the Cloudflare build environment.
+- Keep the same values in GitHub Actions for preview builds. `preview-smoke.yml` builds static `/blog` HTML before `wrangler versions upload`, so the workflow must receive `PUBLIC_GHOST_URL` and `GHOST_CONTENT_API_KEY` as build-time environment variables.
+- Updating Worker runtime vars or secrets in the Cloudflare dashboard creates a new Worker version, but it does not rerun Astro prerendering or update static HTML.
 
 ## Bindings and Secrets
 
@@ -92,7 +110,8 @@ Public runtime vars:
 
 - `SITE_URL`
 - `PUBLIC_SITE_URL`
-- `GHOST_URL`
+- `PUBLIC_GHOST_URL`
+- `PUBLIC_BLOG_OG_IMAGE_ENDPOINT`
 - `LASTFM_USER`
 - `PUBLIC_HD_IMAGE_URL`
 - `PUBLIC_TURNSTILE_SITE_KEY`

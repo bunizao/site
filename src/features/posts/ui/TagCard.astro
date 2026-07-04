@@ -1,0 +1,111 @@
+---
+// One glass tag card in the marquee (/blog/tags), ported from Attegi's polished
+// treatment into the blog's tokens. Two modes:
+//   has-image — feature image fills the card; a glass icon floats top-left and a
+//               liquid-glass posts panel sits at the bottom (inner-scrollable).
+//   plain     — accent-tinted icon header + description + post rows.
+// Accent per tag via --tag-accent (custom or a deterministic hue from the slug).
+import type { TagDirectoryEntry } from '../types';
+import { formatPostDateShort, postPath, tagPath } from '../format';
+import { buildSrcSet, withWidthParam } from '@/lib/media/responsive-image';
+
+interface Props {
+  tag: TagDirectoryEntry;
+  /** Inlined low-res blur preview (from getBlurUp), painted while the photo loads. */
+  lqip?: string | null;
+}
+
+const { tag, lqip = null } = Astro.props;
+const href = tagPath(tag.slug);
+const count = tag.postCount || tag.posts.length;
+const countLabel = `${count} ${count === 1 ? 'post' : 'posts'}`;
+const posts = tag.posts.slice(0, 10);
+const hasImage = Boolean(tag.featureImage);
+const imageWidths = [320, 480, 640, 800] as const;
+const isBlogImageProxyUrl = (value: string | null) =>
+  Boolean(value && value.includes('/api/v2/images/blog/'));
+const imageSrc = tag.featureImage && isBlogImageProxyUrl(tag.featureImage)
+  ? withWidthParam(tag.featureImage, 640)
+  : tag.featureImage;
+const imageSrcSet = tag.featureImage && isBlogImageProxyUrl(tag.featureImage)
+  ? buildSrcSet(tag.featureImage, imageWidths)
+  : undefined;
+
+function hueFromSlug(slug: string): number {
+  let h = 0;
+  for (let i = 0; i < slug.length; i += 1) {
+    h = (h * 31 + slug.charCodeAt(i)) % 360;
+  }
+  return h;
+}
+
+const accent = tag.accentColor ?? `hsl(${hueFromSlug(tag.slug)} 70% 55%)`;
+const cardClass = `tag-card${hasImage ? ' has-image' : ''}${tag.accentColor ? ' has-accent' : ''}`;
+---
+
+<article class={cardClass} data-tag-slug={tag.slug} style={`--tag-accent:${accent}`}>
+  {hasImage ? (
+    <>
+      <a
+        href={href}
+        class={`tag-card-bg${lqip ? ' has-lqip' : ''}`}
+        style={lqip ? `--tag-lqip:url('${lqip}')` : undefined}
+      >
+        <img
+          src={imageSrc}
+          srcset={imageSrcSet}
+          sizes={imageSrcSet ? '(min-width: 960px) 33vw, 90vw' : undefined}
+          alt={tag.name}
+          loading="lazy"
+          crossorigin="anonymous"
+        />
+        <div class="tag-card-header">
+          <div class="tag-card-info">
+            <h2 class="tag-card-name">{tag.name}</h2>
+            <span class="tag-card-count">{countLabel}</span>
+          </div>
+        </div>
+      </a>
+
+      {posts.length > 0 && (
+        <div class="tag-card-posts" data-total={posts.length}>
+          {posts.map((post) => (
+            <a href={postPath(post.slug)} class="tag-post-preview">
+              <span class="tag-post-title">{post.title}</span>
+              <span class="tag-post-date">{formatPostDateShort(post.publishedAt)}</span>
+            </a>
+          ))}
+        </div>
+      )}
+    </>
+  ) : (
+    <>
+      <a href={href} class="tag-card-link">
+        <div class="tag-card-header">
+          <div class="tag-card-icon" aria-hidden="true">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path>
+              <line x1="7" y1="7" x2="7.01" y2="7"></line>
+            </svg>
+          </div>
+          <div class="tag-card-info">
+            <h2 class="tag-card-name">{tag.name}</h2>
+            <span class="tag-card-count">{countLabel}</span>
+          </div>
+        </div>
+        {tag.description && <p class="tag-card-description">{tag.description}</p>}
+      </a>
+
+      {posts.length > 0 && (
+        <div class="tag-card-posts" data-total={posts.length}>
+          {posts.map((post) => (
+            <a href={postPath(post.slug)} class="tag-post-preview">
+              <span class="tag-post-title">{post.title}</span>
+              <span class="tag-post-date">{formatPostDateShort(post.publishedAt)}</span>
+            </a>
+          ))}
+        </div>
+      )}
+    </>
+  )}
+</article>

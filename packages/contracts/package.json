@@ -11,6 +11,11 @@
       "import": "./src/index.ts",
       "default": "./src/index.ts"
     },
+    "./analytics": {
+      "types": "./src/analytics.ts",
+      "import": "./src/analytics.ts",
+      "default": "./src/analytics.ts"
+    },
     "./admin": {
       "types": "./src/admin.ts",
       "import": "./src/admin.ts",

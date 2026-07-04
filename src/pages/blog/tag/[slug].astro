@@ -1,0 +1,62 @@
+---
+export const prerender = true;
+
+import type { GetStaticPaths } from 'astro';
+import BlogLayout from '@/layouts/BlogLayout.astro';
+import PostRow from '@/features/posts/ui/PostRow.astro';
+import PostHover from '@/features/posts/ui/PostHover.astro';
+import {
+  getPublicTagDirectory,
+  getTagArchive,
+  groupPostsByYear,
+} from '@/features/posts/server/content';
+
+export const getStaticPaths = (async () => {
+  const tags = await getPublicTagDirectory();
+
+  return tags.map((tag) => ({ params: { slug: tag.slug } }));
+}) satisfies GetStaticPaths;
+
+const { slug } = Astro.params;
+const archive = await getTagArchive(slug!);
+
+// A public tag with zero posts has no static path, so a miss here is a genuine
+// 404 rather than an empty-state to render.
+if (!archive) {
+  return Astro.redirect('/blog/tags', 302);
+}
+
+const { tag, archive: { posts } } = archive;
+const groups = groupPostsByYear(posts);
+const accent = tag.accentColor ?? 'var(--blog-accent)';
+---
+
+<BlogLayout
+  title={`#${tag.name}`}
+  description={tag.description ?? `Writing tagged ${tag.name} on 無人之境.`}
+  path={`/blog/tag/${tag.slug}/`}
+>
+  <header class="tag-archive__head" style={`--tag-accent:${accent}`}>
+    <a class="tag-index__back" href="/blog/tags/">← All tags</a>
+    <h1 class="tag-archive__title">
+      <span class="tag-archive__hash" aria-hidden="true">#</span>{tag.name}
+    </h1>
+    {tag.description && <p class="tag-archive__desc">{tag.description}</p>}
+    <p class="tag-archive__count">
+      {posts.length} {posts.length === 1 ? 'post' : 'posts'}
+    </p>
+  </header>
+
+  {groups.map((group) => (
+    <section class="blog-year">
+      <h2 class="blog-year__heading">{group.year}</h2>
+      <ul class="blog-list">
+        {group.posts.map((post) => (
+          <PostRow post={post} />
+        ))}
+      </ul>
+    </section>
+  ))}
+
+  <PostHover />
+</BlogLayout>

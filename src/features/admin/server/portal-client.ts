@@ -1,4 +1,13 @@
-import type { AuditEntry, BroadcastRecord, SubscriberListResult } from '@bunizao/contracts';
+import {
+  BLOG_ANALYTICS_EVENTS_DEFAULT_LIMIT,
+  BLOG_ANALYTICS_EVENTS_ENDPOINT,
+  BLOG_ANALYTICS_SUMMARY_ENDPOINT,
+  type AuditEntry,
+  type BlogAnalyticsEventsResult,
+  type BlogAnalyticsSummaryResult,
+  type BroadcastRecord,
+  type SubscriberListResult,
+} from '@bunizao/contracts';
 import {
   createApiServiceRequest,
   getApiServiceBinding,
@@ -38,6 +47,11 @@ export interface PortalOverview {
   broadcasts: BroadcastRecord[];
 }
 
+export interface PortalAnalytics {
+  summary: BlogAnalyticsSummaryResult;
+  events: BlogAnalyticsEventsResult;
+}
+
 export async function loadPortalOverview(
   request: Request,
   locals: RuntimeEnvLocals | undefined,
@@ -75,4 +89,20 @@ export async function loadBroadcast(
   } catch {
     return null;
   }
+}
+
+export async function loadPortalAnalytics(
+  request: Request,
+  locals: RuntimeEnvLocals | undefined,
+): Promise<PortalAnalytics> {
+  const [summary, events] = await Promise.all([
+    adminGet<BlogAnalyticsSummaryResult>(BLOG_ANALYTICS_SUMMARY_ENDPOINT, request, locals),
+    adminGet<BlogAnalyticsEventsResult>(
+      `${BLOG_ANALYTICS_EVENTS_ENDPOINT}?limit=${BLOG_ANALYTICS_EVENTS_DEFAULT_LIMIT}`,
+      request,
+      locals,
+    ),
+  ]);
+
+  return { summary, events };
 }

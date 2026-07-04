@@ -9,9 +9,13 @@
     "baseColor": "neutral",
     "cssVariables": true
   },
+  "iconLibrary": "radix",
   "aliases": {
     "components": "@/components",
     "utils": "@/lib/utils",
     "ui": "@/components/ui"
+  },
+  "registries": {
+    "@ncdai": "https://chanhdai.com/r/{name}.json"
   }
 }

@@ -27,6 +27,7 @@ import {
   loadMoodPostSnapshot,
   loadMoodCommentsFixture,
   getMoodChannelSlug,
+  toMoodAvatarUrl,
   type MoodServerContext,
 } from './channel-service';
 import { getPostComments } from './telegram-source';
@@ -265,6 +266,7 @@ export async function loadMoodDocument(
     channel: {
       slug: getMoodChannelSlug(context.locals) || undefined,
       title: channelInfo?.title,
+      avatar: toMoodAvatarUrl(channelInfo?.avatar || '', context.locals) || undefined,
     },
   };
 }

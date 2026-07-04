@@ -49,6 +49,9 @@ describe('Cloudflare runtime configuration', () => {
     expect(previewWorkflow).toContain('node-version-file: .node-version');
     expect(previewWorkflow).toContain('Configure Cloudflare Access preview');
     expect(previewWorkflow).toContain('configure-cloudflare-access-preview.mjs');
+    expect(previewWorkflow).toContain('PUBLIC_GHOST_URL: ${{ vars.PUBLIC_GHOST_URL ||');
+    expect(previewWorkflow).toContain('GHOST_CONTENT_API_KEY: ${{ secrets.GHOST_CONTENT_API_KEY }}');
+    expect(previewWorkflow).toContain('run: bun run build:cloudflare');
     expect(previewWorkflow).toContain('wrangler versions upload');
     expect(previewWorkflow).toContain('--preview-alias "$PREVIEW_ALIAS"');
     expect(previewWorkflow).toContain(
@@ -58,6 +61,13 @@ describe('Cloudflare runtime configuration', () => {
     expect(previewWorkflow).not.toContain('deployment_status:');
     expect(previewWorkflow).not.toContain('github.event.deployment');
     expect(previewWorkflow).not.toContain('should_run');
+  });
+
+  test('keeps PR builds independent from Ghost secrets', () => {
+    const prWorkflow = readText('.github/workflows/pr-tests.yml');
+
+    expect(prWorkflow).toContain("GHOST_MOCK_CONTENT: '1'");
+    expect(prWorkflow).not.toContain('secrets.GHOST_CONTENT_API_KEY');
   });
 
   test('runs Lighthouse without Vercel deployment events', () => {
@@ -103,14 +113,24 @@ describe('Cloudflare runtime configuration', () => {
     expect(astroConfig).toContain("prerenderEnvironment: 'node'");
     expect(astroConfig).not.toContain("from '@astrojs/vercel'");
     expect(packageJson.scripts?.preview).toBe('bun run preview:cloudflare');
-    expect(packageJson.scripts?.['deploy:cloudflare']).toBe('bun run build && wrangler deploy --config dist/server/wrangler.json');
-    expect(packageJson.scripts?.['preview:cloudflare']).toBe('bun run build && wrangler dev --config dist/server/wrangler.json');
+    expect(packageJson.scripts?.['build:cloudflare']).toBe('node scripts/build-cloudflare.mjs');
+    expect(packageJson.scripts?.['deploy:cloudflare']).toBe('bun run build:cloudflare && wrangler deploy --config dist/server/wrangler.json');
+    expect(packageJson.scripts?.['preview:cloudflare']).toBe('bun run build:cloudflare && wrangler dev --config dist/server/wrangler.json');
     expect(packageJson.scripts?.['tail:cloudflare']).toBe('wrangler tail');
     expect(packageJson.scripts?.['types:cloudflare']).toBe('wrangler types');
     expect(packageJson.scripts?.check).toBe('astro check');
-    expect(packageJson.scripts?.build).toBe('astro build');
+    expect(packageJson.scripts?.build).toStartWith('astro build');
     expect(packageJson.scripts?.dev).toContain('astro dev');
     expect(packageJson.scripts?.dev).not.toContain('bunx --bun');
+  });
+
+  test('uses mock blog content only for Cloudflare preview builds without Ghost secrets', () => {
+    const buildScript = readText('scripts/build-cloudflare.mjs');
+
+    expect(buildScript).toContain("process.env.WORKERS_CI === '1'");
+    expect(buildScript).toContain('process.env.WORKERS_CI_BRANCH');
+    expect(buildScript).toContain("buildEnv.GHOST_MOCK_CONTENT = '1'");
+    expect(buildScript).toContain('printMissingEnvError(missing)');
   });
 
   test('defines a primary Worker with static assets and dynamic route interception', () => {
@@ -149,6 +169,7 @@ describe('Cloudflare runtime configuration', () => {
     ]);
     expect(config.routes).toContainEqual({ pattern: 'buxx.me/*', zone_name: 'buxx.me' });
     expect(config.routes).toContainEqual({ pattern: 'www.buxx.me/*', zone_name: 'buxx.me' });
+    expect(config.routes).toContainEqual({ pattern: 'blog.buxx.me/*', zone_name: 'buxx.me' });
     expect(config.routes?.some((route) => route.custom_domain === true)).toBe(false);
     expect(config.routes?.some((route) => route.pattern === 'cf-migration.buxx.me')).toBe(false);
     expect(config.routes?.some((route) => route.pattern === 'image.buxx.me')).toBe(false);
@@ -156,7 +177,8 @@ describe('Cloudflare runtime configuration', () => {
     expect(config.vars).toMatchObject({
       SITE_URL: 'https://buxx.me',
       PUBLIC_SITE_URL: 'https://buxx.me',
-      GHOST_URL: 'https://blog.buxx.me',
+      PUBLIC_GHOST_URL: 'https://blog.buxx.me',
+      PUBLIC_BLOG_OG_IMAGE_ENDPOINT: 'https://og.tuuhub.com/api/og',
       LASTFM_USER: 'bunizao',
       PUBLIC_HD_IMAGE_URL: 'https://buxx.me/api/v2/images',
       PUBLIC_TURNSTILE_SITE_KEY: '0x4AAAAAACaDQzCbYalmO_xV',
@@ -171,8 +193,11 @@ describe('Cloudflare runtime configuration', () => {
 
     expect(headers).toContain('https://buxx.me/');
     expect(headers).toContain("script-src 'unsafe-inline' https://buxx.me/_astro/");
+    expect(headers).toContain('https://js-cdn.music.apple.com');
     expect(headers).toContain('https://static.cloudflareinsights.com');
     expect(headers).toContain('https://challenges.cloudflare.com');
+    expect(headers).toContain('Cache-Control: public, max-age=0, must-revalidate, no-transform');
+    expect(headers).toContain('https://buxx.me/blog*');
     expect(headers).not.toContain('/cdn-cgi/challenge-platform/');
     expect(headers).not.toContain("'self' 'unsafe-inline'");
     expect(headers).not.toContain('https://www.googletagmanager.com');
@@ -186,8 +211,10 @@ describe('Cloudflare runtime configuration', () => {
     expect(middleware).toContain('Content-Security-Policy');
     expect(middleware).toContain("script-src 'unsafe-inline'");
     expect(middleware).toContain('/_astro/');
+    expect(middleware).toContain('https://js-cdn.music.apple.com');
     expect(middleware).toContain('https://static.cloudflareinsights.com');
     expect(middleware).toContain('https://challenges.cloudflare.com');
+    expect(middleware).toContain('no-transform');
     expect(middleware).not.toContain('/cdn-cgi/challenge-platform/');
     expect(middleware).not.toContain("script-src 'self' 'unsafe-inline'");
     expect(middleware).not.toContain('https://www.googletagmanager.com');
@@ -294,7 +321,7 @@ describe('Cloudflare runtime configuration', () => {
     expect(experience).toContain('<ExperienceTimeline client:visible />');
     expect(parallax).toContain("import('gsap/ScrollTrigger')");
     expect(parallax).toContain("window.addEventListener('load', scheduleSkatingEffects");
-    expect(homePage).toContain(':global(.page-container > section:not(#projects-section))');
+    expect(homePage).toContain(':global(.page-container > section:not(#projects-section):not(#writing-section))');
     expect(homePage).toContain('content-visibility: auto;');
   });
 
@@ -303,6 +330,16 @@ describe('Cloudflare runtime configuration', () => {
 
     expect(moodRoute).toContain("readPublicEnv(Astro.locals, 'TURNSTILE_SITE_KEY')");
     expect(moodRoute).not.toContain('import.meta.env.PUBLIC_TURNSTILE_SITE_KEY');
+  });
+
+  test('reads Turnstile site key from runtime public env on blog subscribe surfaces', () => {
+    const blogMasthead = readText('src/features/posts/ui/BlogMasthead.astro');
+    const blogArticle = readText('src/pages/blog/[slug].astro');
+
+    expect(blogMasthead).toContain("readPublicEnv(Astro.locals, 'TURNSTILE_SITE_KEY')");
+    expect(blogArticle).toContain("readPublicEnv(Astro.locals, 'TURNSTILE_SITE_KEY')");
+    expect(blogMasthead).not.toContain('import.meta.env.PUBLIC_TURNSTILE_SITE_KEY');
+    expect(blogArticle).not.toContain('import.meta.env.PUBLIC_TURNSTILE_SITE_KEY');
   });
 
   test('keeps the homepage dev surface flag away from Vite import.meta transforms', () => {
@@ -321,18 +358,30 @@ describe('Cloudflare runtime configuration', () => {
     ].map(readText).join('\n');
 
     expect(docsText).toContain('Cloudflare Workers Builds deploy hook');
-    expect(docsText).toContain('GHOST_CONTENT_APIKEY');
+    expect(docsText).toContain('PUBLIC_GHOST_URL');
+    expect(docsText).toContain('GHOST_CONTENT_API_KEY');
     expect(docsText).toContain('Cloudflare build environment');
     expect(docsText).toContain('Post published');
+    expect(docsText).toContain('blog.buxx.me');
+    expect(docsText).toContain('https://buxx.me/blog');
     expect(docsText).not.toContain(['https://api.vercel.com', 'v1/integrations/deploy'].join('/'));
   });
 
-  test('keeps Writing runtime hydration behind the private API fallback', () => {
+  test('renders Writing from the internal content provider at build time', () => {
+    // The home Writing section is a build-time doorway into the blog, not a
+    // runtime feed: it reads the same provider /blog reads and links internally.
+    // No /api/writing route, no external Ghost hydration.
     expect(existsSync(join(root, 'src/pages/api/writing.ts'))).toBe(false);
     const postsComponent = readText('src/features/home/ui/Posts.astro');
 
-    expect(postsComponent).toContain("fetch('/api/writing'");
-    expect(postsComponent).toContain('await hydrateWritingPosts();');
+    expect(postsComponent).not.toContain("fetch('/api/writing'");
+    expect(postsComponent).toContain("from '@/features/posts/server/content'");
+    expect(postsComponent).toContain("from '@/features/posts/display'");
+    expect(postsComponent).toContain('const locale = blog.locale.home;');
+    expect(postsComponent).toContain('getAllPosts()');
+    expect(postsComponent).toContain('blog.copy[locale]');
+    expect(postsComponent).toContain('getTagLabel(tag, locale)');
+    expect(postsComponent).toContain('href={postPath(post.slug)}');
     expect(postsComponent).toContain('void initWriting();');
     expect(postsComponent).toContain(':global(#writing-section .post-item)');
     expect(postsComponent).toContain(':global(#writing-section .post-meta)');

@@ -166,6 +166,22 @@ function listeningFixtureResponse(): Response {
   }, noStore());
 }
 
+function musickitTokenFixtureResponse(): Response {
+  return jsonOk({}, noStore());
+}
+
+function adminAuthStartFixtureResponse(url: URL): Response {
+  const next = url.searchParams.get('next');
+  const location = next?.startsWith('/') && !next.startsWith('//') ? next : '/dev/portal';
+
+  return new Response(null, {
+    status: 302,
+    headers: noStore({
+      Location: location,
+    }),
+  });
+}
+
 export async function createE2EApiFixtureResponse(context: FixtureContext): Promise<Response | null> {
   const url = new URL(context.request.url);
   if (url.pathname === '/api/footer') {
@@ -174,11 +190,18 @@ export async function createE2EApiFixtureResponse(context: FixtureContext): Prom
   if (url.pathname === '/api/edge') {
     return edgeFixtureResponse();
   }
-  if (url.pathname === '/api/listening') {
+  if (
+    url.pathname === '/api/listening'
+    || url.pathname === '/api/v2/listening'
+    || url.pathname === '/v2/listening'
+  ) {
     return listeningFixtureResponse();
   }
-  if (url.pathname === '/api/writing') {
-    return jsonOk({ posts: [] }, noStore());
+  if (url.pathname === '/api/v2/musickit/token' || url.pathname === '/v2/musickit/token') {
+    return musickitTokenFixtureResponse();
+  }
+  if (url.pathname === '/v2/admin/auth/start') {
+    return adminAuthStartFixtureResponse(url);
   }
   if (url.pathname === MOOD_PUBLIC_FEED_PATH) {
     return moodFixtureResponse(context, url);

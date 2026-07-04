@@ -1,6 +1,7 @@
 import * as cheerio from 'cheerio';
+import type { Element } from 'domhandler';
 
-function isCheerioElement(node: unknown): node is cheerio.Element {
+function isCheerioElement(node: unknown): node is Element {
   return typeof node === 'object' && node !== null && 'type' in node && 'attribs' in node;
 }
 
@@ -8,7 +9,7 @@ function isCustomEmojiImageSrc(src: string): boolean {
   return src.trim().toLowerCase().includes('/i/emoji/');
 }
 
-export function isEmojiImageElement(element: cheerio.Element, $: cheerio.CheerioAPI): boolean {
+export function isEmojiImageElement(element: Element, $: cheerio.CheerioAPI): boolean {
   const $element = $(element);
 
   if ($element.closest('.tg-emoji, .mood-reaction-emoji').length > 0) {
@@ -54,7 +55,7 @@ function hasPhotoWrapImage($: cheerio.CheerioAPI): boolean {
   });
 }
 
-function getFirstValidImageElement($: cheerio.CheerioAPI, selector: string): cheerio.Element | null {
+function getFirstValidImageElement($: cheerio.CheerioAPI, selector: string): Element | null {
   const image = $(selector)
     .toArray()
     .find((element) => {
@@ -197,7 +198,7 @@ function deriveMoodImageLayout(width: number | null, height: number | null): Moo
   return 'landscape';
 }
 
-function readMoodImageLayoutFromWrapper($: cheerio.CheerioAPI, image: cheerio.Element): MoodImageLayout | null {
+function readMoodImageLayoutFromWrapper($: cheerio.CheerioAPI, image: Element): MoodImageLayout | null {
   const wrapperClassName = $(image).closest('.image-preview-wrap, .tgme_widget_message_photo_wrap').attr('class') ?? '';
   if (wrapperClassName.includes('image-preview-wrap--ultra-tall')) {
     return 'ultra-tall';
@@ -210,7 +211,7 @@ function readMoodImageLayoutFromWrapper($: cheerio.CheerioAPI, image: cheerio.El
 
 function readFirstImageDimensions(
   $: cheerio.CheerioAPI,
-  image: cheerio.Element,
+  image: Element,
 ): { width: number | null; height: number | null } {
   const inlineWidth = parsePositiveInteger($(image).attr('width'));
   const inlineHeight = parsePositiveInteger($(image).attr('height'));
@@ -227,7 +228,7 @@ function readFirstImageDimensions(
   };
 }
 
-function getFirstImageFallbackFromElement($: cheerio.CheerioAPI, image: cheerio.Element): string | null {
+function getFirstImageFallbackFromElement($: cheerio.CheerioAPI, image: Element): string | null {
   const fallbackSrc = ($(image).attr('data-fallback-src') ?? '').trim();
   return fallbackSrc || null;
 }
@@ -528,7 +529,7 @@ export function getRelatedLinks(
     collected.push({ url: normalized, type });
   };
 
-  const $ = cheerio.load(mood.content, { decodeEntities: false });
+  const $ = cheerio.load(mood.content);
 
   if (!options.excludeInlineAnchors) {
     $('a[href]').each((_index, element) => {
@@ -739,7 +740,7 @@ export function getTextPreviewHtml(
   mood: { text?: string; content: string },
   options: TextPreviewHtmlOptions = {}
 ): string {
-  const $ = cheerio.load(mood.content, { decodeEntities: false });
+  const $ = cheerio.load(mood.content);
   removePreviewElements($, options);
   $('script, style').remove();
 

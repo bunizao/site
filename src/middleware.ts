@@ -2,6 +2,7 @@ import { defineMiddleware } from 'astro:middleware';
 import { getDocsVisibilityFromContent } from '@/features/docs/server/content';
 import { isDocsPath } from '@/features/docs/server/visibility';
 import { readCloudflareAccessIdentity } from '@/features/admin/server/access';
+import { redirectLegacyGhostHost } from '@/lib/http/legacy-ghost-redirect';
 import type { RuntimeEnvLocals } from '@/lib/runtime/env';
 import {
   readAdminDevBypassSession,
@@ -17,6 +18,13 @@ const MOOD_PAGE_CACHE_READY_MARKERS = [
   'data-mood-id=',
 ];
 
+function appendCacheControlDirective(value: string | null, directive: string): string {
+  const current = value?.trim();
+  if (!current) return directive;
+  if (new RegExp(`(?:^|,)\\s*${directive}\\b`, 'i').test(current)) return current;
+  return `${current}, ${directive}`;
+}
+
 function isDevPortalPath(pathname: string): boolean {
   return pathname === DEV_PORTAL_PREFIX || pathname.startsWith(`${DEV_PORTAL_PREFIX}/`);
 }
@@ -25,7 +33,7 @@ export function createHtmlScriptCsp(origin: string): string {
   const cleanOrigin = origin.replace(/\/+$/, '');
 
   return [
-    `script-src 'unsafe-inline' ${cleanOrigin}/_astro/ https://static.cloudflareinsights.com https://challenges.cloudflare.com http://localhost:* http://127.0.0.1:*`,
+    `script-src 'unsafe-inline' ${cleanOrigin}/_astro/ https://js-cdn.music.apple.com https://static.cloudflareinsights.com https://challenges.cloudflare.com http://localhost:* http://127.0.0.1:*`,
     "base-uri 'self'",
     "object-src 'none'",
   ].join('; ');
@@ -40,6 +48,7 @@ function withHtmlSecurityHeaders(request: Request, response: Response): Response
   const headers = new Headers(response.headers);
   const url = new URL(request.url);
   headers.set('Content-Security-Policy', createHtmlScriptCsp(url.origin));
+  headers.set('Cache-Control', appendCacheControlDirective(headers.get('Cache-Control'), 'no-transform'));
   return new Response(response.body, {
     status: response.status,
     statusText: response.statusText,
@@ -77,7 +86,7 @@ function createMoodPageCacheRequest(request: Request): Request {
 
 function withMoodPageCacheHeader(response: Response, value: 'HIT' | 'MISS' | 'BYPASS'): Response {
   const headers = new Headers(response.headers);
-  headers.set('Cache-Control', 'public, max-age=0, s-maxage=60');
+  headers.set('Cache-Control', 'public, max-age=0, s-maxage=60, no-transform');
   headers.set(MOOD_PAGE_CACHE_HEADER, value);
   return new Response(response.body, {
     status: response.status,
@@ -110,7 +119,7 @@ async function cacheMoodPageResponse(request: Request, response: Response): Prom
   }
 
   const outgoingHeaders = new Headers(response.headers);
-  outgoingHeaders.set('Cache-Control', 'public, max-age=0, s-maxage=60');
+  outgoingHeaders.set('Cache-Control', 'public, max-age=0, s-maxage=60, no-transform');
   outgoingHeaders.set(MOOD_PAGE_CACHE_HEADER, 'MISS');
   const outgoing = new Response(response.body, {
     status: response.status,
@@ -130,7 +139,7 @@ async function cacheMoodPageResponse(request: Request, response: Response): Prom
   }
 
   const cacheHeaders = new Headers(outgoingHeaders);
-  cacheHeaders.set('Cache-Control', `public, max-age=${MOOD_PAGE_CACHE_TTL_SECONDS}`);
+  cacheHeaders.set('Cache-Control', `public, max-age=${MOOD_PAGE_CACHE_TTL_SECONDS}, no-transform`);
   cacheHeaders.delete('Set-Cookie');
 
   try {
@@ -173,6 +182,8 @@ async function readAdminSession(context: {
 export const onRequest = defineMiddleware(async (context, next) => {
   const url = new URL(context.request.url);
   const pathname = url.pathname;
+  const legacyGhostRedirect = redirectLegacyGhostHost(url);
+  if (legacyGhostRedirect) return legacyGhostRedirect;
 
   const cachedMoodPage = await readCachedMoodPage(context.request);
   if (cachedMoodPage) {

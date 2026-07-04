@@ -1,0 +1,244 @@
+---
+// End-of-post share cluster. Sits on the same row as the subscribe trigger so
+// the foot of the article reads as one quiet "actions" strip. Two buttons:
+//
+//   • Copy link — always present. Copies the current URL and swaps its icon
+//     (link → check) with a spring, the satisfying "click" feedback; the
+//     tooltip flips to 已复制 for the same beat, then both restore.
+//   • Native share — progressive enhancement. Hidden until the script confirms
+//     navigator.share exists (mobile + Safari desktop), so it never shows a
+//     dead button on browsers that can't honour it.
+//
+// The URL is read at runtime from location.href — correct on every host,
+// including preview deploys — so the only prop is the post title for the share
+// sheet. Colours ride the blog-zone tokens, matching the subscribe/contact set.
+interface Props {
+  /** Post title, used as the native share sheet's title. */
+  title: string;
+}
+
+const { title } = Astro.props;
+---
+
+<div class="share" data-share data-share-title={title}>
+    <button type="button" class="share-btn" data-share-copy data-tip="复制链接" aria-label="复制链接">
+      <span class="share-btn__icons" aria-hidden="true">
+        <svg class="share-btn__ico share-btn__ico--link" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M10 13a5 5 0 0 0 7.07 0l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
+          <path d="M14 11a5 5 0 0 0-7.07 0l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
+        </svg>
+        <svg class="share-btn__ico share-btn__ico--check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M20 6 9 17l-5-5"></path>
+        </svg>
+      </span>
+    </button>
+
+    <button type="button" class="share-btn" data-share-native data-tip="分享" aria-label="分享" hidden>
+      <svg class="share-btn__ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M4 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7"></path>
+        <path d="M16 6l-4-4-4 4"></path>
+        <path d="M12 2v13"></path>
+      </svg>
+    </button>
+</div>
+
+<style>
+  .share {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  /* Icon-only pill — same shape, height, and surface as the subscribe pill it
+     sits beside (see SubscribePanel's .blog-article-sub override). Monochrome
+     and restrained at rest; lifts its surface on hover. The accent only ever
+     appears for the copy-success check, so it stays a single point of colour. */
+  .share-btn {
+    position: relative;
+    display: grid;
+    place-items: center;
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    color: var(--blog-muted, hsl(var(--muted-foreground)));
+    background: hsl(var(--foreground) / 0.035);
+    border: 1px solid hsl(var(--foreground) / 0.09);
+    border-radius: 11px;
+    cursor: pointer;
+    transition: color 0.15s ease, background 0.15s ease, border-color 0.15s ease, scale 0.12s ease;
+  }
+
+  /* Keep the 36px visual pill but extend the tap target to 40×40 (36 + 2 + 2).
+     ::after already carries the tooltip, so the hit area lives on ::before. */
+  .share-btn::before {
+    content: '';
+    position: absolute;
+    inset: -2px;
+  }
+
+  .share-btn[hidden] {
+    display: none;
+  }
+
+  .share-btn:hover {
+    color: var(--blog-ink, hsl(var(--foreground)));
+    background: hsl(var(--foreground) / 0.07);
+    border-color: hsl(var(--foreground) / 0.14);
+  }
+
+  .share-btn:active {
+    scale: 0.96;
+  }
+
+  .share-btn:focus-visible {
+    outline: 2px solid var(--blog-accent, hsl(var(--foreground)));
+    outline-offset: 2px;
+  }
+
+  .share-btn__ico {
+    width: 16px;
+    height: 16px;
+  }
+
+  /* The swap: link and check share one 16px cell. The link shrinks and rotates
+     out while the check springs in — the overshoot easing is the "click". */
+  .share-btn__icons {
+    position: relative;
+    width: 16px;
+    height: 16px;
+  }
+
+  .share-btn__icons .share-btn__ico {
+    position: absolute;
+    inset: 0;
+    transition:
+      opacity 0.2s ease,
+      transform 0.32s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
+  .share-btn__ico--check {
+    opacity: 0;
+    transform: scale(0.4) rotate(-14deg);
+    color: var(--blog-accent, hsl(var(--foreground)));
+  }
+
+  .share-btn.is-copied {
+    color: var(--blog-accent, hsl(var(--foreground)));
+  }
+
+  .share-btn.is-copied .share-btn__ico--link {
+    opacity: 0;
+    transform: scale(0.4) rotate(14deg);
+  }
+
+  .share-btn.is-copied .share-btn__ico--check {
+    opacity: 1;
+    transform: none;
+  }
+
+  /* Tooltip — quiet label above the icon, on hover / keyboard focus. */
+  .share-btn::after {
+    content: attr(data-tip);
+    position: absolute;
+    bottom: calc(100% + 7px);
+    left: 50%;
+    transform: translate(-50%, 3px);
+    padding: 4px 8px;
+    font-size: 11px;
+    font-weight: 500;
+    line-height: 1;
+    white-space: nowrap;
+    color: hsl(var(--background));
+    background: hsl(var(--foreground) / 0.92);
+    border-radius: 6px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.14s ease, transform 0.14s ease;
+  }
+
+  .share-btn:hover::after,
+  .share-btn:focus-visible::after {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+
+  @media (hover: none) and (pointer: coarse) {
+    /* No hover surface on touch — the tooltip only adds clutter there. */
+    .share-btn::after {
+      display: none;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .share-btn,
+    .share-btn__icons .share-btn__ico,
+    .share-btn::after {
+      transition: opacity 0.12s ease;
+    }
+
+    .share-btn:hover {
+      transform: none;
+    }
+
+    .share-btn:active {
+      scale: 1;
+    }
+
+    .share-btn__ico--check {
+      transform: none;
+    }
+
+    .share-btn.is-copied .share-btn__ico--link {
+      transform: none;
+    }
+  }
+</style>
+
+<script>
+  // Wire each share cluster: reveal native share where supported, and copy the
+  // URL with the icon-swap feedback. Kept tiny and dependency-free.
+  document.querySelectorAll<HTMLElement>('[data-share]').forEach((root) => {
+    const title = root.dataset.shareTitle ?? document.title;
+    const copyBtn = root.querySelector<HTMLButtonElement>('[data-share-copy]');
+    const nativeBtn = root.querySelector<HTMLButtonElement>('[data-share-native]');
+
+    // Native share is a progressive enhancement: only surface it when the
+    // browser can actually open a share sheet.
+    if (nativeBtn && typeof navigator.share === 'function') {
+      nativeBtn.hidden = false;
+      nativeBtn.addEventListener('click', () => {
+        navigator
+          .share({ title, url: location.href })
+          .catch(() => {}); // user dismissed the sheet — nothing to do
+      });
+    }
+
+    if (!copyBtn) return;
+
+    let resetTimer = 0;
+    const copy = async (text: string) => {
+      try {
+        await navigator.clipboard.writeText(text);
+        return true;
+      } catch {
+        return false;
+      }
+    };
+
+    copyBtn.addEventListener('click', async () => {
+      const ok = await copy(location.href);
+      if (!ok) return;
+
+      window.clearTimeout(resetTimer);
+      copyBtn.classList.add('is-copied');
+      copyBtn.dataset.tip = '已复制';
+      copyBtn.setAttribute('aria-label', '链接已复制');
+
+      resetTimer = window.setTimeout(() => {
+        copyBtn.classList.remove('is-copied');
+        copyBtn.dataset.tip = '复制链接';
+        copyBtn.setAttribute('aria-label', '复制链接');
+      }, 1600);
+    });
+  });
+</script>

@@ -40,6 +40,24 @@ test.describe('Preview smoke', () => {
       .toMatch(/loading|feed|error/);
   });
 
+  test('renders the blog shell and static feed routes', async ({ page, request }) => {
+    await page.goto('/blog');
+
+    await expect(page.locator('.blog-shell')).toBeVisible();
+    await expect(page.locator('.blog-masthead__wordmark')).toBeVisible();
+    await expect(page.locator('.blog-row__link').first()).toBeVisible();
+
+    const rss = await request.get('/blog/rss.xml');
+    expect(rss.ok()).toBeTruthy();
+    expect(rss.headers()['content-type']).toContain('application/rss+xml');
+    expect(await rss.text()).toContain('<link>https://buxx.me/blog/</link>');
+
+    const sitemap = await request.get('/sitemap.xml');
+    expect(sitemap.ok()).toBeTruthy();
+    expect(sitemap.headers()['content-type']).toContain('application/xml');
+    expect(await sitemap.text()).toContain('<loc>https://buxx.me/blog/</loc>');
+  });
+
   test('keeps protected docs behind Access without an identity', async ({ request }) => {
     const response = await request.get('/docs/quality/debug-logs/');
 
@@ -54,12 +72,14 @@ test.describe('Preview smoke', () => {
     expect(response.headers().location).toBe('/dev/portal');
   });
 
-  test('routes direct private API URLs through the Worker proxy', async ({ request }) => {
+  test('redirects direct private API URLs through the public API prefix', async ({ request }) => {
     const response = await request.get('/v2/admin/auth/start?next=%2Fdev%2Fportal', {
       maxRedirects: 0,
     });
 
-    expect(response.status()).not.toBe(404);
+    expect(response.status()).toBe(308);
+    const location = new URL(response.headers().location ?? '', response.url());
+    expect(`${location.pathname}${location.search}`).toBe('/api/v2/admin/auth/start?next=%2Fdev%2Fportal');
   });
 
   test('renders public docs without login', async ({ page }) => {

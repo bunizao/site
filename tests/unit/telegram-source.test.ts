@@ -92,7 +92,7 @@ describe('getChannelInfo detail media rendering', () => {
     expect(content).toContain('image-preview-wrap image-preview-wrap--fallback');
     expect(content).toContain('style="aspect-ratio:auto;"');
     expect(content).toContain('modal-3327-unsupported');
-    expect(content).toContain('https://image.buxx.me/mood/3327/0');
+    expect(content).toContain('https://buxx.me/api/v2/images/mood/3327/0');
     expect(content).not.toContain('mood-unsupported-media-card');
   });
 
@@ -104,6 +104,6 @@ describe('getChannelInfo detail media rendering', () => {
     expect(content).toContain('class="sticker"');
     expect(content).toContain('/static/https:/cdn5.telesco.pe/file/sticker.webp');
     expect(content).not.toContain('image-preview-wrap--fallback');
-    expect(content).not.toContain('https://image.buxx.me/mood/3417/0');
+    expect(content).not.toContain('https://buxx.me/api/v2/images/mood/3417/0');
   });
 });

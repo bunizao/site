@@ -2,6 +2,8 @@ import { readEnv } from '@/lib/runtime/env';
 
 export interface ListeningTrack {
   id: string;
+  appleCatalogId: string;
+  catalogId?: string;
   title: string;
   artist: string;
   collection: string;
@@ -95,6 +97,8 @@ interface LastFmConfig {
 
 const FALLBACK_TRACK: ListeningTrack = {
   id: '1888707290',
+  appleCatalogId: '1888707290',
+  catalogId: '1888707290',
   title: 'ALL THE LOVE',
   artist: 'Kanye West & Andre Troutman',
   collection: 'BULLY',
@@ -172,6 +176,7 @@ function normalizeLastFmTrack(track: LastFmTrack): ListeningTrack | null {
 
   return {
     id: `${artist}:${title}`.toLowerCase(),
+    appleCatalogId: '',
     title,
     artist,
     collection: album,
@@ -204,6 +209,8 @@ function mergeAppleTrack(track: ListeningTrack, appleTrack: AppleLookupTrack | u
   return {
     ...track,
     id: String(appleTrack.trackId ?? track.id),
+    appleCatalogId: appleTrack.trackId ? String(appleTrack.trackId) : track.appleCatalogId,
+    catalogId: appleTrack.trackId ? String(appleTrack.trackId) : track.catalogId,
     title: appleTrack.trackName || track.title,
     artist: appleTrack.artistName || track.artist,
     collection: appleTrack.collectionName || track.collection,

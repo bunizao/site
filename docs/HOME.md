@@ -129,9 +129,10 @@ Implementation files:
 
 Data flow:
 
-- Build-time render fetches the latest 5 public Ghost posts from `GHOST_URL`.
-- The request uses `GHOST_CONTENT_APIKEY`.
-- `GHOST_URL` and `GHOST_CONTENT_APIKEY` must exist in the Cloudflare build environment. Worker runtime secrets alone are not enough because the home page is prerendered into static HTML.
+- Build-time render fetches the latest 5 public Ghost posts from `PUBLIC_GHOST_URL`.
+- The request uses `GHOST_CONTENT_API_KEY`.
+- `PUBLIC_GHOST_URL` and `GHOST_CONTENT_API_KEY` must exist in the Cloudflare build environment. Worker runtime secrets alone are not enough because the home page is prerendered into static HTML.
+- Preview Workers have the same rule: GitHub Actions must pass those values into the build step before `wrangler versions upload`. Runtime dashboard variables only affect on-demand Worker code.
 - Ghost's `Post published` webhook should call the Cloudflare Workers Builds deploy hook for the production branch. The old Vercel deploy hook does not rebuild the Cloudflare Worker.
 - Only metadata needed by the section is fetched:
   - `id`

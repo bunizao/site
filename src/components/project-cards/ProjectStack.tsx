@@ -1201,7 +1201,7 @@ export default function ProjectStack({ className }: { className?: string }) {
       const commit =
         wasX &&
         (Math.abs(g.dx) > swipeCommitPx || Math.abs(g.v) > swipeFlickVelocity);
-      const tap = g.began && !g.moved && g.axis == null;
+      const tap = g.began && !g.moved && g.axis == null && Math.abs(g.dx) < tapSlopPx;
 
       if (g.layer) {
         if (commit) {

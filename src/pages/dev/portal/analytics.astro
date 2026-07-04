@@ -1,0 +1,665 @@
+---
+import PortalLayout from '@/layouts/PortalLayout.astro';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Activity, Clock3, Eye, Gauge, Globe2, MailOpen, MousePointer2, Send, Users } from 'lucide-react';
+import {
+  BLOG_ANALYTICS_COMPLETION_SCROLL_DEPTH,
+  BLOG_ANALYTICS_EVENTS_DEFAULT_LIMIT,
+  BLOG_ANALYTICS_EVENTS_ENDPOINT,
+  BLOG_ANALYTICS_READ_THRESHOLD_MS,
+  BLOG_ANALYTICS_SUMMARY_ENDPOINT,
+  type BlogAnalyticsBreakdown,
+  type BlogAnalyticsEventRecord,
+  type BlogAnalyticsSummaryResult,
+  type NewsletterAnalyticsSummary,
+} from '@bunizao/contracts/analytics';
+import { loadPortalAnalytics, type PortalAnalytics } from '@/features/admin/server/portal-client';
+
+export const prerender = false;
+
+const session = (Astro.locals as any).adminSession;
+
+const emptySummary: BlogAnalyticsSummaryResult = {
+  range: { from: null, to: null, days: 7 },
+  totals: {
+    views: 0,
+    reads: 0,
+    uniqueVisitors: 0,
+    avgReadMs: 0,
+    avgVisitorReadMs: 0,
+    completionRate: 0,
+  },
+  articles: [],
+  platforms: [],
+  countries: [],
+  referrers: [],
+  daily: [],
+  newsletter: {
+    totals: {
+      sent: 0,
+      opened: 0,
+      clicked: 0,
+      uniqueSubscribers: 0,
+      openRate: 0,
+      clickRate: 0,
+    },
+    byEmailType: [],
+    campaigns: [],
+    daily: [],
+  },
+};
+
+let analytics: PortalAnalytics = {
+  summary: emptySummary,
+  events: { events: [] },
+};
+let loadError: string | null = null;
+
+try {
+  analytics = await loadPortalAnalytics(Astro.request, Astro.locals);
+} catch (error) {
+  loadError = error instanceof Error ? error.message : 'unknown';
+}
+
+const { summary, events } = analytics;
+const { totals } = summary;
+const newsletter: NewsletterAnalyticsSummary = summary.newsletter ?? emptySummary.newsletter!;
+const requiredApiPaths = [
+  `GET ${BLOG_ANALYTICS_SUMMARY_ENDPOINT}`,
+  `GET ${BLOG_ANALYTICS_EVENTS_ENDPOINT}?limit=${BLOG_ANALYTICS_EVENTS_DEFAULT_LIMIT}`,
+];
+const countFormatter = new Intl.NumberFormat('en-US');
+
+function formatCount(value: number | undefined): string {
+  return countFormatter.format(value ?? 0);
+}
+
+function formatPercent(value: number | undefined): string {
+  return `${Math.round((value ?? 0) * 100)}%`;
+}
+
+function formatMs(value: number | undefined): string {
+  const seconds = Math.round((value ?? 0) / 1000);
+  if (seconds < 60) return `${seconds}s`;
+
+  const minutes = Math.floor(seconds / 60);
+  const rest = seconds % 60;
+  return rest ? `${minutes}m ${rest}s` : `${minutes}m`;
+}
+
+function formatDate(value: string | null | undefined): string {
+  if (!value) return 'n/a';
+
+  try {
+    return new Date(value).toLocaleString(undefined, {
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  } catch {
+    return value;
+  }
+}
+
+function formatDay(value: string): string {
+  try {
+    return new Date(`${value}T00:00:00Z`).toLocaleDateString(undefined, {
+      month: 'short',
+      day: 'numeric',
+    });
+  } catch {
+    return value;
+  }
+}
+
+function labelFor(value: string | null | undefined): string {
+  if (!value) return 'unknown';
+  return value.replace(/_/g, ' ');
+}
+
+function newsletterTypeLabel(value: string | null | undefined): string {
+  if (value === 'blog_welcome') return 'Blog welcome';
+  if (value === 'blog_newsletter') return 'Blog newsletter';
+  return labelFor(value);
+}
+
+function maxViews(rows: BlogAnalyticsBreakdown[]): number {
+  return Math.max(1, ...rows.map((row) => row.views));
+}
+
+function barWidth(value: number, max: number): string {
+  return `${Math.max(2, Math.round((value / max) * 100))}%`;
+}
+
+function eventLine(event: BlogAnalyticsEventRecord): string {
+  const actor = event.ip ?? 'unknown IP';
+  const platform = `${event.platform}/${event.os ?? 'unknown OS'}`;
+  return `${actor} | ${platform} | opened ${event.slug} at ${formatDate(event.openedAt)} | read ${formatMs(event.dwellMs)} | ref ${event.refSource}`;
+}
+
+const metricCards = [
+  {
+    label: 'Views',
+    value: formatCount(totals.views),
+    detail: `${formatCount(totals.reads)} reads`,
+    Icon: Eye,
+  },
+  {
+    label: 'Unique visitors',
+    value: formatCount(totals.uniqueVisitors),
+    detail: `${formatMs(totals.avgVisitorReadMs)} per visitor`,
+    Icon: Users,
+  },
+  {
+    label: 'Avg reading time',
+    value: formatMs(totals.avgReadMs),
+    detail: `${formatMs(BLOG_ANALYTICS_READ_THRESHOLD_MS)} read threshold`,
+    Icon: Clock3,
+  },
+  {
+    label: 'Completion',
+    value: formatPercent(totals.completionRate),
+    detail: `${formatPercent(BLOG_ANALYTICS_COMPLETION_SCROLL_DEPTH)} scroll target`,
+    Icon: Gauge,
+  },
+];
+
+const newsletterCards = [
+  {
+    label: 'Newsletter sent',
+    value: formatCount(newsletter.totals.sent),
+    detail: `${formatCount(newsletter.totals.uniqueSubscribers)} subscribers`,
+    Icon: Send,
+  },
+  {
+    label: 'Opens',
+    value: formatCount(newsletter.totals.opened),
+    detail: `${formatPercent(newsletter.totals.openRate)} unique open rate`,
+    Icon: MailOpen,
+  },
+  {
+    label: 'Clicks',
+    value: formatCount(newsletter.totals.clicked),
+    detail: `${formatPercent(newsletter.totals.clickRate)} unique click rate`,
+    Icon: MousePointer2,
+  },
+];
+
+const platformMax = maxViews(summary.platforms);
+const referrerMax = maxViews(summary.referrers);
+const countryMax = maxViews(summary.countries);
+const dailyMax = Math.max(1, ...summary.daily.map((row) => row.views));
+---
+
+<PortalLayout
+  title="Blog analytics"
+  description="First-party reading analytics for blog articles."
+  active="analytics"
+  user={{ login: session?.login || 'admin' }}
+>
+  {loadError && (
+    <section class="analytics-error">
+      <div>
+        <strong>Analytics API not ready:</strong>
+        <span class="portal-mono"> {loadError}</span>
+      </div>
+      <p>Remaining site-api endpoints:</p>
+      <ul>
+        {requiredApiPaths.map((path) => <li class="portal-mono">{path}</li>)}
+      </ul>
+    </section>
+  )}
+
+  <section class="analytics-metrics" aria-label="Analytics totals">
+    {metricCards.map((metric) => (
+      <Card>
+        <CardHeader className="analytics-card-header">
+          <CardDescription>{metric.label}</CardDescription>
+          <metric.Icon size={16} className="analytics-icon" />
+        </CardHeader>
+        <CardContent className="analytics-card-content">
+          <div class="analytics-metric-value">{metric.value}</div>
+          <div class="analytics-muted">{metric.detail}</div>
+        </CardContent>
+      </Card>
+    ))}
+  </section>
+
+  <section class="analytics-grid">
+    <Card>
+      <CardHeader>
+        <CardTitle className="analytics-card-title">
+          <Activity size={14} /> Daily traffic
+        </CardTitle>
+        <CardDescription>
+          {summary.range.from && summary.range.to
+            ? `${formatDay(summary.range.from)} - ${formatDay(summary.range.to)}`
+            : `${summary.range.days} day window`}
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="analytics-card-content">
+        {summary.daily.length === 0 ? (
+          <div class="analytics-empty">No daily rows yet.</div>
+        ) : (
+          <ol class="analytics-bars">
+            {summary.daily.map((row) => (
+              <li>
+                <span>{formatDay(row.day)}</span>
+                <div class="analytics-bar" style={`--bar:${barWidth(row.views, dailyMax)}`}>
+                  <span></span>
+                </div>
+                <strong>{formatCount(row.views)}</strong>
+              </li>
+            ))}
+          </ol>
+        )}
+      </CardContent>
+    </Card>
+
+    <Card>
+      <CardHeader>
+        <CardTitle className="analytics-card-title">
+          <MousePointer2 size={14} /> Referrers
+        </CardTitle>
+        <CardDescription>Traffic source grouping from the server parser.</CardDescription>
+      </CardHeader>
+      <CardContent className="analytics-card-content">
+        {summary.referrers.length === 0 ? (
+          <div class="analytics-empty">No referrers yet.</div>
+        ) : (
+          <ol class="analytics-bars">
+            {summary.referrers.map((row) => (
+              <li>
+                <span>{labelFor(row.label ?? row.key)}</span>
+                <div class="analytics-bar" style={`--bar:${barWidth(row.views, referrerMax)}`}>
+                  <span></span>
+                </div>
+                <strong>{formatCount(row.views)}</strong>
+              </li>
+            ))}
+          </ol>
+        )}
+      </CardContent>
+    </Card>
+
+    <Card>
+      <CardHeader>
+        <CardTitle className="analytics-card-title">
+          <Globe2 size={14} /> Platform
+        </CardTitle>
+        <CardDescription>Browser and in-app channel classification.</CardDescription>
+      </CardHeader>
+      <CardContent className="analytics-card-content">
+        {summary.platforms.length === 0 ? (
+          <div class="analytics-empty">No platforms yet.</div>
+        ) : (
+          <ol class="analytics-bars">
+            {summary.platforms.map((row) => (
+              <li>
+                <span>{labelFor(row.label ?? row.key)}</span>
+                <div class="analytics-bar" style={`--bar:${barWidth(row.views, platformMax)}`}>
+                  <span></span>
+                </div>
+                <strong>{formatCount(row.views)}</strong>
+              </li>
+            ))}
+          </ol>
+        )}
+      </CardContent>
+    </Card>
+
+    <Card>
+      <CardHeader>
+        <CardTitle className="analytics-card-title">
+          <Globe2 size={14} /> Geo
+        </CardTitle>
+        <CardDescription>Country grouping from Cloudflare request metadata.</CardDescription>
+      </CardHeader>
+      <CardContent className="analytics-card-content">
+        {summary.countries.length === 0 ? (
+          <div class="analytics-empty">No countries yet.</div>
+        ) : (
+          <ol class="analytics-bars">
+            {summary.countries.map((row) => (
+              <li>
+                <span>{labelFor(row.label ?? row.key)}</span>
+                <div class="analytics-bar" style={`--bar:${barWidth(row.views, countryMax)}`}>
+                  <span></span>
+                </div>
+                <strong>{formatCount(row.views)}</strong>
+              </li>
+            ))}
+          </ol>
+        )}
+      </CardContent>
+    </Card>
+  </section>
+
+  <section class="analytics-section">
+    <div class="analytics-section-head">
+      <h2>Newsletter</h2>
+      <span>{formatCount(newsletter.campaigns.length)} campaigns</span>
+    </div>
+    <div class="analytics-newsletter-metrics">
+      {newsletterCards.map((metric) => (
+        <Card>
+          <CardHeader className="analytics-card-header">
+            <CardDescription>{metric.label}</CardDescription>
+            <metric.Icon size={16} className="analytics-icon" />
+          </CardHeader>
+          <CardContent className="analytics-card-content">
+            <div class="analytics-metric-value analytics-metric-value--sm">{metric.value}</div>
+            <div class="analytics-muted">{metric.detail}</div>
+          </CardContent>
+        </Card>
+      ))}
+    </div>
+    <div class="analytics-table-wrap">
+      <table class="analytics-table">
+        <thead>
+          <tr>
+            <th>Campaign</th>
+            <th>Type</th>
+            <th>Sent</th>
+            <th>Opens</th>
+            <th>Clicks</th>
+            <th>Open rate</th>
+            <th>Click rate</th>
+            <th>Last event</th>
+          </tr>
+        </thead>
+        <tbody>
+          {newsletter.campaigns.length === 0 ? (
+            <tr>
+              <td colspan="8" class="analytics-empty-cell">No newsletter rows yet.</td>
+            </tr>
+          ) : newsletter.campaigns.map((row) => (
+            <tr>
+              <td class="portal-mono">{row.campaignId}</td>
+              <td>{newsletterTypeLabel(row.emailType)}</td>
+              <td>{formatCount(row.sent)}</td>
+              <td>{formatCount(row.opened)}</td>
+              <td>{formatCount(row.clicked)}</td>
+              <td>{formatPercent(row.openRate)}</td>
+              <td>{formatPercent(row.clickRate)}</td>
+              <td>{formatDate(row.lastEventAt)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="analytics-section">
+    <div class="analytics-section-head">
+      <h2>Articles</h2>
+      <span>{formatCount(summary.articles.length)} rows</span>
+    </div>
+    <div class="analytics-table-wrap">
+      <table class="analytics-table">
+        <thead>
+          <tr>
+            <th>Article</th>
+            <th>Views</th>
+            <th>Reads</th>
+            <th>Uniques</th>
+            <th>Avg</th>
+            <th>Complete</th>
+            <th>Top platform</th>
+          </tr>
+        </thead>
+        <tbody>
+          {summary.articles.length === 0 ? (
+            <tr>
+              <td colspan="7" class="analytics-empty-cell">No article rows yet.</td>
+            </tr>
+          ) : summary.articles.map((row) => (
+            <tr>
+              <td class="portal-mono">{row.slug}</td>
+              <td>{formatCount(row.views)}</td>
+              <td>{formatCount(row.reads)}</td>
+              <td>{formatCount(row.uniqueVisitors)}</td>
+              <td>{formatMs(row.avgReadMs)}</td>
+              <td>{formatPercent(row.completionRate)}</td>
+              <td>{labelFor(row.topPlatform)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="analytics-section">
+    <div class="analytics-section-head">
+      <h2>Raw event log</h2>
+      <span>{formatCount(events.events.length)} latest</span>
+    </div>
+    {events.events.length === 0 ? (
+      <div class="analytics-empty analytics-empty-block">No raw events yet.</div>
+    ) : (
+      <ol class="analytics-events">
+        {events.events.map((event) => (
+          <li>
+            <div class="portal-mono">{eventLine(event)}</div>
+            <span>{event.browser ?? 'unknown browser'} | {event.deviceType ?? 'unknown device'} | {event.country ?? 'unknown country'}</span>
+          </li>
+        ))}
+      </ol>
+    )}
+  </section>
+
+  <style>
+    .analytics-error {
+      display: grid;
+      gap: 8px;
+      margin-bottom: 24px;
+      padding: 14px 16px;
+      border: 1px solid hsl(var(--destructive) / 0.5);
+      border-radius: 8px;
+      background: hsl(var(--destructive) / 0.1);
+      color: hsl(0 80% 86%);
+      font-size: 13px;
+    }
+
+    .analytics-error p,
+    .analytics-error ul {
+      margin: 0;
+    }
+
+    .analytics-error ul {
+      padding-left: 18px;
+    }
+
+    .analytics-metrics {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+
+    :global(.analytics-card-header) {
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      justify-content: space-between;
+      padding-bottom: 8px;
+    }
+
+    :global(.analytics-card-content) {
+      padding-top: 0;
+    }
+
+    :global(.analytics-card-title) {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 14px;
+    }
+
+    :global(.analytics-icon) {
+      color: hsl(var(--muted-foreground));
+    }
+
+    .analytics-metric-value {
+      font-size: 28px;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+    }
+
+    .analytics-metric-value--sm {
+      font-size: 24px;
+    }
+
+    .analytics-muted,
+    .analytics-empty,
+    .analytics-section-head span,
+    .analytics-events span {
+      color: hsl(var(--muted-foreground));
+      font-size: 12px;
+    }
+
+    .analytics-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 16px;
+      margin-bottom: 28px;
+    }
+
+    .analytics-newsletter-metrics {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+
+    .analytics-bars {
+      display: grid;
+      gap: 10px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .analytics-bars li {
+      display: grid;
+      grid-template-columns: minmax(84px, 0.8fr) minmax(120px, 2fr) auto;
+      align-items: center;
+      gap: 10px;
+      font-size: 12px;
+    }
+
+    .analytics-bars strong {
+      font-weight: 500;
+      color: hsl(var(--foreground));
+    }
+
+    .analytics-bar {
+      height: 7px;
+      overflow: hidden;
+      border-radius: 999px;
+      background: hsl(var(--muted));
+    }
+
+    .analytics-bar span {
+      display: block;
+      width: var(--bar);
+      height: 100%;
+      border-radius: inherit;
+      background: hsl(var(--primary));
+    }
+
+    .analytics-section {
+      margin-top: 28px;
+    }
+
+    .analytics-section-head {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 10px;
+    }
+
+    .analytics-section-head h2 {
+      margin: 0;
+      font-size: 15px;
+      font-weight: 500;
+      letter-spacing: -0.01em;
+    }
+
+    .analytics-table-wrap {
+      overflow: auto;
+      border: 1px solid hsl(var(--border));
+      border-radius: 8px;
+      background: hsl(var(--card));
+    }
+
+    .analytics-table {
+      width: 100%;
+      min-width: 760px;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    .analytics-table th,
+    .analytics-table td {
+      padding: 11px 12px;
+      border-bottom: 1px solid hsl(var(--border));
+      text-align: left;
+      white-space: nowrap;
+    }
+
+    .analytics-table th {
+      color: hsl(var(--muted-foreground));
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0;
+      text-transform: uppercase;
+    }
+
+    .analytics-table tr:last-child td {
+      border-bottom: 0;
+    }
+
+    .analytics-empty-cell {
+      color: hsl(var(--muted-foreground));
+      text-align: center;
+    }
+
+    .analytics-empty-block {
+      padding: 18px;
+      border: 1px solid hsl(var(--border));
+      border-radius: 8px;
+      background: hsl(var(--card));
+    }
+
+    .analytics-events {
+      display: grid;
+      gap: 8px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .analytics-events li {
+      display: grid;
+      gap: 4px;
+      padding: 12px;
+      border: 1px solid hsl(var(--border));
+      border-radius: 8px;
+      background: hsl(var(--card));
+      font-size: 12px;
+    }
+
+    @media (max-width: 640px) {
+      .analytics-bars li {
+        grid-template-columns: 1fr auto;
+      }
+
+      .analytics-bar {
+        grid-column: 1 / -1;
+      }
+    }
+  </style>
+</PortalLayout>

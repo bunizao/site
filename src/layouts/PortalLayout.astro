@@ -2,7 +2,7 @@
 interface Props {
   title: string;
   description?: string;
-  active?: 'overview' | 'oauth' | 'subscribers' | 'broadcasts' | 'mascot' | 'newsletter' | 'svg' | 'mood-embed';
+  active?: 'overview' | 'analytics' | 'oauth' | 'subscribers' | 'broadcasts' | 'mascot' | 'newsletter' | 'svg' | 'mood-embed';
   user?: {
     login: string;
     email?: string;
@@ -14,6 +14,7 @@ import '@/styles/globals.css';
 import { ClientRouter } from 'astro:transitions';
 import {
   LayoutDashboard,
+  ChartColumn,
   KeyRound,
   Users,
   Send,
@@ -45,6 +46,7 @@ const user = userProp
 
 const navItems = [
   { key: 'overview', label: 'Overview', href: '/dev/portal', Icon: LayoutDashboard },
+  { key: 'analytics', label: 'Analytics', href: '/dev/portal/analytics', Icon: ChartColumn },
   { key: 'oauth', label: 'Access Hub', href: '/dev/portal/oauth', Icon: KeyRound },
   { key: 'subscribers', label: 'Subscribers', href: '/dev/portal/subscribers', Icon: Users },
   { key: 'broadcasts', label: 'Broadcasts', href: '/dev/portal/broadcasts', Icon: Send },

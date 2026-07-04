@@ -1,0 +1,88 @@
+---
+export const prerender = true;
+
+import BlogLayout from '@/layouts/BlogLayout.astro';
+import BlogMasthead from '@/features/posts/ui/BlogMasthead.astro';
+import PostRow from '@/features/posts/ui/PostRow.astro';
+import PostHover from '@/features/posts/ui/PostHover.astro';
+import { getAllPosts, groupPostsByYear } from '@/features/posts/server/content';
+import Footer from '@/features/home/ui/Footer.astro';
+
+const groups = groupPostsByYear(await getAllPosts());
+---
+
+<BlogLayout
+  title="Blog"
+  ogImage="/blog-og.jpg"
+  ogImageAlt="無人之境 — Sillage"
+>
+
+  <BlogMasthead />
+
+  {groups.length > 1 && (
+    <nav class="blog-yearrail" aria-label="Jump to year">
+      {groups.map((group) => (
+        <a class="blog-yearrail__year" href={`#y${group.year}`} data-year={group.year}>
+          <span class="blog-yearrail__tick" aria-hidden="true"></span>
+          <span class="blog-yearrail__label">{group.year}</span>
+        </a>
+      ))}
+    </nav>
+  )}
+
+  {groups.map((group) => (
+    <section class="blog-year" id={`y${group.year}`}>
+      <h2 class="blog-year__heading">{group.year}</h2>
+      <ul class="blog-list">
+        {group.posts.map((post) => (
+          <PostRow post={post} />
+        ))}
+      </ul>
+    </section>
+  ))}
+
+  <Footer />
+
+  <PostHover />
+</BlogLayout>
+
+<script>
+  // Left year rail: smooth-scroll on click and highlight the year section
+  // currently in view. Desktop-only affordance; on narrow screens the rail
+  // folds to a plain inline strip and the IntersectionObserver simply does no
+  // visible work. Pure DOM, no deps.
+  const rail = document.querySelector<HTMLElement>('.blog-yearrail');
+  if (rail) {
+    const links = Array.from(rail.querySelectorAll<HTMLAnchorElement>('.blog-yearrail__year'));
+    const sections = links
+      .map((link) => document.querySelector<HTMLElement>(link.getAttribute('href') || ''))
+      .filter((el): el is HTMLElement => Boolean(el));
+
+    links.forEach((link) => {
+      link.addEventListener('click', (event) => {
+        const target = document.querySelector<HTMLElement>(link.getAttribute('href') || '');
+        if (!target) return;
+        event.preventDefault();
+        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        history.replaceState(null, '', link.getAttribute('href') || '');
+      });
+    });
+
+    const setActive = (id: string) => {
+      links.forEach((link) => link.classList.toggle('is-active', link.getAttribute('href') === `#${id}`));
+    };
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        // Pick the topmost intersecting section so the active year matches what
+        // the reader is looking at.
+        const visible = entries
+          .filter((entry) => entry.isIntersecting)
+          .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
+        if (visible[0]) setActive(visible[0].target.id);
+      },
+      { rootMargin: '-20% 0px -70% 0px', threshold: 0 },
+    );
+    sections.forEach((section) => observer.observe(section));
+  }
+</script>

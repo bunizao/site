@@ -14,7 +14,10 @@ The Writing section is prerendered from Ghost during the Cloudflare build. Ghost
 
 Configure Ghost's `Post published` webhook to `POST` the Cloudflare Workers Builds deploy hook for the production branch. The old Vercel deploy hook should be removed because it only rebuilds the previous Vercel deployment.
 
-`GHOST_URL` and `GHOST_CONTENT_APIKEY` must be present in the Cloudflare build environment, not only as Worker runtime secrets.
+`PUBLIC_GHOST_URL` and `GHOST_CONTENT_API_KEY` must be present in the Cloudflare build environment, not only as Worker runtime secrets.
+
+As of the blog migration, `blog.buxx.me` is routed to the public Worker.
+The build-environment `PUBLIC_GHOST_URL` must point at the Ghost origin itself, such as the Ghost(Pro) or upstream hostname, never `blog.buxx.me`; the CI wrapper refuses production builds that point at a self-routed host.
 
 ## What runs where
 

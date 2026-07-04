@@ -43,19 +43,19 @@ function RowBody({ item }: { item: ExperienceItem }) {
         </span>
 
         {item.role && (
-          <span className="text-[13px] leading-snug text-[hsl(var(--muted-foreground))]">
+          <span className="text-[13px] leading-snug tracking-[-0.01em] text-pretty text-[hsl(var(--muted-foreground))]">
             {item.role}
           </span>
         )}
 
         {item.description && (
-          <span className="text-[13px] leading-snug text-[hsl(var(--muted-foreground))]">
+          <span className="text-[13px] leading-snug tracking-[-0.01em] text-pretty text-[hsl(var(--muted-foreground))]">
             {item.description}
           </span>
         )}
 
         {item.location && (
-          <span className="mt-0.5 flex items-center gap-1 text-[12px] leading-snug text-[hsl(var(--muted-foreground)/0.7)]">
+          <span className="mt-0.5 flex items-center gap-1 text-[12px] leading-snug tracking-[-0.01em] text-[hsl(var(--muted-foreground)/0.7)]">
             <MapPin className="h-3 w-3" aria-hidden="true" />
             {item.location}
           </span>

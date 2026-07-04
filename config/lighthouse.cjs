@@ -1,5 +1,5 @@
 const deploymentUrl = process.env.LHCI_DEPLOYMENT_URL || 'https://buxx.me';
-const paths = (process.env.LHCI_PATHS || '/,/mood')
+const paths = (process.env.LHCI_PATHS || '/,/mood,/blog')
   .split(',')
   .map((path) => path.trim())
   .filter(Boolean);
