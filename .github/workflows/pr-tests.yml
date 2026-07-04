@@ -39,6 +39,19 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
+      - name: Checkout site-api route contracts
+        uses: actions/checkout@v4
+        with:
+          repository: bunizao/site-api
+          ref: claude/audit-route-consolidation
+          path: site-api-contracts
+
+      - name: Route contract sync check
+        run: bun scripts/check-route-contracts.ts site-api-contracts/packages/contracts/src/routes.ts
+
+      - name: Remove site-api checkout
+        run: rm -rf site-api-contracts
+
       - name: Astro check
         run: bun run check
 

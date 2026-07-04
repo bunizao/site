@@ -6,6 +6,7 @@ import type {
   MoodFeedResponse,
   MoodProbeResult,
 } from '@bunizao/contracts';
+import { MOOD_ARCHIVE_FEED_PATH } from '@bunizao/contracts/routes';
 import {
   createApiServiceRequest,
   getApiServiceBinding,
@@ -54,7 +55,7 @@ export interface MoodDocumentQuery {
 
 export type MoodApiSource = 'live' | 'archive';
 
-type MoodArchiveApiPath = `/v2/mood${string}`;
+type MoodArchiveApiPath = `${typeof MOOD_ARCHIVE_FEED_PATH}${string}`;
 
 function createMoodArchiveApiRequest(context: MoodServerContext, path: MoodArchiveApiPath, params: URLSearchParams = new URLSearchParams()): Request {
   const source = new URL(context.request.url);
@@ -154,7 +155,7 @@ export async function loadMoodFeed(
   }
 
   if (query.source === 'archive') {
-    return fetchMoodArchiveApiJson<MoodFeedResponse>(context, '/v2/mood', moodFeedParams(query));
+    return fetchMoodArchiveApiJson<MoodFeedResponse>(context, MOOD_ARCHIVE_FEED_PATH, moodFeedParams(query));
   }
 
   const { channelInfo, posts } = await loadMoodChannelSnapshot(context, {
@@ -178,7 +179,7 @@ export async function loadMoodProbe(context: MoodServerContext, options: { sourc
 
   if (options.source === 'archive') {
     const params = new URLSearchParams({ probe: 'true', fresh: 'true' });
-    return fetchMoodArchiveApiJson<MoodProbeResult>(context, '/v2/mood', params);
+    return fetchMoodArchiveApiJson<MoodProbeResult>(context, MOOD_ARCHIVE_FEED_PATH, params);
   }
 
   const { posts } = await loadMoodChannelSnapshot(context, { skipCache: true });
@@ -218,7 +219,7 @@ export async function loadMoodDocument(
   }
 
   if (query.source === 'archive') {
-    return fetchMoodArchiveApiJson<MoodContentDocument | null>(context, `/v2/mood/${encodeURIComponent(id)}`);
+    return fetchMoodArchiveApiJson<MoodContentDocument | null>(context, `${MOOD_ARCHIVE_FEED_PATH}/${encodeURIComponent(id)}`);
   }
 
   const { post, channelInfo } = await loadMoodPostSnapshot(context, id);
@@ -263,7 +264,7 @@ export async function loadMoodComments(
   if (query.source === 'archive') {
     return fetchMoodArchiveApiJson<MoodCommentsPage>(
       context,
-      `/v2/mood/${encodeURIComponent(postId)}/comments`,
+      `${MOOD_ARCHIVE_FEED_PATH}/${encodeURIComponent(postId)}/comments`,
       moodCommentsParams(query),
     );
   }

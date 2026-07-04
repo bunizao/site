@@ -1,7 +1,12 @@
 import type { APIContext } from 'astro';
 import { loadMoodComments, loadMoodFeed, loadMoodProbe } from '@/features/mood/server/api-client';
 import { json, jsonBadRequest, jsonError, jsonOk } from '@/lib/http/json-response';
-import { isE2ESiteFixtureEnabled } from '@/lib/e2e';
+import {
+  API_PREFIX,
+  HEALTH_PATH,
+  MOOD_PUBLIC_COMMENTS_PATH,
+  MOOD_PUBLIC_FEED_PATH,
+} from '@bunizao/contracts/routes';
 
 type FixtureContext = Pick<APIContext, 'request' | 'locals'>;
 
@@ -162,10 +167,6 @@ function listeningFixtureResponse(): Response {
 }
 
 export async function createE2EApiFixtureResponse(context: FixtureContext): Promise<Response | null> {
-  if (!isE2ESiteFixtureEnabled(context.locals)) {
-    return null;
-  }
-
   const url = new URL(context.request.url);
   if (url.pathname === '/api/footer') {
     return footerFixtureResponse();
@@ -179,13 +180,13 @@ export async function createE2EApiFixtureResponse(context: FixtureContext): Prom
   if (url.pathname === '/api/writing') {
     return jsonOk({ posts: [] }, noStore());
   }
-  if (url.pathname === '/api/moods') {
+  if (url.pathname === MOOD_PUBLIC_FEED_PATH) {
     return moodFixtureResponse(context, url);
   }
-  if (url.pathname === '/api/comments') {
+  if (url.pathname === MOOD_PUBLIC_COMMENTS_PATH) {
     return commentsFixtureResponse(context, url);
   }
-  if (url.pathname === '/api/health') {
+  if (url.pathname === `${API_PREFIX}${HEALTH_PATH}`) {
     return healthFixtureResponse(url);
   }
   if (url.pathname === '/api/oembed.json') {

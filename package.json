@@ -16,6 +16,7 @@
     "dev:portal": "ADMIN_DEV_BYPASS=1 DEV_SURFACE=preview PUBLIC_DEV_SURFACE=preview op run --environment l57xmsivlnctkio4zz673luf64 -- astro dev",
     "build": "astro build",
     "check": "astro check",
+    "check:route-contracts": "bun scripts/check-route-contracts.ts",
     "preview": "bun run preview:cloudflare",
     "deploy:cloudflare": "bun run build && wrangler deploy --config dist/server/wrangler.json",
     "preview:cloudflare": "bun run build && wrangler dev --config dist/server/wrangler.json",

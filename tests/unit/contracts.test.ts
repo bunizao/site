@@ -1,11 +1,23 @@
 import { describe, expect, test } from 'bun:test';
-import { CONTENT_DOCUMENT_SOURCES, NOTIFY_CHANNELS } from '@bunizao/contracts';
+import {
+  CONTENT_DOCUMENT_SOURCES,
+  MOOD_ARCHIVE_FEED_PATH,
+  MOOD_LIVE_FEED_PATH,
+  NOTIFY_CHANNELS,
+  TELEGRAM_WEBHOOK_PATH,
+} from '@bunizao/contracts';
 import type { ContentDocument, MoodFeedResponse, SubscriberRecord } from '@bunizao/contracts';
 
 describe('@bunizao/contracts', () => {
   test('exports stable content source and notify channel constants', () => {
     expect(CONTENT_DOCUMENT_SOURCES).toEqual(['mood', 'post']);
     expect(NOTIFY_CHANNELS).toEqual(['mood', 'blog', 'privacy', 'announcement']);
+  });
+
+  test('exports shared route constants', () => {
+    expect(MOOD_LIVE_FEED_PATH).toBe('/v1/mood');
+    expect(MOOD_ARCHIVE_FEED_PATH).toBe('/v2/mood');
+    expect(TELEGRAM_WEBHOOK_PATH).toBe('/webhooks/telegram');
   });
 
   test('accepts mood and post content documents under one DTO shape', () => {
