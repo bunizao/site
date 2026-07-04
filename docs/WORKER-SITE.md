@@ -75,9 +75,9 @@ The public Worker does not own:
 
 ## Blog Cutover
 
-Only legacy public paths on `blog.buxx.me` are routed to the public `site`
-Worker. Do not route `blog.buxx.me/*`; Ghost admin and Ghost's own app/API
-paths must keep reaching the Ghost origin.
+`blog.buxx.me` is not routed to the public `site` Worker. Ghost admin and
+Ghost's own app/API paths must keep reaching the Ghost origin. Legacy public
+path redirects belong in Cloudflare Redirect Rules, not Worker routes.
 
 - `https://blog.buxx.me/` -> `https://buxx.me/blog`
 - known legacy article slugs -> `https://buxx.me/blog/<slug>`
