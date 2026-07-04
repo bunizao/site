@@ -790,9 +790,20 @@ html[data-theme-setting='system'] .blog-theme-toggle [data-blog-icon='system'] {
     position: absolute;
     top: 0;
     bottom: 0;
-    left: -240px;
+    left: -264px;
     width: 210px;
     z-index: 45;
+  }
+
+  /* The article column is centered in the shell, but the TOC hangs in the left
+     gutter — so the eye reads the TOC+article block as sitting left of center,
+     with a wide void on the right. Nudge the whole shell (mark, article, footer
+     move together, so internal alignment holds) right by half the gutter to
+     optically center the composition. Article pages only (:has), and only where
+     there's room to spare; the min() keeps a 24px right margin as a floor. */
+  .blog-shell:has(.blog-article-wrap) {
+    margin-left: auto;
+    margin-right: max(24px, calc(50vw - 470px));
   }
 }
 
@@ -908,7 +919,10 @@ html[data-theme-setting='system'] .blog-theme-toggle [data-blog-icon='system'] {
   border-radius: 8px;
   font-size: 12px;
   line-height: 1.35;
-  color: var(--blog-muted);
+  /* Resting shade is a single readable grey — not dimmed a second time by an
+     opacity layer, which used to leave it near-invisible. Hover/active step up
+     to full ink; the span inherits, so only the link's color changes. */
+  color: hsl(var(--foreground) / 0.62);
   transition: color 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
@@ -919,26 +933,15 @@ html[data-theme-setting='system'] .blog-theme-toggle [data-blog-icon='system'] {
 .toc-text {
   display: block;
   padding: 0 8px;
-  opacity: 0.3;
-  transition:
-    opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1),
-    color 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: color 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .toc-link:hover {
   color: var(--blog-ink);
 }
 
-.toc-link:hover .toc-text {
-  opacity: 0.7;
-}
-
 .toc-link.active {
   color: var(--blog-ink);
-}
-
-.toc-link.active .toc-text {
-  opacity: 1;
 }
 
 @media (prefers-reduced-motion: reduce) {

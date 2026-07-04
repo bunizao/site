@@ -181,6 +181,9 @@ const { noToc = false } = Astro.props;
           heading.scrollIntoView({ behavior: 'smooth', block: 'start' });
           history.replaceState(null, '', `#${heading.id}`);
         });
+        // The color block tracks the cursor: hovering a link springs the pill to
+        // it while the active section's ink stays put (see list mouseleave).
+        link.addEventListener('mouseenter', () => movePill(link));
         item.appendChild(link);
         listEl.appendChild(item);
         links.push(link);
@@ -202,6 +205,13 @@ const { noToc = false } = Astro.props;
         mItem.appendChild(mLink);
         menuList.appendChild(mItem);
         mobileLinks.push(mLink);
+      });
+
+      // Leaving the list snaps the block back to the section you're reading; if
+      // none is active yet, it just fades out rather than stranding on hover.
+      listEl.addEventListener('mouseleave', () => {
+        if (activeIndex >= 0 && links[activeIndex]) movePill(links[activeIndex]);
+        else pill.style.opacity = '0';
       });
 
       nav.hidden = false;
