@@ -1,9 +1,30 @@
 import { rewriteGhostBlogImageUrl } from '@/features/posts/adapter/provider';
 
+const LEGACY_GHOST_SINGLE_SEGMENT_SLUGS = new Set([
+  '2026',
+  'sacrifice',
+  'existence',
+  'time-warp',
+  '2025',
+  '2024',
+  'remedy',
+  'zootopia',
+  'dreamcatcher',
+  'dear-dont-be-confused',
+  'ni-shan-road',
+  'haven',
+  'poem-for-the-sea',
+  'spring-24',
+  'about',
+]);
+
 export function redirectLegacyGhostHost(url: URL): Response | null {
   if (url.hostname !== 'blog.buxx.me') return null;
 
   if (url.pathname === '/' || url.pathname === '') {
+    return Response.redirect('https://buxx.me/blog', 301);
+  }
+  if (url.pathname === '/links' || url.pathname === '/links/') {
     return Response.redirect('https://buxx.me/blog', 301);
   }
   if (url.pathname === '/tags' || url.pathname === '/tags/') {
@@ -47,7 +68,7 @@ export function redirectLegacyGhostHost(url: URL): Response | null {
   if (finalSegment.includes('.')) return null;
 
   const slugMatch = url.pathname.match(/^\/([^/]+)\/?$/);
-  if (slugMatch?.[1]) {
+  if (slugMatch?.[1] && LEGACY_GHOST_SINGLE_SEGMENT_SLUGS.has(slugMatch[1])) {
     return Response.redirect(`https://buxx.me/blog/${slugMatch[1]}`, 301);
   }
 

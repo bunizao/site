@@ -75,11 +75,12 @@ The public Worker does not own:
 
 ## Blog Cutover
 
-`blog.buxx.me` is routed to the public `site` Worker. The Worker/static redirect
-table owns the cutover:
+Only legacy public paths on `blog.buxx.me` are routed to the public `site`
+Worker. Do not route `blog.buxx.me/*`; Ghost admin and Ghost's own app/API
+paths must keep reaching the Ghost origin.
 
 - `https://blog.buxx.me/` -> `https://buxx.me/blog`
-- `https://blog.buxx.me/<slug>` -> `https://buxx.me/blog/<slug>`
+- known legacy article slugs -> `https://buxx.me/blog/<slug>`
 - legacy root Ghost slugs on `buxx.me`, such as `/sacrifice`, also redirect to
   their new `/blog/<slug>` permalink.
 - legacy Ghost taxonomy routes redirect to the matching `/blog/tags` or

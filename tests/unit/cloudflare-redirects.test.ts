@@ -87,9 +87,14 @@ describe('Cloudflare blog redirects', () => {
     expect(redirectModule).toContain('https://buxx.me/blog/rss.xml');
     expect(redirectModule).toContain('https://buxx.me/sitemap.xml');
     expect(redirectModule).toContain('/content/images/');
+    expect(redirectModule).toContain('LEGACY_GHOST_SINGLE_SEGMENT_SLUGS');
   });
 
   test('maps legacy Ghost reserved host paths before slug redirects', async () => {
+    expectPermanentRedirect(
+      redirectLegacyGhostHost(new URL('https://blog.buxx.me/links/')),
+      'https://buxx.me/blog',
+    );
     expectPermanentRedirect(
       redirectLegacyGhostHost(new URL('https://blog.buxx.me/rss/')),
       'https://buxx.me/blog/rss.xml',
@@ -116,9 +121,13 @@ describe('Cloudflare blog redirects', () => {
     );
     expect(redirectLegacyGhostHost(new URL('https://blog.buxx.me/robots.txt'))).toBeNull();
     expectPermanentRedirect(
-      redirectLegacyGhostHost(new URL('https://blog.buxx.me/some-post/')),
-      'https://buxx.me/blog/some-post',
+      redirectLegacyGhostHost(new URL('https://blog.buxx.me/existence/')),
+      'https://buxx.me/blog/existence',
     );
+    expect(redirectLegacyGhostHost(new URL('https://blog.buxx.me/some-post/'))).toBeNull();
+    expect(redirectLegacyGhostHost(new URL('https://blog.buxx.me/ghost/'))).toBeNull();
+    expect(redirectLegacyGhostHost(new URL('https://blog.buxx.me/ghost/api/content/posts/'))).toBeNull();
+    expect(redirectLegacyGhostHost(new URL('https://blog.buxx.me/assets/built/screen.css'))).toBeNull();
   });
 
   test('does not keep a global fallback redirect', () => {
