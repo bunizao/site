@@ -1,0 +1,495 @@
+---
+// Table of contents ported from cai.im/chl.ee: a dotted vertical progress rail
+// whose accent dots "fill" as you read, a sliding pill that springs to hug the
+// active heading's label, and a quiet text list (full opacity only for the
+// active section). Built client-side from the rendered article headings so it
+// works for any Ghost HTML; wide screens only, and only with >=2 headings. All
+// styling lives in blog.css (global) since these nodes are created at runtime.
+import { blog } from '@/data/site';
+
+interface Props {
+  /** Author opted out of the section map (#no-toc). The desktop rail and the
+      mobile dropdown stay off, but the reading topbar still shows the title. */
+  noToc?: boolean;
+}
+
+const { noToc = false } = Astro.props;
+---
+
+<nav class="toc-container" aria-label="On this page" hidden>
+  <div class="toc-inner">
+    <div class="toc-content-wrapper">
+      <div class="toc-sliding-pill" aria-hidden="true"></div>
+      <div class="toc-progress-timeline" aria-hidden="true">
+        <div class="toc-progress-fill"></div>
+      </div>
+      <ul class="toc-list"></ul>
+    </div>
+  </div>
+</nav>
+
+<!-- Mobile counterpart: a chl.ee-style reading topbar that slides in once the
+     reader leaves the article header behind. Logo left, title dead-centre,
+     back-to-top right. With a section map the centre title is tappable (drops
+     the heading list and tracks the active section; opening swaps it back to
+     the article title for context). Without one — a no-toc or thin post — it
+     stays a static title marker. The bar's blur fades into the page via a
+     masked layer, so the chrome reads as naturally transparent. Shown only
+     below the desktop breakpoint, where the gutter rail is hidden. -->
+<div class="toc-topbar" data-no-toc={noToc ? 'true' : 'false'} hidden>
+  <div class="toc-topbar__fade" aria-hidden="true"></div>
+  <div class="toc-topbar__bar">
+    <a class="toc-topbar__logo" href="/blog/" aria-label={blog.name}>
+      <img src={blog.mark} alt={blog.name} width="30" height="30" />
+    </a>
+    <button
+      class="toc-topbar__title"
+      type="button"
+      aria-haspopup="true"
+      aria-expanded="false"
+      aria-controls="toc-menu"
+    >
+      <span class="toc-topbar__title-text"></span>
+      <svg class="toc-topbar__chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="m6 9 6 6 6-6" />
+      </svg>
+    </button>
+    <button class="toc-topbar__totop" type="button" aria-label="Back to top">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M12 19V5M5 12l7-7 7 7" />
+      </svg>
+    </button>
+  </div>
+  <div class="toc-topbar__menu" id="toc-menu" role="menu" aria-hidden="true">
+    <ul class="toc-topbar__list"></ul>
+  </div>
+</div>
+
+<script>
+  const nav = document.querySelector<HTMLElement>('.toc-container');
+  const wrapper = nav?.querySelector<HTMLElement>('.toc-content-wrapper');
+  const pill = nav?.querySelector<HTMLElement>('.toc-sliding-pill');
+  const fill = nav?.querySelector<HTMLElement>('.toc-progress-fill');
+  const listEl = nav?.querySelector<HTMLElement>('.toc-list');
+  const prose = document.querySelector<HTMLElement>('.blog-prose');
+
+  // Mobile counterpart (reading topbar). Absent markup just disables it.
+  const topbar = document.querySelector<HTMLElement>('.toc-topbar');
+  const titleBtn = topbar?.querySelector<HTMLButtonElement>('.toc-topbar__title');
+  const titleText = topbar?.querySelector<HTMLElement>('.toc-topbar__title-text');
+  const menu = topbar?.querySelector<HTMLElement>('.toc-topbar__menu');
+  const menuList = topbar?.querySelector<HTMLElement>('.toc-topbar__list');
+  const topbarTotop = topbar?.querySelector<HTMLButtonElement>('.toc-topbar__totop');
+
+  // The reading topbar is the through-line: it shows on every post. Its markup
+  // is the gate — the desktop rail is an optional extra layered on top.
+  if (prose && topbar && titleBtn && titleText && menu && menuList) {
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const postTitle =
+      document.querySelector<HTMLElement>('.blog-article__title')?.textContent?.trim() ||
+      'On this page';
+    const headings = Array.from(prose.querySelectorAll<HTMLElement>('h2, h3'));
+    // A section map needs >=2 headings AND the author keeping it (no #no-toc).
+    const hasToc = topbar.dataset.noToc !== 'true' && headings.length >= 2;
+
+    // This component renders inside `.blog-aside`, which is `display:none` below
+    // the desktop breakpoint — an ancestor no descendant rule can override. The
+    // fixed bar escapes it by portaling to <body>. It shows on every post; the
+    // centre is the article title until the active section takes over.
+    document.body.appendChild(topbar);
+    topbar.hidden = false;
+
+    // Swap the centre title with a vertical "ticker": the old line lifts and
+    // blurs away, the new one rises from below into focus — same direction as
+    // the scroll that triggered it. dataset.value records the intended text up
+    // front so rapid changes dedupe and always land on the latest heading.
+    let titleAnim: Animation | null = null;
+    const setTitle = (text: string) => {
+      if (titleText.dataset.value === text) return;
+      titleText.dataset.value = text;
+      if (reduceMotion || typeof titleText.animate !== 'function') {
+        titleText.textContent = text;
+        return;
+      }
+      titleAnim?.cancel();
+      // Hold the faded-out end state (fill:forwards) so swapping textContent
+      // doesn't flash the old line back. The catch: a forwards-held animation
+      // keeps asserting opacity:0 forever — so once the incoming line is in
+      // flight, cancel the outgoing one to release its grip, or the title goes
+      // invisible after the first swap.
+      const out = titleText.animate(
+        [
+          { opacity: 1, transform: 'translateY(0)', filter: 'blur(0)' },
+          { opacity: 0, transform: 'translateY(-0.5em)', filter: 'blur(2px)' },
+        ],
+        { duration: 150, easing: 'cubic-bezier(0.4, 0, 1, 1)', fill: 'forwards' },
+      );
+      titleAnim = out;
+      out.onfinish = () => {
+        titleText.textContent = titleText.dataset.value || text;
+        const incoming = titleText.animate(
+          [
+            { opacity: 0, transform: 'translateY(0.5em)', filter: 'blur(2px)' },
+            { opacity: 1, transform: 'translateY(0)', filter: 'blur(0)' },
+          ],
+          { duration: 260, easing: 'cubic-bezier(0.16, 1, 0.3, 1)' },
+        );
+        out.cancel();
+        titleAnim = incoming;
+      };
+    };
+
+    // First paint: set straight, no animation to fade the bar in over.
+    titleText.textContent = postTitle;
+    titleText.dataset.value = postTitle;
+
+    const slugify = (text: string) =>
+      text
+        .toLowerCase()
+        .trim()
+        .replace(/[^\w一-鿿\s-]/g, '')
+        .replace(/\s+/g, '-')
+        .slice(0, 60) || 'section';
+
+    const links: HTMLAnchorElement[] = [];
+    const mobileLinks: HTMLAnchorElement[] = [];
+    const offset = 96;
+    let activeIndex = -1;
+    let menuOpen = false;
+    let ticking = false;
+    let closeMenu = () => {};
+
+    if (hasToc && nav && wrapper && pill && fill && listEl) {
+      headings.forEach((heading) => {
+        if (!heading.id) heading.id = slugify(heading.textContent || 'section');
+        heading.style.scrollMarginTop = '88px';
+        const text = heading.textContent || '';
+        const depth = heading.tagName === 'H3' ? 3 : 2;
+
+        // Desktop dotted rail.
+        const item = document.createElement('li');
+        item.className = `toc-item depth-${depth}`;
+        const link = document.createElement('a');
+        link.className = 'toc-link';
+        link.href = `#${heading.id}`;
+        const label = document.createElement('span');
+        label.className = 'toc-text';
+        label.textContent = text;
+        link.appendChild(label);
+        link.addEventListener('click', (event) => {
+          event.preventDefault();
+          heading.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          history.replaceState(null, '', `#${heading.id}`);
+        });
+        item.appendChild(link);
+        listEl.appendChild(item);
+        links.push(link);
+
+        // Mobile dropdown row — same anchors, so both views track in lockstep.
+        const mItem = document.createElement('li');
+        mItem.className = `toc-topbar__item depth-${depth}`;
+        const mLink = document.createElement('a');
+        mLink.className = 'toc-topbar__link';
+        mLink.href = `#${heading.id}`;
+        mLink.textContent = text;
+        mLink.setAttribute('role', 'menuitem');
+        mLink.addEventListener('click', (event) => {
+          event.preventDefault();
+          closeMenu();
+          heading.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          history.replaceState(null, '', `#${heading.id}`);
+        });
+        mItem.appendChild(mLink);
+        menuList.appendChild(mItem);
+        mobileLinks.push(mLink);
+      });
+
+      nav.hidden = false;
+
+      // The menu is one glass with the bar, not a separate card: opening grows
+      // its max-height so the frosted surface extends downward.
+      const openMenu = () => {
+        if (menuOpen) return;
+        menuOpen = true;
+        titleBtn.setAttribute('aria-expanded', 'true');
+        menu.setAttribute('aria-hidden', 'false');
+        topbar.classList.add('menu-open');
+        // Open map → centre shows the article title, so you know the whole.
+        setTitle(postTitle);
+      };
+
+      closeMenu = () => {
+        if (!menuOpen) return;
+        menuOpen = false;
+        titleBtn.setAttribute('aria-expanded', 'false');
+        menu.setAttribute('aria-hidden', 'true');
+        topbar.classList.remove('menu-open');
+        // Closed → restore the active section heading.
+        if (activeIndex >= 0 && headings[activeIndex])
+          setTitle(headings[activeIndex].textContent || postTitle);
+      };
+
+      titleBtn.addEventListener('click', () => (menuOpen ? closeMenu() : openMenu()));
+      document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && menuOpen) closeMenu();
+      });
+      document.addEventListener('click', (event) => {
+        if (menuOpen && !topbar.contains(event.target as Node)) closeMenu();
+      });
+    } else {
+      // No section map: the centre title is a marker, not a menu trigger.
+      topbar.classList.add('toc-topbar--static');
+      titleBtn.setAttribute('aria-haspopup', 'false');
+      titleBtn.removeAttribute('aria-controls');
+    }
+
+    if (topbarTotop) {
+      topbarTotop.addEventListener('click', () => {
+        closeMenu();
+        window.scrollTo({ top: 0, behavior: reduceMotion ? 'auto' : 'smooth' });
+      });
+    }
+
+    // --- Shared-element logo handoff (mobile reading bar only) ------------
+    // The page header's mark (logo1) and the reading bar's mark (logo2) sit a
+    // short hop apart, both top-left. As you scroll, a fixed "ghost" mark lifts
+    // off logo1's spot, sticks near the top while the article scrolls beneath
+    // it, shrinks to logo2's size, and docks into logo2's slot just as the bar
+    // assembles around it — a scroll-driven FLIP: one moving node between two
+    // measured endpoints. Desktop (no bar) and reduced-motion skip it.
+    const REVEAL = 120; // scroll px where the bar appears AND the logo docks
+    const mark = document.querySelector<HTMLElement>('.blog-mark');
+    const barLogo = topbar.querySelector<HTMLElement>('.toc-topbar__logo');
+    const barLogoImg = barLogo?.querySelector<HTMLImageElement>('img');
+    const handoffMql = window.matchMedia('(max-width: 1279px)');
+    const canHandoff = !reduceMotion && !!mark && !!barLogo && !!barLogoImg;
+    const clamp01 = (n: number) => Math.min(1, Math.max(0, n));
+
+    let ghost: HTMLElement | null = null;
+    let l1 = { x: 0, y: 40, size: 40 };
+    let l2 = { x: 16, y: 11, size: 30 };
+
+    const measureLogos = () => {
+      if (!canHandoff || !handoffMql.matches) return;
+      const a = mark!.getBoundingClientRect();
+      // logo1 scrolls with the page; anchor to its at-rest viewport position
+      // (doc-absolute top), so the ghost holds steady near the top regardless
+      // of where the page happens to be when we measure.
+      l1 = { x: a.left, y: a.top + window.scrollY, size: a.width };
+      const b = barLogo!.getBoundingClientRect();
+      const tb = topbar.getBoundingClientRect();
+      // The bar is translated off-screen when hidden; remove its own offset to
+      // recover where logo2 rests once the bar slides in.
+      l2 = { x: b.left, y: b.top - tb.top, size: b.width };
+    };
+
+    const updateGhost = () => {
+      if (!ghost) return;
+      // Past the breakpoint there is no bar to dock into: stand everything down.
+      if (!handoffMql.matches) {
+        ghost.style.opacity = '0';
+        mark!.style.visibility = '';
+        topbar.classList.remove('logo-handoff');
+        return;
+      }
+      topbar.classList.add('logo-handoff');
+      ghost.style.width = `${l1.size}px`;
+      ghost.style.height = `${l1.size}px`;
+      const p = clamp01(window.scrollY / REVEAL);
+      if (p <= 0) {
+        // At the very top the real header mark owns the stage.
+        ghost.style.opacity = '0';
+        mark!.style.visibility = '';
+        return;
+      }
+      // Ghost takes over; logo1 keeps its layout box (visibility, not display)
+      // so the header never reflows.
+      mark!.style.visibility = 'hidden';
+      ghost.style.opacity = '1';
+      const x = l1.x + (l2.x - l1.x) * p;
+      const y = l1.y + (l2.y - l1.y) * p;
+      const s = 1 + (l2.size / l1.size - 1) * p;
+      ghost.style.transform = `translate(${x}px, ${y}px) scale(${s})`;
+    };
+
+    if (canHandoff) {
+      ghost = document.createElement('div');
+      ghost.className = 'toc-logo-ghost';
+      ghost.setAttribute('aria-hidden', 'true');
+      const img = document.createElement('img');
+      img.src = barLogoImg!.src;
+      img.alt = '';
+      ghost.appendChild(img);
+      document.body.appendChild(ghost);
+      measureLogos();
+    }
+
+    // --- Shared-element title handoff (the iOS "large title" collapse) -----
+    // The article H1 is the title's home. As you scroll it rises with the page,
+    // shrinks toward the bar's centre slot, and crossfades into the real (small,
+    // ellipsised) bar title at the dock. Same scroll-driven FLIP as the logo, on
+    // a longer run since the H1 starts lower down the page.
+    const h1 = document.querySelector<HTMLElement>('.blog-article__title');
+    const canTitle = !reduceMotion && !!h1;
+    let titleGhost: HTMLElement | null = null;
+    let t1 = { x: 0, y: 220, fontPx: 28 };
+    let t2 = { cx: 0, cy: 26, fontPx: 14 };
+    let gw = 0;
+    let gh = 0;
+
+    const measureTitle = () => {
+      if (!canTitle || !handoffMql.matches || !titleGhost) return;
+      const h = h1!.getBoundingClientRect();
+      const cs = getComputedStyle(h1!);
+      t1 = { x: h.left, y: h.top + window.scrollY, fontPx: parseFloat(cs.fontSize) };
+      const r = titleText.getBoundingClientRect();
+      const tb = topbar.getBoundingClientRect();
+      // Centre of the real bar title, with the bar's hidden-state offset removed.
+      t2 = {
+        cx: r.left + r.width / 2,
+        cy: r.top - tb.top + r.height / 2,
+        fontPx: parseFloat(getComputedStyle(titleText).fontSize),
+      };
+      const g = titleGhost.getBoundingClientRect();
+      gw = g.width;
+      gh = g.height;
+    };
+
+    // The H1 docks by the time its top nears the bar; run length is its travel.
+    const titleRun = () => Math.max(1, t1.y - 52);
+    // Extra scroll past the first heading before the centre swaps title→section.
+    const SECTION_LEAD = 100;
+
+    const updateTitleGhost = () => {
+      if (!titleGhost) return;
+      if (!handoffMql.matches) {
+        titleGhost.style.opacity = '0';
+        titleText.style.opacity = '';
+        h1!.style.visibility = '';
+        return;
+      }
+      const p = clamp01(window.scrollY / titleRun());
+      if (p <= 0) {
+        // At the top the real H1 owns the title; bar slot stays empty.
+        titleGhost.style.opacity = '0';
+        titleText.style.opacity = '0';
+        h1!.style.visibility = '';
+        return;
+      }
+      h1!.style.visibility = 'hidden';
+      // Finish the travel by p=0.85 and park exactly on the dock; only then
+      // crossfade. Parked, the ghost and the real bar title share one spot, so
+      // the swap never shows two titles at two places — the earlier flaw.
+      const pPos = clamp01(p / 0.85);
+      const sEnd = t2.fontPx / Math.max(1, t1.fontPx);
+      const s = 1 + (sEnd - 1) * pPos;
+      const liveTop = t1.y - window.scrollY; // H1's current viewport top
+      const targetLeft = t2.cx - (gw * sEnd) / 2;
+      const targetTop = t2.cy - (gh * sEnd) / 2;
+      const x = t1.x + (targetLeft - t1.x) * pPos;
+      const y = liveTop + (targetTop - liveTop) * pPos;
+      titleGhost.style.transform = `translate(${x}px, ${y}px) scale(${s})`;
+      // Crossfade only while parked (p≥0.85), where the two coincide.
+      const fade = clamp01((p - 0.85) / 0.15);
+      titleGhost.style.opacity = `${1 - fade}`;
+      titleText.style.opacity = p >= 1 ? '' : `${fade}`;
+    };
+
+    if (canTitle) {
+      titleGhost = document.createElement('div');
+      titleGhost.className = 'toc-title-ghost';
+      titleGhost.setAttribute('aria-hidden', 'true');
+      titleGhost.textContent = postTitle;
+      const cs = getComputedStyle(h1!);
+      // Wear the H1's type so lift-off is seamless; the crossfade hides the swap
+      // to the bar's Inter at the dock.
+      titleGhost.style.font = cs.font;
+      titleGhost.style.fontFamily = cs.fontFamily;
+      titleGhost.style.fontWeight = cs.fontWeight;
+      titleGhost.style.fontSize = cs.fontSize;
+      titleGhost.style.lineHeight = cs.lineHeight;
+      titleGhost.style.letterSpacing = cs.letterSpacing;
+      document.body.appendChild(titleGhost);
+      measureTitle();
+    }
+
+    // Slide the pill to hug the active link's box; depth indent comes for free.
+    // Measured against the wrapper (not offsetParent) because each .toc-item is
+    // positioned, which would otherwise pin every link's offsetTop near zero.
+    const movePill = (link: HTMLAnchorElement) => {
+      const wrap = wrapper!.getBoundingClientRect();
+      const box = link.getBoundingClientRect();
+      pill!.style.top = `${box.top - wrap.top}px`;
+      pill!.style.left = `${box.left - wrap.left}px`;
+      pill!.style.width = `${box.width}px`;
+      pill!.style.height = `${box.height}px`;
+      pill!.style.opacity = '1';
+    };
+
+    const update = () => {
+      ticking = false;
+
+      // Reveal the reading topbar once the reader has left the header behind —
+      // in step with the logo docking into it.
+      topbar.classList.toggle('is-visible', window.scrollY > REVEAL);
+      updateGhost();
+      updateTitleGhost();
+      if (!hasToc || !wrapper || !fill || !pill) return;
+
+      const line = window.scrollY + offset;
+      const tops = headings.map((h) => h.getBoundingClientRect().top + window.scrollY);
+
+      // Reading progress fills the dotted rail across the whole article.
+      const start = tops[0] - offset;
+      const end = prose.getBoundingClientRect().bottom + window.scrollY - offset;
+      const progress = Math.min(1, Math.max(0, (line - tops[0]) / Math.max(1, end - start)));
+      fill.style.height = `${progress * wrapper.offsetHeight}px`;
+
+      // Active section: the last heading whose top has crossed the reading line.
+      let i = 0;
+      while (i < tops.length - 1 && tops[i + 1] <= line) i += 1;
+      if (line < tops[0]) i = 0;
+
+      // Centre-title sequencing: the post title leads — through the handoff and
+      // a stretch past the first heading — before the active section takes the
+      // slot. Runs every frame (the swap is a scroll threshold, not an index
+      // change) but only once the title has docked, so it never fights the
+      // ghost. setTitle() dedupes, so re-calls are cheap. An open map keeps the
+      // article title by design.
+      if (!menuOpen && window.scrollY >= titleRun()) {
+        const inSection = line > tops[0] + SECTION_LEAD;
+        setTitle(inSection ? headings[i].textContent || postTitle : postTitle);
+      }
+
+      if (i === activeIndex) return;
+      activeIndex = i;
+
+      links.forEach((link, j) => link.classList.toggle('active', j === i));
+      mobileLinks.forEach((link, j) => link.classList.toggle('active', j === i));
+      movePill(links[i]);
+    };
+
+    const onScroll = () => {
+      // A drifting dropdown reads as detached chrome — close it the moment the
+      // page moves under it.
+      closeMenu();
+      if (ticking) return;
+      ticking = true;
+      requestAnimationFrame(update);
+    };
+
+    window.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener(
+      'resize',
+      () => {
+        // Logo + title geometry shift with width / breakpoint crossings —
+        // re-measure before the next frame repositions the ghosts.
+        measureLogos();
+        measureTitle();
+        onScroll();
+      },
+      { passive: true },
+    );
+    update();
+  }
+</script>

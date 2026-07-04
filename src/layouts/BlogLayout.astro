@@ -1,0 +1,239 @@
+---
+// Standalone layout for the /blog zone. Deliberately minimal chrome — the
+// publication mark + theme toggle only, no site nav or spotlight — to keep
+// chl.ee's calm. Reuses the global token system and theme storage contract so
+// dark mode stays in sync with the rest of buxx.me.
+import '../styles/globals.css';
+import '../styles/blog.css';
+import { meta, blog, blogPalette } from '@/data/site';
+import {
+  BLOG_OG_IMAGE_HEIGHT,
+  BLOG_OG_IMAGE_WIDTH,
+  buildBlogOgImageUrl,
+  normalizeBlogMetaText,
+} from '@/features/posts/server/og-image';
+import BlogSearch from '@/features/posts/ui/BlogSearch.astro';
+
+interface Props {
+  title: string;
+  description?: string;
+  /** Path under the site origin, e.g. "/blog/" or "/blog/my-post/". */
+  path?: string;
+  ogType?: 'website' | 'article';
+  ogImage?: string;
+  ogImageAlt?: string;
+  publishedTime?: string;
+  modifiedTime?: string;
+  authorName?: string;
+  tags?: string[];
+  /** Preload hint for the page's LCP image (e.g. the post feature image). */
+  preloadImage?: { href: string; srcset?: string; sizes?: string };
+}
+
+const {
+  title,
+  description = blog.copy.zh.tagline,
+  path = '/blog/',
+  ogType = 'website',
+  ogImage: customOgImage,
+  ogImageAlt,
+  publishedTime,
+  modifiedTime,
+  authorName,
+  tags = [],
+  preloadImage,
+} = Astro.props;
+const canonical = new URL(path, meta.siteUrl).href;
+const fullTitle = title === blog.name ? title : `${title} — ${blog.name}`;
+const metaDescription = normalizeBlogMetaText(description) || meta.description;
+const ogImage = customOgImage
+  ? new URL(customOgImage, meta.siteUrl).href
+  : buildBlogOgImageUrl({
+      title,
+      site: blog.name,
+      excerpt: metaDescription,
+    });
+const resolvedOgImageAlt = ogImageAlt ?? fullTitle;
+const ogLogoUrl = new URL(blog.mark, meta.siteUrl).href;
+const articleTags = tags.map((tag) => tag.trim()).filter(Boolean);
+
+// Emit the blog ink set (site.ts is the source of truth) as CSS custom
+// properties scoped to .blog-zone. --blog-accent stays as the primary alias so
+// every existing consumer keeps working; dai/dian/ji expose the semantic roles.
+const { dai, dian, ji } = blogPalette;
+const paletteCss = [
+  `.blog-zone{--blog-accent:${dai.light};--blog-dai:${dai.light};--blog-dian:${dian.light};--blog-ji:${ji.light};}`,
+  `.dark .blog-zone{--blog-accent:${dai.dark};--blog-dai:${dai.dark};--blog-dian:${dian.dark};--blog-ji:${ji.dark};}`,
+].join('');
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{fullTitle}</title>
+    <meta name="description" content={metaDescription} />
+    <link rel="canonical" href={canonical} />
+    <!-- SVG mark carries its own dark-mode swap; webp is the legacy fallback. -->
+    <link rel="icon" href="/blog-mark.svg" type="image/svg+xml" />
+    <link rel="icon" href={blog.mark} type="image/webp" />
+
+    <meta property="og:type" content={ogType} />
+    <meta property="og:site_name" content={blog.name} />
+    <meta property="og:title" content={fullTitle} />
+    <meta property="og:description" content={metaDescription} />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:image" content={ogImage} />
+    <meta property="og:image:width" content={String(BLOG_OG_IMAGE_WIDTH)} />
+    <meta property="og:image:height" content={String(BLOG_OG_IMAGE_HEIGHT)} />
+    <meta property="og:image:alt" content={resolvedOgImageAlt} />
+    <meta property="og:logo" content={ogLogoUrl} />
+    {ogType === 'article' && publishedTime && <meta property="article:published_time" content={publishedTime} />}
+    {ogType === 'article' && modifiedTime && <meta property="article:modified_time" content={modifiedTime} />}
+    {ogType === 'article' && authorName && <meta property="article:author" content={authorName} />}
+    {ogType === 'article' && articleTags.map((tag) => <meta property="article:tag" content={tag} />)}
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={fullTitle} />
+    <meta name="twitter:description" content={metaDescription} />
+    <meta name="twitter:image" content={ogImage} />
+    <meta name="twitter:image:alt" content={resolvedOgImageAlt} />
+
+    <!-- Blog ink set — values owned by blogPalette in src/data/site.ts. -->
+    <style set:html={paletteCss}></style>
+
+    {preloadImage && (
+      <link
+        rel="preload"
+        as="image"
+        href={preloadImage.href}
+        imagesrcset={preloadImage.srcset}
+        imagesizes={preloadImage.sizes}
+        fetchpriority="high"
+      />
+    )}
+
+    <link
+      rel="preload"
+      href="/fonts/inter-variable.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
+    <link
+      rel="preload"
+      href="/fonts/wenkai-wordmark.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+      fetchpriority="high"
+    />
+
+    <!-- No-FOUC theme init. Mirrors the global contract (storageKey 'theme',
+         data-theme-setting, .dark class) so a choice made here or on the main
+         site applies on both. -->
+    <script is:inline>
+      (() => {
+        document.documentElement.classList.add('js');
+        // All WebKit browsers (Safari + every iOS browser) report the Apple
+        // vendor string. The class gates the calmer view-transition and glass
+        // rules in globals.css/blog.css; it must exist before first render so
+        // the incoming page of a cross-document transition already matches.
+        if (navigator.vendor === 'Apple Computer, Inc.') {
+          document.documentElement.classList.add('ua-webkit');
+        }
+        let stored = null;
+        try {
+          stored = localStorage.getItem('theme');
+        } catch (e) {}
+        const prefersDark =
+          typeof window.matchMedia === 'function' &&
+          window.matchMedia('(prefers-color-scheme: dark)').matches;
+        const setting = stored === 'light' || stored === 'dark' ? stored : 'system';
+        const isDark = setting === 'dark' || (setting === 'system' && prefersDark);
+        document.documentElement.dataset.themeSetting = setting;
+        document.documentElement.classList.toggle('dark', isDark);
+      })();
+    </script>
+  </head>
+
+  <body class="blog-zone reading">
+    <div class="blog-shell">
+      <header class="blog-topbar">
+        <a class="blog-mark" href="/blog/" aria-label={blog.name} style="view-transition-name:blog-mark">
+          <img src={blog.mark} alt={blog.name} width="40" height="40" />
+        </a>
+
+        <div class="blog-topbar__controls">
+          <!-- Language toggle (zh/en) slots in here when the bilingual phase lands. -->
+          <BlogSearch />
+          <button
+          class="blog-theme-toggle"
+          type="button"
+          data-blog-theme-toggle
+          aria-label="Switch theme"
+        >
+          <span data-blog-icon="light" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41" /></svg>
+          </span>
+          <span data-blog-icon="dark" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" /></svg>
+          </span>
+          <span data-blog-icon="system" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" /><path d="M8 21h8M12 17v4" /></svg>
+          </span>
+          </button>
+        </div>
+      </header>
+
+      <slot />
+    </div>
+
+    <script>
+      import { initSubscribePanels } from '@/features/notify/subscribe-panel';
+      initSubscribePanels();
+    </script>
+
+    <script is:inline>
+      (() => {
+        const toggle = document.querySelector('[data-blog-theme-toggle]');
+        if (!toggle) return;
+        const order = ['system', 'light', 'dark'];
+        const media =
+          typeof window.matchMedia === 'function'
+            ? window.matchMedia('(prefers-color-scheme: dark)')
+            : null;
+
+        const getSetting = () => {
+          let stored = null;
+          try {
+            stored = localStorage.getItem('theme');
+          } catch (e) {}
+          return stored === 'light' || stored === 'dark' ? stored : 'system';
+        };
+
+        const apply = (setting) => {
+          const isDark =
+            setting === 'dark' || (setting === 'system' && media && media.matches);
+          document.documentElement.dataset.themeSetting = setting;
+          document.documentElement.classList.toggle('dark', isDark);
+          try {
+            if (setting === 'system') localStorage.removeItem('theme');
+            else localStorage.setItem('theme', setting);
+          } catch (e) {}
+        };
+
+        toggle.addEventListener('click', () => {
+          const next = order[(order.indexOf(getSetting()) + 1) % order.length];
+          apply(next);
+        });
+
+        if (media) {
+          media.addEventListener('change', () => {
+            if (getSetting() === 'system') apply('system');
+          });
+        }
+      })();
+    </script>
+  </body>
+</html>

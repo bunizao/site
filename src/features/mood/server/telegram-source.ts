@@ -1,10 +1,12 @@
 import { $fetch } from 'ofetch';
 import * as cheerio from 'cheerio';
-import type { CheerioAPI, Element } from 'cheerio';
+import type { CheerioAPI } from 'cheerio';
+import type { Element } from 'domhandler';
 import { LRUCache } from 'lru-cache';
 import flourite from 'flourite';
 import Prism from 'prismjs';
 import { readEnv as readRuntimeEnv } from '@/lib/runtime/env';
+import { normalizeMoodImageBase } from './image-base';
 
 // Import Prism language components
 import 'prismjs-components-importer/cjs/prism-c';
@@ -1804,7 +1806,7 @@ export async function getChannelInfo(
 
   const host = getEnv(import.meta.env, Astro, 'TELEGRAM_HOST') || 't.me';
   const channel = getEnv(import.meta.env, Astro, 'CHANNEL');
-  const hdImageBase = getEnv(import.meta.env, Astro, 'PUBLIC_HD_IMAGE_URL').replace(/\/+$/, '');
+  const hdImageBase = normalizeMoodImageBase(getEnv(import.meta.env, Astro, 'PUBLIC_HD_IMAGE_URL'));
   // Always use local static proxy for Telegram media
   const staticProxy = '/static/';
 

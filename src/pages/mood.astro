@@ -2,7 +2,7 @@
 import Layout from '../layouts/Layout.astro';
 import TimelineWheel from '@/features/mood/ui/TimelineWheel.astro';
 import FeedShell from '@/features/mood/ui/FeedShell.astro';
-import NotifyPanel from '@/features/mood/ui/NotifyPanel.astro';
+import SubscribePanel from '@/features/notify/SubscribePanel.astro';
 import BackToTop from '@/features/mood/ui/BackToTop.astro';
 import { loadMoodFeed, resolveMoodReadSource } from '@/features/mood/server/api-client';
 import {
@@ -27,7 +27,9 @@ const rss = { href: rssHref, title: 'Moods RSS' };
 const oembed = { href: `/api/oembed.json?url=${encodeURIComponent(moodAlternateUrl.href)}`, title: 'Mood Embed' };
 const channel = readEnv(Astro.locals, 'CHANNEL');
 const telegramUrl = channel ? `https://t.me/${channel}` : '';
-const turnstileSiteKey = readPublicEnv(Astro.locals, 'TURNSTILE_SITE_KEY');
+const turnstileSiteKey = isE2ESiteFixtureEnabled(Astro.locals)
+  ? ''
+  : readPublicEnv(Astro.locals, 'TURNSTILE_SITE_KEY');
 const moodFeedAnchorId = readMoodFeedAnchorId(Astro.url);
 const moodFeedAnchorBeforeCursor = getMoodFeedAnchorBeforeCursor(moodFeedAnchorId);
 const moodFeedAnchorWindowBeforeCursor = getMoodFeedAnchorWindowBeforeCursor(moodFeedAnchorId);
@@ -158,7 +160,7 @@ const skeletonGroups = [
       notifyBtn.type = 'button';
       notifyBtn.title = 'Subscribe to notifications';
       notifyBtn.dataset.moodHeaderAction = 'notify';
-      notifyBtn.setAttribute('data-notify-toggle', '');
+      notifyBtn.setAttribute('data-subscribe-toggle', 'mood');
       notifyBtn.setAttribute('aria-haspopup', 'dialog');
       notifyBtn.setAttribute('aria-expanded', 'false');
       notifyBtn.innerHTML = `
@@ -185,7 +187,7 @@ const skeletonGroups = [
         }
       }
 
-      const notifyPanel = document.querySelector('.notify-panel');
+      const notifyPanel = document.querySelector('.subscribe-panel');
       if (notifyPanel instanceof HTMLElement) {
         notifyPanel.dataset.turnstileSiteKey = turnstileSiteKey;
       }
@@ -302,7 +304,7 @@ const skeletonGroups = [
       readSource={moodReadSource}
     />
   </main>
-  <NotifyPanel turnstileSiteKey={turnstileSiteKey} />
+  <SubscribePanel variant="mood" id="mood" anchor="right" withTrigger={false} feed={rssHref} turnstileSiteKey={turnstileSiteKey} />
   <BackToTop hideOnDesktop />
 </Layout>
 
@@ -2207,9 +2209,9 @@ const skeletonGroups = [
 </style>
 
 <script>
-  import { initMoodNotifyPanel } from '@/features/mood/client/notify-panel-controller';
+  import { initSubscribePanels } from '@/features/notify/subscribe-panel';
 
-  initMoodNotifyPanel();
+  initSubscribePanels();
 </script>
 
 <script>

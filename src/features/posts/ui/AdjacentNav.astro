@@ -1,0 +1,30 @@
+---
+// Prev/next reading-order navigation at the foot of an article. `prev` is older,
+// `next` is newer. Renders nothing if the post stands alone.
+import type { Post } from '../types';
+import { postPath } from '../format';
+
+interface Props {
+  prev: Post | null;
+  next: Post | null;
+}
+
+const { prev, next } = Astro.props;
+---
+
+{(prev || next) && (
+  <nav class="blog-adjacent" aria-label="More posts">
+    {prev ? (
+      <a class="blog-adjacent__item blog-adjacent__item--prev" href={postPath(prev.slug)}>
+        <span class="blog-adjacent__dir">← Older</span>
+        <span class="blog-adjacent__title">{prev.title}</span>
+      </a>
+    ) : <span />}
+    {next && (
+      <a class="blog-adjacent__item blog-adjacent__item--next" href={postPath(next.slug)}>
+        <span class="blog-adjacent__dir">Newer →</span>
+        <span class="blog-adjacent__title">{next.title}</span>
+      </a>
+    )}
+  </nav>
+)}

@@ -1,0 +1,90 @@
+---
+// Desktop list-hover behavior, two layers:
+//   1) the springy sliding pill that glides behind the hovered row (cai.im),
+//   2) a floating hero-image preview that fades+scales in near the cursor while
+//      the un-hovered siblings recede (also cai.im).
+// The pill + sibling-dim look live in blog.css; this only attaches behavior.
+// Pointer-only so touch devices never get a stuck highlight or preview.
+---
+
+<script>
+  import { attachHoverIndicator } from '@/lib/hover-indicator';
+
+  const fine = window.matchMedia?.('(hover: hover) and (pointer: fine)').matches;
+  const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+
+  document.querySelectorAll<HTMLElement>('.blog-list').forEach((list) => {
+    attachHoverIndicator(list, {
+      // Target the row, not the post link: the row now also holds the tag-link
+      // meta outside the anchor, so the pill must span the whole row.
+      itemSelector: '.blog-row',
+      indicatorClass: 'blog-indicator',
+      padX: 16,
+      padY: 2,
+    });
+  });
+
+  // Floating hero preview: a single image that tracks the cursor and swaps its
+  // source per hovered row. One element for the whole page keeps it cheap.
+  if (fine) {
+    const preview = document.createElement('div');
+    preview.className = 'blog-preview';
+    preview.setAttribute('aria-hidden', 'true');
+    const img = document.createElement('img');
+    img.decoding = 'async';
+    img.loading = 'lazy';
+    preview.appendChild(img);
+    document.body.appendChild(preview);
+
+    const PREVIEW_W = 240; // keep in sync with .blog-preview width in blog.css
+    let raf = 0;
+    let pointerY = 0;
+    let anchorX = 0; // pinned to the right of the reading column, set on enter
+
+    const render = () => {
+      raf = 0;
+      // Pin X to the right gutter so the image never covers the text; track only
+      // the vertical position, clamped to stay fully on screen.
+      const h = preview.offsetHeight || 180;
+      const y = Math.min(Math.max(pointerY - h / 2, 12), window.innerHeight - h - 12);
+      preview.style.transform = `translate(${anchorX}px, ${y}px)`;
+    };
+
+    const onMove = (event: PointerEvent) => {
+      pointerY = event.clientY;
+      if (!raf) raf = requestAnimationFrame(render);
+    };
+
+    const show = (src: string, alt: string) => {
+      if (img.getAttribute('src') !== src) {
+        img.src = src;
+        img.alt = alt;
+      }
+      preview.classList.add('is-visible');
+    };
+
+    const hide = () => preview.classList.remove('is-visible');
+
+    const shell = document.querySelector<HTMLElement>('.blog-shell');
+
+    document.querySelectorAll<HTMLElement>('.blog-row').forEach((row) => {
+      const src = row.dataset.hero;
+      if (!src) return; // posts without a feature image just get the pill + dim
+      const alt = row.dataset.heroAlt || '';
+
+      row.addEventListener('pointerenter', (event) => {
+        // Anchor to the right edge of the content column, clamped into view.
+        const rect = (shell ?? row).getBoundingClientRect();
+        anchorX = Math.min(rect.right + 28, window.innerWidth - PREVIEW_W - 16);
+        pointerY = event.clientY;
+        render();
+        if (!reduce) document.addEventListener('pointermove', onMove);
+        show(src, alt);
+      });
+      row.addEventListener('pointerleave', () => {
+        document.removeEventListener('pointermove', onMove);
+        hide();
+      });
+    });
+  }
+</script>

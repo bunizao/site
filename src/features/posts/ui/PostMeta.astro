@@ -1,0 +1,19 @@
+---
+// Article byline: date · reading time, dot-separated and faint per chl.ee. No
+// author — this is a single-author personal blog whose identity already lives in
+// the bio header and topbar, so a per-post byline would just be noise (and would
+// surface the Ghost author name, which need not match the site profile).
+import type { Post } from '../types';
+import { formatPostDate } from '../format';
+
+interface Props {
+  post: Post;
+}
+
+const { post } = Astro.props;
+---
+
+<p class="blog-article__meta">
+  <span>{formatPostDate(post.publishedAt)}</span>
+  {post.readingTime && <span>{post.readingTime}</span>}
+</p>

@@ -85,7 +85,7 @@ test.describe('Standalone pages', () => {
     await page.goto('/mood/subscribe');
 
     await expect(page).toHaveURL(/\/mood$/);
-    await expect(page.locator('.notify-panel')).toHaveClass(/is-open/, { timeout: 30_000 });
-    await expect(page.locator('[data-notify-email]')).toBeVisible();
+    await expect(page.locator('.subscribe-panel')).toHaveClass(/is-open/, { timeout: 30_000 });
+    await expect(page.locator('[data-sub-email]')).toBeVisible();
   });
 });

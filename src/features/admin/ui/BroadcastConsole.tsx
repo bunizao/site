@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
+import { adminApiEndpoint } from './api';
 import {
   Table,
   TableBody,
@@ -34,6 +35,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Skeleton } from '@/components/ui/skeleton';
 import type {
+  BroadcastPreviewChannelCounts,
   DeliveryMode,
   NotifyChannel,
   SubscriberStatus,
@@ -51,11 +53,58 @@ interface BroadcastSummary {
   audience: { status: SubscriberStatus | 'active'; channels: NotifyChannel[]; deliveryModes?: DeliveryMode[] };
 }
 
-const CHANNEL_OPTIONS: NotifyChannel[] = ['mood', 'blog', 'privacy', 'announcement'];
+interface BroadcastPreviewState {
+  html: string;
+  recipientCount: number | null;
+  channelCounts: BroadcastPreviewChannelCounts;
+  previewing: boolean;
+  error: string | null;
+}
+
+type BroadcastPreviewAction =
+  | { type: 'clear' }
+  | { type: 'start' }
+  | { type: 'success'; html: string; recipientCount: number; channelCounts: BroadcastPreviewChannelCounts }
+  | { type: 'error'; message: string };
+
+const CHANNEL_OPTIONS: Array<{
+  value: NotifyChannel;
+  label: string;
+  description: string;
+}> = [
+  { value: 'blog', label: 'Blog', description: 'Long-form posts' },
+  { value: 'mood', label: 'Mood', description: 'Mood feed updates' },
+  { value: 'privacy', label: 'Privacy', description: 'Policy notices' },
+  { value: 'announcement', label: 'Announcement', description: 'Site-wide notes' },
+];
+const DEFAULT_NEWSLETTER_CHANNELS: NotifyChannel[] = ['blog', 'mood'];
+const EMPTY_PREVIEW_STATE: BroadcastPreviewState = {
+  html: '',
+  recipientCount: null,
+  channelCounts: {},
+  previewing: false,
+  error: null,
+};
 const STATUS_OPTIONS: Array<{ label: string; value: SubscriberStatus | 'active' }> = [
   { label: 'Active', value: 'active' },
   { label: 'Pending', value: 'pending' },
 ];
+
+function isNotifyChannel(value: unknown): value is NotifyChannel {
+  return typeof value === 'string' && CHANNEL_OPTIONS.some((option) => option.value === value);
+}
+
+function channelLabel(channel: NotifyChannel): string {
+  return CHANNEL_OPTIONS.find((option) => option.value === channel)?.label ?? channel;
+}
+
+function normalizeChannels(channels: NotifyChannel[] | undefined): NotifyChannel[] {
+  return Array.isArray(channels) ? channels.filter(isNotifyChannel) : [];
+}
+
+function formatChannelList(channels: NotifyChannel[]): string {
+  return channels.length ? channels.map(channelLabel).join(', ') : 'No sources';
+}
 
 function formatDate(iso: string | null | undefined): string {
   if (!iso) return '—';
@@ -78,6 +127,28 @@ const STATUS_VARIANTS: Record<BroadcastSummary['status'], 'success' | 'warning' 
   failed: 'destructive',
 };
 
+function previewReducer(
+  state: BroadcastPreviewState,
+  action: BroadcastPreviewAction,
+): BroadcastPreviewState {
+  switch (action.type) {
+    case 'clear':
+      return EMPTY_PREVIEW_STATE;
+    case 'start':
+      return { ...state, previewing: true, error: null };
+    case 'success':
+      return {
+        html: action.html,
+        recipientCount: action.recipientCount,
+        channelCounts: action.channelCounts,
+        previewing: false,
+        error: null,
+      };
+    case 'error':
+      return { ...state, previewing: false, error: action.message };
+  }
+}
+
 export default function BroadcastConsole() {
   const [history, setHistory] = React.useState<BroadcastSummary[]>([]);
   const [historyLoading, setHistoryLoading] = React.useState(true);
@@ -85,18 +156,21 @@ export default function BroadcastConsole() {
   const [subject, setSubject] = React.useState('');
   const [body, setBody] = React.useState('');
   const [audienceStatus, setAudienceStatus] = React.useState<'active' | 'pending'>('active');
-  const [audienceChannels, setAudienceChannels] = React.useState<NotifyChannel[]>(['mood']);
-  const [previewHtml, setPreviewHtml] = React.useState<string>('');
-  const [recipientCount, setRecipientCount] = React.useState<number | null>(null);
-  const [previewing, setPreviewing] = React.useState(false);
+  const [audienceChannels, setAudienceChannels] = React.useState<NotifyChannel[]>(DEFAULT_NEWSLETTER_CHANNELS);
+  const [preview, dispatchPreview] = React.useReducer(previewReducer, EMPTY_PREVIEW_STATE);
   const [sendDialogOpen, setSendDialogOpen] = React.useState(false);
   const [sending, setSending] = React.useState(false);
   const [lastResult, setLastResult] = React.useState<{ id: string; sent: number; failed: number } | null>(null);
+  const previewHtml = preview.html;
+  const recipientCount = preview.recipientCount;
+  const recipientChannelCounts = preview.channelCounts;
+  const previewing = preview.previewing;
+  const visibleError = error ?? preview.error;
 
   const loadHistory = React.useCallback(async () => {
     setHistoryLoading(true);
     try {
-      const response = await fetch('/api/admin/broadcasts');
+      const response = await fetch(adminApiEndpoint('/broadcasts'));
       if (!response.ok) {
         const payload = await response.json().catch(() => ({}));
         throw new Error(payload.error || `HTTP ${response.status}`);
@@ -117,14 +191,13 @@ export default function BroadcastConsole() {
   React.useEffect(() => {
     let cancelled = false;
     if (!subject.trim() || !body.trim() || !audienceChannels.length) {
-      setPreviewHtml('');
-      setRecipientCount(null);
+      dispatchPreview({ type: 'clear' });
       return () => {};
     }
     const id = window.setTimeout(async () => {
-      setPreviewing(true);
+      dispatchPreview({ type: 'start' });
       try {
-        const response = await fetch('/api/admin/broadcasts/preview', {
+        const response = await fetch(adminApiEndpoint('/broadcasts/preview'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -137,15 +210,21 @@ export default function BroadcastConsole() {
           const payload = await response.json().catch(() => ({}));
           throw new Error(payload.error || `HTTP ${response.status}`);
         }
-        const data = (await response.json()) as { html: string; recipientCount: number };
+        const data = (await response.json()) as {
+          html: string;
+          recipientCount: number;
+          channelCounts?: BroadcastPreviewChannelCounts;
+        };
         if (!cancelled) {
-          setPreviewHtml(data.html);
-          setRecipientCount(data.recipientCount);
+          dispatchPreview({
+            type: 'success',
+            html: data.html,
+            recipientCount: data.recipientCount,
+            channelCounts: data.channelCounts ?? {},
+          });
         }
       } catch (err) {
-        if (!cancelled) setError(err instanceof Error ? err.message : 'unknown');
-      } finally {
-        if (!cancelled) setPreviewing(false);
+        if (!cancelled) dispatchPreview({ type: 'error', message: err instanceof Error ? err.message : 'unknown' });
       }
     }, 350);
     return () => {
@@ -159,7 +238,7 @@ export default function BroadcastConsole() {
       const next = prev.includes(channel)
         ? prev.filter((c) => c !== channel)
         : [...prev, channel];
-      return next.length ? next : ['mood'];
+      return next;
     });
   }
 
@@ -167,7 +246,7 @@ export default function BroadcastConsole() {
     setSending(true);
     setError(null);
     try {
-      const response = await fetch('/api/admin/broadcasts', {
+      const response = await fetch(adminApiEndpoint('/broadcasts'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -208,7 +287,7 @@ export default function BroadcastConsole() {
           <CardContent className="space-y-4">
             <div className="space-y-1.5">
               <Label htmlFor="bc-subject">Subject</Label>
-              <Input id="bc-subject" value={subject} onChange={(event) => setSubject(event.target.value)} placeholder="Privacy policy update" />
+              <Input id="bc-subject" value={subject} onChange={(event) => setSubject(event.target.value)} placeholder="New post or mood roundup" />
             </div>
 
             <div className="space-y-1.5">
@@ -218,7 +297,7 @@ export default function BroadcastConsole() {
                 value={body}
                 onChange={(event) => setBody(event.target.value)}
                 rows={12}
-                placeholder={`Hi,\n\nWe updated the privacy policy. The changes are summarized below.\n\n- Updated cookie list\n- Renamed analytics provider\n\n[Read the full policy](https://buxx.me/privacy)\n\nThanks,\nbuxx.me`}
+                placeholder={`Hi,\n\nA new update is live. The highlights are below.\n\n- New blog post\n- New mood entry\n\n[Read it on buxx.me](https://buxx.me)\n\nThanks,\nbuxx.me`}
                 className="font-mono text-sm"
               />
               <p className="text-xs text-muted-foreground">Markdown supported. Bare URLs are auto-linked. Pure HTML is also accepted.</p>
@@ -247,29 +326,47 @@ export default function BroadcastConsole() {
                     <span className="font-medium">{recipientCount} subscriber{recipientCount === 1 ? '' : 's'}</span>
                   )}
                 </div>
+                {CHANNEL_OPTIONS.some((channel) => recipientChannelCounts[channel.value] !== undefined) && (
+                  <div className="mt-1 flex flex-wrap gap-2 text-[11px] text-muted-foreground">
+                    {CHANNEL_OPTIONS.map((channel) => {
+                      const count = recipientChannelCounts[channel.value];
+                      if (count === undefined) return null;
+                      return (
+                        <span key={channel.value} data-admin-recipient-source-count={channel.value}>
+                          {channel.label} <span className="text-foreground">{count}</span>
+                        </span>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             </div>
 
             <div className="space-y-1.5">
-              <Label>Audience channels</Label>
+              <Label>Audience sources</Label>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                 {CHANNEL_OPTIONS.map((channel) => {
-                  const id = `bc-channel-${channel}`;
-                  const checked = audienceChannels.includes(channel);
+                  const id = `bc-channel-${channel.value}`;
+                  const checked = audienceChannels.includes(channel.value);
                   return (
-                    <label key={channel} htmlFor={id} className="flex items-center gap-2 px-3 py-2 rounded-md border border-border bg-background text-sm cursor-pointer hover:bg-accent">
-                      <Checkbox id={id} checked={checked} onCheckedChange={() => toggleChannel(channel)} />
-                      <span>{channel}</span>
+                    <label key={channel.value} htmlFor={id} className="flex items-start gap-2 px-3 py-2 rounded-md border border-border bg-background text-sm cursor-pointer hover:bg-accent">
+                      <Checkbox id={id} checked={checked} onCheckedChange={() => toggleChannel(channel.value)} className="mt-0.5" />
+                      <span className="min-w-0">
+                        <span className="block">{channel.label}</span>
+                        <span className="block text-xs text-muted-foreground">{channel.description}</span>
+                      </span>
                     </label>
                   );
                 })}
               </div>
-              <p className="text-xs text-muted-foreground">Subscribers must have at least one selected channel to receive this broadcast.</p>
+              <p className="text-xs text-muted-foreground">
+                Choose at least one source. Blog and Mood are content newsletters; Privacy and Announcement are operational mail.
+              </p>
             </div>
 
             <div className="flex items-center justify-between">
-              {error && (
-                <div className="text-sm text-destructive">{error}</div>
+              {visibleError && (
+                <div className="text-sm text-destructive">{visibleError}</div>
               )}
               <div className="ml-auto flex items-center gap-2">
                 {lastResult && (
@@ -278,7 +375,7 @@ export default function BroadcastConsole() {
                   </span>
                 )}
                 <Button
-                  disabled={!subject.trim() || !body.trim() || !audienceChannels.length || recipientCount === 0 || previewing}
+                  disabled={!subject.trim() || !body.trim() || !audienceChannels.length || recipientCount === null || recipientCount === 0 || previewing}
                   onClick={() => setSendDialogOpen(true)}
                 >
                   <Send className="size-4" /> Send broadcast
@@ -346,6 +443,9 @@ export default function BroadcastConsole() {
                           <Badge variant={STATUS_VARIANTS[bc.status]} className="text-[10px] py-0">{bc.status}</Badge>
                           <span className="text-[11px] text-muted-foreground">{bc.sentCount}/{bc.recipientCount} · {bc.failedCount} failed</span>
                         </div>
+                        <div className="mt-1 text-[11px] text-muted-foreground">
+                          Sources: {formatChannelList(normalizeChannels(bc.audience.channels))}
+                        </div>
                       </TableCell>
                       <TableCell className="text-[11px] text-muted-foreground align-top whitespace-nowrap">
                         {formatDate(bc.sentAt || bc.createdAt)}
@@ -364,7 +464,7 @@ export default function BroadcastConsole() {
           <AlertDialogHeader>
             <AlertDialogTitle>Send broadcast to {recipientCount ?? '—'} subscribers?</AlertDialogTitle>
             <AlertDialogDescription>
-              Audience: status <span className="font-medium">{audienceStatus}</span>, channels {audienceChannels.join(', ')}. This sends real email through Resend and cannot be undone. Idempotency keys prevent duplicate sends within the same broadcast id.
+              Audience: status <span className="font-medium">{audienceStatus}</span>, sources {formatChannelList(audienceChannels)}. This sends real email through Resend and cannot be undone. Idempotency keys prevent duplicate sends within the same broadcast id.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

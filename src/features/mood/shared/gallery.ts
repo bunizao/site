@@ -1,4 +1,5 @@
 import * as cheerio from 'cheerio';
+import type { Element } from 'domhandler';
 
 export type MoodGalleryVariant = 'feed' | 'detail';
 export type MoodGalleryLayout = 'landscape' | 'portrait' | 'ultra-tall';
@@ -184,7 +185,7 @@ function normalizeGalleryItems(items: MoodGalleryItem[]): MoodGallery | null {
 
 function extractGalleryItemsFromImageListContainer(
   $: cheerio.CheerioAPI,
-  container: cheerio.Element,
+  container: Element,
 ): MoodGalleryItem[] {
   return $(container)
     .find('.image-preview-wrap')
@@ -218,7 +219,7 @@ function extractGalleryItemsFromImageListContainer(
     .filter((item): item is MoodGalleryItem => item !== null);
 }
 
-function extractGalleryItemFromPhotoWrap($: cheerio.CheerioAPI, wrapper: cheerio.Element): MoodGalleryItem | null {
+function extractGalleryItemFromPhotoWrap($: cheerio.CheerioAPI, wrapper: Element): MoodGalleryItem | null {
   const image = $(wrapper).find('img:not(.modal-img)').first();
   const style = [
     $(wrapper).attr('style') ?? '',
@@ -267,7 +268,7 @@ export function getMoodGallery(content: string): MoodGallery | null {
 }
 
 export function getMoodGalleryGroups(content: string): MoodGallery[] {
-  const $ = cheerio.load(content, { decodeEntities: false });
+  const $ = cheerio.load(content);
   const galleries: MoodGallery[] = [];
 
   $.root()
@@ -311,7 +312,7 @@ export function replaceMoodGalleryWithPlaceholders(content: string): {
   contentHtml: string;
   placeholders: MoodGalleryPlaceholder[];
 } {
-  const $ = cheerio.load(content, { decodeEntities: false });
+  const $ = cheerio.load(content);
   const placeholders: MoodGalleryPlaceholder[] = [];
   let placeholderIndex = 0;
 
@@ -409,7 +410,7 @@ export function renderMoodContentWithGalleries(content: string): string {
     return content;
   }
 
-  const $ = cheerio.load(contentHtml, { decodeEntities: false });
+  const $ = cheerio.load(contentHtml);
 
   placeholders.forEach(({ index, gallery }) => {
     $(`[${GALLERY_PLACEHOLDER_ATTR}="${index}"]`).replaceWith(

@@ -1,0 +1,43 @@
+---
+// /blog landing masthead. The blog is its own publication (無人之境) — its name,
+// mark, and voice are deliberately distinct from the personal homepage, so the
+// reader knows they've arrived somewhere with its own identity. Just the
+// wordmark and tagline; the author byline lived here once but read as redundant
+// against the mark, so the masthead stays a pure title block. The subscribe
+// trigger sits below — quiet until opened.
+import { blog } from '@/data/site';
+import SubscribePanel from '@/features/notify/SubscribePanel.astro';
+import ContactPanel from '@/features/posts/ui/ContactPanel.astro';
+import { isE2ESiteFixtureEnabled } from '@/lib/e2e';
+import { readPublicEnv } from '@/lib/runtime/env';
+
+const blogCopy = blog.copy[blog.locale.blog];
+const turnstileSiteKey = isE2ESiteFixtureEnabled(Astro.locals)
+  ? ''
+  : readPublicEnv(Astro.locals, 'TURNSTILE_SITE_KEY');
+---
+
+<header class="blog-masthead">
+  <h1 class="blog-masthead__wordmark">{blogCopy.name}</h1>
+  <p class="blog-masthead__tagline">{blogCopy.tagline}</p>
+  <div class="blog-masthead__actions">
+    <SubscribePanel variant="blog" feed={blog.feed} turnstileSiteKey={turnstileSiteKey} />
+    <ContactPanel />
+  </div>
+</header>
+
+<style is:global>
+  /* Lay the subscribe + contact triggers on one row. The subscribe trigger
+     owns a 24px top margin of its own (see SubscribePanel); move it onto the
+     row so both triggers share a baseline. */
+  .blog-masthead .blog-masthead__actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 20px;
+    margin-top: 24px;
+  }
+
+  .blog-masthead .blog-masthead__actions .sub-trigger {
+    margin-top: 0;
+  }
+</style>

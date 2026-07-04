@@ -1,0 +1,859 @@
+---
+// One subscribe panel for both surfaces — the blog and the mood feed share the
+// same dropdown, copy structure, and behaviour. It opens from a trigger button
+// and carries: a welcome line, an email field, a Posts/Moods channel choice,
+// a Turnstile check, a privacy note, an RSS link, and a submit. The form POSTs
+// `{ email, channels, deliveryMode, timezone, turnstileToken }` to the shared
+// /api/notify/subscribe pool; `channels` ('blog' | 'mood') is the contract field
+// that distinguishes the two streams (see packages/contracts/src/notify.ts).
+//
+// Styling rides on the global foreground/background tokens, so it reads the same
+// in either zone; only the accent differs (blog gets its Verdigris/Glacier).
+// The publication name in the welcome line is set apart by colour + weight, not
+// a display font — that stays plain on purpose.
+import { blog } from '@/data/site';
+
+interface Props {
+  variant: 'mood' | 'blog';
+  /** Pairs the trigger to its panel; unique per page is enough. */
+  id?: string;
+  turnstileSiteKey?: string;
+  /** RSS href shown as a quiet link in the footer row. */
+  feed?: string;
+  /** Drop edge the panel grows from, relative to its trigger. */
+  anchor?: 'left' | 'right';
+  /** Blog renders its own in-flow trigger; mood injects one into the header. */
+  withTrigger?: boolean;
+  triggerLabel?: string;
+}
+
+const {
+  variant,
+  id = variant,
+  turnstileSiteKey = '',
+  feed,
+  anchor = variant === 'blog' ? 'left' : 'right',
+  withTrigger = variant === 'blog',
+  triggerLabel = '订阅',
+} = Astro.props;
+
+// Welcome copy per surface. The stream name is wrapped in <em> and set apart by
+// colour + weight only — never a display font.
+const intro =
+  variant === 'blog'
+    ? { lead: '欢迎订阅', name: blog.name, tail: '，感谢您阅读我的文章。' }
+    : { lead: '欢迎订阅', name: '闲谈手记', tail: '，第一时间收到更新。' };
+
+---
+
+{withTrigger && (
+  <button
+    type="button"
+    class="sub-trigger"
+    data-subscribe-toggle={id}
+    aria-haspopup="dialog"
+    aria-expanded="false"
+  >
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M4 22a2 2 0 0 1-2-2V8h4V4a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2Z"></path>
+      <path d="M10 7h7M10 11h7M10 15h4"></path>
+    </svg>
+    <span>{triggerLabel}</span>
+    <svg class="sub-trigger__caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="m6 9 6 6 6-6"></path>
+    </svg>
+  </button>
+)}
+
+<div
+  class="subscribe-panel"
+  data-subscribe-panel
+  data-subscribe-id={id}
+  data-anchor={anchor}
+  data-turnstile-site-key={turnstileSiteKey}
+  role="dialog"
+  aria-label="订阅"
+  aria-hidden="true"
+>
+  <div class="subscribe-panel__inner">
+    <div data-sub-form-view>
+      <div class="sub-header">
+        <span class="sub-title">订阅</span>
+        <button type="button" class="sub-close" data-sub-close aria-label="关闭">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M18 6 6 18"></path>
+            <path d="m6 6 12 12"></path>
+          </svg>
+        </button>
+      </div>
+
+      <p class="sub-intro">
+        {intro.lead} <em>{intro.name}</em>{intro.tail}
+      </p>
+
+      <form data-sub-form autocomplete="off" novalidate>
+        <input
+          type="email"
+          class="sub-input"
+          placeholder="请留邮箱"
+          required
+          autocomplete="email"
+          data-sub-email
+        />
+
+        <div class="sub-streams" role="group" aria-label="订阅内容">
+          <div class="sub-channel">
+            <label class="sub-channel__head">
+              <input type="checkbox" name="channels" value="blog" checked data-sub-channel />
+              <svg class="sub-channel__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M5 3h9l5 5v13a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Z"></path>
+                <path d="M14 3v5h5"></path>
+                <path d="M8 13h8M8 17h5"></path>
+              </svg>
+              <span class="sub-channel__text">
+                <span class="sub-channel__title">Posts</span>
+                <span class="sub-channel__meta">更新即推送</span>
+              </span>
+              <span class="sub-switch" aria-hidden="true"></span>
+            </label>
+          </div>
+
+          <div class="sub-channel">
+            <label class="sub-channel__head">
+              <input type="checkbox" name="channels" value="mood" checked data-sub-channel />
+              <svg class="sub-channel__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M21 14a2 2 0 0 1-2 2H8l-4 4V6a2 2 0 0 1 2-2h13a2 2 0 0 1 2 2Z"></path>
+                <path d="M9 9h6M9 12h4"></path>
+              </svg>
+              <span class="sub-channel__text">
+                <span class="sub-channel__title">Moods</span>
+                <span class="sub-channel__meta">按下方频率推送</span>
+              </span>
+              <span class="sub-switch" aria-hidden="true"></span>
+            </label>
+
+            <div class="sub-channel__freq" data-sub-freq>
+              <div class="sub-seg" role="radiogroup" aria-label="Moods 推送频率">
+                <span class="sub-seg__pill" aria-hidden="true"></span>
+                <input type="radio" id={`${id}-mode-instant`} name="deliveryMode" value="instant" class="sub-seg__input" data-sub-mode checked />
+                <label for={`${id}-mode-instant`} class="sub-seg__label">即时</label>
+                <input type="radio" id={`${id}-mode-5h`} name="deliveryMode" value="every_5h" class="sub-seg__input" data-sub-mode />
+                <label for={`${id}-mode-5h`} class="sub-seg__label">每 5 时</label>
+                <input type="radio" id={`${id}-mode-daily`} name="deliveryMode" value="daily" class="sub-seg__input" data-sub-mode />
+                <label for={`${id}-mode-daily`} class="sub-seg__label">每日</label>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div data-sub-turnstile class="sub-turnstile"></div>
+
+        <p class="sub-hint" data-sub-hint></p>
+
+        <p class="sub-privacy">
+          订阅信息受
+          <a href="/privacy" class="sub-privacy__link" target="_blank" rel="noopener noreferrer">隐私政策</a>
+          保护。
+        </p>
+
+        <div class="sub-actions">
+          {feed && (
+            <a class="sub-rss" href={feed} target="_blank" rel="noopener noreferrer">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M4 11a9 9 0 0 1 9 9"></path>
+                <path d="M4 4a16 16 0 0 1 16 16"></path>
+                <circle cx="5" cy="19" r="1"></circle>
+              </svg>
+              <span>通过 RSS 订阅</span>
+            </a>
+          )}
+          <button type="submit" class="sub-submit" data-sub-submit>
+            <span class="sub-submit__lock" data-sub-submit-lock aria-hidden="true">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="10" rx="2"></rect><path d="M8 11V8a4 4 0 1 1 8 0v3"></path></svg>
+            </span>
+            <span data-sub-submit-text>订阅</span>
+            <svg class="sub-submit__arrow" data-sub-submit-arrow viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"></path></svg>
+            <span class="sub-spinner is-hidden" data-sub-submit-spinner></span>
+          </button>
+        </div>
+
+        <div class="sub-error" data-sub-error aria-live="polite"></div>
+      </form>
+    </div>
+
+    <div data-sub-success-view class="is-hidden">
+      <div class="sub-result">
+        <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+          <path d="m9 11 3 3L22 4"></path>
+        </svg>
+        <p class="sub-result__text" data-sub-success-text>确认邮件已发，去收件箱点一下。</p>
+        <button type="button" class="sub-submit sub-submit--block" data-sub-done>好</button>
+      </div>
+    </div>
+
+    <div data-sub-error-view class="is-hidden">
+      <div class="sub-result">
+        <p class="sub-result__text sub-result__text--error" data-sub-error-text>出错了，稍后重试。</p>
+        <button type="button" class="sub-submit sub-submit--block" data-sub-retry>重试</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style is:global>
+  /* Shared subscribe panel. Colours ride the global foreground/background
+     tokens so it reads identically in the mood zone and the blog zone; only the
+     accent differs, overridden under .blog-zone below. */
+  .subscribe-panel {
+    --sub-accent: hsl(var(--foreground));
+    position: fixed;
+    z-index: 60;
+    width: 320px;
+    font-family: var(--font-sans);
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(-4px) scale(0.97);
+    transform-origin: top right;
+    transition: opacity 0.15s ease, transform 0.15s ease, visibility 0.15s ease;
+    pointer-events: none;
+  }
+
+  .subscribe-panel[data-anchor='left'] {
+    transform-origin: top left;
+  }
+
+  .subscribe-panel.is-open {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0) scale(1);
+    pointer-events: auto;
+  }
+
+  .subscribe-panel__inner {
+    background: hsl(var(--background));
+    border: 1px solid hsl(var(--foreground) / 0.1);
+    border-radius: 12px;
+    box-shadow: 0 12px 32px hsl(var(--foreground) / 0.1), 0 2px 8px hsl(var(--foreground) / 0.04);
+    padding: 16px;
+  }
+
+  .sub-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+  }
+
+  .sub-title {
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    color: hsl(var(--foreground));
+  }
+
+  .sub-close {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    color: hsl(var(--muted-foreground));
+    background: none;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: color 0.12s ease, background 0.12s ease, scale 0.12s ease;
+  }
+
+  /* Keep the 24px visual but extend the tap target to 40×40 (24 + 8 + 8). */
+  .sub-close::before {
+    content: '';
+    position: absolute;
+    inset: -8px;
+  }
+
+  .sub-close:hover {
+    color: hsl(var(--foreground));
+    background: hsl(var(--foreground) / 0.06);
+  }
+
+  .sub-close:active {
+    scale: 0.96;
+  }
+
+  .sub-intro {
+    margin: 0 0 12px;
+    font-size: 13px;
+    line-height: 1.6;
+    color: hsl(var(--foreground) / 0.6);
+  }
+
+  .sub-intro em {
+    font-style: normal;
+    font-weight: 600;
+    color: hsl(var(--foreground));
+  }
+
+  .sub-input {
+    width: 100%;
+    height: 38px;
+    padding: 0 12px;
+    font-family: inherit;
+    font-size: 13px;
+    color: hsl(var(--foreground));
+    background: hsl(var(--foreground) / 0.04);
+    border: 1px solid hsl(var(--foreground) / 0.1);
+    border-radius: 9px;
+    outline: none;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  }
+
+  .sub-input::placeholder {
+    color: hsl(var(--muted-foreground) / 0.55);
+  }
+
+  .sub-input:focus {
+    border-color: hsl(var(--foreground) / 0.3);
+    box-shadow: 0 0 0 3px hsl(var(--foreground) / 0.05);
+  }
+
+  /* Channels stack vertically: one row each. Posts states its cadence inline
+     ("更新即推送"); Moods owns the frequency control, revealed beneath its row
+     only when it is on — so the cadence reads as belonging to Moods alone. */
+  .sub-streams {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 12px;
+  }
+
+  .sub-channel {
+    border: 1px solid hsl(var(--foreground) / 0.1);
+    border-radius: 11px;
+    transition: border-color 0.16s ease, background 0.16s ease;
+  }
+
+  .sub-channel__head:hover {
+    background: hsl(var(--foreground) / 0.02);
+    border-radius: 11px;
+  }
+
+  /* State hangs off the channel toggle only — scope past the frequency radios
+     nested in the Moods row, or their unchecked state leaks into :has(). */
+  .sub-channel:has(.sub-channel__head input:checked) {
+    border-color: hsl(var(--foreground) / 0.16);
+  }
+
+  .sub-channel__head {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    cursor: pointer;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .sub-channel__head input {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+    pointer-events: none;
+  }
+
+  .sub-channel__icon {
+    width: 17px;
+    height: 17px;
+    flex: none;
+    color: hsl(var(--foreground) / 0.42);
+    transition: color 0.16s ease;
+  }
+
+  .sub-channel:has(.sub-channel__head input:checked) .sub-channel__icon {
+    color: var(--sub-accent);
+  }
+
+  .sub-channel__text {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    min-width: 0;
+  }
+
+  .sub-channel__title {
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 0.01em;
+    color: hsl(var(--foreground) / 0.62);
+    transition: color 0.16s ease;
+  }
+
+  .sub-channel:has(.sub-channel__head input:checked) .sub-channel__title {
+    color: hsl(var(--foreground));
+  }
+
+  .sub-channel__meta {
+    font-size: 11px;
+    line-height: 1.3;
+    color: hsl(var(--muted-foreground) / 0.7);
+  }
+
+  /* Toggle switch — clearer on/off affordance than a tick for a settings row. */
+  .sub-switch {
+    flex: none;
+    margin-left: auto;
+    position: relative;
+    width: 32px;
+    height: 18px;
+    border-radius: 999px;
+    background: hsl(var(--foreground) / 0.14);
+    transition: background 0.18s ease;
+  }
+
+  .sub-switch::after {
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: hsl(var(--background));
+    box-shadow: 0 1px 2px hsl(var(--foreground) / 0.25);
+    transition: transform 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .sub-channel:has(.sub-channel__head input:checked) .sub-switch {
+    background: var(--sub-accent);
+  }
+
+  .sub-channel:has(.sub-channel__head input:checked) .sub-switch::after {
+    transform: translateX(14px);
+  }
+
+  .sub-channel:has(.sub-channel__head input:focus-visible) .sub-switch {
+    outline: 2px solid var(--sub-accent);
+    outline-offset: 2px;
+  }
+
+  /* Frequency reveal — a max-height collapse when Moods is off. Generous cap so
+     the segmented control never clips; flex children make the grid-fr trick
+     unreliable here, so max-height stays the robust choice. */
+  .sub-channel__freq {
+    overflow: hidden;
+    max-height: 80px;
+    padding: 0 12px 12px;
+    opacity: 1;
+    transition: max-height 0.24s ease, opacity 0.18s ease, padding 0.24s ease;
+  }
+
+  .sub-channel:has(.sub-channel__head input:not(:checked)) .sub-channel__freq {
+    max-height: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  /* Frequency — a sliding segmented control. The pill is translated by a CSS
+     var the controller updates as the selection changes. */
+  .sub-seg {
+    --sub-seg-count: 3;
+    --sub-seg-offset: 0%;
+    position: relative;
+    display: flex;
+    background: hsl(var(--foreground) / 0.04);
+    border-radius: 9px;
+    padding: 3px;
+    isolation: isolate;
+  }
+
+  .sub-seg__pill {
+    position: absolute;
+    top: 3px;
+    bottom: 3px;
+    left: 3px;
+    width: calc((100% - 6px) / var(--sub-seg-count));
+    border-radius: 7px;
+    background: hsl(var(--background));
+    box-shadow: 0 1px 3px hsl(var(--foreground) / 0.1), 0 0 0 1px hsl(var(--foreground) / 0.04);
+    transform: translate3d(var(--sub-seg-offset), 0, 0);
+    -webkit-transform: translate3d(var(--sub-seg-offset), 0, 0);
+    transition: transform 0.26s cubic-bezier(0.22, 1, 0.36, 1);
+    z-index: 0;
+    pointer-events: none;
+  }
+
+  .sub-seg__input {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+    pointer-events: none;
+  }
+
+  .sub-seg__label {
+    flex: 1;
+    position: relative;
+    z-index: 1;
+    text-align: center;
+    padding: 5px 0;
+    font-size: 12px;
+    font-weight: 500;
+    color: hsl(var(--muted-foreground));
+    border-radius: 7px;
+    cursor: pointer;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    transition: color 0.16s ease;
+  }
+
+  .sub-seg__input:checked + .sub-seg__label {
+    color: hsl(var(--foreground));
+  }
+
+  .sub-seg__input:focus-visible + .sub-seg__label {
+    outline: 2px solid var(--sub-accent);
+    outline-offset: 1px;
+  }
+
+  .sub-turnstile {
+    --sub-turnstile-scale: 0.92;
+    margin-top: 12px;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    min-height: 0;
+    transition: min-height 0.2s ease;
+  }
+
+  .sub-turnstile.has-widget {
+    min-height: 62px;
+  }
+
+  .sub-turnstile.has-widget > div {
+    transform: scale(var(--sub-turnstile-scale));
+    transform-origin: center top;
+    display: block;
+  }
+
+  .sub-hint {
+    margin: 8px 0 0;
+    font-size: 10.5px;
+    line-height: 1.4;
+    color: hsl(var(--muted-foreground) / 0.78);
+  }
+
+  .sub-hint:empty {
+    display: none;
+  }
+
+  .sub-privacy {
+    margin: 10px 0 0;
+    font-size: 10.5px;
+    line-height: 1.5;
+    color: hsl(var(--muted-foreground) / 0.74);
+  }
+
+  .sub-privacy__link {
+    color: hsl(var(--foreground));
+    text-decoration: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 0.16em;
+  }
+
+  .sub-privacy__link:hover {
+    text-decoration-thickness: 2px;
+  }
+
+  .sub-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 12px;
+  }
+
+  .sub-rss {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    font-weight: 500;
+    color: hsl(var(--muted-foreground) / 0.82);
+    transition: color 0.15s ease;
+  }
+
+  .sub-rss svg {
+    width: 13px;
+    height: 13px;
+    transition: color 0.15s ease;
+  }
+
+  .sub-rss:hover {
+    color: hsl(var(--foreground));
+  }
+
+  .sub-rss:hover svg {
+    color: var(--sub-accent);
+  }
+
+  .sub-submit {
+    margin-left: auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    height: 36px;
+    padding: 0 16px;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    color: hsl(var(--background));
+    background: hsl(var(--foreground));
+    border: 1px solid transparent;
+    border-radius: 9px;
+    cursor: pointer;
+    transition: opacity 0.15s ease, background 0.15s ease, color 0.15s ease, border-color 0.15s ease, scale 0.12s ease;
+  }
+
+  .sub-submit:hover {
+    opacity: 0.88;
+  }
+
+  .sub-submit:active:not(:disabled) {
+    scale: 0.96;
+  }
+
+  .sub-submit:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .sub-submit__arrow {
+    width: 15px;
+    height: 15px;
+  }
+
+  .sub-submit.is-locked,
+  .sub-submit.is-locked:disabled {
+    opacity: 1;
+    color: hsl(var(--muted-foreground));
+    background: transparent;
+    border-color: hsl(var(--foreground) / 0.14);
+    cursor: not-allowed;
+  }
+
+  .sub-submit.is-locked .sub-submit__arrow {
+    display: none;
+  }
+
+  .sub-submit__lock {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    opacity: 0.6;
+  }
+
+  .sub-submit.is-locked .sub-submit__lock {
+    display: inline-flex;
+  }
+
+  .sub-submit[aria-busy='true'] .sub-submit__lock,
+  .sub-submit[aria-busy='true'] .sub-submit__arrow {
+    display: none;
+  }
+
+  .sub-submit--block {
+    width: 100%;
+    margin: 0;
+  }
+
+  .sub-error {
+    margin-top: 8px;
+    font-size: 11px;
+    line-height: 1.4;
+    color: hsl(8 72% 58%);
+  }
+
+  .dark .sub-error {
+    color: hsl(8 78% 68%);
+  }
+
+  .sub-error:empty {
+    display: none;
+  }
+
+  .sub-spinner {
+    width: 14px;
+    height: 14px;
+    border: 2px solid hsl(var(--background) / 0.35);
+    border-top-color: hsl(var(--background));
+    border-radius: 50%;
+    animation: sub-spin 0.6s linear infinite;
+  }
+
+  @keyframes sub-spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
+  .sub-result {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 4px 6px;
+    color: hsl(var(--foreground));
+  }
+
+  .sub-result__text {
+    font-size: 13px;
+    font-weight: 500;
+    text-align: center;
+  }
+
+  .sub-result__text--error {
+    color: hsl(0 72% 58%);
+  }
+
+  /* In-flow trigger (blog). The mood trigger is a header action button styled
+     elsewhere; this one is a quiet text button under the masthead/article. */
+  .sub-trigger {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 0;
+    font: inherit;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--blog-muted, hsl(var(--muted-foreground)));
+    background: none;
+    border: none;
+    cursor: pointer;
+    transition: color 0.15s ease, scale 0.12s ease;
+  }
+
+  .sub-trigger:hover,
+  .sub-trigger[aria-expanded='true'] {
+    color: var(--blog-ink, hsl(var(--foreground)));
+  }
+
+  .sub-trigger:active {
+    scale: 0.96;
+  }
+
+  .sub-trigger > svg:first-child {
+    width: 16px;
+    height: 16px;
+    color: var(--blog-faint, hsl(var(--muted-foreground) / 0.7));
+    transition: color 0.15s ease;
+  }
+
+  .sub-trigger:hover > svg:first-child,
+  .sub-trigger[aria-expanded='true'] > svg:first-child {
+    color: var(--sub-accent, hsl(var(--foreground)));
+  }
+
+  .sub-trigger__caret {
+    width: 12px;
+    height: 12px;
+    color: var(--blog-faint, hsl(var(--muted-foreground) / 0.7));
+    transition: transform 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .sub-trigger[aria-expanded='true'] .sub-trigger__caret {
+    transform: rotate(180deg);
+  }
+
+  .is-hidden {
+    display: none !important;
+  }
+
+  /* Blog zone keeps its own accent and trigger spacing. */
+  .blog-zone .subscribe-panel {
+    --sub-accent: var(--blog-accent);
+  }
+
+  .blog-masthead .sub-trigger {
+    margin-top: 24px;
+  }
+
+  /* Foot-of-article strip: a tight cluster of pill buttons — the subscribe
+     trigger and the share actions share one shape, height, and surface so they
+     read as a single control group (the masthead keeps its flatter text
+     triggers; the article foot leans into the pill language on purpose). */
+  .blog-article-sub {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  /* Subscribe trigger as a pill, matching ShareRow's .share-btn. Scoped to the
+     foot so the masthead trigger stays the quiet text button it was. */
+  .blog-article-sub .sub-trigger {
+    height: 36px;
+    /* Tighter on the right: the caret is light and hugs the label (negative
+       margin below), so it needs less breathing room than the leading icon. */
+    padding: 0 11px 0 13px;
+    gap: 8px;
+    color: var(--blog-muted, hsl(var(--muted-foreground)));
+    background: hsl(var(--foreground) / 0.035);
+    border: 1px solid hsl(var(--foreground) / 0.09);
+    border-radius: 11px;
+    transition: color 0.15s ease, background 0.15s ease, border-color 0.15s ease, scale 0.12s ease;
+  }
+
+  /* The caret belongs to the label, not the icon — pull it in so it reads as a
+     subordinate affordance rather than a third equal-weight element. */
+  .blog-article-sub .sub-trigger__caret {
+    margin-left: -4px;
+  }
+
+  .blog-article-sub .sub-trigger:hover,
+  .blog-article-sub .sub-trigger[aria-expanded='true'] {
+    color: var(--blog-ink, hsl(var(--foreground)));
+    background: hsl(var(--foreground) / 0.07);
+    border-color: hsl(var(--foreground) / 0.14);
+  }
+
+  @media (max-width: 639px) {
+    .subscribe-panel {
+      width: min(320px, calc(100vw - 20px));
+      max-width: 320px;
+    }
+  }
+
+  @media (hover: none) and (pointer: coarse) {
+    .sub-input {
+      font-size: 16px;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .subscribe-panel {
+      transition: opacity 0.1s ease, visibility 0.1s ease;
+      transform: none !important;
+    }
+
+    .subscribe-panel.is-open {
+      transform: none !important;
+    }
+
+    .sub-trigger__caret,
+    .sub-seg__pill {
+      transition: none;
+    }
+
+    .sub-submit:active:not(:disabled),
+    .sub-trigger:active,
+    .sub-close:active {
+      scale: 1;
+    }
+  }
+</style>

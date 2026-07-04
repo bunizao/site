@@ -77,8 +77,8 @@ function loadScript(src: string): Promise<void> {
   return promise;
 }
 
-function ensureLibs(): Promise<void> {
-  return Promise.all([loadScript(LOTTIE_SRC), loadScript(PAKO_SRC)]).then(() => undefined);
+async function ensureLibs(): Promise<void> {
+  await Promise.all([loadScript(LOTTIE_SRC), loadScript(PAKO_SRC)]);
 }
 
 async function getAnimationData(emojiId: string): Promise<unknown | null> {

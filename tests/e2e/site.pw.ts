@@ -28,6 +28,8 @@ function createListeningPayload(overrides: Record<string, unknown>) {
     source: 'lastfm',
     track: {
       id: 'e2e-listening',
+      appleCatalogId: '',
+      catalogId: '',
       title: 'All of the Lights',
       artist: 'Kanye West',
       collection: 'My Beautiful Dark Twisted Fantasy',
@@ -165,7 +167,10 @@ test.describe('Home page', () => {
     await expect(page.locator('#writing-section .post-item').first()).toHaveCSS('display', 'flex');
     await expect(page.locator('#writing-section .post-meta').first()).toHaveCSS('display', 'flex');
     await expect(page.getByRole('button', { name: 'Tell me more' }).first()).toBeVisible();
-    await expect(page.getByRole('link', { name: 'Read all posts' })).toBeVisible();
+    // Writing is a doorway into the blog now: the publication sign and the
+    // bottom CTA both link internally to the canonical trailing-slash route.
+    await expect(page.locator('#writing-section .writing-portal')).toHaveAttribute('href', '/blog/');
+    await expect(page.locator('#writing-section .writing-enter')).toBeVisible();
     await expect(page.getByRole('link', { name: 'Privacy' })).toBeVisible();
 
     const themeToggle = page.locator('[data-theme-toggle]');
@@ -479,12 +484,21 @@ test.describe('Home page', () => {
 
   test('keeps listening metadata responsive for short and long tracks', async ({ page }) => {
     let listeningPayload = createListeningPayload({});
+    let legacyRequests = 0;
 
-    await page.route('**/api/listening', async (route) => {
+    await page.route('**/api/v2/listening', async (route) => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify(listeningPayload),
+      });
+    });
+    await page.route('**/api/listening', async (route) => {
+      legacyRequests += 1;
+      await route.fulfill({
+        status: 500,
+        contentType: 'application/json',
+        body: JSON.stringify({ error: 'legacy route should not be used' }),
       });
     });
 
@@ -493,11 +507,11 @@ test.describe('Home page', () => {
 
     const track = page.locator('[data-listening-link]');
     const title = page.locator('[data-listening-title]');
-    const artist = page.locator('[data-listening-artist]');
 
     await expect(page.locator('[data-listening-title-label]')).toHaveText('All of the Lights');
     await expect(track).toHaveClass(/is-inline/);
     await expect(title).not.toHaveClass(/is-marquee/);
+    expect(legacyRequests).toBe(0);
 
     listeningPayload = createListeningPayload({
       title: 'Monster (feat. JAŸ-Z, Rick Ross, Nicki Minaj & Bon Iver)',
@@ -537,15 +551,50 @@ test.describe('Home page', () => {
     expect(longLayout?.documentWidth).toBeLessThanOrEqual(longLayout?.viewportWidth ?? 0);
   });
 
-  test('shows the listening wave while a recent track preview plays', async ({ page }) => {
+  test('falls back to legacy listening data when v2 is unavailable', async ({ page }) => {
+    let v2Requests = 0;
+    let legacyRequests = 0;
+
+    await page.route('**/api/v2/listening', async (route) => {
+      v2Requests += 1;
+      await route.fulfill({
+        status: 503,
+        contentType: 'application/json',
+        body: JSON.stringify({ error: 'v2 unavailable' }),
+      });
+    });
+    await page.route('**/api/listening', async (route) => {
+      legacyRequests += 1;
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(createListeningPayload({
+          title: 'Legacy Listening Track',
+          artist: 'Fallback Artist',
+        })),
+      });
+    });
+
+    await page.goto('/');
+
+    await expect(page.locator('[data-listening-title-label]')).toHaveText('Legacy Listening Track');
+    await expect(page.locator('[data-listening-artist]')).toHaveText('Fallback Artist');
+    expect(v2Requests).toBeGreaterThan(0);
+    expect(legacyRequests).toBeGreaterThan(0);
+  });
+
+  test('shows the listening wave when MusicKit falls back to a recent track preview', async ({ page }) => {
+    let tokenRequests = 0;
+
     await page.addInitScript(() => {
       class FakeAudio extends EventTarget {
         paused = true;
         currentTime = 0;
         preload = '';
-        src: string;
+        duration = 30;
+        src = '';
 
-        constructor(src: string) {
+        constructor(src = '') {
           super();
           this.src = src;
         }
@@ -566,11 +615,21 @@ test.describe('Home page', () => {
       });
     });
 
-    await page.route('**/api/listening', async (route) => {
+    await page.route('**/api/v2/musickit/token', async (route) => {
+      tokenRequests += 1;
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({}),
+      });
+    });
+    await page.route('**/api/v2/listening', async (route) => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify(createListeningPayload({
+          appleCatalogId: '1440835848',
+          catalogId: '1440835848',
           isNowPlaying: false,
           previewUrl: 'https://example.com/preview.m4a',
         })),
@@ -582,10 +641,12 @@ test.describe('Home page', () => {
     const root = page.locator('[data-listening]');
     const playButton = page.locator('[data-listening-play]');
     await expect(page.locator('[data-listening-status]')).toHaveText('Recently Played');
+    await expect(playButton).toHaveAttribute('data-apple-catalog-id', '1440835848');
 
     await playButton.click();
     await expect(root).toHaveClass(/is-preview-playing/);
     await expect(playButton).toHaveClass(/is-preview-playing/);
+    expect(tokenRequests).toBe(0);
 
     const waveWidth = await page.locator('.listening-eyebrow-wave').evaluate((node) => {
       return Number.parseFloat(window.getComputedStyle(node).width);
@@ -594,11 +655,13 @@ test.describe('Home page', () => {
   });
 
   test('opens the listening track when artwork has no preview audio', async ({ page }) => {
-    await page.route('**/api/listening', async (route) => {
+    await page.route('**/api/v2/listening', async (route) => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify(createListeningPayload({
+          appleCatalogId: '',
+          catalogId: '',
           previewUrl: '',
           appleMusicUrl: 'https://music.apple.com/test-listening-click',
         })),
@@ -884,6 +947,23 @@ test.describe('Home page', () => {
         window.getComputedStyle(document.documentElement).getPropertyValue('--visual-viewport-top').trim()
       )
     )).toBe('24px');
+  });
+});
+
+test.describe('Blog posts', () => {
+  test('hides the table of contents for posts tagged no-toc', async ({ page }) => {
+    const response = await page.goto('/blog/quiet-architecture/');
+    expect(response?.ok()).toBeTruthy();
+
+    await expect(page.locator('.toc-container')).toHaveAttribute('hidden', '');
+    await expect(page.locator('.toc-link')).toHaveCount(0);
+  });
+
+  test('renders the table of contents for posts with enough headings', async ({ page }) => {
+    await page.goto('/blog/demo-effects/');
+
+    await expect(page.locator('.toc-container')).toBeVisible();
+    expect(await page.locator('.toc-link').count()).toBeGreaterThanOrEqual(2);
   });
 });
 

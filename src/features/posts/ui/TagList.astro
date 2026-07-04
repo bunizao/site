@@ -1,0 +1,22 @@
+---
+// Public tags as quiet chips, each linking to its archive at /blog/tag/:slug.
+import type { Tag } from '../types';
+import { tagPath } from '../format';
+
+interface Props {
+  tags: Tag[];
+}
+
+const { tags } = Astro.props;
+const publicTags = tags.filter((tag) => tag.visibility === 'public');
+---
+
+{publicTags.length > 0 && (
+  <ul class="blog-tags" aria-label="Tags">
+    {publicTags.map((tag) => (
+      <li>
+        <a class="blog-tag" href={tagPath(tag.slug)}>{tag.name}</a>
+      </li>
+    ))}
+  </ul>
+)}

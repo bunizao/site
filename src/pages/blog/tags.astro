@@ -1,0 +1,232 @@
+---
+export const prerender = true;
+
+import BlogLayout from '@/layouts/BlogLayout.astro';
+import TagCard from '@/features/posts/ui/TagCard.astro';
+import { getPublicTagDirectory } from '@/features/posts/server/content';
+import { getBlurUp } from '@/features/posts/server/blur-up';
+
+const tags = await getPublicTagDirectory();
+
+// Reuse the posts' blur-up treatment: a tiny inlined LQIP paints behind each
+// feature image so a loading card is a soft blur, not a flat black slab. Built
+// once at prerender; remote rasters only (local/SVG mock images resolve to null).
+const lqips = await Promise.all(
+  tags.map((tag) => (tag.featureImage ? getBlurUp(tag.featureImage) : Promise.resolve(null))),
+);
+const lqipBySlug = new Map(tags.map((tag, i) => [tag.slug, lqips[i]?.lqip ?? null]));
+
+// Split across two rows that drift in opposite directions. Alternating keeps
+// both rows balanced in length regardless of how many tags exist.
+const rowTop = tags.filter((_, i) => i % 2 === 0);
+const rowBottom = tags.filter((_, i) => i % 2 === 1);
+---
+
+<BlogLayout
+  title="主题"
+  description="按主题浏览 無人之境 — 每一个公开标签与它名下的文字。"
+  path="/blog/tags/"
+>
+  <!-- Pin the desktop layout before first paint so a refresh doesn't flash the
+       single-column fallback before JS swaps to the marquee. Mobile and
+       reduced-motion keep the static column. -->
+  <script is:inline>
+    if (
+      window.matchMedia('(min-width: 768px)').matches &&
+      !window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    ) {
+      document.documentElement.classList.add('tags-pinned');
+    }
+  </script>
+
+  <header class="tags-page-header">
+    <h1 class="tags-page-title">主题</h1>
+  </header>
+
+  {tags.length > 0 ? (
+    <section class="tag-marquee" data-tag-marquee aria-label="主题">
+      <div class="tag-marquee__row" data-marquee-row data-dir="right">
+        <div class="tag-marquee__track" data-marquee-track>
+          {rowTop.map((tag) => <TagCard tag={tag} lqip={lqipBySlug.get(tag.slug)} />)}
+        </div>
+      </div>
+      <div class="tag-marquee__row" data-marquee-row data-dir="left">
+        <div class="tag-marquee__track" data-marquee-track>
+          {rowBottom.map((tag) => <TagCard tag={tag} lqip={lqipBySlug.get(tag.slug)} />)}
+        </div>
+      </div>
+    </section>
+  ) : (
+    <p class="tag-index__empty">No tagged writing yet.</p>
+  )}
+</BlogLayout>
+
+<script>
+  // --- Inner post lists: make long lists scroll inside the glass panel ------
+  const VISIBLE = 3;
+  document.querySelectorAll<HTMLElement>('.tag-card-posts').forEach((container) => {
+    const posts = [...container.querySelectorAll<HTMLElement>('.tag-post-preview')];
+    if (posts.length <= VISIBLE) return;
+    const scroll = document.createElement('div');
+    scroll.className = 'tag-posts-scroll';
+    posts.forEach((post) => scroll.appendChild(post));
+    container.insertBefore(scroll, container.firstChild);
+    container.classList.add('is-scrollable');
+  });
+
+  // --- Pinned infinite marquee ---------------------------------------------
+  // On desktop the page locks (html.tags-pinned) and the wheel drives horizontal
+  // motion instead of scrolling: the top row drifts right, the bottom row left,
+  // both looping forever. A gentle idle drift keeps them alive at rest, and the
+  // wheel input is eased so flicks feel smooth. Disabled on narrow screens and
+  // for reduced-motion, where the CSS stays a single-column vertical list.
+  const marquee = document.querySelector<HTMLElement>('[data-tag-marquee]');
+  const desktop = window.matchMedia('(min-width: 768px)');
+  const calm = window.matchMedia('(prefers-reduced-motion: reduce)');
+
+  function setupMarquee() {
+    if (!marquee) return;
+    document.documentElement.classList.add('tags-pinned');
+
+    const rows = [...marquee.querySelectorAll<HTMLElement>('[data-marquee-row]')].map((row) => {
+      const track = row.querySelector<HTMLElement>('[data-marquee-track]')!;
+      const dir = row.dataset.dir === 'left' ? -1 : 1;
+      // Clone the set until it spans a viewport, then duplicate once more so a
+      // sub-set translate always has a copy ready to wrap into view.
+      const originals = [...track.children];
+      let guard = 0;
+      while (track.scrollWidth < window.innerWidth && guard < 12) {
+        originals.forEach((node) => track.appendChild(node.cloneNode(true)));
+        guard += 1;
+      }
+      const setWidth = track.scrollWidth;
+      [...track.children].forEach((node) => track.appendChild(node.cloneNode(true)));
+      return { track, dir, setWidth };
+    });
+
+    const wrap = (value: number, max: number) => ((value % max) + max) % max;
+    let target = 0; // accumulates wheel / touch / key input
+    let current = 0; // eased position
+    let raf = 0;
+    let last = performance.now();
+    const IDLE = 22; // px/sec ambient drift
+    const WHEEL = 0.85; // wheel px → marquee px
+    const EASE = 0.12;
+
+    // Wheel/touch over a scrollable post list scrolls the list, not the marquee.
+    const overInnerScroll = (node: EventTarget | null) =>
+      (node as Element | null)?.closest('.tag-posts-scroll') != null;
+
+    const onWheel = (event: WheelEvent) => {
+      if (overInnerScroll(event.target)) return;
+      target += event.deltaY * WHEEL;
+      event.preventDefault();
+    };
+    let touchY = 0;
+    const onTouchStart = (event: TouchEvent) => {
+      touchY = event.touches[0].clientY;
+    };
+    const onTouchMove = (event: TouchEvent) => {
+      if (overInnerScroll(event.target)) return;
+      const y = event.touches[0].clientY;
+      target += (touchY - y) * WHEEL;
+      touchY = y;
+      event.preventDefault();
+    };
+    const onKey = (event: KeyboardEvent) => {
+      const step = event.key === 'PageDown' || event.key === 'PageUp' ? 600 : 120;
+      if (event.key === 'ArrowDown' || event.key === 'PageDown' || event.key === ' ') {
+        target += step;
+        event.preventDefault();
+      } else if (event.key === 'ArrowUp' || event.key === 'PageUp') {
+        target -= step;
+        event.preventDefault();
+      }
+    };
+
+    window.addEventListener('wheel', onWheel, { passive: false });
+    window.addEventListener('touchstart', onTouchStart, { passive: true });
+    window.addEventListener('touchmove', onTouchMove, { passive: false });
+    window.addEventListener('keydown', onKey);
+
+    const tick = (now: number) => {
+      const dt = Math.min((now - last) / 1000, 0.05);
+      last = now;
+      target += IDLE * dt;
+      current += (target - current) * EASE;
+      for (const { track, dir, setWidth } of rows) {
+        const offset = wrap(current, setWidth);
+        const x = dir > 0 ? offset - setWidth : -offset;
+        track.style.transform = `translate3d(${x}px,0,0)`;
+      }
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener('wheel', onWheel);
+      window.removeEventListener('touchstart', onTouchStart);
+      window.removeEventListener('touchmove', onTouchMove);
+      window.removeEventListener('keydown', onKey);
+      document.documentElement.classList.remove('tags-pinned');
+    };
+  }
+
+  let teardown: (() => void) | null | undefined = null;
+  function sync() {
+    if (desktop.matches && !calm.matches) {
+      if (!teardown) teardown = setupMarquee();
+    } else if (teardown) {
+      teardown();
+      teardown = null;
+    }
+  }
+  sync();
+  desktop.addEventListener('change', sync);
+  calm.addEventListener('change', sync);
+
+  // --- Dominant-colour border for image cards (best-effort, CORS-guarded) ---
+  function dominantColor(img: HTMLImageElement): string | null {
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return null;
+    const size = 48;
+    canvas.width = size;
+    canvas.height = size;
+    try {
+      ctx.drawImage(img, 0, 0, size, size);
+      const data = ctx.getImageData(0, 0, size, size).data;
+      let r = 0, g = 0, b = 0, count = 0;
+      for (let i = 0; i < data.length; i += 16) {
+        const br = (data[i] + data[i + 1] + data[i + 2]) / 3;
+        if (br > 30 && br < 220) {
+          r += data[i];
+          g += data[i + 1];
+          b += data[i + 2];
+          count += 1;
+        }
+      }
+      if (!count) return null;
+      return `rgb(${Math.round(r / count)}, ${Math.round(g / count)}, ${Math.round(b / count)})`;
+    } catch {
+      return null;
+    }
+  }
+
+  document.querySelectorAll<HTMLElement>('.tag-card.has-image').forEach((card) => {
+    const bg = card.querySelector<HTMLElement>('.tag-card-bg');
+    const img = card.querySelector<HTMLImageElement>('.tag-card-bg > img');
+    if (!bg || !img) return;
+    const apply = () => {
+      bg.classList.add('is-loaded'); // crossfade the photo over the LQIP / surface
+      // Release the blurred LQIP layer once its fade (0.6s + 0.1s delay) ends;
+      // an invisible blur() pseudo otherwise stays composited per card.
+      setTimeout(() => bg.classList.remove('has-lqip'), 900);
+      const color = dominantColor(img);
+      if (color) card.style.setProperty('--tag-image-color', color);
+    };
+    if (img.complete && img.naturalWidth > 0) apply();
+    else img.addEventListener('load', apply);
+  });
+</script>

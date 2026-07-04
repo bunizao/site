@@ -1,6 +1,7 @@
 ---
-import { Pause, Play } from 'lucide-react';
 import type { ListeningTrack } from '@/features/home/server/listening';
+import appleLogo from '@/assets/apple-logo.svg?raw';
+import { Pause, Play } from 'lucide-react';
 
 interface Props {
   track?: ListeningTrack;
@@ -17,15 +18,18 @@ const year = track?.year?.trim() || (track?.playedAt ? new Intl.DateTimeFormat(u
   day: 'numeric',
 }).format(new Date(track.playedAt)) : 'Live');
 const link = track?.appleMusicUrl?.trim() || track?.sourceUrl?.trim() || '#';
+const isAppleMusic = link.includes('music.apple.com');
 const artwork = track?.thumbUrl?.trim() || track?.artworkUrl?.trim() || blankArtwork;
 const previewUrl = track?.previewUrl?.trim() || '';
+const rawCatalogId = (track?.appleCatalogId || track?.catalogId || track?.id || '').trim();
+const appleCatalogId = /^\d+$/u.test(rawCatalogId) ? rawCatalogId : '';
 const isLive = Boolean(track?.isNowPlaying);
 const hasTrack = Boolean(track);
 const hasLink = hasTrack && link !== '#';
-const hasPreview = Boolean(previewUrl);
+const hasPlayableAudio = Boolean(appleCatalogId || previewUrl);
 const trackLabel = `${title} — ${artist}`;
-const playLabel = hasPreview
-  ? `Play preview of ${title}`
+const playLabel = hasPlayableAudio
+  ? `Play ${title}`
   : hasLink
     ? `Open ${title}`
     : `${title} preview unavailable`;
@@ -42,10 +46,11 @@ const playLabel = hasPreview
       type="button"
       class:list={['listening-art', isLive ? 'is-live' : 'is-recent']}
       data-listening-play
+      data-apple-catalog-id={appleCatalogId}
       data-preview-url={previewUrl}
       data-track-url={hasLink ? link : ''}
       data-track-title={title}
-      disabled={!hasPreview && !hasLink}
+      disabled={!hasPlayableAudio && !hasLink}
       aria-pressed="false"
       aria-label={playLabel}
     >
@@ -65,9 +70,25 @@ const playLabel = hasPreview
           height="40"
         />
         <span class="listening-art-icons" aria-hidden="true">
-          <Play className="listening-art-icon listening-art-icon--play" aria-hidden="true" />
-          <Pause className="listening-art-icon listening-art-icon--pause" aria-hidden="true" />
+          <Play
+            className="listening-art-icon listening-art-icon--play"
+            aria-hidden="true"
+            strokeWidth={2.6}
+          />
+          <Pause
+            className="listening-art-icon listening-art-icon--pause"
+            aria-hidden="true"
+            strokeWidth={2.6}
+          />
         </span>
+        {isAppleMusic && (
+          <span class="listening-art-label" role="img" aria-label="Apple Music">
+            <span class="listening-art-label-lockup">
+              <Fragment set:html={appleLogo.replace('<svg ', '<svg class="listening-art-label-logo" aria-hidden="true" ')} />
+              <span class="listening-art-label-text">Music</span>
+            </span>
+          </span>
+        )}
       </span>
       <svg
         class="listening-art-tonearm"
@@ -104,8 +125,7 @@ const playLabel = hasPreview
       </svg>
     </button>
 
-    <div class="listening-copy">
-      <p class="listening-eyebrow">
+    <div class="listening-copy">      <p class="listening-eyebrow">
         <span class="listening-eyebrow-dot" aria-hidden="true"></span>
         <span class="listening-eyebrow-text" data-listening-status>
           {isLive ? 'Now Playing' : 'Recently Played'}
@@ -318,11 +338,10 @@ const playLabel = hasPreview
   }
 
   .listening-art-icon {
+    grid-area: 1 / 1;
     width: 20px;
     height: 20px;
     color: #fff;
-    fill: #fff;
-    stroke-width: 1.5;
     filter:
       drop-shadow(0 1px 6px hsl(0 0% 0% / 0.6))
       drop-shadow(0 0 1px hsl(0 0% 0% / 0.85));
@@ -439,6 +458,58 @@ const playLabel = hasPreview
   .listening-art-tonearm-hole {
     fill: #050505;
     stroke: none;
+  }
+
+  /* Apple Music credit — "APPLE MUSIC" curved along the vinyl groove like a
+     pressed record label. Static over the spinning disc so it stays legible,
+     at the same center and size as the record. */
+  /* Apple Music lockup ( Music) pressed into the vinyl, pinned to the bottom
+     of the groove ring. Shares the record's center/size and spins with it when
+     playing — upright at rest, rotating like printed label text in motion. */
+  .listening-art-label {
+    position: absolute;
+    top: 50%;
+    left: var(--record-left);
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    width: var(--record-size);
+    height: var(--record-size);
+    padding-bottom: 5px;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+    z-index: 3;
+  }
+
+  .listening-art.is-live .listening-art-label,
+  .listening-art.is-preview-playing .listening-art-label {
+    animation: listening-record-spin 14s linear infinite;
+  }
+
+  .listening-art.is-preview-playing .listening-art-label {
+    animation-duration: 8s;
+  }
+
+  .listening-art-label-lockup {
+    display: inline-flex;
+    align-items: center;
+    gap: 1.5px;
+    color: hsl(0 0% 100% / 0.82);
+    filter: drop-shadow(0 0.5px 0.5px hsl(0 0% 0% / 0.6));
+  }
+
+  .listening-art-label-logo {
+    width: 7px;
+    height: 7px;
+    fill: currentColor;
+  }
+
+  .listening-art-label-text {
+    font-family: var(--font-sans, ui-sans-serif, system-ui, sans-serif);
+    font-size: 7px;
+    font-weight: 600;
+    line-height: 1;
+    letter-spacing: 0.01em;
   }
 
   /* Copy */
@@ -807,7 +878,12 @@ const playLabel = hasPreview
 </style>
 
 <script>
+  import { musicKitPlayer } from '@/lib/musickit/player';
+
   type ListeningTrackPayload = {
+    id?: string;
+    appleCatalogId?: string;
+    catalogId?: string;
     title?: string;
     artist?: string;
     collection?: string;
@@ -993,11 +1069,14 @@ const playLabel = hasPreview
       const year = root.querySelector('[data-listening-year]');
       const status = root.querySelector('[data-listening-status]');
 
-      let audio: HTMLAudioElement | null = null;
       let trackTitle = playButton.dataset.trackTitle ?? 'Track';
       let trackUrl = playButton.dataset.trackUrl ?? '';
       let isLive = root.dataset.nowPlaying === 'true';
       const hasInitialTrack = root.dataset.hasInitialTrack === 'true';
+      const playbackRequest = {
+        catalogId: playButton.dataset.appleCatalogId ?? '',
+        previewUrl: playButton.dataset.previewUrl ?? '',
+      };
 
       const updateArtworkAccent = () => {
         if (!(artwork instanceof HTMLImageElement)) {
@@ -1041,14 +1120,15 @@ const playLabel = hasPreview
         if (status) status.textContent = nextIsLive ? 'Now Playing' : 'Recently Played';
       };
 
-      const setPreviewState = (isPlaying: boolean) => {
+      const setPlaybackState = (isPlaying: boolean) => {
         root.classList.toggle('is-preview-playing', isPlaying);
         playButton.classList.toggle('is-preview-playing', isPlaying);
         playButton.setAttribute('aria-pressed', isPlaying ? 'true' : 'false');
-        playButton.setAttribute(
-          'aria-label',
-          `${isPlaying ? 'Pause' : 'Play'} preview of ${trackTitle}`
-        );
+        if (isPlaying) {
+          playButton.setAttribute('aria-label', `Pause ${trackTitle}`);
+        } else {
+          syncPlayAction();
+        }
       };
 
       const syncTitleMarquee = () => {
@@ -1092,11 +1172,12 @@ const playLabel = hasPreview
       };
 
       const syncPlayAction = () => {
+        const catalogId = playButton.dataset.appleCatalogId ?? '';
         const previewUrl = playButton.dataset.previewUrl ?? '';
 
-        if (previewUrl) {
+        if (catalogId || previewUrl) {
           playButton.disabled = false;
-          playButton.setAttribute('aria-label', `Play preview of ${trackTitle}`);
+          playButton.setAttribute('aria-label', `Play ${trackTitle}`);
           return;
         }
 
@@ -1110,34 +1191,27 @@ const playLabel = hasPreview
         playButton.setAttribute('aria-label', `${trackTitle} preview unavailable`);
       };
 
-      const setPreview = (previewUrl: string) => {
-        if (audio) {
-          audio.pause();
-          audio.currentTime = 0;
-          audio = null;
-        }
-
-        setPreviewState(false);
-        playButton.dataset.previewUrl = previewUrl;
-        syncPlayAction();
+      const normalizeCatalogId = (track: ListeningTrackPayload) => {
+        const value = track.appleCatalogId?.trim()
+          || track.catalogId?.trim()
+          || track.id?.trim()
+          || '';
+        return /^\d+$/u.test(value) ? value : '';
       };
 
-      const getPreviewAudio = () => {
-        const previewUrl = playButton.dataset.previewUrl ?? '';
-        if (!previewUrl) {
-          return null;
+      const setPlaybackSources = (catalogId: string, previewUrl: string) => {
+        const changed = playbackRequest.catalogId !== catalogId
+          || playbackRequest.previewUrl !== previewUrl;
+
+        if (changed && musicKitPlayer.snapshot().owner === playbackRequest) {
+          musicKitPlayer.pause();
         }
 
-        if (audio) {
-          return audio;
-        }
-
-        audio = new Audio(previewUrl);
-        audio.preload = 'none';
-        audio.addEventListener('ended', () => {
-          setPreviewState(false);
-        });
-        return audio;
+        playbackRequest.catalogId = catalogId;
+        playbackRequest.previewUrl = previewUrl;
+        playButton.dataset.appleCatalogId = catalogId;
+        playButton.dataset.previewUrl = previewUrl;
+        setPlaybackState(false);
       };
 
       const formatPlayedAt = (playedAt: string) => {
@@ -1159,6 +1233,7 @@ const playLabel = hasPreview
         const nextLink = track.appleMusicUrl?.trim() || track.sourceUrl?.trim() || '';
         const nextArtwork = track.thumbUrl?.trim() || track.artworkUrl?.trim() || '';
         const nextPreviewUrl = track.previewUrl?.trim() || '';
+        const nextCatalogId = normalizeCatalogId(track);
         const nextYear = track.year?.trim() || formatPlayedAt(track.playedAt ?? '');
         const nextIsLive = Boolean(track.isNowPlaying);
 
@@ -1199,8 +1274,11 @@ const playLabel = hasPreview
           }
         }
 
-        if ((playButton.dataset.previewUrl ?? '') !== nextPreviewUrl) {
-          setPreview(nextPreviewUrl);
+        if (
+          (playButton.dataset.appleCatalogId ?? '') !== nextCatalogId
+          || (playButton.dataset.previewUrl ?? '') !== nextPreviewUrl
+        ) {
+          setPlaybackSources(nextCatalogId, nextPreviewUrl);
         } else {
           syncPlayAction();
         }
@@ -1209,52 +1287,46 @@ const playLabel = hasPreview
       };
 
       setLiveState(isLive);
-      setPreview(playButton.dataset.previewUrl ?? '');
+      setPlaybackSources(
+        playButton.dataset.appleCatalogId ?? '',
+        playButton.dataset.previewUrl ?? ''
+      );
       syncTitleMarquee();
 
       window.addEventListener('resize', syncTitleMarquee, { passive: true });
 
+      musicKitPlayer.subscribe((snapshot) => {
+        setPlaybackState(snapshot.owner === playbackRequest && snapshot.isPlaying);
+      });
+
       playButton.addEventListener('click', async () => {
-        const previewAudio = getPreviewAudio();
-        if (!previewAudio) {
+        if (!playbackRequest.catalogId && !playbackRequest.previewUrl) {
           if (trackUrl) {
             window.open(trackUrl, '_blank', 'noopener,noreferrer');
           }
           return;
         }
 
-        if (previewAudio.paused) {
-          setPreviewState(true);
-
-          try {
-            await previewAudio.play();
-          } catch {
-            setPreviewState(false);
-          }
-
-          return;
-        }
-
-        previewAudio.pause();
-        previewAudio.currentTime = 0;
-        setPreviewState(false);
+        musicKitPlayer.toggle(playbackRequest).catch(() => undefined);
       });
+
+      const fetchListeningTrack = async (endpoint: string) => {
+        const response = await fetch(endpoint, {
+          headers: {
+            Accept: 'application/json'
+          }
+        });
+        if (!response.ok) return null;
+
+        const payload = await response.json() as { track?: ListeningTrackPayload | null };
+        return payload.track ?? null;
+      };
 
       const refreshListening = async () => {
         try {
-          const response = await fetch('/api/listening', {
-            headers: {
-              Accept: 'application/json'
-            }
-          });
-          if (!response.ok) {
-            return;
-          }
-
-          const payload = await response.json() as { track?: ListeningTrackPayload };
-          if (payload.track) {
-            applyTrack(payload.track);
-          }
+          const track = await fetchListeningTrack('/api/v2/listening')
+            ?? await fetchListeningTrack('/api/listening');
+          if (track) applyTrack(track);
         } catch {
           // Keep the static fallback when live listening data is unavailable.
         }

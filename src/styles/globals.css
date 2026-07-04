@@ -145,6 +145,16 @@
        so a dragged project card slides off the screen edge instead of being
        sliced by a narrower container, and never widens the page. */
     overflow-x: clip;
+    /* Re-center content on the true viewport axis. `overflow-y: scroll` above
+       reserves the classic scrollbar on the right edge only (when the OS uses
+       classic bars), so every `margin:auto` container is biased ~8px left — the
+       "text weirdly hugs the left" look, most visible in Safari/WebKit. Mirror
+       that reserved gutter as left padding: `100vw - 100%` is exactly the
+       scrollbar width (0 with overlay bars). This needs no `scrollbar-gutter:
+       both-edges`, which WebKit silently degrades to a single edge. Body is
+       border-box (Tailwind preflight) and clips overflow-x, so it can't widen
+       the page; there are no `width:100vw` full-bleed children to skew. */
+    padding-left: calc(100vw - 100%);
   }
 
   body::before {
@@ -1331,6 +1341,12 @@
     transform: scale(0.96);
   }
 
+  .header-action-btn.is-active {
+    color: hsl(var(--foreground));
+    background: hsl(var(--foreground) / 0.06);
+    border-color: hsl(var(--foreground) / 0.15);
+  }
+
   /* Text labels - GSAP controls visibility via opacity/scale */
   .header-action-btn-label {
     display: inline-block;
@@ -1616,9 +1632,23 @@
     transform: translateY(16px);
   }
 
+  .js .writing-section .scroll-reveal-portal {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+
   .js .writing-section .scroll-reveal-item {
     opacity: 0;
     transform: translateX(-20px);
+  }
+
+  /* Once the reveal timeline runs, items hand opacity back to CSS via GSAP
+     clearProps (so the hover sibling-dim can take over). Their pre-reveal base
+     above is opacity:0, so the revealed state must restore a visible base —
+     otherwise cleared items snap straight back to hidden. */
+  .js .writing-section.is-revealed .scroll-reveal-item {
+    opacity: 1;
+    transform: none;
   }
 
   .js .writing-section .scroll-reveal-link {
@@ -1756,4 +1786,141 @@ html.no-transition * {
 
 .dark [data-hero-accent] {
   --hero-accent: var(--ha-d);
+}
+
+/* ─── Cross-document View Transitions ───────────────────────────────────────
+   Opt every same-origin navigation into the native View Transition API. This
+   is the MPA (cross-document) flavour: pages still fully reload, so none of the
+   per-page scripts (spotlight rAF, ScrollTrigger, observers, theme init) need
+   re-wiring — the browser just snapshots the old and new documents and tweens
+   between them. Unsupported browsers ignore the at-rule and navigate instantly.
+   https://developer.chrome.com/docs/web-platform/view-transitions/ */
+@view-transition {
+  navigation: auto;
+}
+
+/* Baseline document transition. A symmetric crossfade (old and new both easing
+   opacity over one shared window) makes two very different layouts — the dark
+   home vs the calm blog — ghost through each other at ~50% mid-tween: the washy
+   double-image that read as "ugly". Instead the outgoing page dissolves quickly
+   (ease-in) while the incoming one rises in over a longer, front-loaded expo
+   curve with a hair of translateY + scale. The new page dominates early, so
+   there's an "arriving" feel rather than a blend, and no flash of bare bg. */
+::view-transition-old(root) {
+  animation: vt-root-out 240ms cubic-bezier(0.4, 0, 1, 1) both;
+}
+
+::view-transition-new(root) {
+  animation: vt-root-in 460ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes vt-root-out {
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes vt-root-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.992);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Blog list ↔ post: the clicked row title and the article headline share a
+   per-slug `view-transition-name`, so the box morphs (position + size) while
+   the text cross-fades. The shared `post-title` class lets one rule own the
+   timing for every post without naming slugs in CSS. */
+::view-transition-group(.post-title) {
+  animation-duration: 460ms;
+  animation-timing-function: cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+/* The publication mark is the thread of continuity across the whole navigation.
+   On home the Writing doorway carries the same `blog-mark` name (Posts.astro),
+   so clicking "Enter" lifts that mark up into the blog masthead — one element
+   the eye tracks through the fade instead of everything dissolving at once.
+   The expo curve + longer window lets it travel the full home→masthead distance
+   smoothly and settle in step with the incoming page. */
+::view-transition-group(blog-mark) {
+  animation-duration: 460ms;
+  animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Article hero (blog-hero): lifted out of the root snapshot into its own
+   compositor layer — without this the large bitmap rides inside the full-
+   viewport root cross-fade (two big textures blended per frame), the jank seen
+   only on hero posts. The name is shared by two elements across the navigation:
+   the floating list preview while it is visible (.blog-preview.is-visible) and
+   the article hero (.blog-feature .blog-media). So hovering a row and clicking
+   it MORPHS the same image — the gutter preview card grows into the article
+   hero — instead of the preview vanishing and the hero fading in separately.
+   When no preview was hovered (keyboard, adjacent-post nav) only the new side
+   exists and it simply fades in. Matched timing + easing with the title morph
+   keeps the two shared elements settling in sync. */
+::view-transition-group(blog-hero),
+::view-transition-old(blog-hero),
+::view-transition-new(blog-hero) {
+  animation-duration: 480ms;
+  animation-timing-function: cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+/* Make both snapshots fill the morphing box and crop, instead of the UA default
+   (height:auto) where each keeps its own aspect. Without this, the square gutter
+   preview balloons into a near full-screen blob before the landscape hero fades
+   in — the stretch + ghost frame seen on hero posts. object-fit:cover turns the
+   square→landscape morph into one smooth center-crop. */
+::view-transition-old(blog-hero),
+::view-transition-new(blog-hero) {
+  height: 100%;
+  object-fit: cover;
+}
+
+/* WebKit runs view-transition morphs largely on the main thread and stutters
+   when the old/new snapshots differ in size. Worse, snapshots default to
+   inline-size:100% / block-size:auto anchored top-left, so the title flight
+   (list row 17px → headline 34px) drags left-anchored text across the screen
+   on every navigation. Until Safari composites these, WebKit (.ua-webkit, set
+   pre-render by the layouts' no-FOUC script) gets a calmer contract: a short
+   opacity-only root crossfade, and named groups that snap to their final
+   geometry and crossfade in place — continuity without the main-thread flight. */
+:root.ua-webkit::view-transition-old(root) {
+  animation: vt-root-out 160ms ease-in both;
+}
+
+:root.ua-webkit::view-transition-new(root) {
+  animation: vt-root-in-flat 240ms ease-out both;
+}
+
+@keyframes vt-root-in-flat {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* All named groups, not a class list: the root group never animates geometry,
+   so (*) only strips the flights — and it can't silently no-op on a WebKit
+   build without view-transition-class selector support. */
+:root.ua-webkit::view-transition-group(*) {
+  animation: none;
+}
+
+:root.ua-webkit::view-transition-old(blog-hero),
+:root.ua-webkit::view-transition-new(blog-hero) {
+  animation-duration: 240ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
+  }
 }

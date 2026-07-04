@@ -67,11 +67,11 @@
 
       // Listen for resize messages from iframe
       window.addEventListener('message', function(event) {
+        var embedOrigin = new URL(embedUrl, window.location.href).origin;
+        if (event.origin !== embedOrigin || event.source !== iframe.contentWindow) return;
+
         if (event.data && event.data.type === 'mood-embed-resize') {
-          // Verify the message is from our iframe
-          if (event.source === iframe.contentWindow) {
-            iframe.style.height = event.data.height + 'px';
-          }
+          iframe.style.height = event.data.height + 'px';
         }
       });
 
@@ -84,7 +84,7 @@
           iframe.contentWindow.postMessage({
             type: 'mood-embed-theme',
             theme: isDark ? 'dark' : 'light'
-          }, '*');
+          }, new URL(embedUrl, window.location.href).origin);
         };
 
         // Observe class changes on html/body

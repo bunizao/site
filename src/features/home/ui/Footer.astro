@@ -1,11 +1,31 @@
 ---
-import { footer, copyrightMark } from '@/data/site';
+import { footer, copyrightMark, profile } from '@/data/site';
 
 const { links, statusUrl } = footer;
 const mark = copyrightMark(new Date().getFullYear());
+
+// Icon-only contact badges; keep it to the channels that take a message.
+const socialNames = ['GitHub', 'Email', 'Telegram'];
+const socials = socialNames
+  .map((name) => profile.links.find((link) => link.name === name))
+  .filter((link): link is (typeof profile.links)[number] => Boolean(link));
 ---
 
 <footer class="footer">
+  <nav class="footer-socials" aria-label="Contact">
+    {socials.map((social) => (
+      <a
+        class="footer-social"
+        href={social.url}
+        title={social.name}
+        aria-label={social.name}
+        {...(social.url.startsWith('http') ? { target: '_blank', rel: 'me noopener noreferrer' } : { rel: 'me' })}
+      >
+        <social.icon aria-hidden="true" />
+      </a>
+    ))}
+  </nav>
+
   <nav class="footer-nav" aria-label="Footer">
     {links.map((link, i) => (
       <>
@@ -273,6 +293,34 @@ const mark = copyrightMark(new Date().getFullYear());
     align-items: center;
     gap: 14px;
     padding: 3rem 0 2rem;
+  }
+
+  .footer-socials {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    margin: 0;
+  }
+
+  .footer-social {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    color: hsl(var(--muted-foreground));
+    transition: color 0.15s ease;
+  }
+
+  .footer-social:hover {
+    color: hsl(var(--foreground));
+  }
+
+  /* lucide-react renders an unscoped <svg>; size it via :global. */
+  .footer-social :global(svg) {
+    width: 18px;
+    height: 18px;
   }
 
   .footer-nav,

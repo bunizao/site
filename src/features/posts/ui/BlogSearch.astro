@@ -1,0 +1,224 @@
+---
+// ⌘K command-palette search for the /blog publication. The engine is Pagefind
+// (mature static-site full-text search): the build step indexes dist/client and
+// emits /pagefind/, including its own UI bundle, so there is no runtime search
+// dependency to ship or maintain. This component is just the shell — a trigger
+// button, a native <dialog> (top-layer, Esc-to-close, focus-trapped for free),
+// and a lazy loader that mounts PagefindUI on first open and themes it to match
+// the blog tokens. Indexing is scoped to blog posts via `data-pagefind-body`
+// on the article (see pages/blog/[slug].astro).
+---
+
+<button class="blog-search-trigger" type="button" data-blog-search-open aria-label="Search posts" title="Search posts (⌘K)" aria-keyshortcuts="Control+K Meta+K">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" />
+  </svg>
+</button>
+
+<dialog class="blog-search" data-blog-search aria-label="Search posts">
+  <div class="blog-search__panel">
+    <div id="blog-search-ui"></div>
+    <p class="blog-search__fallback" hidden>Search isn't available here — try a production build.</p>
+  </div>
+</dialog>
+
+<script>
+  type PagefindUICtor = new (opts: Record<string, unknown>) => unknown;
+
+  const trigger = document.querySelector<HTMLButtonElement>('[data-blog-search-open]');
+  const dialog = document.querySelector<HTMLDialogElement>('[data-blog-search]');
+
+  if (trigger && dialog) {
+    const mount = dialog.querySelector<HTMLElement>('#blog-search-ui');
+    const fallback = dialog.querySelector<HTMLElement>('.blog-search__fallback');
+    let ready: Promise<void> | null = null;
+
+    const loadStyle = (href: string) => {
+      const link = document.createElement('link');
+      link.rel = 'stylesheet';
+      link.href = href;
+      document.head.appendChild(link);
+    };
+
+    const loadScript = (src: string) =>
+      new Promise<void>((resolve, reject) => {
+        const el = document.createElement('script');
+        el.src = src;
+        el.onload = () => resolve();
+        el.onerror = () => reject(new Error(`failed to load ${src}`));
+        document.head.appendChild(el);
+      });
+
+    // Build the Pagefind UI once, on first open. The assets only exist after a
+    // production build (the `pagefind` build step), so a dev/no-index load fails
+    // gracefully into the fallback note instead of a blank dialog.
+    function ensureUI(): Promise<void> {
+      if (!ready) {
+        ready = (async () => {
+          loadStyle('/pagefind/pagefind-ui.css');
+          await loadScript('/pagefind/pagefind-ui.js');
+          const Ctor = (window as unknown as { PagefindUI?: PagefindUICtor }).PagefindUI;
+          if (!Ctor) throw new Error('PagefindUI missing');
+          new Ctor({
+            element: '#blog-search-ui',
+            // Text-only keeps the calm; also avoids a broken placeholder for
+            // posts that ship without a feature image.
+            showImages: false,
+            showSubResults: true,
+            autofocus: true,
+            resetStyles: false,
+            translations: {
+              placeholder: 'Search posts',
+              zero_results: 'Nothing found for "[SEARCH_TERM]"',
+            },
+          });
+        })().catch((err) => {
+          console.warn('[blog-search]', err);
+          if (fallback) fallback.hidden = false;
+          ready = null; // allow a retry on next open
+          throw err;
+        });
+      }
+      return ready;
+    }
+
+    const focusInput = () => {
+      mount?.querySelector<HTMLInputElement>('input')?.focus();
+    };
+
+    const open = async () => {
+      if (!dialog.open) dialog.showModal();
+      try {
+        await ensureUI();
+        focusInput();
+      } catch {
+        /* fallback already shown */
+      }
+    };
+
+    const close = () => {
+      if (dialog.open) dialog.close();
+    };
+
+    trigger.addEventListener('click', open);
+
+    // Backdrop click closes (the inner panel stops propagation by being a child;
+    // clicks that land on the dialog box itself are outside the panel).
+    dialog.addEventListener('click', (event) => {
+      if (event.target === dialog) close();
+    });
+
+    const isTyping = () => {
+      const el = document.activeElement;
+      if (!el) return false;
+      const tag = el.tagName;
+      return tag === 'INPUT' || tag === 'TEXTAREA' || (el as HTMLElement).isContentEditable;
+    };
+
+    document.addEventListener('keydown', (event) => {
+      const key = event.key.toLowerCase();
+      if ((event.metaKey || event.ctrlKey) && key === 'k') {
+        event.preventDefault();
+        dialog.open ? close() : open();
+        return;
+      }
+      // Bare "/" is a classic search shortcut; ignore it while typing elsewhere.
+      if (key === '/' && !dialog.open && !isTyping()) {
+        event.preventDefault();
+        open();
+      }
+    });
+  }
+</script>
+
+<style is:global>
+  /* Trigger — a bare icon button, identical in weight to the theme toggle so
+     the two sit as an even pair. No pill, no keycap chips; the shortcut lives
+     in the title tooltip and the dialog's placeholder. */
+  .blog-search-trigger {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    border-radius: 999px;
+    color: var(--blog-faint);
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    transition: color 0.15s ease, background 0.15s ease, scale 0.12s ease;
+  }
+  /* Keep the 34px visual but extend the tap target to 40×40 (34 + 3 + 3). */
+  .blog-search-trigger::before {
+    content: '';
+    position: absolute;
+    inset: -3px;
+  }
+  .blog-search-trigger:hover {
+    color: var(--blog-ink);
+    background: hsl(var(--foreground) / 0.05);
+  }
+  .blog-search-trigger:active {
+    scale: 0.96;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .blog-search-trigger:active {
+      scale: 1;
+    }
+  }
+  .blog-search-trigger svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  /* Dialog — centered command palette, blog-themed Pagefind UI inside. */
+  .blog-search {
+    width: min(640px, calc(100vw - 32px));
+    max-height: min(70vh, 640px);
+    margin-top: 12vh;
+    margin-inline: auto;
+    padding: 0;
+    border: 1px solid var(--blog-line);
+    border-radius: 16px;
+    /* --background is a raw HSL channel triple (e.g. "0 0% 100%"), so it must be
+       wrapped in hsl() — using it bare renders an invalid, transparent fill. */
+    background: hsl(var(--background));
+    color: var(--blog-ink);
+    box-shadow: 0 24px 64px -20px rgb(0 0 0 / 0.5);
+    outline: none;
+    overflow: hidden;
+  }
+  .blog-search::backdrop {
+    background: rgb(0 0 0 / 0.42);
+    backdrop-filter: blur(2px);
+  }
+  .blog-search__panel {
+    padding: 14px;
+  }
+  .blog-search__fallback {
+    margin: 8px 4px 4px;
+    color: var(--blog-muted);
+    font-size: 14px;
+  }
+
+  /* Theme Pagefind's UI to the blog. These are Pagefind's documented hooks. */
+  .blog-search #blog-search-ui {
+    --pagefind-ui-scale: 0.9;
+    --pagefind-ui-primary: var(--blog-ink);
+    --pagefind-ui-text: var(--blog-body);
+    --pagefind-ui-background: hsl(var(--background));
+    --pagefind-ui-border: var(--blog-line);
+    --pagefind-ui-tag: var(--blog-fill);
+    --pagefind-ui-border-width: 1px;
+    --pagefind-ui-border-radius: 10px;
+    --pagefind-ui-font: inherit;
+  }
+  /* Soften Pagefind's default highlight from harsh yellow to ji — the pale
+     sky-blue "found" wash. Fill-only role: fails AA as text but reads soft. */
+  .blog-search #blog-search-ui mark {
+    background: color-mix(in srgb, var(--blog-ji) 26%, transparent);
+    color: inherit;
+    border-radius: 3px;
+  }
+</style>

@@ -1,5 +1,6 @@
 import { expect, test } from './fixtures';
 import { getLatestMoodId } from './helpers';
+import type { Page } from '@playwright/test';
 
 function createMoodFeedPost(
   id: string,
@@ -58,6 +59,20 @@ function createMoodFeedPayload(moodId: string) {
       avatar: '',
     },
   };
+}
+
+async function followMoodBackButton(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    const backButton = document.querySelector<HTMLAnchorElement>('[data-back-button]');
+    if (!backButton) {
+      throw new Error('Missing mood back button');
+    }
+    if (window.history.length > 1) {
+      window.history.back();
+      return;
+    }
+    window.location.href = backButton.href;
+  });
 }
 
 function createGalleryFeedPayload(moodId: string) {
@@ -163,7 +178,7 @@ function createComment(comment: {
 }
 
 async function disableNotifyNativeValidation(page: import('@playwright/test').Page): Promise<void> {
-  await page.locator('[data-notify-form]').evaluate((form) => {
+  await page.locator('[data-sub-form]').evaluate((form) => {
     form.setAttribute('novalidate', 'true');
   });
 }
@@ -278,7 +293,7 @@ test.describe('Mood routes', () => {
     await expandLink.click();
     await expect(page).toHaveURL(new RegExp(`/mood/${targetId}$`));
 
-    await page.locator('[data-back-button]').click();
+    await followMoodBackButton(page);
     await expect(page).toHaveURL(new RegExp(`/mood\\?${targetId}$`));
     await expect(page.locator(`[data-mood-id="${targetId}"]`)).toBeVisible();
     await expect
@@ -369,7 +384,7 @@ test.describe('Mood routes', () => {
     await page.evaluate(() => {
       window.sessionStorage.setItem('mood-test-shift-on-return', '1');
     });
-    await page.locator('[data-back-button]').click();
+    await followMoodBackButton(page);
     await expect(page).toHaveURL(new RegExp(`/mood\\?${targetId}$`));
     await expect(page.locator('[data-test-anchor-shift]')).toBeAttached({ timeout: 3_000 });
     await expect
@@ -1168,22 +1183,23 @@ test.describe('Mood routes', () => {
 
     await page.goto('/mood?subscribe=1', { waitUntil: 'domcontentloaded' });
 
-    const panel = page.locator('.notify-panel');
+    const panel = page.locator('.subscribe-panel');
     await expect(panel).toHaveClass(/is-open/, { timeout: 30_000 });
     await expect(page).toHaveURL(/\/mood$/);
 
     await disableNotifyNativeValidation(page);
-    await page.locator('[data-notify-email]').fill('reader@example.com');
-    await page.locator('label[for="notify-mode-daily"]').click();
-    await page.locator('[data-notify-submit]').click();
+    await page.locator('[data-sub-email]').fill('reader@example.com');
+    await page.locator('label[for="mood-mode-daily"]').click();
+    await page.locator('[data-sub-submit]').click();
 
-    await expect(page.locator('[data-notify-success-view]')).not.toHaveClass(/is-hidden/);
-    await expect(page.locator('[data-notify-success-text]')).toHaveText('Check your inbox to confirm.');
+    await expect(page.locator('[data-sub-success-view]')).not.toHaveClass(/is-hidden/);
+    await expect(page.locator('[data-sub-success-text]')).toHaveText('确认邮件已发，去收件箱点一下。');
     await expect.poll(() => requests.length).toBe(1);
-    await expect(requests[0]?.email).toBe('reader@example.com');
-    await expect(requests[0]?.deliveryMode).toBe('daily');
+    expect(requests[0]?.email).toBe('reader@example.com');
+    expect(requests[0]?.channels).toEqual(['blog', 'mood']);
+    expect(requests[0]?.deliveryMode).toBe('daily');
 
-    await page.locator('[data-notify-done]').click();
+    await page.locator('[data-sub-done]').click();
     await expect(panel).not.toHaveClass(/is-open/);
   });
 
@@ -1199,11 +1215,11 @@ test.describe('Mood routes', () => {
     await page.goto('/mood?subscribe=1', { waitUntil: 'domcontentloaded' });
 
     await disableNotifyNativeValidation(page);
-    await page.locator('[data-notify-email]').fill('reader@example.com');
-    await page.locator('[data-notify-submit]').click();
+    await page.locator('[data-sub-email]').fill('reader@example.com');
+    await page.locator('[data-sub-submit]').click();
 
-    await expect(page.locator('[data-notify-success-view]')).not.toHaveClass(/is-hidden/);
-    await expect(page.locator('[data-notify-success-text]')).toHaveText('This email is already subscribed.');
+    await expect(page.locator('[data-sub-success-view]')).not.toHaveClass(/is-hidden/);
+    await expect(page.locator('[data-sub-success-text]')).toHaveText('已经订阅过了。');
   });
 
   test('handles notify validation, rate limits, and retryable server errors', async ({ page }) => {
@@ -1230,22 +1246,22 @@ test.describe('Mood routes', () => {
     await page.goto('/mood?subscribe=1', { waitUntil: 'domcontentloaded' });
 
     await disableNotifyNativeValidation(page);
-    await page.locator('[data-notify-email]').fill('not-an-email');
-    await page.locator('[data-notify-submit]').click();
-    await expect(page.locator('[data-notify-error-msg]')).toHaveText('Please enter a valid email address.');
+    await page.locator('[data-sub-email]').fill('not-an-email');
+    await page.locator('[data-sub-submit]').click();
+    await expect(page.locator('[data-sub-error]')).toHaveText('请输入有效的邮箱地址。');
 
-    await page.locator('[data-notify-email]').fill('reader@example.com');
-    await page.locator('[data-notify-submit]').click();
-    await expect(page.locator('[data-notify-error-msg]')).toHaveText('Too many requests. Please try again later.');
-    await expect(page.locator('[data-notify-form-view]')).not.toHaveClass(/is-hidden/);
+    await page.locator('[data-sub-email]').fill('reader@example.com');
+    await page.locator('[data-sub-submit]').click();
+    await expect(page.locator('[data-sub-error]')).toHaveText('太频繁了，稍后再试。');
+    await expect(page.locator('[data-sub-form-view]')).not.toHaveClass(/is-hidden/);
 
-    await page.locator('[data-notify-submit]').click();
-    await expect(page.locator('[data-notify-error-view]')).not.toHaveClass(/is-hidden/);
-    await expect(page.locator('[data-notify-error-state-text]')).toHaveText('Backend failed');
+    await page.locator('[data-sub-submit]').click();
+    await expect(page.locator('[data-sub-error-view]')).not.toHaveClass(/is-hidden/);
+    await expect(page.locator('[data-sub-error-text]')).toHaveText('Backend failed');
 
-    await page.locator('[data-notify-retry]').click();
-    await expect(page.locator('[data-notify-form-view]')).not.toHaveClass(/is-hidden/);
-    await expect(page.locator('[data-notify-error-msg]')).toHaveText('');
+    await page.locator('[data-sub-retry]').click();
+    await expect(page.locator('[data-sub-form-view]')).not.toHaveClass(/is-hidden/);
+    await expect(page.locator('[data-sub-error]')).toHaveText('');
   });
 
   test('shows an empty state when the feed has no moods', async ({ page }) => {

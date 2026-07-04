@@ -26,8 +26,8 @@ const isHomeDevSurface = process.env.DEV_SURFACE === 'home';
   <ParallaxWrapper>
     <main class="page-container">
       {sections.hero && <Hero />}
-      {sections.experience && <Experience />}
       {sections.projects && <Projects />}
+      {sections.experience && <Experience />}
       {sections.posts && <Posts />}
       {sections.mood && <HomePreview runtimeDisabled={isHomeDevSurface} />}
       {sections.footer && <Footer />}
@@ -36,7 +36,10 @@ const isHomeDevSurface = process.env.DEV_SURFACE === 'home';
 </Layout>
 
 <style>
-  :global(.page-container > section:not(#projects-section)) {
+  /* Projects and Writing are excluded: both paint hover UI (card deck overflow,
+     the Sillage gloss popover) outside their box, which paint containment from
+     content-visibility would clip. */
+  :global(.page-container > section:not(#projects-section):not(#writing-section)) {
     content-visibility: auto;
     contain-intrinsic-size: auto 720px;
   }

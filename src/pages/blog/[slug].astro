@@ -1,0 +1,167 @@
+---
+export const prerender = true;
+
+import type { GetStaticPaths } from 'astro';
+import BlogLayout from '@/layouts/BlogLayout.astro';
+import PostMeta from '@/features/posts/ui/PostMeta.astro';
+import TagList from '@/features/posts/ui/TagList.astro';
+import Prose from '@/features/posts/ui/Prose.astro';
+import TableOfContents from '@/features/posts/ui/TableOfContents.astro';
+import AdjacentNav from '@/features/posts/ui/AdjacentNav.astro';
+import BackToTop from '@/features/posts/ui/BackToTop.astro';
+import NotByAI from '@/features/posts/ui/NotByAI.astro';
+import ShareRow from '@/features/posts/ui/ShareRow.astro';
+import BlogArticleBeacon from '@/features/posts/ui/BlogArticleBeacon.astro';
+import SubscribePanel from '@/features/notify/SubscribePanel.astro';
+import { blog } from '@/data/site';
+import Footer from '@/features/home/ui/Footer.astro';
+import { getAllPosts } from '@/features/posts/server/content';
+import { formatPostDate, postTitleTransitionName } from '@/features/posts/format';
+import { buildBlogOgImageUrl } from '@/features/posts/server/og-image';
+import { enrichAppleMusicEmbeds } from '@/features/posts/server/apple-music';
+import { enrichMoodEmbeds } from '@/features/posts/server/mood-embed';
+import { enrichBlurUp, getBlurUp } from '@/features/posts/server/blur-up';
+import { buildSrcSet, withWidthParam } from '@/lib/media/responsive-image';
+import { isE2ESiteFixtureEnabled } from '@/lib/e2e';
+import { readPublicEnv } from '@/lib/runtime/env';
+
+// Resolve the post and its reading-order neighbours once at build time;
+// `prev` is older, `next` is newer (posts come back newest-first). Apple Music
+// embeds become static "listening" cards and mood references become canonical
+// /mood/embed iframes here, while the page is built.
+export const getStaticPaths = (async () => {
+  const posts = await getAllPosts();
+
+  return Promise.all(
+    posts.map(async (post, index) => ({
+      params: { slug: post.slug },
+      props: {
+        post: {
+          ...post,
+          html: await enrichBlurUp(enrichMoodEmbeds(await enrichAppleMusicEmbeds(post.html))),
+        },
+        featureBlur: post.featureImage ? await getBlurUp(post.featureImage) : null,
+        prev: posts[index + 1] ?? null,
+        next: posts[index - 1] ?? null,
+      },
+    })),
+  );
+}) satisfies GetStaticPaths;
+
+const { post, prev, next, featureBlur } = Astro.props;
+const featureStyle = featureBlur
+  ? `aspect-ratio:${featureBlur.width} / ${featureBlur.height}`
+  : undefined;
+const blogFeatureImageWidths = [640, 960, 1200, 1600] as const;
+const isBlogImageProxyUrl = (value: string | null) =>
+  Boolean(value && value.includes('/api/v2/images/blog/'));
+const featureImageSrc = post.featureImage && isBlogImageProxyUrl(post.featureImage)
+  ? withWidthParam(post.featureImage, 1200)
+  : post.featureImage;
+const featureImageSrcSet = post.featureImage && isBlogImageProxyUrl(post.featureImage)
+  ? buildSrcSet(post.featureImage, blogFeatureImageWidths)
+  : undefined;
+const featureImageSizes = '(min-width: 960px) 920px, calc(100vw - 40px)';
+const hasNoTocTag = post.tags.some((tag) => tag.slug === 'hash-no-toc' || tag.name === '#no-toc');
+const hasNotByAiTag = post.tags.some((tag) => tag.slug === 'hash-not-by-ai' || tag.name === '#not-by-ai');
+const titleVT = postTitleTransitionName(post.slug);
+const postDescription = post.metaDescription ?? post.ogDescription ?? post.excerpt ?? undefined;
+const postAuthorName = post.primaryAuthor?.name ?? blog.author.name;
+const postImageForMetadata = post.featureImage ?? post.ogImage ?? post.twitterImage;
+const postOgImage = buildBlogOgImageUrl({
+  title: post.title,
+  site: blog.name,
+  excerpt: postDescription,
+  author: postAuthorName,
+  date: formatPostDate(post.publishedAt),
+  image: postImageForMetadata ? new URL(postImageForMetadata, 'https://buxx.me').toString() : undefined,
+});
+const publicTagNames = post.tags
+  .filter((tag) => tag.visibility === 'public')
+  .map((tag) => tag.name);
+const turnstileSiteKey = isE2ESiteFixtureEnabled(Astro.locals)
+  ? ''
+  : readPublicEnv(Astro.locals, 'TURNSTILE_SITE_KEY');
+---
+
+<BlogLayout
+  title={post.title}
+  description={postDescription}
+  path={`/blog/${post.slug}/`}
+  ogType="article"
+  ogImage={postOgImage}
+  ogImageAlt={`${post.title} preview image`}
+  publishedTime={post.publishedAt}
+  modifiedTime={post.updatedAt}
+  authorName={postAuthorName}
+  tags={publicTagNames}
+  preloadImage={featureImageSrc ? {
+    href: featureImageSrc,
+    srcset: featureImageSrcSet,
+    sizes: featureImageSrcSet ? featureImageSizes : undefined,
+  } : undefined}
+>
+  <a class="blog-back" href="/blog/">← All posts</a>
+
+  <div class="blog-article-wrap">
+    <aside class="blog-aside">
+      <div class="blog-aside__sticky">
+        <a class="blog-back-rail" href="/blog/">← Blog</a>
+        <TableOfContents noToc={hasNoTocTag} />
+      </div>
+    </aside>
+
+    <article data-pagefind-body>
+      <header class="blog-article__header">
+        <h1
+          class="blog-article__title"
+          style={`view-transition-name:${titleVT};view-transition-class:post-title`}
+        >{post.title}</h1>
+        <PostMeta post={post} />
+        <TagList tags={post.tags} />
+      </header>
+
+      {post.featureImage && (
+        <figure class="blog-feature">
+          <span
+            class:list={['blog-media', { 'is-blur': featureBlur }]}
+            style={featureBlur ? `--lqip:url('${featureBlur.lqip}')` : undefined}
+          >
+            <img
+              src={featureImageSrc}
+              srcset={featureImageSrcSet}
+              sizes={featureImageSrcSet ? featureImageSizes : undefined}
+              alt={post.featureImageAlt ?? ''}
+              loading="eager"
+              fetchpriority="high"
+              style={featureStyle}
+              data-pagefind-meta="image[src], image_alt[alt]"
+            />
+          </span>
+          {post.featureImageCaption && (
+            <figcaption set:html={post.featureImageCaption} />
+          )}
+        </figure>
+      )}
+
+      <Prose html={post.html} />
+    </article>
+  </div>
+
+  <footer class="blog-end">
+    <div class="blog-end__bar">
+      {hasNotByAiTag && <NotByAI />}
+      <div class="blog-article-sub">
+        <SubscribePanel variant="blog" anchor="right" feed={blog.feed} turnstileSiteKey={turnstileSiteKey} />
+        <ShareRow title={post.title} />
+      </div>
+    </div>
+
+    <AdjacentNav prev={prev} next={next} />
+  </footer>
+
+  <Footer />
+
+  <BackToTop />
+  <BlogArticleBeacon slug={post.slug} />
+</BlogLayout>

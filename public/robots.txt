@@ -2,4 +2,3 @@ User-agent: *
 Allow: /
 
 Sitemap: https://buxx.me/sitemap.xml
-Sitemap: https://blog.buxx.me/sitemap.xml

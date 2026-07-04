@@ -34,6 +34,7 @@ export default defineConfig({
         env: {
           ...process.env,
           ADMIN_DEV_BYPASS: '1',
+          ASTRO_DEV_BACKGROUND: '0',
           ASTRO_E2E_STRICT_PORT: '1',
           E2E_SITE_FIXTURE: '1',
         },

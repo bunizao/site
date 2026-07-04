@@ -8,8 +8,8 @@ const session = (Astro.locals as any).adminSession;
 ---
 
 <PortalLayout
-  title="Newsletter templates"
-  description="Live preview for every notification email template (subscribe, welcome, mood, digest, unsubscribe)."
+  title="Notification templates"
+  description="Live preview for subscribe, welcome, blog, mood, digest, and unsubscribe email templates."
   active="newsletter"
   user={{ login: session?.login || 'admin' }}
 >

@@ -6,6 +6,16 @@ import type {
   SubscriberStatus,
 } from './notify';
 
+export interface SubscriberChannelCount {
+  total: number;
+  pendingCount: number;
+  activeCount: number;
+  unsubscribedCount: number;
+}
+
+export type SubscriberChannelCounts = Record<NotifyChannel, SubscriberChannelCount>;
+export type BroadcastPreviewChannelCounts = Partial<Record<NotifyChannel, number>>;
+
 export interface SubscriberFilter {
   status?: SubscriberStatus | 'all';
   channel?: NotifyChannel;
@@ -21,6 +31,7 @@ export interface SubscriberListResult {
   pendingCount: number;
   activeCount: number;
   unsubscribedCount: number;
+  channelCounts?: SubscriberChannelCounts;
 }
 
 export interface AuditEntry {
@@ -82,6 +93,7 @@ export interface BroadcastPreviewResult {
   html: string;
   text: string;
   recipientCount: number;
+  channelCounts?: BroadcastPreviewChannelCounts;
 }
 
 export interface BroadcastSendResult {

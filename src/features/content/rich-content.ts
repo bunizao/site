@@ -261,7 +261,7 @@ function renderMediaItem(media: MediaItem): string {
 }
 
 export function sanitizeRichContentHtml(bodyHtml: string): string {
-  const $ = cheerio.load(bodyHtml, { decodeEntities: false }, false);
+  const $ = cheerio.load(bodyHtml, null, false);
 
   $(REMOVED_BODY_SELECTORS).remove();
 

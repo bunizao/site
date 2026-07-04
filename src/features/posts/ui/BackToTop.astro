@@ -1,0 +1,26 @@
+---
+// Floating back-to-top control. Hidden until the reader scrolls past one
+// viewport, then fades in. Bottom-right, out of the reading column's way.
+---
+
+<button class="blog-totop" type="button" aria-label="Back to top" hidden>
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M12 19V5M5 12l7-7 7 7" />
+  </svg>
+</button>
+
+<script>
+  const button = document.querySelector<HTMLButtonElement>('.blog-totop');
+  if (button) {
+    const onScroll = () => {
+      const past = window.scrollY > window.innerHeight;
+      button.hidden = !past;
+      button.classList.toggle('is-visible', past);
+    };
+    button.addEventListener('click', () =>
+      window.scrollTo({ top: 0, behavior: 'smooth' }),
+    );
+    window.addEventListener('scroll', onScroll, { passive: true });
+    onScroll();
+  }
+</script>

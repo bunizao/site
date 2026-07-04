@@ -159,6 +159,13 @@ const navbarIdleTimeoutAnimation = getPeekRuntimeSlotKey('navbar.idle-timeout');
     <script is:inline>
       (() => {
         document.documentElement.classList.add('js');
+        // All WebKit browsers (Safari + every iOS browser) report the Apple
+        // vendor string. The class gates the calmer view-transition and glass
+        // rules in globals.css/blog.css; it must exist before first render so
+        // the incoming page of a cross-document transition already matches.
+        if (navigator.vendor === 'Apple Computer, Inc.') {
+          document.documentElement.classList.add('ua-webkit');
+        }
         const storageKey = 'theme';
         const readStoredTheme = () => {
           try {
@@ -579,8 +586,6 @@ const navbarIdleTimeoutAnimation = getPeekRuntimeSlotKey('navbar.idle-timeout');
         if (media) {
           if (typeof media.addEventListener === 'function') {
             media.addEventListener('change', onSystemThemeChange);
-          } else if (typeof media.addListener === 'function') {
-            media.addListener(onSystemThemeChange);
           }
         }
       })();
