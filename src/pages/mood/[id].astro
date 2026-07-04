@@ -2,7 +2,7 @@
 import Layout from '../../layouts/Layout.astro';
 import dayjs from 'dayjs';
 import type { MoodContentDocument } from '@bunizao/contracts';
-import { loadMoodDocument } from '@/features/mood/server/api-client';
+import { loadMoodDocument, resolveMoodReadSource } from '@/features/mood/server/api-client';
 import '@/styles/mood-gallery.css';
 import { renderMoodContentWithGalleries } from '@/features/mood/shared/gallery';
 import { getMoodFeedAnchorHref } from '@/features/mood/shared/feed-anchor';
@@ -55,6 +55,7 @@ const telegramCommentUrl = channel && id ? `https://t.me/${channel}/${id}?commen
 const renderedPostContent = post
   ? renderMoodContentWithGalleries(post.bodyHtml)
   : '';
+const moodReadSource = resolveMoodReadSource(Astro.locals);
 ---
 
 <Layout
@@ -76,6 +77,7 @@ const renderedPostContent = post
       formattedDate={formattedDate}
       telegramCommentUrl={telegramCommentUrl}
       backHref={moodFeedBackHref}
+      readSource={moodReadSource}
     />
   </main>
   <BackToTop />
@@ -88,6 +90,7 @@ const renderedPostContent = post
   import { createAnimatedEmojiManager } from '@/features/mood/client/animated-emoji';
   import { initMoodDetailComments } from '@/features/mood/client/detail-comments-controller';
   import { initMoodGalleries } from '@/features/mood/client/gallery';
+  import { createMoodMetaPatcher } from '@/features/mood/client/meta-patcher';
   import { hydrateMoodRichText } from '@/features/mood/client/rich-text';
 
   document.querySelectorAll('.mood-post-content video').forEach((node) => {
@@ -140,6 +143,14 @@ const renderedPostContent = post
 
   const animatedEmoji = createAnimatedEmojiManager();
   void animatedEmoji.hydrate(document);
+
+  const moodPost = document.querySelector<HTMLElement>('[data-mood-id][data-mood-read-source]');
+  if (moodPost) {
+    void createMoodMetaPatcher({
+      root: document,
+      readSource: moodPost.dataset.moodReadSource,
+    }).patchVisible();
+  }
 
   const ALWAYS_LOADING = import.meta.env.PUBLIC_DEBUG_ALWAYS_LOADING === 'true';
   void initMoodDetailComments({

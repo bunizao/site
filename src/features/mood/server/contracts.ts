@@ -5,6 +5,7 @@ export type {
   MoodFeedItem,
   MoodFeedResponse,
   MoodForwardedFrom,
+  MoodMetaItem,
   MoodProbeResult,
   MoodQuote,
   MoodReaction,

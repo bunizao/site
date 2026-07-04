@@ -86,6 +86,12 @@ export interface MoodProbeResult {
   latestId: string;
 }
 
+export interface MoodMetaItem {
+  id: string;
+  reactions: MoodReaction[];
+  commentsCount: number;
+}
+
 export interface MoodComment {
   id: string;
   author: string;
