@@ -795,15 +795,17 @@ html[data-theme-setting='system'] .blog-theme-toggle [data-blog-icon='system'] {
     z-index: 45;
   }
 
-  /* The article column is centered in the shell, but the TOC hangs in the left
-     gutter — so the eye reads the TOC+article block as sitting left of center,
-     with a wide void on the right. Nudge the whole shell (mark, article, footer
-     move together, so internal alignment holds) right by half the gutter to
-     optically center the composition. Article pages only (:has), and only where
-     there's room to spare; the min() keeps a 24px right margin as a floor. */
+  /* The reading column is the visual axis — center the prose on the viewport, not
+     the {TOC + article} bounding box. The TOC is a thin dotted rail + faint labels,
+     far lighter than a 672px block of body text, so balancing it as equal mass
+     shoves the prose ~100px right of center and reads as misaligned. Instead we
+     keep the column near dead-center with just a small nudge (~32px) toward the
+     rail to acknowledge its slight weight. The whole shell moves together (mark,
+     article, footer), so internal alignment holds. Article pages only (:has); the
+     max() keeps a 24px right margin as a floor on narrower screens. */
   .blog-shell:has(.blog-article-wrap) {
     margin-left: auto;
-    margin-right: max(24px, calc(50vw - 470px));
+    margin-right: max(24px, calc(50vw - 400px));
   }
 }
 
