@@ -16,7 +16,7 @@ Canonical private API:
 - `POST https://api.buxx.me/v2/notify/dispatch`
 - `GET|POST https://api.buxx.me/v2/notify/schedule`
 - `GET|POST https://api.buxx.me/v2/notify/retry`
-- `POST https://api.buxx.me/v2/telegram/webhook`
+- `POST https://api.buxx.me/webhooks/telegram`
 
 Public compatibility:
 
@@ -60,14 +60,14 @@ Bindings:
 
 ## Scheduling
 
-- Immediate sends are triggered by `POST /v2/telegram/webhook`.
+- Immediate sends are triggered by `POST /webhooks/telegram`.
 - Scheduled sends are triggered by `/v2/notify/schedule`.
 - Failed sends are retried by `/v2/notify/retry`.
 
 ### Immediate flow
 
 ```text
-Telegram -> site-api /v2/telegram/webhook -> Cloudflare Queue
+Telegram -> site-api /webhooks/telegram -> Cloudflare Queue
          -> queue consumer -> /v2/notify/dispatch
          -> notify service -> Resend
 ```

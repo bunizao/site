@@ -22,6 +22,5 @@ export const MUSICKIT_TOKEN_PATH = '/musickit/token' as const;
 export const LEGACY_ADMIN_BASE_PATH = '/v2/admin' as const;
 export const LEGACY_NOTIFY_BASE_PATH = '/v2/notify' as const;
 export const LEGACY_GHOST_WEBHOOK_PATH = '/v2/ghost/webhook' as const;
-export const LEGACY_TELEGRAM_WEBHOOK_PATH = '/v2/telegram/webhook' as const;
 export const LEGACY_MUSICKIT_TOKEN_PATH = '/v2/musickit/token' as const;
 export const LEGACY_HEALTH_PATH = '/v2/health' as const;

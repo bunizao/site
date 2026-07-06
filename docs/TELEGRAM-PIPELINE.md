@@ -6,7 +6,7 @@ This document describes the private Telegram ingestion pipeline for mood posts, 
 
 The Telegram pipeline affects:
 
-- `POST https://api.buxx.me/v2/telegram/webhook`
+- `POST https://api.buxx.me/webhooks/telegram`
 - `https://buxx.me/api/v2/images/*`
 - immediate email notify dispatch
 - public mood pages that still consume Telegram content during this migration wave
@@ -15,7 +15,7 @@ The Telegram pipeline affects:
 
 ```mermaid
 flowchart TD
-  A["Telegram channel post"] --> B["Telegram calls https://api.buxx.me/v2/telegram/webhook"]
+  A["Telegram channel post"] --> B["Telegram calls https://api.buxx.me/webhooks/telegram"]
   B --> C["Validate X-Telegram-Bot-Api-Secret-Token"]
   C --> D["Resolve postId/imageIndex"]
   D --> E["Fetch Telegram media bytes"]
@@ -52,7 +52,7 @@ Responsibilities:
 
 Canonical private URLs:
 
-- `https://api.buxx.me/v2/telegram/webhook`
+- `https://api.buxx.me/webhooks/telegram`
 - `https://buxx.me/api/v2/images/*`
 - `https://api.buxx.me/v2/notify/dispatch`
 

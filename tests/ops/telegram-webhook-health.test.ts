@@ -21,7 +21,7 @@ function getExpectedWebhookUrl(): string {
   }
 
   const apiUrl = readEnv('API_URL') || 'https://api.buxx.me';
-  return `${apiUrl.replace(/\/+$/, '')}/v2/telegram/webhook`;
+  return `${apiUrl.replace(/\/+$/, '')}/webhooks/telegram`;
 }
 
 describe('telegram webhook health', () => {
@@ -41,6 +41,7 @@ describe('telegram webhook health', () => {
     expect(payload.result?.url ?? '').toBe(expectedUrl);
     expect(Array.isArray(payload.result?.allowed_updates)).toBe(true);
     expect(payload.result?.allowed_updates ?? []).toContain('channel_post');
+    expect(payload.result?.last_error_message ?? '').not.toMatch(/30[178]|redirect/i);
     expect(payload.result?.pending_update_count ?? 0).toBeGreaterThanOrEqual(0);
   });
 });

@@ -25,7 +25,7 @@ If the worker URL returns 404, the browser falls back to the Telegram CDN throug
 
 Three ways images land in R2:
 
-- **Webhook ingest** — `POST https://api.buxx.me/v2/telegram/webhook` validates the Telegram secret, parses `channel_post`, fetches photo bytes, writes original + variants.
+- **Webhook ingest** — `POST https://api.buxx.me/webhooks/telegram` validates the Telegram secret, parses `channel_post`, fetches photo bytes, writes original + variants.
 - **Authenticated backfill** — private `/v2/images/*` write paths with `HD_IMAGE_INGEST_TOKEN` when enabled.
 - **Avatar refresh** — private image refresh routes update the channel avatar object.
 

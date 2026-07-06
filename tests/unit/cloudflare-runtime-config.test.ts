@@ -89,7 +89,7 @@ describe('Cloudflare runtime configuration', () => {
   test('runs ops health against the current Telegram webhook route', () => {
     const opsWorkflow = readText('.github/workflows/ops-health.yml');
 
-    expect(opsWorkflow).toContain('TELEGRAM_EXPECTED_WEBHOOK_URL: https://api.buxx.me/v2/telegram/webhook');
+    expect(opsWorkflow).toContain('TELEGRAM_EXPECTED_WEBHOOK_URL: https://api.buxx.me/webhooks/telegram');
     expect(opsWorkflow).not.toContain('TELEGRAM_EXPECTED_WEBHOOK_URL: https://image.buxx.me/webhook');
   });
 

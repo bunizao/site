@@ -36,7 +36,7 @@ The private `site-api` Worker owns:
 - `/api/*`
 - `/oauth*`
 - `/dev/*`
-- `/v2/telegram/webhook`
+- `/webhooks/telegram`
 - mood image ingest and serving
 - queue consumers and cron-triggered notify work
 
