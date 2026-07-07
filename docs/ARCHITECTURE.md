@@ -92,6 +92,8 @@ Telegram references:
 
 Content routes with Markdown renderers negotiate on `Accept`. A request that explicitly ranks `text/markdown` at least as high as `text/html` receives `text/markdown; charset=utf-8`; browsers and wildcard-only clients receive HTML. Both variants set `Vary: Accept`, and Markdown responses also set `x-markdown-tokens` using the approximate `Math.ceil(chars / 4)` estimator.
 
+Blog Markdown is generated during `bun run build` under `dist/client/_agent-markdown/blog/*` and served through the Worker from static assets. Mood Markdown stays runtime-rendered because it reads the live feed/archive.
+
 The edge cache key includes the negotiated variant (`html` or `markdown`) plus path and query string, so HTML and Markdown can never share a cache entry. `/dev`, `/oauth*`, `/api*`, and `/v2*` are `no-store` and never negotiate Markdown.
 
 | Route family | Cache-Control | Edge cache |

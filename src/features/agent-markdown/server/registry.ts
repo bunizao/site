@@ -27,6 +27,7 @@ import type {
   MarkdownRendererContext,
   MatchedMarkdownRenderer,
 } from './types';
+import { readBuiltBlogMarkdown } from './built-blog';
 import privacyMarkdownRaw from '@/content/pages/privacy.md?raw';
 
 export const MARKDOWN_CONTENT_TYPE = 'text/markdown; charset=utf-8';
@@ -180,6 +181,46 @@ async function renderMoodPost(context: MarkdownRendererContext) {
   }
 }
 
+async function renderBlogIndex(context: MarkdownRendererContext) {
+  const built = await readBuiltBlogMarkdown(context, { kind: 'index' });
+  if (built) return markdownResult(built.body, built.status);
+
+  return markdownResult(buildPostListAgentMarkdown('Blog', await getAllPosts(), context.site));
+}
+
+async function renderBlogTags(context: MarkdownRendererContext) {
+  const built = await readBuiltBlogMarkdown(context, { kind: 'tags' });
+  if (built) return markdownResult(built.body, built.status);
+
+  return markdownResult(buildTagDirectoryAgentMarkdown(await getPublicTagDirectory(), context.site));
+}
+
+async function renderBlogTag(context: MarkdownRendererContext) {
+  const slug = context.params.slug ?? '';
+  const built = await readBuiltBlogMarkdown(context, { kind: 'tag', slug });
+  if (built) return markdownResult(built.body, built.status);
+
+  const archive = await getTagArchive(slug);
+  if (!archive) return markdownResult('Blog tag not found.\n', 404);
+
+  return markdownResult(buildTagArchiveAgentMarkdown(
+    archive.tag,
+    archive.archive.posts,
+    context.site,
+  ));
+}
+
+async function renderBlogPost(context: MarkdownRendererContext) {
+  const slug = context.params.slug ?? '';
+  const built = await readBuiltBlogMarkdown(context, { kind: 'post', slug });
+  if (built) return markdownResult(built.body, built.status);
+
+  const post = await getPostBySlug(slug);
+  if (!post) return markdownResult('Blog post not found.\n', 404);
+
+  return markdownResult(buildPostAgentMarkdown(post, context.site));
+}
+
 const renderers: MarkdownRenderer[] = [
   {
     id: 'home',
@@ -197,39 +238,25 @@ const renderers: MarkdownRenderer[] = [
     id: 'blog-index',
     cacheTtlSeconds: 120,
     match: matchExact('/blog'),
-    render: async (context) => markdownResult(buildPostListAgentMarkdown('Blog', await getAllPosts(), context.site)),
+    render: renderBlogIndex,
   },
   {
     id: 'blog-tags',
     cacheTtlSeconds: 120,
     match: matchExact('/blog/tags'),
-    render: async (context) => markdownResult(buildTagDirectoryAgentMarkdown(await getPublicTagDirectory(), context.site)),
+    render: renderBlogTags,
   },
   {
     id: 'blog-tag',
     cacheTtlSeconds: 120,
     match: matchBlogTag,
-    render: async (context) => {
-      const archive = await getTagArchive(context.params.slug ?? '');
-      if (!archive) return markdownResult('Blog tag not found.\n', 404);
-
-      return markdownResult(buildTagArchiveAgentMarkdown(
-        archive.tag,
-        archive.archive.posts,
-        context.site,
-      ));
-    },
+    render: renderBlogTag,
   },
   {
     id: 'blog-post',
     cacheTtlSeconds: 300,
     match: matchBlogPost,
-    render: async (context) => {
-      const post = await getPostBySlug(context.params.slug ?? '');
-      if (!post) return markdownResult('Blog post not found.\n', 404);
-
-      return markdownResult(buildPostAgentMarkdown(post, context.site));
-    },
+    render: renderBlogPost,
   },
   {
     id: 'mood-feed',
