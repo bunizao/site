@@ -1101,6 +1101,72 @@ test.describe('Mood routes', () => {
     }
   });
 
+  test('renders sticker media in detail comments with its own radius matte', async ({ page, request }) => {
+    const latestMoodId = await getLatestMoodId(request);
+    test.skip(!latestMoodId, 'No mood id available from /api/moods');
+
+    await page.setViewportSize({ width: 390, height: 844 });
+
+    const stickerImage = 'https://image.example.test/comment-sticker.webp';
+    const tinyGif = Buffer.from('R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==', 'base64');
+
+    await page.route('**/api/comments?postId=*', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          comments: [
+            {
+              id: '9002',
+              author: 'Sticker',
+              authorAvatar: '',
+              datetime: '2026-02-10T13:10:00+00:00',
+              content: `<img class="sticker" src="${stickerImage}" style="width: 256px;" alt="Sticker" loading="lazy" decoding="async" />`,
+              reactions: [],
+            },
+          ],
+          hasMore: false,
+          nextBefore: '',
+        }),
+      });
+    });
+
+    await page.route(stickerImage, async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'image/gif',
+        body: tinyGif,
+      });
+    });
+
+    await page.goto(`/mood/${latestMoodId}#comments`, { waitUntil: 'domcontentloaded' });
+
+    const sticker = page.locator('[data-comments-list] .mood-comment-content img.sticker');
+    await expect(sticker).toBeVisible({ timeout: 30_000 });
+
+    const styles = await sticker.evaluate((image) => {
+      const stickerStyle = getComputedStyle(image);
+      const matte = image.closest('p');
+      const matteStyle = matte ? getComputedStyle(matte) : null;
+      const body = image.closest('.mood-comment-body');
+      const bodyStyle = body ? getComputedStyle(body) : null;
+
+      return {
+        bodyBottomLeftRadius: bodyStyle?.borderBottomLeftRadius,
+        bodyTopLeftRadius: bodyStyle?.borderTopLeftRadius,
+        matteBoxShadow: matteStyle?.boxShadow,
+        matteOverflow: matteStyle?.overflow,
+        stickerRadius: stickerStyle.borderTopLeftRadius,
+      };
+    });
+
+    expect(styles.bodyTopLeftRadius).toBe('16px');
+    expect(styles.bodyBottomLeftRadius).toBe('5px');
+    expect(styles.stickerRadius).toBe('8px');
+    expect(styles.matteBoxShadow).toContain('rgb(255, 255, 255)');
+    expect(styles.matteOverflow).toBe('hidden');
+  });
+
   test('renders custom emoji reactions in detail comments', async ({ page, request }) => {
     const latestMoodId = await getLatestMoodId(request);
     test.skip(!latestMoodId, 'No mood id available from /api/moods');
