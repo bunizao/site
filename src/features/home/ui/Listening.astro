@@ -1214,12 +1214,52 @@ const playLabel = hasPlayableAudio
         }
       };
 
+      let listeningRefreshTimer: number | undefined;
+
+      const clearListeningRefresh = () => {
+        if (listeningRefreshTimer === undefined) {
+          return;
+        }
+
+        window.clearTimeout(listeningRefreshTimer);
+        listeningRefreshTimer = undefined;
+      };
+
       const scheduleListeningRefresh = (delay: number) => {
-        window.setTimeout(async () => {
+        clearListeningRefresh();
+        if (document.visibilityState !== 'visible') {
+          return;
+        }
+
+        listeningRefreshTimer = window.setTimeout(async () => {
+          listeningRefreshTimer = undefined;
+          if (document.visibilityState !== 'visible') {
+            return;
+          }
+
           await refreshListening();
           scheduleListeningRefresh(LISTENING_REFRESH_MS);
         }, delay);
       };
+
+      const refreshListeningAndResume = async () => {
+        clearListeningRefresh();
+        if (document.visibilityState !== 'visible') {
+          return;
+        }
+
+        await refreshListening();
+        scheduleListeningRefresh(LISTENING_REFRESH_MS);
+      };
+
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') {
+          void refreshListeningAndResume();
+          return;
+        }
+
+        clearListeningRefresh();
+      });
 
       scheduleListeningRefresh(hasInitialTrack ? LISTENING_REFRESH_MS : 1000);
     });

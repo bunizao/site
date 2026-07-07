@@ -583,6 +583,108 @@ test.describe('Home page', () => {
     expect(legacyRequests).toBeGreaterThan(0);
   });
 
+  test('pauses listening refreshes while hidden and refreshes once on refocus', async ({ page }) => {
+    let v2Requests = 0;
+
+    await page.addInitScript(() => {
+      let visibilityState = 'visible';
+      let timerId = 1_000;
+      const listeningTimers = new Map<number, () => void | Promise<void>>();
+      const nativeSetTimeout = window.setTimeout.bind(window);
+      const nativeClearTimeout = window.clearTimeout.bind(window);
+
+      Object.defineProperty(document, 'visibilityState', {
+        configurable: true,
+        get: () => visibilityState,
+      });
+      Object.defineProperty(document, 'hidden', {
+        configurable: true,
+        get: () => visibilityState !== 'visible',
+      });
+
+      (window as typeof window & {
+        __setListeningVisibility?: (state: 'visible' | 'hidden') => void;
+        __runListeningTimer?: () => Promise<void>;
+      }).__setListeningVisibility = (state) => {
+        visibilityState = state;
+        document.dispatchEvent(new Event('visibilitychange'));
+      };
+      (window as typeof window & {
+        __runListeningTimer?: () => Promise<void>;
+      }).__runListeningTimer = async () => {
+        const [id, callback] = Array.from(listeningTimers.entries()).at(-1) ?? [];
+        if (!id || !callback) return;
+        listeningTimers.delete(id);
+        await callback();
+      };
+
+      window.setTimeout = ((handler: TimerHandler, timeout?: number, ...args: unknown[]) => {
+        if (timeout === 45_000) {
+          const id = timerId;
+          timerId += 1;
+          listeningTimers.set(id, () => {
+            if (typeof handler === 'function') {
+              return handler(...args);
+            }
+            return window.eval(handler);
+          });
+          return id;
+        }
+
+        return nativeSetTimeout(handler, timeout, ...args);
+      }) as typeof window.setTimeout;
+      window.clearTimeout = ((id?: number) => {
+        if (typeof id === 'number' && listeningTimers.delete(id)) {
+          return;
+        }
+
+        nativeClearTimeout(id);
+      }) as typeof window.clearTimeout;
+    });
+
+    await page.route('**/api/v2/listening', async (route) => {
+      v2Requests += 1;
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(createListeningPayload({
+          title: `Listening Poll ${v2Requests}`,
+        })),
+      });
+    });
+
+    await page.goto('/');
+    await expect.poll(() => v2Requests).toBeGreaterThan(0);
+
+    await page.evaluate(() => {
+      (window as typeof window & {
+        __setListeningVisibility?: (state: 'visible' | 'hidden') => void;
+      }).__setListeningVisibility?.('hidden');
+    });
+    const hiddenRequestCount = v2Requests;
+    await page.evaluate(async () => {
+      await (window as typeof window & {
+        __runListeningTimer?: () => Promise<void>;
+      }).__runListeningTimer?.();
+    });
+    expect(v2Requests).toBe(hiddenRequestCount);
+
+    await page.evaluate(() => {
+      (window as typeof window & {
+        __setListeningVisibility?: (state: 'visible' | 'hidden') => void;
+      }).__setListeningVisibility?.('visible');
+    });
+    await expect.poll(() => v2Requests).toBe(hiddenRequestCount + 1);
+    await page.evaluate(async () => {
+      await (window as typeof window & {
+        __runListeningTimer?: () => Promise<void>;
+      }).__runListeningTimer?.();
+    });
+    await expect.poll(() => v2Requests).toBe(hiddenRequestCount + 2);
+    await page.waitForTimeout(20);
+    expect(v2Requests).toBe(hiddenRequestCount + 2);
+  });
+
   test('shows the listening wave when MusicKit falls back to a recent track preview', async ({ page }) => {
     let tokenRequests = 0;
 
