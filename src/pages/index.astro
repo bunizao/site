@@ -10,8 +10,6 @@ import Footer from '@/features/home/ui/Footer.astro';
 import { profileJsonLd, siteDescription, websiteJsonLd } from '@/lib/seo';
 import { meta, sections } from '@/data/site';
 
-export const prerender = true;
-
 const title = meta.homeTitle;
 const description = siteDescription;
 const isHomeDevSurface = process.env.DEV_SURFACE === 'home';

@@ -155,15 +155,24 @@ test.describe('API behavior', () => {
     expect(rss.headers()['content-type']).toContain('application/rss+xml');
     expect(await rss.text()).toContain('<rss');
 
-    const agentMood = await request.get('/agent/mood');
+    const agentMood = await request.get('/mood', {
+      headers: { Accept: 'text/markdown' },
+    });
     expect(agentMood.ok()).toBeTruthy();
     expect(agentMood.headers()['content-type']).toContain('text/markdown');
+    expect(agentMood.headers()['x-markdown-tokens']).toBeTruthy();
+    expect(agentMood.headers().vary ?? '').toContain('Accept');
     expect(await agentMood.text()).toContain('# Mood Feed');
 
-    const agentMoodPost = await request.get('/agent/mood/990001');
+    const agentMoodPost = await request.get('/mood/990001', {
+      headers: { Accept: 'text/markdown' },
+    });
     expect(agentMoodPost.ok()).toBeTruthy();
     expect(agentMoodPost.headers()['content-type']).toContain('text/markdown');
     expect(await agentMoodPost.text()).toContain('# 990001');
+
+    expect((await request.get('/agent/mood')).status()).toBe(404);
+    expect((await request.get('/agent/mood/990001')).status()).toBe(404);
 
     const statusSvg = await request.get('/api/status.svg?theme=light');
     expect(statusSvg.ok()).toBeTruthy();

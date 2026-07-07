@@ -70,10 +70,10 @@ describe('buildMoodAgentMarkdown', () => {
 
     expect(markdown).toContain('# Mood Feed');
     expect(markdown).toContain('JSON: https://buxx.me/api/moods');
-    expect(markdown).toContain('Next: https://buxx.me/agent/mood?before=42');
+    expect(markdown).toContain('Next: https://buxx.me/mood?before=42');
     expect(markdown).toContain('## 42 · 2026-04-30T08:00:00.000Z');
     expect(markdown).toContain('URL: https://buxx.me/mood/42');
-    expect(markdown).toContain('Agent: https://buxx.me/agent/mood/42');
+    expect(markdown).not.toContain('Agent:');
     expect(markdown).toContain('> Line one\n> Line two');
     expect(markdown).toContain('Quote: https://buxx.me/mood/41');
     expect(markdown).toContain('Quote text:\n> Quoted text');
@@ -113,8 +113,8 @@ describe('buildMoodAgentMarkdown', () => {
 
     expect(markdown).toContain('# 43 · 2026-04-30T09:00:00.000Z');
     expect(markdown).toContain('URL: https://buxx.me/mood/43');
-    expect(markdown).toContain('Agent: https://buxx.me/agent/mood/43');
-    expect(markdown).toContain('Feed: https://buxx.me/agent/mood');
+    expect(markdown).not.toContain('Agent:');
+    expect(markdown).toContain('Feed: https://buxx.me/mood');
   });
 
   test('serializes clean agent markdown links', () => {
@@ -150,8 +150,9 @@ describe('buildMoodAgentMarkdown', () => {
 
     expect(markdown).toContain('Source: https://buxx.me/mood');
     expect(markdown).toContain('JSON: https://buxx.me/api/moods');
-    expect(markdown).toContain('Next: https://buxx.me/agent/mood?before=44');
-    expect(postMarkdown).toContain('Feed: https://buxx.me/agent/mood');
+    expect(markdown).toContain('Next: https://buxx.me/mood?before=44');
+    expect(postMarkdown).toContain('Feed: https://buxx.me/mood');
     expect(`${markdown}\n${postMarkdown}`).not.toContain('api-v2');
+    expect(`${markdown}\n${postMarkdown}`).not.toContain('/agent/mood');
   });
 });

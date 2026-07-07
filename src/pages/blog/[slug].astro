@@ -1,6 +1,4 @@
 ---
-export const prerender = true;
-
 import type { GetStaticPaths } from 'astro';
 import BlogLayout from '@/layouts/BlogLayout.astro';
 import PostMeta from '@/features/posts/ui/PostMeta.astro';
@@ -16,6 +14,7 @@ import SubscribePanel from '@/features/notify/SubscribePanel.astro';
 import { blog } from '@/data/site';
 import Footer from '@/features/home/ui/Footer.astro';
 import { getAllPosts } from '@/features/posts/server/content';
+import type { Post } from '@/features/posts/types';
 import { formatPostDate, postTitleTransitionName } from '@/features/posts/format';
 import { buildBlogOgImageUrl } from '@/features/posts/server/og-image';
 import { enrichAppleMusicEmbeds } from '@/features/posts/server/apple-music';
@@ -25,10 +24,25 @@ import { buildSrcSet, withWidthParam } from '@/lib/media/responsive-image';
 import { isE2ESiteFixtureEnabled } from '@/lib/e2e';
 import { readPublicEnv } from '@/lib/runtime/env';
 
-// Resolve the post and its reading-order neighbours once at build time;
-// `prev` is older, `next` is newer (posts come back newest-first). Apple Music
-// embeds become static "listening" cards and mood references become canonical
-// /mood/embed iframes here, while the page is built.
+interface PostPageProps {
+  post: Post;
+  featureBlur: Awaited<ReturnType<typeof getBlurUp>>;
+  prev: Post | null;
+  next: Post | null;
+}
+
+async function buildPostPageProps(post: Post, index: number, posts: Post[]): Promise<PostPageProps> {
+  return {
+    post: {
+      ...post,
+      html: await enrichBlurUp(enrichMoodEmbeds(await enrichAppleMusicEmbeds(post.html))),
+    },
+    featureBlur: post.featureImage ? await getBlurUp(post.featureImage) : null,
+    prev: posts[index + 1] ?? null,
+    next: posts[index - 1] ?? null,
+  };
+}
+
 export const getStaticPaths = (async () => {
   const posts = await getAllPosts();
 
@@ -48,7 +62,27 @@ export const getStaticPaths = (async () => {
   );
 }) satisfies GetStaticPaths;
 
-const { post, prev, next, featureBlur } = Astro.props;
+// `prev` is older, `next` is newer (posts come back newest-first). In dev this
+// path is server-rendered so middleware negotiation can be tested under
+// `astro dev`; production keeps the static article files for Pagefind.
+const slug = Astro.params.slug ?? '';
+let { post, featureBlur, prev, next } = Astro.props as Partial<PostPageProps>;
+
+if (!post) {
+  const posts = await getAllPosts();
+  const postIndex = posts.findIndex((candidate) => candidate.slug === slug);
+  const rawPost = postIndex >= 0 ? posts[postIndex] : null;
+
+  if (!rawPost) {
+    return new Response(null, { status: 404 });
+  }
+
+  ({ post, featureBlur, prev, next } = await buildPostPageProps(rawPost, postIndex, posts));
+}
+
+prev ??= null;
+next ??= null;
+
 const featureStyle = featureBlur
   ? `aspect-ratio:${featureBlur.width} / ${featureBlur.height}`
   : undefined;

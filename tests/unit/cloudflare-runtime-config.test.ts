@@ -122,6 +122,7 @@ describe('Cloudflare runtime configuration', () => {
     expect(packageJson.scripts?.['types:cloudflare']).toBe('wrangler types');
     expect(packageJson.scripts?.check).toBe('astro check');
     expect(packageJson.scripts?.build).toStartWith('astro build');
+    expect(packageJson.scripts?.build).toContain('bun scripts/generate-agent-markdown.ts');
     expect(packageJson.scripts?.dev).toContain('astro dev');
     expect(packageJson.scripts?.dev).not.toContain('bunx --bun');
   });
@@ -161,8 +162,14 @@ describe('Cloudflare runtime configuration', () => {
     expect(config.assets?.directory).toBe('./dist');
     expect(config.assets?.binding).toBe('ASSETS');
     expect(config.assets?.run_worker_first).toEqual([
+      '/',
       '/api/*',
+      '/blog*',
+      '/llms.txt',
       '/mood*',
+      '/privacy*',
+      '/projects*',
+      '/sitemap.xml',
       '/dev',
       '/dev/*',
       '/oauth*',
@@ -229,15 +236,24 @@ describe('Cloudflare runtime configuration', () => {
     expect(middleware).not.toContain('cdn-cgi/challenge-platform');
   });
 
-  test('caches only fully rendered mood feed HTML at the edge', () => {
+  test('caches rendered content variants at the edge', () => {
     const middleware = readText('src/middleware.ts');
+    const registry = readText('src/features/agent-markdown/server/registry.ts');
+    const responses = readText('src/features/agent-markdown/server/responses.ts');
+    const edgeCache = readText('src/lib/http/edge-cache.ts');
+    const builtBlog = readText('src/features/agent-markdown/server/built-blog.ts');
 
-    expect(middleware).toContain('MOOD_PAGE_CACHE_TTL_SECONDS = 60');
-    expect(middleware).toContain("url.pathname !== '/mood' || url.search");
-    expect(middleware).toContain('data-mood-initial-feed');
-    expect(middleware).toContain('data-mood-id=');
-    expect(middleware).toContain('X-Buxx-Mood-Page-Cache');
-    expect(middleware).toContain('caches?.default');
+    expect(registry).toContain('MOOD_PAGE_CACHE_TTL_SECONDS = 60');
+    expect(registry).toContain('readBuiltBlogMarkdown');
+    expect(responses).toContain("variant: 'html'");
+    expect(responses).toContain("variant: 'markdown'");
+    expect(responses).toContain('url.search');
+    expect(middleware).toContain('readCachedHtmlPage');
+    expect(registry).toContain('data-mood-initial-feed');
+    expect(registry).toContain('data-mood-id=');
+    expect(registry).toContain('X-Buxx-Mood-Page-Cache');
+    expect(edgeCache).toContain('caches?.default');
+    expect(builtBlog).toContain('/_agent-markdown/blog/');
   });
 
   test('warms the rendered mood cache before Lighthouse', () => {
