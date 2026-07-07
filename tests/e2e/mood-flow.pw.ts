@@ -1154,6 +1154,7 @@ test.describe('Mood routes', () => {
       return {
         bodyBottomLeftRadius: bodyStyle?.borderBottomLeftRadius,
         bodyTopLeftRadius: bodyStyle?.borderTopLeftRadius,
+        matteBackground: matteStyle?.backgroundColor,
         matteOverflow: matteStyle?.overflow,
         stickerRadius: stickerStyle.borderTopLeftRadius,
         stickerTransform: stickerStyle.transform,
@@ -1163,6 +1164,7 @@ test.describe('Mood routes', () => {
     expect(styles.bodyTopLeftRadius).toBe('16px');
     expect(styles.bodyBottomLeftRadius).toBe('5px');
     expect(styles.stickerRadius).toBe('8px');
+    expect(styles.matteBackground).not.toBe('rgba(0, 0, 0, 0)');
     expect(styles.matteOverflow).toBe('hidden');
     expect(styles.stickerTransform).toContain('1.2');
   });
