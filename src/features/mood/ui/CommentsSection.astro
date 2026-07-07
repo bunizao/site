@@ -112,7 +112,7 @@ const {
     border-top: 1px solid hsl(var(--foreground) / 0.08);
     position: relative;
     --comment-body-padding: 9px 12px;
-    --comment-body-radius: 12px;
+    --comment-body-radius: var(--radius-sm);
     --comment-stack-gap: 16px;
   }
 
@@ -293,7 +293,7 @@ const {
     font-family: var(--font-sans);
     background: hsl(var(--foreground) / 0.035);
     border: 1px solid hsl(var(--foreground) / 0.08);
-    border-radius: var(--comment-body-radius, 12px);
+    border-radius: var(--comment-body-radius, var(--radius-sm));
     padding: var(--comment-body-padding, 9px 12px);
     position: relative;
   }
@@ -433,7 +433,7 @@ const {
     width: 100%;
     padding: 0;
     border: 0;
-    border-radius: 10px;
+    border-radius: var(--radius-sm);
     overflow: hidden;
     background: hsl(var(--foreground) / 0.06);
     cursor: pointer;
@@ -743,7 +743,7 @@ const {
   @media (max-width: 540px) {
     .mood-comments {
       --comment-body-padding: 14px 15px;
-      --comment-body-radius: 16px 18px 18px 5px;
+      --comment-body-radius: var(--radius-sm);
       --comment-stack-gap: 12px;
       margin-top: 32px;
       padding-top: 32px;
@@ -819,7 +819,7 @@ const {
       margin-top: 16px;
       padding: 12px 20px;
       font-size: 13px;
-      border-radius: 10px;
+      border-radius: var(--radius-sm);
     }
 
     .mood-comment-cta-arrow {
@@ -831,7 +831,7 @@ const {
   @media (max-width: 380px) {
     .mood-comments {
       --comment-body-padding: 14px 15px;
-      --comment-body-radius: 16px 18px 18px 5px;
+      --comment-body-radius: var(--radius-sm);
       --comment-stack-gap: 10px;
       margin-top: 28px;
       padding-top: 20px;
