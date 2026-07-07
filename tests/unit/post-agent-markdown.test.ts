@@ -56,4 +56,15 @@ describe('post agent markdown', () => {
     expect(markdown).toContain('[mood feed](https://buxx.me/mood)');
     expect(markdown).toContain('![Avatar](https://buxx.me/avatar.webp)');
   });
+
+  test('serializes inline code without backslash escaping', () => {
+    const markdown = buildPostAgentMarkdown(
+      createPost({
+        html: '<p>Use <code>path\\`name</code> safely.</p>',
+      }),
+      new URL('https://buxx.me'),
+    );
+
+    expect(markdown).toContain('Use ``path\\`name`` safely.');
+  });
 });

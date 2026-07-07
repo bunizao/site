@@ -21,6 +21,19 @@ function normalizeInline(value: string): string {
   return value.replace(/\s+/g, ' ').trim();
 }
 
+function renderInlineCodeText(value: string): string {
+  const body = value.trim();
+  if (!body) return '';
+
+  const backtickRuns = body.match(/`+/g) ?? [];
+  const longestRun = backtickRuns.reduce((max, run) => Math.max(max, run.length), 0);
+  const delimiter = '`'.repeat(longestRun + 1);
+  const needsPadding = body.startsWith('`') || body.endsWith('`');
+  const content = needsPadding ? ` ${body} ` : body;
+
+  return `${delimiter}${content}${delimiter}`;
+}
+
 function trimMarkdown(value: string): string {
   return value
     .replace(/[ \t]+\n/g, '\n')
@@ -52,8 +65,8 @@ function renderInline($: LoadedCheerio, nodes: cheerio.Cheerio<AnyNode>, baseUrl
       const body = normalizeInline(text());
       if (body) parts.push(`*${body}*`);
     } else if (tagName === 'code') {
-      const body = element.text().replace(/`/g, '\\`').trim();
-      if (body) parts.push(`\`${body}\``);
+      const body = renderInlineCodeText(element.text());
+      if (body) parts.push(body);
     } else if (tagName === 'a') {
       const body = normalizeInline(text()) || normalizeInline(element.text());
       const href = element.attr('href');
