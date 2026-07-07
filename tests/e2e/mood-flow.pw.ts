@@ -1101,7 +1101,7 @@ test.describe('Mood routes', () => {
     }
   });
 
-  test('renders sticker media in detail comments with its own radius matte', async ({ page, request }) => {
+  test('clips sticker media in detail comments without changing the comment bubble shape', async ({ page, request }) => {
     const latestMoodId = await getLatestMoodId(request);
     test.skip(!latestMoodId, 'No mood id available from /api/moods');
 
@@ -1154,17 +1154,17 @@ test.describe('Mood routes', () => {
       return {
         bodyBottomLeftRadius: bodyStyle?.borderBottomLeftRadius,
         bodyTopLeftRadius: bodyStyle?.borderTopLeftRadius,
-        matteBoxShadow: matteStyle?.boxShadow,
         matteOverflow: matteStyle?.overflow,
         stickerRadius: stickerStyle.borderTopLeftRadius,
+        stickerTransform: stickerStyle.transform,
       };
     });
 
     expect(styles.bodyTopLeftRadius).toBe('16px');
     expect(styles.bodyBottomLeftRadius).toBe('5px');
     expect(styles.stickerRadius).toBe('8px');
-    expect(styles.matteBoxShadow).toContain('rgb(255, 255, 255)');
     expect(styles.matteOverflow).toBe('hidden');
+    expect(styles.stickerTransform).not.toBe('none');
   });
 
   test('renders custom emoji reactions in detail comments', async ({ page, request }) => {
