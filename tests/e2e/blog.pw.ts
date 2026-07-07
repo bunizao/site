@@ -190,6 +190,60 @@ test.describe('Blog routes', () => {
     }
   });
 
+  test('serves negotiated markdown for blog posts without crossing html cache entries', async ({ page, request }) => {
+    const { firstPostHref, firstPostTitle } = await collectBlogIndexTargets(page);
+    const cacheProbePath = `${firstPostHref}?agent-cache=e2e`;
+
+    const markdown = await request.get(firstPostHref, {
+      headers: { Accept: 'text/markdown' },
+    });
+    expect(markdown.ok()).toBeTruthy();
+    expect(markdown.headers()['content-type']).toContain('text/markdown');
+    expect(markdown.headers()['x-markdown-tokens']).toBeTruthy();
+    expect(markdown.headers().vary ?? '').toContain('Accept');
+    expect(await markdown.text()).toContain(`# ${firstPostTitle}`);
+
+    const html = await request.get(firstPostHref, {
+      headers: { Accept: 'text/html' },
+    });
+    expect(html.ok()).toBeTruthy();
+    expect(html.headers()['content-type']).toContain('text/html');
+    expect(html.headers().vary ?? '').toContain('Accept');
+    expect(await html.text()).toContain('<!DOCTYPE html>');
+
+    const miss = await request.get(cacheProbePath, {
+      headers: { Accept: 'text/markdown' },
+    });
+    const hit = await request.get(cacheProbePath, {
+      headers: { Accept: 'text/markdown' },
+    });
+    expect(miss.headers()['x-buxx-edge-cache']).toBe('MISS');
+    expect(hit.headers()['x-buxx-edge-cache']).toBe('HIT');
+    expect(hit.headers()['content-type']).toContain('text/markdown');
+
+    const htmlProbe = await request.get(cacheProbePath, {
+      headers: { Accept: 'text/html' },
+    });
+    expect(htmlProbe.headers()['content-type']).toContain('text/html');
+  });
+
+  test('advertises markdown alternates and llms discovery', async ({ page, request }) => {
+    const { firstPostHref } = await collectBlogIndexTargets(page);
+
+    await page.goto(firstPostHref);
+    const alternate = page.locator('link[rel="alternate"][type="text/markdown"]');
+    await expect(alternate).toHaveCount(1);
+    expect(await alternate.first().getAttribute('href')).toBe(`https://buxx.me${firstPostHref}`);
+
+    const llms = await request.get('/llms.txt');
+    expect(llms.ok()).toBeTruthy();
+    expect(llms.headers()['content-type']).toContain('text/plain');
+    expect(llms.headers()['cache-control']).toContain('s-maxage=300');
+    const body = await llms.text();
+    expect(body).toContain('https://buxx.me/blog/');
+    expect(body).toContain('https://buxx.me/mood');
+  });
+
   test('renders public tag archives from blog tag links', async ({ page }) => {
     const { firstTagHref, firstTagName } = await collectBlogIndexTargets(page);
 

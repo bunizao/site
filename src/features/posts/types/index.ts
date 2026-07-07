@@ -106,6 +106,7 @@ export interface BaseContentRecord {
   title: string;
   url: string;
   html: string;
+  markdown?: string | null;
   excerpt: string | null;
   customExcerpt: string | null;
   featureImage: string | null;

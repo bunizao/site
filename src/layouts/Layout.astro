@@ -38,6 +38,7 @@ import {
   getPeekRuntimeSlotKey,
 } from '@/features/logos/data/peek-runtime';
 import { meta } from '@/data/site';
+import { hasMarkdownRenderer } from '@/features/agent-markdown/server/registry';
 
 const {
   title,
@@ -65,6 +66,9 @@ const useHomeHeaderActions = isHomeNav || headerActionsVariant === 'home';
 const site = Astro.site ?? new URL('https://buxx.me');
 const siteName = meta.siteName;
 const canonicalUrl = new URL(url ?? Astro.url?.pathname ?? '/', site).href;
+const markdownAlternateUrl = hasMarkdownRenderer(new URL(canonicalUrl).pathname)
+  ? canonicalUrl
+  : null;
 const ogImageUrl = new URL(image, site).href;
 const ogLogoUrl = new URL('/logo/peek.svg?v=3', site).href;
 const structuredDataItems = structuredData
@@ -113,6 +117,9 @@ const navbarIdleTimeoutAnimation = getPeekRuntimeSlotKey('navbar.idle-timeout');
       />
     ))}
     <link rel="canonical" href={canonicalUrl} />
+    {markdownAlternateUrl ? (
+      <link rel="alternate" type="text/markdown" href={markdownAlternateUrl} />
+    ) : null}
     <meta property="og:title" content={title} />
     <meta property="og:description" content={description} />
     <meta property="og:url" content={canonicalUrl} />

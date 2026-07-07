@@ -13,6 +13,7 @@ import {
   normalizeBlogMetaText,
 } from '@/features/posts/server/og-image';
 import BlogSearch from '@/features/posts/ui/BlogSearch.astro';
+import { hasMarkdownRenderer } from '@/features/agent-markdown/server/registry';
 
 interface Props {
   title: string;
@@ -44,6 +45,9 @@ const {
   preloadImage,
 } = Astro.props;
 const canonical = new URL(path, meta.siteUrl).href;
+const markdownAlternateUrl = hasMarkdownRenderer(new URL(canonical).pathname)
+  ? canonical
+  : null;
 const fullTitle = title === blog.name ? title : `${title} — ${blog.name}`;
 const metaDescription = normalizeBlogMetaText(description) || meta.description;
 const ogImage = customOgImage
@@ -75,6 +79,9 @@ const paletteCss = [
     <title>{fullTitle}</title>
     <meta name="description" content={metaDescription} />
     <link rel="canonical" href={canonical} />
+    {markdownAlternateUrl ? (
+      <link rel="alternate" type="text/markdown" href={markdownAlternateUrl} />
+    ) : null}
     <link
       rel="alternate"
       type="application/rss+xml"

@@ -1,6 +1,19 @@
 import { expect, test } from './fixtures';
 
 test.describe('Standalone pages', () => {
+  test('serves negotiated markdown for home and privacy', async ({ request }) => {
+    const home = await request.get('/', { headers: { Accept: 'text/markdown' } });
+    expect(home.ok()).toBeTruthy();
+    expect(home.headers()['content-type']).toContain('text/markdown');
+    expect(home.headers()['x-markdown-tokens']).toBeTruthy();
+    expect(await home.text()).toContain('[Blog](https://buxx.me/blog/)');
+
+    const privacy = await request.get('/privacy', { headers: { Accept: 'text/markdown' } });
+    expect(privacy.ok()).toBeTruthy();
+    expect(privacy.headers()['content-type']).toContain('text/markdown');
+    expect(await privacy.text()).toContain('# Privacy Policy');
+  });
+
   test('renders the privacy page with the simplified home nav', async ({ page }) => {
     await page.goto('/privacy');
 

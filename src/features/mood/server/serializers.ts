@@ -234,7 +234,6 @@ export function buildMoodAgentPostMarkdown(
     `${heading} ${post.id} · ${post.datetime}`,
     '',
     `URL: ${new URL(`/mood/${post.id}`, baseUrl).href}`,
-    `Agent: ${new URL(`/agent/mood/${post.id}`, baseUrl).href}`,
   ];
 
   if (post.tag) {
@@ -296,7 +295,7 @@ export function buildMoodAgentMarkdown(
 
   const nextBefore = feed.posts.at(-1)?.id ?? '';
   if (nextBefore) {
-    const nextUrl = new URL('/agent/mood', baseUrl);
+    const nextUrl = new URL('/mood', baseUrl);
     nextUrl.searchParams.set('before', nextBefore);
     lines.push(`Next: ${nextUrl.href}`);
   }
@@ -321,7 +320,7 @@ export function buildMoodAgentPostPageMarkdown(
   post: MoodFeedItem,
   baseUrl: URL
 ): string {
-  const feedUrl = new URL('/agent/mood', baseUrl);
+  const feedUrl = new URL('/mood', baseUrl);
   return [
     buildMoodAgentPostMarkdown(post, baseUrl, { headingLevel: 1 }),
     '',

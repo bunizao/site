@@ -1,0 +1,59 @@
+import { describe, expect, test } from 'bun:test';
+
+import { buildPostAgentMarkdown } from '@/features/posts/server/agent-markdown';
+import type { Post } from '@/features/posts/types';
+
+function createPost(overrides: Partial<Post> = {}): Post {
+  return {
+    id: 'post-1',
+    slug: 'demo-effects',
+    title: 'Astro migration effect sandbox',
+    url: '/blog/demo-effects/',
+    html: '<p>Read the <a href="/mood">mood feed</a>.</p><p><img src="/avatar.webp" alt="Avatar"></p>',
+    excerpt: 'A post excerpt',
+    customExcerpt: null,
+    featureImage: null,
+    featureImageAlt: null,
+    featureImageCaption: null,
+    publishedAt: '2026-04-09T10:30:00.000Z',
+    updatedAt: '2026-04-10T10:30:00.000Z',
+    featured: false,
+    visibility: 'public',
+    access: true,
+    commentId: null,
+    plaintext: 'Read the mood feed.',
+    readingTime: '1 min read',
+    authors: [],
+    tags: [],
+    primaryAuthor: null,
+    primaryTag: null,
+    canonicalUrl: null,
+    metaTitle: null,
+    metaDescription: null,
+    ogImage: null,
+    ogTitle: null,
+    ogDescription: null,
+    twitterImage: null,
+    twitterTitle: null,
+    twitterDescription: null,
+    codeInjectionHead: null,
+    codeInjectionFoot: null,
+    customTemplate: null,
+    type: 'post',
+    commentsEnabled: false,
+    commentsHtml: null,
+    ...overrides,
+  };
+}
+
+describe('post agent markdown', () => {
+  test('serializes post metadata and body with absolute links', () => {
+    const markdown = buildPostAgentMarkdown(createPost(), new URL('https://buxx.me'));
+
+    expect(markdown).toStartWith('# Astro migration effect sandbox');
+    expect(markdown).toContain('Canonical: https://buxx.me/blog/demo-effects/');
+    expect(markdown).toContain('Published: April 9, 2026');
+    expect(markdown).toContain('[mood feed](https://buxx.me/mood)');
+    expect(markdown).toContain('![Avatar](https://buxx.me/avatar.webp)');
+  });
+});

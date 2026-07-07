@@ -24,7 +24,7 @@ Private API ownership lives in the separate `site-api` Worker. `site-api` direct
 - **`src/pages/`** — File-based routing. Includes `index.astro` (home), `mood.astro` (feed shell + route bootstrap), `mood/[id].astro` (detail shell + route bootstrap), `mood/embed.astro` (embeddable widget)
 - **`src/pages/api/`** — Thin catch-all fallback proxy to `site-api`; concrete API implementations live in the private `site-api` repo.
 - **`src/pages/dev/` and `src/pages/oauth*`** — Compatibility proxy routes to the private admin/OAuth app in `site-api`.
-- **`src/middleware.ts`** — Astro middleware that gates protected docs by asking `site-api` for the admin session state through the `API` service binding.
+- **`src/middleware.ts`** — Astro middleware that negotiates agent Markdown, applies variant-aware edge caching, and gates protected docs by asking `site-api` for the admin session state through the `API` service binding.
 - **`src/features/`** — Feature-private code. `src/features/home/ui/` contains home-route sections and their private UI helpers. `src/features/mood/` contains mood-specific client controllers, feed renderer/media/update modules, server services, shared helpers, and private Astro UI shells in `ui/`.
 - **`src/features/logos/`** — Pixel mascot definitions, SVG rendering helpers, and animated logo UI used by the navbar and favicon route
 - **`src/lib/`** — Shared utilities: `e2e.ts` (shared E2E fixture flag), `utils.ts` (cn/clsx utility), `fonts.ts` (server-side mirrors of the font tokens), `runtime/env.ts`, `http/*`, and `media/responsive-image.ts`
@@ -87,6 +87,25 @@ Telegram references:
 - Full docs: `docs/SVG-API.md`
 
 **RSS:** `GET /mood/rss.xml`
+
+## Agent Markdown and Edge Cache Policy
+
+Content routes with Markdown renderers negotiate on `Accept`. A request that explicitly ranks `text/markdown` at least as high as `text/html` receives `text/markdown; charset=utf-8`; browsers and wildcard-only clients receive HTML. Both variants set `Vary: Accept`, and Markdown responses also set `x-markdown-tokens` using the approximate `Math.ceil(chars / 4)` estimator.
+
+The edge cache key includes the negotiated variant (`html` or `markdown`) plus path and query string, so HTML and Markdown can never share a cache entry. `/dev`, `/oauth*`, `/api*`, and `/v2*` are `no-store` and never negotiate Markdown.
+
+| Route family | Cache-Control | Edge cache |
+| --- | --- | --- |
+| `/mood` | `public, max-age=0, s-maxage=60, no-transform` for HTML; Markdown omits `no-transform` | HTML and Markdown, variant-keyed |
+| `/mood/[id]` | `public, max-age=0, s-maxage=60` for Markdown | Markdown only |
+| `/blog`, `/blog/tags`, `/blog/tag/[slug]` | `public, max-age=0, s-maxage=120, no-transform` for HTML; Markdown omits `no-transform` | HTML and Markdown, variant-keyed |
+| `/blog/[slug]` | `public, max-age=0, s-maxage=300, no-transform` for HTML; Markdown omits `no-transform` | HTML and Markdown, variant-keyed |
+| `/` | `public, max-age=0, s-maxage=300, no-transform` for HTML; Markdown omits `no-transform` | Markdown only |
+| `/privacy` | `public, max-age=0, s-maxage=3600, no-transform` for HTML; Markdown omits `no-transform` | Markdown only |
+| `/projects` | `public, max-age=0, s-maxage=300, no-transform` | Cache-Control only |
+| `/llms.txt` | `public, max-age=0, s-maxage=300` | Cache-Control only |
+| `/blog/rss.xml`, `/mood/rss.xml`, `/sitemap.xml` | `public, max-age=0, s-maxage=300` | Cache-Control only |
+| `/dev`, `/oauth*`, `/api*`, `/v2*` | `no-store, max-age=0` | None |
 
 ## Environment Variables
 

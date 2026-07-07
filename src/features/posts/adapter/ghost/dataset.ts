@@ -438,6 +438,7 @@ function normalizeContentRecord(
     title,
     url: normalizeUrlPath(readString(raw.url) ?? `/${slug}/`, siteUrl),
     html,
+    markdown: readString(raw.markdown),
     excerpt: readString(raw.custom_excerpt) ?? readString(raw.excerpt),
     customExcerpt: readString(raw.custom_excerpt),
     featureImage: rewriteGhostBlogImageUrl(readString(raw.feature_image), siteUrl),

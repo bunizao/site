@@ -15,6 +15,14 @@ const isE2EStrictPort = process.env.ASTRO_E2E_STRICT_PORT === '1';
 const isDevServer = process.argv.includes('dev');
 const coveragePlugins = [];
 const publicSitemapPaths = new Set(['/', '/mood/', '/privacy/']);
+const negotiatedContentPageEntrypoints = new Set([
+  'src/pages/index.astro',
+  'src/pages/privacy.astro',
+  'src/pages/blog/index.astro',
+  'src/pages/blog/tags.astro',
+  'src/pages/blog/tag/[slug].astro',
+  'src/pages/blog/[slug].astro',
+]);
 const devOptimizerExcludes = [
   'cheerio',
   'cheerio-select',
@@ -53,6 +61,18 @@ if (isCoverageEnabled) {
 
 export default defineConfig({
   integrations: [
+    {
+      name: 'buxx-negotiated-content-dev-ssr',
+      hooks: {
+        'astro:route:setup': ({ route }) => {
+          if (!isDevServer || !negotiatedContentPageEntrypoints.has(route.component)) {
+            return;
+          }
+
+          route.prerender = false;
+        },
+      },
+    },
     react(),
     starlight({
       title: 'buxx docs',
