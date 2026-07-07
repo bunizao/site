@@ -1164,7 +1164,7 @@ test.describe('Mood routes', () => {
     expect(styles.bodyBottomLeftRadius).toBe('5px');
     expect(styles.stickerRadius).toBe('8px');
     expect(styles.matteOverflow).toBe('hidden');
-    expect(styles.stickerTransform).not.toBe('none');
+    expect(styles.stickerTransform).toContain('1.2');
   });
 
   test('renders custom emoji reactions in detail comments', async ({ page, request }) => {
