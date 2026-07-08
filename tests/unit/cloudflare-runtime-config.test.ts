@@ -144,6 +144,9 @@ describe('Cloudflare runtime configuration', () => {
       placement?: {
         mode?: string;
       };
+      cache?: {
+        enabled?: boolean;
+      };
       assets?: {
         directory?: string;
         binding?: string;
@@ -178,6 +181,7 @@ describe('Cloudflare runtime configuration', () => {
     ]);
     expect(config.routes).toContainEqual({ pattern: 'buxx.me/*', zone_name: 'buxx.me' });
     expect(config.routes).toContainEqual({ pattern: 'www.buxx.me/*', zone_name: 'buxx.me' });
+    expect(config.cache).toEqual({ enabled: true });
     expect(config.routes?.some((route) => route.pattern?.startsWith('blog.buxx.me'))).toBe(false);
     expect(config.routes?.some((route) => route.custom_domain === true)).toBe(false);
     expect(config.routes?.some((route) => route.pattern === 'cf-migration.buxx.me')).toBe(false);
@@ -244,6 +248,10 @@ describe('Cloudflare runtime configuration', () => {
     const builtBlog = readText('src/features/agent-markdown/server/built-blog.ts');
 
     expect(registry).toContain('MOOD_PAGE_CACHE_TTL_SECONDS = 60');
+    expect(responses).toContain('CONTENT_STALE_WHILE_REVALIDATE_SECONDS = 300');
+    expect(responses).toContain('Cloudflare-CDN-Cache-Control');
+    expect(responses).toContain('stale-while-revalidate=');
+    expect(responses).toContain('NO_STORE_CACHE_CONTROL');
     expect(registry).toContain('readBuiltBlogMarkdown');
     expect(responses).toContain("variant: 'html'");
     expect(responses).toContain("variant: 'markdown'");

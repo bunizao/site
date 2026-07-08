@@ -8,6 +8,9 @@
   "placement": {
     "mode": "smart"
   },
+  "cache": {
+    "enabled": true
+  },
   "assets": {
     "directory": "./dist",
     "binding": "ASSETS",

@@ -11,6 +11,7 @@ interface EdgeCacheOptions extends EdgeCacheKeyOptions {
   ttlSeconds: number;
   headerName: string;
   cacheControl: string;
+  cloudflareCacheControl?: string;
   isRequestCacheable?: (request: Request) => boolean;
   isResponseCacheable?: (response: Response) => boolean;
   isResponseReady?: (body: string, response: Response) => boolean;
@@ -79,6 +80,9 @@ function withCacheHeader(response: Response, options: EdgeCacheOptions, status: 
   const headers = new Headers(response.headers);
   headers.set(options.headerName, status);
   headers.set('Cache-Control', options.cacheControl);
+  if (options.cloudflareCacheControl) {
+    headers.set('Cloudflare-CDN-Cache-Control', options.cloudflareCacheControl);
+  }
 
   return new Response(response.body, {
     status: response.status,

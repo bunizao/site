@@ -10,6 +10,9 @@ import {
 } from './registry';
 
 const EDGE_CACHE_VERSION = '1';
+const CLOUDFLARE_CDN_CACHE_CONTROL_HEADER = 'Cloudflare-CDN-Cache-Control';
+const CONTENT_STALE_WHILE_REVALIDATE_SECONDS = 300;
+const NO_STORE_CACHE_CONTROL = 'no-store, max-age=0';
 
 export function appendHeaderToken(value: string | null, token: string): string {
   const current = value?.trim();
@@ -17,6 +20,19 @@ export function appendHeaderToken(value: string | null, token: string): string {
   const tokens = current.split(',').map((item) => item.trim().toLowerCase());
   if (tokens.includes(token.toLowerCase())) return current;
   return `${current}, ${token}`;
+}
+
+function appendCacheControlDirective(value: string | null, directive: string): string {
+  const current = value?.trim();
+  if (!current) return directive;
+  if (new RegExp(`(?:^|,)\\s*${directive}\\b`, 'i').test(current)) return current;
+  return `${current}, ${directive}`;
+}
+
+function hasFreshnessOrBypassDirective(value: string | null): boolean {
+  return /\b(?:max-age|s-maxage|no-cache|no-store|private|must-revalidate|proxy-revalidate)\b/i.test(
+    value ?? '',
+  );
 }
 
 export function isNeverCachePath(pathname: string): boolean {
@@ -39,6 +55,24 @@ export function publicCacheControl(ttlSeconds: number, includeNoTransform = fals
   ].filter(Boolean).join(', ');
 }
 
+export function cloudflareCdnCacheControl(ttlSeconds: number): string {
+  return [
+    'public',
+    `max-age=${ttlSeconds}`,
+    `stale-while-revalidate=${CONTENT_STALE_WHILE_REVALIDATE_SECONDS}`,
+  ].join(', ');
+}
+
+function setContentCacheHeaders(headers: Headers, ttlSeconds: number, includeNoTransform = false): void {
+  headers.set('Cache-Control', publicCacheControl(ttlSeconds, includeNoTransform));
+  headers.set(CLOUDFLARE_CDN_CACHE_CONTROL_HEADER, cloudflareCdnCacheControl(ttlSeconds));
+}
+
+function setNoStoreHeaders(headers: Headers): void {
+  headers.set('Cache-Control', NO_STORE_CACHE_CONTROL);
+  headers.delete(CLOUDFLARE_CDN_CACHE_CONTROL_HEADER);
+}
+
 export function withContentPolicy(request: Request, response: Response): Response {
   const contentType = response.headers.get('content-type') ?? '';
   const isHtml = contentType.toLowerCase().includes('text/html');
@@ -54,7 +88,13 @@ export function withContentPolicy(request: Request, response: Response): Respons
   }
 
   if (policy && response.status === 200) {
-    headers.set('Cache-Control', publicCacheControl(policy.cacheTtlSeconds, isHtml));
+    setContentCacheHeaders(headers, policy.cacheTtlSeconds, isHtml);
+  } else if (isHtml && !hasFreshnessOrBypassDirective(headers.get('Cache-Control'))) {
+    headers.set(
+      'Cache-Control',
+      appendCacheControlDirective(headers.get('Cache-Control'), NO_STORE_CACHE_CONTROL),
+    );
+    headers.delete(CLOUDFLARE_CDN_CACHE_CONTROL_HEADER);
   }
 
   return new Response(response.body, {
@@ -72,7 +112,11 @@ function createMarkdownResponse(
 ): Response {
   const headers = new Headers(headersInit);
   headers.set('Content-Type', MARKDOWN_CONTENT_TYPE);
-  headers.set('Cache-Control', publicCacheControl(ttlSeconds));
+  if (status === 200) {
+    setContentCacheHeaders(headers, ttlSeconds);
+  } else {
+    setNoStoreHeaders(headers);
+  }
   headers.set('Vary', appendHeaderToken(headers.get('Vary'), 'Accept'));
   headers.set(MARKDOWN_TOKEN_HEADER, String(estimateMarkdownTokens(body)));
 
@@ -104,6 +148,7 @@ export async function renderMarkdownIfRequested(context: {
     ttlSeconds: match.renderer.cacheTtlSeconds,
     headerName: EDGE_CACHE_HEADER,
     cacheControl: publicCacheControl(match.renderer.cacheTtlSeconds),
+    cloudflareCacheControl: cloudflareCdnCacheControl(match.renderer.cacheTtlSeconds),
     isResponseCacheable: (response) =>
       (response.headers.get('content-type') ?? '').toLowerCase().includes('text/markdown'),
   });
@@ -130,6 +175,7 @@ export async function renderMarkdownIfRequested(context: {
     ttlSeconds: match.renderer.cacheTtlSeconds,
     headerName: EDGE_CACHE_HEADER,
     cacheControl: publicCacheControl(match.renderer.cacheTtlSeconds),
+    cloudflareCacheControl: cloudflareCdnCacheControl(match.renderer.cacheTtlSeconds),
     isResponseCacheable: (candidate) =>
       (candidate.headers.get('content-type') ?? '').toLowerCase().includes('text/markdown'),
   });
@@ -147,6 +193,7 @@ export async function readCachedHtmlPage(request: Request): Promise<Response | n
     ttlSeconds: policy.cacheTtlSeconds,
     headerName: policy.cacheHeaderName,
     cacheControl: publicCacheControl(policy.cacheTtlSeconds, true),
+    cloudflareCacheControl: cloudflareCdnCacheControl(policy.cacheTtlSeconds),
     isResponseCacheable: (response) =>
       (response.headers.get('content-type') ?? '').toLowerCase().includes('text/html'),
   });
@@ -164,6 +211,7 @@ export async function cacheHtmlPageResponse(request: Request, response: Response
     ttlSeconds: policy.cacheTtlSeconds,
     headerName: policy.cacheHeaderName,
     cacheControl: publicCacheControl(policy.cacheTtlSeconds, true),
+    cloudflareCacheControl: cloudflareCdnCacheControl(policy.cacheTtlSeconds),
     isResponseCacheable: (candidate) =>
       (candidate.headers.get('content-type') ?? '').toLowerCase().includes('text/html'),
     isResponseReady: policy.isHtmlReady,
