@@ -5,6 +5,7 @@ interface EdgeCacheKeyOptions {
   namespace: string;
   variant: EdgeCacheVariant;
   version: string;
+  cacheSearch?: string;
 }
 
 interface EdgeCacheOptions extends EdgeCacheKeyOptions {
@@ -70,7 +71,7 @@ export function buildVariantCacheKey(request: Request, options: EdgeCacheKeyOpti
   const key = new URL(`https://edge-cache.internal/${options.namespace}`);
   key.searchParams.set('origin', url.origin);
   key.searchParams.set('path', url.pathname);
-  key.searchParams.set('search', url.search);
+  key.searchParams.set('search', options.cacheSearch ?? url.search);
   key.searchParams.set('variant', options.variant);
   key.searchParams.set('v', options.version);
   return new Request(key);
@@ -130,6 +131,7 @@ export async function cacheEdgeResponse(
 
   const cacheHeaders = new Headers(outgoing.headers);
   cacheHeaders.set('Cache-Control', `public, max-age=${options.ttlSeconds}`);
+  cacheHeaders.delete('Cloudflare-CDN-Cache-Control');
   cacheHeaders.delete('Set-Cookie');
 
   try {

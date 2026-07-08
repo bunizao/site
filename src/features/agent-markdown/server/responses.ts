@@ -4,6 +4,7 @@ import {
   EDGE_CACHE_HEADER,
   MARKDOWN_CONTENT_TYPE,
   MARKDOWN_TOKEN_HEADER,
+  type ContentRoutePolicy,
   getContentRoutePolicy,
   getMarkdownRenderer,
   hasMarkdownRenderer,
@@ -33,6 +34,10 @@ function hasFreshnessOrBypassDirective(value: string | null): boolean {
   return /\b(?:max-age|s-maxage|no-cache|no-store|private|must-revalidate|proxy-revalidate)\b/i.test(
     value ?? '',
   );
+}
+
+function hasExplicitBypassDirective(value: string | null): boolean {
+  return /\b(?:no-cache|no-store|private)\b/i.test(value ?? '');
 }
 
 export function isNeverCachePath(pathname: string): boolean {
@@ -73,6 +78,10 @@ function setNoStoreHeaders(headers: Headers): void {
   headers.delete(CLOUDFLARE_CDN_CACHE_CONTROL_HEADER);
 }
 
+function shouldApplyRouteCacheHeaders(url: URL, policy: ContentRoutePolicy): boolean {
+  return policy.normalizeHtmlCacheSearch ? policy.normalizeHtmlCacheSearch(url) !== null : true;
+}
+
 export function withContentPolicy(request: Request, response: Response): Response {
   const contentType = response.headers.get('content-type') ?? '';
   const isHtml = contentType.toLowerCase().includes('text/html');
@@ -87,7 +96,12 @@ export function withContentPolicy(request: Request, response: Response): Respons
     headers.set('Vary', appendHeaderToken(headers.get('Vary'), 'Accept'));
   }
 
-  if (policy && response.status === 200) {
+  if (
+    policy
+    && response.status === 200
+    && !hasExplicitBypassDirective(headers.get('Cache-Control'))
+    && shouldApplyRouteCacheHeaders(url, policy)
+  ) {
     setContentCacheHeaders(headers, policy.cacheTtlSeconds, isHtml);
   } else if (isHtml && !hasFreshnessOrBypassDirective(headers.get('Cache-Control'))) {
     headers.set(
@@ -181,39 +195,45 @@ export async function renderMarkdownIfRequested(context: {
   });
 }
 
-export async function readCachedHtmlPage(request: Request): Promise<Response | null> {
+function createHtmlCacheOptions(request: Request): Parameters<typeof readEdgeCache>[1] | null {
   const url = new URL(request.url);
   const policy = getContentRoutePolicy(url.pathname);
-  if (!policy?.edgeCacheHtml || url.search) return null;
+  if (!policy?.edgeCacheHtml) return null;
 
-  return readEdgeCache(request, {
+  const cacheSearch = policy.normalizeHtmlCacheSearch
+    ? policy.normalizeHtmlCacheSearch(url)
+    : url.search
+      ? null
+      : '';
+  if (cacheSearch === null) return null;
+
+  return {
     namespace: 'content',
     variant: 'html',
     version: EDGE_CACHE_VERSION,
     ttlSeconds: policy.cacheTtlSeconds,
     headerName: policy.cacheHeaderName,
     cacheControl: publicCacheControl(policy.cacheTtlSeconds, true),
-    cloudflareCacheControl: cloudflareCdnCacheControl(policy.cacheTtlSeconds),
+    cloudflareCacheControl: policy.normalizeHtmlCacheSearch
+      ? 'no-store'
+      : cloudflareCdnCacheControl(policy.cacheTtlSeconds),
+    cacheSearch,
     isResponseCacheable: (response) =>
       (response.headers.get('content-type') ?? '').toLowerCase().includes('text/html'),
-  });
+    isResponseReady: policy.isHtmlReady,
+  };
+}
+
+export async function readCachedHtmlPage(request: Request): Promise<Response | null> {
+  const options = createHtmlCacheOptions(request);
+  if (!options) return null;
+
+  return readEdgeCache(request, options);
 }
 
 export async function cacheHtmlPageResponse(request: Request, response: Response): Promise<Response> {
-  const url = new URL(request.url);
-  const policy = getContentRoutePolicy(url.pathname);
-  if (!policy?.edgeCacheHtml || url.search) return response;
+  const options = createHtmlCacheOptions(request);
+  if (!options) return response;
 
-  return cacheEdgeResponse(request, response, {
-    namespace: 'content',
-    variant: 'html',
-    version: EDGE_CACHE_VERSION,
-    ttlSeconds: policy.cacheTtlSeconds,
-    headerName: policy.cacheHeaderName,
-    cacheControl: publicCacheControl(policy.cacheTtlSeconds, true),
-    cloudflareCacheControl: cloudflareCdnCacheControl(policy.cacheTtlSeconds),
-    isResponseCacheable: (candidate) =>
-      (candidate.headers.get('content-type') ?? '').toLowerCase().includes('text/html'),
-    isResponseReady: policy.isHtmlReady,
-  });
+  return cacheEdgeResponse(request, response, options);
 }

@@ -17,7 +17,7 @@ describe('agent markdown registry', () => {
     expect(hasMarkdownRenderer('/mood/rss.xml')).toBe(false);
     expect(hasMarkdownRenderer('/mood/embed')).toBe(false);
     expect(hasMarkdownRenderer('/mood/subscribe')).toBe(false);
-    expect(getContentRoutePolicy('/mood/embed')).toBeNull();
+    expect(getContentRoutePolicy('/mood/embed')?.edgeCacheHtml).toBe(true);
     expect(getContentRoutePolicy('/mood/subscribe')).toBeNull();
   });
 
@@ -27,6 +27,13 @@ describe('agent markdown registry', () => {
     expect(getContentRoutePolicy('/sitemap.xml')?.cacheTtlSeconds).toBe(300);
     expect(getContentRoutePolicy('/blog/rss.xml')?.cacheTtlSeconds).toBe(300);
     expect(getContentRoutePolicy('/mood/rss.xml')?.cacheTtlSeconds).toBe(300);
+  });
+
+  test('declares short edge HTML cache policy for public mood detail pages', () => {
+    const policy = getContentRoutePolicy('/mood/990001');
+
+    expect(policy?.edgeCacheHtml).toBe(true);
+    expect(policy?.cacheTtlSeconds).toBe(60);
   });
 
   test('adds stale revalidation to shared content cache headers', () => {
@@ -55,6 +62,21 @@ describe('agent markdown registry', () => {
       'public, max-age=60, stale-while-revalidate=300'
     );
     expect(response.headers.get('Vary')).toBe('Accept');
+  });
+
+  test('does not replace explicit no-store on refreshing mood embeds', () => {
+    const response = withContentPolicy(
+      new Request('https://buxx.me/mood/embed?refresh=60'),
+      new Response('<!doctype html>', {
+        headers: {
+          'Content-Type': 'text/html; charset=utf-8',
+          'Cache-Control': 'no-store',
+        },
+      }),
+    );
+
+    expect(response.headers.get('Cache-Control')).toBe('no-store');
+    expect(response.headers.has('Cloudflare-CDN-Cache-Control')).toBe(false);
   });
 
   test('prevents heuristic Worker caching on unregistered HTML routes', async () => {

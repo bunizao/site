@@ -1,4 +1,10 @@
-import { isValidCursor, readCursorQuery } from '@/lib/http/query';
+import {
+  isValidCursor,
+  readBooleanFlag,
+  readCursorQuery,
+  readEnumQuery,
+  readIntQuery,
+} from '@/lib/http/query';
 import { withRateLimit } from '@/lib/http/rate-limited';
 import { meta, profile } from '@/data/site';
 import {
@@ -35,6 +41,7 @@ export const MARKDOWN_TOKEN_HEADER = 'x-markdown-tokens';
 export const EDGE_CACHE_HEADER = 'X-Buxx-Edge-Cache';
 export const MOOD_PAGE_CACHE_HEADER = 'X-Buxx-Mood-Page-Cache';
 export const MOOD_PAGE_CACHE_TTL_SECONDS = 60;
+export const MOOD_EMBED_CACHE_TTL_SECONDS = 300;
 
 export const MOOD_PAGE_CACHE_READY_MARKERS = [
   'data-mood-initial-feed',
@@ -45,8 +52,13 @@ export interface ContentRoutePolicy {
   cacheTtlSeconds: number;
   edgeCacheHtml: boolean;
   cacheHeaderName: string;
+  normalizeHtmlCacheSearch?: (url: URL) => string | null;
   isHtmlReady?: (body: string, response: Response) => boolean;
 }
+
+const MOOD_EMBED_THEMES = ['auto', 'light', 'dark'] as const;
+const MOOD_EMBED_DENSITIES = ['regular', 'compact'] as const;
+const MOOD_EMBED_FONTS = ['mono', 'system'] as const;
 
 function normalizePathname(pathname: string): string {
   if (pathname === '/') return pathname;
@@ -90,6 +102,40 @@ function matchMoodPost(pathname: string): Record<string, string> | null {
 
   const id = safeDecode(match[1]);
   return id && isValidCursor(id) ? { id } : null;
+}
+
+function normalizeMoodEmbedCacheSearch(url: URL): string | null {
+  if (url.searchParams.has('refresh')) return null;
+  if (url.searchParams.has('origin')) return null;
+
+  const normalized = new URLSearchParams();
+  const id = (url.searchParams.get('id') ?? '').trim();
+
+  if (id) {
+    if (!isValidCursor(id)) return null;
+    normalized.set('id', id);
+  } else {
+    const count = Math.min(10, Math.max(1, readIntQuery(url, 'count') ?? 1));
+    if (count !== 1) normalized.set('count', String(count));
+  }
+
+  const theme = readEnumQuery(url, 'theme', MOOD_EMBED_THEMES, 'auto');
+  if (theme !== 'auto') normalized.set('theme', theme);
+
+  const frame = readBooleanFlag(url, 'frame', true);
+  if (!frame) normalized.set('frame', 'false');
+
+  const density = readEnumQuery(url, 'density', MOOD_EMBED_DENSITIES, 'regular');
+  if (density !== 'regular') normalized.set('density', density);
+
+  const font = readEnumQuery(url, 'font', MOOD_EMBED_FONTS, 'mono');
+  if (font !== 'mono') normalized.set('font', font);
+
+  const link = readBooleanFlag(url, 'link', true);
+  if (!link) normalized.set('link', 'false');
+
+  const search = normalized.toString();
+  return search ? `?${search}` : '';
 }
 
 function markdownResult(body: string, status = 200, headers?: HeadersInit) {
@@ -311,6 +357,14 @@ export function getContentRoutePolicy(pathname: string): ContentRoutePolicy | nu
       isHtmlReady: (body) => MOOD_PAGE_CACHE_READY_MARKERS.every((marker) => body.includes(marker)),
     };
   }
+  if (normalized === '/mood/embed') {
+    return {
+      cacheTtlSeconds: MOOD_EMBED_CACHE_TTL_SECONDS,
+      edgeCacheHtml: true,
+      cacheHeaderName: EDGE_CACHE_HEADER,
+      normalizeHtmlCacheSearch: normalizeMoodEmbedCacheSearch,
+    };
+  }
   if (matchBlogPost(normalized)) {
     return { cacheTtlSeconds: 300, edgeCacheHtml: true, cacheHeaderName: EDGE_CACHE_HEADER };
   }
@@ -318,7 +372,7 @@ export function getContentRoutePolicy(pathname: string): ContentRoutePolicy | nu
     return { cacheTtlSeconds: 120, edgeCacheHtml: true, cacheHeaderName: EDGE_CACHE_HEADER };
   }
   if (matchMoodPost(normalized)) {
-    return { cacheTtlSeconds: MOOD_PAGE_CACHE_TTL_SECONDS, edgeCacheHtml: false, cacheHeaderName: EDGE_CACHE_HEADER };
+    return { cacheTtlSeconds: MOOD_PAGE_CACHE_TTL_SECONDS, edgeCacheHtml: true, cacheHeaderName: EDGE_CACHE_HEADER };
   }
 
   return null;

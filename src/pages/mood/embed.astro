@@ -25,13 +25,14 @@ export const prerender = false;
 
 // Parse query parameters
 const url = Astro.url;
-const theme = url.searchParams.get('theme') || 'auto';
-const idParam = url.searchParams.get('id');
+const theme = readEnumQuery(url, 'theme', ['auto', 'light', 'dark'] as const, 'auto');
+const idParam = (url.searchParams.get('id') ?? '').trim();
 const count = idParam ? 1 : Math.min(10, Math.max(1, readIntQuery(url, 'count') ?? 1));
 const frame = readBooleanFlag(url, 'frame', true);
 const density = readEnumQuery(url, 'density', ['regular', 'compact'] as const, 'regular');
 const font = readEnumQuery(url, 'font', ['mono', 'system'] as const, 'mono');
 const originParam = url.searchParams.get('origin');
+const hasRefreshParam = url.searchParams.has('refresh');
 const refreshRaw = readIntQuery(url, 'refresh');
 const refresh = refreshRaw !== null
   ? Math.max(30, Math.min(3600, refreshRaw))
@@ -60,11 +61,11 @@ const quoteImageErrorHandler =
   "this.closest('.mood-item-quote-media')?.remove();const q=this.closest('.mood-item-quote');q?.classList.remove('mood-item-quote--with-media','mood-item-quote--media-only');if(q&&!q.textContent.trim())q.remove();";
 
 // Set embed-friendly headers
-const embedHeaders = getEmbedHeaders(refresh && refresh > 0 ? { maxAge: 0, staleWhileRevalidate: 0 } : { maxAge: 300 });
+const embedHeaders = getEmbedHeaders(hasRefreshParam ? { maxAge: 0, staleWhileRevalidate: 0 } : { maxAge: 300 });
 embedHeaders.forEach((value, key) => {
   Astro.response.headers.set(key, value);
 });
-if (refresh && refresh > 0) {
+if (hasRefreshParam) {
   Astro.response.headers.set('Cache-Control', 'no-store');
 }
 
