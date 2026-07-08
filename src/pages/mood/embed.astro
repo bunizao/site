@@ -10,11 +10,7 @@ import {
 import { renderMoodGalleryMarkup } from '@/features/mood/shared/gallery';
 import { renderStructuredMoodFeedMediaMarkup } from '@/features/mood/shared/feed-media';
 import { getMoodDetailHref, getMoodFeedAnchorHref } from '@/features/mood/shared/feed-anchor';
-import {
-  readBooleanFlag,
-  readEnumQuery,
-  readIntQuery,
-} from '@/lib/http/query';
+import { readMoodEmbedQuery } from '@/features/mood/server/embed-query';
 import { buildSrcSet } from '@/lib/media/responsive-image';
 import type { MoodFeedItem } from '@/features/mood/server/contracts';
 import { getEmbedHeaders } from '../../lib/embed-response';
@@ -25,19 +21,18 @@ export const prerender = false;
 
 // Parse query parameters
 const url = Astro.url;
-const theme = readEnumQuery(url, 'theme', ['auto', 'light', 'dark'] as const, 'auto');
-const idParam = (url.searchParams.get('id') ?? '').trim();
-const count = idParam ? 1 : Math.min(10, Math.max(1, readIntQuery(url, 'count') ?? 1));
-const frame = readBooleanFlag(url, 'frame', true);
-const density = readEnumQuery(url, 'density', ['regular', 'compact'] as const, 'regular');
-const font = readEnumQuery(url, 'font', ['mono', 'system'] as const, 'mono');
-const originParam = url.searchParams.get('origin');
-const hasRefreshParam = url.searchParams.has('refresh');
-const refreshRaw = readIntQuery(url, 'refresh');
-const refresh = refreshRaw !== null
-  ? Math.max(30, Math.min(3600, refreshRaw))
-  : null;
-const showLink = readBooleanFlag(url, 'link', true);
+const {
+  theme,
+  idParam,
+  count,
+  frame,
+  density,
+  font,
+  originParam,
+  hasRefreshParam,
+  refresh,
+  showLink,
+} = readMoodEmbedQuery(url);
 const context = { request: Astro.request, locals: Astro.locals };
 let feedPosts: MoodFeedItem[] = [];
 let channelTitle = '';

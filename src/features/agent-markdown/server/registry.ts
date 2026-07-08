@@ -1,9 +1,6 @@
 import {
   isValidCursor,
-  readBooleanFlag,
   readCursorQuery,
-  readEnumQuery,
-  readIntQuery,
 } from '@/lib/http/query';
 import { withRateLimit } from '@/lib/http/rate-limited';
 import { meta, profile } from '@/data/site';
@@ -33,6 +30,7 @@ import type {
   MarkdownRendererContext,
   MatchedMarkdownRenderer,
 } from './types';
+import { normalizeMoodEmbedCacheSearch } from '@/features/mood/server/embed-query';
 import { readBuiltBlogMarkdown } from './built-blog';
 import privacyMarkdownRaw from '@/content/pages/privacy.md?raw';
 
@@ -55,10 +53,6 @@ export interface ContentRoutePolicy {
   normalizeHtmlCacheSearch?: (url: URL) => string | null;
   isHtmlReady?: (body: string, response: Response) => boolean;
 }
-
-const MOOD_EMBED_THEMES = ['auto', 'light', 'dark'] as const;
-const MOOD_EMBED_DENSITIES = ['regular', 'compact'] as const;
-const MOOD_EMBED_FONTS = ['mono', 'system'] as const;
 
 function normalizePathname(pathname: string): string {
   if (pathname === '/') return pathname;
@@ -102,40 +96,6 @@ function matchMoodPost(pathname: string): Record<string, string> | null {
 
   const id = safeDecode(match[1]);
   return id && isValidCursor(id) ? { id } : null;
-}
-
-function normalizeMoodEmbedCacheSearch(url: URL): string | null {
-  if (url.searchParams.has('refresh')) return null;
-  if (url.searchParams.has('origin')) return null;
-
-  const normalized = new URLSearchParams();
-  const id = (url.searchParams.get('id') ?? '').trim();
-
-  if (id) {
-    if (!isValidCursor(id)) return null;
-    normalized.set('id', id);
-  } else {
-    const count = Math.min(10, Math.max(1, readIntQuery(url, 'count') ?? 1));
-    if (count !== 1) normalized.set('count', String(count));
-  }
-
-  const theme = readEnumQuery(url, 'theme', MOOD_EMBED_THEMES, 'auto');
-  if (theme !== 'auto') normalized.set('theme', theme);
-
-  const frame = readBooleanFlag(url, 'frame', true);
-  if (!frame) normalized.set('frame', 'false');
-
-  const density = readEnumQuery(url, 'density', MOOD_EMBED_DENSITIES, 'regular');
-  if (density !== 'regular') normalized.set('density', density);
-
-  const font = readEnumQuery(url, 'font', MOOD_EMBED_FONTS, 'mono');
-  if (font !== 'mono') normalized.set('font', font);
-
-  const link = readBooleanFlag(url, 'link', true);
-  if (!link) normalized.set('link', 'false');
-
-  const search = normalized.toString();
-  return search ? `?${search}` : '';
 }
 
 function markdownResult(body: string, status = 200, headers?: HeadersInit) {
