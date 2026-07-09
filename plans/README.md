@@ -18,6 +18,7 @@ leverage without a user selection step.
 | 003  | Stop manage-token referrer leak into blog analytics | P2 | S | — | DONE |
 | 004  | Turnstile widget lifecycle cleanup in ManagePreferences | P3 | S | — | DONE |
 | 005  | Remove stray root design scraps | P3 | S | — | DONE |
+| 006  | Mood navigation & read-path performance (PRD) | P1 | L | working-tree perf WIP deployed (see PRD §3) | TODO |
 
 Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJECTED (with one-line rationale)
 
