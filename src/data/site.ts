@@ -52,6 +52,7 @@ export const profile = {
   ],
   links: [
     { name: 'Blog', url: 'https://buxx.me/blog', icon: FileText, description: 'Read my articles', handle: 'buxx.me/blog', sameAs: true },
+    { name: 'CV', url: '/cv', icon: GraduationCap, description: 'Read my résumé', handle: 'buxx.me/cv' },
     { name: 'GitHub', url: 'https://tuu.cat/gh', icon: GitHubIcon, description: 'Check out my code', handle: '@bunizao', sameAs: true, canonicalUrl: 'https://github.com/bunizao' },
     { name: 'Email', url: 'mailto:me@buxx.me', icon: Mail, description: 'Send me a message', handle: 'me@buxx.me' },
     { name: 'Telegram', url: 'https://tuu.cat/tg', icon: Send, description: 'Chat with me', handle: 'tuu.cat/tg', sameAs: true },

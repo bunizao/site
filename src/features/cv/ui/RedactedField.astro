@@ -1,4 +1,5 @@
 ---
+import { LockKeyhole } from 'lucide-react';
 import type { CvLang } from '@bunizao/contracts';
 import { CV_STRINGS } from '../copy';
 
@@ -21,6 +22,7 @@ const strings = CV_STRINGS[lang];
   aria-label={strings.redacted.label}
   title={strings.redacted.hint}
 >
+  <LockKeyhole aria-hidden="true" className="cv-redacted__icon" />
   <span class="cv-redacted__label">{strings.redacted.word}</span>
   <span class="cv-redacted__veil" aria-hidden="true"></span>
 </button>

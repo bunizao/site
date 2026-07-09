@@ -63,6 +63,16 @@ body:has(.cv-zone)::before {
   margin: 0;
 }
 
+.cv-legal-name {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  min-height: 1.35rem;
+  font-size: 0.88rem;
+  line-height: 1.4;
+  color: var(--cv-faint);
+}
+
 .cv-headline {
   font-size: 1.0625rem;
   line-height: 1.5;
@@ -403,6 +413,7 @@ body:has(.cv-zone)::before {
   position: relative;
   display: inline-flex;
   align-items: baseline;
+  gap: 0.28em;
   vertical-align: baseline;
   border: none;
   background: none;
@@ -413,6 +424,14 @@ body:has(.cv-zone)::before {
   cursor: pointer;
   border-radius: 5px;
   isolation: isolate;
+}
+
+.cv-redacted__icon {
+  width: 0.82em;
+  height: 0.82em;
+  align-self: center;
+  color: var(--cv-faint);
+  opacity: 0.72;
 }
 
 .cv-redacted__label {

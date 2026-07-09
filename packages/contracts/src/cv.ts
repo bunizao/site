@@ -110,6 +110,17 @@ export interface CvPublicDocument extends Omit<CvDocument, 'identity' | 'work' |
   education: CvPublicEducationItem[];
 }
 
+export interface CvPdfCacheEntry {
+  lang: CvLang;
+  key: string;
+  cached: boolean;
+}
+
+export interface CvPdfCacheStatus {
+  available: boolean;
+  keys: CvPdfCacheEntry[];
+}
+
 /** Strip one leaf: hidden fields lose their value entirely. */
 function redactLeaf(field: Redactable): PublicRedactable {
   return field.redacted ? { redacted: true } : { value: field.value };

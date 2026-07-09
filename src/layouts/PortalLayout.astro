@@ -2,7 +2,7 @@
 interface Props {
   title: string;
   description?: string;
-  active?: 'overview' | 'analytics' | 'oauth' | 'subscribers' | 'broadcasts' | 'mascot' | 'newsletter' | 'svg' | 'mood-embed';
+  active?: 'overview' | 'analytics' | 'oauth' | 'subscribers' | 'broadcasts' | 'cv' | 'mascot' | 'newsletter' | 'svg' | 'mood-embed';
   user?: {
     login: string;
     email?: string;
@@ -18,6 +18,7 @@ import {
   KeyRound,
   Users,
   Send,
+  FileText,
   Sparkles,
   Mail,
   Image as ImageIcon,
@@ -50,6 +51,7 @@ const navItems = [
   { key: 'oauth', label: 'Access Hub', href: '/dev/portal/oauth', Icon: KeyRound },
   { key: 'subscribers', label: 'Subscribers', href: '/dev/portal/subscribers', Icon: Users },
   { key: 'broadcasts', label: 'Broadcasts', href: '/dev/portal/broadcasts', Icon: Send },
+  { key: 'cv', label: 'CV access', href: '/dev/portal/cv', Icon: FileText },
   { key: 'mascot', label: 'Mascot', href: '/dev/portal/mascot', Icon: Sparkles },
   { key: 'newsletter', label: 'Newsletter', href: '/dev/portal/newsletter', Icon: Mail },
   { key: 'svg', label: 'SVG gallery', href: '/dev/portal/svg', Icon: ImageIcon },

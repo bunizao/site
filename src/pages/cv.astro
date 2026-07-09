@@ -49,7 +49,10 @@ if (key) {
       maxAge: 60 * 60 * 24 * 7,
     });
   }
-  return Astro.redirect(lang === 'zh' ? '/cv?lang=zh' : '/cv');
+  const redirect = Astro.redirect(lang === 'zh' ? '/cv?lang=zh' : '/cv');
+  redirect.headers.set('X-Robots-Tag', 'noindex, nofollow');
+  redirect.headers.set('Cache-Control', 'private, no-store');
+  return redirect;
 }
 
 const attemptFull = Boolean(cookieKey || hasAccessAssertion);

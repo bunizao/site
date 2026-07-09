@@ -3,6 +3,7 @@ import { MapPin } from 'lucide-react';
 import type { CvLang } from '@bunizao/contracts';
 import type { ResolvedCv } from '../server/resolve';
 import { CV_STRINGS, pick } from '../copy';
+import CvValue from './CvValue.astro';
 
 interface Props {
   cv: ResolvedCv;
@@ -36,10 +37,13 @@ const linkTarget = isScreen ? '_blank' : undefined;
 <header class="cv-header">
   <div class="cv-header__main">
     <h1 class="cv-name cv-reveal cv-reveal--1">{pick(ident.displayName, lang)}</h1>
+    <span class="cv-legal-name cv-reveal cv-reveal--1">
+      <CvValue leaf={ident.legalName} lang={lang} width={7} />
+    </span>
     <p class="cv-headline cv-reveal cv-reveal--2">{pick(ident.headline, lang)}</p>
     <span class="cv-location cv-reveal cv-reveal--2">
       <MapPin aria-hidden="true" />
-      {pick(ident.location, lang)}
+      <CvValue leaf={ident.location} lang={lang} width={10} />
     </span>
   </div>
 

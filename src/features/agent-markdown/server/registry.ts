@@ -31,6 +31,7 @@ import type {
   MatchedMarkdownRenderer,
 } from './types';
 import { normalizeMoodEmbedCacheSearch } from '@/features/mood/server/embed-query';
+import { normalizeCvHtmlCacheSearch } from '@/features/cv/server/cache';
 import { readBuiltBlogMarkdown } from './built-blog';
 import privacyMarkdownRaw from '@/content/pages/privacy.md?raw';
 
@@ -308,6 +309,14 @@ export function getContentRoutePolicy(pathname: string): ContentRoutePolicy | nu
   }
   if (normalized === '/projects') {
     return { cacheTtlSeconds: 300, edgeCacheHtml: false, cacheHeaderName: EDGE_CACHE_HEADER };
+  }
+  if (normalized === '/cv') {
+    return {
+      cacheTtlSeconds: 300,
+      edgeCacheHtml: true,
+      cacheHeaderName: EDGE_CACHE_HEADER,
+      normalizeHtmlCacheSearch: normalizeCvHtmlCacheSearch,
+    };
   }
   if (normalized === '/blog/rss.xml' || normalized === '/mood/rss.xml' || normalized === '/sitemap.xml') {
     return { cacheTtlSeconds: 300, edgeCacheHtml: false, cacheHeaderName: EDGE_CACHE_HEADER };

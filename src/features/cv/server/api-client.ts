@@ -76,9 +76,14 @@ export async function getCv(context: CvServerContext, query: CvQuery): Promise<R
     const response = await api.fetch(buildCvRequest(context, query));
     if (!response.ok) {
       // 401 on a full read means access was rejected upstream; fall back to the
-      // public projection rather than an error page.
+      // real public projection rather than an error page.
       if (response.status === 401 && full) {
-        return fixtureCv(false);
+        const publicResponse = await api.fetch(buildCvRequest(context, { lang: query.lang }));
+        if (!publicResponse.ok) {
+          throw new Error(`cv public read failed: ${publicResponse.status} ${publicResponse.statusText}`);
+        }
+        logSourceOnce('site-api', false);
+        return resolvePublicCv((await publicResponse.json()) as CvPublicDocument);
       }
       throw new Error(`cv read failed: ${response.status} ${response.statusText}`);
     }
@@ -89,6 +94,6 @@ export async function getCv(context: CvServerContext, query: CvQuery): Promise<R
     return resolvePublicCv((await response.json()) as CvPublicDocument);
   } catch (error) {
     console.warn('[cv] site-api read failed, using fixture', error);
-    return fixtureCv(full);
+    return fixtureCv(full ? false : full);
   }
 }

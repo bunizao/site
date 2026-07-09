@@ -24,6 +24,7 @@ describe('agent markdown registry', () => {
   test('declares cache policy for static discovery and content routes', () => {
     expect(getContentRoutePolicy('/llms.txt')?.cacheTtlSeconds).toBe(300);
     expect(getContentRoutePolicy('/projects')?.cacheTtlSeconds).toBe(300);
+    expect(getContentRoutePolicy('/cv')?.cacheTtlSeconds).toBe(300);
     expect(getContentRoutePolicy('/sitemap.xml')?.cacheTtlSeconds).toBe(300);
     expect(getContentRoutePolicy('/blog/rss.xml')?.cacheTtlSeconds).toBe(300);
     expect(getContentRoutePolicy('/mood/rss.xml')?.cacheTtlSeconds).toBe(300);

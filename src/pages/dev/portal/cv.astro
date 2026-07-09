@@ -1,0 +1,38 @@
+---
+import PortalLayout from '@/layouts/PortalLayout.astro';
+import CvAccessConsole from '@/features/admin/ui/CvAccessConsole';
+import {
+  loadPortalCv,
+  type PortalCvAccess,
+} from '@/features/admin/server/portal-client';
+
+export const prerender = false;
+
+const session = (Astro.locals as any).adminSession;
+
+let cvAccess: PortalCvAccess = {
+  requests: [],
+  pdfCache: { available: false, keys: [] },
+};
+let loadError: string | null = null;
+
+try {
+  cvAccess = await loadPortalCv(Astro.request, Astro.locals);
+} catch (error) {
+  loadError = error instanceof Error ? error.message : 'unknown';
+}
+---
+
+<PortalLayout
+  title="CV access"
+  description="Approve full résumé requests and mint outbound owner links."
+  active="cv"
+  user={{ login: session?.login || 'admin' }}
+>
+  <CvAccessConsole
+    client:load
+    initialRequests={cvAccess.requests}
+    initialPdfCache={cvAccess.pdfCache}
+    initialError={loadError}
+  />
+</PortalLayout>

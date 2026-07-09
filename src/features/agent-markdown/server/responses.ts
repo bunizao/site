@@ -1,4 +1,5 @@
 import { cacheEdgeResponse, readEdgeCache } from '@/lib/http/edge-cache';
+import { isCvFullHtmlRequest } from '@/features/cv/server/cache';
 import { estimateMarkdownTokens, prefersMarkdown } from './negotiation';
 import {
   EDGE_CACHE_HEADER,
@@ -90,7 +91,8 @@ function setNoStoreHeaders(headers: Headers): void {
   headers.delete(CLOUDFLARE_CDN_CACHE_CONTROL_HEADER);
 }
 
-function shouldApplyRouteCacheHeaders(url: URL, policy: ContentRoutePolicy): boolean {
+function shouldApplyRouteCacheHeaders(request: Request, url: URL, policy: ContentRoutePolicy): boolean {
+  if (isCvFullHtmlRequest(request)) return false;
   return policy.normalizeHtmlCacheSearch ? policy.normalizeHtmlCacheSearch(url) !== null : true;
 }
 
@@ -112,7 +114,7 @@ export function withContentPolicy(request: Request, response: Response): Respons
     policy
     && response.status === 200
     && !hasExplicitBypassDirective(headers.get('Cache-Control'))
-    && shouldApplyRouteCacheHeaders(url, policy)
+    && shouldApplyRouteCacheHeaders(request, url, policy)
   ) {
     setContentCacheHeaders(
       headers,
@@ -215,6 +217,7 @@ function createHtmlCacheOptions(request: Request): Parameters<typeof readEdgeCac
   const url = new URL(request.url);
   const policy = getContentRoutePolicy(url.pathname);
   if (!policy?.edgeCacheHtml) return null;
+  if (isCvFullHtmlRequest(request)) return null;
 
   const cacheSearch = policy.normalizeHtmlCacheSearch
     ? policy.normalizeHtmlCacheSearch(url)

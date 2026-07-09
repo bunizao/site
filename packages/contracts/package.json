@@ -26,6 +26,11 @@
       "import": "./src/content.ts",
       "default": "./src/content.ts"
     },
+    "./cv": {
+      "types": "./src/cv.ts",
+      "import": "./src/cv.ts",
+      "default": "./src/cv.ts"
+    },
     "./mood": {
       "types": "./src/mood.ts",
       "import": "./src/mood.ts",
