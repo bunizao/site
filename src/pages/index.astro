@@ -34,6 +34,11 @@ const isHomeDevSurface = process.env.DEV_SURFACE === 'home';
 </Layout>
 
 <style>
+  .page-container {
+    /* Homepage code labels are below the fold; reuse the already-preloaded mono face here. */
+    --font-code: var(--font-mono);
+  }
+
   /* Projects and Writing are excluded: both paint hover UI (card deck overflow,
      the Sillage gloss popover) outside their box, which paint containment from
      content-visibility would clip. */

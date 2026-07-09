@@ -8,14 +8,23 @@ import { useReducedMotion } from "framer-motion";
 
 interface Slide {
   src: string;
+  blurSrc?: string;
   alt: string;
 }
 
 const slides: Slide[] = [
   { src: "/projects/ogis/og-1.webp", alt: "OG card: Link previews, on the edge" },
-  { src: "/projects/ogis/og-2.webp", alt: "OG card: Frosted glass, zero cold starts" },
+  {
+    src: "/projects/ogis/og-2.webp",
+    blurSrc: "/projects/ogis/og-2-blur.webp",
+    alt: "OG card: Frosted glass, zero cold starts",
+  },
   { src: "/projects/ogis/og-3.webp", alt: "OG card: Every share, intentional" },
-  { src: "/projects/ogis/og-4.webp", alt: "OG card: Generated live by ogis" },
+  {
+    src: "/projects/ogis/og-4.webp",
+    blurSrc: "/projects/ogis/og-4-blur.webp",
+    alt: "OG card: Generated live by ogis",
+  },
 ];
 
 export default function OgCarouselHero({ hovered = false }: { hovered?: boolean }) {
@@ -45,10 +54,11 @@ export default function OgCarouselHero({ hovered = false }: { hovered?: boolean 
           frame. No border, no mount: the only edge is the hero tile's ring. */}
       {slides.map((candidate, index) => {
         const current = index === active;
+        const backgroundSrc = candidate.blurSrc ?? candidate.src;
         return (
           <img
-            key={`bg-${candidate.src}`}
-            src={candidate.src}
+            key={`bg-${backgroundSrc}`}
+            src={backgroundSrc}
             alt=""
             aria-hidden
             loading={index === 0 ? "eager" : "lazy"}
