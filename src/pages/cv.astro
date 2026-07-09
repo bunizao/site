@@ -6,7 +6,17 @@ import { getCv } from '@/features/cv/server/api-client';
 import { CV_STRINGS, pick } from '@/features/cv/copy';
 import CvDocument from '@/features/cv/ui/CvDocument.astro';
 import RequestAccessDialog from '@/features/cv/ui/RequestAccessDialog.astro';
+import { blogPalette } from '@/data/site';
 import '@/features/cv/styles/cv.css';
+
+// The résumé borrows the 無人之境 ink language: one blue accent, graded by mode.
+// Emit it scoped to .cv-zone (mirrors BlogLayout) so no token leaks onto the
+// main-site identity.
+const { dai } = blogPalette;
+const accentStyle = [
+  `.cv-zone{--cv-accent:${dai.light};}`,
+  `.dark .cv-zone{--cv-accent:${dai.dark};}`,
+].join('');
 
 export const prerender = false;
 
@@ -77,48 +87,43 @@ if (full) {
   url="/cv"
   robots={robots}
   alternates={alternates}
-  navVariant="page"
-  showSiteNav
+  hideSiteNav
 >
-  <main class="cv-page" data-lang={lang} lang={lang}>
-    <div class="cv-topbar cv-reveal cv-reveal--1">
-      <span class="cv-eyebrow">{t.eyebrow}</span>
-      <nav class="cv-toolbar" aria-label="résumé actions">
-        <a class="cv-toolbar__link" href={otherLangHref} hreflang={lang === 'en' ? 'zh' : 'en'}>
-          {t.otherLang}
+  <Fragment set:html={`<style>${accentStyle}</style>`} />
+  <main class="cv-zone cv-page reading" data-lang={lang} lang={lang}>
+    <nav class="cv-toolbar" aria-label="résumé actions">
+      <a class="cv-toolbar__link" href={otherLangHref} hreflang={lang === 'en' ? 'zh' : 'en'}>
+        {t.otherLang}
+      </a>
+      {full ? (
+        <a class="cv-toolbar__link" href={pdfHref} target="_blank" rel="noopener">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M14 3v4a1 1 0 0 0 1 1h4"></path>
+            <path d="M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2Z"></path>
+          </svg>
+          {t.pdf}
         </a>
-        {full ? (
-          <a class="cv-toolbar__link" href={pdfHref} target="_blank" rel="noopener">
-            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <path d="M14 3v4a1 1 0 0 0 1 1h4"></path>
-              <path d="M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2Z"></path>
-            </svg>
-            {t.pdf}
-          </a>
-        ) : (
-          <button type="button" class="cv-toolbar__link" data-cv-request-open>
-            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <path d="M14 3v4a1 1 0 0 0 1 1h4"></path>
-              <path d="M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2Z"></path>
-            </svg>
-            {t.pdf}
-          </button>
-        )}
-      </nav>
-    </div>
+      ) : (
+        <button type="button" class="cv-toolbar__link" data-cv-request-open>
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M14 3v4a1 1 0 0 0 1 1h4"></path>
+            <path d="M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2Z"></path>
+          </svg>
+          {t.pdf}
+        </button>
+      )}
+    </nav>
 
-    <CvDocument cv={cv} lang={lang} showRequest={!full} />
+    <CvDocument cv={cv} lang={lang} avatar="/avatar.webp" showRequest={!full} />
 
     <RequestAccessDialog lang={lang} />
   </main>
 </Layout>
 
-<style>
-  .cv-topbar {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 1rem;
-    margin-bottom: 1.75rem;
+<style is:global>
+  /* The résumé is its own calm zone — drop the main-site dot-grid so it reads
+     like the flat blog surface, not the homepage. */
+  body:has(.cv-zone)::before {
+    display: none;
   }
 </style>

@@ -69,6 +69,9 @@ const title = `${pick(cv.identity.displayName, lang)} — ${t.eyebrow}`;
         unicode-range: U+2E80-9FFF, U+3000-303F, U+FF00-FFEF;
       }
 
+      /* Blue ink accent, light value (print is always light). */
+      .cv-zone { --cv-accent: #3C5D80; }
+
       html,
       body {
         margin: 0;
@@ -77,8 +80,6 @@ const title = `${pick(cv.identity.displayName, lang)} — ${t.eyebrow}`;
       }
 
       .cv-print {
-        --cv-spine: 7rem;
-        --cv-gap: 2rem;
         max-width: 210mm;
         padding: 0 14mm;
         margin: 0 auto;
@@ -91,15 +92,11 @@ const title = `${pick(cv.identity.displayName, lang)} — ${t.eyebrow}`;
         transform: none !important;
       }
 
-      /* The sticky spine label is a screen affordance; pin it in flow for print. */
-      .cv-print .cv-section__label {
-        position: static;
-      }
-
-      /* Font stack: reading = Inter + CJK; spine keeps mono + CJK fallback. */
-      .cv-print :where(.cv-name, .cv-headline, .cv-summary, .cv-entry__role,
-        .cv-entry__summary, .cv-highlights li, .cv-project__name, .cv-project__desc,
-        .cv-skill-group__items) {
+      /* Whole document reads in Inter + a CJK fallback for the zh PDF. */
+      .cv-print :where(.cv-name, .cv-legal, .cv-headline, .cv-location,
+        .cv-summary, .cv-section__title, .cv-entry__org, .cv-entry__role,
+        .cv-entry__summary, .cv-highlights li, .cv-project__name,
+        .cv-project__desc, .cv-skill-group__label, .cv-tag) {
         font-family: 'Inter', 'CV CJK', ui-sans-serif, system-ui, sans-serif;
       }
 
@@ -110,6 +107,7 @@ const title = `${pick(cv.identity.displayName, lang)} — ${t.eyebrow}`;
 
       @media print {
         .cv-print .cv-entry,
+        .cv-print .cv-project,
         .cv-print .cv-section {
           break-inside: avoid;
         }
@@ -117,8 +115,8 @@ const title = `${pick(cv.identity.displayName, lang)} — ${t.eyebrow}`;
     </style>
   </head>
   <body>
-    <main class="cv-page cv-print" data-lang={lang} lang={lang}>
-      <CvDocument cv={cv} lang={lang} showRequest={false} />
+    <main class="cv-zone cv-page cv-print" data-lang={lang} lang={lang}>
+      <CvDocument cv={cv} lang={lang} avatar="/avatar.webp" showRequest={false} />
     </main>
   </body>
 </html>
