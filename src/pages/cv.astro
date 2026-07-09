@@ -1,0 +1,113 @@
+---
+import type { CvLang } from '@bunizao/contracts';
+import { CV_PDF_PATH } from '@bunizao/contracts/routes';
+import Layout from '@/layouts/Layout.astro';
+import { getCv } from '@/features/cv/server/api-client';
+import { CV_STRINGS, pick } from '@/features/cv/copy';
+import CvDocument from '@/features/cv/ui/CvDocument.astro';
+import RequestAccessDialog from '@/features/cv/ui/RequestAccessDialog.astro';
+import { blogPalette } from '@/data/site';
+import '@/features/cv/styles/cv.css';
+
+// The résumé borrows the 無人之境 ink language: one blue accent, graded by mode.
+// Emit it scoped to .cv-zone (mirrors BlogLayout) so no token leaks onto the
+// main-site identity.
+const { dai } = blogPalette;
+const accentStyle = [
+  `.cv-zone{--cv-accent:${dai.light};}`,
+  `.dark .cv-zone{--cv-accent:${dai.dark};}`,
+].join('');
+
+export const prerender = false;
+
+// ---- Language -----------------------------------------------------------
+const rawLang = Astro.url.searchParams.get('lang');
+const lang: CvLang = rawLang === 'zh' ? 'zh' : 'en';
+const t = CV_STRINGS[lang];
+
+// ---- Access + redeem ----------------------------------------------------
+// The page never decides redaction itself — site-api does. We only decide
+// whether to *attempt* the full read, which keeps the anonymous page cacheable
+// and indexable. Signals: a `?key=` redeem, an existing `cv_full` cookie, or a
+// Cloudflare Access assertion (owner). Anonymous visitors hit none of these.
+const key = Astro.url.searchParams.get('key') ?? undefined;
+const cookieKey = Astro.cookies.get('cv_full')?.value;
+const hasAccessAssertion = Boolean(Astro.request.headers.get('cf-access-jwt-assertion'));
+const context = { request: Astro.request, locals: Astro.locals };
+
+if (key) {
+  // Verify by attempting the full read with the presented key. If site-api
+  // accepts it, persist a short-lived cookie and redirect to a clean URL so the
+  // token never lingers in history or referrers.
+  const probe = await getCv(context, { lang, full: true, key });
+  if (probe.full) {
+    Astro.cookies.set('cv_full', key, {
+      httpOnly: true,
+      secure: true,
+      sameSite: 'lax',
+      path: '/',
+      maxAge: 60 * 60 * 24 * 7,
+    });
+  }
+  return Astro.redirect(lang === 'zh' ? '/cv?lang=zh' : '/cv');
+}
+
+const attemptFull = Boolean(cookieKey || hasAccessAssertion);
+const cv = await getCv(context, { lang, full: attemptFull, key: cookieKey });
+const full = cv.full;
+
+// ---- Meta ---------------------------------------------------------------
+const title = `${pick(cv.identity.displayName, lang)} — ${t.eyebrow}`;
+const description = pick(cv.summary, lang).slice(0, 155);
+// The redacted page is the public résumé and stays indexable; any full render
+// carries noindex so gated content never enters the index.
+const robots = full ? 'noindex, nofollow' : undefined;
+const alternates = full
+  ? undefined
+  : [
+      { hreflang: 'en', href: '/cv' },
+      { hreflang: 'zh', href: '/cv?lang=zh' },
+      { hreflang: 'x-default', href: '/cv' },
+    ];
+
+const otherLangHref = lang === 'en' ? '/cv?lang=zh' : '/cv';
+// Prod serves the real PDF from site-api's Browser Rendering endpoint, which
+// itself loads `/cv/print`. In dev that endpoint is unreachable (it proxies to
+// prod, ignoring local edits), so point the button at the live print route —
+// same layout the renderer consumes, HMR-live, and Cmd+P saves a true PDF.
+const pdfHref = import.meta.env.DEV
+  ? `/cv/print?lang=${lang}`
+  : `${CV_PDF_PATH}?lang=${lang}`;
+
+// Full renders must never be indexed — set the header too, not just the meta
+// tag, so a crawler that only reads headers still honours it.
+if (full) {
+  Astro.response.headers.set('X-Robots-Tag', 'noindex, nofollow');
+  Astro.response.headers.set('Cache-Control', 'private, no-store');
+}
+---
+
+<Layout
+  title={title}
+  description={description}
+  url="/cv"
+  robots={robots}
+  alternates={alternates}
+  hideSiteNav
+>
+  <Fragment set:html={`<style>${accentStyle}</style>`} />
+  <main class="cv-zone cv-page reading" data-lang={lang} lang={lang}>
+    <CvDocument
+      cv={cv}
+      lang={lang}
+      avatar="/avatar.webp"
+      full={full}
+      pdfHref={pdfHref}
+      otherLangHref={otherLangHref}
+      otherLangLabel={t.otherLang}
+      showRequest={!full}
+    />
+
+    <RequestAccessDialog lang={lang} />
+  </main>
+</Layout>

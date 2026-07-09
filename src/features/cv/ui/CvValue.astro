@@ -1,0 +1,28 @@
+---
+import type { CvLang } from '@bunizao/contracts';
+import type { CvLeaf } from '../server/resolve';
+import { pick } from '../copy';
+import RedactedField from './RedactedField.astro';
+
+interface Props {
+  leaf: CvLeaf;
+  lang: CvLang;
+  /** Chip width (ch) when the leaf is redacted. */
+  width?: number;
+  class?: string;
+  /** Optional href — renders the value as a link when present and not redacted. */
+  href?: string;
+}
+
+const { leaf, lang, width = 8, class: className, href } = Astro.props;
+---
+
+{
+  leaf === null ? (
+    <RedactedField lang={lang} width={width} class={className} />
+  ) : href ? (
+    <a class={className} href={href}>{pick(leaf, lang)}</a>
+  ) : (
+    <span class={className}>{pick(leaf, lang)}</span>
+  )
+}

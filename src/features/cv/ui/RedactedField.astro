@@ -1,0 +1,26 @@
+---
+import type { CvLang } from '@bunizao/contracts';
+import { CV_STRINGS } from '../copy';
+
+interface Props {
+  lang: CvLang;
+  /** Approximate width of the plausible content, in ch. */
+  width?: number;
+  class?: string;
+}
+
+const { lang, width = 7, class: className } = Astro.props;
+const strings = CV_STRINGS[lang];
+---
+
+<button
+  type="button"
+  class:list={['cv-redacted', className]}
+  style={`--cv-redacted-w:${width}ch`}
+  data-cv-request-open
+  aria-label={strings.redacted.label}
+  title={strings.redacted.hint}
+>
+  <span class="cv-redacted__label">{strings.redacted.word}</span>
+  <span class="cv-redacted__veil" aria-hidden="true"></span>
+</button>

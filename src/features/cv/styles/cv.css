@@ -1,0 +1,587 @@
+/* Résumé — structured after BartoszJarocki/cv (avatar header, contact row, flat
+   single column, project cards), skinned in the 無人之境 ink-wash language (see
+   docs/BLOG-DESIGN.md): greys derived from the theme foreground at alpha, one
+   blue ink accent, Inter reading type, no elevation, hairlines and whitespace.
+   Everything is scoped under .cv-zone so no token leaks onto the main identity.
+   Shared by /cv (screen) and /cv/print. */
+
+.cv-zone {
+  /* Ink greys — foreground at alpha, so both modes stay in sync for free. */
+  --cv-ink: hsl(var(--foreground));
+  --cv-body: hsl(var(--foreground) / 0.78);
+  --cv-muted: hsl(var(--foreground) / 0.56);
+  --cv-faint: hsl(var(--foreground) / 0.42);
+  --cv-line: hsl(var(--foreground) / 0.1);
+  --cv-fill: hsl(var(--foreground) / 0.045);
+  /* --cv-accent (the blue ink) is emitted per-mode by the page from blogPalette. */
+  --cv-measure: 44rem;
+  /* Reading measure for prose — kept ~66ch so lines never outrun the eye. */
+  --cv-prose: 62ch;
+}
+
+/* Drop the main-site ambient dot-grid — the résumé is its own flat surface,
+   like the blog zone. `content: none` removes the ::before entirely, so it
+   holds regardless of cascade order. */
+body:has(.cv-zone)::before {
+  content: none !important;
+}
+
+.cv-page {
+  max-width: var(--cv-measure);
+  margin: 0 auto;
+  padding: clamp(2.75rem, 7vw, 4.5rem) clamp(1.25rem, 5vw, 2rem) 5rem;
+  color: var(--cv-body);
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 1.6;
+}
+
+/* ---- Header ------------------------------------------------------------- */
+
+.cv-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1.75rem;
+  margin-bottom: 1.35rem;
+}
+
+.cv-header__main {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.cv-name {
+  font-size: clamp(2rem, 5.5vw, 2.6rem);
+  font-weight: 680;
+  letter-spacing: -0.03em;
+  line-height: 1.02;
+  color: var(--cv-ink);
+  text-wrap: balance;
+  margin: 0;
+}
+
+.cv-legal {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--cv-muted);
+}
+
+.cv-headline {
+  font-size: 1.0625rem;
+  line-height: 1.5;
+  color: var(--cv-body);
+  max-width: 42ch;
+  text-wrap: pretty;
+  margin: 0.35rem 0 0;
+}
+
+.cv-location {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.85rem;
+  color: var(--cv-faint);
+  margin-top: 0.15rem;
+}
+
+.cv-location svg {
+  width: 0.95em;
+  height: 0.95em;
+}
+
+.cv-avatar {
+  flex-shrink: 0;
+  width: clamp(4.5rem, 15vw, 5.75rem);
+  height: clamp(4.5rem, 15vw, 5.75rem);
+  border-radius: 16px;
+  object-fit: cover;
+  box-shadow: inset 0 0 0 1px hsl(var(--foreground) / 0.1);
+}
+
+/* ---- Action row — boxed buttons with a hover-expand label -------------- */
+/* Mirrors the site's header-action-btn language (globals.css): a compact box
+   that reveals its label as it expands on hover/focus. One shared, consistent
+   control for contacts, language, and the PDF. */
+
+.cv-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 1.5rem 0 0;
+}
+
+.cv-actions__spacer {
+  flex: 1 1 0.75rem;
+  min-width: 0.5rem;
+}
+
+.cv-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 0;
+  height: 2.25rem;
+  padding: 0 0.6rem;
+  border: 1px solid hsl(var(--foreground) / 0.1);
+  border-radius: 10px;
+  background: hsl(var(--background) / 0.6);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  color: var(--cv-muted);
+  font-size: 0.8rem;
+  font-weight: 500;
+  text-decoration: none;
+  cursor: pointer;
+  overflow: hidden;
+  white-space: nowrap;
+  transition:
+    gap 0.25s cubic-bezier(0.2, 0, 0, 1),
+    color 0.2s ease,
+    border-color 0.2s ease,
+    background 0.2s ease,
+    transform 0.12s cubic-bezier(0.2, 0, 0, 1);
+}
+
+.cv-action__icon {
+  width: 1rem;
+  height: 1rem;
+  flex-shrink: 0;
+}
+
+.cv-action__label {
+  display: inline-block;
+  max-width: 0;
+  opacity: 0;
+  overflow: hidden;
+  transition:
+    max-width 0.3s cubic-bezier(0.2, 0, 0, 1),
+    opacity 0.22s ease;
+}
+
+/* Static labels (language, PDF) always show — they read as words, not icons. */
+.cv-action__label--static {
+  max-width: 10rem;
+  opacity: 1;
+}
+
+.cv-action__label--redacted {
+  color: var(--cv-accent);
+  font-style: italic;
+}
+
+.cv-action:hover,
+.cv-action:focus-visible {
+  gap: 0.45rem;
+  color: var(--cv-ink);
+  border-color: hsl(var(--foreground) / 0.2);
+  background: hsl(var(--foreground) / 0.04);
+  outline: none;
+}
+
+.cv-action:hover .cv-action__label,
+.cv-action:focus-visible .cv-action__label {
+  max-width: 10rem;
+  opacity: 1;
+}
+
+/* Buttons that always show a word keep a resting gap between icon and label. */
+.cv-action:has(.cv-action__label--static) {
+  gap: 0.45rem;
+}
+
+.cv-action:active {
+  transform: scale(0.96);
+}
+
+/* PDF is the one filled accent — the header's single point of colour. */
+.cv-action--primary {
+  color: #fff;
+  background: var(--cv-accent);
+  border-color: transparent;
+}
+
+.cv-action--primary:hover,
+.cv-action--primary:focus-visible {
+  color: #fff;
+  background: var(--cv-accent);
+  border-color: transparent;
+  opacity: 0.9;
+}
+
+/* Print: contacts fall back to a plain readable text line (values, not icons). */
+.cv-contact-print {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 1rem;
+  margin-top: 1rem;
+  font-size: 0.85rem;
+  color: var(--cv-muted);
+}
+
+/* ---- Section ------------------------------------------------------------ */
+
+.cv-section {
+  padding-top: clamp(2rem, 4.5vw, 2.75rem);
+  border-bottom: none;
+}
+
+.cv-section__title {
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--cv-faint);
+  margin: 0 0 1.1rem;
+}
+
+.cv-section__body {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+/* ---- Summary ------------------------------------------------------------ */
+
+.cv-summary {
+  font-size: 1.0625rem;
+  line-height: 1.7;
+  color: var(--cv-body);
+  text-wrap: pretty;
+  max-width: var(--cv-prose);
+  margin: 0;
+}
+
+/* ---- Entry (work / education) ------------------------------------------ */
+
+.cv-entry {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  min-width: 0;
+}
+
+.cv-entry__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.15rem 1rem;
+}
+
+.cv-entry__org {
+  font-size: 0.98rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--cv-ink);
+}
+
+.cv-entry__period {
+  font-size: 0.78rem;
+  color: var(--cv-faint);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.cv-entry__role {
+  font-size: 0.9rem;
+  color: var(--cv-muted);
+}
+
+.cv-entry__summary {
+  font-size: 0.95rem;
+  line-height: 1.62;
+  color: var(--cv-body);
+  text-wrap: pretty;
+  max-width: var(--cv-prose);
+  margin: 0.1rem 0 0;
+}
+
+.cv-highlights {
+  list-style: none;
+  margin: 0.3rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  max-width: var(--cv-prose);
+}
+
+.cv-highlights li {
+  position: relative;
+  padding-left: 1rem;
+  font-size: 0.925rem;
+  line-height: 1.55;
+  color: var(--cv-body);
+  text-wrap: pretty;
+}
+
+.cv-highlights li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0.62em;
+  width: 4px;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--cv-faint);
+}
+
+/* ---- Tags / badges ------------------------------------------------------ */
+
+.cv-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-top: 0.5rem;
+}
+
+.cv-tag {
+  font-size: 0.72rem;
+  letter-spacing: 0.01em;
+  color: var(--cv-muted);
+  background: var(--cv-fill);
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+/* ---- Projects (flat cards) ---------------------------------------------- */
+
+.cv-projects {
+  display: grid;
+  gap: 0.85rem;
+}
+
+@media (min-width: 620px) {
+  .cv-projects {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.cv-project {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding: 1rem 1.05rem;
+  border: 1px solid var(--cv-line);
+  border-radius: 12px;
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+.cv-project:hover {
+  border-color: hsl(var(--foreground) / 0.2);
+  background: var(--cv-fill);
+}
+
+.cv-project__name {
+  font-size: 0.95rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--cv-ink);
+  margin: 0;
+}
+
+.cv-project__name a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.cv-project__name a:hover {
+  color: var(--cv-accent);
+}
+
+.cv-project__desc {
+  font-size: 0.86rem;
+  line-height: 1.5;
+  color: var(--cv-body);
+  text-wrap: pretty;
+  margin: 0;
+  flex: 1;
+}
+
+/* ---- Skills ------------------------------------------------------------- */
+
+.cv-skills {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.cv-skill-group {
+  display: grid;
+  gap: 0.25rem 1.25rem;
+}
+
+@media (min-width: 520px) {
+  .cv-skill-group {
+    grid-template-columns: 7.5rem 1fr;
+    align-items: baseline;
+  }
+}
+
+.cv-skill-group__label {
+  font-size: 0.82rem;
+  color: var(--cv-faint);
+}
+
+.cv-skill-group__items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+/* ---- Footer ------------------------------------------------------------- */
+
+.cv-footer {
+  margin-top: clamp(2.5rem, 6vw, 3.5rem);
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--cv-line);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1rem;
+  font-size: 0.78rem;
+  color: var(--cv-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.cv-footer__request {
+  font: inherit;
+  color: var(--cv-accent);
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  transition: opacity 0.2s ease;
+}
+
+.cv-footer__request:hover {
+  opacity: 0.7;
+}
+
+.cv-links {
+  color: var(--cv-accent);
+  text-decoration: none;
+}
+
+.cv-links:hover {
+  opacity: 0.7;
+}
+
+/* ---- Redaction — a fog veil that lifts on hover ------------------------- */
+/* Mirrors the homepage FogReveal (src/components/home/FogReveal.tsx): a soft
+   veil of background gradients blurs a placeholder; on hover/focus the veil
+   drifts off and dissolves while the word "redacted" sharpens into the accent
+   ink. There is no real value underneath — it was stripped server-side. */
+
+.cv-redacted {
+  position: relative;
+  display: inline-flex;
+  align-items: baseline;
+  vertical-align: baseline;
+  border: none;
+  background: none;
+  padding: 0 0.15em;
+  margin: 0;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  border-radius: 5px;
+  isolation: isolate;
+}
+
+.cv-redacted__label {
+  display: inline-block;
+  min-width: var(--cv-redacted-w, 7ch);
+  text-align: center;
+  font-size: 0.82em;
+  font-style: italic;
+  letter-spacing: 0.03em;
+  color: var(--cv-faint);
+  filter: blur(3px);
+  opacity: 0.6;
+  transition:
+    filter 0.55s cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 0.55s cubic-bezier(0.22, 1, 0.36, 1),
+    color 0.4s ease;
+}
+
+.cv-redacted__veil {
+  position: absolute;
+  inset: -0.25em -0.4em;
+  z-index: 1;
+  pointer-events: none;
+  border-radius: 8px;
+  background:
+    radial-gradient(75% 130% at 28% 38%, hsl(var(--background) / 0.9), hsl(var(--background) / 0) 78%),
+    radial-gradient(70% 120% at 72% 62%, hsl(var(--background) / 0.82), hsl(var(--background) / 0) 80%),
+    hsl(var(--foreground) / 0.05);
+  filter: blur(2px);
+  opacity: 1;
+  transition:
+    opacity 0.7s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.7s cubic-bezier(0.22, 1, 0.36, 1),
+    filter 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.cv-redacted:hover .cv-redacted__veil,
+.cv-redacted:focus-visible .cv-redacted__veil {
+  opacity: 0;
+  transform: translateX(24px) scale(1.1);
+  filter: blur(10px);
+}
+
+.cv-redacted:hover .cv-redacted__label,
+.cv-redacted:focus-visible .cv-redacted__label {
+  filter: blur(0);
+  opacity: 1;
+  color: var(--cv-accent);
+}
+
+.cv-redacted:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px hsl(var(--background)), 0 0 0 3.5px hsl(var(--foreground) / 0.3);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cv-redacted__veil {
+    transition: none;
+  }
+  .cv-redacted:not(:hover):not(:focus-visible) .cv-redacted__label {
+    filter: none;
+    opacity: 0.75;
+  }
+}
+
+/* ---- CJK wrap fix ------------------------------------------------------- */
+.cv-page[data-lang='zh'] :where(.cv-name, .cv-headline, .cv-summary,
+  .cv-entry__summary, .cv-highlights li, .cv-project__desc) {
+  text-wrap: wrap;
+}
+
+/* ---- Header responsive -------------------------------------------------- */
+@media (max-width: 400px) {
+  .cv-avatar {
+    width: 4rem;
+    height: 4rem;
+  }
+}
+
+/* ---- Calm load-in (motion users only, pure CSS, no JS) ----------------- */
+@media (prefers-reduced-motion: no-preference) {
+  .cv-reveal {
+    opacity: 0;
+    animation: cv-fade-up 0.6s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  }
+  .cv-reveal--1 { animation-delay: 0.04s; }
+  .cv-reveal--2 { animation-delay: 0.12s; }
+  .cv-reveal--3 { animation-delay: 0.2s; }
+}
+
+@keyframes cv-fade-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}

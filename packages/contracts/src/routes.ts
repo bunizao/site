@@ -13,6 +13,11 @@ export const MOOD_IMAGE_PROXY_BASE_PATH = '/v2/images' as const;
 
 export const LISTENING_PATH = '/v2/listening' as const;
 
+export const CV_READ_PATH = '/api/cv' as const;
+export const CV_REQUEST_PATH = '/api/cv/request' as const;
+export const CV_PDF_PATH = '/api/cv/pdf' as const;
+export const CV_ADMIN_BASE_PATH = '/api/admin/cv' as const;
+
 export const ADMIN_BASE_PATH = '/admin' as const;
 export const NOTIFY_BASE_PATH = '/notify' as const;
 export const GHOST_WEBHOOK_PATH = '/webhooks/ghost' as const;

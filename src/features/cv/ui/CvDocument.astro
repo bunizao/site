@@ -1,0 +1,153 @@
+---
+import type { CvLang } from '@bunizao/contracts';
+import type { ResolvedCv } from '../server/resolve';
+import { CV_STRINGS, formatPeriod, pick } from '../copy';
+import CvValue from './CvValue.astro';
+import CvHeader from './CvHeader.astro';
+
+interface Props {
+  cv: ResolvedCv;
+  lang: CvLang;
+  avatar?: string;
+  variant?: 'screen' | 'print';
+  full?: boolean;
+  pdfHref?: string;
+  otherLangHref?: string;
+  otherLangLabel?: string;
+  /** Screen-only: show the "request full résumé" prompt in the footer. */
+  showRequest?: boolean;
+}
+
+const {
+  cv,
+  lang,
+  avatar,
+  variant = 'screen',
+  full = false,
+  pdfHref = '',
+  otherLangHref = '',
+  otherLangLabel = '',
+  showRequest = false,
+} = Astro.props;
+const t = CV_STRINGS[lang];
+const updatedLabel = new Date(cv.updatedAt).toLocaleDateString(
+  lang === 'zh' ? 'zh-CN' : 'en-US',
+  { year: 'numeric', month: 'short', day: 'numeric' },
+);
+---
+
+<CvHeader
+  cv={cv}
+  lang={lang}
+  avatar={avatar}
+  variant={variant}
+  full={full}
+  pdfHref={pdfHref}
+  otherLangHref={otherLangHref}
+  otherLangLabel={otherLangLabel}
+/>
+
+<section class="cv-section">
+  <h2 class="cv-section__title">{t.sections.summary}</h2>
+  <div class="cv-section__body">
+    <p class="cv-summary">{pick(cv.summary, lang)}</p>
+  </div>
+</section>
+
+<section class="cv-section">
+  <h2 class="cv-section__title">{t.sections.experience}</h2>
+  <div class="cv-section__body">
+    {cv.work.map((job) => (
+      <article class="cv-entry">
+        <div class="cv-entry__head">
+          <span class="cv-entry__org">
+            <CvValue leaf={job.company} lang={lang} width={9} />
+          </span>
+          <span class="cv-entry__period">{formatPeriod(job.start, job.end, lang)}</span>
+        </div>
+        <div class="cv-entry__role">
+          {pick(job.role, lang)}
+          {job.location !== null && <> · {pick(job.location, lang)}</>}
+        </div>
+        <p class="cv-entry__summary">{pick(job.summary, lang)}</p>
+        {job.highlights.length > 0 && (
+          <ul class="cv-highlights">
+            {job.highlights.map((h) => <li>{pick(h, lang)}</li>)}
+          </ul>
+        )}
+        {job.tags && job.tags.length > 0 && (
+          <div class="cv-tags">
+            {job.tags.map((tag) => <span class="cv-tag">{tag}</span>)}
+          </div>
+        )}
+      </article>
+    ))}
+  </div>
+</section>
+
+<section class="cv-section">
+  <h2 class="cv-section__title">{t.sections.projects}</h2>
+  <div class="cv-projects">
+    {cv.projects.map((project) => (
+      <article class="cv-project">
+        <h3 class="cv-project__name">
+          {project.url ? (
+            <a href={project.url} target="_blank" rel="noopener">{pick(project.name, lang)}</a>
+          ) : (
+            pick(project.name, lang)
+          )}
+        </h3>
+        <p class="cv-project__desc">{pick(project.description, lang)}</p>
+        {project.tags && project.tags.length > 0 && (
+          <div class="cv-tags">
+            {project.tags.map((tag) => <span class="cv-tag">{tag}</span>)}
+          </div>
+        )}
+      </article>
+    ))}
+  </div>
+</section>
+
+<section class="cv-section">
+  <h2 class="cv-section__title">{t.sections.education}</h2>
+  <div class="cv-section__body">
+    {cv.education.map((edu) => (
+      <article class="cv-entry">
+        <div class="cv-entry__head">
+          <span class="cv-entry__org">
+            <CvValue leaf={edu.school} lang={lang} width={12} />
+          </span>
+          <span class="cv-entry__period">{formatPeriod(edu.start, edu.end, lang)}</span>
+        </div>
+        <div class="cv-entry__role">{pick(edu.degree, lang)}</div>
+        {edu.note && <p class="cv-entry__summary">{pick(edu.note, lang)}</p>}
+      </article>
+    ))}
+  </div>
+</section>
+
+<section class="cv-section">
+  <h2 class="cv-section__title">{t.sections.skills}</h2>
+  <div class="cv-skills">
+    {cv.skills.map((group) => (
+      <div class="cv-skill-group">
+        <span class="cv-skill-group__label">{pick(group.group, lang)}</span>
+        <div class="cv-skill-group__items">
+          {group.items.map((item) => <span class="cv-tag">{item}</span>)}
+        </div>
+      </div>
+    ))}
+  </div>
+</section>
+
+<footer class="cv-footer">
+  <span>{t.updated} {updatedLabel}</span>
+  {showRequest && (
+    <>
+      <span aria-hidden="true">·</span>
+      <button type="button" class="cv-footer__request" data-cv-request-open>
+        {t.request.open} ↗
+      </button>
+    </>
+  )}
+</footer>
