@@ -71,7 +71,13 @@ const alternates = full
     ];
 
 const otherLangHref = lang === 'en' ? '/cv?lang=zh' : '/cv';
-const pdfHref = `${CV_PDF_PATH}?lang=${lang}`;
+// Prod serves the real PDF from site-api's Browser Rendering endpoint, which
+// itself loads `/cv/print`. In dev that endpoint is unreachable (it proxies to
+// prod, ignoring local edits), so point the button at the live print route —
+// same layout the renderer consumes, HMR-live, and Cmd+P saves a true PDF.
+const pdfHref = import.meta.env.DEV
+  ? `/cv/print?lang=${lang}`
+  : `${CV_PDF_PATH}?lang=${lang}`;
 
 // Full renders must never be indexed — set the header too, not just the meta
 // tag, so a crawler that only reads headers still honours it.
