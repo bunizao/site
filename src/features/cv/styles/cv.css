@@ -1,0 +1,472 @@
+/* Résumé design language. Monochrome, print-inspired, single column with a
+   mono "metadata spine" hanging in the left gutter on wide screens. Reading
+   content is Inter; the spine (labels, dates, tags, contact) is Geist Mono —
+   consistent with the home mono→human system. No dividers for hierarchy;
+   spacing and colour carry it. Shared by /cv (screen) and /cv/print. */
+
+.cv-page {
+  --cv-measure: 44rem;
+  --cv-spine: 8.5rem;
+  --cv-gap: 2.75rem;
+  max-width: calc(var(--cv-measure) + var(--cv-spine) + var(--cv-gap));
+  margin: 0 auto;
+  padding: clamp(3.5rem, 8vw, 6rem) clamp(1.25rem, 5vw, 2.5rem) 5rem;
+  color: hsl(var(--foreground));
+  font-family: var(--font-sans);
+}
+
+/* ---- Header ------------------------------------------------------------- */
+
+.cv-header {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  margin-bottom: clamp(3rem, 7vw, 4.5rem);
+}
+
+.cv-legal {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  color: hsl(var(--muted));
+}
+
+.cv-eyebrow {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: hsl(var(--muted));
+}
+
+.cv-name {
+  font-family: var(--font-sans);
+  font-size: clamp(2.35rem, 6vw, 3.35rem);
+  font-weight: 620;
+  letter-spacing: -0.028em;
+  line-height: 1.02;
+  text-wrap: balance;
+  margin: 0;
+}
+
+.cv-headline {
+  font-size: clamp(1.02rem, 2.2vw, 1.18rem);
+  line-height: 1.5;
+  color: hsl(var(--muted));
+  max-width: 34ch;
+  text-wrap: pretty;
+  margin: 0;
+}
+
+/* Contact + links row — the mono spine, wrapping gracefully. */
+.cv-contact {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.5rem 1.35rem;
+  margin-top: 0.75rem;
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  color: hsl(var(--foreground));
+}
+
+.cv-contact__item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  white-space: nowrap;
+}
+
+.cv-contact a {
+  color: inherit;
+  text-decoration: none;
+  border-bottom: 1px solid hsl(var(--border) / 0.25);
+  padding-bottom: 1px;
+  transition: border-color 0.18s ease;
+}
+
+.cv-contact a:hover {
+  border-color: hsl(var(--foreground));
+}
+
+/* ---- Section: label spine + content ------------------------------------ */
+
+.cv-section {
+  display: grid;
+  gap: 0.75rem var(--cv-gap);
+  padding-top: clamp(2.25rem, 5vw, 3rem);
+  /* globals.css draws a hairline under every <section>; hierarchy here is
+     carried by spacing and colour, so cancel it. */
+  padding-bottom: 0;
+  border-bottom: none;
+}
+
+.cv-section__label {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: hsl(var(--muted));
+  padding-top: 0.35rem;
+}
+
+.cv-section__body {
+  display: flex;
+  flex-direction: column;
+  gap: 1.9rem;
+  min-width: 0;
+}
+
+@media (min-width: 880px) {
+  .cv-section {
+    grid-template-columns: var(--cv-spine) 1fr;
+  }
+  .cv-section__label {
+    position: sticky;
+    top: 1.5rem;
+    align-self: start;
+  }
+}
+
+/* ---- Summary ------------------------------------------------------------ */
+
+.cv-summary {
+  font-size: 1.06rem;
+  line-height: 1.66;
+  color: hsl(var(--foreground) / 0.86);
+  text-wrap: pretty;
+  max-width: 40rem;
+  margin: 0;
+}
+
+/* ---- Entry (work / education) ------------------------------------------ */
+
+.cv-entry {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.cv-entry__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.25rem 1rem;
+}
+
+.cv-entry__role {
+  font-size: 1.12rem;
+  font-weight: 580;
+  letter-spacing: -0.012em;
+  margin: 0;
+}
+
+.cv-entry__period {
+  font-family: var(--font-mono);
+  font-size: 0.76rem;
+  color: hsl(var(--muted));
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.cv-entry__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.35rem 0.6rem;
+  font-size: 0.92rem;
+  color: hsl(var(--muted));
+}
+
+.cv-entry__org {
+  color: hsl(var(--foreground));
+  font-weight: 500;
+}
+
+.cv-entry__dot {
+  color: hsl(var(--muted) / 0.6);
+}
+
+.cv-entry__summary {
+  font-size: 0.98rem;
+  line-height: 1.6;
+  color: hsl(var(--foreground) / 0.82);
+  text-wrap: pretty;
+  margin: 0.15rem 0 0;
+}
+
+.cv-highlights {
+  list-style: none;
+  margin: 0.35rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.cv-highlights li {
+  position: relative;
+  padding-left: 1.15rem;
+  font-size: 0.96rem;
+  line-height: 1.55;
+  color: hsl(var(--foreground) / 0.82);
+  text-wrap: pretty;
+}
+
+/* A mono tick, not a bullet — echoes the spine. */
+.cv-highlights li::before {
+  content: '—';
+  position: absolute;
+  left: 0;
+  color: hsl(var(--muted));
+  font-family: var(--font-mono);
+}
+
+/* ---- Tags --------------------------------------------------------------- */
+
+.cv-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 0.55rem;
+}
+
+.cv-tag {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.02em;
+  color: hsl(var(--muted));
+  padding: 0.2rem 0.5rem;
+  border: 1px solid hsl(var(--border) / 0.18);
+  border-radius: var(--radius-sm);
+  white-space: nowrap;
+}
+
+/* ---- Projects ----------------------------------------------------------- */
+
+.cv-project__name {
+  font-size: 1.06rem;
+  font-weight: 560;
+  letter-spacing: -0.01em;
+  margin: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.cv-project__name a {
+  color: inherit;
+  text-decoration: none;
+  border-bottom: 1px solid hsl(var(--border) / 0.25);
+  transition: border-color 0.18s ease;
+}
+
+.cv-project__name a:hover {
+  border-color: hsl(var(--foreground));
+}
+
+.cv-project__desc {
+  font-size: 0.96rem;
+  line-height: 1.55;
+  color: hsl(var(--foreground) / 0.82);
+  text-wrap: pretty;
+  margin: 0.35rem 0 0;
+}
+
+/* ---- Skills ------------------------------------------------------------- */
+
+.cv-skills {
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+}
+
+.cv-skill-group {
+  display: grid;
+  gap: 0.35rem 1.25rem;
+}
+
+@media (min-width: 520px) {
+  .cv-skill-group {
+    grid-template-columns: 8rem 1fr;
+    align-items: baseline;
+  }
+}
+
+.cv-skill-group__label {
+  font-family: var(--font-mono);
+  font-size: 0.76rem;
+  color: hsl(var(--muted));
+}
+
+.cv-skill-group__items {
+  font-size: 0.96rem;
+  line-height: 1.5;
+  color: hsl(var(--foreground) / 0.86);
+}
+
+/* ---- Footer ------------------------------------------------------------- */
+
+.cv-footer {
+  margin-top: clamp(3rem, 7vw, 4.5rem);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1rem;
+  font-family: var(--font-mono);
+  font-size: 0.74rem;
+  color: hsl(var(--muted));
+  font-variant-numeric: tabular-nums;
+}
+
+.cv-footer__request {
+  font: inherit;
+  color: hsl(var(--muted));
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  transition: color 0.18s ease;
+}
+
+.cv-footer__request:hover {
+  color: hsl(var(--foreground));
+}
+
+/* CJK: `text-wrap: pretty` breaks Safari lines short — fall back to wrap. */
+.cv-page[data-lang='zh'] :where(.cv-name, .cv-headline, .cv-summary, .cv-entry__summary, .cv-highlights li, .cv-project__desc) {
+  text-wrap: wrap;
+}
+
+/* ---- Redaction chip — the signature ------------------------------------ */
+/* A designed absence: a frosted, hatched lozenge sized like plausible content
+   with a lock glyph. The fill is static dummy glyphs, never a mask of the real
+   value. Clicking it (or the PDF action while anonymous) opens the request
+   panel. */
+
+.cv-redacted {
+  --cv-redacted-w: 8ch;
+  appearance: none;
+  border: 1px solid hsl(var(--border) / 0.22);
+  background:
+    repeating-linear-gradient(
+      -45deg,
+      hsl(var(--foreground) / 0.09) 0 2px,
+      transparent 2px 6px
+    ),
+    hsl(var(--secondary));
+  color: hsl(var(--muted));
+  border-radius: var(--radius-sm);
+  padding: 0.12em 0.55em;
+  min-width: var(--cv-redacted-w);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4em;
+  font: inherit;
+  line-height: inherit;
+  cursor: pointer;
+  vertical-align: baseline;
+  background-position: 0 0;
+  transition:
+    transform 0.18s cubic-bezier(0.2, 0, 0, 1),
+    border-color 0.18s ease,
+    background-position 0.6s ease;
+}
+
+.cv-redacted__glyphs {
+  flex: 1;
+  overflow: hidden;
+  letter-spacing: 0.08em;
+  color: hsl(var(--foreground) / 0.28);
+  user-select: none;
+}
+
+.cv-redacted__lock {
+  width: 0.82em;
+  height: 0.82em;
+  flex-shrink: 0;
+  opacity: 0.7;
+  transition: opacity 0.18s ease;
+}
+
+.cv-redacted:hover,
+.cv-redacted:focus-visible {
+  transform: translateY(-1px);
+  border-color: hsl(var(--foreground) / 0.55);
+  background-position: 6px 0;
+  outline: none;
+}
+
+.cv-redacted:hover .cv-redacted__lock,
+.cv-redacted:focus-visible .cv-redacted__lock {
+  opacity: 1;
+}
+
+.cv-redacted:focus-visible {
+  box-shadow: 0 0 0 2px hsl(var(--background)), 0 0 0 3.5px hsl(var(--ring) / 0.6);
+}
+
+.cv-redacted:active {
+  transform: translateY(0) scale(0.98);
+}
+
+/* Contact-row redaction chips align to the mono metrics. */
+.cv-contact .cv-redacted {
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+}
+
+/* ---- Toolbar (lang toggle + PDF) --------------------------------------- */
+
+.cv-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-family: var(--font-mono);
+  font-size: 0.76rem;
+}
+
+.cv-toolbar__link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.35rem 0.6rem;
+  border: 1px solid hsl(var(--border) / 0.2);
+  border-radius: var(--radius-sm);
+  color: hsl(var(--foreground));
+  text-decoration: none;
+  background: none;
+  cursor: pointer;
+  font: inherit;
+  transition:
+    border-color 0.18s ease,
+    transform 0.12s cubic-bezier(0.2, 0, 0, 1);
+}
+
+.cv-toolbar__link:hover {
+  border-color: hsl(var(--foreground) / 0.5);
+}
+
+.cv-toolbar__link:active {
+  transform: scale(0.96);
+}
+
+/* ---- Load-in stagger (motion users only, pure CSS, no JS) -------------- */
+
+@media (prefers-reduced-motion: no-preference) {
+  .cv-reveal {
+    opacity: 0;
+    animation: cv-fade-up 0.6s cubic-bezier(0.2, 0, 0, 1) forwards;
+  }
+  .cv-reveal--1 { animation-delay: 0.05s; }
+  .cv-reveal--2 { animation-delay: 0.13s; }
+  .cv-reveal--3 { animation-delay: 0.21s; }
+  .cv-reveal--4 { animation-delay: 0.29s; }
+}
+
+@keyframes cv-fade-up {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}

@@ -1,0 +1,158 @@
+---
+import type { CvLang } from '@bunizao/contracts';
+import type { ResolvedCv } from '../server/resolve';
+import { CV_STRINGS, formatPeriod, pick } from '../copy';
+import CvValue from './CvValue.astro';
+
+interface Props {
+  cv: ResolvedCv;
+  lang: CvLang;
+  /** Screen-only: show the "request full résumé" prompt in the footer. */
+  showRequest?: boolean;
+}
+
+const { cv, lang, showRequest = false } = Astro.props;
+const t = CV_STRINGS[lang];
+const updatedLabel = new Date(cv.updatedAt).toLocaleDateString(
+  lang === 'zh' ? 'zh-CN' : 'en-US',
+  { year: 'numeric', month: 'short', day: 'numeric' },
+);
+---
+
+<header class="cv-header">
+  <h1 class="cv-name cv-reveal cv-reveal--2">{pick(cv.identity.displayName, lang)}</h1>
+  <p class="cv-legal cv-reveal cv-reveal--2">
+    <CvValue leaf={cv.identity.legalName} lang={lang} width={7} />
+  </p>
+  <p class="cv-headline cv-reveal cv-reveal--3">{pick(cv.identity.headline, lang)}</p>
+
+  <div class="cv-contact cv-reveal cv-reveal--4">
+    <span class="cv-contact__item">
+      <CvValue leaf={cv.identity.location} lang={lang} width={10} />
+    </span>
+    <span class="cv-contact__item">
+      <CvValue
+        leaf={cv.identity.email}
+        lang={lang}
+        width={14}
+        href={cv.identity.email ? `mailto:${pick(cv.identity.email, lang)}` : undefined}
+      />
+    </span>
+    <span class="cv-contact__item">
+      <CvValue leaf={cv.identity.phone} lang={lang} width={12} />
+    </span>
+    {cv.identity.links.map((link) => (
+      <span class="cv-contact__item">
+        <a href={link.url} target="_blank" rel="noopener">{pick(link.label, lang)}</a>
+      </span>
+    ))}
+  </div>
+</header>
+
+<section class="cv-section" aria-label={t.sections.summary}>
+  <p class="cv-section__label">{t.sections.summary}</p>
+  <div class="cv-section__body">
+    <p class="cv-summary">{pick(cv.summary, lang)}</p>
+  </div>
+</section>
+
+<section class="cv-section" aria-label={t.sections.experience}>
+  <p class="cv-section__label">{t.sections.experience}</p>
+  <div class="cv-section__body">
+    {cv.work.map((job) => (
+      <article class="cv-entry">
+        <div class="cv-entry__head">
+          <h2 class="cv-entry__role">{pick(job.role, lang)}</h2>
+          <span class="cv-entry__period">{formatPeriod(job.start, job.end, lang)}</span>
+        </div>
+        <div class="cv-entry__meta">
+          <CvValue leaf={job.company} lang={lang} width={10} class="cv-entry__org" />
+          {job.location && (
+            <>
+              <span class="cv-entry__dot" aria-hidden="true">·</span>
+              <CvValue leaf={job.location} lang={lang} width={8} />
+            </>
+          )}
+        </div>
+        <p class="cv-entry__summary">{pick(job.summary, lang)}</p>
+        {job.highlights.length > 0 && (
+          <ul class="cv-highlights">
+            {job.highlights.map((h) => <li>{pick(h, lang)}</li>)}
+          </ul>
+        )}
+        {job.tags && job.tags.length > 0 && (
+          <div class="cv-tags">
+            {job.tags.map((tag) => <span class="cv-tag">{tag}</span>)}
+          </div>
+        )}
+      </article>
+    ))}
+  </div>
+</section>
+
+<section class="cv-section" aria-label={t.sections.projects}>
+  <p class="cv-section__label">{t.sections.projects}</p>
+  <div class="cv-section__body">
+    {cv.projects.map((project) => (
+      <article class="cv-entry">
+        <h2 class="cv-project__name">
+          {project.url ? (
+            <a href={project.url} target="_blank" rel="noopener">{pick(project.name, lang)}</a>
+          ) : (
+            pick(project.name, lang)
+          )}
+        </h2>
+        <p class="cv-project__desc">{pick(project.description, lang)}</p>
+        {project.tags && project.tags.length > 0 && (
+          <div class="cv-tags">
+            {project.tags.map((tag) => <span class="cv-tag">{tag}</span>)}
+          </div>
+        )}
+      </article>
+    ))}
+  </div>
+</section>
+
+<section class="cv-section" aria-label={t.sections.education}>
+  <p class="cv-section__label">{t.sections.education}</p>
+  <div class="cv-section__body">
+    {cv.education.map((edu) => (
+      <article class="cv-entry">
+        <div class="cv-entry__head">
+          <h2 class="cv-entry__role">{pick(edu.degree, lang)}</h2>
+          <span class="cv-entry__period">{formatPeriod(edu.start, edu.end, lang)}</span>
+        </div>
+        <div class="cv-entry__meta">
+          <CvValue leaf={edu.school} lang={lang} width={12} class="cv-entry__org" />
+        </div>
+        {edu.note && <p class="cv-entry__summary">{pick(edu.note, lang)}</p>}
+      </article>
+    ))}
+  </div>
+</section>
+
+<section class="cv-section" aria-label={t.sections.skills}>
+  <p class="cv-section__label">{t.sections.skills}</p>
+  <div class="cv-section__body">
+    <div class="cv-skills">
+      {cv.skills.map((group) => (
+        <div class="cv-skill-group">
+          <span class="cv-skill-group__label">{pick(group.group, lang)}</span>
+          <span class="cv-skill-group__items">{group.items.join(' · ')}</span>
+        </div>
+      ))}
+    </div>
+  </div>
+</section>
+
+<footer class="cv-footer">
+  <span>{t.updated} {updatedLabel}</span>
+  {showRequest && (
+    <>
+      <span aria-hidden="true">·</span>
+      <button type="button" class="cv-footer__request" data-cv-request-open>
+        {t.request.open} ↗
+      </button>
+    </>
+  )}
+</footer>

@@ -26,6 +26,8 @@ interface Props {
     href: string;
     title?: string;
   };
+  /** rel="alternate" hreflang links, resolved against the site origin. */
+  alternates?: Array<{ hreflang: string; href: string }>;
 }
 
 import '../styles/globals.css';
@@ -57,6 +59,7 @@ const {
   preloadImages = [],
   rss,
   oembed,
+  alternates = [],
 } = Astro.props;
 
 const isHomeNav = navVariant === 'home';
@@ -117,6 +120,9 @@ const navbarIdleTimeoutAnimation = getPeekRuntimeSlotKey('navbar.idle-timeout');
       />
     ))}
     <link rel="canonical" href={canonicalUrl} />
+    {alternates.map((alt) => (
+      <link rel="alternate" hreflang={alt.hreflang} href={new URL(alt.href, site).href} />
+    ))}
     {markdownAlternateUrl ? (
       <link rel="alternate" type="text/markdown" href={markdownAlternateUrl} />
     ) : null}

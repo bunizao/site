@@ -1,0 +1,124 @@
+---
+import type { CvLang } from '@bunizao/contracts';
+import { CV_PDF_PATH } from '@bunizao/contracts/routes';
+import Layout from '@/layouts/Layout.astro';
+import { getCv } from '@/features/cv/server/api-client';
+import { CV_STRINGS, pick } from '@/features/cv/copy';
+import CvDocument from '@/features/cv/ui/CvDocument.astro';
+import RequestAccessDialog from '@/features/cv/ui/RequestAccessDialog.astro';
+import '@/features/cv/styles/cv.css';
+
+export const prerender = false;
+
+// ---- Language -----------------------------------------------------------
+const rawLang = Astro.url.searchParams.get('lang');
+const lang: CvLang = rawLang === 'zh' ? 'zh' : 'en';
+const t = CV_STRINGS[lang];
+
+// ---- Access + redeem ----------------------------------------------------
+// The page never decides redaction itself — site-api does. We only decide
+// whether to *attempt* the full read, which keeps the anonymous page cacheable
+// and indexable. Signals: a `?key=` redeem, an existing `cv_full` cookie, or a
+// Cloudflare Access assertion (owner). Anonymous visitors hit none of these.
+const key = Astro.url.searchParams.get('key') ?? undefined;
+const cookieKey = Astro.cookies.get('cv_full')?.value;
+const hasAccessAssertion = Boolean(Astro.request.headers.get('cf-access-jwt-assertion'));
+const context = { request: Astro.request, locals: Astro.locals };
+
+if (key) {
+  // Verify by attempting the full read with the presented key. If site-api
+  // accepts it, persist a short-lived cookie and redirect to a clean URL so the
+  // token never lingers in history or referrers.
+  const probe = await getCv(context, { lang, full: true, key });
+  if (probe.full) {
+    Astro.cookies.set('cv_full', key, {
+      httpOnly: true,
+      secure: true,
+      sameSite: 'lax',
+      path: '/',
+      maxAge: 60 * 60 * 24 * 7,
+    });
+  }
+  return Astro.redirect(lang === 'zh' ? '/cv?lang=zh' : '/cv');
+}
+
+const attemptFull = Boolean(cookieKey || hasAccessAssertion);
+const cv = await getCv(context, { lang, full: attemptFull, key: cookieKey });
+const full = cv.full;
+
+// ---- Meta ---------------------------------------------------------------
+const title = `${pick(cv.identity.displayName, lang)} — ${t.eyebrow}`;
+const description = pick(cv.summary, lang).slice(0, 155);
+// The redacted page is the public résumé and stays indexable; any full render
+// carries noindex so gated content never enters the index.
+const robots = full ? 'noindex, nofollow' : undefined;
+const alternates = full
+  ? undefined
+  : [
+      { hreflang: 'en', href: '/cv' },
+      { hreflang: 'zh', href: '/cv?lang=zh' },
+      { hreflang: 'x-default', href: '/cv' },
+    ];
+
+const otherLangHref = lang === 'en' ? '/cv?lang=zh' : '/cv';
+const pdfHref = `${CV_PDF_PATH}?lang=${lang}`;
+
+// Full renders must never be indexed — set the header too, not just the meta
+// tag, so a crawler that only reads headers still honours it.
+if (full) {
+  Astro.response.headers.set('X-Robots-Tag', 'noindex, nofollow');
+  Astro.response.headers.set('Cache-Control', 'private, no-store');
+}
+---
+
+<Layout
+  title={title}
+  description={description}
+  url="/cv"
+  robots={robots}
+  alternates={alternates}
+  navVariant="page"
+  showSiteNav
+>
+  <main class="cv-page" data-lang={lang} lang={lang}>
+    <div class="cv-topbar cv-reveal cv-reveal--1">
+      <span class="cv-eyebrow">{t.eyebrow}</span>
+      <nav class="cv-toolbar" aria-label="résumé actions">
+        <a class="cv-toolbar__link" href={otherLangHref} hreflang={lang === 'en' ? 'zh' : 'en'}>
+          {t.otherLang}
+        </a>
+        {full ? (
+          <a class="cv-toolbar__link" href={pdfHref} target="_blank" rel="noopener">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M14 3v4a1 1 0 0 0 1 1h4"></path>
+              <path d="M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2Z"></path>
+            </svg>
+            {t.pdf}
+          </a>
+        ) : (
+          <button type="button" class="cv-toolbar__link" data-cv-request-open>
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M14 3v4a1 1 0 0 0 1 1h4"></path>
+              <path d="M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2Z"></path>
+            </svg>
+            {t.pdf}
+          </button>
+        )}
+      </nav>
+    </div>
+
+    <CvDocument cv={cv} lang={lang} showRequest={!full} />
+
+    <RequestAccessDialog lang={lang} />
+  </main>
+</Layout>
+
+<style>
+  .cv-topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1.75rem;
+  }
+</style>
