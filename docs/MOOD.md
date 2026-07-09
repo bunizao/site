@@ -12,8 +12,8 @@ This document covers:
 
 ## Mood API Taxonomy
 
-- **v1** (`/api/v1/mood*`) is the live Telegram mirror. It is real-time and canonical for user-facing reads.
-- **v2** (`/api/v2/mood*`) is the D1 archive / structured read. It is non-canonical and exists for search, AI, debugging, and operational inspection.
+- **v2** (`/api/v2/mood*`) is the D1 archive and the default base reader for public mood pages.
+- **v1** (`/api/v1/mood*`) is the live Telegram mirror for comments, reactions, freshness checks, and archive fallback.
 - `?api-v2=true` is deprecated migration scaffolding. Do not add it to canonical docs, RSS links, oEmbed targets, or user-facing URLs.
 - `api.buxx.me` is machine ingress, not the canonical public API surface. The public contract remains the `buxx.me` pages and compatibility JSON routes.
 
@@ -51,11 +51,11 @@ Page-level responsibilities:
 
 Feed data flow:
 
-1. The browser requests `GET /api/moods`.
+1. The browser requests `GET /api/v2/mood` when the page is archive-backed.
 2. The response contains channel metadata plus feed-shaped posts.
 3. [`src/features/mood/client/feed-media-hydration.ts`](../src/features/mood/client/feed-media-hydration.ts) hydrates the channel hero and deferred media behavior.
 4. [`src/features/mood/client/feed-renderer.ts`](../src/features/mood/client/feed-renderer.ts) groups posts by date and appends them into the feed.
-5. Infinite loading continues with `before=<oldestPostId>`.
+5. Infinite loading continues with `before=<oldestPostId>` against the active source.
 
 Freshness behavior:
 
@@ -69,7 +69,7 @@ Implementation owner: `site-api /api/moods`
 
 Upstream dependency:
 
-- the canonical v1 live Telegram mirror, exposed to site users through `GET /api/moods`
+- the D1 archive through `GET /api/v2/mood`, with the live reader as fallback
 
 Returned post shape is optimized for feed rendering:
 
@@ -108,7 +108,7 @@ Rendering behavior:
 - posts are grouped by day
 - inline media stays expanded in the feed
 - long text-only posts clamp and link to detail
-- comments badges are rendered from API counts
+- visible archive posts hydrate live comments/reactions through `GET /api/v2/moods/live-counts`
 - hovering the comments badge lazily fetches comment previews
 
 Comment preview path:
@@ -123,7 +123,7 @@ Entry file: [`src/pages/mood/[id].astro`](../src/pages/mood/[id].astro)
 
 Server-side responsibilities:
 
-- fetches one post by id through the canonical live mood reader
+- fetches one post by id through the archive reader, with a live-reader fallback
 - sets `404` when the post is missing
 - renders a controlled not-found or unavailable state instead of crashing
 - composes [`src/features/mood/ui/DetailArticle.astro`](../src/features/mood/ui/DetailArticle.astro), which in turn mounts [`src/features/mood/ui/CommentsSection.astro`](../src/features/mood/ui/CommentsSection.astro)
@@ -164,13 +164,12 @@ Comment normalization:
 
 ## Mood Shaping
 
-### Read source — live, not D1
+### Read source — archive base, live hydration
 
-User-facing reads (feed, detail, comments, probe, RSS, agent, home preview) are served **live
-from Telegram** through the v1 live mirror, so comment counts and reactions stay real-time. D1
-backs the v2 archive / structured read only; it is not canonical for user-facing reads because
-mutable fields such as comments and reactions can be stale. See [`docs/MOOD-V2-PRD.md`](./MOOD-V2-PRD.md)
-for the superseded migration plan and the current taxonomy.
+Public feed and detail pages read D1 archive content by default through `MOOD_READ_SOURCE=archive`.
+The site falls back to the bounded live reader if an archive call fails; comments, freshness probes,
+and visible reactions/counts stay live. Set `MOOD_READ_SOURCE=live` for rollback, or use
+`?source=live|archive` for an uncached request-level override.
 
 Core files:
 

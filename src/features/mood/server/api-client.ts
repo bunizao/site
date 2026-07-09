@@ -103,6 +103,19 @@ async function fetchMoodArchiveApiJson<T>(
   return response.json() as Promise<T>;
 }
 
+export async function loadMoodArchiveWithFallback<T>(
+  resource: string,
+  loadArchive: () => Promise<T>,
+  loadLive: () => Promise<T>,
+): Promise<T> {
+  try {
+    return await loadArchive();
+  } catch (error) {
+    console.warn(`Mood archive ${resource} failed; falling back to live reader.`, error);
+    return loadLive();
+  }
+}
+
 function moodFeedParams(query: MoodFeedQuery): URLSearchParams {
   const params = new URLSearchParams();
   if (query.before) params.set('before', query.before);
@@ -175,7 +188,19 @@ export async function loadMoodFeed(
   }
 
   if (source === 'archive') {
-    return fetchMoodArchiveApiJson<MoodFeedResponse>(context, MOOD_ARCHIVE_FEED_PATH, moodFeedParams(query));
+    return loadMoodArchiveWithFallback(
+      'feed',
+      () => fetchMoodArchiveApiJson<MoodFeedResponse>(context, MOOD_ARCHIVE_FEED_PATH, moodFeedParams(query)),
+      async () => {
+        const { channelInfo, posts } = await loadMoodChannelSnapshot(context, {
+          before: query.before,
+          after: query.after,
+          skipCache: query.fresh,
+        });
+        const limitedPosts = typeof query.limit === 'number' ? posts.slice(0, query.limit) : posts;
+        return buildMoodFeedResponse(context, channelInfo, limitedPosts);
+      },
+    );
   }
 
   const { channelInfo, posts } = await loadMoodChannelSnapshot(context, {
@@ -197,9 +222,17 @@ export async function loadMoodProbe(context: MoodServerContext, options: { sourc
     return { latestId: MOOD_RICH_TEXT_FIXTURE_ID };
   }
 
-  if (options.source === 'archive') {
+  const source = resolveMoodReadSource(context.locals, options.source);
+  if (source === 'archive') {
     const params = new URLSearchParams({ probe: 'true', fresh: 'true' });
-    return fetchMoodArchiveApiJson<MoodProbeResult>(context, MOOD_ARCHIVE_FEED_PATH, params);
+    return loadMoodArchiveWithFallback(
+      'probe',
+      () => fetchMoodArchiveApiJson<MoodProbeResult>(context, MOOD_ARCHIVE_FEED_PATH, params),
+      async () => {
+        const { posts } = await loadMoodChannelSnapshot(context, { skipCache: true });
+        return { latestId: posts[0]?.id ?? '' };
+      },
+    );
   }
 
   const { posts } = await loadMoodChannelSnapshot(context, { skipCache: true });
@@ -241,7 +274,37 @@ export async function loadMoodDocument(
   }
 
   if (source === 'archive') {
-    return fetchMoodArchiveApiJson<MoodContentDocument | null>(context, `${MOOD_ARCHIVE_FEED_PATH}/${encodeURIComponent(id)}`);
+    return loadMoodArchiveWithFallback(
+      'detail',
+      () => fetchMoodArchiveApiJson<MoodContentDocument | null>(context, `${MOOD_ARCHIVE_FEED_PATH}/${encodeURIComponent(id)}`),
+      async () => {
+        const { post, channelInfo } = await loadMoodPostSnapshot(context, id);
+        if (!post) return null;
+        const feedItem = channelInfo ? await buildMoodFeedItem(context, post, channelInfo) : null;
+        const media = legacyPostMedia(post.content);
+
+        return {
+          id: post.id,
+          source: 'mood',
+          datetime: post.datetime,
+          tag: post.tags[0],
+          bodyHtml: post.content,
+          previewText: post.text,
+          previewHtml: feedItem?.previewHtml ?? post.text,
+          hero: media[0] ?? null,
+          media,
+          forwardedFrom: post.forwardedFrom ?? null,
+          quote: feedItem?.quote ?? null,
+          reactions: feedItem?.reactions ?? post.reactions,
+          commentsCount: post.commentsCount ?? 0,
+          channel: {
+            slug: getMoodChannelSlug(context.locals) || undefined,
+            title: channelInfo?.title,
+            avatar: toMoodAvatarUrl(channelInfo?.avatar || '', context.locals) || undefined,
+          },
+        };
+      },
+    );
   }
 
   const { post, channelInfo } = await loadMoodPostSnapshot(context, id);
@@ -285,10 +348,37 @@ export async function loadMoodComments(
   }
 
   if (query.source === 'archive') {
-    return fetchMoodArchiveApiJson<MoodCommentsPage>(
-      context,
-      `${MOOD_ARCHIVE_FEED_PATH}/${encodeURIComponent(postId)}/comments`,
-      moodCommentsParams(query),
+    return loadMoodArchiveWithFallback(
+      'comments',
+      () => fetchMoodArchiveApiJson<MoodCommentsPage>(
+        context,
+        `${MOOD_ARCHIVE_FEED_PATH}/${encodeURIComponent(postId)}/comments`,
+        moodCommentsParams(query),
+      ),
+      async () => {
+        const result = await getPostComments(
+          { request: context.request, locals: context.locals } as any,
+          { postId, before: query.before ?? '' },
+        );
+        return {
+          comments: result.comments.map((comment) => ({
+            id: comment.id,
+            author: comment.author,
+            authorAvatar: comment.authorAvatar,
+            datetime: comment.datetime,
+            content: comment.content,
+            reactions: comment.reactions.map((reaction) => ({
+              emoji: reaction.emoji,
+              emojiId: reaction.emojiId,
+              emojiImage: reaction.emojiImage,
+              count: reaction.count,
+              isPaid: reaction.isPaid,
+            })),
+          })),
+          hasMore: result.hasMore,
+          nextBefore: result.nextBefore || '',
+        };
+      },
     );
   }
 

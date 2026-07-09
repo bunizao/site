@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import {
+  loadMoodArchiveWithFallback,
   loadMoodComments,
   loadMoodDocument,
   loadMoodFeed,
@@ -20,6 +21,26 @@ function createContext(locals: Record<string, unknown> = {}) {
 }
 
 describe('mood API client', () => {
+  test('falls back to the live reader when an archive request fails', async () => {
+    const warnings: unknown[][] = [];
+    const originalWarn = console.warn;
+    console.warn = (...args: unknown[]) => warnings.push(args);
+
+    try {
+      expect(await loadMoodArchiveWithFallback(
+        'feed',
+        async () => {
+          throw new Error('archive unavailable');
+        },
+        async () => 'live result',
+      )).toBe('live result');
+    } finally {
+      console.warn = originalWarn;
+    }
+
+    expect(warnings[0]?.[0]).toBe('Mood archive feed failed; falling back to live reader.');
+  });
+
   test('routes explicit archive mood reads through the private API binding', async () => {
     const paths: string[] = [];
     const feed: MoodFeedResponse = {

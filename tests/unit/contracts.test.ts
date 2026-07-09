@@ -7,6 +7,7 @@ import {
   BLOG_ANALYTICS_SUMMARY_ENDPOINT,
   CONTENT_DOCUMENT_SOURCES,
   MOOD_ARCHIVE_FEED_PATH,
+  MOOD_LIVE_COUNTS_PATH,
   MOOD_LIVE_FEED_PATH,
   NEWSLETTER_ANALYTICS_CLICK_ENDPOINT,
   NEWSLETTER_ANALYTICS_OPEN_ENDPOINT,
@@ -32,6 +33,7 @@ describe('@bunizao/contracts', () => {
   test('exports shared route constants', () => {
     expect(MOOD_LIVE_FEED_PATH).toBe('/v1/mood');
     expect(MOOD_ARCHIVE_FEED_PATH).toBe('/v2/mood');
+    expect(MOOD_LIVE_COUNTS_PATH).toBe('/v2/moods/live-counts');
     expect(TELEGRAM_WEBHOOK_PATH).toBe('/webhooks/telegram');
   });
 

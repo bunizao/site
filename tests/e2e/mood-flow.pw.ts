@@ -243,6 +243,14 @@ test.describe('Mood routes', () => {
     await expect(page).toHaveURL(new RegExp(`${href}$`));
   });
 
+  test('loads the mood flow from the archive fixture', async ({ page }) => {
+    await page.goto('/mood?source=archive');
+
+    await expect(page.locator('[data-mood-feed]')).toHaveAttribute('data-mood-read-source', 'archive');
+    await expect(page.locator('[data-mood-feed]')).not.toHaveClass(/is-hidden/, { timeout: 30_000 });
+    await expect(page.locator('[data-mood-list] .mood-item').first()).toBeVisible();
+  });
+
   test('returns from detail to the originating feed anchor', async ({ page }) => {
     const channel = {
       slug: 'e2e',

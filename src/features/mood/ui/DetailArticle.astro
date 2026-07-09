@@ -71,8 +71,7 @@ const postReactions = post?.reactions ?? [];
       </div>
     </div>
     <div class="mood-post-content reading" set:html={renderedPostContent} />
-    {postReactions.length > 0 && (
-      <div class="mood-post-reactions" aria-label="Reactions">
+    <div class={`mood-post-reactions${postReactions.length > 0 ? '' : ' is-hidden'}`} aria-label="Reactions">
         {postReactions.map((reaction) => (
           <span
             class={reaction.isPaid ? 'mood-reaction mood-reaction--paid' : 'mood-reaction'}
@@ -103,8 +102,7 @@ const postReactions = post?.reactions ?? [];
             <span class="mood-reaction-count">{reaction.count}</span>
           </span>
         ))}
-      </div>
-    )}
+    </div>
     {postId && (
       <CommentsSection postId={postId} telegramCommentUrl={telegramCommentUrl} />
     )}
@@ -490,6 +488,10 @@ const postReactions = post?.reactions ?? [];
     margin-top: 28px;
     padding-top: 0;
     border-top: none;
+  }
+
+  .mood-post-reactions.is-hidden {
+    display: none;
   }
 
   @media (min-width: 640px) {

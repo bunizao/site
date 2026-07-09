@@ -438,13 +438,12 @@ function shouldHideQuoteAuthor(value?: string): boolean {
                           <span class="mood-reaction-count">{reaction.count}</span>
                         </span>
                       ))}
-                      {commentsInfo.count > 0 ? (
-                        <div
-                          class="mood-comments-wrapper"
-                          data-post-id={post.id}
-                          data-comments-count={commentsInfo.count}
-                          data-comments-label={commentsInfo.label}
-                        >
+                      <div
+                        class={`mood-comments-wrapper${commentsInfo.count > 0 ? '' : ' is-hidden'}`}
+                        data-post-id={post.id}
+                        data-comments-count={commentsInfo.count}
+                        data-comments-label={commentsInfo.label || String(commentsInfo.count)}
+                      >
                           <a
                             class="mood-item-comments"
                             href={getMoodDetailHref(post.id, '#comments')}
@@ -484,7 +483,6 @@ function shouldHideQuoteAuthor(value?: string): boolean {
                             </div>
                           </div>
                         </div>
-                      ) : null}
                     </div>
 
                     {post.tag ? <span class="mood-item-tag">#{post.tag}</span> : null}

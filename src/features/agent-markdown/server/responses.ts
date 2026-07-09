@@ -241,7 +241,8 @@ function createHtmlCacheOptions(request: Request): Parameters<typeof readEdgeCac
         ),
     cacheSearch,
     isResponseCacheable: (response) =>
-      (response.headers.get('content-type') ?? '').toLowerCase().includes('text/html'),
+      (response.headers.get('content-type') ?? '').toLowerCase().includes('text/html')
+      && !hasExplicitBypassDirective(response.headers.get('Cache-Control')),
     isResponseReady: policy.isHtmlReady,
   };
 }

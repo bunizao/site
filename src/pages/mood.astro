@@ -4,13 +4,17 @@ import TimelineWheel from '@/features/mood/ui/TimelineWheel.astro';
 import FeedShell from '@/features/mood/ui/FeedShell.astro';
 import SubscribePanel from '@/features/notify/SubscribePanel.astro';
 import BackToTop from '@/features/mood/ui/BackToTop.astro';
-import { loadMoodFeed, resolveMoodReadSource } from '@/features/mood/server/api-client';
+import {
+  loadMoodFeed,
+  normalizeMoodApiSource,
+  resolveMoodReadSource,
+} from '@/features/mood/server/api-client';
 import {
   getMoodFeedAnchorBeforeCursor,
   getMoodFeedAnchorWindowBeforeCursor,
-  mergeMoodFeedWindowPosts,
   readMoodFeedAnchorId,
 } from '@/features/mood/shared/feed-anchor';
+import { loadInitialMoodFeed as loadInitialMoodFeedWindow } from '@/features/mood/server/initial-feed-loader';
 import { isE2ESiteFixtureEnabled } from '@/lib/e2e';
 import { buildSrcSet, withWidthParam } from '@/lib/media/responsive-image';
 import { readEnv, readPublicEnv } from '@/lib/runtime/env';
@@ -33,7 +37,8 @@ const turnstileSiteKey = isE2ESiteFixtureEnabled(Astro.locals)
 const moodFeedAnchorId = readMoodFeedAnchorId(Astro.url);
 const moodFeedAnchorBeforeCursor = getMoodFeedAnchorBeforeCursor(moodFeedAnchorId);
 const moodFeedAnchorWindowBeforeCursor = getMoodFeedAnchorWindowBeforeCursor(moodFeedAnchorId);
-const moodReadSource = resolveMoodReadSource(Astro.locals);
+const requestedMoodReadSource = normalizeMoodApiSource(Astro.url.searchParams.get('source')) ?? undefined;
+const moodReadSource = resolveMoodReadSource(Astro.locals, requestedMoodReadSource);
 
 async function loadInitialMoodFeed() {
   if (isE2ESiteFixtureEnabled(Astro.locals)) return null;
@@ -41,35 +46,19 @@ async function loadInitialMoodFeed() {
   const context = { request: Astro.request, locals: Astro.locals };
 
   try {
-    if (moodFeedAnchorId) {
-      const focused = moodFeedAnchorWindowBeforeCursor
-        ? await loadMoodFeed(context, { before: moodFeedAnchorWindowBeforeCursor })
-        : null;
-      const focusedPosts = focused?.posts ?? [];
-      if (focused && focusedPosts.some((post) => post.id === moodFeedAnchorId)) {
-        return focused;
-      }
-
-      const fallback = (
-        moodFeedAnchorBeforeCursor
-        && moodFeedAnchorBeforeCursor !== moodFeedAnchorWindowBeforeCursor
-      )
-        ? await loadMoodFeed(context, { before: moodFeedAnchorBeforeCursor })
-        : null;
-      const fallbackPosts = fallback?.posts ?? [];
-      if (fallback && fallbackPosts.length > 0) {
-        return fallback;
-      }
-
-      if (focused && focusedPosts.length > 0) {
-        return {
-          ...focused,
-          posts: mergeMoodFeedWindowPosts(focusedPosts),
-        };
-      }
+    const result = await loadInitialMoodFeedWindow({
+      anchorId: moodFeedAnchorId,
+      focusedBefore: moodFeedAnchorWindowBeforeCursor,
+      fallbackBefore: moodFeedAnchorBeforeCursor,
+      loadFeed: (query) => loadMoodFeed(context, {
+        ...query,
+        source: moodReadSource,
+      }),
+    });
+    if (result.usedFallback) {
+      Astro.response.headers.set('Cache-Control', 'no-store');
     }
-
-    return await loadMoodFeed(context);
+    return result.value;
   } catch (error) {
     console.warn('Failed to load initial mood feed:', error);
     return null;
@@ -1570,6 +1559,10 @@ const skeletonGroups = [
   :global(.mood-comments-wrapper) {
     position: relative;
     display: inline-flex;
+  }
+
+  :global(.mood-comments-wrapper.is-hidden) {
+    display: none;
   }
 
   :global(.mood-comments-wrapper.is-popover-open) {

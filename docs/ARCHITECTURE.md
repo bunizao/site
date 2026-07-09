@@ -17,7 +17,7 @@
 
 The Cloudflare Worker `site` is the public runtime target for `buxx.me` and `www.buxx.me`. It serves the Astro site.
 
-Private API ownership lives in the separate `site-api` Worker. `site-api` directly owns `buxx.me/api/*` through Cloudflare route patterns and owns machine ingress at `api.buxx.me` for webhooks, notify, image processing, archive reads, and internal automation. Mood taxonomy is split by source semantics: `/api/v1/mood*` is the live Telegram mirror and canonical upstream for user-facing reads, while `/api/v2/mood*` is the D1 archive / structured read for search, AI, debugging, and ops. The public `site` Worker keeps only a thin `/api/*` service-binding fallback for local and preview environments.
+Private API ownership lives in the separate `site-api` Worker. `site-api` directly owns `buxx.me/api/*` through Cloudflare route patterns and owns machine ingress at `api.buxx.me` for webhooks, notify, image processing, archive reads, and internal automation. Mood pages use the D1 archive as their default base render (`MOOD_READ_SOURCE=archive`), with the live Telegram reader as a bounded fallback and for freshness-sensitive comments and reactions. The public `site` Worker keeps only a thin `/api/*` service-binding fallback for local and preview environments.
 
 ## Key Directories
 
@@ -50,7 +50,7 @@ Private API ownership lives in the separate `site-api` Worker. `site-api` direct
 2. **Project cards** (`src/features/home/ui/Projects.astro`) — Local project-card UI.
 3. **Last.fm + Apple iTunes Search** (`src/features/home/ui/Listening.astro`, `site-api /api/listening`) — Recent listening status from Last.fm, with client-side home hydration and iTunes enrichment for preview URLs and stronger artwork
 4. **GitHub Contributions** (`src/features/home/ui/GitHubContributions.astro`, `site-api /api/github/contributions`) — Contribution graph from an API backed by GitHub GraphQL, with the public contributions API as a fallback
-5. **Telegram/BroadcastChannel** — Mood pages read through the live v1 Telegram mirror for realtime comments, reactions, and media. The private API also ingests Telegram updates into D1 as a structured archive.
+5. **Telegram/BroadcastChannel** — Mood pages render base post content from the D1 archive, then hydrate visible comment counts and reactions from the live Telegram mirror. The live reader remains the fallback when archive reads fail.
 6. **Better Stack Status Page** (`site-api /api/footer`) — Footer service status from `https://status.tuuhub.com/index.json`
 
 ## API Endpoints
@@ -61,14 +61,16 @@ Private API ownership lives in the separate `site-api` Worker. `site-api` direct
 - `GET /api/edge` — Uncached per-request edge diagnostics from Cloudflare `request.cf` (colo, protocol, TLS, TCP RTT, approximate visitor location, network) for the footer hover popover. Never cached, since values are visitor-specific.
 - `GET /api/github/contributions` — Cached GitHub contribution calendar for the homepage activity graph; `days` narrows the returned contribution days while preserving the last-year total.
 - `GET /api/health` — Lightweight compatibility health response for stale monitors. Use `?diagnostic=1` for the owner diagnostic report; add `&deep=1` for slower external probes.
-- `GET /api/moods` — Mood feed with pagination (`?before=<id>`)
+- `GET /api/moods` — Live mood feed with pagination (`?before=<id>`), used for freshness probes and live fallback
+- `GET /api/v2/mood` — Archive mood feed used for the default base render
+- `GET /api/v2/moods/live-counts?ids=<id,...>` — Batched live comments/reactions for visible archive-rendered posts
 - `GET /api/comments` — Comments
 - `GET /api/oembed.json` — oEmbed endpoint (docs: `docs/OEMBED-API.md`)
 
 **Machine ingress (`site-api`):**
 - `api.buxx.me` is machine ingress, not the canonical public API surface.
-- `/api/v1/mood*` — live Telegram mirror; canonical upstream for user-facing mood reads.
-- `/api/v2/mood*` — D1 archive / structured read; non-canonical, used for search, AI, debugging, and ops.
+- `/api/v1/mood*` — live Telegram mirror for comments, reactions, freshness probes, and archive fallback.
+- `/api/v2/mood*` — D1 archive / structured base render for public mood pages, search, AI, debugging, and ops.
 - Admin/OAuth/notify/webhook/image routes are owned by `site-api`, not by this public Worker.
 
 **Owner auth surface:**
@@ -98,8 +100,8 @@ The edge cache key includes the negotiated variant (`html` or `markdown`) plus p
 
 | Route family | Cache-Control | Edge cache |
 | --- | --- | --- |
-| `/mood` | `public, max-age=0, s-maxage=300, stale-while-revalidate=1800` for HTML; Markdown uses `s-maxage=300` | HTML and Markdown, variant-keyed |
-| `/mood/[id]` | `public, max-age=0, s-maxage=60` for Markdown | Markdown only |
+| `/mood` | `public, max-age=0, s-maxage=300, stale-while-revalidate=1800`; numeric anchor URLs share ten-post cache buckets | HTML and Markdown, variant-keyed |
+| `/mood/[id]` | `public, max-age=0, s-maxage=300, stale-while-revalidate=1800` for HTML; Markdown uses `s-maxage=300` | HTML and Markdown, variant-keyed |
 | `/blog`, `/blog/tags`, `/blog/tag/[slug]` | `public, max-age=0, s-maxage=120` for HTML and Markdown | HTML and Markdown, variant-keyed |
 | `/blog/[slug]` | `public, max-age=0, s-maxage=300` for HTML and Markdown | HTML and Markdown, variant-keyed |
 | `/` | `public, max-age=0, s-maxage=300` for HTML and Markdown | Markdown only |
@@ -117,6 +119,7 @@ Accessed via `import.meta.env.*`:
 - `PUBLIC_BLOG_OG_IMAGE_ENDPOINT` — OGIS endpoint for generated `/blog` Open Graph images
 - `GITHUB_TOKEN` — GitHub GraphQL token for project data
 - `PUBLIC_HD_IMAGE_URL` — HD mood image base URL served by `site-api`
+- `MOOD_READ_SOURCE` — `archive` (default base render) or `live` (immediate rollback); `?source=live|archive` overrides one request without caching it
 - `CHANNEL` — Telegram public channel slug used for media-group indexing
 - `TELEGRAM_HOST` — Telegram public host for embed lookups (default: `t.me`)
 - `LASTFM_API_KEY`, `LASTFM_USER` — Last.fm recent tracks integration for the home listening widget

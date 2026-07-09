@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 
 import {
+  getMoodFeedAnchorBucketBase,
   getMoodDetailHref,
   getMoodFeedAnchorBeforeCursor,
   getMoodFeedAnchorFragmentId,
@@ -44,8 +45,18 @@ describe('mood feed anchors', () => {
   });
 
   test('builds a bounded before cursor for nearby anchor windows', () => {
-    expect(getMoodFeedAnchorWindowBeforeCursor('3196')).toBe('3207');
+    expect(getMoodFeedAnchorBucketBase('3196')).toBe('3200');
+    expect(getMoodFeedAnchorWindowBeforeCursor('3196')).toBe('3211');
     expect(getMoodFeedAnchorWindowBeforeCursor('')).toBe('');
+  });
+
+  test('shares anchor windows across each ten-post bucket', () => {
+    expect(getMoodFeedAnchorBucketBase('3631')).toBe('3640');
+    expect(getMoodFeedAnchorBucketBase('3640')).toBe('3640');
+    expect(getMoodFeedAnchorWindowBeforeCursor('3631')).toBe('3651');
+    expect(getMoodFeedAnchorWindowBeforeCursor('3640')).toBe('3651');
+    expect(getMoodFeedAnchorBucketBase('3641')).toBe('3650');
+    expect(getMoodFeedAnchorWindowBeforeCursor('3641')).toBe('3661');
   });
 
   test('merges anchor window posts in feed order', () => {

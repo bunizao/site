@@ -31,6 +31,10 @@ import type {
   MatchedMarkdownRenderer,
 } from './types';
 import { normalizeMoodEmbedCacheSearch } from '@/features/mood/server/embed-query';
+import {
+  getMoodFeedAnchorBucketBase,
+  isMoodFeedAnchorId,
+} from '@/features/mood/shared/feed-anchor';
 import { readBuiltBlogMarkdown } from './built-blog';
 import privacyMarkdownRaw from '@/content/pages/privacy.md?raw';
 
@@ -40,7 +44,8 @@ export const EDGE_CACHE_HEADER = 'X-Buxx-Edge-Cache';
 export const MOOD_PAGE_CACHE_HEADER = 'X-Buxx-Mood-Page-Cache';
 export const MOOD_FEED_PAGE_CACHE_TTL_SECONDS = 300;
 export const MOOD_FEED_PAGE_STALE_WHILE_REVALIDATE_SECONDS = 1800;
-export const MOOD_DETAIL_PAGE_CACHE_TTL_SECONDS = 60;
+export const MOOD_DETAIL_PAGE_CACHE_TTL_SECONDS = 300;
+export const MOOD_DETAIL_PAGE_STALE_WHILE_REVALIDATE_SECONDS = 1800;
 export const MOOD_EMBED_CACHE_TTL_SECONDS = 300;
 
 export const MOOD_PAGE_CACHE_READY_MARKERS = [
@@ -99,6 +104,24 @@ function matchMoodPost(pathname: string): Record<string, string> | null {
 
   const id = safeDecode(match[1]);
   return id && isValidCursor(id) ? { id } : null;
+}
+
+function normalizeMoodFeedCacheSearch(url: URL): string | null {
+  if (!url.search) return '';
+
+  const entries = Array.from(url.searchParams.entries());
+  if (entries.length !== 1) return null;
+
+  const [[key, value]] = entries;
+  const anchorId = key === 'post' || key === 'id'
+    ? value.trim()
+    : value.trim() === ''
+      ? key.trim()
+      : '';
+  if (!isMoodFeedAnchorId(anchorId)) return null;
+
+  const bucketBase = getMoodFeedAnchorBucketBase(anchorId);
+  return bucketBase ? `?anchor-bucket=${bucketBase}` : null;
 }
 
 function markdownResult(body: string, status = 200, headers?: HeadersInit) {
@@ -318,6 +341,7 @@ export function getContentRoutePolicy(pathname: string): ContentRoutePolicy | nu
       cacheStaleWhileRevalidateSeconds: MOOD_FEED_PAGE_STALE_WHILE_REVALIDATE_SECONDS,
       edgeCacheHtml: true,
       cacheHeaderName: MOOD_PAGE_CACHE_HEADER,
+      normalizeHtmlCacheSearch: normalizeMoodFeedCacheSearch,
       isHtmlReady: (body) => MOOD_PAGE_CACHE_READY_MARKERS.every((marker) => body.includes(marker)),
     };
   }
@@ -336,7 +360,12 @@ export function getContentRoutePolicy(pathname: string): ContentRoutePolicy | nu
     return { cacheTtlSeconds: 120, edgeCacheHtml: true, cacheHeaderName: EDGE_CACHE_HEADER };
   }
   if (matchMoodPost(normalized)) {
-    return { cacheTtlSeconds: MOOD_DETAIL_PAGE_CACHE_TTL_SECONDS, edgeCacheHtml: true, cacheHeaderName: EDGE_CACHE_HEADER };
+    return {
+      cacheTtlSeconds: MOOD_DETAIL_PAGE_CACHE_TTL_SECONDS,
+      cacheStaleWhileRevalidateSeconds: MOOD_DETAIL_PAGE_STALE_WHILE_REVALIDATE_SECONDS,
+      edgeCacheHtml: true,
+      cacheHeaderName: EDGE_CACHE_HEADER,
+    };
   }
 
   return null;

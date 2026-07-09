@@ -8,6 +8,7 @@ export const MOOD_PUBLIC_COMMENTS_PATH = '/api/comments' as const;
 export const MOOD_LIVE_FEED_PATH = '/v1/mood' as const;
 export const MOOD_LIVE_META_PATH = '/v1/mood/meta' as const;
 export const MOOD_ARCHIVE_FEED_PATH = '/v2/mood' as const;
+export const MOOD_LIVE_COUNTS_PATH = '/v2/moods/live-counts' as const;
 export const MOOD_ARCHIVE_STATS_PATH = '/v2/mood/stats' as const;
 export const MOOD_IMAGE_PROXY_BASE_PATH = '/v2/images' as const;
 

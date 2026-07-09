@@ -6,7 +6,7 @@ public: true
 
 The mood feed is the public surface for posts pulled from the Telegram channel. It lives at three levels: a small home preview, the full feed at `/mood`, and detail pages at `/mood/[id]`.
 
-Mood API taxonomy: v1 (`/api/v1/mood*`) is the live Telegram mirror and canonical for user-facing reads. v2 (`/api/v2/mood*`) is the D1 archive / structured read for search, AI, debugging, and ops. `?api-v2=true` is deprecated migration scaffolding and should not appear in canonical links.
+Mood API taxonomy: v2 (`/api/v2/mood*`) provides the D1 archive used for the default public base render. v1 (`/api/v1/mood*`) remains the live Telegram reader for comments, reactions, freshness checks, and archive fallback. `?source=live|archive` is a temporary per-request override; `?api-v2=true` is retired migration scaffolding.
 
 ## Routes
 
@@ -18,7 +18,7 @@ Mood API taxonomy: v1 (`/api/v1/mood*`) is the live Telegram mirror and canonica
 
 ## Feed API
 
-`GET /api/moods` returns channel metadata plus feed-shaped posts. Pagination uses `?before=<id>` to load older posts, and `?probe=1&fresh=1` to check for new ones without serving them.
+`GET /api/v2/mood` returns the archive feed for page rendering and pagination. `GET /api/moods` remains the live feed for freshness probes (`?probe=1&fresh=1`) and fallback. Visible archive posts hydrate comments/reactions through `GET /api/v2/moods/live-counts?ids=<id,...>`.
 
 Each post is shaped for fast feed rendering: `previewText`, `previewHtml`, `image`, `imageFallback`, `mediaHtml`, `needsDetailPage`, `forwardedFrom`, `quote`, `reactions`, `commentsCount`. `needsDetailPage` flips to `true` when there's no inline preview and the post is long-text or media-heavy. Primary image URLs prefer `PUBLIC_HD_IMAGE_URL` (the Cloudflare image worker); fallbacks point at Telegram CDN through the site's static proxy.
 
@@ -36,7 +36,7 @@ Long text-only posts clamp and link to the detail page. Inline media stays expan
 
 ## Detail page
 
-The detail route fetches a single `MoodContentDocument` from the canonical live mood reader, sets a `404` when missing, and renders a controlled fallback rather than crashing. The body is inserted with `set:html={renderedPostContent}` after sanitization. Forwarded metadata, reactions, and tags come from normalized mood data.
+The detail route fetches one `MoodContentDocument` from the archive by default, falls back to the live reader when the archive fails, sets a `404` when missing, and renders a controlled fallback rather than crashing. The body is inserted with `set:html={renderedPostContent}` after sanitization.
 
 Back navigation prefers browser history; otherwise it falls back to `/mood`.
 

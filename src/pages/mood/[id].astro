@@ -2,7 +2,11 @@
 import Layout from '../../layouts/Layout.astro';
 import dayjs from 'dayjs';
 import type { MoodContentDocument } from '@bunizao/contracts';
-import { loadMoodDocument, resolveMoodReadSource } from '@/features/mood/server/api-client';
+import {
+  loadMoodDocument,
+  normalizeMoodApiSource,
+  resolveMoodReadSource,
+} from '@/features/mood/server/api-client';
 import '@/styles/mood-gallery.css';
 import { renderMoodContentWithGalleries } from '@/features/mood/shared/gallery';
 import { getMoodFeedAnchorHref } from '@/features/mood/shared/feed-anchor';
@@ -28,10 +32,18 @@ if (isEmbed && id) {
 
 let post: MoodContentDocument | null = null;
 let error = false;
+const moodReadSource = resolveMoodReadSource(
+  Astro.locals,
+  normalizeMoodApiSource(Astro.url.searchParams.get('source')) ?? undefined,
+);
 
 try {
   if (id) {
-    post = await loadMoodDocument({ request: Astro.request, locals: Astro.locals }, id);
+    post = await loadMoodDocument(
+      { request: Astro.request, locals: Astro.locals },
+      id,
+      { source: moodReadSource },
+    );
   }
 } catch (fetchError) {
   console.error('Failed to fetch mood:', fetchError);
@@ -55,7 +67,6 @@ const telegramCommentUrl = channel && id ? `https://t.me/${channel}/${id}?commen
 const renderedPostContent = post
   ? renderMoodContentWithGalleries(post.bodyHtml)
   : '';
-const moodReadSource = resolveMoodReadSource(Astro.locals);
 ---
 
 <Layout

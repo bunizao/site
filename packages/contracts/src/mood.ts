@@ -187,6 +187,15 @@ export interface MoodMetaItem {
   commentsCount: number;
 }
 
+export interface MoodLiveCount {
+  reactions: MoodReaction[] | null;
+  commentsCount: number | null;
+}
+
+export interface MoodLiveCountsResponse {
+  counts: Record<string, MoodLiveCount>;
+}
+
 export interface MoodComment {
   id: string;
   author: string;

@@ -651,7 +651,6 @@ export function createFeedRenderer({
 
     const hasReactions = mood.reactions && mood.reactions.length > 0;
     const commentsInfo = getCommentsCountInfo(mood.commentsCount);
-    const hasComments = commentsInfo.count > 0;
     const reactionsWrap = document.createElement('div');
     reactionsWrap.className = 'mood-item-reactions';
 
@@ -698,16 +697,14 @@ export function createFeedRenderer({
       });
     }
 
-    if (hasComments) {
-      const commentsLabel = commentsInfo.label || String(commentsInfo.count);
-      reactionsWrap.appendChild(
-        commentsPopover.createIndicator({
-          postId: mood.id,
-          count: commentsInfo.count,
-          label: commentsLabel,
-        })
-      );
-    }
+    const commentsLabel = commentsInfo.label || String(commentsInfo.count);
+    const commentsIndicator = commentsPopover.createIndicator({
+      postId: mood.id,
+      count: commentsInfo.count,
+      label: commentsLabel,
+    });
+    commentsIndicator.classList.toggle('is-hidden', commentsInfo.count === 0);
+    reactionsWrap.appendChild(commentsIndicator);
 
     content.appendChild(reactionsWrap);
 

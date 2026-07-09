@@ -44,6 +44,7 @@
     "PUBLIC_BLOG_OG_IMAGE_ENDPOINT": "https://og.tuuhub.com/api/og",
     "LASTFM_USER": "bunizao",
     "PUBLIC_HD_IMAGE_URL": "https://buxx.me/api/v2/images",
+    "MOOD_READ_SOURCE": "archive",
     "PUBLIC_TURNSTILE_SITE_KEY": "0x4AAAAAACaDQzCbYalmO_xV",
     "CHANNEL": "tutumood",
     "TELEGRAM_HOST": "t.me",

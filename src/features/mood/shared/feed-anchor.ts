@@ -1,5 +1,6 @@
 const MOOD_FEED_ANCHOR_PATTERN = /^[1-9]\d{0,19}$/;
 const MOOD_FEED_ANCHOR_WINDOW_OFFSET = 10n;
+const MOOD_FEED_ANCHOR_BUCKET_SIZE = 10n;
 export const MOOD_FEED_RETURN_ANCHOR_STORAGE_KEY = 'mood-feed-return-anchor';
 
 export function isMoodFeedAnchorId(value: string): boolean {
@@ -53,8 +54,17 @@ export function getMoodFeedAnchorBeforeCursor(anchorId: string): string {
   return addMoodFeedCursorOffset(anchorId, 1n);
 }
 
+export function getMoodFeedAnchorBucketBase(anchorId: string): string {
+  if (!isMoodFeedAnchorId(anchorId)) return '';
+
+  const anchor = BigInt(anchorId);
+  return (((anchor + MOOD_FEED_ANCHOR_BUCKET_SIZE - 1n) / MOOD_FEED_ANCHOR_BUCKET_SIZE)
+    * MOOD_FEED_ANCHOR_BUCKET_SIZE).toString();
+}
+
 export function getMoodFeedAnchorWindowBeforeCursor(anchorId: string): string {
-  return addMoodFeedCursorOffset(anchorId, MOOD_FEED_ANCHOR_WINDOW_OFFSET + 1n);
+  const bucketBase = getMoodFeedAnchorBucketBase(anchorId);
+  return addMoodFeedCursorOffset(bucketBase, MOOD_FEED_ANCHOR_WINDOW_OFFSET + 1n);
 }
 
 function compareMoodFeedIdsDescending(a: string, b: string): number {

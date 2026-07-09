@@ -64,10 +64,13 @@ export function initMoodFeedController(): void {
         };
 
       const getMoodFeedAnchorId = (): string => {
+        const currentUrlAnchorId = readCurrentUrlAnchorId();
+        if (currentUrlAnchorId) return currentUrlAnchorId;
+
         const configuredAnchorId = feedEl.dataset.moodAnchorId?.trim() ?? '';
         if (configuredAnchorId) return configuredAnchorId;
 
-        return readCurrentUrlAnchorId();
+        return '';
       };
 
       const readCurrentUrlAnchorId = (): string => {
@@ -227,7 +230,10 @@ export function initMoodFeedController(): void {
           query.set('after', options.afterId);
         }
         const queryString = query.toString();
-        const url = queryString ? `/api/moods?${queryString}` : '/api/moods';
+        const endpoint = feedEl.dataset.moodReadSource === 'archive'
+          ? '/api/v2/mood'
+          : '/api/moods';
+        const url = queryString ? `${endpoint}?${queryString}` : endpoint;
         const response = await fetch(url);
         if (!response.ok) {
           throw new Error('Failed to load moods.');

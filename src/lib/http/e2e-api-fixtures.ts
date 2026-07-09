@@ -4,6 +4,7 @@ import { json, jsonBadRequest, jsonError, jsonOk } from '@/lib/http/json-respons
 import {
   API_PREFIX,
   HEALTH_PATH,
+  MOOD_LIVE_COUNTS_PATH,
   MOOD_PUBLIC_COMMENTS_PATH,
   MOOD_PUBLIC_FEED_PATH,
 } from '@bunizao/contracts/routes';
@@ -48,6 +49,20 @@ async function commentsFixtureResponse(context: FixtureContext, url: URL): Promi
   return jsonOk(await loadMoodComments(context, postId, {
     before: url.searchParams.get('before') ?? undefined,
   }), noStore());
+}
+
+function liveCountsFixtureResponse(url: URL): Response {
+  const ids = (url.searchParams.get('ids') ?? '')
+    .split(',')
+    .map((id) => id.trim())
+    .filter((id) => /^\d+$/.test(id));
+
+  return jsonOk({
+    counts: Object.fromEntries(ids.map((id) => [id, {
+      commentsCount: null,
+      reactions: null,
+    }])),
+  }, noStore());
 }
 
 function healthFixtureResponse(url: URL): Response {
@@ -203,8 +218,11 @@ export async function createE2EApiFixtureResponse(context: FixtureContext): Prom
   if (url.pathname === '/v2/admin/auth/start') {
     return adminAuthStartFixtureResponse(url);
   }
-  if (url.pathname === MOOD_PUBLIC_FEED_PATH) {
+  if (url.pathname === MOOD_PUBLIC_FEED_PATH || url.pathname === '/api/v2/mood' || url.pathname === '/v2/mood') {
     return moodFixtureResponse(context, url);
+  }
+  if (url.pathname === `${API_PREFIX}${MOOD_LIVE_COUNTS_PATH}` || url.pathname === MOOD_LIVE_COUNTS_PATH) {
+    return liveCountsFixtureResponse(url);
   }
   if (url.pathname === MOOD_PUBLIC_COMMENTS_PATH) {
     return commentsFixtureResponse(context, url);

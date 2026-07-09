@@ -29,11 +29,12 @@ describe('agent markdown registry', () => {
     expect(getContentRoutePolicy('/mood/rss.xml')?.cacheTtlSeconds).toBe(300);
   });
 
-  test('declares short edge HTML cache policy for public mood detail pages', () => {
+  test('declares stale edge HTML cache policy for public mood detail pages', () => {
     const policy = getContentRoutePolicy('/mood/990001');
 
     expect(policy?.edgeCacheHtml).toBe(true);
-    expect(policy?.cacheTtlSeconds).toBe(60);
+    expect(policy?.cacheTtlSeconds).toBe(300);
+    expect(policy?.cacheStaleWhileRevalidateSeconds).toBe(1800);
   });
 
   test('declares longer edge HTML cache policy for the public mood feed', () => {
@@ -42,6 +43,19 @@ describe('agent markdown registry', () => {
     expect(policy?.edgeCacheHtml).toBe(true);
     expect(policy?.cacheTtlSeconds).toBe(300);
     expect(policy?.cacheStaleWhileRevalidateSeconds).toBe(1800);
+  });
+
+  test('normalizes valid mood anchors but rejects unrelated query strings', () => {
+    const policy = getContentRoutePolicy('/mood');
+
+    expect(policy?.normalizeHtmlCacheSearch?.(new URL('https://buxx.me/mood?3631')))
+      .toBe('?anchor-bucket=3640');
+    expect(policy?.normalizeHtmlCacheSearch?.(new URL('https://buxx.me/mood?3640')))
+      .toBe('?anchor-bucket=3640');
+    expect(policy?.normalizeHtmlCacheSearch?.(new URL('https://buxx.me/mood?utm_source=x')))
+      .toBeNull();
+    expect(policy?.normalizeHtmlCacheSearch?.(new URL('https://buxx.me/mood?3631&source=archive')))
+      .toBeNull();
   });
 
   test('adds stale revalidation to shared content cache headers', () => {

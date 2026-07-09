@@ -3,6 +3,7 @@ import { describe, expect, test } from 'bun:test';
 import {
   cacheHtmlPageResponse,
   readCachedHtmlPage,
+  withContentPolicy,
 } from '@/features/agent-markdown/server/responses';
 import {
   buildVariantCacheKey,
@@ -92,5 +93,42 @@ describe('variant edge cache', () => {
       expect(stored.headers.has('X-Buxx-Edge-Cache')).toBe(false);
       expect(await readCachedHtmlPage(request)).toBeNull();
     }
+  });
+
+  test('shares mood anchor HTML cache entries within a ten-post bucket', async () => {
+    const firstRequest = new Request('https://buxx.me/mood?3631');
+    const secondRequest = new Request('https://buxx.me/mood?3640');
+    const body = '<!doctype html><main data-mood-initial-feed data-mood-id="3631"></main>';
+
+    const stored = await cacheHtmlPageResponse(
+      firstRequest,
+      new Response(body, {
+        headers: { 'Content-Type': 'text/html; charset=utf-8' },
+      }),
+    );
+    const cached = await readCachedHtmlPage(secondRequest);
+
+    expect(stored.headers.get('X-Buxx-Mood-Page-Cache')).toBe('MISS');
+    expect(stored.headers.get('Cloudflare-CDN-Cache-Control')).toBe('no-store');
+    expect(cached?.headers.get('X-Buxx-Mood-Page-Cache')).toBe('HIT');
+    expect(await cached?.text()).toBe(body);
+  });
+
+  test('keeps fallback anchor renders out of the shared HTML cache', async () => {
+    const request = new Request('https://buxx.me/mood?9999');
+    const response = withContentPolicy(
+      request,
+      new Response('<!doctype html><main data-mood-initial-feed data-mood-id="9999"></main>', {
+        headers: {
+          'Content-Type': 'text/html; charset=utf-8',
+          'Cache-Control': 'no-store',
+        },
+      }),
+    );
+
+    const stored = await cacheHtmlPageResponse(request, response);
+
+    expect(stored.headers.get('X-Buxx-Mood-Page-Cache')).toBeNull();
+    expect(await readCachedHtmlPage(request)).toBeNull();
   });
 });

@@ -342,8 +342,8 @@ async function getTelegramEmbedState(
   try {
     const html = await $fetch<string>(`https://${host}/${channel}/${postId}?embed=1&mode=tme`, {
       headers,
-      retry: 2,
-      retryDelay: 100,
+      retry: 0,
+      timeout: 1500,
     });
     const state = parseTelegramEmbedState(html);
     telegramEmbedStateCache.set(cacheKey, { found: true, value: state });
@@ -369,8 +369,8 @@ async function getTelegramOpenGraphMeta(
   try {
     const html = await $fetch<string>(`https://${host}/${channel}/${postId}`, {
       headers,
-      retry: 2,
-      retryDelay: 100,
+      retry: 0,
+      timeout: 1500,
     });
     const meta = parseTelegramOpenGraphMeta(html);
     telegramPostMetaCache.set(cacheKey, { found: true, value: meta });
@@ -1506,8 +1506,8 @@ async function getCommentsCount(
     const url = `https://${host}/${channel}/${postId}?embed=1&discussion=1&comments_limit=1`;
     const html = await $fetch<string>(url, {
       headers,
-      retry: 2,
-      retryDelay: 100,
+      retry: 0,
+      timeout: 1500,
     });
     const $discussion = cheerio.load(html, {}, false);
     const headerText =
