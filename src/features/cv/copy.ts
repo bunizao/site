@@ -19,7 +19,8 @@ export interface CvStrings {
   };
   redacted: {
     label: string; // aria-label / screen-reader
-    hint: string; // hover affordance
+    hint: string; // hover affordance / title
+    word: string; // the term revealed as the fog lifts
   };
   pdf: string;
   updated: string;
@@ -54,7 +55,7 @@ export const CV_STRINGS: Record<CvLang, CvStrings> = {
     },
     present: 'Present',
     contact: { email: 'Email', phone: 'Phone', location: 'Based in' },
-    redacted: { label: 'Hidden — request access to reveal', hint: 'Request access' },
+    redacted: { label: 'Hidden — request access to reveal', hint: 'Request access', word: 'redacted' },
     pdf: 'PDF',
     updated: 'Updated',
     otherLang: '中文',
@@ -86,7 +87,7 @@ export const CV_STRINGS: Record<CvLang, CvStrings> = {
     },
     present: '至今',
     contact: { email: '邮箱', phone: '电话', location: '所在地' },
-    redacted: { label: '已隐藏 —— 申请访问以查看', hint: '申请访问' },
+    redacted: { label: '已隐藏 —— 申请访问以查看', hint: '申请访问', word: 'redacted' },
     pdf: 'PDF',
     updated: '更新于',
     otherLang: 'EN',

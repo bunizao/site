@@ -2,7 +2,7 @@
 import type { CvLang } from '@bunizao/contracts';
 import type { CvLeaf } from '../server/resolve';
 import { pick } from '../copy';
-import RedactedChip from './RedactedChip.astro';
+import RedactedField from './RedactedField.astro';
 
 interface Props {
   leaf: CvLeaf;
@@ -19,7 +19,7 @@ const { leaf, lang, width = 8, class: className, href } = Astro.props;
 
 {
   leaf === null ? (
-    <RedactedChip lang={lang} width={width} class={className} />
+    <RedactedField lang={lang} width={width} class={className} />
   ) : href ? (
     <a class={className} href={href}>{pick(leaf, lang)}</a>
   ) : (
