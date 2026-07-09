@@ -91,39 +91,17 @@ if (full) {
 >
   <Fragment set:html={`<style>${accentStyle}</style>`} />
   <main class="cv-zone cv-page reading" data-lang={lang} lang={lang}>
-    <nav class="cv-toolbar" aria-label="résumé actions">
-      <a class="cv-toolbar__link" href={otherLangHref} hreflang={lang === 'en' ? 'zh' : 'en'}>
-        {t.otherLang}
-      </a>
-      {full ? (
-        <a class="cv-toolbar__link" href={pdfHref} target="_blank" rel="noopener">
-          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <path d="M14 3v4a1 1 0 0 0 1 1h4"></path>
-            <path d="M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2Z"></path>
-          </svg>
-          {t.pdf}
-        </a>
-      ) : (
-        <button type="button" class="cv-toolbar__link" data-cv-request-open>
-          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <path d="M14 3v4a1 1 0 0 0 1 1h4"></path>
-            <path d="M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2Z"></path>
-          </svg>
-          {t.pdf}
-        </button>
-      )}
-    </nav>
-
-    <CvDocument cv={cv} lang={lang} avatar="/avatar.webp" showRequest={!full} />
+    <CvDocument
+      cv={cv}
+      lang={lang}
+      avatar="/avatar.webp"
+      full={full}
+      pdfHref={pdfHref}
+      otherLangHref={otherLangHref}
+      otherLangLabel={t.otherLang}
+      showRequest={!full}
+    />
 
     <RequestAccessDialog lang={lang} />
   </main>
 </Layout>
-
-<style is:global>
-  /* The résumé is its own calm zone — drop the main-site dot-grid so it reads
-     like the flat blog surface, not the homepage. */
-  body:has(.cv-zone)::before {
-    display: none;
-  }
-</style>
