@@ -44,6 +44,23 @@ describe('structured mood feed media rendering', () => {
     expect(html).toContain('Example article');
   });
 
+  test('can defer feed video sources until the viewport observer hydrates them', () => {
+    const html = renderStructuredMoodFeedMediaMarkup([
+      {
+        type: 'video',
+        src: 'https://image.example.test/mood/1/video.mp4',
+        posterSrc: 'https://image.example.test/mood/1/poster.jpg',
+        width: 720,
+        height: 1280,
+      },
+    ], { lazyVideo: true });
+
+    expect(html).toContain('data-mood-video-src="https://image.example.test/mood/1/video.mp4"');
+    expect(html).toContain('preload="none"');
+    expect(html).toContain('data-mood-video-lazy="true"');
+    expect(html).not.toContain(' src="https://image.example.test/mood/1/video.mp4"');
+  });
+
   test('skips image convenience media and unsafe URLs', () => {
     const html = renderStructuredMoodFeedMediaMarkup([
       {

@@ -18,13 +18,6 @@ import {
 
 const DEV_PORTAL_PREFIX = '/dev';
 
-function appendCacheControlDirective(value: string | null, directive: string): string {
-  const current = value?.trim();
-  if (!current) return directive;
-  if (new RegExp(`(?:^|,)\\s*${directive}\\b`, 'i').test(current)) return current;
-  return `${current}, ${directive}`;
-}
-
 function isDevPortalPath(pathname: string): boolean {
   return pathname === DEV_PORTAL_PREFIX || pathname.startsWith(`${DEV_PORTAL_PREFIX}/`);
 }
@@ -33,7 +26,7 @@ export function createHtmlScriptCsp(origin: string): string {
   const cleanOrigin = origin.replace(/\/+$/, '');
 
   return [
-    `script-src 'unsafe-inline' ${cleanOrigin}/_astro/ https://js-cdn.music.apple.com https://static.cloudflareinsights.com https://challenges.cloudflare.com http://localhost:* http://127.0.0.1:*`,
+    `script-src 'unsafe-inline' ${cleanOrigin}/_astro/ ${cleanOrigin}/pagefind/ ${cleanOrigin}/cdn-cgi/challenge-platform/ https://js-cdn.music.apple.com https://static.cloudflareinsights.com https://challenges.cloudflare.com http://localhost:* http://127.0.0.1:*`,
     "base-uri 'self'",
     "object-src 'none'",
   ].join('; ');
@@ -48,7 +41,6 @@ function withHtmlSecurityHeaders(request: Request, response: Response): Response
   const headers = new Headers(response.headers);
   const url = new URL(request.url);
   headers.set('Content-Security-Policy', createHtmlScriptCsp(url.origin));
-  headers.set('Cache-Control', appendCacheControlDirective(headers.get('Cache-Control'), 'no-transform'));
   return new Response(response.body, {
     status: response.status,
     statusText: response.statusText,

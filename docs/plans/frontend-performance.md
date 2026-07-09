@@ -6,6 +6,20 @@ Workstream of the July 2026 architecture audit — report `docs/reviews/architec
 
 Remove the site-wide payload and loading inefficiencies identified in the audit's frontend round, without visual changes.
 
+## 2026-07-10 shipped fixes
+
+- Removed `no-transform` from HTML cache headers so Cloudflare can Brotli/Gzip compress the public HTML shell again. The CSP now explicitly allows Cloudflare challenge scripts instead of using `no-transform` as an injection guard.
+- Raised `/mood` feed HTML freshness to `s-maxage=300, stale-while-revalidate=1800`; mood detail remains short-lived at 60s, and error/no-store paths stay uncached.
+- Deferred mood feed videos by rendering feed media with `data-mood-video-src` and `preload="none"`; the feed hydrator attaches the source and starts autoplay only when the video approaches the viewport.
+- Replaced the full-size blurred OG carousel backgrounds with tiny blur assets, and scoped homepage `--font-code` to the already-preloaded Geist Mono face.
+- Re-encoded the shared blog mark WebP and used that one asset for the favicon, masthead, and reading TOC mark. This removes the duplicate SVG/WebP mark load while preserving dark-mode inversion.
+- Changed Lighthouse's default blog path from `/blog` to `/blog/` to avoid measuring a redirect.
+- Compressed `/api/v2/images/channel/avatar` in `site-api` through the existing Images binding at 128px `fit=scale-down`.
+
+## Still open
+
+- Cloudflare Google Tag Gateway is still a control-plane cleanup, not a repo loader. The repo CSP now blocks the automatic `/gmetrics/` and Google Tag Manager script downloads on `/blog`, and it intentionally does not add a second loader. The clean follow-up is to disable automatic tag setup for the gateway, prove the injected tags disappear, then add a post-load or idle first-party loader if GA4 is still wanted.
+
 ## Scope
 
 1. **`/mood` double payload** (`src/features/mood/ui/FeedShell.astro`)

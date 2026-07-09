@@ -612,6 +612,7 @@ export function initMoodFeedController(): void {
       const serverRenderedCount = list.querySelectorAll('.mood-item[data-mood-id]').length;
       if (serverRenderedCount > 0) {
         totalCount = serverRenderedCount;
+        mediaHydrator.applyMediaHints(list);
         initMoodGalleries(list);
       }
 

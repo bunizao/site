@@ -46,6 +46,90 @@ export function createFeedMediaHydrator(
     }
   };
 
+  const hydrateLazyVideo = (video: HTMLVideoElement): boolean => {
+    if (video.dataset.moodVideoHydrated === '1') return true;
+
+    let hydrated = false;
+    const videoSrc = video.dataset.moodVideoSrc;
+    if (videoSrc) {
+      video.src = videoSrc;
+      delete video.dataset.moodVideoSrc;
+      hydrated = true;
+    }
+
+    video.querySelectorAll<HTMLSourceElement>('source[data-mood-video-src]').forEach((source) => {
+      const sourceSrc = source.dataset.moodVideoSrc;
+      if (!sourceSrc) return;
+      source.src = sourceSrc;
+      delete source.dataset.moodVideoSrc;
+      hydrated = true;
+    });
+
+    video.dataset.moodVideoHydrated = '1';
+    if (hydrated) {
+      video.preload = 'metadata';
+      video.load();
+      return true;
+    }
+
+    return Boolean(video.currentSrc || video.src);
+  };
+
+  const shouldAutoplayVideo = (video: HTMLVideoElement): boolean =>
+    'moodAutoplay' in video.dataset || video.hasAttribute('data-mood-autoplay');
+
+  let lazyVideoObserver: IntersectionObserver | null = null;
+  const observedLazyVideos = new WeakSet<HTMLVideoElement>();
+
+  const getLazyVideoObserver = (): IntersectionObserver | null => {
+    if (!('IntersectionObserver' in window)) {
+      return null;
+    }
+
+    if (lazyVideoObserver) {
+      return lazyVideoObserver;
+    }
+
+    lazyVideoObserver = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          const video = entry.target as HTMLVideoElement;
+          if (entry.isIntersecting) {
+            const ready = hydrateLazyVideo(video);
+            if (ready && shouldAutoplayVideo(video)) {
+              video.muted = true;
+              video.play().catch(() => {});
+            }
+            return;
+          }
+
+          if (shouldAutoplayVideo(video)) {
+            video.pause();
+          }
+        });
+      },
+      { rootMargin: '25% 0px' }
+    );
+
+    return lazyVideoObserver;
+  };
+
+  const observeLazyVideo = (video: HTMLVideoElement): void => {
+    const hasDeferredSource = Boolean(video.dataset.moodVideoSrc)
+      || video.querySelector('source[data-mood-video-src]');
+    if (!hasDeferredSource || observedLazyVideos.has(video)) return;
+
+    video.preload = 'none';
+    observedLazyVideos.add(video);
+    const observer = getLazyVideoObserver();
+    if (!observer) {
+      hydrateLazyVideo(video);
+      return;
+    }
+
+    observer.observe(video);
+  };
+
   const applyMediaHints = (root: HTMLElement, priority = false): void => {
     root.querySelectorAll('img').forEach((node) => {
       if (!(node instanceof HTMLImageElement)) return;
@@ -61,6 +145,7 @@ export function createFeedMediaHydrator(
 
     root.querySelectorAll('video').forEach((node) => {
       if (!(node instanceof HTMLVideoElement)) return;
+      observeLazyVideo(node);
       const classify = () => {
         const w = node.videoWidth;
         const h = node.videoHeight;

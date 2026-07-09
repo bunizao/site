@@ -51,26 +51,38 @@ export function isNeverCachePath(pathname: string): boolean {
     || pathname.startsWith('/v2/');
 }
 
-export function publicCacheControl(ttlSeconds: number, includeNoTransform = false): string {
+export function publicCacheControl(ttlSeconds: number, staleWhileRevalidateSeconds?: number): string {
   return [
     'public',
     'max-age=0',
     `s-maxage=${ttlSeconds}`,
-    includeNoTransform ? 'no-transform' : '',
+    typeof staleWhileRevalidateSeconds === 'number'
+      ? `stale-while-revalidate=${staleWhileRevalidateSeconds}`
+      : '',
   ].filter(Boolean).join(', ');
 }
 
-export function cloudflareCdnCacheControl(ttlSeconds: number): string {
+export function cloudflareCdnCacheControl(
+  ttlSeconds: number,
+  staleWhileRevalidateSeconds = CONTENT_STALE_WHILE_REVALIDATE_SECONDS,
+): string {
   return [
     'public',
     `max-age=${ttlSeconds}`,
-    `stale-while-revalidate=${CONTENT_STALE_WHILE_REVALIDATE_SECONDS}`,
+    `stale-while-revalidate=${staleWhileRevalidateSeconds}`,
   ].join(', ');
 }
 
-function setContentCacheHeaders(headers: Headers, ttlSeconds: number, includeNoTransform = false): void {
-  headers.set('Cache-Control', publicCacheControl(ttlSeconds, includeNoTransform));
-  headers.set(CLOUDFLARE_CDN_CACHE_CONTROL_HEADER, cloudflareCdnCacheControl(ttlSeconds));
+function setContentCacheHeaders(
+  headers: Headers,
+  ttlSeconds: number,
+  staleWhileRevalidateSeconds?: number,
+): void {
+  headers.set('Cache-Control', publicCacheControl(ttlSeconds, staleWhileRevalidateSeconds));
+  headers.set(
+    CLOUDFLARE_CDN_CACHE_CONTROL_HEADER,
+    cloudflareCdnCacheControl(ttlSeconds, staleWhileRevalidateSeconds),
+  );
 }
 
 function setNoStoreHeaders(headers: Headers): void {
@@ -102,7 +114,11 @@ export function withContentPolicy(request: Request, response: Response): Respons
     && !hasExplicitBypassDirective(headers.get('Cache-Control'))
     && shouldApplyRouteCacheHeaders(url, policy)
   ) {
-    setContentCacheHeaders(headers, policy.cacheTtlSeconds, isHtml);
+    setContentCacheHeaders(
+      headers,
+      policy.cacheTtlSeconds,
+      policy.cacheStaleWhileRevalidateSeconds,
+    );
   } else if (isHtml && !hasFreshnessOrBypassDirective(headers.get('Cache-Control'))) {
     headers.set(
       'Cache-Control',
@@ -213,10 +229,16 @@ function createHtmlCacheOptions(request: Request): Parameters<typeof readEdgeCac
     version: EDGE_CACHE_VERSION,
     ttlSeconds: policy.cacheTtlSeconds,
     headerName: policy.cacheHeaderName,
-    cacheControl: publicCacheControl(policy.cacheTtlSeconds, true),
+    cacheControl: publicCacheControl(
+      policy.cacheTtlSeconds,
+      policy.cacheStaleWhileRevalidateSeconds,
+    ),
     cloudflareCacheControl: policy.normalizeHtmlCacheSearch
       ? 'no-store'
-      : cloudflareCdnCacheControl(policy.cacheTtlSeconds),
+      : cloudflareCdnCacheControl(
+          policy.cacheTtlSeconds,
+          policy.cacheStaleWhileRevalidateSeconds,
+        ),
     cacheSearch,
     isResponseCacheable: (response) =>
       (response.headers.get('content-type') ?? '').toLowerCase().includes('text/html'),

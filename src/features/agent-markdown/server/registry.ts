@@ -38,7 +38,9 @@ export const MARKDOWN_CONTENT_TYPE = 'text/markdown; charset=utf-8';
 export const MARKDOWN_TOKEN_HEADER = 'x-markdown-tokens';
 export const EDGE_CACHE_HEADER = 'X-Buxx-Edge-Cache';
 export const MOOD_PAGE_CACHE_HEADER = 'X-Buxx-Mood-Page-Cache';
-export const MOOD_PAGE_CACHE_TTL_SECONDS = 60;
+export const MOOD_FEED_PAGE_CACHE_TTL_SECONDS = 300;
+export const MOOD_FEED_PAGE_STALE_WHILE_REVALIDATE_SECONDS = 1800;
+export const MOOD_DETAIL_PAGE_CACHE_TTL_SECONDS = 60;
 export const MOOD_EMBED_CACHE_TTL_SECONDS = 300;
 
 export const MOOD_PAGE_CACHE_READY_MARKERS = [
@@ -48,6 +50,7 @@ export const MOOD_PAGE_CACHE_READY_MARKERS = [
 
 export interface ContentRoutePolicy {
   cacheTtlSeconds: number;
+  cacheStaleWhileRevalidateSeconds?: number;
   edgeCacheHtml: boolean;
   cacheHeaderName: string;
   normalizeHtmlCacheSearch?: (url: URL) => string | null;
@@ -266,13 +269,13 @@ const renderers: MarkdownRenderer[] = [
   },
   {
     id: 'mood-feed',
-    cacheTtlSeconds: MOOD_PAGE_CACHE_TTL_SECONDS,
+    cacheTtlSeconds: MOOD_FEED_PAGE_CACHE_TTL_SECONDS,
     match: matchExact('/mood'),
     render: renderMoodFeed,
   },
   {
     id: 'mood-post',
-    cacheTtlSeconds: MOOD_PAGE_CACHE_TTL_SECONDS,
+    cacheTtlSeconds: MOOD_DETAIL_PAGE_CACHE_TTL_SECONDS,
     match: matchMoodPost,
     render: renderMoodPost,
   },
@@ -311,7 +314,8 @@ export function getContentRoutePolicy(pathname: string): ContentRoutePolicy | nu
   }
   if (normalized === '/mood') {
     return {
-      cacheTtlSeconds: MOOD_PAGE_CACHE_TTL_SECONDS,
+      cacheTtlSeconds: MOOD_FEED_PAGE_CACHE_TTL_SECONDS,
+      cacheStaleWhileRevalidateSeconds: MOOD_FEED_PAGE_STALE_WHILE_REVALIDATE_SECONDS,
       edgeCacheHtml: true,
       cacheHeaderName: MOOD_PAGE_CACHE_HEADER,
       isHtmlReady: (body) => MOOD_PAGE_CACHE_READY_MARKERS.every((marker) => body.includes(marker)),
@@ -332,7 +336,7 @@ export function getContentRoutePolicy(pathname: string): ContentRoutePolicy | nu
     return { cacheTtlSeconds: 120, edgeCacheHtml: true, cacheHeaderName: EDGE_CACHE_HEADER };
   }
   if (matchMoodPost(normalized)) {
-    return { cacheTtlSeconds: MOOD_PAGE_CACHE_TTL_SECONDS, edgeCacheHtml: true, cacheHeaderName: EDGE_CACHE_HEADER };
+    return { cacheTtlSeconds: MOOD_DETAIL_PAGE_CACHE_TTL_SECONDS, edgeCacheHtml: true, cacheHeaderName: EDGE_CACHE_HEADER };
   }
 
   return null;

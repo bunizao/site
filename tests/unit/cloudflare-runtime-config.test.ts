@@ -207,13 +207,15 @@ describe('Cloudflare runtime configuration', () => {
 
     expect(headers).toContain('https://buxx.me/');
     expect(headers).toContain("script-src 'unsafe-inline' https://buxx.me/_astro/");
+    expect(headers).toContain('https://buxx.me/cdn-cgi/challenge-platform/');
     expect(headers).toContain('https://js-cdn.music.apple.com');
     expect(headers).toContain('https://static.cloudflareinsights.com');
     expect(headers).toContain('https://challenges.cloudflare.com');
-    expect(headers).toContain('Cache-Control: public, max-age=0, must-revalidate, no-transform');
+    expect(headers).toContain('Cache-Control: public, max-age=0, must-revalidate');
+    expect(headers).not.toContain('no-transform');
     expect(headers).toContain('https://buxx.me/blog*');
-    expect(headers).not.toContain('/cdn-cgi/challenge-platform/');
     expect(headers).not.toContain("'self' 'unsafe-inline'");
+    expect(headers).not.toContain('/gmetrics/');
     expect(headers).not.toContain('https://www.googletagmanager.com');
     expect(headers).toContain("base-uri 'self'");
     expect(headers).toContain("object-src 'none'");
@@ -225,20 +227,21 @@ describe('Cloudflare runtime configuration', () => {
     expect(middleware).toContain('Content-Security-Policy');
     expect(middleware).toContain("script-src 'unsafe-inline'");
     expect(middleware).toContain('/_astro/');
+    expect(middleware).toContain('/cdn-cgi/challenge-platform/');
     expect(middleware).toContain('https://js-cdn.music.apple.com');
     expect(middleware).toContain('https://static.cloudflareinsights.com');
     expect(middleware).toContain('https://challenges.cloudflare.com');
-    expect(middleware).toContain('no-transform');
-    expect(middleware).not.toContain('/cdn-cgi/challenge-platform/');
+    expect(middleware).not.toContain('no-transform');
     expect(middleware).not.toContain("script-src 'self' 'unsafe-inline'");
+    expect(middleware).not.toContain('/gmetrics/');
     expect(middleware).not.toContain('https://www.googletagmanager.com');
   });
 
-  test('blocks Cloudflare JavaScript detections on public HTML', () => {
+  test('keeps Cloudflare JavaScript detections policy explicit', () => {
     const middleware = readText('src/middleware.ts');
 
     expect(middleware).not.toContain('allowCloudflareDetections');
-    expect(middleware).not.toContain('cdn-cgi/challenge-platform');
+    expect(middleware).toContain('cdn-cgi/challenge-platform');
   });
 
   test('caches rendered content variants at the edge', () => {
@@ -248,7 +251,8 @@ describe('Cloudflare runtime configuration', () => {
     const edgeCache = readText('src/lib/http/edge-cache.ts');
     const builtBlog = readText('src/features/agent-markdown/server/built-blog.ts');
 
-    expect(registry).toContain('MOOD_PAGE_CACHE_TTL_SECONDS = 60');
+    expect(registry).toContain('MOOD_FEED_PAGE_CACHE_TTL_SECONDS = 300');
+    expect(registry).toContain('MOOD_FEED_PAGE_STALE_WHILE_REVALIDATE_SECONDS = 1800');
     expect(responses).toContain('CONTENT_STALE_WHILE_REVALIDATE_SECONDS = 300');
     expect(responses).toContain('Cloudflare-CDN-Cache-Control');
     expect(responses).toContain('stale-while-revalidate=');

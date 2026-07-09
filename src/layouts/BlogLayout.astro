@@ -58,11 +58,9 @@ const ogImage = customOgImage
       excerpt: metaDescription,
     });
 const resolvedOgImageAlt = ogImageAlt ?? fullTitle;
-const blogMarkAsset = '/blog-mark.svg';
+const blogMarkAsset = blog.mark;
 const ogLogoUrl = new URL(blogMarkAsset, meta.siteUrl).href;
 const articleTags = tags.map((tag) => tag.trim()).filter(Boolean);
-const googleTagId = 'G-7N978EFWKP';
-const googleTagGatewayPath = '/gmetrics/';
 
 // Emit the blog ink set (site.ts is the source of truth) as CSS custom
 // properties scoped to .blog-zone. --blog-accent stays as the primary alias so
@@ -91,7 +89,7 @@ const paletteCss = [
       title={`${blog.name} RSS`}
       href={new URL(blog.feed, meta.siteUrl).href}
     />
-    <link rel="icon" href={blogMarkAsset} type="image/svg+xml" />
+    <link rel="icon" href={blogMarkAsset} type="image/webp" />
 
     <meta property="og:type" content={ogType} />
     <meta property="og:site_name" content={blog.name} />
@@ -250,55 +248,5 @@ const paletteCss = [
       })();
     </script>
 
-    <script
-      is:inline
-      define:vars={{
-        googleTagId,
-        googleTagGatewayPath,
-      }}
-    >
-      (() => {
-        if (typeof window === 'undefined' || typeof document === 'undefined') return;
-        if (!['buxx.me', 'www.buxx.me'].includes(window.location.hostname)) return;
-
-        let loaded = false;
-        const loadGoogleTagGateway = () => {
-          if (loaded || document.querySelector('script[data-buxx-google-tag-gateway]')) return;
-          loaded = true;
-
-          window.google_tags_first_party = window.google_tags_first_party || [];
-          if (typeof window.google_tags_first_party.push === 'function') {
-            window.google_tags_first_party.push(googleTagId);
-          }
-          window.dataLayer = window.dataLayer || [];
-          window.gtag = window.gtag || function gtag() {
-            window.dataLayer.push(arguments);
-          };
-          window.gtag('js', new Date());
-          window.gtag('set', 'developer_id.dY2E1Nz', true);
-
-          const script = document.createElement('script');
-          script.async = true;
-          script.dataset.buxxGoogleTagGateway = 'true';
-          script.src = googleTagGatewayPath;
-          document.head.appendChild(script);
-        };
-
-        const scheduleGoogleTagGateway = () => {
-          if ('requestIdleCallback' in window) {
-            window.requestIdleCallback(loadGoogleTagGateway, { timeout: 2000 });
-            return;
-          }
-          window.setTimeout(loadGoogleTagGateway, 0);
-        };
-
-        if (document.readyState === 'complete') {
-          scheduleGoogleTagGateway();
-          return;
-        }
-
-        window.addEventListener('load', scheduleGoogleTagGateway, { once: true });
-      })();
-    </script>
   </body>
 </html>

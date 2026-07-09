@@ -37,6 +37,10 @@ function attr(name: string, value: string | number | null | undefined): string {
   return ` ${name}="${escapeHtml(String(value))}"`;
 }
 
+interface RenderMoodFeedMediaOptions {
+  lazyVideo?: boolean;
+}
+
 function videoClass(media: MediaItem): string {
   const width = dimension(media.width);
   const height = dimension(media.height);
@@ -94,13 +98,18 @@ function renderTooBigVideo(media: MediaItem): string {
   ].join('');
 }
 
-function renderVideo(media: MediaItem): string {
+function renderVideo(media: MediaItem, options: RenderMoodFeedMediaOptions): string {
   const src = safeUrl(media.src, 'media');
   if (!src) return '';
 
   const poster = safeUrl(media.posterSrc || media.thumbnailSrc, 'media');
   const className = videoClass(media).trim();
-  return `<video${attr('class', className)}${attr('src', src)}${attr('poster', poster)}${attr('width', dimension(media.width))}${attr('height', dimension(media.height))} controls playsinline preload="metadata"></video>`;
+  const sourceAttr = options.lazyVideo
+    ? attr('data-mood-video-src', src)
+    : attr('src', src);
+  const lazyAttrs = options.lazyVideo ? ' data-mood-video-lazy="true"' : '';
+  const preload = options.lazyVideo ? 'none' : 'metadata';
+  return `<video${attr('class', className)}${sourceAttr}${attr('poster', poster)}${attr('width', dimension(media.width))}${attr('height', dimension(media.height))} controls playsinline preload="${preload}"${lazyAttrs}></video>`;
 }
 
 function renderAudio(media: MediaItem): string {
@@ -183,14 +192,14 @@ function renderPoll(media: MediaItem): string {
   ].join('');
 }
 
-function renderMediaItem(media: MediaItem): string {
+function renderMediaItem(media: MediaItem, options: RenderMoodFeedMediaOptions): string {
   if (isTooBigVideoDocument(media)) {
     return renderTooBigVideo(media);
   }
 
   switch (media.type) {
     case 'video':
-      return renderVideo(media);
+      return renderVideo(media, options);
     case 'audio':
       return renderAudio(media) || renderDocument(media);
     case 'document':
@@ -207,12 +216,15 @@ function renderMediaItem(media: MediaItem): string {
   }
 }
 
-export function renderStructuredMoodFeedMediaMarkup(media: readonly MediaItem[] | undefined): string {
+export function renderStructuredMoodFeedMediaMarkup(
+  media: readonly MediaItem[] | undefined,
+  options: RenderMoodFeedMediaOptions = {},
+): string {
   if (!media?.length) return '';
 
   const items = media
     .filter((item) => item.type !== 'image' && item.type !== 'sticker')
-    .map(renderMediaItem)
+    .map((item) => renderMediaItem(item, options))
     .filter(Boolean);
 
   return items.join('');

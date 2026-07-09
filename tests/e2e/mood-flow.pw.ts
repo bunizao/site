@@ -649,6 +649,102 @@ test.describe('Mood routes', () => {
     await expect(item.locator('.mood-item-media .video-too-big')).toHaveCount(0);
   });
 
+  test('defers feed video requests until the video approaches the viewport', async ({ page }) => {
+    const videoId = '9903660';
+    const videoUrl = 'https://media.example.test/mood/lazy-video.mp4';
+    const posterUrl = 'https://image.example.test/mood/lazy-video-poster.jpg';
+    const requestedVideos: string[] = [];
+    const tinyGif = Buffer.from('R0lGODlhAQABAIABAP///wAAACwAAAAAAQABAAACAkQBADs=', 'base64');
+    const posts = [
+      ...Array.from({ length: 24 }, (_value, index) =>
+        createMoodFeedPost(
+          String(Number(videoId) + 100 - index),
+          `E2E spacer mood ${index} ${'body '.repeat(12)}`,
+        )
+      ),
+      createMoodFeedPost(videoId, 'Deferred video post', {
+        media: [
+          {
+            type: 'video',
+            src: videoUrl,
+            posterSrc: posterUrl,
+            width: 720,
+            height: 1280,
+          },
+        ],
+      }),
+    ];
+    const payload = {
+      posts,
+      channel: {
+        slug: 'e2e',
+        title: 'E2E Channel',
+        description: 'E2E mood feed',
+        avatar: '',
+      },
+    };
+
+    await page.setViewportSize({ width: 900, height: 520 });
+
+    await page.route('**/api/moods**', async (route) => {
+      const url = new URL(route.request().url());
+      if (url.searchParams.get('probe') === '1') {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({ latestId: posts[0].id }),
+        });
+        return;
+      }
+
+      if (url.searchParams.has('before')) {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({ posts: [], channel: payload.channel }),
+        });
+        return;
+      }
+
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(payload),
+      });
+    });
+
+    await page.route('https://image.example.test/**', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'image/gif',
+        body: tinyGif,
+      });
+    });
+
+    await page.route('https://media.example.test/**', async (route) => {
+      requestedVideos.push(route.request().url());
+      await route.abort();
+    });
+
+    await page.goto('/mood', { waitUntil: 'domcontentloaded' });
+
+    const video = page.locator(`[data-mood-id="${videoId}"] video`);
+    await expect(video).toHaveCount(1);
+    await expect(video).toHaveAttribute('data-mood-video-src', videoUrl);
+    expect(await video.getAttribute('src')).toBeNull();
+    await page.waitForTimeout(250);
+    expect(requestedVideos).toHaveLength(0);
+
+    await video.evaluate((element) => {
+      element.scrollIntoView({ block: 'center' });
+    });
+
+    await expect
+      .poll(() => requestedVideos.length, { timeout: 10_000 })
+      .toBeGreaterThan(0);
+    await expect(video).toHaveAttribute('src', videoUrl);
+  });
+
   test('collapses header actions on compact mood feed scroll', async ({ page }) => {
     const moodId = '12345';
     const moodFeedPayload = createMoodFeedPayload(moodId);

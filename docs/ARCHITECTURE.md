@@ -98,13 +98,13 @@ The edge cache key includes the negotiated variant (`html` or `markdown`) plus p
 
 | Route family | Cache-Control | Edge cache |
 | --- | --- | --- |
-| `/mood` | `public, max-age=0, s-maxage=60, no-transform` for HTML; Markdown omits `no-transform` | HTML and Markdown, variant-keyed |
+| `/mood` | `public, max-age=0, s-maxage=300, stale-while-revalidate=1800` for HTML; Markdown uses `s-maxage=300` | HTML and Markdown, variant-keyed |
 | `/mood/[id]` | `public, max-age=0, s-maxage=60` for Markdown | Markdown only |
-| `/blog`, `/blog/tags`, `/blog/tag/[slug]` | `public, max-age=0, s-maxage=120, no-transform` for HTML; Markdown omits `no-transform` | HTML and Markdown, variant-keyed |
-| `/blog/[slug]` | `public, max-age=0, s-maxage=300, no-transform` for HTML; Markdown omits `no-transform` | HTML and Markdown, variant-keyed |
-| `/` | `public, max-age=0, s-maxage=300, no-transform` for HTML; Markdown omits `no-transform` | Markdown only |
-| `/privacy` | `public, max-age=0, s-maxage=3600, no-transform` for HTML; Markdown omits `no-transform` | Markdown only |
-| `/projects` | `public, max-age=0, s-maxage=300, no-transform` | Cache-Control only |
+| `/blog`, `/blog/tags`, `/blog/tag/[slug]` | `public, max-age=0, s-maxage=120` for HTML and Markdown | HTML and Markdown, variant-keyed |
+| `/blog/[slug]` | `public, max-age=0, s-maxage=300` for HTML and Markdown | HTML and Markdown, variant-keyed |
+| `/` | `public, max-age=0, s-maxage=300` for HTML and Markdown | Markdown only |
+| `/privacy` | `public, max-age=0, s-maxage=3600` for HTML and Markdown | Markdown only |
+| `/projects` | `public, max-age=0, s-maxage=300` | Cache-Control only |
 | `/llms.txt` | `public, max-age=0, s-maxage=300` | Cache-Control only |
 | `/blog/rss.xml`, `/mood/rss.xml`, `/sitemap.xml` | `public, max-age=0, s-maxage=300` | Cache-Control only |
 | `/dev`, `/oauth*`, `/api*`, `/v2*` | `no-store, max-age=0` | None |

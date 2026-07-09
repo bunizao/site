@@ -93,6 +93,7 @@ interface ContentProcessorConfig {
   host?: string;
   headers?: Record<string, string>;
   replyVariant?: 'raw' | 'detail-card';
+  lazyVideo?: boolean;
 }
 
 function escapeHtml(value: string = ''): string {
@@ -508,7 +509,7 @@ async function enrichDetailPost(
 }
 
 // Content processors
-function getVideoStickers($: CheerioAPI, item: Element, { staticProxy, index }: ContentProcessorConfig): string {
+function getVideoStickers($: CheerioAPI, item: Element, { staticProxy, index, lazyVideo = false }: ContentProcessorConfig): string {
   return $(item)
     .find('.js-videosticker_video')
     ?.map((_index, video) => {
@@ -523,10 +524,15 @@ function getVideoStickers($: CheerioAPI, item: Element, { staticProxy, index }: 
       const posterMarkup = posterSrc
         ? `<img class="sticker" src="${escapeHtml(posterSrc)}" alt="Video Sticker" loading="${loading}" />`
         : '';
+      const sourceAttr = lazyVideo
+        ? `data-mood-video-src="${escapeHtml(videoSrc)}"`
+        : `src="${escapeHtml(videoSrc)}"`;
+      const preloadAttr = lazyVideo ? 'preload="none"' : 'preload';
+      const autoplayAttr = lazyVideo ? 'data-mood-autoplay="true" data-mood-video-lazy="true"' : 'autoplay';
 
       return `
     <div style="background-image: none; width: 256px;">
-      <video src="${escapeHtml(videoSrc)}" width="100%" height="100%" alt="Video Sticker" preload muted autoplay loop playsinline disablepictureinpicture >
+      <video ${sourceAttr} width="100%" height="100%" alt="Video Sticker" ${preloadAttr} muted ${autoplayAttr} loop playsinline disablepictureinpicture >
         ${posterMarkup}
       </video>
     </div>
@@ -714,7 +720,7 @@ async function getUnsupportedMediaFallback(
   );
 }
 
-function getVideo($: CheerioAPI, item: Element, { staticProxy, index }: ContentProcessorConfig): string {
+function getVideo($: CheerioAPI, item: Element, { staticProxy, index, lazyVideo = false }: ContentProcessorConfig): string {
   const htmlParts: string[] = [];
 
   const getVideoLayoutClass = (sourceEl: cheerio.Cheerio<Element>): string => {
@@ -738,14 +744,24 @@ function getVideo($: CheerioAPI, item: Element, { staticProxy, index }: ContentP
   const applyVideoAttributes = (videoEl: cheerio.Cheerio<Element>, contextEl: cheerio.Cheerio<Element>): void => {
     const src = videoEl.attr('src');
     if (src) {
-      videoEl.attr('src', toStaticProxyUrl(src, staticProxy));
+      const videoSrc = toStaticProxyUrl(src, staticProxy);
+      if (lazyVideo) {
+        videoEl.removeAttr('src').attr('data-mood-video-src', videoSrc);
+      } else {
+        videoEl.attr('src', videoSrc);
+      }
     }
 
     videoEl.find('source').each((_sourceIndex, source) => {
       const sourceEl = $(source);
       const sourceSrc = sourceEl.attr('src');
       if (sourceSrc) {
-        sourceEl.attr('src', toStaticProxyUrl(sourceSrc, staticProxy));
+        const videoSrc = toStaticProxyUrl(sourceSrc, staticProxy);
+        if (lazyVideo) {
+          sourceEl.removeAttr('src').attr('data-mood-video-src', videoSrc);
+        } else {
+          sourceEl.attr('src', videoSrc);
+        }
       }
     });
 
@@ -768,12 +784,20 @@ function getVideo($: CheerioAPI, item: Element, { staticProxy, index }: ContentP
       .removeAttr('width')
       .removeAttr('height')
       .attr('controls', 'true')
-      .attr('preload', getFeedVideoPreload(index))
+      .attr('preload', lazyVideo ? 'none' : getFeedVideoPreload(index))
       .attr('muted', 'true')
-      .attr('autoplay', 'true')
       .attr('loop', 'true')
       .attr('playsinline', 'true')
       .attr('webkit-playsinline', 'true');
+
+    if (lazyVideo) {
+      videoEl
+        .removeAttr('autoplay')
+        .attr('data-mood-autoplay', 'true')
+        .attr('data-mood-video-lazy', 'true');
+    } else {
+      videoEl.attr('autoplay', 'true');
+    }
   };
 
   const resolvePosterContext = (wrapEl: cheerio.Cheerio<Element>): cheerio.Cheerio<Element> => {
@@ -1562,6 +1586,7 @@ async function getPost(
     host,
     headers,
     replyVariant = 'raw',
+    lazyVideo = false,
   }: ContentProcessorConfig & { channel: string }
 ): Promise<Post> {
   const messageItem = item ? $(item).find('.tgme_widget_message') : $('.tgme_widget_message');
@@ -1606,11 +1631,11 @@ async function getPost(
       }),
       getImages($, messageElement, { staticProxy, hdImageBase, id, index, title }),
       await getUnsupportedMediaFallback($, messageElement, { staticProxy, hdImageBase, id, index, title, channel }),
-      getVideo($, messageElement, { staticProxy, index }),
+      getVideo($, messageElement, { staticProxy, index, lazyVideo }),
       getAudio($, messageElement, { staticProxy }),
       content?.html(),
       getImageStickers($, messageElement, { staticProxy, index }),
-      getVideoStickers($, messageElement, { staticProxy, index }),
+      getVideoStickers($, messageElement, { staticProxy, index, lazyVideo }),
       $(messageElement).find('.tgme_widget_message_poll')?.html(),
       $.html($(messageElement).find('.tgme_widget_message_document_wrap')),
       getNotSupportedVideo($, messageElement, { staticProxy, channel, id }),
@@ -1893,7 +1918,7 @@ export async function getChannelInfo(
     (await Promise.all(
       $('.tgme_channel_history  .tgme_widget_message_wrap')
         ?.map((index, item) => {
-          return getPost($, item, { channel, channelTitle, staticProxy, hdImageBase, index, host, headers });
+          return getPost($, item, { channel, channelTitle, staticProxy, hdImageBase, index, host, headers, lazyVideo: true });
         })
         ?.get() ?? []
     ))

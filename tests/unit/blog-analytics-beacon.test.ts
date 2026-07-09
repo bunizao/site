@@ -39,14 +39,13 @@ describe('blog analytics beacon', () => {
     expect(source).not.toContain('referrer: document.referrer');
   });
 
-  test('loads the Google Tag Gateway outside the load-critical path', () => {
+  test('does not add a duplicate Google Tag Gateway loader', () => {
     const source = readFileSync(new URL('../../src/layouts/BlogLayout.astro', import.meta.url), 'utf8');
 
-    expect(source).toContain("const googleTagGatewayPath = '/gmetrics/';");
-    expect(source).toContain("window.addEventListener('load', scheduleGoogleTagGateway, { once: true });");
-    expect(source).toContain('window.requestIdleCallback(loadGoogleTagGateway, { timeout: 2000 });');
-    expect(source).toContain("script.dataset.buxxGoogleTagGateway = 'true';");
-    expect(source).toContain('script.src = googleTagGatewayPath;');
+    expect(source).not.toContain('/gmetrics/');
+    expect(source).not.toContain('googletagmanager');
+    expect(source).not.toContain('googleTagGateway');
+    expect(source).not.toContain('gtag(');
     expect(source).not.toMatch(/<script[^>]+src=["']\/gmetrics\/["']/);
   });
 
@@ -54,10 +53,18 @@ describe('blog analytics beacon', () => {
     const layout = readFileSync(new URL('../../src/layouts/BlogLayout.astro', import.meta.url), 'utf8');
     const toc = readFileSync(new URL('../../src/features/posts/ui/TableOfContents.astro', import.meta.url), 'utf8');
 
-    expect(layout).toContain("const blogMarkAsset = '/blog-mark.svg';");
-    expect(layout).toContain('<link rel="icon" href={blogMarkAsset} type="image/svg+xml" />');
+    expect(layout).toContain('const blogMarkAsset = blog.mark;');
+    expect(layout).toContain('<link rel="icon" href={blogMarkAsset} type="image/webp" />');
     expect(layout).toContain('<img src={blogMarkAsset} alt={blog.name} width="40" height="40" />');
-    expect(layout).not.toContain('<link rel="icon" href={blog.mark} type="image/webp" />');
+    expect(layout).not.toContain('blog-mark.svg');
+    expect(layout).not.toContain('<link rel="icon" href="/blog-mark.svg"');
     expect(toc).toContain('<img src={blogMarkAsset} alt={blog.name} width="30" height="30" />');
+  });
+
+  test('keeps the shared blog mark asset encoded as WebP', () => {
+    const mark = readFileSync(new URL('../../public/blog-mark.webp', import.meta.url));
+
+    expect(mark.subarray(0, 4).toString()).toBe('RIFF');
+    expect(mark.subarray(8, 12).toString()).toBe('WEBP');
   });
 });
