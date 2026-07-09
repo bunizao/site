@@ -63,12 +63,6 @@ body:has(.cv-zone)::before {
   margin: 0;
 }
 
-.cv-legal {
-  margin: 0;
-  font-size: 0.875rem;
-  color: var(--cv-muted);
-}
-
 .cv-headline {
   font-size: 1.0625rem;
   line-height: 1.5;
@@ -101,124 +95,52 @@ body:has(.cv-zone)::before {
   box-shadow: inset 0 0 0 1px hsl(var(--foreground) / 0.1);
 }
 
-/* ---- Action row — boxed buttons with a hover-expand label -------------- */
-/* Mirrors the site's header-action-btn language (globals.css): a compact box
-   that reveals its label as it expands on hover/focus. One shared, consistent
-   control for contacts, language, and the PDF. */
+/* ---- Contact line — plain text links, content-first -------------------- */
+/* One calm row of links shared by screen and print. No boxes, no filled CTA,
+   no hover-expand theatre — the résumé's job is to get out of the content's
+   way. Every item is a real anchor so the values stay clickable in the PDF. */
 
-.cv-actions {
+.cv-contact {
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
-  gap: 0.4rem;
-  margin: 1.5rem 0 0;
+  align-items: baseline;
+  gap: 0.35rem 1.1rem;
+  margin: 1.4rem 0 0;
+  font-size: 0.875rem;
+  line-height: 1.5;
 }
 
-.cv-actions__spacer {
-  flex: 1 1 0.75rem;
-  min-width: 0.5rem;
-}
-
-.cv-action {
-  display: inline-flex;
-  align-items: center;
-  gap: 0;
-  height: 2.25rem;
-  padding: 0 0.6rem;
-  border: 1px solid hsl(var(--foreground) / 0.1);
-  border-radius: 10px;
-  background: hsl(var(--background) / 0.6);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+.cv-contact__item {
   color: var(--cv-muted);
-  font-size: 0.8rem;
-  font-weight: 500;
+  font: inherit;
   text-decoration: none;
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
   cursor: pointer;
-  overflow: hidden;
-  white-space: nowrap;
-  transition:
-    gap 0.25s cubic-bezier(0.2, 0, 0, 1),
-    color 0.2s ease,
-    border-color 0.2s ease,
-    background 0.2s ease,
-    transform 0.12s cubic-bezier(0.2, 0, 0, 1);
+  transition: color 0.18s ease;
 }
 
-.cv-action__icon {
-  width: 1rem;
-  height: 1rem;
-  flex-shrink: 0;
+.cv-contact__item:hover,
+.cv-contact__item:focus-visible {
+  color: var(--cv-ink);
+  outline: none;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-color: var(--cv-line);
 }
 
-.cv-action__label {
-  display: inline-block;
-  max-width: 0;
-  opacity: 0;
-  overflow: hidden;
-  transition:
-    max-width 0.3s cubic-bezier(0.2, 0, 0, 1),
-    opacity 0.22s ease;
-}
-
-/* Static labels (language, PDF) always show — they read as words, not icons. */
-.cv-action__label--static {
-  max-width: 10rem;
-  opacity: 1;
-}
-
-.cv-action__label--redacted {
-  color: var(--cv-accent);
+/* Redacted contacts read as a quiet request affordance, not a coloured button. */
+.cv-contact__item--request {
   font-style: italic;
 }
 
-.cv-action:hover,
-.cv-action:focus-visible {
-  gap: 0.45rem;
-  color: var(--cv-ink);
-  border-color: hsl(var(--foreground) / 0.2);
-  background: hsl(var(--foreground) / 0.04);
-  outline: none;
-}
-
-.cv-action:hover .cv-action__label,
-.cv-action:focus-visible .cv-action__label {
-  max-width: 10rem;
-  opacity: 1;
-}
-
-/* Buttons that always show a word keep a resting gap between icon and label. */
-.cv-action:has(.cv-action__label--static) {
-  gap: 0.45rem;
-}
-
-.cv-action:active {
-  transform: scale(0.96);
-}
-
-/* PDF is the one filled accent — the header's single point of colour. */
-.cv-action--primary {
-  color: #fff;
-  background: var(--cv-accent);
-  border-color: transparent;
-}
-
-.cv-action--primary:hover,
-.cv-action--primary:focus-visible {
-  color: #fff;
-  background: var(--cv-accent);
-  border-color: transparent;
-  opacity: 0.9;
-}
-
-/* Print: contacts fall back to a plain readable text line (values, not icons). */
-.cv-contact-print {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.35rem 1rem;
-  margin-top: 1rem;
-  font-size: 0.85rem;
-  color: var(--cv-muted);
+/* Language + PDF drift to the far end of the same line — utilities, not CTAs. */
+.cv-contact__tools {
+  margin-left: auto;
+  display: inline-flex;
+  gap: 0.9rem;
 }
 
 /* ---- Section ------------------------------------------------------------ */

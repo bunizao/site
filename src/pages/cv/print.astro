@@ -75,14 +75,26 @@ const title = `${pick(cv.identity.displayName, lang)} — ${t.eyebrow}`;
       html,
       body {
         margin: 0;
-        background: #fff;
+        /* On screen the print route reads as a real sheet of paper sitting on a
+           grey desk; @media print flattens it back to plain white. */
+        background: #e9e8e4;
         color: #000;
       }
 
       .cv-print {
-        max-width: 210mm;
-        padding: 0 14mm;
-        margin: 0 auto;
+        width: 210mm;
+        min-height: 297mm;
+        margin: 12mm auto;
+        padding: 16mm 16mm 20mm;
+        background: #fff;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08), 0 14px 40px rgba(0, 0, 0, 0.16);
+        /* Faint boundary every A4 page height — a size-accurate preview aid.
+           The exact per-page breaks come from the browser's print engine. */
+        background-image: repeating-linear-gradient(
+          to bottom,
+          transparent 0 calc(297mm - 1px),
+          rgba(0, 0, 0, 0.14) calc(297mm - 1px) 297mm
+        );
       }
 
       /* No entrance motion in a one-shot render. */
@@ -93,8 +105,8 @@ const title = `${pick(cv.identity.displayName, lang)} — ${t.eyebrow}`;
       }
 
       /* Whole document reads in Inter + a CJK fallback for the zh PDF. */
-      .cv-print :where(.cv-name, .cv-legal, .cv-headline, .cv-location,
-        .cv-contact-print, .cv-summary, .cv-section__title, .cv-entry__org,
+      .cv-print :where(.cv-name, .cv-headline, .cv-location,
+        .cv-contact, .cv-contact__item, .cv-summary, .cv-section__title, .cv-entry__org,
         .cv-entry__role, .cv-entry__summary, .cv-highlights li, .cv-project__name,
         .cv-project__desc, .cv-skill-group__label, .cv-tag) {
         font-family: 'Inter', 'CV CJK', ui-sans-serif, system-ui, sans-serif;
@@ -106,6 +118,22 @@ const title = `${pick(cv.identity.displayName, lang)} — ${t.eyebrow}`;
       }
 
       @media print {
+        /* Strip the on-screen paper illusion — the real page comes from @page. */
+        html,
+        body {
+          background: #fff;
+        }
+
+        .cv-print {
+          width: auto;
+          min-height: 0;
+          margin: 0;
+          padding: 0 14mm;
+          background: #fff;
+          background-image: none;
+          box-shadow: none;
+        }
+
         .cv-print .cv-entry,
         .cv-print .cv-project,
         .cv-print .cv-section {
