@@ -58,8 +58,11 @@ const ogImage = customOgImage
       excerpt: metaDescription,
     });
 const resolvedOgImageAlt = ogImageAlt ?? fullTitle;
-const ogLogoUrl = new URL(blog.mark, meta.siteUrl).href;
+const blogMarkAsset = '/blog-mark.svg';
+const ogLogoUrl = new URL(blogMarkAsset, meta.siteUrl).href;
 const articleTags = tags.map((tag) => tag.trim()).filter(Boolean);
+const googleTagId = 'G-7N978EFWKP';
+const googleTagGatewayPath = '/gmetrics/';
 
 // Emit the blog ink set (site.ts is the source of truth) as CSS custom
 // properties scoped to .blog-zone. --blog-accent stays as the primary alias so
@@ -88,9 +91,7 @@ const paletteCss = [
       title={`${blog.name} RSS`}
       href={new URL(blog.feed, meta.siteUrl).href}
     />
-    <!-- SVG mark carries its own dark-mode swap; webp is the legacy fallback. -->
-    <link rel="icon" href="/blog-mark.svg" type="image/svg+xml" />
-    <link rel="icon" href={blog.mark} type="image/webp" />
+    <link rel="icon" href={blogMarkAsset} type="image/svg+xml" />
 
     <meta property="og:type" content={ogType} />
     <meta property="og:site_name" content={blog.name} />
@@ -174,7 +175,7 @@ const paletteCss = [
     <div class="blog-shell">
       <header class="blog-topbar">
         <a class="blog-mark" href="/blog/" aria-label={blog.name} style="view-transition-name:blog-mark">
-          <img src={blog.mark} alt={blog.name} width="40" height="40" />
+          <img src={blogMarkAsset} alt={blog.name} width="40" height="40" />
         </a>
 
         <div class="blog-topbar__controls">
@@ -246,6 +247,57 @@ const paletteCss = [
             if (getSetting() === 'system') apply('system');
           });
         }
+      })();
+    </script>
+
+    <script
+      is:inline
+      define:vars={{
+        googleTagId,
+        googleTagGatewayPath,
+      }}
+    >
+      (() => {
+        if (typeof window === 'undefined' || typeof document === 'undefined') return;
+        if (!['buxx.me', 'www.buxx.me'].includes(window.location.hostname)) return;
+
+        let loaded = false;
+        const loadGoogleTagGateway = () => {
+          if (loaded || document.querySelector('script[data-buxx-google-tag-gateway]')) return;
+          loaded = true;
+
+          window.google_tags_first_party = window.google_tags_first_party || [];
+          if (typeof window.google_tags_first_party.push === 'function') {
+            window.google_tags_first_party.push(googleTagId);
+          }
+          window.dataLayer = window.dataLayer || [];
+          window.gtag = window.gtag || function gtag() {
+            window.dataLayer.push(arguments);
+          };
+          window.gtag('js', new Date());
+          window.gtag('set', 'developer_id.dY2E1Nz', true);
+
+          const script = document.createElement('script');
+          script.async = true;
+          script.dataset.buxxGoogleTagGateway = 'true';
+          script.src = googleTagGatewayPath;
+          document.head.appendChild(script);
+        };
+
+        const scheduleGoogleTagGateway = () => {
+          if ('requestIdleCallback' in window) {
+            window.requestIdleCallback(loadGoogleTagGateway, { timeout: 2000 });
+            return;
+          }
+          window.setTimeout(loadGoogleTagGateway, 0);
+        };
+
+        if (document.readyState === 'complete') {
+          scheduleGoogleTagGateway();
+          return;
+        }
+
+        window.addEventListener('load', scheduleGoogleTagGateway, { once: true });
       })();
     </script>
   </body>

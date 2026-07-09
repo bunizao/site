@@ -107,6 +107,16 @@ body.blog-zone::before {
   filter: invert(1);
 }
 
+@media (prefers-color-scheme: dark) {
+  html:not(.dark) .blog-mark img[src$='.svg'] {
+    filter: invert(1);
+  }
+
+  .dark .blog-mark img[src$='.svg'] {
+    filter: none;
+  }
+}
+
 .blog-theme-toggle {
   position: relative;
   display: inline-flex;
@@ -1065,6 +1075,16 @@ html[data-theme-setting='system'] .blog-theme-toggle [data-blog-icon='system'] {
   filter: invert(1);
 }
 
+@media (prefers-color-scheme: dark) {
+  html:not(.dark) .toc-topbar__logo img[src$='.svg'] {
+    filter: invert(1);
+  }
+
+  .dark .toc-topbar__logo img[src$='.svg'] {
+    filter: none;
+  }
+}
+
 /* Fixed "ghost" mark that flies from the page header logo into the bar's slot
    as you scroll — a scroll-driven FLIP. JS sizes it and drives translate+scale;
    it rides above the bar glass (z 56 > 55) so it reads as the mark docking just
@@ -1089,6 +1109,16 @@ html[data-theme-setting='system'] .blog-theme-toggle [data-blog-icon='system'] {
 
 .dark .toc-logo-ghost img {
   filter: invert(1);
+}
+
+@media (prefers-color-scheme: dark) {
+  html:not(.dark) .toc-logo-ghost img[src$='.svg'] {
+    filter: invert(1);
+  }
+
+  .dark .toc-logo-ghost img[src$='.svg'] {
+    filter: none;
+  }
 }
 
 /* While the handoff owns the mark, the bar's own logo stays a live (clickable)

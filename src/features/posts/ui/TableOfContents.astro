@@ -14,6 +14,7 @@ interface Props {
 }
 
 const { noToc = false } = Astro.props;
+const blogMarkAsset = '/blog-mark.svg';
 ---
 
 <nav class="toc-container" aria-label="On this page" hidden>
@@ -40,7 +41,7 @@ const { noToc = false } = Astro.props;
   <div class="toc-topbar__fade" aria-hidden="true"></div>
   <div class="toc-topbar__bar">
     <a class="toc-topbar__logo" href="/blog/" aria-label={blog.name}>
-      <img src={blog.mark} alt={blog.name} width="30" height="30" />
+      <img src={blogMarkAsset} alt={blog.name} width="30" height="30" />
     </a>
     <button
       class="toc-topbar__title"
