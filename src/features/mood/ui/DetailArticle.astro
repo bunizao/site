@@ -740,6 +740,41 @@ const postReactions = post?.reactions ?? [];
     object-fit: contain;
   }
 
+  .mood-post-content :global(.rich-content-media) {
+    width: fit-content;
+    max-width: 100%;
+    margin: 1.5em 0;
+  }
+
+  .mood-post-content :global(.rich-content-media img) {
+    display: block;
+    width: auto;
+    max-width: 100%;
+    height: auto;
+  }
+
+  .mood-post-content :global(.rich-content-media--portrait) {
+    max-width: 400px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .mood-post-content :global(.rich-content-media--portrait img) {
+    max-height: 60vh;
+    object-fit: contain;
+  }
+
+  .mood-post-content :global(.rich-content-media--ultra-tall) {
+    max-width: 300px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .mood-post-content :global(.rich-content-media--ultra-tall img) {
+    max-height: 70vh;
+    object-fit: contain;
+  }
+
   .mood-post-content :global(.modal) {
     display: none;
     border: none;

@@ -134,6 +134,25 @@ export function createFeedMediaHydrator(
     root.querySelectorAll('img').forEach((node) => {
       if (!(node instanceof HTMLImageElement)) return;
       setImageHints(node, { priority });
+
+      const thumb = node.closest('.mood-item-thumb');
+      if (!thumb || thumb.classList.contains('mood-item-thumb--video')) return;
+      if (thumb.classList.contains('mood-item-thumb--portrait') || thumb.classList.contains('mood-item-thumb--ultra-tall')) return;
+
+      const classify = () => {
+        if (!node.naturalWidth || !node.naturalHeight) return;
+        const ratio = node.naturalWidth / node.naturalHeight;
+        if (ratio < 0.6) {
+          thumb.classList.add('mood-item-thumb--ultra-tall');
+        } else if (ratio < 0.8) {
+          thumb.classList.add('mood-item-thumb--portrait');
+        }
+      };
+      if (node.complete) {
+        classify();
+      } else {
+        node.addEventListener('load', classify, { once: true });
+      }
     });
 
     root.querySelectorAll('iframe').forEach((node) => {

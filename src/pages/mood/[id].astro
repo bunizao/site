@@ -107,6 +107,25 @@ const renderedPostContent = post
   import { createMoodMetaPatcher } from '@/features/mood/client/meta-patcher';
   import { hydrateMoodRichText } from '@/features/mood/client/rich-text';
 
+  document.querySelectorAll('.mood-post-content .rich-content-media--image img').forEach((node) => {
+    if (!(node instanceof HTMLImageElement)) return;
+    const classify = () => {
+      const figure = node.closest('.rich-content-media');
+      if (!figure || !node.naturalWidth || !node.naturalHeight) return;
+      const ratio = node.naturalWidth / node.naturalHeight;
+      if (ratio < 0.6) {
+        figure.classList.add('rich-content-media--ultra-tall');
+      } else if (ratio < 0.8) {
+        figure.classList.add('rich-content-media--portrait');
+      }
+    };
+    if (node.complete) {
+      classify();
+    } else {
+      node.addEventListener('load', classify, { once: true });
+    }
+  });
+
   document.querySelectorAll('.mood-post-content video').forEach((node) => {
     if (!(node instanceof HTMLVideoElement)) return;
     const classify = () => {
