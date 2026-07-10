@@ -166,11 +166,16 @@ jobs:
               'Artifacts are attached to this workflow run.',
             ].join('\n');
 
-            await github.rest.issues.get({
+            const { data: issue } = await github.rest.issues.get({
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: trackerIssueNumber,
             });
+
+            if (issue.state === 'open') {
+              core.notice(`Issue #${trackerIssueNumber} is already open; skipped duplicate notification.`);
+              return;
+            }
 
             await github.rest.issues.createComment({
               owner: context.repo.owner,
@@ -205,11 +210,16 @@ jobs:
               'The latest deployment is back inside the Lighthouse gates.',
             ].join('\n');
 
-            await github.rest.issues.get({
+            const { data: issue } = await github.rest.issues.get({
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: trackerIssueNumber,
             });
+
+            if (issue.state === 'closed') {
+              core.notice(`Issue #${trackerIssueNumber} is already closed; skipped duplicate recovery notification.`);
+              return;
+            }
 
             await github.rest.issues.createComment({
               owner: context.repo.owner,

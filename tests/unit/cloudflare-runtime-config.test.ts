@@ -81,6 +81,10 @@ describe('Cloudflare runtime configuration', () => {
     expect(lighthouseWorkflow).toContain('Wait for Cloudflare production deploy');
     expect(lighthouseWorkflow).toContain('node-version-file: .node-version');
     expect(lighthouseWorkflow).toContain('branches: [main]');
+    expect(lighthouseWorkflow).toContain("if (issue.state === 'open')");
+    expect(lighthouseWorkflow).toContain('skipped duplicate notification');
+    expect(lighthouseWorkflow).toContain("if (issue.state === 'closed')");
+    expect(lighthouseWorkflow).toContain('skipped duplicate recovery notification');
     expect(lighthouseConfig).toContain("'/,/mood,/blog/'");
     expect(lighthouseWorkflow).not.toContain('deployment_status:');
     expect(lighthouseWorkflow).not.toContain('github.event.deployment');
