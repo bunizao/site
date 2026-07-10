@@ -241,10 +241,10 @@ secondary view: it anonymizes IP, is ad-blocked (~30-40% loss), and its data liv
 Google, not the dev portal. Never the source of truth.
 
 Production intentionally uses Cloudflare Google Tag Gateway automatic tag insertion
-for `/gmetrics/` alongside Cloudflare Web Analytics. The CSP allows the exact
-first-party gateway path and Cloudflare Insights script host. The repository must
-not add its own loader while control-plane injection is active because that would
-double-load the tag.
+alongside Cloudflare Web Analytics. The gateway endpoint is control-plane managed
+and can change, so the CSP allows same-origin scripts plus the Cloudflare Insights
+script host. The repository must not add its own loader while control-plane
+injection is active because that would double-load the tag.
 
 ## Rollout
 

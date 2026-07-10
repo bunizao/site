@@ -216,16 +216,14 @@ describe('Cloudflare runtime configuration', () => {
     const headers = readText('public/_headers');
 
     expect(headers).toContain('https://buxx.me/');
-    expect(headers).toContain("script-src 'unsafe-inline' https://buxx.me/_astro/");
-    expect(headers).toContain('https://buxx.me/cdn-cgi/challenge-platform/');
+    expect(headers).toContain("script-src 'self' 'unsafe-inline'");
     expect(headers).toContain('https://js-cdn.music.apple.com');
     expect(headers).toContain('https://static.cloudflareinsights.com');
     expect(headers).toContain('https://challenges.cloudflare.com');
     expect(headers).toContain('Cache-Control: public, max-age=0, must-revalidate');
     expect(headers).not.toContain('no-transform');
     expect(headers).toContain('https://buxx.me/blog*');
-    expect(headers).not.toContain("'self' 'unsafe-inline'");
-    expect(headers).toContain('https://buxx.me/gmetrics/');
+    expect(headers).not.toContain('https://buxx.me/gmetrics/');
     expect(headers).not.toContain('https://www.googletagmanager.com');
     expect(headers).toContain("base-uri 'self'");
     expect(headers).toContain("object-src 'none'");
@@ -235,15 +233,12 @@ describe('Cloudflare runtime configuration', () => {
     const middleware = readText('src/middleware.ts');
 
     expect(middleware).toContain('Content-Security-Policy');
-    expect(middleware).toContain("script-src 'unsafe-inline'");
-    expect(middleware).toContain('/_astro/');
-    expect(middleware).toContain('/cdn-cgi/challenge-platform/');
+    expect(middleware).toContain("script-src 'self' 'unsafe-inline'");
     expect(middleware).toContain('https://js-cdn.music.apple.com');
     expect(middleware).toContain('https://static.cloudflareinsights.com');
     expect(middleware).toContain('https://challenges.cloudflare.com');
     expect(middleware).not.toContain('no-transform');
-    expect(middleware).not.toContain("script-src 'self' 'unsafe-inline'");
-    expect(middleware).toContain('${cleanOrigin}/gmetrics/');
+    expect(middleware).not.toContain('${cleanOrigin}/gmetrics/');
     expect(middleware).not.toContain('https://www.googletagmanager.com');
   });
 
@@ -251,7 +246,7 @@ describe('Cloudflare runtime configuration', () => {
     const middleware = readText('src/middleware.ts');
 
     expect(middleware).not.toContain('allowCloudflareDetections');
-    expect(middleware).toContain('cdn-cgi/challenge-platform');
+    expect(middleware).toContain("script-src 'self' 'unsafe-inline'");
   });
 
   test('caches rendered content variants at the edge', () => {
