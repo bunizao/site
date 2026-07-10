@@ -137,6 +137,16 @@ describe('Cloudflare runtime configuration', () => {
     expect(buildScript).toContain('printMissingEnvError(missing)');
   });
 
+  test('loads Tailwind 4 through its stylesheet entrypoint', () => {
+    const globals = readText('src/styles/globals.css');
+    const postcss = readText('postcss.config.cjs');
+
+    expect(globals).toMatch(/^@import "tailwindcss\/index\.css";/);
+    expect(globals).toContain('@config "../../tailwind.config.mjs";');
+    expect(globals).not.toContain('@tailwind base;');
+    expect(postcss).toContain('"@tailwindcss/postcss": {}');
+  });
+
   test('defines a primary Worker with static assets and dynamic route interception', () => {
     const config = readJson('wrangler.jsonc') as {
       name?: string;
