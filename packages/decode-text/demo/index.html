@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>decode-text playground</title>
+    <style>
+      :root {
+        --bg: #0c0d10;
+        --panel: #14161b;
+        --line: #23262e;
+        --fg: #e8eaf0;
+        --muted: #8b90a0;
+        --accent: #7dd3a8;
+        color-scheme: dark;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--fg);
+        font-family: ui-monospace, 'SF Mono', 'JetBrains Mono', Menlo, monospace;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        padding: 2rem 1rem;
+      }
+      main { width: min(760px, 100%); }
+      h1 {
+        font-size: 15px;
+        font-weight: 600;
+        letter-spacing: 0.08em;
+        margin: 0 0 0.35rem;
+      }
+      h1 .dim { color: var(--muted); font-weight: 400; }
+      .tagline { color: var(--muted); font-size: 12px; margin: 0 0 1.5rem; }
+      .stage {
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        background: var(--panel);
+        padding: 2rem 1.75rem;
+        min-height: 9.5rem;
+        font-size: 15px;
+        line-height: 1.75;
+        margin-bottom: 1rem;
+      }
+      .stage.sans { font-family: Georgia, 'Times New Roman', serif; }
+      .stage .hl { color: var(--accent); font-weight: 700; }
+      .stage [data-state='scramble'] { color: var(--muted); }
+      .controls {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 0.75rem 1rem;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 1rem 1.25rem;
+        margin-bottom: 1rem;
+        font-size: 12px;
+      }
+      .controls label {
+        display: grid;
+        gap: 0.35rem;
+        color: var(--muted);
+        letter-spacing: 0.05em;
+      }
+      .controls output { color: var(--fg); }
+      select, input[type='text'], textarea, button {
+        font: inherit;
+        color: var(--fg);
+        background: var(--bg);
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        padding: 0.4rem 0.55rem;
+      }
+      input[type='range'] { accent-color: var(--accent); width: 100%; }
+      textarea {
+        width: 100%;
+        resize: vertical;
+        min-height: 4.5rem;
+        line-height: 1.6;
+        margin-bottom: 1rem;
+      }
+      button {
+        cursor: pointer;
+        background: var(--accent);
+        color: #0b0f0d;
+        font-weight: 700;
+        border: 0;
+        padding: 0.55rem 1.2rem;
+        letter-spacing: 0.06em;
+      }
+      button:hover { filter: brightness(1.1); }
+      .hint { color: var(--muted); font-size: 11px; margin-top: 1rem; line-height: 1.6; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>@bunizao/decode-text <span class="dim">// playground</span></h1>
+      <p class="tagline">dependency-free scramble reveal — wrap **text** to highlight it</p>
+
+      <div class="stage" id="stage" aria-live="polite"></div>
+
+      <textarea id="text" spellcheck="false">I build things for the web — **fast, small, and a little bit alive**.
+Currently decoding this very sentence, one glyph at a time.
+無人之境 · latency is a feature when it boils like this.</textarea>
+
+      <div class="controls">
+        <label>layout
+          <select id="layout">
+            <option value="grow">grow (condense)</option>
+            <option value="static">static (pop in place)</option>
+          </select>
+        </label>
+        <label>order
+          <select id="order">
+            <option value="ltr">ltr</option>
+            <option value="shuffle">shuffle</option>
+          </select>
+        </label>
+        <label>font
+          <select id="font">
+            <option value="mono">monospace</option>
+            <option value="sans">serif (static-friendly)</option>
+          </select>
+        </label>
+        <label>charset
+          <input type="text" id="charset" value="__--/\|&lt;&gt;" />
+        </label>
+        <label>speed <output id="speedOut">24ms/char</output>
+          <input type="range" id="speed" min="8" max="60" value="24" />
+        </label>
+        <label>boil <output id="boilOut">10Hz</output>
+          <input type="range" id="boil" min="2" max="30" value="10" />
+        </label>
+      </div>
+
+      <button id="replay">replay ↻</button>
+      <p class="hint">
+        grow mode wants monospace (scramble and glyph share a width); static mode
+        locks every slot to its final width first, so any font works — switch the
+        font to serif and compare.
+      </p>
+    </main>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>
