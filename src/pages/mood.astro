@@ -16,7 +16,6 @@ import {
 } from '@/features/mood/shared/feed-anchor';
 import { loadInitialMoodFeed as loadInitialMoodFeedWindow } from '@/features/mood/server/initial-feed-loader';
 import { isE2ESiteFixtureEnabled } from '@/lib/e2e';
-import { buildSrcSet, withWidthParam } from '@/lib/media/responsive-image';
 import { readEnv, readPublicEnv } from '@/lib/runtime/env';
 import '@/styles/mood-gallery.css';
 
@@ -66,14 +65,10 @@ async function loadInitialMoodFeed() {
 }
 
 const initialFeed = await loadInitialMoodFeed();
-const preloadImageWidths = [320, 480, 640, 800, 1200];
-const preloadImageSizes = '(min-width: 1024px) 560px, (min-width: 640px) 480px, 180px';
 const firstFeedImage = initialFeed?.posts.find((post) => post.image)?.image ?? '';
 const preloadImages = firstFeedImage
   ? [{
-      href: withWidthParam(firstFeedImage, 320),
-      imageSrcSet: buildSrcSet(firstFeedImage, preloadImageWidths),
-      imageSizes: preloadImageSizes,
+      href: firstFeedImage,
     }]
   : [];
 // Skeleton structure: 2 date group cards to match actual content layout

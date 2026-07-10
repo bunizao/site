@@ -290,11 +290,11 @@ describe('Cloudflare runtime configuration', () => {
     const feedShell = readText('src/features/mood/ui/FeedShell.astro');
     const mediaHydration = readText('src/features/mood/client/feed-media-hydration.ts');
 
-    expect(feedShell).toContain("const responsiveImageWidths = [320, 480, 640, 800, 1200]");
-    expect(feedShell).toContain("const thumbnailImageSizes = '(min-width: 1024px) 560px, (min-width: 640px) 480px, 180px'");
-    expect(feedShell).toContain('src={withWidthParam(thumbImage, 480)}');
-    expect(mediaHydration).toContain('const responsiveImageWidths = [320, 480, 640, 800, 1200]');
-    expect(mediaHydration).toContain("const thumbnailImageSizes = '(min-width: 1024px) 560px, (min-width: 640px) 480px, 180px'");
+    expect(feedShell).toContain('src={thumbImage}');
+    expect(feedShell).not.toContain('withWidthParam(thumbImage');
+    expect(feedShell).not.toContain('srcset={buildSrcSet(thumbImage');
+    expect(mediaHydration).toContain("img.removeAttribute('srcset')");
+    expect(mediaHydration).toContain("img.removeAttribute('sizes')");
     expect(renderer).toContain('const shouldWaitForImageBeforeInsert = isPriorityMedia && !hasResolvedImageLayout');
     expect(renderer).not.toContain("img.loading = 'eager'");
     expect(feedShell).toContain("decoding={isPriorityMedia ? 'sync' : 'async'}");

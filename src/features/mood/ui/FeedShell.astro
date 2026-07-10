@@ -6,7 +6,6 @@ import { findTooBigVideoMedia, hasStructuredMoodFeedMedia, renderStructuredMoodF
 import { getMoodFeedThumbnailStyle } from '@/features/mood/shared/feed-thumbnail';
 import { getMoodDetailHref, getMoodFeedAnchorFragmentId } from '@/features/mood/shared/feed-anchor';
 import { getCriticalInitialPosts, hasRenderableMoodFeedMedia } from '@/features/mood/shared/initial-feed';
-import { buildSrcSet, withWidthParam } from '@/lib/media/responsive-image';
 import { getMoodReactionKey } from '@/features/mood/client/meta-patcher';
 
 interface SkeletonItem {
@@ -59,8 +58,6 @@ const initialFeedPayload = {
   anchorId: anchorId || undefined,
 };
 const hasInitialFeedPayload = initialPosts.length > 0 || Boolean(initialChannel);
-const responsiveImageWidths = [320, 480, 640, 800, 1200];
-const thumbnailImageSizes = '(min-width: 1024px) 560px, (min-width: 640px) 480px, 180px';
 
 function formatTime(value: string): string {
   const date = new Date(value);
@@ -403,9 +400,7 @@ function shouldHideQuoteAuthor(value?: string): boolean {
                             decoding={isPriorityMedia ? 'sync' : 'async'}
                             loading={isPriorityMedia ? 'eager' : 'lazy'}
                             fetchpriority={isPriorityMedia ? 'high' : undefined}
-                            src={withWidthParam(thumbImage, 480)}
-                            srcset={buildSrcSet(thumbImage, responsiveImageWidths)}
-                            sizes={thumbnailImageSizes}
+                            src={thumbImage}
                           />
                         ) : null}
                         {isTooBigVideoPreview ? (

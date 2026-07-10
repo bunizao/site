@@ -20,8 +20,6 @@ interface RenderMoodGalleryOptions {
   priority?: boolean;
 }
 
-const RESPONSIVE_IMAGE_WIDTHS = [480, 800, 1200];
-
 function escapeHtml(value: string): string {
   return value
     .replace(/&/g, '&amp;')
@@ -29,24 +27,6 @@ function escapeHtml(value: string): string {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
-}
-
-function withWidthParam(value: string, width: number): string {
-  if (!value || /^(data:|blob:)/i.test(value)) return value;
-
-  try {
-    const isAbsolute = /^(https?:)?\/\//i.test(value);
-    const parsed = new URL(value, 'https://local.invalid');
-    parsed.searchParams.set('w', String(width));
-    return isAbsolute ? parsed.toString().replace('https://local.invalid', '') : `${parsed.pathname}${parsed.search}${parsed.hash}`;
-  } catch {
-    return value;
-  }
-}
-
-export function buildMoodGallerySrcSet(value: string, widths = RESPONSIVE_IMAGE_WIDTHS): string {
-  if (!value || /^(data:|blob:)/i.test(value)) return '';
-  return widths.map((width) => `${withWidthParam(value, width)} ${width}w`).join(', ');
 }
 
 export function getMoodGallerySizes(variant: MoodGalleryVariant): string {
@@ -90,12 +70,8 @@ export function renderMoodGalleryMarkup(
   options: RenderMoodGalleryOptions,
 ): string {
   const { variant, priority = false } = options;
-  const sizes = getMoodGallerySizes(variant);
-
   const slides = gallery.items
     .map((item, index) => {
-      const srcSet = buildMoodGallerySrcSet(item.src);
-      const fallbackSrcSet = item.fallbackSrc ? buildMoodGallerySrcSet(item.fallbackSrc) : '';
       const layoutClass = item.layout ? ` mood-gallery-slide--${item.layout}` : '';
       const aspectRatio = getMoodGalleryAspectRatioValue(item);
       const attrs = [
@@ -103,10 +79,7 @@ export function renderMoodGalleryMarkup(
         'data-mood-gallery-image',
         `data-gallery-index="${index}"`,
         `data-deferred-src="${escapeHtml(item.src)}"`,
-        srcSet ? `data-deferred-srcset="${escapeHtml(srcSet)}"` : '',
-        `data-sizes="${escapeHtml(sizes)}"`,
         item.fallbackSrc ? `data-fallback-src="${escapeHtml(item.fallbackSrc)}"` : '',
-        fallbackSrcSet ? `data-fallback-srcset="${escapeHtml(fallbackSrcSet)}"` : '',
         item.width ? `width="${item.width}"` : '',
         item.height ? `height="${item.height}"` : '',
         `alt="${escapeHtml(item.alt)}"`,

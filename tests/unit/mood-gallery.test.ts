@@ -80,6 +80,8 @@ describe('mood gallery extraction', () => {
     expect(html).toContain('data-mood-gallery');
     expect(html).toContain('mood-gallery--detail');
     expect(html).toContain('data-deferred-src="https://image.example.test/mood/1/2"');
+    expect(html).not.toContain('data-deferred-srcset');
+    expect(html).not.toContain('?w=');
     expect(html).not.toContain('image-list-container');
     expect(html).not.toContain('modal-img');
   });

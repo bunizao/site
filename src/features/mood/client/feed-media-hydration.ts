@@ -1,4 +1,3 @@
-import { applyResponsiveImage } from '@/lib/media/responsive-image';
 import type { ChannelInfo } from '@/features/mood/client/feed-types';
 
 interface AnimatedEmojiHydrator {
@@ -22,8 +21,6 @@ interface FeedMediaHydrator {
 export function createFeedMediaHydrator(
   animatedEmoji: AnimatedEmojiHydrator
 ): FeedMediaHydrator {
-  const responsiveImageWidths = [320, 480, 640, 800, 1200];
-  const thumbnailImageSizes = '(min-width: 1024px) 560px, (min-width: 640px) 480px, 180px';
   const deferredImageRootMargin = '600px 0px';
   let deferredImageObserver: IntersectionObserver | null = null;
   const deferredImageHydrators = new WeakMap<Element, () => void>();
@@ -191,12 +188,14 @@ export function createFeedMediaHydrator(
 
     img.dataset.deferredHydrated = '1';
     img.src = src;
-    applyResponsiveImage(img, src, thumbnailImageSizes, responsiveImageWidths);
+    img.removeAttribute('srcset');
+    img.removeAttribute('sizes');
   };
 
   const hydrateResponsiveImage = (img: HTMLImageElement, src: string): void => {
     img.src = src;
-    applyResponsiveImage(img, src, thumbnailImageSizes, responsiveImageWidths);
+    img.removeAttribute('srcset');
+    img.removeAttribute('sizes');
   };
 
   const getDeferredImageObserver = (): IntersectionObserver | null => {
