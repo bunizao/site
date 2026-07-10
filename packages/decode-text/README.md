@@ -7,6 +7,13 @@ Two looks:
 - **`grow`** — Soulwire-style: the line condenses in from the left while glyphs boil, then settle. Wants a monospace font (scramble and real glyph must share a width).
 - **`static`** — classic decrypt: every character slot is locked to its final width up front and glyphs pop in place. Works in any font.
 
+Scheduling is Soulwire's original three-power-front model: a `show` front
+(`p^0.5`) floods cursors in early, a `mash` front (`p^2`) graduates them to
+boiling scramble, and a `done` front (`p^15`) holds almost everything back
+until it crystallises in an end cascade, under `easeInOutQuint`. The scramble
+pool also absorbs the text's own ASCII glyphs (`scrambleFromText`), so the
+mash reads like the sentence shuffling itself.
+
 Why it feels right:
 
 - **Frame-rate independent.** Scramble mutation is scheduled in wall time, not per frame — a 120 Hz display boils at the same speed as a 60 Hz one.
@@ -49,18 +56,19 @@ and font-style that differ from the host are baked onto each character, so
 
 | Option | Default | Meaning |
 | --- | --- | --- |
-| `charset` | `` __--/\|<> `` | Scramble glyph pool |
-| `cursorChar` | `-` | Glyph shown briefly when a cell appears |
+| `charset` | `` __-—/\|<> `` | Scramble glyph pool |
+| `cursorChar` | `-` | Glyph a cell shows between the show and mash fronts |
 | `layout` | `grow` | `grow` (condense, monospace) / `static` (pop in place, any font) |
-| `order` | `ltr` | Appearance order within a line: left-to-right or shuffled |
-| `spread` | `0.55` | Portion of the line timeline spent appearing |
-| `holdMin` / `holdMax` | `0.28` / `0.45` | Scramble hold window (fraction of line timeline) |
-| `cursorHold` | `0.05` | Cursor display time after appearing |
+| `order` | `shuffle` | Queue order: `shuffle` (original) or `ltr` (smooth right-edge growth; resolution stays shuffled) |
+| `showPower` | `0.5` | Show front exponent — cells turn visible as `p^showPower` sweeps the queue |
+| `mashPower` | `2` | Mash front exponent — cursor graduates to scramble |
+| `donePower` | `15` | Done front exponent — higher = later, sharper end cascade |
+| `scrambleFromText` | `true` | Mix the text's own ASCII glyphs into the scramble pool |
 | `durationPerChar` | `0.024` | Seconds per character, clamped to `[minLineDuration, maxLineDuration]` |
 | `minLineDuration` / `maxLineDuration` | `0.5` / `1.8` | Line duration clamp (seconds) |
 | `lineStagger` | `0.16` | Next line starts at this fraction of the summed previous durations |
-| `mutationHz` | `10` | Scramble refresh rate per cell (wall time) |
-| `ease` | easeInOutSine | Timeline easing `(t: number) => number` |
+| `mutationHz` | `18` | Scramble refresh rate per cell (wall time) |
+| `ease` | easeInOutQuint | Timeline easing `(t: number) => number` |
 | `fontTimeout` | `400` | Max ms to wait for `document.fonts.ready` before measuring |
 | `respectReducedMotion` | `true` | Skip animation under `prefers-reduced-motion` |
 | `onComplete` | — | Called when the reveal finishes |

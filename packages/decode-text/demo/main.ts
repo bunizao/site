@@ -10,8 +10,10 @@ const font = $<HTMLSelectElement>('font');
 const charset = $<HTMLInputElement>('charset');
 const speed = $<HTMLInputElement>('speed');
 const boil = $<HTMLInputElement>('boil');
+const done = $<HTMLInputElement>('done');
 const speedOut = $<HTMLOutputElement>('speedOut');
 const boilOut = $<HTMLOutputElement>('boilOut');
+const doneOut = $<HTMLOutputElement>('doneOut');
 const replay = $<HTMLButtonElement>('replay');
 
 let controller: DecodeController | null = null;
@@ -43,12 +45,14 @@ const run = async (): Promise<void> => {
   renderStage();
   speedOut.value = `${speed.value}ms/char`;
   boilOut.value = `${boil.value}Hz`;
+  doneOut.value = done.value;
   controller = await decodeText(stage, {
     layout: layout.value as DecodeLayout,
     order: order.value as DecodeOrder,
     charset: charset.value || undefined,
     durationPerChar: Number(speed.value) / 1000,
     mutationHz: Number(boil.value),
+    donePower: Number(done.value),
     maxLineDuration: 3,
   });
 };

@@ -113,8 +113,8 @@ Currently decoding this very sentence, one glyph at a time.
         </label>
         <label>order
           <select id="order">
+            <option value="shuffle" selected>shuffle (original)</option>
             <option value="ltr">ltr</option>
-            <option value="shuffle">shuffle</option>
           </select>
         </label>
         <label>font
@@ -129,8 +129,11 @@ Currently decoding this very sentence, one glyph at a time.
         <label>speed <output id="speedOut">24ms/char</output>
           <input type="range" id="speed" min="8" max="60" value="24" />
         </label>
-        <label>boil <output id="boilOut">10Hz</output>
-          <input type="range" id="boil" min="2" max="30" value="10" />
+        <label>boil <output id="boilOut">18Hz</output>
+          <input type="range" id="boil" min="2" max="30" value="18" />
+        </label>
+        <label>done power <output id="doneOut">15</output>
+          <input type="range" id="done" min="1" max="30" value="15" />
         </label>
       </div>
 

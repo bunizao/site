@@ -9,10 +9,11 @@
  *  - Real VISUAL lines are measured (offsetTop grouping) and each line is
  *    rendered as a `white-space: nowrap` block, so a line can change width
  *    without re-wrapping the paragraph.
- *  - Each cell gets an `appear` time (when it first shows anything) and a
- *    `settle` time (when it resolves to its real glyph). Appearance can run in
- *    document order (`ltr`, the line grows at its right edge) or shuffled.
- *    Settling is always randomised within a hold window — the decrypt "boil".
+ *  - Scheduling follows Soulwire's original three power fronts sweeping a
+ *    (usually shuffled) queue: `show` (p^0.5 — cursors flood in early),
+ *    `mash` (p^2 — cursors graduate to boiling scramble), and `done`
+ *    (p^15 — almost nothing resolves until the end, then it crystallises in
+ *    a cascade). Each front is folded into per-cell thresholds up front.
  *  - Two layout modes:
  *      `grow`   — unshown characters collapse to zero width and the line
  *                 condenses in. Scramble glyphs must match the real glyph
@@ -32,30 +33,31 @@ export type DecodeLayout = 'grow' | 'static';
 export type DecodeOrder = 'ltr' | 'shuffle';
 
 export interface DecodeOptions {
-  /** Scramble glyph pool. Default: `__--/\\|<>` */
+  /** Scramble glyph pool. Default: `__-—/\\|<>` */
   charset?: string;
-  /** Glyph shown briefly when a cell first appears. Default: `-` */
+  /** Glyph a cell shows between the show and mash fronts. Default: `-` */
   cursorChar?: string;
   /** `grow` (condensing line, monospace) or `static` (pop in place, any font). Default: `grow` */
   layout?: DecodeLayout;
-  /** Appearance order within a line. Default: `ltr` */
+  /** Appearance order within a line. Default: `shuffle` (the Soulwire original) */
   order?: DecodeOrder;
-  /** Portion of a line's timeline spent appearing; the rest is resolution. Default: 0.55 */
-  spread?: number;
-  /** Scramble hold after appearing, as a fraction of the line timeline. Default: [0.28, 0.45] */
-  holdMin?: number;
-  holdMax?: number;
-  /** How long a cell shows the cursor glyph after appearing. Default: 0.05 */
-  cursorHold?: number;
+  /** Show front exponent: cells become visible (cursor) as p^showPower sweeps the queue. Default: 0.5 */
+  showPower?: number;
+  /** Mash front exponent: cursor graduates to boiling scramble as p^mashPower sweeps. Default: 2 */
+  mashPower?: number;
+  /** Done front exponent: scramble resolves as p^donePower sweeps — high values hold everything until an end cascade. Default: 15 */
+  donePower?: number;
+  /** Mix the text's own (ASCII) characters into the scramble pool. Default: true */
+  scrambleFromText?: boolean;
   /** Seconds of line duration per character, clamped to [minLineDuration, maxLineDuration]. */
   durationPerChar?: number;
   minLineDuration?: number;
   maxLineDuration?: number;
   /** Next line starts at `lineStagger * (sum of previous line durations)`. Default: 0.16 */
   lineStagger?: number;
-  /** Scramble glyph refresh rate in mutations per second per cell. Default: 10 */
+  /** Scramble glyph refresh rate in mutations per second per cell. Default: 18 */
   mutationHz?: number;
-  /** Timeline easing. Default: easeInOutSine */
+  /** Timeline easing. Default: easeInOutQuint (the Soulwire original) */
   ease?: (t: number) => number;
   /** Wait for `document.fonts.ready` up to this many ms before measuring. Default: 400 */
   fontTimeout?: number;
@@ -80,8 +82,10 @@ interface Cell {
   ch: string;
   space: boolean;
   temp: string;
-  appear: number;
-  settle: number;
+  /** Progress thresholds where each front reaches this cell: show ≤ mash ≤ done. */
+  appearAt: number;
+  mashAt: number;
+  settleAt: number;
   nextMutation: number;
 }
 
@@ -95,22 +99,23 @@ interface Line {
 }
 
 const DEFAULTS = {
-  charset: '__--/\\|<>',
+  charset: '__-—/\\|<>',
   cursorChar: '-',
   layout: 'grow' as DecodeLayout,
-  order: 'ltr' as DecodeOrder,
-  spread: 0.55,
-  holdMin: 0.28,
-  holdMax: 0.45,
-  cursorHold: 0.05,
+  order: 'shuffle' as DecodeOrder,
+  showPower: 0.5,
+  mashPower: 2,
+  donePower: 15,
+  scrambleFromText: true,
   durationPerChar: 0.024,
   minLineDuration: 0.5,
   maxLineDuration: 1.8,
   lineStagger: 0.16,
-  mutationHz: 10,
+  mutationHz: 18,
   fontTimeout: 400,
   respectReducedMotion: true,
-  ease: (t: number): number => -(Math.cos(Math.PI * t) - 1) / 2,
+  ease: (t: number): number =>
+    t < 0.5 ? 16 * t * t * t * t * t : 1 - Math.pow(-2 * t + 2, 5) / 2,
 };
 
 type Resolved = typeof DEFAULTS & DecodeOptions;
@@ -168,7 +173,7 @@ const buildCells = (host: HTMLElement): Cell[] => {
         span.style.fontStyle = baked.fontStyle;
       }
     }
-    cells.push({ el: span, ch, space, temp: '', appear: 0, settle: 0, nextMutation: 0 });
+    cells.push({ el: span, ch, space, temp: '', appearAt: 0, mashAt: 0, settleAt: 0, nextMutation: 0 });
     parent.appendChild(span);
   };
 
@@ -268,25 +273,26 @@ const hiddenText = (cell: Cell, layout: DecodeLayout): string =>
 /**
  * One frame of one line. Settled cells accumulate at `line.done` and are never
  * revisited; in `ltr` order the walk also stops at the first not-yet-appeared
- * cell, so each frame touches only the active window.
+ * cell (the show front is monotonic there), so each frame touches only the
+ * active window.
  */
-const renderLine = (line: Line, progress: number, now: number, opts: Resolved): void => {
+const renderLine = (line: Line, progress: number, now: number, pool: string, opts: Resolved): void => {
   const { cells } = line;
   for (let i = line.done; i < cells.length; i += 1) {
     const cell = cells[i];
-    if (progress >= cell.settle) {
+    if (progress >= cell.settleAt) {
       setCell(cell, '', cell.space ? ' ' : cell.ch);
       if (i === line.done) line.done += 1;
-    } else if (progress < cell.appear) {
+    } else if (progress < cell.appearAt) {
       if (opts.order === 'ltr' && !cell.space) return;
       setCell(cell, '', hiddenText(cell, opts.layout));
     } else if (cell.space) {
       setCell(cell, '', ' ');
-    } else if (progress < cell.appear + opts.cursorHold) {
+    } else if (progress < cell.mashAt) {
       setCell(cell, 'cursor', opts.cursorChar);
     } else {
       if (!cell.temp || now >= cell.nextMutation) {
-        cell.temp = opts.charset[Math.floor(Math.random() * opts.charset.length)] ?? '_';
+        cell.temp = pool[Math.floor(Math.random() * pool.length)] ?? '_';
         cell.nextMutation = now + (1000 / opts.mutationHz) * (0.5 + Math.random());
       }
       setCell(cell, 'scramble', cell.temp);
@@ -294,19 +300,27 @@ const renderLine = (line: Line, progress: number, now: number, opts: Resolved): 
   }
 };
 
+/**
+ * Fold the three power fronts into per-cell thresholds. A front with exponent
+ * y reaches queue fraction q at progress q^(1/y): showPower < 1 floods
+ * cursors in early, donePower >> 1 holds resolution back until an end
+ * cascade. In `shuffle` order one shuffled queue drives all three fronts (the
+ * Soulwire original); in `ltr` the show/mash fronts sweep left to right while
+ * resolution stays shuffled, so the boil still settles at scattered positions.
+ */
 const scheduleLines = (lines: Line[], opts: Resolved): void => {
   let cumulative = 0;
   for (const line of lines) {
     const n = line.cells.length;
-    const appearAt =
-      opts.order === 'shuffle' ? shuffle(Array.from({ length: n }, (_, i) => i)) : null;
+    const slots = Array.from({ length: n }, (_, i) => i);
+    const appearSlots = opts.order === 'shuffle' ? shuffle(slots.slice()) : slots;
+    const settleSlots = opts.order === 'shuffle' ? appearSlots : shuffle(slots.slice());
     line.cells.forEach((cell, i) => {
-      const slot = appearAt ? appearAt[i] : i;
-      cell.appear = (slot / n) * opts.spread;
-      cell.settle = Math.min(
-        0.999,
-        cell.appear + opts.holdMin + Math.random() * (opts.holdMax - opts.holdMin)
-      );
+      const qAppear = (appearSlots[i] + 1) / n;
+      const qSettle = (settleSlots[i] + 1) / n;
+      cell.appearAt = Math.pow(qAppear, 1 / opts.showPower);
+      cell.mashAt = Math.max(cell.appearAt, Math.pow(qAppear, 1 / opts.mashPower));
+      cell.settleAt = Math.max(cell.mashAt, Math.pow(qSettle, 1 / opts.donePower));
     });
     line.duration = Math.min(
       opts.maxLineDuration,
@@ -315,6 +329,18 @@ const scheduleLines = (lines: Line[], opts: Resolved): void => {
     line.start = opts.lineStagger * cumulative;
     cumulative += line.duration;
   }
+};
+
+/** The original's `useInput`: mix the text's own ASCII glyphs into the pool. */
+const scramblePool = (cells: Cell[], opts: Resolved): string => {
+  if (!opts.scrambleFromText) return opts.charset;
+  let pool = opts.charset;
+  for (const cell of cells) {
+    const ch = cell.ch.toLowerCase();
+    // ASCII-only: wide glyphs (CJK) in the pool would jitter `grow` layouts.
+    if (/[\x21-\x7e]/.test(ch) && !pool.includes(ch)) pool += ch;
+  }
+  return pool;
 };
 
 /**
@@ -403,6 +429,7 @@ export const prepareDecode = async (
     started = true;
 
     scheduleLines(lines, opts);
+    const pool = scramblePool(cells, opts);
     root.classList.add('dt-animating');
     // Isolate per-frame churn so it cannot reflow content below the root.
     root.style.contain = 'layout paint';
@@ -422,7 +449,7 @@ export const prepareDecode = async (
     const forceFinish = (): void => {
       if (done) return;
       for (const line of lines) {
-        if (!line.complete) renderLine(line, 1, performance.now(), opts);
+        if (!line.complete) renderLine(line, 1, performance.now(), pool, opts);
       }
       complete();
     };
@@ -436,12 +463,12 @@ export const prepareDecode = async (
         const t = (clock - line.start) / line.duration;
         if (t < 0) continue;
         if (t >= 1) {
-          renderLine(line, 1, now, opts);
+          renderLine(line, 1, now, pool, opts);
           line.complete = true;
           remaining -= 1;
           continue;
         }
-        renderLine(line, opts.ease(t), now, opts);
+        renderLine(line, opts.ease(t), now, pool, opts);
       }
 
       if (remaining > 0) raf = requestAnimationFrame(tick);
