@@ -55,7 +55,7 @@ async function loadInitialMoodFeed() {
         source: moodReadSource,
       }),
     });
-    if (result.usedFallback) {
+    if (!result.cacheable) {
       Astro.response.headers.set('Cache-Control', 'no-store');
     }
     return result.value;

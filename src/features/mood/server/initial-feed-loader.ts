@@ -13,7 +13,7 @@ interface LoadInitialMoodFeedOptions<T extends MoodFeedWindow> {
 
 export interface InitialMoodFeedResult<T> {
   value: T;
-  usedFallback: boolean;
+  cacheable: boolean;
 }
 
 function valueFrom<T>(result: PromiseSettledResult<T>): T | null {
@@ -31,7 +31,7 @@ export async function loadInitialMoodFeed<T extends MoodFeedWindow>(
   } = options;
 
   if (!anchorId) {
-    return { value: await loadFeed({}), usedFallback: false };
+    return { value: await loadFeed({}), cacheable: true };
   }
 
   const focusedLoad = focusedBefore ? loadFeed({ before: focusedBefore }) : Promise.resolve(null);
@@ -43,11 +43,11 @@ export async function loadInitialMoodFeed<T extends MoodFeedWindow>(
   const fallback = valueFrom(fallbackResult);
 
   if (focused?.posts.some((post) => post.id === anchorId)) {
-    return { value: focused, usedFallback: false };
+    return { value: focused, cacheable: true };
   }
 
   if (fallback?.posts.length) {
-    return { value: fallback, usedFallback: true };
+    return { value: fallback, cacheable: false };
   }
 
   if (focused?.posts.length) {
@@ -56,9 +56,9 @@ export async function loadInitialMoodFeed<T extends MoodFeedWindow>(
         ...focused,
         posts: mergeMoodFeedWindowPosts(focused.posts),
       },
-      usedFallback: false,
+      cacheable: false,
     };
   }
 
-  return { value: await loadFeed({}), usedFallback: false };
+  return { value: await loadFeed({}), cacheable: false };
 }

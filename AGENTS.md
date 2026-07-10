@@ -64,4 +64,4 @@ This is the public Worker. The private Worker `site-api` lives in the sibling re
 2. **Level 1 (Mood Feed)**: `/mood` with `src/features/mood/ui/TimelineWheel.astro`
 3. **Level 2 (Mood Detail)**: `/mood/[id]`
 
-Read path is `src/features/mood/server/api-client.ts`. User-facing reads stay on the live v1 Telegram mirror; the structured D1 archive read (v2) is built in `../site-api`.
+Read path is `src/features/mood/server/api-client.ts`. User-facing base content reads use the structured D1 archive (v2) by default, with the live v1 Telegram mirror as a bounded fallback and the source for freshness-sensitive counts and reactions.

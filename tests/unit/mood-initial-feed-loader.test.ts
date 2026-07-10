@@ -24,7 +24,7 @@ describe('initial mood feed loader', () => {
     });
 
     expect(started).toEqual(['10011', '10000']);
-    expect(feed?.usedFallback).toBe(true);
+    expect(feed?.cacheable).toBe(false);
     expect(feed?.value.posts.map((post) => post.id)).toEqual(['9999']);
   });
 
@@ -38,7 +38,7 @@ describe('initial mood feed loader', () => {
         : createFeed(['3640']),
     });
 
-    expect(feed?.usedFallback).toBe(false);
+    expect(feed?.cacheable).toBe(true);
     expect(feed?.value.posts.map((post) => post.id)).toEqual(['3641', '3640', '3639']);
   });
 
@@ -56,7 +56,21 @@ describe('initial mood feed loader', () => {
     });
 
     expect(calls).toEqual(['10011', '10000', 'latest']);
-    expect(feed?.usedFallback).toBe(false);
+    expect(feed?.cacheable).toBe(false);
     expect(feed?.value.posts.map((post) => post.id)).toEqual(['10001']);
+  });
+
+  test('keeps a focused window uncacheable when it does not contain the anchor', async () => {
+    const feed = await loadInitialMoodFeed({
+      anchorId: '9999',
+      focusedBefore: '10011',
+      fallbackBefore: '10000',
+      loadFeed: async ({ before }) => before === '10011'
+        ? createFeed(['10010', '10009'])
+        : createFeed([]),
+    });
+
+    expect(feed.cacheable).toBe(false);
+    expect(feed.value.posts.map((post) => post.id)).toEqual(['10010', '10009']);
   });
 });
