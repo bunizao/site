@@ -1,0 +1,64 @@
+import { describe, expect, test } from 'bun:test';
+
+function getSiteUrl(): string {
+  return (process.env.SITE_URL || process.env.PUBLIC_SITE_URL || 'https://buxx.me').replace(/\/+$/, '');
+}
+
+async function fetchAnchoredMoodPage(siteUrl: string, id: string): Promise<string> {
+  const url = new URL('/mood', siteUrl);
+  url.searchParams.set(id, '');
+  url.searchParams.set('source', 'archive');
+  url.searchParams.set('refresh', '1');
+
+  const response = await fetch(url, {
+    headers: {
+      Accept: 'text/html,application/xhtml+xml',
+      'Cache-Control': 'no-cache',
+    },
+    signal: AbortSignal.timeout(10_000),
+  });
+  expect(response.ok, `GET ${url} -> ${response.status}`).toBe(true);
+  return response.text();
+}
+
+function moodBlock(html: string, id: string): string {
+  const start = html.indexOf(`data-mood-id="${id}"`);
+  expect(start, `mood ${id} is missing from the anchored feed`).toBeGreaterThanOrEqual(0);
+
+  const next = html.indexOf('data-mood-id="', start + 1);
+  return html.slice(start, next === -1 ? undefined : next);
+}
+
+describe('mood media rendering health', () => {
+  test('June 28 videos render with their archived dimensions', async () => {
+    const siteUrl = getSiteUrl();
+    const [portraitHtml, landscapeHtml] = await Promise.all([
+      fetchAnchoredMoodPage(siteUrl, '3608'),
+      fetchAnchoredMoodPage(siteUrl, '3609'),
+    ]);
+    const portrait = moodBlock(portraitHtml, '3608');
+    const landscape = moodBlock(landscapeHtml, '3609');
+
+    expect(portrait).toContain('<video class="video--ultra-tall"');
+    expect(portrait).toContain('width="1080"');
+    expect(portrait).toContain('height="1920"');
+    expect(landscape).toContain('<video');
+    expect(landscape).toContain('width="662"');
+    expect(landscape).toContain('height="326"');
+  }, { timeout: 30_000 });
+
+  test('mood 3618 refreshes its expiring Telegram preview image', async () => {
+    const siteUrl = getSiteUrl();
+    const html = await fetchAnchoredMoodPage(siteUrl, '3618');
+    const block = moodBlock(html, '3618');
+    const thumbnail = block.match(/bookmark-card__media[^>]*><img src="([^"]+)"/)?.[1] ?? '';
+
+    expect(thumbnail).toStartWith('/static/');
+
+    const response = await fetch(new URL(thumbnail, siteUrl), {
+      headers: { Accept: 'image/avif,image/webp,image/*,*/*;q=0.8' },
+      signal: AbortSignal.timeout(5_000),
+    });
+    expect(response.ok, `GET ${thumbnail} -> ${response.status}`).toBe(true);
+  }, { timeout: 20_000 });
+});

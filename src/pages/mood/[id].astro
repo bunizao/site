@@ -9,6 +9,7 @@ import {
 } from '@/features/mood/server/api-client';
 import '@/styles/mood-gallery.css';
 import { renderMoodContentWithGalleries } from '@/features/mood/shared/gallery';
+import { renderStructuredMoodDetailContent } from '@/features/mood/shared/detail-content';
 import { getMoodFeedAnchorHref } from '@/features/mood/shared/feed-anchor';
 import DetailArticle from '@/features/mood/ui/DetailArticle.astro';
 import BackToTop from '@/features/mood/ui/BackToTop.astro';
@@ -65,7 +66,9 @@ const moodFeedBackHref = getMoodFeedAnchorHref(id ?? '');
 const channel = readEnv(Astro.locals, 'CHANNEL');
 const telegramCommentUrl = channel && id ? `https://t.me/${channel}/${id}?comment=1` : '';
 const renderedPostContent = post
-  ? renderMoodContentWithGalleries(post.bodyHtml)
+  ? moodReadSource === 'archive'
+    ? renderStructuredMoodDetailContent(post)
+    : renderMoodContentWithGalleries(post.bodyHtml)
   : '';
 ---
 
