@@ -243,7 +243,7 @@ Google, not the dev portal. Never the source of truth.
 Production intentionally uses Cloudflare Google Tag Gateway automatic tag insertion
 alongside Cloudflare Web Analytics. The gateway endpoint is control-plane managed
 and can change, so the CSP allows same-origin scripts plus the Cloudflare Insights
-script host. The repository must not add its own loader while control-plane
+and Google Tag Manager script hosts. The repository must not add its own loader while control-plane
 injection is active because that would double-load the tag.
 
 ## Rollout

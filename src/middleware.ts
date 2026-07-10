@@ -24,7 +24,7 @@ function isDevPortalPath(pathname: string): boolean {
 
 export function createHtmlScriptCsp(): string {
   return [
-    "script-src 'self' 'unsafe-inline' https://js-cdn.music.apple.com https://static.cloudflareinsights.com https://challenges.cloudflare.com http://localhost:* http://127.0.0.1:*",
+    "script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://js-cdn.music.apple.com https://static.cloudflareinsights.com https://challenges.cloudflare.com http://localhost:* http://127.0.0.1:*",
     "base-uri 'self'",
     "object-src 'none'",
   ].join('; ');
