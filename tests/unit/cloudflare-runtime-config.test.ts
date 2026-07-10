@@ -225,7 +225,7 @@ describe('Cloudflare runtime configuration', () => {
     expect(headers).not.toContain('no-transform');
     expect(headers).toContain('https://buxx.me/blog*');
     expect(headers).not.toContain("'self' 'unsafe-inline'");
-    expect(headers).not.toContain('/gmetrics/');
+    expect(headers).toContain('https://buxx.me/gmetrics/');
     expect(headers).not.toContain('https://www.googletagmanager.com');
     expect(headers).toContain("base-uri 'self'");
     expect(headers).toContain("object-src 'none'");
@@ -243,7 +243,7 @@ describe('Cloudflare runtime configuration', () => {
     expect(middleware).toContain('https://challenges.cloudflare.com');
     expect(middleware).not.toContain('no-transform');
     expect(middleware).not.toContain("script-src 'self' 'unsafe-inline'");
-    expect(middleware).not.toContain('/gmetrics/');
+    expect(middleware).toContain('${cleanOrigin}/gmetrics/');
     expect(middleware).not.toContain('https://www.googletagmanager.com');
   });
 

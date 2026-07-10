@@ -1,15 +1,15 @@
 https://buxx.me/
-  Content-Security-Policy: script-src 'unsafe-inline' https://buxx.me/_astro/ https://buxx.me/cdn-cgi/challenge-platform/ https://js-cdn.music.apple.com https://static.cloudflareinsights.com https://challenges.cloudflare.com http://localhost:* http://127.0.0.1:*; base-uri 'self'; object-src 'none'
+  Content-Security-Policy: script-src 'unsafe-inline' https://buxx.me/_astro/ https://buxx.me/gmetrics/ https://buxx.me/cdn-cgi/challenge-platform/ https://js-cdn.music.apple.com https://static.cloudflareinsights.com https://challenges.cloudflare.com http://localhost:* http://127.0.0.1:*; base-uri 'self'; object-src 'none'
   Cache-Control: public, max-age=0, must-revalidate
 
 https://www.buxx.me/
-  Content-Security-Policy: script-src 'unsafe-inline' https://www.buxx.me/_astro/ https://www.buxx.me/cdn-cgi/challenge-platform/ https://js-cdn.music.apple.com https://static.cloudflareinsights.com https://challenges.cloudflare.com http://localhost:* http://127.0.0.1:*; base-uri 'self'; object-src 'none'
+  Content-Security-Policy: script-src 'unsafe-inline' https://www.buxx.me/_astro/ https://www.buxx.me/gmetrics/ https://www.buxx.me/cdn-cgi/challenge-platform/ https://js-cdn.music.apple.com https://static.cloudflareinsights.com https://challenges.cloudflare.com http://localhost:* http://127.0.0.1:*; base-uri 'self'; object-src 'none'
   Cache-Control: public, max-age=0, must-revalidate
 
 https://buxx.me/blog*
-  Content-Security-Policy: script-src 'unsafe-inline' https://buxx.me/_astro/ https://buxx.me/pagefind/ https://buxx.me/cdn-cgi/challenge-platform/ https://challenges.cloudflare.com http://localhost:* http://127.0.0.1:*; base-uri 'self'; object-src 'none'
+  Content-Security-Policy: script-src 'unsafe-inline' https://buxx.me/_astro/ https://buxx.me/pagefind/ https://buxx.me/gmetrics/ https://buxx.me/cdn-cgi/challenge-platform/ https://static.cloudflareinsights.com https://challenges.cloudflare.com http://localhost:* http://127.0.0.1:*; base-uri 'self'; object-src 'none'
   Cache-Control: public, max-age=0, must-revalidate
 
 https://www.buxx.me/blog*
-  Content-Security-Policy: script-src 'unsafe-inline' https://www.buxx.me/_astro/ https://www.buxx.me/pagefind/ https://www.buxx.me/cdn-cgi/challenge-platform/ https://challenges.cloudflare.com http://localhost:* http://127.0.0.1:*; base-uri 'self'; object-src 'none'
+  Content-Security-Policy: script-src 'unsafe-inline' https://www.buxx.me/_astro/ https://www.buxx.me/pagefind/ https://www.buxx.me/gmetrics/ https://www.buxx.me/cdn-cgi/challenge-platform/ https://static.cloudflareinsights.com https://challenges.cloudflare.com http://localhost:* http://127.0.0.1:*; base-uri 'self'; object-src 'none'
   Cache-Control: public, max-age=0, must-revalidate

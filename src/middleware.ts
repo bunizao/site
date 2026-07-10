@@ -26,7 +26,7 @@ export function createHtmlScriptCsp(origin: string): string {
   const cleanOrigin = origin.replace(/\/+$/, '');
 
   return [
-    `script-src 'unsafe-inline' ${cleanOrigin}/_astro/ ${cleanOrigin}/pagefind/ ${cleanOrigin}/cdn-cgi/challenge-platform/ https://js-cdn.music.apple.com https://static.cloudflareinsights.com https://challenges.cloudflare.com http://localhost:* http://127.0.0.1:*`,
+    `script-src 'unsafe-inline' ${cleanOrigin}/_astro/ ${cleanOrigin}/pagefind/ ${cleanOrigin}/gmetrics/ ${cleanOrigin}/cdn-cgi/challenge-platform/ https://js-cdn.music.apple.com https://static.cloudflareinsights.com https://challenges.cloudflare.com http://localhost:* http://127.0.0.1:*`,
     "base-uri 'self'",
     "object-src 'none'",
   ].join('; ');

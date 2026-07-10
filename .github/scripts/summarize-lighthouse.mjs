@@ -40,6 +40,53 @@ function formatScoreCell(score, threshold) {
   return score >= threshold ? `✅ ${percent}` : `❌ ${percent}`;
 }
 
+function isCloudflareJsdDeprecation(report) {
+  const items = report.audits?.deprecations?.details?.items;
+  if (!Array.isArray(items) || items.length === 0) return false;
+
+  let reportHostname;
+  try {
+    reportHostname = new URL(report.finalDisplayedUrl || report.finalUrl).hostname;
+  } catch {
+    return false;
+  }
+
+  return items.every((item) => {
+    try {
+      const sourceUrl = new URL(item?.source?.url);
+      return sourceUrl.hostname === reportHostname
+        && sourceUrl.pathname.startsWith('/cdn-cgi/challenge-platform/scripts/jsd/');
+    } catch {
+      return false;
+    }
+  });
+}
+
+function adjustedBestPracticesScore(report) {
+  const auditRefs = report.categories?.['best-practices']?.auditRefs;
+  if (!Array.isArray(auditRefs) || !isCloudflareJsdDeprecation(report)) {
+    return report.categories?.['best-practices']?.score;
+  }
+
+  let weightedScore = 0;
+  let totalWeight = 0;
+  for (const auditRef of auditRefs) {
+    if (auditRef?.id === 'deprecations' || !(auditRef?.weight > 0)) continue;
+    const score = report.audits?.[auditRef.id]?.score;
+    if (typeof score !== 'number') continue;
+    weightedScore += score * auditRef.weight;
+    totalWeight += auditRef.weight;
+  }
+
+  return totalWeight > 0 ? weightedScore / totalWeight : report.categories?.['best-practices']?.score;
+}
+
+function formatBestPracticesCell(rawScore, adjustedScore, threshold, hasJsdExemption) {
+  if (!hasJsdExemption) return formatScoreCell(rawScore, threshold);
+  const icon = typeof adjustedScore === 'number' && adjustedScore >= threshold ? '✅' : '❌';
+  return `${icon} ${scorePercent(rawScore)} raw (${scorePercent(adjustedScore)} gated)`;
+}
+
 function formatMetric(value, auditId) {
   if (typeof value !== 'number') return 'n/a';
   if (auditId === 'cumulative-layout-shift') return value.toFixed(3);
@@ -143,7 +190,11 @@ function buildSummary() {
       continue;
     }
 
-    const categoryMedian = (category) => median(reports.map((report) => report.categories?.[category]?.score));
+    const rawCategoryMedian = (category) => median(reports.map((report) => report.categories?.[category]?.score));
+    const hasJsdExemption = reports.some((report) => isCloudflareJsdDeprecation(report));
+    const categoryMedian = (category) => category === 'best-practices'
+      ? median(reports.map((report) => adjustedBestPracticesScore(report)))
+      : rawCategoryMedian(category);
     const auditMedian = (auditId) => median(reports.map((report) => report.audits?.[auditId]?.numericValue));
 
     const rowFailures = [];
@@ -171,7 +222,12 @@ function buildSummary() {
       url,
       formatScoreCell(categoryMedian('performance'), categoryThresholds.performance),
       formatScoreCell(categoryMedian('accessibility'), categoryThresholds.accessibility),
-      formatScoreCell(categoryMedian('best-practices'), categoryThresholds['best-practices']),
+      formatBestPracticesCell(
+        rawCategoryMedian('best-practices'),
+        categoryMedian('best-practices'),
+        categoryThresholds['best-practices'],
+        hasJsdExemption,
+      ),
       typeof categoryThresholds.seo === 'number' ? formatScoreCell(categoryMedian('seo'), categoryThresholds.seo) : 'Not gated',
       formatMetricCell(auditMedian('first-contentful-paint'), metricThresholds['first-contentful-paint'], 'first-contentful-paint'),
       formatMetricCell(auditMedian('largest-contentful-paint'), metricThresholds['largest-contentful-paint'], 'largest-contentful-paint'),
@@ -198,6 +254,7 @@ function buildSummary() {
     '',
     '- Performance must be at least 75.',
     '- Accessibility, Best Practices, and canonical-host SEO must be at least 90.',
+    '- Cloudflare Bot Fight Mode JSD deprecations are shown in the raw score but excluded from the gate only when every deprecation comes from Cloudflare\'s injected JSD script.',
     '- FCP must be at most 3s, LCP at most 4s, TBT at most 300ms, and CLS at most 0.1.',
     '- SEO is only gated on `buxx.me`; preview URLs are not meaningful SEO targets.',
     '',

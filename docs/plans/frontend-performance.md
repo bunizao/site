@@ -16,9 +16,10 @@ Remove the site-wide payload and loading inefficiencies identified in the audit'
 - Changed Lighthouse's default blog path from `/blog` to `/blog/` to avoid measuring a redirect.
 - Compressed `/api/v2/images/channel/avatar` in `site-api` through the existing Images binding at 128px `fit=scale-down`.
 
-## Still open
+## Cloudflare-managed scripts
 
-- Cloudflare Google Tag Gateway is still a control-plane cleanup, not a repo loader. The repo CSP now blocks the automatic `/gmetrics/` and Google Tag Manager script downloads on `/blog`, and it intentionally does not add a second loader. The clean follow-up is to disable automatic tag setup for the gateway, prove the injected tags disappear, then add a post-load or idle first-party loader if GA4 is still wanted.
+- Google Tag Gateway and Cloudflare Web Analytics remain enabled intentionally. The CSP allows their exact script paths without adding duplicate repository loaders.
+- Free-plan Bot Fight Mode always injects JavaScript Detections and does not expose a separate JSD toggle. Lighthouse keeps the raw Best Practices score visible but excludes the known Cloudflare JSD deprecation audit from alerting only when every reported deprecation comes from that injected script.
 
 ## Scope
 

@@ -240,13 +240,11 @@ better performance, partial ad-block resilience, built-in consent tooling. GA4 s
 secondary view: it anonymizes IP, is ad-blocked (~30-40% loss), and its data lives in
 Google, not the dev portal. Never the source of truth.
 
-Production currently uses Cloudflare Google Tag Gateway automatic tag insertion for
-`/gmetrics/`. The site CSP blocks those automatic script downloads on `/blog`, and
-the repository must not add its own loader while that control-plane injection is
-active because it would double-load the tag. Follow-up if GA4 still belongs on
-`/blog`: disable automatic tag setup in Cloudflare/Google Tag Gateway (`set_up_tag =
-false`) while keeping the gateway endpoint enabled, prove the injected head scripts
-disappear on live HTML, then add a post-load or idle first-party loader.
+Production intentionally uses Cloudflare Google Tag Gateway automatic tag insertion
+for `/gmetrics/` alongside Cloudflare Web Analytics. The CSP allows the exact
+first-party gateway path and Cloudflare Insights script host. The repository must
+not add its own loader while control-plane injection is active because that would
+double-load the tag.
 
 ## Rollout
 
