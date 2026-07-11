@@ -38,9 +38,17 @@ test.describe('Preview smoke', () => {
     await page.locator('[data-theme-dropdown]').hover();
     await page.locator('[data-theme-option="light"]').click();
     await expect(page.locator('html')).not.toHaveClass(/dark/);
+    const moodFrame = page.locator('iframe[title="Mood wheel"]');
+    const readingFrame = page.locator('iframe[title="Mobile reading bar"]');
+    await expect(moodFrame).toBeVisible();
+    await expect(readingFrame).toBeVisible();
+    await expect(moodFrame.contentFrame().locator('html')).not.toHaveClass(/dark/);
+    await expect(readingFrame.contentFrame().locator('html')).not.toHaveClass(/dark/);
     await page.locator('[data-theme-dropdown]').hover();
     await page.locator('[data-theme-option="dark"]').click();
     await expect(page.locator('html')).toHaveClass(/dark/);
+    await expect(moodFrame.contentFrame().locator('html')).toHaveClass(/dark/);
+    await expect(readingFrame.contentFrame().locator('html')).toHaveClass(/dark/);
   });
 
   test('renders the mood feed shell', async ({ page }) => {

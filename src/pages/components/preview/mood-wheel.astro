@@ -11,7 +11,7 @@ export const prerender = true;
 // backdrop so the emptiness stays alive without introducing off-palette colour.
 const DAY = 86_400_000;
 const BASE = Date.UTC(2026, 6, 12); // 2026-07-12, fixed (no Date.now in build)
-const groups = Array.from({ length: 30 }, (_, i) => {
+const groups = Array.from({ length: 10 }, (_, i) => {
   const d = new Date(BASE - i * DAY);
   const iso = d.toISOString().slice(0, 10);
   const label = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
@@ -20,11 +20,30 @@ const groups = Array.from({ length: 30 }, (_, i) => {
 ---
 
 <!doctype html>
-<html lang="en" class="dark">
+<html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width" />
     <title>Mood wheel preview</title>
+    <script is:inline>
+      (() => {
+        const media = window.matchMedia('(prefers-color-scheme: dark)');
+        const applyTheme = () => {
+          let stored = null;
+          try {
+            stored = localStorage.getItem('theme');
+          } catch {}
+          const dark = stored === 'dark' || (stored !== 'light' && media.matches);
+          document.documentElement.classList.toggle('dark', dark);
+          document.documentElement.style.colorScheme = dark ? 'dark' : 'light';
+        };
+        applyTheme();
+        window.addEventListener('storage', (event) => {
+          if (event.key === 'theme') applyTheme();
+        });
+        media.addEventListener('change', applyTheme);
+      })();
+    </script>
   </head>
   <body>
     <div class="sheen" data-sheen aria-hidden="true"></div>
@@ -75,8 +94,12 @@ const groups = Array.from({ length: 30 }, (_, i) => {
 
 <style>
   :global(html) {
-    color-scheme: dark;
     background: hsl(var(--background));
+    scrollbar-width: none;
+  }
+
+  :global(html::-webkit-scrollbar) {
+    display: none;
   }
 
   :global(body) {
@@ -131,8 +154,8 @@ const groups = Array.from({ length: 30 }, (_, i) => {
     transform: translateY(-50%) translateX(6px);
   }
 
-  /* Invisible scroll driver — IN FLOW so it creates real page height (that's
-     what the wheel winds against), but shows nothing. */
+  /* Invisible, finite scroll driver. The browser scrollbar stays hidden: the
+     dial is the progress indicator, and ten anchors give it a deliberate end. */
   .fixture-feed {
     position: relative;
     width: 100%;
@@ -145,8 +168,7 @@ const groups = Array.from({ length: 30 }, (_, i) => {
   }
 
   .mood-date-group {
-    /* Tall, so the full run scrolls long enough to feel endless in the tile. */
-    height: 34vh;
+    height: 28vh;
   }
 
   /* Persistent scroll cue, bottom-right, riding above the sheen. */

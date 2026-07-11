@@ -19,11 +19,36 @@ const sections = [
 ---
 
 <!doctype html>
-<html lang="en" class="dark">
+<html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width" />
     <title>Mobile TOC preview</title>
+    <script is:inline>
+      (() => {
+        const syncTheme = () => {
+          try {
+            document.documentElement.classList.toggle(
+              'dark',
+              window.parent.document.documentElement.classList.contains('dark'),
+            );
+          } catch {
+            document.documentElement.classList.toggle(
+              'dark',
+              window.matchMedia('(prefers-color-scheme: dark)').matches,
+            );
+          }
+        };
+
+        syncTheme();
+        try {
+          new MutationObserver(syncTheme).observe(window.parent.document.documentElement, {
+            attributes: true,
+            attributeFilter: ['class'],
+          });
+        } catch {}
+      })();
+    </script>
   </head>
   <body>
     <div class="topbar" data-topbar>
@@ -136,7 +161,8 @@ const sections = [
 </html>
 
 <style>
-  :global(html) { color-scheme: dark; }
+  :global(html) { color-scheme: light; }
+  :global(html.dark) { color-scheme: dark; }
   :global(body) {
     margin: 0;
     color: hsl(var(--foreground));
