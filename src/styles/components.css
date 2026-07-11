@@ -23,10 +23,8 @@ body:has(.components)::before {
   display: none;
 }
 
-/* ── Index: a dark cinematic canvas ──────────────────────────────────────────
-   The index is art-directed dark in every theme (it borrows 無人之境's mood).
-   Carrying the `dark` class means the shadcn token set resolves dark too, so
-   the live component previews render correctly against it. */
+/* ── Index canvas ────────────────────────────────────────────────────────────
+   Uses the global theme tokens so the site theme control applies here too. */
 .components--index {
   position: relative;
   isolation: isolate;
@@ -34,45 +32,6 @@ body:has(.components)::before {
   background: hsl(var(--background));
   color: hsl(var(--foreground));
   -webkit-font-smoothing: antialiased;
-}
-
-/* Detail shares the index's dark canvas + page-owned topbar so index → detail
-   reads as one surface. Its topbar spans the reading column width, not the
-   wider grid. */
-.components--detail .components-topbar {
-  width: var(--shell);
-}
-
-/* Page-owned minimal header — the global site nav is dropped on this route. */
-.components-topbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  width: min(72rem, 100% - 2.5rem);
-  margin: 0 auto;
-  padding: 1.5rem 0 0;
-  font-family: var(--font-sans);
-}
-
-.components-mark {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 0.85rem;
-  font-weight: 500;
-  color: hsl(var(--foreground) / 0.7);
-  text-decoration: none;
-  transition: color 0.15s ease;
-}
-
-.components-mark:hover {
-  color: hsl(var(--foreground));
-}
-
-.components-topbar-label {
-  font-size: 0.8rem;
-  color: hsl(var(--foreground) / 0.4);
-  letter-spacing: 0.02em;
 }
 
 /* ── Bento grid (index) ──────────────────────────────────────────────────────
@@ -585,10 +544,6 @@ body:has(.components)::before {
     display: none;
   }
 
-  /* Avoid colliding with the fixed theme toggle in the top-right. */
-  .components-topbar-label {
-    display: none;
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -70,14 +70,10 @@ const creditsHtml = (raw: string) =>
   title={`${title} — Components`}
   description={tagline}
   url={`/components/${slug}`}
-  hideSiteNav
+  navVariant="page"
+  showSiteNav
 >
-  <main class="components components--index components--detail dark">
-    <header class="components-topbar">
-      <a class="components-mark" href="/components">← Components</a>
-      <span class="components-topbar-label">{title}</span>
-    </header>
-
+  <main class="components components--index components--detail">
     <div class="detail">
       <div class="detail-main">
         <nav class="breadcrumb" aria-label="Breadcrumb">
