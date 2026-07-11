@@ -36,7 +36,7 @@ interface Props {
   next?: CollectionEntry<'components'>;
 }
 const { entry, prev, next } = Astro.props;
-const { title, tagline, install, source, credits, tier } = entry.data;
+const { title, tagline, install, source, credits } = entry.data;
 const slug = entry.id;
 const { Content } = await render(entry);
 
@@ -81,7 +81,6 @@ const creditsHtml = (raw: string) =>
           <a href="/components">components</a> / {slug}
         </nav>
 
-        <p class="detail-tier">{tier}</p>
         <h1 class="detail-title">{title}</h1>
         <p class="detail-tagline">{tagline}</p>
 

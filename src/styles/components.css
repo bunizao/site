@@ -1,240 +1,151 @@
 /* ─────────────────────────────────────────────────────────────────────────
-   Components showcase — section-scoped tone + motion.
+   Components showcase.
 
-   Everything here lives under `.components` so the showcase can carry its own
-   hairline / easing vocabulary without leaking into the global token set. The
-   surface is a printed type-specimen sheet: bare components, hairline rules,
-   a mono metadata spine. Monochrome only — it inherits the site's black/white
-   HSL system and reads correctly in light and dark with no per-theme rules.
+   A calm component-library surface in the shadcn/ui register: solid page,
+   quiet rounded cards, restrained type. No decorative eyebrows, no dot
+   texture — the components themselves are the content. Monochrome; inherits
+   the site's black/white HSL tokens and reads correctly in light and dark.
    ───────────────────────────────────────────────────────────────────────── */
 
 .components {
-  /* Hairlines. --line is the resting rule; --line2 is its hover/emphasis
-     state. Both are foreground-alpha so they invert with the theme for free. */
   --line: hsl(var(--foreground) / 0.1);
-  --line2: hsl(var(--foreground) / 0.24);
-
-  /* Motion (Emil Kowalski framework). Restrained: the surface is browsed
-     repeatedly, so movement is purposeful and never on navigation. */
+  --line2: hsl(var(--foreground) / 0.2);
+  --surface: hsl(var(--foreground) / 0.02);
+  --surface-hover: hsl(var(--foreground) / 0.035);
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
-  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
 
-  --shell: min(72rem, 100% - 2rem);
+  --shell: min(64rem, 100% - 2.5rem);
 }
 
-/* The dot grid lives inside each specimen stage (below), never across the whole
-   page — confined it reads as a measured pedestal, spread it reads as dirt. */
+/* Kill the global body dot-grid on this route only — the showcase wants a
+   clean surface behind its cards. */
+body:has(.components)::before {
+  display: none;
+}
 
-/* ── Page frame ──────────────────────────────────────────────────────────── */
+/* ── Page frame (index) ──────────────────────────────────────────────────── */
 
 .components-page {
   width: var(--shell);
   margin: 0 auto;
-  padding: 7rem 0 5rem;
+  padding: 4.5rem 0 6rem;
 }
 
 .components-head {
-  max-width: 44rem;
-  margin-bottom: 3.5rem;
-}
-
-.components-kicker {
-  margin: 0 0 1rem;
-  font-family: var(--font-sans);
-  font-size: 0.72rem;
-  font-weight: 500;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: hsl(var(--muted-foreground));
+  max-width: 42rem;
+  margin-bottom: 2.75rem;
 }
 
 .components-title {
   margin: 0;
   font-family: var(--font-display);
-  font-size: clamp(2.6rem, 6vw, 4rem);
-  font-weight: 800;
-  line-height: 0.94;
-  letter-spacing: -0.02em;
+  font-size: clamp(2rem, 4vw, 2.6rem);
+  font-weight: 700;
+  line-height: 1.05;
+  letter-spacing: -0.025em;
 }
 
 .components-lede {
-  max-width: 38rem;
-  margin: 1.4rem 0 0;
+  max-width: 40rem;
+  margin: 0.9rem 0 0;
   font-family: var(--font-sans);
-  font-size: 1.02rem;
-  line-height: 1.7;
-  color: hsl(var(--foreground) / 0.68);
+  font-size: 1rem;
+  line-height: 1.65;
+  color: hsl(var(--muted-foreground));
 }
 
 .components-lede code {
   font-family: var(--font-code);
-  font-size: 0.86em;
+  font-size: 0.85em;
   padding: 0.1em 0.4em;
   border-radius: var(--radius-sm);
   background: hsl(var(--foreground) / 0.06);
+  color: hsl(var(--foreground) / 0.85);
 }
 
-/* ── Specimen grid (index) ───────────────────────────────────────────────── */
+/* ── Card grid (index) ───────────────────────────────────────────────────── */
 
 .specimen-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(19rem, 1fr));
-  gap: 0;
-  border-top: 1px solid var(--line);
+  grid-template-columns: repeat(auto-fill, minmax(20rem, 1fr));
+  gap: 1rem;
 }
 
-/* Each cell owns a right + bottom hairline; whitespace and rules do the
-   separating, never nested bordered cards. */
 .specimen {
-  position: relative;
   display: flex;
   flex-direction: column;
-  padding: 0;
-  border-bottom: 1px solid var(--line);
-  border-right: 1px solid var(--line);
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
   text-decoration: none;
   color: inherit;
-  transition: background-color 0.2s var(--ease-out);
+  transition:
+    border-color 0.18s var(--ease-out),
+    background-color 0.18s var(--ease-out),
+    transform 0.18s var(--ease-out);
 }
 
-/* First-paint reveal — first view only, opacity + a short lift, staggered per
-   cell by an inline --i. Reduced motion keeps opacity, drops the translate. */
+/* First-paint reveal — first view only, staggered per card by inline --i. */
 .js .specimen {
   opacity: 0;
-  transform: translateY(6px);
+  transform: translateY(8px);
 }
 
 .js .specimen.is-revealed {
   opacity: 1;
   transform: none;
   transition:
-    opacity 0.45s var(--ease-out) calc(var(--i, 0) * 50ms),
-    transform 0.45s var(--ease-out) calc(var(--i, 0) * 50ms);
+    opacity 0.4s var(--ease-out) calc(var(--i, 0) * 45ms),
+    transform 0.4s var(--ease-out) calc(var(--i, 0) * 45ms);
 }
 
-/* The stage is the mounted specimen: the component rests on a measured dot
-   field with a hairline ground line, sized so it never floats in a void. */
+/* Live component sits centered on a clean surface. */
 .specimen-stage {
   display: grid;
   place-items: center;
-  height: 9.5rem;
-  padding: 1.25rem;
-  border-bottom: 1px solid var(--line);
-  background-image: radial-gradient(circle, hsl(var(--grid)) 1px, transparent 1px);
-  background-size: 15px 15px;
-  background-position: center;
+  height: 11rem;
+  padding: 1.5rem;
   overflow: hidden;
+  border-bottom: 1px solid var(--line);
   pointer-events: none;
-  transition: background-color 0.2s var(--ease-out);
 }
 
 .specimen-caption {
   display: flex;
   flex-direction: column;
-  gap: 0.3rem;
-  padding: 0.95rem 1.25rem 1.15rem;
-}
-
-/* Mono metadata rail: plate number · tier · install channel. Surfaces the
-   classification the schema carries but the old caption dropped. */
-.specimen-rail {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  font-family: var(--font-sans);
-  font-size: 0.74rem;
-  color: hsl(var(--muted-foreground));
-}
-
-.specimen-plate {
-  font-variant-numeric: tabular-nums;
-  color: hsl(var(--foreground) / 0.85);
-}
-
-.specimen-tier {
-  font-weight: 500;
-  text-transform: uppercase;
-  letter-spacing: 0.09em;
-}
-
-.specimen-rail .install-marker {
-  margin-left: auto;
+  gap: 0.25rem;
+  padding: 1rem 1.15rem 1.15rem;
 }
 
 .specimen-name {
   font-family: var(--font-sans);
-  font-size: 1rem;
-  font-weight: 550;
+  font-size: 0.95rem;
+  font-weight: 600;
   letter-spacing: -0.01em;
   color: hsl(var(--foreground));
 }
 
 .specimen-tagline {
-  display: block;
   font-family: var(--font-sans);
-  font-size: 0.82rem;
+  font-size: 0.85rem;
   line-height: 1.5;
   color: hsl(var(--muted-foreground));
 }
 
 @media (hover: hover) and (pointer: fine) {
   .specimen:hover {
-    background: hsl(var(--foreground) / 0.02);
-  }
-
-  .specimen:hover .specimen-stage {
-    background-color: hsl(var(--foreground) / 0.015);
     border-color: var(--line2);
-  }
-
-  .specimen:hover .specimen-name {
-    text-decoration: underline;
-    text-underline-offset: 0.22em;
-    text-decoration-thickness: 1px;
+    background: var(--surface-hover);
+    transform: translateY(-2px);
   }
 }
 
-/* ── Install-type marker ─────────────────────────────────────────────────── */
-
-.install-marker {
-  flex-shrink: 0;
-  font-family: var(--font-sans);
-  font-size: 0.74rem;
-  white-space: nowrap;
-}
-
-.install-marker--registry {
-  color: hsl(var(--muted-foreground));
-}
-
-.install-marker--npm {
-  color: hsl(var(--foreground));
-}
-
-.install-marker--npm::after {
-  content: '';
-  display: inline-block;
-  width: 0.4em;
-  height: 0.4em;
-  margin-left: 0.45em;
-  border-radius: 50%;
-  background: currentColor;
-  vertical-align: 0.05em;
-}
-
-/* ── Mobile: editorial row list ──────────────────────────────────────────── */
+/* ── Mobile ──────────────────────────────────────────────────────────────── */
 
 @media (max-width: 640px) {
-  .specimen {
-    border-right: 0;
-  }
-
   .specimen-stage {
-    height: 8rem;
-  }
-
-  .specimen-caption {
-    padding: 0.85rem 0.25rem 1.1rem;
+    height: 9rem;
   }
 }
 
@@ -246,13 +157,13 @@
   gap: 0;
   width: var(--shell);
   margin: 0 auto;
-  padding: 6rem 0 6rem;
+  padding: 4.5rem 0 6rem;
 }
 
 @media (min-width: 60rem) {
   .detail {
     grid-template-columns: minmax(0, 1fr) 12rem;
-    gap: 3.5rem;
+    gap: 4rem;
   }
 }
 
@@ -260,22 +171,12 @@
   min-width: 0;
 }
 
-.detail-tier {
-  margin: 1.4rem 0 0;
-  font-family: var(--font-sans);
-  font-size: 0.72rem;
-  font-weight: 500;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: hsl(var(--muted-foreground));
-}
-
 .detail-title {
-  margin: 0.5rem 0 0;
+  margin: 0.75rem 0 0;
   font-family: var(--font-display);
-  font-size: clamp(2rem, 4vw, 2.75rem);
-  font-weight: 800;
-  letter-spacing: -0.02em;
+  font-size: clamp(1.9rem, 3.5vw, 2.4rem);
+  font-weight: 700;
+  letter-spacing: -0.025em;
 }
 
 .detail-tagline {
@@ -283,37 +184,35 @@
   font-family: var(--font-sans);
   font-size: 1.05rem;
   line-height: 1.6;
-  color: hsl(var(--foreground) / 0.66);
-}
-
-.detail-section {
-  margin-top: 3.5rem;
-  scroll-margin-top: 6rem;
-}
-
-.detail-section-label {
-  margin: 0 0 1.1rem;
-  font-family: var(--font-sans);
-  font-size: 0.72rem;
-  font-weight: 500;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
   color: hsl(var(--muted-foreground));
 }
 
-/* Preview frame — the one bordered box on the surface, because a live
-   component needs an edge to sit against. */
+/* Vertical rhythm + hairline dividers come from the global `section` rule
+   (48px padding + faint border-bottom); don't stack extra margin on top. */
+.detail-section {
+  scroll-margin-top: 6rem;
+}
+
+/* Section headings are plain sentence-case headings, not tracked eyebrows. */
+.detail-section-label {
+  margin: 0 0 1rem;
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: hsl(var(--foreground));
+}
+
+/* Preview frame — a clean rounded card the live component sits inside. */
 .preview-frame {
   position: relative;
   display: grid;
   place-items: center;
-  min-height: 15rem;
+  min-height: 16rem;
   padding: 2.5rem 2rem;
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  background-image: radial-gradient(circle, hsl(var(--grid)) 1px, transparent 1px);
-  background-size: 15px 15px;
-  background-position: center;
+  background: var(--surface);
 }
 
 .preview-frame--iframe {
@@ -340,7 +239,7 @@
   font-family: var(--font-code);
   font-size: 0.84rem;
   line-height: 1.6;
-  background: hsl(var(--foreground) / 0.025);
+  background: var(--surface);
 }
 
 .detail-credits {
@@ -359,11 +258,10 @@
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
-  margin-top: 1.25rem;
+  margin-top: 1.5rem;
   font-family: var(--font-sans);
-  font-size: 0.82rem;
-  color: hsl(var(--foreground) / 0.7);
-  border-bottom: 1px solid var(--line2);
+  font-size: 0.85rem;
+  color: hsl(var(--muted-foreground));
   transition: color 0.15s ease;
 }
 
@@ -371,13 +269,13 @@
   color: hsl(var(--foreground));
 }
 
-/* ── Prev / next (no animation — page navigation) ────────────────────────── */
+/* ── Prev / next ─────────────────────────────────────────────────────────── */
 
 .prevnext {
   display: flex;
   justify-content: space-between;
   gap: 1rem;
-  margin-top: 4rem;
+  margin-top: 3.5rem;
   padding-top: 1.5rem;
   border-top: 1px solid var(--line);
 }
@@ -385,9 +283,10 @@
 .prevnext-link {
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: 0.3rem;
   font-family: var(--font-sans);
-  font-size: 0.9rem;
+  font-size: 0.95rem;
+  font-weight: 500;
   color: hsl(var(--foreground));
   text-decoration: none;
   max-width: 48%;
@@ -399,10 +298,8 @@
 }
 
 .prevnext-dir {
-  font-size: 0.7rem;
-  font-weight: 500;
-  letter-spacing: 0.09em;
-  text-transform: uppercase;
+  font-size: 0.8rem;
+  font-weight: 400;
   color: hsl(var(--muted-foreground));
 }
 
@@ -413,7 +310,7 @@
 
 .breadcrumb {
   font-family: var(--font-sans);
-  font-size: 0.82rem;
+  font-size: 0.85rem;
   color: hsl(var(--muted-foreground));
 }
 
@@ -436,6 +333,7 @@
   gap: 0.9rem;
 }
 
+/* DecodeText is inherently monospace — it needs fixed-width glyph cells. */
 .decode-preview {
   font-family: var(--font-mono);
   font-size: clamp(1.1rem, 3vw, 1.6rem);
@@ -519,7 +417,7 @@
   padding: 0.7rem 0.7rem 0.7rem 1rem;
   border: 1px solid var(--line);
   border-radius: var(--radius-md);
-  background: hsl(var(--foreground) / 0.025);
+  background: var(--surface);
 }
 
 .copy-command-text {
@@ -629,6 +527,10 @@
     opacity: 1;
     transform: none;
     transition: opacity 0.3s ease;
+  }
+
+  .specimen:hover {
+    transform: none;
   }
 
   .install-tabs-layer--ink,

@@ -11,9 +11,8 @@ interface Props {
   index: number;
 }
 const { entry, index } = Astro.props;
-const { title, tagline, install, tier } = entry.data;
+const { title, tagline } = entry.data;
 const slug = entry.id;
-const plate = String(index + 1).padStart(2, '0');
 
 const mascotSvg = gridToSvg(PEEK_BASE.base, PEEK_BASE.width, PEEK_BASE.height, {
   fg: 'currentColor',
@@ -59,14 +58,7 @@ const mascotSvg = gridToSvg(PEEK_BASE.base, PEEK_BASE.width, PEEK_BASE.height, {
   </div>
 
   <div class="specimen-caption">
-    <div class="specimen-rail">
-      <span class="specimen-plate">N&deg;{plate}</span>
-      <span class="specimen-tier">{tier}</span>
-      <span class:list={['install-marker', `install-marker--${install.type}`]}>
-        {install.type === 'npm' ? 'npm' : 'registry'}
-      </span>
-    </div>
-    <span class="specimen-name">{slug}</span>
+    <span class="specimen-name">{title}</span>
     <span class="specimen-tagline">{tagline}</span>
   </div>
 </a>
