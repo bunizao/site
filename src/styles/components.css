@@ -22,24 +22,8 @@
   --shell: min(72rem, 100% - 2rem);
 }
 
-/* ── Ambient dot grid (index canvas only) ───────────────────────────────── */
-
-.components--index {
-  position: relative;
-  isolation: isolate;
-}
-
-.components--index::before {
-  content: '';
-  position: fixed;
-  inset: 0;
-  z-index: -1;
-  background-image: radial-gradient(circle, hsl(var(--grid)) 1px, transparent 1px);
-  background-size: 26px 26px;
-  mask-image: radial-gradient(ellipse 90% 70% at 50% 30%, #000 40%, transparent 100%);
-  -webkit-mask-image: radial-gradient(ellipse 90% 70% at 50% 30%, #000 40%, transparent 100%);
-  pointer-events: none;
-}
+/* The dot grid lives inside each specimen stage (below), never across the whole
+   page — confined it reads as a measured pedestal, spread it reads as dirt. */
 
 /* ── Page frame ──────────────────────────────────────────────────────────── */
 
@@ -104,8 +88,7 @@
   position: relative;
   display: flex;
   flex-direction: column;
-  min-height: 15rem;
-  padding: 2rem 1.75rem 0;
+  padding: 0;
   border-bottom: 1px solid var(--line);
   border-right: 1px solid var(--line);
   text-decoration: none;
@@ -128,34 +111,63 @@
     transform 0.45s var(--ease-out) calc(var(--i, 0) * 50ms);
 }
 
+/* The stage is the mounted specimen: the component rests on a measured dot
+   field with a hairline ground line, sized so it never floats in a void. */
 .specimen-stage {
-  flex: 1;
   display: grid;
   place-items: center;
-  padding: 0.5rem 0 2rem;
+  height: 9.5rem;
+  padding: 1.25rem;
+  border-bottom: 1px solid var(--line);
+  background-image: radial-gradient(circle, hsl(var(--grid)) 1px, transparent 1px);
+  background-size: 15px 15px;
+  background-position: center;
+  overflow: hidden;
   pointer-events: none;
+  transition: background-color 0.2s var(--ease-out);
 }
 
 .specimen-caption {
   display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 1rem;
-  padding: 0.85rem 0;
-  border-top: 1px solid var(--line);
+  flex-direction: column;
+  gap: 0.3rem;
+  padding: 0.95rem 1.25rem 1.15rem;
+}
+
+/* Mono metadata rail: plate number · tier · install channel. Surfaces the
+   classification the schema carries but the old caption dropped. */
+.specimen-rail {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
   font-family: var(--font-mono);
-  font-size: 0.78rem;
-  transition: border-color 0.12s ease;
+  font-size: 0.68rem;
+  letter-spacing: 0.04em;
+  color: hsl(var(--muted-foreground));
+}
+
+.specimen-plate {
+  color: hsl(var(--foreground) / 0.85);
+}
+
+.specimen-tier {
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
+
+.specimen-rail .install-marker {
+  margin-left: auto;
 }
 
 .specimen-name {
-  color: hsl(var(--foreground));
+  font-family: var(--font-mono);
+  font-size: 0.92rem;
   letter-spacing: -0.01em;
+  color: hsl(var(--foreground));
 }
 
 .specimen-tagline {
   display: block;
-  margin-top: 0.2rem;
   font-family: var(--font-sans);
   font-size: 0.82rem;
   line-height: 1.5;
@@ -164,11 +176,18 @@
 
 @media (hover: hover) and (pointer: fine) {
   .specimen:hover {
-    background: hsl(var(--foreground) / 0.015);
+    background: hsl(var(--foreground) / 0.02);
   }
 
-  .specimen:hover .specimen-caption {
+  .specimen:hover .specimen-stage {
+    background-color: hsl(var(--foreground) / 0.015);
     border-color: var(--line2);
+  }
+
+  .specimen:hover .specimen-name {
+    text-decoration: underline;
+    text-underline-offset: 0.22em;
+    text-decoration-thickness: 1px;
   }
 }
 
@@ -177,7 +196,7 @@
 .install-marker {
   flex-shrink: 0;
   font-family: var(--font-mono);
-  font-size: 0.72rem;
+  font-size: 0.68rem;
   letter-spacing: 0.02em;
   white-space: nowrap;
 }
@@ -204,34 +223,16 @@
 /* ── Mobile: editorial row list ──────────────────────────────────────────── */
 
 @media (max-width: 640px) {
-  .specimen-grid {
-    display: block;
-  }
-
   .specimen {
-    flex-direction: row;
-    align-items: center;
-    gap: 1.25rem;
-    min-height: 0;
-    padding: 1.25rem 0.25rem;
     border-right: 0;
   }
 
   .specimen-stage {
-    order: 2;
-    flex: 0 0 6.5rem;
-    height: 4rem;
-    padding: 0;
+    height: 8rem;
   }
 
   .specimen-caption {
-    order: 1;
-    flex: 1;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 0.15rem;
-    padding: 0;
-    border-top: 0;
+    padding: 0.85rem 0.25rem 1.1rem;
   }
 }
 
@@ -257,8 +258,17 @@
   min-width: 0;
 }
 
+.detail-tier {
+  margin: 1.4rem 0 0;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: hsl(var(--muted-foreground));
+}
+
 .detail-title {
-  margin: 0.6rem 0 0;
+  margin: 0.5rem 0 0;
   font-family: var(--font-display);
   font-size: clamp(2rem, 4vw, 2.75rem);
   font-weight: 800;
@@ -293,12 +303,13 @@
   position: relative;
   display: grid;
   place-items: center;
-  min-height: 18rem;
-  padding: 3rem 2rem;
+  min-height: 15rem;
+  padding: 2.5rem 2rem;
   border: 1px solid var(--line);
   border-radius: var(--radius);
   background-image: radial-gradient(circle, hsl(var(--grid)) 1px, transparent 1px);
-  background-size: 22px 22px;
+  background-size: 15px 15px;
+  background-position: center;
 }
 
 .preview-frame--iframe {

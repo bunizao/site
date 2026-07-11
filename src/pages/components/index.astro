@@ -62,5 +62,9 @@ const description =
       { threshold: 0.1, rootMargin: '0px 0px -8% 0px' }
     );
     cells.forEach((el) => io.observe(el));
+
+    // Fail-safe: if the observer never fires (backgrounded tab, edge cases),
+    // reveal everything after a beat so the grid can't get stuck invisible.
+    setTimeout(() => cells.forEach(reveal), 1500);
   })();
 </script>
