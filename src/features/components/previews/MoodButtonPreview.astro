@@ -18,83 +18,18 @@ const actions = [
 ];
 ---
 
-<div class="updbtn" data-updbtn>
+<div class="updbtn">
   {
     actions.map((action) => (
-      <button type="button" class="updbtn-action" data-updbtn-action aria-label={action.title}>
-        <span class="updbtn-icon" aria-hidden="true">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <Fragment set:html={action.icon} />
-          </svg>
-        </span>
-        <span class="updbtn-label">{action.label}</span>
+      <button type="button" class="header-action-btn" aria-label={action.title}>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <Fragment set:html={action.icon} />
+        </svg>
+        <span class="header-action-btn-label">{action.label}</span>
       </button>
     ))
   }
 </div>
-
-<script>
-  import gsap from 'gsap';
-
-  document.querySelectorAll<HTMLElement>('[data-updbtn]').forEach((root) => {
-    if (root.dataset.bound === 'true') return;
-    root.dataset.bound = 'true';
-
-    root.querySelectorAll<HTMLElement>('[data-updbtn-action]').forEach((button) => {
-      const label = button.querySelector<HTMLElement>('.updbtn-label');
-      if (!label) return;
-
-      label.style.maxWidth = 'none';
-      label.style.opacity = '1';
-      const labelWidth = label.scrollWidth;
-      label.style.maxWidth = '0';
-      label.style.opacity = '0';
-
-      const open = () => {
-        button.classList.add('is-hovered');
-        gsap.killTweensOf([button, label]);
-        gsap.to(button, {
-          width: 32 + labelWidth + 14,
-          paddingLeft: 10,
-          paddingRight: 10,
-          duration: 0.3,
-          ease: 'power2.out',
-        });
-        gsap.to(label, {
-          maxWidth: labelWidth + 2,
-          opacity: 1,
-          duration: 0.25,
-          delay: 0.08,
-          ease: 'power2.out',
-        });
-      };
-
-      const close = () => {
-        button.classList.remove('is-hovered');
-        gsap.killTweensOf([button, label]);
-        gsap.to(label, {
-          maxWidth: 0,
-          opacity: 0,
-          duration: 0.15,
-          ease: 'power2.in',
-        });
-        gsap.to(button, {
-          width: 32,
-          paddingLeft: 0,
-          paddingRight: 0,
-          duration: 0.25,
-          delay: 0.05,
-          ease: 'power2.inOut',
-        });
-      };
-
-      button.addEventListener('pointerenter', open);
-      button.addEventListener('pointerleave', close);
-      button.addEventListener('focus', open);
-      button.addEventListener('blur', close);
-    });
-  });
-</script>
 
 <style>
   .updbtn {
@@ -107,78 +42,4 @@ const actions = [
     font-family: var(--font-sans);
   }
 
-  .updbtn-action {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0;
-    width: 32px;
-    height: 32px;
-    min-width: 32px;
-    padding: 0;
-    font: inherit;
-    font-size: 11px;
-    font-weight: 450;
-    letter-spacing: 0.01em;
-    color: hsl(var(--muted-foreground));
-    background: hsl(var(--background) / 0.8);
-    border: 1px solid hsl(var(--foreground) / 0.08);
-    border-radius: 8px;
-    cursor: pointer;
-    overflow: hidden;
-    backdrop-filter: blur(8px);
-    transition:
-      gap 0.2s ease,
-      color 0.2s ease,
-      background 0.2s ease,
-      border-color 0.2s ease;
-  }
-
-  .updbtn-action.is-hovered {
-    gap: 6px;
-    padding-inline: 10px;
-    color: hsl(var(--foreground));
-    background: hsl(var(--foreground) / 0.05);
-    border-color: hsl(var(--foreground) / 0.15);
-  }
-
-  .updbtn-action:active {
-    scale: 0.96;
-  }
-
-  .updbtn-action:focus-visible {
-    outline: 2px solid hsl(var(--foreground) / 0.35);
-    outline-offset: 2px;
-  }
-
-  .updbtn-icon {
-    display: inline-flex;
-    flex: none;
-  }
-
-  .updbtn-icon svg {
-    width: 14px;
-    height: 14px;
-  }
-
-  .updbtn-label {
-    display: inline-block;
-    max-width: 0;
-    overflow: hidden;
-    opacity: 0;
-    white-space: nowrap;
-    font-family: var(--font-sans);
-    font-size: 10px;
-    font-weight: 550;
-    letter-spacing: 0.02em;
-    line-height: 1;
-  }
-
-  .updbtn-action.is-hovered .updbtn-label {
-    opacity: 1;
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .updbtn-action { transition: none; }
-  }
 </style>
