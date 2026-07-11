@@ -688,7 +688,7 @@
   display: block;
 }
 
-/* Tonearm — SVG, rests up-left, swings onto the record on hover/play. */
+/* Tonearm — SVG, always resting on the deck. */
 .blog-prose .blog-music__tonearm {
   position: absolute;
   inset: 0;
@@ -697,8 +697,10 @@
   overflow: visible;
   pointer-events: none;
   color: hsl(0 0% 96%);
-  filter: drop-shadow(0 1px 1px hsl(0 0% 0% / 0.55));
-  opacity: 0;
+  filter:
+    drop-shadow(0 1px 1px hsl(0 0% 0% / 0.58))
+    drop-shadow(0 0 1px hsl(var(--foreground) / 0.7));
+  opacity: 0.86;
   transition: opacity 0.3s ease;
   z-index: 5;
 }
@@ -706,7 +708,7 @@
 .blog-prose .blog-music__art:hover:not(:disabled) .blog-music__tonearm,
 .blog-prose .blog-music__art:focus-visible:not(:disabled) .blog-music__tonearm,
 .blog-prose .blog-music.is-playing .blog-music__tonearm {
-  opacity: 0.92;
+  opacity: 1;
 }
 
 .blog-prose .blog-music__tonearm-arm {
