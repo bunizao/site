@@ -302,6 +302,7 @@ function StoryGallery({
   vw,
   compact,
   origin,
+  dark,
 }: {
   index: number;
   setIndex: (n: number) => void;
@@ -309,6 +310,7 @@ function StoryGallery({
   vw: number;
   compact: boolean;
   origin: GalleryOrigin | null;
+  dark: boolean;
 }) {
   const reduce = useReducedMotion();
   const count = projects.length;
@@ -616,7 +618,7 @@ function StoryGallery({
       role="dialog"
       aria-modal="true"
       aria-label="Project gallery"
-      className="fixed inset-0 z-[100] overflow-hidden"
+      className={cn("fixed inset-0 z-[100] overflow-hidden", dark && "dark")}
       style={{ overscrollBehavior: "none" }}
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
@@ -1010,6 +1012,9 @@ export default function ProjectStack({ className }: { className?: string }) {
   const [galleryOrigin, setGalleryOrigin] = useState<GalleryOrigin | null>(
     null,
   );
+  // Theme the gallery launched from — carried onto its body-portaled root so the
+  // expanded view isn't stranded light when `.dark` sits below <body>.
+  const [galleryDark, setGalleryDark] = useState(false);
   // The card currently being dealt to the back, so we can give it the lift arc
   // and float it above the rest while it travels.
   const [leavingId, setLeavingId] = useState<string | null>(null);
@@ -1053,6 +1058,11 @@ export default function ProjectStack({ className }: { className?: string }) {
   const promote = (id: string) =>
     setOrder((o) => [id, ...o.filter((x) => x !== id)]);
   const openGallery = (id: string) => {
+    // The gallery portals to document.body, so it escapes any local `.dark`
+    // wrapper (on this page `.dark` lives on <main>, not <html>). Snapshot the
+    // deck's own resolved theme here and carry it onto the portal root, so the
+    // expanded view matches the surface it launched from everywhere.
+    setGalleryDark(!!regionRef.current?.closest(".dark"));
     // Snapshot the front card's viewport rect before the body locks — the
     // gallery uses it as the shared-element origin to grow out of the deck.
     const node = regionRef.current?.querySelector(
@@ -1393,6 +1403,7 @@ export default function ProjectStack({ className }: { className?: string }) {
             vw={vw}
             compact={compact}
             origin={galleryOrigin}
+            dark={galleryDark}
           />
         )}
       </AnimatePresence>
