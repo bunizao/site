@@ -40,9 +40,10 @@
 
 .components-kicker {
   margin: 0 0 1rem;
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: 0.72rem;
-  letter-spacing: 0.16em;
+  font-weight: 500;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
   color: hsl(var(--muted-foreground));
 }
@@ -139,20 +140,21 @@
 .specimen-rail {
   display: flex;
   align-items: center;
-  gap: 0.65rem;
-  font-family: var(--font-mono);
-  font-size: 0.68rem;
-  letter-spacing: 0.04em;
+  gap: 0.6rem;
+  font-family: var(--font-sans);
+  font-size: 0.74rem;
   color: hsl(var(--muted-foreground));
 }
 
 .specimen-plate {
+  font-variant-numeric: tabular-nums;
   color: hsl(var(--foreground) / 0.85);
 }
 
 .specimen-tier {
+  font-weight: 500;
   text-transform: uppercase;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.09em;
 }
 
 .specimen-rail .install-marker {
@@ -160,8 +162,9 @@
 }
 
 .specimen-name {
-  font-family: var(--font-mono);
-  font-size: 0.92rem;
+  font-family: var(--font-sans);
+  font-size: 1rem;
+  font-weight: 550;
   letter-spacing: -0.01em;
   color: hsl(var(--foreground));
 }
@@ -195,9 +198,8 @@
 
 .install-marker {
   flex-shrink: 0;
-  font-family: var(--font-mono);
-  font-size: 0.68rem;
-  letter-spacing: 0.02em;
+  font-family: var(--font-sans);
+  font-size: 0.74rem;
   white-space: nowrap;
 }
 
@@ -260,9 +262,10 @@
 
 .detail-tier {
   margin: 1.4rem 0 0;
-  font-family: var(--font-mono);
-  font-size: 0.7rem;
-  letter-spacing: 0.16em;
+  font-family: var(--font-sans);
+  font-size: 0.72rem;
+  font-weight: 500;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
   color: hsl(var(--muted-foreground));
 }
@@ -290,9 +293,10 @@
 
 .detail-section-label {
   margin: 0 0 1.1rem;
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: 0.72rem;
-  letter-spacing: 0.16em;
+  font-weight: 500;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
   color: hsl(var(--muted-foreground));
 }
@@ -356,8 +360,8 @@
   align-items: center;
   gap: 0.4rem;
   margin-top: 1.25rem;
-  font-family: var(--font-mono);
-  font-size: 0.78rem;
+  font-family: var(--font-sans);
+  font-size: 0.82rem;
   color: hsl(var(--foreground) / 0.7);
   border-bottom: 1px solid var(--line2);
   transition: color 0.15s ease;
@@ -382,8 +386,8 @@
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
-  font-family: var(--font-mono);
-  font-size: 0.82rem;
+  font-family: var(--font-sans);
+  font-size: 0.9rem;
   color: hsl(var(--foreground));
   text-decoration: none;
   max-width: 48%;
@@ -396,7 +400,8 @@
 
 .prevnext-dir {
   font-size: 0.7rem;
-  letter-spacing: 0.1em;
+  font-weight: 500;
+  letter-spacing: 0.09em;
   text-transform: uppercase;
   color: hsl(var(--muted-foreground));
 }
@@ -407,8 +412,8 @@
 }
 
 .breadcrumb {
-  font-family: var(--font-mono);
-  font-size: 0.76rem;
+  font-family: var(--font-sans);
+  font-size: 0.82rem;
   color: hsl(var(--muted-foreground));
 }
 
@@ -479,9 +484,9 @@
   padding: 0.35rem 0.7rem;
   border: 0;
   background: none;
-  font-family: var(--font-mono);
-  font-size: 0.8rem;
-  letter-spacing: 0.01em;
+  font-family: var(--font-sans);
+  font-size: 0.85rem;
+  font-weight: 500;
   cursor: pointer;
   color: hsl(var(--muted-foreground));
 }
@@ -605,8 +610,9 @@
   border-radius: var(--radius-sm);
   background: hsl(var(--foreground));
   color: hsl(var(--background));
-  font-family: var(--font-mono);
-  font-size: 0.68rem;
+  font-family: var(--font-sans);
+  font-size: 0.7rem;
+  font-weight: 500;
   white-space: nowrap;
   pointer-events: none;
 }
