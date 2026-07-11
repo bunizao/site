@@ -7,7 +7,16 @@ const paths = (process.env.LHCI_PATHS || '/,/mood,/blog/')
 const urls = paths.map((path) => new URL(path, deploymentUrl).toString());
 
 const settings = {
-  chromeFlags: '--headless=new --no-sandbox',
+  // Headless Chrome can otherwise throttle renderer frames as if the audit tab
+  // were backgrounded. That creates exact one-second paint stalls on GitHub
+  // runners and turns the same deployment into alternating green/red medians.
+  chromeFlags: [
+    '--headless=new',
+    '--no-sandbox',
+    '--disable-background-timer-throttling',
+    '--disable-backgrounding-occluded-windows',
+    '--disable-renderer-backgrounding',
+  ].join(' '),
 };
 
 module.exports = {

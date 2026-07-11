@@ -81,11 +81,17 @@ describe('Cloudflare runtime configuration', () => {
     expect(lighthouseWorkflow).toContain('Wait for Cloudflare production deploy');
     expect(lighthouseWorkflow).toContain('node-version-file: .node-version');
     expect(lighthouseWorkflow).toContain('branches: [main]');
+    expect(lighthouseWorkflow).toContain('Resolve Lighthouse tracker policy');
+    expect(lighthouseWorkflow).toContain("steps.tracker.outputs.notify_anomaly == 'true'");
+    expect(lighthouseWorkflow).toContain("steps.tracker.outputs.close_recovery == 'true'");
     expect(lighthouseWorkflow).toContain("if (issue.state === 'open')");
     expect(lighthouseWorkflow).toContain('skipped duplicate notification');
     expect(lighthouseWorkflow).toContain("if (issue.state === 'closed')");
     expect(lighthouseWorkflow).toContain('skipped duplicate recovery notification');
     expect(lighthouseConfig).toContain("'/,/mood,/blog/'");
+    expect(lighthouseConfig).toContain('--disable-background-timer-throttling');
+    expect(lighthouseConfig).toContain('--disable-backgrounding-occluded-windows');
+    expect(lighthouseConfig).toContain('--disable-renderer-backgrounding');
     expect(lighthouseWorkflow).not.toContain('deployment_status:');
     expect(lighthouseWorkflow).not.toContain('github.event.deployment');
   });
