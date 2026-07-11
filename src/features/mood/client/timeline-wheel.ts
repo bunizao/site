@@ -5,14 +5,20 @@ import { getTimelineDateState } from '@/features/mood/client/timeline-date-track
 
 type GsapModule = typeof gsap;
 
-export function initMoodTimelineWheel(): void {
-  const wheel = document.querySelector('[data-timeline-wheel]') as HTMLElement | null;
-  const dial = document.querySelector('[data-timeline-dial]') as HTMLElement | null;
-  const label = document.querySelector('[data-timeline-label]') as HTMLElement | null;
-  const feedEl = document.querySelector('[data-mood-feed]') as HTMLElement | null;
-  const list = document.querySelector('[data-mood-list]') as HTMLElement | null;
+interface TimelineWheelDependencies {
+  feed: HTMLElement;
+  list: HTMLElement;
+}
 
-  if (!wheel || !dial || !label || !feedEl || !list) return;
+export function mountTimelineWheel(
+  root: HTMLElement,
+  { feed: feedEl, list }: TimelineWheelDependencies
+): () => void {
+  const wheel = root;
+  const dial = wheel.querySelector('[data-timeline-dial]') as HTMLElement | null;
+  const label = wheel.querySelector('[data-timeline-label]') as HTMLElement | null;
+
+  if (!dial || !label) return () => {};
 
   const isDesktop = (): boolean => window.innerWidth >= 1024;
   const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -20,9 +26,10 @@ export function initMoodTimelineWheel(): void {
   // The wheel doubles as a back-to-top control: clicking it returns to the
   // feed top, and the existing scroll sync winds the dial back as you go.
   const topButton = wheel.querySelector('[data-timeline-top]') as HTMLButtonElement | null;
-  topButton?.addEventListener('click', () => {
+  const handleTopClick = (): void => {
     window.scrollTo({ top: 0, behavior: prefersReducedMotion ? 'auto' : 'smooth' });
-  });
+  };
+  topButton?.addEventListener('click', handleTopClick);
 
   // The readout is a slot-text display: the active date rolls in as you scroll
   // down, and rolls to "↑ TOP" to expose the back-to-top role — on hover, and
@@ -85,14 +92,16 @@ export function initMoodTimelineWheel(): void {
     if (next && !isHoveringWheel) pulseWheelHint();
   };
 
-  wheel.addEventListener('mouseenter', () => {
+  const handleMouseEnter = (): void => {
     isHoveringWheel = true;
     renderReadout();
-  });
-  wheel.addEventListener('mouseleave', () => {
+  };
+  const handleMouseLeave = (): void => {
     isHoveringWheel = false;
     renderReadout();
-  });
+  };
+  wheel.addEventListener('mouseenter', handleMouseEnter);
+  wheel.addEventListener('mouseleave', handleMouseLeave);
 
   let dateGroups: HTMLElement[] = [];
   let notches: HTMLElement[] = [];
@@ -117,6 +126,9 @@ export function initMoodTimelineWheel(): void {
   let loadingTickActive = false;
   let loadedGsap: GsapModule | null = null;
   let gsapPromise: Promise<GsapModule> | null = null;
+  let resizeTimer = 0;
+  let contentObserver: MutationObserver | null = null;
+  let feedClassObserver: MutationObserver | null = null;
 
   const NOTCHES_PER_DATE = 6;
   const ANGLE_PER_NOTCH = 4;
@@ -638,10 +650,11 @@ export function initMoodTimelineWheel(): void {
     }
   };
 
-  window.addEventListener('resize', () => {
-    clearTimeout((window as any)._wheelResizeTimer);
-    (window as any)._wheelResizeTimer = setTimeout(handleResize, 100);
-  });
+  const handleWindowResize = (): void => {
+    clearTimeout(resizeTimer);
+    resizeTimer = window.setTimeout(handleResize, 100);
+  };
+  window.addEventListener('resize', handleWindowResize);
 
   const loadingStateObserver = new MutationObserver(() => {
     syncLoadingSpinState();
@@ -663,7 +676,7 @@ export function initMoodTimelineWheel(): void {
     rebuildWheel();
     syncLoadingSpinState();
 
-    const contentObserver = new MutationObserver(() => {
+    contentObserver = new MutationObserver(() => {
       scheduleWheelSync();
     });
     contentObserver.observe(list, { childList: true, subtree: true });
@@ -672,12 +685,32 @@ export function initMoodTimelineWheel(): void {
   if (!feedStartsHidden) {
     onFeedReady();
   } else {
-    const feedClassObserver = new MutationObserver(() => {
+    const observer = new MutationObserver(() => {
       if (!feedEl.classList.contains('is-hidden')) {
-        feedClassObserver.disconnect();
+        observer.disconnect();
+        feedClassObserver = null;
         onFeedReady();
       }
     });
+    feedClassObserver = observer;
     feedClassObserver.observe(feedEl, { attributes: true, attributeFilter: ['class'] });
   }
+
+  return () => {
+    topButton?.removeEventListener('click', handleTopClick);
+    wheel.removeEventListener('mouseenter', handleMouseEnter);
+    wheel.removeEventListener('mouseleave', handleMouseLeave);
+    window.removeEventListener('resize', handleWindowResize);
+    clearTimeout(resizeTimer);
+    destroyScrollSync();
+    destroyLoadingAnimation();
+    loadingStateObserver.disconnect();
+    contentObserver?.disconnect();
+    feedClassObserver?.disconnect();
+    roll?.destroy();
+
+    if (animationId !== 0) cancelAnimationFrame(animationId);
+    if (anchorRefreshRaf !== 0) cancelAnimationFrame(anchorRefreshRaf);
+    if (wheelSyncRaf !== 0) cancelAnimationFrame(wheelSyncRaf);
+  };
 }

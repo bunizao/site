@@ -2211,13 +2211,3 @@ const skeletonGroups = [
 
   initMoodFeedController();
 </script>
-
-<script>
-  import { initMoodTimelineWheel } from '@/features/mood/client/timeline-wheel';
-
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initMoodTimelineWheel);
-  } else {
-    initMoodTimelineWheel();
-  }
-</script>

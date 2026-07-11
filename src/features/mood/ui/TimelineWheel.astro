@@ -446,3 +446,17 @@
     }
   }
 </style>
+
+<script>
+  import { mountTimelineWheel } from '@/features/mood/client/timeline-wheel';
+
+  document.querySelectorAll('[data-timeline-wheel]').forEach((root) => {
+    const habitat = root.closest('main');
+    const feed = habitat?.querySelector('[data-mood-feed]');
+    const list = habitat?.querySelector('[data-mood-list]');
+
+    if (root instanceof HTMLElement && feed instanceof HTMLElement && list instanceof HTMLElement) {
+      mountTimelineWheel(root, { feed, list });
+    }
+  });
+</script>
