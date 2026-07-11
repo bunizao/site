@@ -1,0 +1,340 @@
+---
+import '@/styles/globals.css';
+
+export const prerender = true;
+
+// Self-contained specimen of the blog's mobile reading topbar + TOC. Rebuilt
+// minimal, NOT the real TableOfContents (which reads a live article's <h2>/<h3>
+// and portals to <body>). Here: a fixed frosted bar with a title button that
+// pulls down a glass dropdown, a springy "jump" pill that tracks the active
+// heading, and scroll-spy over invented sections. Everything the tile shows —
+// the glass pull-down and the jumping pill — is genuine behaviour on mock copy.
+const sections = [
+  { id: 's1', title: 'Opening' },
+  { id: 's2', title: 'The core idea' },
+  { id: 's3', title: 'How it holds up' },
+  { id: 's4', title: 'Edges and trade-offs' },
+  { id: 's5', title: 'Where it goes next' },
+];
+---
+
+<!doctype html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width" />
+    <title>Mobile TOC preview</title>
+  </head>
+  <body>
+    <div class="topbar" data-topbar>
+      <div class="topbar-fade" aria-hidden="true"></div>
+      <div class="topbar-bar">
+        <span class="topbar-logo" aria-hidden="true">無</span>
+        <button class="topbar-title" type="button" data-topbar-toggle aria-haspopup="true" aria-expanded="false" aria-controls="toc-menu">
+          <span class="topbar-title-text" data-topbar-current>Opening</span>
+          <svg class="topbar-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="m6 9 6 6 6-6" />
+          </svg>
+        </button>
+        <button class="topbar-totop" type="button" data-topbar-totop aria-label="Back to top">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M12 19V5M5 12l7-7 7 7" />
+          </svg>
+        </button>
+      </div>
+      <div class="topbar-menu" id="toc-menu" role="menu" data-topbar-panel>
+        <div class="topbar-pill" data-topbar-pill aria-hidden="true"></div>
+        <ul class="topbar-list" data-topbar-list>
+          {sections.map((s) => (
+            <li><a class="topbar-link" role="menuitem" href={`#${s.id}`} data-topbar-item={s.id}>{s.title}</a></li>
+          ))}
+        </ul>
+      </div>
+    </div>
+
+    <main class="doc">
+      {sections.map((s, i) => (
+        <section id={s.id} class="doc-section" data-doc-section={s.id}>
+          <h2>{s.title}</h2>
+          <p>{'A short passage of placeholder prose, just enough to give the scroll something to travel through so the active heading advances and the pill jumps. '.repeat(i === 0 ? 2 : 3)}</p>
+        </section>
+      ))}
+      <div class="doc-tail"></div>
+    </main>
+
+    <script>
+      const bar = document.querySelector<HTMLElement>('[data-topbar]');
+      const toggle = document.querySelector<HTMLElement>('[data-topbar-toggle]');
+      const panel = document.querySelector<HTMLElement>('[data-topbar-panel]');
+      const pill = document.querySelector<HTMLElement>('[data-topbar-pill]');
+      const list = document.querySelector<HTMLElement>('[data-topbar-list]');
+      const current = document.querySelector<HTMLElement>('[data-topbar-current]');
+      const totop = document.querySelector<HTMLElement>('[data-topbar-totop]');
+      const links = Array.from(document.querySelectorAll<HTMLElement>('[data-topbar-item]'));
+      const heads = Array.from(document.querySelectorAll<HTMLElement>('[data-doc-section]'));
+
+      if (bar && toggle && panel && pill && list && current) {
+        let open = false;
+        let active = -1;
+
+        // Spring the pill to whichever link is active (or hovered), matching the
+        // real TOC's cubic-bezier overshoot.
+        const movePill = (el: HTMLElement | null) => {
+          if (!el) { pill.style.opacity = '0'; return; }
+          const r = el.getBoundingClientRect();
+          const p = list.getBoundingClientRect();
+          pill.style.opacity = '1';
+          pill.style.transform = `translateY(${r.top - p.top}px)`;
+          pill.style.height = `${r.height}px`;
+        };
+
+        const setOpen = (next: boolean) => {
+          open = next;
+          bar.classList.toggle('menu-open', open);
+          toggle.setAttribute('aria-expanded', String(open));
+          if (open) movePill(links[Math.max(0, active)] ?? links[0]);
+        };
+
+        toggle.addEventListener('click', () => setOpen(!open));
+        totop?.addEventListener('click', () =>
+          window.scrollTo({ top: 0, behavior: 'smooth' })
+        );
+
+        links.forEach((link) => {
+          link.addEventListener('mouseenter', () => open && movePill(link));
+          link.addEventListener('click', (e) => {
+            e.preventDefault();
+            const id = link.dataset.topbarItem!;
+            document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            setOpen(false);
+          });
+        });
+        list.addEventListener('mouseleave', () => open && movePill(links[Math.max(0, active)] ?? null));
+
+        // Scroll-spy: the last heading whose top has crossed the reading line is
+        // active. Updates the centre title and, when open, jumps the pill.
+        let raf = 0;
+        const update = () => {
+          raf = 0;
+          const line = window.scrollY + 80;
+          let next = 0;
+          heads.forEach((h, i) => { if (h.offsetTop <= line) next = i; });
+          if (next !== active) {
+            active = next;
+            links.forEach((l, i) => l.classList.toggle('active', i === active));
+            if (!open) current.textContent = heads[active]?.querySelector('h2')?.textContent ?? '';
+            if (open) movePill(links[active]);
+          }
+        };
+        update();
+        window.addEventListener('scroll', () => { if (!raf) raf = requestAnimationFrame(update); }, { passive: true });
+      }
+    </script>
+  </body>
+</html>
+
+<style>
+  :global(html) { color-scheme: dark; }
+  :global(body) {
+    margin: 0;
+    color: hsl(var(--foreground));
+    background: hsl(var(--background));
+    font-family: var(--font-sans);
+    --accent: 210 90% 66%;
+  }
+
+  /* ── Frosted reading bar ──────────────────────────────────────────────── */
+  .topbar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 55;
+    padding-bottom: 40px;
+    pointer-events: none;
+  }
+
+  .topbar-fade {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: linear-gradient(to bottom, hsl(var(--background) / 0.6), hsl(var(--background) / 0.3));
+    backdrop-filter: blur(18px) saturate(1.6);
+    -webkit-backdrop-filter: blur(18px) saturate(1.6);
+    -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 44px), transparent);
+    mask-image: linear-gradient(to bottom, #000 calc(100% - 44px), transparent);
+  }
+
+  .topbar-bar {
+    position: relative;
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    gap: 10px;
+    height: 52px;
+    padding: 0 14px;
+    pointer-events: none;
+  }
+
+  .topbar-logo,
+  .topbar-title,
+  .topbar-totop { pointer-events: auto; }
+
+  .topbar-logo {
+    display: inline-grid;
+    place-items: center;
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
+    background: hsl(var(--foreground) / 0.06);
+    font-size: 15px;
+    font-weight: 600;
+  }
+
+  .topbar-title {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    justify-self: center;
+    max-width: min(58vw, 220px);
+    margin: 0;
+    padding: 6px 6px;
+    border: 0;
+    background: none;
+    font: inherit;
+    font-size: 14px;
+    font-weight: 500;
+    color: hsl(var(--foreground));
+    cursor: pointer;
+  }
+
+  .topbar-title-text {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .topbar-chevron {
+    width: 15px;
+    height: 15px;
+    flex: none;
+    color: hsl(var(--muted-foreground));
+    transition: transform 0.2s ease;
+  }
+
+  .topbar.menu-open .topbar-chevron { transform: rotate(180deg); }
+
+  .topbar-totop {
+    display: inline-grid;
+    place-items: center;
+    justify-self: end;
+    width: 32px;
+    height: 32px;
+    border: 0;
+    background: none;
+    color: hsl(var(--muted-foreground));
+    cursor: pointer;
+  }
+  .topbar-totop svg { width: 17px; height: 17px; }
+
+  /* ── Glass pull-down ──────────────────────────────────────────────────── */
+  .topbar-menu {
+    position: relative;
+    max-height: 0;
+    overflow: hidden;
+    padding: 0 10px;
+    pointer-events: auto;
+    opacity: 0;
+    transition:
+      max-height 0.3s cubic-bezier(0.32, 0.72, 0, 1),
+      padding 0.3s cubic-bezier(0.32, 0.72, 0, 1),
+      opacity 0.2s ease;
+  }
+
+  .topbar.menu-open .topbar-menu {
+    max-height: 320px;
+    padding: 4px 10px 8px;
+    opacity: 1;
+  }
+
+  .topbar-list {
+    position: relative;
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    margin: 0;
+    padding: 0;
+  }
+
+  /* The jumping pill: JS sets transform (top) + height; the spring is here. */
+  .topbar-pill {
+    position: absolute;
+    top: 0;
+    left: 50%;
+    width: min(72%, 15rem);
+    height: 0;
+    border-radius: 9px;
+    background: hsl(var(--accent) / 0.16);
+    opacity: 0;
+    pointer-events: none;
+    z-index: 0;
+    transform: translateY(0);
+    margin-left: calc(min(72%, 15rem) / -2);
+    transition:
+      transform 0.46s cubic-bezier(0.25, 1.22, 0.45, 1.04),
+      height 0.46s cubic-bezier(0.25, 1.22, 0.45, 1.04),
+      opacity 0.22s ease;
+  }
+
+  .topbar-link {
+    position: relative;
+    z-index: 1;
+    display: inline-block;
+    max-width: 100%;
+    padding: 8px 14px;
+    border-radius: 9px;
+    font-size: 14px;
+    line-height: 1.35;
+    text-align: center;
+    color: hsl(var(--muted-foreground));
+    text-decoration: none;
+    transition: color 0.15s ease;
+  }
+
+  .topbar-link:hover { color: hsl(var(--foreground)); }
+  .topbar-link.active { color: hsl(var(--accent)); font-weight: 600; }
+
+  /* ── Mock document ────────────────────────────────────────────────────── */
+  .doc {
+    max-width: 32rem;
+    margin: 0 auto;
+    padding: 72px 20px 0;
+  }
+
+  .doc-section { scroll-margin-top: 72px; }
+
+  .doc-section h2 {
+    margin: 0 0 0.5rem;
+    font-size: 1.15rem;
+    font-weight: 640;
+    letter-spacing: -0.01em;
+  }
+
+  .doc-section p {
+    margin: 0 0 1rem;
+    font-size: 0.92rem;
+    line-height: 1.7;
+    color: hsl(var(--foreground) / 0.72);
+    text-wrap: pretty;
+  }
+
+  .doc-tail { height: 60vh; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .topbar-pill,
+    .topbar-chevron,
+    .topbar-menu { transition: none; }
+  }
+</style>

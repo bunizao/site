@@ -1,0 +1,125 @@
+---
+// Self-contained specimen of the mood feed's "refresh" pill — the control that
+// hover-expands from an icon to reveal its label. Mirrors .mood-update-action:
+// a compact square that widens as .mood-update-action-label unfurls from
+// max-width:0. Invented copy, no live feed, no polling — just the interaction.
+---
+
+<div class="updbtn" data-updbtn>
+  <button type="button" class="updbtn-action" data-updbtn-action aria-label="New moods — refresh">
+    <span class="updbtn-icon" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M3 12a9 9 0 0 1 15-6.7L21 8" />
+        <path d="M21 3v5h-5" />
+        <path d="M21 12a9 9 0 0 1-15 6.7L3 16" />
+        <path d="M3 21v-5h5" />
+      </svg>
+    </span>
+    <span class="updbtn-label" data-updbtn-label>3 new moods</span>
+  </button>
+</div>
+
+<script>
+  // Pointer-driven, not CSS :hover, to match the real feed watcher (which
+  // toggles .is-hovered so it can also lock the pill while refreshing).
+  document.querySelectorAll<HTMLElement>('[data-updbtn]').forEach((root) => {
+    if (root.dataset.bound === 'true') return;
+    root.dataset.bound = 'true';
+    const btn = root.querySelector<HTMLElement>('[data-updbtn-action]');
+    if (!btn) return;
+
+    btn.addEventListener('pointerenter', () => btn.classList.add('is-hovered'));
+    btn.addEventListener('pointerleave', () => btn.classList.remove('is-hovered'));
+    // A tap gives a brief "refreshing" spin so the specimen shows the locked
+    // state too, then settles back.
+    btn.addEventListener('click', () => {
+      if (btn.classList.contains('is-refreshing')) return;
+      btn.classList.add('is-refreshing', 'is-hovered');
+      window.setTimeout(() => btn.classList.remove('is-refreshing', 'is-hovered'), 1100);
+    });
+  });
+</script>
+
+<style>
+  .updbtn {
+    display: grid;
+    place-items: center;
+    width: 100%;
+    height: 100%;
+  }
+
+  /* The pill. Rests as a 30px icon square; .is-hovered / .is-refreshing let the
+     label unfurl and warm the surface. concentric radius, tabular label. */
+  .updbtn-action {
+    display: inline-flex;
+    align-items: center;
+    gap: 0;
+    height: 32px;
+    min-width: 32px;
+    padding: 0 8px;
+    font: inherit;
+    font-size: 12px;
+    font-weight: 460;
+    letter-spacing: 0.01em;
+    color: hsl(var(--muted-foreground));
+    background: hsl(var(--foreground) / 0.04);
+    border: 1px solid hsl(var(--foreground) / 0.08);
+    border-radius: 9px;
+    cursor: pointer;
+    overflow: hidden;
+    transition: color 0.2s ease, background 0.2s ease, border-color 0.2s ease, gap 0.24s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .updbtn-action.is-hovered {
+    gap: 6px;
+    color: hsl(var(--foreground));
+    background: hsl(var(--foreground) / 0.08);
+    border-color: hsl(var(--foreground) / 0.15);
+  }
+
+  .updbtn-action:active {
+    scale: 0.96;
+  }
+
+  .updbtn-icon {
+    display: inline-flex;
+    flex: none;
+  }
+
+  .updbtn-icon svg {
+    width: 14px;
+    height: 14px;
+  }
+
+  .updbtn-action.is-refreshing .updbtn-icon {
+    animation: updbtn-spin 0.9s linear infinite;
+  }
+
+  /* The reveal: label is clipped to zero width at rest and eases open. */
+  .updbtn-label {
+    display: inline-flex;
+    align-items: center;
+    white-space: nowrap;
+    line-height: 1;
+    max-width: 0;
+    opacity: 0;
+    overflow: hidden;
+    font-variant-numeric: tabular-nums;
+    transition: max-width 0.28s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s ease;
+  }
+
+  .updbtn-action.is-hovered .updbtn-label {
+    max-width: 8rem;
+    opacity: 1;
+  }
+
+  @keyframes updbtn-spin {
+    to { transform: rotate(360deg); }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .updbtn-action,
+    .updbtn-label { transition: none; }
+    .updbtn-action.is-refreshing .updbtn-icon { animation: none; }
+  }
+</style>

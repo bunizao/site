@@ -114,7 +114,8 @@ body:has(.components)::before {
 .cgrid {
   display: grid;
   grid-template-columns: repeat(12, minmax(0, 1fr));
-  grid-auto-rows: 7rem;
+  grid-auto-rows: 6rem;
+  grid-auto-flow: row dense;
   gap: 0.75rem;
   width: min(84rem, 100% - 2.5rem);
   margin: 0 auto;
@@ -202,50 +203,92 @@ body:has(.components)::before {
   padding: 0;
 }
 
-/* Decode text — a dramatic three-word vertical reveal, big and bold. Short
-   words (DECODE / THE / NOISE) so a narrow tile can never overflow; the type is
-   sized so even the widest word (5 mono cells) fits the column. */
+/* Decode text — a full paragraph that boils line-by-line. Left-aligned prose,
+   sized to read as copy (not a headline), so the effect has enough text to
+   churn dramatically before settling. The tile is wide, not narrow. */
 .cgrid-stage--decode {
-  padding: 1.5rem 1rem 2.5rem;
+  padding: 1.75rem 1.75rem 2rem;
+  display: flex;
+  align-items: center;
 }
 
 .cgrid-tile--decode .decode-preview {
-  font-size: clamp(1.5rem, 5.5vw, 2.9rem);
-  line-height: 1.08;
-  font-weight: 800;
-  letter-spacing: 0.02em;
+  font-size: clamp(0.95rem, 1.7vw, 1.35rem);
+  line-height: 1.55;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-align: left;
+}
+
+/* Contact links + tag cards want to sit against the top-left, not centered, so
+   the list/cards read as a real panel with the caption clearing the bottom. */
+.cgrid-stage--contact,
+.cgrid-stage--tags {
+  place-items: start stretch;
+  align-content: start;
+  padding: 1.5rem 1.5rem 2.75rem;
+  overflow-y: auto;
+}
+
+/* The update pill is a single small control — center it with room to breathe. */
+.cgrid-stage--moodbtn {
+  place-items: center;
+  padding: 1.5rem;
 }
 
 /* ── Spans (desktop 12-col) ──────────────────────────────────────────────── */
 
-/* Top band — three tiles of equal height. Projects is smaller than before;
-   mood is a tall portrait so the dial dominates; decode is a narrow stack. */
+/* Row 1 — the hero band. Projects deck and the tall mood dial anchor the top,
+   with decode as the wide prose panel beside them. */
 .cgrid-tile--projects {
   grid-column: span 5;
-  grid-row: span 5;
-}
-
-.cgrid-tile--decode {
-  grid-column: span 3;
-  grid-row: span 5;
+  grid-row: span 6;
 }
 
 .cgrid-tile--mood {
-  grid-column: span 4;
-  grid-row: span 5;
+  grid-column: span 3;
+  grid-row: span 8;
 }
 
-/* Bottom band. */
-.cgrid-tile--listening {
+.cgrid-tile--decode {
+  grid-column: span 4;
+  grid-row: span 4;
+}
+
+/* Row 2 — the two brand-hover panels sit under decode, beside the mood dial. */
+.cgrid-tile--contact {
+  grid-column: span 4;
+  grid-row: span 4;
+}
+
+.cgrid-tile--moodbtn {
   grid-column: span 5;
   grid-row: span 2;
 }
 
-.cgrid-tile--contrib {
-  grid-column: span 7;
-  grid-row: span 2;
+/* Row 3 — media + data band. */
+.cgrid-tile--listening {
+  grid-column: span 5;
+  grid-row: span 3;
 }
 
+.cgrid-tile--contrib {
+  grid-column: span 4;
+  grid-row: span 3;
+}
+
+.cgrid-tile--tags {
+  grid-column: span 8;
+  grid-row: span 3;
+}
+
+/* Mobile reading bar — a tall portrait frame for the phone-shaped specimen. */
+.cgrid-tile--toc {
+  grid-column: span 4;
+  grid-row: span 4;
+}
+
+/* List hover — full-width footer band. */
 .cgrid-tile--hover {
   grid-column: span 12;
   grid-row: span 3;
@@ -364,12 +407,17 @@ body:has(.components)::before {
 @media (max-width: 900px) {
   .cgrid {
     grid-template-columns: repeat(6, minmax(0, 1fr));
-    grid-auto-rows: 7rem;
+    grid-auto-rows: 6rem;
   }
 
   .cgrid-tile--projects {
     grid-column: span 6;
-    grid-row: span 5;
+    grid-row: span 6;
+  }
+
+  .cgrid-tile--mood {
+    grid-column: span 3;
+    grid-row: span 7;
   }
 
   .cgrid-tile--decode {
@@ -377,19 +425,34 @@ body:has(.components)::before {
     grid-row: span 4;
   }
 
-  .cgrid-tile--mood {
+  .cgrid-tile--contact {
     grid-column: span 3;
     grid-row: span 4;
   }
 
-  .cgrid-tile--listening {
+  .cgrid-tile--moodbtn {
     grid-column: span 6;
     grid-row: span 2;
   }
 
+  .cgrid-tile--listening {
+    grid-column: span 6;
+    grid-row: span 3;
+  }
+
   .cgrid-tile--contrib {
     grid-column: span 6;
-    grid-row: span 2;
+    grid-row: span 3;
+  }
+
+  .cgrid-tile--tags {
+    grid-column: span 6;
+    grid-row: span 4;
+  }
+
+  .cgrid-tile--toc {
+    grid-column: span 6;
+    grid-row: span 6;
   }
 
   .cgrid-tile--hover {
@@ -415,6 +478,10 @@ body:has(.components)::before {
   }
 
   .cgrid-tile--mood {
+    min-height: 30rem;
+  }
+
+  .cgrid-tile--toc {
     min-height: 30rem;
   }
 

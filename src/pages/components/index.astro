@@ -6,13 +6,16 @@ import { FALLBACK_TRACK } from '@/features/home/server/listening';
 import GitHubContributions from '@/features/home/ui/GitHubContributions.astro';
 import DecodeTextPreview from '@/features/components/previews/DecodeTextPreview';
 import HoverListPreview from '@/features/components/previews/HoverListPreview.astro';
+import MoodButtonPreview from '@/features/components/previews/MoodButtonPreview.astro';
+import ContactLinksPreview from '@/features/components/previews/ContactLinksPreview.astro';
+import TagsPreview from '@/features/components/previews/TagsPreview.astro';
 import '@/styles/components.css';
 
 export const prerender = true;
 
 const title = 'Components';
 const description =
-  "The signature interactive pieces this site is built from — a live bento of the projects deck, decode text, listening vinyl, GitHub activity, the mood wheel, and the list hover-preview. Every tile is a self-contained specimen.";
+  "The signature interactive pieces this site is built from — a live bento of the projects deck, decode text, listening vinyl, GitHub activity, the mood wheel, contact links, tag cards, the mobile reading bar, and the list hover-preview. Every tile is a self-contained specimen.";
 ---
 
 <Layout title={title} description={description} url="/components" hideSiteNav>
@@ -38,26 +41,43 @@ const description =
         <span class="cgrid-cap">Projects deck</span>
       </section>
 
-      <!-- Decode text — a dramatic three-word reveal; click or hover to re-boil. -->
-      <section class="cgrid-tile cgrid-tile--decode" data-cgrid-tile style="--i:1">
+      <!-- Mood wheel — a scroll-position instrument. Portrait tile so the
+           vertical dial is the focus; an invisible feed of dated anchors drives
+           it and the backdrop shimmers with the scroll. Genuinely needs
+           isolation (fixed positioning + scroll takeover), so it's iframed. -->
+      <section class="cgrid-tile cgrid-tile--mood cgrid-tile--iframe" data-cgrid-tile style="--i:1">
+        <iframe src="/components/preview/mood-wheel" title="Mood wheel" loading="lazy"></iframe>
+        <span class="cgrid-cap">Mood wheel</span>
+      </section>
+
+      <!-- Decode text — a full paragraph that boils line-by-line; hover or click
+           to re-boil. Wide tile so it reads as prose. -->
+      <section class="cgrid-tile cgrid-tile--decode" data-cgrid-tile style="--i:2">
         <div class="cgrid-stage cgrid-stage--decode">
           <DecodeTextPreview client:visible />
         </div>
         <span class="cgrid-cap">Decode text</span>
       </section>
 
-      <!-- Mood wheel — a scroll-position instrument. Portrait tile so the
-           vertical dial is the focus; the feed is a slim strip that drives it.
-           Genuinely needs isolation (fixed positioning + scroll takeover), so
-           it's iframed over a pure synthetic-mock fixture. -->
-      <section class="cgrid-tile cgrid-tile--mood cgrid-tile--iframe" data-cgrid-tile style="--i:2">
-        <iframe src="/components/preview/mood-wheel" title="Mood wheel" loading="lazy"></iframe>
-        <span class="cgrid-cap">Mood wheel</span>
+      <!-- Contact links — each platform lights up in its brand colour on hover. -->
+      <section class="cgrid-tile cgrid-tile--contact" data-cgrid-tile style="--i:3">
+        <div class="cgrid-stage cgrid-stage--contact">
+          <ContactLinksPreview />
+        </div>
+        <span class="cgrid-cap">Contact links</span>
+      </section>
+
+      <!-- Mood refresh button — hover to unfurl its label from an icon. -->
+      <section class="cgrid-tile cgrid-tile--moodbtn" data-cgrid-tile style="--i:4">
+        <div class="cgrid-stage cgrid-stage--moodbtn">
+          <MoodButtonPreview />
+        </div>
+        <span class="cgrid-cap">Update pill</span>
       </section>
 
       <!-- Listening — spins, samples the artwork colour, plays a preview with a
            scrubbable progress bar on click. Frozen on a demo track. -->
-      <section class="cgrid-tile cgrid-tile--listening" data-cgrid-tile style="--i:3">
+      <section class="cgrid-tile cgrid-tile--listening" data-cgrid-tile style="--i:5">
         <div class="cgrid-stage">
           <Listening track={FALLBACK_TRACK} static />
         </div>
@@ -65,17 +85,32 @@ const description =
       </section>
 
       <!-- GitHub contributions — self-renders standalone; hover for tooltips. -->
-      <section class="cgrid-tile cgrid-tile--contrib" data-cgrid-tile style="--i:4">
+      <section class="cgrid-tile cgrid-tile--contrib" data-cgrid-tile style="--i:6">
         <div class="cgrid-stage cgrid-stage--contrib">
           <GitHubContributions />
         </div>
         <span class="cgrid-cap">GitHub activity</span>
       </section>
 
+      <!-- Tag cards — quiet chips + accent glass cards from the blog tags wall. -->
+      <section class="cgrid-tile cgrid-tile--tags" data-cgrid-tile style="--i:7">
+        <div class="cgrid-stage cgrid-stage--tags">
+          <TagsPreview />
+        </div>
+        <span class="cgrid-cap">Tag cards</span>
+      </section>
+
+      <!-- Mobile reading bar — frosted pull-down TOC with a jumping active pill
+           and scroll-spy. Fixed positioning + scroll takeover, so it's iframed
+           over a synthetic-mock document. -->
+      <section class="cgrid-tile cgrid-tile--toc cgrid-tile--iframe" data-cgrid-tile style="--i:8">
+        <iframe src="/components/preview/mobile-toc" title="Mobile reading bar" loading="lazy"></iframe>
+        <span class="cgrid-cap">Mobile reading bar</span>
+      </section>
+
       <!-- List hover-preview — sliding pill + a cursor-following side preview, as
-           a self-contained specimen with invented rows and CSS swatches (no
-           real posts / images). -->
-      <section class="cgrid-tile cgrid-tile--hover" data-cgrid-tile style="--i:5">
+           a self-contained specimen with invented rows and CSS swatches. -->
+      <section class="cgrid-tile cgrid-tile--hover" data-cgrid-tile style="--i:9">
         <div class="cgrid-stage cgrid-stage--hover">
           <HoverListPreview />
         </div>
