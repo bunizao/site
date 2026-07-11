@@ -6,7 +6,7 @@ import ComponentPreview from '@/features/components/ui/ComponentPreview.astro';
 import OnThisPage from '@/features/components/ui/OnThisPage.astro';
 import PrevNext from '@/features/components/ui/PrevNext.astro';
 import { InstallTabs, type InstallSpec } from '@/features/components/ui/InstallTabs';
-import { CodeBlock } from '@/features/components/ui/CodeBlock';
+import CodeBox from '@/features/components/ui/CodeBox.astro';
 import '@/styles/components.css';
 
 export const prerender = true;
@@ -95,7 +95,7 @@ const creditsHtml = (raw: string) =>
 
         <section class="detail-section detail-usage" id="usage" aria-labelledby="usage-label">
           <h2 class="detail-section-label" id="usage-label">Usage</h2>
-          {usage ? <CodeBlock code={usage.code} lang={usage.lang} client:visible /> : <Content />}
+          {usage ? <CodeBox code={usage.code} lang={usage.lang} /> : <Content />}
         </section>
 
         {credits && (

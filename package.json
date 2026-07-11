@@ -94,6 +94,7 @@
     "prismjs-components-importer": "^0.2.0",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
+    "shiki": "^4.2.0",
     "slot-text": "^0.3.2",
     "tailwind-merge": "^3.6.0"
   },
