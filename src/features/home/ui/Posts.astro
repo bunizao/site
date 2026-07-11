@@ -9,15 +9,20 @@
 // no runtime hydration. One snapshot, one source of truth.
 import { blog } from '@/data/site';
 import { getTagLabel } from '@/features/posts/display';
-import { formatPostDate, postPath, postTitleTransitionName } from '@/features/posts/format';
+import { postPath, postTitleTransitionName } from '@/features/posts/format';
 import { getAllPosts } from '@/features/posts/server/content';
-import { withWidthParam } from '@/lib/media/responsive-image';
 import HoverGloss from '@/components/HoverGloss.astro';
 
 const locale = blog.locale.home;
 const posts = (await getAllPosts()).slice(0, 3);
 const blogCopy = blog.copy[locale];
 
+// Quiet "YYYY.MM" stamp, UTC-fixed so SSG output stays deterministic.
+const stamp = (iso: string): string => {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  return `${d.getUTCFullYear()}.${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
+};
 ---
 
 <section id="writing-section" class="writing-section" data-parallax="off">
@@ -48,27 +53,17 @@ const blogCopy = blog.copy[locale];
     <div class="post-list" data-writing-post-list>
       {posts.map((post, index) => {
         const tag = post.tags?.find((t) => t.visibility === 'public');
-        const heroPreview = post.featureImage?.includes('/api/v2/images/blog/')
-          ? withWidthParam(post.featureImage, 640)
-          : post.featureImage;
         return (
-          <a
-            href={postPath(post.slug)}
-            class="post-item scroll-reveal-item"
-            style={`--item-index: ${index}`}
-            data-hero={heroPreview ?? undefined}
-            data-hero-alt={post.featureImageAlt ?? post.title}
-          >
+          <a href={postPath(post.slug)} class="post-item scroll-reveal-item" style={`--item-index: ${index}`}>
             {/* Same per-slug name as the article <h1> → the clicked home title
                 morphs into the post headline, matching the /blog list behaviour. */}
             <span
               class="post-title"
               style={`view-transition-name:${postTitleTransitionName(post.slug)};view-transition-class:post-title`}
             >{post.title}</span>
-            {post.excerpt && <span class="post-excerpt">{post.excerpt}</span>}
             <span class="post-meta">
-              <span class="post-date">{formatPostDate(post.publishedAt)}</span>
               {tag && <span class="post-tag">{getTagLabel(tag, locale)}</span>}
+              <span class="post-date">{stamp(post.publishedAt)}</span>
             </span>
           </a>
         );
@@ -246,12 +241,22 @@ const blogCopy = blog.copy[locale];
   :global(#writing-section .post-item) {
     display: flex;
     flex-direction: column;
-    gap: 0;
-    padding: 16px 10px;
+    gap: 4px;
+    padding: 11px 10px;
     position: relative;
     z-index: 1;
     text-decoration: none;
     transition: opacity 0.3s ease;
+  }
+
+  @media (min-width: 640px) {
+    :global(#writing-section .post-item) {
+      flex-direction: row;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 16px;
+      padding: 12px 10px;
+    }
   }
 
   /* No per-row hairlines: the sliding pill is the only hover decoration, so
@@ -263,26 +268,14 @@ const blogCopy = blog.copy[locale];
   }
 
   :global(#writing-section .post-title) {
-    font-size: 19px;
-    font-weight: 550;
-    letter-spacing: -0.012em;
-    line-height: 1.45;
+    font-size: 14px;
+    font-weight: 500;
+    letter-spacing: -0.01em;
+    line-height: 1.4;
     color: hsl(var(--foreground) / 0.85);
     transition:
       color 0.3s ease,
       transform 0.4s cubic-bezier(0.25, 1, 0.3, 1);
-  }
-
-  :global(#writing-section .post-excerpt) {
-    display: -webkit-box;
-    margin-top: 5px;
-    overflow: hidden;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 2;
-    font-size: 15px;
-    line-height: 1.55;
-    color: hsl(var(--muted-foreground) / 0.78);
-    text-wrap: pretty;
   }
 
   /* The pill holds still while the title leans into it — the cai.im tell that
@@ -295,22 +288,39 @@ const blogCopy = blog.copy[locale];
   :global(#writing-section .post-meta) {
     display: flex;
     align-items: baseline;
-    gap: 10px;
-    margin-top: 9px;
+    gap: 8px;
     flex-shrink: 0;
   }
 
+  @media (min-width: 640px) {
+    :global(#writing-section .post-meta) {
+      gap: 12px;
+    }
+  }
+
   :global(#writing-section .post-tag) {
-    font-size: 11.5px;
+    font-size: 11px;
     font-weight: 400;
     color: hsl(var(--muted-foreground) / 0.7);
   }
 
+  @media (min-width: 640px) {
+    :global(#writing-section .post-tag) {
+      font-size: 12px;
+    }
+  }
+
   :global(#writing-section .post-date) {
-    font-size: 13px;
+    font-size: 11px;
     font-weight: 300;
     color: hsl(var(--muted-foreground) / 0.5);
     font-variant-numeric: tabular-nums;
+  }
+
+  @media (min-width: 640px) {
+    :global(#writing-section .post-date) {
+      font-size: 12px;
+    }
   }
 
   :global(#writing-section .post-item:hover .post-date),
@@ -329,42 +339,6 @@ const blogCopy = blog.copy[locale];
   :global(#writing-section .writing-enter:hover) {
     color: hsl(var(--foreground));
     transform: translateX(2px);
-  }
-
-  :global(.writing-preview) {
-    position: fixed;
-    top: 0;
-    left: 0;
-    z-index: 80;
-    width: 240px;
-    pointer-events: none;
-    opacity: 0;
-    scale: 0.96;
-    transform-origin: center;
-    transition: opacity 0.2s ease, scale 0.25s cubic-bezier(0.2, 0, 0, 1);
-  }
-
-  :global(.writing-preview.is-visible) {
-    opacity: 1;
-    scale: 1;
-  }
-
-  :global(.writing-preview img) {
-    display: block;
-    width: 100%;
-    height: auto;
-    max-height: 320px;
-    object-fit: contain;
-    border-radius: 12px;
-    box-shadow:
-      inset 0 0 0 1px rgba(0, 0, 0, 0.1),
-      0 20px 50px hsl(var(--background) / 0.38);
-  }
-
-  :global(.dark .writing-preview img) {
-    box-shadow:
-      inset 0 0 0 1px rgba(255, 255, 255, 0.1),
-      0 20px 50px hsl(var(--background) / 0.5);
   }
 </style>
 
@@ -451,54 +425,6 @@ const blogCopy = blog.copy[locale];
           padX: 0,
           padY: 2,
         });
-
-        const fine = window.matchMedia('(hover: hover) and (pointer: fine)').matches;
-        if (fine) {
-          const preview = document.createElement('div');
-          preview.className = 'writing-preview';
-          preview.setAttribute('aria-hidden', 'true');
-          const image = document.createElement('img');
-          image.decoding = 'async';
-          image.loading = 'lazy';
-          preview.appendChild(image);
-          document.body.appendChild(preview);
-
-          const previewWidth = 240;
-          let frame = 0;
-          let pointerY = 0;
-          let anchorX = 0;
-
-          const renderPreview = () => {
-            frame = 0;
-            const height = preview.offsetHeight || 180;
-            const y = Math.min(Math.max(pointerY - height / 2, 12), window.innerHeight - height - 12);
-            preview.style.transform = `translate(${anchorX}px, ${y}px)`;
-          };
-
-          const movePreview = (event: PointerEvent) => {
-            pointerY = event.clientY;
-            if (!frame) frame = requestAnimationFrame(renderPreview);
-          };
-
-          writingPostList.querySelectorAll<HTMLElement>('.post-item[data-hero]').forEach((item) => {
-            item.addEventListener('pointerenter', (event) => {
-              const src = item.dataset.hero;
-              if (!src) return;
-              image.src = src;
-              image.alt = item.dataset.heroAlt || '';
-              const sectionRect = writingSection.getBoundingClientRect();
-              anchorX = Math.min(sectionRect.right + 28, window.innerWidth - previewWidth - 16);
-              pointerY = event.clientY;
-              renderPreview();
-              document.addEventListener('pointermove', movePreview);
-              preview.classList.add('is-visible');
-            });
-            item.addEventListener('pointerleave', () => {
-              document.removeEventListener('pointermove', movePreview);
-              preview.classList.remove('is-visible');
-            });
-          });
-        }
       }
       void initWriting();
     }, { once: true });
