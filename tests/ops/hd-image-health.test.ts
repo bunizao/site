@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'bun:test';
+import { expectHttpOk } from './http-diagnostics';
 
 interface MoodPost {
   id?: string;
@@ -48,7 +49,7 @@ async function fetchMoodPage(siteUrl: string, timeoutMs: number): Promise<MoodAp
     signal: AbortSignal.timeout(timeoutMs),
   });
 
-  expect(response.ok).toBe(true);
+  await expectHttpOk(response, `GET ${siteUrl}/api/moods`);
   return await response.json() as MoodApiResponse;
 }
 

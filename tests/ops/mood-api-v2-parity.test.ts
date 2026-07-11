@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'bun:test';
+import { expectHttpOk } from './http-diagnostics';
 
 interface MoodPost {
   id?: string;
@@ -41,7 +42,7 @@ async function fetchMoodWindow(siteUrl: string, before: string): Promise<MoodPos
   const response = await fetch(url, {
     headers: { Accept: 'application/json', 'Cache-Control': 'no-cache' },
   });
-  expect(response.ok, `GET ${url} -> ${response.status}`).toBe(true);
+  await expectHttpOk(response, `GET ${url}`);
 
   const payload = await response.json() as MoodApiResponse;
   return payload.posts ?? [];
@@ -55,7 +56,7 @@ async function fetchMoodProbe(siteUrl: string): Promise<{ latestId?: string }> {
   const response = await fetch(url, {
     headers: { Accept: 'application/json', 'Cache-Control': 'no-cache' },
   });
-  expect(response.ok, `GET ${url} -> ${response.status}`).toBe(true);
+  await expectHttpOk(response, `GET ${url}`);
 
   return await response.json() as { latestId?: string };
 }
@@ -152,7 +153,7 @@ describe('mood API taxonomy health', () => {
     const response = await fetch(archiveUrl, {
       headers: { Accept: 'application/json', 'Cache-Control': 'no-cache' },
     });
-    expect(response.ok, `GET ${archiveUrl} -> ${response.status}`).toBe(true);
+    await expectHttpOk(response, `GET ${archiveUrl}`);
 
     const payload = await response.json();
     const records = readArchiveRecords(payload);
