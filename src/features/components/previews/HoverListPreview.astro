@@ -1,9 +1,12 @@
 ---
 // Self-contained hover-preview specimen for the /components showcase. A minimal
 // mock of the blog list's cursor-aware hover — invented rows, CSS-gradient
-// "hero" swatches, NO real posts or images. Hovering a row slides a pill behind
-// it (shared hover-indicator lib), dims the siblings, and reveals that row's
-// swatch in the side preview, which glides to align with the active row.
+// "hero" swatches, NO real posts or images. Mirrors the real behavior:
+//   1) a sliding pill glides behind the hovered row (shared hover-indicator lib)
+//   2) the un-hovered siblings dim
+//   3) a floating preview follows the cursor's vertical position (rAF-tracked,
+//      clamped into the tile), swapping its swatch per row — exactly the blog's
+//      cursor-following hero image, minus real media.
 const rows = [
   { title: 'Frosted glass, zero cold starts', meta: 'Edge', swatch: 'linear-gradient(135deg, #16323f, #2f6f7e)' },
   { title: 'A dial you can feel', meta: 'Motion', swatch: 'linear-gradient(135deg, #3a2f5c, #7d5cff)' },
@@ -40,27 +43,47 @@ const rows = [
     attachHoverIndicator(list, {
       itemSelector: '.hoverlist-row',
       indicatorClass: 'hoverlist-indicator',
-      padX: 12,
+      padX: 14,
       padY: 6,
     });
 
-    // Cursor-aware preview: the swatch tracks which row you're on, gliding to
-    // sit level with it — the essence of the blog hero-follow, minus real media.
     const fine = window.matchMedia?.('(hover: hover) and (pointer: fine)').matches;
     if (!fine) return;
 
+    // Cursor-following preview: like the blog, the swatch tracks the pointer's Y
+    // continuously (one rAF-batched write), clamped to stay inside the tile.
+    let raf = 0;
+    let pointerY = 0;
+
+    const render = () => {
+      raf = 0;
+      const rootRect = root.getBoundingClientRect();
+      const h = preview.offsetHeight || 120;
+      const rel = pointerY - rootRect.top;
+      const y = Math.min(Math.max(rel - h / 2, 12), rootRect.height - h - 12);
+      preview.style.transform = `translateY(${y}px)`;
+    };
+
+    const onMove = (event: PointerEvent) => {
+      pointerY = event.clientY;
+      if (!raf) raf = requestAnimationFrame(render);
+    };
+
     list.querySelectorAll<HTMLElement>('.hoverlist-row').forEach((row) => {
-      row.addEventListener('pointerenter', () => {
+      row.addEventListener('pointerenter', (event) => {
         const swatch = row.dataset.swatch;
         if (swatch) preview.style.background = swatch;
-        const rootRect = root.getBoundingClientRect();
-        const rowRect = row.getBoundingClientRect();
-        const y = rowRect.top - rootRect.top + rowRect.height / 2;
-        preview.style.setProperty('--y', `${y}px`);
+        pointerY = event.clientY;
+        render();
+        list.addEventListener('pointermove', onMove);
         preview.classList.add('is-visible');
       });
     });
 
-    list.addEventListener('pointerleave', () => preview.classList.remove('is-visible'));
+    list.addEventListener('pointerleave', () => {
+      list.removeEventListener('pointermove', onMove);
+      if (raf) { cancelAnimationFrame(raf); raf = 0; }
+      preview.classList.remove('is-visible');
+    });
   });
 </script>

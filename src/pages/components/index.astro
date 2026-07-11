@@ -22,10 +22,13 @@ const description =
       <span class="components-topbar-label">Components</span>
     </header>
 
-    <h1 class="cgrid-sr">Components — a live bento of this site's signature pieces</h1>
+    <section class="cgrid-hero">
+      <p class="cgrid-hero-eyebrow">Component Showcase</p>
+      <h1 class="cgrid-hero-title">The pieces this site is made of.</h1>
+    </section>
 
     <div class="cgrid" data-cgrid>
-      <!-- Projects deck — the centerpiece hero; clicking a card opens the
+      <!-- Projects deck — the interactive centerpiece; clicking a card opens the
            full-screen gallery (its own portal), the "expanded" state. Ships its
            own data, no page context. -->
       <section class="cgrid-tile cgrid-tile--projects" data-cgrid-tile style="--i:0">
@@ -35,29 +38,30 @@ const description =
         <span class="cgrid-cap">Projects deck</span>
       </section>
 
-      <!-- Mood wheel — genuinely needs isolation (fixed positioning + it takes
-           over window scroll), so it's iframed. The fixture is pure synthetic
-           mock: abstract one-liners, mock dates — no real mood content. -->
-      <section class="cgrid-tile cgrid-tile--mood cgrid-tile--iframe" data-cgrid-tile style="--i:1">
+      <!-- Decode text — a dramatic three-word reveal; click or hover to re-boil. -->
+      <section class="cgrid-tile cgrid-tile--decode" data-cgrid-tile style="--i:1">
+        <div class="cgrid-stage cgrid-stage--decode">
+          <DecodeTextPreview client:visible />
+        </div>
+        <span class="cgrid-cap">Decode text</span>
+      </section>
+
+      <!-- Mood wheel — a scroll-position instrument. Portrait tile so the
+           vertical dial is the focus; the feed is a slim strip that drives it.
+           Genuinely needs isolation (fixed positioning + scroll takeover), so
+           it's iframed over a pure synthetic-mock fixture. -->
+      <section class="cgrid-tile cgrid-tile--mood cgrid-tile--iframe" data-cgrid-tile style="--i:2">
         <iframe src="/components/preview/mood-wheel" title="Mood wheel" loading="lazy"></iframe>
         <span class="cgrid-cap">Mood wheel</span>
       </section>
 
       <!-- Listening — spins, samples the artwork colour, plays a preview with a
            scrubbable progress bar on click. Frozen on a demo track. -->
-      <section class="cgrid-tile cgrid-tile--listening" data-cgrid-tile style="--i:2">
+      <section class="cgrid-tile cgrid-tile--listening" data-cgrid-tile style="--i:3">
         <div class="cgrid-stage">
           <Listening track={FALLBACK_TRACK} static />
         </div>
         <span class="cgrid-cap">Listening</span>
-      </section>
-
-      <!-- Decode text — click or hover to re-boil the glyphs. -->
-      <section class="cgrid-tile cgrid-tile--decode" data-cgrid-tile style="--i:3">
-        <div class="cgrid-stage">
-          <DecodeTextPreview client:visible />
-        </div>
-        <span class="cgrid-cap">Decode text</span>
       </section>
 
       <!-- GitHub contributions — self-renders standalone; hover for tooltips. -->
@@ -68,7 +72,7 @@ const description =
         <span class="cgrid-cap">GitHub activity</span>
       </section>
 
-      <!-- List hover-preview — the sliding pill + cursor-aware side preview, as
+      <!-- List hover-preview — sliding pill + a cursor-following side preview, as
            a self-contained specimen with invented rows and CSS swatches (no
            real posts / images). -->
       <section class="cgrid-tile cgrid-tile--hover" data-cgrid-tile style="--i:5">

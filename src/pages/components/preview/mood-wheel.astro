@@ -45,9 +45,7 @@ const groups = [
       <TimelineWheel compact />
       <div class="fixture-feed" data-mood-feed>
         <header class="fixture-intro">
-          <span class="fixture-eyebrow">Fixture feed</span>
-          <h1>Days, wound into a dial.</h1>
-          <p>Scroll the cards — the fixed wheel tracks the active date.</p>
+          <span class="fixture-eyebrow">Scroll ↓</span>
         </header>
 
         <div class="fixture-list" data-mood-list role="region" aria-label="Mood wheel fixture" aria-busy="false">
@@ -91,66 +89,56 @@ const groups = [
     min-height: 100vh;
   }
 
-  /* The wheel is fixed to the viewport (here, the iframe) — force it visible in
-     this compact fixture so the arc reads even in a short tile. */
+  /* The wheel is fixed to the viewport (here, the iframe). Force it visible and
+     make the DIAL the subject of this tile: a tighter wheel-size gives a more
+     obviously circular arc, and a wide visible-width exposes the full graduated
+     notch column rather than a sliver at the edge. */
   :global(.timeline-wheel[data-timeline-wheel-compact]) {
     display: block;
+    --wheel-size: 460px;
+    --visible-width: 150px;
+    height: 84vh;
+    transform: translateY(-50%) translateX(10px);
   }
 
-  /* Compact tile geometry: the feed hugs the wheel on the left and stays narrow
-     so nothing overflows the cell. */
+  /* The feed hugs the dial on the right — a slim driver strip whose only job is
+     to give the wheel something to track. Understated so the dial carries it. */
   .fixture-feed {
-    width: min(24rem, calc(100% - 4.5rem));
-    margin: 0 0 0 auto;
-    padding: 2.5rem 1.25rem 4rem;
+    width: min(14rem, calc(100% - 10rem));
+    margin: 0 1rem 0 auto;
+    padding: 3rem 0 5rem;
   }
 
-  /* A small header, not a 55vh editorial hero — the tile can't afford one. */
   .fixture-intro {
-    margin-bottom: 2.5rem;
+    margin-bottom: 1.5rem;
+    text-align: right;
   }
 
   .fixture-eyebrow,
   .mood-date-header,
   .mood-item time {
     font-family: var(--font-mono);
-    font-size: 0.62rem;
+    font-size: 0.6rem;
     letter-spacing: 0.12em;
     text-transform: uppercase;
     color: hsl(var(--muted-foreground));
   }
 
-  .fixture-intro h1 {
-    max-width: 12ch;
-    margin: 0.7rem 0 0.5rem;
-    font-size: clamp(1.5rem, 4.5vw, 2rem);
-    line-height: 1;
-    letter-spacing: -0.045em;
-  }
-
-  .fixture-intro p {
-    max-width: 26ch;
-    margin: 0;
-    font-size: 0.85rem;
-    line-height: 1.45;
-    color: hsl(var(--muted-foreground));
-  }
-
   .fixture-list {
     display: grid;
-    gap: 2.25rem;
+    gap: 1.75rem;
   }
 
   .mood-date-group {
     display: grid;
-    gap: 0.6rem;
+    gap: 0.5rem;
   }
 
   .mood-date-header {
     display: grid;
     grid-template-columns: auto 1fr;
     align-items: center;
-    gap: 0.7rem;
+    gap: 0.6rem;
   }
 
   .mood-date-header span:last-child {
@@ -159,21 +147,21 @@ const groups = [
   }
 
   .mood-item {
-    min-height: 4.5rem;
-    padding: 0.9rem 1rem;
+    min-height: 3.5rem;
+    padding: 0.7rem 0.85rem;
     display: flex;
     flex-direction: column;
     justify-content: space-between;
-    gap: 0.6rem;
+    gap: 0.5rem;
     border: 1px solid hsl(var(--border) / 0.35);
     border-radius: var(--radius);
     background: hsl(var(--card));
   }
 
   .mood-item p {
-    max-width: 28ch;
+    max-width: 20ch;
     margin: 0;
-    font-size: 0.9rem;
-    line-height: 1.45;
+    font-size: 0.78rem;
+    line-height: 1.4;
   }
 </style>

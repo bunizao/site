@@ -84,28 +84,41 @@ body:has(.components)::before {
    Chanhdai-style: quiet grid, corner caption, the pieces carry the interest.
    ─────────────────────────────────────────────────────────────────────────── */
 
+/* ── Hero — eyebrow + headline, a masthead above the wall ─────────────────── */
+.cgrid-hero {
+  width: min(84rem, 100% - 2.5rem);
+  margin: 3.5rem auto 1.75rem;
+}
+
+.cgrid-hero-eyebrow {
+  margin: 0 0 0.6rem;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: hsl(var(--foreground) / 0.45);
+}
+
+.cgrid-hero-title {
+  margin: 0;
+  max-width: 18ch;
+  font-family: var(--font-display);
+  font-size: clamp(1.9rem, 4.5vw, 3.1rem);
+  font-weight: 700;
+  line-height: 1.02;
+  letter-spacing: -0.035em;
+  text-wrap: balance;
+  color: hsl(var(--foreground));
+}
+
 .cgrid {
   display: grid;
   grid-template-columns: repeat(12, minmax(0, 1fr));
-  grid-auto-rows: 7.5rem;
+  grid-auto-rows: 7rem;
   gap: 0.75rem;
   width: min(84rem, 100% - 2.5rem);
-  margin: 2rem auto 0;
+  margin: 0 auto;
   padding-bottom: 4rem;
-}
-
-/* Visually-hidden page title — the grid is the content, but the page still
-   needs an h1 for structure/SEO. */
-.cgrid-sr {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  margin: -1px;
-  padding: 0;
-  overflow: hidden;
-  clip: rect(0 0 0 0);
-  white-space: nowrap;
-  border: 0;
 }
 
 .cgrid-tile {
@@ -189,37 +202,47 @@ body:has(.components)::before {
   padding: 0;
 }
 
-/* Decode text runs three mono lines; keep it small enough to fit the short
-   tile without clipping the last line. */
+/* Decode text — a dramatic three-word vertical reveal, big and bold. Short
+   words (DECODE / THE / NOISE) so a narrow tile can never overflow; the type is
+   sized so even the widest word (5 mono cells) fits the column. */
+.cgrid-stage--decode {
+  padding: 1.5rem 1rem 2.5rem;
+}
+
 .cgrid-tile--decode .decode-preview {
-  font-size: clamp(0.85rem, 2.4vw, 1.1rem);
-  line-height: 1.45;
+  font-size: clamp(1.5rem, 5.5vw, 2.9rem);
+  line-height: 1.08;
+  font-weight: 800;
+  letter-spacing: 0.02em;
 }
 
 /* ── Spans (desktop 12-col) ──────────────────────────────────────────────── */
 
+/* Top band — three tiles of equal height. Projects is smaller than before;
+   mood is a tall portrait so the dial dominates; decode is a narrow stack. */
 .cgrid-tile--projects {
-  grid-column: span 7;
-  grid-row: span 6;
-}
-
-.cgrid-tile--mood {
   grid-column: span 5;
-  grid-row: span 6;
-}
-
-.cgrid-tile--listening {
-  grid-column: span 4;
-  grid-row: span 2;
+  grid-row: span 5;
 }
 
 .cgrid-tile--decode {
   grid-column: span 3;
+  grid-row: span 5;
+}
+
+.cgrid-tile--mood {
+  grid-column: span 4;
+  grid-row: span 5;
+}
+
+/* Bottom band. */
+.cgrid-tile--listening {
+  grid-column: span 5;
   grid-row: span 2;
 }
 
 .cgrid-tile--contrib {
-  grid-column: span 5;
+  grid-column: span 7;
   grid-row: span 2;
 }
 
@@ -232,15 +255,11 @@ body:has(.components)::before {
 
 .hoverlist {
   position: relative;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 2.5rem;
   width: 100%;
-  max-width: 56rem;
+  max-width: 52rem;
   height: 100%;
   margin: 0 auto;
-  padding: 1.5rem 2rem 2.75rem;
+  padding: 1.75rem 2rem;
 }
 
 .hoverlist-rows {
@@ -248,6 +267,7 @@ body:has(.components)::before {
   display: flex;
   flex-direction: column;
   gap: 0.15rem;
+  width: min(60%, 34rem);
   margin: 0;
   padding: 0;
   list-style: none;
@@ -260,14 +280,14 @@ body:has(.components)::before {
   align-items: baseline;
   justify-content: space-between;
   gap: 1rem;
-  padding: 0.7rem 0.4rem;
+  padding: 0.85rem 0.6rem;
   cursor: default;
   transition: opacity 0.25s ease;
 }
 
 .hoverlist-title {
   font-family: var(--font-display);
-  font-size: clamp(0.95rem, 2.2vw, 1.15rem);
+  font-size: clamp(1rem, 2.2vw, 1.35rem);
   font-weight: 600;
   letter-spacing: -0.01em;
   color: hsl(var(--foreground) / 0.9);
@@ -302,25 +322,28 @@ body:has(.components)::before {
   will-change: transform;
 }
 
-/* Cursor-aware preview swatch — glides to sit level with the active row. */
+/* Cursor-following preview swatch — JS writes translateY(px) from the pointer's
+   vertical position each frame, clamped inside the tile. Pinned to the right
+   gutter so it never covers the rows, exactly like the blog's hero-follow. */
 .hoverlist-preview {
-  --y: 50%;
-  align-self: start;
-  width: 12rem;
-  height: 7.5rem;
+  position: absolute;
+  top: 0;
+  right: 2rem;
+  width: 13rem;
+  height: 8.5rem;
   border-radius: var(--radius);
   background: hsl(var(--foreground) / 0.06);
-  box-shadow: 0 12px 30px -14px hsl(0 0% 0% / 0.6);
+  box-shadow: 0 18px 40px -18px hsl(0 0% 0% / 0.65);
   opacity: 0;
-  transform: translateY(calc(var(--y) - 50%)) scale(0.94);
-  transition: opacity 0.28s var(--ease-out), transform 0.36s var(--ease-out),
-    background 0.28s ease;
+  transform: translateY(1rem);
+  transition: opacity 0.24s var(--ease-out), background 0.28s ease;
   pointer-events: none;
+  will-change: transform;
 }
 
+/* JS writes the transform (cursor-tracked translateY); only fade here. */
 .hoverlist-preview.is-visible {
   opacity: 1;
-  transform: translateY(calc(var(--y) - 50%)) scale(1);
 }
 
 .js .cgrid-tile {
@@ -346,20 +369,20 @@ body:has(.components)::before {
 
   .cgrid-tile--projects {
     grid-column: span 6;
-    grid-row: span 6;
-  }
-
-  .cgrid-tile--mood {
-    grid-column: span 6;
-    grid-row: span 7;
-  }
-
-  .cgrid-tile--listening {
-    grid-column: span 6;
-    grid-row: span 2;
+    grid-row: span 5;
   }
 
   .cgrid-tile--decode {
+    grid-column: span 3;
+    grid-row: span 4;
+  }
+
+  .cgrid-tile--mood {
+    grid-column: span 3;
+    grid-row: span 4;
+  }
+
+  .cgrid-tile--listening {
     grid-column: span 6;
     grid-row: span 2;
   }
@@ -392,17 +415,21 @@ body:has(.components)::before {
   }
 
   .cgrid-tile--mood {
-    min-height: 28rem;
+    min-height: 30rem;
   }
 
-  .cgrid-tile--listening,
   .cgrid-tile--decode {
+    min-height: 16rem;
+  }
+
+  .cgrid-tile--listening {
     min-height: 14rem;
   }
 
-  /* The hover specimen's side preview needs room; stack it under the rows. */
-  .hoverlist {
-    grid-template-columns: 1fr;
+  /* The hover specimen's side preview needs width; hide it and let the rows
+     use the full column on a phone. */
+  .hoverlist-rows {
+    width: 100%;
   }
 
   .hoverlist-preview {
