@@ -1,0 +1,170 @@
+---
+import TimelineWheel from '@/features/mood/ui/TimelineWheel.astro';
+import '@/styles/globals.css';
+
+export const prerender = true;
+
+const groups = [
+  {
+    date: '2026-07-11',
+    label: 'Today',
+    moods: ['The registry finally reads the source instead of trusting a copy.', 'Small APIs age better.'],
+  },
+  {
+    date: '2026-07-10',
+    label: 'Yesterday',
+    moods: ['A precise wheel is mostly restraint disguised as physics.', 'The last ten percent is always cleanup.'],
+  },
+  {
+    date: '2026-07-08',
+    label: 'Jul 8',
+    moods: ['Quiet code, loud result.', 'The best fixture is just enough reality.'],
+  },
+  {
+    date: '2026-07-04',
+    label: 'Jul 4',
+    moods: ['Scroll changes the instrument one notch at a time.'],
+  },
+];
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width" />
+    <title>Mood wheel preview</title>
+  </head>
+  <body>
+    <main class="fixture">
+      <TimelineWheel />
+      <div class="fixture-feed" data-mood-feed>
+        <header class="fixture-intro">
+          <span>Fixture feed</span>
+          <h1>Days, wound into a dial.</h1>
+          <p>Scroll the cards and watch the fixed wheel track the active date.</p>
+        </header>
+
+        <div class="fixture-list" data-mood-list role="region" aria-label="Mood wheel fixture" aria-busy="false">
+          {groups.map((group) => (
+            <section class="mood-date-group" data-date={group.date}>
+              <div class="mood-date-header">
+                <span>{group.label}</span>
+                <span aria-hidden="true"></span>
+              </div>
+              {group.moods.map((mood) => (
+                <article class="mood-item">
+                  <p>{mood}</p>
+                  <time datetime={`${group.date}T12:00:00+08:00`}>12:00</time>
+                </article>
+              ))}
+            </section>
+          ))}
+        </div>
+      </div>
+    </main>
+  </body>
+</html>
+
+<style>
+  :global(html) {
+    color-scheme: light dark;
+    background: hsl(var(--background));
+  }
+
+  :global(body) {
+    margin: 0;
+    color: hsl(var(--foreground));
+    background:
+      linear-gradient(hsl(var(--foreground) / 0.035) 1px, transparent 1px),
+      hsl(var(--background));
+    background-size: 100% 4rem;
+    font-family: var(--font-sans);
+  }
+
+  .fixture {
+    min-height: 100vh;
+  }
+
+  .fixture-feed {
+    width: min(38rem, calc(100% - 7rem));
+    margin: 0 auto;
+    padding: 5rem 0 12rem;
+  }
+
+  .fixture-intro {
+    min-height: 55vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+
+  .fixture-intro span,
+  .mood-date-header,
+  .mood-item time {
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: hsl(var(--muted-foreground));
+  }
+
+  .fixture-intro h1 {
+    max-width: 12ch;
+    margin: 0.8rem 0;
+    font-size: clamp(2.25rem, 7vw, 4.5rem);
+    line-height: 0.95;
+    letter-spacing: -0.06em;
+  }
+
+  .fixture-intro p {
+    max-width: 30rem;
+    color: hsl(var(--muted-foreground));
+  }
+
+  .fixture-list {
+    display: grid;
+    gap: 5rem;
+  }
+
+  .mood-date-group {
+    display: grid;
+    gap: 1rem;
+  }
+
+  .mood-date-header {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  .mood-date-header span:last-child {
+    height: 1px;
+    background: hsl(var(--border) / 0.35);
+  }
+
+  .mood-item {
+    min-height: 8rem;
+    padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    border: 1px solid hsl(var(--border) / 0.35);
+    border-radius: var(--radius);
+    background: hsl(var(--card));
+  }
+
+  .mood-item p {
+    max-width: 32ch;
+    margin: 0;
+    font-size: 1.15rem;
+    line-height: 1.5;
+  }
+
+  @media (max-width: 700px) {
+    .fixture-feed {
+      width: min(32rem, calc(100% - 3rem));
+    }
+  }
+</style>
