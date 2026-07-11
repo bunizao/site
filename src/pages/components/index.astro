@@ -1,7 +1,7 @@
 ---
 import { getCollection } from 'astro:content';
 import Layout from '@/layouts/Layout.astro';
-import ComponentSpecimen from '@/features/components/ui/ComponentSpecimen.astro';
+import ComponentPreview from '@/features/components/ui/ComponentPreview.astro';
 import '@/styles/components.css';
 
 export const prerender = true;
@@ -11,6 +11,21 @@ const entries = (await getCollection('components', ({ data }) => !data.draft)).s
 );
 
 const first = entries[0]?.id;
+
+const site = Astro.site ?? new URL('https://buxx.me');
+
+// Single-line install hint per component — the default (npm-flavoured) command.
+// The full package-manager tab set lives on each component's detail page.
+const installCommand = (entry: (typeof entries)[number]): string =>
+  entry.data.install.type === 'npm'
+    ? `npm install ${entry.data.install.pkg}`
+    : `npx shadcn@latest add ${new URL(`/r/${entry.id}`, site).href}`;
+
+const tierLabel: Record<string, string> = {
+  primitive: 'Primitive',
+  showpiece: 'Showpiece',
+  composition: 'Composition',
+};
 
 const title = 'Components';
 const description =
@@ -28,51 +43,106 @@ const description =
       <h1 class="components-hero-title">
         A small, modern component library.
       </h1>
-      <p class="components-hero-sub">The UI this site is built from. Yours to install.</p>
+      <p class="components-hero-sub">
+        The UI this site is built from — every piece live below, yours to install.
+      </p>
       <div class="components-hero-actions">
         {first && (
           <a class="hero-btn hero-btn--primary" href={`/components/${first}`}>Get started</a>
         )}
-        <a class="hero-btn hero-btn--secondary" href="#grid">Browse {entries.length} components</a>
+        <a class="hero-btn hero-btn--secondary" href="#showcase">Browse {entries.length} components</a>
       </div>
     </section>
 
-    <div class="components-page" id="grid">
-      <div class="specimen-grid">
-        {entries.map((entry, i) => (
-          <ComponentSpecimen entry={entry} index={i} />
-        ))}
-      </div>
+    <div class="showcase" id="showcase">
+      {entries.map((entry, i) => {
+        const command = installCommand(entry);
+        return (
+          <section class="showcase-item" id={entry.id} data-showcase-item style={`--i:${i}`}>
+            <div class="showcase-head">
+              <p class="showcase-eyebrow">
+                <span class="showcase-index">{String(i + 1).padStart(2, '0')}</span>
+                <span class="showcase-tier">{tierLabel[entry.data.tier] ?? entry.data.tier}</span>
+              </p>
+              <a class="showcase-name-link" href={`/components/${entry.id}`}>
+                <h2 class="showcase-name">{entry.data.title}</h2>
+              </a>
+              <p class="showcase-tagline">{entry.data.tagline}</p>
+            </div>
+
+            <div class="showcase-stage">
+              <ComponentPreview slug={entry.id} />
+            </div>
+
+            <div class="showcase-foot">
+              <div class="showcase-install">
+                <code class="showcase-install-cmd">{command}</code>
+                <button
+                  type="button"
+                  class="showcase-copy"
+                  data-copy-install
+                  data-command={command}
+                  aria-label={`Copy install command for ${entry.data.title}`}
+                >
+                  <svg class="showcase-copy-icon showcase-copy-icon--copy" viewBox="0 0 24 24" aria-hidden="true">
+                    <rect x="9" y="9" width="11" height="11" rx="2" fill="none" stroke="currentColor" stroke-width="1.7" />
+                    <path d="M5 15V5a2 2 0 0 1 2-2h10" fill="none" stroke="currentColor" stroke-width="1.7" />
+                  </svg>
+                  <svg class="showcase-copy-icon showcase-copy-icon--check" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M5 12.5 10 17.5 19.5 7" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" />
+                  </svg>
+                </button>
+              </div>
+              <a class="showcase-open" href={`/components/${entry.id}`}>
+                Docs &amp; install
+                <span aria-hidden="true">↗</span>
+              </a>
+            </div>
+          </section>
+        );
+      })}
     </div>
   </main>
 </Layout>
 
 <script>
-  // First-paint reveal — first view only, staggered per cell via inline --i.
+  // Scroll reveal — first view only, staggered per item via inline --i.
   (() => {
-    const cells = document.querySelectorAll<HTMLElement>('[data-specimen]');
-    if (!cells.length) return;
+    const items = document.querySelectorAll<HTMLElement>('[data-showcase-item]');
+    if (items.length) {
+      const reveal = (el: HTMLElement) => el.classList.add('is-revealed');
 
-    const reveal = (el: HTMLElement) => el.classList.add('is-revealed');
-
-    if (!('IntersectionObserver' in window)) {
-      cells.forEach(reveal);
-      return;
+      if (!('IntersectionObserver' in window)) {
+        items.forEach(reveal);
+      } else {
+        const io = new IntersectionObserver(
+          (entries, obs) => {
+            for (const entry of entries) {
+              if (entry.isIntersecting) {
+                reveal(entry.target as HTMLElement);
+                obs.unobserve(entry.target);
+              }
+            }
+          },
+          { threshold: 0.08, rootMargin: '0px 0px -8% 0px' }
+        );
+        items.forEach((el) => io.observe(el));
+        setTimeout(() => items.forEach(reveal), 1500);
+      }
     }
 
-    const io = new IntersectionObserver(
-      (entries, obs) => {
-        for (const entry of entries) {
-          if (entry.isIntersecting) {
-            reveal(entry.target as HTMLElement);
-            obs.unobserve(entry.target);
-          }
-        }
-      },
-      { threshold: 0.1, rootMargin: '0px 0px -8% 0px' }
-    );
-    cells.forEach((el) => io.observe(el));
-
-    setTimeout(() => cells.forEach(reveal), 1500);
+    // Copy the install command — one delegated listener for the whole page.
+    let resetTimer: number | undefined;
+    document.addEventListener('click', (event) => {
+      const btn = (event.target as HTMLElement)?.closest<HTMLButtonElement>('[data-copy-install]');
+      if (!btn) return;
+      const command = btn.dataset.command ?? '';
+      if (!command || !navigator.clipboard) return;
+      navigator.clipboard.writeText(command).then(() => {
+        btn.dataset.copied = 'true';
+        window.clearTimeout(resetTimer);
+        resetTimer = window.setTimeout(() => delete btn.dataset.copied, 1600);
+      }).catch(() => undefined);
+    });
   })();
 </script>

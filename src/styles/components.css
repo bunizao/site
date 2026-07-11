@@ -142,153 +142,240 @@ body:has(.components)::before {
   border-color: hsl(var(--foreground) / 0.32);
 }
 
-/* ── Page frame (index) ──────────────────────────────────────────────────── */
+/* ── Showcase (index) ────────────────────────────────────────────────────────
+   Not a grid of link-cards — a single laid-open column. Every component renders
+   LIVE and interactive in place (the same preview the detail page shows), with
+   its metadata above and a copyable install below. Dividers + vertical rhythm
+   come from the global `section` rule; the frame around each preview is the
+   shared `.preview-frame`. */
 
-.components-page {
+.showcase {
   width: min(72rem, 100% - 2.5rem);
   margin: 0 auto;
-  padding: 1.5rem 0 7rem;
+  padding-bottom: 6rem;
+  border-top: 1px solid hsl(var(--foreground) / 0.08);
 }
 
-.components-index-label {
-  margin: 0 0 1.5rem;
-  font-family: var(--font-sans);
-  font-size: 0.8rem;
-  font-weight: 500;
-  color: hsl(var(--foreground) / 0.4);
-}
-
-.components-title {
-  margin: 0;
-  font-family: var(--font-display);
-  font-size: clamp(2rem, 4vw, 2.6rem);
-  font-weight: 700;
-  line-height: 1.05;
-  letter-spacing: -0.025em;
-}
-
-.components-lede {
-  max-width: 40rem;
-  margin: 0.9rem 0 0;
-  font-family: var(--font-sans);
-  font-size: 1rem;
-  line-height: 1.65;
-  color: hsl(var(--muted-foreground));
-}
-
-.components-lede code {
-  font-family: var(--font-code);
-  font-size: 0.85em;
-  padding: 0.1em 0.4em;
-  border-radius: var(--radius-sm);
-  background: hsl(var(--foreground) / 0.06);
-  color: hsl(var(--foreground) / 0.85);
-}
-
-/* ── Card grid (index) ───────────────────────────────────────────────────── */
-
-.specimen-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(20rem, 1fr));
-  gap: 1rem;
-}
-
-.specimen {
+.showcase-item {
   display: flex;
   flex-direction: column;
-  overflow: hidden;
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  background:
-    linear-gradient(180deg, hsl(var(--foreground) / 0.045), hsl(var(--foreground) / 0.015));
-  text-decoration: none;
-  color: inherit;
-  transition:
-    border-color 0.22s var(--ease-out),
-    box-shadow 0.22s var(--ease-out),
-    transform 0.22s var(--ease-out);
+  scroll-margin-top: 5rem;
 }
 
-/* First-paint reveal — first view only, staggered per card by inline --i. */
-.js .specimen {
+/* Scroll reveal — first view only, staggered per item by inline --i. */
+.js .showcase-item {
   opacity: 0;
-  transform: translateY(8px);
+  transform: translateY(12px);
 }
 
-.js .specimen.is-revealed {
+.js .showcase-item.is-revealed {
   opacity: 1;
   transform: none;
   transition:
-    opacity 0.4s var(--ease-out) calc(var(--i, 0) * 45ms),
-    transform 0.4s var(--ease-out) calc(var(--i, 0) * 45ms);
+    opacity 0.5s var(--ease-out) calc(var(--i, 0) * 40ms),
+    transform 0.5s var(--ease-out) calc(var(--i, 0) * 40ms);
 }
 
-/* Header sits on top of the card (coss layout): name + one-line description. */
-.specimen-head {
+.showcase-head {
   display: flex;
   flex-direction: column;
-  gap: 0.3rem;
-  padding: 1.15rem 1.25rem 0;
+  gap: 0.5rem;
 }
 
-.specimen-name {
-  font-family: var(--font-sans);
-  font-size: 1rem;
-  font-weight: 600;
-  letter-spacing: -0.01em;
+.showcase-eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 0;
+}
+
+.showcase-index {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.06em;
+  color: hsl(var(--foreground) / 0.4);
+}
+
+.showcase-tier {
+  padding: 0.15rem 0.55rem;
+  border: 1px solid var(--line2);
+  border-radius: 999px;
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: hsl(var(--foreground) / 0.55);
+}
+
+.showcase-name-link {
+  width: fit-content;
+  text-decoration: none;
+  color: inherit;
+}
+
+.showcase-name {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(1.6rem, 3vw, 2.1rem);
+  font-weight: 700;
+  line-height: 1.05;
+  letter-spacing: -0.025em;
   color: hsl(var(--foreground));
+  transition: opacity 0.15s ease;
 }
 
-.specimen-tagline {
+.showcase-name-link:hover .showcase-name {
+  opacity: 0.65;
+}
+
+.showcase-tagline {
+  max-width: 46ch;
+  margin: 0;
   font-family: var(--font-sans);
-  font-size: 0.85rem;
-  line-height: 1.5;
-  color: hsl(var(--foreground) / 0.5);
+  font-size: 0.98rem;
+  line-height: 1.55;
+  color: hsl(var(--foreground) / 0.55);
   text-wrap: pretty;
 }
 
-/* Live component sits in an inset preview panel below the header. */
-.specimen-stage {
-  position: relative;
-  flex: 1;
-  display: grid;
-  place-items: center;
-  min-height: 9.5rem;
-  margin: 1.1rem 1rem 1rem;
-  padding: 1.5rem;
-  overflow: hidden;
-  border: 1px solid var(--line);
-  border-radius: calc(var(--radius) - 5px);
-  background:
-    radial-gradient(ellipse 70% 80% at 50% 45%, hsl(var(--foreground) / 0.05), transparent 75%),
-    hsl(var(--foreground) / 0.015);
-  pointer-events: none;
+/* The live preview sits in the shared .preview-frame; the stage just gives it
+   room. Full width, so wide components (mood-wheel) and small ones (a button
+   row) both read as laid open, not boxed into a tile. */
+.showcase-stage {
+  margin: 1.75rem 0 1.5rem;
 }
 
-@media (hover: hover) and (pointer: fine) {
-  .specimen:hover {
-    border-color: var(--line2);
-    transform: translateY(-3px);
-    box-shadow:
-      0 1px 0 hsl(var(--foreground) / 0.06) inset,
-      0 18px 40px -20px hsl(0 0% 0% / 0.7);
-  }
+.showcase-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
 
-  .specimen:hover .specimen-stage {
-    border-color: hsl(var(--foreground) / 0.16);
-  }
+.showcase-install {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+  max-width: 100%;
+  padding: 0.4rem 0.4rem 0.4rem 0.85rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+
+.showcase-install-cmd {
+  min-width: 0;
+  overflow-x: auto;
+  white-space: nowrap;
+  font-family: var(--font-code);
+  font-size: 0.8rem;
+  color: hsl(var(--foreground) / 0.85);
+  scrollbar-width: none;
+}
+
+.showcase-install-cmd::-webkit-scrollbar {
+  display: none;
+}
+
+.showcase-copy {
+  position: relative;
+  flex-shrink: 0;
+  display: inline-grid;
+  place-items: center;
+  width: 1.85rem;
+  height: 1.85rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: hsl(var(--background));
+  color: hsl(var(--foreground));
+  cursor: pointer;
+  transition: transform 0.16s var(--ease-out), border-color 0.16s ease;
+}
+
+.showcase-copy:hover {
+  border-color: var(--line2);
+}
+
+.showcase-copy:active {
+  transform: scale(0.96);
+}
+
+.showcase-copy:focus-visible {
+  outline: 2px solid hsl(var(--foreground));
+  outline-offset: 2px;
+}
+
+.showcase-copy-icon {
+  grid-area: 1 / 1;
+  width: 0.9rem;
+  height: 0.9rem;
+  transition: opacity 0.2s ease, filter 0.2s ease;
+}
+
+.showcase-copy-icon--check {
+  opacity: 0;
+  filter: blur(2px);
+}
+
+.showcase-copy[data-copied] .showcase-copy-icon--copy {
+  opacity: 0;
+  filter: blur(2px);
+}
+
+.showcase-copy[data-copied] .showcase-copy-icon--check {
+  opacity: 1;
+  filter: blur(0);
+}
+
+.showcase-open {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-family: var(--font-sans);
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: hsl(var(--foreground) / 0.6);
+  text-decoration: none;
+  transition: color 0.15s ease, gap 0.15s ease;
+}
+
+.showcase-open:hover {
+  color: hsl(var(--foreground));
+  gap: 0.55rem;
 }
 
 /* ── Mobile ──────────────────────────────────────────────────────────────── */
 
 @media (max-width: 640px) {
-  .specimen-stage {
-    min-height: 8rem;
+  .showcase-install {
+    order: 2;
+    width: 100%;
+  }
+
+  .showcase-install-cmd {
+    flex: 1;
   }
 
   /* Avoid colliding with the fixed theme toggle in the top-right. */
   .components-topbar-label {
     display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .js .showcase-item,
+  .js .showcase-item.is-revealed {
+    opacity: 1;
+    transform: none;
+    transition: opacity 0.3s ease;
+  }
+
+  .showcase-copy-icon {
+    transition-duration: 0.01ms;
   }
 }
 
@@ -372,17 +459,58 @@ body:has(.components)::before {
 
 /* Usage + credits ---------------------------------------------------------- */
 
+/* Framed code box in the shadcn register: a quiet header bar (language label +
+   copy button) above a monochrome code body. Fallback bare <pre> (when the
+   Usage body isn't a single clean fence) inherits the box border + surface. */
+.code-block,
 .detail-usage :global(pre),
 .detail-usage pre {
   margin: 0;
-  padding: 1.1rem 1.25rem;
   border: 1px solid var(--line);
   border-radius: var(--radius);
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.code-block-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.5rem 0.5rem 0.5rem 1rem;
+  border-bottom: 1px solid var(--line);
+  background: hsl(var(--foreground) / 0.015);
+}
+
+.code-block-lang {
+  font-family: var(--font-code);
+  font-size: 0.72rem;
+  letter-spacing: 0.02em;
+  text-transform: lowercase;
+  color: hsl(var(--muted-foreground));
+}
+
+/* Header copy button is a hair smaller than the install bar's. */
+.code-block-copy {
+  width: 1.85rem;
+  height: 1.85rem;
+}
+
+.code-block-body {
+  margin: 0;
+  padding: 1.1rem 1.25rem;
   overflow-x: auto;
   font-family: var(--font-code);
   font-size: 0.84rem;
   line-height: 1.6;
-  background: var(--surface);
+}
+
+.detail-usage :global(pre),
+.detail-usage pre {
+  padding: 1.1rem 1.25rem;
+  font-family: var(--font-code);
+  font-size: 0.84rem;
+  line-height: 1.6;
+  overflow-x: auto;
 }
 
 .detail-credits {
@@ -673,17 +801,6 @@ body:has(.components)::before {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .js .specimen,
-  .js .specimen.is-revealed {
-    opacity: 1;
-    transform: none;
-    transition: opacity 0.3s ease;
-  }
-
-  .specimen:hover {
-    transform: none;
-  }
-
   .install-tabs-layer--ink,
   .install-tabs-underline,
   .copy-command-icon {

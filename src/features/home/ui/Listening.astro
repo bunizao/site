@@ -79,12 +79,16 @@ const playLabel = hasPlayableAudio
           <Play
             className="listening-art-icon listening-art-icon--play"
             aria-hidden="true"
-            strokeWidth={2.6}
+            fill="currentColor"
+            strokeLinejoin="round"
+            strokeWidth={2}
           />
           <Pause
             className="listening-art-icon listening-art-icon--pause"
             aria-hidden="true"
-            strokeWidth={2.6}
+            fill="currentColor"
+            strokeLinejoin="round"
+            strokeWidth={1.5}
           />
         </span>
         {isAppleMusic && (
@@ -177,6 +181,7 @@ const playLabel = hasPlayableAudio
 <style>
   .listening {
     --listening-accent: hsl(var(--foreground));
+    --record-rotation: 0turn;
     display: grid;
     grid-template-columns: auto minmax(0, 1fr);
     align-items: center;
@@ -257,10 +262,10 @@ const playLabel = hasPlayableAudio
       inset 0 0 0 1px hsl(0 0% 100% / 0.08),
       inset 0 0 18px hsl(0 0% 100% / 0.06),
       0 8px 18px -12px hsl(0 0% 0% / 0.72);
-    transform: translate(-50%, -50%);
+    transform: translate(-50%, -50%) rotate(var(--record-rotation));
     transition:
       filter 0.3s ease,
-      transform 0.45s cubic-bezier(0.2, 0.8, 0.2, 1);
+      transform 0.18s linear;
     will-change: transform;
     z-index: 1;
   }
@@ -309,7 +314,8 @@ const playLabel = hasPlayableAudio
     border-radius: 999px;
     object-fit: cover;
     transform-origin: 50% 50%;
-    transform: translate(-50%, -50%);
+    transform: translate(-50%, -50%) rotate(var(--record-rotation));
+    transition: transform 0.18s linear;
     box-shadow:
       inset 0 0 0 1px hsl(0 0% 100% / 0.25),
       0 0 0 1px hsl(0 0% 0% / 0.5);
@@ -343,6 +349,7 @@ const playLabel = hasPlayableAudio
     width: 20px;
     height: 20px;
     color: #fff;
+    fill: currentColor;
     filter:
       drop-shadow(0 1px 6px hsl(0 0% 0% / 0.6))
       drop-shadow(0 0 1px hsl(0 0% 0% / 0.85));
@@ -372,6 +379,15 @@ const playLabel = hasPlayableAudio
     animation-duration: 8s;
   }
 
+  /* While scrubbing, the disc tracks the pointer: kill the spin loop and shrink
+     the transition so rotation follows the seek fraction directly. */
+  .listening.is-scrubbing .listening-art-record,
+  .listening.is-scrubbing .listening-art-img,
+  .listening.is-scrubbing .listening-art-label {
+    animation: none;
+    transition-duration: 80ms;
+  }
+
   .listening-art.is-live:hover:not(:disabled):not(.is-preview-playing) .listening-art-record,
   .listening-art.is-live:focus-visible:not(:disabled):not(.is-preview-playing) .listening-art-record {
     filter: brightness(1.12) contrast(1.04);
@@ -393,7 +409,9 @@ const playLabel = hasPlayableAudio
     width: var(--record-size);
     height: var(--record-size);
     padding-bottom: 5px;
-    transform: translate(-50%, -50%);
+    transform-origin: 50% 50%;
+    transform: translate(-50%, -50%) rotate(var(--record-rotation));
+    transition: transform 0.18s linear;
     pointer-events: none;
     z-index: 3;
   }
@@ -429,7 +447,9 @@ const playLabel = hasPlayableAudio
     letter-spacing: 0.01em;
   }
 
-  /* Tonearm — SVG, rests up-left, swings onto the record on hover/play. */
+  /* Tonearm — SVG, always resting on the deck. Parks off the record at rest,
+     lifts toward the groove on hover, and swings fully onto the disc while
+     playing (live or preview). */
   .listening-art-tonearm {
     position: absolute;
     inset: 0;
@@ -438,16 +458,19 @@ const playLabel = hasPlayableAudio
     overflow: visible;
     pointer-events: none;
     color: hsl(0 0% 96%);
-    filter: drop-shadow(0 1px 1px hsl(0 0% 0% / 0.55));
-    opacity: 0;
+    filter:
+      drop-shadow(0 1px 1px hsl(0 0% 0% / 0.58))
+      drop-shadow(0 0 1px hsl(var(--foreground) / 0.7));
+    opacity: 0.86;
     transition: opacity 0.3s ease;
     z-index: 5;
   }
 
   .listening-art:hover:not(:disabled) .listening-art-tonearm,
   .listening-art:focus-visible:not(:disabled) .listening-art-tonearm,
+  .listening-art.is-live .listening-art-tonearm,
   .listening-art.is-preview-playing .listening-art-tonearm {
-    opacity: 0.92;
+    opacity: 1;
   }
 
   .listening-art-tonearm-arm {
@@ -456,14 +479,20 @@ const playLabel = hasPlayableAudio
     transition: transform 0.45s cubic-bezier(0.2, 0.8, 0.2, 1);
   }
 
-  .listening-art:hover:not(:disabled):not(.is-preview-playing) .listening-art-tonearm-arm,
-  .listening-art:focus-visible:not(:disabled):not(.is-preview-playing) .listening-art-tonearm-arm {
-    transform: rotate(-16deg);
+  .listening-art:hover:not(:disabled):not(.is-live):not(.is-preview-playing) .listening-art-tonearm-arm,
+  .listening-art:focus-visible:not(:disabled):not(.is-live):not(.is-preview-playing) .listening-art-tonearm-arm {
+    transform: rotate(-18deg);
   }
 
+  .listening-art.is-live .listening-art-tonearm-arm,
   .listening-art.is-preview-playing .listening-art-tonearm-arm {
-    transition: transform 0.65s cubic-bezier(0.34, 1.55, 0.64, 1) 0.16s;
-    transform: rotate(22deg);
+    transition: transform 0.65s cubic-bezier(0.34, 1.55, 0.64, 1) 0.18s;
+    transform: rotate(23deg);
+  }
+
+  .listening-art.is-live:hover:not(:disabled):not(.is-preview-playing) .listening-art-tonearm-arm,
+  .listening-art.is-live:focus-visible:not(:disabled):not(.is-preview-playing) .listening-art-tonearm-arm {
+    transform: rotate(18deg);
   }
 
   .listening-art-tonearm-shaft {
@@ -477,14 +506,27 @@ const playLabel = hasPlayableAudio
     fill: currentColor;
     stroke: hsl(var(--background) / 0.75);
     stroke-width: 0.4;
+    transition:
+      filter 0.3s ease,
+      stroke 0.3s ease;
+  }
+
+  .listening-art:hover:not(:disabled):not(.is-live):not(.is-preview-playing) .listening-art-tonearm-cartridge,
+  .listening-art:focus-visible:not(:disabled):not(.is-live):not(.is-preview-playing) .listening-art-tonearm-cartridge,
+  .listening-art.is-live:hover:not(:disabled):not(.is-preview-playing) .listening-art-tonearm-cartridge,
+  .listening-art.is-live:focus-visible:not(:disabled):not(.is-preview-playing) .listening-art-tonearm-cartridge {
+    filter: drop-shadow(0 0 4px hsl(0 0% 100% / 0.34));
+    stroke: hsl(var(--background) / 0.42);
   }
 
   .listening-art-tonearm-pivot {
     fill: currentColor;
+    stroke: none;
   }
 
   .listening-art-tonearm-hole {
-    fill: #060606;
+    fill: #050505;
+    stroke: none;
   }
 
   /* Copy */
@@ -929,8 +971,12 @@ const playLabel = hasPlayableAudio
   }
 
   @keyframes listening-record-spin {
+    from {
+      transform: translate(-50%, -50%) rotate(var(--record-rotation));
+    }
+
     to {
-      transform: translate(-50%, -50%) rotate(360deg);
+      transform: translate(-50%, -50%) rotate(calc(var(--record-rotation) + 1turn));
     }
   }
 
@@ -1147,6 +1193,7 @@ const playLabel = hasPlayableAudio
       const progress = root.querySelector('[data-listening-progress]');
       const elapsedEl = root.querySelector('[data-listening-elapsed]');
       const totalEl = root.querySelector('[data-listening-total]');
+      const recordEl = root.querySelector('.listening-art-record');
 
       let trackTitle = playButton.dataset.trackTitle ?? 'Track';
       let trackUrl = playButton.dataset.trackUrl ?? '';
@@ -1224,6 +1271,26 @@ const playLabel = hasPlayableAudio
           progress.style.setProperty('--fill', String(clamped));
           progress.setAttribute('aria-valuenow', String(Math.round(clamped * 100)));
         }
+      };
+
+      // Scrubbing spins the disc a few turns across the full drag, so seeking
+      // reads as physically winding the record rather than a bare bar drag.
+      const RECORD_SCRUB_TURNS = 6;
+      const syncRecordRotation = (fraction: number) => {
+        const clamped = Math.min(1, Math.max(0, fraction));
+        root.style.setProperty('--record-rotation', `${clamped * RECORD_SCRUB_TURNS}turn`);
+      };
+
+      // When playback stops, the CSS spin keyframe vanishes and the disc would
+      // snap back to --record-rotation. Read the live angle off the transform
+      // matrix and pin the variable there, so it holds where it was spinning.
+      const freezeCurrentRecordRotation = () => {
+        if (!(recordEl instanceof HTMLElement)) return;
+        const transform = getComputedStyle(recordEl).transform;
+        if (!transform || transform === 'none') return;
+        const matrix = new DOMMatrixReadOnly(transform);
+        const degrees = Math.atan2(matrix.b, matrix.a) * (180 / Math.PI);
+        root.style.setProperty('--record-rotation', `${degrees}deg`);
       };
 
       const syncTitleMarquee = () => {
@@ -1390,9 +1457,13 @@ const playLabel = hasPlayableAudio
 
       window.addEventListener('resize', syncTitleMarquee, { passive: true });
 
+      let wasPlaying = false;
       musicKitPlayer.subscribe((snapshot) => {
         const ours = snapshot.owner === playbackRequest;
-        setPlaybackState(ours && snapshot.isPlaying);
+        const playing = ours && snapshot.isPlaying;
+        if (wasPlaying && !playing) freezeCurrentRecordRotation();
+        setPlaybackState(playing);
+        wasPlaying = playing;
 
         const duration = ours ? snapshot.duration : 0;
         const current = ours ? snapshot.currentTime : 0;
@@ -1409,12 +1480,14 @@ const playLabel = hasPlayableAudio
           if (rect.width <= 0) return;
           const fraction = (event.clientX - rect.left) / rect.width;
           syncProgress(fraction);
+          syncRecordRotation(fraction);
           musicKitPlayer.seekFraction(fraction);
         };
         let scrubbing = false;
         progress.addEventListener('pointerdown', (event) => {
           if (musicKitPlayer.snapshot().owner !== playbackRequest) return;
           scrubbing = true;
+          root.classList.add('is-scrubbing');
           progress.setPointerCapture(event.pointerId);
           seekFromEvent(event);
         });
@@ -1425,6 +1498,7 @@ const playLabel = hasPlayableAudio
         const endScrub = (event: PointerEvent) => {
           if (!scrubbing) return;
           scrubbing = false;
+          root.classList.remove('is-scrubbing');
           progress.releasePointerCapture(event.pointerId);
         };
         progress.addEventListener('pointerup', endScrub);

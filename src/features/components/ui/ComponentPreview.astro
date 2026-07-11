@@ -1,0 +1,73 @@
+---
+// Single source of truth for a component's LIVE preview. Both the index
+// showcase and the /components/[slug] detail page render through this, so the
+// two can never drift (the index used to show fake placeholder glyphs).
+//
+// mood-wheel takes over scroll / uses fixed positioning, so it renders in an
+// iframe; everything else is an inline island sharing the page's shadcn tokens.
+import ComponentPreviewFrame from './ComponentPreviewFrame.astro';
+import DecodeTextPreview from '@/features/components/previews/DecodeTextPreview';
+import Listening from '@/features/home/ui/Listening.astro';
+import { FALLBACK_TRACK } from '@/features/home/server/listening';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui/card';
+import { gridToSvg } from '@/features/logos/lib/render';
+import { PEEK_BASE } from '@/features/mascot/peek/base';
+
+interface Props {
+  slug: string;
+}
+const { slug } = Astro.props;
+
+// The listening specimen starts at rest (Recently Played), not live, so the
+// tonearm demonstrates its full arc: parked → lifts on hover → drops onto the
+// disc on play. The homepage fallback stays "now playing" untouched.
+const listeningDemoTrack = { ...FALLBACK_TRACK, isNowPlaying: false };
+
+const mascotSvg = gridToSvg(PEEK_BASE.base, PEEK_BASE.width, PEEK_BASE.height, {
+  fg: 'currentColor',
+  accent: PEEK_BASE.accent,
+});
+---
+
+{slug === 'mood-wheel' ? (
+  <ComponentPreviewFrame variant="iframe" src="/components/preview/mood-wheel" title="Mood wheel preview" />
+) : (
+  <ComponentPreviewFrame>
+    {slug === 'button' && (
+      <div class="preview-row">
+        <Button>Primary</Button>
+        <Button variant="secondary">Secondary</Button>
+        <Button variant="outline">Outline</Button>
+        <Button variant="ghost">Ghost</Button>
+      </div>
+    )}
+    {slug === 'badge' && (
+      <div class="preview-row">
+        <Badge>Default</Badge>
+        <Badge variant="secondary">Secondary</Badge>
+        <Badge variant="outline">Outline</Badge>
+        <Badge variant="success">Success</Badge>
+      </div>
+    )}
+    {slug === 'card' && (
+      <Card style={{ maxWidth: '22rem' }}>
+        <CardHeader>
+          <CardTitle>Signal</CardTitle>
+        </CardHeader>
+        <CardContent>Content sits on the card surface, above a quiet footer.</CardContent>
+        <CardFooter>
+          <Button size="sm" variant="outline">Action</Button>
+        </CardFooter>
+      </Card>
+    )}
+    {slug === 'decode-text' && <DecodeTextPreview client:visible />}
+    {slug === 'listening' && (
+      <div class="preview-listening">
+        <Listening track={listeningDemoTrack} static />
+      </div>
+    )}
+    {slug === 'mascot' && <span class="preview-mascot" set:html={mascotSvg} />}
+  </ComponentPreviewFrame>
+)}

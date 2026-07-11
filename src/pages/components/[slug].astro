@@ -2,18 +2,11 @@
 import { getCollection, render, type CollectionEntry } from 'astro:content';
 import { ArrowUpRight } from 'lucide-react';
 import Layout from '@/layouts/Layout.astro';
-import ComponentPreviewFrame from '@/features/components/ui/ComponentPreviewFrame.astro';
+import ComponentPreview from '@/features/components/ui/ComponentPreview.astro';
 import OnThisPage from '@/features/components/ui/OnThisPage.astro';
 import PrevNext from '@/features/components/ui/PrevNext.astro';
 import { InstallTabs, type InstallSpec } from '@/features/components/ui/InstallTabs';
-import DecodeTextPreview from '@/features/components/previews/DecodeTextPreview';
-import Listening from '@/features/home/ui/Listening.astro';
-import { FALLBACK_TRACK } from '@/features/home/server/listening';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui/card';
-import { gridToSvg } from '@/features/logos/lib/render';
-import { PEEK_BASE } from '@/features/mascot/peek/base';
+import { CodeBlock } from '@/features/components/ui/CodeBlock';
 import '@/styles/components.css';
 
 export const prerender = true;
@@ -42,14 +35,18 @@ const { title, tagline, install, source, credits } = entry.data;
 const slug = entry.id;
 const { Content } = await render(entry);
 
+// The Usage section is a single fenced code block per entry. Parse its language
+// and body out of the raw markdown so it renders in the framed CodeBlock (with
+// a header bar + copy button) rather than a bare Shiki <pre>. Fall back to
+// <Content /> if the shape is ever anything other than one clean fence.
+const usageMatch = entry.body?.match(/```(\w+)?\n([\s\S]*?)\n```/);
+const usage = usageMatch
+  ? { lang: usageMatch[1] ?? 'text', code: usageMatch[2] }
+  : null;
+
 const registryUrl = new URL(`/r/${slug}`, Astro.site ?? 'https://buxx.me').href;
 const spec: InstallSpec =
   install.type === 'npm' ? { type: 'npm', pkg: install.pkg } : { type: 'registry', url: registryUrl };
-
-const mascotSvg = gridToSvg(PEEK_BASE.base, PEEK_BASE.width, PEEK_BASE.height, {
-  fg: 'currentColor',
-  accent: PEEK_BASE.accent,
-});
 
 const toc = [
   { id: 'preview', label: 'Preview' },
@@ -88,46 +85,7 @@ const creditsHtml = (raw: string) =>
 
         <section class="detail-section" id="preview" aria-labelledby="preview-label">
           <h2 class="detail-section-label" id="preview-label">Preview</h2>
-          {slug === 'mood-wheel' ? (
-            <ComponentPreviewFrame variant="iframe" src="/components/preview/mood-wheel" title="Mood wheel preview" />
-          ) : (
-            <ComponentPreviewFrame>
-              {slug === 'button' && (
-                <div class="preview-row">
-                  <Button>Primary</Button>
-                  <Button variant="secondary">Secondary</Button>
-                  <Button variant="outline">Outline</Button>
-                  <Button variant="ghost">Ghost</Button>
-                </div>
-              )}
-              {slug === 'badge' && (
-                <div class="preview-row">
-                  <Badge>Default</Badge>
-                  <Badge variant="secondary">Secondary</Badge>
-                  <Badge variant="outline">Outline</Badge>
-                  <Badge variant="success">Success</Badge>
-                </div>
-              )}
-              {slug === 'card' && (
-                <Card style={{ maxWidth: '22rem' }}>
-                  <CardHeader>
-                    <CardTitle>Signal</CardTitle>
-                  </CardHeader>
-                  <CardContent>Content sits on the card surface, above a quiet footer.</CardContent>
-                  <CardFooter>
-                    <Button size="sm" variant="outline">Action</Button>
-                  </CardFooter>
-                </Card>
-              )}
-              {slug === 'decode-text' && <DecodeTextPreview client:visible />}
-              {slug === 'listening' && (
-                <div class="preview-listening">
-                  <Listening track={FALLBACK_TRACK} static />
-                </div>
-              )}
-              {slug === 'mascot' && <span class="preview-mascot" set:html={mascotSvg} />}
-            </ComponentPreviewFrame>
-          )}
+          <ComponentPreview slug={slug} />
         </section>
 
         <section class="detail-section" id="installation" aria-labelledby="install-label">
@@ -137,7 +95,7 @@ const creditsHtml = (raw: string) =>
 
         <section class="detail-section detail-usage" id="usage" aria-labelledby="usage-label">
           <h2 class="detail-section-label" id="usage-label">Usage</h2>
-          <Content />
+          {usage ? <CodeBlock code={usage.code} lang={usage.lang} client:visible /> : <Content />}
         </section>
 
         {credits && (
