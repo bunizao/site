@@ -103,6 +103,10 @@ async function buildMoodWheelItem(): Promise<RegistryItem> {
     type: 'registry:lib',
     dependencies: ['gsap', 'slot-text'],
     files: await Promise.all(paths.map((filePath) => readRegistryFile(filePath, 'registry:lib'))),
+    cssVars: {
+      light: { 'wheel-size': '600px' },
+      dark: { 'wheel-size': '600px' },
+    },
   };
 }
 
