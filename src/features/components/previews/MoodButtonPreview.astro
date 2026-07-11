@@ -1,86 +1,115 @@
 ---
-// Self-contained specimen of the mood feed's "refresh" pill — the control that
-// hover-expands from an icon to reveal its label. Mirrors .mood-update-action:
-// a compact square that widens as .mood-update-action-label unfurls from
-// max-width:0. Invented copy, no live feed, no polling — just the interaction.
+const actions = [
+  {
+    label: 'Notify',
+    title: 'Subscribe to notifications',
+    icon: '<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"></path><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"></path>',
+  },
+  {
+    label: 'RSS',
+    title: 'Subscribe to RSS feed',
+    icon: '<path d="M4 11a9 9 0 0 1 9 9"></path><path d="M4 4a16 16 0 0 1 16 16"></path><circle cx="5" cy="19" r="1"></circle>',
+  },
+  {
+    label: 'Telegram',
+    title: 'View on Telegram',
+    icon: '<path d="m22 2-7 20-4-9-9-4Z"></path><path d="M22 2 11 13"></path>',
+  },
+];
 ---
 
 <div class="updbtn" data-updbtn>
-  <button type="button" class="updbtn-action" data-updbtn-action aria-label="New moods — refresh">
-    <span class="updbtn-icon" aria-hidden="true">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M3 12a9 9 0 0 1 15-6.7L21 8" />
-        <path d="M21 3v5h-5" />
-        <path d="M21 12a9 9 0 0 1-15 6.7L3 16" />
-        <path d="M3 21v-5h5" />
-      </svg>
-    </span>
-    <span class="updbtn-label" data-updbtn-label>3 new moods</span>
-  </button>
+  {
+    actions.map((action) => (
+      <button type="button" class="updbtn-action" data-updbtn-action aria-label={action.title}>
+        <span class="updbtn-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <Fragment set:html={action.icon} />
+          </svg>
+        </span>
+        <span class="updbtn-label">{action.label}</span>
+      </button>
+    ))
+  }
 </div>
 
 <script>
-  // Pointer-driven, not CSS :hover, to match the real feed watcher (which
-  // toggles .is-hovered so it can also lock the pill while refreshing).
   document.querySelectorAll<HTMLElement>('[data-updbtn]').forEach((root) => {
     if (root.dataset.bound === 'true') return;
     root.dataset.bound = 'true';
-    const btn = root.querySelector<HTMLElement>('[data-updbtn-action]');
-    if (!btn) return;
 
-    btn.addEventListener('pointerenter', () => btn.classList.add('is-hovered'));
-    btn.addEventListener('pointerleave', () => btn.classList.remove('is-hovered'));
-    // A tap gives a brief "refreshing" spin so the specimen shows the locked
-    // state too, then settles back.
-    btn.addEventListener('click', () => {
-      if (btn.classList.contains('is-refreshing')) return;
-      btn.classList.add('is-refreshing', 'is-hovered');
-      window.setTimeout(() => btn.classList.remove('is-refreshing', 'is-hovered'), 1100);
+    root.querySelectorAll<HTMLElement>('[data-updbtn-action]').forEach((button) => {
+      const open = () => button.classList.add('is-hovered');
+      const close = () => button.classList.remove('is-hovered');
+
+      button.addEventListener('pointerenter', open);
+      button.addEventListener('pointerleave', close);
+      button.addEventListener('focus', open);
+      button.addEventListener('blur', close);
     });
   });
 </script>
 
 <style>
   .updbtn {
-    display: grid;
-    place-items: center;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
     width: 100%;
     height: 100%;
-    /* The mood UI reads in Inter, not the showcase's mono scope. */
     font-family: var(--font-sans);
   }
 
-  /* The pill. Rests as a 30px icon square; .is-hovered / .is-refreshing let the
-     label unfurl and warm the surface. concentric radius, tabular label. */
   .updbtn-action {
     display: inline-flex;
     align-items: center;
+    justify-content: center;
     gap: 0;
+    width: 32px;
     height: 32px;
     min-width: 32px;
-    padding: 0 8px;
+    padding: 0;
     font: inherit;
-    font-size: 12px;
-    font-weight: 460;
+    font-size: 11px;
+    font-weight: 450;
     letter-spacing: 0.01em;
     color: hsl(var(--muted-foreground));
-    background: hsl(var(--foreground) / 0.04);
+    background: hsl(var(--background) / 0.8);
     border: 1px solid hsl(var(--foreground) / 0.08);
-    border-radius: 9px;
+    border-radius: 8px;
     cursor: pointer;
     overflow: hidden;
-    transition: color 0.2s ease, background 0.2s ease, border-color 0.2s ease, gap 0.24s cubic-bezier(0.4, 0, 0.2, 1);
+    backdrop-filter: blur(8px);
+    transition:
+      width 0.3s cubic-bezier(0.16, 1, 0.3, 1),
+      padding 0.3s cubic-bezier(0.16, 1, 0.3, 1),
+      gap 0.2s ease,
+      color 0.2s ease,
+      background 0.2s ease,
+      border-color 0.2s ease;
   }
 
   .updbtn-action.is-hovered {
+    width: var(--expanded-width, 76px);
     gap: 6px;
+    padding-inline: 10px;
     color: hsl(var(--foreground));
-    background: hsl(var(--foreground) / 0.08);
+    background: hsl(var(--foreground) / 0.05);
     border-color: hsl(var(--foreground) / 0.15);
+  }
+
+  .updbtn-action:last-child.is-hovered {
+    --expanded-width: 104px;
   }
 
   .updbtn-action:active {
     scale: 0.96;
+  }
+
+  .updbtn-action:focus-visible {
+    outline: 2px solid hsl(var(--foreground) / 0.35);
+    outline-offset: 2px;
   }
 
   .updbtn-icon {
@@ -93,35 +122,30 @@
     height: 14px;
   }
 
-  .updbtn-action.is-refreshing .updbtn-icon {
-    animation: updbtn-spin 0.9s linear infinite;
-  }
-
-  /* The reveal: label is clipped to zero width at rest and eases open. */
   .updbtn-label {
-    display: inline-flex;
-    align-items: center;
-    white-space: nowrap;
-    line-height: 1;
+    display: inline-block;
     max-width: 0;
-    opacity: 0;
     overflow: hidden;
-    font-variant-numeric: tabular-nums;
-    transition: max-width 0.28s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s ease;
+    opacity: 0;
+    white-space: nowrap;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    line-height: 1;
+    text-transform: uppercase;
+    transition: max-width 0.25s ease 0.05s, opacity 0.2s ease 0.08s;
   }
 
   .updbtn-action.is-hovered .updbtn-label {
-    max-width: 8rem;
+    max-width: 5rem;
     opacity: 1;
-  }
-
-  @keyframes updbtn-spin {
-    to { transform: rotate(360deg); }
   }
 
   @media (prefers-reduced-motion: reduce) {
     .updbtn-action,
-    .updbtn-label { transition: none; }
-    .updbtn-action.is-refreshing .updbtn-icon { animation: none; }
+    .updbtn-label {
+      transition: none;
+    }
   }
 </style>

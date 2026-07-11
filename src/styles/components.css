@@ -213,7 +213,7 @@ body:has(.components)::before {
   padding: 1.5rem 1.5rem 2.5rem;
 }
 
-/* The update pill is a single small control — center it with room to breathe. */
+/* Mood header actions expand in place, pushing their neighbours along the row. */
 .cgrid-stage--moodbtn {
   place-items: center;
   padding: 1.5rem;
