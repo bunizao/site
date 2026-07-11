@@ -11,7 +11,6 @@
   --line: hsl(var(--foreground) / 0.1);
   --line2: hsl(var(--foreground) / 0.2);
   --surface: hsl(var(--foreground) / 0.02);
-  --surface-hover: hsl(var(--foreground) / 0.035);
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
 
   --shell: min(64rem, 100% - 2.5rem);
@@ -84,15 +83,35 @@ body:has(.components)::before {
   position: relative;
   display: flex;
   overflow: hidden;
+  padding: 0;
   border: 1px solid var(--line);
   border-radius: var(--radius);
   background: var(--surface);
-  transition: border-color 0.2s ease, background-color 0.2s ease;
+  transition: border-color 0.2s ease, box-shadow 0.3s var(--ease-out),
+    translate 0.25s var(--ease-out);
 }
 
+/* Card hover: the border firms, the tile lifts a few px and floats on a soft
+   shadow. This is content-agnostic — it reads as elevation over anything. The
+   old translucent background flood (foreground/0.035) only landed on the gutter
+   around a specimen that carried its own surface (album art, tag images) or
+   flipped the opaque iframe tiles, leaving the two-tone "色差" the wall showed
+   on hover. The lift uses the standalone `translate` property (not `transform`)
+   so it never collides with the reveal animation's transform. In dark mode the
+   shadow all but vanishes, so the border and the lift carry the hover there. */
 .cgrid-tile:hover {
   border-color: var(--line2);
-  background: var(--surface-hover);
+  translate: 0 -3px;
+  box-shadow:
+    0 1px 2px hsl(0 0% 0% / 0.05),
+    0 14px 30px -14px hsl(0 0% 0% / 0.28);
+}
+
+html.dark .cgrid-tile:hover {
+  border-color: hsl(var(--foreground) / 0.28);
+  box-shadow:
+    0 1px 2px hsl(0 0% 0% / 0.4),
+    0 16px 34px -16px hsl(0 0% 0% / 0.7);
 }
 
 /* Iframe tiles hold their frame flush to the edge; no inner padding. */
@@ -126,6 +145,55 @@ body:has(.components)::before {
     hsl(var(--background) / 0.85),
     hsl(var(--background) / 0)
   );
+}
+
+/* ── Openable tiles ──────────────────────────────────────────────────────────
+   A documented specimen (decode, mood, listening, tags→badge, pills→button)
+   opens into its /components/[slug] detail page. The whole tile stays a live,
+   interactive specimen, so the entry is a single labelled control — the corner
+   caption — not a card-wide link that would swallow the specimen's own clicks.
+   The tile lift on hover is the shared card hover above; here we only add the
+   caption's arrow affordance so an openable tile reads apart from a specimen. */
+
+/* The caption becomes the link: it must catch pointer events (base .cgrid-cap
+   is inert), reads as a control, and carries an arrow that brightens + nudges
+   on hover/focus. Extra vertical padding clears a 40px hit target. */
+.cgrid-cap--link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding-top: 1.05rem;
+  padding-bottom: 0.75rem;
+  pointer-events: auto;
+  text-decoration: none;
+  transition: color 0.2s ease, transform 0.16s var(--ease-out);
+}
+
+.cgrid-cap--link:hover {
+  color: hsl(var(--foreground));
+}
+
+.cgrid-cap--link:active {
+  transform: scale(0.97);
+}
+
+.cgrid-cap--link:focus-visible {
+  outline: 2px solid hsl(var(--foreground));
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+.cgrid-cap-arrow {
+  flex-shrink: 0;
+  opacity: 0.45;
+  transition: opacity 0.2s var(--ease-out), transform 0.2s var(--ease-out);
+}
+
+.cgrid-tile--link:hover .cgrid-cap-arrow,
+.cgrid-cap--link:hover .cgrid-cap-arrow,
+.cgrid-cap--link:focus-visible .cgrid-cap-arrow {
+  opacity: 1;
+  transform: translate(1px, -1px);
 }
 
 /* Inline-island stage: center the live component, give it breathing room. */
@@ -432,12 +500,19 @@ body:has(.components)::before {
   transform: translateY(14px);
 }
 
+/* The reveal transition replaces the whole `transition` shorthand, so a revealed
+   tile would otherwise lose its hover border/shadow easing (they'd snap). Keep
+   the entrance timing verbatim and append the interaction properties, so both
+   the one-time entrance and the ongoing hover stay smooth. */
 .js .cgrid-tile.is-revealed {
   opacity: 1;
   transform: none;
   transition:
     opacity 0.55s var(--ease-out) calc(var(--i, 0) * 55ms),
-    transform 0.55s var(--ease-out) calc(var(--i, 0) * 55ms);
+    transform 0.55s var(--ease-out) calc(var(--i, 0) * 55ms),
+    border-color 0.2s ease,
+    box-shadow 0.3s var(--ease-out),
+    translate 0.25s var(--ease-out);
 }
 
 /* ── Tablet — explicit 6-col bands, still gapless ────────────────────────── */
@@ -553,6 +628,11 @@ body:has(.components)::before {
     transform: none;
     transition: opacity 0.3s ease;
   }
+
+  /* Keep the hover legible (border + shadow) but drop the positional lift. */
+  .cgrid-tile:hover {
+    translate: none;
+  }
 }
 
 /* ── Detail page ─────────────────────────────────────────────────────────── */
@@ -582,15 +662,21 @@ body:has(.components)::before {
   font-family: var(--font-display);
   font-size: clamp(1.9rem, 3.5vw, 2.4rem);
   font-weight: 700;
+  line-height: 1.08;
   letter-spacing: -0.025em;
+  text-wrap: balance;
 }
 
+/* The lede: an 18px reading size, its measure capped so it never runs the full
+   column on wide screens, and `pretty` so it never drops a single-word orphan. */
 .detail-tagline {
   margin: 0.6rem 0 0;
+  max-width: 48ch;
   font-family: var(--font-sans);
-  font-size: 1.05rem;
-  line-height: 1.6;
+  font-size: 1.125rem;
+  line-height: 1.55;
   color: hsl(var(--muted-foreground));
+  text-wrap: pretty;
 }
 
 /* Vertical rhythm + hairline dividers come from the global `section` rule
@@ -777,10 +863,12 @@ html.dark .code-box-body pre.astro-code span {
 }
 
 .detail-credits {
+  max-width: 60ch;
   font-family: var(--font-sans);
   font-size: 0.92rem;
   line-height: 1.6;
   color: hsl(var(--muted-foreground));
+  text-wrap: pretty;
 }
 
 .detail-credits a {

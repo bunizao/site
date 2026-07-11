@@ -41,18 +41,24 @@ const description =
            vertical dial is the focus; an invisible feed of dated anchors drives
            it and the backdrop shimmers with the scroll. Genuinely needs
            isolation (fixed positioning + scroll takeover), so it's iframed. -->
-      <section class="cgrid-tile cgrid-tile--mood cgrid-tile--iframe" data-cgrid-tile style="--i:1">
+      <section class="cgrid-tile cgrid-tile--mood cgrid-tile--iframe cgrid-tile--link" data-cgrid-tile style="--i:1">
         <iframe src="/components/preview/mood-wheel" title="Mood wheel" loading="lazy"></iframe>
-        <span class="cgrid-cap">Mood wheel</span>
+        <a class="cgrid-cap cgrid-cap--link" href="/components/mood-wheel">
+          Mood wheel
+          <svg class="cgrid-cap-arrow" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7"/><path d="M8 7h9v9"/></svg>
+        </a>
       </section>
 
       <!-- Decode text — a full paragraph that boils line-by-line; hover or click
            to re-boil. -->
-      <section class="cgrid-tile cgrid-tile--decode" data-cgrid-tile style="--i:2">
+      <section class="cgrid-tile cgrid-tile--decode cgrid-tile--link" data-cgrid-tile style="--i:2">
         <div class="cgrid-stage cgrid-stage--decode">
           <DecodeTextPreview client:visible />
         </div>
-        <span class="cgrid-cap">Decode text</span>
+        <a class="cgrid-cap cgrid-cap--link" href="/components/decode-text">
+          Decode text
+          <svg class="cgrid-cap-arrow" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7"/><path d="M8 7h9v9"/></svg>
+        </a>
       </section>
 
       <!-- Contact links — each platform lights up in its brand colour on hover. -->
@@ -65,11 +71,14 @@ const description =
 
       <!-- Listening — spins, samples the artwork colour, plays a preview with a
            scrubbable progress bar on click. Frozen on a demo track. -->
-      <section class="cgrid-tile cgrid-tile--listening" data-cgrid-tile style="--i:4">
+      <section class="cgrid-tile cgrid-tile--listening cgrid-tile--link" data-cgrid-tile style="--i:4">
         <div class="cgrid-stage">
           <Listening track={FALLBACK_TRACK} static />
         </div>
-        <span class="cgrid-cap">Listening</span>
+        <a class="cgrid-cap cgrid-cap--link" href="/components/listening">
+          Listening
+          <svg class="cgrid-cap-arrow" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7"/><path d="M8 7h9v9"/></svg>
+        </a>
       </section>
 
       <!-- Band 2 — the mobile reading bar (col 1, tall), the tag wall (col 2-3),
@@ -81,11 +90,14 @@ const description =
 
       <!-- Tag cards — quiet chips + feature-image glass cards from the blog tags
            wall. -->
-      <section class="cgrid-tile cgrid-tile--tags" data-cgrid-tile style="--i:6">
+      <section class="cgrid-tile cgrid-tile--tags cgrid-tile--link" data-cgrid-tile style="--i:6">
         <div class="cgrid-stage cgrid-stage--tags">
           <TagsPreview />
         </div>
-        <span class="cgrid-cap">Tag cards</span>
+        <a class="cgrid-cap cgrid-cap--link" href="/components/badge">
+          Tag cards
+          <svg class="cgrid-cap-arrow" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7"/><path d="M8 7h9v9"/></svg>
+        </a>
       </section>
 
       <!-- GitHub contributions — self-renders standalone; hover for tooltips. -->
@@ -97,11 +109,14 @@ const description =
       </section>
 
       <!-- Mood update states — each pill expands and nudges its neighbours. -->
-      <section class="cgrid-tile cgrid-tile--moodbtn" data-cgrid-tile style="--i:8">
+      <section class="cgrid-tile cgrid-tile--moodbtn cgrid-tile--link" data-cgrid-tile style="--i:8">
         <div class="cgrid-stage cgrid-stage--moodbtn">
           <MoodButtonPreview />
         </div>
-        <span class="cgrid-cap">Update pills</span>
+        <a class="cgrid-cap cgrid-cap--link" href="/components/button">
+          Update pills
+          <svg class="cgrid-cap-arrow" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7"/><path d="M8 7h9v9"/></svg>
+        </a>
       </section>
 
       <!-- Band 3 — the list hover-preview runs full width: sliding pill + a
