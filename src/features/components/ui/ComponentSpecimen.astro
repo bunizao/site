@@ -47,6 +47,16 @@ const mascotSvg = gridToSvg(PEEK_BASE.base, PEEK_BASE.width, PEEK_BASE.height, {
       </span>
     )}
     {slug === 'mascot' && <span class="specimen-mascot-wrap" set:html={mascotSvg} />}
+    {slug === 'listening' && (
+      <svg class="specimen-record" viewBox="0 0 64 64" aria-hidden="true">
+        <circle cx="32" cy="32" r="30" fill="none" stroke="currentColor" stroke-opacity="0.28" stroke-width="1" />
+        {[24, 19, 14].map((r) => (
+          <circle cx="32" cy="32" r={r} fill="none" stroke="currentColor" stroke-opacity="0.16" stroke-width="1" />
+        ))}
+        <circle cx="32" cy="32" r="6" fill="currentColor" fill-opacity="0.85" />
+        <circle cx="32" cy="32" r="1.5" fill="currentColor" />
+      </svg>
+    )}
     {slug === 'mood-wheel' && (
       <svg class="specimen-wheel" viewBox="0 0 60 90" aria-hidden="true">
         <path d="M4 6 A 44 44 0 0 1 4 84" fill="none" stroke="currentColor" stroke-opacity="0.28" stroke-width="1.5" />
@@ -94,6 +104,12 @@ const mascotSvg = gridToSvg(PEEK_BASE.base, PEEK_BASE.width, PEEK_BASE.height, {
   .specimen-wheel {
     width: 3.5rem;
     height: 5.25rem;
+    color: hsl(var(--foreground));
+  }
+
+  .specimen-record {
+    width: 4rem;
+    height: 4rem;
     color: hsl(var(--foreground));
   }
 </style>

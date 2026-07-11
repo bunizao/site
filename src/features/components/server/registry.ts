@@ -110,6 +110,21 @@ async function buildMoodWheelItem(): Promise<RegistryItem> {
   };
 }
 
+async function buildListeningItem(): Promise<RegistryItem> {
+  const paths = [
+    'features/home/ui/Listening.astro',
+    'features/home/server/listening.ts',
+    'lib/musickit/player.ts',
+  ];
+  return {
+    $schema: REGISTRY_ITEM_SCHEMA,
+    name: 'listening',
+    type: 'registry:lib',
+    dependencies: ['lucide-react'],
+    files: await Promise.all(paths.map((filePath) => readRegistryFile(filePath, 'registry:lib'))),
+  };
+}
+
 export async function buildRegistryItem(
   entry: CollectionEntry<'components'>
 ): Promise<RegistryItem> {
@@ -123,6 +138,7 @@ export async function buildRegistryItem(
 
   if (entry.id === 'mascot') return buildMascotItem();
   if (entry.id === 'mood-wheel') return buildMoodWheelItem();
+  if (entry.id === 'listening') return buildListeningItem();
 
   throw new Error(`Missing registry configuration for ${entry.id}`);
 }

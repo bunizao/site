@@ -95,7 +95,10 @@ interface LastFmConfig {
   user: string;
 }
 
-const FALLBACK_TRACK: ListeningTrack = {
+// Also the deterministic demo track for the /components showcase specimen: a
+// real Apple Music song with a working preview URL, so the specimen plays
+// without any live Last.fm/API call.
+export const FALLBACK_TRACK: ListeningTrack = {
   id: '1888707290',
   appleCatalogId: '1888707290',
   catalogId: '1888707290',

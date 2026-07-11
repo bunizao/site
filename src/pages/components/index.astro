@@ -2,6 +2,7 @@
 import { getCollection } from 'astro:content';
 import Layout from '@/layouts/Layout.astro';
 import ComponentSpecimen from '@/features/components/ui/ComponentSpecimen.astro';
+import ComponentsDial from '@/features/components/ui/ComponentsDial';
 import '@/styles/components.css';
 
 export const prerender = true;
@@ -10,23 +11,30 @@ const entries = (await getCollection('components', ({ data }) => !data.draft)).s
   (a, b) => a.data.order - b.data.order
 );
 
+const dialItems = entries.map((e) => ({
+  slug: e.id,
+  title: e.data.title,
+  kind: e.data.tier,
+}));
+
 const title = 'Components';
 const description =
-  'A specimen sheet of the UI this site draws — primitives, showpieces, and bespoke compositions, most installable via a shadcn registry.';
+  'The UI this site is built from — primitives, showpieces, and bespoke compositions, most installable via a shadcn registry.';
 ---
 
-<Layout title={title} description={description} url="/components" navVariant="page" showSiteNav>
-  <main class="components components--index">
-    <div class="components-page">
-      <header class="components-head">
-        <h1 class="components-title">Components</h1>
-        <p class="components-lede">
-          The UI this site is built from. Most pieces install straight into your project —
-          <code>npx shadcn add</code> for registry items, <code>npm i</code> for the
-          published package.
-        </p>
-      </header>
+<Layout title={title} description={description} url="/components" hideSiteNav>
+  <main class="components components--index dark">
+    <header class="components-topbar">
+      <a class="components-mark" href="/">← buxx.me</a>
+      <span class="components-topbar-label">Components</span>
+    </header>
 
+    <section class="components-hero" aria-label="Components dial">
+      <ComponentsDial items={dialItems} client:load />
+    </section>
+
+    <div class="components-page">
+      <p class="components-index-label">All {entries.length} components</p>
       <div class="specimen-grid">
         {entries.map((entry, i) => (
           <ComponentSpecimen entry={entry} index={i} />
@@ -62,8 +70,7 @@ const description =
     );
     cells.forEach((el) => io.observe(el));
 
-    // Fail-safe: if the observer never fires (backgrounded tab, edge cases),
-    // reveal everything after a beat so the grid can't get stuck invisible.
+    // Fail-safe: reveal everything after a beat if the observer never fires.
     setTimeout(() => cells.forEach(reveal), 1500);
   })();
 </script>

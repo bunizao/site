@@ -5,9 +5,14 @@ import { Pause, Play } from 'lucide-react';
 
 interface Props {
   track?: ListeningTrack;
+  /**
+   * Freeze the widget on the given track: skip the client-side live refresh.
+   * Used by the /components specimen so the demo is deterministic.
+   */
+  static?: boolean;
 }
 
-const { track } = Astro.props;
+const { track, static: isStatic = false } = Astro.props;
 const blankArtwork =
   'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==';
 const title = track?.title?.trim() || 'Loading track';
@@ -40,6 +45,7 @@ const playLabel = hasPlayableAudio
     data-listening
     data-has-initial-track={String(hasTrack)}
     data-now-playing={String(isLive)}
+    data-static={String(isStatic)}
     aria-label={hasTrack ? (isLive ? 'Now playing' : 'Recently played') : 'Loading listening track'}
   >
     <button
@@ -955,6 +961,7 @@ const playLabel = hasPlayableAudio
       let trackUrl = playButton.dataset.trackUrl ?? '';
       let isLive = root.dataset.nowPlaying === 'true';
       const hasInitialTrack = root.dataset.hasInitialTrack === 'true';
+      const isStatic = root.dataset.static === 'true';
       const playbackRequest = {
         catalogId: playButton.dataset.appleCatalogId ?? '',
         previewUrl: playButton.dataset.previewUrl ?? '',
@@ -1251,6 +1258,12 @@ const playLabel = hasPlayableAudio
         await refreshListening();
         scheduleListeningRefresh(LISTENING_REFRESH_MS);
       };
+
+      // The showcase specimen freezes on its demo track — playback still works,
+      // but no live refresh runs.
+      if (isStatic) {
+        return;
+      }
 
       document.addEventListener('visibilitychange', () => {
         if (document.visibilityState === 'visible') {

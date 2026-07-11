@@ -7,6 +7,8 @@ import OnThisPage from '@/features/components/ui/OnThisPage.astro';
 import PrevNext from '@/features/components/ui/PrevNext.astro';
 import { InstallTabs, type InstallSpec } from '@/features/components/ui/InstallTabs';
 import DecodeTextPreview from '@/features/components/previews/DecodeTextPreview';
+import Listening from '@/features/home/ui/Listening.astro';
+import { FALLBACK_TRACK } from '@/features/home/server/listening';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui/card';
@@ -118,6 +120,11 @@ const creditsHtml = (raw: string) =>
                 </Card>
               )}
               {slug === 'decode-text' && <DecodeTextPreview client:visible />}
+              {slug === 'listening' && (
+                <div class="preview-listening">
+                  <Listening track={FALLBACK_TRACK} static />
+                </div>
+              )}
               {slug === 'mascot' && <span class="preview-mascot" set:html={mascotSvg} />}
             </ComponentPreviewFrame>
           )}
