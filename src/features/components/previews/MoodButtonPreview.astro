@@ -34,13 +34,59 @@ const actions = [
 </div>
 
 <script>
+  import gsap from 'gsap';
+
   document.querySelectorAll<HTMLElement>('[data-updbtn]').forEach((root) => {
     if (root.dataset.bound === 'true') return;
     root.dataset.bound = 'true';
 
     root.querySelectorAll<HTMLElement>('[data-updbtn-action]').forEach((button) => {
-      const open = () => button.classList.add('is-hovered');
-      const close = () => button.classList.remove('is-hovered');
+      const label = button.querySelector<HTMLElement>('.updbtn-label');
+      if (!label) return;
+
+      label.style.maxWidth = 'none';
+      label.style.opacity = '1';
+      const labelWidth = label.scrollWidth;
+      label.style.maxWidth = '0';
+      label.style.opacity = '0';
+
+      const open = () => {
+        button.classList.add('is-hovered');
+        gsap.killTweensOf([button, label]);
+        gsap.to(button, {
+          width: 32 + labelWidth + 14,
+          paddingLeft: 10,
+          paddingRight: 10,
+          duration: 0.3,
+          ease: 'power2.out',
+        });
+        gsap.to(label, {
+          maxWidth: labelWidth + 2,
+          opacity: 1,
+          duration: 0.25,
+          delay: 0.08,
+          ease: 'power2.out',
+        });
+      };
+
+      const close = () => {
+        button.classList.remove('is-hovered');
+        gsap.killTweensOf([button, label]);
+        gsap.to(label, {
+          maxWidth: 0,
+          opacity: 0,
+          duration: 0.15,
+          ease: 'power2.in',
+        });
+        gsap.to(button, {
+          width: 32,
+          paddingLeft: 0,
+          paddingRight: 0,
+          duration: 0.25,
+          delay: 0.05,
+          ease: 'power2.inOut',
+        });
+      };
 
       button.addEventListener('pointerenter', open);
       button.addEventListener('pointerleave', close);
@@ -66,6 +112,7 @@ const actions = [
     align-items: center;
     justify-content: center;
     gap: 0;
+    width: 32px;
     height: 32px;
     min-width: 32px;
     padding: 0;
@@ -81,7 +128,6 @@ const actions = [
     overflow: hidden;
     backdrop-filter: blur(8px);
     transition:
-      padding 0.3s cubic-bezier(0.16, 1, 0.3, 1),
       gap 0.2s ease,
       color 0.2s ease,
       background 0.2s ease,
@@ -121,24 +167,18 @@ const actions = [
     overflow: hidden;
     opacity: 0;
     white-space: nowrap;
-    font-family: var(--font-mono);
+    font-family: var(--font-sans);
     font-size: 10px;
-    font-weight: 600;
-    letter-spacing: 0.12em;
+    font-weight: 550;
+    letter-spacing: 0.02em;
     line-height: 1;
-    text-transform: uppercase;
-    transition: max-width 0.3s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s ease 0.08s;
   }
 
   .updbtn-action.is-hovered .updbtn-label {
-    max-width: 8rem;
     opacity: 1;
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .updbtn-action,
-    .updbtn-label {
-      transition: none;
-    }
+    .updbtn-action { transition: none; }
   }
 </style>
