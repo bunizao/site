@@ -1,0 +1,66 @@
+---
+import { getCollection } from 'astro:content';
+import Layout from '@/layouts/Layout.astro';
+import ComponentSpecimen from '@/features/components/ui/ComponentSpecimen.astro';
+import '@/styles/components.css';
+
+export const prerender = true;
+
+const entries = (await getCollection('components', ({ data }) => !data.draft)).sort(
+  (a, b) => a.data.order - b.data.order
+);
+
+const title = 'Components';
+const description =
+  'A specimen sheet of the UI this site draws — primitives, showpieces, and bespoke compositions, most installable via a shadcn registry.';
+---
+
+<Layout title={title} description={description} url="/components" navVariant="page" showSiteNav>
+  <main class="components components--index">
+    <div class="components-page">
+      <header class="components-head">
+        <p class="components-kicker">Specimen sheet</p>
+        <h1 class="components-title">Components</h1>
+        <p class="components-lede">
+          Every notable piece of UI this site draws, sitting bare on the page. The reusable
+          subset installs into your project — <code>npx shadcn add</code> for registry items,
+          <code>npm i</code> for the published package.
+        </p>
+      </header>
+
+      <div class="specimen-grid">
+        {entries.map((entry, i) => (
+          <ComponentSpecimen entry={entry} index={i} />
+        ))}
+      </div>
+    </div>
+  </main>
+</Layout>
+
+<script>
+  // First-paint reveal — first view only, staggered per cell via inline --i.
+  (() => {
+    const cells = document.querySelectorAll<HTMLElement>('[data-specimen]');
+    if (!cells.length) return;
+
+    const reveal = (el: HTMLElement) => el.classList.add('is-revealed');
+
+    if (!('IntersectionObserver' in window)) {
+      cells.forEach(reveal);
+      return;
+    }
+
+    const io = new IntersectionObserver(
+      (entries, obs) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting) {
+            reveal(entry.target as HTMLElement);
+            obs.unobserve(entry.target);
+          }
+        }
+      },
+      { threshold: 0.1, rootMargin: '0px 0px -8% 0px' }
+    );
+    cells.forEach((el) => io.observe(el));
+  })();
+</script>

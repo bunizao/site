@@ -1,0 +1,157 @@
+---
+import { getCollection, render, type CollectionEntry } from 'astro:content';
+import { ArrowUpRight } from 'lucide-react';
+import Layout from '@/layouts/Layout.astro';
+import ComponentPreviewFrame from '@/features/components/ui/ComponentPreviewFrame.astro';
+import OnThisPage from '@/features/components/ui/OnThisPage.astro';
+import PrevNext from '@/features/components/ui/PrevNext.astro';
+import { InstallTabs, type InstallSpec } from '@/features/components/ui/InstallTabs';
+import DecodeTextPreview from '@/features/components/previews/DecodeTextPreview';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui/card';
+import { gridToSvg } from '@/features/logos/lib/render';
+import { PEEK_BASE } from '@/features/mascot/peek/base';
+import '@/styles/components.css';
+
+export const prerender = true;
+
+export async function getStaticPaths() {
+  const entries = (await getCollection('components', ({ data }) => !data.draft)).sort(
+    (a, b) => a.data.order - b.data.order
+  );
+  return entries.map((entry, i) => ({
+    params: { slug: entry.id },
+    props: {
+      entry,
+      prev: entries[i - 1],
+      next: entries[i + 1],
+    },
+  }));
+}
+
+interface Props {
+  entry: CollectionEntry<'components'>;
+  prev?: CollectionEntry<'components'>;
+  next?: CollectionEntry<'components'>;
+}
+const { entry, prev, next } = Astro.props;
+const { title, tagline, install, source, credits } = entry.data;
+const slug = entry.id;
+const { Content } = await render(entry);
+
+const registryUrl = new URL(`/r/${slug}`, Astro.site ?? 'https://buxx.me').href;
+const spec: InstallSpec =
+  install.type === 'npm' ? { type: 'npm', pkg: install.pkg } : { type: 'registry', url: registryUrl };
+
+const mascotSvg = gridToSvg(PEEK_BASE.base, PEEK_BASE.width, PEEK_BASE.height, {
+  fg: 'currentColor',
+  accent: PEEK_BASE.accent,
+});
+
+const toc = [
+  { id: 'preview', label: 'Preview' },
+  { id: 'installation', label: 'Installation' },
+  { id: 'usage', label: 'Usage' },
+  ...(credits ? [{ id: 'credits', label: 'Credits' }] : []),
+];
+
+// Credits is a one-liner that may carry a single Markdown link. Convert only
+// `[text](https…)` to an anchor; escape everything else so it stays inert.
+const escapeHtml = (s: string) =>
+  s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+const creditsHtml = (raw: string) =>
+  escapeHtml(raw).replace(
+    /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g,
+    (_m, text, url) => `<a href="${url}" target="_blank" rel="noopener noreferrer">${text}</a>`
+  );
+---
+
+<Layout
+  title={`${title} — Components`}
+  description={tagline}
+  url={`/components/${slug}`}
+  navVariant="page"
+  showSiteNav
+>
+  <main class="components">
+    <div class="detail">
+      <div class="detail-main">
+        <nav class="breadcrumb" aria-label="Breadcrumb">
+          <a href="/components">components</a> / {slug}
+        </nav>
+
+        <h1 class="detail-title">{title}</h1>
+        <p class="detail-tagline">{tagline}</p>
+
+        <section class="detail-section" id="preview" aria-labelledby="preview-label">
+          <h2 class="detail-section-label" id="preview-label">Preview</h2>
+          {slug === 'mood-wheel' ? (
+            <ComponentPreviewFrame variant="iframe" src="/components/preview/mood-wheel" title="Mood wheel preview" />
+          ) : (
+            <ComponentPreviewFrame>
+              {slug === 'button' && (
+                <div class="preview-row">
+                  <Button>Primary</Button>
+                  <Button variant="secondary">Secondary</Button>
+                  <Button variant="outline">Outline</Button>
+                  <Button variant="ghost">Ghost</Button>
+                </div>
+              )}
+              {slug === 'badge' && (
+                <div class="preview-row">
+                  <Badge>Default</Badge>
+                  <Badge variant="secondary">Secondary</Badge>
+                  <Badge variant="outline">Outline</Badge>
+                  <Badge variant="success">Success</Badge>
+                </div>
+              )}
+              {slug === 'card' && (
+                <Card style={{ maxWidth: '22rem' }}>
+                  <CardHeader>
+                    <CardTitle>Signal</CardTitle>
+                  </CardHeader>
+                  <CardContent>Content sits on the card surface, above a quiet footer.</CardContent>
+                  <CardFooter>
+                    <Button size="sm" variant="outline">Action</Button>
+                  </CardFooter>
+                </Card>
+              )}
+              {slug === 'decode-text' && <DecodeTextPreview client:visible />}
+              {slug === 'mascot' && <span class="preview-mascot" set:html={mascotSvg} />}
+            </ComponentPreviewFrame>
+          )}
+        </section>
+
+        <section class="detail-section" id="installation" aria-labelledby="install-label">
+          <h2 class="detail-section-label" id="install-label">Installation</h2>
+          <InstallTabs spec={spec} client:visible />
+        </section>
+
+        <section class="detail-section detail-usage" id="usage" aria-labelledby="usage-label">
+          <h2 class="detail-section-label" id="usage-label">Usage</h2>
+          <Content />
+        </section>
+
+        {credits && (
+          <section class="detail-section" id="credits" aria-labelledby="credits-label">
+            <h2 class="detail-section-label" id="credits-label">Credits</h2>
+            <p class="detail-credits" set:html={creditsHtml(credits)} />
+          </section>
+        )}
+
+        <a class="detail-source" href={source} target="_blank" rel="noopener noreferrer">
+          View source
+          <ArrowUpRight className="h-3.5 w-3.5" aria-hidden="true" />
+        </a>
+
+        <PrevNext
+          prev={prev ? { slug: prev.id, title: prev.data.title } : undefined}
+          next={next ? { slug: next.id, title: next.data.title } : undefined}
+        />
+      </div>
+
+      <OnThisPage items={toc} />
+    </div>
+  </main>
+</Layout>
