@@ -213,7 +213,7 @@ body:has(.components)::before {
   padding: 1.5rem 1.5rem 2.5rem;
 }
 
-/* Mood header actions expand in place, pushing their neighbours along the row. */
+/* Mood update states expand in place, pushing their neighbours along the row. */
 .cgrid-stage--moodbtn {
   place-items: center;
   padding: 1.5rem;
