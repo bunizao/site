@@ -2,17 +2,20 @@ import * as React from 'react';
 import { prepareDecode, type DecodeController } from '@bunizao/decode-text';
 
 // A real paragraph, not three words — the decode effect only reads as an effect
-// when there's enough text to boil. Each line resolves in shuffled order (the
-// engine groups by visual line), so a block of copy churns dramatically before
-// settling. Kept mono-friendly and roughly line-length-balanced.
+// when there's a body of text to boil. Each line resolves in shuffled order (the
+// engine groups by visual line), so a full block churns dramatically before
+// settling. More lines, smaller type = more surface for the noise to crawl over.
 const LINES = [
-  'Every pixel here is placed on purpose.',
-  'The motion is tuned, never decorated.',
-  'Type breathes. Color keeps its restraint.',
-  'Nothing moves without earning the frame.',
-  'This is the site, decoding itself.',
+  'Every pixel here is placed on purpose, and',
+  'the motion is tuned rather than decorated.',
+  'Type is given room to breathe; colour keeps',
+  'its restraint. Radius stays concentric, hit',
+  'targets stay honest, and nothing moves on',
+  'the screen without first earning the frame.',
+  'What you are watching is the site itself,',
+  'quietly decoding into the thing you see.',
 ];
-const LOOP_PAUSE_MS = 2400; // settled-copy hold before the next boil
+const LOOP_PAUSE_MS = 2600; // settled-copy hold before the next boil
 
 /**
  * Live decode-text demo. Auto-loops while on screen so the tile is always

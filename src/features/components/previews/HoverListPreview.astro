@@ -8,10 +8,10 @@
 //      clamped into the tile), swapping its swatch per row — exactly the blog's
 //      cursor-following hero image, minus real media.
 const rows = [
-  { title: 'Frosted glass, zero cold starts', meta: 'Edge', swatch: 'linear-gradient(135deg, #16323f, #2f6f7e)' },
-  { title: 'A dial you can feel', meta: 'Motion', swatch: 'linear-gradient(135deg, #3a2f5c, #7d5cff)' },
-  { title: 'Small APIs age better', meta: 'Craft', swatch: 'linear-gradient(135deg, #4a2b1c, #d08a4a)' },
-  { title: 'Quiet code, loud result', meta: 'Systems', swatch: 'linear-gradient(135deg, #1d3a2a, #4fae7c)' },
+  { title: 'Frosted glass, zero cold starts', date: 'Jul 2', tags: ['Edge', 'Craft'], swatch: '/showcase/forest.webp' },
+  { title: 'A dial you can feel', date: 'Jun 24', tags: ['Motion'], swatch: '/showcase/wave.webp' },
+  { title: 'Small APIs age better', date: 'Jun 11', tags: ['Systems', 'Ideas'], swatch: '/showcase/aurora.webp' },
+  { title: 'Quiet code, loud result', date: 'May 30', tags: ['Craft'], swatch: '/showcase/lake.webp' },
 ];
 ---
 
@@ -20,11 +20,18 @@ const rows = [
     {rows.map((row, i) => (
       <li class="hoverlist-row" data-swatch={row.swatch} data-index={i}>
         <span class="hoverlist-title">{row.title}</span>
-        <span class="hoverlist-meta">{row.meta}</span>
+        <span class="hoverlist-meta">
+          <span class="hoverlist-date">{row.date}</span>
+          <span class="hoverlist-tags">
+            {row.tags.map((tag) => <span class="hoverlist-tag">{tag}</span>)}
+          </span>
+        </span>
       </li>
     ))}
   </ul>
-  <div class="hoverlist-preview" data-hoverlist-preview aria-hidden="true"></div>
+  <div class="hoverlist-preview" data-hoverlist-preview aria-hidden="true">
+    <img data-hoverlist-img alt="" decoding="async" />
+  </div>
 </div>
 
 <script>
@@ -50,7 +57,9 @@ const rows = [
     const fine = window.matchMedia?.('(hover: hover) and (pointer: fine)').matches;
     if (!fine) return;
 
-    // Cursor-following preview: like the blog, the swatch tracks the pointer's Y
+    const img = preview.querySelector<HTMLImageElement>('[data-hoverlist-img]');
+
+    // Cursor-following preview: like the blog, the image tracks the pointer's Y
     // continuously (one rAF-batched write), clamped to stay inside the tile.
     let raf = 0;
     let pointerY = 0;
@@ -72,7 +81,7 @@ const rows = [
     list.querySelectorAll<HTMLElement>('.hoverlist-row').forEach((row) => {
       row.addEventListener('pointerenter', (event) => {
         const swatch = row.dataset.swatch;
-        if (swatch) preview.style.background = swatch;
+        if (swatch && img && img.getAttribute('src') !== swatch) img.src = swatch;
         pointerY = event.clientY;
         render();
         list.addEventListener('pointermove', onMove);

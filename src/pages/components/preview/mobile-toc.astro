@@ -29,7 +29,9 @@ const sections = [
     <div class="topbar" data-topbar>
       <div class="topbar-fade" aria-hidden="true"></div>
       <div class="topbar-bar">
-        <span class="topbar-logo" aria-hidden="true">無</span>
+        <a class="topbar-logo" href="#" onclick="return false" aria-label="Blog home">
+          <img src="/blog-mark.webp" alt="" width="30" height="30" />
+        </a>
         <button class="topbar-title" type="button" data-topbar-toggle aria-haspopup="true" aria-expanded="false" aria-controls="toc-menu">
           <span class="topbar-title-text" data-topbar-current>Opening</span>
           <svg class="topbar-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -140,7 +142,6 @@ const sections = [
     color: hsl(var(--foreground));
     background: hsl(var(--background));
     font-family: var(--font-sans);
-    --accent: 210 90% 66%;
   }
 
   /* ── Frosted reading bar ──────────────────────────────────────────────── */
@@ -185,10 +186,12 @@ const sections = [
     place-items: center;
     width: 30px;
     height: 30px;
-    border-radius: 8px;
-    background: hsl(var(--foreground) / 0.06);
-    font-size: 15px;
-    font-weight: 600;
+  }
+
+  .topbar-logo img {
+    width: 30px;
+    height: 30px;
+    object-fit: contain;
   }
 
   .topbar-title {
@@ -276,7 +279,7 @@ const sections = [
     width: min(72%, 15rem);
     height: 0;
     border-radius: 9px;
-    background: hsl(var(--accent) / 0.16);
+    background: hsl(var(--foreground) / 0.1);
     opacity: 0;
     pointer-events: none;
     z-index: 0;
@@ -304,7 +307,7 @@ const sections = [
   }
 
   .topbar-link:hover { color: hsl(var(--foreground)); }
-  .topbar-link.active { color: hsl(var(--accent)); font-weight: 600; }
+  .topbar-link.active { color: hsl(var(--foreground)); font-weight: 600; }
 
   /* ── Mock document ────────────────────────────────────────────────────── */
   .doc {

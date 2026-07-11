@@ -31,9 +31,9 @@ const description =
     </section>
 
     <div class="cgrid" data-cgrid>
-      <!-- Projects deck — the interactive centerpiece; clicking a card opens the
-           full-screen gallery (its own portal), the "expanded" state. Ships its
-           own data, no page context. -->
+      <!-- Band 1 — projects deck (col 1, top), the tall mood dial (col 2), and a
+           decode/contact stack (col 3); listening fills under the deck. The four
+           heights are tuned so the band packs flush with no gaps. -->
       <section class="cgrid-tile cgrid-tile--projects" data-cgrid-tile style="--i:0">
         <div class="cgrid-stage cgrid-stage--projects">
           <ProjectStack client:visible />
@@ -51,7 +51,7 @@ const description =
       </section>
 
       <!-- Decode text — a full paragraph that boils line-by-line; hover or click
-           to re-boil. Wide tile so it reads as prose. -->
+           to re-boil. -->
       <section class="cgrid-tile cgrid-tile--decode" data-cgrid-tile style="--i:2">
         <div class="cgrid-stage cgrid-stage--decode">
           <DecodeTextPreview client:visible />
@@ -67,49 +67,49 @@ const description =
         <span class="cgrid-cap">Contact links</span>
       </section>
 
-      <!-- Mood refresh button — hover to unfurl its label from an icon. -->
-      <section class="cgrid-tile cgrid-tile--moodbtn" data-cgrid-tile style="--i:4">
-        <div class="cgrid-stage cgrid-stage--moodbtn">
-          <MoodButtonPreview />
-        </div>
-        <span class="cgrid-cap">Update pill</span>
-      </section>
-
       <!-- Listening — spins, samples the artwork colour, plays a preview with a
            scrubbable progress bar on click. Frozen on a demo track. -->
-      <section class="cgrid-tile cgrid-tile--listening" data-cgrid-tile style="--i:5">
+      <section class="cgrid-tile cgrid-tile--listening" data-cgrid-tile style="--i:4">
         <div class="cgrid-stage">
           <Listening track={FALLBACK_TRACK} static />
         </div>
         <span class="cgrid-cap">Listening</span>
       </section>
 
-      <!-- GitHub contributions — self-renders standalone; hover for tooltips. -->
-      <section class="cgrid-tile cgrid-tile--contrib" data-cgrid-tile style="--i:6">
-        <div class="cgrid-stage cgrid-stage--contrib">
-          <GitHubContributions />
-        </div>
-        <span class="cgrid-cap">GitHub activity</span>
+      <!-- Band 2 — the mobile reading bar (col 1, tall), the tag wall (col 2-3),
+           then contributions + update pill fill the row beneath the tags. -->
+      <section class="cgrid-tile cgrid-tile--toc cgrid-tile--iframe" data-cgrid-tile style="--i:5">
+        <iframe src="/components/preview/mobile-toc" title="Mobile reading bar" loading="lazy"></iframe>
+        <span class="cgrid-cap">Mobile reading bar</span>
       </section>
 
-      <!-- Tag cards — quiet chips + accent glass cards from the blog tags wall. -->
-      <section class="cgrid-tile cgrid-tile--tags" data-cgrid-tile style="--i:7">
+      <!-- Tag cards — quiet chips + feature-image glass cards from the blog tags
+           wall. -->
+      <section class="cgrid-tile cgrid-tile--tags" data-cgrid-tile style="--i:6">
         <div class="cgrid-stage cgrid-stage--tags">
           <TagsPreview />
         </div>
         <span class="cgrid-cap">Tag cards</span>
       </section>
 
-      <!-- Mobile reading bar — frosted pull-down TOC with a jumping active pill
-           and scroll-spy. Fixed positioning + scroll takeover, so it's iframed
-           over a synthetic-mock document. -->
-      <section class="cgrid-tile cgrid-tile--toc cgrid-tile--iframe" data-cgrid-tile style="--i:8">
-        <iframe src="/components/preview/mobile-toc" title="Mobile reading bar" loading="lazy"></iframe>
-        <span class="cgrid-cap">Mobile reading bar</span>
+      <!-- GitHub contributions — self-renders standalone; hover for tooltips. -->
+      <section class="cgrid-tile cgrid-tile--contrib" data-cgrid-tile style="--i:7">
+        <div class="cgrid-stage cgrid-stage--contrib">
+          <GitHubContributions />
+        </div>
+        <span class="cgrid-cap">GitHub activity</span>
       </section>
 
-      <!-- List hover-preview — sliding pill + a cursor-following side preview, as
-           a self-contained specimen with invented rows and CSS swatches. -->
+      <!-- Mood refresh button — hover to unfurl its label from an icon. -->
+      <section class="cgrid-tile cgrid-tile--moodbtn" data-cgrid-tile style="--i:8">
+        <div class="cgrid-stage cgrid-stage--moodbtn">
+          <MoodButtonPreview />
+        </div>
+        <span class="cgrid-cap">Update pill</span>
+      </section>
+
+      <!-- Band 3 — the list hover-preview runs full width: sliding pill + a
+           cursor-following image preview, self-contained with invented rows. -->
       <section class="cgrid-tile cgrid-tile--hover" data-cgrid-tile style="--i:9">
         <div class="cgrid-stage cgrid-stage--hover">
           <HoverListPreview />

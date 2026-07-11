@@ -4,14 +4,14 @@ import '@/styles/globals.css';
 
 export const prerender = true;
 
-// The wheel is the whole show here. It winds off the scroll position of a feed
-// of dated groups — so instead of real mood cards (content clutters the frame),
-// we give it a long run of *invisible* date anchors. The reader just scrolls;
-// the dial and its rolling date readout are the specimen. A scroll-tracked
-// shimmer washes the backdrop so the emptiness still feels alive.
+// The wheel is the whole show. It winds off the scroll position of a feed of
+// dated groups — so instead of real mood cards (content clutters the frame), we
+// give it a long run of *invisible* date anchors that still occupy real height,
+// so the page genuinely scrolls. A scroll-tracked monochrome sheen washes the
+// backdrop so the emptiness stays alive without introducing off-palette colour.
 const DAY = 86_400_000;
 const BASE = Date.UTC(2026, 6, 12); // 2026-07-12, fixed (no Date.now in build)
-const groups = Array.from({ length: 24 }, (_, i) => {
+const groups = Array.from({ length: 30 }, (_, i) => {
   const d = new Date(BASE - i * DAY);
   const iso = d.toISOString().slice(0, 10);
   const label = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
@@ -27,13 +27,14 @@ const groups = Array.from({ length: 24 }, (_, i) => {
     <title>Mood wheel preview</title>
   </head>
   <body>
-    <div class="shimmer" data-shimmer aria-hidden="true"></div>
+    <div class="sheen" data-sheen aria-hidden="true"></div>
 
     <main class="fixture">
       <TimelineWheel compact />
 
-      <!-- The scroll driver: invisible dated anchors, nothing to read. The wheel
-           reads their positions to build notches and wind the dial. -->
+      <!-- The scroll driver: invisible dated anchors that still take up height,
+           nothing to read. The wheel reads their positions to build notches and
+           wind the dial. -->
       <div class="fixture-feed" data-mood-feed>
         <div class="fixture-list" data-mood-list role="region" aria-label="Mood wheel fixture" aria-busy="false">
           {groups.map((group) => (
@@ -49,10 +50,10 @@ const groups = Array.from({ length: 24 }, (_, i) => {
     </main>
 
     <script>
-      // Track scroll and paint it onto the backdrop shimmer: a soft radial glow
-      // drifts down the page and the hue eases as you travel, so the empty
-      // canvas reacts to the wheel's motion instead of sitting dead.
-      const el = document.querySelector<HTMLElement>('[data-shimmer]');
+      // Track scroll and paint it onto the backdrop sheen: a soft monochrome
+      // glow drifts down the page as you travel, and a faint grid slides with
+      // it — so the empty canvas reacts to the wheel's motion. No hue, on-palette.
+      const el = document.querySelector<HTMLElement>('[data-sheen]');
       if (el) {
         let raf = 0;
         const paint = () => {
@@ -86,30 +87,25 @@ const groups = Array.from({ length: 24 }, (_, i) => {
     overflow-x: hidden;
   }
 
-  /* Scroll-tracked backdrop. A radial glow slides down as --p (0→1) grows, and
-     its tint eases from cool to warm — the "shimmer" that follows the scroll. */
-  .shimmer {
+  /* Scroll-tracked backdrop. A monochrome radial glow slides down as --p (0→1)
+     grows — the "sheen" that follows the scroll. Strictly foreground-tinted, so
+     it stays on the site's greyscale palette. */
+  .sheen {
     --p: 0;
     position: fixed;
     inset: 0;
     z-index: 0;
     pointer-events: none;
-    background:
-      radial-gradient(
-        42rem 42rem at calc(38% + var(--p) * 8%) calc(-10% + var(--p) * 120%),
-        hsl(calc(210 + var(--p) * 90) 70% 60% / 0.16),
-        transparent 60%
-      ),
-      radial-gradient(
-        30rem 30rem at calc(70% - var(--p) * 12%) calc(120% - var(--p) * 120%),
-        hsl(calc(280 - var(--p) * 60) 70% 60% / 0.12),
-        transparent 60%
-      );
+    background: radial-gradient(
+      44rem 44rem at calc(40% + var(--p) * 6%) calc(-8% + var(--p) * 116%),
+      hsl(var(--foreground) / 0.08),
+      transparent 62%
+    );
     transition: background 0.1s linear;
   }
 
   /* A faint moving grid so the scroll reads as travel, not a static void. */
-  .shimmer::after {
+  .sheen::after {
     content: '';
     position: absolute;
     inset: -10%;
@@ -135,12 +131,11 @@ const groups = Array.from({ length: 24 }, (_, i) => {
     transform: translateY(-50%) translateX(6px);
   }
 
-  /* Invisible scroll driver. It occupies real height (that's what the wheel
-     winds against) but shows nothing — each group is a tall empty span. */
+  /* Invisible scroll driver — IN FLOW so it creates real page height (that's
+     what the wheel winds against), but shows nothing. */
   .fixture-feed {
-    position: absolute;
-    inset: 0 0 0 auto;
-    width: 1px;
+    position: relative;
+    width: 100%;
     opacity: 0;
     pointer-events: none;
   }
@@ -154,7 +149,7 @@ const groups = Array.from({ length: 24 }, (_, i) => {
     height: 34vh;
   }
 
-  /* Persistent scroll cue, bottom-right, riding above the shimmer. */
+  /* Persistent scroll cue, bottom-right, riding above the sheen. */
   .fixture-hint {
     position: fixed;
     right: 1.25rem;
@@ -175,6 +170,6 @@ const groups = Array.from({ length: 24 }, (_, i) => {
 
   @media (prefers-reduced-motion: reduce) {
     .fixture-hint { animation: none; }
-    .shimmer { transition: none; }
+    .sheen { transition: none; }
   }
 </style>
