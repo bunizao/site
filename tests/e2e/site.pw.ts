@@ -153,6 +153,59 @@ test.describe('Home page', () => {
     expect(chain?.bioReadyAt).toBeGreaterThan(0);
   });
 
+  test('resolves decoded words without inserting letters into settled text', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'no-preference' });
+    await page.addInitScript(() => {
+      let seed = 0x2f6e2b1;
+      Math.random = () => {
+        seed = (seed * 1664525 + 1013904223) >>> 0;
+        return seed / 0x100000000;
+      };
+    });
+
+    await page.goto('/');
+
+    const result = await page.locator('[data-hero-bio] [data-decode-root]').evaluate(
+      (root) => new Promise<{ inserted: boolean; snapshot?: string }>((resolve) => {
+        const deadline = performance.now() + 4_000;
+
+        const inspect = () => {
+          for (const line of root.querySelectorAll('.dt-line')) {
+            let foundUnsettledLetter = false;
+            for (const cell of line.querySelectorAll<HTMLElement>('.dt-c')) {
+              if (cell.textContent === ' ') {
+                foundUnsettledLetter = false;
+                continue;
+              }
+
+              const settled = !cell.dataset.state && Boolean(cell.textContent);
+              if (settled && foundUnsettledLetter) {
+                resolve({
+                  inserted: true,
+                  snapshot: Array.from(line.querySelectorAll<HTMLElement>('.dt-c'))
+                    .map((item) => `${item.textContent || '∅'}:${item.dataset.state || 'final'}`)
+                    .join('|'),
+                });
+                return;
+              }
+              if (!settled) foundUnsettledLetter = true;
+            }
+          }
+
+          if (root.classList.contains('dt-animating') || performance.now() < deadline) {
+            requestAnimationFrame(inspect);
+          } else {
+            resolve({ inserted: false });
+          }
+        };
+
+        requestAnimationFrame(inspect);
+      })
+    );
+
+    expect(result.inserted, result.snapshot).toBe(false);
+  });
+
   test('renders core sections and persists selected theme', async ({ page }) => {
     await page.goto('/');
 

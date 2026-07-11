@@ -13,7 +13,9 @@
  *    (usually shuffled) queue: `show` (p^0.5 — cursors flood in early),
  *    `mash` (p^2 — cursors graduate to boiling scramble), and `done`
  *    (p^15 — almost nothing resolves until the end, then it crystallises in
- *    a cascade). Each front is folded into per-cell thresholds up front.
+ *    a left-to-right cascade). Each front is folded into per-cell thresholds
+ *    up front. Resolution stays ordered so completed words never gain a late
+ *    letter in their middle.
  *  - Two layout modes:
  *      `grow`   — unshown characters collapse to zero width and the line
  *                 condenses in. Scramble glyphs must match the real glyph
@@ -39,7 +41,7 @@ export interface DecodeOptions {
   cursorChar?: string;
   /** `grow` (condensing line, monospace) or `static` (pop in place, any font). Default: `grow` */
   layout?: DecodeLayout;
-  /** Appearance order within a line. Default: `shuffle` (the Soulwire original) */
+  /** Cursor and scramble appearance order within a line. Final letters always resolve left to right. */
   order?: DecodeOrder;
   /** Show front exponent: cells become visible (cursor) as p^showPower sweeps the queue. Default: 0.5 */
   showPower?: number;
@@ -304,9 +306,9 @@ const renderLine = (line: Line, progress: number, now: number, pool: string, opt
  * Fold the three power fronts into per-cell thresholds. A front with exponent
  * y reaches queue fraction q at progress q^(1/y): showPower < 1 floods
  * cursors in early, donePower >> 1 holds resolution back until an end
- * cascade. In `shuffle` order one shuffled queue drives all three fronts (the
- * Soulwire original); in `ltr` the show/mash fronts sweep left to right while
- * resolution stays shuffled, so the boil still settles at scattered positions.
+ * cascade. `shuffle` affects the noisy show/mash phases only. Final letters
+ * resolve left to right in both modes, preventing a word that already reads as
+ * complete from widening when a missing letter settles late.
  */
 const scheduleLines = (lines: Line[], opts: Resolved): void => {
   let cumulative = 0;
@@ -314,14 +316,19 @@ const scheduleLines = (lines: Line[], opts: Resolved): void => {
     const n = line.cells.length;
     const slots = Array.from({ length: n }, (_, i) => i);
     const appearSlots = opts.order === 'shuffle' ? shuffle(slots.slice()) : slots;
-    const settleSlots = opts.order === 'shuffle' ? appearSlots : shuffle(slots.slice());
     line.cells.forEach((cell, i) => {
       const qAppear = (appearSlots[i] + 1) / n;
-      const qSettle = (settleSlots[i] + 1) / n;
+      const qSettle = (i + 1) / n;
       cell.appearAt = Math.pow(qAppear, 1 / opts.showPower);
       cell.mashAt = Math.max(cell.appearAt, Math.pow(qAppear, 1 / opts.mashPower));
       cell.settleAt = Math.max(cell.mashAt, Math.pow(qSettle, 1 / opts.donePower));
     });
+    // A late shuffled mash threshold can otherwise hold back an early letter
+    // after later letters have settled. Keep the final frontier monotonic so
+    // resolved text only grows at its trailing edge.
+    for (let i = 1; i < line.cells.length; i += 1) {
+      line.cells[i].settleAt = Math.max(line.cells[i].settleAt, line.cells[i - 1].settleAt);
+    }
     line.duration = Math.min(
       opts.maxLineDuration,
       Math.max(opts.minLineDuration, opts.durationPerChar * n)
