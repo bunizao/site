@@ -5,20 +5,14 @@ import Listening from '@/features/home/ui/Listening.astro';
 import { FALLBACK_TRACK } from '@/features/home/server/listening';
 import GitHubContributions from '@/features/home/ui/GitHubContributions.astro';
 import DecodeTextPreview from '@/features/components/previews/DecodeTextPreview';
-import { getAllPosts } from '@/features/posts/server/content';
-import { postPath } from '@/features/posts/format';
+import HoverListPreview from '@/features/components/previews/HoverListPreview.astro';
 import '@/styles/components.css';
 
 export const prerender = true;
 
-// The phone tile iframes a real post so the mobile reading topbar + TOC render
-// live; grab the newest slug to point at.
-const firstSlug = (await getAllPosts())[0]?.slug;
-const firstPostPath = firstSlug ? postPath(firstSlug) : '/blog/';
-
 const title = 'Components';
 const description =
-  'The signature interactive pieces this site is built from — a live bento wall of decode text, the projects deck, listening vinyl, GitHub activity, the mood wheel, and the blog reading surface.';
+  "The signature interactive pieces this site is built from — a live bento of the projects deck, decode text, listening vinyl, GitHub activity, the mood wheel, and the list hover-preview. Every tile is a self-contained specimen.";
 ---
 
 <Layout title={title} description={description} url="/components" hideSiteNav>
@@ -32,7 +26,8 @@ const description =
 
     <div class="cgrid" data-cgrid>
       <!-- Projects deck — the centerpiece hero; clicking a card opens the
-           full-screen gallery (its own portal), the "expanded" state. -->
+           full-screen gallery (its own portal), the "expanded" state. Ships its
+           own data, no page context. -->
       <section class="cgrid-tile cgrid-tile--projects" data-cgrid-tile style="--i:0">
         <div class="cgrid-stage cgrid-stage--projects">
           <ProjectStack client:visible />
@@ -40,7 +35,9 @@ const description =
         <span class="cgrid-cap">Projects deck</span>
       </section>
 
-      <!-- Mood wheel — takes over scroll + fixed positioning, so it's iframed. -->
+      <!-- Mood wheel — genuinely needs isolation (fixed positioning + it takes
+           over window scroll), so it's iframed. The fixture is pure synthetic
+           mock: abstract one-liners, mock dates — no real mood content. -->
       <section class="cgrid-tile cgrid-tile--mood cgrid-tile--iframe" data-cgrid-tile style="--i:1">
         <iframe src="/components/preview/mood-wheel" title="Mood wheel" loading="lazy"></iframe>
         <span class="cgrid-cap">Mood wheel</span>
@@ -71,22 +68,14 @@ const description =
         <span class="cgrid-cap">GitHub activity</span>
       </section>
 
-      <!-- Blog hover-hero — the real cursor-following preview, iframed at a
-           desktop width so the sibling-dim + floating image read. -->
-      <section class="cgrid-tile cgrid-tile--bloghover cgrid-tile--iframe" data-cgrid-tile style="--i:5">
-        <iframe src="/components/preview/blog-hover" title="Blog hover preview" loading="lazy"></iframe>
-        <span class="cgrid-cap">Hover preview</span>
-      </section>
-
-      <!-- Blog mobile — a real post at phone width inside a bezel: the reading
-           topbar + the mobile TOC dropdown, live. -->
-      <section class="cgrid-tile cgrid-tile--phone" data-cgrid-tile style="--i:6">
-        <div class="cgrid-phone">
-          <div class="cgrid-phone-screen">
-            <iframe src={firstPostPath} title="Blog reading — mobile" loading="lazy"></iframe>
-          </div>
+      <!-- List hover-preview — the sliding pill + cursor-aware side preview, as
+           a self-contained specimen with invented rows and CSS swatches (no
+           real posts / images). -->
+      <section class="cgrid-tile cgrid-tile--hover" data-cgrid-tile style="--i:5">
+        <div class="cgrid-stage cgrid-stage--hover">
+          <HoverListPreview />
         </div>
-        <span class="cgrid-cap">Reading · mobile</span>
+        <span class="cgrid-cap">List hover</span>
       </section>
     </div>
   </main>
@@ -94,7 +83,7 @@ const description =
 
 <script>
   // Light per-tile reveal on first view — staggered by inline --i. No install
-  // copy here; the grid is a live gallery, not a doc catalog.
+  // copy here; the grid is a live gallery of self-contained specimens.
   (() => {
     const tiles = document.querySelectorAll<HTMLElement>('[data-cgrid-tile]');
     if (!tiles.length) return;

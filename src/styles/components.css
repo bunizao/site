@@ -36,6 +36,13 @@ body:has(.components)::before {
   -webkit-font-smoothing: antialiased;
 }
 
+/* Detail shares the index's dark canvas + page-owned topbar so index → detail
+   reads as one surface. Its topbar spans the reading column width, not the
+   wider grid. */
+.components--detail .components-topbar {
+  width: var(--shell);
+}
+
 /* Page-owned minimal header — the global site nav is dropped on this route. */
 .components-topbar {
   display: flex;
@@ -69,11 +76,12 @@ body:has(.components)::before {
 }
 
 /* ── Bento grid (index) ──────────────────────────────────────────────────────
-   Not a doc catalog — one screen of a live, interactive bento wall. Each tile
-   is a hairline-bordered cell holding either an inline island (projects deck,
-   listening, decode, contributions) or an isolated iframe (mood wheel, blog
-   hover, phone-framed reading). Chanhdai-style: quiet grid, corner caption,
-   the pieces themselves carry the interest.
+   Not a doc catalog — one screen of a live, interactive bento wall of
+   self-contained specimens. Each tile holds an inline island (projects deck,
+   listening, decode, contributions, list hover) or, where a piece genuinely
+   needs isolation (mood wheel — fixed positioning + scroll takeover), an iframe
+   over a synthetic-mock fixture. No tile embeds real page content.
+   Chanhdai-style: quiet grid, corner caption, the pieces carry the interest.
    ─────────────────────────────────────────────────────────────────────────── */
 
 .cgrid {
@@ -174,6 +182,13 @@ body:has(.components)::before {
   padding: 1.75rem;
 }
 
+/* The hover specimen fills its tile and owns its own inner padding. */
+.cgrid-stage--hover {
+  place-items: stretch;
+  align-content: stretch;
+  padding: 0;
+}
+
 /* Decode text runs three mono lines; keep it small enough to fit the short
    tile without clipping the last line. */
 .cgrid-tile--decode .decode-preview {
@@ -190,7 +205,7 @@ body:has(.components)::before {
 
 .cgrid-tile--mood {
   grid-column: span 5;
-  grid-row: span 8;
+  grid-row: span 6;
 }
 
 .cgrid-tile--listening {
@@ -204,71 +219,109 @@ body:has(.components)::before {
 }
 
 .cgrid-tile--contrib {
-  grid-column: span 7;
+  grid-column: span 5;
   grid-row: span 2;
 }
 
-.cgrid-tile--bloghover {
-  grid-column: span 7;
-  grid-row: span 4;
+.cgrid-tile--hover {
+  grid-column: span 12;
+  grid-row: span 3;
 }
 
-.cgrid-tile--phone {
-  grid-column: span 5;
-  grid-row: span 4;
-}
+/* ── List hover specimen — invented rows + a cursor-tracked side preview ──── */
 
-/* ── Phone frame — a CSS bezel around a 375px reading view ────────────────── */
-
-.cgrid-phone {
-  display: grid;
-  place-items: center;
-  width: 100%;
-  height: 100%;
-  padding: 1.5rem;
-  overflow: hidden;
-}
-
-.cgrid-phone-screen {
+.hoverlist {
   position: relative;
-  width: 300px;
-  max-width: 100%;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 2.5rem;
+  width: 100%;
+  max-width: 56rem;
   height: 100%;
-  aspect-ratio: 300 / 620;
-  padding: 0.55rem;
-  border-radius: 2rem;
-  background: #0b0b0c;
-  box-shadow:
-    0 0 0 1px hsl(0 0% 100% / 0.06),
-    0 24px 60px -30px hsl(0 0% 0% / 0.7);
-  overflow: hidden;
+  margin: 0 auto;
+  padding: 1.5rem 2rem 2.75rem;
 }
 
-/* Notch nub at the top of the bezel. */
-.cgrid-phone-screen::before {
-  content: '';
+.hoverlist-rows {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.hoverlist-row {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.7rem 0.4rem;
+  cursor: default;
+  transition: opacity 0.25s ease;
+}
+
+.hoverlist-title {
+  font-family: var(--font-display);
+  font-size: clamp(0.95rem, 2.2vw, 1.15rem);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: hsl(var(--foreground) / 0.9);
+}
+
+.hoverlist-meta {
+  flex-shrink: 0;
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: hsl(var(--foreground) / 0.4);
+}
+
+/* Sibling-dim: while a row is hovered, the rest recede. */
+.hoverlist-rows.is-hovering .hoverlist-row:not(:hover) {
+  opacity: 0.4;
+}
+
+/* The sliding pill glides behind the hovered row. */
+.hoverlist-indicator {
   position: absolute;
-  top: 0.55rem;
-  left: 50%;
-  z-index: 2;
-  width: 34%;
-  height: 0.9rem;
-  transform: translateX(-50%);
-  border-radius: 0 0 0.7rem 0.7rem;
-  background: #0b0b0c;
+  top: 0;
+  left: 0;
+  z-index: 0;
+  border-radius: var(--radius-md);
+  background: hsl(var(--foreground) / 0.06);
+  opacity: 0;
+  pointer-events: none;
+  transition: transform 0.32s var(--ease-out), width 0.32s var(--ease-out),
+    height 0.32s var(--ease-out), opacity 0.2s ease;
+  will-change: transform;
 }
 
-.cgrid-phone-screen iframe {
-  border-radius: 1.5rem;
-  /* The phone view is rendered at 375px CSS width then scaled into the 300px
-     bezel — keeps the reading layout true-to-mobile without a wider column. */
-  width: 375px;
-  height: calc(100% * 375 / 300);
-  transform: scale(0.8);
-  transform-origin: top left;
+/* Cursor-aware preview swatch — glides to sit level with the active row. */
+.hoverlist-preview {
+  --y: 50%;
+  align-self: start;
+  width: 12rem;
+  height: 7.5rem;
+  border-radius: var(--radius);
+  background: hsl(var(--foreground) / 0.06);
+  box-shadow: 0 12px 30px -14px hsl(0 0% 0% / 0.6);
+  opacity: 0;
+  transform: translateY(calc(var(--y) - 50%)) scale(0.94);
+  transition: opacity 0.28s var(--ease-out), transform 0.36s var(--ease-out),
+    background 0.28s ease;
+  pointer-events: none;
 }
 
-/* ── Reveal — first view only, staggered by inline --i ───────────────────── */
+.hoverlist-preview.is-visible {
+  opacity: 1;
+  transform: translateY(calc(var(--y) - 50%)) scale(1);
+}
 
 .js .cgrid-tile {
   opacity: 0;
@@ -316,14 +369,9 @@ body:has(.components)::before {
     grid-row: span 2;
   }
 
-  .cgrid-tile--bloghover {
+  .cgrid-tile--hover {
     grid-column: span 6;
-    grid-row: span 4;
-  }
-
-  .cgrid-tile--phone {
-    grid-column: span 6;
-    grid-row: span 6;
+    grid-row: span 3;
   }
 }
 
@@ -347,13 +395,18 @@ body:has(.components)::before {
     min-height: 28rem;
   }
 
-  .cgrid-tile--phone {
-    min-height: 32rem;
-  }
-
   .cgrid-tile--listening,
   .cgrid-tile--decode {
     min-height: 14rem;
+  }
+
+  /* The hover specimen's side preview needs room; stack it under the rows. */
+  .hoverlist {
+    grid-template-columns: 1fr;
+  }
+
+  .hoverlist-preview {
+    display: none;
   }
 
   /* Avoid colliding with the fixed theme toggle in the top-right. */
@@ -379,7 +432,7 @@ body:has(.components)::before {
   gap: 0;
   width: var(--shell);
   margin: 0 auto;
-  padding: 4.5rem 0 6rem;
+  padding: 2.5rem 0 6rem;
 }
 
 @media (min-width: 60rem) {

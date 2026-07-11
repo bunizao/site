@@ -1,0 +1,66 @@
+---
+// Self-contained hover-preview specimen for the /components showcase. A minimal
+// mock of the blog list's cursor-aware hover — invented rows, CSS-gradient
+// "hero" swatches, NO real posts or images. Hovering a row slides a pill behind
+// it (shared hover-indicator lib), dims the siblings, and reveals that row's
+// swatch in the side preview, which glides to align with the active row.
+const rows = [
+  { title: 'Frosted glass, zero cold starts', meta: 'Edge', swatch: 'linear-gradient(135deg, #16323f, #2f6f7e)' },
+  { title: 'A dial you can feel', meta: 'Motion', swatch: 'linear-gradient(135deg, #3a2f5c, #7d5cff)' },
+  { title: 'Small APIs age better', meta: 'Craft', swatch: 'linear-gradient(135deg, #4a2b1c, #d08a4a)' },
+  { title: 'Quiet code, loud result', meta: 'Systems', swatch: 'linear-gradient(135deg, #1d3a2a, #4fae7c)' },
+];
+---
+
+<div class="hoverlist" data-hoverlist>
+  <ul class="hoverlist-rows" data-hoverlist-rows>
+    {rows.map((row, i) => (
+      <li class="hoverlist-row" data-swatch={row.swatch} data-index={i}>
+        <span class="hoverlist-title">{row.title}</span>
+        <span class="hoverlist-meta">{row.meta}</span>
+      </li>
+    ))}
+  </ul>
+  <div class="hoverlist-preview" data-hoverlist-preview aria-hidden="true"></div>
+</div>
+
+<script>
+  import { attachHoverIndicator } from '@/lib/hover-indicator';
+
+  document.querySelectorAll<HTMLElement>('[data-hoverlist]').forEach((root) => {
+    if (root.dataset.bound === 'true') return;
+    root.dataset.bound = 'true';
+
+    const list = root.querySelector<HTMLElement>('[data-hoverlist-rows]');
+    const preview = root.querySelector<HTMLElement>('[data-hoverlist-preview]');
+    if (!list || !preview) return;
+
+    // The sliding pill + sibling-dim, exactly the blog interaction — but scoped
+    // to this specimen's own rows.
+    attachHoverIndicator(list, {
+      itemSelector: '.hoverlist-row',
+      indicatorClass: 'hoverlist-indicator',
+      padX: 12,
+      padY: 6,
+    });
+
+    // Cursor-aware preview: the swatch tracks which row you're on, gliding to
+    // sit level with it — the essence of the blog hero-follow, minus real media.
+    const fine = window.matchMedia?.('(hover: hover) and (pointer: fine)').matches;
+    if (!fine) return;
+
+    list.querySelectorAll<HTMLElement>('.hoverlist-row').forEach((row) => {
+      row.addEventListener('pointerenter', () => {
+        const swatch = row.dataset.swatch;
+        if (swatch) preview.style.background = swatch;
+        const rootRect = root.getBoundingClientRect();
+        const rowRect = row.getBoundingClientRect();
+        const y = rowRect.top - rootRect.top + rowRect.height / 2;
+        preview.style.setProperty('--y', `${y}px`);
+        preview.classList.add('is-visible');
+      });
+    });
+
+    list.addEventListener('pointerleave', () => preview.classList.remove('is-visible'));
+  });
+</script>
