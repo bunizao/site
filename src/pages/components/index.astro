@@ -1,35 +1,24 @@
 ---
-import { getCollection } from 'astro:content';
 import Layout from '@/layouts/Layout.astro';
-import ComponentPreview from '@/features/components/ui/ComponentPreview.astro';
+import ProjectStack from '@/components/project-cards/ProjectStack';
+import Listening from '@/features/home/ui/Listening.astro';
+import { FALLBACK_TRACK } from '@/features/home/server/listening';
+import GitHubContributions from '@/features/home/ui/GitHubContributions.astro';
+import DecodeTextPreview from '@/features/components/previews/DecodeTextPreview';
+import { getAllPosts } from '@/features/posts/server/content';
+import { postPath } from '@/features/posts/format';
 import '@/styles/components.css';
 
 export const prerender = true;
 
-const entries = (await getCollection('components', ({ data }) => !data.draft)).sort(
-  (a, b) => a.data.order - b.data.order
-);
-
-const first = entries[0]?.id;
-
-const site = Astro.site ?? new URL('https://buxx.me');
-
-// Single-line install hint per component — the default (npm-flavoured) command.
-// The full package-manager tab set lives on each component's detail page.
-const installCommand = (entry: (typeof entries)[number]): string =>
-  entry.data.install.type === 'npm'
-    ? `npm install ${entry.data.install.pkg}`
-    : `npx shadcn@latest add ${new URL(`/r/${entry.id}`, site).href}`;
-
-const tierLabel: Record<string, string> = {
-  primitive: 'Primitive',
-  showpiece: 'Showpiece',
-  composition: 'Composition',
-};
+// The phone tile iframes a real post so the mobile reading topbar + TOC render
+// live; grab the newest slug to point at.
+const firstSlug = (await getAllPosts())[0]?.slug;
+const firstPostPath = firstSlug ? postPath(firstSlug) : '/blog/';
 
 const title = 'Components';
 const description =
-  'The UI this site is built from — primitives, showpieces, and bespoke compositions, most installable via a shadcn registry.';
+  'The signature interactive pieces this site is built from — a live bento wall of decode text, the projects deck, listening vinyl, GitHub activity, the mood wheel, and the blog reading surface.';
 ---
 
 <Layout title={title} description={description} url="/components" hideSiteNav>
@@ -39,110 +28,95 @@ const description =
       <span class="components-topbar-label">Components</span>
     </header>
 
-    <section class="components-hero">
-      <h1 class="components-hero-title">
-        A small, modern component library.
-      </h1>
-      <p class="components-hero-sub">
-        The UI this site is built from — every piece live below, yours to install.
-      </p>
-      <div class="components-hero-actions">
-        {first && (
-          <a class="hero-btn hero-btn--primary" href={`/components/${first}`}>Get started</a>
-        )}
-        <a class="hero-btn hero-btn--secondary" href="#showcase">Browse {entries.length} components</a>
-      </div>
-    </section>
+    <h1 class="cgrid-sr">Components — a live bento of this site's signature pieces</h1>
 
-    <div class="showcase" id="showcase">
-      {entries.map((entry, i) => {
-        const command = installCommand(entry);
-        return (
-          <section class="showcase-item" id={entry.id} data-showcase-item style={`--i:${i}`}>
-            <div class="showcase-head">
-              <p class="showcase-eyebrow">
-                <span class="showcase-index">{String(i + 1).padStart(2, '0')}</span>
-                <span class="showcase-tier">{tierLabel[entry.data.tier] ?? entry.data.tier}</span>
-              </p>
-              <a class="showcase-name-link" href={`/components/${entry.id}`}>
-                <h2 class="showcase-name">{entry.data.title}</h2>
-              </a>
-              <p class="showcase-tagline">{entry.data.tagline}</p>
-            </div>
+    <div class="cgrid" data-cgrid>
+      <!-- Projects deck — the centerpiece hero; clicking a card opens the
+           full-screen gallery (its own portal), the "expanded" state. -->
+      <section class="cgrid-tile cgrid-tile--projects" data-cgrid-tile style="--i:0">
+        <div class="cgrid-stage cgrid-stage--projects">
+          <ProjectStack client:visible />
+        </div>
+        <span class="cgrid-cap">Projects deck</span>
+      </section>
 
-            <div class="showcase-stage">
-              <ComponentPreview slug={entry.id} />
-            </div>
+      <!-- Mood wheel — takes over scroll + fixed positioning, so it's iframed. -->
+      <section class="cgrid-tile cgrid-tile--mood cgrid-tile--iframe" data-cgrid-tile style="--i:1">
+        <iframe src="/components/preview/mood-wheel" title="Mood wheel" loading="lazy"></iframe>
+        <span class="cgrid-cap">Mood wheel</span>
+      </section>
 
-            <div class="showcase-foot">
-              <div class="showcase-install">
-                <code class="showcase-install-cmd">{command}</code>
-                <button
-                  type="button"
-                  class="showcase-copy"
-                  data-copy-install
-                  data-command={command}
-                  aria-label={`Copy install command for ${entry.data.title}`}
-                >
-                  <svg class="showcase-copy-icon showcase-copy-icon--copy" viewBox="0 0 24 24" aria-hidden="true">
-                    <rect x="9" y="9" width="11" height="11" rx="2" fill="none" stroke="currentColor" stroke-width="1.7" />
-                    <path d="M5 15V5a2 2 0 0 1 2-2h10" fill="none" stroke="currentColor" stroke-width="1.7" />
-                  </svg>
-                  <svg class="showcase-copy-icon showcase-copy-icon--check" viewBox="0 0 24 24" aria-hidden="true">
-                    <path d="M5 12.5 10 17.5 19.5 7" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" />
-                  </svg>
-                </button>
-              </div>
-              <a class="showcase-open" href={`/components/${entry.id}`}>
-                Docs &amp; install
-                <span aria-hidden="true">↗</span>
-              </a>
-            </div>
-          </section>
-        );
-      })}
+      <!-- Listening — spins, samples the artwork colour, plays a preview with a
+           scrubbable progress bar on click. Frozen on a demo track. -->
+      <section class="cgrid-tile cgrid-tile--listening" data-cgrid-tile style="--i:2">
+        <div class="cgrid-stage">
+          <Listening track={FALLBACK_TRACK} static />
+        </div>
+        <span class="cgrid-cap">Listening</span>
+      </section>
+
+      <!-- Decode text — click or hover to re-boil the glyphs. -->
+      <section class="cgrid-tile cgrid-tile--decode" data-cgrid-tile style="--i:3">
+        <div class="cgrid-stage">
+          <DecodeTextPreview client:visible />
+        </div>
+        <span class="cgrid-cap">Decode text</span>
+      </section>
+
+      <!-- GitHub contributions — self-renders standalone; hover for tooltips. -->
+      <section class="cgrid-tile cgrid-tile--contrib" data-cgrid-tile style="--i:4">
+        <div class="cgrid-stage cgrid-stage--contrib">
+          <GitHubContributions />
+        </div>
+        <span class="cgrid-cap">GitHub activity</span>
+      </section>
+
+      <!-- Blog hover-hero — the real cursor-following preview, iframed at a
+           desktop width so the sibling-dim + floating image read. -->
+      <section class="cgrid-tile cgrid-tile--bloghover cgrid-tile--iframe" data-cgrid-tile style="--i:5">
+        <iframe src="/components/preview/blog-hover" title="Blog hover preview" loading="lazy"></iframe>
+        <span class="cgrid-cap">Hover preview</span>
+      </section>
+
+      <!-- Blog mobile — a real post at phone width inside a bezel: the reading
+           topbar + the mobile TOC dropdown, live. -->
+      <section class="cgrid-tile cgrid-tile--phone" data-cgrid-tile style="--i:6">
+        <div class="cgrid-phone">
+          <div class="cgrid-phone-screen">
+            <iframe src={firstPostPath} title="Blog reading — mobile" loading="lazy"></iframe>
+          </div>
+        </div>
+        <span class="cgrid-cap">Reading · mobile</span>
+      </section>
     </div>
   </main>
 </Layout>
 
 <script>
-  // Scroll reveal — first view only, staggered per item via inline --i.
+  // Light per-tile reveal on first view — staggered by inline --i. No install
+  // copy here; the grid is a live gallery, not a doc catalog.
   (() => {
-    const items = document.querySelectorAll<HTMLElement>('[data-showcase-item]');
-    if (items.length) {
-      const reveal = (el: HTMLElement) => el.classList.add('is-revealed');
+    const tiles = document.querySelectorAll<HTMLElement>('[data-cgrid-tile]');
+    if (!tiles.length) return;
+    const reveal = (el: HTMLElement) => el.classList.add('is-revealed');
 
-      if (!('IntersectionObserver' in window)) {
-        items.forEach(reveal);
-      } else {
-        const io = new IntersectionObserver(
-          (entries, obs) => {
-            for (const entry of entries) {
-              if (entry.isIntersecting) {
-                reveal(entry.target as HTMLElement);
-                obs.unobserve(entry.target);
-              }
-            }
-          },
-          { threshold: 0.08, rootMargin: '0px 0px -8% 0px' }
-        );
-        items.forEach((el) => io.observe(el));
-        setTimeout(() => items.forEach(reveal), 1500);
-      }
+    if (!('IntersectionObserver' in window)) {
+      tiles.forEach(reveal);
+      return;
     }
 
-    // Copy the install command — one delegated listener for the whole page.
-    let resetTimer: number | undefined;
-    document.addEventListener('click', (event) => {
-      const btn = (event.target as HTMLElement)?.closest<HTMLButtonElement>('[data-copy-install]');
-      if (!btn) return;
-      const command = btn.dataset.command ?? '';
-      if (!command || !navigator.clipboard) return;
-      navigator.clipboard.writeText(command).then(() => {
-        btn.dataset.copied = 'true';
-        window.clearTimeout(resetTimer);
-        resetTimer = window.setTimeout(() => delete btn.dataset.copied, 1600);
-      }).catch(() => undefined);
-    });
+    const io = new IntersectionObserver(
+      (entries, obs) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting) {
+            reveal(entry.target as HTMLElement);
+            obs.unobserve(entry.target);
+          }
+        }
+      },
+      { threshold: 0.05, rootMargin: '0px 0px -6% 0px' }
+    );
+    tiles.forEach((el) => io.observe(el));
+    setTimeout(() => tiles.forEach(reveal), 1500);
   })();
 </script>

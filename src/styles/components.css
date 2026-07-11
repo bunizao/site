@@ -68,296 +68,292 @@ body:has(.components)::before {
   letter-spacing: 0.02em;
 }
 
-/* ── Hero — left-aligned type + two CTAs (coss/ui register) ───────────────── */
+/* ── Bento grid (index) ──────────────────────────────────────────────────────
+   Not a doc catalog — one screen of a live, interactive bento wall. Each tile
+   is a hairline-bordered cell holding either an inline island (projects deck,
+   listening, decode, contributions) or an isolated iframe (mood wheel, blog
+   hover, phone-framed reading). Chanhdai-style: quiet grid, corner caption,
+   the pieces themselves carry the interest.
+   ─────────────────────────────────────────────────────────────────────────── */
 
-.components-hero {
-  width: min(72rem, 100% - 2.5rem);
-  margin: 0 auto;
-  padding: 5.5rem 0 5rem;
-}
-
-.components-hero-title {
-  margin: 0;
-  max-width: 20ch;
-  font-family: var(--font-display);
-  font-size: clamp(2.4rem, 6vw, 4rem);
-  font-weight: 700;
-  line-height: 1.02;
-  letter-spacing: -0.035em;
-  text-wrap: balance;
-  color: hsl(var(--foreground));
-}
-
-.components-hero-sub {
-  margin: 1.5rem 0 0;
-  font-family: var(--font-sans);
-  font-size: 1.1rem;
-  line-height: 1.5;
-  color: hsl(var(--foreground) / 0.55);
-}
-
-.components-hero-actions {
-  display: flex;
-  flex-wrap: wrap;
+.cgrid {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  grid-auto-rows: 7.5rem;
   gap: 0.75rem;
-  margin-top: 2.25rem;
+  width: min(84rem, 100% - 2.5rem);
+  margin: 2rem auto 0;
+  padding-bottom: 4rem;
 }
 
-.hero-btn {
-  display: inline-flex;
-  align-items: center;
-  height: 2.75rem;
-  padding: 0 1.25rem;
-  border-radius: calc(var(--radius) - 2px);
-  font-family: var(--font-sans);
-  font-size: 0.95rem;
-  font-weight: 500;
-  text-decoration: none;
-  transition:
-    transform 0.14s var(--ease-out),
-    background-color 0.16s ease,
-    border-color 0.16s ease;
+/* Visually-hidden page title — the grid is the content, but the page still
+   needs an h1 for structure/SEO. */
+.cgrid-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
 }
 
-.hero-btn:active {
-  transform: scale(0.97);
-}
-
-.hero-btn--primary {
-  background: hsl(var(--foreground));
-  color: hsl(var(--background));
-}
-
-.hero-btn--primary:hover {
-  background: hsl(var(--foreground) / 0.88);
-}
-
-.hero-btn--secondary {
-  border: 1px solid var(--line2);
-  color: hsl(var(--foreground));
-}
-
-.hero-btn--secondary:hover {
-  background: hsl(var(--foreground) / 0.06);
-  border-color: hsl(var(--foreground) / 0.32);
-}
-
-/* ── Showcase (index) ────────────────────────────────────────────────────────
-   Not a grid of link-cards — a single laid-open column. Every component renders
-   LIVE and interactive in place (the same preview the detail page shows), with
-   its metadata above and a copyable install below. Dividers + vertical rhythm
-   come from the global `section` rule; the frame around each preview is the
-   shared `.preview-frame`. */
-
-.showcase {
-  width: min(72rem, 100% - 2.5rem);
-  margin: 0 auto;
-  padding-bottom: 6rem;
-  border-top: 1px solid hsl(var(--foreground) / 0.08);
-}
-
-.showcase-item {
+.cgrid-tile {
+  position: relative;
   display: flex;
-  flex-direction: column;
-  scroll-margin-top: 5rem;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  transition: border-color 0.2s ease, background-color 0.2s ease;
 }
 
-/* Scroll reveal — first view only, staggered per item by inline --i. */
-.js .showcase-item {
+.cgrid-tile:hover {
+  border-color: var(--line2);
+  background: var(--surface-hover);
+}
+
+/* Iframe tiles hold their frame flush to the edge; no inner padding. */
+.cgrid-tile--iframe {
+  background: hsl(var(--background));
+}
+
+.cgrid-tile iframe {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  display: block;
+}
+
+/* Corner caption — a quiet mono label pinned bottom-left, over a soft scrim so
+   it stays legible above whatever the tile renders. */
+.cgrid-cap {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  z-index: 3;
+  padding: 0.9rem 0.85rem 0.55rem;
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: hsl(var(--foreground) / 0.55);
+  pointer-events: none;
+  background: linear-gradient(
+    to top,
+    hsl(var(--background) / 0.85),
+    hsl(var(--background) / 0)
+  );
+}
+
+/* Inline-island stage: center the live component, give it breathing room. */
+.cgrid-stage {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  padding: 1.5rem;
+  overflow: hidden;
+}
+
+/* The projects deck brings its own generous height + the position dots below;
+   let it sit high so the caption doesn't crowd the dots. */
+.cgrid-stage--projects {
+  align-content: center;
+  padding: 1.75rem 1.5rem 2.5rem;
+  overflow: visible;
+}
+
+/* Contributions wants to lay out as a wide row, not centered. */
+.cgrid-stage--contrib {
+  place-items: stretch;
+  align-content: center;
+  padding: 1.75rem;
+}
+
+/* Decode text runs three mono lines; keep it small enough to fit the short
+   tile without clipping the last line. */
+.cgrid-tile--decode .decode-preview {
+  font-size: clamp(0.85rem, 2.4vw, 1.1rem);
+  line-height: 1.45;
+}
+
+/* ── Spans (desktop 12-col) ──────────────────────────────────────────────── */
+
+.cgrid-tile--projects {
+  grid-column: span 7;
+  grid-row: span 6;
+}
+
+.cgrid-tile--mood {
+  grid-column: span 5;
+  grid-row: span 8;
+}
+
+.cgrid-tile--listening {
+  grid-column: span 4;
+  grid-row: span 2;
+}
+
+.cgrid-tile--decode {
+  grid-column: span 3;
+  grid-row: span 2;
+}
+
+.cgrid-tile--contrib {
+  grid-column: span 7;
+  grid-row: span 2;
+}
+
+.cgrid-tile--bloghover {
+  grid-column: span 7;
+  grid-row: span 4;
+}
+
+.cgrid-tile--phone {
+  grid-column: span 5;
+  grid-row: span 4;
+}
+
+/* ── Phone frame — a CSS bezel around a 375px reading view ────────────────── */
+
+.cgrid-phone {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  padding: 1.5rem;
+  overflow: hidden;
+}
+
+.cgrid-phone-screen {
+  position: relative;
+  width: 300px;
+  max-width: 100%;
+  height: 100%;
+  aspect-ratio: 300 / 620;
+  padding: 0.55rem;
+  border-radius: 2rem;
+  background: #0b0b0c;
+  box-shadow:
+    0 0 0 1px hsl(0 0% 100% / 0.06),
+    0 24px 60px -30px hsl(0 0% 0% / 0.7);
+  overflow: hidden;
+}
+
+/* Notch nub at the top of the bezel. */
+.cgrid-phone-screen::before {
+  content: '';
+  position: absolute;
+  top: 0.55rem;
+  left: 50%;
+  z-index: 2;
+  width: 34%;
+  height: 0.9rem;
+  transform: translateX(-50%);
+  border-radius: 0 0 0.7rem 0.7rem;
+  background: #0b0b0c;
+}
+
+.cgrid-phone-screen iframe {
+  border-radius: 1.5rem;
+  /* The phone view is rendered at 375px CSS width then scaled into the 300px
+     bezel — keeps the reading layout true-to-mobile without a wider column. */
+  width: 375px;
+  height: calc(100% * 375 / 300);
+  transform: scale(0.8);
+  transform-origin: top left;
+}
+
+/* ── Reveal — first view only, staggered by inline --i ───────────────────── */
+
+.js .cgrid-tile {
   opacity: 0;
-  transform: translateY(12px);
+  transform: translateY(14px);
 }
 
-.js .showcase-item.is-revealed {
+.js .cgrid-tile.is-revealed {
   opacity: 1;
   transform: none;
   transition:
-    opacity 0.5s var(--ease-out) calc(var(--i, 0) * 40ms),
-    transform 0.5s var(--ease-out) calc(var(--i, 0) * 40ms);
+    opacity 0.55s var(--ease-out) calc(var(--i, 0) * 55ms),
+    transform 0.55s var(--ease-out) calc(var(--i, 0) * 55ms);
 }
 
-.showcase-head {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
+/* ── Tablet — collapse to a simpler two-column bento ─────────────────────── */
 
-.showcase-eyebrow {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  margin: 0;
-}
-
-.showcase-index {
-  font-family: var(--font-mono);
-  font-size: 0.75rem;
-  font-variant-numeric: tabular-nums;
-  letter-spacing: 0.06em;
-  color: hsl(var(--foreground) / 0.4);
-}
-
-.showcase-tier {
-  padding: 0.15rem 0.55rem;
-  border: 1px solid var(--line2);
-  border-radius: 999px;
-  font-family: var(--font-mono);
-  font-size: 0.66rem;
-  font-weight: 500;
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
-  color: hsl(var(--foreground) / 0.55);
-}
-
-.showcase-name-link {
-  width: fit-content;
-  text-decoration: none;
-  color: inherit;
-}
-
-.showcase-name {
-  margin: 0;
-  font-family: var(--font-display);
-  font-size: clamp(1.6rem, 3vw, 2.1rem);
-  font-weight: 700;
-  line-height: 1.05;
-  letter-spacing: -0.025em;
-  color: hsl(var(--foreground));
-  transition: opacity 0.15s ease;
-}
-
-.showcase-name-link:hover .showcase-name {
-  opacity: 0.65;
-}
-
-.showcase-tagline {
-  max-width: 46ch;
-  margin: 0;
-  font-family: var(--font-sans);
-  font-size: 0.98rem;
-  line-height: 1.55;
-  color: hsl(var(--foreground) / 0.55);
-  text-wrap: pretty;
-}
-
-/* The live preview sits in the shared .preview-frame; the stage just gives it
-   room. Full width, so wide components (mood-wheel) and small ones (a button
-   row) both read as laid open, not boxed into a tile. */
-.showcase-stage {
-  margin: 1.75rem 0 1.5rem;
-}
-
-.showcase-foot {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-}
-
-.showcase-install {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  min-width: 0;
-  max-width: 100%;
-  padding: 0.4rem 0.4rem 0.4rem 0.85rem;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-md);
-  background: var(--surface);
-}
-
-.showcase-install-cmd {
-  min-width: 0;
-  overflow-x: auto;
-  white-space: nowrap;
-  font-family: var(--font-code);
-  font-size: 0.8rem;
-  color: hsl(var(--foreground) / 0.85);
-  scrollbar-width: none;
-}
-
-.showcase-install-cmd::-webkit-scrollbar {
-  display: none;
-}
-
-.showcase-copy {
-  position: relative;
-  flex-shrink: 0;
-  display: inline-grid;
-  place-items: center;
-  width: 1.85rem;
-  height: 1.85rem;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-  background: hsl(var(--background));
-  color: hsl(var(--foreground));
-  cursor: pointer;
-  transition: transform 0.16s var(--ease-out), border-color 0.16s ease;
-}
-
-.showcase-copy:hover {
-  border-color: var(--line2);
-}
-
-.showcase-copy:active {
-  transform: scale(0.96);
-}
-
-.showcase-copy:focus-visible {
-  outline: 2px solid hsl(var(--foreground));
-  outline-offset: 2px;
-}
-
-.showcase-copy-icon {
-  grid-area: 1 / 1;
-  width: 0.9rem;
-  height: 0.9rem;
-  transition: opacity 0.2s ease, filter 0.2s ease;
-}
-
-.showcase-copy-icon--check {
-  opacity: 0;
-  filter: blur(2px);
-}
-
-.showcase-copy[data-copied] .showcase-copy-icon--copy {
-  opacity: 0;
-  filter: blur(2px);
-}
-
-.showcase-copy[data-copied] .showcase-copy-icon--check {
-  opacity: 1;
-  filter: blur(0);
-}
-
-.showcase-open {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  font-family: var(--font-sans);
-  font-size: 0.85rem;
-  font-weight: 500;
-  color: hsl(var(--foreground) / 0.6);
-  text-decoration: none;
-  transition: color 0.15s ease, gap 0.15s ease;
-}
-
-.showcase-open:hover {
-  color: hsl(var(--foreground));
-  gap: 0.55rem;
-}
-
-/* ── Mobile ──────────────────────────────────────────────────────────────── */
-
-@media (max-width: 640px) {
-  .showcase-install {
-    order: 2;
-    width: 100%;
+@media (max-width: 900px) {
+  .cgrid {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    grid-auto-rows: 7rem;
   }
 
-  .showcase-install-cmd {
-    flex: 1;
+  .cgrid-tile--projects {
+    grid-column: span 6;
+    grid-row: span 6;
+  }
+
+  .cgrid-tile--mood {
+    grid-column: span 6;
+    grid-row: span 7;
+  }
+
+  .cgrid-tile--listening {
+    grid-column: span 6;
+    grid-row: span 2;
+  }
+
+  .cgrid-tile--decode {
+    grid-column: span 6;
+    grid-row: span 2;
+  }
+
+  .cgrid-tile--contrib {
+    grid-column: span 6;
+    grid-row: span 2;
+  }
+
+  .cgrid-tile--bloghover {
+    grid-column: span 6;
+    grid-row: span 4;
+  }
+
+  .cgrid-tile--phone {
+    grid-column: span 6;
+    grid-row: span 6;
+  }
+}
+
+/* ── Mobile — single-column stack ────────────────────────────────────────── */
+
+@media (max-width: 560px) {
+  .cgrid {
+    grid-template-columns: 1fr;
+    grid-auto-rows: auto;
+    gap: 0.6rem;
+    width: calc(100% - 2rem);
+  }
+
+  .cgrid-tile {
+    grid-column: 1 / -1 !important;
+    grid-row: auto !important;
+    min-height: 20rem;
+  }
+
+  .cgrid-tile--mood {
+    min-height: 28rem;
+  }
+
+  .cgrid-tile--phone {
+    min-height: 32rem;
+  }
+
+  .cgrid-tile--listening,
+  .cgrid-tile--decode {
+    min-height: 14rem;
   }
 
   /* Avoid colliding with the fixed theme toggle in the top-right. */
@@ -367,15 +363,11 @@ body:has(.components)::before {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .js .showcase-item,
-  .js .showcase-item.is-revealed {
+  .js .cgrid-tile,
+  .js .cgrid-tile.is-revealed {
     opacity: 1;
     transform: none;
     transition: opacity 0.3s ease;
-  }
-
-  .showcase-copy-icon {
-    transition-duration: 0.01ms;
   }
 }
 
