@@ -8,10 +8,9 @@
 //      clamped into the tile), swapping its swatch per row — exactly the blog's
 //      cursor-following hero image, minus real media.
 const rows = [
-  { title: 'Frosted glass, zero cold starts', date: 'Jul 2', tags: ['Edge', 'Craft'], swatch: '/showcase/forest.webp' },
-  { title: 'A dial you can feel', date: 'Jun 24', tags: ['Motion'], swatch: '/showcase/wave.webp' },
-  { title: 'Small APIs age better', date: 'Jun 11', tags: ['Systems', 'Ideas'], swatch: '/showcase/aurora.webp' },
-  { title: 'Quiet code, loud result', date: 'May 30', tags: ['Craft'], swatch: '/showcase/lake.webp' },
+  { title: 'Frosted glass, zero cold starts', excerpt: 'A fast edge-rendered interface that stays warm, responsive, and quietly tactile.', date: 'Jul 2', tags: ['Edge', 'Craft'], swatch: '/showcase/forest.webp' },
+  { title: 'A dial you can feel', excerpt: 'Turning time into a physical control with momentum, restraint, and a clear sense of place.', date: 'Jun 24', tags: ['Motion'], swatch: '/showcase/wave.webp' },
+  { title: 'Small APIs age better', excerpt: 'The most durable interfaces expose less, name things plainly, and leave room for change.', date: 'Jun 11', tags: ['Systems', 'Ideas'], swatch: '/showcase/aurora.webp' },
 ];
 ---
 
@@ -20,6 +19,7 @@ const rows = [
     {rows.map((row, i) => (
       <li class="hoverlist-row" data-swatch={row.swatch} data-index={i}>
         <span class="hoverlist-title">{row.title}</span>
+        <span class="hoverlist-excerpt">{row.excerpt}</span>
         <span class="hoverlist-meta">
           <span class="hoverlist-date">{row.date}</span>
           <span class="hoverlist-tags">
@@ -60,16 +60,16 @@ const rows = [
     const img = preview.querySelector<HTMLImageElement>('[data-hoverlist-img]');
 
     // Cursor-following preview: like the blog, the image tracks the pointer's Y
-    // continuously (one rAF-batched write), clamped to stay inside the tile.
+    // continuously (one rAF-batched write). The image may cross the specimen
+    // frame, matching the real blog preview instead of behaving like a crop.
     let raf = 0;
     let pointerY = 0;
 
     const render = () => {
       raf = 0;
       const rootRect = root.getBoundingClientRect();
-      const h = preview.offsetHeight || 120;
       const rel = pointerY - rootRect.top;
-      const y = Math.min(Math.max(rel - h / 2, 12), rootRect.height - h - 12);
+      const y = rel - (preview.offsetHeight || 180) / 2;
       preview.style.transform = `translateY(${y}px)`;
     };
 
