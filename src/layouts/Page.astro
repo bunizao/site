@@ -1,6 +1,5 @@
 ---
 import Layout from '@/layouts/Layout.astro';
-import Footer from '@/features/home/ui/Footer.astro';
 
 interface Props {
   title: string;
@@ -8,6 +7,8 @@ interface Props {
   url?: string;
   robots?: string;
   updatedAt?: string;
+  showSiteNav?: boolean;
+  headerActionsVariant?: 'default' | 'home';
 }
 
 const {
@@ -16,6 +17,8 @@ const {
   url,
   robots,
   updatedAt,
+  showSiteNav = true,
+  headerActionsVariant = 'default',
 } = Astro.props;
 ---
 
@@ -24,19 +27,24 @@ const {
   description={description}
   url={url}
   robots={robots}
-  hideSiteNav
+  showSiteNav={showSiteNav}
+  navVariant="page"
+  headerActionsVariant={headerActionsVariant}
 >
-  <div class="page-template">
-    <main class="page-main">
-      <div class="page-shell">
-        {updatedAt ? <p class="page-updated">Updated: {updatedAt}</p> : null}
-        <article class="page-content">
-          <slot />
-        </article>
-      </div>
-    </main>
-    <Footer />
-  </div>
+  <script is:inline>
+    (() => {
+      document.body.classList.add('page-template-active');
+    })();
+  </script>
+
+  <main class="page-template">
+    <div class="page-shell">
+      {updatedAt ? <p class="page-updated">Updated: {updatedAt}</p> : null}
+      <article class="page-content">
+        <slot />
+      </article>
+    </div>
+  </main>
 </Layout>
 
 <style>
@@ -44,18 +52,27 @@ const {
     scroll-behavior: smooth;
   }
 
+  :global(body.page-template-active) {
+    --page-chrome-bg: rgb(250 250 250 / 0.58);
+    --page-chrome-border: rgb(17 17 17 / 0.08);
+    --page-chrome-fg: #111;
+  }
+
+  :global(.dark body.page-template-active) {
+    --page-chrome-bg: rgb(10 10 10 / 0.6);
+    --page-chrome-border: rgb(255 255 255 / 0.1);
+    --page-chrome-fg: #fff;
+  }
+
   .page-template {
     --page-text: #111;
     --page-muted: rgb(17 17 17 / 0.7);
     --page-rule: rgb(17 17 17 / 0.14);
     min-height: 100vh;
+    padding: 8.5rem 0 7rem;
     background: #fafafa;
     color: var(--page-text);
     font-family: var(--font-sans);
-  }
-
-  .page-main {
-    padding: 8.5rem 0 7rem;
   }
 
   :global(.dark) .page-template {
@@ -63,6 +80,49 @@ const {
     --page-muted: rgb(255 255 255 / 0.78);
     --page-rule: rgb(255 255 255 / 0.14);
     background: #000;
+  }
+
+  :global(.site-nav--page) {
+    align-items: center;
+    justify-content: flex-start;
+    height: auto;
+    gap: 0;
+  }
+
+  :global(.site-nav--page .site-brand) {
+    justify-content: flex-start;
+    width: auto;
+    height: 34px;
+    margin: 0;
+    gap: var(--site-nav-brand-gap);
+    border-radius: 0;
+    color: var(--page-chrome-fg);
+    background: transparent;
+  }
+
+  :global(.site-nav--page .site-brand:hover),
+  :global(.site-nav--page .site-brand:focus-visible) {
+    color: var(--page-chrome-fg);
+    background: transparent;
+    opacity: 0.72;
+  }
+
+  :global(.site-nav--page .site-brand-logo) {
+    display: inline-flex;
+    line-height: 0;
+  }
+
+  :global(.site-nav--page .site-brand-text) {
+    display: inline-block;
+    cursor: pointer;
+    padding: 0;
+    border-radius: 0;
+    font-size: 1.08rem;
+    line-height: 1;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    color: var(--page-chrome-fg);
+    white-space: nowrap;
   }
 
   .page-shell {
@@ -183,12 +243,82 @@ const {
   }
 
   @media (max-width: 899px) {
-    .page-main {
+    .page-template {
       padding: calc(env(safe-area-inset-top, 0px) + 4.85rem) 0 5.5rem;
     }
 
     .page-shell {
       padding: 0 1rem;
+    }
+
+    :global(body.page-template-active .site-nav--page) {
+      top: var(--site-nav-mobile-top);
+      left: 0;
+      right: 0;
+      z-index: 60;
+      height: var(--site-nav-mobile-height);
+      padding: var(--site-nav-mobile-padding);
+      gap: var(--site-nav-mobile-gap);
+      border-bottom: 1px solid var(--page-chrome-border);
+      background: var(--page-chrome-bg);
+      backdrop-filter: blur(14px) saturate(140%);
+      -webkit-backdrop-filter: blur(14px) saturate(140%);
+      backface-visibility: hidden;
+      transform: translateZ(0);
+    }
+
+    :global(body.page-template-active .site-nav--page::before) {
+      content: '';
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: calc(env(safe-area-inset-top, 0px) * -1);
+      height: env(safe-area-inset-top, 0px);
+      background: var(--page-chrome-bg);
+      backdrop-filter: blur(14px) saturate(140%);
+      -webkit-backdrop-filter: blur(14px) saturate(140%);
+      pointer-events: none;
+      backface-visibility: hidden;
+      transform: translateZ(0);
+    }
+
+    :global(body.page-template-active .site-nav--page .site-brand) {
+      width: auto;
+      min-width: var(--site-nav-mobile-brand-min-width);
+      min-height: var(--site-nav-mobile-action-size);
+      margin: 0;
+      padding-right: 0;
+      gap: var(--site-nav-brand-gap);
+      overflow: hidden;
+    }
+
+    :global(body.page-template-active .site-nav--page .site-brand-logo) {
+      position: relative;
+      z-index: 2;
+      flex: 0 0 auto;
+      width: var(--site-nav-mobile-logo-width);
+      height: var(--site-nav-mobile-logo-height);
+      line-height: 0;
+      transform: translateX(0);
+    }
+
+    :global(body.page-template-active .site-nav--page .site-brand-logo > span),
+    :global(body.page-template-active .site-nav--page .site-brand-logo svg) {
+      width: auto !important;
+      height: var(--site-nav-mobile-logo-height) !important;
+    }
+
+    :global(body.page-template-active .site-nav--page .site-brand-text) {
+      display: inline-block;
+      width: var(--site-nav-mobile-wordmark-width);
+      flex: 0 0 var(--site-nav-mobile-wordmark-width);
+      max-width: var(--site-nav-mobile-wordmark-width);
+      font-size: var(--site-nav-mobile-wordmark-size);
+      line-height: 1;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+      color: var(--page-chrome-fg);
+      white-space: nowrap;
     }
 
     :global(.page-content h1) {

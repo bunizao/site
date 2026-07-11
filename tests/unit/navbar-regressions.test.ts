@@ -48,6 +48,7 @@ describe('navbar regression guards', () => {
     const layoutSource = read('src/layouts/Layout.astro');
     const viewportSource = read('src/layouts/client/visual-viewport.ts');
     const globalStyles = read('src/styles/globals.css');
+    const pageStyles = read('src/layouts/Page.astro');
 
     expect(layoutSource).toContain("import('@/layouts/client/visual-viewport')");
     expect(viewportSource).toContain('const viewport = window.visualViewport;');
@@ -59,15 +60,22 @@ describe('navbar regression guards', () => {
     expect(globalStyles).toContain('--site-nav-mobile-top: calc(env(safe-area-inset-top, 0px) + var(--visual-viewport-top, 0px));');
     expect(globalStyles).toContain('top: var(--site-nav-mobile-top);');
     expect(globalStyles).toContain('top: calc(env(safe-area-inset-top, 0px) + var(--visual-viewport-top, 0px) + 0.3rem);');
+    expect(pageStyles).toContain('top: var(--site-nav-mobile-top);');
   });
 
-  test('navbar defines mobile brand chrome tokens', () => {
+  test('home and page navbars share brand chrome tokens', () => {
     const globalStyles = read('src/styles/globals.css');
+    const pageStyles = read('src/layouts/Page.astro');
 
     expect(globalStyles).toContain('--site-nav-brand-gap: 0.375rem;');
     expect(globalStyles).toContain('--site-nav-mobile-height: 3.25rem;');
     expect(globalStyles).toContain('--site-nav-mobile-padding: 0 4rem 0 1rem;');
     expect(globalStyles).toContain('--site-nav-mobile-logo-height: 21px;');
     expect(globalStyles).toContain('--site-nav-mobile-wordmark-width: 5.2rem;');
+    expect(pageStyles).toContain('gap: var(--site-nav-brand-gap);');
+    expect(pageStyles).toContain('height: var(--site-nav-mobile-height);');
+    expect(pageStyles).toContain('padding: var(--site-nav-mobile-padding);');
+    expect(pageStyles).toContain('height: var(--site-nav-mobile-logo-height);');
+    expect(pageStyles).toContain('width: var(--site-nav-mobile-wordmark-width);');
   });
 });

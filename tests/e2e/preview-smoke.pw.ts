@@ -25,7 +25,8 @@ test.describe('Preview smoke', () => {
   test('renders the tag-card specimen with full-size cards', async ({ page }) => {
     await page.goto('/components');
 
-    await expect(page.locator('.site-nav--page')).toBeVisible();
+    await expect(page.locator('[data-site-nav]')).toHaveCount(0);
+    await expect(page.locator('footer.footer')).toBeVisible();
     await expect(page.locator('.components-topbar')).toHaveCount(0);
     const cards = page.locator('.tagspec .tag-card');
     await expect(cards).toHaveCount(2);
