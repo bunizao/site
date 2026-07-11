@@ -11,29 +11,30 @@ const cards = [
     count: 9,
     accent: '#7e8b9e',
     image: '/showcase/ridge.webp',
-    posts: ['Frosted glass, zero cold starts', 'A dial you can feel', 'Concentric by default'],
+    posts: [
+      ['Frosted glass, zero cold starts', 'Jul 2'],
+      ['A dial you can feel', 'Jun 24'],
+      ['Concentric by default', 'Jun 18'],
+    ],
   },
   {
     name: 'Edge',
     count: 6,
     accent: '#8a7e6b',
     image: '/showcase/dunes.webp',
-    posts: ['Generated live at the edge', 'Small APIs age better'],
+    posts: [
+      ['Generated live at the edge', 'Jun 14'],
+      ['Small APIs age better', 'Jun 11'],
+    ],
   },
 ];
 ---
 
 <div class="tagspec">
-  <ul class="tagspec-chips" aria-label="Tags">
-    {['interfaces', 'edge', 'motion', 'typography', 'systems', 'astro', 'ideas'].map((tag) => (
-      <li><a class="tagspec-chip" href="#" onclick="return false">{tag}</a></li>
-    ))}
-  </ul>
-
   <div class="tagspec-wall">
     {cards.map((card) => (
       <article class="tag-card has-image has-accent" style={`--tag-accent:${card.accent}`}>
-        <a class="tag-card-bg" href="#" onclick="return false">
+        <a class="tag-card-bg" href="/blog/tags/">
           <img src={card.image} alt={card.name} loading="lazy" />
           <div class="tag-card-header">
             <div class="tag-card-info">
@@ -43,9 +44,10 @@ const cards = [
           </div>
         </a>
         <div class="tag-card-posts">
-          {card.posts.map((post) => (
-            <a class="tag-post-preview" href="#" onclick="return false">
-              <span class="tag-post-title">{post}</span>
+          {card.posts.map(([title, date]) => (
+            <a class="tag-post-preview" href="/blog/tags/">
+              <span class="tag-post-title">{title}</span>
+              <span class="tag-post-date">{date}</span>
             </a>
           ))}
         </div>
@@ -57,54 +59,28 @@ const cards = [
 <style>
   .tagspec {
     width: 100%;
-    display: grid;
-    gap: 1.1rem;
+    height: 100%;
     /* Blog surfaces read in Inter, not the showcase's mono scope. */
     font-family: var(--font-sans);
-  }
-
-  /* ── Quiet chips (post-page idiom) ────────────────────────────────────── */
-  .tagspec-chips {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    margin: 0;
-    padding: 0;
-    list-style: none;
-  }
-
-  .tagspec-chip {
-    display: inline-flex;
-    font-size: 12.5px;
-    line-height: 1;
-    padding: 6px 11px;
-    border-radius: 999px;
-    color: hsl(var(--muted-foreground));
-    background: hsl(var(--foreground) / 0.05);
-    text-decoration: none;
-    transition: color 0.16s ease, background-color 0.16s ease;
-  }
-
-  .tagspec-chip:hover {
-    color: hsl(var(--foreground));
-    background: hsl(var(--foreground) / 0.09);
   }
 
   /* ── Feature-image glass cards (the /blog/tags wall) ──────────────────── */
   .tagspec-wall {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
-    gap: 0.85rem;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1.5rem;
+    height: 100%;
   }
 
   /* Mirrors .tag-card.has-image from blog.css. */
   .tag-card {
     --tag-color: var(--tag-accent);
     --image-color: var(--tag-accent);
-    --tag-pad-x: 18px;
+    --tag-pad-x: 24px;
+    --row-h: 46px;
     position: relative;
-    min-height: 15rem;
-    border-radius: 16px;
+    min-height: 0;
+    border-radius: 20px;
     overflow: hidden;
     border: 1px solid transparent;
     background: hsl(var(--foreground) / 0.06);
@@ -158,7 +134,7 @@ const cards = [
   .tag-card-name {
     margin: 0;
     color: #fff;
-    font-size: 20px;
+    font-size: 22px;
     font-weight: 700;
     letter-spacing: -0.01em;
     line-height: 1.3;
@@ -187,7 +163,9 @@ const cards = [
   .tag-post-preview {
     display: flex;
     align-items: center;
-    height: 40px;
+    justify-content: space-between;
+    gap: 12px;
+    height: var(--row-h);
     padding: 0 var(--tag-pad-x);
     color: inherit;
     text-decoration: none;
@@ -204,11 +182,20 @@ const cards = [
   }
 
   .tag-post-title {
-    font-size: 13.5px;
+    min-width: 0;
+    font-size: 14px;
     font-weight: 500;
     color: rgb(255 255 255 / 0.88);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+  }
+
+  .tag-post-date {
+    flex-shrink: 0;
+    font-size: 12px;
+    color: rgb(255 255 255 / 0.7);
+    text-shadow: 0 1px 2px rgb(0 0 0 / 0.3);
+    font-variant-numeric: tabular-nums;
   }
 </style>
