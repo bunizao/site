@@ -28,6 +28,11 @@ const mascotSvg = gridToSvg(PEEK_BASE.base, PEEK_BASE.width, PEEK_BASE.height, {
   data-specimen
   aria-label={`${title} — ${tagline}`}
 >
+  <div class="specimen-head">
+    <span class="specimen-name">{title}</span>
+    <span class="specimen-tagline">{tagline}</span>
+  </div>
+
   <div class="specimen-stage">
     {slug === 'button' && <Button variant="outline" size="sm">Button</Button>}
     {slug === 'badge' && <Badge variant="secondary">Badge</Badge>}
@@ -67,10 +72,6 @@ const mascotSvg = gridToSvg(PEEK_BASE.base, PEEK_BASE.width, PEEK_BASE.height, {
     )}
   </div>
 
-  <div class="specimen-caption">
-    <span class="specimen-name">{title}</span>
-    <span class="specimen-tagline">{tagline}</span>
-  </div>
 </a>
 
 <style>

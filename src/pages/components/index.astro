@@ -2,7 +2,6 @@
 import { getCollection } from 'astro:content';
 import Layout from '@/layouts/Layout.astro';
 import ComponentSpecimen from '@/features/components/ui/ComponentSpecimen.astro';
-import ComponentsDial from '@/features/components/ui/ComponentsDial';
 import '@/styles/components.css';
 
 export const prerender = true;
@@ -11,11 +10,7 @@ const entries = (await getCollection('components', ({ data }) => !data.draft)).s
   (a, b) => a.data.order - b.data.order
 );
 
-const dialItems = entries.map((e) => ({
-  slug: e.id,
-  title: e.data.title,
-  kind: e.data.tier,
-}));
+const first = entries[0]?.id;
 
 const title = 'Components';
 const description =
@@ -29,12 +24,20 @@ const description =
       <span class="components-topbar-label">Components</span>
     </header>
 
-    <section class="components-hero" aria-label="Components dial">
-      <ComponentsDial items={dialItems} client:load />
+    <section class="components-hero">
+      <h1 class="components-hero-title">
+        A small, modern component library.
+      </h1>
+      <p class="components-hero-sub">The UI this site is built from. Yours to install.</p>
+      <div class="components-hero-actions">
+        {first && (
+          <a class="hero-btn hero-btn--primary" href={`/components/${first}`}>Get started</a>
+        )}
+        <a class="hero-btn hero-btn--secondary" href="#grid">Browse {entries.length} components</a>
+      </div>
     </section>
 
-    <div class="components-page">
-      <p class="components-index-label">All {entries.length} components</p>
+    <div class="components-page" id="grid">
       <div class="specimen-grid">
         {entries.map((entry, i) => (
           <ComponentSpecimen entry={entry} index={i} />
@@ -70,7 +73,6 @@ const description =
     );
     cells.forEach((el) => io.observe(el));
 
-    // Fail-safe: reveal everything after a beat if the observer never fires.
     setTimeout(() => cells.forEach(reveal), 1500);
   })();
 </script>

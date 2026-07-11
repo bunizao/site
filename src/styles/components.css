@@ -68,213 +68,78 @@ body:has(.components)::before {
   letter-spacing: 0.02em;
 }
 
-/* ── Hero stage + horizontal dial ────────────────────────────────────────── */
+/* ── Hero — left-aligned type + two CTAs (coss/ui register) ───────────────── */
 
 .components-hero {
-  position: relative;
-  overflow: hidden;
+  width: min(72rem, 100% - 2.5rem);
+  margin: 0 auto;
+  padding: 5.5rem 0 5rem;
 }
 
-/* Soft radial bloom behind the dial so the first screen has depth. */
-.components-hero::before {
-  content: '';
-  position: absolute;
-  left: 50%;
-  top: 44%;
-  width: 90vw;
-  height: 42rem;
-  transform: translate(-50%, -50%);
-  background: radial-gradient(
-    ellipse 60% 60% at 50% 50%,
-    hsl(var(--foreground) / 0.08),
-    transparent 70%
-  );
-  pointer-events: none;
-  z-index: 0;
-}
-
-.dial {
-  position: relative;
-  z-index: 1;
-  height: min(60vh, 30rem);
-  overflow: hidden;
-  user-select: none;
-  touch-action: pan-y;
-}
-
-.dial-track {
-  position: absolute;
-  inset: 0;
-  cursor: grab;
-}
-
-.dial-track[data-dragging] {
-  cursor: grabbing;
-}
-
-.dial-strip {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  will-change: transform;
-}
-
-.dial-col {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  width: 0;
-}
-
-/* Ticks hang around a baseline at 52% of the stage height. */
-.dial-tick {
-  position: absolute;
-  top: 52%;
-  width: 1.5px;
-  background: hsl(var(--foreground));
-  border-radius: 2px;
-}
-
-.dial-tick--major {
-  height: 52px;
-  margin-top: -26px;
-  opacity: 0.55;
-}
-
-.dial-tick--minor {
-  height: 18px;
-  margin-top: -9px;
-  opacity: 0.14;
-}
-
-.dial-label {
-  position: absolute;
-  top: calc(52% - 74px);
-  transform: translateX(-50%);
-  white-space: nowrap;
-  font-family: var(--font-sans);
-  font-size: 0.9rem;
-  font-weight: 500;
-  letter-spacing: -0.01em;
-  color: hsl(var(--foreground) / 0.34);
-  text-decoration: none;
-  transition: color 0.35s var(--ease-out), transform 0.35s var(--ease-out);
-}
-
-.dial-label[data-active] {
-  color: hsl(var(--foreground));
-  transform: translateX(-50%) translateY(-4px);
-}
-
-/* Center reticle — the readout line the active component snaps under. */
-.dial-reticle {
-  position: absolute;
-  left: 50%;
-  top: 52%;
-  transform: translate(-50%, -50%);
-  height: 96px;
-  z-index: 2;
-  pointer-events: none;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
-.dial-reticle-caret {
-  width: 0;
-  height: 0;
-  border-left: 5px solid transparent;
-  border-right: 5px solid transparent;
-  border-top: 6px solid hsl(var(--foreground));
-  margin-bottom: 4px;
-}
-
-.dial-reticle-line {
-  width: 1.5px;
-  flex: 1;
-  background: linear-gradient(
-    to bottom,
-    hsl(var(--foreground)),
-    hsl(var(--foreground) / 0.15)
-  );
-}
-
-/* Edge vignettes so ticks dissolve rather than clip at the stage edges. */
-.dial-fade {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  width: 22%;
-  z-index: 2;
-  pointer-events: none;
-}
-
-.dial-fade--l {
-  left: 0;
-  background: linear-gradient(to right, hsl(var(--background)), transparent);
-}
-
-.dial-fade--r {
-  right: 0;
-  background: linear-gradient(to left, hsl(var(--background)), transparent);
-}
-
-/* Readout — the active component name, big, under the reticle. */
-.dial-readout {
-  position: absolute;
-  left: 50%;
-  bottom: 14%;
-  transform: translateX(-50%);
-  z-index: 3;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.5rem;
-  text-align: center;
-}
-
-.dial-readout-index {
-  font-family: var(--font-code);
-  font-size: 0.72rem;
-  letter-spacing: 0.14em;
-  color: hsl(var(--foreground) / 0.4);
-  font-variant-numeric: tabular-nums;
-}
-
-.dial-readout-title {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 0.7rem;
+.components-hero-title {
+  margin: 0;
+  max-width: 20ch;
   font-family: var(--font-display);
-  font-size: clamp(1.6rem, 4vw, 2.4rem);
+  font-size: clamp(2.4rem, 6vw, 4rem);
   font-weight: 700;
-  letter-spacing: -0.03em;
-  color: hsl(var(--foreground));
-  text-decoration: none;
+  line-height: 1.02;
+  letter-spacing: -0.035em;
   text-wrap: balance;
+  color: hsl(var(--foreground));
 }
 
-.dial-readout-open {
+.components-hero-sub {
+  margin: 1.5rem 0 0;
   font-family: var(--font-sans);
-  font-size: 0.85rem;
+  font-size: 1.1rem;
+  line-height: 1.5;
+  color: hsl(var(--foreground) / 0.55);
+}
+
+.components-hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 2.25rem;
+}
+
+.hero-btn {
+  display: inline-flex;
+  align-items: center;
+  height: 2.75rem;
+  padding: 0 1.25rem;
+  border-radius: calc(var(--radius) - 2px);
+  font-family: var(--font-sans);
+  font-size: 0.95rem;
   font-weight: 500;
-  letter-spacing: 0;
-  color: hsl(var(--foreground) / 0.45);
-  opacity: 0;
-  transform: translateX(-4px);
-  transition: opacity 0.2s ease, transform 0.2s var(--ease-out), color 0.2s ease;
+  text-decoration: none;
+  transition:
+    transform 0.14s var(--ease-out),
+    background-color 0.16s ease,
+    border-color 0.16s ease;
 }
 
-.dial-readout-title:hover .dial-readout-open {
-  opacity: 1;
-  transform: translateX(0);
-  color: hsl(var(--foreground) / 0.75);
+.hero-btn:active {
+  transform: scale(0.97);
 }
 
-@media (max-width: 640px) {
-  .dial-readout {
-    bottom: 10%;
-  }
+.hero-btn--primary {
+  background: hsl(var(--foreground));
+  color: hsl(var(--background));
+}
+
+.hero-btn--primary:hover {
+  background: hsl(var(--foreground) / 0.88);
+}
+
+.hero-btn--secondary {
+  border: 1px solid var(--line2);
+  color: hsl(var(--foreground));
+}
+
+.hero-btn--secondary:hover {
+  background: hsl(var(--foreground) / 0.06);
+  border-color: hsl(var(--foreground) / 0.32);
 }
 
 /* ── Page frame (index) ──────────────────────────────────────────────────── */
@@ -358,33 +223,17 @@ body:has(.components)::before {
     transform 0.4s var(--ease-out) calc(var(--i, 0) * 45ms);
 }
 
-/* Live component sits centered on a faintly lit surface. */
-.specimen-stage {
-  position: relative;
-  display: grid;
-  place-items: center;
-  height: 11rem;
-  padding: 1.5rem;
-  overflow: hidden;
-  border-bottom: 1px solid var(--line);
-  background: radial-gradient(
-    ellipse 70% 80% at 50% 45%,
-    hsl(var(--foreground) / 0.05),
-    transparent 75%
-  );
-  pointer-events: none;
-}
-
-.specimen-caption {
+/* Header sits on top of the card (coss layout): name + one-line description. */
+.specimen-head {
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
-  padding: 1rem 1.15rem 1.15rem;
+  gap: 0.3rem;
+  padding: 1.15rem 1.25rem 0;
 }
 
 .specimen-name {
   font-family: var(--font-sans);
-  font-size: 0.95rem;
+  font-size: 1rem;
   font-weight: 600;
   letter-spacing: -0.01em;
   color: hsl(var(--foreground));
@@ -394,7 +243,26 @@ body:has(.components)::before {
   font-family: var(--font-sans);
   font-size: 0.85rem;
   line-height: 1.5;
-  color: hsl(var(--muted-foreground));
+  color: hsl(var(--foreground) / 0.5);
+  text-wrap: pretty;
+}
+
+/* Live component sits in an inset preview panel below the header. */
+.specimen-stage {
+  position: relative;
+  flex: 1;
+  display: grid;
+  place-items: center;
+  min-height: 9.5rem;
+  margin: 1.1rem 1rem 1rem;
+  padding: 1.5rem;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: calc(var(--radius) - 5px);
+  background:
+    radial-gradient(ellipse 70% 80% at 50% 45%, hsl(var(--foreground) / 0.05), transparent 75%),
+    hsl(var(--foreground) / 0.015);
+  pointer-events: none;
 }
 
 @media (hover: hover) and (pointer: fine) {
@@ -405,13 +273,22 @@ body:has(.components)::before {
       0 1px 0 hsl(var(--foreground) / 0.06) inset,
       0 18px 40px -20px hsl(0 0% 0% / 0.7);
   }
+
+  .specimen:hover .specimen-stage {
+    border-color: hsl(var(--foreground) / 0.16);
+  }
 }
 
 /* ── Mobile ──────────────────────────────────────────────────────────────── */
 
 @media (max-width: 640px) {
   .specimen-stage {
-    height: 9rem;
+    min-height: 8rem;
+  }
+
+  /* Avoid colliding with the fixed theme toggle in the top-right. */
+  .components-topbar-label {
+    display: none;
   }
 }
 
