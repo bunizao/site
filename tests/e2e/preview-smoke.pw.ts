@@ -22,6 +22,18 @@ test.describe('Preview smoke', () => {
     await expect(page.locator('#moods-section')).toBeVisible();
   });
 
+  test('renders the tag-card specimen with full-size cards', async ({ page }) => {
+    await page.goto('/components');
+
+    const cards = page.locator('.tagspec .tag-card');
+    await expect(cards).toHaveCount(2);
+    await expect(cards.first()).toBeVisible();
+    await expect
+      .poll(async () => (await cards.first().boundingBox())?.height ?? 0)
+      .toBeGreaterThan(240);
+    await expect(cards.first()).toHaveCSS('clip-path', 'inset(0px round 20px)');
+  });
+
   test('renders the mood feed shell', async ({ page }) => {
     await page.goto('/mood');
 
