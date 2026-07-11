@@ -20,7 +20,7 @@ export function mountTimelineWheel(
 
   if (!dial || !label) return () => {};
 
-  const isDesktop = (): boolean => window.innerWidth >= 1024;
+  const isDesktop = (): boolean => root.hasAttribute('data-timeline-wheel-compact') || window.innerWidth >= 1024;
   const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   // The wheel doubles as a back-to-top control: clicking it returns to the

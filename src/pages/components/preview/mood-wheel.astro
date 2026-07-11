@@ -37,7 +37,7 @@ const groups = [
   </head>
   <body>
     <main class="fixture">
-      <TimelineWheel />
+      <TimelineWheel compact />
       <div class="fixture-feed" data-mood-feed>
         <header class="fixture-intro">
           <span>Fixture feed</span>
@@ -84,6 +84,10 @@ const groups = [
 
   .fixture {
     min-height: 100vh;
+  }
+
+  :global(.timeline-wheel[data-timeline-wheel-compact]) {
+    display: block;
   }
 
   .fixture-feed {
