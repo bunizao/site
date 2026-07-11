@@ -1,0 +1,27 @@
+---
+// Adjacent-component links. Page-level navigation — never animated.
+interface Adjacent {
+  slug: string;
+  title: string;
+}
+interface Props {
+  prev?: Adjacent;
+  next?: Adjacent;
+}
+const { prev, next } = Astro.props;
+---
+
+<nav class="prevnext" aria-label="Adjacent components">
+  {prev ? (
+    <a class="prevnext-link prevnext-link--prev" href={`/components/${prev.slug}`} rel="prev">
+      <span class="prevnext-dir">← Prev</span>
+      <span class="prevnext-title">{prev.title}</span>
+    </a>
+  ) : <span />}
+  {next ? (
+    <a class="prevnext-link prevnext-link--next" href={`/components/${next.slug}`} rel="next">
+      <span class="prevnext-dir">Next →</span>
+      <span class="prevnext-title">{next.title}</span>
+    </a>
+  ) : <span />}
+</nav>

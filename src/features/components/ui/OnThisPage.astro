@@ -1,0 +1,132 @@
+---
+// Right-rail table of contents with an active-section cursor.
+interface Item {
+  id: string;
+  label: string;
+}
+interface Props {
+  items: Item[];
+}
+const { items } = Astro.props;
+---
+
+<aside class="on-this-page" aria-label="On this page">
+  <p class="on-this-page-label">On this page</p>
+  <nav class="on-this-page-nav" data-on-this-page>
+    {items.map((item) => (
+      <a class="on-this-page-link" href={`#${item.id}`} data-otp-link={item.id}>
+        <span class="on-this-page-cursor" aria-hidden="true"></span>
+        {item.label}
+      </a>
+    ))}
+  </nav>
+</aside>
+
+<style>
+  .on-this-page {
+    display: none;
+  }
+
+  @media (min-width: 60rem) {
+    .on-this-page {
+      display: block;
+      position: sticky;
+      top: 6rem;
+      align-self: start;
+    }
+  }
+
+  .on-this-page-label {
+    margin: 0 0 0.9rem;
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: hsl(var(--muted-foreground));
+  }
+
+  .on-this-page-nav {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+  }
+
+  .on-this-page-link {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.28rem 0;
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    color: hsl(var(--muted-foreground));
+    text-decoration: none;
+    transition: color 0.15s ease;
+  }
+
+  .on-this-page-cursor {
+    width: 0.9rem;
+    height: 1px;
+    background: hsl(var(--foreground) / 0.2);
+    transition: width 0.18s cubic-bezier(0.23, 1, 0.32, 1), background-color 0.15s ease;
+  }
+
+  .on-this-page-link:hover {
+    color: hsl(var(--foreground));
+  }
+
+  .on-this-page-link.is-active {
+    color: hsl(var(--foreground));
+  }
+
+  .on-this-page-link.is-active .on-this-page-cursor {
+    width: 1.5rem;
+    background: hsl(var(--foreground));
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .on-this-page-cursor {
+      transition: background-color 0.15s ease;
+    }
+  }
+</style>
+
+<script>
+  (() => {
+    const nav = document.querySelector('[data-on-this-page]');
+    if (!nav) return;
+    const links = new Map<string, HTMLElement>();
+    nav.querySelectorAll<HTMLElement>('[data-otp-link]').forEach((el) => {
+      const id = el.dataset.otpLink;
+      if (id) links.set(id, el);
+    });
+
+    const setActive = (id: string) => {
+      links.forEach((el, key) => el.classList.toggle('is-active', key === id));
+    };
+
+    const targets = Array.from(links.keys())
+      .map((id) => document.getElementById(id))
+      .filter((el): el is HTMLElement => Boolean(el));
+
+    // Smooth scroll on click without animating the nav itself.
+    links.forEach((el, id) => {
+      el.addEventListener('click', (e) => {
+        const target = document.getElementById(id);
+        if (!target) return;
+        e.preventDefault();
+        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        history.replaceState(null, '', `#${id}`);
+      });
+    });
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting) setActive(entry.target.id);
+        }
+      },
+      { rootMargin: '-20% 0px -70% 0px', threshold: 0 }
+    );
+    targets.forEach((el) => observer.observe(el));
+  })();
+</script>

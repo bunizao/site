@@ -1,0 +1,622 @@
+/* ─────────────────────────────────────────────────────────────────────────
+   Components showcase — section-scoped tone + motion.
+
+   Everything here lives under `.components` so the showcase can carry its own
+   hairline / easing vocabulary without leaking into the global token set. The
+   surface is a printed type-specimen sheet: bare components, hairline rules,
+   a mono metadata spine. Monochrome only — it inherits the site's black/white
+   HSL system and reads correctly in light and dark with no per-theme rules.
+   ───────────────────────────────────────────────────────────────────────── */
+
+.components {
+  /* Hairlines. --line is the resting rule; --line2 is its hover/emphasis
+     state. Both are foreground-alpha so they invert with the theme for free. */
+  --line: hsl(var(--foreground) / 0.1);
+  --line2: hsl(var(--foreground) / 0.24);
+
+  /* Motion (Emil Kowalski framework). Restrained: the surface is browsed
+     repeatedly, so movement is purposeful and never on navigation. */
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+
+  --shell: min(72rem, 100% - 2rem);
+}
+
+/* ── Ambient dot grid (index canvas only) ───────────────────────────────── */
+
+.components--index {
+  position: relative;
+  isolation: isolate;
+}
+
+.components--index::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background-image: radial-gradient(circle, hsl(var(--grid)) 1px, transparent 1px);
+  background-size: 26px 26px;
+  mask-image: radial-gradient(ellipse 90% 70% at 50% 30%, #000 40%, transparent 100%);
+  -webkit-mask-image: radial-gradient(ellipse 90% 70% at 50% 30%, #000 40%, transparent 100%);
+  pointer-events: none;
+}
+
+/* ── Page frame ──────────────────────────────────────────────────────────── */
+
+.components-page {
+  width: var(--shell);
+  margin: 0 auto;
+  padding: 7rem 0 5rem;
+}
+
+.components-head {
+  max-width: 44rem;
+  margin-bottom: 3.5rem;
+}
+
+.components-kicker {
+  margin: 0 0 1rem;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: hsl(var(--muted-foreground));
+}
+
+.components-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(2.6rem, 6vw, 4rem);
+  font-weight: 800;
+  line-height: 0.94;
+  letter-spacing: -0.02em;
+}
+
+.components-lede {
+  max-width: 38rem;
+  margin: 1.4rem 0 0;
+  font-family: var(--font-sans);
+  font-size: 1.02rem;
+  line-height: 1.7;
+  color: hsl(var(--foreground) / 0.68);
+}
+
+.components-lede code {
+  font-family: var(--font-code);
+  font-size: 0.86em;
+  padding: 0.1em 0.4em;
+  border-radius: var(--radius-sm);
+  background: hsl(var(--foreground) / 0.06);
+}
+
+/* ── Specimen grid (index) ───────────────────────────────────────────────── */
+
+.specimen-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(19rem, 1fr));
+  gap: 0;
+  border-top: 1px solid var(--line);
+}
+
+/* Each cell owns a right + bottom hairline; whitespace and rules do the
+   separating, never nested bordered cards. */
+.specimen {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: 15rem;
+  padding: 2rem 1.75rem 0;
+  border-bottom: 1px solid var(--line);
+  border-right: 1px solid var(--line);
+  text-decoration: none;
+  color: inherit;
+  transition: background-color 0.2s var(--ease-out);
+}
+
+/* First-paint reveal — first view only, opacity + a short lift, staggered per
+   cell by an inline --i. Reduced motion keeps opacity, drops the translate. */
+.js .specimen {
+  opacity: 0;
+  transform: translateY(6px);
+}
+
+.js .specimen.is-revealed {
+  opacity: 1;
+  transform: none;
+  transition:
+    opacity 0.45s var(--ease-out) calc(var(--i, 0) * 50ms),
+    transform 0.45s var(--ease-out) calc(var(--i, 0) * 50ms);
+}
+
+.specimen-stage {
+  flex: 1;
+  display: grid;
+  place-items: center;
+  padding: 0.5rem 0 2rem;
+  pointer-events: none;
+}
+
+.specimen-caption {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.85rem 0;
+  border-top: 1px solid var(--line);
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  transition: border-color 0.12s ease;
+}
+
+.specimen-name {
+  color: hsl(var(--foreground));
+  letter-spacing: -0.01em;
+}
+
+.specimen-tagline {
+  display: block;
+  margin-top: 0.2rem;
+  font-family: var(--font-sans);
+  font-size: 0.82rem;
+  line-height: 1.5;
+  color: hsl(var(--muted-foreground));
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .specimen:hover {
+    background: hsl(var(--foreground) / 0.015);
+  }
+
+  .specimen:hover .specimen-caption {
+    border-color: var(--line2);
+  }
+}
+
+/* ── Install-type marker ─────────────────────────────────────────────────── */
+
+.install-marker {
+  flex-shrink: 0;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.install-marker--registry {
+  color: hsl(var(--muted-foreground));
+}
+
+.install-marker--npm {
+  color: hsl(var(--foreground));
+}
+
+.install-marker--npm::after {
+  content: '';
+  display: inline-block;
+  width: 0.4em;
+  height: 0.4em;
+  margin-left: 0.45em;
+  border-radius: 50%;
+  background: currentColor;
+  vertical-align: 0.05em;
+}
+
+/* ── Mobile: editorial row list ──────────────────────────────────────────── */
+
+@media (max-width: 640px) {
+  .specimen-grid {
+    display: block;
+  }
+
+  .specimen {
+    flex-direction: row;
+    align-items: center;
+    gap: 1.25rem;
+    min-height: 0;
+    padding: 1.25rem 0.25rem;
+    border-right: 0;
+  }
+
+  .specimen-stage {
+    order: 2;
+    flex: 0 0 6.5rem;
+    height: 4rem;
+    padding: 0;
+  }
+
+  .specimen-caption {
+    order: 1;
+    flex: 1;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.15rem;
+    padding: 0;
+    border-top: 0;
+  }
+}
+
+/* ── Detail page ─────────────────────────────────────────────────────────── */
+
+.detail {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0;
+  width: var(--shell);
+  margin: 0 auto;
+  padding: 6rem 0 6rem;
+}
+
+@media (min-width: 60rem) {
+  .detail {
+    grid-template-columns: minmax(0, 1fr) 12rem;
+    gap: 3.5rem;
+  }
+}
+
+.detail-main {
+  min-width: 0;
+}
+
+.detail-title {
+  margin: 0.6rem 0 0;
+  font-family: var(--font-display);
+  font-size: clamp(2rem, 4vw, 2.75rem);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.detail-tagline {
+  margin: 0.6rem 0 0;
+  font-family: var(--font-sans);
+  font-size: 1.05rem;
+  line-height: 1.6;
+  color: hsl(var(--foreground) / 0.66);
+}
+
+.detail-section {
+  margin-top: 3.5rem;
+  scroll-margin-top: 6rem;
+}
+
+.detail-section-label {
+  margin: 0 0 1.1rem;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: hsl(var(--muted-foreground));
+}
+
+/* Preview frame — the one bordered box on the surface, because a live
+   component needs an edge to sit against. */
+.preview-frame {
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-height: 18rem;
+  padding: 3rem 2rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background-image: radial-gradient(circle, hsl(var(--grid)) 1px, transparent 1px);
+  background-size: 22px 22px;
+}
+
+.preview-frame--iframe {
+  padding: 0;
+  overflow: hidden;
+}
+
+.preview-frame iframe {
+  width: 100%;
+  height: 30rem;
+  border: 0;
+  display: block;
+}
+
+/* Usage + credits ---------------------------------------------------------- */
+
+.detail-usage :global(pre),
+.detail-usage pre {
+  margin: 0;
+  padding: 1.1rem 1.25rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow-x: auto;
+  font-family: var(--font-code);
+  font-size: 0.84rem;
+  line-height: 1.6;
+  background: hsl(var(--foreground) / 0.025);
+}
+
+.detail-credits {
+  font-family: var(--font-sans);
+  font-size: 0.92rem;
+  line-height: 1.6;
+  color: hsl(var(--muted-foreground));
+}
+
+.detail-credits a {
+  color: hsl(var(--foreground));
+  text-underline-offset: 0.2em;
+}
+
+.detail-source {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: 1.25rem;
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  color: hsl(var(--foreground) / 0.7);
+  border-bottom: 1px solid var(--line2);
+  transition: color 0.15s ease;
+}
+
+.detail-source:hover {
+  color: hsl(var(--foreground));
+}
+
+/* ── Prev / next (no animation — page navigation) ────────────────────────── */
+
+.prevnext {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 4rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--line);
+}
+
+.prevnext-link {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  color: hsl(var(--foreground));
+  text-decoration: none;
+  max-width: 48%;
+}
+
+.prevnext-link--next {
+  text-align: right;
+  margin-left: auto;
+}
+
+.prevnext-dir {
+  font-size: 0.7rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: hsl(var(--muted-foreground));
+}
+
+.prevnext-link:hover .prevnext-title {
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+
+.breadcrumb {
+  font-family: var(--font-mono);
+  font-size: 0.76rem;
+  color: hsl(var(--muted-foreground));
+}
+
+.breadcrumb a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.breadcrumb a:hover {
+  color: hsl(var(--foreground));
+}
+
+/* ── Preview islands ─────────────────────────────────────────────────────── */
+
+.preview-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.9rem;
+}
+
+.decode-preview {
+  font-family: var(--font-mono);
+  font-size: clamp(1.1rem, 3vw, 1.6rem);
+  line-height: 1.5;
+  font-weight: 600;
+  text-align: center;
+  color: hsl(var(--foreground));
+  cursor: pointer;
+  user-select: none;
+}
+
+.preview-mascot :global(svg),
+.preview-mascot {
+  width: 8rem;
+  height: auto;
+  color: hsl(var(--foreground));
+}
+
+/* ── Install tabs ────────────────────────────────────────────────────────── */
+
+.install-tabs {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.install-tabs-track {
+  position: relative;
+  display: inline-flex;
+  align-self: flex-start;
+  isolation: isolate;
+}
+
+.install-tabs-layer {
+  display: inline-flex;
+}
+
+.install-tabs-layer--ink {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  transition: clip-path 0.18s var(--ease-out);
+}
+
+.install-tab {
+  padding: 0.35rem 0.7rem;
+  border: 0;
+  background: none;
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  color: hsl(var(--muted-foreground));
+}
+
+.install-tabs-layer--ink .install-tab {
+  color: hsl(var(--foreground));
+}
+
+.install-tab:focus-visible {
+  outline: 2px solid hsl(var(--foreground));
+  outline-offset: -2px;
+  border-radius: var(--radius-sm);
+}
+
+.install-tabs-underline {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 1.5px;
+  background: hsl(var(--foreground));
+  transition: transform 0.18s var(--ease-out), width 0.18s var(--ease-out);
+}
+
+/* ── Copy command bar ────────────────────────────────────────────────────── */
+
+.copy-command {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.7rem 0.7rem 0.7rem 1rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: hsl(var(--foreground) / 0.025);
+}
+
+.copy-command-text {
+  flex: 1;
+  min-width: 0;
+  overflow-x: auto;
+  white-space: nowrap;
+  font-family: var(--font-code);
+  font-size: 0.82rem;
+  color: hsl(var(--foreground) / 0.9);
+  scrollbar-width: none;
+}
+
+.copy-command-text::-webkit-scrollbar {
+  display: none;
+}
+
+.copy-command-btn {
+  position: relative;
+  flex-shrink: 0;
+  display: inline-grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: hsl(var(--background));
+  color: hsl(var(--foreground));
+  cursor: pointer;
+  transition: transform 0.16s var(--ease-out), border-color 0.16s ease;
+}
+
+.copy-command-btn:hover {
+  border-color: var(--line2);
+}
+
+.copy-command-btn:active {
+  transform: scale(0.97);
+}
+
+.copy-command-btn:focus-visible {
+  outline: 2px solid hsl(var(--foreground));
+  outline-offset: 2px;
+}
+
+.copy-command-icons {
+  position: relative;
+  display: grid;
+  width: 0.9rem;
+  height: 0.9rem;
+}
+
+.copy-command-icon {
+  grid-area: 1 / 1;
+  width: 0.9rem;
+  height: 0.9rem;
+  transition: opacity 0.2s ease, filter 0.2s ease;
+}
+
+/* Crossfade masked with a 2px blur — the swap dissolves rather than cuts. */
+.copy-command-icon--copy {
+  opacity: 1;
+  filter: blur(0);
+}
+
+.copy-command-icon--check {
+  opacity: 0;
+  filter: blur(2px);
+}
+
+.copy-command-btn[data-copied] .copy-command-icon--copy {
+  opacity: 0;
+  filter: blur(2px);
+}
+
+.copy-command-btn[data-copied] .copy-command-icon--check {
+  opacity: 1;
+  filter: blur(0);
+}
+
+/* Tooltip appears instantly — no fade — so the confirmation reads immediate. */
+.copy-command-tip {
+  position: absolute;
+  bottom: calc(100% + 0.5rem);
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 0.2rem 0.5rem;
+  border-radius: var(--radius-sm);
+  background: hsl(var(--foreground));
+  color: hsl(var(--background));
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+@media (hover: none) {
+  .copy-command-btn:active {
+    transform: scale(0.97);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .js .specimen,
+  .js .specimen.is-revealed {
+    opacity: 1;
+    transform: none;
+    transition: opacity 0.3s ease;
+  }
+
+  .install-tabs-layer--ink,
+  .install-tabs-underline,
+  .copy-command-icon {
+    transition-duration: 0.01ms;
+  }
+}
