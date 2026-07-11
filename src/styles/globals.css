@@ -733,7 +733,7 @@
     --site-nav-mobile-gap: clamp(0.95rem, 3.8vw, 1.25rem);
     --site-nav-mobile-brand-min-width: calc(var(--site-nav-mobile-logo-height) + var(--site-nav-brand-gap) + var(--site-nav-mobile-wordmark-width));
     --site-nav-mobile-logo-width: 40px;
-    --site-nav-mobile-logo-height: 1.35rem;
+    --site-nav-mobile-logo-height: 21px;
     --site-nav-mobile-wordmark-width: 5.2rem;
     --site-nav-mobile-wordmark-size: 1.08rem;
     --site-nav-mobile-action-size: 2.75rem;

@@ -70,7 +70,7 @@ describe('navbar regression guards', () => {
     expect(globalStyles).toContain('--site-nav-brand-gap: 0.375rem;');
     expect(globalStyles).toContain('--site-nav-mobile-height: 3.25rem;');
     expect(globalStyles).toContain('--site-nav-mobile-padding: 0 4rem 0 1rem;');
-    expect(globalStyles).toContain('--site-nav-mobile-logo-height: 1.35rem;');
+    expect(globalStyles).toContain('--site-nav-mobile-logo-height: 21px;');
     expect(globalStyles).toContain('--site-nav-mobile-wordmark-width: 5.2rem;');
     expect(pageStyles).toContain('gap: var(--site-nav-brand-gap);');
     expect(pageStyles).toContain('height: var(--site-nav-mobile-height);');
