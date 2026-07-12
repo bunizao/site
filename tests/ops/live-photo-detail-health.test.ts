@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'bun:test';
+import { expectHttpOk } from './http-diagnostics';
 
 function readEnv(name: string): string {
   return (process.env[name] ?? '').trim();
@@ -31,7 +32,7 @@ describe('live photo detail health', () => {
         },
       });
 
-      expect(response.ok).toBe(true);
+      await expectHttpOk(response, `GET ${siteUrl}/mood/${encodeURIComponent(id)}`);
 
       const html = await response.text();
       expect(html).toContain(`<img src="https://buxx.me/api/v2/images/mood/${id}/0"`);

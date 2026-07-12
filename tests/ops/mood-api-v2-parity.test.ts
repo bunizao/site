@@ -18,7 +18,7 @@ interface MoodApiResponse {
   posts?: MoodPost[];
 }
 
-const LIVE_WINDOWS = ['', '3600', '2000'];
+const ARCHIVE_WINDOWS = ['', '3600', '2000'];
 
 function readEnv(name: string): string {
   return (process.env[name] ?? '').trim();
@@ -28,13 +28,14 @@ function getSiteUrl(): string {
   return (readEnv('SITE_URL') || readEnv('PUBLIC_SITE_URL') || 'https://buxx.me').replace(/\/+$/, '');
 }
 
-function getArchiveApiUrl(): string {
-  return readEnv('MOOD_ARCHIVE_API_URL');
+function getArchiveApiUrl(siteUrl: string): string {
+  return readEnv('MOOD_ARCHIVE_API_URL') || new URL('/api/v2/mood', siteUrl).toString();
 }
 
-async function fetchMoodWindow(siteUrl: string, before: string): Promise<MoodPost[]> {
-  const url = new URL('/api/moods', siteUrl);
+async function fetchArchiveMoodWindow(siteUrl: string, before: string): Promise<MoodPost[]> {
+  const url = new URL(getArchiveApiUrl(siteUrl));
   url.searchParams.set('fresh', '1');
+  url.searchParams.set('fallback', '0');
   if (before) {
     url.searchParams.set('before', before);
   }
@@ -78,53 +79,20 @@ function hasVisibleContentSignal(post: MoodPost): boolean {
   );
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-function readArchiveRecords(payload: unknown): Record<string, unknown>[] | null {
-  if (Array.isArray(payload)) {
-    return payload.filter(isRecord);
-  }
-
-  if (!isRecord(payload)) {
-    return null;
-  }
-
-  for (const key of ['posts', 'items', 'data', 'results']) {
-    const value = payload[key];
-    if (Array.isArray(value)) {
-      return value.filter(isRecord);
-    }
-  }
-
-  return null;
-}
-
-function hasStructuredArchiveSignal(record: Record<string, unknown>): boolean {
-  return [
-    'id',
-    'text',
-    'entities',
-    'media',
-    'forward',
-    'reply_to',
-    'reactions',
-    'raw',
-  ].some((key) => key in record);
-}
-
-describe('mood API taxonomy health', () => {
-  test('canonical mood reads return live user-facing data', async () => {
+describe('mood data health', () => {
+  test('canonical mood probe returns the latest live id', async () => {
     const siteUrl = getSiteUrl();
     const probe = await fetchMoodProbe(siteUrl);
     expect(isNumericId(probe.latestId), 'probe latestId should be a numeric mood id').toBe(true);
+  }, { timeout: 10_000 });
 
+  test('archive mood windows return user-facing data', async () => {
+    const siteUrl = getSiteUrl();
     let checked = 0;
     let withContent = 0;
 
-    for (const before of LIVE_WINDOWS) {
-      const posts = await fetchMoodWindow(siteUrl, before);
+    for (const before of ARCHIVE_WINDOWS) {
+      const posts = await fetchArchiveMoodWindow(siteUrl, before);
       expect(posts.length, `window before=${before || 'latest'} is empty`).toBeGreaterThan(0);
 
       for (const post of posts) {
@@ -140,28 +108,7 @@ describe('mood API taxonomy health', () => {
       }
     }
 
-    expect(checked, 'no live mood posts were checked').toBeGreaterThan(0);
-    expect(withContent, 'live mood posts had no user-visible content signals').toBeGreaterThan(0);
-  }, { timeout: 30_000 });
-
-  test('archive mood route returns structured JSON when configured', async () => {
-    const archiveUrl = getArchiveApiUrl();
-    if (!archiveUrl) {
-      return;
-    }
-
-    const response = await fetch(archiveUrl, {
-      headers: { Accept: 'application/json', 'Cache-Control': 'no-cache' },
-    });
-    await expectHttpOk(response, `GET ${archiveUrl}`);
-
-    const payload = await response.json();
-    const records = readArchiveRecords(payload);
-    expect(records, 'archive response should expose a records array').not.toBeNull();
-    expect(records!.length, 'archive response returned no records').toBeGreaterThan(0);
-    expect(
-      records!.some(hasStructuredArchiveSignal),
-      'archive records should include structured mood fields',
-    ).toBe(true);
+    expect(checked, 'no archive mood posts were checked').toBeGreaterThan(0);
+    expect(withContent, 'archive mood posts had no user-visible content signals').toBeGreaterThan(0);
   }, { timeout: 15_000 });
 });

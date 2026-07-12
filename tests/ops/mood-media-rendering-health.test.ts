@@ -8,7 +8,8 @@ async function fetchAnchoredMoodPage(siteUrl: string, id: string): Promise<strin
   const url = new URL('/mood', siteUrl);
   url.searchParams.set(id, '');
   url.searchParams.set('source', 'archive');
-  url.searchParams.set('refresh', '1');
+  url.searchParams.set('fresh', '1');
+  url.searchParams.set('fallback', '0');
 
   const response = await fetch(url, {
     headers: {
@@ -29,6 +30,12 @@ function moodBlock(html: string, id: string): string {
   return html.slice(start, next === -1 ? undefined : next);
 }
 
+function videoTag(block: string, id: string): string {
+  const video = block.match(/<video\b[^>]*>/)?.[0] ?? '';
+  expect(video, `mood ${id} is missing its video element`).not.toBe('');
+  return video;
+}
+
 describe('mood media rendering health', () => {
   test('June 28 videos render with their archived dimensions', async () => {
     const siteUrl = getSiteUrl();
@@ -39,12 +46,14 @@ describe('mood media rendering health', () => {
     const portrait = moodBlock(portraitHtml, '3608');
     const landscape = moodBlock(landscapeHtml, '3609');
 
-    expect(portrait).toContain('<video class="video--ultra-tall"');
-    expect(portrait).toContain('width="1080"');
-    expect(portrait).toContain('height="1920"');
-    expect(landscape).toContain('<video');
-    expect(landscape).toContain('width="662"');
-    expect(landscape).toContain('height="326"');
+    const portraitVideo = videoTag(portrait, '3608');
+    const landscapeVideo = videoTag(landscape, '3609');
+
+    expect(portraitVideo).toContain('class="video--ultra-tall"');
+    expect(portraitVideo).toContain('width="1080"');
+    expect(portraitVideo).toContain('height="1920"');
+    expect(landscapeVideo).toContain('width="662"');
+    expect(landscapeVideo).toContain('height="326"');
   }, { timeout: 30_000 });
 
   test('mood 3618 refreshes its expiring Telegram preview image', async () => {

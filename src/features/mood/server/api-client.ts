@@ -41,6 +41,7 @@ export interface MoodFeedQuery {
   before?: string;
   after?: string;
   fresh?: boolean;
+  fallback?: boolean;
   limit?: number;
   source?: MoodApiSource;
 }
@@ -122,6 +123,7 @@ function moodFeedParams(query: MoodFeedQuery): URLSearchParams {
   if (query.after) params.set('after', query.after);
   if (query.fresh) params.set('fresh', 'true');
   if (typeof query.limit === 'number') params.set('limit', String(query.limit));
+  if (query.fallback === false) params.set('fallback', '0');
   return params;
 }
 

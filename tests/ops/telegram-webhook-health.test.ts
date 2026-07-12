@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'bun:test';
+import { expectHttpOk } from './http-diagnostics';
 
 interface TelegramWebhookInfoResponse {
   ok: boolean;
@@ -34,7 +35,7 @@ describe('telegram webhook health', () => {
     }
 
     const response = await fetch(`https://api.telegram.org/bot${botToken}/getWebhookInfo`);
-    expect(response.ok).toBe(true);
+    await expectHttpOk(response, 'Telegram getWebhookInfo');
 
     const payload = await response.json() as TelegramWebhookInfoResponse;
     expect(payload.ok).toBe(true);

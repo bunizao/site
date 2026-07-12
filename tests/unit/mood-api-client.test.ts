@@ -126,7 +126,12 @@ describe('mood API client', () => {
     };
     const context = createContext({ env: { API: api } });
 
-    const feedResult = await loadMoodFeed(context, { limit: 1, source: 'archive' });
+    const feedResult = await loadMoodFeed(context, {
+      limit: 1,
+      source: 'archive',
+      fresh: true,
+      fallback: false,
+    });
     const documentResult = await loadMoodDocument(context, '990001', { source: 'archive' });
     const commentsResult = await loadMoodComments(context, '990001', { before: '990000', source: 'archive' });
     const probeResult = await loadMoodProbe(context, { source: 'archive' });
@@ -136,7 +141,7 @@ describe('mood API client', () => {
     expect(commentsResult.comments[0]?.id).toBe('990000');
     expect(probeResult.latestId).toBe('990001');
     expect(paths).toEqual([
-      '/v2/mood?limit=1',
+      '/v2/mood?fresh=true&limit=1&fallback=0',
       '/v2/mood/990001',
       '/v2/mood/990001/comments?before=990000',
       '/v2/mood?probe=true&fresh=true',

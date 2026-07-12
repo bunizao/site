@@ -41,7 +41,11 @@ function getHealthTestTimeoutMs(): number {
 }
 
 async function fetchMoodPage(siteUrl: string, timeoutMs: number): Promise<MoodApiResponse> {
-  const response = await fetch(`${siteUrl}/api/moods`, {
+  const url = new URL('/api/v2/mood', siteUrl);
+  url.searchParams.set('limit', String(getSampleSize()));
+  url.searchParams.set('fresh', '1');
+  url.searchParams.set('fallback', '0');
+  const response = await fetch(url, {
     headers: {
       Accept: 'application/json',
       'Cache-Control': 'no-cache',
@@ -49,7 +53,7 @@ async function fetchMoodPage(siteUrl: string, timeoutMs: number): Promise<MoodAp
     signal: AbortSignal.timeout(timeoutMs),
   });
 
-  await expectHttpOk(response, `GET ${siteUrl}/api/moods`);
+  await expectHttpOk(response, `GET ${url}`);
   return await response.json() as MoodApiResponse;
 }
 
