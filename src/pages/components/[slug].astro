@@ -35,7 +35,7 @@ const usage = usageMatch
   ? { lang: usageMatch[1] ?? 'text', code: usageMatch[2] }
   : null;
 
-const registryUrl = new URL(`/r/${slug}.json`, Astro.site ?? 'https://buxx.me').href;
+const registryUrl = new URL(`/r/${slug}`, Astro.site ?? 'https://buxx.me').href;
 const spec: InstallSpec =
   install.type === 'npm' ? { type: 'npm', pkg: install.pkg } : { type: 'registry', url: registryUrl };
 

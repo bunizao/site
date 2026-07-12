@@ -32,11 +32,16 @@ describe('components showcase registry', () => {
     }
   });
 
-  test('uses concrete json endpoints and registry installers', () => {
+  test('uses extensionless endpoints and registry installers', () => {
     const detail = readText('src/pages/components/[slug].astro');
     const registry = readText('src/features/components/server/registry.ts');
+    const headers = readText('public/_headers');
 
-    expect(detail).toContain('`/r/${slug}.json`');
+    expect(detail).toContain('`/r/${slug}`');
+    expect(existsSync(join(root, 'src/pages/r/[name].ts'))).toBe(true);
+    expect(existsSync(join(root, 'src/pages/r/[name].json.ts'))).toBe(true);
+    expect(headers).toContain('https://buxx.me/r/*');
+    expect(headers).toContain('Content-Type: application/json; charset=utf-8');
     for (const slug of showcasedSlugs) {
       const content = readText(`src/content/components/${slug}.md`);
       expect(content).toContain('type: registry');

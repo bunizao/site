@@ -60,7 +60,7 @@ should not be re-litigated during the build.
 - **Aggregation, not a purist design system.** The gallery shows everything
   interesting the site draws, including data-coupled compositions.
 - **Distribution is a shadcn registry.** Each component is a registry item
-  served at `/r/<name>.json`; the install command is
+  served at `/r/<name>`; the install command is
   `npx shadcn add https://buxx.me/r/<name>` (with pnpm / yarn / bun variants).
   The CLI copies **source** into the consumer's project — this is what lets a
   styled, possibly-coupled component carry an install command at all.
@@ -88,7 +88,7 @@ should not be re-litigated during the build.
 - **Discoverability: footer only.** A `/components` link in the footer. Not in
   the main nav. The section exists and is linkable without stealing the main
   narrative.
-- **Registry endpoint:** static JSON at `/r/<name>.json`, generated at build
+- **Registry endpoint:** static JSON at `/r/<name>`, generated at build
   time from the same collection so metadata and registry never drift.
 
 ### Detail page anatomy
@@ -241,7 +241,7 @@ registry item name is the same slug. The **usage snippet lives in the Markdown
 body** as its first fenced code block (multi-line JSX in YAML frontmatter is
 miserable to write and diff); anything after that block is optional prose.
 Registry payloads are generated from `install` + a colocated file manifest, so a
-single source of truth backs both the page and `/r/<name>.json`.
+single source of truth backs both the page and `/r/<name>`.
 
 ### Routes
 
@@ -249,7 +249,8 @@ single source of truth backs both the page and `/r/<name>.json`.
   ordered by `order`, grouped or filtered by `tier` if useful. Prerendered.
 - `src/pages/components/[slug].astro` — detail page via `getStaticPaths` +
   `getCollection('components')`. Prerendered.
-- `src/pages/r/[name].json.ts` — emits the shadcn registry item per component
+- `src/pages/r/[name].ts` — emits the shadcn registry item per component;
+  `[name].json.ts` remains as a backwards-compatible alias
   (see "Registry endpoint"). Prerendered as static JSON.
 
 All three are build-time static; `output` stays `static`, consistent with the
@@ -257,7 +258,7 @@ projects surface.
 
 ### Registry endpoint
 
-Each `/r/<name>.json` conforms to the shadcn **registry-item** schema:
+Each `/r/<name>` response conforms to the shadcn **registry-item** schema:
 
 ```jsonc
 {
@@ -285,7 +286,7 @@ Each `/r/<name>.json` conforms to the shadcn **registry-item** schema:
   catches violations — "renders but unstyled" is a failure, not a pass.
 - `npm`-type components (decode-text) do **not** get a registry file; their
   detail page shows an `npm i` block instead. They may still appear at
-  `/r/<name>.json` as a metadata-only entry, or be omitted from the registry
+  `/r/<name>` as a metadata-only entry, or be omitted from the registry
   endpoint entirely — decided during build, default omit.
 
 ### Shared UI pieces to build
@@ -308,7 +309,7 @@ src/content.config.ts                         # + components collection
 src/content/components/*.md                    # one entry per component (6)
 src/pages/components/index.astro
 src/pages/components/[slug].astro
-src/pages/r/[name].json.ts
+src/pages/r/[name].ts
 src/features/components/ui/ComponentSpecimen.astro
 src/features/components/ui/ComponentPreviewFrame.tsx
 src/features/components/ui/InstallTabs.tsx
