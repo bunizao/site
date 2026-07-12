@@ -31,7 +31,10 @@ const { items } = Astro.props;
     .on-this-page {
       display: block;
       position: sticky;
-      top: 6rem;
+      /* Match the .detail grid padding-top so the rail starts level with the
+         breadcrumb at rest (a larger value shifts sticky down and strands it
+         below the hero). It re-pins here on scroll too. */
+      top: 2.5rem;
       align-self: start;
     }
   }

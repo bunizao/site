@@ -658,7 +658,10 @@ html.dark .cgrid-tile:hover {
 }
 
 .detail-title {
-  margin: 1rem 0 0;
+  /* Kicker gap that mirrors the index eyebrow→title (0.6rem): the breadcrumb
+     hugs the title so breadcrumb → title → tagline read as one even cluster,
+     not an uneven stack. */
+  margin: 0.6rem 0 0;
   font-family: var(--font-display);
   font-size: clamp(1.9rem, 3.5vw, 2.4rem);
   font-weight: 700;
@@ -891,43 +894,44 @@ html.dark .code-box-body pre.astro-code span {
   color: hsl(var(--foreground));
 }
 
-/* ── Prev / next ─────────────────────────────────────────────────────────── */
-
-.prevnext {
+/* ── Back to index ───────────────────────────────────────────────────────────
+   A single quiet return affordance — the detail pages are a shallow gallery, so
+   a "← Components" link back to the wall is enough (no adjacent prev/next). */
+.detail-back {
   display: flex;
-  justify-content: space-between;
-  gap: 1rem;
+  width: fit-content;
+  align-items: center;
+  gap: 0.5rem;
   margin-top: 3.5rem;
-  padding-top: 1.5rem;
-  border-top: 1px solid var(--line);
-}
-
-.prevnext-link {
-  display: flex;
-  flex-direction: column;
-  gap: 0.3rem;
+  padding: 0.6rem 0.95rem 0.6rem 0.8rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
   font-family: var(--font-sans);
-  font-size: 0.95rem;
+  font-size: 0.9rem;
   font-weight: 500;
   color: hsl(var(--foreground));
   text-decoration: none;
-  max-width: 48%;
+  transition: border-color 0.16s ease, background 0.16s ease;
 }
 
-.prevnext-link--next {
-  text-align: right;
-  margin-left: auto;
+.detail-back:hover {
+  border-color: var(--line2);
+  background: hsl(var(--foreground) / 0.04);
 }
 
-.prevnext-dir {
-  font-size: 0.8rem;
-  font-weight: 400;
+.detail-back:focus-visible {
+  outline: 2px solid hsl(var(--foreground));
+  outline-offset: 2px;
+}
+
+.detail-back svg {
   color: hsl(var(--muted-foreground));
+  transition: transform 0.16s var(--ease-out);
 }
 
-.prevnext-link:hover .prevnext-title {
-  text-decoration: underline;
-  text-underline-offset: 0.2em;
+.detail-back:hover svg {
+  transform: translateX(-2px);
 }
 
 /* The masthead line: brand → section → current, mono to rhyme with the index

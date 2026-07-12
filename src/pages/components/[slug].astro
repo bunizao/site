@@ -1,10 +1,9 @@
 ---
 import { getCollection, render, type CollectionEntry } from 'astro:content';
-import { ArrowUpRight } from 'lucide-react';
+import { ArrowLeft, ArrowUpRight } from 'lucide-react';
 import Layout from '@/layouts/Layout.astro';
 import ComponentPreview from '@/features/components/ui/ComponentPreview.astro';
 import OnThisPage from '@/features/components/ui/OnThisPage.astro';
-import PrevNext from '@/features/components/ui/PrevNext.astro';
 import { InstallTabs, type InstallSpec } from '@/features/components/ui/InstallTabs';
 import CodeBox from '@/features/components/ui/CodeBox.astro';
 import '@/styles/components.css';
@@ -12,25 +11,17 @@ import '@/styles/components.css';
 export const prerender = true;
 
 export async function getStaticPaths() {
-  const entries = (await getCollection('components', ({ data }) => !data.draft)).sort(
-    (a, b) => a.data.order - b.data.order
-  );
-  return entries.map((entry, i) => ({
+  const entries = await getCollection('components', ({ data }) => !data.draft);
+  return entries.map((entry) => ({
     params: { slug: entry.id },
-    props: {
-      entry,
-      prev: entries[i - 1],
-      next: entries[i + 1],
-    },
+    props: { entry },
   }));
 }
 
 interface Props {
   entry: CollectionEntry<'components'>;
-  prev?: CollectionEntry<'components'>;
-  next?: CollectionEntry<'components'>;
 }
-const { entry, prev, next } = Astro.props;
+const { entry } = Astro.props;
 const { title, tagline, install, source, credits } = entry.data;
 const slug = entry.id;
 const { Content } = await render(entry);
@@ -113,10 +104,10 @@ const creditsHtml = (raw: string) =>
           <ArrowUpRight className="h-3.5 w-3.5" aria-hidden="true" />
         </a>
 
-        <PrevNext
-          prev={prev ? { slug: prev.id, title: prev.data.title } : undefined}
-          next={next ? { slug: next.id, title: next.data.title } : undefined}
-        />
+        <a class="detail-back" href="/components">
+          <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+          Components
+        </a>
       </div>
 
       <OnThisPage items={toc} />
