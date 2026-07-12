@@ -317,7 +317,6 @@ export const sections = {
 
 export const footer = {
   links: [
-    { label: 'Components', url: '/components' },
     { label: 'Source', url: 'https://github.com/bunizao/site', external: true },
     { label: 'Built with Astro', url: 'https://astro.build', external: true },
     { label: 'Privacy', url: '/privacy' },
