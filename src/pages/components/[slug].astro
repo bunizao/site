@@ -6,6 +6,8 @@ import ComponentPreview from '@/features/components/ui/ComponentPreview.astro';
 import OnThisPage from '@/features/components/ui/OnThisPage.astro';
 import { InstallTabs, type InstallSpec } from '@/features/components/ui/InstallTabs';
 import CodeBox from '@/features/components/ui/CodeBox.astro';
+import ApiReference from '@/features/components/ui/ApiReference.astro';
+import { componentApiReferences } from '@/features/components/data/api-reference';
 import '@/styles/components.css';
 
 export const prerender = true;
@@ -24,6 +26,7 @@ interface Props {
 const { entry } = Astro.props;
 const { title, tagline, install, source, credits } = entry.data;
 const slug = entry.id;
+const apiReference = componentApiReferences[slug] ?? [];
 const { Content } = await render(entry);
 
 // The Usage section is a single fenced code block per entry. Parse its language
@@ -43,6 +46,7 @@ const toc = [
   { id: 'preview', label: 'Preview' },
   { id: 'installation', label: 'Installation' },
   { id: 'usage', label: 'Usage' },
+  ...(apiReference.length ? [{ id: 'api-reference', label: 'API Reference' }] : []),
   ...(credits ? [{ id: 'credits', label: 'Credits' }] : []),
 ];
 
@@ -91,6 +95,13 @@ const creditsHtml = (raw: string) =>
           <h2 class="detail-section-label" id="usage-label">Usage</h2>
           {usage ? <CodeBox code={usage.code} lang={usage.lang} /> : <Content />}
         </section>
+
+        {apiReference.length > 0 && (
+          <section class="detail-section" id="api-reference" aria-labelledby="api-reference-label">
+            <h2 class="detail-section-label" id="api-reference-label">API Reference</h2>
+            <ApiReference groups={apiReference} />
+          </section>
+        )}
 
         {credits && (
           <section class="detail-section" id="credits" aria-labelledby="credits-label">
