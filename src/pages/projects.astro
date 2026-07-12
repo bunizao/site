@@ -1,12 +1,22 @@
 ---
-import { ArrowUpRight } from 'lucide-react';
+import { ArrowUpRight, Star } from 'lucide-react';
 import Layout from '@/layouts/Layout.astro';
-import ProjectStack from '@/components/project-cards/ProjectStack';
+import Footer from '@/features/home/ui/Footer.astro';
+import HeroPanel from '@/components/project-cards/HeroPanel';
+import { projects } from '@/data/site';
 
 export const prerender = true;
 
 const title = 'Projects';
-const description = 'Selected projects by Bunizao, shown as a stacked card deck.';
+const description =
+  'Things Bunizao built and still runs — a proxy-rules compiler, an edge image service, a Ghost theme, and a set of student-chore CLIs that speak MCP.';
+
+const githubUrl = 'https://github.com/bunizao';
+
+// A single mono link label per entry: a repo search vs. a concrete repo read
+// differently, and honesty beats a generic "Open".
+const linkLabel = (url: string) =>
+  url.includes('tab=repositories') ? 'Browse repos' : 'View repo';
 ---
 
 <Layout
@@ -16,41 +26,371 @@ const description = 'Selected projects by Bunizao, shown as a stacked card deck.
   navVariant="page"
   showSiteNav
 >
-  <main class="projects-page">
-    <section class="projects-stage" aria-labelledby="projects-title">
-      <div class="projects-copy">
-        <p class="projects-kicker">Projects</p>
-        <h1 id="projects-title">Selected work</h1>
-        <p class="projects-intro">
-          Tools, themes, image systems, and automation projects with enough surface area to deserve
-          their own visual language.
-        </p>
-        <a
-          href="https://github.com/bunizao"
-          target="_blank"
-          rel="noopener noreferrer"
-          class="projects-link"
-        >
-          GitHub
-          <ArrowUpRight className="h-4 w-4" aria-hidden="true" />
-        </a>
-      </div>
+  <main class="proj">
+    <header class="proj-head">
+      <p class="proj-eyebrow">
+        Projects <span class="proj-count">/ {String(projects.length).padStart(2, '0')}</span>
+      </p>
+      <h1 class="proj-title">Things I made, and still run.</h1>
+      <p class="proj-lede">
+        A proxy-rules compiler, an edge image service, a Ghost theme, and a set of
+        student-chore CLIs that speak MCP. The unhurried version of the deck on the home
+        page — each one with room to breathe.
+      </p>
+      <a
+        class="proj-gh"
+        href={githubUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+      >
+        GitHub
+        <ArrowUpRight aria-hidden="true" />
+      </a>
+    </header>
 
-      <div class="projects-stack">
-        <ProjectStack client:load />
-      </div>
-    </section>
+    <ol class="proj-list">
+      {projects.map((project, index) => (
+        <li class="proj-entry">
+          <div class="proj-visual">
+            <HeroPanel client:load hero={project.hero} accent={project.accent} />
+          </div>
+
+          <div class="proj-body">
+            <div class="proj-spine">
+              <span class="proj-idx">{String(index + 1).padStart(2, '0')}</span>
+              <span class="proj-type">{project.type}</span>
+              {project.stars != null && (
+                <span class="proj-stars">
+                  <Star aria-hidden="true" />
+                  {project.stars}
+                </span>
+              )}
+            </div>
+
+            <h2 class="proj-name">{project.name}</h2>
+            <p class="proj-blurb">{project.blurb}</p>
+            {project.story[0] && <p class="proj-story">{project.story[0]}</p>}
+
+            <ul class="proj-tags">
+              {project.tags.map((tag) => (
+                <li>{tag}</li>
+              ))}
+            </ul>
+
+            <a
+              class="proj-link"
+              href={project.url}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              {linkLabel(project.url)}
+              <ArrowUpRight aria-hidden="true" />
+            </a>
+          </div>
+        </li>
+      ))}
+    </ol>
   </main>
+
+  <Footer />
 </Layout>
 
 <style>
-  :global(body) {
-    background:
-      radial-gradient(circle at 18% 16%, rgb(20 184 166 / 0.12), transparent 26rem),
-      radial-gradient(circle at 78% 12%, rgb(249 115 22 / 0.11), transparent 24rem),
-      hsl(var(--background));
+  /* ───────────────────────────────────────────────────────────────────────
+     /projects — an editorial ledger. The home page collapses these four into
+     a single peeking deck; here each project gets a full entry and its owned
+     hero visual gets a real panel that comes alive as you scroll to it. Strict
+     house monochrome: the only colour is each hero's own accent, kept inside
+     its panel — no page-level gradient blooms.
+     ─────────────────────────────────────────────────────────────────────── */
+  .proj {
+    /* Mirror the /components card tokens so the two index pages read as one
+       system. Defined on the route only — these are not global. */
+    --line: hsl(var(--foreground) / 0.1);
+    --line2: hsl(var(--foreground) / 0.2);
+    --surface: hsl(var(--foreground) / 0.02);
+    --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+    --shell: min(72rem, 100% - 2.5rem);
+
+    min-height: 100vh;
+    padding: clamp(6rem, 12vh, 8rem) 0 0;
   }
 
+  /* ── Masthead — same eyebrow + display-title register as /components ─────── */
+  .proj-head {
+    width: var(--shell);
+    margin: 0 auto;
+  }
+
+  .proj-eyebrow {
+    margin: 0 0 1rem;
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: hsl(var(--foreground) / 0.45);
+  }
+
+  .proj-count {
+    color: hsl(var(--foreground) / 0.28);
+  }
+
+  .proj-title {
+    margin: 0;
+    max-width: 16ch;
+    font-family: var(--font-display);
+    font-size: clamp(2.2rem, 5.5vw, 3.4rem);
+    font-weight: 700;
+    line-height: 1.02;
+    letter-spacing: -0.035em;
+    text-wrap: balance;
+    color: hsl(var(--foreground));
+  }
+
+  .proj-lede {
+    max-width: 48ch;
+    margin: 1.4rem 0 0;
+    font-family: var(--font-sans);
+    font-size: clamp(1rem, 1.4vw, 1.12rem);
+    line-height: 1.65;
+    color: hsl(var(--foreground) / 0.6);
+  }
+
+  .proj-gh {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    margin-top: 1.6rem;
+    padding-bottom: 2px;
+    border-bottom: 1px solid hsl(var(--foreground) / 0.22);
+    font-family: var(--font-mono);
+    font-size: 0.76rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: hsl(var(--foreground) / 0.72);
+    transition: color 0.18s ease, border-color 0.18s ease;
+  }
+
+  .proj-gh:hover {
+    color: hsl(var(--foreground));
+    border-color: hsl(var(--foreground));
+  }
+
+  .proj-gh :global(svg) {
+    width: 0.9rem;
+    height: 0.9rem;
+    transition: transform 0.18s ease;
+  }
+
+  .proj-gh:hover :global(svg) {
+    transform: translate(2px, -2px);
+  }
+
+  /* ── The ledger ─────────────────────────────────────────────────────────── */
+  .proj-list {
+    width: var(--shell);
+    margin: clamp(2.5rem, 6vw, 4rem) auto 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .proj-entry {
+    display: flex;
+    flex-direction: column;
+    gap: clamp(1.25rem, 3vw, 1.75rem);
+    padding: clamp(2.5rem, 5vw, 3.75rem) 0;
+  }
+
+  .proj-entry + .proj-entry {
+    border-top: 1px solid var(--line);
+  }
+
+  /* Hero panel — matches the deck's frame: inset hairline ring, own surface,
+     the animated visual filling a 16:10 stage. The frame lives on .proj-visual
+     (Astro-scoped, reliable); the hero's own root sits in a React island and
+     never receives Astro's scope hash, so it's reached with :global. Without
+     the fill rule the panel collapses and the `absolute inset-0` heroes escape
+     to cover the page. */
+  .proj-visual {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 16 / 10;
+    overflow: hidden;
+    border-radius: 16px;
+    box-shadow:
+      inset 0 0 0 1px hsl(var(--foreground) / 0.07),
+      0 20px 40px -28px hsl(0 0% 0% / 0.4);
+  }
+
+  .proj-visual :global(.hero-panel) {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+  }
+
+  .proj-body {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  /* Metadata spine — index (curation order), type (what it is), and stars
+     (reach) — the true "surface area" this page is about. All mono. */
+  .proj-spine {
+    display: flex;
+    align-items: center;
+    gap: 0.85rem;
+    width: 100%;
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: hsl(var(--foreground) / 0.5);
+  }
+
+  .proj-idx {
+    color: hsl(var(--foreground) / 0.3);
+  }
+
+  .proj-stars {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    margin-left: auto;
+    color: hsl(var(--foreground) / 0.55);
+  }
+
+  .proj-stars :global(svg) {
+    width: 0.85rem;
+    height: 0.85rem;
+    fill: #f5b301;
+    stroke: #f5b301;
+  }
+
+  .proj-name {
+    margin: 1rem 0 0;
+    font-family: var(--font-display);
+    font-size: clamp(1.5rem, 2.6vw, 1.9rem);
+    font-weight: 650;
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+    color: hsl(var(--foreground));
+  }
+
+  .proj-blurb {
+    max-width: 44ch;
+    margin: 0.7rem 0 0;
+    font-family: var(--font-sans);
+    font-size: 1.02rem;
+    line-height: 1.55;
+    color: hsl(var(--foreground) / 0.82);
+  }
+
+  .proj-story {
+    max-width: 50ch;
+    margin: 0.85rem 0 0;
+    font-family: var(--font-sans);
+    font-size: 0.94rem;
+    line-height: 1.7;
+    color: hsl(var(--foreground) / 0.52);
+  }
+
+  .proj-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin: 1.3rem 0 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .proj-tags li {
+    padding: 0.28rem 0.62rem;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: hsl(var(--foreground) / 0.6);
+  }
+
+  .proj-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    margin-top: 1.6rem;
+    padding-bottom: 2px;
+    border-bottom: 1px solid hsl(var(--foreground) / 0.25);
+    font-family: var(--font-mono);
+    font-size: 0.76rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: hsl(var(--foreground) / 0.75);
+    transition: color 0.18s ease, border-color 0.18s ease;
+  }
+
+  .proj-link:hover {
+    color: hsl(var(--foreground));
+    border-color: hsl(var(--foreground));
+  }
+
+  .proj-link :global(svg) {
+    width: 0.85rem;
+    height: 0.85rem;
+    transition: transform 0.18s ease;
+  }
+
+  .proj-link:hover :global(svg) {
+    transform: translate(2px, -2px);
+  }
+
+  /* ── Desktop: two columns, hero alternating side to side ─────────────────── */
+  @media (min-width: 900px) {
+    .proj-entry {
+      display: grid;
+      grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+      gap: clamp(2rem, 4.5vw, 4rem);
+      align-items: center;
+    }
+
+    /* DOM order is visual → body; keep the hero left by default and flip it to
+       the right on every second entry for rhythm. */
+    .proj-visual {
+      order: -1;
+    }
+
+    .proj-entry:nth-child(even) .proj-visual {
+      order: 1;
+    }
+  }
+
+  /* ── Scroll reveal — entries rise into view; gated on JS so no-JS and
+     reduced-motion readers get them visible immediately (avoids the
+     FOUC-hide-sticks trap). ─────────────────────────────────────────────── */
+  @media (prefers-reduced-motion: no-preference) {
+    :global(html.js) .proj-entry {
+      opacity: 0;
+      transform: translateY(22px);
+      transition: opacity 0.6s var(--ease-out), transform 0.6s var(--ease-out);
+    }
+
+    :global(html.js) .proj-entry.is-revealed {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  /* Kill the old page's teal/orange body blooms if they linger in cache. */
+  :global(body:has(.proj)) {
+    background: hsl(var(--background));
+  }
+
+  /* Keep the page-nav brand quiet and left-aligned (carried over from the
+     previous layout so the header reads identically). */
   :global(.site-nav--page) {
     align-items: center;
     justify-content: flex-start;
@@ -93,131 +433,37 @@ const description = 'Selected projects by Bunizao, shown as a stacked card deck.
     color: hsl(var(--foreground));
     white-space: nowrap;
   }
-
-  .projects-page {
-    min-height: 100vh;
-    padding: 7.5rem 0 4rem;
-    overflow: hidden;
-  }
-
-  .projects-stage {
-    display: grid;
-    width: min(100%, 1180px);
-    min-height: calc(100vh - 11.5rem);
-    margin: 0 auto;
-    padding: 0 1rem;
-    align-items: center;
-    gap: 2rem;
-    border-bottom: 0;
-  }
-
-  .projects-copy {
-    max-width: 33rem;
-  }
-
-  .projects-kicker {
-    margin: 0 0 1.2rem;
-    font-size: 0.72rem;
-    line-height: 1;
-    font-weight: 500;
-    letter-spacing: 0;
-    text-transform: uppercase;
-    color: hsl(var(--muted-foreground));
-  }
-
-  .projects-copy h1 {
-    margin: 0;
-    max-width: 100%;
-    font-family: var(--font-display);
-    font-size: clamp(4.2rem, 7vw, 5.8rem);
-    font-weight: 800;
-    line-height: 0.86;
-    letter-spacing: 0;
-  }
-
-  .projects-intro {
-    max-width: 31rem;
-    margin: 1.5rem 0 0;
-    font-family: var(--font-sans);
-    font-size: clamp(1rem, 2vw, 1.14rem);
-    line-height: 1.7;
-    color: hsl(var(--foreground) / 0.68);
-  }
-
-  .projects-link {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.45rem;
-    width: fit-content;
-    margin-top: 1.6rem;
-    border-bottom: 1px solid hsl(var(--foreground) / 0.22);
-    font-family: var(--font-code);
-    font-size: 0.78rem;
-    font-weight: 650;
-    line-height: 1.8;
-    letter-spacing: 0;
-    text-transform: uppercase;
-    color: hsl(var(--foreground) / 0.74);
-    transition: color 0.18s ease, border-color 0.18s ease;
-  }
-
-  .projects-link:hover {
-    color: hsl(var(--foreground));
-    border-color: hsl(var(--foreground));
-  }
-
-  .projects-link svg {
-    transition: transform 0.18s ease;
-  }
-
-  .projects-link:hover svg {
-    transform: translate(2px, -2px);
-  }
-
-  .projects-stack {
-    width: 100%;
-    min-width: 0;
-  }
-
-  @media (min-width: 980px) {
-    .projects-stage {
-      grid-template-columns: minmax(18rem, 0.8fr) minmax(36rem, 1.2fr);
-      padding: 0 2rem;
-      gap: 3.5rem;
-    }
-  }
-
-  @media (max-width: 979px) {
-    .projects-page {
-      padding-top: 6.5rem;
-    }
-
-    .projects-stage {
-      min-height: auto;
-      align-items: start;
-    }
-
-    .projects-copy {
-      max-width: 42rem;
-    }
-
-    .projects-copy h1 {
-      max-width: 8ch;
-    }
-  }
-
-  @media (max-width: 640px) {
-    .projects-page {
-      padding-top: 5.75rem;
-    }
-
-    .projects-stage {
-      padding: 0 0.85rem;
-      gap: 1.5rem;
-    }
-
-    .projects-intro {
-      margin-top: 1.2rem;
-    }
-  }
 </style>
+
+<script>
+  // Self-contained per-entry reveal (mirrors the /components gallery). No
+  // dependency on the global GSAP scroll-reveal pipeline.
+  (() => {
+    const entries = document.querySelectorAll<HTMLElement>('.proj-entry');
+    if (!entries.length) return;
+
+    const reveal = (el: HTMLElement) => el.classList.add('is-revealed');
+
+    const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    if (reduced || !('IntersectionObserver' in window)) {
+      entries.forEach(reveal);
+      return;
+    }
+
+    const io = new IntersectionObserver(
+      (obsEntries, obs) => {
+        for (const entry of obsEntries) {
+          if (entry.isIntersecting) {
+            reveal(entry.target as HTMLElement);
+            obs.unobserve(entry.target);
+          }
+        }
+      },
+      { threshold: 0.12, rootMargin: '0px 0px -8% 0px' }
+    );
+
+    entries.forEach((el) => io.observe(el));
+    // Safety net: if the observer never fires (odd layouts), show everything.
+    setTimeout(() => entries.forEach(reveal), 1600);
+  })();
+</script>
