@@ -658,7 +658,7 @@ html.dark .cgrid-tile:hover {
 }
 
 .detail-title {
-  margin: 0.75rem 0 0;
+  margin: 1rem 0 0;
   font-family: var(--font-display);
   font-size: clamp(1.9rem, 3.5vw, 2.4rem);
   font-weight: 700;
@@ -930,19 +930,37 @@ html.dark .code-box-body pre.astro-code span {
   text-underline-offset: 0.2em;
 }
 
+/* The masthead line: brand → section → current, mono to rhyme with the index
+   eyebrow and the site's metadata spine. It is now the page's top-left anchor
+   (the floating site wordmark is hidden on this route), so the whole hero reads
+   as one aligned column instead of a stranded mark beside centered content. */
 .breadcrumb {
-  font-family: var(--font-sans);
-  font-size: 0.85rem;
-  color: hsl(var(--muted-foreground));
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-family: var(--font-mono);
+  font-size: 0.76rem;
+  letter-spacing: 0.02em;
+  color: hsl(var(--muted-foreground) / 0.7);
 }
 
 .breadcrumb a {
   color: inherit;
   text-decoration: none;
+  transition: color 0.15s ease;
 }
 
 .breadcrumb a:hover {
   color: hsl(var(--foreground));
+}
+
+.breadcrumb-sep {
+  color: hsl(var(--muted-foreground) / 0.35);
+  user-select: none;
+}
+
+.breadcrumb-current {
+  color: hsl(var(--foreground) / 0.85);
 }
 
 /* ── Preview islands ─────────────────────────────────────────────────────── */
@@ -980,6 +998,19 @@ html.dark .code-box-body pre.astro-code span {
   display: flex;
   justify-content: center;
   width: 100%;
+}
+
+.preview-projects {
+  width: min(100%, 30rem);
+}
+
+.preview-contributions,
+.preview-hover-list {
+  width: 100%;
+}
+
+.preview-contributions .activity-section {
+  margin-top: 0;
 }
 
 /* ── Install tabs ────────────────────────────────────────────────────────── */
