@@ -1203,86 +1203,16 @@
       white-space: nowrap;
     }
 
-    .site-nav--home.is-brand-eaten .site-brand {
-      min-width: var(--site-nav-mobile-logo-width);
-    }
-
-    .site-nav--home.is-brand-eaten .site-brand-text {
-      width: 0;
-      flex-basis: 0;
-      max-width: 0;
-      opacity: 0;
-      transform: translateX(-1.15rem);
-      clip-path: inset(0 100% 0 0);
-    }
-
-    .site-nav--home.is-brand-eaten .site-brand-logo {
-      animation: peek-chomp 0.34s steps(3, end);
-    }
-
     .site-nav--home.is-peek-tapping .site-brand-logo {
       animation: peek-menu-pop 0.42s steps(4, end);
     }
 
-    .site-nav--home .nav-link {
-      display: inline-flex;
-      align-items: center;
-      min-height: var(--site-nav-mobile-action-size);
-      max-width: 0;
-      padding: 0;
-      overflow: hidden;
-      opacity: 0;
-      pointer-events: none;
-      transform: translateX(-0.4rem);
-      font-size: 0.76rem;
-      line-height: 1;
-      font-weight: 600;
-      color: hsl(var(--muted-foreground) / 0.74);
-      transition: max-width 0.28s ease, opacity 0.2s ease, transform 0.28s ease, color 0.16s ease;
-    }
-
-    .site-nav--home.is-brand-eaten .nav-link {
-      max-width: calc(var(--nav-link-char-count, 0) * 1ch + 0.35rem);
-      opacity: 1;
-      pointer-events: auto;
-      transform: translateX(0);
-    }
-
-    /* Center the link group on the viewport. The nav's content box is
-       asymmetric (brand on left, theme button reserved on right via
-       padding), so flex-centering the links inside it pulls them left of
-       true center. Absolute-position the wrapper at 50vw instead, after
-       the peek-eats-brand transition settles. */
-    .site-nav--home.is-brand-eaten .nav-links {
-      display: inline-flex;
-      align-items: center;
-      gap: var(--site-nav-mobile-gap);
-      position: absolute;
-      left: 50%;
-      top: 50%;
-      transform: translate(-50%, -50%);
-      pointer-events: none;
-    }
-    .site-nav--home.is-brand-eaten .nav-links .nav-link {
-      pointer-events: auto;
-    }
-
-    .site-nav--home .nav-link::after,
-    .site-nav--home .nav-separator {
+    /* The inline link row is a desktop-only affordance now. On mobile the
+       hamburger in the header actions opens the menu sheet instead, so the
+       wordmark simply stays put and the links collapse away. */
+    .site-nav .nav-links {
       display: none;
     }
-
-    .site-nav--home .nav-link:hover,
-    .site-nav--home .nav-link.is-active {
-      color: hsl(var(--foreground));
-    }
-  }
-
-  @keyframes peek-chomp {
-    0% { transform: translateX(0); }
-    35% { transform: translateX(0.35rem); }
-    70% { transform: translateX(0.1rem); }
-    100% { transform: translateX(0); }
   }
 
   @keyframes peek-menu-pop {
@@ -1451,6 +1381,274 @@
 
     .global-header-actions--home .header-action-btn[data-theme-toggle] .theme-icon-container {
       margin-inline: auto;
+    }
+  }
+
+  /* ── Menu trigger (hamburger) ──────────────────────────────────────
+     Lives in the header-actions cluster so it is reachable on every page
+     that renders the sheet, regardless of the site-nav variant. Desktop
+     keeps the sidebar / brand-only nav, so the trigger is mobile-only. */
+  .menu-trigger {
+    display: none;
+  }
+
+  .menu-trigger-glyph {
+    position: relative;
+    width: 18px;
+    height: 12px;
+  }
+
+  .menu-trigger-glyph span {
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 1.5px;
+    border-radius: 2px;
+    background: currentColor;
+    transition: transform 200ms cubic-bezier(0.23, 1, 0.32, 1),
+      top 200ms cubic-bezier(0.23, 1, 0.32, 1);
+  }
+
+  .menu-trigger-glyph span:first-child { top: 3px; }
+  .menu-trigger-glyph span:last-child { top: 8px; }
+
+  .menu-trigger.is-active .menu-trigger-glyph span:first-child {
+    top: 5px;
+    transform: rotate(45deg);
+  }
+  .menu-trigger.is-active .menu-trigger-glyph span:last-child {
+    top: 5px;
+    transform: rotate(-45deg);
+  }
+
+  @media (max-width: 899px) {
+    .menu-trigger {
+      display: inline-flex;
+      min-width: 2.75rem;
+      height: 2.75rem;
+      border-radius: 999px;
+      background: transparent;
+      border-color: transparent;
+      box-shadow: none;
+      backdrop-filter: none;
+      -webkit-backdrop-filter: none;
+      color: hsl(var(--foreground));
+    }
+
+    /* On sheet-bearing pages the theme control moves into the sheet, so the
+       top-right theme toggle steps aside for the hamburger. Pages without a
+       sheet (hideSiteNav) keep their theme toggle untouched. */
+    .global-header-actions.has-menu-sheet .theme-dropdown {
+      display: none;
+    }
+  }
+
+  /* While the sheet is open, lift the trigger above the scrim so the ✕ stays
+     crisp and tappable-to-close. body.menu-scroll-lock is present only then. */
+  body.menu-scroll-lock .global-header-actions.has-menu-sheet {
+    z-index: 201;
+  }
+
+  /* ── Mobile menu sheet ─────────────────────────────────────────────── */
+  .site-menu {
+    position: fixed;
+    inset: 0;
+    z-index: 200;
+    --menu-drag-progress: 0;
+  }
+
+  .site-menu[hidden] {
+    display: none;
+  }
+
+  @media (min-width: 900px) {
+    .site-menu {
+      display: none !important;
+    }
+  }
+
+  .site-menu-scrim {
+    position: absolute;
+    inset: 0;
+    background: hsl(var(--background) / 0.55);
+    backdrop-filter: blur(3px);
+    -webkit-backdrop-filter: blur(3px);
+    opacity: calc(1 - var(--menu-drag-progress));
+    transition: opacity 260ms ease;
+  }
+
+  .site-menu:not(.is-open) .site-menu-scrim {
+    opacity: 0;
+  }
+
+  .site-menu-sheet {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    padding: 0.75rem 1.15rem calc(1.35rem + env(safe-area-inset-bottom, 0px));
+    background: hsl(var(--background));
+    border-top-left-radius: 1.35rem;
+    border-top-right-radius: 1.35rem;
+    border-top: 1px solid hsl(var(--foreground) / 0.08);
+    box-shadow: 0 -18px 55px -22px hsl(var(--foreground) / 0.3);
+    transform: translateY(100%);
+    /* Exit is the default (snappier); enter overrides to the iOS drawer curve. */
+    transition: transform 250ms cubic-bezier(0.32, 0.72, 0, 1);
+    touch-action: none;
+  }
+
+  .site-menu.is-open .site-menu-sheet {
+    transform: translateY(0);
+    transition-duration: 380ms;
+  }
+
+  .site-menu-grabber {
+    width: 2.25rem;
+    height: 0.3rem;
+    border-radius: 999px;
+    background: hsl(var(--foreground) / 0.16);
+    margin: 0 auto 0.85rem;
+  }
+
+  .site-menu-links {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .site-menu-link {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.95rem 0.35rem;
+    font-size: 1.15rem;
+    font-weight: 560;
+    letter-spacing: -0.01em;
+    color: hsl(var(--foreground));
+    border-bottom: 1px solid hsl(var(--foreground) / 0.06);
+    opacity: 0;
+    transform: translateY(9px);
+    transition: opacity 300ms ease, transform 300ms cubic-bezier(0.23, 1, 0.32, 1),
+      color 160ms ease;
+  }
+
+  .site-menu-link:last-child {
+    border-bottom: none;
+  }
+
+  .site-menu.is-open .site-menu-link {
+    opacity: 1;
+    transform: none;
+  }
+
+  .site-menu.is-open .site-menu-link:nth-child(1) { transition-delay: 40ms; }
+  .site-menu.is-open .site-menu-link:nth-child(2) { transition-delay: 80ms; }
+  .site-menu.is-open .site-menu-link:nth-child(3) { transition-delay: 120ms; }
+  .site-menu.is-open .site-menu-link:nth-child(4) { transition-delay: 160ms; }
+  .site-menu.is-open .site-menu-link:nth-child(5) { transition-delay: 200ms; }
+
+  .site-menu-link[aria-current='page'] {
+    color: hsl(var(--foreground));
+  }
+  .site-menu-link[aria-current='page'] .site-menu-link-label::after {
+    content: '';
+    display: inline-block;
+    width: 0.34rem;
+    height: 0.34rem;
+    margin-left: 0.55rem;
+    border-radius: 999px;
+    background: hsl(var(--foreground));
+    vertical-align: 0.12em;
+  }
+
+  .site-menu-link-arrow {
+    color: hsl(var(--muted-foreground));
+    opacity: 0.45;
+    transform: translateX(-3px);
+    transition: transform 200ms cubic-bezier(0.23, 1, 0.32, 1), opacity 200ms ease;
+  }
+
+  .site-menu-link:active {
+    color: hsl(var(--foreground));
+  }
+  .site-menu-link:active .site-menu-link-arrow {
+    transform: translateX(0);
+    opacity: 1;
+  }
+
+  .site-menu-appearance {
+    margin-top: 1.15rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+  }
+
+  .site-menu-appearance-label {
+    font-family: var(--font-mono);
+    font-size: 0.66rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: hsl(var(--muted-foreground) / 0.7);
+    padding-left: 0.35rem;
+  }
+
+  .site-menu-appearance-options {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.5rem;
+  }
+
+  .site-menu-theme {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.7rem 0.5rem;
+    border: 1px solid hsl(var(--foreground) / 0.1);
+    border-radius: 0.85rem;
+    background: hsl(var(--foreground) / 0.02);
+    color: hsl(var(--muted-foreground));
+    font-size: 0.78rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: color 160ms ease, background 160ms ease, border-color 160ms ease,
+      transform 140ms ease;
+  }
+
+  .site-menu-theme:active {
+    transform: scale(0.97);
+  }
+
+  .site-menu-theme.is-active {
+    color: hsl(var(--foreground));
+    border-color: hsl(var(--foreground) / 0.22);
+    background: hsl(var(--foreground) / 0.06);
+  }
+
+  .site-menu-theme svg {
+    width: 1.05rem;
+    height: 1.05rem;
+  }
+
+  body.menu-scroll-lock {
+    position: fixed;
+    left: 0;
+    right: 0;
+    width: 100%;
+    overflow: hidden;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .site-menu-sheet,
+    .site-menu.is-open .site-menu-sheet {
+      transition-duration: 1ms;
+    }
+    .site-menu-link {
+      transform: none;
+      transition-duration: 1ms;
+    }
+    .site-menu.is-open .site-menu-link {
+      transition-delay: 0ms;
     }
   }
 
