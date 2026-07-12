@@ -9,7 +9,6 @@ async function fetchAnchoredMoodPage(siteUrl: string, id: string): Promise<strin
   url.searchParams.set(id, '');
   url.searchParams.set('source', 'archive');
   url.searchParams.set('fresh', '1');
-  url.searchParams.set('fallback', '0');
 
   const response = await fetch(url, {
     headers: {
