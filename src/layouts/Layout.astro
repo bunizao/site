@@ -284,7 +284,7 @@ const preloadFontHref = preloadFont === 'sans'
       </nav>
     )}
 
-    <!-- Mobile menu sheet (site-wide) -->
+    <!-- Site menu: top-right dropdown (site-wide) -->
     {showMenu && (
       <div class="site-menu" data-site-menu hidden>
         <div class="site-menu-scrim" data-menu-close aria-hidden="true"></div>
@@ -296,31 +296,14 @@ const preloadFontHref = preloadFont === 'sans'
           aria-label="Site menu"
           data-menu-sheet
         >
-          <div class="site-menu-grabber" aria-hidden="true"></div>
           <nav class="site-menu-links" aria-label="Pages">
+            <a href="/" class="site-menu-link" data-menu-link>Home</a>
             {navLinks.map((link) => (
-              <a href={link.href} class="site-menu-link" data-menu-link>
-                <span class="site-menu-link-label">{link.label}</span>
-                <span class="site-menu-link-arrow" aria-hidden="true">→</span>
-              </a>
+              <a href={link.href} class="site-menu-link" data-menu-link>{link.label}</a>
             ))}
           </nav>
-          <div class="site-menu-appearance">
-            <span class="site-menu-appearance-label">Appearance</span>
-            <div class="site-menu-appearance-options" role="group" aria-label="Theme">
-              <button class="site-menu-theme" type="button" data-theme-option="light">
-                <Sun className="h-4 w-4" />
-                <span>Light</span>
-              </button>
-              <button class="site-menu-theme" type="button" data-theme-option="dark">
-                <Moon className="h-4 w-4" />
-                <span>Dark</span>
-              </button>
-              <button class="site-menu-theme" type="button" data-theme-option="system">
-                <Monitor className="h-4 w-4" />
-                <span>System</span>
-              </button>
-            </div>
+          <div class="site-menu-mascot" aria-hidden="true">
+            <AnimatedLogo definition={PEEK_NAVBAR_LOGO} size={44} title="peek" />
           </div>
         </div>
       </div>
@@ -337,19 +320,6 @@ const preloadFontHref = preloadFont === 'sans'
       ]}
       data-header-actions
     >
-      {showMenu && (
-        <button
-          class="header-action-btn menu-trigger"
-          type="button"
-          data-menu-trigger
-          aria-label="Open menu"
-          aria-haspopup="dialog"
-          aria-expanded="false"
-          aria-controls="site-menu-sheet"
-        >
-          <span class="menu-trigger-glyph" aria-hidden="true"><span></span><span></span></span>
-        </button>
-      )}
       <div class="theme-dropdown" data-theme-dropdown>
         <button class="header-action-btn" type="button" data-theme-toggle aria-label="Switch theme" aria-haspopup="true" aria-expanded="false">
           <span class="theme-icon-container">
@@ -380,6 +350,19 @@ const preloadFontHref = preloadFont === 'sans'
           </button>
         </div>
       </div>
+      {showMenu && (
+        <button
+          class="header-action-btn menu-trigger"
+          type="button"
+          data-menu-trigger
+          aria-label="Open menu"
+          aria-haspopup="dialog"
+          aria-expanded="false"
+          aria-controls="site-menu-sheet"
+        >
+          <span class="menu-trigger-glyph" aria-hidden="true"><span></span><span></span></span>
+        </button>
+      )}
     </div>
     <div class="site-shell">
       <slot />
@@ -664,23 +647,21 @@ const preloadFontHref = preloadFont === 'sans'
       })();
     </script>
 
-    <!-- Mobile menu sheet: open/close + drag-to-dismiss -->
+    <!-- Site menu dropdown: open/close -->
     <script>
       (() => {
         const trigger = document.querySelector('[data-menu-trigger]') as HTMLElement | null;
         const menu = document.querySelector('[data-site-menu]') as HTMLElement | null;
         if (!trigger || !menu) return;
-        const sheet = menu.querySelector<HTMLElement>('[data-menu-sheet]');
         const closers = menu.querySelectorAll('[data-menu-close]');
         const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-        // Mark the link that points at the current page.
+        // Mark the link that points at the current page (Home matches only "/").
         const path = window.location.pathname.replace(/\/+$/, '') || '/';
         menu.querySelectorAll<HTMLAnchorElement>('[data-menu-link]').forEach((link) => {
           const href = (link.getAttribute('href') || '').replace(/\/+$/, '') || '/';
-          if (href !== '/' && (path === href || path.startsWith(href + '/'))) {
-            link.setAttribute('aria-current', 'page');
-          }
+          const active = href === '/' ? path === '/' : path === href || path.startsWith(href + '/');
+          if (active) link.setAttribute('aria-current', 'page');
         });
 
         let isOpen = false;
@@ -732,43 +713,6 @@ const preloadFontHref = preloadFont === 'sans'
         document.addEventListener('keydown', (e) => {
           if (e.key === 'Escape' && isOpen) close();
         });
-
-        // Drag-to-dismiss: downward only, dismiss on distance or a quick flick.
-        if (sheet && !reducedMotion) {
-          let dragging = false;
-          let startY = 0;
-          let offset = 0;
-          let startT = 0;
-
-          const onDown = (e: PointerEvent) => {
-            if (!isOpen || e.pointerType === 'mouse') return;
-            dragging = true;
-            startY = e.clientY;
-            offset = 0;
-            startT = performance.now();
-            sheet.style.transition = 'none';
-          };
-          const onMove = (e: PointerEvent) => {
-            if (!dragging) return;
-            offset = Math.max(0, e.clientY - startY);
-            sheet.style.transform = `translateY(${offset}px)`;
-            menu.style.setProperty('--menu-drag-progress', String(Math.min(1, offset / 260)));
-          };
-          const onUp = () => {
-            if (!dragging) return;
-            dragging = false;
-            sheet.style.transition = '';
-            sheet.style.transform = '';
-            menu.style.removeProperty('--menu-drag-progress');
-            const velocity = offset / Math.max(1, performance.now() - startT);
-            if (offset > 90 || velocity > 0.5) close();
-          };
-
-          sheet.addEventListener('pointerdown', onDown);
-          window.addEventListener('pointermove', onMove);
-          window.addEventListener('pointerup', onUp);
-          window.addEventListener('pointercancel', onUp);
-        }
       })();
     </script>
 

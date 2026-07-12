@@ -1434,17 +1434,11 @@
       -webkit-backdrop-filter: none;
       color: hsl(var(--foreground));
     }
-
-    /* On sheet-bearing pages the theme control moves into the sheet, so the
-       top-right theme toggle steps aside for the hamburger. Pages without a
-       sheet (hideSiteNav) keep their theme toggle untouched. */
-    .global-header-actions.has-menu-sheet .theme-dropdown {
-      display: none;
-    }
   }
 
-  /* While the sheet is open, lift the trigger above the scrim so the ✕ stays
-     crisp and tappable-to-close. body.menu-scroll-lock is present only then. */
+  /* While the menu is open, lift the header controls above the scrim so the ✕
+     and theme toggle stay crisp and tappable. body.menu-scroll-lock is present
+     only then. */
   body.menu-scroll-lock .global-header-actions.has-menu-sheet {
     z-index: 201;
   }
@@ -1454,7 +1448,6 @@
     position: fixed;
     inset: 0;
     z-index: 200;
-    --menu-drag-progress: 0;
   }
 
   .site-menu[hidden] {
@@ -1470,45 +1463,44 @@
   .site-menu-scrim {
     position: absolute;
     inset: 0;
-    background: hsl(var(--background) / 0.55);
-    backdrop-filter: blur(3px);
-    -webkit-backdrop-filter: blur(3px);
-    opacity: calc(1 - var(--menu-drag-progress));
-    transition: opacity 260ms ease;
+    background: hsl(var(--background) / 0.4);
+    backdrop-filter: blur(2px);
+    -webkit-backdrop-filter: blur(2px);
+    opacity: 1;
+    transition: opacity 220ms ease;
   }
 
   .site-menu:not(.is-open) .site-menu-scrim {
     opacity: 0;
   }
 
+  /* Compact dropdown card anchored under the header controls, top-right.
+     Scales open from that corner (origin-aware, per popover convention). */
   .site-menu-sheet {
     position: absolute;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    padding: 0.75rem 1.15rem calc(1.35rem + env(safe-area-inset-bottom, 0px));
+    top: calc(env(safe-area-inset-top, 0px) + 3.4rem);
+    right: 1rem;
+    width: 14.5rem;
+    max-width: calc(100vw - 2rem);
+    padding: 0.5rem;
     background: hsl(var(--background));
-    border-top-left-radius: 1.35rem;
-    border-top-right-radius: 1.35rem;
-    border-top: 1px solid hsl(var(--foreground) / 0.08);
-    box-shadow: 0 -18px 55px -22px hsl(var(--foreground) / 0.3);
-    transform: translateY(100%);
-    /* Exit is the default (snappier); enter overrides to the iOS drawer curve. */
-    transition: transform 250ms cubic-bezier(0.32, 0.72, 0, 1);
-    touch-action: none;
+    border: 1px solid hsl(var(--foreground) / 0.1);
+    border-radius: 1.25rem;
+    box-shadow:
+      0 1px 2px hsl(var(--foreground) / 0.04),
+      0 12px 32px -12px hsl(var(--foreground) / 0.35),
+      0 2px 8px -4px hsl(var(--foreground) / 0.2);
+    transform-origin: top right;
+    opacity: 0;
+    transform: translateY(-6px) scale(0.96);
+    transition: opacity 200ms cubic-bezier(0.32, 0.72, 0, 1),
+      transform 200ms cubic-bezier(0.32, 0.72, 0, 1);
   }
 
   .site-menu.is-open .site-menu-sheet {
-    transform: translateY(0);
-    transition-duration: 380ms;
-  }
-
-  .site-menu-grabber {
-    width: 2.25rem;
-    height: 0.3rem;
-    border-radius: 999px;
-    background: hsl(var(--foreground) / 0.16);
-    margin: 0 auto 0.85rem;
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    transition-duration: 260ms;
   }
 
   .site-menu-links {
@@ -1519,21 +1511,18 @@
   .site-menu-link {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    padding: 0.95rem 0.35rem;
-    font-size: 1.15rem;
-    font-weight: 560;
-    letter-spacing: -0.01em;
-    color: hsl(var(--foreground));
-    border-bottom: 1px solid hsl(var(--foreground) / 0.06);
+    justify-content: center;
+    padding: 0.8rem 1rem;
+    /* Concentric: card radius 1.25rem − 0.5rem padding = 0.75rem inner. */
+    border-radius: 0.75rem;
+    font-size: 1.05rem;
+    font-weight: 500;
+    color: hsl(var(--muted-foreground));
+    text-align: center;
     opacity: 0;
-    transform: translateY(9px);
-    transition: opacity 300ms ease, transform 300ms cubic-bezier(0.23, 1, 0.32, 1),
-      color 160ms ease;
-  }
-
-  .site-menu-link:last-child {
-    border-bottom: none;
+    transform: translateY(6px);
+    transition: opacity 240ms ease, transform 240ms cubic-bezier(0.23, 1, 0.32, 1),
+      color 160ms ease, background 160ms ease;
   }
 
   .site-menu.is-open .site-menu-link {
@@ -1541,93 +1530,50 @@
     transform: none;
   }
 
-  .site-menu.is-open .site-menu-link:nth-child(1) { transition-delay: 40ms; }
-  .site-menu.is-open .site-menu-link:nth-child(2) { transition-delay: 80ms; }
-  .site-menu.is-open .site-menu-link:nth-child(3) { transition-delay: 120ms; }
-  .site-menu.is-open .site-menu-link:nth-child(4) { transition-delay: 160ms; }
-  .site-menu.is-open .site-menu-link:nth-child(5) { transition-delay: 200ms; }
+  .site-menu.is-open .site-menu-link:nth-child(1) { transition-delay: 30ms; }
+  .site-menu.is-open .site-menu-link:nth-child(2) { transition-delay: 60ms; }
+  .site-menu.is-open .site-menu-link:nth-child(3) { transition-delay: 90ms; }
+  .site-menu.is-open .site-menu-link:nth-child(4) { transition-delay: 120ms; }
+  .site-menu.is-open .site-menu-link:nth-child(5) { transition-delay: 150ms; }
+  .site-menu.is-open .site-menu-link:nth-child(6) { transition-delay: 180ms; }
 
-  .site-menu-link[aria-current='page'] {
-    color: hsl(var(--foreground));
-  }
-  .site-menu-link[aria-current='page'] .site-menu-link-label::after {
-    content: '';
-    display: inline-block;
-    width: 0.34rem;
-    height: 0.34rem;
-    margin-left: 0.55rem;
-    border-radius: 999px;
-    background: hsl(var(--foreground));
-    vertical-align: 0.12em;
-  }
-
-  .site-menu-link-arrow {
-    color: hsl(var(--muted-foreground));
-    opacity: 0.45;
-    transform: translateX(-3px);
-    transition: transform 200ms cubic-bezier(0.23, 1, 0.32, 1), opacity 200ms ease;
+  @media (hover: hover) and (pointer: fine) {
+    .site-menu-link:hover {
+      color: hsl(var(--foreground));
+      background: hsl(var(--foreground) / 0.05);
+    }
   }
 
   .site-menu-link:active {
-    color: hsl(var(--foreground));
-  }
-  .site-menu-link:active .site-menu-link-arrow {
-    transform: translateX(0);
-    opacity: 1;
-  }
-
-  .site-menu-appearance {
-    margin-top: 1.15rem;
-    display: flex;
-    flex-direction: column;
-    gap: 0.6rem;
-  }
-
-  .site-menu-appearance-label {
-    font-family: var(--font-mono);
-    font-size: 0.66rem;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    color: hsl(var(--muted-foreground) / 0.7);
-    padding-left: 0.35rem;
-  }
-
-  .site-menu-appearance-options {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 0.5rem;
-  }
-
-  .site-menu-theme {
-    display: inline-flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 0.4rem;
-    padding: 0.7rem 0.5rem;
-    border: 1px solid hsl(var(--foreground) / 0.1);
-    border-radius: 0.85rem;
-    background: hsl(var(--foreground) / 0.02);
-    color: hsl(var(--muted-foreground));
-    font-size: 0.78rem;
-    font-weight: 500;
-    cursor: pointer;
-    transition: color 160ms ease, background 160ms ease, border-color 160ms ease,
-      transform 140ms ease;
-  }
-
-  .site-menu-theme:active {
     transform: scale(0.97);
   }
 
-  .site-menu-theme.is-active {
+  .site-menu-link[aria-current='page'] {
     color: hsl(var(--foreground));
-    border-color: hsl(var(--foreground) / 0.22);
+    font-weight: 600;
     background: hsl(var(--foreground) / 0.06);
   }
 
-  .site-menu-theme svg {
-    width: 1.05rem;
-    height: 1.05rem;
+  .site-menu-mascot {
+    display: flex;
+    justify-content: center;
+    padding: 0.75rem 0 0.4rem;
+    color: hsl(var(--foreground));
+    opacity: 0;
+    transform: translateY(6px);
+    transition: opacity 260ms ease, transform 260ms cubic-bezier(0.23, 1, 0.32, 1);
+  }
+
+  .site-menu.is-open .site-menu-mascot {
+    opacity: 1;
+    transform: none;
+    transition-delay: 200ms;
+  }
+
+  .site-menu-mascot svg {
+    display: block;
+    width: 44px;
+    height: auto;
   }
 
   body.menu-scroll-lock {
@@ -1640,14 +1586,13 @@
 
   @media (prefers-reduced-motion: reduce) {
     .site-menu-sheet,
-    .site-menu.is-open .site-menu-sheet {
-      transition-duration: 1ms;
-    }
-    .site-menu-link {
+    .site-menu.is-open .site-menu-sheet,
+    .site-menu-link,
+    .site-menu.is-open .site-menu-link,
+    .site-menu-mascot,
+    .site-menu.is-open .site-menu-mascot {
       transform: none;
       transition-duration: 1ms;
-    }
-    .site-menu.is-open .site-menu-link {
       transition-delay: 0ms;
     }
   }
