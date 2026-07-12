@@ -77,7 +77,7 @@ export function DecodeTextPreview() {
   return (
     <div
       ref={ref}
-      className="decode-preview"
+      className="decode-preview cursor-pointer select-none text-center font-mono text-xl font-semibold leading-relaxed text-foreground sm:text-2xl"
       onMouseEnter={() => void play()}
       onClick={() => void play()}
     >

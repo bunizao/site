@@ -4,15 +4,15 @@ tagline: A zero-dependency rAF engine that boils scrambled glyphs into words.
 tier: showpiece
 order: 40
 install:
-  type: npm
-  pkg: '@bunizao/decode-text'
+  type: registry
 source: https://github.com/bunizao/site/tree/main/packages/decode-text
 credits: Reveal timing after Soulwire's power-front scheduling.
 ---
 
-```ts
-import { prepareDecode } from '@bunizao/decode-text';
+```tsx
+import { DecodeTextPreview } from '@/components/ui/decode-text';
 
-const controller = await prepareDecode(document.querySelector('#bio'));
-controller.start();
+export function Example() {
+  return <DecodeTextPreview />;
+}
 ```

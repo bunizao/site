@@ -10,6 +10,7 @@ interface RegistryFile {
   path: string;
   content: string;
   type: RegistryFileType;
+  target?: string;
 }
 
 interface RegistryCssVars {
@@ -28,6 +29,7 @@ export interface RegistryItem {
 }
 
 const sourceRoot = path.resolve(process.cwd(), 'src');
+const repoRoot = path.resolve(process.cwd());
 
 const primitiveConfig = {
   button: {
@@ -51,6 +53,19 @@ async function readRegistryFile(relativePath: string, type: RegistryFileType): P
   return {
     path: relativePath,
     content: await readFile(path.join(sourceRoot, relativePath), 'utf8'),
+    type,
+  };
+}
+
+async function readRepoRegistryFile(
+  relativePath: string,
+  outputPath: string,
+  type: RegistryFileType,
+  transform: (content: string) => string = (content) => content
+): Promise<RegistryFile> {
+  return {
+    path: outputPath,
+    content: transform(await readFile(path.join(repoRoot, relativePath), 'utf8')),
     type,
   };
 }
@@ -111,16 +126,104 @@ async function buildMoodWheelItem(): Promise<RegistryItem> {
 }
 
 async function buildListeningItem(): Promise<RegistryItem> {
-  const paths = [
-    'features/home/ui/Listening.astro',
-    'features/home/server/listening.ts',
-    'lib/musickit/player.ts',
-  ];
+  const listeningTrackType = `export interface ListeningTrack {
+  id: string;
+  appleCatalogId: string;
+  catalogId?: string;
+  title: string;
+  artist: string;
+  collection: string;
+  appleMusicUrl: string;
+  artworkUrl: string;
+  thumbUrl: string;
+  previewUrl: string;
+  year: string;
+  genre: string;
+  releaseKind: 'album' | 'single';
+  trackNumber: string;
+  trackCount: string;
+  sourceUrl: string;
+  isNowPlaying: boolean;
+  playedAt: string;
+}\n`;
+  const component = await readRegistryFile('features/home/ui/Listening.astro', 'registry:lib');
+  component.content = component.content
+    .replace("@/features/home/server/listening", '@/lib/listening-types')
+    .replace("@/assets/apple-logo.svg?raw", '@/lib/apple-logo.svg?raw');
   return {
     $schema: REGISTRY_ITEM_SCHEMA,
     name: 'listening',
     type: 'registry:lib',
     dependencies: ['lucide-react'],
+    files: [
+      component,
+      {
+        path: 'lib/listening-types.ts',
+        content: listeningTrackType,
+        type: 'registry:lib',
+      },
+      await readRegistryFile('lib/musickit/player.ts', 'registry:lib'),
+      await readRegistryFile('assets/apple-logo.svg', 'registry:lib'),
+    ],
+  };
+}
+
+async function buildDecodeTextItem(): Promise<RegistryItem> {
+  return {
+    $schema: REGISTRY_ITEM_SCHEMA,
+    name: 'decode-text',
+    type: 'registry:ui',
+    files: [
+      await readRepoRegistryFile(
+        'src/features/components/previews/DecodeTextPreview.tsx',
+        'components/decode-text.tsx',
+        'registry:ui',
+        (content) => content.replace("from '@bunizao/decode-text'", "from '@/lib/decode-text'")
+      ),
+      await readRepoRegistryFile(
+        'packages/decode-text/src/index.ts',
+        'lib/decode-text.ts',
+        'registry:lib'
+      ),
+    ],
+  };
+}
+
+async function buildProjectsDeckItem(): Promise<RegistryItem> {
+  const paths = [
+    ...(await listFiles('components/project-cards')),
+    ...(await listFiles('components/icons')),
+    'data/site.ts',
+  ];
+  return {
+    $schema: REGISTRY_ITEM_SCHEMA,
+    name: 'projects-deck',
+    type: 'registry:ui',
+    dependencies: ['framer-motion', 'lucide-react'],
+    registryDependencies: ['utils'],
+    files: await Promise.all(paths.map(async (filePath) => {
+      const file = await readRegistryFile(filePath, 'registry:ui');
+      return {
+        ...file,
+        content: file.content
+          .replaceAll('@/components/project-cards/', '@/components/ui/')
+          .replaceAll('@/components/icons', '@/components/ui')
+          .replaceAll('@/data/site', '@/components/ui/site'),
+      };
+    })),
+  };
+}
+
+async function buildPreviewItem(
+  name: string,
+  paths: string[],
+  dependencies: string[] = []
+): Promise<RegistryItem> {
+  return {
+    $schema: REGISTRY_ITEM_SCHEMA,
+    name,
+    type: 'registry:lib',
+    ...(dependencies.length ? { dependencies } : {}),
     files: await Promise.all(paths.map((filePath) => readRegistryFile(filePath, 'registry:lib'))),
   };
 }
@@ -139,6 +242,48 @@ export async function buildRegistryItem(
   if (entry.id === 'mascot') return buildMascotItem();
   if (entry.id === 'mood-wheel') return buildMoodWheelItem();
   if (entry.id === 'listening') return buildListeningItem();
+  if (entry.id === 'decode-text') return buildDecodeTextItem();
+  if (entry.id === 'projects-deck') return buildProjectsDeckItem();
+  if (entry.id === 'contact-links') {
+    const item = await buildPreviewItem(
+      entry.id,
+      ['features/components/previews/ContactLinksPreview.astro', 'components/icons/brand.tsx'],
+      ['lucide-react']
+    );
+    item.files[0].content = item.files[0].content.replace(
+      "from '@/components/icons/brand'",
+      "from '@/lib/brand'"
+    );
+    return item;
+  }
+  if (entry.id === 'mobile-reading-bar') {
+    const item = await buildPreviewItem(entry.id, ['pages/components/preview/mobile-toc.astro']);
+    item.files[0].content = item.files[0].content
+      .replace("import '@/styles/globals.css';\n", '')
+      .replaceAll('var(--background)', 'var(--background, 0 0% 100%)')
+      .replaceAll('var(--foreground)', 'var(--foreground, 0 0% 0%)')
+      .replaceAll('var(--muted-foreground)', 'var(--muted-foreground, 0 0% 45%)');
+    return item;
+  }
+  if (entry.id === 'tag-cards') {
+    const item = await buildPreviewItem(entry.id, ['features/components/previews/TagsPreview.astro']);
+    item.files[0].content = item.files[0].content.replaceAll("'/showcase/", "'https://buxx.me/showcase/");
+    return item;
+  }
+  if (entry.id === 'github-activity') {
+    return buildPreviewItem(entry.id, ['features/home/ui/GitHubContributions.astro']);
+  }
+  if (entry.id === 'update-pills') {
+    return buildPreviewItem(entry.id, ['features/components/previews/MoodButtonPreview.astro']);
+  }
+  if (entry.id === 'list-hover') {
+    const item = await buildPreviewItem(entry.id, [
+      'features/components/previews/HoverListPreview.astro',
+      'lib/hover-indicator.ts',
+    ]);
+    item.files[0].content = item.files[0].content.replaceAll("'/showcase/", "'https://buxx.me/showcase/");
+    return item;
+  }
 
   throw new Error(`Missing registry configuration for ${entry.id}`);
 }

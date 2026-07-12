@@ -10,7 +10,7 @@ credits: Precision-instrument aesthetic; slot-text readout by Bunizao.
 ---
 
 ```ts
-import { mountTimelineWheel } from '@/features/mood/client/timeline-wheel';
+import { mountTimelineWheel } from '@/lib/timeline-wheel';
 
 mountTimelineWheel(root, {
   feed: document.querySelector('[data-mood-feed]'),

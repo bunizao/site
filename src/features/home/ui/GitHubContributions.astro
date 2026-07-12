@@ -1,6 +1,15 @@
 ---
-const username = 'bunizao';
-const contributionDays = 30;
+interface Props {
+  username?: string;
+  contributionDays?: number;
+  endpoint?: string;
+}
+
+const {
+  username = 'bunizao',
+  contributionDays = 30,
+  endpoint = '/api/github/contributions',
+} = Astro.props;
 const placeholderBars = Array.from({ length: contributionDays });
 ---
 
@@ -9,6 +18,7 @@ const placeholderBars = Array.from({ length: contributionDays });
   data-contributions
   data-username={username}
   data-days={contributionDays}
+  data-endpoint={endpoint}
   aria-busy="true"
 >
   <div class="activity-wave" aria-hidden="true">
@@ -197,7 +207,8 @@ const placeholderBars = Array.from({ length: contributionDays });
         username,
         ...(days ? { days } : {}),
       });
-      const response = await fetch(`/api/github/contributions?${params.toString()}`, {
+      const endpoint = section.getAttribute('data-endpoint') || '/api/github/contributions';
+      const response = await fetch(`${endpoint}?${params.toString()}`, {
         headers: {
           Accept: 'application/json',
         },

@@ -42,4 +42,60 @@ const actions = [
     font-family: var(--font-sans);
   }
 
+  .header-action-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0;
+    height: 34px;
+    min-width: 34px;
+    padding: 0 9px;
+    overflow: hidden;
+    border: 1px solid hsl(var(--foreground) / 0.08);
+    border-radius: 9px;
+    color: hsl(var(--muted-foreground));
+    background: hsl(var(--background) / 0.8);
+    backdrop-filter: blur(8px);
+    cursor: pointer;
+    transition: color 0.2s ease, background 0.2s ease, border-color 0.2s ease, gap 0.2s ease;
+  }
+
+  .header-action-btn:hover,
+  .header-action-btn:focus-visible {
+    gap: 6px;
+    color: hsl(var(--foreground));
+    background: hsl(var(--foreground) / 0.05);
+    border-color: hsl(var(--foreground) / 0.15);
+  }
+
+  .header-action-btn:active {
+    transform: scale(0.96);
+  }
+
+  .header-action-btn-label {
+    display: inline-block;
+    max-width: 0;
+    overflow: hidden;
+    opacity: 0;
+    white-space: nowrap;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    transition: max-width 0.2s ease, opacity 0.2s ease;
+  }
+
+  .header-action-btn:hover .header-action-btn-label,
+  .header-action-btn:focus-visible .header-action-btn-label {
+    max-width: 8rem;
+    opacity: 1;
+  }
+
+  .header-action-btn svg {
+    width: 15px;
+    height: 15px;
+    flex: none;
+  }
+
 </style>

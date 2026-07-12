@@ -223,7 +223,7 @@ html.dark .cgrid-tile:hover {
   padding: 1.75rem;
 }
 
-.cgrid-stage--contrib :global(.activity-section) {
+.cgrid-stage--contrib .activity-section {
   width: 100%;
   flex-direction: column-reverse;
   align-items: stretch;
@@ -231,14 +231,14 @@ html.dark .cgrid-tile:hover {
 }
 
 /* The wave fills the whole width of the card. */
-.cgrid-stage--contrib :global(.activity-wave) {
+.cgrid-stage--contrib .activity-wave {
   width: 100%;
   flex: none;
   height: 3rem;
 }
 
 /* Keep the stats line pushed to the right. */
-.cgrid-stage--contrib :global(.activity-stats) {
+.cgrid-stage--contrib .activity-stats {
   justify-content: flex-end;
 }
 
@@ -985,7 +985,7 @@ html.dark .code-box-body pre.astro-code span {
   user-select: none;
 }
 
-.preview-mascot :global(svg),
+.preview-mascot svg,
 .preview-mascot {
   width: 8rem;
   height: auto;

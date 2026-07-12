@@ -11,11 +11,28 @@ credits: Apple Music preview playback via a single shared audio engine by Buniza
 
 ```astro
 ---
-import Listening from '@/features/home/ui/Listening.astro';
-import { getCurrentListeningTrack } from '@/features/home/server/listening';
+import Listening from '@/lib/Listening.astro';
 
-const { track } = await getCurrentListeningTrack(Astro.locals);
+const track = {
+  id: 'track-id',
+  appleCatalogId: '',
+  title: 'Track title',
+  artist: 'Artist',
+  collection: 'Album',
+  appleMusicUrl: 'https://music.apple.com/',
+  artworkUrl: 'https://example.com/artwork.jpg',
+  thumbUrl: 'https://example.com/artwork.jpg',
+  previewUrl: 'https://example.com/preview.m4a',
+  year: '2026',
+  genre: 'Pop',
+  releaseKind: 'album',
+  trackNumber: '1',
+  trackCount: '10',
+  sourceUrl: 'https://music.apple.com/',
+  isNowPlaying: false,
+  playedAt: '',
+};
 ---
 
-<Listening track={track} />
+<Listening track={track} static />
 ```

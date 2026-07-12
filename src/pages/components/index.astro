@@ -30,11 +30,14 @@ const description =
       <!-- Band 1 — projects deck (col 1, top), the tall mood dial (col 2), and a
            decode/contact stack (col 3); listening fills under the deck. The four
            heights are tuned so the band packs flush with no gaps. -->
-      <section class="cgrid-tile cgrid-tile--projects" data-cgrid-tile style="--i:0">
+      <section class="cgrid-tile cgrid-tile--projects cgrid-tile--link" data-cgrid-tile style="--i:0">
         <div class="cgrid-stage cgrid-stage--projects">
           <ProjectStack client:visible />
         </div>
-        <span class="cgrid-cap">Projects deck</span>
+        <a class="cgrid-cap cgrid-cap--link" href="/components/projects-deck">
+          Projects deck
+          <svg class="cgrid-cap-arrow" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7"/><path d="M8 7h9v9"/></svg>
+        </a>
       </section>
 
       <!-- Mood wheel — a scroll-position instrument. Portrait tile so the
@@ -62,11 +65,14 @@ const description =
       </section>
 
       <!-- Contact links — each platform lights up in its brand colour on hover. -->
-      <section class="cgrid-tile cgrid-tile--contact" data-cgrid-tile style="--i:3">
+      <section class="cgrid-tile cgrid-tile--contact cgrid-tile--link" data-cgrid-tile style="--i:3">
         <div class="cgrid-stage cgrid-stage--contact">
           <ContactLinksPreview />
         </div>
-        <span class="cgrid-cap">Contact links</span>
+        <a class="cgrid-cap cgrid-cap--link" href="/components/contact-links">
+          Contact links
+          <svg class="cgrid-cap-arrow" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7"/><path d="M8 7h9v9"/></svg>
+        </a>
       </section>
 
       <!-- Listening — spins, samples the artwork colour, plays a preview with a
@@ -83,9 +89,12 @@ const description =
 
       <!-- Band 2 — the mobile reading bar (col 1, tall), the tag wall (col 2-3),
            then contributions + update pill fill the row beneath the tags. -->
-      <section class="cgrid-tile cgrid-tile--toc cgrid-tile--iframe" data-cgrid-tile style="--i:5">
+      <section class="cgrid-tile cgrid-tile--toc cgrid-tile--iframe cgrid-tile--link" data-cgrid-tile style="--i:5">
         <iframe src="/components/preview/mobile-toc" title="Mobile reading bar" loading="lazy"></iframe>
-        <span class="cgrid-cap">Mobile reading bar</span>
+        <a class="cgrid-cap cgrid-cap--link" href="/components/mobile-reading-bar">
+          Mobile reading bar
+          <svg class="cgrid-cap-arrow" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7"/><path d="M8 7h9v9"/></svg>
+        </a>
       </section>
 
       <!-- Tag cards — quiet chips + feature-image glass cards from the blog tags
@@ -94,18 +103,21 @@ const description =
         <div class="cgrid-stage cgrid-stage--tags">
           <TagsPreview />
         </div>
-        <a class="cgrid-cap cgrid-cap--link" href="/components/badge">
+        <a class="cgrid-cap cgrid-cap--link" href="/components/tag-cards">
           Tag cards
           <svg class="cgrid-cap-arrow" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7"/><path d="M8 7h9v9"/></svg>
         </a>
       </section>
 
       <!-- GitHub contributions — self-renders standalone; hover for tooltips. -->
-      <section class="cgrid-tile cgrid-tile--contrib" data-cgrid-tile style="--i:7">
+      <section class="cgrid-tile cgrid-tile--contrib cgrid-tile--link" data-cgrid-tile style="--i:7">
         <div class="cgrid-stage cgrid-stage--contrib">
           <GitHubContributions />
         </div>
-        <span class="cgrid-cap">GitHub activity</span>
+        <a class="cgrid-cap cgrid-cap--link" href="/components/github-activity">
+          GitHub activity
+          <svg class="cgrid-cap-arrow" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7"/><path d="M8 7h9v9"/></svg>
+        </a>
       </section>
 
       <!-- Mood update states — each pill expands and nudges its neighbours. -->
@@ -113,7 +125,7 @@ const description =
         <div class="cgrid-stage cgrid-stage--moodbtn">
           <MoodButtonPreview />
         </div>
-        <a class="cgrid-cap cgrid-cap--link" href="/components/button">
+        <a class="cgrid-cap cgrid-cap--link" href="/components/update-pills">
           Update pills
           <svg class="cgrid-cap-arrow" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7"/><path d="M8 7h9v9"/></svg>
         </a>
@@ -121,11 +133,14 @@ const description =
 
       <!-- Band 3 — the list hover-preview runs full width: sliding pill + a
            cursor-following image preview, self-contained with invented rows. -->
-      <section class="cgrid-tile cgrid-tile--hover" data-cgrid-tile style="--i:9">
+      <section class="cgrid-tile cgrid-tile--hover cgrid-tile--link" data-cgrid-tile style="--i:9">
         <div class="cgrid-stage cgrid-stage--hover">
           <HoverListPreview />
         </div>
-        <span class="cgrid-cap">List hover</span>
+        <a class="cgrid-cap cgrid-cap--link" href="/components/list-hover">
+          List hover
+          <svg class="cgrid-cap-arrow" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7"/><path d="M8 7h9v9"/></svg>
+        </a>
       </section>
     </div>
   </main>

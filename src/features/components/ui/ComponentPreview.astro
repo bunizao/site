@@ -9,6 +9,12 @@ import ComponentPreviewFrame from './ComponentPreviewFrame.astro';
 import DecodeTextPreview from '@/features/components/previews/DecodeTextPreview';
 import Listening from '@/features/home/ui/Listening.astro';
 import { FALLBACK_TRACK } from '@/features/home/server/listening';
+import ProjectStack from '@/components/project-cards/ProjectStack';
+import GitHubContributions from '@/features/home/ui/GitHubContributions.astro';
+import ContactLinksPreview from '@/features/components/previews/ContactLinksPreview.astro';
+import HoverListPreview from '@/features/components/previews/HoverListPreview.astro';
+import MoodButtonPreview from '@/features/components/previews/MoodButtonPreview.astro';
+import TagsPreview from '@/features/components/previews/TagsPreview.astro';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui/card';
@@ -31,10 +37,19 @@ const mascotSvg = gridToSvg(PEEK_BASE.base, PEEK_BASE.width, PEEK_BASE.height, {
 });
 ---
 
-{slug === 'mood-wheel' ? (
-  <ComponentPreviewFrame variant="iframe" src="/components/preview/mood-wheel" title="Mood wheel preview" />
+{slug === 'mood-wheel' || slug === 'mobile-reading-bar' ? (
+  <ComponentPreviewFrame
+    variant="iframe"
+    src={slug === 'mood-wheel' ? '/components/preview/mood-wheel' : '/components/preview/mobile-toc'}
+    title={slug === 'mood-wheel' ? 'Mood wheel preview' : 'Mobile reading bar preview'}
+  />
 ) : (
   <ComponentPreviewFrame>
+    {slug === 'projects-deck' && (
+      <div class="preview-projects">
+        <ProjectStack client:visible />
+      </div>
+    )}
     {slug === 'button' && (
       <div class="preview-row">
         <Button>Primary</Button>
@@ -63,6 +78,19 @@ const mascotSvg = gridToSvg(PEEK_BASE.base, PEEK_BASE.width, PEEK_BASE.height, {
       </Card>
     )}
     {slug === 'decode-text' && <DecodeTextPreview client:visible />}
+    {slug === 'contact-links' && <ContactLinksPreview />}
+    {slug === 'tag-cards' && <TagsPreview />}
+    {slug === 'github-activity' && (
+      <div class="preview-contributions">
+        <GitHubContributions />
+      </div>
+    )}
+    {slug === 'update-pills' && <MoodButtonPreview />}
+    {slug === 'list-hover' && (
+      <div class="preview-hover-list">
+        <HoverListPreview />
+      </div>
+    )}
     {slug === 'listening' && (
       <div class="preview-listening">
         <Listening track={listeningDemoTrack} static />
