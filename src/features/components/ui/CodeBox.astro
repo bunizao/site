@@ -1,7 +1,9 @@
 ---
 import { Code } from 'astro:components';
 import { Check, Copy } from 'lucide-react';
+import { bundledLanguagesAlias } from 'shiki/langs';
 import { bundledThemes } from 'shiki/themes';
+import '../../../styles/code-box.css';
 
 // Astro's fine-grained Code highlighter only bundles themes it sees by name in
 // markdown config, so github-light isn't resolvable as a string here. Load the
@@ -20,6 +22,7 @@ interface Props {
   lang?: string;
 }
 const { code, lang = 'text' } = Astro.props;
+const highlightLang = lang in bundledLanguagesAlias ? lang : 'text';
 
 // Map a fence language to a display label + a monochrome brand mark. Marks stay
 // `currentColor` so they read in both themes and respect the monochrome
@@ -55,7 +58,7 @@ const label = logo?.label || lang;
   <div class="code-box-body">
     <Code
       code={code}
-      lang={lang as any}
+      lang={highlightLang as any}
       themes={{ light: githubLight, dark: githubDark }}
       defaultColor={false}
     />

@@ -297,55 +297,9 @@
   border-left-color: hsl(var(--foreground) / 0.45);
 }
 
-/* --- Code card + copy button -------------------------------------------- */
-.blog-prose .kg-code-card,
-.blog-prose pre {
-  position: relative;
-}
-
-.blog-prose .kg-code-card pre {
-  margin: 0;
-}
-
-/* Injected by Prose.astro's runtime; lives in the top-right of any <pre>. */
-.blog-prose .blog-copy {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 4px 8px;
-  border-radius: 7px;
-  border: 1px solid var(--blog-line);
-  background: hsl(var(--background));
-  color: var(--blog-faint);
-  font-family: var(--font-code);
-  font-size: 11px;
-  line-height: 1;
-  cursor: pointer;
-  opacity: 0;
-  transition: opacity 0.15s ease, color 0.15s ease, border-color 0.15s ease;
-}
-
-.blog-prose pre:hover .blog-copy,
-.blog-prose .blog-copy:focus-visible {
-  opacity: 1;
-}
-
-.blog-prose .blog-copy:hover {
-  color: var(--blog-ink);
-  border-color: hsl(var(--foreground) / 0.25);
-}
-
-.blog-prose .blog-copy[data-copied='true'] {
-  opacity: 1;
-  color: var(--blog-ink);
-}
-
-.blog-prose .blog-copy svg {
-  width: 13px;
-  height: 13px;
+/* Shared CodeBox replaces Ghost's code-card wrapper at render time. */
+.blog-prose > .code-box {
+  margin-block: 36px;
 }
 
 /* --- Bookmark card ------------------------------------------------------ */

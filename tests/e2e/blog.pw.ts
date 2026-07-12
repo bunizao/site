@@ -190,6 +190,17 @@ test.describe('Blog routes', () => {
     }
   });
 
+  test('renders Ghost code through the shared code box component', async ({ page }) => {
+    const response = await page.goto('/blog/email-philosophy/');
+
+    expect(response?.ok()).toBeTruthy();
+
+    const codeBox = page.locator('.blog-prose > .code-box').first();
+    await expect(codeBox).toBeVisible();
+    await expect(codeBox.locator('pre.astro-code')).toBeVisible();
+    await expect(codeBox.getByRole('button', { name: 'Copy code' })).toBeVisible();
+  });
+
   test('serves negotiated markdown for blog posts without crossing html cache entries', async ({ page, request }) => {
     const { firstPostHref, firstPostTitle } = await collectBlogIndexTargets(page);
     const cacheProbePath = `${firstPostHref}?agent-cache=e2e`;
