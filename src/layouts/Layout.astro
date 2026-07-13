@@ -32,7 +32,7 @@ interface Props {
 
 import '../styles/globals.css';
 import '../features/mood/styles/feed-rich-text.css';
-import { Moon, Sun, Monitor } from 'lucide-react';
+import { Moon, Sun, Monitor, Menu, X } from 'lucide-react';
 import AnimatedLogo from '@/features/logos/ui/AnimatedLogo.astro';
 import {
   PEEK_NAVBAR_LOGO,
@@ -360,7 +360,10 @@ const preloadFontHref = preloadFont === 'sans'
           aria-expanded="false"
           aria-controls="site-menu-sheet"
         >
-          <span class="menu-trigger-glyph" aria-hidden="true"><span></span><span></span></span>
+          <span class="menu-trigger-icons" aria-hidden="true">
+            <Menu className="menu-swap-icon menu-swap-icon--open" />
+            <X className="menu-swap-icon menu-swap-icon--close" />
+          </span>
         </button>
       )}
     </div>
@@ -730,7 +733,7 @@ const preloadFontHref = preloadFont === 'sans'
           if (!headerActions) return;
 
           // Get all header action buttons (excluding theme dropdown trigger)
-          const buttons = headerActions.querySelectorAll<HTMLElement>('.header-action-btn:not([data-theme-toggle])');
+          const buttons = headerActions.querySelectorAll<HTMLElement>('.header-action-btn:not([data-theme-toggle]):not(.menu-trigger)');
 
           // Store original widths
           const buttonData = new Map<
