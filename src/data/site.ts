@@ -313,7 +313,7 @@ export interface NavLink {
 
 export const navLinks: NavLink[] = [
   { label: 'Projects', href: '/projects', section: 'projects' },
-  { label: 'Writing', href: '/blog', section: 'writing' },
+  { label: 'Blog', href: '/blog', section: 'writing' },
   { label: 'Moods', href: '/mood', section: 'moods' },
   { label: 'Components', href: '/components' },
 ];

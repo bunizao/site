@@ -12,6 +12,7 @@ interface Props {
   showSiteNav?: boolean;
   siteMenu?: boolean;
   navVariant?: 'home' | 'page';
+  brandVariant?: 'home';
   headerActionsVariant?: 'default' | 'home';
   structuredData?: Record<string, unknown> | Array<Record<string, unknown>>;
   preloadFont?: 'mono' | 'sans';
@@ -55,6 +56,7 @@ const {
   showSiteNav = false,
   siteMenu,
   navVariant,
+  brandVariant,
   headerActionsVariant = 'default',
   structuredData,
   preloadFont = 'mono',
@@ -65,11 +67,16 @@ const {
 
 const isHomeNav = navVariant === 'home';
 const isPageNav = navVariant === 'page';
+// Render the home brand identity (big animated peek + wordmark) inside a plain
+// horizontal bar on non-home pages that want it (e.g. /components). It reuses
+// home's brand look without home's scroll-driven vertical sidebar.
+const brandHome = brandVariant === 'home';
+const brandRich = isHomeNav || brandHome;
 // The mobile menu (hamburger + sheet) is normally shown wherever the site nav
 // is. Opt in explicitly on chrome-hiding pages that still want it (e.g. the
 // /components index), and it stays off embedded specimen previews.
 const showMenu = siteMenu ?? !hideSiteNav;
-const showsBrandText = isHomeNav || isPageNav;
+const showsBrandText = isHomeNav || isPageNav || brandHome;
 const useHomeHeaderActions = isHomeNav || headerActionsVariant === 'home';
 const site = Astro.site ?? new URL('https://buxx.me');
 const siteName = meta.siteName;
@@ -237,6 +244,7 @@ const preloadFontHref = preloadFont === 'sans'
             'site-nav--mobile-visible': showSiteNav,
             'site-nav--home': isHomeNav,
             'site-nav--page': isPageNav,
+            'site-nav--brand-home': brandHome,
           },
         ]}
         data-site-nav
@@ -254,11 +262,11 @@ const preloadFontHref = preloadFont === 'sans'
             <AnimatedLogo
               definition={PEEK_NAVBAR_LOGO}
               animation={navbarDefaultAnimation}
-              hoverAnimation={isHomeNav ? navbarHoverAnimation : undefined}
-              size={isHomeNav ? 40 : 20}
+              hoverAnimation={brandRich ? navbarHoverAnimation : undefined}
+              size={brandRich ? 40 : 20}
               title="peek"
-              eventChannel={isHomeNav ? 'nav' : undefined}
-              eventAnimations={isHomeNav
+              eventChannel={brandRich ? 'nav' : undefined}
+              eventAnimations={brandRich
                 ? [
                     navbarLinkHoverAnimation,
                     navbarSectionActiveAnimation,
@@ -303,7 +311,13 @@ const preloadFontHref = preloadFont === 'sans'
             ))}
           </nav>
           <div class="site-menu-mascot" aria-hidden="true">
-            <AnimatedLogo definition={PEEK_NAVBAR_LOGO} size={44} title="peek" />
+            <AnimatedLogo
+              definition={PEEK_NAVBAR_LOGO}
+              animation="idle"
+              size={40}
+              title="peek"
+              eventChannel="menu"
+            />
           </div>
         </div>
       </div>
@@ -692,6 +706,10 @@ const preloadFontHref = preloadFont === 'sans'
           trigger.setAttribute('aria-expanded', 'true');
           trigger.classList.add('is-active');
           lockScroll();
+          // Wake the peek: a short curious beat, then back to its idle loop.
+          window.dispatchEvent(
+            new CustomEvent('peek:menu:set', { detail: { animation: 'curious', holdMs: 1600 } })
+          );
         };
 
         const close = () => {

@@ -785,6 +785,37 @@
     display: none;
   }
 
+  /* Home brand identity on a plain horizontal bar (opt-in via brandVariant="home"),
+     at every width: the big animated peek + wordmark, without home's vertical
+     sidebar. Reuses the same sizing tokens as home's mobile brand. */
+  .site-nav--brand-home .site-brand {
+    width: auto;
+    height: auto;
+    margin-right: 0;
+    gap: var(--site-nav-brand-gap);
+    border-radius: 8px;
+  }
+  .site-nav--brand-home .site-brand-logo {
+    display: inline-flex;
+    flex: 0 0 auto;
+    height: var(--site-nav-mobile-logo-height);
+    line-height: 0;
+  }
+  .site-nav--brand-home .site-brand-logo > span,
+  .site-nav--brand-home .site-brand-logo svg {
+    width: auto !important;
+    height: var(--site-nav-mobile-logo-height) !important;
+  }
+  .site-nav--brand-home .site-brand-text {
+    display: inline-block;
+    font-size: var(--site-nav-mobile-wordmark-size);
+    line-height: 1;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    color: hsl(var(--foreground));
+    white-space: nowrap;
+  }
+
   .nav-link {
     font-size: 11px;
     font-weight: 450;
@@ -1527,9 +1558,9 @@
   .site-menu-link {
     display: flex;
     align-items: center;
-    justify-content: center;
+    justify-content: flex-start;
     /* Airy row rhythm (~36px), monospace to match the site's type spine. */
-    padding: 0.5rem 0.75rem;
+    padding: 0.5rem 0.875rem;
     /* Concentric: card radius 16px − 4px padding = 12px inner. */
     border-radius: 12px;
     font-family: var(--font-mono);
@@ -1537,7 +1568,7 @@
     font-weight: 500;
     letter-spacing: 0.045em;
     color: hsl(var(--muted-foreground));
-    text-align: center;
+    text-align: left;
     opacity: 0;
     transform: translateY(4px);
     transition: opacity 220ms ease, transform 220ms cubic-bezier(0.23, 1, 0.32, 1),
@@ -1575,11 +1606,11 @@
 
   .site-menu-mascot {
     display: flex;
-    justify-content: center;
+    justify-content: flex-start;
     margin-top: 0.25rem;
-    padding-top: 0.55rem;
-    padding-bottom: 0.35rem;
-    color: hsl(var(--muted-foreground) / 0.8);
+    padding: 0.55rem 0.875rem 0.35rem;
+    /* Full foreground — the peek is a character, not a faint watermark. */
+    color: hsl(var(--foreground));
     opacity: 0;
     transition: opacity 220ms ease;
   }
