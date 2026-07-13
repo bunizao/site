@@ -785,9 +785,41 @@
     display: none;
   }
 
-  /* Home brand identity on a plain horizontal bar (opt-in via brandVariant="home"),
-     at every width: the big animated peek + wordmark, without home's vertical
-     sidebar. Reuses the same sizing tokens as home's mobile brand. */
+  /* Home brand identity as a real header bar (opt-in via brandVariant="home"),
+     at every width: full-width strip with blur + hairline, the big animated peek
+     + wordmark inside — without home's vertical sidebar. The header actions are a
+     separate fixed element, so they get re-centered into the bar just below. */
+  .site-nav--brand-home {
+    top: var(--site-nav-mobile-top, 0px);
+    left: 0;
+    right: 0;
+    height: var(--site-nav-mobile-height);
+    padding: 0 4.5rem 0 1rem;
+    z-index: 60;
+    border-bottom: 1px solid hsl(var(--foreground) / 0.08);
+    background: hsl(var(--background) / 0.58);
+    backdrop-filter: blur(14px) saturate(140%);
+    -webkit-backdrop-filter: blur(14px) saturate(140%);
+  }
+
+  @media (min-width: 900px) {
+    .site-nav--brand-home {
+      padding-left: 1.5rem;
+    }
+  }
+
+  .global-header-actions.has-brand-home-bar {
+    top: calc(env(safe-area-inset-top, 0px) + var(--visual-viewport-top, 0px) + 0.625rem);
+    right: 1rem;
+    z-index: 61;
+  }
+
+  @media (min-width: 900px) {
+    .global-header-actions.has-brand-home-bar {
+      right: 1.5rem;
+    }
+  }
+
   .site-nav--brand-home .site-brand {
     width: auto;
     height: auto;
@@ -1471,6 +1503,14 @@
     }
   }
 
+  /* Brand-home pages have no desktop sidebar, so the menu is their only nav —
+     keep the trigger visible at every width there. */
+  @media (min-width: 900px) {
+    .global-header-actions.has-brand-home-bar .menu-trigger {
+      display: inline-flex;
+    }
+  }
+
   @media (prefers-reduced-motion: reduce) {
     .menu-swap-icon {
       transition-duration: 1ms;
@@ -1496,7 +1536,9 @@
   }
 
   @media (min-width: 900px) {
-    .site-menu {
+    /* Desktop normally uses the sidebar/inline nav, so the sheet is hidden — but
+       brand-home pages (e.g. /components) have no other nav, so keep it usable. */
+    .site-menu:not(.site-menu--desktop) {
       display: none !important;
     }
   }

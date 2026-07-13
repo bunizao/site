@@ -294,7 +294,7 @@ const preloadFontHref = preloadFont === 'sans'
 
     <!-- Site menu: top-right dropdown (site-wide) -->
     {showMenu && (
-      <div class="site-menu" data-site-menu hidden>
+      <div class:list={['site-menu', { 'site-menu--desktop': brandHome }]} data-site-menu hidden>
         <div class="site-menu-scrim" data-menu-close aria-hidden="true"></div>
         <div
           class="site-menu-sheet"
@@ -330,6 +330,7 @@ const preloadFontHref = preloadFont === 'sans'
         {
           'global-header-actions--home': useHomeHeaderActions,
           'has-menu-sheet': showMenu,
+          'has-brand-home-bar': brandHome,
         },
       ]}
       data-header-actions
