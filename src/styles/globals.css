@@ -1486,26 +1486,30 @@
 
   /* Compact dropdown card anchored under the header controls, top-right.
      Scales open from that corner (origin-aware, per popover convention). */
+  /* Narrow, tall, centered — a tight column, not a wide plate. 1px ring plus a
+     soft ambient glow (no offset drop), matching the reference popover. */
   .site-menu-sheet {
     position: absolute;
-    top: calc(env(safe-area-inset-top, 0px) + 3.3rem);
+    top: calc(env(safe-area-inset-top, 0px) + 3.5rem);
     right: 1rem;
-    width: 12.5rem;
+    width: 8.5rem;
     max-width: calc(100vw - 2rem);
-    /* Same recipe as .theme-dropdown-menu so the two popovers are siblings. */
     padding: 4px;
     background: hsl(var(--background));
-    border: 1px solid hsl(var(--foreground) / 0.1);
-    border-radius: 12px;
-    box-shadow:
-      0 8px 24px hsl(var(--foreground) / 0.08),
-      0 2px 8px hsl(var(--foreground) / 0.04);
+    border: 1px solid hsl(var(--foreground) / 0.08);
+    border-radius: 16px;
+    box-shadow: 0 12px 32px -10px hsl(var(--foreground) / 0.16);
     -webkit-font-smoothing: antialiased;
     transform-origin: top right;
     opacity: 0;
     transform: translateY(-6px) scale(0.96);
     transition: opacity 180ms cubic-bezier(0.32, 0.72, 0, 1),
       transform 180ms cubic-bezier(0.32, 0.72, 0, 1);
+  }
+
+  .dark .site-menu-sheet {
+    border-color: hsl(var(--foreground) / 0.1);
+    box-shadow: 0 0 24px rgba(0, 0, 0, 0.5);
   }
 
   .site-menu.is-open .site-menu-sheet {
@@ -1517,20 +1521,21 @@
   .site-menu-links {
     display: flex;
     flex-direction: column;
-    gap: 1px;
+    gap: 2px;
   }
 
   .site-menu-link {
     display: flex;
     align-items: center;
     justify-content: center;
+    /* Airy row rhythm (~36px), monospace to match the site's type spine. */
     padding: 0.5rem 0.75rem;
-    /* Concentric: card radius 12px − 4px padding = 8px inner. */
-    border-radius: 8px;
-    font-family: var(--font-display);
-    font-size: 0.875rem;
+    /* Concentric: card radius 16px − 4px padding = 12px inner. */
+    border-radius: 12px;
+    font-family: var(--font-mono);
+    font-size: 0.8125rem;
     font-weight: 500;
-    letter-spacing: -0.006em;
+    letter-spacing: 0.045em;
     color: hsl(var(--muted-foreground));
     text-align: center;
     opacity: 0;
@@ -1562,20 +1567,19 @@
     transform: scale(0.97);
   }
 
+  /* Current page: brighter + heavier, no filled box (no corner to get wrong). */
   .site-menu-link[aria-current='page'] {
     color: hsl(var(--foreground));
     font-weight: 600;
-    background: hsl(var(--foreground) / 0.06);
   }
 
   .site-menu-mascot {
     display: flex;
     justify-content: center;
-    margin-top: 0.375rem;
-    padding-top: 0.7rem;
-    padding-bottom: 0.15rem;
-    border-top: 1px solid hsl(var(--foreground) / 0.07);
-    color: hsl(var(--muted-foreground) / 0.85);
+    margin-top: 0.25rem;
+    padding-top: 0.55rem;
+    padding-bottom: 0.35rem;
+    color: hsl(var(--muted-foreground) / 0.8);
     opacity: 0;
     transition: opacity 220ms ease;
   }
