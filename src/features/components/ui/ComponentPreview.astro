@@ -1,10 +1,7 @@
 ---
-// Single source of truth for a component's LIVE preview. Both the index
-// showcase and the /components/[slug] detail page render through this, so the
-// two can never drift (the index used to show fake placeholder glyphs).
-//
-// mood-wheel takes over scroll / uses fixed positioning, so it renders in an
-// iframe; everything else is an inline island sharing the page's shadcn tokens.
+// Shared live-preview dispatcher for /components/[slug] detail pages. The index
+// curates tile-sized specimens directly instead of rendering through this view.
+// Viewport-coupled previews use iframes; other entries share the page's tokens.
 import ComponentPreviewFrame from './ComponentPreviewFrame.astro';
 import DecodeTextPreview from '@/features/components/previews/DecodeTextPreview';
 import Listening from '@/features/home/ui/Listening.astro';

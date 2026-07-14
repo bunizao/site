@@ -114,6 +114,57 @@ async function firstScrambleGlyph(charset: string): Promise<string> {
   }
 }
 
+async function hasNonMonotonicSettlement(): Promise<boolean> {
+  const page = await browser.newPage();
+  try {
+    await page.setContent('<div id="target">ABCDEFGH</div>');
+    return await page.evaluate(async (source) => {
+      const moduleUrl = URL.createObjectURL(new Blob([source], { type: 'text/javascript' }));
+      try {
+        const { prepareDecode } = await import(moduleUrl);
+        const root = document.querySelector<HTMLElement>('#target');
+        if (!root) throw new Error('Missing decode target');
+
+        const controller = await prepareDecode(root, {
+          charset: '#',
+          cursorChar: '-',
+          ease: (progress: number) => progress,
+          fontTimeout: 0,
+          maxLineDuration: 0.3,
+          minLineDuration: 0.3,
+          mutationHz: 18,
+          order: 'shuffle',
+          respectReducedMotion: false,
+          scrambleFromText: false,
+        });
+        let finished = false;
+        let nonMonotonic = false;
+        void controller.finished.then(() => {
+          finished = true;
+        });
+        controller.start();
+
+        while (!finished) {
+          await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+          const cells = Array.from(root.querySelectorAll<HTMLElement>('.dt-c'));
+          let foundUnsettledCell = false;
+          cells.forEach((cell, index) => {
+            const settled = !cell.dataset.state && cell.textContent === 'ABCDEFGH'[index];
+            if (!settled) foundUnsettledCell = true;
+            else if (foundUnsettledCell) nonMonotonic = true;
+          });
+        }
+
+        return nonMonotonic;
+      } finally {
+        URL.revokeObjectURL(moduleUrl);
+      }
+    }, moduleSource);
+  } finally {
+    await page.close();
+  }
+}
+
 describe('decode-text grapheme handling', () => {
   test('reveals one cell per user-visible grapheme', async () => {
     const cells = await decodeCells('A😀𠮷e\u0301👩‍💻');
@@ -135,6 +186,10 @@ describe('decode-text grapheme handling', () => {
 
   test('renders a custom grapheme charset without splitting its glyphs', async () => {
     expect(await firstScrambleGlyph('👩‍💻')).toBe('👩‍💻');
+  });
+
+  test('keeps final resolution left to right in shuffle mode', async () => {
+    expect(await hasNonMonotonicSettlement()).toBe(false);
   });
 
   test('still collapses consecutive whitespace into one cell', async () => {

@@ -59,7 +59,7 @@ and font-style that differ from the host are baked onto each character, so
 | `charset` | `` __-—/\|<> `` | Scramble glyph pool |
 | `cursorChar` | `-` | Glyph a cell shows between the show and mash fronts |
 | `layout` | `grow` | `grow` (condense, monospace) / `static` (pop in place, any font) |
-| `order` | `shuffle` | Queue order: `shuffle` (original) or `ltr` (smooth right-edge growth; resolution stays shuffled) |
+| `order` | `shuffle` | Show/mash queue: `shuffle` (original) or `ltr` (smooth right-edge growth); final resolution is left to right in both modes |
 | `showPower` | `0.5` | Show front exponent — cells turn visible as `p^showPower` sweeps the queue |
 | `mashPower` | `2` | Mash front exponent — cursor graduates to scramble |
 | `donePower` | `15` | Done front exponent — higher = later, sharper end cascade |

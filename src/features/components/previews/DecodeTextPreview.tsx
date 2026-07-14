@@ -2,9 +2,8 @@ import * as React from 'react';
 import { prepareDecode, type DecodeController } from '@bunizao/decode-text';
 
 // A real paragraph, not three words — the decode effect only reads as an effect
-// when there's a body of text to boil. Each line resolves in shuffled order (the
-// engine groups by visual line), so a full block churns dramatically before
-// settling. More lines, smaller type = more surface for the noise to crawl over.
+// when there's a body of text to boil. Visual lines scramble independently, then
+// settle left to right. More lines, smaller type = more surface for the noise.
 const LINES = [
   'Every pixel here is placed on purpose, and',
   'the motion is tuned rather than decorated.',
