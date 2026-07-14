@@ -31,6 +31,23 @@ Cloudflare's [free Bot Fight Mode documentation](https://developers.cloudflare.c
 
 Confidence: high.
 
+### Unmerged Cloudflare performance guidance
+
+Cloudflare's documentation repository has an open PR,
+[cloudflare/cloudflare-docs#31576](https://github.com/cloudflare/cloudflare-docs/pull/31576),
+opened 2026-06-19, whose stated purpose is to add guidance for testing JSD's
+effect on FCP and LCP. It proposes using the JSD API on performance-sensitive
+pages and loading JSD after critical content renders or immediately before a
+protected API request.
+
+This is unusually direct evidence that the performance tradeoff is known inside
+the official documentation workflow. However, the PR is still open, has no
+approving review, and is not published Cloudflare guidance. Treat it as a
+directional proposal, not current product policy.
+
+Confidence: high for the PR's existence and contents; low as a statement of
+officially supported policy until it is merged.
+
 ### `no-transform` and compression
 
 Cloudflare's [Cache-Control documentation](https://developers.cloudflare.com/cache/concepts/cache-control/#interaction-with-other-cloudflare-features) (updated 2026-06-30) states both sides of the tradeoff explicitly:
@@ -87,9 +104,24 @@ Confidence: low to medium; both are user reports.
 
 ### Third-party GitHub reports
 
+- [Slogoc/slogoc#47](https://github.com/Slogoc/slogoc/issues/47) (2026-03-23)
+  records a 21,767 ms throttled-mobile main-thread task attributed to
+  `jsd/main.js`. The maintainer closed it as Cloudflare-injected and not locally
+  actionable. The issue does not include the raw trace, so the number should be
+  treated as an anecdotal run rather than a reproducible benchmark.
 - [Monferrina/vetreriamonferrina.com#75](https://github.com/Monferrina/vetreriamonferrina.com/pull/75) (2026-04-01) attributes 2,829 ms mobile TBT and Lighthouse deprecated-API warnings to the Cloudflare challenge script. It does not link raw Lighthouse JSON.
 - [Iamrushabhshahh/iamrushabhshahh.github.io#3](https://github.com/Iamrushabhshahh/iamrushabhshahh.github.io/pull/3) (2026-07-10) reports roughly three seconds of throttled-mobile main-thread work from Bot Fight Mode and says production differs from the optimized local result. It does not link the trace artifact.
 - [google/site-kit-wp#12504](https://github.com/google/site-kit-wp/issues/12504) (opened 2026-04-14) reports an orphaned Google Tag Gateway registration loading an additional approximately 183 KiB tag after plugin deletion, with claimed mobile Lighthouse/Core Web Vitals impact. The issue is open and is a user report in a Google-owned repository, not an accepted Google finding. Its duplicate-load edge case must not be generalized to a normal gateway setup.
+
+Two merged third-party fixes also demonstrate that operators are using the
+documented `no-transform` behavior in production:
+
+- [ttlequals0/PhotoShare#34](https://github.com/ttlequals0/PhotoShare/pull/34)
+  added `no-transform` to suppress JSD and included Playwright verification of
+  the script's absence.
+- [aindaco1/store#8](https://github.com/aindaco1/store/pull/8) applied a
+  path-scoped Cloudflare Cache Response Rule for admin HTML and verified the
+  effective production headers and absence of injected scripts.
 
 Confidence: low to medium. These are third-party claims or open issues, not merged upstream fixes or vendor-confirmed defects.
 
