@@ -17,6 +17,12 @@ const showcasedSlugs = [
   'update-pills',
   'list-hover',
 ] as const;
+const publishedSlugs = [
+  'button',
+  'badge',
+  'card',
+  ...showcasedSlugs,
+] as const;
 
 function readText(path: string): string {
   return readFileSync(join(root, path), 'utf8');
@@ -51,11 +57,40 @@ describe('components showcase registry', () => {
     expect(existsSync(join(root, 'src/pages/r/[name].json.ts'))).toBe(true);
     expect(headers).toContain('https://buxx.me/r/*');
     expect(headers).toContain('Content-Type: application/json; charset=utf-8');
-    for (const slug of showcasedSlugs) {
+    for (const slug of publishedSlugs) {
       const content = readText(`src/content/components/${slug}.md`);
       expect(content).toContain('type: registry');
       expect(registry).toContain(slug);
     }
+  });
+
+  test('builds every published registry payload', async () => {
+    const items = await Promise.all(
+      publishedSlugs.map((slug) => buildRegistryItem(registryEntry(slug)))
+    );
+
+    expect(items.map(({ name }) => name)).toEqual([...publishedSlugs]);
+    for (const item of items) {
+      expect(item.files.length).toBeGreaterThan(0);
+    }
+  });
+
+  test('keeps decode text component and engine targets distinct', async () => {
+    const item = await buildRegistryItem(registryEntry('decode-text'));
+
+    expect(item.files.map(({ target, type }) => ({ target, type }))).toEqual([
+      { target: '@ui/decode-text.tsx', type: 'registry:ui' },
+      { target: '@lib/decode-text-engine.ts', type: 'registry:lib' },
+    ]);
+    expect(item.files[0]?.content).toContain("from '@/lib/decode-text-engine'");
+    expect(item.files[0]?.content).not.toContain("from '@/components/ui/decode-text'");
+  });
+
+  test('publishes the shared listening track contract', async () => {
+    const item = await buildRegistryItem(registryEntry('listening'));
+
+    expect(item.files[0]?.content).toContain("from '@/lib/listening-types'");
+    expect(item.files[1]?.content).toBe(readText('src/features/home/types.ts'));
   });
 
   test('publishes the mobile reading bar as an installable component', async () => {
@@ -79,6 +114,10 @@ describe('components showcase registry', () => {
   test('publishes mood wheel files at stable library targets', async () => {
     const item = await buildRegistryItem(registryEntry('mood-wheel'));
 
+    expect(item).toMatchObject({
+      name: 'mood-wheel',
+      type: 'registry:ui',
+    });
     expect(item.files.map(({ path, target, type }) => ({ path, target, type }))).toEqual([
       {
         path: 'features/mood/client/timeline-wheel.ts',
@@ -90,9 +129,23 @@ describe('components showcase registry', () => {
         target: '@lib/timeline-date-tracker.ts',
         type: 'registry:lib',
       },
+      {
+        path: 'features/mood/ui/TimelineWheel.astro',
+        target: '@ui/timeline-wheel.astro',
+        type: 'registry:ui',
+      },
     ]);
     expect(item.files[0]?.content).toContain("from '@/lib/timeline-date-tracker'");
+    expect(item.files[2]?.content).toContain("from '@/lib/timeline-wheel'");
+    expect(item.files[2]?.content).toContain('data-timeline-wheel');
     expect(item.files.some(({ content }) => content.includes('@/features/'))).toBe(false);
+  });
+
+  test('honors reduced motion in detail table of contents navigation', () => {
+    const onThisPage = readText('src/features/components/ui/OnThisPage.astro');
+
+    expect(onThisPage).toContain("matchMedia('(prefers-reduced-motion: reduce)')");
+    expect(onThisPage).toContain("behavior: reducedMotion.matches ? 'auto' : 'smooth'");
   });
 
   test('does not publish the mascot through the component registry', async () => {

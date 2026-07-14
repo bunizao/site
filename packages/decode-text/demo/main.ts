@@ -1,20 +1,20 @@
 import { decodeText, type DecodeController, type DecodeLayout, type DecodeOrder } from '../src/index';
 
-const $ = <T extends HTMLElement>(id: string): T => document.getElementById(id) as T;
+const getById = <T extends HTMLElement>(id: string): T => document.getElementById(id) as T;
 
-const stage = $<HTMLDivElement>('stage');
-const text = $<HTMLTextAreaElement>('text');
-const layout = $<HTMLSelectElement>('layout');
-const order = $<HTMLSelectElement>('order');
-const font = $<HTMLSelectElement>('font');
-const charset = $<HTMLInputElement>('charset');
-const speed = $<HTMLInputElement>('speed');
-const boil = $<HTMLInputElement>('boil');
-const done = $<HTMLInputElement>('done');
-const speedOut = $<HTMLOutputElement>('speedOut');
-const boilOut = $<HTMLOutputElement>('boilOut');
-const doneOut = $<HTMLOutputElement>('doneOut');
-const replay = $<HTMLButtonElement>('replay');
+const stage = getById<HTMLDivElement>('stage');
+const text = getById<HTMLTextAreaElement>('text');
+const layout = getById<HTMLSelectElement>('layout');
+const order = getById<HTMLSelectElement>('order');
+const font = getById<HTMLSelectElement>('font');
+const charset = getById<HTMLInputElement>('charset');
+const speed = getById<HTMLInputElement>('speed');
+const boil = getById<HTMLInputElement>('boil');
+const done = getById<HTMLInputElement>('done');
+const speedOut = getById<HTMLOutputElement>('speedOut');
+const boilOut = getById<HTMLOutputElement>('boilOut');
+const doneOut = getById<HTMLOutputElement>('doneOut');
+const replay = getById<HTMLButtonElement>('replay');
 
 let controller: DecodeController | null = null;
 

@@ -10,7 +10,6 @@ interface Props {
   robots?: string;
   hideSiteNav?: boolean;
   showSiteNav?: boolean;
-  siteMenu?: boolean;
   navVariant?: 'home' | 'page';
   brandVariant?: 'home';
   headerActionsVariant?: 'default' | 'home';
@@ -54,7 +53,6 @@ const {
   robots,
   hideSiteNav = false,
   showSiteNav = false,
-  siteMenu,
   navVariant,
   brandVariant,
   headerActionsVariant = 'default',
@@ -72,10 +70,9 @@ const isPageNav = navVariant === 'page';
 // home's brand look without home's scroll-driven vertical sidebar.
 const brandHome = brandVariant === 'home';
 const brandRich = isHomeNav || brandHome;
-// The mobile menu (hamburger + sheet) is normally shown wherever the site nav
-// is. Opt in explicitly on chrome-hiding pages that still want it (e.g. the
-// /components index), and it stays off embedded specimen previews.
-const showMenu = siteMenu ?? !hideSiteNav;
+// The mobile menu follows the site nav and stays off chrome-hiding pages and
+// embedded specimen previews.
+const showMenu = !hideSiteNav;
 const showsBrandText = isHomeNav || isPageNav || brandHome;
 const useHomeHeaderActions = isHomeNav || headerActionsVariant === 'home';
 const site = Astro.site ?? new URL('https://buxx.me');

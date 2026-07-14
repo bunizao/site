@@ -9,11 +9,20 @@ source: https://github.com/bunizao/site/blob/main/src/features/mood/ui/TimelineW
 credits: Precision-instrument aesthetic; slot-text readout by Bunizao.
 ---
 
-```ts
-import { mountTimelineWheel } from '@/lib/timeline-wheel';
+```astro
+---
+import TimelineWheel from '@/components/ui/timeline-wheel.astro';
+---
 
-mountTimelineWheel(root, {
-  feed: document.querySelector('[data-mood-feed]'),
-  list: document.querySelector('[data-mood-list]'),
-});
+<main>
+  <TimelineWheel compact />
+  <div data-mood-feed>
+    <div data-mood-list aria-busy="false">
+      <section class="mood-date-group" data-date="2026-07-15">
+        <h2 class="mood-date-header">July 15</h2>
+        <article class="mood-item">Your timeline content</article>
+      </section>
+    </div>
+  </div>
+</main>
 ```

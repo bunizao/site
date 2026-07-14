@@ -109,14 +109,18 @@ const { items } = Astro.props;
     const targets = Array.from(links.keys())
       .map((id) => document.getElementById(id))
       .filter((el): el is HTMLElement => Boolean(el));
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
 
-    // Smooth scroll on click without animating the nav itself.
+    // Scroll on click without animating the nav itself.
     links.forEach((el, id) => {
       el.addEventListener('click', (e) => {
         const target = document.getElementById(id);
         if (!target) return;
         e.preventDefault();
-        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        target.scrollIntoView({
+          behavior: reducedMotion.matches ? 'auto' : 'smooth',
+          block: 'start',
+        });
         history.replaceState(null, '', `#${id}`);
       });
     });

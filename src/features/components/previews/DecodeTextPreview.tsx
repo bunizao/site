@@ -41,10 +41,10 @@ export function DecodeTextPreview() {
     window.clearTimeout(loopTimer.current);
     controller.current?.cancel();
     el.innerHTML = original.current;
-    const c = await prepareDecode(el, { layout: 'grow' });
-    controller.current = c;
-    c.start();
-    await c.finished;
+    const nextController = await prepareDecode(el, { layout: 'grow' });
+    controller.current = nextController;
+    nextController.start();
+    await nextController.finished;
     running.current = false;
     // Keep the loop alive only while the tile is visible — a hidden tab or a
     // scrolled-away tile shouldn't burn frames.
