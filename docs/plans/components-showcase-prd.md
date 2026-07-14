@@ -1,6 +1,6 @@
 # Components Showcase
 
-Status: **implemented; final hardening in progress**
+Status: **implemented; merge-ready**
 
 Branch: `feat/components-showcase`
 
