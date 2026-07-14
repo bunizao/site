@@ -33,6 +33,9 @@
   "services": [
     { "binding": "API", "service": "site-api" }
   ],
+  "kv_namespaces": [
+    { "binding": "SESSION", "id": "e1a1eec45d974679898530298997b465" }
+  ],
   "routes": [
     { "pattern": "buxx.me/*", "zone_name": "buxx.me" },
     { "pattern": "www.buxx.me/*", "zone_name": "buxx.me" }

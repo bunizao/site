@@ -175,6 +175,7 @@ describe('Cloudflare runtime configuration', () => {
       };
       routes?: Array<{ pattern?: string; zone_name?: string; custom_domain?: boolean }>;
       services?: Array<{ binding?: string; service?: string }>;
+      kv_namespaces?: Array<{ binding?: string; id?: string }>;
       triggers?: { crons?: string[] };
       vars?: Record<string, string>;
     };
@@ -208,6 +209,10 @@ describe('Cloudflare runtime configuration', () => {
     expect(config.routes?.some((route) => route.pattern === 'cf-migration.buxx.me')).toBe(false);
     expect(config.routes?.some((route) => route.pattern === 'image.buxx.me')).toBe(false);
     expect(config.services).toContainEqual({ binding: 'API', service: 'site-api' });
+    expect(config.kv_namespaces).toContainEqual({
+      binding: 'SESSION',
+      id: 'e1a1eec45d974679898530298997b465',
+    });
     expect(config.vars).toMatchObject({
       SITE_URL: 'https://buxx.me',
       PUBLIC_SITE_URL: 'https://buxx.me',
