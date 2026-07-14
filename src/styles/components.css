@@ -95,7 +95,7 @@ body:has(.components)::before {
    shadow. This is content-agnostic — it reads as elevation over anything. The
    old translucent background flood (foreground/0.035) only landed on the gutter
    around a specimen that carried its own surface (album art, tag images) or
-   flipped the opaque iframe tiles, leaving the two-tone "色差" the wall showed
+   flipped the opaque iframe tiles, leaving the two-tone mismatch the wall showed
    on hover. The lift uses the standalone `translate` property (not `transform`)
    so it never collides with the reveal animation's transform. In dark mode the
    shadow all but vanishes, so the border and the lift carry the hover there. */
@@ -863,13 +863,6 @@ html.dark .cgrid-tile:hover {
   color: hsl(var(--foreground));
   cursor: pointer;
   user-select: none;
-}
-
-.preview-mascot svg,
-.preview-mascot {
-  width: 8rem;
-  height: auto;
-  color: hsl(var(--foreground));
 }
 
 /* The listening widget is fit-content; keep it centered and give the marquee

@@ -5,14 +5,19 @@ tier: composition
 order: 56
 install:
   type: registry
-source: https://github.com/bunizao/site/blob/main/src/pages/components/preview/mobile-toc.astro
+source: https://github.com/bunizao/site/blob/main/src/features/components/ui/MobileReadingBar.astro
 credits: Original mobile reading navigation by Bunizao.
 ---
 
 ```astro
 ---
-import MobileReadingBar from '@/lib/mobile-toc.astro';
+import MobileReadingBar from '@/components/ui/mobile-reading-bar.astro';
+
+const sections = [
+  { id: 'introduction', title: 'Introduction' },
+  { id: 'details', title: 'Details' },
+];
 ---
 
-<MobileReadingBar />
+<MobileReadingBar sections={sections} />
 ```

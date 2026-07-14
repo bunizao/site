@@ -18,8 +18,6 @@ import TagsPreview from '@/features/components/previews/TagsPreview.astro';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui/card';
-import { gridToSvg } from '@/features/logos/lib/render';
-import { PEEK_BASE } from '@/features/mascot/peek/base';
 
 interface Props {
   slug: string;
@@ -31,10 +29,6 @@ const { slug } = Astro.props;
 // disc on play. The homepage fallback stays "now playing" untouched.
 const listeningDemoTrack = { ...FALLBACK_TRACK, isNowPlaying: false };
 
-const mascotSvg = gridToSvg(PEEK_BASE.base, PEEK_BASE.width, PEEK_BASE.height, {
-  fg: 'currentColor',
-  accent: PEEK_BASE.accent,
-});
 ---
 
 {slug === 'mood-wheel' || slug === 'mobile-reading-bar' ? (
@@ -96,6 +90,5 @@ const mascotSvg = gridToSvg(PEEK_BASE.base, PEEK_BASE.width, PEEK_BASE.height, {
         <Listening track={listeningDemoTrack} static />
       </div>
     )}
-    {slug === 'mascot' && <span class="preview-mascot" set:html={mascotSvg} />}
   </ComponentPreviewFrame>
 )}

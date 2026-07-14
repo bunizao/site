@@ -39,16 +39,6 @@ const primitiveConfig = {
   card: {},
 } as const;
 
-const mascotCssVars = {
-  'peek-look-red': '#e85a4f',
-  'peek-look-white': '#fafaf7',
-  'peek-look-gold': '#f0c14b',
-  'peek-look-green': '#6aa07c',
-  'peek-look-ink': '#fafaf7',
-  'peek-look-purple': '#9b80d8',
-  'peek-look-brown': '#b48662',
-};
-
 async function readRegistryFile(relativePath: string, type: RegistryFileType): Promise<RegistryFile> {
   return {
     path: relativePath,
@@ -93,31 +83,32 @@ async function buildPrimitiveItem(name: keyof typeof primitiveConfig): Promise<R
   };
 }
 
-async function buildMascotItem(): Promise<RegistryItem> {
-  const paths = await listFiles('features/mascot/peek');
-  return {
-    $schema: REGISTRY_ITEM_SCHEMA,
-    name: 'mascot',
-    type: 'registry:lib',
-    files: await Promise.all(paths.map((filePath) => readRegistryFile(filePath, 'registry:lib'))),
-    cssVars: {
-      light: mascotCssVars,
-      dark: mascotCssVars,
-    },
-  };
-}
-
 async function buildMoodWheelItem(): Promise<RegistryItem> {
-  const paths = [
-    'features/mood/client/timeline-wheel.ts',
-    'features/mood/client/timeline-date-tracker.ts',
+  const sources = [
+    {
+      path: 'features/mood/client/timeline-wheel.ts',
+      target: '@lib/timeline-wheel.ts',
+    },
+    {
+      path: 'features/mood/client/timeline-date-tracker.ts',
+      target: '@lib/timeline-date-tracker.ts',
+    },
   ];
+  const files = await Promise.all(sources.map(async ({ path: filePath, target }) => ({
+    ...await readRegistryFile(filePath, 'registry:lib'),
+    target,
+  })));
+  files[0].content = files[0].content.replace(
+    "@/features/mood/client/timeline-date-tracker",
+    '@/lib/timeline-date-tracker'
+  );
+
   return {
     $schema: REGISTRY_ITEM_SCHEMA,
     name: 'mood-wheel',
     type: 'registry:lib',
     dependencies: ['gsap', 'slot-text'],
-    files: await Promise.all(paths.map((filePath) => readRegistryFile(filePath, 'registry:lib'))),
+    files,
     cssVars: {
       light: { 'wheel-size': '600px' },
       dark: { 'wheel-size': '600px' },
@@ -239,7 +230,6 @@ export async function buildRegistryItem(
     return buildPrimitiveItem(entry.id as keyof typeof primitiveConfig);
   }
 
-  if (entry.id === 'mascot') return buildMascotItem();
   if (entry.id === 'mood-wheel') return buildMoodWheelItem();
   if (entry.id === 'listening') return buildListeningItem();
   if (entry.id === 'decode-text') return buildDecodeTextItem();
@@ -257,13 +247,17 @@ export async function buildRegistryItem(
     return item;
   }
   if (entry.id === 'mobile-reading-bar') {
-    const item = await buildPreviewItem(entry.id, ['pages/components/preview/mobile-toc.astro']);
-    item.files[0].content = item.files[0].content
-      .replace("import '@/styles/globals.css';\n", '')
-      .replaceAll('var(--background)', 'var(--background, 0 0% 100%)')
-      .replaceAll('var(--foreground)', 'var(--foreground, 0 0% 0%)')
-      .replaceAll('var(--muted-foreground)', 'var(--muted-foreground, 0 0% 45%)');
-    return item;
+    const file = await readRegistryFile(
+      'features/components/ui/MobileReadingBar.astro',
+      'registry:ui'
+    );
+    file.target = '@ui/mobile-reading-bar.astro';
+    return {
+      $schema: REGISTRY_ITEM_SCHEMA,
+      name: entry.id,
+      type: 'registry:ui',
+      files: [file],
+    };
   }
   if (entry.id === 'tag-cards') {
     const item = await buildPreviewItem(entry.id, ['features/components/previews/TagsPreview.astro']);
