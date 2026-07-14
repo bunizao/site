@@ -30,18 +30,20 @@ describe('navbar regression guards', () => {
     expect(source).toContain('padding-top: calc(env(safe-area-inset-top, 0px) + 4.75rem);');
   });
 
-  test('mobile navbar keeps Safari safe-area offset and releases brand space when collapsed', () => {
-    const source = read('src/styles/globals.css');
+  test('mobile navbar keeps Safari safe-area offset and exposes the menu sheet', () => {
+    const layoutSource = read('src/layouts/Layout.astro');
+    const globalStyles = read('src/styles/globals.css');
 
-    expect(source).toContain('.site-nav--home {');
-    expect(source).toContain('--site-nav-mobile-top: calc(env(safe-area-inset-top, 0px) + var(--visual-viewport-top, 0px));');
-    expect(source).toContain('top: var(--site-nav-mobile-top);');
-    expect(source).toContain('.site-nav--home::before');
-    expect(source).toContain('height: env(safe-area-inset-top, 0px);');
-    expect(source).toContain(".site-nav--home.is-brand-eaten .site-brand {");
-    expect(source).toContain('min-width: var(--site-nav-mobile-logo-width);');
-    expect(source).toContain('.site-nav--home.is-brand-eaten .site-brand-text {');
-    expect(source).toContain('flex-basis: 0;');
+    expect(globalStyles).toContain('.site-nav--home {');
+    expect(globalStyles).toContain('--site-nav-mobile-top: calc(env(safe-area-inset-top, 0px) + var(--visual-viewport-top, 0px));');
+    expect(globalStyles).toContain('top: var(--site-nav-mobile-top);');
+    expect(globalStyles).toContain('.site-nav--home::before');
+    expect(globalStyles).toContain('height: env(safe-area-inset-top, 0px);');
+    expect(globalStyles).toContain('.site-nav .nav-links {\n      display: none;\n    }');
+    expect(layoutSource).toContain('id="site-menu-sheet"');
+    expect(layoutSource).toContain('role="dialog"');
+    expect(layoutSource).toContain('aria-modal="true"');
+    expect(layoutSource).toContain('aria-controls="site-menu-sheet"');
   });
 
   test('layout compensates fixed mobile chrome for visual viewport movement', () => {

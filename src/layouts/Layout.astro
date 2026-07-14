@@ -672,7 +672,27 @@ const preloadFontHref = preloadFont === 'sans'
         const menu = document.querySelector('[data-site-menu]') as HTMLElement | null;
         if (!trigger || !menu) return;
         const closers = menu.querySelectorAll('[data-menu-close]');
+        const menuLinks = Array.from(menu.querySelectorAll<HTMLAnchorElement>('[data-menu-link]'));
+        const firstLink = menuLinks[0];
+        const lastLink = menuLinks[menuLinks.length - 1];
         const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        const backgroundElements = [
+          ...document.querySelectorAll<HTMLElement>(
+            'body > :not(script):not([data-site-menu]):not([data-header-actions])'
+          ),
+          ...document.querySelectorAll<HTMLElement>(
+            '[data-header-actions] > :not([data-menu-trigger])'
+          ),
+        ];
+        const initialInertState = new Map(
+          backgroundElements.map((element) => [element, element.inert])
+        );
+
+        const setBackgroundInert = (inert: boolean) => {
+          backgroundElements.forEach((element) => {
+            element.inert = inert || initialInertState.get(element) === true;
+          });
+        };
 
         // Mark the link that points at the current page (Home matches only "/").
         const path = window.location.pathname.replace(/\/+$/, '') || '/';
@@ -707,6 +727,8 @@ const preloadFontHref = preloadFont === 'sans'
           trigger.setAttribute('aria-expanded', 'true');
           trigger.classList.add('is-active');
           lockScroll();
+          setBackgroundInert(true);
+          firstLink?.focus();
           // Wake the peek: a short curious beat, then back to its idle loop.
           window.dispatchEvent(
             new CustomEvent('peek:menu:set', { detail: { animation: 'curious', holdMs: 1600 } })
@@ -720,6 +742,8 @@ const preloadFontHref = preloadFont === 'sans'
           trigger.setAttribute('aria-expanded', 'false');
           trigger.classList.remove('is-active');
           unlockScroll();
+          setBackgroundInert(false);
+          trigger.focus();
           if (reducedMotion) {
             menu.hidden = true;
           } else {
@@ -733,7 +757,20 @@ const preloadFontHref = preloadFont === 'sans'
           link.addEventListener('click', close);
         });
         document.addEventListener('keydown', (e) => {
-          if (e.key === 'Escape' && isOpen) close();
+          if (!isOpen) return;
+          if (e.key === 'Escape') {
+            e.preventDefault();
+            close();
+            return;
+          }
+          if (e.key !== 'Tab' || !firstLink || !lastLink) return;
+          if (e.shiftKey && document.activeElement === firstLink) {
+            e.preventDefault();
+            lastLink.focus();
+          } else if (!e.shiftKey && document.activeElement === lastLink) {
+            e.preventDefault();
+            firstLink.focus();
+          }
         });
       })();
     </script>

@@ -25,7 +25,8 @@ test.describe('Preview smoke', () => {
   test('renders the tag-card specimen with full-size cards', async ({ page }) => {
     await page.goto('/components');
 
-    await expect(page.locator('[data-site-nav]')).toHaveCount(0);
+    await expect(page.locator('[data-site-nav]')).toBeVisible();
+    await expect(page.locator('[data-menu-trigger]')).toBeVisible();
     await expect(page.locator('footer.footer')).toBeVisible();
     await expect(page.locator('.components-topbar')).toHaveCount(0);
     const cards = page.locator('.tagspec .tag-card');
@@ -36,7 +37,9 @@ test.describe('Preview smoke', () => {
       .toBeGreaterThan(240);
     await expect(cards.first()).toHaveCSS('clip-path', 'inset(0px round 20px)');
 
-    await page.locator('[data-theme-dropdown]').hover();
+    const themeDropdown = page.locator('[data-theme-dropdown]');
+    const themeToggle = page.locator('[data-theme-toggle]');
+    await themeDropdown.hover();
     await page.locator('[data-theme-option="light"]').click();
     await expect(page.locator('html')).not.toHaveClass(/dark/);
     const moodFrame = page.locator('iframe[title="Mood wheel"]');
@@ -45,7 +48,8 @@ test.describe('Preview smoke', () => {
     await expect(readingFrame).toBeVisible();
     await expect(moodFrame.contentFrame().locator('html')).not.toHaveClass(/dark/);
     await expect(readingFrame.contentFrame().locator('html')).not.toHaveClass(/dark/);
-    await page.locator('[data-theme-dropdown]').hover();
+    await themeToggle.click();
+    await expect(page.locator('[data-theme-option="dark"]')).toBeVisible();
     await page.locator('[data-theme-option="dark"]').click();
     await expect(page.locator('html')).toHaveClass(/dark/);
     await expect(moodFrame.contentFrame().locator('html')).toHaveClass(/dark/);
