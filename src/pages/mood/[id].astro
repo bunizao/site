@@ -180,19 +180,24 @@ const renderedPostContent = prioritizeMoodDetailMedia(renderedContent);
   }
 
   const animatedEmoji = createAnimatedEmojiManager();
-  void animatedEmoji.hydrate(document);
-
   const moodPost = document.querySelector<HTMLElement>('[data-mood-id][data-mood-read-source]');
-  if (moodPost) {
-    void createMoodMetaPatcher({
-      root: document,
-      readSource: moodPost.dataset.moodReadSource,
-    }).patchVisible();
-  }
-
   const ALWAYS_LOADING = import.meta.env.PUBLIC_DEBUG_ALWAYS_LOADING === 'true';
-  void initMoodDetailComments({
-    alwaysLoading: ALWAYS_LOADING,
-    hydrateAnimatedEmoji: animatedEmoji.hydrate,
+
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      void animatedEmoji.hydrate(document);
+
+      if (moodPost) {
+        void createMoodMetaPatcher({
+          root: document,
+          readSource: moodPost.dataset.moodReadSource,
+        }).patchVisible();
+      }
+
+      void initMoodDetailComments({
+        alwaysLoading: ALWAYS_LOADING,
+        hydrateAnimatedEmoji: animatedEmoji.hydrate,
+      });
+    });
   });
 </script>

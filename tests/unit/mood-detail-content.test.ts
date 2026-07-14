@@ -36,6 +36,7 @@ describe('structured mood detail content rendering', () => {
     expect(route).toContain('preloadFont="sans"');
     expect(layout).toContain("preloadFont?: 'mono' | 'sans'");
     expect(layout).toContain("? '/fonts/inter-variable.woff2'");
+    expect(route).toMatch(/requestAnimationFrame\(\(\) => \{\s*requestAnimationFrame\(\(\) => \{/);
   });
 
   test('prioritizes only the first meaningful detail image', () => {
