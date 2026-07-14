@@ -1,6 +1,10 @@
 import { describe, expect, test } from 'bun:test';
+import * as cheerio from 'cheerio';
 import type { MoodContentDocument } from '@bunizao/contracts';
-import { renderStructuredMoodDetailContent } from '../../src/features/mood/shared/detail-content';
+import {
+  prioritizeMoodDetailMedia,
+  renderStructuredMoodDetailContent,
+} from '../../src/features/mood/shared/detail-content';
 
 function createDocument(overrides: Partial<MoodContentDocument> = {}): MoodContentDocument {
   return {
@@ -21,6 +25,43 @@ function createDocument(overrides: Partial<MoodContentDocument> = {}): MoodConte
 }
 
 describe('structured mood detail content rendering', () => {
+  test('keeps the detail article visible during first paint', async () => {
+    const source = await Bun.file('src/features/mood/ui/DetailArticle.astro').text();
+
+    expect(source).not.toContain('animation: fade-in');
+    expect(source).not.toContain('@keyframes fade-in');
+  });
+
+  test('prioritizes only the first meaningful detail image', () => {
+    const html = prioritizeMoodDetailMedia([
+      '<span class="tg-emoji"><img src="/emoji.webp" alt="" /></span>',
+      '<a class="video-too-big"><img class="video-too-big__thumb" src="/video.jpg" alt="" loading="lazy" /></a>',
+      '<span class="bookmark-card__media"><img src="/card.jpg" alt="" loading="lazy" /></span>',
+    ].join(''));
+
+    const $ = cheerio.load(html, null, false);
+    const emoji = $('.tg-emoji img');
+    const video = $('.video-too-big__thumb');
+    const card = $('.bookmark-card__media img');
+
+    expect(emoji.attr('fetchpriority')).toBeUndefined();
+    expect(video.attr('loading')).toBe('eager');
+    expect(video.attr('fetchpriority')).toBe('high');
+    expect(video.attr('decoding')).toBe('sync');
+    expect(card.attr('loading')).toBe('lazy');
+    expect(card.attr('fetchpriority')).toBeUndefined();
+  });
+
+  test('makes a deferred gallery image discoverable in the initial HTML', () => {
+    const html = prioritizeMoodDetailMedia(
+      '<img class="mood-gallery-image" data-deferred-src="/gallery.jpg" loading="lazy" />'
+    );
+
+    expect(html).toContain('src="/gallery.jpg"');
+    expect(html).toContain('loading="eager"');
+    expect(html).toContain('fetchpriority="high"');
+  });
+
   test('renders body, image media, and mood-specific structured media', () => {
     const html = renderStructuredMoodDetailContent(createDocument({
       media: [

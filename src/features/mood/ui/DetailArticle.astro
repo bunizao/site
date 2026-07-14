@@ -127,7 +127,6 @@ const postReactions = post?.reactions ?? [];
     max-width: 680px;
     margin: 0 auto;
     font-family: var(--font-sans);
-    animation: fade-in 0.5s ease-out;
   }
 
   @media (min-width: 640px) {
@@ -1273,17 +1272,6 @@ const postReactions = post?.reactions ?? [];
     font-size: 13px;
     color: hsl(var(--muted-foreground));
     line-height: 1.5;
-  }
-
-  @keyframes fade-in {
-    from {
-      opacity: 0;
-      transform: translateY(20px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
   }
 
   .mood-post-content :global(.token.comment),
