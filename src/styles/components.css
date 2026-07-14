@@ -216,11 +216,13 @@ html.dark .cgrid-tile:hover {
 }
 
 /* Contributions is a thin wave strip + a stats line. Stack the stats above the
-   wave and let the wave span the full card width so it reaches both edges. */
+   wave and let the wave span the full card width so it reaches both edges. The
+   content bottom-aligns to the padding box, so the bottom padding reserves the
+   corner caption's band (~3rem tall) and keeps the wave clear of the label. */
 .cgrid-stage--contrib {
   place-items: stretch;
   align-content: center;
-  padding: 1.75rem;
+  padding: 1.75rem 1.75rem 4rem;
 }
 
 .cgrid-stage--contrib .activity-section {

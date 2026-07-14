@@ -170,6 +170,26 @@ const sections = [
     font-family: var(--font-sans);
   }
 
+  /* Bottom reading fade — mirrors the top frost so scrolling prose dissolves
+     into the background at the lower edge. The tile's corner caption sits over
+     this frame on the parent, so fading the content out keeps that label
+     legible at any scroll position. */
+  :global(body)::after {
+    content: '';
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 72px;
+    z-index: 40;
+    pointer-events: none;
+    background: linear-gradient(
+      to top,
+      hsl(var(--background)) 32%,
+      hsl(var(--background) / 0)
+    );
+  }
+
   /* ── Frosted reading bar ──────────────────────────────────────────────── */
   .topbar {
     position: fixed;
