@@ -13,6 +13,7 @@ interface Props {
   navVariant?: 'home' | 'page';
   headerActionsVariant?: 'default' | 'home';
   structuredData?: Record<string, unknown> | Array<Record<string, unknown>>;
+  preloadFont?: 'mono' | 'sans';
   preloadImages?: Array<{
     href: string;
     imageSrcSet?: string;
@@ -54,6 +55,7 @@ const {
   navVariant,
   headerActionsVariant = 'default',
   structuredData,
+  preloadFont = 'mono',
   preloadImages = [],
   rss,
   oembed,
@@ -90,6 +92,9 @@ const navbarSectionActiveAnimation = getPeekRuntimeSlotKey('navbar.section.activ
 const navbarSectionActiveHoldMs = getPeekRuntimeSlot('navbar.section.active').holdMs ?? 600;
 const navbarFastScrollHoldMs = getPeekRuntimeSlot('navbar.brand.hover').holdMs ?? 1000;
 const navbarIdleTimeoutAnimation = getPeekRuntimeSlotKey('navbar.idle-timeout');
+const preloadFontHref = preloadFont === 'sans'
+  ? '/fonts/inter-variable.woff2'
+  : '/fonts/geist-mono-variable.woff2';
 ---
 
 <!DOCTYPE html>
@@ -100,7 +105,7 @@ const navbarIdleTimeoutAnimation = getPeekRuntimeSlotKey('navbar.idle-timeout');
     <meta name="description" content={description} />
     <link
       rel="preload"
-      href="/fonts/geist-mono-variable.woff2"
+      href={preloadFontHref}
       as="font"
       type="font/woff2"
       crossorigin

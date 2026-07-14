@@ -39,7 +39,8 @@ describe('homepage performance assets', () => {
 
     expect(homePage).toContain('--font-code: var(--font-mono);');
     expect(homeHero).not.toContain('font-code');
-    expect(layout).toContain('href="/fonts/geist-mono-variable.woff2"');
+    expect(layout).toContain("preloadFont = 'mono'");
+    expect(layout).toContain(": '/fonts/geist-mono-variable.woff2'");
     expect(layout).not.toContain('href="/fonts/jetbrains-mono-variable.woff2"');
     expect(globals).toContain("--font-code: 'JetBrains Mono'");
   });

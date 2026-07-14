@@ -27,10 +27,15 @@ function createDocument(overrides: Partial<MoodContentDocument> = {}): MoodConte
 describe('structured mood detail content rendering', () => {
   test('keeps the detail article visible during first paint', async () => {
     const source = await Bun.file('src/features/mood/ui/DetailArticle.astro').text();
+    const route = await Bun.file('src/pages/mood/[id].astro').text();
+    const layout = await Bun.file('src/layouts/Layout.astro').text();
 
     expect(source).not.toContain('animation: fade-in');
     expect(source).not.toContain('@keyframes fade-in');
     expect(source).toMatch(/@view-transition\s*\{\s*navigation:\s*none;/);
+    expect(route).toContain('preloadFont="sans"');
+    expect(layout).toContain("preloadFont?: 'mono' | 'sans'");
+    expect(layout).toContain("? '/fonts/inter-variable.woff2'");
   });
 
   test('prioritizes only the first meaningful detail image', () => {
