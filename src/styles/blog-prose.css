@@ -302,6 +302,27 @@
   margin-block: 36px;
 }
 
+/* The code-box header is a <figcaption>, so the generic image-caption rule above
+   (margin-top + centering) lands on it and floats the header off the top edge,
+   leaving the rounded corners wrapping dead space. Restore the component's intent:
+   flush to the top, left-aligned, its own type. `/components` never hits this
+   because it lacks the .blog-prose wrapper. */
+.blog-prose .code-box-head {
+  margin-top: 0;
+  text-align: left;
+  font-size: inherit;
+  line-height: inherit;
+  color: inherit;
+}
+
+/* The blog is a reading context, so lift the code up to the prose's own code size
+   (matches `.blog-prose pre`) — the showcase keeps its tighter default. JetBrains
+   Mono comes for free via --font-code. */
+.blog-prose .code-box .code-box-body pre.astro-code {
+  font-size: 15px;
+  line-height: 1.7;
+}
+
 /* --- Bookmark card ------------------------------------------------------ */
 .blog-prose .kg-bookmark-card {
   margin-block: 36px;
