@@ -846,12 +846,18 @@ test.describe('Home page', () => {
     await expect(playButton).toHaveAttribute('aria-label', 'Open All of the Lights');
     await expect(trackLink).toHaveAttribute('href', 'https://music.apple.com/test-listening-click');
 
-    const popupPromise = page.waitForEvent('popup');
+    await page.evaluate(() => {
+      const openedUrls: string[] = [];
+      (window as typeof window & { __openedListeningUrls?: string[] }).__openedListeningUrls = openedUrls;
+      window.open = (url?: string | URL) => {
+        if (url) openedUrls.push(String(url));
+        return null;
+      };
+    });
     await playButton.click();
-    const popup = await popupPromise;
-
-    expect(new URL(popup.url()).origin).toBe('https://music.apple.com');
-    await popup.close();
+    await expect.poll(() => page.evaluate(() => (
+      window as typeof window & { __openedListeningUrls?: string[] }
+    ).__openedListeningUrls)).toEqual(['https://music.apple.com/test-listening-click']);
   });
 
   test('shows the GitHub contributions fallback state when the request fails', async ({ page }) => {
