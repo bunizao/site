@@ -17,8 +17,6 @@ export interface GhostRuntimeConfig {
   forceMockContent: boolean;
 }
 
-const PRODUCTION_BRANCHES = new Set(['main', 'production', 'cloudflare-runtime']);
-
 function readProcessEnv(name: string): string | null {
   if (typeof process === 'undefined' || !process.env) {
     return null;
@@ -27,20 +25,8 @@ function readProcessEnv(name: string): string | null {
   return readString(process.env[name]);
 }
 
-// Vite injects .env values into import.meta.env, not process.env.
-// Use this as the primary source when running under astro dev (Node SSR).
-function readViteEnv(name: string): string | null {
-  try {
-    const env = (import.meta as { env?: Record<string, unknown> }).env;
-    const raw = env?.[name];
-    return typeof raw === 'string' && raw.trim() ? raw.trim() : null;
-  } catch {
-    return null;
-  }
-}
-
 function readEnvVar(name: string): string | null {
-  return readViteEnv(name) ?? readProcessEnv(name);
+  return readProcessEnv(name);
 }
 
 function readEnvFlag(name: string): boolean | undefined {
@@ -50,22 +36,9 @@ function readEnvFlag(name: string): boolean | undefined {
 }
 
 function isProductionBuild(): boolean {
-  try {
-    const env = (import.meta as { env?: Record<string, unknown> }).env;
-    if (env?.PROD === true) return true;
-  } catch {
-    // Fall through to NODE_ENV below.
-  }
+  if (import.meta.env.PROD) return true;
 
   return readProcessEnv('NODE_ENV') === 'production';
-}
-
-function isWorkersPreviewBuild(): boolean {
-  const branch = readProcessEnv('WORKERS_CI_BRANCH')?.trim();
-
-  if (readProcessEnv('WORKERS_CI') !== '1' || !branch) return false;
-
-  return !PRODUCTION_BRANCHES.has(branch);
 }
 
 function readString(value: string | null | undefined): string | null {
@@ -93,7 +66,6 @@ export function getGhostRuntimeConfig(
   const mockContent = options.mockContent
     ?? (forceMockContent ? true : undefined)
     ?? readEnvFlag('GHOST_MOCK_CONTENT')
-    ?? isWorkersPreviewBuild()
     ?? !isProductionBuild();
 
   return {

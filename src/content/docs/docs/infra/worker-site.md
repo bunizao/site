@@ -17,7 +17,7 @@ Configure Ghost's `Post published` webhook to `POST` the Cloudflare Workers Buil
 `PUBLIC_GHOST_URL` and `GHOST_CONTENT_API_KEY` must be present in the Cloudflare build environment, not only as Worker runtime secrets.
 
 As of the blog migration, `blog.buxx.me` is not routed to the public Worker. Ghost admin and Ghost app/API paths must keep reaching the Ghost origin. Legacy public path redirects belong in Cloudflare Redirect Rules, not Worker routes.
-The build-environment `PUBLIC_GHOST_URL` must point at the Ghost origin itself, such as the Ghost(Pro) or upstream hostname, never `blog.buxx.me`; the CI wrapper refuses production builds that point at a self-routed host.
+The build-environment `PUBLIC_GHOST_URL` must point at the Ghost origin itself. `https://blog.buxx.me` is the current origin; the CI wrapper rejects `buxx.me` and `www.buxx.me` because those hosts route back through this Worker.
 
 ## What runs where
 
@@ -57,6 +57,7 @@ Notify D1, mood D1, R2 image storage, queue bindings, session KV, Telegram secre
 - If the `API` service binding is missing, proxied private routes return 503.
 - Protected docs deny access when `site-api /v2/admin/session` is unavailable.
 - Public mood pages fail closed when the private mood API is unavailable.
+- Cloudflare builds fail when Ghost configuration or fetching fails; deployed blog pages never fall back to mock content.
 
 ## Related docs
 

@@ -95,11 +95,13 @@ Worker is rebuilt and redeployed.
 Production setup:
 
 - Create a Cloudflare Workers Builds deploy hook for the production branch.
+- Set the build command to `bun run build:cloudflare` and the deploy command to `bunx wrangler deploy --config dist/server/wrangler.json`.
 - Configure Ghost's `Post published` webhook to `POST` that Cloudflare deploy hook URL.
 - Remove the old Vercel deploy hook URL from Ghost.
 - Keep `PUBLIC_GHOST_URL` and `GHOST_CONTENT_API_KEY` in the Cloudflare build environment.
 - Keep the same values in GitHub Actions for preview builds. `preview-smoke.yml` builds static `/blog` HTML before `wrangler versions upload`, so the workflow must receive `PUBLIC_GHOST_URL` and `GHOST_CONTENT_API_KEY` as build-time environment variables.
 - Updating Worker runtime vars or secrets in the Cloudflare dashboard creates a new Worker version, but it does not rerun Astro prerendering or update static HTML.
+- Cloudflare builds require live Ghost content and reject mock fallback flags.
 
 ## Bindings and Secrets
 

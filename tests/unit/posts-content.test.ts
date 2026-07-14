@@ -89,7 +89,7 @@ describe('posts content provider', () => {
     }
   });
 
-  test('uses mock posts for non-production Cloudflare Workers builds', async () => {
+  test('keeps arbitrary Cloudflare Workers builds strict without explicit mock content', async () => {
     delete process.env.PUBLIC_GHOST_URL;
     delete process.env.GHOST_CONTENT_API_KEY;
     delete process.env.GHOST_CONTENT_APIKEY;
@@ -99,14 +99,16 @@ describe('posts content provider', () => {
     process.env.WORKERS_CI_BRANCH = 'plan-new-blog-era';
 
     const config = getGhostRuntimeConfig();
-    const dataset = await buildGhostDataset();
 
-    expect(config.mockContent).toBe(true);
+    expect(config.mockContent).toBe(false);
     expect(config.forceMockContent).toBe(false);
-    expect(dataset.posts.map((post) => post.slug).slice(0, 2)).toEqual([
-      'demo-effects',
-      'quiet-architecture',
-    ]);
+    try {
+      await buildGhostDataset();
+      throw new Error('Expected Ghost config validation to fail');
+    } catch (error) {
+      expect(error).toBeInstanceOf(Error);
+      expect((error as Error).message).toContain('Ghost adapter is not configured');
+    }
   });
 
   test('lets the E2E fixture force mock content over local Ghost config', async () => {
