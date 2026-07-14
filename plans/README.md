@@ -19,6 +19,8 @@ leverage without a user selection step.
 | 004  | Turnstile widget lifecycle cleanup in ManagePreferences | P3 | S | — | DONE |
 | 005  | Remove stray root design scraps | P3 | S | — | DONE |
 | 006  | Mood navigation & read-path performance (PRD) | P1 | L | working-tree perf WIP deployed (see PRD §3) | TODO |
+| 007  | Reconcile canonical contracts across `site` and `site-api` | P1 | M | — | TODO |
+| 008  | Escape JSON embedded in script elements | P1 | S | — | TODO |
 
 Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJECTED (with one-line rationale)
 
@@ -28,6 +30,23 @@ Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJE
   takeover and should land **before merge**; 002 additionally carries an
   operator action (verify the Workers Builds production `PUBLIC_GHOST_URL`
   points at the real Ghost origin) that no code change can substitute for.
+- 007 restores the cross-repository contract baseline before private
+  `site-api` plans touch subscriber, retry, or CV request shapes.
+- 008 targets a publicly visible security issue in
+  `bunizao/site`; issue publication requires explicit acknowledgement that the
+  issue body will be public.
+
+## July 13, 2026 cross-repository audit
+
+Plans 007-008 were generated from a standard read-only audit of `site` and
+`site-api`. Private backend findings and execution details live only in
+`../site-api/plans/`. The plan files remain the source of truth and the GitHub
+issue URLs below are their published distribution points.
+
+| Plan | Repository | Issue |
+|---|---|---|
+| 007 | `bunizao/site` | https://github.com/bunizao/site/issues/74 |
+| 008 | `bunizao/site` (public security detail) | https://github.com/bunizao/site/issues/75 |
 
 ## Findings considered and rejected
 
