@@ -820,6 +820,22 @@
     }
   }
 
+  /* On the brand-home bar the actions sit on their own translucent strip, so a
+     per-button border + backdrop reads as a box-on-a-box. Strip the chrome and
+     let them be quiet ghost controls — a soft rounded wash only on hover/open. */
+  .global-header-actions.has-brand-home-bar .header-action-btn {
+    background: transparent;
+    border-color: transparent;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+  .global-header-actions.has-brand-home-bar .header-action-btn:hover,
+  .global-header-actions.has-brand-home-bar .header-action-btn.is-hovered,
+  .global-header-actions.has-brand-home-bar .header-action-btn.is-active {
+    background: hsl(var(--foreground) / 0.06);
+    border-color: transparent;
+  }
+
   .site-nav--brand-home .site-brand {
     width: auto;
     height: auto;
@@ -846,6 +862,17 @@
     letter-spacing: -0.01em;
     color: hsl(var(--foreground));
     white-space: nowrap;
+    transition: opacity 0.2s ease;
+  }
+
+  /* The peek animates on hover, so the brand needs no background box — that
+     just fights the mascot's own motion. Keep a quiet wordmark dim as the
+     only hover cue; press feedback stays on :active. */
+  .site-nav--brand-home .site-brand:hover {
+    background: transparent;
+  }
+  .site-nav--brand-home .site-brand:hover .site-brand-text {
+    opacity: 0.7;
   }
 
   .nav-link {
