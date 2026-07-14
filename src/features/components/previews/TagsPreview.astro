@@ -61,6 +61,10 @@ const cards = [
     width: 100%;
     /* Blog surfaces read in Inter, not the showcase's mono scope. */
     font-family: var(--font-sans);
+    /* Respond to the tile's own width, not the viewport — the tile is
+       half-width on tablets and full-width on phones, both too narrow for
+       two cards side by side. */
+    container-type: inline-size;
   }
 
   /* ── Feature-image glass cards (the /blog/tags wall) ──────────────────── */
@@ -198,5 +202,23 @@ const cards = [
     color: rgb(255 255 255 / 0.7);
     text-shadow: 0 1px 2px rgb(0 0 0 / 0.3);
     font-variant-numeric: tabular-nums;
+  }
+
+  /* Below ~two-readable-columns, stack to one full-width card so the name and
+     post rows breathe instead of ellipsizing into slivers. Placed last so it
+     wins the cascade over the base .tagspec-wall / .tag-card rules above. Each
+     card carries its own height once the shared row track no longer stretches
+     it. Keyed off the tile's own width, so the tablet half-width tile stacks
+     too, not just phones. */
+  @container (max-width: 26rem) {
+    .tagspec-wall {
+      grid-template-columns: minmax(0, 1fr);
+      gap: 0.85rem;
+      min-height: 0;
+    }
+
+    .tag-card {
+      min-height: 14rem;
+    }
   }
 </style>
