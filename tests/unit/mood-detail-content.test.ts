@@ -30,6 +30,7 @@ describe('structured mood detail content rendering', () => {
 
     expect(source).not.toContain('animation: fade-in');
     expect(source).not.toContain('@keyframes fade-in');
+    expect(source).toMatch(/@view-transition\s*\{\s*navigation:\s*none;/);
   });
 
   test('prioritizes only the first meaningful detail image', () => {
