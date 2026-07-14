@@ -23,7 +23,7 @@ const LOOP_PAUSE_MS = 2600; // settled-copy hold before the next boil
  * Grow layout needs a monospace host (1ch cells), so the stage stays mono.
  */
 export function DecodeTextPreview() {
-  const ref = React.useRef<HTMLDivElement>(null);
+  const ref = React.useRef<HTMLSpanElement>(null);
   const controller = React.useRef<DecodeController | null>(null);
   const running = React.useRef(false);
   const loopTimer = React.useRef<number | undefined>(undefined);
@@ -75,22 +75,28 @@ export function DecodeTextPreview() {
   }, [play]);
 
   return (
-    <div
-      ref={ref}
-      className="decode-preview cursor-pointer select-none text-center font-mono text-xl font-semibold leading-relaxed text-foreground sm:text-2xl"
+    <button
+      type="button"
+      aria-label="Replay decode text animation"
+      className="block w-full cursor-pointer appearance-none border-0 bg-transparent p-0"
       onMouseEnter={() => void play()}
       onClick={() => void play()}
     >
-      {/* Explicit <br> between words: the decode engine groups by real visual
-          line and keeps <br>, so this stacks into three lines instead of
-          flattening the block <div>s onto one over-wide line. */}
-      {LINES.map((line, i) => (
-        <React.Fragment key={line}>
-          {i > 0 && <br />}
-          {line}
-        </React.Fragment>
-      ))}
-    </div>
+      <span
+        ref={ref}
+        className="decode-preview block w-full select-none text-center font-mono text-xl font-semibold leading-relaxed text-foreground sm:text-2xl"
+      >
+        {/* Explicit <br> between words: the decode engine groups by real visual
+            line and keeps <br>, so this stacks into three lines instead of
+            flattening the block <div>s onto one over-wide line. */}
+        {LINES.map((line, i) => (
+          <React.Fragment key={line}>
+            {i > 0 && <br />}
+            {line}
+          </React.Fragment>
+        ))}
+      </span>
+    </button>
   );
 }
 

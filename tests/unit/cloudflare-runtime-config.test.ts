@@ -342,6 +342,7 @@ describe('Cloudflare runtime configuration', () => {
     const globals = readText('src/styles/globals.css');
     const hero = readText('src/features/home/ui/Hero.astro');
     const decodeText = readText('src/features/home/ui/DecodeText.astro');
+    const decodeEngine = readText('packages/decode-text/src/index.ts');
     const experience = readText('src/features/home/ui/Experience.astro');
     const parallax = readText('src/features/home/ui/ParallaxWrapper.astro');
     const homePage = readText('src/pages/index.astro');
@@ -354,12 +355,12 @@ describe('Cloudflare runtime configuration', () => {
     expect(hero).toContain("const { default: gsap } = await import('gsap');");
     expect(hero).toContain('const lcpAnchorName = typewriterNames.reduce');
     expect(hero).toContain('<span class="hero-lcp-anchor" aria-hidden="true">{lcpAnchorName}</span>');
-    expect(decodeText).toContain('document.fonts?.ready');
-    expect(decodeText).toContain('window.setTimeout(resolve, 400)');
+    expect(decodeEngine).toContain('document.fonts?.ready');
+    expect(decodeEngine).toContain('window.setTimeout(resolve, opts.fontTimeout)');
     expect(decodeText).toContain('const FALLBACK_START_MS = 1500;');
-    expect(decodeText).toContain('const LINE_DURATION_PER_CHAR = 0.024;');
-    expect(decodeText).toContain('const LINE_DELAY_FACTOR = 0.16;');
-    expect(decodeText).toContain('const timeline = gsap.timeline({ onComplete: finish });');
+    expect(decodeEngine).toContain('durationPerChar: 0.024');
+    expect(decodeEngine).toContain('lineStagger: 0.16');
+    expect(decodeEngine).toContain('requestAnimationFrame(tick)');
     expect(hero).toContain('const identity = heroElements.filter((el) => !el.hasAttribute');
     expect(hero).toContain('gsap.set(heroElements, { opacity: 0, y: 20 });');
     expect(hero).toContain('heroTl.to(identity, {');

@@ -2,7 +2,7 @@
  * decode-text — dependency-free scramble/decode text reveal.
  *
  * Mechanics:
- *  - The host's text is split into one span per visible character (`.dt-c`)
+ *  - The host's text is split into one span per visible grapheme (`.dt-c`)
  *    and one span per whitespace run; `<br>` is kept. Inline color / weight /
  *    style from the original markup is baked onto each cell, because cells are
  *    re-homed into per-line blocks and lose their ancestors.
@@ -139,8 +139,44 @@ const shuffle = <T>(items: T[]): T[] => {
   return items;
 };
 
+const COMBINING_MARK = /\p{Mark}/u;
+const EMOJI_MODIFIER = /[\u{1f3fb}-\u{1f3ff}]/u;
+const REGIONAL_INDICATOR = /[\u{1f1e6}-\u{1f1ff}]/u;
+const ZERO_WIDTH_JOINER = '\u200d';
+const GRAPHEME_SEGMENTER =
+  typeof Intl.Segmenter === 'function'
+    ? new Intl.Segmenter(undefined, { granularity: 'grapheme' })
+    : null;
+
+const segmentGraphemes = (text: string): string[] => {
+  if (GRAPHEME_SEGMENTER) {
+    return Array.from(GRAPHEME_SEGMENTER.segment(text), ({ segment }) => segment);
+  }
+
+  const segments: string[] = [];
+  let regionalRun = 0;
+  for (const codePoint of text) {
+    const previous = segments.at(-1);
+    const isRegional = REGIONAL_INDICATOR.test(codePoint);
+    if (
+      previous !== undefined &&
+      (COMBINING_MARK.test(codePoint) ||
+        EMOJI_MODIFIER.test(codePoint) ||
+        codePoint === ZERO_WIDTH_JOINER ||
+        previous.endsWith(ZERO_WIDTH_JOINER) ||
+        (isRegional && regionalRun % 2 === 1))
+    ) {
+      segments[segments.length - 1] += codePoint;
+    } else {
+      segments.push(codePoint);
+    }
+    regionalRun = isRegional ? regionalRun + 1 : 0;
+  }
+  return segments;
+};
+
 /**
- * Replace the host content with one span per visible character and one span
+ * Replace the host content with one span per visible grapheme and one span
  * per whitespace run, keeping <br>. Color / weight / style that differ from
  * the host are baked onto each cell so they survive re-homing into line blocks.
  */
@@ -183,13 +219,14 @@ const buildCells = (host: HTMLElement): Cell[] => {
     for (const child of Array.from(node.childNodes)) {
       if (child.nodeType === Node.TEXT_NODE) {
         const text = child.textContent ?? '';
+        const graphemes = segmentGraphemes(text);
         let i = 0;
-        while (i < text.length) {
-          if (/\s/.test(text[i])) {
-            while (i < text.length && /\s/.test(text[i])) i += 1;
+        while (i < graphemes.length) {
+          if (/\s/u.test(graphemes[i])) {
+            while (i < graphemes.length && /\s/u.test(graphemes[i])) i += 1;
             pushCell(parent, ' ', true, node);
           } else {
-            pushCell(parent, text[i], false, node);
+            pushCell(parent, graphemes[i], false, node);
             i += 1;
           }
         }
@@ -278,7 +315,13 @@ const hiddenText = (cell: Cell, layout: DecodeLayout): string =>
  * cell (the show front is monotonic there), so each frame touches only the
  * active window.
  */
-const renderLine = (line: Line, progress: number, now: number, pool: string, opts: Resolved): void => {
+const renderLine = (
+  line: Line,
+  progress: number,
+  now: number,
+  pool: readonly string[],
+  opts: Resolved
+): void => {
   const { cells } = line;
   for (let i = line.done; i < cells.length; i += 1) {
     const cell = cells[i];
@@ -339,13 +382,17 @@ const scheduleLines = (lines: Line[], opts: Resolved): void => {
 };
 
 /** The original's `useInput`: mix the text's own ASCII glyphs into the pool. */
-const scramblePool = (cells: Cell[], opts: Resolved): string => {
-  if (!opts.scrambleFromText) return opts.charset;
-  let pool = opts.charset;
+const scramblePool = (cells: Cell[], opts: Resolved): string[] => {
+  const pool = segmentGraphemes(opts.charset);
+  if (!opts.scrambleFromText) return pool;
+  const seen = new Set(pool);
   for (const cell of cells) {
     const ch = cell.ch.toLowerCase();
     // ASCII-only: wide glyphs (CJK) in the pool would jitter `grow` layouts.
-    if (/[\x21-\x7e]/.test(ch) && !pool.includes(ch)) pool += ch;
+    if (/^[\x21-\x7e]$/.test(ch) && !seen.has(ch)) {
+      pool.push(ch);
+      seen.add(ch);
+    }
   }
   return pool;
 };
