@@ -92,6 +92,7 @@ describe('Cloudflare runtime configuration', () => {
     expect(lighthouseConfig).toContain('--disable-background-timer-throttling');
     expect(lighthouseConfig).toContain('--disable-backgrounding-occluded-windows');
     expect(lighthouseConfig).toContain('--disable-renderer-backgrounding');
+    expect(lighthouseConfig).toContain('--disable-features=CalculateNativeWinOcclusion');
     expect(lighthouseWorkflow).not.toContain('deployment_status:');
     expect(lighthouseWorkflow).not.toContain('github.event.deployment');
   });
