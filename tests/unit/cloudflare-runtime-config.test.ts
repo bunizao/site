@@ -142,15 +142,12 @@ describe('Cloudflare runtime configuration', () => {
     expect(packageJson.scripts?.dev).not.toContain('bunx --bun');
   });
 
-  test('uses mock blog content only for Cloudflare preview builds without Ghost secrets', () => {
-    const buildScript = readText('scripts/build-cloudflare.mjs');
+  test('keeps Ghost build secrets out of the Vite environment bundle', () => {
+    const ghostConfig = readText('src/features/posts/adapter/ghost/config.ts');
 
-    expect(buildScript).toContain("process.env.WORKERS_CI === '1'");
-    expect(buildScript).toContain('process.env.WORKERS_CI_BRANCH');
-    expect(buildScript).toContain("buildEnv.GHOST_MOCK_CONTENT = '1'");
-    expect(buildScript).toContain('printMissingEnvError(missing)');
-    expect(buildScript).toContain("new Set(['buxx.me', 'www.buxx.me'])");
-    expect(buildScript).not.toContain("new Set(['blog.buxx.me'");
+    expect(ghostConfig).not.toContain('readViteEnv');
+    expect(ghostConfig).not.toContain('Record<string, unknown>');
+    expect(ghostConfig).toContain('return readProcessEnv(name);');
   });
 
   test('loads Tailwind 4 through its stylesheet entrypoint', () => {

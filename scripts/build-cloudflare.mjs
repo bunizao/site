@@ -1,6 +1,13 @@
 import { spawn } from 'node:child_process';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 
-const PRODUCTION_BRANCHES = new Set(['main', 'production', 'cloudflare-runtime']);
+const MOCK_POST_SLUGS = [
+  'demo-effects',
+  'notes-from-the-links-lab',
+  'quiet-architecture',
+  'the-kg-contract-stays',
+];
 
 function hasValue(name) {
   return Boolean(process.env[name]?.trim());
@@ -17,11 +24,9 @@ function getMissingGhostEnv() {
   return missing;
 }
 
-function isWorkersPreviewBuild() {
-  const branch = process.env.WORKERS_CI_BRANCH?.trim();
-  return process.env.WORKERS_CI === '1'
-    && Boolean(branch)
-    && !PRODUCTION_BRANCHES.has(branch);
+function isEnabledFlag(name) {
+  const value = process.env[name]?.trim().toLowerCase();
+  return value === '1' || value === 'true';
 }
 
 function printMissingEnvError(missing) {
@@ -36,27 +41,44 @@ function printMissingEnvError(missing) {
   );
 }
 
+function verifyBlogArtifact() {
+  const artifactPath = resolve('dist/client/blog/index.html');
+  let html;
+
+  try {
+    html = readFileSync(artifactPath, 'utf8');
+  } catch {
+    console.error(`Cloudflare build did not produce ${artifactPath}.`);
+    return false;
+  }
+
+  const mockSlugs = MOCK_POST_SLUGS.filter((slug) => html.includes(`/blog/${slug}/`));
+  if (mockSlugs.length === 0) return true;
+
+  console.error(
+    `Cloudflare build produced mock Ghost posts: ${mockSlugs.join(', ')}.`,
+  );
+  return false;
+}
+
 const buildEnv = { ...process.env };
 const missing = getMissingGhostEnv();
 
 if (missing.length > 0) {
-  if (!isWorkersPreviewBuild()) {
-    printMissingEnvError(missing);
-    process.exit(1);
-  }
-
-  console.warn(
-    [
-      'Missing Ghost build env in Workers preview branch.',
-      'Using mock blog content for this non-production build.',
-    ].join('\n'),
-  );
-  buildEnv.GHOST_MOCK_CONTENT = '1';
-  buildEnv.PUBLIC_GHOST_URL ||= 'https://blog.buxx.me';
+  printMissingEnvError(missing);
+  process.exit(1);
 }
 
-// Production builds must not fetch Ghost content through a hostname routed to
-// this worker. blog.buxx.me stays on the Ghost origin and is intentionally safe.
+if (isEnabledFlag('GHOST_MOCK_CONTENT') || isEnabledFlag('E2E_SITE_FIXTURE')) {
+  console.error('Mock Ghost content is disabled for Cloudflare builds.');
+  process.exit(1);
+}
+
+buildEnv.GHOST_MOCK_CONTENT = '0';
+buildEnv.E2E_SITE_FIXTURE = '0';
+
+// buxx.me and www.buxx.me are routed to this Worker. Ghost build requests must
+// use the separate Ghost origin instead of looping through the site Worker.
 const SELF_ROUTED_HOSTS = new Set(['buxx.me', 'www.buxx.me']);
 
 function ghostUrlHost(value) {
@@ -68,12 +90,9 @@ function ghostUrlHost(value) {
 }
 
 const ghostHost = ghostUrlHost(buildEnv.PUBLIC_GHOST_URL ?? '');
-const usesMockContent = buildEnv.GHOST_MOCK_CONTENT === '1';
 
 if (
-  !isWorkersPreviewBuild()
-  && !usesMockContent
-  && ghostHost
+  ghostHost
   && SELF_ROUTED_HOSTS.has(ghostHost)
 ) {
   console.error(
@@ -96,5 +115,8 @@ child.on('exit', (code, signal) => {
     console.error(`Cloudflare build stopped by ${signal}.`);
     process.exit(1);
   }
-  process.exit(code ?? 1);
+  if (code !== 0) {
+    process.exit(code ?? 1);
+  }
+  process.exit(verifyBlogArtifact() ? 0 : 1);
 });
