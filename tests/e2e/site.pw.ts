@@ -125,12 +125,23 @@ test.describe('Home page', () => {
     await page.addInitScript(() => {
       const chain = {
         bioReadyAt: 0,
+        bioAnimatingAt: 0,
       };
       (window as typeof window & { __heroBioDecodeChain?: typeof chain }).__heroBioDecodeChain = chain;
 
       window.addEventListener('home:hero-bio-ready', () => {
         chain.bioReadyAt = performance.now();
       });
+
+      new MutationObserver((records) => {
+        if (chain.bioAnimatingAt > 0) return;
+        const started = records.some((record) => (
+          record.target instanceof HTMLElement &&
+          record.target.matches('[data-hero-bio] [data-decode-root]') &&
+          record.target.classList.contains('dt-animating')
+        ));
+        if (started) chain.bioAnimatingAt = performance.now();
+      }).observe(document, { subtree: true, attributes: true, attributeFilter: ['class'] });
     });
 
     await page.goto('/');
@@ -139,18 +150,22 @@ test.describe('Home page', () => {
     await expect(decodeRoot).toHaveClass(/dt-prepared/, { timeout: 4_000 });
     await expect
       .poll(
-        async () => page.evaluate(() => {
-          const root = document.querySelector('[data-hero-bio] [data-decode-root]');
-          return Boolean((root as HTMLElement & { _decodeStarted?: boolean } | null)?._decodeStarted);
-        }),
+        () => page.evaluate(() => (
+          window as typeof window & {
+            __heroBioDecodeChain?: { bioReadyAt: number; bioAnimatingAt: number };
+          }
+        ).__heroBioDecodeChain?.bioAnimatingAt ?? 0),
         { timeout: 4_000 }
       )
-      .toBe(true);
+      .toBeGreaterThan(0);
 
     const chain = await page.evaluate(() => (
-      window as typeof window & { __heroBioDecodeChain?: { bioReadyAt: number } }
+      window as typeof window & {
+        __heroBioDecodeChain?: { bioReadyAt: number; bioAnimatingAt: number };
+      }
     ).__heroBioDecodeChain);
     expect(chain?.bioReadyAt).toBeGreaterThan(0);
+    expect(chain?.bioAnimatingAt).toBeGreaterThanOrEqual(chain?.bioReadyAt ?? Number.POSITIVE_INFINITY);
   });
 
   test('resolves decoded words without inserting letters into settled text', async ({ page }) => {
@@ -889,21 +904,33 @@ test.describe('Home page', () => {
     await expect(page.locator('#moods-section .mood-item:not(.mood-item-skeleton)')).toHaveCount(0);
   });
 
-  test('keeps mobile navbar spacing stable and releases brand space on scroll', async ({ page }) => {
+  test('keeps mobile navbar spacing stable with the wordmark and menu trigger', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto('/');
-    await expect(page.locator('[data-site-nav]')).toBeVisible();
-    await expect(page.locator('[data-hero-status]')).toBeVisible();
-    await page.waitForFunction(() => document.querySelectorAll('.nav-char').length > 0);
 
-    const initial = await page.evaluate(() => {
+    const nav = page.locator('[data-site-nav]');
+    const wordmark = page.locator('[data-mobile-brand-text]');
+    const inlineLinks = page.locator('[data-nav-links]');
+    const menuTrigger = page.locator('[data-menu-trigger]');
+
+    await expect(nav).toBeVisible();
+    await expect(page.locator('[data-hero-status]')).toBeVisible();
+    await expect(wordmark).toBeVisible();
+    await expect(wordmark).toHaveText('buxx.me');
+    await expect(inlineLinks).toBeHidden();
+    await expect(menuTrigger).toBeVisible();
+
+    const readNavbarState = () => page.evaluate(() => {
       const nav = document.querySelector('[data-site-nav]');
       const status = document.querySelector('[data-hero-status]');
       const headerActions = document.querySelector('[data-header-actions]');
       const toggle = document.querySelector('[data-theme-toggle]');
       const themeIcon = document.querySelector('.theme-icon-container');
       const brand = document.querySelector('[data-site-brand]');
-      const projects = document.querySelector('[data-nav-link="projects"]');
+      const brandText = document.querySelector('[data-mobile-brand-text]');
+      const navLinks = document.querySelector('[data-nav-links]');
+      const trigger = document.querySelector('[data-menu-trigger]');
+      const triggerIcon = document.querySelector('.menu-trigger-icons');
 
       if (
         !(nav instanceof HTMLElement) ||
@@ -912,7 +939,10 @@ test.describe('Home page', () => {
         !(toggle instanceof HTMLElement) ||
         !(themeIcon instanceof HTMLElement) ||
         !(brand instanceof HTMLElement) ||
-        !(projects instanceof HTMLElement)
+        !(brandText instanceof HTMLElement) ||
+        !(navLinks instanceof HTMLElement) ||
+        !(trigger instanceof HTMLElement) ||
+        !(triggerIcon instanceof HTMLElement)
       ) {
         return null;
       }
@@ -921,7 +951,14 @@ test.describe('Home page', () => {
       const statusRect = status.getBoundingClientRect();
       const iconRect = themeIcon.getBoundingClientRect();
       const toggleRect = toggle.getBoundingClientRect();
+      const brandRect = brand.getBoundingClientRect();
+      const brandTextRect = brandText.getBoundingClientRect();
+      const triggerRect = trigger.getBoundingClientRect();
+      const triggerIconRect = triggerIcon.getBoundingClientRect();
       const toggleStyles = window.getComputedStyle(toggle);
+      const brandTextStyles = window.getComputedStyle(brandText);
+      const navLinksStyles = window.getComputedStyle(navLinks);
+      const triggerStyles = window.getComputedStyle(trigger);
 
       return {
         gap: statusRect.top - navRect.bottom,
@@ -929,12 +966,26 @@ test.describe('Home page', () => {
         toggleBackground: toggleStyles.backgroundColor,
         toggleBorder: toggleStyles.borderTopColor,
         toggleCenterDelta: Math.abs((iconRect.left + iconRect.width / 2) - (toggleRect.left + toggleRect.width / 2)),
-        brandCenterDelta: Math.abs((brand.getBoundingClientRect().top + brand.getBoundingClientRect().height / 2) - (navRect.top + navRect.height / 2)),
-        projectsCenterDelta: Math.abs((projects.getBoundingClientRect().top + projects.getBoundingClientRect().height / 2) - (navRect.top + navRect.height / 2)),
-        brandWidth: brand.getBoundingClientRect().width,
-        projectsLeft: projects.getBoundingClientRect().left,
+        brandCenterDelta: Math.abs((brandRect.top + brandRect.height / 2) - (navRect.top + navRect.height / 2)),
+        triggerCenterDelta: Math.abs((triggerRect.top + triggerRect.height / 2) - (toggleRect.top + toggleRect.height / 2)),
+        triggerIconCenterDelta: Math.max(
+          Math.abs((triggerIconRect.left + triggerIconRect.width / 2) - (triggerRect.left + triggerRect.width / 2)),
+          Math.abs((triggerIconRect.top + triggerIconRect.height / 2) - (triggerRect.top + triggerRect.height / 2)),
+        ),
+        actionGap: triggerRect.left - toggleRect.right,
+        brandTriggerGap: triggerRect.left - brandRect.right,
+        navHeight: navRect.height,
+        brandWidth: brandRect.width,
+        brandTextWidth: brandTextRect.width,
+        brandTextOpacity: brandTextStyles.opacity,
+        inlineLinksDisplay: navLinksStyles.display,
+        triggerDisplay: triggerStyles.display,
+        triggerWidth: triggerRect.width,
+        triggerHeight: triggerRect.height,
       };
     });
+
+    const initial = await readNavbarState();
 
     expect(initial).not.toBeNull();
     expect(initial?.gap).toBeGreaterThanOrEqual(16);
@@ -943,65 +994,40 @@ test.describe('Home page', () => {
     expect(initial?.toggleBorder).toBe('rgba(0, 0, 0, 0)');
     expect(initial?.toggleCenterDelta).toBeLessThanOrEqual(1);
     expect(initial?.brandCenterDelta).toBeLessThanOrEqual(1);
-    expect(initial?.projectsCenterDelta).toBeLessThanOrEqual(1);
+    expect(initial?.triggerCenterDelta).toBeLessThanOrEqual(1);
+    expect(initial?.triggerIconCenterDelta).toBeLessThanOrEqual(1);
+    expect(initial?.actionGap).toBeGreaterThanOrEqual(6);
+    expect(initial?.brandTriggerGap).toBeGreaterThan(16);
+    expect(initial?.brandTextWidth).toBeGreaterThan(70);
+    expect(initial?.brandTextOpacity).toBe('1');
+    expect(initial?.inlineLinksDisplay).toBe('none');
+    expect(initial?.triggerDisplay).toBe('flex');
+    expect(initial?.triggerWidth).toBeGreaterThanOrEqual(44);
+    expect(initial?.triggerHeight).toBeGreaterThanOrEqual(44);
 
     await page.evaluate(() => {
+      document.documentElement.style.scrollBehavior = 'auto';
       window.scrollTo(0, 140);
-      window.dispatchEvent(new Event('scroll'));
     });
     await page.waitForFunction(() => window.scrollY > 18);
 
-    await expect.poll(async () => {
-      return await page.locator('[data-site-nav]').evaluate((node) => node.classList.contains('is-brand-eaten'));
-    }).toBe(true);
+    await expect(wordmark).toBeVisible();
+    await expect(inlineLinks).toBeHidden();
+    await expect(menuTrigger).toBeVisible();
 
-    const readCollapsed = async () =>
-      await page.evaluate(() => {
-        const brand = document.querySelector('[data-site-brand]');
-        const brandText = document.querySelector('[data-mobile-brand-text]');
-        const projects = document.querySelector('[data-nav-link="projects"]');
-
-        if (
-          !(brand instanceof HTMLElement) ||
-          !(brandText instanceof HTMLElement) ||
-          !(projects instanceof HTMLElement)
-        ) {
-          return null;
-        }
-
-        const brandStyles = window.getComputedStyle(brand);
-        const brandTextStyles = window.getComputedStyle(brandText);
-        const nav = document.querySelector('[data-site-nav]');
-
-        if (!(nav instanceof HTMLElement)) {
-          return null;
-        }
-
-        const navRect = nav.getBoundingClientRect();
-        const brandRect = brand.getBoundingClientRect();
-        const projectsRect = projects.getBoundingClientRect();
-
-        return {
-          brandMinWidth: brandStyles.minWidth,
-          brandTextMaxWidth: brandTextStyles.maxWidth,
-          brandTextOpacity: brandTextStyles.opacity,
-          brandCenterDelta: Math.abs((brandRect.top + brandRect.height / 2) - (navRect.top + navRect.height / 2)),
-          projectsCenterDelta: Math.abs((projectsRect.top + projectsRect.height / 2) - (navRect.top + navRect.height / 2)),
-          projectsLeft: projects.getBoundingClientRect().left,
-        };
-      });
-
-    await expect.poll(readCollapsed, { timeout: 2_000 }).toMatchObject({
-      brandMinWidth: '40px',
-      brandTextMaxWidth: '0px',
-      brandTextOpacity: '0',
-    });
-
-    const collapsed = await readCollapsed();
-    expect(collapsed).not.toBeNull();
-    expect(collapsed?.brandCenterDelta).toBeLessThanOrEqual(1);
-    expect(collapsed?.projectsCenterDelta).toBeLessThanOrEqual(1);
-    expect((initial?.projectsLeft ?? 0) - (collapsed?.projectsLeft ?? 0)).toBeGreaterThan(12);
+    const afterScroll = await readNavbarState();
+    expect(afterScroll).not.toBeNull();
+    expect(afterScroll?.brandCenterDelta).toBeLessThanOrEqual(1);
+    expect(afterScroll?.triggerCenterDelta).toBeLessThanOrEqual(1);
+    expect(afterScroll?.triggerIconCenterDelta).toBeLessThanOrEqual(1);
+    expect(Math.abs((afterScroll?.navHeight ?? 0) - (initial?.navHeight ?? 0))).toBeLessThanOrEqual(1);
+    expect(Math.abs((afterScroll?.brandWidth ?? 0) - (initial?.brandWidth ?? 0))).toBeLessThanOrEqual(1);
+    expect(Math.abs((afterScroll?.brandTextWidth ?? 0) - (initial?.brandTextWidth ?? 0))).toBeLessThanOrEqual(1);
+    expect(Math.abs((afterScroll?.actionGap ?? 0) - (initial?.actionGap ?? 0))).toBeLessThanOrEqual(1);
+    expect(Math.abs((afterScroll?.brandTriggerGap ?? 0) - (initial?.brandTriggerGap ?? 0))).toBeLessThanOrEqual(1);
+    expect(afterScroll?.brandTextOpacity).toBe('1');
+    expect(afterScroll?.inlineLinksDisplay).toBe('none');
+    expect(afterScroll?.triggerDisplay).toBe('flex');
   });
 
   test('keeps mobile navbar pinned when the visual viewport shifts', async ({ page }) => {

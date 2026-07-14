@@ -191,7 +191,7 @@ test.describe('Blog routes', () => {
   });
 
   test('renders Ghost code through the shared code box component', async ({ page }) => {
-    const response = await page.goto('/blog/email-philosophy/');
+    const response = await page.goto('/blog/demo-effects/');
 
     expect(response?.ok()).toBeTruthy();
 
