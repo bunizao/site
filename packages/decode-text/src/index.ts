@@ -280,18 +280,20 @@ const layoutLines = (host: HTMLElement, cells: Cell[], layout: DecodeLayout): Li
   });
 
   host.replaceChildren();
-  for (const line of trimmed) {
+  const lines: Line[] = [];
+  for (const cells of trimmed) {
+    if (!cells.some((cell) => !cell.space)) continue;
+
     const block = document.createElement('span');
     block.className = 'dt-line';
     block.style.display = 'block';
     block.style.whiteSpace = 'nowrap';
-    for (const cell of line) block.appendChild(cell.el);
+    for (const cell of cells) block.appendChild(cell.el);
     host.appendChild(block);
+    lines.push({ cells, start: 0, duration: 0, done: 0, complete: false });
   }
 
-  return trimmed
-    .filter((line) => line.some((cell) => !cell.space))
-    .map((line) => ({ cells: line, start: 0, duration: 0, done: 0, complete: false }));
+  return lines;
 };
 
 type CellState = '' | 'cursor' | 'scramble';
