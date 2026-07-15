@@ -55,11 +55,9 @@ if (missing.length > 0) {
   buildEnv.PUBLIC_GHOST_URL ||= 'https://blog.buxx.me';
 }
 
-// blog.buxx.me is routed to this worker (see wrangler.jsonc routes). A
-// production build that fetches Ghost content through it would hit the worker
-// itself and 404 on /ghost/api/*. The build env must point at the real Ghost
-// origin.
-const SELF_ROUTED_HOSTS = new Set(['blog.buxx.me', 'buxx.me', 'www.buxx.me']);
+// Production builds must not fetch Ghost content through a hostname routed to
+// this worker. blog.buxx.me stays on the Ghost origin and is intentionally safe.
+const SELF_ROUTED_HOSTS = new Set(['buxx.me', 'www.buxx.me']);
 
 function ghostUrlHost(value) {
   try {

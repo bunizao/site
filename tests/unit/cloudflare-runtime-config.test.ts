@@ -146,6 +146,8 @@ describe('Cloudflare runtime configuration', () => {
     expect(buildScript).toContain('process.env.WORKERS_CI_BRANCH');
     expect(buildScript).toContain("buildEnv.GHOST_MOCK_CONTENT = '1'");
     expect(buildScript).toContain('printMissingEnvError(missing)');
+    expect(buildScript).toContain("new Set(['buxx.me', 'www.buxx.me'])");
+    expect(buildScript).not.toContain("new Set(['blog.buxx.me'");
   });
 
   test('loads Tailwind 4 through its stylesheet entrypoint', () => {
