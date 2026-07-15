@@ -243,6 +243,59 @@ test.describe('Mood routes', () => {
     await expect(page).toHaveURL(new RegExp(`${href}$`));
   });
 
+  test('derives tall image limits from feed dimensions', async ({ page }) => {
+    const moodId = '9903623';
+    const imageUrl = 'https://image.example.test/mood/9903623/0';
+    const payload = {
+      posts: [
+        createMoodFeedPost(moodId, 'Tall image without layout metadata', {
+          image: imageUrl,
+          imageHeight: 2560,
+          imageLayout: null,
+          imageWidth: 1178,
+        }),
+      ],
+      channel: {
+        slug: 'e2e',
+        title: 'E2E Channel',
+      },
+    };
+
+    await page.route('**/api/moods**', async (route) => {
+      const url = new URL(route.request().url());
+      if (url.searchParams.get('probe') === '1') {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({ latestId: moodId }),
+        });
+        return;
+      }
+
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(payload),
+      });
+    });
+
+    await page.route(imageUrl, async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'image/svg+xml',
+        body: '<svg xmlns="http://www.w3.org/2000/svg" width="1178" height="2560"></svg>',
+      });
+    });
+
+    await page.goto('/mood');
+
+    const thumbnail = page.locator(`[data-mood-id="${moodId}"] .mood-item-thumb`);
+    await expect(thumbnail).toHaveClass(/mood-item-thumb--ultra-tall/);
+    await expect
+      .poll(async () => thumbnail.evaluate((element) => element.getBoundingClientRect().height))
+      .toBeLessThanOrEqual(400);
+  });
+
   test('loads the mood flow from the archive fixture', async ({ page }) => {
     await page.goto('/mood?source=archive');
 

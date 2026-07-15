@@ -95,6 +95,26 @@ function isPositiveDimension(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value) && value > 0;
 }
 
+type FeedImageLayout = 'landscape' | 'portrait' | 'ultra-tall';
+
+function resolveFeedImageLayout(
+  value: unknown,
+  width: number | null,
+  height: number | null,
+): FeedImageLayout | null {
+  if (value === 'landscape' || value === 'portrait' || value === 'ultra-tall') {
+    return value;
+  }
+  if (!isPositiveDimension(width) || !isPositiveDimension(height)) {
+    return null;
+  }
+
+  const aspectRatio = width / height;
+  if (aspectRatio < 0.6) return 'ultra-tall';
+  if (aspectRatio < 0.8) return 'portrait';
+  return 'landscape';
+}
+
 function buildPreviewFragment(previewText: string, previewHtml?: string): DocumentFragment {
   return buildMoodPreviewFragment(previewText, previewHtml, {
     preserveRichTextTags: true,
@@ -472,11 +492,7 @@ export function createFeedRenderer({
 
       const imageLayout = isTooBigVideoPreview
         ? null
-        : mood.imageLayout === 'portrait' || mood.imageLayout === 'ultra-tall'
-          ? mood.imageLayout
-          : mood.imageLayout === 'landscape'
-            ? 'landscape'
-            : null;
+        : resolveFeedImageLayout(mood.imageLayout, imageWidth, imageHeight);
       if (imageLayout === 'portrait') {
         thumbWrap.classList.add('mood-item-thumb--portrait');
       } else if (imageLayout === 'ultra-tall') {
@@ -593,10 +609,10 @@ export function createFeedRenderer({
             return;
           }
 
-          const aspectRatio = img.naturalWidth / img.naturalHeight;
-          if (aspectRatio < 0.6) {
+          const loadedImageLayout = resolveFeedImageLayout(null, img.naturalWidth, img.naturalHeight);
+          if (loadedImageLayout === 'ultra-tall') {
             thumbWrap.classList.add('mood-item-thumb--ultra-tall');
-          } else if (aspectRatio < 0.8) {
+          } else if (loadedImageLayout === 'portrait') {
             thumbWrap.classList.add('mood-item-thumb--portrait');
           }
         };
