@@ -1,0 +1,224 @@
+---
+// Self-contained specimen of the blog's /blog/tags card wall. Mirrors the real
+// TagCard.has-image idiom class-for-class (.tag-card / .tag-card-bg / floating
+// .tag-card-posts liquid-glass panel), so it reads identically to the live page
+// — but with invented English tags + counts and local project screenshots as
+// the feature images (the real page pulls each tag's Ghost feature image). The
+// styles are copied inline because blog.css isn't loaded on the showcase.
+const cards = [
+  {
+    name: 'Interfaces',
+    count: 9,
+    accent: '#7e8b9e',
+    image: '/showcase/ridge.webp',
+    posts: [
+      ['Frosted glass, zero cold starts', 'Jul 2'],
+      ['A dial you can feel', 'Jun 24'],
+      ['Concentric by default', 'Jun 18'],
+    ],
+  },
+  {
+    name: 'Edge',
+    count: 6,
+    accent: '#8a7e6b',
+    image: '/showcase/dunes.webp',
+    posts: [
+      ['Generated live at the edge', 'Jun 14'],
+      ['Small APIs age better', 'Jun 11'],
+    ],
+  },
+];
+---
+
+<div class="tagspec">
+  <div class="tagspec-wall">
+    {cards.map((card) => (
+      <article class="tag-card has-image has-accent" style={`--tag-accent:${card.accent}`}>
+        <a class="tag-card-bg" href="/blog/tags/">
+          <img src={card.image} alt={card.name} loading="lazy" />
+          <div class="tag-card-header">
+            <div class="tag-card-info">
+              <h2 class="tag-card-name">{card.name}</h2>
+              <span class="tag-card-count">{card.count} posts</span>
+            </div>
+          </div>
+        </a>
+        <div class="tag-card-posts">
+          {card.posts.map(([title, date]) => (
+            <a class="tag-post-preview" href="/blog/tags/">
+              <span class="tag-post-title">{title}</span>
+              <span class="tag-post-date">{date}</span>
+            </a>
+          ))}
+        </div>
+      </article>
+    ))}
+  </div>
+</div>
+
+<style>
+  .tagspec {
+    width: 100%;
+    /* Blog surfaces read in Inter, not the showcase's mono scope. */
+    font-family: var(--font-sans);
+    /* Respond to the tile's own width, not the viewport — the tile is
+       half-width on tablets and full-width on phones, both too narrow for
+       two cards side by side. */
+    container-type: inline-size;
+  }
+
+  /* ── Feature-image glass cards (the /blog/tags wall) ──────────────────── */
+  .tagspec-wall {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1.5rem;
+    min-height: 20rem;
+  }
+
+  /* Mirrors .tag-card.has-image from blog.css. */
+  .tag-card {
+    --tag-color: var(--tag-accent);
+    --image-color: var(--tag-accent);
+    --tag-pad-x: 24px;
+    --row-h: 46px;
+    position: relative;
+    min-height: 0;
+    border-radius: 20px;
+    overflow: hidden;
+    isolation: isolate;
+    clip-path: inset(0 round 20px);
+    border: 1px solid transparent;
+    background: hsl(var(--foreground) / 0.06);
+    transition: border-color 0.25s ease, box-shadow 0.25s ease;
+  }
+
+  .tag-card:hover {
+    border-color: color-mix(in srgb, var(--image-color) 50%, transparent);
+    box-shadow: 0 8px 24px color-mix(in srgb, var(--image-color) 25%, rgb(0 0 0 / 0.2));
+  }
+
+  .tag-card-bg {
+    display: block;
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    color: inherit;
+    text-decoration: none;
+  }
+
+  .tag-card-bg > img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: filter 0.3s ease;
+  }
+
+  .tag-card:hover .tag-card-bg > img {
+    filter: brightness(1.06) saturate(1.05);
+  }
+
+  /* Legibility scrim above the photo, below the text. */
+  .tag-card-bg::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    background: linear-gradient(to bottom, rgb(0 0 0 / 0.12) 0%, rgb(0 0 0 / 0.58) 100%);
+    pointer-events: none;
+  }
+
+  .tag-card-header {
+    position: absolute;
+    top: var(--tag-pad-x);
+    left: var(--tag-pad-x);
+    z-index: 3;
+  }
+
+  .tag-card-name {
+    margin: 0;
+    color: #fff;
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    line-height: 1.3;
+    text-shadow: 0 1px 3px rgb(0 0 0 / 0.4);
+  }
+
+  .tag-card-count {
+    color: rgb(255 255 255 / 0.9);
+    font-size: 12.5px;
+    font-weight: 500;
+    text-shadow: 0 1px 2px rgb(0 0 0 / 0.3);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Liquid-glass posts panel pinned to the bottom — the effect the user wants. */
+  .tag-card-posts {
+    position: absolute;
+    inset: auto 0 0 0;
+    z-index: 3;
+    background: rgb(0 0 0 / 0.25);
+    backdrop-filter: blur(24px) saturate(180%) brightness(1.1);
+    -webkit-backdrop-filter: blur(24px) saturate(180%) brightness(1.1);
+    box-shadow: inset 0 0.5px 0 rgb(255 255 255 / 0.15);
+  }
+
+  .tag-post-preview {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    height: var(--row-h);
+    padding: 0 var(--tag-pad-x);
+    color: inherit;
+    text-decoration: none;
+    border-bottom: 1px solid rgb(255 255 255 / 0.12);
+    transition: background 0.15s ease;
+  }
+
+  .tag-post-preview:last-child {
+    border-bottom: none;
+  }
+
+  .tag-post-preview:hover {
+    background: rgb(255 255 255 / 0.1);
+  }
+
+  .tag-post-title {
+    min-width: 0;
+    font-size: 14px;
+    font-weight: 500;
+    color: rgb(255 255 255 / 0.88);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .tag-post-date {
+    flex-shrink: 0;
+    font-size: 12px;
+    color: rgb(255 255 255 / 0.7);
+    text-shadow: 0 1px 2px rgb(0 0 0 / 0.3);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Below ~two-readable-columns, stack to one full-width card so the name and
+     post rows breathe instead of ellipsizing into slivers. Placed last so it
+     wins the cascade over the base .tagspec-wall / .tag-card rules above. Each
+     card carries its own height once the shared row track no longer stretches
+     it. Keyed off the tile's own width, so the tablet half-width tile stacks
+     too, not just phones. */
+  @container (max-width: 26rem) {
+    .tagspec-wall {
+      grid-template-columns: minmax(0, 1fr);
+      gap: 0.85rem;
+      min-height: 0;
+    }
+
+    .tag-card {
+      min-height: 14rem;
+    }
+  }
+</style>

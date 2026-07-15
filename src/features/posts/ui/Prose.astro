@@ -1,19 +1,25 @@
 ---
-// Renders Ghost-provided HTML verbatim (preserving the .kg-* contract) and wires
-// the small progressive-enhancement layer that the markup expects: copy buttons
-// on code blocks, a tap-to-zoom lightbox for images, and promotion of Ghost's
-// "[!poem]" blockquote convention to a real verse block. All vanilla, no deps —
-// the body reads fine with JS off; this only upgrades it.
+// Renders Ghost-provided HTML while promoting code blocks into the shared
+// components showcase CodeBox. The remaining .kg-* markup stays verbatim and
+// gets a small progressive-enhancement layer for media and poem blocks.
 import '../../../styles/blog-prose.css';
+import CodeBox from '@/features/components/ui/CodeBox.astro';
+import { splitBlogProse } from '@/features/posts/server/code-blocks';
 
 interface Props {
   html: string;
 }
 
 const { html } = Astro.props;
+const fragments = splitBlogProse(html);
 ---
 
-<div class="blog-prose" set:html={html} />
+<div class="blog-prose">
+  {fragments.map((fragment) => fragment.kind === 'code'
+    ? <CodeBox code={fragment.code} lang={fragment.lang} />
+    : <Fragment set:html={fragment.html} />
+  )}
+</div>
 
 <script>
   import { musicKitPlayer } from '@/lib/musickit/player';
@@ -42,37 +48,6 @@ const { html } = Astro.props;
 
   const root = document.querySelector('.blog-prose');
   if (root) {
-    // --- Copy buttons on code blocks ---
-    const COPY_ICON =
-      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>';
-
-    root.querySelectorAll('pre').forEach((pre) => {
-      const code = pre.querySelector('code');
-      if (!code) return;
-
-      const button = document.createElement('button');
-      button.type = 'button';
-      button.className = 'blog-copy';
-      button.innerHTML = `${COPY_ICON}<span>Copy</span>`;
-      button.setAttribute('aria-label', 'Copy code');
-
-      button.addEventListener('click', async () => {
-        try {
-          await navigator.clipboard.writeText(code.innerText);
-          button.dataset.copied = 'true';
-          button.querySelector('span')!.textContent = 'Copied';
-          setTimeout(() => {
-            delete button.dataset.copied;
-            button.querySelector('span')!.textContent = 'Copy';
-          }, 1600);
-        } catch {
-          /* clipboard blocked — leave the button silent */
-        }
-      });
-
-      pre.appendChild(button);
-    });
-
     // --- Gallery: restore Ghost's flex-ratio layout ---
     // Ghost normally inlines flex-grow ∝ aspect ratio so a row tiles to a single
     // height. The live feed omits it, so derive it from each image's dimensions.

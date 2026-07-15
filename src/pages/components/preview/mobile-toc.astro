@@ -1,0 +1,130 @@
+---
+import '@/styles/globals.css';
+import MobileReadingBar from '@/features/components/ui/MobileReadingBar.astro';
+
+export const prerender = true;
+
+const sections = [
+  { id: 's1', title: 'Opening' },
+  { id: 's2', title: 'The core idea' },
+  { id: 's3', title: 'How it holds up' },
+  { id: 's4', title: 'Edges and trade-offs' },
+  { id: 's5', title: 'Where it goes next' },
+];
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width" />
+    <title>Mobile reading bar preview</title>
+    <script is:inline>
+      (() => {
+        const syncTheme = () => {
+          try {
+            document.documentElement.classList.toggle(
+              'dark',
+              window.parent.document.documentElement.classList.contains('dark'),
+            );
+          } catch {
+            document.documentElement.classList.toggle(
+              'dark',
+              window.matchMedia('(prefers-color-scheme: dark)').matches,
+            );
+          }
+        };
+
+        syncTheme();
+        try {
+          new MutationObserver(syncTheme).observe(window.parent.document.documentElement, {
+            attributes: true,
+            attributeFilter: ['class'],
+          });
+        } catch {}
+      })();
+    </script>
+  </head>
+  <body>
+    <MobileReadingBar
+      sections={sections}
+      homeHref="/blog"
+      homeLabel="Blog home"
+      logoSrc="/blog-mark.webp"
+    />
+
+    <main class="doc">
+      {sections.map((section, index) => (
+        <section id={section.id} class="doc-section">
+          <h2>{section.title}</h2>
+          <p>
+            {'A short passage of placeholder prose, just enough to give the scroll something to travel through so the active heading advances and the pill jumps. '.repeat(index === 0 ? 2 : 3)}
+          </p>
+        </section>
+      ))}
+      <div class="doc-tail"></div>
+    </main>
+  </body>
+</html>
+
+<style>
+  :global(html) {
+    color-scheme: light;
+  }
+
+  :global(html.dark) {
+    color-scheme: dark;
+  }
+
+  :global(body) {
+    margin: 0;
+    background: hsl(var(--background));
+    color: hsl(var(--foreground));
+    font-family: var(--font-sans);
+  }
+
+  :global(body)::after {
+    content: '';
+    position: fixed;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 40;
+    height: 72px;
+    background: linear-gradient(
+      to top,
+      hsl(var(--background)) 32%,
+      hsl(var(--background) / 0)
+    );
+    pointer-events: none;
+  }
+
+  .doc {
+    max-width: 32rem;
+    margin: 0 auto;
+    padding: 72px 20px 0;
+  }
+
+  .doc-section {
+    scroll-margin-top: 72px;
+  }
+
+  .doc-section h2 {
+    margin: 0 0 0.5rem;
+    font-size: 1.15rem;
+    font-weight: 640;
+    letter-spacing: -0.01em;
+  }
+
+  .doc-section p {
+    margin: 0 0 1rem;
+    color: hsl(var(--foreground) / 0.72);
+    font-size: 0.92rem;
+    line-height: 1.7;
+    text-wrap: pretty;
+  }
+
+  .doc-tail {
+    height: 60vh;
+  }
+</style>

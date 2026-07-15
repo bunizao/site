@@ -1,0 +1,170 @@
+/* Shared framed code block used by the component register and blog renderer. */
+.code-box {
+  /* Seed the frame tokens locally. `.components` defines --line/--line2/--surface/
+     --ease-out for the showcase, but this box is also mounted in blog prose where
+     that scope is absent — an undefined var() in a `border`/`background` shorthand
+     is dropped whole, so the frame silently disappears. Fall back to the showcase
+     value when present, else the identical monochrome formula. */
+  --cb-line: var(--line, hsl(var(--foreground) / 0.1));
+  --cb-line-strong: var(--line2, hsl(var(--foreground) / 0.2));
+  --cb-surface: var(--surface, hsl(var(--foreground) / 0.02));
+  --cb-ease: var(--ease-out, cubic-bezier(0.23, 1, 0.32, 1));
+  margin: 0;
+  border-radius: var(--radius);
+  background: var(--cb-surface);
+  /* Frame drawn as an inset ring, not a real border. A layout border sits on the
+     border-box, but `overflow: hidden` clips the header (which paints its own
+     fill) to the smaller padding-box radius — the two arcs differ by the border
+     width and read as a doubled corner. An inset ring shares the element's own
+     radius, so the frame and the clip trace one crisp corner. */
+  box-shadow: inset 0 0 0 1px var(--cb-line);
+  overflow: hidden;
+}
+
+.code-box-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.45rem 0.5rem 0.45rem 0.85rem;
+  border-bottom: 1px solid var(--cb-line);
+  background: hsl(var(--foreground) / 0.015);
+}
+
+.code-box-lang {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-family: var(--font-code);
+  font-size: 0.74rem;
+  letter-spacing: 0.01em;
+  color: hsl(var(--muted-foreground));
+}
+
+.code-box-logo {
+  width: 0.95rem;
+  height: 0.95rem;
+  flex-shrink: 0;
+  color: hsl(var(--foreground) / 0.75);
+}
+
+.code-box-copy {
+  position: relative;
+  flex-shrink: 0;
+  display: inline-grid;
+  place-items: center;
+  width: 1.85rem;
+  height: 1.85rem;
+  border: 1px solid var(--cb-line);
+  border-radius: var(--radius-sm);
+  background: hsl(var(--background));
+  color: hsl(var(--foreground));
+  cursor: pointer;
+  transition: transform 0.16s var(--cb-ease), border-color 0.16s ease;
+}
+
+.code-box-copy:hover {
+  border-color: var(--cb-line-strong);
+}
+
+.code-box-copy:active {
+  transform: scale(0.94);
+}
+
+.code-box-copy:focus-visible {
+  outline: 2px solid hsl(var(--foreground));
+  outline-offset: 2px;
+}
+
+.code-box-icons {
+  position: relative;
+  display: grid;
+  width: 0.85rem;
+  height: 0.85rem;
+}
+
+.code-box-icon {
+  grid-area: 1 / 1;
+  width: 0.85rem;
+  height: 0.85rem;
+  transition: opacity 0.2s ease, filter 0.2s ease;
+}
+
+.code-box-icon--copy {
+  opacity: 1;
+  filter: blur(0);
+}
+
+.code-box-icon--check {
+  opacity: 0;
+  filter: blur(2px);
+}
+
+.code-box-copy[data-copied] .code-box-icon--copy {
+  opacity: 0;
+  filter: blur(2px);
+}
+
+.code-box-copy[data-copied] .code-box-icon--check {
+  opacity: 1;
+  filter: blur(0);
+}
+
+.code-box-body pre.astro-code {
+  margin: 0;
+  padding: 1.15rem 1.25rem;
+  overflow-x: auto;
+  border-radius: 0;
+  background: transparent !important;
+  font-family: var(--font-code);
+  font-size: 0.84rem;
+  line-height: 1.6;
+  tab-size: 2;
+  /* Slim, quiet horizontal scrollbar. The global bar (globals.css) only sizes the
+     vertical case and paints a solid --muted thumb, which reads as a heavy
+     full-width strip under a code box; scope a thin one to this overflow. */
+  scrollbar-width: thin;
+  scrollbar-color: hsl(var(--foreground) / 0.22) transparent;
+}
+
+.code-box-body pre.astro-code::-webkit-scrollbar {
+  height: 6px;
+}
+
+.code-box-body pre.astro-code::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.code-box-body pre.astro-code::-webkit-scrollbar-thumb {
+  background: hsl(var(--foreground) / 0.18);
+  border: 0;
+  border-radius: 999px;
+}
+
+/* The highlighted body is a <code> of Shiki <span>s. Ambient `code {}` rules —
+   blog prose shrinks inline code to 0.875em, tints and pads it — would otherwise
+   re-style it and undercut the pre's size. Pin size + font + box back to the pre
+   so the component owns its own type in any context. Colors come from Shiki inline
+   styles, so they are left untouched. */
+.code-box-body pre.astro-code code {
+  font-size: inherit;
+  font-family: inherit;
+  background: none;
+  padding: 0;
+  border-radius: 0;
+}
+
+.code-box-body pre.astro-code,
+.code-box-body pre.astro-code span {
+  color: var(--shiki-light);
+  font-style: var(--shiki-light-font-style);
+  font-weight: var(--shiki-light-font-weight);
+  text-decoration: var(--shiki-light-text-decoration);
+}
+
+html.dark .code-box-body pre.astro-code,
+html.dark .code-box-body pre.astro-code span {
+  color: var(--shiki-dark);
+  font-style: var(--shiki-dark-font-style);
+  font-weight: var(--shiki-dark-font-weight);
+  text-decoration: var(--shiki-dark-text-decoration);
+}

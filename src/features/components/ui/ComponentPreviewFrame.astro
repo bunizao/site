@@ -1,0 +1,21 @@
+---
+// Bordered preview frame. Default: an inline island in the slot, sharing the
+// page's Tailwind tokens. iframe variant: for previews that use fixed
+// positioning or take over scroll (mood-wheel) and would otherwise bleed.
+interface Props {
+  variant?: 'inline' | 'iframe';
+  src?: string;
+  title?: string;
+}
+const { variant = 'inline', src, title } = Astro.props;
+---
+
+{variant === 'iframe' && src ? (
+  <div class="preview-frame preview-frame--iframe">
+    <iframe src={src} title={title ?? 'Component preview'} loading="lazy"></iframe>
+  </div>
+) : (
+  <div class="preview-frame">
+    <slot />
+  </div>
+)}

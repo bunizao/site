@@ -1,0 +1,177 @@
+---
+import Layout from '@/layouts/Layout.astro';
+import ProjectStack from '@/components/project-cards/ProjectStack';
+import Listening from '@/features/home/ui/Listening.astro';
+import { FALLBACK_TRACK } from '@/features/home/server/listening';
+import GitHubContributions from '@/features/home/ui/GitHubContributions.astro';
+import DecodeTextPreview from '@/features/components/previews/DecodeTextPreview';
+import HoverListPreview from '@/features/components/previews/HoverListPreview.astro';
+import MoodButtonPreview from '@/features/components/previews/MoodButtonPreview.astro';
+import ContactLinksPreview from '@/features/components/previews/ContactLinksPreview.astro';
+import TagsPreview from '@/features/components/previews/TagsPreview.astro';
+import Footer from '@/features/home/ui/Footer.astro';
+import '@/styles/components.css';
+
+export const prerender = true;
+
+const title = 'Components';
+const description =
+  "The signature interactive pieces this site is built from — a live bento of the projects deck, decode text, listening vinyl, GitHub activity, the mood wheel, contact links, tag cards, the mobile reading bar, and the list hover-preview. Every tile is a self-contained specimen.";
+---
+
+<Layout title={title} description={description} url="/components" navVariant="page" showSiteNav brandVariant="home">
+  <main class="components components--index">
+    <section class="cgrid-hero">
+      <p class="cgrid-hero-eyebrow">Component Showcase</p>
+      <h1 class="cgrid-hero-title">The pieces this site is made of.</h1>
+    </section>
+
+    <div class="cgrid" data-cgrid>
+      <!-- Band 1 — projects deck (col 1, top), the tall mood dial (col 2), and a
+           decode/contact stack (col 3); listening fills under the deck. The four
+           heights are tuned so the band packs flush with no gaps. -->
+      <section class="cgrid-tile cgrid-tile--projects cgrid-tile--link" data-cgrid-tile style="--i:0">
+        <div class="cgrid-stage cgrid-stage--projects">
+          <ProjectStack client:visible />
+        </div>
+        <a class="cgrid-cap cgrid-cap--link" href="/components/projects-deck">
+          Projects deck
+          <svg class="cgrid-cap-arrow" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7"/><path d="M8 7h9v9"/></svg>
+        </a>
+      </section>
+
+      <!-- Mood wheel — a scroll-position instrument. Portrait tile so the
+           vertical dial is the focus; an invisible feed of dated anchors drives
+           it and the backdrop shimmers with the scroll. Genuinely needs
+           isolation (fixed positioning + scroll takeover), so it's iframed. -->
+      <section class="cgrid-tile cgrid-tile--mood cgrid-tile--iframe cgrid-tile--link" data-cgrid-tile style="--i:1">
+        <iframe src="/components/preview/mood-wheel" title="Mood wheel" loading="lazy"></iframe>
+        <a class="cgrid-cap cgrid-cap--link" href="/components/mood-wheel">
+          Mood wheel
+          <svg class="cgrid-cap-arrow" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7"/><path d="M8 7h9v9"/></svg>
+        </a>
+      </section>
+
+      <!-- Decode text — a full paragraph that boils line-by-line; hover or click
+           to re-boil. -->
+      <section class="cgrid-tile cgrid-tile--decode cgrid-tile--link" data-cgrid-tile style="--i:2">
+        <div class="cgrid-stage cgrid-stage--decode">
+          <DecodeTextPreview client:visible />
+        </div>
+        <a class="cgrid-cap cgrid-cap--link" href="/components/decode-text">
+          Decode text
+          <svg class="cgrid-cap-arrow" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7"/><path d="M8 7h9v9"/></svg>
+        </a>
+      </section>
+
+      <!-- Contact links — each platform lights up in its brand colour on hover. -->
+      <section class="cgrid-tile cgrid-tile--contact cgrid-tile--link" data-cgrid-tile style="--i:3">
+        <div class="cgrid-stage cgrid-stage--contact">
+          <ContactLinksPreview />
+        </div>
+        <a class="cgrid-cap cgrid-cap--link" href="/components/contact-links">
+          Contact links
+          <svg class="cgrid-cap-arrow" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7"/><path d="M8 7h9v9"/></svg>
+        </a>
+      </section>
+
+      <!-- Listening — spins, samples the artwork colour, plays a preview with a
+           scrubbable progress bar on click. Frozen on a demo track. -->
+      <section class="cgrid-tile cgrid-tile--listening cgrid-tile--link" data-cgrid-tile style="--i:4">
+        <div class="cgrid-stage">
+          <Listening track={FALLBACK_TRACK} static />
+        </div>
+        <a class="cgrid-cap cgrid-cap--link" href="/components/listening">
+          Listening
+          <svg class="cgrid-cap-arrow" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7"/><path d="M8 7h9v9"/></svg>
+        </a>
+      </section>
+
+      <!-- Band 2 — the mobile reading bar (col 1, tall), the tag wall (col 2-3),
+           then contributions + update pill fill the row beneath the tags. -->
+      <section class="cgrid-tile cgrid-tile--toc cgrid-tile--iframe cgrid-tile--link" data-cgrid-tile style="--i:5">
+        <iframe src="/components/preview/mobile-toc" title="Mobile reading bar" loading="lazy"></iframe>
+        <a class="cgrid-cap cgrid-cap--link" href="/components/mobile-reading-bar">
+          Mobile reading bar
+          <svg class="cgrid-cap-arrow" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7"/><path d="M8 7h9v9"/></svg>
+        </a>
+      </section>
+
+      <!-- Tag cards — quiet chips + feature-image glass cards from the blog tags
+           wall. -->
+      <section class="cgrid-tile cgrid-tile--tags cgrid-tile--link" data-cgrid-tile style="--i:6">
+        <div class="cgrid-stage cgrid-stage--tags">
+          <TagsPreview />
+        </div>
+        <a class="cgrid-cap cgrid-cap--link" href="/components/tag-cards">
+          Tag cards
+          <svg class="cgrid-cap-arrow" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7"/><path d="M8 7h9v9"/></svg>
+        </a>
+      </section>
+
+      <!-- GitHub contributions — self-renders standalone; hover for tooltips. -->
+      <section class="cgrid-tile cgrid-tile--contrib cgrid-tile--link" data-cgrid-tile style="--i:7">
+        <div class="cgrid-stage cgrid-stage--contrib">
+          <GitHubContributions demo />
+        </div>
+        <a class="cgrid-cap cgrid-cap--link" href="/components/github-activity">
+          GitHub activity
+          <svg class="cgrid-cap-arrow" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7"/><path d="M8 7h9v9"/></svg>
+        </a>
+      </section>
+
+      <!-- Mood update states — each pill expands and nudges its neighbours. -->
+      <section class="cgrid-tile cgrid-tile--moodbtn cgrid-tile--link" data-cgrid-tile style="--i:8">
+        <div class="cgrid-stage cgrid-stage--moodbtn">
+          <MoodButtonPreview />
+        </div>
+        <a class="cgrid-cap cgrid-cap--link" href="/components/update-pills">
+          Update pills
+          <svg class="cgrid-cap-arrow" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7"/><path d="M8 7h9v9"/></svg>
+        </a>
+      </section>
+
+      <!-- Band 3 — the list hover-preview runs full width: sliding pill + a
+           cursor-following image preview, self-contained with invented rows. -->
+      <section class="cgrid-tile cgrid-tile--hover cgrid-tile--link" data-cgrid-tile style="--i:9">
+        <div class="cgrid-stage cgrid-stage--hover">
+          <HoverListPreview />
+        </div>
+        <a class="cgrid-cap cgrid-cap--link" href="/components/list-hover">
+          List hover
+          <svg class="cgrid-cap-arrow" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7"/><path d="M8 7h9v9"/></svg>
+        </a>
+      </section>
+    </div>
+  </main>
+  <Footer />
+</Layout>
+
+<script>
+  // Light per-tile reveal on first view — staggered by inline --i. No install
+  // copy here; the grid is a live gallery of self-contained specimens.
+  (() => {
+    const tiles = document.querySelectorAll<HTMLElement>('[data-cgrid-tile]');
+    if (!tiles.length) return;
+    const reveal = (el: HTMLElement) => el.classList.add('is-revealed');
+
+    if (!('IntersectionObserver' in window)) {
+      tiles.forEach(reveal);
+      return;
+    }
+
+    const io = new IntersectionObserver(
+      (entries, obs) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting) {
+            reveal(entry.target as HTMLElement);
+            obs.unobserve(entry.target);
+          }
+        }
+      },
+      { threshold: 0.05, rootMargin: '0px 0px -6% 0px' }
+    );
+    tiles.forEach((el) => io.observe(el));
+    setTimeout(() => tiles.forEach(reveal), 1500);
+  })();
+</script>

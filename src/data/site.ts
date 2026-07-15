@@ -298,6 +298,26 @@ export const experience: ExperienceItem[] = [
   },
 ];
 
+// --- Primary navigation -----------------------------------------------------
+// Real, site-wide page links. Rendered in two places: the desktop home sidebar
+// and the mobile menu sheet (see Layout.astro). `section` maps a link to a
+// homepage section id so the desktop sidebar can highlight it via scroll-spy
+// while still navigating to the real page; links without one (e.g. Components)
+// simply never highlight on the home page.
+
+export interface NavLink {
+  label: string;
+  href: string;
+  section?: string;
+}
+
+export const navLinks: NavLink[] = [
+  { label: 'Projects', href: '/projects', section: 'projects' },
+  { label: 'Blog', href: '/blog', section: 'writing' },
+  { label: 'Moods', href: '/mood', section: 'moods' },
+  { label: 'Components', href: '/components' },
+];
+
 // --- Section visibility -----------------------------------------------------
 // Toggle whole homepage sections on/off. Default every section on; flip one to
 // false to drop it from the page (index.astro guards each render on this).

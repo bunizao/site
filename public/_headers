@@ -13,3 +13,11 @@ https://buxx.me/blog*
 https://www.buxx.me/blog*
   Content-Security-Policy: script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://static.cloudflareinsights.com https://challenges.cloudflare.com http://localhost:* http://127.0.0.1:*; base-uri 'self'; object-src 'none'
   Cache-Control: public, max-age=0, must-revalidate
+
+https://buxx.me/r/*
+  Content-Type: application/json; charset=utf-8
+  Cache-Control: public, max-age=300, s-maxage=86400, stale-while-revalidate=604800
+
+https://www.buxx.me/r/*
+  Content-Type: application/json; charset=utf-8
+  Cache-Control: public, max-age=300, s-maxage=86400, stale-while-revalidate=604800

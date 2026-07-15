@@ -11,6 +11,7 @@ interface Props {
   hideSiteNav?: boolean;
   showSiteNav?: boolean;
   navVariant?: 'home' | 'page';
+  brandVariant?: 'home';
   headerActionsVariant?: 'default' | 'home';
   structuredData?: Record<string, unknown> | Array<Record<string, unknown>>;
   preloadFont?: 'mono' | 'sans';
@@ -31,14 +32,14 @@ interface Props {
 
 import '../styles/globals.css';
 import '../features/mood/styles/feed-rich-text.css';
-import { Moon, Sun, Monitor } from 'lucide-react';
+import { Moon, Sun, Monitor, Menu, X } from 'lucide-react';
 import AnimatedLogo from '@/features/logos/ui/AnimatedLogo.astro';
 import {
   PEEK_NAVBAR_LOGO,
   getPeekRuntimeSlot,
   getPeekRuntimeSlotKey,
 } from '@/features/logos/data/peek-runtime';
-import { meta } from '@/data/site';
+import { meta, navLinks } from '@/data/site';
 import { hasMarkdownRenderer } from '@/features/agent-markdown/server/registry';
 
 const {
@@ -53,6 +54,7 @@ const {
   hideSiteNav = false,
   showSiteNav = false,
   navVariant,
+  brandVariant,
   headerActionsVariant = 'default',
   structuredData,
   preloadFont = 'mono',
@@ -63,7 +65,15 @@ const {
 
 const isHomeNav = navVariant === 'home';
 const isPageNav = navVariant === 'page';
-const showsBrandText = isHomeNav || isPageNav;
+// Render the home brand identity (big animated peek + wordmark) inside a plain
+// horizontal bar on non-home pages that want it (e.g. /components). It reuses
+// home's brand look without home's scroll-driven vertical sidebar.
+const brandHome = brandVariant === 'home';
+const brandRich = isHomeNav || brandHome;
+// The mobile menu follows the site nav and stays off chrome-hiding pages and
+// embedded specimen previews.
+const showMenu = !hideSiteNav;
+const showsBrandText = isHomeNav || isPageNav || brandHome;
 const useHomeHeaderActions = isHomeNav || headerActionsVariant === 'home';
 const site = Astro.site ?? new URL('https://buxx.me');
 const siteName = meta.siteName;
@@ -231,6 +241,7 @@ const preloadFontHref = preloadFont === 'sans'
             'site-nav--mobile-visible': showSiteNav,
             'site-nav--home': isHomeNav,
             'site-nav--page': isPageNav,
+            'site-nav--brand-home': brandHome,
           },
         ]}
         data-site-nav
@@ -248,11 +259,11 @@ const preloadFontHref = preloadFont === 'sans'
             <AnimatedLogo
               definition={PEEK_NAVBAR_LOGO}
               animation={navbarDefaultAnimation}
-              hoverAnimation={isHomeNav ? navbarHoverAnimation : undefined}
-              size={isHomeNav ? 40 : 24}
+              hoverAnimation={brandRich ? navbarHoverAnimation : undefined}
+              size={brandRich ? 40 : 20}
               title="peek"
-              eventChannel={isHomeNav ? 'nav' : undefined}
-              eventAnimations={isHomeNav
+              eventChannel={brandRich ? 'nav' : undefined}
+              eventAnimations={brandRich
                 ? [
                     navbarLinkHoverAnimation,
                     navbarSectionActiveAnimation,
@@ -267,16 +278,46 @@ const preloadFontHref = preloadFont === 'sans'
         {!isPageNav && (
           <div class="nav-links" data-nav-links>
             <span class="nav-separator nav-separator--brand" aria-hidden="true">/</span>
-            <a href="#experience-section" class="nav-link" data-nav-link="experience">Experience</a>
-            <span class="nav-separator" aria-hidden="true">/</span>
-            <a href="#projects-section" class="nav-link" data-nav-link="projects">Projects</a>
-            <span class="nav-separator" aria-hidden="true">/</span>
-            <a href="#writing-section" class="nav-link" data-nav-link="writing">Writing</a>
-            <span class="nav-separator" aria-hidden="true">/</span>
-            <a href="#moods-section" class="nav-link" data-nav-link="moods">Moods</a>
+            {navLinks.map((link, i) => (
+              <Fragment>
+                {i > 0 && <span class="nav-separator" aria-hidden="true">/</span>}
+                <a href={link.href} class="nav-link" data-nav-link={link.section ?? link.href}>{link.label}</a>
+              </Fragment>
+            ))}
           </div>
         )}
       </nav>
+    )}
+
+    <!-- Site menu: top-right dropdown (site-wide) -->
+    {showMenu && (
+      <div class:list={['site-menu', { 'site-menu--desktop': brandHome }]} data-site-menu hidden>
+        <div class="site-menu-scrim" data-menu-close aria-hidden="true"></div>
+        <div
+          class="site-menu-sheet"
+          id="site-menu-sheet"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Site menu"
+          data-menu-sheet
+        >
+          <nav class="site-menu-links" aria-label="Pages">
+            <a href="/" class="site-menu-link" data-menu-link>Home</a>
+            {navLinks.map((link) => (
+              <a href={link.href} class="site-menu-link" data-menu-link>{link.label}</a>
+            ))}
+          </nav>
+          <div class="site-menu-mascot" aria-hidden="true">
+            <AnimatedLogo
+              definition={PEEK_NAVBAR_LOGO}
+              animation="idle"
+              size={40}
+              title="peek"
+              eventChannel="menu"
+            />
+          </div>
+        </div>
+      </div>
     )}
 
     <!-- Global header actions - theme dropdown will be added by pages -->
@@ -285,6 +326,8 @@ const preloadFontHref = preloadFont === 'sans'
         'global-header-actions',
         {
           'global-header-actions--home': useHomeHeaderActions,
+          'has-menu-sheet': showMenu,
+          'has-brand-home-bar': brandHome,
         },
       ]}
       data-header-actions
@@ -319,6 +362,22 @@ const preloadFontHref = preloadFont === 'sans'
           </button>
         </div>
       </div>
+      {showMenu && (
+        <button
+          class="header-action-btn menu-trigger"
+          type="button"
+          data-menu-trigger
+          aria-label="Open menu"
+          aria-haspopup="dialog"
+          aria-expanded="false"
+          aria-controls="site-menu-sheet"
+        >
+          <span class="menu-trigger-icons" aria-hidden="true">
+            <Menu className="menu-swap-icon menu-swap-icon--open" />
+            <X className="menu-swap-icon menu-swap-icon--close" />
+          </span>
+        </button>
+      )}
     </div>
     <div class="site-shell">
       <slot />
@@ -603,6 +662,116 @@ const preloadFontHref = preloadFont === 'sans'
       })();
     </script>
 
+    <!-- Site menu dropdown: open/close -->
+    <script>
+      (() => {
+        const trigger = document.querySelector('[data-menu-trigger]') as HTMLElement | null;
+        const menu = document.querySelector('[data-site-menu]') as HTMLElement | null;
+        if (!trigger || !menu) return;
+        const closers = menu.querySelectorAll('[data-menu-close]');
+        const menuLinks = Array.from(menu.querySelectorAll<HTMLAnchorElement>('[data-menu-link]'));
+        const firstLink = menuLinks[0];
+        const lastLink = menuLinks[menuLinks.length - 1];
+        const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        const backgroundElements = [
+          ...document.querySelectorAll<HTMLElement>(
+            'body > :not(script):not([data-site-menu]):not([data-header-actions])'
+          ),
+          ...document.querySelectorAll<HTMLElement>(
+            '[data-header-actions] > :not([data-menu-trigger])'
+          ),
+        ];
+        const initialInertState = new Map(
+          backgroundElements.map((element) => [element, element.inert])
+        );
+
+        const setBackgroundInert = (inert: boolean) => {
+          backgroundElements.forEach((element) => {
+            element.inert = inert || initialInertState.get(element) === true;
+          });
+        };
+
+        // Mark the link that points at the current page (Home matches only "/").
+        const path = window.location.pathname.replace(/\/+$/, '') || '/';
+        menu.querySelectorAll<HTMLAnchorElement>('[data-menu-link]').forEach((link) => {
+          const href = (link.getAttribute('href') || '').replace(/\/+$/, '') || '/';
+          const active = href === '/' ? path === '/' : path === href || path.startsWith(href + '/');
+          if (active) link.setAttribute('aria-current', 'page');
+        });
+
+        let isOpen = false;
+        let scrollLockY = 0;
+        let closeTimer = 0;
+
+        const lockScroll = () => {
+          scrollLockY = window.scrollY;
+          document.body.style.top = `-${scrollLockY}px`;
+          document.body.classList.add('menu-scroll-lock');
+        };
+        const unlockScroll = () => {
+          document.body.classList.remove('menu-scroll-lock');
+          document.body.style.top = '';
+          window.scrollTo(0, scrollLockY);
+        };
+
+        const open = () => {
+          if (isOpen) return;
+          isOpen = true;
+          window.clearTimeout(closeTimer);
+          menu.hidden = false;
+          void menu.offsetWidth; // reflow so the transition starts from the closed state
+          menu.classList.add('is-open');
+          trigger.setAttribute('aria-expanded', 'true');
+          trigger.classList.add('is-active');
+          lockScroll();
+          setBackgroundInert(true);
+          firstLink?.focus();
+          // Wake the peek: a short curious beat, then back to its idle loop.
+          window.dispatchEvent(
+            new CustomEvent('peek:menu:set', { detail: { animation: 'curious', holdMs: 1600 } })
+          );
+        };
+
+        const close = () => {
+          if (!isOpen) return;
+          isOpen = false;
+          menu.classList.remove('is-open');
+          trigger.setAttribute('aria-expanded', 'false');
+          trigger.classList.remove('is-active');
+          unlockScroll();
+          setBackgroundInert(false);
+          trigger.focus();
+          if (reducedMotion) {
+            menu.hidden = true;
+          } else {
+            closeTimer = window.setTimeout(() => { menu.hidden = true; }, 280);
+          }
+        };
+
+        trigger.addEventListener('click', () => (isOpen ? close() : open()));
+        closers.forEach((el) => el.addEventListener('click', close));
+        menu.querySelectorAll('[data-menu-link]').forEach((link) => {
+          link.addEventListener('click', close);
+        });
+        document.addEventListener('keydown', (e) => {
+          if (!isOpen) return;
+          if (e.key === 'Escape') {
+            e.preventDefault();
+            close();
+            return;
+          }
+          if (e.key !== 'Tab' || !firstLink || !lastLink) return;
+          if (e.shiftKey && document.activeElement === firstLink) {
+            e.preventDefault();
+            lastLink.focus();
+          } else if (!e.shiftKey && document.activeElement === lastLink) {
+            e.preventDefault();
+            firstLink.focus();
+          }
+        });
+      })();
+    </script>
+
     <!-- GSAP Header Button Animations -->
     <script>
       (() => {
@@ -617,7 +786,7 @@ const preloadFontHref = preloadFont === 'sans'
           if (!headerActions) return;
 
           // Get all header action buttons (excluding theme dropdown trigger)
-          const buttons = headerActions.querySelectorAll<HTMLElement>('.header-action-btn:not([data-theme-toggle])');
+          const buttons = headerActions.querySelectorAll<HTMLElement>('.header-action-btn:not([data-theme-toggle]):not(.menu-trigger)');
 
           // Store original widths
           const buttonData = new Map<
@@ -822,7 +991,7 @@ const preloadFontHref = preloadFont === 'sans'
         links.forEach(link => {
           link.addEventListener('click', (e) => {
             const href = (link as HTMLAnchorElement).getAttribute('href');
-            if (!href) return;
+            if (!href || !href.startsWith('#')) return; // real page links navigate normally
             const target = document.querySelector(href);
             if (!target) return;
             e.preventDefault();
@@ -1114,7 +1283,9 @@ const preloadFontHref = preloadFont === 'sans'
           };
 
           const syncBrandEaten = () => {
-            nav.classList.toggle('is-brand-eaten', !desktopNavQuery.matches && window.scrollY > 18);
+            // Mobile nav links now live in the menu sheet, so the wordmark no
+            // longer needs to be eaten to make room for an inline link row.
+            nav.classList.remove('is-brand-eaten');
           };
 
           // Spring physics for peek — pointer-follow + idle bob.

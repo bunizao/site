@@ -39,6 +39,9 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
+      - name: Install Playwright Chromium
+        run: bunx playwright install --with-deps chromium
+
       - name: Astro check
         run: bun run check
 
@@ -49,6 +52,9 @@ jobs:
         env:
           GHOST_MOCK_CONTENT: '1'
         run: bun run build
+
+      - name: Registry consumer check
+        run: bun run test:registry
 
       - name: Cloudflare deploy dry run
         env:

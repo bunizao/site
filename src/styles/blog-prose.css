@@ -297,55 +297,30 @@
   border-left-color: hsl(var(--foreground) / 0.45);
 }
 
-/* --- Code card + copy button -------------------------------------------- */
-.blog-prose .kg-code-card,
-.blog-prose pre {
-  position: relative;
+/* Shared CodeBox replaces Ghost's code-card wrapper at render time. */
+.blog-prose > .code-box {
+  margin-block: 36px;
 }
 
-.blog-prose .kg-code-card pre {
-  margin: 0;
+/* The code-box header is a <figcaption>, so the generic image-caption rule above
+   (margin-top + centering) lands on it and floats the header off the top edge,
+   leaving the rounded corners wrapping dead space. Restore the component's intent:
+   flush to the top, left-aligned, its own type. `/components` never hits this
+   because it lacks the .blog-prose wrapper. */
+.blog-prose .code-box-head {
+  margin-top: 0;
+  text-align: left;
+  font-size: inherit;
+  line-height: inherit;
+  color: inherit;
 }
 
-/* Injected by Prose.astro's runtime; lives in the top-right of any <pre>. */
-.blog-prose .blog-copy {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 4px 8px;
-  border-radius: 7px;
-  border: 1px solid var(--blog-line);
-  background: hsl(var(--background));
-  color: var(--blog-faint);
-  font-family: var(--font-code);
-  font-size: 11px;
-  line-height: 1;
-  cursor: pointer;
-  opacity: 0;
-  transition: opacity 0.15s ease, color 0.15s ease, border-color 0.15s ease;
-}
-
-.blog-prose pre:hover .blog-copy,
-.blog-prose .blog-copy:focus-visible {
-  opacity: 1;
-}
-
-.blog-prose .blog-copy:hover {
-  color: var(--blog-ink);
-  border-color: hsl(var(--foreground) / 0.25);
-}
-
-.blog-prose .blog-copy[data-copied='true'] {
-  opacity: 1;
-  color: var(--blog-ink);
-}
-
-.blog-prose .blog-copy svg {
-  width: 13px;
-  height: 13px;
+/* The blog is a reading context, so lift the code up to the prose's own code size
+   (matches `.blog-prose pre`) — the showcase keeps its tighter default. JetBrains
+   Mono comes for free via --font-code. */
+.blog-prose .code-box .code-box-body pre.astro-code {
+  font-size: 15px;
+  line-height: 1.7;
 }
 
 /* --- Bookmark card ------------------------------------------------------ */
@@ -688,7 +663,7 @@
   display: block;
 }
 
-/* Tonearm — SVG, rests up-left, swings onto the record on hover/play. */
+/* Tonearm — SVG, always resting on the deck. */
 .blog-prose .blog-music__tonearm {
   position: absolute;
   inset: 0;
@@ -697,8 +672,10 @@
   overflow: visible;
   pointer-events: none;
   color: hsl(0 0% 96%);
-  filter: drop-shadow(0 1px 1px hsl(0 0% 0% / 0.55));
-  opacity: 0;
+  filter:
+    drop-shadow(0 1px 1px hsl(0 0% 0% / 0.58))
+    drop-shadow(0 0 1px hsl(var(--foreground) / 0.7));
+  opacity: 0.86;
   transition: opacity 0.3s ease;
   z-index: 5;
 }
@@ -706,7 +683,7 @@
 .blog-prose .blog-music__art:hover:not(:disabled) .blog-music__tonearm,
 .blog-prose .blog-music__art:focus-visible:not(:disabled) .blog-music__tonearm,
 .blog-prose .blog-music.is-playing .blog-music__tonearm {
-  opacity: 0.92;
+  opacity: 1;
 }
 
 .blog-prose .blog-music__tonearm-arm {

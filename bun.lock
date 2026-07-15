@@ -7,6 +7,7 @@
       "dependencies": {
         "@astrojs/starlight": "^0.41.3",
         "@bunizao/contracts": "workspace:*",
+        "@bunizao/decode-text": "workspace:*",
         "@chenglou/pretext": "^0.0.8",
         "@radix-ui/react-alert-dialog": "^1.1.19",
         "@radix-ui/react-checkbox": "^1.3.7",
@@ -34,6 +35,7 @@
         "prismjs-components-importer": "^0.2.0",
         "react": "^19.2.7",
         "react-dom": "^19.2.7",
+        "shiki": "^4.2.0",
         "slot-text": "^0.3.2",
         "tailwind-merge": "^3.6.0",
       },
@@ -66,6 +68,10 @@
     },
     "packages/contracts": {
       "name": "@bunizao/contracts",
+      "version": "0.1.0",
+    },
+    "packages/decode-text": {
+      "name": "@bunizao/decode-text",
       "version": "0.1.0",
     },
   },
@@ -186,6 +192,8 @@
     "@bruits/satteri-win32-x64-msvc": ["@bruits/satteri-win32-x64-msvc@0.9.1", "", { "os": "win32", "cpu": "x64" }, "sha512-YBhm8yARopswAPeTih11BzMxWVQFD5CI9Yryp6HWepi6F/CeMycqxv18DXrj9U2fDDlbVGwT2IiEM2UPBjIPDQ=="],
 
     "@bunizao/contracts": ["@bunizao/contracts@workspace:packages/contracts"],
+
+    "@bunizao/decode-text": ["@bunizao/decode-text@workspace:packages/decode-text"],
 
     "@capsizecss/unpack": ["@capsizecss/unpack@4.0.0", "", { "dependencies": { "fontkitten": "^1.0.0" } }, "sha512-VERIM64vtTP1C4mxQ5thVT9fK0apjPFobqybMtA1UdUujWka24ERHbRHFGmpbbhp73MhV+KSsHQH9C6uOTdEQA=="],
 

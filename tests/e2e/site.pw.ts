@@ -125,12 +125,23 @@ test.describe('Home page', () => {
     await page.addInitScript(() => {
       const chain = {
         bioReadyAt: 0,
+        bioAnimatingAt: 0,
       };
       (window as typeof window & { __heroBioDecodeChain?: typeof chain }).__heroBioDecodeChain = chain;
 
       window.addEventListener('home:hero-bio-ready', () => {
         chain.bioReadyAt = performance.now();
       });
+
+      new MutationObserver((records) => {
+        if (chain.bioAnimatingAt > 0) return;
+        const started = records.some((record) => (
+          record.target instanceof HTMLElement &&
+          record.target.matches('[data-hero-bio] [data-decode-root]') &&
+          record.target.classList.contains('dt-animating')
+        ));
+        if (started) chain.bioAnimatingAt = performance.now();
+      }).observe(document, { subtree: true, attributes: true, attributeFilter: ['class'] });
     });
 
     await page.goto('/');
@@ -139,18 +150,75 @@ test.describe('Home page', () => {
     await expect(decodeRoot).toHaveClass(/dt-prepared/, { timeout: 4_000 });
     await expect
       .poll(
-        async () => page.evaluate(() => {
-          const root = document.querySelector('[data-hero-bio] [data-decode-root]');
-          return Boolean((root as HTMLElement & { _decodeStarted?: boolean } | null)?._decodeStarted);
-        }),
+        () => page.evaluate(() => (
+          window as typeof window & {
+            __heroBioDecodeChain?: { bioReadyAt: number; bioAnimatingAt: number };
+          }
+        ).__heroBioDecodeChain?.bioAnimatingAt ?? 0),
         { timeout: 4_000 }
       )
-      .toBe(true);
+      .toBeGreaterThan(0);
 
     const chain = await page.evaluate(() => (
-      window as typeof window & { __heroBioDecodeChain?: { bioReadyAt: number } }
+      window as typeof window & {
+        __heroBioDecodeChain?: { bioReadyAt: number; bioAnimatingAt: number };
+      }
     ).__heroBioDecodeChain);
     expect(chain?.bioReadyAt).toBeGreaterThan(0);
+    expect(chain?.bioAnimatingAt).toBeGreaterThanOrEqual(chain?.bioReadyAt ?? Number.POSITIVE_INFINITY);
+  });
+
+  test('resolves decoded words without inserting letters into settled text', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'no-preference' });
+    await page.addInitScript(() => {
+      let seed = 0x2f6e2b1;
+      Math.random = () => {
+        seed = (seed * 1664525 + 1013904223) >>> 0;
+        return seed / 0x100000000;
+      };
+    });
+
+    await page.goto('/');
+
+    const result = await page.locator('[data-hero-bio] [data-decode-root]').evaluate(
+      (root) => new Promise<{ inserted: boolean; snapshot?: string }>((resolve) => {
+        const deadline = performance.now() + 4_000;
+
+        const inspect = () => {
+          for (const line of root.querySelectorAll('.dt-line')) {
+            let foundUnsettledLetter = false;
+            for (const cell of line.querySelectorAll<HTMLElement>('.dt-c')) {
+              if (cell.textContent === ' ') {
+                foundUnsettledLetter = false;
+                continue;
+              }
+
+              const settled = !cell.dataset.state && Boolean(cell.textContent);
+              if (settled && foundUnsettledLetter) {
+                resolve({
+                  inserted: true,
+                  snapshot: Array.from(line.querySelectorAll<HTMLElement>('.dt-c'))
+                    .map((item) => `${item.textContent || '∅'}:${item.dataset.state || 'final'}`)
+                    .join('|'),
+                });
+                return;
+              }
+              if (!settled) foundUnsettledLetter = true;
+            }
+          }
+
+          if (root.classList.contains('dt-animating') || performance.now() < deadline) {
+            requestAnimationFrame(inspect);
+          } else {
+            resolve({ inserted: false });
+          }
+        };
+
+        requestAnimationFrame(inspect);
+      })
+    );
+
+    expect(result.inserted, result.snapshot).toBe(false);
   });
 
   test('renders core sections and persists selected theme', async ({ page }) => {
@@ -778,12 +846,18 @@ test.describe('Home page', () => {
     await expect(playButton).toHaveAttribute('aria-label', 'Open All of the Lights');
     await expect(trackLink).toHaveAttribute('href', 'https://music.apple.com/test-listening-click');
 
-    const popupPromise = page.waitForEvent('popup');
+    await page.evaluate(() => {
+      const openedUrls: string[] = [];
+      (window as typeof window & { __openedListeningUrls?: string[] }).__openedListeningUrls = openedUrls;
+      window.open = (url?: string | URL) => {
+        if (url) openedUrls.push(String(url));
+        return null;
+      };
+    });
     await playButton.click();
-    const popup = await popupPromise;
-
-    expect(new URL(popup.url()).origin).toBe('https://music.apple.com');
-    await popup.close();
+    await expect.poll(() => page.evaluate(() => (
+      window as typeof window & { __openedListeningUrls?: string[] }
+    ).__openedListeningUrls)).toEqual(['https://music.apple.com/test-listening-click']);
   });
 
   test('shows the GitHub contributions fallback state when the request fails', async ({ page }) => {
@@ -836,21 +910,33 @@ test.describe('Home page', () => {
     await expect(page.locator('#moods-section .mood-item:not(.mood-item-skeleton)')).toHaveCount(0);
   });
 
-  test('keeps mobile navbar spacing stable and releases brand space on scroll', async ({ page }) => {
+  test('keeps mobile navbar spacing stable with the wordmark and menu trigger', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto('/');
-    await expect(page.locator('[data-site-nav]')).toBeVisible();
-    await expect(page.locator('[data-hero-status]')).toBeVisible();
-    await page.waitForFunction(() => document.querySelectorAll('.nav-char').length > 0);
 
-    const initial = await page.evaluate(() => {
+    const nav = page.locator('[data-site-nav]');
+    const wordmark = page.locator('[data-mobile-brand-text]');
+    const inlineLinks = page.locator('[data-nav-links]');
+    const menuTrigger = page.locator('[data-menu-trigger]');
+
+    await expect(nav).toBeVisible();
+    await expect(page.locator('[data-hero-status]')).toBeVisible();
+    await expect(wordmark).toBeVisible();
+    await expect(wordmark).toHaveText('buxx.me');
+    await expect(inlineLinks).toBeHidden();
+    await expect(menuTrigger).toBeVisible();
+
+    const readNavbarState = () => page.evaluate(() => {
       const nav = document.querySelector('[data-site-nav]');
       const status = document.querySelector('[data-hero-status]');
       const headerActions = document.querySelector('[data-header-actions]');
       const toggle = document.querySelector('[data-theme-toggle]');
       const themeIcon = document.querySelector('.theme-icon-container');
       const brand = document.querySelector('[data-site-brand]');
-      const projects = document.querySelector('[data-nav-link="projects"]');
+      const brandText = document.querySelector('[data-mobile-brand-text]');
+      const navLinks = document.querySelector('[data-nav-links]');
+      const trigger = document.querySelector('[data-menu-trigger]');
+      const triggerIcon = document.querySelector('.menu-trigger-icons');
 
       if (
         !(nav instanceof HTMLElement) ||
@@ -859,7 +945,10 @@ test.describe('Home page', () => {
         !(toggle instanceof HTMLElement) ||
         !(themeIcon instanceof HTMLElement) ||
         !(brand instanceof HTMLElement) ||
-        !(projects instanceof HTMLElement)
+        !(brandText instanceof HTMLElement) ||
+        !(navLinks instanceof HTMLElement) ||
+        !(trigger instanceof HTMLElement) ||
+        !(triggerIcon instanceof HTMLElement)
       ) {
         return null;
       }
@@ -868,7 +957,14 @@ test.describe('Home page', () => {
       const statusRect = status.getBoundingClientRect();
       const iconRect = themeIcon.getBoundingClientRect();
       const toggleRect = toggle.getBoundingClientRect();
+      const brandRect = brand.getBoundingClientRect();
+      const brandTextRect = brandText.getBoundingClientRect();
+      const triggerRect = trigger.getBoundingClientRect();
+      const triggerIconRect = triggerIcon.getBoundingClientRect();
       const toggleStyles = window.getComputedStyle(toggle);
+      const brandTextStyles = window.getComputedStyle(brandText);
+      const navLinksStyles = window.getComputedStyle(navLinks);
+      const triggerStyles = window.getComputedStyle(trigger);
 
       return {
         gap: statusRect.top - navRect.bottom,
@@ -876,12 +972,26 @@ test.describe('Home page', () => {
         toggleBackground: toggleStyles.backgroundColor,
         toggleBorder: toggleStyles.borderTopColor,
         toggleCenterDelta: Math.abs((iconRect.left + iconRect.width / 2) - (toggleRect.left + toggleRect.width / 2)),
-        brandCenterDelta: Math.abs((brand.getBoundingClientRect().top + brand.getBoundingClientRect().height / 2) - (navRect.top + navRect.height / 2)),
-        projectsCenterDelta: Math.abs((projects.getBoundingClientRect().top + projects.getBoundingClientRect().height / 2) - (navRect.top + navRect.height / 2)),
-        brandWidth: brand.getBoundingClientRect().width,
-        projectsLeft: projects.getBoundingClientRect().left,
+        brandCenterDelta: Math.abs((brandRect.top + brandRect.height / 2) - (navRect.top + navRect.height / 2)),
+        triggerCenterDelta: Math.abs((triggerRect.top + triggerRect.height / 2) - (toggleRect.top + toggleRect.height / 2)),
+        triggerIconCenterDelta: Math.max(
+          Math.abs((triggerIconRect.left + triggerIconRect.width / 2) - (triggerRect.left + triggerRect.width / 2)),
+          Math.abs((triggerIconRect.top + triggerIconRect.height / 2) - (triggerRect.top + triggerRect.height / 2)),
+        ),
+        actionGap: triggerRect.left - toggleRect.right,
+        brandTriggerGap: triggerRect.left - brandRect.right,
+        navHeight: navRect.height,
+        brandWidth: brandRect.width,
+        brandTextWidth: brandTextRect.width,
+        brandTextOpacity: brandTextStyles.opacity,
+        inlineLinksDisplay: navLinksStyles.display,
+        triggerDisplay: triggerStyles.display,
+        triggerWidth: triggerRect.width,
+        triggerHeight: triggerRect.height,
       };
     });
+
+    const initial = await readNavbarState();
 
     expect(initial).not.toBeNull();
     expect(initial?.gap).toBeGreaterThanOrEqual(16);
@@ -890,65 +1000,40 @@ test.describe('Home page', () => {
     expect(initial?.toggleBorder).toBe('rgba(0, 0, 0, 0)');
     expect(initial?.toggleCenterDelta).toBeLessThanOrEqual(1);
     expect(initial?.brandCenterDelta).toBeLessThanOrEqual(1);
-    expect(initial?.projectsCenterDelta).toBeLessThanOrEqual(1);
+    expect(initial?.triggerCenterDelta).toBeLessThanOrEqual(1);
+    expect(initial?.triggerIconCenterDelta).toBeLessThanOrEqual(1);
+    expect(initial?.actionGap).toBeGreaterThanOrEqual(6);
+    expect(initial?.brandTriggerGap).toBeGreaterThan(16);
+    expect(initial?.brandTextWidth).toBeGreaterThan(70);
+    expect(initial?.brandTextOpacity).toBe('1');
+    expect(initial?.inlineLinksDisplay).toBe('none');
+    expect(initial?.triggerDisplay).toBe('flex');
+    expect(initial?.triggerWidth).toBeGreaterThanOrEqual(44);
+    expect(initial?.triggerHeight).toBeGreaterThanOrEqual(44);
 
     await page.evaluate(() => {
+      document.documentElement.style.scrollBehavior = 'auto';
       window.scrollTo(0, 140);
-      window.dispatchEvent(new Event('scroll'));
     });
     await page.waitForFunction(() => window.scrollY > 18);
 
-    await expect.poll(async () => {
-      return await page.locator('[data-site-nav]').evaluate((node) => node.classList.contains('is-brand-eaten'));
-    }).toBe(true);
+    await expect(wordmark).toBeVisible();
+    await expect(inlineLinks).toBeHidden();
+    await expect(menuTrigger).toBeVisible();
 
-    const readCollapsed = async () =>
-      await page.evaluate(() => {
-        const brand = document.querySelector('[data-site-brand]');
-        const brandText = document.querySelector('[data-mobile-brand-text]');
-        const projects = document.querySelector('[data-nav-link="projects"]');
-
-        if (
-          !(brand instanceof HTMLElement) ||
-          !(brandText instanceof HTMLElement) ||
-          !(projects instanceof HTMLElement)
-        ) {
-          return null;
-        }
-
-        const brandStyles = window.getComputedStyle(brand);
-        const brandTextStyles = window.getComputedStyle(brandText);
-        const nav = document.querySelector('[data-site-nav]');
-
-        if (!(nav instanceof HTMLElement)) {
-          return null;
-        }
-
-        const navRect = nav.getBoundingClientRect();
-        const brandRect = brand.getBoundingClientRect();
-        const projectsRect = projects.getBoundingClientRect();
-
-        return {
-          brandMinWidth: brandStyles.minWidth,
-          brandTextMaxWidth: brandTextStyles.maxWidth,
-          brandTextOpacity: brandTextStyles.opacity,
-          brandCenterDelta: Math.abs((brandRect.top + brandRect.height / 2) - (navRect.top + navRect.height / 2)),
-          projectsCenterDelta: Math.abs((projectsRect.top + projectsRect.height / 2) - (navRect.top + navRect.height / 2)),
-          projectsLeft: projects.getBoundingClientRect().left,
-        };
-      });
-
-    await expect.poll(readCollapsed, { timeout: 2_000 }).toMatchObject({
-      brandMinWidth: '40px',
-      brandTextMaxWidth: '0px',
-      brandTextOpacity: '0',
-    });
-
-    const collapsed = await readCollapsed();
-    expect(collapsed).not.toBeNull();
-    expect(collapsed?.brandCenterDelta).toBeLessThanOrEqual(1);
-    expect(collapsed?.projectsCenterDelta).toBeLessThanOrEqual(1);
-    expect((initial?.projectsLeft ?? 0) - (collapsed?.projectsLeft ?? 0)).toBeGreaterThan(12);
+    const afterScroll = await readNavbarState();
+    expect(afterScroll).not.toBeNull();
+    expect(afterScroll?.brandCenterDelta).toBeLessThanOrEqual(1);
+    expect(afterScroll?.triggerCenterDelta).toBeLessThanOrEqual(1);
+    expect(afterScroll?.triggerIconCenterDelta).toBeLessThanOrEqual(1);
+    expect(Math.abs((afterScroll?.navHeight ?? 0) - (initial?.navHeight ?? 0))).toBeLessThanOrEqual(1);
+    expect(Math.abs((afterScroll?.brandWidth ?? 0) - (initial?.brandWidth ?? 0))).toBeLessThanOrEqual(1);
+    expect(Math.abs((afterScroll?.brandTextWidth ?? 0) - (initial?.brandTextWidth ?? 0))).toBeLessThanOrEqual(1);
+    expect(Math.abs((afterScroll?.actionGap ?? 0) - (initial?.actionGap ?? 0))).toBeLessThanOrEqual(1);
+    expect(Math.abs((afterScroll?.brandTriggerGap ?? 0) - (initial?.brandTriggerGap ?? 0))).toBeLessThanOrEqual(1);
+    expect(afterScroll?.brandTextOpacity).toBe('1');
+    expect(afterScroll?.inlineLinksDisplay).toBe('none');
+    expect(afterScroll?.triggerDisplay).toBe('flex');
   });
 
   test('keeps mobile navbar pinned when the visual viewport shifts', async ({ page }) => {
@@ -1124,323 +1209,56 @@ test.describe('Home page mobile touch', () => {
   });
 });
 
-test.describe('Projects page desktop gallery', () => {
-  test('keeps the expanded gallery with an adjacent card visible', async ({ page }) => {
+test.describe('Projects editorial ledger', () => {
+  test('renders every project as a semantic desktop entry', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 1000 });
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await page.goto('/projects');
-    await expect(page.getByRole('heading', { name: 'Selected work' })).toBeVisible();
 
-    const stackShell = page.locator('[data-project-stack]');
-    await expect(stackShell).toHaveAttribute('data-project-stack', 'hydrated', { timeout: 30_000 });
+    await expect(page.getByRole('heading', { name: 'Things I made, and still run.' })).toBeVisible();
+    const entries = page.locator('.proj-list > .proj-entry');
+    await expect(entries).toHaveCount(4);
+    await expect(entries.locator('h2')).toHaveText([
+      'Tools for Agents',
+      'ogis',
+      'Attegi',
+      'TutuBetterRules',
+    ]);
+    await expect(entries.locator('.hero-panel')).toHaveCount(4);
+    await expect(entries.locator('.proj-link')).toHaveCount(4);
+    await expect(entries.first().locator('.proj-link')).toHaveAttribute('target', '_blank');
+    await expect(page.locator('footer.footer')).toBeVisible();
 
-    await page.locator('.projects-stack').scrollIntoViewIfNeeded();
-    const frontCard = stackShell.locator('article[aria-hidden="false"]');
-    const frontButton = frontCard.getByRole('button', { name: /Tell me more/i });
-    await expect(frontButton).toBeVisible();
-    await frontButton.evaluate((node) => (node as HTMLButtonElement).click());
-
-    const dialog = page.getByRole('dialog', { name: 'Project gallery' });
-    await expect(dialog).toBeVisible();
-    await expect(page.locator('[data-project-gallery-scroller]')).toBeVisible();
-    await expect(page.locator('[data-project-gallery-card]')).toHaveCount(0);
-
-    const visibleCards = await page
-      .locator('[data-project-gallery-scroller] > div')
-      .evaluateAll((nodes) =>
-        nodes.filter((node) => {
-          const rect = node.getBoundingClientRect();
-          const visibleWidth = Math.max(
-            0,
-            Math.min(rect.right, window.innerWidth) - Math.max(rect.left, 0)
-          );
-          return visibleWidth > 80;
-        }).length
-      );
-    expect(visibleCards).toBeGreaterThanOrEqual(2);
-  });
-
-  test('switches cards via horizontal wheel, card click, and scrolls text with vertical wheel', async ({
-    page,
-  }) => {
-    await page.emulateMedia({ reducedMotion: 'reduce' });
-    await page.goto('/projects');
-    const shell = page.locator('[data-project-stack]');
-    await expect(shell).toHaveAttribute('data-project-stack', 'hydrated', {
-      timeout: 30_000,
-    });
-    await page.locator('.projects-stack').scrollIntoViewIfNeeded();
-    const frontButton = shell
-      .locator('article[aria-hidden="false"]')
-      .getByRole('button', { name: /Tell me more/i });
-    await frontButton.evaluate((node) => (node as HTMLButtonElement).click());
-
-    const slider = page.getByRole('slider', { name: 'Project' });
-    await expect(slider).toHaveAttribute('aria-valuenow', '1');
-
-    const scroller = page.locator('[data-project-gallery-scroller]');
-    const box = await scroller.boundingBox();
-    if (!box) throw new Error('no scroller');
-
-    // Two-finger horizontal (deltaX) flips forward, then back.
-    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
-    await page.mouse.wheel(400, 0);
-    await expect(slider).toHaveAttribute('aria-valuenow', '2');
-    await page.mouse.wheel(-400, 0);
-    await expect(slider).toHaveAttribute('aria-valuenow', '1');
-
-    // Vertical wheel over the story text scrolls the text, not the gallery.
-    const body = page
-      .locator('[data-project-gallery-scroller] [data-project-story-body]')
-      .first();
-    const bb = await body.boundingBox();
-    if (!bb) throw new Error('no story body');
-    await page.mouse.move(bb.x + bb.width / 2, bb.y + bb.height / 2);
-    const before = await body.evaluate((n) => (n as HTMLElement).scrollTop);
-    await page.mouse.wheel(0, 200);
-    await expect
-      .poll(() => body.evaluate((n) => (n as HTMLElement).scrollTop))
-      .toBeGreaterThan(before);
-    await expect(slider).toHaveAttribute('aria-valuenow', '1');
-
-    // Left-clicking a peeking neighbour switches to it.
-    const cards = page.locator('[data-project-gallery-scroller] > div');
-    const idx = await cards.evaluateAll((nodes) => {
-      for (let i = 0; i < nodes.length; i += 1) {
-        const r = nodes[i].getBoundingClientRect();
-        if (r.left > window.innerWidth * 0.5 && r.left < window.innerWidth) {
-          return i;
-        }
-      }
-      return -1;
-    });
-    expect(idx).toBeGreaterThan(0);
-    const cardBox = await cards.nth(idx).boundingBox();
-    if (!cardBox) throw new Error('no neighbour card');
-    await page.mouse.click(cardBox.x + 12, cardBox.y + cardBox.height * 0.2);
-    await expect(slider).toHaveAttribute('aria-valuenow', String(idx + 1));
-  });
-
-  test('does not select story text while dragging cards with the mouse', async ({ page }) => {
-    await page.emulateMedia({ reducedMotion: 'reduce' });
-    await page.goto('/projects');
-    const shell = page.locator('[data-project-stack]');
-    await expect(shell).toHaveAttribute('data-project-stack', 'hydrated', {
-      timeout: 30_000,
-    });
-    await page.locator('.projects-stack').scrollIntoViewIfNeeded();
-    const frontButton = shell
-      .locator('article[aria-hidden="false"]')
-      .getByRole('button', { name: /Tell me more/i });
-    await frontButton.evaluate((node) => (node as HTMLButtonElement).click());
-
-    const storyText = page
-      .locator('[data-project-gallery-scroller] [data-project-story-body] p')
-      .nth(1);
-    const box = await storyText.boundingBox();
-    if (!box) throw new Error('no story paragraph');
-
-    await page.mouse.move(box.x + box.width * 0.25, box.y + box.height / 2);
-    await page.mouse.down();
-    await page.mouse.move(box.x + box.width * 0.85, box.y + box.height / 2, {
-      steps: 8,
-    });
-    await page.mouse.up();
-
-    await expect
-      .poll(() => page.evaluate(() => window.getSelection()?.toString() ?? ''))
-      .toBe('');
-  });
-});
-
-test.describe('Projects page mobile touch', () => {
-  test('swipes the enlarged project card from the story body', async ({ browser }, testInfo) => {
-    const iphone = devices['iPhone 13'];
-    const context = await browser.newContext({
-      baseURL: String(testInfo.project.use.baseURL),
-      deviceScaleFactor: iphone.deviceScaleFactor,
-      hasTouch: iphone.hasTouch,
-      isMobile: iphone.isMobile,
-      screen: { width: 390, height: 844 },
-      userAgent: iphone.userAgent,
-      viewport: iphone.viewport,
-    });
-    const page = await context.newPage();
-
-    try {
-      await page.emulateMedia({ reducedMotion: 'no-preference' });
-      await page.goto('/projects');
-      await expect(page.getByRole('heading', { name: 'Selected work' })).toBeVisible();
-
-      const stackShell = page.locator('[data-project-stack]');
-      await expect(stackShell).toHaveAttribute('data-project-stack', 'hydrated', { timeout: 30_000 });
-      await page.locator('.projects-stack').scrollIntoViewIfNeeded();
-
-      const stack = page.locator('[aria-roledescription="carousel"][aria-label="Projects"]');
-      await expect(stack.locator('article')).toHaveCount(4);
-      await stack.getByRole('button', { name: /Tell me more/i }).click();
-
-      const dialog = page.getByRole('dialog', { name: 'Project gallery' });
-      await expect(dialog).toBeVisible();
-      const slider = page.getByRole('slider', { name: 'Project' });
-      await expect(slider).toHaveAttribute('aria-valuenow', '1');
-
-      const storyBody = page
-        .locator('[data-project-gallery-scroller] [data-project-story-body]')
-        .first();
-      await expect(storyBody).toBeVisible();
-
-      // A horizontal swipe that starts on the story text must stay available
-      // to the outer scroller: pan-x has to survive alongside pan-y.
-      const bodyTouchAction = await storyBody.evaluate(
-        (node) => getComputedStyle(node as HTMLElement).touchAction
-      );
-      expect(bodyTouchAction).toContain('pan-x');
-
-      // The gallery is a native scroll-snap track; synthetic PointerEvents
-      // cannot drive compositor scrolling, so advance it the way a momentum
-      // scroll ends: land scrollLeft on the next snap stop.
-      await page.locator('[data-project-gallery-scroller]').evaluate((node) => {
-        const el = node as HTMLElement;
-        const card = el.firstElementChild as HTMLElement;
-        const gap = Number.parseFloat(getComputedStyle(el).columnGap || '0');
-        el.scrollTo({ left: card.getBoundingClientRect().width + gap });
-      });
-
-      await expect(slider).toHaveAttribute('aria-valuenow', '2');
-
-      // Scroll-linked pose: the new current card carries scale(1); the card
-      // left behind recedes below 1.
-      await expect
-        .poll(() =>
-          page
-            .locator('[data-gallery-card]')
-            .evaluateAll((nodes) =>
-              nodes.map((node) => {
-                const match = /scale\(([\d.]+)\)/.exec(
-                  (node as HTMLElement).style.transform
-                );
-                return match ? Number.parseFloat(match[1]) : 1;
-              })
-            )
-        )
-        .toEqual([
-          expect.closeTo(0.925, 2),
-          expect.closeTo(1, 2),
-          expect.closeTo(0.925, 2),
-          expect.closeTo(0.925, 2),
-        ]);
-    } finally {
-      await context.close();
-    }
-  });
-
-  test('L0 swipe locks to horizontal with a bias and lets vertical scroll', async ({
-    browser,
-  }, testInfo) => {
-    const iphone = devices['iPhone 13'];
-    const context = await browser.newContext({
-      baseURL: String(testInfo.project.use.baseURL),
-      deviceScaleFactor: iphone.deviceScaleFactor,
-      hasTouch: iphone.hasTouch,
-      isMobile: iphone.isMobile,
-      screen: { width: 390, height: 844 },
-      userAgent: iphone.userAgent,
-      viewport: iphone.viewport,
-    });
-    const page = await context.newPage();
-
-    try {
-      await page.emulateMedia({ reducedMotion: 'no-preference' });
-
-      const reset = async () => {
-        await page.goto('/projects');
-        const shell = page.locator('[data-project-stack]');
-        await expect(shell).toHaveAttribute('data-project-stack', 'hydrated', {
-          timeout: 30_000,
-        });
-        await page.waitForTimeout(1400); // entrance settles
+    const layout = await entries.evaluateAll((nodes) => nodes.slice(0, 2).map((node) => {
+      const entry = node as HTMLElement;
+      const visual = entry.querySelector<HTMLElement>('.proj-visual');
+      return {
+        columns: getComputedStyle(entry).gridTemplateColumns,
+        visualOrder: visual ? getComputedStyle(visual).order : '',
       };
+    }));
+    expect(layout[0].columns).not.toBe('none');
+    expect(layout.map((entry) => entry.visualOrder)).toEqual(['-1', '1']);
+  });
 
-      const activeLabel = () =>
-        page.locator('article[aria-hidden="false"] p').first().innerText();
+  test('keeps the ledger readable without horizontal overflow on mobile', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.goto('/projects');
 
-      // Dispatch a single-finger touch swipe over the active card and report
-      // whether any move was claimed (preventDefault) or left to the page.
-      const swipe = (dx: number, dy: number) =>
-        page.evaluate(
-          async ({ dx, dy }) => {
-            const card = document.querySelector('article[aria-hidden="false"]');
-            if (!card) return { prevented: false, scrollable: false };
-            const r = card.getBoundingClientRect();
-            const sx = r.left + r.width / 2;
-            const sy = r.top + r.height / 2;
-            const steps = 8;
-            const mk = (type: string, x: number, y: number) => {
-              const touch = new Touch({
-                identifier: 1,
-                target: card,
-                clientX: x,
-                clientY: y,
-              });
-              const ev = new TouchEvent(type, {
-                touches: type === 'touchend' ? [] : [touch],
-                changedTouches: [touch],
-                bubbles: true,
-                cancelable: true,
-              });
-              card.dispatchEvent(ev);
-              return ev;
-            };
-            const sleep = (ms: number) =>
-              new Promise<void>((res) => setTimeout(res, ms));
-            mk('touchstart', sx, sy);
-            let prevented = false;
-            let scrollable = false;
-            for (let i = 1; i <= steps; i += 1) {
-              const ev = mk(
-                'touchmove',
-                sx + (dx * i) / steps,
-                sy + (dy * i) / steps
-              );
-              if (ev.defaultPrevented) prevented = true;
-              else scrollable = true;
-              await sleep(12);
-            }
-            mk('touchend', sx + dx, sy + dy);
-            return { prevented, scrollable };
-          },
-          { dx, dy }
-        );
+    const entries = page.locator('.proj-list > .proj-entry');
+    await expect(entries).toHaveCount(4);
+    await expect(entries.first().locator('.proj-visual')).toBeVisible();
+    await expect(entries.first().locator('.proj-body')).toBeVisible();
+    await expect
+      .poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth))
+      .toBe(true);
 
-      // A diagonal (~31° off horizontal) must still flip the deck and claim the
-      // gesture — this is exactly the swipe that used to leak to page scroll.
-      await reset();
-      const beforeDiag = await activeLabel();
-      const diag = await swipe(-100, -60);
-      await page.waitForTimeout(900);
-      expect(diag.prevented).toBe(true);
-      expect(diag.scrollable).toBe(false);
-      const afterDiag = await activeLabel();
-      expect(afterDiag).not.toBe(beforeDiag);
-
-      // ...and again without reloading — the gesture must keep working after a
-      // flip (a shared ref across the reordering cards used to die after one).
-      const diag2 = await swipe(-100, -60);
-      await page.waitForTimeout(900);
-      expect(diag2.prevented).toBe(true);
-      expect(await activeLabel()).not.toBe(afterDiag);
-
-      // A clearly vertical swipe must NOT flip and must stay unclaimed so the
-      // page can scroll underneath.
-      await reset();
-      const beforeVert = await activeLabel();
-      const vert = await swipe(-18, -150);
-      await page.waitForTimeout(900);
-      expect(vert.prevented).toBe(false);
-      expect(vert.scrollable).toBe(true);
-      expect(await activeLabel()).toBe(beforeVert);
-    } finally {
-      await context.close();
-    }
+    const firstEntry = await entries.first().evaluate((node) => {
+      const visual = node.querySelector<HTMLElement>('.proj-visual')?.getBoundingClientRect();
+      const body = node.querySelector<HTMLElement>('.proj-body')?.getBoundingClientRect();
+      return { visualBottom: visual?.bottom ?? 0, bodyTop: body?.top ?? 0 };
+    });
+    expect(firstEntry.bodyTop).toBeGreaterThanOrEqual(firstEntry.visualBottom);
   });
 });

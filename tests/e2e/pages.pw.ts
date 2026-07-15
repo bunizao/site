@@ -1,6 +1,23 @@
 import { expect, test } from './fixtures';
 
 test.describe('Standalone pages', () => {
+  test('renders the page navbar logo on whole CSS pixels', async ({ page }) => {
+    await page.goto('/privacy');
+
+    const getLogoScale = () => page.locator('.site-brand-logo [data-animated-logo]').evaluate((logo) => {
+      const gridWidth = Number.parseInt((logo as HTMLElement).dataset.logoWidth ?? '0', 10);
+      const svg = logo.querySelector('svg');
+
+      if (!(svg instanceof SVGElement) || gridWidth === 0) return null;
+      return svg.getBoundingClientRect().width / gridWidth;
+    });
+
+    expect(await getLogoScale()).toBe(2);
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    expect(await getLogoScale()).toBe(3);
+  });
+
   test('serves negotiated markdown for home and privacy', async ({ request }) => {
     const home = await request.get('/', { headers: { Accept: 'text/markdown' } });
     expect(home.ok()).toBeTruthy();

@@ -1,25 +1,56 @@
 ---
-const username = 'bunizao';
-const contributionDays = 30;
+interface Props {
+  username?: string;
+  contributionDays?: number;
+  endpoint?: string;
+  /** Render a static synthetic wave and skip the live fetch — used by the
+      components showcase, where every tile is a self-contained specimen. */
+  demo?: boolean;
+}
+
+const {
+  username = 'bunizao',
+  contributionDays = 30,
+  endpoint = '/api/github/contributions',
+  demo = false,
+} = Astro.props;
+
+// A synthetic, organic-looking contribution wave for the demo specimen. Layered
+// sines give it varied peaks and valleys without a live API or 30 magic numbers.
+const demoHeights = demo
+  ? Array.from({ length: contributionDays }, (_, i) => {
+      const wave =
+        Math.sin(i * 0.55) * 0.5 +
+        Math.sin(i * 1.7 + 1.2) * 0.3 +
+        Math.sin(i * 0.31 + 0.5) * 0.2;
+      return Math.round(8 + ((wave + 1) / 2) * 30);
+    })
+  : null;
+const demoTotal = 1284;
+
 const placeholderBars = Array.from({ length: contributionDays });
 ---
 
 <div
-  class="activity-section is-loading"
-  data-contributions
+  class:list={['activity-section', demo ? ['is-ready', 'is-breathing'] : 'is-loading']}
+  data-contributions={demo ? undefined : true}
   data-username={username}
   data-days={contributionDays}
-  aria-busy="true"
+  data-endpoint={endpoint}
+  aria-busy={demo ? 'false' : 'true'}
 >
   <div class="activity-wave" aria-hidden="true">
-    {placeholderBars.map((_, i) => (
-      <div
-        class="wave-bar"
-        data-bar
-        data-index={i}
-        style={`--height: 6px; --delay: ${i * 0.03}s; height: 6px`}
-      />
-    ))}
+    {placeholderBars.map((_, i) => {
+      const h = demoHeights ? demoHeights[i] : 6;
+      return (
+        <div
+          class="wave-bar"
+          data-bar
+          data-index={i}
+          style={`--height: ${h}px; --delay: ${i * 0.03}s; height: ${h}px`}
+        />
+      );
+    })}
     <div class="contribution-tooltip" data-tooltip aria-hidden="true">
       <span class="tooltip-count" data-tooltip-count>0</span>
       <span class="tooltip-date" data-tooltip-date></span>
@@ -35,7 +66,7 @@ const placeholderBars = Array.from({ length: contributionDays });
       @{username}
     </a>
     <span class="stat-label" data-total>
-      <strong>—</strong> contributions
+      <strong>{demo ? demoTotal : '—'}</strong> contributions
     </span>
   </div>
 </div>
@@ -197,7 +228,8 @@ const placeholderBars = Array.from({ length: contributionDays });
         username,
         ...(days ? { days } : {}),
       });
-      const response = await fetch(`/api/github/contributions?${params.toString()}`, {
+      const endpoint = section.getAttribute('data-endpoint') || '/api/github/contributions';
+      const response = await fetch(`${endpoint}?${params.toString()}`, {
         headers: {
           Accept: 'application/json',
         },

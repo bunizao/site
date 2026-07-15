@@ -1,0 +1,98 @@
+---
+// Self-contained hover-preview specimen for the /components showcase. A minimal
+// mock of the blog list's cursor-aware hover — invented rows, CSS-gradient
+// "hero" swatches, NO real posts or images. Mirrors the real behavior:
+//   1) a sliding pill glides behind the hovered row (shared hover-indicator lib)
+//   2) the un-hovered siblings dim
+//   3) a floating preview follows the cursor's vertical position (rAF-tracked,
+//      clamped into the tile), swapping its swatch per row — exactly the blog's
+//      cursor-following hero image, minus real media.
+const rows = [
+  { title: 'Frosted glass, zero cold starts', excerpt: 'A fast edge-rendered interface that stays warm, responsive, and quietly tactile.', date: 'Jul 2', tags: ['Edge', 'Craft'], swatch: '/showcase/forest.webp' },
+  { title: 'A dial you can feel', excerpt: 'Turning time into a physical control with momentum, restraint, and a clear sense of place.', date: 'Jun 24', tags: ['Motion'], swatch: '/showcase/wave.webp' },
+  { title: 'Small APIs age better', excerpt: 'The most durable interfaces expose less, name things plainly, and leave room for change.', date: 'Jun 11', tags: ['Systems', 'Ideas'], swatch: '/showcase/aurora.webp' },
+];
+---
+
+<div class="hoverlist" data-hoverlist>
+  <ul class="hoverlist-rows" data-hoverlist-rows>
+    {rows.map((row, i) => (
+      <li class="hoverlist-row" data-swatch={row.swatch} data-index={i}>
+        <span class="hoverlist-title">{row.title}</span>
+        <span class="hoverlist-excerpt">{row.excerpt}</span>
+        <span class="hoverlist-meta">
+          <span class="hoverlist-date">{row.date}</span>
+          <span class="hoverlist-tags">
+            {row.tags.map((tag) => <span class="hoverlist-tag">{tag}</span>)}
+          </span>
+        </span>
+      </li>
+    ))}
+  </ul>
+  <div class="hoverlist-preview" data-hoverlist-preview aria-hidden="true">
+    <img data-hoverlist-img alt="" decoding="async" />
+  </div>
+</div>
+
+<script>
+  import { attachHoverIndicator } from '@/lib/hover-indicator';
+
+  document.querySelectorAll<HTMLElement>('[data-hoverlist]').forEach((root) => {
+    if (root.dataset.bound === 'true') return;
+    root.dataset.bound = 'true';
+
+    const list = root.querySelector<HTMLElement>('[data-hoverlist-rows]');
+    const preview = root.querySelector<HTMLElement>('[data-hoverlist-preview]');
+    if (!list || !preview) return;
+
+    // The sliding pill + sibling-dim, exactly the blog interaction — but scoped
+    // to this specimen's own rows.
+    attachHoverIndicator(list, {
+      itemSelector: '.hoverlist-row',
+      indicatorClass: 'hoverlist-indicator',
+      padX: 14,
+      padY: 6,
+    });
+
+    const fine = window.matchMedia?.('(hover: hover) and (pointer: fine)').matches;
+    if (!fine) return;
+
+    const img = preview.querySelector<HTMLImageElement>('[data-hoverlist-img]');
+
+    // Cursor-following preview: like the blog, the image tracks the pointer's Y
+    // continuously (one rAF-batched write). The image may cross the specimen
+    // frame, matching the real blog preview instead of behaving like a crop.
+    let raf = 0;
+    let pointerY = 0;
+
+    const render = () => {
+      raf = 0;
+      const rootRect = root.getBoundingClientRect();
+      const rel = pointerY - rootRect.top;
+      const y = rel - (preview.offsetHeight || 180) / 2;
+      preview.style.transform = `translateY(${y}px)`;
+    };
+
+    const onMove = (event: PointerEvent) => {
+      pointerY = event.clientY;
+      if (!raf) raf = requestAnimationFrame(render);
+    };
+
+    list.querySelectorAll<HTMLElement>('.hoverlist-row').forEach((row) => {
+      row.addEventListener('pointerenter', (event) => {
+        const swatch = row.dataset.swatch;
+        if (swatch && img && img.getAttribute('src') !== swatch) img.src = swatch;
+        pointerY = event.clientY;
+        render();
+        list.addEventListener('pointermove', onMove);
+        preview.classList.add('is-visible');
+      });
+    });
+
+    list.addEventListener('pointerleave', () => {
+      list.removeEventListener('pointermove', onMove);
+      if (raf) { cancelAnimationFrame(raf); raf = 0; }
+      preview.classList.remove('is-visible');
+    });
+  });
+</script>

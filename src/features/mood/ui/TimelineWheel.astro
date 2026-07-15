@@ -1,9 +1,19 @@
 ---
 // Timeline wheel - precision instrument aesthetic
 // Only the right arc visible at screen edge with refined visual feedback
+interface Props {
+  compact?: boolean;
+}
+
+const { compact = false } = Astro.props;
 ---
 
-<nav class="timeline-wheel" aria-label="Timeline navigation" data-timeline-wheel>
+<nav
+  class="timeline-wheel"
+  aria-label="Timeline navigation"
+  data-timeline-wheel
+  data-timeline-wheel-compact={compact ? '' : undefined}
+>
   <!-- Vertical track rail -->
   <div class="timeline-wheel-track"></div>
   <!-- Masked arc + notches -->
@@ -446,3 +456,17 @@
     }
   }
 </style>
+
+<script>
+  import { mountTimelineWheel } from '@/features/mood/client/timeline-wheel';
+
+  document.querySelectorAll('[data-timeline-wheel]').forEach((root) => {
+    const habitat = root.closest('main');
+    const feed = habitat?.querySelector('[data-mood-feed]');
+    const list = habitat?.querySelector('[data-mood-list]');
+
+    if (root instanceof HTMLElement && feed instanceof HTMLElement && list instanceof HTMLElement) {
+      mountTimelineWheel(root, { feed, list });
+    }
+  });
+</script>

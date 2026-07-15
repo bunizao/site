@@ -733,7 +733,7 @@
     --site-nav-mobile-gap: clamp(0.95rem, 3.8vw, 1.25rem);
     --site-nav-mobile-brand-min-width: calc(var(--site-nav-mobile-logo-height) + var(--site-nav-brand-gap) + var(--site-nav-mobile-wordmark-width));
     --site-nav-mobile-logo-width: 40px;
-    --site-nav-mobile-logo-height: 1.35rem;
+    --site-nav-mobile-logo-height: 21px;
     --site-nav-mobile-wordmark-width: 5.2rem;
     --site-nav-mobile-wordmark-size: 1.08rem;
     --site-nav-mobile-action-size: 2.75rem;
@@ -783,6 +783,96 @@
   .site-nav.is-vertical .site-brand,
   .site-nav.is-vertical .nav-separator--brand {
     display: none;
+  }
+
+  /* Home brand identity as a real header bar (opt-in via brandVariant="home"),
+     at every width: full-width strip with blur + hairline, the big animated peek
+     + wordmark inside — without home's vertical sidebar. The header actions are a
+     separate fixed element, so they get re-centered into the bar just below. */
+  .site-nav--brand-home {
+    top: var(--site-nav-mobile-top, 0px);
+    left: 0;
+    right: 0;
+    height: var(--site-nav-mobile-height);
+    padding: 0 4.5rem 0 1rem;
+    z-index: 60;
+    border-bottom: 1px solid hsl(var(--foreground) / 0.08);
+    background: hsl(var(--background) / 0.58);
+    backdrop-filter: blur(14px) saturate(140%);
+    -webkit-backdrop-filter: blur(14px) saturate(140%);
+  }
+
+  @media (min-width: 900px) {
+    .site-nav--brand-home {
+      padding-left: 1.5rem;
+    }
+  }
+
+  .global-header-actions.has-brand-home-bar {
+    top: calc(env(safe-area-inset-top, 0px) + var(--visual-viewport-top, 0px) + 0.625rem);
+    right: 1rem;
+    z-index: 61;
+  }
+
+  @media (min-width: 900px) {
+    .global-header-actions.has-brand-home-bar {
+      right: 1.5rem;
+    }
+  }
+
+  /* On the brand-home bar the actions sit on their own translucent strip, so a
+     per-button border + backdrop reads as a box-on-a-box. Strip the chrome and
+     let them be quiet ghost controls — a soft rounded wash only on hover/open. */
+  .global-header-actions.has-brand-home-bar .header-action-btn {
+    background: transparent;
+    border-color: transparent;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+  .global-header-actions.has-brand-home-bar .header-action-btn:hover,
+  .global-header-actions.has-brand-home-bar .header-action-btn.is-hovered,
+  .global-header-actions.has-brand-home-bar .header-action-btn.is-active {
+    background: hsl(var(--foreground) / 0.06);
+    border-color: transparent;
+  }
+
+  .site-nav--brand-home .site-brand {
+    width: auto;
+    height: auto;
+    margin-right: 0;
+    gap: var(--site-nav-brand-gap);
+    border-radius: 8px;
+  }
+  .site-nav--brand-home .site-brand-logo {
+    display: inline-flex;
+    flex: 0 0 auto;
+    height: var(--site-nav-mobile-logo-height);
+    line-height: 0;
+  }
+  .site-nav--brand-home .site-brand-logo > span,
+  .site-nav--brand-home .site-brand-logo svg {
+    width: auto !important;
+    height: var(--site-nav-mobile-logo-height) !important;
+  }
+  .site-nav--brand-home .site-brand-text {
+    display: inline-block;
+    font-size: var(--site-nav-mobile-wordmark-size);
+    line-height: 1;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    color: hsl(var(--foreground));
+    white-space: nowrap;
+    transition: opacity 0.2s ease;
+  }
+
+  /* The peek animates on hover, so the brand needs no background box — that
+     just fights the mascot's own motion. Keep a quiet wordmark dim as the
+     only hover cue; press feedback stays on :active. */
+  .site-nav--brand-home .site-brand:hover {
+    background: transparent;
+  }
+  .site-nav--brand-home .site-brand:hover .site-brand-text {
+    opacity: 0.7;
   }
 
   .nav-link {
@@ -1203,86 +1293,16 @@
       white-space: nowrap;
     }
 
-    .site-nav--home.is-brand-eaten .site-brand {
-      min-width: var(--site-nav-mobile-logo-width);
-    }
-
-    .site-nav--home.is-brand-eaten .site-brand-text {
-      width: 0;
-      flex-basis: 0;
-      max-width: 0;
-      opacity: 0;
-      transform: translateX(-1.15rem);
-      clip-path: inset(0 100% 0 0);
-    }
-
-    .site-nav--home.is-brand-eaten .site-brand-logo {
-      animation: peek-chomp 0.34s steps(3, end);
-    }
-
     .site-nav--home.is-peek-tapping .site-brand-logo {
       animation: peek-menu-pop 0.42s steps(4, end);
     }
 
-    .site-nav--home .nav-link {
-      display: inline-flex;
-      align-items: center;
-      min-height: var(--site-nav-mobile-action-size);
-      max-width: 0;
-      padding: 0;
-      overflow: hidden;
-      opacity: 0;
-      pointer-events: none;
-      transform: translateX(-0.4rem);
-      font-size: 0.76rem;
-      line-height: 1;
-      font-weight: 600;
-      color: hsl(var(--muted-foreground) / 0.74);
-      transition: max-width 0.28s ease, opacity 0.2s ease, transform 0.28s ease, color 0.16s ease;
-    }
-
-    .site-nav--home.is-brand-eaten .nav-link {
-      max-width: calc(var(--nav-link-char-count, 0) * 1ch + 0.35rem);
-      opacity: 1;
-      pointer-events: auto;
-      transform: translateX(0);
-    }
-
-    /* Center the link group on the viewport. The nav's content box is
-       asymmetric (brand on left, theme button reserved on right via
-       padding), so flex-centering the links inside it pulls them left of
-       true center. Absolute-position the wrapper at 50vw instead, after
-       the peek-eats-brand transition settles. */
-    .site-nav--home.is-brand-eaten .nav-links {
-      display: inline-flex;
-      align-items: center;
-      gap: var(--site-nav-mobile-gap);
-      position: absolute;
-      left: 50%;
-      top: 50%;
-      transform: translate(-50%, -50%);
-      pointer-events: none;
-    }
-    .site-nav--home.is-brand-eaten .nav-links .nav-link {
-      pointer-events: auto;
-    }
-
-    .site-nav--home .nav-link::after,
-    .site-nav--home .nav-separator {
+    /* The inline link row is a desktop-only affordance now. On mobile the
+       hamburger in the header actions opens the menu sheet instead, so the
+       wordmark simply stays put and the links collapse away. */
+    .site-nav .nav-links {
       display: none;
     }
-
-    .site-nav--home .nav-link:hover,
-    .site-nav--home .nav-link.is-active {
-      color: hsl(var(--foreground));
-    }
-  }
-
-  @keyframes peek-chomp {
-    0% { transform: translateX(0); }
-    35% { transform: translateX(0.35rem); }
-    70% { transform: translateX(0.1rem); }
-    100% { transform: translateX(0); }
   }
 
   @keyframes peek-menu-pop {
@@ -1428,7 +1448,8 @@
   }
 
   @media (max-width: 899px) {
-    .global-header-actions--home .header-action-btn[data-theme-toggle] {
+    .global-header-actions--home .header-action-btn[data-theme-toggle],
+    .global-header-actions--home .menu-trigger {
       min-width: 2.75rem;
       height: 2.75rem;
       padding: 0;
@@ -1440,17 +1461,258 @@
       -webkit-backdrop-filter: none;
     }
 
-    .global-header-actions--home .header-action-btn[data-theme-toggle]:hover {
+    .global-header-actions--home .header-action-btn[data-theme-toggle]:hover,
+    .global-header-actions--home .menu-trigger:hover {
       background: rgb(17 17 17 / 0.06);
       border-color: transparent;
     }
 
-    .dark .global-header-actions--home .header-action-btn[data-theme-toggle]:hover {
+    .dark .global-header-actions--home .header-action-btn[data-theme-toggle]:hover,
+    .dark .global-header-actions--home .menu-trigger:hover {
       background: rgb(255 255 255 / 0.08);
     }
 
     .global-header-actions--home .header-action-btn[data-theme-toggle] .theme-icon-container {
       margin-inline: auto;
+    }
+  }
+
+  /* ── Menu trigger (hamburger) ──────────────────────────────────────
+     Lives in the header-actions cluster so it is reachable on every page
+     that renders the sheet, regardless of the site-nav variant. Desktop
+     keeps the sidebar / brand-only nav, so the trigger is mobile-only. */
+  .menu-trigger {
+    display: none;
+  }
+
+  /* Menu / close icons share one grid cell so they cross-fade in place. The
+     square chrome, border and sizing all come from .header-action-btn, so the
+     trigger reads as a twin of the theme toggle beside it. */
+  .menu-trigger-icons {
+    display: grid;
+    place-items: center;
+    width: 15px;
+    height: 15px;
+  }
+
+  .menu-swap-icon {
+    grid-area: 1 / 1;
+    transition: opacity 200ms cubic-bezier(0.2, 0, 0, 1),
+      transform 200ms cubic-bezier(0.2, 0, 0, 1),
+      filter 200ms cubic-bezier(0.2, 0, 0, 1);
+  }
+
+  /* Closed: Menu shown, X waiting rotated/blurred. Open: they swap. */
+  .menu-swap-icon--open {
+    opacity: 1;
+    transform: rotate(0deg) scale(1);
+    filter: blur(0);
+  }
+  .menu-swap-icon--close {
+    opacity: 0;
+    transform: rotate(-90deg) scale(0.5);
+    filter: blur(2px);
+  }
+  .menu-trigger.is-active .menu-swap-icon--open {
+    opacity: 0;
+    transform: rotate(90deg) scale(0.5);
+    filter: blur(2px);
+  }
+  .menu-trigger.is-active .menu-swap-icon--close {
+    opacity: 1;
+    transform: rotate(0deg) scale(1);
+    filter: blur(0);
+  }
+
+  @media (max-width: 899px) {
+    .menu-trigger {
+      display: inline-flex;
+    }
+  }
+
+  /* Brand-home pages have no desktop sidebar, so the menu is their only nav —
+     keep the trigger visible at every width there. */
+  @media (min-width: 900px) {
+    .global-header-actions.has-brand-home-bar .menu-trigger {
+      display: inline-flex;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .menu-swap-icon {
+      transition-duration: 1ms;
+    }
+  }
+
+  /* While the menu is open, lift the header controls above the scrim so the ✕
+     and theme toggle stay crisp and tappable. body.menu-scroll-lock is present
+     only then. */
+  body.menu-scroll-lock .global-header-actions.has-menu-sheet {
+    z-index: 201;
+  }
+
+  /* ── Mobile menu sheet ─────────────────────────────────────────────── */
+  .site-menu {
+    position: fixed;
+    inset: 0;
+    z-index: 200;
+  }
+
+  .site-menu[hidden] {
+    display: none;
+  }
+
+  @media (min-width: 900px) {
+    /* Desktop normally uses the sidebar/inline nav, so the sheet is hidden — but
+       brand-home pages (e.g. /components) have no other nav, so keep it usable. */
+    .site-menu:not(.site-menu--desktop) {
+      display: none !important;
+    }
+  }
+
+  .site-menu-scrim {
+    position: absolute;
+    inset: 0;
+    background: hsl(var(--background) / 0.4);
+    backdrop-filter: blur(2px);
+    -webkit-backdrop-filter: blur(2px);
+    opacity: 1;
+    transition: opacity 220ms ease;
+  }
+
+  .site-menu:not(.is-open) .site-menu-scrim {
+    opacity: 0;
+  }
+
+  /* Compact dropdown card anchored under the header controls, top-right.
+     Scales open from that corner (origin-aware, per popover convention). */
+  /* Narrow, tall, centered — a tight column, not a wide plate. 1px ring plus a
+     soft ambient glow (no offset drop), matching the reference popover. */
+  .site-menu-sheet {
+    position: absolute;
+    top: calc(env(safe-area-inset-top, 0px) + 3.5rem);
+    right: 1rem;
+    width: 8.5rem;
+    max-width: calc(100vw - 2rem);
+    padding: 4px;
+    background: hsl(var(--background));
+    border: 1px solid hsl(var(--foreground) / 0.08);
+    border-radius: 16px;
+    box-shadow: 0 12px 32px -10px hsl(var(--foreground) / 0.16);
+    -webkit-font-smoothing: antialiased;
+    transform-origin: top right;
+    opacity: 0;
+    transform: translateY(-6px) scale(0.96);
+    transition: opacity 180ms cubic-bezier(0.32, 0.72, 0, 1),
+      transform 180ms cubic-bezier(0.32, 0.72, 0, 1);
+  }
+
+  .dark .site-menu-sheet {
+    border-color: hsl(var(--foreground) / 0.1);
+    box-shadow: 0 0 24px rgba(0, 0, 0, 0.5);
+  }
+
+  .site-menu.is-open .site-menu-sheet {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    transition-duration: 240ms;
+  }
+
+  .site-menu-links {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .site-menu-link {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    /* Airy row rhythm (~36px), monospace to match the site's type spine. */
+    padding: 0.5rem 0.875rem;
+    /* Concentric: card radius 16px − 4px padding = 12px inner. */
+    border-radius: 12px;
+    font-family: var(--font-mono);
+    font-size: 0.8125rem;
+    font-weight: 500;
+    letter-spacing: 0.045em;
+    color: hsl(var(--muted-foreground));
+    text-align: left;
+    opacity: 0;
+    transform: translateY(4px);
+    transition: opacity 220ms ease, transform 220ms cubic-bezier(0.23, 1, 0.32, 1),
+      color 150ms ease, background 150ms ease;
+  }
+
+  .site-menu.is-open .site-menu-link {
+    opacity: 1;
+    transform: none;
+  }
+
+  .site-menu.is-open .site-menu-link:nth-child(1) { transition-delay: 20ms; }
+  .site-menu.is-open .site-menu-link:nth-child(2) { transition-delay: 40ms; }
+  .site-menu.is-open .site-menu-link:nth-child(3) { transition-delay: 60ms; }
+  .site-menu.is-open .site-menu-link:nth-child(4) { transition-delay: 80ms; }
+  .site-menu.is-open .site-menu-link:nth-child(5) { transition-delay: 100ms; }
+  .site-menu.is-open .site-menu-link:nth-child(6) { transition-delay: 120ms; }
+
+  @media (hover: hover) and (pointer: fine) {
+    .site-menu-link:hover {
+      color: hsl(var(--foreground));
+      background: hsl(var(--foreground) / 0.05);
+    }
+  }
+
+  .site-menu-link:active {
+    transform: scale(0.97);
+  }
+
+  /* Current page: brighter + heavier, no filled box (no corner to get wrong). */
+  .site-menu-link[aria-current='page'] {
+    color: hsl(var(--foreground));
+    font-weight: 600;
+  }
+
+  .site-menu-mascot {
+    display: flex;
+    justify-content: flex-start;
+    margin-top: 0.25rem;
+    padding: 0.55rem 0.875rem 0.35rem;
+    /* Full foreground — the peek is a character, not a faint watermark. */
+    color: hsl(var(--foreground));
+    opacity: 0;
+    transition: opacity 220ms ease;
+  }
+
+  .site-menu.is-open .site-menu-mascot {
+    opacity: 1;
+    transition-delay: 150ms;
+  }
+
+  .site-menu-mascot svg {
+    display: block;
+    width: 32px;
+    height: auto;
+  }
+
+  body.menu-scroll-lock {
+    position: fixed;
+    left: 0;
+    right: 0;
+    width: 100%;
+    overflow: hidden;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .site-menu-sheet,
+    .site-menu.is-open .site-menu-sheet,
+    .site-menu-link,
+    .site-menu.is-open .site-menu-link,
+    .site-menu-mascot,
+    .site-menu.is-open .site-menu-mascot {
+      transform: none;
+      transition-duration: 1ms;
+      transition-delay: 0ms;
     }
   }
 

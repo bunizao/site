@@ -22,6 +22,40 @@ test.describe('Preview smoke', () => {
     await expect(page.locator('#moods-section')).toBeVisible();
   });
 
+  test('renders the tag-card specimen with full-size cards', async ({ page }) => {
+    await page.goto('/components');
+
+    await expect(page.locator('[data-site-nav]')).toBeVisible();
+    await expect(page.locator('[data-menu-trigger]')).toBeVisible();
+    await expect(page.locator('footer.footer')).toBeVisible();
+    await expect(page.locator('.components-topbar')).toHaveCount(0);
+    const cards = page.locator('.tagspec .tag-card');
+    await expect(cards).toHaveCount(2);
+    await expect(cards.first()).toBeVisible();
+    await expect
+      .poll(async () => (await cards.first().boundingBox())?.height ?? 0)
+      .toBeGreaterThan(240);
+    await expect(cards.first()).toHaveCSS('clip-path', 'inset(0px round 20px)');
+
+    const themeDropdown = page.locator('[data-theme-dropdown]');
+    const themeToggle = page.locator('[data-theme-toggle]');
+    await themeDropdown.hover();
+    await page.locator('[data-theme-option="light"]').click();
+    await expect(page.locator('html')).not.toHaveClass(/dark/);
+    const moodFrame = page.locator('iframe[title="Mood wheel"]');
+    const readingFrame = page.locator('iframe[title="Mobile reading bar"]');
+    await expect(moodFrame).toBeVisible();
+    await expect(readingFrame).toBeVisible();
+    await expect(moodFrame.contentFrame().locator('html')).not.toHaveClass(/dark/);
+    await expect(readingFrame.contentFrame().locator('html')).not.toHaveClass(/dark/);
+    await themeToggle.click();
+    await expect(page.locator('[data-theme-option="dark"]')).toBeVisible();
+    await page.locator('[data-theme-option="dark"]').click();
+    await expect(page.locator('html')).toHaveClass(/dark/);
+    await expect(moodFrame.contentFrame().locator('html')).toHaveClass(/dark/);
+    await expect(readingFrame.contentFrame().locator('html')).toHaveClass(/dark/);
+  });
+
   test('renders the mood feed shell', async ({ page }) => {
     await page.goto('/mood');
 

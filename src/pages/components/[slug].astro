@@ -1,0 +1,116 @@
+---
+import { getCollection, render, type CollectionEntry } from 'astro:content';
+import { ArrowLeft, ArrowUpRight } from 'lucide-react';
+import Layout from '@/layouts/Layout.astro';
+import ComponentPreview from '@/features/components/ui/ComponentPreview.astro';
+import OnThisPage from '@/features/components/ui/OnThisPage.astro';
+import { InstallTabs, type InstallSpec } from '@/features/components/ui/InstallTabs';
+import CodeBox from '@/features/components/ui/CodeBox.astro';
+import '@/styles/components.css';
+
+export const prerender = true;
+
+export async function getStaticPaths() {
+  const entries = await getCollection('components', ({ data }) => !data.draft);
+  return entries.map((entry) => ({
+    params: { slug: entry.id },
+    props: { entry },
+  }));
+}
+
+interface Props {
+  entry: CollectionEntry<'components'>;
+}
+const { entry } = Astro.props;
+const { title, tagline, install, source, credits } = entry.data;
+const slug = entry.id;
+const { Content } = await render(entry);
+
+// The Usage section is a single fenced code block per entry. Parse its language
+// and body out of the raw markdown so it renders in the framed CodeBlock (with
+// a header bar + copy button) rather than a bare Shiki <pre>. Fall back to
+// <Content /> if the shape is ever anything other than one clean fence.
+const usageMatch = entry.body?.match(/```(\w+)?\n([\s\S]*?)\n```/);
+const usage = usageMatch
+  ? { lang: usageMatch[1] ?? 'text', code: usageMatch[2] }
+  : null;
+
+const registryUrl = new URL(`/r/${slug}`, Astro.site ?? 'https://buxx.me').href;
+const spec: InstallSpec =
+  install.type === 'npm' ? { type: 'npm', pkg: install.pkg } : { type: 'registry', url: registryUrl };
+
+const toc = [
+  { id: 'preview', label: 'Preview' },
+  { id: 'installation', label: 'Installation' },
+  { id: 'usage', label: 'Usage' },
+  ...(credits ? [{ id: 'credits', label: 'Credits' }] : []),
+];
+
+// Credits is a one-liner that may carry a single Markdown link. Convert only
+// `[text](https…)` to an anchor; escape everything else so it stays inert.
+const escapeHtml = (s: string) =>
+  s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+const creditsHtml = (raw: string) =>
+  escapeHtml(raw).replace(
+    /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g,
+    (_m, text, url) => `<a href="${url}" target="_blank" rel="noopener noreferrer">${text}</a>`
+  );
+---
+
+<Layout
+  title={`${title} — Components`}
+  description={tagline}
+  url={`/components/${slug}`}
+  hideSiteNav
+>
+  <main class="components components--index components--detail">
+    <div class="detail">
+      <div class="detail-main">
+        <nav class="breadcrumb" aria-label="Breadcrumb">
+          <a href="/">buxx.me</a>
+          <span class="breadcrumb-sep" aria-hidden="true">/</span>
+          <a href="/components">components</a>
+          <span class="breadcrumb-sep" aria-hidden="true">/</span>
+          <span class="breadcrumb-current" aria-current="page">{slug}</span>
+        </nav>
+
+        <h1 class="detail-title">{title}</h1>
+        <p class="detail-tagline">{tagline}</p>
+
+        <section class="detail-section" id="preview" aria-labelledby="preview-label">
+          <h2 class="detail-section-label" id="preview-label">Preview</h2>
+          <ComponentPreview slug={slug} />
+        </section>
+
+        <section class="detail-section" id="installation" aria-labelledby="install-label">
+          <h2 class="detail-section-label" id="install-label">Installation</h2>
+          <InstallTabs spec={spec} client:visible />
+        </section>
+
+        <section class="detail-section detail-usage" id="usage" aria-labelledby="usage-label">
+          <h2 class="detail-section-label" id="usage-label">Usage</h2>
+          {usage ? <CodeBox code={usage.code} lang={usage.lang} /> : <Content />}
+        </section>
+
+        {credits && (
+          <section class="detail-section" id="credits" aria-labelledby="credits-label">
+            <h2 class="detail-section-label" id="credits-label">Credits</h2>
+            <p class="detail-credits" set:html={creditsHtml(credits)} />
+          </section>
+        )}
+
+        <a class="detail-source" href={source} target="_blank" rel="noopener noreferrer">
+          View source
+          <ArrowUpRight className="h-3.5 w-3.5" aria-hidden="true" />
+        </a>
+
+        <a class="detail-back" href="/components">
+          <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+          Components
+        </a>
+      </div>
+
+      <OnThisPage items={toc} />
+    </div>
+  </main>
+</Layout>
