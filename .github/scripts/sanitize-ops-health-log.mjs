@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-const MAX_LOG_CHARACTERS = 30_000;
+const MAX_LOG_CHARACTERS = 10_000;
 
 export function sanitizeOpsHealthLog(input) {
   const sanitized = input

@@ -21,8 +21,8 @@ describe('Ops Health log sanitizer', () => {
   test('keeps the end of oversized logs where failures are reported', () => {
     const sanitized = sanitizeOpsHealthLog(`${'a'.repeat(35_000)}\nfinal failure`);
 
-    expect(sanitized).toStartWith('[Earlier output omitted; showing the last 30000 characters.]');
+    expect(sanitized).toStartWith('[Earlier output omitted; showing the last 10000 characters.]');
     expect(sanitized).toEndWith('final failure');
-    expect(sanitized.length).toBeLessThan(31_000);
+    expect(sanitized.length).toBeLessThan(11_000);
   });
 });
