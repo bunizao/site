@@ -134,7 +134,7 @@ describe('Ops Health incident sync', () => {
       ...harness,
       context,
       env: {
-        CACHED_DECISION_PATH: join(workspace, '.ops-health/ignored-decision.json'),
+        CACHED_DECISION_PATH: join(workspace, '.ops-health-cache/ignored-decision.json'),
         CODEX_FINAL_MESSAGE: JSON.stringify(ignored),
         DRY_RUN: 'false',
         EVIDENCE_PATH: join(workspace, '.ops-health/evidence.json'),
@@ -144,7 +144,7 @@ describe('Ops Health incident sync', () => {
       workspace,
     });
 
-    const decisionPath = join(workspace, '.ops-health/ignored-decision.json');
+    const decisionPath = join(workspace, '.ops-health-cache/ignored-decision.json');
     expect(harness.outputs).toMatchObject({ cache_ignore: 'true', gate: 'pass' });
     expect(harness.created).toEqual([]);
     expect(existsSync(decisionPath)).toBe(true);
@@ -165,7 +165,7 @@ describe('Ops Health incident sync', () => {
       ...harness,
       context,
       env: {
-        CACHED_DECISION_PATH: join(workspace, '.ops-health/ignored-decision.json'),
+        CACHED_DECISION_PATH: join(workspace, '.ops-health-cache/ignored-decision.json'),
         CODEX_FINAL_MESSAGE: JSON.stringify(createCodexResult({ summary: 'Recovered analysis.' })),
         DRY_RUN: 'false',
         EVIDENCE_PATH: join(workspace, '.ops-health/evidence.json'),
@@ -195,7 +195,7 @@ describe('Ops Health incident sync', () => {
       ...harness,
       context,
       env: {
-        CACHED_DECISION_PATH: join(workspace, '.ops-health/ignored-decision.json'),
+        CACHED_DECISION_PATH: join(workspace, '.ops-health-cache/ignored-decision.json'),
         CODEX_FINAL_MESSAGE: JSON.stringify(createCodexResult({ summary: 'New failure details.' })),
         DRY_RUN: 'false',
         EVIDENCE_PATH: join(workspace, '.ops-health/evidence.json'),

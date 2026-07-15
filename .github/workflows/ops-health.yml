@@ -184,7 +184,7 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           key: ops-health-ignore-v1-${{ steps.evidence.outputs.fingerprint }}
-          path: .ops-health/ignored-decision.json
+          path: .ops-health-cache/ignored-decision.json
 
       - name: Find open incident
         id: incident
@@ -219,7 +219,7 @@ jobs:
             ));
             let cachedResult = null;
             try {
-              cachedResult = JSON.parse(fs.readFileSync('.ops-health/ignored-decision.json', 'utf8'));
+              cachedResult = JSON.parse(fs.readFileSync('.ops-health-cache/ignored-decision.json', 'utf8'));
             } catch {}
             const shouldAnalyze = policy.shouldAnalyzeIncident({
               healthState: process.env.HEALTH_STATE,
@@ -237,6 +237,7 @@ jobs:
         with:
           name: ${{ steps.evidence.outputs.artifact_name }}
           path: .ops-health
+          include-hidden-files: true
           retention-days: 14
           if-no-files-found: error
 
@@ -323,7 +324,7 @@ jobs:
         id: sync
         uses: actions/github-script@v8
         env:
-          CACHED_DECISION_PATH: .ops-health/ignored-decision.json
+          CACHED_DECISION_PATH: .ops-health-cache/ignored-decision.json
           CODEX_FINAL_MESSAGE: ${{ needs.codex.outputs.final_message }}
           DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run == true }}
           EVIDENCE_PATH: .ops-health/evidence.json
@@ -349,7 +350,7 @@ jobs:
         uses: actions/cache/save@v4
         with:
           key: ops-health-ignore-v1-${{ needs.context.outputs.fingerprint }}
-          path: .ops-health/ignored-decision.json
+          path: .ops-health-cache/ignored-decision.json
 
   gate:
     name: Apply Ops Health conclusion

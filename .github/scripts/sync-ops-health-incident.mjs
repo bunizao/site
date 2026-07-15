@@ -168,7 +168,7 @@ export async function syncOpsHealthIncident({ core, context, env, github, worksp
 
   if (policy.action === 'ignore') {
     if (liveCodexResult) {
-      const decisionPath = path.join(workspace, '.ops-health/ignored-decision.json');
+      const decisionPath = path.join(workspace, '.ops-health-cache/ignored-decision.json');
       fs.mkdirSync(path.dirname(decisionPath), { recursive: true });
       fs.writeFileSync(decisionPath, `${JSON.stringify(liveCodexResult, null, 2)}\n`);
       core.setOutput('cache_ignore', 'true');
