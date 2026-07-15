@@ -17,6 +17,8 @@ jobs:
     name: Ops Health
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    permissions:
+      contents: read
 
     steps:
       - name: Checkout
@@ -44,3 +46,198 @@ jobs:
           HD_IMAGE_HEALTH_TIMEOUT_MS: 4000
           LIVE_PHOTO_DETAIL_IDS: 3327
         run: bun run test:ops
+
+  sync-incident:
+    name: Sync incident issue
+    needs: ops-health
+    if: always() && needs.ops-health.result != 'cancelled'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      actions: read
+      contents: read
+      issues: write
+      models: read
+
+    steps:
+      - name: Find open incident
+        id: incident
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const marker = '<!-- ops-health-incident -->';
+            const issues = await github.paginate(github.rest.issues.listForRepo, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              per_page: 100,
+            });
+            const incident = issues.find((issue) => {
+              return !issue.pull_request && issue.body?.includes(marker);
+            });
+            core.setOutput('number', incident?.number ?? '');
+
+      - name: Checkout
+        if: needs.ops-health.result == 'failure' && steps.incident.outputs.number == ''
+        uses: actions/checkout@v4
+
+      - name: Collect failed job log
+        if: needs.ops-health.result == 'failure' && steps.incident.outputs.number == ''
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+
+          mkdir -p .ops-health
+          job_id="$(gh api \
+            "repos/${GH_REPO}/actions/runs/${GITHUB_RUN_ID}/jobs" \
+            --paginate \
+            --jq '.jobs[] | select(.name == "Ops Health") | .id' \
+            | tail -n 1)"
+
+          if [[ -z "${job_id}" ]]; then
+            echo "The failed Ops Health job log could not be located." > .ops-health/raw.log
+          elif ! gh api "repos/${GH_REPO}/actions/jobs/${job_id}/logs" > .ops-health/raw.log; then
+            echo "The failed Ops Health job log could not be downloaded." > .ops-health/raw.log
+          fi
+
+          node .github/scripts/sanitize-ops-health-log.mjs \
+            .ops-health/raw.log \
+            .ops-health/job.log
+          rm -f .ops-health/raw.log
+
+      - name: Analyze failure with GitHub Models
+        id: ai
+        if: needs.ops-health.result == 'failure' && steps.incident.outputs.number == ''
+        continue-on-error: true
+        uses: actions/ai-inference@v1
+        with:
+          prompt-file: .github/prompts/ops-health-analysis.prompt.yml
+          input: |
+            repository: ${{ github.repository }}
+            run_url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+            commit: ${{ github.sha }}
+          file_input: |
+            log: .ops-health/job.log
+
+      - name: Upload sanitized failure log
+        if: needs.ops-health.result == 'failure' && steps.incident.outputs.number == ''
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: ops-health-failure-log
+          path: .ops-health/job.log
+          if-no-files-found: ignore
+
+      - name: Create or resolve incident
+        if: always()
+        uses: actions/github-script@v7
+        env:
+          AI_RESPONSE_FILE: ${{ steps.ai.outputs.response-file }}
+          HEALTH_RESULT: ${{ needs.ops-health.result }}
+          INCIDENT_NUMBER: ${{ steps.incident.outputs.number }}
+          LOG_FILE: .ops-health/job.log
+        with:
+          script: |
+            const fs = require('fs');
+            const marker = '<!-- ops-health-incident -->';
+            const title = '[Ops Health] Production checks failing';
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const result = process.env.HEALTH_RESULT;
+            let incidentNumber = Number.parseInt(process.env.INCIDENT_NUMBER, 10) || null;
+
+            if (!incidentNumber) {
+              const issues = await github.paginate(github.rest.issues.listForRepo, {
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                state: 'open',
+                per_page: 100,
+              });
+              const incident = issues.find((issue) => {
+                return !issue.pull_request && issue.body?.includes(marker);
+              });
+              incidentNumber = incident?.number ?? null;
+            }
+
+            if (result === 'success') {
+              if (!incidentNumber) {
+                core.notice('No open Ops Health incident to resolve.');
+                return;
+              }
+
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: incidentNumber,
+                body: `Ops Health recovered in [run ${context.runNumber}](${runUrl}).`,
+              });
+              await github.rest.issues.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: incidentNumber,
+                state: 'closed',
+                state_reason: 'completed',
+              });
+              core.notice(`Closed recovered Ops Health incident #${incidentNumber}.`);
+              return;
+            }
+
+            if (result !== 'failure') {
+              core.notice(`Ignored Ops Health result: ${result}.`);
+              return;
+            }
+
+            if (incidentNumber) {
+              core.notice(`Ops Health incident #${incidentNumber} is already open.`);
+              return;
+            }
+
+            const readFile = (filePath, fallback) => {
+              if (!filePath || !fs.existsSync(filePath)) return fallback;
+              const value = fs.readFileSync(filePath, 'utf8').trim();
+              return value || fallback;
+            };
+            const analysis = readFile(
+              process.env.AI_RESPONSE_FILE,
+              'AI triage was unavailable. Inspect the workflow log directly.',
+            );
+            const log = readFile(
+              process.env.LOG_FILE,
+              'The failed job log was unavailable.',
+            ).slice(-12_000);
+            const report = [
+              `Run: [#${context.runNumber}](${runUrl})`,
+              `Commit: \`${context.sha}\``,
+              '',
+              '## AI triage',
+              '',
+              analysis,
+              '',
+              '## Sanitized job log',
+              '',
+              '<details>',
+              '<summary>Last 12,000 characters</summary>',
+              '',
+              '```text',
+              log.replaceAll('```', '``\u200b`'),
+              '```',
+              '</details>',
+              '',
+              '_AI triage is a first pass, not a confirmed root cause._',
+            ].join('\n');
+
+            const body = [
+              marker,
+              'The scheduled production health checks are failing.',
+              '',
+              report,
+            ].join('\n');
+            const { data: created } = await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title,
+              body,
+            });
+            core.notice(`Created Ops Health incident #${created.number}.`);
