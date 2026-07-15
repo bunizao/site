@@ -1,0 +1,82 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "disposition",
+    "classification",
+    "confidence",
+    "summary",
+    "repositoryScope",
+    "evidence",
+    "likelyCauses",
+    "affectedFiles",
+    "nextChecks"
+  ],
+  "properties": {
+    "disposition": {
+      "type": "string",
+      "enum": ["incident", "ignore"]
+    },
+    "classification": {
+      "type": "string",
+      "enum": [
+        "product_regression",
+        "workflow_infrastructure",
+        "transient_false_positive",
+        "configuration",
+        "external_dependency",
+        "unknown"
+      ]
+    },
+    "confidence": {
+      "type": "string",
+      "enum": ["low", "medium", "high"]
+    },
+    "summary": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1200
+    },
+    "repositoryScope": {
+      "type": "string",
+      "enum": ["site", "site-api", "both", "external", "unknown"]
+    },
+    "evidence": {
+      "type": "array",
+      "maxItems": 6,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 500
+      }
+    },
+    "likelyCauses": {
+      "type": "array",
+      "maxItems": 4,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 500
+      }
+    },
+    "affectedFiles": {
+      "type": "array",
+      "maxItems": 8,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 240
+      }
+    },
+    "nextChecks": {
+      "type": "array",
+      "maxItems": 5,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 500
+      }
+    }
+  }
+}
