@@ -1,4 +1,4 @@
-const INCIDENT_MARKER_PATTERN = /<!-- ops-health-incident\nfingerprint: ([^\n]*)\nrecovery-streak: (\d+)\nlast-seen-run: ([^\n]*)\n-->/;
+const INCIDENT_MARKER_PATTERN = /<!-- ops-health-incident\n([\s\S]*?)\n-->/;
 const IGNORABLE_CLASSIFICATIONS = new Set([
   'transient_false_positive',
   'workflow_infrastructure',
@@ -8,19 +8,27 @@ export function parseIncidentMetadata(body) {
   const match = String(body || '').match(INCIDENT_MARKER_PATTERN);
   if (!match) return null;
 
+  const fields = Object.fromEntries(match[1].split('\n').flatMap((line) => {
+    const separator = line.indexOf(':');
+    if (separator === -1) return [];
+    return [[line.slice(0, separator).trim(), line.slice(separator + 1).trim()]];
+  }));
+
   return {
-    fingerprint: match[1],
-    recoveryStreak: Number.parseInt(match[2], 10) || 0,
-    lastSeenRun: match[3],
+    fingerprint: fields.fingerprint || '',
+    recoveryStreak: Number.parseInt(fields['recovery-streak'], 10) || 0,
+    lastSeenRun: fields['last-seen-run'] || '',
+    analysisStatus: fields['analysis-status'] === 'complete' ? 'complete' : 'unavailable',
   };
 }
 
-export function renderIncidentMarker({ fingerprint, recoveryStreak, lastSeenRun }) {
+export function renderIncidentMarker({ fingerprint, recoveryStreak, lastSeenRun, analysisStatus }) {
   return [
     '<!-- ops-health-incident',
     `fingerprint: ${fingerprint}`,
     `recovery-streak: ${recoveryStreak}`,
     `last-seen-run: ${lastSeenRun}`,
+    `analysis-status: ${analysisStatus}`,
     '-->',
   ].join('\n');
 }
@@ -38,12 +46,18 @@ export function shouldAnalyzeIncident({
   healthState,
   fingerprint,
   incidentFingerprint,
+  incidentAnalysisStatus,
+  cachedIgnore,
   dryRun,
 }) {
   if (!['failing', 'infrastructure_failure'].includes(healthState)) {
     return false;
   }
-  return dryRun || !incidentFingerprint || incidentFingerprint !== fingerprint;
+  if (dryRun) return true;
+  if (cachedIgnore) return false;
+  return !incidentFingerprint
+    || incidentFingerprint !== fingerprint
+    || incidentAnalysisStatus !== 'complete';
 }
 
 export function resolveCodexDisposition(result) {
@@ -117,6 +131,9 @@ export function resolveIncidentPolicy({
     return { action: 'create', gate: 'fail', reason: disposition.reason };
   }
   if (incidentMetadata.fingerprint === fingerprint) {
+    if (incidentMetadata.analysisStatus !== 'complete' && codexResult) {
+      return { action: 'backfill', gate: 'fail', reason: 'Codex analysis recovered for the active incident.' };
+    }
     return { action: 'keep-open', gate: 'fail', reason: 'Known failure signature remains active.' };
   }
   return { action: 'update', gate: 'fail', reason: 'A new failure signature appeared.' };

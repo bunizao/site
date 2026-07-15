@@ -13,12 +13,14 @@ describe('Ops Health incident policy', () => {
       fingerprint: 'abc123',
       recoveryStreak: 1,
       lastSeenRun: '42',
+      analysisStatus: 'complete',
     });
 
     expect(parseIncidentMetadata(`${marker}\nVisible issue body`)).toEqual({
       fingerprint: 'abc123',
       recoveryStreak: 1,
       lastSeenRun: '42',
+      analysisStatus: 'complete',
     });
   });
 
@@ -27,19 +29,44 @@ describe('Ops Health incident policy', () => {
       healthState: 'failing',
       fingerprint: 'new',
       incidentFingerprint: '',
+      incidentAnalysisStatus: '',
+      cachedIgnore: false,
       dryRun: false,
     })).toBe(true);
     expect(shouldAnalyzeIncident({
       healthState: 'failing',
       fingerprint: 'same',
       incidentFingerprint: 'same',
+      incidentAnalysisStatus: 'complete',
+      cachedIgnore: false,
       dryRun: false,
     })).toBe(false);
     expect(shouldAnalyzeIncident({
       healthState: 'healthy',
       fingerprint: '',
       incidentFingerprint: 'old',
+      incidentAnalysisStatus: 'complete',
+      cachedIgnore: false,
       dryRun: true,
+    })).toBe(false);
+  });
+
+  test('retries missing analysis but reuses cached ignore decisions', () => {
+    expect(shouldAnalyzeIncident({
+      healthState: 'failing',
+      fingerprint: 'same',
+      incidentFingerprint: 'same',
+      incidentAnalysisStatus: 'unavailable',
+      cachedIgnore: false,
+      dryRun: false,
+    })).toBe(true);
+    expect(shouldAnalyzeIncident({
+      healthState: 'infrastructure_failure',
+      fingerprint: 'infra',
+      incidentFingerprint: '',
+      incidentAnalysisStatus: '',
+      cachedIgnore: true,
+      dryRun: false,
     })).toBe(false);
   });
 
@@ -110,6 +137,7 @@ describe('Ops Health incident policy', () => {
         fingerprint: 'failure',
         recoveryStreak: 0,
         lastSeenRun: '40',
+        analysisStatus: 'complete',
       },
       codexResult: null,
       dryRun: false,
@@ -121,6 +149,7 @@ describe('Ops Health incident policy', () => {
         fingerprint: 'failure',
         recoveryStreak: 1,
         lastSeenRun: '41',
+        analysisStatus: 'complete',
       },
       codexResult: null,
       dryRun: false,
@@ -138,9 +167,29 @@ describe('Ops Health incident policy', () => {
         fingerprint: 'failure',
         recoveryStreak: 1,
         lastSeenRun: '41',
+        analysisStatus: 'complete',
       },
       codexResult: null,
       dryRun: false,
     })).toMatchObject({ action: 'reset-recovery', gate: 'pass' });
+  });
+
+  test('backfills recovered Codex analysis into an existing issue', () => {
+    expect(resolveIncidentPolicy({
+      healthState: 'failing',
+      fingerprint: 'failure',
+      incidentMetadata: {
+        fingerprint: 'failure',
+        recoveryStreak: 0,
+        lastSeenRun: '41',
+        analysisStatus: 'unavailable',
+      },
+      codexResult: {
+        disposition: 'incident',
+        classification: 'product_regression',
+        confidence: 'high',
+      },
+      dryRun: false,
+    })).toMatchObject({ action: 'backfill', gate: 'fail' });
   });
 });

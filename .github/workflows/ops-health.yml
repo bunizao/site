@@ -60,7 +60,7 @@ jobs:
         id: primary
         if: steps.install.outcome == 'success'
         continue-on-error: true
-        env:
+        env: &ops-health-env
           SITE_URL: https://buxx.me
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_EXPECTED_WEBHOOK_URL: https://api.buxx.me/webhooks/telegram
@@ -77,13 +77,7 @@ jobs:
         id: confirm
         if: steps.primary.outcome == 'failure'
         continue-on-error: true
-        env:
-          SITE_URL: https://buxx.me
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_EXPECTED_WEBHOOK_URL: https://api.buxx.me/webhooks/telegram
-          HD_IMAGE_HEALTH_SAMPLE_SIZE: 4
-          HD_IMAGE_HEALTH_TIMEOUT_MS: 4000
-          LIVE_PHOTO_DETAIL_IDS: 3327
+        env: *ops-health-env
         run: bun run test:ops
 
       - name: Resolve health state
@@ -130,8 +124,6 @@ jobs:
       artifact_name: ${{ steps.evidence.outputs.artifact_name }}
       fingerprint: ${{ steps.evidence.outputs.fingerprint }}
       health_state: ${{ steps.state.outputs.health_state }}
-      incident_fingerprint: ${{ steps.incident.outputs.fingerprint }}
-      incident_number: ${{ steps.incident.outputs.number }}
       should_analyze: ${{ steps.analysis.outputs.should_analyze }}
 
     steps:
@@ -184,9 +176,60 @@ jobs:
             "${HEALTH_STATE}"
           rm -f .ops-health/raw.log
 
-          artifact_name="ops-health-evidence-${GITHUB_RUN_ID}"
-          echo "artifact_name=${artifact_name}" >> "${GITHUB_OUTPUT}"
+          echo "artifact_name=ops-health-evidence-${GITHUB_RUN_ID}" >> "${GITHUB_OUTPUT}"
           echo "fingerprint=$(jq -r '.fingerprint' .ops-health/evidence.json)" >> "${GITHUB_OUTPUT}"
+
+      - name: Restore cached ignore decision
+        if: steps.evidence.outputs.fingerprint != ''
+        uses: actions/cache/restore@v4
+        with:
+          key: ops-health-ignore-v1-${{ steps.evidence.outputs.fingerprint }}
+          path: .ops-health/ignored-decision.json
+
+      - name: Find open incident
+        id: incident
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const path = require('path');
+            const { pathToFileURL } = require('url');
+            const module = await import(pathToFileURL(
+              path.join(process.env.GITHUB_WORKSPACE, '.github/scripts/sync-ops-health-incident.mjs'),
+            ));
+            const incident = await module.getOpenIncidentState({ github, context });
+            core.setOutput('fingerprint', incident.metadata?.fingerprint || '');
+            core.setOutput('analysis_status', incident.metadata?.analysisStatus || '');
+
+      - name: Resolve Codex analysis policy
+        id: analysis
+        uses: actions/github-script@v8
+        env:
+          DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run == true }}
+          FINGERPRINT: ${{ steps.evidence.outputs.fingerprint }}
+          HEALTH_STATE: ${{ steps.state.outputs.health_state }}
+          INCIDENT_ANALYSIS_STATUS: ${{ steps.incident.outputs.analysis_status }}
+          INCIDENT_FINGERPRINT: ${{ steps.incident.outputs.fingerprint }}
+        with:
+          script: |
+            const fs = require('fs');
+            const path = require('path');
+            const { pathToFileURL } = require('url');
+            const policy = await import(pathToFileURL(
+              path.join(process.env.GITHUB_WORKSPACE, '.github/scripts/ops-health-incident-policy.mjs'),
+            ));
+            let cachedResult = null;
+            try {
+              cachedResult = JSON.parse(fs.readFileSync('.ops-health/ignored-decision.json', 'utf8'));
+            } catch {}
+            const shouldAnalyze = policy.shouldAnalyzeIncident({
+              healthState: process.env.HEALTH_STATE,
+              fingerprint: process.env.FINGERPRINT,
+              incidentFingerprint: process.env.INCIDENT_FINGERPRINT,
+              incidentAnalysisStatus: process.env.INCIDENT_ANALYSIS_STATUS,
+              cachedIgnore: policy.resolveCodexDisposition(cachedResult).ignored,
+              dryRun: process.env.DRY_RUN === 'true',
+            });
+            core.setOutput('should_analyze', String(shouldAnalyze));
 
       - name: Upload sanitized incident evidence
         if: steps.evidence.outputs.artifact_name != ''
@@ -196,45 +239,6 @@ jobs:
           path: .ops-health
           retention-days: 14
           if-no-files-found: error
-
-      - name: Find open incident
-        id: incident
-        uses: actions/github-script@v8
-        with:
-          script: |
-            const marker = '<!-- ops-health-incident';
-            const issues = await github.paginate(github.rest.issues.listForRepo, {
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              state: 'open',
-              per_page: 100,
-            });
-            const incident = issues.find((issue) => {
-              return !issue.pull_request && issue.body?.includes(marker);
-            });
-            const fingerprint = incident?.body?.match(/\nfingerprint: ([^\n]*)/)?.[1] || '';
-            core.setOutput('number', incident?.number ?? '');
-            core.setOutput('fingerprint', fingerprint);
-
-      - name: Resolve Codex analysis policy
-        id: analysis
-        env:
-          DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run == true }}
-          FINGERPRINT: ${{ steps.evidence.outputs.fingerprint }}
-          HEALTH_STATE: ${{ steps.state.outputs.health_state }}
-          INCIDENT_FINGERPRINT: ${{ steps.incident.outputs.fingerprint }}
-        run: |
-          set -euo pipefail
-
-          should_analyze="false"
-          if [[ "${HEALTH_STATE}" == "failing" || "${HEALTH_STATE}" == "infrastructure_failure" ]]; then
-            if [[ "${DRY_RUN}" == "true" \
-              || -z "${INCIDENT_FINGERPRINT}" \
-              || "${INCIDENT_FINGERPRINT}" != "${FINGERPRINT}" ]]; then
-              should_analyze="true"
-            fi
-          fi
-          echo "should_analyze=${should_analyze}" >> "${GITHUB_OUTPUT}"
 
   codex:
     name: Codex incident triage
@@ -246,7 +250,6 @@ jobs:
       contents: read
     outputs:
       final_message: ${{ steps.codex.outputs.final-message }}
-      outcome: ${{ steps.codex.outcome }}
 
     steps:
       - name: Checkout
@@ -299,6 +302,7 @@ jobs:
       contents: read
       issues: write
     outputs:
+      cache_ignore: ${{ steps.sync.outputs.cache_ignore }}
       gate: ${{ steps.sync.outputs.gate }}
 
     steps:
@@ -319,247 +323,33 @@ jobs:
         id: sync
         uses: actions/github-script@v8
         env:
+          CACHED_DECISION_PATH: .ops-health/ignored-decision.json
           CODEX_FINAL_MESSAGE: ${{ needs.codex.outputs.final_message }}
-          CODEX_OUTCOME: ${{ needs.codex.outputs.outcome }}
           DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run == true }}
           EVIDENCE_PATH: .ops-health/evidence.json
           FINGERPRINT: ${{ needs.context.outputs.fingerprint }}
           HEALTH_STATE: ${{ needs.context.outputs.health_state }}
         with:
           script: |
-            const fs = require('fs');
             const path = require('path');
             const { pathToFileURL } = require('url');
-            const policyModule = await import(pathToFileURL(
-              path.join(process.env.GITHUB_WORKSPACE, '.github/scripts/ops-health-incident-policy.mjs'),
+            const module = await import(pathToFileURL(
+              path.join(process.env.GITHUB_WORKSPACE, '.github/scripts/sync-ops-health-incident.mjs'),
             ));
-            const {
-              parseIncidentMetadata,
-              renderIncidentMarker,
-              replaceIncidentMarker,
-              resolveIncidentPolicy,
-            } = policyModule;
-
-            const markerPrefix = '<!-- ops-health-incident';
-            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
-            const healthState = process.env.HEALTH_STATE || 'unknown';
-            const fingerprint = process.env.FINGERPRINT || '';
-            const dryRun = process.env.DRY_RUN === 'true';
-            const issues = await github.paginate(github.rest.issues.listForRepo, {
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              state: 'open',
-              per_page: 100,
+            await module.syncOpsHealthIncident({
+              core,
+              context,
+              env: process.env,
+              github,
+              workspace: process.env.GITHUB_WORKSPACE,
             });
-            const incident = issues.find((issue) => {
-              return !issue.pull_request && issue.body?.includes(markerPrefix);
-            });
-            const incidentMetadata = parseIncidentMetadata(incident?.body) || (incident
-              ? { fingerprint: '', recoveryStreak: 0, lastSeenRun: '' }
-              : null);
 
-            const readJson = (filePath) => {
-              if (!filePath || !fs.existsSync(filePath)) return null;
-              try {
-                return JSON.parse(fs.readFileSync(filePath, 'utf8'));
-              } catch {
-                return null;
-              }
-            };
-            const parseCodexResult = (value) => {
-              const trimmed = String(value || '').trim();
-              if (!trimmed) return null;
-              const unwrapped = trimmed
-                .replace(/^```(?:json)?\s*/i, '')
-                .replace(/\s*```$/, '');
-              try {
-                return JSON.parse(unwrapped);
-              } catch {
-                return null;
-              }
-            };
-            const evidence = readJson(process.env.EVIDENCE_PATH) || {
-              errors: [],
-              failingTests: [],
-              log: 'Sanitized job evidence was unavailable.',
-            };
-            const codexResult = parseCodexResult(process.env.CODEX_FINAL_MESSAGE);
-            const policy = resolveIncidentPolicy({
-              healthState,
-              fingerprint,
-              incidentMetadata,
-              codexResult,
-              dryRun,
-            });
-            core.setOutput('gate', policy.gate);
-
-            const list = (items, fallback) => {
-              if (!Array.isArray(items) || items.length === 0) return fallback;
-              return items.map((item) => `- ${item}`).join('\n');
-            };
-            const codexSection = codexResult
-              ? [
-                  '## Codex triage',
-                  '',
-                  `**Disposition:** ${codexResult.disposition}`,
-                  `**Classification:** ${codexResult.classification}`,
-                  `**Confidence:** ${codexResult.confidence}`,
-                  `**Repository scope:** ${codexResult.repositoryScope}`,
-                  '',
-                  codexResult.summary,
-                  '',
-                  '### Evidence',
-                  '',
-                  list(codexResult.evidence, '- No evidence supplied.'),
-                  '',
-                  '### Likely causes',
-                  '',
-                  list(codexResult.likelyCauses, '- Unknown.'),
-                  '',
-                  '### Affected files',
-                  '',
-                  list(codexResult.affectedFiles, '- No repository file identified.'),
-                  '',
-                  '### Next checks',
-                  '',
-                  list(codexResult.nextChecks, '- Inspect the workflow run.'),
-                ].join('\n')
-              : [
-                  '## Codex triage',
-                  '',
-                  'Codex triage was unavailable or returned invalid structured output.',
-                ].join('\n');
-            const failedChecks = list(
-              evidence.failingTests,
-              '- No failing test name was recovered from the job log.',
-            );
-            const report = [
-              `Run: [#${context.runNumber}](${runUrl})`,
-              `Commit: \`${context.sha}\``,
-              `Health state: \`${healthState}\``,
-              '',
-              '## Failed checks',
-              '',
-              failedChecks,
-              '',
-              '## Observed errors',
-              '',
-              list(evidence.errors, '- No normalized error line was recovered.'),
-              '',
-              codexSection,
-              '',
-              '## Sanitized job log',
-              '',
-              '<details>',
-              '<summary>Show log excerpt</summary>',
-              '',
-              '```text',
-              String(evidence.log || '').replaceAll('```', '``\u200b`'),
-              '```',
-              '</details>',
-              '',
-              '_Codex triage is preliminary and does not confirm the root cause._',
-            ].join('\n');
-
-            await core.summary
-              .addHeading(`Ops Health: ${healthState}`)
-              .addRaw(`Policy: ${policy.action} — ${policy.reason}\n\n`)
-              .addRaw(codexResult?.summary || 'No Codex analysis was produced.')
-              .write();
-
-            if (policy.action === 'dry-run' || policy.action === 'noop') {
-              return;
-            }
-
-            if ((policy.action === 'ignore' || policy.action === 'reset-recovery') && incident) {
-              if (incidentMetadata.recoveryStreak > 0) {
-                await github.rest.issues.update({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  issue_number: incident.number,
-                  body: replaceIncidentMarker(incident.body, {
-                    fingerprint: incidentMetadata.fingerprint,
-                    recoveryStreak: 0,
-                    lastSeenRun: String(context.runId),
-                  }),
-                });
-              }
-              return;
-            }
-
-            if (policy.action === 'mark-recovery' && incident) {
-              await github.rest.issues.update({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: incident.number,
-                body: replaceIncidentMarker(incident.body, {
-                  fingerprint: incidentMetadata.fingerprint,
-                  recoveryStreak: 1,
-                  lastSeenRun: String(context.runId),
-                }),
-              });
-              return;
-            }
-
-            if (policy.action === 'close' && incident) {
-              await github.rest.issues.createComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: incident.number,
-                body: `Ops Health recovered across two consecutive runs. Latest proof: [run #${context.runNumber}](${runUrl}).`,
-              });
-              await github.rest.issues.update({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: incident.number,
-                state: 'closed',
-                state_reason: 'completed',
-              });
-              return;
-            }
-
-            const metadata = {
-              fingerprint,
-              recoveryStreak: 0,
-              lastSeenRun: String(context.runId),
-            };
-
-            if ((policy.action === 'keep-open' || policy.action === 'update') && incident) {
-              await github.rest.issues.update({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: incident.number,
-                body: replaceIncidentMarker(incident.body, metadata),
-              });
-              if (policy.action === 'update') {
-                await github.rest.issues.createComment({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  issue_number: incident.number,
-                  body: `A new failure signature was detected.\n\n${report}`,
-                });
-              }
-              return;
-            }
-
-            if (incident) {
-              await github.rest.issues.update({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: incident.number,
-                body: replaceIncidentMarker(incident.body, metadata),
-              });
-              return;
-            }
-
-            const primaryFailure = evidence.failingTests?.[0]
-              || (healthState === 'infrastructure_failure' ? 'workflow infrastructure failure' : 'production checks failing');
-            await github.rest.issues.create({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              title: `[Ops Health] ${primaryFailure}`.slice(0, 120),
-              body: [renderIncidentMarker(metadata), '', report].join('\n'),
-            });
+      - name: Cache ignored failure decision
+        if: steps.sync.outputs.cache_ignore == 'true'
+        uses: actions/cache/save@v4
+        with:
+          key: ops-health-ignore-v1-${{ needs.context.outputs.fingerprint }}
+          path: .ops-health/ignored-decision.json
 
   gate:
     name: Apply Ops Health conclusion
