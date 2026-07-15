@@ -4,39 +4,63 @@ on:
   schedule:
     - cron: '17 * * * *'
   workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Analyze without creating, updating, or closing issues
+        required: false
+        default: true
+        type: boolean
 
 permissions:
   contents: read
 
 concurrency:
   group: ops-health-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
-  ops-health:
-    name: Ops Health
+  health:
+    name: Ops Health checks
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    outputs:
+      state: ${{ steps.outcome.outputs.state }}
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        id: checkout
+        continue-on-error: true
+        uses: actions/checkout@v6
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        id: node
+        if: steps.checkout.outcome == 'success'
+        continue-on-error: true
+        uses: actions/setup-node@v6
         with:
           node-version-file: .nvmrc
 
       - name: Setup Bun
+        id: bun
+        if: steps.node.outcome == 'success'
+        continue-on-error: true
         uses: oven-sh/setup-bun@v2
         with:
           bun-version: 1.3.6
 
       - name: Install dependencies
+        id: install
+        if: steps.bun.outcome == 'success'
+        continue-on-error: true
         run: bun install --frozen-lockfile --ignore-scripts
 
-      - name: Run ops health checks
-        env:
+      - name: Run primary health checks
+        id: primary
+        if: steps.install.outcome == 'success'
+        continue-on-error: true
+        env: &ops-health-env
           SITE_URL: https://buxx.me
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_EXPECTED_WEBHOOK_URL: https://api.buxx.me/webhooks/telegram
@@ -44,3 +68,304 @@ jobs:
           HD_IMAGE_HEALTH_TIMEOUT_MS: 4000
           LIVE_PHOTO_DETAIL_IDS: 3327
         run: bun run test:ops
+
+      - name: Wait before confirmation
+        if: steps.primary.outcome == 'failure'
+        run: sleep 45
+
+      - name: Confirm failed health checks
+        id: confirm
+        if: steps.primary.outcome == 'failure'
+        continue-on-error: true
+        env: *ops-health-env
+        run: bun run test:ops
+
+      - name: Resolve health state
+        id: outcome
+        if: always()
+        env:
+          CHECKOUT_OUTCOME: ${{ steps.checkout.outcome }}
+          NODE_OUTCOME: ${{ steps.node.outcome }}
+          BUN_OUTCOME: ${{ steps.bun.outcome }}
+          INSTALL_OUTCOME: ${{ steps.install.outcome }}
+          PRIMARY_OUTCOME: ${{ steps.primary.outcome }}
+          CONFIRM_OUTCOME: ${{ steps.confirm.outcome }}
+        run: |
+          set -euo pipefail
+
+          if [[ "${CHECKOUT_OUTCOME}" != "success" \
+            || "${NODE_OUTCOME}" != "success" \
+            || "${BUN_OUTCOME}" != "success" \
+            || "${INSTALL_OUTCOME}" != "success" ]]; then
+            state="infrastructure_failure"
+          elif [[ "${PRIMARY_OUTCOME}" == "success" ]]; then
+            state="healthy"
+          elif [[ "${CONFIRM_OUTCOME}" == "success" ]]; then
+            state="flaky"
+          else
+            state="failing"
+          fi
+
+          echo "state=${state}" >> "${GITHUB_OUTPUT}"
+          echo "### Ops Health: ${state}" >> "${GITHUB_STEP_SUMMARY}"
+          echo "Primary: ${PRIMARY_OUTCOME}; confirmation: ${CONFIRM_OUTCOME}." >> "${GITHUB_STEP_SUMMARY}"
+
+  context:
+    name: Prepare incident evidence
+    needs: health
+    if: always() && needs.health.result != 'cancelled'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      actions: read
+      contents: read
+      issues: read
+    outputs:
+      artifact_name: ${{ steps.evidence.outputs.artifact_name }}
+      fingerprint: ${{ steps.evidence.outputs.fingerprint }}
+      health_state: ${{ steps.state.outputs.health_state }}
+      should_analyze: ${{ steps.analysis.outputs.should_analyze }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Resolve upstream health state
+        id: state
+        env:
+          HEALTH_JOB_RESULT: ${{ needs.health.result }}
+          HEALTH_STATE: ${{ needs.health.outputs.state }}
+        run: |
+          set -euo pipefail
+
+          state="${HEALTH_STATE}"
+          if [[ -z "${state}" || "${HEALTH_JOB_RESULT}" != "success" ]]; then
+            state="infrastructure_failure"
+          fi
+          echo "health_state=${state}" >> "${GITHUB_OUTPUT}"
+
+      - name: Collect and sanitize failed job log
+        id: evidence
+        if: steps.state.outputs.health_state == 'failing' || steps.state.outputs.health_state == 'infrastructure_failure'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          HEALTH_STATE: ${{ steps.state.outputs.health_state }}
+        run: |
+          set -euo pipefail
+
+          mkdir -p .ops-health
+          job_id="$(gh api \
+            "repos/${GH_REPO}/actions/runs/${GITHUB_RUN_ID}/jobs" \
+            --paginate \
+            --jq '.jobs[] | select(.name == "Ops Health checks") | .id' \
+            | tail -n 1)"
+
+          if [[ -z "${job_id}" ]]; then
+            echo "The Ops Health job log could not be located." > .ops-health/raw.log
+          elif ! gh api "repos/${GH_REPO}/actions/jobs/${job_id}/logs" > .ops-health/raw.log; then
+            echo "The Ops Health job log could not be downloaded." > .ops-health/raw.log
+          fi
+
+          node .github/scripts/sanitize-ops-health-log.mjs \
+            .ops-health/raw.log \
+            .ops-health/job.log \
+            .ops-health/evidence.json \
+            "${HEALTH_STATE}"
+          rm -f .ops-health/raw.log
+
+          echo "artifact_name=ops-health-evidence-${GITHUB_RUN_ID}" >> "${GITHUB_OUTPUT}"
+          echo "fingerprint=$(jq -r '.fingerprint' .ops-health/evidence.json)" >> "${GITHUB_OUTPUT}"
+
+      - name: Restore cached ignore decision
+        if: steps.evidence.outputs.fingerprint != ''
+        uses: actions/cache/restore@v4
+        with:
+          key: ops-health-ignore-v1-${{ steps.evidence.outputs.fingerprint }}
+          path: .ops-health-cache/ignored-decision.json
+
+      - name: Find open incident
+        id: incident
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const path = require('path');
+            const { pathToFileURL } = require('url');
+            const module = await import(pathToFileURL(
+              path.join(process.env.GITHUB_WORKSPACE, '.github/scripts/sync-ops-health-incident.mjs'),
+            ));
+            const incident = await module.getOpenIncidentState({ github, context });
+            core.setOutput('fingerprint', incident.metadata?.fingerprint || '');
+            core.setOutput('analysis_status', incident.metadata?.analysisStatus || '');
+
+      - name: Resolve Codex analysis policy
+        id: analysis
+        uses: actions/github-script@v8
+        env:
+          DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run == true }}
+          FINGERPRINT: ${{ steps.evidence.outputs.fingerprint }}
+          HEALTH_STATE: ${{ steps.state.outputs.health_state }}
+          INCIDENT_ANALYSIS_STATUS: ${{ steps.incident.outputs.analysis_status }}
+          INCIDENT_FINGERPRINT: ${{ steps.incident.outputs.fingerprint }}
+        with:
+          script: |
+            const fs = require('fs');
+            const path = require('path');
+            const { pathToFileURL } = require('url');
+            const policy = await import(pathToFileURL(
+              path.join(process.env.GITHUB_WORKSPACE, '.github/scripts/ops-health-incident-policy.mjs'),
+            ));
+            let cachedResult = null;
+            try {
+              cachedResult = JSON.parse(fs.readFileSync('.ops-health-cache/ignored-decision.json', 'utf8'));
+            } catch {}
+            const shouldAnalyze = policy.shouldAnalyzeIncident({
+              healthState: process.env.HEALTH_STATE,
+              fingerprint: process.env.FINGERPRINT,
+              incidentFingerprint: process.env.INCIDENT_FINGERPRINT,
+              incidentAnalysisStatus: process.env.INCIDENT_ANALYSIS_STATUS,
+              cachedIgnore: policy.resolveCodexDisposition(cachedResult).ignored,
+              dryRun: process.env.DRY_RUN === 'true',
+            });
+            core.setOutput('should_analyze', String(shouldAnalyze));
+
+      - name: Upload sanitized incident evidence
+        if: steps.evidence.outputs.artifact_name != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.evidence.outputs.artifact_name }}
+          path: .ops-health
+          include-hidden-files: true
+          retention-days: 14
+          if-no-files-found: error
+
+  codex:
+    name: Codex incident triage
+    needs: [health, context]
+    if: always() && needs.context.outputs.should_analyze == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    outputs:
+      final_message: ${{ steps.codex.outputs.final-message }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 50
+          persist-credentials: false
+
+      - name: Download sanitized incident evidence
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ needs.context.outputs.artifact_name }}
+          path: .ops-health
+
+      - name: Check Codex credential
+        id: credential
+        env:
+          CODEX_API_KEY: ${{ secrets.CODEX_API_KEY }}
+        run: |
+          if [[ -n "${CODEX_API_KEY}" ]]; then
+            echo "available=true" >> "${GITHUB_OUTPUT}"
+          else
+            echo "available=false" >> "${GITHUB_OUTPUT}"
+            echo "CODEX_API_KEY is not configured." >> "${GITHUB_STEP_SUMMARY}"
+          fi
+
+      - name: Analyze incident with Codex
+        id: codex
+        if: steps.credential.outputs.available == 'true'
+        continue-on-error: true
+        uses: openai/codex-action@52fe01ec70a42f454c9d2ebd47598f9fd6893d56 # v1.11
+        with:
+          openai-api-key: ${{ secrets.CODEX_API_KEY }}
+          responses-api-endpoint: ${{ vars.CODEX_RESPONSES_API_ENDPOINT }}
+          permission-profile: ':read-only'
+          safety-strategy: drop-sudo
+          allow-bot-users: github-actions
+          effort: high
+          prompt-file: .github/codex/prompts/ops-health-triage.md
+          output-schema-file: .github/codex/schemas/ops-health-triage.schema.json
+
+  sync:
+    name: Sync incident issue
+    needs: [health, context, codex]
+    if: always() && needs.health.result != 'cancelled'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      actions: read
+      contents: read
+      issues: write
+    outputs:
+      cache_ignore: ${{ steps.sync.outputs.cache_ignore }}
+      gate: ${{ steps.sync.outputs.gate }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Download sanitized incident evidence
+        if: needs.context.outputs.artifact_name != ''
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ needs.context.outputs.artifact_name }}
+          path: .ops-health
+
+      - name: Apply incident policy
+        id: sync
+        uses: actions/github-script@v8
+        env:
+          CACHED_DECISION_PATH: .ops-health-cache/ignored-decision.json
+          CODEX_FINAL_MESSAGE: ${{ needs.codex.outputs.final_message }}
+          DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run == true }}
+          EVIDENCE_PATH: .ops-health/evidence.json
+          FINGERPRINT: ${{ needs.context.outputs.fingerprint }}
+          HEALTH_STATE: ${{ needs.context.outputs.health_state }}
+        with:
+          script: |
+            const path = require('path');
+            const { pathToFileURL } = require('url');
+            const module = await import(pathToFileURL(
+              path.join(process.env.GITHUB_WORKSPACE, '.github/scripts/sync-ops-health-incident.mjs'),
+            ));
+            await module.syncOpsHealthIncident({
+              core,
+              context,
+              env: process.env,
+              github,
+              workspace: process.env.GITHUB_WORKSPACE,
+            });
+
+      - name: Cache ignored failure decision
+        if: steps.sync.outputs.cache_ignore == 'true'
+        uses: actions/cache/save@v4
+        with:
+          key: ops-health-ignore-v1-${{ needs.context.outputs.fingerprint }}
+          path: .ops-health-cache/ignored-decision.json
+
+  gate:
+    name: Apply Ops Health conclusion
+    needs: [health, context, codex, sync]
+    if: always()
+    runs-on: ubuntu-latest
+    permissions: {}
+
+    steps:
+      - name: Apply final decision
+        env:
+          GATE: ${{ needs.sync.outputs.gate }}
+          SYNC_RESULT: ${{ needs.sync.result }}
+        run: |
+          if [[ "${SYNC_RESULT}" != "success" || "${GATE}" != "pass" ]]; then
+            echo "Ops Health incident policy failed closed: sync=${SYNC_RESULT}, gate=${GATE:-missing}." >&2
+            exit 1
+          fi

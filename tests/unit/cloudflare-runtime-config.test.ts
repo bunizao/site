@@ -101,6 +101,9 @@ describe('Cloudflare runtime configuration', () => {
     const opsWorkflow = readText('.github/workflows/ops-health.yml');
 
     expect(opsWorkflow).toContain('TELEGRAM_EXPECTED_WEBHOOK_URL: https://api.buxx.me/webhooks/telegram');
+    expect(opsWorkflow).toContain('include-hidden-files: true');
+    expect(opsWorkflow).toContain('path: .ops-health-cache/ignored-decision.json');
+    expect(opsWorkflow).not.toContain('path: .ops-health/ignored-decision.json');
     expect(opsWorkflow).not.toContain('TELEGRAM_EXPECTED_WEBHOOK_URL: https://image.buxx.me/webhook');
   });
 
