@@ -1,15 +1,6 @@
 import { describe, expect, test } from 'bun:test';
+import type { MoodImageProbe } from '@bunizao/contracts';
 import { expectHttpOk } from './http-diagnostics';
-
-interface MoodImageProbe {
-  id?: string;
-  datetime?: string;
-  url?: string;
-}
-
-interface MoodImageProbeResponse {
-  latestImage?: MoodImageProbe | null;
-}
 
 function readEnv(name: string): string {
   return (process.env[name] ?? '').trim();
@@ -46,15 +37,41 @@ async function fetchLatestImage(siteUrl: string, timeoutMs: number): Promise<Moo
   });
 
   await expectHttpOk(response, `GET ${url}`);
-  const payload = await response.json() as MoodImageProbeResponse;
-  return payload.latestImage ?? null;
+  return readMoodImageProbe(await response.json());
+}
+
+function readMoodImageProbe(value: unknown): MoodImageProbe | null {
+  if (!value || typeof value !== 'object') return null;
+
+  const latestImage = (value as Record<string, unknown>).latestImage;
+  return isMoodImageProbe(latestImage) ? latestImage : null;
+}
+
+function isMoodImageProbe(value: unknown): value is MoodImageProbe {
+  if (!value || typeof value !== 'object') return false;
+
+  const image = value as Record<string, unknown>;
+  return typeof image.id === 'string'
+    && /^\d+$/.test(image.id)
+    && typeof image.datetime === 'string'
+    && image.datetime.length > 0
+    && (image.url === null || typeof image.url === 'string')
+    && typeof image.r2Ready === 'boolean';
 }
 
 function resolveImageUrl(siteUrl: string, imageUrl: string): string {
   return new URL(imageUrl, siteUrl).toString();
 }
 
-async function probeImage(siteUrl: string, image: LatestMoodImage, timeoutMs: number): Promise<string | null> {
+async function probeImage(
+  siteUrl: string,
+  image: MoodImageProbe,
+  timeoutMs: number,
+): Promise<string | null> {
+  if (!image.url) {
+    return `${image.id}:missing-r2-url`;
+  }
+
   const imageUrl = resolveImageUrl(siteUrl, image.url);
 
   try {
@@ -67,11 +84,12 @@ async function probeImage(siteUrl: string, image: LatestMoodImage, timeoutMs: nu
       signal: AbortSignal.timeout(timeoutMs),
     });
 
-    if (response.ok) {
+    const contentType = response.headers.get('content-type') ?? '';
+    if (response.ok && contentType.startsWith('image/')) {
       return null;
     }
 
-    return `${image.id}:${response.status}:${imageUrl}`;
+    return `${image.id}:${response.status}:${contentType || 'missing-content-type'}:${imageUrl}`;
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown probe error';
     return `${image.id}:timeout:${message}:${imageUrl}`;
@@ -85,17 +103,11 @@ describe('hd image health', () => {
     const image = await fetchLatestImage(siteUrl, timeoutMs);
 
     expect(image, 'image probe should return the latest archived photo').not.toBeNull();
-    expect(image?.id, 'image probe id should be numeric').toMatch(/^\d+$/);
-    expect(image?.datetime, 'image probe datetime should be populated').toBeTruthy();
-    expect(image?.url, 'image probe URL should be populated').toBeTruthy();
+    expect(image?.r2Ready, 'latest archived photo should exist in R2').toBe(true);
+    expect(image?.url, 'latest archived photo should expose its R2 URL').toBeTruthy();
+    if (!image?.r2Ready || !image.url) return;
 
-    const failure = await probeImage(siteUrl, image as LatestMoodImage, timeoutMs);
+    const failure = await probeImage(siteUrl, image, timeoutMs);
     expect(failure).toBeNull();
   }, { timeout: getHealthTestTimeoutMs() });
 });
-
-interface LatestMoodImage {
-  id: string;
-  datetime: string;
-  url: string;
-}

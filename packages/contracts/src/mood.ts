@@ -181,6 +181,17 @@ export interface MoodProbeResult {
   latestId: string;
 }
 
+export interface MoodImageProbe {
+  id: string;
+  datetime: string;
+  url: string | null;
+  r2Ready: boolean;
+}
+
+export interface MoodImageProbeResponse {
+  latestImage: MoodImageProbe | null;
+}
+
 export interface MoodMetaItem {
   id: string;
   reactions: MoodReaction[];
