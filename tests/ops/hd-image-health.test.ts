@@ -1,13 +1,14 @@
 import { describe, expect, test } from 'bun:test';
 import { expectHttpOk } from './http-diagnostics';
 
-interface MoodPost {
+interface MoodImageProbe {
   id?: string;
-  image?: string | null;
+  datetime?: string;
+  url?: string;
 }
 
-interface MoodApiResponse {
-  posts?: MoodPost[];
+interface MoodImageProbeResponse {
+  latestImage?: MoodImageProbe | null;
 }
 
 function readEnv(name: string): string {
@@ -16,15 +17,6 @@ function readEnv(name: string): string {
 
 function getSiteUrl(): string {
   return readEnv('SITE_URL') || readEnv('PUBLIC_SITE_URL') || 'https://buxx.me';
-}
-
-function getSampleSize(): number {
-  const raw = readEnv('HD_IMAGE_HEALTH_SAMPLE_SIZE');
-  const parsed = Number.parseInt(raw, 10);
-  if (!Number.isFinite(parsed) || parsed <= 0) {
-    return 8;
-  }
-  return parsed;
 }
 
 function getProbeTimeoutMs(): number {
@@ -40,9 +32,9 @@ function getHealthTestTimeoutMs(): number {
   return Math.max(15_000, getProbeTimeoutMs() * 2 + 3_000);
 }
 
-async function fetchMoodPage(siteUrl: string, timeoutMs: number): Promise<MoodApiResponse> {
+async function fetchLatestImage(siteUrl: string, timeoutMs: number): Promise<MoodImageProbe | null> {
   const url = new URL('/api/v2/mood', siteUrl);
-  url.searchParams.set('limit', String(getSampleSize()));
+  url.searchParams.set('probe', 'image');
   url.searchParams.set('fresh', '1');
   url.searchParams.set('fallback', '0');
   const response = await fetch(url, {
@@ -54,15 +46,16 @@ async function fetchMoodPage(siteUrl: string, timeoutMs: number): Promise<MoodAp
   });
 
   await expectHttpOk(response, `GET ${url}`);
-  return await response.json() as MoodApiResponse;
+  const payload = await response.json() as MoodImageProbeResponse;
+  return payload.latestImage ?? null;
 }
 
 function resolveImageUrl(siteUrl: string, imageUrl: string): string {
   return new URL(imageUrl, siteUrl).toString();
 }
 
-async function probeImage(siteUrl: string, post: ImagePost, timeoutMs: number): Promise<string | null> {
-  const imageUrl = resolveImageUrl(siteUrl, post.image);
+async function probeImage(siteUrl: string, image: LatestMoodImage, timeoutMs: number): Promise<string | null> {
+  const imageUrl = resolveImageUrl(siteUrl, image.url);
 
   try {
     const response = await fetch(imageUrl, {
@@ -78,33 +71,31 @@ async function probeImage(siteUrl: string, post: ImagePost, timeoutMs: number): 
       return null;
     }
 
-    return `${post.id}:${response.status}:${imageUrl}`;
+    return `${image.id}:${response.status}:${imageUrl}`;
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown probe error';
-    return `${post.id}:timeout:${message}:${imageUrl}`;
+    return `${image.id}:timeout:${message}:${imageUrl}`;
   }
 }
 
 describe('hd image health', () => {
-  test('latest mood image URLs are readable', async () => {
+  test('latest archived mood image is stored in R2', async () => {
     const siteUrl = getSiteUrl();
     const timeoutMs = getProbeTimeoutMs();
-    const payload = await fetchMoodPage(siteUrl, timeoutMs);
-    const imagePosts = (payload.posts ?? [])
-      .filter((post): post is ImagePost => {
-        return typeof post.id === 'string' && typeof post.image === 'string' && post.image.trim().length > 0;
-      })
-      .slice(0, getSampleSize());
+    const image = await fetchLatestImage(siteUrl, timeoutMs);
 
-    expect(imagePosts.length).toBeGreaterThan(0);
+    expect(image, 'image probe should return the latest archived photo').not.toBeNull();
+    expect(image?.id, 'image probe id should be numeric').toMatch(/^\d+$/);
+    expect(image?.datetime, 'image probe datetime should be populated').toBeTruthy();
+    expect(image?.url, 'image probe URL should be populated').toBeTruthy();
 
-    const results = await Promise.all(imagePosts.map((post) => probeImage(siteUrl, post, timeoutMs)));
-    const failures = results.filter((result): result is string => result !== null);
-
-    expect(failures).toEqual([]);
+    const failure = await probeImage(siteUrl, image as LatestMoodImage, timeoutMs);
+    expect(failure).toBeNull();
   }, { timeout: getHealthTestTimeoutMs() });
 });
-interface ImagePost {
+
+interface LatestMoodImage {
   id: string;
-  image: string;
+  datetime: string;
+  url: string;
 }
