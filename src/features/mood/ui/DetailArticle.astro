@@ -756,6 +756,18 @@ const postReactions = post?.reactions ?? [];
     height: auto;
   }
 
+  .mood-post-content :global(.rich-content-media--sticker) {
+    width: min(100%, 256px);
+    max-width: 256px;
+    margin-left: 0;
+    margin-right: 0;
+  }
+
+  .mood-post-content :global(.rich-content-media--sticker img) {
+    width: 100%;
+    max-width: 256px;
+  }
+
   .mood-post-content :global(.rich-content-media--portrait) {
     max-width: 400px;
     margin-left: auto;

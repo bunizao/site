@@ -10,6 +10,7 @@ function createMoodFeedPost(
     image: string | null;
     imageFallback: string | null;
     imageHeight: number | null;
+    imageKind: 'sticker' | null;
     imageLayout: string | null;
     imageWidth: number | null;
     media: Array<Record<string, unknown>>;
@@ -294,6 +295,83 @@ test.describe('Mood routes', () => {
     await expect
       .poll(async () => thumbnail.evaluate((element) => element.getBoundingClientRect().height))
       .toBeLessThanOrEqual(400);
+  });
+
+  test('keeps sticker thumbnails left-aligned at the tuned size', async ({ page }) => {
+    const moodId = '9903669';
+    const imageUrl = 'https://image.example.test/mood/9903669/sticker.webp';
+    const payload = {
+      posts: [
+        createMoodFeedPost(moodId, '', {
+          image: imageUrl,
+          imageHeight: 512,
+          imageKind: 'sticker',
+          imageLayout: null,
+          imageWidth: 512,
+          previewMediaType: 'sticker',
+        }),
+      ],
+      channel: {
+        slug: 'e2e',
+        title: 'E2E Channel',
+      },
+    };
+
+    await page.route('**/api/moods**', async (route) => {
+      const url = new URL(route.request().url());
+      if (url.searchParams.get('probe') === '1') {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({ latestId: moodId }),
+        });
+        return;
+      }
+
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(payload),
+      });
+    });
+
+    await page.route('https://image.example.test/**', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'image/svg+xml',
+        body: '<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512"></svg>',
+      });
+    });
+
+    await page.goto('/mood');
+
+    const item = page.locator(`[data-mood-id="${moodId}"]`);
+    const thumbnail = item.locator('.mood-item-thumb--sticker');
+    const image = thumbnail.locator('img');
+    await expect(thumbnail).toBeVisible();
+
+    const geometry = await item.evaluate((element) => {
+      const contentElement = element.querySelector('.mood-item-content');
+      const thumbnailElement = element.querySelector('.mood-item-thumb--sticker');
+      const imageElement = thumbnailElement?.querySelector('img');
+      if (!contentElement || !thumbnailElement || !imageElement) {
+        throw new Error('Missing sticker thumbnail elements');
+      }
+
+      const contentRect = contentElement.getBoundingClientRect();
+      const thumbnailRect = thumbnailElement.getBoundingClientRect();
+      const imageRect = imageElement.getBoundingClientRect();
+      return {
+        imageWidth: imageRect.width,
+        leftOffset: thumbnailRect.left - contentRect.left,
+        thumbnailWidth: thumbnailRect.width,
+      };
+    });
+
+    expect(geometry.leftOffset).toBe(0);
+    expect(geometry.thumbnailWidth).toBe(256);
+    expect(geometry.imageWidth).toBe(256);
+    await expect(image).toBeVisible();
   });
 
   test('loads the mood flow from the archive fixture', async ({ page }) => {

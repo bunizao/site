@@ -1207,18 +1207,19 @@ const skeletonGroups = [
     transition: transform 0.2s ease;
   }
 
-  :global(.mood-item-thumb--sticker) {
+  :global(.mood-item-thumb.mood-item-thumb--sticker) {
     display: inline-flex;
-    align-items: center;
-    justify-content: center;
+    align-items: flex-start;
+    justify-content: flex-start;
     align-self: flex-start;
-    width: fit-content;
+    width: min(100%, 256px);
     max-width: min(100%, 256px);
     background: transparent;
   }
 
   :global(.mood-item-thumb--sticker img) {
-    width: min(100%, 256px);
+    width: 100%;
+    max-width: 256px;
     height: auto;
     object-fit: contain;
   }
