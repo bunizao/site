@@ -12,7 +12,11 @@ const blogHtml = process.env.STUB_BLOG_HTML
   || '<a href="/blog/email-philosophy/">Real post</a>';
 
 mkdirSync('dist/client/blog', { recursive: true });
+mkdirSync('dist/server', { recursive: true });
 writeFileSync('dist/client/blog/index.html', blogHtml);
+writeFileSync('dist/server/wrangler.json', JSON.stringify({
+  build: { command: 'node scripts/cloudflare-deploy-guard.mjs check' },
+}));
 console.log(JSON.stringify({
   args: process.argv.slice(2),
   e2eFixture: process.env.E2E_SITE_FIXTURE,
@@ -125,6 +129,6 @@ describe('Cloudflare build guard', () => {
     });
 
     expect(result.exitCode).toBe(1);
-    expect(result.stderr).toContain('Cloudflare build produced mock Ghost posts: demo-effects');
+    expect(result.stderr).toContain('Cloudflare deploy blocked mock Ghost posts: demo-effects');
   });
 });

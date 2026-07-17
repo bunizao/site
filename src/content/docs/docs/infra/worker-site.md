@@ -19,6 +19,8 @@ Configure Ghost's `Post published` webhook to `POST` the Cloudflare Workers Buil
 As of the blog migration, `blog.buxx.me` is not routed to the public Worker. Ghost admin and Ghost app/API paths must keep reaching the Ghost origin. Legacy public path redirects belong in Cloudflare Redirect Rules, not Worker routes.
 The build-environment `PUBLIC_GHOST_URL` must point at the Ghost origin itself. `https://blog.buxx.me` is the current origin; the CI wrapper rejects `buxx.me` and `www.buxx.me` because those hosts route back through this Worker.
 
+Every build writes a pre-upload guard into `dist/server/wrangler.json`. Wrangler runs it before deploy or version upload and rejects fixture or empty blog artifacts. Use `bun run deploy:cloudflare` for production deploys and `bun run upload:cloudflare -- --message "..."` for staged version uploads.
+
 ## What runs where
 
 The public Worker owns:

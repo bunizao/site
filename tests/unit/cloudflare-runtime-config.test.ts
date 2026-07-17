@@ -67,6 +67,8 @@ describe('Cloudflare runtime configuration', () => {
     const prWorkflow = readText('.github/workflows/pr-tests.yml');
 
     expect(prWorkflow).toContain("GHOST_MOCK_CONTENT: '1'");
+    expect(prWorkflow).toContain('Reject mock Cloudflare deployment');
+    expect(prWorkflow).toContain('Cloudflare deploy blocked mock Ghost posts');
     expect(prWorkflow).not.toContain('secrets.GHOST_CONTENT_API_KEY');
   });
 
@@ -130,7 +132,8 @@ describe('Cloudflare runtime configuration', () => {
     expect(astroConfig).not.toContain("from '@astrojs/vercel'");
     expect(packageJson.scripts?.preview).toBe('bun run preview:cloudflare');
     expect(packageJson.scripts?.['build:cloudflare']).toBe('node scripts/build-cloudflare.mjs');
-    expect(packageJson.scripts?.['deploy:cloudflare']).toBe('bun run build:cloudflare && wrangler deploy --config dist/server/wrangler.json');
+    expect(packageJson.scripts?.['deploy:cloudflare']).toContain('bun run guard:cloudflare-deploy');
+    expect(packageJson.scripts?.['upload:cloudflare']).toContain('bun run guard:cloudflare-deploy');
     expect(packageJson.scripts?.['preview:cloudflare']).toBe('bun run build:cloudflare && wrangler dev --config dist/server/wrangler.json');
     expect(packageJson.scripts?.['tail:cloudflare']).toBe('wrangler tail');
     expect(packageJson.scripts?.['types:cloudflare']).toBe('wrangler types');
@@ -138,6 +141,7 @@ describe('Cloudflare runtime configuration', () => {
     expect(readText('scripts/astro-check-legacy-typescript.mjs')).toContain('typescript-astro-check');
     expect(packageJson.scripts?.build).toStartWith('astro build');
     expect(packageJson.scripts?.build).toContain('bun scripts/generate-agent-markdown.ts');
+    expect(packageJson.scripts?.build).toContain('cloudflare-deploy-guard.mjs install');
     expect(packageJson.scripts?.dev).toContain('astro dev');
     expect(packageJson.scripts?.dev).not.toContain('bunx --bun');
   });

@@ -18,7 +18,7 @@ concurrency:
 
 jobs:
   quality:
-    name: Check, Unit, Build, Cloudflare Dry Run
+    name: Check, Unit, Build, Deployment Guard
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
@@ -56,10 +56,13 @@ jobs:
       - name: Registry consumer check
         run: bun run test:registry
 
-      - name: Cloudflare deploy dry run
-        env:
-          GHOST_MOCK_CONTENT: '1'
-        run: bunx wrangler deploy --config dist/server/wrangler.json --dry-run
+      - name: Reject mock Cloudflare deployment
+        run: |
+          if bunx wrangler deploy --config dist/server/wrangler.json --dry-run > "$RUNNER_TEMP/wrangler-guard.log" 2>&1; then
+            echo "Mock Cloudflare deployment unexpectedly passed."
+            exit 1
+          fi
+          rg --fixed-strings "Cloudflare deploy blocked mock Ghost posts" "$RUNNER_TEMP/wrangler-guard.log"
 
   site-e2e:
     name: Site E2E

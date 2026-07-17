@@ -1,13 +1,5 @@
 import { spawn } from 'node:child_process';
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
-
-const MOCK_POST_SLUGS = [
-  'demo-effects',
-  'notes-from-the-links-lab',
-  'quiet-architecture',
-  'the-kg-contract-stays',
-];
+import { verifyCloudflareDeployArtifacts } from './cloudflare-deploy-guard.mjs';
 
 function hasValue(name) {
   return Boolean(process.env[name]?.trim());
@@ -39,26 +31,6 @@ function printMissingEnvError(missing) {
       'Cloudflare Worker runtime vars/secrets do not change already-built HTML.',
     ].join('\n'),
   );
-}
-
-function verifyBlogArtifact() {
-  const artifactPath = resolve('dist/client/blog/index.html');
-  let html;
-
-  try {
-    html = readFileSync(artifactPath, 'utf8');
-  } catch {
-    console.error(`Cloudflare build did not produce ${artifactPath}.`);
-    return false;
-  }
-
-  const mockSlugs = MOCK_POST_SLUGS.filter((slug) => html.includes(`/blog/${slug}/`));
-  if (mockSlugs.length === 0) return true;
-
-  console.error(
-    `Cloudflare build produced mock Ghost posts: ${mockSlugs.join(', ')}.`,
-  );
-  return false;
 }
 
 const buildEnv = { ...process.env };
@@ -118,5 +90,5 @@ child.on('exit', (code, signal) => {
   if (code !== 0) {
     process.exit(code ?? 1);
   }
-  process.exit(verifyBlogArtifact() ? 0 : 1);
+  process.exit(verifyCloudflareDeployArtifacts() ? 0 : 1);
 });
