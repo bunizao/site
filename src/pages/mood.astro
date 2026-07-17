@@ -1918,6 +1918,26 @@ const skeletonGroups = [
     min-height: 16px;
   }
 
+  :global(.mood-load-retry) {
+    margin-top: 8px;
+    padding: 5px 12px;
+    border: 1px solid hsl(var(--foreground) / 0.14);
+    border-radius: 999px;
+    color: hsl(var(--foreground));
+    font-size: 12px;
+    line-height: 1.4;
+    background: hsl(var(--background));
+  }
+
+  :global(.mood-load-retry:hover) {
+    border-color: hsl(var(--foreground) / 0.28);
+    background: hsl(var(--muted) / 0.45);
+  }
+
+  :global(.mood-load-retry[hidden]) {
+    display: none;
+  }
+
   :global(.mood-sentinel) {
     height: 1px;
   }

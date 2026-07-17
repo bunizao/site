@@ -55,7 +55,12 @@ Feed data flow:
 2. The response contains channel metadata plus feed-shaped posts.
 3. [`src/features/mood/client/feed-media-hydration.ts`](../src/features/mood/client/feed-media-hydration.ts) hydrates the channel hero and deferred media behavior.
 4. [`src/features/mood/client/feed-renderer.ts`](../src/features/mood/client/feed-renderer.ts) groups posts by date and appends them into the feed.
-5. Infinite loading continues with `before=<oldestPostId>` against the active source.
+5. Infinite loading continues in either direction against the active source.
+
+Anchor URLs represent a midpoint in the same continuous feed. Older pages use
+`before=<oldestPostId>` and newer pages use `after=<newestPostId>`; both APIs
+return the adjacent window in descending display order. Transient archive
+failures are retried before the client falls back to the live reader.
 
 Freshness behavior:
 

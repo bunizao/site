@@ -242,6 +242,7 @@ function shouldHideQuoteAuthor(value?: string): boolean {
 
   <div class="mood-error is-hidden" data-mood-error>
     <p class="text-sm text-muted-foreground">Unable to load moods. Please try again later.</p>
+    <button class="mood-load-retry" type="button" data-mood-initial-retry>Retry</button>
   </div>
 
   <div
@@ -491,6 +492,7 @@ function shouldHideQuoteAuthor(value?: string): boolean {
     </div>
     <div class="mood-load-controls">
       <p class="mood-load-status" data-load-status aria-live="polite"></p>
+      <button class="mood-load-retry" type="button" data-mood-load-retry hidden>Retry</button>
     </div>
     <div class="mood-sentinel" data-mood-sentinel aria-hidden="true"></div>
   </div>

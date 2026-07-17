@@ -18,6 +18,11 @@ import type {
   MoodData,
 } from '@/features/mood/client/feed-types';
 
+const MOOD_FETCH_ATTEMPTS = 2;
+const MOOD_FETCH_RETRY_DELAY_MS = 200;
+const RETRYABLE_MOOD_FETCH_STATUSES = new Set([408, 425, 500, 502, 503, 504]);
+const FEED_PREFETCH_MARGIN_PX = 1200;
+
 export function initMoodFeedController(): void {
     const loadingEl = document.querySelector('[data-mood-loading]');
     const errorEl = document.querySelector('[data-mood-error]');
@@ -28,6 +33,8 @@ export function initMoodFeedController(): void {
     const updateNoticeEl = document.querySelector('[data-mood-update-notice]') as HTMLElement | null;
     const updateNoticeTextEl = document.querySelector('[data-mood-update-text]') as HTMLElement | null;
     const updateRefreshBtn = document.querySelector('[data-mood-update-refresh]') as HTMLButtonElement | null;
+    const loadRetryButton = document.querySelector('[data-mood-load-retry]') as HTMLButtonElement | null;
+    const initialRetryButton = document.querySelector('[data-mood-initial-retry]') as HTMLButtonElement | null;
     const ALWAYS_LOADING = import.meta.env.PUBLIC_DEBUG_ALWAYS_LOADING === 'true';
     const ANCHOR_COMPENSATION_MAX_MS = 2600;
     const ANCHOR_COMPENSATION_MIN_MS = 1000;
@@ -47,12 +54,14 @@ export function initMoodFeedController(): void {
         let isLoadingNewer = false;
         let hasMore = true;
         let hasNewer = false;
-        let observer: IntersectionObserver;
+        let observer: IntersectionObserver | null = null;
         let newerObserver: IntersectionObserver | null = null;
         let anchorNewerBaselineY = 0;
         let anchorNewerScrollListenerActive = false;
+        let anchorNewerTouchStartY: number | null = null;
         let anchorOlderBaselineY = 0;
         let anchorOlderScrollListenerActive = false;
+        let anchorOlderTouchStartY: number | null = null;
         const initialFeedPageHref = window.location.href;
 
         const inlineSkeletonConfig = {
@@ -97,8 +106,6 @@ export function initMoodFeedController(): void {
       let oldestNumericId = Number.POSITIVE_INFINITY;
       let oldestId = '';
       let fallbackOldestId = '';
-      let pendingDateKey: string | null = null;
-      let pendingPosts: MoodData[] = [];
       const feedAnchorId = getMoodFeedAnchorId();
       let feedAnchorHandled = !feedAnchorId;
       let feedAnchorRevealInFlight = false;
@@ -161,38 +168,6 @@ export function initMoodFeedController(): void {
         }
       };
 
-      const stagePostsForRender = (posts: MoodData[]): MoodData[] => {
-        const ready: MoodData[] = [];
-        posts.forEach((post) => {
-          if (!post?.id || moodIdSet.has(post.id)) return;
-          registerMoodId(post.id);
-          const dateKey = formatDateKey(post.datetime);
-          if (!pendingDateKey) {
-            pendingDateKey = dateKey;
-            pendingPosts.push(post);
-            return;
-          }
-          if (dateKey === pendingDateKey) {
-            pendingPosts.push(post);
-            return;
-          }
-          if (pendingPosts.length) {
-            ready.push(...pendingPosts);
-          }
-          pendingPosts = [post];
-          pendingDateKey = dateKey;
-        });
-        return ready;
-      };
-
-      const flushPendingPosts = (): MoodData[] => {
-        if (!pendingPosts.length) return [];
-        const flushed = pendingPosts;
-        pendingPosts = [];
-        pendingDateKey = null;
-        return flushed;
-      };
-
       const collectUnseenPosts = (posts: MoodData[]): MoodData[] => {
         const ready: MoodData[] = [];
         posts.forEach((post) => {
@@ -230,19 +205,54 @@ export function initMoodFeedController(): void {
           query.set('after', options.afterId);
         }
         const queryString = query.toString();
-        const endpoint = feedEl.dataset.moodReadSource === 'archive'
-          ? '/api/v2/mood'
-          : '/api/moods';
-        const url = queryString ? `${endpoint}?${queryString}` : endpoint;
-        const response = await fetch(url);
-        if (!response.ok) {
-          throw new Error('Failed to load moods.');
+        const endpoints = feedEl.dataset.moodReadSource === 'archive'
+          ? ['/api/v2/mood', '/api/moods']
+          : ['/api/moods'];
+        let lastError: unknown = new Error('Failed to load moods.');
+
+        for (const endpoint of endpoints) {
+          const url = queryString ? `${endpoint}?${queryString}` : endpoint;
+          for (let attempt = 0; attempt < MOOD_FETCH_ATTEMPTS; attempt += 1) {
+            let response: Response;
+            try {
+              response = await fetch(url);
+            } catch (error) {
+              lastError = error;
+              if (attempt + 1 >= MOOD_FETCH_ATTEMPTS) break;
+              await new Promise((resolve) => window.setTimeout(resolve, MOOD_FETCH_RETRY_DELAY_MS));
+              continue;
+            }
+
+            if (response.ok) {
+              try {
+                return await response.json() as { posts: MoodData[]; channel?: ChannelInfo };
+              } catch (error) {
+                lastError = error;
+                if (attempt + 1 >= MOOD_FETCH_ATTEMPTS) break;
+                await new Promise((resolve) => window.setTimeout(resolve, MOOD_FETCH_RETRY_DELAY_MS));
+                continue;
+              }
+            }
+
+            lastError = new Error(`Failed to load moods (${response.status}).`);
+            if (!RETRYABLE_MOOD_FETCH_STATUSES.has(response.status)) {
+              throw lastError;
+            }
+            if (attempt + 1 < MOOD_FETCH_ATTEMPTS) {
+              await new Promise((resolve) => window.setTimeout(resolve, MOOD_FETCH_RETRY_DELAY_MS));
+            }
+          }
         }
-        return response.json() as Promise<{ posts: MoodData[]; channel?: ChannelInfo }>;
+
+        throw lastError;
       };
 
       const setStatus = (message: string): void => {
         status.textContent = message;
+      };
+
+      const setLoadRetryVisible = (visible: boolean): void => {
+        if (loadRetryButton) loadRetryButton.hidden = !visible;
       };
 
       const setLoadingState = (loading: boolean): void => {
@@ -437,6 +447,20 @@ export function initMoodFeedController(): void {
         || event.key === ' '
       );
 
+      const isDownwardScrollIntentKey = (event: KeyboardEvent): boolean => (
+        event.key === 'ArrowDown'
+        || event.key === 'End'
+        || event.key === 'PageDown'
+        || (event.key === ' ' && !event.shiftKey)
+      );
+
+      const isUpwardScrollIntentKey = (event: KeyboardEvent): boolean => (
+        event.key === 'ArrowUp'
+        || event.key === 'Home'
+        || event.key === 'PageUp'
+        || (event.key === ' ' && event.shiftKey)
+      );
+
       const stabilizeAnchorPosition = async (id: string, preferredTop?: number | null): Promise<boolean> => {
         const target = getMoodAnchorTarget(id);
         if (!target) return false;
@@ -541,7 +565,7 @@ export function initMoodFeedController(): void {
 
       const revealAndStabilizeAnchor = async (
         id: string,
-        options: { highlight?: boolean; preferredTop?: number | null } = {}
+        options: { highlight?: boolean; onAligned?: () => void; preferredTop?: number | null } = {}
       ): Promise<boolean> => {
         await waitForAnchorPrecedingMedia(id);
         const preferredTop = options.preferredTop ?? null;
@@ -553,6 +577,7 @@ export function initMoodFeedController(): void {
           : isTargetFullyVisible(target) || renderer.scrollToMood(id, { behavior: 'auto', highlight: options.highlight });
         if (!aligned) return false;
 
+        options.onAligned?.();
         await stabilizeAnchorPosition(id, preferredTop);
         return true;
       };
@@ -568,12 +593,18 @@ export function initMoodFeedController(): void {
               return;
             }
             try {
-              if (await revealAndStabilizeAnchor(feedAnchorId, { highlight: true }) && !feedAnchorHandled) {
+              if (await revealAndStabilizeAnchor(feedAnchorId, {
+                highlight: true,
+                onAligned: () => {
+                  armAnchorNewerObserver({ trackScroll: false });
+                  armAnchorOlderObserver({ trackScroll: false });
+                },
+              }) && !feedAnchorHandled) {
                 feedAnchorHandled = true;
                 setStatus('');
                 runOnNextFrame(() => {
-                  armAnchorNewerObserver();
-                  armAnchorOlderObserver();
+                  trackAnchorNewerObserverScroll();
+                  trackAnchorOlderObserverScroll();
                 });
               }
             } finally {
@@ -648,6 +679,8 @@ export function initMoodFeedController(): void {
 
       const handleNoMore = (): void => {
         hasMore = false;
+        setLoadRetryVisible(false);
+        clearAnchorOlderObserverGate();
         if (loadButton) {
           loadButton.classList.add('is-hidden');
         }
@@ -659,6 +692,7 @@ export function initMoodFeedController(): void {
 
       const handleNoMoreNewer = (): void => {
         hasNewer = false;
+        clearAnchorNewerObserverGate();
         if (newerObserver) {
           newerObserver.disconnect();
           newerObserver = null;
@@ -692,28 +726,72 @@ export function initMoodFeedController(): void {
             });
           },
           {
-            rootMargin: '300px 0px',
+            rootMargin: `${FEED_PREFETCH_MARGIN_PX}px 0px`,
           }
         );
 
         observer.observe(sentinel);
       };
 
+      function clearAnchorOlderObserverGate(): void {
+        window.removeEventListener('scroll', enableAnchorOlderObserverOnScroll);
+        window.removeEventListener('wheel', enableAnchorOlderObserverOnWheel);
+        window.removeEventListener('keydown', enableAnchorOlderObserverOnKeydown);
+        window.removeEventListener('touchstart', rememberAnchorOlderTouchStart);
+        window.removeEventListener('touchmove', enableAnchorOlderObserverOnTouchMove);
+        anchorOlderScrollListenerActive = false;
+        anchorOlderTouchStartY = null;
+      }
+
+      function openAnchorOlderObserverGate(): void {
+        if (!anchorOlderScrollListenerActive) return;
+        clearAnchorOlderObserverGate();
+        startObserver();
+      }
+
       function enableAnchorOlderObserverOnScroll(): void {
         if (!anchorOlderScrollListenerActive) return;
         if (window.scrollY < anchorOlderBaselineY + 80) return;
 
-        window.removeEventListener('scroll', enableAnchorOlderObserverOnScroll);
-        anchorOlderScrollListenerActive = false;
-        startObserver();
+        openAnchorOlderObserverGate();
       }
 
-      function armAnchorOlderObserver(): void {
+      function enableAnchorOlderObserverOnWheel(event: WheelEvent): void {
+        if (event.deltaY > 0) openAnchorOlderObserverGate();
+      }
+
+      function enableAnchorOlderObserverOnKeydown(event: KeyboardEvent): void {
+        if (isDownwardScrollIntentKey(event)) openAnchorOlderObserverGate();
+      }
+
+      function rememberAnchorOlderTouchStart(event: TouchEvent): void {
+        anchorOlderTouchStartY = event.touches.item(0)?.clientY ?? null;
+      }
+
+      function enableAnchorOlderObserverOnTouchMove(event: TouchEvent): void {
+        const currentY = event.touches.item(0)?.clientY;
+        if (anchorOlderTouchStartY === null || currentY === undefined) return;
+        if (anchorOlderTouchStartY - currentY >= 12) openAnchorOlderObserverGate();
+      }
+
+      function trackAnchorOlderObserverScroll(): void {
+        if (!anchorOlderScrollListenerActive) return;
+        anchorOlderBaselineY = window.scrollY;
+        window.addEventListener('scroll', enableAnchorOlderObserverOnScroll, { passive: true });
+      }
+
+      function armAnchorOlderObserver(options: { trackScroll?: boolean } = {}): void {
         if (!feedAnchorId || !hasMore || observer || anchorOlderScrollListenerActive) return;
 
         anchorOlderBaselineY = window.scrollY;
         anchorOlderScrollListenerActive = true;
-        window.addEventListener('scroll', enableAnchorOlderObserverOnScroll, { passive: true });
+        if (options.trackScroll !== false) {
+          window.addEventListener('scroll', enableAnchorOlderObserverOnScroll, { passive: true });
+        }
+        window.addEventListener('wheel', enableAnchorOlderObserverOnWheel, { passive: true });
+        window.addEventListener('keydown', enableAnchorOlderObserverOnKeydown);
+        window.addEventListener('touchstart', rememberAnchorOlderTouchStart, { passive: true });
+        window.addEventListener('touchmove', enableAnchorOlderObserverOnTouchMove, { passive: true });
       }
 
       function startNewerObserver(): void {
@@ -731,28 +809,72 @@ export function initMoodFeedController(): void {
             });
           },
           {
-            rootMargin: '600px 0px 0px',
+            rootMargin: `${FEED_PREFETCH_MARGIN_PX}px 0px 0px`,
           }
         );
 
         newerObserver.observe(newerSentinel);
       }
 
+      function clearAnchorNewerObserverGate(): void {
+        window.removeEventListener('scroll', enableAnchorNewerObserverOnScroll);
+        window.removeEventListener('wheel', enableAnchorNewerObserverOnWheel);
+        window.removeEventListener('keydown', enableAnchorNewerObserverOnKeydown);
+        window.removeEventListener('touchstart', rememberAnchorNewerTouchStart);
+        window.removeEventListener('touchmove', enableAnchorNewerObserverOnTouchMove);
+        anchorNewerScrollListenerActive = false;
+        anchorNewerTouchStartY = null;
+      }
+
+      function openAnchorNewerObserverGate(): void {
+        if (!anchorNewerScrollListenerActive) return;
+        clearAnchorNewerObserverGate();
+        startNewerObserver();
+      }
+
       function enableAnchorNewerObserverOnScroll(): void {
         if (!anchorNewerScrollListenerActive) return;
         if (window.scrollY > Math.max(0, anchorNewerBaselineY - 80)) return;
 
-        window.removeEventListener('scroll', enableAnchorNewerObserverOnScroll);
-        anchorNewerScrollListenerActive = false;
-        startNewerObserver();
+        openAnchorNewerObserverGate();
       }
 
-      function armAnchorNewerObserver(): void {
+      function enableAnchorNewerObserverOnWheel(event: WheelEvent): void {
+        if (event.deltaY < 0) openAnchorNewerObserverGate();
+      }
+
+      function enableAnchorNewerObserverOnKeydown(event: KeyboardEvent): void {
+        if (isUpwardScrollIntentKey(event)) openAnchorNewerObserverGate();
+      }
+
+      function rememberAnchorNewerTouchStart(event: TouchEvent): void {
+        anchorNewerTouchStartY = event.touches.item(0)?.clientY ?? null;
+      }
+
+      function enableAnchorNewerObserverOnTouchMove(event: TouchEvent): void {
+        const currentY = event.touches.item(0)?.clientY;
+        if (anchorNewerTouchStartY === null || currentY === undefined) return;
+        if (currentY - anchorNewerTouchStartY >= 12) openAnchorNewerObserverGate();
+      }
+
+      function trackAnchorNewerObserverScroll(): void {
+        if (!anchorNewerScrollListenerActive) return;
+        anchorNewerBaselineY = window.scrollY;
+        window.addEventListener('scroll', enableAnchorNewerObserverOnScroll, { passive: true });
+      }
+
+      function armAnchorNewerObserver(options: { trackScroll?: boolean } = {}): void {
         if (!feedAnchorId || !hasNewer || newerObserver || anchorNewerScrollListenerActive) return;
 
         anchorNewerBaselineY = window.scrollY;
         anchorNewerScrollListenerActive = true;
-        window.addEventListener('scroll', enableAnchorNewerObserverOnScroll, { passive: true });
+        if (options.trackScroll !== false) {
+          window.addEventListener('scroll', enableAnchorNewerObserverOnScroll, { passive: true });
+        }
+        window.addEventListener('wheel', enableAnchorNewerObserverOnWheel, { passive: true });
+        window.addEventListener('keydown', enableAnchorNewerObserverOnKeydown);
+        window.addEventListener('touchstart', rememberAnchorNewerTouchStart, { passive: true });
+        window.addEventListener('touchmove', enableAnchorNewerObserverOnTouchMove, { passive: true });
       }
 
       const loadAnchorWindow = async (): Promise<{ posts: MoodData[]; channel?: ChannelInfo }> => {
@@ -794,7 +916,7 @@ export function initMoodFeedController(): void {
               mediaHydrator.hydrateHero(channelInfo);
             }
 
-            const ready = stagePostsForRender(posts);
+            const ready = collectUnseenPosts(posts);
             if (ready.length) {
               appendMoods(ready, totalCount);
             }
@@ -841,36 +963,13 @@ export function initMoodFeedController(): void {
             return;
           }
 
-          let ready: MoodData[] = [];
-          let beforeId = '';
-          let lastBefore = '';
-          while (hasMore && ready.length === 0) {
-            const data = await fetchMoods(beforeId ? { beforeId } : {});
-            const posts = Array.isArray(data.posts) ? data.posts : [];
-            if (data.channel && !channelInfo) {
-              channelInfo = data.channel;
-              mediaHydrator.hydrateHero(channelInfo);
-            }
-            if (!posts.length) {
-              hasMore = false;
-              break;
-            }
-
-            ready = ready.concat(stagePostsForRender(posts));
-            const nextBefore = getBeforeId();
-            if (!nextBefore || nextBefore === lastBefore) {
-              hasMore = false;
-              break;
-            }
-            lastBefore = nextBefore;
-            beforeId = nextBefore;
+          const data = await fetchMoods();
+          const posts = Array.isArray(data.posts) ? data.posts : [];
+          if (data.channel && !channelInfo) {
+            channelInfo = data.channel;
+            mediaHydrator.hydrateHero(channelInfo);
           }
-
-          if (!hasMore) {
-            ready = ready.concat(flushPendingPosts());
-          }
-
-          if (!ready.length && !pendingPosts.length) {
+          if (!posts.length) {
             showFeed();
             handleNoMore();
             setStatus('No moods yet.');
@@ -878,16 +977,12 @@ export function initMoodFeedController(): void {
             return;
           }
 
+          const ready = collectUnseenPosts(posts);
           if (ready.length) {
             appendMoods(ready, totalCount);
           }
           showFeed();
           startUpdateWatcher();
-
-          if (!hasMore) {
-            handleNoMore();
-            return;
-          }
 
           startObserver();
         } catch (error) {
@@ -902,8 +997,7 @@ export function initMoodFeedController(): void {
         }
 
         const currentNewestId = getAfterId();
-        const beforeId = getMoodFeedAnchorWindowBeforeCursor(currentNewestId);
-        if (!currentNewestId || !beforeId) {
+        if (!currentNewestId) {
           handleNoMoreNewer();
           return;
         }
@@ -911,7 +1005,7 @@ export function initMoodFeedController(): void {
         isLoadingNewer = true;
 
         try {
-          const data = await fetchMoods({ beforeId });
+          const data = await fetchMoods({ afterId: currentNewestId });
           const posts = Array.isArray(data.posts)
             ? data.posts.filter((post) => isMoodIdGreaterThan(post.id, currentNewestId))
             : [];
@@ -942,7 +1036,7 @@ export function initMoodFeedController(): void {
           return;
         }
 
-        let beforeId = getBeforeId();
+        const beforeId = getBeforeId();
         if (!beforeId) {
           handleNoMore();
           return;
@@ -950,53 +1044,34 @@ export function initMoodFeedController(): void {
 
         isLoading = true;
         setStatus('');
+        setLoadRetryVisible(false);
         setLoadingState(true);
         showInlineLoading();
 
         try {
-          let ready: MoodData[] = [];
-          let lastBefore = beforeId;
-          while (hasMore && ready.length === 0) {
-            const data = await fetchMoods({ beforeId });
-            const posts = Array.isArray(data.posts) ? data.posts : [];
-            if (data.channel) {
-              channelInfo = data.channel;
-            }
-            if (!posts.length) {
-              hasMore = false;
-              break;
-            }
-
-            ready = ready.concat(stagePostsForRender(posts));
-            const nextBefore = getBeforeId();
-            if (!nextBefore || nextBefore === lastBefore) {
-              hasMore = false;
-              break;
-            }
-            lastBefore = nextBefore;
-            beforeId = nextBefore;
+          const data = await fetchMoods({ beforeId });
+          const posts = Array.isArray(data.posts) ? data.posts : [];
+          if (data.channel) {
+            channelInfo = data.channel;
           }
-
-          if (!hasMore) {
-            ready = ready.concat(flushPendingPosts());
-          }
-
-          if (!ready.length && !hasMore) {
+          if (!posts.length) {
             handleNoMore();
             return;
           }
 
+          const ready = collectUnseenPosts(posts);
           if (ready.length) {
             appendMoods(ready, totalCount);
             setStatus('');
           }
 
-          if (!hasMore) {
+          if (!ready.length) {
             handleNoMore();
           }
         } catch (error) {
           console.error(error);
           setStatus('Unable to load more moods.');
+          setLoadRetryVisible(true);
         } finally {
           isLoading = false;
           setLoadingState(false);
@@ -1007,6 +1082,8 @@ export function initMoodFeedController(): void {
         if (loadButton) {
           loadButton.addEventListener('click', loadMore);
         }
+        loadRetryButton?.addEventListener('click', loadMore);
+        initialRetryButton?.addEventListener('click', () => window.location.reload());
 
         if (!feedAnchorId) {
           updateWatcher.init();

@@ -640,7 +640,7 @@ test.describe('Mood routes', () => {
         return;
       }
 
-      if (before === '1021') {
+      if (after === '1002') {
         await route.fulfill({
           status: 200,
           contentType: 'application/json',
@@ -693,7 +693,7 @@ test.describe('Mood routes', () => {
       (window as any).__moodScrollIntoViewCalls as Array<{ id: string }>
     ).filter((call) => call.id === '1000').length);
     expect(anchorScrollCalls).toBe(1);
-    expect(beforeRequests).not.toContain('1021');
+    expect(afterRequests).not.toContain('1002');
     await expect
       .poll(async () => {
         return page.locator('[data-mood-id="1000"]').evaluate((element) => {
@@ -710,13 +710,246 @@ test.describe('Mood routes', () => {
       items.map((item) => (item as HTMLElement).dataset.moodId)
     ));
     expect(updatedOrder.indexOf('1003')).toBeLessThan(updatedOrder.indexOf('1002'));
-    expect(afterRequests).toEqual([]);
-    expect(beforeRequests).toContain('1021');
+    expect(afterRequests).toContain('1002');
+    expect(beforeRequests).not.toContain('1021');
 
     const dateGroupsHaveItems = await page.locator('.mood-date-group').evaluateAll((groups) => (
       groups.every((group) => group.querySelectorAll('.mood-item').length > 0)
     ));
     expect(dateGroupsHaveItems).toBe(true);
+  });
+
+  test('loads older moods when an anchored feed starts at the bottom boundary', async ({ page }) => {
+    const anchorId = '1000';
+    const channel = {
+      slug: 'e2e',
+      title: 'E2E Channel',
+      description: 'E2E mood feed',
+      avatar: '',
+    };
+    const focusedPosts = Array.from({ length: 18 }, (_, index) => {
+      const id = String(1017 - index);
+      return createMoodFeedPost(id, `E2E anchored boundary item ${id} ${'body '.repeat(20)}`);
+    });
+    const beforeRequests: string[] = [];
+
+    await page.route('**/api/moods**', async (route) => {
+      const url = new URL(route.request().url());
+      const before = url.searchParams.get('before');
+      if (before) beforeRequests.push(before);
+
+      if (before === '1011') {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({ posts: focusedPosts, channel }),
+        });
+        return;
+      }
+
+      if (before === anchorId) {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            posts: [
+              createMoodFeedPost('999', 'E2E first older boundary item', {
+                datetime: '2026-02-09T13:00:00+00:00',
+              }),
+              createMoodFeedPost('998', 'E2E second older boundary item', {
+                datetime: '2026-02-08T13:00:00+00:00',
+              }),
+            ],
+            channel,
+          }),
+        });
+        return;
+      }
+
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ posts: [], channel }),
+      });
+    });
+
+    await page.goto(`/mood?${anchorId}`, { waitUntil: 'domcontentloaded' });
+    await expect(page.locator(`[data-mood-id="${anchorId}"]`)).toBeVisible();
+    await expect
+      .poll(async () => page.evaluate(() => (
+        Math.abs(window.scrollY - (document.documentElement.scrollHeight - window.innerHeight))
+      )), { timeout: 30_000 })
+      .toBeLessThanOrEqual(2);
+
+    await page.mouse.move(20, 20);
+    await page.mouse.wheel(0, 600);
+
+    await expect(page.locator('[data-mood-id="999"]')).toBeVisible();
+    expect(beforeRequests).toContain(anchorId);
+  });
+
+  test('renders a same-day page without waiting on the following cursor', async ({ page }) => {
+    const channel = {
+      slug: 'e2e',
+      title: 'E2E Channel',
+      description: 'E2E mood feed',
+      avatar: '',
+    };
+    let followingRequestStarted = false;
+    let releaseFollowingRequest = (): void => {};
+    const followingRequestGate = new Promise<void>((resolve) => {
+      releaseFollowingRequest = resolve;
+    });
+
+    await page.route('**/api/moods**', async (route) => {
+      const url = new URL(route.request().url());
+      const before = url.searchParams.get('before');
+
+      if (url.searchParams.get('probe') === '1') {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({ latestId: '990001' }),
+        });
+        return;
+      }
+
+      if (before === null) {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            posts: [
+              createMoodFeedPost('990001'),
+              createMoodFeedPost('990000'),
+              createMoodFeedPost('989999'),
+            ],
+            channel,
+          }),
+        });
+        return;
+      }
+
+      if (before === '989999') {
+        followingRequestStarted = true;
+        await followingRequestGate;
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            posts: [createMoodFeedPost('989998', 'E2E following date item', {
+              datetime: '2026-02-09T13:00:00+00:00',
+            })],
+            channel,
+          }),
+        });
+        return;
+      }
+
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ posts: [], channel }),
+      });
+    });
+
+    try {
+      await page.goto('/mood', { waitUntil: 'domcontentloaded' });
+      await expect(page.locator('[data-mood-id="990000"]')).toBeVisible({ timeout: 1_500 });
+      expect(followingRequestStarted).toBe(false);
+    } finally {
+      releaseFollowingRequest();
+    }
+  });
+
+  test('retries a transient mood page failure', async ({ page }) => {
+    const anchorId = '1000';
+    const channel = {
+      slug: 'e2e',
+      title: 'E2E Channel',
+      description: 'E2E mood feed',
+      avatar: '',
+    };
+    let attempts = 0;
+
+    await page.route('**/api/moods**', async (route) => {
+      const url = new URL(route.request().url());
+      if (url.searchParams.get('before') !== '1011') {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({ posts: [], channel }),
+        });
+        return;
+      }
+
+      attempts += 1;
+      if (attempts === 1) {
+        await route.fulfill({
+          status: 503,
+          contentType: 'application/json',
+          body: JSON.stringify({ error: { code: 'temporary_failure' } }),
+        });
+        return;
+      }
+
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ posts: [createMoodFeedPost(anchorId)], channel }),
+      });
+    });
+
+    await page.goto(`/mood?${anchorId}`, { waitUntil: 'domcontentloaded' });
+
+    await expect(page.locator(`[data-mood-id="${anchorId}"]`)).toBeVisible();
+    expect(attempts).toBe(2);
+  });
+
+  test('falls back to the live feed after archive retries fail', async ({ page }) => {
+    const anchorId = '1000';
+    const channel = {
+      slug: 'e2e',
+      title: 'E2E Channel',
+      description: 'E2E mood feed',
+      avatar: '',
+    };
+    let archiveAttempts = 0;
+    let liveAttempts = 0;
+
+    await page.route(/\/api\/v2\/mood(?:\?|$)/, async (route) => {
+      archiveAttempts += 1;
+      await route.fulfill({
+        status: 503,
+        contentType: 'application/json',
+        body: JSON.stringify({ error: { code: 'archive_unavailable' } }),
+      });
+    });
+    await page.route('**/api/moods**', async (route) => {
+      const url = new URL(route.request().url());
+      if (url.searchParams.get('before') !== '1011') {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({ posts: [], channel }),
+        });
+        return;
+      }
+
+      liveAttempts += 1;
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ posts: [createMoodFeedPost(anchorId)], channel }),
+      });
+    });
+
+    await page.goto(`/mood?${anchorId}&source=archive`, { waitUntil: 'domcontentloaded' });
+
+    await expect(page.locator('[data-mood-feed]')).toHaveAttribute('data-mood-read-source', 'archive');
+    await expect(page.locator(`[data-mood-id="${anchorId}"]`)).toBeVisible();
+    expect(archiveAttempts).toBe(2);
+    expect(liveAttempts).toBe(1);
   });
 
   test('renders a too-big video placeholder on anchored feed posts without a poster image', async ({ page }) => {
