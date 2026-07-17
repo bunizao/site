@@ -1345,7 +1345,7 @@ test.describe('Mood routes', () => {
     await expect(item.locator('.mood-item-media .video-too-big')).toHaveCount(0);
   });
 
-  test('defers feed video requests until the video approaches the viewport', async ({ page }) => {
+  test('defers feed video requests and only autoplays while visible', async ({ page }) => {
     const videoId = '9903660';
     const videoUrl = 'https://media.example.test/mood/lazy-video.mp4';
     const posterUrl = 'https://image.example.test/mood/lazy-video-poster.jpg';
@@ -1381,6 +1381,21 @@ test.describe('Mood routes', () => {
     };
 
     await page.setViewportSize({ width: 900, height: 520 });
+    await page.addInitScript(() => {
+      const setPlaybackState = (media: HTMLMediaElement, state: 'paused' | 'playing') => {
+        if (media instanceof HTMLVideoElement) {
+          media.dataset.testPlaybackState = state;
+        }
+      };
+
+      HTMLMediaElement.prototype.play = function play() {
+        setPlaybackState(this, 'playing');
+        return Promise.resolve();
+      };
+      HTMLMediaElement.prototype.pause = function pause() {
+        setPlaybackState(this, 'paused');
+      };
+    });
 
     await page.route('**/api/moods**', async (route) => {
       const url = new URL(route.request().url());
@@ -1430,6 +1445,7 @@ test.describe('Mood routes', () => {
     expect(await video.getAttribute('src')).toBeNull();
     await page.waitForTimeout(250);
     expect(requestedVideos).toHaveLength(0);
+    await expect(video).not.toHaveAttribute('data-test-playback-state', 'playing');
 
     await video.evaluate((element) => {
       element.scrollIntoView({ block: 'center' });
@@ -1439,6 +1455,10 @@ test.describe('Mood routes', () => {
       .poll(() => requestedVideos.length, { timeout: 10_000 })
       .toBeGreaterThan(0);
     await expect(video).toHaveAttribute('src', videoUrl);
+    await expect(video).toHaveAttribute('data-test-playback-state', 'playing');
+
+    await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
+    await expect(video).toHaveAttribute('data-test-playback-state', 'paused');
   });
 
   test('collapses header actions on compact mood feed scroll', async ({ page }) => {

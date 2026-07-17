@@ -58,6 +58,8 @@ describe('structured mood feed media rendering', () => {
     expect(html).toContain('data-mood-video-src="https://image.example.test/mood/1/video.mp4"');
     expect(html).toContain('preload="none"');
     expect(html).toContain('data-mood-video-lazy="true"');
+    expect(html).toContain('data-mood-autoplay="true"');
+    expect(html).toContain('controls muted loop playsinline');
     expect(html).not.toContain(' src="https://image.example.test/mood/1/video.mp4"');
   });
 

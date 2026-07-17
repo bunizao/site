@@ -90,19 +90,11 @@ export function createFeedMediaHydrator(
     lazyVideoObserver = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
-          const video = entry.target as HTMLVideoElement;
-          if (entry.isIntersecting) {
-            const ready = hydrateLazyVideo(video);
-            if (ready && shouldAutoplayVideo(video)) {
-              video.muted = true;
-              video.play().catch(() => {});
-            }
-            return;
-          }
+          if (!entry.isIntersecting) return;
 
-          if (shouldAutoplayVideo(video)) {
-            video.pause();
-          }
+          const video = entry.target as HTMLVideoElement;
+          hydrateLazyVideo(video);
+          lazyVideoObserver?.unobserve(video);
         });
       },
       { rootMargin: '25% 0px' }
@@ -111,20 +103,59 @@ export function createFeedMediaHydrator(
     return lazyVideoObserver;
   };
 
+  let autoplayVideoObserver: IntersectionObserver | null = null;
+  const observedAutoplayVideos = new WeakSet<HTMLVideoElement>();
+
+  const getAutoplayVideoObserver = (): IntersectionObserver | null => {
+    if (!('IntersectionObserver' in window)) {
+      return null;
+    }
+
+    if (autoplayVideoObserver) {
+      return autoplayVideoObserver;
+    }
+
+    autoplayVideoObserver = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        const video = entry.target as HTMLVideoElement;
+        if (!entry.isIntersecting) {
+          video.pause();
+          return;
+        }
+
+        if (!hydrateLazyVideo(video)) return;
+        video.muted = true;
+        video.play().catch(() => {});
+      });
+    });
+
+    return autoplayVideoObserver;
+  };
+
   const observeLazyVideo = (video: HTMLVideoElement): void => {
     const hasDeferredSource = Boolean(video.dataset.moodVideoSrc)
       || video.querySelector('source[data-mood-video-src]');
-    if (!hasDeferredSource || observedLazyVideos.has(video)) return;
-
-    video.preload = 'none';
-    observedLazyVideos.add(video);
-    const observer = getLazyVideoObserver();
-    if (!observer) {
-      hydrateLazyVideo(video);
-      return;
+    if (hasDeferredSource && !observedLazyVideos.has(video)) {
+      video.preload = 'none';
+      observedLazyVideos.add(video);
+      const observer = getLazyVideoObserver();
+      if (observer) {
+        observer.observe(video);
+      } else {
+        hydrateLazyVideo(video);
+      }
     }
 
-    observer.observe(video);
+    if (!shouldAutoplayVideo(video) || observedAutoplayVideos.has(video)) return;
+
+    video.muted = true;
+    video.defaultMuted = true;
+    video.playsInline = true;
+    const autoplayObserver = getAutoplayVideoObserver();
+    if (!autoplayObserver) return;
+
+    observedAutoplayVideos.add(video);
+    autoplayObserver.observe(video);
   };
 
   const applyMediaHints = (root: HTMLElement, priority = false): void => {

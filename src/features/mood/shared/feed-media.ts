@@ -107,9 +107,12 @@ function renderVideo(media: MediaItem, options: RenderMoodFeedMediaOptions): str
   const sourceAttr = options.lazyVideo
     ? attr('data-mood-video-src', src)
     : attr('src', src);
-  const lazyAttrs = options.lazyVideo ? ' data-mood-video-lazy="true"' : '';
+  const autoplayAttrs = options.lazyVideo ? ' muted loop' : '';
+  const lazyAttrs = options.lazyVideo
+    ? ' data-mood-autoplay="true" data-mood-video-lazy="true"'
+    : '';
   const preload = options.lazyVideo ? 'none' : 'metadata';
-  return `<video${attr('class', className)}${sourceAttr}${attr('poster', poster)}${attr('width', dimension(media.width))}${attr('height', dimension(media.height))} controls playsinline preload="${preload}"${lazyAttrs}></video>`;
+  return `<video${attr('class', className)}${sourceAttr}${attr('poster', poster)}${attr('width', dimension(media.width))}${attr('height', dimension(media.height))} controls${autoplayAttrs} playsinline preload="${preload}"${lazyAttrs}></video>`;
 }
 
 function renderAudio(media: MediaItem): string {
