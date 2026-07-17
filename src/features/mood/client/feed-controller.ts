@@ -565,27 +565,54 @@ export function initMoodFeedController(): void {
 
       const revealAndStabilizeAnchor = async (
         id: string,
-        options: { highlight?: boolean; onAligned?: () => void; preferredTop?: number | null } = {}
+        options: { highlight?: boolean; preferredTop?: number | null } = {}
       ): Promise<boolean> => {
-        await waitForAnchorPrecedingMedia(id);
-        const preferredTop = options.preferredTop ?? null;
-        const target = getMoodAnchorTarget(id);
-        if (!target) return false;
+        if (!getMoodAnchorTarget(id)) return false;
 
-        const aligned = typeof preferredTop === 'number'
-          ? alignAnchorToTop(id, preferredTop)
-          : isTargetFullyVisible(target) || renderer.scrollToMood(id, { behavior: 'auto', highlight: options.highlight });
-        if (!aligned) return false;
+        let interrupted = false;
+        const interrupt = (): void => {
+          interrupted = true;
+        };
+        const interruptOnScrollKey = (event: KeyboardEvent): void => {
+          if (isScrollIntentKey(event)) interrupt();
+        };
+        const cleanup = (): void => {
+          window.removeEventListener('wheel', interrupt);
+          window.removeEventListener('touchstart', interrupt);
+          window.removeEventListener('keydown', interruptOnScrollKey);
+        };
 
-        options.onAligned?.();
-        await stabilizeAnchorPosition(id, preferredTop);
-        return true;
+        window.addEventListener('wheel', interrupt, { passive: true });
+        window.addEventListener('touchstart', interrupt, { passive: true });
+        window.addEventListener('keydown', interruptOnScrollKey);
+
+        try {
+          await waitForAnchorPrecedingMedia(id);
+          if (interrupted) return true;
+
+          const preferredTop = options.preferredTop ?? null;
+          const target = getMoodAnchorTarget(id);
+          if (!target) return false;
+
+          const aligned = typeof preferredTop === 'number'
+            ? alignAnchorToTop(id, preferredTop)
+            : isTargetFullyVisible(target) || renderer.scrollToMood(id, { behavior: 'auto', highlight: options.highlight });
+          if (!aligned) return false;
+
+          await stabilizeAnchorPosition(id, preferredTop);
+          return true;
+        } finally {
+          cleanup();
+        }
       };
 
       const revealFeedAnchor = (): void => {
         if (!feedAnchorId || feedAnchorHandled || feedAnchorRevealInFlight) return;
 
         feedAnchorRevealInFlight = true;
+        const preferredTop = readStoredReturnAnchorTop(feedAnchorId);
+        armAnchorNewerObserver({ trackScroll: false });
+        armAnchorOlderObserver({ trackScroll: false });
         runOnNextFrame(() => {
           void (async () => {
             if (feedAnchorHandled) {
@@ -594,11 +621,8 @@ export function initMoodFeedController(): void {
             }
             try {
               if (await revealAndStabilizeAnchor(feedAnchorId, {
-                highlight: true,
-                onAligned: () => {
-                  armAnchorNewerObserver({ trackScroll: false });
-                  armAnchorOlderObserver({ trackScroll: false });
-                },
+                highlight: preferredTop === null,
+                preferredTop,
               }) && !feedAnchorHandled) {
                 feedAnchorHandled = true;
                 setStatus('');
@@ -614,7 +638,18 @@ export function initMoodFeedController(): void {
         });
       };
 
-      const revealCurrentUrlFeedAnchor = (options: { force?: boolean } = {}): void => {
+      const resetAnchorPaginationObservers = (): void => {
+        observer?.disconnect();
+        observer = null;
+        newerObserver?.disconnect();
+        newerObserver = null;
+        clearAnchorOlderObserverGate();
+        clearAnchorNewerObserverGate();
+      };
+
+      const revealCurrentUrlFeedAnchor = (
+        options: { force?: boolean; rearmPagination?: boolean } = {}
+      ): void => {
         if (!options.force && window.location.href === initialFeedPageHref) return;
         const currentAnchorId = readCurrentUrlAnchorId();
         if (!currentAnchorId) return;
@@ -622,10 +657,24 @@ export function initMoodFeedController(): void {
         const preferredTop = readStoredReturnAnchorTop(currentAnchorId);
 
         runOnNextFrame(() => {
-          void revealAndStabilizeAnchor(currentAnchorId, {
-            highlight: preferredTop === null,
-            preferredTop,
-          });
+          void (async () => {
+            if (options.rearmPagination) {
+              resetAnchorPaginationObservers();
+              armAnchorNewerObserver({ trackScroll: false });
+              armAnchorOlderObserver({ trackScroll: false });
+            }
+
+            const handled = await revealAndStabilizeAnchor(currentAnchorId, {
+              highlight: preferredTop === null,
+              preferredTop,
+            });
+            if (handled && options.rearmPagination) {
+              runOnNextFrame(() => {
+                trackAnchorNewerObserverScroll();
+                trackAnchorOlderObserverScroll();
+              });
+            }
+          })();
         });
       };
 
@@ -747,6 +796,15 @@ export function initMoodFeedController(): void {
         if (!anchorOlderScrollListenerActive) return;
         clearAnchorOlderObserverGate();
         startObserver();
+        if (!sentinel) return;
+
+        const sentinelRect = sentinel.getBoundingClientRect();
+        if (
+          sentinelRect.top <= window.innerHeight + FEED_PREFETCH_MARGIN_PX
+          && sentinelRect.bottom >= -FEED_PREFETCH_MARGIN_PX
+        ) {
+          void loadMore();
+        }
       }
 
       function enableAnchorOlderObserverOnScroll(): void {
@@ -830,6 +888,16 @@ export function initMoodFeedController(): void {
         if (!anchorNewerScrollListenerActive) return;
         clearAnchorNewerObserverGate();
         startNewerObserver();
+        const newerSentinel = document.querySelector('[data-mood-newer-sentinel]');
+        if (!newerSentinel) return;
+
+        const sentinelRect = newerSentinel.getBoundingClientRect();
+        if (
+          sentinelRect.top <= window.innerHeight
+          && sentinelRect.bottom >= -FEED_PREFETCH_MARGIN_PX
+        ) {
+          void loadNewer();
+        }
       }
 
       function enableAnchorNewerObserverOnScroll(): void {
@@ -1088,30 +1156,27 @@ export function initMoodFeedController(): void {
         if (!feedAnchorId) {
           updateWatcher.init();
         }
-        const scheduleCurrentUrlFeedAnchorReveal = (): void => {
+        const scheduleCurrentUrlFeedAnchorReveal = (
+          options: { rearmPagination?: boolean } = {}
+        ): void => {
           runOnNextFrame(() => {
-            revealCurrentUrlFeedAnchor({ force: true });
-          });
-        };
-        const scheduleStoredReturnAnchorReveal = (): void => {
-          runOnNextFrame(() => {
-            const currentAnchorId = readCurrentUrlAnchorId();
-            if (!currentAnchorId || readStoredReturnAnchorTop(currentAnchorId) === null) return;
-            revealCurrentUrlFeedAnchor({ force: true });
+            revealCurrentUrlFeedAnchor({ force: true, ...options });
           });
         };
 
-        window.addEventListener('pageshow', () => {
-          scheduleCurrentUrlFeedAnchorReveal();
+        window.addEventListener('pageshow', (event) => {
+          if (event.persisted) {
+            scheduleCurrentUrlFeedAnchorReveal({ rearmPagination: true });
+          }
           patchVisibleMoodMeta();
         });
-        window.addEventListener('popstate', scheduleCurrentUrlFeedAnchorReveal);
-        window.addEventListener('hashchange', scheduleCurrentUrlFeedAnchorReveal);
+        window.addEventListener('popstate', () => scheduleCurrentUrlFeedAnchorReveal());
+        window.addEventListener('hashchange', () => scheduleCurrentUrlFeedAnchorReveal());
         window.addEventListener('scroll', patchVisibleMoodMeta, { passive: true });
         renderer.bindInteractions();
         animatedEmoji.observe(list);
         hydrateMoodRichText(list);
-        void loadInitial().then(scheduleStoredReturnAnchorReveal);
+        void loadInitial();
       }
     }
 }

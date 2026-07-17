@@ -490,6 +490,104 @@ test.describe('Mood routes', () => {
       .toBe(true);
   });
 
+  test('continues older pagination during a slow detail return', async ({ page }) => {
+    const anchorId = '1000';
+    const slowImage = 'https://image.example.test/mood/return-anchor/0';
+    const channel = {
+      slug: 'e2e',
+      title: 'E2E Channel',
+      description: 'E2E mood feed',
+      avatar: '',
+    };
+    const focusedPosts = Array.from({ length: 18 }, (_, index) => {
+      const id = String(1017 - index);
+      return createMoodFeedPost(id, `E2E return pagination item ${id} ${'body '.repeat(20)}`);
+    });
+    let returning = false;
+    const beforeRequests: string[] = [];
+
+    await page.route('**/api/moods**', async (route) => {
+      const url = new URL(route.request().url());
+      const before = url.searchParams.get('before');
+      if (before) beforeRequests.push(before);
+
+      if (before === '1011') {
+        const posts = focusedPosts.map((post) => {
+          if (!returning || post.id !== '1001') return post;
+          return {
+            ...post,
+            image: slowImage,
+            imageHeight: null,
+            imageLayout: null,
+            imageWidth: null,
+          };
+        });
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({ posts, channel }),
+        });
+        return;
+      }
+
+      if (before === anchorId) {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            posts: [
+              createMoodFeedPost('999', 'E2E first post after return'),
+              createMoodFeedPost('998', 'E2E second post after return'),
+            ],
+            channel,
+          }),
+        });
+        return;
+      }
+
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ posts: focusedPosts, channel }),
+      });
+    });
+    await page.route(slowImage, async (route) => {
+      await new Promise((resolve) => setTimeout(resolve, 5_000));
+      await route.fulfill({
+        status: 200,
+        contentType: 'image/svg+xml',
+        body: '<svg xmlns="http://www.w3.org/2000/svg" width="800" height="1600"></svg>',
+      });
+    });
+
+    await page.goto(`/mood?${anchorId}`, { waitUntil: 'domcontentloaded' });
+    const anchor = page.locator(`[data-mood-id="${anchorId}"]`);
+    await expect(anchor).toBeVisible();
+    await page.waitForTimeout(1_500);
+    await anchor.hover();
+    await anchor.locator('.mood-item-expand-float').click();
+    await expect(page).toHaveURL(new RegExp(`/mood/${anchorId}$`));
+
+    returning = true;
+    const backButton = page.locator('[data-back-button]');
+    await expect(backButton).toHaveAttribute('href', new RegExp(`/mood\\?${anchorId}$`));
+    await page.goto(`/mood?${anchorId}`, { waitUntil: 'domcontentloaded' });
+    await expect(page).toHaveURL(new RegExp(`/mood\\?${anchorId}$`));
+    await expect(anchor).toBeVisible();
+
+    await page.evaluate(() => window.scrollTo({
+      top: document.documentElement.scrollHeight,
+      behavior: 'instant',
+    }));
+    await page.evaluate(() => window.dispatchEvent(new WheelEvent('wheel', {
+      bubbles: true,
+      deltaY: 600,
+    })));
+
+    await expect(page.locator('[data-mood-id="999"]')).toBeVisible({ timeout: 10_000 });
+    expect(beforeRequests).toContain(anchorId);
+  });
+
   test('keeps anchored feed position when returning from detail to the same URL', async ({ page }) => {
     const channel = {
       slug: 'e2e',
