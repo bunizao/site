@@ -886,6 +886,87 @@ test.describe('Mood routes', () => {
     expect(beforeRequests).toContain(anchorId);
   });
 
+  test('loads older moods from intent captured before controller readiness', async ({ page }) => {
+    const anchorId = '1000';
+    const channel = {
+      slug: 'e2e',
+      title: 'E2E Channel',
+      description: 'E2E mood feed',
+      avatar: '',
+    };
+    const beforeRequests: string[] = [];
+
+    await page.addInitScript(() => {
+      (window as any).__moodAnchorIntentCapture = {
+        direction: 'older',
+      };
+    });
+    await page.route('**/api/moods**', async (route) => {
+      const url = new URL(route.request().url());
+      const before = url.searchParams.get('before');
+      if (before) beforeRequests.push(before);
+
+      if (before === '1011') {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            posts: [
+              createMoodFeedPost('1002'),
+              createMoodFeedPost('1001'),
+              createMoodFeedPost(anchorId),
+            ],
+            channel,
+          }),
+        });
+        return;
+      }
+
+      if (before === anchorId) {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            posts: [createMoodFeedPost('999', 'E2E captured boundary intent item')],
+            channel,
+          }),
+        });
+        return;
+      }
+
+      if (before === '999') {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            posts: [createMoodFeedPost('998', 'E2E captured BFCache intent item')],
+            channel,
+          }),
+        });
+        return;
+      }
+
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ posts: [], channel }),
+      });
+    });
+
+    await page.goto(`/mood?${anchorId}`, { waitUntil: 'domcontentloaded' });
+
+    await expect(page.locator('[data-mood-id="999"]')).toBeVisible();
+    expect(beforeRequests).toContain(anchorId);
+
+    await page.evaluate(() => {
+      (window as any).__moodAnchorIntentCapture.direction = 'older';
+      window.dispatchEvent(new PageTransitionEvent('pageshow', { persisted: true }));
+    });
+
+    await expect(page.locator('[data-mood-id="998"]')).toBeVisible();
+    expect(beforeRequests).toContain('999');
+  });
+
   test('renders a same-day page without waiting on the following cursor', async ({ page }) => {
     const channel = {
       slug: 'e2e',

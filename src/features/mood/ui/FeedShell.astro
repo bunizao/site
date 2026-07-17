@@ -208,6 +208,63 @@ function shouldHideQuoteAuthor(value?: string): boolean {
 }
 ---
 
+{anchorId && (
+  <script is:inline>
+    (() => {
+      if (window.__moodAnchorIntentCapture) return;
+
+      let touchStartY = null;
+      const capture = {
+        direction: null,
+      };
+      const setDirection = (direction) => {
+        capture.direction = direction;
+      };
+      const onWheel = (event) => {
+        if (event.deltaY > 0) setDirection('older');
+        if (event.deltaY < 0) setDirection('newer');
+      };
+      const onKeydown = (event) => {
+        if (
+          event.key === 'ArrowDown'
+          || event.key === 'End'
+          || event.key === 'PageDown'
+          || (event.key === ' ' && !event.shiftKey)
+        ) {
+          setDirection('older');
+        }
+        if (
+          event.key === 'ArrowUp'
+          || event.key === 'Home'
+          || event.key === 'PageUp'
+          || (event.key === ' ' && event.shiftKey)
+        ) {
+          setDirection('newer');
+        }
+      };
+      const onTouchStart = (event) => {
+        touchStartY = event.touches.item(0)?.clientY ?? null;
+      };
+      const onTouchMove = (event) => {
+        const currentY = event.touches.item(0)?.clientY;
+        if (touchStartY === null || currentY === undefined) return;
+        if (touchStartY - currentY >= 12) setDirection('older');
+        if (currentY - touchStartY >= 12) setDirection('newer');
+      };
+
+      window.addEventListener('wheel', onWheel, { passive: true });
+      window.addEventListener('keydown', onKeydown);
+      window.addEventListener('touchstart', onTouchStart, { passive: true });
+      window.addEventListener('touchmove', onTouchMove, { passive: true });
+      window.addEventListener('pagehide', () => {
+        capture.direction = null;
+        touchStartY = null;
+      });
+      window.__moodAnchorIntentCapture = capture;
+    })();
+  </script>
+)}
+
 <div class="mood-page">
   <Hero initialChannel={initialChannel} />
 

@@ -109,6 +109,21 @@ export function initMoodFeedController(): void {
       const feedAnchorId = getMoodFeedAnchorId();
       let feedAnchorHandled = !feedAnchorId;
       let feedAnchorRevealInFlight = false;
+      type AnchorPaginationDirection = 'newer' | 'older';
+      type AnchorIntentCapture = {
+        direction: AnchorPaginationDirection | null;
+      };
+      const consumePendingAnchorIntent = (): AnchorPaginationDirection | null => {
+        const browserWindow = window as typeof window & {
+          __moodAnchorIntentCapture?: AnchorIntentCapture;
+        };
+        const capture = browserWindow.__moodAnchorIntentCapture;
+        if (!capture) return null;
+
+        const direction = capture.direction;
+        capture.direction = null;
+        return direction;
+      };
       hasNewer = Boolean(feedAnchorId);
       const updateWatcher = createFeedUpdateWatcher({
         list,
@@ -614,6 +629,14 @@ export function initMoodFeedController(): void {
         armAnchorNewerObserver({ trackScroll: false });
         armAnchorOlderObserver({ trackScroll: false });
         runOnNextFrame(() => {
+          const pendingIntent = consumePendingAnchorIntent();
+          if (applyAnchorPaginationIntent(pendingIntent)) {
+            feedAnchorHandled = true;
+            feedAnchorRevealInFlight = false;
+            setStatus('');
+            return;
+          }
+
           void (async () => {
             if (feedAnchorHandled) {
               feedAnchorRevealInFlight = false;
@@ -648,7 +671,7 @@ export function initMoodFeedController(): void {
       };
 
       const revealCurrentUrlFeedAnchor = (
-        options: { force?: boolean; rearmPagination?: boolean } = {}
+        options: { force?: boolean; trackPagination?: boolean } = {}
       ): void => {
         if (!options.force && window.location.href === initialFeedPageHref) return;
         const currentAnchorId = readCurrentUrlAnchorId();
@@ -658,17 +681,11 @@ export function initMoodFeedController(): void {
 
         runOnNextFrame(() => {
           void (async () => {
-            if (options.rearmPagination) {
-              resetAnchorPaginationObservers();
-              armAnchorNewerObserver({ trackScroll: false });
-              armAnchorOlderObserver({ trackScroll: false });
-            }
-
             const handled = await revealAndStabilizeAnchor(currentAnchorId, {
               highlight: preferredTop === null,
               preferredTop,
             });
-            if (handled && options.rearmPagination) {
+            if (handled && options.trackPagination) {
               runOnNextFrame(() => {
                 trackAnchorNewerObserverScroll();
                 trackAnchorOlderObserverScroll();
@@ -805,6 +822,21 @@ export function initMoodFeedController(): void {
         ) {
           void loadMore();
         }
+      }
+
+      function applyAnchorPaginationIntent(
+        direction: AnchorPaginationDirection | null
+      ): boolean {
+        if (!direction) return false;
+
+        if (direction === 'newer') {
+          openAnchorNewerObserverGate();
+          void loadNewer();
+        } else {
+          openAnchorOlderObserverGate();
+          void loadMore();
+        }
+        return true;
       }
 
       function enableAnchorOlderObserverOnScroll(): void {
@@ -1157,7 +1189,7 @@ export function initMoodFeedController(): void {
           updateWatcher.init();
         }
         const scheduleCurrentUrlFeedAnchorReveal = (
-          options: { rearmPagination?: boolean } = {}
+          options: { trackPagination?: boolean } = {}
         ): void => {
           runOnNextFrame(() => {
             revealCurrentUrlFeedAnchor({ force: true, ...options });
@@ -1166,7 +1198,12 @@ export function initMoodFeedController(): void {
 
         window.addEventListener('pageshow', (event) => {
           if (event.persisted) {
-            scheduleCurrentUrlFeedAnchorReveal({ rearmPagination: true });
+            resetAnchorPaginationObservers();
+            armAnchorNewerObserver({ trackScroll: false });
+            armAnchorOlderObserver({ trackScroll: false });
+            if (!applyAnchorPaginationIntent(consumePendingAnchorIntent())) {
+              scheduleCurrentUrlFeedAnchorReveal({ trackPagination: true });
+            }
           }
           patchVisibleMoodMeta();
         });
