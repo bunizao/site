@@ -10,7 +10,7 @@ import {
   hasMarkdownRenderer,
 } from './registry';
 
-const EDGE_CACHE_VERSION = '1';
+const EDGE_CACHE_VERSION = '2';
 const CLOUDFLARE_CDN_CACHE_CONTROL_HEADER = 'Cloudflare-CDN-Cache-Control';
 const CONTENT_STALE_WHILE_REVALIDATE_SECONDS = 300;
 const NO_STORE_CACHE_CONTROL = 'no-store, max-age=0';
