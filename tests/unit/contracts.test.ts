@@ -50,6 +50,7 @@ describe('@bunizao/contracts', () => {
           title: 'Example story',
           description: 'A structured link preview.',
           siteName: 'Example',
+          linkPreviewLayout: 'large',
         },
         {
           type: 'location',

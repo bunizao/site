@@ -146,7 +146,9 @@ function renderLinkPreview(media: MediaItem): string {
   const title = (media.title || href).trim();
   const description = media.description?.trim() ?? '';
   const siteName = media.siteName?.trim() ?? '';
-  const cardClass = thumbnail ? 'bookmark-card bookmark-card--side-media' : 'bookmark-card';
+  const cardClass = thumbnail && media.linkPreviewLayout === 'compact'
+    ? 'bookmark-card bookmark-card--side-media'
+    : 'bookmark-card';
 
   return [
     `<a class="${cardClass}" href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer">`,

@@ -28,6 +28,7 @@ export interface MediaItem {
   title?: string;
   description?: string;
   siteName?: string;
+  linkPreviewLayout?: 'large' | 'compact';
   fileName?: string;
   fileSizeLabel?: string;
   mimeType?: string;

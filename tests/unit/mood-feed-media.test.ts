@@ -61,6 +61,28 @@ describe('structured mood feed media rendering', () => {
     expect(html).not.toContain(' src="https://image.example.test/mood/1/video.mp4"');
   });
 
+  test('uses the existing large and compact bookmark card layouts', () => {
+    const html = renderStructuredMoodFeedMediaMarkup([
+      {
+        type: 'link-preview',
+        href: 'https://example.test/article',
+        title: 'Large preview',
+        thumbnailSrc: 'https://image.example.test/large.jpg',
+        linkPreviewLayout: 'large',
+      },
+      {
+        type: 'link-preview',
+        href: 'https://example.test/profile',
+        title: 'Compact preview',
+        thumbnailSrc: 'https://image.example.test/avatar.jpg',
+        linkPreviewLayout: 'compact',
+      },
+    ]);
+
+    expect(html).toContain('class="bookmark-card" href="https://example.test/article"');
+    expect(html).toContain('class="bookmark-card bookmark-card--side-media" href="https://example.test/profile"');
+  });
+
   test('skips image convenience media and unsafe URLs', () => {
     const html = renderStructuredMoodFeedMediaMarkup([
       {

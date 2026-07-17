@@ -88,6 +88,7 @@ describe('structured mood detail content rendering', () => {
           description: 'A useful link',
           siteName: 'Example',
           thumbnailSrc: 'https://image.example.test/mood/42/link.jpg',
+          linkPreviewLayout: 'compact',
         },
         {
           type: 'document',
