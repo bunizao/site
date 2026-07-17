@@ -132,6 +132,12 @@ function createReactionPill(reaction: MoodReaction): HTMLElement {
   return pill;
 }
 
+function syncReactionsContainerVisibility(container: HTMLElement): void {
+  const hasReactions = Boolean(container.querySelector('[data-mood-reaction-key]'));
+  const hasComments = Boolean(container.querySelector('.mood-comments-wrapper:not(.is-hidden)'));
+  container.classList.toggle('is-hidden', !hasReactions && !hasComments);
+}
+
 function patchReactionCounts(target: HTMLElement, reactions: readonly MoodReaction[]): void {
   const container = target.querySelector<HTMLElement>('.mood-item-reactions, .mood-post-reactions');
   if (!container) return;
@@ -157,7 +163,7 @@ function patchReactionCounts(target: HTMLElement, reactions: readonly MoodReacti
     container.appendChild(createReactionPill(reaction));
   });
 
-  container.classList.toggle('is-hidden', reactions.length === 0);
+  syncReactionsContainerVisibility(container);
 }
 
 function patchCommentCounts(target: HTMLElement, id: string, value: number): void {
@@ -178,6 +184,9 @@ function patchCommentCounts(target: HTMLElement, id: string, value: number): voi
 
     updateText(wrapper.querySelector('.mood-comments-count'), label);
   });
+
+  const container = target.querySelector<HTMLElement>('.mood-item-reactions, .mood-post-reactions');
+  if (container) syncReactionsContainerVisibility(container);
 }
 
 function patchMoodTarget(root: ParentNode, id: string, count: MoodLiveCount): void {

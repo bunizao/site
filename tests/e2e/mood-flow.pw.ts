@@ -382,6 +382,51 @@ test.describe('Mood routes', () => {
     await expect(page.locator('[data-mood-list] .mood-item').first()).toBeVisible();
   });
 
+  test('shows live comments on an archived post without reactions', async ({ page }) => {
+    const moodId = '991234';
+    const payload = createMoodFeedPayload(moodId);
+    payload.posts[0].commentsCount = 0;
+
+    await page.route('**/api/v2/mood**', async (route) => {
+      const url = new URL(route.request().url());
+      if (url.searchParams.get('probe') === '1') {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({ latestId: moodId }),
+        });
+        return;
+      }
+
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(payload),
+      });
+    });
+    await page.route('**/api/v2/moods/live-counts?*', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          counts: {
+            [moodId]: {
+              commentsCount: 4,
+              reactions: [],
+            },
+          },
+        }),
+      });
+    });
+
+    await page.goto('/mood?source=archive', { waitUntil: 'domcontentloaded' });
+
+    const item = page.locator(`[data-mood-id="${moodId}"]`);
+    const comments = item.locator('.mood-comments-wrapper');
+    await expect(comments.locator('.mood-comments-count')).toHaveText('4');
+    await expect(comments).toBeVisible();
+  });
+
   test('returns from detail to the originating feed anchor', async ({ page }) => {
     const channel = {
       slug: 'e2e',
