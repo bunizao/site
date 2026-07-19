@@ -6,6 +6,11 @@
   "workspaces": [
     "packages/*"
   ],
+  "browserslist": [
+    "defaults",
+    "safari >= 15",
+    "ios_saf >= 15"
+  ],
   "scripts": {
     "dev": "ASTRO_DEV_BACKGROUND=0 astro dev",
     "dev:site": "ASTRO_DEV_BACKGROUND=0 astro dev",
