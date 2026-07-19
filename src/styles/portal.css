@@ -194,6 +194,7 @@ html.theme-portal section {
   padding: 18px 32px;
   border-bottom: 1px solid hsl(var(--border));
   background: hsl(var(--background) / 0.92);
+  -webkit-backdrop-filter: blur(8px);
   backdrop-filter: blur(8px);
   position: sticky;
   top: 0;

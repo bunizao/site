@@ -62,7 +62,7 @@ jobs:
             echo "Mock Cloudflare deployment unexpectedly passed."
             exit 1
           fi
-          rg --fixed-strings "Cloudflare deploy blocked mock Ghost posts" "$RUNNER_TEMP/wrangler-guard.log"
+          grep -F "Cloudflare deploy blocked mock Ghost posts" "$RUNNER_TEMP/wrangler-guard.log"
 
   site-e2e:
     name: Site E2E

@@ -794,6 +794,7 @@ const postReactions = post?.reactions ?? [];
     display: none;
     border: none;
     background: hsl(var(--background) / 0.95);
+    -webkit-backdrop-filter: blur(10px);
     backdrop-filter: blur(10px);
     padding: 20px;
     max-width: 90vw;
@@ -930,6 +931,7 @@ const postReactions = post?.reactions ?? [];
     line-height: 1;
     letter-spacing: 0;
     font-variant-numeric: tabular-nums;
+    -webkit-backdrop-filter: blur(8px);
     backdrop-filter: blur(8px);
   }
 
