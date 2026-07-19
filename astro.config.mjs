@@ -195,7 +195,11 @@ export default defineConfig({
     build: {
       sourcemap: isCoverageEnabled,
       minify: 'esbuild',
-      cssMinify: true,
+      // Vite defaults cssMinify to lightningcss, which collapses the
+      // `-webkit-backdrop-filter` + `backdrop-filter` pair into a single
+      // declaration and strips the glass effect in Chrome. esbuild keeps
+      // both vendor variants intact.
+      cssMinify: 'esbuild',
     },
     resolve: {
       alias: {
