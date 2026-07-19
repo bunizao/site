@@ -12,6 +12,44 @@ import type {
   SubscriberStatus,
 } from './notify';
 
+export const TELEGRAM_OPS_WEBHOOK_PATH = '/webhooks/telegram-ops' as const;
+
+export const NOTIFY_GATE_PATH = '/admin/notify-gate' as const;
+export const NOTIFY_GATE_RELEASE_PATH = `${NOTIFY_GATE_PATH}/release` as const;
+
+export const NOTIFY_GATE_STATES = ['open', 'held'] as const;
+export type NotifyGateState = (typeof NOTIFY_GATE_STATES)[number];
+
+export const NOTIFY_GATE_DECISIONS = ['digest', 'individual', 'drop'] as const;
+export type NotifyGateDecision = (typeof NOTIFY_GATE_DECISIONS)[number];
+
+export interface NotifyGateConfig {
+  thresholdCount: number;
+  thresholdWindowMinutes: number;
+  autoReleaseAfterHours: number;
+}
+
+export interface NotifyGateStatus {
+  channel: NotifyChannel;
+  state: NotifyGateState;
+  heldSince: string | null;
+  heldPostIds: string[];
+  recentDispatchCount: number;
+  config: NotifyGateConfig;
+}
+
+export interface NotifyGateReleaseInput {
+  decision: NotifyGateDecision;
+}
+
+export interface NotifyGateReleaseResult {
+  channel: NotifyChannel;
+  decision: NotifyGateDecision;
+  releasedPostIds: string[];
+  actor: string;
+  releasedAt: string;
+}
+
 export const TELEGRAM_OPS_BASE_PATH = '/admin/integrations/telegram-ops' as const;
 export const TELEGRAM_OPS_OVERVIEW_PATH =
   `${TELEGRAM_OPS_BASE_PATH}/overview` as const;
