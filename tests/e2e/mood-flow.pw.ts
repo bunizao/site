@@ -13,6 +13,11 @@ function createMoodFeedPost(
     imageKind: 'sticker' | null;
     imageLayout: string | null;
     imageWidth: number | null;
+    gallery: {
+      count: number;
+      items: Array<Record<string, unknown>>;
+    } | null;
+    groupIds: string[];
     media: Array<Record<string, unknown>>;
     previewMediaType: string;
   }> = {}
@@ -815,6 +820,67 @@ test.describe('Mood routes', () => {
       groups.every((group) => group.querySelectorAll('.mood-item').length > 0)
     ));
     expect(dateGroupsHaveItems).toBe(true);
+  });
+
+  test('renders a grouped album once and preserves a member alias through detail navigation', async ({ page }) => {
+    const canonicalId = '3470';
+    const anchorId = '3472';
+    const groupIds = ['3470', '3471', '3472', '3473'];
+    const items = groupIds.map((_, index) => ({
+      src: `https://image.example.test/mood/${canonicalId}/${index}`,
+      fallbackSrc: null,
+      width: 1200,
+      height: 900,
+      layout: 'landscape',
+      alt: '',
+    }));
+    const post = createMoodFeedPost(canonicalId, "what i've done in 24 hrs", {
+      groupIds,
+      gallery: { count: items.length, items },
+      image: items[0]?.src ?? null,
+      imageHeight: 900,
+      imageLayout: 'landscape',
+      imageWidth: 1200,
+    });
+    const channel = {
+      slug: 'e2e',
+      title: 'E2E Channel',
+      description: 'E2E mood feed',
+      avatar: '',
+    };
+    const tinyGif = Buffer.from('R0lGODlhAQABAIABAP///wAAACwAAAAAAQABAAACAkQBADs=', 'base64');
+
+    await page.route(/\/api\/v2\/mood(?:\?|$)/, async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ posts: [post], channel }),
+      });
+    });
+    await page.route('https://image.example.test/**', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'image/gif',
+        body: tinyGif,
+      });
+    });
+
+    await page.goto(`/mood?${anchorId}&source=archive`, { waitUntil: 'domcontentloaded' });
+
+    const album = page.locator(`[data-mood-id="${canonicalId}"]`);
+    const images = album.locator('[data-mood-gallery-image]');
+    await expect(album).toBeVisible();
+    await expect(album).toHaveAttribute('data-mood-group-ids', groupIds.join(','));
+    await expect(page.locator('[data-mood-list] .mood-item')).toHaveCount(1);
+    await expect(images).toHaveCount(4);
+    await expect(images.nth(0)).toHaveAttribute('src', /\/3470\/0$/);
+    await expect(images.nth(3)).toHaveAttribute('data-deferred-src', /\/3470\/3$/);
+
+    const detailLink = album.locator('.mood-item-expand-float');
+    await expect(detailLink).toHaveAttribute('href', '/mood/3472');
+    await detailLink.click();
+    await expect(page).toHaveURL(/\/mood\/3472$/);
+    await expect(page.locator('[data-back-button]')).toHaveAttribute('href', '/mood?3472');
   });
 
   test('loads older moods when an anchored feed starts at the bottom boundary', async ({ page }) => {

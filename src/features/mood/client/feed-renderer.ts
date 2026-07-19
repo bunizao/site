@@ -3,7 +3,10 @@ import {
   getMoodDetailHref,
   getMoodFeedAnchorFragmentId,
   getMoodFeedAnchorHref,
+  getMoodFeedPostIds,
   MOOD_FEED_RETURN_ANCHOR_STORAGE_KEY,
+  moodFeedPostHasId,
+  readMoodFeedAnchorId,
 } from '@/features/mood/shared/feed-anchor';
 import { buildMoodPreviewFragment } from '@/features/mood/shared/preview';
 import { findTooBigVideoMedia, renderStructuredMoodFeedMediaMarkup } from '@/features/mood/shared/feed-media';
@@ -216,12 +219,39 @@ export function createFeedRenderer({
     list.querySelector('[data-mood-gallery-priority="true"], img[fetchpriority="high"]')
   );
 
+  const getMoodElementIds = (item: HTMLElement): string[] => {
+    const groupIds = (item.dataset.moodGroupIds ?? '').split(',');
+    return [...new Set([item.dataset.moodId ?? '', ...groupIds].map((value) => value.trim()).filter(Boolean))];
+  };
+
+  const moodElementHasId = (item: HTMLElement, id: string): boolean => (
+    getMoodElementIds(item).includes(id)
+  );
+
+  const findMoodElement = (id: string): HTMLElement | null => (
+    Array.from(list.querySelectorAll<HTMLElement>('[data-mood-id]')).find(
+      (item) => moodElementHasId(item, id)
+    ) ?? null
+  );
+
   list.querySelectorAll<HTMLElement>('[data-mood-id]').forEach((item) => {
-    const id = item.dataset.moodId;
-    if (id) {
-      renderedIdSet.add(id);
-    }
+    getMoodElementIds(item).forEach((id) => renderedIdSet.add(id));
   });
+
+  const registerRenderedPost = (post: MoodData): void => {
+    getMoodFeedPostIds(post).forEach((id) => renderedIdSet.add(id));
+  };
+
+  const filterInsertablePosts = (posts: MoodData[]): MoodData[] => {
+    const claimedIds = new Set(renderedIdSet);
+    return posts.filter((post) => {
+      const ids = getMoodFeedPostIds(post);
+      if (!ids.length || ids.some((id) => claimedIds.has(id))) return false;
+
+      ids.forEach((id) => claimedIds.add(id));
+      return true;
+    });
+  };
 
   const normalizeAuthorName = (value: string): string =>
     value.replace(/\s+/g, ' ').trim().replace(/^@/, '').toLowerCase().replace(/[^\w-]+$/g, '');
@@ -261,9 +291,7 @@ export function createFeedRenderer({
   };
 
   const scrollToMood = (id: string, options: { behavior?: ScrollBehavior; highlight?: boolean } = {}): boolean => {
-    const target = Array.from(list.querySelectorAll<HTMLElement>('[data-mood-id]')).find(
-      (item) => item.dataset.moodId === id
-    ) ?? null;
+    const target = findMoodElement(id);
     if (!target) return false;
 
     const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -277,8 +305,20 @@ export function createFeedRenderer({
     return true;
   };
 
+  const getMoodNavigationId = (mood: MoodData): string => {
+    try {
+      const currentAnchorId = readMoodFeedAnchorId(new URL(window.location.href));
+      if (currentAnchorId && moodFeedPostHasId(mood, currentAnchorId)) {
+        return currentAnchorId;
+      }
+    } catch {
+      // Fall through to the canonical post id.
+    }
+    return mood.id;
+  };
+
   const createMoodItem = (mood: MoodData, index: number): HTMLElement => {
-    const detailHref = getMoodDetailHref(mood.id);
+    const detailHref = getMoodDetailHref(getMoodNavigationId(mood));
     const mediaHtml = typeof mood.mediaHtml === 'string' ? mood.mediaHtml.trim() : '';
     const hasMediaHtml = mediaHtml.length > 0;
     const tooBigVideoMedia = findTooBigVideoMedia(mood.media);
@@ -302,6 +342,10 @@ export function createFeedRenderer({
     }
 
     element.dataset.moodId = mood.id;
+    const groupIds = getMoodFeedPostIds(mood);
+    if (groupIds.length > 1) {
+      element.dataset.moodGroupIds = groupIds.join(',');
+    }
     const fragmentId = getMoodFeedAnchorFragmentId(mood.id);
     if (fragmentId) {
       element.id = fragmentId;
@@ -771,12 +815,19 @@ export function createFeedRenderer({
   };
 
   const rememberMoodReturnTarget = (id: string): void => {
-    const returnHref = getMoodFeedAnchorHref(id);
+    const target = findMoodElement(id);
+    let returnId = id;
+    try {
+      const currentAnchorId = readMoodFeedAnchorId(new URL(window.location.href));
+      if (currentAnchorId && target && moodElementHasId(target, currentAnchorId)) {
+        returnId = currentAnchorId;
+      }
+    } catch {
+      // Keep the supplied post id when the current URL cannot be parsed.
+    }
+    const returnHref = getMoodFeedAnchorHref(returnId);
     if (returnHref === '/mood') return;
     window.history.replaceState(window.history.state, '', returnHref);
-    const target = Array.from(list.querySelectorAll<HTMLElement>('[data-mood-id]')).find(
-      (item) => item.dataset.moodId === id
-    );
     const top = target?.getBoundingClientRect().top ?? null;
     try {
       window.sessionStorage.setItem(
@@ -784,7 +835,7 @@ export function createFeedRenderer({
         JSON.stringify({
           createdAt: Date.now(),
           href: returnHref,
-          id,
+          id: returnId,
           top: typeof top === 'number' && Number.isFinite(top) ? top : null,
         })
       );
@@ -862,7 +913,7 @@ export function createFeedRenderer({
     const listFragment = document.createDocumentFragment();
 
     grouped.forEach((datePosts, dateKey) => {
-      const insertablePosts = datePosts.filter((post) => post?.id && !renderedIdSet.has(post.id));
+      const insertablePosts = filterInsertablePosts(datePosts);
       if (insertablePosts.length === 0) return;
 
       let entry = getGroupEntry(dateKey);
@@ -883,7 +934,7 @@ export function createFeedRenderer({
       const itemsFragment = document.createDocumentFragment();
       insertablePosts.forEach((post) => {
         itemsFragment.appendChild(createMoodItem(post, globalIndex));
-        renderedIdSet.add(post.id);
+        registerRenderedPost(post);
         globalIndex += 1;
       });
       itemsContainer.appendChild(itemsFragment);
@@ -914,7 +965,7 @@ export function createFeedRenderer({
     const firstListChild = list.firstChild;
 
     grouped.forEach((datePosts, dateKey) => {
-      const insertablePosts = datePosts.filter((post) => post?.id && !renderedIdSet.has(post.id));
+      const insertablePosts = filterInsertablePosts(datePosts);
       if (insertablePosts.length === 0) return;
 
       let entry = getGroupEntry(dateKey);
@@ -935,7 +986,7 @@ export function createFeedRenderer({
       const itemsFragment = document.createDocumentFragment();
       insertablePosts.forEach((post) => {
         itemsFragment.appendChild(createMoodItem(post, globalIndex));
-        renderedIdSet.add(post.id);
+        registerRenderedPost(post);
         globalIndex += 1;
         insertedCount += 1;
       });

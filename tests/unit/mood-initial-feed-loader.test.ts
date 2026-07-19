@@ -9,6 +9,13 @@ function createFeed(ids: string[]) {
   };
 }
 
+function createGroupedFeed(id: string, groupIds: string[]) {
+  return {
+    posts: [{ id, groupIds }],
+    channel: {},
+  };
+}
+
 describe('initial mood feed loader', () => {
   test('loads focused and fallback anchor windows concurrently', async () => {
     const started: string[] = [];
@@ -40,6 +47,20 @@ describe('initial mood feed loader', () => {
 
     expect(feed?.cacheable).toBe(true);
     expect(feed?.value.posts.map((post) => post.id)).toEqual(['3641', '3640', '3639']);
+  });
+
+  test('prefers the focused window when it contains a grouped member alias', async () => {
+    const feed = await loadInitialMoodFeed({
+      anchorId: '3472',
+      focusedBefore: '3481',
+      fallbackBefore: '3473',
+      loadFeed: async ({ before }) => before === '3481'
+        ? createGroupedFeed('3470', ['3470', '3471', '3472', '3473'])
+        : createFeed([]),
+    });
+
+    expect(feed.cacheable).toBe(true);
+    expect(feed.value.posts.map((post) => post.id)).toEqual(['3470']);
   });
 
   test('uses the latest feed only after both anchor requests fail', async () => {

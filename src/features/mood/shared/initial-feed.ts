@@ -3,6 +3,7 @@ import {
   findTooBigVideoMedia,
   hasStructuredMoodFeedMedia,
 } from '@/features/mood/shared/feed-media';
+import { moodFeedPostHasId } from '@/features/mood/shared/feed-anchor';
 
 export const CRITICAL_INITIAL_POST_LIMIT = 8;
 
@@ -27,7 +28,7 @@ export function getCriticalInitialPosts(
   const firstMediaIndex = source.findIndex(hasRenderableMoodFeedMedia);
   const mediaLimit = firstMediaIndex >= 0 ? firstMediaIndex + 1 : 0;
   const requiredIndex = requiredPostId
-    ? source.findIndex((post) => post.id === requiredPostId)
+    ? source.findIndex((post) => moodFeedPostHasId(post, requiredPostId))
     : -1;
   const requiredLimit = requiredIndex >= 0 ? requiredIndex + 1 : 0;
   const limit = Math.max(baseLimit, mediaLimit, requiredLimit);

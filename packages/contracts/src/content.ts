@@ -59,6 +59,7 @@ export interface QuoteRef {
 
 export interface ContentDocument {
   id: string;
+  groupIds?: string[];
   source: ContentDocumentSource;
   datetime: string;
   updatedAt?: string;

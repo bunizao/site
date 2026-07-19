@@ -128,6 +128,7 @@ export interface MoodGallery {
 
 export interface MoodFeedItem {
   id: string;
+  groupIds?: string[];
   datetime: string;
   tag: string;
   previewText: string;
@@ -151,6 +152,7 @@ export interface MoodFeedItem {
 
 export interface MoodData {
   id: string;
+  groupIds?: string[];
   datetime: string;
   tag?: string;
   previewText: string;

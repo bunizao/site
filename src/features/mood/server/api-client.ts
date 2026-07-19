@@ -441,6 +441,7 @@ export function moodDocumentToFeedItem(document: MoodContentDocument): MoodFeedI
 
   return {
     id: document.id,
+    ...(document.groupIds ? { groupIds: document.groupIds } : {}),
     datetime: document.datetime,
     tag: document.tag ?? '',
     previewText: document.previewText ?? '',

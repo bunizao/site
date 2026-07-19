@@ -67,6 +67,23 @@ export function getMoodFeedAnchorWindowBeforeCursor(anchorId: string): string {
   return addMoodFeedCursorOffset(bucketBase, MOOD_FEED_ANCHOR_WINDOW_OFFSET + 1n);
 }
 
+interface MoodFeedPostIdentity {
+  id?: string | null;
+  groupIds?: readonly (string | null | undefined)[] | null;
+}
+
+export function getMoodFeedPostIds(post: MoodFeedPostIdentity): string[] {
+  const ids = [post.id, ...(post.groupIds ?? [])]
+    .map((id) => id?.trim() ?? '')
+    .filter(isMoodFeedAnchorId);
+  return [...new Set(ids)];
+}
+
+export function moodFeedPostHasId(post: MoodFeedPostIdentity, id: string): boolean {
+  const target = id.trim();
+  return Boolean(target && getMoodFeedPostIds(post).includes(target));
+}
+
 function compareMoodFeedIdsDescending(a: string, b: string): number {
   const left = BigInt(a);
   const right = BigInt(b);
@@ -74,16 +91,19 @@ function compareMoodFeedIdsDescending(a: string, b: string): number {
   return left > right ? -1 : 1;
 }
 
-export function mergeMoodFeedWindowPosts<T extends { id?: string | null }>(...groups: T[][]): T[] {
-  const postsById = new Map<string, T>();
+export function mergeMoodFeedWindowPosts<T extends MoodFeedPostIdentity>(...groups: T[][]): T[] {
+  const posts: T[] = [];
+  const seenIds = new Set<string>();
 
   groups.flat().forEach((post) => {
-    const id = post.id?.trim() ?? '';
-    if (!isMoodFeedAnchorId(id) || postsById.has(id)) return;
-    postsById.set(id, post);
+    const ids = getMoodFeedPostIds(post);
+    if (!ids.length || ids.some((id) => seenIds.has(id))) return;
+
+    ids.forEach((id) => seenIds.add(id));
+    posts.push(post);
   });
 
-  return Array.from(postsById.values()).sort((a, b) => {
+  return posts.sort((a, b) => {
     return compareMoodFeedIdsDescending(a.id ?? '0', b.id ?? '0');
   });
 }

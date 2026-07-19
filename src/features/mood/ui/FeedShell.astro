@@ -4,7 +4,11 @@ import type { MoodFeedItem, MoodChannelSummary } from '@/features/mood/server/co
 import { renderMoodGalleryMarkup } from '@/features/mood/shared/gallery-render';
 import { findTooBigVideoMedia, hasStructuredMoodFeedMedia, renderStructuredMoodFeedMediaMarkup } from '@/features/mood/shared/feed-media';
 import { getMoodFeedThumbnailStyle } from '@/features/mood/shared/feed-thumbnail';
-import { getMoodDetailHref, getMoodFeedAnchorFragmentId } from '@/features/mood/shared/feed-anchor';
+import {
+  getMoodDetailHref,
+  getMoodFeedAnchorFragmentId,
+  moodFeedPostHasId,
+} from '@/features/mood/shared/feed-anchor';
 import { getCriticalInitialPosts, hasRenderableMoodFeedMedia } from '@/features/mood/shared/initial-feed';
 import { getMoodReactionKey } from '@/features/mood/client/meta-patcher';
 
@@ -48,7 +52,7 @@ const hasCriticalInitialPosts = criticalInitialPosts.length > 0;
 const criticalInitialPostIds = new Set(criticalInitialPosts.map((post) => post.id));
 const inlineInitialPosts = initialPosts.map((post) =>
   criticalInitialPostIds.has(post.id)
-    ? { id: post.id, datetime: post.datetime }
+    ? { id: post.id, groupIds: post.groupIds, datetime: post.datetime }
     : post
 );
 
@@ -123,11 +127,15 @@ function groupPostsByDate(posts: MoodFeedItem[]): Array<{ dateKey: string; posts
   return Array.from(groups, ([dateKey, groupPosts]) => ({ dateKey, posts: groupPosts }));
 }
 
-function getPostHref(post: MoodFeedItem): string | undefined {
+function getPostNavigationId(post: MoodFeedItem): string {
+  return anchorId && moodFeedPostHasId(post, anchorId) ? anchorId : post.id;
+}
+
+function getPostHref(post: MoodFeedItem, navigationId: string): string | undefined {
   const tooBigVideoMedia = findTooBigVideoMedia(post.media);
   const structuredMedia = tooBigVideoMedia ? post.media.filter((item) => item !== tooBigVideoMedia) : post.media;
   return post.needsDetailPage && !post.mediaHtml.trim() && !hasStructuredMoodFeedMedia(structuredMedia)
-    ? getMoodDetailHref(post.id)
+    ? getMoodDetailHref(navigationId)
     : undefined;
 }
 
@@ -321,8 +329,9 @@ function shouldHideQuoteAuthor(value?: string): boolean {
           </div>
           <div class="mood-date-items">
             {group.posts.map((post, index) => {
-              const detailHref = getMoodDetailHref(post.id);
-              const href = getPostHref(post);
+              const navigationId = getPostNavigationId(post);
+              const detailHref = getMoodDetailHref(navigationId);
+              const href = getPostHref(post, navigationId);
               const tooBigVideoMedia = findTooBigVideoMedia(post.media);
               const mediaHtml = post.mediaHtml.trim();
               const feedMedia = tooBigVideoMedia ? post.media.filter((item) => item !== tooBigVideoMedia) : post.media;
@@ -343,6 +352,7 @@ function shouldHideQuoteAuthor(value?: string): boolean {
                   class={`mood-item${href ? ' mood-item--clickable' : ''}`}
                   id={fragmentId || undefined}
                   data-mood-id={post.id}
+                  data-mood-group-ids={post.groupIds?.join(',') || undefined}
                   data-href={href}
                   role={href ? 'link' : undefined}
                   tabindex={href ? 0 : undefined}
@@ -499,7 +509,7 @@ function shouldHideQuoteAuthor(value?: string): boolean {
                       >
                           <a
                             class="mood-item-comments"
-                            href={getMoodDetailHref(post.id, '#comments')}
+                            href={getMoodDetailHref(navigationId, '#comments')}
                             title={`${commentsInfo.label} comment${commentsInfo.count === 1 ? '' : 's'}`}
                             aria-haspopup="dialog"
                             aria-expanded="false"

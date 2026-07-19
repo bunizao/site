@@ -79,4 +79,22 @@ describe('critical mood initial feed selection', () => {
       '10',
     ]);
   });
+
+  test('includes a grouped post when the required anchor is a member alias', () => {
+    const posts = Array.from({ length: 12 }, (_, index) => createPost(String(index + 1)));
+    posts[9] = createPost('10', { groupIds: ['10', '11', '12'] });
+
+    expect(getCriticalInitialPosts(posts, '12').map((post) => post.id)).toEqual([
+      '1',
+      '2',
+      '3',
+      '4',
+      '5',
+      '6',
+      '7',
+      '8',
+      '9',
+      '10',
+    ]);
+  });
 });

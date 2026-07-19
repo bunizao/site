@@ -9,8 +9,10 @@ import { hydrateMoodRichText } from '@/features/mood/client/rich-text';
 import {
   getMoodFeedAnchorBeforeCursor,
   getMoodFeedAnchorWindowBeforeCursor,
+  getMoodFeedPostIds,
   mergeMoodFeedWindowPosts,
   MOOD_FEED_RETURN_ANCHOR_STORAGE_KEY,
+  moodFeedPostHasId,
   readMoodFeedAnchorId,
 } from '@/features/mood/shared/feed-anchor';
 import type {
@@ -163,6 +165,10 @@ export function initMoodFeedController(): void {
         }
       };
 
+      const registerMoodPost = (post: Pick<MoodData, 'id' | 'groupIds'>): void => {
+        getMoodFeedPostIds(post).forEach(registerMoodId);
+      };
+
       const getBeforeId = (): string => {
         return oldestId || fallbackOldestId;
       };
@@ -186,8 +192,9 @@ export function initMoodFeedController(): void {
       const collectUnseenPosts = (posts: MoodData[]): MoodData[] => {
         const ready: MoodData[] = [];
         posts.forEach((post) => {
-          if (!post?.id || moodIdSet.has(post.id)) return;
-          registerMoodId(post.id);
+          const ids = getMoodFeedPostIds(post);
+          if (!ids.length || ids.some((id) => moodIdSet.has(id))) return;
+          registerMoodPost(post);
           ready.push(post);
         });
         return ready;
@@ -380,8 +387,17 @@ export function initMoodFeedController(): void {
         });
       };
 
+      const getMoodElementIds = (item: HTMLElement): string[] => {
+        const groupIds = (item.dataset.moodGroupIds ?? '').split(',');
+        return [...new Set([item.dataset.moodId ?? '', ...groupIds].map((value) => value.trim()).filter(Boolean))];
+      };
+
+      const moodElementHasId = (item: HTMLElement, id: string): boolean => (
+        getMoodElementIds(item).includes(id)
+      );
+
       const waitForAnchorPrecedingMedia = async (id: string): Promise<void> => {
-        const target = list.querySelector<HTMLElement>(`[data-mood-id="${id}"]`);
+        const target = getMoodAnchorTarget(id);
         if (!target) return;
 
         const unsettledImages: HTMLImageElement[] = [];
@@ -406,7 +422,7 @@ export function initMoodFeedController(): void {
 
       const getMoodAnchorTarget = (id: string): HTMLElement | null => (
         Array.from(list.querySelectorAll<HTMLElement>('[data-mood-id]')).find(
-          (item) => item.dataset.moodId === id
+          (item) => moodElementHasId(item, id)
         ) ?? null
       );
 
@@ -989,7 +1005,7 @@ export function initMoodFeedController(): void {
           ? await fetchMoods({ beforeId: windowBeforeId })
           : emptyFeed;
         const focusedPosts = Array.isArray(focused.posts) ? focused.posts : [];
-        if (focusedPosts.some((post) => post.id === feedAnchorId)) {
+        if (focusedPosts.some((post) => moodFeedPostHasId(post, feedAnchorId))) {
           return { posts: focusedPosts, channel: focused.channel };
         }
 
@@ -1111,7 +1127,9 @@ export function initMoodFeedController(): void {
         try {
           const data = await fetchMoods({ afterId: currentNewestId });
           const posts = Array.isArray(data.posts)
-            ? data.posts.filter((post) => isMoodIdGreaterThan(post.id, currentNewestId))
+            ? data.posts.filter((post) => (
+                getMoodFeedPostIds(post).some((id) => isMoodIdGreaterThan(id, currentNewestId))
+              ))
             : [];
           if (data.channel) {
             channelInfo = data.channel;

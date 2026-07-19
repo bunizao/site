@@ -9,6 +9,7 @@ import {
   getMoodFeedAnchorWindowBeforeCursor,
   isMoodFeedAnchorId,
   mergeMoodFeedWindowPosts,
+  moodFeedPostHasId,
   readMoodFeedAnchorId,
 } from '../../src/features/mood/shared/feed-anchor';
 
@@ -66,5 +67,15 @@ describe('mood feed anchors', () => {
     );
 
     expect(posts.map((post) => post.id)).toEqual(['3198', '3197', '3196', '3195']);
+  });
+
+  test('matches grouped member aliases and deduplicates overlapping album windows', () => {
+    const album = { id: '3470', groupIds: ['3470', '3471', '3472', '3473'] };
+
+    expect(moodFeedPostHasId(album, '3472')).toBe(true);
+    expect(mergeMoodFeedWindowPosts(
+      [album],
+      [{ id: '3473', groupIds: ['3470', '3471', '3472', '3473'] }],
+    )).toEqual([album]);
   });
 });

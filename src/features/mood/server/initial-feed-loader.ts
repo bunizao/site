@@ -1,7 +1,10 @@
-import { mergeMoodFeedWindowPosts } from '@/features/mood/shared/feed-anchor';
+import {
+  mergeMoodFeedWindowPosts,
+  moodFeedPostHasId,
+} from '@/features/mood/shared/feed-anchor';
 
 interface MoodFeedWindow {
-  posts: Array<{ id?: string | null }>;
+  posts: Array<{ id?: string | null; groupIds?: string[] }>;
 }
 
 interface LoadInitialMoodFeedOptions<T extends MoodFeedWindow> {
@@ -42,7 +45,7 @@ export async function loadInitialMoodFeed<T extends MoodFeedWindow>(
   const focused = valueFrom(focusedResult);
   const fallback = valueFrom(fallbackResult);
 
-  if (focused?.posts.some((post) => post.id === anchorId)) {
+  if (focused?.posts.some((post) => moodFeedPostHasId(post, anchorId))) {
     return { value: focused, cacheable: true };
   }
 
