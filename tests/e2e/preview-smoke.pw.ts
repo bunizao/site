@@ -92,13 +92,6 @@ test.describe('Preview smoke', () => {
     expect(await sitemap.text()).toContain('<loc>https://buxx.me/blog/</loc>');
   });
 
-  test('keeps protected docs behind Access without an identity', async ({ request }) => {
-    const response = await request.get('/docs/quality/debug-logs/');
-
-    expect(response.status()).toBe(401);
-    expect(response.headers()['cache-control']).toContain('no-store');
-  });
-
   test('redirects the dev root to the admin portal', async ({ request }) => {
     const response = await request.get('/dev', { maxRedirects: 0 });
 
@@ -114,14 +107,6 @@ test.describe('Preview smoke', () => {
     expect(response.status()).toBe(308);
     const location = new URL(response.headers().location ?? '', response.url());
     expect(`${location.pathname}${location.search}`).toBe('/api/v2/admin/auth/start?next=%2Fdev%2Fportal');
-  });
-
-  test('renders public docs without login', async ({ page }) => {
-    await page.goto('/docs/overview/architecture/');
-
-    await expect(page).toHaveURL(/\/docs\/overview\/architecture\/?$/);
-    await expect(page.getByRole('heading', { name: 'Architecture' })).toBeVisible();
-    await expect(page.getByText('Protected — authenticated admins only.')).toHaveCount(0);
   });
 
   test('shows the requested URI on the 404 page', async ({ page }) => {

@@ -51,6 +51,7 @@ This is the public Worker. The private Worker `site-api` lives in the sibling re
 
 - `@` maps to `./src` (configured in `astro.config.mjs`). Use `@/lib/utils` instead of relative paths.
 - See `docs/ARCHITECTURE.md` for full directory structure, API endpoints, data sources, and environment variables.
+- `docs/README.md` is the docs index: living reference in `docs/`, active plans in `docs/plans/`, frozen shipped records in `docs/archive/`. When a code change makes a living doc wrong, fix the doc in the same PR; never update anything in `docs/archive/`.
 
 ## Image Uploads
 

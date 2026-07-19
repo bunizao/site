@@ -72,7 +72,6 @@
     "wrangler": "^4.107.1"
   },
   "dependencies": {
-    "@astrojs/starlight": "^0.41.3",
     "@bunizao/contracts": "workspace:*",
     "@bunizao/decode-text": "workspace:*",
     "@chenglou/pretext": "^0.0.8",

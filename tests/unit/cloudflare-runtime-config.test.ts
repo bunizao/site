@@ -206,7 +206,6 @@ describe('Cloudflare runtime configuration', () => {
       '/dev/*',
       '/oauth*',
       '/v2/*',
-      '/docs*',
     ]);
     expect(config.routes).toContainEqual({ pattern: 'buxx.me/*', zone_name: 'buxx.me' });
     expect(config.routes).toContainEqual({ pattern: 'www.buxx.me/*', zone_name: 'buxx.me' });
@@ -412,8 +411,6 @@ describe('Cloudflare runtime configuration', () => {
     const docsText = [
       'docs/HOME.md',
       'docs/WORKER-SITE.md',
-      'src/content/docs/docs/surfaces/home.md',
-      'src/content/docs/docs/infra/worker-site.md',
     ].map(readText).join('\n');
 
     expect(docsText).toContain('Cloudflare Workers Builds deploy hook');
