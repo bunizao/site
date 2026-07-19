@@ -53,6 +53,7 @@ export interface MoodCommentsQuery {
 }
 
 export interface MoodDocumentQuery {
+  fallback?: boolean;
   source?: MoodApiSource;
 }
 
@@ -190,9 +191,18 @@ export async function loadMoodFeed(
   }
 
   if (source === 'archive') {
+    const loadArchive = () => fetchMoodArchiveApiJson<MoodFeedResponse>(
+      context,
+      MOOD_ARCHIVE_FEED_PATH,
+      moodFeedParams(query),
+    );
+    if (query.fallback === false) {
+      return loadArchive();
+    }
+
     return loadMoodArchiveWithFallback(
       'feed',
-      () => fetchMoodArchiveApiJson<MoodFeedResponse>(context, MOOD_ARCHIVE_FEED_PATH, moodFeedParams(query)),
+      loadArchive,
       async () => {
         const { channelInfo, posts } = await loadMoodChannelSnapshot(context, {
           before: query.before,
@@ -276,9 +286,20 @@ export async function loadMoodDocument(
   }
 
   if (source === 'archive') {
+    const params = new URLSearchParams();
+    if (query.fallback === false) params.set('fallback', '0');
+    const loadArchive = () => fetchMoodArchiveApiJson<MoodContentDocument | null>(
+      context,
+      `${MOOD_ARCHIVE_FEED_PATH}/${encodeURIComponent(id)}`,
+      params,
+    );
+    if (query.fallback === false) {
+      return loadArchive();
+    }
+
     return loadMoodArchiveWithFallback(
       'detail',
-      () => fetchMoodArchiveApiJson<MoodContentDocument | null>(context, `${MOOD_ARCHIVE_FEED_PATH}/${encodeURIComponent(id)}`),
+      loadArchive,
       async () => {
         const { post, channelInfo } = await loadMoodPostSnapshot(context, id);
         if (!post) return null;

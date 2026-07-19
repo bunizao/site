@@ -219,9 +219,13 @@ export function initMoodFeedController(): void {
         if (options.afterId) {
           query.set('after', options.afterId);
         }
+        const archiveRead = feedEl.dataset.moodReadSource === 'archive';
+        if (archiveRead) {
+          query.set('fallback', '0');
+        }
         const queryString = query.toString();
-        const endpoints = feedEl.dataset.moodReadSource === 'archive'
-          ? ['/api/v2/mood', '/api/moods']
+        const endpoints = archiveRead
+          ? ['/api/v2/mood']
           : ['/api/moods'];
         let lastError: unknown = new Error('Failed to load moods.');
 

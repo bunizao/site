@@ -39,12 +39,12 @@ let channelTitle = '';
 let channelAvatar = '';
 
 if (idParam) {
-  const post = await loadMoodDocument(context, idParam);
+  const post = await loadMoodDocument(context, idParam, { source: 'archive', fallback: false });
   feedPosts = post ? [moodDocumentToFeedItem(post)] : [];
   channelTitle = post?.channel?.title || 'Levitating';
   channelAvatar = toMoodAvatarUrl(post?.channel?.avatar || '', Astro.locals);
 } else {
-  const feed = await loadMoodFeed(context, { limit: count });
+  const feed = await loadMoodFeed(context, { limit: count, source: 'archive', fallback: false });
   feedPosts = feed.posts.slice(0, count);
   channelTitle = feed.channel.title || 'Levitating';
   channelAvatar = toMoodAvatarUrl(feed.channel.avatar || '', Astro.locals);

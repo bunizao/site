@@ -40,13 +40,16 @@ const moodReadSource = resolveMoodReadSource(
   Astro.locals,
   normalizeMoodApiSource(Astro.url.searchParams.get('source')) ?? undefined,
 );
+const moodReadFallback = moodReadSource === 'archive'
+  ? Astro.url.searchParams.get('fallback') === '1'
+  : true;
 
 try {
   if (id) {
     post = await loadMoodDocument(
       { request: Astro.request, locals: Astro.locals },
       id,
-      { source: moodReadSource },
+      { source: moodReadSource, fallback: moodReadFallback },
     );
   }
 } catch (fetchError) {

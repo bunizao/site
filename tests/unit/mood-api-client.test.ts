@@ -148,6 +148,42 @@ describe('mood API client', () => {
     ]);
   });
 
+  test('does not invoke the live reader when strict archive reads fail', async () => {
+    const originalFetch = globalThis.fetch;
+    let liveFetchCalls = 0;
+    globalThis.fetch = (async () => {
+      liveFetchCalls += 1;
+      return new Response('unexpected live read', { status: 503 });
+    }) as unknown as typeof fetch;
+    const context = createContext({
+      env: {
+        API: {
+          async fetch() {
+            return new Response('archive unavailable', { status: 500 });
+          },
+        },
+        CHANNEL: 'tutumood',
+      },
+    });
+    let error: unknown;
+
+    try {
+      await loadMoodFeed(context, {
+        limit: 20,
+        source: 'archive',
+        fallback: false,
+      });
+    } catch (caught) {
+      error = caught;
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+
+    expect(error).toBeInstanceOf(Error);
+    expect((error as Error).message).toContain('Mood archive request failed: 500');
+    expect(liveFetchCalls).toBe(0);
+  });
+
   test('keeps E2E fixture mode independent from the service binding', async () => {
     const context = createContext({ env: { E2E_SITE_FIXTURE: '1' } });
 

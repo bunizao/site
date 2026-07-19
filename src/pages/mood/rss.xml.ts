@@ -11,7 +11,10 @@ export const GET: APIRoute = async ({ request, locals, site }) => {
   const baseUrl = site ?? new URL(requestUrl.origin);
 
   try {
-    const feed = await loadMoodFeed({ request, locals }, { limit: MAX_ITEMS });
+    const feed = await loadMoodFeed(
+      { request, locals },
+      { limit: MAX_ITEMS, source: 'archive', fallback: false },
+    );
     const xml = buildMoodRssXml(feed.channel, feed.posts.slice(0, MAX_ITEMS), baseUrl);
 
     return new Response(xml, {
