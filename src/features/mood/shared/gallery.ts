@@ -1,5 +1,6 @@
 import * as cheerio from 'cheerio';
 import type { Element } from 'domhandler';
+import { buildArchiveSrcSet } from '@/features/mood/shared/image-srcset';
 
 export type MoodGalleryVariant = 'feed' | 'detail';
 export type MoodGalleryLayout = 'landscape' | 'portrait' | 'ultra-tall';
@@ -347,11 +348,14 @@ export function renderMoodGalleryMarkup(
     .map((item, index) => {
       const layoutClass = item.layout ? ` mood-gallery-slide--${item.layout}` : '';
       const aspectRatio = getMoodGalleryAspectRatioValue(item);
+      const responsive = buildArchiveSrcSet(item.src, { sizes: getMoodGallerySizes(variant) });
       const attrs = [
         'class="mood-gallery-image"',
         'data-mood-gallery-image',
         `data-gallery-index="${index}"`,
         `data-deferred-src="${escapeHtml(item.src)}"`,
+        responsive.srcset ? `data-deferred-srcset="${escapeHtml(responsive.srcset)}"` : '',
+        responsive.srcset && responsive.sizes ? `data-sizes="${escapeHtml(responsive.sizes)}"` : '',
         item.fallbackSrc ? `data-fallback-src="${escapeHtml(item.fallbackSrc)}"` : '',
         item.width ? `width="${item.width}"` : '',
         item.height ? `height="${item.height}"` : '',
