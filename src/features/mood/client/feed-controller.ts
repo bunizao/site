@@ -135,6 +135,7 @@ export function initMoodFeedController(): void {
         updateRefreshBtn,
         isLoading: () => isLoading,
         getTotalCount: () => totalCount,
+        readSource: feedEl.dataset.moodReadSource,
       });
       const metaPatcher = createMoodMetaPatcher({
         root: feedEl,
@@ -1215,6 +1216,7 @@ export function initMoodFeedController(): void {
             resetAnchorPaginationObservers();
             armAnchorNewerObserver({ trackScroll: false });
             armAnchorOlderObserver({ trackScroll: false });
+            updateWatcher.resume();
             if (!applyAnchorPaginationIntent(consumePendingAnchorIntent())) {
               scheduleCurrentUrlFeedAnchorReveal({ trackPagination: true });
             }
