@@ -849,12 +849,27 @@ test.describe('Mood routes', () => {
       avatar: '',
     };
     const tinyGif = Buffer.from('R0lGODlhAQABAIABAP///wAAACwAAAAAAQABAAACAkQBADs=', 'base64');
+    const beforeRequests: string[] = [];
+    const afterRequests: string[] = [];
 
-    await page.route(/\/api\/v2\/mood(?:\?|$)/, async (route) => {
+    await page.route(/\/api\/(?:v2\/mood|moods)(?:\?|$)/, async (route) => {
+      const url = new URL(route.request().url());
+      const before = url.searchParams.get('before');
+      const after = url.searchParams.get('after');
+      if (before) beforeRequests.push(before);
+      if (after) afterRequests.push(after);
+
+      const posts = after === '3473'
+        ? [createMoodFeedPost('3474', 'Newer than the album')]
+        : before === '3470'
+          ? [createMoodFeedPost('3469', 'Older than the album')]
+          : before === '3491'
+            ? [post]
+            : [];
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify({ posts: [post], channel }),
+        body: JSON.stringify({ posts, channel }),
       });
     });
     await page.route('https://image.example.test/**', async (route) => {
@@ -881,6 +896,24 @@ test.describe('Mood routes', () => {
     await detailLink.click();
     await expect(page).toHaveURL(/\/mood\/3472$/);
     await expect(page.locator('[data-back-button]')).toHaveAttribute('href', '/mood?3472');
+
+    await followMoodBackButton(page);
+    await expect(page).toHaveURL(/\/mood\?3472$/);
+    await expect(album).toBeVisible();
+
+    await page.evaluate(() => {
+      window.dispatchEvent(new WheelEvent('wheel', { deltaY: -600 }));
+      window.scrollTo({ top: 0, behavior: 'instant' });
+    });
+    await expect(page.locator('[data-mood-id="3474"]')).toBeVisible();
+    expect(afterRequests).toContain('3473');
+
+    await page.evaluate(() => {
+      window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'instant' });
+      window.dispatchEvent(new WheelEvent('wheel', { deltaY: 600 }));
+    });
+    await expect(page.locator('[data-mood-id="3469"]')).toBeVisible();
+    expect(beforeRequests).toContain('3470');
   });
 
   test('loads older moods when an anchored feed starts at the bottom boundary', async ({ page }) => {
