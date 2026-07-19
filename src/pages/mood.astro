@@ -16,6 +16,7 @@ import {
 } from '@/features/mood/shared/feed-anchor';
 import { loadInitialMoodFeed as loadInitialMoodFeedWindow } from '@/features/mood/server/initial-feed-loader';
 import { buildArchiveSrcSet } from '@/features/mood/shared/image-srcset';
+import { normalizeMoodTagSlug } from '@/features/mood/shared/tag-filter';
 import { isE2ESiteFixtureEnabled } from '@/lib/e2e';
 import { readEnv, readPublicEnv } from '@/lib/runtime/env';
 import '@/styles/mood-gallery.css';
@@ -34,11 +35,13 @@ const telegramUrl = channel ? `https://t.me/${channel}` : '';
 const turnstileSiteKey = isE2ESiteFixtureEnabled(Astro.locals)
   ? ''
   : readPublicEnv(Astro.locals, 'TURNSTILE_SITE_KEY');
-const moodFeedAnchorId = readMoodFeedAnchorId(Astro.url);
+const moodTagFilter = normalizeMoodTagSlug(Astro.url.searchParams.get('tag'));
+// Tag mode is a plain filtered feed: no anchor deep links, archive reads only.
+const moodFeedAnchorId = moodTagFilter ? '' : readMoodFeedAnchorId(Astro.url);
 const moodFeedAnchorBeforeCursor = getMoodFeedAnchorBeforeCursor(moodFeedAnchorId);
 const moodFeedAnchorWindowBeforeCursor = getMoodFeedAnchorWindowBeforeCursor(moodFeedAnchorId);
 const requestedMoodReadSource = normalizeMoodApiSource(Astro.url.searchParams.get('source')) ?? undefined;
-const moodReadSource = resolveMoodReadSource(Astro.locals, requestedMoodReadSource);
+const moodReadSource = moodTagFilter ? 'archive' : resolveMoodReadSource(Astro.locals, requestedMoodReadSource);
 const moodReadFresh = Astro.url.searchParams.has('fresh') || Astro.url.searchParams.has('refresh');
 
 async function loadInitialMoodFeed() {
@@ -55,6 +58,7 @@ async function loadInitialMoodFeed() {
         ...query,
         fresh: moodReadFresh,
         source: moodReadSource,
+        ...(moodTagFilter ? { tag: moodTagFilter, fallback: false } : {}),
       }),
     });
     if (!result.cacheable) {
@@ -292,6 +296,7 @@ const skeletonGroups = [
       initialChannel={initialFeed?.channel}
       anchorId={moodFeedAnchorId}
       readSource={moodReadSource}
+      tagFilter={moodTagFilter}
     />
   </main>
   <SubscribePanel variant="mood" id="mood" anchor="right" withTrigger={false} feed={rssHref} turnstileSiteKey={turnstileSiteKey} />
@@ -1408,6 +1413,13 @@ const skeletonGroups = [
     font-size: 11px;
     color: hsl(var(--muted-foreground) / 0.6);
     align-self: flex-start;
+    text-decoration: none;
+    transition: color 0.15s ease;
+  }
+
+  :global(a.mood-item-tag:hover),
+  :global(a.mood-item-tag:focus-visible) {
+    color: hsl(var(--foreground));
   }
 
   /* Reactions */

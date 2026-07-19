@@ -35,6 +35,7 @@ import {
   getMoodFeedAnchorBucketBase,
   isMoodFeedAnchorId,
 } from '@/features/mood/shared/feed-anchor';
+import { normalizeMoodTagSlug } from '@/features/mood/shared/tag-filter';
 import { readBuiltBlogMarkdown } from './built-blog';
 import privacyMarkdownRaw from '@/content/pages/privacy.md?raw';
 
@@ -113,6 +114,13 @@ function normalizeMoodFeedCacheSearch(url: URL): string | null {
   if (entries.length !== 1) return null;
 
   const [[key, value]] = entries;
+
+  // A single valid tag filter is a cacheable page: /mood?tag=<slug>.
+  if (key === 'tag') {
+    const tagSlug = normalizeMoodTagSlug(value);
+    return tagSlug && tagSlug === value ? `?tag=${tagSlug}` : null;
+  }
+
   const anchorId = key === 'post' || key === 'id'
     ? value.trim()
     : value.trim() === ''

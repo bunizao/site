@@ -14,6 +14,7 @@ import { buildMoodPreviewFragment } from '@/features/mood/shared/preview';
 import { findTooBigVideoMedia, renderStructuredMoodFeedMediaMarkup } from '@/features/mood/shared/feed-media';
 import { getMoodFeedThumbnailStyle } from '@/features/mood/shared/feed-thumbnail';
 import { formatMoodDateHeader, formatMoodTime } from '@/features/mood/shared/date-grouping';
+import { getMoodTagHref } from '@/features/mood/shared/tag-filter';
 import { getMoodReactionKey } from '@/features/mood/client/meta-patcher';
 import type { ChannelInfo, MoodData } from '@/features/mood/client/feed-types';
 
@@ -715,8 +716,9 @@ export function createFeedRenderer({
     element.appendChild(expandBtn);
 
     if (mood.tag) {
-      const tag = document.createElement('span');
+      const tag = document.createElement('a');
       tag.className = 'mood-item-tag';
+      tag.href = getMoodTagHref(mood.tag);
       tag.textContent = `#${mood.tag}`;
       content.appendChild(tag);
     }

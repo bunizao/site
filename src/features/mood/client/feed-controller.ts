@@ -105,7 +105,10 @@ export function initMoodFeedController(): void {
       let oldestNumericId = Number.POSITIVE_INFINITY;
       let oldestId = '';
       let fallbackOldestId = '';
-      const feedAnchorId = getMoodFeedAnchorId();
+      // Tag mode: plain filtered feed. No anchors, and the update watcher stays
+      // off (its probe checks channel-latest, meaningless under a tag filter).
+      const feedTagFilter = feedEl.dataset.moodTag?.trim() ?? '';
+      const feedAnchorId = feedTagFilter ? '' : getMoodFeedAnchorId();
       let feedAnchorHandled = !feedAnchorId;
       let feedAnchorRevealInFlight = false;
       type AnchorPaginationDirection = 'newer' | 'older';
@@ -224,7 +227,12 @@ export function initMoodFeedController(): void {
         if (options.afterId) {
           query.set('after', options.afterId);
         }
-        const archiveRead = feedEl.dataset.moodReadSource === 'archive';
+        if (feedTagFilter) {
+          query.set('tag', feedTagFilter);
+        }
+        // Tag filtering only exists on the archive route; tag mode always SSRs
+        // with readSource=archive, so both flags agree here.
+        const archiveRead = feedEl.dataset.moodReadSource === 'archive' || Boolean(feedTagFilter);
         if (archiveRead) {
           query.set('fallback', '0');
         }
@@ -723,7 +731,7 @@ export function initMoodFeedController(): void {
       };
 
       const startUpdateWatcher = (): void => {
-        if (!feedAnchorId) {
+        if (!feedAnchorId && !feedTagFilter) {
           updateWatcher.start();
         }
       };
@@ -1213,7 +1221,7 @@ export function initMoodFeedController(): void {
         newerRetryButton?.addEventListener('click', loadNewer);
         initialRetryButton?.addEventListener('click', () => window.location.reload());
 
-        if (!feedAnchorId) {
+        if (!feedAnchorId && !feedTagFilter) {
           updateWatcher.init();
         }
         const scheduleCurrentUrlFeedAnchorReveal = (

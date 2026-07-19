@@ -16,6 +16,7 @@ import {
   formatMoodTime,
 } from '@/features/mood/shared/date-grouping';
 import { buildArchiveSrcSet } from '@/features/mood/shared/image-srcset';
+import { getMoodTagHref, normalizeMoodTagSlug } from '@/features/mood/shared/tag-filter';
 import { getMoodReactionKey } from '@/features/mood/client/meta-patcher';
 import { serializeScriptJson } from '@/lib/serialize-script-json';
 
@@ -36,6 +37,7 @@ interface Props {
   initialChannel?: MoodChannelSummary;
   anchorId?: string;
   readSource?: 'live' | 'archive';
+  tagFilter?: string;
 }
 
 const {
@@ -44,7 +46,10 @@ const {
   initialChannel,
   anchorId = '',
   readSource = 'live',
+  tagFilter = '',
 } = Astro.props;
+
+const activeTagFilter = normalizeMoodTagSlug(tagFilter);
 
 const criticalInitialPosts = getCriticalInitialPosts(initialPosts, anchorId);
 const criticalDateGroups = groupPostsByDate(criticalInitialPosts);
@@ -234,6 +239,14 @@ function shouldHideQuoteAuthor(value?: string): boolean {
 <div class="mood-page">
   <Hero initialChannel={initialChannel} />
 
+  {activeTagFilter && (
+    <div class="mood-tag-filter" data-mood-tag-filter>
+      <span class="mood-tag-filter-label">Filtering by</span>
+      <span class="mood-tag-filter-tag">#{activeTagFilter}</span>
+      <a class="mood-tag-filter-clear" href="/mood">All moods</a>
+    </div>
+  )}
+
   <div class={`mood-loading${hasCriticalInitialPosts ? ' is-hidden' : ''}`} data-mood-loading>
     <div class="mood-skeleton-stream" aria-hidden="true">
       {skeletonGroups.map((group) => (
@@ -273,6 +286,7 @@ function shouldHideQuoteAuthor(value?: string): boolean {
     data-mood-feed
     data-mood-anchor-id={anchorId || undefined}
     data-mood-read-source={readSource}
+    data-mood-tag={activeTagFilter || undefined}
   >
     {hasInitialFeedPayload && (
       <script is:inline type="application/json" data-mood-initial-feed set:html={initialFeedPayloadJson}></script>
@@ -515,7 +529,7 @@ function shouldHideQuoteAuthor(value?: string): boolean {
                         </div>
                     </div>
 
-                    {post.tag ? <span class="mood-item-tag">#{post.tag}</span> : null}
+                    {post.tag ? <a class="mood-item-tag" href={getMoodTagHref(post.tag)}>#{post.tag}</a> : null}
                   </div>
                 </div>
               );
@@ -591,6 +605,48 @@ function shouldHideQuoteAuthor(value?: string): boolean {
   .mood-error {
     padding: 60px 0;
     text-align: center;
+  }
+
+  .mood-tag-filter {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    max-width: 680px;
+    margin: 0 auto 24px;
+    font-size: 13px;
+  }
+
+  @media (min-width: 1024px) {
+    .mood-tag-filter {
+      max-width: 720px;
+    }
+  }
+
+  .mood-tag-filter-label {
+    color: hsl(var(--muted-foreground) / 0.7);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  .mood-tag-filter-tag {
+    font-weight: 600;
+    color: hsl(var(--foreground));
+  }
+
+  .mood-tag-filter-clear {
+    margin-left: auto;
+    font-size: 12px;
+    color: hsl(var(--muted-foreground));
+    text-decoration: none;
+    border-bottom: 1px solid hsl(var(--foreground) / 0.2);
+    transition: color 0.15s ease, border-color 0.15s ease;
+  }
+
+  .mood-tag-filter-clear:hover,
+  .mood-tag-filter-clear:focus-visible {
+    color: hsl(var(--foreground));
+    border-bottom-color: hsl(var(--foreground) / 0.5);
   }
 
   .mood-error.is-hidden {
