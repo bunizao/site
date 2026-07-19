@@ -128,20 +128,41 @@ async function buildMoodWheelItem(): Promise<RegistryItem> {
 }
 
 async function buildListeningItem(): Promise<RegistryItem> {
-  const component = await readRegistryFile('features/home/ui/Listening.astro', 'registry:lib');
-  component.content = component.content
+  const rewriteImports = (content: string) => content
     .replace("@/features/home/types", '@/lib/listening-types')
-    .replace("@/assets/apple-logo.svg?raw", '@/lib/apple-logo.svg?raw');
+    .replace("@/assets/apple-logo.svg?raw", '@/lib/apple-logo.svg?raw')
+    .replace("@/lib/listening/markup", '@/lib/listening-markup')
+    .replace("@/lib/listening/controller", '@/lib/listening-controller')
+    .replace("@/styles/listening.css", '@/lib/listening.css');
   return {
     $schema: REGISTRY_ITEM_SCHEMA,
     name: 'listening',
     type: 'registry:lib',
-    dependencies: ['lucide-react'],
     files: [
-      component,
+      await readRepoRegistryFile(
+        'src/features/home/ui/Listening.astro',
+        'features/home/ui/Listening.astro',
+        'registry:lib',
+        rewriteImports
+      ),
       await readRepoRegistryFile(
         'src/features/home/types.ts',
         'lib/listening-types.ts',
+        'registry:lib'
+      ),
+      await readRepoRegistryFile(
+        'src/lib/listening/markup.ts',
+        'lib/listening-markup.ts',
+        'registry:lib'
+      ),
+      await readRepoRegistryFile(
+        'src/lib/listening/controller.ts',
+        'lib/listening-controller.ts',
+        'registry:lib'
+      ),
+      await readRepoRegistryFile(
+        'src/styles/listening.css',
+        'lib/listening.css',
         'registry:lib'
       ),
       await readRegistryFile('lib/musickit/player.ts', 'registry:lib'),

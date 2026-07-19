@@ -90,7 +90,19 @@ describe('components showcase registry', () => {
     const item = await buildRegistryItem(registryEntry('listening'));
 
     expect(item.files[0]?.content).toContain("from '@/lib/listening-types'");
+    expect(item.files[0]?.content).toContain("from '@/lib/listening-markup'");
+    expect(item.files[0]?.content).toContain("from '@/lib/listening-controller'");
+    expect(item.files[0]?.content).toContain("import '@/lib/listening.css'");
     expect(item.files[1]?.content).toBe(readText('src/features/home/types.ts'));
+    expect(item.files.map(({ path }) => path)).toEqual([
+      'features/home/ui/Listening.astro',
+      'lib/listening-types.ts',
+      'lib/listening-markup.ts',
+      'lib/listening-controller.ts',
+      'lib/listening.css',
+      'lib/musickit/player.ts',
+      'assets/apple-logo.svg',
+    ]);
   });
 
   test('publishes the mobile reading bar as an installable component', async () => {
