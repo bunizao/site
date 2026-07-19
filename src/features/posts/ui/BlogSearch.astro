@@ -1,24 +1,29 @@
 ---
 // ⌘K command-palette search for the /blog publication. The engine is Pagefind
 // (mature static-site full-text search): the build step indexes dist/client and
-// emits /pagefind/, including its own UI bundle, so there is no runtime search
-// dependency to ship or maintain. This component is just the shell — a trigger
-// button, a native <dialog> (top-layer, Esc-to-close, focus-trapped for free),
-// and a lazy loader that mounts PagefindUI on first open and themes it to match
-// the blog tokens. Indexing is scoped to blog posts via `data-pagefind-body`
-// on the article (see pages/blog/[slug].astro).
+// emits /pagefind/, so there is no runtime search dependency to ship or
+// maintain. This component is the shell — a trigger button, a native <dialog>
+// (top-layer, Esc-to-close, focus-trapped for free), and a lazy loader that
+// mounts PagefindUI on first open. Only Pagefind's JS is loaded; its default
+// stylesheet is not — every .pagefind-ui__* hook is restyled below in the blog
+// language (hairlines, faint tokens, hover pill), so the dialog reads as part
+// of the publication rather than a third-party widget. Indexing is scoped to
+// blog posts via `data-pagefind-body` on the article (see
+// pages/blog/[slug].astro) and built with `--force-language zh` so Chinese
+// body text is word-segmented; without it a mis-detected `en` index makes CJK
+// prose unsearchable and excerpts inconsistent.
 ---
 
-<button class="blog-search-trigger" type="button" data-blog-search-open aria-label="Search posts" title="Search posts (⌘K)" aria-keyshortcuts="Control+K Meta+K">
+<button class="blog-search-trigger" type="button" data-blog-search-open aria-label="搜索文章" title="搜索文章（⌘K）" aria-keyshortcuts="Control+K Meta+K">
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
     <circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" />
   </svg>
 </button>
 
-<dialog class="blog-search" data-blog-search aria-label="Search posts">
+<dialog class="blog-search" data-blog-search aria-label="搜索文章">
   <div class="blog-search__panel">
     <div id="blog-search-ui"></div>
-    <p class="blog-search__fallback" hidden>Search isn't available here — try a production build.</p>
+    <p class="blog-search__fallback" hidden>搜索暂不可用 — 索引由生产构建生成。</p>
   </div>
 </dialog>
 
@@ -32,13 +37,6 @@
     const mount = dialog.querySelector<HTMLElement>('#blog-search-ui');
     const fallback = dialog.querySelector<HTMLElement>('.blog-search__fallback');
     let ready: Promise<void> | null = null;
-
-    const loadStyle = (href: string) => {
-      const link = document.createElement('link');
-      link.rel = 'stylesheet';
-      link.href = href;
-      document.head.appendChild(link);
-    };
 
     const loadScript = (src: string) =>
       new Promise<void>((resolve, reject) => {
@@ -55,7 +53,6 @@
     function ensureUI(): Promise<void> {
       if (!ready) {
         ready = (async () => {
-          loadStyle('/pagefind/pagefind-ui.css');
           await loadScript('/pagefind/pagefind-ui.js');
           const Ctor = (window as unknown as { PagefindUI?: PagefindUICtor }).PagefindUI;
           if (!Ctor) throw new Error('PagefindUI missing');
@@ -64,12 +61,23 @@
             // Text-only keeps the calm; also avoids a broken placeholder for
             // posts that ship without a feature image.
             showImages: false,
-            showSubResults: true,
+            // Sub-results split a post into per-heading fragments, but only
+            // for posts that happen to have headings — mixed with plain
+            // results the list reads inconsistent. One row per post instead.
+            showSubResults: false,
             autofocus: true,
             resetStyles: false,
             translations: {
-              placeholder: 'Search posts',
-              zero_results: 'Nothing found for "[SEARCH_TERM]"',
+              placeholder: '搜索文章',
+              clear_search: '清除',
+              load_more: '加载更多结果',
+              search_label: '搜索文章',
+              searching: '正在搜索「[SEARCH_TERM]」…',
+              zero_results: '没有找到「[SEARCH_TERM]」的结果',
+              one_result: '「[SEARCH_TERM]」的 [COUNT] 条结果',
+              many_results: '「[SEARCH_TERM]」的 [COUNT] 条结果',
+              alt_search: '没有找到「[SEARCH_TERM]」的结果，改为显示「[DIFFERENT_TERM]」的结果',
+              search_suggestion: '没有找到「[SEARCH_TERM]」的结果，试试搜索：',
             },
           });
         })().catch((err) => {
@@ -106,6 +114,25 @@
     // clicks that land on the dialog box itself are outside the panel).
     dialog.addEventListener('click', (event) => {
       if (event.target === dialog) close();
+    });
+
+    // Palette-style keyboard flow: ↓ from the input walks the result links,
+    // ↑ from the first link returns to the input. No wrap — predictable ends.
+    dialog.addEventListener('keydown', (event) => {
+      if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return;
+      const links = Array.from(
+        dialog.querySelectorAll<HTMLAnchorElement>('.pagefind-ui__result-link'),
+      );
+      if (links.length === 0) return;
+      event.preventDefault();
+      const index = links.indexOf(document.activeElement as HTMLAnchorElement);
+      if (event.key === 'ArrowDown') {
+        (index < 0 ? links[0] : links[index + 1] ?? links[index])?.focus();
+      } else if (index === 0) {
+        focusInput();
+      } else if (index > 0) {
+        links[index - 1]?.focus();
+      }
     });
 
     const isTyping = () => {
@@ -172,10 +199,11 @@
     height: 18px;
   }
 
-  /* Dialog — centered command palette, blog-themed Pagefind UI inside. */
+  /* Dialog — centered command palette. Fixed input row on top, results scroll
+     beneath it. `[open]` gate keeps the UA's display:none for the closed state. */
   .blog-search {
     width: min(640px, calc(100vw - 32px));
-    max-height: min(70vh, 640px);
+    max-height: min(70vh, 560px);
     margin-top: 12vh;
     margin-inline: auto;
     padding: 0;
@@ -189,30 +217,192 @@
     outline: none;
     overflow: hidden;
   }
+  .blog-search[open] {
+    display: flex;
+    flex-direction: column;
+  }
   .blog-search::backdrop {
     background: rgb(0 0 0 / 0.42);
     backdrop-filter: blur(2px);
   }
+  /* Pass the column flex down through Pagefind's wrappers so the drawer
+     (results) is the one element that scrolls while the input row stays put. */
+  .blog-search__panel,
+  .blog-search #blog-search-ui,
+  .blog-search .pagefind-ui,
+  .blog-search .pagefind-ui__form {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
   .blog-search__panel {
-    padding: 14px;
+    flex: 1;
   }
   .blog-search__fallback {
-    margin: 8px 4px 4px;
+    margin: 16px 20px;
     color: var(--blog-muted);
     font-size: 14px;
   }
 
-  /* Theme Pagefind's UI to the blog. These are Pagefind's documented hooks. */
-  .blog-search #blog-search-ui {
-    --pagefind-ui-scale: 0.9;
-    --pagefind-ui-primary: var(--blog-ink);
-    --pagefind-ui-text: var(--blog-body);
-    --pagefind-ui-background: hsl(var(--background));
-    --pagefind-ui-border: var(--blog-line);
-    --pagefind-ui-tag: var(--blog-fill);
-    --pagefind-ui-border-width: 1px;
-    --pagefind-ui-border-radius: 10px;
-    --pagefind-ui-font: inherit;
+  /* Pagefind's stylesheet is not loaded, so its two functional classes must be
+     recreated: hidden collapses the drawer pre-query, suppressed hides the
+     clear button while keeping its layout slot. */
+  .blog-search .pagefind-ui__hidden {
+    display: none !important;
+  }
+  .blog-search .pagefind-ui__suppressed {
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  /* --- Input row ---------------------------------------------------------- */
+  .blog-search .pagefind-ui__form {
+    position: relative;
+  }
+  .blog-search .pagefind-ui__form::before {
+    content: '';
+    position: absolute;
+    top: 19px;
+    left: 18px;
+    width: 18px;
+    height: 18px;
+    background: var(--blog-faint);
+    -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='m20 20-3.5-3.5'/%3E%3C/svg%3E") center / 100% no-repeat;
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='m20 20-3.5-3.5'/%3E%3C/svg%3E") center / 100% no-repeat;
+    pointer-events: none;
+  }
+  .blog-search .pagefind-ui__search-input {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 100%;
+    height: 56px;
+    padding: 0 72px 0 48px;
+    /* 16px floor — anything smaller triggers iOS focus zoom. */
+    font-size: 16px;
+    font-family: inherit;
+    font-weight: 450;
+    color: var(--blog-ink);
+    background: transparent;
+    border: 0;
+    border-bottom: 1px solid var(--blog-line);
+    border-radius: 0;
+    outline: none;
+  }
+  .blog-search .pagefind-ui__search-input::placeholder {
+    color: var(--blog-faint);
+  }
+  .blog-search .pagefind-ui__search-clear {
+    position: absolute;
+    top: 14px;
+    right: 12px;
+    height: 28px;
+    padding: 0 10px;
+    font-size: 12px;
+    font-family: inherit;
+    color: var(--blog-faint);
+    background: transparent;
+    border: 0;
+    border-radius: 999px;
+    cursor: pointer;
+    transition: color 0.15s ease, background 0.15s ease;
+  }
+  .blog-search .pagefind-ui__search-clear:hover {
+    color: var(--blog-ink);
+    background: var(--blog-fill);
+  }
+
+  /* --- Results ------------------------------------------------------------ */
+  .blog-search .pagefind-ui__drawer {
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 6px 8px 8px;
+  }
+  .blog-search .pagefind-ui__message {
+    margin: 0;
+    padding: 10px 12px 4px;
+    font-size: 12.5px;
+    color: var(--blog-faint);
+  }
+  .blog-search .pagefind-ui__results {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+  /* A result is a quiet row: no borders, the hover/focus pill carries the
+     affordance (same vocabulary as the blog index list). */
+  .blog-search .pagefind-ui__result {
+    position: relative;
+    border-radius: 10px;
+  }
+  .blog-search .pagefind-ui__result:hover,
+  .blog-search .pagefind-ui__result:focus-within {
+    background: var(--blog-fill);
+  }
+  .blog-search .pagefind-ui__result-inner {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    padding: 10px 12px;
+  }
+  .blog-search .pagefind-ui__result-title {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 500;
+    line-height: 1.4;
+    color: var(--blog-ink);
+  }
+  .blog-search .pagefind-ui__result-link {
+    color: inherit;
+    text-decoration: none;
+    outline: none;
+  }
+  /* Stretch the title link over the whole row so the entire card is a target;
+     safe because sub-results are off and each row holds exactly one link. */
+  .blog-search .pagefind-ui__result-link::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+  }
+  .blog-search .pagefind-ui__result-excerpt {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    overflow: hidden;
+    margin: 0;
+    font-size: 13.5px;
+    font-weight: 400;
+    line-height: 1.7;
+    color: var(--blog-muted);
+  }
+  /* Loading skeleton rows — Pagefind renders placeholder title/excerpt with
+     this class while fragments stream in. */
+  .blog-search .pagefind-ui__loading {
+    color: transparent;
+    background: var(--blog-fill);
+    border-radius: 6px;
+    min-height: 1em;
+    pointer-events: none;
+    user-select: none;
+  }
+  .blog-search .pagefind-ui__button {
+    display: block;
+    width: 100%;
+    margin: 6px 0 2px;
+    padding: 9px 12px;
+    font-size: 13px;
+    font-family: inherit;
+    color: var(--blog-faint);
+    text-align: center;
+    background: transparent;
+    border: 0;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: color 0.15s ease, background 0.15s ease;
+  }
+  .blog-search .pagefind-ui__button:hover {
+    color: var(--blog-ink);
+    background: var(--blog-fill);
   }
   /* Soften Pagefind's default highlight from harsh yellow to ji — the pale
      sky-blue "found" wash. Fill-only role: fails AA as text but reads soft. */

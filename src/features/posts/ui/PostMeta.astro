@@ -13,7 +13,7 @@ interface Props {
 const { post } = Astro.props;
 ---
 
-<p class="blog-article__meta">
+<p class="blog-article__meta" data-pagefind-ignore>
   <span>{formatPostDate(post.publishedAt)}</span>
   {post.readingTime && <span>{post.readingTime}</span>}
 </p>

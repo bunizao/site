@@ -12,7 +12,7 @@ const publicTags = tags.filter((tag) => tag.visibility === 'public');
 ---
 
 {publicTags.length > 0 && (
-  <ul class="blog-tags" aria-label="Tags">
+  <ul class="blog-tags" aria-label="Tags" data-pagefind-ignore>
     {publicTags.map((tag) => (
       <li>
         <a class="blog-tag" href={tagPath(tag.slug)}>{tag.name}</a>

@@ -113,7 +113,7 @@ test.describe('Blog reading UI', () => {
     await expect(masthead).not.toContainText('Iris Zhang');
     await expect(masthead).not.toContainText('Sam Lin');
 
-    const searchButton = page.getByRole('button', { name: 'Search posts' });
+    const searchButton = page.getByRole('button', { name: '搜索文章' });
     await expect(searchButton).toBeVisible();
     await searchButton.click();
     const searchDialog = page.locator('[data-blog-search]');
