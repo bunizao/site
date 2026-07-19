@@ -25,6 +25,7 @@ import {
   Sun,
   Moon,
   Monitor,
+  X,
 } from 'lucide-react';
 import { GitHubIcon, InstagramIcon } from '@/components/icons';
 import { meta, navLinks, profile } from '@/data/site';
@@ -35,9 +36,9 @@ type IconComponent = ComponentType<{ className?: string }>;
 const AI_PROMPT = `Read ${meta.siteUrl}/llms.txt first — it indexes this site's pages as markdown. Then answer my questions about Lucian (Bunizao), his projects, and his writing.`;
 
 const aiTargets = [
-  { name: 'ChatGPT', base: 'https://chatgpt.com/?q=', host: 'chatgpt.com' },
-  { name: 'Claude', base: 'https://claude.ai/new?q=', host: 'claude.ai' },
-  { name: 'Perplexity', base: 'https://www.perplexity.ai/search?q=', host: 'perplexity.ai' },
+  { name: 'ChatGPT', base: 'https://chatgpt.com/?q=' },
+  { name: 'Claude', base: 'https://claude.ai/new?q=' },
+  { name: 'Perplexity', base: 'https://www.perplexity.ai/search?q=' },
 ];
 
 // Blog and Email are covered by their own rows (Writing group, Copy email).
@@ -70,7 +71,7 @@ const navKeywords: Record<string, string> = {
       <input
         type="text"
         data-command-input
-        placeholder="Search or jump to…"
+        placeholder="Type a command or search…"
         autocomplete="off"
         autocorrect="off"
         autocapitalize="off"
@@ -81,6 +82,9 @@ const navKeywords: Record<string, string> = {
         aria-controls="cmdk-list"
         aria-autocomplete="list"
       />
+      <button class="cmdk-close" type="button" data-command-close aria-label="Close">
+        <X aria-hidden="true" />
+      </button>
     </div>
 
     <div class="cmdk-list" id="cmdk-list" data-command-list role="listbox" aria-label="Commands">
@@ -98,8 +102,7 @@ const navKeywords: Record<string, string> = {
             rel="noopener noreferrer"
           >
             <Sparkles className="cmdk-icon" aria-hidden="true" />
-            <span class="cmdk-label">Ask {t.name} about this site</span>
-            <span class="cmdk-hint">{t.host} ↗</span>
+            <span class="cmdk-label">Open in {t.name}</span>
           </a>
         ))}
       </div>
@@ -109,7 +112,6 @@ const navKeywords: Record<string, string> = {
         <a class="cmdk-item" role="option" data-command-item data-haystack={`home ${navKeywords['/']}`} href="/">
           <Home className="cmdk-icon" aria-hidden="true" />
           <span class="cmdk-label">Home</span>
-          <span class="cmdk-hint">/</span>
         </a>
         {navLinks.map((link) => {
           const Icon = navIcons[link.href] ?? Home;
@@ -118,7 +120,6 @@ const navKeywords: Record<string, string> = {
             <a class="cmdk-item" role="option" data-command-item data-haystack={haystack} href={link.href}>
               <Icon className="cmdk-icon" aria-hidden="true" />
               <span class="cmdk-label">{link.label}</span>
-              <span class="cmdk-hint">{link.href}</span>
             </a>
           );
         })}
@@ -137,7 +138,6 @@ const navKeywords: Record<string, string> = {
         >
           <Search className="cmdk-icon" aria-hidden="true" />
           <span class="cmdk-label">Search all posts…</span>
-          <span class="cmdk-hint">full-text</span>
         </a>
       </div>
 
@@ -153,7 +153,6 @@ const navKeywords: Record<string, string> = {
         >
           <Mail className="cmdk-icon" aria-hidden="true" />
           <span class="cmdk-label">Copy email</span>
-          <span class="cmdk-hint">{profile.email}</span>
         </button>
         <button
           class="cmdk-item"
@@ -164,7 +163,7 @@ const navKeywords: Record<string, string> = {
           data-haystack="theme light mode appearance 主题 亮色"
         >
           <Sun className="cmdk-icon" aria-hidden="true" />
-          <span class="cmdk-label">Theme: Light</span>
+          <span class="cmdk-label">Light theme</span>
         </button>
         <button
           class="cmdk-item"
@@ -175,7 +174,7 @@ const navKeywords: Record<string, string> = {
           data-haystack="theme dark mode appearance 主题 暗色"
         >
           <Moon className="cmdk-icon" aria-hidden="true" />
-          <span class="cmdk-label">Theme: Dark</span>
+          <span class="cmdk-label">Dark theme</span>
         </button>
         <button
           class="cmdk-item"
@@ -186,7 +185,7 @@ const navKeywords: Record<string, string> = {
           data-haystack="theme system auto mode appearance 主题 跟随系统"
         >
           <Monitor className="cmdk-icon" aria-hidden="true" />
-          <span class="cmdk-label">Theme: System</span>
+          <span class="cmdk-label">System theme</span>
         </button>
       </div>
 
@@ -206,7 +205,6 @@ const navKeywords: Record<string, string> = {
             >
               <Icon className="cmdk-icon" aria-hidden="true" />
               <span class="cmdk-label">{link.name}</span>
-              <span class="cmdk-hint">{link.handle} ↗</span>
             </a>
           );
         })}
@@ -214,9 +212,9 @@ const navKeywords: Record<string, string> = {
     </div>
 
     <div class="cmdk-footer" aria-hidden="true">
-      <span><kbd>↑</kbd><kbd>↓</kbd> navigate</span>
-      <span><kbd>↵</kbd> open</span>
-      <span><kbd>esc</kbd> close</span>
+      <span>Go to page <kbd>↵</kbd></span>
+      <span class="cmdk-footer-sep"></span>
+      <span>Exit <kbd>esc</kbd></span>
     </div>
   </div>
 </dialog>
@@ -303,15 +301,15 @@ const navKeywords: Record<string, string> = {
       }
       const copy = el.dataset.commandCopy;
       if (copy) {
-        const hint = el.querySelector<HTMLElement>('.cmdk-hint');
+        const label = el.querySelector<HTMLElement>('.cmdk-label');
         navigator.clipboard
           ?.writeText(copy)
           .then(() => {
-            if (!hint) return;
-            const original = hint.textContent;
-            hint.textContent = 'Copied ✓';
+            if (!label) return;
+            const original = label.textContent;
+            label.textContent = 'Copied';
             window.setTimeout(() => {
-              hint.textContent = original;
+              label.textContent = original;
             }, 1400);
           })
           .catch(() => {});
@@ -350,7 +348,7 @@ const navKeywords: Record<string, string> = {
         const res = await fetch('/palette.json');
         if (!res.ok) throw new Error(`palette.json ${res.status}`);
         const data = (await res.json()) as {
-          posts?: Array<{ title: string; path: string; stamp: string }>;
+          posts?: Array<{ title: string; path: string }>;
         };
         (data.posts ?? []).forEach((post) => {
           const a = document.createElement('a');
@@ -362,9 +360,8 @@ const navKeywords: Record<string, string> = {
           a.innerHTML =
             '<svg class="cmdk-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
             '<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/></svg>' +
-            '<span class="cmdk-label"></span><span class="cmdk-hint"></span>';
+            '<span class="cmdk-label"></span>';
           a.querySelector('.cmdk-label')!.textContent = post.title;
-          a.querySelector('.cmdk-hint')!.textContent = post.stamp;
           postsMount.appendChild(a);
           wireItem(a);
         });
@@ -416,6 +413,8 @@ const navKeywords: Record<string, string> = {
       }
     });
 
+    dialog.querySelector('[data-command-close]')?.addEventListener('click', close);
+
     document.querySelectorAll<HTMLElement>('[data-command-open]').forEach((trigger) => {
       trigger.addEventListener('click', open);
     });
@@ -437,8 +436,12 @@ const navKeywords: Record<string, string> = {
 
 <style is:global>
   /* A ⌘K surface is opened dozens of times a day, mostly from the keyboard:
-     no open/close animation at all (the Raycast rule). The dialog just is. */
+     no open/close animation at all (the Raycast rule). The dialog just is.
+     Type is Inter (--font-sans) — this is a reading surface, not a terminal.
+     Alignment contract: one --cmdk-pad-x rules the input, headings, rows and
+     footer, so every left edge lines up. */
   .cmdk {
+    --cmdk-pad-x: 16px;
     width: min(600px, calc(100vw - 32px));
     margin-top: 12vh;
     margin-inline: auto;
@@ -451,6 +454,7 @@ const navKeywords: Record<string, string> = {
     box-shadow: 0 24px 64px -20px hsl(var(--foreground) / 0.25);
     overflow: hidden;
     outline: none;
+    font-family: var(--font-sans);
   }
   .dark .cmdk {
     border-color: hsl(var(--foreground) / 0.1);
@@ -465,15 +469,15 @@ const navKeywords: Record<string, string> = {
   .cmdk-input-row {
     display: flex;
     align-items: center;
-    gap: 10px;
-    padding: 14px 16px;
+    gap: 12px;
+    padding: 16px var(--cmdk-pad-x);
     border-bottom: 1px solid hsl(var(--foreground) / 0.08);
   }
   .cmdk-input-icon {
-    width: 16px;
-    height: 16px;
+    width: 18px;
+    height: 18px;
     flex-shrink: 0;
-    color: hsl(var(--muted-foreground));
+    color: hsl(var(--muted-foreground) / 0.8);
   }
   .cmdk-input-row input {
     flex: 1;
@@ -481,49 +485,73 @@ const navKeywords: Record<string, string> = {
     background: transparent;
     border: none;
     outline: none;
-    font-family: var(--font-mono);
-    font-size: 14px;
+    font-family: inherit;
+    font-size: 16px;
     color: hsl(var(--foreground));
   }
   .cmdk-input-row input::placeholder {
+    color: hsl(var(--muted-foreground) / 0.6);
+  }
+  .cmdk-close {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    flex-shrink: 0;
+    border: none;
+    border-radius: 8px;
+    background: transparent;
     color: hsl(var(--muted-foreground) / 0.7);
+    cursor: pointer;
+  }
+  .cmdk-close svg {
+    width: 18px;
+    height: 18px;
+  }
+  @media (hover: hover) and (pointer: fine) {
+    .cmdk-close:hover {
+      color: hsl(var(--foreground));
+      background: hsl(var(--foreground) / 0.05);
+    }
   }
 
   .cmdk-list {
-    max-height: min(420px, 60vh);
+    max-height: min(440px, 60vh);
     overflow-y: auto;
     overscroll-behavior: contain;
-    padding: 6px;
+    padding: 8px;
     scrollbar-width: thin;
+  }
+  .cmdk-group {
+    padding-bottom: 4px;
   }
   .cmdk-group[hidden] {
     display: none;
   }
+  /* Heading text sits at the same x as row icons: rows and headings share the
+     inner padding (pad-x − 8px list padding). */
   .cmdk-heading {
-    padding: 10px 10px 6px;
-    font-family: var(--font-mono);
-    font-size: 10px;
-    font-weight: 600;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    color: hsl(var(--muted-foreground) / 0.8);
+    padding: 12px calc(var(--cmdk-pad-x) - 8px) 6px;
+    font-size: 13px;
+    font-weight: 500;
+    color: hsl(var(--muted-foreground) / 0.85);
   }
 
   .cmdk-item {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 12px;
     width: 100%;
-    min-height: 36px;
-    padding: 0 10px;
-    /* Concentric: dialog radius 16px − 6px list padding = 10px row radius. */
-    border-radius: 10px;
+    min-height: 44px;
+    padding: 0 calc(var(--cmdk-pad-x) - 8px);
+    /* Concentric: dialog radius 16px − 8px list padding = 8px row radius. */
+    border-radius: 8px;
     border: none;
     background: transparent;
-    font-family: var(--font-mono);
-    font-size: 13px;
-    font-weight: 500;
-    letter-spacing: 0.02em;
+    font-family: inherit;
+    font-size: 15px;
+    font-weight: 450;
     color: hsl(var(--muted-foreground));
     text-align: left;
     text-decoration: none;
@@ -546,60 +574,55 @@ const navKeywords: Record<string, string> = {
     outline-offset: -2px;
   }
   .cmdk-icon {
-    width: 15px;
-    height: 15px;
+    width: 17px;
+    height: 17px;
     flex-shrink: 0;
-    color: hsl(var(--muted-foreground) / 0.8);
+    color: hsl(var(--muted-foreground) / 0.75);
   }
   .cmdk-label {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
-  .cmdk-hint {
-    margin-left: auto;
-    flex-shrink: 0;
-    font-size: 11px;
-    font-weight: 400;
-    color: hsl(var(--muted-foreground) / 0.65);
-  }
 
   .cmdk-footer {
     display: flex;
-    gap: 14px;
-    padding: 9px 16px;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 12px;
+    padding: 10px var(--cmdk-pad-x);
     border-top: 1px solid hsl(var(--foreground) / 0.08);
-    font-family: var(--font-mono);
-    font-size: 10px;
-    letter-spacing: 0.04em;
-    color: hsl(var(--muted-foreground) / 0.75);
+    font-size: 12px;
+    color: hsl(var(--muted-foreground) / 0.8);
   }
   .cmdk-footer span {
     display: inline-flex;
     align-items: center;
-    gap: 4px;
+    gap: 6px;
+  }
+  .cmdk-footer-sep {
+    width: 1px;
+    height: 14px;
+    background: hsl(var(--foreground) / 0.1);
   }
   .cmdk-footer kbd {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    min-width: 16px;
-    height: 16px;
-    padding: 0 3px;
-    border: 1px solid hsl(var(--foreground) / 0.12);
-    border-radius: 4px;
+    min-width: 20px;
+    height: 20px;
+    padding: 0 5px;
+    border-radius: 5px;
+    background: hsl(var(--foreground) / 0.06);
     font-family: inherit;
-    font-size: 9px;
+    font-size: 11px;
+    color: hsl(var(--muted-foreground));
   }
 
   @media (max-width: 640px) {
     .cmdk {
       width: calc(100vw - 24px);
       margin-top: 9vh;
-    }
-    /* 16px keeps iOS Safari from auto-zooming the focused input. */
-    .cmdk-input-row input {
-      font-size: 16px;
     }
     .cmdk-footer {
       display: none;

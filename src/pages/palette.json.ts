@@ -9,17 +9,10 @@ export const prerender = true;
 // so the palette never adds a Ghost fetch to SSR pages like /mood — the client
 // pulls this static JSON lazily on first open.
 
-function stamp(iso: string): string {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return '';
-  return `${d.getUTCFullYear()}.${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
-}
-
 export const GET: APIRoute = async () => {
   const posts = (await getAllPosts()).slice(0, 4).map((post) => ({
     title: post.title,
     path: postPath(post.slug),
-    stamp: stamp(post.publishedAt),
   }));
 
   return new Response(JSON.stringify({ posts }), {
