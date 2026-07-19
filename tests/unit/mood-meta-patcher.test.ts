@@ -1,15 +1,34 @@
-import { beforeAll, describe, expect, test } from 'bun:test';
+import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
 
 import { parseAbbreviatedCount } from '../../src/features/mood/server/telegram-source';
 
 // Minimal DOM stubs: the patcher only needs innerHeight, CSS.escape, and a
 // ParentNode-like root. IntersectionObserver is intentionally absent so
-// observePosts() short-circuits.
+// observePosts() short-circuits. Bun runs every test file in one process, so
+// anything stubbed here must be removed afterwards — a leaked `window` makes
+// axios (via @tryghost/content-api) assume a browser and crash other suites.
+const stubbedGlobals: string[] = [];
+
 beforeAll(() => {
   const globals = globalThis as Record<string, unknown>;
-  globals.window ??= { innerHeight: 1000 };
-  globals.document ??= {};
-  globals.CSS ??= { escape: (value: string) => value };
+  const stubs: Record<string, unknown> = {
+    window: { innerHeight: 1000 },
+    document: {},
+    CSS: { escape: (value: string) => value },
+  };
+  for (const [key, value] of Object.entries(stubs)) {
+    if (globals[key] === undefined) {
+      globals[key] = value;
+      stubbedGlobals.push(key);
+    }
+  }
+});
+
+afterAll(() => {
+  const globals = globalThis as Record<string, unknown>;
+  for (const key of stubbedGlobals) {
+    delete globals[key];
+  }
 });
 
 interface FakeElement {
