@@ -247,7 +247,8 @@ export const initListeningCards = (root: ParentNode = document): void => {
       root.classList.toggle('is-recent', !nextIsLive);
       playButton.classList.toggle('is-live', nextIsLive);
       playButton.classList.toggle('is-recent', !nextIsLive);
-      if (status) status.textContent = nextIsLive ? 'Now Playing' : 'Recently Played';
+      // Static cards (mood audio) keep their server-rendered eyebrow text.
+      if (status && !isStatic) status.textContent = nextIsLive ? 'Now Playing' : 'Recently Played';
     };
 
     const setPlaybackState = (isPlaying: boolean) => {
