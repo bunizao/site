@@ -7,6 +7,7 @@ import type {
 interface MoodMetaPatcherOptions {
   root?: ParentNode;
   readSource?: string;
+  fetchCounts?: (ids: readonly string[]) => Promise<Record<string, MoodLiveCount>>;
 }
 
 interface MoodMetaPatcher {
@@ -199,6 +200,7 @@ function patchMoodTarget(root: ParentNode, id: string, count: MoodLiveCount): vo
 export function createMoodMetaPatcher({
   root = document,
   readSource,
+  fetchCounts = fetchLiveCounts,
 }: MoodMetaPatcherOptions = {}): MoodMetaPatcher {
   const enabled = isArchiveSource(readSource);
   const attemptedIds = new Set<string>();
@@ -226,10 +228,11 @@ export function createMoodMetaPatcher({
     observePosts();
     const ids = collectVisibleMoodIds(root, attemptedIds);
     if (!ids.length) return;
-    ids.forEach((id) => attemptedIds.add(id));
 
-    pending = fetchLiveCounts(ids)
+    pending = fetchCounts(ids)
       .then((counts) => {
+        // Mark ids attempted only on success so a failed fetch stays retryable.
+        ids.forEach((id) => attemptedIds.add(id));
         Object.entries(counts).forEach(([id, count]) => patchMoodTarget(root, id, count));
       })
       .catch(() => undefined)

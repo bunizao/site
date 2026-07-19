@@ -1466,6 +1466,22 @@ async function hydrateTgEmoji(
 }
 
 /**
+ * Parse a Telegram count string that may use abbreviated suffixes
+ * (e.g. "1.2K comments" -> 1200, "3M" -> 3000000, "12" -> 12).
+ * Returns null when no numeric value is present.
+ */
+export function parseAbbreviatedCount(text: string): number | null {
+  const match = text.match(/(\d+(?:[.,]\d+)?)\s*([KkMmBb])?/);
+  if (!match) return null;
+
+  const value = parseFloat(match[1].replace(',', '.'));
+  if (!Number.isFinite(value)) return null;
+
+  const multiplier = { k: 1e3, m: 1e6, b: 1e9 }[match[2]?.toLowerCase() ?? ''] ?? 1;
+  return Math.round(value * multiplier);
+}
+
+/**
  * Extract comments count from post embed
  */
 async function getCommentsCount(
@@ -1481,11 +1497,11 @@ async function getCommentsCount(
   // Telegram shows replies/comments in .tgme_widget_message_replies or similar elements
   const repliesEl = $(item).find('.tgme_widget_message_replies, .tgme_widget_message_comments');
   if (repliesEl.length) {
-    // Try to extract count from the text content (e.g., "12 comments", "3 replies")
+    // Try to extract count from the text content (e.g., "12 comments", "1.2K replies")
     const text = repliesEl.text().trim();
-    const match = text.match(/(\d+)/);
-    if (match) {
-      return parseInt(match[1], 10);
+    const parsed = parseAbbreviatedCount(text);
+    if (parsed !== null) {
+      return parsed;
     }
 
     // Fallback: check data attributes
@@ -1512,8 +1528,7 @@ async function getCommentsCount(
     const $discussion = cheerio.load(html, {}, false);
     const headerText =
       $discussion('.tgme_post_discussion_header .js-header').first().text().trim();
-    const match = headerText.match(/(\d+)/);
-    const count = match ? parseInt(match[1], 10) : 0;
+    const count = parseAbbreviatedCount(headerText) ?? 0;
     commentsCountCache.set(cacheKey, count);
     return count;
   } catch (error) {
@@ -1764,8 +1779,9 @@ export async function getPostComments(
     const html = await $fetch<string>(url, {
       headers,
       query: before ? { before } : undefined,
-      retry: 2,
+      retry: 1,
       retryDelay: 100,
+      timeout: 2500,
     });
 
     const $ = cheerio.load(html, {}, false);

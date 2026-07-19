@@ -143,7 +143,8 @@ export const replaceReplyNodesWithCommentQuotes = (root: ParentNode): void => {
 
 export const buildCommentContentFragment = (value: unknown): DocumentFragment => {
   const template = document.createElement('template');
-  // `/api/comments` returns HTML sanitized by the private mood API.
+  // `/api/comments` returns Telegram-scraped comment HTML; sanitization is
+  // enforced upstream in `site-api` (see its plan 016).
   template.innerHTML = asText(value).trim();
 
   replaceReplyNodesWithCommentQuotes(template.content);
