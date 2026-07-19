@@ -99,19 +99,23 @@ const navKeywords: Record<string, string> = {
 
     <div class="cmdk-list" id="cmdk-list" data-command-list role="listbox" aria-label="Commands">
       <div class="cmdk-group" role="group" data-command-group>
-        <div class="cmdk-heading">Ask AI</div>
+        <div class="cmdk-heading">
+          <span>Ask AI</span>
+          <span class="cmdk-heading-query" data-ai-query aria-hidden="true"></span>
+        </div>
         {aiTargets.map((t) => (
           <a
             class="cmdk-item"
             role="option"
             data-command-item
             data-command-ai
+            data-external
             data-ai-base={t.base}
             href={t.base + encodeURIComponent(AI_CONTEXT)}
             target="_blank"
             rel="noopener noreferrer"
           >
-            <t.icon className="cmdk-icon" aria-hidden="true" />
+            <t.icon className="cmdk-icon cmdk-icon-brand" aria-hidden="true" />
             <span class="cmdk-label">Ask {t.name}</span>
           </a>
         ))}
@@ -132,8 +136,7 @@ const navKeywords: Record<string, string> = {
               <span class="cmdk-label">{link.label}</span>
             </a>
           );
-        })}
-      </div>
+        })}      </div>
 
       <div class="cmdk-group" role="group" data-command-group>
         <div class="cmdk-heading">Writing</div>
@@ -206,17 +209,21 @@ const navKeywords: Record<string, string> = {
         <div class="cmdk-heading">Connect</div>
         {socials.map((link) => {
           const Icon = socialIcons[link.name] ?? Send;
+          // Filled brand glyphs (GitHub/Instagram) get the optical shrink;
+          // Telegram uses a lucide stroke icon that already matches.
+          const iconClass = link.name === 'Telegram' ? 'cmdk-icon' : 'cmdk-icon cmdk-icon-brand';
           return (
             <a
               class="cmdk-item"
               role="option"
               data-command-item
+              data-external
               data-haystack={`${link.name.toLowerCase()} ${link.handle.toLowerCase()} social 社交`}
               href={link.url}
               target="_blank"
               rel="noopener noreferrer"
             >
-              <Icon className="cmdk-icon" aria-hidden="true" />
+              <Icon className={iconClass} aria-hidden="true" />
               <span class="cmdk-label">{link.name}</span>
             </a>
           );
@@ -241,6 +248,7 @@ const navKeywords: Record<string, string> = {
     const aiLinks = Array.from(dialog.querySelectorAll<HTMLAnchorElement>('[data-command-ai]'));
     const postsMount = dialog.querySelector<HTMLElement>('[data-command-posts]');
     const aiContext = dialog.dataset.aiContext ?? '';
+    const aiQueryEcho = dialog.querySelector<HTMLElement>('[data-ai-query]');
     if (!input) return;
 
     let items: HTMLElement[] = [];
@@ -281,6 +289,9 @@ const navKeywords: Record<string, string> = {
         const base = a.dataset.aiBase;
         if (base) a.href = base + encodeURIComponent(text);
       });
+      // Echo the typed question next to the "Ask AI" heading so the rows read as
+      // "ask THIS", not a generic export. Empty query → the label stays bare.
+      if (aiQueryEcho) aiQueryEcho.textContent = query ? `“${query}”` : '';
     };
 
     const filter = () => {
@@ -352,6 +363,15 @@ const navKeywords: Record<string, string> = {
       items = Array.from(dialog.querySelectorAll<HTMLElement>('[data-command-item]'));
       items.forEach((el, i) => {
         el.id = `cmdk-item-${i}`;
+        // Append the trailing affordance once. CSS decides ↗ (external) vs ↵
+        // (active in-site) from the row's own attributes and state, so this is
+        // just an empty hook — no per-row branching here.
+        if (!el.querySelector('.cmdk-trail')) {
+          const trail = document.createElement('span');
+          trail.className = 'cmdk-trail';
+          trail.setAttribute('aria-hidden', 'true');
+          el.appendChild(trail);
+        }
       });
     };
 
@@ -579,10 +599,27 @@ const navKeywords: Record<string, string> = {
   /* Heading text sits at the same x as row icons: rows and headings share the
      inner padding (pad-x − 8px list padding). */
   .cmdk-heading {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
     padding: 12px calc(var(--cmdk-pad-x) - 8px) 6px;
     font-size: 13px;
     font-weight: 500;
     color: hsl(var(--muted-foreground) / 0.85);
+  }
+  /* The typed query echoed beside the "Ask AI" heading, so the rows read as
+     "ask THIS" rather than a generic hand-off. Truncates; hidden when empty. */
+  .cmdk-heading-query {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-weight: 450;
+    font-style: italic;
+    color: hsl(var(--muted-foreground) / 0.6);
+  }
+  .cmdk-heading-query:empty {
+    display: none;
   }
 
   .cmdk-item {
@@ -631,10 +668,41 @@ const navKeywords: Record<string, string> = {
     flex-shrink: 0;
     color: hsl(var(--muted-foreground) / 0.75);
   }
+  /* Brand marks (OpenAI/Claude/Perplexity, GitHub…) are filled glyphs — denser
+     than lucide's hairline strokes. Optically shrink them inside the same 17px
+     box so their weight matches and every label still starts at one x. */
+  .cmdk-icon-brand {
+    scale: 0.9;
+  }
   .cmdk-label {
+    flex: 1;
+    min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+  /* Trailing affordance — the one detail that tells you where a row goes before
+     you commit. ↗ marks a row that leaves the site (Ask AI, socials); it rests
+     faint and snaps bright with the active highlight. ↵ appears only on the
+     active in-site row. No transition: both are wired to the arrow keys, so
+     they must move the instant the highlight does. */
+  .cmdk-trail {
+    flex-shrink: 0;
+    margin-left: 4px;
+    font-size: 13px;
+    line-height: 1;
+    color: hsl(var(--muted-foreground) / 0.35);
+  }
+  .cmdk-item[data-external] .cmdk-trail::after {
+    content: '↗';
+  }
+  .cmdk-item[data-external].is-active .cmdk-trail {
+    color: hsl(var(--foreground) / 0.7);
+  }
+  /* ↵ only on in-site links (anchors, not action buttons like copy/theme). */
+  a.cmdk-item:not([data-external]).is-active .cmdk-trail::after {
+    content: '↵';
+    color: hsl(var(--foreground) / 0.7);
   }
 
   /* Copy feedback: cross-fade Mail → Check inside one icon slot. Both icons
