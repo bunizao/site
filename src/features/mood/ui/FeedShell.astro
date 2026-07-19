@@ -322,6 +322,12 @@ function shouldHideQuoteAuthor(value?: string): boolean {
       <script is:inline type="application/json" data-mood-initial-feed set:html={initialFeedPayloadJson}></script>
     )}
     {anchorId && <div class="mood-sentinel mood-sentinel--newer" data-mood-newer-sentinel aria-hidden="true"></div>}
+    {anchorId && (
+      <div class="mood-load-controls mood-load-controls--newer">
+        <p class="mood-load-status" data-mood-newer-status aria-live="polite"></p>
+        <button class="mood-load-retry" type="button" data-mood-newer-retry hidden>Retry</button>
+      </div>
+    )}
     <div class="mood-stream" data-mood-list role="region" aria-label="Mood feed">
       {criticalDateGroups.map((group) => (
         <div class="mood-date-group" data-date={group.dateKey}>

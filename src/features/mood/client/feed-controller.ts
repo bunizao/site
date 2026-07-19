@@ -37,6 +37,8 @@ export function initMoodFeedController(): void {
     const updateNoticeTextEl = document.querySelector('[data-mood-update-text]') as HTMLElement | null;
     const updateRefreshBtn = document.querySelector('[data-mood-update-refresh]') as HTMLButtonElement | null;
     const loadRetryButton = document.querySelector('[data-mood-load-retry]') as HTMLButtonElement | null;
+    const newerStatus = document.querySelector('[data-mood-newer-status]');
+    const newerRetryButton = document.querySelector('[data-mood-newer-retry]') as HTMLButtonElement | null;
     const initialRetryButton = document.querySelector('[data-mood-initial-retry]') as HTMLButtonElement | null;
     const ALWAYS_LOADING = import.meta.env.PUBLIC_DEBUG_ALWAYS_LOADING === 'true';
     const ANCHOR_COMPENSATION_MAX_MS = 2600;
@@ -281,6 +283,14 @@ export function initMoodFeedController(): void {
 
       const setLoadRetryVisible = (visible: boolean): void => {
         if (loadRetryButton) loadRetryButton.hidden = !visible;
+      };
+
+      const setNewerStatus = (message: string): void => {
+        if (newerStatus) newerStatus.textContent = message;
+      };
+
+      const setNewerRetryVisible = (visible: boolean): void => {
+        if (newerRetryButton) newerRetryButton.hidden = !visible;
       };
 
       const setLoadingState = (loading: boolean): void => {
@@ -1116,6 +1126,8 @@ export function initMoodFeedController(): void {
         }
 
         isLoadingNewer = true;
+        setNewerStatus('');
+        setNewerRetryVisible(false);
 
         try {
           const data = await fetchMoods({ afterId: currentNewestId });
@@ -1141,6 +1153,8 @@ export function initMoodFeedController(): void {
           prependMoods(ready);
         } catch (error) {
           console.error(error);
+          setNewerStatus('Unable to load newer moods.');
+          setNewerRetryVisible(true);
         } finally {
           isLoadingNewer = false;
         }
@@ -1198,6 +1212,7 @@ export function initMoodFeedController(): void {
           loadButton.addEventListener('click', loadMore);
         }
         loadRetryButton?.addEventListener('click', loadMore);
+        newerRetryButton?.addEventListener('click', loadNewer);
         initialRetryButton?.addEventListener('click', () => window.location.reload());
 
         if (!feedAnchorId) {

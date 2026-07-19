@@ -1911,6 +1911,14 @@ const skeletonGroups = [
     padding-top: 16px;
   }
 
+  :global(.mood-load-controls--newer) {
+    padding-top: 0;
+  }
+
+  :global(.mood-load-controls--newer .mood-load-status:empty) {
+    min-height: 0;
+  }
+
   :global(.mood-load-status) {
     font-size: 12px;
     color: hsl(var(--muted-foreground));

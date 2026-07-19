@@ -15,6 +15,7 @@ interface FeedMediaHydrator {
   hydrateDeferredImage(img: HTMLImageElement): void;
   registerDeferredImage(target: Element, hydrate: () => void): void;
   applyResponsiveImage(img: HTMLImageElement, src: string): void;
+  attachImageFallback(img: HTMLImageElement): void;
   hydrateHero(channel: ChannelInfo): void;
 }
 
@@ -162,6 +163,7 @@ export function createFeedMediaHydrator(
     root.querySelectorAll('img').forEach((node) => {
       if (!(node instanceof HTMLImageElement)) return;
       setImageHints(node, { priority });
+      attachImageFallback(node);
 
       const thumb = node.closest('.mood-item-thumb');
       if (!thumb || thumb.classList.contains('mood-item-thumb--video')) return;
@@ -227,6 +229,22 @@ export function createFeedMediaHydrator(
     img.src = src;
     img.removeAttribute('srcset');
     img.removeAttribute('sizes');
+  };
+
+  // Swap to the fallback URL once when the primary source fails to load. Shared
+  // by the client renderer and SSR feed images so both recover the same way.
+  const attachImageFallback = (img: HTMLImageElement): void => {
+    const fallback = img.dataset.fallbackSrc?.trim() || '';
+    if (!fallback || img.dataset.fallbackWired === '1') return;
+
+    img.dataset.fallbackWired = '1';
+    img.addEventListener('error', () => {
+      if (img.dataset.fallbackApplied === '1') return;
+      const fallbackSrc = img.dataset.fallbackSrc?.trim() || '';
+      if (!fallbackSrc) return;
+      img.dataset.fallbackApplied = '1';
+      hydrateResponsiveImage(img, fallbackSrc);
+    });
   };
 
   const getDeferredImageObserver = (): IntersectionObserver | null => {
@@ -342,6 +360,7 @@ export function createFeedMediaHydrator(
     hydrateDeferredImage,
     registerDeferredImage,
     applyResponsiveImage: hydrateResponsiveImage,
+    attachImageFallback,
     hydrateHero,
   };
 }

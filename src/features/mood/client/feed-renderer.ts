@@ -26,6 +26,7 @@ interface FeedMediaHydrator {
   hydrateDeferredImage(img: HTMLImageElement): void;
   registerDeferredImage(target: Element, hydrate: () => void): void;
   applyResponsiveImage(img: HTMLImageElement, src: string): void;
+  attachImageFallback(img: HTMLImageElement): void;
 }
 
 interface FeedRendererOptions {
@@ -599,13 +600,7 @@ export function createFeedRenderer({
         const fallback = typeof mood.imageFallback === 'string' ? mood.imageFallback.trim() : '';
         if (fallback) {
           img.dataset.fallbackSrc = fallback;
-          img.onerror = () => {
-            if (img.dataset.fallbackApplied === '1') return;
-            const fallbackSrc = img.dataset.fallbackSrc || '';
-            if (!fallbackSrc) return;
-            img.dataset.fallbackApplied = '1';
-            mediaHydrator.applyResponsiveImage(img, fallbackSrc);
-          };
+          mediaHydrator.attachImageFallback(img);
         }
 
         const hasKnownImageBox = isPositiveDimension(imageWidth) && isPositiveDimension(imageHeight);
