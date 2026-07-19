@@ -12,6 +12,7 @@ import {
   getMoodFeedPostIds,
   mergeMoodFeedWindowPosts,
   MOOD_FEED_RETURN_ANCHOR_STORAGE_KEY,
+  moodFeedElementHasId,
   moodFeedPostHasId,
   readMoodFeedAnchorId,
 } from '@/features/mood/shared/feed-anchor';
@@ -387,15 +388,6 @@ export function initMoodFeedController(): void {
         });
       };
 
-      const getMoodElementIds = (item: HTMLElement): string[] => {
-        const groupIds = (item.dataset.moodGroupIds ?? '').split(',');
-        return [...new Set([item.dataset.moodId ?? '', ...groupIds].map((value) => value.trim()).filter(Boolean))];
-      };
-
-      const moodElementHasId = (item: HTMLElement, id: string): boolean => (
-        getMoodElementIds(item).includes(id)
-      );
-
       const waitForAnchorPrecedingMedia = async (id: string): Promise<void> => {
         const target = getMoodAnchorTarget(id);
         if (!target) return;
@@ -422,7 +414,7 @@ export function initMoodFeedController(): void {
 
       const getMoodAnchorTarget = (id: string): HTMLElement | null => (
         Array.from(list.querySelectorAll<HTMLElement>('[data-mood-id]')).find(
-          (item) => moodElementHasId(item, id)
+          (item) => moodFeedElementHasId(item, id)
         ) ?? null
       );
 

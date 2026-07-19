@@ -7,7 +7,7 @@ import { getMoodFeedThumbnailStyle } from '@/features/mood/shared/feed-thumbnail
 import {
   getMoodDetailHref,
   getMoodFeedAnchorFragmentId,
-  moodFeedPostHasId,
+  getMoodFeedNavigationId,
 } from '@/features/mood/shared/feed-anchor';
 import { getCriticalInitialPosts, hasRenderableMoodFeedMedia } from '@/features/mood/shared/initial-feed';
 import { getMoodReactionKey } from '@/features/mood/client/meta-patcher';
@@ -128,7 +128,7 @@ function groupPostsByDate(posts: MoodFeedItem[]): Array<{ dateKey: string; posts
 }
 
 function getPostNavigationId(post: MoodFeedItem): string {
-  return anchorId && moodFeedPostHasId(post, anchorId) ? anchorId : post.id;
+  return getMoodFeedNavigationId(post, anchorId);
 }
 
 function getPostHref(post: MoodFeedItem, navigationId: string): string | undefined {

@@ -84,6 +84,30 @@ export function moodFeedPostHasId(post: MoodFeedPostIdentity, id: string): boole
   return Boolean(target && getMoodFeedPostIds(post).includes(target));
 }
 
+interface MoodFeedElementIdentity {
+  dataset: {
+    moodId?: string;
+    moodGroupIds?: string;
+  };
+}
+
+export function getMoodFeedElementIds(element: MoodFeedElementIdentity): string[] {
+  return getMoodFeedPostIds({
+    id: element.dataset.moodId,
+    groupIds: (element.dataset.moodGroupIds ?? '').split(','),
+  });
+}
+
+export function moodFeedElementHasId(element: MoodFeedElementIdentity, id: string): boolean {
+  return getMoodFeedElementIds(element).includes(id);
+}
+
+export function getMoodFeedNavigationId(post: MoodFeedPostIdentity, currentAnchorId: string): string {
+  return currentAnchorId && moodFeedPostHasId(post, currentAnchorId)
+    ? currentAnchorId
+    : getMoodFeedPostIds(post)[0] ?? '';
+}
+
 function compareMoodFeedIdsDescending(a: string, b: string): number {
   const left = BigInt(a);
   const right = BigInt(b);

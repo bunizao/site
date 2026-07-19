@@ -59,7 +59,6 @@ export interface QuoteRef {
 
 export interface ContentDocument {
   id: string;
-  groupIds?: string[];
   source: ContentDocumentSource;
   datetime: string;
   updatedAt?: string;
@@ -82,6 +81,7 @@ export interface ContentDocument {
 
 export interface MoodContentDocument extends ContentDocument {
   source: 'mood';
+  groupIds?: string[];
   channel?: ContentChannelSummary;
 }
 

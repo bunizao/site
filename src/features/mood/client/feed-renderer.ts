@@ -1,11 +1,13 @@
 import { createMoodGalleryElement, initMoodGalleries } from '@/features/mood/client/gallery';
 import {
   getMoodDetailHref,
+  getMoodFeedElementIds,
   getMoodFeedAnchorFragmentId,
   getMoodFeedAnchorHref,
+  getMoodFeedNavigationId,
   getMoodFeedPostIds,
   MOOD_FEED_RETURN_ANCHOR_STORAGE_KEY,
-  moodFeedPostHasId,
+  moodFeedElementHasId,
   readMoodFeedAnchorId,
 } from '@/features/mood/shared/feed-anchor';
 import { buildMoodPreviewFragment } from '@/features/mood/shared/preview';
@@ -219,23 +221,14 @@ export function createFeedRenderer({
     list.querySelector('[data-mood-gallery-priority="true"], img[fetchpriority="high"]')
   );
 
-  const getMoodElementIds = (item: HTMLElement): string[] => {
-    const groupIds = (item.dataset.moodGroupIds ?? '').split(',');
-    return [...new Set([item.dataset.moodId ?? '', ...groupIds].map((value) => value.trim()).filter(Boolean))];
-  };
-
-  const moodElementHasId = (item: HTMLElement, id: string): boolean => (
-    getMoodElementIds(item).includes(id)
-  );
-
   const findMoodElement = (id: string): HTMLElement | null => (
     Array.from(list.querySelectorAll<HTMLElement>('[data-mood-id]')).find(
-      (item) => moodElementHasId(item, id)
+      (item) => moodFeedElementHasId(item, id)
     ) ?? null
   );
 
   list.querySelectorAll<HTMLElement>('[data-mood-id]').forEach((item) => {
-    getMoodElementIds(item).forEach((id) => renderedIdSet.add(id));
+    getMoodFeedElementIds(item).forEach((id) => renderedIdSet.add(id));
   });
 
   const registerRenderedPost = (post: MoodData): void => {
@@ -308,9 +301,7 @@ export function createFeedRenderer({
   const getMoodNavigationId = (mood: MoodData): string => {
     try {
       const currentAnchorId = readMoodFeedAnchorId(new URL(window.location.href));
-      if (currentAnchorId && moodFeedPostHasId(mood, currentAnchorId)) {
-        return currentAnchorId;
-      }
+      return getMoodFeedNavigationId(mood, currentAnchorId);
     } catch {
       // Fall through to the canonical post id.
     }
@@ -819,7 +810,7 @@ export function createFeedRenderer({
     let returnId = id;
     try {
       const currentAnchorId = readMoodFeedAnchorId(new URL(window.location.href));
-      if (currentAnchorId && target && moodElementHasId(target, currentAnchorId)) {
+      if (currentAnchorId && target && moodFeedElementHasId(target, currentAnchorId)) {
         returnId = currentAnchorId;
       }
     } catch {
