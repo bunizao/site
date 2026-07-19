@@ -118,6 +118,42 @@ describe('structured mood detail content rendering', () => {
     expect(html).not.toContain('<script');
   });
 
+  test('routes structured multi-image albums through the existing detail gallery', () => {
+    const html = prioritizeMoodDetailMedia(renderStructuredMoodDetailContent(createDocument({
+      media: [
+        {
+          id: 'album-0',
+          type: 'image',
+          src: 'https://image.example.test/mood/3470/0',
+          width: 918,
+          height: 446,
+          layout: 'landscape',
+          alt: 'First image',
+        },
+        {
+          id: 'album-1',
+          type: 'image',
+          src: 'https://image.example.test/mood/3470/1',
+          width: 610,
+          height: 1028,
+          layout: 'portrait',
+          alt: 'Second image',
+        },
+      ],
+    })));
+
+    const $ = cheerio.load(html, null, false);
+    const gallery = $('.mood-gallery--detail');
+    const images = gallery.find('[data-mood-gallery-image]');
+
+    expect(gallery.attr('data-mood-gallery-count')).toBe('2');
+    expect(images).toHaveLength(2);
+    expect(images.eq(0).attr('src')).toBe('https://image.example.test/mood/3470/0');
+    expect(images.eq(0).attr('fetchpriority')).toBe('high');
+    expect(images.eq(1).attr('data-deferred-src')).toBe('https://image.example.test/mood/3470/1');
+    expect($('.rich-content-media--image')).toHaveLength(0);
+  });
+
   test('keeps unsafe structured media out of detail markup', () => {
     const html = renderStructuredMoodDetailContent(createDocument({
       bodyHtml: '<p>Safe</p><img src="javascript:alert(1)">',
