@@ -55,13 +55,13 @@ describe('mood media rendering health', () => {
     expect(landscapeVideo).toContain('height="326"');
   }, { timeout: 30_000 });
 
-  test('mood 3618 refreshes its expiring Telegram preview image', async () => {
+  test('mood 3618 renders its archived link preview image from R2', async () => {
     const siteUrl = getSiteUrl();
     const html = await fetchAnchoredMoodPage(siteUrl, '3618');
     const block = moodBlock(html, '3618');
     const thumbnail = block.match(/bookmark-card__media[^>]*><img src="([^"]+)"/)?.[1] ?? '';
 
-    expect(thumbnail).toStartWith('/static/');
+    expect(thumbnail).toBe(`${siteUrl}/api/v2/images/mood/3618/link-preview`);
 
     const response = await fetch(new URL(thumbnail, siteUrl), {
       headers: { Accept: 'image/avif,image/webp,image/*,*/*;q=0.8' },
