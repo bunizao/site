@@ -37,12 +37,7 @@ Homepage copy, section toggles, footer, projects, and SEO/OG meta are curated in
 
 ## Docs
 
-- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
-- [`docs/SVG-API.md`](docs/SVG-API.md)
-- [`docs/OEMBED-API.md`](docs/OEMBED-API.md)
-- [`docs/EMAIL-NOTIFY.md`](docs/EMAIL-NOTIFY.md)
-- [`docs/TELEGRAM-PIPELINE.md`](docs/TELEGRAM-PIPELINE.md)
-- [`docs/IMAGE-QUALITY-UPGRADE.md`](docs/IMAGE-QUALITY-UPGRADE.md)
+[`docs/README.md`](docs/README.md) is the index: living reference in `docs/`, active work in `docs/plans/`, shipped records in `docs/archive/`. Start with [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
 Environment variables are documented in [`.env`](.env).
 
