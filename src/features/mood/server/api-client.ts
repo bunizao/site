@@ -191,12 +191,13 @@ export async function loadMoodFeed(
   }
 
   if (source === 'archive') {
+    const fallback = query.fallback === true;
     const loadArchive = () => fetchMoodArchiveApiJson<MoodFeedResponse>(
       context,
       MOOD_ARCHIVE_FEED_PATH,
-      moodFeedParams(query),
+      moodFeedParams({ ...query, fallback }),
     );
-    if (query.fallback === false) {
+    if (!fallback) {
       return loadArchive();
     }
 
@@ -286,14 +287,15 @@ export async function loadMoodDocument(
   }
 
   if (source === 'archive') {
+    const fallback = query.fallback === true;
     const params = new URLSearchParams();
-    if (query.fallback === false) params.set('fallback', '0');
+    if (!fallback) params.set('fallback', '0');
     const loadArchive = () => fetchMoodArchiveApiJson<MoodContentDocument | null>(
       context,
       `${MOOD_ARCHIVE_FEED_PATH}/${encodeURIComponent(id)}`,
       params,
     );
-    if (query.fallback === false) {
+    if (!fallback) {
       return loadArchive();
     }
 

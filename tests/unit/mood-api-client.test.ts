@@ -142,7 +142,7 @@ describe('mood API client', () => {
     expect(probeResult.latestId).toBe('990001');
     expect(paths).toEqual([
       '/v2/mood?fresh=true&limit=1&fallback=0',
-      '/v2/mood/990001',
+      '/v2/mood/990001?fallback=0',
       '/v2/mood/990001/comments?before=990000',
       '/v2/mood?probe=true&fresh=true',
     ]);
@@ -171,7 +171,6 @@ describe('mood API client', () => {
       await loadMoodFeed(context, {
         limit: 20,
         source: 'archive',
-        fallback: false,
       });
     } catch (caught) {
       error = caught;

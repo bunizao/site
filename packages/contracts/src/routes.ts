@@ -11,6 +11,7 @@ export const MOOD_ARCHIVE_FEED_PATH = '/v2/mood' as const;
 export const MOOD_LIVE_COUNTS_PATH = '/v2/moods/live-counts' as const;
 export const MOOD_ARCHIVE_STATS_PATH = '/v2/mood/stats' as const;
 export const MOOD_IMAGE_PROXY_BASE_PATH = '/v2/images' as const;
+export const MOOD_MEDIA_PROXY_BASE_PATH = '/v2/media' as const;
 
 export const LISTENING_PATH = '/v2/listening' as const;
 

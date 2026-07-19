@@ -9,6 +9,7 @@ import {
   MOOD_ARCHIVE_FEED_PATH,
   MOOD_LIVE_COUNTS_PATH,
   MOOD_LIVE_FEED_PATH,
+  MOOD_MEDIA_PROXY_BASE_PATH,
   NEWSLETTER_ANALYTICS_CLICK_ENDPOINT,
   NEWSLETTER_ANALYTICS_OPEN_ENDPOINT,
   NOTIFY_CHANNELS,
@@ -34,6 +35,7 @@ describe('@bunizao/contracts', () => {
     expect(MOOD_LIVE_FEED_PATH).toBe('/v1/mood');
     expect(MOOD_ARCHIVE_FEED_PATH).toBe('/v2/mood');
     expect(MOOD_LIVE_COUNTS_PATH).toBe('/v2/moods/live-counts');
+    expect(MOOD_MEDIA_PROXY_BASE_PATH).toBe('/v2/media');
     expect(TELEGRAM_WEBHOOK_PATH).toBe('/webhooks/telegram');
   });
 

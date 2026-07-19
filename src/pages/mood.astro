@@ -39,9 +39,6 @@ const moodFeedAnchorWindowBeforeCursor = getMoodFeedAnchorWindowBeforeCursor(moo
 const requestedMoodReadSource = normalizeMoodApiSource(Astro.url.searchParams.get('source')) ?? undefined;
 const moodReadSource = resolveMoodReadSource(Astro.locals, requestedMoodReadSource);
 const moodReadFresh = Astro.url.searchParams.has('fresh') || Astro.url.searchParams.has('refresh');
-const moodReadFallback = moodReadSource === 'archive'
-  ? Astro.url.searchParams.get('fallback') === '1'
-  : true;
 
 async function loadInitialMoodFeed() {
   if (isE2ESiteFixtureEnabled(Astro.locals)) return null;
@@ -56,7 +53,6 @@ async function loadInitialMoodFeed() {
       loadFeed: (query) => loadMoodFeed(context, {
         ...query,
         fresh: moodReadFresh,
-        fallback: moodReadFallback,
         source: moodReadSource,
       }),
     });

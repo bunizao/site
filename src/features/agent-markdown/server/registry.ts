@@ -168,7 +168,7 @@ async function renderMoodFeed(context: MarkdownRendererContext) {
   }
 
   try {
-    const feed = await loadMoodFeed(context, { before, after, source: 'archive', fallback: false });
+    const feed = await loadMoodFeed(context, { before, after, source: 'archive' });
     return markdownResult(
       buildMoodAgentMarkdown(feed, context.site, { before, after }),
       200,
@@ -197,7 +197,7 @@ async function renderMoodPost(context: MarkdownRendererContext) {
   }
 
   try {
-    const post = await loadMoodDocument(context, id, { source: 'archive', fallback: false });
+    const post = await loadMoodDocument(context, id, { source: 'archive' });
     if (!post) {
       return markdownResult('Mood post not found.\n', 404, rateLimit.headers);
     }

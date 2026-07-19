@@ -10,11 +10,11 @@ describe('Mood archive route policy', () => {
       Bun.file('src/features/mood/client/feed-controller.ts').text(),
     ]);
 
-    expect(feedRoute).toContain("Astro.url.searchParams.get('fallback') === '1'");
-    expect(detailRoute).toContain('fallback: moodReadFallback');
-    expect(embedRoute).toContain("{ source: 'archive', fallback: false }");
-    expect(embedRoute).toContain("{ limit: count, source: 'archive', fallback: false }");
-    expect(rssRoute).toContain("{ limit: MAX_ITEMS, source: 'archive', fallback: false }");
+    expect(feedRoute).not.toContain("searchParams.get('fallback')");
+    expect(detailRoute).not.toContain("searchParams.get('fallback')");
+    expect(embedRoute).toContain("{ source: 'archive' }");
+    expect(embedRoute).toContain("{ limit: count, source: 'archive' }");
+    expect(rssRoute).toContain("{ limit: MAX_ITEMS, source: 'archive' }");
     expect(feedController).toContain("query.set('fallback', '0')");
     expect(feedController).toContain("? ['/api/v2/mood']");
     expect(feedController).not.toContain("? ['/api/v2/mood', '/api/moods']");
