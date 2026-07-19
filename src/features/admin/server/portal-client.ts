@@ -6,6 +6,7 @@ import {
   type BlogAnalyticsEventsResult,
   type BlogAnalyticsSummaryResult,
   type BroadcastRecord,
+  type NotifyGateStatus,
   type SubscriberListResult,
 } from '@bunizao/contracts';
 import {
@@ -105,4 +106,15 @@ export async function loadPortalAnalytics(
   ]);
 
   return { summary, events };
+}
+
+export async function loadNotifyGateStatus(
+  request: Request,
+  locals: RuntimeEnvLocals | undefined,
+): Promise<NotifyGateStatus | null> {
+  try {
+    return await adminGet<NotifyGateStatus>('/api/admin/notify-gate', request, locals);
+  } catch {
+    return null;
+  }
 }
