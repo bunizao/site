@@ -1,9 +1,7 @@
 ---
 import PortalLayout from '@/layouts/PortalLayout.astro';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Users, Send, Sparkles, Mail, Activity } from 'lucide-react';
-import { getPeekAssets } from '@/features/mascot/peek/catalog';
-import { PEEK_SLOTS } from '@/features/mascot/peek/slots';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, Badge } from '@/components/coss';
+import { Users, Send, Clock, UserMinus, Activity } from 'lucide-react';
 import { loadPortalOverview, type PortalOverview } from '@/features/admin/server/portal-client';
 
 export const prerender = false;
@@ -24,13 +22,18 @@ try {
 }
 
 const { subscriberStats, auditEvents, broadcasts } = overview;
-const allAssets = getPeekAssets();
 const lastBroadcast = broadcasts[0];
+
+const BROADCAST_STATUS_VARIANT: Record<string, 'success' | 'warning' | 'secondary' | 'destructive'> = {
+  sent: 'success',
+  sending: 'warning',
+  draft: 'secondary',
+  failed: 'destructive',
+};
 
 function formatDate(iso: string): string {
   try {
-    const date = new Date(iso);
-    return date.toLocaleString(undefined, {
+    return new Date(iso).toLocaleString(undefined, {
       month: 'short',
       day: 'numeric',
       hour: '2-digit',
@@ -40,97 +43,92 @@ function formatDate(iso: string): string {
     return iso;
   }
 }
+
+const stats = [
+  {
+    label: 'Active subscribers',
+    value: subscriberStats.activeCount,
+    sub: `of ${subscriberStats.total} total`,
+    Icon: Users,
+  },
+  {
+    label: 'Pending',
+    value: subscriberStats.pendingCount,
+    sub: 'awaiting confirmation',
+    Icon: Clock,
+  },
+  {
+    label: 'Unsubscribed',
+    value: subscriberStats.unsubscribedCount,
+    sub: 'opted out',
+    Icon: UserMinus,
+  },
+] as const;
 ---
 
 <PortalLayout
   title="Overview"
-  description="At-a-glance view of subscribers, broadcasts, and mascot inventory."
+  description="Subscriber health and recent delivery activity."
   active="overview"
   user={{ login: session?.login || 'admin' }}
 >
   {loadError && (
-    <div class="portal-alert">
+    <div class="mb-6 rounded-lg border border-destructive/50 bg-destructive/10 px-3.5 py-3 text-sm text-destructive-foreground">
       Failed to load some data: <span class="portal-mono">{loadError}</span>
     </div>
   )}
 
-  <section class="portal-grid" data-columns="stats">
-    <Card>
-      <CardHeader className="portal-stat-header">
-        <CardDescription>Active subscribers</CardDescription>
-        <Users size={16} />
-      </CardHeader>
-      <CardContent className="portal-stat-content">
-        <div class="portal-stat-value">{subscriberStats.activeCount}</div>
-        <div class="portal-stat-hint">
-          of {subscriberStats.total} total · {subscriberStats.pendingCount} pending
+  <section class="mb-8 grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(200px,1fr))]">
+    {stats.map(({ label, value, sub, Icon }) => (
+      <Card>
+        <div class="flex items-start justify-between p-5">
+          <div class="min-w-0">
+            <div class="text-xs font-medium text-muted-foreground">{label}</div>
+            <div class="mt-2 text-3xl font-semibold tabular-nums tracking-tight text-foreground">{value}</div>
+            <div class="mt-1 text-xs text-muted-foreground">{sub}</div>
+          </div>
+          <Icon size={16} className="mt-0.5 shrink-0 text-muted-foreground/70" />
         </div>
-      </CardContent>
-    </Card>
+      </Card>
+    ))}
 
     <Card>
-      <CardHeader className="portal-stat-header">
-        <CardDescription>Last broadcast</CardDescription>
-        <Send size={16} />
-      </CardHeader>
-      <CardContent className="portal-stat-content">
-        {lastBroadcast ? (
-          <Fragment>
-            <div class="portal-stat-value" data-size="sm">{lastBroadcast.subject}</div>
-            <div class="portal-stat-hint">
-              {lastBroadcast.sentCount} sent · {lastBroadcast.failedCount} failed
-            </div>
-            <div class="portal-stat-hint">{lastBroadcast.sentAt ? formatDate(lastBroadcast.sentAt) : 'never'}</div>
-          </Fragment>
-        ) : (
-          <div class="portal-empty">No broadcasts yet</div>
-        )}
-      </CardContent>
-    </Card>
-
-    <Card>
-      <CardHeader className="portal-stat-header">
-        <CardDescription>Mascot library</CardDescription>
-        <Sparkles size={16} />
-      </CardHeader>
-      <CardContent className="portal-stat-content">
-        <div class="portal-stat-value">{allAssets.length}</div>
-        <div class="portal-stat-hint">
-          {PEEK_SLOTS.length} runtime slots
+      <div class="flex items-start justify-between p-5">
+        <div class="min-w-0">
+          <div class="text-xs font-medium text-muted-foreground">Last broadcast</div>
+          {lastBroadcast ? (
+            <Fragment>
+              <div class="mt-2 line-clamp-2 text-sm font-medium leading-snug text-foreground">{lastBroadcast.subject}</div>
+              <div class="mt-2 flex items-center gap-2">
+                <Badge variant={BROADCAST_STATUS_VARIANT[lastBroadcast.status] ?? 'secondary'} size="sm">{lastBroadcast.status}</Badge>
+                <span class="text-xs tabular-nums text-muted-foreground">{lastBroadcast.sentCount} sent · {lastBroadcast.failedCount} failed</span>
+              </div>
+            </Fragment>
+          ) : (
+            <div class="mt-2 text-sm text-muted-foreground">No broadcasts yet</div>
+          )}
         </div>
-      </CardContent>
-    </Card>
-
-    <Card>
-      <CardHeader className="portal-stat-header">
-        <CardDescription>Templates</CardDescription>
-        <Mail size={16} />
-      </CardHeader>
-      <CardContent className="portal-stat-content">
-        <div class="portal-stat-value">6</div>
-        <div class="portal-stat-hint">
-          subscribe, welcome, blog, mood, digest, unsub
-        </div>
-      </CardContent>
+        <Send size={16} className="mt-0.5 shrink-0 text-muted-foreground/70" />
+      </div>
     </Card>
   </section>
 
-  <section class="portal-grid" data-columns="wide">
+  <section class="grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(360px,1fr))]">
     <Card>
       <CardHeader>
-        <CardTitle className="portal-card-title"><Activity size={14} />Recent activity</CardTitle>
+        <CardTitle className="flex items-center gap-2 text-sm"><Activity size={14} />Recent activity</CardTitle>
         <CardDescription>Latest audit events across subscribe, confirm, unsubscribe, admin, and broadcast.</CardDescription>
       </CardHeader>
-      <CardContent className="portal-card-content">
+      <CardContent className="pt-0">
         {auditEvents.length === 0 ? (
-          <div class="portal-empty">No events yet.</div>
+          <div class="py-3 text-sm text-muted-foreground">No events yet.</div>
         ) : (
-          <ul class="portal-list">
+          <ul class="flex flex-col">
             {auditEvents.map((event) => (
-              <li class="portal-list-row" data-layout="event">
-                <span class="portal-list-key">{event.eventType}</span>
-                <span class="portal-list-primary">{event.email}</span>
-                <span class="portal-list-meta">{formatDate(event.createdAt)}</span>
+              <li class="grid grid-cols-[110px_1fr_auto] items-center gap-3 border-t border-border py-2.5 first:border-t-0">
+                <span class="portal-mono text-[11px] text-muted-foreground">{event.eventType}</span>
+                <span class="truncate text-sm text-foreground">{event.email}</span>
+                <span class="text-[11px] tabular-nums text-muted-foreground">{formatDate(event.createdAt)}</span>
               </li>
             ))}
           </ul>
@@ -140,23 +138,23 @@ function formatDate(iso: string): string {
 
     <Card>
       <CardHeader>
-        <CardTitle className="portal-card-title">Recent broadcasts</CardTitle>
+        <CardTitle className="text-sm">Recent broadcasts</CardTitle>
         <CardDescription>The five most recent manual broadcasts.</CardDescription>
       </CardHeader>
-      <CardContent className="portal-card-content">
+      <CardContent className="pt-0">
         {broadcasts.length === 0 ? (
-          <div class="portal-empty">No broadcasts yet. Try composing one.</div>
+          <div class="py-3 text-sm text-muted-foreground">No broadcasts yet. Try composing one.</div>
         ) : (
-          <ul class="portal-list">
+          <ul class="flex flex-col">
             {broadcasts.map((bc) => (
-              <li class="portal-list-row" data-layout="split">
-                <div>
-                  <a href={`/dev/portal/broadcasts/${bc.id}`} class="portal-list-link">{bc.subject}</a>
-                  <div class="portal-list-meta" data-spacing="top">
+              <li class="grid grid-cols-[1fr_auto] items-start gap-3 border-t border-border py-2.5 first:border-t-0">
+                <div class="min-w-0">
+                  <a href={`/dev/portal/broadcasts/${bc.id}`} class="text-sm leading-snug text-foreground hover:underline">{bc.subject}</a>
+                  <div class="mt-1 text-[11px] tabular-nums text-muted-foreground">
                     {bc.sentCount}/{bc.recipientCount} sent · {bc.failedCount} failed
                   </div>
                 </div>
-                <span class="portal-list-meta">{bc.sentAt ? formatDate(bc.sentAt) : 'pending'}</span>
+                <span class="text-[11px] tabular-nums text-muted-foreground">{bc.sentAt ? formatDate(bc.sentAt) : 'pending'}</span>
               </li>
             ))}
           </ul>
