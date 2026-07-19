@@ -1,6 +1,4 @@
 import { defineMiddleware } from 'astro:middleware';
-import { getDocsVisibilityFromContent } from '@/features/docs/server/content';
-import { isDocsPath } from '@/features/docs/server/visibility';
 import { readCloudflareAccessIdentity } from '@/features/admin/server/access';
 import { redirectLegacyGhostHost } from '@/lib/http/legacy-ghost-redirect';
 import type { RuntimeEnvLocals } from '@/lib/runtime/env';
@@ -102,21 +100,9 @@ export const onRequest = defineMiddleware(async (context, next) => {
     return withNoStoreHeaders(withHtmlSecurityHeaders(context.request, await next()));
   }
 
-  const docsVisibility = isDocsPath(pathname) ? await getDocsVisibilityFromContent(pathname) : 'missing';
-
-  if (docsVisibility !== 'protected') {
-    const response = withContentPolicy(
-      context.request,
-      withHtmlSecurityHeaders(context.request, await next()),
-    );
-    return cacheHtmlPageResponse(context.request, response);
-  }
-
-  const session = await readAdminSession(context);
-  if (session) {
-    (context.locals as unknown as Record<string, unknown>).adminSession = session;
-    return withNoStoreHeaders(withHtmlSecurityHeaders(context.request, await next()));
-  }
-
-  return accessRequired();
+  const response = withContentPolicy(
+    context.request,
+    withHtmlSecurityHeaders(context.request, await next()),
+  );
+  return cacheHtmlPageResponse(context.request, response);
 });
