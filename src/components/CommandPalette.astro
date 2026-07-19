@@ -20,6 +20,7 @@ import {
   LayoutGrid,
   Search,
   Mail,
+  Check,
   Send,
   Sun,
   Moon,
@@ -156,7 +157,10 @@ const navKeywords: Record<string, string> = {
           data-command-copy={profile.email}
           data-haystack="copy email contact mail 邮箱 联系"
         >
-          <Mail className="cmdk-icon" aria-hidden="true" />
+          <span class="cmdk-icon cmdk-icon-swap" aria-hidden="true">
+            <Mail className="cmdk-icon-default" />
+            <Check className="cmdk-icon-copied" />
+          </span>
           <span class="cmdk-label">Copy email</span>
         </button>
         <button
@@ -310,11 +314,13 @@ const navKeywords: Record<string, string> = {
         navigator.clipboard
           ?.writeText(copy)
           .then(() => {
-            if (!label) return;
+            if (!label || el.classList.contains('is-copied')) return;
             const original = label.textContent;
+            el.classList.add('is-copied');
             label.textContent = 'Copied';
             window.setTimeout(() => {
               label.textContent = original;
+              el.classList.remove('is-copied');
             }, 1400);
           })
           .catch(() => {});
@@ -456,14 +462,22 @@ const navKeywords: Record<string, string> = {
     /* --background is a raw HSL channel triple; bare use renders transparent. */
     background: hsl(var(--background));
     color: hsl(var(--foreground));
-    box-shadow: 0 24px 64px -20px hsl(var(--foreground) / 0.25);
+    /* Layered transparent shadows read as depth on any backdrop; a single
+       heavy shadow reads as a smudge. */
+    box-shadow:
+      0 2px 4px -1px rgb(0 0 0 / 0.06),
+      0 8px 16px -4px rgb(0 0 0 / 0.1),
+      0 24px 64px -20px rgb(0 0 0 / 0.25);
     overflow: hidden;
     outline: none;
     font-family: var(--font-sans);
   }
   .dark .cmdk {
     border-color: hsl(var(--foreground) / 0.1);
-    box-shadow: 0 0 32px rgba(0, 0, 0, 0.55);
+    box-shadow:
+      0 2px 4px -1px rgb(0 0 0 / 0.3),
+      0 8px 16px -4px rgb(0 0 0 / 0.4),
+      0 24px 64px -12px rgb(0 0 0 / 0.6);
   }
   .cmdk::backdrop {
     background: rgb(0 0 0 / 0.42);
@@ -498,6 +512,7 @@ const navKeywords: Record<string, string> = {
     color: hsl(var(--muted-foreground) / 0.6);
   }
   .cmdk-close {
+    position: relative;
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -509,6 +524,16 @@ const navKeywords: Record<string, string> = {
     background: transparent;
     color: hsl(var(--muted-foreground) / 0.7);
     cursor: pointer;
+    transition:
+      color 150ms ease,
+      background 150ms ease,
+      scale 120ms ease;
+  }
+  /* Keep the 28px visual but extend the tap target to 40×40. */
+  .cmdk-close::before {
+    content: '';
+    position: absolute;
+    inset: -6px;
   }
   .cmdk-close svg {
     width: 18px;
@@ -518,6 +543,14 @@ const navKeywords: Record<string, string> = {
     .cmdk-close:hover {
       color: hsl(var(--foreground));
       background: hsl(var(--foreground) / 0.05);
+    }
+  }
+  .cmdk-close:active {
+    scale: 0.96;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .cmdk-close:active {
+      scale: 1;
     }
   }
 
@@ -574,6 +607,11 @@ const navKeywords: Record<string, string> = {
   .cmdk-item.is-active .cmdk-icon {
     color: hsl(var(--foreground));
   }
+  /* Press feedback: the highlight deepens instead of the row scaling — a
+     full-width row that shrinks reads as layout jitter, not as a press. */
+  .cmdk-item:active {
+    background: hsl(var(--foreground) / 0.1);
+  }
   .cmdk-item:focus-visible {
     outline: 2px solid hsl(var(--foreground) / 0.4);
     outline-offset: -2px;
@@ -588,6 +626,49 @@ const navKeywords: Record<string, string> = {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+
+  /* Copy feedback: cross-fade Mail → Check inside one icon slot. Both icons
+     stay in the DOM; opacity + scale + blur bridge the swap so it reads as
+     one object transforming rather than two icons toggling. */
+  .cmdk-icon-swap {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .cmdk-icon-swap svg {
+    width: 17px;
+    height: 17px;
+    transition:
+      opacity 300ms cubic-bezier(0.2, 0, 0, 1),
+      scale 300ms cubic-bezier(0.2, 0, 0, 1),
+      filter 300ms cubic-bezier(0.2, 0, 0, 1);
+  }
+  .cmdk-icon-swap .cmdk-icon-copied {
+    position: absolute;
+    inset: 0;
+    margin: auto;
+    opacity: 0;
+    scale: 0.25;
+    filter: blur(4px);
+  }
+  .cmdk-item.is-copied .cmdk-icon-default {
+    opacity: 0;
+    scale: 0.25;
+    filter: blur(4px);
+  }
+  .cmdk-item.is-copied .cmdk-icon-copied {
+    opacity: 1;
+    scale: 1;
+    filter: blur(0px);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .cmdk-icon-swap svg {
+      transition: opacity 200ms ease;
+      scale: 1 !important;
+      filter: none !important;
+    }
   }
 
   .cmdk-footer {
