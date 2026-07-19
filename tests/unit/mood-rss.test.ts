@@ -80,4 +80,80 @@ describe('buildMoodRssXml', () => {
     expect(xml).toContain('<guid isPermaLink="true">https://buxx.me/mood/990001</guid>');
     expect(xml).not.toContain('api-v2');
   });
+
+  test('emits gallery images as absolute <img> tags in content', () => {
+    const xml = buildMoodRssXml(
+      { title: 'Mood' },
+      [
+        createPost({
+          previewHtml: '<p>Gallery mood</p>',
+          gallery: {
+            count: 3,
+            items: [
+              { src: '/mood/990001/a.jpg', fallbackSrc: null, width: 800, height: 600, layout: null, alt: 'A' },
+              { src: '/mood/990001/b.jpg', fallbackSrc: null, width: 800, height: 600, layout: null, alt: 'B' },
+              { src: '/mood/990001/c.jpg', fallbackSrc: null, width: null, height: null, layout: null, alt: '' },
+            ],
+          },
+        }),
+      ],
+      new URL('https://buxx.me')
+    );
+
+    const imgCount = (xml.match(/<img /g) ?? []).length;
+    expect(imgCount).toBe(3);
+    expect(xml).toContain('src="https://buxx.me/mood/990001/a.jpg"');
+    expect(xml).toContain('src="https://buxx.me/mood/990001/b.jpg"');
+    expect(xml).toContain('src="https://buxx.me/mood/990001/c.jpg"');
+    expect(xml).toContain('width="800"');
+  });
+
+  test('emits a single post.image as an absolute <img> tag', () => {
+    const xml = buildMoodRssXml(
+      { title: 'Mood' },
+      [
+        createPost({
+          previewHtml: '<p>Photo mood</p>',
+          image: '/mood/990001/photo.jpg',
+          imageWidth: 1200,
+          imageHeight: 900,
+        }),
+      ],
+      new URL('https://buxx.me')
+    );
+
+    const imgCount = (xml.match(/<img /g) ?? []).length;
+    expect(imgCount).toBe(1);
+    expect(xml).toContain('src="https://buxx.me/mood/990001/photo.jpg"');
+    expect(xml).toContain('width="1200"');
+    expect(xml).toContain('height="900"');
+  });
+
+  test('emits no <img> for text-only posts', () => {
+    const xml = buildMoodRssXml(
+      { title: 'Mood' },
+      [createPost({ previewHtml: '<p>Just text</p>' })],
+      new URL('https://buxx.me')
+    );
+
+    expect(xml).not.toContain('<img ');
+  });
+
+  test('does not duplicate an image the preview already embeds', () => {
+    const xml = buildMoodRssXml(
+      { title: 'Mood' },
+      [
+        createPost({
+          previewHtml: '<p>Photo mood</p><img src="https://buxx.me/mood/990001/photo.jpg" alt="" />',
+          image: '/mood/990001/photo.jpg',
+          imageWidth: 1200,
+          imageHeight: 900,
+        }),
+      ],
+      new URL('https://buxx.me')
+    );
+
+    const imgCount = (xml.match(/<img /g) ?? []).length;
+    expect(imgCount).toBe(1);
+  });
 });
