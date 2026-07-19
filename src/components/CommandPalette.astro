@@ -13,7 +13,6 @@
 // nothing local matches, the palette collapses to just the Ask AI group, which
 // doubles as the empty state ("no result? ask an assistant instead").
 import {
-  Sparkles,
   Home,
   Layers,
   FileText,
@@ -27,7 +26,13 @@ import {
   Monitor,
   X,
 } from 'lucide-react';
-import { GitHubIcon, InstagramIcon } from '@/components/icons';
+import {
+  GitHubIcon,
+  InstagramIcon,
+  OpenAIIcon,
+  AnthropicIcon,
+  PerplexityIcon,
+} from '@/components/icons';
 import { meta, navLinks, profile } from '@/data/site';
 import type { ComponentType } from 'react';
 
@@ -36,9 +41,9 @@ type IconComponent = ComponentType<{ className?: string }>;
 const AI_PROMPT = `Read ${meta.siteUrl}/llms.txt first — it indexes this site's pages as markdown. Then answer my questions about Lucian (Bunizao), his projects, and his writing.`;
 
 const aiTargets = [
-  { name: 'ChatGPT', base: 'https://chatgpt.com/?q=' },
-  { name: 'Claude', base: 'https://claude.ai/new?q=' },
-  { name: 'Perplexity', base: 'https://www.perplexity.ai/search?q=' },
+  { name: 'ChatGPT', base: 'https://chatgpt.com/?q=', icon: OpenAIIcon },
+  { name: 'Claude', base: 'https://claude.ai/new?q=', icon: AnthropicIcon },
+  { name: 'Perplexity', base: 'https://www.perplexity.ai/search?q=', icon: PerplexityIcon },
 ];
 
 // Blog and Email are covered by their own rows (Writing group, Copy email).
@@ -101,7 +106,7 @@ const navKeywords: Record<string, string> = {
             target="_blank"
             rel="noopener noreferrer"
           >
-            <Sparkles className="cmdk-icon" aria-hidden="true" />
+            <t.icon className="cmdk-icon" aria-hidden="true" />
             <span class="cmdk-label">Open in {t.name}</span>
           </a>
         ))}
