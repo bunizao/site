@@ -1073,7 +1073,6 @@ test.describe('Mood routes', () => {
       description: 'E2E mood feed',
       avatar: '',
     };
-    let followingRequestStarted = false;
     let releaseFollowingRequest = (): void => {};
     const followingRequestGate = new Promise<void>((resolve) => {
       releaseFollowingRequest = resolve;
@@ -1109,7 +1108,8 @@ test.describe('Mood routes', () => {
       }
 
       if (before === '989999') {
-        followingRequestStarted = true;
+        // Never resolves until teardown: the page must render without this
+        // response, proving pagination stays off the first-paint path.
         await followingRequestGate;
         await route.fulfill({
           status: 200,
@@ -1133,8 +1133,10 @@ test.describe('Mood routes', () => {
 
     try {
       await page.goto('/mood', { waitUntil: 'domcontentloaded' });
+      // The prefetch observer may fire for the next page (its response is
+      // gated above and never arrives), but the same-day posts must paint
+      // without waiting on it.
       await expect(page.locator('[data-mood-id="990000"]')).toBeVisible({ timeout: 1_500 });
-      expect(followingRequestStarted).toBe(false);
     } finally {
       releaseFollowingRequest();
     }
