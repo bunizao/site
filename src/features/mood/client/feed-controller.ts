@@ -6,6 +6,7 @@ import { createFeedUpdateWatcher } from '@/features/mood/client/feed-update-watc
 import { initMoodGalleries } from '@/features/mood/client/gallery';
 import { createMoodMetaPatcher } from '@/features/mood/client/meta-patcher';
 import { hydrateMoodRichText } from '@/features/mood/client/rich-text';
+import { formatMoodDateKey, rekeyMoodServerRenderedGroups } from '@/features/mood/shared/date-grouping';
 import {
   getMoodFeedAnchorBeforeCursor,
   getMoodFeedAnchorWindowBeforeCursor,
@@ -95,14 +96,7 @@ export function initMoodFeedController(): void {
         }
       };
 
-      const formatDateKey = (value: string): string => {
-        const date = new Date(value);
-        if (Number.isNaN(date.getTime())) return '';
-        const year = date.getFullYear();
-        const month = String(date.getMonth() + 1).padStart(2, '0');
-        const day = String(date.getDate()).padStart(2, '0');
-        return `${year}-${month}-${day}`;
-      };
+      const formatDateKey = (value: string): string => formatMoodDateKey(value);
       const moodIdSet = new Set<string>();
       let totalCount = 0;
       let newestNumericId = Number.NEGATIVE_INFINITY;
@@ -738,6 +732,10 @@ export function initMoodFeedController(): void {
       const serverRenderedCount = list.querySelectorAll('.mood-item[data-mood-id]').length;
       if (serverRenderedCount > 0) {
         totalCount = serverRenderedCount;
+        // SSR grouped posts by UTC day; regroup them under the visitor's local
+        // timezone so per-post times read local and later client appends merge
+        // into the same date groups. Runs before any append or anchor reveal.
+        rekeyMoodServerRenderedGroups(list);
         mediaHydrator.applyMediaHints(list);
         initMoodGalleries(list);
       }

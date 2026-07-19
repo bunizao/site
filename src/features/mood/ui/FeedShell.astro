@@ -10,6 +10,11 @@ import {
   getMoodFeedNavigationId,
 } from '@/features/mood/shared/feed-anchor';
 import { getCriticalInitialPosts, hasRenderableMoodFeedMedia } from '@/features/mood/shared/initial-feed';
+import {
+  formatMoodDateHeader,
+  formatMoodDateKey,
+  formatMoodTime,
+} from '@/features/mood/shared/date-grouping';
 import { getMoodReactionKey } from '@/features/mood/client/meta-patcher';
 import { serializeScriptJson } from '@/lib/serialize-script-json';
 
@@ -65,60 +70,10 @@ const initialFeedPayload = {
 const hasInitialFeedPayload = initialPosts.length > 0 || Boolean(initialChannel);
 const initialFeedPayloadJson = serializeScriptJson(initialFeedPayload);
 
-function formatTime(value: string): string {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '';
-  return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
-}
-
-function formatDateKey(value: string): string {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '';
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-}
-
-function formatDateHeader(dateKey: string): string {
-  const [year, month, day] = dateKey.split('-').map(Number);
-  const date = new Date(year, month - 1, day);
-  const now = new Date();
-  const yesterday = new Date(now);
-  yesterday.setDate(yesterday.getDate() - 1);
-
-  const isSameDay = (candidate: Date, target: Date) => (
-    candidate.getFullYear() === target.getFullYear()
-    && candidate.getMonth() === target.getMonth()
-    && candidate.getDate() === target.getDate()
-  );
-
-  if (isSameDay(date, now)) return 'Today';
-  if (isSameDay(date, yesterday)) return 'Yesterday';
-
-  const months = [
-    'January',
-    'February',
-    'March',
-    'April',
-    'May',
-    'June',
-    'July',
-    'August',
-    'September',
-    'October',
-    'November',
-    'December',
-  ];
-
-  if (date.getFullYear() === now.getFullYear()) {
-    return `${months[date.getMonth()]} ${date.getDate()}`;
-  }
-
-  return `${months[date.getMonth()]} ${date.getDate()}, ${date.getFullYear()}`;
-}
-
 function groupPostsByDate(posts: MoodFeedItem[]): Array<{ dateKey: string; posts: MoodFeedItem[] }> {
   const groups = new Map<string, MoodFeedItem[]>();
   posts.forEach((post) => {
-    const dateKey = formatDateKey(post.datetime);
+    const dateKey = formatMoodDateKey(post.datetime);
     if (!dateKey) return;
     if (!groups.has(dateKey)) {
       groups.set(dateKey, []);
@@ -332,7 +287,7 @@ function shouldHideQuoteAuthor(value?: string): boolean {
       {criticalDateGroups.map((group) => (
         <div class="mood-date-group" data-date={group.dateKey}>
           <div class="mood-date-header">
-            <span class="mood-date-text">{formatDateHeader(group.dateKey)}</span>
+            <span class="mood-date-text">{formatMoodDateHeader(group.dateKey)}</span>
             <div class="mood-date-line"></div>
           </div>
           <div class="mood-date-items">
@@ -378,7 +333,7 @@ function shouldHideQuoteAuthor(value?: string): boolean {
                       <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
                     </svg>
                   </a>
-                  <time class="mood-item-time" datetime={post.datetime}>{formatTime(post.datetime)}</time>
+                  <time class="mood-item-time" datetime={post.datetime}>{formatMoodTime(post.datetime)}</time>
                   <div class={`mood-item-content${isTooBigVideoPreview && !post.previewText.trim() && !hasStructuredMedia && !mediaHtml && !post.forwardedFrom && !post.quote ? ' mood-item-content--media-only' : ''}`}>
                     {post.forwardedFrom?.name ? (
                       <div class="mood-item-forwarded">
@@ -483,7 +438,7 @@ function shouldHideQuoteAuthor(value?: string): boolean {
                           <div class="mood-item-thumb-video-overlay" aria-hidden="true">
                             <span class="mood-item-thumb-video-label">Media is too big</span>
                             <span class="mood-item-thumb-video-cta">View details</span>
-                            <time class="mood-item-thumb-video-time" datetime={post.datetime}>{formatTime(post.datetime)}</time>
+                            <time class="mood-item-thumb-video-time" datetime={post.datetime}>{formatMoodTime(post.datetime)}</time>
                           </div>
                         ) : null}
                       </div>

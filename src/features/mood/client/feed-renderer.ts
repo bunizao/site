@@ -13,6 +13,7 @@ import {
 import { buildMoodPreviewFragment } from '@/features/mood/shared/preview';
 import { findTooBigVideoMedia, renderStructuredMoodFeedMediaMarkup } from '@/features/mood/shared/feed-media';
 import { getMoodFeedThumbnailStyle } from '@/features/mood/shared/feed-thumbnail';
+import { formatMoodDateHeader, formatMoodTime } from '@/features/mood/shared/date-grouping';
 import { getMoodReactionKey } from '@/features/mood/client/meta-patcher';
 import type { ChannelInfo, MoodData } from '@/features/mood/client/feed-types';
 
@@ -42,55 +43,6 @@ interface FeedRenderer {
   appendMoods(posts: MoodData[], startIndex?: number): number;
   prependMoods(posts: MoodData[], startIndex?: number): number;
   scrollToMood(id: string, options?: { behavior?: ScrollBehavior; highlight?: boolean }): boolean;
-}
-
-function formatTime(value: string): string {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '';
-  const hours = String(date.getHours()).padStart(2, '0');
-  const minutes = String(date.getMinutes()).padStart(2, '0');
-  return `${hours}:${minutes}`;
-}
-
-function formatDateHeader(dateKey: string): string {
-  const [year, month, day] = dateKey.split('-').map(Number);
-  const date = new Date(year, month - 1, day);
-  const now = new Date();
-
-  const isToday =
-    date.getFullYear() === now.getFullYear()
-    && date.getMonth() === now.getMonth()
-    && date.getDate() === now.getDate();
-  if (isToday) return 'Today';
-
-  const yesterday = new Date(now);
-  yesterday.setDate(yesterday.getDate() - 1);
-  const isYesterday =
-    date.getFullYear() === yesterday.getFullYear()
-    && date.getMonth() === yesterday.getMonth()
-    && date.getDate() === yesterday.getDate();
-  if (isYesterday) return 'Yesterday';
-
-  const months = [
-    'January',
-    'February',
-    'March',
-    'April',
-    'May',
-    'June',
-    'July',
-    'August',
-    'September',
-    'October',
-    'November',
-    'December',
-  ];
-
-  if (date.getFullYear() === now.getFullYear()) {
-    return `${months[date.getMonth()]} ${date.getDate()}`;
-  }
-
-  return `${months[date.getMonth()]} ${date.getDate()}, ${date.getFullYear()}`;
 }
 
 function isLongContent(text: string): boolean {
@@ -347,7 +299,7 @@ export function createFeedRenderer({
     const time = document.createElement('time');
     time.className = 'mood-item-time';
     time.dateTime = mood.datetime;
-    time.textContent = formatTime(mood.datetime);
+    time.textContent = formatMoodTime(mood.datetime);
 
     const content = document.createElement('div');
     content.className = 'mood-item-content';
@@ -579,7 +531,7 @@ export function createFeedRenderer({
         const time = document.createElement('time');
         time.className = 'mood-item-thumb-video-time';
         time.dateTime = mood.datetime;
-        time.textContent = formatTime(mood.datetime);
+        time.textContent = formatMoodTime(mood.datetime);
 
         overlay.appendChild(label);
         overlay.appendChild(cta);
@@ -784,7 +736,7 @@ export function createFeedRenderer({
 
     const dateText = document.createElement('span');
     dateText.className = 'mood-date-text';
-    dateText.textContent = formatDateHeader(dateKey);
+    dateText.textContent = formatMoodDateHeader(dateKey);
 
     const dateLine = document.createElement('div');
     dateLine.className = 'mood-date-line';
