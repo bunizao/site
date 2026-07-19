@@ -28,6 +28,9 @@ import {
 } from 'lucide-react';
 import { GitHubIcon, InstagramIcon } from '@/components/icons';
 import { meta, navLinks, profile } from '@/data/site';
+import type { ComponentType } from 'react';
+
+type IconComponent = ComponentType<{ className?: string }>;
 
 const AI_PROMPT = `Read ${meta.siteUrl}/llms.txt first — it indexes this site's pages as markdown. Then answer my questions about Lucian (Bunizao), his projects, and his writing.`;
 
@@ -39,13 +42,13 @@ const aiTargets = [
 
 // Blog and Email are covered by their own rows (Writing group, Copy email).
 const socials = profile.links.filter((l) => l.name !== 'Blog' && l.name !== 'Email');
-const socialIcons: Record<string, typeof GitHubIcon> = {
+const socialIcons: Record<string, IconComponent> = {
   GitHub: GitHubIcon,
   Telegram: Send,
   Instagram: InstagramIcon,
 };
 
-const navIcons: Record<string, typeof Home> = {
+const navIcons: Record<string, IconComponent> = {
   '/projects': Layers,
   '/blog': FileText,
   '/mood': Smile,
