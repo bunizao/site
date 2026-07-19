@@ -2060,6 +2060,21 @@ html.no-transition * {
   --input: 240 4% 18%;
   --ring: 240 5% 64%;
   --radius: 0.625rem;
+  /* Radius scale consumed directly by vendored coss classes
+     (e.g. before:rounded-[calc(var(--radius-lg)-1px)]). Kept in lockstep with
+     tailwind.config.mjs borderRadius so utilities and CSS-var refs agree. */
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+  /* Status tokens for coss badges/alerts (bg-info/success/warning). */
+  --info: 217 91% 60%;
+  --info-foreground: 213 94% 78%;
+  --success: 142 71% 45%;
+  --success-foreground: 141 76% 66%;
+  --warning: 38 92% 55%;
+  --warning-foreground: 41 96% 68%;
   --portal-accent: 217 91% 60%;
   --portal-success: 142 71% 45%;
   --portal-warning: 38 92% 55%;
@@ -2083,6 +2098,24 @@ html.no-transition * {
 .theme-portal-mono {
   font-family: var(--font-code);
   font-feature-settings: 'tnum' 1;
+}
+
+/* Sweep animation for vendored coss <Skeleton> (animate-skeleton). */
+.theme-portal .animate-skeleton {
+  animation: portal-skeleton 1.6s ease-in-out infinite;
+}
+@keyframes portal-skeleton {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .theme-portal .animate-skeleton {
+    animation: none;
+  }
 }
 
 @media print {
