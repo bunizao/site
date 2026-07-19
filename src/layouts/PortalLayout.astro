@@ -15,7 +15,7 @@ import '@/styles/globals.css';
 import '@/styles/portal.css';
 import { ClientRouter } from 'astro:transitions';
 import { ExternalLink, LogOut } from 'lucide-react';
-import { PORTAL_NAV_ITEMS, type PortalNavKey } from '@/features/admin/portal-nav';
+import { PORTAL_NAV_GROUPS, type PortalNavKey } from '@/features/admin/portal-nav';
 // Brand mark served by the live /logo/<id>.svg route (the old sticker module was removed).
 const BRAND_MARK = { src: '/logo/peek.svg?v=3', width: 88, height: 80 };
 
@@ -62,19 +62,26 @@ const user = userProp
               decoding="async"
             />
           </div>
-          {PORTAL_NAV_ITEMS.map((item) => (
-            <a
-              href={item.href}
-              class="portal-sidebar-link"
-              aria-current={active === item.key ? 'page' : undefined}
-              data-astro-prefetch="false"
-            >
-              <item.Icon size={15} />
-              <span>{item.label}</span>
-            </a>
-          ))}
+          <nav class="portal-nav">
+            {PORTAL_NAV_GROUPS.map((group) => (
+              <div class="portal-nav-group">
+                <div class="portal-nav-label">{group.label}</div>
+                {group.items.map((item) => (
+                  <a
+                    href={item.href}
+                    class="portal-sidebar-link"
+                    aria-current={active === item.key ? 'page' : undefined}
+                    data-astro-prefetch="false"
+                  >
+                    <item.Icon size={15} />
+                    <span>{item.label}</span>
+                  </a>
+                ))}
+              </div>
+            ))}
+          </nav>
           <div class="portal-sidebar-spacer"></div>
-          <a class="portal-sidebar-link" href="/" target="_blank" rel="noreferrer">
+          <a class="portal-sidebar-link portal-sidebar-link--muted" href="/" target="_blank" rel="noreferrer">
             <ExternalLink size={15} />
             <span>View site</span>
           </a>

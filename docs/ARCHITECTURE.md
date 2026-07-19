@@ -76,7 +76,7 @@ Private API ownership lives in the separate `site-api` Worker. `site-api` direct
 
 **Owner auth surface:**
 - `GET /oauth` — Short public entry that redirects to the protected OAuth hub.
-- `GET /dev/portal/oauth` — Protected OAuth hub that documents the owner-auth boundary for future sandbox handoff tokens, knowledge connectors, and MCP clients.
+- The owner-auth boundary is enforced in `src/middleware.ts` + `src/features/admin/server/access.ts`; see [OAUTH-HUB.md](./OAUTH-HUB.md) for the credential roadmap. (The former `/dev/portal/oauth` UI page was removed.)
 
 Telegram references:
 
