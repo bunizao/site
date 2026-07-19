@@ -17,6 +17,7 @@ import { ClientRouter } from 'astro:transitions';
 import { ExternalLink, LogOut } from 'lucide-react';
 import { PORTAL_NAV_ITEMS, type PortalNavKey } from '@/features/admin/portal-nav';
 // Brand mark served by the live /logo/<id>.svg route (the old sticker module was removed).
+import { SITE_FAVICON } from '@/lib/favicon';
 const BRAND_MARK = { src: '/logo/peek.svg?v=3', width: 88, height: 80 };
 
 const { title, description, active = 'overview', chrome = 'full', user: userProp } = Astro.props;
@@ -43,7 +44,7 @@ const user = userProp
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="robots" content="noindex, nofollow" />
     <meta name="color-scheme" content="dark" />
-    <link rel="icon" type="image/svg+xml" href={BRAND_MARK.src} />
+    <link rel="icon" type="image/svg+xml" href={SITE_FAVICON} />
     <link rel="preload" href="/fonts/geist-sans-variable.woff2" as="font" type="font/woff2" crossorigin />
     <title>{title}</title>
     {description && <meta name="description" content={description} />}

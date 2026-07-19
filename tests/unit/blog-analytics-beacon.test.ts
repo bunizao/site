@@ -49,16 +49,38 @@ describe('blog analytics beacon', () => {
     expect(source).not.toMatch(/<script[^>]+src=["']\/gmetrics\/["']/);
   });
 
-  test('uses one network asset for the blog mark on blog pages', () => {
+  test('favicon adapts to browser theme while the topbar mark stays webp', () => {
     const layout = readFileSync(new URL('../../src/layouts/BlogLayout.astro', import.meta.url), 'utf8');
     const toc = readFileSync(new URL('../../src/features/posts/ui/TableOfContents.astro', import.meta.url), 'utf8');
 
+    // Tab strips ignore site CSS: only an SVG favicon with its own
+    // prefers-color-scheme rule can follow the browser's dark mode. The
+    // in-page marks keep the raster webp and invert via .dark CSS.
+    expect(layout).toContain("import { BLOG_FAVICON } from '@/lib/favicon';");
+    expect(layout).toContain('<link rel="icon" href={BLOG_FAVICON} type="image/svg+xml" />');
+    expect(layout).not.toContain('<link rel="icon" href={blogMarkAsset}');
     expect(layout).toContain('const blogMarkAsset = blog.mark;');
-    expect(layout).toContain('<link rel="icon" href={blogMarkAsset} type="image/webp" />');
     expect(layout).toContain('<img src={blogMarkAsset} alt={blog.name} width="40" height="40" />');
-    expect(layout).not.toContain('blog-mark.svg');
-    expect(layout).not.toContain('<link rel="icon" href="/blog-mark.svg"');
     expect(toc).toContain('<img src={blogMarkAsset} alt={blog.name} width="30" height="30" />');
+  });
+
+  test('favicon module badges dev and versions prod hrefs', () => {
+    const favicon = readFileSync(new URL('../../src/lib/favicon.ts', import.meta.url), 'utf8');
+
+    expect(favicon).toContain('import.meta.env.DEV');
+    expect(favicon).toContain("'/logo/peek-dev.svg'");
+    expect(favicon).toContain("'/blog-mark-dev.svg'");
+    expect(favicon).toContain("'/logo/peek.svg?v=3'");
+    expect(favicon).toContain("'/blog-mark.svg?v=2'");
+  });
+
+  test('blog favicon SVGs self-adapt and carry the dev badge', () => {
+    const prod = readFileSync(new URL('../../public/blog-mark.svg', import.meta.url), 'utf8');
+    const dev = readFileSync(new URL('../../public/blog-mark-dev.svg', import.meta.url), 'utf8');
+
+    expect(prod).toContain('prefers-color-scheme: dark');
+    expect(prod).toContain('invert(1)');
+    expect(dev).toContain('<rect width="128" height="128" rx="24" fill="#f59e0b"/>');
   });
 
   test('keeps the shared blog mark asset encoded as WebP', () => {
