@@ -29,9 +29,13 @@ element serialization correct.
 
 ## Current state
 
-- `FeedShell.astro:253-255` embeds the initial Mood feed payload.
-- `HomePreview.astro:33-39` embeds homepage Mood posts.
-- `Layout.astro:168-170` embeds JSON-LD items.
+- `FeedShell.astro:320` embeds the initial Mood feed payload
+  (`<script is:inline type="application/json" data-mood-initial-feed set:html={JSON.stringify(initialFeedPayload)}>`).
+- `HomePreview.astro:38` embeds homepage Mood posts
+  (`set:html={JSON.stringify(initialPosts.slice(0, INITIAL_POST_COUNT))}`).
+- `Layout.astro` embeds JSON-LD items (search `JSON.stringify` in the file).
+- (Line numbers re-verified 2026-07-19 at commit `da8c4747`; the original
+  2026-07-13 references drifted but all three sinks remain as described.)
 - `AnimatedLogo.astro:97` is the existing safe exemplar:
 
   ```ts
