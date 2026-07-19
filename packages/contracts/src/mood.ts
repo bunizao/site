@@ -201,7 +201,9 @@ export interface MoodImageProbeResponse {
 export interface MoodMetaItem {
   id: string;
   reactions: MoodReaction[];
-  commentsCount: number;
+  // `null` means the count is unknown (window omitted it and the backfill
+  // could not resolve it); clients keep their existing count in that case.
+  commentsCount: number | null;
 }
 
 export interface MoodLiveCount {
