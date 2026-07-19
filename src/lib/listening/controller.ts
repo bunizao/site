@@ -462,6 +462,9 @@ export const initListeningCards = (root: ParentNode = document): void => {
     window.addEventListener('resize', syncTitleMarquee, { passive: true });
 
     let wasPlaying = false;
+    // Cover cards seed a total-time label before playback; keep it visible when
+    // this card doesn't own the player instead of blanking it out.
+    const seededTotal = totalEl?.textContent ?? '';
     musicKitPlayer.subscribe((snapshot) => {
       const ours = snapshot.owner === playbackRequest;
       const playing = ours && snapshot.isPlaying;
@@ -473,8 +476,8 @@ export const initListeningCards = (root: ParentNode = document): void => {
       const current = ours ? snapshot.currentTime : 0;
       const fraction = duration > 0 ? Math.min(1, current / duration) : 0;
       syncProgress(fraction);
-      if (elapsedEl) elapsedEl.textContent = formatTime(current);
-      if (totalEl) totalEl.textContent = duration > 0 ? formatTime(duration) : '';
+      if (elapsedEl) elapsedEl.textContent = ours ? formatTime(current) : '0:00';
+      if (totalEl) totalEl.textContent = duration > 0 ? formatTime(duration) : seededTotal;
     });
 
     // Draggable seek. Pointer events cover mouse + touch + pen in one path.

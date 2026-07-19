@@ -26,6 +26,11 @@ export interface ListeningCardProps {
   isStatic: boolean;
   /** Extra pressed-label markup over the record (Apple Music lockup). */
   badgeHtml?: string;
+  /** 'vinyl' (default) is the turntable disc; 'cover' is a plain album-art
+   *  tile with an always-visible progress bar (mood audio). */
+  artStyle?: 'vinyl' | 'cover';
+  /** Seed the progress total time before playback starts (e.g. '3:43'). */
+  totalTimeLabel?: string;
 }
 
 function escapeHtml(value: string): string {
@@ -67,8 +72,11 @@ export function renderListeningCardMarkup(props: ListeningCardProps): string {
     isLoading,
     isStatic,
     badgeHtml = '',
+    artStyle = 'vinyl',
+    totalTimeLabel = '',
   } = props;
 
+  const isCover = artStyle === 'cover';
   const hasTrack = !isLoading;
   const hasLink = Boolean(linkUrl);
   const hasPlayableAudio = Boolean(appleCatalogId || previewUrl);
@@ -83,30 +91,47 @@ export function renderListeningCardMarkup(props: ListeningCardProps): string {
     ? (isLive ? 'Now playing' : 'Recently played')
     : 'Loading listening track';
 
+  // Cover style drops the turntable disc + tonearm for a plain album-art tile.
+  // It also skips crossorigin (no groove-accent sampling), so same-origin mood
+  // artwork always renders instead of tripping CORS.
+  const artInner = isCover
+    ? [
+        '<span class="listening-art-frame">',
+        `<img src="${escapeHtml(artworkUrl)}" alt="" class="listening-art-img" data-listening-artwork`,
+        ' loading="lazy" decoding="async" fetchpriority="low"',
+        ' referrerpolicy="no-referrer" width="72" height="72" />',
+        '<span class="listening-art-scrim" aria-hidden="true"></span>',
+        `<span class="listening-art-icons" aria-hidden="true">${playIcon}${pauseIcon}</span>`,
+        '</span>',
+      ].join('')
+    : [
+        '<span class="listening-art-frame">',
+        '<span class="listening-art-record" aria-hidden="true"></span>',
+        `<img src="${escapeHtml(artworkUrl)}" alt="" class="listening-art-img" data-listening-artwork`,
+        ' crossorigin="anonymous" loading="lazy" decoding="async" fetchpriority="low"',
+        ' referrerpolicy="no-referrer" width="40" height="40" />',
+        `<span class="listening-art-icons" aria-hidden="true">${playIcon}${pauseIcon}</span>`,
+        badgeHtml,
+        '</span>',
+        tonearm,
+      ].join('');
+
   return [
-    `<aside class="listening ${liveClass}${isLoading ? ' is-loading' : ''}"`,
+    `<aside class="listening ${liveClass}${isLoading ? ' is-loading' : ''}${isCover ? ' is-cover' : ''}"`,
     ' data-listening',
     ` data-has-initial-track="${hasTrack}"`,
     ` data-now-playing="${isLive}"`,
     ` data-static="${isStatic}"`,
     ` aria-label="${escapeHtml(containerLabel)}">`,
 
-    `<button type="button" class="listening-art ${liveClass}" data-listening-play`,
+    `<button type="button" class="listening-art ${liveClass}${isCover ? ' is-cover' : ''}" data-listening-play`,
     ` data-apple-catalog-id="${escapeHtml(appleCatalogId)}"`,
     ` data-preview-url="${escapeHtml(previewUrl)}"`,
     ` data-track-url="${escapeHtml(hasLink ? linkUrl : '')}"`,
     ` data-track-title="${escapeHtml(title)}"`,
     `${!hasPlayableAudio && !hasLink ? ' disabled' : ''}`,
     ` aria-pressed="false" aria-label="${escapeHtml(playLabel)}">`,
-    '<span class="listening-art-frame">',
-    '<span class="listening-art-record" aria-hidden="true"></span>',
-    `<img src="${escapeHtml(artworkUrl)}" alt="" class="listening-art-img" data-listening-artwork`,
-    ' crossorigin="anonymous" loading="lazy" decoding="async" fetchpriority="low"',
-    ' referrerpolicy="no-referrer" width="40" height="40" />',
-    `<span class="listening-art-icons" aria-hidden="true">${playIcon}${pauseIcon}</span>`,
-    badgeHtml,
-    '</span>',
-    tonearm,
+    artInner,
     '</button>',
 
     '<div class="listening-copy">',
@@ -146,7 +171,7 @@ export function renderListeningCardMarkup(props: ListeningCardProps): string {
     '<div class="listening-progress-fill" data-listening-fill></div>',
     '<div class="listening-progress-thumb" aria-hidden="true"></div>',
     '</div>',
-    '<span class="listening-time listening-time--total" data-listening-total></span>',
+    `<span class="listening-time listening-time--total" data-listening-total>${escapeHtml(totalTimeLabel)}</span>`,
     '</div>',
 
     '</div>',

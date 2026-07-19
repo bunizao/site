@@ -724,6 +724,151 @@
   transform: translate(-50%, -50%) scale(1);
 }
 
+/* Cover style — mood audio. No chrome: album-art tile on the left, copy +
+   a seated progress bar on the right. It sits inline in the post like the
+   document card, so it carries no border, background, or box padding. */
+.listening.is-cover {
+  grid-template-columns: 56px minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  max-width: 360px;
+}
+
+.listening-art.is-cover {
+  width: 56px;
+  height: 56px;
+  border-radius: 8px;
+  overflow: hidden;
+  align-self: center;
+}
+
+.listening-art.is-cover .listening-art-frame {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  overflow: hidden;
+  box-shadow: inset 0 0 0 1px hsl(0 0% 0% / 0.06);
+}
+
+.listening-art.is-cover .listening-art-img {
+  position: absolute;
+  inset: 0;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: 0;
+  transform: none;
+  transition: transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
+  box-shadow: none;
+  animation: none;
+}
+
+.listening-art.is-cover:hover:not(:disabled) .listening-art-img {
+  transform: scale(1.05);
+}
+
+.listening-art-scrim {
+  position: absolute;
+  inset: 0;
+  background: hsl(0 0% 0% / 0.32);
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  pointer-events: none;
+}
+
+.listening-art.is-cover:hover:not(:disabled) .listening-art-scrim,
+.listening-art.is-cover:focus-visible:not(:disabled) .listening-art-scrim,
+.listening-art.is-cover.is-preview-playing .listening-art-scrim {
+  opacity: 1;
+}
+
+.listening-art.is-cover .listening-art-icons {
+  inset: 0;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  transform: none;
+  z-index: 6;
+}
+
+.listening-art.is-cover:focus-visible {
+  outline: 2px solid hsl(var(--foreground) / 0.55);
+  outline-offset: 2px;
+  border-radius: 8px;
+}
+
+/* Copy column: title on top, progress seated below. The eyebrow and meta rows
+   are removed entirely — only title/artist + progress remain. */
+.listening.is-cover .listening-copy {
+  gap: 6px;
+}
+
+.listening.is-cover .listening-eyebrow {
+  display: none;
+}
+
+.listening.is-cover .listening-track {
+  width: 100%;
+  max-width: 100%;
+}
+
+/* Stack title over artist — the media-card pattern. Override the JS-applied
+   is-inline row layout and drop the em-dash separator; a bold title with a
+   muted artist line beneath reads as clean two-level hierarchy, not a
+   single crowded "Title — Artist" run. */
+.listening.is-cover .listening-track,
+.listening.is-cover .listening-track.is-inline {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+}
+
+.listening.is-cover .listening-sep {
+  display: none;
+}
+
+/* The cover card renders inline in the mood post, directly under the body
+   text. Give it room to breathe so it reads as a distinct object rather than
+   crowding the paragraph above it. */
+.mood-listening {
+  margin-top: 16px;
+}
+
+/* Mood detail content underlines every <a> via an Astro-scoped rule
+   (.mood-post-content[data-astro-cid] a). The track title is a link, so
+   out-specify that and strip the border — the card is not body-text prose. */
+.mood-listening .listening a.listening-track,
+.mood-listening .listening a.listening-track:hover,
+.mood-listening .listening a.listening-track:focus-visible {
+  border-bottom: none;
+}
+
+.listening.is-cover .listening-title {
+  --listening-title-font-size: 15px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.listening.is-cover .listening-artist {
+  font-size: 13px;
+  line-height: 1.35;
+  color: hsl(var(--muted-foreground));
+}
+
+.listening.is-cover .listening-meta {
+  display: none;
+}
+
+.listening.is-cover .listening-progress-row {
+  max-height: 24px;
+  opacity: 1;
+  pointer-events: auto;
+  margin-top: 4px;
+}
+
 @media (max-width: 520px) {
   .listening {
     width: 100%;

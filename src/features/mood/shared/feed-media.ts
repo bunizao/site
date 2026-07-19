@@ -153,22 +153,25 @@ function renderRichAudio(media: MediaItem): string {
 
   const { title, artist } = parseAudioLabel(media);
   const duration = formatDuration(media.durationSeconds);
-  const sizeLabel = media.fileSizeLabel?.trim() || '';
   const artwork = safeUrl(media.thumbnailSrc, 'media') || BLANK_LISTENING_ARTWORK;
 
   const card = renderListeningCardMarkup({
     title,
     artist,
-    collection: duration || sizeLabel || 'Audio',
-    year: duration ? sizeLabel : '',
+    // Cover style shows only title/artist + progress. File size and bitrate are
+    // noise for a play surface, so no meta line and no eyebrow.
+    collection: '',
+    year: '',
     artworkUrl: artwork,
     linkUrl: safeUrl(media.originalUrl, 'href'),
     previewUrl: src,
     appleCatalogId: '',
-    statusLabel: 'Audio',
+    statusLabel: '',
     isLive: false,
     isLoading: false,
     isStatic: true,
+    artStyle: 'cover',
+    totalTimeLabel: duration,
   });
 
   return `<div class="mood-listening">${card}</div>`;
