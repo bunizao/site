@@ -10,6 +10,7 @@ import { MOOD_ARCHIVE_FEED_PATH } from '@bunizao/contracts/routes';
 import {
   createApiServiceRequest,
   getApiServiceBinding,
+  resolveDevApiOrigin,
 } from '@/lib/http/api-service-proxy';
 import { isE2ESiteFixtureEnabled } from '@/lib/e2e';
 import { readOptionalEnv, type RuntimeEnvLocals } from '@/lib/runtime/env';
@@ -94,11 +95,35 @@ async function fetchMoodArchiveApiJson<T>(
   params: URLSearchParams = new URLSearchParams(),
 ): Promise<T> {
   const api = await getApiServiceBinding(context.locals);
-  if (!api) {
+  if (api) {
+    const response = await api.fetch(createMoodArchiveApiRequest(context, path, params));
+    if (!response.ok) {
+      throw new Error(`Mood archive request failed: ${response.status} ${response.statusText}`);
+    }
+    return response.json() as Promise<T>;
+  }
+
+  // Dev-only: no service binding under `astro dev`, so hit the archive route
+  // over HTTP (buxx.me by default, or API_DEV_ORIGIN). Production always has
+  // the binding, so this branch is never reached there. Public origins route
+  // the archive API under /api/v2, redirecting bare /v2, so prefix /api here.
+  const devOrigin = resolveDevApiOrigin(context.locals);
+  if (!devOrigin) {
     throw new Error('API service binding unavailable for mood archive reads.');
   }
 
-  const response = await api.fetch(createMoodArchiveApiRequest(context, path, params));
+  const source = new URL(context.request.url);
+  source.pathname = `/api${path}`;
+  source.search = params.toString();
+  // Strip the browser's Accept-Encoding: undici only auto-decompresses when it
+  // sets that header itself, so forwarding gzip/br leaves .json() reading raw
+  // compressed bytes ("Unexpected token" parse errors).
+  const headers = new Headers(context.request.headers);
+  headers.delete('accept-encoding');
+  const response = await fetch(createApiServiceRequest(new Request(source, {
+    method: 'GET',
+    headers,
+  }), devOrigin));
   if (!response.ok) {
     throw new Error(`Mood archive request failed: ${response.status} ${response.statusText}`);
   }
