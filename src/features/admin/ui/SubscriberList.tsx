@@ -7,34 +7,28 @@ import {
   Pencil,
   Mail,
 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Card } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import {
+  Button,
+  Input,
+  Card,
+  Badge,
   Table,
   TableBody,
   TableCell,
   TableHead,
   TableHeader,
   TableRow,
-} from '@/components/ui/table';
-import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
-import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog';
-import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -43,18 +37,16 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
-import { Label } from '@/components/ui/label';
-import { Checkbox } from '@/components/ui/checkbox';
-import { adminApiEndpoint } from './api';
-import {
+  Label,
+  Checkbox,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { Skeleton } from '@/components/ui/skeleton';
+  Skeleton,
+} from '@/components/coss';
+import { adminApiEndpoint } from './api';
 import type {
   DeliveryMode,
   NotifyChannel,
@@ -394,17 +386,19 @@ function SubscriberTable({ data, loading, onEdit, onDelete }: SubscriberTablePro
                   <TableCell className="text-xs text-muted-foreground">{formatDate(row.updatedAt)}</TableCell>
                   <TableCell className="text-right">
                     <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon">
-                          <MoreHorizontal className="size-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
+                      <DropdownMenuTrigger
+                        render={
+                          <Button variant="ghost" size="icon">
+                            <MoreHorizontal className="size-4" />
+                          </Button>
+                        }
+                      />
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem onSelect={() => onEdit(row)}>
+                        <DropdownMenuItem onClick={() => onEdit(row)}>
                           <Pencil className="size-3.5" /> Edit
                         </DropdownMenuItem>
                         <DropdownMenuItem
-                          onSelect={() => {
+                          onClick={() => {
                             window.location.href = `/dev/portal/subscribers/${row.emailHash}`;
                           }}
                         >
@@ -412,8 +406,8 @@ function SubscriberTable({ data, loading, onEdit, onDelete }: SubscriberTablePro
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem
-                          onSelect={() => onDelete(row)}
-                          className="text-destructive focus:text-destructive"
+                          onClick={() => onDelete(row)}
+                          variant="destructive"
                         >
                           <Trash2 className="size-3.5" /> Unsubscribe
                         </DropdownMenuItem>
