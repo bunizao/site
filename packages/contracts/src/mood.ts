@@ -104,6 +104,10 @@ export interface MoodSearchResult {
   sentiment_label: MoodSentimentLabel | null;
 }
 
+export interface MoodSearchResponse {
+  results: MoodSearchResult[];
+}
+
 export interface MoodFeedQuery {
   before?: string;
   after?: string;
