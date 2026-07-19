@@ -15,6 +15,8 @@ import {
   readMoodFeedAnchorId,
 } from '@/features/mood/shared/feed-anchor';
 import { loadInitialMoodFeed as loadInitialMoodFeedWindow } from '@/features/mood/server/initial-feed-loader';
+import { getMoodFeedPreloadImage } from '@/features/mood/shared/lcp-preload';
+import { normalizeMoodTagSlug } from '@/features/mood/shared/tag-filter';
 import { isE2ESiteFixtureEnabled } from '@/lib/e2e';
 import { readEnv, readPublicEnv } from '@/lib/runtime/env';
 import '@/styles/mood-gallery.css';
@@ -33,11 +35,13 @@ const telegramUrl = channel ? `https://t.me/${channel}` : '';
 const turnstileSiteKey = isE2ESiteFixtureEnabled(Astro.locals)
   ? ''
   : readPublicEnv(Astro.locals, 'TURNSTILE_SITE_KEY');
-const moodFeedAnchorId = readMoodFeedAnchorId(Astro.url);
+const moodTagFilter = normalizeMoodTagSlug(Astro.url.searchParams.get('tag'));
+// Tag mode is a plain filtered feed: no anchor deep links, archive reads only.
+const moodFeedAnchorId = moodTagFilter ? '' : readMoodFeedAnchorId(Astro.url);
 const moodFeedAnchorBeforeCursor = getMoodFeedAnchorBeforeCursor(moodFeedAnchorId);
 const moodFeedAnchorWindowBeforeCursor = getMoodFeedAnchorWindowBeforeCursor(moodFeedAnchorId);
 const requestedMoodReadSource = normalizeMoodApiSource(Astro.url.searchParams.get('source')) ?? undefined;
-const moodReadSource = resolveMoodReadSource(Astro.locals, requestedMoodReadSource);
+const moodReadSource = moodTagFilter ? 'archive' : resolveMoodReadSource(Astro.locals, requestedMoodReadSource);
 const moodReadFresh = Astro.url.searchParams.has('fresh') || Astro.url.searchParams.has('refresh');
 
 async function loadInitialMoodFeed() {
@@ -54,6 +58,7 @@ async function loadInitialMoodFeed() {
         ...query,
         fresh: moodReadFresh,
         source: moodReadSource,
+        ...(moodTagFilter ? { tag: moodTagFilter, fallback: false } : {}),
       }),
     });
     if (!result.cacheable) {
@@ -67,10 +72,16 @@ async function loadInitialMoodFeed() {
 }
 
 const initialFeed = await loadInitialMoodFeed();
-const firstFeedImage = initialFeed?.posts.find((post) => post.image)?.image ?? '';
-const preloadImages = firstFeedImage
+// Preload the exact media the priority feed element will render (see
+// getMoodFeedPreloadImage): aligns the high-priority fetch with the real LCP.
+const preloadImage = initialFeed
+  ? getMoodFeedPreloadImage(initialFeed.posts, moodFeedAnchorId)
+  : null;
+const preloadImages = preloadImage
   ? [{
-      href: firstFeedImage,
+      href: preloadImage.href,
+      imageSrcSet: preloadImage.imageSrcSet,
+      imageSizes: preloadImage.imageSizes,
     }]
   : [];
 // Skeleton structure: 2 date group cards to match actual content layout
@@ -288,6 +299,7 @@ const skeletonGroups = [
       initialChannel={initialFeed?.channel}
       anchorId={moodFeedAnchorId}
       readSource={moodReadSource}
+      tagFilter={moodTagFilter}
     />
   </main>
   <SubscribePanel variant="mood" id="mood" anchor="right" withTrigger={false} feed={rssHref} turnstileSiteKey={turnstileSiteKey} />
@@ -1404,6 +1416,13 @@ const skeletonGroups = [
     font-size: 11px;
     color: hsl(var(--muted-foreground) / 0.6);
     align-self: flex-start;
+    text-decoration: none;
+    transition: color 0.15s ease;
+  }
+
+  :global(a.mood-item-tag:hover),
+  :global(a.mood-item-tag:focus-visible) {
+    color: hsl(var(--foreground));
   }
 
   /* Reactions */
@@ -1911,6 +1930,14 @@ const skeletonGroups = [
     padding-top: 16px;
   }
 
+  :global(.mood-load-controls--newer) {
+    padding-top: 0;
+  }
+
+  :global(.mood-load-controls--newer .mood-load-status:empty) {
+    min-height: 0;
+  }
+
   :global(.mood-load-status) {
     font-size: 12px;
     color: hsl(var(--muted-foreground));
@@ -2230,4 +2257,10 @@ const skeletonGroups = [
   import { initMoodFeedController } from '@/features/mood/client/feed-controller';
 
   initMoodFeedController();
+</script>
+
+<script>
+  import { initMoodSearchPanel } from '@/features/mood/client/search-panel';
+
+  initMoodSearchPanel();
 </script>

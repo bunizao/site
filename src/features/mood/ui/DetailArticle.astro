@@ -1,6 +1,7 @@
 ---
 import type { MoodContentDocument } from '@bunizao/contracts';
 import CommentsSection from '@/features/mood/ui/CommentsSection.astro';
+import { getMoodTagHref } from '@/features/mood/shared/tag-filter';
 import { getMoodReactionKey } from '@/features/mood/client/meta-patcher';
 
 interface Props {
@@ -44,7 +45,7 @@ const postReactions = post?.reactions ?? [];
         {postTags.length > 0 && (
           <div class="mood-post-tags">
             {postTags.map((tag) => (
-              <span class="mood-post-tag">#{tag}</span>
+              <a class="mood-post-tag" href={getMoodTagHref(tag)}>#{tag}</a>
             ))}
           </div>
         )}
@@ -440,6 +441,7 @@ const postReactions = post?.reactions ?? [];
     border-radius: 6px;
     transition: all 0.15s ease;
     border: 1px solid hsl(var(--foreground) / 0.06);
+    text-decoration: none;
   }
 
   .mood-post-tag:hover {

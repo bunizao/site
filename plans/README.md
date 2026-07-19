@@ -18,9 +18,17 @@ leverage without a user selection step.
 | 003  | Stop manage-token referrer leak into blog analytics | P2 | S | — | DONE |
 | 004  | Turnstile widget lifecycle cleanup in ManagePreferences | P3 | S | — | DONE |
 | 005  | Remove stray root design scraps | P3 | S | — | DONE |
-| 006  | Mood navigation & read-path performance (PRD) | P1 | L | working-tree perf WIP deployed (see PRD §3) | TODO |
-| 007  | Reconcile canonical contracts across `site` and `site-api` | P1 | M | — | TODO |
-| 008  | Escape JSON embedded in script elements | P1 | S | — | TODO |
+| 006  | Mood navigation & read-path performance (PRD) | P1 | L | working-tree perf WIP deployed (see PRD §3) | DONE (verified 2026-07-19: WS1–WS5 all landed) |
+| 007  | Reconcile canonical contracts across `site` and `site-api` | P1 | M | — | TODO (drift now: index.ts, telegram-ops.ts, package.json) |
+| 008  | Escape JSON embedded in script elements | P1 | S | — | TODO (mood sinks re-confirmed 2026-07-19: FeedShell.astro:320, HomePreview.astro:38) |
+| 009  | Harden mood live-count hydration + live comment parsing | P1 | S | ../site-api 016 (deploy order only) | TODO |
+| 010  | Update watcher → archive probe + bfcache restart | P1 | S | — | TODO |
+| 011  | Visible mood feed failure states | P2 | S | — | TODO |
+| 012  | Unify SSR/client date grouping (visitor timezone) | P1 | M | — | TODO |
+| 013  | Include images in mood RSS content | P2 | S | — | TODO |
+| 014  | Restore srcset on archive images | P2 | M | 011 | TODO |
+| 015  | Clickable mood tag filters | P2 | M | 009–014 (branch order) | TODO |
+| 016  | Mood search UI | P2 | M | ../site-api 017 | TODO |
 
 Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJECTED (with one-line rationale)
 
@@ -47,6 +55,33 @@ issue URLs below are their published distribution points.
 |---|---|---|
 | 007 | `bunizao/site` | https://github.com/bunizao/site/issues/74 |
 | 008 | `bunizao/site` (public security detail) | https://github.com/bunizao/site/issues/75 |
+
+## July 19, 2026 mood deep audit
+
+Plans 009–016 come from a deep cross-repo audit of the mood feature (site +
+site-api), seven parallel category audits, all top findings vetted against
+current code. Companion backend plans live in `../site-api/plans/013–017`.
+Execution batch runs on branch `fix/mood-hardening` in each repo. Owner
+decisions recorded: display timezone = visitor local (plan 012); album R2
+keys move to per-member ids with proxy dual-read (../site-api plan 014).
+
+Deliberately NOT planned from that audit (recorded so it isn't re-litigated):
+
+- **SSR/client render-path unification** (the root cause of the fix→restore
+  churn) — deferred until this batch lands; plans 011/012/014/015 touch the
+  exact code it would unify. Next audit should plan it with characterization
+  tests first.
+- **mood.astro CSS extraction (86% of 2232 lines is `<style>`)** — mechanical,
+  batch after the above to avoid rebase pain.
+- **admin health full-table aggregates** — admin-only, negligible at current
+  scale.
+- **client anchor-window sequential fallback fetch** — production path almost
+  always has SSR initial feed; fix opportunistically.
+- **`0004_` duplicate migration prefix / `deleted_at` vs `is_deleted` dual
+  soft-delete** — forward-fix hygiene noted in ../site-api plan 015's
+  out-of-scope; needs its own careful migration plan.
+- **Mood stats frontend** (biggest built-but-unshipped backend) — product
+  decision pending; propose as a design spike when the owner wants it.
 
 ## Findings considered and rejected
 

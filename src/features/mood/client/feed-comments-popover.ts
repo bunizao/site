@@ -136,12 +136,14 @@ export function createFeedCommentsPopoverController(
   animatedEmoji: AnimatedEmojiHydrator
 ): FeedCommentsPopoverController {
   const cache = new Map<string, CommentPreviewData[]>();
-  const pendingFetches = new Map<string, Promise<CommentPreviewData[]>>();
+  const pendingFetches = new Map<string, Promise<CommentPreviewData[] | null>>();
   const popoversByWrapper = new WeakMap<HTMLElement, HTMLElement>();
   const wrappersByPopover = new WeakMap<HTMLElement, HTMLElement>();
   let initialized = false;
 
-  const fetchComments = async (postId: string): Promise<CommentPreviewData[]> => {
+  // Returns null on fetch failure (distinct from an empty comment list) and
+  // never caches failures, so a subsequent hover retries.
+  const fetchComments = async (postId: string): Promise<CommentPreviewData[] | null> => {
     if (cache.has(postId)) {
       return cache.get(postId) ?? [];
     }
@@ -154,13 +156,14 @@ export function createFeedCommentsPopoverController(
       try {
         const query = new URLSearchParams({ postId });
         const response = await fetch(`/api/comments?${query}`);
+        if (!response.ok) throw new Error(`Failed to fetch comments: ${response.status}`);
         const data = await response.json() as { comments?: CommentPreviewData[] };
         const comments = Array.isArray(data.comments) ? data.comments : [];
         cache.set(postId, comments);
         return comments;
       } catch (error) {
         console.error('Failed to fetch comments:', error);
-        return [];
+        return null;
       } finally {
         pendingFetches.delete(postId);
       }
@@ -190,10 +193,24 @@ export function createFeedCommentsPopoverController(
 
   const renderPopover = (
     popover: HTMLElement,
-    comments: CommentPreviewData[],
+    comments: CommentPreviewData[] | null,
     postId: string,
     options: { totalCount: number; totalLabel: string }
   ): void => {
+    if (comments === null) {
+      const failed = document.createElement('div');
+      failed.className = 'mood-comments-popover-empty mood-comments-popover-error';
+      const message = document.createElement('p');
+      message.textContent = "Couldn't load comments";
+      const retry = document.createElement('a');
+      retry.className = 'mood-popover-view-all';
+      retry.href = getMoodDetailHref(postId, '#comments');
+      retry.textContent = 'Open comments';
+      failed.append(message, retry);
+      popover.replaceChildren(failed);
+      return;
+    }
+
     const displayComments = comments.slice(0, MAX_PREVIEW_COMMENTS);
     const hasMore = options.totalCount > displayComments.length || comments.length > MAX_PREVIEW_COMMENTS;
 
@@ -331,10 +348,11 @@ export function createFeedCommentsPopoverController(
 
     popover.dataset.loaded = 'pending';
     const comments = await fetchComments(postId);
-    const totalCount = readTotalCount(wrapper, comments.length);
+    const totalCount = readTotalCount(wrapper, comments?.length ?? 0);
     const totalLabel = readTotalLabel(wrapper, totalCount);
     renderPopover(popover, comments, postId, { totalCount, totalLabel });
-    popover.dataset.loaded = 'true';
+    // Leave the popover unmarked on failure so the next hover retries.
+    popover.dataset.loaded = comments === null ? 'error' : 'true';
     positionPopover(wrapper);
   };
 

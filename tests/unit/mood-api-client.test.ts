@@ -148,6 +148,29 @@ describe('mood API client', () => {
     ]);
   });
 
+  test('tag queries force the archive route with the tag param and no fallback', async () => {
+    const paths: string[] = [];
+    const api = {
+      async fetch(input: RequestInfo | URL) {
+        const request = input instanceof Request ? input : new Request(input);
+        const url = new URL(request.url);
+        paths.push(`${url.pathname}${url.search}`);
+        return Response.json({ posts: [], channel: { slug: 'mood', title: 'Mood' } });
+      },
+    };
+    const context = createContext({ env: { API: api } });
+
+    // No explicit source: the tag alone must force the archive branch even if
+    // the resolved read source would be live.
+    await loadMoodFeed(context, { tag: 'life', source: 'live' });
+    await loadMoodFeed(context, { tag: 'life', before: '990001' });
+
+    expect(paths).toEqual([
+      '/v2/mood?tag=life&fallback=0',
+      '/v2/mood?before=990001&tag=life&fallback=0',
+    ]);
+  });
+
   test('does not invoke the live reader when strict archive reads fail', async () => {
     const originalFetch = globalThis.fetch;
     let liveFetchCalls = 0;
