@@ -31,7 +31,7 @@ import {
   GitHubIcon,
   InstagramIcon,
   OpenAIIcon,
-  AnthropicIcon,
+  ClaudeIcon,
   PerplexityIcon,
 } from '@/components/icons';
 import { meta, navLinks, profile } from '@/data/site';
@@ -39,11 +39,15 @@ import type { ComponentType } from 'react';
 
 type IconComponent = ComponentType<{ className?: string }>;
 
-const AI_PROMPT = `Read ${meta.siteUrl}/llms.txt first — it indexes this site's pages as markdown. Then answer my questions about Lucian (Bunizao), his projects, and his writing.`;
+// Context line handed to the assistant. Points it at /llms.txt (an index of the
+// site's projects, writing, and pages) so answers are grounded in real content
+// rather than guesses. The typed query becomes the actual question below; with
+// no query this line stands alone as an open invitation to explore.
+const AI_CONTEXT = `I'm on buxx.me, the personal site of Lucian (aka Bunizao). Fetch ${meta.siteUrl}/llms.txt — it indexes his projects, writing, and pages as markdown — and use it as context.`;
 
 const aiTargets = [
   { name: 'ChatGPT', base: 'https://chatgpt.com/?q=', icon: OpenAIIcon },
-  { name: 'Claude', base: 'https://claude.ai/new?q=', icon: AnthropicIcon },
+  { name: 'Claude', base: 'https://claude.ai/new?q=', icon: ClaudeIcon },
   { name: 'Perplexity', base: 'https://www.perplexity.ai/search?q=', icon: PerplexityIcon },
 ];
 
@@ -70,7 +74,7 @@ const navKeywords: Record<string, string> = {
 };
 ---
 
-<dialog class="cmdk" data-command-palette data-ai-prompt={AI_PROMPT} aria-label="Site search and commands">
+<dialog class="cmdk" data-command-palette data-ai-context={AI_CONTEXT} aria-label="Site search and commands">
   <div class="cmdk-panel">
     <div class="cmdk-input-row">
       <Search className="cmdk-input-icon" aria-hidden="true" />
@@ -103,12 +107,12 @@ const navKeywords: Record<string, string> = {
             data-command-item
             data-command-ai
             data-ai-base={t.base}
-            href={t.base + encodeURIComponent(AI_PROMPT)}
+            href={t.base + encodeURIComponent(AI_CONTEXT)}
             target="_blank"
             rel="noopener noreferrer"
           >
             <t.icon className="cmdk-icon" aria-hidden="true" />
-            <span class="cmdk-label">Open in {t.name}</span>
+            <span class="cmdk-label">Ask {t.name}</span>
           </a>
         ))}
       </div>
@@ -236,7 +240,7 @@ const navKeywords: Record<string, string> = {
     const groups = Array.from(dialog.querySelectorAll<HTMLElement>('[data-command-group]'));
     const aiLinks = Array.from(dialog.querySelectorAll<HTMLAnchorElement>('[data-command-ai]'));
     const postsMount = dialog.querySelector<HTMLElement>('[data-command-posts]');
-    const aiPrompt = dialog.dataset.aiPrompt ?? '';
+    const aiContext = dialog.dataset.aiContext ?? '';
     if (!input) return;
 
     let items: HTMLElement[] = [];
@@ -266,8 +270,13 @@ const navKeywords: Record<string, string> = {
       if (scroll) activeEl.scrollIntoView({ block: 'nearest' });
     };
 
+    // Question first, context second — the model reads the ask, then grounds it
+    // in the site. With no query, give it a real default task instead of a bare
+    // context blurb (which would open the assistant with nothing to answer).
     const updateAiLinks = (query: string) => {
-      const text = query ? `${aiPrompt}\n\nMy question: ${query}` : aiPrompt;
+      const text = query
+        ? `${query}\n\n${aiContext}`
+        : `Give me a quick tour of this site — who Lucian is, what he's building, and what he writes about.\n\n${aiContext}`;
       aiLinks.forEach((a) => {
         const base = a.dataset.aiBase;
         if (base) a.href = base + encodeURIComponent(text);

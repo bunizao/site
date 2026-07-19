@@ -21,3 +21,11 @@ https://buxx.me/r/*
 https://www.buxx.me/r/*
   Content-Type: application/json; charset=utf-8
   Cache-Control: public, max-age=300, s-maxage=86400, stale-while-revalidate=604800
+
+https://buxx.me/llms.txt
+  Content-Type: text/plain; charset=utf-8
+  Cache-Control: public, max-age=0, s-maxage=300
+
+https://www.buxx.me/llms.txt
+  Content-Type: text/plain; charset=utf-8
+  Cache-Control: public, max-age=0, s-maxage=300

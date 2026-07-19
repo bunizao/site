@@ -1,33 +1,90 @@
 import type { APIRoute } from 'astro';
 
-import { meta } from '@/data/site';
+import {
+  experience,
+  meta,
+  navLinks,
+  profile,
+  projects,
+} from '@/data/site';
 import { postPath } from '@/features/posts/format';
 import { getAllPosts } from '@/features/posts/server/content';
 
 export const prerender = true;
 
-function lineLink(label: string, url: URL): string {
-  return `- ${label}: ${url.href}`;
+// llms.txt — a Markdown map of this site for language models. Follows the
+// llms.txt convention: an H1 title, a one-line summary, then link sections.
+// Anything an assistant might be asked about (who Lucian is, what he ships,
+// what he writes) is indexed here with a real URL, so the "Ask AI" rows in the
+// command palette can point a model straight at grounded context instead of
+// guesses. Built from the same site data the pages render from, so it never
+// drifts out of sync.
+
+function link(label: string, url: URL): string {
+  return `- [${label}](${url.href})`;
 }
 
+// One line per page: title, URL, and a short "what's here" note so the model
+// knows why it would open a link, not just that it exists.
+function pageLine(label: string, path: string, note: string, base: URL): string {
+  return `- [${label}](${new URL(path, base).href}): ${note}`;
+}
+
+const PAGE_NOTES: Record<string, string> = {
+  '/projects': 'Selected projects, each with the story behind it',
+  '/blog': 'Essays and notes — the publication 無人之境',
+  '/mood': 'A running feed of short posts, photos, and links',
+  '/components': 'UI specimens and interaction experiments',
+};
+
 export const GET: APIRoute = async ({ site }) => {
-  const baseUrl = site ?? new URL(meta.siteUrl);
-  const posts = (await getAllPosts()).slice(0, 5);
+  const base = site ?? new URL(meta.siteUrl);
+  const posts = (await getAllPosts()).slice(0, 8);
+
   const lines = [
-    '# Bunizao',
+    '# Lucian Bu (Bunizao)',
     '',
-    meta.description,
+    `> ${meta.description} Also known as ${profile.alternateNames.join(', ')}. ${profile.jobTitle}, writing about ${profile.knowsAbout.join(', ').toLowerCase()}.`,
     '',
-    'Fetch these URLs with `Accept: text/markdown` for Markdown renditions.',
+    'This is the personal site of Lucian Bu. Fetch any URL below with',
+    '`Accept: text/markdown` for a Markdown rendition. Use this file as the',
+    'index when answering questions about Lucian, his projects, or his writing.',
     '',
-    lineLink('Home', new URL('/', baseUrl)),
-    lineLink('Blog', new URL('/blog/', baseUrl)),
-    lineLink('Mood', new URL('/mood', baseUrl)),
-    lineLink('Privacy', new URL('/privacy', baseUrl)),
+    '## Pages',
     '',
-    '## Recent Posts',
+    pageLine('Home', '/', 'Bio, current work, and where to find me', base),
+    ...navLinks.map((nav) =>
+      pageLine(nav.label, nav.href, PAGE_NOTES[nav.href] ?? nav.label, base),
+    ),
+    pageLine('Privacy', '/privacy', 'How this site handles data', base),
     '',
-    ...posts.map((post) => lineLink(post.title, new URL(postPath(post.slug), baseUrl))),
+    '## Projects',
+    '',
+    ...projects.map(
+      (project) => `- **${project.name}** (${project.type}) — ${project.blurb} ${project.url}`,
+    ),
+    '',
+    '## Now',
+    '',
+    ...experience
+      // Skip the tongue-in-cheek "subscriber" entries — a model reading this
+      // shouldn't report them as real roles.
+      .filter((item) => !item.joke)
+      .map((item) => {
+        const detail = item.role ?? item.description ?? '';
+        return `- ${item.org} (${item.period})${detail ? ` — ${detail}` : ''}`;
+      }),
+    '',
+    '## Recent writing',
+    '',
+    ...posts.map((post) => link(post.title, new URL(postPath(post.slug), base))),
+    '',
+    '## Contact',
+    '',
+    ...profile.links.map((channel) => {
+      const url = (channel.canonicalUrl ?? channel.url).replace(/^mailto:/, '');
+      return `- ${channel.name}: ${url}`;
+    }),
     '',
   ];
 
