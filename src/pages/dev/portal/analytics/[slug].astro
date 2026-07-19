@@ -1,0 +1,242 @@
+---
+import PortalLayout from '@/layouts/PortalLayout.astro';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Activity, ArrowLeft, Gauge, Globe2, MousePointer2 } from 'lucide-react';
+import { BLOG_ANALYTICS_RANGE_OPTIONS } from '@bunizao/contracts/analytics';
+import { loadArticleAnalytics } from '@/features/admin/server/portal-client';
+import { TrafficChart } from '@/features/admin/ui/AnalyticsCharts';
+
+export const prerender = false;
+
+const session = (Astro.locals as any).adminSession;
+const slug = Astro.params.slug as string;
+
+const requestedDays = Number(Astro.url.searchParams.get('days') || '30');
+const rangeDays = (BLOG_ANALYTICS_RANGE_OPTIONS as readonly number[]).includes(requestedDays)
+  ? requestedDays
+  : 30;
+
+const detail = slug
+  ? await loadArticleAnalytics(slug, Astro.request, Astro.locals, { days: rangeDays })
+  : null;
+
+const countFormatter = new Intl.NumberFormat('en-US');
+
+function formatCount(value: number | undefined): string {
+  return countFormatter.format(value ?? 0);
+}
+
+function formatPercent(value: number | undefined): string {
+  return `${Math.round((value ?? 0) * 100)}%`;
+}
+
+function formatMs(value: number | undefined): string {
+  const seconds = Math.round((value ?? 0) / 1000);
+  if (seconds < 60) return `${seconds}s`;
+  const minutes = Math.floor(seconds / 60);
+  const rest = seconds % 60;
+  return rest ? `${minutes}m ${rest}s` : `${minutes}m`;
+}
+
+function labelFor(value: string | null | undefined): string {
+  if (!value) return 'unknown';
+  return value.replace(/_/g, ' ');
+}
+
+const scrollMax = Math.max(1, ...(detail?.scrollBuckets.map((bucket) => bucket.count) ?? [1]));
+const breakdowns = detail
+  ? [
+      { title: 'Referrers', Icon: MousePointer2, rows: detail.referrers },
+      { title: 'Platforms', Icon: Globe2, rows: detail.platforms },
+      { title: 'Countries', Icon: Globe2, rows: detail.countries },
+    ]
+  : [];
+---
+
+<PortalLayout
+  title={slug || 'Article'}
+  description="Per-article traffic, referrers, and completion."
+  active="analytics"
+  user={{ login: session?.login || 'admin' }}
+>
+  <div class="analytics-range" slot="actions">
+    {(BLOG_ANALYTICS_RANGE_OPTIONS as readonly number[]).map((days) => (
+      <a
+        href={`/dev/portal/analytics/${encodeURIComponent(slug)}?days=${days}`}
+        class="analytics-range-option"
+        aria-current={days === rangeDays ? 'true' : undefined}
+        data-astro-prefetch="false"
+      >
+        {days}d
+      </a>
+    ))}
+  </div>
+
+  <div class="portal-stack">
+    <Button asChild variant="ghost" size="sm">
+      <a href={`/dev/portal/analytics?days=${rangeDays}`}><ArrowLeft className="size-3.5" /> Back to analytics</a>
+    </Button>
+
+    {!detail ? (
+      <Card>
+        <CardContent className="portal-empty-card">
+          No analytics for this article — the per-article endpoint may not be deployed yet.
+        </CardContent>
+      </Card>
+    ) : (
+      <Fragment>
+        <section class="portal-grid" data-columns="stats">
+          <Card>
+            <CardHeader className="portal-stat-header">
+              <CardDescription>Views</CardDescription>
+            </CardHeader>
+            <CardContent className="portal-stat-content">
+              <div class="portal-stat-value">{formatCount(detail.totals.views)}</div>
+              <div class="portal-stat-hint">{formatCount(detail.totals.reads)} reads</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="portal-stat-header">
+              <CardDescription>Unique visitors</CardDescription>
+            </CardHeader>
+            <CardContent className="portal-stat-content">
+              <div class="portal-stat-value">{formatCount(detail.totals.uniqueVisitors)}</div>
+              <div class="portal-stat-hint">{formatMs(detail.totals.avgVisitorReadMs)} per visitor</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="portal-stat-header">
+              <CardDescription>Avg reading time</CardDescription>
+            </CardHeader>
+            <CardContent className="portal-stat-content">
+              <div class="portal-stat-value">{formatMs(detail.totals.avgReadMs)}</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="portal-stat-header">
+              <CardDescription>Completion</CardDescription>
+              <Gauge size={16} />
+            </CardHeader>
+            <CardContent className="portal-stat-content">
+              <div class="portal-stat-value">{formatPercent(detail.totals.completionRate)}</div>
+            </CardContent>
+          </Card>
+        </section>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="portal-card-title">
+              <Activity size={14} /> Daily traffic
+            </CardTitle>
+            <CardDescription>{rangeDays} day window</CardDescription>
+          </CardHeader>
+          <CardContent className="portal-card-content">
+            <TrafficChart daily={detail.daily} client:load />
+          </CardContent>
+        </Card>
+
+        <section class="portal-grid" data-columns="cards">
+          {breakdowns.map(({ title, Icon, rows }) => (
+            <Card>
+              <CardHeader>
+                <CardTitle className="portal-card-title">
+                  <Icon size={14} /> {title}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="portal-card-content">
+                {rows.length === 0 ? (
+                  <div class="portal-empty">No rows yet.</div>
+                ) : (
+                  <ul class="portal-list">
+                    {rows.slice(0, 8).map((row) => (
+                      <li class="portal-list-row" data-layout="split">
+                        <span class="portal-list-primary">{labelFor(row.label ?? row.key)}</span>
+                        <span class="portal-list-meta">{formatCount(row.views)}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </CardContent>
+            </Card>
+          ))}
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="portal-card-title">
+                <Gauge size={14} /> Scroll depth
+              </CardTitle>
+              <CardDescription>How far readers get before leaving.</CardDescription>
+            </CardHeader>
+            <CardContent className="portal-card-content">
+              <ul class="portal-list">
+                {detail.scrollBuckets.map((bucket) => (
+                  <li class="portal-list-row" data-layout="split">
+                    <div class="article-scroll-row">
+                      <span class="portal-list-meta">{bucket.bucket}</span>
+                      <div class="article-scroll-track">
+                        <div class="article-scroll-fill" style={`width:${Math.max(2, Math.round((bucket.count / scrollMax) * 100))}%`}></div>
+                      </div>
+                    </div>
+                    <span class="portal-list-meta">{formatCount(bucket.count)}</span>
+                  </li>
+                ))}
+              </ul>
+            </CardContent>
+          </Card>
+        </section>
+      </Fragment>
+    )}
+  </div>
+
+  <style>
+    .analytics-range {
+      display: inline-flex;
+      gap: 2px;
+      padding: 2px;
+      border: 1px solid hsl(var(--border));
+      border-radius: 8px;
+      background: hsl(var(--card));
+    }
+
+    .analytics-range-option {
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-size: 12px;
+      color: hsl(var(--muted-foreground));
+      text-decoration: none;
+      transition: background 160ms cubic-bezier(0.2, 0, 0, 1), color 160ms cubic-bezier(0.2, 0, 0, 1);
+    }
+
+    .analytics-range-option:hover {
+      color: hsl(var(--foreground));
+    }
+
+    .analytics-range-option[aria-current='true'] {
+      background: hsl(var(--accent));
+      color: hsl(var(--foreground));
+    }
+
+    .article-scroll-row {
+      display: grid;
+      grid-template-columns: 64px 1fr;
+      gap: 12px;
+      align-items: center;
+      min-width: 0;
+    }
+
+    .article-scroll-track {
+      height: 8px;
+      border-radius: 4px;
+      background: hsl(var(--muted));
+      overflow: hidden;
+    }
+
+    .article-scroll-fill {
+      height: 100%;
+      border-radius: 4px;
+      background: hsl(var(--portal-accent));
+      opacity: 0.85;
+    }
+  </style>
+</PortalLayout>

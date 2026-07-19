@@ -40,6 +40,11 @@
       "types": "./src/routes.ts",
       "import": "./src/routes.ts",
       "default": "./src/routes.ts"
+    },
+    "./telegram-ops": {
+      "types": "./src/telegram-ops.ts",
+      "import": "./src/telegram-ops.ts",
+      "default": "./src/telegram-ops.ts"
     }
   }
 }

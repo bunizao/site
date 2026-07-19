@@ -27,12 +27,6 @@ function formatDate(value: string | null | undefined): string {
     return value;
   }
 }
-
-const emptyContentStyle = { padding: 32, fontSize: 14, color: 'hsl(var(--muted-foreground))' } as const;
-const titleLg = { fontSize: 18, letterSpacing: '-0.01em' } as const;
-const titleSm = { fontSize: 14 } as const;
-const summaryGridStyle = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 14, fontSize: 13 } as const;
-const audienceContentStyle = { display: 'flex', flexWrap: 'wrap', gap: 8 } as const;
 ---
 
 <PortalLayout
@@ -41,14 +35,14 @@ const audienceContentStyle = { display: 'flex', flexWrap: 'wrap', gap: 8 } as co
   active="broadcasts"
   user={{ login: session?.login || 'admin' }}
 >
-  <div style="display:flex;flex-direction:column;gap:24px;">
+  <div class="portal-stack">
     <Button asChild variant="ghost" size="sm">
       <a href="/dev/portal/broadcasts"><ArrowLeft className="size-3.5" /> Back to broadcasts</a>
     </Button>
 
     {!record ? (
       <Card>
-        <CardContent style={emptyContentStyle}>
+        <CardContent className="portal-empty-card">
           Broadcast not found.
         </CardContent>
       </Card>
@@ -56,49 +50,49 @@ const audienceContentStyle = { display: 'flex', flexWrap: 'wrap', gap: 8 } as co
       <Fragment>
         <Card>
           <CardHeader>
-            <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;">
+            <div class="portal-detail-head">
               <div>
-                <CardTitle style={titleLg}>{record.subject}</CardTitle>
-                <div style="font-family:var(--font-code);font-size:11px;color:hsl(var(--muted-foreground));margin-top:4px;">{record.id}</div>
+                <CardTitle className="portal-detail-title">{record.subject}</CardTitle>
+                <div class="portal-detail-id">{record.id}</div>
               </div>
               <Badge variant={record.status === 'sent' ? 'success' : record.status === 'failed' ? 'destructive' : 'secondary'}>
                 {record.status}
               </Badge>
             </div>
           </CardHeader>
-          <CardContent style={summaryGridStyle}>
+          <CardContent className="portal-facts">
             <div>
-              <div style="font-size:11px;color:hsl(var(--muted-foreground));text-transform:uppercase;letter-spacing:0.08em;">Sent by</div>
-              <div style="margin-top:2px;">@{record.sentBy}</div>
+              <div class="portal-fact-label">Sent by</div>
+              <div class="portal-fact-value">@{record.sentBy}</div>
             </div>
             <div>
-              <div style="font-size:11px;color:hsl(var(--muted-foreground));text-transform:uppercase;letter-spacing:0.08em;">Created</div>
-              <div style="margin-top:2px;">{formatDate(record.createdAt)}</div>
+              <div class="portal-fact-label">Created</div>
+              <div class="portal-fact-value">{formatDate(record.createdAt)}</div>
             </div>
             <div>
-              <div style="font-size:11px;color:hsl(var(--muted-foreground));text-transform:uppercase;letter-spacing:0.08em;">Sent</div>
-              <div style="margin-top:2px;">{formatDate(record.sentAt)}</div>
+              <div class="portal-fact-label">Sent</div>
+              <div class="portal-fact-value">{formatDate(record.sentAt)}</div>
             </div>
             <div>
-              <div style="font-size:11px;color:hsl(var(--muted-foreground));text-transform:uppercase;letter-spacing:0.08em;">Recipients</div>
-              <div style="margin-top:2px;">{record.recipientCount}</div>
+              <div class="portal-fact-label">Recipients</div>
+              <div class="portal-fact-value">{record.recipientCount}</div>
             </div>
             <div>
-              <div style="font-size:11px;color:hsl(var(--muted-foreground));text-transform:uppercase;letter-spacing:0.08em;">Sent</div>
-              <div style="margin-top:2px;">{record.sentCount}</div>
+              <div class="portal-fact-label">Sent</div>
+              <div class="portal-fact-value">{record.sentCount}</div>
             </div>
             <div>
-              <div style="font-size:11px;color:hsl(var(--muted-foreground));text-transform:uppercase;letter-spacing:0.08em;">Failed</div>
-              <div style="margin-top:2px;">{record.failedCount}</div>
+              <div class="portal-fact-label">Failed</div>
+              <div class="portal-fact-value">{record.failedCount}</div>
             </div>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader>
-            <CardTitle style={titleSm}>Audience</CardTitle>
+            <CardTitle className="portal-card-title">Audience</CardTitle>
           </CardHeader>
-          <CardContent style={audienceContentStyle}>
+          <CardContent className="portal-badge-row">
             <Badge variant="outline">status: {record.audience.status}</Badge>
             {record.audience.channels.map((channel) => (
               <Badge variant="outline">channel: {channel}</Badge>
@@ -111,13 +105,13 @@ const audienceContentStyle = { display: 'flex', flexWrap: 'wrap', gap: 8 } as co
 
         <Card>
           <CardHeader>
-            <CardTitle style={titleSm}>Rendered email</CardTitle>
+            <CardTitle className="portal-card-title">Rendered email</CardTitle>
           </CardHeader>
           <CardContent>
             <iframe
               title="Broadcast"
               sandbox=""
-              style="width:100%;height:520px;border:1px solid hsl(var(--border));border-radius:8px;background:#fff;"
+              class="portal-email-frame"
               srcdoc={`<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>body{font-family:Geist,system-ui,sans-serif;padding:24px;}</style></head><body>${record.bodyHtml}</body></html>`}
             ></iframe>
           </CardContent>
