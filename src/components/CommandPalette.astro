@@ -1,0 +1,605 @@
+---
+// Site-wide ⌘K command palette. Same architecture as the blog's Pagefind shell:
+// a native <dialog> (top layer, focus trap, Esc for free) plus a small vanilla
+// script — no cmdk, no island, no hydration. Groups render statically at build
+// time from the site's existing sources (navLinks, profile.links); the Writing
+// rows hydrate from the prerendered /palette.json on first open so SSR pages
+// (the mood surface) never pay a Ghost fetch for the palette.
+//
+// "Ask AI" rows are plain anchors deep-linking into ChatGPT/Claude/Perplexity
+// with a prompt that points the model at /llms.txt for site context. The href
+// is rebuilt on each keystroke so the typed query rides along — real anchors,
+// so ⌘-click and middle-click still work. They are exempt from filtering: when
+// nothing local matches, the palette collapses to just the Ask AI group, which
+// doubles as the empty state ("no result? ask an assistant instead").
+import {
+  Sparkles,
+  Home,
+  Layers,
+  FileText,
+  Smile,
+  LayoutGrid,
+  Search,
+  Mail,
+  Send,
+  Sun,
+  Moon,
+  Monitor,
+} from 'lucide-react';
+import { GitHubIcon, InstagramIcon } from '@/components/icons';
+import { meta, navLinks, profile } from '@/data/site';
+
+const AI_PROMPT = `Read ${meta.siteUrl}/llms.txt first — it indexes this site's pages as markdown. Then answer my questions about Lucian (Bunizao), his projects, and his writing.`;
+
+const aiTargets = [
+  { name: 'ChatGPT', base: 'https://chatgpt.com/?q=', host: 'chatgpt.com' },
+  { name: 'Claude', base: 'https://claude.ai/new?q=', host: 'claude.ai' },
+  { name: 'Perplexity', base: 'https://www.perplexity.ai/search?q=', host: 'perplexity.ai' },
+];
+
+// Blog and Email are covered by their own rows (Writing group, Copy email).
+const socials = profile.links.filter((l) => l.name !== 'Blog' && l.name !== 'Email');
+const socialIcons: Record<string, typeof GitHubIcon> = {
+  GitHub: GitHubIcon,
+  Telegram: Send,
+  Instagram: InstagramIcon,
+};
+
+const navIcons: Record<string, typeof Home> = {
+  '/projects': Layers,
+  '/blog': FileText,
+  '/mood': Smile,
+  '/components': LayoutGrid,
+};
+const navKeywords: Record<string, string> = {
+  '/': 'home start 主页',
+  '/projects': 'projects work 项目',
+  '/blog': 'blog writing posts 博客 無人之境',
+  '/mood': 'moods timeline feed 心情',
+  '/components': 'components ui specimens 组件',
+};
+---
+
+<dialog class="cmdk" data-command-palette data-ai-prompt={AI_PROMPT} aria-label="Site search and commands">
+  <div class="cmdk-panel">
+    <div class="cmdk-input-row">
+      <Search className="cmdk-input-icon" aria-hidden="true" />
+      <input
+        type="text"
+        data-command-input
+        placeholder="Search or jump to…"
+        autocomplete="off"
+        autocorrect="off"
+        autocapitalize="off"
+        spellcheck="false"
+        aria-label="Search commands"
+        role="combobox"
+        aria-expanded="true"
+        aria-controls="cmdk-list"
+        aria-autocomplete="list"
+      />
+    </div>
+
+    <div class="cmdk-list" id="cmdk-list" data-command-list role="listbox" aria-label="Commands">
+      <div class="cmdk-group" role="group" data-command-group>
+        <div class="cmdk-heading">Ask AI</div>
+        {aiTargets.map((t) => (
+          <a
+            class="cmdk-item"
+            role="option"
+            data-command-item
+            data-command-ai
+            data-ai-base={t.base}
+            href={t.base + encodeURIComponent(AI_PROMPT)}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <Sparkles className="cmdk-icon" aria-hidden="true" />
+            <span class="cmdk-label">Ask {t.name} about this site</span>
+            <span class="cmdk-hint">{t.host} ↗</span>
+          </a>
+        ))}
+      </div>
+
+      <div class="cmdk-group" role="group" data-command-group>
+        <div class="cmdk-heading">Navigation</div>
+        <a class="cmdk-item" role="option" data-command-item data-haystack={`home ${navKeywords['/']}`} href="/">
+          <Home className="cmdk-icon" aria-hidden="true" />
+          <span class="cmdk-label">Home</span>
+          <span class="cmdk-hint">/</span>
+        </a>
+        {navLinks.map((link) => {
+          const Icon = navIcons[link.href] ?? Home;
+          const haystack = `${link.label.toLowerCase()} ${navKeywords[link.href] ?? ''}`;
+          return (
+            <a class="cmdk-item" role="option" data-command-item data-haystack={haystack} href={link.href}>
+              <Icon className="cmdk-icon" aria-hidden="true" />
+              <span class="cmdk-label">{link.label}</span>
+              <span class="cmdk-hint">{link.href}</span>
+            </a>
+          );
+        })}
+      </div>
+
+      <div class="cmdk-group" role="group" data-command-group>
+        <div class="cmdk-heading">Writing</div>
+        <!-- Latest-post rows are injected here from /palette.json on first open. -->
+        <div data-command-posts style="display: contents"></div>
+        <a
+          class="cmdk-item"
+          role="option"
+          data-command-item
+          data-haystack="search all posts full-text pagefind 搜索 全文"
+          href="/blog/?search=1"
+        >
+          <Search className="cmdk-icon" aria-hidden="true" />
+          <span class="cmdk-label">Search all posts…</span>
+          <span class="cmdk-hint">full-text</span>
+        </a>
+      </div>
+
+      <div class="cmdk-group" role="group" data-command-group>
+        <div class="cmdk-heading">Actions</div>
+        <button
+          class="cmdk-item"
+          type="button"
+          role="option"
+          data-command-item
+          data-command-copy={profile.email}
+          data-haystack="copy email contact mail 邮箱 联系"
+        >
+          <Mail className="cmdk-icon" aria-hidden="true" />
+          <span class="cmdk-label">Copy email</span>
+          <span class="cmdk-hint">{profile.email}</span>
+        </button>
+        <button
+          class="cmdk-item"
+          type="button"
+          role="option"
+          data-command-item
+          data-command-theme="light"
+          data-haystack="theme light mode appearance 主题 亮色"
+        >
+          <Sun className="cmdk-icon" aria-hidden="true" />
+          <span class="cmdk-label">Theme: Light</span>
+        </button>
+        <button
+          class="cmdk-item"
+          type="button"
+          role="option"
+          data-command-item
+          data-command-theme="dark"
+          data-haystack="theme dark mode appearance 主题 暗色"
+        >
+          <Moon className="cmdk-icon" aria-hidden="true" />
+          <span class="cmdk-label">Theme: Dark</span>
+        </button>
+        <button
+          class="cmdk-item"
+          type="button"
+          role="option"
+          data-command-item
+          data-command-theme="system"
+          data-haystack="theme system auto mode appearance 主题 跟随系统"
+        >
+          <Monitor className="cmdk-icon" aria-hidden="true" />
+          <span class="cmdk-label">Theme: System</span>
+        </button>
+      </div>
+
+      <div class="cmdk-group" role="group" data-command-group>
+        <div class="cmdk-heading">Connect</div>
+        {socials.map((link) => {
+          const Icon = socialIcons[link.name] ?? Send;
+          return (
+            <a
+              class="cmdk-item"
+              role="option"
+              data-command-item
+              data-haystack={`${link.name.toLowerCase()} ${link.handle.toLowerCase()} social 社交`}
+              href={link.url}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <Icon className="cmdk-icon" aria-hidden="true" />
+              <span class="cmdk-label">{link.name}</span>
+              <span class="cmdk-hint">{link.handle} ↗</span>
+            </a>
+          );
+        })}
+      </div>
+    </div>
+
+    <div class="cmdk-footer" aria-hidden="true">
+      <span><kbd>↑</kbd><kbd>↓</kbd> navigate</span>
+      <span><kbd>↵</kbd> open</span>
+      <span><kbd>esc</kbd> close</span>
+    </div>
+  </div>
+</dialog>
+
+<script>
+  (() => {
+    const dialog = document.querySelector<HTMLDialogElement>('[data-command-palette]');
+    if (!dialog) return;
+    const input = dialog.querySelector<HTMLInputElement>('[data-command-input]');
+    const groups = Array.from(dialog.querySelectorAll<HTMLElement>('[data-command-group]'));
+    const aiLinks = Array.from(dialog.querySelectorAll<HTMLAnchorElement>('[data-command-ai]'));
+    const postsMount = dialog.querySelector<HTMLElement>('[data-command-posts]');
+    const aiPrompt = dialog.dataset.aiPrompt ?? '';
+    if (!input) return;
+
+    let items: HTMLElement[] = [];
+    let visible: HTMLElement[] = [];
+    let activeIndex = 0;
+    // Set per-item on filter runs so the highlight can prefer a real match
+    // over the always-visible Ask AI rows while a query is typed.
+    const scored = new WeakSet<HTMLElement>();
+
+    // Match/ranking seam: return 0 to hide a row, anything higher to show it.
+    // Plain substring today; word-prefix or fuzzy scoring slots in here
+    // without touching the rest of the palette.
+    const matchScore = (query: string, haystack: string): number => {
+      if (!query) return 1;
+      return haystack.includes(query) ? 1 : 0;
+    };
+
+    const setActive = (index: number, scroll = true) => {
+      if (visible.length === 0) return;
+      activeIndex = Math.max(0, Math.min(index, visible.length - 1));
+      const activeEl = visible[activeIndex];
+      items.forEach((el) => {
+        el.classList.toggle('is-active', el === activeEl);
+        el.setAttribute('aria-selected', el === activeEl ? 'true' : 'false');
+      });
+      input.setAttribute('aria-activedescendant', activeEl.id);
+      if (scroll) activeEl.scrollIntoView({ block: 'nearest' });
+    };
+
+    const updateAiLinks = (query: string) => {
+      const text = query ? `${aiPrompt}\n\nMy question: ${query}` : aiPrompt;
+      aiLinks.forEach((a) => {
+        const base = a.dataset.aiBase;
+        if (base) a.href = base + encodeURIComponent(text);
+      });
+    };
+
+    const filter = () => {
+      const query = input.value.trim().toLowerCase();
+      items.forEach((el) => {
+        if (el.hasAttribute('data-command-ai')) {
+          el.hidden = false;
+          scored.delete(el);
+          return;
+        }
+        const match = matchScore(query, el.dataset.haystack ?? '') > 0;
+        el.hidden = !match;
+        if (query && match) scored.add(el);
+        else scored.delete(el);
+      });
+      groups.forEach((group) => {
+        group.hidden = !group.querySelector('[data-command-item]:not([hidden])');
+      });
+      visible = items.filter((el) => !el.hidden);
+      const preferred = query ? visible.findIndex((el) => scored.has(el)) : 0;
+      setActive(preferred >= 0 ? preferred : 0, Boolean(query));
+    };
+
+    const close = () => {
+      if (dialog.open) dialog.close();
+    };
+
+    const activate = (el: HTMLElement) => {
+      const theme = el.dataset.commandTheme;
+      if (theme) {
+        // Reuse the theme controller in Layout: its option buttons own
+        // storage, class toggling, and icon state.
+        document.querySelector<HTMLElement>(`[data-theme-option="${theme}"]`)?.click();
+        close();
+        return;
+      }
+      const copy = el.dataset.commandCopy;
+      if (copy) {
+        const hint = el.querySelector<HTMLElement>('.cmdk-hint');
+        navigator.clipboard
+          ?.writeText(copy)
+          .then(() => {
+            if (!hint) return;
+            const original = hint.textContent;
+            hint.textContent = 'Copied ✓';
+            window.setTimeout(() => {
+              hint.textContent = original;
+            }, 1400);
+          })
+          .catch(() => {});
+        return; // stay open so the feedback is visible
+      }
+      close(); // links: let the default navigation proceed
+    };
+
+    const wireItem = (el: HTMLElement) => {
+      // pointermove (not mouseenter) so keyboard scrolling under a resting
+      // cursor doesn't steal the highlight.
+      el.addEventListener('pointermove', () => {
+        const index = visible.indexOf(el);
+        if (index >= 0 && visible[activeIndex] !== el) setActive(index, false);
+      });
+      el.addEventListener('click', () => activate(el));
+    };
+
+    const collectItems = () => {
+      items = Array.from(dialog.querySelectorAll<HTMLElement>('[data-command-item]'));
+      items.forEach((el, i) => {
+        el.id = `cmdk-item-${i}`;
+      });
+    };
+
+    collectItems();
+    items.forEach(wireItem);
+
+    // Latest posts hydrate lazily from the prerendered /palette.json so SSR
+    // pages never fetch Ghost content just to render the palette shell.
+    let postsLoaded = false;
+    const loadPosts = async () => {
+      if (postsLoaded || !postsMount) return;
+      postsLoaded = true;
+      try {
+        const res = await fetch('/palette.json');
+        if (!res.ok) throw new Error(`palette.json ${res.status}`);
+        const data = (await res.json()) as {
+          posts?: Array<{ title: string; path: string; stamp: string }>;
+        };
+        (data.posts ?? []).forEach((post) => {
+          const a = document.createElement('a');
+          a.className = 'cmdk-item';
+          a.setAttribute('role', 'option');
+          a.dataset.commandItem = '';
+          a.dataset.haystack = `${post.title.toLowerCase()} blog post 文章`;
+          a.href = post.path;
+          a.innerHTML =
+            '<svg class="cmdk-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+            '<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/></svg>' +
+            '<span class="cmdk-label"></span><span class="cmdk-hint"></span>';
+          a.querySelector('.cmdk-label')!.textContent = post.title;
+          a.querySelector('.cmdk-hint')!.textContent = post.stamp;
+          postsMount.appendChild(a);
+          wireItem(a);
+        });
+        collectItems();
+        filter();
+      } catch {
+        postsLoaded = false; // retry on next open
+      }
+    };
+
+    const open = () => {
+      if (dialog.open) return;
+      input.value = '';
+      updateAiLinks('');
+      filter();
+      dialog.querySelector('[data-command-list]')?.scrollTo(0, 0);
+      dialog.showModal();
+      input.focus();
+      void loadPosts();
+    };
+
+    input.addEventListener('input', () => {
+      updateAiLinks(input.value.trim());
+      filter();
+    });
+
+    dialog.addEventListener('keydown', (event) => {
+      if (event.key === 'ArrowDown') {
+        event.preventDefault();
+        setActive(activeIndex + 1);
+      } else if (event.key === 'ArrowUp') {
+        event.preventDefault();
+        setActive(activeIndex - 1);
+      } else if (event.key === 'Enter') {
+        event.preventDefault();
+        visible[activeIndex]?.click();
+      }
+    });
+
+    // First Esc clears a typed query; only an empty palette closes. Browsers
+    // may force the second consecutive Esc through regardless (close watcher
+    // semantics), which is an acceptable fallback.
+    dialog.addEventListener('cancel', (event) => {
+      if (input.value) {
+        event.preventDefault();
+        input.value = '';
+        updateAiLinks('');
+        filter();
+      }
+    });
+
+    document.querySelectorAll<HTMLElement>('[data-command-open]').forEach((trigger) => {
+      trigger.addEventListener('click', open);
+    });
+
+    // Backdrop click: the panel fills the dialog box, so a click whose target
+    // is the dialog itself can only be on the backdrop.
+    dialog.addEventListener('click', (event) => {
+      if (event.target === dialog) close();
+    });
+
+    document.addEventListener('keydown', (event) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
+        event.preventDefault();
+        dialog.open ? close() : open();
+      }
+    });
+  })();
+</script>
+
+<style is:global>
+  /* A ⌘K surface is opened dozens of times a day, mostly from the keyboard:
+     no open/close animation at all (the Raycast rule). The dialog just is. */
+  .cmdk {
+    width: min(600px, calc(100vw - 32px));
+    margin-top: 12vh;
+    margin-inline: auto;
+    padding: 0;
+    border: 1px solid hsl(var(--foreground) / 0.08);
+    border-radius: 16px;
+    /* --background is a raw HSL channel triple; bare use renders transparent. */
+    background: hsl(var(--background));
+    color: hsl(var(--foreground));
+    box-shadow: 0 24px 64px -20px hsl(var(--foreground) / 0.25);
+    overflow: hidden;
+    outline: none;
+  }
+  .dark .cmdk {
+    border-color: hsl(var(--foreground) / 0.1);
+    box-shadow: 0 0 32px rgba(0, 0, 0, 0.55);
+  }
+  .cmdk::backdrop {
+    background: rgb(0 0 0 / 0.42);
+    -webkit-backdrop-filter: blur(2px);
+    backdrop-filter: blur(2px);
+  }
+
+  .cmdk-input-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 16px;
+    border-bottom: 1px solid hsl(var(--foreground) / 0.08);
+  }
+  .cmdk-input-icon {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+    color: hsl(var(--muted-foreground));
+  }
+  .cmdk-input-row input {
+    flex: 1;
+    min-width: 0;
+    background: transparent;
+    border: none;
+    outline: none;
+    font-family: var(--font-mono);
+    font-size: 14px;
+    color: hsl(var(--foreground));
+  }
+  .cmdk-input-row input::placeholder {
+    color: hsl(var(--muted-foreground) / 0.7);
+  }
+
+  .cmdk-list {
+    max-height: min(420px, 60vh);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 6px;
+    scrollbar-width: thin;
+  }
+  .cmdk-group[hidden] {
+    display: none;
+  }
+  .cmdk-heading {
+    padding: 10px 10px 6px;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: hsl(var(--muted-foreground) / 0.8);
+  }
+
+  .cmdk-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    min-height: 36px;
+    padding: 0 10px;
+    /* Concentric: dialog radius 16px − 6px list padding = 10px row radius. */
+    border-radius: 10px;
+    border: none;
+    background: transparent;
+    font-family: var(--font-mono);
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+    color: hsl(var(--muted-foreground));
+    text-align: left;
+    text-decoration: none;
+    cursor: pointer;
+    /* No hover/selection transition: the highlight moves on every arrow press
+       and must feel wired directly to the key. */
+  }
+  .cmdk-item[hidden] {
+    display: none;
+  }
+  .cmdk-item.is-active {
+    background: hsl(var(--foreground) / 0.06);
+    color: hsl(var(--foreground));
+  }
+  .cmdk-item.is-active .cmdk-icon {
+    color: hsl(var(--foreground));
+  }
+  .cmdk-item:focus-visible {
+    outline: 2px solid hsl(var(--foreground) / 0.4);
+    outline-offset: -2px;
+  }
+  .cmdk-icon {
+    width: 15px;
+    height: 15px;
+    flex-shrink: 0;
+    color: hsl(var(--muted-foreground) / 0.8);
+  }
+  .cmdk-label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .cmdk-hint {
+    margin-left: auto;
+    flex-shrink: 0;
+    font-size: 11px;
+    font-weight: 400;
+    color: hsl(var(--muted-foreground) / 0.65);
+  }
+
+  .cmdk-footer {
+    display: flex;
+    gap: 14px;
+    padding: 9px 16px;
+    border-top: 1px solid hsl(var(--foreground) / 0.08);
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.04em;
+    color: hsl(var(--muted-foreground) / 0.75);
+  }
+  .cmdk-footer span {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .cmdk-footer kbd {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 16px;
+    height: 16px;
+    padding: 0 3px;
+    border: 1px solid hsl(var(--foreground) / 0.12);
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 9px;
+  }
+
+  @media (max-width: 640px) {
+    .cmdk {
+      width: calc(100vw - 24px);
+      margin-top: 9vh;
+    }
+    /* 16px keeps iOS Safari from auto-zooming the focused input. */
+    .cmdk-input-row input {
+      font-size: 16px;
+    }
+    .cmdk-footer {
+      display: none;
+    }
+  }
+</style>

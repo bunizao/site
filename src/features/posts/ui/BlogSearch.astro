@@ -155,6 +155,15 @@
         open();
       }
     });
+
+    // Deep link from the site-wide command palette ("Search all posts…").
+    // Strip the param after opening so reload/back doesn't reopen the dialog.
+    if (new URLSearchParams(window.location.search).get('search') === '1') {
+      const url = new URL(window.location.href);
+      url.searchParams.delete('search');
+      history.replaceState(history.state, '', url);
+      open();
+    }
   }
 </script>
 
