@@ -44,6 +44,54 @@ describe('structured mood feed media rendering', () => {
     expect(html).toContain('Example article');
   });
 
+  test('renders audio as the shared listening card on rich surfaces', () => {
+    const html = renderStructuredMoodFeedMediaMarkup([
+      {
+        type: 'audio',
+        src: 'https://image.example.test/mood/1/song.mp3',
+        fileName: 'Some Artist - Some Song.mp3',
+        durationSeconds: 245,
+        fileSizeLabel: '9.2 MB',
+        originalUrl: 'https://t.me/example/3672',
+        thumbnailSrc: 'https://image.example.test/mood/1/cover.jpg',
+      },
+    ], { richAudio: true });
+
+    expect(html).toContain('<div class="mood-listening">');
+    expect(html).toContain('data-listening');
+    expect(html).toContain('data-static="true"');
+    expect(html).toContain('data-preview-url="https://image.example.test/mood/1/song.mp3"');
+    expect(html).toContain('data-track-url="https://t.me/example/3672"');
+    expect(html).toContain('data-title="Some Song"');
+    expect(html).toContain('>Some Artist</span>');
+    expect(html).toContain('>4:05</span>');
+    expect(html).toContain('>9.2 MB</span>');
+    expect(html).toContain('src="https://image.example.test/mood/1/cover.jpg"');
+    expect(html).not.toContain('<audio');
+  });
+
+  test('keeps native audio and falls back to the document card without a source', () => {
+    const nativeHtml = renderStructuredMoodFeedMediaMarkup([
+      {
+        type: 'audio',
+        src: 'https://image.example.test/mood/1/voice.ogg',
+      },
+    ]);
+    expect(nativeHtml).toContain('<audio src="https://image.example.test/mood/1/voice.ogg" controls');
+
+    const fallbackHtml = renderStructuredMoodFeedMediaMarkup([
+      {
+        type: 'audio',
+        originalUrl: 'https://t.me/example/3672',
+        fileName: 'too-big.flac',
+        fileSizeLabel: '32 MB',
+      },
+    ], { richAudio: true });
+    expect(fallbackHtml).toContain('tgme_widget_message_document_wrap');
+    expect(fallbackHtml).toContain('too-big.flac');
+    expect(fallbackHtml).not.toContain('data-listening');
+  });
+
   test('can defer feed video sources until the viewport observer hydrates them', () => {
     const html = renderStructuredMoodFeedMediaMarkup([
       {

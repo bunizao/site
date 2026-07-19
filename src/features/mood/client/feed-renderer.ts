@@ -268,7 +268,7 @@ export function createFeedRenderer({
     const hasMediaHtml = mediaHtml.length > 0;
     const tooBigVideoMedia = findTooBigVideoMedia(mood.media);
     const feedMedia = tooBigVideoMedia ? mood.media?.filter((item) => item !== tooBigVideoMedia) : mood.media;
-    const structuredMediaHtml = renderStructuredMoodFeedMediaMarkup(feedMedia, { lazyVideo: true });
+    const structuredMediaHtml = renderStructuredMoodFeedMediaMarkup(feedMedia, { lazyVideo: true, richAudio: true });
     const hasStructuredMedia = structuredMediaHtml.length > 0;
     const previewMediaType = typeof mood.previewMediaType === 'string' ? mood.previewMediaType.trim() : '';
     const needsDetailPage = typeof mood.needsDetailPage === 'boolean'

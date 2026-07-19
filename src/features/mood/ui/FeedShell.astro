@@ -313,7 +313,7 @@ function shouldHideQuoteAuthor(value?: string): boolean {
               const tooBigVideoMedia = findTooBigVideoMedia(post.media);
               const mediaHtml = post.mediaHtml.trim();
               const feedMedia = tooBigVideoMedia ? post.media.filter((item) => item !== tooBigVideoMedia) : post.media;
-              const structuredMediaHtml = renderStructuredMoodFeedMediaMarkup(feedMedia, { lazyVideo: true });
+              const structuredMediaHtml = renderStructuredMoodFeedMediaMarkup(feedMedia, { lazyVideo: true, richAudio: true });
               const hasStructuredMedia = structuredMediaHtml.length > 0;
               const isLongPreview = post.previewText.length > 280;
               const isPriorityMedia = post.id === criticalPriorityPostId;

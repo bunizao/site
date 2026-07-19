@@ -1,4 +1,8 @@
 import type { MediaItem } from '@bunizao/contracts/content';
+import {
+  BLANK_LISTENING_ARTWORK,
+  renderListeningCardMarkup,
+} from '@/lib/listening/markup';
 
 function escapeHtml(value: string): string {
   return value
@@ -39,6 +43,12 @@ function attr(name: string, value: string | number | null | undefined): string {
 
 interface RenderMoodFeedMediaOptions {
   lazyVideo?: boolean;
+  /**
+   * Render audio as the shared listening card (hydrated by
+   * src/lib/listening/controller.ts). Surfaces without client JS
+   * (RSS, embeds) keep the native <audio> element.
+   */
+  richAudio?: boolean;
 }
 
 function videoClass(media: MediaItem): string {
@@ -120,6 +130,48 @@ function renderAudio(media: MediaItem): string {
   if (!src) return '';
 
   return `<audio${attr('src', src)} controls preload="metadata"></audio>`;
+}
+
+function parseAudioLabel(media: MediaItem): { title: string; artist: string } {
+  const raw = (media.title || media.fileName || '').trim();
+  const base = raw.replace(/\.[a-z0-9]{2,5}$/i, '').trim();
+  if (!base) return { title: 'Voice message', artist: 'Telegram' };
+
+  const parts = base.split(' - ');
+  if (parts.length >= 2) {
+    const artist = parts[0].trim();
+    const title = parts.slice(1).join(' - ').trim();
+    if (artist && title) return { title, artist };
+  }
+
+  return { title: base, artist: 'Audio' };
+}
+
+function renderRichAudio(media: MediaItem): string {
+  const src = safeUrl(media.src, 'media');
+  if (!src) return '';
+
+  const { title, artist } = parseAudioLabel(media);
+  const duration = formatDuration(media.durationSeconds);
+  const sizeLabel = media.fileSizeLabel?.trim() || '';
+  const artwork = safeUrl(media.thumbnailSrc, 'media') || BLANK_LISTENING_ARTWORK;
+
+  const card = renderListeningCardMarkup({
+    title,
+    artist,
+    collection: duration || sizeLabel || 'Audio',
+    year: duration ? sizeLabel : '',
+    artworkUrl: artwork,
+    linkUrl: safeUrl(media.originalUrl, 'href'),
+    previewUrl: src,
+    appleCatalogId: '',
+    statusLabel: 'Audio',
+    isLive: false,
+    isLoading: false,
+    isStatic: true,
+  });
+
+  return `<div class="mood-listening">${card}</div>`;
 }
 
 function renderDocument(media: MediaItem): string {
@@ -206,7 +258,7 @@ function renderMediaItem(media: MediaItem, options: RenderMoodFeedMediaOptions):
     case 'video':
       return renderVideo(media, options);
     case 'audio':
-      return renderAudio(media) || renderDocument(media);
+      return (options.richAudio ? renderRichAudio(media) : renderAudio(media)) || renderDocument(media);
     case 'document':
     case 'embed':
       return renderDocument(media);

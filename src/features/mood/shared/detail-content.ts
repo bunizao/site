@@ -99,7 +99,7 @@ export function renderStructuredMoodDetailContent(document: MoodContentDocument)
   const bodyHtml = sanitizeRichContentHtml(document.bodyHtml);
   const imageMediaHtml = renderStructuredImageDetailMedia(document);
   const stickerMediaHtml = renderRichContentMedia(stickerDetailMedia(document));
-  const inlineMediaHtml = renderStructuredMoodFeedMediaMarkup(inlineDetailMedia(document));
+  const inlineMediaHtml = renderStructuredMoodFeedMediaMarkup(inlineDetailMedia(document), { richAudio: true });
   const visualMediaHtml = `${imageMediaHtml}${stickerMediaHtml}`;
 
   return [

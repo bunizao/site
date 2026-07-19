@@ -6,6 +6,7 @@ import { createFeedUpdateWatcher } from '@/features/mood/client/feed-update-watc
 import { initMoodGalleries } from '@/features/mood/client/gallery';
 import { createMoodMetaPatcher } from '@/features/mood/client/meta-patcher';
 import { hydrateMoodRichText } from '@/features/mood/client/rich-text';
+import { initListeningCards } from '@/lib/listening/controller';
 import { formatMoodDateKey, rekeyMoodServerRenderedGroups } from '@/features/mood/shared/date-grouping';
 import {
   getMoodFeedAnchorBeforeCursor,
@@ -746,6 +747,7 @@ export function initMoodFeedController(): void {
         rekeyMoodServerRenderedGroups(list);
         mediaHydrator.applyMediaHints(list);
         initMoodGalleries(list);
+        initListeningCards(list);
       }
 
       const appendMoods = (posts: MoodData[], startIndex = totalCount): void => {
@@ -754,6 +756,7 @@ export function initMoodFeedController(): void {
           updateWatcher.syncLatestSeenId();
         }
         hydrateMoodRichText(list);
+        initListeningCards(list);
         patchVisibleMoodMeta();
         revealFeedAnchor();
       };
@@ -769,6 +772,7 @@ export function initMoodFeedController(): void {
         if (heightDelta > 0) {
           window.scrollTo({ top: window.scrollY + heightDelta, behavior: 'auto' });
         }
+        initListeningCards(list);
         patchVisibleMoodMeta();
       };
 
