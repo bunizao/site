@@ -3,18 +3,17 @@
 // via `?w=`, snapping to the widths below. External/legacy URLs must pass
 // through untouched so we never rewrite something the proxy can't resize.
 
-import { MOOD_IMAGE_PROXY_BASE_PATH } from '@bunizao/contracts/routes';
-
 // Matches the proxy's `resolveResizeWidth` snap list in site-api
 // (telegram-image-proxy.ts). Keep in sync if the proxy changes.
 export const MOOD_ARCHIVE_IMAGE_WIDTHS = [320, 480, 640, 800, 1200] as const;
 
-// The public proxy path is `/api/v2/images/...`; the contract base is
-// `/v2/images` (the private Worker mount). Match both so absolute buxx.me URLs
-// and relative public URLs are recognized.
+// The public proxy path is `/api/v2/images/...`; `/v2/images` is the private
+// Worker mount (MOOD_IMAGE_PROXY_BASE_PATH in @bunizao/contracts/routes —
+// inlined here to keep this module dependency-free for browser test builds).
+// Match both so absolute buxx.me URLs and relative public URLs are recognized.
 const ARCHIVE_IMAGE_PATH_MARKERS = [
   '/api/v2/images/',
-  `${MOOD_IMAGE_PROXY_BASE_PATH}/`,
+  '/v2/images/',
 ];
 
 export interface ArchiveSrcSet {
