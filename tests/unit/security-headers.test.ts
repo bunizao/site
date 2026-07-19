@@ -64,14 +64,15 @@ describe('html security headers', () => {
     expect(csp).not.toContain('frame-ancestors');
   });
 
-  test('non-html responses pass through untouched', () => {
+  test('non-html responses get nosniff and referrer but no CSP', () => {
     const response = withHtmlSecurityHeaders(
       new Request('https://buxx.me/api/moods'),
       new Response('{}', { headers: { 'Content-Type': 'application/json' } }),
     );
 
     expect(response.headers.get('Content-Security-Policy')).toBeNull();
-    expect(response.headers.get('X-Content-Type-Options')).toBeNull();
+    expect(response.headers.get('X-Content-Type-Options')).toBe('nosniff');
+    expect(response.headers.get('Referrer-Policy')).toBe('strict-origin-when-cross-origin');
   });
 
   test('csp builder emits the requested frame-ancestors directive', () => {
