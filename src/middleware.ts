@@ -15,27 +15,52 @@ import {
 } from '@/features/admin/server/dev-bypass';
 
 const DEV_PORTAL_PREFIX = '/dev';
+const MOOD_EMBED_PATH = '/mood/embed';
 
 function isDevPortalPath(pathname: string): boolean {
   return pathname === DEV_PORTAL_PREFIX || pathname.startsWith(`${DEV_PORTAL_PREFIX}/`);
 }
 
-export function createHtmlScriptCsp(): string {
-  return [
+function isMoodEmbedPath(pathname: string): boolean {
+  return pathname === MOOD_EMBED_PATH || pathname.startsWith(`${MOOD_EMBED_PATH}/`);
+}
+
+export function createHtmlScriptCsp(options: { frameAncestors?: 'none' | 'self' } = {}): string {
+  const directives = [
     "script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://js-cdn.music.apple.com https://static.cloudflareinsights.com https://challenges.cloudflare.com http://localhost:* http://127.0.0.1:*",
     "base-uri 'self'",
     "object-src 'none'",
-  ].join('; ');
+  ];
+  if (options.frameAncestors) {
+    directives.push(`frame-ancestors '${options.frameAncestors}'`);
+  }
+  return directives.join('; ');
 }
 
-function withHtmlSecurityHeaders(request: Request, response: Response): Response {
+export function withHtmlSecurityHeaders(request: Request, response: Response): Response {
   const contentType = response.headers.get('content-type') ?? '';
   if (!contentType.toLowerCase().includes('text/html')) {
     return response;
   }
 
+  const pathname = new URL(request.url).pathname;
   const headers = new Headers(response.headers);
-  headers.set('Content-Security-Policy', createHtmlScriptCsp());
+
+  if (isMoodEmbedPath(pathname)) {
+    // The embed surface is deliberately framable: it sets its own CSP with
+    // frame-ancestors * (src/lib/embed-response.ts). Keep that CSP; only
+    // apply the base one when the embed somehow shipped without it.
+    if (!headers.has('Content-Security-Policy')) {
+      headers.set('Content-Security-Policy', createHtmlScriptCsp());
+    }
+  } else {
+    headers.set('Content-Security-Policy', createHtmlScriptCsp({
+      frameAncestors: isDevPortalPath(pathname) ? 'none' : 'self',
+    }));
+  }
+
+  headers.set('X-Content-Type-Options', 'nosniff');
+  headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
   return new Response(response.body, {
     status: response.status,
     statusText: response.statusText,
