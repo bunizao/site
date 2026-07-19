@@ -11,6 +11,7 @@ import {
 } from '@/features/mood/shared/feed-anchor';
 import { getCriticalInitialPosts, hasRenderableMoodFeedMedia } from '@/features/mood/shared/initial-feed';
 import { getMoodReactionKey } from '@/features/mood/client/meta-patcher';
+import { serializeScriptJson } from '@/lib/serialize-script-json';
 
 interface SkeletonItem {
   index: number;
@@ -62,6 +63,7 @@ const initialFeedPayload = {
   anchorId: anchorId || undefined,
 };
 const hasInitialFeedPayload = initialPosts.length > 0 || Boolean(initialChannel);
+const initialFeedPayloadJson = serializeScriptJson(initialFeedPayload);
 
 function formatTime(value: string): string {
   const date = new Date(value);
@@ -317,7 +319,7 @@ function shouldHideQuoteAuthor(value?: string): boolean {
     data-mood-read-source={readSource}
   >
     {hasInitialFeedPayload && (
-      <script is:inline type="application/json" data-mood-initial-feed set:html={JSON.stringify(initialFeedPayload)}></script>
+      <script is:inline type="application/json" data-mood-initial-feed set:html={initialFeedPayloadJson}></script>
     )}
     {anchorId && <div class="mood-sentinel mood-sentinel--newer" data-mood-newer-sentinel aria-hidden="true"></div>}
     <div class="mood-stream" data-mood-list role="region" aria-label="Mood feed">

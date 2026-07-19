@@ -1,6 +1,7 @@
 ---
 import type { LogoRuntimeDefinition } from '@/features/logos/data/types';
 import { gridToSvg } from '@/features/logos/lib/render';
+import { serializeScriptJson } from '@/lib/serialize-script-json';
 
 type AnimationPayload = Record<string, {
   fps: number;
@@ -94,7 +95,7 @@ const animations = Object.fromEntries(
 const initialFrame = definition.animations[animation]?.frames[0] ?? definition.base;
 const initialSvg = renderFrame(initialFrame);
 const style = `display:inline-flex;width:${size}px;height:${renderedHeight}px;color:${fg}`;
-const animationsJson = JSON.stringify(animations).replace(/</g, '\\u003c');
+const animationsJson = serializeScriptJson(animations);
 ---
 
 <span

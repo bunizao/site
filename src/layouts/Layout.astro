@@ -41,6 +41,7 @@ import {
 } from '@/features/logos/data/peek-runtime';
 import { meta, navLinks } from '@/data/site';
 import { hasMarkdownRenderer } from '@/features/agent-markdown/server/registry';
+import { serializeScriptJson } from '@/lib/serialize-script-json';
 
 const {
   title,
@@ -88,6 +89,7 @@ const structuredDataItems = structuredData
     ? structuredData
     : [structuredData]
   : [];
+const structuredDataItemsJson = structuredDataItems.map((item) => serializeScriptJson(item));
 const ogImagePath = new URL(ogImageUrl).pathname;
 const ogImageType = ogImagePath.endsWith('.png')
   ? 'image/png'
@@ -174,8 +176,8 @@ const preloadFontHref = preloadFont === 'sans'
         href={new URL(oembed.href, site).href}
       />
     ) : null}
-    {structuredDataItems.map((item) => (
-      <script type="application/ld+json" is:inline set:html={JSON.stringify(item)} />
+    {structuredDataItemsJson.map((itemJson) => (
+      <script type="application/ld+json" is:inline set:html={itemJson} />
     ))}
 
     <script is:inline>
