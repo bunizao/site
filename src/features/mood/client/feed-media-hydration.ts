@@ -1,4 +1,5 @@
 import type { ChannelInfo } from '@/features/mood/client/feed-types';
+import { buildArchiveSrcSet } from '@/features/mood/shared/image-srcset';
 
 interface AnimatedEmojiHydrator {
   hydrate(root?: ParentNode): Promise<void>;
@@ -220,15 +221,26 @@ export function createFeedMediaHydrator(
     if (!src) return;
 
     img.dataset.deferredHydrated = '1';
-    img.src = src;
-    img.removeAttribute('srcset');
-    img.removeAttribute('sizes');
+    hydrateResponsiveImage(img, src);
   };
 
   const hydrateResponsiveImage = (img: HTMLImageElement, src: string): void => {
     img.src = src;
-    img.removeAttribute('srcset');
-    img.removeAttribute('sizes');
+    // Archive URLs get width negotiation; anything else (external, legacy, or a
+    // non-archive fallback swap) must clear stale srcset/sizes so the browser
+    // uses the plain src.
+    const responsive = buildArchiveSrcSet(src);
+    if (responsive.srcset) {
+      img.srcset = responsive.srcset;
+      if (responsive.sizes) {
+        img.sizes = responsive.sizes;
+      } else {
+        img.removeAttribute('sizes');
+      }
+    } else {
+      img.removeAttribute('srcset');
+      img.removeAttribute('sizes');
+    }
   };
 
   // Swap to the fallback URL once when the primary source fails to load. Shared

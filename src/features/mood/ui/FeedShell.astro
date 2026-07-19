@@ -15,6 +15,7 @@ import {
   formatMoodDateKey,
   formatMoodTime,
 } from '@/features/mood/shared/date-grouping';
+import { buildArchiveSrcSet } from '@/features/mood/shared/image-srcset';
 import { getMoodReactionKey } from '@/features/mood/client/meta-patcher';
 import { serializeScriptJson } from '@/lib/serialize-script-json';
 
@@ -308,6 +309,7 @@ function shouldHideQuoteAuthor(value?: string): boolean {
               const thumbWidth = isTooBigVideoPreview ? (post.imageWidth ?? tooBigVideoMedia?.width ?? null) : post.imageWidth;
               const thumbHeight = isTooBigVideoPreview ? (post.imageHeight ?? tooBigVideoMedia?.height ?? null) : post.imageHeight;
               const hasGalleryPreview = !hasStructuredMedia && !mediaHtml && !isTooBigVideoPreview && (post.gallery?.items.length ?? 0) > 1;
+              const thumbResponsive = thumbImage ? buildArchiveSrcSet(thumbImage) : null;
               const fragmentId = getMoodFeedAnchorFragmentId(post.id);
 
               return (
@@ -432,6 +434,8 @@ function shouldHideQuoteAuthor(value?: string): boolean {
                             loading={isPriorityMedia ? 'eager' : 'lazy'}
                             fetchpriority={isPriorityMedia ? 'high' : undefined}
                             src={thumbImage}
+                            srcset={thumbResponsive?.srcset}
+                            sizes={thumbResponsive?.sizes}
                           />
                         ) : null}
                         {isTooBigVideoPreview ? (
