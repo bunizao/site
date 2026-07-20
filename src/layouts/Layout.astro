@@ -42,6 +42,7 @@ import {
 import { meta, navLinks } from '@/data/site';
 import { hasMarkdownRenderer } from '@/features/agent-markdown/server/registry';
 import { serializeScriptJson } from '@/lib/serialize-script-json';
+import { SITE_FAVICON } from '@/lib/favicon';
 
 const {
   title,
@@ -158,7 +159,7 @@ const preloadFontHref = preloadFont === 'sans'
     <meta name="twitter:description" content={description} />
     <meta name="twitter:image" content={ogImageUrl} />
     <meta name="twitter:image:alt" content={imageAlt} />
-    <link rel="icon" type="image/svg+xml" href="/logo/peek.svg?v=3" />
+    <link rel="icon" type="image/svg+xml" href={SITE_FAVICON} />
     <link rel="mask-icon" href="/logo/peek.svg" color="#0a0a0a" />
     {rss?.href ? (
       <link

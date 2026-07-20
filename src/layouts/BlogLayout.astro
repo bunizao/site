@@ -14,6 +14,7 @@ import {
 } from '@/features/posts/server/og-image';
 import BlogSearch from '@/features/posts/ui/BlogSearch.astro';
 import { hasMarkdownRenderer } from '@/features/agent-markdown/server/registry';
+import { BLOG_FAVICON } from '@/lib/favicon';
 
 interface Props {
   title: string;
@@ -91,7 +92,9 @@ const paletteCss = [
       title={`${blog.name} RSS`}
       href={new URL(blog.feed, meta.siteUrl).href}
     />
-    <link rel="icon" href={blogMarkAsset} type="image/webp" />
+    <!-- The SVG mark carries its own prefers-color-scheme swap; tab strips
+         ignore site CSS, so the raster webp cannot follow dark mode. -->
+    <link rel="icon" href={BLOG_FAVICON} type="image/svg+xml" />
 
     <meta property="og:type" content={ogType} />
     <meta property="og:site_name" content={blog.name} />
