@@ -65,7 +65,7 @@ describe('structured mood feed media rendering', () => {
     expect(html).toContain('data-title="Some Song"');
     expect(html).toContain('>Some Artist</span>');
     expect(html).toContain('>4:05</span>');
-    expect(html).toContain('>9.2 MB</span>');
+    expect(html).not.toContain('9.2 MB');
     expect(html).toContain('src="https://image.example.test/mood/1/cover.jpg"');
     expect(html).not.toContain('<audio');
   });
