@@ -402,6 +402,10 @@ function getImageClassName(post: MoodFeedItem): string {
       height: auto;
     }
 
+    .mood-item-thumb:not(.mood-item-thumb--sticker) img {
+      box-shadow: inset 0 0 0 1px hsl(var(--foreground) / 0.1);
+    }
+
     .mood-item-thumb--sticker {
       display: inline-flex;
       align-items: center;
