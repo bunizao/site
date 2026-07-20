@@ -3,16 +3,11 @@ import {
   Button,
   Card,
   Separator,
-  Tabs,
-  TabsList,
-  TabsPanel,
-  TabsTab,
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/coss';
-import { useMediaQuery } from '@/components/coss/hooks/use-media-query';
 
 interface PreviewResponse {
   generatedAt: string;
@@ -101,15 +96,11 @@ export default function TemplatePreview() {
   const [focused, setFocused] = useState<TemplateKey | null>(null);
   const [cardSize, setCardSize] = useState<CardSize>('regular');
   const [surfaceFilter, setSurfaceFilter] = useState<Surface | 'all'>('all');
-  const [tooltipKey, setTooltipKey] = useState<TemplateKey | null>(null);
-  const [hydrated, setHydrated] = useState(false);
   const requestId = useRef(0);
-  const isCompactViewport = useMediaQuery('max-md');
 
   useEffect(() => {
     const resolved = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
     setTimezone(resolved);
-    setHydrated(true);
   }, []);
 
   const fetchPreview = useCallback(async () => {
@@ -182,29 +173,24 @@ export default function TemplatePreview() {
 
   return (
     <TooltipProvider>
-      <section className={`notify-preview notify-preview--${cardSize}`} data-hydrated={hydrated ? 'true' : 'false'}>
+      <section className={`notify-preview notify-preview--${cardSize}`}>
       <Card className="notify-control-bar">
         <div className="notify-control-group" role="group" aria-label="Surface filter">
           <span className="notify-control-label">Surface</span>
-          <Tabs
-            value={surfaceFilter}
-            onValueChange={(value) => setSurfaceFilter(value as Surface | 'all')}
-          >
-            <TabsList className="notify-segment">
+          <div className="notify-segment">
             {SURFACE_FILTERS.map((option) => (
-              <TabsTab
+              <Button
                 key={option.value}
-                value={option.value}
+                variant="ghost"
+                size="sm"
+                onClick={() => setSurfaceFilter(option.value)}
                 className={`notify-segment__btn${surfaceFilter === option.value ? ' notify-segment__btn--active' : ''}`}
+                aria-pressed={surfaceFilter === option.value}
               >
                 {option.label}
-              </TabsTab>
+              </Button>
             ))}
-            </TabsList>
-            {SURFACE_FILTERS.map((option) => (
-              <TabsPanel key={option.value} value={option.value} className="hidden" />
-            ))}
-          </Tabs>
+          </div>
         </div>
 
         <div className="notify-control-group" role="group" aria-label="Digest mode">
@@ -330,20 +316,13 @@ export default function TemplatePreview() {
                     <p className="notify-card__intent">{tpl.intent}</p>
                   </div>
                 </div>
-                <Tooltip
-                  open={tooltipKey === tpl.key}
-                  onOpenChange={(open) => setTooltipKey(open ? tpl.key : null)}
-                >
+                <Tooltip>
                   <TooltipTrigger
                     render={
                       <Button
                         variant="ghost"
                         size="sm"
                         onClick={() => setFocused(isFocused ? null : tpl.key)}
-                        onFocus={() => setTooltipKey(tpl.key)}
-                        onBlur={() => setTooltipKey(null)}
-                        onMouseEnter={() => setTooltipKey(tpl.key)}
-                        onMouseLeave={() => setTooltipKey(null)}
                         className="notify-card__focus"
                         aria-pressed={isFocused}
                       >
@@ -352,11 +331,7 @@ export default function TemplatePreview() {
                     }
                   />
                   <TooltipContent>
-                    {isFocused
-                      ? 'Return to the template grid'
-                      : isCompactViewport
-                        ? 'Open this preview'
-                        : 'Expand this preview'}
+                    {isFocused ? 'Return to the template grid' : 'Open this preview'}
                   </TooltipContent>
                 </Tooltip>
               </header>

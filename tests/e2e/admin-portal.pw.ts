@@ -66,13 +66,20 @@ test.describe('Admin portal newsletters', () => {
     await page.goto('/dev/portal/newsletter');
     await expect(page.getByRole('heading', { name: 'Notification templates', level: 1 })).toBeVisible();
     await expect(page.locator('[data-slot="card"]').first()).toBeVisible();
-    await expect(page.getByRole('tab', { name: 'All' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'All' })).toHaveAttribute('aria-pressed', 'true');
     await expect(page.locator('[data-slot="separator"]')).toBeVisible();
-    await expect(page.locator('.notify-preview')).toHaveAttribute('data-hydrated', 'true');
-    await page.getByRole('tab', { name: 'Emails' }).click();
+    await expect(page.getByRole('button', { name: 'Refresh live data' })).toBeVisible();
+    await page.getByRole('button', { name: 'Emails' }).click();
     await expect(page.getByRole('heading', { name: 'Confirm — Success' })).toHaveCount(0);
-    await page.getByRole('button', { name: 'Focus' }).first().hover();
-    await expect(page.getByText(/(?:Expand|Open) this preview/)).toBeVisible();
+    const focusButton = page.getByRole('button', { name: 'Focus' }).first();
+    await page.getByRole('button', { name: 'Refresh live data' }).focus();
+    await page.keyboard.press('Tab');
+    await expect(focusButton).toBeFocused();
+    await expect(page.getByText('Open this preview')).toBeVisible();
+    await focusButton.click();
+    await expect(focusButton).toHaveAttribute('aria-pressed', 'true');
+    await focusButton.hover();
+    await expect(page.getByText('Return to the template grid')).toBeVisible();
 
     const routes = [
       ['/dev/portal/svg', 'SVG gallery'],
