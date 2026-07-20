@@ -1,5 +1,6 @@
 ---
 import PortalLayout from '@/layouts/PortalLayout.astro';
+import { Card } from '@/components/coss';
 import PixelLogo from '@/features/logos/ui/PixelLogo.astro';
 import PeekLook from '@/features/logos/ui/PeekLook.astro';
 import AnimatedLogo from '@/features/logos/ui/AnimatedLogo.astro';
@@ -46,7 +47,7 @@ const previewTrackPoses = getPeekTrackingPoseKeys('preview');
 >
   <div class="mascot-page">
     <section class="mascot-summary">
-      <div class="mascot-summary-card">
+      <Card className="mascot-summary-card">
         <div class="mascot-summary-stage">
           <PixelLogo id="peek" size={120} title="peek base grid" />
         </div>
@@ -61,7 +62,7 @@ const previewTrackPoses = getPeekTrackingPoseKeys('preview');
             <div><dt>Timelines</dt><dd>{timelineAssets.length}</dd></div>
           </dl>
         </div>
-      </div>
+      </Card>
       <div class="mascot-stats">
         <div><span>Motions</span><strong>{motionAssets.length}</strong></div>
         <div><span>Poses</span><strong>{poseAssets.length}</strong></div>
@@ -78,12 +79,12 @@ const previewTrackPoses = getPeekTrackingPoseKeys('preview');
       </header>
       <div class="mascot-runtime-grid">
         {runtimeBehaviors.map((behavior) => (
-          <article class="mascot-runtime-card">
+          <Card className="mascot-runtime-card">
             <span class="mascot-runtime-slot">{behavior.slotId}</span>
             <h4>{behavior.label}</h4>
             <p>{behavior.description}</p>
             <code>{behavior.animation}</code>
-          </article>
+          </Card>
         ))}
       </div>
     </section>
@@ -95,7 +96,7 @@ const previewTrackPoses = getPeekTrackingPoseKeys('preview');
         <p>Same component mounted in the site chrome. Real navbar wiring, no fake stage.</p>
       </header>
       <div class="mascot-brand-grid">
-        <article class="mascot-brand-card">
+        <Card className="mascot-brand-card">
           <div class="mascot-brand-stage">
             <AnimatedLogo
               definition={PEEK_NAVBAR_LOGO}
@@ -113,9 +114,9 @@ const previewTrackPoses = getPeekTrackingPoseKeys('preview');
               <div><dt>Hover</dt><dd><code>{navbarHoverAnimation}</code></dd></div>
             </dl>
           </div>
-        </article>
+        </Card>
 
-        <article class="mascot-brand-card">
+        <Card className="mascot-brand-card">
           <div class="mascot-brand-stage mascot-brand-stage-static">
             <PixelLogo id="peek" size={140} title="peek source" />
           </div>
@@ -126,7 +127,7 @@ const previewTrackPoses = getPeekTrackingPoseKeys('preview');
               <div><dt>Grid</dt><dd>{mascot.width} × {mascot.height}</dd></div>
             </dl>
           </div>
-        </article>
+        </Card>
       </div>
     </section>
 
@@ -136,7 +137,7 @@ const previewTrackPoses = getPeekTrackingPoseKeys('preview');
         <h3>Pointer-driven pose switcher</h3>
         <p>Five horizontal buckets, same rig used on the 404 page. Move across the stage to lock onto a pose.</p>
       </header>
-      <article class="mascot-tracker">
+      <Card className="mascot-tracker">
         <div
           class="mascot-tracker-stage"
           data-peek-tracker
@@ -164,7 +165,7 @@ const previewTrackPoses = getPeekTrackingPoseKeys('preview');
           <div><dt>Buckets</dt><dd>{previewTrackPoses.length}</dd></div>
           <div><dt>Channel</dt><dd><code>preview-track</code></dd></div>
         </dl>
-      </article>
+      </Card>
     </section>
 
     <section class="mascot-block">
@@ -176,7 +177,7 @@ const previewTrackPoses = getPeekTrackingPoseKeys('preview');
       </header>
       <div class="mascot-sticker-grid">
         {PEEK_STICKER_ASSETS.map((sticker) => (
-          <article class="mascot-sticker-card">
+          <Card className="mascot-sticker-card">
             <div class="mascot-sticker-stage">
               <img
                 src={sticker.src}
@@ -199,7 +200,7 @@ const previewTrackPoses = getPeekTrackingPoseKeys('preview');
                 <div><dt>Path</dt><dd><code>{sticker.src}</code></dd></div>
               </dl>
             </div>
-          </article>
+          </Card>
         ))}
       </div>
     </section>
@@ -220,7 +221,7 @@ const previewTrackPoses = getPeekTrackingPoseKeys('preview');
               : null;
             const kindTag = item.motionKind ?? item.kind;
             return (
-              <article class="mascot-library-card" data-kind={kindTag}>
+              <Card className="mascot-library-card" data-kind={kindTag}>
                 <div class:list={["mascot-library-stage", { "mascot-library-stage-look": isLook }]}>
                   {lookItem ? (
                     <PeekLook look={lookItem} size={104} title={`peek ${item.label}`} />
@@ -256,7 +257,7 @@ const previewTrackPoses = getPeekTrackingPoseKeys('preview');
                     </div>
                   )}
                 </div>
-              </article>
+              </Card>
             );
           })}
         </div>

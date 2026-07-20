@@ -39,6 +39,47 @@ test.describe('Admin portal newsletters', () => {
     await expect(page.getByRole('heading', { name: 'Raw event log' })).toBeVisible();
   });
 
+  test('uses coss chrome across every preview surface', async ({ page }) => {
+    await page.route('**/api/notify/preview?**', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          generatedAt: timestamp,
+          mode: 'daily',
+          sample: 'rich',
+          timezone: 'UTC',
+          source: { channelTitle: 'Mood', latestPostId: '3503', digestPostIds: ['3503'] },
+          subjects: { subscribe: '', welcome: '', blog: '', mood: '', digest: '', cancel: '' },
+          html: { subscribe: '', welcome: '', blog: '', mood: '', digest: '', cancel: '' },
+          callbackPages: {
+            confirmSuccess: '',
+            confirmError: '',
+            unsubscribePrompt: '',
+            unsubscribeSuccess: '',
+            unsubscribeError: '',
+          },
+        }),
+      });
+    });
+
+    const routes = [
+      ['/dev/portal/newsletter', 'Notification templates'],
+      ['/dev/portal/svg', 'SVG gallery'],
+      ['/dev/portal/mascot', 'Mascot inspector'],
+      ['/dev/portal/mood-embed', 'Mood embed'],
+    ] as const;
+
+    for (const [path, title] of routes) {
+      await page.goto(path);
+      await expect(page.getByRole('heading', { name: title, level: 1 })).toBeVisible();
+      await expect(page.locator('[data-slot="card"]').first()).toBeVisible();
+    }
+
+    await page.goto('/dev/portal/newsletter');
+    await expect(page.getByRole('tab', { name: 'All' })).toBeVisible();
+  });
+
   test('shows subscriber source filters and optional source counts', async ({ page }) => {
     const subscriberRequests: URL[] = [];
 

@@ -161,20 +161,17 @@ export function AlertDialogClose(
   );
 }
 
-/**
- * shadcn-compatible confirm/cancel affordances. coss only ships
- * <AlertDialogClose>. We deliberately split behavior to match how the admin
- * islands were written:
- *   - Cancel closes the dialog (wraps AlertDialogClose).
- *   - Action does NOT auto-close — Base UI's Close ignores preventDefault, and
- *     the islands run async work then close via their own state so the
- *     "Sending…"/pending UI stays visible until the request resolves.
- */
 export function AlertDialogAction({
+  className,
   variant = "default",
   ...props
 }: ButtonProps): React.ReactElement {
-  return <Button variant={variant} {...props} />;
+  return (
+    <AlertDialogPrimitive.Close
+      render={<Button className={className} variant={variant} />}
+      {...props}
+    />
+  );
 }
 
 export function AlertDialogCancel({

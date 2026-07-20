@@ -1,5 +1,6 @@
 ---
 import PortalLayout from '@/layouts/PortalLayout.astro';
+import { Button, Card } from '@/components/coss';
 import { readRuntimeEnv, signedRequestPath } from '@/lib/security/signed-url';
 
 export const prerender = false;
@@ -94,26 +95,26 @@ const entries: SvgEntry[] = [
   user={{ login: session?.login || 'admin' }}
 >
   <section class="svg-gallery" data-theme="dark">
-    <div class="svg-toolbar">
+    <Card className="svg-toolbar">
       <div class="svg-toolbar__group" role="group" aria-label="Theme">
         <span class="svg-toolbar__label">Theme</span>
         <div class="svg-segment">
-          <button type="button" class="svg-segment__btn svg-segment__btn--active" data-theme="dark" aria-pressed="true">Dark</button>
-          <button type="button" class="svg-segment__btn" data-theme="light" aria-pressed="false">Light</button>
+          <Button type="button" variant="ghost" size="sm" className="svg-segment__btn svg-segment__btn--active" data-theme="dark" aria-pressed="true">Dark</Button>
+          <Button type="button" variant="ghost" size="sm" className="svg-segment__btn" data-theme="light" aria-pressed="false">Light</Button>
         </div>
       </div>
       <div class="svg-toolbar__group" role="group" aria-label="Background">
         <span class="svg-toolbar__label">Frame</span>
         <div class="svg-segment">
-          <button type="button" class="svg-segment__btn svg-segment__btn--active" data-frame="auto" aria-pressed="true">Auto</button>
-          <button type="button" class="svg-segment__btn" data-frame="dark" aria-pressed="false">Dark</button>
-          <button type="button" class="svg-segment__btn" data-frame="light" aria-pressed="false">Light</button>
-          <button type="button" class="svg-segment__btn" data-frame="checker" aria-pressed="false">Checker</button>
+          <Button type="button" variant="ghost" size="sm" className="svg-segment__btn svg-segment__btn--active" data-frame="auto" aria-pressed="true">Auto</Button>
+          <Button type="button" variant="ghost" size="sm" className="svg-segment__btn" data-frame="dark" aria-pressed="false">Dark</Button>
+          <Button type="button" variant="ghost" size="sm" className="svg-segment__btn" data-frame="light" aria-pressed="false">Light</Button>
+          <Button type="button" variant="ghost" size="sm" className="svg-segment__btn" data-frame="checker" aria-pressed="false">Checker</Button>
         </div>
       </div>
       <div class="svg-toolbar__spacer"></div>
       <span class="svg-toolbar__count">{entries.length} assets</span>
-    </div>
+    </Card>
 
     <div class="svg-grid">
       {entries.map((entry) => {
@@ -121,13 +122,13 @@ const entries: SvgEntry[] = [
         const darkSrc = entry.id === 'activity-panel' ? signedActivityPanelSrc('dark') : undefined;
         const lightSrc = entry.id === 'activity-panel' ? signedActivityPanelSrc('light') : undefined;
         return (
-          <article class="svg-card" data-themed={themed ? 'true' : 'false'} data-id={entry.id}>
+          <Card className="svg-card" data-themed={themed ? 'true' : 'false'} data-id={entry.id}>
             <header class="svg-card__head">
               <div class="svg-card__heading">
                 <h3 class="svg-card__title">{entry.name}</h3>
                 <p class="svg-card__intent">{entry.intent}</p>
               </div>
-              <button type="button" class="svg-card__copy" data-copy-url={entry.src} aria-label={`Copy URL for ${entry.name}`}>Copy URL</button>
+              <Button type="button" variant="outline" size="sm" className="svg-card__copy" data-copy-url={entry.src} aria-label={`Copy URL for ${entry.name}`}>Copy URL</Button>
             </header>
             <div class="svg-card__frame" data-frame="auto" style={entry.height ? `--frame-min:${entry.height}px;` : ''}>
               <img
@@ -145,7 +146,7 @@ const entries: SvgEntry[] = [
               <code class="svg-card__url" data-url-display>{entry.src}</code>
               {entry.notes && <p class="svg-card__notes">{entry.notes}</p>}
             </footer>
-          </article>
+          </Card>
         );
       })}
     </div>

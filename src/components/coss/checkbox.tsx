@@ -15,6 +15,11 @@ function assignRef<T>(ref: React.Ref<T> | undefined, value: T | null): void {
   }
 }
 
+function getCheckboxState(checked: boolean, indeterminate: boolean): "checked" | "indeterminate" | "unchecked" {
+  if (indeterminate) return "indeterminate";
+  return checked ? "checked" : "unchecked";
+}
+
 export function Checkbox({
   className,
   inputRef: forwardedInputRef,
@@ -24,25 +29,16 @@ export function Checkbox({
   // Bridge Base UI's data-checked/data-unchecked to the shadcn-style
   // data-state used by the admin e2e suite. Only meaningful for controlled
   // usage (all portal checkboxes pass `checked`), harmless otherwise.
-  const dataState =
-    props.indeterminate
-      ? 'indeterminate'
-      : props.checked === true
-        ? 'checked'
-        : props.checked === false
-          ? 'unchecked'
-          : undefined;
+  const dataState = props.checked === undefined
+    ? undefined
+    : getCheckboxState(props.checked, props.indeterminate === true);
   const inputRef = React.useRef<HTMLInputElement | null>(null);
 
   const syncInputState = React.useCallback((checked?: boolean) => {
     const input = inputRef.current;
     if (!input) return;
 
-    input.dataset.state = input.indeterminate
-      ? "indeterminate"
-      : (checked ?? input.checked)
-        ? "checked"
-        : "unchecked";
+    input.dataset.state = getCheckboxState(checked ?? input.checked, input.indeterminate);
   }, []);
 
   const handleInputRef = React.useCallback((input: HTMLInputElement | null) => {

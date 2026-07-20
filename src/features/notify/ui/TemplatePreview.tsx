@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Button, Card, Tabs, TabsList, TabsTab } from '@/components/coss';
 
 interface PreviewResponse {
   generatedAt: string;
@@ -164,65 +165,72 @@ export default function TemplatePreview() {
 
   return (
     <section className={`notify-preview notify-preview--${cardSize}`}>
-      <div className="notify-control-bar">
+      <Card className="notify-control-bar">
         <div className="notify-control-group" role="group" aria-label="Surface filter">
           <span className="notify-control-label">Surface</span>
-          <div className="notify-segment">
+          <Tabs
+            value={surfaceFilter}
+            onValueChange={(value) => setSurfaceFilter(value as Surface | 'all')}
+          >
+            <TabsList className="notify-segment">
             {SURFACE_FILTERS.map((option) => (
-              <button
+              <TabsTab
                 key={option.value}
-                type="button"
-                onClick={() => setSurfaceFilter(option.value)}
+                value={option.value}
                 className={`notify-segment__btn${surfaceFilter === option.value ? ' notify-segment__btn--active' : ''}`}
-                aria-pressed={surfaceFilter === option.value}
               >
                 {option.label}
-              </button>
+              </TabsTab>
             ))}
-          </div>
+            </TabsList>
+          </Tabs>
         </div>
 
         <div className="notify-control-group" role="group" aria-label="Digest mode">
           <span className="notify-control-label">Digest</span>
           <div className="notify-segment">
-            <button
-              type="button"
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={() => setDigestMode('daily')}
               className={`notify-segment__btn${digestMode === 'daily' ? ' notify-segment__btn--active' : ''}`}
               aria-pressed={digestMode === 'daily'}
             >
               Daily
-            </button>
-            <button
-              type="button"
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={() => setDigestMode('every_5h')}
               className={`notify-segment__btn${digestMode === 'every_5h' ? ' notify-segment__btn--active' : ''}`}
               aria-pressed={digestMode === 'every_5h'}
             >
               Every 5h
-            </button>
+            </Button>
           </div>
         </div>
 
         <div className="notify-control-group" role="group" aria-label="Sample source">
           <span className="notify-control-label">Source</span>
           <div className="notify-segment">
-            <button
-              type="button"
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={() => setSample('live')}
               className={`notify-segment__btn${sample === 'live' ? ' notify-segment__btn--active' : ''}`}
               aria-pressed={sample === 'live'}
             >
               Live
-            </button>
-            <button
-              type="button"
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={() => setSample('rich')}
               className={`notify-segment__btn${sample === 'rich' ? ' notify-segment__btn--active' : ''}`}
               aria-pressed={sample === 'rich'}
             >
               Rich sample
-            </button>
+            </Button>
           </div>
         </div>
 
@@ -230,28 +238,30 @@ export default function TemplatePreview() {
           <span className="notify-control-label">Cards</span>
           <div className="notify-segment">
             {CARD_SIZE_OPTIONS.map((option) => (
-              <button
+              <Button
                 key={option.value}
-                type="button"
+                variant="ghost"
+                size="sm"
                 onClick={() => setCardSize(option.value)}
                 className={`notify-segment__btn${cardSize === option.value ? ' notify-segment__btn--active' : ''}`}
                 aria-pressed={cardSize === option.value}
               >
                 {option.label}
-              </button>
+              </Button>
             ))}
           </div>
         </div>
 
-        <button
-          type="button"
+        <Button
+          variant="outline"
+          size="sm"
           onClick={() => setRefreshKey((value) => value + 1)}
           className="notify-refresh"
         >
           <span className="notify-refresh__dot" aria-hidden="true" data-loading={loading ? 'true' : 'false'} />
           {loading ? 'Refreshing…' : 'Refresh live data'}
-        </button>
-      </div>
+        </Button>
+      </Card>
 
       <dl className="notify-meta">
         {metaRows.map((row) => (
@@ -279,7 +289,7 @@ export default function TemplatePreview() {
           const isFocused = focused === tpl.key;
           const isHidden = Boolean(focused) && !isFocused;
           return (
-            <article
+            <Card
               key={tpl.key}
               className={[
                 'notify-card',
@@ -297,14 +307,15 @@ export default function TemplatePreview() {
                     <p className="notify-card__intent">{tpl.intent}</p>
                   </div>
                 </div>
-                <button
-                  type="button"
+                <Button
+                  variant="ghost"
+                  size="sm"
                   onClick={() => setFocused(isFocused ? null : tpl.key)}
                   className="notify-card__focus"
                   aria-pressed={isFocused}
                 >
                   {isFocused ? 'Exit focus' : 'Focus'}
-                </button>
+                </Button>
               </header>
               {tpl.surface === 'email' ? (
                 <p className="notify-card__subject" title={subject || undefined}>
@@ -327,7 +338,7 @@ export default function TemplatePreview() {
                   </div>
                 )}
               </div>
-            </article>
+            </Card>
           );
         })}
       </div>

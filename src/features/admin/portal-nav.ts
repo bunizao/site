@@ -32,18 +32,23 @@ export type PortalNavKey =
   | 'svg'
   | 'mood-embed';
 
-export const PORTAL_NAV_ITEMS: readonly PortalNavItem[] = [
-  { key: 'overview', label: 'Overview', href: '/dev/portal', Icon: LayoutDashboard },
-  { key: 'subscribers', label: 'Subscribers', href: '/dev/portal/subscribers', Icon: Users },
-  { key: 'broadcasts', label: 'Broadcasts', href: '/dev/portal/broadcasts', Icon: Send },
-  { key: 'analytics', label: 'Analytics', href: '/dev/portal/analytics', Icon: ChartColumn },
-  { key: 'mascot', label: 'Mascot', href: '/dev/portal/mascot', Icon: Sparkles },
-  { key: 'newsletter', label: 'Email templates', href: '/dev/portal/newsletter', Icon: Mail },
-  { key: 'svg', label: 'SVG gallery', href: '/dev/portal/svg', Icon: ImageIcon },
-  { key: 'mood-embed', label: 'Mood embed', href: '/dev/portal/mood-embed', Icon: MessageSquare },
-] as const;
-
 export const PORTAL_NAV_GROUPS: readonly PortalNavGroup[] = [
-  { label: 'Manage', items: PORTAL_NAV_ITEMS.slice(0, 4) },
-  { label: 'Previews', items: PORTAL_NAV_ITEMS.slice(4) },
-] as const;
+  {
+    label: 'Manage',
+    items: [
+      { key: 'overview', label: 'Overview', href: '/dev/portal', Icon: LayoutDashboard },
+      { key: 'subscribers', label: 'Subscribers', href: '/dev/portal/subscribers', Icon: Users },
+      { key: 'broadcasts', label: 'Broadcasts', href: '/dev/portal/broadcasts', Icon: Send },
+      { key: 'analytics', label: 'Analytics', href: '/dev/portal/analytics', Icon: ChartColumn },
+    ],
+  },
+  {
+    label: 'Previews',
+    items: [
+      { key: 'mascot', label: 'Mascot', href: '/dev/portal/mascot', Icon: Sparkles },
+      { key: 'newsletter', label: 'Email templates', href: '/dev/portal/newsletter', Icon: Mail },
+      { key: 'svg', label: 'SVG gallery', href: '/dev/portal/svg', Icon: ImageIcon },
+      { key: 'mood-embed', label: 'Mood embed', href: '/dev/portal/mood-embed', Icon: MessageSquare },
+    ],
+  },
+] as const satisfies readonly PortalNavGroup[];

@@ -48,19 +48,19 @@ const stats = [
   {
     label: 'Active subscribers',
     value: subscriberStats.activeCount,
-    sub: `of ${subscriberStats.total} total`,
+    description: `of ${subscriberStats.total} total`,
     Icon: Users,
   },
   {
     label: 'Pending',
     value: subscriberStats.pendingCount,
-    sub: 'awaiting confirmation',
+    description: 'awaiting confirmation',
     Icon: Clock,
   },
   {
     label: 'Unsubscribed',
     value: subscriberStats.unsubscribedCount,
-    sub: 'opted out',
+    description: 'opted out',
     Icon: UserMinus,
   },
 ] as const;
@@ -79,13 +79,13 @@ const stats = [
   )}
 
   <section class="mb-8 grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(200px,1fr))]">
-    {stats.map(({ label, value, sub, Icon }) => (
+    {stats.map(({ label, value, description, Icon }) => (
       <Card>
         <div class="flex items-start justify-between p-5">
           <div class="min-w-0">
             <div class="text-xs font-medium text-muted-foreground">{label}</div>
             <div class="mt-2 text-3xl font-semibold tabular-nums tracking-tight text-foreground">{value}</div>
-            <div class="mt-1 text-xs text-muted-foreground">{sub}</div>
+            <div class="mt-1 text-xs text-muted-foreground">{description}</div>
           </div>
           <Icon size={16} className="mt-0.5 shrink-0 text-muted-foreground/70" />
         </div>

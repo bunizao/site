@@ -589,10 +589,7 @@ function DeleteSubscriberDialog({
           <AlertDialogCancel disabled={submitting}>Cancel</AlertDialogCancel>
           <AlertDialogAction
             disabled={submitting}
-            onClick={(event) => {
-              event.preventDefault();
-              onConfirm();
-            }}
+            onClick={onConfirm}
           >
             Unsubscribe
           </AlertDialogAction>

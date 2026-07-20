@@ -1,5 +1,6 @@
 ---
 import PortalLayout from '@/layouts/PortalLayout.astro';
+import { Button, Card, Input } from '@/components/coss';
 
 export const prerender = false;
 
@@ -13,87 +14,87 @@ const session = (Astro.locals as any).adminSession;
   user={{ login: session?.login || 'admin' }}
 >
   <section class="mood-embed-preview">
-    <aside class="moodp-controls" aria-label="Embed parameters">
+    <Card className="moodp-controls" aria-label="Embed parameters">
       <div class="moodp-control-block">
         <span class="moodp-label">Theme</span>
         <div class="moodp-segment" data-key="theme">
-          <button type="button" class="moodp-seg moodp-seg--active" data-value="auto" aria-pressed="true">Auto</button>
-          <button type="button" class="moodp-seg" data-value="light" aria-pressed="false">Light</button>
-          <button type="button" class="moodp-seg" data-value="dark" aria-pressed="false">Dark</button>
+          <Button type="button" variant="ghost" size="sm" className="moodp-seg moodp-seg--active" data-value="auto" aria-pressed="true">Auto</Button>
+          <Button type="button" variant="ghost" size="sm" className="moodp-seg" data-value="light" aria-pressed="false">Light</Button>
+          <Button type="button" variant="ghost" size="sm" className="moodp-seg" data-value="dark" aria-pressed="false">Dark</Button>
         </div>
       </div>
 
       <div class="moodp-control-block">
         <span class="moodp-label">Density</span>
         <div class="moodp-segment" data-key="density">
-          <button type="button" class="moodp-seg moodp-seg--active" data-value="regular" aria-pressed="true">Regular</button>
-          <button type="button" class="moodp-seg" data-value="compact" aria-pressed="false">Compact</button>
+          <Button type="button" variant="ghost" size="sm" className="moodp-seg moodp-seg--active" data-value="regular" aria-pressed="true">Regular</Button>
+          <Button type="button" variant="ghost" size="sm" className="moodp-seg" data-value="compact" aria-pressed="false">Compact</Button>
         </div>
       </div>
 
       <div class="moodp-control-block">
         <span class="moodp-label">Font</span>
         <div class="moodp-segment" data-key="font">
-          <button type="button" class="moodp-seg moodp-seg--active" data-value="mono" aria-pressed="true">Mono</button>
-          <button type="button" class="moodp-seg" data-value="system" aria-pressed="false">System</button>
+          <Button type="button" variant="ghost" size="sm" className="moodp-seg moodp-seg--active" data-value="mono" aria-pressed="true">Mono</Button>
+          <Button type="button" variant="ghost" size="sm" className="moodp-seg" data-value="system" aria-pressed="false">System</Button>
         </div>
       </div>
 
       <div class="moodp-control-block">
         <span class="moodp-label">Frame</span>
         <div class="moodp-segment" data-key="frame">
-          <button type="button" class="moodp-seg moodp-seg--active" data-value="true" aria-pressed="true">On</button>
-          <button type="button" class="moodp-seg" data-value="false" aria-pressed="false">Off</button>
+          <Button type="button" variant="ghost" size="sm" className="moodp-seg moodp-seg--active" data-value="true" aria-pressed="true">On</Button>
+          <Button type="button" variant="ghost" size="sm" className="moodp-seg" data-value="false" aria-pressed="false">Off</Button>
         </div>
       </div>
 
       <div class="moodp-control-block">
         <span class="moodp-label">Show "View all" link</span>
         <div class="moodp-segment" data-key="link">
-          <button type="button" class="moodp-seg moodp-seg--active" data-value="true" aria-pressed="true">On</button>
-          <button type="button" class="moodp-seg" data-value="false" aria-pressed="false">Off</button>
+          <Button type="button" variant="ghost" size="sm" className="moodp-seg moodp-seg--active" data-value="true" aria-pressed="true">On</Button>
+          <Button type="button" variant="ghost" size="sm" className="moodp-seg" data-value="false" aria-pressed="false">Off</Button>
         </div>
       </div>
 
       <label class="moodp-control-block">
         <span class="moodp-label">Count</span>
-        <input
-          class="moodp-input"
+        <Input
+          className="moodp-input"
           type="number"
           min="1"
           max="10"
           step="1"
           value="3"
           data-key="count"
-          inputmode="numeric"
+          inputMode="numeric"
         />
         <span class="moodp-hint">1–10. Ignored when a specific post id is set.</span>
       </label>
 
       <label class="moodp-control-block">
         <span class="moodp-label">Pinned post id</span>
-        <input
-          class="moodp-input"
+        <Input
+          className="moodp-input"
           type="text"
           placeholder="e.g. 3503"
           data-key="id"
-          autocomplete="off"
-          spellcheck="false"
+          autoComplete="off"
+          spellCheck="false"
         />
         <span class="moodp-hint">Optional. Forces the embed to a single post.</span>
       </label>
 
       <label class="moodp-control-block">
         <span class="moodp-label">Refresh interval (s)</span>
-        <input
-          class="moodp-input"
+        <Input
+          className="moodp-input"
           type="number"
           min="0"
           max="3600"
           step="30"
           value="0"
           data-key="refresh"
-          inputmode="numeric"
+          inputMode="numeric"
         />
         <span class="moodp-hint">0 disables. Clamped to 30–3600 by the embed.</span>
       </label>
@@ -101,25 +102,25 @@ const session = (Astro.locals as any).adminSession;
       <label class="moodp-control-block">
         <span class="moodp-label">Frame backdrop</span>
         <div class="moodp-segment" data-key="backdrop">
-          <button type="button" class="moodp-seg moodp-seg--active" data-value="auto" aria-pressed="true">Auto</button>
-          <button type="button" class="moodp-seg" data-value="dark" aria-pressed="false">Dark</button>
-          <button type="button" class="moodp-seg" data-value="light" aria-pressed="false">Light</button>
-          <button type="button" class="moodp-seg" data-value="checker" aria-pressed="false">Checker</button>
+          <Button type="button" variant="ghost" size="sm" className="moodp-seg moodp-seg--active" data-value="auto" aria-pressed="true">Auto</Button>
+          <Button type="button" variant="ghost" size="sm" className="moodp-seg" data-value="dark" aria-pressed="false">Dark</Button>
+          <Button type="button" variant="ghost" size="sm" className="moodp-seg" data-value="light" aria-pressed="false">Light</Button>
+          <Button type="button" variant="ghost" size="sm" className="moodp-seg" data-value="checker" aria-pressed="false">Checker</Button>
         </div>
         <span class="moodp-hint">Local preview backdrop. Not part of the embed URL.</span>
       </label>
 
-      <button type="button" class="moodp-reload" data-action="reload">
+      <Button type="button" variant="outline" size="sm" className="moodp-reload" data-action="reload">
         <span aria-hidden="true">↻</span>
         Force reload iframe
-      </button>
-    </aside>
+      </Button>
+    </Card>
 
-    <div class="moodp-stage">
+    <Card className="moodp-stage">
       <header class="moodp-stage__bar">
         <div class="moodp-url" data-url-display>/mood/embed</div>
         <div class="moodp-stage__actions">
-          <button type="button" class="moodp-action" data-action="copy">Copy URL</button>
+          <Button type="button" variant="ghost" size="sm" className="moodp-action" data-action="copy">Copy URL</Button>
           <a class="moodp-action" data-action="open" href="/mood/embed" target="_blank" rel="noopener">Open ↗</a>
         </div>
       </header>
@@ -134,7 +135,7 @@ const session = (Astro.locals as any).adminSession;
       <footer class="moodp-stage__foot">
         <span data-iframe-status>Waiting for the embed to report its height…</span>
       </footer>
-    </div>
+    </Card>
   </section>
 </PortalLayout>
 

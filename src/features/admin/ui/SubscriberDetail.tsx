@@ -512,10 +512,7 @@ function ConfirmDeleteDialog({
           <AlertDialogCancel disabled={saving}>Cancel</AlertDialogCancel>
           <AlertDialogAction
             disabled={saving}
-            onClick={(event) => {
-              event.preventDefault();
-              onConfirm();
-            }}
+            onClick={onConfirm}
           >
             Unsubscribe
           </AlertDialogAction>

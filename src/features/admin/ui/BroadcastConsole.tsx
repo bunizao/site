@@ -470,10 +470,7 @@ export default function BroadcastConsole() {
             <AlertDialogCancel disabled={sending}>Cancel</AlertDialogCancel>
             <AlertDialogAction
               disabled={sending}
-              onClick={(event) => {
-                event.preventDefault();
-                void send();
-              }}
+              onClick={() => void send()}
             >
               {sending ? 'Sending…' : 'Send now'}
             </AlertDialogAction>
