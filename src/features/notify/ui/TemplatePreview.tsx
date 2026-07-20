@@ -1,5 +1,18 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Button, Card, Tabs, TabsList, TabsTab } from '@/components/coss';
+import {
+  Button,
+  Card,
+  Separator,
+  Tabs,
+  TabsList,
+  TabsPanel,
+  TabsTab,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/coss';
+import { useMediaQuery } from '@/components/coss/hooks/use-media-query';
 
 interface PreviewResponse {
   generatedAt: string;
@@ -88,11 +101,15 @@ export default function TemplatePreview() {
   const [focused, setFocused] = useState<TemplateKey | null>(null);
   const [cardSize, setCardSize] = useState<CardSize>('regular');
   const [surfaceFilter, setSurfaceFilter] = useState<Surface | 'all'>('all');
+  const [tooltipKey, setTooltipKey] = useState<TemplateKey | null>(null);
+  const [hydrated, setHydrated] = useState(false);
   const requestId = useRef(0);
+  const isCompactViewport = useMediaQuery('max-md');
 
   useEffect(() => {
     const resolved = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
     setTimezone(resolved);
+    setHydrated(true);
   }, []);
 
   const fetchPreview = useCallback(async () => {
@@ -164,7 +181,8 @@ export default function TemplatePreview() {
   }
 
   return (
-    <section className={`notify-preview notify-preview--${cardSize}`}>
+    <TooltipProvider>
+      <section className={`notify-preview notify-preview--${cardSize}`} data-hydrated={hydrated ? 'true' : 'false'}>
       <Card className="notify-control-bar">
         <div className="notify-control-group" role="group" aria-label="Surface filter">
           <span className="notify-control-label">Surface</span>
@@ -183,6 +201,9 @@ export default function TemplatePreview() {
               </TabsTab>
             ))}
             </TabsList>
+            {SURFACE_FILTERS.map((option) => (
+              <TabsPanel key={option.value} value={option.value} className="hidden" />
+            ))}
           </Tabs>
         </div>
 
@@ -263,6 +284,8 @@ export default function TemplatePreview() {
         </Button>
       </Card>
 
+      <Separator />
+
       <dl className="notify-meta">
         {metaRows.map((row) => (
           <div key={row.label} className="notify-meta__row">
@@ -307,15 +330,35 @@ export default function TemplatePreview() {
                     <p className="notify-card__intent">{tpl.intent}</p>
                   </div>
                 </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setFocused(isFocused ? null : tpl.key)}
-                  className="notify-card__focus"
-                  aria-pressed={isFocused}
+                <Tooltip
+                  open={tooltipKey === tpl.key}
+                  onOpenChange={(open) => setTooltipKey(open ? tpl.key : null)}
                 >
-                  {isFocused ? 'Exit focus' : 'Focus'}
-                </Button>
+                  <TooltipTrigger
+                    render={
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setFocused(isFocused ? null : tpl.key)}
+                        onFocus={() => setTooltipKey(tpl.key)}
+                        onBlur={() => setTooltipKey(null)}
+                        onMouseEnter={() => setTooltipKey(tpl.key)}
+                        onMouseLeave={() => setTooltipKey(null)}
+                        className="notify-card__focus"
+                        aria-pressed={isFocused}
+                      >
+                        {isFocused ? 'Exit focus' : 'Focus'}
+                      </Button>
+                    }
+                  />
+                  <TooltipContent>
+                    {isFocused
+                      ? 'Return to the template grid'
+                      : isCompactViewport
+                        ? 'Open this preview'
+                        : 'Expand this preview'}
+                  </TooltipContent>
+                </Tooltip>
               </header>
               {tpl.surface === 'email' ? (
                 <p className="notify-card__subject" title={subject || undefined}>
@@ -342,6 +385,7 @@ export default function TemplatePreview() {
           );
         })}
       </div>
-    </section>
+      </section>
+    </TooltipProvider>
   );
 }

@@ -9,6 +9,8 @@ export { Textarea } from "./textarea";
 export { Label } from "./label";
 export { Checkbox } from "./checkbox";
 export { Skeleton } from "./skeleton";
+export { Separator } from "./separator";
+export { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./tooltip";
 
 export {
   Card,
@@ -27,7 +29,7 @@ export {
   TableCell,
 } from "./table";
 
-export { Tabs, TabsList, TabsTab } from "./tabs";
+export { Tabs, TabsList, TabsPanel, TabsTab } from "./tabs";
 
 export {
   Select,

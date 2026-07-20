@@ -63,8 +63,18 @@ test.describe('Admin portal newsletters', () => {
       });
     });
 
+    await page.goto('/dev/portal/newsletter');
+    await expect(page.getByRole('heading', { name: 'Notification templates', level: 1 })).toBeVisible();
+    await expect(page.locator('[data-slot="card"]').first()).toBeVisible();
+    await expect(page.getByRole('tab', { name: 'All' })).toBeVisible();
+    await expect(page.locator('[data-slot="separator"]')).toBeVisible();
+    await expect(page.locator('.notify-preview')).toHaveAttribute('data-hydrated', 'true');
+    await page.getByRole('tab', { name: 'Emails' }).click();
+    await expect(page.getByRole('heading', { name: 'Confirm — Success' })).toHaveCount(0);
+    await page.getByRole('button', { name: 'Focus' }).first().hover();
+    await expect(page.getByText(/(?:Expand|Open) this preview/)).toBeVisible();
+
     const routes = [
-      ['/dev/portal/newsletter', 'Notification templates'],
       ['/dev/portal/svg', 'SVG gallery'],
       ['/dev/portal/mascot', 'Mascot inspector'],
       ['/dev/portal/mood-embed', 'Mood embed'],
@@ -75,9 +85,6 @@ test.describe('Admin portal newsletters', () => {
       await expect(page.getByRole('heading', { name: title, level: 1 })).toBeVisible();
       await expect(page.locator('[data-slot="card"]').first()).toBeVisible();
     }
-
-    await page.goto('/dev/portal/newsletter');
-    await expect(page.getByRole('tab', { name: 'All' })).toBeVisible();
   });
 
   test('shows subscriber source filters and optional source counts', async ({ page }) => {
