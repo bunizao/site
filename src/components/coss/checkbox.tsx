@@ -2,10 +2,23 @@
 
 import { Checkbox as CheckboxPrimitive } from "@base-ui/react/checkbox";
 import { cn } from "@/lib/utils";
-import type React from "react";
+import * as React from "react";
+
+function assignRef<T>(ref: React.Ref<T> | undefined, value: T | null): void {
+  if (typeof ref === "function") {
+    ref(value);
+    return;
+  }
+
+  if (ref) {
+    (ref as { current: T | null }).current = value;
+  }
+}
 
 export function Checkbox({
   className,
+  inputRef: forwardedInputRef,
+  onCheckedChange,
   ...props
 }: CheckboxPrimitive.Root.Props): React.ReactElement {
   // Bridge Base UI's data-checked/data-unchecked to the shadcn-style
@@ -19,6 +32,37 @@ export function Checkbox({
         : props.checked === false
           ? 'unchecked'
           : undefined;
+  const inputRef = React.useRef<HTMLInputElement | null>(null);
+
+  const syncInputState = React.useCallback((checked?: boolean) => {
+    const input = inputRef.current;
+    if (!input) return;
+
+    input.dataset.state = input.indeterminate
+      ? "indeterminate"
+      : (checked ?? input.checked)
+        ? "checked"
+        : "unchecked";
+  }, []);
+
+  const handleInputRef = React.useCallback((input: HTMLInputElement | null) => {
+    inputRef.current = input;
+    assignRef(forwardedInputRef, input);
+    syncInputState();
+  }, [forwardedInputRef, syncInputState]);
+
+  React.useEffect(() => {
+    syncInputState(props.checked);
+  }, [props.checked, props.indeterminate, syncInputState]);
+
+  const handleCheckedChange = React.useCallback<NonNullable<CheckboxPrimitive.Root.Props["onCheckedChange"]>>(
+    (checked, eventDetails) => {
+      syncInputState(checked);
+      onCheckedChange?.(checked, eventDetails);
+    },
+    [onCheckedChange, syncInputState],
+  );
+
   return (
     <CheckboxPrimitive.Root
       className={cn(
@@ -27,6 +71,8 @@ export function Checkbox({
       )}
       data-slot="checkbox"
       data-state={dataState}
+      inputRef={handleInputRef}
+      onCheckedChange={handleCheckedChange}
       {...props}
     >
       <CheckboxPrimitive.Indicator
