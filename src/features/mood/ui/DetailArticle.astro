@@ -717,6 +717,10 @@ const postReactions = post?.reactions ?? [];
     aspect-ratio: var(--image-width, 1) / var(--image-height, 1);
   }
 
+  .mood-post-content :global(.image-preview-wrap img:not(.sticker)) {
+    box-shadow: inset 0 0 0 1px hsl(var(--foreground) / 0.1);
+  }
+
   .mood-post-content :global(.image-preview-wrap img[width][height]) {
     aspect-ratio: attr(width) / attr(height);
   }
@@ -756,6 +760,11 @@ const postReactions = post?.reactions ?? [];
     width: auto;
     max-width: 100%;
     height: auto;
+  }
+
+  .mood-post-content :global(.rich-content-media:not(.rich-content-media--sticker) img) {
+    border-radius: 12px;
+    box-shadow: inset 0 0 0 1px hsl(var(--foreground) / 0.1);
   }
 
   .mood-post-content :global(.rich-content-media--sticker) {
