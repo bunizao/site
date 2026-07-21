@@ -5,9 +5,31 @@
    that replace per-page inline styles. */
 
 .theme-portal {
+  /* Type scale — a tool's ramp. Tight steps in the reading range, a couple of
+     display sizes for numbers and page titles. Refined within Geist; JetBrains
+     Mono (--font-code) carries IDs, keys, and dense numerics. */
+  --portal-text-2xs: 10px;
   --portal-text-xs: 11px;
   --portal-text-sm: 12px;
   --portal-text-base: 13px;
+  --portal-text-md: 14px;
+  --portal-text-lg: 15px;
+  --portal-text-xl: 19px;
+  --portal-text-2xl: 23px;
+  --portal-text-3xl: 29px;
+
+  --portal-leading-tight: 1.12;
+  --portal-leading-snug: 1.35;
+  --portal-leading-normal: 1.55;
+  --portal-leading-relaxed: 1.7;
+
+  /* Tracking tightens as size grows, opens up for small caps labels. */
+  --portal-tracking-display: -0.022em;
+  --portal-tracking-title: -0.013em;
+  --portal-tracking-snug: -0.006em;
+  --portal-tracking-normal: 0;
+  --portal-tracking-wide: 0.06em;
+
   --portal-space: 4px;
   --portal-surface-0: hsl(240 6% 5%);
   --portal-surface-1: hsl(var(--card));
@@ -44,6 +66,20 @@ html.theme-portal body {
   color: hsl(var(--foreground));
   font-family: var(--font-display);
   font-size: var(--portal-text-base);
+  line-height: var(--portal-leading-normal);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-optical-sizing: auto;
+  text-rendering: optimizeLegibility;
+}
+
+/* Small-caps section label. One consistent eyebrow across the portal. */
+.portal-eyebrow {
+  font-size: var(--portal-text-2xs);
+  font-weight: 600;
+  letter-spacing: var(--portal-tracking-wide);
+  text-transform: uppercase;
+  color: hsl(var(--muted-foreground) / 0.8);
 }
 
 html.theme-portal body::before {
@@ -253,15 +289,33 @@ html.theme-portal section {
 
 .portal-topbar-title {
   margin: 0;
-  font-size: 15px;
-  font-weight: 500;
-  line-height: 1.2;
-  letter-spacing: -0.01em;
+  font-size: var(--portal-text-lg);
+  font-weight: 550;
+  line-height: var(--portal-leading-tight);
+  letter-spacing: var(--portal-tracking-title);
+  text-wrap: balance;
 }
 
 .portal-topbar-description {
   font-size: var(--portal-text-sm);
+  line-height: var(--portal-leading-snug);
   color: hsl(var(--muted-foreground));
+  text-wrap: pretty;
+}
+
+/* Scoped type refinements — every coss card title/description in the portal
+   reads at one considered size, regardless of per-page overrides. */
+.theme-portal [data-slot='card-title'] {
+  font-size: var(--portal-text-md);
+  font-weight: 550;
+  line-height: var(--portal-leading-snug);
+  letter-spacing: var(--portal-tracking-title);
+}
+
+.theme-portal [data-slot='card-description'] {
+  font-size: var(--portal-text-sm);
+  line-height: var(--portal-leading-snug);
+  text-wrap: pretty;
 }
 
 .portal-topbar-spacer {
@@ -686,10 +740,10 @@ html.theme-portal section {
 
 .portal-stat-value {
   margin-top: 14px;
-  font-size: 30px;
+  font-size: var(--portal-text-3xl);
   line-height: 1.05;
   font-weight: 600;
-  letter-spacing: -0.02em;
+  letter-spacing: var(--portal-tracking-display);
   font-variant-numeric: tabular-nums;
   color: hsl(var(--foreground));
 }
@@ -876,6 +930,139 @@ a.portal-feed-row:hover,
   gap: 5px;
 }
 
+/* ---- Shared: coss Table refinements, segmented control, sections ---- */
+
+/* Tune the Base UI table for the portal: tabular numerics, a quiet header,
+   the reading-size body. Structure and row hover come from coss. */
+.theme-portal [data-slot='table'] {
+  font-size: var(--portal-text-base);
+  font-variant-numeric: tabular-nums;
+}
+.theme-portal [data-slot='table-head'] {
+  height: 34px;
+  font-size: var(--portal-text-xs);
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  color: hsl(var(--muted-foreground) / 0.85);
+}
+.theme-portal [data-slot='table-cell'] {
+  font-size: var(--portal-text-sm);
+  padding-top: 9px;
+  padding-bottom: 9px;
+}
+.theme-portal [data-slot='table'] a {
+  color: hsl(var(--foreground));
+  text-decoration: none;
+  transition: color 160ms var(--portal-ease);
+}
+.theme-portal [data-slot='table'] a:hover {
+  color: hsl(var(--portal-chip-accent));
+}
+
+/* Segmented control — anchor links with a single active pill. The pill carries
+   a view-transition-name, so under Astro's ClientRouter it slides between
+   options on navigation instead of teleporting. */
+.portal-segmented {
+  display: inline-flex;
+  gap: 2px;
+  padding: 2px;
+  border-radius: 9px;
+  background: hsl(var(--foreground) / 0.04);
+  box-shadow: inset 0 0 0 1px hsl(var(--border) / 0.7);
+}
+
+.portal-segmented-option {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 40px;
+  padding: 4px 11px;
+  border-radius: 7px;
+  font-size: var(--portal-text-sm);
+  font-weight: 500;
+  color: hsl(var(--muted-foreground));
+  font-variant-numeric: tabular-nums;
+  transition: color 160ms var(--portal-ease);
+}
+
+.portal-segmented-option:hover {
+  color: hsl(var(--foreground));
+}
+
+.portal-segmented-option[aria-current='true'] {
+  color: hsl(var(--foreground));
+}
+
+.portal-segmented-pill {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: 7px;
+  background: hsl(var(--card));
+  box-shadow:
+    0 1px 2px hsl(240 12% 2% / 0.4),
+    inset 0 0 0 1px hsl(var(--border));
+  view-transition-name: portal-seg-pill;
+}
+
+.portal-segmented-label {
+  position: relative;
+  z-index: 1;
+}
+
+::view-transition-group(portal-seg-pill) {
+  animation-duration: 260ms;
+  animation-timing-function: var(--portal-ease-out);
+}
+
+/* Section block — eyebrow + title + meta/action, then content. */
+.portal-section-block {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.portal-section-block + .portal-section-block {
+  margin-top: 32px;
+}
+
+.portal-section-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.portal-section-heading {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.portal-section-title {
+  margin: 0;
+  font-size: var(--portal-text-xl);
+  font-weight: 550;
+  line-height: var(--portal-leading-tight);
+  letter-spacing: var(--portal-tracking-title);
+  color: hsl(var(--foreground));
+  text-wrap: balance;
+}
+
+.portal-section-aside {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.portal-section-meta {
+  font-size: var(--portal-text-sm);
+  color: hsl(var(--muted-foreground));
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
 /* Redesigned empty state — icon, title, guidance, optional action. Replaces
    the bare muted paragraph the pages used before. */
 .portal-empty {
@@ -977,7 +1164,8 @@ a.portal-feed-row:hover,
     transform: none !important;
   }
   ::view-transition-old(root),
-  ::view-transition-new(root) {
+  ::view-transition-new(root),
+  ::view-transition-group(portal-seg-pill) {
     animation: none !important;
   }
 }
