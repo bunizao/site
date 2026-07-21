@@ -5,6 +5,12 @@ import { Button, Card, Input } from '@/components/coss';
 export const prerender = false;
 
 const session = (Astro.locals as any).adminSession;
+
+// The embed route SSRs the mood archive, which needs the site-api binding.
+// `bun dev` (native Node SSR) has no binding, so a local /mood/embed 500s and
+// the iframe renders nothing. In dev, load the working production embed into
+// the preview iframe; the copyable URL stays relative for real embedding.
+const EMBED_ORIGIN = import.meta.env.DEV ? 'https://buxx.me' : '';
 ---
 
 <PortalLayout
@@ -13,7 +19,7 @@ const session = (Astro.locals as any).adminSession;
   active="mood-embed"
   user={{ login: session?.login || 'admin' }}
 >
-  <section class="mood-embed-preview">
+  <section class="mood-embed-preview" data-embed-origin={EMBED_ORIGIN}>
     <Card className="moodp-controls" aria-label="Embed parameters">
       <div class="moodp-control-block">
         <span class="moodp-label">Theme</span>
@@ -128,7 +134,7 @@ const session = (Astro.locals as any).adminSession;
         <iframe
           class="moodp-iframe"
           title="Mood embed preview"
-          src="/mood/embed?count=3&theme=auto"
+          src={`${EMBED_ORIGIN}/mood/embed?count=3&theme=auto`}
           loading="lazy"
         />
       </div>
@@ -151,6 +157,9 @@ const session = (Astro.locals as any).adminSession;
     const reloadButton = root.querySelector('[data-action="reload"]');
     const status = root.querySelector('[data-iframe-status]');
     const frame = root.querySelector('.moodp-frame');
+    // In dev this points at the production origin so the iframe renders real
+    // content; empty in prod, where the local embed route works.
+    const embedOrigin = root.dataset.embedOrigin || '';
 
     if (!(iframe instanceof HTMLIFrameElement)) return;
 
@@ -191,10 +200,10 @@ const session = (Astro.locals as any).adminSession;
     const applyUrl = () => {
       const url = buildUrl();
       if (urlDisplay) urlDisplay.textContent = url;
-      if (openLink instanceof HTMLAnchorElement) openLink.href = url;
+      if (openLink instanceof HTMLAnchorElement) openLink.href = embedOrigin + url;
       if (url === lastUrl) return;
       lastUrl = url;
-      iframe.src = url;
+      iframe.src = embedOrigin + url;
       if (status) status.textContent = 'Loading embed…';
     };
 

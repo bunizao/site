@@ -95,7 +95,7 @@ const entries: SvgEntry[] = [
   user={{ login: session?.login || 'admin' }}
 >
   <section class="svg-gallery" data-theme="dark">
-    <Card className="svg-toolbar">
+    <div class="svg-toolbar" role="toolbar" aria-label="Preview controls">
       <div class="svg-toolbar__group" role="group" aria-label="Theme">
         <span class="svg-toolbar__label">Theme</span>
         <div class="svg-segment">
@@ -114,7 +114,7 @@ const entries: SvgEntry[] = [
       </div>
       <div class="svg-toolbar__spacer"></div>
       <span class="svg-toolbar__count">{entries.length} assets</span>
-    </Card>
+    </div>
 
     <div class="svg-grid">
       {entries.map((entry) => {
@@ -274,15 +274,17 @@ const entries: SvgEntry[] = [
     gap: 20px;
   }
 
+  /* A bare control strip, not a boxed card — left-aligned, sitting directly on
+     the canvas. Separated from the grid by a hairline, no heavy frame. */
   .svg-toolbar {
     display: flex;
+    flex-direction: row;
     flex-wrap: wrap;
     align-items: center;
-    gap: 16px;
-    padding: 14px 16px;
-    background: hsl(var(--card));
-    border: 1px solid hsl(var(--border));
-    border-radius: 12px;
+    justify-content: flex-start;
+    gap: 12px 24px;
+    padding: 0 2px 16px;
+    border-bottom: 1px solid hsl(var(--border) / 0.6);
   }
 
   .svg-toolbar__group {
