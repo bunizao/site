@@ -1,7 +1,24 @@
 import { expect, test } from './fixtures';
 
+// The palette fires two live backends on every query: Pagefind (Writing) and
+// the mood FTS endpoint (Moods). Stub both by default so command/navigation
+// assertions stay deterministic; individual tests override to exercise results.
+test.beforeEach(async ({ page }) => {
+  await page.route('**/api/v2/mood/search*', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ results: [] }),
+    });
+  });
+  // No Pagefind index in the test server → import() rejects → Writing falls
+  // back to substring-matching the recent-post list (empty unless a test seeds
+  // palette.json). Aborting keeps that path fast and deterministic.
+  await page.route('**/pagefind/pagefind.js', (route) => route.abort());
+});
+
 test.describe('Site command palette', () => {
-  test('opens accessibly and loads Writing results only once', async ({ page }) => {
+  test('opens accessibly and shows recent Writing once', async ({ page }) => {
     let paletteRequests = 0;
 
     await page.route('**/palette.json', async (route) => {
@@ -38,7 +55,7 @@ test.describe('Site command palette', () => {
     expect(paletteRequests).toBe(1);
   });
 
-  test('filters commands and activates the preferred local result', async ({ page }) => {
+  test('filters commands and activates the top result', async ({ page }) => {
     await page.goto('/privacy');
     await page.keyboard.press('Control+K');
 
@@ -54,19 +71,26 @@ test.describe('Site command palette', () => {
     await expect(page).toHaveURL(/\/mood$/);
   });
 
-  test('carries unmatched queries into the full Writing search', async ({ page }) => {
-    await page.route('**/pagefind/pagefind-ui.js', async (route) => {
+  test('searches Writing inline — no second dialog, no navigation', async ({ page }) => {
+    // Stub the Pagefind programmatic module with one deterministic hit.
+    await page.route('**/pagefind/pagefind.js', async (route) => {
       await route.fulfill({
         status: 200,
-        contentType: 'application/javascript',
+        contentType: 'text/javascript',
         body: `
-          window.PagefindUI = class {
-            constructor(options) {
-              const input = document.createElement('input');
-              input.className = 'pagefind-ui__search-input';
-              document.querySelector(options.element).appendChild(input);
-            }
-          };
+          export async function search() {
+            return {
+              results: [
+                {
+                  data: async () => ({
+                    url: '/blog/deep-archive/',
+                    meta: { title: 'Deep Archive Result' },
+                    excerpt: 'a <mark>deep</mark> archive match',
+                  }),
+                },
+              ],
+            };
+          }
         `,
       });
     });
@@ -77,15 +101,40 @@ test.describe('Site command palette', () => {
     const palette = page.getByRole('dialog', { name: 'Site search and commands' });
     await palette.getByRole('combobox', { name: 'Search commands' }).fill('deep archive topic');
 
-    const fullSearch = palette.getByRole('option', { name: 'Search all posts…' });
-    await expect(fullSearch).toBeVisible();
-    await expect(fullSearch).toHaveAttribute('aria-selected', 'true');
-    await page.keyboard.press('Enter');
+    const hit = palette.getByRole('option', { name: /Deep Archive Result/ });
+    await expect(hit).toBeVisible();
+    await expect(hit).toHaveAttribute('href', '/blog/deep-archive/');
 
-    const blogSearch = page.getByRole('dialog', { name: '搜索文章' });
-    await expect(page).toHaveURL(/\/blog\/?$/);
-    await expect(blogSearch).toBeVisible();
-    await expect(blogSearch.locator('.pagefind-ui__search-input')).toHaveValue('deep archive topic');
+    // Everything happens in place: no navigation, and only the one palette.
+    await expect(page).toHaveURL(/\/privacy\/?$/);
+    await expect(page.getByRole('dialog')).toHaveCount(1);
+  });
+
+  test('searches Moods inline with FTS snippets', async ({ page }) => {
+    await page.route('**/palette.json', (route) =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ posts: [] }) }),
+    );
+    await page.route('**/api/v2/mood/search*', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          results: [
+            { id: '3641', datetime: '2026-07-01T10:00:00Z', snippet: 'a <mark>calm</mark> morning', tags: [] },
+          ],
+        }),
+      });
+    });
+
+    await page.goto('/privacy');
+    await page.keyboard.press('Control+K');
+
+    const palette = page.getByRole('dialog', { name: 'Site search and commands' });
+    await palette.getByRole('combobox', { name: 'Search commands' }).fill('calm');
+
+    const moodHit = palette.getByRole('option', { name: /calm morning/ });
+    await expect(moodHit).toBeVisible();
+    await expect(moodHit).toHaveAttribute('href', '/mood/3641');
   });
 
   test('uses the site-wide palette on Writing routes', async ({ page }) => {
@@ -93,17 +142,17 @@ test.describe('Site command palette', () => {
 
     const trigger = page.getByRole('button', { name: 'Search and commands' });
     const palette = page.getByRole('dialog', { name: 'Site search and commands' });
-    const blogSearch = page.getByRole('dialog', { name: '搜索文章' });
 
     await trigger.click();
     await expect(palette).toBeVisible();
-    await expect(blogSearch).toBeHidden();
 
     await page.keyboard.press('Control+K');
     await expect(palette).toBeHidden();
     await page.keyboard.press('Control+K');
     await expect(palette).toBeVisible();
-    await expect(blogSearch).toBeHidden();
+
+    // No separate blog search dialog exists anymore — the palette is the only one.
+    await expect(page.getByRole('dialog')).toHaveCount(1);
 
     await palette.getByRole('combobox', { name: 'Search commands' }).fill('appearance');
     await page.keyboard.press('ArrowRight');

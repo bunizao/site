@@ -26,6 +26,7 @@ import {
   Moon,
   Monitor,
   Palette,
+  Rss,
   X,
 } from 'lucide-react';
 import {
@@ -36,7 +37,7 @@ import {
   PerplexityIcon,
 } from '@/components/icons';
 import Kbd from '@/components/Kbd.astro';
-import { meta, navLinks, profile } from '@/data/site';
+import { blog, meta, navLinks, profile } from '@/data/site';
 import type { ComponentType } from 'react';
 
 type IconComponent = ComponentType<{ className?: string }>;
@@ -74,6 +75,11 @@ const navKeywords: Record<string, string> = {
   '/mood': 'moods timeline feed 心情',
   '/components': 'components ui specimens 组件',
 };
+
+// RSS is no longer a navbar button — the feeds live here as palette actions so
+// they stay one keystroke away without cluttering the header.
+const blogFeed = blog.feed;
+const moodFeed = '/mood/rss.xml';
 ---
 
 <dialog
@@ -112,30 +118,7 @@ const navKeywords: Record<string, string> = {
            falloff; the ::after gradient carries the color fade. -->
       <div class="cmdk-scrim cmdk-scrim--top" aria-hidden="true"><span></span><span></span></div>
       <div class="cmdk-list" id="cmdk-list" data-command-list role="listbox" aria-label="Commands">
-      <div class="cmdk-group" role="group" data-command-group>
-        <div class="cmdk-heading">
-          <span>Ask AI</span>
-          <span class="cmdk-heading-query" data-ai-query aria-hidden="true"></span>
-        </div>
-        {aiTargets.map((t) => (
-          <a
-            class="cmdk-item"
-            role="option"
-            data-command-item
-            data-command-ai
-            data-external
-            data-ai-base={t.base}
-            href={t.base + encodeURIComponent(AI_CONTEXT)}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <t.icon className="cmdk-icon cmdk-icon-brand" aria-hidden="true" />
-            <span class="cmdk-label">Ask {t.name}</span>
-          </a>
-        ))}
-      </div>
-
-      <div class="cmdk-group" role="group" data-command-group>
+      <div class="cmdk-group" role="group" data-command-group data-group="navigation">
         <div class="cmdk-heading">Navigation</div>
         <a class="cmdk-item" role="option" data-command-item data-haystack={`home ${navKeywords['/']}`} href="/">
           <Home className="cmdk-icon" aria-hidden="true" />
@@ -152,24 +135,24 @@ const navKeywords: Record<string, string> = {
           );
         })}      </div>
 
-      <div class="cmdk-group" role="group" data-command-group>
+      <!-- Writing: recent posts when idle, live Pagefind results while typing.
+           The two mounts never show at once — the script swaps them by query. -->
+      <div class="cmdk-group" role="group" data-command-group data-group="writing">
         <div class="cmdk-heading">Writing</div>
-        <!-- Latest-post rows are injected here from /palette.json on first open. -->
+        <p class="cmdk-status" data-writing-status role="status" aria-live="polite"></p>
         <div data-command-posts style="display: contents"></div>
-        <a
-          class="cmdk-item"
-          role="option"
-          data-command-item
-          data-command-pagefind
-          data-haystack="search all posts full-text pagefind 搜索 全文"
-          href="/blog/?search=1"
-        >
-          <Search className="cmdk-icon" aria-hidden="true" />
-          <span class="cmdk-label">Search all posts…</span>
-        </a>
+        <div data-command-writing style="display: contents"></div>
       </div>
 
-      <div class="cmdk-group" role="group" data-command-group>
+      <!-- Moods: pure search — no browse list, so it stays collapsed until a
+           query returns FTS hits (or a status while it fetches). -->
+      <div class="cmdk-group" role="group" data-command-group data-group="moods">
+        <div class="cmdk-heading">Moods</div>
+        <p class="cmdk-status" data-moods-status role="status" aria-live="polite"></p>
+        <div data-command-moods style="display: contents"></div>
+      </div>
+
+      <div class="cmdk-group" role="group" data-command-group data-group="actions">
         <div class="cmdk-heading">Actions</div>
         <button
           class="cmdk-item"
@@ -210,9 +193,35 @@ const navKeywords: Record<string, string> = {
             </button>
           </span>
         </div>
+        <a
+          class="cmdk-item"
+          role="option"
+          data-command-item
+          data-external
+          data-haystack="rss feed subscribe blog writing 订阅 博客"
+          href={blogFeed}
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          <Rss className="cmdk-icon" aria-hidden="true" />
+          <span class="cmdk-label">Subscribe to Writing (RSS)</span>
+        </a>
+        <a
+          class="cmdk-item"
+          role="option"
+          data-command-item
+          data-external
+          data-haystack="rss feed subscribe mood moods 订阅 心情"
+          href={moodFeed}
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          <Rss className="cmdk-icon" aria-hidden="true" />
+          <span class="cmdk-label">Subscribe to Moods (RSS)</span>
+        </a>
       </div>
 
-      <div class="cmdk-group" role="group" data-command-group>
+      <div class="cmdk-group" role="group" data-command-group data-group="connect">
         <div class="cmdk-heading">Connect</div>
         {socials.map((link) => {
           const Icon = socialIcons[link.name] ?? Send;
@@ -236,6 +245,31 @@ const navKeywords: Record<string, string> = {
           );
         })}
       </div>
+
+      <!-- Ask AI is the escape hatch, so it sits last: when nothing local
+           matches, every other group collapses and this is what remains. -->
+      <div class="cmdk-group" role="group" data-command-group data-group="ai">
+        <div class="cmdk-heading">
+          <span>Ask AI</span>
+          <span class="cmdk-heading-query" data-ai-query aria-hidden="true"></span>
+        </div>
+        {aiTargets.map((t) => (
+          <a
+            class="cmdk-item"
+            role="option"
+            data-command-item
+            data-command-ai
+            data-external
+            data-ai-base={t.base}
+            href={t.base + encodeURIComponent(AI_CONTEXT)}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <t.icon className="cmdk-icon cmdk-icon-brand" aria-hidden="true" />
+            <span class="cmdk-label">Ask {t.name}</span>
+          </a>
+        ))}
+      </div>
       </div>
       <div class="cmdk-scrim cmdk-scrim--bottom" aria-hidden="true"><span></span><span></span></div>
     </div>
@@ -249,14 +283,27 @@ const navKeywords: Record<string, string> = {
 </dialog>
 
 <script>
+  import { getMoodDetailHref } from '@/features/mood/shared/feed-anchor';
+  import { formatMoodResultTime, isSafeSnippetHtml, searchMoods } from '@/features/mood/shared/search';
+
+  interface WritingHit {
+    title: string;
+    url: string;
+    excerpt: string;
+  }
+
   (() => {
     const dialog = document.querySelector<HTMLDialogElement>('[data-command-palette]');
     if (!dialog) return;
     const input = dialog.querySelector<HTMLInputElement>('[data-command-input]');
+    const listEl = dialog.querySelector<HTMLElement>('[data-command-list]');
     const groups = Array.from(dialog.querySelectorAll<HTMLElement>('[data-command-group]'));
     const aiLinks = Array.from(dialog.querySelectorAll<HTMLAnchorElement>('[data-command-ai]'));
-    const pagefindLink = dialog.querySelector<HTMLAnchorElement>('[data-command-pagefind]');
     const postsMount = dialog.querySelector<HTMLElement>('[data-command-posts]');
+    const writingMount = dialog.querySelector<HTMLElement>('[data-command-writing]');
+    const moodsMount = dialog.querySelector<HTMLElement>('[data-command-moods]');
+    const writingStatus = dialog.querySelector<HTMLElement>('[data-writing-status]');
+    const moodsStatus = dialog.querySelector<HTMLElement>('[data-moods-status]');
     const aiContext = dialog.dataset.aiContext ?? '';
     const aiQueryEcho = dialog.querySelector<HTMLElement>('[data-ai-query]');
     if (!input) return;
@@ -264,9 +311,6 @@ const navKeywords: Record<string, string> = {
     let items: HTMLElement[] = [];
     let visible: HTMLElement[] = [];
     let activeIndex = 0;
-    // Set per-item on filter runs so the highlight can prefer a real match
-    // over the always-visible Ask AI rows while a query is typed.
-    const scored = new WeakSet<HTMLElement>();
 
     // Inline theme switch. The Appearance row is a single option in ↑/↓ nav;
     // its three segments are a radio group driven by the Layout theme
@@ -314,8 +358,8 @@ const navKeywords: Record<string, string> = {
     // Progressive-blur scrims are tied to real scroll affordance: the top band
     // appears only once rows have scrolled up out of view, the bottom band only
     // while more rows sit below the fold. At rest with nothing clipped, neither
-    // blurs — so content is never softened without reason.
-    const listEl = dialog.querySelector<HTMLElement>('[data-command-list]');
+    // blurs — so content is never softened without reason. (listEl is grabbed
+    // once at the top of the closure.)
     const bodyEl = dialog.querySelector<HTMLElement>('.cmdk-body');
     const updateScrims = () => {
       if (!listEl || !bodyEl) return;
@@ -358,12 +402,6 @@ const navKeywords: Record<string, string> = {
         const base = a.dataset.aiBase;
         if (base) a.href = base + encodeURIComponent(text);
       });
-      if (pagefindLink) {
-        const url = new URL(pagefindLink.href);
-        if (query) url.searchParams.set('q', query);
-        else url.searchParams.delete('q');
-        pagefindLink.href = `${url.pathname}${url.search}`;
-      }
       // Echo the typed question next to the "Ask AI" heading so the rows read as
       // "ask THIS", not a generic export. Empty query → the label stays bare.
       if (aiQueryEcho) aiQueryEcho.textContent = query ? `“${query}”` : '';
@@ -371,33 +409,221 @@ const navKeywords: Record<string, string> = {
 
     const filter = () => {
       const query = input.value.trim().toLowerCase();
+      const searching = query.length > 0;
+      const prevActive = visible[activeIndex];
       items.forEach((el) => {
-        if (el.hasAttribute('data-command-ai')) {
+        // Always-visible rows: the Ask AI escape hatch and live server results
+        // (already ranked by their backend — never substring-hidden here).
+        if (el.hasAttribute('data-command-ai') || el.hasAttribute('data-command-live')) {
           el.hidden = false;
-          scored.delete(el);
           return;
         }
-        if (el.hasAttribute('data-command-pagefind')) {
-          el.hidden = false;
-          scored.delete(el);
+        // Recent-writing rows fill the idle state only; once a query is typed,
+        // live results take their place.
+        if (el.hasAttribute('data-command-recent')) {
+          el.hidden = searching;
           return;
         }
-        const match = matchScore(query, el.dataset.haystack ?? '') > 0;
-        el.hidden = !match;
-        if (query && match) scored.add(el);
-        else scored.delete(el);
+        el.hidden = matchScore(query, el.dataset.haystack ?? '') === 0;
       });
       groups.forEach((group) => {
-        group.hidden = !group.querySelector('[data-command-item]:not([hidden])');
+        const hasItem = Boolean(group.querySelector('[data-command-item]:not([hidden])'));
+        const status = group.querySelector<HTMLElement>('.cmdk-status');
+        const hasStatus = Boolean(status?.textContent?.trim());
+        group.hidden = !(hasItem || hasStatus);
       });
       visible = items.filter((el) => !el.hidden);
-      const directMatch = query ? visible.findIndex((el) => scored.has(el)) : 0;
-      const pagefindFallback = query
-        ? visible.findIndex((el) => el.hasAttribute('data-command-pagefind'))
-        : -1;
-      const preferred = directMatch >= 0 ? directMatch : pagefindFallback;
-      setActive(preferred >= 0 ? preferred : 0, Boolean(query));
+      // Preserve the highlight across async result injection: keep the active
+      // row if it survived the re-render, else fall back to the top row.
+      const kept = prevActive ? visible.indexOf(prevActive) : -1;
+      setActive(kept >= 0 ? kept : 0, kept < 0 && searching);
       updateScrims();
+    };
+
+    // --- Live full-text search --------------------------------------------
+    // Writing = Pagefind (a build-time static index at /pagefind/); Moods = the
+    // archive FTS endpoint. Both render as live rows inside the palette — no
+    // second dialog, no page navigation. Pagefind is absent in dev, so it falls
+    // back to substring-matching the recent-post list and the group still
+    // responds while typing.
+    const SEARCH_DEBOUNCE_MS = 200;
+    const REMOTE_MIN_LENGTH = 2;
+    const RESULT_LIMIT = 6;
+    let recentPosts: Array<{ title: string; path: string }> = [];
+    let searchTimer: number | undefined;
+    let searchGeneration = 0;
+    let moodController: AbortController | null = null;
+
+    const PAGEFIND_URL = '/pagefind/pagefind.js';
+    type PagefindModule = {
+      search: (q: string) => Promise<{ results: Array<{ data: () => Promise<Record<string, any>> }> }>;
+    };
+    // Load the static Pagefind module once and cache the promise. On failure it
+    // resolves to null (and stays cached), so an index-less dev build takes the
+    // recent-post fallback without hammering /pagefind on every keystroke.
+    let pagefindLoad: Promise<PagefindModule | null> | null = null;
+    const ensurePagefind = (): Promise<PagefindModule | null> => {
+      if (!pagefindLoad) {
+        pagefindLoad = import(/* @vite-ignore */ PAGEFIND_URL)
+          .then((mod) => mod as PagefindModule)
+          .catch(() => null);
+      }
+      return pagefindLoad;
+    };
+
+    const FILE_ICON =
+      '<svg class="cmdk-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/></svg>';
+    const MOOD_ICON =
+      '<svg class="cmdk-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" x2="9.01" y1="9" y2="9"/><line x1="15" x2="15.01" y1="9" y2="9"/></svg>';
+
+    const buildResultRow = (opts: { href: string; title: string; snippet?: string; icon: string }) => {
+      const a = document.createElement('a');
+      a.className = 'cmdk-item cmdk-item--rich';
+      a.setAttribute('role', 'option');
+      a.dataset.commandItem = '';
+      a.dataset.commandLive = '';
+      a.href = opts.href;
+      a.innerHTML = opts.icon;
+      const col = document.createElement('span');
+      col.className = 'cmdk-rich';
+      const title = document.createElement('span');
+      title.className = 'cmdk-rich-title';
+      title.textContent = opts.title;
+      col.appendChild(title);
+      if (opts.snippet) {
+        const sub = document.createElement('span');
+        sub.className = 'cmdk-rich-sub';
+        // Snippets are server-escaped except <mark>; re-verify before innerHTML.
+        if (isSafeSnippetHtml(opts.snippet)) sub.innerHTML = opts.snippet;
+        else sub.textContent = opts.snippet;
+        col.appendChild(sub);
+      }
+      a.appendChild(col);
+      wireItem(a);
+      return a;
+    };
+
+    const clearMount = (mount: HTMLElement | null) => {
+      mount?.replaceChildren();
+    };
+
+    const writingResults = async (query: string): Promise<WritingHit[]> => {
+      const pf = await ensurePagefind();
+      if (!pf) {
+        const q = query.toLowerCase();
+        return recentPosts
+          .filter((post) => post.title.toLowerCase().includes(q))
+          .slice(0, RESULT_LIMIT)
+          .map((post) => ({ title: post.title, url: post.path, excerpt: '' }));
+      }
+      const search = await pf.search(query);
+      const top = search.results.slice(0, RESULT_LIMIT);
+      const data = await Promise.all(top.map((result) => result.data()));
+      return data.map((entry) => ({
+        title: (entry.meta && entry.meta.title) || entry.url,
+        url: entry.url,
+        excerpt: typeof entry.excerpt === 'string' ? entry.excerpt : '',
+      }));
+    };
+
+    const renderWriting = (hits: WritingHit[]) => {
+      clearMount(writingMount);
+      hits.forEach((hit) =>
+        writingMount?.appendChild(
+          buildResultRow({ href: hit.url, title: hit.title, snippet: hit.excerpt, icon: FILE_ICON }),
+        ),
+      );
+    };
+
+    const renderMoods = (results: Awaited<ReturnType<typeof searchMoods>>) => {
+      clearMount(moodsMount);
+      results.forEach((item) =>
+        moodsMount?.appendChild(
+          buildResultRow({
+            href: getMoodDetailHref(item.id),
+            title: formatMoodResultTime(item.datetime) || 'Mood',
+            snippet: item.snippet,
+            icon: MOOD_ICON,
+          }),
+        ),
+      );
+    };
+
+    const clearRemote = () => {
+      searchGeneration += 1; // invalidate any in-flight responses
+      window.clearTimeout(searchTimer);
+      moodController?.abort();
+      moodController = null;
+      clearMount(writingMount);
+      clearMount(moodsMount);
+      if (writingStatus) writingStatus.textContent = '';
+      if (moodsStatus) moodsStatus.textContent = '';
+    };
+
+    const runRemoteSearch = (raw: string) => {
+      const query = raw.trim();
+      window.clearTimeout(searchTimer);
+      if (query.length < REMOTE_MIN_LENGTH) {
+        clearRemote();
+        collectItems();
+        filter();
+        return;
+      }
+      searchTimer = window.setTimeout(() => {
+        const generation = (searchGeneration += 1);
+        if (writingStatus) writingStatus.textContent = 'Searching…';
+        if (moodsStatus) moodsStatus.textContent = 'Searching…';
+        filter();
+
+        const settle = () => {
+          if (generation !== searchGeneration) return;
+          collectItems();
+          filter();
+        };
+
+        writingResults(query)
+          .then((hits) => {
+            if (generation !== searchGeneration) return;
+            renderWriting(hits);
+            if (writingStatus) writingStatus.textContent = '';
+            settle();
+          })
+          .catch(() => {
+            if (generation !== searchGeneration) return;
+            if (writingStatus) writingStatus.textContent = '';
+            settle();
+          });
+
+        moodController?.abort();
+        moodController = new AbortController();
+        searchMoods(query, { signal: moodController.signal, limit: RESULT_LIMIT })
+          .then((results) => {
+            if (generation !== searchGeneration) return;
+            renderMoods(results);
+            if (moodsStatus) moodsStatus.textContent = '';
+            settle();
+          })
+          .catch((error) => {
+            if (generation !== searchGeneration) return;
+            if (error instanceof DOMException && error.name === 'AbortError') return;
+            if (moodsStatus) moodsStatus.textContent = '';
+            settle();
+          });
+      }, SEARCH_DEBOUNCE_MS);
+    };
+
+    // Promote the context's result group to the top: on /blog you reach for
+    // posts, on /mood for moods — meet the reflex where the hand already is.
+    const orderGroupsForContext = () => {
+      if (!listEl) return;
+      const path = window.location.pathname;
+      let sequence = ['navigation', 'writing', 'moods', 'actions', 'connect', 'ai'];
+      if (path.startsWith('/mood')) sequence = ['moods', 'navigation', 'writing', 'actions', 'connect', 'ai'];
+      else if (path.startsWith('/blog')) sequence = ['writing', 'navigation', 'moods', 'actions', 'connect', 'ai'];
+      sequence.forEach((name) => {
+        const group = listEl.querySelector<HTMLElement>(`[data-command-group][data-group="${name}"]`);
+        if (group) listEl.appendChild(group);
+      });
     };
 
     const close = () => {
@@ -471,11 +697,15 @@ const navKeywords: Record<string, string> = {
         const data = (await res.json()) as {
           posts?: Array<{ title: string; path: string }>;
         };
-        (data.posts ?? []).forEach((post) => {
+        // Keep the list in JS too: it doubles as the dev fallback source when
+        // Pagefind's static index is absent (writingResults substring-matches).
+        recentPosts = data.posts ?? [];
+        recentPosts.forEach((post) => {
           const a = document.createElement('a');
           a.className = 'cmdk-item';
           a.setAttribute('role', 'option');
           a.dataset.commandItem = '';
+          a.dataset.commandRecent = '';
           a.dataset.haystack = `${post.title.toLowerCase()} blog post 文章`;
           a.href = post.path;
           a.innerHTML =
@@ -498,8 +728,11 @@ const navKeywords: Record<string, string> = {
       input.value = '';
       updateQueryTargets('');
       syncSegments();
+      clearRemote();
+      orderGroupsForContext();
+      collectItems();
       filter();
-      dialog.querySelector('[data-command-list]')?.scrollTo(0, 0);
+      listEl?.scrollTo(0, 0);
       dialog.showModal();
       input.focus();
       // Dialog has no layout until it is shown, so measure scrims next frame.
@@ -510,6 +743,7 @@ const navKeywords: Record<string, string> = {
     input.addEventListener('input', () => {
       updateQueryTargets(input.value.trim());
       filter();
+      runRemoteSearch(input.value);
     });
 
     dialog.addEventListener('keydown', (event) => {
@@ -545,6 +779,8 @@ const navKeywords: Record<string, string> = {
         event.preventDefault();
         input.value = '';
         updateQueryTargets('');
+        clearRemote();
+        collectItems();
         filter();
       }
     });
@@ -930,6 +1166,64 @@ const navKeywords: Record<string, string> = {
   a.cmdk-item:not([data-external]).is-active .cmdk-trail::after {
     content: '↵';
     color: hsl(var(--foreground) / 0.7);
+  }
+
+  /* Live result rows (Writing / Moods): two lines — a title and a muted
+     snippet. The icon and trail hang from the first line, so a long snippet
+     reads as a column tucked under the title, not a vertically-centred blob. */
+  .cmdk-item--rich {
+    align-items: flex-start;
+    min-height: 52px;
+    padding-top: 8px;
+    padding-bottom: 8px;
+  }
+  .cmdk-item--rich .cmdk-icon,
+  .cmdk-item--rich .cmdk-trail {
+    margin-top: 1px;
+  }
+  .cmdk-rich {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    flex: 1;
+    min-width: 0;
+  }
+  .cmdk-rich-title {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .cmdk-rich-sub {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    overflow: hidden;
+    font-size: 12.5px;
+    line-height: 1.5;
+    color: hsl(var(--muted-foreground) / 0.7);
+  }
+  .cmdk-item.is-active .cmdk-rich-sub {
+    color: hsl(var(--muted-foreground));
+  }
+  .cmdk-rich-sub :global(mark),
+  .cmdk-rich-sub mark {
+    background: hsl(var(--foreground) / 0.14);
+    color: inherit;
+    border-radius: 3px;
+    padding: 0 1px;
+  }
+
+  /* A group's transient note ("Searching…") — a quiet line, not a row, so it
+     never steals the keyboard highlight. Collapses when empty. */
+  .cmdk-status {
+    margin: 0;
+    padding: 3px calc(var(--cmdk-pad-x) - var(--cmdk-list-pad)) 6px;
+    font-size: 12.5px;
+    color: hsl(var(--muted-foreground) / 0.7);
+  }
+  .cmdk-status:empty {
+    display: none;
   }
 
   /* Inline theme switch — three states of one setting read as a segmented
