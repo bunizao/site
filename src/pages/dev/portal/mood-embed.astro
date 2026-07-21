@@ -354,7 +354,7 @@ const session = (Astro.locals as any).adminSession;
     border: 0;
     border-radius: 6px;
     cursor: pointer;
-    transition: background 0.15s ease, color 0.15s ease;
+    transition: background var(--portal-dur-fast) var(--portal-ease), color var(--portal-dur-fast) var(--portal-ease);
   }
 
   .moodp-seg:hover {
@@ -376,7 +376,7 @@ const session = (Astro.locals as any).adminSession;
     border: 1px solid hsl(var(--border));
     border-radius: 8px;
     outline: none;
-    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    transition: border-color var(--portal-dur-fast) var(--portal-ease), box-shadow var(--portal-dur-fast) var(--portal-ease);
   }
 
   .moodp-input:focus {
@@ -398,7 +398,7 @@ const session = (Astro.locals as any).adminSession;
     border: 1px solid hsl(var(--border));
     border-radius: 8px;
     cursor: pointer;
-    transition: background 0.15s ease, border-color 0.15s ease;
+    transition: background var(--portal-dur-fast) var(--portal-ease), border-color var(--portal-dur-fast) var(--portal-ease);
   }
 
   .moodp-reload:hover {
@@ -458,7 +458,7 @@ const session = (Astro.locals as any).adminSession;
     border-radius: 7px;
     cursor: pointer;
     text-decoration: none;
-    transition: color 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+    transition: color var(--portal-dur-fast) var(--portal-ease), background var(--portal-dur-fast) var(--portal-ease), border-color var(--portal-dur-fast) var(--portal-ease);
   }
 
   .moodp-action:hover {
@@ -474,7 +474,7 @@ const session = (Astro.locals as any).adminSession;
   .moodp-frame {
     padding: 16px;
     min-height: 320px;
-    transition: background 0.15s ease;
+    transition: background var(--portal-dur-fast) var(--portal-ease);
   }
 
   .moodp-frame[data-backdrop='auto'] {
@@ -510,7 +510,7 @@ const session = (Astro.locals as any).adminSession;
     background: transparent;
     color-scheme: dark light;
     display: block;
-    transition: height 0.18s ease;
+    transition: height var(--portal-dur-base) var(--portal-ease);
   }
 
   .moodp-stage__foot {

@@ -99,7 +99,7 @@ function formatDate(iso: string): string {
   <a
     slot="actions"
     href="/dev/portal/broadcasts"
-    class={buttonVariants({ size: 'sm' })}
+    class={`${buttonVariants({ size: 'sm' })} portal-press`}
     data-astro-prefetch="false"
   >
     <PenLine /> Compose broadcast
@@ -219,7 +219,7 @@ function formatDate(iso: string): string {
             <a
               slot="action"
               href="/dev/portal/broadcasts"
-              class={buttonVariants({ size: 'sm', variant: 'outline' })}
+              class={`${buttonVariants({ size: 'sm', variant: 'outline' })} portal-press`}
               data-astro-prefetch="false"
             >
               <PenLine /> Compose broadcast

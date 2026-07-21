@@ -70,7 +70,7 @@ const gateStatus = await loadNotifyGateStatus(Astro.request, Astro.locals);
     border: 0;
     border-radius: 6px;
     cursor: pointer;
-    transition: background 0.15s ease, color 0.15s ease;
+    transition: background var(--portal-dur-fast) var(--portal-ease), color var(--portal-dur-fast) var(--portal-ease);
   }
 
   .notify-segment__btn:hover {
@@ -96,7 +96,7 @@ const gateStatus = await loadNotifyGateStatus(Astro.request, Astro.locals);
     border: 1px solid hsl(var(--border));
     border-radius: 8px;
     cursor: pointer;
-    transition: background 0.15s ease, border-color 0.15s ease;
+    transition: background var(--portal-dur-fast) var(--portal-ease), border-color var(--portal-dur-fast) var(--portal-ease);
   }
 
   .notify-refresh:hover {
@@ -181,7 +181,7 @@ const gateStatus = await loadNotifyGateStatus(Astro.request, Astro.locals);
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
     gap: 16px;
-    transition: grid-template-columns 0.2s ease;
+    transition: grid-template-columns var(--portal-dur-base) var(--portal-ease);
   }
 
   .notify-grid--focused {
@@ -205,7 +205,7 @@ const gateStatus = await loadNotifyGateStatus(Astro.request, Astro.locals);
     background: hsl(var(--card));
     border: 1px solid hsl(var(--border));
     border-radius: 12px;
-    transition: opacity 0.2s ease, transform 0.2s ease, border-color 0.2s ease;
+    transition: opacity var(--portal-dur-base) var(--portal-ease), transform var(--portal-dur-base) var(--portal-ease), border-color var(--portal-dur-base) var(--portal-ease);
   }
 
   .notify-preview--compacted .notify-card {
@@ -286,7 +286,7 @@ const gateStatus = await loadNotifyGateStatus(Astro.request, Astro.locals);
     border: 1px solid hsl(var(--border));
     border-radius: 7px;
     cursor: pointer;
-    transition: color 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+    transition: color var(--portal-dur-fast) var(--portal-ease), background var(--portal-dur-fast) var(--portal-ease), border-color var(--portal-dur-fast) var(--portal-ease);
   }
 
   .notify-card__focus:hover {
@@ -343,7 +343,7 @@ const gateStatus = await loadNotifyGateStatus(Astro.request, Astro.locals);
     background: #fff;
     border: 1px solid hsl(var(--border));
     height: 420px;
-    transition: height 0.2s ease;
+    transition: height var(--portal-dur-base) var(--portal-ease);
   }
 
   .notify-preview--compacted .notify-card__frame {

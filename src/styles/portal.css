@@ -41,6 +41,13 @@
   --portal-ease-out: cubic-bezier(0.23, 1, 0.32, 1);
   --portal-ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
 
+  /* Duration scale — Linear-crisp. Hover/press stay well under Emil's 300ms
+     ceiling; entrances are the only thing allowed to breathe a little. */
+  --portal-dur-press: 110ms;
+  --portal-dur-fast: 130ms;
+  --portal-dur-base: 190ms;
+  --portal-dur-enter: 240ms;
+
   /* Depth: layered transparent shadows tuned for the near-black surface. The
      coss card already paints a hairline top highlight; these add grounded
      elevation without fighting the palette's restraint. */
@@ -186,13 +193,13 @@ html.theme-portal section {
   font-weight: 450;
   color: hsl(var(--muted-foreground));
   transition:
-    background 180ms var(--portal-ease),
-    color 180ms var(--portal-ease);
+    background-color var(--portal-dur-fast) var(--portal-ease),
+    color var(--portal-dur-fast) var(--portal-ease),
+    transform var(--portal-dur-press) var(--portal-ease-out);
 }
 
 .portal-sidebar-link svg {
   flex: 0 0 auto;
-  transition: transform 220ms var(--portal-ease);
 }
 
 .portal-sidebar-link:hover {
@@ -200,8 +207,8 @@ html.theme-portal section {
   color: hsl(var(--foreground));
 }
 
-.portal-sidebar-link:hover svg {
-  transform: translateX(1px);
+.portal-sidebar-link:active {
+  transform: scale(0.985);
 }
 
 .portal-sidebar-link[aria-current='page'] {
@@ -355,13 +362,13 @@ html.theme-portal section {
 
 .portal-page {
   padding: 28px 32px 64px;
-  animation: portalPageEnter 320ms var(--portal-ease) both;
+  animation: portalPageEnter var(--portal-dur-enter) var(--portal-ease-out) both;
 }
 
 @keyframes portalPageEnter {
   from {
     opacity: 0;
-    transform: translateY(6px);
+    transform: translateY(4px);
   }
   to {
     opacity: 1;
@@ -381,14 +388,19 @@ html.theme-portal section {
   border: 1px solid transparent;
   cursor: pointer;
   transition:
-    color 160ms var(--portal-ease),
-    background 160ms var(--portal-ease),
-    border-color 160ms var(--portal-ease);
+    color var(--portal-dur-fast) var(--portal-ease),
+    background-color var(--portal-dur-fast) var(--portal-ease),
+    border-color var(--portal-dur-fast) var(--portal-ease),
+    transform var(--portal-dur-press) var(--portal-ease-out);
 }
 
 .portal-logout:hover {
   color: hsl(var(--foreground));
   background: var(--portal-surface-2);
+}
+
+.portal-logout:active {
+  transform: scale(0.94);
 }
 
 .portal-mono {
@@ -669,9 +681,9 @@ html.theme-portal section {
   background-image: linear-gradient(180deg, hsl(0 0% 100% / 0.022), hsl(0 0% 100% / 0) 88px);
   box-shadow: var(--portal-shadow-card);
   transition:
-    box-shadow 200ms var(--portal-ease),
-    border-color 200ms var(--portal-ease),
-    transform 200ms var(--portal-ease-out);
+    box-shadow var(--portal-dur-base) var(--portal-ease),
+    border-color var(--portal-dur-base) var(--portal-ease),
+    transform var(--portal-dur-base) var(--portal-ease-out);
 }
 
 .portal-card-link {
@@ -812,7 +824,13 @@ html.theme-portal section {
   gap: 12px;
   padding: 9px 8px;
   border-radius: 8px;
-  transition: background 160ms var(--portal-ease);
+  transition:
+    background-color var(--portal-dur-fast) var(--portal-ease),
+    transform var(--portal-dur-press) var(--portal-ease-out);
+}
+
+a.portal-feed-row:active {
+  transform: scale(0.995);
 }
 
 .portal-feed-row + .portal-feed-row {
@@ -931,12 +949,66 @@ a.portal-feed-row:hover,
   font-size: var(--portal-text-sm);
   color: hsl(var(--muted-foreground));
   transition:
-    color 160ms var(--portal-ease),
-    gap 160ms var(--portal-ease-out);
+    color var(--portal-dur-fast) var(--portal-ease),
+    gap var(--portal-dur-fast) var(--portal-ease-out);
 }
 .portal-sec-link:hover {
   color: hsl(var(--foreground));
   gap: 5px;
+}
+.portal-sec-link:hover svg {
+  transform: translateX(1px);
+}
+.portal-sec-link svg {
+  transition: transform var(--portal-dur-fast) var(--portal-ease-out);
+}
+
+/* ---- Interaction feedback — every pressable element responds ---- */
+
+/* coss buttons ship with only a shadow transition and no press motion. In the
+   portal we add a color transition (so hover isn't a hard cut) plus a subtle
+   tactile press — Linear's crisp button feel. */
+.theme-portal [data-slot='button'] {
+  transition:
+    background-color var(--portal-dur-fast) var(--portal-ease),
+    border-color var(--portal-dur-fast) var(--portal-ease),
+    color var(--portal-dur-fast) var(--portal-ease),
+    box-shadow var(--portal-dur-fast) var(--portal-ease),
+    transform var(--portal-dur-press) var(--portal-ease-out);
+}
+.theme-portal [data-slot='button']:active:not(:disabled):not([aria-disabled='true']) {
+  transform: scale(0.97);
+}
+
+/* buttonVariants() rendered on a plain <a> (CTAs, back-links) carries no
+   data-slot, so opt those anchors into the same press with .portal-press. */
+.theme-portal .portal-press {
+  transition:
+    background-color var(--portal-dur-fast) var(--portal-ease),
+    border-color var(--portal-dur-fast) var(--portal-ease),
+    box-shadow var(--portal-dur-fast) var(--portal-ease),
+    transform var(--portal-dur-press) var(--portal-ease-out);
+}
+.theme-portal .portal-press:active {
+  transform: scale(0.97);
+}
+
+/* Row surfaces ease their hover tint instead of hard-cutting. */
+.theme-portal [data-slot='table-row'] {
+  transition: background-color var(--portal-dur-fast) var(--portal-ease);
+}
+
+/* One consistent focus ring on the portal's custom (non-coss) interactive
+   chrome. coss primitives ring themselves. */
+.portal-sidebar-link:focus-visible,
+.portal-segmented-option:focus-visible,
+.portal-sec-link:focus-visible,
+a.portal-feed-row:focus-visible,
+.portal-card-link:focus-visible,
+.portal-stretch-link:focus-visible {
+  outline: 2px solid hsl(var(--ring));
+  outline-offset: 2px;
+  border-radius: 8px;
 }
 
 /* ---- Shared: coss Table refinements, segmented control, sections ---- */
@@ -992,11 +1064,17 @@ a.portal-feed-row:hover,
   font-weight: 500;
   color: hsl(var(--muted-foreground));
   font-variant-numeric: tabular-nums;
-  transition: color 160ms var(--portal-ease);
+  transition:
+    color var(--portal-dur-fast) var(--portal-ease),
+    transform var(--portal-dur-press) var(--portal-ease-out);
 }
 
 .portal-segmented-option:hover {
   color: hsl(var(--foreground));
+}
+
+.portal-segmented-option:active {
+  transform: scale(0.96);
 }
 
 .portal-segmented-option[aria-current='true'] {
@@ -1119,12 +1197,20 @@ a.portal-feed-row:hover,
   border-radius: inherit;
   background: linear-gradient(
     90deg,
-    hsl(var(--portal-chip-accent) / 0.5),
+    hsl(var(--portal-chip-accent) / 0.55),
     hsl(var(--portal-chip-accent))
   );
   transform-origin: left;
-  animation: portalBarGrow 620ms var(--portal-ease-out) both;
+  animation: portalBarGrow 500ms var(--portal-ease-out) both;
 }
+
+/* Bars grow in a quick left-anchored cascade — 45ms apart, tail capped. */
+.portal-bars li:nth-child(2) .portal-bars-fill { animation-delay: 45ms; }
+.portal-bars li:nth-child(3) .portal-bars-fill { animation-delay: 90ms; }
+.portal-bars li:nth-child(4) .portal-bars-fill { animation-delay: 135ms; }
+.portal-bars li:nth-child(5) .portal-bars-fill { animation-delay: 180ms; }
+.portal-bars li:nth-child(6) .portal-bars-fill { animation-delay: 225ms; }
+.portal-bars li:nth-child(n + 7) .portal-bars-fill { animation-delay: 260ms; }
 
 .portal-bars-value {
   font-weight: 500;
@@ -1263,31 +1349,31 @@ a.portal-feed-row:hover,
    ceiling per item. Decorative only; never blocks interaction. */
 .portal-stagger > * {
   opacity: 0;
-  animation: portalRise 460ms var(--portal-ease-out) forwards;
+  animation: portalRise 300ms var(--portal-ease-out) forwards;
 }
 .portal-stagger > *:nth-child(1) {
-  animation-delay: 40ms;
+  animation-delay: 20ms;
 }
 .portal-stagger > *:nth-child(2) {
-  animation-delay: 90ms;
+  animation-delay: 44ms;
 }
 .portal-stagger > *:nth-child(3) {
-  animation-delay: 140ms;
+  animation-delay: 68ms;
 }
 .portal-stagger > *:nth-child(4) {
-  animation-delay: 190ms;
+  animation-delay: 92ms;
 }
 .portal-stagger > *:nth-child(5) {
-  animation-delay: 240ms;
+  animation-delay: 116ms;
 }
 .portal-stagger > *:nth-child(6) {
-  animation-delay: 290ms;
+  animation-delay: 140ms;
 }
 
 @keyframes portalRise {
   from {
     opacity: 0;
-    transform: translateY(10px);
+    transform: translateY(8px);
   }
   to {
     opacity: 1;
@@ -1298,25 +1384,27 @@ a.portal-feed-row:hover,
 /* ---- Motion + responsive ---- */
 
 @media (prefers-reduced-motion: reduce) {
-  .portal-sidebar-link,
-  .portal-sidebar-link svg,
-  .portal-logout,
-  .portal-page {
-    animation: none !important;
-    transition: none !important;
+  /* Strip motion wholesale, but keep final states: durations collapse so
+     elements snap to their end frame instead of animating. */
+  .theme-portal *,
+  .theme-portal *::before,
+  .theme-portal *::after {
+    animation-duration: 0.01ms !important;
+    animation-delay: 0ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    transition-delay: 0ms !important;
   }
   .portal-stagger > * {
     opacity: 1 !important;
-    animation: none !important;
   }
-  .portal-bars-fill {
-    animation: none !important;
-  }
-  .theme-portal [data-slot='card'],
   .portal-card-link:hover [data-slot='card'],
   .theme-portal [data-slot='card'].portal-card-interactive:hover,
-  .portal-card-link:active [data-slot='card'],
-  .theme-portal [data-slot='card'].portal-card-interactive:active {
+  .theme-portal [data-slot='button']:active,
+  .portal-sidebar-link:active,
+  .portal-segmented-option:active,
+  .portal-logout:active,
+  a.portal-feed-row:active {
     transform: none !important;
   }
   ::view-transition-old(root),
