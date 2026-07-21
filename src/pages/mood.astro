@@ -106,7 +106,15 @@ const skeletonGroups = [
 ];
 ---
 
-<Layout title={title} description={description} rss={rss} oembed={oembed} preloadImages={preloadImages}>
+<Layout
+  title={title}
+  description={description}
+  image="/mood-og.png"
+  imageAlt="Levitating — think, write, whisper"
+  rss={rss}
+  oembed={oembed}
+  preloadImages={preloadImages}
+>
   <!-- Inject page-specific header actions -->
   <script is:inline define:vars={{ rssHref, telegramUrl, turnstileSiteKey }}>
     (() => {

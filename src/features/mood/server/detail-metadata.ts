@@ -4,6 +4,13 @@ import type { MediaItem, MoodContentDocument } from '@bunizao/contracts';
 const SITE_NAME = 'Bunizao';
 const DESCRIPTION_MAX_LENGTH = 220;
 
+// Static mood identity card, shown when a mood has no shareable image of its own
+// (e.g. text-only moods) so shares never fall back to the generic site OG.
+const FALLBACK_OG_IMAGE = '/mood-og.png';
+const FALLBACK_OG_ALT = 'Levitating — think, write, whisper';
+const OG_IMAGE_WIDTH = 1200;
+const OG_IMAGE_HEIGHT = 630;
+
 export interface MoodDetailMetadata {
   title: string;
   description: string;
@@ -89,16 +96,29 @@ export function buildMoodDetailMetadata(
     ? truncateDescription(summary)
     : `${moodLabel} from ${SITE_NAME}.`;
   const imageMeta = firstShareableImage(post);
-  const image = getShareableImageUrl(imageMeta?.src ?? null)
+  const postImage = getShareableImageUrl(imageMeta?.src ?? null)
     ?? getShareableImageUrl(imageMeta?.fallbackSrc ?? null);
-  const hasImageDimensions = Boolean(image && imageMeta?.width && imageMeta?.height);
+
+  // Per-post photo wins when the mood has one; otherwise the static identity card.
+  if (!postImage) {
+    return {
+      title: `${moodLabel} | ${SITE_NAME}`,
+      description,
+      image: FALLBACK_OG_IMAGE,
+      imageAlt: FALLBACK_OG_ALT,
+      imageWidth: OG_IMAGE_WIDTH,
+      imageHeight: OG_IMAGE_HEIGHT,
+    };
+  }
+
+  const hasImageDimensions = Boolean(imageMeta?.width && imageMeta?.height);
 
   return {
     title: `${moodLabel} | ${SITE_NAME}`,
     description,
-    image,
-    imageAlt: image ? description : undefined,
-    imageWidth: image ? (hasImageDimensions ? imageMeta?.width ?? null : null) : undefined,
-    imageHeight: image ? (hasImageDimensions ? imageMeta?.height ?? null : null) : undefined,
+    image: postImage,
+    imageAlt: description,
+    imageWidth: hasImageDimensions ? imageMeta?.width ?? null : null,
+    imageHeight: hasImageDimensions ? imageMeta?.height ?? null : null,
   };
 }
