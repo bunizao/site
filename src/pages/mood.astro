@@ -117,7 +117,7 @@ const skeletonGroups = [
   preloadImages={preloadImages}
 >
   <!-- Inject page-specific header actions -->
-  <script is:inline define:vars={{ rssHref, telegramUrl, turnstileSiteKey }}>
+  <script is:inline define:vars={{ telegramUrl, turnstileSiteKey }}>
     (() => {
       const siteNav = document.querySelector('[data-site-nav]');
       if (siteNav) siteNav.style.display = 'none';
@@ -129,20 +129,9 @@ const skeletonGroups = [
         return;
       }
 
-      const rssBtn = document.createElement('a');
-      rssBtn.className = 'header-action-btn';
-      rssBtn.href = rssHref;
-      rssBtn.title = 'Subscribe to RSS feed';
-      rssBtn.dataset.moodHeaderAction = 'rss';
-      rssBtn.innerHTML = `
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="M4 11a9 9 0 0 1 9 9"></path>
-          <path d="M4 4a16 16 0 0 1 16 16"></path>
-          <circle cx="5" cy="19" r="1"></circle>
-        </svg>
-        <span class="header-action-btn-label">RSS</span>
-      `;
-
+      // RSS is no longer a navbar button — the feed stays reachable from the
+      // Notify panel (feed prop) and the site-wide ⌘K palette ("Subscribe via
+      // RSS" action). One search/subscribe surface, not scattered icons.
       let telegramBtn = null;
       if (telegramUrl) {
         telegramBtn = document.createElement('a');
@@ -181,13 +170,11 @@ const skeletonGroups = [
       const themeDropdown = headerActions.querySelector('[data-theme-dropdown]');
       if (themeDropdown) {
         headerActions.insertBefore(notifyBtn, themeDropdown);
-        headerActions.insertBefore(rssBtn, themeDropdown);
         if (telegramBtn) {
           headerActions.insertBefore(telegramBtn, themeDropdown);
         }
       } else {
         headerActions.appendChild(notifyBtn);
-        headerActions.appendChild(rssBtn);
         if (telegramBtn) {
           headerActions.appendChild(telegramBtn);
         }
@@ -200,7 +187,6 @@ const skeletonGroups = [
 
       const registerWithGSAP = () => {
         if (window.headerBtnAnimations) {
-          window.headerBtnAnimations.register(rssBtn);
           if (telegramBtn) {
             window.headerBtnAnimations.register(telegramBtn);
           }
@@ -2270,10 +2256,4 @@ const skeletonGroups = [
   import { initMoodFeedController } from '@/features/mood/client/feed-controller';
 
   initMoodFeedController();
-</script>
-
-<script>
-  import { initMoodSearchPanel } from '@/features/mood/client/search-panel';
-
-  initMoodSearchPanel();
 </script>
