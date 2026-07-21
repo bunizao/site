@@ -2040,25 +2040,25 @@ html.no-transition * {
    keeps its current tokens unchanged. */
 .theme-portal {
   color-scheme: dark;
-  --background: 240 6% 7%;
-  --foreground: 220 14% 96%;
-  --card: 240 5% 11%;
-  --card-foreground: 220 14% 96%;
-  --popover: 240 5% 9%;
-  --popover-foreground: 220 14% 96%;
-  --primary: 220 14% 96%;
-  --primary-foreground: 240 6% 7%;
-  --secondary: 240 4% 14%;
-  --secondary-foreground: 220 14% 96%;
-  --muted: 240 4% 14%;
-  --muted-foreground: 240 5% 64%;
-  --accent: 240 4% 18%;
-  --accent-foreground: 220 14% 96%;
+  --background: 240 8% 6%;
+  --foreground: 220 16% 96%;
+  --card: 240 6% 9%;
+  --card-foreground: 220 16% 96%;
+  --popover: 240 7% 8%;
+  --popover-foreground: 220 16% 96%;
+  --primary: 220 16% 96%;
+  --primary-foreground: 240 8% 6%;
+  --secondary: 240 5% 14%;
+  --secondary-foreground: 220 16% 96%;
+  --muted: 240 5% 14%;
+  --muted-foreground: 233 8% 61%;
+  --accent: 240 5% 15%;
+  --accent-foreground: 220 16% 96%;
   --destructive: 0 70% 50%;
   --destructive-foreground: 220 14% 96%;
-  --border: 240 4% 18%;
-  --input: 240 4% 18%;
-  --ring: 240 5% 64%;
+  --border: 240 5% 14%;
+  --input: 240 5% 17%;
+  --ring: 234 60% 62%;
   --radius: 0.625rem;
   /* Radius scale consumed directly by vendored coss classes
      (e.g. before:rounded-[calc(var(--radius-lg)-1px)]). Kept in lockstep with
@@ -2069,16 +2069,16 @@ html.no-transition * {
   --radius-xl: calc(var(--radius) + 4px);
   --radius-2xl: calc(var(--radius) + 8px);
   /* Status tokens for coss badges/alerts (bg-info/success/warning). */
-  --info: 217 91% 60%;
-  --info-foreground: 213 94% 78%;
-  --success: 142 71% 45%;
-  --success-foreground: 141 76% 66%;
-  --warning: 38 92% 55%;
-  --warning-foreground: 41 96% 68%;
-  --portal-accent: 217 91% 60%;
-  --portal-success: 142 71% 45%;
-  --portal-warning: 38 92% 55%;
-  --portal-danger: 0 72% 55%;
+  --info: 234 60% 62%;
+  --info-foreground: 232 66% 82%;
+  --success: 152 46% 50%;
+  --success-foreground: 152 52% 70%;
+  --warning: 38 88% 58%;
+  --warning-foreground: 41 96% 70%;
+  --portal-accent: 234 60% 62%;
+  --portal-success: 152 46% 50%;
+  --portal-warning: 38 88% 58%;
+  --portal-danger: 0 72% 60%;
   background: hsl(var(--background));
   color: hsl(var(--foreground));
   font-family: var(--font-display);

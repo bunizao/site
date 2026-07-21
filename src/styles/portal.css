@@ -31,7 +31,7 @@
   --portal-tracking-wide: 0.06em;
 
   --portal-space: 4px;
-  --portal-surface-0: hsl(240 6% 5%);
+  --portal-surface-0: hsl(240 9% 5%);
   --portal-surface-1: hsl(var(--card));
   --portal-surface-2: hsl(var(--accent));
 
@@ -53,11 +53,11 @@
 
   /* Semantic accents for tinted chips / deltas. Never decorative — each hue
      carries meaning (blue = live, green = up, amber = waiting, red = down). */
-  --portal-chip-neutral: 240 5% 64%;
-  --portal-chip-accent: 217 91% 60%;
-  --portal-chip-success: 142 71% 45%;
-  --portal-chip-warning: 38 92% 55%;
-  --portal-chip-danger: 0 72% 55%;
+  --portal-chip-neutral: 233 8% 61%;
+  --portal-chip-accent: 234 60% 62%;
+  --portal-chip-success: 152 46% 50%;
+  --portal-chip-warning: 38 88% 58%;
+  --portal-chip-danger: 0 72% 60%;
 }
 
 html.theme-portal,
@@ -248,12 +248,17 @@ html.theme-portal section {
 .portal-sidebar-user {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 10px;
+  gap: 9px;
+  padding: 7px 8px;
   border-radius: 8px;
-  background: var(--portal-surface-1);
-  border: 1px solid hsl(var(--border));
+  background: transparent;
+  border: 1px solid transparent;
   font-size: var(--portal-text-sm);
+  transition: background 160ms var(--portal-ease);
+}
+
+.portal-sidebar-user:hover {
+  background: hsl(0 0% 100% / 0.03);
 }
 
 .portal-sidebar-user img {
@@ -406,6 +411,7 @@ html.theme-portal section {
 
 .portal-grid[data-columns='stats'] {
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  align-items: start;
 }
 
 .portal-grid[data-columns='cards'] {
@@ -659,6 +665,8 @@ html.theme-portal section {
    interactive cards, a hover lift + press response. Restraint over drama: the
    surface only moves 2px, the shadow stays soft. */
 .theme-portal [data-slot='card'] {
+  border-color: hsl(0 0% 100% / 0.06);
+  background-image: linear-gradient(180deg, hsl(0 0% 100% / 0.022), hsl(0 0% 100% / 0) 88px);
   box-shadow: var(--portal-shadow-card);
   transition:
     box-shadow 200ms var(--portal-ease),
@@ -694,38 +702,26 @@ html.theme-portal section {
   transition-duration: 110ms;
 }
 
-/* Tinted icon chip — a spot of meaning-bearing color inside an otherwise
-   monochrome surface. Tone is set via data-tone; default is neutral gray. */
+/* Metric-card glyph. Linear keeps these monochrome and quiet — a small muted
+   icon in a barely-there well, never a saturated color block. Meaning-bearing
+   color lives only in the small places: status dots, deltas, badges. The
+   data-tone attribute is accepted but intentionally ignored here. */
 .portal-chip {
-  --chip: var(--portal-chip-neutral);
   display: inline-flex;
   flex: 0 0 auto;
   align-items: center;
   justify-content: center;
-  width: 34px;
-  height: 34px;
-  border-radius: 9px;
-  color: hsl(var(--chip));
-  background: hsl(var(--chip) / 0.12);
-  box-shadow: inset 0 0 0 1px hsl(var(--chip) / 0.2);
-}
-
-.portal-chip[data-tone='accent'] {
-  --chip: var(--portal-chip-accent);
-}
-.portal-chip[data-tone='success'] {
-  --chip: var(--portal-chip-success);
-}
-.portal-chip[data-tone='warning'] {
-  --chip: var(--portal-chip-warning);
-}
-.portal-chip[data-tone='danger'] {
-  --chip: var(--portal-chip-danger);
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
+  color: hsl(var(--muted-foreground));
+  background: hsl(0 0% 100% / 0.03);
+  box-shadow: inset 0 0 0 1px hsl(0 0% 100% / 0.05);
 }
 
 .portal-chip svg {
-  width: 16px;
-  height: 16px;
+  width: 15px;
+  height: 15px;
 }
 
 /* Stat card body */
@@ -733,7 +729,7 @@ html.theme-portal section {
   display: flex;
   flex-direction: column;
   height: 100%;
-  padding: 15px 16px 15px;
+  padding: 14px 16px 13px;
 }
 
 .portal-stat-top {
@@ -750,9 +746,9 @@ html.theme-portal section {
 }
 
 .portal-stat-value {
-  margin-top: 14px;
+  margin-top: 9px;
   font-size: var(--portal-text-3xl);
-  line-height: 1.05;
+  line-height: 1.02;
   font-weight: 600;
   letter-spacing: var(--portal-tracking-display);
   font-variant-numeric: tabular-nums;
@@ -897,15 +893,17 @@ a.portal-feed-row:hover,
 /* Inline notice — quiet by default, louder only for real errors. Replaces the
    permanently-red banner. */
 .portal-notice {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 7px;
+  width: fit-content;
+  max-width: 100%;
   margin-bottom: 20px;
-  padding: 9px 12px;
-  border-radius: 9px;
+  padding: 7px 11px 7px 9px;
+  border-radius: 8px;
   font-size: var(--portal-text-sm);
-  border: 1px solid hsl(var(--border));
-  background: hsl(var(--foreground) / 0.03);
+  border: 1px solid hsl(0 0% 100% / 0.06);
+  background: hsl(0 0% 100% / 0.022);
   color: hsl(var(--muted-foreground));
 }
 .portal-notice svg {

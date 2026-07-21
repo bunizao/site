@@ -17,20 +17,20 @@ import type {
   NewsletterAnalyticsTotals,
 } from '@bunizao/contracts';
 
-const AXIS_COLOR = 'hsl(240 5% 64%)';
-const GRID_COLOR = 'hsl(240 4% 18%)';
+const AXIS_COLOR = 'hsl(233 8% 61%)';
+const GRID_COLOR = 'hsl(240 5% 15%)';
 const SERIES = {
-  views: 'hsl(217 91% 60%)',
-  reads: 'hsl(142 71% 45%)',
-  uniqueVisitors: 'hsl(38 92% 55%)',
-  sent: 'hsl(217 91% 60%)',
-  opened: 'hsl(142 71% 45%)',
-  clicked: 'hsl(38 92% 55%)',
+  views: 'hsl(234 60% 62%)',
+  reads: 'hsl(152 46% 50%)',
+  uniqueVisitors: 'hsl(38 88% 58%)',
+  sent: 'hsl(234 60% 62%)',
+  opened: 'hsl(152 46% 50%)',
+  clicked: 'hsl(38 88% 58%)',
 } as const;
 
 const TOOLTIP_STYLE = {
-  backgroundColor: 'hsl(240 5% 9%)',
-  border: '1px solid hsl(240 4% 18%)',
+  backgroundColor: 'hsl(240 7% 8%)',
+  border: '1px solid hsl(240 5% 15%)',
   borderRadius: 8,
   fontSize: 12,
 } as const;
@@ -147,7 +147,7 @@ export function NewsletterFunnel({ totals }: { totals: NewsletterAnalyticsTotals
         return (
           <div key={stage.label} style={{ display: 'grid', gridTemplateColumns: '64px 1fr auto', gap: 12, alignItems: 'center' }}>
             <span style={{ fontSize: 12, color: AXIS_COLOR }}>{stage.label}</span>
-            <div style={{ height: 22, borderRadius: 6, background: 'hsl(240 4% 14%)', overflow: 'hidden' }}>
+            <div style={{ height: 22, borderRadius: 6, background: 'hsl(240 5% 14%)', overflow: 'hidden' }}>
               <div
                 style={{
                   width: `${Math.max(2, Math.round((stage.value / max) * 100))}%`,
