@@ -1,8 +1,20 @@
 ---
 import PortalLayout from '@/layouts/PortalLayout.astro';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription, Badge } from '@/components/coss';
-import { Users, Send, Clock, UserMinus, Activity } from 'lucide-react';
+import {
+  Badge,
+  Card,
+  CardAction,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/coss';
+import { buttonVariants } from '@/components/coss/button';
+import StatCard from '@/components/portal/StatCard.astro';
+import EmptyState from '@/components/portal/EmptyState.astro';
+import { Activity, ArrowRight, Clock, PenLine, Send, UserMinus, Users } from 'lucide-react';
 import { loadPortalOverview, type PortalOverview } from '@/features/admin/server/portal-client';
+import { DEMO_OVERVIEW } from '@/features/admin/server/portal-demo';
 
 export const prerender = false;
 
@@ -14,15 +26,27 @@ let overview: PortalOverview = {
   broadcasts: [],
 };
 let loadError: string | null = null;
+let demoMode = false;
 
 try {
   overview = await loadPortalOverview(Astro.request, Astro.locals);
 } catch (error) {
   loadError = error instanceof Error ? error.message : 'unknown';
+  // In local dev the site-api service binding is often absent. Rather than a
+  // wall of zeros, render a realistic fixture so the portal is designable.
+  if (import.meta.env.DEV) {
+    overview = DEMO_OVERVIEW;
+    demoMode = true;
+    loadError = null;
+  }
 }
 
 const { subscriberStats, auditEvents, broadcasts } = overview;
+const { total, activeCount, pendingCount, unsubscribedCount } = subscriberStats;
 const lastBroadcast = broadcasts[0];
+
+const activeRate = total > 0 ? Math.round((activeCount / total) * 100) : 0;
+const churnRate = total > 0 ? Math.round((unsubscribedCount / total) * 100) : 0;
 
 const BROADCAST_STATUS_VARIANT: Record<string, 'success' | 'warning' | 'secondary' | 'destructive'> = {
   sent: 'success',
@@ -30,6 +54,27 @@ const BROADCAST_STATUS_VARIANT: Record<string, 'success' | 'warning' | 'secondar
   draft: 'secondary',
   failed: 'destructive',
 };
+
+type Tone = 'neutral' | 'accent' | 'success' | 'warning' | 'danger';
+const EVENT_META: Record<string, { tone: Tone; label: string }> = {
+  subscribe_requested: { tone: 'accent', label: 'Subscribe' },
+  subscription_confirmed: { tone: 'success', label: 'Confirmed' },
+  unsubscribed: { tone: 'danger', label: 'Unsubscribed' },
+  admin_create: { tone: 'neutral', label: 'Created' },
+  admin_update: { tone: 'neutral', label: 'Updated' },
+  admin_delete: { tone: 'danger', label: 'Deleted' },
+  admin_resend_confirm: { tone: 'warning', label: 'Resent' },
+  broadcast_sent: { tone: 'accent', label: 'Broadcast' },
+};
+function eventMeta(type: string): { tone: Tone; label: string } {
+  return EVENT_META[type] ?? { tone: 'neutral', label: type };
+}
+
+const lastBroadcastTone: Tone = lastBroadcast
+  ? lastBroadcast.failedCount > 0
+    ? 'warning'
+    : 'success'
+  : 'neutral';
 
 function formatDate(iso: string): string {
   try {
@@ -43,27 +88,6 @@ function formatDate(iso: string): string {
     return iso;
   }
 }
-
-const stats = [
-  {
-    label: 'Active subscribers',
-    value: subscriberStats.activeCount,
-    description: `of ${subscriberStats.total} total`,
-    Icon: Users,
-  },
-  {
-    label: 'Pending',
-    value: subscriberStats.pendingCount,
-    description: 'awaiting confirmation',
-    Icon: Clock,
-  },
-  {
-    label: 'Unsubscribed',
-    value: subscriberStats.unsubscribedCount,
-    description: 'opted out',
-    Icon: UserMinus,
-  },
-] as const;
 ---
 
 <PortalLayout
@@ -72,65 +96,108 @@ const stats = [
   active="overview"
   user={{ login: session?.login || 'admin' }}
 >
+  <a
+    slot="actions"
+    href="/dev/portal/broadcasts"
+    class={buttonVariants({ size: 'sm' })}
+    data-astro-prefetch="false"
+  >
+    <PenLine /> Compose broadcast
+  </a>
+
   {loadError && (
-    <div class="mb-6 rounded-lg border border-destructive/50 bg-destructive/10 px-3.5 py-3 text-sm text-destructive-foreground">
-      Failed to load some data: <span class="portal-mono">{loadError}</span>
+    <div class="portal-notice" data-variant="error">
+      <Activity size={14} />
+      <span>Failed to load some data: <code>{loadError}</code></span>
+    </div>
+  )}
+  {demoMode && (
+    <div class="portal-notice">
+      <Activity size={14} />
+      <span>Showing demo data — the site-api binding is unavailable in local dev.</span>
     </div>
   )}
 
-  <section class="mb-8 grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(200px,1fr))]">
-    {stats.map(({ label, value, description, Icon }) => (
-      <Card>
-        <div class="flex items-start justify-between p-5">
-          <div class="min-w-0">
-            <div class="text-xs font-medium text-muted-foreground">{label}</div>
-            <div class="mt-2 text-3xl font-semibold tabular-nums tracking-tight text-foreground">{value}</div>
-            <div class="mt-1 text-xs text-muted-foreground">{description}</div>
-          </div>
-          <Icon size={16} className="mt-0.5 shrink-0 text-muted-foreground/70" />
-        </div>
-      </Card>
-    ))}
+  <section class="portal-grid portal-stagger" data-columns="stats">
+    <StatCard
+      label="Active subscribers"
+      value={activeCount.toLocaleString()}
+      Icon={Users}
+      tone="accent"
+      foot={total > 0 ? `${activeRate}% of ${total.toLocaleString()} total` : 'of 0 total'}
+    />
+    <StatCard
+      label="Pending"
+      value={pendingCount.toLocaleString()}
+      Icon={Clock}
+      tone="warning"
+      foot="awaiting confirmation"
+    />
+    <StatCard
+      label="Unsubscribed"
+      value={unsubscribedCount.toLocaleString()}
+      Icon={UserMinus}
+      tone="neutral"
+      foot={total > 0 ? `${churnRate}% churn` : 'opted out'}
+    />
 
-    <Card>
-      <div class="flex items-start justify-between p-5">
-        <div class="min-w-0">
-          <div class="text-xs font-medium text-muted-foreground">Last broadcast</div>
-          {lastBroadcast ? (
-            <Fragment>
-              <div class="mt-2 line-clamp-2 text-sm font-medium leading-snug text-foreground">{lastBroadcast.subject}</div>
-              <div class="mt-2 flex items-center gap-2">
-                <Badge variant={BROADCAST_STATUS_VARIANT[lastBroadcast.status] ?? 'secondary'} size="sm">{lastBroadcast.status}</Badge>
-                <span class="text-xs tabular-nums text-muted-foreground">{lastBroadcast.sentCount} sent · {lastBroadcast.failedCount} failed</span>
-              </div>
-            </Fragment>
-          ) : (
-            <div class="mt-2 text-sm text-muted-foreground">No broadcasts yet</div>
-          )}
+    <StatCard
+      label="Last broadcast"
+      Icon={Send}
+      tone={lastBroadcastTone}
+      href={lastBroadcast ? `/dev/portal/broadcasts/${lastBroadcast.id}` : undefined}
+    >
+      {lastBroadcast ? (
+        <Fragment>
+          <div class="portal-stat-value" data-size="sm">{lastBroadcast.subject}</div>
+          <div class="portal-stat-foot">
+            <Badge variant={BROADCAST_STATUS_VARIANT[lastBroadcast.status] ?? 'secondary'} size="sm">
+              {lastBroadcast.status}
+            </Badge>
+            <span class="tabular-nums">{lastBroadcast.sentCount.toLocaleString()} sent · {lastBroadcast.failedCount} failed</span>
+          </div>
+        </Fragment>
+      ) : (
+        <div class="portal-stat-value" data-size="sm" style="color: hsl(var(--muted-foreground))">
+          No broadcasts yet
         </div>
-        <Send size={16} className="mt-0.5 shrink-0 text-muted-foreground/70" />
-      </div>
-    </Card>
+      )}
+    </StatCard>
   </section>
 
-  <section class="grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(360px,1fr))]">
+  <section class="portal-grid portal-stagger" data-columns="wide">
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-sm"><Activity size={14} />Recent activity</CardTitle>
-        <CardDescription>Latest audit events across subscribe, confirm, unsubscribe, admin, and broadcast.</CardDescription>
+        <CardTitle className="portal-card-title"><Activity size={14} /> Recent activity</CardTitle>
+        <CardDescription>Subscribe, confirm, unsubscribe, admin, and broadcast events.</CardDescription>
+        <CardAction>
+          <a href="/dev/portal/subscribers" class="portal-sec-link" data-astro-prefetch="false">
+            View all <ArrowRight size={12} />
+          </a>
+        </CardAction>
       </CardHeader>
       <CardContent className="pt-0">
         {auditEvents.length === 0 ? (
-          <div class="py-3 text-sm text-muted-foreground">No events yet.</div>
+          <EmptyState
+            Icon={Activity}
+            title="No activity yet"
+            hint="Subscribe, confirm, unsubscribe, and broadcast events will land here as they happen."
+          />
         ) : (
-          <ul class="flex flex-col">
-            {auditEvents.map((event) => (
-              <li class="grid grid-cols-[110px_1fr_auto] items-center gap-3 border-t border-border py-2.5 first:border-t-0">
-                <span class="portal-mono text-[11px] text-muted-foreground">{event.eventType}</span>
-                <span class="truncate text-sm text-foreground">{event.email}</span>
-                <span class="text-[11px] tabular-nums text-muted-foreground">{formatDate(event.createdAt)}</span>
-              </li>
-            ))}
+          <ul class="portal-feed">
+            {auditEvents.map((event) => {
+              const meta = eventMeta(event.eventType);
+              return (
+                <li class="portal-feed-row" data-layout="event">
+                  <span class="portal-feed-label">
+                    <span class="portal-dot" data-tone={meta.tone}></span>
+                    {meta.label}
+                  </span>
+                  <span class="portal-feed-primary">{event.email}</span>
+                  <span class="portal-feed-time">{formatDate(event.createdAt)}</span>
+                </li>
+              );
+            })}
           </ul>
         )}
       </CardContent>
@@ -138,23 +205,39 @@ const stats = [
 
     <Card>
       <CardHeader>
-        <CardTitle className="text-sm">Recent broadcasts</CardTitle>
+        <CardTitle className="portal-card-title"><Send size={14} /> Recent broadcasts</CardTitle>
         <CardDescription>The five most recent manual broadcasts.</CardDescription>
+        <CardAction>
+          <a href="/dev/portal/broadcasts" class="portal-sec-link" data-astro-prefetch="false">
+            View all <ArrowRight size={12} />
+          </a>
+        </CardAction>
       </CardHeader>
       <CardContent className="pt-0">
         {broadcasts.length === 0 ? (
-          <div class="py-3 text-sm text-muted-foreground">No broadcasts yet. Try composing one.</div>
+          <EmptyState Icon={Send} title="No broadcasts yet" hint="Compose your first broadcast to reach your subscribers.">
+            <a
+              slot="action"
+              href="/dev/portal/broadcasts"
+              class={buttonVariants({ size: 'sm', variant: 'outline' })}
+              data-astro-prefetch="false"
+            >
+              <PenLine /> Compose broadcast
+            </a>
+          </EmptyState>
         ) : (
-          <ul class="flex flex-col">
+          <ul class="portal-feed">
             {broadcasts.map((bc) => (
-              <li class="grid grid-cols-[1fr_auto] items-start gap-3 border-t border-border py-2.5 first:border-t-0">
-                <div class="min-w-0">
-                  <a href={`/dev/portal/broadcasts/${bc.id}`} class="text-sm leading-snug text-foreground hover:underline">{bc.subject}</a>
-                  <div class="mt-1 text-[11px] tabular-nums text-muted-foreground">
-                    {bc.sentCount}/{bc.recipientCount} sent · {bc.failedCount} failed
-                  </div>
-                </div>
-                <span class="text-[11px] tabular-nums text-muted-foreground">{bc.sentAt ? formatDate(bc.sentAt) : 'pending'}</span>
+              <li>
+                <a class="portal-feed-row" data-layout="split" href={`/dev/portal/broadcasts/${bc.id}`} data-astro-prefetch="false">
+                  <span class="min-w-0">
+                    <span class="portal-feed-primary">{bc.subject}</span>
+                    <span class="portal-feed-sub">
+                      {bc.sentCount.toLocaleString()}/{bc.recipientCount.toLocaleString()} sent · {bc.failedCount} failed
+                    </span>
+                  </span>
+                  <span class="portal-feed-time">{bc.sentAt ? formatDate(bc.sentAt) : 'pending'}</span>
+                </a>
               </li>
             ))}
           </ul>
