@@ -28,6 +28,10 @@ const HUE_BUCKET_SIZE = 18;
 const SATURATION_BUCKETS = 4;
 const LIGHTNESS_BUCKETS = 4;
 const artworkAccentCache = new Map<string, string>();
+const playedAtDateFormatter = new Intl.DateTimeFormat(undefined, {
+  month: 'short',
+  day: 'numeric',
+});
 
 type ColorBucket = {
   redTotal: number;
@@ -386,10 +390,7 @@ export const initListeningCards = (root: ParentNode = document): void => {
         return '';
       }
 
-      return new Intl.DateTimeFormat(undefined, {
-        month: 'short',
-        day: 'numeric'
-      }).format(date);
+      return playedAtDateFormatter.format(date);
     };
 
     const applyTrack = (track: ListeningTrackPayload) => {
