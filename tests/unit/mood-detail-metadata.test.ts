@@ -81,7 +81,10 @@ describe('buildMoodDetailMetadata', () => {
 
     expect(metadata.description).toBe('紫雪风老师屡次劝退 CS，总有推油觉得我是在恶意贩卖焦虑。');
     expect(metadata.description).not.toContain('https://x.com');
-    expect(metadata.image).toBeUndefined();
+    expect(metadata.image).toBe('/mood-og.png');
+    expect(metadata.imageAlt).toBe('Levitating — think, write, whisper');
+    expect(metadata.imageWidth).toBe(1200);
+    expect(metadata.imageHeight).toBe(630);
   });
 
   test('keeps not found copy only for missing posts', () => {
