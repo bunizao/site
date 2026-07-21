@@ -38,29 +38,32 @@ export function createHtmlScriptCsp(options: { frameAncestors?: 'none' | 'self' 
 }
 
 export function withHtmlSecurityHeaders(request: Request, response: Response): Response {
-  const contentType = response.headers.get('content-type') ?? '';
-  if (!contentType.toLowerCase().includes('text/html')) {
-    return response;
-  }
-
-  const pathname = new URL(request.url).pathname;
   const headers = new Headers(response.headers);
 
-  if (isMoodEmbedPath(pathname)) {
-    // The embed surface is deliberately framable: it sets its own CSP with
-    // frame-ancestors * (src/lib/embed-response.ts). Keep that CSP; only
-    // apply the base one when the embed somehow shipped without it.
-    if (!headers.has('Content-Security-Policy')) {
-      headers.set('Content-Security-Policy', createHtmlScriptCsp());
-    }
-  } else {
-    headers.set('Content-Security-Policy', createHtmlScriptCsp({
-      frameAncestors: isDevPortalPath(pathname) ? 'none' : 'self',
-    }));
-  }
-
+  // nosniff and referrer policy apply to every response: sniffing matters most
+  // on non-HTML routes (SVG/XML/JSON), so these must not be gated behind the
+  // HTML check below.
   headers.set('X-Content-Type-Options', 'nosniff');
   headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
+
+  const contentType = response.headers.get('content-type') ?? '';
+  const isHtml = contentType.toLowerCase().includes('text/html');
+  if (isHtml) {
+    const pathname = new URL(request.url).pathname;
+    if (isMoodEmbedPath(pathname)) {
+      // The embed surface is deliberately framable: it sets its own CSP with
+      // frame-ancestors * (src/lib/embed-response.ts). Keep that CSP; only
+      // apply the base one when the embed somehow shipped without it.
+      if (!headers.has('Content-Security-Policy')) {
+        headers.set('Content-Security-Policy', createHtmlScriptCsp());
+      }
+    } else {
+      headers.set('Content-Security-Policy', createHtmlScriptCsp({
+        frameAncestors: isDevPortalPath(pathname) ? 'none' : 'self',
+      }));
+    }
+  }
+
   return new Response(response.body, {
     status: response.status,
     statusText: response.statusText,

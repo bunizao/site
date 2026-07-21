@@ -50,6 +50,50 @@ const hasChannel = Boolean(initialChannel);
       </div>
     </div>
   </div>
+
+  <div class="mood-search" data-mood-search>
+    <button
+      class="mood-search-toggle"
+      type="button"
+      data-mood-search-toggle
+      aria-expanded="false"
+      aria-controls="mood-search-panel"
+    >
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="11" cy="11" r="8"></circle>
+        <path d="m21 21-4.3-4.3"></path>
+      </svg>
+      <span class="mood-search-toggle-label">Search</span>
+    </button>
+
+    <div class="mood-search-panel" id="mood-search-panel" data-mood-search-panel hidden>
+      <div class="mood-search-bar">
+        <svg class="mood-search-bar-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="11" cy="11" r="8"></circle>
+          <path d="m21 21-4.3-4.3"></path>
+        </svg>
+        <input
+          class="mood-search-input"
+          type="search"
+          data-mood-search-input
+          placeholder="Search moods…"
+          aria-label="Search moods"
+          autocomplete="off"
+          spellcheck="false"
+          maxlength="64"
+          enterkeyhint="search"
+        />
+        <button class="mood-search-close" type="button" data-mood-search-close aria-label="Close search">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M18 6 6 18"></path>
+            <path d="m6 6 12 12"></path>
+          </svg>
+        </button>
+      </div>
+      <p class="mood-search-status" data-mood-search-status role="status" aria-live="polite"></p>
+      <div class="mood-search-results" data-mood-search-results role="region" aria-label="Search results"></div>
+    </div>
+  </div>
 </div>
 
 <style>
@@ -369,5 +413,173 @@ const hasChannel = Boolean(initialChannel);
     .mood-hero-desc-skeleton::after {
       animation: none;
     }
+  }
+
+  /* Search affordance — sits below the hero identity, above the feed. */
+  .mood-search {
+    margin-top: 20px;
+  }
+
+  .mood-search-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    height: 34px;
+    padding: 0 14px;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: hsl(var(--muted-foreground));
+    background: hsl(var(--background) / 0.8);
+    border: 1px solid hsl(var(--foreground) / 0.08);
+    border-radius: 9px;
+    cursor: pointer;
+    transition: color 0.2s ease, background 0.2s ease, border-color 0.2s ease;
+  }
+
+  .mood-search-toggle:hover,
+  .mood-search-toggle[aria-expanded='true'] {
+    color: hsl(var(--foreground));
+    background: hsl(var(--foreground) / 0.05);
+    border-color: hsl(var(--foreground) / 0.15);
+  }
+
+  .mood-search-toggle svg {
+    flex-shrink: 0;
+  }
+
+  .mood-search-panel[hidden] {
+    display: none;
+  }
+
+  .mood-search-panel {
+    margin-top: 16px;
+  }
+
+  .mood-search-bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 0 12px;
+    height: 44px;
+    border: 1px solid hsl(var(--foreground) / 0.12);
+    border-radius: 12px;
+    background: hsl(var(--background));
+  }
+
+  .mood-search-bar:focus-within {
+    border-color: hsl(var(--foreground) / 0.28);
+  }
+
+  .mood-search-bar-icon {
+    flex-shrink: 0;
+    color: hsl(var(--muted-foreground) / 0.7);
+  }
+
+  .mood-search-input {
+    flex: 1;
+    min-width: 0;
+    border: none;
+    background: transparent;
+    color: hsl(var(--foreground));
+    font-family: var(--font-sans);
+    font-size: 15px;
+    outline: none;
+  }
+
+  .mood-search-input::placeholder {
+    color: hsl(var(--muted-foreground) / 0.6);
+  }
+
+  .mood-search-close {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 28px;
+    height: 28px;
+    border: none;
+    border-radius: 8px;
+    background: transparent;
+    color: hsl(var(--muted-foreground));
+    cursor: pointer;
+    transition: color 0.15s ease, background 0.15s ease;
+  }
+
+  .mood-search-close:hover,
+  .mood-search-close:focus-visible {
+    color: hsl(var(--foreground));
+    background: hsl(var(--foreground) / 0.06);
+  }
+
+  .mood-search-status {
+    margin: 12px 0 0;
+    font-size: 13px;
+    color: hsl(var(--muted-foreground));
+  }
+
+  .mood-search-status:empty {
+    display: none;
+  }
+
+  .mood-search-results {
+    display: flex;
+    flex-direction: column;
+    margin-top: 12px;
+  }
+
+  .mood-search-result {
+    display: block;
+    padding: 12px 0;
+    border-bottom: 1px solid hsl(var(--foreground) / 0.06);
+    text-decoration: none;
+    color: inherit;
+  }
+
+  .mood-search-result:last-child {
+    border-bottom: none;
+  }
+
+  .mood-search-result:hover,
+  .mood-search-result:focus-visible {
+    outline: none;
+  }
+
+  .mood-search-result:hover .mood-search-result-snippet,
+  .mood-search-result:focus-visible .mood-search-result-snippet {
+    color: hsl(var(--foreground));
+  }
+
+  .mood-search-result-time {
+    display: block;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: hsl(var(--muted-foreground) / 0.7);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .mood-search-result-snippet {
+    margin: 4px 0 0;
+    font-size: 14px;
+    line-height: 1.55;
+    color: hsl(var(--foreground) / 0.85);
+    transition: color 0.15s ease;
+  }
+
+  .mood-search-result-snippet :global(mark) {
+    background: hsl(var(--foreground) / 0.12);
+    color: inherit;
+    border-radius: 3px;
+    padding: 0 2px;
+  }
+
+  .mood-search-result-tags {
+    margin: 6px 0 0;
+    font-size: 11px;
+    color: hsl(var(--muted-foreground) / 0.6);
   }
 </style>

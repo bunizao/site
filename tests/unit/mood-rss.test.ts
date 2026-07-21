@@ -156,4 +156,46 @@ describe('buildMoodRssXml', () => {
     const imgCount = (xml.match(/<img /g) ?? []).length;
     expect(imgCount).toBe(1);
   });
+
+  test('dedups a query-param image against escaped preview HTML', () => {
+    const xml = buildMoodRssXml(
+      { title: 'Mood' },
+      [
+        createPost({
+          previewHtml: '<p>Photo mood</p><img src="https://buxx.me/api/v2/images/mood/990001/0?a=1&b=2" alt="" />',
+          image: 'https://buxx.me/api/v2/images/mood/990001/0?a=1&b=2',
+          imageWidth: 1200,
+          imageHeight: 900,
+        }),
+      ],
+      new URL('https://buxx.me')
+    );
+
+    // Preview HTML serializes `&` as `&amp;`; a raw substring check would miss
+    // the match and duplicate the image. Escape-aware dedup keeps it single.
+    const imgCount = (xml.match(/<img /g) ?? []).length;
+    expect(imgCount).toBe(1);
+  });
+
+  test('does not let an id-prefix suppress a distinct image', () => {
+    const xml = buildMoodRssXml(
+      { title: 'Mood' },
+      [
+        createPost({
+          previewHtml: '<p>Photo mood</p><img src="https://buxx.me/mood/1/00" alt="" />',
+          image: '/mood/1/0',
+          imageWidth: 1200,
+          imageHeight: 900,
+        }),
+      ],
+      new URL('https://buxx.me')
+    );
+
+    // `/mood/1/0` is a substring of the embedded `/mood/1/00`, but they are
+    // distinct images: the appended one must survive.
+    const imgCount = (xml.match(/<img /g) ?? []).length;
+    expect(imgCount).toBe(2);
+    expect(xml).toContain('src="https://buxx.me/mood/1/0"');
+    expect(xml).toContain('src="https://buxx.me/mood/1/00"');
+  });
 });

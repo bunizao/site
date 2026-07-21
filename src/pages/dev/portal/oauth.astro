@@ -16,11 +16,6 @@ export const prerender = false;
 
 const session = (Astro.locals as any).adminSession;
 
-const cardHeaderStyle = { paddingBottom: 8 } as const;
-const cardContentStyle = { paddingTop: 0 } as const;
-const iconStyle = { color: 'hsl(var(--muted-foreground))' } as const;
-const mutedTextStyle = { color: 'hsl(var(--muted-foreground))' } as const;
-
 const surfaces = [
   {
     title: 'Owner identity',
@@ -69,22 +64,20 @@ const phases = [
   active="oauth"
   user={{ login: session?.login || 'admin', email: session?.email }}
 >
-  <section style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(280px,100%),1fr));gap:16px;margin-bottom:24px;">
+  <section class="portal-grid" data-columns="cards">
     <Card>
-      <CardHeader style={cardHeaderStyle}>
-        <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;">
-          <div>
-            <CardTitle style={{ fontSize: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
-              <KeyRound size={16} />
-              Unified entry
-            </CardTitle>
-            <CardDescription>The Access hub is the control plane, not a connector dump.</CardDescription>
-          </div>
-          <Badge variant="outline">Owner gated</Badge>
+      <CardHeader className="portal-stat-header">
+        <div>
+          <CardTitle className="portal-card-title">
+            <KeyRound size={16} />
+            Unified entry
+          </CardTitle>
+          <CardDescription>The Access hub is the control plane, not a connector dump.</CardDescription>
         </div>
+        <Badge variant="outline">Owner gated</Badge>
       </CardHeader>
-      <CardContent style={cardContentStyle}>
-        <p style="margin:0;font-size:13px;line-height:1.7;color:hsl(var(--muted-foreground));">
+      <CardContent className="portal-card-content">
+        <p class="portal-prose">
           Cloudflare Access now owns the human login path. The app only verifies the signed Access JWT,
           then future slices can mint narrower credentials for agent sandboxes, knowledge ingestion, and
           MCP clients without leaking raw platform tokens.
@@ -93,57 +86,54 @@ const phases = [
     </Card>
 
     <Card>
-      <CardHeader style={cardHeaderStyle}>
-        <CardTitle style={{ fontSize: 14, display: 'flex', alignItems: 'center', gap: 8 }}>
-          <GitBranch size={14} />
-          Current session
-        </CardTitle>
-        <CardDescription>Authenticated actor for future audit trails.</CardDescription>
+      <CardHeader className="portal-stat-header">
+        <div>
+          <CardTitle className="portal-card-title">
+            <GitBranch size={14} />
+            Current session
+          </CardTitle>
+          <CardDescription>Authenticated actor for future audit trails.</CardDescription>
+        </div>
       </CardHeader>
-      <CardContent style={cardContentStyle}>
-        <div style="font-size:24px;font-weight:600;letter-spacing:-0.02em;">@{session?.login || 'admin'}</div>
-        <div style="font-size:12px;margin-top:6px;color:hsl(var(--muted-foreground));">
+      <CardContent className="portal-card-content">
+        <div class="portal-stat-value">@{session?.login || 'admin'}</div>
+        <div class="portal-stat-hint">
           Access email: <span class="portal-mono">{session?.email || 'local-dev'}</span>
         </div>
       </CardContent>
     </Card>
   </section>
 
-  <section style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;margin-bottom:24px;">
+  <section class="portal-grid" data-columns="cards">
     {surfaces.map(({ title, status, description, Icon }) => (
       <Card>
-        <CardHeader style={cardHeaderStyle}>
-          <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
-            <CardTitle style={{ fontSize: 14, display: 'flex', alignItems: 'center', gap: 8 }}>
-              <Icon size={14} style={iconStyle} />
-              {title}
-            </CardTitle>
-            <Badge variant={status === 'Live' ? 'default' : 'secondary'}>{status}</Badge>
-          </div>
+        <CardHeader className="portal-stat-header">
+          <CardTitle className="portal-card-title">
+            <Icon size={14} />
+            {title}
+          </CardTitle>
+          <Badge variant={status === 'Live' ? 'default' : 'secondary'}>{status}</Badge>
         </CardHeader>
-        <CardContent style={cardContentStyle}>
-          <p style="margin:0;font-size:12px;line-height:1.65;color:hsl(var(--muted-foreground));">{description}</p>
+        <CardContent className="portal-card-content">
+          <p class="portal-prose" data-size="sm">{description}</p>
         </CardContent>
       </Card>
     ))}
   </section>
 
-  <section style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(320px,100%),1fr));gap:16px;">
+  <section class="portal-grid" data-columns="wide">
     <Card>
       <CardHeader>
-        <CardTitle style={{ fontSize: 14, display: 'flex', alignItems: 'center', gap: 8 }}>
+        <CardTitle className="portal-card-title">
           <ShieldCheck size={14} />
           Rules
         </CardTitle>
         <CardDescription>These constraints keep the auth surface boring in the best way.</CardDescription>
       </CardHeader>
-      <CardContent style={cardContentStyle}>
-        <ul style="list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:10px;">
+      <CardContent className="portal-card-content">
+        <ul class="portal-bullets">
           {rules.map((rule) => (
-            <li style="display:flex;gap:10px;font-size:13px;line-height:1.55;color:hsl(var(--foreground));">
-              <span style="margin-top:8px;width:5px;height:5px;border-radius:999px;background:hsl(var(--primary));flex:0 0 auto;"></span>
-              <span>{rule}</span>
-            </li>
+            <li><span>{rule}</span></li>
           ))}
         </ul>
       </CardContent>
@@ -151,18 +141,16 @@ const phases = [
 
     <Card>
       <CardHeader>
-        <CardTitle style={{ fontSize: 14, display: 'flex', alignItems: 'center', gap: 8 }}>
+        <CardTitle className="portal-card-title">
           <Blocks size={14} />
           Build order
         </CardTitle>
         <CardDescription>Do this in slices; auth spaghetti is how good tools die young.</CardDescription>
       </CardHeader>
-      <CardContent style={cardContentStyle}>
-        <ol style="padding-left:18px;margin:0;display:flex;flex-direction:column;gap:10px;">
+      <CardContent className="portal-card-content">
+        <ol class="portal-steps">
           {phases.map((phase) => (
-            <li style="font-size:13px;line-height:1.55;color:hsl(var(--foreground));">
-              <span style={mutedTextStyle}>{phase}</span>
-            </li>
+            <li>{phase}</li>
           ))}
         </ol>
       </CardContent>

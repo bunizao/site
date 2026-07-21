@@ -75,6 +75,22 @@ const absolutizeHtml = (html: string, base: URL): string => {
   return $.root().html() ?? html;
 };
 
+// Extract the decoded `src` of every <img> already present in the serialized
+// content. Comparing collected images against this set (rather than a raw
+// substring of the HTML) is escape-aware — cheerio decodes `&amp;` back to `&`
+// so query-param URLs dedup correctly — and delimiter-bounded, so `/mood/1/0`
+// never suppresses `/mood/1/00`.
+const collectEmbeddedImageSrcs = (html: string): Set<string> => {
+  const srcs = new Set<string>();
+  if (!html) return srcs;
+  const $ = cheerio.load(html);
+  $('img').each((_index, el) => {
+    const src = $(el).attr('src');
+    if (src) srcs.add(src);
+  });
+  return srcs;
+};
+
 const buildRssImageTag = (
   src: string,
   base: URL,
@@ -148,9 +164,12 @@ export function buildMoodRssXml(
       baseUrl
     );
     // Append image markup the structured renderer omits, skipping any image the
-    // preview HTML already embeds so single-image posts stay deduplicated.
+    // preview HTML already embeds so single-image posts stay deduplicated. Match
+    // against the parsed <img> src attributes so escaped query-param URLs and
+    // id-prefixed paths dedup correctly.
+    const embeddedImageSrcs = collectEmbeddedImageSrcs(baseContent);
     const extraImages = collectRssImages(post, baseUrl)
-      .filter(({ src }) => !baseContent.includes(src))
+      .filter(({ src }) => !embeddedImageSrcs.has(src))
       .map(({ tag }) => tag);
     const content = [baseContent, ...extraImages].filter(Boolean).join('\n');
     const categories = [post.tag]

@@ -1,11 +1,13 @@
 export const BLOG_ANALYTICS_EVENT_ENDPOINT = '/api/analytics/event' as const;
 export const BLOG_ANALYTICS_SUMMARY_ENDPOINT = '/api/analytics/summary' as const;
 export const BLOG_ANALYTICS_EVENTS_ENDPOINT = '/api/analytics/events' as const;
+export const BLOG_ANALYTICS_ARTICLE_ENDPOINT = '/api/analytics/article' as const;
 export const NEWSLETTER_ANALYTICS_OPEN_ENDPOINT = '/api/analytics/newsletter/open' as const;
 export const NEWSLETTER_ANALYTICS_CLICK_ENDPOINT = '/api/analytics/newsletter/click' as const;
 export const BLOG_ANALYTICS_EVENTS_DEFAULT_LIMIT = 50;
 export const BLOG_ANALYTICS_READ_THRESHOLD_MS = 5_000;
 export const BLOG_ANALYTICS_COMPLETION_SCROLL_DEPTH = 0.9;
+export const BLOG_ANALYTICS_RANGE_OPTIONS = [7, 30, 90] as const;
 
 export type BlogAnalyticsPlatform =
   | 'wechat'
@@ -160,4 +162,24 @@ export interface BlogAnalyticsEventsResult {
   events: BlogAnalyticsEventRecord[];
   total?: number;
   nextCursor?: string | null;
+}
+
+export interface BlogAnalyticsScrollBucket {
+  bucket: string;
+  count: number;
+}
+
+export interface BlogAnalyticsArticleDetailResult {
+  slug: string;
+  range: {
+    from: string | null;
+    to: string | null;
+    days: number;
+  };
+  totals: BlogAnalyticsTotals;
+  daily: BlogAnalyticsDailyStats[];
+  referrers: BlogAnalyticsBreakdown[];
+  platforms: BlogAnalyticsBreakdown[];
+  countries: BlogAnalyticsBreakdown[];
+  scrollBuckets: BlogAnalyticsScrollBucket[];
 }

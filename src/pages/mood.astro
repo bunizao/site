@@ -15,7 +15,7 @@ import {
   readMoodFeedAnchorId,
 } from '@/features/mood/shared/feed-anchor';
 import { loadInitialMoodFeed as loadInitialMoodFeedWindow } from '@/features/mood/server/initial-feed-loader';
-import { buildArchiveSrcSet } from '@/features/mood/shared/image-srcset';
+import { getMoodFeedPreloadImage } from '@/features/mood/shared/lcp-preload';
 import { normalizeMoodTagSlug } from '@/features/mood/shared/tag-filter';
 import { isE2ESiteFixtureEnabled } from '@/lib/e2e';
 import { readEnv, readPublicEnv } from '@/lib/runtime/env';
@@ -73,13 +73,16 @@ async function loadInitialMoodFeed() {
 }
 
 const initialFeed = await loadInitialMoodFeed();
-const firstFeedImage = initialFeed?.posts.find((post) => post.image)?.image ?? '';
-const firstFeedImageResponsive = firstFeedImage ? buildArchiveSrcSet(firstFeedImage) : null;
-const preloadImages = firstFeedImage
+// Preload the exact media the priority feed element will render (see
+// getMoodFeedPreloadImage): aligns the high-priority fetch with the real LCP.
+const preloadImage = initialFeed
+  ? getMoodFeedPreloadImage(initialFeed.posts, moodFeedAnchorId)
+  : null;
+const preloadImages = preloadImage
   ? [{
-      href: firstFeedImage,
-      imageSrcSet: firstFeedImageResponsive?.srcset,
-      imageSizes: firstFeedImageResponsive?.sizes,
+      href: preloadImage.href,
+      imageSrcSet: preloadImage.imageSrcSet,
+      imageSizes: preloadImage.imageSizes,
     }]
   : [];
 // Skeleton structure: 2 date group cards to match actual content layout
@@ -104,7 +107,15 @@ const skeletonGroups = [
 ];
 ---
 
-<Layout title={title} description={description} rss={rss} oembed={oembed} preloadImages={preloadImages}>
+<Layout
+  title={title}
+  description={description}
+  image="/mood-og.png"
+  imageAlt="Levitating — think, write, whisper"
+  rss={rss}
+  oembed={oembed}
+  preloadImages={preloadImages}
+>
   <!-- Inject page-specific header actions -->
   <script is:inline define:vars={{ rssHref, telegramUrl, turnstileSiteKey }}>
     (() => {
@@ -1216,6 +1227,10 @@ const skeletonGroups = [
     transition: transform 0.2s ease;
   }
 
+  :global(.mood-item-thumb:not(.mood-item-thumb--sticker) img) {
+    box-shadow: inset 0 0 0 1px hsl(var(--foreground) / 0.1);
+  }
+
   :global(.mood-item-thumb.mood-item-thumb--sticker) {
     display: inline-flex;
     align-items: flex-start;
@@ -2255,4 +2270,10 @@ const skeletonGroups = [
   import { initMoodFeedController } from '@/features/mood/client/feed-controller';
 
   initMoodFeedController();
+</script>
+
+<script>
+  import { initMoodSearchPanel } from '@/features/mood/client/search-panel';
+
+  initMoodSearchPanel();
 </script>

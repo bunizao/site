@@ -27,6 +27,7 @@ skills-lock.json
 *.njsproj
 *.sln
 *.sw?
+# Local secrets live in .env / .env*.local; .env.example is the tracked template.
 .env
 .vercel
 .wrangler

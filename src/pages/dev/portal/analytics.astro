@@ -6,6 +6,7 @@ import {
   BLOG_ANALYTICS_COMPLETION_SCROLL_DEPTH,
   BLOG_ANALYTICS_EVENTS_DEFAULT_LIMIT,
   BLOG_ANALYTICS_EVENTS_ENDPOINT,
+  BLOG_ANALYTICS_RANGE_OPTIONS,
   BLOG_ANALYTICS_READ_THRESHOLD_MS,
   BLOG_ANALYTICS_SUMMARY_ENDPOINT,
   type BlogAnalyticsBreakdown,
@@ -14,10 +15,16 @@ import {
   type NewsletterAnalyticsSummary,
 } from '@bunizao/contracts/analytics';
 import { loadPortalAnalytics, type PortalAnalytics } from '@/features/admin/server/portal-client';
+import { NewsletterDailyChart, NewsletterFunnel, TrafficChart } from '@/features/admin/ui/AnalyticsCharts';
 
 export const prerender = false;
 
 const session = (Astro.locals as any).adminSession;
+
+const requestedDays = Number(Astro.url.searchParams.get('days') || '30');
+const rangeDays = (BLOG_ANALYTICS_RANGE_OPTIONS as readonly number[]).includes(requestedDays)
+  ? requestedDays
+  : 30;
 
 const emptySummary: BlogAnalyticsSummaryResult = {
   range: { from: null, to: null, days: 7 },
@@ -56,7 +63,7 @@ let analytics: PortalAnalytics = {
 let loadError: string | null = null;
 
 try {
-  analytics = await loadPortalAnalytics(Astro.request, Astro.locals);
+  analytics = await loadPortalAnalytics(Astro.request, Astro.locals, { days: rangeDays });
 } catch (error) {
   loadError = error instanceof Error ? error.message : 'unknown';
 }
@@ -189,7 +196,6 @@ const newsletterCards = [
 const platformMax = maxViews(summary.platforms);
 const referrerMax = maxViews(summary.referrers);
 const countryMax = maxViews(summary.countries);
-const dailyMax = Math.max(1, ...summary.daily.map((row) => row.views));
 ---
 
 <PortalLayout
@@ -198,6 +204,19 @@ const dailyMax = Math.max(1, ...summary.daily.map((row) => row.views));
   active="analytics"
   user={{ login: session?.login || 'admin' }}
 >
+  <div class="analytics-range" slot="actions">
+    {(BLOG_ANALYTICS_RANGE_OPTIONS as readonly number[]).map((days) => (
+      <a
+        href={`/dev/portal/analytics?days=${days}`}
+        class="analytics-range-option"
+        aria-current={days === rangeDays ? 'true' : undefined}
+        data-astro-prefetch="false"
+      >
+        {days}d
+      </a>
+    ))}
+  </div>
+
   {loadError && (
     <section class="analytics-error">
       <div>
@@ -227,7 +246,7 @@ const dailyMax = Math.max(1, ...summary.daily.map((row) => row.views));
   </section>
 
   <section class="analytics-grid">
-    <Card>
+    <Card className="analytics-span-2">
       <CardHeader>
         <CardTitle className="analytics-card-title">
           <Activity size={14} /> Daily traffic
@@ -239,21 +258,7 @@ const dailyMax = Math.max(1, ...summary.daily.map((row) => row.views));
         </CardDescription>
       </CardHeader>
       <CardContent className="analytics-card-content">
-        {summary.daily.length === 0 ? (
-          <div class="analytics-empty">No daily rows yet.</div>
-        ) : (
-          <ol class="analytics-bars">
-            {summary.daily.map((row) => (
-              <li>
-                <span>{formatDay(row.day)}</span>
-                <div class="analytics-bar" style={`--bar:${barWidth(row.views, dailyMax)}`}>
-                  <span></span>
-                </div>
-                <strong>{formatCount(row.views)}</strong>
-              </li>
-            ))}
-          </ol>
-        )}
+        <TrafficChart daily={summary.daily} client:load />
       </CardContent>
     </Card>
 
@@ -355,6 +360,30 @@ const dailyMax = Math.max(1, ...summary.daily.map((row) => row.views));
         </Card>
       ))}
     </div>
+    <div class="analytics-grid">
+      <Card>
+        <CardHeader>
+          <CardTitle className="analytics-card-title">
+            <Send size={14} /> Funnel
+          </CardTitle>
+          <CardDescription>Sent → open → click over the selected range.</CardDescription>
+        </CardHeader>
+        <CardContent className="analytics-card-content">
+          <NewsletterFunnel totals={newsletter.totals} client:load />
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader>
+          <CardTitle className="analytics-card-title">
+            <MailOpen size={14} /> Daily activity
+          </CardTitle>
+          <CardDescription>Send, open, and click events per day.</CardDescription>
+        </CardHeader>
+        <CardContent className="analytics-card-content">
+          <NewsletterDailyChart daily={newsletter.daily} client:load />
+        </CardContent>
+      </Card>
+    </div>
     <div class="analytics-table-wrap">
       <table class="analytics-table">
         <thead>
@@ -416,7 +445,11 @@ const dailyMax = Math.max(1, ...summary.daily.map((row) => row.views));
             </tr>
           ) : summary.articles.map((row) => (
             <tr>
-              <td class="portal-mono">{row.slug}</td>
+              <td>
+                <a class="analytics-article-link portal-mono" href={`/dev/portal/analytics/${encodeURIComponent(row.slug)}?days=${rangeDays}`}>
+                  {row.slug}
+                </a>
+              </td>
               <td>{formatCount(row.views)}</td>
               <td>{formatCount(row.reads)}</td>
               <td>{formatCount(row.uniqueVisitors)}</td>
@@ -499,6 +532,46 @@ const dailyMax = Math.max(1, ...summary.daily.map((row) => row.views));
 
     :global(.analytics-icon) {
       color: hsl(var(--muted-foreground));
+    }
+
+    :global(.analytics-span-2) {
+      grid-column: 1 / -1;
+    }
+
+    .analytics-range {
+      display: inline-flex;
+      gap: 2px;
+      padding: 2px;
+      border: 1px solid hsl(var(--border));
+      border-radius: 8px;
+      background: hsl(var(--card));
+    }
+
+    .analytics-range-option {
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-size: 12px;
+      color: hsl(var(--muted-foreground));
+      text-decoration: none;
+      transition: background 160ms cubic-bezier(0.2, 0, 0, 1), color 160ms cubic-bezier(0.2, 0, 0, 1);
+    }
+
+    .analytics-range-option:hover {
+      color: hsl(var(--foreground));
+    }
+
+    .analytics-range-option[aria-current='true'] {
+      background: hsl(var(--accent));
+      color: hsl(var(--foreground));
+    }
+
+    :global(.analytics-article-link) {
+      color: hsl(var(--foreground));
+      text-decoration: none;
+    }
+
+    :global(.analytics-article-link:hover) {
+      text-decoration: underline;
     }
 
     .analytics-metric-value {

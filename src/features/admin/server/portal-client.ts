@@ -1,11 +1,14 @@
 import {
+  BLOG_ANALYTICS_ARTICLE_ENDPOINT,
   BLOG_ANALYTICS_EVENTS_DEFAULT_LIMIT,
   BLOG_ANALYTICS_EVENTS_ENDPOINT,
   BLOG_ANALYTICS_SUMMARY_ENDPOINT,
   type AuditEntry,
+  type BlogAnalyticsArticleDetailResult,
   type BlogAnalyticsEventsResult,
   type BlogAnalyticsSummaryResult,
   type BroadcastRecord,
+  type NotifyGateStatus,
   type SubscriberListResult,
 } from '@bunizao/contracts';
 import {
@@ -94,9 +97,13 @@ export async function loadBroadcast(
 export async function loadPortalAnalytics(
   request: Request,
   locals: RuntimeEnvLocals | undefined,
+  options: { days?: number } = {},
 ): Promise<PortalAnalytics> {
+  const summaryPath = options.days
+    ? `${BLOG_ANALYTICS_SUMMARY_ENDPOINT}?days=${options.days}`
+    : BLOG_ANALYTICS_SUMMARY_ENDPOINT;
   const [summary, events] = await Promise.all([
-    adminGet<BlogAnalyticsSummaryResult>(BLOG_ANALYTICS_SUMMARY_ENDPOINT, request, locals),
+    adminGet<BlogAnalyticsSummaryResult>(summaryPath, request, locals),
     adminGet<BlogAnalyticsEventsResult>(
       `${BLOG_ANALYTICS_EVENTS_ENDPOINT}?limit=${BLOG_ANALYTICS_EVENTS_DEFAULT_LIMIT}`,
       request,
@@ -105,4 +112,33 @@ export async function loadPortalAnalytics(
   ]);
 
   return { summary, events };
+}
+
+export async function loadArticleAnalytics(
+  slug: string,
+  request: Request,
+  locals: RuntimeEnvLocals | undefined,
+  options: { days?: number } = {},
+): Promise<BlogAnalyticsArticleDetailResult | null> {
+  try {
+    const query = options.days ? `?days=${options.days}` : '';
+    return await adminGet<BlogAnalyticsArticleDetailResult>(
+      `${BLOG_ANALYTICS_ARTICLE_ENDPOINT}/${encodeURIComponent(slug)}${query}`,
+      request,
+      locals,
+    );
+  } catch {
+    return null;
+  }
+}
+
+export async function loadNotifyGateStatus(
+  request: Request,
+  locals: RuntimeEnvLocals | undefined,
+): Promise<NotifyGateStatus | null> {
+  try {
+    return await adminGet<NotifyGateStatus>('/api/admin/notify-gate', request, locals);
+  } catch {
+    return null;
+  }
 }
