@@ -76,7 +76,13 @@ const navKeywords: Record<string, string> = {
 };
 ---
 
-<dialog class="cmdk" data-command-palette data-ai-context={AI_CONTEXT} aria-label="Site search and commands">
+<dialog
+  id="site-command-palette"
+  class="cmdk"
+  data-command-palette
+  data-ai-context={AI_CONTEXT}
+  aria-label="Site search and commands"
+>
   <div class="cmdk-panel">
     <div class="cmdk-input-row">
       <Search className="cmdk-input-icon" aria-hidden="true" />
