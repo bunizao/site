@@ -337,13 +337,13 @@ const previewTrackPoses = getPeekTrackingPoseKeys('preview');
     justify-content: center;
   }
   .mascot-summary-body h2 {
-    font-size: 18px;
+    font-size: var(--portal-text-xl);
     font-weight: 600;
-    letter-spacing: -0.015em;
+    letter-spacing: var(--portal-tracking-title);
     margin: 0 0 6px;
   }
   .mascot-summary-body p {
-    font-size: 13px;
+    font-size: var(--portal-text-base);
     color: hsl(var(--muted-foreground));
     margin: 0 0 12px;
     line-height: 1.5;
@@ -353,20 +353,20 @@ const previewTrackPoses = getPeekTrackingPoseKeys('preview');
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 8px 18px;
-    font-size: 12px;
+    font-size: var(--portal-text-sm);
   }
   .mascot-summary-body dt,
   .mascot-stats span {
     color: hsl(var(--muted-foreground));
     text-transform: uppercase;
-    letter-spacing: 0.08em;
-    font-size: 10px;
+    letter-spacing: var(--portal-tracking-wide);
+    font-size: var(--portal-text-2xs);
     margin-bottom: 4px;
     display: block;
   }
   .mascot-summary-body dd {
     margin: 0;
-    font-size: 13px;
+    font-size: var(--portal-text-base);
     color: hsl(var(--foreground));
   }
   .mascot-stats {
@@ -382,9 +382,9 @@ const previewTrackPoses = getPeekTrackingPoseKeys('preview');
   .mascot-stats strong {
     display: block;
     margin-top: 4px;
-    font-size: 22px;
+    font-size: var(--portal-text-2xl);
     font-weight: 600;
-    letter-spacing: -0.02em;
+    letter-spacing: var(--portal-tracking-display);
   }
 
   .mascot-block {
@@ -403,19 +403,19 @@ const previewTrackPoses = getPeekTrackingPoseKeys('preview');
     position: relative;
   }
   .mascot-block-eyebrow {
-    font-size: 10px;
+    font-size: var(--portal-text-2xs);
     text-transform: uppercase;
-    letter-spacing: 0.18em;
+    letter-spacing: var(--portal-tracking-wide);
     color: hsl(var(--muted-foreground));
   }
   .mascot-block h3 {
-    font-size: 16px;
+    font-size: var(--portal-text-lg);
     font-weight: 600;
-    letter-spacing: -0.01em;
+    letter-spacing: var(--portal-tracking-title);
     margin: 0;
   }
   .mascot-block header p {
-    font-size: 13px;
+    font-size: var(--portal-text-base);
     color: hsl(var(--muted-foreground));
     margin: 0;
     line-height: 1.55;
@@ -425,7 +425,7 @@ const previewTrackPoses = getPeekTrackingPoseKeys('preview');
     right: 0;
     top: 0;
     font-family: var(--font-code);
-    font-size: 11px;
+    font-size: var(--portal-text-xs);
     color: hsl(var(--muted-foreground));
   }
 
@@ -445,18 +445,18 @@ const previewTrackPoses = getPeekTrackingPoseKeys('preview');
   }
   .mascot-runtime-slot {
     font-family: var(--font-code);
-    font-size: 10px;
+    font-size: var(--portal-text-2xs);
     text-transform: uppercase;
-    letter-spacing: 0.08em;
+    letter-spacing: var(--portal-tracking-wide);
     color: hsl(var(--muted-foreground));
   }
   .mascot-runtime-card h4 {
-    font-size: 13px;
+    font-size: var(--portal-text-base);
     font-weight: 600;
     margin: 0;
   }
   .mascot-runtime-card p {
-    font-size: 12px;
+    font-size: var(--portal-text-sm);
     color: hsl(var(--muted-foreground));
     line-height: 1.5;
     margin: 0;
@@ -464,7 +464,7 @@ const previewTrackPoses = getPeekTrackingPoseKeys('preview');
   .mascot-runtime-card code {
     margin-top: 4px;
     font-family: var(--font-code);
-    font-size: 11px;
+    font-size: var(--portal-text-xs);
     color: hsl(var(--portal-accent));
     word-break: break-all;
   }
@@ -503,9 +503,9 @@ const previewTrackPoses = getPeekTrackingPoseKeys('preview');
     width: 100%;
   }
   .mascot-brand-label {
-    font-size: 10px;
+    font-size: var(--portal-text-2xs);
     text-transform: uppercase;
-    letter-spacing: 0.16em;
+    letter-spacing: var(--portal-tracking-wide);
     color: hsl(var(--muted-foreground));
     display: block;
     margin-bottom: 8px;
@@ -519,16 +519,16 @@ const previewTrackPoses = getPeekTrackingPoseKeys('preview');
   }
   .mascot-brand-body dt,
   .mascot-tracker-meta dt {
-    font-size: 10px;
+    font-size: var(--portal-text-2xs);
     text-transform: uppercase;
-    letter-spacing: 0.08em;
+    letter-spacing: var(--portal-tracking-wide);
     color: hsl(var(--muted-foreground));
     margin-bottom: 2px;
   }
   .mascot-brand-body dd,
   .mascot-tracker-meta dd {
     margin: 0;
-    font-size: 12px;
+    font-size: var(--portal-text-sm);
   }
   .mascot-brand-body code,
   .mascot-tracker-meta code,
@@ -567,7 +567,7 @@ const previewTrackPoses = getPeekTrackingPoseKeys('preview');
     grid-template-columns: repeat(5, 1fr);
     pointer-events: none;
     font-family: var(--font-code);
-    font-size: 9px;
+    font-size: var(--portal-text-2xs);
     color: hsl(var(--muted-foreground) / 0.7);
   }
   .mascot-tracker-bands span {
@@ -651,19 +651,19 @@ const previewTrackPoses = getPeekTrackingPoseKeys('preview');
     margin-bottom: 4px;
   }
   .mascot-library-body h4 {
-    font-size: 13px;
+    font-size: var(--portal-text-base);
     font-weight: 600;
     margin: 0;
   }
   .mascot-library-body header span {
     font-family: var(--font-code);
-    font-size: 10px;
+    font-size: var(--portal-text-2xs);
     color: hsl(var(--muted-foreground));
     text-transform: uppercase;
-    letter-spacing: 0.08em;
+    letter-spacing: var(--portal-tracking-wide);
   }
   .mascot-library-body p {
-    font-size: 12px;
+    font-size: var(--portal-text-sm);
     color: hsl(var(--muted-foreground));
     line-height: 1.5;
     margin: 0 0 8px;
@@ -679,14 +679,14 @@ const previewTrackPoses = getPeekTrackingPoseKeys('preview');
     margin: 0 0 8px;
   }
   .mascot-library-body dt {
-    font-size: 10px;
+    font-size: var(--portal-text-2xs);
     text-transform: uppercase;
-    letter-spacing: 0.08em;
+    letter-spacing: var(--portal-tracking-wide);
     color: hsl(var(--muted-foreground));
   }
   .mascot-library-body dd {
     margin: 0;
-    font-size: 11px;
+    font-size: var(--portal-text-xs);
     font-family: var(--font-code);
     color: hsl(var(--foreground));
     word-break: break-all;
@@ -697,7 +697,7 @@ const previewTrackPoses = getPeekTrackingPoseKeys('preview');
     gap: 4px;
   }
   .mascot-library-tags span {
-    font-size: 10px;
+    font-size: var(--portal-text-2xs);
     padding: 2px 6px;
     border-radius: 999px;
     background: hsl(var(--accent));
