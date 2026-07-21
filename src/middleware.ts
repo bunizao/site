@@ -1,6 +1,4 @@
 import { defineMiddleware } from 'astro:middleware';
-import { getDocsVisibilityFromContent } from '@/features/docs/server/content';
-import { isDocsPath } from '@/features/docs/server/visibility';
 import { readCloudflareAccessIdentity } from '@/features/admin/server/access';
 import { redirectLegacyGhostHost } from '@/lib/http/legacy-ghost-redirect';
 import type { RuntimeEnvLocals } from '@/lib/runtime/env';
@@ -17,27 +15,55 @@ import {
 } from '@/features/admin/server/dev-bypass';
 
 const DEV_PORTAL_PREFIX = '/dev';
+const MOOD_EMBED_PATH = '/mood/embed';
 
 function isDevPortalPath(pathname: string): boolean {
   return pathname === DEV_PORTAL_PREFIX || pathname.startsWith(`${DEV_PORTAL_PREFIX}/`);
 }
 
-export function createHtmlScriptCsp(): string {
-  return [
+function isMoodEmbedPath(pathname: string): boolean {
+  return pathname === MOOD_EMBED_PATH || pathname.startsWith(`${MOOD_EMBED_PATH}/`);
+}
+
+export function createHtmlScriptCsp(options: { frameAncestors?: 'none' | 'self' } = {}): string {
+  const directives = [
     "script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://js-cdn.music.apple.com https://static.cloudflareinsights.com https://challenges.cloudflare.com http://localhost:* http://127.0.0.1:*",
     "base-uri 'self'",
     "object-src 'none'",
-  ].join('; ');
+  ];
+  if (options.frameAncestors) {
+    directives.push(`frame-ancestors '${options.frameAncestors}'`);
+  }
+  return directives.join('; ');
 }
 
-function withHtmlSecurityHeaders(request: Request, response: Response): Response {
+export function withHtmlSecurityHeaders(request: Request, response: Response): Response {
+  const headers = new Headers(response.headers);
+
+  // nosniff and referrer policy apply to every response: sniffing matters most
+  // on non-HTML routes (SVG/XML/JSON), so these must not be gated behind the
+  // HTML check below.
+  headers.set('X-Content-Type-Options', 'nosniff');
+  headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
+
   const contentType = response.headers.get('content-type') ?? '';
-  if (!contentType.toLowerCase().includes('text/html')) {
-    return response;
+  const isHtml = contentType.toLowerCase().includes('text/html');
+  if (isHtml) {
+    const pathname = new URL(request.url).pathname;
+    if (isMoodEmbedPath(pathname)) {
+      // The embed surface is deliberately framable: it sets its own CSP with
+      // frame-ancestors * (src/lib/embed-response.ts). Keep that CSP; only
+      // apply the base one when the embed somehow shipped without it.
+      if (!headers.has('Content-Security-Policy')) {
+        headers.set('Content-Security-Policy', createHtmlScriptCsp());
+      }
+    } else {
+      headers.set('Content-Security-Policy', createHtmlScriptCsp({
+        frameAncestors: isDevPortalPath(pathname) ? 'none' : 'self',
+      }));
+    }
   }
 
-  const headers = new Headers(response.headers);
-  headers.set('Content-Security-Policy', createHtmlScriptCsp());
   return new Response(response.body, {
     status: response.status,
     statusText: response.statusText,
@@ -102,21 +128,9 @@ export const onRequest = defineMiddleware(async (context, next) => {
     return withNoStoreHeaders(withHtmlSecurityHeaders(context.request, await next()));
   }
 
-  const docsVisibility = isDocsPath(pathname) ? await getDocsVisibilityFromContent(pathname) : 'missing';
-
-  if (docsVisibility !== 'protected') {
-    const response = withContentPolicy(
-      context.request,
-      withHtmlSecurityHeaders(context.request, await next()),
-    );
-    return cacheHtmlPageResponse(context.request, response);
-  }
-
-  const session = await readAdminSession(context);
-  if (session) {
-    (context.locals as unknown as Record<string, unknown>).adminSession = session;
-    return withNoStoreHeaders(withHtmlSecurityHeaders(context.request, await next()));
-  }
-
-  return accessRequired();
+  const response = withContentPolicy(
+    context.request,
+    withHtmlSecurityHeaders(context.request, await next()),
+  );
+  return cacheHtmlPageResponse(context.request, response);
 });

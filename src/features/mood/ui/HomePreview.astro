@@ -1,5 +1,6 @@
 ---
 import type { MoodFeedItem } from '@/features/mood/server/contracts';
+import { serializeScriptJson } from '@/lib/serialize-script-json';
 
 interface Props {
   initialPosts?: MoodFeedItem[];
@@ -20,6 +21,7 @@ const placeholders = Array.from({ length: SKELETON_COUNT }, (_, index) => ({
   index,
   pattern: skeletonPatterns[index % skeletonPatterns.length],
 }));
+const initialPreviewPostsJson = serializeScriptJson(initialPosts.slice(0, INITIAL_POST_COUNT));
 ---
 
 <section
@@ -35,7 +37,7 @@ const placeholders = Array.from({ length: SKELETON_COUNT }, (_, index) => ({
       is:inline
       type="application/json"
       data-mood-preview-initial
-      set:html={JSON.stringify(initialPosts.slice(0, INITIAL_POST_COUNT))}
+      set:html={initialPreviewPostsJson}
     ></script>
     {!runtimeDisabled && placeholders.map(({ index, pattern }) => (
       <div

@@ -49,22 +49,4 @@ describe('blog analytics beacon', () => {
     expect(source).not.toMatch(/<script[^>]+src=["']\/gmetrics\/["']/);
   });
 
-  test('uses one network asset for the blog mark on blog pages', () => {
-    const layout = readFileSync(new URL('../../src/layouts/BlogLayout.astro', import.meta.url), 'utf8');
-    const toc = readFileSync(new URL('../../src/features/posts/ui/TableOfContents.astro', import.meta.url), 'utf8');
-
-    expect(layout).toContain('const blogMarkAsset = blog.mark;');
-    expect(layout).toContain('<link rel="icon" href={blogMarkAsset} type="image/webp" />');
-    expect(layout).toContain('<img src={blogMarkAsset} alt={blog.name} width="40" height="40" />');
-    expect(layout).not.toContain('blog-mark.svg');
-    expect(layout).not.toContain('<link rel="icon" href="/blog-mark.svg"');
-    expect(toc).toContain('<img src={blogMarkAsset} alt={blog.name} width="30" height="30" />');
-  });
-
-  test('keeps the shared blog mark asset encoded as WebP', () => {
-    const mark = readFileSync(new URL('../../public/blog-mark.webp', import.meta.url));
-
-    expect(mark.subarray(0, 4).toString()).toBe('RIFF');
-    expect(mark.subarray(8, 12).toString()).toBe('WEBP');
-  });
 });

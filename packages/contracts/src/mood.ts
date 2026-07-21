@@ -104,6 +104,10 @@ export interface MoodSearchResult {
   sentiment_label: MoodSentimentLabel | null;
 }
 
+export interface MoodSearchResponse {
+  results: MoodSearchResult[];
+}
+
 export interface MoodFeedQuery {
   before?: string;
   after?: string;
@@ -197,7 +201,9 @@ export interface MoodImageProbeResponse {
 export interface MoodMetaItem {
   id: string;
   reactions: MoodReaction[];
-  commentsCount: number;
+  // `null` means the count is unknown (window omitted it and the backfill
+  // could not resolve it); clients keep their existing count in that case.
+  commentsCount: number | null;
 }
 
 export interface MoodLiveCount {

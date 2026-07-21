@@ -58,6 +58,21 @@ describe('agent markdown registry', () => {
       .toBeNull();
   });
 
+  test('normalizes single valid tag filters and rejects everything else', () => {
+    const policy = getContentRoutePolicy('/mood');
+
+    expect(policy?.normalizeHtmlCacheSearch?.(new URL('https://buxx.me/mood?tag=abc')))
+      .toBe('?tag=abc');
+    expect(policy?.normalizeHtmlCacheSearch?.(new URL('https://buxx.me/mood?tag=mood_2026')))
+      .toBe('?tag=mood_2026');
+    expect(policy?.normalizeHtmlCacheSearch?.(new URL('https://buxx.me/mood?tag=abc&x=1')))
+      .toBeNull();
+    expect(policy?.normalizeHtmlCacheSearch?.(new URL('https://buxx.me/mood?tag=BAD')))
+      .toBeNull();
+    expect(policy?.normalizeHtmlCacheSearch?.(new URL('https://buxx.me/mood?tag=')))
+      .toBeNull();
+  });
+
   test('adds stale revalidation to shared content cache headers', () => {
     expect(publicCacheControl(60)).toBe('public, max-age=0, s-maxage=60');
     expect(publicCacheControl(300, 1800)).toBe(

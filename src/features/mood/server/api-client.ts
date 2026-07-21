@@ -44,6 +44,7 @@ export interface MoodFeedQuery {
   fallback?: boolean;
   limit?: number;
   source?: MoodApiSource;
+  tag?: string;
 }
 
 export interface MoodCommentsQuery {
@@ -122,6 +123,7 @@ function moodFeedParams(query: MoodFeedQuery): URLSearchParams {
   const params = new URLSearchParams();
   if (query.before) params.set('before', query.before);
   if (query.after) params.set('after', query.after);
+  if (query.tag) params.set('tag', query.tag);
   if (query.fresh) params.set('fresh', 'true');
   if (typeof query.limit === 'number') params.set('limit', String(query.limit));
   if (query.fallback === false) params.set('fallback', '0');
@@ -175,7 +177,8 @@ export async function loadMoodFeed(
   context: MoodServerContext,
   query: MoodFeedQuery = {},
 ): Promise<MoodFeedResponse> {
-  const source = resolveMoodReadSource(context.locals, query.source);
+  // Tag filtering only exists on the archive route: force archive, no live fallback.
+  const source = query.tag ? 'archive' : resolveMoodReadSource(context.locals, query.source);
 
   if (isE2ESiteFixtureEnabled(context.locals)) {
     const channelInfo = createE2EChannelInfo();
@@ -191,7 +194,7 @@ export async function loadMoodFeed(
   }
 
   if (source === 'archive') {
-    const fallback = query.fallback === true;
+    const fallback = query.fallback === true && !query.tag;
     const loadArchive = () => fetchMoodArchiveApiJson<MoodFeedResponse>(
       context,
       MOOD_ARCHIVE_FEED_PATH,

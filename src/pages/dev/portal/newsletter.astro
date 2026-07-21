@@ -1,10 +1,13 @@
 ---
 import PortalLayout from '@/layouts/PortalLayout.astro';
 import TemplatePreview from '@/features/notify/ui/TemplatePreview';
+import GateStatusCard from '@/features/admin/ui/GateStatusCard';
+import { loadNotifyGateStatus } from '@/features/admin/server/portal-client';
 
 export const prerender = false;
 
 const session = (Astro.locals as any).adminSession;
+const gateStatus = await loadNotifyGateStatus(Astro.request, Astro.locals);
 ---
 
 <PortalLayout
@@ -13,7 +16,10 @@ const session = (Astro.locals as any).adminSession;
   active="newsletter"
   user={{ login: session?.login || 'admin' }}
 >
-  <TemplatePreview client:load />
+  <div class="portal-stack">
+    <GateStatusCard initialStatus={gateStatus} client:load />
+    <TemplatePreview client:load />
+  </div>
 </PortalLayout>
 
 <style is:global>

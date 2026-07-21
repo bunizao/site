@@ -2,10 +2,11 @@
 
 ## Detailed Implementation Docs
 
+See [docs/README.md](./README.md) for the full index. Frequently needed:
+
 - [Home](./HOME.md)
 - [Mascot](./MASCOT.md)
 - [Mood](./MOOD.md)
-- [Mood Decoupling Plan](./MOOD-DECOUPLING.md)
 - [Shared Layout](./SHARED-LAYOUT.md)
 - [Security](./SECURITY.md)
 - [OAuth Hub](./OAUTH-HUB.md)

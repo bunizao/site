@@ -15,6 +15,8 @@ import {
   readMoodFeedAnchorId,
 } from '@/features/mood/shared/feed-anchor';
 import { loadInitialMoodFeed as loadInitialMoodFeedWindow } from '@/features/mood/server/initial-feed-loader';
+import { getMoodFeedPreloadImage } from '@/features/mood/shared/lcp-preload';
+import { normalizeMoodTagSlug } from '@/features/mood/shared/tag-filter';
 import { isE2ESiteFixtureEnabled } from '@/lib/e2e';
 import { readEnv, readPublicEnv } from '@/lib/runtime/env';
 import '@/styles/mood-gallery.css';
@@ -33,11 +35,13 @@ const telegramUrl = channel ? `https://t.me/${channel}` : '';
 const turnstileSiteKey = isE2ESiteFixtureEnabled(Astro.locals)
   ? ''
   : readPublicEnv(Astro.locals, 'TURNSTILE_SITE_KEY');
-const moodFeedAnchorId = readMoodFeedAnchorId(Astro.url);
+const moodTagFilter = normalizeMoodTagSlug(Astro.url.searchParams.get('tag'));
+// Tag mode is a plain filtered feed: no anchor deep links, archive reads only.
+const moodFeedAnchorId = moodTagFilter ? '' : readMoodFeedAnchorId(Astro.url);
 const moodFeedAnchorBeforeCursor = getMoodFeedAnchorBeforeCursor(moodFeedAnchorId);
 const moodFeedAnchorWindowBeforeCursor = getMoodFeedAnchorWindowBeforeCursor(moodFeedAnchorId);
 const requestedMoodReadSource = normalizeMoodApiSource(Astro.url.searchParams.get('source')) ?? undefined;
-const moodReadSource = resolveMoodReadSource(Astro.locals, requestedMoodReadSource);
+const moodReadSource = moodTagFilter ? 'archive' : resolveMoodReadSource(Astro.locals, requestedMoodReadSource);
 const moodReadFresh = Astro.url.searchParams.has('fresh') || Astro.url.searchParams.has('refresh');
 
 async function loadInitialMoodFeed() {
@@ -54,6 +58,7 @@ async function loadInitialMoodFeed() {
         ...query,
         fresh: moodReadFresh,
         source: moodReadSource,
+        ...(moodTagFilter ? { tag: moodTagFilter, fallback: false } : {}),
       }),
     });
     if (!result.cacheable) {
@@ -67,10 +72,16 @@ async function loadInitialMoodFeed() {
 }
 
 const initialFeed = await loadInitialMoodFeed();
-const firstFeedImage = initialFeed?.posts.find((post) => post.image)?.image ?? '';
-const preloadImages = firstFeedImage
+// Preload the exact media the priority feed element will render (see
+// getMoodFeedPreloadImage): aligns the high-priority fetch with the real LCP.
+const preloadImage = initialFeed
+  ? getMoodFeedPreloadImage(initialFeed.posts, moodFeedAnchorId)
+  : null;
+const preloadImages = preloadImage
   ? [{
-      href: firstFeedImage,
+      href: preloadImage.href,
+      imageSrcSet: preloadImage.imageSrcSet,
+      imageSizes: preloadImage.imageSizes,
     }]
   : [];
 // Skeleton structure: 2 date group cards to match actual content layout
@@ -95,7 +106,15 @@ const skeletonGroups = [
 ];
 ---
 
-<Layout title={title} description={description} rss={rss} oembed={oembed} preloadImages={preloadImages}>
+<Layout
+  title={title}
+  description={description}
+  image="/mood-og.png"
+  imageAlt="Levitating — think, write, whisper"
+  rss={rss}
+  oembed={oembed}
+  preloadImages={preloadImages}
+>
   <!-- Inject page-specific header actions -->
   <script is:inline define:vars={{ rssHref, telegramUrl, turnstileSiteKey }}>
     (() => {
@@ -288,6 +307,7 @@ const skeletonGroups = [
       initialChannel={initialFeed?.channel}
       anchorId={moodFeedAnchorId}
       readSource={moodReadSource}
+      tagFilter={moodTagFilter}
     />
   </main>
   <SubscribePanel variant="mood" id="mood" anchor="right" withTrigger={false} feed={rssHref} turnstileSiteKey={turnstileSiteKey} />
@@ -1188,6 +1208,7 @@ const skeletonGroups = [
     line-height: 1;
     letter-spacing: 0;
     font-variant-numeric: tabular-nums;
+    -webkit-backdrop-filter: blur(8px);
     backdrop-filter: blur(8px);
   }
 
@@ -1203,6 +1224,10 @@ const skeletonGroups = [
     height: auto;
     display: block;
     transition: transform 0.2s ease;
+  }
+
+  :global(.mood-item-thumb:not(.mood-item-thumb--sticker) img) {
+    box-shadow: inset 0 0 0 1px hsl(var(--foreground) / 0.1);
   }
 
   :global(.mood-item-thumb.mood-item-thumb--sticker) {
@@ -1403,6 +1428,13 @@ const skeletonGroups = [
     font-size: 11px;
     color: hsl(var(--muted-foreground) / 0.6);
     align-self: flex-start;
+    text-decoration: none;
+    transition: color 0.15s ease;
+  }
+
+  :global(a.mood-item-tag:hover),
+  :global(a.mood-item-tag:focus-visible) {
+    color: hsl(var(--foreground));
   }
 
   /* Reactions */
@@ -1578,8 +1610,8 @@ const skeletonGroups = [
     overflow-x: hidden;
     overscroll-behavior: contain;
     background: hsl(var(--background) / 0.94);
-    backdrop-filter: blur(20px) saturate(1.4);
     -webkit-backdrop-filter: blur(20px) saturate(1.4);
+    backdrop-filter: blur(20px) saturate(1.4);
     border: 1px solid hsl(var(--foreground) / 0.08);
     border-radius: 16px;
     box-shadow:
@@ -1910,6 +1942,14 @@ const skeletonGroups = [
     padding-top: 16px;
   }
 
+  :global(.mood-load-controls--newer) {
+    padding-top: 0;
+  }
+
+  :global(.mood-load-controls--newer .mood-load-status:empty) {
+    min-height: 0;
+  }
+
   :global(.mood-load-status) {
     font-size: 12px;
     color: hsl(var(--muted-foreground));
@@ -1955,8 +1995,8 @@ const skeletonGroups = [
     border: 1px solid hsl(var(--foreground) / 0.08);
     border-radius: 9px;
     background: hsl(var(--background) / 0.8);
-    backdrop-filter: blur(12px) saturate(1.3);
     -webkit-backdrop-filter: blur(12px) saturate(1.3);
+    backdrop-filter: blur(12px) saturate(1.3);
     box-shadow: 0 2px 12px hsl(0 0% 0% / 0.06);
     overflow: hidden;
     will-change: transform, opacity;
@@ -1971,8 +2011,8 @@ const skeletonGroups = [
     border-color: transparent;
     background: transparent;
     box-shadow: none;
-    backdrop-filter: none;
     -webkit-backdrop-filter: none;
+    backdrop-filter: none;
     overflow: visible;
   }
 
@@ -2229,4 +2269,10 @@ const skeletonGroups = [
   import { initMoodFeedController } from '@/features/mood/client/feed-controller';
 
   initMoodFeedController();
+</script>
+
+<script>
+  import { initMoodSearchPanel } from '@/features/mood/client/search-panel';
+
+  initMoodSearchPanel();
 </script>

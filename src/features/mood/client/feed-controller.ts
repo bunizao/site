@@ -6,6 +6,7 @@ import { createFeedUpdateWatcher } from '@/features/mood/client/feed-update-watc
 import { initMoodGalleries } from '@/features/mood/client/gallery';
 import { createMoodMetaPatcher } from '@/features/mood/client/meta-patcher';
 import { hydrateMoodRichText } from '@/features/mood/client/rich-text';
+import { formatMoodDateKey, rekeyMoodServerRenderedGroups } from '@/features/mood/shared/date-grouping';
 import {
   getMoodFeedAnchorBeforeCursor,
   getMoodFeedAnchorWindowBeforeCursor,
@@ -37,6 +38,8 @@ export function initMoodFeedController(): void {
     const updateNoticeTextEl = document.querySelector('[data-mood-update-text]') as HTMLElement | null;
     const updateRefreshBtn = document.querySelector('[data-mood-update-refresh]') as HTMLButtonElement | null;
     const loadRetryButton = document.querySelector('[data-mood-load-retry]') as HTMLButtonElement | null;
+    const newerStatus = document.querySelector('[data-mood-newer-status]');
+    const newerRetryButton = document.querySelector('[data-mood-newer-retry]') as HTMLButtonElement | null;
     const initialRetryButton = document.querySelector('[data-mood-initial-retry]') as HTMLButtonElement | null;
     const ALWAYS_LOADING = import.meta.env.PUBLIC_DEBUG_ALWAYS_LOADING === 'true';
     const ANCHOR_COMPENSATION_MAX_MS = 2600;
@@ -93,14 +96,7 @@ export function initMoodFeedController(): void {
         }
       };
 
-      const formatDateKey = (value: string): string => {
-        const date = new Date(value);
-        if (Number.isNaN(date.getTime())) return '';
-        const year = date.getFullYear();
-        const month = String(date.getMonth() + 1).padStart(2, '0');
-        const day = String(date.getDate()).padStart(2, '0');
-        return `${year}-${month}-${day}`;
-      };
+      const formatDateKey = (value: string): string => formatMoodDateKey(value);
       const moodIdSet = new Set<string>();
       let totalCount = 0;
       let newestNumericId = Number.NEGATIVE_INFINITY;
@@ -109,7 +105,10 @@ export function initMoodFeedController(): void {
       let oldestNumericId = Number.POSITIVE_INFINITY;
       let oldestId = '';
       let fallbackOldestId = '';
-      const feedAnchorId = getMoodFeedAnchorId();
+      // Tag mode: plain filtered feed. No anchors, and the update watcher stays
+      // off (its probe checks channel-latest, meaningless under a tag filter).
+      const feedTagFilter = feedEl.dataset.moodTag?.trim() ?? '';
+      const feedAnchorId = feedTagFilter ? '' : getMoodFeedAnchorId();
       let feedAnchorHandled = !feedAnchorId;
       let feedAnchorRevealInFlight = false;
       type AnchorPaginationDirection = 'newer' | 'older';
@@ -135,6 +134,7 @@ export function initMoodFeedController(): void {
         updateRefreshBtn,
         isLoading: () => isLoading,
         getTotalCount: () => totalCount,
+        readSource: feedEl.dataset.moodReadSource,
       });
       const metaPatcher = createMoodMetaPatcher({
         root: feedEl,
@@ -227,7 +227,12 @@ export function initMoodFeedController(): void {
         if (options.afterId) {
           query.set('after', options.afterId);
         }
-        const archiveRead = feedEl.dataset.moodReadSource === 'archive';
+        if (feedTagFilter) {
+          query.set('tag', feedTagFilter);
+        }
+        // Tag filtering only exists on the archive route; tag mode always SSRs
+        // with readSource=archive, so both flags agree here.
+        const archiveRead = feedEl.dataset.moodReadSource === 'archive' || Boolean(feedTagFilter);
         if (archiveRead) {
           query.set('fallback', '0');
         }
@@ -280,6 +285,14 @@ export function initMoodFeedController(): void {
 
       const setLoadRetryVisible = (visible: boolean): void => {
         if (loadRetryButton) loadRetryButton.hidden = !visible;
+      };
+
+      const setNewerStatus = (message: string): void => {
+        if (newerStatus) newerStatus.textContent = message;
+      };
+
+      const setNewerRetryVisible = (visible: boolean): void => {
+        if (newerRetryButton) newerRetryButton.hidden = !visible;
       };
 
       const setLoadingState = (loading: boolean): void => {
@@ -718,7 +731,7 @@ export function initMoodFeedController(): void {
       };
 
       const startUpdateWatcher = (): void => {
-        if (!feedAnchorId) {
+        if (!feedAnchorId && !feedTagFilter) {
           updateWatcher.start();
         }
       };
@@ -727,6 +740,10 @@ export function initMoodFeedController(): void {
       const serverRenderedCount = list.querySelectorAll('.mood-item[data-mood-id]').length;
       if (serverRenderedCount > 0) {
         totalCount = serverRenderedCount;
+        // SSR grouped posts by UTC day; regroup them under the visitor's local
+        // timezone so per-post times read local and later client appends merge
+        // into the same date groups. Runs before any append or anchor reveal.
+        rekeyMoodServerRenderedGroups(list);
         mediaHydrator.applyMediaHints(list);
         initMoodGalleries(list);
       }
@@ -1115,6 +1132,8 @@ export function initMoodFeedController(): void {
         }
 
         isLoadingNewer = true;
+        setNewerStatus('');
+        setNewerRetryVisible(false);
 
         try {
           const data = await fetchMoods({ afterId: currentNewestId });
@@ -1140,6 +1159,8 @@ export function initMoodFeedController(): void {
           prependMoods(ready);
         } catch (error) {
           console.error(error);
+          setNewerStatus('Unable to load newer moods.');
+          setNewerRetryVisible(true);
         } finally {
           isLoadingNewer = false;
         }
@@ -1197,9 +1218,10 @@ export function initMoodFeedController(): void {
           loadButton.addEventListener('click', loadMore);
         }
         loadRetryButton?.addEventListener('click', loadMore);
+        newerRetryButton?.addEventListener('click', loadNewer);
         initialRetryButton?.addEventListener('click', () => window.location.reload());
 
-        if (!feedAnchorId) {
+        if (!feedAnchorId && !feedTagFilter) {
           updateWatcher.init();
         }
         const scheduleCurrentUrlFeedAnchorReveal = (
@@ -1215,6 +1237,7 @@ export function initMoodFeedController(): void {
             resetAnchorPaginationObservers();
             armAnchorNewerObserver({ trackScroll: false });
             armAnchorOlderObserver({ trackScroll: false });
+            updateWatcher.resume();
             if (!applyAnchorPaginationIntent(consumePendingAnchorIntent())) {
               scheduleCurrentUrlFeedAnchorReveal({ trackPagination: true });
             }

@@ -9,11 +9,13 @@ interface FeedUpdateWatcherOptions {
   updateRefreshBtn: HTMLButtonElement | null;
   isLoading: () => boolean;
   getTotalCount: () => number;
+  readSource?: string;
 }
 
 interface FeedUpdateWatcherController {
   init(): void;
   start(): void;
+  resume(): void;
   syncLatestSeenId(): void;
 }
 
@@ -24,6 +26,22 @@ const AUTO_REFRESH_CANCEL_SCROLL_Y = 220;
 const REFRESH_LABEL_IDLE = 'Refresh';
 const REFRESH_LABEL_PENDING = 'Refreshing...';
 
+/**
+ * Build the freshness-probe request for the active read source. Archive reads
+ * use the D1-backed v2 probe (edge-cached ~30s); the live v1 route needs
+ * fresh=1 to bypass its server cache. Sending fresh=1 to the archive would
+ * defeat its cache, so it is scoped to the live source only.
+ */
+export function buildMoodProbeUrl(readSource?: string): string {
+  const isArchive = readSource?.trim().toLowerCase() === 'archive';
+  const query = new URLSearchParams({ probe: '1' });
+  if (isArchive) {
+    return `/api/v2/mood?${query}`;
+  }
+  query.set('fresh', '1');
+  return `/api/moods?${query}`;
+}
+
 export function createFeedUpdateWatcher({
   list,
   updateNoticeEl,
@@ -31,6 +49,7 @@ export function createFeedUpdateWatcher({
   updateRefreshBtn,
   isLoading,
   getTotalCount,
+  readSource,
 }: FeedUpdateWatcherOptions): FeedUpdateWatcherController {
   let latestSeenId = '';
   let pendingUpdateId = '';
@@ -311,11 +330,7 @@ export function createFeedUpdateWatcher({
   };
 
   const fetchLatestMoodId = async (): Promise<string> => {
-    const query = new URLSearchParams({
-      probe: '1',
-      fresh: '1',
-    });
-    const response = await fetch(`/api/moods?${query}`, {
+    const response = await fetch(buildMoodProbeUrl(readSource), {
       cache: 'no-store',
       headers: {
         'Cache-Control': 'no-cache',
@@ -466,12 +481,21 @@ export function createFeedUpdateWatcher({
       { passive: true }
     );
 
-    window.addEventListener('beforeunload', clearUpdatePollTimer, { once: true });
+    // Use pagehide (not beforeunload) so a bfcache-suspended page tears the
+    // timer down; resume() re-arms it on pageshow(persisted).
+    window.addEventListener('pagehide', clearUpdatePollTimer);
+  };
+
+  const resume = (): void => {
+    if (!started) return;
+    scheduleNextUpdateCheck();
+    void checkForUpdates();
   };
 
   return {
     init,
     start,
+    resume,
     syncLatestSeenId,
   };
 }

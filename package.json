@@ -6,6 +6,11 @@
   "workspaces": [
     "packages/*"
   ],
+  "browserslist": [
+    "defaults",
+    "safari >= 15",
+    "ios_saf >= 15"
+  ],
   "scripts": {
     "dev": "ASTRO_DEV_BACKGROUND=0 astro dev",
     "dev:site": "ASTRO_DEV_BACKGROUND=0 astro dev",
@@ -67,7 +72,6 @@
     "wrangler": "^4.107.1"
   },
   "dependencies": {
-    "@astrojs/starlight": "^0.41.3",
     "@bunizao/contracts": "workspace:*",
     "@bunizao/decode-text": "workspace:*",
     "@chenglou/pretext": "^0.0.8",
@@ -97,6 +101,7 @@
     "prismjs-components-importer": "^0.2.0",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
+    "recharts": "^3.9.2",
     "shiki": "^4.2.0",
     "slot-text": "^0.3.2",
     "tailwind-merge": "^3.6.0"

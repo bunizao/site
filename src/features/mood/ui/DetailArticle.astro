@@ -1,6 +1,7 @@
 ---
 import type { MoodContentDocument } from '@bunizao/contracts';
 import CommentsSection from '@/features/mood/ui/CommentsSection.astro';
+import { getMoodTagHref } from '@/features/mood/shared/tag-filter';
 import { getMoodReactionKey } from '@/features/mood/client/meta-patcher';
 
 interface Props {
@@ -44,7 +45,7 @@ const postReactions = post?.reactions ?? [];
         {postTags.length > 0 && (
           <div class="mood-post-tags">
             {postTags.map((tag) => (
-              <span class="mood-post-tag">#{tag}</span>
+              <a class="mood-post-tag" href={getMoodTagHref(tag)}>#{tag}</a>
             ))}
           </div>
         )}
@@ -440,6 +441,7 @@ const postReactions = post?.reactions ?? [];
     border-radius: 6px;
     transition: all 0.15s ease;
     border: 1px solid hsl(var(--foreground) / 0.06);
+    text-decoration: none;
   }
 
   .mood-post-tag:hover {
@@ -715,6 +717,10 @@ const postReactions = post?.reactions ?? [];
     aspect-ratio: var(--image-width, 1) / var(--image-height, 1);
   }
 
+  .mood-post-content :global(.image-preview-wrap img:not(.sticker)) {
+    box-shadow: inset 0 0 0 1px hsl(var(--foreground) / 0.1);
+  }
+
   .mood-post-content :global(.image-preview-wrap img[width][height]) {
     aspect-ratio: attr(width) / attr(height);
   }
@@ -756,6 +762,11 @@ const postReactions = post?.reactions ?? [];
     height: auto;
   }
 
+  .mood-post-content :global(.rich-content-media:not(.rich-content-media--sticker) img) {
+    border-radius: 12px;
+    box-shadow: inset 0 0 0 1px hsl(var(--foreground) / 0.1);
+  }
+
   .mood-post-content :global(.rich-content-media--sticker) {
     width: min(100%, 256px);
     max-width: 256px;
@@ -794,6 +805,7 @@ const postReactions = post?.reactions ?? [];
     display: none;
     border: none;
     background: hsl(var(--background) / 0.95);
+    -webkit-backdrop-filter: blur(10px);
     backdrop-filter: blur(10px);
     padding: 20px;
     max-width: 90vw;
@@ -930,6 +942,7 @@ const postReactions = post?.reactions ?? [];
     line-height: 1;
     letter-spacing: 0;
     font-variant-numeric: tabular-nums;
+    -webkit-backdrop-filter: blur(8px);
     backdrop-filter: blur(8px);
   }
 

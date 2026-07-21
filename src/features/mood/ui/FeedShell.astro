@@ -10,7 +10,15 @@ import {
   getMoodFeedNavigationId,
 } from '@/features/mood/shared/feed-anchor';
 import { getCriticalInitialPosts, hasRenderableMoodFeedMedia } from '@/features/mood/shared/initial-feed';
+import {
+  formatMoodDateHeader,
+  formatMoodDateKey,
+  formatMoodTime,
+} from '@/features/mood/shared/date-grouping';
+import { buildArchiveSrcSet } from '@/features/mood/shared/image-srcset';
+import { getMoodTagHref, normalizeMoodTagSlug } from '@/features/mood/shared/tag-filter';
 import { getMoodReactionKey } from '@/features/mood/client/meta-patcher';
+import { serializeScriptJson } from '@/lib/serialize-script-json';
 
 interface SkeletonItem {
   index: number;
@@ -29,6 +37,7 @@ interface Props {
   initialChannel?: MoodChannelSummary;
   anchorId?: string;
   readSource?: 'live' | 'archive';
+  tagFilter?: string;
 }
 
 const {
@@ -37,7 +46,10 @@ const {
   initialChannel,
   anchorId = '',
   readSource = 'live',
+  tagFilter = '',
 } = Astro.props;
+
+const activeTagFilter = normalizeMoodTagSlug(tagFilter);
 
 const criticalInitialPosts = getCriticalInitialPosts(initialPosts, anchorId);
 const criticalDateGroups = groupPostsByDate(criticalInitialPosts);
@@ -62,61 +74,12 @@ const initialFeedPayload = {
   anchorId: anchorId || undefined,
 };
 const hasInitialFeedPayload = initialPosts.length > 0 || Boolean(initialChannel);
-
-function formatTime(value: string): string {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '';
-  return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
-}
-
-function formatDateKey(value: string): string {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '';
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-}
-
-function formatDateHeader(dateKey: string): string {
-  const [year, month, day] = dateKey.split('-').map(Number);
-  const date = new Date(year, month - 1, day);
-  const now = new Date();
-  const yesterday = new Date(now);
-  yesterday.setDate(yesterday.getDate() - 1);
-
-  const isSameDay = (candidate: Date, target: Date) => (
-    candidate.getFullYear() === target.getFullYear()
-    && candidate.getMonth() === target.getMonth()
-    && candidate.getDate() === target.getDate()
-  );
-
-  if (isSameDay(date, now)) return 'Today';
-  if (isSameDay(date, yesterday)) return 'Yesterday';
-
-  const months = [
-    'January',
-    'February',
-    'March',
-    'April',
-    'May',
-    'June',
-    'July',
-    'August',
-    'September',
-    'October',
-    'November',
-    'December',
-  ];
-
-  if (date.getFullYear() === now.getFullYear()) {
-    return `${months[date.getMonth()]} ${date.getDate()}`;
-  }
-
-  return `${months[date.getMonth()]} ${date.getDate()}, ${date.getFullYear()}`;
-}
+const initialFeedPayloadJson = serializeScriptJson(initialFeedPayload);
 
 function groupPostsByDate(posts: MoodFeedItem[]): Array<{ dateKey: string; posts: MoodFeedItem[] }> {
   const groups = new Map<string, MoodFeedItem[]>();
   posts.forEach((post) => {
-    const dateKey = formatDateKey(post.datetime);
+    const dateKey = formatMoodDateKey(post.datetime);
     if (!dateKey) return;
     if (!groups.has(dateKey)) {
       groups.set(dateKey, []);
@@ -276,6 +239,14 @@ function shouldHideQuoteAuthor(value?: string): boolean {
 <div class="mood-page">
   <Hero initialChannel={initialChannel} />
 
+  {activeTagFilter && (
+    <div class="mood-tag-filter" data-mood-tag-filter>
+      <span class="mood-tag-filter-label">Filtering by</span>
+      <span class="mood-tag-filter-tag">#{activeTagFilter}</span>
+      <a class="mood-tag-filter-clear" href="/mood">All moods</a>
+    </div>
+  )}
+
   <div class={`mood-loading${hasCriticalInitialPosts ? ' is-hidden' : ''}`} data-mood-loading>
     <div class="mood-skeleton-stream" aria-hidden="true">
       {skeletonGroups.map((group) => (
@@ -315,16 +286,23 @@ function shouldHideQuoteAuthor(value?: string): boolean {
     data-mood-feed
     data-mood-anchor-id={anchorId || undefined}
     data-mood-read-source={readSource}
+    data-mood-tag={activeTagFilter || undefined}
   >
     {hasInitialFeedPayload && (
-      <script is:inline type="application/json" data-mood-initial-feed set:html={JSON.stringify(initialFeedPayload)}></script>
+      <script is:inline type="application/json" data-mood-initial-feed set:html={initialFeedPayloadJson}></script>
     )}
     {anchorId && <div class="mood-sentinel mood-sentinel--newer" data-mood-newer-sentinel aria-hidden="true"></div>}
+    {anchorId && (
+      <div class="mood-load-controls mood-load-controls--newer">
+        <p class="mood-load-status" data-mood-newer-status aria-live="polite"></p>
+        <button class="mood-load-retry" type="button" data-mood-newer-retry hidden>Retry</button>
+      </div>
+    )}
     <div class="mood-stream" data-mood-list role="region" aria-label="Mood feed">
       {criticalDateGroups.map((group) => (
         <div class="mood-date-group" data-date={group.dateKey}>
           <div class="mood-date-header">
-            <span class="mood-date-text">{formatDateHeader(group.dateKey)}</span>
+            <span class="mood-date-text">{formatMoodDateHeader(group.dateKey)}</span>
             <div class="mood-date-line"></div>
           </div>
           <div class="mood-date-items">
@@ -345,6 +323,7 @@ function shouldHideQuoteAuthor(value?: string): boolean {
               const thumbWidth = isTooBigVideoPreview ? (post.imageWidth ?? tooBigVideoMedia?.width ?? null) : post.imageWidth;
               const thumbHeight = isTooBigVideoPreview ? (post.imageHeight ?? tooBigVideoMedia?.height ?? null) : post.imageHeight;
               const hasGalleryPreview = !hasStructuredMedia && !mediaHtml && !isTooBigVideoPreview && (post.gallery?.items.length ?? 0) > 1;
+              const thumbResponsive = thumbImage ? buildArchiveSrcSet(thumbImage) : null;
               const fragmentId = getMoodFeedAnchorFragmentId(post.id);
 
               return (
@@ -370,7 +349,7 @@ function shouldHideQuoteAuthor(value?: string): boolean {
                       <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
                     </svg>
                   </a>
-                  <time class="mood-item-time" datetime={post.datetime}>{formatTime(post.datetime)}</time>
+                  <time class="mood-item-time" datetime={post.datetime}>{formatMoodTime(post.datetime)}</time>
                   <div class={`mood-item-content${isTooBigVideoPreview && !post.previewText.trim() && !hasStructuredMedia && !mediaHtml && !post.forwardedFrom && !post.quote ? ' mood-item-content--media-only' : ''}`}>
                     {post.forwardedFrom?.name ? (
                       <div class="mood-item-forwarded">
@@ -469,13 +448,15 @@ function shouldHideQuoteAuthor(value?: string): boolean {
                             loading={isPriorityMedia ? 'eager' : 'lazy'}
                             fetchpriority={isPriorityMedia ? 'high' : undefined}
                             src={thumbImage}
+                            srcset={thumbResponsive?.srcset}
+                            sizes={thumbResponsive?.sizes}
                           />
                         ) : null}
                         {isTooBigVideoPreview ? (
                           <div class="mood-item-thumb-video-overlay" aria-hidden="true">
                             <span class="mood-item-thumb-video-label">Media is too big</span>
                             <span class="mood-item-thumb-video-cta">View details</span>
-                            <time class="mood-item-thumb-video-time" datetime={post.datetime}>{formatTime(post.datetime)}</time>
+                            <time class="mood-item-thumb-video-time" datetime={post.datetime}>{formatMoodTime(post.datetime)}</time>
                           </div>
                         ) : null}
                       </div>
@@ -548,7 +529,7 @@ function shouldHideQuoteAuthor(value?: string): boolean {
                         </div>
                     </div>
 
-                    {post.tag ? <span class="mood-item-tag">#{post.tag}</span> : null}
+                    {post.tag ? <a class="mood-item-tag" href={getMoodTagHref(post.tag)}>#{post.tag}</a> : null}
                   </div>
                 </div>
               );
@@ -624,6 +605,48 @@ function shouldHideQuoteAuthor(value?: string): boolean {
   .mood-error {
     padding: 60px 0;
     text-align: center;
+  }
+
+  .mood-tag-filter {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    max-width: 680px;
+    margin: 0 auto 24px;
+    font-size: 13px;
+  }
+
+  @media (min-width: 1024px) {
+    .mood-tag-filter {
+      max-width: 720px;
+    }
+  }
+
+  .mood-tag-filter-label {
+    color: hsl(var(--muted-foreground) / 0.7);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  .mood-tag-filter-tag {
+    font-weight: 600;
+    color: hsl(var(--foreground));
+  }
+
+  .mood-tag-filter-clear {
+    margin-left: auto;
+    font-size: 12px;
+    color: hsl(var(--muted-foreground));
+    text-decoration: none;
+    border-bottom: 1px solid hsl(var(--foreground) / 0.2);
+    transition: color 0.15s ease, border-color 0.15s ease;
+  }
+
+  .mood-tag-filter-clear:hover,
+  .mood-tag-filter-clear:focus-visible {
+    color: hsl(var(--foreground));
+    border-bottom-color: hsl(var(--foreground) / 0.5);
   }
 
   .mood-error.is-hidden {

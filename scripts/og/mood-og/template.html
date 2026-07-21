@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>mood og</title>
+<style>
+  @font-face {
+    font-family: 'Geist Mono';
+    src: url('https://buxx.me/fonts/geist-mono-variable.woff2') format('woff2-variations');
+    font-weight: 100 900; font-display: block;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  /* Borrowed verbatim from src/styles/blog.css so the avatar edge matches
+     how every image on the blog is treated. */
+  :root { --blog-img-edge: inset 0 0 0 1px rgba(0, 0, 0, .1); }
+  body { background: #222; padding: 24px; }
+
+  .og {
+    width: 1200px; height: 630px; position: relative; overflow: hidden;
+    font-family: 'Geist Mono', ui-monospace, Menlo, monospace;
+    background: #f6f5f2; color: #141414; -webkit-font-smoothing: antialiased;
+  }
+  /* the site's graph-paper dot grid */
+  .og::before {
+    content: ""; position: absolute; inset: 0;
+    background-image: radial-gradient(rgba(0, 0, 0, .06) 1.1px, transparent 1.1px);
+    background-size: 30px 30px; background-position: center;
+  }
+
+  /* lockup — anchored upper-left */
+  .row { position: absolute; top: 158px; left: 112px; z-index: 3; display: flex; align-items: center; gap: 52px; }
+  .ava { width: 220px; height: 220px; border-radius: 50%; object-fit: cover; display: block; flex: none; box-shadow: var(--blog-img-edge); }
+  .text { display: flex; flex-direction: column; gap: 15px; }
+  .wm { font-weight: 600; font-size: 90px; letter-spacing: -.035em; line-height: 1; color: #141414; }
+  .sub { font-weight: 450; font-size: 26px; color: #8c8c8c; }
+
+  /* signature — anchored lower-right, peek sticker in the corner */
+  .sign { position: absolute; bottom: 50px; right: 58px; z-index: 4; display: flex; align-items: center; gap: 15px; }
+  .sign span { font-size: 22px; font-weight: 500; letter-spacing: .05em; color: #3a3a3a; }
+  .sign .peek { height: 62px; width: auto; display: block; filter: drop-shadow(0 3px 6px rgba(0, 0, 0, .12)); }
+</style>
+</head>
+<body>
+<div class="og" id="card">
+  <div class="row">
+    <img class="ava" src="./avatar.png" alt="" />
+    <div class="text">
+      <div class="wm">Levitating</div>
+      <div class="sub">think, write, whisper</div>
+    </div>
+  </div>
+  <div class="sign"><span>buxx.me/mood</span><img class="peek" src="./coding.svg" alt="" /></div>
+</div>
+<script>window.__ready = true;</script>
+</body>
+</html>
