@@ -66,14 +66,15 @@ export const GET: APIRoute = async ({ site }) => {
     '',
     '## Now',
     '',
-    ...experience
+    ...experience.reduce<string[]>((items, item) => {
       // Skip the tongue-in-cheek "subscriber" entries — a model reading this
       // shouldn't report them as real roles.
-      .filter((item) => !item.joke)
-      .map((item) => {
+      if (!item.joke) {
         const detail = item.role ?? item.description ?? '';
-        return `- ${item.org} (${item.period})${detail ? ` — ${detail}` : ''}`;
-      }),
+        items.push(`- ${item.org} (${item.period})${detail ? ` — ${detail}` : ''}`);
+      }
+      return items;
+    }, []),
     '',
     '## Recent writing',
     '',
