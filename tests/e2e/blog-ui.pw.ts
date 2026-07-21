@@ -113,10 +113,10 @@ test.describe('Blog reading UI', () => {
     await expect(masthead).not.toContainText('Iris Zhang');
     await expect(masthead).not.toContainText('Sam Lin');
 
-    const searchButton = page.getByRole('button', { name: '搜索文章' });
+    const searchButton = page.getByRole('button', { name: 'Search and commands' });
     await expect(searchButton).toBeVisible();
     await searchButton.click();
-    const searchDialog = page.locator('[data-blog-search]');
+    const searchDialog = page.getByRole('dialog', { name: 'Site search and commands' });
     await expect(searchDialog).toBeVisible();
     await expect(searchDialog).toHaveAttribute('open', '');
     await page.keyboard.press('Escape');

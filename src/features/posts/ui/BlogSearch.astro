@@ -12,9 +12,24 @@
 // pages/blog/[slug].astro) and built with `--force-language zh` so Chinese
 // body text is word-segmented; without it a mis-detected `en` index makes CJK
 // prose unsearchable and excerpts inconsistent.
+interface Props {
+  useGlobalPalette?: boolean;
+}
+
+const { useGlobalPalette = false } = Astro.props;
 ---
 
-<button class="blog-search-trigger" type="button" data-blog-search-open aria-label="搜索文章" title="搜索文章（⌘K）" aria-keyshortcuts="Control+K Meta+K">
+<button
+  class="blog-search-trigger"
+  type="button"
+  data-blog-search-open
+  data-command-open={useGlobalPalette ? true : undefined}
+  aria-label={useGlobalPalette ? 'Search and commands' : '搜索文章'}
+  title={useGlobalPalette ? 'Search and commands (⌘K)' : '搜索文章（⌘K）'}
+  aria-keyshortcuts="Control+K Meta+K"
+  aria-haspopup="dialog"
+  aria-controls={useGlobalPalette ? 'site-command-palette' : undefined}
+>
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
     <circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" />
   </svg>
@@ -34,6 +49,7 @@
   const dialog = document.querySelector<HTMLDialogElement>('[data-blog-search]');
 
   if (trigger && dialog) {
+    const usesGlobalPalette = trigger.hasAttribute('data-command-open');
     const mount = dialog.querySelector<HTMLElement>('#blog-search-ui');
     const fallback = dialog.querySelector<HTMLElement>('.blog-search__fallback');
     let ready: Promise<void> | null = null;
@@ -90,15 +106,21 @@
       return ready;
     }
 
-    const focusInput = () => {
-      mount?.querySelector<HTMLInputElement>('input')?.focus();
+    const focusInput = (query = '') => {
+      const input = mount?.querySelector<HTMLInputElement>('input');
+      if (!input) return;
+      if (query) {
+        input.value = query;
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+      }
+      input.focus();
     };
 
-    const open = async () => {
+    const open = async (query = '') => {
       if (!dialog.open) dialog.showModal();
       try {
         await ensureUI();
-        focusInput();
+        focusInput(query);
       } catch {
         /* fallback already shown */
       }
@@ -108,7 +130,9 @@
       if (dialog.open) dialog.close();
     };
 
-    trigger.addEventListener('click', open);
+    if (!usesGlobalPalette) {
+      trigger.addEventListener('click', () => void open());
+    }
 
     // Backdrop click closes (the inner panel stops propagation by being a child;
     // clicks that land on the dialog box itself are outside the panel).
@@ -145,8 +169,9 @@
     document.addEventListener('keydown', (event) => {
       const key = event.key.toLowerCase();
       if ((event.metaKey || event.ctrlKey) && key === 'k') {
+        if (usesGlobalPalette) return;
         event.preventDefault();
-        dialog.open ? close() : open();
+        dialog.open ? close() : void open();
         return;
       }
       // Bare "/" is a classic search shortcut; ignore it while typing elsewhere.
@@ -155,6 +180,18 @@
         open();
       }
     });
+
+    // Deep link from the site-wide command palette ("Search all posts…").
+    // Strip the param after opening so reload/back doesn't reopen the dialog.
+    const searchParams = new URLSearchParams(window.location.search);
+    if (searchParams.get('search') === '1') {
+      const query = searchParams.get('q')?.trim() ?? '';
+      const url = new URL(window.location.href);
+      url.searchParams.delete('search');
+      url.searchParams.delete('q');
+      history.replaceState(history.state, '', url);
+      void open(query);
+    }
   }
 </script>
 

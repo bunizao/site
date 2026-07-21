@@ -34,6 +34,8 @@ import '../styles/globals.css';
 import '../features/mood/styles/feed-rich-text.css';
 import { Moon, Sun, Monitor, Menu, X } from 'lucide-react';
 import AnimatedLogo from '@/features/logos/ui/AnimatedLogo.astro';
+import CommandPalette from '@/components/CommandPalette.astro';
+import SearchButton from '@/components/SearchButton.astro';
 import {
   PEEK_NAVBAR_LOGO,
   getPeekRuntimeSlot,
@@ -335,6 +337,7 @@ const preloadFontHref = preloadFont === 'sans'
       ]}
       data-header-actions
     >
+      <SearchButton />
       <div class="theme-dropdown" data-theme-dropdown>
         <button class="header-action-btn" type="button" data-theme-toggle aria-label="Switch theme" aria-haspopup="true" aria-expanded="false">
           <span class="theme-icon-container">
@@ -385,6 +388,8 @@ const preloadFontHref = preloadFont === 'sans'
     <div class="site-shell">
       <slot />
     </div>
+
+    <CommandPalette />
 
     <script>
       (() => {

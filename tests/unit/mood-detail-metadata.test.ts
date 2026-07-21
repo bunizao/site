@@ -58,7 +58,7 @@ describe('buildMoodDetailMetadata', () => {
     expect(metadata.imageHeight).toBeNull();
   });
 
-  test('uses bookmark descriptions before short link captions', () => {
+  test('uses bookmark descriptions and the mood card for text-only posts', () => {
     const post = createPost({
       id: '3539',
       previewText: 'https://x.com/dviolettchan/status/2060659248959299645\n\n看哭了',
