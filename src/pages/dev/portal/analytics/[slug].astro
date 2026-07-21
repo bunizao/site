@@ -1,6 +1,7 @@
 ---
 import PortalLayout from '@/layouts/PortalLayout.astro';
-import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/coss';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/coss';
+import { buttonVariants } from '@/components/coss/button';
 import { Activity, ArrowLeft, Gauge, Globe2, MousePointer2 } from 'lucide-react';
 import { BLOG_ANALYTICS_RANGE_OPTIONS } from '@bunizao/contracts/analytics';
 import { loadArticleAnalytics } from '@/features/admin/server/portal-client';
@@ -73,11 +74,13 @@ const breakdowns = detail
   </div>
 
   <div class="portal-stack">
-    <Button
-      variant="ghost"
-      size="sm"
-      render={<a href={`/dev/portal/analytics?days=${rangeDays}`}><ArrowLeft className="size-3.5" /> Back to analytics</a>}
-    />
+    <a
+      href={`/dev/portal/analytics?days=${rangeDays}`}
+      class={`${buttonVariants({ variant: 'ghost', size: 'sm' })} self-start`}
+      data-astro-prefetch="false"
+    >
+      <ArrowLeft className="size-3.5" /> Back to analytics
+    </a>
 
     {!detail ? (
       <Card>
