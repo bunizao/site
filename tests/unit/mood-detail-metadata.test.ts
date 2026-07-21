@@ -58,7 +58,7 @@ describe('buildMoodDetailMetadata', () => {
     expect(metadata.imageHeight).toBeNull();
   });
 
-  test('uses bookmark descriptions before short link captions', () => {
+  test('uses bookmark descriptions and the mood card for text-only posts', () => {
     const post = createPost({
       id: '3539',
       previewText: 'https://x.com/dviolettchan/status/2060659248959299645\n\n看哭了',
@@ -81,7 +81,10 @@ describe('buildMoodDetailMetadata', () => {
 
     expect(metadata.description).toBe('紫雪风老师屡次劝退 CS，总有推油觉得我是在恶意贩卖焦虑。');
     expect(metadata.description).not.toContain('https://x.com');
-    expect(metadata.image).toBeUndefined();
+    expect(metadata.image).toBe('/mood-og.png');
+    expect(metadata.imageAlt).toBe('Levitating — think, write, whisper');
+    expect(metadata.imageWidth).toBe(1200);
+    expect(metadata.imageHeight).toBe(630);
   });
 
   test('keeps not found copy only for missing posts', () => {
