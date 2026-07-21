@@ -108,7 +108,7 @@ test.describe('Blog routes', () => {
     await openBlogIndex(page);
 
     await expect(page.locator('.blog-masthead__wordmark')).toBeVisible();
-    await expect(page.getByRole('button', { name: '搜索文章' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Search and commands' })).toBeVisible();
 
     const yearGroups = page.locator('.blog-year');
     await expect(yearGroups.first()).toBeVisible();
@@ -124,9 +124,9 @@ test.describe('Blog routes', () => {
     );
     expect(firstPostHref).toMatch(BLOG_POST_PATH_RE);
 
-    await page.getByRole('button', { name: '搜索文章' }).click();
+    await page.getByRole('button', { name: 'Search and commands' }).click();
 
-    const searchDialog = page.locator('[data-blog-search]');
+    const searchDialog = page.getByRole('dialog', { name: 'Site search and commands' });
     await expect(searchDialog).toBeVisible();
     await expect(searchDialog).toHaveJSProperty('open', true);
   });
