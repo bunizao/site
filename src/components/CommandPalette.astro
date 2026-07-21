@@ -160,6 +160,7 @@ const navKeywords: Record<string, string> = {
           class="cmdk-item"
           role="option"
           data-command-item
+          data-command-pagefind
           data-haystack="search all posts full-text pagefind 搜索 全文"
           href="/blog/?search=1"
         >
@@ -254,6 +255,7 @@ const navKeywords: Record<string, string> = {
     const input = dialog.querySelector<HTMLInputElement>('[data-command-input]');
     const groups = Array.from(dialog.querySelectorAll<HTMLElement>('[data-command-group]'));
     const aiLinks = Array.from(dialog.querySelectorAll<HTMLAnchorElement>('[data-command-ai]'));
+    const pagefindLink = dialog.querySelector<HTMLAnchorElement>('[data-command-pagefind]');
     const postsMount = dialog.querySelector<HTMLElement>('[data-command-posts]');
     const aiContext = dialog.dataset.aiContext ?? '';
     const aiQueryEcho = dialog.querySelector<HTMLElement>('[data-ai-query]');
@@ -280,7 +282,21 @@ const navKeywords: Record<string, string> = {
       segButtons.forEach((b) => b.setAttribute('aria-checked', String(b.dataset.themeSeg === cur)));
     };
     const setTheme = (theme: string) => {
-      document.querySelector<HTMLElement>(`[data-theme-option="${theme}"]`)?.click();
+      const option = document.querySelector<HTMLElement>(`[data-theme-option="${theme}"]`);
+      if (option) {
+        option.click();
+      } else {
+        const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        const isDark = theme === 'dark' || (theme === 'system' && prefersDark);
+        document.documentElement.dataset.themeSetting = theme;
+        document.documentElement.classList.toggle('dark', isDark);
+        try {
+          if (theme === 'system') localStorage.removeItem('theme');
+          else localStorage.setItem('theme', theme);
+        } catch {
+          // Keep the in-memory theme when storage is unavailable.
+        }
+      }
       syncSegments();
     };
     const moveSegment = (dir: number) => {
@@ -334,7 +350,7 @@ const navKeywords: Record<string, string> = {
     // Question first, context second — the model reads the ask, then grounds it
     // in the site. With no query, give it a real default task instead of a bare
     // context blurb (which would open the assistant with nothing to answer).
-    const updateAiLinks = (query: string) => {
+    const updateQueryTargets = (query: string) => {
       const text = query
         ? `${query}\n\n${aiContext}`
         : `Give me a quick tour of this site — who Lucian is, what he's building, and what he writes about.\n\n${aiContext}`;
@@ -342,6 +358,12 @@ const navKeywords: Record<string, string> = {
         const base = a.dataset.aiBase;
         if (base) a.href = base + encodeURIComponent(text);
       });
+      if (pagefindLink) {
+        const url = new URL(pagefindLink.href);
+        if (query) url.searchParams.set('q', query);
+        else url.searchParams.delete('q');
+        pagefindLink.href = `${url.pathname}${url.search}`;
+      }
       // Echo the typed question next to the "Ask AI" heading so the rows read as
       // "ask THIS", not a generic export. Empty query → the label stays bare.
       if (aiQueryEcho) aiQueryEcho.textContent = query ? `“${query}”` : '';
@@ -355,6 +377,11 @@ const navKeywords: Record<string, string> = {
           scored.delete(el);
           return;
         }
+        if (el.hasAttribute('data-command-pagefind')) {
+          el.hidden = false;
+          scored.delete(el);
+          return;
+        }
         const match = matchScore(query, el.dataset.haystack ?? '') > 0;
         el.hidden = !match;
         if (query && match) scored.add(el);
@@ -364,7 +391,11 @@ const navKeywords: Record<string, string> = {
         group.hidden = !group.querySelector('[data-command-item]:not([hidden])');
       });
       visible = items.filter((el) => !el.hidden);
-      const preferred = query ? visible.findIndex((el) => scored.has(el)) : 0;
+      const directMatch = query ? visible.findIndex((el) => scored.has(el)) : 0;
+      const pagefindFallback = query
+        ? visible.findIndex((el) => el.hasAttribute('data-command-pagefind'))
+        : -1;
+      const preferred = directMatch >= 0 ? directMatch : pagefindFallback;
       setActive(preferred >= 0 ? preferred : 0, Boolean(query));
       updateScrims();
     };
@@ -465,7 +496,7 @@ const navKeywords: Record<string, string> = {
     const open = () => {
       if (dialog.open) return;
       input.value = '';
-      updateAiLinks('');
+      updateQueryTargets('');
       syncSegments();
       filter();
       dialog.querySelector('[data-command-list]')?.scrollTo(0, 0);
@@ -477,7 +508,7 @@ const navKeywords: Record<string, string> = {
     };
 
     input.addEventListener('input', () => {
-      updateAiLinks(input.value.trim());
+      updateQueryTargets(input.value.trim());
       filter();
     });
 
@@ -513,7 +544,7 @@ const navKeywords: Record<string, string> = {
       if (input.value) {
         event.preventDefault();
         input.value = '';
-        updateAiLinks('');
+        updateQueryTargets('');
         filter();
       }
     });

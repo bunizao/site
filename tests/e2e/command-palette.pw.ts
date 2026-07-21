@@ -54,6 +54,63 @@ test.describe('Site command palette', () => {
     await expect(page).toHaveURL(/\/mood$/);
   });
 
+  test('carries unmatched queries into the full Writing search', async ({ page }) => {
+    await page.route('**/pagefind/pagefind-ui.js', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/javascript',
+        body: `
+          window.PagefindUI = class {
+            constructor(options) {
+              const input = document.createElement('input');
+              input.className = 'pagefind-ui__search-input';
+              document.querySelector(options.element).appendChild(input);
+            }
+          };
+        `,
+      });
+    });
+
+    await page.goto('/privacy');
+    await page.keyboard.press('Control+K');
+
+    const palette = page.getByRole('dialog', { name: 'Site search and commands' });
+    await palette.getByRole('combobox', { name: 'Search commands' }).fill('deep archive topic');
+
+    const fullSearch = palette.getByRole('option', { name: 'Search all posts…' });
+    await expect(fullSearch).toBeVisible();
+    await expect(fullSearch).toHaveAttribute('aria-selected', 'true');
+    await page.keyboard.press('Enter');
+
+    const blogSearch = page.getByRole('dialog', { name: '搜索文章' });
+    await expect(page).toHaveURL(/\/blog\/?$/);
+    await expect(blogSearch).toBeVisible();
+    await expect(blogSearch.locator('.pagefind-ui__search-input')).toHaveValue('deep archive topic');
+  });
+
+  test('uses the site-wide palette on Writing routes', async ({ page }) => {
+    await page.goto('/blog');
+
+    const trigger = page.getByRole('button', { name: 'Search and commands' });
+    const palette = page.getByRole('dialog', { name: 'Site search and commands' });
+    const blogSearch = page.getByRole('dialog', { name: '搜索文章' });
+
+    await trigger.click();
+    await expect(palette).toBeVisible();
+    await expect(blogSearch).toBeHidden();
+
+    await page.keyboard.press('Control+K');
+    await expect(palette).toBeHidden();
+    await page.keyboard.press('Control+K');
+    await expect(palette).toBeVisible();
+    await expect(blogSearch).toBeHidden();
+
+    await palette.getByRole('combobox', { name: 'Search commands' }).fill('appearance');
+    await page.keyboard.press('ArrowRight');
+    await expect(page.locator('html')).toHaveAttribute('data-theme-setting', 'light');
+    await expect.poll(() => page.evaluate(() => localStorage.getItem('theme'))).toBe('light');
+  });
+
   test('clears a query before Escape closes and restores trigger focus', async ({ page }) => {
     await page.goto('/privacy');
 

@@ -13,6 +13,7 @@ import {
   normalizeBlogMetaText,
 } from '@/features/posts/server/og-image';
 import BlogSearch from '@/features/posts/ui/BlogSearch.astro';
+import CommandPalette from '@/components/CommandPalette.astro';
 import { hasMarkdownRenderer } from '@/features/agent-markdown/server/registry';
 import { BLOG_FAVICON } from '@/lib/favicon';
 
@@ -183,7 +184,7 @@ const paletteCss = [
 
         <div class="blog-topbar__controls">
           <!-- Language toggle (zh/en) slots in here when the bilingual phase lands. -->
-          <BlogSearch />
+          <BlogSearch useGlobalPalette />
           <button
           class="blog-theme-toggle"
           type="button"
@@ -205,6 +206,8 @@ const paletteCss = [
 
       <slot />
     </div>
+
+    <CommandPalette />
 
     <script>
       import { initSubscribePanels } from '@/features/notify/subscribe-panel';
