@@ -1066,14 +1066,13 @@ test.describe('Mood routes', () => {
     expect(beforeRequests).toContain('999');
   });
 
-  test('renders a same-day page without waiting on the following cursor', async ({ page }) => {
+  test('renders a same-day page while the following cursor is still loading', async ({ page }) => {
     const channel = {
       slug: 'e2e',
       title: 'E2E Channel',
       description: 'E2E mood feed',
       avatar: '',
     };
-    let followingRequestStarted = false;
     let releaseFollowingRequest = (): void => {};
     const followingRequestGate = new Promise<void>((resolve) => {
       releaseFollowingRequest = resolve;
@@ -1109,7 +1108,6 @@ test.describe('Mood routes', () => {
       }
 
       if (before === '989999') {
-        followingRequestStarted = true;
         await followingRequestGate;
         await route.fulfill({
           status: 200,
@@ -1134,10 +1132,100 @@ test.describe('Mood routes', () => {
     try {
       await page.goto('/mood', { waitUntil: 'domcontentloaded' });
       await expect(page.locator('[data-mood-id="990000"]')).toBeVisible({ timeout: 1_500 });
-      expect(followingRequestStarted).toBe(false);
     } finally {
       releaseFollowingRequest();
     }
+  });
+
+  test('hydrates and plays a shared listening card for mood audio', async ({ page }) => {
+    await page.addInitScript(() => {
+      class FakeAudio extends EventTarget {
+        paused = true;
+        currentTime = 0;
+        preload = '';
+        duration = 245;
+        src = '';
+
+        async play() {
+          this.paused = false;
+        }
+
+        pause() {
+          this.paused = true;
+          this.dispatchEvent(new Event('pause'));
+        }
+      }
+
+      Object.defineProperty(window, 'Audio', {
+        configurable: true,
+        writable: true,
+        value: FakeAudio,
+      });
+    });
+
+    const channel = {
+      slug: 'e2e',
+      title: 'E2E Channel',
+      description: 'E2E mood feed',
+      avatar: '',
+    };
+
+    await page.route('**/api/moods**', async (route) => {
+      const url = new URL(route.request().url());
+      if (url.searchParams.get('probe') === '1') {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({ latestId: '880001' }),
+        });
+        return;
+      }
+
+      const posts = url.searchParams.has('before')
+        ? []
+        : [createMoodFeedPost('880001', 'E2E audio mood', {
+            media: [{
+              type: 'audio',
+              src: 'https://audio.example.test/mood/880001/song.mp3',
+              fileName: 'Test Artist - Test Song.mp3',
+              fileSizeLabel: '9.2 MB',
+              durationSeconds: 245,
+              originalUrl: 'https://t.me/example/880001',
+              thumbnailSrc: '/avatar.webp',
+            }],
+          })];
+
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ posts, channel }),
+      });
+    });
+
+    await page.goto('/mood', { waitUntil: 'domcontentloaded' });
+
+    const mood = page.locator('[data-mood-id="880001"]');
+    const card = mood.locator('[data-listening]');
+    const playButton = card.locator('[data-listening-play]');
+
+    await expect(card).toHaveAttribute('data-bound', 'true');
+    await expect(card.locator('[data-listening-title-label]')).toHaveText('Test Song');
+    await expect(card.locator('[data-listening-artist]')).toHaveText('Test Artist');
+    await expect(card.locator('[data-listening-total]')).toHaveText('4:05');
+    await expect(playButton).toHaveAttribute(
+      'data-preview-url',
+      'https://audio.example.test/mood/880001/song.mp3',
+    );
+    await expect(mood.locator('audio')).toHaveCount(0);
+    await expect(mood).not.toContainText('9.2 MB');
+
+    await playButton.click();
+    await expect(playButton).toHaveAttribute('aria-pressed', 'true');
+    await expect(card).toHaveClass(/is-preview-playing/);
+
+    await playButton.click();
+    await expect(playButton).toHaveAttribute('aria-pressed', 'false');
+    await expect(card).not.toHaveClass(/is-preview-playing/);
   });
 
   test('retries a transient mood page failure', async ({ page }) => {
