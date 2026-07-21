@@ -5,18 +5,19 @@
    that replace per-page inline styles. */
 
 .theme-portal {
-  /* Type scale — a tool's ramp. Tight steps in the reading range, a couple of
+  /* Type scale — a tool's ramp. A comfortable 14px reading floor (dashboards
+     read close, but 13px strained), micro-labels never below 11px, a couple of
      display sizes for numbers and page titles. Refined within Geist; JetBrains
      Mono (--font-code) carries IDs, keys, and dense numerics. */
-  --portal-text-2xs: 10px;
-  --portal-text-xs: 11px;
-  --portal-text-sm: 12px;
-  --portal-text-base: 13px;
-  --portal-text-md: 14px;
-  --portal-text-lg: 15px;
-  --portal-text-xl: 19px;
-  --portal-text-2xl: 23px;
-  --portal-text-3xl: 29px;
+  --portal-text-2xs: 11px;
+  --portal-text-xs: 12px;
+  --portal-text-sm: 13px;
+  --portal-text-base: 14px;
+  --portal-text-md: 15px;
+  --portal-text-lg: 17px;
+  --portal-text-xl: 20px;
+  --portal-text-2xl: 24px;
+  --portal-text-3xl: 30px;
 
   --portal-leading-tight: 1.12;
   --portal-leading-snug: 1.35;
@@ -362,18 +363,6 @@ html.theme-portal section {
 
 .portal-page {
   padding: 28px 32px 64px;
-  animation: portalPageEnter var(--portal-dur-enter) var(--portal-ease-out) both;
-}
-
-@keyframes portalPageEnter {
-  from {
-    opacity: 0;
-    transform: translateY(4px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
 }
 
 .portal-logout {
@@ -1103,6 +1092,16 @@ a.portal-feed-row:focus-visible,
   animation-timing-function: var(--portal-ease-out);
 }
 
+/* Instant page swaps. Astro's ClientRouter cross-fades the whole document by
+   default — including the persistent sidebar/topbar, which should never move.
+   Killing the root animation makes sidebar navigation feel immediate (the
+   named seg-pill group above keeps its own targeted transition). */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
 /* Section block — eyebrow + title + meta/action, then content. */
 .portal-section-block {
   display: flex;
@@ -1345,40 +1344,14 @@ a.portal-feed-row:focus-visible,
   margin-top: 12px;
 }
 
-/* Staggered entrance — a gentle cascade, 40-50ms apart, under Emil's 300ms
-   ceiling per item. Decorative only; never blocks interaction. */
+/* No page-enter or stagger. Sidebar navigation is a high-frequency action
+   (Emil: "Raycast has no open/close animation — optimal for something used
+   hundreds of times a day"). Under Astro's ClientRouter every swap rebuilds
+   this DOM, so any entrance animation re-fires on every click and reads as
+   viscous. The swap is instant instead; the class stays a harmless no-op so
+   page markup doesn't need touching. */
 .portal-stagger > * {
-  opacity: 0;
-  animation: portalRise 300ms var(--portal-ease-out) forwards;
-}
-.portal-stagger > *:nth-child(1) {
-  animation-delay: 20ms;
-}
-.portal-stagger > *:nth-child(2) {
-  animation-delay: 44ms;
-}
-.portal-stagger > *:nth-child(3) {
-  animation-delay: 68ms;
-}
-.portal-stagger > *:nth-child(4) {
-  animation-delay: 92ms;
-}
-.portal-stagger > *:nth-child(5) {
-  animation-delay: 116ms;
-}
-.portal-stagger > *:nth-child(6) {
-  animation-delay: 140ms;
-}
-
-@keyframes portalRise {
-  from {
-    opacity: 0;
-    transform: translateY(8px);
-  }
-  to {
-    opacity: 1;
-    transform: none;
-  }
+  opacity: 1;
 }
 
 /* ---- Motion + responsive ---- */
