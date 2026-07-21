@@ -119,13 +119,39 @@ html.theme-portal section {
 .portal-sidebar-brand {
   display: flex;
   align-items: center;
-  padding: 0 8px 16px;
+  gap: 10px;
+  padding: 2px 6px 14px;
+  margin-bottom: 6px;
+  border-bottom: 1px solid hsl(var(--border) / 0.55);
 }
 
-.portal-sidebar-brand img {
-  width: 80px;
+.portal-brand-mark {
+  width: 34px;
   height: auto;
+  flex: 0 0 auto;
   image-rendering: -webkit-optimize-contrast;
+}
+
+.portal-brand-word {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.portal-brand-name {
+  font-size: var(--portal-text-md);
+  font-weight: 560;
+  line-height: 1.1;
+  letter-spacing: var(--portal-tracking-title);
+  color: hsl(var(--foreground));
+}
+
+.portal-brand-sub {
+  font-family: var(--font-code);
+  font-size: var(--portal-text-2xs);
+  line-height: 1.1;
+  color: hsl(var(--muted-foreground));
 }
 
 .portal-nav {
@@ -170,7 +196,7 @@ html.theme-portal section {
 }
 
 .portal-sidebar-link:hover {
-  background: var(--portal-surface-2);
+  background: hsl(var(--foreground) / 0.05);
   color: hsl(var(--foreground));
 }
 
@@ -179,24 +205,24 @@ html.theme-portal section {
 }
 
 .portal-sidebar-link[aria-current='page'] {
-  background: var(--portal-surface-2);
+  background: hsl(var(--foreground) / 0.08);
   color: hsl(var(--foreground));
   font-weight: 500;
 }
 
 .portal-sidebar-link[aria-current='page'] svg {
-  color: hsl(var(--primary));
+  color: hsl(var(--portal-chip-accent));
 }
 
 .portal-sidebar-link[aria-current='page']::before {
   content: '';
   position: absolute;
   left: -12px;
-  top: 7px;
-  bottom: 7px;
+  top: 6px;
+  bottom: 6px;
   width: 2px;
   border-radius: 0 2px 2px 0;
-  background: hsl(var(--primary));
+  background: hsl(var(--portal-chip-accent));
   animation: portalNavIndicator 240ms var(--portal-ease) both;
 }
 
@@ -1131,34 +1157,80 @@ a.portal-feed-row:hover,
   }
 }
 
-/* Raw event log — monospace lines in quiet cards. */
+/* Raw event log — a status list: read/partial dot, device icon, slug, meta,
+   source badge, and read time. */
 .portal-log {
   display: grid;
-  gap: 8px;
+  gap: 6px;
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
-.portal-log li {
+.portal-log-row {
   display: grid;
-  gap: 3px;
-  padding: 11px 13px;
-  border-radius: 9px;
-  background: hsl(var(--foreground) / 0.025);
-  box-shadow: inset 0 0 0 1px hsl(var(--border) / 0.55);
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 13px;
+  padding: 9px 13px;
+  border-radius: 10px;
+  background: hsl(var(--foreground) / 0.022);
+  box-shadow: inset 0 0 0 1px hsl(var(--border) / 0.5);
 }
 
-.portal-log-line {
+.portal-log-lead {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  color: hsl(var(--muted-foreground));
+}
+
+.portal-log-lead svg {
+  width: 15px;
+  height: 15px;
+}
+
+.portal-log-body {
+  min-width: 0;
+}
+
+.portal-log-slug {
+  display: block;
+  overflow: hidden;
   font-family: var(--font-code);
-  font-size: var(--portal-text-xs);
-  color: hsl(var(--foreground) / 0.85);
-  word-break: break-word;
+  font-size: var(--portal-text-sm);
+  color: hsl(var(--foreground));
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .portal-log-meta {
-  font-size: var(--portal-text-2xs);
+  margin-top: 1px;
+  overflow: hidden;
+  font-size: var(--portal-text-xs);
   color: hsl(var(--muted-foreground));
+  font-variant-numeric: tabular-nums;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.portal-log-aside {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  white-space: nowrap;
+}
+
+.portal-log-metric {
+  font-size: var(--portal-text-xs);
+  color: hsl(var(--foreground) / 0.8);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Static tables carry no row hover — the rows aren't clickable, so the tint
+   would imply an interaction that isn't there. */
+.theme-portal .portal-table-static [data-slot='table-row']:hover [data-slot='table-cell'] {
+  background-color: hsl(var(--card)) !important;
 }
 
 /* Redesigned empty state — icon, title, guidance, optional action. Replaces
@@ -1289,9 +1361,14 @@ a.portal-feed-row:hover,
   }
   .portal-sidebar-brand {
     padding: 0 8px 0 0;
+    margin-bottom: 0;
+    border-bottom: 0;
   }
-  .portal-sidebar-brand img {
-    width: 56px;
+  .portal-brand-mark {
+    width: 40px;
+  }
+  .portal-brand-word {
+    display: none;
   }
   .portal-nav {
     flex-direction: row;

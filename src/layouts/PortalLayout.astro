@@ -55,12 +55,17 @@ const user = userProp
         <aside class="portal-sidebar">
           <div class="portal-sidebar-brand">
             <img
+              class="portal-brand-mark"
               src={BRAND_MARK.src}
               alt=""
               width={BRAND_MARK.width}
               height={BRAND_MARK.height}
               decoding="async"
             />
+            <div class="portal-brand-word">
+              <span class="portal-brand-name">Dev Portal</span>
+              <span class="portal-brand-sub">buxx.me</span>
+            </div>
           </div>
           <nav class="portal-nav">
             {PORTAL_NAV_GROUPS.map((group) => (

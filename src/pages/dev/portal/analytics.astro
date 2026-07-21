@@ -1,6 +1,7 @@
 ---
 import PortalLayout from '@/layouts/PortalLayout.astro';
 import {
+  Badge,
   Card,
   CardContent,
   CardDescription,
@@ -17,13 +18,12 @@ import StatCard from '@/components/portal/StatCard.astro';
 import EmptyState from '@/components/portal/EmptyState.astro';
 import PortalSection from '@/components/portal/PortalSection.astro';
 import SegmentedNav from '@/components/portal/SegmentedNav.astro';
-import { Activity, Clock3, Eye, FileText, Gauge, Globe2, MailOpen, MousePointer2, Send, Terminal, Users } from 'lucide-react';
+import { Activity, Clock3, Eye, FileText, Gauge, Globe2, MailOpen, Monitor, MousePointer2, Send, Smartphone, Tablet, Terminal, Users, type LucideIcon } from 'lucide-react';
 import {
   BLOG_ANALYTICS_COMPLETION_SCROLL_DEPTH,
   BLOG_ANALYTICS_RANGE_OPTIONS,
   BLOG_ANALYTICS_READ_THRESHOLD_MS,
   type BlogAnalyticsBreakdown,
-  type BlogAnalyticsEventRecord,
   type BlogAnalyticsSummaryResult,
   type NewsletterAnalyticsSummary,
 } from '@bunizao/contracts/analytics';
@@ -119,10 +119,10 @@ function maxViews(rows: BlogAnalyticsBreakdown[]): number {
 function barWidth(value: number, max: number): string {
   return `${Math.max(2, Math.round((value / max) * 100))}%`;
 }
-function eventLine(event: BlogAnalyticsEventRecord): string {
-  const actor = event.ip ?? 'unknown IP';
-  const platform = `${event.platform}/${event.os ?? 'unknown OS'}`;
-  return `${actor} · ${platform} · ${event.slug} · read ${formatMs(event.dwellMs)} · ${event.refSource}`;
+function deviceIcon(type: string | null): LucideIcon {
+  if (type === 'mobile') return Smartphone;
+  if (type === 'tablet') return Tablet;
+  return Monitor;
 }
 
 type Tone = 'neutral' | 'accent' | 'success' | 'warning' | 'danger';
@@ -259,7 +259,7 @@ const rangeItems = (BLOG_ANALYTICS_RANGE_OPTIONS as readonly number[]).map((days
     {newsletter.campaigns.length === 0 ? (
       <Card><EmptyState Icon={Send} title="No campaigns yet" hint="Campaign metrics appear here once a newsletter is sent." /></Card>
     ) : (
-      <Table variant="card">
+      <Table variant="card" className="portal-table-static">
         <TableHeader>
           <TableRow>
             <TableHead>Campaign</TableHead>
@@ -294,7 +294,7 @@ const rangeItems = (BLOG_ANALYTICS_RANGE_OPTIONS as readonly number[]).map((days
     {summary.articles.length === 0 ? (
       <Card><EmptyState Icon={FileText} title="No article rows yet" hint="Per-article reading metrics appear here once traffic arrives." /></Card>
     ) : (
-      <Table variant="card">
+      <Table variant="card" className="portal-table-static">
         <TableHeader>
           <TableRow>
             <TableHead>Article</TableHead>
@@ -330,12 +330,25 @@ const rangeItems = (BLOG_ANALYTICS_RANGE_OPTIONS as readonly number[]).map((days
       <Card><EmptyState Icon={Terminal} title="No raw events yet" hint="The latest first-party read events stream in here." /></Card>
     ) : (
       <ol class="portal-log">
-        {events.events.map((event) => (
-          <li>
-            <div class="portal-log-line">{eventLine(event)}</div>
-            <span class="portal-log-meta">{event.browser ?? 'unknown browser'} · {event.deviceType ?? 'unknown device'} · {event.country ?? 'unknown country'} · {formatDate(event.openedAt)}</span>
-          </li>
-        ))}
+        {events.events.map((event) => {
+          const DeviceIcon = deviceIcon(event.deviceType);
+          return (
+            <li class="portal-log-row">
+              <span class="portal-log-lead">
+                <span class="portal-dot" data-tone={event.completed ? 'success' : 'warning'}></span>
+                <DeviceIcon />
+              </span>
+              <div class="portal-log-body">
+                <span class="portal-log-slug">{event.slug}</span>
+                <span class="portal-log-meta">{event.platform} · {event.os ?? 'unknown OS'} · {event.country ?? '—'} · {formatDate(event.openedAt)}</span>
+              </div>
+              <div class="portal-log-aside">
+                <Badge variant="outline" size="sm">{event.refSource}</Badge>
+                <span class="portal-log-metric">{formatMs(event.dwellMs)}</span>
+              </div>
+            </li>
+          );
+        })}
       </ol>
     )}
   </PortalSection>
