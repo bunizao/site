@@ -12,7 +12,30 @@
   --portal-surface-0: hsl(240 6% 5%);
   --portal-surface-1: hsl(var(--card));
   --portal-surface-2: hsl(var(--accent));
+
+  /* Motion: one shared curve plus Emil-strength enter/move variants. UI stays
+     under 300ms; enter uses ease-out so movement reads instantly. */
   --portal-ease: cubic-bezier(0.2, 0, 0, 1);
+  --portal-ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --portal-ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+
+  /* Depth: layered transparent shadows tuned for the near-black surface. The
+     coss card already paints a hairline top highlight; these add grounded
+     elevation without fighting the palette's restraint. */
+  --portal-shadow-card:
+    0 1px 2px -1px hsl(240 12% 2% / 0.5),
+    0 2px 6px -2px hsl(240 12% 2% / 0.35);
+  --portal-shadow-lift:
+    0 2px 4px -2px hsl(240 12% 2% / 0.55),
+    0 10px 28px -8px hsl(240 12% 2% / 0.5);
+
+  /* Semantic accents for tinted chips / deltas. Never decorative — each hue
+     carries meaning (blue = live, green = up, amber = waiting, red = down). */
+  --portal-chip-neutral: 240 5% 64%;
+  --portal-chip-accent: 217 91% 60%;
+  --portal-chip-success: 142 71% 45%;
+  --portal-chip-warning: 38 92% 55%;
+  --portal-chip-danger: 0 72% 55%;
 }
 
 html.theme-portal,
@@ -564,6 +587,374 @@ html.theme-portal section {
   color: hsl(var(--muted-foreground));
 }
 
+/* ---- Redesign: depth, chips, stats, empty, motion (2026-07-21) ---- */
+
+/* Ground every portal card with layered elevation. The coss <Card> already
+   paints its own hairline top highlight; this adds a grounded shadow and, for
+   interactive cards, a hover lift + press response. Restraint over drama: the
+   surface only moves 2px, the shadow stays soft. */
+.theme-portal [data-slot='card'] {
+  box-shadow: var(--portal-shadow-card);
+  transition:
+    box-shadow 200ms var(--portal-ease),
+    border-color 200ms var(--portal-ease),
+    transform 200ms var(--portal-ease-out);
+}
+
+.portal-card-link {
+  display: block;
+  color: inherit;
+  text-decoration: none;
+}
+
+/* Full-card click target without a wrapping anchor. The coss card is
+   position:relative, so this stretches to its bounds. */
+.portal-stretch-link {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  border-radius: inherit;
+}
+
+.portal-card-link:hover [data-slot='card'],
+.theme-portal [data-slot='card'].portal-card-interactive:hover {
+  border-color: hsl(var(--foreground) / 0.16);
+  box-shadow: var(--portal-shadow-lift);
+  transform: translateY(-2px);
+}
+
+.portal-card-link:active [data-slot='card'],
+.theme-portal [data-slot='card'].portal-card-interactive:active {
+  transform: translateY(-1px) scale(0.995);
+  transition-duration: 110ms;
+}
+
+/* Tinted icon chip — a spot of meaning-bearing color inside an otherwise
+   monochrome surface. Tone is set via data-tone; default is neutral gray. */
+.portal-chip {
+  --chip: var(--portal-chip-neutral);
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  color: hsl(var(--chip));
+  background: hsl(var(--chip) / 0.12);
+  box-shadow: inset 0 0 0 1px hsl(var(--chip) / 0.2);
+}
+
+.portal-chip[data-tone='accent'] {
+  --chip: var(--portal-chip-accent);
+}
+.portal-chip[data-tone='success'] {
+  --chip: var(--portal-chip-success);
+}
+.portal-chip[data-tone='warning'] {
+  --chip: var(--portal-chip-warning);
+}
+.portal-chip[data-tone='danger'] {
+  --chip: var(--portal-chip-danger);
+}
+
+.portal-chip svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* Stat card body */
+.portal-stat {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 15px 16px 15px;
+}
+
+.portal-stat-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.portal-stat-label {
+  font-size: var(--portal-text-sm);
+  font-weight: 500;
+  color: hsl(var(--muted-foreground));
+}
+
+.portal-stat-value {
+  margin-top: 14px;
+  font-size: 30px;
+  line-height: 1.05;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  color: hsl(var(--foreground));
+}
+
+.portal-stat-value[data-size='sm'] {
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.35;
+  letter-spacing: -0.01em;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.portal-stat-foot {
+  margin-top: auto;
+  padding-top: 8px;
+  font-size: var(--portal-text-sm);
+  color: hsl(var(--muted-foreground));
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.portal-stat-delta {
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+.portal-stat-delta[data-dir='up'] {
+  color: hsl(var(--portal-chip-success));
+}
+.portal-stat-delta[data-dir='down'] {
+  color: hsl(var(--portal-chip-danger));
+}
+.portal-stat-delta[data-dir='flat'] {
+  color: hsl(var(--muted-foreground));
+}
+
+.portal-stat-delta svg {
+  width: 13px;
+  height: 13px;
+}
+
+/* Activity / broadcast feed rows — hairline separated, hover-highlighted. */
+.portal-feed {
+  list-style: none;
+  margin: 0 -8px;
+  padding: 0;
+}
+
+.portal-feed-row {
+  display: grid;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 8px;
+  border-radius: 8px;
+  transition: background 160ms var(--portal-ease);
+}
+
+.portal-feed-row + .portal-feed-row {
+  box-shadow: 0 -1px 0 hsl(var(--border) / 0.55);
+}
+
+a.portal-feed-row:hover,
+.portal-feed-row[data-interactive]:hover {
+  background: hsl(var(--foreground) / 0.035);
+}
+
+.portal-feed-row[data-layout='event'] {
+  grid-template-columns: 96px 1fr auto;
+}
+
+.portal-feed-row[data-layout='split'] {
+  grid-template-columns: 1fr auto;
+  align-items: start;
+}
+
+.portal-feed-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--portal-text-sm);
+  color: hsl(var(--foreground) / 0.86);
+}
+
+.portal-feed-primary {
+  display: block;
+  min-width: 0;
+  font-size: var(--portal-text-base);
+  color: hsl(var(--foreground));
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.portal-feed-sub {
+  display: block;
+  margin-top: 2px;
+  font-size: var(--portal-text-xs);
+  color: hsl(var(--muted-foreground));
+  font-variant-numeric: tabular-nums;
+}
+
+.portal-feed-time {
+  font-size: var(--portal-text-xs);
+  color: hsl(var(--muted-foreground));
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* Status dot — a scannable, meaning-bearing pip for feed rows. Tone via
+   data-tone, same hue vocabulary as the chips. */
+.portal-dot {
+  --chip: var(--portal-chip-neutral);
+  flex: 0 0 auto;
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: hsl(var(--chip));
+  box-shadow: 0 0 0 3px hsl(var(--chip) / 0.14);
+}
+.portal-dot[data-tone='accent'] {
+  --chip: var(--portal-chip-accent);
+}
+.portal-dot[data-tone='success'] {
+  --chip: var(--portal-chip-success);
+}
+.portal-dot[data-tone='warning'] {
+  --chip: var(--portal-chip-warning);
+}
+.portal-dot[data-tone='danger'] {
+  --chip: var(--portal-chip-danger);
+}
+
+/* Inline notice — quiet by default, louder only for real errors. Replaces the
+   permanently-red banner. */
+.portal-notice {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 20px;
+  padding: 9px 12px;
+  border-radius: 9px;
+  font-size: var(--portal-text-sm);
+  border: 1px solid hsl(var(--border));
+  background: hsl(var(--foreground) / 0.03);
+  color: hsl(var(--muted-foreground));
+}
+.portal-notice svg {
+  flex: 0 0 auto;
+  color: hsl(var(--muted-foreground));
+}
+.portal-notice[data-variant='error'] {
+  border-color: hsl(var(--portal-danger) / 0.4);
+  background: hsl(var(--portal-danger) / 0.08);
+  color: hsl(0 80% 82%);
+}
+.portal-notice[data-variant='error'] svg {
+  color: hsl(var(--portal-danger));
+}
+.portal-notice code {
+  font-family: var(--font-code);
+  font-size: var(--portal-text-xs);
+}
+
+/* Card header "view all" affordance */
+.portal-sec-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: var(--portal-text-sm);
+  color: hsl(var(--muted-foreground));
+  transition:
+    color 160ms var(--portal-ease),
+    gap 160ms var(--portal-ease-out);
+}
+.portal-sec-link:hover {
+  color: hsl(var(--foreground));
+  gap: 5px;
+}
+
+/* Redesigned empty state — icon, title, guidance, optional action. Replaces
+   the bare muted paragraph the pages used before. */
+.portal-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 4px;
+  padding: 28px 20px 24px;
+}
+
+.portal-empty-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  margin-bottom: 8px;
+  border-radius: 11px;
+  color: hsl(var(--muted-foreground));
+  background: hsl(var(--foreground) / 0.04);
+  box-shadow: inset 0 0 0 1px hsl(var(--foreground) / 0.06);
+}
+
+.portal-empty-title {
+  font-size: var(--portal-text-base);
+  font-weight: 500;
+  color: hsl(var(--foreground));
+  text-wrap: balance;
+}
+
+.portal-empty-hint {
+  font-size: var(--portal-text-sm);
+  color: hsl(var(--muted-foreground));
+  max-width: 34ch;
+  line-height: 1.5;
+  text-wrap: pretty;
+}
+
+.portal-empty-action {
+  margin-top: 12px;
+}
+
+/* Staggered entrance — a gentle cascade, 40-50ms apart, under Emil's 300ms
+   ceiling per item. Decorative only; never blocks interaction. */
+.portal-stagger > * {
+  opacity: 0;
+  animation: portalRise 460ms var(--portal-ease-out) forwards;
+}
+.portal-stagger > *:nth-child(1) {
+  animation-delay: 40ms;
+}
+.portal-stagger > *:nth-child(2) {
+  animation-delay: 90ms;
+}
+.portal-stagger > *:nth-child(3) {
+  animation-delay: 140ms;
+}
+.portal-stagger > *:nth-child(4) {
+  animation-delay: 190ms;
+}
+.portal-stagger > *:nth-child(5) {
+  animation-delay: 240ms;
+}
+.portal-stagger > *:nth-child(6) {
+  animation-delay: 290ms;
+}
+
+@keyframes portalRise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
 /* ---- Motion + responsive ---- */
 
 @media (prefers-reduced-motion: reduce) {
@@ -573,6 +964,17 @@ html.theme-portal section {
   .portal-page {
     animation: none !important;
     transition: none !important;
+  }
+  .portal-stagger > * {
+    opacity: 1 !important;
+    animation: none !important;
+  }
+  .theme-portal [data-slot='card'],
+  .portal-card-link:hover [data-slot='card'],
+  .theme-portal [data-slot='card'].portal-card-interactive:hover,
+  .portal-card-link:active [data-slot='card'],
+  .theme-portal [data-slot='card'].portal-card-interactive:active {
+    transform: none !important;
   }
   ::view-transition-old(root),
   ::view-transition-new(root) {

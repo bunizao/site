@@ -1,0 +1,81 @@
+---
+// Portal stat card. A single number (or slotted content) with an optional
+// tinted icon chip, trend delta, and footer hint. Wraps the coss <Card> so it
+// inherits the shared depth/hover treatment. Pass `href` to make the whole
+// card a click target (via a stretched link, no wrapper needed).
+import { Card } from '@/components/coss';
+import { ArrowDownRight, ArrowUpRight, Minus, type LucideIcon } from 'lucide-react';
+
+type Tone = 'neutral' | 'accent' | 'success' | 'warning' | 'danger';
+
+interface Props {
+  label: string;
+  value?: string | number;
+  Icon?: LucideIcon;
+  tone?: Tone;
+  foot?: string;
+  delta?: { label: string; dir: 'up' | 'down' | 'flat' };
+  valueSize?: 'lg' | 'sm';
+  href?: string;
+  class?: string;
+}
+
+const {
+  label,
+  value,
+  Icon,
+  tone = 'neutral',
+  foot,
+  delta,
+  valueSize = 'lg',
+  href,
+  class: className,
+} = Astro.props;
+
+const DeltaIcon = delta
+  ? delta.dir === 'up'
+    ? ArrowUpRight
+    : delta.dir === 'down'
+      ? ArrowDownRight
+      : Minus
+  : null;
+
+const cardClass = [href ? 'portal-card-interactive' : '', className].filter(Boolean).join(' ');
+---
+
+<Card className={cardClass}>
+  <div class="portal-stat">
+    <div class="portal-stat-top">
+      <span class="portal-stat-label">{label}</span>
+      {Icon && (
+        <span class="portal-chip" data-tone={tone}>
+          <Icon />
+        </span>
+      )}
+    </div>
+
+    {value !== undefined && (
+      <div class="portal-stat-value" data-size={valueSize === 'sm' ? 'sm' : undefined}>
+        {value}
+      </div>
+    )}
+
+    <slot />
+
+    {(foot || delta) && (
+      <div class="portal-stat-foot">
+        {delta && DeltaIcon && (
+          <span class="portal-stat-delta" data-dir={delta.dir}>
+            <DeltaIcon />
+            {delta.label}
+          </span>
+        )}
+        {foot && <span>{foot}</span>}
+      </div>
+    )}
+  </div>
+
+  {href && (
+    <a href={href} class="portal-stretch-link" aria-label={label} data-astro-prefetch="false"></a>
+  )}
+</Card>

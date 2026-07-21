@@ -14,10 +14,12 @@ export { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./tool
 
 export {
   Card,
+  CardAction,
   CardHeader,
   CardTitle,
   CardDescription,
   CardContent,
+  CardFooter,
 } from "./card";
 
 export {
