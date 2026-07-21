@@ -113,7 +113,7 @@ export function createApiServiceRequest(request: Request, originUrl: string = AP
 // when you are debugging the API itself.
 const DEFAULT_DEV_API_ORIGIN = 'https://buxx.me';
 
-function resolveDevApiOrigin(locals: RuntimeEnvLocals | undefined): string | null {
+export function resolveDevApiOrigin(locals: RuntimeEnvLocals | undefined): string | null {
   // Only ever fall back to plain HTTP under `astro dev`. In production the
   // service binding is always present, so this branch is never reached there.
   if (!import.meta.env.DEV) {

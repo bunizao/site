@@ -371,11 +371,13 @@ describe('Cloudflare runtime configuration', () => {
     expect(hero).toContain('heroTl.to(identity, {');
     expect(hero).toContain('heroTl.to(widgets, {');
     expect(hero).toContain("window.dispatchEvent(new CustomEvent('home:hero-bio-ready'))");
-    const listening = readText('src/features/home/ui/Listening.astro');
-    expect(listening).toContain('data-title={title}');
-    expect(listening).toContain('content: attr(data-title);');
-    expect(listening).toContain('titleLabel.dataset.title = nextTitle;');
-    expect(listening).toContain('max-width: min(18ch, calc(100% - 48px));');
+    const listeningMarkup = readText('src/lib/listening/markup.ts');
+    const listeningStyles = readText('src/styles/listening.css');
+    const listeningController = readText('src/lib/listening/controller.ts');
+    expect(listeningMarkup).toContain('data-title="${escapeHtml(title)}"');
+    expect(listeningStyles).toContain('content: attr(data-title);');
+    expect(listeningController).toContain('titleLabel.dataset.title = nextTitle;');
+    expect(listeningStyles).toContain('max-width: min(18ch, calc(100% - 48px));');
     expect(experience).toContain('<ExperienceTimeline client:visible />');
     expect(parallax).toContain("import('gsap/ScrollTrigger')");
     expect(parallax).toContain("window.addEventListener('load', scheduleSkatingEffects");

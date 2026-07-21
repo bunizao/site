@@ -1,0 +1,968 @@
+/* Listening card — shared styles for the vinyl player card.
+   Used by the home Listening widget (Listening.astro) and the mood feed's
+   audio cards (feed-media.ts renders the same markup via
+   src/lib/listening/markup.ts). Keep selectors class-based and global. */
+
+.listening {
+  --listening-accent: hsl(var(--foreground));
+  --record-rotation: 0turn;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 11px;
+  width: fit-content;
+  max-width: min(100%, 520px);
+  color: hsl(var(--muted-foreground));
+}
+
+.listening.is-loading .listening-track {
+  pointer-events: none;
+}
+
+.listening-art {
+  --record-size: 72px;
+  --label-size: 40px;
+  --record-left: 46px;
+  position: relative;
+  width: 88px;
+  height: 84px;
+  flex: none;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.listening-art:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.listening-art:focus-visible {
+  outline: none;
+}
+
+.listening-art:focus-visible .listening-art-record {
+  box-shadow:
+    inset 0 0 0 1px hsl(0 0% 100% / 0.08),
+    inset 0 0 18px hsl(0 0% 100% / 0.06),
+    0 8px 18px -12px hsl(0 0% 0% / 0.72),
+    0 0 0 2px hsl(var(--background)),
+    0 0 0 4px hsl(var(--foreground) / 0.55);
+}
+
+.listening-art-frame {
+  position: absolute;
+  inset: 0;
+  overflow: visible;
+  isolation: isolate;
+  background: transparent;
+  z-index: 1;
+}
+
+.listening-art-record {
+  position: absolute;
+  top: 50%;
+  left: var(--record-left);
+  width: var(--record-size);
+  height: var(--record-size);
+  border-radius: 999px;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 50% 50%, transparent 0 23%, hsl(0 0% 100% / 0.14) 23.5% 24.5%, transparent 25%),
+    repeating-radial-gradient(circle at 50% 50%, hsl(0 0% 100% / 0.12) 0 1px, transparent 1px 4px),
+    conic-gradient(
+      from -28deg at 50% 50%,
+      transparent 0deg 18deg,
+      hsl(0 0% 100% / 0.055) 28deg,
+      transparent 46deg 168deg,
+      hsl(0 0% 100% / 0.04) 184deg,
+      transparent 208deg 360deg
+    ),
+    radial-gradient(circle at 36% 30%, hsl(0 0% 100% / 0.1), transparent 30%),
+    radial-gradient(circle at 68% 76%, hsl(0 0% 100% / 0.045), transparent 34%),
+    #050505;
+  box-shadow:
+    inset 0 0 0 1px hsl(0 0% 100% / 0.08),
+    inset 0 0 18px hsl(0 0% 100% / 0.06),
+    0 8px 18px -12px hsl(0 0% 0% / 0.72);
+  transform: translate(-50%, -50%) rotate(var(--record-rotation));
+  transition:
+    filter 0.3s ease,
+    transform 0.18s linear;
+  will-change: transform;
+  z-index: 1;
+}
+
+.listening-art-record::before,
+.listening-art-record::after {
+  content: "";
+  position: absolute;
+  inset: 3px;
+  border-radius: inherit;
+  pointer-events: none;
+  mix-blend-mode: screen;
+}
+
+.listening-art-record::before {
+  background:
+    conic-gradient(
+      from 214deg at 50% 50%,
+      transparent 0deg 24deg,
+      hsl(0 0% 100% / 0.32) 34deg,
+      hsl(0 0% 100% / 0.11) 52deg,
+      transparent 72deg 194deg,
+      hsl(0 0% 100% / 0.14) 213deg,
+      transparent 236deg 360deg
+    );
+  filter: blur(0.35px);
+  opacity: 0.9;
+  mask-image: radial-gradient(circle at 50% 50%, transparent 0 29%, #000 34% 86%, transparent 91%);
+  -webkit-mask-image: radial-gradient(circle at 50% 50%, transparent 0 29%, #000 34% 86%, transparent 91%);
+}
+
+.listening-art-record::after {
+  background:
+    radial-gradient(ellipse at 31% 23%, hsl(0 0% 100% / 0.34), transparent 22%),
+    radial-gradient(ellipse at 72% 70%, hsl(0 0% 100% / 0.16), transparent 30%);
+  opacity: 0.8;
+}
+
+.listening-art-img {
+  position: absolute;
+  top: 50%;
+  left: var(--record-left);
+  display: block;
+  width: var(--label-size);
+  height: var(--label-size);
+  border-radius: 999px;
+  object-fit: cover;
+  transform-origin: 50% 50%;
+  transform: translate(-50%, -50%) rotate(var(--record-rotation));
+  transition: transform 0.18s linear;
+  box-shadow:
+    inset 0 0 0 1px hsl(0 0% 100% / 0.25),
+    0 0 0 1px hsl(0 0% 0% / 0.5);
+  will-change: transform;
+  z-index: 2;
+}
+
+.listening-art-icons {
+  position: absolute;
+  top: 50%;
+  left: var(--record-left);
+  width: var(--label-size);
+  height: var(--label-size);
+  display: grid;
+  place-items: center;
+  opacity: 0;
+  transform: translate(-50%, -50%);
+  transition: opacity 0.2s ease;
+  pointer-events: none;
+  z-index: 6;
+}
+
+.listening-art:hover:not(:disabled) .listening-art-icons,
+.listening-art:focus-visible:not(:disabled) .listening-art-icons,
+.listening-art.is-preview-playing .listening-art-icons {
+  opacity: 1;
+}
+
+.listening-art-icon {
+  grid-area: 1 / 1;
+  width: 20px;
+  height: 20px;
+  color: #fff;
+  fill: currentColor;
+  filter:
+    drop-shadow(0 1px 6px hsl(0 0% 0% / 0.6))
+    drop-shadow(0 0 1px hsl(0 0% 0% / 0.85));
+}
+
+.listening-art-icon--pause {
+  display: none;
+}
+
+.listening-art.is-preview-playing .listening-art-icon--play {
+  display: none;
+}
+
+.listening-art.is-preview-playing .listening-art-icon--pause {
+  display: block;
+}
+
+.listening-art.is-live .listening-art-record,
+.listening-art.is-live .listening-art-img,
+.listening-art.is-preview-playing .listening-art-record,
+.listening-art.is-preview-playing .listening-art-img {
+  animation: listening-record-spin 14s linear infinite;
+}
+
+.listening-art.is-preview-playing .listening-art-record,
+.listening-art.is-preview-playing .listening-art-img {
+  animation-duration: 8s;
+}
+
+/* While scrubbing, the disc tracks the pointer: kill the spin loop and shrink
+   the transition so rotation follows the seek fraction directly. */
+.listening.is-scrubbing .listening-art-record,
+.listening.is-scrubbing .listening-art-img,
+.listening.is-scrubbing .listening-art-label {
+  animation: none;
+  transition-duration: 80ms;
+}
+
+.listening-art.is-live:hover:not(:disabled):not(.is-preview-playing) .listening-art-record,
+.listening-art.is-live:focus-visible:not(:disabled):not(.is-preview-playing) .listening-art-record {
+  filter: brightness(1.12) contrast(1.04);
+}
+
+/* Apple Music credit — "APPLE MUSIC" curved along the vinyl groove like a
+   pressed record label. Static over the spinning disc so it stays legible,
+   at the same center and size as the record. */
+/* Apple Music lockup ( Music) pressed into the vinyl, pinned to the bottom
+   of the groove ring. Shares the record's center/size and spins with it when
+   playing — upright at rest, rotating like printed label text in motion. */
+.listening-art-label {
+  position: absolute;
+  top: 50%;
+  left: var(--record-left);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  width: var(--record-size);
+  height: var(--record-size);
+  padding-bottom: 5px;
+  transform-origin: 50% 50%;
+  transform: translate(-50%, -50%) rotate(var(--record-rotation));
+  transition: transform 0.18s linear;
+  pointer-events: none;
+  z-index: 3;
+}
+
+.listening-art.is-live .listening-art-label,
+.listening-art.is-preview-playing .listening-art-label {
+  animation: listening-record-spin 14s linear infinite;
+}
+
+.listening-art.is-preview-playing .listening-art-label {
+  animation-duration: 8s;
+}
+
+.listening-art-label-lockup {
+  display: inline-flex;
+  align-items: center;
+  gap: 1.5px;
+  color: hsl(0 0% 100% / 0.82);
+  filter: drop-shadow(0 0.5px 0.5px hsl(0 0% 0% / 0.6));
+}
+
+.listening-art-label-logo {
+  width: 7px;
+  height: 7px;
+  fill: currentColor;
+}
+
+.listening-art-label-text {
+  font-family: var(--font-sans, ui-sans-serif, system-ui, sans-serif);
+  font-size: 7px;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: 0.01em;
+}
+
+/* Tonearm — SVG, always resting on the deck. Parks off the record at rest,
+   lifts toward the groove on hover, and swings fully onto the disc while
+   playing (live or preview). */
+.listening-art-tonearm {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+  color: hsl(0 0% 96%);
+  filter:
+    drop-shadow(0 1px 1px hsl(0 0% 0% / 0.58))
+    drop-shadow(0 0 1px hsl(var(--foreground) / 0.7));
+  opacity: 0.86;
+  transition: opacity 0.3s ease;
+  z-index: 5;
+}
+
+.listening-art:hover:not(:disabled) .listening-art-tonearm,
+.listening-art:focus-visible:not(:disabled) .listening-art-tonearm,
+.listening-art.is-live .listening-art-tonearm,
+.listening-art.is-preview-playing .listening-art-tonearm {
+  opacity: 1;
+}
+
+.listening-art-tonearm-arm {
+  transform-origin: 20px 15px;
+  transform: rotate(-42deg);
+  transition: transform 0.45s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.listening-art:hover:not(:disabled):not(.is-live):not(.is-preview-playing) .listening-art-tonearm-arm,
+.listening-art:focus-visible:not(:disabled):not(.is-live):not(.is-preview-playing) .listening-art-tonearm-arm {
+  transform: rotate(-18deg);
+}
+
+.listening-art.is-live .listening-art-tonearm-arm,
+.listening-art.is-preview-playing .listening-art-tonearm-arm {
+  transition: transform 0.65s cubic-bezier(0.34, 1.55, 0.64, 1) 0.18s;
+  transform: rotate(23deg);
+}
+
+.listening-art.is-live:hover:not(:disabled):not(.is-preview-playing) .listening-art-tonearm-arm,
+.listening-art.is-live:focus-visible:not(:disabled):not(.is-preview-playing) .listening-art-tonearm-arm {
+  transform: rotate(18deg);
+}
+
+.listening-art-tonearm-shaft {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 4;
+  stroke-linecap: round;
+}
+
+.listening-art-tonearm-cartridge {
+  fill: currentColor;
+  stroke: hsl(var(--background) / 0.75);
+  stroke-width: 0.4;
+  transition:
+    filter 0.3s ease,
+    stroke 0.3s ease;
+}
+
+.listening-art:hover:not(:disabled):not(.is-live):not(.is-preview-playing) .listening-art-tonearm-cartridge,
+.listening-art:focus-visible:not(:disabled):not(.is-live):not(.is-preview-playing) .listening-art-tonearm-cartridge,
+.listening-art.is-live:hover:not(:disabled):not(.is-preview-playing) .listening-art-tonearm-cartridge,
+.listening-art.is-live:focus-visible:not(:disabled):not(.is-preview-playing) .listening-art-tonearm-cartridge {
+  filter: drop-shadow(0 0 4px hsl(0 0% 100% / 0.34));
+  stroke: hsl(var(--background) / 0.42);
+}
+
+.listening-art-tonearm-pivot {
+  fill: currentColor;
+  stroke: none;
+}
+
+.listening-art-tonearm-hole {
+  fill: #050505;
+  stroke: none;
+}
+
+/* Copy */
+.listening-copy {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.listening-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 2px;
+  font-size: 11px;
+  line-height: 1.18;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: hsl(var(--muted-foreground) / 0.84);
+  font-feature-settings: 'tnum';
+}
+
+.listening-eyebrow-dot {
+  width: 3px;
+  height: 3px;
+  border-radius: 999px;
+  background: currentColor;
+  opacity: 0.42;
+  transition:
+    background 0.3s ease,
+    opacity 0.3s ease,
+    transform 0.3s ease;
+}
+
+.listening.is-live .listening-eyebrow-dot {
+  background: color-mix(in srgb, var(--listening-accent) 42%, currentColor);
+  opacity: 0.68;
+  transform: scale(1.08);
+}
+
+.listening-eyebrow-wave {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 9px;
+  width: 0;
+  overflow: hidden;
+  transition: width 0.35s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.listening-eyebrow-wave span {
+  display: block;
+  width: 2px;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--listening-accent);
+  transform-origin: 50% 100%;
+  transform: scaleY(0.32);
+}
+
+.listening.is-live .listening-eyebrow-wave,
+.listening.is-preview-playing .listening-eyebrow-wave {
+  width: 18px;
+}
+
+.listening.is-live .listening-eyebrow-wave span,
+.listening.is-preview-playing .listening-eyebrow-wave span {
+  animation: listening-wave 0.92s ease-in-out infinite;
+}
+
+.listening.is-live .listening-eyebrow-wave span:nth-child(2),
+.listening.is-preview-playing .listening-eyebrow-wave span:nth-child(2) {
+  animation-delay: 0.1s;
+}
+
+.listening.is-live .listening-eyebrow-wave span:nth-child(3),
+.listening.is-preview-playing .listening-eyebrow-wave span:nth-child(3) {
+  animation-delay: 0.22s;
+}
+
+.listening.is-live .listening-eyebrow-wave span:nth-child(4),
+.listening.is-preview-playing .listening-eyebrow-wave span:nth-child(4) {
+  animation-delay: 0.16s;
+}
+
+/* Track line */
+.listening-track {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  min-width: 0;
+  width: min(100%, 360px);
+  max-width: min(100%, 360px);
+}
+
+.listening-track.is-inline {
+  flex-direction: row;
+  align-items: baseline;
+  gap: 0 8px;
+  width: fit-content;
+}
+
+.listening-title,
+.listening-artist {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.listening-title {
+  --title-marquee-duration: 14s;
+  --title-marquee-distance: 0px;
+  --title-marquee-width: 360px;
+  --listening-title-font-size: 15px;
+  position: relative;
+  flex: 0 1 auto;
+  max-width: 100%;
+  font-size: var(--listening-title-font-size);
+  line-height: 1.28;
+  color: hsl(var(--foreground));
+  text-overflow: clip;
+  background-image: linear-gradient(currentColor, currentColor);
+  background-repeat: no-repeat;
+  background-position: 0 100%;
+  background-size: 0% 1px;
+  padding-bottom: 1px;
+  transition: background-size 0.45s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.listening.is-loading .listening-title,
+.listening.is-loading .listening-artist,
+.listening.is-loading .listening-meta span:not(.listening-meta-dot),
+.listening.is-loading .listening-eyebrow-text {
+  width: fit-content;
+  color: transparent;
+  border-radius: 999px;
+  background: hsl(var(--foreground) / 0.08);
+  user-select: none;
+}
+
+.listening.is-loading .listening-title {
+  min-width: 160px;
+  height: 14px;
+  padding-bottom: 0;
+  background-image: none;
+}
+
+.listening.is-loading .listening-sep,
+.listening.is-loading .listening-meta-dot {
+  opacity: 0;
+}
+
+.listening.is-loading .listening-artist {
+  min-width: 94px;
+  height: 13px;
+}
+
+.listening.is-loading .listening-meta span:not(.listening-meta-dot) {
+  min-width: 58px;
+  height: 10px;
+}
+
+.listening.is-loading .listening-eyebrow-text {
+  min-width: 78px;
+  height: 8px;
+}
+
+.listening-title.is-marquee {
+  width: min(100%, var(--title-marquee-width));
+  mask-image: linear-gradient(
+    90deg,
+    transparent 0,
+    #000 16px,
+    #000 calc(100% - 34px),
+    transparent 100%
+  );
+  -webkit-mask-image: linear-gradient(
+    90deg,
+    transparent 0,
+    #000 16px,
+    #000 calc(100% - 34px),
+    transparent 100%
+  );
+}
+
+.listening-title-text {
+  display: inline-block;
+  white-space: nowrap;
+  will-change: transform;
+}
+
+[data-listening-title-label] {
+  display: inline-block;
+}
+
+[data-listening-title-label],
+[data-listening-title-duplicate] {
+  font-size: 0;
+}
+
+[data-listening-title-label]::before,
+[data-listening-title-duplicate]::before {
+  content: attr(data-title);
+  display: inline-block;
+  font-size: var(--listening-title-font-size);
+  line-height: inherit;
+}
+
+.listening-title.is-marquee .listening-title-text {
+  animation: listening-title-marquee var(--title-marquee-duration) linear infinite;
+}
+
+.listening-title-duplicate {
+  display: none;
+  padding-left: 28px;
+}
+
+.listening-title.is-marquee .listening-title-duplicate {
+  display: inline-block;
+}
+
+.listening-track:hover .listening-title,
+.listening-track:focus-visible .listening-title {
+  background-size: 100% 1px;
+}
+
+.listening-sep {
+  display: none;
+  font-size: 13px;
+  color: hsl(var(--muted-foreground) / 0.5);
+}
+
+.listening-track.is-inline .listening-sep {
+  display: inline;
+}
+
+.listening-artist {
+  max-width: 100%;
+  font-size: 14px;
+  line-height: 1.36;
+  color: hsl(var(--muted-foreground));
+  text-overflow: ellipsis;
+}
+
+.listening-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 3px 0 0;
+  min-width: 0;
+  max-width: min(100%, 260px);
+  font-size: 12px;
+  line-height: 1.36;
+  color: hsl(var(--muted-foreground) / 0.78);
+  font-feature-settings: 'tnum';
+}
+
+[data-listening-collection] {
+  display: inline-block;
+  min-width: 0;
+  max-width: min(18ch, calc(100% - 48px));
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.listening-meta-dot {
+  width: 2px;
+  height: 2px;
+  border-radius: 999px;
+  background: currentColor;
+  opacity: 0.65;
+}
+
+/* Progress row — hidden until this widget owns playback, so the resting state
+   stays the same calm block. Grows from height 0, then a draggable scrubber. */
+.listening-progress-row {
+  display: grid;
+  grid-template-columns: auto minmax(112px, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  max-height: 0;
+  opacity: 0;
+  pointer-events: none;
+  overflow: hidden;
+  transition:
+    max-height 0.32s cubic-bezier(0.2, 0.8, 0.2, 1),
+    opacity 0.22s ease,
+    margin-top 0.32s ease;
+}
+
+.listening.is-preview-playing .listening-progress-row {
+  max-height: 24px;
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.listening-time {
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 11px;
+  font-feature-settings: 'tnum';
+  line-height: 1;
+  color: hsl(var(--muted-foreground));
+  min-width: 32px;
+}
+
+.listening-time--total {
+  text-align: right;
+  color: hsl(var(--muted-foreground) / 0.6);
+}
+
+.listening-progress {
+  position: relative;
+  min-width: 0;
+  height: 18px;
+  cursor: pointer;
+  touch-action: none;
+  outline: none;
+  --fill: 0;
+}
+
+.listening-progress-track,
+.listening-progress-fill {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  height: 3px;
+  border-radius: 999px;
+  transform: translateY(-50%);
+  transition: height 0.18s ease;
+}
+
+.listening-progress-track {
+  width: 100%;
+  background: hsl(var(--muted-foreground) / 0.24);
+}
+
+/* Fill + thumb both read --fill from the container, so one inline update
+   moves them in sync. Accent tints to the sampled artwork color. */
+.listening-progress-fill {
+  width: calc(var(--fill, 0) * 100%);
+  background: var(--listening-accent);
+}
+
+.listening-progress-thumb {
+  position: absolute;
+  top: 50%;
+  left: calc(var(--fill, 0) * 100%);
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: var(--listening-accent);
+  box-shadow: 0 0 0 3px hsl(var(--background));
+  transform: translate(-50%, -50%) scale(0);
+  transition: transform 0.18s cubic-bezier(0.2, 0.8, 0.2, 1);
+  pointer-events: none;
+}
+
+.listening-progress:hover .listening-progress-track,
+.listening-progress:hover .listening-progress-fill,
+.listening-progress:focus-visible .listening-progress-track,
+.listening-progress:focus-visible .listening-progress-fill {
+  height: 4px;
+}
+
+.listening-progress:hover .listening-progress-thumb,
+.listening-progress:focus-visible .listening-progress-thumb {
+  transform: translate(-50%, -50%) scale(1);
+}
+
+/* Cover style — mood audio. No chrome: album-art tile on the left, copy +
+   a seated progress bar on the right. It sits inline in the post like the
+   document card, so it carries no border, background, or box padding. */
+.listening.is-cover {
+  grid-template-columns: 56px minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  max-width: 360px;
+}
+
+.listening-art.is-cover {
+  width: 56px;
+  height: 56px;
+  border-radius: 8px;
+  overflow: hidden;
+  align-self: center;
+}
+
+.listening-art.is-cover .listening-art-frame {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  overflow: hidden;
+  box-shadow: inset 0 0 0 1px hsl(0 0% 0% / 0.06);
+}
+
+.listening-art.is-cover .listening-art-img {
+  position: absolute;
+  inset: 0;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: 0;
+  transform: none;
+  transition: transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
+  box-shadow: none;
+  animation: none;
+}
+
+.listening-art.is-cover:hover:not(:disabled) .listening-art-img {
+  transform: scale(1.05);
+}
+
+.listening-art-scrim {
+  position: absolute;
+  inset: 0;
+  background: hsl(0 0% 0% / 0.32);
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  pointer-events: none;
+}
+
+.listening-art.is-cover:hover:not(:disabled) .listening-art-scrim,
+.listening-art.is-cover:focus-visible:not(:disabled) .listening-art-scrim,
+.listening-art.is-cover.is-preview-playing .listening-art-scrim {
+  opacity: 1;
+}
+
+.listening-art.is-cover .listening-art-icons {
+  inset: 0;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  transform: none;
+  z-index: 6;
+}
+
+.listening-art.is-cover:focus-visible {
+  outline: 2px solid hsl(var(--foreground) / 0.55);
+  outline-offset: 2px;
+  border-radius: 8px;
+}
+
+/* Copy column: title on top, progress seated below. The eyebrow and meta rows
+   are removed entirely — only title/artist + progress remain. */
+.listening.is-cover .listening-copy {
+  gap: 6px;
+}
+
+.listening.is-cover .listening-eyebrow {
+  display: none;
+}
+
+.listening.is-cover .listening-track {
+  width: 100%;
+  max-width: 100%;
+}
+
+/* Stack title over artist — the media-card pattern. Override the JS-applied
+   is-inline row layout and drop the em-dash separator; a bold title with a
+   muted artist line beneath reads as clean two-level hierarchy, not a
+   single crowded "Title — Artist" run. */
+.listening.is-cover .listening-track,
+.listening.is-cover .listening-track.is-inline {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+}
+
+.listening.is-cover .listening-sep {
+  display: none;
+}
+
+/* The cover card renders inline in the mood post, directly under the body
+   text. Give it room to breathe so it reads as a distinct object rather than
+   crowding the paragraph above it. */
+.mood-listening {
+  margin-top: 16px;
+}
+
+/* Mood detail content underlines every <a> via an Astro-scoped rule
+   (.mood-post-content[data-astro-cid] a). The track title is a link, so
+   out-specify that and strip the border — the card is not body-text prose. */
+.mood-listening .listening a.listening-track,
+.mood-listening .listening a.listening-track:hover,
+.mood-listening .listening a.listening-track:focus-visible {
+  border-bottom: none;
+}
+
+.listening.is-cover .listening-title {
+  --listening-title-font-size: 15px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.listening.is-cover .listening-artist {
+  font-size: 13px;
+  line-height: 1.35;
+  color: hsl(var(--muted-foreground));
+}
+
+.listening.is-cover .listening-meta {
+  display: none;
+}
+
+.listening.is-cover .listening-progress-row {
+  max-height: 24px;
+  opacity: 1;
+  pointer-events: auto;
+  margin-top: 4px;
+}
+
+@media (max-width: 520px) {
+  .listening {
+    width: 100%;
+  }
+}
+
+@media (max-width: 430px) {
+  .listening {
+    gap: 9px;
+  }
+
+  .listening-art {
+    --record-size: 58px;
+    --label-size: 32px;
+    --record-left: 38px;
+    width: 72px;
+    height: 70px;
+  }
+
+  .listening-title {
+    --listening-title-font-size: 14px;
+  }
+
+  .listening-artist {
+    font-size: 12px;
+  }
+
+  .listening-track {
+    gap: 2px;
+  }
+
+  .listening-track.is-inline {
+    gap: 0 6px;
+  }
+
+  .listening-meta,
+  .listening-eyebrow {
+    font-size: 11px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .listening-art-frame,
+  .listening-art-record,
+  .listening-art-icons,
+  .listening-art-tonearm,
+  .listening-art-tonearm-arm,
+  .listening-progress-row,
+  .listening-progress-track,
+  .listening-progress-fill,
+  .listening-progress-thumb,
+  .listening-title,
+  .listening-title-text,
+  .listening-eyebrow-wave,
+  .listening-eyebrow-dot {
+    transition: none;
+  }
+
+  .listening-art.is-live .listening-art-record,
+  .listening-art.is-live .listening-art-img,
+  .listening-art.is-preview-playing .listening-art-record,
+  .listening-art.is-preview-playing .listening-art-img,
+  .listening-title.is-marquee .listening-title-text,
+  .listening.is-live .listening-eyebrow-wave span,
+  .listening.is-preview-playing .listening-eyebrow-wave span {
+    animation: none;
+  }
+
+}
+
+@keyframes listening-record-spin {
+  from {
+    transform: translate(-50%, -50%) rotate(var(--record-rotation));
+  }
+
+  to {
+    transform: translate(-50%, -50%) rotate(calc(var(--record-rotation) + 1turn));
+  }
+}
+
+@keyframes listening-title-marquee {
+  to {
+    transform: translateX(calc(var(--title-marquee-distance) * -1));
+  }
+}
+
+@keyframes listening-wave {
+  0%,
+  100% {
+    transform: scaleY(0.32);
+    opacity: 0.6;
+  }
+  50% {
+    transform: scaleY(1);
+    opacity: 1;
+  }
+}

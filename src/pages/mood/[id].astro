@@ -8,6 +8,7 @@ import {
   resolveMoodReadSource,
 } from '@/features/mood/server/api-client';
 import '@/styles/mood-gallery.css';
+import '@/styles/listening.css';
 import { renderMoodContentWithGalleries } from '@/features/mood/shared/gallery';
 import {
   prioritizeMoodDetailMedia,
@@ -112,6 +113,7 @@ const renderedPostContent = prioritizeMoodDetailMedia(renderedContent);
   import { initMoodGalleries } from '@/features/mood/client/gallery';
   import { createMoodMetaPatcher } from '@/features/mood/client/meta-patcher';
   import { hydrateMoodRichText } from '@/features/mood/client/rich-text';
+  import { initListeningCards } from '@/lib/listening/controller';
 
   document.querySelectorAll('.mood-post-content .rich-content-media--image img').forEach((node) => {
     if (!(node instanceof HTMLImageElement)) return;
@@ -178,6 +180,7 @@ const renderedPostContent = prioritizeMoodDetailMedia(renderedContent);
     replaceReplyNodesWithCommentQuotes(moodPostContent);
     initMoodGalleries(moodPostContent);
     hydrateMoodRichText(moodPostContent);
+    initListeningCards(moodPostContent);
   }
 
   const animatedEmoji = createAnimatedEmojiManager();
