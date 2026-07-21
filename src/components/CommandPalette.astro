@@ -35,6 +35,7 @@ import {
   ClaudeIcon,
   PerplexityIcon,
 } from '@/components/icons';
+import Kbd from '@/components/Kbd.astro';
 import { meta, navLinks, profile } from '@/data/site';
 import type { ComponentType } from 'react';
 
@@ -233,9 +234,9 @@ const navKeywords: Record<string, string> = {
     </div>
 
     <div class="cmdk-footer" aria-hidden="true">
-      <span>Go to page <kbd>↵</kbd></span>
+      <span>Go to page <Kbd>↵</Kbd></span>
       <span class="cmdk-footer-sep"></span>
-      <span>Exit <kbd>esc</kbd></span>
+      <span>Exit <Kbd>esc</Kbd></span>
     </div>
   </div>
 </dialog>
@@ -1012,19 +1013,7 @@ const navKeywords: Record<string, string> = {
     height: 13px;
     background: hsl(var(--foreground) / 0.1);
   }
-  .cmdk-footer kbd {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-width: 19px;
-    height: 19px;
-    padding: 0 5px;
-    border-radius: 5px;
-    background: hsl(var(--foreground) / 0.06);
-    font-family: inherit;
-    font-size: 11px;
-    color: hsl(var(--muted-foreground));
-  }
+  /* Keycaps (↵, esc) render via the shared <Kbd> component. */
 
   @media (max-width: 640px) {
     .cmdk {

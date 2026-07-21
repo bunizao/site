@@ -1414,6 +1414,41 @@
     border-color: hsl(var(--foreground) / 0.15);
   }
 
+  /* ⌘K search pill: a content-width sibling of the icon pills, carrying a
+     persistent keycap. It shares every surface token with the theme toggle
+     (height, radius, border, glass) so the two read as one set; the shared
+     :hover below keeps them lighting up in lockstep. */
+  .header-action-btn--cmdk {
+    width: auto;
+    min-width: 0;
+    gap: 6px;
+    padding: 0 8px 0 9px;
+    color: hsl(var(--muted-foreground));
+  }
+  /* Keycap chips live in the shared <Kbd> component; here we only lay them out
+     in a row. */
+  .header-action-btn-keys {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+  }
+  /* Coordinate the ⌘K pill and the theme toggle: one hover treatment for both,
+     so the adjacent pills feel like a matched control, not two lone buttons.
+     On pill hover the keys brighten with it. */
+  @media (hover: hover) and (pointer: fine) {
+    .header-action-btn--cmdk:hover,
+    .global-header-actions .header-action-btn[data-theme-toggle]:hover {
+      color: hsl(var(--foreground));
+      background: hsl(var(--foreground) / 0.05);
+      border-color: hsl(var(--foreground) / 0.15);
+    }
+    .header-action-btn--cmdk:hover .kbd {
+      color: hsl(var(--foreground));
+      background: hsl(var(--foreground) / 0.09);
+      border-color: hsl(var(--foreground) / 0.08);
+    }
+  }
+
   /* Text labels - GSAP controls visibility via opacity/scale */
   .header-action-btn-label {
     display: inline-block;

@@ -1,0 +1,32 @@
+---
+// The site's command-palette trigger: a static pill spelling out the shortcut
+// as [🔍 ⌘ K]. Wired to the global [data-command-open] handler, so dropping it
+// anywhere opens the palette. It carries the shared .header-action-btn surface
+// (matched to the theme toggle beside it); the --cmdk modifier, key layout and
+// coordinated hover live in globals.css. Deliberately has no
+// .header-action-btn-label, so the header hover-expand GSAP leaves it inert.
+import { Search } from 'lucide-react';
+import Kbd from '@/components/Kbd.astro';
+
+interface Props {
+  class?: string;
+}
+
+const { class: className } = Astro.props;
+---
+
+<button
+  class:list={['header-action-btn', 'header-action-btn--cmdk', className]}
+  type="button"
+  data-command-open
+  aria-label="Search and commands"
+  title="Search (⌘K)"
+  aria-keyshortcuts="Control+K Meta+K"
+  aria-haspopup="dialog"
+>
+  <Search className="h-4 w-4" aria-hidden="true" />
+  <span class="header-action-btn-keys" aria-hidden="true">
+    <Kbd icon="command" />
+    <Kbd>K</Kbd>
+  </span>
+</button>

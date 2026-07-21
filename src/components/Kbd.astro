@@ -1,0 +1,53 @@
+---
+// A single keyboard-key chip: filled cap, hairline ring, one-pixel bottom edge
+// for depth. The shared keycap primitive across the site — the header ⌘K pill
+// and the command palette footer both render these, so the keys read as one
+// system. Pass `icon="command"` for the ⌘ glyph (lucide, matched to the icon
+// weight beside it); otherwise slot a short label ("K", "esc", "↵").
+import { Command } from 'lucide-react';
+
+interface Props {
+  icon?: 'command';
+  class?: string;
+}
+
+const { icon, class: className } = Astro.props;
+---
+
+<kbd class:list={['kbd', className]}>
+  {icon === 'command' ? <Command className="kbd-icon" aria-hidden="true" /> : <slot />}
+</kbd>
+
+<style>
+  .kbd {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 4px;
+    border-radius: 5px;
+    background: hsl(var(--foreground) / 0.06);
+    border: 1px solid hsl(var(--foreground) / 0.06);
+    box-shadow: 0 1px 0 hsl(var(--foreground) / 0.05);
+    font-family: var(--font-mono);
+    /* A letter's cap-height is only ~0.7em, so a glyph set to the icon's pixel
+       size renders visibly shorter than the icon (which fills its box). Bump
+       the text and trim the icon until their visual heights meet — so K, esc, ↵
+       and ⌘ all read at the same height inside the cap. */
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1;
+    color: hsl(var(--muted-foreground));
+    transition:
+      color 0.2s ease,
+      background 0.2s ease,
+      border-color 0.2s ease;
+  }
+  /* Trim the icon to the letters' cap-height (≈0.7 × 13px) so ⌘ doesn't tower
+     over K. */
+  .kbd-icon {
+    width: 10px;
+    height: 10px;
+  }
+</style>
