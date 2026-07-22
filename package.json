@@ -39,6 +39,7 @@
     "test:e2e:site": "playwright test",
     "test:e2e:install": "playwright install chromium",
     "test:e2e:headed": "playwright test --headed",
+    "bench:theme": "bun scripts/benchmark-theme-transition.ts",
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:report": "playwright show-report",
     "mascot:show": "bun scripts/mascot.ts show",
