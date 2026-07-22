@@ -1,5 +1,6 @@
 import * as React from 'react';
 import { Check, Copy } from 'lucide-react';
+import { feedback } from '@/lib/feedback';
 
 interface CopyCommandProps {
   command: string;
@@ -22,6 +23,7 @@ export function CopyCommand({ command }: CopyCommandProps) {
     } catch {
       return;
     }
+    feedback.success();
     setCopied(true);
     window.clearTimeout(timer.current);
     timer.current = window.setTimeout(() => setCopied(false), 1600);

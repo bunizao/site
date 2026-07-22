@@ -528,6 +528,8 @@ const preloadFontHref = preloadFont === 'sans'
     </script>
 
     <script>
+      import { feedback } from '@/lib/feedback';
+
       (() => {
         const storageKey = 'theme';
         const toggle = document.querySelector('[data-theme-toggle]');
@@ -637,6 +639,7 @@ const preloadFontHref = preloadFont === 'sans'
             const el = option as HTMLElement;
             const theme = el.dataset.themeOption;
             if (theme) {
+              feedback.select();
               setStoredTheme(theme);
               applyTheme(theme);
               closeDropdown();
@@ -672,6 +675,8 @@ const preloadFontHref = preloadFont === 'sans'
 
     <!-- Site menu dropdown: open/close -->
     <script>
+      import { feedback } from '@/lib/feedback';
+
       (() => {
         const trigger = document.querySelector('[data-menu-trigger]') as HTMLElement | null;
         const menu = document.querySelector('[data-site-menu]') as HTMLElement | null;
@@ -725,6 +730,7 @@ const preloadFontHref = preloadFont === 'sans'
         const open = () => {
           if (isOpen) return;
           isOpen = true;
+          feedback.open();
           window.clearTimeout(closeTimer);
           menu.hidden = false;
           void menu.offsetWidth; // reflow so the transition starts from the closed state
@@ -743,6 +749,7 @@ const preloadFontHref = preloadFont === 'sans'
         const close = () => {
           if (!isOpen) return;
           isOpen = false;
+          feedback.close();
           menu.classList.remove('is-open');
           trigger.setAttribute('aria-expanded', 'false');
           trigger.classList.remove('is-active');
