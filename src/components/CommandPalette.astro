@@ -37,7 +37,7 @@ import {
   PerplexityIcon,
 } from '@/components/icons';
 import Kbd from '@/components/Kbd.astro';
-import { meta, navLinks, profile } from '@/data/site';
+import { blogPalette, meta, navLinks, profile } from '@/data/site';
 import type { ComponentType } from 'react';
 
 type IconComponent = ComponentType<{ className?: string }>;
@@ -91,11 +91,13 @@ const navShortcuts: Record<string, string> = {
 // progressive fallback; when the current page already carries a subscribe panel
 // the script opens it inline instead of navigating.
 const subscribeHref = '/mood/subscribe';
+const searchHighlight = blogPalette.ji;
 ---
 
 <dialog
   id="site-command-palette"
   class="cmdk"
+  style={`--cmdk-highlight:${searchHighlight.light};--cmdk-highlight-dark:${searchHighlight.dark}`}
   data-command-palette
   data-ai-context={AI_CONTEXT}
   aria-label="Site search and commands"
@@ -1376,24 +1378,24 @@ const subscribeHref = '/mood/subscribe';
   }
   .cmdk-rich-sub mark {
     margin-inline: 0.04em;
-    padding-inline: 0.08em;
-    border-radius: 2px;
-    background: linear-gradient(
-      to bottom,
-      transparent 56%,
-      hsl(var(--foreground) / 0.12) 56%
-    );
-    color: hsl(var(--foreground) / 0.78);
+    padding: 0.08em 0.16em;
+    border-radius: 3px;
+    background: color-mix(in srgb, var(--cmdk-highlight) 14%, transparent);
+    color: color-mix(in srgb, var(--cmdk-highlight) 72%, hsl(var(--foreground)));
     box-decoration-break: clone;
     -webkit-box-decoration-break: clone;
   }
+  .dark .cmdk-rich-sub mark {
+    background: color-mix(in srgb, var(--cmdk-highlight-dark) 16%, transparent);
+    color: color-mix(in srgb, var(--cmdk-highlight-dark) 82%, hsl(var(--foreground)));
+  }
   .cmdk-item.is-active .cmdk-rich-sub mark {
-    background: linear-gradient(
-      to bottom,
-      transparent 52%,
-      hsl(var(--foreground) / 0.2) 52%
-    );
-    color: hsl(var(--foreground));
+    background: color-mix(in srgb, var(--cmdk-highlight) 20%, transparent);
+    color: color-mix(in srgb, var(--cmdk-highlight) 82%, hsl(var(--foreground)));
+  }
+  .dark .cmdk-item.is-active .cmdk-rich-sub mark {
+    background: color-mix(in srgb, var(--cmdk-highlight-dark) 22%, transparent);
+    color: color-mix(in srgb, var(--cmdk-highlight-dark) 90%, hsl(var(--foreground)));
   }
 
   /* A group's transient note ("Searching…") — a quiet line, not a row, so it
