@@ -194,12 +194,27 @@ test.describe('Site command palette', () => {
     await expect(palette.getByRole('option', { name: /RSS/ })).toHaveCount(0);
   });
 
-  test('g-then-key jumps to a page from anywhere', async ({ page }) => {
+  test('g-then-key jumps from the palette shortcut hints', async ({ page }) => {
     await page.goto('/privacy');
-    // No field focused: the vim-style sequence navigates.
+    await page.keyboard.press('Control+K');
+
+    const palette = page.getByRole('dialog', { name: 'Site search and commands' });
+    const input = palette.getByRole('combobox', { name: 'Search commands' });
+    await expect(palette).toBeVisible();
+
     await page.keyboard.press('g');
-    await page.keyboard.press('p');
-    await expect(page).toHaveURL(/\/projects\/?$/);
+    await page.keyboard.press('x');
+    await expect(input).toHaveValue('g');
+    await input.fill('');
+
+    await page.keyboard.press('g');
+    await page.waitForTimeout(1300);
+    await expect(input).toHaveValue('g');
+    await input.fill('');
+
+    await page.keyboard.press('g');
+    await page.keyboard.press('h');
+    await expect(page).toHaveURL(/\/$/);
   });
 
   test('uses the site-wide palette on Writing routes', async ({ page }) => {

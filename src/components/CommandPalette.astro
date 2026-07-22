@@ -894,27 +894,50 @@ const subscribeHref = '/mood/subscribe';
       return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || node.isContentEditable;
     };
     let gPending = false;
+    let gPendingInPalette = false;
     let gTimer: number | undefined;
+    const insertPendingG = () => {
+      input.setRangeText('g', input.selectionStart ?? 0, input.selectionEnd ?? 0, 'end');
+      input.dispatchEvent(new InputEvent('input', { bubbles: true, data: 'g', inputType: 'insertText' }));
+    };
+    const resetGoTo = () => {
+      gPending = false;
+      gPendingInPalette = false;
+      window.clearTimeout(gTimer);
+    };
     document.addEventListener('keydown', (event) => {
-      // Never hijack a shortcut chord, a text field, or the open palette (where
-      // "g" is just a character being typed into the search box).
-      if (event.metaKey || event.ctrlKey || event.altKey) return;
-      if (dialog.open || isTypingTarget(event.target)) return;
+      // Ignore modifier chords and editable controls. The palette input is the
+      // one exception: when it is empty, the visible go-to hints should work.
+      if (event.metaKey || event.ctrlKey || event.altKey || event.isComposing) return;
+      const inEmptyPaletteInput = dialog.open && event.target === input && input.value === '';
+      if (isTypingTarget(event.target) && !inEmptyPaletteInput) {
+        resetGoTo();
+        return;
+      }
       const key = event.key.toLowerCase();
       if (gPending) {
-        gPending = false;
-        window.clearTimeout(gTimer);
+        resetGoTo();
         const href = gMap.get(key);
         if (href) {
           event.preventDefault();
           window.location.href = href;
+          return;
+        }
+        // We held the initial "g" back from an empty palette query. If the next
+        // key is not a shortcut, restore it and let normal typing continue.
+        if (inEmptyPaletteInput) {
+          event.preventDefault();
+          insertPendingG();
         }
         return;
       }
       if (key === 'g') {
         gPending = true;
+        gPendingInPalette = inEmptyPaletteInput;
+        if (inEmptyPaletteInput) event.preventDefault();
         gTimer = window.setTimeout(() => {
-          gPending = false;
+          if (gPendingInPalette) insertPendingG();
+          resetGoTo();
         }, 1200);
       }
     });
