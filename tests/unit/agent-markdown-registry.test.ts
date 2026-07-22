@@ -35,6 +35,12 @@ describe('agent markdown registry', () => {
     expect(policy?.edgeCacheHtml).toBe(true);
     expect(policy?.cacheTtlSeconds).toBe(300);
     expect(policy?.cacheStaleWhileRevalidateSeconds).toBe(1800);
+    expect(policy?.isHtmlReady?.('<article data-mood-id="990001"></article>', new Response()))
+      .toBe(true);
+    expect(policy?.isHtmlReady?.(
+      '<article data-mood-id="990001" data-mood-preview-pending="true"></article>',
+      new Response(),
+    )).toBe(false);
   });
 
   test('declares longer edge HTML cache policy for the public mood feed', () => {

@@ -373,6 +373,7 @@ export function getContentRoutePolicy(pathname: string): ContentRoutePolicy | nu
       cacheStaleWhileRevalidateSeconds: MOOD_DETAIL_PAGE_STALE_WHILE_REVALIDATE_SECONDS,
       edgeCacheHtml: true,
       cacheHeaderName: EDGE_CACHE_HEADER,
+      isHtmlReady: (body) => !body.includes('data-mood-preview-pending="true"'),
     };
   }
 

@@ -28,6 +28,11 @@ const {
 
 const postTags = post ? post.tags ?? (post.tag ? [post.tag] : []) : [];
 const postReactions = post?.reactions ?? [];
+const hasLinkPreview = post
+  ? post.hero?.type === 'link-preview' || post.media.some((item) => item.type === 'link-preview')
+  : false;
+const previewPending = readSource === 'archive'
+  && Boolean(post && /https?:\/\//i.test(post.bodyHtml) && !hasLinkPreview);
 ---
 
 {post ? (
@@ -35,6 +40,7 @@ const postReactions = post?.reactions ?? [];
     class="mood-post"
     data-mood-id={postId || post.id}
     data-mood-read-source={readSource}
+    data-mood-preview-pending={previewPending ? 'true' : undefined}
   >
     <div class="mood-post-header">
       <a href={backHref} class="back-link" data-back-button>← Back to Moods</a>
