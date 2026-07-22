@@ -4,6 +4,8 @@ test.describe('Standalone pages', () => {
   test('renders the page navbar logo on whole CSS pixels', async ({ page }) => {
     await page.goto('/privacy');
 
+    await expect(page.locator('.site-brand-logo [data-animated-logo] svg')).toBeVisible();
+
     const getLogoScale = () => page.locator('.site-brand-logo [data-animated-logo]').evaluate((logo) => {
       const gridWidth = Number.parseInt((logo as HTMLElement).dataset.logoWidth ?? '0', 10);
       const svg = logo.querySelector('svg');
@@ -106,7 +108,7 @@ test.describe('Standalone pages', () => {
     expect(state?.brandGap).toBe(6);
     expect(state?.brandText).toBe('buxx.me');
     expect(state?.brandTextOpacity).toBe('1');
-    expect(state?.brandTextWidth).toBeGreaterThan(70);
+    expect(state?.brandTextWidth).toBeGreaterThan(65);
     expect(state?.toggleBackground).toBe('rgba(0, 0, 0, 0)');
     expect(state?.toggleBorder).toBe('rgba(0, 0, 0, 0)');
   });

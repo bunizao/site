@@ -194,6 +194,19 @@ test.describe('Site command palette', () => {
     await expect(palette.getByRole('option', { name: /RSS/ })).toHaveCount(0);
   });
 
+  test('opens the current page subscribe panel inline', async ({ page }) => {
+    await page.goto('/mood');
+    await page.keyboard.press('Control+K');
+
+    const palette = page.getByRole('dialog', { name: 'Site search and commands' });
+    await palette.getByRole('option', { name: 'Subscribe' }).click();
+
+    await expect(palette).toBeHidden();
+    await expect(page.locator('.subscribe-panel')).toHaveClass(/is-open/);
+    await expect(page.locator('[data-sub-email]')).toBeVisible();
+    await expect(page).toHaveURL(/\/mood$/);
+  });
+
   test('g-then-key jumps from the palette shortcut hints', async ({ page }) => {
     await page.goto('/privacy');
     await page.keyboard.press('Control+K');

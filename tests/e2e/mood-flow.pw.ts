@@ -1590,6 +1590,7 @@ test.describe('Mood routes', () => {
     await page.goto('/mood');
     const navbar = page.locator('[data-mood-navbar]');
     const controls = navbar.locator('.mood-navbar__controls');
+    await expect(page.locator('[data-back-to-top]')).toHaveCount(0);
     await expect(navbar).toBeVisible();
     await expect(controls).toBeVisible();
     await expect(page.locator('[data-mood-feed]')).not.toHaveClass(/is-hidden/, { timeout: 30_000 });
@@ -1913,6 +1914,7 @@ test.describe('Mood routes', () => {
     await page.goto(`/mood/${latestMoodId}`, { waitUntil: 'domcontentloaded' });
 
     await expect(page.locator('[data-back-button]')).toBeVisible();
+    await expect(page.locator('[data-back-to-top]')).toBeAttached();
     await expect(page.locator('[data-comments-list]')).toBeVisible();
 
     await expect
