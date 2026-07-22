@@ -93,6 +93,13 @@ export interface MoodIngestHealth {
     sentiment: MoodCoverageSummary;
     tags: MoodCoverageSummary;
   };
+  replyIntegrity: {
+    edges: number;
+    unresolvedTargets: number;
+    unresolvedPostIds: string[];
+    unverifiedPosts: number;
+    oldestVerifiedAt: string | null;
+  };
   snapshotGeneratedAt: string | null;
 }
 
