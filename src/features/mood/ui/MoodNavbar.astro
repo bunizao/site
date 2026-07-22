@@ -118,6 +118,7 @@ const avatar = initialChannel?.avatar?.trim() ?? '';
 
   const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
   const clamp01 = (n: number) => (n < 0 ? 0 : n > 1 ? 1 : n);
+  const ease = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
 
   function initMoodNavbar() {
     const navbar = document.querySelector<HTMLElement>('[data-mood-navbar]');
@@ -156,6 +157,9 @@ const avatar = initialChannel?.avatar?.trim() ?? '';
     let slotLeft = 0;
     let slotSize = 0;
     let distance = 1;
+    // The identity rides the page for the first stretch, then shrinks + pins
+    // over the last `dockBand` px before it reaches the bar.
+    let dockBand = 1;
 
     // Title shared element (only when the hero has a title to fly from).
     let heroTitleTopDoc = 0;
@@ -179,6 +183,8 @@ const avatar = initialChannel?.avatar?.trim() ?? '';
       heroSize = heroRect.width || slotSize;
 
       distance = Math.max(1, heroTopDoc - slotTop);
+      // Ride the content for ~45% of the trip, then dock over the last ~55%.
+      dockBand = Math.max(1, distance * 0.55);
 
       // Title flyer geometry: read the docked title with any travel transform
       // cleared, then the hero title's document box and the font-size ratio the
@@ -204,31 +210,37 @@ const avatar = initialChannel?.avatar?.trim() ?? '';
 
     const update = () => {
       const y = window.scrollY;
-      const p = clamp01(y / distance);
-      // Interpolate the flyer from the hero avatar's current on-screen box to
-      // the docked slot. transform-origin is the top-left corner, so translate
-      // + scale keeps the two boxes aligned at both ends.
-      const curTop = lerp(heroTopDoc - y, slotTop, p);
-      const curLeft = lerp(heroLeftDoc, slotLeft, p);
-      const scale = lerp(heroSize / slotSize, 1, p);
+      // The flyer tracks the hero's real on-screen position, so it scrolls up
+      // at content speed — glued to where the hero actually is — instead of
+      // racing toward the bar. Only over the last `dockBand` px, as the hero
+      // nears the slot, does it shrink and pin. `d` is that docking progress:
+      // 0 while riding the content, 1 once docked.
+      const heroTopVp = heroTopDoc - y;
+      const d = ease(clamp01((slotTop + dockBand - heroTopVp) / dockBand));
+
+      // transform-origin is the top-left corner, so translate + scale keeps the
+      // start (hero box) and end (slot box) aligned at both ends.
+      const curTop = lerp(heroTopVp, slotTop, d);
+      const curLeft = lerp(heroLeftDoc, slotLeft, d);
+      const scale = lerp(heroSize / slotSize, 1, d);
       flyer.style.transform = `translate(${curLeft}px, ${curTop}px) scale(${scale})`;
 
       if (titleFly && title) {
-        // The levitating title shares the avatar's trip: it starts big over the
-        // hero title and shrinks up-left into its docked slot, in lockstep.
-        const curTTop = lerp(heroTitleTopDoc - y, navTitleTop, p);
-        const curTLeft = lerp(heroTitleLeftDoc, navTitleLeft, p);
-        const tScale = lerp(titleScaleStart, 1, p);
+        // The levitating title docks in lockstep, on the same progress, so the
+        // pair moves as one — riding the page, then collapsing into the bar.
+        const curTTop = lerp(heroTitleTopDoc - y, navTitleTop, d);
+        const curTLeft = lerp(heroTitleLeftDoc, navTitleLeft, d);
+        const tScale = lerp(titleScaleStart, 1, d);
         title.style.transform =
           `translate(${curTLeft - navTitleLeft}px, ${curTTop - navTitleTop}px) scale(${tScale})`;
         title.style.opacity = '1';
       } else if (title) {
-        const t = clamp01((p - 0.6) / 0.4);
+        const t = clamp01((d - 0.6) / 0.4);
         title.style.opacity = String(t);
         title.style.transform = `translateX(${(1 - t) * -6}px)`;
       }
 
-      navbar.classList.toggle('is-docked', p > 0.99);
+      navbar.classList.toggle('is-docked', d > 0.99);
     };
 
     // update() only reads scrollY and writes transforms — no layout reads — so
@@ -251,9 +263,18 @@ const avatar = initialChannel?.avatar?.trim() ?? '';
 
     window.addEventListener('scroll', onScroll, { passive: true });
     window.addEventListener('resize', remeasure);
-    // Late layout shifts (web fonts, the hero title/description hydrating) move
-    // the hero identity, so re-measure once everything has settled.
     window.addEventListener('load', remeasure);
+
+    // The hero settles late — hydrateHero() fills the title/avatar and the code
+    // font reflows it after first paint, moving the box the flyer starts from.
+    // A ResizeObserver on the document re-measures on every such shift (and once
+    // right after layout), so the flyer never starts stale. Fonts get an
+    // explicit hook too, since a metrics change may not resize the document.
+    if (typeof ResizeObserver !== 'undefined') {
+      const ro = new ResizeObserver(() => remeasure());
+      ro.observe(document.documentElement);
+    }
+    document.fonts?.ready?.then(remeasure).catch(() => {});
   }
 
   initMoodNavbar();
