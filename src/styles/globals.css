@@ -1501,6 +1501,16 @@
   }
 
   @media (max-width: 899px) {
+    /* Pull the trio tighter — the 44px hit areas already give the glyphs air,
+       so the extra 6px between them just reads as drift. */
+    .global-header-actions--home {
+      gap: 2px;
+    }
+
+    /* The ⌘K search joins the theme toggle + menu as an identical bare ghost
+       circle: no box, no glass, same 44px round tap target. Its keycaps are
+       already hidden on mobile, so only the magnifier remains. */
+    .global-header-actions--home .header-action-btn--cmdk,
     .global-header-actions--home .header-action-btn[data-theme-toggle],
     .global-header-actions--home .menu-trigger {
       min-width: 2.75rem;
@@ -1514,12 +1524,14 @@
       backdrop-filter: none;
     }
 
+    .global-header-actions--home .header-action-btn--cmdk:hover,
     .global-header-actions--home .header-action-btn[data-theme-toggle]:hover,
     .global-header-actions--home .menu-trigger:hover {
       background: rgb(17 17 17 / 0.06);
       border-color: transparent;
     }
 
+    .dark .global-header-actions--home .header-action-btn--cmdk:hover,
     .dark .global-header-actions--home .header-action-btn[data-theme-toggle]:hover,
     .dark .global-header-actions--home .menu-trigger:hover {
       background: rgb(255 255 255 / 0.08);
