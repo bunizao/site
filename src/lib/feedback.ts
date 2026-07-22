@@ -124,6 +124,7 @@ interface FeedbackSlot {
   reduced?: MediaQueryList;
   noise?: AudioBuffer;
   haptic?: HTMLInputElement | null;
+  themeAudio?: HTMLAudioElement;
 }
 const slot: FeedbackSlot =
   typeof window !== 'undefined'
@@ -292,12 +293,28 @@ const fire = (name: Sound): void => {
   haptics(name);
 };
 
+let themeLastPlayed = -Infinity;
+
+const fireTheme = (): void => {
+  if (prefersReducedMotion() || typeof Audio === 'undefined') return;
+  const stamp = typeof performance !== 'undefined' ? performance.now() : Date.now();
+  if (stamp - themeLastPlayed < THROTTLE_MS) return;
+  themeLastPlayed = stamp;
+
+  const audio = (slot.themeAudio ??= new Audio('/audio/theme-click.mp3'));
+  audio.volume = 0.3;
+  audio.currentTime = 0;
+  void audio.play().catch(() => {});
+  haptics('select');
+};
+
 export const feedback = {
   tap: () => fire('tap'),
   select: () => fire('select'),
   success: () => fire('success'),
   open: () => fire('open'),
   close: () => fire('close'),
+  theme: fireTheme,
 };
 
 export default feedback;
