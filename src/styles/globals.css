@@ -2329,6 +2329,40 @@ html.no-transition * {
   animation-duration: 240ms;
 }
 
+/* ─── Theme toggle: top-down curtain wipe ───────────────────────────────────
+   A theme change is a same-document startViewTransition, not a navigation, so
+   it reuses the `root` snapshot — and would otherwise inherit the navigation
+   crossfade above. While `.theme-wipe` is on <html> (added for the duration of
+   the transition only), the re-themed page is instead revealed as a curtain
+   dropping from the top edge: the new snapshot's clip-path opens downward while
+   the old theme holds still underneath. Placed after the navigation and WebKit
+   root rules so, at equal specificity, it wins by source order — but only when
+   the class is present, leaving page navigations untouched. */
+:root.theme-wipe::view-transition-group(root) {
+  animation-timing-function: cubic-bezier(0.85, 0, 0.15, 1);
+}
+
+:root.theme-wipe::view-transition-old(root) {
+  animation: none;
+  z-index: -1;
+}
+
+:root.theme-wipe::view-transition-new(root) {
+  animation: theme-wipe-in 0.65s cubic-bezier(0.85, 0, 0.15, 1) forwards;
+  clip-path: inset(0 0 100%);
+  z-index: 1;
+  will-change: clip-path;
+}
+
+@keyframes theme-wipe-in {
+  from {
+    clip-path: inset(0 0 100%);
+  }
+  to {
+    clip-path: inset(0);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   ::view-transition-group(*),
   ::view-transition-old(*),

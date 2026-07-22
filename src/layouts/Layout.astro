@@ -602,6 +602,26 @@ const preloadFontHref = preloadFont === 'sans'
           updateToggle(setting);
         };
 
+        // Explicit theme picks wipe the new theme in as a top-down curtain via a
+        // same-document View Transition; `.theme-wipe` scopes the wipe CSS so
+        // page navigations keep their own crossfade. Reduced-motion or browsers
+        // without the API fall straight through to a plain flip. Init and
+        // OS-driven changes call applyTheme directly, so they never wipe.
+        const transitionTheme = (theme: string) => {
+          const doc = document as Document & {
+            startViewTransition?: (cb: () => void) => { finished: Promise<void> };
+          };
+          const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+          if (reduced || typeof doc.startViewTransition !== 'function') {
+            applyTheme(theme);
+            return;
+          }
+          const root = document.documentElement;
+          root.classList.add('theme-wipe');
+          const vt = doc.startViewTransition(() => applyTheme(theme));
+          vt.finished.finally(() => root.classList.remove('theme-wipe'));
+        };
+
         const openDropdown = () => {
           if (!dropdown || !menu || !toggle) return;
           dropdown.classList.add('is-open');
@@ -641,7 +661,7 @@ const preloadFontHref = preloadFont === 'sans'
             if (theme) {
               feedback.select();
               setStoredTheme(theme);
-              applyTheme(theme);
+              transitionTheme(theme);
               closeDropdown();
             }
           });
