@@ -603,11 +603,42 @@ const preloadFontHref = preloadFont === 'sans'
         };
 
         let activeThemeTransition: { finished: Promise<void>; skipTransition?: () => void } | null = null;
-        let webkitThemeTransition = 0;
+        let fallbackThemeCleanup: (() => void) | null = null;
 
-        // Theme changes use one root snapshot and animate only compositor-safe
-        // properties. Freezing descendant transitions during capture avoids
-        // hundreds of color animations competing with the snapshot animation.
+        const runFallbackThemeTransition = (update: () => void) => {
+          const root = document.documentElement;
+          fallbackThemeCleanup?.();
+
+          const fromTheme = root.classList.contains('dark')
+            ? 'theme-wipe-from-dark'
+            : 'theme-wipe-from-light';
+          root.classList.add('theme-wipe-webkit', fromTheme, 'no-transition');
+          update();
+
+          let timeout = 0;
+          const cleanup = () => {
+            if (fallbackThemeCleanup !== cleanup) return;
+            fallbackThemeCleanup = null;
+            window.clearTimeout(timeout);
+            root.removeEventListener('animationend', onAnimationEnd);
+            root.classList.remove(
+              'theme-wipe-webkit',
+              'theme-wipe-from-dark',
+              'theme-wipe-from-light',
+              'no-transition',
+            );
+          };
+          const onAnimationEnd = (event: AnimationEvent) => {
+            if (event.animationName === 'theme-polygon-overlay') cleanup();
+          };
+
+          fallbackThemeCleanup = cleanup;
+          root.addEventListener('animationend', onAnimationEnd);
+          timeout = window.setTimeout(cleanup, 1100);
+        };
+
+        // Theme changes use one root snapshot and freeze descendant transitions
+        // so the polygon mask is the only animated surface during the reveal.
         const transitionTheme = (theme: string) => {
           const doc = document as Document & {
             startViewTransition?: (cb: () => void) => {
@@ -628,28 +659,8 @@ const preloadFontHref = preloadFont === 'sans'
             return;
           }
 
-          if (root.classList.contains('ua-webkit')) {
-            window.clearTimeout(webkitThemeTransition);
-            root.classList.remove('theme-wipe-webkit', 'theme-wipe-from-dark', 'theme-wipe-from-light');
-            root.classList.add(
-              'theme-wipe-webkit',
-              root.classList.contains('dark') ? 'theme-wipe-from-dark' : 'theme-wipe-from-light',
-              'no-transition',
-            );
-            update();
-            webkitThemeTransition = window.setTimeout(() => {
-              root.classList.remove(
-                'theme-wipe-webkit',
-                'theme-wipe-from-dark',
-                'theme-wipe-from-light',
-                'no-transition',
-              );
-            }, 160);
-            return;
-          }
-
           if (typeof doc.startViewTransition !== 'function') {
-            update();
+            runFallbackThemeTransition(update);
             return;
           }
 

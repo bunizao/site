@@ -153,7 +153,40 @@ const user = userProp
         toggle.dataset.ready = 'true';
 
         let active: { finished: Promise<void>; skipTransition?: () => void } | null = null;
-        let webkitThemeTransition = 0;
+        let fallbackCleanup: (() => void) | null = null;
+
+        const runFallbackTransition = (update: () => void) => {
+          const root = document.documentElement;
+          fallbackCleanup?.();
+
+          const fromTheme = root.classList.contains('dark')
+            ? 'theme-wipe-from-dark'
+            : 'theme-wipe-from-light';
+          root.classList.add('theme-wipe-webkit', fromTheme, 'no-transition');
+          update();
+
+          let timeout = 0;
+          const cleanup = () => {
+            if (fallbackCleanup !== cleanup) return;
+            fallbackCleanup = null;
+            window.clearTimeout(timeout);
+            root.removeEventListener('animationend', onAnimationEnd);
+            root.classList.remove(
+              'theme-wipe-webkit',
+              'theme-wipe-from-dark',
+              'theme-wipe-from-light',
+              'no-transition',
+            );
+          };
+          const onAnimationEnd = (event: AnimationEvent) => {
+            if (event.animationName === 'theme-polygon-overlay') cleanup();
+          };
+
+          fallbackCleanup = cleanup;
+          root.addEventListener('animationend', onAnimationEnd);
+          timeout = window.setTimeout(cleanup, 1100);
+        };
+
         toggle.addEventListener('click', () => {
           const root = document.documentElement;
           const nextDark = !root.classList.contains('dark');
@@ -177,28 +210,8 @@ const user = userProp
             return;
           }
 
-          if (root.classList.contains('ua-webkit')) {
-            window.clearTimeout(webkitThemeTransition);
-            root.classList.remove('theme-wipe-webkit', 'theme-wipe-from-dark', 'theme-wipe-from-light');
-            root.classList.add(
-              'theme-wipe-webkit',
-              root.classList.contains('dark') ? 'theme-wipe-from-dark' : 'theme-wipe-from-light',
-              'no-transition',
-            );
-            update();
-            webkitThemeTransition = window.setTimeout(() => {
-              root.classList.remove(
-                'theme-wipe-webkit',
-                'theme-wipe-from-dark',
-                'theme-wipe-from-light',
-                'no-transition',
-              );
-            }, 160);
-            return;
-          }
-
           if (!doc.startViewTransition) {
-            update();
+            runFallbackTransition(update);
             return;
           }
 

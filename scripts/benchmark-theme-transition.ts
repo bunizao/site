@@ -21,6 +21,9 @@ const profiles = [
 ];
 
 interface FrameStats {
+  nativeSupported: boolean;
+  path: "native" | "fallback" | "none";
+  animated: boolean;
   frames: number;
   median: number;
   p95: number;
@@ -62,6 +65,11 @@ const benchmark = async (name: string, engine: BrowserType) => {
           requestAnimationFrame(sample);
 
           const root = document.documentElement;
+          const nativeSupported =
+            typeof (document as Document & { startViewTransition?: unknown })
+              .startViewTransition === "function";
+          let path: FrameStats["path"] = "none";
+          let animated = false;
           await new Promise<void>((resolve) =>
             requestAnimationFrame(() => resolve()),
           );
@@ -81,12 +89,18 @@ const benchmark = async (name: string, engine: BrowserType) => {
             if (!target) throw new Error(`Theme control missing: ${selector}`);
             target.click();
             await new Promise<void>((resolve) => {
-              const timeout = window.setTimeout(resolve, 1000);
+              const timeout = window.setTimeout(resolve, 1200);
+              let sawTransition = false;
               const inspect = () => {
-                if (
-                  !root.classList.contains("theme-wipe") &&
-                  !root.classList.contains("theme-wipe-webkit")
-                ) {
+                const nativeActive = root.classList.contains("theme-wipe");
+                const fallbackActive =
+                  root.classList.contains("theme-wipe-webkit");
+                if (nativeActive || fallbackActive) {
+                  sawTransition = true;
+                  animated = true;
+                  path = nativeActive ? "native" : "fallback";
+                }
+                if (sawTransition && !nativeActive && !fallbackActive) {
                   clearTimeout(timeout);
                   resolve();
                   return;
@@ -108,6 +122,9 @@ const benchmark = async (name: string, engine: BrowserType) => {
               )
             ] ?? 0;
           return {
+            nativeSupported,
+            path,
+            animated,
             frames: frameDurations.length,
             median: pick(0.5),
             p95: pick(0.95),
@@ -119,8 +136,11 @@ const benchmark = async (name: string, engine: BrowserType) => {
         { selector: route.selector, iterations },
       );
 
+      const status = stats.animated
+        ? `${stats.path}${stats.nativeSupported ? "/native-api" : "/no-native-api"}`
+        : `not-animated${stats.nativeSupported ? "/native-api" : "/no-native-api"}`;
       console.log(
-        `${name.padEnd(8)} ${profile.name.padEnd(7)} ${route.path.padEnd(12)} ${stats.frames} frames  median=${stats.median.toFixed(1)}ms  p95=${stats.p95.toFixed(1)}ms  max=${stats.max.toFixed(1)}ms  >20ms=${stats.overBudget}`,
+        `${name.padEnd(8)} ${profile.name.padEnd(7)} ${route.path.padEnd(12)} ${status.padEnd(24)} ${stats.frames} frames  median=${stats.median.toFixed(1)}ms  p95=${stats.p95.toFixed(1)}ms  max=${stats.max.toFixed(1)}ms  >20ms=${stats.overBudget}`,
       );
     }
 

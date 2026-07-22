@@ -96,6 +96,24 @@
     --grid: 0 0% 0% / 0.12;
     --selection-bg: 0 0% 0%;
     --selection-fg: 0 0% 100%;
+    --expo-out: linear(
+      0 0%,
+      0.1684 2.66%,
+      0.3165 5.49%,
+      0.446 8.52%,
+      0.5581 11.78%,
+      0.6535 15.29%,
+      0.7341 19.11%,
+      0.8011 23.3%,
+      0.8557 27.93%,
+      0.8962 32.68%,
+      0.9283 38.01%,
+      0.9529 44.08%,
+      0.9711 51.14%,
+      0.9833 59.06%,
+      0.9915 68.74%,
+      1 100%
+    );
   }
 
   .dark {
@@ -2359,13 +2377,13 @@ html.no-transition * {
   animation-duration: 240ms;
 }
 
-/* ─── Theme toggle: diagonal snapshot reveal ─────────────────────────────────
-   The registry effect animates mask-size to 200vmax, which re-rasterizes a full
-   viewport texture on every frame. A short diagonal drift preserves its visual
-   direction while keeping the pre-rasterized snapshot near its native size. */
+/* ─── Theme toggle: polygon gradient reveal ──────────────────────────────────
+   A fixed gradient mask preserves the registry's feathered triangle while its
+   position moves across the snapshot. Unlike an animated mask-size, this does
+   not ask WebKit to rasterize a larger mask texture on every frame. */
 :root.theme-wipe::view-transition-group(root) {
-  animation-duration: 320ms;
-  animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+  animation-duration: 900ms;
+  animation-timing-function: var(--expo-out);
 }
 
 :root.theme-wipe::view-transition-image-pair(root) {
@@ -2378,51 +2396,74 @@ html.no-transition * {
 }
 
 :root.theme-wipe::view-transition-new(root) {
-  animation: theme-diagonal-reveal 320ms cubic-bezier(0.16, 1, 0.3, 1) both;
   z-index: 1;
-  will-change: transform, opacity;
+  mask-image: linear-gradient(
+    135deg,
+    #000 0%,
+    #000 45%,
+    rgb(0 0 0 / 99%) 46%,
+    transparent 50%,
+    transparent 100%
+  );
+  mask-repeat: no-repeat;
+  mask-size: 200% 200%;
+  mask-position: 100% 100%;
+  animation: theme-polygon-reveal 900ms var(--expo-out) both;
+  will-change: mask-position;
 }
 
-@keyframes theme-diagonal-reveal {
-  from {
-    opacity: 0;
-    transform: translate3d(-24px, -24px, 0);
-  }
+@keyframes theme-polygon-reveal {
   to {
-    opacity: 1;
-    transform: translate3d(0, 0, 0);
+    mask-position: 0 0;
   }
 }
 
-/* WebKit's View Transition capture itself stalls on content-heavy pages. Its
-   fallback changes the theme immediately and fades a fixed compositor layer
-   away without snapshotting the document. */
-:root.ua-webkit.theme-wipe-webkit::before {
+/* Browsers without same-document View Transitions use the same polygon mask on
+   a fixed old-theme layer. This avoids capturing and rasterizing the page. */
+:root.theme-wipe-webkit::before {
   position: fixed;
   inset: 0;
   z-index: 2147483647;
   content: '';
   pointer-events: none;
   background: hsl(var(--background));
-  transform-origin: bottom right;
-  animation: theme-overlay-fade 120ms ease-out both;
-  will-change: opacity;
+  mask-image: linear-gradient(
+    135deg,
+    #000 0%,
+    #000 45%,
+    rgb(0 0 0 / 99%) 46%,
+    transparent 50%,
+    transparent 100%
+  );
+  mask-repeat: no-repeat;
+  mask-size: 200% 200%;
+  animation: theme-polygon-overlay 900ms var(--expo-out) both;
+  will-change: mask-position;
 }
 
-:root.ua-webkit.theme-wipe-from-light::before {
+:root.theme-wipe-from-light::before {
   background: hsl(0 0% 100%);
 }
 
-:root.ua-webkit.theme-wipe-from-dark::before {
-  background: hsl(20 14.3% 4.1%);
+:root.theme-wipe-from-dark::before {
+  background: hsl(0 0% 4%);
 }
 
-@keyframes theme-overlay-fade {
+@keyframes theme-polygon-overlay {
   from {
-    opacity: 1;
+    mask-position: 0 0;
   }
+
   to {
-    opacity: 0;
+    mask-position: 100% 100%;
+  }
+}
+
+@media (max-width: 899px) {
+  :root.theme-wipe::view-transition-group(root),
+  :root.theme-wipe::view-transition-new(root),
+  :root.theme-wipe-webkit::before {
+    animation-duration: 720ms;
   }
 }
 
