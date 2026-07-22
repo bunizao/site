@@ -28,6 +28,7 @@ import {
   Palette,
   Bell,
   X,
+  LoaderCircle,
 } from 'lucide-react';
 import {
   GitHubIcon,
@@ -157,7 +158,10 @@ const searchHighlight = blogPalette.ji;
            The two mounts never show at once — the script swaps them by query. -->
       <div class="cmdk-group" role="group" data-command-group data-group="writing">
         <div class="cmdk-heading">Writing</div>
-        <p class="cmdk-status" data-writing-status role="status" aria-live="polite"></p>
+        <p class="cmdk-status" data-writing-status role="status" aria-live="polite" hidden>
+          <LoaderCircle className="cmdk-status-icon" aria-hidden="true" />
+          <span class="cmdk-status-text">Searching…</span>
+        </p>
         <div data-command-posts style="display: contents"></div>
         <div data-command-writing style="display: contents"></div>
       </div>
@@ -166,7 +170,10 @@ const searchHighlight = blogPalette.ji;
            query returns FTS hits (or a status while it fetches). -->
       <div class="cmdk-group" role="group" data-command-group data-group="moods">
         <div class="cmdk-heading">Moods</div>
-        <p class="cmdk-status" data-moods-status role="status" aria-live="polite"></p>
+        <p class="cmdk-status" data-moods-status role="status" aria-live="polite" hidden>
+          <LoaderCircle className="cmdk-status-icon" aria-hidden="true" />
+          <span class="cmdk-status-text">Searching…</span>
+        </p>
         <div data-command-moods style="display: contents"></div>
       </div>
 
@@ -468,7 +475,7 @@ const searchHighlight = blogPalette.ji;
       groups.forEach((group) => {
         const hasItem = Boolean(group.querySelector('[data-command-item]:not([hidden])'));
         const status = group.querySelector<HTMLElement>('.cmdk-status');
-        const hasStatus = Boolean(status?.textContent?.trim());
+        const hasStatus = Boolean(status && !status.hidden);
         group.hidden = !(hasItem || hasStatus);
       });
       visible = items.filter((el) => !el.hidden);
@@ -553,6 +560,10 @@ const searchHighlight = blogPalette.ji;
       mount?.replaceChildren();
     };
 
+    const setSearching = (status: HTMLElement | null, searching: boolean) => {
+      if (status) status.hidden = !searching;
+    };
+
     const writingResults = async (query: string): Promise<WritingHit[]> => {
       const pf = await ensurePagefind();
       if (!pf) {
@@ -604,8 +615,8 @@ const searchHighlight = blogPalette.ji;
       moodController = null;
       clearMount(writingMount);
       clearMount(moodsMount);
-      if (writingStatus) writingStatus.textContent = '';
-      if (moodsStatus) moodsStatus.textContent = '';
+      setSearching(writingStatus, false);
+      setSearching(moodsStatus, false);
     };
 
     const runRemoteSearch = (raw: string) => {
@@ -623,8 +634,8 @@ const searchHighlight = blogPalette.ji;
       const runMoods = searchScope !== 'writing';
       searchTimer = window.setTimeout(() => {
         const generation = (searchGeneration += 1);
-        if (runWriting && writingStatus) writingStatus.textContent = 'Searching…';
-        if (runMoods && moodsStatus) moodsStatus.textContent = 'Searching…';
+        setSearching(writingStatus, runWriting);
+        setSearching(moodsStatus, runMoods);
         filter();
 
         const settle = () => {
@@ -638,12 +649,12 @@ const searchHighlight = blogPalette.ji;
             .then((hits) => {
               if (generation !== searchGeneration) return;
               renderWriting(hits);
-              if (writingStatus) writingStatus.textContent = '';
+              setSearching(writingStatus, false);
               settle();
             })
             .catch(() => {
               if (generation !== searchGeneration) return;
-              if (writingStatus) writingStatus.textContent = '';
+              setSearching(writingStatus, false);
               settle();
             });
         }
@@ -655,13 +666,13 @@ const searchHighlight = blogPalette.ji;
             .then((results) => {
               if (generation !== searchGeneration) return;
               renderMoods(results);
-              if (moodsStatus) moodsStatus.textContent = '';
+              setSearching(moodsStatus, false);
               settle();
             })
             .catch((error) => {
               if (generation !== searchGeneration) return;
               if (error instanceof DOMException && error.name === 'AbortError') return;
-              if (moodsStatus) moodsStatus.textContent = '';
+              setSearching(moodsStatus, false);
               settle();
             });
         }
@@ -1398,16 +1409,61 @@ const searchHighlight = blogPalette.ji;
     color: color-mix(in srgb, var(--cmdk-highlight-dark) 90%, hsl(var(--foreground)));
   }
 
-  /* A group's transient note ("Searching…") — a quiet line, not a row, so it
-     never steals the keyboard highlight. Collapses when empty. */
+  /* Search progress occupies the same visual row as a result. The Lucide ring
+     keeps the palette's icon language intact; shimmer carries activity without
+     making the whole row pulse. */
   .cmdk-status {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    min-height: 40px;
     margin: 0;
-    padding: 3px calc(var(--cmdk-pad-x) - var(--cmdk-list-pad)) 6px;
-    font-size: 12.5px;
-    color: hsl(var(--muted-foreground) / 0.7);
+    padding: 0 calc(var(--cmdk-pad-x) - var(--cmdk-list-pad));
+    font-size: 14px;
+    font-weight: 450;
+    color: hsl(var(--muted-foreground));
   }
-  .cmdk-status:empty {
+  .cmdk-status[hidden] {
     display: none;
+  }
+  .cmdk-status-icon {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+    color: hsl(var(--muted-foreground) / 0.7);
+    animation: cmdk-search-spin 900ms linear infinite;
+  }
+  .cmdk-status-text {
+    color: transparent;
+    background-image: linear-gradient(
+      105deg,
+      hsl(var(--muted-foreground) / 0.58) 36%,
+      hsl(var(--foreground) / 0.92) 50%,
+      hsl(var(--muted-foreground) / 0.58) 64%
+    );
+    background-size: 250% 100%;
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    animation: cmdk-search-shimmer 2s linear infinite;
+  }
+  @keyframes cmdk-search-spin {
+    to { transform: rotate(360deg); }
+  }
+  @keyframes cmdk-search-shimmer {
+    from { background-position: 100% 0; }
+    to { background-position: -100% 0; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .cmdk-status-icon,
+    .cmdk-status-text {
+      animation: none;
+    }
+    .cmdk-status-text {
+      color: hsl(var(--muted-foreground));
+      background: none;
+      -webkit-text-fill-color: currentColor;
+    }
   }
 
   /* Inline theme switch — three states of one setting read as a segmented
