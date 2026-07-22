@@ -31,3 +31,9 @@ Root-level `plans/` (repo root, numbered files) is the mood-hardening workstream
 | [SHARED-LAYOUT.md](SHARED-LAYOUT.md) | Cross-page UI: nav, theme, footer. |
 | [SPOTLIGHT-OVERLAY.md](SPOTLIGHT-OVERLAY.md) | The pointer spotlight over the dot grid. |
 | [E2E-BEHAVIOR-SCOPE.md](E2E-BEHAVIOR-SCOPE.md) | What the Playwright suites do and do not cover. |
+
+## Active plans
+
+| Doc | Read it when |
+| --- | --- |
+| [PLAN-ops-portal.md](PLAN-ops-portal.md) | You need the approved roadmap for the portal rework, notify gate, Telegram ops bot, and analytics workstream. |
