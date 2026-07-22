@@ -18,18 +18,27 @@ import StatCard from '@/components/portal/StatCard.astro';
 import EmptyState from '@/components/portal/EmptyState.astro';
 import PortalSection from '@/components/portal/PortalSection.astro';
 import SegmentedNav from '@/components/portal/SegmentedNav.astro';
-import { Activity, Clock3, Eye, FileText, Gauge, Globe2, MailOpen, Monitor, MousePointer2, Send, Smartphone, Tablet, Terminal, Users, type LucideIcon } from 'lucide-react';
+import RankedBreakdown from '@/components/portal/RankedBreakdown.astro';
+import { Activity, Clock3, Compass, Cpu, Eye, FileText, Gauge, Globe2, Layers, MailOpen, Map as MapIcon, Monitor, MousePointer2, Send, Smartphone, Tablet, Terminal, TrendingUp, type LucideIcon } from 'lucide-react';
+
+// Local row shape for RankedBreakdown (Astro components can't export types).
+interface RankedRow {
+  key: string;
+  label: string;
+  value: number;
+  rate?: number | null;
+}
 import {
   BLOG_ANALYTICS_COMPLETION_SCROLL_DEPTH,
   BLOG_ANALYTICS_RANGE_OPTIONS,
   BLOG_ANALYTICS_READ_THRESHOLD_MS,
-  type BlogAnalyticsBreakdown,
-  type BlogAnalyticsSummaryResult,
   type NewsletterAnalyticsSummary,
 } from '@bunizao/contracts/analytics';
 import { loadPortalAnalytics, type PortalAnalytics } from '@/features/admin/server/portal-client';
 import { DEMO_ANALYTICS } from '@/features/admin/server/portal-analytics-demo';
 import { NewsletterDailyChart, NewsletterFunnel, TrafficChart } from '@/features/admin/ui/AnalyticsCharts';
+import { WorldChoropleth } from '@/features/admin/ui/WorldChoropleth';
+import { EngagementScatter, SourceQualityChart } from '@/features/admin/ui/EngagementCharts';
 
 export const prerender = false;
 
@@ -40,7 +49,7 @@ const rangeDays = (BLOG_ANALYTICS_RANGE_OPTIONS as readonly number[]).includes(r
   ? requestedDays
   : 30;
 
-const emptySummary: BlogAnalyticsSummaryResult = {
+const emptySummary: PortalAnalytics['summary'] = {
   range: { from: null, to: null, days: 7 },
   totals: { views: 0, reads: 0, uniqueVisitors: 0, avgReadMs: 0, avgVisitorReadMs: 0, completionRate: 0 },
   articles: [],
@@ -113,11 +122,8 @@ function newsletterTypeLabel(value: string | null | undefined): string {
   if (value === 'blog_newsletter') return 'Blog newsletter';
   return labelFor(value);
 }
-function maxViews(rows: BlogAnalyticsBreakdown[]): number {
-  return Math.max(1, ...rows.map((row) => row.views));
-}
-function barWidth(value: number, max: number): string {
-  return `${Math.max(2, Math.round((value / max) * 100))}%`;
+function rateOf(reads: number, views: number): number | null {
+  return views > 0 ? reads / views : null;
 }
 function deviceIcon(type: string | null): LucideIcon {
   if (type === 'mobile') return Smartphone;
@@ -125,24 +131,44 @@ function deviceIcon(type: string | null): LucideIcon {
   return Monitor;
 }
 
+const readThrough = rateOf(totals.reads, totals.views) ?? 0;
+
 type Tone = 'neutral' | 'accent' | 'success' | 'warning' | 'danger';
-const metricCards: { label: string; value: string; foot: string; Icon: typeof Eye; tone: Tone }[] = [
-  { label: 'Views', value: formatCount(totals.views), foot: `${formatCount(totals.reads)} reads`, Icon: Eye, tone: 'accent' },
-  { label: 'Unique visitors', value: formatCount(totals.uniqueVisitors), foot: `${formatMs(totals.avgVisitorReadMs)} per visitor`, Icon: Users, tone: 'success' },
+const metricCards: { label: string; value: string; foot: string; Icon: LucideIcon; tone: Tone }[] = [
+  { label: 'Views', value: formatCount(totals.views), foot: `${formatCount(totals.uniqueVisitors)} unique visitors`, Icon: Eye, tone: 'accent' },
+  { label: 'Read-through', value: formatPercent(readThrough), foot: `${formatCount(totals.reads)} of ${formatCount(totals.views)} views`, Icon: TrendingUp, tone: 'success' },
   { label: 'Avg reading time', value: formatMs(totals.avgReadMs), foot: `${formatMs(BLOG_ANALYTICS_READ_THRESHOLD_MS)} read threshold`, Icon: Clock3, tone: 'warning' },
   { label: 'Completion', value: formatPercent(totals.completionRate), foot: `${formatPercent(BLOG_ANALYTICS_COMPLETION_SCROLL_DEPTH)} scroll target`, Icon: Gauge, tone: 'neutral' },
 ];
-const newsletterCards: { label: string; value: string; foot: string; Icon: typeof Eye; tone: Tone }[] = [
+const newsletterCards: { label: string; value: string; foot: string; Icon: LucideIcon; tone: Tone }[] = [
   { label: 'Newsletter sent', value: formatCount(newsletter.totals.sent), foot: `${formatCount(newsletter.totals.uniqueSubscribers)} subscribers`, Icon: Send, tone: 'accent' },
   { label: 'Opens', value: formatCount(newsletter.totals.opened), foot: `${formatPercent(newsletter.totals.openRate)} unique open rate`, Icon: MailOpen, tone: 'success' },
   { label: 'Clicks', value: formatCount(newsletter.totals.clicked), foot: `${formatPercent(newsletter.totals.clickRate)} unique click rate`, Icon: MousePointer2, tone: 'warning' },
 ];
 
-const breakdowns: { title: string; Icon: typeof Globe2; description: string; rows: BlogAnalyticsBreakdown[] }[] = [
-  { title: 'Referrers', Icon: MousePointer2, description: 'Traffic source grouping.', rows: summary.referrers },
-  { title: 'Platform', Icon: Globe2, description: 'Browser and in-app channels.', rows: summary.platforms },
-  { title: 'Geo', Icon: Globe2, description: 'Country from Cloudflare metadata.', rows: summary.countries },
-];
+// Platform mix carries a read-rate chip so quality shows beside volume.
+const platformRows: RankedRow[] = summary.platforms.map((p) => ({
+  key: p.key,
+  label: labelFor(p.label ?? p.key),
+  value: p.views,
+  rate: rateOf(p.reads, p.views),
+}));
+
+// Device / OS composition is only available on the raw event sample (latest
+// events), so it is labelled as a sample and shown as share, not read-rate.
+const eventSample = events.events;
+function tally(getKey: (e: (typeof eventSample)[number]) => string | null): RankedRow[] {
+  const map = new Map<string, number>();
+  for (const e of eventSample) {
+    const key = (getKey(e) || 'unknown').toString();
+    map.set(key, (map.get(key) ?? 0) + 1);
+  }
+  return [...map.entries()]
+    .map(([key, value]) => ({ key, label: labelFor(key), value, rate: eventSample.length ? value / eventSample.length : null }))
+    .sort((a, b) => b.value - a.value);
+}
+const deviceRows = tally((e) => e.deviceType);
+const osRows = tally((e) => e.os);
 
 const rangeItems = (BLOG_ANALYTICS_RANGE_OPTIONS as readonly number[]).map((days) => ({
   label: `${days}d`,
@@ -192,36 +218,142 @@ const rangeItems = (BLOG_ANALYTICS_RANGE_OPTIONS as readonly number[]).map((days
         <TrafficChart daily={summary.daily} client:load />
       </CardContent>
     </Card>
-
-    {breakdowns.map((group) => {
-      const max = maxViews(group.rows);
-      return (
-        <Card>
-          <CardHeader>
-            <CardTitle className="portal-card-title"><group.Icon size={14} /> {group.title}</CardTitle>
-            <CardDescription>{group.description}</CardDescription>
-          </CardHeader>
-          <CardContent className="pt-0">
-            {group.rows.length === 0 ? (
-              <EmptyState Icon={group.Icon} title={`No ${group.title.toLowerCase()} yet`} />
-            ) : (
-              <ol class="portal-bars">
-                {group.rows.map((row) => (
-                  <li>
-                    <span class="portal-bars-label">{labelFor(row.label ?? row.key)}</span>
-                    <span class="portal-bars-track">
-                      <span class="portal-bars-fill" style={`--bar:${barWidth(row.views, max)}`}></span>
-                    </span>
-                    <strong class="portal-bars-value">{formatCount(row.views)}</strong>
-                  </li>
-                ))}
-              </ol>
-            )}
-          </CardContent>
-        </Card>
-      );
-    })}
   </section>
+
+  <PortalSection
+    title="Geography"
+    eyebrow="Where"
+    meta={`${formatCount(summary.countries.length)} countries`}
+    class="portal-mt-lg"
+  >
+    <Card>
+      <CardHeader>
+        <CardTitle className="portal-card-title"><MapIcon size={14} /> Reader map</CardTitle>
+        <CardDescription>Views by country, shaded on a square-root scale. Hover to sync the map and list.</CardDescription>
+      </CardHeader>
+      <CardContent className="pt-0">
+        {summary.countries.length === 0 ? (
+          <EmptyState Icon={Globe2} title="No geographic data yet" hint="Country breakdowns appear once reads carry Cloudflare geo metadata." />
+        ) : (
+          <WorldChoropleth countries={summary.countries} client:load />
+        )}
+      </CardContent>
+    </Card>
+  </PortalSection>
+
+  <PortalSection title="Acquisition & quality" eyebrow="How they arrive" class="portal-mt-lg">
+    <div class="portal-grid" data-columns="wide">
+      <Card className="portal-span-full">
+        <CardHeader>
+          <CardTitle className="portal-card-title"><Compass size={14} /> Source → read conversion</CardTitle>
+          <CardDescription>Bar length is views; the green head is the share that became reads.</CardDescription>
+        </CardHeader>
+        <CardContent className="pt-0">
+          {summary.referrers.length === 0 ? (
+            <EmptyState Icon={MousePointer2} title="No referrers yet" />
+          ) : (
+            <SourceQualityChart referrers={summary.referrers} client:load />
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="portal-card-title"><Globe2 size={14} /> Platforms</CardTitle>
+          <CardDescription>Browser / in-app channel · chip is read-rate.</CardDescription>
+        </CardHeader>
+        <CardContent className="pt-0">
+          {platformRows.length === 0 ? (
+            <EmptyState Icon={Globe2} title="No platform data yet" />
+          ) : (
+            <RankedBreakdown rows={platformRows} />
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="portal-card-title"><Cpu size={14} /> Devices</CardTitle>
+          <CardDescription>Share of the latest {formatCount(eventSample.length)} events.</CardDescription>
+        </CardHeader>
+        <CardContent className="pt-0">
+          {deviceRows.length === 0 ? (
+            <EmptyState Icon={Cpu} title="No device data yet" />
+          ) : (
+            <RankedBreakdown rows={deviceRows} max={eventSample.length} rateKind="plain" />
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="portal-card-title"><Layers size={14} /> Operating systems</CardTitle>
+          <CardDescription>Share of the latest {formatCount(eventSample.length)} events.</CardDescription>
+        </CardHeader>
+        <CardContent className="pt-0">
+          {osRows.length === 0 ? (
+            <EmptyState Icon={Layers} title="No OS data yet" />
+          ) : (
+            <RankedBreakdown rows={osRows} max={eventSample.length} rateKind="plain" />
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  </PortalSection>
+
+  <PortalSection
+    title="Content performance"
+    eyebrow="What performs"
+    meta={`${formatCount(summary.articles.length)} articles`}
+    class="portal-mt-lg"
+  >
+    <Card>
+      <CardHeader>
+        <CardTitle className="portal-card-title"><TrendingUp size={14} /> Reach vs. read-through</CardTitle>
+        <CardDescription>Each bubble is an article — size is unique visitors. Top-right wins; amber trails the median.</CardDescription>
+      </CardHeader>
+      <CardContent className="pt-0">
+        {summary.articles.length === 0 ? (
+          <EmptyState Icon={FileText} title="No article rows yet" />
+        ) : (
+          <EngagementScatter articles={summary.articles} client:load />
+        )}
+      </CardContent>
+    </Card>
+
+    {summary.articles.length > 0 && (
+      <Table variant="card" className="portal-table-static">
+        <TableHeader>
+          <TableRow>
+            <TableHead>Article</TableHead>
+            <TableHead className="text-right">Views</TableHead>
+            <TableHead className="text-right">Reads</TableHead>
+            <TableHead className="text-right">Read-rate</TableHead>
+            <TableHead className="text-right">Uniques</TableHead>
+            <TableHead className="text-right">Avg</TableHead>
+            <TableHead className="text-right">Complete</TableHead>
+            <TableHead>Top platform</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {summary.articles.map((row) => (
+            <TableRow>
+              <TableCell>
+                <a class="portal-mono" href={`/dev/portal/analytics/${encodeURIComponent(row.slug)}?days=${rangeDays}`} data-astro-prefetch="false">{row.slug}</a>
+              </TableCell>
+              <TableCell className="text-right">{formatCount(row.views)}</TableCell>
+              <TableCell className="text-right">{formatCount(row.reads)}</TableCell>
+              <TableCell className="text-right">{formatPercent(rateOf(row.reads, row.views) ?? 0)}</TableCell>
+              <TableCell className="text-right">{formatCount(row.uniqueVisitors)}</TableCell>
+              <TableCell className="text-right">{formatMs(row.avgReadMs)}</TableCell>
+              <TableCell className="text-right">{formatPercent(row.completionRate)}</TableCell>
+              <TableCell>{labelFor(row.topPlatform)}</TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    )}
+  </PortalSection>
 
   <PortalSection
     title="Newsletter"
@@ -283,41 +415,6 @@ const rangeItems = (BLOG_ANALYTICS_RANGE_OPTIONS as readonly number[]).map((days
               <TableCell className="text-right">{formatPercent(row.openRate)}</TableCell>
               <TableCell className="text-right">{formatPercent(row.clickRate)}</TableCell>
               <TableCell className="text-right">{formatDate(row.lastEventAt)}</TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-    )}
-  </PortalSection>
-
-  <PortalSection title="Articles" eyebrow="Content" meta={`${formatCount(summary.articles.length)} rows`} class="portal-mt-lg">
-    {summary.articles.length === 0 ? (
-      <Card><EmptyState Icon={FileText} title="No article rows yet" hint="Per-article reading metrics appear here once traffic arrives." /></Card>
-    ) : (
-      <Table variant="card" className="portal-table-static">
-        <TableHeader>
-          <TableRow>
-            <TableHead>Article</TableHead>
-            <TableHead className="text-right">Views</TableHead>
-            <TableHead className="text-right">Reads</TableHead>
-            <TableHead className="text-right">Uniques</TableHead>
-            <TableHead className="text-right">Avg</TableHead>
-            <TableHead className="text-right">Complete</TableHead>
-            <TableHead>Top platform</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {summary.articles.map((row) => (
-            <TableRow>
-              <TableCell>
-                <a class="portal-mono" href={`/dev/portal/analytics/${encodeURIComponent(row.slug)}?days=${rangeDays}`} data-astro-prefetch="false">{row.slug}</a>
-              </TableCell>
-              <TableCell className="text-right">{formatCount(row.views)}</TableCell>
-              <TableCell className="text-right">{formatCount(row.reads)}</TableCell>
-              <TableCell className="text-right">{formatCount(row.uniqueVisitors)}</TableCell>
-              <TableCell className="text-right">{formatMs(row.avgReadMs)}</TableCell>
-              <TableCell className="text-right">{formatPercent(row.completionRate)}</TableCell>
-              <TableCell>{labelFor(row.topPlatform)}</TableCell>
             </TableRow>
           ))}
         </TableBody>
