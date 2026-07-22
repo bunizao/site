@@ -140,7 +140,11 @@ export async function proxyApiRequest(request: Request, locals: RuntimeEnvLocals
 }
 
 async function proxyApiHttpRequest(request: Request, origin: string): Promise<Response> {
-  const response = await fetch(createApiServiceRequest(request, origin));
+  const upstreamRequest = createApiServiceRequest(request, origin);
+  // Let fetch negotiate encodings it can decompress. Forwarding a browser's
+  // zstd preference can leave Node streaming compressed bytes to the client.
+  upstreamRequest.headers.delete('accept-encoding');
+  const response = await fetch(upstreamRequest);
   const headers = new Headers(response.headers);
   headers.delete('content-encoding');
   headers.delete('content-length');

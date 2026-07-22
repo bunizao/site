@@ -95,6 +95,44 @@ describe('api service proxy', () => {
     expect(await response.json()).toEqual({ status: 'ok', service: 'site-api' });
   });
 
+  test('removes browser compression negotiation from dev HTTP proxy requests', async () => {
+    const originalFetch = globalThis.fetch;
+    const originalDev = process.env.DEV;
+    const originalApiDevOrigin = process.env.API_DEV_ORIGIN;
+    let upstreamAcceptEncoding: string | null = null;
+
+    process.env.DEV = 'true';
+    process.env.API_DEV_ORIGIN = 'https://api.example';
+    globalThis.fetch = (async (input) => {
+      const request = input instanceof Request ? input : new Request(input);
+      upstreamAcceptEncoding = request.headers.get('accept-encoding');
+      return Response.json({ results: [{ id: '3675' }] }, {
+        headers: {
+          'Content-Encoding': 'zstd',
+          'Content-Length': '42',
+        },
+      });
+    }) as typeof fetch;
+
+    try {
+      const response = await proxyApiRequest(new Request(
+        'http://localhost:4321/api/v2/mood/search?q=MU',
+        { headers: { 'Accept-Encoding': 'gzip, deflate, br, zstd' } },
+      ), { env: {} });
+
+      expect(upstreamAcceptEncoding).toBeNull();
+      expect(response.headers.get('content-encoding')).toBeNull();
+      expect(response.headers.get('content-length')).toBeNull();
+      expect(await response.json()).toEqual({ results: [{ id: '3675' }] });
+    } finally {
+      globalThis.fetch = originalFetch;
+      if (originalDev === undefined) delete process.env.DEV;
+      else process.env.DEV = originalDev;
+      if (originalApiDevOrigin === undefined) delete process.env.API_DEV_ORIGIN;
+      else process.env.API_DEV_ORIGIN = originalApiDevOrigin;
+    }
+  });
+
   test('falls back to runtime env when direct locals env lacks the binding', async () => {
     const api = createApiBinding(() => new Response('ok'));
     const response = await proxyApiRequest(new Request('https://buxx.me/api/health'), {
