@@ -14,7 +14,7 @@ interface Props {
 import '@/styles/globals.css';
 import '@/styles/portal.css';
 import { ClientRouter } from 'astro:transitions';
-import { ExternalLink, LogOut } from 'lucide-react';
+import { ExternalLink, LogOut, Moon, Sun } from 'lucide-react';
 import { PORTAL_NAV_GROUPS, type PortalNavKey } from '@/features/admin/portal-nav';
 // Brand mark served by the live /logo/<id>.svg route (the old sticker module was removed).
 import { SITE_FAVICON } from '@/lib/favicon';
@@ -43,7 +43,22 @@ const user = userProp
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="robots" content="noindex, nofollow" />
-    <meta name="color-scheme" content="dark" />
+    <meta name="color-scheme" content="light dark" />
+    <script is:inline>
+      (() => {
+        if (navigator.vendor === 'Apple Computer, Inc.') {
+          document.documentElement.classList.add('ua-webkit');
+        }
+        let stored = null;
+        try {
+          stored = localStorage.getItem('theme');
+        } catch {}
+        const setting = stored === 'light' || stored === 'dark' ? stored : 'system';
+        const dark = setting === 'dark' || (setting === 'system' && matchMedia('(prefers-color-scheme: dark)').matches);
+        document.documentElement.dataset.themeSetting = setting;
+        document.documentElement.classList.toggle('dark', dark);
+      })();
+    </script>
     <link rel="icon" type="image/svg+xml" href={SITE_FAVICON} />
     <link rel="preload" href="/fonts/geist-sans-variable.woff2" as="font" type="font/woff2" crossorigin />
     <title>{title}</title>
@@ -118,6 +133,10 @@ const user = userProp
             {description && <div class="portal-topbar-description">{description}</div>}
           </div>
           <div class="portal-topbar-spacer"></div>
+          <button class="portal-theme-toggle" type="button" data-portal-theme-toggle aria-label="Switch theme">
+            <Sun className="portal-theme-icon portal-theme-icon--light" size={15} aria-hidden="true" />
+            <Moon className="portal-theme-icon portal-theme-icon--dark" size={15} aria-hidden="true" />
+          </button>
           <slot name="actions" />
         </header>
         <main class="portal-page">
@@ -125,5 +144,84 @@ const user = userProp
         </main>
       </div>
     </div>
+    <script>
+      import { feedback } from '@/lib/feedback';
+
+      const initPortalTheme = () => {
+        const toggle = document.querySelector<HTMLElement>('[data-portal-theme-toggle]');
+        if (!toggle || toggle.dataset.ready === 'true') return;
+        toggle.dataset.ready = 'true';
+
+        let active: { finished: Promise<void>; skipTransition?: () => void } | null = null;
+        let webkitThemeTransition = 0;
+        toggle.addEventListener('click', () => {
+          const root = document.documentElement;
+          const nextDark = !root.classList.contains('dark');
+          const update = () => {
+            root.classList.toggle('dark', nextDark);
+            root.dataset.themeSetting = nextDark ? 'dark' : 'light';
+            try {
+              localStorage.setItem('theme', nextDark ? 'dark' : 'light');
+            } catch {}
+          };
+          feedback.theme();
+
+          const doc = document as Document & {
+            startViewTransition?: (callback: () => void) => {
+              finished: Promise<void>;
+              skipTransition?: () => void;
+            };
+          };
+          if (matchMedia('(prefers-reduced-motion: reduce)').matches) {
+            update();
+            return;
+          }
+
+          if (root.classList.contains('ua-webkit')) {
+            window.clearTimeout(webkitThemeTransition);
+            root.classList.remove('theme-wipe-webkit', 'theme-wipe-from-dark', 'theme-wipe-from-light');
+            root.classList.add(
+              'theme-wipe-webkit',
+              root.classList.contains('dark') ? 'theme-wipe-from-dark' : 'theme-wipe-from-light',
+              'no-transition',
+            );
+            update();
+            webkitThemeTransition = window.setTimeout(() => {
+              root.classList.remove(
+                'theme-wipe-webkit',
+                'theme-wipe-from-dark',
+                'theme-wipe-from-light',
+                'no-transition',
+              );
+            }, 160);
+            return;
+          }
+
+          if (!doc.startViewTransition) {
+            update();
+            return;
+          }
+
+          active?.skipTransition?.();
+          root.classList.add('theme-wipe', 'no-transition');
+          try {
+            const transition = doc.startViewTransition(update);
+            active = transition;
+            transition.finished.finally(() => {
+              if (active !== transition) return;
+              active = null;
+              root.classList.remove('theme-wipe', 'no-transition');
+            });
+          } catch {
+            active = null;
+            root.classList.remove('theme-wipe', 'no-transition');
+            update();
+          }
+        });
+      };
+
+      initPortalTheme();
+      document.addEventListener('astro:page-load', initPortalTheme);
+    </script>
   </body>
 </html>

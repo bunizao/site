@@ -126,7 +126,6 @@
 
   * {
     @apply border-border;
-    transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
     /* Disable mobile tap effects */
     -webkit-tap-highlight-color: transparent;
     -webkit-touch-callout: none;
@@ -2104,6 +2103,37 @@ html.no-transition * {
 /* Linear-flavored portal theme. Scoped under .theme-portal so the public site
    keeps its current tokens unchanged. */
 .theme-portal {
+  color-scheme: light;
+  --background: 0 0% 98%;
+  --foreground: 240 6% 10%;
+  --card: 0 0% 100%;
+  --card-foreground: 240 6% 10%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 240 6% 10%;
+  --primary: 240 6% 10%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 240 5% 94%;
+  --secondary-foreground: 240 6% 10%;
+  --muted: 240 5% 94%;
+  --muted-foreground: 240 4% 42%;
+  --accent: 240 5% 91%;
+  --accent-foreground: 240 6% 10%;
+  --destructive: 0 70% 50%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 240 6% 86%;
+  --input: 240 6% 86%;
+  --ring: 240 4% 42%;
+  --radius: 0.625rem;
+  --portal-accent: 217 91% 60%;
+  --portal-success: 142 71% 38%;
+  --portal-warning: 38 92% 48%;
+  --portal-danger: 0 72% 50%;
+  background: hsl(var(--background));
+  color: hsl(var(--foreground));
+  font-family: var(--font-display);
+}
+
+.theme-portal.dark {
   color-scheme: dark;
   --background: 240 8% 6%;
   --foreground: 220 16% 96%;
@@ -2329,37 +2359,70 @@ html.no-transition * {
   animation-duration: 240ms;
 }
 
-/* ─── Theme toggle: top-down curtain wipe ───────────────────────────────────
-   A theme change is a same-document startViewTransition, not a navigation, so
-   it reuses the `root` snapshot — and would otherwise inherit the navigation
-   crossfade above. While `.theme-wipe` is on <html> (added for the duration of
-   the transition only), the re-themed page is instead revealed as a curtain
-   dropping from the top edge: the new snapshot's clip-path opens downward while
-   the old theme holds still underneath. Placed after the navigation and WebKit
-   root rules so, at equal specificity, it wins by source order — but only when
-   the class is present, leaving page navigations untouched. */
+/* ─── Theme toggle: diagonal snapshot reveal ─────────────────────────────────
+   The registry effect animates mask-size to 200vmax, which re-rasterizes a full
+   viewport texture on every frame. A short diagonal drift preserves its visual
+   direction while keeping the pre-rasterized snapshot near its native size. */
 :root.theme-wipe::view-transition-group(root) {
-  animation-timing-function: cubic-bezier(0.85, 0, 0.15, 1);
+  animation-duration: 320ms;
+  animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+:root.theme-wipe::view-transition-image-pair(root) {
+  isolation: isolate;
 }
 
 :root.theme-wipe::view-transition-old(root) {
   animation: none;
-  z-index: -1;
+  z-index: 0;
 }
 
 :root.theme-wipe::view-transition-new(root) {
-  animation: theme-wipe-in 0.65s cubic-bezier(0.85, 0, 0.15, 1) forwards;
-  clip-path: inset(0 0 100%);
+  animation: theme-diagonal-reveal 320ms cubic-bezier(0.16, 1, 0.3, 1) both;
   z-index: 1;
-  will-change: clip-path;
+  will-change: transform, opacity;
 }
 
-@keyframes theme-wipe-in {
+@keyframes theme-diagonal-reveal {
   from {
-    clip-path: inset(0 0 100%);
+    opacity: 0;
+    transform: translate3d(-24px, -24px, 0);
   }
   to {
-    clip-path: inset(0);
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+/* WebKit's View Transition capture itself stalls on content-heavy pages. Its
+   fallback changes the theme immediately and fades a fixed compositor layer
+   away without snapshotting the document. */
+:root.ua-webkit.theme-wipe-webkit::before {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483647;
+  content: '';
+  pointer-events: none;
+  background: hsl(var(--background));
+  transform-origin: bottom right;
+  animation: theme-overlay-fade 120ms ease-out both;
+  will-change: opacity;
+}
+
+:root.ua-webkit.theme-wipe-from-light::before {
+  background: hsl(0 0% 100%);
+}
+
+:root.ua-webkit.theme-wipe-from-dark::before {
+  background: hsl(20 14.3% 4.1%);
+}
+
+@keyframes theme-overlay-fade {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
   }
 }
 

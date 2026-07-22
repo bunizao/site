@@ -602,24 +602,72 @@ const preloadFontHref = preloadFont === 'sans'
           updateToggle(setting);
         };
 
-        // Explicit theme picks wipe the new theme in as a top-down curtain via a
-        // same-document View Transition; `.theme-wipe` scopes the wipe CSS so
-        // page navigations keep their own crossfade. Reduced-motion or browsers
-        // without the API fall straight through to a plain flip. Init and
-        // OS-driven changes call applyTheme directly, so they never wipe.
+        let activeThemeTransition: { finished: Promise<void>; skipTransition?: () => void } | null = null;
+        let webkitThemeTransition = 0;
+
+        // Theme changes use one root snapshot and animate only compositor-safe
+        // properties. Freezing descendant transitions during capture avoids
+        // hundreds of color animations competing with the snapshot animation.
         const transitionTheme = (theme: string) => {
           const doc = document as Document & {
-            startViewTransition?: (cb: () => void) => { finished: Promise<void> };
+            startViewTransition?: (cb: () => void) => {
+              finished: Promise<void>;
+              skipTransition?: () => void;
+            };
           };
+          const root = document.documentElement;
+          const nextDark = (theme === 'system' ? getSystemTheme() : theme) === 'dark';
           const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-          if (reduced || typeof doc.startViewTransition !== 'function') {
+          const update = () => {
             applyTheme(theme);
+            closeDropdown();
+          };
+
+          if (root.classList.contains('dark') === nextDark || reduced) {
+            update();
             return;
           }
-          const root = document.documentElement;
-          root.classList.add('theme-wipe');
-          const vt = doc.startViewTransition(() => applyTheme(theme));
-          vt.finished.finally(() => root.classList.remove('theme-wipe'));
+
+          if (root.classList.contains('ua-webkit')) {
+            window.clearTimeout(webkitThemeTransition);
+            root.classList.remove('theme-wipe-webkit', 'theme-wipe-from-dark', 'theme-wipe-from-light');
+            root.classList.add(
+              'theme-wipe-webkit',
+              root.classList.contains('dark') ? 'theme-wipe-from-dark' : 'theme-wipe-from-light',
+              'no-transition',
+            );
+            update();
+            webkitThemeTransition = window.setTimeout(() => {
+              root.classList.remove(
+                'theme-wipe-webkit',
+                'theme-wipe-from-dark',
+                'theme-wipe-from-light',
+                'no-transition',
+              );
+            }, 160);
+            return;
+          }
+
+          if (typeof doc.startViewTransition !== 'function') {
+            update();
+            return;
+          }
+
+          activeThemeTransition?.skipTransition?.();
+          root.classList.add('theme-wipe', 'no-transition');
+          try {
+            const transition = doc.startViewTransition(update);
+            activeThemeTransition = transition;
+            transition.finished.finally(() => {
+              if (activeThemeTransition !== transition) return;
+              activeThemeTransition = null;
+              root.classList.remove('theme-wipe', 'no-transition');
+            });
+          } catch {
+            activeThemeTransition = null;
+            root.classList.remove('theme-wipe', 'no-transition');
+            update();
+          }
         };
 
         const openDropdown = () => {
@@ -659,10 +707,9 @@ const preloadFontHref = preloadFont === 'sans'
             const el = option as HTMLElement;
             const theme = el.dataset.themeOption;
             if (theme) {
-              feedback.select();
+              feedback.theme();
               setStoredTheme(theme);
               transitionTheme(theme);
-              closeDropdown();
             }
           });
         });

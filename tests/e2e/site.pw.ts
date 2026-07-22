@@ -264,6 +264,47 @@ test.describe('Home page', () => {
       .toBe(true);
   });
 
+  test('cleans up theme transitions across both theme controls', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'no-preference' });
+    await page.goto('/');
+
+    const soundRequest = page.waitForRequest((request) => request.url().endsWith('/audio/theme-click.mp3'));
+    await page.locator('[data-theme-dropdown]').hover();
+    await page.locator('[data-theme-option="dark"]').click();
+    await soundRequest;
+    await expect(page.locator('html')).toHaveClass(/dark/);
+    await expect
+      .poll(() =>
+        page.locator('html').evaluate((node) =>
+          ['theme-wipe', 'theme-wipe-webkit', 'no-transition'].some((name) => node.classList.contains(name))
+        )
+      )
+      .toBe(false);
+
+    await page.goto('/dev/portal');
+    const portalToggle = page.locator('[data-portal-theme-toggle]');
+    await expect(portalToggle).toBeVisible();
+    await portalToggle.click();
+    await expect(page.locator('html')).not.toHaveClass(/dark/);
+    await expect
+      .poll(() =>
+        page.locator('html').evaluate((node) =>
+          ['theme-wipe', 'theme-wipe-webkit', 'no-transition'].some((name) => node.classList.contains(name))
+        )
+      )
+      .toBe(false);
+    await expect.poll(() => page.evaluate(() => localStorage.getItem('theme'))).toBe('light');
+  });
+
+  test('skips transient theme classes with reduced motion', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.goto('/dev/portal');
+    await page.locator('[data-portal-theme-toggle]').click();
+
+    await expect(page.locator('html')).toHaveClass(/dark/);
+    await expect(page.locator('html')).not.toHaveClass(/theme-wipe|theme-wipe-webkit|no-transition/);
+  });
+
   test('keeps runtime home data out of the initial HTML', async ({ page }) => {
     const response = await page.request.get('/');
     expect(response.ok()).toBeTruthy();
