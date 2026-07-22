@@ -39,11 +39,27 @@ export default {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",
+        // Status tokens for vendored coss components. Only defined inside
+        // .theme-portal (src/styles/globals.css); harmless elsewhere.
+        info: {
+          DEFAULT: "hsl(var(--info))",
+          foreground: "hsl(var(--info-foreground))",
+        },
+        success: {
+          DEFAULT: "hsl(var(--success))",
+          foreground: "hsl(var(--success-foreground))",
+        },
+        warning: {
+          DEFAULT: "hsl(var(--warning))",
+          foreground: "hsl(var(--warning-foreground))",
+        },
       },
       borderRadius: {
-        lg: "var(--radius)",
-        md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
+        md: "calc(var(--radius) - 2px)",
+        lg: "var(--radius)",
+        xl: "calc(var(--radius) + 4px)",
+        "2xl": "calc(var(--radius) + 8px)",
       },
       fontFamily: {
         // Stacks live in CSS tokens (src/styles/globals.css :root) so the type
@@ -52,6 +68,8 @@ export default {
         mono: ["var(--font-mono)"],
         code: ["var(--font-code)"],
         display: ["var(--font-display)"],
+        // coss uses font-heading for dialog/card titles; map to the portal UI face.
+        heading: ["var(--font-display)"],
       },
     },
   },

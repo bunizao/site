@@ -1,8 +1,7 @@
 ---
 import PortalLayout from '@/layouts/PortalLayout.astro';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
+import { Badge, Card, CardContent, CardHeader, CardTitle } from '@/components/coss';
+import { buttonVariants } from '@/components/coss/button';
 import { ArrowLeft } from 'lucide-react';
 import { loadBroadcast } from '@/features/admin/server/portal-client';
 
@@ -36,9 +35,13 @@ function formatDate(value: string | null | undefined): string {
   user={{ login: session?.login || 'admin' }}
 >
   <div class="portal-stack">
-    <Button asChild variant="ghost" size="sm">
-      <a href="/dev/portal/broadcasts"><ArrowLeft className="size-3.5" /> Back to broadcasts</a>
-    </Button>
+    <a
+      href="/dev/portal/broadcasts"
+      class={`${buttonVariants({ variant: 'ghost', size: 'sm' })} self-start portal-press`}
+      data-astro-prefetch="false"
+    >
+      <ArrowLeft className="size-3.5" /> Back to broadcasts
+    </a>
 
     {!record ? (
       <Card>

@@ -1,0 +1,55 @@
+---
+// Dual-metric ranked list. Unlike a flat "views" bar, every row carries a
+// secondary quality signal (read-rate, share, …) so volume and engagement read
+// together — a high-volume row with a dim chip is junk traffic at a glance.
+export interface RankedRow {
+  key: string;
+  label: string;
+  value: number;
+  rate?: number | null;
+}
+
+interface Props {
+  rows: RankedRow[];
+  max?: number;
+  // 'quality' tones the chip by threshold (read-rate); 'plain' stays neutral (share).
+  rateKind?: 'quality' | 'plain';
+  rateSuffix?: string;
+  limit?: number;
+}
+
+const { rows, max, rateKind = 'quality', rateSuffix = '', limit = 8 } = Astro.props;
+
+const shown = rows.slice(0, limit);
+const peak = Math.max(1, max ?? Math.max(1, ...shown.map((r) => r.value)));
+const countFormatter = new Intl.NumberFormat('en-US');
+
+function barWidth(value: number): string {
+  return `${Math.max(2, Math.round((value / peak) * 100))}%`;
+}
+function rateTone(rate: number): 'success' | 'neutral' | 'muted' {
+  if (rateKind === 'plain') return 'neutral';
+  if (rate >= 0.6) return 'success';
+  if (rate >= 0.4) return 'neutral';
+  return 'muted';
+}
+---
+
+<ol class="portal-rank">
+  {shown.map((row) => (
+    <li class="portal-rank-row">
+      <span class="portal-rank-label">{row.label}</span>
+      <span class="portal-rank-track">
+        <span class="portal-rank-fill" style={`--bar:${barWidth(row.value)}`}></span>
+      </span>
+      <strong class="portal-rank-value">{countFormatter.format(row.value)}</strong>
+      {row.rate == null ? (
+        <span class="portal-rank-chip" data-tone="muted">—</span>
+      ) : (
+        <span class="portal-rank-chip" data-tone={rateTone(row.rate)}>
+          {Math.round(row.rate * 100)}%{rateSuffix}
+        </span>
+      )}
+    </li>
+  ))}
+</ol>

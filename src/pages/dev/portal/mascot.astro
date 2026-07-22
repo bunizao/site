@@ -1,5 +1,6 @@
 ---
 import PortalLayout from '@/layouts/PortalLayout.astro';
+import { Card } from '@/components/coss';
 import PixelLogo from '@/features/logos/ui/PixelLogo.astro';
 import PeekLook from '@/features/logos/ui/PeekLook.astro';
 import AnimatedLogo from '@/features/logos/ui/AnimatedLogo.astro';
@@ -46,7 +47,7 @@ const previewTrackPoses = getPeekTrackingPoseKeys('preview');
 >
   <div class="mascot-page">
     <section class="mascot-summary">
-      <div class="mascot-summary-card">
+      <Card className="mascot-summary-card">
         <div class="mascot-summary-stage">
           <PixelLogo id="peek" size={120} title="peek base grid" />
         </div>
@@ -61,7 +62,7 @@ const previewTrackPoses = getPeekTrackingPoseKeys('preview');
             <div><dt>Timelines</dt><dd>{timelineAssets.length}</dd></div>
           </dl>
         </div>
-      </div>
+      </Card>
       <div class="mascot-stats">
         <div><span>Motions</span><strong>{motionAssets.length}</strong></div>
         <div><span>Poses</span><strong>{poseAssets.length}</strong></div>
@@ -78,12 +79,12 @@ const previewTrackPoses = getPeekTrackingPoseKeys('preview');
       </header>
       <div class="mascot-runtime-grid">
         {runtimeBehaviors.map((behavior) => (
-          <article class="mascot-runtime-card">
+          <Card className="mascot-runtime-card">
             <span class="mascot-runtime-slot">{behavior.slotId}</span>
             <h4>{behavior.label}</h4>
             <p>{behavior.description}</p>
             <code>{behavior.animation}</code>
-          </article>
+          </Card>
         ))}
       </div>
     </section>
@@ -95,7 +96,7 @@ const previewTrackPoses = getPeekTrackingPoseKeys('preview');
         <p>Same component mounted in the site chrome. Real navbar wiring, no fake stage.</p>
       </header>
       <div class="mascot-brand-grid">
-        <article class="mascot-brand-card">
+        <Card className="mascot-brand-card">
           <div class="mascot-brand-stage">
             <AnimatedLogo
               definition={PEEK_NAVBAR_LOGO}
@@ -113,9 +114,9 @@ const previewTrackPoses = getPeekTrackingPoseKeys('preview');
               <div><dt>Hover</dt><dd><code>{navbarHoverAnimation}</code></dd></div>
             </dl>
           </div>
-        </article>
+        </Card>
 
-        <article class="mascot-brand-card">
+        <Card className="mascot-brand-card">
           <div class="mascot-brand-stage mascot-brand-stage-static">
             <PixelLogo id="peek" size={140} title="peek source" />
           </div>
@@ -126,7 +127,7 @@ const previewTrackPoses = getPeekTrackingPoseKeys('preview');
               <div><dt>Grid</dt><dd>{mascot.width} × {mascot.height}</dd></div>
             </dl>
           </div>
-        </article>
+        </Card>
       </div>
     </section>
 
@@ -136,7 +137,7 @@ const previewTrackPoses = getPeekTrackingPoseKeys('preview');
         <h3>Pointer-driven pose switcher</h3>
         <p>Five horizontal buckets, same rig used on the 404 page. Move across the stage to lock onto a pose.</p>
       </header>
-      <article class="mascot-tracker">
+      <Card className="mascot-tracker">
         <div
           class="mascot-tracker-stage"
           data-peek-tracker
@@ -164,7 +165,7 @@ const previewTrackPoses = getPeekTrackingPoseKeys('preview');
           <div><dt>Buckets</dt><dd>{previewTrackPoses.length}</dd></div>
           <div><dt>Channel</dt><dd><code>preview-track</code></dd></div>
         </dl>
-      </article>
+      </Card>
     </section>
 
     <section class="mascot-block">
@@ -176,7 +177,7 @@ const previewTrackPoses = getPeekTrackingPoseKeys('preview');
       </header>
       <div class="mascot-sticker-grid">
         {PEEK_STICKER_ASSETS.map((sticker) => (
-          <article class="mascot-sticker-card">
+          <Card className="mascot-sticker-card">
             <div class="mascot-sticker-stage">
               <img
                 src={sticker.src}
@@ -199,7 +200,7 @@ const previewTrackPoses = getPeekTrackingPoseKeys('preview');
                 <div><dt>Path</dt><dd><code>{sticker.src}</code></dd></div>
               </dl>
             </div>
-          </article>
+          </Card>
         ))}
       </div>
     </section>
@@ -220,7 +221,7 @@ const previewTrackPoses = getPeekTrackingPoseKeys('preview');
               : null;
             const kindTag = item.motionKind ?? item.kind;
             return (
-              <article class="mascot-library-card" data-kind={kindTag}>
+              <Card className="mascot-library-card" data-kind={kindTag}>
                 <div class:list={["mascot-library-stage", { "mascot-library-stage-look": isLook }]}>
                   {lookItem ? (
                     <PeekLook look={lookItem} size={104} title={`peek ${item.label}`} />
@@ -256,7 +257,7 @@ const previewTrackPoses = getPeekTrackingPoseKeys('preview');
                     </div>
                   )}
                 </div>
-              </article>
+              </Card>
             );
           })}
         </div>
@@ -336,13 +337,13 @@ const previewTrackPoses = getPeekTrackingPoseKeys('preview');
     justify-content: center;
   }
   .mascot-summary-body h2 {
-    font-size: 18px;
+    font-size: var(--portal-text-xl);
     font-weight: 600;
-    letter-spacing: -0.015em;
+    letter-spacing: var(--portal-tracking-title);
     margin: 0 0 6px;
   }
   .mascot-summary-body p {
-    font-size: 13px;
+    font-size: var(--portal-text-base);
     color: hsl(var(--muted-foreground));
     margin: 0 0 12px;
     line-height: 1.5;
@@ -352,20 +353,20 @@ const previewTrackPoses = getPeekTrackingPoseKeys('preview');
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 8px 18px;
-    font-size: 12px;
+    font-size: var(--portal-text-sm);
   }
   .mascot-summary-body dt,
   .mascot-stats span {
     color: hsl(var(--muted-foreground));
     text-transform: uppercase;
-    letter-spacing: 0.08em;
-    font-size: 10px;
+    letter-spacing: var(--portal-tracking-wide);
+    font-size: var(--portal-text-2xs);
     margin-bottom: 4px;
     display: block;
   }
   .mascot-summary-body dd {
     margin: 0;
-    font-size: 13px;
+    font-size: var(--portal-text-base);
     color: hsl(var(--foreground));
   }
   .mascot-stats {
@@ -381,9 +382,9 @@ const previewTrackPoses = getPeekTrackingPoseKeys('preview');
   .mascot-stats strong {
     display: block;
     margin-top: 4px;
-    font-size: 22px;
+    font-size: var(--portal-text-2xl);
     font-weight: 600;
-    letter-spacing: -0.02em;
+    letter-spacing: var(--portal-tracking-display);
   }
 
   .mascot-block {
@@ -402,19 +403,19 @@ const previewTrackPoses = getPeekTrackingPoseKeys('preview');
     position: relative;
   }
   .mascot-block-eyebrow {
-    font-size: 10px;
+    font-size: var(--portal-text-2xs);
     text-transform: uppercase;
-    letter-spacing: 0.18em;
+    letter-spacing: var(--portal-tracking-wide);
     color: hsl(var(--muted-foreground));
   }
   .mascot-block h3 {
-    font-size: 16px;
+    font-size: var(--portal-text-lg);
     font-weight: 600;
-    letter-spacing: -0.01em;
+    letter-spacing: var(--portal-tracking-title);
     margin: 0;
   }
   .mascot-block header p {
-    font-size: 13px;
+    font-size: var(--portal-text-base);
     color: hsl(var(--muted-foreground));
     margin: 0;
     line-height: 1.55;
@@ -424,7 +425,7 @@ const previewTrackPoses = getPeekTrackingPoseKeys('preview');
     right: 0;
     top: 0;
     font-family: var(--font-code);
-    font-size: 11px;
+    font-size: var(--portal-text-xs);
     color: hsl(var(--muted-foreground));
   }
 
@@ -444,18 +445,18 @@ const previewTrackPoses = getPeekTrackingPoseKeys('preview');
   }
   .mascot-runtime-slot {
     font-family: var(--font-code);
-    font-size: 10px;
+    font-size: var(--portal-text-2xs);
     text-transform: uppercase;
-    letter-spacing: 0.08em;
+    letter-spacing: var(--portal-tracking-wide);
     color: hsl(var(--muted-foreground));
   }
   .mascot-runtime-card h4 {
-    font-size: 13px;
+    font-size: var(--portal-text-base);
     font-weight: 600;
     margin: 0;
   }
   .mascot-runtime-card p {
-    font-size: 12px;
+    font-size: var(--portal-text-sm);
     color: hsl(var(--muted-foreground));
     line-height: 1.5;
     margin: 0;
@@ -463,7 +464,7 @@ const previewTrackPoses = getPeekTrackingPoseKeys('preview');
   .mascot-runtime-card code {
     margin-top: 4px;
     font-family: var(--font-code);
-    font-size: 11px;
+    font-size: var(--portal-text-xs);
     color: hsl(var(--portal-accent));
     word-break: break-all;
   }
@@ -502,9 +503,9 @@ const previewTrackPoses = getPeekTrackingPoseKeys('preview');
     width: 100%;
   }
   .mascot-brand-label {
-    font-size: 10px;
+    font-size: var(--portal-text-2xs);
     text-transform: uppercase;
-    letter-spacing: 0.16em;
+    letter-spacing: var(--portal-tracking-wide);
     color: hsl(var(--muted-foreground));
     display: block;
     margin-bottom: 8px;
@@ -518,16 +519,16 @@ const previewTrackPoses = getPeekTrackingPoseKeys('preview');
   }
   .mascot-brand-body dt,
   .mascot-tracker-meta dt {
-    font-size: 10px;
+    font-size: var(--portal-text-2xs);
     text-transform: uppercase;
-    letter-spacing: 0.08em;
+    letter-spacing: var(--portal-tracking-wide);
     color: hsl(var(--muted-foreground));
     margin-bottom: 2px;
   }
   .mascot-brand-body dd,
   .mascot-tracker-meta dd {
     margin: 0;
-    font-size: 12px;
+    font-size: var(--portal-text-sm);
   }
   .mascot-brand-body code,
   .mascot-tracker-meta code,
@@ -566,7 +567,7 @@ const previewTrackPoses = getPeekTrackingPoseKeys('preview');
     grid-template-columns: repeat(5, 1fr);
     pointer-events: none;
     font-family: var(--font-code);
-    font-size: 9px;
+    font-size: var(--portal-text-2xs);
     color: hsl(var(--muted-foreground) / 0.7);
   }
   .mascot-tracker-bands span {
@@ -650,19 +651,19 @@ const previewTrackPoses = getPeekTrackingPoseKeys('preview');
     margin-bottom: 4px;
   }
   .mascot-library-body h4 {
-    font-size: 13px;
+    font-size: var(--portal-text-base);
     font-weight: 600;
     margin: 0;
   }
   .mascot-library-body header span {
     font-family: var(--font-code);
-    font-size: 10px;
+    font-size: var(--portal-text-2xs);
     color: hsl(var(--muted-foreground));
     text-transform: uppercase;
-    letter-spacing: 0.08em;
+    letter-spacing: var(--portal-tracking-wide);
   }
   .mascot-library-body p {
-    font-size: 12px;
+    font-size: var(--portal-text-sm);
     color: hsl(var(--muted-foreground));
     line-height: 1.5;
     margin: 0 0 8px;
@@ -678,14 +679,14 @@ const previewTrackPoses = getPeekTrackingPoseKeys('preview');
     margin: 0 0 8px;
   }
   .mascot-library-body dt {
-    font-size: 10px;
+    font-size: var(--portal-text-2xs);
     text-transform: uppercase;
-    letter-spacing: 0.08em;
+    letter-spacing: var(--portal-tracking-wide);
     color: hsl(var(--muted-foreground));
   }
   .mascot-library-body dd {
     margin: 0;
-    font-size: 11px;
+    font-size: var(--portal-text-xs);
     font-family: var(--font-code);
     color: hsl(var(--foreground));
     word-break: break-all;
@@ -696,7 +697,7 @@ const previewTrackPoses = getPeekTrackingPoseKeys('preview');
     gap: 4px;
   }
   .mascot-library-tags span {
-    font-size: 10px;
+    font-size: var(--portal-text-2xs);
     padding: 2px 6px;
     border-radius: 999px;
     background: hsl(var(--accent));

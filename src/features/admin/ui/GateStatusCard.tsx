@@ -1,8 +1,6 @@
 import * as React from 'react';
 import type { NotifyGateDecision, NotifyGateStatus } from '@bunizao/contracts';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge, Button, Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/coss';
 import { adminApiEndpoint } from './api';
 
 interface GateStatusCardProps {

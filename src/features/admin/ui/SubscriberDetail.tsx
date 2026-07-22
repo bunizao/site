@@ -1,21 +1,21 @@
 import * as React from 'react';
 import { ArrowLeft, Save, Send, Trash2 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Badge } from '@/components/ui/badge';
-import { Checkbox } from '@/components/ui/checkbox';
-import { adminApiEndpoint } from './api';
 import {
+  Button,
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  Input,
+  Label,
+  Badge,
+  Checkbox,
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
-import { Skeleton } from '@/components/ui/skeleton';
-import {
+  Skeleton,
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -24,7 +24,8 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
+} from '@/components/coss';
+import { adminApiEndpoint } from './api';
 import type {
   DeliveryMode,
   NotifyChannel,
@@ -199,7 +200,6 @@ export default function SubscriberDetail({ emailHash }: { emailHash: string }) {
     } catch (err) {
       setError(err instanceof Error ? err.message : 'unknown');
       setSaving(false);
-      setConfirmDelete(false);
     }
   }
 
@@ -240,9 +240,13 @@ export default function SubscriberDetail({ emailHash }: { emailHash: string }) {
   return (
     <div className="flex flex-col gap-6">
       <div className="flex items-center gap-3">
-        <Button asChild variant="ghost" size="sm">
-          <a href="/dev/portal/subscribers" data-astro-prefetch="false"><ArrowLeft className="size-3.5" /> Back to subscribers</a>
-        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          render={
+            <a href="/dev/portal/subscribers" data-astro-prefetch="false"><ArrowLeft className="size-3.5" /> Back to subscribers</a>
+          }
+        />
       </div>
 
       {error && (
@@ -507,10 +511,7 @@ function ConfirmDeleteDialog({
           <AlertDialogCancel disabled={saving}>Cancel</AlertDialogCancel>
           <AlertDialogAction
             disabled={saving}
-            onClick={(event) => {
-              event.preventDefault();
-              onConfirm();
-            }}
+            onClick={onConfirm}
           >
             Unsubscribe
           </AlertDialogAction>

@@ -5,14 +5,67 @@
    that replace per-page inline styles. */
 
 .theme-portal {
-  --portal-text-xs: 11px;
-  --portal-text-sm: 12px;
-  --portal-text-base: 13px;
+  /* Type scale — a tool's ramp. A comfortable 14px reading floor (dashboards
+     read close, but 13px strained), micro-labels never below 11px, a couple of
+     display sizes for numbers and page titles. Refined within Geist; JetBrains
+     Mono (--font-code) carries IDs, keys, and dense numerics. */
+  --portal-text-2xs: 11px;
+  --portal-text-xs: 12px;
+  --portal-text-sm: 13px;
+  --portal-text-base: 14px;
+  --portal-text-md: 15px;
+  --portal-text-lg: 17px;
+  --portal-text-xl: 20px;
+  --portal-text-2xl: 24px;
+  --portal-text-3xl: 30px;
+
+  --portal-leading-tight: 1.12;
+  --portal-leading-snug: 1.35;
+  --portal-leading-normal: 1.55;
+  --portal-leading-relaxed: 1.7;
+
+  /* Tracking tightens as size grows, opens up for small caps labels. */
+  --portal-tracking-display: -0.022em;
+  --portal-tracking-title: -0.013em;
+  --portal-tracking-snug: -0.006em;
+  --portal-tracking-normal: 0;
+  --portal-tracking-wide: 0.06em;
+
   --portal-space: 4px;
-  --portal-surface-0: hsl(240 6% 5%);
+  --portal-surface-0: hsl(240 9% 5%);
   --portal-surface-1: hsl(var(--card));
   --portal-surface-2: hsl(var(--accent));
+
+  /* Motion: one shared curve plus Emil-strength enter/move variants. UI stays
+     under 300ms; enter uses ease-out so movement reads instantly. */
   --portal-ease: cubic-bezier(0.2, 0, 0, 1);
+  --portal-ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --portal-ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+
+  /* Duration scale — Linear-crisp. Hover/press stay well under Emil's 300ms
+     ceiling; entrances are the only thing allowed to breathe a little. */
+  --portal-dur-press: 110ms;
+  --portal-dur-fast: 130ms;
+  --portal-dur-base: 190ms;
+  --portal-dur-enter: 240ms;
+
+  /* Depth: layered transparent shadows tuned for the near-black surface. The
+     coss card already paints a hairline top highlight; these add grounded
+     elevation without fighting the palette's restraint. */
+  --portal-shadow-card:
+    0 1px 2px -1px hsl(240 12% 2% / 0.5),
+    0 2px 6px -2px hsl(240 12% 2% / 0.35);
+  --portal-shadow-lift:
+    0 2px 4px -2px hsl(240 12% 2% / 0.55),
+    0 10px 28px -8px hsl(240 12% 2% / 0.5);
+
+  /* Semantic accents for tinted chips / deltas. Never decorative — each hue
+     carries meaning (blue = live, green = up, amber = waiting, red = down). */
+  --portal-chip-neutral: 233 8% 61%;
+  --portal-chip-accent: 234 60% 62%;
+  --portal-chip-success: 152 46% 50%;
+  --portal-chip-warning: 38 88% 58%;
+  --portal-chip-danger: 0 72% 60%;
 }
 
 html.theme-portal,
@@ -21,6 +74,20 @@ html.theme-portal body {
   color: hsl(var(--foreground));
   font-family: var(--font-display);
   font-size: var(--portal-text-base);
+  line-height: var(--portal-leading-normal);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-optical-sizing: auto;
+  text-rendering: optimizeLegibility;
+}
+
+/* Small-caps section label. One consistent eyebrow across the portal. */
+.portal-eyebrow {
+  font-size: var(--portal-text-2xs);
+  font-weight: 600;
+  letter-spacing: var(--portal-tracking-wide);
+  text-transform: uppercase;
+  color: hsl(var(--muted-foreground) / 0.8);
 }
 
 html.theme-portal body::before {
@@ -52,7 +119,7 @@ html.theme-portal section {
   display: flex;
   flex-direction: column;
   gap: var(--portal-space);
-  padding: 24px 16px;
+  padding: 20px 12px;
   border-right: 1px solid hsl(var(--border));
   background: var(--portal-surface-0);
 }
@@ -60,13 +127,60 @@ html.theme-portal section {
 .portal-sidebar-brand {
   display: flex;
   align-items: center;
-  padding: 0 8px 18px;
+  gap: 10px;
+  padding: 2px 6px 14px;
+  margin-bottom: 6px;
+  border-bottom: 1px solid hsl(var(--border) / 0.55);
 }
 
-.portal-sidebar-brand img {
-  width: 88px;
+.portal-brand-mark {
+  width: 34px;
   height: auto;
+  flex: 0 0 auto;
   image-rendering: -webkit-optimize-contrast;
+}
+
+.portal-brand-word {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.portal-brand-name {
+  font-size: var(--portal-text-md);
+  font-weight: 560;
+  line-height: 1.1;
+  letter-spacing: var(--portal-tracking-title);
+  color: hsl(var(--foreground));
+}
+
+.portal-brand-sub {
+  font-family: var(--font-code);
+  font-size: var(--portal-text-2xs);
+  line-height: 1.1;
+  color: hsl(var(--muted-foreground));
+}
+
+.portal-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.portal-nav-group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.portal-nav-label {
+  padding: 0 10px 4px;
+  font-size: var(--portal-text-2xs);
+  font-weight: 600;
+  letter-spacing: var(--portal-tracking-wide);
+  text-transform: uppercase;
+  color: hsl(var(--muted-foreground) / 0.7);
 }
 
 .portal-sidebar-link {
@@ -74,48 +188,54 @@ html.theme-portal section {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 8px 10px;
+  padding: 7px 10px;
   border-radius: 8px;
   font-size: var(--portal-text-base);
+  font-weight: 450;
   color: hsl(var(--muted-foreground));
   transition:
-    background 180ms var(--portal-ease),
-    color 180ms var(--portal-ease),
-    transform 180ms var(--portal-ease);
+    background-color var(--portal-dur-fast) var(--portal-ease),
+    color var(--portal-dur-fast) var(--portal-ease),
+    transform var(--portal-dur-press) var(--portal-ease-out);
 }
 
 .portal-sidebar-link svg {
-  transition: transform 220ms var(--portal-ease);
+  flex: 0 0 auto;
 }
 
 .portal-sidebar-link:hover {
-  background: var(--portal-surface-2);
+  background: hsl(var(--foreground) / 0.05);
   color: hsl(var(--foreground));
-}
-
-.portal-sidebar-link:hover svg {
-  transform: translateX(1px);
 }
 
 .portal-sidebar-link:active {
-  transform: scale(0.98);
+  transform: scale(0.985);
 }
 
 .portal-sidebar-link[aria-current='page'] {
-  background: var(--portal-surface-2);
+  background: hsl(var(--foreground) / 0.08);
   color: hsl(var(--foreground));
+  font-weight: 500;
+}
+
+.portal-sidebar-link[aria-current='page'] svg {
+  color: hsl(var(--portal-chip-accent));
 }
 
 .portal-sidebar-link[aria-current='page']::before {
   content: '';
   position: absolute;
-  left: -16px;
-  top: 8px;
-  bottom: 8px;
+  left: -12px;
+  top: 6px;
+  bottom: 6px;
   width: 2px;
-  border-radius: 2px;
-  background: hsl(var(--primary));
+  border-radius: 0 2px 2px 0;
+  background: hsl(var(--portal-chip-accent));
   animation: portalNavIndicator 240ms var(--portal-ease) both;
+}
+
+.portal-sidebar-link--muted {
+  color: hsl(var(--muted-foreground) / 0.8);
 }
 
 @keyframes portalNavIndicator {
@@ -136,12 +256,17 @@ html.theme-portal section {
 .portal-sidebar-user {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 10px;
+  gap: 9px;
+  padding: 7px 8px;
   border-radius: 8px;
-  background: var(--portal-surface-1);
-  border: 1px solid hsl(var(--border));
+  background: transparent;
+  border: 1px solid transparent;
   font-size: var(--portal-text-sm);
+  transition: background 160ms var(--portal-ease);
+}
+
+.portal-sidebar-user:hover {
+  background: hsl(0 0% 100% / 0.03);
 }
 
 .portal-sidebar-user img {
@@ -203,15 +328,33 @@ html.theme-portal section {
 
 .portal-topbar-title {
   margin: 0;
-  font-size: 15px;
-  font-weight: 500;
-  line-height: 1.2;
-  letter-spacing: -0.01em;
+  font-size: var(--portal-text-lg);
+  font-weight: 550;
+  line-height: var(--portal-leading-tight);
+  letter-spacing: var(--portal-tracking-title);
+  text-wrap: balance;
 }
 
 .portal-topbar-description {
   font-size: var(--portal-text-sm);
+  line-height: var(--portal-leading-snug);
   color: hsl(var(--muted-foreground));
+  text-wrap: pretty;
+}
+
+/* Scoped type refinements — every coss card title/description in the portal
+   reads at one considered size, regardless of per-page overrides. */
+.theme-portal [data-slot='card-title'] {
+  font-size: var(--portal-text-md);
+  font-weight: 550;
+  line-height: var(--portal-leading-snug);
+  letter-spacing: var(--portal-tracking-title);
+}
+
+.theme-portal [data-slot='card-description'] {
+  font-size: var(--portal-text-sm);
+  line-height: var(--portal-leading-snug);
+  text-wrap: pretty;
 }
 
 .portal-topbar-spacer {
@@ -220,18 +363,6 @@ html.theme-portal section {
 
 .portal-page {
   padding: 28px 32px 64px;
-  animation: portalPageEnter 320ms var(--portal-ease) both;
-}
-
-@keyframes portalPageEnter {
-  from {
-    opacity: 0;
-    transform: translateY(6px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
 }
 
 .portal-logout {
@@ -246,14 +377,19 @@ html.theme-portal section {
   border: 1px solid transparent;
   cursor: pointer;
   transition:
-    color 160ms var(--portal-ease),
-    background 160ms var(--portal-ease),
-    border-color 160ms var(--portal-ease);
+    color var(--portal-dur-fast) var(--portal-ease),
+    background-color var(--portal-dur-fast) var(--portal-ease),
+    border-color var(--portal-dur-fast) var(--portal-ease),
+    transform var(--portal-dur-press) var(--portal-ease-out);
 }
 
 .portal-logout:hover {
   color: hsl(var(--foreground));
   background: var(--portal-surface-2);
+}
+
+.portal-logout:active {
+  transform: scale(0.94);
 }
 
 .portal-mono {
@@ -276,6 +412,7 @@ html.theme-portal section {
 
 .portal-grid[data-columns='stats'] {
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  align-items: start;
 }
 
 .portal-grid[data-columns='cards'] {
@@ -302,24 +439,8 @@ html.theme-portal section {
   padding-top: 0;
 }
 
-.portal-stat-value {
-  font-size: 28px;
-  font-weight: 600;
-  letter-spacing: -0.02em;
-}
-
-.portal-stat-value[data-size='sm'] {
-  font-size: 14px;
-  font-weight: 500;
-  letter-spacing: -0.01em;
-  line-height: 1.3;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-}
-
+/* Simple stat hint under a coss CardContent value (per-article, gate). The
+   large value itself is styled by the shared .portal-stat-value below. */
 .portal-stat-hint {
   font-size: var(--portal-text-sm);
   color: hsl(var(--muted-foreground));
@@ -332,7 +453,7 @@ html.theme-portal section {
 }
 
 .portal-card-title {
-  font-size: 14px;
+  font-size: var(--portal-text-md);
   display: flex;
   align-items: center;
   gap: 8px;
@@ -480,8 +601,10 @@ html.theme-portal section {
 }
 
 .portal-detail-title {
-  font-size: 18px;
-  letter-spacing: -0.01em;
+  font-size: var(--portal-text-xl);
+  font-weight: 550;
+  line-height: var(--portal-leading-tight);
+  letter-spacing: var(--portal-tracking-title);
 }
 
 .portal-detail-id {
@@ -509,7 +632,7 @@ html.theme-portal section {
   font-size: var(--portal-text-xs);
   color: hsl(var(--muted-foreground));
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: var(--portal-tracking-wide);
 }
 
 .portal-fact-value {
@@ -532,22 +655,734 @@ html.theme-portal section {
 
 .portal-empty-card {
   padding: 32px;
-  font-size: 14px;
+  font-size: var(--portal-text-md);
   color: hsl(var(--muted-foreground));
+}
+
+/* ---- Redesign: depth, chips, stats, empty, motion (2026-07-21) ---- */
+
+/* Ground every portal card with layered elevation. The coss <Card> already
+   paints its own hairline top highlight; this adds a grounded shadow and, for
+   interactive cards, a hover lift + press response. Restraint over drama: the
+   surface only moves 2px, the shadow stays soft. */
+.theme-portal [data-slot='card'] {
+  border-color: hsl(0 0% 100% / 0.06);
+  background-image: linear-gradient(180deg, hsl(0 0% 100% / 0.022), hsl(0 0% 100% / 0) 88px);
+  box-shadow: var(--portal-shadow-card);
+  transition:
+    box-shadow var(--portal-dur-base) var(--portal-ease),
+    border-color var(--portal-dur-base) var(--portal-ease),
+    transform var(--portal-dur-base) var(--portal-ease-out);
+}
+
+.portal-card-link {
+  display: block;
+  color: inherit;
+  text-decoration: none;
+}
+
+/* Full-card click target without a wrapping anchor. The coss card is
+   position:relative, so this stretches to its bounds. */
+.portal-stretch-link {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  border-radius: inherit;
+}
+
+.portal-card-link:hover [data-slot='card'],
+.theme-portal [data-slot='card'].portal-card-interactive:hover {
+  border-color: hsl(var(--foreground) / 0.16);
+  box-shadow: var(--portal-shadow-lift);
+  transform: translateY(-2px);
+}
+
+.portal-card-link:active [data-slot='card'],
+.theme-portal [data-slot='card'].portal-card-interactive:active {
+  transform: translateY(-1px) scale(0.995);
+  transition-duration: 110ms;
+}
+
+/* Metric-card glyph. Linear keeps these monochrome and quiet — a small muted
+   icon in a barely-there well, never a saturated color block. Meaning-bearing
+   color lives only in the small places: status dots, deltas, badges. The
+   data-tone attribute is accepted but intentionally ignored here. */
+.portal-chip {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
+  color: hsl(var(--muted-foreground));
+  background: hsl(0 0% 100% / 0.03);
+  box-shadow: inset 0 0 0 1px hsl(0 0% 100% / 0.05);
+}
+
+.portal-chip svg {
+  width: 15px;
+  height: 15px;
+}
+
+/* Stat card body */
+.portal-stat {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 14px 16px 13px;
+}
+
+.portal-stat-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.portal-stat-label {
+  font-size: var(--portal-text-sm);
+  font-weight: 500;
+  color: hsl(var(--muted-foreground));
+}
+
+.portal-stat-value {
+  margin-top: 9px;
+  font-size: var(--portal-text-3xl);
+  line-height: 1.02;
+  font-weight: 600;
+  letter-spacing: var(--portal-tracking-display);
+  font-variant-numeric: tabular-nums;
+  color: hsl(var(--foreground));
+}
+
+.portal-stat-value[data-size='sm'] {
+  font-size: var(--portal-text-md);
+  font-weight: 500;
+  line-height: var(--portal-leading-snug);
+  letter-spacing: var(--portal-tracking-snug);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.portal-stat-foot {
+  margin-top: auto;
+  padding-top: 8px;
+  font-size: var(--portal-text-sm);
+  color: hsl(var(--muted-foreground));
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.portal-stat-delta {
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+.portal-stat-delta[data-dir='up'] {
+  color: hsl(var(--portal-chip-success));
+}
+.portal-stat-delta[data-dir='down'] {
+  color: hsl(var(--portal-chip-danger));
+}
+.portal-stat-delta[data-dir='flat'] {
+  color: hsl(var(--muted-foreground));
+}
+
+.portal-stat-delta svg {
+  width: 13px;
+  height: 13px;
+}
+
+/* Activity / broadcast feed rows — hairline separated, hover-highlighted. */
+.portal-feed {
+  list-style: none;
+  margin: 0 -8px;
+  padding: 0;
+}
+
+.portal-feed-row {
+  display: grid;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 8px;
+  border-radius: 8px;
+  transition:
+    background-color var(--portal-dur-fast) var(--portal-ease),
+    transform var(--portal-dur-press) var(--portal-ease-out);
+}
+
+a.portal-feed-row:active {
+  transform: scale(0.995);
+}
+
+.portal-feed-row + .portal-feed-row {
+  box-shadow: 0 -1px 0 hsl(var(--border) / 0.55);
+}
+
+a.portal-feed-row:hover,
+.portal-feed-row[data-interactive]:hover {
+  background: hsl(var(--foreground) / 0.035);
+}
+
+.portal-feed-row[data-layout='event'] {
+  grid-template-columns: 96px 1fr auto;
+}
+
+.portal-feed-row[data-layout='split'] {
+  grid-template-columns: 1fr auto;
+  align-items: start;
+}
+
+.portal-feed-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--portal-text-sm);
+  color: hsl(var(--foreground) / 0.86);
+}
+
+.portal-feed-primary {
+  display: block;
+  min-width: 0;
+  font-size: var(--portal-text-base);
+  color: hsl(var(--foreground));
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.portal-feed-sub {
+  display: block;
+  margin-top: 2px;
+  font-size: var(--portal-text-xs);
+  color: hsl(var(--muted-foreground));
+  font-variant-numeric: tabular-nums;
+}
+
+.portal-feed-time {
+  font-size: var(--portal-text-xs);
+  color: hsl(var(--muted-foreground));
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* Status dot — a scannable, meaning-bearing pip for feed rows. Tone via
+   data-tone, same hue vocabulary as the chips. */
+.portal-dot {
+  --chip: var(--portal-chip-neutral);
+  flex: 0 0 auto;
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: hsl(var(--chip));
+  box-shadow: 0 0 0 3px hsl(var(--chip) / 0.14);
+}
+.portal-dot[data-tone='accent'] {
+  --chip: var(--portal-chip-accent);
+}
+.portal-dot[data-tone='success'] {
+  --chip: var(--portal-chip-success);
+}
+.portal-dot[data-tone='warning'] {
+  --chip: var(--portal-chip-warning);
+}
+.portal-dot[data-tone='danger'] {
+  --chip: var(--portal-chip-danger);
+}
+
+/* Inline notice — quiet by default, louder only for real errors. Replaces the
+   permanently-red banner. */
+.portal-notice {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  width: fit-content;
+  max-width: 100%;
+  margin-bottom: 20px;
+  padding: 7px 11px 7px 9px;
+  border-radius: 8px;
+  font-size: var(--portal-text-sm);
+  border: 1px solid hsl(0 0% 100% / 0.06);
+  background: hsl(0 0% 100% / 0.022);
+  color: hsl(var(--muted-foreground));
+}
+.portal-notice svg {
+  flex: 0 0 auto;
+  color: hsl(var(--muted-foreground));
+}
+.portal-notice[data-variant='error'] {
+  border-color: hsl(var(--portal-danger) / 0.4);
+  background: hsl(var(--portal-danger) / 0.08);
+  color: hsl(0 80% 82%);
+}
+.portal-notice[data-variant='error'] svg {
+  color: hsl(var(--portal-danger));
+}
+.portal-notice code {
+  font-family: var(--font-code);
+  font-size: var(--portal-text-xs);
+}
+
+/* Card header "view all" affordance */
+.portal-sec-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: var(--portal-text-sm);
+  color: hsl(var(--muted-foreground));
+  transition:
+    color var(--portal-dur-fast) var(--portal-ease),
+    gap var(--portal-dur-fast) var(--portal-ease-out);
+}
+.portal-sec-link:hover {
+  color: hsl(var(--foreground));
+  gap: 5px;
+}
+.portal-sec-link:hover svg {
+  transform: translateX(1px);
+}
+.portal-sec-link svg {
+  transition: transform var(--portal-dur-fast) var(--portal-ease-out);
+}
+
+/* ---- Interaction feedback — every pressable element responds ---- */
+
+/* coss buttons ship with only a shadow transition and no press motion. In the
+   portal we add a color transition (so hover isn't a hard cut) plus a subtle
+   tactile press — Linear's crisp button feel. */
+.theme-portal [data-slot='button'] {
+  transition:
+    background-color var(--portal-dur-fast) var(--portal-ease),
+    border-color var(--portal-dur-fast) var(--portal-ease),
+    color var(--portal-dur-fast) var(--portal-ease),
+    box-shadow var(--portal-dur-fast) var(--portal-ease),
+    transform var(--portal-dur-press) var(--portal-ease-out);
+}
+.theme-portal [data-slot='button']:active:not(:disabled):not([aria-disabled='true']) {
+  transform: scale(0.97);
+}
+
+/* buttonVariants() rendered on a plain <a> (CTAs, back-links) carries no
+   data-slot, so opt those anchors into the same press with .portal-press. */
+.theme-portal .portal-press {
+  transition:
+    background-color var(--portal-dur-fast) var(--portal-ease),
+    border-color var(--portal-dur-fast) var(--portal-ease),
+    box-shadow var(--portal-dur-fast) var(--portal-ease),
+    transform var(--portal-dur-press) var(--portal-ease-out);
+}
+.theme-portal .portal-press:active {
+  transform: scale(0.97);
+}
+
+/* Row surfaces ease their hover tint instead of hard-cutting. */
+.theme-portal [data-slot='table-row'] {
+  transition: background-color var(--portal-dur-fast) var(--portal-ease);
+}
+
+/* One consistent focus ring on the portal's custom (non-coss) interactive
+   chrome. coss primitives ring themselves. */
+.portal-sidebar-link:focus-visible,
+.portal-segmented-option:focus-visible,
+.portal-sec-link:focus-visible,
+a.portal-feed-row:focus-visible,
+.portal-card-link:focus-visible,
+.portal-stretch-link:focus-visible {
+  outline: 2px solid hsl(var(--ring));
+  outline-offset: 2px;
+  border-radius: 8px;
+}
+
+/* ---- Shared: coss Table refinements, segmented control, sections ---- */
+
+/* Tune the Base UI table for the portal: tabular numerics, a quiet header,
+   the reading-size body. Structure and row hover come from coss. */
+.theme-portal [data-slot='table'] {
+  font-size: var(--portal-text-base);
+  font-variant-numeric: tabular-nums;
+}
+.theme-portal [data-slot='table-head'] {
+  height: 34px;
+  font-size: var(--portal-text-xs);
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  color: hsl(var(--muted-foreground) / 0.85);
+}
+.theme-portal [data-slot='table-cell'] {
+  font-size: var(--portal-text-sm);
+  padding-top: 9px;
+  padding-bottom: 9px;
+}
+.theme-portal [data-slot='table'] a {
+  color: hsl(var(--foreground));
+  text-decoration: none;
+  transition: color 160ms var(--portal-ease);
+}
+.theme-portal [data-slot='table'] a:hover {
+  color: hsl(var(--portal-chip-accent));
+}
+
+/* Segmented control — anchor links with a single active pill. The pill carries
+   a view-transition-name, so under Astro's ClientRouter it slides between
+   options on navigation instead of teleporting. */
+.portal-segmented {
+  display: inline-flex;
+  gap: 2px;
+  padding: 2px;
+  border-radius: 9px;
+  background: hsl(var(--foreground) / 0.04);
+  box-shadow: inset 0 0 0 1px hsl(var(--border) / 0.7);
+}
+
+.portal-segmented-option {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 40px;
+  padding: 4px 11px;
+  border-radius: 7px;
+  font-size: var(--portal-text-sm);
+  font-weight: 500;
+  color: hsl(var(--muted-foreground));
+  font-variant-numeric: tabular-nums;
+  transition:
+    color var(--portal-dur-fast) var(--portal-ease),
+    transform var(--portal-dur-press) var(--portal-ease-out);
+}
+
+.portal-segmented-option:hover {
+  color: hsl(var(--foreground));
+}
+
+.portal-segmented-option:active {
+  transform: scale(0.96);
+}
+
+.portal-segmented-option[aria-current='true'] {
+  color: hsl(var(--foreground));
+}
+
+.portal-segmented-pill {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: 7px;
+  background: hsl(var(--card));
+  box-shadow:
+    0 1px 2px hsl(240 12% 2% / 0.4),
+    inset 0 0 0 1px hsl(var(--border));
+  view-transition-name: portal-seg-pill;
+}
+
+.portal-segmented-label {
+  position: relative;
+  z-index: 1;
+}
+
+::view-transition-group(portal-seg-pill) {
+  animation-duration: 260ms;
+  animation-timing-function: var(--portal-ease-out);
+}
+
+/* Instant page swaps. Astro's ClientRouter cross-fades the whole document by
+   default — including the persistent sidebar/topbar, which should never move.
+   Killing the root animation makes sidebar navigation feel immediate (the
+   named seg-pill group above keeps its own targeted transition). */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
+/* Section block — eyebrow + title + meta/action, then content. */
+.portal-section-block {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.portal-section-block + .portal-section-block {
+  margin-top: 32px;
+}
+
+.portal-section-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.portal-section-heading {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.portal-section-title {
+  margin: 0;
+  font-size: var(--portal-text-xl);
+  font-weight: 550;
+  line-height: var(--portal-leading-tight);
+  letter-spacing: var(--portal-tracking-title);
+  color: hsl(var(--foreground));
+  text-wrap: balance;
+}
+
+.portal-section-aside {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.portal-section-meta {
+  font-size: var(--portal-text-sm);
+  color: hsl(var(--muted-foreground));
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.portal-span-full {
+  grid-column: 1 / -1;
+}
+
+.portal-mt-lg {
+  margin-top: 32px;
+}
+
+/* Ranked horizontal bars (breakdowns). The fill grows from the left on load. */
+.portal-bars {
+  display: grid;
+  gap: 11px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-variant-numeric: tabular-nums;
+}
+
+.portal-bars li {
+  display: grid;
+  grid-template-columns: minmax(72px, 0.7fr) minmax(110px, 2fr) auto;
+  align-items: center;
+  gap: 12px;
+  font-size: var(--portal-text-sm);
+}
+
+.portal-bars-label {
+  overflow: hidden;
+  color: hsl(var(--foreground) / 0.82);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.portal-bars-track {
+  height: 7px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: hsl(var(--foreground) / 0.06);
+}
+
+.portal-bars-fill {
+  display: block;
+  width: var(--bar, 0%);
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(
+    90deg,
+    hsl(var(--portal-chip-accent) / 0.55),
+    hsl(var(--portal-chip-accent))
+  );
+  transform-origin: left;
+  animation: portalBarGrow 500ms var(--portal-ease-out) both;
+}
+
+/* Bars grow in a quick left-anchored cascade — 45ms apart, tail capped. */
+.portal-bars li:nth-child(2) .portal-bars-fill { animation-delay: 45ms; }
+.portal-bars li:nth-child(3) .portal-bars-fill { animation-delay: 90ms; }
+.portal-bars li:nth-child(4) .portal-bars-fill { animation-delay: 135ms; }
+.portal-bars li:nth-child(5) .portal-bars-fill { animation-delay: 180ms; }
+.portal-bars li:nth-child(6) .portal-bars-fill { animation-delay: 225ms; }
+.portal-bars li:nth-child(n + 7) .portal-bars-fill { animation-delay: 260ms; }
+
+.portal-bars-value {
+  font-weight: 500;
+  color: hsl(var(--foreground));
+}
+
+@keyframes portalBarGrow {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+/* Raw event log — a status list: read/partial dot, device icon, slug, meta,
+   source badge, and read time. */
+.portal-log {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.portal-log-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 13px;
+  padding: 9px 13px;
+  border-radius: 10px;
+  background: hsl(var(--foreground) / 0.022);
+  box-shadow: inset 0 0 0 1px hsl(var(--border) / 0.5);
+}
+
+.portal-log-lead {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  color: hsl(var(--muted-foreground));
+}
+
+.portal-log-lead svg {
+  width: 15px;
+  height: 15px;
+}
+
+.portal-log-body {
+  min-width: 0;
+}
+
+.portal-log-slug {
+  display: block;
+  overflow: hidden;
+  font-family: var(--font-code);
+  font-size: var(--portal-text-sm);
+  color: hsl(var(--foreground));
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.portal-log-meta {
+  margin-top: 1px;
+  overflow: hidden;
+  font-size: var(--portal-text-xs);
+  color: hsl(var(--muted-foreground));
+  font-variant-numeric: tabular-nums;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.portal-log-aside {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  white-space: nowrap;
+}
+
+.portal-log-metric {
+  font-size: var(--portal-text-xs);
+  color: hsl(var(--foreground) / 0.8);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Static tables carry no row hover — the rows aren't clickable, so the tint
+   would imply an interaction that isn't there. */
+.theme-portal .portal-table-static [data-slot='table-row']:hover [data-slot='table-cell'] {
+  background-color: hsl(var(--card)) !important;
+}
+
+/* Redesigned empty state — icon, title, guidance, optional action. Replaces
+   the bare muted paragraph the pages used before. */
+.portal-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 4px;
+  padding: 28px 20px 24px;
+}
+
+.portal-empty-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  margin-bottom: 8px;
+  border-radius: 11px;
+  color: hsl(var(--muted-foreground));
+  background: hsl(var(--foreground) / 0.04);
+  box-shadow: inset 0 0 0 1px hsl(var(--foreground) / 0.06);
+}
+
+.portal-empty-title {
+  font-size: var(--portal-text-base);
+  font-weight: 500;
+  color: hsl(var(--foreground));
+  text-wrap: balance;
+}
+
+.portal-empty-hint {
+  font-size: var(--portal-text-sm);
+  color: hsl(var(--muted-foreground));
+  max-width: 34ch;
+  line-height: 1.5;
+  text-wrap: pretty;
+}
+
+.portal-empty-action {
+  margin-top: 12px;
+}
+
+/* No page-enter or stagger. Sidebar navigation is a high-frequency action
+   (Emil: "Raycast has no open/close animation — optimal for something used
+   hundreds of times a day"). Under Astro's ClientRouter every swap rebuilds
+   this DOM, so any entrance animation re-fires on every click and reads as
+   viscous. The swap is instant instead; the class stays a harmless no-op so
+   page markup doesn't need touching. */
+.portal-stagger > * {
+  opacity: 1;
 }
 
 /* ---- Motion + responsive ---- */
 
 @media (prefers-reduced-motion: reduce) {
-  .portal-sidebar-link,
-  .portal-sidebar-link svg,
-  .portal-logout,
-  .portal-page {
-    animation: none !important;
-    transition: none !important;
+  /* Strip motion wholesale, but keep final states: durations collapse so
+     elements snap to their end frame instead of animating. */
+  .theme-portal *,
+  .theme-portal *::before,
+  .theme-portal *::after {
+    animation-duration: 0.01ms !important;
+    animation-delay: 0ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    transition-delay: 0ms !important;
+  }
+  .portal-stagger > * {
+    opacity: 1 !important;
+  }
+  .portal-card-link:hover [data-slot='card'],
+  .theme-portal [data-slot='card'].portal-card-interactive:hover,
+  .theme-portal [data-slot='button']:active,
+  .portal-sidebar-link:active,
+  .portal-segmented-option:active,
+  .portal-logout:active,
+  a.portal-feed-row:active {
+    transform: none !important;
   }
   ::view-transition-old(root),
-  ::view-transition-new(root) {
+  ::view-transition-new(root),
+  ::view-transition-group(portal-seg-pill) {
     animation: none !important;
   }
 }
@@ -561,12 +1396,41 @@ html.theme-portal section {
     top: 0;
     z-index: 30;
     flex-direction: row;
+    align-items: center;
+    gap: 4px;
     overflow-x: auto;
+    padding: 10px 12px;
     border-right: 0;
     border-bottom: 1px solid hsl(var(--border));
   }
+  .portal-sidebar-brand {
+    padding: 0 8px 0 0;
+    margin-bottom: 0;
+    border-bottom: 0;
+  }
+  .portal-brand-mark {
+    width: 40px;
+  }
+  .portal-brand-word {
+    display: none;
+  }
+  .portal-nav {
+    flex-direction: row;
+    gap: 4px;
+  }
+  .portal-nav-group {
+    flex-direction: row;
+    gap: 2px;
+  }
+  .portal-nav-label {
+    display: none;
+  }
+  .portal-sidebar-link {
+    white-space: nowrap;
+  }
   .portal-sidebar-spacer,
-  .portal-sidebar-user {
+  .portal-sidebar-user,
+  .portal-sidebar-link--muted {
     display: none;
   }
   .portal-sidebar-link[aria-current='page']::before {
@@ -576,3 +1440,173 @@ html.theme-portal section {
     padding: 20px 16px 48px;
   }
 }
+
+/* ── Dual-metric ranked breakdown ───────────────────────────────────────────
+   Ranked bars that carry a second column: volume plus a quality chip (read-rate
+   or share) so a fat bar with a dim chip reads as junk traffic at a glance. */
+.portal-rank {
+  display: grid;
+  gap: 11px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-variant-numeric: tabular-nums;
+}
+
+.portal-rank-row {
+  display: grid;
+  grid-template-columns: minmax(60px, 0.7fr) minmax(80px, 2fr) auto auto;
+  align-items: center;
+  gap: 12px;
+  font-size: var(--portal-text-sm);
+}
+
+.portal-rank-label {
+  overflow: hidden;
+  color: hsl(var(--foreground) / 0.82);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-transform: capitalize;
+}
+
+.portal-rank-track {
+  height: 7px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: hsl(var(--foreground) / 0.06);
+}
+
+.portal-rank-fill {
+  display: block;
+  width: var(--bar, 0%);
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, hsl(var(--portal-chip-accent) / 0.55), hsl(var(--portal-chip-accent)));
+  transform-origin: left;
+  animation: portalBarGrow 500ms var(--portal-ease-out) both;
+}
+
+.portal-rank-value {
+  min-width: 3ch;
+  font-weight: 500;
+  color: hsl(var(--foreground));
+  text-align: right;
+}
+
+.portal-rank-chip {
+  min-width: 4ch;
+  padding: 1px 6px;
+  border-radius: 999px;
+  font-size: var(--portal-text-2xs);
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+.portal-rank-chip[data-tone='success'] { color: hsl(var(--portal-chip-success)); background: hsl(var(--portal-chip-success) / 0.12); }
+.portal-rank-chip[data-tone='neutral'] { color: hsl(var(--portal-chip-accent)); background: hsl(var(--portal-chip-accent) / 0.12); }
+.portal-rank-chip[data-tone='muted'] { color: hsl(var(--muted-foreground) / 0.8); background: hsl(var(--foreground) / 0.05); }
+
+/* ── Geographic choropleth ───────────────────────────────────────────────────
+   Map (left) and hover-synced ranked country list (right). Self-contained SVG,
+   no map library. */
+.portal-geo {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) minmax(220px, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+@media (max-width: 860px) {
+  .portal-geo { grid-template-columns: 1fr; }
+}
+
+.portal-geo-map {
+  position: relative;
+}
+
+.portal-geo-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+.portal-geo-country {
+  fill: hsl(var(--foreground) / 0.05);
+  stroke: hsl(var(--background));
+  stroke-width: 0.4;
+  stroke-linejoin: round;
+  transition: fill var(--portal-dur-fast) var(--portal-ease), stroke var(--portal-dur-fast) var(--portal-ease);
+}
+.portal-geo-country[data-active='true'] { cursor: pointer; }
+.portal-geo-country[data-hover='true'] {
+  stroke: hsl(var(--foreground) / 0.8);
+  stroke-width: 0.9;
+}
+
+.portal-geo-tip {
+  position: absolute;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px 9px;
+  border: 1px solid hsl(var(--border));
+  border-radius: 8px;
+  background: hsl(240 7% 8% / 0.97);
+  box-shadow: var(--portal-shadow-lift);
+  white-space: nowrap;
+  pointer-events: none;
+  transform: translate(-50%, calc(-100% - 8px));
+}
+.portal-geo-tip-name { font-size: var(--portal-text-xs); font-weight: 600; color: hsl(var(--foreground)); }
+.portal-geo-tip-row { font-size: var(--portal-text-2xs); color: hsl(var(--muted-foreground)); font-variant-numeric: tabular-nums; }
+.portal-geo-tip-row strong { color: hsl(var(--foreground)); }
+
+.portal-geo-legend {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+  font-size: var(--portal-text-2xs);
+  color: hsl(var(--muted-foreground));
+}
+.portal-geo-legend-ramp {
+  display: inline-flex;
+  height: 8px;
+  overflow: hidden;
+  border-radius: 999px;
+}
+.portal-geo-legend-ramp span { width: 18px; height: 100%; }
+
+.portal-geo-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  max-height: 344px;
+  margin: 0;
+  padding: 0;
+  overflow: auto;
+  list-style: none;
+  font-variant-numeric: tabular-nums;
+}
+.portal-geo-item {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr) 44px auto 32px;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 6px;
+  border-radius: 7px;
+  font-size: var(--portal-text-sm);
+  transition: background var(--portal-dur-fast) var(--portal-ease);
+  cursor: default;
+}
+.portal-geo-item[data-hover='true'] { background: hsl(var(--foreground) / 0.06); }
+.portal-geo-rank { color: hsl(var(--muted-foreground) / 0.6); font-size: var(--portal-text-2xs); text-align: right; }
+.portal-geo-name { overflow: hidden; color: hsl(var(--foreground) / 0.9); text-overflow: ellipsis; white-space: nowrap; }
+.portal-geo-flag { margin-left: 4px; color: hsl(var(--muted-foreground) / 0.6); }
+.portal-geo-share { height: 6px; overflow: hidden; border-radius: 999px; background: hsl(var(--foreground) / 0.06); }
+.portal-geo-share-fill { display: block; height: 100%; border-radius: inherit; background: hsl(var(--portal-chip-accent) / 0.8); }
+.portal-geo-views { font-weight: 500; color: hsl(var(--foreground)); text-align: right; }
+.portal-geo-rate { font-size: var(--portal-text-2xs); text-align: right; }
+.portal-geo-rate[data-tone='success'] { color: hsl(var(--portal-chip-success)); }
+.portal-geo-rate[data-tone='neutral'] { color: hsl(var(--portal-chip-accent)); }
+.portal-geo-rate[data-tone='muted'] { color: hsl(var(--muted-foreground) / 0.75); }

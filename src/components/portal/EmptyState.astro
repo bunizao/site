@@ -1,0 +1,29 @@
+---
+// Portal empty state. An icon, a title, a line of guidance, and an optional
+// action slot — the plan's EmptyState, replacing the bare muted paragraphs the
+// pages used before. Sits inside a card's content area.
+import type { LucideIcon } from 'lucide-react';
+
+interface Props {
+  Icon?: LucideIcon;
+  title: string;
+  hint?: string;
+}
+
+const { Icon, title, hint } = Astro.props;
+---
+
+<div class="portal-empty">
+  {Icon && (
+    <span class="portal-empty-icon">
+      <Icon size={18} />
+    </span>
+  )}
+  <p class="portal-empty-title">{title}</p>
+  {hint && <p class="portal-empty-hint">{hint}</p>}
+  {Astro.slots.has('action') && (
+    <div class="portal-empty-action">
+      <slot name="action" />
+    </div>
+  )}
+</div>

@@ -47,9 +47,9 @@ const gateStatus = await loadNotifyGateStatus(Astro.request, Astro.locals);
   }
 
   .notify-control-label {
-    font-size: 10px;
+    font-size: var(--portal-text-2xs);
     text-transform: uppercase;
-    letter-spacing: 0.16em;
+    letter-spacing: var(--portal-tracking-wide);
     color: hsl(var(--muted-foreground));
   }
 
@@ -63,14 +63,14 @@ const gateStatus = await loadNotifyGateStatus(Astro.request, Astro.locals);
 
   .notify-segment__btn {
     padding: 5px 12px;
-    font-size: 12px;
+    font-size: var(--portal-text-sm);
     font-weight: 500;
     color: hsl(var(--muted-foreground));
     background: transparent;
     border: 0;
     border-radius: 6px;
     cursor: pointer;
-    transition: background 0.15s ease, color 0.15s ease;
+    transition: background var(--portal-dur-fast) var(--portal-ease), color var(--portal-dur-fast) var(--portal-ease);
   }
 
   .notify-segment__btn:hover {
@@ -89,14 +89,14 @@ const gateStatus = await loadNotifyGateStatus(Astro.request, Astro.locals);
     gap: 8px;
     margin-left: auto;
     padding: 6px 12px;
-    font-size: 12px;
+    font-size: var(--portal-text-sm);
     font-weight: 500;
     color: hsl(var(--foreground));
     background: hsl(var(--background));
     border: 1px solid hsl(var(--border));
     border-radius: 8px;
     cursor: pointer;
-    transition: background 0.15s ease, border-color 0.15s ease;
+    transition: background var(--portal-dur-fast) var(--portal-ease), border-color var(--portal-dur-fast) var(--portal-ease);
   }
 
   .notify-refresh:hover {
@@ -143,15 +143,15 @@ const gateStatus = await loadNotifyGateStatus(Astro.request, Astro.locals);
   }
 
   .notify-meta__row dt {
-    font-size: 10px;
+    font-size: var(--portal-text-2xs);
     text-transform: uppercase;
-    letter-spacing: 0.14em;
+    letter-spacing: var(--portal-tracking-wide);
     color: hsl(var(--muted-foreground));
   }
 
   .notify-meta__row dd {
     margin: 0;
-    font-size: 13px;
+    font-size: var(--portal-text-base);
     font-family: var(--font-code);
     font-feature-settings: 'tnum' 1;
     color: hsl(var(--foreground));
@@ -169,19 +169,19 @@ const gateStatus = await loadNotifyGateStatus(Astro.request, Astro.locals);
     background: hsl(var(--destructive) / 0.1);
     border: 1px solid hsl(var(--destructive) / 0.4);
     color: hsl(var(--destructive-foreground));
-    font-size: 13px;
+    font-size: var(--portal-text-base);
   }
 
   .notify-error span[aria-hidden] {
     color: hsl(var(--destructive));
-    font-size: 14px;
+    font-size: var(--portal-text-md);
   }
 
   .notify-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
     gap: 16px;
-    transition: grid-template-columns 0.2s ease;
+    transition: grid-template-columns var(--portal-dur-base) var(--portal-ease);
   }
 
   .notify-grid--focused {
@@ -205,7 +205,7 @@ const gateStatus = await loadNotifyGateStatus(Astro.request, Astro.locals);
     background: hsl(var(--card));
     border: 1px solid hsl(var(--border));
     border-radius: 12px;
-    transition: opacity 0.2s ease, transform 0.2s ease, border-color 0.2s ease;
+    transition: opacity var(--portal-dur-base) var(--portal-ease), transform var(--portal-dur-base) var(--portal-ease), border-color var(--portal-dur-base) var(--portal-ease);
   }
 
   .notify-preview--compacted .notify-card {
@@ -251,14 +251,14 @@ const gateStatus = await loadNotifyGateStatus(Astro.request, Astro.locals);
     background: hsl(var(--background));
     border: 1px solid hsl(var(--border));
     font-family: var(--font-code);
-    font-size: 11px;
+    font-size: var(--portal-text-xs);
     font-weight: 600;
     color: hsl(var(--muted-foreground));
   }
 
   .notify-card__title {
     margin: 0 0 2px;
-    font-size: 14px;
+    font-size: var(--portal-text-md);
     font-weight: 600;
     letter-spacing: 0;
     color: hsl(var(--foreground));
@@ -266,9 +266,9 @@ const gateStatus = await loadNotifyGateStatus(Astro.request, Astro.locals);
 
   .notify-card__intent {
     margin: 0;
-    font-size: 11px;
+    font-size: var(--portal-text-xs);
     text-transform: uppercase;
-    letter-spacing: 0.14em;
+    letter-spacing: var(--portal-tracking-wide);
     color: hsl(var(--muted-foreground));
   }
 
@@ -279,14 +279,14 @@ const gateStatus = await loadNotifyGateStatus(Astro.request, Astro.locals);
   .notify-card__focus {
     flex: 0 0 auto;
     padding: 5px 10px;
-    font-size: 11px;
+    font-size: var(--portal-text-xs);
     font-weight: 500;
     color: hsl(var(--muted-foreground));
     background: transparent;
     border: 1px solid hsl(var(--border));
     border-radius: 7px;
     cursor: pointer;
-    transition: color 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+    transition: color var(--portal-dur-fast) var(--portal-ease), background var(--portal-dur-fast) var(--portal-ease), border-color var(--portal-dur-fast) var(--portal-ease);
   }
 
   .notify-card__focus:hover {
@@ -318,17 +318,17 @@ const gateStatus = await loadNotifyGateStatus(Astro.request, Astro.locals);
 
   .notify-card__subject-tag {
     flex: 0 0 auto;
-    font-size: 9px;
+    font-size: var(--portal-text-2xs);
     font-weight: 600;
     text-transform: uppercase;
-    letter-spacing: 0.16em;
+    letter-spacing: var(--portal-tracking-wide);
     color: hsl(var(--muted-foreground));
   }
 
   .notify-card__subject-value {
     flex: 1;
     min-width: 0;
-    font-size: 12px;
+    font-size: var(--portal-text-sm);
     font-family: var(--font-code);
     color: hsl(var(--foreground));
     overflow: hidden;
@@ -343,7 +343,7 @@ const gateStatus = await loadNotifyGateStatus(Astro.request, Astro.locals);
     background: #fff;
     border: 1px solid hsl(var(--border));
     height: 420px;
-    transition: height 0.2s ease;
+    transition: height var(--portal-dur-base) var(--portal-ease);
   }
 
   .notify-preview--compacted .notify-card__frame {
@@ -380,7 +380,7 @@ const gateStatus = await loadNotifyGateStatus(Astro.request, Astro.locals);
     width: 100%;
     height: 100%;
     color: hsl(var(--muted-foreground));
-    font-size: 13px;
+    font-size: var(--portal-text-base);
     background: hsl(var(--background));
   }
 

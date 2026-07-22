@@ -1,5 +1,6 @@
 ---
 import PortalLayout from '@/layouts/PortalLayout.astro';
+import { Button, Card } from '@/components/coss';
 import { readRuntimeEnv, signedRequestPath } from '@/lib/security/signed-url';
 
 export const prerender = false;
@@ -94,21 +95,21 @@ const entries: SvgEntry[] = [
   user={{ login: session?.login || 'admin' }}
 >
   <section class="svg-gallery" data-theme="dark">
-    <div class="svg-toolbar">
+    <div class="svg-toolbar" role="toolbar" aria-label="Preview controls">
       <div class="svg-toolbar__group" role="group" aria-label="Theme">
         <span class="svg-toolbar__label">Theme</span>
         <div class="svg-segment">
-          <button type="button" class="svg-segment__btn svg-segment__btn--active" data-theme="dark" aria-pressed="true">Dark</button>
-          <button type="button" class="svg-segment__btn" data-theme="light" aria-pressed="false">Light</button>
+          <Button type="button" variant="ghost" size="sm" className="svg-segment__btn svg-segment__btn--active" data-theme="dark" aria-pressed="true">Dark</Button>
+          <Button type="button" variant="ghost" size="sm" className="svg-segment__btn" data-theme="light" aria-pressed="false">Light</Button>
         </div>
       </div>
       <div class="svg-toolbar__group" role="group" aria-label="Background">
         <span class="svg-toolbar__label">Frame</span>
         <div class="svg-segment">
-          <button type="button" class="svg-segment__btn svg-segment__btn--active" data-frame="auto" aria-pressed="true">Auto</button>
-          <button type="button" class="svg-segment__btn" data-frame="dark" aria-pressed="false">Dark</button>
-          <button type="button" class="svg-segment__btn" data-frame="light" aria-pressed="false">Light</button>
-          <button type="button" class="svg-segment__btn" data-frame="checker" aria-pressed="false">Checker</button>
+          <Button type="button" variant="ghost" size="sm" className="svg-segment__btn svg-segment__btn--active" data-frame="auto" aria-pressed="true">Auto</Button>
+          <Button type="button" variant="ghost" size="sm" className="svg-segment__btn" data-frame="dark" aria-pressed="false">Dark</Button>
+          <Button type="button" variant="ghost" size="sm" className="svg-segment__btn" data-frame="light" aria-pressed="false">Light</Button>
+          <Button type="button" variant="ghost" size="sm" className="svg-segment__btn" data-frame="checker" aria-pressed="false">Checker</Button>
         </div>
       </div>
       <div class="svg-toolbar__spacer"></div>
@@ -121,13 +122,13 @@ const entries: SvgEntry[] = [
         const darkSrc = entry.id === 'activity-panel' ? signedActivityPanelSrc('dark') : undefined;
         const lightSrc = entry.id === 'activity-panel' ? signedActivityPanelSrc('light') : undefined;
         return (
-          <article class="svg-card" data-themed={themed ? 'true' : 'false'} data-id={entry.id}>
+          <Card className="svg-card" data-themed={themed ? 'true' : 'false'} data-id={entry.id}>
             <header class="svg-card__head">
               <div class="svg-card__heading">
                 <h3 class="svg-card__title">{entry.name}</h3>
                 <p class="svg-card__intent">{entry.intent}</p>
               </div>
-              <button type="button" class="svg-card__copy" data-copy-url={entry.src} aria-label={`Copy URL for ${entry.name}`}>Copy URL</button>
+              <Button type="button" variant="outline" size="sm" className="svg-card__copy" data-copy-url={entry.src} aria-label={`Copy URL for ${entry.name}`}>Copy URL</Button>
             </header>
             <div class="svg-card__frame" data-frame="auto" style={entry.height ? `--frame-min:${entry.height}px;` : ''}>
               <img
@@ -145,7 +146,7 @@ const entries: SvgEntry[] = [
               <code class="svg-card__url" data-url-display>{entry.src}</code>
               {entry.notes && <p class="svg-card__notes">{entry.notes}</p>}
             </footer>
-          </article>
+          </Card>
         );
       })}
     </div>
@@ -273,15 +274,17 @@ const entries: SvgEntry[] = [
     gap: 20px;
   }
 
+  /* A bare control strip, not a boxed card — left-aligned, sitting directly on
+     the canvas. Separated from the grid by a hairline, no heavy frame. */
   .svg-toolbar {
     display: flex;
+    flex-direction: row;
     flex-wrap: wrap;
     align-items: center;
-    gap: 16px;
-    padding: 14px 16px;
-    background: hsl(var(--card));
-    border: 1px solid hsl(var(--border));
-    border-radius: 12px;
+    justify-content: flex-start;
+    gap: 12px 24px;
+    padding: 0 2px 16px;
+    border-bottom: 1px solid hsl(var(--border) / 0.6);
   }
 
   .svg-toolbar__group {
@@ -291,9 +294,9 @@ const entries: SvgEntry[] = [
   }
 
   .svg-toolbar__label {
-    font-size: 10px;
+    font-size: var(--portal-text-2xs);
     text-transform: uppercase;
-    letter-spacing: 0.16em;
+    letter-spacing: var(--portal-tracking-wide);
     color: hsl(var(--muted-foreground));
   }
 
@@ -302,7 +305,7 @@ const entries: SvgEntry[] = [
   }
 
   .svg-toolbar__count {
-    font-size: 11px;
+    font-size: var(--portal-text-xs);
     color: hsl(var(--muted-foreground));
     font-family: var(--font-code);
   }
@@ -317,14 +320,14 @@ const entries: SvgEntry[] = [
 
   .svg-segment__btn {
     padding: 5px 12px;
-    font-size: 12px;
+    font-size: var(--portal-text-sm);
     font-weight: 500;
     color: hsl(var(--muted-foreground));
     background: transparent;
     border: 0;
     border-radius: 6px;
     cursor: pointer;
-    transition: background 0.15s ease, color 0.15s ease;
+    transition: background var(--portal-dur-fast) var(--portal-ease), color var(--portal-dur-fast) var(--portal-ease);
   }
 
   .svg-segment__btn:hover {
@@ -366,30 +369,30 @@ const entries: SvgEntry[] = [
 
   .svg-card__title {
     margin: 0 0 2px;
-    font-size: 14px;
+    font-size: var(--portal-text-md);
     font-weight: 600;
     color: hsl(var(--foreground));
   }
 
   .svg-card__intent {
     margin: 0;
-    font-size: 11px;
+    font-size: var(--portal-text-xs);
     text-transform: uppercase;
-    letter-spacing: 0.14em;
+    letter-spacing: var(--portal-tracking-wide);
     color: hsl(var(--muted-foreground));
   }
 
   .svg-card__copy {
     flex: 0 0 auto;
     padding: 5px 10px;
-    font-size: 11px;
+    font-size: var(--portal-text-xs);
     font-weight: 500;
     color: hsl(var(--muted-foreground));
     background: transparent;
     border: 1px solid hsl(var(--border));
     border-radius: 7px;
     cursor: pointer;
-    transition: color 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+    transition: color var(--portal-dur-fast) var(--portal-ease), background var(--portal-dur-fast) var(--portal-ease), border-color var(--portal-dur-fast) var(--portal-ease);
   }
 
   .svg-card__copy:hover {
@@ -459,7 +462,7 @@ const entries: SvgEntry[] = [
     display: block;
     padding: 6px 8px;
     font-family: var(--font-code);
-    font-size: 11px;
+    font-size: var(--portal-text-xs);
     color: hsl(var(--muted-foreground));
     background: hsl(var(--background));
     border: 1px solid hsl(var(--border));
@@ -470,7 +473,7 @@ const entries: SvgEntry[] = [
 
   .svg-card__notes {
     margin: 0;
-    font-size: 11px;
+    font-size: var(--portal-text-xs);
     color: hsl(var(--muted-foreground));
   }
 

@@ -1,0 +1,31 @@
+---
+// Segmented control rendered as navigation links (range switchers, filters).
+// The active option carries a view-transition-named pill, so under Astro's
+// ClientRouter it slides between options on navigation instead of teleporting.
+interface Item {
+  label: string;
+  href: string;
+  active?: boolean;
+}
+
+interface Props {
+  items: Item[];
+  ariaLabel?: string;
+}
+
+const { items, ariaLabel } = Astro.props;
+---
+
+<div class="portal-segmented" role="group" aria-label={ariaLabel}>
+  {items.map((item) => (
+    <a
+      href={item.href}
+      class="portal-segmented-option"
+      aria-current={item.active ? 'true' : undefined}
+      data-astro-prefetch="false"
+    >
+      {item.active && <span class="portal-segmented-pill" aria-hidden="true"></span>}
+      <span class="portal-segmented-label">{item.label}</span>
+    </a>
+  ))}
+</div>

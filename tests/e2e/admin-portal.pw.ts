@@ -29,14 +29,68 @@ test.describe('Admin portal newsletters', () => {
     await page.emulateMedia({ reducedMotion: 'reduce' });
   });
 
-  test('shows the analytics API boundary when site-api endpoints are absent', async ({ page }) => {
+  test('shows demo analytics when site-api endpoints are absent', async ({ page }) => {
     await page.goto('/dev/portal/analytics');
 
-    await expect(page.getByText('Analytics API not ready:')).toBeVisible();
-    await expect(page.getByText('GET /api/analytics/summary')).toBeVisible();
-    await expect(page.getByText('GET /api/analytics/events?limit=50')).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'Articles' })).toBeVisible();
+    await expect(page.getByText('Showing demo data — the site-api binding is unavailable in local dev.')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Geography' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Content performance' })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Raw event log' })).toBeVisible();
+  });
+
+  test('uses coss chrome across every preview surface', async ({ page }) => {
+    await page.route('**/api/notify/preview?**', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          generatedAt: timestamp,
+          mode: 'daily',
+          sample: 'rich',
+          timezone: 'UTC',
+          source: { channelTitle: 'Mood', latestPostId: '3503', digestPostIds: ['3503'] },
+          subjects: { subscribe: '', welcome: '', blog: '', mood: '', digest: '', cancel: '' },
+          html: { subscribe: '', welcome: '', blog: '', mood: '', digest: '', cancel: '' },
+          callbackPages: {
+            confirmSuccess: '',
+            confirmError: '',
+            unsubscribePrompt: '',
+            unsubscribeSuccess: '',
+            unsubscribeError: '',
+          },
+        }),
+      });
+    });
+
+    await page.goto('/dev/portal/newsletter');
+    await expect(page.getByRole('heading', { name: 'Notification templates', level: 1 })).toBeVisible();
+    await expect(page.locator('[data-slot="card"]').first()).toBeVisible();
+    await expect(page.getByRole('button', { name: 'All' })).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.locator('[data-slot="separator"]')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Refresh live data' })).toBeVisible();
+    await page.getByRole('button', { name: 'Emails' }).click();
+    await expect(page.getByRole('heading', { name: 'Confirm — Success' })).toHaveCount(0);
+    const focusButton = page.getByRole('button', { name: 'Focus' }).first();
+    await page.getByRole('button', { name: 'Refresh live data' }).focus();
+    await page.keyboard.press('Tab');
+    await expect(focusButton).toBeFocused();
+    await expect(page.getByText('Open this preview')).toBeVisible();
+    await focusButton.click();
+    await expect(focusButton).toHaveAttribute('aria-pressed', 'true');
+    await focusButton.hover();
+    await expect(page.getByText('Return to the template grid')).toBeVisible();
+
+    const routes = [
+      ['/dev/portal/svg', 'SVG gallery'],
+      ['/dev/portal/mascot', 'Mascot inspector'],
+      ['/dev/portal/mood-embed', 'Mood embed'],
+    ] as const;
+
+    for (const [path, title] of routes) {
+      await page.goto(path);
+      await expect(page.getByRole('heading', { name: title, level: 1 })).toBeVisible();
+      await expect(page.locator('[data-slot="card"]').first()).toBeVisible();
+    }
   });
 
   test('shows subscriber source filters and optional source counts', async ({ page }) => {

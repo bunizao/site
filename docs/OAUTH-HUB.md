@@ -2,6 +2,8 @@
 
 The OAuth hub is the owner-auth control plane for the site. It starts with the GitHub OAuth admin session and gives future sandbox jobs, knowledge connectors, and MCP clients one place to request narrower credentials.
 
+> The former `/dev/portal/oauth` "Access Hub" page (a static roadmap of this plan) was removed from the portal UI. The auth boundary now lives only in code — `src/middleware.ts` and `src/features/admin/server/access.ts` — and this doc is the canonical record of intent.
+
 ## Current Scope
 
 - `/oauth/login` starts the human login flow.

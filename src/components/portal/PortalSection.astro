@@ -1,0 +1,29 @@
+---
+// Portal section. An eyebrow + title header with optional meta and action,
+// followed by the section body. Standardizes the ad-hoc section heads the
+// pages grew independently.
+interface Props {
+  title: string;
+  eyebrow?: string;
+  meta?: string;
+  class?: string;
+}
+
+const { title, eyebrow, meta, class: className } = Astro.props;
+---
+
+<section class:list={['portal-section-block', className]}>
+  <div class="portal-section-head">
+    <div class="portal-section-heading">
+      {eyebrow && <span class="portal-eyebrow">{eyebrow}</span>}
+      <h2 class="portal-section-title">{title}</h2>
+    </div>
+    {(meta || Astro.slots.has('action')) && (
+      <div class="portal-section-aside">
+        {meta && <span class="portal-section-meta">{meta}</span>}
+        <slot name="action" />
+      </div>
+    )}
+  </div>
+  <slot />
+</section>
