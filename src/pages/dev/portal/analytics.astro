@@ -73,7 +73,7 @@ try {
   analytics = await loadPortalAnalytics(Astro.request, Astro.locals, { days: rangeDays });
 } catch (error) {
   loadError = error instanceof Error ? error.message : 'unknown';
-  if (import.meta.env.DEV) {
+  if (import.meta.env.DEV && loadError === 'api_binding_unavailable') {
     analytics = DEMO_ANALYTICS;
     demoMode = true;
     loadError = null;

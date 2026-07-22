@@ -167,8 +167,10 @@ export function AlertDialogAction({
   ...props
 }: ButtonProps): React.ReactElement {
   return (
-    <AlertDialogPrimitive.Close
-      render={<Button className={className} variant={variant} />}
+    <Button
+      className={className}
+      data-slot="alert-dialog-action"
+      variant={variant}
       {...props}
     />
   );

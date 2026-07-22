@@ -200,7 +200,6 @@ export default function SubscriberDetail({ emailHash }: { emailHash: string }) {
     } catch (err) {
       setError(err instanceof Error ? err.message : 'unknown');
       setSaving(false);
-      setConfirmDelete(false);
     }
   }
 

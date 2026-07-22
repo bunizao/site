@@ -32,9 +32,7 @@ try {
   overview = await loadPortalOverview(Astro.request, Astro.locals);
 } catch (error) {
   loadError = error instanceof Error ? error.message : 'unknown';
-  // In local dev the site-api service binding is often absent. Rather than a
-  // wall of zeros, render a realistic fixture so the portal is designable.
-  if (import.meta.env.DEV) {
+  if (import.meta.env.DEV && loadError === 'api_binding_unavailable') {
     overview = DEMO_OVERVIEW;
     demoMode = true;
     loadError = null;
