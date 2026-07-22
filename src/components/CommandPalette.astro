@@ -1374,12 +1374,26 @@ const subscribeHref = '/mood/subscribe';
   .cmdk-item.is-active .cmdk-rich-sub {
     color: hsl(var(--muted-foreground));
   }
-  .cmdk-rich-sub :global(mark),
   .cmdk-rich-sub mark {
-    background: hsl(var(--foreground) / 0.14);
-    color: inherit;
-    border-radius: 3px;
-    padding: 0 1px;
+    margin-inline: 0.04em;
+    padding-inline: 0.08em;
+    border-radius: 2px;
+    background: linear-gradient(
+      to bottom,
+      transparent 56%,
+      hsl(var(--foreground) / 0.12) 56%
+    );
+    color: hsl(var(--foreground) / 0.78);
+    box-decoration-break: clone;
+    -webkit-box-decoration-break: clone;
+  }
+  .cmdk-item.is-active .cmdk-rich-sub mark {
+    background: linear-gradient(
+      to bottom,
+      transparent 52%,
+      hsl(var(--foreground) / 0.2) 52%
+    );
+    color: hsl(var(--foreground));
   }
 
   /* A group's transient note ("Searching…") — a quiet line, not a row, so it
