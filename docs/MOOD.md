@@ -94,6 +94,7 @@ Important shaping rules:
 - `needsDetailPage` becomes `true` when there is no inline media preview and the post is either long text or media-heavy.
 - primary image URLs prefer `PUBLIC_HD_IMAGE_URL`.
 - fallback image URLs point at Telegram media through the site proxy when needed.
+- archived replies preserve a quote edge whose link resolves to the parent mood pathname.
 - the feed can run in E2E fixture mode instead of the live source.
 
 ## Feed Rendering Strategy
@@ -249,6 +250,13 @@ Validation rules:
 Important constraint:
 
 - rate limiting is in-memory per instance, not shared across deployments
+
+## Operations Health
+
+The scheduled ops suite checks configured reply canaries against strict archive detail reads using
+`fresh=1&fallback=0`. `MOOD_REPLY_CANARIES` is a capped comma-separated list of positive integer
+`child:parent` mappings; each child must expose a quote whose URL pathname is `/mood/<parent>`.
+The production workflow currently uses `1609:1600`.
 
 ## Edge Cases
 

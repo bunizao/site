@@ -66,6 +66,7 @@ jobs:
           TELEGRAM_EXPECTED_WEBHOOK_URL: https://api.buxx.me/webhooks/telegram
           HD_IMAGE_HEALTH_TIMEOUT_MS: 4000
           LIVE_PHOTO_DETAIL_IDS: 3327
+          MOOD_REPLY_CANARIES: 1609:1600
         run: bun run test:ops
 
       - name: Wait before confirmation
