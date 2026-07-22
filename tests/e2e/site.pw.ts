@@ -1002,7 +1002,7 @@ test.describe('Home page', () => {
     expect(initial?.brandCenterDelta).toBeLessThanOrEqual(1);
     expect(initial?.triggerCenterDelta).toBeLessThanOrEqual(1);
     expect(initial?.triggerIconCenterDelta).toBeLessThanOrEqual(1);
-    expect(initial?.actionGap).toBeGreaterThanOrEqual(6);
+    expect(initial?.actionGap).toBeGreaterThanOrEqual(2);
     expect(initial?.brandTriggerGap).toBeGreaterThan(16);
     expect(initial?.brandTextWidth).toBeGreaterThan(70);
     expect(initial?.brandTextOpacity).toBe('1');

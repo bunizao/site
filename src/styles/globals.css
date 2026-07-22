@@ -808,6 +808,17 @@
     }
   }
 
+  /* The brand-home bar is fixed and 3.25rem (--site-nav-mobile-height) tall at
+     every width, while .site-shell is its sibling — so nothing pushes page
+     content below it. Clear the bar's height (plus the notch) and add a
+     comfortable gap. Only privacy + components carry .site-nav--brand-home;
+     home uses .site-nav--home, so it stays untouched. */
+  body:has(.site-nav--brand-home) .site-shell {
+    padding-top: calc(
+      env(safe-area-inset-top, 0px) + var(--visual-viewport-top, 0px) + 3.25rem + 1.5rem
+    );
+  }
+
   .global-header-actions.has-brand-home-bar {
     top: calc(env(safe-area-inset-top, 0px) + var(--visual-viewport-top, 0px) + 0.625rem);
     right: 1rem;
@@ -1363,13 +1374,6 @@
     }
   }
 
-  /* Compact header buttons auto-collapse when scrolling past hero - GSAP controlled */
-  @media (max-width: 899px) {
-    .global-header-actions.is-collapsed {
-      pointer-events: none;
-    }
-  }
-
   /* Unified header action button style - GSAP controlled */
   .header-action-btn {
     display: inline-flex;
@@ -1449,6 +1453,20 @@
     }
   }
 
+  /* On touch/mobile the ⌘K keycaps are redundant, so drop them and collapse the
+     pill back to a 32px icon-only square that matches the sibling icon buttons
+     (theme toggle). Desktop (>=900px) keeps the full pill with keycaps. */
+  @media (max-width: 899px) {
+    .header-action-btn-keys {
+      display: none;
+    }
+    .header-action-btn--cmdk {
+      min-width: 32px;
+      gap: 0;
+      padding: 0;
+    }
+  }
+
   /* Text labels - GSAP controls visibility via opacity/scale */
   .header-action-btn-label {
     display: inline-block;
@@ -1483,6 +1501,16 @@
   }
 
   @media (max-width: 899px) {
+    /* Pull the trio tighter — the 44px hit areas already give the glyphs air,
+       so the extra 6px between them just reads as drift. */
+    .global-header-actions--home {
+      gap: 2px;
+    }
+
+    /* The ⌘K search joins the theme toggle + menu as an identical bare ghost
+       circle: no box, no glass, same 44px round tap target. Its keycaps are
+       already hidden on mobile, so only the magnifier remains. */
+    .global-header-actions--home .header-action-btn--cmdk,
     .global-header-actions--home .header-action-btn[data-theme-toggle],
     .global-header-actions--home .menu-trigger {
       min-width: 2.75rem;
@@ -1496,12 +1524,14 @@
       backdrop-filter: none;
     }
 
+    .global-header-actions--home .header-action-btn--cmdk:hover,
     .global-header-actions--home .header-action-btn[data-theme-toggle]:hover,
     .global-header-actions--home .menu-trigger:hover {
       background: rgb(17 17 17 / 0.06);
       border-color: transparent;
     }
 
+    .dark .global-header-actions--home .header-action-btn--cmdk:hover,
     .dark .global-header-actions--home .header-action-btn[data-theme-toggle]:hover,
     .dark .global-header-actions--home .menu-trigger:hover {
       background: rgb(255 255 255 / 0.08);

@@ -96,6 +96,11 @@ async function buildMoodWheelItem(): Promise<RegistryItem> {
       type: 'registry:lib' as const,
     },
     {
+      path: 'features/mood/shared/feed-anchor.ts',
+      target: '@lib/feed-anchor.ts',
+      type: 'registry:lib' as const,
+    },
+    {
       path: 'features/mood/ui/TimelineWheel.astro',
       target: '@ui/timeline-wheel.astro',
       type: 'registry:ui' as const,
@@ -105,11 +110,10 @@ async function buildMoodWheelItem(): Promise<RegistryItem> {
     ...await readRegistryFile(filePath, type),
     target,
   })));
-  files[0].content = files[0].content.replace(
-    "@/features/mood/client/timeline-date-tracker",
-    '@/lib/timeline-date-tracker'
-  );
-  files[2].content = files[2].content.replace(
+  files[0].content = files[0].content
+    .replace("@/features/mood/client/timeline-date-tracker", '@/lib/timeline-date-tracker')
+    .replace("@/features/mood/shared/feed-anchor", '@/lib/feed-anchor');
+  files[3].content = files[3].content.replace(
     "@/features/mood/client/timeline-wheel",
     '@/lib/timeline-wheel'
   );

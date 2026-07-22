@@ -1,0 +1,282 @@
+---
+// Fixed top navbar for the /mood feed. Borderless, full-width, progressive
+// (feathered) backdrop blur — the compact docked echo of the in-page hero. As
+// the reader scrolls, the hero's circular avatar AND its levitating title
+// travel up and shrink into the navbar's left slot (two shared elements,
+// scroll-scrubbed in lockstep). The two right controls (search + notify) are
+// always present; the search spells out ⌘K on desktop. Styles live in
+// ../styles/mood-navbar.css (global, no scope gymnastics with the injected
+// title HTML). Channel data is SSR'd here and kept in sync by hydrateHero() in
+// ../client/feed-media-hydration.ts.
+import type { MoodChannelSummary } from '@/features/mood/server/contracts';
+import Kbd from '@/components/Kbd.astro';
+import '@/features/mood/styles/mood-navbar.css';
+
+interface Props {
+  initialChannel?: MoodChannelSummary;
+}
+
+const { initialChannel } = Astro.props;
+const titleHtml = initialChannel?.titleHTML?.trim() ?? '';
+const titleText = initialChannel?.title?.trim() ?? '';
+const avatar = initialChannel?.avatar?.trim() ?? '';
+---
+
+<header class="mood-navbar" data-mood-navbar>
+  <!-- Progressive blur: a stack of masked backdrop-filter layers, lightest to
+       heaviest, so the frost ramps smoothly into the page with no focus seam.
+       The container carries only a feathered tint. -->
+  <div class="mood-navbar__fade" aria-hidden="true">
+    <div class="mood-navbar__blur mood-navbar__blur--1"></div>
+    <div class="mood-navbar__blur mood-navbar__blur--2"></div>
+    <div class="mood-navbar__blur mood-navbar__blur--3"></div>
+    <div class="mood-navbar__blur mood-navbar__blur--4"></div>
+  </div>
+
+  <div class="mood-navbar__bar">
+    <button type="button" class="mood-nav-identity" data-mood-nav-top aria-label="Back to top">
+      <!-- Empty placeholder the flyer avatar lands on; it only reserves layout
+           so the title sits where it will after the avatar docks. -->
+      <span class="mood-nav-avatar-slot" data-mood-nav-avatar-slot aria-hidden="true"></span>
+      <span class="mood-nav-title" data-mood-nav-title>
+        {titleHtml ? <Fragment set:html={titleHtml} /> : titleText}
+      </span>
+    </button>
+
+    <div class="mood-navbar__controls">
+      <button
+        type="button"
+        class="mood-nav-btn mood-nav-btn--search"
+        data-command-open
+        aria-label="Search and commands"
+        title="Search (⌘K)"
+        aria-keyshortcuts="Control+K Meta+K"
+        aria-haspopup="dialog"
+        aria-controls="site-command-palette"
+      >
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          aria-hidden="true"
+        >
+          <circle cx="11" cy="11" r="7"></circle>
+          <path d="m21 21-4.3-4.3"></path>
+        </svg>
+        <span class="mood-nav-kbd" aria-hidden="true">
+          <Kbd icon="command" />
+          <Kbd>K</Kbd>
+        </span>
+      </button>
+      <button
+        type="button"
+        class="mood-nav-btn"
+        data-subscribe-toggle="mood"
+        aria-haspopup="dialog"
+        aria-expanded="false"
+        aria-label="Subscribe to notifications"
+        title="Subscribe to notifications"
+      >
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          aria-hidden="true"
+        >
+          <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"></path>
+          <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"></path>
+        </svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- The shared element: one avatar that starts over the hero's big avatar and
+       scrolls into the slot above. Positioned entirely by the scroll script. -->
+  <span class="mood-nav-avatar-flyer" data-mood-nav-flyer aria-hidden="true">
+    <img
+      class="mood-nav-avatar-img"
+      data-mood-nav-avatar-img
+      src={avatar || undefined}
+      alt=""
+      width="30"
+      height="30"
+      loading="lazy"
+      decoding="async"
+      hidden={!avatar}
+    />
+  </span>
+</header>
+
+<script>
+  import { getMoodFeedTopHref } from '@/features/mood/shared/feed-anchor';
+
+  const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
+  const clamp01 = (n: number) => (n < 0 ? 0 : n > 1 ? 1 : n);
+  const ease = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
+
+  function initMoodNavbar() {
+    const navbar = document.querySelector<HTMLElement>('[data-mood-navbar]');
+    if (!navbar || navbar.dataset.moodNavbarReady === 'true') return;
+    navbar.dataset.moodNavbarReady = 'true';
+
+    // Avatar/title click → back to top (reuses the anchored-feed href when the
+    // reader arrived via a /mood?<id> deep link, else a plain smooth scroll).
+    const topButton = navbar.querySelector<HTMLButtonElement>('[data-mood-nav-top]');
+    topButton?.addEventListener('click', () => {
+      const topHref = getMoodFeedTopHref(new URL(window.location.href));
+      if (topHref) {
+        window.location.assign(topHref);
+        return;
+      }
+      const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      window.scrollTo({ top: 0, behavior: reduceMotion ? 'auto' : 'smooth' });
+    });
+
+    const flyer = navbar.querySelector<HTMLElement>('[data-mood-nav-flyer]');
+    const slot = navbar.querySelector<HTMLElement>('[data-mood-nav-avatar-slot]');
+    const title = navbar.querySelector<HTMLElement>('[data-mood-nav-title]');
+    const heroAvatar = document.querySelector<HTMLElement>('[data-mood-hero] [data-hero-avatar]');
+    const heroTitle = document.querySelector<HTMLElement>('[data-mood-hero] [data-hero-title]');
+    // No hero avatar to fly from (shouldn't happen on the feed) — leave the bar
+    // controls working and skip the shared-element travel.
+    if (!flyer || !slot || !heroAvatar) return;
+
+    // Geometry, measured from layout: the hero avatar's/title's document-space
+    // boxes and the docked targets in the (fixed) bar. `distance` is the scroll
+    // span over which the identity completes its trip into the navbar.
+    let heroTopDoc = 0;
+    let heroLeftDoc = 0;
+    let heroSize = 0;
+    let slotTop = 0;
+    let slotLeft = 0;
+    let slotSize = 0;
+    let distance = 1;
+    // The identity rides the page for the first stretch, then shrinks + pins
+    // over the last `dockBand` px before it reaches the bar.
+    let dockBand = 1;
+
+    // Title shared element (only when the hero has a title to fly from).
+    let heroTitleTopDoc = 0;
+    let heroTitleLeftDoc = 0;
+    let navTitleTop = 0;
+    let navTitleLeft = 0;
+    let titleScaleStart = 1;
+    let titleFly = false;
+
+    const measure = () => {
+      const slotRect = slot.getBoundingClientRect();
+      slotTop = slotRect.top;
+      slotLeft = slotRect.left;
+      slotSize = slotRect.width || 30;
+
+      // The hero avatar keeps its layout box even while visually hidden, so its
+      // rect stays valid as the flyer's start position.
+      const heroRect = heroAvatar.getBoundingClientRect();
+      heroTopDoc = heroRect.top + window.scrollY;
+      heroLeftDoc = heroRect.left + window.scrollX;
+      heroSize = heroRect.width || slotSize;
+
+      distance = Math.max(1, heroTopDoc - slotTop);
+      // Ride the content for ~45% of the trip, then dock over the last ~55%.
+      dockBand = Math.max(1, distance * 0.55);
+
+      // Title flyer geometry: read the docked title with any travel transform
+      // cleared, then the hero title's document box and the font-size ratio the
+      // scale interpolates over. Font ratio (not height) keeps the scale right
+      // even if the hero title wraps to two lines.
+      titleFly = false;
+      if (title && heroTitle) {
+        title.style.transform = 'none';
+        const navRect = title.getBoundingClientRect();
+        navTitleTop = navRect.top;
+        navTitleLeft = navRect.left;
+        const navFont = parseFloat(getComputedStyle(title).fontSize) || 14;
+
+        const heroRectT = heroTitle.getBoundingClientRect();
+        heroTitleTopDoc = heroRectT.top + window.scrollY;
+        heroTitleLeftDoc = heroRectT.left + window.scrollX;
+        const heroFont = parseFloat(getComputedStyle(heroTitle).fontSize) || navFont;
+
+        titleScaleStart = heroFont / navFont;
+        titleFly = true;
+      }
+    };
+
+    const update = () => {
+      const y = window.scrollY;
+      // The flyer tracks the hero's real on-screen position, so it scrolls up
+      // at content speed — glued to where the hero actually is — instead of
+      // racing toward the bar. Only over the last `dockBand` px, as the hero
+      // nears the slot, does it shrink and pin. `d` is that docking progress:
+      // 0 while riding the content, 1 once docked.
+      const heroTopVp = heroTopDoc - y;
+      const d = ease(clamp01((slotTop + dockBand - heroTopVp) / dockBand));
+
+      // transform-origin is the top-left corner, so translate + scale keeps the
+      // start (hero box) and end (slot box) aligned at both ends.
+      const curTop = lerp(heroTopVp, slotTop, d);
+      const curLeft = lerp(heroLeftDoc, slotLeft, d);
+      const scale = lerp(heroSize / slotSize, 1, d);
+      flyer.style.transform = `translate(${curLeft}px, ${curTop}px) scale(${scale})`;
+
+      if (titleFly && title) {
+        // The levitating title docks in lockstep, on the same progress, so the
+        // pair moves as one — riding the page, then collapsing into the bar.
+        const curTTop = lerp(heroTitleTopDoc - y, navTitleTop, d);
+        const curTLeft = lerp(heroTitleLeftDoc, navTitleLeft, d);
+        const tScale = lerp(titleScaleStart, 1, d);
+        title.style.transform =
+          `translate(${curTLeft - navTitleLeft}px, ${curTTop - navTitleTop}px) scale(${tScale})`;
+        title.style.opacity = '1';
+      } else if (title) {
+        const t = clamp01((d - 0.6) / 0.4);
+        title.style.opacity = String(t);
+        title.style.transform = `translateX(${(1 - t) * -6}px)`;
+      }
+
+      navbar.classList.toggle('is-docked', d > 0.99);
+    };
+
+    // update() only reads scrollY and writes transforms — no layout reads — so
+    // it is cheap to run straight from the scroll event without rAF throttling,
+    // which also keeps the travel in lockstep with the finger.
+    const onScroll = () => update();
+
+    const remeasure = () => {
+      measure();
+      update();
+    };
+
+    // Activate: measure and place the flyers first, then hand the hero avatar's
+    // and title's visible role over to them — this order avoids any flash.
+    measure();
+    update();
+    heroAvatar.style.visibility = 'hidden';
+    if (titleFly && heroTitle) heroTitle.style.visibility = 'hidden';
+    navbar.classList.add('is-flyer-active');
+
+    window.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('resize', remeasure);
+    window.addEventListener('load', remeasure);
+
+    // The hero settles late — hydrateHero() fills the title/avatar and the code
+    // font reflows it after first paint, moving the box the flyer starts from.
+    // A ResizeObserver on the document re-measures on every such shift (and once
+    // right after layout), so the flyer never starts stale. Fonts get an
+    // explicit hook too, since a metrics change may not resize the document.
+    if (typeof ResizeObserver !== 'undefined') {
+      const ro = new ResizeObserver(() => remeasure());
+      ro.observe(document.documentElement);
+    }
+    document.fonts?.ready?.then(remeasure).catch(() => {});
+  }
+
+  initMoodNavbar();
+  document.addEventListener('astro:page-load', initMoodNavbar);
+</script>

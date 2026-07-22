@@ -147,6 +147,16 @@ const description =
   <Footer />
 </Layout>
 
+<style>
+  /* Top clearance for the fixed brand-home bar lives on .site-shell
+     (globals.css); trim the hero's own top margin to a small residual so the
+     gap matches privacy and doesn't read as doubled. Scoped through the page
+     wrapper so it outranks the base .cgrid-hero rule in components.css. */
+  .components--index .cgrid-hero {
+    margin-top: 1rem;
+  }
+</style>
+
 <script>
   // Light per-tile reveal on first view — staggered by inline --i. No install
   // copy here; the grid is a live gallery of self-contained specimens.

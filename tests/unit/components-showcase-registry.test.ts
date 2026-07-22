@@ -142,14 +142,20 @@ describe('components showcase registry', () => {
         type: 'registry:lib',
       },
       {
+        path: 'features/mood/shared/feed-anchor.ts',
+        target: '@lib/feed-anchor.ts',
+        type: 'registry:lib',
+      },
+      {
         path: 'features/mood/ui/TimelineWheel.astro',
         target: '@ui/timeline-wheel.astro',
         type: 'registry:ui',
       },
     ]);
     expect(item.files[0]?.content).toContain("from '@/lib/timeline-date-tracker'");
-    expect(item.files[2]?.content).toContain("from '@/lib/timeline-wheel'");
-    expect(item.files[2]?.content).toContain('data-timeline-wheel');
+    expect(item.files[0]?.content).toContain("from '@/lib/feed-anchor'");
+    expect(item.files[3]?.content).toContain("from '@/lib/timeline-wheel'");
+    expect(item.files[3]?.content).toContain('data-timeline-wheel');
     expect(item.files.some(({ content }) => content.includes('@/features/'))).toBe(false);
   });
 

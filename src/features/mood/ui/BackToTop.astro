@@ -118,6 +118,8 @@ const { threshold = 600, hideOnDesktop = false } = Astro.props;
 </style>
 
 <script>
+  import { getMoodFeedTopHref } from '@/features/mood/shared/feed-anchor';
+
   function initBackToTop() {
     const button = document.querySelector<HTMLButtonElement>('[data-back-to-top]');
     if (!button) return;
@@ -150,6 +152,12 @@ const { threshold = 600, hideOnDesktop = false } = Astro.props;
     };
 
     button.addEventListener('click', () => {
+      const topHref = getMoodFeedTopHref(new URL(window.location.href));
+      if (topHref) {
+        window.location.assign(topHref);
+        return;
+      }
+
       const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
       window.scrollTo({ top: 0, behavior: reduceMotion ? 'auto' : 'smooth' });
     });

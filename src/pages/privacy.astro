@@ -1,5 +1,6 @@
 ---
-import Page from '@/layouts/Page.astro';
+import Layout from '@/layouts/Layout.astro';
+import Footer from '@/features/home/ui/Footer.astro';
 import { Content, frontmatter } from '@/content/pages/privacy.md';
 
 const {
@@ -13,12 +14,171 @@ const {
 };
 ---
 
-<Page
+<Layout
   title={title}
   description={description}
   url="/privacy"
-  updatedAt={updatedAt}
-  headerActionsVariant="home"
+  navVariant="page"
+  showSiteNav
+  brandVariant="home"
 >
-  <Content />
-</Page>
+  <main class="privacy">
+    <article class="privacy-content">
+      <p class="privacy-eyebrow">Privacy · Updated {updatedAt}</p>
+      <Content />
+    </article>
+  </main>
+  <Footer />
+</Layout>
+
+<style>
+  :global(body:has(.privacy)::before) {
+    display: none;
+  }
+
+  .privacy {
+    --line: hsl(var(--foreground) / 0.1);
+    --muted: hsl(var(--foreground) / 0.6);
+
+    min-height: 100vh;
+    /* Top clearance for the fixed brand-home bar lives on .site-shell
+       (globals.css); keep only a small residual so the gap reads intentional. */
+    padding: 1rem 0 6rem;
+    background: hsl(var(--background));
+    color: hsl(var(--foreground));
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .privacy-content {
+    width: min(46rem, 100% - 2.5rem);
+    margin: 0 auto;
+    font-family: var(--font-sans);
+  }
+
+  .privacy-eyebrow {
+    margin: 0 0 0.6rem;
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    line-height: 1.5;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: hsl(var(--foreground) / 0.45);
+  }
+
+  .privacy-content :global(h1) {
+    max-width: 18ch;
+    margin: 0 0 2.5rem;
+    font-family: var(--font-display);
+    font-size: clamp(1.9rem, 4.5vw, 3.1rem);
+    font-weight: 700;
+    line-height: 1.02;
+    letter-spacing: -0.035em;
+    text-wrap: balance;
+  }
+
+  .privacy-content :global(h2) {
+    margin: 3rem 0 1rem;
+    padding-top: 3rem;
+    border-top: 1px solid var(--line);
+    font-family: var(--font-display);
+    font-size: clamp(1.35rem, 2.5vw, 1.65rem);
+    font-weight: 650;
+    line-height: 1.15;
+    letter-spacing: -0.025em;
+    text-wrap: balance;
+  }
+
+  .privacy-content :global(p),
+  .privacy-content :global(li) {
+    font-size: 1rem;
+    line-height: 1.75;
+    letter-spacing: -0.008em;
+    color: var(--muted);
+  }
+
+  .privacy-content :global(p) {
+    margin: 0;
+  }
+
+  .privacy-content :global(p + p) {
+    margin-top: 1.15rem;
+  }
+
+  .privacy-content :global(ul),
+  .privacy-content :global(ol) {
+    margin: 1.15rem 0 0;
+    padding-left: 1.25rem;
+  }
+
+  .privacy-content :global(ul) {
+    list-style: disc;
+  }
+
+  .privacy-content :global(ol) {
+    list-style: decimal;
+  }
+
+  .privacy-content :global(li + li) {
+    margin-top: 0.75rem;
+  }
+
+  .privacy-content :global(li::marker) {
+    color: hsl(var(--foreground) / 0.4);
+  }
+
+  .privacy-content :global(strong) {
+    font-weight: 600;
+    color: hsl(var(--foreground) / 0.88);
+  }
+
+  .privacy-content :global(a) {
+    color: hsl(var(--foreground));
+    text-decoration: underline;
+    text-decoration-color: hsl(var(--foreground) / 0.3);
+    text-decoration-thickness: 1px;
+    text-underline-offset: 0.2em;
+    transition: text-decoration-color 0.18s ease;
+  }
+
+  .privacy-content :global(a:hover),
+  .privacy-content :global(a:focus-visible) {
+    text-decoration-color: hsl(var(--foreground));
+  }
+
+  .privacy-content :global(code) {
+    font-family: var(--font-code);
+    font-size: 0.92em;
+    color: hsl(var(--foreground) / 0.88);
+  }
+
+  @media (max-width: 560px) {
+    .privacy {
+      padding: 0.75rem 0 4.5rem;
+    }
+
+    .privacy-content {
+      width: calc(100% - 2rem);
+    }
+
+    .privacy-content :global(h1) {
+      margin-bottom: 2rem;
+    }
+
+    .privacy-content :global(h2) {
+      margin-top: 2.5rem;
+      padding-top: 2.5rem;
+    }
+
+    .privacy-content :global(p),
+    .privacy-content :global(li) {
+      font-size: 0.98rem;
+      line-height: 1.72;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .privacy-content :global(a) {
+      transition: none;
+    }
+  }
+</style>

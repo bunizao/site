@@ -161,10 +161,12 @@ contrast against the surface it sits on:
 - `{colors.dian}` — **the mark**. The "Not by AI" pledge and the author byline.
   A deep, concentrated indigo — the firmest blue on the page, because it stands
   for the human behind the work. Text-safe in both modes (10.27:1 / 8.22:1).
-- `{colors.ji}` — **highlight, fill only**. The pale "sky after rain" wash
-  behind a search hit. It measures **3.57:1** on the light surface, so it
-  **fails AA as text** — it may only ever be a background wash, never a
-  foreground colour. The constraint picks the role.
+- `{colors.ji}` — **highlight, fill only**. The pale "sky after rain" wash for
+  emphasis on the reading surface. (Blog search now lives in the site-wide ⌘K
+  palette, which uses its own neutral mark, so `ji` is a reserved reading-zone
+  fill rather than a search-hit colour.) It measures **3.57:1** on the light
+  surface, so it **fails AA as text** — it may only ever be a background wash,
+  never a foreground colour. The constraint picks the role.
 
 **Surfaces.** `{colors.surface.dark}` is `#0A0A0A`, not `#000`: pure black
 smears on OLED during scroll, and white text on it hits 21:1, which haloes in
@@ -234,7 +236,9 @@ Components compose the tokens above; they never introduce new colour or type.
   to `{colors.dai}`.
 - `{components.not-by-ai}` — the pledge trigger and byline, in `{colors.dian}`.
   This is the only place the deepest ink appears, by design.
-- `{components.search-mark}` — Pagefind highlights, a 26% `{colors.ji}` wash.
+- `{components.search-mark}` — reserved. Blog full-text search (Pagefind) now
+  renders inside the site-wide ⌘K palette, which owns its own neutral highlight;
+  the blog zone no longer draws its own search mark.
 - `{components.callout}` / `{components.inline-code}` — quiet `{colors.fill}`
   surfaces at card / inline radius.
 

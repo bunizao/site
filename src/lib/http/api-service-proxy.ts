@@ -112,6 +112,17 @@ export function createApiServiceRequest(request: Request, originUrl: string = AP
 // local `wrangler dev` site-api (e.g. http://localhost:8787) or a preview URL
 // when you are debugging the API itself.
 const DEFAULT_DEV_API_ORIGIN = 'https://buxx.me';
+const DEV_MOOD_CACHE_TTL_MS = 30_000;
+const DEV_MOOD_CACHE_STALE_MS = 24 * 60 * 60 * 1000;
+
+interface DevMoodCacheEntry {
+  response: Response;
+  freshUntil: number;
+  staleUntil: number;
+}
+
+const devMoodResponseCache = new Map<string, DevMoodCacheEntry>();
+const devMoodRequests = new Map<string, Promise<Response>>();
 
 export function resolveDevApiOrigin(locals: RuntimeEnvLocals | undefined): string | null {
   // Only ever fall back to plain HTTP under `astro dev`. In production the
@@ -140,7 +151,103 @@ export async function proxyApiRequest(request: Request, locals: RuntimeEnvLocals
 }
 
 async function proxyApiHttpRequest(request: Request, origin: string): Promise<Response> {
-  const response = await fetch(createApiServiceRequest(request, origin));
+  const upstreamRequest = createApiServiceRequest(request, origin);
+  // Let fetch negotiate encodings it can decompress. Forwarding a browser's
+  // zstd preference can leave Node streaming compressed bytes to the client.
+  upstreamRequest.headers.delete('accept-encoding');
+
+  if (isDevMoodRequest(upstreamRequest)) {
+    return proxyCachedDevMoodRequest(upstreamRequest);
+  }
+
+  return fetchApiHttpRequest(upstreamRequest);
+}
+
+function isDevMoodRequest(request: Request): boolean {
+  if (request.method !== 'GET') return false;
+  const pathname = new URL(request.url).pathname;
+  return pathname === '/api/v2/mood' || pathname.startsWith('/api/v2/mood/');
+}
+
+function hasCacheBypass(request: Request): boolean {
+  const cacheControl = request.headers.get('cache-control') ?? '';
+  const pragma = request.headers.get('pragma') ?? '';
+  return /\bno-cache\b|\bno-store\b/i.test(cacheControl) || /\bno-cache\b/i.test(pragma);
+}
+
+function withDevMoodCacheStatus(response: Response, status: 'HIT' | 'MISS' | 'STALE'): Response {
+  const headers = new Headers(response.headers);
+  headers.set('X-Buxx-Dev-Mood-Cache', status);
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers,
+  });
+}
+
+async function proxyCachedDevMoodRequest(request: Request): Promise<Response> {
+  const key = request.url;
+  const now = Date.now();
+  const cached = devMoodResponseCache.get(key);
+  if (cached && cached.staleUntil <= now) {
+    devMoodResponseCache.delete(key);
+  } else if (cached && cached.freshUntil > now && !hasCacheBypass(request)) {
+    return withDevMoodCacheStatus(cached.response.clone(), 'HIT');
+  }
+
+  const existingRequest = devMoodRequests.get(key);
+  if (existingRequest) return (await existingRequest).clone();
+
+  const pendingRequest = fetchDevMoodRequest(request, cached);
+  devMoodRequests.set(key, pendingRequest);
+  try {
+    return (await pendingRequest).clone();
+  } finally {
+    devMoodRequests.delete(key);
+  }
+}
+
+async function fetchDevMoodRequest(
+  request: Request,
+  stale: DevMoodCacheEntry | undefined,
+): Promise<Response> {
+  try {
+    let response: Response;
+    try {
+      response = await fetchApiHttpRequest(request.clone());
+    } catch {
+      response = await fetchApiHttpRequest(request.clone());
+    }
+
+    if (response.ok) {
+      const now = Date.now();
+      devMoodResponseCache.set(request.url, {
+        response: response.clone(),
+        freshUntil: now + DEV_MOOD_CACHE_TTL_MS,
+        staleUntil: now + DEV_MOOD_CACHE_STALE_MS,
+      });
+    } else if (response.status >= 500 && stale && stale.staleUntil > Date.now()) {
+      console.warn(`Dev mood API returned ${response.status}; serving stale response.`);
+      return withDevMoodCacheStatus(stale.response.clone(), 'STALE');
+    }
+    return withDevMoodCacheStatus(response, 'MISS');
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (stale && stale.staleUntil > Date.now()) {
+      console.warn(`Dev mood API fetch failed; serving stale response: ${message}`);
+      return withDevMoodCacheStatus(stale.response.clone(), 'STALE');
+    }
+
+    console.warn(`Dev mood API fetch failed: ${message}`);
+    return jsonError(502, 'Mood API temporarily unavailable', {
+      'Cache-Control': 'no-store, max-age=0',
+      'X-Buxx-Dev-Mood-Cache': 'MISS',
+    });
+  }
+}
+
+async function fetchApiHttpRequest(request: Request): Promise<Response> {
+  const response = await fetch(request);
   const headers = new Headers(response.headers);
   headers.delete('content-encoding');
   headers.delete('content-length');

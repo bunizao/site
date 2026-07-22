@@ -26,7 +26,9 @@ import {
   Moon,
   Monitor,
   Palette,
+  Bell,
   X,
+  LoaderCircle,
 } from 'lucide-react';
 import {
   GitHubIcon,
@@ -36,7 +38,7 @@ import {
   PerplexityIcon,
 } from '@/components/icons';
 import Kbd from '@/components/Kbd.astro';
-import { meta, navLinks, profile } from '@/data/site';
+import { blogPalette, meta, navLinks, profile } from '@/data/site';
 import type { ComponentType } from 'react';
 
 type IconComponent = ComponentType<{ className?: string }>;
@@ -74,11 +76,29 @@ const navKeywords: Record<string, string> = {
   '/mood': 'moods timeline feed 心情',
   '/components': 'components ui specimens 组件',
 };
+
+// Vim-style "go to" shortcuts (GitHub's g-then-key): press g, then the letter,
+// to jump to that page from anywhere. This map is the single source of truth —
+// the nav rows render its keycaps and the script binds the handler from the DOM.
+const navShortcuts: Record<string, string> = {
+  '/': 'H',
+  '/projects': 'P',
+  '/blog': 'B',
+  '/mood': 'M',
+  '/components': 'C',
+};
+
+// Subscribe opens the real notify form (email + RSS in one). This href is the
+// progressive fallback; when the current page already carries a subscribe panel
+// the script opens it inline instead of navigating.
+const subscribeHref = '/mood/subscribe';
+const searchHighlight = blogPalette.ji;
 ---
 
 <dialog
   id="site-command-palette"
   class="cmdk"
+  style={`--cmdk-highlight:${searchHighlight.light};--cmdk-highlight-dark:${searchHighlight.dark}`}
   data-command-palette
   data-ai-context={AI_CONTEXT}
   aria-label="Site search and commands"
@@ -89,7 +109,7 @@ const navKeywords: Record<string, string> = {
       <input
         type="text"
         data-command-input
-        placeholder="Type a command or search…"
+        placeholder="Search…"
         autocomplete="off"
         autocorrect="off"
         autocapitalize="off"
@@ -112,64 +132,52 @@ const navKeywords: Record<string, string> = {
            falloff; the ::after gradient carries the color fade. -->
       <div class="cmdk-scrim cmdk-scrim--top" aria-hidden="true"><span></span><span></span></div>
       <div class="cmdk-list" id="cmdk-list" data-command-list role="listbox" aria-label="Commands">
-      <div class="cmdk-group" role="group" data-command-group>
-        <div class="cmdk-heading">
-          <span>Ask AI</span>
-          <span class="cmdk-heading-query" data-ai-query aria-hidden="true"></span>
-        </div>
-        {aiTargets.map((t) => (
-          <a
-            class="cmdk-item"
-            role="option"
-            data-command-item
-            data-command-ai
-            data-external
-            data-ai-base={t.base}
-            href={t.base + encodeURIComponent(AI_CONTEXT)}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <t.icon className="cmdk-icon cmdk-icon-brand" aria-hidden="true" />
-            <span class="cmdk-label">Ask {t.name}</span>
-          </a>
-        ))}
-      </div>
-
-      <div class="cmdk-group" role="group" data-command-group>
+      <div class="cmdk-group" role="group" data-command-group data-group="navigation">
         <div class="cmdk-heading">Navigation</div>
-        <a class="cmdk-item" role="option" data-command-item data-haystack={`home ${navKeywords['/']}`} href="/">
+        <a class="cmdk-item" role="option" data-command-item data-shortcut="H" data-haystack={`home ${navKeywords['/']}`} href="/">
           <Home className="cmdk-icon" aria-hidden="true" />
           <span class="cmdk-label">Home</span>
+          <span class="cmdk-shortcut" aria-hidden="true"><kbd>G</kbd><kbd>H</kbd></span>
         </a>
         {navLinks.map((link) => {
           const Icon = navIcons[link.href] ?? Home;
           const haystack = `${link.label.toLowerCase()} ${navKeywords[link.href] ?? ''}`;
+          const shortcut = navShortcuts[link.href];
           return (
-            <a class="cmdk-item" role="option" data-command-item data-haystack={haystack} href={link.href}>
+            <a class="cmdk-item" role="option" data-command-item data-shortcut={shortcut} data-haystack={haystack} href={link.href}>
               <Icon className="cmdk-icon" aria-hidden="true" />
               <span class="cmdk-label">{link.label}</span>
+              {shortcut && (
+                <span class="cmdk-shortcut" aria-hidden="true"><kbd>G</kbd><kbd>{shortcut}</kbd></span>
+              )}
             </a>
           );
         })}      </div>
 
-      <div class="cmdk-group" role="group" data-command-group>
+      <!-- Writing: recent posts when idle, live Pagefind results while typing.
+           The two mounts never show at once — the script swaps them by query. -->
+      <div class="cmdk-group" role="group" data-command-group data-group="writing">
         <div class="cmdk-heading">Writing</div>
-        <!-- Latest-post rows are injected here from /palette.json on first open. -->
+        <p class="cmdk-status" data-writing-status role="status" aria-live="polite" hidden>
+          <LoaderCircle className="cmdk-status-icon" aria-hidden="true" />
+          <span class="cmdk-status-text">Searching…</span>
+        </p>
         <div data-command-posts style="display: contents"></div>
-        <a
-          class="cmdk-item"
-          role="option"
-          data-command-item
-          data-command-pagefind
-          data-haystack="search all posts full-text pagefind 搜索 全文"
-          href="/blog/?search=1"
-        >
-          <Search className="cmdk-icon" aria-hidden="true" />
-          <span class="cmdk-label">Search all posts…</span>
-        </a>
+        <div data-command-writing style="display: contents"></div>
       </div>
 
-      <div class="cmdk-group" role="group" data-command-group>
+      <!-- Moods: pure search — no browse list, so it stays collapsed until a
+           query returns FTS hits (or a status while it fetches). -->
+      <div class="cmdk-group" role="group" data-command-group data-group="moods">
+        <div class="cmdk-heading">Moods</div>
+        <p class="cmdk-status" data-moods-status role="status" aria-live="polite" hidden>
+          <LoaderCircle className="cmdk-status-icon" aria-hidden="true" />
+          <span class="cmdk-status-text">Searching…</span>
+        </p>
+        <div data-command-moods style="display: contents"></div>
+      </div>
+
+      <div class="cmdk-group" role="group" data-command-group data-group="actions">
         <div class="cmdk-heading">Actions</div>
         <button
           class="cmdk-item"
@@ -210,9 +218,23 @@ const navKeywords: Record<string, string> = {
             </button>
           </span>
         </div>
+        <!-- One Subscribe entry, not scattered RSS links: it opens the notify
+             form (email + channels + RSS in one). The href is the no-JS/new-tab
+             fallback; the script opens the in-page panel inline when present. -->
+        <a
+          class="cmdk-item"
+          role="option"
+          data-command-item
+          data-command-subscribe
+          data-haystack="subscribe notify email newsletter rss feed 订阅 邮件 通知 博客 心情"
+          href={subscribeHref}
+        >
+          <Bell className="cmdk-icon" aria-hidden="true" />
+          <span class="cmdk-label">Subscribe</span>
+        </a>
       </div>
 
-      <div class="cmdk-group" role="group" data-command-group>
+      <div class="cmdk-group" role="group" data-command-group data-group="connect">
         <div class="cmdk-heading">Connect</div>
         {socials.map((link) => {
           const Icon = socialIcons[link.name] ?? Send;
@@ -236,12 +258,37 @@ const navKeywords: Record<string, string> = {
           );
         })}
       </div>
+
+      <!-- Ask AI is the escape hatch, so it sits last: when nothing local
+           matches, every other group collapses and this is what remains. -->
+      <div class="cmdk-group" role="group" data-command-group data-group="ai">
+        <div class="cmdk-heading">
+          <span>Ask AI</span>
+          <span class="cmdk-heading-query" data-ai-query aria-hidden="true"></span>
+        </div>
+        {aiTargets.map((t) => (
+          <a
+            class="cmdk-item"
+            role="option"
+            data-command-item
+            data-command-ai
+            data-external
+            data-ai-base={t.base}
+            href={t.base + encodeURIComponent(AI_CONTEXT)}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <t.icon className="cmdk-icon cmdk-icon-brand" aria-hidden="true" />
+            <span class="cmdk-label">Ask {t.name}</span>
+          </a>
+        ))}
+      </div>
       </div>
       <div class="cmdk-scrim cmdk-scrim--bottom" aria-hidden="true"><span></span><span></span></div>
     </div>
 
     <div class="cmdk-footer" aria-hidden="true">
-      <span>Go to page <Kbd>↵</Kbd></span>
+      <span><span data-footer-verb>Go to page</span> <Kbd>↵</Kbd></span>
       <span class="cmdk-footer-sep"></span>
       <span>Exit <Kbd>esc</Kbd></span>
     </div>
@@ -249,24 +296,52 @@ const navKeywords: Record<string, string> = {
 </dialog>
 
 <script>
+  import { getMoodFeedAnchorHref } from '@/features/mood/shared/feed-anchor';
+  import { formatMoodResultTime, isSafeSnippetHtml, searchMoods } from '@/features/mood/shared/search';
+
+  interface WritingHit {
+    title: string;
+    url: string;
+    excerpt: string;
+  }
+
   (() => {
     const dialog = document.querySelector<HTMLDialogElement>('[data-command-palette]');
     if (!dialog) return;
     const input = dialog.querySelector<HTMLInputElement>('[data-command-input]');
+    const listEl = dialog.querySelector<HTMLElement>('[data-command-list]');
     const groups = Array.from(dialog.querySelectorAll<HTMLElement>('[data-command-group]'));
     const aiLinks = Array.from(dialog.querySelectorAll<HTMLAnchorElement>('[data-command-ai]'));
-    const pagefindLink = dialog.querySelector<HTMLAnchorElement>('[data-command-pagefind]');
     const postsMount = dialog.querySelector<HTMLElement>('[data-command-posts]');
+    const writingMount = dialog.querySelector<HTMLElement>('[data-command-writing]');
+    const moodsMount = dialog.querySelector<HTMLElement>('[data-command-moods]');
+    const writingStatus = dialog.querySelector<HTMLElement>('[data-writing-status]');
+    const moodsStatus = dialog.querySelector<HTMLElement>('[data-moods-status]');
     const aiContext = dialog.dataset.aiContext ?? '';
     const aiQueryEcho = dialog.querySelector<HTMLElement>('[data-ai-query]');
+    const footerVerb = dialog.querySelector<HTMLElement>('[data-footer-verb]');
     if (!input) return;
 
     let items: HTMLElement[] = [];
     let visible: HTMLElement[] = [];
     let activeIndex = 0;
-    // Set per-item on filter runs so the highlight can prefer a real match
-    // over the always-visible Ask AI rows while a query is typed.
-    const scored = new WeakSet<HTMLElement>();
+
+    // Search scope follows the surface you opened from: on /blog you're looking
+    // for posts, on /mood for moods — so the live search runs only that backend
+    // and the placeholder names it. Everywhere else it's a global search.
+    type SearchScope = 'writing' | 'moods' | 'all';
+    let searchScope: SearchScope = 'all';
+    const resolveScope = (): SearchScope => {
+      const path = window.location.pathname;
+      if (path.startsWith('/mood')) return 'moods';
+      if (path.startsWith('/blog')) return 'writing';
+      return 'all';
+    };
+    const SCOPE_PLACEHOLDER: Record<SearchScope, string> = {
+      writing: 'Search posts…',
+      moods: 'Search moods…',
+      all: 'Search posts, moods, commands…',
+    };
 
     // Inline theme switch. The Appearance row is a single option in ↑/↓ nav;
     // its three segments are a radio group driven by the Layout theme
@@ -314,8 +389,8 @@ const navKeywords: Record<string, string> = {
     // Progressive-blur scrims are tied to real scroll affordance: the top band
     // appears only once rows have scrolled up out of view, the bottom band only
     // while more rows sit below the fold. At rest with nothing clipped, neither
-    // blurs — so content is never softened without reason.
-    const listEl = dialog.querySelector<HTMLElement>('[data-command-list]');
+    // blurs — so content is never softened without reason. (listEl is grabbed
+    // once at the top of the closure.)
     const bodyEl = dialog.querySelector<HTMLElement>('.cmdk-body');
     const updateScrims = () => {
       if (!listEl || !bodyEl) return;
@@ -335,6 +410,19 @@ const navKeywords: Record<string, string> = {
       return haystack.includes(query) ? 1 : 0;
     };
 
+    // The footer carries the enter affordance for the whole list (replacing a
+    // per-row ↵), so its verb tracks what Enter will actually do on the active
+    // row: navigate, copy, subscribe, open externally, or flip the theme.
+    const updateFooterAction = (el: HTMLElement | undefined) => {
+      if (!footerVerb || !el) return;
+      let verb = 'Go to page';
+      if (el.hasAttribute('data-command-copy')) verb = 'Copy';
+      else if (el.hasAttribute('data-command-subscribe')) verb = 'Subscribe';
+      else if (el.hasAttribute('data-command-segmented')) verb = 'Switch theme';
+      else if (el.hasAttribute('data-command-ai') || el.hasAttribute('data-external')) verb = 'Open';
+      footerVerb.textContent = verb;
+    };
+
     const setActive = (index: number, scroll = true) => {
       if (visible.length === 0) return;
       activeIndex = Math.max(0, Math.min(index, visible.length - 1));
@@ -344,6 +432,7 @@ const navKeywords: Record<string, string> = {
         el.setAttribute('aria-selected', el === activeEl ? 'true' : 'false');
       });
       input.setAttribute('aria-activedescendant', activeEl.id);
+      updateFooterAction(activeEl);
       if (scroll) activeEl.scrollIntoView({ block: 'nearest' });
     };
 
@@ -358,12 +447,6 @@ const navKeywords: Record<string, string> = {
         const base = a.dataset.aiBase;
         if (base) a.href = base + encodeURIComponent(text);
       });
-      if (pagefindLink) {
-        const url = new URL(pagefindLink.href);
-        if (query) url.searchParams.set('q', query);
-        else url.searchParams.delete('q');
-        pagefindLink.href = `${url.pathname}${url.search}`;
-      }
       // Echo the typed question next to the "Ask AI" heading so the rows read as
       // "ask THIS", not a generic export. Empty query → the label stays bare.
       if (aiQueryEcho) aiQueryEcho.textContent = query ? `“${query}”` : '';
@@ -371,43 +454,266 @@ const navKeywords: Record<string, string> = {
 
     const filter = () => {
       const query = input.value.trim().toLowerCase();
+      const searching = query.length > 0;
+      const prevActive = visible[activeIndex];
       items.forEach((el) => {
-        if (el.hasAttribute('data-command-ai')) {
+        // Always-visible rows: the Ask AI escape hatch and live server results
+        // (already ranked by their backend — never substring-hidden here).
+        if (el.hasAttribute('data-command-ai') || el.hasAttribute('data-command-live')) {
           el.hidden = false;
-          scored.delete(el);
           return;
         }
-        if (el.hasAttribute('data-command-pagefind')) {
-          el.hidden = false;
-          scored.delete(el);
+        // Recent-writing rows fill the idle state only; once a query is typed,
+        // live results take their place. They're writing content, so they stay
+        // out of the moods-scoped surface entirely.
+        if (el.hasAttribute('data-command-recent')) {
+          el.hidden = searching || searchScope === 'moods';
           return;
         }
-        const match = matchScore(query, el.dataset.haystack ?? '') > 0;
-        el.hidden = !match;
-        if (query && match) scored.add(el);
-        else scored.delete(el);
+        el.hidden = matchScore(query, el.dataset.haystack ?? '') === 0;
       });
       groups.forEach((group) => {
-        group.hidden = !group.querySelector('[data-command-item]:not([hidden])');
+        const hasItem = Boolean(group.querySelector('[data-command-item]:not([hidden])'));
+        const status = group.querySelector<HTMLElement>('.cmdk-status');
+        const hasStatus = Boolean(status && !status.hidden);
+        group.hidden = !(hasItem || hasStatus);
       });
       visible = items.filter((el) => !el.hidden);
-      const directMatch = query ? visible.findIndex((el) => scored.has(el)) : 0;
-      const pagefindFallback = query
-        ? visible.findIndex((el) => el.hasAttribute('data-command-pagefind'))
-        : -1;
-      const preferred = directMatch >= 0 ? directMatch : pagefindFallback;
-      setActive(preferred >= 0 ? preferred : 0, Boolean(query));
+      // Selection preference:
+      //  - if the user has moved to a real (non-AI) row that survives the
+      //    re-render, keep them there — don't yank focus as results stream in;
+      //  - otherwise prefer the first real result, so when live results replace
+      //    the Ask-AI fallback the top hit takes the highlight, not the fallback;
+      //  - only fall back to row 0 (an Ask AI row) when nothing real is visible.
+      const firstReal = visible.findIndex((el) => !el.hasAttribute('data-command-ai'));
+      const onRealRow = prevActive && !prevActive.hasAttribute('data-command-ai');
+      const kept = onRealRow ? visible.indexOf(prevActive) : -1;
+      const target = kept >= 0 ? kept : firstReal >= 0 ? firstReal : 0;
+      setActive(target, searching);
       updateScrims();
+    };
+
+    // --- Live full-text search --------------------------------------------
+    // Writing = Pagefind (a build-time static index at /pagefind/); Moods = the
+    // archive FTS endpoint. Both render as live rows inside the palette — no
+    // second dialog, no page navigation. Pagefind is absent in dev, so it falls
+    // back to substring-matching the recent-post list and the group still
+    // responds while typing.
+    const SEARCH_DEBOUNCE_MS = 200;
+    const REMOTE_MIN_LENGTH = 2;
+    const RESULT_LIMIT = 6;
+    let recentPosts: Array<{ title: string; path: string }> = [];
+    let searchTimer: number | undefined;
+    let searchGeneration = 0;
+    let moodController: AbortController | null = null;
+
+    const PAGEFIND_URL = '/pagefind/pagefind.js';
+    type PagefindModule = {
+      search: (q: string) => Promise<{ results: Array<{ data: () => Promise<Record<string, any>> }> }>;
+    };
+    // Load the static Pagefind module once and cache the promise. On failure it
+    // resolves to null (and stays cached), so an index-less dev build takes the
+    // recent-post fallback without hammering /pagefind on every keystroke.
+    let pagefindLoad: Promise<PagefindModule | null> | null = null;
+    const ensurePagefind = (): Promise<PagefindModule | null> => {
+      if (!pagefindLoad) {
+        pagefindLoad = import(/* @vite-ignore */ PAGEFIND_URL)
+          .then((mod) => mod as PagefindModule)
+          .catch(() => null);
+      }
+      return pagefindLoad;
+    };
+
+    const FILE_ICON =
+      '<svg class="cmdk-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/></svg>';
+    const MOOD_ICON =
+      '<svg class="cmdk-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" x2="9.01" y1="9" y2="9"/><line x1="15" x2="15.01" y1="9" y2="9"/></svg>';
+
+    const buildResultRow = (opts: { href: string; title: string; snippet?: string; icon: string }) => {
+      const a = document.createElement('a');
+      a.className = 'cmdk-item cmdk-item--rich';
+      a.setAttribute('role', 'option');
+      a.dataset.commandItem = '';
+      a.dataset.commandLive = '';
+      a.href = opts.href;
+      a.innerHTML = opts.icon;
+      const col = document.createElement('span');
+      col.className = 'cmdk-rich';
+      const title = document.createElement('span');
+      title.className = 'cmdk-rich-title';
+      title.textContent = opts.title;
+      col.appendChild(title);
+      if (opts.snippet) {
+        const sub = document.createElement('span');
+        sub.className = 'cmdk-rich-sub';
+        // Snippets are server-escaped except <mark>; re-verify before innerHTML.
+        if (isSafeSnippetHtml(opts.snippet)) sub.innerHTML = opts.snippet;
+        else sub.textContent = opts.snippet;
+        col.appendChild(sub);
+      }
+      a.appendChild(col);
+      wireItem(a);
+      return a;
+    };
+
+    const clearMount = (mount: HTMLElement | null) => {
+      mount?.replaceChildren();
+    };
+
+    const setSearching = (status: HTMLElement | null, searching: boolean) => {
+      if (status) status.hidden = !searching;
+    };
+
+    const writingResults = async (query: string): Promise<WritingHit[]> => {
+      const pf = await ensurePagefind();
+      if (!pf) {
+        const q = query.toLowerCase();
+        return recentPosts
+          .filter((post) => post.title.toLowerCase().includes(q))
+          .slice(0, RESULT_LIMIT)
+          .map((post) => ({ title: post.title, url: post.path, excerpt: '' }));
+      }
+      const search = await pf.search(query);
+      const top = search.results.slice(0, RESULT_LIMIT);
+      const data = await Promise.all(top.map((result) => result.data()));
+      return data.map((entry) => ({
+        title: (entry.meta && entry.meta.title) || entry.url,
+        url: entry.url,
+        excerpt: typeof entry.excerpt === 'string' ? entry.excerpt : '',
+      }));
+    };
+
+    const renderWriting = (hits: WritingHit[]) => {
+      clearMount(writingMount);
+      hits.forEach((hit) =>
+        writingMount?.appendChild(
+          buildResultRow({ href: hit.url, title: hit.title, snippet: hit.excerpt, icon: FILE_ICON }),
+        ),
+      );
+    };
+
+    const renderMoods = (results: Awaited<ReturnType<typeof searchMoods>>) => {
+      clearMount(moodsMount);
+      results.forEach((item) =>
+        moodsMount?.appendChild(
+          buildResultRow({
+            // Land in the L1 feed anchored at the post (/mood?id), not the L2
+            // detail page — you drop into the timeline with surrounding context.
+            href: getMoodFeedAnchorHref(item.id),
+            title: formatMoodResultTime(item.datetime) || 'Mood',
+            snippet: item.snippet,
+            icon: MOOD_ICON,
+          }),
+        ),
+      );
+    };
+
+    const clearRemote = () => {
+      searchGeneration += 1; // invalidate any in-flight responses
+      window.clearTimeout(searchTimer);
+      moodController?.abort();
+      moodController = null;
+      clearMount(writingMount);
+      clearMount(moodsMount);
+      setSearching(writingStatus, false);
+      setSearching(moodsStatus, false);
+    };
+
+    const runRemoteSearch = (raw: string) => {
+      const query = raw.trim();
+      window.clearTimeout(searchTimer);
+      if (query.length < REMOTE_MIN_LENGTH) {
+        clearRemote();
+        collectItems();
+        filter();
+        return;
+      }
+      // Scope decides which backends fire: only Writing on /blog, only Moods on
+      // /mood, both elsewhere. The out-of-scope group never even shows a status.
+      const runWriting = searchScope !== 'moods';
+      const runMoods = searchScope !== 'writing';
+      searchTimer = window.setTimeout(() => {
+        const generation = (searchGeneration += 1);
+        setSearching(writingStatus, runWriting);
+        setSearching(moodsStatus, runMoods);
+        filter();
+
+        const settle = () => {
+          if (generation !== searchGeneration) return;
+          collectItems();
+          filter();
+        };
+
+        if (runWriting) {
+          writingResults(query)
+            .then((hits) => {
+              if (generation !== searchGeneration) return;
+              renderWriting(hits);
+              setSearching(writingStatus, false);
+              settle();
+            })
+            .catch(() => {
+              if (generation !== searchGeneration) return;
+              setSearching(writingStatus, false);
+              settle();
+            });
+        }
+
+        if (runMoods) {
+          moodController?.abort();
+          moodController = new AbortController();
+          searchMoods(query, { signal: moodController.signal, limit: RESULT_LIMIT })
+            .then((results) => {
+              if (generation !== searchGeneration) return;
+              renderMoods(results);
+              setSearching(moodsStatus, false);
+              settle();
+            })
+            .catch((error) => {
+              if (generation !== searchGeneration) return;
+              if (error instanceof DOMException && error.name === 'AbortError') return;
+              setSearching(moodsStatus, false);
+              settle();
+            });
+        }
+      }, SEARCH_DEBOUNCE_MS);
+    };
+
+    // Promote the context's result group to the top: on /blog you reach for
+    // posts, on /mood for moods — meet the reflex where the hand already is.
+    const orderGroupsForContext = () => {
+      if (!listEl) return;
+      const path = window.location.pathname;
+      let sequence = ['navigation', 'writing', 'moods', 'actions', 'connect', 'ai'];
+      if (path.startsWith('/mood')) sequence = ['moods', 'navigation', 'writing', 'actions', 'connect', 'ai'];
+      else if (path.startsWith('/blog')) sequence = ['writing', 'navigation', 'moods', 'actions', 'connect', 'ai'];
+      sequence.forEach((name) => {
+        const group = listEl.querySelector<HTMLElement>(`[data-command-group][data-group="${name}"]`);
+        if (group) listEl.appendChild(group);
+      });
     };
 
     const close = () => {
       if (dialog.open) dialog.close();
     };
 
-    const activate = (el: HTMLElement) => {
+    const activate = (el: HTMLElement, event?: Event) => {
       // The Appearance row is a container for the segment radios; a click on its
       // body (not a segment) does nothing and never closes the palette.
       if (el.hasAttribute('data-command-segmented')) return;
+      // Subscribe: prefer the current page's own notify panel so it opens inline
+      // (mood, blog); close the palette first so the panel isn't hidden under the
+      // top-layer dialog. With no panel here, let the anchor navigate to its
+      // canonical subscribe surface instead.
+      if (el.hasAttribute('data-command-subscribe')) {
+        const toggle = document.querySelector<HTMLElement>('[data-subscribe-toggle]');
+        if (toggle) {
+          event?.preventDefault();
+          close();
+          requestAnimationFrame(() => toggle.click());
+          return;
+        }
+      }
       const copy = el.dataset.commandCopy;
       if (copy) {
         const label = el.querySelector<HTMLElement>('.cmdk-label');
@@ -436,18 +742,22 @@ const navKeywords: Record<string, string> = {
         const index = visible.indexOf(el);
         if (index >= 0 && visible[activeIndex] !== el) setActive(index, false);
       });
-      el.addEventListener('click', () => activate(el));
+      el.addEventListener('click', (event) => activate(el, event));
     };
 
     const collectItems = () => {
       items = Array.from(dialog.querySelectorAll<HTMLElement>('[data-command-item]'));
       items.forEach((el, i) => {
         el.id = `cmdk-item-${i}`;
-        // Append the trailing affordance once. CSS decides ↗ (external) vs ↵
-        // (active in-site) from the row's own attributes and state, so this is
-        // just an empty hook — no per-row branching here. The segmented row
-        // owns its right edge (the switch), so it gets no trail.
-        if (!el.hasAttribute('data-command-segmented') && !el.querySelector('.cmdk-trail')) {
+        // Append the trailing affordance once. CSS draws ↗ on external rows from
+        // the row's own attributes, so this is just an empty hook. The segmented
+        // row owns its right edge (the switch) and nav rows own theirs (the go-to
+        // keycaps), so neither gets a trail.
+        if (
+          !el.hasAttribute('data-command-segmented') &&
+          !el.hasAttribute('data-shortcut') &&
+          !el.querySelector('.cmdk-trail')
+        ) {
           const trail = document.createElement('span');
           trail.className = 'cmdk-trail';
           trail.setAttribute('aria-hidden', 'true');
@@ -471,11 +781,15 @@ const navKeywords: Record<string, string> = {
         const data = (await res.json()) as {
           posts?: Array<{ title: string; path: string }>;
         };
-        (data.posts ?? []).forEach((post) => {
+        // Keep the list in JS too: it doubles as the dev fallback source when
+        // Pagefind's static index is absent (writingResults substring-matches).
+        recentPosts = data.posts ?? [];
+        recentPosts.forEach((post) => {
           const a = document.createElement('a');
           a.className = 'cmdk-item';
           a.setAttribute('role', 'option');
           a.dataset.commandItem = '';
+          a.dataset.commandRecent = '';
           a.dataset.haystack = `${post.title.toLowerCase()} blog post 文章`;
           a.href = post.path;
           a.innerHTML =
@@ -495,21 +809,29 @@ const navKeywords: Record<string, string> = {
 
     const open = () => {
       if (dialog.open) return;
+      searchScope = resolveScope();
+      input.placeholder = SCOPE_PLACEHOLDER[searchScope];
       input.value = '';
       updateQueryTargets('');
       syncSegments();
+      clearRemote();
+      orderGroupsForContext();
+      collectItems();
       filter();
-      dialog.querySelector('[data-command-list]')?.scrollTo(0, 0);
+      listEl?.scrollTo(0, 0);
       dialog.showModal();
       input.focus();
       // Dialog has no layout until it is shown, so measure scrims next frame.
       requestAnimationFrame(updateScrims);
-      void loadPosts();
+      // Recent posts are writing content and the dev fallback source — skip the
+      // fetch on the moods surface, where writing never shows.
+      if (searchScope !== 'moods') void loadPosts();
     };
 
     input.addEventListener('input', () => {
       updateQueryTargets(input.value.trim());
       filter();
+      runRemoteSearch(input.value);
     });
 
     dialog.addEventListener('keydown', (event) => {
@@ -545,6 +867,8 @@ const navKeywords: Record<string, string> = {
         event.preventDefault();
         input.value = '';
         updateQueryTargets('');
+        clearRemote();
+        collectItems();
         filter();
       }
     });
@@ -565,6 +889,69 @@ const navKeywords: Record<string, string> = {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
         event.preventDefault();
         dialog.open ? close() : open();
+      }
+    });
+
+    // Vim-style "go to" navigation: press g, then a page key, from anywhere on
+    // the site. The map is read from the nav rows' data-shortcut so the keycaps
+    // shown in the palette and the live binding can never drift apart.
+    const gMap = new Map<string, string>();
+    dialog.querySelectorAll<HTMLAnchorElement>('[data-command-item][data-shortcut]').forEach((el) => {
+      const key = el.dataset.shortcut?.toLowerCase();
+      if (key) gMap.set(key, el.getAttribute('href') || '/');
+    });
+    const isTypingTarget = (target: EventTarget | null) => {
+      const node = target as HTMLElement | null;
+      if (!node) return false;
+      const tag = node.tagName;
+      return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || node.isContentEditable;
+    };
+    let gPending = false;
+    let gPendingInPalette = false;
+    let gTimer: number | undefined;
+    const insertPendingG = () => {
+      input.setRangeText('g', input.selectionStart ?? 0, input.selectionEnd ?? 0, 'end');
+      input.dispatchEvent(new InputEvent('input', { bubbles: true, data: 'g', inputType: 'insertText' }));
+    };
+    const resetGoTo = () => {
+      gPending = false;
+      gPendingInPalette = false;
+      window.clearTimeout(gTimer);
+    };
+    document.addEventListener('keydown', (event) => {
+      // Ignore modifier chords and editable controls. The palette input is the
+      // one exception: when it is empty, the visible go-to hints should work.
+      if (event.metaKey || event.ctrlKey || event.altKey || event.isComposing) return;
+      const inEmptyPaletteInput = dialog.open && event.target === input && input.value === '';
+      if (isTypingTarget(event.target) && !inEmptyPaletteInput) {
+        resetGoTo();
+        return;
+      }
+      const key = event.key.toLowerCase();
+      if (gPending) {
+        resetGoTo();
+        const href = gMap.get(key);
+        if (href) {
+          event.preventDefault();
+          window.location.href = href;
+          return;
+        }
+        // We held the initial "g" back from an empty palette query. If the next
+        // key is not a shortcut, restore it and let normal typing continue.
+        if (inEmptyPaletteInput) {
+          event.preventDefault();
+          insertPendingG();
+        }
+        return;
+      }
+      if (key === 'g') {
+        gPending = true;
+        gPendingInPalette = inEmptyPaletteInput;
+        if (inEmptyPaletteInput) event.preventDefault();
+        gTimer = window.setTimeout(() => {
+          if (gPendingInPalette) insertPendingG();
+          resetGoTo();
+        }, 1200);
       }
     });
   })();
@@ -909,10 +1296,9 @@ const navKeywords: Record<string, string> = {
     text-overflow: ellipsis;
     white-space: nowrap;
   }
-  /* Trailing affordance — the one detail that tells you where a row goes before
-     you commit. ↗ marks a row that leaves the site (Ask AI, socials); it rests
-     faint and snaps bright with the active highlight. ↵ appears only on the
-     active in-site row. */
+  /* Trailing affordance: ↗ marks a row that leaves the site (Ask AI, socials);
+     it rests faint and snaps bright with the active highlight. The enter cue for
+     in-site rows lives once in the footer ("Go to page ↵"), not per row. */
   .cmdk-trail {
     flex-shrink: 0;
     margin-left: 4px;
@@ -926,10 +1312,158 @@ const navKeywords: Record<string, string> = {
   .cmdk-item[data-external].is-active .cmdk-trail {
     color: hsl(var(--foreground) / 0.7);
   }
-  /* ↵ only on in-site links (anchors, not action buttons like copy). */
-  a.cmdk-item:not([data-external]).is-active .cmdk-trail::after {
-    content: '↵';
-    color: hsl(var(--foreground) / 0.7);
+
+  /* Go-to keycaps on nav rows (g h, g p …) — the affordance that surfaces the
+     vim-style shortcut. A keyboard hint, so it's hidden on touch; it takes the
+     right edge the ↵ trail used to hold. */
+  .cmdk-shortcut {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    margin-left: 4px;
+  }
+  .cmdk-shortcut kbd {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 17px;
+    height: 17px;
+    padding: 0 4px;
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    line-height: 1;
+    color: hsl(var(--muted-foreground) / 0.7);
+    background: hsl(var(--foreground) / 0.05);
+    border: 1px solid hsl(var(--foreground) / 0.08);
+    border-radius: 4px;
+  }
+  .cmdk-item.is-active .cmdk-shortcut kbd {
+    color: hsl(var(--foreground) / 0.8);
+    background: hsl(var(--foreground) / 0.09);
+    border-color: hsl(var(--foreground) / 0.12);
+  }
+  @media (pointer: coarse) {
+    .cmdk-shortcut {
+      display: none;
+    }
+  }
+
+  /* Live result rows (Writing / Moods): two lines — a title and a muted
+     snippet. The icon and trail hang from the first line, so a long snippet
+     reads as a column tucked under the title, not a vertically-centred blob. */
+  .cmdk-item--rich {
+    align-items: flex-start;
+    min-height: 52px;
+    padding-top: 8px;
+    padding-bottom: 8px;
+  }
+  .cmdk-item--rich .cmdk-icon,
+  .cmdk-item--rich .cmdk-trail {
+    margin-top: 1px;
+  }
+  .cmdk-rich {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    flex: 1;
+    min-width: 0;
+  }
+  .cmdk-rich-title {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .cmdk-rich-sub {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    overflow: hidden;
+    font-size: 12.5px;
+    line-height: 1.5;
+    color: hsl(var(--muted-foreground) / 0.7);
+  }
+  .cmdk-item.is-active .cmdk-rich-sub {
+    color: hsl(var(--muted-foreground));
+  }
+  .cmdk-rich-sub mark {
+    margin-inline: 0.04em;
+    padding: 0.08em 0.16em;
+    border-radius: 3px;
+    background: color-mix(in srgb, var(--cmdk-highlight) 14%, transparent);
+    color: color-mix(in srgb, var(--cmdk-highlight) 72%, hsl(var(--foreground)));
+    box-decoration-break: clone;
+    -webkit-box-decoration-break: clone;
+  }
+  .dark .cmdk-rich-sub mark {
+    background: color-mix(in srgb, var(--cmdk-highlight-dark) 16%, transparent);
+    color: color-mix(in srgb, var(--cmdk-highlight-dark) 82%, hsl(var(--foreground)));
+  }
+  .cmdk-item.is-active .cmdk-rich-sub mark {
+    background: color-mix(in srgb, var(--cmdk-highlight) 20%, transparent);
+    color: color-mix(in srgb, var(--cmdk-highlight) 82%, hsl(var(--foreground)));
+  }
+  .dark .cmdk-item.is-active .cmdk-rich-sub mark {
+    background: color-mix(in srgb, var(--cmdk-highlight-dark) 22%, transparent);
+    color: color-mix(in srgb, var(--cmdk-highlight-dark) 90%, hsl(var(--foreground)));
+  }
+
+  /* Search progress occupies the same visual row as a result. The Lucide ring
+     keeps the palette's icon language intact; shimmer carries activity without
+     making the whole row pulse. */
+  .cmdk-status {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    min-height: 40px;
+    margin: 0;
+    padding: 0 calc(var(--cmdk-pad-x) - var(--cmdk-list-pad));
+    font-size: 14px;
+    font-weight: 450;
+    color: hsl(var(--muted-foreground));
+  }
+  .cmdk-status[hidden] {
+    display: none;
+  }
+  .cmdk-status-icon {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+    color: hsl(var(--muted-foreground) / 0.7);
+    animation: cmdk-search-spin 900ms linear infinite;
+  }
+  .cmdk-status-text {
+    color: transparent;
+    background-image: linear-gradient(
+      105deg,
+      hsl(var(--muted-foreground) / 0.58) 36%,
+      hsl(var(--foreground) / 0.92) 50%,
+      hsl(var(--muted-foreground) / 0.58) 64%
+    );
+    background-size: 250% 100%;
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    animation: cmdk-search-shimmer 2s linear infinite;
+  }
+  @keyframes cmdk-search-spin {
+    to { transform: rotate(360deg); }
+  }
+  @keyframes cmdk-search-shimmer {
+    from { background-position: 100% 0; }
+    to { background-position: -100% 0; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .cmdk-status-icon,
+    .cmdk-status-text {
+      animation: none;
+    }
+    .cmdk-status-text {
+      color: hsl(var(--muted-foreground));
+      background: none;
+      -webkit-text-fill-color: currentColor;
+    }
   }
 
   /* Inline theme switch — three states of one setting read as a segmented
