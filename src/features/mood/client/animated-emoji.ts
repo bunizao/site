@@ -27,61 +27,32 @@ interface LottieLike {
   loadAnimation(options: LottieLoadOptions): LottieAnimationInstance;
 }
 
-type EmojiRoot = ParentNode & Node;
-type EmojiWindow = Window & typeof globalThis & {
-  lottie?: LottieLike;
-  pako?: PakoLike;
-};
+interface EmojiLibraries {
+  lottie: LottieLike;
+  pako: PakoLike;
+}
 
-const LOTTIE_SRC = 'https://cdn.jsdelivr.net/npm/lottie-web@5.12.2/build/player/lottie.min.js';
-const PAKO_SRC = 'https://cdn.jsdelivr.net/npm/pako@2.1.0/dist/pako.min.js';
+type EmojiRoot = ParentNode & Node;
 
 const toStaticProxyUrl = (value: string): string => `/static/${value.replace('://', ':/')}`;
-const scriptCache = new Map<string, Promise<void>>();
+let librariesPromise: Promise<EmojiLibraries> | null = null;
 const emojiCache = new Map<string, Promise<unknown | null>>();
 
-function getEmojiWindow(): EmojiWindow {
-  return window as EmojiWindow;
-}
-
-function loadScript(src: string): Promise<void> {
-  if (scriptCache.has(src)) {
-    return scriptCache.get(src) as Promise<void>;
+async function loadLibraries(): Promise<EmojiLibraries> {
+  if (!librariesPromise) {
+    librariesPromise = Promise.all([
+      import('lottie-web/build/player/lottie_light'),
+      import('pako'),
+    ]).then(([lottieModule, pakoModule]) => ({
+      lottie: lottieModule.default as LottieLike,
+      pako: pakoModule as PakoLike,
+    }));
   }
 
-  const promise = new Promise<void>((resolve, reject) => {
-    const existing = document.querySelector(`script[src="${src}"]`) as HTMLScriptElement | null;
-    if (existing) {
-      if (existing.dataset.loaded === 'true') {
-        resolve();
-        return;
-      }
-      existing.addEventListener('load', () => resolve(), { once: true });
-      existing.addEventListener('error', () => reject(new Error(`Failed to load ${src}`)), { once: true });
-      return;
-    }
-
-    const script = document.createElement('script');
-    script.src = src;
-    script.async = true;
-    script.dataset.loaded = 'false';
-    script.onload = () => {
-      script.dataset.loaded = 'true';
-      resolve();
-    };
-    script.onerror = () => reject(new Error(`Failed to load ${src}`));
-    document.head.appendChild(script);
-  });
-
-  scriptCache.set(src, promise);
-  return promise;
+  return librariesPromise;
 }
 
-async function ensureLibs(): Promise<void> {
-  await Promise.all([loadScript(LOTTIE_SRC), loadScript(PAKO_SRC)]);
-}
-
-async function getAnimationData(emojiId: string): Promise<unknown | null> {
+async function getAnimationData(emojiId: string, pako: PakoLike): Promise<unknown | null> {
   if (emojiCache.has(emojiId)) {
     return emojiCache.get(emojiId) as Promise<unknown | null>;
   }
@@ -99,9 +70,6 @@ async function getAnimationData(emojiId: string): Promise<unknown | null> {
     if (!tgsResponse.ok) return null;
 
     const buffer = await tgsResponse.arrayBuffer();
-    const pako = getEmojiWindow().pako;
-    if (!pako) return null;
-
     const bytes = new Uint8Array(buffer);
     const jsonText = new TextDecoder('utf-8').decode(pako.ungzip(bytes));
     return JSON.parse(jsonText) as unknown;
@@ -183,14 +151,12 @@ export function createAnimatedEmojiManager(
 
     if (!nodes.length) return;
 
+    let libraries: EmojiLibraries;
     try {
-      await ensureLibs();
+      libraries = await loadLibraries();
     } catch {
       return;
     }
-
-    const lottie = getEmojiWindow().lottie;
-    if (!lottie) return;
 
     const observer = getVisibilityObserver();
 
@@ -200,7 +166,7 @@ export function createAnimatedEmojiManager(
         if (!emojiId) return;
 
         node.dataset.emojiAnimated = 'pending';
-        const animationData = await getAnimationData(emojiId);
+        const animationData = await getAnimationData(emojiId, libraries.pako);
         if (!animationData) {
           node.dataset.emojiAnimated = 'false';
           return;
@@ -211,7 +177,7 @@ export function createAnimatedEmojiManager(
         container.className = 'tg-emoji-anim';
         node.appendChild(container);
 
-        const animation = lottie.loadAnimation({
+        const animation = libraries.lottie.loadAnimation({
           container,
           renderer: 'svg',
           loop: true,
