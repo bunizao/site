@@ -12,7 +12,7 @@ test.describe('Standalone pages', () => {
       return svg.getBoundingClientRect().width / gridWidth;
     });
 
-    expect(await getLogoScale()).toBe(2);
+    expect(await getLogoScale()).toBe(3);
 
     await page.setViewportSize({ width: 390, height: 844 });
     expect(await getLogoScale()).toBe(3);
@@ -36,10 +36,10 @@ test.describe('Standalone pages', () => {
 
     await expect(page).toHaveURL(/\/privacy$/);
     await expect(page.getByRole('heading', { name: 'Privacy Policy' })).toBeVisible();
-    await expect(page.locator('.page-updated')).toContainText('Updated:');
+    await expect(page.locator('.privacy-eyebrow')).toContainText('Updated');
     await expect(page.locator('[data-site-nav] .nav-link')).toHaveCount(0);
     await expect(page.locator('[data-mobile-brand-text]')).toHaveText('buxx.me');
-    await expect(page.locator('.page-content')).toContainText('This Privacy Policy explains how this website collects');
+    await expect(page.locator('.privacy-content')).toContainText('This Privacy Policy explains how this website collects');
 
     const desktopBrandGap = await page.evaluate(() => {
       const logo = document.querySelector('.site-brand-logo');
@@ -83,7 +83,7 @@ test.describe('Standalone pages', () => {
       const brandTextStyles = window.getComputedStyle(brandText);
       const toggleStyles = window.getComputedStyle(toggle);
       return {
-        hasHomeHeaderActions: headerActions.classList.contains('global-header-actions--home'),
+        hasBrandHomeActions: headerActions.classList.contains('has-brand-home-bar'),
         hasPageNav: nav.classList.contains('site-nav--page'),
         hasHomeNav: nav.classList.contains('site-nav--home'),
         navHeight: navRect.height,
@@ -98,7 +98,7 @@ test.describe('Standalone pages', () => {
     });
 
     expect(state).not.toBeNull();
-    expect(state?.hasHomeHeaderActions).toBe(true);
+    expect(state?.hasBrandHomeActions).toBe(true);
     expect(state?.hasPageNav).toBe(true);
     expect(state?.hasHomeNav).toBe(false);
     expect(state?.navHeight).toBe(52);

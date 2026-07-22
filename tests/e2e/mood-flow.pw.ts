@@ -235,8 +235,8 @@ test.describe('Mood routes', () => {
     const firstItem = page.locator('[data-mood-list] .mood-item').first();
     await expect(firstItem).toBeVisible();
 
-    const rssAction = page.locator('[data-header-actions] a[href="/mood/rss.xml"]');
-    await expect(rssAction).toBeVisible();
+    const subscribeAction = page.locator('[data-mood-navbar] [data-subscribe-toggle="mood"]');
+    await expect(subscribeAction).toBeVisible();
 
     await firstItem.hover();
     const expandLink = firstItem.locator('.mood-item-expand-float');
@@ -1549,7 +1549,7 @@ test.describe('Mood routes', () => {
     await expect(video).toHaveAttribute('data-test-playback-state', 'paused');
   });
 
-  test('collapses header actions on compact mood feed scroll', async ({ page }) => {
+  test('keeps compact mood navbar controls visible while scrolling', async ({ page }) => {
     const moodId = '12345';
     const moodFeedPayload = createMoodFeedPayload(moodId);
     moodFeedPayload.posts = Array.from({ length: 12 }, (_value, index) => ({
@@ -1588,18 +1588,16 @@ test.describe('Mood routes', () => {
     });
 
     await page.goto('/mood');
-    const headerActions = page.locator('[data-header-actions]');
-    await expect(headerActions).toBeVisible();
+    const navbar = page.locator('[data-mood-navbar]');
+    const controls = navbar.locator('.mood-navbar__controls');
+    await expect(navbar).toBeVisible();
+    await expect(controls).toBeVisible();
     await expect(page.locator('[data-mood-feed]')).not.toHaveClass(/is-hidden/, { timeout: 30_000 });
 
     await page.evaluate(() => window.scrollTo({ top: 600, behavior: 'instant' }));
 
-    await expect(headerActions).toHaveClass(/is-collapsed/, { timeout: 30_000 });
-    await expect
-      .poll(async () => {
-        return await headerActions.evaluate((element) => Number(getComputedStyle(element).opacity));
-      }, { timeout: 30_000 })
-      .toBeLessThan(0.1);
+    await expect(navbar).toHaveClass(/is-docked/, { timeout: 30_000 });
+    await expect(controls).toBeVisible();
   });
 
   test('returns anchored feeds to the latest window from the desktop timeline wheel', async ({ page }) => {
@@ -1649,7 +1647,7 @@ test.describe('Mood routes', () => {
       });
     });
 
-    await page.goto(`/mood?${moodId}`, { waitUntil: 'domcontentloaded' });
+    await page.goto('/mood', { waitUntil: 'domcontentloaded' });
     await expect(page.locator('[data-mood-feed]')).not.toHaveClass(/is-hidden/, { timeout: 30_000 });
 
     const wheel = page.locator('[data-timeline-wheel]');
@@ -1719,6 +1717,11 @@ test.describe('Mood routes', () => {
     expect(topButtonOwnsLabelHitArea).toBe(true);
 
     await page.mouse.click(labelCenter.x, labelCenter.y);
+    await expect.poll(() => page.evaluate(() => Math.round(window.scrollY))).toBe(0);
+
+    await page.goto(`/mood?${moodId}`, { waitUntil: 'domcontentloaded' });
+    await expect(page.locator('[data-mood-feed]')).not.toHaveClass(/is-hidden/, { timeout: 30_000 });
+    await page.locator('[data-mood-nav-top]').dispatchEvent('click');
     await page.waitForURL((url) => url.pathname === '/mood' && url.search === '');
     await expect.poll(() => page.evaluate(() => Math.round(window.scrollY))).toBe(0);
   });

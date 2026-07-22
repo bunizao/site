@@ -14,7 +14,7 @@ test.beforeEach(async ({ page }) => {
   // No Pagefind index in the test server → import() rejects → Writing falls
   // back to substring-matching the recent-post list (empty unless a test seeds
   // palette.json). Aborting keeps that path fast and deterministic.
-  await page.route('**/pagefind/pagefind.js', (route) => route.abort());
+  await page.route('**/pagefind/pagefind.js*', (route) => route.abort());
 });
 
 test.describe('Site command palette', () => {
@@ -73,7 +73,7 @@ test.describe('Site command palette', () => {
 
   test('searches Writing inline — no second dialog, no navigation', async ({ page }) => {
     // Stub the Pagefind programmatic module with one deterministic hit.
-    await page.route('**/pagefind/pagefind.js', async (route) => {
+    await page.route('**/pagefind/pagefind.js*', async (route) => {
       await route.fulfill({
         status: 200,
         contentType: 'text/javascript',
@@ -143,7 +143,7 @@ test.describe('Site command palette', () => {
       route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ posts: [] }) }),
     );
     // A Pagefind writing hit and a mood FTS hit with a distinctive snippet.
-    await page.route('**/pagefind/pagefind.js', async (route) => {
+    await page.route('**/pagefind/pagefind.js*', async (route) => {
       await route.fulfill({
         status: 200,
         contentType: 'text/javascript',
