@@ -3,7 +3,10 @@ import Layout from '../layouts/Layout.astro';
 import TimelineWheel from '@/features/mood/ui/TimelineWheel.astro';
 import FeedShell from '@/features/mood/ui/FeedShell.astro';
 import SubscribePanel from '@/features/notify/SubscribePanel.astro';
-import BackToTop from '@/features/mood/ui/BackToTop.astro';
+// BackToTop is retired on the feed — the MoodNavbar avatar handles back-to-top
+// now. Import left commented as a marker; the component is still used by
+// /mood/[id]. See the commented render below.
+// import BackToTop from '@/features/mood/ui/BackToTop.astro';
 import MoodNavbar from '@/features/mood/ui/MoodNavbar.astro';
 import {
   loadMoodFeed,
@@ -132,7 +135,10 @@ const skeletonGroups = [
     />
   </main>
   <SubscribePanel variant="mood" id="mood" anchor="right" withTrigger={false} feed={rssHref} turnstileSiteKey={turnstileSiteKey} />
-  <BackToTop hideOnDesktop />
+  {/* Back-to-top is now the MoodNavbar avatar (click it to return to the top),
+      so the floating button is retired on the feed. The component itself is kept
+      — /mood/[id] still renders it — just no longer referenced here. */}
+  {/* <BackToTop hideOnDesktop /> */}
 </Layout>
 
 <style>
