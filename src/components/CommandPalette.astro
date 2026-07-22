@@ -433,10 +433,17 @@ const moodFeed = '/mood/rss.xml';
         group.hidden = !(hasItem || hasStatus);
       });
       visible = items.filter((el) => !el.hidden);
-      // Preserve the highlight across async result injection: keep the active
-      // row if it survived the re-render, else fall back to the top row.
-      const kept = prevActive ? visible.indexOf(prevActive) : -1;
-      setActive(kept >= 0 ? kept : 0, kept < 0 && searching);
+      // Selection preference:
+      //  - if the user has moved to a real (non-AI) row that survives the
+      //    re-render, keep them there — don't yank focus as results stream in;
+      //  - otherwise prefer the first real result, so when live results replace
+      //    the Ask-AI fallback the top hit takes the highlight, not the fallback;
+      //  - only fall back to row 0 (an Ask AI row) when nothing real is visible.
+      const firstReal = visible.findIndex((el) => !el.hasAttribute('data-command-ai'));
+      const onRealRow = prevActive && !prevActive.hasAttribute('data-command-ai');
+      const kept = onRealRow ? visible.indexOf(prevActive) : -1;
+      const target = kept >= 0 ? kept : firstReal >= 0 ? firstReal : 0;
+      setActive(target, searching);
       updateScrims();
     };
 
