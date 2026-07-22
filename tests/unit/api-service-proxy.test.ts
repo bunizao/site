@@ -103,7 +103,7 @@ describe('api service proxy', () => {
 
     process.env.DEV = 'true';
     process.env.API_DEV_ORIGIN = 'https://api.example';
-    globalThis.fetch = (async (input) => {
+    globalThis.fetch = (async (input: RequestInfo | URL) => {
       const request = input instanceof Request ? input : new Request(input);
       upstreamAcceptEncoding = request.headers.get('accept-encoding');
       return Response.json({ results: [{ id: '3675' }] }, {
@@ -112,7 +112,7 @@ describe('api service proxy', () => {
           'Content-Length': '42',
         },
       });
-    }) as typeof fetch;
+    }) as unknown as typeof fetch;
 
     try {
       const response = await proxyApiRequest(new Request(
@@ -124,6 +124,73 @@ describe('api service proxy', () => {
       expect(response.headers.get('content-encoding')).toBeNull();
       expect(response.headers.get('content-length')).toBeNull();
       expect(await response.json()).toEqual({ results: [{ id: '3675' }] });
+    } finally {
+      globalThis.fetch = originalFetch;
+      if (originalDev === undefined) delete process.env.DEV;
+      else process.env.DEV = originalDev;
+      if (originalApiDevOrigin === undefined) delete process.env.API_DEV_ORIGIN;
+      else process.env.API_DEV_ORIGIN = originalApiDevOrigin;
+    }
+  });
+
+  test('caches dev mood responses and serves stale data when refresh fails', async () => {
+    const originalFetch = globalThis.fetch;
+    const originalDev = process.env.DEV;
+    const originalApiDevOrigin = process.env.API_DEV_ORIGIN;
+    let fetchCount = 0;
+
+    process.env.DEV = 'true';
+    process.env.API_DEV_ORIGIN = 'https://api.example';
+    globalThis.fetch = (async () => {
+      fetchCount += 1;
+      if (fetchCount > 1) throw new TypeError('fetch failed');
+      return Response.json({ posts: [{ id: 'dev-cache-test' }] });
+    }) as unknown as typeof fetch;
+
+    try {
+      const url = 'http://localhost:4321/api/v2/mood?cache-test=stale';
+      const first = await proxyApiRequest(new Request(url), { env: {} });
+      const cached = await proxyApiRequest(new Request(url), { env: {} });
+      const stale = await proxyApiRequest(new Request(url, {
+        headers: { 'Cache-Control': 'no-cache' },
+      }), { env: {} });
+
+      expect(first.headers.get('x-buxx-dev-mood-cache')).toBe('MISS');
+      expect(cached.headers.get('x-buxx-dev-mood-cache')).toBe('HIT');
+      expect(stale.headers.get('x-buxx-dev-mood-cache')).toBe('STALE');
+      expect(await stale.json()).toEqual({ posts: [{ id: 'dev-cache-test' }] });
+      expect(fetchCount).toBe(3);
+    } finally {
+      globalThis.fetch = originalFetch;
+      if (originalDev === undefined) delete process.env.DEV;
+      else process.env.DEV = originalDev;
+      if (originalApiDevOrigin === undefined) delete process.env.API_DEV_ORIGIN;
+      else process.env.API_DEV_ORIGIN = originalApiDevOrigin;
+    }
+  });
+
+  test('turns an unavailable dev mood upstream into a bounded 502 response', async () => {
+    const originalFetch = globalThis.fetch;
+    const originalDev = process.env.DEV;
+    const originalApiDevOrigin = process.env.API_DEV_ORIGIN;
+    let fetchCount = 0;
+
+    process.env.DEV = 'true';
+    process.env.API_DEV_ORIGIN = 'https://api.example';
+    globalThis.fetch = (async () => {
+      fetchCount += 1;
+      throw new TypeError('fetch failed');
+    }) as unknown as typeof fetch;
+
+    try {
+      const response = await proxyApiRequest(new Request(
+        'http://localhost:4321/api/v2/mood?cache-test=unavailable',
+      ), { env: {} });
+
+      expect(response.status).toBe(502);
+      expect(response.headers.get('cache-control')).toBe('no-store, max-age=0');
+      expect(await response.json()).toEqual({ error: 'Mood API temporarily unavailable' });
+      expect(fetchCount).toBe(2);
     } finally {
       globalThis.fetch = originalFetch;
       if (originalDev === undefined) delete process.env.DEV;
