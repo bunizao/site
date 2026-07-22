@@ -1440,3 +1440,173 @@ a.portal-feed-row:focus-visible,
     padding: 20px 16px 48px;
   }
 }
+
+/* ── Dual-metric ranked breakdown ───────────────────────────────────────────
+   Ranked bars that carry a second column: volume plus a quality chip (read-rate
+   or share) so a fat bar with a dim chip reads as junk traffic at a glance. */
+.portal-rank {
+  display: grid;
+  gap: 11px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-variant-numeric: tabular-nums;
+}
+
+.portal-rank-row {
+  display: grid;
+  grid-template-columns: minmax(60px, 0.7fr) minmax(80px, 2fr) auto auto;
+  align-items: center;
+  gap: 12px;
+  font-size: var(--portal-text-sm);
+}
+
+.portal-rank-label {
+  overflow: hidden;
+  color: hsl(var(--foreground) / 0.82);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-transform: capitalize;
+}
+
+.portal-rank-track {
+  height: 7px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: hsl(var(--foreground) / 0.06);
+}
+
+.portal-rank-fill {
+  display: block;
+  width: var(--bar, 0%);
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, hsl(var(--portal-chip-accent) / 0.55), hsl(var(--portal-chip-accent)));
+  transform-origin: left;
+  animation: portalBarGrow 500ms var(--portal-ease-out) both;
+}
+
+.portal-rank-value {
+  min-width: 3ch;
+  font-weight: 500;
+  color: hsl(var(--foreground));
+  text-align: right;
+}
+
+.portal-rank-chip {
+  min-width: 4ch;
+  padding: 1px 6px;
+  border-radius: 999px;
+  font-size: var(--portal-text-2xs);
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+.portal-rank-chip[data-tone='success'] { color: hsl(var(--portal-chip-success)); background: hsl(var(--portal-chip-success) / 0.12); }
+.portal-rank-chip[data-tone='neutral'] { color: hsl(var(--portal-chip-accent)); background: hsl(var(--portal-chip-accent) / 0.12); }
+.portal-rank-chip[data-tone='muted'] { color: hsl(var(--muted-foreground) / 0.8); background: hsl(var(--foreground) / 0.05); }
+
+/* ── Geographic choropleth ───────────────────────────────────────────────────
+   Map (left) and hover-synced ranked country list (right). Self-contained SVG,
+   no map library. */
+.portal-geo {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) minmax(220px, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+@media (max-width: 860px) {
+  .portal-geo { grid-template-columns: 1fr; }
+}
+
+.portal-geo-map {
+  position: relative;
+}
+
+.portal-geo-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+.portal-geo-country {
+  fill: hsl(var(--foreground) / 0.05);
+  stroke: hsl(var(--background));
+  stroke-width: 0.4;
+  stroke-linejoin: round;
+  transition: fill var(--portal-dur-fast) var(--portal-ease), stroke var(--portal-dur-fast) var(--portal-ease);
+}
+.portal-geo-country[data-active='true'] { cursor: pointer; }
+.portal-geo-country[data-hover='true'] {
+  stroke: hsl(var(--foreground) / 0.8);
+  stroke-width: 0.9;
+}
+
+.portal-geo-tip {
+  position: absolute;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px 9px;
+  border: 1px solid hsl(var(--border));
+  border-radius: 8px;
+  background: hsl(240 7% 8% / 0.97);
+  box-shadow: var(--portal-shadow-lift);
+  white-space: nowrap;
+  pointer-events: none;
+  transform: translate(-50%, calc(-100% - 8px));
+}
+.portal-geo-tip-name { font-size: var(--portal-text-xs); font-weight: 600; color: hsl(var(--foreground)); }
+.portal-geo-tip-row { font-size: var(--portal-text-2xs); color: hsl(var(--muted-foreground)); font-variant-numeric: tabular-nums; }
+.portal-geo-tip-row strong { color: hsl(var(--foreground)); }
+
+.portal-geo-legend {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+  font-size: var(--portal-text-2xs);
+  color: hsl(var(--muted-foreground));
+}
+.portal-geo-legend-ramp {
+  display: inline-flex;
+  height: 8px;
+  overflow: hidden;
+  border-radius: 999px;
+}
+.portal-geo-legend-ramp span { width: 18px; height: 100%; }
+
+.portal-geo-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  max-height: 344px;
+  margin: 0;
+  padding: 0;
+  overflow: auto;
+  list-style: none;
+  font-variant-numeric: tabular-nums;
+}
+.portal-geo-item {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr) 44px auto 32px;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 6px;
+  border-radius: 7px;
+  font-size: var(--portal-text-sm);
+  transition: background var(--portal-dur-fast) var(--portal-ease);
+  cursor: default;
+}
+.portal-geo-item[data-hover='true'] { background: hsl(var(--foreground) / 0.06); }
+.portal-geo-rank { color: hsl(var(--muted-foreground) / 0.6); font-size: var(--portal-text-2xs); text-align: right; }
+.portal-geo-name { overflow: hidden; color: hsl(var(--foreground) / 0.9); text-overflow: ellipsis; white-space: nowrap; }
+.portal-geo-flag { margin-left: 4px; color: hsl(var(--muted-foreground) / 0.6); }
+.portal-geo-share { height: 6px; overflow: hidden; border-radius: 999px; background: hsl(var(--foreground) / 0.06); }
+.portal-geo-share-fill { display: block; height: 100%; border-radius: inherit; background: hsl(var(--portal-chip-accent) / 0.8); }
+.portal-geo-views { font-weight: 500; color: hsl(var(--foreground)); text-align: right; }
+.portal-geo-rate { font-size: var(--portal-text-2xs); text-align: right; }
+.portal-geo-rate[data-tone='success'] { color: hsl(var(--portal-chip-success)); }
+.portal-geo-rate[data-tone='neutral'] { color: hsl(var(--portal-chip-accent)); }
+.portal-geo-rate[data-tone='muted'] { color: hsl(var(--muted-foreground) / 0.75); }
