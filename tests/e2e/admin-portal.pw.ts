@@ -29,13 +29,12 @@ test.describe('Admin portal newsletters', () => {
     await page.emulateMedia({ reducedMotion: 'reduce' });
   });
 
-  test('shows the analytics API boundary when site-api endpoints are absent', async ({ page }) => {
+  test('shows demo analytics when site-api endpoints are absent', async ({ page }) => {
     await page.goto('/dev/portal/analytics');
 
-    await expect(page.getByText('Analytics API not ready:')).toBeVisible();
-    await expect(page.getByText('GET /api/analytics/summary')).toBeVisible();
-    await expect(page.getByText('GET /api/analytics/events?limit=50')).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'Articles' })).toBeVisible();
+    await expect(page.getByText('Showing demo data — the site-api binding is unavailable in local dev.')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Geography' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Content performance' })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Raw event log' })).toBeVisible();
   });
 
