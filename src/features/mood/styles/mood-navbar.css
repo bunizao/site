@@ -63,7 +63,7 @@
 .mood-navbar__controls {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 4px;
   margin-left: auto;
   pointer-events: auto;
 }
@@ -198,6 +198,8 @@
 }
 
 /* --- Right controls: search + notify ------------------------------------ */
+/* Bare ghost icons, matching the blog topbar: no resting border or fill, just
+   the glyph. A soft rounded wash appears only on hover/focus. */
 .mood-nav-btn {
   display: inline-flex;
   align-items: center;
@@ -206,23 +208,16 @@
   height: 34px;
   padding: 0;
   color: hsl(var(--muted-foreground));
-  background: hsl(var(--background) / 0.6);
-  border: 1px solid hsl(var(--foreground) / 0.08);
+  background: transparent;
+  border: 0;
   border-radius: 999px;
   cursor: pointer;
-  -webkit-backdrop-filter: blur(8px);
-  backdrop-filter: blur(8px);
-  transition:
-    color 0.15s ease,
-    background 0.15s ease,
-    border-color 0.15s ease,
-    transform 0.15s ease;
+  transition: color 0.15s ease, background 0.15s ease, transform 0.15s ease;
 }
 
 .mood-nav-btn:hover {
   color: hsl(var(--foreground));
   background: hsl(var(--foreground) / 0.06);
-  border-color: hsl(var(--foreground) / 0.16);
 }
 
 .mood-nav-btn:active {
@@ -235,8 +230,8 @@
 }
 
 .mood-nav-btn svg {
-  width: 16px;
-  height: 16px;
+  width: 18px;
+  height: 18px;
   flex-shrink: 0;
 }
 
