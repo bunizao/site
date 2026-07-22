@@ -1,0 +1,279 @@
+/* Mood feed top navbar — a fixed, full-width, borderless bar with a
+   progressive (feathered) backdrop blur, echoing the blog topbar's calm. The
+   left identity (avatar + channel title) docks in only after the in-page hero
+   scrolls under the bar; the two right controls (search + notify) stay put. */
+
+.mood-navbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 55;
+  /* Soft tail below the bar: the glass keeps blurring here, then the mask fades
+     it to nothing — no hard edge, no border. Taps pass through the tail. */
+  padding-bottom: 36px;
+  pointer-events: none;
+}
+
+/* The single frosted surface. inset:0 stretches it over the bar plus its tail;
+   the mask dissolves the bottom into the page so there is no visible seam. */
+.mood-navbar__fade {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    to bottom,
+    hsl(var(--background) / 0.55),
+    hsl(var(--background) / 0.28)
+  );
+  -webkit-backdrop-filter: blur(22px) saturate(1.7);
+  backdrop-filter: blur(22px) saturate(1.7);
+  -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 40px), transparent);
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 40px), transparent);
+}
+
+/* WebKit re-filters this every scroll frame, and backdrop-filter cost scales
+   with the kernel radius. A tighter blur with a slightly stronger tint reads
+   the same through the mask but stays inside the iOS frame budget. */
+.ua-webkit .mood-navbar__fade {
+  background: linear-gradient(
+    to bottom,
+    hsl(var(--background) / 0.66),
+    hsl(var(--background) / 0.36)
+  );
+  -webkit-backdrop-filter: blur(12px) saturate(1.5);
+  backdrop-filter: blur(12px) saturate(1.5);
+}
+
+/* The controls sit on the shared reading measure so the avatar aligns with the
+   feed's left edge and the buttons with its right edge. */
+.mood-navbar__bar {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 52px;
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 0 16px;
+  /* The row is transparent; only its controls catch taps. */
+  pointer-events: none;
+}
+
+.mood-navbar__controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+  pointer-events: auto;
+}
+
+/* --- Left identity: docked avatar slot + channel title ------------------ */
+/* The identity row is always laid out; its avatar is supplied by the flyer
+   (below) and its title fades in under the scroll script. Taps only land once
+   the avatar has docked. */
+.mood-nav-identity {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  margin: 0;
+  padding: 4px 8px 4px 4px;
+  border: 0;
+  border-radius: 999px;
+  background: none;
+  color: hsl(var(--foreground));
+  font: inherit;
+  cursor: pointer;
+  pointer-events: none;
+  transition: background 0.15s ease;
+}
+
+.mood-navbar.is-docked .mood-nav-identity {
+  pointer-events: auto;
+}
+
+.mood-nav-identity:hover {
+  background: hsl(var(--foreground) / 0.05);
+}
+
+.mood-nav-identity:focus-visible {
+  outline: 2px solid hsl(var(--foreground) / 0.5);
+  outline-offset: 2px;
+}
+
+/* Reserves the avatar's spot in the row; the flyer lands on top of it. */
+.mood-nav-avatar-slot {
+  display: inline-flex;
+  width: 30px;
+  height: 30px;
+  flex: none;
+  border-radius: 50%;
+}
+
+/* The shared element: one avatar, fixed and driven entirely by the scroll
+   script. It starts scaled up exactly over the hero avatar and settles onto the
+   slot above. transform-origin is the top-left corner so translate + scale keep
+   the start/end boxes aligned. */
+.mood-nav-avatar-flyer {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  overflow: hidden;
+  background: hsl(var(--foreground) / 0.05);
+  transform-origin: 0 0;
+  will-change: transform;
+  pointer-events: none;
+  z-index: 2;
+  /* Hidden until the script has measured and placed it (no top-left flash). */
+  visibility: hidden;
+}
+
+.mood-navbar.is-flyer-active .mood-nav-avatar-flyer {
+  visibility: visible;
+}
+
+.mood-nav-avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.mood-nav-avatar-img[hidden] {
+  display: none;
+}
+
+.mood-nav-title {
+  min-width: 0;
+  max-width: min(52vw, 300px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-code);
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+  color: hsl(var(--foreground));
+  /* Opacity + slide are written by the scroll script as the avatar docks. */
+  opacity: 0;
+  will-change: opacity, transform;
+}
+
+/* The title mirrors the channel's rich HTML (links, custom emoji), so keep its
+   inner marks inline and quiet. */
+.mood-nav-title a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.mood-nav-title .tg-emoji {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.05em;
+  height: 1.05em;
+  vertical-align: -0.12em;
+}
+
+.mood-nav-title .tg-emoji img {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.mood-nav-title .tg-emoji[data-emoji-animated='true'] img {
+  display: none;
+}
+
+.mood-nav-title .tg-emoji-anim,
+.mood-nav-title .tg-emoji-anim svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* --- Right controls: search + notify ------------------------------------ */
+.mood-nav-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  color: hsl(var(--muted-foreground));
+  background: hsl(var(--background) / 0.6);
+  border: 1px solid hsl(var(--foreground) / 0.08);
+  border-radius: 999px;
+  cursor: pointer;
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  transition:
+    color 0.15s ease,
+    background 0.15s ease,
+    border-color 0.15s ease,
+    transform 0.15s ease;
+}
+
+.mood-nav-btn:hover {
+  color: hsl(var(--foreground));
+  background: hsl(var(--foreground) / 0.06);
+  border-color: hsl(var(--foreground) / 0.16);
+}
+
+.mood-nav-btn:active {
+  transform: scale(0.94);
+}
+
+.mood-nav-btn:focus-visible {
+  outline: 2px solid hsl(var(--foreground) / 0.5);
+  outline-offset: 2px;
+}
+
+.mood-nav-btn svg {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+/* Anchored mood deep-links (#mood-<id>) must land below the fixed bar, not
+   under it. Scoped to the feed page via :has so it never leaks elsewhere. */
+:root:has(main.mood-route) {
+  scroll-padding-top: 68px;
+}
+
+@media (max-width: 480px) {
+  .mood-navbar__bar {
+    height: 48px;
+    padding: 0 12px;
+    gap: 8px;
+  }
+
+  .mood-nav-avatar-slot,
+  .mood-nav-avatar-flyer {
+    width: 28px;
+    height: 28px;
+  }
+
+  .mood-nav-title {
+    font-size: 13px;
+  }
+
+  .mood-nav-btn {
+    width: 32px;
+    height: 32px;
+  }
+}
+
+/* The avatar's travel is scroll-scrubbed (driven by the reader, not an
+   autonomous animation), so it stays on under reduced motion; only the button
+   micro-transitions are trimmed. */
+@media (prefers-reduced-motion: reduce) {
+  .mood-nav-btn {
+    transition: color 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+  }
+}

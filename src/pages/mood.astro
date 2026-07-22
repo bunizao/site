@@ -4,6 +4,7 @@ import TimelineWheel from '@/features/mood/ui/TimelineWheel.astro';
 import FeedShell from '@/features/mood/ui/FeedShell.astro';
 import SubscribePanel from '@/features/notify/SubscribePanel.astro';
 import BackToTop from '@/features/mood/ui/BackToTop.astro';
+import MoodNavbar from '@/features/mood/ui/MoodNavbar.astro';
 import {
   loadMoodFeed,
   normalizeMoodApiSource,
@@ -18,7 +19,7 @@ import { loadInitialMoodFeed as loadInitialMoodFeedWindow } from '@/features/moo
 import { getMoodFeedPreloadImage } from '@/features/mood/shared/lcp-preload';
 import { normalizeMoodTagSlug } from '@/features/mood/shared/tag-filter';
 import { isE2ESiteFixtureEnabled } from '@/lib/e2e';
-import { readEnv, readPublicEnv } from '@/lib/runtime/env';
+import { readPublicEnv } from '@/lib/runtime/env';
 import '@/styles/mood-gallery.css';
 import '@/styles/listening.css';
 
@@ -31,8 +32,6 @@ const moodAlternateUrl = new URL(canonicalUrl);
 const rssHref = '/mood/rss.xml';
 const rss = { href: rssHref, title: 'Moods RSS' };
 const oembed = { href: `/api/oembed.json?url=${encodeURIComponent(moodAlternateUrl.href)}`, title: 'Mood Embed' };
-const channel = readEnv(Astro.locals, 'CHANNEL');
-const telegramUrl = channel ? `https://t.me/${channel}` : '';
 const turnstileSiteKey = isE2ESiteFixtureEnabled(Astro.locals)
   ? ''
   : readPublicEnv(Astro.locals, 'TURNSTILE_SITE_KEY');
@@ -116,181 +115,11 @@ const skeletonGroups = [
   oembed={oembed}
   preloadImages={preloadImages}
 >
-  <!-- Inject page-specific header actions -->
-  <script is:inline define:vars={{ telegramUrl, turnstileSiteKey }}>
-    (() => {
-      const siteNav = document.querySelector('[data-site-nav]');
-      if (siteNav) siteNav.style.display = 'none';
-
-      const headerActions = document.querySelector('[data-header-actions]');
-      if (!headerActions) return;
-
-      // Mood carries the prominent, labelled hero search doorway, so the global
-      // header search pill would be a second door to the very same palette. Drop
-      // it here — one search entry on this surface, not two.
-      headerActions.querySelector('.header-action-btn--cmdk')?.remove();
-
-      if (headerActions.querySelector('[data-mood-header-action]')) {
-        return;
-      }
-
-      // RSS is no longer a navbar button — the feed stays reachable from the
-      // Notify panel (feed prop) and the site-wide ⌘K palette ("Subscribe via
-      // RSS" action). One search/subscribe surface, not scattered icons.
-      let telegramBtn = null;
-      if (telegramUrl) {
-        telegramBtn = document.createElement('a');
-        telegramBtn.className = 'header-action-btn';
-        telegramBtn.href = telegramUrl;
-        telegramBtn.target = '_blank';
-        telegramBtn.rel = 'noopener noreferrer';
-        telegramBtn.title = 'View on Telegram';
-        telegramBtn.dataset.moodHeaderAction = 'telegram';
-        telegramBtn.innerHTML = `
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <path d="m22 2-7 20-4-9-9-4Z"></path>
-            <path d="M22 2 11 13"></path>
-          </svg>
-          <span class="header-action-btn-label">Telegram</span>
-        `;
-      }
-
-      const notifyBtn = document.createElement('button');
-      notifyBtn.className = 'header-action-btn';
-      notifyBtn.type = 'button';
-      notifyBtn.title = 'Subscribe to notifications';
-      notifyBtn.dataset.moodHeaderAction = 'notify';
-      notifyBtn.setAttribute('data-subscribe-toggle', 'mood');
-      notifyBtn.setAttribute('aria-haspopup', 'dialog');
-      notifyBtn.setAttribute('aria-expanded', 'false');
-      notifyBtn.innerHTML = `
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-             stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"></path>
-          <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"></path>
-        </svg>
-        <span class="header-action-btn-label">Notify</span>
-      `;
-
-      const themeDropdown = headerActions.querySelector('[data-theme-dropdown]');
-      if (themeDropdown) {
-        headerActions.insertBefore(notifyBtn, themeDropdown);
-        if (telegramBtn) {
-          headerActions.insertBefore(telegramBtn, themeDropdown);
-        }
-      } else {
-        headerActions.appendChild(notifyBtn);
-        if (telegramBtn) {
-          headerActions.appendChild(telegramBtn);
-        }
-      }
-
-      const notifyPanel = document.querySelector('.subscribe-panel');
-      if (notifyPanel instanceof HTMLElement) {
-        notifyPanel.dataset.turnstileSiteKey = turnstileSiteKey;
-      }
-
-      const registerWithGSAP = () => {
-        if (window.headerBtnAnimations) {
-          if (telegramBtn) {
-            window.headerBtnAnimations.register(telegramBtn);
-          }
-          window.headerBtnAnimations.register(notifyBtn);
-        } else {
-          setTimeout(registerWithGSAP, 100);
-        }
-      };
-      registerWithGSAP();
-    })();
-  </script>
-
-  <!-- Compact header buttons auto-collapse on scroll past hero -->
-  <script>
-    document.addEventListener('DOMContentLoaded', () => {
-      const heroEl = document.querySelector('[data-mood-hero]');
-      const headerActions = document.querySelector('[data-header-actions]');
-      if (!heroEl || !headerActions) return;
-
-      const isCompactViewport = () => window.innerWidth < 900;
-      let gsapPromise: Promise<typeof import('gsap')['default']> | null = null;
-      const loadGsap = () => {
-        gsapPromise ??= import('gsap').then(({ default: gsap }) => gsap);
-        return gsapPromise;
-      };
-
-      let isCollapsed = false;
-
-      const collapseButtons = async () => {
-        if (isCollapsed) return;
-        isCollapsed = true;
-        headerActions.classList.add('is-collapsed');
-
-        const gsap = await loadGsap();
-        gsap.to(headerActions, {
-          x: '100%',
-          opacity: 0,
-          duration: 0.35,
-          ease: 'power2.inOut',
-        });
-      };
-
-      const expandButtons = async () => {
-        if (!isCollapsed) return;
-        isCollapsed = false;
-        headerActions.classList.remove('is-collapsed');
-
-        const gsap = await loadGsap();
-        gsap.to(headerActions, {
-          x: 0,
-          opacity: 1,
-          duration: 0.3,
-          ease: 'power2.out',
-        });
-      };
-
-      // Use Intersection Observer to detect when hero leaves viewport
-      const observer = new IntersectionObserver(
-        (entries) => {
-          if (!isCompactViewport()) {
-            if (isCollapsed) {
-              isCollapsed = false;
-              headerActions.classList.remove('is-collapsed');
-              headerActions.removeAttribute('style');
-            }
-            return;
-          }
-
-          entries.forEach((entry) => {
-            if (entry.isIntersecting) {
-              void expandButtons();
-            } else {
-              void collapseButtons();
-            }
-          });
-        },
-        {
-          // Trigger when hero bottom edge crosses viewport top
-          rootMargin: '0px 0px 0px 0px',
-          threshold: 0,
-        }
-      );
-
-      observer.observe(heroEl);
-
-      // Handle resize: reset state when switching between mobile/desktop
-      let resizeTimer: ReturnType<typeof setTimeout> | undefined;
-      window.addEventListener('resize', () => {
-        clearTimeout(resizeTimer);
-        resizeTimer = setTimeout(() => {
-          if (!isCompactViewport() && isCollapsed) {
-            isCollapsed = false;
-            headerActions.classList.remove('is-collapsed');
-            headerActions.removeAttribute('style');
-          }
-        }, 100);
-      });
-    });
-  </script>
+  <!-- Mood owns its own top chrome: the default site nav + global header
+       actions are hidden (via the scoped rule below) and replaced by
+       MoodNavbar, a borderless progressive-blur bar with the docked channel
+       identity plus search + notify. -->
+  <MoodNavbar initialChannel={initialFeed?.channel} />
   <main class="page-container mood-route">
     <TimelineWheel />
     <FeedShell
@@ -307,6 +136,14 @@ const skeletonGroups = [
 </Layout>
 
 <style>
+  /* Mood renders its own MoodNavbar, so the layout's default site nav and
+     global header actions are hidden on this route. Scoped via :has so it only
+     applies to the feed page and never leaks to the rest of the site. */
+  :global(body:has(main.mood-route) [data-site-nav]),
+  :global(body:has(main.mood-route) [data-header-actions]) {
+    display: none !important;
+  }
+
   :global(.mood-route) {
     font-family: var(--font-sans);
   }

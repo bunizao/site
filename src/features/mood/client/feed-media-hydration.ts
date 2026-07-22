@@ -364,6 +364,28 @@ export function createFeedMediaHydrator(
     }
 
     heroEl.classList.add('is-loaded');
+
+    // Keep the docked navbar identity (MoodNavbar) fed from the same channel
+    // data so the compact echo matches the hero once it docks in.
+    const navAvatar = document.querySelector<HTMLImageElement>('[data-mood-nav-avatar-img]');
+    if (navAvatar && channel.avatar) {
+      if (navAvatar.getAttribute('src') !== channel.avatar) {
+        navAvatar.src = channel.avatar;
+      }
+      navAvatar.hidden = false;
+    }
+
+    const navTitle = document.querySelector<HTMLElement>('[data-mood-nav-title]');
+    if (navTitle && navTitle.dataset.moodNavTitleReady !== 'true') {
+      if (channel.titleHTML) {
+        navTitle.innerHTML = channel.titleHTML;
+        navTitle.dataset.moodNavTitleReady = 'true';
+        void animatedEmoji.hydrate(navTitle);
+      } else if (channel.title) {
+        navTitle.textContent = channel.title;
+        navTitle.dataset.moodNavTitleReady = 'true';
+      }
+    }
   };
 
   return {
