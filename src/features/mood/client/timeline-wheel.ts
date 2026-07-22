@@ -2,6 +2,7 @@ import type gsap from 'gsap';
 import { slotText, type SlotOptions, type SlotTextController } from 'slot-text';
 import 'slot-text/style.css';
 import { getTimelineDateState } from '@/features/mood/client/timeline-date-tracker';
+import { getMoodFeedTopHref } from '@/features/mood/shared/feed-anchor';
 
 type GsapModule = typeof gsap;
 
@@ -27,6 +28,12 @@ export function mountTimelineWheel(
   // feed top, and the existing scroll sync winds the dial back as you go.
   const topButton = wheel.querySelector('[data-timeline-top]') as HTMLButtonElement | null;
   const handleTopClick = (): void => {
+    const topHref = getMoodFeedTopHref(new URL(window.location.href));
+    if (topHref) {
+      window.location.assign(topHref);
+      return;
+    }
+
     window.scrollTo({ top: 0, behavior: prefersReducedMotion ? 'auto' : 'smooth' });
   };
   topButton?.addEventListener('click', handleTopClick);

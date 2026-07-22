@@ -21,6 +21,29 @@ export function readMoodFeedAnchorId(url: URL): string {
   return '';
 }
 
+export function getMoodFeedTopHref(url: URL): string {
+  const target = new URL(url.href);
+  let changed = false;
+
+  for (const name of ['post', 'id']) {
+    if (isMoodFeedAnchorId(target.searchParams.get(name) ?? '')) {
+      target.searchParams.delete(name);
+      changed = true;
+    }
+  }
+
+  for (const [key, value] of target.searchParams) {
+    if (!value.trim() && isMoodFeedAnchorId(key)) {
+      target.searchParams.delete(key);
+      changed = true;
+    }
+  }
+
+  if (!changed) return '';
+  target.hash = '';
+  return `${target.pathname}${target.search}`;
+}
+
 export function getMoodFeedAnchorFragmentId(anchorId: string): string {
   const id = anchorId.trim();
   return isMoodFeedAnchorId(id) ? `mood-${id}` : '';

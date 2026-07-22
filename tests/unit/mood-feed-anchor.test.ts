@@ -7,6 +7,7 @@ import {
   getMoodFeedAnchorFragmentId,
   getMoodFeedAnchorHref,
   getMoodFeedAnchorWindowBeforeCursor,
+  getMoodFeedTopHref,
   isMoodFeedAnchorId,
   mergeMoodFeedWindowPosts,
   moodFeedPostHasId,
@@ -25,6 +26,14 @@ describe('mood feed anchors', () => {
     expect(isMoodFeedAnchorId('0')).toBe(false);
     expect(isMoodFeedAnchorId('3196x')).toBe(false);
     expect(readMoodFeedAnchorId(new URL('https://example.com/mood?tag=life'))).toBe('');
+  });
+
+  test('builds the real feed top URL from anchored URLs', () => {
+    expect(getMoodFeedTopHref(new URL('https://example.com/mood?3196'))).toBe('/mood');
+    expect(getMoodFeedTopHref(new URL('https://example.com/mood?post=3196&source=archive#focus')))
+      .toBe('/mood?source=archive');
+    expect(getMoodFeedTopHref(new URL('https://example.com/mood?id=3196&fresh'))).toBe('/mood?fresh=');
+    expect(getMoodFeedTopHref(new URL('https://example.com/mood?tag=life'))).toBe('');
   });
 
   test('builds deterministic feed return anchors', () => {

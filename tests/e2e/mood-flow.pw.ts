@@ -1602,7 +1602,7 @@ test.describe('Mood routes', () => {
       .toBeLessThan(0.1);
   });
 
-  test('keeps the desktop timeline wheel flat on hover while preserving the top control', async ({ page }) => {
+  test('returns anchored feeds to the latest window from the desktop timeline wheel', async ({ page }) => {
     const moodId = '991000';
     const channel = {
       slug: 'e2e',
@@ -1649,7 +1649,7 @@ test.describe('Mood routes', () => {
       });
     });
 
-    await page.goto('/mood', { waitUntil: 'domcontentloaded' });
+    await page.goto(`/mood?${moodId}`, { waitUntil: 'domcontentloaded' });
     await expect(page.locator('[data-mood-feed]')).not.toHaveClass(/is-hidden/, { timeout: 30_000 });
 
     const wheel = page.locator('[data-timeline-wheel]');
@@ -1719,6 +1719,7 @@ test.describe('Mood routes', () => {
     expect(topButtonOwnsLabelHitArea).toBe(true);
 
     await page.mouse.click(labelCenter.x, labelCenter.y);
+    await page.waitForURL((url) => url.pathname === '/mood' && url.search === '');
     await expect.poll(() => page.evaluate(() => Math.round(window.scrollY))).toBe(0);
   });
 
