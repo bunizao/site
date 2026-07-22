@@ -26,7 +26,7 @@ import {
   Moon,
   Monitor,
   Palette,
-  Rss,
+  Bell,
   X,
 } from 'lucide-react';
 import {
@@ -37,7 +37,7 @@ import {
   PerplexityIcon,
 } from '@/components/icons';
 import Kbd from '@/components/Kbd.astro';
-import { blog, meta, navLinks, profile } from '@/data/site';
+import { meta, navLinks, profile } from '@/data/site';
 import type { ComponentType } from 'react';
 
 type IconComponent = ComponentType<{ className?: string }>;
@@ -76,10 +76,21 @@ const navKeywords: Record<string, string> = {
   '/components': 'components ui specimens 组件',
 };
 
-// RSS is no longer a navbar button — the feeds live here as palette actions so
-// they stay one keystroke away without cluttering the header.
-const blogFeed = blog.feed;
-const moodFeed = '/mood/rss.xml';
+// Vim-style "go to" shortcuts (GitHub's g-then-key): press g, then the letter,
+// to jump to that page from anywhere. This map is the single source of truth —
+// the nav rows render its keycaps and the script binds the handler from the DOM.
+const navShortcuts: Record<string, string> = {
+  '/': 'H',
+  '/projects': 'P',
+  '/blog': 'B',
+  '/mood': 'M',
+  '/components': 'C',
+};
+
+// Subscribe opens the real notify form (email + RSS in one). This href is the
+// progressive fallback; when the current page already carries a subscribe panel
+// the script opens it inline instead of navigating.
+const subscribeHref = '/mood/subscribe';
 ---
 
 <dialog
@@ -95,7 +106,7 @@ const moodFeed = '/mood/rss.xml';
       <input
         type="text"
         data-command-input
-        placeholder="Type a command or search…"
+        placeholder="Search…"
         autocomplete="off"
         autocorrect="off"
         autocapitalize="off"
@@ -120,17 +131,22 @@ const moodFeed = '/mood/rss.xml';
       <div class="cmdk-list" id="cmdk-list" data-command-list role="listbox" aria-label="Commands">
       <div class="cmdk-group" role="group" data-command-group data-group="navigation">
         <div class="cmdk-heading">Navigation</div>
-        <a class="cmdk-item" role="option" data-command-item data-haystack={`home ${navKeywords['/']}`} href="/">
+        <a class="cmdk-item" role="option" data-command-item data-shortcut="H" data-haystack={`home ${navKeywords['/']}`} href="/">
           <Home className="cmdk-icon" aria-hidden="true" />
           <span class="cmdk-label">Home</span>
+          <span class="cmdk-shortcut" aria-hidden="true"><kbd>G</kbd><kbd>H</kbd></span>
         </a>
         {navLinks.map((link) => {
           const Icon = navIcons[link.href] ?? Home;
           const haystack = `${link.label.toLowerCase()} ${navKeywords[link.href] ?? ''}`;
+          const shortcut = navShortcuts[link.href];
           return (
-            <a class="cmdk-item" role="option" data-command-item data-haystack={haystack} href={link.href}>
+            <a class="cmdk-item" role="option" data-command-item data-shortcut={shortcut} data-haystack={haystack} href={link.href}>
               <Icon className="cmdk-icon" aria-hidden="true" />
               <span class="cmdk-label">{link.label}</span>
+              {shortcut && (
+                <span class="cmdk-shortcut" aria-hidden="true"><kbd>G</kbd><kbd>{shortcut}</kbd></span>
+              )}
             </a>
           );
         })}      </div>
@@ -193,31 +209,19 @@ const moodFeed = '/mood/rss.xml';
             </button>
           </span>
         </div>
+        <!-- One Subscribe entry, not scattered RSS links: it opens the notify
+             form (email + channels + RSS in one). The href is the no-JS/new-tab
+             fallback; the script opens the in-page panel inline when present. -->
         <a
           class="cmdk-item"
           role="option"
           data-command-item
-          data-external
-          data-haystack="rss feed subscribe blog writing 订阅 博客"
-          href={blogFeed}
-          target="_blank"
-          rel="noopener noreferrer"
+          data-command-subscribe
+          data-haystack="subscribe notify email newsletter rss feed 订阅 邮件 通知 博客 心情"
+          href={subscribeHref}
         >
-          <Rss className="cmdk-icon" aria-hidden="true" />
-          <span class="cmdk-label">Subscribe to Writing (RSS)</span>
-        </a>
-        <a
-          class="cmdk-item"
-          role="option"
-          data-command-item
-          data-external
-          data-haystack="rss feed subscribe mood moods 订阅 心情"
-          href={moodFeed}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Rss className="cmdk-icon" aria-hidden="true" />
-          <span class="cmdk-label">Subscribe to Moods (RSS)</span>
+          <Bell className="cmdk-icon" aria-hidden="true" />
+          <span class="cmdk-label">Subscribe</span>
         </a>
       </div>
 
@@ -275,7 +279,7 @@ const moodFeed = '/mood/rss.xml';
     </div>
 
     <div class="cmdk-footer" aria-hidden="true">
-      <span>Go to page <Kbd>↵</Kbd></span>
+      <span><span data-footer-verb>Go to page</span> <Kbd>↵</Kbd></span>
       <span class="cmdk-footer-sep"></span>
       <span>Exit <Kbd>esc</Kbd></span>
     </div>
@@ -306,11 +310,29 @@ const moodFeed = '/mood/rss.xml';
     const moodsStatus = dialog.querySelector<HTMLElement>('[data-moods-status]');
     const aiContext = dialog.dataset.aiContext ?? '';
     const aiQueryEcho = dialog.querySelector<HTMLElement>('[data-ai-query]');
+    const footerVerb = dialog.querySelector<HTMLElement>('[data-footer-verb]');
     if (!input) return;
 
     let items: HTMLElement[] = [];
     let visible: HTMLElement[] = [];
     let activeIndex = 0;
+
+    // Search scope follows the surface you opened from: on /blog you're looking
+    // for posts, on /mood for moods — so the live search runs only that backend
+    // and the placeholder names it. Everywhere else it's a global search.
+    type SearchScope = 'writing' | 'moods' | 'all';
+    let searchScope: SearchScope = 'all';
+    const resolveScope = (): SearchScope => {
+      const path = window.location.pathname;
+      if (path.startsWith('/mood')) return 'moods';
+      if (path.startsWith('/blog')) return 'writing';
+      return 'all';
+    };
+    const SCOPE_PLACEHOLDER: Record<SearchScope, string> = {
+      writing: 'Search posts…',
+      moods: 'Search moods…',
+      all: 'Search posts, moods, commands…',
+    };
 
     // Inline theme switch. The Appearance row is a single option in ↑/↓ nav;
     // its three segments are a radio group driven by the Layout theme
@@ -379,6 +401,19 @@ const moodFeed = '/mood/rss.xml';
       return haystack.includes(query) ? 1 : 0;
     };
 
+    // The footer carries the enter affordance for the whole list (replacing a
+    // per-row ↵), so its verb tracks what Enter will actually do on the active
+    // row: navigate, copy, subscribe, open externally, or flip the theme.
+    const updateFooterAction = (el: HTMLElement | undefined) => {
+      if (!footerVerb || !el) return;
+      let verb = 'Go to page';
+      if (el.hasAttribute('data-command-copy')) verb = 'Copy';
+      else if (el.hasAttribute('data-command-subscribe')) verb = 'Subscribe';
+      else if (el.hasAttribute('data-command-segmented')) verb = 'Switch theme';
+      else if (el.hasAttribute('data-command-ai') || el.hasAttribute('data-external')) verb = 'Open';
+      footerVerb.textContent = verb;
+    };
+
     const setActive = (index: number, scroll = true) => {
       if (visible.length === 0) return;
       activeIndex = Math.max(0, Math.min(index, visible.length - 1));
@@ -388,6 +423,7 @@ const moodFeed = '/mood/rss.xml';
         el.setAttribute('aria-selected', el === activeEl ? 'true' : 'false');
       });
       input.setAttribute('aria-activedescendant', activeEl.id);
+      updateFooterAction(activeEl);
       if (scroll) activeEl.scrollIntoView({ block: 'nearest' });
     };
 
@@ -419,9 +455,10 @@ const moodFeed = '/mood/rss.xml';
           return;
         }
         // Recent-writing rows fill the idle state only; once a query is typed,
-        // live results take their place.
+        // live results take their place. They're writing content, so they stay
+        // out of the moods-scoped surface entirely.
         if (el.hasAttribute('data-command-recent')) {
-          el.hidden = searching;
+          el.hidden = searching || searchScope === 'moods';
           return;
         }
         el.hidden = matchScore(query, el.dataset.haystack ?? '') === 0;
@@ -578,10 +615,14 @@ const moodFeed = '/mood/rss.xml';
         filter();
         return;
       }
+      // Scope decides which backends fire: only Writing on /blog, only Moods on
+      // /mood, both elsewhere. The out-of-scope group never even shows a status.
+      const runWriting = searchScope !== 'moods';
+      const runMoods = searchScope !== 'writing';
       searchTimer = window.setTimeout(() => {
         const generation = (searchGeneration += 1);
-        if (writingStatus) writingStatus.textContent = 'Searching…';
-        if (moodsStatus) moodsStatus.textContent = 'Searching…';
+        if (runWriting && writingStatus) writingStatus.textContent = 'Searching…';
+        if (runMoods && moodsStatus) moodsStatus.textContent = 'Searching…';
         filter();
 
         const settle = () => {
@@ -590,34 +631,38 @@ const moodFeed = '/mood/rss.xml';
           filter();
         };
 
-        writingResults(query)
-          .then((hits) => {
-            if (generation !== searchGeneration) return;
-            renderWriting(hits);
-            if (writingStatus) writingStatus.textContent = '';
-            settle();
-          })
-          .catch(() => {
-            if (generation !== searchGeneration) return;
-            if (writingStatus) writingStatus.textContent = '';
-            settle();
-          });
+        if (runWriting) {
+          writingResults(query)
+            .then((hits) => {
+              if (generation !== searchGeneration) return;
+              renderWriting(hits);
+              if (writingStatus) writingStatus.textContent = '';
+              settle();
+            })
+            .catch(() => {
+              if (generation !== searchGeneration) return;
+              if (writingStatus) writingStatus.textContent = '';
+              settle();
+            });
+        }
 
-        moodController?.abort();
-        moodController = new AbortController();
-        searchMoods(query, { signal: moodController.signal, limit: RESULT_LIMIT })
-          .then((results) => {
-            if (generation !== searchGeneration) return;
-            renderMoods(results);
-            if (moodsStatus) moodsStatus.textContent = '';
-            settle();
-          })
-          .catch((error) => {
-            if (generation !== searchGeneration) return;
-            if (error instanceof DOMException && error.name === 'AbortError') return;
-            if (moodsStatus) moodsStatus.textContent = '';
-            settle();
-          });
+        if (runMoods) {
+          moodController?.abort();
+          moodController = new AbortController();
+          searchMoods(query, { signal: moodController.signal, limit: RESULT_LIMIT })
+            .then((results) => {
+              if (generation !== searchGeneration) return;
+              renderMoods(results);
+              if (moodsStatus) moodsStatus.textContent = '';
+              settle();
+            })
+            .catch((error) => {
+              if (generation !== searchGeneration) return;
+              if (error instanceof DOMException && error.name === 'AbortError') return;
+              if (moodsStatus) moodsStatus.textContent = '';
+              settle();
+            });
+        }
       }, SEARCH_DEBOUNCE_MS);
     };
 
@@ -639,10 +684,23 @@ const moodFeed = '/mood/rss.xml';
       if (dialog.open) dialog.close();
     };
 
-    const activate = (el: HTMLElement) => {
+    const activate = (el: HTMLElement, event?: Event) => {
       // The Appearance row is a container for the segment radios; a click on its
       // body (not a segment) does nothing and never closes the palette.
       if (el.hasAttribute('data-command-segmented')) return;
+      // Subscribe: prefer the current page's own notify panel so it opens inline
+      // (mood, blog); close the palette first so the panel isn't hidden under the
+      // top-layer dialog. With no panel here, let the anchor navigate to its
+      // canonical subscribe surface instead.
+      if (el.hasAttribute('data-command-subscribe')) {
+        const toggle = document.querySelector<HTMLElement>('[data-subscribe-toggle]');
+        if (toggle) {
+          event?.preventDefault();
+          close();
+          requestAnimationFrame(() => toggle.click());
+          return;
+        }
+      }
       const copy = el.dataset.commandCopy;
       if (copy) {
         const label = el.querySelector<HTMLElement>('.cmdk-label');
@@ -671,18 +729,22 @@ const moodFeed = '/mood/rss.xml';
         const index = visible.indexOf(el);
         if (index >= 0 && visible[activeIndex] !== el) setActive(index, false);
       });
-      el.addEventListener('click', () => activate(el));
+      el.addEventListener('click', (event) => activate(el, event));
     };
 
     const collectItems = () => {
       items = Array.from(dialog.querySelectorAll<HTMLElement>('[data-command-item]'));
       items.forEach((el, i) => {
         el.id = `cmdk-item-${i}`;
-        // Append the trailing affordance once. CSS decides ↗ (external) vs ↵
-        // (active in-site) from the row's own attributes and state, so this is
-        // just an empty hook — no per-row branching here. The segmented row
-        // owns its right edge (the switch), so it gets no trail.
-        if (!el.hasAttribute('data-command-segmented') && !el.querySelector('.cmdk-trail')) {
+        // Append the trailing affordance once. CSS draws ↗ on external rows from
+        // the row's own attributes, so this is just an empty hook. The segmented
+        // row owns its right edge (the switch) and nav rows own theirs (the go-to
+        // keycaps), so neither gets a trail.
+        if (
+          !el.hasAttribute('data-command-segmented') &&
+          !el.hasAttribute('data-shortcut') &&
+          !el.querySelector('.cmdk-trail')
+        ) {
           const trail = document.createElement('span');
           trail.className = 'cmdk-trail';
           trail.setAttribute('aria-hidden', 'true');
@@ -734,6 +796,8 @@ const moodFeed = '/mood/rss.xml';
 
     const open = () => {
       if (dialog.open) return;
+      searchScope = resolveScope();
+      input.placeholder = SCOPE_PLACEHOLDER[searchScope];
       input.value = '';
       updateQueryTargets('');
       syncSegments();
@@ -746,7 +810,9 @@ const moodFeed = '/mood/rss.xml';
       input.focus();
       // Dialog has no layout until it is shown, so measure scrims next frame.
       requestAnimationFrame(updateScrims);
-      void loadPosts();
+      // Recent posts are writing content and the dev fallback source — skip the
+      // fetch on the moods surface, where writing never shows.
+      if (searchScope !== 'moods') void loadPosts();
     };
 
     input.addEventListener('input', () => {
@@ -810,6 +876,46 @@ const moodFeed = '/mood/rss.xml';
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
         event.preventDefault();
         dialog.open ? close() : open();
+      }
+    });
+
+    // Vim-style "go to" navigation: press g, then a page key, from anywhere on
+    // the site. The map is read from the nav rows' data-shortcut so the keycaps
+    // shown in the palette and the live binding can never drift apart.
+    const gMap = new Map<string, string>();
+    dialog.querySelectorAll<HTMLAnchorElement>('[data-command-item][data-shortcut]').forEach((el) => {
+      const key = el.dataset.shortcut?.toLowerCase();
+      if (key) gMap.set(key, el.getAttribute('href') || '/');
+    });
+    const isTypingTarget = (target: EventTarget | null) => {
+      const node = target as HTMLElement | null;
+      if (!node) return false;
+      const tag = node.tagName;
+      return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || node.isContentEditable;
+    };
+    let gPending = false;
+    let gTimer: number | undefined;
+    document.addEventListener('keydown', (event) => {
+      // Never hijack a shortcut chord, a text field, or the open palette (where
+      // "g" is just a character being typed into the search box).
+      if (event.metaKey || event.ctrlKey || event.altKey) return;
+      if (dialog.open || isTypingTarget(event.target)) return;
+      const key = event.key.toLowerCase();
+      if (gPending) {
+        gPending = false;
+        window.clearTimeout(gTimer);
+        const href = gMap.get(key);
+        if (href) {
+          event.preventDefault();
+          window.location.href = href;
+        }
+        return;
+      }
+      if (key === 'g') {
+        gPending = true;
+        gTimer = window.setTimeout(() => {
+          gPending = false;
+        }, 1200);
       }
     });
   })();
@@ -1154,10 +1260,9 @@ const moodFeed = '/mood/rss.xml';
     text-overflow: ellipsis;
     white-space: nowrap;
   }
-  /* Trailing affordance — the one detail that tells you where a row goes before
-     you commit. ↗ marks a row that leaves the site (Ask AI, socials); it rests
-     faint and snaps bright with the active highlight. ↵ appears only on the
-     active in-site row. */
+  /* Trailing affordance: ↗ marks a row that leaves the site (Ask AI, socials);
+     it rests faint and snaps bright with the active highlight. The enter cue for
+     in-site rows lives once in the footer ("Go to page ↵"), not per row. */
   .cmdk-trail {
     flex-shrink: 0;
     margin-left: 4px;
@@ -1171,10 +1276,41 @@ const moodFeed = '/mood/rss.xml';
   .cmdk-item[data-external].is-active .cmdk-trail {
     color: hsl(var(--foreground) / 0.7);
   }
-  /* ↵ only on in-site links (anchors, not action buttons like copy). */
-  a.cmdk-item:not([data-external]).is-active .cmdk-trail::after {
-    content: '↵';
-    color: hsl(var(--foreground) / 0.7);
+
+  /* Go-to keycaps on nav rows (g h, g p …) — the affordance that surfaces the
+     vim-style shortcut. A keyboard hint, so it's hidden on touch; it takes the
+     right edge the ↵ trail used to hold. */
+  .cmdk-shortcut {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    margin-left: 4px;
+  }
+  .cmdk-shortcut kbd {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 17px;
+    height: 17px;
+    padding: 0 4px;
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    line-height: 1;
+    color: hsl(var(--muted-foreground) / 0.7);
+    background: hsl(var(--foreground) / 0.05);
+    border: 1px solid hsl(var(--foreground) / 0.08);
+    border-radius: 4px;
+  }
+  .cmdk-item.is-active .cmdk-shortcut kbd {
+    color: hsl(var(--foreground) / 0.8);
+    background: hsl(var(--foreground) / 0.09);
+    border-color: hsl(var(--foreground) / 0.12);
+  }
+  @media (pointer: coarse) {
+    .cmdk-shortcut {
+      display: none;
+    }
   }
 
   /* Live result rows (Writing / Moods): two lines — a title and a muted

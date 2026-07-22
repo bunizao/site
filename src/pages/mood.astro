@@ -125,6 +125,11 @@ const skeletonGroups = [
       const headerActions = document.querySelector('[data-header-actions]');
       if (!headerActions) return;
 
+      // Mood carries the prominent, labelled hero search doorway, so the global
+      // header search pill would be a second door to the very same palette. Drop
+      // it here — one search entry on this surface, not two.
+      headerActions.querySelector('.header-action-btn--cmdk')?.remove();
+
       if (headerActions.querySelector('[data-mood-header-action]')) {
         return;
       }

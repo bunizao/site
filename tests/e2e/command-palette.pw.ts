@@ -138,6 +138,70 @@ test.describe('Site command palette', () => {
     await expect(moodHit).toHaveAttribute('href', '/mood?3641');
   });
 
+  test('scopes search to Writing on the blog — no mood content', async ({ page }) => {
+    await page.route('**/palette.json', (route) =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ posts: [] }) }),
+    );
+    // A Pagefind writing hit and a mood FTS hit with a distinctive snippet.
+    await page.route('**/pagefind/pagefind.js', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'text/javascript',
+        body: `
+          export async function search() {
+            return {
+              results: [
+                {
+                  data: async () => ({
+                    url: '/blog/scoped/',
+                    meta: { title: 'Scoped Writing Hit' },
+                    excerpt: 'a scoped writing match',
+                  }),
+                },
+              ],
+            };
+          }
+        `,
+      });
+    });
+    await page.route('**/api/v2/mood/search*', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          results: [{ id: '9001', datetime: '2026-07-01T10:00:00Z', snippet: 'an out-of-scope mood', tags: [] }],
+        }),
+      });
+    });
+
+    await page.goto('/blog');
+    await page.keyboard.press('Control+K');
+    const palette = page.getByRole('dialog', { name: 'Site search and commands' });
+    await palette.getByRole('combobox', { name: 'Search commands' }).fill('scoped');
+
+    await expect(palette.getByRole('option', { name: /Scoped Writing Hit/ })).toBeVisible();
+    // Mood FTS is out of scope on /blog, so its content never renders even when
+    // the endpoint would return a hit.
+    await expect(palette.getByText('an out-of-scope mood')).toHaveCount(0);
+  });
+
+  test('folds subscribe into one action, not scattered RSS links', async ({ page }) => {
+    await page.goto('/privacy');
+    await page.keyboard.press('Control+K');
+    const palette = page.getByRole('dialog', { name: 'Site search and commands' });
+
+    await expect(palette.getByRole('option', { name: 'Subscribe' })).toBeVisible();
+    await expect(palette.getByRole('option', { name: /RSS/ })).toHaveCount(0);
+  });
+
+  test('g-then-key jumps to a page from anywhere', async ({ page }) => {
+    await page.goto('/privacy');
+    // No field focused: the vim-style sequence navigates.
+    await page.keyboard.press('g');
+    await page.keyboard.press('p');
+    await expect(page).toHaveURL(/\/projects\/?$/);
+  });
+
   test('uses the site-wide palette on Writing routes', async ({ page }) => {
     await page.goto('/blog');
 
