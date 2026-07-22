@@ -134,7 +134,8 @@ test.describe('Site command palette', () => {
 
     const moodHit = palette.getByRole('option', { name: /calm morning/ });
     await expect(moodHit).toBeVisible();
-    await expect(moodHit).toHaveAttribute('href', '/mood/3641');
+    // Mood hits land in the L1 feed anchored at the post, not the L2 detail page.
+    await expect(moodHit).toHaveAttribute('href', '/mood?3641');
   });
 
   test('uses the site-wide palette on Writing routes', async ({ page }) => {

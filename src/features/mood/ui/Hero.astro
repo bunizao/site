@@ -50,8 +50,33 @@ const hasChannel = Boolean(initialChannel);
       </div>
     </div>
   </div>
-  <!-- Mood search moved into the site-wide ⌘K palette (CommandPalette.astro):
-       one search surface, reachable from the header, not an inline hero box. -->
+
+  <!-- Search doorway: looks like a search field, acts as a trigger for the
+       site-wide ⌘K palette (data-command-open). Not a second search — one click
+       opens the unified palette, which orders Moods first on this route. Keeps a
+       discoverable, touch-friendly entry on the page without duplicating the
+       header pill. -->
+  <div class="mood-hero-search">
+    <button
+      class="mood-hero-search-trigger"
+      type="button"
+      data-command-open
+      aria-label="Search moods and commands"
+      aria-haspopup="dialog"
+      aria-controls="site-command-palette"
+      aria-keyshortcuts="Control+K Meta+K"
+    >
+      <svg class="mood-hero-search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="11" cy="11" r="8"></circle>
+        <path d="m21 21-4.3-4.3"></path>
+      </svg>
+      <span class="mood-hero-search-label">Search moods…</span>
+      <span class="mood-hero-search-keys" aria-hidden="true">
+        <kbd>⌘</kbd>
+        <kbd>K</kbd>
+      </span>
+    </button>
+  </div>
 </div>
 
 <style>
@@ -370,6 +395,108 @@ const hasChannel = Boolean(initialChannel);
     .mood-hero-title-skeleton::after,
     .mood-hero-desc-skeleton::after {
       animation: none;
+    }
+  }
+
+  /* Search doorway — a field-shaped button that opens the ⌘K palette. */
+  .mood-hero-search {
+    margin-top: 22px;
+    max-width: 420px;
+  }
+
+  @media (max-width: 480px) {
+    .mood-hero-search {
+      margin-top: 16px;
+      max-width: none;
+    }
+  }
+
+  .mood-hero-search-trigger {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    height: 46px;
+    padding: 0 12px 0 14px;
+    border: 1px solid hsl(var(--foreground) / 0.1);
+    border-radius: 13px;
+    background: hsl(var(--foreground) / 0.02);
+    cursor: pointer;
+    text-align: left;
+    transition:
+      border-color 0.18s ease,
+      background 0.18s ease,
+      box-shadow 0.18s ease,
+      scale 0.12s ease;
+  }
+
+  @media (hover: hover) {
+    .mood-hero-search-trigger:hover {
+      border-color: hsl(var(--foreground) / 0.2);
+      background: hsl(var(--foreground) / 0.045);
+      box-shadow: 0 1px 2px rgb(0 0 0 / 0.04);
+    }
+  }
+
+  .mood-hero-search-trigger:focus-visible {
+    outline: none;
+    border-color: hsl(var(--foreground) / 0.3);
+    box-shadow: 0 0 0 3px hsl(var(--foreground) / 0.08);
+  }
+
+  .mood-hero-search-trigger:active {
+    scale: 0.995;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .mood-hero-search-trigger:active {
+      scale: 1;
+    }
+  }
+
+  .mood-hero-search-icon {
+    flex-shrink: 0;
+    color: hsl(var(--muted-foreground) / 0.75);
+  }
+
+  .mood-hero-search-label {
+    flex: 1;
+    min-width: 0;
+    font-family: var(--font-sans);
+    font-size: 15px;
+    color: hsl(var(--muted-foreground) / 0.85);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .mood-hero-search-keys {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    flex-shrink: 0;
+  }
+
+  .mood-hero-search-keys kbd {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 20px;
+    height: 20px;
+    padding: 0 4px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    line-height: 1;
+    color: hsl(var(--muted-foreground) / 0.8);
+    background: hsl(var(--foreground) / 0.05);
+    border: 1px solid hsl(var(--foreground) / 0.08);
+    border-radius: 5px;
+  }
+
+  /* Keycaps are a desktop-keyboard hint; on touch the whole bar is the target. */
+  @media (max-width: 640px), (pointer: coarse) {
+    .mood-hero-search-keys {
+      display: none;
     }
   }
 </style>

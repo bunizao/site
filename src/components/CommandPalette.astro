@@ -283,7 +283,7 @@ const moodFeed = '/mood/rss.xml';
 </dialog>
 
 <script>
-  import { getMoodDetailHref } from '@/features/mood/shared/feed-anchor';
+  import { getMoodFeedAnchorHref } from '@/features/mood/shared/feed-anchor';
   import { formatMoodResultTime, isSafeSnippetHtml, searchMoods } from '@/features/mood/shared/search';
 
   interface WritingHit {
@@ -547,7 +547,9 @@ const moodFeed = '/mood/rss.xml';
       results.forEach((item) =>
         moodsMount?.appendChild(
           buildResultRow({
-            href: getMoodDetailHref(item.id),
+            // Land in the L1 feed anchored at the post (/mood?id), not the L2
+            // detail page — you drop into the timeline with surrounding context.
+            href: getMoodFeedAnchorHref(item.id),
             title: formatMoodResultTime(item.datetime) || 'Mood',
             snippet: item.snippet,
             icon: MOOD_ICON,
