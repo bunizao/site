@@ -253,6 +253,8 @@ Important constraint:
 
 ## Operations Health
 
+Ordinary archive ingestion preserves a known positive `reply_to` when a lower-fidelity update omits the relationship. The authenticated mood health response exposes `replyIntegrity` with the edge count, unresolved same-channel targets, a capped child-ID sample, the number of live posts never reconciled, and the oldest verification timestamp.
+
 The scheduled ops suite checks configured reply canaries against strict archive detail reads using
 `fresh=1&fallback=0`. `MOOD_REPLY_CANARIES` is a capped comma-separated list of positive integer
 `child:parent` mappings; each child must expose a quote whose URL pathname is `/mood/<parent>`.
