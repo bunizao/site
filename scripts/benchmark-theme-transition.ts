@@ -46,9 +46,8 @@ const benchmark = async (name: string, engine: BrowserType) => {
         HTMLMediaElement.prototype.play = async () => {};
       });
     }
-    const page = await context.newPage();
-
     for (const route of routes) {
+      const page = await context.newPage();
       await page.goto(`${baseURL}${route.path}`, { waitUntil: "networkidle" });
       await page.emulateMedia({ reducedMotion: "no-preference" });
 
@@ -89,7 +88,7 @@ const benchmark = async (name: string, engine: BrowserType) => {
             if (!target) throw new Error(`Theme control missing: ${selector}`);
             target.click();
             await new Promise<void>((resolve) => {
-              const timeout = window.setTimeout(resolve, 1200);
+              const timeout = window.setTimeout(resolve, 1800);
               let sawTransition = false;
               const inspect = () => {
                 const nativeActive = root.classList.contains("theme-wipe");
@@ -142,6 +141,7 @@ const benchmark = async (name: string, engine: BrowserType) => {
       console.log(
         `${name.padEnd(8)} ${profile.name.padEnd(7)} ${route.path.padEnd(12)} ${status.padEnd(24)} ${stats.frames} frames  median=${stats.median.toFixed(1)}ms  p95=${stats.p95.toFixed(1)}ms  max=${stats.max.toFixed(1)}ms  >20ms=${stats.overBudget}`,
       );
+      await page.close();
     }
 
     await context.close();

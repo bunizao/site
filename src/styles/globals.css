@@ -2382,7 +2382,7 @@ html.no-transition * {
    position moves across the snapshot. Unlike an animated mask-size, this does
    not ask WebKit to rasterize a larger mask texture on every frame. */
 :root.theme-wipe::view-transition-group(root) {
-  animation-duration: 900ms;
+  animation-duration: 1.5s;
   animation-timing-function: var(--expo-out);
 }
 
@@ -2408,7 +2408,7 @@ html.no-transition * {
   mask-repeat: no-repeat;
   mask-size: 200% 200%;
   mask-position: 100% 100%;
-  animation: theme-polygon-reveal 900ms var(--expo-out) both;
+  animation: theme-polygon-reveal 1.5s var(--expo-out) both;
   will-change: mask-position;
 }
 
@@ -2437,7 +2437,7 @@ html.no-transition * {
   );
   mask-repeat: no-repeat;
   mask-size: 200% 200%;
-  animation: theme-polygon-overlay 900ms var(--expo-out) both;
+  animation: theme-polygon-overlay 1.5s var(--expo-out) both;
   will-change: mask-position;
 }
 
@@ -2456,14 +2456,6 @@ html.no-transition * {
 
   to {
     mask-position: 100% 100%;
-  }
-}
-
-@media (max-width: 899px) {
-  :root.theme-wipe::view-transition-group(root),
-  :root.theme-wipe::view-transition-new(root),
-  :root.theme-wipe-webkit::before {
-    animation-duration: 720ms;
   }
 }
 
