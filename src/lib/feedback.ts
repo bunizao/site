@@ -5,13 +5,14 @@
 // prefers-reduced-motion as a silent floor.
 //
 // The API is intentionally small and semantic: tap (generic tick), select
-// (confirm/pick), success (copy landed), open/close (panels). Call it from
-// vanilla `<script>` blocks or React islands alike.
+// (confirm/pick), success (copy landed), open/close (panels), theme (theme
+// switches). Call it from vanilla `<script>` blocks or React islands alike.
 //
-// Richness comes from cheap tricks, not samples: each voice can spawn a
+// Most voices are synthesised from cheap tricks, not samples: each can spawn a
 // detuned chorus pair, the whole sound passes through one lowpass for warmth,
 // taps get a filtered noise transient for a physical "tock", success is a real
-// C-major arpeggio, and a master compressor glues the layers.
+// C-major arpeggio, and a master compressor glues the layers. Recorded clicks
+// cover panel and theme-switch feedback through one shared audio cache.
 //
 // Haptics cover both platforms: navigator.vibrate on Android, and on iPhone the
 // ios-haptics trick — toggling a hidden `<input type="checkbox" switch>` fires
@@ -19,7 +20,11 @@
 // haptics. Apple narrowed it in iOS 26.5, so the very newest iPhones may feel
 // nothing; both calls no-op wherever unsupported.
 
+import { PALETTE_SFX } from './palette-sfx';
+
+// Sampled sounds keep their haptic names while synth recipes remain exhaustive.
 type Sound = 'tap' | 'select' | 'success' | 'open' | 'close';
+type SynthSound = 'tap' | 'select' | 'success';
 
 interface Voice {
   /** Start frequency in Hz. */
@@ -58,7 +63,7 @@ interface Recipe {
 const MASTER_GAIN = 0.085;
 const THROTTLE_MS = 30;
 
-const RECIPES: Record<Sound, Recipe> = {
+const RECIPES: Record<SynthSound, Recipe> = {
   // Nav tick: a filtered noise transient gives a physical "tock", over a soft
   // sine + a quiet octave so it isn't a bare beep.
   tap: {
@@ -90,22 +95,6 @@ const RECIPES: Record<Sound, Recipe> = {
       { freq: 1567.98, type: 'sine', dur: 0.12, gain: 0.12, delay: 0.11 },
     ],
   },
-  // Panel open: warm rising root + fifth.
-  open: {
-    lowpass: 3800,
-    voices: [
-      { freq: 392, glideTo: 523.25, type: 'triangle', dur: 0.14, gain: 0.5, detune: 6 },
-      { freq: 587.33, glideTo: 783.99, type: 'sine', dur: 0.13, gain: 0.2, delay: 0.012 },
-    ],
-  },
-  // Panel close: the mirror — falling, a touch shorter.
-  close: {
-    lowpass: 3200,
-    voices: [
-      { freq: 523.25, glideTo: 392, type: 'triangle', dur: 0.12, gain: 0.46, detune: 6 },
-      { freq: 783.99, glideTo: 587.33, type: 'sine', dur: 0.11, gain: 0.18, delay: 0.012 },
-    ],
-  },
 };
 
 const VIBRATION: Record<Sound, number | number[]> = {
@@ -124,7 +113,8 @@ interface FeedbackSlot {
   reduced?: MediaQueryList;
   noise?: AudioBuffer;
   haptic?: HTMLInputElement | null;
-  themeAudio?: HTMLAudioElement;
+  /** Cache of sample players, keyed by source. */
+  samples?: Record<string, HTMLAudioElement>;
 }
 const slot: FeedbackSlot =
   typeof window !== 'undefined'
@@ -207,9 +197,9 @@ const playNoise = (ctx: AudioContext, dest: AudioNode, n: Noise, now: number): v
   src.stop(now + n.dur + 0.02);
 };
 
-const lastPlayed = new Map<Sound, number>();
+const lastPlayed = new Map<SynthSound, number>();
 
-const playSound = (name: Sound): void => {
+const playSound = (name: SynthSound): void => {
   const ctx = audioContext();
   if (!ctx) return;
   // A gesture is what unlocks a suspended context; resume() is a no-op once it
@@ -284,7 +274,7 @@ const haptics = (name: Sound): void => {
   }
 };
 
-const fire = (name: Sound): void => {
+const fire = (name: SynthSound): void => {
   if (prefersReducedMotion()) return;
   const stamp = typeof performance !== 'undefined' ? performance.now() : Date.now();
   if (stamp - (lastPlayed.get(name) ?? -Infinity) < THROTTLE_MS) return;
@@ -293,28 +283,32 @@ const fire = (name: Sound): void => {
   haptics(name);
 };
 
-let themeLastPlayed = -Infinity;
+const THEME_SFX = '/audio/theme-switch.mp3';
+const PALETTE_VOLUME = 0.4;
+const THEME_VOLUME = 0.3;
+const sampleLastPlayed = new Map<string, number>();
 
-const fireTheme = (): void => {
+const playSample = (src: string, opts: { volume: number; haptic: Sound }): void => {
   if (prefersReducedMotion() || typeof Audio === 'undefined') return;
   const stamp = typeof performance !== 'undefined' ? performance.now() : Date.now();
-  if (stamp - themeLastPlayed < THROTTLE_MS) return;
-  themeLastPlayed = stamp;
+  if (stamp - (sampleLastPlayed.get(src) ?? -Infinity) < THROTTLE_MS) return;
+  sampleLastPlayed.set(src, stamp);
 
-  const audio = (slot.themeAudio ??= new Audio('/audio/theme-click.mp3'));
-  audio.volume = 0.3;
+  const cache = (slot.samples ??= {});
+  const audio = (cache[src] ??= new Audio(src));
+  audio.volume = opts.volume;
   audio.currentTime = 0;
   void audio.play().catch(() => {});
-  haptics('select');
+  haptics(opts.haptic);
 };
 
 export const feedback = {
   tap: () => fire('tap'),
   select: () => fire('select'),
   success: () => fire('success'),
-  open: () => fire('open'),
-  close: () => fire('close'),
-  theme: fireTheme,
+  open: () => playSample(PALETTE_SFX, { volume: PALETTE_VOLUME, haptic: 'open' }),
+  close: () => playSample(PALETTE_SFX, { volume: PALETTE_VOLUME, haptic: 'close' }),
+  theme: () => playSample(THEME_SFX, { volume: THEME_VOLUME, haptic: 'select' }),
 };
 
 export default feedback;
