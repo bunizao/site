@@ -740,7 +740,7 @@
 
   /* Site Navigation */
   .site-nav {
-    position: fixed;
+    --topbar-position: fixed;
     top: 16px;
     left: 16px;
     z-index: 100;

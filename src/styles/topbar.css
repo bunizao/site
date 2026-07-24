@@ -1,5 +1,6 @@
 .topbar {
   --topbar-blur-tail: 36px;
+  position: var(--topbar-position, relative);
 }
 
 .topbar > .topbar__blur {
@@ -69,7 +70,8 @@
     border-radius: 9px;
   }
 
-  .topbar-action .topbar-action__keys {
+  .topbar-action .topbar-action__keys,
+  .topbar-action .header-action-btn-keys {
     display: inline-flex;
   }
 

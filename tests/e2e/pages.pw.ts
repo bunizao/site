@@ -101,6 +101,7 @@ test.describe('Standalone pages', () => {
           ? Math.round(blur.getBoundingClientRect().bottom - navRect.bottom)
           : null,
         topbarActionsReady: topbarActions.every((action) => action?.classList.contains('topbar-action')),
+        navPosition: getComputedStyle(nav).position,
         navHeight: navRect.height,
         brandCenterDelta: Math.abs((brandRect.top + brandRect.height / 2) - (navRect.top + navRect.height / 2)),
         brandGap: Math.round((brandText.getBoundingClientRect().left - logo.getBoundingClientRect().right) * 100) / 100,
@@ -120,6 +121,7 @@ test.describe('Standalone pages', () => {
     expect(state?.blurLayerCount).toBe(4);
     expect(state?.blurTail).toBeGreaterThanOrEqual(35);
     expect(state?.topbarActionsReady).toBe(true);
+    expect(state?.navPosition).toBe('fixed');
     expect(state?.navHeight).toBe(52);
     expect(state?.brandCenterDelta).toBeLessThanOrEqual(1);
     expect(state?.brandGap).toBe(6);
@@ -128,6 +130,14 @@ test.describe('Standalone pages', () => {
     expect(state?.brandTextWidth).toBeGreaterThan(65);
     expect(state?.toggleBackground).toBe('rgba(0, 0, 0, 0)');
     expect(state?.toggleBorder).toBe('rgba(0, 0, 0, 0)');
+  });
+
+  test('keeps the default desktop search shortcut outside the topbar action contract', async ({ page }) => {
+    await page.goto('/projects');
+
+    const search = page.getByRole('button', { name: 'Search and commands' });
+    await expect(search.locator('.header-action-btn-keys')).toBeVisible();
+    await expect(search).not.toHaveClass(/topbar-action/);
   });
 
   test('redirects /mood/subscribe to /mood and auto-opens the notify panel', async ({ page }) => {

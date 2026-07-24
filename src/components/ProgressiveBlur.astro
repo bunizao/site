@@ -4,13 +4,23 @@ import '@/styles/progressive-blur.css';
 type Direction = 'top' | 'right' | 'bottom' | 'left';
 type Preset = 'continuous' | 'topbar';
 
-interface Props {
+interface SharedProps {
   class?: string;
-  direction?: Direction;
-  preset?: Preset;
-  strength?: number;
   framed?: boolean;
 }
+
+type Props = SharedProps & (
+  | {
+      preset?: Extract<Preset, 'continuous'>;
+      direction?: Direction;
+      strength?: number;
+    }
+  | {
+      preset: Extract<Preset, 'topbar'>;
+      direction?: never;
+      strength?: never;
+    }
+);
 
 const {
   class: className,

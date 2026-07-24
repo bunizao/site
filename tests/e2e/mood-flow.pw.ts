@@ -1610,6 +1610,7 @@ test.describe('Mood routes', () => {
     await expect(blurLayers).toHaveCount(4);
     await expect(navbar.locator('.topbar-action')).toHaveCount(2);
     expect(await navbar.evaluate((element) => element.parentElement === document.body)).toBe(true);
+    expect(await navbar.evaluate((element) => getComputedStyle(element).position)).toBe('fixed');
     expect(await blurLayers.evaluateAll((layers) => layers.map((layer) => getComputedStyle(layer).backdropFilter))).toEqual([
       'blur(4px)',
       'blur(8px)',

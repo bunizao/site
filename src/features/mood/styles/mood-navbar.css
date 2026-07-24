@@ -4,7 +4,7 @@
    scrolls under the bar; the two right controls (search + notify) stay put. */
 
 .mood-navbar {
-  position: fixed;
+  --topbar-position: fixed;
   top: 0;
   left: 0;
   right: 0;

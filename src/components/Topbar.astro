@@ -14,16 +14,10 @@ const {
   progressiveBlur = false,
   ...attributes
 } = Astro.props;
+const Element = as;
 ---
 
-{as === 'nav' ? (
-  <nav class:list={['topbar', className]} data-topbar {...attributes}>
-    {progressiveBlur && <ProgressiveBlur class="topbar__blur" preset="topbar" />}
-    <slot />
-  </nav>
-) : (
-  <header class:list={['topbar', className]} data-topbar {...attributes}>
-    {progressiveBlur && <ProgressiveBlur class="topbar__blur" preset="topbar" />}
-    <slot />
-  </header>
-)}
+<Element class:list={['topbar', className]} data-topbar {...attributes}>
+  {progressiveBlur && <ProgressiveBlur class="topbar__blur" preset="topbar" />}
+  <slot />
+</Element>
