@@ -96,6 +96,24 @@
     --grid: 0 0% 0% / 0.12;
     --selection-bg: 0 0% 0%;
     --selection-fg: 0 0% 100%;
+    --expo-out: linear(
+      0 0%,
+      0.1684 2.66%,
+      0.3165 5.49%,
+      0.446 8.52%,
+      0.5581 11.78%,
+      0.6535 15.29%,
+      0.7341 19.11%,
+      0.8011 23.3%,
+      0.8557 27.93%,
+      0.8962 32.68%,
+      0.9283 38.01%,
+      0.9529 44.08%,
+      0.9711 51.14%,
+      0.9833 59.06%,
+      0.9915 68.74%,
+      1 100%
+    );
   }
 
   .dark {
@@ -126,7 +144,6 @@
 
   * {
     @apply border-border;
-    transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
     /* Disable mobile tap effects */
     -webkit-tap-highlight-color: transparent;
     -webkit-touch-callout: none;
@@ -246,8 +263,6 @@
     pointer-events: none;
     overflow: hidden;
     contain: strict;
-    transform: translateZ(0);
-    backface-visibility: hidden;
     --spotlight-x: 50vw;
     --spotlight-y: 30vh;
     --spotlight-tail-x: 0px;
@@ -258,13 +273,21 @@
     --spotlight-core-opacity: 0;
   }
 
+  .spotlight-overlay.is-active {
+    transform: translateZ(0);
+    backface-visibility: hidden;
+  }
+
   .spotlight-overlay__grid {
     position: absolute;
     inset: 0;
     pointer-events: none;
     opacity: 0;
-    will-change: opacity, mask-image, -webkit-mask-image;
     contain: paint;
+  }
+
+  .spotlight-overlay.is-active .spotlight-overlay__grid {
+    will-change: opacity, mask-image, -webkit-mask-image;
   }
 
   .spotlight-overlay__grid {
@@ -2104,6 +2127,37 @@ html.no-transition * {
 /* Linear-flavored portal theme. Scoped under .theme-portal so the public site
    keeps its current tokens unchanged. */
 .theme-portal {
+  color-scheme: light;
+  --background: 0 0% 98%;
+  --foreground: 240 6% 10%;
+  --card: 0 0% 100%;
+  --card-foreground: 240 6% 10%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 240 6% 10%;
+  --primary: 240 6% 10%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 240 5% 94%;
+  --secondary-foreground: 240 6% 10%;
+  --muted: 240 5% 94%;
+  --muted-foreground: 240 4% 42%;
+  --accent: 240 5% 91%;
+  --accent-foreground: 240 6% 10%;
+  --destructive: 0 70% 50%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 240 6% 86%;
+  --input: 240 6% 86%;
+  --ring: 240 4% 42%;
+  --radius: 0.625rem;
+  --portal-accent: 217 91% 60%;
+  --portal-success: 142 71% 38%;
+  --portal-warning: 38 92% 48%;
+  --portal-danger: 0 72% 50%;
+  background: hsl(var(--background));
+  color: hsl(var(--foreground));
+  font-family: var(--font-display);
+}
+
+.theme-portal.dark {
   color-scheme: dark;
   --background: 240 8% 6%;
   --foreground: 220 16% 96%;
@@ -2327,6 +2381,88 @@ html.no-transition * {
 :root.ua-webkit::view-transition-old(blog-hero),
 :root.ua-webkit::view-transition-new(blog-hero) {
   animation-duration: 240ms;
+}
+
+/* ─── Theme toggle: polygon gradient reveal ──────────────────────────────────
+   A fixed gradient mask preserves the registry's feathered triangle while its
+   position moves across the snapshot. Unlike an animated mask-size, this does
+   not ask WebKit to rasterize a larger mask texture on every frame. */
+:root.theme-wipe::view-transition-group(root) {
+  animation-duration: 1.5s;
+  animation-timing-function: var(--expo-out);
+}
+
+:root.theme-wipe::view-transition-image-pair(root) {
+  isolation: isolate;
+}
+
+:root.theme-wipe::view-transition-old(root) {
+  animation: none;
+  z-index: 0;
+}
+
+:root.theme-wipe::view-transition-new(root) {
+  z-index: 1;
+  mask-image: linear-gradient(
+    135deg,
+    #000 0%,
+    #000 45%,
+    rgb(0 0 0 / 99%) 46%,
+    transparent 50%,
+    transparent 100%
+  );
+  mask-repeat: no-repeat;
+  mask-size: 200% 200%;
+  mask-position: 100% 100%;
+  animation: theme-polygon-reveal 1.5s var(--expo-out) both;
+  will-change: mask-position;
+}
+
+@keyframes theme-polygon-reveal {
+  to {
+    mask-position: 0 0;
+  }
+}
+
+/* Browsers without same-document View Transitions use the same polygon mask on
+   a fixed old-theme layer. This avoids capturing and rasterizing the page. */
+:root.theme-wipe-webkit::before {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483647;
+  content: '';
+  pointer-events: none;
+  background: hsl(var(--background));
+  mask-image: linear-gradient(
+    135deg,
+    #000 0%,
+    #000 45%,
+    rgb(0 0 0 / 99%) 46%,
+    transparent 50%,
+    transparent 100%
+  );
+  mask-repeat: no-repeat;
+  mask-size: 200% 200%;
+  animation: theme-polygon-overlay 1.5s var(--expo-out) both;
+  will-change: mask-position;
+}
+
+:root.theme-wipe-from-light::before {
+  background: hsl(0 0% 100%);
+}
+
+:root.theme-wipe-from-dark::before {
+  background: hsl(0 0% 4%);
+}
+
+@keyframes theme-polygon-overlay {
+  from {
+    mask-position: 0 0;
+  }
+
+  to {
+    mask-position: 100% 100%;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

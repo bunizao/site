@@ -264,6 +264,124 @@ test.describe('Home page', () => {
       .toBe(true);
   });
 
+  test('releases the spotlight compositor layer after its idle fade', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'no-preference' });
+    await page.goto('/');
+
+    const spotlight = page.locator('[data-spotlight-overlay]');
+    await page.waitForTimeout(1_000);
+    await page.mouse.move(180, 180);
+    await expect(spotlight).toHaveClass(/is-active/);
+    await expect(spotlight).not.toHaveClass(/is-active/, { timeout: 3_000 });
+  });
+
+  test('bounds active project carousel images and accessible alternatives', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'no-preference' });
+    await page.goto('/');
+
+    const projects = page.locator('#projects-section');
+    await projects.scrollIntoViewIfNeeded();
+    await page.getByRole('button', { name: 'Show ogis' }).click();
+
+    const activeCard = projects.locator('article[aria-hidden="false"]');
+    await expect(activeCard.locator('img[src*="/projects/ogis/"]')).toHaveCount(2);
+    await expect(activeCard.locator('img[alt^="OG card:"]')).toHaveCount(1);
+
+    await expect
+      .poll(
+        async () => {
+          const sources = await activeCard
+            .locator('img[src*="/projects/ogis/"]')
+            .evaluateAll((images) => images.map((image) => image.getAttribute('src')));
+          return new Set(sources).size;
+        },
+        { timeout: 3_000 },
+      )
+      .toBeGreaterThan(1);
+    expect(await activeCard.locator('img[src*="/projects/ogis/"]').count()).toBeLessThanOrEqual(4);
+    await expect(activeCard.locator('img[alt^="OG card:"]')).toHaveCount(1);
+    await expect(activeCard.locator('img[aria-hidden="true"][alt=""]')).not.toHaveCount(0);
+  });
+
+  test('pauses and resumes homepage ambient animation offscreen', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'no-preference' });
+    const contributions = Array.from({ length: 30 }, (_, index) => ({
+      date: `2026-02-${String(index + 1).padStart(2, '0')}`,
+      count: (index % 5) + 1,
+      level: 1,
+    }));
+    await page.route('**/api/github/contributions**', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ total: { lastYear: 321 }, contributions }),
+      });
+    });
+    await page.goto('/');
+
+    const contributionSection = page.locator('[data-contributions]');
+    await expect(contributionSection).toHaveClass(/is-breathing-active/, { timeout: 5_000 });
+    const projects = page.locator('#projects-section');
+    await projects.scrollIntoViewIfNeeded();
+    await expect(contributionSection).toHaveClass(/is-breathing/);
+    await expect(contributionSection).not.toHaveClass(/is-breathing-active/);
+
+    const currentProject = projects.locator('[aria-current="true"]');
+    const projectBefore = await currentProject.getAttribute('aria-label');
+    await page.locator('#writing-section').scrollIntoViewIfNeeded();
+    await page.waitForTimeout(5_800);
+    expect(await currentProject.getAttribute('aria-label')).toBe(projectBefore);
+
+    await contributionSection.scrollIntoViewIfNeeded();
+    await expect(contributionSection).toHaveClass(/is-breathing-active/);
+
+    await projects.scrollIntoViewIfNeeded();
+    await expect
+      .poll(() => currentProject.getAttribute('aria-label'), { timeout: 7_000 })
+      .not.toBe(projectBefore);
+  });
+
+  test('cleans up theme transitions across both theme controls', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'no-preference' });
+    await page.goto('/');
+
+    const soundRequest = page.waitForRequest((request) => request.url().endsWith('/audio/theme-click.mp3'));
+    await page.locator('[data-theme-dropdown]').hover();
+    await page.locator('[data-theme-option="dark"]').click();
+    await soundRequest;
+    await expect(page.locator('html')).toHaveClass(/dark/);
+    await expect
+      .poll(() =>
+        page.locator('html').evaluate((node) =>
+          ['theme-wipe', 'theme-wipe-webkit', 'no-transition'].some((name) => node.classList.contains(name))
+        )
+      )
+      .toBe(false);
+
+    await page.goto('/dev/portal');
+    const portalToggle = page.locator('[data-portal-theme-toggle]');
+    await expect(portalToggle).toBeVisible();
+    await portalToggle.click();
+    await expect(page.locator('html')).not.toHaveClass(/dark/);
+    await expect
+      .poll(() =>
+        page.locator('html').evaluate((node) =>
+          ['theme-wipe', 'theme-wipe-webkit', 'no-transition'].some((name) => node.classList.contains(name))
+        )
+      )
+      .toBe(false);
+    await expect.poll(() => page.evaluate(() => localStorage.getItem('theme'))).toBe('light');
+  });
+
+  test('skips transient theme classes with reduced motion', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.goto('/dev/portal');
+    await page.locator('[data-portal-theme-toggle]').click();
+
+    await expect(page.locator('html')).toHaveClass(/dark/);
+    await expect(page.locator('html')).not.toHaveClass(/theme-wipe|theme-wipe-webkit|no-transition/);
+  });
+
   test('keeps runtime home data out of the initial HTML', async ({ page }) => {
     const response = await page.request.get('/');
     expect(response.ok()).toBeTruthy();

@@ -401,8 +401,13 @@ const preloadFontHref = preloadFont === 'sans'
         const prefersFinePointer = window.matchMedia('(pointer: fine)');
 
         const setInactive = () => {
+          overlay.classList.remove('is-active');
           overlayStyle.setProperty('--spotlight-soft-opacity', '0');
           overlayStyle.setProperty('--spotlight-core-opacity', '0');
+        };
+
+        const setActive = () => {
+          overlay.classList.add('is-active');
         };
 
         const canRun = () => !prefersReducedMotion.matches && prefersFinePointer.matches;
@@ -483,10 +488,13 @@ const preloadFontHref = preloadFont === 'sans'
             targetOpacity > 0
           ) {
             frameId = window.requestAnimationFrame(tick);
+          } else {
+            setInactive();
           }
         };
 
         const queueTick = () => {
+          setActive();
           if (!frameId) {
             lastFrameTime = performance.now();
             frameId = window.requestAnimationFrame(tick);
@@ -528,6 +536,8 @@ const preloadFontHref = preloadFont === 'sans'
     </script>
 
     <script>
+      import { feedback } from '@/lib/feedback';
+
       (() => {
         const storageKey = 'theme';
         const toggle = document.querySelector('[data-theme-toggle]');
@@ -600,6 +610,85 @@ const preloadFontHref = preloadFont === 'sans'
           updateToggle(setting);
         };
 
+        let activeThemeTransition: { finished: Promise<void>; skipTransition?: () => void } | null = null;
+        let fallbackThemeCleanup: (() => void) | null = null;
+
+        const runFallbackThemeTransition = (update: () => void) => {
+          const root = document.documentElement;
+          fallbackThemeCleanup?.();
+
+          const fromTheme = root.classList.contains('dark')
+            ? 'theme-wipe-from-dark'
+            : 'theme-wipe-from-light';
+          root.classList.add('theme-wipe-webkit', fromTheme, 'no-transition');
+          update();
+
+          let timeout = 0;
+          const cleanup = () => {
+            if (fallbackThemeCleanup !== cleanup) return;
+            fallbackThemeCleanup = null;
+            window.clearTimeout(timeout);
+            root.removeEventListener('animationend', onAnimationEnd);
+            root.classList.remove(
+              'theme-wipe-webkit',
+              'theme-wipe-from-dark',
+              'theme-wipe-from-light',
+              'no-transition',
+            );
+          };
+          const onAnimationEnd = (event: AnimationEvent) => {
+            if (event.animationName === 'theme-polygon-overlay') cleanup();
+          };
+
+          fallbackThemeCleanup = cleanup;
+          root.addEventListener('animationend', onAnimationEnd);
+          timeout = window.setTimeout(cleanup, 1700);
+        };
+
+        // Theme changes use one root snapshot and freeze descendant transitions
+        // so the polygon mask is the only animated surface during the reveal.
+        const transitionTheme = (theme: string) => {
+          const doc = document as Document & {
+            startViewTransition?: (cb: () => void) => {
+              finished: Promise<void>;
+              skipTransition?: () => void;
+            };
+          };
+          const root = document.documentElement;
+          const nextDark = (theme === 'system' ? getSystemTheme() : theme) === 'dark';
+          const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+          const update = () => {
+            applyTheme(theme);
+            closeDropdown();
+          };
+
+          if (root.classList.contains('dark') === nextDark || reduced) {
+            update();
+            return;
+          }
+
+          if (typeof doc.startViewTransition !== 'function') {
+            runFallbackThemeTransition(update);
+            return;
+          }
+
+          activeThemeTransition?.skipTransition?.();
+          root.classList.add('theme-wipe', 'no-transition');
+          try {
+            const transition = doc.startViewTransition(update);
+            activeThemeTransition = transition;
+            transition.finished.finally(() => {
+              if (activeThemeTransition !== transition) return;
+              activeThemeTransition = null;
+              root.classList.remove('theme-wipe', 'no-transition');
+            });
+          } catch {
+            activeThemeTransition = null;
+            root.classList.remove('theme-wipe', 'no-transition');
+            update();
+          }
+        };
+
         const openDropdown = () => {
           if (!dropdown || !menu || !toggle) return;
           dropdown.classList.add('is-open');
@@ -637,9 +726,9 @@ const preloadFontHref = preloadFont === 'sans'
             const el = option as HTMLElement;
             const theme = el.dataset.themeOption;
             if (theme) {
+              feedback.theme();
               setStoredTheme(theme);
-              applyTheme(theme);
-              closeDropdown();
+              transitionTheme(theme);
             }
           });
         });
@@ -672,6 +761,8 @@ const preloadFontHref = preloadFont === 'sans'
 
     <!-- Site menu dropdown: open/close -->
     <script>
+      import { feedback } from '@/lib/feedback';
+
       (() => {
         const trigger = document.querySelector('[data-menu-trigger]') as HTMLElement | null;
         const menu = document.querySelector('[data-site-menu]') as HTMLElement | null;
@@ -725,6 +816,7 @@ const preloadFontHref = preloadFont === 'sans'
         const open = () => {
           if (isOpen) return;
           isOpen = true;
+          feedback.open();
           window.clearTimeout(closeTimer);
           menu.hidden = false;
           void menu.offsetWidth; // reflow so the transition starts from the closed state
@@ -743,6 +835,7 @@ const preloadFontHref = preloadFont === 'sans'
         const close = () => {
           if (!isOpen) return;
           isOpen = false;
+          feedback.close();
           menu.classList.remove('is-open');
           trigger.setAttribute('aria-expanded', 'false');
           trigger.classList.remove('is-active');

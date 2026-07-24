@@ -1,5 +1,10 @@
 import { useEffect, useState } from "react";
-import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import {
+  AnimatePresence,
+  motion,
+  useIsPresent,
+  useReducedMotion,
+} from "framer-motion";
 
 // A live-site tour of the Attegi theme. Three real screenshots — homepage,
 // editorial TOC, code blocks — cross-dissolve inside a browser chrome, and
@@ -30,6 +35,46 @@ const slides: Slide[] = [
   },
 ];
 
+function TourImage({
+  slide,
+  eager,
+  live,
+  shouldReduce,
+  intervalMs,
+}: {
+  slide: Slide;
+  eager: boolean;
+  live: boolean;
+  shouldReduce: boolean;
+  intervalMs: number;
+}) {
+  const present = useIsPresent();
+
+  return (
+    <motion.img
+      src={slide.src}
+      alt={present ? slide.alt : ""}
+      aria-hidden={present ? undefined : true}
+      loading={eager ? "eager" : "lazy"}
+      decoding="async"
+      draggable={false}
+      className="absolute inset-0 h-full w-full object-cover"
+      initial={{ opacity: 0, objectPosition: "50% 0%", scale: 1 }}
+      animate={{
+        opacity: 1,
+        objectPosition: shouldReduce || !live ? "50% 50%" : "50% 100%",
+        scale: live ? 1.06 : 1,
+      }}
+      exit={{ opacity: 0 }}
+      transition={{
+        opacity: { duration: 0.9, ease: [0.22, 1, 0.36, 1] },
+        objectPosition: { duration: live ? (intervalMs + 900) / 1000 : 0.3, ease: "linear" },
+        scale: { duration: 0.45, ease: [0.22, 1, 0.36, 1] },
+      }}
+    />
+  );
+}
+
 export default function AttegiTourHero({ hovered = false }: { hovered?: boolean }) {
   const reduced = useReducedMotion();
   const [mounted, setMounted] = useState(false);
@@ -49,7 +94,7 @@ export default function AttegiTourHero({ hovered = false }: { hovered?: boolean 
       intervalMs,
     );
     return () => window.clearInterval(id);
-  }, [live, intervalMs]);
+  }, [live]);
 
   const slide = slides[active];
 
@@ -78,37 +123,16 @@ export default function AttegiTourHero({ hovered = false }: { hovered?: boolean 
 
       {/* Viewport — slides cross-dissolve, each panning down as if scrolled. */}
       <div className="relative flex-1 overflow-hidden">
-        {slides.map((candidate, index) => {
-          const current = index === active;
-          const objectDuration = current && live ? intervalMs + 900 : 300;
-          return (
-            <img
-              key={candidate.src}
-              src={candidate.src}
-              alt={current ? candidate.alt : ""}
-              aria-hidden={current ? undefined : true}
-              loading={index === 0 ? "eager" : "lazy"}
-              decoding="async"
-              draggable={false}
-              className="absolute inset-0 h-full w-full object-cover"
-              style={{
-                opacity: current ? 1 : 0,
-                zIndex: current ? 1 : 0,
-                objectPosition:
-                  shouldReduce || !live
-                    ? "50% 50%"
-                    : current
-                      ? "50% 100%"
-                      : "50% 0%",
-                transform: current && live ? "scale(1.06)" : "scale(1)",
-                transition:
-                  `opacity 900ms cubic-bezier(0.22,1,0.36,1), ` +
-                  `object-position ${objectDuration}ms linear, ` +
-                  "transform 450ms cubic-bezier(0.22,1,0.36,1)",
-              }}
-            />
-          );
-        })}
+        <AnimatePresence initial={false}>
+          <TourImage
+            key={slide.src}
+            slide={slide}
+            eager={active === 0}
+            live={live}
+            shouldReduce={shouldReduce}
+            intervalMs={intervalMs}
+          />
+        </AnimatePresence>
       </div>
     </div>
   );

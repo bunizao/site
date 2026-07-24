@@ -33,6 +33,7 @@ const placeholderBars = Array.from({ length: contributionDays });
 
 <div
   class:list={['activity-section', demo ? ['is-ready', 'is-breathing'] : 'is-loading']}
+  data-contribution-section
   data-contributions={demo ? undefined : true}
   data-username={username}
   data-days={contributionDays}
@@ -73,6 +74,8 @@ const placeholderBars = Array.from({ length: contributionDays });
 
 <script is:inline>
   const sections = document.querySelectorAll('[data-contributions]');
+  const contributionSections = document.querySelectorAll('[data-contribution-section]');
+  const prefersReducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)');
   const GITHUB_READY_EVENT = 'home:hero-github-ready';
   const GITHUB_READY_FALLBACK_MS = 2600;
   const pendingGraphUpdates = new Set();
@@ -115,6 +118,34 @@ const placeholderBars = Array.from({ length: contributionDays });
     window.addEventListener(GITHUB_READY_EVENT, flushGraphUpdates, { once: true });
     graphFallbackTimer = window.setTimeout(flushGraphUpdates, GITHUB_READY_FALLBACK_MS);
   }
+
+  const hideTooltip = (section) => {
+    section.querySelector('[data-tooltip]')?.classList.remove('is-visible');
+  };
+
+  const updateBreathingState = (section) => {
+    const active = section.classList.contains('is-breathing')
+      && section.dataset.inViewport === 'true'
+      && document.visibilityState === 'visible'
+      && !prefersReducedMotion?.matches;
+    section.classList.toggle('is-breathing-active', active);
+    if (!active) hideTooltip(section);
+  };
+
+  const updateAllBreathingStates = () => {
+    contributionSections.forEach(updateBreathingState);
+  };
+
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach((entry) => {
+      entry.target.dataset.inViewport = String(entry.isIntersecting);
+      updateBreathingState(entry.target);
+    });
+  });
+
+  contributionSections.forEach((section) => observer.observe(section));
+  document.addEventListener('visibilitychange', updateAllBreathingStates);
+  prefersReducedMotion?.addEventListener('change', updateAllBreathingStates);
 
   const schedule = (callback) => {
     const runAfterMarkup = () => renderNextFrame(callback);
@@ -215,6 +246,7 @@ const placeholderBars = Array.from({ length: contributionDays });
         bar.style.transitionDelay = '';
       });
       section.classList.add('is-breathing');
+      updateBreathingState(section);
     }, totalGrow);
   };
 
@@ -302,11 +334,11 @@ const placeholderBars = Array.from({ length: contributionDays });
     background: hsl(var(--foreground) / 0.35);
     transform-origin: bottom;
     transition: height 0.45s cubic-bezier(0.22, 1, 0.36, 1), background 0.2s ease;
-    will-change: transform;
   }
 
   /* Ambient breathing wave — handed off after the right-to-left grow-in. */
-  .activity-section.is-breathing .wave-bar {
+  .activity-section.is-breathing-active .wave-bar {
+    will-change: transform;
     animation: wave 2s ease-in-out infinite;
     animation-delay: var(--delay);
   }
@@ -401,7 +433,7 @@ const placeholderBars = Array.from({ length: contributionDays });
       transition: none;
     }
 
-    .activity-section.is-breathing .wave-bar {
+    .activity-section.is-breathing-active .wave-bar {
       animation: none;
     }
   }

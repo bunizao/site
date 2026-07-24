@@ -298,6 +298,7 @@ const searchHighlight = blogPalette.ji;
 <script>
   import { getMoodFeedAnchorHref } from '@/features/mood/shared/feed-anchor';
   import { formatMoodResultTime, isSafeSnippetHtml, searchMoods } from '@/features/mood/shared/search';
+  import { feedback } from '@/lib/feedback';
 
   interface WritingHit {
     title: string;
@@ -347,11 +348,19 @@ const searchHighlight = blogPalette.ji;
     // its three segments are a radio group driven by the Layout theme
     // controller — clicking a segment (or ←/→ while the row is active) just
     // clicks the matching [data-theme-option], reusing its storage + class
-    // toggling. themeSetting on <html> is the source of truth for which
-    // segment reads as on.
+    // toggling. The shared controller writes localStorage synchronously while
+    // the html dataset can lag behind a deferred view-transition callback.
     const themeOrder = ['light', 'dark', 'system'];
     const segButtons = Array.from(dialog.querySelectorAll<HTMLElement>('[data-theme-seg]'));
-    const currentTheme = () => document.documentElement.dataset.themeSetting || 'system';
+    const currentTheme = () => {
+      try {
+        const stored = localStorage.getItem('theme');
+        if (stored === 'light' || stored === 'dark') return stored;
+      } catch {
+        // Storage can be blocked in private browsing contexts.
+      }
+      return 'system';
+    };
     const syncSegments = () => {
       const cur = currentTheme();
       segButtons.forEach((b) => b.setAttribute('aria-checked', String(b.dataset.themeSeg === cur)));
@@ -694,7 +703,9 @@ const searchHighlight = blogPalette.ji;
     };
 
     const close = () => {
-      if (dialog.open) dialog.close();
+      if (!dialog.open) return;
+      feedback.close();
+      dialog.close();
     };
 
     const activate = (el: HTMLElement, event?: Event) => {
@@ -720,6 +731,7 @@ const searchHighlight = blogPalette.ji;
         navigator.clipboard
           ?.writeText(copy)
           .then(() => {
+            feedback.success();
             if (!label || el.classList.contains('is-copied')) return;
             const original = label.textContent;
             el.classList.add('is-copied');
@@ -811,6 +823,7 @@ const searchHighlight = blogPalette.ji;
       if (dialog.open) return;
       searchScope = resolveScope();
       input.placeholder = SCOPE_PLACEHOLDER[searchScope];
+      feedback.open();
       input.value = '';
       updateQueryTargets('');
       syncSegments();
@@ -845,9 +858,11 @@ const searchHighlight = blogPalette.ji;
       }
       if (event.key === 'ArrowDown') {
         event.preventDefault();
+        feedback.tap();
         setActive(activeIndex + 1);
       } else if (event.key === 'ArrowUp') {
         event.preventDefault();
+        feedback.tap();
         setActive(activeIndex - 1);
       } else if (event.key === 'Enter') {
         event.preventDefault();
