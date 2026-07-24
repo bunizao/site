@@ -70,7 +70,7 @@ describe('structured mood feed media rendering', () => {
     expect(html).not.toContain('<audio');
   });
 
-  test('keeps native audio and falls back to the document card without a source', () => {
+  test('keeps native audio and preserves album art when rich audio has no source', () => {
     const nativeHtml = renderStructuredMoodFeedMediaMarkup([
       {
         type: 'audio',
@@ -83,13 +83,33 @@ describe('structured mood feed media rendering', () => {
       {
         type: 'audio',
         originalUrl: 'https://t.me/example/3672',
-        fileName: 'too-big.flac',
+        fileName: 'Some Artist - Too Big.flac',
         fileSizeLabel: '32 MB',
+        durationSeconds: 256,
+        thumbnailSrc: 'https://image.example.test/mood/1/cover.jpg',
       },
     ], { richAudio: true });
-    expect(fallbackHtml).toContain('tgme_widget_message_document_wrap');
-    expect(fallbackHtml).toContain('too-big.flac');
-    expect(fallbackHtml).not.toContain('data-listening');
+    expect(fallbackHtml).toContain('<div class="mood-listening">');
+    expect(fallbackHtml).toContain('class="listening is-recent has-no-playback is-cover"');
+    expect(fallbackHtml).toContain('data-preview-url=""');
+    expect(fallbackHtml).toContain('data-track-url="https://t.me/example/3672"');
+    expect(fallbackHtml).toContain('aria-label="Open Too Big"');
+    expect(fallbackHtml).toContain('data-title="Too Big"');
+    expect(fallbackHtml).toContain('>Some Artist</span>');
+    expect(fallbackHtml).toContain('>4:16</span>');
+    expect(fallbackHtml).toContain('src="https://image.example.test/mood/1/cover.jpg"');
+    expect(fallbackHtml).toContain('data-listening-progress-row');
+    expect(fallbackHtml).not.toContain('tgme_widget_message_document_wrap');
+
+    const noArtworkHtml = renderStructuredMoodFeedMediaMarkup([
+      {
+        type: 'audio',
+        originalUrl: 'https://t.me/example/3671',
+        fileName: 'voice-message.ogg',
+      },
+    ], { richAudio: true });
+    expect(noArtworkHtml).toContain('tgme_widget_message_document_wrap');
+    expect(noArtworkHtml).not.toContain('data-listening');
   });
 
   test('can defer feed video sources until the viewport observer hydrates them', () => {

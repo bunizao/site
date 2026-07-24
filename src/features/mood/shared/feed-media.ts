@@ -149,11 +149,11 @@ function parseAudioLabel(media: MediaItem): { title: string; artist: string } {
 
 function renderRichAudio(media: MediaItem): string {
   const src = safeUrl(media.src, 'media');
-  if (!src) return '';
+  const artwork = safeUrl(media.thumbnailSrc, 'media');
+  if (!src && !artwork) return '';
 
   const { title, artist } = parseAudioLabel(media);
   const duration = formatDuration(media.durationSeconds);
-  const artwork = safeUrl(media.thumbnailSrc, 'media') || BLANK_LISTENING_ARTWORK;
 
   const card = renderListeningCardMarkup({
     title,
@@ -162,8 +162,8 @@ function renderRichAudio(media: MediaItem): string {
     // noise for a play surface, so no meta line and no eyebrow.
     collection: '',
     year: '',
-    artworkUrl: artwork,
-    linkUrl: safeUrl(media.originalUrl, 'href'),
+    artworkUrl: artwork || BLANK_LISTENING_ARTWORK,
+    linkUrl: safeUrl(media.originalUrl || media.href, 'href'),
     previewUrl: src,
     appleCatalogId: '',
     statusLabel: '',

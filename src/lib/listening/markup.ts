@@ -83,6 +83,7 @@ export function renderListeningCardMarkup(props: ListeningCardProps): string {
   const hasLink = Boolean(linkUrl);
   const hasPlayableAudio = Boolean(appleCatalogId || previewUrl);
   const liveClass = isLive ? 'is-live' : 'is-recent';
+  const playbackClass = hasPlayableAudio ? '' : ' has-no-playback';
   const trackLabel = `${title} — ${artist}`;
   const playLabel = hasPlayableAudio
     ? `Play ${title}`
@@ -119,14 +120,14 @@ export function renderListeningCardMarkup(props: ListeningCardProps): string {
       ].join('');
 
   return [
-    `<aside class="listening ${liveClass}${isLoading ? ' is-loading' : ''}${isCover ? ' is-cover' : ''}"`,
+    `<aside class="listening ${liveClass}${playbackClass}${isLoading ? ' is-loading' : ''}${isCover ? ' is-cover' : ''}"`,
     ' data-listening',
     ` data-has-initial-track="${hasTrack}"`,
     ` data-now-playing="${isLive}"`,
     ` data-static="${isStatic}"`,
     ` aria-label="${escapeHtml(containerLabel)}">`,
 
-    `<button type="button" class="listening-art ${liveClass}${isCover ? ' is-cover' : ''}" data-listening-play`,
+    `<button type="button" class="listening-art ${liveClass}${playbackClass}${isCover ? ' is-cover' : ''}" data-listening-play`,
     ` data-apple-catalog-id="${escapeHtml(appleCatalogId)}"`,
     ` data-preview-url="${escapeHtml(previewUrl)}"`,
     ` data-track-url="${escapeHtml(hasLink ? linkUrl : '')}"`,

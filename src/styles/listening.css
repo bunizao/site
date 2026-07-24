@@ -813,6 +813,12 @@
   border-radius: 8px;
 }
 
+.listening-art.has-no-playback .listening-art-scrim,
+.listening-art.has-no-playback .listening-art-icons,
+.listening.has-no-playback .listening-progress-row {
+  display: none;
+}
+
 /* Copy column: title on top, progress seated below. The eyebrow and meta rows
    are removed entirely — only title/artist + progress remain. */
 .listening.is-cover .listening-copy {

@@ -383,6 +383,7 @@ export const initListeningCards = (root: ParentNode = document): void => {
     const setPlaybackSources = (catalogId: string, previewUrl: string) => {
       const changed = playbackRequest.catalogId !== catalogId
         || playbackRequest.previewUrl !== previewUrl;
+      const hasPlayback = Boolean(catalogId || previewUrl);
 
       if (changed && musicKitPlayer.snapshot().owner === playbackRequest) {
         musicKitPlayer.pause();
@@ -392,6 +393,8 @@ export const initListeningCards = (root: ParentNode = document): void => {
       playbackRequest.previewUrl = previewUrl;
       playButton.dataset.appleCatalogId = catalogId;
       playButton.dataset.previewUrl = previewUrl;
+      root.classList.toggle('has-no-playback', !hasPlayback);
+      playButton.classList.toggle('has-no-playback', !hasPlayback);
       setPlaybackState(false);
     };
 
