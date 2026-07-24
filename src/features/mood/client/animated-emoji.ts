@@ -175,7 +175,7 @@ export function createAnimatedEmojiManager(
         node.dataset.emojiAnimated = 'true';
         const container = document.createElement('span');
         container.className = 'tg-emoji-anim';
-        node.appendChild(container);
+        node.replaceChildren(container);
 
         const animation = libraries.lottie.loadAnimation({
           container,
