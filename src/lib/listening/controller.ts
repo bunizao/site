@@ -255,11 +255,22 @@ export const initListeningCards = (root: ParentNode = document): void => {
       if (status && !isStatic) status.textContent = nextIsLive ? 'Now Playing' : 'Recently Played';
     };
 
-    const setPlaybackState = (isPlaying: boolean) => {
+    const setPlaybackState = (isPlaying: boolean, isLoading = false) => {
       root.classList.toggle('is-preview-playing', isPlaying);
       playButton.classList.toggle('is-preview-playing', isPlaying);
+      root.classList.toggle('is-preview-loading', isLoading);
+      playButton.classList.toggle('is-preview-loading', isLoading);
       playButton.setAttribute('aria-pressed', isPlaying ? 'true' : 'false');
+      if (isLoading) {
+        playButton.disabled = true;
+        playButton.setAttribute('aria-busy', 'true');
+        playButton.setAttribute('aria-label', `Loading ${trackTitle}`);
+        return;
+      }
+
+      playButton.removeAttribute('aria-busy');
       if (isPlaying) {
+        playButton.disabled = false;
         playButton.setAttribute('aria-label', `Pause ${trackTitle}`);
       } else {
         syncPlayAction();
@@ -469,8 +480,9 @@ export const initListeningCards = (root: ParentNode = document): void => {
     musicKitPlayer.subscribe((snapshot) => {
       const ours = snapshot.owner === playbackRequest;
       const playing = ours && snapshot.isPlaying;
+      const loading = ours && snapshot.isLoading;
       if (wasPlaying && !playing) freezeCurrentRecordRotation();
-      setPlaybackState(playing);
+      setPlaybackState(playing, loading);
       wasPlaying = playing;
 
       const duration = ours ? snapshot.duration : 0;

@@ -46,6 +46,8 @@ const playIcon =
   '<svg class="listening-art-icon listening-art-icon--play" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="6 3 20 12 6 21 6 3"/></svg>';
 const pauseIcon =
   '<svg class="listening-art-icon listening-art-icon--pause" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="14" y="4" width="4" height="16" rx="1"/><rect x="4" y="4" width="4" height="16" rx="1"/></svg>';
+const loadingIcon =
+  '<svg class="listening-art-icon listening-art-icon--loading" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>';
 const tonearm = [
   '<svg class="listening-art-tonearm" viewBox="0 0 96 84" aria-hidden="true">',
   '<g class="listening-art-tonearm-arm">',
@@ -101,7 +103,7 @@ export function renderListeningCardMarkup(props: ListeningCardProps): string {
         ' loading="lazy" decoding="async" fetchpriority="low"',
         ' referrerpolicy="no-referrer" width="72" height="72" />',
         '<span class="listening-art-scrim" aria-hidden="true"></span>',
-        `<span class="listening-art-icons" aria-hidden="true">${playIcon}${pauseIcon}</span>`,
+        `<span class="listening-art-icons" aria-hidden="true">${playIcon}${pauseIcon}${loadingIcon}</span>`,
         '</span>',
       ].join('')
     : [
@@ -110,7 +112,7 @@ export function renderListeningCardMarkup(props: ListeningCardProps): string {
         `<img src="${escapeHtml(artworkUrl)}" alt="" class="listening-art-img" data-listening-artwork`,
         ' crossorigin="anonymous" loading="lazy" decoding="async" fetchpriority="low"',
         ' referrerpolicy="no-referrer" width="40" height="40" />',
-        `<span class="listening-art-icons" aria-hidden="true">${playIcon}${pauseIcon}</span>`,
+        `<span class="listening-art-icons" aria-hidden="true">${playIcon}${pauseIcon}${loadingIcon}</span>`,
         badgeHtml,
         '</span>',
         tonearm,

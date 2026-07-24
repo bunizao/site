@@ -27,6 +27,7 @@ export interface PlaybackSnapshot {
   /** The request currently owning playback, by identity. */
   owner: PlayRequest | null;
   isPlaying: boolean;
+  isLoading: boolean;
   /** Which engine is producing sound. Always 'preview' or null now. */
   source: PlaybackSource;
   currentTime: number;
@@ -41,6 +42,7 @@ class PreviewPlayer {
   private owner: PlayRequest | null = null;
   private source: PlaybackSource = null;
   private playing = false;
+  private loading = false;
 
   private listeners = new Set<Listener>();
   private rafId = 0;
@@ -56,6 +58,7 @@ class PreviewPlayer {
     return {
       owner: this.owner,
       isPlaying: this.playing,
+      isLoading: this.loading,
       source: this.source,
       currentTime: this.currentTime(),
       duration: this.duration(),
@@ -93,8 +96,9 @@ class PreviewPlayer {
     this.rafId = window.requestAnimationFrame(tick);
   }
 
-  private setState(playing: boolean, source: PlaybackSource): void {
+  private setState(playing: boolean, source: PlaybackSource, loading = false): void {
     this.playing = playing;
+    this.loading = loading;
     this.source = source;
     this.emit();
     if (playing) this.startTicker();
@@ -127,6 +131,7 @@ class PreviewPlayer {
     }
     if (sameOwner && this.source && !this.playing && this.audio) {
       // Resume in place.
+      this.setState(false, 'preview', true);
       this.audio.play().then(
         () => this.setState(true, 'preview'),
         () => this.setState(false, null),
@@ -148,7 +153,7 @@ class PreviewPlayer {
 
     const audio = this.ensureAudio();
     if (audio.src !== request.previewUrl) audio.src = request.previewUrl;
-    this.source = 'preview';
+    this.setState(false, 'preview', true);
     audio.play().then(
       () => {
         // Owner may have changed while play() awaited the first frame.
@@ -163,6 +168,7 @@ class PreviewPlayer {
   pause(): void {
     if (this.source === 'preview' && this.audio) this.audio.pause();
     this.playing = false;
+    this.loading = false;
     this.emit();
   }
 
@@ -181,6 +187,7 @@ class PreviewPlayer {
       this.audio.currentTime = 0;
     }
     this.playing = false;
+    this.loading = false;
     this.source = null;
   }
 }

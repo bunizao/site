@@ -1146,8 +1146,11 @@ test.describe('Mood routes', () => {
         duration = 245;
         src = '';
 
-        async play() {
+        play() {
           this.paused = false;
+          return new Promise<void>((resolve) => {
+            (window as typeof window & { __resolvePreviewPlay?: () => void }).__resolvePreviewPlay = resolve;
+          });
         }
 
         pause() {
@@ -1220,7 +1223,17 @@ test.describe('Mood routes', () => {
     await expect(mood).not.toContainText('9.2 MB');
 
     await playButton.click();
+    await expect(playButton).toHaveAttribute('aria-busy', 'true');
+    await expect(playButton).toHaveClass(/is-preview-loading/);
+    await expect(card).toHaveClass(/is-preview-loading/);
+    await expect(card.locator('.listening-art-icon--loading')).toBeVisible();
+
+    await page.evaluate(() => {
+      (window as typeof window & { __resolvePreviewPlay?: () => void }).__resolvePreviewPlay?.();
+    });
     await expect(playButton).toHaveAttribute('aria-pressed', 'true');
+    await expect(playButton).not.toHaveAttribute('aria-busy', 'true');
+    await expect(playButton).not.toHaveClass(/is-preview-loading/);
     await expect(card).toHaveClass(/is-preview-playing/);
 
     await playButton.click();
