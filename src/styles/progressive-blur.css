@@ -50,3 +50,43 @@
   -webkit-backdrop-filter: var(--pblur-webkit-filter);
   backdrop-filter: var(--pblur-webkit-filter);
 }
+
+/* Narrow viewports drop to the compact ladder: fewer backdrop passes, and the
+   surviving layers take over the gaps through --pblur-mask-compact so the ramp
+   stays seamless. Phone-sized blur bands are short enough that the coarser
+   sampling is invisible, while the pass count falls by a third. */
+@media (max-width: 768px) {
+  .pblur[data-preset='continuous'] .pblur__layer[data-compact='false'] {
+    display: none;
+  }
+
+  .pblur[data-preset='continuous'] .pblur__layer[data-compact='true'] {
+    -webkit-mask-image: var(--pblur-mask-compact);
+    mask-image: var(--pblur-mask-compact);
+  }
+}
+
+/* Reduce Transparency is both an accessibility setting and the cheapest escape
+   hatch on weak GPUs: drop every backdrop pass and keep a flat directional tint
+   so anything sitting on the scrim stays legible. */
+@media (prefers-reduced-transparency: reduce) {
+  .pblur {
+    background: linear-gradient(
+      var(--pblur-direction),
+      hsl(var(--background) / 0),
+      hsl(var(--background) / 0.94)
+    );
+  }
+
+  .pblur[data-preset='topbar'] {
+    background: linear-gradient(
+      to bottom,
+      hsl(var(--background) / 0.94),
+      hsl(var(--background) / 0) 82%
+    );
+  }
+
+  .pblur__layer {
+    display: none;
+  }
+}

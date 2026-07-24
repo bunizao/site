@@ -22,6 +22,13 @@ type Props = SharedProps & (
     }
 );
 
+interface Layer {
+  filter: string;
+  webkitFilter: string;
+  mask: string;
+  compactMask: string | null;
+}
+
 const {
   class: className,
   direction = 'bottom',
@@ -32,9 +39,11 @@ const {
 
 const normalizedStrength = Number.isFinite(strength) && strength >= 0 ? strength : 1;
 
-// Exact CSS equivalents of the 20 Figma background-blur layers. Figma's
-// exported CSS uses half of the radius shown in the layer name.
-const continuousLayers = [
+// Reference ladder: the 20 background-blur layers exported from Figma, as
+// [radius, maskStart, maskEnd]. Figma's exported CSS uses half of the radius
+// shown in the layer name. Kept whole as the source of truth; the tiers below
+// sample it rather than replacing it.
+const referenceLadder = [
   [0, 0, 0.160256],
   [0.001, 0.160256, 0.320513],
   [0.003, 0.320513, 0.641026],
@@ -57,36 +66,92 @@ const continuousLayers = [
   [78, 97.9853, 100],
 ] as const;
 
-const topbarLayers = [
+// Every layer is its own offscreen backdrop snapshot plus blur pass, so cost
+// grows linearly with layer count while the perceived ramp stops improving well
+// before twenty. Indices 0-5 are dropped outright: their radii are all under a
+// fifth of a pixel, so they render nothing at full price. The rest are sampled
+// on a stride, always keeping index 19 so peak blur matches the reference.
+// compactIndices is a strict subset of wideIndices, which lets a single DOM node
+// serve both tiers with nothing but its mask swapped. These two arrays are the
+// whole tuning surface.
+const wideIndices = [6, 8, 10, 12, 14, 16, 19];
+const compactIndices = [6, 10, 14, 16, 19];
+
+const roundRadius = (radius: number) => Math.round(radius * 1000) / 1000;
+
+// A sampled layer ramps in from the previous kept layer's boundary instead of
+// its own, so the widened gaps stay continuous and no seam appears where a
+// dropped layer used to sit.
+const maskLadder = (indices: readonly number[]) => {
+  const masks = new Map<number, string>();
+  let previousEnd = 0;
+
+  for (const index of indices) {
+    const end = referenceLadder[index][2];
+    masks.set(
+      index,
+      `linear-gradient(var(--pblur-direction), transparent ${previousEnd}%, #000 ${end}%)`,
+    );
+    previousEnd = end;
+  }
+
+  return masks;
+};
+
+const continuousLayers = (): Layer[] => {
+  const wideMasks = maskLadder(wideIndices);
+  const compactMasks = maskLadder(compactIndices);
+
+  return wideIndices.map((index) => {
+    const filter = `blur(${roundRadius(referenceLadder[index][0] * normalizedStrength)}px)`;
+
+    return {
+      filter,
+      webkitFilter: filter,
+      mask: wideMasks.get(index)!,
+      compactMask: compactMasks.get(index) ?? null,
+    };
+  });
+};
+
+// The topbar ramp is hand-tuned rather than sampled: it covers a short fixed
+// band, so four layers already read as continuous. WebKit resolves the same
+// radius visually heavier, hence the trimmed companion values.
+const topbarLayers: Layer[] = [
   {
     filter: 'blur(4px)',
     webkitFilter: 'blur(3px)',
     mask: 'linear-gradient(to bottom, #000 0%, #000 60%, transparent 100%)',
+    compactMask: null,
   },
   {
     filter: 'blur(8px)',
     webkitFilter: 'blur(6px)',
     mask: 'linear-gradient(to bottom, #000 0%, #000 45%, transparent 80%)',
+    compactMask: null,
   },
   {
     filter: 'blur(14px) saturate(1.4)',
     webkitFilter: 'blur(9px) saturate(1.3)',
     mask: 'linear-gradient(to bottom, #000 0%, #000 30%, transparent 62%)',
+    compactMask: null,
   },
   {
     filter: 'blur(22px) saturate(1.6)',
     webkitFilter: 'blur(13px) saturate(1.4)',
     mask: 'linear-gradient(to bottom, #000 0%, #000 12%, transparent 45%)',
+    compactMask: null,
   },
-] as const;
+];
 
-const layers = preset === 'topbar'
-  ? topbarLayers
-  : continuousLayers.map(([blur, start, end]) => ({
-      filter: `blur(${blur * normalizedStrength}px)`,
-      webkitFilter: `blur(${blur * normalizedStrength}px)`,
-      mask: `linear-gradient(var(--pblur-direction), transparent ${start}%, #000 ${end}%)`,
-    }));
+const layers = preset === 'topbar' ? topbarLayers : continuousLayers();
+
+const layerStyle = (layer: Layer) => ({
+  '--pblur-filter': layer.filter,
+  '--pblur-webkit-filter': layer.webkitFilter,
+  '--pblur-mask': layer.mask,
+  ...(layer.compactMask ? { '--pblur-mask-compact': layer.compactMask } : {}),
+});
 ---
 
 <div
@@ -100,11 +165,8 @@ const layers = preset === 'topbar'
     <span
       class="pblur__layer"
       data-layer={index + 1}
-      style={{
-        '--pblur-filter': layer.filter,
-        '--pblur-webkit-filter': layer.webkitFilter,
-        '--pblur-mask': layer.mask,
-      }}
+      data-compact={layer.compactMask ? 'true' : 'false'}
+      style={layerStyle(layer)}
     />
   ))}
 </div>
