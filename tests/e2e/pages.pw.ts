@@ -43,6 +43,11 @@ test.describe('Standalone pages', () => {
     await expect(page.locator('[data-mobile-brand-text]')).toHaveText('buxx.me');
     await expect(page.locator('.privacy-content')).toContainText('This Privacy Policy explains how this website collects');
 
+    const search = page.getByRole('button', { name: 'Search and commands' });
+    await expect(search).toHaveClass(/topbar-action--search/);
+    await expect(search.locator('.header-action-btn-keys')).toBeVisible();
+    expect(await search.evaluate((element) => element.getBoundingClientRect().width)).toBeGreaterThan(50);
+
     const desktopBrandGap = await page.evaluate(() => {
       const logo = document.querySelector('.site-brand-logo');
       const brandText = document.querySelector('[data-mobile-brand-text]');

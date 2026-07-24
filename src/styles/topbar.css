@@ -63,8 +63,10 @@
 }
 
 @media (min-width: 900px) {
-  .topbar-action--search {
+  .topbar-action--search,
+  .header-action-btn.topbar-action--search {
     width: auto;
+    min-width: 0;
     padding: 0 7px 0 9px;
     gap: 6px;
     border-radius: 9px;
