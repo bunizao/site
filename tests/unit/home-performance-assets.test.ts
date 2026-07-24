@@ -31,6 +31,27 @@ describe('homepage performance assets', () => {
     }
   });
 
+  test('releases homepage compositor hints when effects are idle', () => {
+    const layout = readText('src/layouts/Layout.astro');
+    const globals = readText('src/styles/globals.css');
+    const parallax = readText('src/features/home/ui/ParallaxWrapper.astro');
+
+    expect(layout).toContain("overlay.classList.add('is-active')");
+    expect(layout).toContain("overlay.classList.remove('is-active')");
+    expect(globals).toContain('.spotlight-overlay.is-active {');
+    expect(globals).toContain(
+      '.spotlight-overlay.is-active .spotlight-overlay__grid {',
+    );
+
+    const spotlightBase = globals.slice(
+      globals.indexOf('.spotlight-overlay {'),
+      globals.indexOf('.spotlight-overlay.is-active {'),
+    );
+    expect(spotlightBase).not.toContain('translateZ(0)');
+    expect(spotlightBase).not.toContain('will-change');
+    expect(parallax).not.toContain(':global(section) {');
+  });
+
   test('keeps JetBrains Mono off the homepage critical path', () => {
     const homePage = readText('src/pages/index.astro');
     const homeHero = readText('src/features/home/ui/Hero.astro');

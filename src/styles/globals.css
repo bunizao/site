@@ -263,8 +263,6 @@
     pointer-events: none;
     overflow: hidden;
     contain: strict;
-    transform: translateZ(0);
-    backface-visibility: hidden;
     --spotlight-x: 50vw;
     --spotlight-y: 30vh;
     --spotlight-tail-x: 0px;
@@ -275,13 +273,21 @@
     --spotlight-core-opacity: 0;
   }
 
+  .spotlight-overlay.is-active {
+    transform: translateZ(0);
+    backface-visibility: hidden;
+  }
+
   .spotlight-overlay__grid {
     position: absolute;
     inset: 0;
     pointer-events: none;
     opacity: 0;
-    will-change: opacity, mask-image, -webkit-mask-image;
     contain: paint;
+  }
+
+  .spotlight-overlay.is-active .spotlight-overlay__grid {
+    will-change: opacity, mask-image, -webkit-mask-image;
   }
 
   .spotlight-overlay__grid {

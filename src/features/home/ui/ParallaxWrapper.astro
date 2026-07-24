@@ -20,15 +20,6 @@
     will-change: auto;
   }
 
-  /* Floating sections - GPU accelerated */
-  :global(section) {
-    will-change: transform;
-    transform: translateZ(0);
-    -webkit-transform: translateZ(0);
-    backface-visibility: hidden;
-    -webkit-backface-visibility: hidden;
-  }
-
   @media (prefers-reduced-motion: reduce) {
     :global(html) {
       scroll-behavior: auto;

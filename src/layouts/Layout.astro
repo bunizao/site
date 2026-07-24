@@ -401,8 +401,13 @@ const preloadFontHref = preloadFont === 'sans'
         const prefersFinePointer = window.matchMedia('(pointer: fine)');
 
         const setInactive = () => {
+          overlay.classList.remove('is-active');
           overlayStyle.setProperty('--spotlight-soft-opacity', '0');
           overlayStyle.setProperty('--spotlight-core-opacity', '0');
+        };
+
+        const setActive = () => {
+          overlay.classList.add('is-active');
         };
 
         const canRun = () => !prefersReducedMotion.matches && prefersFinePointer.matches;
@@ -483,10 +488,13 @@ const preloadFontHref = preloadFont === 'sans'
             targetOpacity > 0
           ) {
             frameId = window.requestAnimationFrame(tick);
+          } else {
+            setInactive();
           }
         };
 
         const queueTick = () => {
+          setActive();
           if (!frameId) {
             lastFrameTime = performance.now();
             frameId = window.requestAnimationFrame(tick);
