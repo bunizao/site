@@ -154,12 +154,17 @@ const buildProxyResponse = async (
     console.error('Upstream fetch failed:', { targetUrl, error });
     return new Response('Upstream fetch failed.', {
       status: 502,
-      headers: extraHeaders,
+      headers: {
+        ...Object.fromEntries(extraHeaders),
+        'cache-control': 'no-store',
+      },
     });
   }
 
   const responseHeaders = new Headers(upstream.headers);
   hopByHopHeaders.forEach((name) => responseHeaders.delete(name));
+  responseHeaders.delete('set-cookie');
+  responseHeaders.delete('set-cookie2');
   responseHeaders.delete('content-encoding');
   responseHeaders.delete('content-length');
   responseHeaders.set('access-control-allow-origin', '*');

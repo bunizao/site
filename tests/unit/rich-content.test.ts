@@ -24,17 +24,20 @@ describe('rich content rendering', () => {
     expect(html).toContain('Hello bad');
     expect(html).toContain('<a href="https://example.com/article" target="_blank" rel="noopener noreferrer">safe</a>');
     expect(html).toContain('class="tg-emoji"');
+    expect(html).toContain('class="tg-emoji-fallback"');
+    expect(html).toContain('src="/static/https:/t.me/i/emoji/5368324170671202286.webp"');
+    expect(html).toContain('alt="🙂"');
     expect(html).toContain('class="tg-spoiler"');
     expect(html).toContain('class="tg-blockquote-expandable"');
     expect(html).toContain('class="language-typescript"');
     expect(html).toContain('data-emoji-id="5368324170671202286"');
-    expect(html).toContain('data-emoji-animated="true"');
+    expect(html).not.toContain('data-emoji-animated');
     expect(html).toContain('datetime="2026-06-13T00:00:00.000Z"');
     expect(html).not.toContain('javascript:');
     expect(html).not.toContain('onclick');
     expect(html).not.toContain('style=');
     expect(html).not.toContain('<script');
-    expect(html).not.toContain('<img');
+    expect(html).not.toContain('inline.jpg');
     expect(html).not.toContain('unsafe');
   });
 

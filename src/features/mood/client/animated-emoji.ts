@@ -35,6 +35,8 @@ interface EmojiLibraries {
 type EmojiRoot = ParentNode & Node;
 
 const toStaticProxyUrl = (value: string): string => `/static/${value.replace('://', ':/')}`;
+const ANIMATION_FETCH_ATTEMPTS = 2;
+const ANIMATION_RETRY_DELAY_MS = 250;
 let librariesPromise: Promise<EmojiLibraries> | null = null;
 const emojiCache = new Map<string, Promise<unknown | null>>();
 
@@ -52,13 +54,9 @@ async function loadLibraries(): Promise<EmojiLibraries> {
   return librariesPromise;
 }
 
-async function getAnimationData(emojiId: string, pako: PakoLike): Promise<unknown | null> {
-  if (emojiCache.has(emojiId)) {
-    return emojiCache.get(emojiId) as Promise<unknown | null>;
-  }
-
-  const promise = (async () => {
-    const metaResponse = await fetch(toStaticProxyUrl(`https://t.me/i/emoji/${emojiId}.json`), { cache: 'no-store' });
+async function loadAnimationData(emojiId: string, pako: PakoLike): Promise<unknown | null> {
+  try {
+    const metaResponse = await fetch(toStaticProxyUrl(`https://t.me/i/emoji/${emojiId}.json`));
     if (!metaResponse.ok) return null;
 
     const meta = await metaResponse.json() as EmojiMetaResponse;
@@ -73,10 +71,47 @@ async function getAnimationData(emojiId: string, pako: PakoLike): Promise<unknow
     const bytes = new Uint8Array(buffer);
     const jsonText = new TextDecoder('utf-8').decode(pako.ungzip(bytes));
     return JSON.parse(jsonText) as unknown;
-  })().catch(() => null);
+  } catch {
+    return null;
+  }
+}
+
+async function getAnimationData(emojiId: string, pako: PakoLike): Promise<unknown | null> {
+  if (emojiCache.has(emojiId)) {
+    return emojiCache.get(emojiId) as Promise<unknown | null>;
+  }
+
+  const promise = (async () => {
+    for (let attempt = 0; attempt < ANIMATION_FETCH_ATTEMPTS; attempt += 1) {
+      const animationData = await loadAnimationData(emojiId, pako);
+      if (animationData) return animationData;
+      if (attempt + 1 < ANIMATION_FETCH_ATTEMPTS) {
+        await new Promise((resolve) => setTimeout(resolve, ANIMATION_RETRY_DELAY_MS));
+      }
+    }
+    return null;
+  })();
 
   emojiCache.set(emojiId, promise);
-  return promise;
+  const animationData = await promise;
+  if (!animationData) {
+    emojiCache.delete(emojiId);
+  }
+  return animationData;
+}
+
+function ensureStaticFallback(node: HTMLElement, emojiId: string): void {
+  if (node.querySelector('img, .tg-emoji-anim')) return;
+
+  const image = document.createElement('img');
+  image.className = 'tg-emoji-fallback';
+  image.src = toStaticProxyUrl(`https://t.me/i/emoji/${emojiId}.webp`);
+  image.alt = node.textContent?.trim() || 'emoji';
+  image.loading = 'lazy';
+  image.decoding = 'async';
+  image.width = 20;
+  image.height = 20;
+  node.replaceChildren(image);
 }
 
 export interface AnimatedEmojiManager {
@@ -101,6 +136,7 @@ export function createAnimatedEmojiManager(
   const activeAnimations = new Set<HTMLElement>();
   const observedRoots = new Map<EmojiRoot, MutationObserver>();
   const allAnimatedElements = new Set<HTMLElement>();
+  const nearViewportNodes = new Set<HTMLElement>();
   let visibilityObserver: IntersectionObserver | null = null;
 
   const playAnimation = (node: HTMLElement): void => {
@@ -118,18 +154,71 @@ export function createAnimatedEmojiManager(
     activeAnimations.delete(node);
   };
 
-  const getVisibilityObserver = (): IntersectionObserver => {
-    if (visibilityObserver) {
-      return visibilityObserver;
+  const hydrateNode = async (node: HTMLElement): Promise<void> => {
+    const emojiId = node.dataset.emojiId;
+    if (!emojiId || !/^\d{1,32}$/.test(emojiId) || node.dataset.emojiAnimated) return;
+
+    node.dataset.emojiAnimated = 'pending';
+    let libraries: EmojiLibraries;
+    try {
+      libraries = await loadLibraries();
+    } catch {
+      node.dataset.emojiAnimated = 'false';
+      return;
     }
+
+    const animationData = await getAnimationData(emojiId, libraries.pako);
+    if (!animationData) {
+      node.dataset.emojiAnimated = 'false';
+      return;
+    }
+
+    const container = document.createElement('span');
+    container.className = 'tg-emoji-anim';
+
+    let animation: LottieAnimationInstance;
+    try {
+      animation = libraries.lottie.loadAnimation({
+        container,
+        renderer: 'svg',
+        loop: true,
+        autoplay: false,
+        animationData,
+        rendererSettings: {
+          preserveAspectRatio: 'xMidYMid meet',
+        },
+      });
+    } catch {
+      node.dataset.emojiAnimated = 'false';
+      return;
+    }
+
+    node.replaceChildren(container);
+    node.dataset.emojiAnimated = 'true';
+    animationInstances.set(node, animation);
+    allAnimatedElements.add(node);
+    if (nearViewportNodes.has(node)) {
+      playAnimation(node);
+    }
+  };
+
+  const getVisibilityObserver = (): IntersectionObserver | null => {
+    if (visibilityObserver) return visibilityObserver;
+    if (!('IntersectionObserver' in window)) return null;
 
     visibilityObserver = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
           const node = entry.target as HTMLElement;
           if (entry.isIntersecting) {
-            playAnimation(node);
+            nearViewportNodes.add(node);
+            if (node.dataset.emojiAnimated === 'true') {
+              playAnimation(node);
+            } else if (!node.dataset.emojiAnimated) {
+              void hydrateNode(node);
+            }
           } else {
+            nearViewportNodes.delete(node);
             pauseAnimation(node);
           }
         });
@@ -151,48 +240,18 @@ export function createAnimatedEmojiManager(
 
     if (!nodes.length) return;
 
-    let libraries: EmojiLibraries;
-    try {
-      libraries = await loadLibraries();
-    } catch {
-      return;
-    }
-
     const observer = getVisibilityObserver();
-
-    await Promise.all(
-      nodes.map(async (node) => {
-        const emojiId = node.dataset.emojiId;
-        if (!emojiId) return;
-
-        node.dataset.emojiAnimated = 'pending';
-        const animationData = await getAnimationData(emojiId, libraries.pako);
-        if (!animationData) {
-          node.dataset.emojiAnimated = 'false';
-          return;
-        }
-
-        node.dataset.emojiAnimated = 'true';
-        const container = document.createElement('span');
-        container.className = 'tg-emoji-anim';
-        node.replaceChildren(container);
-
-        const animation = libraries.lottie.loadAnimation({
-          container,
-          renderer: 'svg',
-          loop: true,
-          autoplay: false,
-          animationData,
-          rendererSettings: {
-            preserveAspectRatio: 'xMidYMid meet',
-          },
-        });
-
-        animationInstances.set(node, animation);
-        allAnimatedElements.add(node);
+    nodes.forEach((node) => {
+      const emojiId = node.dataset.emojiId;
+      if (!emojiId || !/^\d{1,32}$/.test(emojiId)) return;
+      ensureStaticFallback(node, emojiId);
+      if (observer) {
         observer.observe(node);
-      })
-    );
+      } else {
+        nearViewportNodes.add(node);
+        void hydrateNode(node);
+      }
+    });
   };
 
   const observe = (root: EmojiRoot): void => {
@@ -225,6 +284,7 @@ export function createAnimatedEmojiManager(
     }
 
     activeAnimations.clear();
+    nearViewportNodes.clear();
     allAnimatedElements.forEach((node) => {
       const animation = animationInstances.get(node);
       animation?.destroy?.();

@@ -297,16 +297,12 @@ export function sanitizeRichContentHtml(bodyHtml: string): string {
       if (tag === 'span') {
         const className = sanitizeClassList(rawAttributes.class ?? '', PRESERVED_BODY_CLASSES);
         const emojiId = sanitizeDataValue(rawAttributes['data-emoji-id']);
-        const animated = rawAttributes['data-emoji-animated'];
 
         if (className) {
           $(element).attr('class', className);
         }
         if (emojiId) {
           $(element).attr('data-emoji-id', emojiId);
-        }
-        if (animated === 'true' || animated === 'false') {
-          $(element).attr('data-emoji-animated', animated);
         }
         return;
       }
@@ -334,6 +330,23 @@ export function sanitizeRichContentHtml(bodyHtml: string): string {
         }
       }
     });
+
+  $('.tg-emoji[data-emoji-id]').each((_index, element) => {
+    const emojiId = sanitizeDataValue($(element).attr('data-emoji-id'));
+    if (!/^\d{1,32}$/.test(emojiId)) return;
+
+    const fallbackText = $(element).text().trim() || 'emoji';
+    $(element).empty().append(
+      $('<img>')
+        .attr('class', 'tg-emoji-fallback')
+        .attr('src', `/static/https:/t.me/i/emoji/${emojiId}.webp`)
+        .attr('alt', fallbackText)
+        .attr('loading', 'lazy')
+        .attr('decoding', 'async')
+        .attr('width', '20')
+        .attr('height', '20')
+    );
+  });
 
   return ($.root().html() ?? '').replace(/\n{3,}/g, '\n\n').trim();
 }
