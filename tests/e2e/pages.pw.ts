@@ -84,10 +84,23 @@ test.describe('Standalone pages', () => {
       const brandRect = brand.getBoundingClientRect();
       const brandTextStyles = window.getComputedStyle(brandText);
       const toggleStyles = window.getComputedStyle(toggle);
+      const blur = nav.querySelector('[data-progressive-blur][data-preset="topbar"]');
+      const blurLayers = blur?.querySelectorAll('.pblur__layer') ?? [];
+      const topbarActions = [
+        headerActions.querySelector('[data-command-open]'),
+        toggle,
+        headerActions.querySelector('[data-menu-trigger]'),
+      ];
       return {
         hasBrandHomeActions: headerActions.classList.contains('has-brand-home-bar'),
         hasPageNav: nav.classList.contains('site-nav--page'),
         hasHomeNav: nav.classList.contains('site-nav--home'),
+        isReusableTopbar: nav.matches('nav[data-topbar]'),
+        blurLayerCount: blurLayers.length,
+        blurTail: blur instanceof HTMLElement
+          ? Math.round(blur.getBoundingClientRect().bottom - navRect.bottom)
+          : null,
+        topbarActionsReady: topbarActions.every((action) => action?.classList.contains('topbar-action')),
         navHeight: navRect.height,
         brandCenterDelta: Math.abs((brandRect.top + brandRect.height / 2) - (navRect.top + navRect.height / 2)),
         brandGap: Math.round((brandText.getBoundingClientRect().left - logo.getBoundingClientRect().right) * 100) / 100,
@@ -103,6 +116,10 @@ test.describe('Standalone pages', () => {
     expect(state?.hasBrandHomeActions).toBe(true);
     expect(state?.hasPageNav).toBe(true);
     expect(state?.hasHomeNav).toBe(false);
+    expect(state?.isReusableTopbar).toBe(true);
+    expect(state?.blurLayerCount).toBe(4);
+    expect(state?.blurTail).toBeGreaterThanOrEqual(35);
+    expect(state?.topbarActionsReady).toBe(true);
     expect(state?.navHeight).toBe(52);
     expect(state?.brandCenterDelta).toBeLessThanOrEqual(1);
     expect(state?.brandGap).toBe(6);

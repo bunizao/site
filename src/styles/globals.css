@@ -820,9 +820,6 @@
     padding: 0 4.5rem 0 1rem;
     z-index: 60;
     border-bottom: 1px solid hsl(var(--foreground) / 0.08);
-    background: hsl(var(--background) / 0.58);
-    -webkit-backdrop-filter: blur(14px) saturate(140%);
-    backdrop-filter: blur(14px) saturate(140%);
   }
 
   @media (min-width: 900px) {
@@ -852,22 +849,6 @@
     .global-header-actions.has-brand-home-bar {
       right: 1.5rem;
     }
-  }
-
-  /* On the brand-home bar the actions sit on their own translucent strip, so a
-     per-button border + backdrop reads as a box-on-a-box. Strip the chrome and
-     let them be quiet ghost controls — a soft rounded wash only on hover/open. */
-  .global-header-actions.has-brand-home-bar .header-action-btn {
-    background: transparent;
-    border-color: transparent;
-    -webkit-backdrop-filter: none;
-    backdrop-filter: none;
-  }
-  .global-header-actions.has-brand-home-bar .header-action-btn:hover,
-  .global-header-actions.has-brand-home-bar .header-action-btn.is-hovered,
-  .global-header-actions.has-brand-home-bar .header-action-btn.is-active {
-    background: hsl(var(--foreground) / 0.06);
-    border-color: transparent;
   }
 
   .site-nav--brand-home .site-brand {
@@ -1045,6 +1026,10 @@
     padding: 0;
     --peek-shift-x: 0px;
     --peek-shift-y: 0px;
+  }
+
+  .site-nav--home > .topbar__blur {
+    display: none;
   }
 
   @media (min-width: 900px) {
@@ -1258,11 +1243,12 @@
       padding: var(--site-nav-mobile-padding);
       gap: var(--site-nav-mobile-gap);
       border-bottom: 1px solid hsl(var(--foreground) / 0.08);
-      background: hsl(var(--background) / 0.58);
-      -webkit-backdrop-filter: blur(14px) saturate(140%);
-      backdrop-filter: blur(14px) saturate(140%);
       backface-visibility: hidden;
       transform: translateZ(0);
+    }
+
+    .site-nav--home > .topbar__blur {
+      display: block;
     }
 
     .site-nav--home::before {
@@ -1272,9 +1258,7 @@
       right: 0;
       top: calc(env(safe-area-inset-top, 0px) * -1);
       height: env(safe-area-inset-top, 0px);
-      background: hsl(var(--background) / 0.58);
-      -webkit-backdrop-filter: blur(14px) saturate(140%);
-      backdrop-filter: blur(14px) saturate(140%);
+      background: hsl(var(--background) / 0.5);
       pointer-events: none;
       backface-visibility: hidden;
       transform: translateZ(0);

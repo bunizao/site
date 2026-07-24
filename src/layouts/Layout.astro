@@ -36,6 +36,7 @@ import { Moon, Sun, Monitor, Menu, X } from 'lucide-react';
 import AnimatedLogo from '@/features/logos/ui/AnimatedLogo.astro';
 import CommandPalette from '@/components/CommandPalette.astro';
 import SearchButton from '@/components/SearchButton.astro';
+import Topbar from '@/components/Topbar.astro';
 import {
   PEEK_NAVBAR_LOGO,
   getPeekRuntimeSlot,
@@ -239,7 +240,9 @@ const preloadFontHref = preloadFont === 'sans'
 
     <!-- Site navigation -->
     {!hideSiteNav && (
-      <nav
+      <Topbar
+        as="nav"
+        progressiveBlur={brandRich}
         class:list={[
           'site-nav',
           {
@@ -291,7 +294,7 @@ const preloadFontHref = preloadFont === 'sans'
             ))}
           </div>
         )}
-      </nav>
+      </Topbar>
     )}
 
     <!-- Site menu: top-right dropdown (site-wide) -->
@@ -337,9 +340,9 @@ const preloadFontHref = preloadFont === 'sans'
       ]}
       data-header-actions
     >
-      <SearchButton />
+      <SearchButton class={brandHome ? 'topbar-action topbar-action--search' : undefined} />
       <div class="theme-dropdown" data-theme-dropdown>
-        <button class="header-action-btn" type="button" data-theme-toggle aria-label="Switch theme" aria-haspopup="true" aria-expanded="false">
+        <button class:list={['header-action-btn', { 'topbar-action': brandHome }]} type="button" data-theme-toggle aria-label="Switch theme" aria-haspopup="true" aria-expanded="false">
           <span class="theme-icon-container">
             <span class="theme-icon" data-theme-icon="light" aria-hidden="true">
               <Sun className="h-4 w-4" />
@@ -370,7 +373,7 @@ const preloadFontHref = preloadFont === 'sans'
       </div>
       {showMenu && (
         <button
-          class="header-action-btn menu-trigger"
+          class:list={['header-action-btn', 'menu-trigger', { 'topbar-action': brandHome }]}
           type="button"
           data-menu-trigger
           aria-label="Open menu"
