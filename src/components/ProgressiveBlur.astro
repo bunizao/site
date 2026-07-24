@@ -1,0 +1,113 @@
+---
+type Direction = 'top' | 'right' | 'bottom' | 'left';
+
+interface Props {
+  class?: string;
+  direction?: Direction;
+  strength?: number;
+  framed?: boolean;
+}
+
+const {
+  class: className,
+  direction = 'bottom',
+  strength = 1,
+  framed = false,
+} = Astro.props;
+
+const normalizedStrength = Number.isFinite(strength) && strength >= 0 ? strength : 1;
+
+// Exact CSS equivalents of the 20 Figma background-blur layers. Figma's
+// exported CSS uses half of the radius shown in the layer name.
+const layers = [
+  [0, 0, 0.160256],
+  [0.001, 0.160256, 0.320513],
+  [0.003, 0.320513, 0.641026],
+  [0.013, 0.641026, 1.28205],
+  [0.051, 1.28205, 2.5641],
+  [0.205, 2.5641, 5.12821],
+  [1.175, 5.12821, 12.2711],
+  [2.94, 12.2711, 19.4139],
+  [5.501, 19.4139, 26.5568],
+  [8.858, 26.5568, 33.6996],
+  [13.011, 33.6996, 40.8425],
+  [17.96, 40.8425, 47.9853],
+  [23.705, 47.9853, 55.1282],
+  [30.246, 55.1282, 62.2711],
+  [37.583, 62.2711, 69.4139],
+  [45.715, 69.4139, 76.5568],
+  [54.644, 76.5568, 83.6996],
+  [64.368, 83.6996, 90.8425],
+  [74.889, 90.8425, 97.9853],
+  [78, 97.9853, 100],
+] as const;
+---
+
+<div
+  class:list={['progressive-blur', { 'progressive-blur--framed': framed }, className]}
+  data-direction={direction}
+  data-progressive-blur
+  aria-hidden="true"
+>
+  {layers.map(([blur, start, end], index) => (
+    <span
+      class="progressive-blur__layer"
+      data-layer={index + 1}
+      style={{
+        '--progressive-blur-radius': `${blur * normalizedStrength}px`,
+        '--progressive-blur-start': `${start}%`,
+        '--progressive-blur-end': `${end}%`,
+      }}
+    />
+  ))}
+</div>
+
+<style>
+  .progressive-blur {
+    --progressive-blur-direction: to bottom;
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    border-radius: inherit;
+    pointer-events: none;
+  }
+
+  .progressive-blur--framed {
+    border: 3px solid rgb(0 0 0 / 10%);
+    border-radius: 64px;
+  }
+
+  .progressive-blur[data-direction='top'] {
+    --progressive-blur-direction: to top;
+  }
+
+  .progressive-blur[data-direction='right'] {
+    --progressive-blur-direction: to right;
+  }
+
+  .progressive-blur[data-direction='left'] {
+    --progressive-blur-direction: to left;
+  }
+
+  .progressive-blur__layer {
+    position: absolute;
+    inset: 0;
+    background: rgb(255 255 255 / 0%);
+    -webkit-backdrop-filter: blur(var(--progressive-blur-radius));
+    backdrop-filter: blur(var(--progressive-blur-radius));
+    -webkit-mask-image: linear-gradient(
+      var(--progressive-blur-direction),
+      transparent var(--progressive-blur-start),
+      #000 var(--progressive-blur-end)
+    );
+    mask-image: linear-gradient(
+      var(--progressive-blur-direction),
+      transparent var(--progressive-blur-start),
+      #000 var(--progressive-blur-end)
+    );
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+    -webkit-mask-size: 100% 100%;
+    mask-size: 100% 100%;
+  }
+</style>
