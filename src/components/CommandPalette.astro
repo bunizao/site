@@ -348,11 +348,19 @@ const searchHighlight = blogPalette.ji;
     // its three segments are a radio group driven by the Layout theme
     // controller — clicking a segment (or ←/→ while the row is active) just
     // clicks the matching [data-theme-option], reusing its storage + class
-    // toggling. themeSetting on <html> is the source of truth for which
-    // segment reads as on.
+    // toggling. The shared controller writes localStorage synchronously while
+    // the html dataset can lag behind a deferred view-transition callback.
     const themeOrder = ['light', 'dark', 'system'];
     const segButtons = Array.from(dialog.querySelectorAll<HTMLElement>('[data-theme-seg]'));
-    const currentTheme = () => document.documentElement.dataset.themeSetting || 'system';
+    const currentTheme = () => {
+      try {
+        const stored = localStorage.getItem('theme');
+        if (stored === 'light' || stored === 'dark') return stored;
+      } catch {
+        // Storage can be blocked in private browsing contexts.
+      }
+      return 'system';
+    };
     const syncSegments = () => {
       const cur = currentTheme();
       segButtons.forEach((b) => b.setAttribute('aria-checked', String(b.dataset.themeSeg === cur)));
