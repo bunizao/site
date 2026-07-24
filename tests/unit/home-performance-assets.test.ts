@@ -22,13 +22,25 @@ describe('homepage performance assets', () => {
 
     expect(carousel).toContain('blurSrc: "/projects/ogis/og-2-blur.webp"');
     expect(carousel).toContain('blurSrc: "/projects/ogis/og-4-blur.webp"');
-    expect(carousel).toContain('const backgroundSrc = candidate.blurSrc ?? candidate.src;');
+    expect(carousel).toContain('const backgroundSrc = slide.blurSrc ?? slide.src;');
     expect(carousel).toContain('src={backgroundSrc}');
 
     for (const [source, blur] of blurAssets) {
       expect(existsSync(join(root, blur))).toBe(true);
       expect(sizeOf(blur)).toBeLessThan(sizeOf(source) * 0.05);
     }
+  });
+
+  test('bounds carousel image rendering to keyed presence', () => {
+    const ogCarousel = readText('src/components/project-cards/OgCarouselHero.tsx');
+    const attegiTour = readText('src/components/project-cards/AttegiTourHero.tsx');
+
+    expect(ogCarousel).toContain('<AnimatePresence initial={false}>');
+    expect(ogCarousel).toContain('key={slide.src}');
+    expect(ogCarousel).not.toContain('slides.map(');
+    expect(attegiTour).toContain('<AnimatePresence initial={false}>');
+    expect(attegiTour).toContain('key={slide.src}');
+    expect(attegiTour).not.toContain('slides.map(');
   });
 
   test('releases homepage compositor hints when effects are idle', () => {
