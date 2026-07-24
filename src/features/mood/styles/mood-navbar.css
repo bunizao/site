@@ -9,80 +9,7 @@
   left: 0;
   right: 0;
   z-index: 55;
-  /* Soft tail below the bar: the glass keeps blurring here, then the mask fades
-     it to nothing — no hard edge, no border. Taps pass through the tail. */
-  padding-bottom: 36px;
   pointer-events: none;
-}
-
-/* The frosted surface. inset:0 stretches it over the bar plus its tail. It
-   carries only a soft tint, feathered on the same curve as the blur so there is
-   no tint edge where the glass ends; the blur itself is the layer stack below. */
-.mood-navbar__fade {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background: linear-gradient(
-    to bottom,
-    hsl(var(--background) / 0.5),
-    hsl(var(--background) / 0) 72%
-  );
-}
-
-/* Progressive (gradient) blur. A single masked backdrop-filter leaves a hard
-   focus line where the blur stops; the fix — the documented best practice — is
-   several backdrop-filter layers, each masked to a band that starts opaque at
-   the top and feathers out lower. Stacked lightest → heaviest (heaviest painted
-   last, on top), the effective blur ramps smoothly from a heavy frost at the
-   bar to nothing at the tail, dissolving into the page with no seam. */
-.mood-navbar__blur {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-}
-.mood-navbar__blur--1 {
-  -webkit-backdrop-filter: blur(4px);
-  backdrop-filter: blur(4px);
-  -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 60%, transparent 100%);
-  mask-image: linear-gradient(to bottom, #000 0%, #000 60%, transparent 100%);
-}
-.mood-navbar__blur--2 {
-  -webkit-backdrop-filter: blur(8px);
-  backdrop-filter: blur(8px);
-  -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 45%, transparent 80%);
-  mask-image: linear-gradient(to bottom, #000 0%, #000 45%, transparent 80%);
-}
-.mood-navbar__blur--3 {
-  -webkit-backdrop-filter: blur(14px) saturate(1.4);
-  backdrop-filter: blur(14px) saturate(1.4);
-  -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 30%, transparent 62%);
-  mask-image: linear-gradient(to bottom, #000 0%, #000 30%, transparent 62%);
-}
-.mood-navbar__blur--4 {
-  -webkit-backdrop-filter: blur(22px) saturate(1.6);
-  backdrop-filter: blur(22px) saturate(1.6);
-  -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 12%, transparent 45%);
-  mask-image: linear-gradient(to bottom, #000 0%, #000 12%, transparent 45%);
-}
-
-/* WebKit re-filters every scroll frame and its blur is costlier, so trim the
-   radii — through the masks the ramp still reads the same, but it stays inside
-   the iOS frame budget. */
-.ua-webkit .mood-navbar__blur--1 {
-  -webkit-backdrop-filter: blur(3px);
-  backdrop-filter: blur(3px);
-}
-.ua-webkit .mood-navbar__blur--2 {
-  -webkit-backdrop-filter: blur(6px);
-  backdrop-filter: blur(6px);
-}
-.ua-webkit .mood-navbar__blur--3 {
-  -webkit-backdrop-filter: blur(9px) saturate(1.3);
-  backdrop-filter: blur(9px) saturate(1.3);
-}
-.ua-webkit .mood-navbar__blur--4 {
-  -webkit-backdrop-filter: blur(13px) saturate(1.4);
-  backdrop-filter: blur(13px) saturate(1.4);
 }
 
 /* The controls sit on the shared reading measure so the avatar aligns with the
@@ -240,69 +167,6 @@
   display: block;
 }
 
-/* --- Right controls: search + notify ------------------------------------ */
-/* Bare ghost icons, matching the blog topbar: no resting border or fill, just
-   the glyph. A soft rounded wash appears only on hover/focus. */
-.mood-nav-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 34px;
-  height: 34px;
-  padding: 0;
-  color: hsl(var(--muted-foreground));
-  background: transparent;
-  border: 0;
-  border-radius: 999px;
-  cursor: pointer;
-  transition: color 0.15s ease, background 0.15s ease, transform 0.15s ease;
-}
-
-.mood-nav-btn:hover {
-  color: hsl(var(--foreground));
-  background: hsl(var(--foreground) / 0.06);
-}
-
-.mood-nav-btn:active {
-  transform: scale(0.94);
-}
-
-.mood-nav-btn:focus-visible {
-  outline: 2px solid hsl(var(--foreground) / 0.5);
-  outline-offset: 2px;
-}
-
-.mood-nav-btn svg {
-  width: 18px;
-  height: 18px;
-  flex-shrink: 0;
-}
-
-/* The ⌘K keycaps ride only on desktop, where the shortcut is real; on touch
-   they are hidden and the search stays a bare icon. */
-.mood-nav-kbd {
-  display: none;
-  align-items: center;
-  gap: 3px;
-}
-
-@media (min-width: 900px) {
-  /* Grow the search into a quiet pill so the keycaps have room — still bare
-     (no resting box), just the icon + ⌘K, with the shared hover wash. */
-  .mood-nav-btn--search {
-    width: auto;
-    padding: 0 7px 0 9px;
-    gap: 6px;
-    border-radius: 9px;
-  }
-  .mood-nav-kbd {
-    display: inline-flex;
-  }
-  .mood-nav-btn--search:hover .kbd {
-    color: hsl(var(--foreground));
-  }
-}
-
 /* Anchored mood deep-links (#mood-<id>) must land below the fixed bar, not
    under it. Scoped to the feed page via :has so it never leaks elsewhere. */
 :root:has(main.mood-route) {
@@ -326,17 +190,4 @@
     font-size: 13px;
   }
 
-  .mood-nav-btn {
-    width: 32px;
-    height: 32px;
-  }
-}
-
-/* The avatar's travel is scroll-scrubbed (driven by the reader, not an
-   autonomous animation), so it stays on under reduced motion; only the button
-   micro-transitions are trimmed. */
-@media (prefers-reduced-motion: reduce) {
-  .mood-nav-btn {
-    transition: color 0.15s ease, background 0.15s ease, border-color 0.15s ease;
-  }
 }

@@ -1,9 +1,13 @@
 ---
+import '@/styles/progressive-blur.css';
+
 type Direction = 'top' | 'right' | 'bottom' | 'left';
+type Preset = 'continuous' | 'topbar';
 
 interface Props {
   class?: string;
   direction?: Direction;
+  preset?: Preset;
   strength?: number;
   framed?: boolean;
 }
@@ -11,6 +15,7 @@ interface Props {
 const {
   class: className,
   direction = 'bottom',
+  preset = 'continuous',
   strength = 1,
   framed = false,
 } = Astro.props;
@@ -19,7 +24,7 @@ const normalizedStrength = Number.isFinite(strength) && strength >= 0 ? strength
 
 // Exact CSS equivalents of the 20 Figma background-blur layers. Figma's
 // exported CSS uses half of the radius shown in the layer name.
-const layers = [
+const continuousLayers = [
   [0, 0, 0.160256],
   [0.001, 0.160256, 0.320513],
   [0.003, 0.320513, 0.641026],
@@ -41,73 +46,55 @@ const layers = [
   [74.889, 90.8425, 97.9853],
   [78, 97.9853, 100],
 ] as const;
+
+const topbarLayers = [
+  {
+    filter: 'blur(4px)',
+    webkitFilter: 'blur(3px)',
+    mask: 'linear-gradient(to bottom, #000 0%, #000 60%, transparent 100%)',
+  },
+  {
+    filter: 'blur(8px)',
+    webkitFilter: 'blur(6px)',
+    mask: 'linear-gradient(to bottom, #000 0%, #000 45%, transparent 80%)',
+  },
+  {
+    filter: 'blur(14px) saturate(1.4)',
+    webkitFilter: 'blur(9px) saturate(1.3)',
+    mask: 'linear-gradient(to bottom, #000 0%, #000 30%, transparent 62%)',
+  },
+  {
+    filter: 'blur(22px) saturate(1.6)',
+    webkitFilter: 'blur(13px) saturate(1.4)',
+    mask: 'linear-gradient(to bottom, #000 0%, #000 12%, transparent 45%)',
+  },
+] as const;
+
+const layers = preset === 'topbar'
+  ? topbarLayers
+  : continuousLayers.map(([blur, start, end]) => ({
+      filter: `blur(${blur * normalizedStrength}px)`,
+      webkitFilter: `blur(${blur * normalizedStrength}px)`,
+      mask: `linear-gradient(var(--pblur-direction), transparent ${start}%, #000 ${end}%)`,
+    }));
 ---
 
 <div
-  class:list={['progressive-blur', { 'progressive-blur--framed': framed }, className]}
+  class:list={['pblur', { 'pblur--framed': framed }, className]}
   data-direction={direction}
+  data-preset={preset}
   data-progressive-blur
   aria-hidden="true"
 >
-  {layers.map(([blur, start, end], index) => (
+  {layers.map((layer, index) => (
     <span
-      class="progressive-blur__layer"
+      class="pblur__layer"
       data-layer={index + 1}
       style={{
-        '--progressive-blur-radius': `${blur * normalizedStrength}px`,
-        '--progressive-blur-start': `${start}%`,
-        '--progressive-blur-end': `${end}%`,
+        '--pblur-filter': layer.filter,
+        '--pblur-webkit-filter': layer.webkitFilter,
+        '--pblur-mask': layer.mask,
       }}
     />
   ))}
 </div>
-
-<style>
-  .progressive-blur {
-    --progressive-blur-direction: to bottom;
-    position: absolute;
-    inset: 0;
-    overflow: hidden;
-    border-radius: inherit;
-    pointer-events: none;
-  }
-
-  .progressive-blur--framed {
-    border: 3px solid rgb(0 0 0 / 10%);
-    border-radius: 64px;
-  }
-
-  .progressive-blur[data-direction='top'] {
-    --progressive-blur-direction: to top;
-  }
-
-  .progressive-blur[data-direction='right'] {
-    --progressive-blur-direction: to right;
-  }
-
-  .progressive-blur[data-direction='left'] {
-    --progressive-blur-direction: to left;
-  }
-
-  .progressive-blur__layer {
-    position: absolute;
-    inset: 0;
-    background: rgb(255 255 255 / 0%);
-    -webkit-backdrop-filter: blur(var(--progressive-blur-radius));
-    backdrop-filter: blur(var(--progressive-blur-radius));
-    -webkit-mask-image: linear-gradient(
-      var(--progressive-blur-direction),
-      transparent var(--progressive-blur-start),
-      #000 var(--progressive-blur-end)
-    );
-    mask-image: linear-gradient(
-      var(--progressive-blur-direction),
-      transparent var(--progressive-blur-start),
-      #000 var(--progressive-blur-end)
-    );
-    -webkit-mask-repeat: no-repeat;
-    mask-repeat: no-repeat;
-    -webkit-mask-size: 100% 100%;
-    mask-size: 100% 100%;
-  }
-</style>

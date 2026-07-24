@@ -1603,9 +1603,19 @@ test.describe('Mood routes', () => {
     await page.goto('/mood');
     const navbar = page.locator('[data-mood-navbar]');
     const controls = navbar.locator('.mood-navbar__controls');
+    const blurLayers = navbar.locator('[data-progressive-blur][data-preset="topbar"] .pblur__layer');
     await expect(page.locator('[data-back-to-top]')).toHaveCount(0);
     await expect(navbar).toBeVisible();
     await expect(controls).toBeVisible();
+    await expect(blurLayers).toHaveCount(4);
+    await expect(navbar.locator('.topbar-action')).toHaveCount(2);
+    expect(await navbar.evaluate((element) => element.parentElement === document.body)).toBe(true);
+    expect(await blurLayers.evaluateAll((layers) => layers.map((layer) => getComputedStyle(layer).backdropFilter))).toEqual([
+      'blur(4px)',
+      'blur(8px)',
+      'blur(14px) saturate(1.4)',
+      'blur(22px) saturate(1.6)',
+    ]);
     await expect(page.locator('[data-mood-feed]')).not.toHaveClass(/is-hidden/, { timeout: 30_000 });
 
     await page.evaluate(() => window.scrollTo({ top: 600, behavior: 'instant' }));

@@ -1,0 +1,52 @@
+.pblur {
+  --pblur-direction: to bottom;
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+.pblur--framed {
+  border: 3px solid rgb(0 0 0 / 10%);
+  border-radius: 64px;
+}
+
+.pblur[data-direction='top'] {
+  --pblur-direction: to top;
+}
+
+.pblur[data-direction='right'] {
+  --pblur-direction: to right;
+}
+
+.pblur[data-direction='left'] {
+  --pblur-direction: to left;
+}
+
+.pblur[data-preset='topbar'] {
+  background: linear-gradient(
+    to bottom,
+    hsl(var(--background) / 0.5),
+    hsl(var(--background) / 0) 72%
+  );
+}
+
+.pblur__layer {
+  position: absolute;
+  inset: 0;
+  background: rgb(255 255 255 / 0%);
+  -webkit-backdrop-filter: var(--pblur-filter);
+  backdrop-filter: var(--pblur-filter);
+  -webkit-mask-image: var(--pblur-mask);
+  mask-image: var(--pblur-mask);
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-size: 100% 100%;
+  mask-size: 100% 100%;
+}
+
+.ua-webkit .pblur[data-preset='topbar'] .pblur__layer {
+  -webkit-backdrop-filter: var(--pblur-webkit-filter);
+  backdrop-filter: var(--pblur-webkit-filter);
+}
