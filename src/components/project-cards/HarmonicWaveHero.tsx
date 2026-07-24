@@ -118,8 +118,8 @@ export default function HarmonicWaveHero({ hovered = false }: { hovered?: boolea
         {built.map(({ layer, area, line }, i) => (
           <g
             key={i}
-            className={reduced ? undefined : `wave-scroll wave-${i}`}
-            style={{ ["--dur" as string]: `${live ? layer.duration * 0.55 : layer.duration}s` }}
+            className={live ? `wave-scroll wave-${i}` : undefined}
+            style={{ ["--dur" as string]: `${layer.duration * 0.55}s` }}
           >
             <path d={area} style={{ fill: layer.fill }} />
             {layer.stroke && (

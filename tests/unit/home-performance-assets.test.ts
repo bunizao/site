@@ -64,6 +64,25 @@ describe('homepage performance assets', () => {
     expect(parallax).not.toContain(':global(section) {');
   });
 
+  test('pauses ambient homepage animation while inactive', () => {
+    const contributions = readText('src/features/home/ui/GitHubContributions.astro');
+    const projectStack = readText('src/components/project-cards/ProjectStack.tsx');
+    const harmonicWave = readText('src/components/project-cards/HarmonicWaveHero.tsx');
+    const cliCube = readText('src/components/project-cards/CliCubeHero.tsx');
+
+    expect(contributions).toContain('data-contribution-section');
+    expect(contributions).toContain("document.addEventListener('visibilitychange'");
+    expect(contributions).toContain('.activity-section.is-breathing-active .wave-bar');
+    expect(contributions).not.toContain('.activity-section.is-breathing .wave-bar');
+    expect(projectStack).toContain('const stackActive = inViewport && documentVisible;');
+    expect(projectStack).toContain('!stackActive ||');
+    expect(projectStack).toContain('active={active}');
+    expect(projectStack).toContain('heroActive={stackActive && active}');
+    expect(harmonicWave).toContain('className={live ? `wave-scroll wave-${i}` : undefined}');
+    expect(cliCube).toContain('if (!live) return;');
+    expect(cliCube).toContain('className={live ? "cli-cube-float" : undefined}');
+  });
+
   test('keeps JetBrains Mono off the homepage critical path', () => {
     const homePage = readText('src/pages/index.astro');
     const homeHero = readText('src/features/home/ui/Hero.astro');

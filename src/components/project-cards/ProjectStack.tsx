@@ -88,10 +88,12 @@ function accentProps(project: ShowcaseProject) {
 function CardFace({
   project,
   active,
+  heroActive,
   onOpen,
 }: {
   project: ShowcaseProject;
   active: boolean;
+  heroActive: boolean;
   onOpen: () => void;
 }) {
   return (
@@ -103,7 +105,7 @@ function CardFace({
     >
       {/* Hero is inert: it must not steal drags or let the image be selected. */}
       <div className={cn("aspect-[16/10] rounded-[15px]", heroFrame)} {...accentProps(project)}>
-        {renderHero(project.hero, active)}
+        {renderHero(project.hero, heroActive)}
       </div>
 
       <div className="px-3.5 pb-3 pt-4">
@@ -303,6 +305,7 @@ function StoryGallery({
   compact,
   origin,
   dark,
+  active,
 }: {
   index: number;
   setIndex: (n: number) => void;
@@ -311,6 +314,7 @@ function StoryGallery({
   compact: boolean;
   origin: GalleryOrigin | null;
   dark: boolean;
+  active: boolean;
 }) {
   const reduce = useReducedMotion();
   const count = projects.length;
@@ -732,7 +736,7 @@ function StoryGallery({
                   willChange: entered ? "transform, opacity" : "auto",
                 }}
               >
-                <StoryCard project={project} active={i === cur} />
+                <StoryCard project={project} active={active && i === cur} />
               </div>
             </div>
           ))}
@@ -1008,6 +1012,8 @@ export default function ProjectStack({ className }: { className?: string }) {
   const [order, setOrder] = useState(ids);
   const [hasEntered, setHasEntered] = useState(false);
   const [paused, setPaused] = useState(false);
+  const [inViewport, setInViewport] = useState(false);
+  const [documentVisible, setDocumentVisible] = useState(true);
   const [galleryIndex, setGalleryIndex] = useState<number | null>(null);
   const [galleryOrigin, setGalleryOrigin] = useState<GalleryOrigin | null>(
     null,
@@ -1024,6 +1030,7 @@ export default function ProjectStack({ className }: { className?: string }) {
   // the four reordering articles would null out when React detaches the old
   // active node after attaching the new one, killing the gesture after one flip.
   const regionRef = useRef<HTMLDivElement | null>(null);
+  const stackActive = inViewport && documentVisible;
   const shouldReduce = mounted && reduce === true;
 
   const byId = useMemo(() => new Map(projects.map((p) => [p.id, p])), []);
@@ -1085,6 +1092,27 @@ export default function ProjectStack({ className }: { className?: string }) {
     setMounted(true);
   }, []);
 
+  useEffect(() => {
+    const region = regionRef.current;
+    if (!region) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => setInViewport(entry.isIntersecting && entry.intersectionRatio > 0.1),
+      { threshold: [0, 0.1, 0.3] },
+    );
+    const updateVisibility = () => {
+      setDocumentVisible(document.visibilityState === "visible");
+    };
+
+    observer.observe(region);
+    updateVisibility();
+    document.addEventListener("visibilitychange", updateVisibility);
+    return () => {
+      observer.disconnect();
+      document.removeEventListener("visibilitychange", updateVisibility);
+    };
+  }, []);
+
   // Entrance: fan the deck out once after mount.
   useEffect(() => {
     if (shouldReduce) return setHasEntered(true);
@@ -1097,6 +1125,7 @@ export default function ProjectStack({ className }: { className?: string }) {
     if (
       shouldReduce ||
       !hasEntered ||
+      !stackActive ||
       paused ||
       galleryIndex != null ||
       projects.length < 2
@@ -1104,7 +1133,7 @@ export default function ProjectStack({ className }: { className?: string }) {
       return;
     const t = window.setTimeout(advance, autoAdvanceMs);
     return () => window.clearTimeout(t);
-  }, [shouldReduce, hasEntered, paused, galleryIndex, order]);
+  }, [shouldReduce, hasEntered, stackActive, paused, galleryIndex, order]);
 
   useEffect(() => () => window.clearTimeout(dealTimer.current), []);
 
@@ -1363,6 +1392,7 @@ export default function ProjectStack({ className }: { className?: string }) {
                 <CardFace
                   project={project}
                   active={active}
+                  heroActive={stackActive && active}
                   onOpen={() => openGallery(project.id)}
                 />
               </div>
@@ -1404,6 +1434,7 @@ export default function ProjectStack({ className }: { className?: string }) {
             compact={compact}
             origin={galleryOrigin}
             dark={galleryDark}
+            active={documentVisible}
           />
         )}
       </AnimatePresence>

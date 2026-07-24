@@ -31,10 +31,7 @@ const RIGHT_X = 302;
 // How long a single plate takes to complete one clockwise twist (ms).
 // Kept under the live highlight dwell so each slice finishes before the next.
 const TWIST_MS = 1200;
-// Highlight step cadence: slow walk while hovered (with room for the twist to
-// settle), calmer idle cycle when not.
-const STEP_HOVER_MS = 1900;
-const STEP_IDLE_MS = 1900;
+const STEP_MS = 1900;
 
 // The flat top face is a unit square (half-size 0.5) lying on the ground plane.
 const SQUARE: [number, number][] = [
@@ -92,13 +89,13 @@ export default function CliCubeHero({ hovered = false }: { hovered?: boolean }) 
   const live = hovered && !reduced;
 
   useEffect(() => {
-    if (reduced) return;
+    if (!live) return;
     const id = window.setInterval(
       () => setActive((a) => (a + 1) % layers.length),
-      live ? STEP_HOVER_MS : STEP_IDLE_MS,
+      STEP_MS,
     );
     return () => window.clearInterval(id);
-  }, [reduced, live]);
+  }, [live]);
 
   // Twist only the active plate, one clean turn per highlight step. Re-running
   // on every `active` change makes the slices rotate one at a time down the
@@ -131,7 +128,7 @@ export default function CliCubeHero({ hovered = false }: { hovered?: boolean }) 
         role="img"
         aria-label="Isometric stack of CLI tools"
       >
-        <g className={reduced ? undefined : "cli-cube-float"}>
+        <g className={live ? "cli-cube-float" : undefined}>
           {/* Connectors first (behind the plates) */}
           {layers.map((layer, i) => {
             const cy = TOP_CY + i * GAP;
