@@ -1,0 +1,126 @@
+/* Brand lockup: the peek mascot + the buxx.me wordmark.
+   ---------------------------------------------------------------------------
+   One owner for every nav variant. Variants set the --brand-* tokens and their
+   own positioning; none of them restate the lockup.
+
+   This file never *declares* the tokens, only reads them with a fallback, so a
+   default here can never shadow a variant that sets one.
+
+   Two constraints shape the form:
+
+   1. peek is a 10x7 pixel grid whose art is "only the top of the head shows"
+      — a lurker. Box-centering it in a bar gives it nothing to peek over, so
+      it reads as a white slab. The wordmark's baseline is the ground line the
+      character was drawn to need, so the lockup aligns on `baseline`.
+   2. --brand-logo-height must stay a multiple of 7, or the grid resamples to
+      uneven cell widths. 14 / 21 / 28 are the usable steps.
+
+   The wordmark is Geist Mono, so tracking stays at 0: mono glyphs sit in fixed
+   advance cells, and negative tracking only shaves the cell without touching
+   the glyph — which strands the dot and breaks "buxx.me" into three read
+   units. Hierarchy comes from color instead (name vs. TLD).
+
+   The anchor and the lockup are deliberately two boxes. Baseline alignment
+   parks its content at the cross-start edge, so a taller anchor (a touch
+   target, e.g. mobile's 2.75rem) would push the lockup to the top of the bar.
+   The anchor owns the hit area and centers; .site-brand-row owns the optics. */
+
+/* Same layer as the nav variants in globals.css: an unlayered rule beats a
+   layered one at any specificity, so living outside the layer would make every
+   declaration here unoverridable by a variant. The order statement is
+   idempotent, so it is safe regardless of which file the bundler emits first. */
+@layer theme, base, components, utilities;
+
+@layer components {
+  .site-brand {
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-start;
+    color: var(--brand-fg, hsl(var(--foreground)));
+    transition: transform 0.2s ease;
+  }
+
+  .site-brand:active {
+    transform: scale(0.94);
+  }
+
+  .site-brand-row {
+    display: inline-flex;
+    align-items: baseline;
+    gap: var(--brand-gap, 0.375rem);
+    min-width: 0;
+  }
+
+  .site-brand-logo {
+    display: inline-flex;
+    align-self: baseline;
+    flex: 0 0 auto;
+    height: var(--brand-logo-height, 21px);
+    line-height: 0;
+  }
+
+  /* AnimatedLogo sizes its own wrapper span with an inline style, so the height
+     can only reach it with !important. Without this the wrapper keeps the width
+     the `size` prop asked for and pads the lockup's gap with dead space. */
+  .site-brand-logo > span,
+  .site-brand-logo svg {
+    width: auto !important;
+    height: var(--brand-logo-height, 21px) !important;
+  }
+
+  .site-brand-text {
+    display: inline-block;
+    font-size: var(--brand-wordmark-size, 1.08rem);
+    line-height: 1;
+    font-weight: var(--brand-wordmark-weight, 500);
+    letter-spacing: 0;
+    white-space: nowrap;
+  }
+
+  .site-brand-name {
+    color: var(--brand-fg, hsl(var(--foreground)));
+  }
+
+  /* The TLD recedes so the dot reads as part of a quiet suffix rather than as a
+     token of its own. It resolves to full strength on hover — the lockup
+     completing itself is a calmer cue than dimming the name. */
+  .site-brand-tld {
+    color: var(--brand-tld-fg, hsl(var(--muted-foreground)));
+    transition: color 0.18s ease;
+  }
+
+  .site-brand:hover .site-brand-tld,
+  .site-brand:focus-visible .site-brand-tld {
+    color: var(--brand-fg, hsl(var(--foreground)));
+  }
+
+  /* Icon-only lockup (navs with no wordmark): a centered hit box with its own
+     hover surface, since there is no wordmark to carry the hover cue. */
+  .site-brand--icon {
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    margin-right: 4px;
+    border-radius: 6px;
+    transition: background 0.15s ease, transform 0.2s ease;
+  }
+
+  .site-brand--icon .site-brand-row,
+  .site-brand--icon .site-brand-logo {
+    align-items: center;
+    align-self: center;
+  }
+
+  .site-brand--icon .site-brand-logo {
+    height: var(--brand-logo-height, 14px);
+  }
+
+  .site-brand--icon .site-brand-logo > span,
+  .site-brand--icon .site-brand-logo svg {
+    height: var(--brand-logo-height, 14px) !important;
+  }
+
+  .site-brand--icon:hover {
+    background: hsl(var(--foreground) / 0.06);
+  }
+}
