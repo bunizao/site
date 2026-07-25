@@ -24,7 +24,9 @@ const {
 >
   <main class="privacy">
     <article class="privacy-content">
-      <p class="privacy-eyebrow">Privacy · Updated {updatedAt}</p>
+      <p class="privacy-eyebrow">
+        Privacy <span aria-hidden="true">·</span> Updated <time>{updatedAt}</time>
+      </p>
       <Content />
     </article>
   </main>
@@ -37,8 +39,15 @@ const {
   }
 
   .privacy {
-    --line: hsl(var(--foreground) / 0.1);
-    --muted: hsl(var(--foreground) / 0.6);
+    /* One ink ramp for the whole page. Hierarchy is carried by weight, size,
+       and these four opacities — never by rules between sections. */
+    --ink-strong: hsl(var(--foreground) / 0.92);
+    --ink-lede: hsl(var(--foreground) / 0.78);
+    --ink-body: hsl(var(--foreground) / 0.64);
+    --ink-faint: hsl(var(--foreground) / 0.42);
+    /* Gutter the hung section numerals live in. Collapses to 0 below 62rem,
+       where the numerals sit inline above the heading instead. */
+    --spine: 0rem;
 
     min-height: 100vh;
     /* Top clearance for the fixed brand-home bar lives on .site-shell
@@ -47,53 +56,112 @@ const {
     background: hsl(var(--background));
     color: hsl(var(--foreground));
     -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 
   .privacy-content {
-    width: min(46rem, 100% - 2.5rem);
+    /* 36rem of Inter at 1.0625rem ≈ 68 characters — the long-form measure.
+       The spine is added on top so the prose column itself never widens. */
+    width: min(calc(36rem + var(--spine)), 100% - 2.5rem);
     margin: 0 auto;
+    padding-left: var(--spine);
     font-family: var(--font-sans);
+    counter-reset: section;
+  }
+
+  @media (min-width: 62rem) {
+    .privacy {
+      --spine: 3.5rem;
+    }
   }
 
   .privacy-eyebrow {
-    margin: 0 0 0.6rem;
+    margin: 0 0 0.75rem;
     font-family: var(--font-mono);
     font-size: 0.72rem;
     line-height: 1.5;
     letter-spacing: 0.14em;
     text-transform: uppercase;
-    color: hsl(var(--foreground) / 0.45);
+    color: var(--ink-faint);
+  }
+
+  .privacy-eyebrow time {
+    /* The date is the one number on the page that changes between deploys;
+       tabular figures keep the eyebrow from reflowing when it does. */
+    font-variant-numeric: tabular-nums;
   }
 
   .privacy-content :global(h1) {
-    max-width: 18ch;
-    margin: 0 0 2.5rem;
+    max-width: 16ch;
+    margin: 0 0 1.75rem;
     font-family: var(--font-display);
-    font-size: clamp(1.9rem, 4.5vw, 3.1rem);
+    font-size: clamp(2rem, 4.5vw, 3.1rem);
     font-weight: 700;
-    line-height: 1.02;
+    line-height: 1.03;
     letter-spacing: -0.035em;
+    color: hsl(var(--foreground));
     text-wrap: balance;
   }
 
+  /* Lede — the paragraph directly under the title carries the summary and is
+     set one step up from body so the page opens with a clear entry point. */
+  .privacy-content :global(h1 + p) {
+    font-size: 1.2rem;
+    line-height: 1.6;
+    letter-spacing: -0.014em;
+    color: var(--ink-lede);
+  }
+
   .privacy-content :global(h2) {
-    margin: 3rem 0 1rem;
-    padding-top: 3rem;
-    border-top: 1px solid var(--line);
+    position: relative;
+    margin: 4rem 0 1.15rem;
+    /* Clears the fixed brand bar when a section is reached by anchor link. */
+    scroll-margin-top: 6rem;
     font-family: var(--font-display);
-    font-size: clamp(1.35rem, 2.5vw, 1.65rem);
+    font-size: clamp(1.3rem, 2.4vw, 1.55rem);
     font-weight: 650;
-    line-height: 1.15;
-    letter-spacing: -0.025em;
+    line-height: 1.2;
+    letter-spacing: -0.028em;
+    color: var(--ink-strong);
     text-wrap: balance;
+    counter-increment: section;
+  }
+
+  /* Numbered spine. Replaces the old full-width rule above every section: it
+     anchors the eye down the left edge without cutting the page into fifteen
+     visually equal slabs. */
+  .privacy-content :global(h2::before) {
+    content: counter(section, decimal-leading-zero);
+    display: block;
+    margin-bottom: 0.55rem;
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    font-weight: 400;
+    line-height: 1;
+    letter-spacing: 0.12em;
+    font-variant-numeric: tabular-nums;
+    color: var(--ink-faint);
+  }
+
+  @media (min-width: 62rem) {
+    .privacy-content :global(h2::before) {
+      position: absolute;
+      left: calc(-1 * var(--spine));
+      /* Optical, not geometric: the numeral is nudged down to sit against the
+         cap-height of the heading rather than the top of its line box. */
+      top: 0.52em;
+      margin-bottom: 0;
+    }
   }
 
   .privacy-content :global(p),
   .privacy-content :global(li) {
-    font-size: 1rem;
-    line-height: 1.75;
-    letter-spacing: -0.008em;
-    color: var(--muted);
+    font-size: 1.0625rem;
+    line-height: 1.7;
+    letter-spacing: -0.009em;
+    color: var(--ink-body);
+    text-wrap: pretty;
+    overflow-wrap: break-word;
   }
 
   .privacy-content :global(p) {
@@ -104,10 +172,31 @@ const {
     margin-top: 1.15rem;
   }
 
+  /* Summary card. The "in short" blockquote is the one thing most visitors
+     actually need, so it gets a surface — a tint plus a hairline inset shadow,
+     which adapts to either theme in a way a solid border can't. */
+  .privacy-content :global(blockquote) {
+    margin: 1.75rem 0 0;
+    padding: 1.15rem 1.35rem;
+    border-radius: 0.875rem;
+    background: hsl(var(--foreground) / 0.035);
+    box-shadow: inset 0 0 0 1px hsl(var(--foreground) / 0.07);
+  }
+
+  .privacy-content :global(blockquote p) {
+    font-size: 1rem;
+    line-height: 1.65;
+    color: var(--ink-lede);
+  }
+
+  .privacy-content :global(blockquote strong) {
+    color: var(--ink-strong);
+  }
+
   .privacy-content :global(ul),
   .privacy-content :global(ol) {
     margin: 1.15rem 0 0;
-    padding-left: 1.25rem;
+    padding-left: 1.1rem;
   }
 
   .privacy-content :global(ul) {
@@ -119,24 +208,30 @@ const {
   }
 
   .privacy-content :global(li + li) {
-    margin-top: 0.75rem;
+    margin-top: 0.7rem;
   }
 
   .privacy-content :global(li::marker) {
-    color: hsl(var(--foreground) / 0.4);
+    color: hsl(var(--foreground) / 0.28);
   }
 
   .privacy-content :global(strong) {
     font-weight: 600;
-    color: hsl(var(--foreground) / 0.88);
+    color: var(--ink-strong);
+  }
+
+  /* Term lead-ins ("**Cloudflare** — hosting…") read as labels, so they get a
+     hair of negative tracking to stop the bold weight from looking loose. */
+  .privacy-content :global(li > strong:first-child) {
+    letter-spacing: -0.012em;
   }
 
   .privacy-content :global(a) {
     color: hsl(var(--foreground));
     text-decoration: underline;
-    text-decoration-color: hsl(var(--foreground) / 0.3);
+    text-decoration-color: hsl(var(--foreground) / 0.28);
     text-decoration-thickness: 1px;
-    text-underline-offset: 0.2em;
+    text-underline-offset: 0.22em;
     transition: text-decoration-color 0.18s ease;
   }
 
@@ -147,8 +242,38 @@ const {
 
   .privacy-content :global(code) {
     font-family: var(--font-code);
-    font-size: 0.92em;
-    color: hsl(var(--foreground) / 0.88);
+    font-size: 0.9em;
+    letter-spacing: -0.01em;
+    color: var(--ink-strong);
+  }
+
+  /* Header enter. Runs once, on a page nobody revisits often — the only place
+     here where motion earns its keep. Sections below stay static on purpose: a
+     scroll reveal on a policy you are trying to read or Ctrl+F is friction. */
+  .privacy-eyebrow,
+  .privacy-content :global(h1),
+  .privacy-content :global(h1 + p),
+  .privacy-content :global(blockquote) {
+    animation: privacy-enter 0.42s cubic-bezier(0.23, 1, 0.32, 1) both;
+  }
+
+  .privacy-content :global(h1) {
+    animation-delay: 0.06s;
+  }
+
+  .privacy-content :global(h1 + p) {
+    animation-delay: 0.12s;
+  }
+
+  .privacy-content :global(blockquote) {
+    animation-delay: 0.18s;
+  }
+
+  @keyframes privacy-enter {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
   }
 
   @media (max-width: 560px) {
@@ -161,24 +286,40 @@ const {
     }
 
     .privacy-content :global(h1) {
-      margin-bottom: 2rem;
+      max-width: 14ch;
+      margin-bottom: 1.5rem;
+    }
+
+    .privacy-content :global(h1 + p) {
+      font-size: 1.1rem;
+      line-height: 1.58;
     }
 
     .privacy-content :global(h2) {
-      margin-top: 2.5rem;
-      padding-top: 2.5rem;
+      margin-top: 3rem;
     }
 
     .privacy-content :global(p),
     .privacy-content :global(li) {
-      font-size: 0.98rem;
-      line-height: 1.72;
+      font-size: 1rem;
+      line-height: 1.68;
+    }
+
+    .privacy-content :global(blockquote) {
+      padding: 1rem 1.15rem;
     }
   }
 
   @media (prefers-reduced-motion: reduce) {
     .privacy-content :global(a) {
       transition: none;
+    }
+
+    .privacy-eyebrow,
+    .privacy-content :global(h1),
+    .privacy-content :global(h1 + p),
+    .privacy-content :global(blockquote) {
+      animation: none;
     }
   }
 </style>
