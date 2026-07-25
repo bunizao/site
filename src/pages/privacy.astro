@@ -44,7 +44,10 @@ const {
     --ink-strong: hsl(var(--foreground) / 0.92);
     --ink-lede: hsl(var(--foreground) / 0.78);
     --ink-body: hsl(var(--foreground) / 0.64);
-    --ink-faint: hsl(var(--foreground) / 0.42);
+    /* 0.55 is the floor here, not a taste call: the eyebrow and the section
+       numerals are ~11px, and anything fainter drops the eyebrow under the
+       4.5:1 AA threshold in light mode. */
+    --ink-faint: hsl(var(--foreground) / 0.55);
     /* Gutter the hung section numerals live in. Collapses to 0 below 62rem,
        where the numerals sit inline above the heading instead. */
     --spine: 0rem;
