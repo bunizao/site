@@ -1111,15 +1111,24 @@ const preloadFontHref = preloadFont === 'sans'
         let scrollCueTimer = 0;
         let lastScrollY = window.scrollY;
 
+        // Its own handle rather than the collapse block's statusEl: that one is
+        // declared further down and onScroll() runs before that line.
+        const heroStatusEl = document.querySelector('[data-hero-status]');
+
+        // On desktop the nav is vertical from load; only its visibility is
+        // scroll-driven. Reveal it as soon as the hero's status line clears the
+        // top of the viewport — the moment the reader has committed to scrolling
+        // past the hero. The previous rule waited for the first section to reach
+        // 76vh, which on a tall hero was ~650px further down.
         const syncHomeNavPresence = () => {
-          if (!isHomeNav || !desktopNavQuery.matches) {
+          if (!isHomeNav || !desktopNavQuery.matches || !heroStatusEl) {
             nav.classList.remove('is-content-nav-visible');
             return;
           }
-          const firstSection = sections[0]?.el;
-          if (!firstSection) return;
-          const sectionTop = firstSection.getBoundingClientRect().top;
-          nav.classList.toggle('is-content-nav-visible', sectionTop <= window.innerHeight * 0.76);
+          nav.classList.toggle(
+            'is-content-nav-visible',
+            heroStatusEl.getBoundingClientRect().bottom <= 0
+          );
         };
 
         const cuePeekLock = () => {
@@ -1463,6 +1472,8 @@ const preloadFontHref = preloadFont === 'sans'
           const syncHomeNavMode = () => {
             isVertical = desktopNavQuery.matches;
             nav.classList.toggle('is-vertical', isVertical);
+            // Viewport changes do not fire a scroll event, so the reveal has to
+            // be re-read here as well as in onScroll.
             syncHomeNavPresence();
             separators.forEach(s => ((s as HTMLElement).style.opacity = isVertical ? '0' : '1'));
             linkDataList.forEach(ld => {

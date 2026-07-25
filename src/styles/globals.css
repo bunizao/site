@@ -1016,6 +1016,14 @@
       transition: opacity 0.22s ease, transform 0.22s steps(3, end);
     }
 
+    /* Set once the hero's status line leaves the viewport — the same line that
+       turns the nav vertical, so the sidebar arrives with the mode it belongs
+       to. The old threshold waited for the first section to reach 76vh, roughly
+       650px of scrolling after the nav had already collapsed.
+
+       This cannot key off .is-vertical instead: syncHomeNavMode sets that on
+       load from the viewport alone, and toHorizontal only clears it after its
+       exit animation, so the sidebar would flash on every home load. */
     .site-nav--home.is-content-nav-visible {
       opacity: 1;
       pointer-events: auto;
