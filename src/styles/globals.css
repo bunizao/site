@@ -755,9 +755,10 @@
     --site-nav-mobile-padding: 0 4rem 0 1rem;
     --site-nav-mobile-gap: clamp(0.95rem, 3.8vw, 1.25rem);
     --site-nav-mobile-brand-min-width: calc(var(--site-nav-mobile-logo-height) + var(--site-nav-brand-gap) + var(--site-nav-mobile-wordmark-width));
-    --site-nav-mobile-logo-width: 40px;
-    --site-nav-mobile-logo-height: 21px;
-    --site-nav-mobile-wordmark-width: 5.2rem;
+    --site-nav-mobile-logo-height: 14px;
+    /* Holds the wordmark's natural width (7 mono cells at 0.6em of a 19.7px
+       face ~= 83px) with room for the face to fall back. */
+    --site-nav-mobile-wordmark-width: 5.6rem;
     --site-nav-mobile-action-size: 2.75rem;
   }
 
@@ -1244,9 +1245,6 @@
     .site-nav--home .site-brand,
     .site-nav--home.is-vertical .site-brand {
       --brand-logo-height: var(--site-nav-mobile-logo-height);
-      /* The logo box is 40px against 30px of art, so it already carries the
-         optical gap — adding the derived row gap on top would double it. */
-      --brand-gap: 0px;
 
       width: auto;
       min-width: var(--site-nav-mobile-brand-min-width);
@@ -1261,13 +1259,16 @@
       min-width: var(--site-nav-mobile-brand-min-width);
     }
 
+    /* The box shrink-wraps the art here — the derived --brand-gap owns the
+       spacing. The tap-pop animation nudges the mark a couple of px, which just
+       borrows from that gap, which is what the animation is meant to look
+       like. */
     .site-nav--home .site-brand-logo {
       position: relative;
       z-index: 2;
       /* The desktop sidebar pins this to center; the horizontal lockup wants the
          baseline back. */
       align-self: baseline;
-      width: var(--site-nav-mobile-logo-width);
       transform: translateX(0);
     }
 

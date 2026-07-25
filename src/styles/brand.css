@@ -16,10 +16,17 @@
       uneven cell widths. 14 / 21 / 28 are the usable steps.
 
    Because the height is quantized that hard, peek is the only free knob in the
-   lockup — so it leads and everything else derives from it by phi:
+   lockup — so it leads and everything else derives from it:
 
-     wordmark cap height = peek height / phi
-     gap                 = peek height / phi^2
+     wordmark ascender = peek height        (so --brand-wordmark-size = H / 0.71)
+     gap               = peek height / phi
+
+   The mark stands exactly as tall as the wordmark's ascender. "buxx.me" is all
+   lowercase — one ascender on the b, everything else x-height — so a mark sized
+   against the cap height by phi ends up 2.16x the x-height the eye actually
+   reads, and the lockup splits into a big block next to small text. Matching
+   the ascender puts both in one optical band; phi moves to the gap, which is
+   the measurement that was actually free.
 
    Only --brand-logo-height should ever be set by a variant. Setting the
    wordmark size or the gap by hand is what let the two drift apart before.
@@ -42,11 +49,11 @@
 
 @layer components {
   .site-brand {
-    /* Typeface constants, not variant knobs. --brand-cap is Geist Mono's cap
-       height as a share of the em, measured off the rendered face; it converts
-       the cap height phi asks for back into a font-size. */
+    /* Typeface constants, not variant knobs. --brand-asc is Geist Mono's
+       ascender height as a share of the em, measured off the rendered face; it
+       converts the ascender height the mark asks for back into a font-size. */
     --brand-phi: 1.618;
-    --brand-cap: 0.71;
+    --brand-asc: 0.71;
 
     display: inline-flex;
     align-items: center;
@@ -62,10 +69,7 @@
   .site-brand-row {
     display: inline-flex;
     align-items: baseline;
-    gap: var(
-      --brand-gap,
-      calc(var(--brand-logo-height, 21px) / (var(--brand-phi) * var(--brand-phi)))
-    );
+    gap: var(--brand-gap, calc(var(--brand-logo-height, 14px) / var(--brand-phi)));
     min-width: 0;
   }
 
@@ -73,7 +77,7 @@
     display: inline-flex;
     align-self: baseline;
     flex: 0 0 auto;
-    height: var(--brand-logo-height, 21px);
+    height: var(--brand-logo-height, 14px);
     line-height: 0;
   }
 
@@ -83,14 +87,14 @@
   .site-brand-logo > span,
   .site-brand-logo svg {
     width: auto !important;
-    height: var(--brand-logo-height, 21px) !important;
+    height: var(--brand-logo-height, 14px) !important;
   }
 
   .site-brand-text {
     display: inline-block;
     font-size: var(
       --brand-wordmark-size,
-      calc(var(--brand-logo-height, 21px) / (var(--brand-phi) * var(--brand-cap)))
+      calc(var(--brand-logo-height, 14px) / var(--brand-asc))
     );
     line-height: 1;
     font-weight: var(--brand-wordmark-weight, 500);
