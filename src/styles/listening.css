@@ -780,26 +780,29 @@
 
 /* Progress row — hidden until this widget owns playback, so the resting state
    stays the same calm block. Grows from height 0, then a draggable scrubber. */
+/* The row holds its slot whether or not it is showing, so starting playback
+   never reflows the page around the card — it fades and rises into space that
+   was always reserved. Cards with nothing to play drop the row entirely (see
+   .has-no-playback below), so the reservation only costs where it is earned. */
 .listening-progress-row {
   display: grid;
   grid-template-columns: auto minmax(112px, 1fr) auto;
   align-items: center;
   gap: 8px;
   margin-top: 8px;
-  max-height: 0;
+  height: 18px;
   opacity: 0;
   pointer-events: none;
-  overflow: hidden;
+  transform: translateY(-4px);
   transition:
-    max-height 0.32s cubic-bezier(0.2, 0.8, 0.2, 1),
-    opacity 0.22s ease,
-    margin-top 0.32s ease;
+    opacity 0.24s ease,
+    transform 0.34s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 .listening.is-preview-playing .listening-progress-row {
-  max-height: 24px;
   opacity: 1;
   pointer-events: auto;
+  transform: none;
 }
 
 .listening-time {
@@ -1021,9 +1024,9 @@
 }
 
 .listening.is-cover .listening-progress-row {
-  max-height: 24px;
   opacity: 1;
   pointer-events: auto;
+  transform: none;
   margin-top: 4px;
 }
 
