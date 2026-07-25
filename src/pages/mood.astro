@@ -122,7 +122,7 @@ const skeletonGroups = [
        actions are hidden (via the scoped rule below) and replaced by
        MoodNavbar, a borderless progressive-blur bar with the docked channel
        identity plus search + notify. -->
-  <MoodNavbar initialChannel={initialFeed?.channel} />
+  <MoodNavbar slot="topbar" initialChannel={initialFeed?.channel} />
   <main class="page-container mood-route">
     <TimelineWheel />
     <FeedShell

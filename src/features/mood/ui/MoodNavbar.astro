@@ -10,6 +10,7 @@
 // ../client/feed-media-hydration.ts.
 import type { MoodChannelSummary } from '@/features/mood/server/contracts';
 import Kbd from '@/components/Kbd.astro';
+import Topbar from '@/components/Topbar.astro';
 import '@/features/mood/styles/mood-navbar.css';
 
 interface Props {
@@ -22,17 +23,7 @@ const titleText = initialChannel?.title?.trim() ?? '';
 const avatar = initialChannel?.avatar?.trim() ?? '';
 ---
 
-<header class="mood-navbar" data-mood-navbar>
-  <!-- Progressive blur: a stack of masked backdrop-filter layers, lightest to
-       heaviest, so the frost ramps smoothly into the page with no focus seam.
-       The container carries only a feathered tint. -->
-  <div class="mood-navbar__fade" aria-hidden="true">
-    <div class="mood-navbar__blur mood-navbar__blur--1"></div>
-    <div class="mood-navbar__blur mood-navbar__blur--2"></div>
-    <div class="mood-navbar__blur mood-navbar__blur--3"></div>
-    <div class="mood-navbar__blur mood-navbar__blur--4"></div>
-  </div>
-
+<Topbar class="mood-navbar" progressiveBlur data-mood-navbar>
   <div class="mood-navbar__bar">
     <button type="button" class="mood-nav-identity" data-mood-nav-top aria-label="Back to top">
       <!-- Empty placeholder the flyer avatar lands on; it only reserves layout
@@ -46,7 +37,7 @@ const avatar = initialChannel?.avatar?.trim() ?? '';
     <div class="mood-navbar__controls">
       <button
         type="button"
-        class="mood-nav-btn mood-nav-btn--search"
+        class="topbar-action topbar-action--search"
         data-command-open
         aria-label="Search and commands"
         title="Search (⌘K)"
@@ -66,14 +57,14 @@ const avatar = initialChannel?.avatar?.trim() ?? '';
           <circle cx="11" cy="11" r="7"></circle>
           <path d="m21 21-4.3-4.3"></path>
         </svg>
-        <span class="mood-nav-kbd" aria-hidden="true">
+        <span class="topbar-action__keys" aria-hidden="true">
           <Kbd icon="command" />
           <Kbd>K</Kbd>
         </span>
       </button>
       <button
         type="button"
-        class="mood-nav-btn"
+        class="topbar-action"
         data-subscribe-toggle="mood"
         aria-haspopup="dialog"
         aria-expanded="false"
@@ -111,7 +102,7 @@ const avatar = initialChannel?.avatar?.trim() ?? '';
       hidden={!avatar}
     />
   </span>
-</header>
+</Topbar>
 
 <script>
   import { getMoodFeedTopHref } from '@/features/mood/shared/feed-anchor';

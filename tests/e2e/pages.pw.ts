@@ -43,6 +43,11 @@ test.describe('Standalone pages', () => {
     await expect(page.locator('[data-mobile-brand-text]')).toHaveText('buxx.me');
     await expect(page.locator('.privacy-content')).toContainText('This Privacy Policy explains how this website collects');
 
+    const search = page.getByRole('button', { name: 'Search and commands' });
+    await expect(search).toHaveClass(/topbar-action--search/);
+    await expect(search.locator('.header-action-btn-keys')).toBeVisible();
+    expect(await search.evaluate((element) => element.getBoundingClientRect().width)).toBeGreaterThan(50);
+
     const desktopBrandGap = await page.evaluate(() => {
       const logo = document.querySelector('.site-brand-logo');
       const brandText = document.querySelector('[data-mobile-brand-text]');
@@ -84,10 +89,24 @@ test.describe('Standalone pages', () => {
       const brandRect = brand.getBoundingClientRect();
       const brandTextStyles = window.getComputedStyle(brandText);
       const toggleStyles = window.getComputedStyle(toggle);
+      const blur = nav.querySelector('[data-progressive-blur][data-preset="topbar"]');
+      const blurLayers = blur?.querySelectorAll('.pblur__layer') ?? [];
+      const topbarActions = [
+        headerActions.querySelector('[data-command-open]'),
+        toggle,
+        headerActions.querySelector('[data-menu-trigger]'),
+      ];
       return {
         hasBrandHomeActions: headerActions.classList.contains('has-brand-home-bar'),
         hasPageNav: nav.classList.contains('site-nav--page'),
         hasHomeNav: nav.classList.contains('site-nav--home'),
+        isReusableTopbar: nav.matches('nav[data-topbar]'),
+        blurLayerCount: blurLayers.length,
+        blurTail: blur instanceof HTMLElement
+          ? Math.round(blur.getBoundingClientRect().bottom - navRect.bottom)
+          : null,
+        topbarActionsReady: topbarActions.every((action) => action?.classList.contains('topbar-action')),
+        navPosition: getComputedStyle(nav).position,
         navHeight: navRect.height,
         brandCenterDelta: Math.abs((brandRect.top + brandRect.height / 2) - (navRect.top + navRect.height / 2)),
         brandGap: Math.round((brandText.getBoundingClientRect().left - logo.getBoundingClientRect().right) * 100) / 100,
@@ -103,6 +122,11 @@ test.describe('Standalone pages', () => {
     expect(state?.hasBrandHomeActions).toBe(true);
     expect(state?.hasPageNav).toBe(true);
     expect(state?.hasHomeNav).toBe(false);
+    expect(state?.isReusableTopbar).toBe(true);
+    expect(state?.blurLayerCount).toBe(4);
+    expect(state?.blurTail).toBeGreaterThanOrEqual(35);
+    expect(state?.topbarActionsReady).toBe(true);
+    expect(state?.navPosition).toBe('fixed');
     expect(state?.navHeight).toBe(52);
     expect(state?.brandCenterDelta).toBeLessThanOrEqual(1);
     expect(state?.brandGap).toBe(6);
@@ -111,6 +135,14 @@ test.describe('Standalone pages', () => {
     expect(state?.brandTextWidth).toBeGreaterThan(65);
     expect(state?.toggleBackground).toBe('rgba(0, 0, 0, 0)');
     expect(state?.toggleBorder).toBe('rgba(0, 0, 0, 0)');
+  });
+
+  test('keeps the default desktop search shortcut outside the topbar action contract', async ({ page }) => {
+    await page.goto('/projects');
+
+    const search = page.getByRole('button', { name: 'Search and commands' });
+    await expect(search.locator('.header-action-btn-keys')).toBeVisible();
+    await expect(search).not.toHaveClass(/topbar-action/);
   });
 
   test('redirects /mood/subscribe to /mood and auto-opens the notify panel', async ({ page }) => {

@@ -1,0 +1,23 @@
+---
+import type { HTMLAttributes } from 'astro/types';
+import ProgressiveBlur from '@/components/ProgressiveBlur.astro';
+import '@/styles/topbar.css';
+
+type Props = HTMLAttributes<'header'> & HTMLAttributes<'nav'> & {
+  as?: 'header' | 'nav';
+  progressiveBlur?: boolean;
+};
+
+const {
+  as = 'header',
+  class: className,
+  progressiveBlur = false,
+  ...attributes
+} = Astro.props;
+const Element = as;
+---
+
+<Element class:list={['topbar', className]} data-topbar {...attributes}>
+  {progressiveBlur && <ProgressiveBlur class="topbar__blur" preset="topbar" />}
+  <slot />
+</Element>
