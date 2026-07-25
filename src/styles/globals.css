@@ -1228,6 +1228,9 @@
     .site-nav--home.is-vertical .site-brand {
       --brand-logo-height: var(--site-nav-mobile-logo-height);
       --brand-wordmark-size: var(--site-nav-mobile-wordmark-size);
+      /* The logo box is 40px against 30px of art, so it already carries the
+         optical gap — adding the row gap on top would double it. */
+      --brand-gap: 0px;
 
       width: auto;
       min-width: var(--site-nav-mobile-brand-min-width);
@@ -1245,11 +1248,16 @@
     .site-nav--home .site-brand-logo {
       position: relative;
       z-index: 2;
+      /* The desktop sidebar pins this to center; the horizontal lockup wants the
+         baseline back. */
+      align-self: baseline;
       width: var(--site-nav-mobile-logo-width);
       transform: translateX(0);
     }
 
     .site-nav--home .site-brand-text {
+      /* Undoes the sidebar's display:none — same specificity, later source. */
+      display: inline-block;
       width: var(--site-nav-mobile-wordmark-width);
       flex: 0 0 var(--site-nav-mobile-wordmark-width);
       max-width: var(--site-nav-mobile-wordmark-width);
