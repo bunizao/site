@@ -48,6 +48,11 @@ const user = userProp
       (() => {
         if (navigator.vendor === 'Apple Computer, Inc.') {
           document.documentElement.classList.add('ua-webkit');
+          // WebKit drops a frame mid-tween on cross-document view transitions;
+          // see the note in Layout.astro. Same-document transitions still run.
+          const skip = (event) => event.viewTransition?.skipTransition();
+          addEventListener('pageswap', skip);
+          addEventListener('pagereveal', skip);
         }
         let stored = null;
         try {

@@ -2311,42 +2311,13 @@ html.no-transition * {
   object-fit: cover;
 }
 
-/* WebKit runs view-transition morphs largely on the main thread and stutters
-   when the old/new snapshots differ in size. Worse, snapshots default to
-   inline-size:100% / block-size:auto anchored top-left, so the title flight
-   (list row 17px → headline 34px) drags left-anchored text across the screen
-   on every navigation. Until Safari composites these, WebKit (.ua-webkit, set
-   pre-render by the layouts' no-FOUC script) gets a calmer contract: a short
-   opacity-only root crossfade, and named groups that snap to their final
-   geometry and crossfade in place — continuity without the main-thread flight. */
-:root.ua-webkit::view-transition-old(root) {
-  animation: vt-root-out 160ms ease-in both;
-}
-
-:root.ua-webkit::view-transition-new(root) {
-  animation: vt-root-in-flat 240ms ease-out both;
-}
-
-@keyframes vt-root-in-flat {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
-
-/* All named groups, not a class list: the root group never animates geometry,
-   so (*) only strips the flights — and it can't silently no-op on a WebKit
-   build without view-transition-class selector support. */
-:root.ua-webkit::view-transition-group(*) {
-  animation: none;
-}
-
-:root.ua-webkit::view-transition-old(blog-hero),
-:root.ua-webkit::view-transition-new(blog-hero) {
-  animation-duration: 240ms;
-}
+/* No WebKit override lives here on purpose. WebKit runs these morphs largely on
+   the main thread, and even after flattening them to an opacity-only crossfade
+   it still dropped a frame mid-tween as the snapshot swap met the incoming
+   page's first paint. The layouts' no-FOUC script now calls skipTransition() on
+   pageswap/pagereveal for WebKit, so Safari navigates instantly instead of
+   stuttering. Delete that skip once Safari composites view transitions and the
+   rules above apply everywhere. */
 
 /* ─── Theme toggle: polygon gradient reveal ──────────────────────────────────
    A fixed gradient mask preserves the registry's feathered triangle while its
