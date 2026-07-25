@@ -360,11 +360,15 @@
    over the live/playing seat above, since a live card cues from the seated
    position and has to visibly rise before it can drop again. */
 .listening-art.is-preview-loading:not(.is-preview-playing) .listening-art-tonearm-arm {
-  --tonearm-cue-from: -9deg;
-  --tonearm-cue-to: -1deg;
-  transition: transform 0.42s cubic-bezier(0.2, 0.8, 0.2, 1);
+  /* The drift starts where the swing ends, and only once the swing has landed
+     — an animation that fills backwards would snap the arm onto the deck the
+     instant the tap registers and eat the swing entirely. The 0.2s lead-in also
+     keeps a cache-warm preview from flashing the lift on its way to the drop. */
+  --tonearm-cue-from: -5deg;
+  --tonearm-cue-to: 3deg;
+  transition: transform 0.42s cubic-bezier(0.2, 0.8, 0.2, 1) 0.2s;
   transform: rotate(-5deg);
-  animation: listening-tonearm-cue 2.1s cubic-bezier(0.45, 0, 0.55, 1) 0.42s infinite backwards;
+  animation: listening-tonearm-cue 2.1s cubic-bezier(0.45, 0, 0.55, 1) 0.62s infinite;
 }
 
 .listening-art.is-preview-loading .listening-art-tonearm {
