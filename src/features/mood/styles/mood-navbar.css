@@ -79,9 +79,17 @@
 }
 
 /* The shared element: one avatar, fixed and driven entirely by the scroll
-   script. It starts scaled up exactly over the hero avatar and settles onto the
-   slot above. transform-origin is the top-left corner so translate + scale keep
-   the start/end boxes aligned. */
+   script. It is laid out at the HERO's size and scales DOWN onto the slot above.
+   transform-origin is the top-left corner so translate + scale keep the
+   start/end boxes aligned.
+
+   The direction matters: sized at the slot and scaled UP instead, the 30px
+   raster would be stretched ~2.7x for the whole ride, and will-change pins the
+   texture at layout size — that is the soft avatar seen sitting over the hero,
+   long before it reaches the bar. Downscaling a raster never goes soft.
+
+   width/height below are only the pre-measure fallback; measure() overwrites
+   them with the hero's size, and the flyer stays hidden until it has. */
 .mood-nav-avatar-flyer {
   position: fixed;
   top: 0;
@@ -131,7 +139,14 @@
      top-left corner so translate + scale keep the boxes aligned at both ends. */
   transform-origin: 0 0;
   opacity: 0;
-  will-change: opacity, transform;
+  /* transform is deliberately NOT listed. The title stays laid out at 14px (the
+     bar's flex row depends on that box) and the ride scales it up ~2.4x, so it
+     is the one shared element that cannot be fixed by inverting the scale the
+     way the avatar flyer is. Pinning its raster would freeze 14px glyphs and
+     stretch them over the hero — the soft headline. Glyphs are cheap to redraw
+     at a new scale, so let the engine re-raster; one short line costs nothing
+     next to the backdrop passes behind it. */
+  will-change: opacity;
 }
 
 /* The title mirrors the channel's rich HTML (links, custom emoji), so keep its
@@ -180,8 +195,9 @@
     gap: 8px;
   }
 
-  .mood-nav-avatar-slot,
-  .mood-nav-avatar-flyer {
+  /* Only the slot: the flyer's box is script-owned, so its size follows the
+     hero's measured rect rather than this breakpoint. */
+  .mood-nav-avatar-slot {
     width: 28px;
     height: 28px;
   }

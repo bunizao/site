@@ -173,6 +173,12 @@ const avatar = initialChannel?.avatar?.trim() ?? '';
       heroLeftDoc = heroRect.left + window.scrollX;
       heroSize = heroRect.width || slotSize;
 
+      // Lay the flyer out at the hero's size so the travel only ever scales it
+      // DOWN. Sized at the slot, the ride would stretch a 30px raster ~2.7x and
+      // will-change would pin it there — a visibly soft avatar over the hero.
+      flyer.style.width = `${heroSize}px`;
+      flyer.style.height = `${heroSize}px`;
+
       distance = Math.max(1, heroTopDoc - slotTop);
       // Ride the content for ~45% of the trip, then dock over the last ~55%.
       dockBand = Math.max(1, distance * 0.55);
@@ -213,7 +219,7 @@ const avatar = initialChannel?.avatar?.trim() ?? '';
       // start (hero box) and end (slot box) aligned at both ends.
       const curTop = lerp(heroTopVp, slotTop, d);
       const curLeft = lerp(heroLeftDoc, slotLeft, d);
-      const scale = lerp(heroSize / slotSize, 1, d);
+      const scale = lerp(1, slotSize / heroSize, d);
       flyer.style.transform = `translate(${curLeft}px, ${curTop}px) scale(${scale})`;
 
       if (titleFly && title) {
