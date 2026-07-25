@@ -784,22 +784,8 @@
     }
   }
 
-  .site-brand {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 28px;
-    height: 28px;
-    margin-right: 4px;
-    border-radius: 6px;
-    color: hsl(var(--foreground));
-    transition: background 0.15s ease, transform 0.2s ease;
-  }
-  .site-brand:hover {
-    background: hsl(var(--foreground) / 0.06);
-  }
-  .site-brand:active { transform: scale(0.94); }
-  .site-brand svg { display: block; }
+  /* The lockup itself lives in styles/brand.css (imported by SiteBrand.astro);
+     the nav only positions it. */
   .nav-separator--brand {
     margin-right: 2px;
   }
@@ -851,43 +837,13 @@
     }
   }
 
+  /* The peek animates on hover and the TLD resolves to full strength, so the
+     brand needs no background box — that just fights the mascot's own motion.
+     Press feedback stays on :active. */
   .site-nav--brand-home .site-brand {
-    width: auto;
-    height: auto;
-    margin-right: 0;
-    gap: var(--site-nav-brand-gap);
-    border-radius: 8px;
-  }
-  .site-nav--brand-home .site-brand-logo {
-    display: inline-flex;
-    flex: 0 0 auto;
-    height: var(--site-nav-mobile-logo-height);
-    line-height: 0;
-  }
-  .site-nav--brand-home .site-brand-logo > span,
-  .site-nav--brand-home .site-brand-logo svg {
-    width: auto !important;
-    height: var(--site-nav-mobile-logo-height) !important;
-  }
-  .site-nav--brand-home .site-brand-text {
-    display: inline-block;
-    font-size: var(--site-nav-mobile-wordmark-size);
-    line-height: 1;
-    font-weight: 600;
-    letter-spacing: -0.01em;
-    color: hsl(var(--foreground));
-    white-space: nowrap;
-    transition: opacity 0.2s ease;
-  }
-
-  /* The peek animates on hover, so the brand needs no background box — that
-     just fights the mascot's own motion. Keep a quiet wordmark dim as the
-     only hover cue; press feedback stays on :active. */
-  .site-nav--brand-home .site-brand:hover {
-    background: transparent;
-  }
-  .site-nav--brand-home .site-brand:hover .site-brand-text {
-    opacity: 0.7;
+    --brand-gap: 0.5rem;
+    --brand-logo-height: var(--site-nav-mobile-logo-height);
+    --brand-wordmark-size: var(--site-nav-mobile-wordmark-size);
   }
 
   .nav-link {
@@ -1049,8 +1005,12 @@
     }
   }
 
+  /* Home's sidebar shows the mascot alone, so it keeps a centered box and takes
+     its hover cue on the whole brand. The peek rides --peek-shift-* here — the
+     scroll-driven sidebar animations below hook the same element. */
   .site-nav--home .site-brand {
-    display: inline-flex;
+    --brand-logo-height: 28px;
+
     align-items: center;
     justify-content: flex-start;
     gap: 0;
@@ -1068,13 +1028,9 @@
   }
 
   .site-nav--home .site-brand-logo {
-    display: inline-flex;
+    align-self: center;
     transform: translate(var(--peek-shift-x), var(--peek-shift-y));
     will-change: transform;
-  }
-
-  .site-nav--home .site-brand-logo svg {
-    display: block;
   }
 
   .site-nav--home .site-brand-text,
@@ -1264,51 +1220,43 @@
       transform: translateZ(0);
     }
 
+    /* Mobile turns home's sidebar into the same horizontal lockup the other
+       bars use, so the wordmark comes back and the peek drops onto its
+       baseline. The logo keeps a wider box than the art so --peek-shift-* has
+       room to move without clipping. */
     .site-nav--home .site-brand,
     .site-nav--home.is-vertical .site-brand {
+      --brand-logo-height: var(--site-nav-mobile-logo-height);
+      --brand-wordmark-size: var(--site-nav-mobile-wordmark-size);
+
       width: auto;
       min-width: var(--site-nav-mobile-brand-min-width);
       min-height: var(--site-nav-mobile-action-size);
       margin: 0;
       padding-right: 0;
-      gap: var(--site-nav-brand-gap);
       overflow: hidden;
       transition: min-width 0.32s ease;
+    }
+
+    .site-nav--home .site-brand-row {
+      min-width: var(--site-nav-mobile-brand-min-width);
     }
 
     .site-nav--home .site-brand-logo {
       position: relative;
       z-index: 2;
-      flex: 0 0 auto;
       width: var(--site-nav-mobile-logo-width);
       transform: translateX(0);
     }
 
-    .site-nav--home .site-brand-logo {
-      height: var(--site-nav-mobile-logo-height);
-      line-height: 0;
-    }
-    .site-nav--home .site-brand-logo > span,
-    .site-nav--home .site-brand-logo svg {
-      width: auto !important;
-      height: var(--site-nav-mobile-logo-height) !important;
-    }
-
     .site-nav--home .site-brand-text {
-      display: inline-block;
       width: var(--site-nav-mobile-wordmark-width);
       flex: 0 0 var(--site-nav-mobile-wordmark-width);
       max-width: var(--site-nav-mobile-wordmark-width);
-      font-size: var(--site-nav-mobile-wordmark-size);
-      line-height: 1;
-      font-weight: 600;
-      letter-spacing: -0.01em;
-      color: hsl(var(--foreground));
       transform: translateX(0);
       opacity: 1;
       clip-path: inset(0 0 0 0);
       transition: width 0.32s ease, flex-basis 0.32s ease, max-width 0.32s ease, opacity 0.24s ease, transform 0.32s ease, clip-path 0.32s ease;
-      white-space: nowrap;
     }
 
     .site-nav--home.is-peek-tapping .site-brand-logo {

@@ -36,6 +36,7 @@ import { Moon, Sun, Monitor, Menu, X } from 'lucide-react';
 import AnimatedLogo from '@/features/logos/ui/AnimatedLogo.astro';
 import CommandPalette from '@/components/CommandPalette.astro';
 import SearchButton from '@/components/SearchButton.astro';
+import SiteBrand from '@/components/SiteBrand.astro';
 import Topbar from '@/components/Topbar.astro';
 import {
   PEEK_NAVBAR_LOGO,
@@ -262,27 +263,22 @@ const preloadFontHref = preloadFont === 'sans'
         aria-label={isPageNav ? 'Home' : 'Page sections'}
       >
         {!isPageNav ? <div class="nav-active-indicator" data-nav-indicator aria-hidden="true"></div> : null}
-        <a href="/" class="site-brand" aria-label="buxx.me — home" data-site-brand>
-          <span class="site-brand-logo" aria-hidden="true">
-            <AnimatedLogo
-              definition={PEEK_NAVBAR_LOGO}
-              animation={navbarDefaultAnimation}
-              hoverAnimation={brandRich ? navbarHoverAnimation : undefined}
-              size={brandRich ? 40 : 20}
-              title="peek"
-              eventChannel={brandRich ? 'nav' : undefined}
-              eventAnimations={brandRich
-                ? [
-                    navbarLinkHoverAnimation,
-                    navbarSectionActiveAnimation,
-                    navbarHoverAnimation,
-                    navbarIdleTimeoutAnimation,
-                  ]
-                : undefined}
-            />
-          </span>
-          {showsBrandText ? <span class="site-brand-text" data-mobile-brand-text>buxx.me</span> : null}
-        </a>
+        <SiteBrand
+          label="buxx.me — home"
+          animation={navbarDefaultAnimation}
+          hoverAnimation={brandRich ? navbarHoverAnimation : undefined}
+          size={brandRich ? 40 : 20}
+          wordmark={showsBrandText}
+          eventChannel={brandRich ? 'nav' : undefined}
+          eventAnimations={brandRich
+            ? [
+                navbarLinkHoverAnimation,
+                navbarSectionActiveAnimation,
+                navbarHoverAnimation,
+                navbarIdleTimeoutAnimation,
+              ]
+            : undefined}
+        />
         {!isPageNav && (
           <div class="nav-links" data-nav-links>
             <span class="nav-separator nav-separator--brand" aria-hidden="true">/</span>

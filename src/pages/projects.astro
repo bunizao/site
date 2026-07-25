@@ -399,39 +399,17 @@ const linkLabel = (url: string) =>
   }
 
   :global(.site-nav--page .site-brand) {
-    justify-content: flex-start;
     width: auto;
     height: 34px;
     margin: 0;
-    gap: var(--site-nav-brand-gap);
     border-radius: 0;
-    color: hsl(var(--foreground));
     background: transparent;
   }
 
   :global(.site-nav--page .site-brand:hover),
   :global(.site-nav--page .site-brand:focus-visible) {
-    color: hsl(var(--foreground));
     background: transparent;
     opacity: 0.72;
-  }
-
-  :global(.site-nav--page .site-brand-logo) {
-    display: inline-flex;
-    line-height: 0;
-  }
-
-  :global(.site-nav--page .site-brand-text) {
-    display: inline-block;
-    cursor: pointer;
-    padding: 0;
-    border-radius: 0;
-    font-size: 1.08rem;
-    line-height: 1;
-    font-weight: 700;
-    letter-spacing: 0;
-    color: hsl(var(--foreground));
-    white-space: nowrap;
   }
 </style>
 
