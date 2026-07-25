@@ -157,7 +157,12 @@ const {
     }
   }
 
-  .privacy-content :global(p),
+  /* The eyebrow is a <p> inside .privacy-content, so it loses to a bare
+     `.privacy-content p` on specificity (two classes beat one) and silently
+     inherits body size and tracking. Exclude it rather than escalating the
+     eyebrow's own selector — the intent stays readable at the rule that
+     would otherwise clobber it. */
+  .privacy-content :global(p:not(.privacy-eyebrow)),
   .privacy-content :global(li) {
     font-size: 1.0625rem;
     line-height: 1.7;
@@ -167,11 +172,19 @@ const {
     overflow-wrap: break-word;
   }
 
-  .privacy-content :global(p) {
+  .privacy-content :global(p:not(.privacy-eyebrow)) {
     margin: 0;
   }
 
-  .privacy-content :global(p + p) {
+  /* Paragraphs reset to margin: 0, so every block that can precede one has to
+     re-open the gap explicitly — otherwise the closing line of a section
+     ("That is the full list…") collides with the last bullet above it. */
+  /* These carry the same :not() as the reset above on purpose: without it they
+     score one class lower and lose to `margin: 0`, silently collapsing every
+     paragraph gap on the page. */
+  .privacy-content :global(p + p:not(.privacy-eyebrow)),
+  .privacy-content :global(ul + p:not(.privacy-eyebrow)),
+  .privacy-content :global(ol + p:not(.privacy-eyebrow)) {
     margin-top: 1.15rem;
   }
 
