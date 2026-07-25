@@ -780,10 +780,12 @@
 
 /* Progress row — hidden until this widget owns playback, so the resting state
    stays the same calm block. Grows from height 0, then a draggable scrubber. */
-/* The row holds its slot whether or not it is showing, so starting playback
-   never reflows the page around the card — it fades and rises into space that
-   was always reserved. Cards with nothing to play drop the row entirely (see
-   .has-no-playback below), so the reservation only costs where it is earned. */
+/* The seek bar belongs to the card at rest, not to playback: it holds its slot
+   and sits dormant, so starting a preview lights it up rather than growing the
+   card and shoving the page down. It also keeps the record optically centered
+   on the copy — an empty reserved slot would leave the disc hanging below the
+   text it belongs to. Cards with nothing to play drop the row entirely (see
+   .has-no-playback below), so the slot only costs where it is earned. */
 .listening-progress-row {
   display: grid;
   grid-template-columns: auto minmax(112px, 1fr) auto;
@@ -791,18 +793,30 @@
   gap: 8px;
   margin-top: 8px;
   height: 18px;
-  opacity: 0;
   pointer-events: none;
-  transform: translateY(-4px);
-  transition:
-    opacity 0.24s ease,
-    transform 0.34s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 .listening.is-preview-playing .listening-progress-row {
-  opacity: 1;
   pointer-events: auto;
-  transform: none;
+}
+
+/* Dormant: the groove is there, the readout is not. */
+.listening-progress-track {
+  opacity: 0.6;
+  transition: opacity 0.3s ease;
+}
+
+.listening-time {
+  opacity: 0;
+  transition: opacity 0.28s ease;
+}
+
+.listening.is-preview-playing .listening-progress-track {
+  opacity: 1;
+}
+
+.listening.is-preview-playing .listening-time {
+  opacity: 1;
 }
 
 .listening-time {
@@ -1023,11 +1037,15 @@
   display: none;
 }
 
+/* Mood audio cards are players first: the readout is live from the start. */
 .listening.is-cover .listening-progress-row {
-  opacity: 1;
   pointer-events: auto;
-  transform: none;
   margin-top: 4px;
+}
+
+.listening.is-cover .listening-progress-track,
+.listening.is-cover .listening-time {
+  opacity: 1;
 }
 
 @media (max-width: 520px) {
