@@ -164,8 +164,7 @@
 
 .listening-art:hover:not(:disabled) .listening-art-icons,
 .listening-art:focus-visible:not(:disabled) .listening-art-icons,
-.listening-art.is-preview-playing .listening-art-icons,
-.listening-art.is-preview-loading .listening-art-icons {
+.listening-art.is-preview-playing .listening-art-icons {
   opacity: 1;
 }
 
@@ -198,21 +197,51 @@
   display: none;
 }
 
+/* Fetching the audio source is a turntable cueing up, not a spinner: the
+   platter spins up at playback speed while the tonearm hovers over the groove
+   without dropping. The generic ring glyph is kept only as the reduced-motion
+   and hover-to-cancel affordance below. */
 .listening-art.is-preview-loading .listening-art-icon--loading {
   display: block;
   animation: listening-loader-spin 0.8s linear infinite;
+  transition: opacity 0.2s ease;
+  opacity: 0.4;
+}
+
+/* Loading is cancellable, so hovering the record reveals the stop glyph. */
+.listening-art.is-preview-loading:hover:not(:disabled) .listening-art-icon--pause,
+.listening-art.is-preview-loading:focus-visible:not(:disabled) .listening-art-icon--pause {
+  display: block;
+  width: 14px;
+  height: 14px;
 }
 
 .listening-art.is-live .listening-art-record,
 .listening-art.is-live .listening-art-img,
 .listening-art.is-preview-playing .listening-art-record,
-.listening-art.is-preview-playing .listening-art-img {
+.listening-art.is-preview-playing .listening-art-img,
+.listening-art.is-preview-loading .listening-art-record,
+.listening-art.is-preview-loading .listening-art-img {
   animation: listening-record-spin 14s linear infinite;
 }
 
 .listening-art.is-preview-playing .listening-art-record,
-.listening-art.is-preview-playing .listening-art-img {
+.listening-art.is-preview-playing .listening-art-img,
+.listening-art.is-preview-loading .listening-art-record,
+.listening-art.is-preview-loading .listening-art-img {
   animation-duration: 8s;
+}
+
+/* Cueing runs at the same 8s as playback, so arriving audio is a tonearm drop
+   and a brightness lift — never a change of speed, never a seam. The dim is
+   what says "not yet". */
+.listening-art.is-preview-loading .listening-art-record {
+  filter: brightness(0.74) saturate(0.85);
+}
+
+.listening-art.is-preview-loading .listening-art-img {
+  opacity: 0.68;
+  transition: opacity 0.4s ease;
 }
 
 /* While scrubbing, the disc tracks the pointer: kill the spin loop and shrink
@@ -224,8 +253,8 @@
   transition-duration: 80ms;
 }
 
-.listening-art.is-live:hover:not(:disabled):not(.is-preview-playing) .listening-art-record,
-.listening-art.is-live:focus-visible:not(:disabled):not(.is-preview-playing) .listening-art-record {
+.listening-art.is-live:hover:not(:disabled):not(.is-preview-playing):not(.is-preview-loading) .listening-art-record,
+.listening-art.is-live:focus-visible:not(:disabled):not(.is-preview-playing):not(.is-preview-loading) .listening-art-record {
   filter: brightness(1.12) contrast(1.04);
 }
 
@@ -315,8 +344,8 @@
   transition: transform 0.45s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
-.listening-art:hover:not(:disabled):not(.is-live):not(.is-preview-playing) .listening-art-tonearm-arm,
-.listening-art:focus-visible:not(:disabled):not(.is-live):not(.is-preview-playing) .listening-art-tonearm-arm {
+.listening-art:hover:not(:disabled):not(.is-live):not(.is-preview-playing):not(.is-preview-loading) .listening-art-tonearm-arm,
+.listening-art:focus-visible:not(:disabled):not(.is-live):not(.is-preview-playing):not(.is-preview-loading) .listening-art-tonearm-arm {
   transform: rotate(-18deg);
 }
 
@@ -326,8 +355,27 @@
   transform: rotate(23deg);
 }
 
-.listening-art.is-live:hover:not(:disabled):not(.is-preview-playing) .listening-art-tonearm-arm,
-.listening-art.is-live:focus-visible:not(:disabled):not(.is-preview-playing) .listening-art-tonearm-arm {
+/* Cueing: the arm lifts off the groove and hovers there, drifting, until audio
+   arrives — the platter is turning but the stylus has not been set down. Wins
+   over the live/playing seat above, since a live card cues from the seated
+   position and has to visibly rise before it can drop again. */
+.listening-art.is-preview-loading:not(.is-preview-playing) .listening-art-tonearm-arm {
+  --tonearm-cue-from: -9deg;
+  --tonearm-cue-to: -1deg;
+  transition: transform 0.42s cubic-bezier(0.2, 0.8, 0.2, 1);
+  transform: rotate(-5deg);
+  animation: listening-tonearm-cue 2.1s cubic-bezier(0.45, 0, 0.55, 1) 0.42s infinite backwards;
+}
+
+.listening-art.is-preview-loading .listening-art-tonearm {
+  filter:
+    drop-shadow(0 3px 2px hsl(0 0% 0% / 0.5))
+    drop-shadow(0 0 1px hsl(var(--foreground) / 0.7));
+  opacity: 1;
+}
+
+.listening-art.is-live:hover:not(:disabled):not(.is-preview-playing):not(.is-preview-loading) .listening-art-tonearm-arm,
+.listening-art.is-live:focus-visible:not(:disabled):not(.is-preview-playing):not(.is-preview-loading) .listening-art-tonearm-arm {
   transform: rotate(18deg);
 }
 
@@ -449,6 +497,29 @@
   animation-delay: 0.16s;
 }
 
+/* Cueing opens the meter early but keeps it near the floor — the level is
+   there, the signal is not. It grows into the real wave when audio starts. */
+.listening.is-preview-loading .listening-eyebrow-wave {
+  width: 18px;
+}
+
+.listening.is-preview-loading:not(.is-preview-playing) .listening-eyebrow-wave span {
+  animation: listening-wave-cue 1.6s ease-in-out infinite;
+  opacity: 0.55;
+}
+
+.listening.is-preview-loading:not(.is-preview-playing) .listening-eyebrow-wave span:nth-child(2) {
+  animation-delay: 0.14s;
+}
+
+.listening.is-preview-loading:not(.is-preview-playing) .listening-eyebrow-wave span:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+.listening.is-preview-loading:not(.is-preview-playing) .listening-eyebrow-wave span:nth-child(4) {
+  animation-delay: 0.22s;
+}
+
 /* Track line */
 .listening-track {
   display: inline-flex;
@@ -494,22 +565,61 @@
   transition: background-size 0.45s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
+/* Loading — the deck is cueing up.
+   Rather than a generic shimmer, the wait borrows the card's own turntable
+   gesture: the tonearm drifts toward the groove and back while a single light
+   pass runs down the copy lines, top to bottom, with a beat of rest between
+   passes. Track arrival then hands off to .is-settling below, so cue → drop →
+   play reads as one continuous motion. */
 .listening.is-loading .listening-title,
 .listening.is-loading .listening-artist,
 .listening.is-loading .listening-meta span:not(.listening-meta-dot),
 .listening.is-loading .listening-eyebrow-text {
+  --line-index: 0;
   width: fit-content;
   color: transparent;
   border-radius: 999px;
-  background: hsl(var(--foreground) / 0.08);
   user-select: none;
+  background-color: hsl(var(--foreground) / 0.07);
+  background-image: linear-gradient(
+    90deg,
+    transparent 0%,
+    hsl(var(--foreground) / 0.05) 36%,
+    hsl(var(--foreground) / 0.13) 50%,
+    hsl(var(--foreground) / 0.05) 64%,
+    transparent 100%
+  );
+  background-repeat: no-repeat;
+  background-size: 68% 100%;
+  background-position: -60% 0;
+  animation: listening-skeleton-sweep 2.4s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  animation-delay: calc(var(--line-index) * 90ms);
+}
+
+.listening.is-loading .listening-eyebrow-text {
+  --line-index: 0;
+  min-width: 78px;
+  height: 8px;
 }
 
 .listening.is-loading .listening-title {
+  --line-index: 1;
   min-width: 160px;
   height: 14px;
   padding-bottom: 0;
-  background-image: none;
+  transition: none;
+}
+
+.listening.is-loading .listening-artist {
+  --line-index: 2;
+  min-width: 94px;
+  height: 13px;
+}
+
+.listening.is-loading .listening-meta span:not(.listening-meta-dot) {
+  --line-index: 3;
+  min-width: 58px;
+  height: 10px;
 }
 
 .listening.is-loading .listening-sep,
@@ -517,19 +627,46 @@
   opacity: 0;
 }
 
-.listening.is-loading .listening-artist {
-  min-width: 94px;
-  height: 13px;
+/* The blank artwork slot is a hole in the record until the real label lands;
+   fill it at skeleton weight so the disc still reads as a pressed record. */
+.listening.is-loading .listening-art-img {
+  background: hsl(var(--foreground) / 0.07);
 }
 
-.listening.is-loading .listening-meta span:not(.listening-meta-dot) {
-  min-width: 58px;
-  height: 10px;
+.listening.is-loading .listening-art-tonearm {
+  opacity: 0.62;
 }
 
-.listening.is-loading .listening-eyebrow-text {
-  min-width: 78px;
-  height: 8px;
+.listening.is-loading .listening-art-tonearm-arm {
+  animation: listening-tonearm-cue 2.9s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+}
+
+/* Settle — the one-shot reveal when the track lands. Lines rise in the same
+   top-to-bottom order the sweep travelled, so the skeleton appears to resolve
+   into copy rather than being swapped out. */
+.listening.is-settling .listening-eyebrow-text,
+.listening.is-settling .listening-title,
+.listening.is-settling .listening-artist,
+.listening.is-settling .listening-meta span:not(.listening-meta-dot) {
+  animation: listening-settle-in 0.5s var(--ease-out, cubic-bezier(0.23, 1, 0.32, 1)) backwards;
+  animation-delay: calc(var(--line-index, 0) * 60ms);
+}
+
+.listening.is-settling .listening-eyebrow-text {
+  --line-index: 0;
+}
+
+.listening.is-settling .listening-title {
+  --line-index: 1;
+}
+
+.listening.is-settling .listening-artist {
+  --line-index: 2;
+}
+
+.listening.is-settling .listening-meta span:not(.listening-meta-dot) {
+  --line-index: 3;
+  display: inline-block;
 }
 
 .listening-title.is-marquee {
@@ -595,6 +732,7 @@
   display: none;
   font-size: 13px;
   color: hsl(var(--muted-foreground) / 0.5);
+  transition: opacity 0.4s ease 0.12s;
 }
 
 .listening-track.is-inline .listening-sep {
@@ -637,6 +775,7 @@
   border-radius: 999px;
   background: currentColor;
   opacity: 0.65;
+  transition: opacity 0.4s ease 0.12s;
 }
 
 /* Progress row — hidden until this widget owns playback, so the resting state
@@ -951,10 +1090,41 @@
   .listening-art.is-preview-playing .listening-art-record,
   .listening-art.is-preview-playing .listening-art-img,
   .listening-art.is-preview-loading .listening-art-icon--loading,
+  .listening-art.is-preview-loading .listening-art-record,
+  .listening-art.is-preview-loading .listening-art-img,
+  .listening-art.is-preview-loading:not(.is-preview-playing) .listening-art-tonearm-arm,
+  .listening.is-preview-loading:not(.is-preview-playing) .listening-eyebrow-wave span,
   .listening-title.is-marquee .listening-title-text,
   .listening.is-live .listening-eyebrow-wave span,
-  .listening.is-preview-playing .listening-eyebrow-wave span {
+  .listening.is-preview-playing .listening-eyebrow-wave span,
+  .listening.is-loading .listening-art-tonearm-arm,
+  .listening.is-loading .listening-title,
+  .listening.is-loading .listening-artist,
+  .listening.is-loading .listening-meta span:not(.listening-meta-dot),
+  .listening.is-loading .listening-eyebrow-text,
+  .listening.is-settling .listening-eyebrow-text,
+  .listening.is-settling .listening-title,
+  .listening.is-settling .listening-artist,
+  .listening.is-settling .listening-meta span:not(.listening-meta-dot) {
     animation: none;
+  }
+
+  /* Nothing moves here, so the cue has to be stated: hold the ring glyph up
+     for the whole fetch instead of relying on the platter and the tonearm. */
+  .listening-art.is-preview-loading .listening-art-icons {
+    opacity: 1;
+  }
+
+  .listening-art.is-preview-loading .listening-art-icon--loading {
+    opacity: 1;
+  }
+
+  /* Without the sweep the pills need their own weight, or they read as empty. */
+  .listening.is-loading .listening-title,
+  .listening.is-loading .listening-artist,
+  .listening.is-loading .listening-meta span:not(.listening-meta-dot),
+  .listening.is-loading .listening-eyebrow-text {
+    background-color: hsl(var(--foreground) / 0.1);
   }
 
 }
@@ -975,9 +1145,58 @@
   }
 }
 
+/* One pass, then a beat of rest — a repeating sweep with no gap reads as busy
+   rather than patient. */
+@keyframes listening-skeleton-sweep {
+  0% {
+    background-position: -60% 0;
+  }
+
+  58%,
+  100% {
+    background-position: 170% 0;
+  }
+}
+
+/* Shared drift, positioned by the caller: the skeleton cues from the parked
+   angle, preview loading cues from out over the groove. */
+@keyframes listening-tonearm-cue {
+  0%,
+  100% {
+    transform: rotate(var(--tonearm-cue-from, -42deg));
+  }
+
+  50% {
+    transform: rotate(var(--tonearm-cue-to, -24deg));
+  }
+}
+
+@keyframes listening-settle-in {
+  from {
+    opacity: 0;
+    transform: translateY(3px);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
 @keyframes listening-title-marquee {
   to {
     transform: translateX(calc(var(--title-marquee-distance) * -1));
+  }
+}
+
+@keyframes listening-wave-cue {
+  0%,
+  100% {
+    transform: scaleY(0.24);
+  }
+
+  50% {
+    transform: scaleY(0.46);
   }
 }
 

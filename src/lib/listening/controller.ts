@@ -262,9 +262,11 @@ export const initListeningCards = (root: ParentNode = document): void => {
       playButton.classList.toggle('is-preview-loading', isLoading);
       playButton.setAttribute('aria-pressed', isPlaying ? 'true' : 'false');
       if (isLoading) {
-        playButton.disabled = true;
+        // Stays clickable on purpose: a slow preview must be cancellable, so
+        // the spinner doubles as a stop button.
+        playButton.disabled = false;
         playButton.setAttribute('aria-busy', 'true');
-        playButton.setAttribute('aria-label', `Loading ${trackTitle}`);
+        playButton.setAttribute('aria-label', `Stop loading ${trackTitle}`);
         return;
       }
 
@@ -407,6 +409,17 @@ export const initListeningCards = (root: ParentNode = document): void => {
       return playedAtDateFormatter.format(date);
     };
 
+    // Hands the skeleton over to the one-shot reveal in listening.css. The
+    // class only has to outlive the longest line delay plus the animation.
+    let settleTimer: number | undefined;
+    const settleOutOfLoading = () => {
+      window.clearTimeout(settleTimer);
+      root.classList.add('is-settling');
+      settleTimer = window.setTimeout(() => {
+        root.classList.remove('is-settling');
+      }, 900);
+    };
+
     const applyTrack = (track: ListeningTrackPayload) => {
       const nextTitle = track.title?.trim() || trackTitle;
       const nextArtist = track.artist?.trim() || '';
@@ -420,6 +433,8 @@ export const initListeningCards = (root: ParentNode = document): void => {
 
       trackTitle = nextTitle;
       trackUrl = nextLink;
+      // Only the first fill-in is a reveal; later refreshes swap text in place.
+      if (root.classList.contains('is-loading')) settleOutOfLoading();
       root.classList.remove('is-loading');
       root.setAttribute('aria-label', nextIsLive ? 'Now playing' : 'Recently played');
       playButton.dataset.trackTitle = nextTitle;
