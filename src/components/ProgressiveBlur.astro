@@ -27,6 +27,8 @@ interface Layer {
   webkitFilter: string;
   mask: string;
   compactMask: string | null;
+  // null drops the layer on WebKit; a string is the mask the survivor widens to.
+  webkitMask: string | null;
 }
 
 const {
@@ -110,6 +112,7 @@ const continuousLayers = (): Layer[] => {
       webkitFilter: filter,
       mask: wideMasks.get(index)!,
       compactMask: compactMasks.get(index) ?? null,
+      webkitMask: wideMasks.get(index)!,
     };
   });
 };
@@ -117,30 +120,41 @@ const continuousLayers = (): Layer[] => {
 // The topbar ramp is hand-tuned rather than sampled: it covers a short fixed
 // band, so four layers already read as continuous. WebKit resolves the same
 // radius visually heavier, hence the trimmed companion values.
+//
+// WebKit also charges per PASS, not per radius: every backdrop-filter element
+// snapshots the backdrop into its own offscreen buffer, blurs it, then reads it
+// back. Behind a fixed bar that whole chain reruns on every scrolled frame, so
+// four layers mean four full-width blurs competing with whatever else is
+// animating in the bar. Only layers 2 and 4 survive there (webkitMask set); the
+// two carry the ramp on widened masks and a single saturate pass between them.
 const topbarLayers: Layer[] = [
   {
     filter: 'blur(4px)',
     webkitFilter: 'blur(3px)',
     mask: 'linear-gradient(to bottom, #000 0%, #000 60%, transparent 100%)',
     compactMask: null,
+    webkitMask: null,
   },
   {
     filter: 'blur(8px)',
-    webkitFilter: 'blur(6px)',
+    webkitFilter: 'blur(5px)',
     mask: 'linear-gradient(to bottom, #000 0%, #000 45%, transparent 80%)',
     compactMask: null,
+    webkitMask: 'linear-gradient(to bottom, #000 0%, #000 50%, transparent 100%)',
   },
   {
     filter: 'blur(14px) saturate(1.4)',
     webkitFilter: 'blur(9px) saturate(1.3)',
     mask: 'linear-gradient(to bottom, #000 0%, #000 30%, transparent 62%)',
     compactMask: null,
+    webkitMask: null,
   },
   {
     filter: 'blur(22px) saturate(1.6)',
-    webkitFilter: 'blur(13px) saturate(1.4)',
+    webkitFilter: 'blur(16px) saturate(1.4)',
     mask: 'linear-gradient(to bottom, #000 0%, #000 12%, transparent 45%)',
     compactMask: null,
+    webkitMask: 'linear-gradient(to bottom, #000 0%, #000 18%, transparent 58%)',
   },
 ];
 
@@ -151,6 +165,7 @@ const layerStyle = (layer: Layer) => ({
   '--pblur-webkit-filter': layer.webkitFilter,
   '--pblur-mask': layer.mask,
   ...(layer.compactMask ? { '--pblur-mask-compact': layer.compactMask } : {}),
+  ...(layer.webkitMask ? { '--pblur-mask-webkit': layer.webkitMask } : {}),
 });
 ---
 
@@ -166,6 +181,7 @@ const layerStyle = (layer: Layer) => ({
       class="pblur__layer"
       data-layer={index + 1}
       data-compact={layer.compactMask ? 'true' : 'false'}
+      data-webkit={layer.webkitMask ? 'true' : 'false'}
       style={layerStyle(layer)}
     />
   ))}

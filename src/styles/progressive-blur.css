@@ -46,9 +46,20 @@
   mask-size: 100% 100%;
 }
 
-.ua-webkit .pblur[data-preset='topbar'] .pblur__layer {
+/* WebKit pays per backdrop PASS, not per radius: each layer snapshots the
+   backdrop offscreen, blurs it, then reads it back, and behind a fixed bar that
+   chain reruns every scrolled frame. Four passes leave nothing for whatever is
+   animating in the bar (the mood navbar's docking avatar, the brand lockup), so
+   WebKit runs the two-layer ladder instead — same band, half the passes. */
+.ua-webkit .pblur[data-preset='topbar'] .pblur__layer[data-webkit='false'] {
+  display: none;
+}
+
+.ua-webkit .pblur[data-preset='topbar'] .pblur__layer[data-webkit='true'] {
   -webkit-backdrop-filter: var(--pblur-webkit-filter);
   backdrop-filter: var(--pblur-webkit-filter);
+  -webkit-mask-image: var(--pblur-mask-webkit);
+  mask-image: var(--pblur-mask-webkit);
 }
 
 /* Narrow viewports drop to the compact ladder: fewer backdrop passes, and the
