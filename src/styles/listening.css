@@ -780,43 +780,49 @@
 
 /* Progress row — hidden until this widget owns playback, so the resting state
    stays the same calm block. Grows from height 0, then a draggable scrubber. */
-/* The seek bar belongs to the card at rest, not to playback: it holds its slot
-   and sits dormant, so starting a preview lights it up rather than growing the
-   card and shoving the page down. It also keeps the record optically centered
-   on the copy — an empty reserved slot would leave the disc hanging below the
-   text it belongs to. Cards with nothing to play drop the row entirely (see
-   .has-no-playback below), so the slot only costs where it is earned. */
+/* The seek bar takes over the metadata line rather than adding one: it rides
+   out of flow on top of it and the two cross-fade. The card keeps the same
+   three lines and the same height in both states, so playback never grows the
+   card, never nudges the record, and never pushes the page around it. While a
+   preview runs the timeline is the useful readout anyway — album and year come
+   back the moment it stops. */
+.listening-copy {
+  position: relative;
+}
+
 .listening-progress-row {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
   display: grid;
   grid-template-columns: auto minmax(112px, 1fr) auto;
   align-items: center;
   gap: 8px;
-  margin-top: 8px;
-  height: 18px;
+  opacity: 0;
   pointer-events: none;
+  transform: translateY(5px);
+  transition:
+    opacity 0.24s ease,
+    transform 0.34s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 .listening.is-preview-playing .listening-progress-row {
+  opacity: 1;
   pointer-events: auto;
+  transform: none;
 }
 
-/* Dormant: the groove is there, the readout is not. */
-.listening-progress-track {
-  opacity: 0.6;
-  transition: opacity 0.3s ease;
+.listening-meta {
+  transition:
+    opacity 0.22s ease,
+    transform 0.34s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
-.listening-time {
+.listening.is-preview-playing .listening-meta {
   opacity: 0;
-  transition: opacity 0.28s ease;
-}
-
-.listening.is-preview-playing .listening-progress-track {
-  opacity: 1;
-}
-
-.listening.is-preview-playing .listening-time {
-  opacity: 1;
+  transform: translateY(-5px);
+  pointer-events: none;
 }
 
 .listening-time {
@@ -1037,15 +1043,14 @@
   display: none;
 }
 
-/* Mood audio cards are players first: the readout is live from the start. */
+/* Mood audio cards are players first: there is no metadata line to take over,
+   so the bar stays in flow and is live from the start. */
 .listening.is-cover .listening-progress-row {
-  pointer-events: auto;
-  margin-top: 4px;
-}
-
-.listening.is-cover .listening-progress-track,
-.listening.is-cover .listening-time {
+  position: static;
   opacity: 1;
+  pointer-events: auto;
+  transform: none;
+  margin-top: 4px;
 }
 
 @media (max-width: 520px) {
