@@ -758,7 +758,6 @@
     --site-nav-mobile-logo-width: 40px;
     --site-nav-mobile-logo-height: 21px;
     --site-nav-mobile-wordmark-width: 5.2rem;
-    --site-nav-mobile-wordmark-size: 1.08rem;
     --site-nav-mobile-action-size: 2.75rem;
   }
 
@@ -808,9 +807,29 @@
     border-bottom: 1px solid hsl(var(--foreground) / 0.08);
   }
 
+  /* The bar itself stays full-bleed so its blur still covers the whole scroll
+     edge, but its contents pull in to a fixed measure. Left at viewport width
+     the brand and the actions sit in opposite corners with ~1100px of nothing
+     between them, and neither one relates to the column below it.
+
+     61.8rem is phi's reciprocal read as a width — wide enough to bracket the
+     760px page column, narrow enough that the bar reads as one composed row.
+     Below ~1040px the max() hands back to the plain 1.5rem gutter.
+
+     The brand measures this from the viewport's left edge and the actions from
+     its right, so the two stay symmetric as long as both use this one token. */
   @media (min-width: 900px) {
+    :root {
+      --site-chrome-inset: max(1.5rem, calc((100vw - 61.8rem) / 2));
+    }
+
+    /* body carries padding-left: calc(100vw - 100%) so centered content does
+       not shift when a scrollbar appears. The bar is fixed and sits outside
+       that padding, so it has to repeat the compensation or it lands a
+       scrollbar-width left of the column it is supposed to align with. The
+       actions are anchored to the right edge, where no compensation exists. */
     .site-nav--brand-home {
-      padding-left: 1.5rem;
+      padding-left: calc(var(--site-chrome-inset) + (100vw - 100%));
     }
   }
 
@@ -833,7 +852,7 @@
 
   @media (min-width: 900px) {
     .global-header-actions.has-brand-home-bar {
-      right: 1.5rem;
+      right: var(--site-chrome-inset);
     }
   }
 
@@ -841,9 +860,7 @@
      brand needs no background box — that just fights the mascot's own motion.
      Press feedback stays on :active. */
   .site-nav--brand-home .site-brand {
-    --brand-gap: 0.5rem;
     --brand-logo-height: var(--site-nav-mobile-logo-height);
-    --brand-wordmark-size: var(--site-nav-mobile-wordmark-size);
   }
 
   .nav-link {
@@ -1227,9 +1244,8 @@
     .site-nav--home .site-brand,
     .site-nav--home.is-vertical .site-brand {
       --brand-logo-height: var(--site-nav-mobile-logo-height);
-      --brand-wordmark-size: var(--site-nav-mobile-wordmark-size);
       /* The logo box is 40px against 30px of art, so it already carries the
-         optical gap — adding the row gap on top would double it. */
+         optical gap — adding the derived row gap on top would double it. */
       --brand-gap: 0px;
 
       width: auto;

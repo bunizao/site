@@ -15,6 +15,15 @@
    2. --brand-logo-height must stay a multiple of 7, or the grid resamples to
       uneven cell widths. 14 / 21 / 28 are the usable steps.
 
+   Because the height is quantized that hard, peek is the only free knob in the
+   lockup — so it leads and everything else derives from it by phi:
+
+     wordmark cap height = peek height / phi
+     gap                 = peek height / phi^2
+
+   Only --brand-logo-height should ever be set by a variant. Setting the
+   wordmark size or the gap by hand is what let the two drift apart before.
+
    The wordmark is Geist Mono, so tracking stays at 0: mono glyphs sit in fixed
    advance cells, and negative tracking only shaves the cell without touching
    the glyph — which strands the dot and breaks "buxx.me" into three read
@@ -33,6 +42,12 @@
 
 @layer components {
   .site-brand {
+    /* Typeface constants, not variant knobs. --brand-cap is Geist Mono's cap
+       height as a share of the em, measured off the rendered face; it converts
+       the cap height phi asks for back into a font-size. */
+    --brand-phi: 1.618;
+    --brand-cap: 0.71;
+
     display: inline-flex;
     align-items: center;
     justify-content: flex-start;
@@ -47,7 +62,10 @@
   .site-brand-row {
     display: inline-flex;
     align-items: baseline;
-    gap: var(--brand-gap, 0.375rem);
+    gap: var(
+      --brand-gap,
+      calc(var(--brand-logo-height, 21px) / (var(--brand-phi) * var(--brand-phi)))
+    );
     min-width: 0;
   }
 
@@ -70,7 +88,10 @@
 
   .site-brand-text {
     display: inline-block;
-    font-size: var(--brand-wordmark-size, 1.08rem);
+    font-size: var(
+      --brand-wordmark-size,
+      calc(var(--brand-logo-height, 21px) / (var(--brand-phi) * var(--brand-cap)))
+    );
     line-height: 1;
     font-weight: var(--brand-wordmark-weight, 500);
     letter-spacing: 0;

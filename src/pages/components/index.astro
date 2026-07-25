@@ -155,6 +155,16 @@ const description =
   .components--index .cgrid-hero {
     margin-top: 1rem;
   }
+
+  /* The chrome inset defaults to a narrow measure that suits a text column.
+     This page is a wide grid, so the bar aligns to the grid's own measure
+     instead — same expression as .cgrid, just read from the viewport. Without
+     it the brand floats ~120px inside a headline that starts at the gutter. */
+  @media (min-width: 900px) {
+    :global(:root) {
+      --site-chrome-inset: max(1.25rem, calc((100vw - 84rem) / 2));
+    }
+  }
 </style>
 
 <script>
