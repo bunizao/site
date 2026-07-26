@@ -111,6 +111,23 @@
   visibility: visible;
 }
 
+/* The scroll-driven path. Where the browser can advance an animation from the
+   scroller itself, the identity's whole travel leaves the main thread — no
+   per-frame transform writes, so a busy thread no longer costs frames (WebKit
+   felt the difference the most). The script owns the other half: it measures the
+   geometry, samples the same path into @keyframes mood-dock-*, supplies the
+   animation-range, and adds .is-scroll-timeline only once that exists. Browsers
+   without support never get the class and keep the scroll-handler fallback. */
+.mood-navbar.is-scroll-timeline .mood-nav-avatar-flyer {
+  animation: mood-dock-avatar linear both;
+  animation-timeline: scroll(root block);
+}
+
+.mood-navbar.is-scroll-timeline .mood-nav-title__ink {
+  animation: mood-dock-title linear both;
+  animation-timeline: scroll(root block);
+}
+
 .mood-nav-avatar-img {
   width: 100%;
   height: 100%;
