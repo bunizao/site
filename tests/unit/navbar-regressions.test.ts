@@ -12,7 +12,10 @@ describe('navbar regression guards', () => {
     expect(source).toContain("headerActionsVariant?: 'default' | 'home'");
     expect(source).toContain("const useHomeHeaderActions = isHomeNav || headerActionsVariant === 'home';");
     expect(source).toContain("rel=\"preload\"");
-    expect(source).toContain("/fonts/geist-mono-variable.woff2");
+    // The hrefs come from FONT_FILES now; the guard is that 'mono' — the site
+    // identity face — stays in the default preload set.
+    expect(source).toContain("preloadFont = ['mono', 'sans']");
+    expect(source).toContain('FONT_FILES[face]');
     expect(source).toContain("'global-header-actions--home': useHomeHeaderActions");
   });
 
