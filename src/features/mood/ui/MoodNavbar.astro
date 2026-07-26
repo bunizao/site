@@ -237,6 +237,24 @@ const avatar = initialChannel?.avatar?.trim() ?? '';
       return { transform: `translateX(${((1 - t) * -6).toFixed(3)}px)`, opacity: t.toFixed(4) };
     };
 
+    // Write the pair's transforms for a scroll offset. This is the fallback's
+    // per-frame job, and also the seed the timeline path needs: an element whose
+    // scroll-driven animation has not attached yet renders from its base style,
+    // and the flyer's base style is the bare top:0/left:0 of its fixed box —
+    // WebKit attaches on the frame after the class lands, which is one frame of
+    // avatar in the top-left corner. Seeding costs nothing once the animation is
+    // live, since animations outrank inline styles.
+    const place = (y: number) => {
+      const p = positionAt(y);
+      flyer.style.transform = flyerTransform(p);
+      if (title) {
+        const s = titleStyle(y, p.d);
+        title.style.transform = s.transform;
+        title.style.opacity = s.opacity;
+      }
+      return p;
+    };
+
     // CSS interpolates linearly between stops while the model's curve is eased,
     // so the stop count sets the fidelity: 12 stops drift 1.4px from the true
     // path, 24 drift 0.43px, 48 drift 0.14px. This runs once per measure, so
@@ -349,30 +367,22 @@ const avatar = initialChannel?.avatar?.trim() ?? '';
         }
       }
 
-      // Geometry is final: bake the path and hand it to the scroller.
+      // Geometry is final: bake the path and hand it to the scroller. Seed the
+      // pair for the current offset in the same tick the class lands, so the
+      // frame before the animation attaches already shows the right pose.
       buildTimeline();
       if (timelineStyle) {
         navbar.classList.add('is-scroll-timeline');
         timelineOn = true;
       }
+      place(window.scrollY);
     };
 
     const update = () => {
-      const y = window.scrollY;
-      const p = positionAt(y);
-
       // With the timeline live the compositor already owns both transforms;
       // writing them here too would just put the work back on the thread the
       // whole exercise was about leaving.
-      if (!timelineOn) {
-        flyer.style.transform = flyerTransform(p);
-        if (title) {
-          const s = titleStyle(y, p.d);
-          title.style.transform = s.transform;
-          title.style.opacity = s.opacity;
-        }
-      }
-
+      const p = timelineOn ? positionAt(window.scrollY) : place(window.scrollY);
       navbar.classList.toggle('is-docked', p.d > 0.99);
     };
 

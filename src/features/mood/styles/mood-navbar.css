@@ -117,14 +117,22 @@
    felt the difference the most). The script owns the other half: it measures the
    geometry, samples the same path into @keyframes mood-dock-*, supplies the
    animation-range, and adds .is-scroll-timeline only once that exists. Browsers
-   without support never get the class and keep the scroll-handler fallback. */
+   without support never get the class and keep the scroll-handler fallback.
+
+   Longhands, not the `animation` shorthand: the shorthand resets animation-range,
+   and the range is the one part that comes from the injected sheet — as a
+   shorthand this rule would be fighting it on document order alone. */
 .mood-navbar.is-scroll-timeline .mood-nav-avatar-flyer {
-  animation: mood-dock-avatar linear both;
+  animation-name: mood-dock-avatar;
+  animation-timing-function: linear;
+  animation-fill-mode: both;
   animation-timeline: scroll(root block);
 }
 
 .mood-navbar.is-scroll-timeline .mood-nav-title__ink {
-  animation: mood-dock-title linear both;
+  animation-name: mood-dock-title;
+  animation-timing-function: linear;
+  animation-fill-mode: both;
   animation-timeline: scroll(root block);
 }
 
