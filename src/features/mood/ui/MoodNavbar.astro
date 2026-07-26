@@ -29,8 +29,16 @@ const avatar = initialChannel?.avatar?.trim() ?? '';
       <!-- Empty placeholder the flyer avatar lands on; it only reserves layout
            so the title sits where it will after the avatar docks. -->
       <span class="mood-nav-avatar-slot" data-mood-nav-avatar-slot aria-hidden="true"></span>
-      <span class="mood-nav-title" data-mood-nav-title>
-        {titleHtml ? <Fragment set:html={titleHtml} /> : titleText}
+      <!-- Two elements, one title: the box holds the DOCKED layout (the bar's
+           row and this button's hit area are built on it), while the ink is
+           laid out at the hero's font size and only ever scales DOWN — so the
+           big headline is real vector text, never a stretched 14px raster.
+           data-mood-nav-title stays on the ink because hydrateHero() writes
+           innerHTML straight into it. -->
+      <span class="mood-nav-title" data-mood-nav-title-box>
+        <span class="mood-nav-title__ink" data-mood-nav-title>
+          {titleHtml ? <Fragment set:html={titleHtml} /> : titleText}
+        </span>
       </span>
     </button>
 
@@ -131,6 +139,7 @@ const avatar = initialChannel?.avatar?.trim() ?? '';
 
     const flyer = navbar.querySelector<HTMLElement>('[data-mood-nav-flyer]');
     const slot = navbar.querySelector<HTMLElement>('[data-mood-nav-avatar-slot]');
+    const titleBox = navbar.querySelector<HTMLElement>('[data-mood-nav-title-box]');
     const title = navbar.querySelector<HTMLElement>('[data-mood-nav-title]');
     const heroAvatar = document.querySelector<HTMLElement>('[data-mood-hero] [data-hero-avatar]');
     const heroTitle = document.querySelector<HTMLElement>('[data-mood-hero] [data-hero-title]');
@@ -157,7 +166,9 @@ const avatar = initialChannel?.avatar?.trim() ?? '';
     let heroTitleLeftDoc = 0;
     let navTitleTop = 0;
     let navTitleLeft = 0;
-    let titleScaleStart = 1;
+    // The ink is laid out at the hero's font size; this brings it back to the
+    // bar's. 1 until measure() has a hero title to fly from.
+    let titleDockScale = 1;
     let titleFly = false;
 
     const measure = () => {
@@ -183,25 +194,46 @@ const avatar = initialChannel?.avatar?.trim() ?? '';
       // Ride the content for ~45% of the trip, then dock over the last ~55%.
       dockBand = Math.max(1, distance * 0.55);
 
-      // Title flyer geometry: read the docked title with any travel transform
-      // cleared, then the hero title's document box and the font-size ratio the
-      // scale interpolates over. Font ratio (not height) keeps the scale right
-      // even if the hero title wraps to two lines.
+      // Title geometry. Every read below is taken with the travel transform
+      // cleared, so they are plain layout values. Font ratio (not height) keeps
+      // the scale right even if the hero title wraps to two lines.
       titleFly = false;
-      if (title && heroTitle) {
+      if (title && titleBox) {
         title.style.transform = 'none';
-        const navRect = title.getBoundingClientRect();
-        navTitleTop = navRect.top;
-        navTitleLeft = navRect.left;
-        const navFont = parseFloat(getComputedStyle(title).fontSize) || 14;
 
-        const heroRectT = heroTitle.getBoundingClientRect();
-        heroTitleTopDoc = heroRectT.top + window.scrollY;
-        heroTitleLeftDoc = heroRectT.left + window.scrollX;
-        const heroFont = parseFloat(getComputedStyle(heroTitle).fontSize) || navFont;
+        const navFont = parseFloat(getComputedStyle(titleBox).fontSize) || 14;
+        const heroFont = heroTitle
+          ? parseFloat(getComputedStyle(heroTitle).fontSize) || navFont
+          : navFont;
 
-        titleScaleStart = heroFont / navFont;
-        titleFly = true;
+        // Lay the ink out at the hero's size so the ride only ever scales it
+        // DOWN — real glyphs at the headline size instead of stretched pixels.
+        titleDockScale = navFont / heroFont;
+        title.style.fontSize = `${heroFont}px`;
+
+        // Size the docked box from the ink's natural width in docked units and
+        // let the CSS cap clamp it, then hand the ink that same budget back in
+        // hero units so its ellipsis lands where the box's edge will be.
+        title.style.maxWidth = 'none';
+        titleBox.style.width = 'auto';
+        const inkWidth = title.getBoundingClientRect().width;
+        titleBox.style.width = `${inkWidth * titleDockScale}px`;
+
+        const boxRect = titleBox.getBoundingClientRect();
+        navTitleTop = boxRect.top;
+        navTitleLeft = boxRect.left;
+        // Only a title long enough for the CSS cap to clamp needs a budget. Set
+        // unconditionally it would land on the ink's own natural width, where
+        // sub-pixel rounding is enough to trip the ellipsis on a title that fits.
+        const clamped = boxRect.width < inkWidth * titleDockScale - 0.5;
+        title.style.maxWidth = clamped ? `${boxRect.width / titleDockScale}px` : 'none';
+
+        if (heroTitle) {
+          const heroRectT = heroTitle.getBoundingClientRect();
+          heroTitleTopDoc = heroRectT.top + window.scrollY;
+          heroTitleLeftDoc = heroRectT.left + window.scrollX;
+          titleFly = true;
+        }
       }
     };
 
@@ -227,7 +259,7 @@ const avatar = initialChannel?.avatar?.trim() ?? '';
         // pair moves as one — riding the page, then collapsing into the bar.
         const curTTop = lerp(heroTitleTopDoc - y, navTitleTop, d);
         const curTLeft = lerp(heroTitleLeftDoc, navTitleLeft, d);
-        const tScale = lerp(titleScaleStart, 1, d);
+        const tScale = lerp(1, titleDockScale, d);
         title.style.transform =
           `translate(${curTLeft - navTitleLeft}px, ${curTTop - navTitleTop}px) scale(${tScale})`;
         title.style.opacity = '1';

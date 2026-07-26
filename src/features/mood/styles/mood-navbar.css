@@ -122,31 +122,45 @@
   display: none;
 }
 
+/* The docked layout box. It carries the bar's font size (the size the title
+   settles at) but no text of its own — the ink below is absolute, so this box
+   is what the identity row measures and what the button's hit area covers.
+   measure() sets its width from the ink's natural width in docked units; the
+   cap here then clamps it. It must NOT clip: the ink overflows it by ~2.4x
+   while the title is out over the hero. */
 .mood-nav-title {
+  position: relative;
   min-width: 0;
   max-width: min(52vw, 300px);
+  height: 1.2em;
+  font-family: var(--font-code);
+  font-size: 14px;
+  line-height: 1.2;
+}
+
+/* The ink. Laid out at the HERO's font size (measure() sets it) and scaled DOWN
+   into the bar, so the big headline renders as real vector glyphs at their true
+   size. Laid out at 14px and scaled UP instead — the old contract — will-change
+   pins the texture at 14px and the hero shows stretched pixels.
+   transform-origin is the top-left corner so translate + scale keep the boxes
+   aligned at both ends. Its max-width is the box's cap expressed back in hero
+   units, so the ellipsis lands in the same place once scaled down. */
+.mood-nav-title__ink {
+  position: absolute;
+  top: 0;
+  left: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-family: var(--font-code);
-  font-size: 14px;
+  font-family: inherit;
+  font-size: inherit;
   font-weight: 600;
   letter-spacing: -0.01em;
-  line-height: 1.2;
+  line-height: inherit;
   color: hsl(var(--foreground));
-  /* The title is a shared element too: the scroll script scrubs it from the
-     hero title's box down to natural size here. transform-origin is the
-     top-left corner so translate + scale keep the boxes aligned at both ends. */
   transform-origin: 0 0;
   opacity: 0;
-  /* transform is deliberately NOT listed. The title stays laid out at 14px (the
-     bar's flex row depends on that box) and the ride scales it up ~2.4x, so it
-     is the one shared element that cannot be fixed by inverting the scale the
-     way the avatar flyer is. Pinning its raster would freeze 14px glyphs and
-     stretch them over the hero — the soft headline. Glyphs are cheap to redraw
-     at a new scale, so let the engine re-raster; one short line costs nothing
-     next to the backdrop passes behind it. */
-  will-change: opacity;
+  will-change: opacity, transform;
 }
 
 /* The title mirrors the channel's rich HTML (links, custom emoji), so keep its
