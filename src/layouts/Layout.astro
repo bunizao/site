@@ -1,4 +1,6 @@
 ---
+import { FONT_FILES, type Face } from '@/lib/fonts';
+
 interface Props {
   title: string;
   description: string;
@@ -14,7 +16,10 @@ interface Props {
   brandVariant?: 'home';
   headerActionsVariant?: 'default' | 'home';
   structuredData?: Record<string, unknown> | Array<Record<string, unknown>>;
-  preloadFont?: 'mono' | 'sans';
+  // The faces this route paints above the fold, in priority order. Every face
+  // is font-display: swap, so one that is painted early but not preloaded is a
+  // guaranteed reflow the moment it arrives.
+  preloadFont?: Face | Face[];
   preloadImages?: Array<{
     href: string;
     imageSrcSet?: string;
@@ -63,7 +68,10 @@ const {
   brandVariant,
   headerActionsVariant = 'default',
   structuredData,
-  preloadFont = 'mono',
+  // Geist Mono carries the site identity (nav brand, meta) and Inter is the
+  // body face on every page, so both are worth the priority everywhere. Routes
+  // whose headline uses a third face add it themselves.
+  preloadFont = ['mono', 'sans'],
   preloadImages = [],
   rss,
   oembed,
@@ -109,9 +117,9 @@ const navbarSectionActiveAnimation = getPeekRuntimeSlotKey('navbar.section.activ
 const navbarSectionActiveHoldMs = getPeekRuntimeSlot('navbar.section.active').holdMs ?? 600;
 const navbarFastScrollHoldMs = getPeekRuntimeSlot('navbar.brand.hover').holdMs ?? 1000;
 const navbarIdleTimeoutAnimation = getPeekRuntimeSlotKey('navbar.idle-timeout');
-const preloadFontHref = preloadFont === 'sans'
-  ? '/fonts/inter-variable.woff2'
-  : '/fonts/geist-mono-variable.woff2';
+const preloadFontHrefs = (Array.isArray(preloadFont) ? preloadFont : [preloadFont]).map(
+  (face) => FONT_FILES[face],
+);
 ---
 
 <!DOCTYPE html>
@@ -120,13 +128,9 @@ const preloadFontHref = preloadFont === 'sans'
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content={description} />
-    <link
-      rel="preload"
-      href={preloadFontHref}
-      as="font"
-      type="font/woff2"
-      crossorigin
-    />
+    {preloadFontHrefs.map((href) => (
+      <link rel="preload" href={href} as="font" type="font/woff2" crossorigin />
+    ))}
     {robots ? <meta name="robots" content={robots} /> : null}
     {preloadImages.map((image) => (
       <link

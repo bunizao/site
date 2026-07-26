@@ -26,7 +26,7 @@ export const FONT_FILES = {
   display: '/fonts/geist-sans-variable.woff2',
 } as const;
 
-type Face = keyof typeof FONT_FILES;
+export type Face = keyof typeof FONT_FILES;
 
 // The literal family name each token's primary face resolves to. The single
 // place 'JetBrains Mono' / 'Inter' etc. are spelled outside the CSS @font-face.
