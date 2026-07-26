@@ -119,6 +119,19 @@ const avatar = initialChannel?.avatar?.trim() ?? '';
   const clamp01 = (n: number) => (n < 0 ? 0 : n > 1 ? 1 : n);
   const ease = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
 
+  // The translation an element's own transform currently contributes, so a rect
+  // taken while it animates can be reduced back to its layout position.
+  const readTransform = (el: HTMLElement) => {
+    const value = getComputedStyle(el).transform;
+    if (!value || value === 'none') return { x: 0, y: 0 };
+    try {
+      const matrix = new DOMMatrixReadOnly(value);
+      return { x: matrix.e, y: matrix.f };
+    } catch {
+      return { x: 0, y: 0 };
+    }
+  };
+
   function initMoodNavbar() {
     const navbar = document.querySelector<HTMLElement>('[data-mood-navbar]');
     if (!navbar || navbar.dataset.moodNavbarReady === 'true') return;
@@ -229,9 +242,15 @@ const avatar = initialChannel?.avatar?.trim() ?? '';
         title.style.maxWidth = clamped ? `${boxRect.width / titleDockScale}px` : 'none';
 
         if (heroTitle) {
+          // The hero title levitates on a looping translateY, and rects include
+          // that transform — measuring mid-cycle would offset the flight's whole
+          // start by up to the gesture's amplitude, so where the title rests
+          // would depend on when measure() happened to run. Subtract the live
+          // transform to recover the layout position underneath it.
           const heroRectT = heroTitle.getBoundingClientRect();
-          heroTitleTopDoc = heroRectT.top + window.scrollY;
-          heroTitleLeftDoc = heroRectT.left + window.scrollX;
+          const drift = readTransform(heroTitle);
+          heroTitleTopDoc = heroRectT.top + window.scrollY - drift.y;
+          heroTitleLeftDoc = heroRectT.left + window.scrollX - drift.x;
           titleFly = true;
         }
       }
