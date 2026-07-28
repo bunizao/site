@@ -80,7 +80,6 @@ async function firstScrambleGlyph(charset: string): Promise<string> {
 
           const controller = await prepareDecode(root, {
             charset: glyphs,
-            donePower: 15,
             ease: (progress: number) => progress,
             fontTimeout: 0,
             maxLineDuration: 0.8,
@@ -164,6 +163,141 @@ async function hasNonMonotonicSettlement(): Promise<boolean> {
     await page.close();
   }
 }
+
+const BURST_TEXT = 'ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGH';
+
+/**
+ * Largest number of characters that flip from scramble to final text within a
+ * single frame. The whole point of the separated fronts is that this stays a
+ * trickle; the old three-power-front schedule resolved most of a line at once.
+ */
+async function largestSettleBurst(): Promise<{ burst: number; total: number }> {
+  const page = await browser.newPage();
+  try {
+    // Wide enough that the sample never wraps into a second visual line.
+    await page.setContent(`<div id="target" style="width:4000px">${BURST_TEXT}</div>`);
+    return await page.evaluate(
+      async ({ source, input }) => {
+        const moduleUrl = URL.createObjectURL(new Blob([source], { type: 'text/javascript' }));
+        try {
+          const { prepareDecode } = await import(moduleUrl);
+          const root = document.querySelector<HTMLElement>('#target');
+          if (!root) throw new Error('Missing decode target');
+
+          const controller = await prepareDecode(root, {
+            charset: '#',
+            cursorChar: '-',
+            ease: (progress: number) => progress,
+            fontTimeout: 0,
+            maxLineDuration: 2,
+            minLineDuration: 2,
+            order: 'shuffle',
+            respectReducedMotion: false,
+            scrambleFromText: false,
+          });
+
+          const cells = Array.from(root.querySelectorAll<HTMLElement>('.dt-c'));
+          let finished = false;
+          void controller.finished.then(() => {
+            finished = true;
+          });
+          controller.start();
+
+          let burst = 0;
+          let previous = 0;
+          while (!finished) {
+            await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+            const settled = cells.filter((cell, i) => cell.textContent === input[i]).length;
+            burst = Math.max(burst, settled - previous);
+            previous = settled;
+          }
+          return { burst, total: cells.length };
+        } finally {
+          URL.revokeObjectURL(moduleUrl);
+        }
+      },
+      { source: moduleSource, input: BURST_TEXT }
+    );
+  } finally {
+    await page.close();
+  }
+}
+
+/**
+ * Order in which visual lines reach full settlement. Line duration tracks
+ * character count, so a short wrapped remnant used to finish before the long
+ * line above it.
+ */
+async function lineCompletionOrder(texts: string[]): Promise<number[]> {
+  const page = await browser.newPage();
+  try {
+    await page.setContent(`<div id="target" style="width:4000px">${texts.join('<br>')}</div>`);
+    return await page.evaluate(
+      async ({ source, expected }) => {
+        const moduleUrl = URL.createObjectURL(new Blob([source], { type: 'text/javascript' }));
+        try {
+          const { prepareDecode } = await import(moduleUrl);
+          const root = document.querySelector<HTMLElement>('#target');
+          if (!root) throw new Error('Missing decode target');
+
+          const controller = await prepareDecode(root, {
+            charset: '#',
+            cursorChar: '-',
+            fontTimeout: 0,
+            order: 'shuffle',
+            respectReducedMotion: false,
+            scrambleFromText: false,
+          });
+
+          const lines = Array.from(root.querySelectorAll<HTMLElement>('.dt-line'), (block) =>
+            Array.from(block.querySelectorAll<HTMLElement>('.dt-c'))
+          );
+          const order: number[] = [];
+          let finished = false;
+          void controller.finished.then(() => {
+            finished = true;
+          });
+          controller.start();
+
+          while (!finished) {
+            await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+            lines.forEach((cells, index) => {
+              if (order.includes(index)) return;
+              if (cells.every((cell, i) => cell.textContent === expected[index][i])) {
+                order.push(index);
+              }
+            });
+          }
+          return order;
+        } finally {
+          URL.revokeObjectURL(moduleUrl);
+        }
+      },
+      { source: moduleSource, expected: texts }
+    );
+  } finally {
+    await page.close();
+  }
+}
+
+describe('decode-text scheduling', () => {
+  test('resolves as a trickle instead of one end-of-line snap', async () => {
+    const { burst, total } = await largestSettleBurst();
+
+    expect(burst).toBeLessThan(total * 0.25);
+  });
+
+  test('completes visual lines in reading order', async () => {
+    // A short remnant after a long line is the case that used to invert:
+    // duration tracks character count, so the short line finished first.
+    const order = await lineCompletionOrder([
+      'THEQUICKBROWNFOXJUMPSOVERTHELAZYDOGANDKEEPSONRUNNING',
+      'SHORTONE',
+    ]);
+
+    expect(order).toEqual([0, 1]);
+  });
+});
 
 describe('decode-text grapheme handling', () => {
   test('reveals one cell per user-visible grapheme', async () => {
