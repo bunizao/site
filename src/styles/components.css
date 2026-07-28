@@ -886,6 +886,402 @@ html.dark .cgrid-tile:hover {
   margin-top: 0;
 }
 
+/* ── Playground (decode-text) ────────────────────────────────────────────────
+   A tuning bench, not a form. Stage and panel are one bordered instrument split
+   by a hairline; the snippet sits below as its readout.
+
+   Type carries the hierarchy: sans labels for chrome, mono only where the value
+   IS data (the stage, the readouts, the snippet). The stage dims its base text
+   so the **highlight** reads as brightness — the engine bakes colour, weight and
+   style onto each cell and drops everything else, and weight would break the 1ch
+   grid `grow` layout depends on, so colour is the only honest highlight here.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+.playground {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.playground-instrument {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: hsl(var(--background));
+  overflow: hidden;
+}
+
+/* ── Stage ─────────────────────────────────────────────────────────────────── */
+
+.playground-stage-wrap {
+  position: relative;
+}
+
+.playground-stage {
+  display: flex;
+  align-items: center;
+  min-height: 15rem;
+  /* Top padding clears the absolutely-positioned replay button, which the first
+     line otherwise runs under once the text wraps on narrow screens. */
+  padding: 2.9rem 1.75rem 2rem;
+  font-family: var(--font-mono);
+  font-size: clamp(0.8rem, 2.1vw, 0.95rem);
+  line-height: 2;
+  /* Dimmed base — .playground-mark brightens to full foreground. */
+  color: hsl(var(--foreground) / 0.45);
+  /* Mid-boil scramble can run wider than the settled glyphs; scroll here rather
+     than pushing the page. */
+  overflow-x: auto;
+}
+
+.playground-stage--sans {
+  font-family: var(--font-sans);
+  letter-spacing: -0.005em;
+}
+
+.playground-mark {
+  color: hsl(var(--foreground));
+}
+
+/* Pinned to the stage it replays, not stranded in the footer. Ghost until the
+   stage is hovered or the button itself is focused. */
+.playground-replay {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.65rem;
+  border: 1px solid transparent;
+  border-radius: calc(var(--radius) - 4px);
+  background: hsl(var(--background) / 0.8);
+  color: hsl(var(--foreground) / 0.4);
+  font-family: var(--font-sans);
+  font-size: 0.75rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition:
+    color 0.16s ease,
+    border-color 0.16s ease,
+    transform 0.16s var(--ease-out);
+}
+
+.playground-replay:active {
+  transform: scale(0.97);
+}
+
+.playground-replay:focus-visible {
+  color: hsl(var(--foreground));
+  border-color: var(--line2);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .playground-stage-wrap:hover .playground-replay {
+    color: hsl(var(--foreground) / 0.7);
+    border-color: var(--line);
+  }
+
+  .playground-replay:hover {
+    color: hsl(var(--foreground));
+    border-color: var(--line2);
+  }
+}
+
+/* ── Panel ─────────────────────────────────────────────────────────────────── */
+
+.playground-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+  padding: 1.25rem 1.25rem 1.15rem;
+  border-top: 1px solid var(--line);
+  background: var(--surface);
+}
+
+.playground-row {
+  display: grid;
+  gap: 0.9rem 1.25rem;
+}
+
+.playground-row--segments {
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  align-items: end;
+}
+
+/* Segments and the charset input share one control height so their labels sit
+   on a single baseline instead of stepping down at the end of the row. */
+.playground-row--segments .playground-seg,
+.playground-row--segments .playground-input {
+  height: 2.15rem;
+}
+
+.playground-row--sliders {
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+}
+
+.playground-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  min-width: 0;
+}
+
+.playground-field--charset {
+  grid-column: span 1;
+}
+
+/* Chrome is sans; only the value is mono, so the eye can find the numbers. */
+.playground-label {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-family: var(--font-sans);
+  font-size: 0.78rem;
+  font-weight: 500;
+  letter-spacing: -0.005em;
+  color: hsl(var(--foreground) / 0.55);
+}
+
+/* A caption on the label, not a right-hand readout — it belongs next to the
+   word it explains, so it opts out of the label row's space-between. */
+.playground-note {
+  margin-right: auto;
+  font-weight: 400;
+  color: hsl(var(--foreground) / 0.3);
+}
+
+.playground-value {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-variant-numeric: tabular-nums;
+  color: hsl(var(--foreground) / 0.8);
+}
+
+/* ── Segmented control ─────────────────────────────────────────────────────── */
+
+.playground-seg {
+  position: relative;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  padding: 2px;
+  border: 1px solid var(--line);
+  border-radius: calc(var(--radius) - 2px);
+  background: hsl(var(--foreground) / 0.03);
+  isolation: isolate;
+}
+
+/* The travelling pill. Transform-only so the slide stays on the compositor. */
+.playground-seg::before {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  top: 2px;
+  bottom: 2px;
+  left: 2px;
+  width: calc((100% - 4px) / var(--seg-count));
+  border-radius: calc(var(--radius) - 4px);
+  background: hsl(var(--background));
+  box-shadow: 0 1px 2px hsl(var(--foreground) / 0.07);
+  transform: translateX(calc(var(--seg-index) * 100%));
+  transition: transform 0.2s var(--ease-out);
+}
+
+.playground-seg-item {
+  padding: 0.35rem 0.5rem;
+  border: 0;
+  border-radius: calc(var(--radius) - 4px);
+  background: none;
+  color: hsl(var(--foreground) / 0.45);
+  font-family: var(--font-sans);
+  font-size: 0.78rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition:
+    color 0.16s ease,
+    transform 0.16s var(--ease-out);
+}
+
+.playground-seg-item[aria-pressed='true'] {
+  color: hsl(var(--foreground));
+}
+
+.playground-seg-item:active {
+  transform: scale(0.97);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .playground-seg-item:hover {
+    color: hsl(var(--foreground) / 0.8);
+  }
+}
+
+/* ── Text inputs ───────────────────────────────────────────────────────────── */
+
+.playground-input {
+  width: 100%;
+  padding: 0.4rem 0.6rem;
+  border: 1px solid var(--line);
+  border-radius: calc(var(--radius) - 2px);
+  background: hsl(var(--background));
+  color: hsl(var(--foreground));
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  line-height: 1.6;
+  transition: border-color 0.16s ease;
+}
+
+.playground-input:focus-visible {
+  outline: none;
+  border-color: hsl(var(--foreground) / 0.4);
+}
+
+.playground-textarea {
+  resize: vertical;
+  min-height: 4.5rem;
+  line-height: 1.75;
+}
+
+/* ── Range ─────────────────────────────────────────────────────────────────── */
+
+.playground-range {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 1rem;
+  background: transparent;
+  cursor: pointer;
+}
+
+.playground-range::-webkit-slider-runnable-track {
+  height: 2px;
+  border-radius: 1px;
+  background: hsl(var(--foreground) / 0.15);
+}
+
+.playground-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 10px;
+  height: 10px;
+  margin-top: -4px;
+  border-radius: 2px;
+  background: hsl(var(--foreground) / 0.7);
+  transition:
+    transform 0.16s var(--ease-out),
+    background-color 0.16s ease;
+}
+
+.playground-range:active::-webkit-slider-thumb {
+  transform: scale(1.25);
+  background: hsl(var(--foreground));
+}
+
+.playground-range:focus-visible::-webkit-slider-thumb {
+  outline: 2px solid hsl(var(--foreground) / 0.4);
+  outline-offset: 2px;
+}
+
+.playground-range::-moz-range-track {
+  height: 2px;
+  border-radius: 1px;
+  background: hsl(var(--foreground) / 0.15);
+}
+
+.playground-range::-moz-range-thumb {
+  width: 10px;
+  height: 10px;
+  border: 0;
+  border-radius: 2px;
+  background: hsl(var(--foreground) / 0.7);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .playground-range:hover::-webkit-slider-thumb {
+    background: hsl(var(--foreground));
+  }
+}
+
+/* ── Foot ──────────────────────────────────────────────────────────────────── */
+
+.playground-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem 1rem;
+  padding-top: 0.15rem;
+}
+
+.playground-hint {
+  flex: 1 1 18rem;
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: 0.78rem;
+  line-height: 1.65;
+  color: hsl(var(--foreground) / 0.4);
+  text-wrap: pretty;
+}
+
+.playground-hint strong {
+  font-family: var(--font-mono);
+  font-size: 0.74rem;
+  font-weight: 400;
+  color: hsl(var(--foreground) / 0.65);
+}
+
+.playground-reset {
+  padding: 0.35rem 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: calc(var(--radius) - 4px);
+  background: none;
+  color: hsl(var(--foreground) / 0.55);
+  font-family: var(--font-sans);
+  font-size: 0.78rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition:
+    color 0.16s ease,
+    border-color 0.16s ease,
+    transform 0.16s var(--ease-out);
+}
+
+.playground-reset:active {
+  transform: scale(0.97);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .playground-reset:hover {
+    color: hsl(var(--foreground));
+    border-color: var(--line2);
+  }
+}
+
+/* ── Snippet ───────────────────────────────────────────────────────────────── */
+
+.playground-snippet {
+  margin: 0;
+  padding: 0.9rem 1.1rem;
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  line-height: 1.75;
+  color: hsl(var(--foreground) / 0.6);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .playground-seg::before,
+  .playground-seg-item,
+  .playground-replay,
+  .playground-reset,
+  .playground-range::-webkit-slider-thumb {
+    transition: none;
+  }
+}
+
 /* ── Install tabs ────────────────────────────────────────────────────────── */
 
 .install-tabs {
