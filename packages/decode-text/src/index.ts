@@ -54,6 +54,12 @@ export interface DecodeOptions {
    * and a longer, slower crystallisation. Default: 0.52
    */
   settleStart?: number;
+  /**
+   * Shape of the resolve front across the line. 1 is a constant-speed beam;
+   * below 1 opens fast and savours the last glyphs; above 1 hesitates then
+   * finishes hard. Default: 0.8
+   */
+  settleCurve?: number;
   /** Mix the text's own (ASCII) characters into the scramble pool. Default: true */
   scrambleFromText?: boolean;
   /** Seconds of line duration per character, clamped to [minLineDuration, maxLineDuration]. */
@@ -115,6 +121,7 @@ const DEFAULTS = {
   showPower: 0.5,
   mashPower: 2,
   settleStart: 0.52,
+  settleCurve: 0.8,
   scrambleFromText: true,
   durationPerChar: 0.019,
   minLineDuration: 0.42,
@@ -394,7 +401,7 @@ const scheduleLines = (lines: Line[], opts: Resolved): void => {
     const appearSlots = opts.order === 'shuffle' ? shuffle(slots.slice()) : slots;
     line.cells.forEach((cell, i) => {
       const q = (appearSlots[i] + 1) / n;
-      const reach = n > 1 ? i / (n - 1) : 1;
+      const reach = Math.pow(n > 1 ? i / (n - 1) : 1, opts.settleCurve);
       cell.appearAt = appearEnd * Math.pow(q, 1 / opts.showPower);
       cell.mashAt = Math.max(cell.appearAt, mashEnd * Math.pow(q, 1 / opts.mashPower));
       cell.settleAt = Math.max(

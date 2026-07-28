@@ -64,6 +64,7 @@ and font-style that differ from the host are baked onto each character, so
 | `showPower` | `0.5` | Show front exponent — cells turn visible as `p^showPower` sweeps the queue |
 | `mashPower` | `2` | Mash front exponent — cursor graduates to scramble |
 | `settleStart` | `0.52` | Progress where the left-to-right resolve front starts; show/mash are packed below it |
+| `settleCurve` | `0.8` | Resolve front shape — `1` constant speed, `<1` opens fast and savours the tail, `>1` hesitates then finishes hard |
 | `scrambleFromText` | `true` | Mix the text's own ASCII glyphs into the scramble pool |
 | `durationPerChar` | `0.019` | Seconds per character, clamped to `[minLineDuration, maxLineDuration]` |
 | `minLineDuration` / `maxLineDuration` | `0.42` / `1.25` | Line duration clamp (seconds) |
