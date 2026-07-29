@@ -1811,19 +1811,19 @@ html.tags-pinned body {
   transform: scale(1.1);
 }
 
-/* Crossfade the real photo in once it loads (the page script adds .is-loaded). */
-.js .tag-card.has-image .tag-card-bg > img {
-  opacity: 0;
-  transition: opacity 0.6s ease;
-}
-
-.js .tag-card.has-image .tag-card-bg.is-loaded > img {
-  opacity: 1;
+/* Dissolve blur→photo by lifting the placeholder ABOVE the photo and fading
+   THAT out (the page script adds .is-loaded) — same direction as .blog-media.
+   The photo is never held at opacity 0, so a card whose image is already in
+   cache paints sharp immediately instead of showing its blur until the
+   deferred script gets to run. The scrim (::after, same stacking level but
+   later) still paints over the placeholder, so header text stays legible. */
+.js .tag-card.has-image .tag-card-bg.has-lqip::before {
+  z-index: 2;
 }
 
 .js .tag-card.has-image .tag-card-bg.is-loaded.has-lqip::before {
   opacity: 0;
-  transition: opacity 0.6s ease 0.1s;
+  transition: opacity 0.6s ease;
 }
 
 /* Gradient scrim for header legibility — above image + LQIP, below text. */

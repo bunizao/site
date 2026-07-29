@@ -70,19 +70,20 @@
   z-index: 1;
 }
 
-/* Fade only when JS is present to drive it (it adds `.is-loaded` on load). */
-.js .blog-media > img {
-  opacity: 0;
-  transition: opacity 0.6s ease;
-}
-
-.js .blog-media.is-loaded > img {
-  opacity: 1;
+/* Body images still get the blur→sharp dissolve, but it runs by lifting the
+   placeholder ABOVE the photo and fading THAT out — the photo itself is never
+   hidden. Holding the photo at opacity 0 until a JS class revealed it meant an
+   image already in cache, fully decoded before the deferred module script ran,
+   still showed its blur first. The placeholder can only ever cover a photo that
+   has not arrived. `.js`-gated, so with JS off the blur stays behind and the
+   image simply shows. */
+.js .blog-prose .blog-media.is-blur::before {
+  z-index: 2;
 }
 
 .js .blog-media.is-loaded::before {
   opacity: 0;
-  transition: opacity 0.6s ease 0.1s;
+  transition: opacity 0.6s ease;
 }
 
 /* Context sizing: the hero and gallery cells fill their column; single image
@@ -96,22 +97,22 @@
   view-transition-name: blog-hero;
 }
 
-/* During a view transition the hero is captured as its own layer and the VT
-   owns its reveal. The VT snapshots the new page BEFORE its blur-up script runs,
-   so without this the hero is still opacity:0 (gated on the JS `.is-loaded`
-   class) and the snapshot is just the blurry LQIP — the morph plays against a
-   placeholder, then the sharp image hard-pops in. Force the real image visible
-   and drop the blur so the captured snapshot is the cache-warmed hero (the hover
-   pre-decoded the same URL), and suppress the 0.6s fade so it isn't animated
-   twice. */
-:root:active-view-transition .blog-feature .blog-media > img {
-  opacity: 1;
-  transition: none;
-}
-:root:active-view-transition .blog-feature .blog-media.is-blur::before {
-  opacity: 0;
-  transition: none;
-}
+/* The hero deliberately keeps its placeholder BEHIND the photo (no z-index
+   lift above, unlike body images) and never animates either layer.
+   It is the one image captured in a named view-transition layer, and a VT
+   snapshots the incoming page before that page's scripts run — so any state a
+   JS class controls is a state the snapshot and the settled page disagree on.
+   That disagreement was the stutter: the morph tweened toward a blank box, the
+   blur hard-cut in the frame the transition ended, then a third 0.6s fade
+   sharpened it. Three stages for one image.
+
+   With the placeholder behind an always-opaque photo there is no boundary to
+   disagree across — the snapshot captures whatever is painted, and the page
+   keeps showing exactly that while the remaining pixels arrive. An earlier
+   attempt forced the photo visible via `:root:active-view-transition`; that
+   only moved the jump to the moment the transition ended, and it assumed the
+   list hover had pre-decoded this URL — it had not, the card requests `?w=640`
+   while the article picks `?w=1600` from its srcset. */
 
 .blog-prose .kg-gallery-image .blog-media {
   display: block;
@@ -129,7 +130,6 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .js .blog-media > img,
   .js .blog-media.is-loaded::before {
     transition: none;
   }
