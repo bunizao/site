@@ -526,23 +526,23 @@ const intro =
 
   /* Frequency — a sliding segmented control. The pill is translated by a CSS
      var the controller updates as the selection changes. */
+  /* No trough. Filled, this was a box inside the Moods card inside the panel —
+     three nested rectangles for one radio group. The sliding pill alone is
+     enough to say which option is live. */
   .sub-seg {
     --sub-seg-count: 3;
     --sub-seg-offset: 0%;
     position: relative;
     display: flex;
-    background: hsl(var(--foreground) / 0.04);
-    border-radius: 9px;
-    padding: 3px;
     isolation: isolate;
   }
 
   .sub-seg__pill {
     position: absolute;
-    top: 3px;
-    bottom: 3px;
-    left: 3px;
-    width: calc((100% - 6px) / var(--sub-seg-count));
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: calc(100% / var(--sub-seg-count));
     border-radius: 7px;
     /* The selected pill has to sit ABOVE its trough. Painted with --background
        it went the other way in dark mode — a 4% pill inside a trough already
@@ -569,7 +569,7 @@ const intro =
     position: relative;
     z-index: 1;
     text-align: center;
-    padding: 5px 0;
+    padding: 6px 0;
     font-size: 12px;
     font-weight: 500;
     color: hsl(var(--muted-foreground));
@@ -655,25 +655,27 @@ const intro =
     gap: 6px;
   }
 
+  /* Borderless on purpose. Outlined, these two matched the submit button's box
+     exactly and the row became three equal-weight rectangles with no primary
+     action in sight — the panel already stacks enough boxes above it. */
   .sub-out {
     position: relative;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 36px;
-    height: 36px;
+    width: 34px;
+    height: 34px;
     color: hsl(var(--muted-foreground) / 0.85);
-    border: 1px solid var(--sub-edge);
     border-radius: 9px;
-    transition: color 0.15s ease, background 0.15s ease, border-color 0.15s ease, scale 0.12s ease;
+    transition: color 0.15s ease, background 0.15s ease, scale 0.12s ease;
   }
 
-  /* 36px visual, 40×40 tap target. The 6px gap leaves 2px between neighbours,
+  /* 34px visual, 40×40 tap target. The 6px gap leaves 3px between neighbours,
      so the two tiles' hit areas never overlap. */
   .sub-out::before {
     content: '';
     position: absolute;
-    inset: -2px;
+    inset: -3px;
   }
 
   .sub-out svg {
@@ -683,8 +685,7 @@ const intro =
 
   .sub-out:hover {
     color: var(--sub-accent);
-    background: hsl(var(--foreground) / 0.06);
-    border-color: hsl(var(--foreground) / 0.28);
+    background: hsl(var(--foreground) / 0.07);
   }
 
   .sub-out:active {
