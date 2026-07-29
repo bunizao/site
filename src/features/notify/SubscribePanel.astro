@@ -652,7 +652,15 @@ const intro =
   .sub-elsewhere {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
+    /* The tiles' boxes are 6px wider than their glyphs on every side. Left as
+       laid out, the icons alone would start 6px inside the column the input and
+       both channel cards share; bleed that padding back out so the row starts
+       on the same edge as everything above it. */
+    margin-left: -6px;
+    /* Wider than it looks: the tiles' hit areas reach 5px past their boxes, so
+       this gap is what keeps the two targets from overlapping (30 + 10 = 40,
+       exactly one hit area per centre). */
+    gap: 10px;
   }
 
   /* Borderless on purpose. Outlined, these two matched the submit button's box
@@ -663,24 +671,25 @@ const intro =
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 34px;
-    height: 34px;
+    width: 30px;
+    height: 30px;
     color: hsl(var(--muted-foreground) / 0.85);
-    border-radius: 9px;
+    border-radius: 8px;
     transition: color 0.15s ease, background 0.15s ease, scale 0.12s ease;
   }
 
-  /* 34px visual, 40×40 tap target. The 6px gap leaves 3px between neighbours,
-     so the two tiles' hit areas never overlap. */
+  /* 30px visual, 40×40 tap target. Only the target grows — an 18px glyph in a
+     34px box left so much air that the hover surface read as a stray square
+     rather than the icon's own button. */
   .sub-out::before {
     content: '';
     position: absolute;
-    inset: -3px;
+    inset: -5px;
   }
 
   .sub-out svg {
-    width: 15px;
-    height: 15px;
+    width: 18px;
+    height: 18px;
   }
 
   .sub-out:hover {
