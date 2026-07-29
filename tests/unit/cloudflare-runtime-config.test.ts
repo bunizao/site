@@ -363,8 +363,8 @@ describe('Cloudflare runtime configuration', () => {
     expect(decodeEngine).toContain('document.fonts?.ready');
     expect(decodeEngine).toContain('window.setTimeout(resolve, opts.fontTimeout)');
     expect(decodeText).toContain('const FALLBACK_START_MS = 1500;');
-    expect(decodeEngine).toContain('durationPerChar: 0.024');
-    expect(decodeEngine).toContain('lineStagger: 0.16');
+    expect(decodeEngine).toContain('durationPerChar: 0.019');
+    expect(decodeEngine).toContain('lineStagger: 0.2');
     expect(decodeEngine).toContain('requestAnimationFrame(tick)');
     expect(hero).toContain('const identity = heroElements.filter((el) => !el.hasAttribute');
     expect(hero).toContain('gsap.set(heroElements, { opacity: 0, y: 20 });');
