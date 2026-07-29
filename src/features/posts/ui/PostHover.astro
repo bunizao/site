@@ -26,65 +26,186 @@
 
   // Floating hero preview: a single image that tracks the cursor and swaps its
   // source per hovered row. One element for the whole page keeps it cheap.
+  //
+  // The card is only ever visible while it holds the *decoded* cover of the row
+  // currently under the pointer. Anything else — mid-load, failed load, no
+  // cover, pointer between rows — hides it. That invariant is what kills both
+  // the blank card (src swapped while on screen) and the stale cover (a slow
+  // load landing after the pointer already moved on).
   if (fine) {
     const preview = document.createElement('div');
     preview.className = 'blog-preview';
     preview.setAttribute('aria-hidden', 'true');
     const img = document.createElement('img');
     img.decoding = 'async';
-    img.loading = 'lazy';
     preview.appendChild(img);
     document.body.appendChild(preview);
 
     const PREVIEW_W = 240; // keep in sync with .blog-preview width in blog.css
     let raf = 0;
+    let pointerX = 0;
     let pointerY = 0;
     let anchorX = 0; // pinned to the right of the reading column, set on enter
+    let previewH = 150; // width * 16/10; re-measured once the first cover lands
+    let activeRow: HTMLElement | null = null;
+    let loadedSrc: string | null = null;
+    let seq = 0; // bumps per target change so stale decodes can bail out
+
+    // Decode cache: hovering a row a second time is instant, and neighbours can
+    // be warmed ahead of the pointer. Resolves false when the cover 404s, so a
+    // broken image never reaches the card. `ready` is the synchronous view of
+    // the same set — it decides whether a swap needs to hide the card first.
+    const decoded = new Map<string, Promise<boolean>>();
+    const ready = new Set<string>();
+    const warm = (src: string) => {
+      let pending = decoded.get(src);
+      if (!pending) {
+        const probe = new Image();
+        probe.decoding = 'async';
+        pending = new Promise<boolean>((resolve) => {
+          probe.onload = () => resolve(true);
+          probe.onerror = () => resolve(false);
+          probe.src = src;
+        }).then(async (loaded) => {
+          if (!loaded) return false;
+          // decode() is the "bitmap is ready to paint" signal, but it rejects
+          // outright for SVGs with no intrinsic size — which still render fine.
+          // A successful load is the authority; decode is best-effort on top.
+          await probe.decode().catch(() => {});
+          ready.add(src);
+          return true;
+        });
+        decoded.set(src, pending);
+      }
+      return pending;
+    };
 
     const render = () => {
       raf = 0;
       // Pin X to the right gutter so the image never covers the text; track only
       // the vertical position, clamped to stay fully on screen.
-      const h = preview.offsetHeight || 180;
-      const y = Math.min(Math.max(pointerY - h / 2, 12), window.innerHeight - h - 12);
+      const y = Math.min(Math.max(pointerY - previewH / 2, 12), window.innerHeight - previewH - 12);
       preview.style.transform = `translate(${anchorX}px, ${y}px)`;
     };
 
-    const onMove = (event: PointerEvent) => {
-      pointerY = event.clientY;
+    const schedule = () => {
       if (!raf) raf = requestAnimationFrame(render);
     };
 
-    const show = (src: string, alt: string) => {
-      if (img.getAttribute('src') !== src) {
-        img.src = src;
-        img.alt = alt;
-      }
-      preview.classList.add('is-visible');
+    const shell = document.querySelector<HTMLElement>('.blog-shell');
+    const measureAnchor = () => {
+      const rect = (shell ?? document.body).getBoundingClientRect();
+      anchorX = Math.min(rect.right + 28, window.innerWidth - PREVIEW_W - 16);
     };
 
     const hide = () => preview.classList.remove('is-visible');
 
-    const shell = document.querySelector<HTMLElement>('.blog-shell');
-
-    document.querySelectorAll<HTMLElement>('.blog-row').forEach((row) => {
-      const src = row.dataset.hero;
-      if (!src) return; // posts without a feature image just get the pill + dim
-      const alt = row.dataset.heroAlt || '';
-
-      row.addEventListener('pointerenter', (event) => {
-        // Anchor to the right edge of the content column, clamped into view.
-        const rect = (shell ?? row).getBoundingClientRect();
-        anchorX = Math.min(rect.right + 28, window.innerWidth - PREVIEW_W - 16);
-        pointerY = event.clientY;
-        render();
-        if (!reduce) document.addEventListener('pointermove', onMove);
-        show(src, alt);
+    // Warm the rows on either side of the pointer: a reader stepping down the
+    // list hits them next, and a cached decode turns the swap into a same-frame
+    // fade instead of a network round trip.
+    const warmNeighbours = (row: HTMLElement) => {
+      [row.previousElementSibling, row.nextElementSibling].forEach((sibling) => {
+        const src = (sibling as HTMLElement | null)?.dataset?.hero;
+        if (src) warm(src);
       });
-      row.addEventListener('pointerleave', () => {
-        document.removeEventListener('pointermove', onMove);
+    };
+
+    const setTarget = async (row: HTMLElement | null) => {
+      if (row === activeRow) return;
+      activeRow = row;
+      const token = ++seq;
+
+      const src = row?.dataset.hero;
+      if (!row || !src) {
         hide();
+        return;
+      }
+
+      warmNeighbours(row);
+
+      if (src === loadedSrc) {
+        // Already the decoded frame in the card — reveal without a reload.
+        preview.classList.add('is-visible');
+        return;
+      }
+
+      // Warmed covers swap in place: the outgoing frame survives at most one
+      // frame, which reads as an instant change rather than a blink. A cold
+      // cover has to hide first — a card that lags behind the pointer is the
+      // wrong-cover bug, and an empty one is the black-card bug.
+      if (!ready.has(src)) hide();
+      const ok = await warm(src);
+      if (token !== seq || !ok) return;
+
+      img.src = src;
+      img.alt = row.dataset.heroAlt || '';
+      // Cached bitmap, so this settles on the next frame; it guarantees the
+      // fade-in starts on the new cover rather than the outgoing one.
+      await img.decode().catch(() => {});
+      if (token !== seq) return;
+
+      loadedSrc = src;
+      previewH = preview.offsetHeight || previewH;
+      render();
+      preview.classList.add('is-visible');
+    };
+
+    const rowAt = (x: number, y: number) =>
+      (document.elementFromPoint(x, y) as HTMLElement | null)?.closest<HTMLElement>('.blog-row') ?? null;
+
+    const onMove = (event: PointerEvent) => {
+      pointerX = event.clientX;
+      pointerY = event.clientY;
+      if (!reduce) schedule();
+    };
+
+    // Wheel scrolling moves rows under a stationary cursor, and pointerenter /
+    // pointerleave are unreliable there — resolve the row by hit-testing the
+    // last known pointer position instead.
+    const onScroll = () => {
+      measureAnchor();
+      setTarget(rowAt(pointerX, pointerY));
+      schedule();
+    };
+
+    // Both listeners are document-wide, so they only live while the pointer is
+    // actually inside a post list.
+    let listening = false;
+    const listen = (on: boolean) => {
+      if (on === listening) return;
+      listening = on;
+      if (on) {
+        document.addEventListener('pointermove', onMove, { passive: true });
+        document.addEventListener('scroll', onScroll, { passive: true, capture: true });
+      } else {
+        document.removeEventListener('pointermove', onMove);
+        document.removeEventListener('scroll', onScroll, { capture: true });
+      }
+    };
+
+    document.querySelectorAll<HTMLElement>('.blog-list').forEach((list) => {
+      list.addEventListener('pointerover', (event) => {
+        const row = (event.target as HTMLElement).closest<HTMLElement>('.blog-row');
+        if (!row || !list.contains(row)) return;
+        pointerX = event.clientX;
+        pointerY = event.clientY;
+        measureAnchor();
+        render();
+        listen(true);
+        setTarget(row);
       });
+
+      list.addEventListener('pointerleave', () => {
+        listen(false);
+        setTarget(null);
+      });
+    });
+
+    window.addEventListener('resize', () => {
+      if (!listening) return;
+      measureAnchor();
+      previewH = preview.offsetHeight || previewH;
+      schedule();
     });
   }
 </script>

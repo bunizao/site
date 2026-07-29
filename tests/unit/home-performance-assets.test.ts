@@ -88,12 +88,16 @@ describe('homepage performance assets', () => {
     const homeHero = readText('src/features/home/ui/Hero.astro');
     const layout = readText('src/layouts/Layout.astro');
     const globals = readText('src/styles/globals.css');
+    const fonts = readText('src/lib/fonts.ts');
 
     expect(homePage).toContain('--font-code: var(--font-mono);');
     expect(homeHero).not.toContain('font-code');
-    expect(layout).toContain("preloadFont = 'mono'");
-    expect(layout).toContain(": '/fonts/geist-mono-variable.woff2'");
-    expect(layout).not.toContain('href="/fonts/jetbrains-mono-variable.woff2"');
+    // The default preload set is the two faces every page paints. 'code' is not
+    // one of them, so the homepage never pulls JetBrains Mono in.
+    expect(layout).toContain("preloadFont = ['mono', 'sans']");
+    expect(homePage).not.toContain('preloadFont');
+    expect(fonts).toContain("mono: '/fonts/geist-mono-variable.woff2'");
+    expect(layout).not.toContain('jetbrains-mono-variable.woff2');
     expect(globals).toContain("--font-code: 'JetBrains Mono'");
   });
 });

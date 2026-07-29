@@ -3,6 +3,7 @@ import { getCollection, render, type CollectionEntry } from 'astro:content';
 import { ArrowLeft, ArrowUpRight } from 'lucide-react';
 import Layout from '@/layouts/Layout.astro';
 import ComponentPreview from '@/features/components/ui/ComponentPreview.astro';
+import DecodeTextPlayground from '@/features/components/previews/DecodeTextPlayground';
 import OnThisPage from '@/features/components/ui/OnThisPage.astro';
 import { InstallTabs, type InstallSpec } from '@/features/components/ui/InstallTabs';
 import CodeBox from '@/features/components/ui/CodeBox.astro';
@@ -39,8 +40,14 @@ const registryUrl = new URL(`/r/${slug}`, Astro.site ?? 'https://buxx.me').href;
 const spec: InstallSpec =
   install.type === 'npm' ? { type: 'npm', pkg: install.pkg } : { type: 'registry', url: registryUrl };
 
+// Only decode-text ships a playground; it is the one entry whose options are
+// worth feeling rather than reading. Keep the gate a plain slug check until a
+// second entry earns a dispatcher.
+const hasPlayground = slug === 'decode-text';
+
 const toc = [
   { id: 'preview', label: 'Preview' },
+  ...(hasPlayground ? [{ id: 'playground', label: 'Playground' }] : []),
   { id: 'installation', label: 'Installation' },
   { id: 'usage', label: 'Usage' },
   ...(credits ? [{ id: 'credits', label: 'Credits' }] : []),
@@ -58,6 +65,7 @@ const creditsHtml = (raw: string) =>
 ---
 
 <Layout
+  preloadFont={['display', 'mono', 'sans']}
   title={`${title} — Components`}
   description={tagline}
   url={`/components/${slug}`}
@@ -81,6 +89,13 @@ const creditsHtml = (raw: string) =>
           <h2 class="detail-section-label" id="preview-label">Preview</h2>
           <ComponentPreview slug={slug} />
         </section>
+
+        {hasPlayground && (
+          <section class="detail-section" id="playground" aria-labelledby="playground-label">
+            <h2 class="detail-section-label" id="playground-label">Playground</h2>
+            <DecodeTextPlayground client:visible />
+          </section>
+        )}
 
         <section class="detail-section" id="installation" aria-labelledby="install-label">
           <h2 class="detail-section-label" id="install-label">Installation</h2>

@@ -46,6 +46,61 @@
   font-display: swap;
 }
 
+/* Metric-matched fallbacks. A web font and the local face standing in for it
+   have different ascent/descent and average width, so the moment the real font
+   arrives every line box resizes and the page jumps — that is the reflow, not
+   the download. These faces are the same local fonts the stacks already fall
+   back to, re-declared with overrides that make them measure like the web font,
+   so the swap changes glyph shapes and almost nothing else.
+
+   Measured in-browser against each face (canvas fontBoundingBox + line-height
+   normal), then divided back out by size-adjust, which the overrides are
+   relative to. Uncorrected, the ascent error was 6.6-10% — that was the whole
+   vertical jump. All four web faces have a zero line gap; Arial does not, hence
+   the explicit override.
+
+   local() means the platform that has the measured face gets the correction and
+   everyone else falls through to the unadjusted stack below, exactly as before.
+   Arial covers macOS and Windows; Menlo is macOS only. Note local() matches a
+   font's full or PostScript name, NOT its family name: local('Menlo') silently
+   never resolves and the override quietly does nothing — it has to be
+   local('Menlo-Regular'). Arial only works because its full name is 'Arial'. */
+@font-face {
+  font-family: 'Inter Fallback';
+  src: local('Arial');
+  size-adjust: 105.33%;
+  ascent-override: 91.99%;
+  descent-override: 22.88%;
+  line-gap-override: 0%;
+}
+
+@font-face {
+  font-family: 'Geist Fallback';
+  src: local('Arial');
+  size-adjust: 100.62%;
+  ascent-override: 99.88%;
+  descent-override: 29.32%;
+  line-gap-override: 0%;
+}
+
+@font-face {
+  font-family: 'JetBrains Mono Fallback';
+  src: local('Menlo-Regular');
+  size-adjust: 99.66%;
+  ascent-override: 102.35%;
+  descent-override: 30.1%;
+  line-gap-override: 0%;
+}
+
+@font-face {
+  font-family: 'Geist Mono Fallback';
+  src: local('Menlo-Regular');
+  size-adjust: 99.66%;
+  ascent-override: 100.85%;
+  descent-override: 29.6%;
+  line-gap-override: 0%;
+}
+
 /* Font system tokens — the single source of truth for every type stack.
    Mirror in src/lib/fonts.ts for server-rendered surfaces (SVG, email) that
    cannot read CSS variables. Tailwind maps font-mono/font-code/font-sans/
@@ -56,14 +111,15 @@
      --font-sans     long-form reading prose          (Inter)
      --font-display  portal & docs UI                 (Geist Sans) */
 :root {
-  --font-mono: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, Monaco,
-    Consolas, 'Liberation Mono', 'Courier New', monospace;
-  --font-code: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco,
-    Consolas, 'Liberation Mono', 'Courier New', monospace;
-  --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system,
+  --font-mono: 'Geist Mono', 'Geist Mono Fallback', ui-monospace, SFMono-Regular,
+    Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+  --font-code: 'JetBrains Mono', 'JetBrains Mono Fallback', ui-monospace,
+    SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New',
+    monospace;
+  --font-sans: 'Inter', 'Inter Fallback', ui-sans-serif, system-ui, -apple-system,
     BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
-  --font-display: 'Geist', ui-sans-serif, system-ui, -apple-system,
-    BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+  --font-display: 'Geist', 'Geist Fallback', ui-sans-serif, system-ui,
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
 }
 
 @layer base {
@@ -755,10 +811,10 @@
     --site-nav-mobile-padding: 0 4rem 0 1rem;
     --site-nav-mobile-gap: clamp(0.95rem, 3.8vw, 1.25rem);
     --site-nav-mobile-brand-min-width: calc(var(--site-nav-mobile-logo-height) + var(--site-nav-brand-gap) + var(--site-nav-mobile-wordmark-width));
-    --site-nav-mobile-logo-width: 40px;
-    --site-nav-mobile-logo-height: 21px;
-    --site-nav-mobile-wordmark-width: 5.2rem;
-    --site-nav-mobile-wordmark-size: 1.08rem;
+    --site-nav-mobile-logo-height: 14px;
+    /* Holds the wordmark's natural width (7 mono cells at 0.6em of a 19.7px
+       face ~= 83px) with room for the face to fall back. */
+    --site-nav-mobile-wordmark-width: 5.6rem;
     --site-nav-mobile-action-size: 2.75rem;
   }
 
@@ -784,22 +840,8 @@
     }
   }
 
-  .site-brand {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 28px;
-    height: 28px;
-    margin-right: 4px;
-    border-radius: 6px;
-    color: hsl(var(--foreground));
-    transition: background 0.15s ease, transform 0.2s ease;
-  }
-  .site-brand:hover {
-    background: hsl(var(--foreground) / 0.06);
-  }
-  .site-brand:active { transform: scale(0.94); }
-  .site-brand svg { display: block; }
+  /* The lockup itself lives in styles/brand.css (imported by SiteBrand.astro);
+     the nav only positions it. */
   .nav-separator--brand {
     margin-right: 2px;
   }
@@ -822,9 +864,29 @@
     border-bottom: 1px solid hsl(var(--foreground) / 0.08);
   }
 
+  /* The bar itself stays full-bleed so its blur still covers the whole scroll
+     edge, but its contents pull in to a fixed measure. Left at viewport width
+     the brand and the actions sit in opposite corners with ~1100px of nothing
+     between them, and neither one relates to the column below it.
+
+     61.8rem is phi's reciprocal read as a width — wide enough to bracket the
+     760px page column, narrow enough that the bar reads as one composed row.
+     Below ~1040px the max() hands back to the plain 1.5rem gutter.
+
+     The brand measures this from the viewport's left edge and the actions from
+     its right, so the two stay symmetric as long as both use this one token. */
   @media (min-width: 900px) {
+    :root {
+      --site-chrome-inset: max(1.5rem, calc((100vw - 61.8rem) / 2));
+    }
+
+    /* body carries padding-left: calc(100vw - 100%) so centered content does
+       not shift when a scrollbar appears. The bar is fixed and sits outside
+       that padding, so it has to repeat the compensation or it lands a
+       scrollbar-width left of the column it is supposed to align with. The
+       actions are anchored to the right edge, where no compensation exists. */
     .site-nav--brand-home {
-      padding-left: 1.5rem;
+      padding-left: calc(var(--site-chrome-inset) + (100vw - 100%));
     }
   }
 
@@ -847,47 +909,15 @@
 
   @media (min-width: 900px) {
     .global-header-actions.has-brand-home-bar {
-      right: 1.5rem;
+      right: var(--site-chrome-inset);
     }
   }
 
+  /* The peek animates on hover and the TLD resolves to full strength, so the
+     brand needs no background box — that just fights the mascot's own motion.
+     Press feedback stays on :active. */
   .site-nav--brand-home .site-brand {
-    width: auto;
-    height: auto;
-    margin-right: 0;
-    gap: var(--site-nav-brand-gap);
-    border-radius: 8px;
-  }
-  .site-nav--brand-home .site-brand-logo {
-    display: inline-flex;
-    flex: 0 0 auto;
-    height: var(--site-nav-mobile-logo-height);
-    line-height: 0;
-  }
-  .site-nav--brand-home .site-brand-logo > span,
-  .site-nav--brand-home .site-brand-logo svg {
-    width: auto !important;
-    height: var(--site-nav-mobile-logo-height) !important;
-  }
-  .site-nav--brand-home .site-brand-text {
-    display: inline-block;
-    font-size: var(--site-nav-mobile-wordmark-size);
-    line-height: 1;
-    font-weight: 600;
-    letter-spacing: -0.01em;
-    color: hsl(var(--foreground));
-    white-space: nowrap;
-    transition: opacity 0.2s ease;
-  }
-
-  /* The peek animates on hover, so the brand needs no background box — that
-     just fights the mascot's own motion. Keep a quiet wordmark dim as the
-     only hover cue; press feedback stays on :active. */
-  .site-nav--brand-home .site-brand:hover {
-    background: transparent;
-  }
-  .site-nav--brand-home .site-brand:hover .site-brand-text {
-    opacity: 0.7;
+    --brand-logo-height: var(--site-nav-mobile-logo-height);
   }
 
   .nav-link {
@@ -1042,6 +1072,14 @@
       transition: opacity 0.22s ease, transform 0.22s steps(3, end);
     }
 
+    /* Set once the hero's status line leaves the viewport — the same line that
+       turns the nav vertical, so the sidebar arrives with the mode it belongs
+       to. The old threshold waited for the first section to reach 76vh, roughly
+       650px of scrolling after the nav had already collapsed.
+
+       This cannot key off .is-vertical instead: syncHomeNavMode sets that on
+       load from the viewport alone, and toHorizontal only clears it after its
+       exit animation, so the sidebar would flash on every home load. */
     .site-nav--home.is-content-nav-visible {
       opacity: 1;
       pointer-events: auto;
@@ -1049,8 +1087,12 @@
     }
   }
 
+  /* Home's sidebar shows the mascot alone, so it keeps a centered box and takes
+     its hover cue on the whole brand. The peek rides --peek-shift-* here — the
+     scroll-driven sidebar animations below hook the same element. */
   .site-nav--home .site-brand {
-    display: inline-flex;
+    --brand-logo-height: 28px;
+
     align-items: center;
     justify-content: flex-start;
     gap: 0;
@@ -1068,13 +1110,9 @@
   }
 
   .site-nav--home .site-brand-logo {
-    display: inline-flex;
+    align-self: center;
     transform: translate(var(--peek-shift-x), var(--peek-shift-y));
     will-change: transform;
-  }
-
-  .site-nav--home .site-brand-logo svg {
-    display: block;
   }
 
   .site-nav--home .site-brand-text,
@@ -1264,51 +1302,50 @@
       transform: translateZ(0);
     }
 
+    /* Mobile turns home's sidebar into the same horizontal lockup the other
+       bars use, so the wordmark comes back and the peek drops onto its
+       baseline. The logo keeps a wider box than the art so --peek-shift-* has
+       room to move without clipping. */
     .site-nav--home .site-brand,
     .site-nav--home.is-vertical .site-brand {
+      --brand-logo-height: var(--site-nav-mobile-logo-height);
+
       width: auto;
       min-width: var(--site-nav-mobile-brand-min-width);
       min-height: var(--site-nav-mobile-action-size);
       margin: 0;
       padding-right: 0;
-      gap: var(--site-nav-brand-gap);
       overflow: hidden;
       transition: min-width 0.32s ease;
     }
 
+    .site-nav--home .site-brand-row {
+      min-width: var(--site-nav-mobile-brand-min-width);
+    }
+
+    /* The box shrink-wraps the art here — the derived --brand-gap owns the
+       spacing. The tap-pop animation nudges the mark a couple of px, which just
+       borrows from that gap, which is what the animation is meant to look
+       like. */
     .site-nav--home .site-brand-logo {
       position: relative;
       z-index: 2;
-      flex: 0 0 auto;
-      width: var(--site-nav-mobile-logo-width);
+      /* The desktop sidebar pins this to center; the horizontal lockup wants the
+         baseline back. */
+      align-self: baseline;
       transform: translateX(0);
     }
 
-    .site-nav--home .site-brand-logo {
-      height: var(--site-nav-mobile-logo-height);
-      line-height: 0;
-    }
-    .site-nav--home .site-brand-logo > span,
-    .site-nav--home .site-brand-logo svg {
-      width: auto !important;
-      height: var(--site-nav-mobile-logo-height) !important;
-    }
-
     .site-nav--home .site-brand-text {
+      /* Undoes the sidebar's display:none — same specificity, later source. */
       display: inline-block;
       width: var(--site-nav-mobile-wordmark-width);
       flex: 0 0 var(--site-nav-mobile-wordmark-width);
       max-width: var(--site-nav-mobile-wordmark-width);
-      font-size: var(--site-nav-mobile-wordmark-size);
-      line-height: 1;
-      font-weight: 600;
-      letter-spacing: -0.01em;
-      color: hsl(var(--foreground));
       transform: translateX(0);
       opacity: 1;
       clip-path: inset(0 0 0 0);
       transition: width 0.32s ease, flex-basis 0.32s ease, max-width 0.32s ease, opacity 0.24s ease, transform 0.32s ease, clip-path 0.32s ease;
-      white-space: nowrap;
     }
 
     .site-nav--home.is-peek-tapping .site-brand-logo {
@@ -2330,42 +2367,13 @@ html.no-transition * {
   object-fit: cover;
 }
 
-/* WebKit runs view-transition morphs largely on the main thread and stutters
-   when the old/new snapshots differ in size. Worse, snapshots default to
-   inline-size:100% / block-size:auto anchored top-left, so the title flight
-   (list row 17px → headline 34px) drags left-anchored text across the screen
-   on every navigation. Until Safari composites these, WebKit (.ua-webkit, set
-   pre-render by the layouts' no-FOUC script) gets a calmer contract: a short
-   opacity-only root crossfade, and named groups that snap to their final
-   geometry and crossfade in place — continuity without the main-thread flight. */
-:root.ua-webkit::view-transition-old(root) {
-  animation: vt-root-out 160ms ease-in both;
-}
-
-:root.ua-webkit::view-transition-new(root) {
-  animation: vt-root-in-flat 240ms ease-out both;
-}
-
-@keyframes vt-root-in-flat {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
-
-/* All named groups, not a class list: the root group never animates geometry,
-   so (*) only strips the flights — and it can't silently no-op on a WebKit
-   build without view-transition-class selector support. */
-:root.ua-webkit::view-transition-group(*) {
-  animation: none;
-}
-
-:root.ua-webkit::view-transition-old(blog-hero),
-:root.ua-webkit::view-transition-new(blog-hero) {
-  animation-duration: 240ms;
-}
+/* No WebKit override lives here on purpose. WebKit runs these morphs largely on
+   the main thread, and even after flattening them to an opacity-only crossfade
+   it still dropped a frame mid-tween as the snapshot swap met the incoming
+   page's first paint. The layouts' no-FOUC script now calls skipTransition() on
+   pageswap/pagereveal for WebKit, so Safari navigates instantly instead of
+   stuttering. Delete that skip once Safari composites view transitions and the
+   rules above apply everywhere. */
 
 /* ─── Theme toggle: polygon gradient reveal ──────────────────────────────────
    A fixed gradient mask preserves the registry's feathered triangle while its

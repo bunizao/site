@@ -154,11 +154,18 @@ const paletteCss = [
       (() => {
         document.documentElement.classList.add('js');
         // All WebKit browsers (Safari + every iOS browser) report the Apple
-        // vendor string. The class gates the calmer view-transition and glass
-        // rules in globals.css/blog.css; it must exist before first render so
-        // the incoming page of a cross-document transition already matches.
+        // vendor string. The class gates the glass rules in
+        // globals.css/blog.css; it must exist before first render so the
+        // incoming page of a navigation already matches.
         if (navigator.vendor === 'Apple Computer, Inc.') {
           document.documentElement.classList.add('ua-webkit');
+          // WebKit runs cross-document view transitions on the main thread and
+          // drops a frame mid-tween; a stuttering fade reads worse than an
+          // instant load, so opt out on both sides of the navigation. The
+          // same-document theme wipe is untouched.
+          const skip = (event) => event.viewTransition?.skipTransition();
+          addEventListener('pageswap', skip);
+          addEventListener('pagereveal', skip);
         }
         let stored = null;
         try {

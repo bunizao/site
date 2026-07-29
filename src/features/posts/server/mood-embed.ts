@@ -40,7 +40,9 @@ function buildEmbedFigure(id: string, options: Partial<MoodEmbedOptions> = {}): 
   return [
     `<figure class="kg-card blog-mood-embed" data-blog-mood-embed>`,
     `<iframe class="js-mood-embed" src="${src}" title="Mood post" loading="lazy"`,
-    ` referrerpolicy="no-referrer" allowtransparency="true" height="320" style="width:100%;border:0;display:block"></iframe>`,
+    // No inline box styles: blog-prose.css owns the frame's width/border/display
+    // so it can bleed the frame past the embed document's own padding.
+    ` referrerpolicy="no-referrer" allowtransparency="true" height="320"></iframe>`,
     `</figure>`,
   ].join('');
 }

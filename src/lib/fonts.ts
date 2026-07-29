@@ -2,6 +2,11 @@
 // read the CSS variables in src/styles/globals.css. Keep these in sync with the
 // :root tokens there — same faces, same fallback order.
 //
+// One deliberate difference: globals.css inserts a metric-matched '<face>
+// Fallback' after each web font to keep font swaps from reflowing the page.
+// Those depend on @font-face override descriptors, which do not exist here, so
+// the stacks below stay as they are.
+//
 //   FONT_MONO     site identity, terminal/craft   (Geist Mono)
 //   FONT_CODE     literal code + data readouts     (JetBrains Mono)
 //   FONT_SANS     long-form reading prose          (Inter)
@@ -26,7 +31,7 @@ export const FONT_FILES = {
   display: '/fonts/geist-sans-variable.woff2',
 } as const;
 
-type Face = keyof typeof FONT_FILES;
+export type Face = keyof typeof FONT_FILES;
 
 // The literal family name each token's primary face resolves to. The single
 // place 'JetBrains Mono' / 'Inter' etc. are spelled outside the CSS @font-face.

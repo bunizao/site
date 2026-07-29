@@ -2170,6 +2170,8 @@ test.describe('Mood routes', () => {
   test('submits the notify panel successfully and closes cleanly', async ({ page }) => {
     const requests: Array<Record<string, unknown>> = [];
 
+    await page.setViewportSize({ width: 390, height: 844 });
+
     await page.route('**/api/notify/subscribe', async (route) => {
       requests.push(route.request().postDataJSON() as Record<string, unknown>);
       await route.fulfill({
@@ -2182,8 +2184,15 @@ test.describe('Mood routes', () => {
     await page.goto('/mood?subscribe=1', { waitUntil: 'domcontentloaded' });
 
     const panel = page.locator('.subscribe-panel');
+    const scrim = page.locator('[data-subscribe-scrim][data-subscribe-id="mood"]');
     await expect(panel).toHaveClass(/is-open/, { timeout: 30_000 });
     await expect(page).toHaveURL(/\/mood$/);
+    await expect(scrim).toHaveClass(/is-open/);
+    await expect(scrim).toBeVisible();
+    expect(await panel.evaluate((element) => element.parentElement === document.body)).toBe(true);
+    expect(await scrim.evaluate((element) => element.parentElement === document.body)).toBe(true);
+    await expect(panel.getByRole('link', { name: '通过 RSS 订阅' })).toHaveAttribute('href', '/mood/rss.xml');
+    await expect(panel.getByRole('link', { name: '订阅 Telegram 频道' })).toHaveAttribute('href', 'https://t.me/e2e');
 
     await disableNotifyNativeValidation(page);
     await page.locator('[data-sub-email]').fill('reader@example.com');
@@ -2199,6 +2208,7 @@ test.describe('Mood routes', () => {
 
     await page.locator('[data-sub-done]').click();
     await expect(panel).not.toHaveClass(/is-open/);
+    await expect(scrim).not.toHaveClass(/is-open/);
   });
 
   test('shows the already subscribed notify state', async ({ page }) => {

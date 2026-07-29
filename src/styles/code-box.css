@@ -168,3 +168,42 @@ html.dark .code-box-body pre.astro-code span {
   font-weight: var(--shiki-dark-font-weight);
   text-decoration: var(--shiki-dark-text-decoration);
 }
+
+/* ── Hand-tokenized body ─────────────────────────────────────────────────────
+   For code generated at runtime (the decode-text playground snippet), Shiki
+   isn't available — it runs at build time. These classes mirror the same
+   github-light / github-dark palette so a hand-tokenized block sits in the
+   frame without reading as a different kind of code. */
+.code-box-body pre.playground-code {
+  margin: 0;
+  padding: 1.15rem 1.25rem;
+  overflow-x: auto;
+  font-family: var(--font-code);
+  font-size: 0.84rem;
+  line-height: 1.6;
+  tab-size: 2;
+  color: #24292f;
+  scrollbar-width: thin;
+  scrollbar-color: hsl(var(--foreground) / 0.22) transparent;
+}
+
+.code-box-body pre.playground-code code {
+  font: inherit;
+  background: none;
+  padding: 0;
+}
+
+.cb-t-fn { color: #8250df; }
+.cb-t-var { color: #24292f; }
+.cb-t-prop { color: #953800; }
+.cb-t-str { color: #0a3069; }
+.cb-t-num { color: #0550ae; }
+.cb-t-punc { color: #24292f; }
+
+html.dark .code-box-body pre.playground-code { color: #c9d1d9; }
+html.dark .cb-t-fn { color: #d2a8ff; }
+html.dark .cb-t-var { color: #c9d1d9; }
+html.dark .cb-t-prop { color: #ffa657; }
+html.dark .cb-t-str { color: #a5d6ff; }
+html.dark .cb-t-num { color: #79c0ff; }
+html.dark .cb-t-punc { color: #c9d1d9; }

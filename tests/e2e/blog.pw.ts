@@ -131,6 +131,77 @@ test.describe('Blog routes', () => {
     await expect(searchDialog).toHaveJSProperty('open', true);
   });
 
+  test('keeps the hover cover and indicator aligned during wheel scrolling', async ({ page }) => {
+    await page.route('**/mock/*.svg', async (route) => {
+      await route.fulfill({
+        contentType: 'image/svg+xml',
+        body: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="10"></svg>',
+      });
+    });
+    await openBlogIndex(page);
+
+    const list = page.locator('.blog-list').filter({ has: page.locator('.blog-row[data-hero]') }).first();
+    const rows = list.locator('.blog-row[data-hero]');
+    expect(await rows.count()).toBeGreaterThanOrEqual(2);
+
+    const currentRow = rows.nth(0);
+    const nextRow = rows.nth(1);
+    await currentRow.scrollIntoViewIfNeeded();
+
+    const currentBox = await currentRow.boundingBox();
+    const nextBox = await nextRow.boundingBox();
+    expect(currentBox).not.toBeNull();
+    expect(nextBox).not.toBeNull();
+
+    const pointer = {
+      x: currentBox!.x + currentBox!.width / 2,
+      y: currentBox!.y + currentBox!.height / 2,
+    };
+    const wheelDelta = Math.round(nextBox!.y + nextBox!.height / 2 - pointer.y);
+    expect(wheelDelta).toBeGreaterThan(0);
+
+    await page.mouse.move(pointer.x, pointer.y);
+    const preview = page.locator('.blog-preview');
+    await expect(preview).toHaveClass(/is-visible/);
+
+    const expectedHero = await nextRow.getAttribute('data-hero');
+    expect(expectedHero).toBeTruthy();
+    const initialScrollY = await page.evaluate(() => window.scrollY);
+    await page.mouse.wheel(0, wheelDelta);
+
+    await expect.poll(async () => page.evaluate(
+      ({ x, y }) => document.elementFromPoint(x, y)?.closest<HTMLElement>('.blog-row')?.dataset.hero ?? null,
+      pointer,
+    )).toBe(expectedHero);
+    expect(await page.evaluate(() => window.scrollY)).toBeGreaterThan(initialScrollY);
+    await expect(preview.locator('img')).toHaveAttribute('src', expectedHero!);
+    await expect(preview).toHaveClass(/is-visible/);
+
+    const indicator = list.locator('.blog-indicator');
+    await expect(indicator).toHaveCSS('opacity', '1');
+    await expect.poll(async () => page.evaluate(({ x, y }) => {
+      const row = document.elementFromPoint(x, y)?.closest<HTMLElement>('.blog-row');
+      const pill = row?.closest('.blog-list')?.querySelector<HTMLElement>('.blog-indicator');
+      if (!row || !pill) return Number.POSITIVE_INFINITY;
+
+      const rowRect = row.getBoundingClientRect();
+      const pillRect = pill.getBoundingClientRect();
+      return Math.abs(
+        pillRect.top + pillRect.height / 2 - (rowRect.top + rowRect.height / 2),
+      );
+    }, pointer)).toBeLessThan(3);
+
+    const pageHeight = await page.evaluate(() => document.documentElement.scrollHeight);
+    await page.mouse.wheel(0, pageHeight);
+    await expect.poll(async () => page.evaluate(
+      ({ x, y }) => document.elementFromPoint(x, y)?.closest('.blog-list') !== null,
+      pointer,
+    )).toBe(false);
+    await expect(preview).not.toHaveClass(/is-visible/);
+    await expect(indicator).toHaveCSS('opacity', '0');
+    await expect(list).not.toHaveClass(/is-hovering/);
+  });
+
   test('emits generated Open Graph image metadata for index and posts', async ({ page }) => {
     const { firstPostHref, firstPostTitle } = await collectBlogIndexTargets(page);
 

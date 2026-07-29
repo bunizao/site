@@ -1,0 +1,63 @@
+---
+// The site's brand lockup — peek standing on the wordmark's baseline. Nav
+// variants style it through the --brand-* tokens in brand.css; nothing here
+// knows which bar it is mounted in.
+//
+// The wordmark is split into name + TLD so the two can carry different weight
+// in the hierarchy. Splitting it also keeps the dot from reading as its own
+// token in a monospace face — see brand.css.
+import AnimatedLogo from '@/features/logos/ui/AnimatedLogo.astro';
+import { PEEK_NAVBAR_LOGO } from '@/features/logos/data/peek-runtime';
+import '@/styles/brand.css';
+
+interface Props {
+  href?: string;
+  label: string;
+  animation?: string;
+  hoverAnimation?: string;
+  // Rendered SVG width. peek is a 10x7 grid, so height lands on size * 0.7 —
+  // keep this a multiple of 10 so the height stays a multiple of 7 and the
+  // pixel cells stay square.
+  size?: number;
+  wordmark?: boolean;
+  eventChannel?: string;
+  eventAnimations?: ReadonlyArray<string | null | undefined>;
+}
+
+const {
+  href = '/',
+  label,
+  animation,
+  hoverAnimation,
+  size = 20,
+  wordmark = false,
+  eventChannel,
+  eventAnimations,
+} = Astro.props;
+---
+
+<a
+  href={href}
+  class:list={['site-brand', wordmark ? 'site-brand--lockup' : 'site-brand--icon']}
+  aria-label={label}
+  data-site-brand
+>
+  <span class="site-brand-row">
+    <span class="site-brand-logo" aria-hidden="true">
+      <AnimatedLogo
+        definition={PEEK_NAVBAR_LOGO}
+        animation={animation}
+        hoverAnimation={hoverAnimation}
+        size={size}
+        title="peek"
+        eventChannel={eventChannel}
+        eventAnimations={eventAnimations}
+      />
+    </span>
+    {wordmark && (
+      <span class="site-brand-text" data-mobile-brand-text>
+        <span class="site-brand-name">buxx</span><span class="site-brand-tld">.me</span>
+      </span>
+    )}
+  </span>
+</a>

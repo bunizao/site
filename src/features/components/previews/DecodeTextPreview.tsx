@@ -4,15 +4,18 @@ import { prepareDecode, type DecodeController } from '@bunizao/decode-text';
 // A real paragraph, not three words — the decode effect only reads as an effect
 // when there's a body of text to boil. Visual lines scramble independently, then
 // settle left to right. More lines, smaller type = more surface for the noise.
+//
+// `mark` renders at full foreground against a dimmed body. Colour is the only
+// highlight the engine can carry: it bakes color, font-weight and font-style
+// onto each cell and drops the rest, and weight would break the 1ch grid.
 const LINES = [
-  'Every pixel here is placed on purpose, and',
-  'the motion is tuned rather than decorated.',
-  'Type is given room to breathe; colour keeps',
-  'its restraint. Radius stays concentric, hit',
-  'targets stay honest, and nothing moves on',
-  'the screen without first earning the frame.',
-  'What you are watching is the site itself,',
-  'quietly decoding into the thing you see.',
+  'Nothing here arrives all at once. Every glyph',
+  'picks a cursor, boils through a scramble, then',
+  'settles into **the letter it was always going**',
+  '**to be** — left to right, one at a time, so the',
+  'paragraph still reads in order while it is only',
+  'half resolved. What you are watching is the site',
+  'itself, quietly decoding into the thing you see.',
 ];
 const LOOP_PAUSE_MS = 2600; // settled-copy hold before the next boil
 
@@ -81,17 +84,22 @@ export function DecodeTextPreview() {
       onMouseEnter={() => void play()}
       onClick={() => void play()}
     >
-      <span
-        ref={ref}
-        className="decode-preview block w-full select-none text-center font-mono text-xl font-semibold leading-relaxed text-foreground sm:text-2xl"
-      >
-        {/* Explicit <br> between words: the decode engine groups by real visual
-            line and keeps <br>, so this stacks into three lines instead of
-            flattening the block <div>s onto one over-wide line. */}
+      <span ref={ref} className="decode-preview">
+        {/* Explicit <br> between lines: the decode engine groups by real visual
+            line and keeps <br>, so this stacks instead of flattening the whole
+            paragraph onto one over-wide line. */}
         {LINES.map((line, i) => (
           <React.Fragment key={line}>
             {i > 0 && <br />}
-            {line}
+            {line.split('**').map((segment, j) =>
+              j % 2 === 1 ? (
+                <span key={j} className="decode-preview-mark">
+                  {segment}
+                </span>
+              ) : (
+                <React.Fragment key={j}>{segment}</React.Fragment>
+              )
+            )}
           </React.Fragment>
         ))}
       </span>

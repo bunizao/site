@@ -33,9 +33,11 @@ describe('structured mood detail content rendering', () => {
     expect(source).not.toContain('animation: fade-in');
     expect(source).not.toContain('@keyframes fade-in');
     expect(source).toMatch(/@view-transition\s*\{\s*navigation:\s*none;/);
-    expect(route).toContain('preloadFont="sans"');
-    expect(layout).toContain("preloadFont?: 'mono' | 'sans'");
-    expect(layout).toContain("? '/fonts/inter-variable.woff2'");
+    // Inter carries the article body, so the route must still preload it —
+    // alongside the JetBrains hero title and the Geist Mono meta it also paints.
+    expect(route).toContain("preloadFont={['code', 'mono', 'sans']}");
+    expect(layout).toContain('preloadFont?: Face | Face[]');
+    expect(layout).toContain('FONT_FILES[face]');
     expect(route).toMatch(/requestAnimationFrame\(\(\) => \{\s*requestAnimationFrame\(\(\) => \{/);
   });
 

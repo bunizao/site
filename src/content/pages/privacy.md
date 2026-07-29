@@ -1,143 +1,126 @@
 ---
 title: Privacy Policy | Bunizao
-description: Privacy Policy for this website, including Cloudflare hosting, operational data, blog reading analytics, edge connection diagnostics, homepage listening data, mood subscriptions, and third-party services.
+description: How this website collects, uses, discloses, and retains personal data, including Cloudflare hosting, blog reading analytics, edge diagnostics, the homepage listening card, mood subscriptions, and third-party services.
 updatedAt: June 28, 2026
 ---
 
 # Privacy Policy
 
-This Privacy Policy explains how this website collects, uses, and shares personal data. It applies to the site as a whole, including page visits, blog reading analytics, theme preferences, operational monitoring, the homepage listening card, public content loading, API access, and the mood subscription flow available from [/mood](/mood).
+This Privacy Policy describes how this website collects, uses, discloses, and retains personal data. It applies to the site as a whole — pages, blog articles, API routes, the homepage listening card, and the optional mood subscription available at [/mood](/mood) — together with the infrastructure and service providers used to operate it.
 
-It also covers the infrastructure and services used to run the site, including Cloudflare for hosting, anti-abuse checks, operational logs, and mood notification infrastructure, Last.fm and Apple services for the homepage listening feature, and other third-party services used to load public content or deliver email.
+> **Summary.** We do not sell personal data, share it with data brokers, or use it to build advertising profiles. No third-party analytics or advertising trackers are loaded. The only information you provide directly is an email address, and only if you choose to subscribe to mood notifications; you may withdraw it at any time.
 
 ## Scope
 
-This policy covers personal data processed in connection with this website, including the homepage, blog pages, homepage listening API route, mood pages, privacy page, other API routes, mood comments views, and the optional email subscription feature.
+This policy covers personal data processed in connection with this website: the homepage, blog pages, mood pages and comment views, this page, all API routes, and the optional email subscription feature.
 
-It does not govern third-party websites, external links, or services you visit independently after leaving this site.
+It does not govern third-party websites or services you reach through links published here. Once you leave this site, the privacy practices of the destination apply.
 
-## Personal data we collect
+## Data we collect
 
-Depending on how you use the site, we may collect or process the following categories of data:
+Depending on how you use the site, we may collect or process the following categories of data.
 
-- **Information you provide directly.** If you use the mood subscription form, this includes your email address, delivery preferences, timezone, and related subscription settings.
-- **Technical and request data.** When you visit pages or call API routes, infrastructure and security systems may process request metadata needed to serve the site, operate rate limits, prevent abuse, and keep the service available.
-- **Operational and performance data.** Cloudflare may process request metadata, logs, and performance signals needed to serve the site, prevent abuse, debug failures, and keep the service reliable.
-- **Blog reading analytics.** Blog article pages may send first-party reading events to this site's own API. These events can include the post slug, event and visitor identifiers, session identifier, dwell time, scroll depth, completion state, referrer, IP address, approximate location and network metadata derived by Cloudflare, language, browser, operating system, device type, and user agent.
-- **Edge connection diagnostics.** The footer can display details about your current connection, derived by Cloudflare from your request: the edge datacenter that served you, the HTTP protocol and TLS version in use, the TCP round-trip time, your approximate location (such as city, region, and country), and your network or internet provider. These values are computed per request and shown back only to you; the site does not store them.
-- **Listening feature request data.** The homepage listening card may trigger server-side requests to Last.fm and Apple services to fetch the most recent track, album metadata, artwork, preview URLs, and related listening status for display.
-- **Theme preference data.** If you change the site theme, that preference is stored locally in your browser using local storage so the site can remember it later.
-- **Subscription record metadata.** For mood subscriptions, this includes status fields such as pending, active, or unsubscribed, plus timestamps such as created, updated, confirmed, last confirmation sent, and last notification sent.
-- **Security and anti-abuse data.** If Turnstile is enabled for the mood subscription flow, anti-bot verification data may include a challenge token and the client IP address used during verification.
-- **Public-content request data.** The site loads or displays public content from services such as Ghost, GitHub, a GitHub contributions fallback API, and Telegram-related sources, which may involve server-side or browser-side requests to those services.
+- **Information you provide directly.** If you use the mood subscription form: your email address, delivery preferences, timezone, and related subscription settings. No other feature on the site requests information from you.
+- **Technical and request data.** Serving a page or an API route requires standard request metadata. It is processed to deliver the response, enforce rate limits, and prevent abuse.
+- **Operational and performance data.** Cloudflare processes request metadata, logs, and performance signals necessary to serve the site, maintain availability, and diagnose failures.
+- **Blog reading analytics.** Blog article pages send first-party reading events to this site's own API; no third-party analytics vendor is loaded. These events may include the post slug, event, visitor and session identifiers, dwell time, scroll depth, completion state, referrer, IP address, approximate location and network metadata derived by Cloudflare, language, browser, operating system, device type, and user agent.
+- **Edge connection diagnostics.** The footer can display attributes of your current connection derived by Cloudflare from your request: the serving datacenter, HTTP protocol, TLS version, TCP round-trip time, approximate location, and network or internet provider. These values are computed per request, returned only to you, and are not stored.
+- **Listening feature request data.** The homepage listening card triggers server-side requests to Last.fm and Apple services to retrieve the most recent track, album metadata, artwork, preview URLs, and related listening status.
+- **Theme preference data.** If you change the site theme, the preference is stored locally in your browser and is not transmitted to us.
+- **Subscription record metadata.** For mood subscriptions: status fields such as pending, active, or unsubscribed, and timestamps for creation, update, confirmation, last confirmation sent, and last notification sent. An email hash is maintained alongside the address in order to index, deduplicate, and manage subscription records.
+- **Security and anti-abuse data.** Where Turnstile is enabled for the mood subscription flow, verification data may include a challenge token and the client IP address used during verification.
+- **Public-content request data.** Loading published writing, project, and mood content involves server-side or browser-side requests to Ghost, GitHub, a GitHub contributions fallback API, and Telegram-related sources.
 
-For mood subscriptions, the site also maintains an email hash alongside the email address to index, deduplicate, and manage subscription records.
+## How we use data
 
-## How we use personal data
-
-We use the data described above to operate and improve the site, including to:
+We use the data described above to operate, secure, and maintain the site, specifically to:
 
 - host, render, and secure the website and its API routes;
-- remember your local theme preference;
-- monitor page performance and reliability;
-- understand which blog posts are read, how long articles are read, how readers reach posts, and whether the reading experience is working;
-- show you live edge connection diagnostics in the footer when you hover or focus the edge indicator;
-- load and refresh homepage listening data from Last.fm and Apple services;
-- load public content from connected sources such as Ghost, GitHub, and Telegram-related data;
-- send subscription confirmation emails and mood notifications if you opt in;
+- retain your local theme preference;
+- monitor performance and reliability;
+- understand which articles are read, for how long, and how readers arrive;
+- display edge connection diagnostics when you hover or focus the footer indicator;
+- retrieve and refresh listening data from Last.fm and Apple services;
+- load public content from Ghost, GitHub, and Telegram-related sources;
+- send confirmation emails and mood notifications where you have opted in;
 - honor unsubscribe requests and maintain subscription state; and
 - detect abuse, spam, scripted signups, and operational failures.
 
-We do not use personal data collected through this site for data brokerage or unrelated advertising profiles.
+We do not use personal data collected through this site for data brokerage or for advertising profiles unrelated to these purposes.
 
-## Cloudflare hosting, security, and observability
+## Hosting and security
 
-This site uses Cloudflare Workers as the hosting runtime for public pages and API proxy routes. Private API, mood image, queue consumer, and scheduled notification work runs in `site-api`.
+Public pages and API proxy routes run on Cloudflare Workers. Private API operations — mood images, queue consumers, and scheduled notifications — run in a separate `site-api` service. Cloudflare processes standard request metadata, security signals, logs, and Worker observability data as necessary to serve the site, protect it from abuse, and investigate operational issues.
 
-Cloudflare may process standard request metadata, security signals, logs, and Worker observability data needed to serve the site, protect it from abuse, and investigate operational issues.
-
-The footer also includes an optional edge indicator. When you hover or focus it, the site calls its own `/api/edge` route, which reads Cloudflare's per-request connection properties and returns the serving datacenter, HTTP protocol, TLS version, TCP round-trip time, approximate location, and network or provider. This response is never cached and is shown only to you; the site does not log or retain it.
+The footer includes an optional edge indicator. When hovered or focused, it calls this site's own `/api/edge` route, which reads Cloudflare's per-request connection properties and returns them to you. That response is never cached, logged, or retained.
 
 ## Blog reading analytics
 
-Blog article pages use first-party reading analytics served by this site's own API. The script does not load a third-party analytics vendor. It stores a visitor identifier in local storage and a session identifier in session storage so repeated page events can be grouped without requiring an account.
+Blog article pages use first-party analytics served by this site's own API. No third-party analytics script is loaded. A visitor identifier is stored in local storage and a session identifier in session storage so that repeated events can be grouped without requiring an account.
 
-Analytics events are used to understand article readership, completion, referrers, platform mix, and operational quality. The server derives network and browser signals from the request, including IP address, approximate Cloudflare location metadata, ASN or network provider metadata, user agent, language, browser, operating system, and device type.
+The server derives network and browser signals from the request, including IP address, approximate Cloudflare location metadata, ASN or network provider metadata, user agent, language, browser, operating system, and device type. Events may be retained while the analytics feature remains in operation and under review. They are not sold and are not used for unrelated advertising profiles. You may clear the browser-stored visitor and session identifiers through your browser's storage controls at any time.
 
-Raw blog reading analytics may be retained while the analytics feature is operated and reviewed. They are not used for unrelated advertising profiles, and they are not sold. You can clear the browser-stored visitor and session identifiers through your browser storage controls.
+## Homepage listening card
 
-## Homepage listening feature
+The homepage calls this site's `/api/listening` route after the page loads. Last.fm serves as the primary source for recent listening activity, and Apple's music metadata endpoints are used to enrich the current track with album details, artwork, preview audio, and Apple Music links.
 
-The homepage includes a listening card that may call this site's `/api/listening` route after the page loads.
-
-That feature currently relies on:
-
-- **Last.fm.** Used as the primary source for the most recent listening activity through the Last.fm recent tracks API.
-- **Apple services.** Used through Apple's music metadata search endpoints to enrich the current track with album details, artwork, preview audio, and Apple Music links.
-
-When this feature runs, this site's server may send track lookup terms derived from the latest Last.fm result to Apple services and may receive track metadata in response. Standard request metadata is also processed as part of those outbound requests in the same way any server-to-server request works.
+When the feature runs, this site's server sends track lookup terms derived from the latest Last.fm result to Apple services and receives track metadata in response. Standard request metadata is processed as part of those outbound requests in the same manner as any server-to-server request.
 
 ## Email delivery and anti-abuse
 
-The mood subscription form may use [Cloudflare Turnstile](https://www.cloudflare.com/application-services/products/turnstile/) to help distinguish legitimate visitors from bots and protect the subscribe endpoint from abuse.
+The mood subscription form may be protected by [Cloudflare Turnstile](https://www.cloudflare.com/application-services/products/turnstile/) in order to distinguish legitimate visitors from automated traffic. Where it is active, your browser loads the Turnstile widget, the widget issues a verification token, and the subscription request transmits that token together with the client IP address to Cloudflare for verification. This data is processed for security and anti-abuse purposes only.
 
-- your browser may load the Turnstile widget from Cloudflare;
-- the widget may issue a verification token associated with the challenge;
-- the subscription request may include that token, and the server may send it to Cloudflare for verification;
-- the server may also send the client IP address to Cloudflare as part of that verification request; and
-- confirmation and notification emails for mood subscriptions are sent through Resend.
+Confirmation and notification emails for mood subscriptions are delivered through Resend. Cloudflare additionally provides the data infrastructure supporting the mood notification feature.
 
-Cloudflare also supports data infrastructure used for the mood notification feature. Turnstile verification is used only for security and anti-abuse purposes in that flow.
+## Third-party content sources
 
-## Content and third-party data sources
+The site relies on the following third-party services to load public content and metadata:
 
-The site also relies on third-party services to load public content and metadata, including:
+- **Last.fm** — recent listening status and track data.
+- **Apple services** — track metadata, artwork, preview audio, and Apple Music links.
+- **Ghost** — writing links and post metadata.
+- **GitHub** — repository data, project metadata, and the homepage contributions graph, retrieved through this site's internal API route. A fallback contributions API is used only where the GitHub GraphQL lookup is unavailable.
+- **Telegram-related sources** — mood content and comment threads.
 
-- **Last.fm.** Used for the homepage listening status and recent track data.
-- **Apple services.** Used to enrich listening results with track metadata, artwork, preview audio, and Apple Music links.
-- **Ghost.** Used to display writing links and post metadata.
-- **GitHub.** Used to display repository data, related project metadata, and the homepage contributions graph through this site's internal API route.
-- **GitHub contributions fallback API.** Used only when the internal GitHub GraphQL contribution lookup is unavailable.
-- **Telegram-related sources.** Used to fetch and display mood content and comment threads.
+Depending on the page and feature in use, the associated requests may be made server-side or directly from your browser.
 
-Depending on the page and feature you use, requests associated with delivering that content may involve those services directly or through this site's server-side integrations.
+## Disclosure to service providers
 
-## How we share personal data
+We disclose personal data only where reasonably necessary to operate the site and its features:
 
-We share personal data only where reasonably necessary to operate the site and its features:
-
-- **Cloudflare.** Hosting, anti-abuse verification, operational observability, and mood notification infrastructure.
-- **Resend.** Email delivery for mood subscriptions.
-- **Last.fm and Apple services.** Listening data and music metadata used by the homepage listening card.
-- **Ghost, GitHub, and Telegram-related services.** Public content and metadata sources.
+- **Cloudflare** — hosting, anti-abuse verification, operational observability, and mood notification infrastructure.
+- **Resend** — email delivery for mood subscriptions.
+- **Last.fm and Apple services** — listening data and music metadata.
+- **Ghost, GitHub, and Telegram-related services** — public content and metadata.
 
 We do not sell personal data collected through this site, and we do not share subscription lists with third parties for their own direct marketing.
 
 ## Retention
 
-We retain data for as long as reasonably necessary to operate the site, maintain security, understand performance, and provide optional features such as mood subscriptions.
+We retain data for as long as reasonably necessary to operate the site, maintain security, assess performance, and provide optional features such as mood subscriptions.
 
-Some data is short-lived, such as temporary rate-limit state, local theme settings, or blog analytics session identifiers stored in your browser. Blog reading analytics may be retained while the feature remains useful for understanding readership and operating the site. Subscription records may be retained longer to maintain opt-in status, unsubscribe status, and delivery history. Data handled by Cloudflare, Resend, Ghost, GitHub, Telegram-related sources, or other providers is also subject to those providers' own retention practices.
+Certain data is short-lived, including temporary rate-limit state, local theme settings, and session identifiers stored in your browser. Blog reading analytics may be retained while the feature remains useful for understanding readership and operating the site. Subscription records may be retained longer in order to maintain opt-in status, unsubscribe status, and delivery history. Data held by Cloudflare, Resend, Ghost, GitHub, Telegram-related sources, or other providers is additionally subject to those providers' own retention practices.
 
-## Your choices
+## Your rights and choices
 
-You have several choices in relation to this site:
+You may:
 
-- you can browse the site without subscribing to mood notifications;
-- you can choose your preferred delivery frequency;
-- you can unsubscribe at any time using the unsubscribe link in subscription emails; and
-- you can request access, correction, or deletion related to your subscription record by contacting [me@buxx.me](mailto:me@buxx.me).
+- browse the site in full without subscribing to any feature;
+- select your preferred notification delivery frequency;
+- unsubscribe at any time using the link included in every subscription email;
+- request access to, correction of, or deletion of your subscription record by contacting [me@buxx.me](mailto:me@buxx.me); and
+- clear locally stored theme preferences and analytics identifiers through your browser's storage controls.
 
-You can also clear locally stored theme preferences and blog analytics identifiers through your browser storage controls. If Turnstile is required when you submit the subscription form, completing the anti-bot check is part of that process.
+Where Turnstile is required on submission of the subscription form, completing the verification is a necessary part of subscribing.
 
-## International processing
+## International transfers
 
-The site and its service providers may process data in countries other than the one where you are located. By using the subscription feature, you understand that your data may be processed where the site infrastructure, email provider, or anti-abuse provider operates.
+This site and its service providers may process data in countries other than the one in which you are located. By using the subscription feature, you acknowledge that your data may be processed wherever the hosting, email delivery, and anti-abuse providers operate.
 
 ## Changes to this policy
 
-This policy may be updated from time to time to reflect changes in the subscription feature, service providers, or legal requirements. When that happens, the date at the top of this page will be updated.
+We may update this policy from time to time to reflect changes in the subscription feature, our service providers, or applicable legal requirements. Where we do, the date shown at the top of this page will be updated accordingly.
 
 ## Contact
 
-If you have questions about this Privacy Policy or this site's data practices, contact [me@buxx.me](mailto:me@buxx.me).
+For questions regarding this Privacy Policy or this site's data practices, contact [me@buxx.me](mailto:me@buxx.me).

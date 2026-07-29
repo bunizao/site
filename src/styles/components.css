@@ -853,16 +853,31 @@ html.dark .cgrid-tile:hover {
   gap: 0.9rem;
 }
 
-/* DecodeText is inherently monospace — it needs fixed-width glyph cells. */
+/* DecodeText is inherently monospace — it needs fixed-width glyph cells.
+   Reads as copy, not a headline: left-aligned in a column sized to its own
+   longest line, at body weight. Semibold centred display type turned a paragraph
+   of boiling text into a ragged wall. The dimmed base lets .decode-preview-mark
+   burn through at full foreground — colour is the only highlight the engine
+   carries across its cell rebuild. */
 .decode-preview {
+  display: block;
+  /* A fixed measure, not fit-content: `grow` layout collapses unshown cells, so
+     a shrink-to-fit box would resize every frame and slide the whole paragraph
+     sideways while it decodes. */
+  width: min(100%, 48ch);
+  margin-inline: auto;
   font-family: var(--font-mono);
-  font-size: clamp(1.1rem, 3vw, 1.6rem);
-  line-height: 1.5;
-  font-weight: 600;
-  text-align: center;
-  color: hsl(var(--foreground));
+  font-size: clamp(0.78rem, 1.9vw, 0.95rem);
+  line-height: 2;
+  font-weight: 400;
+  text-align: left;
+  color: hsl(var(--foreground) / 0.45);
   cursor: pointer;
   user-select: none;
+}
+
+.decode-preview-mark {
+  color: hsl(var(--foreground));
 }
 
 /* The listening widget is fit-content; keep it centered and give the marquee
@@ -884,6 +899,355 @@ html.dark .cgrid-tile:hover {
 
 .preview-contributions .activity-section {
   margin-top: 0;
+}
+
+/* ── Playground (decode-text) ────────────────────────────────────────────────
+   A tuning bench, not a form. Stage and panel are one bordered instrument split
+   by a hairline; the snippet sits below in the same frame as the Usage block.
+
+   Type carries the hierarchy: sans labels for chrome, mono only where the value
+   IS data (the stage, the readouts, the snippet). The stage dims its base text
+   so the **highlight** reads as brightness — the engine bakes colour, weight and
+   style onto each cell and drops everything else, and weight would break the 1ch
+   grid `grow` layout depends on, so colour is the only honest highlight here.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+.playground {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.playground-instrument {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: hsl(var(--background));
+  overflow: hidden;
+}
+
+/* ── Stage ─────────────────────────────────────────────────────────────────── */
+
+.playground-stage-wrap {
+  position: relative;
+}
+
+.playground-stage {
+  display: flex;
+  align-items: center;
+  min-height: 15rem;
+  padding: 3rem 1.75rem 2rem;
+  font-family: var(--font-mono);
+  font-size: clamp(0.8rem, 2.1vw, 0.95rem);
+  line-height: 2;
+  /* Dimmed base — .playground-mark brightens to full foreground. */
+  color: hsl(var(--foreground) / 0.45);
+  /* Mid-boil scramble can run wider than the settled glyphs; scroll here rather
+     than pushing the page. */
+  overflow-x: auto;
+}
+
+.playground-stage--sans {
+  font-family: var(--font-sans);
+  letter-spacing: -0.005em;
+}
+
+.playground-mark {
+  color: hsl(var(--foreground));
+}
+
+/* Pinned to the stage they act on, not stranded in a footer. Ghost until the
+   stage is hovered or a button takes focus. */
+.playground-actions {
+  position: absolute;
+  top: 0.7rem;
+  right: 0.7rem;
+  display: flex;
+  gap: 0.25rem;
+}
+
+.playground-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  height: 1.75rem;
+  padding: 0 0.6rem;
+  border: 1px solid transparent;
+  border-radius: calc(var(--radius) - 4px);
+  background: none;
+  color: hsl(var(--foreground) / 0.35);
+  font-family: var(--font-sans);
+  font-size: 0.75rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition:
+    color 0.16s ease,
+    border-color 0.16s ease,
+    transform 0.16s var(--ease-out);
+}
+
+.playground-action:active {
+  transform: scale(0.97);
+}
+
+.playground-action:focus-visible {
+  outline: none;
+  color: hsl(var(--foreground));
+  border-color: var(--line2);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .playground-stage-wrap:hover .playground-action {
+    color: hsl(var(--foreground) / 0.6);
+  }
+
+  .playground-action:hover {
+    color: hsl(var(--foreground));
+    border-color: var(--line);
+  }
+}
+
+/* ── Panel ─────────────────────────────────────────────────────────────────── */
+
+.playground-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  padding: 1.25rem;
+  border-top: 1px solid var(--line);
+  background: var(--surface);
+}
+
+/* Segments size to their own labels and wrap; only the charset field takes the
+   slack. Stretching a two-word toggle across a grid column is what made the
+   controls read as a web form. */
+.playground-row--controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 1rem 1.25rem;
+}
+
+.playground-row--controls .playground-field {
+  flex: 0 0 auto;
+}
+
+.playground-field--charset {
+  flex: 1 1 10rem;
+  min-width: 8rem;
+}
+
+.playground-row--sliders {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+  gap: 0.9rem 1.25rem;
+}
+
+.playground-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  min-width: 0;
+}
+
+/* Chrome is sans; only the value is mono, so the eye can find the numbers. */
+.playground-label {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  font-family: var(--font-sans);
+  font-size: 0.78rem;
+  font-weight: 500;
+  letter-spacing: -0.005em;
+  color: hsl(var(--foreground) / 0.55);
+}
+
+.playground-value {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-variant-numeric: tabular-nums;
+  color: hsl(var(--foreground) / 0.4);
+}
+
+.playground-row--sliders .playground-value {
+  color: hsl(var(--foreground) / 0.8);
+}
+
+/* The `**highlight**` hint annotates the word "Text", so it sits beside it
+   rather than being flung to the far edge by space-between. */
+.playground-label--inline {
+  justify-content: flex-start;
+  gap: 0.6rem;
+}
+
+/* ── Segmented control ─────────────────────────────────────────────────────── */
+
+.playground-seg {
+  position: relative;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(3.75rem, auto);
+  height: 1.9rem;
+  padding: 2px;
+  border: 1px solid var(--line);
+  border-radius: calc(var(--radius) - 2px);
+  background: hsl(var(--foreground) / 0.03);
+  isolation: isolate;
+}
+
+/* The travelling pill. Transform-only so the slide stays on the compositor. */
+.playground-seg::before {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  top: 2px;
+  bottom: 2px;
+  left: 2px;
+  width: calc((100% - 4px) / var(--seg-count));
+  border-radius: calc(var(--radius) - 5px);
+  background: hsl(var(--background));
+  box-shadow: 0 1px 2px hsl(var(--foreground) / 0.07);
+  transform: translateX(calc(var(--seg-index) * 100%));
+  transition: transform 0.2s var(--ease-out);
+}
+
+.playground-seg-item {
+  display: grid;
+  place-items: center;
+  height: 100%;
+  padding: 0 0.7rem;
+  border: 0;
+  border-radius: calc(var(--radius) - 5px);
+  background: none;
+  color: hsl(var(--foreground) / 0.45);
+  font-family: var(--font-sans);
+  font-size: 0.76rem;
+  font-weight: 500;
+  line-height: 1;
+  cursor: pointer;
+  transition:
+    color 0.16s ease,
+    transform 0.16s var(--ease-out);
+}
+
+.playground-seg-item[aria-pressed='true'] {
+  color: hsl(var(--foreground));
+}
+
+.playground-seg-item:active {
+  transform: scale(0.97);
+}
+
+.playground-seg-item:focus-visible {
+  outline: 2px solid hsl(var(--foreground) / 0.4);
+  outline-offset: 1px;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .playground-seg-item:hover {
+    color: hsl(var(--foreground) / 0.8);
+  }
+}
+
+/* ── Text inputs ───────────────────────────────────────────────────────────── */
+
+.playground-input {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: calc(var(--radius) - 2px);
+  background: hsl(var(--background));
+  color: hsl(var(--foreground));
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  transition: border-color 0.16s ease;
+}
+
+/* Matches the segmented control beside it, so the row shares one baseline. */
+.playground-field--charset .playground-input {
+  height: 1.9rem;
+  padding: 0 0.6rem;
+}
+
+.playground-input:focus-visible {
+  outline: none;
+  border-color: hsl(var(--foreground) / 0.4);
+}
+
+/* Tall enough to hold the default copy without a scrollbar — the text IS the
+   subject here, and a three-line window made it feel like a comment field. */
+.playground-textarea {
+  resize: vertical;
+  min-height: 9.5rem;
+  padding: 0.7rem 0.85rem;
+  line-height: 1.9;
+}
+
+/* ── Range ─────────────────────────────────────────────────────────────────── */
+
+.playground-range {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 1rem;
+  background: transparent;
+  cursor: pointer;
+}
+
+.playground-range::-webkit-slider-runnable-track {
+  height: 2px;
+  border-radius: 1px;
+  background: hsl(var(--foreground) / 0.15);
+}
+
+.playground-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 10px;
+  height: 10px;
+  margin-top: -4px;
+  border-radius: 2px;
+  background: hsl(var(--foreground) / 0.7);
+  transition:
+    transform 0.16s var(--ease-out),
+    background-color 0.16s ease;
+}
+
+.playground-range:active::-webkit-slider-thumb {
+  transform: scale(1.25);
+  background: hsl(var(--foreground));
+}
+
+.playground-range:focus-visible::-webkit-slider-thumb {
+  outline: 2px solid hsl(var(--foreground) / 0.4);
+  outline-offset: 2px;
+}
+
+.playground-range::-moz-range-track {
+  height: 2px;
+  border-radius: 1px;
+  background: hsl(var(--foreground) / 0.15);
+}
+
+.playground-range::-moz-range-thumb {
+  width: 10px;
+  height: 10px;
+  border: 0;
+  border-radius: 2px;
+  background: hsl(var(--foreground) / 0.7);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .playground-range:hover::-webkit-slider-thumb {
+    background: hsl(var(--foreground));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .playground-seg::before,
+  .playground-seg-item,
+  .playground-action,
+  .playground-range::-webkit-slider-thumb {
+    transition: none;
+  }
 }
 
 /* ── Install tabs ────────────────────────────────────────────────────────── */

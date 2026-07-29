@@ -14,10 +14,10 @@ test.describe('Standalone pages', () => {
       return svg.getBoundingClientRect().width / gridWidth;
     });
 
-    expect(await getLogoScale()).toBe(3);
+    expect(await getLogoScale()).toBe(2);
 
     await page.setViewportSize({ width: 390, height: 844 });
-    expect(await getLogoScale()).toBe(3);
+    expect(await getLogoScale()).toBe(2);
   });
 
   test('serves negotiated markdown for home and privacy', async ({ request }) => {
@@ -41,7 +41,7 @@ test.describe('Standalone pages', () => {
     await expect(page.locator('.privacy-eyebrow')).toContainText('Updated');
     await expect(page.locator('[data-site-nav] .nav-link')).toHaveCount(0);
     await expect(page.locator('[data-mobile-brand-text]')).toHaveText('buxx.me');
-    await expect(page.locator('.privacy-content')).toContainText('This Privacy Policy explains how this website collects');
+    await expect(page.locator('.privacy-content')).toContainText('This Privacy Policy describes how this website collects');
 
     const search = page.getByRole('button', { name: 'Search and commands' });
     await expect(search).toHaveClass(/topbar-action--search/);
@@ -59,7 +59,7 @@ test.describe('Standalone pages', () => {
       return Math.round((brandText.getBoundingClientRect().left - logo.getBoundingClientRect().right) * 100) / 100;
     });
 
-    expect(desktopBrandGap).toBe(6);
+    expect(desktopBrandGap).toBeCloseTo(8.64, 1);
   });
 
   test('uses the home mobile navbar sizing on privacy without hiding the wordmark', async ({ page }) => {
@@ -110,7 +110,7 @@ test.describe('Standalone pages', () => {
         navHeight: navRect.height,
         brandCenterDelta: Math.abs((brandRect.top + brandRect.height / 2) - (navRect.top + navRect.height / 2)),
         brandGap: Math.round((brandText.getBoundingClientRect().left - logo.getBoundingClientRect().right) * 100) / 100,
-        brandText: brandText.textContent,
+        brandText: brandText.textContent?.trim(),
         brandTextOpacity: brandTextStyles.opacity,
         brandTextWidth: brandText.getBoundingClientRect().width,
         toggleBackground: toggleStyles.backgroundColor,
@@ -129,7 +129,7 @@ test.describe('Standalone pages', () => {
     expect(state?.navPosition).toBe('fixed');
     expect(state?.navHeight).toBe(52);
     expect(state?.brandCenterDelta).toBeLessThanOrEqual(1);
-    expect(state?.brandGap).toBe(6);
+    expect(state?.brandGap).toBeCloseTo(8.64, 1);
     expect(state?.brandText).toBe('buxx.me');
     expect(state?.brandTextOpacity).toBe('1');
     expect(state?.brandTextWidth).toBeGreaterThan(65);

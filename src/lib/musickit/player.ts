@@ -36,6 +36,9 @@ export interface PlaybackSnapshot {
 
 type Listener = (snapshot: PlaybackSnapshot) => void;
 
+/** Give up on a preview that never reaches playback within this window. */
+const LOAD_TIMEOUT_MS = 10_000;
+
 class PreviewPlayer {
   private audio: HTMLAudioElement | null = null;
 
@@ -46,6 +49,10 @@ class PreviewPlayer {
 
   private listeners = new Set<Listener>();
   private rafId = 0;
+  // Every start/stop bumps the token so a late-settling play() promise from an
+  // abandoned attempt can't flip state back on.
+  private startToken = 0;
+  private loadTimer = 0;
 
   /** Subscribe to playback snapshots; returns an unsubscribe fn. */
   subscribe(listener: Listener): () => void {
@@ -104,6 +111,24 @@ class PreviewPlayer {
     if (playing) this.startTicker();
   }
 
+  private clearLoadTimeout(): void {
+    if (!this.loadTimer) return;
+    window.clearTimeout(this.loadTimer);
+    this.loadTimer = 0;
+  }
+
+  // A preview that never reaches playback (dead CDN edge, offline mid-request)
+  // would otherwise leave the card spinning forever, so bound the wait.
+  private armLoadTimeout(token: number): void {
+    this.clearLoadTimeout();
+    this.loadTimer = window.setTimeout(() => {
+      this.loadTimer = 0;
+      if (this.startToken !== token || !this.loading) return;
+      this.stopCurrent();
+      this.emit();
+    }, LOAD_TIMEOUT_MS);
+  }
+
   private ensureAudio(): HTMLAudioElement {
     if (!this.audio) {
       this.audio = new Audio();
@@ -115,26 +140,57 @@ class PreviewPlayer {
           this.emit();
         }
       });
+      // Mid-track rebuffering reuses the loading state, so the card shows the
+      // same spinner it shows on the first tap.
+      this.audio.addEventListener('waiting', () => {
+        if (this.source !== 'preview' || this.loading) return;
+        this.loading = true;
+        this.emit();
+        this.armLoadTimeout(this.startToken);
+      });
+      this.audio.addEventListener('playing', () => {
+        if (this.source !== 'preview') return;
+        this.clearLoadTimeout();
+        this.setState(true, 'preview');
+      });
+      this.audio.addEventListener('error', () => {
+        if (this.source !== 'preview') return;
+        this.stopCurrent();
+        this.emit();
+      });
     }
     return this.audio;
   }
 
   /**
-   * Toggle playback for a request. Same owner playing means pause; otherwise
-   * start (or resume in place). Preview plays instantly — no login, no SDK.
+   * Toggle playback for a request. Same owner playing (or still loading) means
+   * stop; otherwise start or resume in place. Preview plays instantly — no
+   * login, no SDK.
    */
   async toggle(request: PlayRequest): Promise<void> {
     const sameOwner = this.owner === request;
-    if (sameOwner && this.playing) {
+    // Loading counts as "on": a second tap must be able to abort a preview that
+    // is taking too long, not queue another play() behind it.
+    if (sameOwner && (this.playing || this.loading)) {
       this.pause();
       return;
     }
-    if (sameOwner && this.source && !this.playing && this.audio) {
+    if (sameOwner && this.source && this.audio) {
       // Resume in place.
+      const token = ++this.startToken;
       this.setState(false, 'preview', true);
+      this.armLoadTimeout(token);
       this.audio.play().then(
-        () => this.setState(true, 'preview'),
-        () => this.setState(false, null),
+        () => {
+          if (this.startToken !== token) return;
+          this.clearLoadTimeout();
+          this.setState(true, 'preview');
+        },
+        () => {
+          if (this.startToken !== token) return;
+          this.clearLoadTimeout();
+          this.setState(false, null);
+        },
       );
       return;
     }
@@ -151,21 +207,29 @@ class PreviewPlayer {
       return;
     }
 
+    const token = this.startToken;
     const audio = this.ensureAudio();
     if (audio.src !== request.previewUrl) audio.src = request.previewUrl;
     this.setState(false, 'preview', true);
+    this.armLoadTimeout(token);
     audio.play().then(
       () => {
-        // Owner may have changed while play() awaited the first frame.
-        if (this.owner === request) this.setState(true, 'preview');
+        // The attempt may have been aborted while play() awaited its first frame.
+        if (this.startToken !== token) return;
+        this.clearLoadTimeout();
+        this.setState(true, 'preview');
       },
       () => {
-        if (this.owner === request) this.setState(false, null);
+        if (this.startToken !== token) return;
+        this.clearLoadTimeout();
+        this.setState(false, null);
       },
     );
   }
 
   pause(): void {
+    this.startToken += 1;
+    this.clearLoadTimeout();
     if (this.source === 'preview' && this.audio) this.audio.pause();
     this.playing = false;
     this.loading = false;
@@ -182,6 +246,8 @@ class PreviewPlayer {
   }
 
   private stopCurrent(): void {
+    this.startToken += 1;
+    this.clearLoadTimeout();
     if (this.audio) {
       this.audio.pause();
       this.audio.currentTime = 0;

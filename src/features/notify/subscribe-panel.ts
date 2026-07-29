@@ -23,6 +23,16 @@ function setupPanel(panel: HTMLElement): void {
   const toggle = document.querySelector<HTMLElement>(`[data-subscribe-toggle="${id}"]`);
   if (!toggle) return;
 
+  const scrim = document.querySelector<HTMLElement>(`[data-subscribe-scrim][data-subscribe-id="${id}"]`);
+
+  // The panel is position:fixed and placed entirely by this script, but it is
+  // rendered wherever the page happens to mount it — on the mood feed that is
+  // inside .site-shell, a z-index:1 stacking context that pins the panel's own
+  // z-index:60 under the fixed navbar. Reparent to <body> so the number means
+  // what it says on every surface. The scrim rides along to stay its sibling.
+  if (scrim && scrim.parentElement !== document.body) document.body.append(scrim);
+  if (panel.parentElement !== document.body) document.body.append(panel);
+
   const formView = panel.querySelector<HTMLElement>('[data-sub-form-view]')!;
   const successView = panel.querySelector<HTMLElement>('[data-sub-success-view]')!;
   const errorView = panel.querySelector<HTMLElement>('[data-sub-error-view]')!;
@@ -231,6 +241,7 @@ function setupPanel(panel: HTMLElement): void {
     clearHoverTimer();
     positionPanel();
     panel.classList.add('is-open');
+    scrim?.classList.add('is-open');
     panel.setAttribute('aria-hidden', 'false');
     toggle.setAttribute('aria-expanded', 'true');
     toggle.classList.add('is-active');
@@ -243,6 +254,7 @@ function setupPanel(panel: HTMLElement): void {
     if (!isOpen) return;
     isOpen = false;
     panel.classList.remove('is-open');
+    scrim?.classList.remove('is-open');
     panel.setAttribute('aria-hidden', 'true');
     toggle.setAttribute('aria-expanded', 'false');
     toggle.classList.remove('is-active');

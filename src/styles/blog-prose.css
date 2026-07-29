@@ -6,6 +6,12 @@
    Scoped under .blog-prose so it only touches rendered post bodies. Read together
    with blog.css, which owns the base type scale this layers on top of. */
 
+.blog-prose {
+  /* Block rhythm for the standalone cards the prose hosts (music, mood embed).
+     One value so they sit on the same vertical grid instead of drifting apart. */
+  --blog-block-card-gap: 28px;
+}
+
 /* --- Feature image (article hero) -------------------------------------- */
 .blog-feature {
   margin: 0 0 44px;
@@ -64,19 +70,20 @@
   z-index: 1;
 }
 
-/* Fade only when JS is present to drive it (it adds `.is-loaded` on load). */
-.js .blog-media > img {
-  opacity: 0;
-  transition: opacity 0.6s ease;
-}
-
-.js .blog-media.is-loaded > img {
-  opacity: 1;
+/* Body images still get the blur→sharp dissolve, but it runs by lifting the
+   placeholder ABOVE the photo and fading THAT out — the photo itself is never
+   hidden. Holding the photo at opacity 0 until a JS class revealed it meant an
+   image already in cache, fully decoded before the deferred module script ran,
+   still showed its blur first. The placeholder can only ever cover a photo that
+   has not arrived. `.js`-gated, so with JS off the blur stays behind and the
+   image simply shows. */
+.js .blog-prose .blog-media.is-blur::before {
+  z-index: 2;
 }
 
 .js .blog-media.is-loaded::before {
   opacity: 0;
-  transition: opacity 0.6s ease 0.1s;
+  transition: opacity 0.6s ease;
 }
 
 /* Context sizing: the hero and gallery cells fill their column; single image
@@ -90,22 +97,22 @@
   view-transition-name: blog-hero;
 }
 
-/* During a view transition the hero is captured as its own layer and the VT
-   owns its reveal. The VT snapshots the new page BEFORE its blur-up script runs,
-   so without this the hero is still opacity:0 (gated on the JS `.is-loaded`
-   class) and the snapshot is just the blurry LQIP — the morph plays against a
-   placeholder, then the sharp image hard-pops in. Force the real image visible
-   and drop the blur so the captured snapshot is the cache-warmed hero (the hover
-   pre-decoded the same URL), and suppress the 0.6s fade so it isn't animated
-   twice. */
-:root:active-view-transition .blog-feature .blog-media > img {
-  opacity: 1;
-  transition: none;
-}
-:root:active-view-transition .blog-feature .blog-media.is-blur::before {
-  opacity: 0;
-  transition: none;
-}
+/* The hero deliberately keeps its placeholder BEHIND the photo (no z-index
+   lift above, unlike body images) and never animates either layer.
+   It is the one image captured in a named view-transition layer, and a VT
+   snapshots the incoming page before that page's scripts run — so any state a
+   JS class controls is a state the snapshot and the settled page disagree on.
+   That disagreement was the stutter: the morph tweened toward a blank box, the
+   blur hard-cut in the frame the transition ended, then a third 0.6s fade
+   sharpened it. Three stages for one image.
+
+   With the placeholder behind an always-opaque photo there is no boundary to
+   disagree across — the snapshot captures whatever is painted, and the page
+   keeps showing exactly that while the remaining pixels arrive. An earlier
+   attempt forced the photo visible via `:root:active-view-transition`; that
+   only moved the jump to the moment the transition ended, and it assumed the
+   list hover had pre-decoded this URL — it had not, the card requests `?w=640`
+   while the article picks `?w=1600` from its srcset. */
 
 .blog-prose .kg-gallery-image .blog-media {
   display: block;
@@ -123,7 +130,6 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .js .blog-media > img,
   .js .blog-media.is-loaded::before {
     transition: none;
   }
@@ -522,7 +528,7 @@
   grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
   gap: 11px;
-  margin-block: 28px;
+  margin-block: var(--blog-block-card-gap);
   padding: 0;
   width: fit-content;
   max-width: min(100%, 520px);
@@ -530,6 +536,10 @@
   background: none;
 }
 
+/* The art box is wider than the record because the tonearm pivot needs the room
+   at the top-left, so the disc sits inset from the box edge. Bleed the box out
+   by exactly that inset: what the reader sees as the card's left edge is the
+   disc, and it has to land on the prose column like every other block. */
 .blog-prose .blog-music__art {
   --record-size: 72px;
   --label-size: 40px;
@@ -538,6 +548,7 @@
   width: 88px;
   height: 84px;
   flex: none;
+  margin-inline-start: calc((var(--record-left) - var(--record-size) / 2) * -1);
   padding: 0;
   border: 0;
   background: transparent;
@@ -1133,18 +1144,29 @@
 
 /* --- Mood embed --------------------------------------------------------- */
 /* Build-time enrichment (server/mood-embed.ts) rebuilds any mood reference into
-   the canonical /mood/embed iframe; the wrapper just centers and bounds it. The
-   embed carries its own card frame and posts its height back to Prose.astro. */
+   the canonical /mood/embed iframe; the wrapper just bounds it. The embed
+   carries its own card frame and posts its height back to Prose.astro. */
 .blog-prose .blog-mood-embed {
-  margin: 32px auto;
+  /* Mirrors --body-padding in src/pages/mood/embed.astro, which keeps the card's
+     shadow from clipping inside the frame. That padding is bleed, not layout, so
+     pull the frame back out and let the card's border sit on the prose column. */
+  --mood-embed-bleed: 8px;
+  margin: var(--blog-block-card-gap) 0;
   max-width: min(100%, 460px);
 }
 
 .blog-prose .blog-mood-embed iframe {
-  width: 100%;
+  width: calc(100% + var(--mood-embed-bleed) * 2);
+  margin-inline: calc(var(--mood-embed-bleed) * -1);
   border: 0;
   display: block;
   background: hsl(var(--background));
+}
+
+/* Ghost hand-breaks the line after a music embed; the enriched card brings its
+   own block margin, so the leftover <br> is just a phantom blank line. */
+.blog-prose .blog-music + br {
+  display: none;
 }
 
 /* --- Footnotes ---------------------------------------------------------- */

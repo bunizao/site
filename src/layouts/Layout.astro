@@ -1,4 +1,6 @@
 ---
+import { FONT_FILES, type Face } from '@/lib/fonts';
+
 interface Props {
   title: string;
   description: string;
@@ -14,7 +16,10 @@ interface Props {
   brandVariant?: 'home';
   headerActionsVariant?: 'default' | 'home';
   structuredData?: Record<string, unknown> | Array<Record<string, unknown>>;
-  preloadFont?: 'mono' | 'sans';
+  // The faces this route paints above the fold, in priority order. Every face
+  // is font-display: swap, so one that is painted early but not preloaded is a
+  // guaranteed reflow the moment it arrives.
+  preloadFont?: Face | Face[];
   preloadImages?: Array<{
     href: string;
     imageSrcSet?: string;
@@ -36,6 +41,7 @@ import { Moon, Sun, Monitor, Menu, X } from 'lucide-react';
 import AnimatedLogo from '@/features/logos/ui/AnimatedLogo.astro';
 import CommandPalette from '@/components/CommandPalette.astro';
 import SearchButton from '@/components/SearchButton.astro';
+import SiteBrand from '@/components/SiteBrand.astro';
 import Topbar from '@/components/Topbar.astro';
 import {
   PEEK_NAVBAR_LOGO,
@@ -62,7 +68,10 @@ const {
   brandVariant,
   headerActionsVariant = 'default',
   structuredData,
-  preloadFont = 'mono',
+  // Geist Mono carries the site identity (nav brand, meta) and Inter is the
+  // body face on every page, so both are worth the priority everywhere. Routes
+  // whose headline uses a third face add it themselves.
+  preloadFont = ['mono', 'sans'],
   preloadImages = [],
   rss,
   oembed,
@@ -108,9 +117,9 @@ const navbarSectionActiveAnimation = getPeekRuntimeSlotKey('navbar.section.activ
 const navbarSectionActiveHoldMs = getPeekRuntimeSlot('navbar.section.active').holdMs ?? 600;
 const navbarFastScrollHoldMs = getPeekRuntimeSlot('navbar.brand.hover').holdMs ?? 1000;
 const navbarIdleTimeoutAnimation = getPeekRuntimeSlotKey('navbar.idle-timeout');
-const preloadFontHref = preloadFont === 'sans'
-  ? '/fonts/inter-variable.woff2'
-  : '/fonts/geist-mono-variable.woff2';
+const preloadFontHrefs = (Array.isArray(preloadFont) ? preloadFont : [preloadFont]).map(
+  (face) => FONT_FILES[face],
+);
 ---
 
 <!DOCTYPE html>
@@ -119,13 +128,9 @@ const preloadFontHref = preloadFont === 'sans'
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content={description} />
-    <link
-      rel="preload"
-      href={preloadFontHref}
-      as="font"
-      type="font/woff2"
-      crossorigin
-    />
+    {preloadFontHrefs.map((href) => (
+      <link rel="preload" href={href} as="font" type="font/woff2" crossorigin />
+    ))}
     {robots ? <meta name="robots" content={robots} /> : null}
     {preloadImages.map((image) => (
       <link
@@ -188,11 +193,20 @@ const preloadFontHref = preloadFont === 'sans'
       (() => {
         document.documentElement.classList.add('js');
         // All WebKit browsers (Safari + every iOS browser) report the Apple
-        // vendor string. The class gates the calmer view-transition and glass
-        // rules in globals.css/blog.css; it must exist before first render so
-        // the incoming page of a cross-document transition already matches.
+        // vendor string. The class gates the glass rules in
+        // globals.css/blog.css; it must exist before first render so the
+        // incoming page of a navigation already matches.
         if (navigator.vendor === 'Apple Computer, Inc.') {
           document.documentElement.classList.add('ua-webkit');
+          // WebKit runs cross-document view transitions on the main thread, so
+          // the snapshot swap collides with the incoming page's first paint and
+          // drops a frame mid-tween. Even an opacity-only crossfade stutters
+          // there, and a stuttering fade reads worse than an instant load, so
+          // opt WebKit out on both sides of the navigation. Same-document
+          // transitions (the theme wipe) are untouched.
+          const skip = (event) => event.viewTransition?.skipTransition();
+          addEventListener('pageswap', skip);
+          addEventListener('pagereveal', skip);
         }
         const storageKey = 'theme';
         const readStoredTheme = () => {
@@ -262,27 +276,22 @@ const preloadFontHref = preloadFont === 'sans'
         aria-label={isPageNav ? 'Home' : 'Page sections'}
       >
         {!isPageNav ? <div class="nav-active-indicator" data-nav-indicator aria-hidden="true"></div> : null}
-        <a href="/" class="site-brand" aria-label="buxx.me — home" data-site-brand>
-          <span class="site-brand-logo" aria-hidden="true">
-            <AnimatedLogo
-              definition={PEEK_NAVBAR_LOGO}
-              animation={navbarDefaultAnimation}
-              hoverAnimation={brandRich ? navbarHoverAnimation : undefined}
-              size={brandRich ? 40 : 20}
-              title="peek"
-              eventChannel={brandRich ? 'nav' : undefined}
-              eventAnimations={brandRich
-                ? [
-                    navbarLinkHoverAnimation,
-                    navbarSectionActiveAnimation,
-                    navbarHoverAnimation,
-                    navbarIdleTimeoutAnimation,
-                  ]
-                : undefined}
-            />
-          </span>
-          {showsBrandText ? <span class="site-brand-text" data-mobile-brand-text>buxx.me</span> : null}
-        </a>
+        <SiteBrand
+          label="buxx.me — home"
+          animation={navbarDefaultAnimation}
+          hoverAnimation={brandRich ? navbarHoverAnimation : undefined}
+          size={brandRich ? 40 : 20}
+          wordmark={showsBrandText}
+          eventChannel={brandRich ? 'nav' : undefined}
+          eventAnimations={brandRich
+            ? [
+                navbarLinkHoverAnimation,
+                navbarSectionActiveAnimation,
+                navbarHoverAnimation,
+                navbarIdleTimeoutAnimation,
+              ]
+            : undefined}
+        />
         {!isPageNav && (
           <div class="nav-links" data-nav-links>
             <span class="nav-separator nav-separator--brand" aria-hidden="true">/</span>
@@ -1115,15 +1124,24 @@ const preloadFontHref = preloadFont === 'sans'
         let scrollCueTimer = 0;
         let lastScrollY = window.scrollY;
 
+        // Its own handle rather than the collapse block's statusEl: that one is
+        // declared further down and onScroll() runs before that line.
+        const heroStatusEl = document.querySelector('[data-hero-status]');
+
+        // On desktop the nav is vertical from load; only its visibility is
+        // scroll-driven. Reveal it as soon as the hero's status line clears the
+        // top of the viewport — the moment the reader has committed to scrolling
+        // past the hero. The previous rule waited for the first section to reach
+        // 76vh, which on a tall hero was ~650px further down.
         const syncHomeNavPresence = () => {
-          if (!isHomeNav || !desktopNavQuery.matches) {
+          if (!isHomeNav || !desktopNavQuery.matches || !heroStatusEl) {
             nav.classList.remove('is-content-nav-visible');
             return;
           }
-          const firstSection = sections[0]?.el;
-          if (!firstSection) return;
-          const sectionTop = firstSection.getBoundingClientRect().top;
-          nav.classList.toggle('is-content-nav-visible', sectionTop <= window.innerHeight * 0.76);
+          nav.classList.toggle(
+            'is-content-nav-visible',
+            heroStatusEl.getBoundingClientRect().bottom <= 0
+          );
         };
 
         const cuePeekLock = () => {
@@ -1467,6 +1485,8 @@ const preloadFontHref = preloadFont === 'sans'
           const syncHomeNavMode = () => {
             isVertical = desktopNavQuery.matches;
             nav.classList.toggle('is-vertical', isVertical);
+            // Viewport changes do not fire a scroll event, so the reveal has to
+            // be re-read here as well as in onScroll.
             syncHomeNavPresence();
             separators.forEach(s => ((s as HTMLElement).style.opacity = isVertical ? '0' : '1'));
             linkDataList.forEach(ld => {

@@ -79,9 +79,17 @@
 }
 
 /* The shared element: one avatar, fixed and driven entirely by the scroll
-   script. It starts scaled up exactly over the hero avatar and settles onto the
-   slot above. transform-origin is the top-left corner so translate + scale keep
-   the start/end boxes aligned. */
+   script. It is laid out at the HERO's size and scales DOWN onto the slot above.
+   transform-origin is the top-left corner so translate + scale keep the
+   start/end boxes aligned.
+
+   The direction matters: sized at the slot and scaled UP instead, the 30px
+   raster would be stretched ~2.7x for the whole ride, and will-change pins the
+   texture at layout size — that is the soft avatar seen sitting over the hero,
+   long before it reaches the bar. Downscaling a raster never goes soft.
+
+   width/height below are only the pre-measure fallback; measure() overwrites
+   them with the hero's size, and the flyer stays hidden until it has. */
 .mood-nav-avatar-flyer {
   position: fixed;
   top: 0;
@@ -103,6 +111,31 @@
   visibility: visible;
 }
 
+/* The scroll-driven path. Where the browser can advance an animation from the
+   scroller itself, the identity's whole travel leaves the main thread — no
+   per-frame transform writes, so a busy thread no longer costs frames (WebKit
+   felt the difference the most). The script owns the other half: it measures the
+   geometry, samples the same path into @keyframes mood-dock-*, supplies the
+   animation-range, and adds .is-scroll-timeline only once that exists. Browsers
+   without support never get the class and keep the scroll-handler fallback.
+
+   Longhands, not the `animation` shorthand: the shorthand resets animation-range,
+   and the range is the one part that comes from the injected sheet — as a
+   shorthand this rule would be fighting it on document order alone. */
+.mood-navbar.is-scroll-timeline .mood-nav-avatar-flyer {
+  animation-name: mood-dock-avatar;
+  animation-timing-function: linear;
+  animation-fill-mode: both;
+  animation-timeline: scroll(root block);
+}
+
+.mood-navbar.is-scroll-timeline .mood-nav-title__ink {
+  animation-name: mood-dock-title;
+  animation-timing-function: linear;
+  animation-fill-mode: both;
+  animation-timeline: scroll(root block);
+}
+
 .mood-nav-avatar-img {
   width: 100%;
   height: 100%;
@@ -114,21 +147,42 @@
   display: none;
 }
 
+/* The docked layout box. It carries the bar's font size (the size the title
+   settles at) but no text of its own — the ink below is absolute, so this box
+   is what the identity row measures and what the button's hit area covers.
+   measure() sets its width from the ink's natural width in docked units; the
+   cap here then clamps it. It must NOT clip: the ink overflows it by ~2.4x
+   while the title is out over the hero. */
 .mood-nav-title {
+  position: relative;
   min-width: 0;
   max-width: min(52vw, 300px);
+  height: 1.2em;
+  font-family: var(--font-code);
+  font-size: 14px;
+  line-height: 1.2;
+}
+
+/* The ink. Laid out at the HERO's font size (measure() sets it) and scaled DOWN
+   into the bar, so the big headline renders as real vector glyphs at their true
+   size. Laid out at 14px and scaled UP instead — the old contract — will-change
+   pins the texture at 14px and the hero shows stretched pixels.
+   transform-origin is the top-left corner so translate + scale keep the boxes
+   aligned at both ends. Its max-width is the box's cap expressed back in hero
+   units, so the ellipsis lands in the same place once scaled down. */
+.mood-nav-title__ink {
+  position: absolute;
+  top: 0;
+  left: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-family: var(--font-code);
-  font-size: 14px;
+  font-family: inherit;
+  font-size: inherit;
   font-weight: 600;
   letter-spacing: -0.01em;
-  line-height: 1.2;
+  line-height: inherit;
   color: hsl(var(--foreground));
-  /* The title is a shared element too: the scroll script scrubs it from the
-     hero title's box down to natural size here. transform-origin is the
-     top-left corner so translate + scale keep the boxes aligned at both ends. */
   transform-origin: 0 0;
   opacity: 0;
   will-change: opacity, transform;
@@ -180,8 +234,9 @@
     gap: 8px;
   }
 
-  .mood-nav-avatar-slot,
-  .mood-nav-avatar-flyer {
+  /* Only the slot: the flyer's box is script-owned, so its size follows the
+     hero's measured rect rather than this breakpoint. */
+  .mood-nav-avatar-slot {
     width: 28px;
     height: 28px;
   }

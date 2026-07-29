@@ -18,8 +18,10 @@ interface Props {
   /** Pairs the trigger to its panel; unique per page is enough. */
   id?: string;
   turnstileSiteKey?: string;
-  /** RSS href shown as a quiet link in the footer row. */
+  /** RSS href shown as an icon tile in the footer row. */
   feed?: string;
+  /** Telegram channel href, shown beside RSS. Omitted where there is no channel. */
+  telegram?: string;
   /** Drop edge the panel grows from, relative to its trigger. */
   anchor?: 'left' | 'right';
   /** Blog renders its own in-flow trigger; mood injects one into the header. */
@@ -32,6 +34,7 @@ const {
   id = variant,
   turnstileSiteKey = '',
   feed,
+  telegram,
   anchor = variant === 'blog' ? 'left' : 'right',
   withTrigger = variant === 'blog',
   triggerLabel = '订阅',
@@ -64,6 +67,11 @@ const intro =
     </svg>
   </button>
 )}
+
+<!-- Mobile opens the panel as a near-full-width sheet over a dense feed, so the
+     page behind it gets pushed back. A sibling (not a child) of the panel: the
+     panel scales on open, and a scrim inside it would scale with it. -->
+<div class="subscribe-scrim" data-subscribe-scrim data-subscribe-id={id} aria-hidden="true"></div>
 
 <div
   class="subscribe-panel"
@@ -157,16 +165,27 @@ const intro =
         </p>
 
         <div class="sub-actions">
-          {feed && (
-            <a class="sub-rss" href={feed} target="_blank" rel="noopener noreferrer">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <path d="M4 11a9 9 0 0 1 9 9"></path>
-                <path d="M4 4a16 16 0 0 1 16 16"></path>
-                <circle cx="5" cy="19" r="1"></circle>
-              </svg>
-              <span>通过 RSS 订阅</span>
-            </a>
-          )}
+          <div class="sub-elsewhere">
+            {feed && (
+              <a class="sub-out" href={feed} target="_blank" rel="noopener noreferrer" aria-label="通过 RSS 订阅" title="通过 RSS 订阅">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M4 11a9 9 0 0 1 9 9"></path>
+                  <path d="M4 4a16 16 0 0 1 16 16"></path>
+                  <circle cx="5" cy="19" r="1"></circle>
+                </svg>
+              </a>
+            )}
+            {telegram && (
+              <a class="sub-out" href={telegram} target="_blank" rel="noopener noreferrer" aria-label="订阅 Telegram 频道" title="订阅 Telegram 频道">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M21.5 3.5 2.5 10.9a.5.5 0 0 0 .04.94l4.6 1.42"></path>
+                  <path d="M21.5 3.5 18.4 20.2a.5.5 0 0 1-.8.29l-4.9-3.86"></path>
+                  <path d="m7.14 13.26 1.1 5.06a.5.5 0 0 0 .87.22l3.6-3.9"></path>
+                  <path d="M21.5 3.5 7.14 13.26"></path>
+                </svg>
+              </a>
+            )}
+          </div>
           <button type="submit" class="sub-submit" data-sub-submit>
             <span class="sub-submit__lock" data-sub-submit-lock aria-hidden="true">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="10" rx="2"></rect><path d="M8 11V8a4 4 0 1 1 8 0v3"></path></svg>
@@ -207,6 +226,16 @@ const intro =
      accent differs, overridden under .blog-zone below. */
   .subscribe-panel {
     --sub-accent: hsl(var(--foreground));
+    /* Surface elevation. A light page reads a panel by its shadow; a 4% dark
+       page has no shadow to give — black on near-black is still near-black — so
+       there the panel has to lift its own surface instead. The shadow stays
+       neutral black in both themes: tinting it with --foreground turns it into
+       a white halo the moment the theme flips. --sub-raised is the next step up
+       again, for controls that must read as sitting ON the panel. */
+    --sub-surface: hsl(var(--background));
+    --sub-raised: hsl(var(--background));
+    --sub-edge: hsl(var(--foreground) / 0.1);
+    --sub-elevation: 0 12px 32px hsl(0 0% 0% / 0.12), 0 2px 8px hsl(0 0% 0% / 0.06);
     position: fixed;
     z-index: 60;
     width: 320px;
@@ -217,6 +246,13 @@ const intro =
     transform-origin: top right;
     transition: opacity 0.15s ease, transform 0.15s ease, visibility 0.15s ease;
     pointer-events: none;
+  }
+
+  .dark .subscribe-panel {
+    --sub-surface: hsl(0 0% 11%);
+    --sub-raised: hsl(0 0% 17%);
+    --sub-edge: hsl(var(--foreground) / 0.18);
+    --sub-elevation: 0 18px 44px hsl(0 0% 0% / 0.66), 0 2px 10px hsl(0 0% 0% / 0.5);
   }
 
   .subscribe-panel[data-anchor='left'] {
@@ -231,11 +267,40 @@ const intro =
   }
 
   .subscribe-panel__inner {
-    background: hsl(var(--background));
-    border: 1px solid hsl(var(--foreground) / 0.1);
+    background: var(--sub-surface);
+    border: 1px solid var(--sub-edge);
     border-radius: 12px;
-    box-shadow: 0 12px 32px hsl(var(--foreground) / 0.1), 0 2px 8px hsl(var(--foreground) / 0.04);
+    box-shadow: var(--sub-elevation);
     padding: 16px;
+  }
+
+  .subscribe-scrim {
+    position: fixed;
+    inset: 0;
+    /* One below the panel, above every fixed chrome layer the page can raise. */
+    z-index: 59;
+    display: none;
+    background: hsl(0 0% 0% / 0.32);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.15s ease;
+  }
+
+  .dark .subscribe-scrim {
+    background: hsl(0 0% 0% / 0.55);
+  }
+
+  /* Desktop keeps the panel an anchored dropdown, where a scrim would be far
+     heavier than the gesture deserves. */
+  @media (max-width: 639px) {
+    .subscribe-scrim {
+      display: block;
+    }
+
+    .subscribe-scrim.is-open {
+      opacity: 1;
+      pointer-events: auto;
+    }
   }
 
   .sub-header {
@@ -422,8 +487,8 @@ const intro =
     width: 14px;
     height: 14px;
     border-radius: 50%;
-    background: hsl(var(--background));
-    box-shadow: 0 1px 2px hsl(var(--foreground) / 0.25);
+    background: var(--sub-raised);
+    box-shadow: 0 1px 2px hsl(0 0% 0% / 0.35);
     transition: transform 0.2s cubic-bezier(0.22, 1, 0.36, 1);
   }
 
@@ -461,26 +526,29 @@ const intro =
 
   /* Frequency — a sliding segmented control. The pill is translated by a CSS
      var the controller updates as the selection changes. */
+  /* No trough. Filled, this was a box inside the Moods card inside the panel —
+     three nested rectangles for one radio group. The sliding pill alone is
+     enough to say which option is live. */
   .sub-seg {
     --sub-seg-count: 3;
     --sub-seg-offset: 0%;
     position: relative;
     display: flex;
-    background: hsl(var(--foreground) / 0.04);
-    border-radius: 9px;
-    padding: 3px;
     isolation: isolate;
   }
 
   .sub-seg__pill {
     position: absolute;
-    top: 3px;
-    bottom: 3px;
-    left: 3px;
-    width: calc((100% - 6px) / var(--sub-seg-count));
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: calc(100% / var(--sub-seg-count));
     border-radius: 7px;
-    background: hsl(var(--background));
-    box-shadow: 0 1px 3px hsl(var(--foreground) / 0.1), 0 0 0 1px hsl(var(--foreground) / 0.04);
+    /* The selected pill has to sit ABOVE its trough. Painted with --background
+       it went the other way in dark mode — a 4% pill inside a trough already
+       lightened by the panel surface, so the selection read as a hole. */
+    background: var(--sub-raised);
+    box-shadow: 0 1px 3px hsl(0 0% 0% / 0.25), 0 0 0 1px hsl(var(--foreground) / 0.06);
     transform: translate3d(var(--sub-seg-offset), 0, 0);
     -webkit-transform: translate3d(var(--sub-seg-offset), 0, 0);
     transition: transform 0.26s cubic-bezier(0.22, 1, 0.36, 1);
@@ -501,7 +569,7 @@ const intro =
     position: relative;
     z-index: 1;
     text-align: center;
-    padding: 5px 0;
+    padding: 6px 0;
     font-size: 12px;
     font-weight: 500;
     color: hsl(var(--muted-foreground));
@@ -577,28 +645,65 @@ const intro =
     margin-top: 12px;
   }
 
-  .sub-rss {
+  /* "Subscribe elsewhere" — RSS and the Telegram channel are the same kind of
+     action (leave with the feed, no email needed), so they read as one matched
+     pair of icon tiles instead of one labelled link and an afterthought. Sized
+     to the submit button's height so the row keeps a single control line. */
+  .sub-elsewhere {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
-    font-size: 12px;
-    font-weight: 500;
-    color: hsl(var(--muted-foreground) / 0.82);
-    transition: color 0.15s ease;
+    /* The tiles' boxes are 6px wider than their glyphs on every side. Left as
+       laid out, the icons alone would start 6px inside the column the input and
+       both channel cards share; bleed that padding back out so the row starts
+       on the same edge as everything above it. */
+    margin-left: -6px;
+    /* Wider than it looks: the tiles' hit areas reach 5px past their boxes, so
+       this gap is what keeps the two targets from overlapping (30 + 10 = 40,
+       exactly one hit area per centre). */
+    gap: 10px;
   }
 
-  .sub-rss svg {
-    width: 13px;
-    height: 13px;
-    transition: color 0.15s ease;
+  /* Borderless on purpose. Outlined, these two matched the submit button's box
+     exactly and the row became three equal-weight rectangles with no primary
+     action in sight — the panel already stacks enough boxes above it. */
+  .sub-out {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    color: hsl(var(--muted-foreground) / 0.85);
+    border-radius: 8px;
+    transition: color 0.15s ease, background 0.15s ease, scale 0.12s ease;
   }
 
-  .sub-rss:hover {
-    color: hsl(var(--foreground));
+  /* 30px visual, 40×40 tap target. Only the target grows — an 18px glyph in a
+     34px box left so much air that the hover surface read as a stray square
+     rather than the icon's own button. */
+  .sub-out::before {
+    content: '';
+    position: absolute;
+    inset: -5px;
   }
 
-  .sub-rss:hover svg {
+  .sub-out svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  .sub-out:hover {
     color: var(--sub-accent);
+    background: hsl(var(--foreground) / 0.07);
+  }
+
+  .sub-out:active {
+    scale: 0.96;
+  }
+
+  .sub-out:focus-visible {
+    outline: 2px solid var(--sub-accent);
+    outline-offset: 2px;
   }
 
   .sub-submit {
@@ -852,6 +957,7 @@ const intro =
 
     .sub-submit:active:not(:disabled),
     .sub-trigger:active,
+    .sub-out:active,
     .sub-close:active {
       scale: 1;
     }

@@ -12,7 +12,10 @@ describe('navbar regression guards', () => {
     expect(source).toContain("headerActionsVariant?: 'default' | 'home'");
     expect(source).toContain("const useHomeHeaderActions = isHomeNav || headerActionsVariant === 'home';");
     expect(source).toContain("rel=\"preload\"");
-    expect(source).toContain("/fonts/geist-mono-variable.woff2");
+    // The hrefs come from FONT_FILES now; the guard is that 'mono' — the site
+    // identity face — stays in the default preload set.
+    expect(source).toContain("preloadFont = ['mono', 'sans']");
+    expect(source).toContain('FONT_FILES[face]');
     expect(source).toContain("'global-header-actions--home': useHomeHeaderActions");
   });
 
@@ -68,16 +71,18 @@ describe('navbar regression guards', () => {
   test('home and page navbars share brand chrome tokens', () => {
     const globalStyles = read('src/styles/globals.css');
     const pageStyles = read('src/layouts/Page.astro');
+    const brandStyles = read('src/styles/brand.css');
 
     expect(globalStyles).toContain('--site-nav-brand-gap: 0.375rem;');
     expect(globalStyles).toContain('--site-nav-mobile-height: 3.25rem;');
     expect(globalStyles).toContain('--site-nav-mobile-padding: 0 4rem 0 1rem;');
-    expect(globalStyles).toContain('--site-nav-mobile-logo-height: 21px;');
-    expect(globalStyles).toContain('--site-nav-mobile-wordmark-width: 5.2rem;');
-    expect(pageStyles).toContain('gap: var(--site-nav-brand-gap);');
+    expect(globalStyles).toContain('--site-nav-mobile-logo-height: 14px;');
+    expect(globalStyles).toContain('--site-nav-mobile-wordmark-width: 5.6rem;');
+    expect(brandStyles).toContain('.site-brand-row {');
+    expect(brandStyles).toContain('--brand-logo-height');
     expect(pageStyles).toContain('height: var(--site-nav-mobile-height);');
     expect(pageStyles).toContain('padding: var(--site-nav-mobile-padding);');
-    expect(pageStyles).toContain('height: var(--site-nav-mobile-logo-height);');
+    expect(pageStyles).toContain('--brand-logo-height: var(--site-nav-mobile-logo-height);');
     expect(pageStyles).toContain('width: var(--site-nav-mobile-wordmark-width);');
   });
 });

@@ -9,13 +9,14 @@
  *  - Real VISUAL lines are measured (offsetTop grouping) and each line is
  *    rendered as a `white-space: nowrap` block, so a line can change width
  *    without re-wrapping the paragraph.
- *  - Scheduling follows Soulwire's original three power fronts sweeping a
- *    (usually shuffled) queue: `show` (p^0.5 — cursors flood in early),
- *    `mash` (p^2 — cursors graduate to boiling scramble), and `done`
- *    (p^15 — almost nothing resolves until the end, then it crystallises in
- *    a left-to-right cascade). Each front is folded into per-cell thresholds
- *    up front. Resolution stays ordered so completed words never gain a late
- *    letter in their middle.
+ *  - Scheduling runs Soulwire's three fronts, but in separated windows: the
+ *    shuffled `show` (p^0.5 — cursors flood in early) and `mash` (p^2 —
+ *    cursors graduate to boiling scramble) fronts both finish below
+ *    `settleStart`, and only then does a strictly left-to-right resolve front
+ *    sweep the line at constant speed. Packing the noisy fronts underneath the
+ *    resolve front is what keeps the reveal smooth: a cell can never be held
+ *    back by a late shuffle slot, so the line crystallises one glyph at a time
+ *    instead of snapping in a block at the end.
  *  - Two layout modes:
  *      `grow`   — unshown characters collapse to zero width and the line
  *                 condenses in. Scramble glyphs must match the real glyph
@@ -47,19 +48,31 @@ export interface DecodeOptions {
   showPower?: number;
   /** Mash front exponent: cursor graduates to boiling scramble as p^mashPower sweeps. Default: 2 */
   mashPower?: number;
-  /** Done front exponent: scramble resolves as p^donePower sweeps — high values hold everything until an end cascade. Default: 15 */
-  donePower?: number;
+  /**
+   * Progress at which the left-to-right resolve front starts its sweep. The
+   * show and mash fronts are packed below it, so lower values mean less boiling
+   * and a longer, slower crystallisation. Default: 0.52
+   */
+  settleStart?: number;
+  /**
+   * Shape of the resolve front across the line. 1 is a constant-speed beam;
+   * below 1 opens fast and savours the last glyphs; above 1 hesitates then
+   * finishes hard. Default: 0.8
+   */
+  settleCurve?: number;
   /** Mix the text's own (ASCII) characters into the scramble pool. Default: true */
   scrambleFromText?: boolean;
   /** Seconds of line duration per character, clamped to [minLineDuration, maxLineDuration]. */
   durationPerChar?: number;
   minLineDuration?: number;
   maxLineDuration?: number;
-  /** Next line starts at `lineStagger * (sum of previous line durations)`. Default: 0.16 */
+  /** Next line starts at `lineStagger * (sum of previous line durations)`. Default: 0.2 */
   lineStagger?: number;
+  /** Minimum seconds between two consecutive line completions. Default: 0.07 */
+  lineEndGap?: number;
   /** Scramble glyph refresh rate in mutations per second per cell. Default: 18 */
   mutationHz?: number;
-  /** Timeline easing. Default: easeInOutQuint (the Soulwire original) */
+  /** Timeline easing. Default: easeInOutSine — soft ends, near-constant middle. */
   ease?: (t: number) => number;
   /** Wait for `document.fonts.ready` up to this many ms before measuring. Default: 400 */
   fontTimeout?: number;
@@ -107,23 +120,32 @@ const DEFAULTS = {
   order: 'shuffle' as DecodeOrder,
   showPower: 0.5,
   mashPower: 2,
-  donePower: 15,
+  settleStart: 0.52,
+  settleCurve: 0.8,
   scrambleFromText: true,
-  durationPerChar: 0.024,
-  minLineDuration: 0.5,
-  maxLineDuration: 1.8,
-  lineStagger: 0.16,
+  durationPerChar: 0.019,
+  minLineDuration: 0.42,
+  maxLineDuration: 1.25,
+  lineStagger: 0.2,
+  lineEndGap: 0.07,
   mutationHz: 18,
   fontTimeout: 400,
   respectReducedMotion: true,
-  ease: (t: number): number =>
-    t < 0.5 ? 16 * t * t * t * t * t : 1 - Math.pow(-2 * t + 2, 5) / 2,
+  // easeInOutSine: moves off zero straight away (no dead frames at the head of
+  // a line) and decelerates gently into the last glyph.
+  ease: (t: number): number => (1 - Math.cos(Math.PI * t)) / 2,
 };
 
 type Resolved = typeof DEFAULTS & DecodeOptions;
 
 /** Largest per-frame clock step, ms. Keeps a backgrounded tab from snapping to done. */
 const MAX_FRAME_MS = 64;
+
+/** Share of the pre-settle window the show front owns; the mash front takes the rest. */
+const SHOW_WINDOW = 0.65;
+
+/** Progress every cell spends boiling before the resolve front may reach it. */
+const MIN_BOIL = 0.06;
 
 const SR_ONLY_STYLE =
   'position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0';
@@ -348,38 +370,68 @@ const renderLine = (
 };
 
 /**
- * Fold the three power fronts into per-cell thresholds. A front with exponent
- * y reaches queue fraction q at progress q^(1/y): showPower < 1 floods
- * cursors in early, donePower >> 1 holds resolution back until an end
- * cascade. `shuffle` affects the noisy show/mash phases only. Final letters
- * resolve left to right in both modes, preventing a word that already reads as
- * complete from widening when a missing letter settles late.
+ * Fold the three fronts into per-cell thresholds.
+ *
+ * The show and mash fronts keep Soulwire's power shape — a front with exponent
+ * y reaches queue fraction q at progress q^(1/y), so showPower < 1 floods
+ * cursors in early — but both are scaled into the window below `settleStart`,
+ * where `shuffle` can scatter them freely. The resolve front then sweeps left
+ * to right at constant speed over the remaining window, one cell at a time.
+ *
+ * Keeping the two apart is the whole trick. When the shuffled mash threshold
+ * was allowed to floor `settleAt` directly, the cell holding the last shuffle
+ * slot could not resolve before progress 1, and the monotonic pass dragged
+ * every cell behind it to the same frame — so most of a line snapped from
+ * scramble to final text in a single frame. Now `mashAt + MIN_BOIL` is capped
+ * at `settleStart` by construction, so that floor can never bind and the sweep
+ * stays even.
  */
 const scheduleLines = (lines: Line[], opts: Resolved): void => {
+  const settleStart = Math.min(Math.max(opts.settleStart, MIN_BOIL), 0.95);
+  const appearEnd = settleStart * SHOW_WINDOW;
+  const mashEnd = Math.max(appearEnd, settleStart - MIN_BOIL);
+
   let cumulative = 0;
+  let previousStart = 0;
+  let previousEnd = -Infinity;
+
   for (const line of lines) {
     const n = line.cells.length;
     const slots = Array.from({ length: n }, (_, i) => i);
     const appearSlots = opts.order === 'shuffle' ? shuffle(slots.slice()) : slots;
     line.cells.forEach((cell, i) => {
-      const qAppear = (appearSlots[i] + 1) / n;
-      const qSettle = (i + 1) / n;
-      cell.appearAt = Math.pow(qAppear, 1 / opts.showPower);
-      cell.mashAt = Math.max(cell.appearAt, Math.pow(qAppear, 1 / opts.mashPower));
-      cell.settleAt = Math.max(cell.mashAt, Math.pow(qSettle, 1 / opts.donePower));
+      const q = (appearSlots[i] + 1) / n;
+      const reach = Math.pow(n > 1 ? i / (n - 1) : 1, opts.settleCurve);
+      cell.appearAt = appearEnd * Math.pow(q, 1 / opts.showPower);
+      cell.mashAt = Math.max(cell.appearAt, mashEnd * Math.pow(q, 1 / opts.mashPower));
+      cell.settleAt = Math.max(
+        cell.mashAt + MIN_BOIL,
+        settleStart + (1 - settleStart) * reach
+      );
     });
-    // A late shuffled mash threshold can otherwise hold back an early letter
-    // after later letters have settled. Keep the final frontier monotonic so
-    // resolved text only grows at its trailing edge.
-    for (let i = 1; i < line.cells.length; i += 1) {
+    // Guard the resolve front against custom front options: it only ever moves
+    // forward, so text that already reads as finished never gains a letter
+    // behind the front.
+    for (let i = 1; i < n; i += 1) {
       line.cells[i].settleAt = Math.max(line.cells[i].settleAt, line.cells[i - 1].settleAt);
     }
+
     line.duration = Math.min(
       opts.maxLineDuration,
       Math.max(opts.minLineDuration, opts.durationPerChar * n)
     );
-    line.start = opts.lineStagger * cumulative;
+    // Lines finish in reading order. Without the last two terms a short wrapped
+    // remnant ("open source.") would beat the long line above it to the end,
+    // because start is staggered by summed durations while duration tracks
+    // character count.
+    line.start = Math.max(
+      opts.lineStagger * cumulative,
+      previousStart,
+      previousEnd + opts.lineEndGap - line.duration
+    );
     cumulative += line.duration;
+    previousStart = line.start;
+    previousEnd = line.start + line.duration;
   }
 };
 

@@ -22,7 +22,7 @@ import { loadInitialMoodFeed as loadInitialMoodFeedWindow } from '@/features/moo
 import { getMoodFeedPreloadImage } from '@/features/mood/shared/lcp-preload';
 import { normalizeMoodTagSlug } from '@/features/mood/shared/tag-filter';
 import { isE2ESiteFixtureEnabled } from '@/lib/e2e';
-import { readPublicEnv } from '@/lib/runtime/env';
+import { readEnv, readPublicEnv } from '@/lib/runtime/env';
 import '@/styles/mood-gallery.css';
 import '@/styles/listening.css';
 
@@ -75,6 +75,11 @@ async function loadInitialMoodFeed() {
 }
 
 const initialFeed = await loadInitialMoodFeed();
+// The feed mirrors a Telegram channel, so subscribing there is a real
+// alternative to email. The slug is the channel username; without it the
+// subscribe panel just drops the tile.
+const channelSlug = initialFeed?.channel?.slug?.trim() || readEnv(Astro.locals, 'CHANNEL');
+const telegramHref = channelSlug ? `https://t.me/${channelSlug}` : undefined;
 // Preload the exact media the priority feed element will render (see
 // getMoodFeedPreloadImage): aligns the high-priority fetch with the real LCP.
 const preloadImage = initialFeed
@@ -110,6 +115,7 @@ const skeletonGroups = [
 ---
 
 <Layout
+  preloadFont={['code', 'mono', 'sans']}
   title={title}
   description={description}
   image="/mood-og.png"
@@ -134,7 +140,7 @@ const skeletonGroups = [
       tagFilter={moodTagFilter}
     />
   </main>
-  <SubscribePanel variant="mood" id="mood" anchor="right" withTrigger={false} feed={rssHref} turnstileSiteKey={turnstileSiteKey} />
+  <SubscribePanel variant="mood" id="mood" anchor="right" withTrigger={false} feed={rssHref} telegram={telegramHref} turnstileSiteKey={turnstileSiteKey} />
   {/* Back-to-top is now the MoodNavbar avatar (click it to return to the top),
       so the floating button is retired on the feed. The component itself is kept
       — /mood/[id] still renders it — just no longer referenced here. */}

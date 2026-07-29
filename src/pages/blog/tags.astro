@@ -99,6 +99,8 @@ const rowBottom = tags.filter((_, i) => i % 2 === 1);
       }
       const setWidth = track.scrollWidth;
       [...track.children].forEach((node) => track.appendChild(node.cloneNode(true)));
+      // Fresh clones carry no listeners; wire them or their placeholders never lift.
+      wireCards(track);
       return { track, dir, setWidth };
     });
 
@@ -212,19 +214,38 @@ const rowBottom = tags.filter((_, i) => i % 2 === 1);
     }
   }
 
-  document.querySelectorAll<HTMLElement>('.tag-card.has-image').forEach((card) => {
-    const bg = card.querySelector<HTMLElement>('.tag-card-bg');
-    const img = card.querySelector<HTMLImageElement>('.tag-card-bg > img');
-    if (!bg || !img) return;
-    const apply = () => {
-      bg.classList.add('is-loaded'); // crossfade the photo over the LQIP / surface
-      // Release the blurred LQIP layer once its fade (0.6s + 0.1s delay) ends;
-      // an invisible blur() pseudo otherwise stays composited per card.
-      setTimeout(() => bg.classList.remove('has-lqip'), 900);
-      const color = dominantColor(img);
-      if (color) card.style.setProperty('--tag-image-color', color);
-    };
-    if (img.complete && img.naturalWidth > 0) apply();
-    else img.addEventListener('load', apply);
-  });
+  // Reveal wiring, callable on any subtree. The marquee builds its loop with
+  // `cloneNode(true)`, which copies classes but NOT listeners — a clone made
+  // before its original had loaded would otherwise sit under its placeholder
+  // forever, since nothing was left to clear it. So clones get wired too.
+  //
+  // The already-wired guard tracks element identity in a WeakSet rather than a
+  // data attribute: cloneNode copies attributes, so an attribute marker rides
+  // along to every clone and makes the listener-less copies look done.
+  const wired = new WeakSet<HTMLElement>();
+  function wireCards(root: ParentNode = document) {
+    root.querySelectorAll<HTMLElement>('.tag-card.has-image').forEach((card) => {
+      const bg = card.querySelector<HTMLElement>('.tag-card-bg');
+      const img = card.querySelector<HTMLImageElement>('.tag-card-bg > img');
+      if (!bg || !img || wired.has(bg)) return;
+      wired.add(bg);
+      const apply = () => {
+        bg.classList.add('is-loaded'); // dissolve the LQIP off the photo
+        // Release the blurred LQIP layer once its fade ends; an invisible
+        // blur() pseudo otherwise stays composited per card.
+        setTimeout(() => bg.classList.remove('has-lqip'), 900);
+        const color = dominantColor(img);
+        if (color) card.style.setProperty('--tag-image-color', color);
+      };
+      if (img.complete && img.naturalWidth > 0) apply();
+      else {
+        img.addEventListener('load', apply, { once: true });
+        // The placeholder sits above the photo, so a broken image must still
+        // clear it — otherwise the card stays blurred forever.
+        img.addEventListener('error', apply, { once: true });
+      }
+    });
+  }
+
+  wireCards();
 </script>

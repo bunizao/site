@@ -122,6 +122,9 @@ test.describe('Home page', () => {
 
   test('starts the bio decode after the hero identity reveal', async ({ page }) => {
     await page.emulateMedia({ reducedMotion: 'no-preference' });
+    // This case exercises reservation layout, not browser font-download timing.
+    // Resolve the FontFaceSet immediately so a busy CI runner cannot select the
+    // intentional no-reservation fallback before the assertions run.
     await page.addInitScript(() => {
       const chain = {
         bioReadyAt: 0,
@@ -490,6 +493,18 @@ test.describe('Home page', () => {
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify(mixedHomeMoodPayload),
+      });
+    });
+
+    await page.addInitScript(() => {
+      const fonts = document.fonts;
+      Object.defineProperty(fonts, 'ready', {
+        configurable: true,
+        value: Promise.resolve(fonts),
+      });
+      Object.defineProperty(fonts, 'load', {
+        configurable: true,
+        value: async () => [],
       });
     });
 

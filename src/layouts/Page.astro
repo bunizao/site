@@ -89,40 +89,22 @@ const {
     gap: 0;
   }
 
+  /* The page template runs its own chrome color, so the lockup only needs the
+     foreground token swapped — brand.css owns the rest. */
   :global(.site-nav--page .site-brand) {
-    justify-content: flex-start;
+    --brand-fg: var(--page-chrome-fg);
+
     width: auto;
     height: 34px;
     margin: 0;
-    gap: var(--site-nav-brand-gap);
     border-radius: 0;
-    color: var(--page-chrome-fg);
     background: transparent;
   }
 
   :global(.site-nav--page .site-brand:hover),
   :global(.site-nav--page .site-brand:focus-visible) {
-    color: var(--page-chrome-fg);
     background: transparent;
     opacity: 0.72;
-  }
-
-  :global(.site-nav--page .site-brand-logo) {
-    display: inline-flex;
-    line-height: 0;
-  }
-
-  :global(.site-nav--page .site-brand-text) {
-    display: inline-block;
-    cursor: pointer;
-    padding: 0;
-    border-radius: 0;
-    font-size: 1.08rem;
-    line-height: 1;
-    font-weight: 700;
-    letter-spacing: -0.01em;
-    color: var(--page-chrome-fg);
-    white-space: nowrap;
   }
 
   .page-shell {
@@ -283,42 +265,27 @@ const {
     }
 
     :global(body.page-template-active .site-nav--page .site-brand) {
+      --brand-logo-height: var(--site-nav-mobile-logo-height);
+
       width: auto;
       min-width: var(--site-nav-mobile-brand-min-width);
       min-height: var(--site-nav-mobile-action-size);
       margin: 0;
       padding-right: 0;
-      gap: var(--site-nav-brand-gap);
       overflow: hidden;
     }
 
+    /* The box shrink-wraps the art; the derived --brand-gap owns the spacing. */
     :global(body.page-template-active .site-nav--page .site-brand-logo) {
       position: relative;
       z-index: 2;
-      flex: 0 0 auto;
-      width: var(--site-nav-mobile-logo-width);
-      height: var(--site-nav-mobile-logo-height);
-      line-height: 0;
       transform: translateX(0);
     }
 
-    :global(body.page-template-active .site-nav--page .site-brand-logo > span),
-    :global(body.page-template-active .site-nav--page .site-brand-logo svg) {
-      width: auto !important;
-      height: var(--site-nav-mobile-logo-height) !important;
-    }
-
     :global(body.page-template-active .site-nav--page .site-brand-text) {
-      display: inline-block;
       width: var(--site-nav-mobile-wordmark-width);
       flex: 0 0 var(--site-nav-mobile-wordmark-width);
       max-width: var(--site-nav-mobile-wordmark-width);
-      font-size: var(--site-nav-mobile-wordmark-size);
-      line-height: 1;
-      font-weight: 600;
-      letter-spacing: -0.01em;
-      color: var(--page-chrome-fg);
-      white-space: nowrap;
     }
 
     :global(.page-content h1) {
