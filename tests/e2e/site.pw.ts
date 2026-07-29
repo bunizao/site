@@ -348,7 +348,7 @@ test.describe('Home page', () => {
     await page.emulateMedia({ reducedMotion: 'no-preference' });
     await page.goto('/');
 
-    const soundRequest = page.waitForRequest((request) => request.url().endsWith('/audio/theme-click.mp3'));
+    const soundRequest = page.waitForRequest((request) => request.url().endsWith('/audio/theme-switch.mp3'));
     await page.locator('[data-theme-dropdown]').hover();
     await page.locator('[data-theme-option="dark"]').click();
     await soundRequest;

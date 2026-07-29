@@ -751,6 +751,8 @@ const searchHighlight = blogPalette.ji;
       // pointermove (not mouseenter) so keyboard scrolling under a resting
       // cursor doesn't steal the highlight.
       el.addEventListener('pointermove', () => {
+        // The Appearance row isn't a mouse target; only its segments are.
+        if (el.hasAttribute('data-command-segmented')) return;
         const index = visible.indexOf(el);
         if (index >= 0 && visible[activeIndex] !== el) setActive(index, false);
       });
@@ -1267,11 +1269,11 @@ const searchHighlight = blogPalette.ji;
   /* Instant hover: a light tint paints under the cursor on the first frame,
      before JS promotes the row to the keyboard highlight. */
   @media (hover: hover) and (pointer: fine) {
-    .cmdk-item:hover:not(.is-active) {
+    .cmdk-item:hover:not(.is-active):not(.cmdk-item--segmented) {
       background: hsl(var(--foreground) / 0.035);
       color: hsl(var(--foreground) / 0.85);
     }
-    .cmdk-item:hover:not(.is-active) .cmdk-icon {
+    .cmdk-item:hover:not(.is-active):not(.cmdk-item--segmented) .cmdk-icon {
       color: hsl(var(--muted-foreground));
     }
   }
@@ -1284,7 +1286,7 @@ const searchHighlight = blogPalette.ji;
   }
   /* Press feedback: the highlight deepens instead of the row scaling — a
      full-width row that shrinks reads as layout jitter, not as a press. */
-  .cmdk-item:active {
+  .cmdk-item:active:not(.cmdk-item--segmented) {
     background: hsl(var(--foreground) / 0.11);
   }
   .cmdk-item:focus-visible {
