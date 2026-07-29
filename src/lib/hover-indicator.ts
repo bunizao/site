@@ -47,16 +47,56 @@ export function attachHoverIndicator(list: HTMLElement, options: Options): void 
     pill.style.opacity = '1';
   };
 
+  // Last pointer position, kept so a scroll can re-resolve which item sits under
+  // a stationary cursor. Scrolling moves items past the pointer without firing
+  // pointerover, which otherwise strands the pill on the item you left — while
+  // the CSS `:hover` dim, which the browser does re-evaluate after a scroll,
+  // moves on without it.
+  let pointerX = 0;
+  let pointerY = 0;
+  let scrolling = false;
+
+  const enter = (item: HTMLElement) => {
+    list.classList.add('is-hovering');
+    moveTo(item);
+  };
+
+  const leave = () => {
+    list.classList.remove('is-hovering');
+    pill.style.opacity = '0';
+  };
+
+  const onScroll = () => {
+    if (!list.classList.contains('is-hovering')) return;
+    const item = (document.elementFromPoint(pointerX, pointerY) as HTMLElement | null)
+      ?.closest<HTMLElement>(itemSelector);
+    if (item && list.contains(item)) moveTo(item);
+    else leave();
+  };
+
   list.addEventListener('pointerover', (event) => {
     const item = (event.target as HTMLElement).closest<HTMLElement>(itemSelector);
     if (item && list.contains(item)) {
-      list.classList.add('is-hovering');
-      moveTo(item);
+      pointerX = event.clientX;
+      pointerY = event.clientY;
+      if (!scrolling) {
+        document.addEventListener('scroll', onScroll, { passive: true, capture: true });
+        scrolling = true;
+      }
+      enter(item);
     }
   });
 
+  list.addEventListener('pointermove', (event) => {
+    pointerX = event.clientX;
+    pointerY = event.clientY;
+  }, { passive: true });
+
   list.addEventListener('pointerleave', () => {
-    list.classList.remove('is-hovering');
-    pill.style.opacity = '0';
+    if (scrolling) {
+      document.removeEventListener('scroll', onScroll, { capture: true });
+      scrolling = false;
+    }
+    leave();
   });
 }
