@@ -853,16 +853,31 @@ html.dark .cgrid-tile:hover {
   gap: 0.9rem;
 }
 
-/* DecodeText is inherently monospace — it needs fixed-width glyph cells. */
+/* DecodeText is inherently monospace — it needs fixed-width glyph cells.
+   Reads as copy, not a headline: left-aligned in a column sized to its own
+   longest line, at body weight. Semibold centred display type turned a paragraph
+   of boiling text into a ragged wall. The dimmed base lets .decode-preview-mark
+   burn through at full foreground — colour is the only highlight the engine
+   carries across its cell rebuild. */
 .decode-preview {
+  display: block;
+  /* A fixed measure, not fit-content: `grow` layout collapses unshown cells, so
+     a shrink-to-fit box would resize every frame and slide the whole paragraph
+     sideways while it decodes. */
+  width: min(100%, 48ch);
+  margin-inline: auto;
   font-family: var(--font-mono);
-  font-size: clamp(1.1rem, 3vw, 1.6rem);
-  line-height: 1.5;
-  font-weight: 600;
-  text-align: center;
-  color: hsl(var(--foreground));
+  font-size: clamp(0.78rem, 1.9vw, 0.95rem);
+  line-height: 2;
+  font-weight: 400;
+  text-align: left;
+  color: hsl(var(--foreground) / 0.45);
   cursor: pointer;
   user-select: none;
+}
+
+.decode-preview-mark {
+  color: hsl(var(--foreground));
 }
 
 /* The listening widget is fit-content; keep it centered and give the marquee
@@ -888,7 +903,7 @@ html.dark .cgrid-tile:hover {
 
 /* ── Playground (decode-text) ────────────────────────────────────────────────
    A tuning bench, not a form. Stage and panel are one bordered instrument split
-   by a hairline; the snippet sits below as its readout.
+   by a hairline; the snippet sits below in the same frame as the Usage block.
 
    Type carries the hierarchy: sans labels for chrome, mono only where the value
    IS data (the stage, the readouts, the snippet). The stage dims its base text
@@ -920,9 +935,7 @@ html.dark .cgrid-tile:hover {
   display: flex;
   align-items: center;
   min-height: 15rem;
-  /* Top padding clears the absolutely-positioned replay button, which the first
-     line otherwise runs under once the text wraps on narrow screens. */
-  padding: 2.9rem 1.75rem 2rem;
+  padding: 3rem 1.75rem 2rem;
   font-family: var(--font-mono);
   font-size: clamp(0.8rem, 2.1vw, 0.95rem);
   line-height: 2;
@@ -942,20 +955,26 @@ html.dark .cgrid-tile:hover {
   color: hsl(var(--foreground));
 }
 
-/* Pinned to the stage it replays, not stranded in the footer. Ghost until the
-   stage is hovered or the button itself is focused. */
-.playground-replay {
+/* Pinned to the stage they act on, not stranded in a footer. Ghost until the
+   stage is hovered or a button takes focus. */
+.playground-actions {
   position: absolute;
-  top: 0.75rem;
-  right: 0.75rem;
+  top: 0.7rem;
+  right: 0.7rem;
+  display: flex;
+  gap: 0.25rem;
+}
+
+.playground-action {
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
-  padding: 0.35rem 0.65rem;
+  height: 1.75rem;
+  padding: 0 0.6rem;
   border: 1px solid transparent;
   border-radius: calc(var(--radius) - 4px);
-  background: hsl(var(--background) / 0.8);
-  color: hsl(var(--foreground) / 0.4);
+  background: none;
+  color: hsl(var(--foreground) / 0.35);
   font-family: var(--font-sans);
   font-size: 0.75rem;
   font-weight: 500;
@@ -966,24 +985,24 @@ html.dark .cgrid-tile:hover {
     transform 0.16s var(--ease-out);
 }
 
-.playground-replay:active {
+.playground-action:active {
   transform: scale(0.97);
 }
 
-.playground-replay:focus-visible {
+.playground-action:focus-visible {
+  outline: none;
   color: hsl(var(--foreground));
   border-color: var(--line2);
 }
 
 @media (hover: hover) and (pointer: fine) {
-  .playground-stage-wrap:hover .playground-replay {
-    color: hsl(var(--foreground) / 0.7);
-    border-color: var(--line);
+  .playground-stage-wrap:hover .playground-action {
+    color: hsl(var(--foreground) / 0.6);
   }
 
-  .playground-replay:hover {
+  .playground-action:hover {
     color: hsl(var(--foreground));
-    border-color: var(--line2);
+    border-color: var(--line);
   }
 }
 
@@ -992,31 +1011,35 @@ html.dark .cgrid-tile:hover {
 .playground-panel {
   display: flex;
   flex-direction: column;
-  gap: 1.1rem;
-  padding: 1.25rem 1.25rem 1.15rem;
+  gap: 1.25rem;
+  padding: 1.25rem;
   border-top: 1px solid var(--line);
   background: var(--surface);
 }
 
-.playground-row {
-  display: grid;
-  gap: 0.9rem 1.25rem;
+/* Segments size to their own labels and wrap; only the charset field takes the
+   slack. Stretching a two-word toggle across a grid column is what made the
+   controls read as a web form. */
+.playground-row--controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 1rem 1.25rem;
 }
 
-.playground-row--segments {
-  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
-  align-items: end;
+.playground-row--controls .playground-field {
+  flex: 0 0 auto;
 }
 
-/* Segments and the charset input share one control height so their labels sit
-   on a single baseline instead of stepping down at the end of the row. */
-.playground-row--segments .playground-seg,
-.playground-row--segments .playground-input {
-  height: 2.15rem;
+.playground-field--charset {
+  flex: 1 1 10rem;
+  min-width: 8rem;
 }
 
 .playground-row--sliders {
+  display: grid;
   grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+  gap: 0.9rem 1.25rem;
 }
 
 .playground-field {
@@ -1026,16 +1049,12 @@ html.dark .cgrid-tile:hover {
   min-width: 0;
 }
 
-.playground-field--charset {
-  grid-column: span 1;
-}
-
 /* Chrome is sans; only the value is mono, so the eye can find the numbers. */
 .playground-label {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  gap: 0.5rem;
+  gap: 0.75rem;
   font-family: var(--font-sans);
   font-size: 0.78rem;
   font-weight: 500;
@@ -1043,19 +1062,22 @@ html.dark .cgrid-tile:hover {
   color: hsl(var(--foreground) / 0.55);
 }
 
-/* A caption on the label, not a right-hand readout — it belongs next to the
-   word it explains, so it opts out of the label row's space-between. */
-.playground-note {
-  margin-right: auto;
-  font-weight: 400;
-  color: hsl(var(--foreground) / 0.3);
-}
-
 .playground-value {
   font-family: var(--font-mono);
   font-size: 0.72rem;
   font-variant-numeric: tabular-nums;
+  color: hsl(var(--foreground) / 0.4);
+}
+
+.playground-row--sliders .playground-value {
   color: hsl(var(--foreground) / 0.8);
+}
+
+/* The `**highlight**` hint annotates the word "Text", so it sits beside it
+   rather than being flung to the far edge by space-between. */
+.playground-label--inline {
+  justify-content: flex-start;
+  gap: 0.6rem;
 }
 
 /* ── Segmented control ─────────────────────────────────────────────────────── */
@@ -1064,7 +1086,8 @@ html.dark .cgrid-tile:hover {
   position: relative;
   display: grid;
   grid-auto-flow: column;
-  grid-auto-columns: 1fr;
+  grid-auto-columns: minmax(3.75rem, auto);
+  height: 1.9rem;
   padding: 2px;
   border: 1px solid var(--line);
   border-radius: calc(var(--radius) - 2px);
@@ -1081,7 +1104,7 @@ html.dark .cgrid-tile:hover {
   bottom: 2px;
   left: 2px;
   width: calc((100% - 4px) / var(--seg-count));
-  border-radius: calc(var(--radius) - 4px);
+  border-radius: calc(var(--radius) - 5px);
   background: hsl(var(--background));
   box-shadow: 0 1px 2px hsl(var(--foreground) / 0.07);
   transform: translateX(calc(var(--seg-index) * 100%));
@@ -1089,14 +1112,18 @@ html.dark .cgrid-tile:hover {
 }
 
 .playground-seg-item {
-  padding: 0.35rem 0.5rem;
+  display: grid;
+  place-items: center;
+  height: 100%;
+  padding: 0 0.7rem;
   border: 0;
-  border-radius: calc(var(--radius) - 4px);
+  border-radius: calc(var(--radius) - 5px);
   background: none;
   color: hsl(var(--foreground) / 0.45);
   font-family: var(--font-sans);
-  font-size: 0.78rem;
+  font-size: 0.76rem;
   font-weight: 500;
+  line-height: 1;
   cursor: pointer;
   transition:
     color 0.16s ease,
@@ -1111,6 +1138,11 @@ html.dark .cgrid-tile:hover {
   transform: scale(0.97);
 }
 
+.playground-seg-item:focus-visible {
+  outline: 2px solid hsl(var(--foreground) / 0.4);
+  outline-offset: 1px;
+}
+
 @media (hover: hover) and (pointer: fine) {
   .playground-seg-item:hover {
     color: hsl(var(--foreground) / 0.8);
@@ -1121,15 +1153,19 @@ html.dark .cgrid-tile:hover {
 
 .playground-input {
   width: 100%;
-  padding: 0.4rem 0.6rem;
   border: 1px solid var(--line);
   border-radius: calc(var(--radius) - 2px);
   background: hsl(var(--background));
   color: hsl(var(--foreground));
   font-family: var(--font-mono);
   font-size: 0.78rem;
-  line-height: 1.6;
   transition: border-color 0.16s ease;
+}
+
+/* Matches the segmented control beside it, so the row shares one baseline. */
+.playground-field--charset .playground-input {
+  height: 1.9rem;
+  padding: 0 0.6rem;
 }
 
 .playground-input:focus-visible {
@@ -1137,10 +1173,13 @@ html.dark .cgrid-tile:hover {
   border-color: hsl(var(--foreground) / 0.4);
 }
 
+/* Tall enough to hold the default copy without a scrollbar — the text IS the
+   subject here, and a three-line window made it feel like a comment field. */
 .playground-textarea {
   resize: vertical;
-  min-height: 4.5rem;
-  line-height: 1.75;
+  min-height: 9.5rem;
+  padding: 0.7rem 0.85rem;
+  line-height: 1.9;
 }
 
 /* ── Range ─────────────────────────────────────────────────────────────────── */
@@ -1202,81 +1241,10 @@ html.dark .cgrid-tile:hover {
   }
 }
 
-/* ── Foot ──────────────────────────────────────────────────────────────────── */
-
-.playground-foot {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem 1rem;
-  padding-top: 0.15rem;
-}
-
-.playground-hint {
-  flex: 1 1 18rem;
-  margin: 0;
-  font-family: var(--font-sans);
-  font-size: 0.78rem;
-  line-height: 1.65;
-  color: hsl(var(--foreground) / 0.4);
-  text-wrap: pretty;
-}
-
-.playground-hint strong {
-  font-family: var(--font-mono);
-  font-size: 0.74rem;
-  font-weight: 400;
-  color: hsl(var(--foreground) / 0.65);
-}
-
-.playground-reset {
-  padding: 0.35rem 0.75rem;
-  border: 1px solid var(--line);
-  border-radius: calc(var(--radius) - 4px);
-  background: none;
-  color: hsl(var(--foreground) / 0.55);
-  font-family: var(--font-sans);
-  font-size: 0.78rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition:
-    color 0.16s ease,
-    border-color 0.16s ease,
-    transform 0.16s var(--ease-out);
-}
-
-.playground-reset:active {
-  transform: scale(0.97);
-}
-
-@media (hover: hover) and (pointer: fine) {
-  .playground-reset:hover {
-    color: hsl(var(--foreground));
-    border-color: var(--line2);
-  }
-}
-
-/* ── Snippet ───────────────────────────────────────────────────────────────── */
-
-.playground-snippet {
-  margin: 0;
-  padding: 0.9rem 1.1rem;
-  overflow-x: auto;
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  background: var(--surface);
-  font-family: var(--font-mono);
-  font-size: 0.75rem;
-  line-height: 1.75;
-  color: hsl(var(--foreground) / 0.6);
-}
-
 @media (prefers-reduced-motion: reduce) {
   .playground-seg::before,
   .playground-seg-item,
-  .playground-replay,
-  .playground-reset,
+  .playground-action,
   .playground-range::-webkit-slider-thumb {
     transition: none;
   }

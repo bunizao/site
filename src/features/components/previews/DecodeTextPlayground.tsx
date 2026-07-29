@@ -1,4 +1,5 @@
 import * as React from 'react';
+import { Check, Copy } from 'lucide-react';
 import {
   prepareDecode,
   type DecodeController,
@@ -24,6 +25,7 @@ const DEFAULT_TEXT = [
 
 const DEFAULT_CHARSET = '__-—/\\|<>';
 const TEXT_COMMIT_MS = 500;
+const COPIED_MS = 1600;
 
 interface Settings {
   layout: DecodeLayout;
@@ -140,10 +142,42 @@ function Slider({ label, display, min, max, value, onChange }: SliderProps) {
   );
 }
 
+/**
+ * The snippet is generated per keystroke, so Shiki (build-time, in CodeBox)
+ * can't touch it. It is also a known shape — one call, string and number
+ * literals — so tokenizing it by hand costs six spans and keeps the page free
+ * of a runtime highlighter. Colours live in code-box.css alongside the real one.
+ */
+type Token = [className: string, text: string];
+
+const optionLine = (key: string, value: string, quoted: boolean): Token[] => [
+  ['cb-t-prop', `  ${key}`],
+  ['cb-t-punc', ': '],
+  quoted ? ['cb-t-str', `'${value}'`] : ['cb-t-num', value],
+  ['cb-t-punc', ','],
+];
+
+const snippetLines = (settings: Settings): Token[][] => [
+  [
+    ['cb-t-fn', 'decodeText'],
+    ['cb-t-punc', '('],
+    ['cb-t-var', 'el'],
+    ['cb-t-punc', ', {'],
+  ],
+  optionLine('layout', settings.layout, true),
+  optionLine('order', settings.order, true),
+  optionLine('durationPerChar', (settings.speed / 1000).toFixed(3), false),
+  optionLine('mutationHz', String(settings.boil), false),
+  optionLine('settleStart', settings.settleStart.toFixed(2), false),
+  optionLine('settleCurve', settings.settleCurve.toFixed(2), false),
+  [['cb-t-punc', '});']],
+];
+
 export function DecodeTextPlayground() {
   const stageRef = React.useRef<HTMLDivElement>(null);
   const controller = React.useRef<DecodeController | null>(null);
   const commitTimer = React.useRef<number | undefined>(undefined);
+  const copiedTimer = React.useRef<number | undefined>(undefined);
 
   const [settings, setSettings] = React.useState<Settings>(DEFAULTS);
   const [text, setText] = React.useState(DEFAULT_TEXT);
@@ -151,6 +185,7 @@ export function DecodeTextPlayground() {
   const [committedText, setCommittedText] = React.useState(DEFAULT_TEXT);
   // Bumped by Replay so an unchanged config still re-runs.
   const [run, setRun] = React.useState(0);
+  const [copied, setCopied] = React.useState(false);
 
   const set = <K extends keyof Settings>(key: K, value: Settings[K]): void =>
     setSettings((current) => ({ ...current, [key]: value }));
@@ -167,6 +202,20 @@ export function DecodeTextPlayground() {
     setText(DEFAULT_TEXT);
     setCommittedText(DEFAULT_TEXT);
     setRun((n) => n + 1);
+  };
+
+  const lines = snippetLines(settings);
+
+  const copy = async (): Promise<void> => {
+    const plain = lines.map((line) => line.map(([, t]) => t).join('')).join('\n');
+    try {
+      await navigator.clipboard.writeText(plain);
+    } catch {
+      return;
+    }
+    setCopied(true);
+    window.clearTimeout(copiedTimer.current);
+    copiedTimer.current = window.setTimeout(() => setCopied(false), COPIED_MS);
   };
 
   React.useEffect(() => {
@@ -206,18 +255,13 @@ export function DecodeTextPlayground() {
     };
   }, [settings, committedText, run]);
 
-  React.useEffect(() => () => window.clearTimeout(commitTimer.current), []);
-
-  const snippet = [
-    'decodeText(el, {',
-    `  layout: '${settings.layout}',`,
-    `  order: '${settings.order}',`,
-    `  durationPerChar: ${(settings.speed / 1000).toFixed(3)},`,
-    `  mutationHz: ${settings.boil},`,
-    `  settleStart: ${settings.settleStart.toFixed(2)},`,
-    `  settleCurve: ${settings.settleCurve.toFixed(2)},`,
-    '});',
-  ].join('\n');
+  React.useEffect(
+    () => () => {
+      window.clearTimeout(commitTimer.current);
+      window.clearTimeout(copiedTimer.current);
+    },
+    []
+  );
 
   return (
     <div className="playground">
@@ -227,18 +271,23 @@ export function DecodeTextPlayground() {
             ref={stageRef}
             className={`playground-stage${settings.mono ? '' : ' playground-stage--sans'}`}
           />
-          <button
-            type="button"
-            className="playground-replay"
-            onClick={() => setRun((n) => n + 1)}
-            aria-label="Replay the reveal"
-          >
-            replay <span aria-hidden="true">↻</span>
-          </button>
+          {/* Pinned to the stage they act on, not stranded in a footer. */}
+          <div className="playground-actions">
+            <button type="button" className="playground-action" onClick={reset}>
+              Reset
+            </button>
+            <button
+              type="button"
+              className="playground-action"
+              onClick={() => setRun((n) => n + 1)}
+            >
+              Replay <span aria-hidden="true">↻</span>
+            </button>
+          </div>
         </div>
 
         <div className="playground-panel">
-          <div className="playground-row playground-row--segments">
+          <div className="playground-row playground-row--controls">
             <Segment
               label="Layout"
               value={settings.layout}
@@ -313,33 +362,55 @@ export function DecodeTextPlayground() {
           </div>
 
           <label className="playground-field">
-            <span className="playground-label">
+            <span className="playground-label playground-label--inline">
               Text
-              <span className="playground-note">wrap **like this** to highlight</span>
+              <span className="playground-value">**highlight**</span>
             </span>
             <textarea
               className="playground-input playground-textarea"
               spellCheck={false}
-              rows={3}
+              rows={6}
               value={text}
               onChange={(event) => onTextChange(event.target.value)}
             />
           </label>
-
-          <div className="playground-foot">
-            <p className="playground-hint">
-              <strong>grow</strong> condenses the line in and wants a monospace host — scramble and
-              glyph must share a width. <strong>static</strong> locks every slot up front and works
-              in any typeface.
-            </p>
-            <button type="button" className="playground-reset" onClick={reset}>
-              Reset
-            </button>
-          </div>
         </div>
       </div>
 
-      <pre className="playground-snippet">{snippet}</pre>
+      {/* Same frame as the Usage block below, so the readout reads as code. */}
+      <figure className="code-box">
+        <figcaption className="code-box-head">
+          <span className="code-box-lang">TypeScript</span>
+          <button
+            type="button"
+            className="code-box-copy"
+            onClick={() => void copy()}
+            data-copied={copied ? '' : undefined}
+            aria-label="Copy snippet"
+          >
+            <span className="code-box-icons" aria-hidden="true">
+              <Copy className="code-box-icon code-box-icon--copy" />
+              <Check className="code-box-icon code-box-icon--check" />
+            </span>
+          </button>
+        </figcaption>
+        <div className="code-box-body">
+          <pre className="playground-code">
+            <code>
+              {lines.map((line, i) => (
+                <React.Fragment key={i}>
+                  {i > 0 && '\n'}
+                  {line.map(([className, value], j) => (
+                    <span key={j} className={className}>
+                      {value}
+                    </span>
+                  ))}
+                </React.Fragment>
+              ))}
+            </code>
+          </pre>
+        </div>
+      </figure>
     </div>
   );
 }
