@@ -3,6 +3,7 @@ import { load } from 'cheerio';
 import { enrichAppleMusicEmbeds } from '../apple-music';
 import { enrichMoodEmbeds } from '../mood-embed';
 import { DirectiveAttributeError } from './attributes';
+import { authorsDirective } from './authors';
 import { footnotesDirective } from './footnotes';
 import { moodDirective } from './mood';
 import { musicDirective } from './music';
@@ -43,6 +44,7 @@ export const postDirectiveRegistry: readonly Directive[] = Object.freeze([
   footnotesDirective,
   moodDirective,
   musicDirective,
+  authorsDirective,
 ]);
 
 interface SourceRange {
@@ -226,7 +228,9 @@ async function transformCallouts(
     transformed += html.slice(cursor, start);
     let attributes: DirectiveAttributes;
     try {
-      attributes = directive.parse(match[2]?.trim() ?? '');
+      attributes = directive.kind === 'block'
+        ? directive.parse(match[2]?.trim() ?? '')
+        : directive.parse(match[2]?.trim() ?? '', context);
     } catch (error) {
       if (!(error instanceof DirectiveAttributeError)) throw error;
       warnings.push({

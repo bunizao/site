@@ -37,6 +37,7 @@ describe('blog directive transformer', () => {
       { name: 'footnotes', kind: 'inline' },
       { name: 'mood', kind: 'block' },
       { name: 'music', kind: 'block' },
+      { name: 'authors', kind: 'meta' },
     ]);
 
     const result = await transformPostDirectives('<p>Plain article.</p>', context);

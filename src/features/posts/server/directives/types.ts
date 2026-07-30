@@ -45,7 +45,7 @@ export interface BlockDirective {
 export interface MetaDirective {
   name: string;
   kind: 'meta';
-  parse(rawAttributes: string): DirectiveAttributes;
+  parse(rawAttributes: string, context: DirectiveContext): DirectiveAttributes;
 }
 
 export interface InlineDirective {
