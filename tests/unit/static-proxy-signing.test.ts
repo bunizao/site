@@ -21,6 +21,27 @@ describe('static proxy signing', () => {
     );
   });
 
+  test('canonicalizes the target and strips its fragment before signing', () => {
+    const path = mintStaticProxyUrl(
+      'HTTPS://EXAMPLE.COM:443/assets/../image.png?size=large#preview',
+      keyRing,
+      { expiresAt: 1_788_134_400 },
+    );
+
+    expect(path).toBe(
+      '/static/aHR0cHM6Ly9leGFtcGxlLmNvbS9pbWFnZS5wbmc_c2l6ZT1sYXJnZQ'
+      + '?k=2026-07&e=1788134400&s=NrKjwKgtpfJ3Hm9fRNF1sarIlR_AiphCKOmRH7Mb0OE'
+    );
+    expect(verifyStaticProxyUrl(new URL(path, 'https://buxx.me'), keyRing, {
+      now: 1_788_134_399,
+    })).toEqual({
+      status: 'valid',
+      targetUrl: 'https://example.com/image.png?size=large',
+      keyId: '2026-07',
+      expiresAt: 1_788_134_400,
+    });
+  });
+
   test('defaults minted URLs to a thirty-day lifetime', () => {
     const path = mintStaticProxyUrl('https://cdn4.telegram-cdn.org/image.png', keyRing, {
       now: 1_785_456_000,
@@ -48,6 +69,35 @@ describe('static proxy signing', () => {
     expect(() => mintStaticProxyUrl('https://t.me/image.png', keyRing, {
       expiresAt: 1_788_134_400.5,
     })).toThrow('Static proxy expiry must be an integer');
+  });
+
+  test('rejects targets that are not absolute HTTP or HTTPS URLs', () => {
+    const invalidTargets = [
+      '/image.png',
+      '//cdn4.telegram-cdn.org/image.png',
+      'https:cdn4.telegram-cdn.org/image.png',
+      'https:///cdn4.telegram-cdn.org/image.png',
+      'ftp://cdn4.telegram-cdn.org/image.png',
+      'javascript:alert(1)',
+    ];
+
+    for (const targetUrl of invalidTargets) {
+      expect(() => mintStaticProxyUrl(targetUrl, keyRing)).toThrow(
+        'Static proxy target must be an absolute HTTP(S) URL',
+      );
+    }
+  });
+
+  test('rejects targets containing credentials', () => {
+    for (const targetUrl of [
+      'https://reader@cdn4.telegram-cdn.org/image.png',
+      'https://reader:secret@cdn4.telegram-cdn.org/image.png',
+      'https://:secret@cdn4.telegram-cdn.org/image.png',
+    ]) {
+      expect(() => mintStaticProxyUrl(targetUrl, keyRing)).toThrow(
+        'Static proxy target must not include credentials',
+      );
+    }
   });
 
   test('rejects expired signatures', () => {

@@ -41,6 +41,28 @@ export type StaticProxyVerification =
 
 const DEFAULT_TTL_SECONDS = 30 * 24 * 60 * 60;
 
+function canonicalizeTargetUrl(targetUrl: string): string {
+  const invalidTarget = () => new TypeError(
+    'Static proxy target must be an absolute HTTP(S) URL',
+  );
+  if (!/^https?:\/\/[^/\\?#\s]/iu.test(targetUrl)) throw invalidTarget();
+
+  let url: URL;
+  try {
+    url = new URL(targetUrl);
+  } catch {
+    throw invalidTarget();
+  }
+  if ((url.protocol !== 'http:' && url.protocol !== 'https:') || !url.hostname) {
+    throw invalidTarget();
+  }
+  if (url.username || url.password) {
+    throw new TypeError('Static proxy target must not include credentials');
+  }
+  url.hash = '';
+  return url.href;
+}
+
 function signPayload(key: StaticProxySigningKey, targetUrl: string, expiresAt: number): string {
   return createHmac('sha256', key.secret)
     .update(`${key.id}\n${targetUrl}\n${expiresAt}`)
@@ -81,8 +103,9 @@ export function mintStaticProxyUrl(
   if (!Number.isSafeInteger(expiresAt)) {
     throw new TypeError('Static proxy expiry must be an integer');
   }
-  const encodedTarget = Buffer.from(targetUrl, 'utf8').toString('base64url');
-  const signature = signPayload(keyRing.current, targetUrl, expiresAt);
+  const canonicalTargetUrl = canonicalizeTargetUrl(targetUrl);
+  const encodedTarget = Buffer.from(canonicalTargetUrl, 'utf8').toString('base64url');
+  const signature = signPayload(keyRing.current, canonicalTargetUrl, expiresAt);
   const query = new URLSearchParams({
     k: keyRing.current.id,
     e: String(expiresAt),
