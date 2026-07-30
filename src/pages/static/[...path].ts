@@ -34,15 +34,42 @@ const hopByHopHeaders = new Set([
 const forwardHeadersAllowList = [
   'range',
   'if-range',
-  'if-modified-since',
-  'if-none-match',
   'accept',
   'accept-language',
   'user-agent',
 ];
 
 const redirectStatusCodes = new Set([301, 302, 303, 307, 308]);
+const allowedContentTypePrefixes = ['image/', 'video/', 'audio/', 'font/'];
+const confinedResponseHeaders = {
+  'access-control-allow-origin': '*',
+  'content-disposition': 'inline',
+  'content-security-policy': "default-src 'none'; sandbox",
+  'x-content-type-options': 'nosniff',
+};
 const MAX_REDIRECTS = 3;
+
+const sanitizeContentType = (value: string | null): string | null => {
+  const mediaType = value?.split(';', 1)[0]?.trim().toLowerCase() ?? '';
+  return /^[a-z0-9][a-z0-9.+-]*\/[a-z0-9][a-z0-9.+-]*$/.test(mediaType)
+    ? mediaType
+    : null;
+};
+
+const isTelegramEmojiMetadataTarget = (targetUrl: string): boolean => {
+  const url = new URL(targetUrl);
+  return url.protocol === 'https:'
+    && url.hostname === 't.me'
+    && /^\/i\/emoji\/\d{1,32}\.json$/.test(url.pathname)
+    && !url.search;
+};
+
+const isAllowedContentType = (contentType: string, targetUrl: string): boolean => {
+  if (contentType === 'image/svg+xml') return false;
+  if (contentType === 'application/json') return isTelegramEmojiMetadataTarget(targetUrl);
+  if (contentType === 'application/octet-stream') return true;
+  return allowedContentTypePrefixes.some((prefix) => contentType.startsWith(prefix));
+};
 
 const decodeTarget = (value: string): string => {
   try {
@@ -161,14 +188,31 @@ const buildProxyResponse = async (
     });
   }
 
+  const upstreamContentType = sanitizeContentType(upstream.headers.get('content-type'));
+  if (!upstreamContentType || !isAllowedContentType(upstreamContentType, targetUrl)) {
+    return new Response(null, {
+      status: 415,
+      headers: {
+        ...Object.fromEntries(extraHeaders),
+        'cache-control': 'no-store',
+        ...confinedResponseHeaders,
+      },
+    });
+  }
+
   const responseHeaders = new Headers(upstream.headers);
   hopByHopHeaders.forEach((name) => responseHeaders.delete(name));
   responseHeaders.delete('set-cookie');
   responseHeaders.delete('set-cookie2');
   responseHeaders.delete('content-encoding');
   responseHeaders.delete('content-length');
-  responseHeaders.set('access-control-allow-origin', '*');
-  if (!responseHeaders.has('cache-control')) {
+  responseHeaders.set('content-type', upstreamContentType);
+  Object.entries(confinedResponseHeaders).forEach(([name, value]) => {
+    responseHeaders.set(name, value);
+  });
+  if (!upstream.ok) {
+    responseHeaders.set('cache-control', 'no-store');
+  } else if (!responseHeaders.has('cache-control')) {
     responseHeaders.set('cache-control', 'public, max-age=86400, s-maxage=86400');
   }
   extraHeaders.forEach((value, key) => {
