@@ -20,6 +20,7 @@ export interface RateLimitResult {
   key: string;
 }
 
+// This best-effort store is isolated per Worker instance and resets with that isolate.
 const rateLimitStore = new Map<string, RateLimitState>();
 const MAX_STORE_SIZE = 10000;
 
