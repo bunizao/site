@@ -6,6 +6,10 @@ export type DirectiveOutputTarget =
   | 'excerpt'
   | 'agent-markdown';
 
+export function isRichDirectiveOutputTarget(outputTarget: DirectiveOutputTarget): boolean {
+  return outputTarget === 'web' || outputTarget === 'preview';
+}
+
 export interface DirectiveContext {
   slug: string;
   locale: string;

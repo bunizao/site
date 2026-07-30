@@ -243,6 +243,42 @@ describe('music directive', () => {
 });
 
 describe('production directive registry', () => {
+  test('keeps every published mood embed form in the rich production pass', async () => {
+    const html = [
+      '<p>[mood:2556 theme=dark density=compact]</p>',
+      '<figure class="kg-bookmark-card"><a href="https://buxx.me/mood/2557">Mood</a></figure>',
+      '<iframe src="/mood/embed?id=2558&amp;theme=light&amp;density=compact"></iframe>',
+    ].join('');
+    const expectedHtml = enrichMoodEmbeds(html);
+
+    for (const outputTarget of ['web', 'preview'] as const) {
+      const output = await transformPostDirectives(html, { ...context, outputTarget });
+
+      expect(output).toEqual({ html: expectedHtml, meta: {}, warnings: [] });
+      expect(output.html.match(/class="js-mood-embed"/gu)).toHaveLength(3);
+    }
+  });
+
+  test('keeps Ghost Apple Music cards in the rich production pass', async () => {
+    process.env.E2E_SITE_FIXTURE = '1';
+    const html = [
+      '<figure class="kg-card kg-embed-card">',
+      '<iframe src="https://embed.music.apple.com/us/song/1888707290?i=1888707290"></iframe>',
+      '</figure>',
+    ].join('');
+    const expectedHtml = await enrichAppleMusicEmbeds(html);
+    resetAppleMusicEmbedLookupCacheForTests();
+
+    const output = await transformPostDirectives(html, {
+      ...context,
+      outputTarget: 'preview',
+    });
+
+    expect(output).toEqual({ html: expectedHtml, meta: {}, warnings: [] });
+    expect(output.html).toContain('data-blog-music');
+    expect(output.html).not.toContain('<iframe');
+  });
+
   test('strips invalid callouts and emits slug-bearing structured warnings', async () => {
     const html = [
       '<p>[!mood id="&lt;img src=x onerror=alert(1)&gt;"]</p>',

@@ -7,13 +7,12 @@ import {
   parseKeyValueAttributes,
   rejectUnsupportedAttributes,
 } from './attributes';
+import { isRichDirectiveOutputTarget } from './types';
 import type {
   BlockDirective,
   DirectiveAttributes,
   DirectiveOutputTarget,
 } from './types';
-
-const RICH_TARGETS: ReadonlySet<DirectiveOutputTarget> = new Set(['web', 'preview']);
 
 function appleMusicEmbedUrl(id: string): string {
   return `https://embed.music.apple.com/us/song/${id}?i=${id}`;
@@ -56,7 +55,7 @@ async function renderMusicDirective(
   outputTarget: DirectiveOutputTarget,
 ): Promise<string> {
   const id = attributes.id;
-  if (!RICH_TARGETS.has(outputTarget)) {
+  if (!isRichDirectiveOutputTarget(outputTarget)) {
     return renderAppleMusicLink(id, await resolveAppleMusicTrackLink(id));
   }
 

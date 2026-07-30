@@ -6,6 +6,7 @@ import {
   parseKeyValueAttributes,
   rejectUnsupportedAttributes,
 } from './attributes';
+import { isRichDirectiveOutputTarget } from './types';
 import type {
   BlockDirective,
   DirectiveAttributes,
@@ -13,7 +14,6 @@ import type {
 } from './types';
 
 const MOOD_ATTRIBUTES = ['id', 'theme', 'density'] as const;
-const RICH_TARGETS: ReadonlySet<DirectiveOutputTarget> = new Set(['web', 'preview']);
 
 function parseMoodAttributes(rawAttributes: string): DirectiveAttributes {
   const attributes = parseKeyValueAttributes(rawAttributes);
@@ -37,7 +37,7 @@ function renderMoodDirective(
   outputTarget: DirectiveOutputTarget,
 ): string {
   const id = attributes.id;
-  if (!RICH_TARGETS.has(outputTarget)) {
+  if (!isRichDirectiveOutputTarget(outputTarget)) {
     return `<p><a href="${canonical(`/mood/${id}`)}">View mood post ${id}</a></p>`;
   }
 

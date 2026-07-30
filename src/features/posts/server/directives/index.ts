@@ -1,10 +1,13 @@
 import { load } from 'cheerio';
 
+import { enrichAppleMusicEmbeds } from '../apple-music';
+import { enrichMoodEmbeds } from '../mood-embed';
 import { DirectiveAttributeError } from './attributes';
 import { footnotesDirective } from './footnotes';
 import { moodDirective } from './mood';
 import { musicDirective } from './music';
 import { poemDirective } from './poem';
+import { isRichDirectiveOutputTarget } from './types';
 import type {
   Directive,
   DirectiveAttributes,
@@ -87,7 +90,17 @@ export function createDirectiveTransformer(
   };
 }
 
-export const transformPostDirectives = createDirectiveTransformer(postDirectiveRegistry);
+const transformRegisteredPostDirectives = createDirectiveTransformer(postDirectiveRegistry);
+
+export const transformPostDirectives: DirectiveTransformer = async (html, context) => {
+  let input = html;
+  if (isRichDirectiveOutputTarget(context.outputTarget)) {
+    const maskedDocument = maskProtectedHtml(input);
+    const enrichedMoodHtml = enrichMoodEmbeds(maskedDocument.maskedHtml);
+    input = maskedDocument.restore(await enrichAppleMusicEmbeds(enrichedMoodHtml));
+  }
+  return transformRegisteredPostDirectives(input, context);
+};
 
 function resolveHtmlOutput(output: DirectiveHtmlOutput): {
   html: string;

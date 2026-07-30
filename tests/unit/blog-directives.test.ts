@@ -9,6 +9,7 @@ import {
   type InlineDirective,
   type MetaDirective,
 } from '@/features/posts/server/directives';
+import { isRichDirectiveOutputTarget } from '@/features/posts/server/directives/types';
 
 const context = {
   slug: 'directive-contract',
@@ -17,6 +18,19 @@ const context = {
 } satisfies DirectiveContext;
 
 describe('blog directive transformer', () => {
+  test('defines rich output targets once for every directive handler', () => {
+    expect([
+      'web',
+      'preview',
+      'rss',
+      'og',
+      'excerpt',
+      'agent-markdown',
+    ].map((outputTarget) => isRichDirectiveOutputTarget(
+      outputTarget as DirectiveContext['outputTarget'],
+    ))).toEqual([true, true, false, false, false, false]);
+  });
+
   test('exposes the unwired production registry through the stable two-argument seam', async () => {
     expect(postDirectiveRegistry.map(({ name, kind }) => ({ name, kind }))).toEqual([
       { name: 'poem', kind: 'inline' },
