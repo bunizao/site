@@ -87,6 +87,7 @@ function collectDefinitions(
   const definitions = new Map<string, FootnoteDefinition>();
   const replacements: SourceReplacement[] = [];
   const warnings: DirectiveWarning[] = [];
+  const splitContinuationOffsets = new Set<number>();
   let order = 0;
 
   $('p').each((_, element) => {
@@ -101,6 +102,7 @@ function collectDefinitions(
     if (!label) return;
 
     const bodyHtml = match[2].trim();
+    const isSplitContinuation = splitContinuationOffsets.has(location.startOffset);
     if (!definitions.has(label)) {
       definitions.set(label, {
         bodyHtml,
@@ -108,12 +110,34 @@ function collectDefinitions(
         order,
       });
       order += 1;
-    } else {
+    } else if (!isSplitContinuation) {
       warnings.push(warning(
         'duplicate-definition',
         context,
         `Duplicate footnote definition "${label}" in post "${context.slug}".`,
       ));
+    }
+
+    const nextParagraph = $(element).next();
+    if (nextParagraph.is('p')) {
+      const nextLocation = (nextParagraph[0] as unknown as LocatedNode).sourceCodeLocation;
+      if (nextLocation?.startTag && nextLocation.endTag) {
+        const nextInnerHtml = html.slice(
+          nextLocation.startTag.endOffset,
+          nextLocation.endTag.startOffset,
+        );
+        const nextMatch = nextInnerHtml.match(DEFINITION_RE);
+        if (nextMatch?.[1].trim() === label) {
+          splitContinuationOffsets.add(nextLocation.startOffset);
+          if (!isSplitContinuation) {
+            warnings.push(warning(
+              'split-definition',
+              context,
+              `Footnote definition "${label}" in post "${context.slug}" repeats in an adjacent paragraph; only the first definition body is used.`,
+            ));
+          }
+        }
+      }
     }
 
     replacements.push({

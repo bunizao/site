@@ -125,4 +125,73 @@ describe('blog footnotes directive', () => {
     ].join(''));
     expect(result.html.match(/class="blog-footnotes"/gu)).toHaveLength(1);
   });
+
+  test('keeps ordinary prose after a definition without a split warning', async () => {
+    const result = await transformPostDirectives([
+      '<p>Reference[^split].</p>',
+      '<p>[^split]: First definition paragraph.</p>',
+      '<p>Possible continuation remains ordinary prose.</p>',
+    ].join(''), context);
+
+    expect(result).toEqual({
+      html: [
+        '<p>Reference<sup class="blog-fn-ref" id="fnref-1"><a href="#fn-1">1</a></sup>.</p>',
+        '<p>Possible continuation remains ordinary prose.</p>',
+        '<section class="blog-footnotes"><ol>',
+        '<li id="fn-1">First definition paragraph. ',
+        '<a class="blog-fn-back" href="#fnref-1">↩</a></li>',
+        '</ol></section>',
+      ].join(''),
+      meta: {},
+      warnings: [],
+    });
+  });
+
+  test('warns on adjacent repeated markers and keeps the first definition body', async () => {
+    const result = await transformPostDirectives([
+      '<p>Reference[^split].</p>',
+      '<p>[^split]: First definition paragraph.</p>',
+      '<p>[^split]: Second definition paragraph.</p>',
+    ].join(''), context);
+
+    expect(result).toEqual({
+      html: [
+        '<p>Reference<sup class="blog-fn-ref" id="fnref-1"><a href="#fn-1">1</a></sup>.</p>',
+        '<section class="blog-footnotes"><ol>',
+        '<li id="fn-1">First definition paragraph. ',
+        '<a class="blog-fn-back" href="#fnref-1">↩</a></li>',
+        '</ol></section>',
+      ].join(''),
+      meta: {},
+      warnings: [
+        {
+          code: 'split-definition',
+          directive: 'footnotes',
+          slug: 'footnote-contract',
+          message: 'Footnote definition "split" in post "footnote-contract" repeats in an adjacent paragraph; only the first definition body is used.',
+        },
+      ],
+    });
+  });
+
+  test('keeps duplicate warnings for repeated markers separated by prose', async () => {
+    const result = await transformPostDirectives([
+      '<p>Reference[^duplicate].</p>',
+      '<p>[^duplicate]: First definition.</p>',
+      '<p>Intervening prose.</p>',
+      '<p>[^duplicate]: Later definition.</p>',
+    ].join(''), context);
+
+    expect(result.html).toContain('<p>Intervening prose.</p>');
+    expect(result.html).toContain('<li id="fn-1">First definition. ');
+    expect(result.html).not.toContain('Later definition.');
+    expect(result.warnings).toEqual([
+      {
+        code: 'duplicate-definition',
+        directive: 'footnotes',
+        slug: 'footnote-contract',
+        message: 'Duplicate footnote definition "duplicate" in post "footnote-contract".',
+      },
+    ]);
+  });
 });
