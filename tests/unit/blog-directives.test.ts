@@ -18,7 +18,11 @@ const context = {
 
 describe('blog directive transformer', () => {
   test('exposes the unwired production registry through the stable two-argument seam', async () => {
-    expect(postDirectiveRegistry).toEqual([]);
+    expect(postDirectiveRegistry.map(({ name, kind }) => ({ name, kind }))).toEqual([
+      { name: 'poem', kind: 'inline' },
+      { name: 'mood', kind: 'block' },
+      { name: 'music', kind: 'block' },
+    ]);
 
     const result = await transformPostDirectives('<p>Plain article.</p>', context);
 
@@ -115,6 +119,7 @@ describe('blog directive transformer', () => {
         {
           code: 'unknown-directive',
           directive: 'future',
+          slug: 'directive-contract',
           message: 'Unknown directive "future" in post "directive-contract".',
         },
       ],

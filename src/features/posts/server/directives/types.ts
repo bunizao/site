@@ -1,4 +1,10 @@
-export type DirectiveOutputTarget = 'web' | 'rss' | 'preview' | 'og';
+export type DirectiveOutputTarget =
+  | 'web'
+  | 'preview'
+  | 'rss'
+  | 'og'
+  | 'excerpt'
+  | 'agent-markdown';
 
 export interface DirectiveContext {
   slug: string;
@@ -11,6 +17,7 @@ export type DirectiveAttributes = Record<string, string>;
 export interface DirectiveWarning {
   code: string;
   directive: string;
+  slug?: string;
   message: string;
 }
 

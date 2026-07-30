@@ -1,5 +1,9 @@
 import { load } from 'cheerio';
 
+import { DirectiveAttributeError } from './attributes';
+import { moodDirective } from './mood';
+import { musicDirective } from './music';
+import { poemDirective } from './poem';
 import type {
   Directive,
   DirectiveAttributes,
@@ -17,6 +21,7 @@ export type {
   DirectiveAttributes,
   DirectiveContext,
   DirectiveHtmlOutput,
+  DirectiveOutputTarget,
   DirectiveTransformResult,
   DirectiveTransformer,
   DirectiveWarning,
@@ -25,15 +30,20 @@ export type {
 } from './types';
 
 const DIRECTIVE_PARAGRAPH_RE =
-  /<p\b[^>]*>\s*\[!([a-z][a-z0-9-]*)(?:\s+([^\]]*?))?\]\s*<\/p>/giu;
+  /<p\b[^>]*>\s*\[!([a-z][a-z0-9-]*)(?:\s+((?:"[^"]*"|'[^']*'|[^\]])*?))?\]\s*<\/p>/giu;
 const DIRECTIVE_MARKER_RE = /\[!([a-z][a-z0-9-]*)(?:\s+[^\]]*?)?\]/giu;
 const PROTECTED_SELECTOR = 'code, pre, script, style';
 
-export const postDirectiveRegistry: readonly Directive[] = Object.freeze([]);
+export const postDirectiveRegistry: readonly Directive[] = Object.freeze([
+  poemDirective,
+  moodDirective,
+  musicDirective,
+]);
 
 interface SourceRange {
   start: number;
   end: number;
+  tagName: string;
 }
 
 interface MaskedDocument {
@@ -104,7 +114,7 @@ function maskProtectedHtml(html: string): MaskedDocument {
   let masked = '';
 
   for (const [index, range] of ranges.entries()) {
-    const token = `${prefix}${index}\u{e001}`;
+    const token = `${prefix}${range.tagName}-${index}\u{e001}`;
     masked += html.slice(cursor, range.start) + token;
     replacements.push({ token, html: html.slice(range.start, range.end) });
     cursor = range.end;
@@ -139,7 +149,11 @@ function findProtectedRanges(html: string): SourceRange[] {
   $(PROTECTED_SELECTOR).each((_, element) => {
     const location = element.sourceCodeLocation;
     if (!location) return;
-    ranges.push({ start: location.startOffset, end: location.endOffset });
+    ranges.push({
+      start: location.startOffset,
+      end: location.endOffset,
+      tagName: element.tagName.toLowerCase(),
+    });
   });
 
   ranges.sort((left, right) => left.start - right.start || right.end - left.end);
@@ -171,6 +185,7 @@ function collectUnknownDirectiveWarnings(
     warnings.push({
       code: 'unknown-directive',
       directive: name,
+      slug: context.slug,
       message: `Unknown directive "${name}" in post "${context.slug}".`,
     });
   }
@@ -194,7 +209,20 @@ async function transformCallouts(
     if (!directive || directive.kind === 'inline') continue;
 
     transformed += html.slice(cursor, start);
-    const attributes = directive.parse(match[2]?.trim() ?? '');
+    let attributes: DirectiveAttributes;
+    try {
+      attributes = directive.parse(match[2]?.trim() ?? '');
+    } catch (error) {
+      if (!(error instanceof DirectiveAttributeError)) throw error;
+      warnings.push({
+        code: 'invalid-directive-attributes',
+        directive: directive.name.toLowerCase(),
+        slug: context.slug,
+        message: `Invalid "${directive.name.toLowerCase()}" directive in post "${context.slug}": ${error.message}`,
+      });
+      cursor = start + match[0].length;
+      continue;
+    }
     if (directive.kind === 'block') {
       const output = resolveHtmlOutput(await directive.render(attributes, context));
       transformed += output.html;

@@ -276,6 +276,28 @@ async function lookupAppleTrack(id: string): Promise<AppleTrack | null> {
   return track;
 }
 
+export interface AppleMusicTrackLink {
+  title: string;
+  url: string;
+}
+
+export async function resolveAppleMusicTrackLink(
+  id: string,
+): Promise<AppleMusicTrackLink | null> {
+  const track = await lookupAppleTrack(id);
+  if (!track?.url) return null;
+
+  try {
+    const url = new URL(track.url);
+    if (url.protocol !== 'https:' || !/(^|\.)music\.apple\.com$/u.test(url.hostname)) {
+      return null;
+    }
+    return { title: track.title, url: url.toString() };
+  } catch {
+    return null;
+  }
+}
+
 const PLAY_ICON =
   '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z" /></svg>';
 const PAUSE_ICON =
