@@ -128,6 +128,25 @@ describe('poem directive', () => {
       ],
     });
   });
+
+  test('adds one real class attribute without rewriting data-class', async () => {
+    const html = [
+      '<blockquote data-class="legacy">First<br>Second<br>Third</blockquote>',
+      '<blockquote class=quoted data-class=keep>Fourth<br>Fifth<br>Sixth</blockquote>',
+    ].join('');
+
+    const output = await poemDirective.transform(html, context);
+
+    expect(output).toEqual({
+      html: [
+        '<blockquote data-class="legacy" class="blog-poem"><p>First<br>Second<br>Third</p></blockquote>',
+        '<blockquote class="quoted blog-poem" data-class=keep><p>Fourth<br>Fifth<br>Sixth</p></blockquote>',
+      ].join(''),
+      warnings: [],
+    });
+    const renderedHtml = typeof output === 'string' ? output : output.html;
+    expect(renderedHtml.match(/\sclass=/gu)).toHaveLength(2);
+  });
 });
 
 describe('mood directive', () => {
@@ -171,17 +190,35 @@ describe('music directive', () => {
     expect(output).toContain('data-blog-music');
   });
 
-  test('degrades to a resolved Apple Music link outside web and preview', async () => {
-    process.env.E2E_SITE_FIXTURE = '1';
+  test('resolves link-only output with one metadata request and no URL fragment', async () => {
+    const requestedUrls: string[] = [];
+    globalThis.fetch = Object.assign(async (input: string | URL | Request) => {
+      const url = new URL(input.toString());
+      requestedUrls.push(url.href);
+      if (url.hostname === 'itunes.apple.com') {
+        return Response.json({
+          results: [{
+            trackName: 'Hash & Song',
+            artistName: 'Sample Artist',
+            trackViewUrl: 'https://music.apple.com/us/song/hash-song/1888707290?uo=4#player',
+          }],
+        });
+      }
+      return new Response(null, { status: 404 });
+    }, { preconnect: originalFetch.preconnect }) as typeof fetch;
     const attributes = musicDirective.parse('id=1888707290');
 
-    for (const outputTarget of ['rss', 'og', 'excerpt', 'agent-markdown'] as const) {
-      const output = await musicDirective.render(attributes, { ...context, outputTarget });
+    const output = await musicDirective.render(attributes, {
+      ...context,
+      outputTarget: 'rss',
+    });
 
-      expect(output).toBe(
-        '<p><a href="https://music.apple.com/us/song/e2e/1888707290">Listen to ALL THE LOVE on Apple Music</a></p>',
-      );
-    }
+    expect(output).toBe(
+      '<p><a href="https://music.apple.com/us/song/hash-song/1888707290?uo=4">Listen to Hash &amp; Song on Apple Music</a></p>',
+    );
+    expect(requestedUrls).toEqual([
+      'https://itunes.apple.com/lookup?id=1888707290',
+    ]);
   });
 
   test('keeps a static source link when Apple metadata is unavailable', async () => {
@@ -197,9 +234,11 @@ describe('music directive', () => {
     });
 
     expect(output).toBe(
-      '<p><a href="https://embed.music.apple.com/us/song/1888707290?i=1888707290">Listen on Apple Music</a></p>',
+      '<p><a href="https://music.apple.com/us/song/1888707290?i=1888707290">Listen on Apple Music</a></p>',
     );
     expect(output).not.toContain('<iframe');
+    expect(output).not.toContain('embed.music.apple.com');
+    expect(output).not.toContain('#');
   });
 });
 
@@ -283,5 +322,51 @@ describe('production directive registry', () => {
     const output = await transformPostDirectives(html, context);
 
     expect(output).toEqual({ html, meta: {}, warnings: [] });
+  });
+
+  test('preserves a protected sibling when attribution promotes its blockquote', async () => {
+    const protectedHtml = '<pre data-spacing="keep  this"><code>First\nSecond</code></pre>';
+    const html = `<blockquote>${protectedHtml}<p>A line — Ada</p></blockquote>`;
+
+    const output = await transformPostDirectives(html, context);
+
+    expect(output).toEqual({
+      html: [
+        '<blockquote class="blog-poem">',
+        protectedHtml,
+        '<p>A line</p>',
+        '<cite class="blog-poem__attribution">— Ada</cite>',
+        '</blockquote>',
+      ].join(''),
+      meta: {},
+      warnings: [],
+    });
+    expect(output.html.match(/<pre\b/gu)).toHaveLength(1);
+  });
+
+  test('uses only the outer qualifying range when poem blockquotes are nested', async () => {
+    const html = [
+      '<blockquote data-level="outer">',
+      '<p>Outer line — Ada</p>',
+      '<blockquote data-level="inner"><p>Inner line — Bob</p></blockquote>',
+      '</blockquote>',
+      '<p data-adjacent>After</p>',
+    ].join('');
+
+    const output = await transformPostDirectives(html, context);
+
+    expect(output).toEqual({
+      html: [
+        '<blockquote data-level="outer" class="blog-poem">',
+        '<p>Outer line — Ada</p>',
+        '<p>Inner line</p>',
+        '<cite class="blog-poem__attribution">— Bob</cite>',
+        '</blockquote>',
+        '<p data-adjacent>After</p>',
+      ].join(''),
+      meta: {},
+      warnings: [],
+    });
+    expect(output.html.match(/data-adjacent/gu)).toHaveLength(1);
   });
 });

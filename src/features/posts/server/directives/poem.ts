@@ -12,6 +12,7 @@ const MARKER_DETECTION_RE = /^\s*(?:<\w+>\s*)?\[!poem\]/iu;
 const ATTRIBUTION_RE = /[—–]\s*[^—–\n]{1,40}\s*$/u;
 const ATTRIBUTION_ONLY_RE = /^(?:[—–]|--|-)\s*\S.{0,40}$/u;
 const INLINE_ATTRIBUTION_RE = /^([\s\S]*?)\s*((?:[—–]|--)\s*[^—–<]{1,40})\s*$/u;
+const MASKED_PROTECTED_RE = /\u{e000}blog-directive-\d+-(?:code|pre|script|style)-\d+\u{e001}/gu;
 const MASKED_PRE_RE = /\u{e000}blog-directive-\d+-pre-\d+\u{e001}/u;
 
 interface SourceRange {
@@ -20,12 +21,23 @@ interface SourceRange {
   replacement: string;
 }
 
+interface ClassAttribute {
+  value: string;
+  start: number;
+  end: number;
+}
+
+interface StartTagLocation {
+  attrs?: Record<string, { startOffset: number; endOffset: number }>;
+}
+
 interface ParsedPoem {
   title: string;
   center: boolean;
   plain: boolean;
   stanzas: string[];
   attribution: string;
+  protectedSiblings: string[];
 }
 
 function stripTags(value: string): string {
@@ -34,6 +46,7 @@ function stripTags(value: string): string {
 
 function parsePoem(rawHtml: string): ParsedPoem | null {
   const marker = rawHtml.match(MARKER_RE);
+  const protectedTokens = rawHtml.match(MASKED_PROTECTED_RE) ?? [];
 
   let center = false;
   let plain = false;
@@ -82,16 +95,27 @@ function parsePoem(rawHtml: string): ParsedPoem | null {
     }
   }
 
-  return { title, center, plain, stanzas, attribution };
+  const preservedContent = [title, ...stanzas, attribution].join('');
+  const protectedSiblings = protectedTokens.filter(
+    (token) => !preservedContent.includes(token),
+  );
+
+  return { title, center, plain, stanzas, attribution, protectedSiblings };
 }
 
-function addClasses(startTag: string, classNames: readonly string[]): string {
-  const classAttribute = /\bclass\s*=\s*(['"])(.*?)\1/iu;
-  const match = startTag.match(classAttribute);
-  if (match) {
-    const existing = match[2].split(/\s+/u).filter(Boolean);
+function addClasses(
+  startTag: string,
+  classNames: readonly string[],
+  classAttribute?: ClassAttribute,
+): string {
+  if (classAttribute) {
+    const existing = classAttribute.value.split(/\s+/u).filter(Boolean);
     const classes = [...existing, ...classNames.filter((name) => !existing.includes(name))];
-    return startTag.replace(classAttribute, `class=${match[1]}${classes.join(' ')}${match[1]}`);
+    return [
+      startTag.slice(0, classAttribute.start),
+      `class="${classes.join(' ')}"`,
+      startTag.slice(classAttribute.end),
+    ].join('');
   }
 
   return startTag.replace(/>$/u, ` class="${classNames.join(' ')}">`);
@@ -101,6 +125,7 @@ function renderPoem(
   startTag: string,
   poem: ParsedPoem,
   outputTarget: DirectiveContext['outputTarget'],
+  classAttribute?: ClassAttribute,
 ): string {
   const richOutput = outputTarget === 'web'
     || outputTarget === 'preview'
@@ -110,7 +135,7 @@ function renderPoem(
     ...(poem.center ? ['blog-poem--center'] : []),
     ...(poem.plain ? ['blog-poem--plain'] : []),
   ];
-  const parts: string[] = [];
+  const parts: string[] = [...poem.protectedSiblings];
   if (poem.title) {
     parts.push(richOutput
       ? `<p class="blog-poem__title">${poem.title}</p>`
@@ -123,7 +148,7 @@ function renderPoem(
       : `<cite>${poem.attribution}</cite>`);
   }
 
-  const openingTag = richOutput ? addClasses(startTag, classes) : startTag;
+  const openingTag = richOutput ? addClasses(startTag, classes, classAttribute) : startTag;
   return `${openingTag}${parts.join('')}</blockquote>`;
 }
 
@@ -163,15 +188,31 @@ function transformPoems(
       return;
     }
     const startTag = html.slice(location.startTag.startOffset, location.startTag.endOffset);
+    const startTagLocation = location.startTag as typeof location.startTag & StartTagLocation;
+    const classLocation = startTagLocation.attrs?.class;
+    const classAttribute = classLocation
+      ? {
+        value: $(element).attr('class') ?? '',
+        start: classLocation.startOffset - location.startTag.startOffset,
+        end: classLocation.endOffset - location.startTag.startOffset,
+      }
+      : undefined;
     replacements.push({
       start: location.startOffset,
       end: location.endOffset,
-      replacement: renderPoem(startTag, poem, context.outputTarget),
+      replacement: renderPoem(startTag, poem, context.outputTarget, classAttribute),
     });
   });
 
+  replacements.sort((left, right) => left.start - right.start || right.end - left.end);
+  const nonOverlapping: SourceRange[] = [];
+  for (const range of replacements) {
+    const previous = nonOverlapping.at(-1);
+    if (!previous || range.start >= previous.end) nonOverlapping.push(range);
+  }
+
   let transformed = html;
-  for (const range of replacements.sort((left, right) => right.start - left.start)) {
+  for (const range of nonOverlapping.reverse()) {
     transformed = transformed.slice(0, range.start) + range.replacement + transformed.slice(range.end);
   }
 

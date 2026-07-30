@@ -19,6 +19,10 @@ function appleMusicEmbedUrl(id: string): string {
   return `https://embed.music.apple.com/us/song/${id}?i=${id}`;
 }
 
+function appleMusicPublicUrl(id: string): string {
+  return `https://music.apple.com/us/song/${id}?i=${id}`;
+}
+
 function escapeHtml(value: string): string {
   return value
     .replace(/&/gu, '&amp;')
@@ -31,7 +35,7 @@ function renderAppleMusicLink(
   id: string,
   resolved?: { title: string; url: string } | null,
 ): string {
-  const href = escapeHtml(resolved?.url ?? appleMusicEmbedUrl(id));
+  const href = escapeHtml(resolved?.url ?? appleMusicPublicUrl(id));
   const label = resolved?.title
     ? `Listen to ${escapeHtml(resolved.title)} on Apple Music`
     : 'Listen on Apple Music';
