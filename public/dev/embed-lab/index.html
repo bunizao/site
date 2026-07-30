@@ -1,0 +1,996 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Embed Lab — YouTube facade + authorship credits</title>
+
+<!-- Real site faces, so type decisions here transfer 1:1. Relative paths work
+     under file:// and when served from the dev server at /dev/embed-lab/. -->
+<style>
+@font-face { font-family: 'Inter'; src: url('../../fonts/inter-variable.woff2') format('woff2'); font-weight: 100 900; font-display: swap; }
+@font-face { font-family: 'Geist Mono'; src: url('../../fonts/geist-mono-variable.woff2') format('woff2'); font-weight: 100 900; font-display: swap; }
+@font-face { font-family: 'JetBrains Mono'; src: url('../../fonts/jetbrains-mono-variable.woff2') format('woff2'); font-weight: 100 800; font-display: swap; }
+
+/* ==========================================================================
+   TOKENS — copied from src/styles/globals.css + src/styles/blog.css so the lab
+   renders on the real palette. Do not tune these here; tune them at source.
+   ========================================================================== */
+:root {
+  --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-mono: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-code: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --background: 0 0% 100%;
+  --foreground: 0 0% 0%;
+  --card: 0 0% 100%;
+  --muted-foreground: 0 0% 40%;
+
+  /* blogPalette from src/data/site.ts */
+  --blog-dai: #3C5D80;
+  --blog-dian: #27406E;
+  --blog-ji: #3E8BD8;
+  --blog-accent: var(--blog-dai);
+}
+:root[data-theme='dark'] {
+  --background: 0 0% 4%;
+  --foreground: 0 0% 100%;
+  --card: 0 0% 4%;
+  --muted-foreground: 0 0% 53%;
+  --blog-dai: #7FA8D6;
+  --blog-dian: #6FA8FF;
+  --blog-ji: #6FB2F2;
+}
+
+.blog-zone {
+  --blog-ink: hsl(var(--foreground));
+  --blog-body: hsl(var(--foreground) / 0.78);
+  --blog-muted: hsl(var(--foreground) / 0.58);
+  --blog-faint: hsl(var(--foreground) / 0.42);
+  --blog-line: hsl(var(--foreground) / 0.1);
+  --blog-fill: hsl(var(--foreground) / 0.045);
+  --blog-img-edge: inset 0 0 0 1px rgba(0, 0, 0, 0.1);
+  --blog-measure: 720px;
+}
+:root[data-theme='dark'] .blog-zone {
+  --blog-img-edge: inset 0 0 0 1px rgba(255, 255, 255, 0.1);
+}
+
+/* ==========================================================================
+   LAB CHROME — everything below `.lab-` is scaffolding, not shipping design.
+   ========================================================================== */
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  color: var(--blog-body);
+  background: hsl(var(--background));
+  font-feature-settings: 'cv11', 'ss01';
+  -webkit-font-smoothing: antialiased;
+}
+.lab-bar {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+  padding: 10px 20px;
+  border-bottom: 1px solid var(--blog-line);
+  background: hsl(var(--background) / 0.86);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--blog-faint);
+}
+.lab-bar strong { color: var(--blog-ink); font-weight: 500; letter-spacing: 0.02em; text-transform: none; font-size: 12px; }
+.lab-bar button {
+  font: inherit;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--blog-line);
+  background: transparent;
+  color: var(--blog-muted);
+  cursor: pointer;
+  transition: border-color .15s ease, color .15s ease, background .15s ease;
+}
+.lab-bar button:hover { border-color: hsl(var(--foreground) / 0.24); color: var(--blog-ink); }
+.lab-bar button[aria-pressed='true'] { background: var(--blog-fill); border-color: hsl(var(--foreground) / 0.24); color: var(--blog-ink); }
+.lab-bar .lab-sep { width: 1px; height: 16px; background: var(--blog-line); }
+
+.lab-shell { max-width: var(--blog-measure); margin-inline: auto; padding: 8px 20px 140px; }
+.lab-h {
+  margin: 56px 0 4px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--blog-faint);
+}
+.lab-note {
+  margin: 0 0 28px;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--blog-muted);
+  max-width: 60ch;
+}
+.lab-note code {
+  font-family: var(--font-code);
+  font-size: 12px;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: var(--blog-fill);
+  color: var(--blog-ink);
+}
+.lab-prose { font-size: 17px; line-height: 1.8; color: var(--blog-body); }
+.lab-prose p { margin: 0 0 24px; }
+
+/* ==========================================================================
+   YOUTUBE FACADE
+   Ships to: src/lib/embed/youtube.ts (markup + controller)
+             src/styles/embed-youtube.css
+   Consumed by the blog `[!youtube]` directive and mood's renderLinkPreview.
+
+   The frame is a single button so any pixel plays it. The caption sits outside
+   the frame by default (variant A) because a video wants the poster dominant
+   and the blog reads as ink-on-paper, not as a media wall — an in-frame title
+   bar is what we are removing from YouTube's own pre-play state, so putting
+   ours back in is a strange trade. Variant B keeps it in-frame for comparison.
+   ========================================================================== */
+.yt {
+  --yt-radius: 12px;
+  --yt-disc: 68px;
+  position: relative;
+  margin-block: 36px;
+  /* Minimum viewport is 200x200 per the embedded-player requirements; at 16:9
+     that is a 356px floor, and we never render narrower than the measure. */
+  min-width: 200px;
+}
+
+.yt__frame {
+  position: relative;
+  display: block;
+  width: 100%;
+  padding: 0;
+  aspect-ratio: 16 / 9;
+  border: 1px solid var(--blog-line);
+  border-radius: var(--yt-radius);
+  overflow: hidden;
+  background: hsl(var(--foreground) / 0.04);
+  cursor: pointer;
+  isolation: isolate;
+  text-align: left;
+  transition: border-color .18s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+.yt__frame:hover { border-color: hsl(var(--foreground) / 0.2); }
+.yt__frame:focus-visible {
+  outline: 2px solid var(--blog-accent);
+  outline-offset: 3px;
+}
+.yt.is-playing .yt__frame { cursor: default; }
+
+/* Poster. Scales a hair on hover — the whole card leans toward the reader
+   rather than any single control moving. */
+.yt__poster {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform: scale(1.001);
+  transition: transform .5s cubic-bezier(.2,.8,.2,1), filter .35s ease;
+  box-shadow: var(--blog-img-edge);
+}
+.yt__frame:hover .yt__poster { transform: scale(1.028); }
+.yt.is-loading .yt__poster { filter: saturate(.72) brightness(.86); }
+.yt.is-playing .yt__poster { filter: brightness(.5); }
+
+/* A puddle behind the disc, not a scrim over the poster. A broad vignette
+   reads as a grey smudge on a bright still and dims an image we went to the
+   trouble of owning; keep the darkening tight enough that the disc always has
+   ground under it and the poster is otherwise untouched. The bottom band is
+   only there for the duration pill (and the overlay variant's caption). */
+.yt__veil {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 26% 40% at 50% 50%, hsl(0 0% 0% / .38), transparent 68%),
+    linear-gradient(to top, hsl(0 0% 0% / .3), transparent 26%);
+  opacity: .9;
+  transition: opacity .3s ease;
+}
+.yt__frame:hover .yt__veil { opacity: 1; }
+
+/* Play disc — glass, not red. Same backdrop idiom as .not-by-ai__card so the
+   two custom surfaces on a post are visibly the same material. */
+.yt__disc {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: var(--yt-disc);
+  height: var(--yt-disc);
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: hsl(0 0% 5% / .5);
+  -webkit-backdrop-filter: blur(16px) saturate(150%);
+  backdrop-filter: blur(16px) saturate(150%);
+  box-shadow:
+    inset 0 0 0 1px hsl(0 0% 100% / .26),
+    0 10px 26px -14px hsl(0 0% 0% / .7);
+  transform: translate(-50%, -50%);
+  transition: transform .34s cubic-bezier(.2,.8,.2,1), background .25s ease, box-shadow .25s ease;
+}
+.yt__frame:hover .yt__disc {
+  transform: translate(-50%, -50%) scale(1.07);
+  background: hsl(0 0% 5% / .64);
+  box-shadow:
+    inset 0 0 0 1px hsl(0 0% 100% / .38),
+    0 16px 34px -16px hsl(0 0% 0% / .8);
+}
+.yt__frame:active .yt__disc { transform: translate(-50%, -50%) scale(.97); }
+
+/* Halo: one ring pushing outward on hover. Reads as "this is live" without
+   animating anything on rest. */
+.yt__disc::after {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  border: 1px solid hsl(0 0% 100% / .5);
+  opacity: 0;
+  transform: scale(1);
+  pointer-events: none;
+}
+.yt__frame:hover .yt__disc::after { animation: yt-halo 1.6s cubic-bezier(.2,.8,.2,1) infinite; }
+@keyframes yt-halo {
+  0%   { opacity: .5; transform: scale(1); }
+  70%  { opacity: 0;  transform: scale(1.42); }
+  100% { opacity: 0;  transform: scale(1.42); }
+}
+
+.yt__glyph {
+  width: 24px;
+  height: 24px;
+  fill: #fff;
+  /* Optical centering: a triangle's visual mass sits left of its bounding box. */
+  transform: translateX(1.5px);
+  filter: drop-shadow(0 1px 4px hsl(0 0% 0% / .45));
+  transition: opacity .2s ease;
+}
+.yt__glyph--wait,
+.yt__glyph--out { display: none; transform: none; }
+
+.yt.is-loading .yt__glyph--play { display: none; }
+.yt.is-loading .yt__glyph--wait {
+  display: block;
+  fill: none;
+  stroke: #fff;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  animation: yt-spin 1s linear infinite;
+}
+.yt.is-unreachable .yt__glyph--play,
+.yt.is-unreachable .yt__glyph--wait { display: none; }
+.yt.is-unreachable .yt__glyph--out { display: block; }
+@keyframes yt-spin { to { transform: rotate(1turn); } }
+
+/* Duration — our type, mono and tabular, in a glass pill. */
+.yt__duration {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  padding: 3px 7px;
+  border-radius: 6px;
+  font-family: var(--font-code);
+  font-size: 11px;
+  line-height: 1;
+  letter-spacing: .01em;
+  font-variant-numeric: tabular-nums;
+  color: hsl(0 0% 100% / .92);
+  background: hsl(0 0% 4% / .58);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  box-shadow: inset 0 0 0 1px hsl(0 0% 100% / .12);
+  transition: opacity .25s ease;
+}
+.yt.is-playing .yt__duration { opacity: 0; }
+
+/* Caption, variant A — outside the frame, figcaption weight. */
+.yt__caption {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin-top: 11px;
+  padding-inline: 2px;
+}
+.yt__title {
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 1.4;
+  color: var(--blog-ink);
+}
+.yt__meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 7px;
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--blog-faint);
+}
+.yt__meta-dot { width: 2px; height: 2px; border-radius: 999px; background: currentColor; opacity: .7; }
+/* Attribution + the escape hatch, one control. Always present, so the
+   unreachable path is a change of emphasis rather than new UI appearing. */
+.yt__out {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  color: inherit;
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+  transition: color .15s ease, border-color .15s ease;
+}
+.yt__out:hover { color: var(--blog-dian); border-bottom-color: hsl(var(--foreground) / .22); }
+.yt__out svg { width: 10px; height: 10px; stroke: currentColor; stroke-width: 1.8; fill: none; }
+
+/* The unreachable notice. One faint line, no icon, no colour alarm — a slow
+   network must never look like a failure. */
+.yt__fallback {
+  display: none;
+  margin-top: 2px;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--blog-faint);
+}
+.yt.is-unreachable .yt__fallback { display: block; }
+.yt.is-unreachable .yt__out { color: var(--blog-dian); border-bottom-color: hsl(var(--foreground) / .22); }
+
+/* Variant B — caption rides in-frame over a bottom scrim. It stays a SIBLING of
+   the button, never a child: an <a> inside a <button> is invalid markup and
+   traps the escape hatch out of the tab order. Pinned inside the frame's
+   1px border so the scrim inherits the rounded bottom corners. */
+.yt--overlay .yt__caption {
+  position: absolute;
+  right: 1px;
+  bottom: 1px;
+  left: 1px;
+  z-index: 2;
+  margin: 0;
+  padding: 40px 14px 12px;
+  border-radius: 0 0 calc(var(--yt-radius) - 1px) calc(var(--yt-radius) - 1px);
+  pointer-events: none;
+  background: linear-gradient(to top, hsl(0 0% 0% / .78), hsl(0 0% 0% / .34) 46%, transparent);
+  transition: opacity .3s ease, transform .3s ease;
+}
+.yt--overlay .yt__title { color: hsl(0 0% 100% / .96); }
+.yt--overlay .yt__meta { color: hsl(0 0% 100% / .66); }
+.yt--overlay .yt__out { pointer-events: auto; }
+.yt--overlay .yt__out:hover { color: #fff; border-bottom-color: hsl(0 0% 100% / .4); }
+.yt--overlay .yt__duration { bottom: auto; top: 10px; }
+.yt--overlay .yt__fallback { color: hsl(0 0% 100% / .62); }
+.yt--overlay.is-playing .yt__caption { opacity: 0; transform: translateY(6px); }
+
+/* Player — fades in over the poster, so there is never a black box. */
+.yt__player {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .45s ease;
+}
+.yt.is-playing .yt__player { opacity: 1; pointer-events: auto; }
+.yt.is-playing .yt__veil,
+.yt.is-playing .yt__disc { opacity: 0; pointer-events: none; transition: opacity .3s ease; }
+
+@media (max-width: 600px) {
+  .yt { --yt-disc: 56px; }
+  .yt__glyph { width: 20px; height: 20px; }
+  .yt__title { font-size: 14px; }
+  .yt__meta { font-size: 12px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .yt__poster,
+  .yt__disc,
+  .yt__player,
+  .yt__caption { transition: none; }
+  .yt__frame:hover .yt__poster { transform: none; }
+  .yt__frame:hover .yt__disc::after { animation: none; }
+  .yt.is-loading .yt__glyph--wait { animation: yt-spin 1.6s steps(8) infinite; }
+}
+
+/* ==========================================================================
+   AUTHORSHIP CREDITS
+   Ships to: src/data/authorship.ts (the role table, as data)
+             src/features/posts/ui/NotByAI.astro (branch 1 addendum)
+             src/features/posts/ui/AiCredit.astro (branch 2 replacement)
+
+   Deliberately built as a sibling of .not-by-ai, not a new visual species:
+   same 14px line, same underlined help trigger, same glass card on reveal.
+   A model credit is an authorship statement; it should carry the same weight
+   as the pledge, not sit below it as a disclaimer.
+   ========================================================================== */
+.credit {
+  position: relative;
+  flex: 1 1 260px;
+  min-width: 0;
+}
+
+.credit__line {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--blog-muted);
+}
+.credit__em { font-weight: 600; color: var(--blog-ink); }
+
+.credit__trigger {
+  display: inline-block;
+  margin-top: 4px;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 14px;
+  color: var(--blog-dian);
+  cursor: help;
+  text-decoration: underline;
+  text-decoration-color: hsl(var(--foreground) / 0.2);
+  text-underline-offset: 3px;
+  transition: text-decoration-color .15s ease;
+}
+.credit__trigger:hover,
+.credit__trigger:focus-visible { text-decoration-color: var(--blog-dian); outline: none; }
+/* Lab only: the pledge's own trigger is inert here so it cannot open the
+   credit card. Same appearance, so the comparison stays honest. */
+.credit__trigger:disabled { cursor: default; }
+
+/* Branch 1 addendum: the pledge is unchanged and stays the loud thing; the
+   safe credits are a subordinate line under it, small and faint, with the same
+   trigger behaviour. */
+.credit__addendum {
+  margin: 6px 0 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--blog-faint);
+}
+.credit__addendum .credit__trigger { margin: 0; font-size: inherit; }
+
+/* The manifest card. Mirrors .not-by-ai__card exactly. */
+.credit__card {
+  position: absolute;
+  left: 0;
+  top: calc(100% + 12px);
+  z-index: 10;
+  width: min(440px, 100%);
+  margin: 0;
+  padding: 15px 17px 14px;
+  border-radius: 14px;
+  border: 1px solid hsl(var(--foreground) / 0.08);
+  background: hsl(var(--card) / 0.72);
+  -webkit-backdrop-filter: blur(18px) saturate(160%);
+  backdrop-filter: blur(18px) saturate(160%);
+  box-shadow:
+    0 8px 24px -16px hsl(var(--foreground) / 0.16),
+    inset 0 1px 0 hsl(0 0% 100% / 0.04);
+  opacity: 0;
+  transform: translateY(6px);
+  pointer-events: none;
+  transition: opacity .2s ease, transform .2s ease;
+}
+.credit:hover .credit__card,
+.credit:focus-within .credit__card,
+.credit[data-open] .credit__card {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+.credit__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-bottom: 10px;
+  margin-bottom: 10px;
+  border-bottom: 1px solid var(--blog-line);
+}
+/* A neutral mark, not a vendor logo — we are crediting a tool, not badging a
+   partner, and a borrowed wordmark in the article foot reads as endorsement. */
+.credit__mark { width: 13px; height: 13px; flex: none; fill: none; stroke: var(--blog-dian); stroke-width: 1.5; stroke-linecap: round; }
+.credit__model {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: .01em;
+  color: var(--blog-ink);
+}
+.credit__eyebrow {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--blog-faint);
+}
+
+/* The role manifest. Three columns: the vocabulary key in code type (it is a
+   literal string in the directive), its meaning in prose, and the pledge fact.
+   The third column states what is true — "no prose" / "prose" — rather than a
+   tick and a cross, because the reader is being told what a machine touched,
+   not shown a pass/fail grade. */
+.credit__roles {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 6px 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.credit__role { display: contents; }
+.credit__key {
+  font-family: var(--font-code);
+  font-size: 12px;
+  color: var(--blog-ink);
+}
+.credit__what {
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--blog-body);
+}
+.credit__qual {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--blog-faint);
+  font-variant-numeric: tabular-nums;
+}
+.credit__flag {
+  justify-self: end;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: var(--blog-faint);
+}
+.credit__flag[data-prose='yes'] { color: var(--blog-dian); }
+
+.credit__note {
+  margin: 12px 0 0;
+  padding-top: 10px;
+  border-top: 1px solid var(--blog-line);
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--blog-muted);
+}
+.credit__note code {
+  font-family: var(--font-code);
+  font-size: 11.5px;
+  padding: 1px 4px;
+  border-radius: 4px;
+  background: var(--blog-fill);
+  color: var(--blog-ink);
+}
+
+@media (max-width: 639px) {
+  .credit__card {
+    position: static;
+    display: none;
+    width: 100%;
+    margin-top: 12px;
+    opacity: 1;
+    transform: none;
+    pointer-events: auto;
+  }
+  .credit[data-open] .credit__card,
+  .credit:focus-within .credit__card { display: block; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .credit__card { transition: opacity .2s ease; transform: none; }
+}
+
+/* Article-foot bar — reproduced from .blog-end__bar so the credit is judged in
+   the place it actually lives, beside the subscribe/share pills. */
+.lab-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px 32px;
+  margin-top: 40px;
+  padding-top: 22px;
+  border-top: 1px solid var(--blog-line);
+}
+.lab-foot__pills { display: flex; gap: 8px; flex: none; }
+.lab-foot__pill {
+  padding: 7px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--blog-line);
+  font-size: 13px;
+  color: var(--blog-muted);
+}
+</style>
+</head>
+
+<body class="blog-zone">
+
+<div class="lab-bar">
+  <strong>Embed Lab</strong>
+  <span class="lab-sep"></span>
+  <button type="button" data-theme-toggle>theme</button>
+  <span class="lab-sep"></span>
+  <span>state</span>
+  <button type="button" data-state="rest" aria-pressed="true">rest</button>
+  <button type="button" data-state="loading" aria-pressed="false">loading</button>
+  <button type="button" data-state="playing" aria-pressed="false">playing</button>
+  <button type="button" data-state="unreachable" aria-pressed="false">unreachable</button>
+  <span class="lab-sep"></span>
+  <button type="button" data-fake-block aria-pressed="false">simulate blocked network</button>
+</div>
+
+<main class="lab-shell">
+
+  <!-- ================= YOUTUBE FACADE ================= -->
+  <p class="lab-h">01 — YouTube facade</p>
+  <p class="lab-note">
+    Click a card to actually load it. Posters point straight at <code>i.ytimg.com</code>
+    here; in production they are minted through the signed static proxy.
+    <code>maxresdefault</code> with an <code>hqdefault</code> fallback on error —
+    the second card exercises that path.
+    <br />
+    <strong>Real playback needs an http origin</strong> — the IFrame API’s
+    <code>origin</code> check can’t pass from <code>file://</code>, so opening this
+    lab off disk always lands in the unreachable branch (which is itself worth
+    looking at). Serve it instead: <code>bun dev -- --background</code>, then
+    <code>/dev/embed-lab/</code>.
+  </p>
+
+  <div class="lab-prose">
+    <p>
+      The pre-play state is where the ugliness lives: the oversized red button, the
+      title bar, the share chrome. Everything above the click is ours now.
+    </p>
+  </div>
+
+  <!-- Variant A — caption below the frame. Default. -->
+  <figure class="yt" data-yt data-video="aqz-KE-bpKQ" data-start="0">
+    <button class="yt__frame" type="button" data-yt-frame aria-label="Play “Big Buck Bunny” by Blender Foundation">
+      <img class="yt__poster" data-yt-poster alt="" loading="lazy" decoding="async" />
+      <span class="yt__veil"></span>
+      <span class="yt__disc">
+        <svg class="yt__glyph yt__glyph--play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.2v13.6a1 1 0 0 0 1.53.85l10.5-6.8a1 1 0 0 0 0-1.7L9.53 4.35A1 1 0 0 0 8 5.2Z"/></svg>
+        <svg class="yt__glyph yt__glyph--wait" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 0 9 9" /></svg>
+        <svg class="yt__glyph yt__glyph--out" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4h6v6M20 4 10 14M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg>
+      </span>
+      <span class="yt__duration">10:34</span>
+    </button>
+    <iframe class="yt__player" data-yt-player title="Big Buck Bunny" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen hidden></iframe>
+    <figcaption class="yt__caption">
+      <span class="yt__title">Big Buck Bunny</span>
+      <span class="yt__meta">
+        <span>Blender Foundation</span>
+        <span class="yt__meta-dot" aria-hidden="true"></span>
+        <a class="yt__out" data-yt-out href="https://www.youtube.com/watch?v=aqz-KE-bpKQ" target="_blank" rel="noopener noreferrer">
+          YouTube
+          <svg viewBox="0 0 24 24" aria-hidden="true" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7M9 7h8v8"/></svg>
+        </a>
+      </span>
+      <span class="yt__fallback">YouTube isn’t reachable from here — the link above opens it directly.</span>
+    </figcaption>
+  </figure>
+
+  <div class="lab-prose">
+    <p>
+      A reader who scrolls past this is never touched by YouTube’s JS, its cookies,
+      or its ads. That is the whole win, and it is worth being honest that it is
+      the only one — playback after the click is still YouTube’s, ads included.
+    </p>
+  </div>
+
+  <!-- Variant B — caption in-frame. -->
+  <figure class="yt yt--overlay" data-yt data-video="jNQXAC9IVRw" data-start="0">
+    <button class="yt__frame" type="button" data-yt-frame aria-label="Play “Me at the zoo” by jawed">
+      <img class="yt__poster" data-yt-poster alt="" loading="lazy" decoding="async" />
+      <span class="yt__veil"></span>
+      <span class="yt__disc">
+        <svg class="yt__glyph yt__glyph--play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.2v13.6a1 1 0 0 0 1.53.85l10.5-6.8a1 1 0 0 0 0-1.7L9.53 4.35A1 1 0 0 0 8 5.2Z"/></svg>
+        <svg class="yt__glyph yt__glyph--wait" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 0 9 9" /></svg>
+        <svg class="yt__glyph yt__glyph--out" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4h6v6M20 4 10 14M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg>
+      </span>
+      <span class="yt__duration">0:18</span>
+    </button>
+    <iframe class="yt__player" data-yt-player title="Me at the zoo" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen hidden></iframe>
+    <figcaption class="yt__caption">
+      <span class="yt__title">Me at the zoo</span>
+      <span class="yt__meta">
+        <span>jawed</span>
+        <span class="yt__meta-dot" aria-hidden="true"></span>
+        <a class="yt__out" data-yt-out href="https://www.youtube.com/watch?v=jNQXAC9IVRw" target="_blank" rel="noopener noreferrer">
+          YouTube
+          <svg viewBox="0 0 24 24" aria-hidden="true" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7M9 7h8v8"/></svg>
+        </a>
+      </span>
+      <span class="yt__fallback">YouTube isn’t reachable from here — the link above opens it directly.</span>
+    </figcaption>
+  </figure>
+
+  <!-- ================= AUTHORSHIP CREDITS ================= -->
+  <p class="lab-h">02 — Authorship credits</p>
+  <p class="lab-note">
+    Three mutually exclusive branches. Hover (or tap) a trigger to open the manifest.
+    Copy below is placeholder English — see the handoff note at the end of the chat.
+  </p>
+
+  <!-- Branch 1 — #not-by-ai, every credit pledgeSafe. Pledge copy unchanged. -->
+  <p class="lab-h" style="margin-top:36px">branch 1 — pledge holds, safe credits listed</p>
+  <div class="lab-foot">
+    <aside class="credit" data-credit>
+      <!-- The pledge and its trigger are the existing NotByAI.astro, byte for
+           byte — copy unchanged, its own manifesto card unchanged (not wired
+           up in this lab). Only the addendum below is new. -->
+      <p class="credit__line">This post was written by a human, without AI.</p>
+      <button type="button" class="credit__trigger" disabled title="existing NotByAI trigger — its own card, not shown here">Why does that matter to me?</button>
+      <p class="credit__addendum">
+        A model helped around the writing —
+        <button type="button" class="credit__trigger" data-credit-trigger aria-expanded="false">research, factcheck</button>
+      </p>
+      <figure class="credit__card" role="note" aria-label="Model credit">
+        <figcaption class="credit__head">
+          <svg class="credit__mark" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.4 9.9 6.1 14.6 8 9.9 9.9 8 14.6 6.1 9.9 1.4 8 6.1 6.1Z"/></svg>
+          <span class="credit__model">claude-opus-5</span>
+          <span class="credit__eyebrow">model credit</span>
+        </figcaption>
+        <ul class="credit__roles">
+          <li class="credit__role">
+            <code class="credit__key">research</code>
+            <span class="credit__what">gathered sources</span>
+            <span class="credit__flag" data-prose="no">no prose</span>
+          </li>
+          <li class="credit__role">
+            <code class="credit__key">factcheck</code>
+            <span class="credit__what">verified claims</span>
+            <span class="credit__flag" data-prose="no">no prose</span>
+          </li>
+        </ul>
+        <p class="credit__note">
+          Neither role produces reader-facing text, so the pledge stands as written.
+        </p>
+      </figure>
+    </aside>
+    <div class="lab-foot__pills">
+      <span class="lab-foot__pill">Subscribe</span>
+      <span class="lab-foot__pill">Share</span>
+    </div>
+  </div>
+
+  <!-- Branch 2 — a credit that is not pledgeSafe. Replaces the pledge. -->
+  <p class="lab-h" style="margin-top:56px">branch 2 — credit replaces the pledge</p>
+  <div class="lab-foot">
+    <aside class="credit" data-credit>
+      <p class="credit__line">
+        Written with <span class="credit__em">Claude Opus 5</span>, which drafted and translated parts of this post.
+      </p>
+      <button type="button" class="credit__trigger" data-credit-trigger aria-expanded="false">What exactly did it do?</button>
+      <figure class="credit__card" role="note" aria-label="Model credit">
+        <figcaption class="credit__head">
+          <svg class="credit__mark" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.4 9.9 6.1 14.6 8 9.9 9.9 8 14.6 6.1 9.9 1.4 8 6.1 6.1Z"/></svg>
+          <span class="credit__model">claude-opus-5</span>
+          <span class="credit__eyebrow">model credit</span>
+        </figcaption>
+        <ul class="credit__roles">
+          <li class="credit__role">
+            <code class="credit__key">draft</code>
+            <span class="credit__what">produced the first draft</span>
+            <span class="credit__flag" data-prose="yes">prose</span>
+          </li>
+          <li class="credit__role">
+            <code class="credit__key">translate</code>
+            <span class="credit__what">rendered into another language <span class="credit__qual">zh → en</span></span>
+            <span class="credit__flag" data-prose="yes">prose</span>
+          </li>
+          <li class="credit__role">
+            <code class="credit__key">factcheck</code>
+            <span class="credit__what">verified claims</span>
+            <span class="credit__flag" data-prose="no">no prose</span>
+          </li>
+        </ul>
+        <p class="credit__note">
+          Prose landed in this post that a human did not write, so there is no
+          <code>#not-by-ai</code> pledge here — the credit is the honest version of it.
+        </p>
+      </figure>
+    </aside>
+    <div class="lab-foot__pills">
+      <span class="lab-foot__pill">Subscribe</span>
+      <span class="lab-foot__pill">Share</span>
+    </div>
+  </div>
+
+  <!-- Branch 3 — nothing. -->
+  <p class="lab-h" style="margin-top:56px">branch 3 — no tag, no credits</p>
+  <div class="lab-foot">
+    <span style="flex:1 1 260px;font-size:13px;color:var(--blog-faint)">(nothing renders — every existing post)</span>
+    <div class="lab-foot__pills">
+      <span class="lab-foot__pill">Subscribe</span>
+      <span class="lab-foot__pill">Share</span>
+    </div>
+  </div>
+
+</main>
+
+<script>
+/* ==========================================================================
+   FACADE CONTROLLER — the shape src/lib/embed/youtube.ts should take.
+
+   Capability probe, not a geo guess: click, insert the iframe with
+   `enablejsapi=1`, keep the facade underneath, and wait for the IFrame API's
+   onReady. If it has not fired in PROBE_MS, YouTube is unreachable from this
+   client — leave the facade standing and re-point it at the watch URL.
+   The verdict is cached in sessionStorage so later cards skip the wait.
+   ========================================================================== */
+const PROBE_MS = 5000;
+const VERDICT_KEY = 'yt-reachable';
+
+const verdict = () => { try { return sessionStorage.getItem(VERDICT_KEY); } catch { return null; } };
+const setVerdict = (v) => { try { sessionStorage.setItem(VERDICT_KEY, v); } catch {} };
+
+/* Posters: maxres first, hqdefault second. In production both URLs are minted
+   through the signed static proxy, never fetched cross-origin here.
+
+   CAREFUL — an `error` handler alone does not implement this fallback. When a
+   video has no maxres, i.ytimg.com answers `maxresdefault.jpg` with HTTP 200
+   and a 120x90 grey placeholder, so the image loads "successfully" and onerror
+   never fires. Verified in this lab: aqz-KE-bpKQ -> 1278x720 (real),
+   jNQXAC9IVRw -> 120x90 (placeholder). The proxy passes the 200 straight
+   through, so it cannot rescue this either. Detect it on `load` by size, and
+   keep the error handler for the genuinely-failed cases (network, proxy 4xx). */
+const PLACEHOLDER_MAX_WIDTH = 120;
+
+function posterUrl(id, quality) {
+  return `https://i.ytimg.com/vi/${id}/${quality}.jpg`;
+}
+
+function mountPoster(card) {
+  const id = card.dataset.video;
+  const img = card.querySelector('[data-yt-poster]');
+  let fellBack = false;
+
+  const fallback = () => {
+    if (fellBack) return;
+    fellBack = true;
+    img.src = posterUrl(id, 'hqdefault');
+  };
+
+  img.addEventListener('load', () => {
+    if (img.naturalWidth <= PLACEHOLDER_MAX_WIDTH) fallback();
+  });
+  img.addEventListener('error', fallback);
+  img.src = posterUrl(id, 'maxresdefault');
+}
+
+function play(card) {
+  if (card.classList.contains('is-playing') || card.classList.contains('is-loading')) return;
+
+  // A known-unreachable session never spins: go straight out.
+  if (verdict() === 'no' || document.body.dataset.fakeBlock === 'on') {
+    card.classList.add('is-unreachable');
+    return;
+  }
+
+  const id = card.dataset.video;
+  const start = card.dataset.start || '0';
+  const frame = card.querySelector('[data-yt-player]');
+
+  card.classList.add('is-loading');
+
+  const params = new URLSearchParams({
+    autoplay: '1',
+    enablejsapi: '1',
+    playsinline: '1',
+    rel: '0',
+    origin: location.origin,
+    start,
+  });
+  frame.hidden = false;
+  frame.src = `https://www.youtube-nocookie.com/embed/${id}?${params}`;
+
+  let settled = false;
+  const timer = setTimeout(() => {
+    if (settled) return;
+    settled = true;
+    window.removeEventListener('message', onMessage);
+    // Non-destructive: the facade is still standing, so this is a change of
+    // emphasis, not an error state. Tear the iframe back out — removeAttribute,
+    // not src='', which would navigate the frame to the current document.
+    frame.removeAttribute('src');
+    frame.hidden = true;
+    card.classList.remove('is-loading');
+    card.classList.add('is-unreachable');
+    setVerdict('no');
+  }, PROBE_MS);
+
+  function onMessage(event) {
+    if (!/youtube(-nocookie)?\.com$/.test(new URL(event.origin).hostname)) return;
+    if (event.source !== frame.contentWindow) return;
+    if (settled) return;
+    settled = true;
+    clearTimeout(timer);
+    window.removeEventListener('message', onMessage);
+    card.classList.remove('is-loading');
+    card.classList.add('is-playing');
+    setVerdict('yes');
+  }
+  window.addEventListener('message', onMessage);
+
+  // The API only starts posting events once we ask to listen.
+  frame.addEventListener('load', () => {
+    frame.contentWindow?.postMessage(
+      JSON.stringify({ event: 'listening', id: 1, channel: 'widget' }),
+      'https://www.youtube-nocookie.com',
+    );
+  });
+}
+
+document.querySelectorAll('[data-yt]').forEach((card) => {
+  mountPoster(card);
+  // The "Watch on YouTube" anchor lives outside this button in both variants,
+  // so there is no nested-interactive click to filter here.
+  card.querySelector('[data-yt-frame]').addEventListener('click', () => {
+    if (card.classList.contains('is-unreachable')) {
+      window.open(card.querySelector('[data-yt-out]').href, '_blank', 'noopener');
+      return;
+    }
+    play(card);
+  });
+});
+
+/* ------------ credit card: mirrors NotByAI's touch/aria handling ---------- */
+document.querySelectorAll('[data-credit]').forEach((root) => {
+  const sync = () => root.querySelectorAll('[data-credit-trigger]').forEach((t) =>
+    t.setAttribute('aria-expanded', root.hasAttribute('data-open') ? 'true' : 'false'));
+  root.querySelectorAll('[data-credit-trigger]').forEach((t) =>
+    t.addEventListener('click', () => { root.toggleAttribute('data-open'); sync(); }));
+  root.addEventListener('pointerenter', sync);
+  root.addEventListener('pointerleave', () => { root.removeAttribute('data-open'); sync(); });
+});
+
+/* ------------------------------ lab chrome ------------------------------- */
+const root = document.documentElement;
+document.querySelector('[data-theme-toggle]').addEventListener('click', () => {
+  root.dataset.theme = root.dataset.theme === 'dark' ? 'light' : 'dark';
+});
+
+document.querySelectorAll('[data-state]').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('[data-state]').forEach((b) =>
+      b.setAttribute('aria-pressed', String(b === btn)));
+    const state = btn.dataset.state;
+    document.querySelectorAll('[data-yt]').forEach((card) => {
+      card.classList.remove('is-loading', 'is-playing', 'is-unreachable');
+      // "playing" without a real load just shows the dimmed hand-off frame.
+      if (state !== 'rest') card.classList.add(`is-${state}`);
+    });
+  });
+});
+
+const blockBtn = document.querySelector('[data-fake-block]');
+blockBtn.addEventListener('click', () => {
+  const on = document.body.dataset.fakeBlock !== 'on';
+  document.body.dataset.fakeBlock = on ? 'on' : 'off';
+  blockBtn.setAttribute('aria-pressed', String(on));
+  try { on ? sessionStorage.removeItem(VERDICT_KEY) : sessionStorage.removeItem(VERDICT_KEY); } catch {}
+});
+</script>
+</body>
+</html>
