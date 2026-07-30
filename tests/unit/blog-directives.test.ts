@@ -20,6 +20,7 @@ describe('blog directive transformer', () => {
   test('exposes the unwired production registry through the stable two-argument seam', async () => {
     expect(postDirectiveRegistry.map(({ name, kind }) => ({ name, kind }))).toEqual([
       { name: 'poem', kind: 'inline' },
+      { name: 'footnotes', kind: 'inline' },
       { name: 'mood', kind: 'block' },
       { name: 'music', kind: 'block' },
     ]);

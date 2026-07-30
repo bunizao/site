@@ -1,6 +1,7 @@
 import { load } from 'cheerio';
 
 import { DirectiveAttributeError } from './attributes';
+import { footnotesDirective } from './footnotes';
 import { moodDirective } from './mood';
 import { musicDirective } from './music';
 import { poemDirective } from './poem';
@@ -36,6 +37,7 @@ const PROTECTED_SELECTOR = 'code, pre, script, style';
 
 export const postDirectiveRegistry: readonly Directive[] = Object.freeze([
   poemDirective,
+  footnotesDirective,
   moodDirective,
   musicDirective,
 ]);
