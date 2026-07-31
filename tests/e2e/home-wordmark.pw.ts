@@ -41,6 +41,7 @@ test.describe('Home publication wordmark', () => {
     const portal = page.locator('#writing-section .writing-portal');
     const wake = portal.locator('.site-wordmark__wake');
     await portal.scrollIntoViewIfNeeded();
+    await expect(page.locator('#writing-section')).toHaveClass(/is-settled/);
     await expect(wake).toHaveCSS('background-position', '150% 0px');
 
     await portal.hover();
