@@ -34,7 +34,7 @@ export type {
 } from './types';
 
 const DIRECTIVE_PARAGRAPH_RE =
-  /<p\b[^>]*>\s*\[!([a-z][a-z0-9-]*)(?:\s+((?:"[^"]*"|'[^']*'|[^\]])*?))?\]\s*<\/p>/giu;
+  /<p\b[^>]*>\s*\[!([a-z][a-z0-9-]*)(?:\s+((?:[^"'\]]+|"[^"]*"|'[^']*')*))?\]\s*<\/p>/giu;
 const DIRECTIVE_MARKER_RE = /\[!([a-z][a-z0-9-]*)(?:\s+[^\]]*?)?\]/giu;
 const PROTECTED_SELECTOR = 'code, pre, script, style';
 

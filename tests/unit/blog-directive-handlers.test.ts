@@ -72,6 +72,23 @@ describe('poem directive', () => {
     });
   });
 
+  test('extracts attribution text through the HTML parser', async () => {
+    const output = await poemDirective.transform(
+      '<blockquote><p>First line</p><p><span title="1 > 0">— Ada</span></p></blockquote>',
+      context,
+    );
+
+    expect(output).toEqual({
+      html: [
+        '<blockquote class="blog-poem">',
+        '<p>First line</p>',
+        '<cite class="blog-poem__attribution"><span title="1 > 0">— Ada</span></cite>',
+        '</blockquote>',
+      ].join(''),
+      warnings: [],
+    });
+  });
+
   test('ports hand-broken verse and leaves ordinary prose quotes unchanged', async () => {
     const html = [
       '<blockquote>First<br>Second<br>Third</blockquote>',

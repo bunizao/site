@@ -40,8 +40,9 @@ interface ParsedPoem {
   protectedSiblings: string[];
 }
 
-function stripTags(value: string): string {
-  return value.replace(/<[^>]+>/gu, '').replace(/\s+/gu, ' ').trim();
+function normalizedText(value: string): string {
+  const $ = load(value, {}, false);
+  return $.root().text().replace(/\s+/gu, ' ').trim();
 }
 
 function parsePoem(rawHtml: string): ParsedPoem | null {
@@ -85,7 +86,7 @@ function parsePoem(rawHtml: string): ParsedPoem | null {
 
   let attribution = '';
   const last = stanzas.at(-1) ?? '';
-  if (ATTRIBUTION_ONLY_RE.test(stripTags(last)) && stanzas.length > 1) {
+  if (ATTRIBUTION_ONLY_RE.test(normalizedText(last)) && stanzas.length > 1) {
     attribution = stanzas.pop() ?? '';
   } else {
     const split = last.match(INLINE_ATTRIBUTION_RE);
