@@ -13,7 +13,10 @@ function createWorkspace(html = '<a href="/blog/email-philosophy/">Real post</a>
   mkdirSync(join(workspace, 'dist/client/blog'), { recursive: true });
   mkdirSync(join(workspace, 'dist/server'), { recursive: true });
   writeFileSync(join(workspace, 'dist/client/blog/index.html'), html);
-  writeFileSync(join(workspace, 'dist/server/wrangler.json'), '{"name":"site"}\n');
+  writeFileSync(
+    join(workspace, 'dist/server/wrangler.json'),
+    '{"name":"site","legacy_env":true}\n',
+  );
   return workspace;
 }
 
@@ -41,6 +44,7 @@ describe('Cloudflare deploy guard', () => {
     );
 
     expect(result.exitCode).toBe(0);
+    expect(config.legacy_env).toBeUndefined();
     expect(config.build.command).toBe('node scripts/cloudflare-deploy-guard.mjs check');
   });
 

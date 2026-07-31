@@ -34,7 +34,7 @@ jobs:
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
         with:
-          bun-version: 1.3.6
+          bun-version: 1.3.14
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
@@ -58,7 +58,7 @@ jobs:
 
       - name: Reject mock Cloudflare deployment
         run: |
-          if bunx wrangler deploy --config dist/server/wrangler.json --dry-run > "$RUNNER_TEMP/wrangler-guard.log" 2>&1; then
+          if bun run guard:cloudflare-deploy > "$RUNNER_TEMP/wrangler-guard.log" 2>&1; then
             echo "Mock Cloudflare deployment unexpectedly passed."
             exit 1
           fi
@@ -81,7 +81,7 @@ jobs:
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
         with:
-          bun-version: 1.3.6
+          bun-version: 1.3.14
 
       - name: Install dependencies
         run: bun install --frozen-lockfile

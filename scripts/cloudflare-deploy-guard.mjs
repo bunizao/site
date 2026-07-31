@@ -31,6 +31,7 @@ function findMockSlugs(html) {
 
 export function installCloudflareDeployGuard() {
   const config = readConfig();
+  delete config.legacy_env;
   config.build = {
     ...config.build,
     command: DEPLOY_GUARD_COMMAND,
