@@ -3,6 +3,10 @@ import {
   BLANK_LISTENING_ARTWORK,
   renderListeningCardMarkup,
 } from '@/lib/listening/markup';
+import {
+  parseYouTubeVideoUrl,
+  renderYouTubeEmbedMarkup,
+} from '@/lib/embed/youtube';
 
 function escapeHtml(value: string): string {
   return value
@@ -199,6 +203,15 @@ function renderDocument(media: MediaItem): string {
 function renderLinkPreview(media: MediaItem): string {
   const href = safeUrl(media.href || media.originalUrl, 'href');
   if (!href) return '';
+
+  const youtube = parseYouTubeVideoUrl(href);
+  if (youtube) {
+    return renderYouTubeEmbedMarkup({
+      ...youtube,
+      title: media.title?.trim() || 'YouTube video',
+      channelName: media.siteName?.trim() || 'YouTube',
+    });
+  }
 
   const thumbnail = safeUrl(media.thumbnailSrc || media.src, 'media');
   const title = (media.title || href).trim();
