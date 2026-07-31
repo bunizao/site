@@ -1,6 +1,8 @@
 import type { Page } from '@playwright/test';
 import { expect, test } from './fixtures';
 
+const GHOST_PREVIEW_E2E_POST_ID = '5ddc9141c35e7700383b2937';
+
 function isIgnorableDevConsoleError(message: string): boolean {
   return message.includes('Outdated Optimize Dep') || message.startsWith('Failed to load resource:');
 }
@@ -209,6 +211,30 @@ test.describe('Blog reading UI', () => {
       await expect(toc).toHaveAttribute('hidden', '');
       await expect(page.locator('.toc-topbar--static')).toHaveCount(1);
     }
+  });
+
+  test('renders a Ghost draft preview through the real blog prose without caching', async ({ page }) => {
+    const response = await page.goto(
+      `/blog/preview/${GHOST_PREVIEW_E2E_POST_ID}`,
+      { waitUntil: 'domcontentloaded' },
+    );
+
+    expect(response?.status()).toBe(200);
+    expect(response?.headers()['cache-control']).toBe('private, no-store');
+    await expect(page.locator('[data-ghost-draft-preview]')).toBeVisible();
+    await expect(page.locator('.blog-article__title')).toHaveText('E2E Ghost draft');
+    await expect(page.locator('.blog-prose .blog-poem')).toContainText('E2E preview line');
+    await expect(page.locator('.ai-credit')).toContainText('Claude Opus 4.6');
+    await expect(page.locator('.ai-credit')).toContainText('reviewed the draft.');
+    await expect(page.locator('.not-by-ai')).toHaveCount(0);
+
+    const invalid = await page.request.get('/blog/preview/not-a-ghost-id');
+    expect(invalid.status()).toBe(404);
+    expect(invalid.headers()['cache-control']).toBe('private, no-store');
+
+    const missing = await page.request.get('/blog/preview/aaaaaaaaaaaaaaaaaaaaaaaa');
+    expect(missing.status()).toBe(404);
+    expect(missing.headers()['cache-control']).toBe('private, no-store');
   });
 
   test('probes YouTube capability on click without geo branching or overflow', async ({ page }) => {

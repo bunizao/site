@@ -1,0 +1,93 @@
+---
+export const prerender = false;
+
+const previewPolicyHeaders = {
+  'Cache-Control': 'private, no-store',
+  'X-Robots-Tag': 'noindex, nofollow',
+} as const;
+
+if (!import.meta.env.DEV) {
+  return new Response('Not found.', {
+    status: 404,
+    headers: {
+      ...previewPolicyHeaders,
+      'Content-Type': 'text/plain; charset=utf-8',
+    },
+  });
+}
+
+const [
+  { default: BlogLayout },
+  { default: Prose },
+  { default: AiCredit },
+  { default: NotByAI },
+  { formatPostDate },
+  { readAuthorshipCredits },
+  { resolveGhostDraftPreview },
+] = await Promise.all([
+  import('@/layouts/BlogLayout.astro'),
+  import('@/features/posts/ui/Prose.astro'),
+  import('@/features/posts/ui/AiCredit.astro'),
+  import('@/features/posts/ui/NotByAI.astro'),
+  import('@/features/posts/format'),
+  import('@/features/posts/server/directives/authors'),
+  import('@/features/posts/server/ghost-preview'),
+]);
+
+const result = await resolveGhostDraftPreview({
+  id: Astro.params.id ?? '',
+  locals: Astro.locals,
+});
+if (!result.ok) {
+  return new Response(result.message, {
+    status: result.status,
+    headers: {
+      ...previewPolicyHeaders,
+      'Content-Type': 'text/plain; charset=utf-8',
+    },
+  });
+}
+
+for (const [name, value] of Object.entries(previewPolicyHeaders)) {
+  Astro.response.headers.set(name, value);
+}
+
+const { post, html, meta } = result;
+const title = post.title.trim() || 'Untitled draft';
+const authorshipCredits = readAuthorshipCredits(meta, post.slug);
+---
+
+<BlogLayout
+  title={title}
+  description={`Local preview of ${title}`}
+  path={Astro.url.pathname}
+>
+  <a class="blog-back" href="/blog/">← All posts</a>
+
+  <div class="blog-article-wrap" data-ghost-draft-preview>
+    <aside class="blog-aside">
+      <div class="blog-aside__sticky">
+        <a class="blog-back-rail" href="/blog/">← Blog</a>
+      </div>
+    </aside>
+
+    <article>
+      <header class="blog-article__header">
+        <h1 class="blog-article__title">{title}</h1>
+        <p class="blog-article__meta">
+          <span>Local draft preview</span>
+          <span>{post.status}</span>
+          {post.updatedAt ? <span>Updated {formatPostDate(post.updatedAt)}</span> : null}
+        </p>
+      </header>
+
+      <Prose html={html} />
+    </article>
+  </div>
+
+  <footer class="blog-end">
+    <div class="blog-end__bar">
+      {authorshipCredits.length > 0 ? <AiCredit credits={authorshipCredits} /> : <NotByAI />}
+    </div>
+  </footer>
+</BlogLayout>

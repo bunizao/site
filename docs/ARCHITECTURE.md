@@ -22,7 +22,7 @@ Private API ownership lives in the separate `site-api` Worker. `site-api` direct
 
 ## Key Directories
 
-- **`src/pages/`** — File-based routing. Includes `index.astro` (home), `mood.astro` (feed shell + route bootstrap), `mood/[id].astro` (detail shell + route bootstrap), `mood/embed.astro` (embeddable widget)
+- **`src/pages/`** — File-based routing. Includes `index.astro` (home), `mood.astro` (feed shell + route bootstrap), `mood/[id].astro` (detail shell + route bootstrap), `mood/embed.astro` (embeddable widget), and `blog/preview/[id].astro` (local Ghost draft preview)
 - **`src/pages/api/`** — Thin catch-all fallback proxy to `site-api`; concrete API implementations live in the private `site-api` repo.
 - **`src/pages/dev/` and `src/pages/oauth*`** — Compatibility proxy routes to the private admin/OAuth app in `site-api`.
 - **`src/middleware.ts`** — Astro middleware that negotiates agent Markdown, applies variant-aware edge caching, and gates protected docs by asking `site-api` for the admin session state through the `API` service binding.
@@ -47,7 +47,7 @@ Private API ownership lives in the separate `site-api` Worker. `site-api` direct
 
 ## Data Sources
 
-1. **Ghost CMS** (`src/features/home/ui/Posts.astro`) — Blog posts via Ghost Content API
+1. **Ghost CMS** (`src/features/posts/server/content.ts`, `src/features/posts/server/ghost-admin.ts`) — Public blog posts use the Content API during builds. Local draft previews use the server-only Admin API and never expose its credential to the browser.
 2. **Project cards** (`src/features/home/ui/Projects.astro`) — Local project-card UI.
 3. **Last.fm + Apple iTunes Search** (`src/features/home/ui/Listening.astro`, `site-api /api/listening`) — Recent listening status from Last.fm, with client-side home hydration and iTunes enrichment for preview URLs and stronger artwork
 4. **GitHub Contributions** (`src/features/home/ui/GitHubContributions.astro`, `site-api /api/github/contributions`) — Contribution graph from an API backed by GitHub GraphQL, with the public contributions API as a fallback
@@ -78,6 +78,9 @@ Private API ownership lives in the separate `site-api` Worker. `site-api` direct
 **Owner auth surface:**
 - `GET /oauth` — Short public entry that redirects to the protected OAuth hub.
 - The owner-auth boundary is enforced in `src/middleware.ts` + `src/features/admin/server/access.ts`; see [OAUTH-HUB.md](./OAUTH-HUB.md) for the credential roadmap. (The former `/dev/portal/oauth` UI page was removed.)
+
+**Local authoring surface:**
+- `GET /blog/preview/<24-character-post-id>` — Renders a Ghost draft through the production directive and blog prose pipeline during `astro dev`. Production returns `404` before loading preview-only dependencies, keeping them out of the Worker bundle. Every response is private and uncached.
 
 **Public asset proxy, served by the `site` Worker:**
 - `GET|HEAD /static/youtube/<11-character-id>/<maxresdefault|hqdefault>.jpg` — Fixed YouTube poster proxy. The route rejects query strings and arbitrary `i.ytimg.com` targets; no signing secret is exposed to client-rendered Mood cards.
@@ -121,6 +124,7 @@ The edge cache key includes the negotiated variant (`html` or `markdown`) plus p
 Accessed via `import.meta.env.*`:
 - `PUBLIC_GHOST_URL` — Ghost CMS URL (default: https://blog.buxx.me)
 - `GHOST_CONTENT_API_KEY` — Ghost CMS content API key; required in the Cloudflare build environment for the prerendered Writing section
+- `GHOST_ADMIN_API_KEY` — Server-only Ghost Admin key for local draft previews. Keep it in `.env.local` and never use a `PUBLIC_` prefix.
 - `PUBLIC_BLOG_OG_IMAGE_ENDPOINT` — OGIS endpoint for generated `/blog` Open Graph images
 - `GITHUB_TOKEN` — GitHub GraphQL token for project data
 - `PUBLIC_HD_IMAGE_URL` — HD mood image base URL served by `site-api`
