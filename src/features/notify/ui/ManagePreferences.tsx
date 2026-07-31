@@ -16,7 +16,7 @@
 // The visual language — pill toggles and the sliding segmented control —
 // mirrors SubscribePanel.astro so the two surfaces read as one product. This
 // island owns only the DOM + fetches; the API lives in ../site-api under
-// /v2/notify/manage (token action 'manage'). Types are local for now; they
+// /notify/manage (token action 'manage'). Types are local for now; they
 // move to @bunizao/contracts when the backend lands.
 import * as React from 'react';
 
@@ -267,7 +267,7 @@ function loadManageStoreEntry(token: string) {
       if (!res.ok) {
         entry.snapshot = {
           phase: 'invalid',
-          reason: res.status === 410 || res.status === 401 ? 'expired' : 'invalid',
+          reason: res.status === 410 ? 'expired' : 'invalid',
         };
         return;
       }
@@ -509,6 +509,11 @@ function MagicLinkGate({
       });
       if (res.status === 429) {
         setError(t.tooFrequent);
+        return;
+      }
+      if (!res.ok) {
+        const payload = (await res.json().catch(() => ({}))) as { error?: string };
+        setError(payload.error || t.actionFailed);
         return;
       }
       // Success is intentionally uniform: the endpoint returns 200 whether or
