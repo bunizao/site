@@ -385,6 +385,7 @@ describe('Cloudflare runtime configuration', () => {
     const decodeEngine = readText('packages/decode-text/src/index.ts');
     const experience = readText('src/features/home/ui/Experience.astro');
     const parallax = readText('src/features/home/ui/ParallaxWrapper.astro');
+    const homeReveal = readText('src/lib/home-reveal.ts');
     const homePage = readText('src/pages/index.astro');
 
     expect(globals).toContain('.js .hero-animate {');
@@ -414,9 +415,14 @@ describe('Cloudflare runtime configuration', () => {
     expect(listeningController).toContain('titleLabel.dataset.title = nextTitle;');
     expect(listeningStyles).toContain('max-width: min(18ch, calc(100% - 48px));');
     expect(experience).toContain('<ExperienceTimeline client:visible />');
-    expect(parallax).toContain("import('gsap/ScrollTrigger')");
-    expect(parallax).toContain("window.addEventListener('load', scheduleSkatingEffects");
-    expect(homePage).toContain(':global(.page-container > section:not(#projects-section):not(#writing-section))');
+    expect(parallax).not.toContain("import('gsap/ScrollTrigger')");
+    expect(parallax).not.toContain('scheduleSkatingEffects');
+    expect(homeReveal).toContain('export const initHomeReveal');
+    expect(homeReveal).toContain('new IntersectionObserver(');
+    expect(homePage).toContain("import '@/styles/home-reveal.css';");
+    expect(homePage).toContain("import { initHomeReveal } from '@/lib/home-reveal';");
+    expect(homePage).not.toContain(':global(.page-container > section:not(#projects-section):not(#writing-section))');
+    expect(homePage).toContain(':global(.page-container > footer)');
     expect(homePage).toContain('content-visibility: auto;');
   });
 
@@ -475,7 +481,9 @@ describe('Cloudflare runtime configuration', () => {
     expect(postsComponent).toContain('blog.copy[locale]');
     expect(postsComponent).toContain('getTagLabel(tag, locale)');
     expect(postsComponent).toContain('href={postPath(post.slug)}');
-    expect(postsComponent).toContain('void initWriting();');
+    expect(postsComponent).toContain("import { attachHoverIndicator } from '@/lib/hover-indicator';");
+    expect(postsComponent).toContain('data-writing-post-list');
+    expect(postsComponent).toContain('attachHoverIndicator(writingPostList, {');
     expect(postsComponent).toContain(':global(#writing-section .post-item)');
     expect(postsComponent).toContain(':global(#writing-section .post-meta)');
   });
