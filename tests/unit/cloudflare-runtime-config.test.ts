@@ -241,6 +241,7 @@ describe('Cloudflare runtime configuration', () => {
     expect(headers).toContain('https://buxx.me/');
     expect(headers).toContain("script-src 'self' 'unsafe-inline'");
     expect(headers).toContain('https://js-cdn.music.apple.com');
+    expect(headers).toContain('https://www.youtube.com');
     expect(headers).toContain('https://static.cloudflareinsights.com');
     expect(headers).toContain('https://challenges.cloudflare.com');
     expect(headers).toContain('Cache-Control: public, max-age=0, must-revalidate');
@@ -258,6 +259,7 @@ describe('Cloudflare runtime configuration', () => {
     expect(middleware).toContain('Content-Security-Policy');
     expect(middleware).toContain("script-src 'self' 'unsafe-inline'");
     expect(middleware).toContain('https://js-cdn.music.apple.com');
+    expect(middleware).toContain('https://www.youtube.com');
     expect(middleware).toContain('https://static.cloudflareinsights.com');
     expect(middleware).toContain('https://challenges.cloudflare.com');
     expect(middleware).not.toContain('no-transform');

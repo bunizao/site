@@ -1,8 +1,30 @@
 const PROBE_TIMEOUT_MS = 5_000;
 const VERDICT_KEY = 'youtube-embed-reachable:v1';
 const PLACEHOLDER_MAX_WIDTH = 120;
+const PLAYER_API_URL = 'https://www.youtube.com/iframe_api';
 
 type ReachabilityVerdict = 'yes' | 'no';
+
+interface YouTubePlayerApi {
+  Player: new (
+    iframe: HTMLIFrameElement,
+    options: {
+      events: {
+        onError: () => void;
+        onReady: () => void;
+      };
+    },
+  ) => unknown;
+}
+
+declare global {
+  interface Window {
+    YT?: Partial<YouTubePlayerApi>;
+    onYouTubeIframeAPIReady?: () => void;
+  }
+}
+
+let playerApiPromise: Promise<YouTubePlayerApi> | null = null;
 
 function readVerdict(): ReachabilityVerdict | null {
   try {
@@ -21,18 +43,54 @@ function writeVerdict(value: ReachabilityVerdict): void {
   }
 }
 
-function isYouTubeMessageOrigin(value: string): boolean {
-  try {
-    const origin = new URL(value);
-    return origin.protocol === 'https:' && [
-      'youtube.com',
-      'www.youtube.com',
-      'youtube-nocookie.com',
-      'www.youtube-nocookie.com',
-    ].includes(origin.hostname.toLowerCase());
-  } catch {
-    return false;
-  }
+function readPlayerApi(): YouTubePlayerApi | null {
+  const Player = window.YT?.Player;
+  return typeof Player === 'function' ? { Player } as YouTubePlayerApi : null;
+}
+
+function loadPlayerApi(): Promise<YouTubePlayerApi> {
+  const loaded = readPlayerApi();
+  if (loaded) return Promise.resolve(loaded);
+  if (playerApiPromise) return playerApiPromise;
+
+  const pending = new Promise<YouTubePlayerApi>((resolve, reject) => {
+    const previousReady = window.onYouTubeIframeAPIReady;
+    window.onYouTubeIframeAPIReady = () => {
+      previousReady?.();
+      const api = readPlayerApi();
+      if (!api) {
+        reject(new Error('YouTube Player API did not initialize'));
+        return;
+      }
+      window.onYouTubeIframeAPIReady = previousReady;
+      resolve(api);
+    };
+
+    const existing = document.querySelector<HTMLScriptElement>(
+      'script[data-youtube-player-api]',
+    );
+    if (existing) {
+      existing.addEventListener('error', () => reject(new Error('YouTube Player API failed')), {
+        once: true,
+      });
+      return;
+    }
+
+    const script = document.createElement('script');
+    script.src = PLAYER_API_URL;
+    script.async = true;
+    script.dataset.youtubePlayerApi = 'true';
+    script.addEventListener('error', () => reject(new Error('YouTube Player API failed')), {
+      once: true,
+    });
+    document.head.appendChild(script);
+  }).catch((error: unknown) => {
+    playerApiPromise = null;
+    throw error;
+  });
+  playerApiPromise = pending;
+
+  return pending;
 }
 
 function mountPoster(card: HTMLElement): void {
@@ -103,7 +161,6 @@ function play(card: HTMLElement): void {
   let timer = 0;
   const cleanup = () => {
     window.clearTimeout(timer);
-    window.removeEventListener('message', onMessage);
   };
   const fail = (networkFailure: boolean) => {
     if (settled) return;
@@ -120,34 +177,18 @@ function play(card: HTMLElement): void {
     card.classList.add('is-playing');
     writeVerdict('yes');
   };
-  function onMessage(event: MessageEvent): void {
-    if (!isYouTubeMessageOrigin(event.origin) || event.source !== iframe.contentWindow) return;
-
-    let payload: unknown;
-    try {
-      payload = JSON.parse(String(event.data));
-    } catch {
-      return;
-    }
-    if (!payload || typeof payload !== 'object' || !('event' in payload)) return;
-
-    const eventName = (payload as { event?: unknown }).event;
-    if (eventName === 'onError') {
-      fail(false);
-    } else if (eventName === 'onReady') {
-      succeed();
-    }
-  }
 
   timer = window.setTimeout(() => fail(verdict !== 'yes'), PROBE_TIMEOUT_MS);
-  window.addEventListener('message', onMessage);
-  iframe.addEventListener('load', () => {
-    iframe.contentWindow?.postMessage(
-      JSON.stringify({ event: 'listening', id: 1, channel: 'widget' }),
-      'https://www.youtube-nocookie.com',
-    );
-  }, { once: true });
-  iframe.src = `https://www.youtube-nocookie.com/embed/${id}?${params}`;
+  void loadPlayerApi().then((api) => {
+    if (settled) return;
+    iframe.src = `https://www.youtube-nocookie.com/embed/${id}?${params}`;
+    new api.Player(iframe, {
+      events: {
+        onError: () => fail(false),
+        onReady: succeed,
+      },
+    });
+  }).catch(() => fail(verdict !== 'yes'));
 }
 
 export function initYouTubeEmbeds(root: ParentNode = document): void {

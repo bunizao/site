@@ -1251,6 +1251,23 @@ test.describe('Mood routes', () => {
     };
     let playerRequests = 0;
 
+    await page.route('https://www.youtube.com/iframe_api', async (route) => {
+      await route.fulfill({
+        contentType: 'application/javascript',
+        headers: { 'cache-control': 'no-store' },
+        body: [
+          'window.YT = {',
+          '  Player: class {',
+          '    constructor(_iframe, options) {',
+          '      setTimeout(() => { options.events.onReady(); }, 50);',
+          '    }',
+          '  }',
+          '};',
+          'window.onYouTubeIframeAPIReady?.();',
+        ].join('\n'),
+      });
+    });
+
     await page.route('**/api/moods**', async (route) => {
       const url = new URL(route.request().url());
       if (url.searchParams.get('probe') === '1') {
@@ -1307,17 +1324,6 @@ test.describe('Mood routes', () => {
 
     await card.locator('[data-yt-frame]').click();
     await expect(card).toHaveClass(/is-loading/u);
-    await page.evaluate(() => {
-      const iframe = document.querySelector<HTMLIFrameElement>(
-        '[data-mood-id="880002"] [data-yt-player]',
-      );
-      if (!iframe?.contentWindow) throw new Error('YouTube iframe is unavailable');
-      window.dispatchEvent(new MessageEvent('message', {
-        origin: 'https://www.youtube-nocookie.com',
-        source: iframe.contentWindow,
-        data: JSON.stringify({ event: 'onReady' }),
-      }));
-    });
 
     await expect(card).toHaveClass(/is-playing/u);
     expect(playerRequests).toBe(1);

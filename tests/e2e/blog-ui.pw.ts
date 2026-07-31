@@ -92,6 +92,38 @@ async function expectNoHorizontalOverflow(page: Page): Promise<void> {
   ).toBeLessThanOrEqual(overflow.viewportWidth + 1);
 }
 
+type YouTubeApiOutcome = 'error' | 'ready' | 'silent';
+
+async function installYouTubePlayerApiFixture(
+  page: Page,
+  outcome: () => YouTubeApiOutcome,
+  onRequest: () => void = () => undefined,
+): Promise<void> {
+  await page.route('https://www.youtube.com/iframe_api', async (route) => {
+    onRequest();
+    const result = outcome();
+    const callback = result === 'ready'
+      ? 'options.events.onReady()'
+      : result === 'error'
+        ? 'options.events.onError()'
+        : '';
+    await route.fulfill({
+      contentType: 'application/javascript',
+      headers: { 'cache-control': 'no-store' },
+      body: [
+        'window.YT = {',
+        '  Player: class {',
+        '    constructor(_iframe, options) {',
+        `      setTimeout(() => { ${callback}; }, 50);`,
+        '    }',
+        '  }',
+        '};',
+        'window.onYouTubeIframeAPIReady?.();',
+      ].join('\n'),
+    });
+  });
+}
+
 test.describe('Blog reading UI', () => {
   test.beforeEach(async ({ page }) => {
     await page.emulateMedia({ reducedMotion: 'reduce' });
@@ -181,7 +213,13 @@ test.describe('Blog reading UI', () => {
 
   test('probes YouTube capability on click without geo branching or overflow', async ({ page }) => {
     const posterRequests: string[] = [];
+    let apiOutcome: YouTubeApiOutcome = 'ready';
+    let apiRequests = 0;
     let playerRequests = 0;
+
+    await installYouTubePlayerApiFixture(page, () => apiOutcome, () => {
+      apiRequests += 1;
+    });
 
     await page.route('**/static/youtube/**', async (route) => {
       const url = route.request().url();
@@ -210,6 +248,7 @@ test.describe('Blog reading UI', () => {
     const poster = card.locator('[data-yt-poster]');
     await expect(card).toBeVisible();
     await expect(player).not.toHaveAttribute('src', /.+/u);
+    expect(apiRequests).toBe(0);
     expect(playerRequests).toBe(0);
     await expect.poll(() => posterRequests.some((url) => url.includes('hqdefault'))).toBe(true);
     await expect(poster).toHaveAttribute('src', /\/static\/youtube\/aqz-KE-bpKQ\/hqdefault\.jpg$/u);
@@ -231,22 +270,14 @@ test.describe('Blog reading UI', () => {
       'src',
       /youtube-nocookie\.com\/embed\/aqz-KE-bpKQ\?.*origin=http/u,
     );
+    expect(apiRequests).toBe(1);
     expect(playerRequests).toBe(1);
-
-    await page.evaluate(() => {
-      const iframe = document.querySelector<HTMLIFrameElement>('[data-yt-player]');
-      if (!iframe?.contentWindow) throw new Error('YouTube iframe is unavailable');
-      window.dispatchEvent(new MessageEvent('message', {
-        origin: 'https://www.youtube-nocookie.com',
-        source: iframe.contentWindow,
-        data: JSON.stringify({ event: 'onReady' }),
-      }));
-    });
 
     await expect(card).toHaveClass(/is-playing/u);
     await expect(player).toBeVisible();
     expect(await page.evaluate(() => sessionStorage.getItem('youtube-embed-reachable:v1'))).toBe('yes');
 
+    apiOutcome = 'silent';
     await page.reload({ waitUntil: 'domcontentloaded' });
     const laterCard = page.locator('[data-yt]');
     await laterCard.locator('[data-yt-frame]').click();
@@ -256,6 +287,7 @@ test.describe('Blog reading UI', () => {
 
   test('caches a silent YouTube timeout only for the current browser session', async ({ page }) => {
     let playerRequests = 0;
+    await installYouTubePlayerApiFixture(page, () => 'silent');
     await page.route('**/static/youtube/**', async (route) => {
       await route.fulfill({
         contentType: 'image/svg+xml',
@@ -295,6 +327,7 @@ test.describe('Blog reading UI', () => {
 
   test('keeps a player error local to one video', async ({ page }) => {
     let playerRequests = 0;
+    await installYouTubePlayerApiFixture(page, () => 'error');
     await page.route('**/static/youtube/**', async (route) => {
       await route.fulfill({
         contentType: 'image/svg+xml',
@@ -316,15 +349,6 @@ test.describe('Blog reading UI', () => {
     const player = card.locator('[data-yt-player]');
     await card.locator('[data-yt-frame]').click();
     await expect(card).toHaveClass(/is-loading/u);
-    await page.evaluate(() => {
-      const iframe = document.querySelector<HTMLIFrameElement>('[data-yt-player]');
-      if (!iframe?.contentWindow) throw new Error('YouTube iframe is unavailable');
-      window.dispatchEvent(new MessageEvent('message', {
-        origin: 'https://www.youtube-nocookie.com',
-        source: iframe.contentWindow,
-        data: JSON.stringify({ event: 'onError', info: 101 }),
-      }));
-    });
 
     await expect(card).toHaveClass(/is-unreachable/u);
     await expect(player).not.toHaveAttribute('src', /.+/u);
@@ -333,7 +357,7 @@ test.describe('Blog reading UI', () => {
     await page.reload({ waitUntil: 'domcontentloaded' });
     await page.locator('[data-yt-frame]').click();
     await expect(page.locator('[data-yt]')).toHaveClass(/is-loading/u);
-    expect(playerRequests).toBe(2);
+    await expect.poll(() => playerRequests).toBe(2);
   });
 
   test('does not create horizontal overflow on mobile blog routes', async ({ page }) => {
