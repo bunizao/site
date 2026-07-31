@@ -21,6 +21,7 @@
     "dev:portal": "ADMIN_DEV_BYPASS=1 DEV_SURFACE=preview PUBLIC_DEV_SURFACE=preview ASTRO_DEV_BACKGROUND=0 astro dev",
     "dev:api": "API_DEV_ORIGIN=http://127.0.0.1:8787 ASTRO_DEV_BACKGROUND=0 astro dev",
     "build": "astro build && bun scripts/generate-agent-markdown.ts && pagefind --site dist/client --force-language zh && node scripts/cloudflare-deploy-guard.mjs install",
+    "sync:models": "node scripts/sync-model-registry.mjs",
     "build:cloudflare": "node scripts/build-cloudflare.mjs",
     "guard:cloudflare-deploy": "node scripts/cloudflare-deploy-guard.mjs check",
     "check": "astro sync && node scripts/astro-check-legacy-typescript.mjs",
