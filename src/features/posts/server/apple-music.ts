@@ -43,6 +43,7 @@ interface AmpTokenResult {
 }
 
 const lookupCache = new Map<string, AppleTrack | null>();
+const metadataLookupCache = new Map<string, AppleTrack | null>();
 let ampTokenPromise: Promise<AmpTokenResult | null> | null = null;
 let ampTokenResult: AmpTokenResult | null = null;
 
@@ -232,12 +233,11 @@ function getE2EAppleTrack(id: string): AppleTrack | null {
   };
 }
 
-async function lookupAppleTrack(id: string): Promise<AppleTrack | null> {
-  if (lookupCache.has(id)) return lookupCache.get(id) ?? null;
-
+async function lookupAppleTrackMetadata(id: string): Promise<AppleTrack | null> {
+  if (metadataLookupCache.has(id)) return metadataLookupCache.get(id) ?? null;
   const e2eTrack = getE2EAppleTrack(id);
   if (e2eTrack) {
-    lookupCache.set(id, e2eTrack);
+    metadataLookupCache.set(id, e2eTrack);
     return e2eTrack;
   }
 
@@ -252,14 +252,13 @@ async function lookupAppleTrack(id: string): Promise<AppleTrack | null> {
       if (result) {
         const artwork = result.artworkUrl100 ?? '';
         const release = result.releaseDate ? new Date(result.releaseDate) : null;
-        const previewUrl = await lookupExtendedPreviewUrl(id) ?? result.previewUrl ?? '';
         track = {
           id,
           title: result.trackName ?? result.collectionName ?? 'Unknown track',
           artist: result.artistName ?? '',
           collection: result.collectionName ?? '',
           artworkUrl: artwork ? upscaleArtwork(artwork, '256x256bb.jpg') : '',
-          previewUrl,
+          previewUrl: result.previewUrl ?? '',
           year:
             release && Number.isFinite(release.getUTCFullYear())
               ? String(release.getUTCFullYear())
@@ -272,8 +271,52 @@ async function lookupAppleTrack(id: string): Promise<AppleTrack | null> {
     track = null;
   }
 
+  metadataLookupCache.set(id, track);
+  return track;
+}
+
+async function lookupAppleTrack(id: string): Promise<AppleTrack | null> {
+  if (lookupCache.has(id)) return lookupCache.get(id) ?? null;
+
+  const metadata = await lookupAppleTrackMetadata(id);
+  if (!metadata) {
+    lookupCache.set(id, null);
+    return null;
+  }
+  if (process.env.E2E_SITE_FIXTURE === '1') {
+    lookupCache.set(id, metadata);
+    return metadata;
+  }
+
+  const extendedPreviewUrl = await lookupExtendedPreviewUrl(id);
+  const track = extendedPreviewUrl
+    ? { ...metadata, previewUrl: extendedPreviewUrl }
+    : metadata;
   lookupCache.set(id, track);
   return track;
+}
+
+export interface AppleMusicTrackLink {
+  title: string;
+  url: string;
+}
+
+export async function resolveAppleMusicTrackLink(
+  id: string,
+): Promise<AppleMusicTrackLink | null> {
+  const track = await lookupAppleTrackMetadata(id);
+  if (!track?.url) return null;
+
+  try {
+    const url = new URL(track.url);
+    if (url.protocol !== 'https:' || !/(^|\.)music\.apple\.com$/u.test(url.hostname)) {
+      return null;
+    }
+    url.hash = '';
+    return { title: track.title, url: url.toString() };
+  } catch {
+    return null;
+  }
 }
 
 const PLAY_ICON =
@@ -413,6 +456,7 @@ export async function enrichAppleMusicEmbeds(html: string): Promise<string> {
 
 export function resetAppleMusicEmbedLookupCacheForTests(): void {
   lookupCache.clear();
+  metadataLookupCache.clear();
   ampTokenPromise = null;
   ampTokenResult = null;
 }
