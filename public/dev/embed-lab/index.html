@@ -152,7 +152,10 @@ body {
    ========================================================================== */
 .yt {
   --yt-radius: 12px;
-  --yt-disc: 68px;
+  /* 48px, not the 68px it was. A play control has to be findable, not loud —
+     past ~50px it stops reading as a control on the image and starts reading
+     as a badge stuck to it. 48 clears the 44px touch-target floor with room. */
+  --yt-disc: 48px;
   position: relative;
   margin-block: 36px;
   /* Minimum viewport is 200x200 per the embedded-player requirements; at 16:9
@@ -192,22 +195,19 @@ body {
 }
 .yt.is-playing .yt__frame { cursor: default; }
 
-/* Poster. Scales a hair on hover — the whole card leans toward the reader
-   rather than any single control moving. Hover transforms are gated to real
-   pointers; on touch a tap fires a phantom hover and the poster would jump
-   under the finger that is already playing it. */
+/* Poster. It does not move. A hover zoom crops the frame on every pass of the
+   cursor, which is motion the reader did not ask for and cannot act on — and
+   inside a text column it drags the eye off the sentence being read. The
+   poster only changes when the card's STATE changes (loading, playing, gone),
+   and those are filters, not geometry. Hover lives on the disc instead. */
 .yt__poster {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
-  transform: scale(1.001);
-  transition: transform var(--dur-move) var(--ease-out), filter var(--dur-swap) ease;
+  transition: filter var(--dur-swap) ease;
   box-shadow: var(--blog-img-edge);
-}
-@media (hover: hover) and (pointer: fine) {
-  .yt__frame:hover .yt__poster { transform: scale(1.02); }
 }
 .yt.is-loading .yt__poster { filter: saturate(.72) brightness(.86); }
 .yt.is-playing .yt__poster { filter: brightness(.5); }
@@ -217,21 +217,30 @@ body {
    reads as a grey smudge on a bright still and dims an image we went to the
    trouble of owning; keep the darkening tight enough that the disc always has
    ground under it and the poster is otherwise untouched. The bottom band is
-   only there for the duration pill (and the overlay variant's caption). */
+   only there for the duration pill (and the overlay variant's caption).
+   Tight, because the disc it grounds is small — a puddle sized for the old
+   68px puck was visible as haze on its own. */
 .yt__veil {
   position: absolute;
   inset: 0;
   pointer-events: none;
   background:
-    radial-gradient(ellipse 26% 40% at 50% 50%, hsl(0 0% 0% / .38), transparent 68%),
+    radial-gradient(ellipse 21% 33% at 50% 50%, hsl(0 0% 0% / .46), transparent 70%),
     linear-gradient(to top, hsl(0 0% 0% / .3), transparent 26%);
-  opacity: .9;
-  transition: opacity .3s ease;
+  opacity: .82;
+  transition: opacity var(--dur-hover) ease;
 }
+/* The one job of the hover deepening: guarantee ground for a WHITE disc, which
+   would otherwise have to survive on a bright still by itself. */
 .yt__frame:hover .yt__veil { opacity: 1; }
 
-/* Play disc — glass, not red. Same backdrop idiom as .not-by-ai__card so the
-   two custom surfaces on a post are visibly the same material. */
+/* Play disc — ink and paper, not glass and not red.
+   The old one was a 68px frosted puck that grew on hover: three ideas (blur,
+   ring, scale) competing to say one thing. This says it with material. At rest
+   the disc is ink with a white mark, quiet enough to sit on a photograph
+   without owning it; armed (hover or keyboard focus) it flips to paper with an
+   ink mark. Nothing moves, nothing blurs — the disc simply changes what it is
+   made of, which is the same ink-on-paper vocabulary as the prose around it. */
 .yt__disc {
   position: absolute;
   top: 50%;
@@ -241,46 +250,52 @@ body {
   display: grid;
   place-items: center;
   border-radius: 999px;
-  background: hsl(0 0% 5% / .5);
-  -webkit-backdrop-filter: blur(16px) saturate(150%);
-  backdrop-filter: blur(16px) saturate(150%);
+  background: hsl(0 0% 6% / .74);
   box-shadow:
-    inset 0 0 0 1px hsl(0 0% 100% / .26),
-    0 10px 26px -14px hsl(0 0% 0% / .7);
+    inset 0 0 0 1px hsl(0 0% 100% / .2),
+    0 6px 18px -10px hsl(0 0% 0% / .65);
   transform: translate(-50%, -50%);
   transition:
-    transform var(--dur-hover) var(--ease-out),
+    transform var(--dur-press) var(--ease-out),
     background var(--dur-hover) ease,
     box-shadow var(--dur-hover) ease,
     opacity var(--dur-swap) ease;
 }
-/* Hover is a state change, not a performance: the disc grows once and stops.
-   The previous version looped an expanding ring forever — decoration on a
-   state a reader hits dozens of times a session, with nothing to communicate
-   after the first 200ms. Deleted rather than retuned. */
-@media (hover: hover) and (pointer: fine) {
-  .yt__frame:hover .yt__disc {
-    transform: translate(-50%, -50%) scale(1.06);
-    background: hsl(0 0% 5% / .64);
-    box-shadow:
-      inset 0 0 0 1px hsl(0 0% 100% / .38),
-      0 16px 34px -16px hsl(0 0% 0% / .8);
-  }
+
+/* Armed state. Hover is gated to real pointers — on touch a tap fires a
+   phantom hover and the disc would flash white under the finger that already
+   played it — but focus is not, because that is the keyboard's only cue that
+   Enter is about to do something. Both are suppressed mid-load: a white disc
+   behind a white spinner is an invisible spinner. */
+.yt:not(.is-loading) .yt__frame:focus-visible .yt__disc {
+  background: hsl(0 0% 100% / .96);
+  box-shadow:
+    inset 0 0 0 1px hsl(0 0% 0% / .08),
+    0 8px 22px -10px hsl(0 0% 0% / .55);
 }
-/* Press reads on touch too, so it is not gated. */
+.yt:not(.is-loading) .yt__frame:focus-visible .yt__glyph--play { fill: hsl(0 0% 7%); }
+@media (hover: hover) and (pointer: fine) {
+  .yt:not(.is-loading) .yt__frame:hover .yt__disc {
+    background: hsl(0 0% 100% / .96);
+    box-shadow:
+      inset 0 0 0 1px hsl(0 0% 0% / .08),
+      0 8px 22px -10px hsl(0 0% 0% / .55);
+  }
+  .yt:not(.is-loading) .yt__frame:hover .yt__glyph--play { fill: hsl(0 0% 7%); }
+}
+/* The only geometry in the whole card, and it is tied to an actual action.
+   Press reads on touch too, so it is not gated. */
 .yt__frame:active .yt__disc {
-  transform: translate(-50%, -50%) scale(.97);
-  transition-duration: var(--dur-press);
+  transform: translate(-50%, -50%) scale(.94);
 }
 
 .yt__glyph {
-  width: 24px;
-  height: 24px;
+  width: 26px;
+  height: 26px;
   fill: #fff;
   /* Optical centering: a triangle's visual mass sits left of its bounding box. */
-  transform: translateX(1.5px);
-  filter: drop-shadow(0 1px 4px hsl(0 0% 0% / .45));
-  transition: opacity .2s ease;
+  transform: translateX(1px);
+  transition: fill var(--dur-hover) ease;
 }
 .yt__glyph--wait { display: none; transform: none; }
 
@@ -545,8 +560,9 @@ body {
 .yt.is-playing .yt__disc { opacity: 0; pointer-events: none; }
 
 @media (max-width: 600px) {
-  .yt { --yt-disc: 56px; }
-  .yt__glyph { width: 20px; height: 20px; }
+  /* Down to the touch-target floor, no further. */
+  .yt { --yt-disc: 44px; }
+  .yt__glyph { width: 24px; height: 24px; }
   .yt__title { font-size: 14px; }
   .yt__meta { font-size: 12px; }
   .yt__avatar { width: 30px; height: 30px; }
@@ -554,20 +570,19 @@ body {
   .yt__down-body { font-size: 12.5px; }
 }
 
-/* Reduced motion keeps the state changes and drops the travel: opacity still
-   carries loading and hand-off, nothing scales or slides. The spinner becomes
-   a stepped tick rather than vanishing — a wait with no indicator at all is
-   worse than a modest one. */
+/* Reduced motion keeps the state changes and drops the travel: colour still
+   carries armed, loading and hand-off, nothing scales or slides. There is very
+   little left to strip here — the card's only transform is the press — but the
+   press is exactly the kind of springy rebound this setting is asking us not to
+   do, so it goes. The spinner becomes a stepped tick rather than vanishing: a
+   wait with no indicator at all is worse than a modest one. */
 @media (prefers-reduced-motion: reduce) {
-  .yt__poster,
   .yt__caption,
   .yt__down-cta { transition: none; }
-  .yt__disc { transition: background var(--dur-hover) ease, opacity var(--dur-swap) ease; }
-  .yt__frame:hover .yt__poster,
-  .yt__frame:hover .yt__disc,
-  .yt__frame:active .yt__disc,
-  .yt__down-cta:active { transform: translate(-50%, -50%); }
-  .yt__frame:hover .yt__poster { transform: none; }
+  .yt__disc {
+    transition: background var(--dur-hover) ease, box-shadow var(--dur-hover) ease, opacity var(--dur-swap) ease;
+  }
+  .yt__frame:active .yt__disc { transform: translate(-50%, -50%); }
   .yt__down-cta:active { transform: none; }
   .yt.is-loading .yt__glyph--wait { animation: yt-spin 1.6s steps(8) infinite; }
 }
