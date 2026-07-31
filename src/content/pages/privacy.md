@@ -1,14 +1,14 @@
 ---
 title: Privacy Policy | Bunizao
-description: How this website collects, uses, discloses, and retains personal data, including Cloudflare hosting, blog reading analytics, edge diagnostics, the homepage listening card, mood subscriptions, and third-party services.
-updatedAt: June 28, 2026
+description: How this website collects, uses, discloses, and retains personal data, including Cloudflare hosting, blog reading analytics, YouTube embeds, edge diagnostics, the homepage listening card, mood subscriptions, and third-party services.
+updatedAt: August 1, 2026
 ---
 
 # Privacy Policy
 
 This Privacy Policy describes how this website collects, uses, discloses, and retains personal data. It applies to the site as a whole — pages, blog articles, API routes, the homepage listening card, and the optional mood subscription available at [/mood](/mood) — together with the infrastructure and service providers used to operate it.
 
-> **Summary.** We do not sell personal data, share it with data brokers, or use it to build advertising profiles. No third-party analytics or advertising trackers are loaded. The only information you provide directly is an email address, and only if you choose to subscribe to mood notifications; you may withdraw it at any time.
+> **Summary.** We do not sell personal data, share it with data brokers, or use it to build advertising profiles. No third-party analytics or advertising trackers are loaded as part of a normal page view. Choosing to play an embedded YouTube video loads YouTube's third-party player. The only information you provide directly is an email address, and only if you choose to subscribe to mood notifications; you may withdraw it at any time.
 
 ## Scope
 
@@ -27,6 +27,7 @@ Depending on how you use the site, we may collect or process the following categ
 - **Edge connection diagnostics.** The footer can display attributes of your current connection derived by Cloudflare from your request: the serving datacenter, HTTP protocol, TLS version, TCP round-trip time, approximate location, and network or internet provider. These values are computed per request, returned only to you, and are not stored.
 - **Listening feature request data.** The homepage listening card triggers server-side requests to Last.fm and Apple services to retrieve the most recent track, album metadata, artwork, preview URLs, and related listening status.
 - **Theme preference data.** If you change the site theme, the preference is stored locally in your browser and is not transmitted to us.
+- **YouTube embed preference data.** YouTube poster images are loaded through this site's static proxy. YouTube is not contacted by your browser unless you choose to play a video. After that choice, the browser stores a session-only reachability result so later video cards can use the same playback or external-link behavior.
 - **Subscription record metadata.** For mood subscriptions: status fields such as pending, active, or unsubscribed, and timestamps for creation, update, confirmation, last confirmation sent, and last notification sent. An email hash is maintained alongside the address in order to index, deduplicate, and manage subscription records.
 - **Security and anti-abuse data.** Where Turnstile is enabled for the mood subscription flow, verification data may include a challenge token and the client IP address used during verification.
 - **Public-content request data.** Loading published writing, project, and mood content involves server-side or browser-side requests to Ghost, GitHub, a GitHub contributions fallback API, and Telegram-related sources.
@@ -41,6 +42,7 @@ We use the data described above to operate, secure, and maintain the site, speci
 - understand which articles are read, for how long, and how readers arrive;
 - display edge connection diagnostics when you hover or focus the footer indicator;
 - retrieve and refresh listening data from Last.fm and Apple services;
+- load a YouTube player only after you choose to play an embedded video;
 - load public content from Ghost, GitHub, and Telegram-related sources;
 - send confirmation emails and mood notifications where you have opted in;
 - honor unsubscribe requests and maintain subscription state; and
@@ -66,6 +68,12 @@ The homepage calls this site's `/api/listening` route after the page loads. Last
 
 When the feature runs, this site's server sends track lookup terms derived from the latest Last.fm result to Apple services and receives track metadata in response. Standard request metadata is processed as part of those outbound requests in the same manner as any server-to-server request.
 
+## YouTube embeds
+
+Before you press play, embedded YouTube videos use poster images fetched through this site's `/static/youtube/` proxy. The page does not load a YouTube iframe, YouTube JavaScript, or YouTube cookies in that state.
+
+Pressing play creates an iframe from YouTube's privacy-enhanced `youtube-nocookie.com` domain. YouTube and Google may then process standard request metadata such as your IP address, browser details, and network information under their own policies. The site stores only a `yes` or `no` reachability result in session storage; it expires with the browser session and is not sent to this site's server.
+
 ## Email delivery and anti-abuse
 
 The mood subscription form may be protected by [Cloudflare Turnstile](https://www.cloudflare.com/application-services/products/turnstile/) in order to distinguish legitimate visitors from automated traffic. Where it is active, your browser loads the Turnstile widget, the widget issues a verification token, and the subscription request transmits that token together with the client IP address to Cloudflare for verification. This data is processed for security and anti-abuse purposes only.
@@ -81,6 +89,7 @@ The site relies on the following third-party services to load public content and
 - **Ghost** — writing links and post metadata.
 - **GitHub** — repository data, project metadata, and the homepage contributions graph, retrieved through this site's internal API route. A fallback contributions API is used only where the GitHub GraphQL lookup is unavailable.
 - **Telegram-related sources** — mood content and comment threads.
+- **YouTube** — video playback after you choose to activate an embedded player; poster images are fetched server-side through this site's static proxy.
 
 Depending on the page and feature in use, the associated requests may be made server-side or directly from your browser.
 
@@ -91,7 +100,7 @@ We disclose personal data only where reasonably necessary to operate the site an
 - **Cloudflare** — hosting, anti-abuse verification, operational observability, and mood notification infrastructure.
 - **Resend** — email delivery for mood subscriptions.
 - **Last.fm and Apple services** — listening data and music metadata.
-- **Ghost, GitHub, and Telegram-related services** — public content and metadata.
+- **Ghost, GitHub, Telegram-related services, and YouTube** — public content, metadata, and optional video playback.
 
 We do not sell personal data collected through this site, and we do not share subscription lists with third parties for their own direct marketing.
 
@@ -99,7 +108,7 @@ We do not sell personal data collected through this site, and we do not share su
 
 We retain data for as long as reasonably necessary to operate the site, maintain security, assess performance, and provide optional features such as mood subscriptions.
 
-Certain data is short-lived, including temporary rate-limit state, local theme settings, and session identifiers stored in your browser. Blog reading analytics may be retained while the feature remains useful for understanding readership and operating the site. Subscription records may be retained longer in order to maintain opt-in status, unsubscribe status, and delivery history. Data held by Cloudflare, Resend, Ghost, GitHub, Telegram-related sources, or other providers is additionally subject to those providers' own retention practices.
+Certain data is short-lived, including temporary rate-limit state, local theme settings, the session-only YouTube reachability result, and session identifiers stored in your browser. Blog reading analytics may be retained while the feature remains useful for understanding readership and operating the site. Subscription records may be retained longer in order to maintain opt-in status, unsubscribe status, and delivery history. Data held by Cloudflare, Resend, Ghost, GitHub, Telegram-related sources, YouTube, or other providers is additionally subject to those providers' own retention practices.
 
 ## Your rights and choices
 
