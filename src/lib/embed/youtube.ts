@@ -1,5 +1,5 @@
 const YOUTUBE_VIDEO_ID_PATTERN = /^[A-Za-z0-9_-]{11}$/u;
-const MAX_START_SECONDS = 7 * 24 * 60 * 60;
+export const MAX_YOUTUBE_START_SECONDS = 7 * 24 * 60 * 60;
 
 export type YouTubePosterQuality = 'maxresdefault' | 'hqdefault';
 
@@ -28,7 +28,7 @@ function parseStartSeconds(value: string | null): number {
 
   const trimmed = value.trim().toLowerCase();
   if (/^\d+$/u.test(trimmed)) {
-    return Math.min(Number(trimmed), MAX_START_SECONDS);
+    return Math.min(Number(trimmed), MAX_YOUTUBE_START_SECONDS);
   }
 
   const match = /^(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s)?$/u.exec(trimmed);
@@ -37,7 +37,7 @@ function parseStartSeconds(value: string | null): number {
   const seconds = Number(match[1] ?? 0) * 3600
     + Number(match[2] ?? 0) * 60
     + Number(match[3] ?? 0);
-  return Math.min(seconds, MAX_START_SECONDS);
+  return Math.min(seconds, MAX_YOUTUBE_START_SECONDS);
 }
 
 function safeHttpUrl(value: string | undefined): string {
@@ -114,7 +114,7 @@ export function youtubeWatchUrl(id: string, startSeconds = 0): string {
   const url = new URL('https://www.youtube.com/watch');
   url.searchParams.set('v', id);
   if (startSeconds > 0) {
-    url.searchParams.set('t', `${Math.min(Math.floor(startSeconds), MAX_START_SECONDS)}s`);
+    url.searchParams.set('t', `${Math.min(Math.floor(startSeconds), MAX_YOUTUBE_START_SECONDS)}s`);
   }
   return url.href;
 }
@@ -128,7 +128,10 @@ export function renderYouTubeEmbedMarkup(options: YouTubeEmbedMarkupOptions): st
   const id = options.id;
   if (!isYouTubeVideoId(id)) throw new TypeError('Invalid YouTube video ID');
 
-  const startSeconds = Math.max(0, Math.min(Math.floor(options.startSeconds), MAX_START_SECONDS));
+  const startSeconds = Math.max(
+    0,
+    Math.min(Math.floor(options.startSeconds), MAX_YOUTUBE_START_SECONDS),
+  );
   const title = options.title.trim() || 'YouTube video';
   const channelName = options.channelName.trim() || 'YouTube';
   const channelUrl = safeHttpUrl(options.channelUrl);

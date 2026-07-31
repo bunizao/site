@@ -1,5 +1,6 @@
 import {
   isYouTubeVideoId,
+  MAX_YOUTUBE_START_SECONDS,
   renderYouTubeEmbedMarkup,
   youtubeWatchUrl,
 } from '@/lib/embed/youtube';
@@ -12,8 +13,6 @@ import {
 } from './attributes';
 import { isRichDirectiveOutputTarget } from './types';
 import type { BlockDirective, DirectiveAttributes } from './types';
-
-const MAX_START_SECONDS = 7 * 24 * 60 * 60;
 
 function escapeHtml(value: string): string {
   return value.replace(/&/gu, '&amp;').replace(/"/gu, '&quot;');
@@ -28,10 +27,13 @@ function parseYouTubeAttributes(rawAttributes: string): DirectiveAttributes {
   }
   if (
     attributes.start !== undefined
-    && (!/^\d+$/u.test(attributes.start) || Number(attributes.start) > MAX_START_SECONDS)
+    && (
+      !/^\d+$/u.test(attributes.start)
+      || Number(attributes.start) > MAX_YOUTUBE_START_SECONDS
+    )
   ) {
     throw new DirectiveAttributeError(
-      `attribute "start" must be an integer from 0 to ${MAX_START_SECONDS}.`,
+      `attribute "start" must be an integer from 0 to ${MAX_YOUTUBE_START_SECONDS}.`,
     );
   }
 
