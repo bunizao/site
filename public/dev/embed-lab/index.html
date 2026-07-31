@@ -144,11 +144,18 @@ body {
              src/styles/embed-youtube.css
    Consumed by the blog `[!youtube]` directive and mood's renderLinkPreview.
 
-   The frame is a single button so any pixel plays it. The caption sits outside
-   the frame by default (variant A) because a video wants the poster dominant
-   and the blog reads as ink-on-paper, not as a media wall — an in-frame title
-   bar is what we are removing from YouTube's own pre-play state, so putting
-   ours back in is a strange trade. Variant B keeps it in-frame for comparison.
+   The frame is a single button so any pixel plays it, and everything the card
+   knows — title, channel, the link out — rides ON the poster rather than in a
+   caption underneath. There was a second version that put that row below the
+   frame in figcaption weight; it read better inside a blog post, and it only
+   worked inside a blog post. The card also has to render in mood, where there
+   is no text column for a caption to belong to, so a layout that needs one is
+   a layout we would have to write twice. This one travels.
+
+   That decision leaves the poster carrying every signal, which is why the
+   chrome on top of it is down to two things: the caption and the disc. A
+   duration chip and a second YouTube lockup both used to sit up here; both
+   were removed rather than restyled, and the notes at their old sites say why.
    ========================================================================== */
 .yt {
   --yt-radius: 12px;
@@ -163,10 +170,10 @@ body {
   min-width: 200px;
 }
 
-/* The stage is the frame's own box. Overlays (the player, the unavailable
-   panel) anchor to THIS, not to the figure — the figure also contains the
-   caption in variant A, so a panel pinned to the figure would blanket the
-   title and channel row along with the poster. */
+/* The stage is the frame's own box. The player and the unavailable panel
+   anchor to THIS rather than to the figure, so that a panel covering the
+   poster is exactly poster-sized. It deliberately does not clip: the frame's
+   focus ring sits at `outline-offset: 3px`, outside the stage's box. */
 .yt__stage {
   position: relative;
   display: block;
@@ -217,7 +224,7 @@ body {
    reads as a grey smudge on a bright still and dims an image we went to the
    trouble of owning; keep the darkening tight enough that the disc always has
    ground under it and the poster is otherwise untouched. The bottom band is
-   only there for the duration pill (and the overlay variant's caption).
+   the caption scrim's first few percent, so the two meet without a seam.
    Tight, because the disc it grounds is small — a puddle sized for the old
    68px puck was visible as haze on its own. */
 .yt__veil {
@@ -250,10 +257,8 @@ body {
   display: grid;
   place-items: center;
   border-radius: 999px;
-  background: hsl(0 0% 6% / .74);
-  box-shadow:
-    inset 0 0 0 1px hsl(0 0% 100% / .2),
-    0 6px 18px -10px hsl(0 0% 0% / .65);
+  background: hsl(0 0% 7% / .82);
+  box-shadow: 0 4px 16px -8px hsl(0 0% 0% / .6);
   transform: translate(-50%, -50%);
   transition:
     transform var(--dur-press) var(--ease-out),
@@ -268,18 +273,14 @@ body {
    Enter is about to do something. Both are suppressed mid-load: a white disc
    behind a white spinner is an invisible spinner. */
 .yt:not(.is-loading) .yt__frame:focus-visible .yt__disc {
-  background: hsl(0 0% 100% / .96);
-  box-shadow:
-    inset 0 0 0 1px hsl(0 0% 0% / .08),
-    0 8px 22px -10px hsl(0 0% 0% / .55);
+  background: #fff;
+  box-shadow: 0 6px 20px -8px hsl(0 0% 0% / .5);
 }
 .yt:not(.is-loading) .yt__frame:focus-visible .yt__glyph--play { fill: hsl(0 0% 7%); }
 @media (hover: hover) and (pointer: fine) {
   .yt:not(.is-loading) .yt__frame:hover .yt__disc {
-    background: hsl(0 0% 100% / .96);
-    box-shadow:
-      inset 0 0 0 1px hsl(0 0% 0% / .08),
-      0 8px 22px -10px hsl(0 0% 0% / .55);
+    background: #fff;
+    box-shadow: 0 6px 20px -8px hsl(0 0% 0% / .5);
   }
   .yt:not(.is-loading) .yt__frame:hover .yt__glyph--play { fill: hsl(0 0% 7%); }
 }
@@ -289,12 +290,16 @@ body {
   transform: translate(-50%, -50%) scale(.94);
 }
 
+/* No nudge. The path below is already drawn so the triangle's CENTROID — not
+   its bounding box — sits on the viewBox centre, which is what the eye reads
+   as centred on a shape this asymmetric. The old `translateX` was stacked on
+   top of that correction and pushed the mark visibly right of the circle.
+   If this ever needs re-drawing: for vertices (x,y1) (x,y2) (x+w, mid), the
+   centroid lands at x + w/3, so the left edge belongs at centre − w/3. */
 .yt__glyph {
-  width: 26px;
-  height: 26px;
+  width: 28px;
+  height: 28px;
   fill: #fff;
-  /* Optical centering: a triangle's visual mass sits left of its bounding box. */
-  transform: translateX(1px);
   transition: fill var(--dur-hover) ease;
 }
 .yt__glyph--wait { display: none; transform: none; }
@@ -310,49 +315,18 @@ body {
 }
 @keyframes yt-spin { to { transform: rotate(1turn); } }
 
-/* --- Provenance lockup ---------------------------------------------------
-   Present in every state, including while playing. The reader must never be
-   in doubt that this is YouTube's video on our page — that is both the honest
-   thing and what the platform's attribution expectations assume. White
-   monochrome is YouTube's own prescribed treatment over photography; the
-   full-colour mark is for flat light backgrounds, which a poster never is.
-
-   It sits in a pill, and that is the whole point of this block. Bare white
-   type dropped straight onto a photograph has no container, so it has no
-   scale relationship to anything else on the card — it reads as a sticker
-   somebody left there, and no amount of extra px fixes that. Give it the
-   duration's exact material and the two become a matched pair framing the
-   disc: label top-left, metadata bottom-right, action in the middle.
-   The pill also earns the size: contrast now comes from the ground rather
-   than from a drop-shadow, so the mark can grow without shouting. */
-.yt__brand {
-  position: absolute;
-  top: 10px;
-  left: 10px;
-  z-index: 4;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 9px 4px 8px;
-  border-radius: 7px;
-  color: #fff;
-  background: hsl(0 0% 4% / .58);
-  -webkit-backdrop-filter: blur(8px);
-  backdrop-filter: blur(8px);
-  box-shadow: inset 0 0 0 1px hsl(0 0% 100% / .12);
-  pointer-events: none;
-  transition: opacity var(--dur-swap) ease;
-}
-.yt__brand-mark { width: 22px; height: 15.5px; fill: currentColor; }
-.yt__brand-word {
-  font-family: var(--font-sans);
-  font-size: 12.5px;
-  font-weight: 600;
-  letter-spacing: -0.012em;
-  line-height: 1;
-}
-/* While the real player is up, YouTube brands itself — ours would double. */
-.yt.is-playing .yt__brand { opacity: 0; }
+/* --- Provenance ----------------------------------------------------------
+   There is no separate lockup in the top-left corner any more, and the reason
+   is structural rather than cosmetic. That badge existed to brand the FRAME
+   back when the caption lived outside it and the poster would otherwise have
+   carried no attribution at all. The caption now sits on the poster, and it
+   already ends in a YouTube link — so the badge was saying the same word
+   twice, in the same picture, and the copy that was NOT a link was the louder
+   of the two. The one that survives is the real anchor in `.yt__out`; it gets
+   the mark so that the surviving mention is an actual brand signal and not
+   13px of grey text. Monochrome is YouTube's own prescribed treatment over
+   photography; the full-colour mark is for flat light backgrounds, which a
+   poster never is. */
 
 /* --- Unavailable panel ---------------------------------------------------
    On the poster, not tucked under it. A one-line footnote below the frame was
@@ -427,37 +401,50 @@ body {
 .yt.is-unreachable .yt__disc,
 .yt.is-unreachable .yt__veil { opacity: 0; }
 
-/* Duration — our type, mono and tabular, in a glass pill. */
-.yt__duration {
-  position: absolute;
-  right: 10px;
-  bottom: 10px;
-  padding: 4px 8px;
-  border-radius: 7px;
-  font-family: var(--font-code);
-  font-size: 11.5px;
-  line-height: 1;
-  letter-spacing: .01em;
-  font-variant-numeric: tabular-nums;
-  color: hsl(0 0% 100% / .92);
-  background: hsl(0 0% 4% / .58);
-  -webkit-backdrop-filter: blur(8px);
-  backdrop-filter: blur(8px);
-  box-shadow: inset 0 0 0 1px hsl(0 0% 100% / .12);
-  transition: opacity .25s ease;
-}
-.yt.is-playing .yt__duration { opacity: 0; }
+/* No duration chip. It was the only number on the card and nobody decides to
+   watch on it — the title and the channel do that work. Every element on a
+   poster costs the poster, and a runtime is the cheapest one to lose. It also
+   cost the most to source: length is not in oEmbed, so showing it would drag
+   the whole card onto the Data API for four characters.
 
-/* Caption, variant A — outside the frame, figcaption weight.
+   Caption — pinned inside the frame over a bottom scrim, which is how YouTube
+   itself presents a still, and the only version that survives being reused.
+   The alternative put this row under the frame in figcaption weight; that
+   reads beautifully in a blog post and is unusable anywhere the card is not
+   sitting in a text column, mood being the case in hand.
+
+   It stays a SIBLING of the button, never a child: an <a> inside a <button> is
+   invalid markup and traps the escape hatch out of the tab order. Pinned
+   inside the frame's 1px border so the scrim inherits the rounded corners.
    The channel avatar leads the row: a video is somebody's work, and a card
    that names a creator without showing them reads like a database record. */
 .yt__caption {
+  position: absolute;
+  right: 1px;
+  bottom: 1px;
+  left: 1px;
+  z-index: 2;
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
   gap: 1px 10px;
-  margin-top: 11px;
-  padding-inline: 2px;
+  margin: 0;
+  padding: 52px 14px 13px;
+  border-radius: 0 0 calc(var(--yt-radius) - 1px) calc(var(--yt-radius) - 1px);
+  pointer-events: none;
+  /* Four stops, not two. A two-stop scrim has to choose between being dark
+     enough under the type and being a visible band across the picture; the
+     extra stops let it go properly black where the words are and fade out on
+     a long tail where they are not. Tuned against the brightest poster in the
+     lab (sunlit grass) — white 15px type on that needs ~.55 behind it. */
+  background: linear-gradient(
+    to top,
+    hsl(0 0% 0% / .88),
+    hsl(0 0% 0% / .62) 34%,
+    hsl(0 0% 0% / .26) 66%,
+    transparent
+  );
+  transition: opacity var(--dur-swap) ease, transform var(--dur-swap) var(--ease-out);
 }
 .yt__avatar {
   grid-row: 1 / span 2;
@@ -465,8 +452,11 @@ body {
   height: 34px;
   border-radius: 999px;
   object-fit: cover;
-  background: var(--blog-fill);
-  box-shadow: inset 0 0 0 1px hsl(var(--foreground) / .1);
+  /* Dark, not light. This shows through whenever the avatar 404s or the Data
+     API was never called, and a near-white disc vanished into a bright poster
+     exactly when it was supposed to be holding the row's shape. */
+  background: hsl(0 0% 0% / .4);
+  box-shadow: inset 0 0 0 1px hsl(0 0% 100% / .28);
 }
 /* No API key, no avatar — fall back to the channel's initial rather than a
    grey circle, so the row keeps its shape either way. */
@@ -476,7 +466,7 @@ body {
   font-family: var(--font-mono);
   font-size: 14px;
   font-weight: 500;
-  color: var(--blog-muted);
+  color: hsl(0 0% 100% / .8);
   text-transform: uppercase;
 }
 /* Real oEmbed titles run long ("… 60fps 4K — Official Blender Foundation Short
@@ -486,7 +476,7 @@ body {
   font-size: 15px;
   font-weight: 500;
   line-height: 1.4;
-  color: var(--blog-ink);
+  color: hsl(0 0% 100% / .96);
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
@@ -500,71 +490,60 @@ body {
   gap: 7px;
   font-size: 13px;
   line-height: 1.4;
-  color: var(--blog-faint);
+  color: hsl(0 0% 100% / .66);
 }
+/* The scrim carries the caption's own pointer-events: none, so the two real
+   links inside it have to opt back in by hand. */
 .yt__channel {
+  pointer-events: auto;
   color: inherit;
   text-decoration: none;
   border-bottom: 1px solid transparent;
   transition: color var(--dur-hover) ease, border-color var(--dur-hover) ease;
 }
-.yt__channel:hover { color: var(--blog-dian); border-bottom-color: hsl(var(--foreground) / .22); }
 .yt__meta-dot { width: 2px; height: 2px; border-radius: 999px; background: currentColor; opacity: .7; }
-/* Attribution + the escape hatch, one control. Always present, so the
-   unreachable path is a change of emphasis rather than new UI appearing. */
+/* Attribution + the escape hatch, one control — and now the card's only
+   YouTube branding, which is why it carries the mark rather than the word
+   alone. Always present, so the unreachable path is a change of emphasis
+   rather than new UI appearing. */
 .yt__out {
+  pointer-events: auto;
   display: inline-flex;
   align-items: center;
-  gap: 3px;
+  gap: 5px;
   color: inherit;
   text-decoration: none;
   border-bottom: 1px solid transparent;
-  transition: color .15s ease, border-color .15s ease;
+  transition: color var(--dur-hover) ease, border-color var(--dur-hover) ease;
 }
-.yt__out:hover { color: var(--blog-dian); border-bottom-color: hsl(var(--foreground) / .22); }
-.yt__out svg { width: 10px; height: 10px; stroke: currentColor; stroke-width: 1.8; fill: none; }
+.yt__out:hover,
+.yt__channel:hover { color: #fff; border-bottom-color: hsl(0 0% 100% / .4); }
+.yt__out-mark { width: 17px; height: 12px; fill: currentColor; }
+/* The arrow keeps its own job: the mark says where, the arrow says it leaves. */
+.yt__out-arrow { width: 10px; height: 10px; stroke: currentColor; stroke-width: 1.8; fill: none; }
 .yt__out:focus-visible,
-.yt__channel:focus-visible { outline: 2px solid var(--blog-accent); outline-offset: 2px; border-radius: 3px; }
+.yt__channel:focus-visible { outline: 2px solid #fff; outline-offset: 2px; border-radius: 3px; }
 
-/* Variant B — caption rides in-frame over a bottom scrim. It stays a SIBLING of
-   the button, never a child: an <a> inside a <button> is invalid markup and
-   traps the escape hatch out of the tab order. Pinned inside the frame's
-   1px border so the scrim inherits the rounded bottom corners. */
-.yt--overlay .yt__caption {
+.yt.is-playing .yt__caption { opacity: 0; transform: translateY(6px); }
+.yt.is-unreachable .yt__caption { opacity: 0; }
+
+/* Player — fades in over the poster, so there is never a black box.
+   It is a SIBLING of the frame, not a child, so it inherits none of the
+   frame's `overflow: hidden` and was painting square corners over a rounded
+   card the moment playback started. It carries its own radius instead, and
+   sits inset by the frame's 1px border the same way the unavailable panel
+   does — clipping on the stage would have been the other fix, but the stage
+   also has to let the frame's focus ring breathe outside its box. */
+.yt__player {
   position: absolute;
+  top: 1px;
   right: 1px;
   bottom: 1px;
   left: 1px;
-  z-index: 2;
-  margin: 0;
-  padding: 40px 14px 12px;
-  border-radius: 0 0 calc(var(--yt-radius) - 1px) calc(var(--yt-radius) - 1px);
-  pointer-events: none;
-  background: linear-gradient(to top, hsl(0 0% 0% / .78), hsl(0 0% 0% / .34) 46%, transparent);
-  transition: opacity var(--dur-swap) ease, transform var(--dur-swap) var(--ease-out);
-}
-.yt--overlay .yt__title { color: hsl(0 0% 100% / .96); }
-.yt--overlay .yt__meta { color: hsl(0 0% 100% / .66); }
-.yt--overlay .yt__avatar { box-shadow: inset 0 0 0 1px hsl(0 0% 100% / .28); background: hsl(0 0% 100% / .12); }
-.yt--overlay .yt__avatar--mono { color: hsl(0 0% 100% / .8); }
-.yt--overlay .yt__out,
-.yt--overlay .yt__channel { pointer-events: auto; }
-.yt--overlay .yt__out:hover,
-.yt--overlay .yt__channel:hover { color: #fff; border-bottom-color: hsl(0 0% 100% / .4); }
-/* The lockup stays — it sits top-left, the caption sits bottom, no collision.
-   Branding is not negotiable per variant. */
-.yt--overlay .yt__duration { bottom: auto; top: 10px; }
-.yt--overlay.is-playing .yt__caption { opacity: 0; transform: translateY(6px); }
-.yt--overlay.is-unreachable .yt__caption { opacity: 0; }
-
-/* Player — fades in over the poster, so there is never a black box. */
-.yt__player {
-  position: absolute;
-  inset: 0;
   z-index: 3;
-  width: 100%;
-  height: 100%;
   border: 0;
+  border-radius: calc(var(--yt-radius) - 1px);
+  overflow: hidden;
   opacity: 0;
   pointer-events: none;
   transition: opacity var(--dur-swap) ease;
@@ -577,9 +556,7 @@ body {
   /* Down to the touch-target floor, no further. */
   .yt { --yt-disc: 44px; }
   .yt__glyph { width: 24px; height: 24px; }
-  .yt__brand { top: 8px; left: 8px; gap: 5px; padding: 4px 7px 4px 6px; }
-  .yt__brand-mark { width: 20px; height: 14px; }
-  .yt__brand-word { font-size: 11.5px; }
+  .yt__caption { padding: 34px 11px 10px; }
   .yt__title { font-size: 14px; }
   .yt__meta { font-size: 12px; }
   .yt__avatar { width: 30px; height: 30px; }
@@ -743,7 +720,8 @@ body {
     </p>
   </div>
 
-  <!-- Variant A — caption below the frame. Default. -->
+  <!-- Card 1 — real channel avatar (the Data API path) and a title long enough
+       to exercise the two-line clamp. -->
   <figure class="yt" data-yt data-video="aqz-KE-bpKQ" data-start="0">
     <div class="yt__stage">
     <button class="yt__frame" type="button" data-yt-frame aria-label="Play “Big Buck Bunny” by Blender Foundation">
@@ -752,11 +730,6 @@ body {
       <span class="yt__disc">
         <svg class="yt__glyph yt__glyph--play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.2v13.6a1 1 0 0 0 1.53.85l10.5-6.8a1 1 0 0 0 0-1.7L9.53 4.35A1 1 0 0 0 8 5.2Z"/></svg>
         <svg class="yt__glyph yt__glyph--wait" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 0 9 9" /></svg>
-      </span>
-      <span class="yt__duration">10:34</span>
-      <span class="yt__brand" aria-hidden="true">
-        <svg class="yt__brand-mark" viewBox="0 0 28 20"><path fill-rule="evenodd" d="M27.4 3.1A3.5 3.5 0 0 0 24.9.6C22.7 0 14 0 14 0S5.3 0 3.1.6A3.5 3.5 0 0 0 .6 3.1C0 5.3 0 10 0 10s0 4.7.6 6.9a3.5 3.5 0 0 0 2.5 2.5C5.3 20 14 20 14 20s8.7 0 10.9-.6a3.5 3.5 0 0 0 2.5-2.5c.6-2.2.6-6.9.6-6.9s0-4.7-.6-6.9ZM11.2 14.2V5.8l7.3 4.2-7.3 4.2Z"/></svg>
-        <span class="yt__brand-word">YouTube</span>
       </span>
     </button>
     <!-- The whole panel sits outside the button, so its call to action is a
@@ -780,9 +753,11 @@ body {
       <span class="yt__meta">
         <a class="yt__channel" href="https://www.youtube.com/@BlenderOfficial" target="_blank" rel="noopener noreferrer">Blender</a>
         <span class="yt__meta-dot" aria-hidden="true"></span>
+        <!-- The card's only YouTube branding now, so it carries the mark. -->
         <a class="yt__out" data-yt-out href="https://www.youtube.com/watch?v=aqz-KE-bpKQ" target="_blank" rel="noopener noreferrer">
+          <svg class="yt__out-mark" viewBox="0 0 28 20" aria-hidden="true"><path fill-rule="evenodd" d="M27.4 3.1A3.5 3.5 0 0 0 24.9.6C22.7 0 14 0 14 0S5.3 0 3.1.6A3.5 3.5 0 0 0 .6 3.1C0 5.3 0 10 0 10s0 4.7.6 6.9a3.5 3.5 0 0 0 2.5 2.5C5.3 20 14 20 14 20s8.7 0 10.9-.6a3.5 3.5 0 0 0 2.5-2.5c.6-2.2.6-6.9.6-6.9s0-4.7-.6-6.9ZM11.2 14.2V5.8l7.3 4.2-7.3 4.2Z"/></svg>
           YouTube
-          <svg viewBox="0 0 24 24" aria-hidden="true" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7M9 7h8v8"/></svg>
+          <svg class="yt__out-arrow" viewBox="0 0 24 24" aria-hidden="true" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7M9 7h8v8"/></svg>
         </a>
       </span>
     </figcaption>
@@ -796,8 +771,9 @@ body {
     </p>
   </div>
 
-  <!-- Variant B — caption in-frame. -->
-  <figure class="yt yt--overlay" data-yt data-video="jNQXAC9IVRw" data-start="0">
+  <!-- Card 2 — no avatar (monogram fallback) and no maxresdefault on YouTube's
+       side, so this one exercises the hqdefault error path. -->
+  <figure class="yt" data-yt data-video="jNQXAC9IVRw" data-start="0">
     <div class="yt__stage">
     <button class="yt__frame" type="button" data-yt-frame aria-label="Play “Me at the zoo” by jawed">
       <img class="yt__poster" data-yt-poster alt="" loading="lazy" decoding="async" />
@@ -805,11 +781,6 @@ body {
       <span class="yt__disc">
         <svg class="yt__glyph yt__glyph--play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.2v13.6a1 1 0 0 0 1.53.85l10.5-6.8a1 1 0 0 0 0-1.7L9.53 4.35A1 1 0 0 0 8 5.2Z"/></svg>
         <svg class="yt__glyph yt__glyph--wait" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 0 9 9" /></svg>
-      </span>
-      <span class="yt__duration">0:18</span>
-      <span class="yt__brand" aria-hidden="true">
-        <svg class="yt__brand-mark" viewBox="0 0 28 20"><path fill-rule="evenodd" d="M27.4 3.1A3.5 3.5 0 0 0 24.9.6C22.7 0 14 0 14 0S5.3 0 3.1.6A3.5 3.5 0 0 0 .6 3.1C0 5.3 0 10 0 10s0 4.7.6 6.9a3.5 3.5 0 0 0 2.5 2.5C5.3 20 14 20 14 20s8.7 0 10.9-.6a3.5 3.5 0 0 0 2.5-2.5c.6-2.2.6-6.9.6-6.9s0-4.7-.6-6.9ZM11.2 14.2V5.8l7.3 4.2-7.3 4.2Z"/></svg>
-        <span class="yt__brand-word">YouTube</span>
       </span>
     </button>
     <div class="yt__down">
@@ -830,8 +801,9 @@ body {
         <a class="yt__channel" href="https://www.youtube.com/@jawed" target="_blank" rel="noopener noreferrer">jawed</a>
         <span class="yt__meta-dot" aria-hidden="true"></span>
         <a class="yt__out" data-yt-out href="https://www.youtube.com/watch?v=jNQXAC9IVRw" target="_blank" rel="noopener noreferrer">
+          <svg class="yt__out-mark" viewBox="0 0 28 20" aria-hidden="true"><path fill-rule="evenodd" d="M27.4 3.1A3.5 3.5 0 0 0 24.9.6C22.7 0 14 0 14 0S5.3 0 3.1.6A3.5 3.5 0 0 0 .6 3.1C0 5.3 0 10 0 10s0 4.7.6 6.9a3.5 3.5 0 0 0 2.5 2.5C5.3 20 14 20 14 20s8.7 0 10.9-.6a3.5 3.5 0 0 0 2.5-2.5c.6-2.2.6-6.9.6-6.9s0-4.7-.6-6.9ZM11.2 14.2V5.8l7.3 4.2-7.3 4.2Z"/></svg>
           YouTube
-          <svg viewBox="0 0 24 24" aria-hidden="true" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7M9 7h8v8"/></svg>
+          <svg class="yt__out-arrow" viewBox="0 0 24 24" aria-hidden="true" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7M9 7h8v8"/></svg>
         </a>
       </span>
     </figcaption>
