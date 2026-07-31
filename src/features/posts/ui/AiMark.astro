@@ -14,9 +14,10 @@ import openaiMark from '@/data/vendor-marks/openai.svg?raw';
 interface Props {
   providerId: string;
   providerName: string;
+  scope: string;
 }
 
-const { providerId, providerName } = Astro.props;
+const { providerId, providerName, scope } = Astro.props;
 
 const MARKS: Record<string, string> = {
   anthropic: anthropicMark,
@@ -24,15 +25,13 @@ const MARKS: Record<string, string> = {
   google: googleMark,
 };
 
-// Upstream marks carry `id`-referenced gradients (Gemini has three). Two credits
-// from the same provider on one page would repeat those ids, so each render gets
-// its own suffix.
-let instance = 0;
+// Upstream marks carry `id`-referenced gradients (Gemini has three). SVG ids are
+// document-global, so the parent assigns a deterministic suffix to every mark.
 const scopeIds = (svg: string, scope: string) =>
   svg.replace(/id="([^"]+)"/g, `id="$1-${scope}"`).replace(/url\(#([^)]+)\)/g, `url(#$1-${scope})`);
 
 const raw = MARKS[providerId];
-const markup = raw ? scopeIds(raw, `m${(instance += 1)}-${providerId}`) : null;
+const markup = raw ? scopeIds(raw, scope) : null;
 const initial = providerName.charAt(0);
 ---
 

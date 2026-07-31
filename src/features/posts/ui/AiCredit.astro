@@ -55,6 +55,7 @@ const plainParts = plain.length
               <AiMark
                 providerId={plain[Number(part.value)].model.providerId}
                 providerName={plain[Number(part.value)].model.providerName}
+                scope={`ai-credit-${part.value}`}
               />
               {plain[Number(part.value)].model.name}
             </span>
@@ -67,10 +68,14 @@ const plainParts = plain.length
     )
   }
   {
-    noted.map((credit) => (
+    noted.map((credit, index) => (
       <p class="ai-credit__line">
         <span class="ai-credit__sig">
-          <AiMark providerId={credit.model.providerId} providerName={credit.model.providerName} />
+          <AiMark
+            providerId={credit.model.providerId}
+            providerName={credit.model.providerName}
+            scope={`ai-credit-${plain.length + index}`}
+          />
           {credit.model.name}
         </span>{' '}
         {terminate(credit.note!)}
