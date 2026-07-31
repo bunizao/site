@@ -22,6 +22,10 @@ const TELEGRAM_ALLOWED_DOMAINS = [
   'cdn4.telegram-cdn.org',
   'cdn5.telegram-cdn.org',
   'telesco.pe',
+  // YouTube posters enter only through the fixed `youtube/<id>/<quality>.jpg`
+  // route below. Keeping the host here allows its validated redirects without
+  // turning i.ytimg.com into an unsigned arbitrary-target proxy.
+  'i.ytimg.com',
 ];
 
 const hopByHopHeaders = new Set([
@@ -357,6 +361,22 @@ const resolveProxyTarget = (
   return targetUrl ? { status: 'resolved', targetUrl } : { status: 'invalid-target' };
 };
 
+const resolveYouTubePosterTarget = (
+  request: Request,
+  rawPath: string,
+): ProxyTargetResolution | null => {
+  if (!rawPath.startsWith('youtube/')) return null;
+  if (new URL(request.url).search) return { status: 'invalid-target' };
+
+  const match = /^youtube\/([A-Za-z0-9_-]{11})\/(maxresdefault|hqdefault)\.jpg$/u.exec(rawPath);
+  if (!match) return { status: 'invalid-target' };
+
+  return {
+    status: 'resolved',
+    targetUrl: `https://i.ytimg.com/vi/${match[1]}/${match[2]}.jpg`,
+  };
+};
+
 const createSignatureRejectedResponse = (headers: Headers, head = false): Response => {
   headers.set('cache-control', 'no-store');
   return new Response(head ? null : 'Invalid static proxy signature.', {
@@ -385,7 +405,8 @@ export const GET: APIRoute = async ({ request, params, locals }) => {
 
   const rawPath = params.path ?? '';
   const allowedDomains = getAllowedDomains(locals);
-  const targetResolution = resolveProxyTarget(request, rawPath, locals, allowedDomains);
+  const targetResolution = resolveYouTubePosterTarget(request, rawPath)
+    ?? resolveProxyTarget(request, rawPath, locals, allowedDomains);
   if (targetResolution.status === 'signature-rejected') {
     return createSignatureRejectedResponse(rateLimitHeaders);
   }
@@ -425,7 +446,8 @@ export const HEAD: APIRoute = async ({ request, params, locals }) => {
 
   const rawPath = params.path ?? '';
   const allowedDomains = getAllowedDomains(locals);
-  const targetResolution = resolveProxyTarget(request, rawPath, locals, allowedDomains);
+  const targetResolution = resolveYouTubePosterTarget(request, rawPath)
+    ?? resolveProxyTarget(request, rawPath, locals, allowedDomains);
   if (targetResolution.status === 'signature-rejected') {
     return createSignatureRejectedResponse(rateLimitHeaders, true);
   }

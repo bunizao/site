@@ -137,6 +137,68 @@ describe('static Telegram proxy', () => {
     expect(response.headers.get('content-security-policy')).toBe("default-src 'none'; sandbox");
   });
 
+  test('proxies only bounded YouTube poster paths without a client-side signature', async () => {
+    let fetchedUrl = '';
+    globalThis.fetch = (async (input: RequestInfo | URL) => {
+      fetchedUrl = String(input);
+      return new Response(new Uint8Array([1, 2, 3]), {
+        headers: { 'Content-Type': 'image/jpeg' },
+      });
+    }) as typeof fetch;
+
+    const response = await GET({
+      request: new Request(
+        'https://buxx.me/static/youtube/aqz-KE-bpKQ/maxresdefault.jpg',
+        { headers: { 'CF-Connecting-IP': '192.0.2.31' } },
+      ),
+      params: { path: 'youtube/aqz-KE-bpKQ/maxresdefault.jpg' },
+      locals: { env: { STATIC_PROXY_MODE: 'enforce' } },
+    } as never);
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get('content-type')).toBe('image/jpeg');
+    expect(fetchedUrl).toBe('https://i.ytimg.com/vi/aqz-KE-bpKQ/maxresdefault.jpg');
+    expect(signatureObservations).toEqual([]);
+  });
+
+  test('rejects malformed YouTube poster paths before the upstream fetch', async () => {
+    let fetchCount = 0;
+    globalThis.fetch = (async () => {
+      fetchCount += 1;
+      return new Response(new Uint8Array([1]), {
+        headers: { 'Content-Type': 'image/jpeg' },
+      });
+    }) as typeof fetch;
+
+    for (const path of [
+      'youtube/too-short/maxresdefault.jpg',
+      'youtube/aqz-KE-bpKQ/sddefault.jpg',
+      'youtube/aqz-KE-bpKQ/maxresdefault.jpg/extra',
+    ]) {
+      const response = await GET({
+        request: new Request(`https://buxx.me/static/${path}`, {
+          headers: { 'CF-Connecting-IP': '192.0.2.32' },
+        }),
+        params: { path },
+        locals: { env: { STATIC_PROXY_MODE: 'enforce' } },
+      } as never);
+
+      expect(response.status, path).toBe(400);
+    }
+
+    const queryResponse = await GET({
+      request: new Request(
+        'https://buxx.me/static/youtube/aqz-KE-bpKQ/hqdefault.jpg?target=other',
+        { headers: { 'CF-Connecting-IP': '192.0.2.33' } },
+      ),
+      params: { path: 'youtube/aqz-KE-bpKQ/hqdefault.jpg' },
+      locals: { env: { STATIC_PROXY_MODE: 'enforce' } },
+    } as never);
+
+    expect(queryResponse.status).toBe(400);
+    expect(fetchCount).toBe(0);
+  });
+
   test('allows binary, font, audio, and video asset responses', async () => {
     for (const [contentType, path] of [
       ['application/octet-stream', 'animation.tgs'],
