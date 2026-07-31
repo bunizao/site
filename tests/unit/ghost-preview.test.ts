@@ -5,9 +5,7 @@ import {
   type GhostAdminClient,
   type GhostAdminPost,
 } from '@/features/posts/server/ghost-admin';
-import {
-  resolveGhostDraftPreview,
-} from '@/features/posts/server/ghost-preview';
+import { resolveGhostDraftPreview } from '@/features/posts/server/ghost-preview';
 
 const POST_ID = '5ddc9141c35e7700383b2937';
 const MISSING_POST_ID = 'aaaaaaaaaaaaaaaaaaaaaaaa';
@@ -26,25 +24,9 @@ function clientWith(readPostById: GhostAdminClient['readPostById']): GhostAdminC
 }
 
 describe('Ghost draft preview', () => {
-  test('stops at the production gate before reading Ghost', async () => {
-    let didRead = false;
-    const result = await resolveGhostDraftPreview({
-      enabled: false,
-      id: POST_ID,
-      createClient: () => clientWith(async () => {
-        didRead = true;
-        return POST;
-      }),
-    });
-
-    expect(result).toEqual({ ok: false, status: 404, message: 'Not found.' });
-    expect(didRead).toBe(false);
-  });
-
   test('rejects invalid editor IDs before creating the Admin client', async () => {
     let didCreateClient = false;
     const result = await resolveGhostDraftPreview({
-      enabled: true,
       id: 'not-a-ghost-id',
       createClient: () => {
         didCreateClient = true;
@@ -65,7 +47,6 @@ describe('Ghost draft preview', () => {
       ].join(''),
     };
     const result = await resolveGhostDraftPreview({
-      enabled: true,
       id: POST_ID,
       createClient: () => clientWith(async (id) => {
         expect(id).toBe(POST_ID);
@@ -121,7 +102,6 @@ describe('Ghost draft preview', () => {
 
     for (const testCase of cases) {
       const result = await resolveGhostDraftPreview({
-        enabled: true,
         id: testCase.id,
         createClient: () => clientWith(async () => {
           throw testCase.error;

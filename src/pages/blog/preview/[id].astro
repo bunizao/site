@@ -1,15 +1,17 @@
 ---
 export const prerender = false;
 
-const cacheControl = 'private, no-store';
+const previewPolicyHeaders = {
+  'Cache-Control': 'private, no-store',
+  'X-Robots-Tag': 'noindex, nofollow',
+} as const;
 
 if (!import.meta.env.DEV) {
   return new Response('Not found.', {
     status: 404,
     headers: {
-      'Cache-Control': cacheControl,
+      ...previewPolicyHeaders,
       'Content-Type': 'text/plain; charset=utf-8',
-      'X-Robots-Tag': 'noindex, nofollow',
     },
   });
 }
@@ -33,7 +35,6 @@ const [
 ]);
 
 const result = await resolveGhostDraftPreview({
-  enabled: true,
   id: Astro.params.id ?? '',
   locals: Astro.locals,
 });
@@ -41,15 +42,15 @@ if (!result.ok) {
   return new Response(result.message, {
     status: result.status,
     headers: {
-      'Cache-Control': cacheControl,
+      ...previewPolicyHeaders,
       'Content-Type': 'text/plain; charset=utf-8',
-      'X-Robots-Tag': 'noindex, nofollow',
     },
   });
 }
 
-Astro.response.headers.set('Cache-Control', cacheControl);
-Astro.response.headers.set('X-Robots-Tag', 'noindex, nofollow');
+for (const [name, value] of Object.entries(previewPolicyHeaders)) {
+  Astro.response.headers.set(name, value);
+}
 
 const { post, html, meta } = result;
 const title = post.title.trim() || 'Untitled draft';

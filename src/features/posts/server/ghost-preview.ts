@@ -29,7 +29,6 @@ export type GhostDraftPreviewResult =
     };
 
 export interface ResolveGhostDraftPreviewOptions {
-  enabled: boolean;
   id: string;
   locals?: RuntimeEnvLocals;
   createClient?: () => GhostAdminClient;
@@ -90,7 +89,7 @@ function mapGhostPreviewError(error: unknown): GhostDraftPreviewResult {
 export async function resolveGhostDraftPreview(
   options: ResolveGhostDraftPreviewOptions,
 ): Promise<GhostDraftPreviewResult> {
-  if (!options.enabled || !isGhostAdminPostId(options.id)) {
+  if (!isGhostAdminPostId(options.id)) {
     return { ok: false, status: 404, message: 'Not found.' };
   }
 
