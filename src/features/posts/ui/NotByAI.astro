@@ -10,17 +10,11 @@
 import { blog } from '@/data/site';
 
 const blogCopy = blog.copy[blog.locale.blog];
-
-// Split a `**...**`-marked string into bold/plain segments for rendering.
-const segments = (text: string) =>
-  text.split('**').map((seg, i) => ({ seg, bold: i % 2 === 1 }));
 ---
 
 <aside class="not-by-ai">
   <p class="not-by-ai__line">
-    {segments(blogCopy.notByAI.line).map(({ seg, bold }) =>
-      bold ? <strong class="not-by-ai__em">{seg}</strong> : seg,
-    )}
+    {blogCopy.notByAI.prefix}<strong class="not-by-ai__em">{blogCopy.notByAI.emphasis}</strong>{blogCopy.notByAI.suffix}
   </p>
 </aside>
 
