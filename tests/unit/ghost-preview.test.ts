@@ -32,7 +32,7 @@ describe('Ghost draft preview', () => {
     const result = await resolveGhostDraftPreview({
       enabled: false,
       id: POST_ID,
-      client: clientWith(async () => {
+      createClient: () => clientWith(async () => {
         didRead = true;
         return POST;
       }),
@@ -68,7 +68,7 @@ describe('Ghost draft preview', () => {
     const result = await resolveGhostDraftPreview({
       enabled: true,
       id: POST_ID,
-      client: clientWith(async (id) => {
+      createClient: () => clientWith(async (id) => {
         expect(id).toBe(POST_ID);
         return post;
       }),
@@ -124,7 +124,7 @@ describe('Ghost draft preview', () => {
       const result = await resolveGhostDraftPreview({
         enabled: true,
         id: testCase.id,
-        client: clientWith(async () => {
+        createClient: () => clientWith(async () => {
           throw testCase.error;
         }),
       });

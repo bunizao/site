@@ -34,7 +34,6 @@ export interface ResolveGhostDraftPreviewOptions {
   enabled: boolean;
   id: string;
   locals?: RuntimeEnvLocals;
-  client?: GhostAdminClient;
   createClient?: () => GhostAdminClient;
 }
 
@@ -98,9 +97,7 @@ export async function resolveGhostDraftPreview(
   }
 
   try {
-    const client = options.client
-      ?? options.createClient?.()
-      ?? createConfiguredClient(options.locals);
+    const client = options.createClient?.() ?? createConfiguredClient(options.locals);
     const post = await client.readPostById(options.id);
     const transformed = await transformPostDirectives(post.html, {
       slug: post.slug,
