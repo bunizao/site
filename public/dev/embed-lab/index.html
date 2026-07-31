@@ -315,26 +315,40 @@ body {
    in doubt that this is YouTube's video on our page — that is both the honest
    thing and what the platform's attribution expectations assume. White
    monochrome is YouTube's own prescribed treatment over photography; the
-   full-colour mark is for flat light backgrounds, which a poster never is. */
+   full-colour mark is for flat light backgrounds, which a poster never is.
+
+   It sits in a pill, and that is the whole point of this block. Bare white
+   type dropped straight onto a photograph has no container, so it has no
+   scale relationship to anything else on the card — it reads as a sticker
+   somebody left there, and no amount of extra px fixes that. Give it the
+   duration's exact material and the two become a matched pair framing the
+   disc: label top-left, metadata bottom-right, action in the middle.
+   The pill also earns the size: contrast now comes from the ground rather
+   than from a drop-shadow, so the mark can grow without shouting. */
 .yt__brand {
   position: absolute;
   top: 10px;
-  left: 11px;
+  left: 10px;
   z-index: 4;
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: 6px;
+  padding: 4px 9px 4px 8px;
+  border-radius: 7px;
   color: #fff;
-  filter: drop-shadow(0 1px 3px hsl(0 0% 0% / .55));
+  background: hsl(0 0% 4% / .58);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  box-shadow: inset 0 0 0 1px hsl(0 0% 100% / .12);
   pointer-events: none;
   transition: opacity var(--dur-swap) ease;
 }
-.yt__brand-mark { width: 20px; height: 14px; fill: currentColor; }
+.yt__brand-mark { width: 22px; height: 15.5px; fill: currentColor; }
 .yt__brand-word {
   font-family: var(--font-sans);
-  font-size: 11.5px;
+  font-size: 12.5px;
   font-weight: 600;
-  letter-spacing: -0.01em;
+  letter-spacing: -0.012em;
   line-height: 1;
 }
 /* While the real player is up, YouTube brands itself — ours would double. */
@@ -418,10 +432,10 @@ body {
   position: absolute;
   right: 10px;
   bottom: 10px;
-  padding: 3px 7px;
-  border-radius: 6px;
+  padding: 4px 8px;
+  border-radius: 7px;
   font-family: var(--font-code);
-  font-size: 11px;
+  font-size: 11.5px;
   line-height: 1;
   letter-spacing: .01em;
   font-variant-numeric: tabular-nums;
@@ -563,6 +577,9 @@ body {
   /* Down to the touch-target floor, no further. */
   .yt { --yt-disc: 44px; }
   .yt__glyph { width: 24px; height: 24px; }
+  .yt__brand { top: 8px; left: 8px; gap: 5px; padding: 4px 7px 4px 6px; }
+  .yt__brand-mark { width: 20px; height: 14px; }
+  .yt__brand-word { font-size: 11.5px; }
   .yt__title { font-size: 14px; }
   .yt__meta { font-size: 12px; }
   .yt__avatar { width: 30px; height: 30px; }
