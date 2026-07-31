@@ -1,6 +1,10 @@
 # Apple Music Full-Track Playback (MusicKit) — v2 PRD
 
-Status: **draft** (2026-06-28) · Owner: bunizao · Branch: `plan-new-blog-era`
+Status: **superseded record** (2026-06-28) · Owner: bunizao · Branch: `plan-new-blog-era`
+
+> **Superseded.** Do not implement this PRD without a new product decision. The
+> current player intentionally uses native 30/90-second previews and does not
+> use MusicKit full-track authorization.
 
 ## TL;DR
 

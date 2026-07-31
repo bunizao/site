@@ -1,6 +1,6 @@
 # PRD 006 — Mood Navigation & Read-Path Performance
 
-- **Status:** Ready for execution
+- **Status:** Archived as shipped
 - **Date:** 2026-07-10
 - **Scope:** `site` repo (primary), `../site-api` (one cross-repo story, flagged)
 - **Baseline measured:** production `buxx.me`, 2026-07-10 (see Appendix A)
@@ -24,24 +24,24 @@ Measured cold TTFB on production:
 Four stacked causes, all confirmed in code:
 
 1. **Query strings bypass the worker edge cache.** `createHtmlCacheOptions`
-   ([responses.ts](../src/features/agent-markdown/server/responses.ts)) returns
+   ([responses.ts](../../src/features/agent-markdown/server/responses.ts)) returns
    `cacheSearch = null` for any URL with a search string unless the route
    policy defines `normalizeHtmlCacheSearch`. `/mood` defines none, so every
    `/mood?N` skips the worker cache. Cloudflare CDN then caches per unique
    URL — an unbounded key space where nearly every request is cold.
 2. **Anchor SSR makes up to two sequential upstream fetches.**
-   `loadInitialMoodFeed` ([mood.astro](../src/pages/mood.astro)) awaits the
+   `loadInitialMoodFeed` ([mood.astro](../../src/pages/mood.astro)) awaits the
    focused window (`before = N+11`) and, when the anchor id is absent, awaits
    a second fallback fetch (`before = N+1`). Stale deep links always pay both.
 3. **Per-post comment-count fetches are uncapped.** `getCommentsCount`
-   ([telegram-source.ts](../src/features/mood/server/telegram-source.ts))
+   ([telegram-source.ts](../../src/features/mood/server/telegram-source.ts))
    falls back to one `t.me/{channel}/{id}?embed=1&discussion=1` request per
    post with `retry: 2` and **no timeout**. The main feed fetch is capped at
    3 s; these are not, and page latency is the slowest of ~20 parallel
    subrequests.
 4. **Detail pages recompute everything every 60 s.**
    `MOOD_DETAIL_PAGE_CACHE_TTL_SECONDS = 60`
-   ([registry.ts](../src/features/agent-markdown/server/registry.ts)) while a
+   ([registry.ts](../../src/features/agent-markdown/server/registry.ts)) while a
    cold detail render costs ~3 s (embed fetch + `enrichDetailPost`
    subrequests).
 
@@ -139,7 +139,7 @@ Acceptance criteria:
   canonical bucketed form (e.g. `?anchor-bucket=3640`); any other search →
   `null` (no cache, current behavior). Follow the existing
   `normalizeMoodEmbedCacheSearch` pattern
-  ([embed-query.ts](../src/features/mood/server/embed-query.ts)).
+  ([embed-query.ts](../../src/features/mood/server/embed-query.ts)).
 - Example: `/mood?3631` and `/mood?3640` read/write the same worker cache
   entry; second request returns `x-buxx-mood-page-cache: HIT`.
 - Example: `/mood` (no query) keeps its existing cache entry and TTL/SWR.

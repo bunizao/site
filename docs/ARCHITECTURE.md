@@ -114,9 +114,11 @@ The edge cache key includes the negotiated variant (`html` or `markdown`) plus p
 
 ## Environment Variables
 
-Accessed via `import.meta.env.*`:
+Accessed through server runtime environment helpers or `import.meta.env.*`, as
+appropriate for the call site:
 - `PUBLIC_GHOST_URL` — Ghost CMS URL (default: https://blog.buxx.me)
 - `GHOST_CONTENT_API_KEY` — Ghost CMS content API key; required in the Cloudflare build environment for the prerendered Writing section
+- `GHOST_ADMIN_API_KEY` — server-only Ghost Admin key used by local draft tooling; keep it in `.env.local` or a Worker secret and never expose it through a `PUBLIC_` variable
 - `PUBLIC_BLOG_OG_IMAGE_ENDPOINT` — OGIS endpoint for generated `/blog` Open Graph images
 - `GITHUB_TOKEN` — GitHub GraphQL token for project data
 - `PUBLIC_HD_IMAGE_URL` — HD mood image base URL served by `site-api`
@@ -125,6 +127,9 @@ Accessed via `import.meta.env.*`:
 - `TELEGRAM_HOST` — Telegram public host for embed lookups (default: `t.me`)
 - `LASTFM_API_KEY`, `LASTFM_USER` — Last.fm recent tracks integration for the home listening widget
 - `PUBLIC_SITE_URL`, `SITE_URL` — canonical base URLs for email links, previews, and health checks
+- `STATIC_PROXY_MODE` — signed proxy rollout mode: `observe` (default), `accept-both`, or `enforce`
+- `STATIC_PROXY_KEY_ID`, `STATIC_PROXY_SECRET` — current signed proxy key ID and secret
+- `STATIC_PROXY_PREVIOUS_KEY_ID`, `STATIC_PROXY_PREVIOUS_SECRET` — optional previous pair retained during key rotation
 
 Cloudflare Worker bindings and non-secret vars are defined in [`wrangler.jsonc`](../wrangler.jsonc):
 

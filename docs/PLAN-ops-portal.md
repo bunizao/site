@@ -3,6 +3,13 @@
 Status: approved roadmap (2026-07-19). Tracks the portal redesign, the newsletter
 flood gate, the Telegram ops bot, analytics charts, and the (deferred) blog editor.
 
+Implementation note (2026-07-31): Phase 1 and the per-article analytics endpoint
+are shipped. Current `site-api/main` also has the webhook-secured `/overview`
+command and durable broadcast confirmation. Remaining backend work is system
+alerts, a portal-originated bot confirmation boundary, publishing confirmations,
+and event reminders. The stale `feat/telegram-ops-bot` long-polling branch is
+reference material only; do not merge or cherry-pick it.
+
 ## Core architecture principle: one API, two clients
 
 Every admin capability (subscribers, broadcasts, alerts, notify gate, event

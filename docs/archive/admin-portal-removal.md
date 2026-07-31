@@ -1,6 +1,11 @@
 # Executive Plan: Admin Portal Removal
 
+Status: **superseded record**
+
 Workstream of the July 2026 architecture audit — report `docs/reviews/architecture-audit-2026-07.md` ([#64](https://github.com/bunizao/site/pull/64)). Depends on the `claude/audit-admin-portal-migration` workstream in `site-api` (bunizao/site-api#10) being deployed and verified.
+
+> **Superseded.** Do not delete the portal. `docs/PLAN-ops-portal.md` is the
+> approved roadmap and current code continues to build the portal in `site`.
 
 ## Objective
 

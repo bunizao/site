@@ -2,6 +2,9 @@
 
 Workstream of the July 2026 architecture audit — report `docs/reviews/architecture-audit-2026-07.md` ([#64](https://github.com/bunizao/site/pull/64)).
 
+**Status: archived as shipped.** All six scoped code items are complete. The
+task breakdown below is historical, not an active queue.
+
 ## Objective
 
 Remove the site-wide payload and loading inefficiencies identified in the audit's frontend round, without visual changes.
