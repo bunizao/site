@@ -586,7 +586,13 @@ body {
    The same reasoning retires the pledge's own "why does that matter to me?"
    card in NotByAI.astro; see the handoff note under branch 3.
    ========================================================================== */
+/* One line per model. At one model — the common case — this is a single
+   paragraph and the stack never shows. */
 .credit {
+  display: grid;
+  /* Wide enough to beat the 22.4px wrap inside a credit, so a wrapped line is
+     never mistaken for the start of the next model's. */
+  gap: 6px;
   flex: 1 1 320px;
   min-width: 0;
 }
@@ -853,6 +859,48 @@ body {
       <p class="credit__line">
         <span class="credit__sig"><svg class="credit__mark" viewBox="0 0 32 32" aria-hidden="true"><use href="#claude-mark" /></svg>Claude Opus 5</span> verified claims and wrote
         the image alt text.
+      </p>
+    </aside>
+    <div class="lab-foot__pills">
+      <span class="lab-foot__pill">Subscribe</span>
+      <span class="lab-foot__pill">Share</span>
+    </div>
+  </div>
+
+  <!-- Multiple models — one line each, in the order the directives appear in the
+       post. Credits are grouped by model id first, so the plan's own two-line
+       example (draft,factcheck on one line, translate on another) collapses into
+       a single sentence rather than repeating the name. The mark is per vendor,
+       not per model: both of these are Anthropic, so both carry the same mark. -->
+  <p class="lab-h" style="margin-top:48px">any branch — two models</p>
+  <div class="lab-foot">
+    <aside class="credit">
+      <p class="credit__line">
+        <span class="credit__sig"><svg class="credit__mark" viewBox="0 0 32 32" aria-hidden="true"><use href="#claude-mark" /></svg>Claude Opus 5</span> produced the first draft
+        and translated this post from Chinese.
+      </p>
+      <p class="credit__line">
+        <span class="credit__sig"><svg class="credit__mark" viewBox="0 0 32 32" aria-hidden="true"><use href="#claude-mark" /></svg>Claude Haiku 4.5</span> wrote the image alt text.
+      </p>
+    </aside>
+    <div class="lab-foot__pills">
+      <span class="lab-foot__pill">Subscribe</span>
+      <span class="lab-foot__pill">Share</span>
+    </div>
+  </div>
+
+  <!-- Branch 1 with two models. The pledge joins the first credit only when
+       there is exactly one model; past that it stands on its own line, or the
+       sentence runs away. -->
+  <p class="lab-h" style="margin-top:48px">branch 1 — pledge, two models</p>
+  <div class="lab-foot">
+    <aside class="credit">
+      <p class="credit__line">This post was written by a human, without AI.</p>
+      <p class="credit__line">
+        <span class="credit__sig"><svg class="credit__mark" viewBox="0 0 32 32" aria-hidden="true"><use href="#claude-mark" /></svg>Claude Opus 5</span> gathered sources and verified claims.
+      </p>
+      <p class="credit__line">
+        <span class="credit__sig"><svg class="credit__mark" viewBox="0 0 32 32" aria-hidden="true"><use href="#claude-mark" /></svg>Claude Haiku 4.5</span> wrote the image alt text.
       </p>
     </aside>
     <div class="lab-foot__pills">
