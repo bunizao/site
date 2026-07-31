@@ -163,9 +163,13 @@ const avatar = initialChannel?.avatar?.trim() ?? '';
     // numbers. That split is the whole design: re-measuring is then a handful of
     // setProperty calls, not a keyframe rebuild, so it stays safe to do while
     // the reader is mid-scroll. See @/lib/scroll-dock.
-    const dock = createScrollDock(navbar, ['dock']);
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const dock = reduceMotion ? null : createScrollDock(navbar, ['dock']);
     const setVar = (name: string, value: number) =>
       navbar.style.setProperty(name, value.toFixed(3));
+    let run = 1;
+
+    navbar.classList.toggle('is-reduced-motion', reduceMotion);
 
     // Whether the hero has a title to fly from; the ink falls back to a plain
     // fade-in when it does not.
@@ -191,9 +195,9 @@ const avatar = initialChannel?.avatar?.trim() ?? '';
       setVar('--hero-size', heroSize);
       setVar('--dock-scale', slotSize / heroSize);
 
-      const run = Math.max(1, heroTopDoc - slotRect.top);
+      run = Math.max(1, heroTopDoc - slotRect.top);
       setVar('--run', run);
-      dock.setRun('dock', run);
+      dock?.setRun('dock', run);
 
       // Title geometry. Font ratio (not height) keeps the scale right even if
       // the hero title wraps to two lines.
@@ -253,8 +257,16 @@ const avatar = initialChannel?.avatar?.trim() ?? '';
     // pointer-events has no numeric form. It costs a scrollY read and a
     // classList call that no-ops while the state holds, and it is the only
     // per-frame work left on this page.
-    const update = () =>
-      navbar.classList.toggle('is-docked', dock.read('dock').fold > 0.99);
+    const update = () => {
+      const isDocked = reduceMotion
+        ? window.scrollY >= run
+        : (dock?.read('dock').fold ?? 0) > 0.99;
+      if (reduceMotion) {
+        navbar.style.setProperty('--dock-ride', isDocked ? '1' : '0');
+        navbar.style.setProperty('--dock-fold', isDocked ? '1' : '0');
+      }
+      navbar.classList.toggle('is-docked', isDocked);
+    };
 
     const remeasure = () => {
       measure();
@@ -265,8 +277,10 @@ const avatar = initialChannel?.avatar?.trim() ?? '';
     // and title's visible role over to them — this order avoids any flash.
     measure();
     update();
-    heroAvatar.style.visibility = 'hidden';
-    if (titleFly && heroTitle) heroTitle.style.visibility = 'hidden';
+    if (!reduceMotion) {
+      heroAvatar.style.visibility = 'hidden';
+      if (titleFly && heroTitle) heroTitle.style.visibility = 'hidden';
+    }
     navbar.classList.add('is-flyer-active');
 
     window.addEventListener('scroll', update, { passive: true });

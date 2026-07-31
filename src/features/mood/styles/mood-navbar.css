@@ -147,6 +147,12 @@
   visibility: visible;
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .mood-navbar.is-reduced-motion:not(.is-docked) .mood-nav-avatar-flyer {
+    visibility: hidden;
+  }
+}
+
 .mood-nav-avatar-img {
   width: 100%;
   height: 100%;

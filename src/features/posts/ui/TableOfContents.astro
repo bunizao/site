@@ -528,12 +528,12 @@ const blogMarkAsset = blog.mark;
     // rail's heading offsets shift with any reflow.
     window.addEventListener('resize', remeasure, { passive: true });
 
-    // The article settles after first paint: images without intrinsic sizing
-    // land, embeds size themselves, and the web fonts re-flow the prose — each
-    // moves every heading below it. Observing the prose catches all of them, and
-    // re-measuring is now cheap enough to run on each one.
+    // The article settles after first paint: the feature image can grow above
+    // the prose, embeds size themselves, and web fonts re-flow the content.
+    // Observe the whole article so both preceding media and prose changes
+    // invalidate the cached heading positions.
     if (typeof ResizeObserver !== 'undefined') {
-      new ResizeObserver(remeasure).observe(prose);
+      new ResizeObserver(remeasure).observe(prose.closest('article') ?? prose);
     }
     document.fonts?.ready?.then(remeasure).catch(() => {});
 
