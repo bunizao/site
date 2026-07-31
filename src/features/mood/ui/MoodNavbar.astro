@@ -11,6 +11,7 @@
 import type { MoodChannelSummary } from '@/features/mood/server/contracts';
 import Kbd from '@/components/Kbd.astro';
 import Topbar from '@/components/Topbar.astro';
+import '@/styles/scroll-dock.css';
 import '@/features/mood/styles/mood-navbar.css';
 
 interface Props {
@@ -114,10 +115,7 @@ const avatar = initialChannel?.avatar?.trim() ?? '';
 
 <script>
   import { getMoodFeedTopHref } from '@/features/mood/shared/feed-anchor';
-
-  const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
-  const clamp01 = (n: number) => (n < 0 ? 0 : n > 1 ? 1 : n);
-  const ease = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
+  import { createScrollDock } from '@/lib/scroll-dock';
 
   // The translation an element's own transform currently contributes, so a rect
   // taken while it animates can be reduced back to its layout position.
@@ -160,198 +158,86 @@ const avatar = initialChannel?.avatar?.trim() ?? '';
     // controls working and skip the shared-element travel.
     if (!flyer || !slot || !heroAvatar) return;
 
-    // Geometry, measured from layout: the hero avatar's/title's document-space
-    // boxes and the docked targets in the (fixed) bar. `distance` is the scroll
-    // span over which the identity completes its trip into the navbar.
-    let heroTopDoc = 0;
-    let heroLeftDoc = 0;
-    let heroSize = 0;
-    let slotTop = 0;
-    let slotLeft = 0;
-    let slotSize = 0;
-    let distance = 1;
-    // The identity rides the page for the first stretch, then shrinks + pins
-    // over the last `dockBand` px before it reaches the bar.
-    let dockBand = 1;
+    // The travel is described in mood-navbar.css as calc() over one scroll
+    // scalar; this script only measures the two ends and publishes them as
+    // numbers. That split is the whole design: re-measuring is then a handful of
+    // setProperty calls, not a keyframe rebuild, so it stays safe to do while
+    // the reader is mid-scroll. See @/lib/scroll-dock.
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const dock = reduceMotion ? null : createScrollDock(navbar, ['dock']);
+    const setVar = (name: string, value: number) =>
+      navbar.style.setProperty(name, value.toFixed(3));
+    let run = 1;
 
-    // Title shared element (only when the hero has a title to fly from).
-    let heroTitleTopDoc = 0;
-    let heroTitleLeftDoc = 0;
-    let navTitleTop = 0;
-    let navTitleLeft = 0;
-    // The ink is laid out at the hero's font size; this brings it back to the
-    // bar's. 1 until measure() has a hero title to fly from.
-    let titleDockScale = 1;
+    navbar.classList.toggle('is-reduced-motion', reduceMotion);
+
+    // Whether the hero has a title to fly from; the ink falls back to a plain
+    // fade-in when it does not.
     let titleFly = false;
 
-    // Scroll-driven animations are advanced by the scroller itself, so the whole
-    // travel runs on the compositor and survives a busy main thread. The script
-    // then only measures, bakes the path into keyframes, and gets out of the
-    // way. Where they are missing, the scroll handler below steps the same model
-    // per frame instead.
-    const timelineStyle =
-      typeof CSS !== 'undefined' && CSS.supports?.('animation-timeline: scroll()')
-        ? document.createElement('style')
-        : null;
-    if (timelineStyle) document.head.append(timelineStyle);
-    let timelineOn = false;
-
-    // The travel, as a pure function of scroll offset. Stepped per frame by the
-    // fallback handler and sampled into @keyframes for the compositor — one
-    // model, so the two engines cannot drift apart.
-    const positionAt = (y: number) => {
-      // The flyer tracks the hero's real on-screen position, so it scrolls up
-      // at content speed — glued to where the hero actually is — instead of
-      // racing toward the bar. Only over the last `dockBand` px, as the hero
-      // nears the slot, does it shrink and pin. `d` is that docking progress:
-      // 0 while riding the content, 1 once docked.
-      const heroTopVp = heroTopDoc - y;
-      const d = ease(clamp01((slotTop + dockBand - heroTopVp) / dockBand));
-      return {
-        d,
-        // transform-origin is the top-left corner, so translate + scale keeps
-        // the start (hero box) and end (slot box) aligned at both ends.
-        x: lerp(heroLeftDoc, slotLeft, d),
-        y: lerp(heroTopVp, slotTop, d),
-        scale: lerp(1, slotSize / heroSize, d),
-      };
-    };
-
-    const flyerTransform = (p: { x: number; y: number; scale: number }) =>
-      `translate(${p.x.toFixed(3)}px, ${p.y.toFixed(3)}px) scale(${p.scale.toFixed(5)})`;
-
-    // The title docks on the same progress, so the pair moves as one — riding
-    // the page, then collapsing into the bar. With no hero title to fly from it
-    // just fades in over the tail of the dock instead.
-    const titleStyle = (y: number, d: number) => {
-      if (titleFly) {
-        const tx = lerp(heroTitleLeftDoc, navTitleLeft, d) - navTitleLeft;
-        const ty = lerp(heroTitleTopDoc - y, navTitleTop, d) - navTitleTop;
-        const scale = lerp(1, titleDockScale, d);
-        return {
-          transform: `translate(${tx.toFixed(3)}px, ${ty.toFixed(3)}px) scale(${scale.toFixed(5)})`,
-          opacity: '1',
-        };
-      }
-      const t = clamp01((d - 0.6) / 0.4);
-      return { transform: `translateX(${((1 - t) * -6).toFixed(3)}px)`, opacity: t.toFixed(4) };
-    };
-
-    // Write the pair's transforms for a scroll offset. This is the fallback's
-    // per-frame job, and also the seed the timeline path needs: an element whose
-    // scroll-driven animation has not attached yet renders from its base style,
-    // and the flyer's base style is the bare top:0/left:0 of its fixed box —
-    // WebKit attaches on the frame after the class lands, which is one frame of
-    // avatar in the top-left corner. Seeding costs nothing once the animation is
-    // live, since animations outrank inline styles.
-    const place = (y: number) => {
-      const p = positionAt(y);
-      flyer.style.transform = flyerTransform(p);
-      if (title) {
-        const s = titleStyle(y, p.d);
-        title.style.transform = s.transform;
-        title.style.opacity = s.opacity;
-      }
-      return p;
-    };
-
-    // CSS interpolates linearly between stops while the model's curve is eased,
-    // so the stop count sets the fidelity: 12 stops drift 1.4px from the true
-    // path, 24 drift 0.43px, 48 drift 0.14px. This runs once per measure, so
-    // buy the accuracy.
-    const DOCK_STOPS = 48;
-
-    const buildTimeline = () => {
-      if (!timelineStyle) return;
-
-      let avatarFrames = '';
-      let inkFrames = '';
-      for (let i = 0; i <= DOCK_STOPS; i++) {
-        const t = i / DOCK_STOPS;
-        const y = t * distance;
-        const p = positionAt(y);
-        const stop = `${(t * 100).toFixed(4)}%`;
-        avatarFrames += `${stop}{transform:${flyerTransform(p)}}`;
-        if (title) {
-          const s = titleStyle(y, p.d);
-          inkFrames += `${stop}{transform:${s.transform};opacity:${s.opacity}}`;
-        }
-      }
-
-      // The scroll span the keyframes were sampled over. Everything else about
-      // the animation is declared in mood-navbar.css; only the measured numbers
-      // live here.
-      const range = `animation-range:0px ${distance.toFixed(2)}px;`;
-      timelineStyle.textContent =
-        `@keyframes mood-dock-avatar{${avatarFrames}}` +
-        `@keyframes mood-dock-title{${inkFrames}}` +
-        `.mood-navbar.is-scroll-timeline .mood-nav-avatar-flyer{${range}}` +
-        `.mood-navbar.is-scroll-timeline .mood-nav-title__ink{${range}}`;
-    };
-
     const measure = () => {
-      // Every read below must be plain layout. An animation outranks the inline
-      // styles this function clears, so the timeline has to come off for the
-      // duration or it would fold its own transform into the measurements.
-      // measure() is synchronous, so nothing paints in the gap.
-      navbar.classList.remove('is-scroll-timeline');
-      timelineOn = false;
-
       const slotRect = slot.getBoundingClientRect();
-      slotTop = slotRect.top;
-      slotLeft = slotRect.left;
-      slotSize = slotRect.width || 30;
+      const slotSize = slotRect.width || 30;
 
       // The hero avatar keeps its layout box even while visually hidden, so its
-      // rect stays valid as the flyer's start position.
+      // rect stays valid as the flight's start position.
       const heroRect = heroAvatar.getBoundingClientRect();
-      heroTopDoc = heroRect.top + window.scrollY;
-      heroLeftDoc = heroRect.left + window.scrollX;
-      heroSize = heroRect.width || slotSize;
+      const heroTopDoc = heroRect.top + window.scrollY;
+      const heroSize = heroRect.width || slotSize;
 
-      // Lay the flyer out at the hero's size so the travel only ever scales it
-      // DOWN. Sized at the slot, the ride would stretch a 30px raster ~2.7x and
-      // will-change would pin it there — a visibly soft avatar over the hero.
-      flyer.style.width = `${heroSize}px`;
-      flyer.style.height = `${heroSize}px`;
+      setVar('--slot-x', slotRect.left);
+      setVar('--slot-y', slotRect.top);
+      setVar('--hero-x', heroRect.left + window.scrollX);
+      setVar('--hero-y', heroTopDoc);
+      // The flyer is laid out at the hero's size so the travel only ever scales
+      // it DOWN. Sized at the slot, the ride would stretch a 30px raster ~2.7x
+      // and will-change would pin it there — a visibly soft avatar over the hero.
+      setVar('--hero-size', heroSize);
+      setVar('--dock-scale', slotSize / heroSize);
 
-      distance = Math.max(1, heroTopDoc - slotTop);
-      // Ride the content for ~45% of the trip, then dock over the last ~55%.
-      dockBand = Math.max(1, distance * 0.55);
+      run = Math.max(1, heroTopDoc - slotRect.top);
+      setVar('--run', run);
+      dock?.setRun('dock', run);
 
-      // Title geometry. Every read below is taken with the travel transform
-      // cleared, so they are plain layout values. Font ratio (not height) keeps
-      // the scale right even if the hero title wraps to two lines.
+      // Title geometry. Font ratio (not height) keeps the scale right even if
+      // the hero title wraps to two lines.
       titleFly = false;
       if (title && titleBox) {
-        title.style.transform = 'none';
-
         const navFont = parseFloat(getComputedStyle(titleBox).fontSize) || 14;
         const heroFont = heroTitle
           ? parseFloat(getComputedStyle(heroTitle).fontSize) || navFont
           : navFont;
+        const dockScale = navFont / heroFont;
 
-        // Lay the ink out at the hero's size so the ride only ever scales it
-        // DOWN — real glyphs at the headline size instead of stretched pixels.
-        titleDockScale = navFont / heroFont;
-        title.style.fontSize = `${heroFont}px`;
+        titleFly = !!heroTitle;
+        if (titleFly) {
+          // Lay the ink out at the hero's size before measuring it, so the width
+          // below is its natural width in hero units.
+          setVar('--ink-hero-font', heroFont);
+          setVar('--ink-scale', dockScale);
+        }
+        navbar.classList.toggle('has-title-flight', titleFly);
 
         // Size the docked box from the ink's natural width in docked units and
         // let the CSS cap clamp it, then hand the ink that same budget back in
         // hero units so its ellipsis lands where the box's edge will be.
         title.style.maxWidth = 'none';
         titleBox.style.width = 'auto';
-        const inkWidth = title.getBoundingClientRect().width;
-        titleBox.style.width = `${inkWidth * titleDockScale}px`;
+        // offsetWidth, not a rect: the ink carries the flight transform at all
+        // times now, and the layout box is the only width reading that ignores
+        // it. Integer rounding is fine here — both consumers below already
+        // tolerate a sub-pixel (the `- 0.5` guard exists for exactly that).
+        const inkWidth = title.offsetWidth;
+        titleBox.style.width = `${inkWidth * dockScale}px`;
 
         const boxRect = titleBox.getBoundingClientRect();
-        navTitleTop = boxRect.top;
-        navTitleLeft = boxRect.left;
+        setVar('--ink-dock-x', boxRect.left);
+        setVar('--ink-dock-y', boxRect.top);
         // Only a title long enough for the CSS cap to clamp needs a budget. Set
         // unconditionally it would land on the ink's own natural width, where
         // sub-pixel rounding is enough to trip the ellipsis on a title that fits.
-        const clamped = boxRect.width < inkWidth * titleDockScale - 0.5;
-        title.style.maxWidth = clamped ? `${boxRect.width / titleDockScale}px` : 'none';
+        const clamped = boxRect.width < inkWidth * dockScale - 0.5;
+        title.style.maxWidth = clamped ? `${boxRect.width / dockScale}px` : 'none';
 
         if (heroTitle) {
           // The hero title levitates on a looping translateY, and rects include
@@ -361,36 +247,26 @@ const avatar = initialChannel?.avatar?.trim() ?? '';
           // transform to recover the layout position underneath it.
           const heroRectT = heroTitle.getBoundingClientRect();
           const drift = readTransform(heroTitle);
-          heroTitleTopDoc = heroRectT.top + window.scrollY - drift.y;
-          heroTitleLeftDoc = heroRectT.left + window.scrollX - drift.x;
-          titleFly = true;
+          setVar('--ink-hero-x', heroRectT.left + window.scrollX - drift.x);
+          setVar('--ink-hero-y', heroRectT.top + window.scrollY - drift.y);
         }
       }
-
-      // Geometry is final: bake the path and hand it to the scroller. Seed the
-      // pair for the current offset in the same tick the class lands, so the
-      // frame before the animation attaches already shows the right pose.
-      buildTimeline();
-      if (timelineStyle) {
-        navbar.classList.add('is-scroll-timeline');
-        timelineOn = true;
-      }
-      place(window.scrollY);
     };
 
+    // The identity's hit area is the one thing the scalar cannot express —
+    // pointer-events has no numeric form. It costs a scrollY read and a
+    // classList call that no-ops while the state holds, and it is the only
+    // per-frame work left on this page.
     const update = () => {
-      // With the timeline live the compositor already owns both transforms;
-      // writing them here too would just put the work back on the thread the
-      // whole exercise was about leaving.
-      const p = timelineOn ? positionAt(window.scrollY) : place(window.scrollY);
-      navbar.classList.toggle('is-docked', p.d > 0.99);
+      const isDocked = reduceMotion
+        ? window.scrollY >= run
+        : (dock?.read('dock').fold ?? 0) > 0.99;
+      if (reduceMotion) {
+        navbar.style.setProperty('--dock-ride', isDocked ? '1' : '0');
+        navbar.style.setProperty('--dock-fold', isDocked ? '1' : '0');
+      }
+      navbar.classList.toggle('is-docked', isDocked);
     };
-
-    // update() only reads scrollY — no layout reads — so it is cheap to run
-    // straight from the scroll event without rAF throttling, which also keeps
-    // the fallback travel in lockstep with the finger. On the timeline path it
-    // is down to a scalar and a class toggle for the identity's hit area.
-    const onScroll = () => update();
 
     const remeasure = () => {
       measure();
@@ -401,22 +277,25 @@ const avatar = initialChannel?.avatar?.trim() ?? '';
     // and title's visible role over to them — this order avoids any flash.
     measure();
     update();
-    heroAvatar.style.visibility = 'hidden';
-    if (titleFly && heroTitle) heroTitle.style.visibility = 'hidden';
+    if (!reduceMotion) {
+      heroAvatar.style.visibility = 'hidden';
+      if (titleFly && heroTitle) heroTitle.style.visibility = 'hidden';
+    }
     navbar.classList.add('is-flyer-active');
 
-    window.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('scroll', update, { passive: true });
     window.addEventListener('resize', remeasure);
     window.addEventListener('load', remeasure);
 
     // The hero settles late — hydrateHero() fills the title/avatar and the code
-    // font reflows it after first paint, moving the box the flyer starts from.
-    // A ResizeObserver on the document re-measures on every such shift (and once
-    // right after layout), so the flyer never starts stale. Fonts get an
-    // explicit hook too, since a metrics change may not resize the document.
-    if (typeof ResizeObserver !== 'undefined') {
-      const ro = new ResizeObserver(() => remeasure());
-      ro.observe(document.documentElement);
+    // font reflows it after first paint, moving the box the flight starts from.
+    // Observe the HERO, not the document: this feed's height changes constantly
+    // as media loads below the fold, and none of that moves anything measured
+    // here. Fonts get an explicit hook too, since a metrics change need not
+    // resize any box.
+    const heroBlock = document.querySelector<HTMLElement>('[data-mood-hero]');
+    if (heroBlock && typeof ResizeObserver !== 'undefined') {
+      new ResizeObserver(remeasure).observe(heroBlock);
     }
     document.fonts?.ready?.then(remeasure).catch(() => {});
   }

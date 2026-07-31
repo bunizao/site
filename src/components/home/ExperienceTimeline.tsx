@@ -23,13 +23,16 @@ function RowBody({ item }: { item: ExperienceItem }) {
         <item.icon className={GLYPH} strokeWidth={item.strokeWidth} />
       </span>
 
+      {/* Typography lives in Experience.astro's style block, on the exp-* class
+          names, so this section reads the same --home-* scale as the four
+          Astro sections instead of carrying its own hardcoded sizes. */}
       <div className="flex min-w-0 flex-1 flex-col gap-0.5 pt-px">
         <span className="flex items-center gap-2">
           <a
             href={item.url}
             target="_blank"
             rel="noopener noreferrer"
-            className="w-fit text-[15px] font-semibold leading-snug tracking-[-0.01em] text-[hsl(var(--foreground))] transition-opacity duration-150 hover:opacity-60"
+            className="exp-org w-fit transition-opacity duration-150 hover:opacity-60"
           >
             {item.org}
           </a>
@@ -42,27 +45,21 @@ function RowBody({ item }: { item: ExperienceItem }) {
           )}
         </span>
 
-        {item.role && (
-          <span className="text-[13px] leading-snug tracking-[-0.01em] text-pretty text-[hsl(var(--muted-foreground))]">
-            {item.role}
-          </span>
-        )}
+        {item.role && <span className="exp-detail text-pretty">{item.role}</span>}
 
         {item.description && (
-          <span className="text-[13px] leading-snug tracking-[-0.01em] text-pretty text-[hsl(var(--muted-foreground))]">
-            {item.description}
-          </span>
+          <span className="exp-detail text-pretty">{item.description}</span>
         )}
 
         {item.location && (
-          <span className="mt-0.5 flex items-center gap-1 text-[12px] leading-snug tracking-[-0.01em] text-[hsl(var(--muted-foreground)/0.7)]">
+          <span className="exp-location mt-0.5 flex items-center gap-1">
             <MapPin className="h-3 w-3" aria-hidden="true" />
             {item.location}
           </span>
         )}
       </div>
 
-      <span className="shrink-0 pt-[3px] text-[12px] font-light leading-snug tabular-nums text-[hsl(var(--muted-foreground)/0.6)] max-[480px]:w-full max-[480px]:pl-[50px] max-[480px]:pt-1">
+      <span className="exp-period shrink-0 pt-[3px] max-[480px]:w-full max-[480px]:pl-[50px] max-[480px]:pt-1">
         {item.period}
       </span>
     </>

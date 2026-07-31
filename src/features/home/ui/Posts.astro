@@ -165,7 +165,7 @@ const stamp = (iso: string): string => {
   :global(#writing-section .writing-portal__tagline) {
     font-size: var(--home-text-meta);
     font-weight: var(--home-weight-meta);
-    letter-spacing: -0.005em;
+    letter-spacing: var(--home-track-small);
     color: var(--home-fg-secondary);
     line-height: 1.45;
     text-wrap: pretty;
@@ -245,7 +245,7 @@ const stamp = (iso: string): string => {
   :global(#writing-section .post-title) {
     font-size: var(--home-text-body);
     font-weight: var(--home-weight-title);
-    letter-spacing: -0.011em;
+    letter-spacing: var(--home-track-body);
     line-height: 1.45;
     color: var(--home-fg-primary);
     transition:
@@ -271,6 +271,7 @@ const stamp = (iso: string): string => {
     font-family: var(--font-mono);
     font-size: var(--home-text-meta);
     font-weight: var(--home-weight-meta);
+    letter-spacing: var(--home-track-meta);
     color: var(--home-fg-faint);
     transition: color 0.3s ease;
   }
@@ -288,7 +289,7 @@ const stamp = (iso: string): string => {
     margin-top: 28px;
     font-size: var(--home-text-body);
     font-weight: var(--home-weight-body);
-    letter-spacing: -0.011em;
+    letter-spacing: var(--home-track-body);
     color: var(--home-fg-secondary);
   }
 

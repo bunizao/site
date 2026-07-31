@@ -32,14 +32,33 @@
   --home-fg-primary: hsl(var(--foreground));
   --home-fg-secondary: hsl(var(--muted-foreground));
   --home-fg-faint: hsl(var(--muted-foreground) / 0.6);
+
+  /* Tracking belongs to the step, not to the element. It used to be set per
+     element, which produced two values for one size (13px sans ran -0.01em in
+     Experience and -0.005em in Writing) and both signs for one family (13px
+     mono ran 0 in Writing and -0.01em in Mood).
+
+     The ramp runs positive at the small end and negative at the large end,
+     because tracking corrects for size: small text needs air between stems,
+     large text closes up on its own. Mono never goes negative — its glyphs sit
+     on a fixed advance, so tightening it pulls tabular digits off their own
+     grid, which is exactly what the period stamps were doing. */
+  --home-track-label: 0.2em; /* 11px mono uppercase: a rule, not language */
+  --home-track-meta: 0.01em; /* 13px mono: keep the cells honest */
+  --home-track-small: 0; /* 13px sans: Inter is already correct here */
+  --home-track-body: -0.011em; /* 15px sans */
+  --home-track-masthead: 0.01em; /* 22px sans 600, see the wordmark note */
 }
 
 /* One definition for the label that opens every section, replacing the copy of
-   `font-family: var(--font-mono)` that each section used to carry. Tracking,
-   casing and margin still come from the shared .section-label in globals.css. */
+   `font-family: var(--font-mono)` that each section used to carry. Casing and
+   margin still come from the shared .section-label in globals.css; tracking is
+   restated here so every step on the homepage reads its value from one ramp,
+   even though this one deliberately matches what globals.css already set. */
 .page-container .section-label {
   font-family: var(--font-mono);
   font-size: var(--home-text-label);
   font-weight: var(--home-weight-label);
+  letter-spacing: var(--home-track-label);
   color: var(--home-fg-secondary);
 }

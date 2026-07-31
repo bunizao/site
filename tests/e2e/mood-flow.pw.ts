@@ -1651,15 +1651,18 @@ test.describe('Mood routes', () => {
   });
 
   test('keeps compact mood navbar controls visible while scrolling', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'no-preference' });
     const moodId = '12345';
+    const longChannelTitle = 'E2E Channel with a deliberately long navigation title';
     const moodFeedPayload = createMoodFeedPayload(moodId);
+    moodFeedPayload.channel.title = longChannelTitle;
     moodFeedPayload.posts = Array.from({ length: 12 }, (_value, index) => ({
       ...moodFeedPayload.posts[0],
       id: String(Number(moodId) + index),
       previewText: `E2E mood feed item ${index + 1}`,
       previewHtml: `E2E mood feed item ${index + 1}`,
     }));
-    await page.setViewportSize({ width: 720, height: 500 });
+    await page.setViewportSize({ width: 320, height: 500 });
 
     await page.route('**/api/moods**', async (route) => {
       const url = new URL(route.request().url());
@@ -1706,11 +1709,83 @@ test.describe('Mood routes', () => {
       'blur(22px) saturate(1.6)',
     ]);
     await expect(page.locator('[data-mood-feed]')).not.toHaveClass(/is-hidden/, { timeout: 30_000 });
+    await expect(navbar.locator('[data-mood-nav-title]')).toHaveText(longChannelTitle);
 
     await page.evaluate(() => window.scrollTo({ top: 600, behavior: 'instant' }));
 
     await expect(navbar).toHaveClass(/is-docked/, { timeout: 30_000 });
+    await expect.poll(() => navbar.evaluate((element) =>
+      Number.parseFloat(getComputedStyle(element).getPropertyValue('--dock-ride'))
+    )).toBeGreaterThan(0.99);
+    await expect.poll(() => navbar.evaluate((element) =>
+      Number.parseFloat(getComputedStyle(element).getPropertyValue('--dock-fold'))
+    )).toBeGreaterThan(0.99);
+
+    const dockedGeometry = await navbar.evaluate((element) => {
+      const flyer = element.querySelector<HTMLElement>('[data-mood-nav-flyer]');
+      const slot = element.querySelector<HTMLElement>('[data-mood-nav-avatar-slot]');
+      if (!flyer || !slot) throw new Error('Mood navbar dock geometry is missing');
+      const flyerRect = flyer.getBoundingClientRect();
+      const slotRect = slot.getBoundingClientRect();
+      return {
+        x: Math.abs(flyerRect.x - slotRect.x),
+        y: Math.abs(flyerRect.y - slotRect.y),
+        width: Math.abs(flyerRect.width - slotRect.width),
+        height: Math.abs(flyerRect.height - slotRect.height),
+      };
+    });
+    expect(Math.max(...Object.values(dockedGeometry))).toBeLessThanOrEqual(1.5);
+
+    const compactLayout = await navbar.evaluate((element) => {
+      const title = element.querySelector<HTMLElement>('[data-mood-nav-title-box]');
+      const actions = element.querySelector<HTMLElement>('.mood-navbar__controls');
+      if (!title || !actions) throw new Error('Mood navbar compact layout is missing');
+      const titleRect = title.getBoundingClientRect();
+      const actionsRect = actions.getBoundingClientRect();
+      return {
+        titleRight: titleRect.right,
+        actionsLeft: actionsRect.left,
+        scrollWidth: document.documentElement.scrollWidth,
+        clientWidth: document.documentElement.clientWidth,
+      };
+    });
+    expect(compactLayout.titleRight).toBeLessThanOrEqual(compactLayout.actionsLeft + 1);
+    expect(compactLayout.scrollWidth).toBeLessThanOrEqual(compactLayout.clientWidth + 1);
     await expect(controls).toBeVisible();
+
+    await page.evaluate(() => {
+      window.history.scrollRestoration = 'manual';
+      window.scrollTo({ top: 0, behavior: 'instant' });
+    });
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.reload({ waitUntil: 'domcontentloaded' });
+
+    const reducedNavbar = page.locator('[data-mood-navbar]');
+    const reducedFlyer = reducedNavbar.locator('[data-mood-nav-flyer]');
+    await expect(page.locator('[data-mood-feed]')).not.toHaveClass(/is-hidden/, { timeout: 30_000 });
+    await expect.poll(() => reducedNavbar.evaluate((element) =>
+      Number.parseFloat(getComputedStyle(element).getPropertyValue('--run'))
+    )).toBeGreaterThan(1);
+    const reducedRun = await reducedNavbar.evaluate((element) =>
+      Number.parseFloat(getComputedStyle(element).getPropertyValue('--run'))
+    );
+    expect(await reducedNavbar.evaluate((element) =>
+      element.style.getPropertyValue('animation-timeline')
+    )).toBe('');
+
+    await page.evaluate((top) => window.scrollTo({ top, behavior: 'instant' }), reducedRun / 2);
+    await expect(reducedNavbar).not.toHaveClass(/is-docked/);
+    await expect(reducedFlyer).toHaveCSS('visibility', 'hidden');
+    expect(await reducedNavbar.evaluate((element) =>
+      Number.parseFloat(getComputedStyle(element).getPropertyValue('--dock-ride'))
+    )).toBe(0);
+
+    await page.evaluate((top) => window.scrollTo({ top, behavior: 'instant' }), reducedRun + 5);
+    await expect(reducedNavbar).toHaveClass(/is-docked/);
+    await expect(reducedFlyer).toHaveCSS('visibility', 'visible');
+    expect(await reducedNavbar.evaluate((element) =>
+      Number.parseFloat(getComputedStyle(element).getPropertyValue('--dock-ride'))
+    )).toBe(1);
   });
 
   test('returns anchored feeds to the latest window from the desktop timeline wheel', async ({ page }) => {

@@ -213,6 +213,29 @@ test.describe('Blog reading UI', () => {
     }
   });
 
+  test('remeasures the TOC after preceding media changes height', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 920 });
+    await page.goto('/blog/demo-effects/', { waitUntil: 'domcontentloaded' });
+
+    const headings = page.locator('.blog-prose h2, .blog-prose h3');
+    const tocLinks = page.locator('.toc-link');
+    expect(await headings.count()).toBeGreaterThanOrEqual(2);
+    expect(await tocLinks.count()).toBeGreaterThanOrEqual(2);
+
+    const firstHeadingText = (await headings.first().textContent())?.trim() ?? '';
+    const scrollTop = await headings.first().evaluate((heading) => {
+      const spacer = document.createElement('div');
+      spacer.style.height = '500px';
+      spacer.setAttribute('data-e2e-preceding-shift', '');
+      document.querySelector('.blog-prose')?.before(spacer);
+      return heading.getBoundingClientRect().top + window.scrollY - 95;
+    });
+
+    await page.evaluate((top) => window.scrollTo({ top, behavior: 'instant' }), scrollTop);
+    await expect(tocLinks.first()).toHaveClass(/active/);
+    await expect(page.locator('.toc-link.active')).toHaveText(firstHeadingText);
+  });
+
   test('renders a Ghost draft preview through the real blog prose without caching', async ({ page }) => {
     const response = await page.goto(
       `/blog/preview/${GHOST_PREVIEW_E2E_POST_ID}`,
@@ -387,6 +410,14 @@ test.describe('Blog reading UI', () => {
   });
 
   test('does not create horizontal overflow on mobile blog routes', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'no-preference' });
+    await page.addInitScript(() => {
+      const supports = CSS.supports.bind(CSS);
+      CSS.supports = ((property: string, value?: string) => {
+        if (property === 'animation-timeline: scroll()') return false;
+        return value === undefined ? supports(property) : supports(property, value);
+      }) as typeof CSS.supports;
+    });
     await page.setViewportSize({ width: 390, height: 844 });
     const href = await firstBlogPostHref(page);
 
@@ -395,6 +426,31 @@ test.describe('Blog reading UI', () => {
 
     await page.goto(href, { waitUntil: 'domcontentloaded' });
     await expect(page.locator('.blog-article__title')).toBeVisible();
+    const logoGhost = page.locator('.toc-logo-ghost');
+    const topbarLogo = page.locator('.toc-topbar__logo');
+    await expect(logoGhost).toHaveCount(1);
+    expect(await logoGhost.evaluate((element) =>
+      element.style.getPropertyValue('animation-timeline')
+    )).toBe('');
+
+    await page.evaluate(() => window.scrollTo({ top: 180, behavior: 'instant' }));
+    await expect(page.locator('.toc-topbar')).toHaveClass(/is-visible/);
+    await expect.poll(() => logoGhost.evaluate((element) =>
+      Number.parseFloat(getComputedStyle(element).getPropertyValue('--dock-ride'))
+    )).toBeGreaterThan(0.99);
+
+    await expect.poll(() => logoGhost.evaluate((element) => {
+      const ghostRect = element.getBoundingClientRect();
+      const targetRect = document.querySelector<HTMLElement>('.toc-topbar__logo')?.getBoundingClientRect();
+      if (!targetRect) throw new Error('Blog topbar logo target is missing');
+      return Math.max(
+        Math.abs(ghostRect.x - targetRect.x),
+        Math.abs(ghostRect.y - targetRect.y),
+        Math.abs(ghostRect.width - targetRect.width),
+        Math.abs(ghostRect.height - targetRect.height),
+      );
+    })).toBeLessThanOrEqual(1.5);
+    await expect(topbarLogo).toBeVisible();
     await expectNoHorizontalOverflow(page);
   });
 

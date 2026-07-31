@@ -1046,9 +1046,13 @@ html[data-theme-setting='system'] .blog-theme-toggle [data-blog-icon='system'] {
 }
 
 /* Fixed "ghost" mark that flies from the page header logo into the bar's slot
-   as you scroll — a scroll-driven FLIP. JS sizes it and drives translate+scale;
-   it rides above the bar glass (z 56 > 55) so it reads as the mark docking just
-   before the chrome assembles around it. */
+   as you scroll — a scroll-driven FLIP. It rides above the bar glass (z 56 > 55)
+   so it reads as the mark docking just before the chrome assembles around it.
+
+   The travel is a straight lerp between two measured boxes over one scroll
+   scalar (see @/styles/scroll-dock.css). The element is its own dock host: JS
+   publishes the endpoints here as plain numbers and never touches transform, so
+   re-measuring costs a few setProperty calls instead of a per-frame string. */
 .toc-logo-ghost {
   position: fixed;
   top: 0;
@@ -1058,6 +1062,22 @@ html[data-theme-setting='system'] .blog-theme-toggle [data-blog-icon='system'] {
   pointer-events: none;
   transform-origin: top left;
   will-change: transform;
+
+  /* Endpoints, in px, published by measureLogos(). 1 keeps the pre-measure
+     frame divisible; the ghost is opacity:0 until the reader scrolls anyway. */
+  --l1-x: 0;
+  --l1-y: 0;
+  --l1-size: 40;
+  --l2-x: 0;
+  --l2-y: 0;
+  --logo-scale: 1;
+
+  --lg-x: calc((var(--l1-x) + (var(--l2-x) - var(--l1-x)) * var(--dock-ride)) * 1px);
+  --lg-y: calc((var(--l1-y) + (var(--l2-y) - var(--l1-y)) * var(--dock-ride)) * 1px);
+  --lg-scale: calc(1 + (var(--logo-scale) - 1) * var(--dock-ride));
+  width: calc(var(--l1-size) * 1px);
+  height: calc(var(--l1-size) * 1px);
+  transform: translate(var(--lg-x), var(--lg-y)) scale(var(--lg-scale));
 }
 
 .toc-logo-ghost img {
@@ -1080,8 +1100,16 @@ html[data-theme-setting='system'] .blog-theme-toggle [data-blog-icon='system'] {
 
 /* Fixed "ghost" title that flies the article H1 up and shrinks it into the
    bar's centre slot — the iOS large-title collapse. JS wears the H1's type on
-   it and drives translate+scale; it crossfades into the real bar title at the
-   dock. nowrap so the FLIP scales a single clean line. */
+   it; it crossfades into the real bar title at the dock. nowrap so the FLIP
+   scales a single clean line.
+
+   Longer run than the logo's hop (the H1 starts well down the page), hence its
+   own `lift` channel. Two terms, like the mood navbar's flight: --tg-live is
+   where the H1 actually is on screen right now, so the ghost rides up with the
+   content, and --tg-pos then pulls it onto the bar's centre slot. The travel
+   finishes at 85% of the run and parks, so the crossfade below happens with the
+   ghost and the real bar title sharing one spot — never two titles in two
+   places, which was the earlier flaw. */
 .toc-title-ghost {
   position: fixed;
   top: 0;
@@ -1095,6 +1123,23 @@ html[data-theme-setting='system'] .blog-theme-toggle [data-blog-icon='system'] {
   pointer-events: none;
   transform-origin: top left;
   will-change: transform, opacity;
+
+  /* Published by measureTitle(). The targets are the ghost's top-left at its
+     docked scale — computed in JS because they fold in the ghost's own measured
+     box, which CSS here has no way to read back. */
+  --t1-x: 0;
+  --t1-y: 0;
+  --lift-run: 1;
+  --title-target-x: 0;
+  --title-target-y: 0;
+  --title-scale: 1;
+
+  --tg-pos: clamp(0, var(--lift-ride) / 0.85, 1);
+  --tg-live: calc((var(--t1-y) - var(--lift-ride) * var(--lift-run)) * 1px);
+  --tg-x: calc((var(--t1-x) + (var(--title-target-x) - var(--t1-x)) * var(--tg-pos)) * 1px);
+  --tg-y: calc(var(--tg-live) + (var(--title-target-y) * 1px - var(--tg-live)) * var(--tg-pos));
+  --tg-scale: calc(1 + (var(--title-scale) - 1) * var(--tg-pos));
+  transform: translate(var(--tg-x), var(--tg-y)) scale(var(--tg-scale));
 }
 
 @media (prefers-reduced-motion: reduce) {

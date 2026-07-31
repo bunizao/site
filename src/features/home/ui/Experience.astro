@@ -21,15 +21,63 @@ import ExperienceTimeline from '@/components/home/ExperienceTimeline';
 <style>
   /* The swap moved Experience below Projects, off the Hero mono spine, so it
      joins the human voice (Inter). Hero is now the lone mono anchor. The
-     metadata spine — the tabular-nums period stamps — stays mono; the section
-     label is handled centrally in home-type.css. */
+     metadata spine — the tabular period stamps — stays mono; the section
+     label is handled centrally in home-type.css.
+
+     Everything below is `:global()` because the rows are rendered by a React
+     island, so Astro's scoping attribute never reaches them. The island used to
+     carry these as Tailwind arbitrary values (`text-[12px]`, `font-light`,
+     `tracking-[-0.01em]`), which is how this section missed the type-scale
+     rebuild and ended up with three sizes, a banished weight, and a tracking
+     value that contradicted the other four sections. */
   :global(#experience-section) {
     font-family: var(--font-sans);
   }
 
-  :global(#experience-section .tabular-nums) {
+  /* The organisation name is the row's headline and its only link. Same
+     treatment as a post title in Writing — they are the same kind of thing, a
+     name you can click through — where it previously ran a step heavier at 600
+     and a hair tighter. */
+  :global(#experience-section .exp-org) {
+    font-size: var(--home-text-body);
+    font-weight: var(--home-weight-title);
+    letter-spacing: var(--home-track-body);
+    line-height: 1.375;
+    color: var(--home-fg-primary);
+  }
+
+  /* Role and description are sans prose at the small step, so they take the
+     neutral tracking rather than the mono step's positive value. */
+  :global(#experience-section .exp-detail) {
+    font-size: var(--home-text-meta);
+    font-weight: var(--home-weight-meta);
+    letter-spacing: var(--home-track-small);
+    line-height: 1.375;
+    color: var(--home-fg-secondary);
+  }
+
+  /* Location sat one pixel below the description at 12px, which reads as a
+     rendering accident rather than a decision. It joins the small step and
+     recedes on colour instead, with the pin doing the categorising. */
+  :global(#experience-section .exp-location) {
+    font-size: var(--home-text-meta);
+    font-weight: var(--home-weight-meta);
+    letter-spacing: var(--home-track-small);
+    line-height: 1.375;
+    color: var(--home-fg-faint);
+  }
+
+  /* The period stamp is the one mono element in the section. It was the worst
+     offender: 12px at weight 300 (which the scale banishes below 15px) with
+     tracking inherited as 0, so the tabular digits sat cramped against their
+     own advance width. Mono takes the positive step. */
+  :global(#experience-section .exp-period) {
     font-family: var(--font-mono);
     font-size: var(--home-text-meta);
+    font-weight: var(--home-weight-meta);
+    letter-spacing: var(--home-track-meta);
+    line-height: 1.375;
+    font-variant-numeric: tabular-nums;
     color: var(--home-fg-faint);
   }
 </style>
