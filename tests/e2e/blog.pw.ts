@@ -261,6 +261,33 @@ test.describe('Blog routes', () => {
     }
   });
 
+  test('renders model credits from post metadata without leaking the carrier or overflowing', async ({ page }) => {
+    await page.setViewportSize({ width: 320, height: 900 });
+
+    const response = await page.goto('/blog/demo-effects/');
+
+    expect(response?.ok()).toBeTruthy();
+
+    const prose = page.locator('.blog-prose');
+    const credits = page.locator('.ai-credit');
+    await expect(credits).toBeVisible();
+    await expect(page.locator('.not-by-ai')).toHaveCount(0);
+    await expect(prose).not.toContainText('[!authors');
+    await expect(credits.locator('.ai-credit__sig')).toHaveCount(1);
+    await expect(credits.locator('.ai-credit__sig')).toContainText('Claude Opus 4.6');
+    await expect(credits).toContainText('produced the first draft, translated it from Chinese.');
+
+    const creditBounds = await credits.boundingBox();
+    expect(creditBounds).not.toBeNull();
+    expect(creditBounds!.x).toBeGreaterThanOrEqual(0);
+    expect(creditBounds!.x + creditBounds!.width).toBeLessThanOrEqual(321);
+
+    await page.goto('/blog/quiet-architecture/');
+    await expect(page.locator('.not-by-ai')).toHaveText('本文由真人撰写，未使用 AI 创作。');
+    await expect(page.locator('.ai-credit')).toHaveCount(0);
+    await expect(page.locator('.not-by-ai__trigger, .not-by-ai__card')).toHaveCount(0);
+  });
+
   test('renders Ghost code through the shared code box component', async ({ page }) => {
     const response = await page.goto('/blog/demo-effects/');
 

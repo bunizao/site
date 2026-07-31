@@ -156,7 +156,11 @@ export interface PostRecord extends BaseContentRecord {
   emailSubject?: string | null;
 }
 
-export interface PostData extends BaseContentData, Omit<PostRecord, keyof BaseContentRecord> {}
+export type PostDirectiveMeta = Record<string, Array<Record<string, string>>>;
+
+export interface PostData extends BaseContentData, Omit<PostRecord, keyof BaseContentRecord> {
+  directiveMeta?: PostDirectiveMeta;
+}
 export type Post = PostData;
 
 export interface PageRecord extends BaseContentRecord {

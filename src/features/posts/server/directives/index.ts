@@ -3,10 +3,12 @@ import { load } from 'cheerio';
 import { enrichAppleMusicEmbeds } from '../apple-music';
 import { enrichMoodEmbeds } from '../mood-embed';
 import { DirectiveAttributeError } from './attributes';
+import { authorsDirective } from './authors';
 import { footnotesDirective } from './footnotes';
 import { moodDirective } from './mood';
 import { musicDirective } from './music';
 import { poemDirective } from './poem';
+import { DIRECTIVE_MARKER_RE, DIRECTIVE_PARAGRAPH_RE } from './syntax';
 import { isRichDirectiveOutputTarget } from './types';
 import type {
   Directive,
@@ -33,9 +35,6 @@ export type {
   MetaDirective,
 } from './types';
 
-const DIRECTIVE_PARAGRAPH_RE =
-  /<p\b[^>]*>\s*\[!([a-z][a-z0-9-]*)(?:\s+((?:[^"'\]]|"[^"]*"|'[^']*')*))?\]\s*<\/p>/giu;
-const DIRECTIVE_MARKER_RE = /\[!([a-z][a-z0-9-]*)(?:\s+[^\]]*?)?\]/giu;
 const PROTECTED_SELECTOR = 'code, pre, script, style';
 
 export const postDirectiveRegistry: readonly Directive[] = Object.freeze([
@@ -43,6 +42,7 @@ export const postDirectiveRegistry: readonly Directive[] = Object.freeze([
   footnotesDirective,
   moodDirective,
   musicDirective,
+  authorsDirective,
 ]);
 
 interface SourceRange {
@@ -226,7 +226,9 @@ async function transformCallouts(
     transformed += html.slice(cursor, start);
     let attributes: DirectiveAttributes;
     try {
-      attributes = directive.parse(match[2]?.trim() ?? '');
+      attributes = directive.kind === 'block'
+        ? directive.parse(match[2]?.trim() ?? '')
+        : directive.parse(match[2]?.trim() ?? '', context);
     } catch (error) {
       if (!(error instanceof DirectiveAttributeError)) throw error;
       warnings.push({

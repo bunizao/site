@@ -1,0 +1,75 @@
+---
+// The vendor mark that leads a model credit line.
+//
+// Marks are per provider, not per model — Anthropic ships one mark for every
+// Claude. Three are vendored under src/data/vendor-marks/ from
+// github.com/lobehub/lobe-icons (MIT); to add a fourth, drop `<provider>.svg`
+// there and add a line to MARKS. Anything else falls back to a lettered ring
+// rather than an approximation of someone's logo: a wrong mark is worse than an
+// honest placeholder, and these are trademarks.
+import anthropicMark from '@/data/vendor-marks/anthropic.svg?raw';
+import googleMark from '@/data/vendor-marks/google.svg?raw';
+import openaiMark from '@/data/vendor-marks/openai.svg?raw';
+
+interface Props {
+  providerId: string;
+  providerName: string;
+  scope: string;
+}
+
+const { providerId, providerName, scope } = Astro.props;
+
+const MARKS: Record<string, string> = {
+  anthropic: anthropicMark,
+  openai: openaiMark,
+  google: googleMark,
+};
+
+// Upstream marks carry `id`-referenced gradients (Gemini has three). SVG ids are
+// document-global, so the parent assigns a deterministic suffix to every mark.
+const scopeIds = (svg: string, scope: string) =>
+  svg.replace(/id="([^"]+)"/g, `id="$1-${scope}"`).replace(/url\(#([^)]+)\)/g, `url(#$1-${scope})`);
+
+const raw = MARKS[providerId];
+const markup = raw ? scopeIds(raw, scope) : null;
+const initial = providerName.charAt(0);
+---
+
+{
+  markup ? (
+    <span class="ai-mark" set:html={markup} />
+  ) : (
+    <svg class="ai-mark ai-mark--fallback" viewBox="0 0 24 24" aria-hidden="true">
+      <circle cx="12" cy="12" r="10.5" fill="none" stroke="currentColor" stroke-width="1.9" opacity="0.45" />
+      <text
+        x="12"
+        y="12"
+        text-anchor="middle"
+        dominant-baseline="central"
+        font-size="12.5"
+        font-weight="600"
+        fill="currentColor"
+      >
+        {initial}
+      </text>
+    </svg>
+  )
+}
+
+<style is:global>
+  /* `set:html` puts the upstream <svg> inside .ai-mark, so the sizing rule has
+     to reach a child this component did not author — hence global, scoped by
+     the class name. */
+  .ai-mark,
+  .ai-mark > svg {
+    display: block;
+    width: 14px;
+    height: 14px;
+    flex: none;
+  }
+
+  .ai-mark {
+    /* Optical, not metric: the marks' mass sits above the text baseline. */
+    transform: translateY(1.5px);
+  }
+</style>

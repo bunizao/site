@@ -1,0 +1,115 @@
+---
+// Model co-author credit at the foot of a post, shown in place of the
+// human-authorship pledge whenever a post carries at least one [!authors]
+// directive.
+//
+// One line per credited model, in the order the directives appear. Models the
+// author wrote a `note` for get their own sentence with the model as subject;
+// models without one collapse into a single generic line, so "Written with"
+// never repeats.
+import { blog } from '@/data/site';
+import type { AuthorshipCredit } from '@/features/posts/server/directives/authors';
+
+import AiMark from './AiMark.astro';
+
+interface Props {
+  credits: readonly AuthorshipCredit[];
+}
+
+const { credits } = Astro.props;
+
+const locale = blog.locale.blog;
+const blogCopy = blog.copy[locale];
+
+const noted = credits.filter((credit) => credit.note);
+const plain = credits.filter((credit) => !credit.note);
+
+// The author writes the note in whatever language suits it, which is not always
+// the blog's — an English note under a zh blog must not end in `。`. Take the
+// cue from the note's own last character rather than from the locale.
+const terminate = (note: string) => {
+  if (/[.!?。！？…]$/u.test(note)) return note;
+  return `${note}${/[　-〿一-鿿＀-￯]$/u.test(note) ? '。' : '.'}`;
+};
+
+// `{models}` splits the fallback line into a prefix and suffix around the list.
+const [fallbackPrefix = '', fallbackSuffix = ''] = blogCopy.aiCredit.fallback.split('{models}');
+
+// Intl owns the conjunction so zh gets "、…和" and en gets "…, and" without a
+// hand-rolled joiner. Parts let the model names come back as markup.
+const plainParts = plain.length
+  ? new Intl.ListFormat(locale, { style: 'long', type: 'conjunction' }).formatToParts(
+      plain.map((_, index) => String(index)),
+    )
+  : [];
+---
+
+<aside class="ai-credit">
+  {
+    plain.length > 0 && (
+      <p class="ai-credit__line">
+        {fallbackPrefix}
+        {plainParts.map((part) =>
+          part.type === 'element' ? (
+            <span class="ai-credit__sig">
+              <AiMark
+                providerId={plain[Number(part.value)].model.providerId}
+                providerName={plain[Number(part.value)].model.providerName}
+                scope={`ai-credit-${part.value}`}
+              />
+              {plain[Number(part.value)].model.name}
+            </span>
+          ) : (
+            part.value
+          ),
+        )}
+        {fallbackSuffix}
+      </p>
+    )
+  }
+  {
+    noted.map((credit, index) => (
+      <p class="ai-credit__line">
+        <span class="ai-credit__sig">
+          <AiMark
+            providerId={credit.model.providerId}
+            providerName={credit.model.providerName}
+            scope={`ai-credit-${plain.length + index}`}
+          />
+          {credit.model.name}
+        </span>{' '}
+        {terminate(credit.note!)}
+      </p>
+    ))
+  }
+</aside>
+
+<style>
+  .ai-credit {
+    display: grid;
+    /* Wider than the 22.4px wrap inside a line, so a wrapped credit is never
+       mistaken for the start of the next model's. */
+    gap: 6px;
+    flex: 1 1 320px;
+    min-width: 0;
+  }
+
+  .ai-credit__line {
+    margin: 0;
+    max-width: 56ch;
+    font-size: 14px;
+    line-height: 1.6;
+    color: var(--blog-muted);
+    text-wrap: pretty;
+  }
+
+  /* The mark and the model name are one unit and must never break apart. */
+  .ai-credit__sig {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 5px;
+    font-weight: 600;
+    color: var(--blog-ink);
+    white-space: nowrap;
+  }
+</style>

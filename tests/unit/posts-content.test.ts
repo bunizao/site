@@ -3,7 +3,13 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { blog, profile } from '@/data/site';
 import { buildGhostDataset } from '@/features/posts/adapter/ghost/dataset';
 import { getGhostRuntimeConfig } from '@/features/posts/adapter/ghost/config';
-import { getAllPosts, groupPostsByYear, resetPostsProviderForTests } from '@/features/posts/server/content';
+import { mockPosts } from '@/features/posts/adapter/mock';
+import {
+  getAllPosts,
+  getPostBySlug,
+  groupPostsByYear,
+  resetPostsProviderForTests,
+} from '@/features/posts/server/content';
 import { getTagLabel } from '@/features/posts/display';
 import { formatPostDate } from '@/features/posts/format';
 import { buildBlogRssXml } from '@/features/posts/server/rss';
@@ -71,6 +77,72 @@ describe('posts content provider', () => {
 
     expect(posts.every((post) => post.visibility === 'public' && post.access)).toBe(true);
     expect(posts.map((post) => post.slug)).not.toContain('members-only-notes');
+  });
+
+  test('hoists post directive metadata through the content boundary', async () => {
+    useMockGhostContent();
+    const record = mockPosts.find((post) => post.slug === 'demo-effects');
+    expect(record).toBeDefined();
+    if (!record) return;
+
+    const originalContent = {
+      html: record.html,
+      markdown: record.markdown,
+      excerpt: record.excerpt,
+      customExcerpt: record.customExcerpt,
+      plaintext: record.plaintext,
+    };
+    const carrier =
+      '[!authors ai="anthropic/claude-opus-4-6" note="reviewed the final structure"]';
+    record.html = [
+      '<p>Article body.</p>',
+      `<p>${carrier}</p>`,
+    ].join('');
+    record.markdown = [
+      'Article body.  ',
+      '',
+      '```text',
+      carrier,
+      '  preserved  spacing',
+      '```',
+      '',
+      carrier,
+    ].join('\n');
+    record.excerpt = `Article summary. ${carrier}`;
+    record.customExcerpt = `${carrier} Custom summary.`;
+    record.plaintext = `Article body.\n\n${carrier}`;
+    resetPostsProviderForTests();
+
+    try {
+      const rawPost = await getPostBySlug(record.slug);
+      const post = await getPostBySlug(record.slug, { outputTarget: 'web' });
+
+      expect(rawPost?.html).toContain(carrier);
+      expect(rawPost?.directiveMeta).toBeUndefined();
+      expect(rawPost?.excerpt).toBe('Article summary.');
+      expect(rawPost?.customExcerpt).toBe('Custom summary.');
+      expect(post?.html).toBe('<p>Article body.</p>');
+      expect(post?.markdown).toBe([
+        'Article body.  ',
+        '',
+        '```text',
+        carrier,
+        '  preserved  spacing',
+        '```',
+      ].join('\n'));
+      expect(post?.excerpt).toBe('Article summary.');
+      expect(post?.customExcerpt).toBe('Custom summary.');
+      expect(post?.plaintext).toBe('Article body.');
+      expect(post?.directiveMeta).toEqual({
+        authors: [{
+          ai: 'anthropic/claude-opus-4-6',
+          note: 'reviewed the final structure',
+        }],
+      });
+    } finally {
+      Object.assign(record, originalContent);
+      resetPostsProviderForTests();
+    }
   });
 
   test('fails production builds instead of silently shipping mock posts without Ghost config', async () => {

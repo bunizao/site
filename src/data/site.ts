@@ -78,8 +78,16 @@ export interface BlogLocaleCopy {
   name: string;
   tagline: string;
   notByAI: {
-    line: string;
-    prompt: string;
+    prefix: string;
+    emphasis: string;
+    suffix: string;
+  };
+  aiCredit: {
+    /**
+     * Shown for models credited without a hand-written `note`. `{models}` is
+     * replaced by the credited model names, joined for this locale.
+     */
+    fallback: string;
   };
 }
 
@@ -94,16 +102,24 @@ export const blog = {
       name: '無人之境',
       tagline: '生长于共鸣、独白、文学、与沉默之间。',
       notByAI: {
-        line: '本文由真人撰写，**未使用 AI 创作**。',
-        prompt: '我为什么始终坚持不用 AI 写作？',
+        prefix: '本文由真人撰写，',
+        emphasis: '未使用 AI 创作',
+        suffix: '。',
+      },
+      aiCredit: {
+        fallback: '本文在 {models} 的协助下完成。',
       },
     },
     en: {
       name: 'Sillage',
       tagline: 'Grown between resonance, monologue, literature, and silence.',
       notByAI: {
-        line: 'This post is written by human(s), **not by AI**.',
-        prompt: 'Why do I insist on not using AI for writing?',
+        prefix: 'This post is written by human(s), ',
+        emphasis: 'not by AI',
+        suffix: '.',
+      },
+      aiCredit: {
+        fallback: 'Written with {models}.',
       },
     },
   } satisfies Record<BlogLocale, BlogLocaleCopy>,

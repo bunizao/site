@@ -1,234 +1,40 @@
 ---
-// Human-authorship pledge shown at the foot of a post tagged #not-by-ai.
-// A plain statement plus a question; hovering (or tapping) the question
-// reveals the author's note in a glassy card. The byline time is the reader's
-// own clock, set client-side.
-import { authors, blog, defaultAuthorId } from '@/data/site';
+// Human-authorship pledge at the foot of a post. Shown whenever a post credits
+// no model co-author, which is the default.
+//
+// This used to carry a "why do I insist on not using AI?" trigger opening a
+// glassy card with the author's manifesto. The card, its hover controller, its
+// touch fallback and its reduced-motion rule all existed to hide one sentence
+// that the pledge already implies. The manifesto is still authored in
+// `authors[id].manifesto` and wants a page of its own, not a footer popover.
+import { blog } from '@/data/site';
 
-const author = authors[defaultAuthorId];
 const blogCopy = blog.copy[blog.locale.blog];
-const authorManifesto = author.manifesto[blog.locale.blog];
-
-// Split a `**...**`-marked string into bold/plain segments for rendering.
-const segments = (text: string) =>
-  text.split('**').map((seg, i) => ({ seg, bold: i % 2 === 1 }));
 ---
 
-<aside class="not-by-ai" data-not-by-ai>
+<aside class="not-by-ai">
   <p class="not-by-ai__line">
-    {segments(blogCopy.notByAI.line).map(({ seg, bold }) =>
-      bold ? <strong class="not-by-ai__em">{seg}</strong> : seg,
-    )}
+    {blogCopy.notByAI.prefix}<strong class="not-by-ai__em">{blogCopy.notByAI.emphasis}</strong>{blogCopy.notByAI.suffix}
   </p>
-  <button
-    type="button"
-    class="not-by-ai__trigger"
-    aria-expanded="false"
-    aria-controls="not-by-ai-card"
-  >
-    {blogCopy.notByAI.prompt}
-  </button>
-
-  <figure class="not-by-ai__card" id="not-by-ai-card" role="note" aria-label={`A note from ${author.name}`}>
-    <figcaption class="not-by-ai__byline">
-      <img
-        class="not-by-ai__avatar"
-        src={author.avatar}
-        alt={author.name}
-        width="32"
-        height="32"
-        loading="lazy"
-        decoding="async"
-      />
-      <span class="not-by-ai__meta">
-        <span class="not-by-ai__name">{author.name}</span>
-        <span class="not-by-ai__dot" aria-hidden="true">·</span>
-        <time class="not-by-ai__time" data-not-by-ai-time></time>
-      </span>
-    </figcaption>
-    <blockquote class="not-by-ai__quote">
-      {segments(authorManifesto).map(({ seg, bold }) =>
-        bold ? <strong class="not-by-ai__em">{seg}</strong> : seg,
-      )}
-    </blockquote>
-  </figure>
 </aside>
-
-<script>
-  const root = document.querySelector<HTMLElement>('[data-not-by-ai]');
-  if (root) {
-    const trigger = root.querySelector<HTMLButtonElement>('.not-by-ai__trigger');
-    const timeEl = root.querySelector<HTMLTimeElement>('[data-not-by-ai-time]');
-
-    // The byline carries the reader's local clock, ticking while they read.
-    if (timeEl) {
-      const tick = () => {
-        const now = new Date();
-        timeEl.textContent = now.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-        timeEl.dateTime = now.toISOString();
-      };
-      tick();
-      setInterval(tick, 30_000);
-    }
-
-    // Hover/focus reveal is pure CSS; this only mirrors open state for touch
-    // taps and keeps aria-expanded honest for assistive tech.
-    if (trigger) {
-      const sync = () => trigger.setAttribute('aria-expanded', root.hasAttribute('data-open') ? 'true' : 'false');
-      trigger.addEventListener('click', () => {
-        root.toggleAttribute('data-open');
-        sync();
-      });
-      root.addEventListener('pointerenter', sync);
-      root.addEventListener('pointerleave', () => {
-        root.removeAttribute('data-open');
-        sync();
-      });
-    }
-  }
-</script>
 
 <style>
   .not-by-ai {
-    position: relative;
-    /* The article-foot bar owns vertical rhythm now; keep room for the popover
-       that drops below the pledge so it never collides with the pills. */
-    flex: 1 1 260px;
+    flex: 1 1 320px;
     min-width: 0;
   }
 
   .not-by-ai__line {
     margin: 0;
-    font-size: 14px;
-    color: var(--blog-muted);
-  }
-
-  .not-by-ai__trigger {
-    display: inline-block;
-    margin-top: 4px;
-    padding: 0;
-    border: 0;
-    background: none;
-    font: inherit;
-    font-size: 14px;
-    color: var(--blog-dian);
-    cursor: help;
-    text-decoration: underline;
-    text-decoration-color: hsl(var(--foreground) / 0.2);
-    text-underline-offset: 3px;
-    transition: text-decoration-color 0.15s ease;
-  }
-
-  .not-by-ai__trigger:hover,
-  .not-by-ai__trigger:focus-visible {
-    text-decoration-color: var(--blog-dian);
-    outline: none;
-  }
-
-  .not-by-ai__card {
-    position: absolute;
-    left: 0;
-    top: calc(100% + 12px);
-    z-index: 10;
-    width: min(440px, 100%);
-    margin: 0;
-    padding: 16px 18px;
-    border-radius: 14px;
-    border: 1px solid hsl(var(--foreground) / 0.08);
-    background: hsl(var(--card) / 0.72);
-    -webkit-backdrop-filter: blur(18px) saturate(160%);
-    backdrop-filter: blur(18px) saturate(160%);
-    box-shadow:
-      0 8px 24px -16px hsl(var(--foreground) / 0.16),
-      inset 0 1px 0 hsl(0 0% 100% / 0.04);
-    opacity: 0;
-    transform: translateY(6px);
-    pointer-events: none;
-    transition: opacity 0.2s ease, transform 0.2s ease;
-  }
-
-  .not-by-ai:hover .not-by-ai__card,
-  .not-by-ai:focus-within .not-by-ai__card,
-  .not-by-ai[data-open] .not-by-ai__card {
-    opacity: 1;
-    transform: translateY(0);
-    pointer-events: auto;
-  }
-
-  .not-by-ai__byline {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    margin-bottom: 10px;
-  }
-
-  .not-by-ai__avatar {
-    width: 32px;
-    height: 32px;
-    border-radius: 50%;
-    flex: none;
-  }
-
-  .not-by-ai__meta {
-    display: flex;
-    align-items: baseline;
-    flex-wrap: wrap;
-    gap: 6px;
-    font-size: 13px;
-  }
-
-  .not-by-ai__name {
-    font-weight: 600;
-    color: var(--blog-ink);
-  }
-
-  .not-by-ai__dot {
-    color: var(--blog-line);
-  }
-
-  .not-by-ai__time {
-    color: var(--blog-faint);
-    font-variant-numeric: tabular-nums;
-  }
-
-  .not-by-ai__quote {
-    margin: 0;
+    max-width: 56ch;
     font-size: 14px;
     line-height: 1.6;
-    color: var(--blog-body);
+    color: var(--blog-muted);
+    text-wrap: pretty;
   }
 
   .not-by-ai__em {
     font-weight: 600;
     color: var(--blog-ink);
-  }
-
-  /* On narrow screens the pledge and the action pills stack, so an absolutely
-     positioned card would drop straight onto the pills and (on touch Safari,
-     where the first tap also triggers the hover/focus reveal) swallow their
-     taps. Flow it in-document instead: zero footprint when closed, pushes the
-     pills down when open. */
-  @media (max-width: 639px) {
-    .not-by-ai__card {
-      position: static;
-      display: none;
-      width: 100%;
-      margin-top: 12px;
-      opacity: 1;
-      transform: none;
-      pointer-events: auto;
-    }
-
-    .not-by-ai[data-open] .not-by-ai__card,
-    .not-by-ai:focus-within .not-by-ai__card {
-      display: block;
-    }
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .not-by-ai__card {
-      transition: opacity 0.2s ease;
-      transform: none;
-    }
   }
 </style>
