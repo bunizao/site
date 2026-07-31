@@ -100,7 +100,7 @@ const initialPreviewPostsJson = serializeScriptJson(initialPosts.slice(0, INITIA
     display: inline-block;
     font-size: var(--home-text-body);
     font-weight: var(--home-weight-body);
-    letter-spacing: -0.011em;
+    letter-spacing: var(--home-track-body);
     color: var(--home-fg-secondary);
   }
 
@@ -189,12 +189,15 @@ const initialPreviewPostsJson = serializeScriptJson(initialPosts.slice(0, INITIA
     padding-right: 8px;
   }
 
+  /* Tracking was -0.01em here, which is the wrong sign for a monospaced face:
+     the glyphs already sit on a fixed advance, so tightening them pulls the
+     tabular digits off the grid the column exists to hold. */
   #moods-section .mood-time {
     font-size: var(--home-text-meta);
     font-weight: var(--home-weight-meta);
     color: var(--home-fg-faint);
     font-variant-numeric: tabular-nums;
-    letter-spacing: -0.01em;
+    letter-spacing: var(--home-track-meta);
     transition: color 0.2s ease;
   }
 
@@ -307,6 +310,7 @@ const initialPreviewPostsJson = serializeScriptJson(initialPosts.slice(0, INITIA
     display: block;
     font-size: var(--home-text-body);
     font-weight: var(--home-weight-body);
+    letter-spacing: var(--home-track-body);
     line-height: var(--mood-text-line-height);
     color: hsl(var(--foreground) / 0.8);
     max-height: calc(var(--mood-text-line-height) * 2em);
@@ -346,6 +350,7 @@ const initialPreviewPostsJson = serializeScriptJson(initialPosts.slice(0, INITIA
     display: block;
     font-size: var(--home-text-body);
     font-weight: var(--home-weight-body);
+    letter-spacing: var(--home-track-body);
     line-height: 1.6;
     color: var(--home-fg-secondary);
   }
@@ -357,9 +362,12 @@ const initialPreviewPostsJson = serializeScriptJson(initialPosts.slice(0, INITIA
     margin-top: 6px;
   }
 
+  /* Mono at the label size, but a lowercase pill rather than a section marker,
+     so it takes the mono metadata tracking and not the 0.2em spine value. */
   #moods-section .mood-tag {
     font-size: var(--home-text-label);
     font-weight: var(--home-weight-meta);
+    letter-spacing: var(--home-track-meta);
     color: var(--home-fg-faint);
     padding: 2px 6px;
     background: hsl(var(--foreground) / 0.04);

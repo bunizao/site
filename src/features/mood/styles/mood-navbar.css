@@ -10,6 +10,32 @@
   right: 0;
   z-index: 55;
   pointer-events: none;
+
+  /* Flight geometry, published by measure() as unitless numbers so the
+     transforms below stay pure CSS. The navbar is also the scroll-dock host:
+     --dock-ride / --dock-fold arrive here and inherit to the flyer and the ink.
+     Keeping the host this small matters — an inherited registered property is
+     re-resolved down its subtree on every change.
+
+     Defaults are only the pre-measure frame; the flyer stays hidden until
+     measure() has run, so they are never seen. */
+  --hero-x: 0;
+  --hero-y: 0;
+  --hero-size: 30;
+  --slot-x: 0;
+  --slot-y: 0;
+  /* Slot size over hero size: the flight's end scale. Published rather than
+     divided in calc() so the transform never depends on a live division. */
+  --dock-scale: 1;
+  /* Scroll px the flight spans — the same number the dock's range is set to. */
+  --run: 1;
+
+  --ink-hero-x: 0;
+  --ink-hero-y: 0;
+  --ink-hero-font: 14;
+  --ink-dock-x: 0;
+  --ink-dock-y: 0;
+  --ink-scale: 1;
 }
 
 /* The controls sit on the shared reading measure so the avatar aligns with the
@@ -78,24 +104,21 @@
   border-radius: 50%;
 }
 
-/* The shared element: one avatar, fixed and driven entirely by the scroll
-   script. It is laid out at the HERO's size and scales DOWN onto the slot above.
+/* The shared element: one avatar, fixed, positioned entirely from the dock
+   scalar. It is laid out at the HERO's size and scales DOWN onto the slot above.
    transform-origin is the top-left corner so translate + scale keep the
    start/end boxes aligned.
 
    The direction matters: sized at the slot and scaled UP instead, the 30px
    raster would be stretched ~2.7x for the whole ride, and will-change pins the
    texture at layout size — that is the soft avatar seen sitting over the hero,
-   long before it reaches the bar. Downscaling a raster never goes soft.
-
-   width/height below are only the pre-measure fallback; measure() overwrites
-   them with the hero's size, and the flyer stays hidden until it has. */
+   long before it reaches the bar. Downscaling a raster never goes soft. */
 .mood-nav-avatar-flyer {
   position: fixed;
   top: 0;
   left: 0;
-  width: 30px;
-  height: 30px;
+  width: calc(var(--hero-size) * 1px);
+  height: calc(var(--hero-size) * 1px);
   border-radius: 50%;
   overflow: hidden;
   background: hsl(var(--foreground) / 0.05);
@@ -105,35 +128,23 @@
   z-index: 2;
   /* Hidden until the script has measured and placed it (no top-left flash). */
   visibility: hidden;
+
+  /* The flight, as two terms over the same scalar pair.
+
+     `ride` is where the hero actually is on screen: it scrolls up at content
+     speed, so the avatar stays glued to the hero instead of racing the bar.
+     `fold` then pulls that point onto the slot over the tail of the run — which
+     is why the two curves exist. Read it as a lerp from "wherever the hero is
+     right now" to "the slot", weighted by how far into the dock we are. */
+  --fly-ride: calc((var(--hero-y) - var(--dock-ride) * var(--run)) * 1px);
+  --fly-x: calc((var(--hero-x) + (var(--slot-x) - var(--hero-x)) * var(--dock-fold)) * 1px);
+  --fly-y: calc(var(--fly-ride) + (var(--slot-y) * 1px - var(--fly-ride)) * var(--dock-fold));
+  --fly-scale: calc(1 + (var(--dock-scale) - 1) * var(--dock-fold));
+  transform: translate(var(--fly-x), var(--fly-y)) scale(var(--fly-scale));
 }
 
 .mood-navbar.is-flyer-active .mood-nav-avatar-flyer {
   visibility: visible;
-}
-
-/* The scroll-driven path. Where the browser can advance an animation from the
-   scroller itself, the identity's whole travel leaves the main thread — no
-   per-frame transform writes, so a busy thread no longer costs frames (WebKit
-   felt the difference the most). The script owns the other half: it measures the
-   geometry, samples the same path into @keyframes mood-dock-*, supplies the
-   animation-range, and adds .is-scroll-timeline only once that exists. Browsers
-   without support never get the class and keep the scroll-handler fallback.
-
-   Longhands, not the `animation` shorthand: the shorthand resets animation-range,
-   and the range is the one part that comes from the injected sheet — as a
-   shorthand this rule would be fighting it on document order alone. */
-.mood-navbar.is-scroll-timeline .mood-nav-avatar-flyer {
-  animation-name: mood-dock-avatar;
-  animation-timing-function: linear;
-  animation-fill-mode: both;
-  animation-timeline: scroll(root block);
-}
-
-.mood-navbar.is-scroll-timeline .mood-nav-title__ink {
-  animation-name: mood-dock-title;
-  animation-timing-function: linear;
-  animation-fill-mode: both;
-  animation-timeline: scroll(root block);
 }
 
 .mood-nav-avatar-img {
@@ -163,13 +174,12 @@
   line-height: 1.2;
 }
 
-/* The ink. Laid out at the HERO's font size (measure() sets it) and scaled DOWN
-   into the bar, so the big headline renders as real vector glyphs at their true
-   size. Laid out at 14px and scaled UP instead — the old contract — will-change
-   pins the texture at 14px and the hero shows stretched pixels.
-   transform-origin is the top-left corner so translate + scale keep the boxes
-   aligned at both ends. Its max-width is the box's cap expressed back in hero
-   units, so the ellipsis lands in the same place once scaled down. */
+/* The ink. transform-origin is the top-left corner so translate + scale keep
+   the boxes aligned at both ends. Its max-width is the box's cap expressed back
+   in hero units, so the ellipsis lands in the same place once scaled down.
+
+   The base state below is the no-hero-title case: there is nothing to fly from,
+   so the ink just fades in over the tail of the dock. */
 .mood-nav-title__ink {
   position: absolute;
   top: 0;
@@ -184,8 +194,30 @@
   line-height: inherit;
   color: hsl(var(--foreground));
   transform-origin: 0 0;
-  opacity: 0;
   will-change: opacity, transform;
+
+  --ink-fade: clamp(0, (var(--dock-fold) - 0.6) / 0.4, 1);
+  transform: translateX(calc((1 - var(--ink-fade)) * -6px));
+  opacity: var(--ink-fade);
+}
+
+/* With a hero title to fly from, the ink docks on the same scalar as the avatar
+   so the pair moves as one. Same two terms as the flyer — ride with the content,
+   then fold onto the bar — but expressed relative to the docked position, since
+   the ink's layout box already sits there.
+
+   It is laid out at the HERO's font size and only ever scales DOWN, so the big
+   headline renders as real vector glyphs at their true size. Laid out at 14px
+   and scaled UP instead, will-change pins the texture at 14px and the hero shows
+   stretched pixels. */
+.mood-navbar.has-title-flight .mood-nav-title__ink {
+  font-size: calc(var(--ink-hero-font) * 1px);
+  --ink-ride: calc((var(--ink-hero-y) - var(--dock-ride) * var(--run)) * 1px);
+  --ink-x: calc((var(--ink-hero-x) - var(--ink-dock-x)) * (1 - var(--dock-fold)) * 1px);
+  --ink-y: calc((var(--ink-ride) - var(--ink-dock-y) * 1px) * (1 - var(--dock-fold)));
+  --ink-flight-scale: calc(1 + (var(--ink-scale) - 1) * var(--dock-fold));
+  transform: translate(var(--ink-x), var(--ink-y)) scale(var(--ink-flight-scale));
+  opacity: 1;
 }
 
 /* The title mirrors the channel's rich HTML (links, custom emoji), so keep its

@@ -1,0 +1,104 @@
+/* Scroll-driven progress as a scalar.
+   ------------------------------------------------------------------------
+   A docking flight — a hero element that rides the page, shrinks and lands in
+   a fixed bar — is a single number: how far through the trip we are. This sheet
+   declares that number, and `@/lib/scroll-dock` attaches it to a scroller.
+
+   Everything downstream reads the scalar in calc(). That is the whole point:
+   the geometry (where the flight starts, where it ends, how big each end is)
+   lives in plain custom properties that a measure pass can rewrite for free,
+   because rewriting a variable does not touch the animation. The alternative —
+   baking measured pixel values into @keyframes — makes every re-measure a
+   stylesheet rebuild plus an animation teardown, which is the one thing you
+   cannot afford to do mid-scroll.
+
+   Two curves per channel, because a docking flight has two phases:
+     --<c>-ride  linear 0->1 across the whole run; the "travelling with the
+                 content at scroll speed" term.
+     --<c>-fold  flat for the first 45% of the run, then eased 0->1; the
+                 "shrink and pin into the bar" term.
+   An element that only needs a straight lerp uses `ride` alone and ignores
+   `fold`.
+
+   Channels are named for their role, not their instance:
+     dock  a short hop — page chrome collapsing into a bar
+     lift  a long collapse — the iOS large-title climb
+
+   The properties are registered so they interpolate as numbers rather than
+   flipping discretely, and inherited so one animation on a host serves its
+   whole subtree. Keep the host small: an inherited registered property is
+   re-resolved down its subtree whenever it changes, so attach it to the group
+   that actually reads it, never to <body>.
+
+   No selectors here — `@/lib/scroll-dock` writes the animation longhands
+   inline, and only when the engine can drive them from the scroller. Engines
+   that cannot get the same two numbers written per frame instead, so the sheet
+   stays layer-neutral and cannot collide with the cascade. */
+
+@property --dock-ride {
+  syntax: '<number>';
+  inherits: true;
+  initial-value: 0;
+}
+
+@property --dock-fold {
+  syntax: '<number>';
+  inherits: true;
+  initial-value: 0;
+}
+
+@property --lift-ride {
+  syntax: '<number>';
+  inherits: true;
+  initial-value: 0;
+}
+
+@property --lift-fold {
+  syntax: '<number>';
+  inherits: true;
+  initial-value: 0;
+}
+
+@keyframes sd-dock-ride {
+  from {
+    --dock-ride: 0;
+  }
+  to {
+    --dock-ride: 1;
+  }
+}
+
+/* The band (the flat 0-45% head) and the ease live here, not in JS: this is the
+   shape of the flight, and CSS is where the flight is described. A timing
+   function declared in a keyframe applies to the segment that STARTS at that
+   keyframe, so the bezier below governs 45%->100% only. */
+@keyframes sd-dock-fold {
+  0%,
+  45% {
+    --dock-fold: 0;
+    animation-timing-function: cubic-bezier(0.65, 0, 0.35, 1);
+  }
+  100% {
+    --dock-fold: 1;
+  }
+}
+
+@keyframes sd-lift-ride {
+  from {
+    --lift-ride: 0;
+  }
+  to {
+    --lift-ride: 1;
+  }
+}
+
+@keyframes sd-lift-fold {
+  0%,
+  45% {
+    --lift-fold: 0;
+    animation-timing-function: cubic-bezier(0.65, 0, 0.35, 1);
+  }
+  100% {
+    --lift-fold: 1;
+  }
+}
