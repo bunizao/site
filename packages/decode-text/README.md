@@ -22,6 +22,13 @@ reading order without needing a clamp. Easing each line separately gives every
 line its own accelerate-and-settle cycle, which turns a reveal into a queue of
 animations playing top to bottom.
 
+That timeline is a push and a coast, not an ease. It accelerates uniformly from
+rest for the first 45%, then the speed it reached bleeds off against drag and
+the reveal ends while still moving. A conventional ease-out is the wrong shape:
+nothing here is braking, the text just runs out — and since the final line
+completes exactly at `t = 1`, any curve that decelerates to a stop leaves it
+finishing on its own long after the rest.
+
 Why it feels right:
 
 - **Frame-rate independent.** Scramble mutation is scheduled in wall time, not per frame — a 120 Hz display boils at the same speed as a 60 Hz one.
@@ -77,7 +84,7 @@ and font-style that differ from the host are baked onto each character, so
 | `minDuration` / `maxDuration` | `0.9` / `3.2` | Clamp on the total reveal (seconds) |
 | `lineSpread` | `0.3` | Share of the timeline separating the first line's start from the last's — `0` moves every line together, `1` plays them back to back |
 | `mutationHz` | `18` | Scramble refresh rate per cell (wall time) |
-| `ease` | hold-then-run | Easing for the one paragraph timeline, `(t: number) => number` |
+| `ease` | push-and-coast | Speed curve for the one paragraph timeline, `(t: number) => number`. Avoid curves ending at zero speed — the last line completes at `t = 1` and gets stranded there |
 | `fontTimeout` | `400` | Max ms to wait for `document.fonts.ready` before measuring |
 | `respectReducedMotion` | `true` | Skip animation under `prefers-reduced-motion` |
 | `onComplete` | — | Called when the reveal finishes |

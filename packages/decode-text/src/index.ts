@@ -85,8 +85,10 @@ export interface DecodeOptions {
   /** Scramble glyph refresh rate in mutations per second per cell. Default: 18 */
   mutationHz?: number;
   /**
-   * Easing for the single paragraph timeline. Runs once over the whole text,
-   * not once per line. Default holds near zero and then accelerates.
+   * Speed curve for the single paragraph timeline. Runs once over the whole
+   * text, not once per line. Default accelerates from rest and then coasts.
+   * Avoid curves that reach zero speed at `t = 1`: the last line completes
+   * there, so it ends up finishing alone well after the others.
    */
   ease?: (t: number) => number;
   /** Wait for `document.fonts.ready` up to this many ms before measuring. Default: 400 */
@@ -129,6 +131,32 @@ interface Line {
   complete: boolean;
 }
 
+/**
+ * The paragraph's speed curve: a push, then a coast.
+ *
+ * Uniform acceleration from rest over the first `RAMP` of the timeline, then
+ * the speed it reached bleeding off against `DRAG` — a thrown object rather
+ * than a mechanism. Both halves earn their keep.
+ *
+ * Without the ramp the reveal starts already at speed and there is no opening
+ * beat. Without a non-zero speed left at the end it decelerates into a stop,
+ * and because the last line completes exactly where the curve flattens, that
+ * line is left finishing alone long after the rest: 608ms behind its neighbour
+ * under a symmetric ease-out, against 137ms here. An ease-out is the wrong
+ * shape for this — nothing is braking, the text simply runs out.
+ */
+const RAMP = 0.45;
+const DRAG = 1.2;
+/** Speed carried into the coast, and the progress the ramp covers reaching it. */
+const COAST_V = 2 / (2 - RAMP);
+const RAMP_P = RAMP / (2 - RAMP);
+const coasted = (t: number): number =>
+  RAMP_P + (COAST_V * (1 - Math.exp(-DRAG * (t - RAMP)))) / DRAG;
+const TRAVEL = coasted(1);
+
+const pushAndCoast = (t: number): number =>
+  (t <= RAMP ? (t * t) / (RAMP * (2 - RAMP)) : coasted(t)) / TRAVEL;
+
 const DEFAULTS = {
   charset: '__-—/\\|<>',
   cursorChar: '-',
@@ -146,11 +174,7 @@ const DEFAULTS = {
   mutationHz: 18,
   fontTimeout: 400,
   respectReducedMotion: true,
-  // Hold, then run. Cubic in so the opening reads as a held breath while the
-  // cursors flood, and a 1.5-power out so it lands without the long stall a
-  // symmetric quintic leaves on the final line. Both ends reach zero velocity,
-  // so there is no visible kick where the curve turns over.
-  ease: (t: number): number => 1 - Math.pow(1 - t * t * t, 1.5),
+  ease: pushAndCoast,
 };
 
 type Resolved = typeof DEFAULTS & DecodeOptions;
