@@ -3,6 +3,7 @@ import {
   renderYouTubeEmbedMarkup,
   youtubeWatchUrl,
 } from '@/lib/embed/youtube';
+import { resolveYouTubeMetadata } from '../youtube';
 
 import {
   DirectiveAttributeError,
@@ -41,7 +42,7 @@ export const youtubeDirective: BlockDirective = {
   name: 'youtube',
   kind: 'block',
   parse: parseYouTubeAttributes,
-  render(attributes, context) {
+  async render(attributes, context) {
     const id = attributes.id;
     const startSeconds = Number(attributes.start ?? 0);
     const watchUrl = youtubeWatchUrl(id, startSeconds);
@@ -50,11 +51,13 @@ export const youtubeDirective: BlockDirective = {
       return `<p><a href="${escapeHtml(watchUrl)}">Watch this video on YouTube</a></p>`;
     }
 
+    const metadata = await resolveYouTubeMetadata(id);
     return renderYouTubeEmbedMarkup({
       id,
       startSeconds,
-      title: 'YouTube video',
-      channelName: 'YouTube',
+      title: metadata?.title ?? 'YouTube video',
+      channelName: metadata?.channelName ?? 'YouTube',
+      channelUrl: metadata?.channelUrl,
     });
   },
 };

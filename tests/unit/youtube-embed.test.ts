@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 
 import { renderStructuredMoodFeedMediaMarkup } from '@/features/mood/shared/feed-media';
 import {
@@ -9,6 +9,22 @@ import {
   parseYouTubeVideoUrl,
   renderYouTubeEmbedMarkup,
 } from '@/lib/embed/youtube';
+import { resetYouTubeMetadataCacheForTests } from '@/features/posts/server/youtube';
+
+const originalFetch = globalThis.fetch;
+
+beforeEach(() => {
+  globalThis.fetch = Object.assign(
+    async () => new Response(null, { status: 404 }),
+    { preconnect: originalFetch.preconnect },
+  );
+  resetYouTubeMetadataCacheForTests();
+});
+
+afterEach(() => {
+  globalThis.fetch = originalFetch;
+  resetYouTubeMetadataCacheForTests();
+});
 
 const context = {
   slug: 'youtube-contract',

@@ -1241,6 +1241,88 @@ test.describe('Mood routes', () => {
     await expect(card).not.toHaveClass(/is-preview-playing/);
   });
 
+  test('binds a client-rendered YouTube preview without country branching or overflow', async ({ page }) => {
+    const moodId = '880002';
+    const channel = {
+      slug: 'e2e',
+      title: 'E2E Channel',
+      description: 'E2E mood feed',
+      avatar: '',
+    };
+    let playerRequests = 0;
+
+    await page.route('**/api/moods**', async (route) => {
+      const url = new URL(route.request().url());
+      if (url.searchParams.get('probe') === '1') {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({ latestId: moodId }),
+        });
+        return;
+      }
+
+      const posts = url.searchParams.has('before')
+        ? []
+        : [createMoodFeedPost(moodId, 'E2E YouTube mood', {
+            media: [{
+              type: 'link-preview',
+              href: 'https://youtu.be/aqz-KE-bpKQ?t=12',
+              title: 'Big Buck Bunny',
+              siteName: 'Blender Foundation',
+            }],
+          })];
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ posts, channel }),
+      });
+    });
+    await page.route('**/static/youtube/**', async (route) => {
+      await route.fulfill({
+        contentType: 'image/svg+xml',
+        body: '<svg xmlns="http://www.w3.org/2000/svg" width="480" height="360"></svg>',
+      });
+    });
+    await page.route('https://www.youtube-nocookie.com/**', async (route) => {
+      playerRequests += 1;
+      await route.fulfill({
+        contentType: 'text/html',
+        body: '<!doctype html><title>YouTube mood fixture</title>',
+      });
+    });
+
+    await page.setViewportSize({ width: 320, height: 900 });
+    await page.goto('/mood', { waitUntil: 'domcontentloaded' });
+    await page.evaluate(() => {
+      document.documentElement.dataset.country = 'CN';
+      sessionStorage.removeItem('youtube-embed-reachable:v1');
+    });
+
+    const card = page.locator(`[data-mood-id="${moodId}"] [data-yt]`);
+    await expect(card).toHaveAttribute('data-yt-bound', 'true');
+    await expect(card.locator('[data-yt-player]')).not.toHaveAttribute('src', /.+/u);
+    expect(playerRequests).toBe(0);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(320);
+
+    await card.locator('[data-yt-frame]').click();
+    await expect(card).toHaveClass(/is-loading/u);
+    await page.evaluate(() => {
+      const iframe = document.querySelector<HTMLIFrameElement>(
+        '[data-mood-id="880002"] [data-yt-player]',
+      );
+      if (!iframe?.contentWindow) throw new Error('YouTube iframe is unavailable');
+      window.dispatchEvent(new MessageEvent('message', {
+        origin: 'https://www.youtube-nocookie.com',
+        source: iframe.contentWindow,
+        data: JSON.stringify({ event: 'onReady' }),
+      }));
+    });
+
+    await expect(card).toHaveClass(/is-playing/u);
+    expect(playerRequests).toBe(1);
+  });
+
   test('retries a transient mood page failure', async ({ page }) => {
     const anchorId = '1000';
     const channel = {

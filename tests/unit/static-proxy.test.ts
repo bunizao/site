@@ -163,12 +163,15 @@ describe('static Telegram proxy', () => {
 
   test('rejects malformed YouTube poster paths before the upstream fetch', async () => {
     let fetchCount = 0;
-    globalThis.fetch = (async () => {
-      fetchCount += 1;
-      return new Response(new Uint8Array([1]), {
-        headers: { 'Content-Type': 'image/jpeg' },
-      });
-    }) as typeof fetch;
+    globalThis.fetch = Object.assign(
+      async () => {
+        fetchCount += 1;
+        return new Response(new Uint8Array([1]), {
+          headers: { 'Content-Type': 'image/jpeg' },
+        });
+      },
+      { preconnect: originalFetch.preconnect },
+    );
 
     for (const path of [
       'youtube/too-short/maxresdefault.jpg',

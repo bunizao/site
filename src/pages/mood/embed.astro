@@ -16,6 +16,7 @@ import type { MoodFeedItem } from '@/features/mood/server/contracts';
 import { getEmbedHeaders } from '../../lib/embed-response';
 import '@/features/mood/styles/feed-rich-text.css';
 import '@/styles/mood-gallery.css';
+import '@/styles/embed-youtube.css';
 
 export const prerender = false;
 
@@ -670,6 +671,12 @@ function getImageClassName(post: MoodFeedItem): string {
       )}
     </>
   )}
+
+  <script>
+    import { initYouTubeEmbeds } from '@/lib/embed/youtube-controller';
+
+    initYouTubeEmbeds();
+  </script>
 
   <script is:inline define:vars={{ refresh, allowedOrigin }}>
     const targetOrigin = allowedOrigin || '*';
