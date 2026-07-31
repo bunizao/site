@@ -11,9 +11,16 @@ Scheduling keeps Soulwire's fronts but separates the noisy ones from the
 resolve. A `show` front (`p^0.5`) floods cursors in early and a `mash` front
 (`p^2`) graduates them to boiling scramble — both shuffled, both finished
 before `settleStart` — and only then does the resolve front sweep left to
-right at constant speed, one glyph at a time, under `easeInOutSine`. The
-scramble pool also absorbs the text's own ASCII glyphs (`scrambleFromText`),
-so the mash reads like the sentence shuffling itself.
+right, one glyph at a time. The scramble pool also absorbs the text's own
+ASCII glyphs (`scrambleFromText`), so the mash reads like the sentence
+shuffling itself.
+
+The whole text runs on **one** timeline, eased once. Lines are overlapping
+windows on that shared axis (`lineSpread`), weighted by character count, so a
+paragraph reads as a single object condensing and the completions arrive in
+reading order without needing a clamp. Easing each line separately gives every
+line its own accelerate-and-settle cycle, which turns a reveal into a queue of
+animations playing top to bottom.
 
 Why it feels right:
 
@@ -66,12 +73,11 @@ and font-style that differ from the host are baked onto each character, so
 | `settleStart` | `0.52` | Progress where the left-to-right resolve front starts; show/mash are packed below it |
 | `settleCurve` | `0.8` | Resolve front shape — `1` constant speed, `<1` opens fast and savours the tail, `>1` hesitates then finishes hard |
 | `scrambleFromText` | `true` | Mix the text's own ASCII glyphs into the scramble pool |
-| `durationPerChar` | `0.019` | Seconds per character, clamped to `[minLineDuration, maxLineDuration]` |
-| `minLineDuration` / `maxLineDuration` | `0.42` / `1.25` | Line duration clamp (seconds) |
-| `lineStagger` | `0.2` | Next line starts at this fraction of the summed previous durations |
-| `lineEndGap` | `0.07` | Minimum seconds between two line completions — lines always finish in reading order |
+| `durationPerChar` | `0.008` | Seconds per character of the whole text, clamped to `[minDuration, maxDuration]` |
+| `minDuration` / `maxDuration` | `0.9` / `3.2` | Clamp on the total reveal (seconds) |
+| `lineSpread` | `0.3` | Share of the timeline separating the first line's start from the last's — `0` moves every line together, `1` plays them back to back |
 | `mutationHz` | `18` | Scramble refresh rate per cell (wall time) |
-| `ease` | easeInOutSine | Timeline easing `(t: number) => number` |
+| `ease` | hold-then-run | Easing for the one paragraph timeline, `(t: number) => number` |
 | `fontTimeout` | `400` | Max ms to wait for `document.fonts.ready` before measuring |
 | `respectReducedMotion` | `true` | Skip animation under `prefers-reduced-motion` |
 | `onComplete` | — | Called when the reveal finishes |

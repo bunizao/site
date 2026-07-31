@@ -12,10 +12,12 @@ const speed = getById<HTMLInputElement>('speed');
 const boil = getById<HTMLInputElement>('boil');
 const settle = getById<HTMLInputElement>('settle');
 const curve = getById<HTMLInputElement>('curve');
+const spread = getById<HTMLInputElement>('spread');
 const speedOut = getById<HTMLOutputElement>('speedOut');
 const boilOut = getById<HTMLOutputElement>('boilOut');
 const settleOut = getById<HTMLOutputElement>('settleOut');
 const curveOut = getById<HTMLOutputElement>('curveOut');
+const spreadOut = getById<HTMLOutputElement>('spreadOut');
 const replay = getById<HTMLButtonElement>('replay');
 
 let controller: DecodeController | null = null;
@@ -49,6 +51,7 @@ const run = async (): Promise<void> => {
   boilOut.value = `${boil.value}Hz`;
   settleOut.value = (Number(settle.value) / 100).toFixed(2);
   curveOut.value = (Number(curve.value) / 100).toFixed(2);
+  spreadOut.value = (Number(spread.value) / 100).toFixed(2);
   controller = await decodeText(stage, {
     layout: layout.value as DecodeLayout,
     order: order.value as DecodeOrder,
@@ -57,7 +60,8 @@ const run = async (): Promise<void> => {
     mutationHz: Number(boil.value),
     settleStart: Number(settle.value) / 100,
     settleCurve: Number(curve.value) / 100,
-    maxLineDuration: 3,
+    lineSpread: Number(spread.value) / 100,
+    maxDuration: 6,
   });
 };
 

@@ -17,6 +17,11 @@
  *    resolve front is what keeps the reveal smooth: a cell can never be held
  *    back by a late shuffle slot, so the line crystallises one glyph at a time
  *    instead of snapping in a block at the end.
+ *  - There is ONE timeline for the whole text, eased once. Lines are windows
+ *    laid out on that shared 0..1 axis, overlapping heavily (`lineSpread`), so
+ *    the paragraph reads as a single object condensing. Easing each line
+ *    separately instead gives every line its own accelerate/settle cycle, which
+ *    is what turns a reveal into a queue of animations running top to bottom.
  *  - Two layout modes:
  *      `grow`   — unshown characters collapse to zero width and the line
  *                 condenses in. Scramble glyphs must match the real glyph
@@ -62,17 +67,27 @@ export interface DecodeOptions {
   settleCurve?: number;
   /** Mix the text's own (ASCII) characters into the scramble pool. Default: true */
   scrambleFromText?: boolean;
-  /** Seconds of line duration per character, clamped to [minLineDuration, maxLineDuration]. */
+  /**
+   * Wall-clock seconds for the WHOLE reveal, as a rate per character of the
+   * full text, clamped to [minDuration, maxDuration]. Lines divide this one
+   * timeline between them; they do not each get their own.
+   */
   durationPerChar?: number;
-  minLineDuration?: number;
-  maxLineDuration?: number;
-  /** Next line starts at `lineStagger * (sum of previous line durations)`. Default: 0.2 */
-  lineStagger?: number;
-  /** Minimum seconds between two consecutive line completions. Default: 0.07 */
-  lineEndGap?: number;
+  minDuration?: number;
+  maxDuration?: number;
+  /**
+   * Share of the timeline that separates the first line's start from the last
+   * line's. `0` starts every line together and finishes them together; `1`
+   * plays them back to back. Low values read as one paragraph condensing, high
+   * values as a list animating in sequence. Default: 0.3
+   */
+  lineSpread?: number;
   /** Scramble glyph refresh rate in mutations per second per cell. Default: 18 */
   mutationHz?: number;
-  /** Timeline easing. Default: easeInOutSine — soft ends, near-constant middle. */
+  /**
+   * Easing for the single paragraph timeline. Runs once over the whole text,
+   * not once per line. Default holds near zero and then accelerates.
+   */
   ease?: (t: number) => number;
   /** Wait for `document.fonts.ready` up to this many ms before measuring. Default: 400 */
   fontTimeout?: number;
@@ -106,6 +121,7 @@ interface Cell {
 
 interface Line {
   cells: Cell[];
+  /** Window on the eased 0..1 paragraph axis — not seconds. */
   start: number;
   duration: number;
   /** Cells before this index are fully settled — skipped every frame. */
@@ -123,17 +139,18 @@ const DEFAULTS = {
   settleStart: 0.52,
   settleCurve: 0.8,
   scrambleFromText: true,
-  durationPerChar: 0.019,
-  minLineDuration: 0.42,
-  maxLineDuration: 1.25,
-  lineStagger: 0.2,
-  lineEndGap: 0.07,
+  durationPerChar: 0.008,
+  minDuration: 0.9,
+  maxDuration: 3.2,
+  lineSpread: 0.3,
   mutationHz: 18,
   fontTimeout: 400,
   respectReducedMotion: true,
-  // easeInOutSine: moves off zero straight away (no dead frames at the head of
-  // a line) and decelerates gently into the last glyph.
-  ease: (t: number): number => (1 - Math.cos(Math.PI * t)) / 2,
+  // Hold, then run. Cubic in so the opening reads as a held breath while the
+  // cursors flood, and a 1.5-power out so it lands without the long stall a
+  // symmetric quintic leaves on the final line. Both ends reach zero velocity,
+  // so there is no visible kick where the curve turns over.
+  ease: (t: number): number => 1 - Math.pow(1 - t * t * t, 1.5),
 };
 
 type Resolved = typeof DEFAULTS & DecodeOptions;
@@ -146,6 +163,15 @@ const SHOW_WINDOW = 0.65;
 
 /** Progress every cell spends boiling before the resolve front may reach it. */
 const MIN_BOIL = 0.06;
+
+/**
+ * How far each line's weight is pulled toward the average when laying out the
+ * end cascade. Weighting purely by character count gives a short wrapped
+ * remnant ("source.") a slice too thin to see — measured at 8ms behind the
+ * 70-character line above it, so which one landed first came down to frame
+ * jitter. A line is one line to the eye however short it is.
+ */
+const LINE_EVENNESS = 0.6;
 
 const SR_ONLY_STYLE =
   'position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0';
@@ -385,17 +411,28 @@ const renderLine = (
  * scramble to final text in a single frame. Now `mashAt + MIN_BOIL` is capped
  * at `settleStart` by construction, so that floor can never bind and the sweep
  * stays even.
+ *
+ * Lines are then laid out as overlapping windows on the shared 0..1 axis,
+ * weighted by character count. Line k ends at `(1 - spread) + spread · (chars
+ * through k) / (chars total)`, which increases with k, so reading order holds
+ * by construction — no clamp against the previous line, and no way for a short
+ * wrapped remnant to overtake the long line above it. Returns the wall-clock
+ * duration of the reveal.
  */
-const scheduleLines = (lines: Line[], opts: Resolved): void => {
+const scheduleLines = (lines: Line[], opts: Resolved): number => {
   const settleStart = Math.min(Math.max(opts.settleStart, MIN_BOIL), 0.95);
   const appearEnd = settleStart * SHOW_WINDOW;
   const mashEnd = Math.max(appearEnd, settleStart - MIN_BOIL);
+  const spread = Math.min(Math.max(opts.lineSpread, 0), 0.9);
 
+  const chars = lines.map((line) => Math.max(1, line.cells.length));
+  const total = chars.reduce((sum, count) => sum + count, 0);
+  const mean = total / lines.length;
+  // Blending preserves the sum, so the axis still ends at exactly 1.
+  const weights = chars.map((count) => count * (1 - LINE_EVENNESS) + mean * LINE_EVENNESS);
   let cumulative = 0;
-  let previousStart = 0;
-  let previousEnd = -Infinity;
 
-  for (const line of lines) {
+  lines.forEach((line, index) => {
     const n = line.cells.length;
     const slots = Array.from({ length: n }, (_, i) => i);
     const appearSlots = opts.order === 'shuffle' ? shuffle(slots.slice()) : slots;
@@ -416,23 +453,12 @@ const scheduleLines = (lines: Line[], opts: Resolved): void => {
       line.cells[i].settleAt = Math.max(line.cells[i].settleAt, line.cells[i - 1].settleAt);
     }
 
-    line.duration = Math.min(
-      opts.maxLineDuration,
-      Math.max(opts.minLineDuration, opts.durationPerChar * n)
-    );
-    // Lines finish in reading order. Without the last two terms a short wrapped
-    // remnant ("open source.") would beat the long line above it to the end,
-    // because start is staggered by summed durations while duration tracks
-    // character count.
-    line.start = Math.max(
-      opts.lineStagger * cumulative,
-      previousStart,
-      previousEnd + opts.lineEndGap - line.duration
-    );
-    cumulative += line.duration;
-    previousStart = line.start;
-    previousEnd = line.start + line.duration;
-  }
+    line.start = spread * (cumulative / total);
+    cumulative += weights[index];
+    line.duration = (1 - spread) + spread * (cumulative / total) - line.start;
+  });
+
+  return Math.min(opts.maxDuration, Math.max(opts.minDuration, opts.durationPerChar * total));
 };
 
 /** The original's `useInput`: mix the text's own ASCII glyphs into the pool. */
@@ -536,7 +562,7 @@ export const prepareDecode = async (
     if (started || done) return;
     started = true;
 
-    scheduleLines(lines, opts);
+    const duration = scheduleLines(lines, opts);
     const pool = scramblePool(cells, opts);
     root.classList.add('dt-animating');
     // Isolate per-frame churn so it cannot reflow content below the root.
@@ -566,9 +592,14 @@ export const prepareDecode = async (
       clock += Math.min(now - last, MAX_FRAME_MS) / 1000;
       last = now;
 
+      // One curve for the whole paragraph. Lines read their windows off the
+      // eased axis, so the tempo — the held opening and the acceleration after
+      // it — belongs to the text as a whole and every line shares it.
+      const p = duration > 0 && clock < duration ? opts.ease(clock / duration) : 1;
+
       for (const line of lines) {
         if (line.complete) continue;
-        const t = (clock - line.start) / line.duration;
+        const t = (p - line.start) / line.duration;
         if (t < 0) continue;
         if (t >= 1) {
           renderLine(line, 1, now, pool, opts);
@@ -576,15 +607,14 @@ export const prepareDecode = async (
           remaining -= 1;
           continue;
         }
-        renderLine(line, opts.ease(t), now, pool, opts);
+        renderLine(line, t, now, pool, opts);
       }
 
       if (remaining > 0) raf = requestAnimationFrame(tick);
       else complete();
     };
 
-    const totalEnd = lines.reduce((end, line) => Math.max(end, line.start + line.duration), 0);
-    watchdog = window.setTimeout(forceFinish, totalEnd * 1000 + 1500);
+    watchdog = window.setTimeout(forceFinish, duration * 1000 + 1500);
     onHidden = () => {
       if (document.visibilityState === 'hidden') forceFinish();
     };

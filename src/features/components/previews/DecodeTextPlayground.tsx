@@ -32,11 +32,12 @@ interface Settings {
   order: DecodeOrder;
   mono: boolean;
   charset: string;
-  /** Milliseconds per character — `durationPerChar` in ms, which is easier to feel. */
+  /** Milliseconds per character of the whole text — `durationPerChar` in ms, which is easier to feel. */
   speed: number;
   boil: number;
   settleStart: number;
   settleCurve: number;
+  lineSpread: number;
 }
 
 const DEFAULTS: Settings = {
@@ -44,10 +45,11 @@ const DEFAULTS: Settings = {
   order: 'shuffle',
   mono: true,
   charset: DEFAULT_CHARSET,
-  speed: 19,
+  speed: 8,
   boil: 18,
   settleStart: 0.52,
   settleCurve: 0.8,
+  lineSpread: 0.3,
 };
 
 /**
@@ -170,6 +172,7 @@ const snippetLines = (settings: Settings): Token[][] => [
   optionLine('mutationHz', String(settings.boil), false),
   optionLine('settleStart', settings.settleStart.toFixed(2), false),
   optionLine('settleCurve', settings.settleCurve.toFixed(2), false),
+  optionLine('lineSpread', settings.lineSpread.toFixed(2), false),
   [['cb-t-punc', '});']],
 ];
 
@@ -234,10 +237,11 @@ export function DecodeTextPlayground() {
       order: settings.order,
       charset: settings.charset || undefined,
       durationPerChar: settings.speed / 1000,
+      lineSpread: settings.lineSpread,
       mutationHz: settings.boil,
       settleStart: settings.settleStart,
       settleCurve: settings.settleCurve,
-      maxLineDuration: 3,
+      maxDuration: 6,
     }).then((next) => {
       stage.style.visibility = '';
       if (cancelled) {
@@ -330,8 +334,8 @@ export function DecodeTextPlayground() {
             <Slider
               label="Speed"
               display={`${settings.speed}ms/char`}
-              min={8}
-              max={60}
+              min={3}
+              max={26}
               value={settings.speed}
               onChange={(value) => set('speed', value)}
             />
@@ -358,6 +362,14 @@ export function DecodeTextPlayground() {
               max={200}
               value={Math.round(settings.settleCurve * 100)}
               onChange={(value) => set('settleCurve', value / 100)}
+            />
+            <Slider
+              label="Line spread"
+              display={settings.lineSpread.toFixed(2)}
+              min={0}
+              max={90}
+              value={Math.round(settings.lineSpread * 100)}
+              onChange={(value) => set('lineSpread', value / 100)}
             />
           </div>
 
