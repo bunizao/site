@@ -13,8 +13,6 @@ import {
   type DirectiveTransformResult,
 } from './directives';
 
-export const GHOST_PREVIEW_CACHE_CONTROL = 'private, no-store';
-
 const E2E_POST_ID = '5ddc9141c35e7700383b2937';
 
 export type GhostDraftPreviewResult =

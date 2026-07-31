@@ -1,19 +1,39 @@
 ---
-import BlogLayout from '@/layouts/BlogLayout.astro';
-import Prose from '@/features/posts/ui/Prose.astro';
-import AiCredit from '@/features/posts/ui/AiCredit.astro';
-import NotByAI from '@/features/posts/ui/NotByAI.astro';
-import { formatPostDate } from '@/features/posts/format';
-import { readAuthorshipCredits } from '@/features/posts/server/directives/authors';
-import {
-  GHOST_PREVIEW_CACHE_CONTROL,
-  resolveGhostDraftPreview,
-} from '@/features/posts/server/ghost-preview';
-
 export const prerender = false;
 
+const cacheControl = 'private, no-store';
+
+if (!import.meta.env.DEV) {
+  return new Response('Not found.', {
+    status: 404,
+    headers: {
+      'Cache-Control': cacheControl,
+      'Content-Type': 'text/plain; charset=utf-8',
+      'X-Robots-Tag': 'noindex, nofollow',
+    },
+  });
+}
+
+const [
+  { default: BlogLayout },
+  { default: Prose },
+  { default: AiCredit },
+  { default: NotByAI },
+  { formatPostDate },
+  { readAuthorshipCredits },
+  { resolveGhostDraftPreview },
+] = await Promise.all([
+  import('@/layouts/BlogLayout.astro'),
+  import('@/features/posts/ui/Prose.astro'),
+  import('@/features/posts/ui/AiCredit.astro'),
+  import('@/features/posts/ui/NotByAI.astro'),
+  import('@/features/posts/format'),
+  import('@/features/posts/server/directives/authors'),
+  import('@/features/posts/server/ghost-preview'),
+]);
+
 const result = await resolveGhostDraftPreview({
-  enabled: import.meta.env.DEV,
+  enabled: true,
   id: Astro.params.id ?? '',
   locals: Astro.locals,
 });
@@ -21,14 +41,14 @@ if (!result.ok) {
   return new Response(result.message, {
     status: result.status,
     headers: {
-      'Cache-Control': GHOST_PREVIEW_CACHE_CONTROL,
+      'Cache-Control': cacheControl,
       'Content-Type': 'text/plain; charset=utf-8',
       'X-Robots-Tag': 'noindex, nofollow',
     },
   });
 }
 
-Astro.response.headers.set('Cache-Control', GHOST_PREVIEW_CACHE_CONTROL);
+Astro.response.headers.set('Cache-Control', cacheControl);
 Astro.response.headers.set('X-Robots-Tag', 'noindex, nofollow');
 
 const { post, html, meta } = result;

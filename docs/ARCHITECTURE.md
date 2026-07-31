@@ -80,7 +80,7 @@ Private API ownership lives in the separate `site-api` Worker. `site-api` direct
 - The owner-auth boundary is enforced in `src/middleware.ts` + `src/features/admin/server/access.ts`; see [OAUTH-HUB.md](./OAUTH-HUB.md) for the credential roadmap. (The former `/dev/portal/oauth` UI page was removed.)
 
 **Local authoring surface:**
-- `GET /blog/preview/<24-character-post-id>` — Renders a Ghost draft through the production directive and blog prose pipeline during `astro dev`. Production builds return `404`; every response is private and uncached.
+- `GET /blog/preview/<24-character-post-id>` — Renders a Ghost draft through the production directive and blog prose pipeline during `astro dev`. Production returns `404` before loading preview-only dependencies, keeping them out of the Worker bundle. Every response is private and uncached.
 
 **Public asset proxy, served by the `site` Worker:**
 - `GET|HEAD /static/youtube/<11-character-id>/<maxresdefault|hqdefault>.jpg` — Fixed YouTube poster proxy. The route rejects query strings and arbitrary `i.ytimg.com` targets; no signing secret is exposed to client-rendered Mood cards.

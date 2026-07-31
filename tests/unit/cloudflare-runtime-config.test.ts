@@ -156,6 +156,37 @@ describe('Cloudflare runtime configuration', () => {
     expect(ghostConfig).toContain('return readProcessEnv(name);');
   });
 
+  test('returns before loading Ghost draft preview dependencies in production', () => {
+    const previewRoute = readText('src/pages/blog/preview/[id].astro');
+    const productionGuardIndex = previewRoute.indexOf('if (!import.meta.env.DEV)');
+    const productionReturnIndex = previewRoute.indexOf(
+      "return new Response('Not found.'",
+      productionGuardIndex,
+    );
+
+    expect(productionGuardIndex).toBeGreaterThan(-1);
+    expect(productionReturnIndex).toBeGreaterThan(productionGuardIndex);
+    expect(previewRoute.slice(0, productionGuardIndex)).not.toMatch(/\bimport(?:\s|\()/);
+
+    const previewDependencies = [
+      '@/layouts/BlogLayout.astro',
+      '@/features/posts/ui/Prose.astro',
+      '@/features/posts/ui/AiCredit.astro',
+      '@/features/posts/ui/NotByAI.astro',
+      '@/features/posts/format',
+      '@/features/posts/server/directives/authors',
+      '@/features/posts/server/ghost-preview',
+    ];
+
+    for (const dependency of previewDependencies) {
+      const dynamicImportIndex = previewRoute.indexOf(`import('${dependency}')`);
+
+      expect(dynamicImportIndex).toBeGreaterThan(productionReturnIndex);
+      expect(previewRoute).not.toContain(`from '${dependency}'`);
+      expect(previewRoute).not.toContain(`import '${dependency}'`);
+    }
+  });
+
   test('loads Tailwind 4 through its stylesheet entrypoint', () => {
     const globals = readText('src/styles/globals.css');
     const postcss = readText('postcss.config.cjs');

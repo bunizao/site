@@ -6,7 +6,6 @@ import {
   type GhostAdminPost,
 } from '@/features/posts/server/ghost-admin';
 import {
-  GHOST_PREVIEW_CACHE_CONTROL,
   resolveGhostDraftPreview,
 } from '@/features/posts/server/ghost-preview';
 
@@ -132,9 +131,5 @@ describe('Ghost draft preview', () => {
       expect(result).toEqual(testCase.expected);
       expect(JSON.stringify(result)).not.toContain(secret);
     }
-  });
-
-  test('declares a private no-store browser and edge cache boundary', () => {
-    expect(GHOST_PREVIEW_CACHE_CONTROL).toBe('private, no-store');
   });
 });
