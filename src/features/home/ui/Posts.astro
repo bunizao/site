@@ -25,8 +25,8 @@ const stamp = (iso: string): string => {
 };
 ---
 
-<section id="writing-section" class="writing-section" data-parallax="off">
-  <span class="section-label scroll-reveal">Writing</span>
+<section id="writing-section" class="writing-section" data-reveal>
+  <span class="section-label" data-reveal-item style="--reveal-i: 0">Writing</span>
 
   <HoverGloss
     class="writing-gloss"
@@ -38,7 +38,7 @@ const stamp = (iso: string): string => {
     imageAlt={blog.sillage.imageAlt}
     label={`Why ${blogCopy.name}?`}
   >
-    <a class="writing-portal scroll-reveal-portal" href="/blog/" aria-label={`Enter ${blogCopy.name}`} data-gloss-trigger>
+    <a class="writing-portal" href="/blog/" aria-label={`Enter ${blogCopy.name}`} data-gloss-trigger data-reveal-item style="--reveal-i: 1">
       <span class="writing-portal__mark" style="view-transition-name:blog-mark" aria-hidden="true">
         <img src={blog.mark} alt="" width="48" height="48" loading="lazy" decoding="async" />
       </span>
@@ -54,7 +54,12 @@ const stamp = (iso: string): string => {
       {posts.map((post, index) => {
         const tag = post.tags?.find((t) => t.visibility === 'public');
         return (
-          <a href={postPath(post.slug)} class="post-item scroll-reveal-item" style={`--item-index: ${index}`}>
+          <a
+            href={postPath(post.slug)}
+            class="post-item"
+            data-reveal-item
+            style={`--reveal-i: ${index + 2}`}
+          >
             {/* Same per-slug name as the article <h1> → the clicked home title
                 morphs into the post headline, matching the /blog list behaviour. */}
             <span
@@ -71,28 +76,15 @@ const stamp = (iso: string): string => {
     </div>
   )}
 
-  <a href="/blog/" class="link scroll-reveal-link writing-enter">Enter {blogCopy.name}</a>
+  <a href="/blog/" class="link writing-enter" data-reveal-item style={`--reveal-i: ${posts.length + 2}`}>Enter {blogCopy.name}</a>
 </section>
 
 <style>
-  .scroll-reveal,
-  .scroll-reveal-portal,
-  .scroll-reveal-item,
-  .scroll-reveal-link {
-    /* Initial state handled by GSAP */
-  }
-
   /* Writing reads in the human voice (Inter), matching the publication it opens
-     into. The metadata spine — label, tags, date stamps — stays on the mono
-     identity thread that runs through Hero and Experience. */
+     into. The metadata spine — tags and date stamps — stays on the mono identity
+     thread that runs through Hero and Experience. */
   :global(#writing-section) {
     font-family: var(--font-sans);
-  }
-
-  :global(#writing-section .section-label),
-  :global(#writing-section .post-tag),
-  :global(#writing-section .post-date) {
-    font-family: var(--font-mono);
   }
 
   /* The publication's sign above the door: mark + wordmark + tagline. Reads as a
@@ -102,7 +94,10 @@ const stamp = (iso: string): string => {
     align-items: center;
     gap: 16px;
     margin-top: 20px;
-    margin-bottom: 28px;
+    /* Deliberately larger than the gap between list rows, so the three titles
+       read as one group sitting under the masthead rather than as a fourth
+       sibling in the same stack. */
+    margin-bottom: 36px;
     text-decoration: none;
     color: inherit;
     width: fit-content;
@@ -134,18 +129,22 @@ const stamp = (iso: string): string => {
   :global(#writing-section .writing-portal__id) {
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 5px;
   }
 
+  /* The shimmer's darkest stop used to fall to 0.26 alpha, which dragged the
+     masthead below the post titles beneath it — a wordmark that periodically
+     reads as disabled. It now sweeps between full and 0.55, so the highlight is
+     visible as movement without ever inverting the hierarchy. */
   :global(#writing-section .writing-portal__wordmark) {
     --shimmer-base: hsl(var(--foreground));
-    --shimmer-soft: hsl(var(--foreground) / 0.58);
-    --shimmer-highlight: hsl(var(--foreground) / 0.26);
-    font-size: 20px;
-    font-weight: 600;
-    letter-spacing: -0.012em;
+    --shimmer-soft: hsl(var(--foreground) / 0.82);
+    --shimmer-highlight: hsl(var(--foreground) / 0.55);
+    font-size: var(--home-text-masthead);
+    font-weight: var(--home-weight-masthead);
+    letter-spacing: -0.02em;
     color: var(--shimmer-base);
-    line-height: 1.2;
+    line-height: 1.15;
     background:
       linear-gradient(
         110deg,
@@ -202,11 +201,11 @@ const stamp = (iso: string): string => {
   }
 
   :global(#writing-section .writing-portal__tagline) {
-    font-size: 13px;
-    font-weight: 300;
-    letter-spacing: -0.01em;
-    color: hsl(var(--muted-foreground) / 0.8);
-    line-height: 1.4;
+    font-size: var(--home-text-meta);
+    font-weight: var(--home-weight-meta);
+    letter-spacing: -0.005em;
+    color: var(--home-fg-secondary);
+    line-height: 1.45;
     text-wrap: pretty;
   }
 
@@ -238,15 +237,21 @@ const stamp = (iso: string): string => {
       opacity 0.25s ease-out;
   }
 
+  /* Post rows enter from the left, so give them the lateral variant of the
+     shared reveal transform instead of the default vertical drift. */
+  /* No `transition` shorthand here: the reveal system already owns opacity and
+     transform on this element, and a shorthand would silently reset both its
+     transform easing and its stagger delay. */
   :global(#writing-section .post-item) {
+    --reveal-x: -16px;
+    --reveal-y: 0;
     display: flex;
     flex-direction: column;
     gap: 4px;
-    padding: 11px 10px;
+    padding: 12px 10px;
     position: relative;
     z-index: 1;
     text-decoration: none;
-    transition: opacity 0.3s ease;
   }
 
   @media (min-width: 640px) {
@@ -255,24 +260,32 @@ const stamp = (iso: string): string => {
       justify-content: space-between;
       align-items: baseline;
       gap: 16px;
-      padding: 12px 10px;
+      padding: 13px 10px;
     }
   }
 
   /* No per-row hairlines: the sliding pill is the only hover decoration, so
      nothing crosses or competes with it. Rows breathe on their own padding. */
 
-  /* While the cursor is on the list, the un-hovered rows recede. */
+  /* While the cursor is on the list, the un-hovered rows recede. The ID here
+     outranks the reveal system's `.is-revealed` rule, so this wins once the
+     entrance is done — no inline styles to clear, unlike the GSAP version.
+     Its own duration keeps the dim quicker than the 0.55s entrance. */
   :global(#writing-section .post-list.is-hovering .post-item:not(:hover)) {
     opacity: 0.5;
+    transition-duration: 0.3s;
   }
 
+  /* Titles are the loudest thing in this section after the masthead: same size
+     as body prose but heavier and at full contrast. They used to sit at 14px/85%
+     while the mood one-liners below ran 16px/100%, which read as the throwaway
+     notes outranking the essays. */
   :global(#writing-section .post-title) {
-    font-size: 14px;
-    font-weight: 500;
-    letter-spacing: -0.01em;
-    line-height: 1.4;
-    color: hsl(var(--foreground) / 0.85);
+    font-size: var(--home-text-body);
+    font-weight: var(--home-weight-title);
+    letter-spacing: -0.011em;
+    line-height: 1.45;
+    color: var(--home-fg-primary);
     transition:
       color 0.3s ease,
       transform 0.4s cubic-bezier(0.25, 1, 0.3, 1);
@@ -281,63 +294,45 @@ const stamp = (iso: string): string => {
   /* The pill holds still while the title leans into it — the cai.im tell that
      turns a static fill into a hover that feels alive. */
   :global(#writing-section .post-item:hover .post-title) {
-    color: hsl(var(--foreground));
     transform: translateX(4px);
   }
 
   :global(#writing-section .post-meta) {
     display: flex;
     align-items: baseline;
-    gap: 8px;
+    gap: 12px;
     flex-shrink: 0;
   }
 
-  @media (min-width: 640px) {
-    :global(#writing-section .post-meta) {
-      gap: 12px;
-    }
-  }
-
-  :global(#writing-section .post-tag) {
-    font-size: 11px;
-    font-weight: 400;
-    color: hsl(var(--muted-foreground) / 0.7);
-  }
-
-  @media (min-width: 640px) {
-    :global(#writing-section .post-tag) {
-      font-size: 12px;
-    }
+  :global(#writing-section .post-tag),
+  :global(#writing-section .post-date) {
+    font-family: var(--font-mono);
+    font-size: var(--home-text-meta);
+    font-weight: var(--home-weight-meta);
+    color: var(--home-fg-faint);
+    transition: color 0.3s ease;
   }
 
   :global(#writing-section .post-date) {
-    font-size: 11px;
-    font-weight: 300;
-    color: hsl(var(--muted-foreground) / 0.5);
     font-variant-numeric: tabular-nums;
-  }
-
-  @media (min-width: 640px) {
-    :global(#writing-section .post-date) {
-      font-size: 12px;
-    }
   }
 
   :global(#writing-section .post-item:hover .post-date),
   :global(#writing-section .post-item:hover .post-tag) {
-    color: hsl(var(--muted-foreground));
+    color: var(--home-fg-secondary);
   }
 
   :global(#writing-section .writing-enter) {
-    margin-top: 24px;
-    font-size: 14px;
-    letter-spacing: -0.01em;
-    color: hsl(var(--muted-foreground));
+    margin-top: 28px;
+    font-size: var(--home-text-body);
+    font-weight: var(--home-weight-body);
+    letter-spacing: -0.011em;
+    color: var(--home-fg-secondary);
     transition: color 0.3s ease, transform 0.3s ease;
   }
 
   :global(#writing-section .writing-enter:hover) {
-    color: hsl(var(--foreground));
+    color: var(--home-fg-primary);
     transform: translateX(2px);
   }
 </style>
@@ -345,88 +340,16 @@ const stamp = (iso: string): string => {
 <script>
   import { attachHoverIndicator } from '@/lib/hover-indicator';
 
-  const writingSection = document.getElementById('writing-section');
-  const writingPostList = writingSection?.querySelector<HTMLElement>('[data-writing-post-list]');
-  let gsapPromise: Promise<typeof import('gsap')['default']> | null = null;
+  const writingPostList = document.querySelector<HTMLElement>('[data-writing-post-list]');
 
-  const loadGsap = async (): Promise<typeof import('gsap')['default']> => {
-    gsapPromise ??= Promise.all([
-      import('gsap'),
-      import('gsap/ScrollTrigger'),
-    ]).then(([{ default: gsap }, { ScrollTrigger }]) => {
-      gsap.registerPlugin(ScrollTrigger);
-      return gsap;
+  if (writingPostList) {
+    attachHoverIndicator(writingPostList, {
+      itemSelector: '.post-item',
+      indicatorClass: 'post-indicator',
+      // Tight bleed so the pill hugs the single-line row instead of ballooning
+      // into a table-selection bar. Horizontal padding lives on the row.
+      padX: 0,
+      padY: 2,
     });
-
-    return gsapPromise;
-  };
-
-  const initWriting = async () => {
-    const gsap = await loadGsap();
-    if (!writingSection) return;
-
-    // Switch the revealed-state base in (opacity:1 for cleared items) before
-    // GSAP re-hides via .set below, so the synchronous flip never paints.
-    writingSection.classList.add('is-revealed');
-
-    gsap.set(writingSection, { opacity: 0, y: 40 });
-
-    const label = writingSection.querySelector('.scroll-reveal');
-    const portal = writingSection.querySelector('.scroll-reveal-portal');
-    const items = Array.from(writingSection.querySelectorAll('.scroll-reveal-item'));
-    const link = writingSection.querySelector('.scroll-reveal-link');
-
-    if (label) gsap.set(label, { opacity: 0, y: 16 });
-    if (portal) gsap.set(portal, { opacity: 0, y: 16 });
-    if (items.length) gsap.set(items, { opacity: 0, x: -20 });
-    if (link) gsap.set(link, { opacity: 0 });
-
-    const tl = gsap.timeline({
-      scrollTrigger: { trigger: writingSection, start: 'top 85%', once: true },
-    });
-
-    tl.to(writingSection, { opacity: 1, y: 0, duration: 0.6, ease: 'power2.out' });
-
-    if (label) {
-      tl.to(label, { opacity: 1, y: 0, duration: 0.4, ease: 'power2.out' }, '-=0.3');
-    }
-
-    if (portal) {
-      tl.to(portal, { opacity: 1, y: 0, duration: 0.5, ease: 'power2.out' }, '-=0.2');
-    }
-
-    if (items.length) {
-      tl.to(items, {
-        opacity: 1,
-        x: 0,
-        duration: 0.4,
-        ease: 'power2.out',
-        stagger: 0.06,
-        // Drop the inline opacity GSAP leaves behind so the hover sibling-dim
-        // (a stylesheet rule) isn't overridden by a higher-specificity inline.
-        clearProps: 'opacity,transform',
-      }, '-=0.2');
-    }
-
-    if (link) {
-      tl.to(link, { opacity: 1, duration: 0.4, ease: 'power2.out' }, '-=0.1');
-    }
-  };
-
-  if (writingSection) {
-    window.addEventListener('load', () => {
-      if (writingPostList) {
-        attachHoverIndicator(writingPostList, {
-          itemSelector: '.post-item',
-          indicatorClass: 'post-indicator',
-          // Tight bleed so the pill hugs the single-line row instead of
-          // ballooning into a table-selection bar. Horizontal padding lives on
-          // the row so content-visibility never clips the pill corners.
-          padX: 0,
-          padY: 2,
-        });
-      }
-      void initWriting();
-    }, { once: true });
   }
 </script>

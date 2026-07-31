@@ -2,76 +2,10 @@
 import ProjectStack from '@/components/project-cards/ProjectStack';
 ---
 
-<section id="projects-section" class="projects-section" data-parallax="off">
-  <span class="section-label scroll-reveal">Projects</span>
+<section id="projects-section" class="projects-section" data-reveal>
+  <span class="section-label" data-reveal-item style="--reveal-i: 0">Projects</span>
 
-  <div class="scroll-reveal-card">
+  <div class="projects-card" data-reveal-item style="--reveal-i: 1">
     <ProjectStack client:visible />
   </div>
 </section>
-
-<style>
-  .projects-section,
-  .scroll-reveal-card {
-    opacity: 0;
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .projects-section,
-    .scroll-reveal-card {
-      opacity: 1;
-    }
-  }
-</style>
-
-<script>
-  const prefersReducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-  const projectsSection = document.getElementById('projects-section');
-  let gsapPromise: Promise<typeof import('gsap')['default']> | null = null;
-
-  const loadGsap = async (): Promise<typeof import('gsap')['default']> => {
-    gsapPromise ??= Promise.all([
-      import('gsap'),
-      import('gsap/ScrollTrigger'),
-    ]).then(([{ default: gsap }, { ScrollTrigger }]) => {
-      gsap.registerPlugin(ScrollTrigger);
-      return gsap;
-    });
-
-    return gsapPromise;
-  };
-
-  const initProjects = async () => {
-    const gsap = await loadGsap();
-    if (!projectsSection) return;
-
-    const label = projectsSection.querySelector('.scroll-reveal');
-    const card = projectsSection.querySelector('.scroll-reveal-card');
-    if (label) gsap.set(label, { opacity: 0, y: 16 });
-    if (card) gsap.set(card, { opacity: 0, y: 24 });
-
-    const tl = gsap.timeline({
-      scrollTrigger: { trigger: projectsSection, start: 'top 85%', once: true }
-    });
-
-    tl.to(projectsSection, { opacity: 1, y: 0, duration: 0.6, ease: 'power2.out' });
-    if (label) tl.to(label, { opacity: 1, y: 0, duration: 0.4, ease: 'power2.out' }, '-=0.3');
-    if (card) tl.to(card, { opacity: 1, y: 0, duration: 0.45, ease: 'power2.out' }, '-=0.25');
-  };
-
-  if (projectsSection && !prefersReducedMotion) {
-    if ('IntersectionObserver' in window) {
-      const observer = new IntersectionObserver(
-        (entries) => {
-          if (!entries.some((entry) => entry.isIntersecting)) return;
-          observer.disconnect();
-          void initProjects();
-        },
-        { rootMargin: '500px 0px' }
-      );
-      observer.observe(projectsSection);
-    } else {
-      void initProjects();
-    }
-  }
-</script>

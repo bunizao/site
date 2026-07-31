@@ -2021,61 +2021,12 @@
     opacity: 0;
   }
 
+  /* Hero still runs its own intro timeline. Every other homepage section's
+     pre-reveal state now lives in src/styles/home-reveal.css under
+     [data-reveal] — one owner, no per-section copies to keep in sync. */
   .js .hero-animate {
     opacity: 0;
     transform: translateY(20px);
-  }
-
-  .js #moods-section {
-    opacity: 0;
-    transform: translateY(40px);
-  }
-
-  .js #moods-section .scroll-reveal {
-    opacity: 0;
-    transform: translateY(16px);
-  }
-
-  .js #moods-section .scroll-reveal-item {
-    opacity: 0;
-    transform: translateY(8px);
-  }
-
-  .js #moods-section .scroll-reveal-link {
-    opacity: 0;
-  }
-
-  .js .writing-section {
-    opacity: 0;
-    transform: translateY(40px);
-  }
-
-  .js .writing-section .scroll-reveal {
-    opacity: 0;
-    transform: translateY(16px);
-  }
-
-  .js .writing-section .scroll-reveal-portal {
-    opacity: 0;
-    transform: translateY(16px);
-  }
-
-  .js .writing-section .scroll-reveal-item {
-    opacity: 0;
-    transform: translateX(-20px);
-  }
-
-  /* Once the reveal timeline runs, items hand opacity back to CSS via GSAP
-     clearProps (so the hover sibling-dim can take over). Their pre-reveal base
-     above is opacity:0, so the revealed state must restore a visible base —
-     otherwise cleared items snap straight back to hidden. */
-  .js .writing-section.is-revealed .scroll-reveal-item {
-    opacity: 1;
-    transform: none;
-  }
-
-  .js .writing-section .scroll-reveal-link {
-    opacity: 0;
   }
 }
 

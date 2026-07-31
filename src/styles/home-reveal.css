@@ -1,0 +1,61 @@
+/* Homepage reveal vocabulary. The observer that flips `.is-revealed` lives in
+   src/lib/home-reveal.ts; everything below is the motion itself.
+
+   Deliberately unlayered: this owns the pre-reveal hidden state, so no layered
+   rule should be able to outrank it. Per-section stylesheets must not declare
+   their own reveal opacity — there is one owner. */
+
+:root {
+  --reveal-duration: 0.55s;
+  --reveal-stagger: 60ms;
+  /* GSAP's power2.out (cubic ease-out), expressed natively. */
+  --reveal-ease: cubic-bezier(0.215, 0.61, 0.355, 1);
+}
+
+/* Nothing is hidden until `html.reveal-ready` is set, and that class carries a
+   failsafe that drops it if the reveal module never loads (see index.astro).
+   A broken chunk therefore costs a late reveal, never a blank section. */
+.reveal-ready [data-reveal],
+.reveal-ready [data-reveal] [data-reveal-item] {
+  opacity: 0;
+  transform: translate(var(--reveal-x, 0), var(--reveal-y));
+  transition:
+    opacity var(--reveal-duration) var(--reveal-ease),
+    transform var(--reveal-duration) var(--reveal-ease);
+}
+
+/* The section travels further than its contents, so the block arrives as one
+   object and its parts settle inside it. Both distances are set explicitly:
+   custom properties inherit, so a lone value on the group would silently become
+   the children's value too. */
+.reveal-ready [data-reveal] {
+  --reveal-y: 28px;
+}
+
+.reveal-ready [data-reveal] [data-reveal-item] {
+  --reveal-y: 16px;
+  transition-delay: calc(var(--reveal-lead, 120ms) + var(--reveal-i, 0) * var(--reveal-stagger));
+}
+
+.reveal-ready [data-reveal].is-revealed,
+.reveal-ready [data-reveal].is-revealed [data-reveal-item] {
+  opacity: 1;
+  transform: none;
+}
+
+/* The stagger belongs to the entrance and nothing else. Left in place it would
+   also delay every later transition on the same element — hovering the first
+   post would dim its siblings a third of a second late. `is-settled` is added
+   once the entrance has finished playing. */
+.reveal-ready [data-reveal].is-settled [data-reveal-item] {
+  transition-delay: 0s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal-ready [data-reveal],
+  .reveal-ready [data-reveal] [data-reveal-item] {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+}

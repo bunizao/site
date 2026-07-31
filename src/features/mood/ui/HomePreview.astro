@@ -27,10 +27,10 @@ const initialPreviewPostsJson = serializeScriptJson(initialPosts.slice(0, INITIA
 <section
   id="moods-section"
   class="moods-section"
-  data-parallax="off"
+  data-reveal
   data-mood-runtime-disabled={runtimeDisabled ? 'true' : undefined}
 >
-  <span class="section-label scroll-reveal">Moods</span>
+  <span class="section-label" data-reveal-item style="--reveal-i: 0">Moods</span>
 
   <div class="mood-timeline" data-mood-list role="region" aria-busy={runtimeDisabled ? 'false' : 'true'} aria-label="Recent moods">
     <script
@@ -70,8 +70,10 @@ const initialPreviewPostsJson = serializeScriptJson(initialPosts.slice(0, INITIA
 
   <a
     href="/mood"
-    class="link scroll-reveal-link mt-6 text-sm text-muted-foreground"
+    class="link mood-enter mt-6"
     aria-label="View all moods"
+    data-reveal-item
+    style="--reveal-i: 1"
   >
     View all moods
   </a>
@@ -89,22 +91,62 @@ const initialPreviewPostsJson = serializeScriptJson(initialPosts.slice(0, INITIA
     font-family: var(--font-sans);
   }
 
-  #moods-section .section-label,
   #moods-section .mood-time,
   #moods-section .mood-tag {
     font-family: var(--font-mono);
   }
 
-  #moods-section .scroll-reveal {
-    /* Initial state handled by GSAP */
+  #moods-section .mood-enter {
+    display: inline-block;
+    font-size: var(--home-text-body);
+    font-weight: var(--home-weight-body);
+    letter-spacing: -0.011em;
+    color: var(--home-fg-secondary);
+    transition: color 0.3s ease, transform 0.3s ease;
   }
 
-  #moods-section .scroll-reveal-item {
-    /* Initial state handled by GSAP */
+  #moods-section .mood-enter:hover {
+    color: var(--home-fg-primary);
+    transform: translateX(2px);
   }
 
-  #moods-section .scroll-reveal-link {
-    /* Initial state handled by GSAP */
+  /* Feed entrance. The section itself is revealed by src/lib/home-reveal.ts;
+     these two classes cover the async swap from skeletons to real cards, which
+     lands long after that first reveal. Both are pure CSS transitions, so a
+     busy main thread delays them rather than freezing them part-way. */
+  #moods-section .mood-item {
+    transition:
+      opacity 0.7s var(--expo-out),
+      transform 0.7s var(--expo-out),
+      filter 0.7s var(--expo-out);
+    transition-delay: calc(var(--item-index, 0) * 90ms);
+  }
+
+  #moods-section .mood-item--entering {
+    opacity: 0;
+    transform: translateY(24px) scale(0.94);
+    filter: blur(6px);
+  }
+
+  #moods-section .mood-item--leaving {
+    opacity: 0;
+    transform: translateY(-12px) scale(0.94);
+    filter: blur(6px);
+    transition-duration: 0.5s;
+    transition-timing-function: cubic-bezier(0.55, 0.06, 0.68, 0.19);
+    transition-delay: calc(var(--item-index, 0) * 60ms);
+    pointer-events: none;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    #moods-section .mood-item,
+    #moods-section .mood-item--entering,
+    #moods-section .mood-item--leaving {
+      transition: none;
+      opacity: 1;
+      transform: none;
+      filter: none;
+    }
   }
 
   /* Timeline Layout - 3 columns: time | line | content */
@@ -143,22 +185,16 @@ const initialPreviewPostsJson = serializeScriptJson(initialPosts.slice(0, INITIA
   }
 
   #moods-section .mood-time {
-    font-size: 11px;
-    font-weight: 500;
-    color: hsl(var(--muted-foreground) / 0.5);
+    font-size: var(--home-text-meta);
+    font-weight: var(--home-weight-meta);
+    color: var(--home-fg-faint);
     font-variant-numeric: tabular-nums;
     letter-spacing: -0.01em;
     transition: color 0.2s ease;
   }
 
-  @media (min-width: 640px) {
-    #moods-section .mood-time {
-      font-size: 12px;
-    }
-  }
-
   #moods-section .mood-item:not(.mood-item-skeleton):hover .mood-time {
-    color: hsl(var(--muted-foreground));
+    color: var(--home-fg-secondary);
   }
 
 
@@ -256,13 +292,18 @@ const initialPreviewPostsJson = serializeScriptJson(initialPosts.slice(0, INITIA
     box-shadow: -4px 0 0 hsl(var(--foreground) / 0.06);
   }
 
+  /* Same step as the blog post titles next door, deliberately: at this size the
+     distinction is carried by weight and contrast, not by a fractional size
+     difference nobody can see. Titles run 500 at full contrast, these run 400 at
+     0.8 — so an essay reads as heavier than a passing note even though both are
+     the section's own primary content. */
   #moods-section .mood-text {
-    --mood-text-line-height: 1.55;
+    --mood-text-line-height: 1.6;
     display: block;
-    font-size: 13px;
-    font-weight: 400;
+    font-size: var(--home-text-body);
+    font-weight: var(--home-weight-body);
     line-height: var(--mood-text-line-height);
-    color: hsl(var(--foreground) / 0.85);
+    color: hsl(var(--foreground) / 0.8);
     max-height: calc(var(--mood-text-line-height) * 2em);
     overflow: hidden;
     word-break: break-word;
@@ -296,25 +337,12 @@ const initialPreviewPostsJson = serializeScriptJson(initialPosts.slice(0, INITIA
     display: block;
   }
 
-  @media (min-width: 640px) {
-    #moods-section .mood-text {
-      --mood-text-line-height: 1.6;
-      font-size: 14px;
-    }
-  }
-
   #moods-section .mood-media-fallback {
     display: block;
-    font-size: 13px;
-    line-height: 1.55;
-    color: hsl(var(--muted-foreground) / 0.72);
-  }
-
-  @media (min-width: 640px) {
-    #moods-section .mood-media-fallback {
-      font-size: 14px;
-      line-height: 1.6;
-    }
+    font-size: var(--home-text-body);
+    font-weight: var(--home-weight-body);
+    line-height: 1.6;
+    color: var(--home-fg-secondary);
   }
 
   #moods-section .mood-meta {
@@ -325,24 +353,18 @@ const initialPreviewPostsJson = serializeScriptJson(initialPosts.slice(0, INITIA
   }
 
   #moods-section .mood-tag {
-    font-size: 10px;
-    font-weight: 500;
-    color: hsl(var(--muted-foreground) / 0.6);
+    font-size: var(--home-text-label);
+    font-weight: var(--home-weight-meta);
+    color: var(--home-fg-faint);
     padding: 2px 6px;
     background: hsl(var(--foreground) / 0.04);
     border-radius: 4px;
     transition: all 0.2s ease;
   }
 
-  @media (min-width: 640px) {
-    #moods-section .mood-tag {
-      font-size: 11px;
-    }
-  }
-
   #moods-section .mood-item:hover .mood-tag {
     background: hsl(var(--foreground) / 0.08);
-    color: hsl(var(--muted-foreground) / 0.8);
+    color: var(--home-fg-secondary);
   }
 
   #moods-section .mood-thumbnail {
@@ -573,20 +595,7 @@ const initialPreviewPostsJson = serializeScriptJson(initialPosts.slice(0, INITIA
   import { buildMoodPreviewFragment } from '@/features/mood/shared/preview';
   import { withWidthParam } from '@/lib/media/responsive-image';
 
-  let gsapPromise: Promise<typeof import('gsap')['default']> | null = null;
   let pretextPromise: Promise<typeof import('@chenglou/pretext')> | null = null;
-
-  const loadGsap = async (): Promise<typeof import('gsap')['default']> => {
-    gsapPromise ??= Promise.all([
-      import('gsap'),
-      import('gsap/ScrollTrigger'),
-    ]).then(([{ default: gsap }, { ScrollTrigger }]) => {
-      gsap.registerPlugin(ScrollTrigger);
-      return gsap;
-    });
-
-    return gsapPromise;
-  };
 
   const initMoodsAnimation = async () => {
     const moodsSection = document.getElementById('moods-section');
@@ -595,8 +604,6 @@ const initialPreviewPostsJson = serializeScriptJson(initialPosts.slice(0, INITIA
     const list = moodsSection.querySelector('[data-mood-list]') as HTMLElement | null;
     const emptyState = moodsSection.querySelector('[data-mood-empty]') as HTMLElement | null;
     const errorState = moodsSection.querySelector('[data-mood-error]') as HTMLElement | null;
-    const label = moodsSection.querySelector('.scroll-reveal');
-    const link = moodsSection.querySelector('.scroll-reveal-link');
     const runtimeDisabled = moodsSection.dataset.moodRuntimeDisabled === 'true';
     let hasLoaded = false;
     let initialPreviewLoadedAt = 0;
@@ -605,7 +612,6 @@ const initialPreviewPostsJson = serializeScriptJson(initialPosts.slice(0, INITIA
     const MAX_MOODS = 5;
     const ALWAYS_LOADING = import.meta.env.PUBLIC_DEBUG_ALWAYS_LOADING === 'true';
     const INITIAL_PREVIEW_REVALIDATE_MS = 60_000;
-    const gsap = await loadGsap();
 
     const formatTime = (value: string): string => {
       const date = new Date(value);
@@ -1360,46 +1366,34 @@ const initialPreviewPostsJson = serializeScriptJson(initialPosts.slice(0, INITIA
           items.push(item);
         });
 
-        if (animate) {
-          // Liquid splash-in animation
-          gsap.fromTo(items,
-            {
-              opacity: 0,
-              y: 24,
-              scale: 0.88,
-              filter: 'blur(8px)',
-              rotationX: -15
-            },
-            {
-              opacity: 1,
-              y: 0,
-              scale: 1,
-              filter: 'blur(0px)',
-              rotationX: 0,
-              duration: 0.7,
-              ease: 'expo.out',
-              stagger: 0.09
-            }
-          );
-        }
+        if (!animate) return;
+
+        // Splash-in is CSS: items land with .mood-item--entering, then a single
+        // rAF flips them to their resting state and the transition carries them.
+        // The stagger is a per-item transition-delay, so no ticker is involved
+        // and a busy main thread cannot freeze the cards mid-entrance.
+        items.forEach((item, index) => {
+          item.style.setProperty('--item-index', String(index));
+          item.classList.add('mood-item--entering');
+        });
+
+        requestAnimationFrame(() => {
+          items.forEach((item) => item.classList.remove('mood-item--entering'));
+        });
       };
 
-      // Liquid dissolve effect on skeleton items
-      const skeletons = list.querySelectorAll('.mood-item-skeleton');
+      const skeletons = list.querySelectorAll<HTMLElement>('.mood-item-skeleton');
       if (animate && skeletons.length > 0) {
-        gsap.to(skeletons, {
-          opacity: 0,
-          scale: 0.92,
-          y: -12,
-          filter: 'blur(6px)',
-          duration: 0.5,
-          ease: 'power2.in',
-          stagger: 0.06,
-          onComplete: () => {
-            list.replaceChildren();
-            showContent();
-          }
-        });
+        skeletons.forEach((skeleton) => skeleton.classList.add('mood-item--leaving'));
+
+        // Swap once the longest-delayed skeleton has finished dissolving. A
+        // timer rather than transitionend: the element is about to be removed,
+        // and a dropped event would strand the list on its skeletons forever.
+        const SKELETON_EXIT_MS = 500 + (skeletons.length - 1) * 60;
+        window.setTimeout(() => {
+          list.replaceChildren();
+          showContent();
+        }, SKELETON_EXIT_MS);
       } else {
         list.replaceChildren();
         showContent();
@@ -1500,47 +1494,9 @@ const initialPreviewPostsJson = serializeScriptJson(initialPosts.slice(0, INITIA
         }
       };
 
-      if (ALWAYS_LOADING) {
-        gsap.set(moodsSection, { opacity: 1, y: 0 });
-        if (label) gsap.set(label, { opacity: 1, y: 0 });
-        if (link) gsap.set(link, { opacity: 1 });
-      } else {
-        // Set initial states with GSAP
-        gsap.set(moodsSection, { opacity: 0, y: 40 });
-        if (label) gsap.set(label, { opacity: 0, y: 16 });
-        if (link) gsap.set(link, { opacity: 0 });
-      }
-
-      // Create GSAP timeline with ScrollTrigger
-      const tl = gsap.timeline({
-        scrollTrigger: {
-          trigger: moodsSection,
-          start: 'top 85%',
-          once: true,
-          onEnter: () => {
-            void loadMoods();
-          }
-        }
-      });
-
-      tl.to(moodsSection, {
-        opacity: 1,
-        y: 0,
-        duration: 0.6,
-        ease: 'power2.out'
-      })
-      .to(label, {
-        opacity: 1,
-        y: 0,
-        duration: 0.4,
-        ease: 'power2.out'
-      }, '-=0.3')
-      .to(link, {
-        opacity: 1,
-        duration: 0.4,
-        ease: 'power2.out'
-      }, '+=0.3');
-
+      // The section's entrance is owned by src/lib/home-reveal.ts via the
+      // `data-reveal` attribute. All this needs to do is start fetching when
+      // the section approaches, which the observer below already handles.
       if ('IntersectionObserver' in window) {
         const observer = new IntersectionObserver(
           (entries) => {
