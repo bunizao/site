@@ -706,11 +706,12 @@ body {
     <code>maxresdefault</code> with an <code>hqdefault</code> fallback on error —
     the second card exercises that path.
     <br />
-    <strong>Real playback needs an http origin</strong> — the IFrame API’s
-    <code>origin</code> check can’t pass from <code>file://</code>, so opening this
-    lab off disk always lands in the unreachable branch (which is itself worth
-    looking at). Serve it instead: <code>bun dev -- --background</code>, then
-    <code>/dev/embed-lab/</code>.
+    <strong>Real playback needs an http origin.</strong> YouTube won’t serve an
+    embed without a <code>Referer</code>, and a <code>file://</code> page sends none —
+    the player loads and then paints its own <em>Error 153</em> card. The controller
+    now refuses that up front, so opening this lab off disk lands in the unreachable
+    branch (which is itself worth looking at). To see playback, serve it:
+    <code>bun dev -- --background</code>, then <code>/dev/embed-lab/</code>.
   </p>
 
   <div class="lab-prose">
@@ -738,7 +739,7 @@ body {
          playback fails the one control that does not work. -->
     <div class="yt__down">
       <p class="yt__down-title">This video didn’t load</p>
-      <p class="yt__down-body">YouTube may be blocked on this network.</p>
+      <p class="yt__down-body">It may be blocked on this network, or the owner may not allow embedding.</p>
       <a class="yt__down-cta" href="https://www.youtube.com/watch?v=aqz-KE-bpKQ" target="_blank" rel="noopener noreferrer">
         Watch on YouTube
         <svg viewBox="0 0 24 24" aria-hidden="true" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7M9 7h8v8"/></svg>
@@ -785,7 +786,7 @@ body {
     </button>
     <div class="yt__down">
       <p class="yt__down-title">This video didn’t load</p>
-      <p class="yt__down-body">YouTube may be blocked on this network.</p>
+      <p class="yt__down-body">It may be blocked on this network, or the owner may not allow embedding.</p>
       <a class="yt__down-cta" href="https://www.youtube.com/watch?v=jNQXAC9IVRw" target="_blank" rel="noopener noreferrer">
         Watch on YouTube
         <svg viewBox="0 0 24 24" aria-hidden="true" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7M9 7h8v8"/></svg>
@@ -942,6 +943,13 @@ body {
    onReady. If it has not fired in PROBE_MS, YouTube is unreachable from this
    client — leave the facade standing and re-point it at the watch URL.
    The verdict is cached in sessionStorage so later cards skip the wait.
+
+   The probe has exactly one job and it is easy to get subtly wrong: it must
+   answer "can this reader watch the video", not "did anything happen". Both
+   ways of failing that were live here — an embed that loads and then paints
+   its own error card still talks on the postMessage channel, and a page with
+   no http origin never had a chance to begin with. Neither looked like an
+   error to a listener that only asked whether a message arrived.
    ========================================================================== */
 const PROBE_MS = 5000;
 const VERDICT_KEY = 'yt-reachable';
@@ -992,6 +1000,18 @@ function play(card) {
     return;
   }
 
+  // No http(s) origin, no playback — and attempting it fails in the worst
+  // available way. YouTube will not serve an embed without a `Referer`, and a
+  // file:// page sends none, so the iframe loads and then paints YouTube's own
+  // "Error 153 — video player configuration error" card INSIDE our frame. It
+  // is alive enough to answer the API handshake, so the probe below scores it
+  // as a success and hands the reader a broken player in a rounded box.
+  // Refuse before that, and let the unavailable panel say so.
+  if (!/^https?:$/.test(location.protocol)) {
+    card.classList.add('is-unreachable');
+    return;
+  }
+
   const id = card.dataset.video;
   const start = card.dataset.start || '0';
   const frame = card.querySelector('[data-yt-player]');
@@ -1005,21 +1025,25 @@ function play(card) {
     rel: '0',
     start,
   });
-  // `origin` is a security check YouTube runs against the embedding page. It
-  // must be omitted on a non-http(s) page — sending "file://" or "null" makes
-  // YouTube reject the API handshake, so `onReady` never arrives and a
-  // perfectly reachable YouTube gets reported as blocked. That is exactly what
-  // happened when this lab was opened straight off disk.
-  const httpOrigin = /^https?:$/.test(location.protocol) ? location.origin : null;
-  if (httpOrigin) params.set('origin', httpOrigin);
+  // `origin` is a security check YouTube runs against the embedding page, and
+  // it must match the real one. The guard above has already established that
+  // we have an http(s) origin to give it — on anything else this value would
+  // serialise to "null", which YouTube rejects outright.
+  params.set('origin', location.origin);
 
   frame.hidden = false;
   frame.src = `https://www.youtube-nocookie.com/embed/${id}?${params}`;
 
   let settled = false;
-  const timer = setTimeout(() => {
+
+  // `blameTheNetwork` is the difference between "YouTube is unreachable from
+  // here" and "this one video will not embed". Only the first is a property of
+  // the session, and only the first may be cached — cache a per-video refusal
+  // and every other card on the page skips its own probe and gives up too.
+  const fail = (blameTheNetwork) => {
     if (settled) return;
     settled = true;
+    clearTimeout(timer);
     window.removeEventListener('message', onMessage);
     // Non-destructive: the facade is still standing, so this is a change of
     // emphasis, not an error state. Tear the iframe back out — removeAttribute,
@@ -1028,13 +1052,31 @@ function play(card) {
     frame.hidden = true;
     card.classList.remove('is-loading');
     card.classList.add('is-unreachable');
-    setVerdict('no');
-  }, PROBE_MS);
+    if (blameTheNetwork) setVerdict('no');
+  };
+
+  const timer = setTimeout(() => fail(true), PROBE_MS);
 
   function onMessage(event) {
     if (!/youtube(-nocookie)?\.com$/.test(new URL(event.origin).hostname)) return;
     if (event.source !== frame.contentWindow) return;
     if (settled) return;
+
+    // Read the event before believing it. This channel carries playback
+    // FAILURES as well as heartbeats, so "the iframe spoke" is not the same
+    // claim as "the player works" — treating them as one is how a card ends up
+    // proudly presenting YouTube's own error screen as a successful handoff.
+    let payload;
+    try { payload = JSON.parse(event.data); } catch { return; }
+
+    if (payload?.event === 'onError') {
+      fail(false);
+      return;
+    }
+    // Anything unrecognised is ignored rather than counted: the probe still has
+    // its timeout, so silence costs a wait, while a wrong guess costs the card.
+    if (!['onReady', 'initialDelivery', 'infoDelivery'].includes(payload?.event)) return;
+
     settled = true;
     clearTimeout(timer);
     window.removeEventListener('message', onMessage);
