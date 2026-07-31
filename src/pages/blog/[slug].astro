@@ -8,6 +8,7 @@ import TableOfContents from '@/features/posts/ui/TableOfContents.astro';
 import AdjacentNav from '@/features/posts/ui/AdjacentNav.astro';
 import BackToTop from '@/features/posts/ui/BackToTop.astro';
 import NotByAI from '@/features/posts/ui/NotByAI.astro';
+import AiCredit from '@/features/posts/ui/AiCredit.astro';
 import ShareRow from '@/features/posts/ui/ShareRow.astro';
 import BlogArticleBeacon from '@/features/posts/ui/BlogArticleBeacon.astro';
 import SubscribePanel from '@/features/notify/SubscribePanel.astro';
@@ -18,6 +19,7 @@ import type { Post } from '@/features/posts/types';
 import { formatPostDate, postTitleTransitionName } from '@/features/posts/format';
 import { buildBlogOgImageUrl } from '@/features/posts/server/og-image';
 import { enrichAppleMusicEmbeds } from '@/features/posts/server/apple-music';
+import { readAuthorshipCredits } from '@/features/posts/server/directives/authors';
 import { enrichMoodEmbeds } from '@/features/posts/server/mood-embed';
 import { enrichBlurUp, getBlurUp } from '@/features/posts/server/blur-up';
 import { buildSrcSet, withWidthParam } from '@/lib/media/responsive-image';
@@ -97,7 +99,16 @@ const featureImageSrcSet = post.featureImage && isBlogImageProxyUrl(post.feature
   : undefined;
 const featureImageSizes = '(min-width: 960px) 920px, calc(100vw - 40px)';
 const hasNoTocTag = post.tags.some((tag) => tag.slug === 'hash-no-toc' || tag.name === '#no-toc');
-const hasNotByAiTag = post.tags.some((tag) => tag.slug === 'hash-not-by-ai' || tag.name === '#not-by-ai');
+// Authorship footer. A post that credits no model asserts the human pledge, so
+// the pledge is the default rather than a #not-by-ai opt-in — the tag no longer
+// gates anything here.
+//
+// Credits arrive as hoisted `authors` meta from the directive transformer. That
+// transformer is not yet applied in the content pipeline, so today this always
+// resolves to none and every post renders the pledge; the credit branch lights
+// up as soon as the meta reaches the Post, with no change needed below.
+const directiveMeta: Parameters<typeof readAuthorshipCredits>[0] = {};
+const authorshipCredits = readAuthorshipCredits(directiveMeta, post.slug);
 const titleVT = postTitleTransitionName(post.slug);
 const postDescription = post.metaDescription ?? post.ogDescription ?? post.excerpt ?? undefined;
 const postAuthorName = post.primaryAuthor?.name ?? blog.author.name;
@@ -184,7 +195,7 @@ const turnstileSiteKey = isE2ESiteFixtureEnabled(Astro.locals)
 
   <footer class="blog-end">
     <div class="blog-end__bar">
-      {hasNotByAiTag && <NotByAI />}
+      {authorshipCredits.length > 0 ? <AiCredit credits={authorshipCredits} /> : <NotByAI />}
       <div class="blog-article-sub">
         <SubscribePanel variant="blog" anchor="right" feed={blog.feed} turnstileSiteKey={turnstileSiteKey} />
         <ShareRow title={post.title} />
