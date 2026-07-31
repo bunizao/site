@@ -31,6 +31,15 @@
   --blog-dian: #27406E;
   --blog-ji: #3E8BD8;
   --blog-accent: var(--blog-dai);
+
+  /* Motion tokens. One curve, not five hand-typed near-matches — listening.css
+     already reaches for `var(--ease-out, cubic-bezier(0.23, 1, 0.32, 1))`, so
+     this is that same value promoted to a real token. */
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --dur-press: 140ms;   /* press feedback */
+  --dur-hover: 180ms;   /* hover state change */
+  --dur-move: 260ms;    /* something travelling across the card */
+  --dur-swap: 300ms;    /* one surface replacing another */
 }
 :root[data-theme='dark'] {
   --background: 0 0% 4%;
@@ -151,6 +160,15 @@ body {
   min-width: 200px;
 }
 
+/* The stage is the frame's own box. Overlays (the player, the unavailable
+   panel) anchor to THIS, not to the figure — the figure also contains the
+   caption in variant A, so a panel pinned to the figure would blanket the
+   title and channel row along with the poster. */
+.yt__stage {
+  position: relative;
+  display: block;
+}
+
 .yt__frame {
   position: relative;
   display: block;
@@ -175,7 +193,9 @@ body {
 .yt.is-playing .yt__frame { cursor: default; }
 
 /* Poster. Scales a hair on hover — the whole card leans toward the reader
-   rather than any single control moving. */
+   rather than any single control moving. Hover transforms are gated to real
+   pointers; on touch a tap fires a phantom hover and the poster would jump
+   under the finger that is already playing it. */
 .yt__poster {
   position: absolute;
   inset: 0;
@@ -183,12 +203,15 @@ body {
   height: 100%;
   object-fit: cover;
   transform: scale(1.001);
-  transition: transform .5s cubic-bezier(.2,.8,.2,1), filter .35s ease;
+  transition: transform var(--dur-move) var(--ease-out), filter var(--dur-swap) ease;
   box-shadow: var(--blog-img-edge);
 }
-.yt__frame:hover .yt__poster { transform: scale(1.028); }
+@media (hover: hover) and (pointer: fine) {
+  .yt__frame:hover .yt__poster { transform: scale(1.02); }
+}
 .yt.is-loading .yt__poster { filter: saturate(.72) brightness(.86); }
 .yt.is-playing .yt__poster { filter: brightness(.5); }
+.yt.is-unreachable .yt__poster { filter: saturate(.5) brightness(.52); }
 
 /* A puddle behind the disc, not a scrim over the poster. A broad vignette
    reads as a grey smudge on a bright still and dims an image we went to the
@@ -225,34 +248,29 @@ body {
     inset 0 0 0 1px hsl(0 0% 100% / .26),
     0 10px 26px -14px hsl(0 0% 0% / .7);
   transform: translate(-50%, -50%);
-  transition: transform .34s cubic-bezier(.2,.8,.2,1), background .25s ease, box-shadow .25s ease;
+  transition:
+    transform var(--dur-hover) var(--ease-out),
+    background var(--dur-hover) ease,
+    box-shadow var(--dur-hover) ease,
+    opacity var(--dur-swap) ease;
 }
-.yt__frame:hover .yt__disc {
-  transform: translate(-50%, -50%) scale(1.07);
-  background: hsl(0 0% 5% / .64);
-  box-shadow:
-    inset 0 0 0 1px hsl(0 0% 100% / .38),
-    0 16px 34px -16px hsl(0 0% 0% / .8);
+/* Hover is a state change, not a performance: the disc grows once and stops.
+   The previous version looped an expanding ring forever — decoration on a
+   state a reader hits dozens of times a session, with nothing to communicate
+   after the first 200ms. Deleted rather than retuned. */
+@media (hover: hover) and (pointer: fine) {
+  .yt__frame:hover .yt__disc {
+    transform: translate(-50%, -50%) scale(1.06);
+    background: hsl(0 0% 5% / .64);
+    box-shadow:
+      inset 0 0 0 1px hsl(0 0% 100% / .38),
+      0 16px 34px -16px hsl(0 0% 0% / .8);
+  }
 }
-.yt__frame:active .yt__disc { transform: translate(-50%, -50%) scale(.97); }
-
-/* Halo: one ring pushing outward on hover. Reads as "this is live" without
-   animating anything on rest. */
-.yt__disc::after {
-  content: '';
-  position: absolute;
-  inset: -1px;
-  border-radius: inherit;
-  border: 1px solid hsl(0 0% 100% / .5);
-  opacity: 0;
-  transform: scale(1);
-  pointer-events: none;
-}
-.yt__frame:hover .yt__disc::after { animation: yt-halo 1.6s cubic-bezier(.2,.8,.2,1) infinite; }
-@keyframes yt-halo {
-  0%   { opacity: .5; transform: scale(1); }
-  70%  { opacity: 0;  transform: scale(1.42); }
-  100% { opacity: 0;  transform: scale(1.42); }
+/* Press reads on touch too, so it is not gated. */
+.yt__frame:active .yt__disc {
+  transform: translate(-50%, -50%) scale(.97);
+  transition-duration: var(--dur-press);
 }
 
 .yt__glyph {
@@ -264,8 +282,7 @@ body {
   filter: drop-shadow(0 1px 4px hsl(0 0% 0% / .45));
   transition: opacity .2s ease;
 }
-.yt__glyph--wait,
-.yt__glyph--out { display: none; transform: none; }
+.yt__glyph--wait { display: none; transform: none; }
 
 .yt.is-loading .yt__glyph--play { display: none; }
 .yt.is-loading .yt__glyph--wait {
@@ -276,10 +293,110 @@ body {
   stroke-linecap: round;
   animation: yt-spin 1s linear infinite;
 }
-.yt.is-unreachable .yt__glyph--play,
-.yt.is-unreachable .yt__glyph--wait { display: none; }
-.yt.is-unreachable .yt__glyph--out { display: block; }
 @keyframes yt-spin { to { transform: rotate(1turn); } }
+
+/* --- Provenance lockup ---------------------------------------------------
+   Present in every state, including while playing. The reader must never be
+   in doubt that this is YouTube's video on our page — that is both the honest
+   thing and what the platform's attribution expectations assume. White
+   monochrome is YouTube's own prescribed treatment over photography; the
+   full-colour mark is for flat light backgrounds, which a poster never is. */
+.yt__brand {
+  position: absolute;
+  top: 10px;
+  left: 11px;
+  z-index: 4;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: #fff;
+  filter: drop-shadow(0 1px 3px hsl(0 0% 0% / .55));
+  pointer-events: none;
+  transition: opacity var(--dur-swap) ease;
+}
+.yt__brand-mark { width: 20px; height: 14px; fill: currentColor; }
+.yt__brand-word {
+  font-family: var(--font-sans);
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1;
+}
+/* While the real player is up, YouTube brands itself — ours would double. */
+.yt.is-playing .yt__brand { opacity: 0; }
+
+/* --- Unavailable panel ---------------------------------------------------
+   On the poster, not tucked under it. A one-line footnote below the frame was
+   invisible next to a 16:9 image the reader is already staring at, and it left
+   the disc looking like a play button that simply did nothing. This states the
+   situation where the eye already is, and gives the action real size. */
+.yt__down {
+  position: absolute;
+  top: 1px;
+  right: 1px;
+  bottom: 1px;
+  left: 1px;
+  z-index: 5;
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  padding: 20px;
+  border-radius: calc(var(--yt-radius) - 1px);
+  text-align: center;
+  background: hsl(0 0% 4% / .34);
+  -webkit-backdrop-filter: blur(3px);
+  backdrop-filter: blur(3px);
+}
+.yt.is-unreachable .yt__down { display: flex; }
+.yt__down-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.35;
+  color: #fff;
+  text-shadow: 0 1px 6px hsl(0 0% 0% / .6);
+}
+.yt__down-body {
+  margin: 0;
+  max-width: 30ch;
+  font-size: 13px;
+  line-height: 1.5;
+  color: hsl(0 0% 100% / .8);
+  text-shadow: 0 1px 6px hsl(0 0% 0% / .6);
+}
+.yt__down-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 11px;
+  padding: 9px 16px;
+  border-radius: 999px;
+  border: 1px solid hsl(0 0% 100% / .3);
+  background: hsl(0 0% 100% / .13);
+  -webkit-backdrop-filter: blur(12px) saturate(140%);
+  backdrop-filter: blur(12px) saturate(140%);
+  font-size: 13.5px;
+  font-weight: 500;
+  line-height: 1;
+  color: #fff;
+  text-decoration: none;
+  transition:
+    background var(--dur-hover) ease,
+    border-color var(--dur-hover) ease,
+    transform var(--dur-hover) var(--ease-out);
+}
+@media (hover: hover) and (pointer: fine) {
+  .yt__down-cta:hover { background: hsl(0 0% 100% / .22); border-color: hsl(0 0% 100% / .5); }
+}
+.yt__down-cta:active { transform: scale(.97); transition-duration: var(--dur-press); }
+.yt__down-cta:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
+.yt__down-cta svg { width: 13px; height: 13px; stroke: currentColor; stroke-width: 2; fill: none; }
+
+/* The disc has nothing left to offer once the panel is up. */
+.yt.is-unreachable .yt__disc,
+.yt.is-unreachable .yt__veil { opacity: 0; }
 
 /* Duration — our type, mono and tabular, in a glass pill. */
 .yt__duration {
@@ -302,21 +419,52 @@ body {
 }
 .yt.is-playing .yt__duration { opacity: 0; }
 
-/* Caption, variant A — outside the frame, figcaption weight. */
+/* Caption, variant A — outside the frame, figcaption weight.
+   The channel avatar leads the row: a video is somebody's work, and a card
+   that names a creator without showing them reads like a database record. */
 .yt__caption {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 1px 10px;
   margin-top: 11px;
   padding-inline: 2px;
 }
+.yt__avatar {
+  grid-row: 1 / span 2;
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  object-fit: cover;
+  background: var(--blog-fill);
+  box-shadow: inset 0 0 0 1px hsl(var(--foreground) / .1);
+}
+/* No API key, no avatar — fall back to the channel's initial rather than a
+   grey circle, so the row keeps its shape either way. */
+.yt__avatar--mono {
+  display: grid;
+  place-items: center;
+  font-family: var(--font-mono);
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--blog-muted);
+  text-transform: uppercase;
+}
+/* Real oEmbed titles run long ("… 60fps 4K — Official Blender Foundation Short
+   Film"). Two lines, then ellipsis — the caption must not out-grow the poster. */
 .yt__title {
+  grid-column: 2;
   font-size: 15px;
   font-weight: 500;
   line-height: 1.4;
   color: var(--blog-ink);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 .yt__meta {
+  grid-column: 2;
   display: flex;
   align-items: center;
   flex-wrap: wrap;
@@ -325,6 +473,13 @@ body {
   line-height: 1.4;
   color: var(--blog-faint);
 }
+.yt__channel {
+  color: inherit;
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+  transition: color var(--dur-hover) ease, border-color var(--dur-hover) ease;
+}
+.yt__channel:hover { color: var(--blog-dian); border-bottom-color: hsl(var(--foreground) / .22); }
 .yt__meta-dot { width: 2px; height: 2px; border-radius: 999px; background: currentColor; opacity: .7; }
 /* Attribution + the escape hatch, one control. Always present, so the
    unreachable path is a change of emphasis rather than new UI appearing. */
@@ -339,18 +494,8 @@ body {
 }
 .yt__out:hover { color: var(--blog-dian); border-bottom-color: hsl(var(--foreground) / .22); }
 .yt__out svg { width: 10px; height: 10px; stroke: currentColor; stroke-width: 1.8; fill: none; }
-
-/* The unreachable notice. One faint line, no icon, no colour alarm — a slow
-   network must never look like a failure. */
-.yt__fallback {
-  display: none;
-  margin-top: 2px;
-  font-size: 12.5px;
-  line-height: 1.5;
-  color: var(--blog-faint);
-}
-.yt.is-unreachable .yt__fallback { display: block; }
-.yt.is-unreachable .yt__out { color: var(--blog-dian); border-bottom-color: hsl(var(--foreground) / .22); }
+.yt__out:focus-visible,
+.yt__channel:focus-visible { outline: 2px solid var(--blog-accent); outline-offset: 2px; border-radius: 3px; }
 
 /* Variant B — caption rides in-frame over a bottom scrim. It stays a SIBLING of
    the button, never a child: an <a> inside a <button> is invalid markup and
@@ -367,15 +512,21 @@ body {
   border-radius: 0 0 calc(var(--yt-radius) - 1px) calc(var(--yt-radius) - 1px);
   pointer-events: none;
   background: linear-gradient(to top, hsl(0 0% 0% / .78), hsl(0 0% 0% / .34) 46%, transparent);
-  transition: opacity .3s ease, transform .3s ease;
+  transition: opacity var(--dur-swap) ease, transform var(--dur-swap) var(--ease-out);
 }
 .yt--overlay .yt__title { color: hsl(0 0% 100% / .96); }
 .yt--overlay .yt__meta { color: hsl(0 0% 100% / .66); }
-.yt--overlay .yt__out { pointer-events: auto; }
-.yt--overlay .yt__out:hover { color: #fff; border-bottom-color: hsl(0 0% 100% / .4); }
+.yt--overlay .yt__avatar { box-shadow: inset 0 0 0 1px hsl(0 0% 100% / .28); background: hsl(0 0% 100% / .12); }
+.yt--overlay .yt__avatar--mono { color: hsl(0 0% 100% / .8); }
+.yt--overlay .yt__out,
+.yt--overlay .yt__channel { pointer-events: auto; }
+.yt--overlay .yt__out:hover,
+.yt--overlay .yt__channel:hover { color: #fff; border-bottom-color: hsl(0 0% 100% / .4); }
+/* The lockup stays — it sits top-left, the caption sits bottom, no collision.
+   Branding is not negotiable per variant. */
 .yt--overlay .yt__duration { bottom: auto; top: 10px; }
-.yt--overlay .yt__fallback { color: hsl(0 0% 100% / .62); }
 .yt--overlay.is-playing .yt__caption { opacity: 0; transform: translateY(6px); }
+.yt--overlay.is-unreachable .yt__caption { opacity: 0; }
 
 /* Player — fades in over the poster, so there is never a black box. */
 .yt__player {
@@ -387,26 +538,37 @@ body {
   border: 0;
   opacity: 0;
   pointer-events: none;
-  transition: opacity .45s ease;
+  transition: opacity var(--dur-swap) ease;
 }
 .yt.is-playing .yt__player { opacity: 1; pointer-events: auto; }
 .yt.is-playing .yt__veil,
-.yt.is-playing .yt__disc { opacity: 0; pointer-events: none; transition: opacity .3s ease; }
+.yt.is-playing .yt__disc { opacity: 0; pointer-events: none; }
 
 @media (max-width: 600px) {
   .yt { --yt-disc: 56px; }
   .yt__glyph { width: 20px; height: 20px; }
   .yt__title { font-size: 14px; }
   .yt__meta { font-size: 12px; }
+  .yt__avatar { width: 30px; height: 30px; }
+  .yt__down-title { font-size: 14px; }
+  .yt__down-body { font-size: 12.5px; }
 }
 
+/* Reduced motion keeps the state changes and drops the travel: opacity still
+   carries loading and hand-off, nothing scales or slides. The spinner becomes
+   a stepped tick rather than vanishing — a wait with no indicator at all is
+   worse than a modest one. */
 @media (prefers-reduced-motion: reduce) {
   .yt__poster,
-  .yt__disc,
-  .yt__player,
-  .yt__caption { transition: none; }
+  .yt__caption,
+  .yt__down-cta { transition: none; }
+  .yt__disc { transition: background var(--dur-hover) ease, opacity var(--dur-swap) ease; }
+  .yt__frame:hover .yt__poster,
+  .yt__frame:hover .yt__disc,
+  .yt__frame:active .yt__disc,
+  .yt__down-cta:active { transform: translate(-50%, -50%); }
   .yt__frame:hover .yt__poster { transform: none; }
-  .yt__frame:hover .yt__disc::after { animation: none; }
+  .yt__down-cta:active { transform: none; }
   .yt.is-loading .yt__glyph--wait { animation: yt-spin 1.6s steps(8) infinite; }
 }
 
@@ -473,7 +635,12 @@ body {
   left: 0;
   top: calc(100% + 12px);
   z-index: 10;
-  width: min(440px, 100%);
+  /* NotByAI's card is fixed-width because it holds a paragraph. This one holds
+     a two-column grid, so it shrinks to its content — a fixed width would leave
+     a dead right edge, worst of all in the one-row branches. */
+  width: fit-content;
+  min-width: 240px;
+  max-width: min(440px, 100%);
   margin: 0;
   padding: 15px 17px 14px;
   border-radius: 14px;
@@ -485,103 +652,79 @@ body {
     0 8px 24px -16px hsl(var(--foreground) / 0.16),
     inset 0 1px 0 hsl(0 0% 100% / 0.04);
   opacity: 0;
-  transform: translateY(6px);
+  /* Grows from the trigger it hangs off, not from its own centre, and never
+     from nothing — 0.97, not 0. */
+  transform-origin: top left;
+  transform: translateY(4px) scale(.97);
   pointer-events: none;
-  transition: opacity .2s ease, transform .2s ease;
+  transition:
+    opacity var(--dur-hover) ease,
+    transform var(--dur-hover) var(--ease-out);
 }
 .credit:hover .credit__card,
 .credit:focus-within .credit__card,
 .credit[data-open] .credit__card {
   opacity: 1;
-  transform: translateY(0);
+  transform: none;
   pointer-events: auto;
 }
 
-.credit__head {
+/* THE CARD ANSWERS ONE QUESTION: did the model get into the words, or not.
+   No human row. There is no vocabulary for human roles — authorship.ts defines
+   roles for models only and Ghost gives names, not roles — so a "Murray —
+   outline, editing" row is data that can never exist. It also claims the human
+   and the model are peers with a comparable split, which the byline already
+   contradicts: the human is the author, the model is a tool that got named.
+
+   The division of labour that IS data-backed is pledgeSafe. Rendered as two
+   groups, in the reader's terms rather than the vocabulary's: roles that land
+   in the prose, and roles that happen around it. An empty group is omitted, so
+   a post whose credits are all safe shows only "Around it" — which is the
+   pledge, restated as evidence. */
+.credit__model {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding-bottom: 10px;
-  margin-bottom: 10px;
-  border-bottom: 1px solid var(--blog-line);
 }
-/* A neutral mark, not a vendor logo — we are crediting a tool, not badging a
-   partner, and a borrowed wordmark in the article foot reads as endorsement. */
-.credit__mark { width: 13px; height: 13px; flex: none; fill: none; stroke: var(--blog-dian); stroke-width: 1.5; stroke-linecap: round; }
-.credit__model {
-  font-family: var(--font-mono);
-  font-size: 13px;
-  font-weight: 500;
-  letter-spacing: .01em;
+.credit__mark {
+  width: 20px;
+  height: 20px;
+  flex: none;
+  overflow: visible;
+}
+.credit__name {
+  font-size: 13.5px;
+  font-weight: 600;
+  line-height: 1.3;
+  letter-spacing: -0.005em;
   color: var(--blog-ink);
 }
-.credit__eyebrow {
-  margin-left: auto;
-  font-family: var(--font-mono);
-  font-size: 10px;
-  letter-spacing: .12em;
-  text-transform: uppercase;
-  color: var(--blog-faint);
-}
-
-/* The role manifest. Three columns: the vocabulary key in code type (it is a
-   literal string in the directive), its meaning in prose, and the pledge fact.
-   The third column states what is true — "no prose" / "prose" — rather than a
-   tick and a cross, because the reader is being told what a machine touched,
-   not shown a pass/fail grade. */
-.credit__roles {
+.credit__split {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  align-items: baseline;
-  gap: 6px 12px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 6px 14px;
+  margin: 12px 0 0;
 }
-.credit__role { display: contents; }
-.credit__key {
-  font-family: var(--font-code);
-  font-size: 12px;
-  color: var(--blog-ink);
-}
-.credit__what {
-  font-size: 13px;
-  line-height: 1.45;
-  color: var(--blog-body);
-}
-.credit__qual {
-  font-family: var(--font-mono);
+.credit__where {
+  padding-top: 2px;
   font-size: 11px;
-  color: var(--blog-faint);
-  font-variant-numeric: tabular-nums;
-}
-.credit__flag {
-  justify-self: end;
-  font-family: var(--font-mono);
-  font-size: 10px;
-  letter-spacing: .08em;
+  font-weight: 500;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
+  line-height: 1.5;
   white-space: nowrap;
   color: var(--blog-faint);
 }
-.credit__flag[data-prose='yes'] { color: var(--blog-dian); }
-
-.credit__note {
-  margin: 12px 0 0;
-  padding-top: 10px;
-  border-top: 1px solid var(--blog-line);
+.credit__what {
+  margin: 0;
   font-size: 12.5px;
-  line-height: 1.55;
-  color: var(--blog-muted);
+  line-height: 1.6;
+  color: var(--blog-body);
 }
-.credit__note code {
-  font-family: var(--font-code);
-  font-size: 11.5px;
-  padding: 1px 4px;
-  border-radius: 4px;
-  background: var(--blog-fill);
-  color: var(--blog-ink);
-}
+/* Separators and role qualifiers (`from="zh"`) both recede — they are grammar,
+   not content. */
+.credit__sep,
+.credit__qual { color: var(--blog-faint); }
 
 @media (max-width: 639px) {
   .credit__card {
@@ -625,6 +768,32 @@ body {
 
 <body class="blog-zone">
 
+<!-- Claude logomark.
+     APPROXIMATION — a 12-ray tapered burst in Anthropic's clay, drawn here so
+     the card can be judged with the real mark's weight and colour in place.
+     Swap in the official SVG from anthropic.com/brand before shipping; the
+     ray angles and lengths below are eyeballed, not the licensed artwork. -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <symbol id="claude-mark" viewBox="0 0 32 32">
+    <g fill="#D97757">
+      <!-- Rays are wide enough at the base to overlap their neighbours, which
+           fuses them into a solid hub. Thin rays read as a snowflake at 20px. -->
+      <g id="claude-ray-long"><path d="M16 3.4c1.55 4.0 2.25 7.9 2.25 11.9 0 1.24-1.01 2.25-2.25 2.25s-2.25-1.01-2.25-2.25c0-4.0.7-7.9 2.25-11.9Z"/></g>
+      <use href="#claude-ray-long" transform="rotate(30 16 16)"/>
+      <use href="#claude-ray-long" transform="rotate(60 16 16)"/>
+      <use href="#claude-ray-long" transform="rotate(90 16 16)"/>
+      <use href="#claude-ray-long" transform="rotate(120 16 16)"/>
+      <use href="#claude-ray-long" transform="rotate(150 16 16)"/>
+      <use href="#claude-ray-long" transform="rotate(180 16 16)"/>
+      <use href="#claude-ray-long" transform="rotate(210 16 16)"/>
+      <use href="#claude-ray-long" transform="rotate(240 16 16)"/>
+      <use href="#claude-ray-long" transform="rotate(270 16 16)"/>
+      <use href="#claude-ray-long" transform="rotate(300 16 16)"/>
+      <use href="#claude-ray-long" transform="rotate(330 16 16)"/>
+    </g>
+  </symbol>
+</svg>
+
 <div class="lab-bar">
   <strong>Embed Lab</strong>
   <span class="lab-sep"></span>
@@ -665,28 +834,46 @@ body {
 
   <!-- Variant A — caption below the frame. Default. -->
   <figure class="yt" data-yt data-video="aqz-KE-bpKQ" data-start="0">
+    <div class="yt__stage">
     <button class="yt__frame" type="button" data-yt-frame aria-label="Play “Big Buck Bunny” by Blender Foundation">
       <img class="yt__poster" data-yt-poster alt="" loading="lazy" decoding="async" />
       <span class="yt__veil"></span>
       <span class="yt__disc">
         <svg class="yt__glyph yt__glyph--play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.2v13.6a1 1 0 0 0 1.53.85l10.5-6.8a1 1 0 0 0 0-1.7L9.53 4.35A1 1 0 0 0 8 5.2Z"/></svg>
         <svg class="yt__glyph yt__glyph--wait" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 0 9 9" /></svg>
-        <svg class="yt__glyph yt__glyph--out" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4h6v6M20 4 10 14M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg>
       </span>
       <span class="yt__duration">10:34</span>
+      <span class="yt__brand" aria-hidden="true">
+        <svg class="yt__brand-mark" viewBox="0 0 28 20"><path fill-rule="evenodd" d="M27.4 3.1A3.5 3.5 0 0 0 24.9.6C22.7 0 14 0 14 0S5.3 0 3.1.6A3.5 3.5 0 0 0 .6 3.1C0 5.3 0 10 0 10s0 4.7.6 6.9a3.5 3.5 0 0 0 2.5 2.5C5.3 20 14 20 14 20s8.7 0 10.9-.6a3.5 3.5 0 0 0 2.5-2.5c.6-2.2.6-6.9.6-6.9s0-4.7-.6-6.9ZM11.2 14.2V5.8l7.3 4.2-7.3 4.2Z"/></svg>
+        <span class="yt__brand-word">YouTube</span>
+      </span>
     </button>
+    <!-- The whole panel sits outside the button, so its call to action is a
+         real anchor: keyboard-reachable, right-clickable, and alive with JS
+         off. Nesting it inside would make the one control that matters when
+         playback fails the one control that does not work. -->
+    <div class="yt__down">
+      <p class="yt__down-title">This video didn’t load</p>
+      <p class="yt__down-body">YouTube may be blocked on this network.</p>
+      <a class="yt__down-cta" href="https://www.youtube.com/watch?v=aqz-KE-bpKQ" target="_blank" rel="noopener noreferrer">
+        Watch on YouTube
+        <svg viewBox="0 0 24 24" aria-hidden="true" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7M9 7h8v8"/></svg>
+      </a>
+    </div>
     <iframe class="yt__player" data-yt-player title="Big Buck Bunny" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen hidden></iframe>
+    </div>
     <figcaption class="yt__caption">
-      <span class="yt__title">Big Buck Bunny</span>
+      <!-- Channel avatar needs the Data API; this card shows the funded path. -->
+      <img class="yt__avatar" src="https://yt3.ggpht.com/ytc/AIdro_lVvT5NIA9M6qLR6JKcTYPTbNZ4mCLGYZFVGN4wqLE7lg=s88-c-k-c0x00ffffff-no-rj" alt="" loading="lazy" decoding="async" width="34" height="34" />
+      <span class="yt__title">Big Buck Bunny 60fps 4K — Official Blender Foundation Short Film</span>
       <span class="yt__meta">
-        <span>Blender Foundation</span>
+        <a class="yt__channel" href="https://www.youtube.com/@BlenderOfficial" target="_blank" rel="noopener noreferrer">Blender</a>
         <span class="yt__meta-dot" aria-hidden="true"></span>
         <a class="yt__out" data-yt-out href="https://www.youtube.com/watch?v=aqz-KE-bpKQ" target="_blank" rel="noopener noreferrer">
           YouTube
           <svg viewBox="0 0 24 24" aria-hidden="true" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7M9 7h8v8"/></svg>
         </a>
       </span>
-      <span class="yt__fallback">YouTube isn’t reachable from here — the link above opens it directly.</span>
     </figcaption>
   </figure>
 
@@ -700,36 +887,52 @@ body {
 
   <!-- Variant B — caption in-frame. -->
   <figure class="yt yt--overlay" data-yt data-video="jNQXAC9IVRw" data-start="0">
+    <div class="yt__stage">
     <button class="yt__frame" type="button" data-yt-frame aria-label="Play “Me at the zoo” by jawed">
       <img class="yt__poster" data-yt-poster alt="" loading="lazy" decoding="async" />
       <span class="yt__veil"></span>
       <span class="yt__disc">
         <svg class="yt__glyph yt__glyph--play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.2v13.6a1 1 0 0 0 1.53.85l10.5-6.8a1 1 0 0 0 0-1.7L9.53 4.35A1 1 0 0 0 8 5.2Z"/></svg>
         <svg class="yt__glyph yt__glyph--wait" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 0 9 9" /></svg>
-        <svg class="yt__glyph yt__glyph--out" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4h6v6M20 4 10 14M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg>
       </span>
       <span class="yt__duration">0:18</span>
+      <span class="yt__brand" aria-hidden="true">
+        <svg class="yt__brand-mark" viewBox="0 0 28 20"><path fill-rule="evenodd" d="M27.4 3.1A3.5 3.5 0 0 0 24.9.6C22.7 0 14 0 14 0S5.3 0 3.1.6A3.5 3.5 0 0 0 .6 3.1C0 5.3 0 10 0 10s0 4.7.6 6.9a3.5 3.5 0 0 0 2.5 2.5C5.3 20 14 20 14 20s8.7 0 10.9-.6a3.5 3.5 0 0 0 2.5-2.5c.6-2.2.6-6.9.6-6.9s0-4.7-.6-6.9ZM11.2 14.2V5.8l7.3 4.2-7.3 4.2Z"/></svg>
+        <span class="yt__brand-word">YouTube</span>
+      </span>
     </button>
+    <div class="yt__down">
+      <p class="yt__down-title">This video didn’t load</p>
+      <p class="yt__down-body">YouTube may be blocked on this network.</p>
+      <a class="yt__down-cta" href="https://www.youtube.com/watch?v=jNQXAC9IVRw" target="_blank" rel="noopener noreferrer">
+        Watch on YouTube
+        <svg viewBox="0 0 24 24" aria-hidden="true" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7M9 7h8v8"/></svg>
+      </a>
+    </div>
     <iframe class="yt__player" data-yt-player title="Me at the zoo" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen hidden></iframe>
+    </div>
     <figcaption class="yt__caption">
+      <!-- No avatar available: the monogram fallback keeps the row's shape. -->
+      <span class="yt__avatar yt__avatar--mono" aria-hidden="true">j</span>
       <span class="yt__title">Me at the zoo</span>
       <span class="yt__meta">
-        <span>jawed</span>
+        <a class="yt__channel" href="https://www.youtube.com/@jawed" target="_blank" rel="noopener noreferrer">jawed</a>
         <span class="yt__meta-dot" aria-hidden="true"></span>
         <a class="yt__out" data-yt-out href="https://www.youtube.com/watch?v=jNQXAC9IVRw" target="_blank" rel="noopener noreferrer">
           YouTube
           <svg viewBox="0 0 24 24" aria-hidden="true" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7M9 7h8v8"/></svg>
         </a>
       </span>
-      <span class="yt__fallback">YouTube isn’t reachable from here — the link above opens it directly.</span>
     </figcaption>
   </figure>
 
   <!-- ================= AUTHORSHIP CREDITS ================= -->
   <p class="lab-h">02 — Authorship credits</p>
   <p class="lab-note">
-    Three mutually exclusive branches. Hover (or tap) a trigger to open the manifest.
-    Copy below is placeholder English — see the handoff note at the end of the chat.
+    The card answers one question — did the model get into the words, or not — so the
+    human never appears in it (the byline is the human, and there is no role vocabulary
+    for people). Branch 2b is the case the plan's branch list does not route today.
+    Hover (or tap) a trigger to open a card. Copy is placeholder English.
   </p>
 
   <!-- Branch 1 — #not-by-ai, every credit pledgeSafe. Pledge copy unchanged. -->
@@ -745,27 +948,17 @@ body {
         A model helped around the writing —
         <button type="button" class="credit__trigger" data-credit-trigger aria-expanded="false">research, factcheck</button>
       </p>
-      <figure class="credit__card" role="note" aria-label="Model credit">
-        <figcaption class="credit__head">
-          <svg class="credit__mark" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.4 9.9 6.1 14.6 8 9.9 9.9 8 14.6 6.1 9.9 1.4 8 6.1 6.1Z"/></svg>
-          <span class="credit__model">claude-opus-5</span>
-          <span class="credit__eyebrow">model credit</span>
-        </figcaption>
-        <ul class="credit__roles">
-          <li class="credit__role">
-            <code class="credit__key">research</code>
-            <span class="credit__what">gathered sources</span>
-            <span class="credit__flag" data-prose="no">no prose</span>
-          </li>
-          <li class="credit__role">
-            <code class="credit__key">factcheck</code>
-            <span class="credit__what">verified claims</span>
-            <span class="credit__flag" data-prose="no">no prose</span>
-          </li>
-        </ul>
-        <p class="credit__note">
-          Neither role produces reader-facing text, so the pledge stands as written.
-        </p>
+      <!-- Every credit is pledgeSafe, so the prose group is empty and omitted.
+           The card is the pledge's own evidence. -->
+      <figure class="credit__card" role="note" aria-label="Credits">
+        <div class="credit__model">
+          <svg class="credit__mark" viewBox="0 0 32 32" aria-hidden="true"><use href="#claude-mark" /></svg>
+          <span class="credit__name">Claude Opus 5</span>
+        </div>
+        <dl class="credit__split">
+          <dt class="credit__where">Around it</dt>
+          <dd class="credit__what">Gathered sources <span class="credit__sep">·</span> Verified claims</dd>
+        </dl>
       </figure>
     </aside>
     <div class="lab-foot__pills">
@@ -782,33 +975,47 @@ body {
         Written with <span class="credit__em">Claude Opus 5</span>, which drafted and translated parts of this post.
       </p>
       <button type="button" class="credit__trigger" data-credit-trigger aria-expanded="false">What exactly did it do?</button>
-      <figure class="credit__card" role="note" aria-label="Model credit">
-        <figcaption class="credit__head">
-          <svg class="credit__mark" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.4 9.9 6.1 14.6 8 9.9 9.9 8 14.6 6.1 9.9 1.4 8 6.1 6.1Z"/></svg>
-          <span class="credit__model">claude-opus-5</span>
-          <span class="credit__eyebrow">model credit</span>
-        </figcaption>
-        <ul class="credit__roles">
-          <li class="credit__role">
-            <code class="credit__key">draft</code>
-            <span class="credit__what">produced the first draft</span>
-            <span class="credit__flag" data-prose="yes">prose</span>
-          </li>
-          <li class="credit__role">
-            <code class="credit__key">translate</code>
-            <span class="credit__what">rendered into another language <span class="credit__qual">zh → en</span></span>
-            <span class="credit__flag" data-prose="yes">prose</span>
-          </li>
-          <li class="credit__role">
-            <code class="credit__key">factcheck</code>
-            <span class="credit__what">verified claims</span>
-            <span class="credit__flag" data-prose="no">no prose</span>
-          </li>
-        </ul>
-        <p class="credit__note">
-          Prose landed in this post that a human did not write, so there is no
-          <code>#not-by-ai</code> pledge here — the credit is the honest version of it.
-        </p>
+      <!-- Both groups present. This is the case the split exists for. -->
+      <figure class="credit__card" role="note" aria-label="Credits">
+        <div class="credit__model">
+          <svg class="credit__mark" viewBox="0 0 32 32" aria-hidden="true"><use href="#claude-mark" /></svg>
+          <span class="credit__name">Claude Opus 5</span>
+        </div>
+        <dl class="credit__split">
+          <dt class="credit__where">In the prose</dt>
+          <dd class="credit__what">First draft <span class="credit__sep">·</span> Translation <span class="credit__qual">from Chinese</span></dd>
+          <dt class="credit__where">Around it</dt>
+          <dd class="credit__what">Verified claims</dd>
+        </dl>
+      </figure>
+    </aside>
+    <div class="lab-foot__pills">
+      <span class="lab-foot__pill">Subscribe</span>
+      <span class="lab-foot__pill">Share</span>
+    </div>
+  </div>
+
+  <!-- Branch 2, safe-only variant — THE GAP the plan's branch list misses.
+       No #not-by-ai tag, so the pledge cannot be claimed; every credit is
+       pledgeSafe, so the plan's branch 2 guard ("any credit not pledgeSafe")
+       does not fire and branch 3 swallows it. Widening the guard to "any
+       credit at all" routes it here. -->
+  <p class="lab-h" style="margin-top:56px">branch 2b — no tag, safe credits only <span style="color:var(--blog-faint);text-transform:none;letter-spacing:0">(unrouted in the plan today)</span></p>
+  <div class="lab-foot">
+    <aside class="credit" data-credit>
+      <p class="credit__line">
+        Fact-checked with <span class="credit__em">Claude Opus 5</span>. The writing is mine.
+      </p>
+      <button type="button" class="credit__trigger" data-credit-trigger aria-expanded="false">What exactly did it do?</button>
+      <figure class="credit__card" role="note" aria-label="Credits">
+        <div class="credit__model">
+          <svg class="credit__mark" viewBox="0 0 32 32" aria-hidden="true"><use href="#claude-mark" /></svg>
+          <span class="credit__name">Claude Opus 5</span>
+        </div>
+        <dl class="credit__split">
+          <dt class="credit__where">Around it</dt>
+          <dd class="credit__what">Verified claims <span class="credit__sep">·</span> Image alt text</dd>
+        </dl>
       </figure>
     </aside>
     <div class="lab-foot__pills">
@@ -899,9 +1106,16 @@ function play(card) {
     enablejsapi: '1',
     playsinline: '1',
     rel: '0',
-    origin: location.origin,
     start,
   });
+  // `origin` is a security check YouTube runs against the embedding page. It
+  // must be omitted on a non-http(s) page — sending "file://" or "null" makes
+  // YouTube reject the API handshake, so `onReady` never arrives and a
+  // perfectly reachable YouTube gets reported as blocked. That is exactly what
+  // happened when this lab was opened straight off disk.
+  const httpOrigin = /^https?:$/.test(location.protocol) ? location.origin : null;
+  if (httpOrigin) params.set('origin', httpOrigin);
+
   frame.hidden = false;
   frame.src = `https://www.youtube-nocookie.com/embed/${id}?${params}`;
 
@@ -944,13 +1158,10 @@ function play(card) {
 
 document.querySelectorAll('[data-yt]').forEach((card) => {
   mountPoster(card);
-  // The "Watch on YouTube" anchor lives outside this button in both variants,
-  // so there is no nested-interactive click to filter here.
+  // Every anchor lives outside this button, so there is no nested-interactive
+  // click to filter. When the card is down, the panel's own CTA covers it.
   card.querySelector('[data-yt-frame]').addEventListener('click', () => {
-    if (card.classList.contains('is-unreachable')) {
-      window.open(card.querySelector('[data-yt-out]').href, '_blank', 'noopener');
-      return;
-    }
+    if (card.classList.contains('is-unreachable')) return;
     play(card);
   });
 });
