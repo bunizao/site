@@ -167,7 +167,7 @@ export function renderYouTubeEmbedMarkup(options: YouTubeEmbedMarkupOptions): st
     '<span class="yt__meta">',
     channelMarkup,
     `<a class="yt__out" href="${escapeHtml(watchUrl)}" target="_blank" rel="noopener noreferrer">`,
-    '<svg class="yt__out-mark" viewBox="0 0 28 20" aria-hidden="true"><path fill-rule="evenodd" d="M27.4 3.1A3.5 3.5 0 0 0 24.9.6C22.7 0 14 0 14 0S5.3 0 3.1.6A3.5 3.5 0 0 0 .6 3.1C0 5.3 0 10 0 10s0 4.7.6 6.9a3.5 3.5 0 0 0 2.5 2.5C5.3 20 14 20s8.7 0 10.9-.6a3.5 3.5 0 0 0 2.5-2.5c.6-2.2.6-6.9.6-6.9s0-4.7-.6-6.9ZM11.2 14.2V5.8l7.3 4.2-7.3 4.2Z"/></svg>',
+    '<svg class="yt__out-mark" viewBox="0 0 28 20" aria-hidden="true"><path fill-rule="evenodd" d="M4 2h20a4 4 0 0 1 4 4v8a4 4 0 0 1-4 4H4a4 4 0 0 1-4-4V6a4 4 0 0 1 4-4Zm7 3.8v8.4l7.3-4.2L11 5.8Z"/></svg>',
     'YouTube',
     '<svg class="yt__out-arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 17 17 7M9 7h8v8"/></svg>',
     '</a>',
