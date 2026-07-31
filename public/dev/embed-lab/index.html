@@ -575,172 +575,45 @@ body {
 /* ==========================================================================
    AUTHORSHIP CREDITS
    Ships to: src/data/authorship.ts (the role table, as data)
-             src/features/posts/ui/NotByAI.astro (branch 1 addendum)
-             src/features/posts/ui/AiCredit.astro (branch 2 replacement)
+             src/features/posts/ui/NotByAI.astro (pledge + credit)
+             src/features/posts/ui/AiCredit.astro (credit alone)
 
-   Deliberately built as a sibling of .not-by-ai, not a new visual species:
-   same 14px line, same underlined help trigger, same glass card on reveal.
-   A model credit is an authorship statement; it should carry the same weight
-   as the pledge, not sit below it as a disclaimer.
+   No popover. An earlier pass built this as a sibling of .not-by-ai — trigger,
+   glass card, hover controller, static mobile fallback, a JS module — all of it
+   to hide eight words. The declaration is short enough to just say, so it says
+   it. Nothing here needs JavaScript, a media query, or a reduced-motion rule.
+
+   The same reasoning retires the pledge's own "why does that matter to me?"
+   card in NotByAI.astro; see the handoff note under branch 3.
    ========================================================================== */
 .credit {
-  position: relative;
-  flex: 1 1 260px;
+  flex: 1 1 320px;
   min-width: 0;
 }
 
 .credit__line {
   margin: 0;
+  max-width: 56ch;
   font-size: 14px;
-  line-height: 1.55;
+  line-height: 1.6;
   color: var(--blog-muted);
+  text-wrap: pretty;
 }
-.credit__em { font-weight: 600; color: var(--blog-ink); }
-
-.credit__trigger {
-  display: inline-block;
-  margin-top: 4px;
-  padding: 0;
-  border: 0;
-  background: none;
-  font: inherit;
-  font-size: 14px;
-  color: var(--blog-dian);
-  cursor: help;
-  text-decoration: underline;
-  text-decoration-color: hsl(var(--foreground) / 0.2);
-  text-underline-offset: 3px;
-  transition: text-decoration-color .15s ease;
-}
-.credit__trigger:hover,
-.credit__trigger:focus-visible { text-decoration-color: var(--blog-dian); outline: none; }
-/* Lab only: the pledge's own trigger is inert here so it cannot open the
-   credit card. Same appearance, so the comparison stays honest. */
-.credit__trigger:disabled { cursor: default; }
-
-/* Branch 1 addendum: the pledge is unchanged and stays the loud thing; the
-   safe credits are a subordinate line under it, small and faint, with the same
-   trigger behaviour. */
-.credit__addendum {
-  margin: 6px 0 0;
-  font-size: 12.5px;
-  line-height: 1.5;
-  color: var(--blog-faint);
-}
-.credit__addendum .credit__trigger { margin: 0; font-size: inherit; }
-
-/* The manifest card. Mirrors .not-by-ai__card exactly. */
-.credit__card {
-  position: absolute;
-  left: 0;
-  top: calc(100% + 12px);
-  z-index: 10;
-  /* NotByAI's card is fixed-width because it holds a paragraph. This one holds
-     a two-column grid, so it shrinks to its content — a fixed width would leave
-     a dead right edge, worst of all in the one-row branches. */
-  width: fit-content;
-  min-width: 240px;
-  max-width: min(440px, 100%);
-  margin: 0;
-  padding: 15px 17px 14px;
-  border-radius: 14px;
-  border: 1px solid hsl(var(--foreground) / 0.08);
-  background: hsl(var(--card) / 0.72);
-  -webkit-backdrop-filter: blur(18px) saturate(160%);
-  backdrop-filter: blur(18px) saturate(160%);
-  box-shadow:
-    0 8px 24px -16px hsl(var(--foreground) / 0.16),
-    inset 0 1px 0 hsl(0 0% 100% / 0.04);
-  opacity: 0;
-  /* Grows from the trigger it hangs off, not from its own centre, and never
-     from nothing — 0.97, not 0. */
-  transform-origin: top left;
-  transform: translateY(4px) scale(.97);
-  pointer-events: none;
-  transition:
-    opacity var(--dur-hover) ease,
-    transform var(--dur-hover) var(--ease-out);
-}
-.credit:hover .credit__card,
-.credit:focus-within .credit__card,
-.credit[data-open] .credit__card {
-  opacity: 1;
-  transform: none;
-  pointer-events: auto;
-}
-
-/* THE CARD ANSWERS ONE QUESTION: did the model get into the words, or not.
-   No human row. There is no vocabulary for human roles — authorship.ts defines
-   roles for models only and Ghost gives names, not roles — so a "Murray —
-   outline, editing" row is data that can never exist. It also claims the human
-   and the model are peers with a comparable split, which the byline already
-   contradicts: the human is the author, the model is a tool that got named.
-
-   The division of labour that IS data-backed is pledgeSafe. Rendered as two
-   groups, in the reader's terms rather than the vocabulary's: roles that land
-   in the prose, and roles that happen around it. An empty group is omitted, so
-   a post whose credits are all safe shows only "Around it" — which is the
-   pledge, restated as evidence. */
-.credit__model {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+/* The model name and its mark are one unit and must never break across a line. */
+.credit__sig {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 5px;
+  font-weight: 600;
+  color: var(--blog-ink);
+  white-space: nowrap;
 }
 .credit__mark {
-  width: 20px;
-  height: 20px;
+  width: 14px;
+  height: 14px;
   flex: none;
   overflow: visible;
-}
-.credit__name {
-  font-size: 13.5px;
-  font-weight: 600;
-  line-height: 1.3;
-  letter-spacing: -0.005em;
-  color: var(--blog-ink);
-}
-.credit__split {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  gap: 6px 14px;
-  margin: 12px 0 0;
-}
-.credit__where {
-  padding-top: 2px;
-  font-size: 11px;
-  font-weight: 500;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  line-height: 1.5;
-  white-space: nowrap;
-  color: var(--blog-faint);
-}
-.credit__what {
-  margin: 0;
-  font-size: 12.5px;
-  line-height: 1.6;
-  color: var(--blog-body);
-}
-/* Separators and role qualifiers (`from="zh"`) both recede — they are grammar,
-   not content. */
-.credit__sep,
-.credit__qual { color: var(--blog-faint); }
-
-@media (max-width: 639px) {
-  .credit__card {
-    position: static;
-    display: none;
-    width: 100%;
-    margin-top: 12px;
-    opacity: 1;
-    transform: none;
-    pointer-events: auto;
-  }
-  .credit[data-open] .credit__card,
-  .credit:focus-within .credit__card { display: block; }
-}
-@media (prefers-reduced-motion: reduce) {
-  .credit__card { transition: opacity .2s ease; transform: none; }
+  transform: translateY(1.5px);
 }
 
 /* Article-foot bar — reproduced from .blog-end__bar so the credit is judged in
@@ -929,37 +802,22 @@ body {
   <!-- ================= AUTHORSHIP CREDITS ================= -->
   <p class="lab-h">02 — Authorship credits</p>
   <p class="lab-note">
-    The card answers one question — did the model get into the words, or not — so the
-    human never appears in it (the byline is the human, and there is no role vocabulary
-    for people). Branch 2b is the case the plan's branch list does not route today.
-    Hover (or tap) a trigger to open a card. Copy is placeholder English.
+    One line, no popover, no JavaScript. <code>pledgeSafe</code> stops being something
+    the reader sees and goes back to its two real jobs: failing the build on a false
+    pledge, and choosing which sentence pattern applies. The roles render as the
+    plain-English meanings already in the vocabulary table, so nothing new is authored
+    per post. Copy is placeholder English.
   </p>
 
-  <!-- Branch 1 — #not-by-ai, every credit pledgeSafe. Pledge copy unchanged. -->
-  <p class="lab-h" style="margin-top:36px">branch 1 — pledge holds, safe credits listed</p>
+  <!-- Branch 1 — #not-by-ai, every credit pledgeSafe. Pledge sentence unchanged,
+       credit appended to it. -->
+  <p class="lab-h" style="margin-top:36px">branch 1 — pledge holds, credit appended</p>
   <div class="lab-foot">
-    <aside class="credit" data-credit>
-      <!-- The pledge and its trigger are the existing NotByAI.astro, byte for
-           byte — copy unchanged, its own manifesto card unchanged (not wired
-           up in this lab). Only the addendum below is new. -->
-      <p class="credit__line">This post was written by a human, without AI.</p>
-      <button type="button" class="credit__trigger" disabled title="existing NotByAI trigger — its own card, not shown here">Why does that matter to me?</button>
-      <p class="credit__addendum">
-        A model helped around the writing —
-        <button type="button" class="credit__trigger" data-credit-trigger aria-expanded="false">research, factcheck</button>
+    <aside class="credit">
+      <p class="credit__line">
+        This post was written by a human, without AI.
+        <span class="credit__sig"><svg class="credit__mark" viewBox="0 0 32 32" aria-hidden="true"><use href="#claude-mark" /></svg>Claude Opus 5</span> gathered sources and verified claims.
       </p>
-      <!-- Every credit is pledgeSafe, so the prose group is empty and omitted.
-           The card is the pledge's own evidence. -->
-      <figure class="credit__card" role="note" aria-label="Credits">
-        <div class="credit__model">
-          <svg class="credit__mark" viewBox="0 0 32 32" aria-hidden="true"><use href="#claude-mark" /></svg>
-          <span class="credit__name">Claude Opus 5</span>
-        </div>
-        <dl class="credit__split">
-          <dt class="credit__where">Around it</dt>
-          <dd class="credit__what">Gathered sources <span class="credit__sep">·</span> Verified claims</dd>
-        </dl>
-      </figure>
     </aside>
     <div class="lab-foot__pills">
       <span class="lab-foot__pill">Subscribe</span>
@@ -967,27 +825,16 @@ body {
     </div>
   </div>
 
-  <!-- Branch 2 — a credit that is not pledgeSafe. Replaces the pledge. -->
-  <p class="lab-h" style="margin-top:56px">branch 2 — credit replaces the pledge</p>
+  <!-- Branch 2 — a credit that is not pledgeSafe. Replaces the pledge outright:
+       without the tag there is no claim to make, so the model is simply the
+       subject of the sentence. -->
+  <p class="lab-h" style="margin-top:48px">branch 2 — credit replaces the pledge</p>
   <div class="lab-foot">
-    <aside class="credit" data-credit>
+    <aside class="credit">
       <p class="credit__line">
-        Written with <span class="credit__em">Claude Opus 5</span>, which drafted and translated parts of this post.
+        <span class="credit__sig"><svg class="credit__mark" viewBox="0 0 32 32" aria-hidden="true"><use href="#claude-mark" /></svg>Claude Opus 5</span> produced the first draft
+        and translated this post from Chinese.
       </p>
-      <button type="button" class="credit__trigger" data-credit-trigger aria-expanded="false">What exactly did it do?</button>
-      <!-- Both groups present. This is the case the split exists for. -->
-      <figure class="credit__card" role="note" aria-label="Credits">
-        <div class="credit__model">
-          <svg class="credit__mark" viewBox="0 0 32 32" aria-hidden="true"><use href="#claude-mark" /></svg>
-          <span class="credit__name">Claude Opus 5</span>
-        </div>
-        <dl class="credit__split">
-          <dt class="credit__where">In the prose</dt>
-          <dd class="credit__what">First draft <span class="credit__sep">·</span> Translation <span class="credit__qual">from Chinese</span></dd>
-          <dt class="credit__where">Around it</dt>
-          <dd class="credit__what">Verified claims</dd>
-        </dl>
-      </figure>
     </aside>
     <div class="lab-foot__pills">
       <span class="lab-foot__pill">Subscribe</span>
@@ -995,28 +842,18 @@ body {
     </div>
   </div>
 
-  <!-- Branch 2, safe-only variant — THE GAP the plan's branch list misses.
-       No #not-by-ai tag, so the pledge cannot be claimed; every credit is
-       pledgeSafe, so the plan's branch 2 guard ("any credit not pledgeSafe")
-       does not fire and branch 3 swallows it. Widening the guard to "any
-       credit at all" routes it here. -->
-  <p class="lab-h" style="margin-top:56px">branch 2b — no tag, safe credits only <span style="color:var(--blog-faint);text-transform:none;letter-spacing:0">(unrouted in the plan today)</span></p>
+  <!-- Branch 2b — THE GAP in the plan's branch list. No #not-by-ai tag, so the
+       pledge cannot be claimed; every credit is pledgeSafe, so the plan's branch 2
+       guard ("any credit not pledgeSafe") never fires and branch 3 swallows it.
+       Widening the guard to "any credit at all" routes it here. Same sentence
+       shape as branch 2 — only the verbs differ, which is the whole point. -->
+  <p class="lab-h" style="margin-top:48px">branch 2b — no tag, safe credits only <span style="color:var(--blog-faint);text-transform:none;letter-spacing:0">(unrouted in the plan today)</span></p>
   <div class="lab-foot">
-    <aside class="credit" data-credit>
+    <aside class="credit">
       <p class="credit__line">
-        Fact-checked with <span class="credit__em">Claude Opus 5</span>. The writing is mine.
+        <span class="credit__sig"><svg class="credit__mark" viewBox="0 0 32 32" aria-hidden="true"><use href="#claude-mark" /></svg>Claude Opus 5</span> verified claims and wrote
+        the image alt text.
       </p>
-      <button type="button" class="credit__trigger" data-credit-trigger aria-expanded="false">What exactly did it do?</button>
-      <figure class="credit__card" role="note" aria-label="Credits">
-        <div class="credit__model">
-          <svg class="credit__mark" viewBox="0 0 32 32" aria-hidden="true"><use href="#claude-mark" /></svg>
-          <span class="credit__name">Claude Opus 5</span>
-        </div>
-        <dl class="credit__split">
-          <dt class="credit__where">Around it</dt>
-          <dd class="credit__what">Verified claims <span class="credit__sep">·</span> Image alt text</dd>
-        </dl>
-      </figure>
     </aside>
     <div class="lab-foot__pills">
       <span class="lab-foot__pill">Subscribe</span>
@@ -1025,7 +862,7 @@ body {
   </div>
 
   <!-- Branch 3 — nothing. -->
-  <p class="lab-h" style="margin-top:56px">branch 3 — no tag, no credits</p>
+  <p class="lab-h" style="margin-top:48px">branch 3 — no tag, no credits</p>
   <div class="lab-foot">
     <span style="flex:1 1 260px;font-size:13px;color:var(--blog-faint)">(nothing renders — every existing post)</span>
     <div class="lab-foot__pills">
@@ -1033,6 +870,14 @@ body {
       <span class="lab-foot__pill">Share</span>
     </div>
   </div>
+
+  <p class="lab-note" style="margin-top:36px">
+    <strong>Handoff.</strong> Dropping the popover also retires the pledge's own
+    <em>“why does that matter to me?”</em> card: delete <code>.not-by-ai__trigger</code>
+    and <code>.not-by-ai__card</code> from <code>NotByAI.astro</code> along with its
+    <code>segments()</code> parser, which leaves <code>blog.copy[locale].notByAI.prompt</code>
+    dead in <code>src/data/site.ts</code>. The pledge <code>line</code> is untouched.
+  </p>
 
 </main>
 
@@ -1166,15 +1011,7 @@ document.querySelectorAll('[data-yt]').forEach((card) => {
   });
 });
 
-/* ------------ credit card: mirrors NotByAI's touch/aria handling ---------- */
-document.querySelectorAll('[data-credit]').forEach((root) => {
-  const sync = () => root.querySelectorAll('[data-credit-trigger]').forEach((t) =>
-    t.setAttribute('aria-expanded', root.hasAttribute('data-open') ? 'true' : 'false'));
-  root.querySelectorAll('[data-credit-trigger]').forEach((t) =>
-    t.addEventListener('click', () => { root.toggleAttribute('data-open'); sync(); }));
-  root.addEventListener('pointerenter', sync);
-  root.addEventListener('pointerleave', () => { root.removeAttribute('data-open'); sync(); });
-});
+/* The credits ship no JavaScript at all — see the note above their markup. */
 
 /* ------------------------------ lab chrome ------------------------------- */
 const root = document.documentElement;
