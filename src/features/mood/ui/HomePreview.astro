@@ -30,7 +30,11 @@ const initialPreviewPostsJson = serializeScriptJson(initialPosts.slice(0, INITIA
   data-reveal
   data-mood-runtime-disabled={runtimeDisabled ? 'true' : undefined}
 >
-  <span class="section-label" data-reveal-item style="--reveal-i: 0">Moods</span>
+  <span
+    class="section-label"
+    data-reveal-item
+    style="--reveal-delay: 300ms; --reveal-duration: 400ms"
+  >Moods</span>
 
   <div class="mood-timeline" data-mood-list role="region" aria-busy={runtimeDisabled ? 'false' : 'true'} aria-label="Recent moods">
     <script
@@ -73,17 +77,13 @@ const initialPreviewPostsJson = serializeScriptJson(initialPosts.slice(0, INITIA
     class="link mood-enter mt-6"
     aria-label="View all moods"
     data-reveal-item
-    style="--reveal-i: 1"
+    style="--reveal-delay: 1000ms; --reveal-duration: 400ms"
   >
     View all moods
   </a>
 </section>
 
 <style is:global>
-  #moods-section {
-    /* Initial state handled by GSAP */
-  }
-
   /* The feed reads in the human voice (Inter); the timeline spine — label, time
      stamps, tags — stays mono, the same identity thread as Hero and Experience.
      Pretext measures the live computed font, so reservations follow this. */
@@ -102,10 +102,15 @@ const initialPreviewPostsJson = serializeScriptJson(initialPosts.slice(0, INITIA
     font-weight: var(--home-weight-body);
     letter-spacing: -0.011em;
     color: var(--home-fg-secondary);
+  }
+
+  html:not(.reveal-ready) #moods-section .mood-enter,
+  .reveal-ready #moods-section.is-settled .mood-enter {
     transition: color 0.3s ease, transform 0.3s ease;
   }
 
-  #moods-section .mood-enter:hover {
+  html:not(.reveal-ready) #moods-section .mood-enter:hover,
+  .reveal-ready #moods-section.is-settled .mood-enter:hover {
     color: var(--home-fg-primary);
     transform: translateX(2px);
   }

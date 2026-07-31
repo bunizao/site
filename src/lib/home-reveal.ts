@@ -19,7 +19,7 @@ const REVEALED_CLASS = 'is-revealed';
 const SETTLED_CLASS = 'is-settled';
 
 /** Longest entrance a group can play: lead + last item's stagger + duration. */
-const SETTLE_AFTER_MS = 1400;
+const SETTLE_AFTER_MS = 1800;
 
 /**
  * The stylesheet hides `[data-reveal]` only under `html.reveal-ready`, which an

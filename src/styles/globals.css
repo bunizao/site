@@ -46,6 +46,17 @@
   font-display: swap;
 }
 
+/* Shared publication lockup. The subset contains 無人之境 and "sillage" only;
+   keeping the face global lets the homepage doorway and blog masthead share one
+   component without letting the typeface leak into prose. */
+@font-face {
+  font-family: 'WenKai Lockup';
+  src: url('/fonts/wenkai-wordmark.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: block;
+}
+
 /* Metric-matched fallbacks. A web font and the local face standing in for it
    have different ascent/descent and average width, so the moment the real font
    arrives every line box resizes and the page jumps — that is the reflow, not

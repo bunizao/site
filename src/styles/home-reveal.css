@@ -6,7 +6,6 @@
    their own reveal opacity — there is one owner. */
 
 :root {
-  --reveal-duration: 0.55s;
   --reveal-stagger: 60ms;
   /* GSAP's power2.out (cubic ease-out), expressed natively. */
   --reveal-ease: cubic-bezier(0.215, 0.61, 0.355, 1);
@@ -22,6 +21,7 @@
   transition:
     opacity var(--reveal-duration) var(--reveal-ease),
     transform var(--reveal-duration) var(--reveal-ease);
+  transition-delay: var(--reveal-delay);
 }
 
 /* The section travels further than its contents, so the block arrives as one
@@ -29,12 +29,15 @@
    custom properties inherit, so a lone value on the group would silently become
    the children's value too. */
 .reveal-ready [data-reveal] {
+  --reveal-delay: 0ms;
+  --reveal-duration: 600ms;
   --reveal-y: 28px;
 }
 
 .reveal-ready [data-reveal] [data-reveal-item] {
+  --reveal-delay: calc(var(--reveal-lead, 120ms) + var(--reveal-i, 0) * var(--reveal-stagger));
+  --reveal-duration: 550ms;
   --reveal-y: 16px;
-  transition-delay: calc(var(--reveal-lead, 120ms) + var(--reveal-i, 0) * var(--reveal-stagger));
 }
 
 .reveal-ready [data-reveal].is-revealed,

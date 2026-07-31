@@ -2,8 +2,8 @@ LXGW WenKai TC (霞鹜文楷 繁體)
 Copyright (c) 2021, The LXGW WenKai Project Authors (https://github.com/lxgw/LxgwWenKaiTC)
 
 wenkai-wordmark.woff2 is a subset of LXGWWenKaiTC-Regular.ttf (v1.510),
-reduced to the four glyphs of the masthead wordmark 無人之境 (U+7121, U+4EBA,
-U+4E4B, U+5883). No glyph outlines were modified.
+reduced to the shared 無人之境 sillage lockup and its separators. The four CJK
+glyph outlines and metrics are unchanged from the previous wordmark subset.
 
 This font is licensed under the SIL Open Font License, Version 1.1.
 Full license text: https://scripts.sil.org/OFL

@@ -120,6 +120,7 @@ const navbarIdleTimeoutAnimation = getPeekRuntimeSlotKey('navbar.idle-timeout');
 const preloadFontHrefs = (Array.isArray(preloadFont) ? preloadFont : [preloadFont]).map(
   (face) => FONT_FILES[face],
 );
+const wordmarkFontHref = '/fonts/wenkai-wordmark.woff2';
 ---
 
 <!DOCTYPE html>
@@ -131,6 +132,9 @@ const preloadFontHrefs = (Array.isArray(preloadFont) ? preloadFont : [preloadFon
     {preloadFontHrefs.map((href) => (
       <link rel="preload" href={href} as="font" type="font/woff2" crossorigin />
     ))}
+    {isHomeNav && (
+      <link rel="preload" href={wordmarkFontHref} as="font" type="font/woff2" crossorigin fetchpriority="high" />
+    )}
     {robots ? <meta name="robots" content={robots} /> : null}
     {preloadImages.map((image) => (
       <link

@@ -3,15 +3,16 @@
 # Format: github.com/google-labs-code/design.md — YAML tokens are the normative
 # values; the prose below is context for how to apply them. Tokens here MIRROR
 # the live system: the ink colours are owned by `blogPalette` in
-# src/data/site.ts and emitted by BlogLayout.astro; greys, type, and layout live
-# in src/styles/blog.css. Edit code first, then sync this file.
+# src/data/site.ts and emitted by BlogLayout.astro; greys and layout live in
+# src/styles/blog.css; the shared lockup lives in SiteWordmark.astro with its
+# font face in globals.css. Edit code first, then sync this file.
 name: 無人之境 — blog design system
 version: alpha
 description: >
   The calm, ink-wash visual zone for the blog at blog.buxx.me. A single blue
   hue graded by depth, near-black greys derived from the theme foreground, and a
-  720px reading column. Scoped entirely under .blog-zone so nothing leaks onto
-  the main buxx.me identity.
+  720px reading column. Blog styling stays under .blog-zone; only the shared
+  publication lockup is also rendered in the homepage Writing doorway.
 
 colors:
   # Surfaces — the page floor in each mode. Dark is near-black, never #000.
@@ -42,12 +43,12 @@ colors:
 
 typography:
   # Families. Body reads in Inter (the .reading contract); code in the mono
-  # stack; the masthead wordmark is a 4-glyph WenKai subset (無人之境 only).
+  # stack; the publication lockup uses a tiny WenKai subset for 無人之境 sillage.
   family.sans: "'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif"
   family.mono: "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace"
-  family.display: "'LXGW WenKai Wordmark', 'Songti SC', 'Noto Serif CJK SC', serif"
+  family.display: "'WenKai Lockup', 'Songti SC', 'Noto Serif CJK SC', serif"
 
-  masthead:     { fontFamily: '{typography.family.display}', fontSize: '50px', lineHeight: '1.15', letterSpacing: '-0.03em', fontWeight: 400 }
+  masthead:     { fontFamily: '{typography.family.display}', cjkSize: '50px', latinSize: '20px', lineHeight: '1', cjkLetterSpacing: '0.10em', fontWeight: 400 }
   article-h1:   { fontFamily: '{typography.family.sans}', fontSize: 'clamp(27px, 4.4vw, 34px)', lineHeight: '1.3', letterSpacing: '-0.02em', fontWeight: 600 }
   article-h2:   { fontFamily: '{typography.family.sans}', fontSize: '22px', lineHeight: '1.4', letterSpacing: '-0.01em', fontWeight: 600 }
   article-h3:   { fontFamily: '{typography.family.sans}', fontSize: '19px', lineHeight: '1.45', fontWeight: 600 }
@@ -177,9 +178,9 @@ artifacts.
 
 Body copy reads in **Inter** via the global `.reading` contract — content
 surfaces opt in and inherit the family without re-declaring it. Code uses the
-mono stack. The masthead wordmark is a **1.9 KB WenKai subset** containing only
-the four glyphs 無人之境; its `unicode-range` is scoped to those codepoints so
-the face can never leak onto body text.
+mono stack. `SiteWordmark.astro` renders the shared publication lockup from a
+**2.6 KB WenKai subset** containing 無人之境, sillage, and its separators. The
+family is named only by that component, so it does not leak into body text.
 
 Sizes step in a clear hierarchy: `{typography.masthead}` for the wordmark, then
 `{typography.article-h1}` → `{typography.article-h2}` → `{typography.article-h3}`

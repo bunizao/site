@@ -11,11 +11,12 @@ import { blog } from '@/data/site';
 import { getTagLabel } from '@/features/posts/display';
 import { postPath, postTitleTransitionName } from '@/features/posts/format';
 import { getAllPosts } from '@/features/posts/server/content';
-import HoverGloss from '@/components/HoverGloss.astro';
+import SiteWordmark from '@/components/SiteWordmark.astro';
 
 const locale = blog.locale.home;
 const posts = (await getAllPosts()).slice(0, 3);
 const blogCopy = blog.copy[locale];
+const enterRevealDelay = posts.length > 0 ? 1040 + posts.length * 60 : 900;
 
 // Quiet "YYYY.MM" stamp, UTC-fixed so SSG output stays deterministic.
 const stamp = (iso: string): string => {
@@ -26,28 +27,27 @@ const stamp = (iso: string): string => {
 ---
 
 <section id="writing-section" class="writing-section" data-reveal>
-  <span class="section-label" data-reveal-item style="--reveal-i: 0">Writing</span>
+  <span
+    class="section-label"
+    data-reveal-item
+    style="--reveal-delay: 300ms; --reveal-duration: 400ms"
+  >Writing</span>
 
-  <HoverGloss
-    class="writing-gloss"
-    body={blog.sillage.body.en}
-    authorName={blog.author.name}
-    authorAvatar={blog.author.avatar}
-    time={blog.sillage.date}
-    image={blog.sillage.image}
-    imageAlt={blog.sillage.imageAlt}
-    label={`Why ${blogCopy.name}?`}
+  <a
+    class="writing-portal"
+    href="/blog/"
+    aria-label={`Enter ${blogCopy.name}`}
+    data-reveal-item
+    style="--reveal-delay: 500ms; --reveal-duration: 500ms"
   >
-    <a class="writing-portal" href="/blog/" aria-label={`Enter ${blogCopy.name}`} data-gloss-trigger data-reveal-item style="--reveal-i: 1">
-      <span class="writing-portal__mark" style="view-transition-name:blog-mark" aria-hidden="true">
-        <img src={blog.mark} alt="" width="48" height="48" loading="lazy" decoding="async" />
-      </span>
-      <span class="writing-portal__id">
-        <span class="writing-portal__wordmark">{blogCopy.name}</span>
-        <span class="writing-portal__tagline">{blogCopy.tagline}</span>
-      </span>
-    </a>
-  </HoverGloss>
+    <span class="writing-portal__mark" style="view-transition-name:blog-mark" aria-hidden="true">
+      <img src={blog.mark} alt="" width="48" height="48" loading="lazy" decoding="async" />
+    </span>
+    <span class="writing-portal__id">
+      <SiteWordmark variant="home" />
+      <span class="writing-portal__tagline">{blogCopy.tagline}</span>
+    </span>
+  </a>
 
   {posts.length > 0 && (
     <div class="post-list" data-writing-post-list>
@@ -58,7 +58,7 @@ const stamp = (iso: string): string => {
             href={postPath(post.slug)}
             class="post-item"
             data-reveal-item
-            style={`--reveal-i: ${index + 2}`}
+            style={`--reveal-delay: ${800 + index * 60}ms; --reveal-duration: 400ms`}
           >
             {/* Same per-slug name as the article <h1> → the clicked home title
                 morphs into the post headline, matching the /blog list behaviour. */}
@@ -76,7 +76,12 @@ const stamp = (iso: string): string => {
     </div>
   )}
 
-  <a href="/blog/" class="link writing-enter" data-reveal-item style={`--reveal-i: ${posts.length + 2}`}>Enter {blogCopy.name}</a>
+  <a
+    href="/blog/"
+    class="link writing-enter"
+    data-reveal-item
+    style={`--reveal-delay: ${enterRevealDelay}ms; --reveal-duration: 400ms`}
+  >Enter {blogCopy.name}</a>
 </section>
 
 <style>
@@ -103,11 +108,21 @@ const stamp = (iso: string): string => {
     width: fit-content;
   }
 
+  :global(html:not(.reveal-ready) #writing-section .writing-portal),
+  :global(.reveal-ready #writing-section.is-settled .writing-portal) {
+    transition: opacity 0.12s ease-out;
+  }
+
+  :global(html:not(.reveal-ready) #writing-section .writing-portal:active),
+  :global(.reveal-ready #writing-section.is-settled .writing-portal:active) {
+    opacity: 0.72;
+    transition-duration: 0s;
+  }
+
   :global(#writing-section .writing-portal__mark) {
     flex-shrink: 0;
     display: grid;
     place-items: center;
-    transition: transform 0.4s cubic-bezier(0.25, 1, 0.3, 1);
   }
 
   :global(#writing-section .writing-portal__mark img) {
@@ -122,82 +137,29 @@ const stamp = (iso: string): string => {
     filter: invert(1);
   }
 
-  :global(#writing-section .writing-portal:hover .writing-portal__mark) {
-    transform: translateY(-2px) rotate(-3deg);
-  }
-
   :global(#writing-section .writing-portal__id) {
     display: flex;
     flex-direction: column;
-    gap: 5px;
+    gap: 9px;
   }
 
-  /* The shimmer's darkest stop used to fall to 0.26 alpha, which dragged the
-     masthead below the post titles beneath it — a wordmark that periodically
-     reads as disabled. It now sweeps between full and 0.55, so the highlight is
-     visible as movement without ever inverting the hierarchy. */
-  :global(#writing-section .writing-portal__wordmark) {
-    --shimmer-base: hsl(var(--foreground));
-    --shimmer-soft: hsl(var(--foreground) / 0.82);
-    --shimmer-highlight: hsl(var(--foreground) / 0.55);
-    font-size: var(--home-text-masthead);
-    font-weight: var(--home-weight-masthead);
-    letter-spacing: -0.02em;
-    color: var(--shimmer-base);
-    line-height: 1.15;
-    background:
-      linear-gradient(
-        110deg,
-        var(--shimmer-base) 0%,
-        var(--shimmer-base) 30%,
-        var(--shimmer-soft) 42%,
-        var(--shimmer-highlight) 50%,
-        var(--shimmer-soft) 58%,
-        var(--shimmer-base) 70%,
-        var(--shimmer-base) 100%
-      );
-    background-size: 280% 100%;
-    background-position: 160% 0;
-    -webkit-background-clip: text;
-    background-clip: text;
-    -webkit-text-fill-color: transparent;
-    animation: writing-wordmark-shimmer 5.8s ease-in-out infinite;
+  /* The whole doorway owns the interaction in the homepage composition. */
+  :global(#writing-section .writing-portal:hover .site-wordmark__latin),
+  :global(#writing-section .writing-portal:focus-visible .site-wordmark__latin) {
+    letter-spacing: 0.06em;
   }
 
-  @media (prefers-reduced-motion: reduce) {
-    :global(#writing-section .writing-portal__wordmark) {
-      animation: none;
-      background-position: 0 0;
-    }
+  :global(#writing-section .writing-portal:hover .site-wordmark__wake),
+  :global(#writing-section .writing-portal:focus-visible .site-wordmark__wake) {
+    background-position: -60% 0;
   }
 
-  @keyframes writing-wordmark-shimmer {
-    0%,
-    12% {
-      background-position: 160% 0;
-    }
-    78%,
-    100% {
-      background-position: -120% 0;
-    }
-  }
-
-  /* The gloss wraps the masthead so its card anchors to the door; keep it a
-     block sized to its content so layout matches the bare anchor it replaced.
-     The whole masthead is the hover trigger (see data-gloss-trigger). */
-  :global(#writing-section .writing-gloss) {
-    display: block;
-    width: fit-content;
-  }
-
-  /* While the gloss is open, lift the whole section above the later-painting Mood
-     section so the card is never covered by it. */
-  :global(#writing-section) {
-    position: relative;
-  }
-
-  :global(#writing-section:has(.writing-gloss.is-open)) {
-    z-index: 50;
+  /* Keep the wordmark's own entrance paused until the section observer commits
+     the Writing reveal. Without the reveal system, its animation starts at once. */
+  :global(.reveal-ready #writing-section:not(.is-revealed) .site-wordmark__character),
+  :global(.reveal-ready #writing-section:not(.is-revealed) .site-wordmark__latin),
+  :global(.reveal-ready #writing-section:not(.is-revealed) .site-wordmark__wake) {
+    animation-play-state: paused;
   }
 
   :global(#writing-section .writing-portal__tagline) {
@@ -267,11 +229,11 @@ const stamp = (iso: string): string => {
   /* No per-row hairlines: the sliding pill is the only hover decoration, so
      nothing crosses or competes with it. Rows breathe on their own padding. */
 
-  /* While the cursor is on the list, the un-hovered rows recede. The ID here
-     outranks the reveal system's `.is-revealed` rule, so this wins once the
-     entrance is done — no inline styles to clear, unlike the GSAP version.
-     Its own duration keeps the dim quicker than the 0.55s entrance. */
-  :global(#writing-section .post-list.is-hovering .post-item:not(:hover)) {
+  /* Once the entrance settles, un-hovered rows recede without retaining the
+     reveal delay. The no-reveal branch preserves the interaction if the
+     failsafe had to expose the page after a script failure. */
+  :global(html:not(.reveal-ready) #writing-section .post-list.is-hovering .post-item:not(:hover)),
+  :global(.reveal-ready #writing-section.is-settled .post-list.is-hovering .post-item:not(:hover)) {
     opacity: 0.5;
     transition-duration: 0.3s;
   }
@@ -328,10 +290,15 @@ const stamp = (iso: string): string => {
     font-weight: var(--home-weight-body);
     letter-spacing: -0.011em;
     color: var(--home-fg-secondary);
+  }
+
+  :global(html:not(.reveal-ready) #writing-section .writing-enter),
+  :global(.reveal-ready #writing-section.is-settled .writing-enter) {
     transition: color 0.3s ease, transform 0.3s ease;
   }
 
-  :global(#writing-section .writing-enter:hover) {
+  :global(html:not(.reveal-ready) #writing-section .writing-enter:hover),
+  :global(.reveal-ready #writing-section.is-settled .writing-enter:hover) {
     color: var(--home-fg-primary);
     transform: translateX(2px);
   }

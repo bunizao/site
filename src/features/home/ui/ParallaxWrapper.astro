@@ -1,14 +1,7 @@
 ---
-// Scroll container for the homepage. It used to drive a GSAP scrub parallax
-// over every section; that was removed. The drift was ~12-22px across the whole
-// page (scrollY * 0.5 * 0.02) — below the threshold anyone notices — while
-// costing a promoted compositor layer per section and a second writer competing
-// with each section's reveal for the same `y`. With `content-visibility` also
-// resizing the document mid-scroll, the cached ScrollTrigger positions went
-// stale and the browser clamped scrollY, which is what made the page feel stuck
-// and left sections blank in Safari.
-//
-// Reveal motion now lives in src/lib/home-reveal.ts + src/styles/home-reveal.css.
+// Scroll container for the homepage. Reveal motion lives in home-reveal.css;
+// the small independent drift below uses the CSS translate longhand so it can
+// compose with that reveal transform without competing for the same property.
 ---
 
 <div id="parallax-container">
@@ -31,3 +24,59 @@
     }
   }
 </style>
+
+<script>
+  let cleanupParallax: (() => void) | undefined;
+
+  const initParallax = () => {
+    cleanupParallax?.();
+
+    const sections = Array.from(
+      document.querySelectorAll<HTMLElement>('#parallax-container section:not(#projects-section)'),
+    );
+    const motionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+    let frame = 0;
+
+    const clearTranslations = () => {
+      sections.forEach((section) => section.style.removeProperty('translate'));
+    };
+
+    const render = () => {
+      frame = 0;
+      const scrollY = window.scrollY;
+      sections.forEach((section, index) => {
+        const speed = 0.5 + (index % 3) * 0.2;
+        section.style.translate = `0 ${scrollY * speed * 0.02}px`;
+      });
+    };
+
+    const schedule = () => {
+      if (frame !== 0) return;
+      frame = window.requestAnimationFrame(render);
+    };
+
+    const handleMotionChange = () => initParallax();
+    motionQuery.addEventListener('change', handleMotionChange);
+
+    if (!motionQuery.matches && sections.length > 0) {
+      window.addEventListener('scroll', schedule, { passive: true });
+      render();
+    } else {
+      clearTranslations();
+    }
+
+    cleanupParallax = () => {
+      window.removeEventListener('scroll', schedule);
+      motionQuery.removeEventListener('change', handleMotionChange);
+      if (frame !== 0) window.cancelAnimationFrame(frame);
+      clearTranslations();
+    };
+  };
+
+  const stopParallax = () => cleanupParallax?.();
+
+  initParallax();
+  document.addEventListener('astro:page-load', initParallax);
+  document.addEventListener('astro:before-swap', stopParallax);
+  window.addEventListener('pageshow', initParallax);
+</script>

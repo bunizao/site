@@ -3,9 +3,17 @@ import ProjectStack from '@/components/project-cards/ProjectStack';
 ---
 
 <section id="projects-section" class="projects-section" data-reveal>
-  <span class="section-label" data-reveal-item style="--reveal-i: 0">Projects</span>
+  <span
+    class="section-label"
+    data-reveal-item
+    style="--reveal-delay: 300ms; --reveal-duration: 400ms"
+  >Projects</span>
 
-  <div class="projects-card" data-reveal-item style="--reveal-i: 1">
+  <div
+    class="projects-card"
+    data-reveal-item
+    style="--reveal-delay: 450ms; --reveal-duration: 450ms"
+  >
     <ProjectStack client:visible />
   </div>
 </section>
