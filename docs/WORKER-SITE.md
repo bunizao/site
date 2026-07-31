@@ -123,15 +123,4 @@ Public runtime vars:
 - `CHANNEL`
 - `TELEGRAM_HOST`
 
-Static proxy rollout vars:
-
-- `STATIC_PROXY_MODE` — `observe` by default, then `accept-both`, then `enforce`
-- `STATIC_PROXY_KEY_ID`
-- `STATIC_PROXY_PREVIOUS_KEY_ID` during key rotation
-
-Static proxy secrets:
-
-- `STATIC_PROXY_SECRET`
-- `STATIC_PROXY_PREVIOUS_SECRET` during key rotation
-
 Secrets for notify, admin, Telegram webhook, D1, R2, queues, and cron belong to `site-api`.
