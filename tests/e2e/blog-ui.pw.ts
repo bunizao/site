@@ -246,6 +246,12 @@ test.describe('Blog reading UI', () => {
     await expect(card).toHaveClass(/is-playing/u);
     await expect(player).toBeVisible();
     expect(await page.evaluate(() => sessionStorage.getItem('youtube-embed-reachable:v1'))).toBe('yes');
+
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    const laterCard = page.locator('[data-yt]');
+    await laterCard.locator('[data-yt-frame]').click();
+    await expect(laterCard).toHaveClass(/is-unreachable/u, { timeout: 7_000 });
+    expect(await page.evaluate(() => sessionStorage.getItem('youtube-embed-reachable:v1'))).toBe('yes');
   });
 
   test('caches a silent YouTube timeout only for the current browser session', async ({ page }) => {

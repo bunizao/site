@@ -79,7 +79,8 @@ function play(card: HTMLElement): void {
   if (!(player instanceof HTMLIFrameElement)) return;
   const iframe: HTMLIFrameElement = player;
 
-  if (readVerdict() === 'no' || !/^https?:$/u.test(window.location.protocol)) {
+  const verdict = readVerdict();
+  if (verdict === 'no' || !/^https?:$/u.test(window.location.protocol)) {
     markUnreachable(card, player);
     return;
   }
@@ -138,7 +139,7 @@ function play(card: HTMLElement): void {
     }
   }
 
-  timer = window.setTimeout(() => fail(true), PROBE_TIMEOUT_MS);
+  timer = window.setTimeout(() => fail(verdict !== 'yes'), PROBE_TIMEOUT_MS);
   window.addEventListener('message', onMessage);
   iframe.addEventListener('load', () => {
     iframe.contentWindow?.postMessage(
