@@ -285,6 +285,8 @@ export function keepItBoring() {
 <p>The TOC should pick this up and the back-to-top control should stay hidden while the TOC owns the floating action slot.</p>
 <h4>Detail heading</h4>
 <p>Because h4 exists in the theme TOC rules, it gets to stay in the test payload too.</p>
+<p>[!authors ai="anthropic/claude-opus-4-6" note="produced the first draft"]</p>
+<p>[!authors ai="anthropic/claude-opus-4-6" note="translated it from Chinese"]</p>
 `.trim();
 
 const aboutPageHtml = `
