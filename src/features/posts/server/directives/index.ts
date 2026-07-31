@@ -8,6 +8,7 @@ import { footnotesDirective } from './footnotes';
 import { moodDirective } from './mood';
 import { musicDirective } from './music';
 import { poemDirective } from './poem';
+import { DIRECTIVE_MARKER_RE, DIRECTIVE_PARAGRAPH_RE } from './syntax';
 import { isRichDirectiveOutputTarget } from './types';
 import type {
   Directive,
@@ -34,9 +35,6 @@ export type {
   MetaDirective,
 } from './types';
 
-const DIRECTIVE_PARAGRAPH_RE =
-  /<p\b[^>]*>\s*\[!([a-z][a-z0-9-]*)(?:\s+((?:[^"'\]]|"[^"]*"|'[^']*')*))?\]\s*<\/p>/giu;
-const DIRECTIVE_MARKER_RE = /\[!([a-z][a-z0-9-]*)(?:\s+[^\]]*?)?\]/giu;
 const PROTECTED_SELECTOR = 'code, pre, script, style';
 
 export const postDirectiveRegistry: readonly Directive[] = Object.freeze([

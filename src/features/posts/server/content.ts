@@ -1,5 +1,12 @@
+import { blog } from '@/data/site';
+
 import { createGhostContentProvider } from '../adapter';
 import { getGhostRuntimeConfig } from '../adapter/ghost/config';
+import { findStandaloneDirectiveMarkers } from './directives/syntax';
+import type {
+  DirectiveOutputTarget,
+  DirectiveWarning,
+} from './directives';
 import type {
   ContentProvider,
   Post,
@@ -11,6 +18,10 @@ import type {
 export interface PostYearGroup {
   year: string;
   posts: Post[];
+}
+
+export interface PostContentOptions {
+  outputTarget?: DirectiveOutputTarget;
 }
 
 let provider: ContentProvider | null = null;
@@ -32,14 +43,28 @@ export function resetPostsProviderForTests(): void {
   provider = null;
 }
 
-export async function getAllPosts(): Promise<Post[]> {
-  const posts = await getPostsProvider().getAllPosts();
+export async function getAllPosts(options: PostContentOptions = {}): Promise<Post[]> {
+  const posts = (await getPostsProvider().getAllPosts()).map(sanitizePostDerivedText);
+  const { outputTarget } = options;
+  if (!outputTarget) {
+    return [...posts].sort(comparePostsByPublishedDateDesc);
+  }
 
-  return [...posts].sort(comparePostsByPublishedDateDesc);
+  const transformed = await Promise.all(
+    posts.map((post) => transformPostContent(post, outputTarget)),
+  );
+
+  return transformed.sort(comparePostsByPublishedDateDesc);
 }
 
-export async function getPostBySlug(slug: string): Promise<Post | null> {
-  return getPostsProvider().getPostBySlug(slug);
+export async function getPostBySlug(
+  slug: string,
+  options: PostContentOptions = {},
+): Promise<Post | null> {
+  const rawPost = await getPostsProvider().getPostBySlug(slug);
+  const post = rawPost ? sanitizePostDerivedText(rawPost) : null;
+  if (!post || !options.outputTarget) return post;
+  return transformPostContent(post, options.outputTarget);
 }
 
 export async function getAllPublicTags(): Promise<Tag[]> {
@@ -95,4 +120,92 @@ function getPublishedYear(post: Post): string {
   const year = new Date(post.publishedAt).getUTCFullYear();
 
   return Number.isFinite(year) ? String(year) : 'Unknown';
+}
+
+async function transformPostContent(
+  post: Post,
+  outputTarget: DirectiveOutputTarget,
+): Promise<Post> {
+  const { transformPostDirectives } = await import('./directives');
+  const result = await transformPostDirectives(post.html, {
+    slug: post.slug,
+    locale: blog.locale.blog,
+    outputTarget,
+  });
+
+  reportDirectiveWarnings(result.warnings);
+
+  return {
+    ...post,
+    html: result.html,
+    directiveMeta: result.meta,
+  };
+}
+
+function sanitizePostDerivedText(post: Post): Post {
+  const carriers = findStandaloneDirectiveMarkers(post.html, 'authors');
+  if (carriers.length === 0) return post;
+
+  return {
+    ...post,
+    markdown: stripStandaloneCarriers(post.markdown, carriers) ?? null,
+    excerpt: stripStandaloneCarriers(post.excerpt, carriers) ?? null,
+    customExcerpt: stripStandaloneCarriers(post.customExcerpt, carriers) ?? null,
+    plaintext: stripStandaloneCarriers(post.plaintext, carriers) ?? '',
+  };
+}
+
+function stripStandaloneCarriers(
+  value: string | null | undefined,
+  carriers: readonly string[],
+): string | null | undefined {
+  if (!value) return value;
+
+  const lines = value.split('\n');
+  const removed = new Set<number>();
+  let fence: '`' | '~' | null = null;
+
+  for (const [index, line] of lines.entries()) {
+    const trimmed = line.trim();
+    const fenceMatch = trimmed.match(/^(`{3,}|~{3,})/u);
+    if (fenceMatch) {
+      const marker = fenceMatch[1][0] as '`' | '~';
+      fence = fence === marker ? null : fence ?? marker;
+      continue;
+    }
+
+    if (!fence && carriers.includes(trimmed)) {
+      removed.add(index);
+      if (index > 0 && !lines[index - 1].trim()) {
+        removed.add(index - 1);
+      } else if (index + 1 < lines.length && !lines[index + 1].trim()) {
+        removed.add(index + 1);
+      }
+    }
+  }
+
+  let result = lines.filter((_, index) => !removed.has(index)).join('\n');
+
+  for (const carrier of carriers) {
+    const start = result.trimStart();
+    if (start.startsWith(carrier) && /^\s*(?:$|\s)/u.test(start.slice(carrier.length))) {
+      result = start.slice(carrier.length).trimStart();
+    }
+
+    const end = result.trimEnd();
+    if (end.endsWith(carrier)) {
+      const prefix = end.slice(0, -carrier.length);
+      if (!prefix || /\s$/u.test(prefix)) {
+        result = prefix.trimEnd();
+      }
+    }
+  }
+
+  return result;
+}
+
+function reportDirectiveWarnings(warnings: readonly DirectiveWarning[]): void {
+  for (const warning of warnings) {
+    console.warn(`[blog-directive:${warning.code}] ${warning.message}`);
+  }
 }

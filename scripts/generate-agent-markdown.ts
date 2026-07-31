@@ -30,7 +30,7 @@ async function writeMarkdown(assetPath: string, body: string): Promise<void> {
 }
 
 const [posts, tags] = await Promise.all([
-  getAllPosts(),
+  getAllPosts({ outputTarget: 'agent-markdown' }),
   getPublicTagDirectory(),
 ]);
 

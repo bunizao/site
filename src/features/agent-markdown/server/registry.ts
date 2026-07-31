@@ -14,12 +14,6 @@ import {
   moodDocumentToFeedItem,
 } from '@/features/mood/server/api-client';
 import {
-  getAllPosts,
-  getPostBySlug,
-  getPublicTagDirectory,
-  getTagArchive,
-} from '@/features/posts/server/content';
-import {
   buildPostAgentMarkdown,
   buildPostListAgentMarkdown,
   buildTagArchiveAgentMarkdown,
@@ -225,6 +219,7 @@ async function renderBlogIndex(context: MarkdownRendererContext) {
   const built = await readBuiltBlogMarkdown(context, { kind: 'index' });
   if (built) return markdownResult(built.body, built.status);
 
+  const { getAllPosts } = await import('@/features/posts/server/content');
   return markdownResult(buildPostListAgentMarkdown('Blog', await getAllPosts(), context.site));
 }
 
@@ -232,6 +227,7 @@ async function renderBlogTags(context: MarkdownRendererContext) {
   const built = await readBuiltBlogMarkdown(context, { kind: 'tags' });
   if (built) return markdownResult(built.body, built.status);
 
+  const { getPublicTagDirectory } = await import('@/features/posts/server/content');
   return markdownResult(buildTagDirectoryAgentMarkdown(await getPublicTagDirectory(), context.site));
 }
 
@@ -240,6 +236,7 @@ async function renderBlogTag(context: MarkdownRendererContext) {
   const built = await readBuiltBlogMarkdown(context, { kind: 'tag', slug });
   if (built) return markdownResult(built.body, built.status);
 
+  const { getTagArchive } = await import('@/features/posts/server/content');
   const archive = await getTagArchive(slug);
   if (!archive) return markdownResult('Blog tag not found.\n', 404);
 
@@ -255,7 +252,8 @@ async function renderBlogPost(context: MarkdownRendererContext) {
   const built = await readBuiltBlogMarkdown(context, { kind: 'post', slug });
   if (built) return markdownResult(built.body, built.status);
 
-  const post = await getPostBySlug(slug);
+  const { getPostBySlug } = await import('@/features/posts/server/content');
+  const post = await getPostBySlug(slug, { outputTarget: 'agent-markdown' });
   if (!post) return markdownResult('Blog post not found.\n', 404);
 
   return markdownResult(buildPostAgentMarkdown(post, context.site));

@@ -18,9 +18,7 @@ import { getAllPosts } from '@/features/posts/server/content';
 import type { Post } from '@/features/posts/types';
 import { formatPostDate, postTitleTransitionName } from '@/features/posts/format';
 import { buildBlogOgImageUrl } from '@/features/posts/server/og-image';
-import { enrichAppleMusicEmbeds } from '@/features/posts/server/apple-music';
 import { readAuthorshipCredits } from '@/features/posts/server/directives/authors';
-import { enrichMoodEmbeds } from '@/features/posts/server/mood-embed';
 import { enrichBlurUp, getBlurUp } from '@/features/posts/server/blur-up';
 import { buildSrcSet, withWidthParam } from '@/lib/media/responsive-image';
 import { isE2ESiteFixtureEnabled } from '@/lib/e2e';
@@ -37,7 +35,7 @@ async function buildPostPageProps(post: Post, index: number, posts: Post[]): Pro
   return {
     post: {
       ...post,
-      html: await enrichBlurUp(enrichMoodEmbeds(await enrichAppleMusicEmbeds(post.html))),
+      html: await enrichBlurUp(post.html),
     },
     featureBlur: post.featureImage ? await getBlurUp(post.featureImage) : null,
     prev: posts[index + 1] ?? null,
@@ -46,7 +44,7 @@ async function buildPostPageProps(post: Post, index: number, posts: Post[]): Pro
 }
 
 export const getStaticPaths = (async () => {
-  const posts = await getAllPosts();
+  const posts = await getAllPosts({ outputTarget: 'web' });
 
   return Promise.all(
     posts.map(async (post, index) => ({
@@ -54,7 +52,7 @@ export const getStaticPaths = (async () => {
       props: {
         post: {
           ...post,
-          html: await enrichBlurUp(enrichMoodEmbeds(await enrichAppleMusicEmbeds(post.html))),
+          html: await enrichBlurUp(post.html),
         },
         featureBlur: post.featureImage ? await getBlurUp(post.featureImage) : null,
         prev: posts[index + 1] ?? null,
@@ -71,7 +69,7 @@ const slug = Astro.params.slug ?? '';
 let { post, featureBlur, prev, next } = Astro.props as Partial<PostPageProps>;
 
 if (!post) {
-  const posts = await getAllPosts();
+  const posts = await getAllPosts({ outputTarget: 'web' });
   const postIndex = posts.findIndex((candidate) => candidate.slug === slug);
   const rawPost = postIndex >= 0 ? posts[postIndex] : null;
 
@@ -103,12 +101,8 @@ const hasNoTocTag = post.tags.some((tag) => tag.slug === 'hash-no-toc' || tag.na
 // the pledge is the default rather than a #not-by-ai opt-in — the tag no longer
 // gates anything here.
 //
-// Credits arrive as hoisted `authors` meta from the directive transformer. That
-// transformer is not yet applied in the content pipeline, so today this always
-// resolves to none and every post renders the pledge; the credit branch lights
-// up as soon as the meta reaches the Post, with no change needed below.
-const directiveMeta: Parameters<typeof readAuthorshipCredits>[0] = {};
-const authorshipCredits = readAuthorshipCredits(directiveMeta, post.slug);
+// Credits arrive as hoisted `authors` meta from the content pipeline.
+const authorshipCredits = readAuthorshipCredits(post.directiveMeta ?? {}, post.slug);
 const titleVT = postTitleTransitionName(post.slug);
 const postDescription = post.metaDescription ?? post.ogDescription ?? post.excerpt ?? undefined;
 const postAuthorName = post.primaryAuthor?.name ?? blog.author.name;

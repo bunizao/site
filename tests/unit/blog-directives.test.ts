@@ -31,7 +31,7 @@ describe('blog directive transformer', () => {
     ))).toEqual([true, true, false, false, false, false]);
   });
 
-  test('exposes the unwired production registry through the stable two-argument seam', async () => {
+  test('exposes the production registry through the stable two-argument seam', async () => {
     expect(postDirectiveRegistry.map(({ name, kind }) => ({ name, kind }))).toEqual([
       { name: 'poem', kind: 'inline' },
       { name: 'footnotes', kind: 'inline' },
