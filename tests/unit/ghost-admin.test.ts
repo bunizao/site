@@ -55,6 +55,7 @@ describe('Ghost Admin client', () => {
     );
     expect(requestInit?.method).toBe('GET');
     expect(requestInit?.redirect).toBe('error');
+    expect(requestInit?.cache).toBe('no-store');
     expect(requestHeaders.get('Accept')).toBe('application/json');
     expect(requestHeaders.get('Accept-Version')).toBe('v6.0');
     expect(authorization.startsWith('Ghost ')).toBe(true);

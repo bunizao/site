@@ -61,6 +61,10 @@ export interface GhostAdminClientOptions {
   maxResponseBytes?: number;
 }
 
+export function isGhostAdminPostId(value: string): boolean {
+  return GHOST_POST_ID_PATTERN.test(value);
+}
+
 function decodeHex(value: string): Uint8Array {
   return Uint8Array.from(value.match(/.{2}/gu) ?? [], (pair) => Number.parseInt(pair, 16));
 }
@@ -236,7 +240,7 @@ export function createGhostAdminClient(options: GhostAdminClientOptions): GhostA
 
   return {
     async readPostById(id: string): Promise<GhostAdminPost> {
-      if (!GHOST_POST_ID_PATTERN.test(id)) {
+      if (!isGhostAdminPostId(id)) {
         throw new GhostAdminClientError(
           'invalid_identifier',
           'Invalid Ghost Admin post ID.',
@@ -268,6 +272,7 @@ export function createGhostAdminClient(options: GhostAdminClientOptions): GhostA
         const response = await Promise.race([
           fetchImpl(url.toString(), {
             method: 'GET',
+            cache: 'no-store',
             redirect: 'error',
             signal: controller.signal,
             headers: {

@@ -1,0 +1,72 @@
+---
+import BlogLayout from '@/layouts/BlogLayout.astro';
+import Prose from '@/features/posts/ui/Prose.astro';
+import AiCredit from '@/features/posts/ui/AiCredit.astro';
+import NotByAI from '@/features/posts/ui/NotByAI.astro';
+import { formatPostDate } from '@/features/posts/format';
+import { readAuthorshipCredits } from '@/features/posts/server/directives/authors';
+import {
+  GHOST_PREVIEW_CACHE_CONTROL,
+  resolveGhostDraftPreview,
+} from '@/features/posts/server/ghost-preview';
+
+export const prerender = false;
+
+const result = await resolveGhostDraftPreview({
+  enabled: import.meta.env.DEV,
+  id: Astro.params.id ?? '',
+  locals: Astro.locals,
+});
+if (!result.ok) {
+  return new Response(result.message, {
+    status: result.status,
+    headers: {
+      'Cache-Control': GHOST_PREVIEW_CACHE_CONTROL,
+      'Content-Type': 'text/plain; charset=utf-8',
+      'X-Robots-Tag': 'noindex, nofollow',
+    },
+  });
+}
+
+Astro.response.headers.set('Cache-Control', GHOST_PREVIEW_CACHE_CONTROL);
+Astro.response.headers.set('X-Robots-Tag', 'noindex, nofollow');
+
+const { post, html, meta } = result;
+const title = post.title.trim() || 'Untitled draft';
+const authorshipCredits = readAuthorshipCredits(meta, post.slug);
+---
+
+<BlogLayout
+  title={title}
+  description={`Local preview of ${title}`}
+  path={Astro.url.pathname}
+>
+  <a class="blog-back" href="/blog/">← All posts</a>
+
+  <div class="blog-article-wrap" data-ghost-draft-preview>
+    <aside class="blog-aside">
+      <div class="blog-aside__sticky">
+        <a class="blog-back-rail" href="/blog/">← Blog</a>
+      </div>
+    </aside>
+
+    <article>
+      <header class="blog-article__header">
+        <h1 class="blog-article__title">{title}</h1>
+        <p class="blog-article__meta">
+          <span>Local draft preview</span>
+          <span>{post.status}</span>
+          {post.updatedAt ? <span>Updated {formatPostDate(post.updatedAt)}</span> : null}
+        </p>
+      </header>
+
+      <Prose html={html} />
+    </article>
+  </div>
+
+  <footer class="blog-end">
+    <div class="blog-end__bar">
+      {authorshipCredits.length > 0 ? <AiCredit credits={authorshipCredits} /> : <NotByAI />}
+    </div>
+  </footer>
+</BlogLayout>
