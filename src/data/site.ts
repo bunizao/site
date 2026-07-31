@@ -136,18 +136,11 @@ export const blog = {
     home: meta.siteUrl,
   },
   /**
-   * The "why sillage?" gloss revealed when hovering the wordmark or the mark in
-   * the home masthead (rendered by the reusable `HoverGloss`). Home shows `en`;
-   * `zh` is kept for parity with the blog locale and a future language switch.
-   * `**...**` marks an emphasized phrase. The image is Unsplash, pre-sized to the
-   * preview frame (≈260px @2x, 16:10 crop, WebP) so it never ships full-res.
+   * The publication colophon rendered in the blog landing page footer.
+   * Both locale variants stay here so the copy follows the existing home/blog
+   * locale split. `**...**` marks an emphasized phrase.
    */
   sillage: {
-    image:
-      'https://images.unsplash.com/photo-1666222148600-1987996fb678?q=75&w=520&h=325&fit=crop&fm=webp&auto=format',
-    imageAlt: "A lone ship's wake fanning out across open sea",
-    /** The day this note was written — shown in the byline in place of a clock. */
-    date: 'Jun 28, 2026',
     body: {
       en: [
         '**Sillage** is the wake a ship leaves as it cuts through the sea. The ship drifts alone across the vast ocean, leaving only a fragile trail of waves that slowly spread out, and then vanish.',

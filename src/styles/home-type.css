@@ -1,0 +1,45 @@
+/* Homepage type scale.
+ *
+ * Replaces a smear of eight font sizes inside a 9px range (11/12/12/13/14/14/
+ * 16/20) with four steps, one role each. Below 22px the steps are close enough
+ * that size alone cannot carry hierarchy, so weight and colour do that work —
+ * which is why there are exactly three colour steps, not the five alpha values
+ * this used to lean on.
+ *
+ * Scoped to the homepage container so nothing leaks into the blog or /components.
+ */
+
+.page-container {
+  /* Section labels: mono, tracked out, the identity spine running from Hero. */
+  --home-text-label: 11px;
+  /* Metadata: tags, date stamps, mood timestamps. Mono, tabular. */
+  --home-text-meta: 13px;
+  /* Everything that is read as language: titles, prose, links. */
+  --home-text-body: 15px;
+  /* The one masthead on the page below Hero: the publication wordmark. */
+  --home-text-masthead: 22px;
+
+  /* Weight 300 is banished below 15px — at 11-13px on a dark background the
+     stems thin out until the text reads as blurred rather than quiet. */
+  --home-weight-label: 400;
+  --home-weight-meta: 400;
+  --home-weight-body: 400;
+  --home-weight-title: 500;
+  --home-weight-masthead: 600;
+
+  /* Three colour steps, not five. Recession is a colour job, not an alpha
+     gradient with a step for every element. */
+  --home-fg-primary: hsl(var(--foreground));
+  --home-fg-secondary: hsl(var(--muted-foreground));
+  --home-fg-faint: hsl(var(--muted-foreground) / 0.6);
+}
+
+/* One definition for the label that opens every section, replacing the copy of
+   `font-family: var(--font-mono)` that each section used to carry. Tracking,
+   casing and margin still come from the shared .section-label in globals.css. */
+.page-container .section-label {
+  font-family: var(--font-mono);
+  font-size: var(--home-text-label);
+  font-weight: var(--home-weight-label);
+  color: var(--home-fg-secondary);
+}

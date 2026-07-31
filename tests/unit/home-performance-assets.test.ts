@@ -64,6 +64,41 @@ describe('homepage performance assets', () => {
     expect(parallax).not.toContain(':global(section) {');
   });
 
+  test('keeps native parallax scoped and interruptible', () => {
+    const parallax = readText('src/features/home/ui/ParallaxWrapper.astro');
+
+    expect(parallax).toContain("section:not(#projects-section)");
+    expect(parallax).toContain('const speed = 0.5 + (index % 3) * 0.2;');
+    expect(parallax).toContain('scrollY * speed * 0.02');
+    expect(parallax).toContain("window.addEventListener('scroll', schedule, { passive: true });");
+    expect(parallax).toContain('window.requestAnimationFrame(render)');
+    expect(parallax).toContain("motionQuery.addEventListener('change', handleMotionChange)");
+    expect(parallax).toContain("document.addEventListener('astro:before-swap', stopParallax)");
+    expect(parallax).not.toContain("window.addEventListener('pagehide'");
+    expect(parallax).not.toContain("import('gsap");
+    expect(parallax).not.toContain('will-change');
+  });
+
+  test('preserves the homepage reveal choreography', () => {
+    const reveal = readText('src/styles/home-reveal.css');
+    const controller = readText('src/lib/home-reveal.ts');
+    const projects = readText('src/features/home/ui/Projects.astro');
+    const experience = readText('src/features/home/ui/Experience.astro');
+    const writing = readText('src/features/home/ui/Posts.astro');
+    const moods = readText('src/features/mood/ui/HomePreview.astro');
+
+    expect(reveal).toContain('--reveal-duration: 600ms;');
+    expect(controller).toContain('const SETTLE_AFTER_MS = 1800;');
+    for (const section of [projects, experience]) {
+      expect(section).toContain('--reveal-delay: 300ms; --reveal-duration: 400ms');
+      expect(section).toContain('--reveal-delay: 450ms; --reveal-duration: 450ms');
+    }
+    expect(writing).toContain('--reveal-delay: 500ms; --reveal-duration: 500ms');
+    expect(writing).toContain('${800 + index * 60}ms; --reveal-duration: 400ms');
+    expect(writing).toContain('1040 + posts.length * 60');
+    expect(moods).toContain('--reveal-delay: 1000ms; --reveal-duration: 400ms');
+  });
+
   test('pauses ambient homepage animation while inactive', () => {
     const contributions = readText('src/features/home/ui/GitHubContributions.astro');
     const projectStack = readText('src/components/project-cards/ProjectStack.tsx');

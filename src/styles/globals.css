@@ -46,6 +46,17 @@
   font-display: swap;
 }
 
+/* Shared publication lockup. The subset contains 無人之境 and "sillage" only;
+   keeping the face global lets the homepage doorway and blog masthead share one
+   component without letting the typeface leak into prose. */
+@font-face {
+  font-family: 'WenKai Lockup';
+  src: url('/fonts/wenkai-wordmark.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: block;
+}
+
 /* Metric-matched fallbacks. A web font and the local face standing in for it
    have different ascent/descent and average width, so the moment the real font
    arrives every line box resizes and the page jumps — that is the reflow, not
@@ -2021,61 +2032,12 @@
     opacity: 0;
   }
 
+  /* Hero still runs its own intro timeline. Every other homepage section's
+     pre-reveal state now lives in src/styles/home-reveal.css under
+     [data-reveal] — one owner, no per-section copies to keep in sync. */
   .js .hero-animate {
     opacity: 0;
     transform: translateY(20px);
-  }
-
-  .js #moods-section {
-    opacity: 0;
-    transform: translateY(40px);
-  }
-
-  .js #moods-section .scroll-reveal {
-    opacity: 0;
-    transform: translateY(16px);
-  }
-
-  .js #moods-section .scroll-reveal-item {
-    opacity: 0;
-    transform: translateY(8px);
-  }
-
-  .js #moods-section .scroll-reveal-link {
-    opacity: 0;
-  }
-
-  .js .writing-section {
-    opacity: 0;
-    transform: translateY(40px);
-  }
-
-  .js .writing-section .scroll-reveal {
-    opacity: 0;
-    transform: translateY(16px);
-  }
-
-  .js .writing-section .scroll-reveal-portal {
-    opacity: 0;
-    transform: translateY(16px);
-  }
-
-  .js .writing-section .scroll-reveal-item {
-    opacity: 0;
-    transform: translateX(-20px);
-  }
-
-  /* Once the reveal timeline runs, items hand opacity back to CSS via GSAP
-     clearProps (so the hover sibling-dim can take over). Their pre-reveal base
-     above is opacity:0, so the revealed state must restore a visible base —
-     otherwise cleared items snap straight back to hidden. */
-  .js .writing-section.is-revealed .scroll-reveal-item {
-    opacity: 1;
-    transform: none;
-  }
-
-  .js .writing-section .scroll-reveal-link {
-    opacity: 0;
   }
 }
 

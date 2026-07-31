@@ -6,20 +6,6 @@
    hex, so the calm light palette and a tuned dark variant both fall out of the
    existing token system for free. */
 
-/* Masthead wordmark only. LXGW WenKai TC (SIL OFL 1.1) subset to the four
-   glyphs of 無人之境 — see public/fonts/wenkai-wordmark-license.txt. The
-   unicode-range scopes it to exactly those codepoints, so it can never leak
-   onto body text even if the family name is reused. Self-hosted because Google
-   Fonts is blocked in China and this blog is Chinese-primary. */
-@font-face {
-  font-family: 'LXGW WenKai Wordmark';
-  font-style: normal;
-  font-weight: 400;
-  font-display: block;
-  src: url('/fonts/wenkai-wordmark.woff2') format('woff2');
-  unicode-range: U+7121, U+4EBA, U+4E4B, U+5883;
-}
-
 .blog-zone {
   --blog-ink: hsl(var(--foreground));            /* titles, strong text */
   --blog-body: hsl(var(--foreground) / 0.78);    /* article body copy (chl.ee greys it) */
@@ -35,9 +21,6 @@
      by BlogLayout from blogPalette in src/data/site.ts — the single source of
      truth. All three are blue; --blog-accent aliases dai (the primary ink). */
   --blog-measure: 720px;                          /* content column */
-  /* Masthead wordmark face — LXGW WenKai TC, subset to 無人之境 only (~1.9KB). */
-  --blog-display: 'LXGW WenKai Wordmark', 'Songti SC', 'Noto Serif CJK SC', serif;
-
   min-height: 100svh;
   color: var(--blog-body);
   background: hsl(var(--background));
@@ -164,12 +147,9 @@ html[data-theme-setting='system'] .blog-theme-toggle [data-blog-icon='system'] {
 }
 
 .blog-masthead__wordmark {
-  font-family: var(--blog-display);
-  font-size: 50px;
-  line-height: 1.15;
-  font-weight: 400;
-  letter-spacing: -0.03em;
-  color: var(--blog-ink);
+  margin: 0;
+  font-size: inherit;
+  line-height: 1;
 }
 
 .blog-masthead__tagline {
@@ -1390,9 +1370,7 @@ html[data-theme-setting='system'] .blog-theme-toggle [data-blog-icon='system'] {
   color: var(--blog-faint);
 }
 
-/* Reading sans, not the masthead wordmark: --blog-display is subset to the four
-   glyphs 無人之境 only, so any other text falls back to a heavy serif. Tag
-   titles share the post-list voice instead. */
+/* Tag titles share the post-list voice rather than the publication lockup. */
 .tags-page-title {
   margin: 0 0 14px;
   font-family: var(--font-sans);

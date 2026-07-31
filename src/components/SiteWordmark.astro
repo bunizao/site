@@ -1,0 +1,174 @@
+---
+interface Props {
+  variant: 'home' | 'blog';
+  class?: string;
+}
+
+const { variant, class: className } = Astro.props;
+const characters = Array.from('無人之境');
+---
+
+<span
+  class:list={['site-wordmark', `site-wordmark--${variant}`, className]}
+  data-site-wordmark
+  data-site-wordmark-variant={variant}
+>
+  <span class="site-wordmark__label">無人之境 sillage</span>
+  <span class="site-wordmark__cjk" aria-hidden="true">
+    {characters.map((character, index) => (
+      <i class="site-wordmark__character" style={`--wordmark-index:${index}`}>{character}</i>
+    ))}
+  </span>
+  <span class="site-wordmark__latin" aria-hidden="true">
+    <span class="site-wordmark__wake">sillage</span>
+  </span>
+</span>
+
+<style>
+  .site-wordmark {
+    --wordmark-ink: hsl(var(--foreground));
+    --wordmark-wake-rest: hsl(var(--foreground) / 0.48);
+    --wordmark-wake-mid: hsl(var(--foreground) / 0.72);
+    --wordmark-wake-peak: hsl(var(--foreground));
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.62rem;
+    width: fit-content;
+    color: var(--wordmark-ink);
+    font-family: 'WenKai Lockup', 'Songti SC', 'Noto Serif CJK SC', serif;
+    font-weight: 400;
+    white-space: nowrap;
+  }
+
+  .site-wordmark--home {
+    --wordmark-cjk-size: 28px;
+    --wordmark-latin-size: 12px;
+    --wordmark-cjk-tracking: 0.14em;
+  }
+
+  .site-wordmark--blog {
+    --wordmark-cjk-size: 50px;
+    --wordmark-latin-size: 20px;
+    --wordmark-cjk-tracking: 0.1em;
+  }
+
+  .site-wordmark__label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  .site-wordmark__cjk {
+    margin-right: calc(-1 * var(--wordmark-cjk-tracking));
+    color: var(--wordmark-ink);
+    font-size: var(--wordmark-cjk-size);
+    line-height: 1;
+    letter-spacing: var(--wordmark-cjk-tracking);
+  }
+
+  .site-wordmark__character {
+    display: inline-block;
+    font-style: normal;
+    animation: site-wordmark-ink 0.6s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+    animation-delay: calc(var(--wordmark-index) * 90ms);
+  }
+
+  .site-wordmark__latin {
+    clip-path: inset(0 -5% -25% 0);
+    color: var(--wordmark-wake-rest);
+    font-size: var(--wordmark-latin-size);
+    line-height: 1;
+    letter-spacing: 0.01em;
+    animation: site-wordmark-draw 0.8s cubic-bezier(0.32, 0.9, 0.3, 1) 0.42s backwards;
+    transition: letter-spacing 0.45s cubic-bezier(0.25, 1, 0.3, 1);
+  }
+
+  .site-wordmark__wake {
+    color: var(--wordmark-wake-rest);
+    background: linear-gradient(
+      100deg,
+      var(--wordmark-wake-rest) 0%,
+      var(--wordmark-wake-rest) 34%,
+      var(--wordmark-wake-mid) 44%,
+      var(--wordmark-wake-peak) 50%,
+      var(--wordmark-wake-mid) 56%,
+      var(--wordmark-wake-rest) 66%,
+      var(--wordmark-wake-rest) 100%
+    );
+    background-position: 150% 0;
+    background-size: 230% 100%;
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    animation: site-wordmark-wake-once 1.15s cubic-bezier(0.33, 0.9, 0.32, 1) 0.62s backwards;
+    transition: background-position 1.05s cubic-bezier(0.33, 0.9, 0.32, 1);
+  }
+
+  @keyframes site-wordmark-ink {
+    from {
+      opacity: 0;
+      transform: translateY(7px);
+      filter: blur(4px);
+    }
+  }
+
+  @keyframes site-wordmark-draw {
+    from {
+      clip-path: inset(0 100% -25% 0);
+    }
+  }
+
+  @keyframes site-wordmark-wake-once {
+    from {
+      background-position: 150% 0;
+    }
+    to {
+      background-position: -60% 0;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .site-wordmark__character,
+    .site-wordmark__latin,
+    .site-wordmark__wake {
+      animation: none;
+    }
+
+    .site-wordmark__character {
+      opacity: 1;
+      transform: none;
+      filter: none;
+    }
+
+    .site-wordmark__latin {
+      clip-path: none;
+      transition: none;
+    }
+
+    .site-wordmark__wake {
+      background: none;
+      transition: none;
+      -webkit-text-fill-color: var(--wordmark-wake-rest);
+    }
+  }
+
+  @media (max-width: 359px) {
+    .site-wordmark--blog {
+      --wordmark-cjk-size: clamp(40px, 14.5vw, 50px);
+      --wordmark-latin-size: clamp(16px, 5.75vw, 20px);
+      gap: clamp(0.4rem, 3vw, 0.62rem);
+    }
+  }
+
+  @media (prefers-contrast: more) {
+    .site-wordmark {
+      --wordmark-wake-rest: hsl(var(--foreground) / 0.82);
+    }
+  }
+</style>

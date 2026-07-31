@@ -1,0 +1,74 @@
+---
+import { blog } from '@/data/site';
+
+const locale = blog.locale.blog;
+const paragraphs = blog.sillage.body[locale];
+const segments = (text: string) =>
+  text.split('**').map((segment, index) => ({ segment, emphasized: index % 2 === 1 }));
+---
+
+<section class="blog-colophon" aria-labelledby="blog-colophon-title" lang={locale}>
+  <p class="blog-colophon__eyebrow">Colophon</p>
+  <h2 class="blog-colophon__title" id="blog-colophon-title">sillage</h2>
+  <div class="blog-colophon__body">
+    {paragraphs.map((paragraph) => (
+      <p>
+        {segments(paragraph).map(({ segment, emphasized }) =>
+          emphasized ? <strong>{segment}</strong> : segment,
+        )}
+      </p>
+    ))}
+  </div>
+</section>
+
+<style>
+  .blog-colophon {
+    margin-top: 96px;
+    padding-top: 36px;
+    border-top: 1px solid var(--blog-line);
+  }
+
+  .blog-colophon__eyebrow {
+    margin: 0 0 12px;
+    color: var(--blog-faint);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+
+  .blog-colophon__title {
+    margin: 0 0 24px;
+    color: var(--blog-ink);
+    font-size: 22px;
+    font-weight: 500;
+    letter-spacing: -0.01em;
+    line-height: 1.4;
+  }
+
+  .blog-colophon__body {
+    display: grid;
+    gap: 16px;
+    color: var(--blog-muted);
+    font-size: 15px;
+    line-height: 1.8;
+    text-wrap: pretty;
+  }
+
+  .blog-colophon__body p {
+    margin: 0;
+  }
+
+  .blog-colophon__body strong {
+    color: var(--blog-body);
+    font-weight: 550;
+  }
+
+  @media (max-width: 639px) {
+    .blog-colophon {
+      margin-top: 72px;
+      padding-top: 28px;
+    }
+  }
+</style>

@@ -9,6 +9,8 @@ import HomePreview from '@/features/mood/ui/HomePreview.astro';
 import Footer from '@/features/home/ui/Footer.astro';
 import { profileJsonLd, siteDescription, websiteJsonLd } from '@/lib/seo';
 import { meta, sections } from '@/data/site';
+import '@/styles/home-type.css';
+import '@/styles/home-reveal.css';
 
 const title = meta.homeTitle;
 const description = siteDescription;
@@ -39,16 +41,40 @@ const isHomeDevSurface = process.env.DEV_SURFACE === 'home';
     --font-code: var(--font-mono);
   }
 
-  /* Projects and Writing are excluded: both paint hover UI (card deck overflow,
-     the Sillage gloss popover) outside their box, which paint containment from
-     content-visibility would clip. */
-  :global(.page-container > section:not(#projects-section):not(#writing-section)) {
-    content-visibility: auto;
-    contain-intrinsic-size: auto 720px;
-  }
-
+  /* No `content-visibility` on the sections. They measure 284-629px against a
+     720px reservation, so every one of them collapsed the document by hundreds
+     of pixels as it materialised — the scroll position got clamped mid-gesture
+     and reveal triggers were left pointing at stale offsets. The sections are
+     small enough that skipping their layout was never worth that. The footer
+     keeps it: it is last, so a late size correction has nothing below it to
+     disturb, and its reservation now matches its real height. */
   :global(.page-container > footer) {
     content-visibility: auto;
-    contain-intrinsic-size: auto 320px;
+    contain-intrinsic-size: auto 210px;
   }
 </style>
+
+{/* Arms the reveal before first paint, so the hidden state is never painted
+    visible and then snapped away. The timer is the failsafe: if the reveal
+    module never claims the page, the hide is lifted and the content appears
+    anyway. See src/lib/home-reveal.ts. */}
+<script is:inline>
+  document.documentElement.classList.add('reveal-ready');
+  setTimeout(function () {
+    if (!document.documentElement.dataset.revealActive) {
+      document.documentElement.classList.remove('reveal-ready');
+    }
+  }, 1500);
+</script>
+
+<script>
+  import { initHomeReveal } from '@/lib/home-reveal';
+
+  // Runs as soon as the DOM is parsed. The old chain waited on `window.load`,
+  // which Safari holds until every lazy image and poster settles — sections sat
+  // at opacity 0 for seconds before their reveal could even be scheduled.
+  initHomeReveal();
+
+  // View transitions swap the DOM without re-running module scripts.
+  document.addEventListener('astro:page-load', initHomeReveal);
+</script>

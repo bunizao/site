@@ -99,6 +99,61 @@ async function readMetaContent(page: Page, selector: string): Promise<string> {
   return content as string;
 }
 
+test.describe('Blog wordmark', () => {
+  test('stays static on hover', async ({ page }) => {
+    await openBlogIndex(page);
+
+    const wordmark = page.locator('[data-site-wordmark-variant="blog"]');
+    await wordmark.evaluate(async (element) => {
+      await Promise.all(element.getAnimations({ subtree: true }).map((animation) => animation.finished));
+    });
+    const before = await wordmark.evaluate((element) => {
+      const latin = element.querySelector<HTMLElement>('.site-wordmark__latin');
+      const wake = element.querySelector<HTMLElement>('.site-wordmark__wake');
+      return {
+        letterSpacing: latin ? getComputedStyle(latin).letterSpacing : '',
+        backgroundPosition: wake ? getComputedStyle(wake).backgroundPosition : '',
+      };
+    });
+
+    await wordmark.hover();
+    await page.waitForTimeout(100);
+
+    const after = await wordmark.evaluate((element) => {
+      const latin = element.querySelector<HTMLElement>('.site-wordmark__latin');
+      const wake = element.querySelector<HTMLElement>('.site-wordmark__wake');
+      return {
+        letterSpacing: latin ? getComputedStyle(latin).letterSpacing : '',
+        backgroundPosition: wake ? getComputedStyle(wake).backgroundPosition : '',
+      };
+    });
+    expect(after).toEqual(before);
+  });
+
+  test('fits the content column at 320px', async ({ page }) => {
+    await page.setViewportSize({ width: 320, height: 700 });
+    await openBlogIndex(page);
+
+    const shell = page.locator('.blog-shell');
+    const shellBox = await shell.boundingBox();
+    const wordmarkBox = await page.locator('[data-site-wordmark-variant="blog"]').boundingBox();
+    const padding = await shell.evaluate((element) => {
+      const style = getComputedStyle(element);
+      return {
+        left: Number.parseFloat(style.paddingLeft),
+        right: Number.parseFloat(style.paddingRight),
+      };
+    });
+    expect(shellBox).not.toBeNull();
+    expect(wordmarkBox).not.toBeNull();
+    expect(wordmarkBox!.x).toBeGreaterThanOrEqual(shellBox!.x + padding.left);
+    expect(wordmarkBox!.x + wordmarkBox!.width).toBeLessThanOrEqual(
+      shellBox!.x + shellBox!.width - padding.right,
+    );
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(320);
+  });
+});
+
 test.describe('Blog routes', () => {
   test.beforeEach(async ({ page }) => {
     await page.emulateMedia({ reducedMotion: 'reduce' });
@@ -108,6 +163,8 @@ test.describe('Blog routes', () => {
     await openBlogIndex(page);
 
     await expect(page.locator('.blog-masthead__wordmark')).toBeVisible();
+    await expect(page.locator('[data-site-wordmark-variant="blog"] .site-wordmark__cjk')).toHaveText('無人之境');
+    await expect(page.locator('[data-site-wordmark-variant="blog"] .site-wordmark__wake')).toHaveText('sillage');
     await expect(page.getByRole('button', { name: 'Search and commands' })).toBeVisible();
 
     const yearGroups = page.locator('.blog-year');
@@ -117,6 +174,11 @@ test.describe('Blog routes', () => {
     const firstYear = yearGroups.first();
     await expect(firstYear.locator('.blog-year__heading')).toHaveText(/^(?:\d{4}|Unknown)$/);
     await expect(firstYear.locator('.blog-list .blog-row').first()).toBeVisible();
+
+    const colophon = page.locator('.blog-colophon');
+    await expect(colophon).toBeVisible();
+    await expect(colophon.getByRole('heading', { name: 'sillage' })).toBeVisible();
+    await expect(colophon.locator('.blog-colophon__body > p')).toHaveCount(3);
 
     const firstPostHref = pathFromHref(
       await page.locator('.blog-row__link').first().getAttribute('href'),

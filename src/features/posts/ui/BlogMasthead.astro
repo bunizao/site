@@ -6,6 +6,7 @@
 // against the mark, so the masthead stays a pure title block. The subscribe
 // trigger sits below — quiet until opened.
 import { blog } from '@/data/site';
+import SiteWordmark from '@/components/SiteWordmark.astro';
 import SubscribePanel from '@/features/notify/SubscribePanel.astro';
 import ContactPanel from '@/features/posts/ui/ContactPanel.astro';
 import { isE2ESiteFixtureEnabled } from '@/lib/e2e';
@@ -18,7 +19,9 @@ const turnstileSiteKey = isE2ESiteFixtureEnabled(Astro.locals)
 ---
 
 <header class="blog-masthead">
-  <h1 class="blog-masthead__wordmark">{blogCopy.name}</h1>
+  <h1 class="blog-masthead__wordmark">
+    <SiteWordmark variant="blog" />
+  </h1>
   <p class="blog-masthead__tagline">{blogCopy.tagline}</p>
   <div class="blog-masthead__actions">
     <SubscribePanel variant="blog" feed={blog.feed} turnstileSiteKey={turnstileSiteKey} />

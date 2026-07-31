@@ -1,4 +1,7 @@
 ---
+// Scroll container for the homepage. Reveal motion lives in home-reveal.css;
+// the small independent drift below uses the CSS translate longhand so it can
+// compose with that reveal transform without competing for the same property.
 ---
 
 <div id="parallax-container">
@@ -6,7 +9,6 @@
 </div>
 
 <style>
-  /* Native scroll with WebKit optimizations */
   :global(html) {
     scroll-behavior: smooth;
     -webkit-overflow-scrolling: touch;
@@ -14,10 +16,6 @@
 
   :global(body) {
     overscroll-behavior: none;
-  }
-
-  #parallax-container {
-    will-change: auto;
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -28,120 +26,57 @@
 </style>
 
 <script>
-  let gsapPromise: Promise<typeof import('gsap')['default']> | null = null;
+  let cleanupParallax: (() => void) | undefined;
 
-  const loadGsap = async (): Promise<typeof import('gsap')['default']> => {
-    gsapPromise ??= Promise.all([
-      import('gsap'),
-      import('gsap/ScrollTrigger'),
-    ]).then(([{ default: gsap }, { ScrollTrigger }]) => {
-      gsap.registerPlugin(ScrollTrigger);
-      return gsap;
-    });
+  const initParallax = () => {
+    cleanupParallax?.();
 
-    return gsapPromise;
-  };
+    const sections = Array.from(
+      document.querySelectorAll<HTMLElement>('#parallax-container section:not(#projects-section)'),
+    );
+    const motionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+    let frame = 0;
 
-  const initSkatingEffects = async () => {
-    const prefersReducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-    if (prefersReducedMotion) return;
-
-    const gsap = await loadGsap();
-
-    // ===== SMOOTH SCROLL DRIFT (SIMPLE & FLUID) =====
-    const floatingSections = document.querySelectorAll('section:not(#projects-section)');
-
-    // Use GSAP's optimized animation for buttery smooth movement
-    floatingSections.forEach((section, index) => {
-      const el = section as HTMLElement;
-      const speed = 0.5 + (index % 3) * 0.2; // Vary parallax speed
-
-      gsap.to(el, {
-        y: () => {
-          // Different sections move at different rates relative to scroll
-          const scrollProgress = window.scrollY;
-          return scrollProgress * speed * 0.02;
-        },
-        ease: 'none',
-        scrollTrigger: {
-          trigger: document.body,
-          start: 'top top',
-          end: 'bottom bottom',
-          scrub: 1.5, // Higher = more lag/glide (ice skating feel)
-          invalidateOnRefresh: true
-        }
-      });
-    });
-
-    // ===== SECTION FADE IN =====
-    const sections = document.querySelectorAll('section:not([data-parallax="off"])');
-    sections.forEach((section) => {
-      gsap.fromTo(
-        section,
-        { opacity: 0, y: 24 },
-        {
-          opacity: 1,
-          y: 0,
-          duration: 0.5,
-          ease: 'power2.out',
-          scrollTrigger: {
-            trigger: section,
-            start: 'top 85%',
-            toggleActions: 'play none none reverse'
-          }
-        }
-      );
-    });
-
-    // ===== ITEMS FADE IN =====
-    const items = document.querySelectorAll('.item, .project-card, .post-card');
-    items.forEach((item, index) => {
-      gsap.fromTo(
-        item,
-        { opacity: 0, y: 16 },
-        {
-          opacity: 1,
-          y: 0,
-          duration: 0.4,
-          ease: 'power2.out',
-          scrollTrigger: {
-            trigger: item,
-            start: 'top 88%',
-            toggleActions: 'play none none reverse'
-          },
-          delay: (index % 4) * 0.04
-        }
-      );
-    });
-
-  };
-
-  const scheduleSkatingEffects = () => {
-    let scheduled = false;
-    const run = () => { void initSkatingEffects(); };
-
-    const schedule = () => {
-      if (scheduled) return;
-      scheduled = true;
-
-      const requestIdle = window.requestIdleCallback;
-      if (typeof requestIdle === 'function') {
-        requestIdle(run, { timeout: 1600 });
-        return;
-      }
-
-      globalThis.setTimeout(run, 0);
+    const clearTranslations = () => {
+      sections.forEach((section) => section.style.removeProperty('translate'));
     };
 
-    window.addEventListener('wheel', schedule, { once: true, passive: true });
-    window.addEventListener('touchstart', schedule, { once: true, passive: true });
-    window.addEventListener('keydown', schedule, { once: true });
-    window.setTimeout(schedule, 5000);
+    const render = () => {
+      frame = 0;
+      const scrollY = window.scrollY;
+      sections.forEach((section, index) => {
+        const speed = 0.5 + (index % 3) * 0.2;
+        section.style.translate = `0 ${scrollY * speed * 0.02}px`;
+      });
+    };
+
+    const schedule = () => {
+      if (frame !== 0) return;
+      frame = window.requestAnimationFrame(render);
+    };
+
+    const handleMotionChange = () => initParallax();
+    motionQuery.addEventListener('change', handleMotionChange);
+
+    if (!motionQuery.matches && sections.length > 0) {
+      window.addEventListener('scroll', schedule, { passive: true });
+      render();
+    } else {
+      clearTranslations();
+    }
+
+    cleanupParallax = () => {
+      window.removeEventListener('scroll', schedule);
+      motionQuery.removeEventListener('change', handleMotionChange);
+      if (frame !== 0) window.cancelAnimationFrame(frame);
+      clearTranslations();
+    };
   };
 
-  if (document.readyState === 'complete') {
-    scheduleSkatingEffects();
-  } else {
-    window.addEventListener('load', scheduleSkatingEffects, { once: true });
-  }
+  const stopParallax = () => cleanupParallax?.();
+
+  initParallax();
+  document.addEventListener('astro:page-load', initParallax);
+  document.addEventListener('astro:before-swap', stopParallax);
+  window.addEventListener('pageshow', initParallax);
 </script>
