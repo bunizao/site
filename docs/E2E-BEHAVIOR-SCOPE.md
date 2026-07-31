@@ -28,7 +28,7 @@ The goal is full behavior coverage for the first-party public site surface under
 | `/mood/rss.xml` | RSS content type and XML output | `tests/e2e/api.pw.ts` |
 | SVG APIs | `status`, `tech-stack`, `site-badge`, `project` response behavior | `tests/e2e/api.pw.ts` |
 | Notify APIs | Invalid methods, unauthorized flows, preview payload | `tests/e2e/api.pw.ts` |
-| `/static/[...path]` | Invalid target rejection and allowed Telegram proxy success | `tests/e2e/api.pw.ts` |
+| `/static/[...path]` | Invalid target rejection plus allowed Telegram and bounded YouTube poster proxy success | `tests/e2e/api.pw.ts` |
 | `/dev/portal` | Passive cards do not expose fake hover affordance | `tests/e2e/admin-portal.pw.ts` |
 | `/dev/portal/subscribers` | Subscriber table hydrates from API, passive rows stay still on hover, row menu opens without layout squeeze | `tests/e2e/admin-portal.pw.ts` |
 | `/dev/portal/mood-embed` | Mood embed iframe grows and shrinks from resize messages | `tests/e2e/admin-portal.pw.ts` |

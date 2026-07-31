@@ -444,6 +444,21 @@ export const GET: APIRoute = async ({ request, params, locals }) => {
     });
   }
 
+  if (
+    isE2ESiteFixtureEnabled(locals)
+    && targetUrl === 'https://i.ytimg.com/vi/aqz-KE-bpKQ/hqdefault.jpg'
+  ) {
+    return new Response('e2e-youtube-poster', {
+      status: 200,
+      headers: {
+        'content-type': 'image/jpeg',
+        'cache-control': 'public, max-age=86400, s-maxage=86400',
+        'access-control-allow-origin': '*',
+        ...Object.fromEntries(rateLimitHeaders),
+      },
+    });
+  }
+
   return buildProxyResponse(request, targetUrl, rateLimitHeaders, allowedDomains);
 };
 
