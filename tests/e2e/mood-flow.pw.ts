@@ -1710,8 +1710,14 @@ test.describe('Mood routes', () => {
     ]);
     await expect(page.locator('[data-mood-feed]')).not.toHaveClass(/is-hidden/, { timeout: 30_000 });
     await expect(navbar.locator('[data-mood-nav-title]')).toHaveText(longChannelTitle);
+    await expect.poll(() => navbar.evaluate((element) =>
+      Number.parseFloat(getComputedStyle(element).getPropertyValue('--run'))
+    )).toBeGreaterThan(1);
+    const dockRun = await navbar.evaluate((element) =>
+      Number.parseFloat(getComputedStyle(element).getPropertyValue('--run'))
+    );
 
-    await page.evaluate(() => window.scrollTo({ top: 600, behavior: 'instant' }));
+    await page.evaluate((top) => window.scrollTo({ top, behavior: 'instant' }), dockRun + 5);
 
     await expect(navbar).toHaveClass(/is-docked/, { timeout: 30_000 });
     await expect.poll(() => navbar.evaluate((element) =>
@@ -1737,19 +1743,25 @@ test.describe('Mood routes', () => {
     expect(Math.max(...Object.values(dockedGeometry))).toBeLessThanOrEqual(1.5);
 
     const compactLayout = await navbar.evaluate((element) => {
-      const title = element.querySelector<HTMLElement>('[data-mood-nav-title-box]');
-      const actions = element.querySelector<HTMLElement>('.mood-navbar__controls');
-      if (!title || !actions) throw new Error('Mood navbar compact layout is missing');
-      const titleRect = title.getBoundingClientRect();
-      const actionsRect = actions.getBoundingClientRect();
+      const titleBox = element.querySelector<HTMLElement>('[data-mood-nav-title-box]');
+      const titleInk = element.querySelector<HTMLElement>('[data-mood-nav-title]');
+      const search = element.querySelector<HTMLElement>('[data-command-open]');
+      if (!titleBox || !titleInk || !search) throw new Error('Mood navbar compact layout is missing');
+      const titleBoxRect = titleBox.getBoundingClientRect();
+      const titleInkRect = titleInk.getBoundingClientRect();
+      const searchRect = search.getBoundingClientRect();
       return {
-        titleRight: titleRect.right,
-        actionsLeft: actionsRect.left,
+        titleBoxRight: titleBoxRect.right,
+        titleInkRight: titleInkRect.right,
+        searchLeft: searchRect.left,
+        titleTruncated: titleInk.scrollWidth > titleInk.clientWidth,
         scrollWidth: document.documentElement.scrollWidth,
         clientWidth: document.documentElement.clientWidth,
       };
     });
-    expect(compactLayout.titleRight).toBeLessThanOrEqual(compactLayout.actionsLeft + 1);
+    expect(compactLayout.titleBoxRight).toBeLessThanOrEqual(compactLayout.searchLeft + 1);
+    expect(compactLayout.titleInkRight).toBeLessThanOrEqual(compactLayout.searchLeft + 1);
+    expect(compactLayout.titleTruncated).toBe(true);
     expect(compactLayout.scrollWidth).toBeLessThanOrEqual(compactLayout.clientWidth + 1);
     await expect(controls).toBeVisible();
 
