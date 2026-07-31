@@ -68,7 +68,9 @@ describe('Cloudflare runtime configuration', () => {
 
     expect(prWorkflow).toContain("GHOST_MOCK_CONTENT: '1'");
     expect(prWorkflow).toContain('Reject mock Cloudflare deployment');
+    expect(prWorkflow).toContain('if bun run guard:cloudflare-deploy');
     expect(prWorkflow).toContain('Cloudflare deploy blocked mock Ghost posts');
+    expect(prWorkflow).not.toContain('wrangler deploy --config dist/server/wrangler.json --dry-run');
     expect(prWorkflow).not.toContain('secrets.GHOST_CONTENT_API_KEY');
   });
 
