@@ -198,9 +198,7 @@ const demoEffectsHtml = `
 </figure>
 <h2>Embeds, code, and footnotes</h2>
 <p>Responsive wrappers, syntax highlighting, copy buttons, and footnote relinking all depend on the content being rendered as final HTML.</p>
-<figure class="kg-card kg-embed-card">
-  <iframe width="560" height="315" src="https://www.youtube.com/embed/aqz-KE-bpKQ?si=tQKOVK7KG4nQut7S" title="YouTube video player" allowfullscreen loading="lazy"></iframe>
-</figure>
+<p>[!youtube id="aqz-KE-bpKQ" start="12"]</p>
 <p>An Apple Music embed is promoted to the listening card — vinyl, not chrome.</p>
 <figure class="kg-card kg-embed-card">
   <iframe width="660" height="175" src="https://embed.music.apple.com/us/album/all-the-love/1888707282?i=1888707290" title="ALL THE LOVE" allow="autoplay *; encrypted-media *;" loading="lazy"></iframe>

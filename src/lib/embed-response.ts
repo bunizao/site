@@ -30,7 +30,8 @@ export function getEmbedHeaders(options: EmbedResponseOptions = {}): Headers {
       "font-src 'self'",
       "img-src 'self' data: https: blob:",
       "media-src 'self' https:",
-      "script-src 'self' 'unsafe-inline'",
+      "script-src 'self' 'unsafe-inline' https://www.youtube.com",
+      "frame-src 'self' https://www.youtube-nocookie.com",
       "frame-ancestors *",
     ].join('; ')
   );

@@ -53,6 +53,7 @@ Private API ownership lives in the separate `site-api` Worker. `site-api` direct
 4. **GitHub Contributions** (`src/features/home/ui/GitHubContributions.astro`, `site-api /api/github/contributions`) — Contribution graph from an API backed by GitHub GraphQL, with the public contributions API as a fallback
 5. **Telegram/BroadcastChannel** — Mood pages render base post content from the D1 archive, then hydrate visible comment counts and reactions from the live Telegram mirror. The live reader remains the fallback when archive reads fail.
 6. **Better Stack Status Page** (`site-api /api/footer`) — Footer service status from `https://status.tuuhub.com/index.json`
+7. **YouTube** (`src/features/posts/server/youtube.ts`, `src/lib/embed/youtube.ts`) — Server rendering reads bounded oEmbed metadata. Posters are fetched by the public `site` Worker through the fixed `/static/youtube/<id>/<quality>.jpg` route; the official Player API and `youtube-nocookie.com` iframe load in the browser only after playback is requested.
 
 ## API Endpoints
 
@@ -77,6 +78,9 @@ Private API ownership lives in the separate `site-api` Worker. `site-api` direct
 **Owner auth surface:**
 - `GET /oauth` — Short public entry that redirects to the protected OAuth hub.
 - The owner-auth boundary is enforced in `src/middleware.ts` + `src/features/admin/server/access.ts`; see [OAUTH-HUB.md](./OAUTH-HUB.md) for the credential roadmap. (The former `/dev/portal/oauth` UI page was removed.)
+
+**Public asset proxy, served by the `site` Worker:**
+- `GET|HEAD /static/youtube/<11-character-id>/<maxresdefault|hqdefault>.jpg` — Fixed YouTube poster proxy. The route rejects query strings and arbitrary `i.ytimg.com` targets; no signing secret is exposed to client-rendered Mood cards.
 
 Telegram references:
 

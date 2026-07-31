@@ -1,4 +1,5 @@
 import { describe, expect, mock, test } from 'bun:test';
+import { getEmbedHeaders } from '@/lib/embed-response';
 
 // The middleware pulls in astro virtual modules through its import chain;
 // stub them so the pure header helpers are testable under bun.
@@ -18,6 +19,13 @@ function htmlResponse(headers: Record<string, string> = {}): Response {
 }
 
 describe('html security headers', () => {
+  test('mood embeds allow only the official YouTube API and privacy-enhanced frame host', () => {
+    const csp = getEmbedHeaders().get('Content-Security-Policy') ?? '';
+
+    expect(csp).toContain("script-src 'self' 'unsafe-inline' https://www.youtube.com");
+    expect(csp).toContain("frame-src 'self' https://www.youtube-nocookie.com");
+  });
+
   test('normal pages get frame-ancestors self, nosniff, and a referrer policy', () => {
     const response = withHtmlSecurityHeaders(
       new Request('https://buxx.me/blog/some-post'),
@@ -25,6 +33,7 @@ describe('html security headers', () => {
     );
 
     expect(response.headers.get('Content-Security-Policy')).toContain("frame-ancestors 'self'");
+    expect(response.headers.get('Content-Security-Policy')).toContain('https://www.youtube.com');
     expect(response.headers.get('X-Content-Type-Options')).toBe('nosniff');
     expect(response.headers.get('Referrer-Policy')).toBe('strict-origin-when-cross-origin');
   });

@@ -212,4 +212,17 @@ test.describe('API behavior', () => {
     expect(response.headers()['access-control-allow-origin']).toBe('*');
     expect(await response.text()).toBe('e2e-image');
   });
+
+  test('static proxy serves bounded YouTube posters without exposing the upstream host', async ({ request }) => {
+    const response = await request.get('/static/youtube/aqz-KE-bpKQ/hqdefault.jpg');
+    expect(response.ok()).toBeTruthy();
+    expect(response.headers()['content-type']).toContain('image/jpeg');
+    expect(response.headers()['access-control-allow-origin']).toBe('*');
+    expect(await response.text()).toBe('e2e-youtube-poster');
+
+    const directUpstream = await request.get(
+      '/static/https://i.ytimg.com/vi/aqz-KE-bpKQ/hqdefault.jpg',
+    );
+    expect(directUpstream.status()).toBe(400);
+  });
 });

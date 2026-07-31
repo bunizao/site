@@ -92,6 +92,38 @@ async function expectNoHorizontalOverflow(page: Page): Promise<void> {
   ).toBeLessThanOrEqual(overflow.viewportWidth + 1);
 }
 
+type YouTubeApiOutcome = 'error' | 'ready' | 'silent';
+
+async function installYouTubePlayerApiFixture(
+  page: Page,
+  outcome: () => YouTubeApiOutcome,
+  onRequest: () => void = () => undefined,
+): Promise<void> {
+  await page.route('https://www.youtube.com/iframe_api', async (route) => {
+    onRequest();
+    const result = outcome();
+    const callback = result === 'ready'
+      ? 'options.events.onReady()'
+      : result === 'error'
+        ? 'options.events.onError()'
+        : '';
+    await route.fulfill({
+      contentType: 'application/javascript',
+      headers: { 'cache-control': 'no-store' },
+      body: [
+        'window.YT = {',
+        '  Player: class {',
+        '    constructor(_iframe, options) {',
+        `      setTimeout(() => { ${callback}; }, 50);`,
+        '    }',
+        '  }',
+        '};',
+        'window.onYouTubeIframeAPIReady?.();',
+      ].join('\n'),
+    });
+  });
+}
+
 test.describe('Blog reading UI', () => {
   test.beforeEach(async ({ page }) => {
     await page.emulateMedia({ reducedMotion: 'reduce' });
@@ -177,6 +209,155 @@ test.describe('Blog reading UI', () => {
       await expect(toc).toHaveAttribute('hidden', '');
       await expect(page.locator('.toc-topbar--static')).toHaveCount(1);
     }
+  });
+
+  test('probes YouTube capability on click without geo branching or overflow', async ({ page }) => {
+    const posterRequests: string[] = [];
+    let apiOutcome: YouTubeApiOutcome = 'ready';
+    let apiRequests = 0;
+    let playerRequests = 0;
+
+    await installYouTubePlayerApiFixture(page, () => apiOutcome, () => {
+      apiRequests += 1;
+    });
+
+    await page.route('**/static/youtube/**', async (route) => {
+      const url = route.request().url();
+      posterRequests.push(url);
+      const width = url.includes('maxresdefault') ? 120 : 480;
+      const height = url.includes('maxresdefault') ? 90 : 360;
+      await route.fulfill({
+        contentType: 'image/svg+xml',
+        body: `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}"></svg>`,
+      });
+    });
+    await page.route('https://www.youtube-nocookie.com/**', async (route) => {
+      playerRequests += 1;
+      await route.fulfill({
+        contentType: 'text/html',
+        body: '<!doctype html><title>YouTube test player</title>',
+      });
+    });
+
+    await page.setViewportSize({ width: 320, height: 900 });
+    await page.goto('/blog/demo-effects/', { waitUntil: 'domcontentloaded' });
+
+    const card = page.locator('[data-yt]');
+    const frame = card.locator('[data-yt-frame]');
+    const player = card.locator('[data-yt-player]');
+    const poster = card.locator('[data-yt-poster]');
+    await expect(card).toBeVisible();
+    await expect(player).not.toHaveAttribute('src', /.+/u);
+    expect(apiRequests).toBe(0);
+    expect(playerRequests).toBe(0);
+    await expect.poll(() => posterRequests.some((url) => url.includes('hqdefault'))).toBe(true);
+    await expect(poster).toHaveAttribute('src', /\/static\/youtube\/aqz-KE-bpKQ\/hqdefault\.jpg$/u);
+
+    const frameBounds = await frame.boundingBox();
+    expect(frameBounds).not.toBeNull();
+    expect(frameBounds!.height).toBeGreaterThanOrEqual(200);
+    expect(frameBounds!.x).toBeGreaterThanOrEqual(0);
+    expect(frameBounds!.x + frameBounds!.width).toBeLessThanOrEqual(321);
+    await expectNoHorizontalOverflow(page);
+
+    await page.evaluate(() => {
+      document.documentElement.dataset.country = 'CN';
+    });
+    await frame.click();
+
+    await expect(card).toHaveClass(/is-loading/u);
+    await expect(player).toHaveAttribute(
+      'src',
+      /youtube-nocookie\.com\/embed\/aqz-KE-bpKQ\?.*origin=http/u,
+    );
+    expect(apiRequests).toBe(1);
+    expect(playerRequests).toBe(1);
+
+    await expect(card).toHaveClass(/is-playing/u);
+    await expect(player).toBeVisible();
+    expect(await page.evaluate(() => sessionStorage.getItem('youtube-embed-reachable:v1'))).toBe('yes');
+
+    apiOutcome = 'silent';
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    const laterCard = page.locator('[data-yt]');
+    await laterCard.locator('[data-yt-frame]').click();
+    await expect(laterCard).toHaveClass(/is-unreachable/u, { timeout: 7_000 });
+    expect(await page.evaluate(() => sessionStorage.getItem('youtube-embed-reachable:v1'))).toBe('yes');
+  });
+
+  test('caches a silent YouTube timeout only for the current browser session', async ({ page }) => {
+    let playerRequests = 0;
+    await installYouTubePlayerApiFixture(page, () => 'silent');
+    await page.route('**/static/youtube/**', async (route) => {
+      await route.fulfill({
+        contentType: 'image/svg+xml',
+        body: '<svg xmlns="http://www.w3.org/2000/svg" width="480" height="360"></svg>',
+      });
+    });
+    await page.route('https://www.youtube-nocookie.com/**', async (route) => {
+      playerRequests += 1;
+      await route.fulfill({
+        contentType: 'text/html',
+        body: '<!doctype html><title>Silent YouTube test player</title>',
+      });
+    });
+
+    await page.goto('/blog/demo-effects/', { waitUntil: 'domcontentloaded' });
+    await page.evaluate(() => {
+      document.documentElement.dataset.country = 'US';
+      sessionStorage.removeItem('youtube-embed-reachable:v1');
+    });
+
+    const card = page.locator('[data-yt]');
+    const player = card.locator('[data-yt-player]');
+    await card.locator('[data-yt-frame]').click();
+    await expect(card).toHaveClass(/is-loading/u);
+    await expect(card).toHaveClass(/is-unreachable/u, { timeout: 7_000 });
+    await expect(player).toBeHidden();
+    await expect(player).not.toHaveAttribute('src', /.+/u);
+    expect(playerRequests).toBe(1);
+    expect(await page.evaluate(() => sessionStorage.getItem('youtube-embed-reachable:v1'))).toBe('no');
+
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    const cachedCard = page.locator('[data-yt]');
+    await cachedCard.locator('[data-yt-frame]').click();
+    await expect(cachedCard).toHaveClass(/is-unreachable/u);
+    expect(playerRequests).toBe(1);
+  });
+
+  test('keeps a player error local to one video', async ({ page }) => {
+    let playerRequests = 0;
+    await installYouTubePlayerApiFixture(page, () => 'error');
+    await page.route('**/static/youtube/**', async (route) => {
+      await route.fulfill({
+        contentType: 'image/svg+xml',
+        body: '<svg xmlns="http://www.w3.org/2000/svg" width="480" height="360"></svg>',
+      });
+    });
+    await page.route('https://www.youtube-nocookie.com/**', async (route) => {
+      playerRequests += 1;
+      await route.fulfill({
+        contentType: 'text/html',
+        body: '<!doctype html><title>YouTube player error fixture</title>',
+      });
+    });
+
+    await page.goto('/blog/demo-effects/', { waitUntil: 'domcontentloaded' });
+    await page.evaluate(() => sessionStorage.removeItem('youtube-embed-reachable:v1'));
+
+    const card = page.locator('[data-yt]');
+    const player = card.locator('[data-yt-player]');
+    await card.locator('[data-yt-frame]').click();
+    await expect(card).toHaveClass(/is-loading/u);
+
+    await expect(card).toHaveClass(/is-unreachable/u);
+    await expect(player).not.toHaveAttribute('src', /.+/u);
+    expect(await page.evaluate(() => sessionStorage.getItem('youtube-embed-reachable:v1'))).toBeNull();
+
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await page.locator('[data-yt-frame]').click();
+    await expect(page.locator('[data-yt]')).toHaveClass(/is-loading/u);
+    await expect.poll(() => playerRequests).toBe(2);
   });
 
   test('does not create horizontal overflow on mobile blog routes', async ({ page }) => {

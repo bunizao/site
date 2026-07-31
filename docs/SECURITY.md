@@ -79,9 +79,12 @@ File: `[src/pages/static/[...path].ts](../src/pages/static/[...path].ts)`
 Role:
 
 - allowlisted proxy for Telegram-related static assets
+- bounded YouTube poster route at `/static/youtube/<11-character-id>/<quality>.jpg`
 - blocks localhost and private-network misuse
 - limits redirect chains
 - uses the shared rate limiter
+
+The YouTube route accepts only `maxresdefault` and `hqdefault`, rejects query strings, and maps those values to `i.ytimg.com` server-side. That host is added only to the per-request redirect allowlist for a validated YouTube poster path; it is not available through the legacy arbitrary-target proxy path.
 
 This is security-adjacent infrastructure, even though it is not under `src/lib/security`.
 

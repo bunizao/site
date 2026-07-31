@@ -9,6 +9,8 @@ import {
 
 export const prerender = false;
 
+const YOUTUBE_POSTER_HOST = 'i.ytimg.com';
+
 // Whitelist of allowed Telegram-related domains.
 const TELEGRAM_ALLOWED_DOMAINS = [
   't.me',
@@ -357,6 +359,40 @@ const resolveProxyTarget = (
   return targetUrl ? { status: 'resolved', targetUrl } : { status: 'invalid-target' };
 };
 
+const resolveYouTubePosterTarget = (
+  request: Request,
+  rawPath: string,
+): ProxyTargetResolution | null => {
+  if (!rawPath.startsWith('youtube/')) return null;
+  if (new URL(request.url).search) return { status: 'invalid-target' };
+
+  const match = /^youtube\/([A-Za-z0-9_-]{11})\/(maxresdefault|hqdefault)\.jpg$/u.exec(rawPath);
+  if (!match) return { status: 'invalid-target' };
+
+  return {
+    status: 'resolved',
+    targetUrl: `https://${YOUTUBE_POSTER_HOST}/vi/${match[1]}/${match[2]}.jpg`,
+  };
+};
+
+const resolveRequestTarget = (
+  request: Request,
+  rawPath: string,
+  locals: App.Locals,
+): { allowedDomains: string[]; targetResolution: ProxyTargetResolution } => {
+  const youtubePosterTarget = resolveYouTubePosterTarget(request, rawPath);
+  const allowedDomains = getAllowedDomains(locals);
+  if (youtubePosterTarget?.status === 'resolved') {
+    allowedDomains.push(YOUTUBE_POSTER_HOST);
+  }
+
+  return {
+    allowedDomains,
+    targetResolution: youtubePosterTarget
+      ?? resolveProxyTarget(request, rawPath, locals, allowedDomains),
+  };
+};
+
 const createSignatureRejectedResponse = (headers: Headers, head = false): Response => {
   headers.set('cache-control', 'no-store');
   return new Response(head ? null : 'Invalid static proxy signature.', {
@@ -384,8 +420,7 @@ export const GET: APIRoute = async ({ request, params, locals }) => {
   }
 
   const rawPath = params.path ?? '';
-  const allowedDomains = getAllowedDomains(locals);
-  const targetResolution = resolveProxyTarget(request, rawPath, locals, allowedDomains);
+  const { allowedDomains, targetResolution } = resolveRequestTarget(request, rawPath, locals);
   if (targetResolution.status === 'signature-rejected') {
     return createSignatureRejectedResponse(rateLimitHeaders);
   }
@@ -409,6 +444,21 @@ export const GET: APIRoute = async ({ request, params, locals }) => {
     });
   }
 
+  if (
+    isE2ESiteFixtureEnabled(locals)
+    && targetUrl === 'https://i.ytimg.com/vi/aqz-KE-bpKQ/hqdefault.jpg'
+  ) {
+    return new Response('e2e-youtube-poster', {
+      status: 200,
+      headers: {
+        'content-type': 'image/jpeg',
+        'cache-control': 'public, max-age=86400, s-maxage=86400',
+        'access-control-allow-origin': '*',
+        ...Object.fromEntries(rateLimitHeaders),
+      },
+    });
+  }
+
   return buildProxyResponse(request, targetUrl, rateLimitHeaders, allowedDomains);
 };
 
@@ -424,8 +474,7 @@ export const HEAD: APIRoute = async ({ request, params, locals }) => {
   }
 
   const rawPath = params.path ?? '';
-  const allowedDomains = getAllowedDomains(locals);
-  const targetResolution = resolveProxyTarget(request, rawPath, locals, allowedDomains);
+  const { allowedDomains, targetResolution } = resolveRequestTarget(request, rawPath, locals);
   if (targetResolution.status === 'signature-rejected') {
     return createSignatureRejectedResponse(rateLimitHeaders, true);
   }
