@@ -9,6 +9,8 @@ import {
 
 export const prerender = false;
 
+const YOUTUBE_POSTER_HOST = 'i.ytimg.com';
+
 // Whitelist of allowed Telegram-related domains.
 const TELEGRAM_ALLOWED_DOMAINS = [
   't.me',
@@ -22,10 +24,6 @@ const TELEGRAM_ALLOWED_DOMAINS = [
   'cdn4.telegram-cdn.org',
   'cdn5.telegram-cdn.org',
   'telesco.pe',
-  // YouTube posters enter only through the fixed `youtube/<id>/<quality>.jpg`
-  // route below. Keeping the host here allows its validated redirects without
-  // turning i.ytimg.com into an unsigned arbitrary-target proxy.
-  'i.ytimg.com',
 ];
 
 const hopByHopHeaders = new Set([
@@ -373,7 +371,25 @@ const resolveYouTubePosterTarget = (
 
   return {
     status: 'resolved',
-    targetUrl: `https://i.ytimg.com/vi/${match[1]}/${match[2]}.jpg`,
+    targetUrl: `https://${YOUTUBE_POSTER_HOST}/vi/${match[1]}/${match[2]}.jpg`,
+  };
+};
+
+const resolveRequestTarget = (
+  request: Request,
+  rawPath: string,
+  locals: App.Locals,
+): { allowedDomains: string[]; targetResolution: ProxyTargetResolution } => {
+  const youtubePosterTarget = resolveYouTubePosterTarget(request, rawPath);
+  const allowedDomains = getAllowedDomains(locals);
+  if (youtubePosterTarget?.status === 'resolved') {
+    allowedDomains.push(YOUTUBE_POSTER_HOST);
+  }
+
+  return {
+    allowedDomains,
+    targetResolution: youtubePosterTarget
+      ?? resolveProxyTarget(request, rawPath, locals, allowedDomains),
   };
 };
 
@@ -404,9 +420,7 @@ export const GET: APIRoute = async ({ request, params, locals }) => {
   }
 
   const rawPath = params.path ?? '';
-  const allowedDomains = getAllowedDomains(locals);
-  const targetResolution = resolveYouTubePosterTarget(request, rawPath)
-    ?? resolveProxyTarget(request, rawPath, locals, allowedDomains);
+  const { allowedDomains, targetResolution } = resolveRequestTarget(request, rawPath, locals);
   if (targetResolution.status === 'signature-rejected') {
     return createSignatureRejectedResponse(rateLimitHeaders);
   }
@@ -445,9 +459,7 @@ export const HEAD: APIRoute = async ({ request, params, locals }) => {
   }
 
   const rawPath = params.path ?? '';
-  const allowedDomains = getAllowedDomains(locals);
-  const targetResolution = resolveYouTubePosterTarget(request, rawPath)
-    ?? resolveProxyTarget(request, rawPath, locals, allowedDomains);
+  const { allowedDomains, targetResolution } = resolveRequestTarget(request, rawPath, locals);
   if (targetResolution.status === 'signature-rejected') {
     return createSignatureRejectedResponse(rateLimitHeaders, true);
   }

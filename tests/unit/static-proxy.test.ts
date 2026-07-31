@@ -198,7 +198,17 @@ describe('static Telegram proxy', () => {
       locals: { env: { STATIC_PROXY_MODE: 'enforce' } },
     } as never);
 
+    const arbitraryTargetResponse = await GET({
+      request: new Request(
+        'https://buxx.me/static/https:/i.ytimg.com/vi/aqz-KE-bpKQ/hqdefault.jpg',
+        { headers: { 'CF-Connecting-IP': '192.0.2.34' } },
+      ),
+      params: { path: 'https:/i.ytimg.com/vi/aqz-KE-bpKQ/hqdefault.jpg' },
+      locals: { env: { STATIC_PROXY_MODE: 'observe' } },
+    } as never);
+
     expect(queryResponse.status).toBe(400);
+    expect(arbitraryTargetResponse.status).toBe(400);
     expect(fetchCount).toBe(0);
   });
 
