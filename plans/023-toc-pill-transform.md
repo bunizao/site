@@ -38,7 +38,7 @@ tweening all four:
 ```
 
 ```js
-// src/features/posts/ui/TableOfContents.astro:443-451 — current
+// src/features/posts/ui/TableOfContents.astro:454-462 — current
 const movePill = (link) => {
   const wrap = wrapper.getBoundingClientRect();
   const box = link.getBoundingClientRect();
@@ -97,7 +97,7 @@ declared radius so the *rendered* radius lands at 8px for the common case.
 ```
 
 ```js
-// src/features/posts/ui/TableOfContents.astro:443-451 — target
+// src/features/posts/ui/TableOfContents.astro:454-462 — target
 // One composited write instead of four layout writes. The pill is a 1x1 box
 // (blog.css) with transform-origin at its top-left, so translate positions it
 // and scale sizes it in the same property.
@@ -126,14 +126,26 @@ whose box *does* change — that combination is what forces a re-raster per fram
 
 ## Steps
 
+**Line drift warning.** `TableOfContents.astro` had uncommitted work in flight
+when this plan was written (the reading-bar title handoff, around `:364-430`).
+Locate `movePill` by name, not by line number, and re-anchor before editing:
+
+```
+grep -n "const movePill\|pill.style\|pill!.style" src/features/posts/ui/TableOfContents.astro
+```
+
 1. `src/styles/blog.css:839-856` — replace the rule with the target above.
-2. `src/features/posts/ui/TableOfContents.astro:443-451` — replace `movePill`
-   with the target above.
-3. Check the two other writers of pill state still make sense:
-   `:218` sets `pill.style.opacity = '0'` (fine, untouched) and `:509` calls
-   `movePill` (fine). No other code writes `top`/`left`/`width`/`height` on this
-   element — confirm with
-   `grep -n "pill" src/features/posts/ui/TableOfContents.astro`.
+2. `src/features/posts/ui/TableOfContents.astro`, the `movePill` body (`:454-462`
+   at time of writing) — replace with the target above.
+3. Check the two other writers of pill state still make sense: one sets
+   `pill.style.opacity = '0'` when no section is active (`:218` at time of
+   writing) and one calls `movePill` from the scroll tick. Both stay. Confirm no
+   other code writes `top`/`left`/`width`/`height` on this element using the
+   grep above.
+4. `src/styles/blog.css:929-936` — the reduced-motion block lists
+   `.toc-sliding-pill` under a blanket `transition: none`. That still does the
+   right thing after this change (a transform with no transition = an instant
+   jump to the active section), so leave it. Confirm it, do not edit it.
 
 ## Boundaries
 
