@@ -248,6 +248,13 @@ const wordmarkFontHref = '/fonts/wenkai-wordmark.woff2';
       import('@/layouts/client/visual-viewport');
     </script>
 
+    <script>
+      // Decides which single element (if any) may morph across the next
+      // navigation. Must register before any click can navigate away.
+      import { initViewTransitionNames } from '@/lib/view-transition-names';
+      initViewTransitionNames();
+    </script>
+
     <title>{title}</title>
   </head>
   <body>
