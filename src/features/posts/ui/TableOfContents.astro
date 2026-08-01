@@ -279,6 +279,13 @@ const blogMarkAsset = blog.mark;
     // transform string could not do. What stays here is only the bookkeeping
     // that has no numeric form: which of the two marks owns the pixels.
     const REVEAL = 120; // scroll px where the bar appears AND the logo docks
+
+    // One dock for the whole bar: its own reveal rides `dock` (the mark's run)
+    // and the title's crossfade rides `lift` (the H1's run), both inherited by
+    // the controls inside. Every part of the arrival is then derived from the
+    // same scroll offset, so no piece of it can land a frame after another.
+    const topbarDock = createScrollDock(topbar, ['dock', 'lift']);
+    topbarDock.setRun('dock', REVEAL);
     const mark = document.querySelector<HTMLElement>('.blog-mark');
     const barLogo = topbar.querySelector<HTMLElement>('.toc-topbar__logo');
     const barLogoImg = barLogo?.querySelector<HTMLImageElement>('img');
@@ -299,8 +306,8 @@ const blogMarkAsset = blog.mark;
       // of where the page happens to be when we measure.
       const b = barLogo!.getBoundingClientRect();
       const tb = topbar.getBoundingClientRect();
-      // The bar is translated off-screen when hidden; remove its own offset to
-      // recover where logo2 rests once the bar slides in.
+      // Measured against the bar's own box, so the dock target holds even if the
+      // bar is ever given an offset again — it fades in place today.
       setNum(ghost, '--l1-x', a.left);
       setNum(ghost, '--l1-y', a.top + window.scrollY);
       setNum(ghost, '--l1-size', a.width);
@@ -354,13 +361,6 @@ const blogMarkAsset = blog.mark;
     const canTitle = !reduceMotion && !!h1;
     let titleGhost: HTMLElement | null = null;
     let titleDock: ScrollDock | null = null;
-    // The bar title gets its own dock rather than inheriting the ghost's: the
-    // two live in different trees, and the crossfade has to be on the same clock
-    // as the travel or it lands somewhere else. Both docks read `scroll(root
-    // block)` over the same run, so they cannot drift by construction. Hosting
-    // it on the button (not the bar) keeps the inherited registered property's
-    // subtree to two nodes, as @/styles/scroll-dock.css asks.
-    let barTitleDock: ScrollDock | null = null;
     // The H1 docks by the time its top nears the bar; the run is its travel.
     // Cached, not recomputed per frame — `update()` below reads it every tick.
     let titleRun = 168;
@@ -371,23 +371,20 @@ const blogMarkAsset = blog.mark;
       const heroFont = parseFloat(getComputedStyle(h1!).fontSize) || 28;
       const r = titleText.getBoundingClientRect();
       const tb = topbar.getBoundingClientRect();
-      // Centre of the real bar title, with the bar's hidden-state offset removed.
+      // Centre of the real bar title, relative to the bar's own box.
       const cx = r.left + r.width / 2;
       const cy = r.top - tb.top + r.height / 2;
       // offsetWidth/Height, not a rect: the ghost carries the flight transform
       // at all times now, and the layout box is the only reading that ignores it.
       const gw = titleGhost.offsetWidth;
       const gh = titleGhost.offsetHeight;
-      // Land on the bar title's rendered WIDTH, not its font size. The ghost
-      // wears the H1's 600 weight and -0.02em tracking, so matching font sizes
-      // still leaves the two strings ~10% apart — measured 186px against 206px
-      // for one title at 390px — and a crossfade between two differently wide
-      // copies of the same string diverges toward both ends, which is what read
-      // as doubled text. An ellipsised bar title has no honest width to match
-      // (its box is the clip, not the string), so that case keeps the ratio.
-      const fontScale = (parseFloat(getComputedStyle(titleText).fontSize) || 14) / heroFont;
-      const fits = titleText.scrollWidth <= titleText.clientWidth + 1;
-      const scale = fits && gw > 0 ? titleText.scrollWidth / gw : fontScale;
+      // The font-size ratio, which is only honest because the bar title now
+      // wears the H1's weight and tracking (blog.css) — em-relative tracking
+      // scales with the glyphs, so equal size means equal width. Matching the
+      // measured width instead looks like the more direct fix and is a trap: it
+      // silently absorbs any type mismatch into the scale, so the ghost lands
+      // the right width with visibly larger glyphs.
+      const scale = (parseFloat(getComputedStyle(titleText).fontSize) || 14) / heroFont;
 
       titleRun = Math.max(1, h.top + window.scrollY - 52);
       setNum(titleGhost, '--t1-x', h.left);
@@ -399,7 +396,7 @@ const blogMarkAsset = blog.mark;
       setNum(titleGhost, '--title-target-y', cy - (gh * scale) / 2);
       setNum(titleGhost, '--title-scale', scale);
       titleDock?.setRun('lift', titleRun);
-      barTitleDock?.setRun('lift', titleRun);
+      topbarDock.setRun('lift', titleRun);
     };
 
     // Extra scroll past the first heading before the centre swaps title→section.
@@ -438,7 +435,6 @@ const blogMarkAsset = blog.mark;
       titleGhost.style.letterSpacing = cs.letterSpacing;
       document.body.appendChild(titleGhost);
       titleDock = createScrollDock(titleGhost, ['lift']);
-      barTitleDock = createScrollDock(titleBtn, ['lift']);
       measureTitle();
     }
 
@@ -472,9 +468,10 @@ const blogMarkAsset = blog.mark;
     const update = () => {
       ticking = false;
 
-      // Reveal the reading topbar once the reader has left the header behind —
-      // in step with the logo docking into it.
-      topbar.classList.toggle('is-visible', window.scrollY > REVEAL);
+      // Only hit-testing: how far in the bar is, is CSS reading --dock-ride.
+      // Armed from the first scrolled pixel so visibility is never the thing
+      // holding back an already-opaque bar.
+      topbar.classList.toggle('is-visible', window.scrollY > 0);
       updateGhost();
       updateTitleGhost();
       if (!hasToc || !wrapper || !fill || !pill || !headingTops.length) return;

@@ -963,16 +963,28 @@ html[data-theme-setting='system'] .blog-theme-toggle [data-blog-icon='system'] {
      fades it to nothing — no edge to catch the eye. Taps pass through (the
      surface is pointer-events:none). */
   padding-bottom: 40px;
-  /* The bar slides down only after the reader passes the article header. */
-  opacity: 0;
-  transform: translateY(-100%);
+  /* The bar surfaces as the reader passes the article header — by fading, on the
+     scroll, over the back half of the mark's dock run.
+
+     It used to drop in from translateY(-100%) on a 0.32s transition. That was a
+     second arrival competing with the one that matters: the title flies UP into
+     this bar while the bar itself fell DOWN past it, and since one was timed and
+     the other scroll-driven, they crossed at whatever offset the reader's scroll
+     speed produced. The content supplies the movement here — the mark docks into
+     the bar, the title lands in it — so the surface only has to appear beneath
+     them. Fading on the same scalar also means it is fully opaque before the
+     title's crossfade begins, which matters because this opacity multiplies
+     everything inside: a bar still at 0.2 turned the incoming title dim just as
+     it arrived. */
+  opacity: clamp(0, (var(--dock-ride) - 0.25) / 0.35, 1);
+  /* Opacity alone still hit-tests, and the controls below opt back into
+     pointer-events; without this their tap targets sit over the article. */
+  visibility: hidden;
   pointer-events: none;
-  transition: opacity 0.25s ease, transform 0.32s cubic-bezier(0.32, 0.72, 0, 1);
 }
 
 .toc-topbar.is-visible {
-  opacity: 1;
-  transform: translateY(0);
+  visibility: visible;
 }
 
 /* The single frosted surface behind bar + menu. inset:0 stretches it over the
@@ -1112,17 +1124,20 @@ html[data-theme-setting='system'] .blog-theme-toggle [data-blog-icon='system'] {
 
    The crossfade rides --lift-ride too, rather than a scroll position read on
    the main thread: derived from the scroller, it cannot arrive a frame after
-   the flight it accompanies. The last 30% is also a real fade — at 15% of a
-   ~200px run the window was ~30px, which a flick crosses in one frame, so what
-   should have been a dissolve was a hard swap.
+   the flight it accompanies.
 
-   Blurred, not merely faded. The ghost wears the H1's 600 weight and -0.02em
-   tracking scaled down; the bar title is 500 at 14px with no tracking. Same
-   string, different advance widths — centred, they diverge toward both ends,
-   and a plain crossfade shows that as doubled text. Two typographic states are
-   genuinely different objects, so the honest move is to blur the seam rather
-   than pretend the metrics can be made to agree. Same 2px the section-label
-   ticker uses in TableOfContents.astro. */
+   It also happens EARLY — the ghost is gone before it lands, and the bar title
+   is already coming up underneath. The obvious design is to park the ghost
+   exactly on the bar title and dissolve one into the other, and that is what
+   produced the doubled text: two renderings of one string can be brought to the
+   same box but never to the same pixels. Inter's optical sizing alone makes
+   14px text ~7% wider than 27px text scaled down, so the glyphs drift apart
+   inside a matched box. Almost-identical is the worst case there is — the eye
+   reads two words. Overlapping them while the ghost is still visibly larger and
+   higher gives it two different things to read instead, which is what the iOS
+   collapse this imitates actually does: the large title dissolves on its way
+   out, the small one appears in the bar, and they are never claimed to be one
+   object mid-flight. */
 .toc-title-ghost {
   position: fixed;
   top: 0;
@@ -1135,7 +1150,7 @@ html[data-theme-setting='system'] .blog-theme-toggle [data-blog-icon='system'] {
   white-space: nowrap;
   pointer-events: none;
   transform-origin: top left;
-  will-change: transform, opacity, filter;
+  will-change: transform, opacity;
 
   /* Published by measureTitle(). The targets are the ghost's top-left at its
      docked scale — computed in JS because they fold in the ghost's own measured
@@ -1147,8 +1162,10 @@ html[data-theme-setting='system'] .blog-theme-toggle [data-blog-icon='system'] {
   --title-target-y: 0;
   --title-scale: 1;
 
-  --tg-pos: clamp(0, var(--lift-ride) / 0.7, 1);
-  --tg-fade: clamp(0, (var(--lift-ride) - 0.7) / 0.3, 1);
+  --tg-pos: clamp(0, var(--lift-ride) / 0.85, 1);
+  /* Out over 45-75% of the run, while there is still a size and a position
+     between the two titles for the eye to tell them apart. */
+  --tg-fade: clamp(0, (var(--lift-ride) - 0.5) / 0.22, 1);
   --tg-live: calc((var(--t1-y) - var(--lift-ride) * var(--lift-run)) * 1px);
   --tg-x: calc((var(--t1-x) + (var(--title-target-x) - var(--t1-x)) * var(--tg-pos)) * 1px);
   --tg-y: calc(var(--tg-live) + (var(--title-target-y) * 1px - var(--tg-live)) * var(--tg-pos));
@@ -1160,7 +1177,6 @@ html[data-theme-setting='system'] .blog-theme-toggle [data-blog-icon='system'] {
    that one has no numeric form. Everything continuous is above. */
 .toc-title-ghost.is-flying {
   opacity: calc(1 - var(--tg-fade));
-  filter: blur(calc(var(--tg-fade) * 2px));
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -1182,7 +1198,12 @@ html[data-theme-setting='system'] .blog-theme-toggle [data-blog-icon='system'] {
   background: none;
   font: inherit;
   font-size: 14px;
-  font-weight: 500;
+  /* The H1's weight and tracking, at the bar's size. This is the receiving end
+     of a shared-element handoff, so it has to BE the article title shrunk — if
+     the two ends differ typographically, the crossover shows two strings of
+     different widths instead of one. */
+  font-weight: 600;
+  letter-spacing: -0.02em;
   color: var(--blog-ink);
   cursor: pointer;
   justify-self: center;
@@ -1195,9 +1216,7 @@ html[data-theme-setting='system'] .blog-theme-toggle [data-blog-icon='system'] {
    then arrives with the title instead of waiting at full opacity beside it, and
    setTitle()'s WAAPI ticker keeps sole ownership of the text's own opacity. */
 .toc-topbar.title-handoff .toc-topbar__title {
-  --bt-fade: clamp(0, (var(--lift-ride) - 0.7) / 0.3, 1);
-  opacity: var(--bt-fade);
-  filter: blur(calc((1 - var(--bt-fade)) * 2px));
+  opacity: clamp(0, (var(--lift-ride) - 0.35) / 0.2, 1);
 }
 
 /* No section map (no-toc post or a thin one): the centre is a plain reading
