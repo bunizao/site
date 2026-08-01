@@ -1107,9 +1107,22 @@ html[data-theme-setting='system'] .blog-theme-toggle [data-blog-icon='system'] {
    own `lift` channel. Two terms, like the mood navbar's flight: --tg-live is
    where the H1 actually is on screen right now, so the ghost rides up with the
    content, and --tg-pos then pulls it onto the bar's centre slot. The travel
-   finishes at 85% of the run and parks, so the crossfade below happens with the
-   ghost and the real bar title sharing one spot — never two titles in two
-   places, which was the earlier flaw. */
+   parks at 70% of the run so the crossfade happens with the ghost and the real
+   bar title sharing one spot — never two titles in two places.
+
+   The crossfade rides --lift-ride too, rather than a scroll position read on
+   the main thread: derived from the scroller, it cannot arrive a frame after
+   the flight it accompanies. The last 30% is also a real fade — at 15% of a
+   ~200px run the window was ~30px, which a flick crosses in one frame, so what
+   should have been a dissolve was a hard swap.
+
+   Blurred, not merely faded. The ghost wears the H1's 600 weight and -0.02em
+   tracking scaled down; the bar title is 500 at 14px with no tracking. Same
+   string, different advance widths — centred, they diverge toward both ends,
+   and a plain crossfade shows that as doubled text. Two typographic states are
+   genuinely different objects, so the honest move is to blur the seam rather
+   than pretend the metrics can be made to agree. Same 2px the section-label
+   ticker uses in TableOfContents.astro. */
 .toc-title-ghost {
   position: fixed;
   top: 0;
@@ -1122,7 +1135,7 @@ html[data-theme-setting='system'] .blog-theme-toggle [data-blog-icon='system'] {
   white-space: nowrap;
   pointer-events: none;
   transform-origin: top left;
-  will-change: transform, opacity;
+  will-change: transform, opacity, filter;
 
   /* Published by measureTitle(). The targets are the ghost's top-left at its
      docked scale — computed in JS because they fold in the ghost's own measured
@@ -1134,12 +1147,20 @@ html[data-theme-setting='system'] .blog-theme-toggle [data-blog-icon='system'] {
   --title-target-y: 0;
   --title-scale: 1;
 
-  --tg-pos: clamp(0, var(--lift-ride) / 0.85, 1);
+  --tg-pos: clamp(0, var(--lift-ride) / 0.7, 1);
+  --tg-fade: clamp(0, (var(--lift-ride) - 0.7) / 0.3, 1);
   --tg-live: calc((var(--t1-y) - var(--lift-ride) * var(--lift-run)) * 1px);
   --tg-x: calc((var(--t1-x) + (var(--title-target-x) - var(--t1-x)) * var(--tg-pos)) * 1px);
   --tg-y: calc(var(--tg-live) + (var(--title-target-y) * 1px - var(--tg-live)) * var(--tg-pos));
   --tg-scale: calc(1 + (var(--title-scale) - 1) * var(--tg-pos));
   transform: translate(var(--tg-x), var(--tg-y)) scale(var(--tg-scale));
+}
+
+/* JS owns only the binary question — is the handoff running at all — because
+   that one has no numeric form. Everything continuous is above. */
+.toc-title-ghost.is-flying {
+  opacity: calc(1 - var(--tg-fade));
+  filter: blur(calc(var(--tg-fade) * 2px));
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -1166,6 +1187,17 @@ html[data-theme-setting='system'] .blog-theme-toggle [data-blog-icon='system'] {
   cursor: pointer;
   justify-self: center;
   transition: color 0.15s ease;
+}
+
+/* The receiving half of the title handoff, on the same scalar as the ghost via
+   its own dock (TableOfContents.astro) — one clock, so the two halves cannot
+   land at different moments. On the button rather than the text: the chevron
+   then arrives with the title instead of waiting at full opacity beside it, and
+   setTitle()'s WAAPI ticker keeps sole ownership of the text's own opacity. */
+.toc-topbar.title-handoff .toc-topbar__title {
+  --bt-fade: clamp(0, (var(--lift-ride) - 0.7) / 0.3, 1);
+  opacity: var(--bt-fade);
+  filter: blur(calc((1 - var(--bt-fade)) * 2px));
 }
 
 /* No section map (no-toc post or a thin one): the centre is a plain reading
