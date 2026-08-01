@@ -29,6 +29,11 @@ leverage without a user selection step.
 | 014  | Restore srcset on archive images | P2 | M | 011 | TODO |
 | 015  | Clickable mood tag filters | P2 | M | 009–014 (branch order) | TODO |
 | 016  | Mood search UI | P2 | M | ../site-api 017 | TODO |
+| 017  | View-transition name broker (only the activated, on-screen element morphs) | P1 | M | — | DONE |
+| 018  | Home → blog is a threshold: the mark is the only shared element | P1 | S | 017 | DONE |
+| 019  | Root transition opacity ramp + reduced-motion crossfade | P2 | S | — | DONE |
+| 020  | Blog wordmark entrance once per session | P2 | S | — | DONE |
+| 021  | Re-measure Safari, then delete the WebKit skip if it holds | P3 | S | 017, 018 | TODO (manual, real Safari only) |
 
 Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJECTED (with one-line rationale)
 
@@ -103,3 +108,34 @@ Recorded so the next audit doesn't re-litigate them:
 - **CSP `script-src 'unsafe-inline'`** (`middleware.ts:58-66`): weak by CSP standards but required by Astro inline scripts without a nonce pipeline; treating as accepted tradeoff.
 - **Portal API proxy dot-segment normalization** (`/dev/portal/api/admin/..%2f...` escaping the `/api/admin` prefix via `URL` pathname normalization): requester is already an Access-authenticated admin and the reachable surface (`/api/*`, `/v2/*`) is publicly routed anyway. Hardening only; not planned.
 - **Mood detail double `getChannelInfo`** (`channel-service.ts`): pre-existing, parallel by design for live reads; D1/v2 remains backup-only per recorded decision.
+
+## August 1, 2026 navigation-animation audit (home → blog → post)
+
+Plans 017–020 come from an audit of the three-page transition chain
+(`/` → `/blog/` → `/blog/[slug]/`), verified by recording the real
+cross-document view transitions at 1/8 playback against the local dev server
+and measuring the captured geometry of every named element.
+
+Root cause of the reported "elements weirdly float in from below": names are
+baked into markup, so the homepage Writing section claims `blog-mark` and three
+`post-*` names even when it is ~2000px below the fold. Measured travel on a
+1440×900 viewport at scroll 0: `blog-mark` 1957px → 40px, titles ~1500-1600px
+up plus a 216px → 672px width stretch. Any navigation started from the command
+palette, the footer, or browser back/forward therefore flies those elements the
+full height of the viewport into place while the rest of the page sits settled.
+
+Execution order: **017 → 018** (018 assumes 017's visibility gate), then 019 and
+020 independently.
+
+Deliberately NOT planned (recorded so it isn't re-litigated):
+
+- **WebKit `skipTransition`** (`src/layouts/Layout.astro:203-213`,
+  `src/layouts/BlogLayout.astro:161-170`) — documented tradeoff, stays. The
+  consequence to keep in mind: every transition in this chain is Chrome-only, so
+  none of it may be load-bearing for comprehension.
+- **`/blog/` → post title morph + `blog-hero` preview morph** — recorded and
+  reviewed frame by frame; this is the reference behaviour the rest of the chain
+  should be measured against. Do not "improve" it.
+- **460ms root duration** — top of the 200-500ms band for a full-page
+  transition, defensible for a threshold crossing. Revisit only if 019's
+  opacity fix does not settle the feel.
