@@ -128,3 +128,38 @@ kind of thing this pass surfaces.
 - **Done when**: no `transition: all` remains outside `src/components/coss/` and
   `ProjectStack.tsx`, every listed element animates as it did, and the Findings
   section records what `all` was carrying that nobody asked for.
+
+## Findings
+
+What `all` was carrying that nobody asked for, recorded per the Method step 4.
+None of these were fixed — narrowing the property list is this plan's whole
+scope, and each of these is a feel decision that needs its own call.
+
+**1. Site 1 (`.mood-dot`) — colour riding an overshoot curve.** The curve is
+`cubic-bezier(0.34, 1.56, 0.64, 1)`, which overshoots by design for the
+`scale(1.3)`. `border-color` and `background` were riding it too, so both
+bounce *past* their target colour and settle back. Almost certainly unintended:
+a colour has no momentum to overshoot with. The cheap fix is to split the
+declaration so the two colours take a plain ease and only `transform` keeps the
+bounce. Not done here.
+
+**2. Site 9 (`.item`) — the only thing it animates is layout.** The hover
+changes `padding-left` and nothing else, so narrowing `all` produced
+`transition: padding-left 150ms ease` — an honest declaration of a transition
+that forces layout on every hover frame. `transform: translateX(8px)` would be
+the composited equivalent and would look the same on a block element with no
+background or border to shift. This is the clearest candidate for a follow-up.
+
+**3. Site 4 (`.mood-comments-load-more`) — a five-property list.** `color`,
+`border-color`, `box-shadow`, `transform` and `opacity` all genuinely change
+across `:hover`, `:active` and `:disabled`. Nothing here is accidental, but the
+`box-shadow` tween is the expensive one and the button already carries two
+stacked shadows plus a `::before` gradient overlay.
+
+**4. Sites 2, 5 (`.mood-card`, CTA body) — `box-shadow` on a hover-follow.**
+Both animate `box-shadow` as part of a hover lift. Off-GPU and repainting, but
+visible and intended. Recorded only because narrowing made it explicit.
+
+### Discrepancy against the plan as written
+
+Every one of the thirteen cited lines matched. No STOP condition was hit.

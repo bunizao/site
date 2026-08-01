@@ -657,7 +657,9 @@
     display: block;
     padding-block: 1rem;
     border-bottom: 1px dashed hsl(var(--muted));
-    transition: all 150ms ease;
+    /* padding-left is the only thing :hover changes — and it is layout, not
+       compositing. Kept as-authored; see plan 027 Findings. */
+    transition: padding-left 150ms ease;
   }
 
   .item:last-child {
@@ -683,7 +685,8 @@
     display: inline-flex;
     align-items: center;
     gap: 4px;
-    transition: all 0.15s ease;
+    /* The arrow's slide lives on .link::after, which owns its own transition. */
+    transition: color 0.15s ease;
   }
 
   .link::after {
@@ -708,7 +711,9 @@
     font-size: 12px;
     font-weight: 500;
     border-radius: var(--radius-md);
-    transition: all 0.15s ease;
+    transition:
+      background 0.15s ease,
+      color 0.15s ease;
   }
 
   @media (min-width: 640px) {
@@ -1867,7 +1872,9 @@
     border: none;
     border-radius: 6px;
     cursor: pointer;
-    transition: all 0.12s ease;
+    transition:
+      color 0.12s ease,
+      background 0.12s ease;
   }
 
   .theme-dropdown-item:hover {

@@ -223,7 +223,10 @@ const initialPreviewPostsJson = serializeScriptJson(initialPosts.slice(0, INITIA
     margin-top: 12px;
     position: relative;
     z-index: 2;
-    transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+    transition:
+      border-color 0.25s cubic-bezier(0.34, 1.56, 0.64, 1),
+      background 0.25s cubic-bezier(0.34, 1.56, 0.64, 1),
+      transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
   }
 
   /* Whole rule gated, not just the transform: the colour changes ride along
@@ -288,7 +291,11 @@ const initialPreviewPostsJson = serializeScriptJson(initialPosts.slice(0, INITIA
     border: 1px solid hsl(var(--foreground) / 0.06);
     border-radius: 10px;
     min-height: var(--reserved-card-height, auto);
-    transition: all 0.2s ease;
+    transition:
+      background 0.2s ease,
+      border-color 0.2s ease,
+      transform 0.2s ease,
+      box-shadow 0.2s ease;
   }
 
   @media (min-width: 640px) {
@@ -376,7 +383,9 @@ const initialPreviewPostsJson = serializeScriptJson(initialPosts.slice(0, INITIA
     padding: 2px 6px;
     background: hsl(var(--foreground) / 0.04);
     border-radius: 4px;
-    transition: all 0.2s ease;
+    transition:
+      background 0.2s ease,
+      color 0.2s ease;
   }
 
   #moods-section .mood-item:hover .mood-tag {

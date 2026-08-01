@@ -445,7 +445,10 @@ const previewPending = readSource === 'archive'
     padding: 4px 10px;
     background: hsl(var(--foreground) / 0.05);
     border-radius: 6px;
-    transition: all 0.15s ease;
+    transition:
+      background 0.15s ease,
+      color 0.15s ease,
+      border-color 0.15s ease;
     border: 1px solid hsl(var(--foreground) / 0.06);
     text-decoration: none;
   }
@@ -1183,7 +1186,10 @@ const previewPending = readSource === 'archive'
     color: transparent;
     border-radius: 4px;
     padding: 0 4px;
-    transition: all 0.2s ease;
+    /* The reveal is a checked-state swap, not a hover. */
+    transition:
+      background 0.2s ease,
+      color 0.2s ease;
   }
 
   .mood-post-content :global(.spoiler-button input[type='checkbox']:checked + tg-spoiler) {
