@@ -9,14 +9,17 @@
  *  - Real VISUAL lines are measured (offsetTop grouping) and each line is
  *    rendered as a `white-space: nowrap` block, so a line can change width
  *    without re-wrapping the paragraph.
- *  - Scheduling runs Soulwire's three fronts, but in separated windows: the
- *    shuffled `show` (p^0.5 — cursors flood in early) and `mash` (p^2 —
- *    cursors graduate to boiling scramble) fronts both finish below
- *    `settleStart`, and only then does a strictly left-to-right resolve front
- *    sweep the line at constant speed. Packing the noisy fronts underneath the
- *    resolve front is what keeps the reveal smooth: a cell can never be held
- *    back by a late shuffle slot, so the line crystallises one glyph at a time
- *    instead of snapping in a block at the end.
+ *  - Scheduling runs Soulwire's fronts over a shuffled queue: `show` (p^0.5 —
+ *    cursors flood in early) and `mash` (p^2 — cursors graduate to boiling
+ *    scramble). Every character then boils for the same `boil` share of its
+ *    line before resolving, so the resolve order is the mash order and settled
+ *    characters stay interleaved with boiling ones across the whole line. No
+ *    edge sweeps across it; the line just gets cleaner everywhere at once.
+ *  - There is ONE timeline for the whole text, eased once. Lines are windows
+ *    laid out on that shared 0..1 axis, overlapping heavily (`lineSpread`), so
+ *    the paragraph reads as a single object condensing. Easing each line
+ *    separately instead gives every line its own accelerate/settle cycle, which
+ *    is what turns a reveal into a queue of animations running top to bottom.
  *  - Two layout modes:
  *      `grow`   — unshown characters collapse to zero width and the line
  *                 condenses in. Scramble glyphs must match the real glyph
@@ -49,30 +52,38 @@ export interface DecodeOptions {
   /** Mash front exponent: cursor graduates to boiling scramble as p^mashPower sweeps. Default: 2 */
   mashPower?: number;
   /**
-   * Progress at which the left-to-right resolve front starts its sweep. The
-   * show and mash fronts are packed below it, so lower values mean less boiling
-   * and a longer, slower crystallisation. Default: 0.52
+   * How long a character scrambles between appearing and resolving, as a share
+   * of its line's window. Every character boils for the same length of time, so
+   * this is the single knob for how noisy the reveal is: resolution is the mash
+   * front shifted by exactly this much, which is what keeps settled and boiling
+   * characters interleaved instead of split by a sweeping edge. Default: 0.35
    */
-  settleStart?: number;
-  /**
-   * Shape of the resolve front across the line. 1 is a constant-speed beam;
-   * below 1 opens fast and savours the last glyphs; above 1 hesitates then
-   * finishes hard. Default: 0.8
-   */
-  settleCurve?: number;
+  boil?: number;
   /** Mix the text's own (ASCII) characters into the scramble pool. Default: true */
   scrambleFromText?: boolean;
-  /** Seconds of line duration per character, clamped to [minLineDuration, maxLineDuration]. */
+  /**
+   * Wall-clock seconds for the WHOLE reveal, as a rate per character of the
+   * full text, clamped to [minDuration, maxDuration]. Lines divide this one
+   * timeline between them; they do not each get their own.
+   */
   durationPerChar?: number;
-  minLineDuration?: number;
-  maxLineDuration?: number;
-  /** Next line starts at `lineStagger * (sum of previous line durations)`. Default: 0.2 */
-  lineStagger?: number;
-  /** Minimum seconds between two consecutive line completions. Default: 0.07 */
-  lineEndGap?: number;
+  minDuration?: number;
+  maxDuration?: number;
+  /**
+   * Share of the timeline that separates the first line's start from the last
+   * line's. `0` starts every line together and finishes them together; `1`
+   * plays them back to back. Low values read as one paragraph condensing, high
+   * values as a list animating in sequence. Default: 0.3
+   */
+  lineSpread?: number;
   /** Scramble glyph refresh rate in mutations per second per cell. Default: 18 */
   mutationHz?: number;
-  /** Timeline easing. Default: easeInOutSine — soft ends, near-constant middle. */
+  /**
+   * Speed curve for the single paragraph timeline. Runs once over the whole
+   * text, not once per line. Default accelerates from rest and then coasts.
+   * Avoid curves that reach zero speed at `t = 1`: the last line completes
+   * there, so it ends up finishing alone well after the others.
+   */
   ease?: (t: number) => number;
   /** Wait for `document.fonts.ready` up to this many ms before measuring. Default: 400 */
   fontTimeout?: number;
@@ -106,12 +117,39 @@ interface Cell {
 
 interface Line {
   cells: Cell[];
+  /** Window on the eased 0..1 paragraph axis — not seconds. */
   start: number;
   duration: number;
   /** Cells before this index are fully settled — skipped every frame. */
   done: number;
   complete: boolean;
 }
+
+/**
+ * The paragraph's speed curve: a push, then a coast.
+ *
+ * Uniform acceleration from rest over the first `RAMP` of the timeline, then
+ * the speed it reached bleeding off against `DRAG` — a thrown object rather
+ * than a mechanism. Both halves earn their keep.
+ *
+ * Without the ramp the reveal starts already at speed and there is no opening
+ * beat. Without a non-zero speed left at the end it decelerates into a stop,
+ * and because the last line completes exactly where the curve flattens, that
+ * line is left finishing alone long after the rest: 608ms behind its neighbour
+ * under a symmetric ease-out, against 137ms here. An ease-out is the wrong
+ * shape for this — nothing is braking, the text simply runs out.
+ */
+const RAMP = 0.45;
+const DRAG = 1.2;
+/** Speed carried into the coast, and the progress the ramp covers reaching it. */
+const COAST_V = 2 / (2 - RAMP);
+const RAMP_P = RAMP / (2 - RAMP);
+const coasted = (t: number): number =>
+  RAMP_P + (COAST_V * (1 - Math.exp(-DRAG * (t - RAMP)))) / DRAG;
+const TRAVEL = coasted(1);
+
+const pushAndCoast = (t: number): number =>
+  (t <= RAMP ? (t * t) / (RAMP * (2 - RAMP)) : coasted(t)) / TRAVEL;
 
 const DEFAULTS = {
   charset: '__-—/\\|<>',
@@ -120,20 +158,16 @@ const DEFAULTS = {
   order: 'shuffle' as DecodeOrder,
   showPower: 0.5,
   mashPower: 2,
-  settleStart: 0.52,
-  settleCurve: 0.8,
+  boil: 0.35,
   scrambleFromText: true,
-  durationPerChar: 0.019,
-  minLineDuration: 0.42,
-  maxLineDuration: 1.25,
-  lineStagger: 0.2,
-  lineEndGap: 0.07,
+  durationPerChar: 0.008,
+  minDuration: 0.9,
+  maxDuration: 3.2,
+  lineSpread: 0.3,
   mutationHz: 18,
   fontTimeout: 400,
   respectReducedMotion: true,
-  // easeInOutSine: moves off zero straight away (no dead frames at the head of
-  // a line) and decelerates gently into the last glyph.
-  ease: (t: number): number => (1 - Math.cos(Math.PI * t)) / 2,
+  ease: pushAndCoast,
 };
 
 type Resolved = typeof DEFAULTS & DecodeOptions;
@@ -144,8 +178,14 @@ const MAX_FRAME_MS = 64;
 /** Share of the pre-settle window the show front owns; the mash front takes the rest. */
 const SHOW_WINDOW = 0.65;
 
-/** Progress every cell spends boiling before the resolve front may reach it. */
-const MIN_BOIL = 0.06;
+/**
+ * How far each line's weight is pulled toward the average when laying out the
+ * end cascade. Weighting purely by character count gives a short wrapped
+ * remnant ("source.") a slice too thin to see — measured at 8ms behind the
+ * 70-character line above it, so which one landed first came down to frame
+ * jitter. A line is one line to the eye however short it is.
+ */
+const LINE_EVENNESS = 0.6;
 
 const SR_ONLY_STYLE =
   'position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0';
@@ -372,67 +412,68 @@ const renderLine = (
 /**
  * Fold the three fronts into per-cell thresholds.
  *
- * The show and mash fronts keep Soulwire's power shape — a front with exponent
- * y reaches queue fraction q at progress q^(1/y), so showPower < 1 floods
- * cursors in early — but both are scaled into the window below `settleStart`,
- * where `shuffle` can scatter them freely. The resolve front then sweeps left
- * to right at constant speed over the remaining window, one cell at a time.
+ * Every character does the same thing: it appears as a cursor, boils for
+ * `boil` of the line's window, then resolves. The only thing that differs is
+ * *when* it starts, and that is drawn from the shuffled queue — so at any
+ * instant a line holds resolved characters, boiling ones and empty slots all
+ * interleaved, and it cleans up everywhere at once rather than being wiped.
  *
- * Keeping the two apart is the whole trick. When the shuffled mash threshold
- * was allowed to floor `settleAt` directly, the cell holding the last shuffle
- * slot could not resolve before progress 1, and the monotonic pass dragged
- * every cell behind it to the same frame — so most of a line snapped from
- * scramble to final text in a single frame. Now `mashAt + MIN_BOIL` is capped
- * at `settleStart` by construction, so that floor can never bind and the sweep
- * stays even.
+ * This is the whole look. A resolve front that sweeps left to right at a
+ * constant speed reads as a marching wipe no matter how the timeline is eased,
+ * because there is a single edge to follow: everything left of it is done,
+ * everything right of it is not. Recording soulwire.co.uk shows the opposite —
+ * mid-reveal, settled fragments sit scattered across the full width of a line
+ * with scramble between them, and resolution finishes before the line has even
+ * finished filling out.
+ *
+ * Since resolution is the mash front shifted by a constant, it inherits the
+ * shuffle and needs no ordering pass. That pass is what caused the one-frame
+ * flash this used to have: the cell holding the last shuffled slot could not
+ * resolve before the end, and forcing the frontier to be monotonic dragged
+ * every cell behind it into the same frame. Nothing drags anything now.
+ *
+ * Lines are then laid out as overlapping windows on the shared 0..1 axis,
+ * weighted by character count. Line k ends at `(1 - spread) + spread · (chars
+ * through k) / (chars total)`, which increases with k, so reading order holds
+ * by construction — no clamp against the previous line, and no way for a short
+ * wrapped remnant to overtake the long line above it. Returns the wall-clock
+ * duration of the reveal.
  */
-const scheduleLines = (lines: Line[], opts: Resolved): void => {
-  const settleStart = Math.min(Math.max(opts.settleStart, MIN_BOIL), 0.95);
-  const appearEnd = settleStart * SHOW_WINDOW;
-  const mashEnd = Math.max(appearEnd, settleStart - MIN_BOIL);
+const scheduleLines = (lines: Line[], opts: Resolved): number => {
+  const boil = Math.min(Math.max(opts.boil, 0.05), 0.9);
+  // The last character to start boiling must still finish by the end of the
+  // window, so the mash front has to stop a full boil short of it.
+  const mashEnd = 1 - boil;
+  const appearEnd = mashEnd * SHOW_WINDOW;
+  const spread = Math.min(Math.max(opts.lineSpread, 0), 0.9);
 
+  const chars = lines.map((line) => Math.max(1, line.cells.length));
+  const total = chars.reduce((sum, count) => sum + count, 0);
+  const mean = total / lines.length;
+  // Blending preserves the sum, so the axis still ends at exactly 1.
+  const weights = chars.map((count) => count * (1 - LINE_EVENNESS) + mean * LINE_EVENNESS);
   let cumulative = 0;
-  let previousStart = 0;
-  let previousEnd = -Infinity;
 
-  for (const line of lines) {
+  lines.forEach((line, index) => {
     const n = line.cells.length;
     const slots = Array.from({ length: n }, (_, i) => i);
     const appearSlots = opts.order === 'shuffle' ? shuffle(slots.slice()) : slots;
     line.cells.forEach((cell, i) => {
       const q = (appearSlots[i] + 1) / n;
-      const reach = Math.pow(n > 1 ? i / (n - 1) : 1, opts.settleCurve);
       cell.appearAt = appearEnd * Math.pow(q, 1 / opts.showPower);
       cell.mashAt = Math.max(cell.appearAt, mashEnd * Math.pow(q, 1 / opts.mashPower));
-      cell.settleAt = Math.max(
-        cell.mashAt + MIN_BOIL,
-        settleStart + (1 - settleStart) * reach
-      );
+      // Same boil for every character, so resolution is just the mash front
+      // shifted — shuffled where the mash front is shuffled, ordered where it
+      // is not. `ltr` therefore still resolves strictly left to right.
+      cell.settleAt = Math.min(1, cell.mashAt + boil);
     });
-    // Guard the resolve front against custom front options: it only ever moves
-    // forward, so text that already reads as finished never gains a letter
-    // behind the front.
-    for (let i = 1; i < n; i += 1) {
-      line.cells[i].settleAt = Math.max(line.cells[i].settleAt, line.cells[i - 1].settleAt);
-    }
 
-    line.duration = Math.min(
-      opts.maxLineDuration,
-      Math.max(opts.minLineDuration, opts.durationPerChar * n)
-    );
-    // Lines finish in reading order. Without the last two terms a short wrapped
-    // remnant ("open source.") would beat the long line above it to the end,
-    // because start is staggered by summed durations while duration tracks
-    // character count.
-    line.start = Math.max(
-      opts.lineStagger * cumulative,
-      previousStart,
-      previousEnd + opts.lineEndGap - line.duration
-    );
-    cumulative += line.duration;
-    previousStart = line.start;
-    previousEnd = line.start + line.duration;
-  }
+    line.start = spread * (cumulative / total);
+    cumulative += weights[index];
+    line.duration = (1 - spread) + spread * (cumulative / total) - line.start;
+  });
+
+  return Math.min(opts.maxDuration, Math.max(opts.minDuration, opts.durationPerChar * total));
 };
 
 /** The original's `useInput`: mix the text's own ASCII glyphs into the pool. */
@@ -536,7 +577,7 @@ export const prepareDecode = async (
     if (started || done) return;
     started = true;
 
-    scheduleLines(lines, opts);
+    const duration = scheduleLines(lines, opts);
     const pool = scramblePool(cells, opts);
     root.classList.add('dt-animating');
     // Isolate per-frame churn so it cannot reflow content below the root.
@@ -566,9 +607,14 @@ export const prepareDecode = async (
       clock += Math.min(now - last, MAX_FRAME_MS) / 1000;
       last = now;
 
+      // One curve for the whole paragraph. Lines read their windows off the
+      // eased axis, so the tempo — the held opening and the acceleration after
+      // it — belongs to the text as a whole and every line shares it.
+      const p = duration > 0 && clock < duration ? opts.ease(clock / duration) : 1;
+
       for (const line of lines) {
         if (line.complete) continue;
-        const t = (clock - line.start) / line.duration;
+        const t = (p - line.start) / line.duration;
         if (t < 0) continue;
         if (t >= 1) {
           renderLine(line, 1, now, pool, opts);
@@ -576,15 +622,14 @@ export const prepareDecode = async (
           remaining -= 1;
           continue;
         }
-        renderLine(line, opts.ease(t), now, pool, opts);
+        renderLine(line, t, now, pool, opts);
       }
 
       if (remaining > 0) raf = requestAnimationFrame(tick);
       else complete();
     };
 
-    const totalEnd = lines.reduce((end, line) => Math.max(end, line.start + line.duration), 0);
-    watchdog = window.setTimeout(forceFinish, totalEnd * 1000 + 1500);
+    watchdog = window.setTimeout(forceFinish, duration * 1000 + 1500);
     onHidden = () => {
       if (document.visibilityState === 'hidden') forceFinish();
     };

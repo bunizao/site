@@ -399,8 +399,10 @@ describe('Cloudflare runtime configuration', () => {
     expect(decodeEngine).toContain('document.fonts?.ready');
     expect(decodeEngine).toContain('window.setTimeout(resolve, opts.fontTimeout)');
     expect(decodeText).toContain('const FALLBACK_START_MS = 1500;');
-    expect(decodeEngine).toContain('durationPerChar: 0.019');
-    expect(decodeEngine).toContain('lineStagger: 0.2');
+    expect(decodeEngine).toContain('durationPerChar:');
+    // One eased clock for the paragraph. Easing per line instead gives each its
+    // own accelerate/settle cycle and the bio reveals as a top-to-bottom queue.
+    expect(decodeEngine).toContain('opts.ease(clock / duration)');
     expect(decodeEngine).toContain('requestAnimationFrame(tick)');
     expect(hero).toContain('const identity = heroElements.filter((el) => !el.hasAttribute');
     expect(hero).toContain('gsap.set(heroElements, { opacity: 0, y: 20 });');
@@ -424,6 +426,7 @@ describe('Cloudflare runtime configuration', () => {
     expect(homePage).not.toContain(':global(.page-container > section:not(#projects-section):not(#writing-section))');
     expect(homePage).toContain(':global(.page-container > footer)');
     expect(homePage).toContain('content-visibility: auto;');
+    expect(homePage).not.toMatch(/content-visibility[\s\S]{0,200}> section/);
   });
 
   test('reads Turnstile site key from runtime public env on the mood route', () => {

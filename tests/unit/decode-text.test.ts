@@ -45,9 +45,8 @@ async function decodeCells(text: string, options: { segmenter?: boolean } = {}):
           const controller = await prepareDecode(root, {
             durationPerChar: 0,
             fontTimeout: 0,
-            lineStagger: 0,
-            maxLineDuration: 0,
-            minLineDuration: 0,
+            maxDuration: 0,
+            minDuration: 0,
             order: 'ltr',
             respectReducedMotion: false,
           });
@@ -82,8 +81,8 @@ async function firstScrambleGlyph(charset: string): Promise<string> {
             charset: glyphs,
             ease: (progress: number) => progress,
             fontTimeout: 0,
-            maxLineDuration: 0.8,
-            minLineDuration: 0.8,
+            maxDuration: 0.8,
+            minDuration: 0.8,
             mutationHz: 18,
             order: 'ltr',
             respectReducedMotion: false,
@@ -113,52 +112,65 @@ async function firstScrambleGlyph(charset: string): Promise<string> {
   }
 }
 
-async function hasNonMonotonicSettlement(): Promise<boolean> {
+const INTERLEAVE_TEXT = 'ABCDEFGHIJKLMNOP';
+
+/**
+ * True if a settled character was ever seen with an unsettled one to its left.
+ * In shuffle mode that interleaving is the effect: settled and boiling
+ * characters mixed across the line, no single edge to follow. In `ltr` mode it
+ * must never happen, because resolution is the mash front shifted and that
+ * front is ordered there.
+ */
+async function hasInterleavedSettlement(order: 'shuffle' | 'ltr'): Promise<boolean> {
   const page = await browser.newPage();
   try {
-    await page.setContent('<div id="target">ABCDEFGH</div>');
-    return await page.evaluate(async (source) => {
-      const moduleUrl = URL.createObjectURL(new Blob([source], { type: 'text/javascript' }));
-      try {
-        const { prepareDecode } = await import(moduleUrl);
-        const root = document.querySelector<HTMLElement>('#target');
-        if (!root) throw new Error('Missing decode target');
+    await page.setContent(`<div id="target">${INTERLEAVE_TEXT}</div>`);
+    return await page.evaluate(
+      async ({ source, input, queueOrder }) => {
+        const moduleUrl = URL.createObjectURL(new Blob([source], { type: 'text/javascript' }));
+        try {
+          const { prepareDecode } = await import(moduleUrl);
+          const root = document.querySelector<HTMLElement>('#target');
+          if (!root) throw new Error('Missing decode target');
 
-        const controller = await prepareDecode(root, {
-          charset: '#',
-          cursorChar: '-',
-          ease: (progress: number) => progress,
-          fontTimeout: 0,
-          maxLineDuration: 0.3,
-          minLineDuration: 0.3,
-          mutationHz: 18,
-          order: 'shuffle',
-          respectReducedMotion: false,
-          scrambleFromText: false,
-        });
-        let finished = false;
-        let nonMonotonic = false;
-        void controller.finished.then(() => {
-          finished = true;
-        });
-        controller.start();
-
-        while (!finished) {
-          await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
-          const cells = Array.from(root.querySelectorAll<HTMLElement>('.dt-c'));
-          let foundUnsettledCell = false;
-          cells.forEach((cell, index) => {
-            const settled = !cell.dataset.state && cell.textContent === 'ABCDEFGH'[index];
-            if (!settled) foundUnsettledCell = true;
-            else if (foundUnsettledCell) nonMonotonic = true;
+          const controller = await prepareDecode(root, {
+            charset: '#',
+            cursorChar: '-',
+            ease: (progress: number) => progress,
+            fontTimeout: 0,
+            maxDuration: 0.3,
+            minDuration: 0.3,
+            mutationHz: 18,
+            order: queueOrder,
+            respectReducedMotion: false,
+            scrambleFromText: false,
           });
-        }
 
-        return nonMonotonic;
-      } finally {
-        URL.revokeObjectURL(moduleUrl);
-      }
-    }, moduleSource);
+          const cells = Array.from(root.querySelectorAll<HTMLElement>('.dt-c'));
+          let finished = false;
+          let interleaved = false;
+          void controller.finished.then(() => {
+            finished = true;
+          });
+          controller.start();
+
+          while (!finished) {
+            await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+            let sawUnsettled = false;
+            cells.forEach((cell, index) => {
+              const settled = !cell.dataset.state && cell.textContent === input[index];
+              if (!settled) sawUnsettled = true;
+              else if (sawUnsettled) interleaved = true;
+            });
+          }
+
+          return interleaved;
+        } finally {
+          URL.revokeObjectURL(moduleUrl);
+        }
+      },
+      { source: moduleSource, input: INTERLEAVE_TEXT, queueOrder: order }
+    );
   } finally {
     await page.close();
   }
@@ -189,8 +201,8 @@ async function largestSettleBurst(): Promise<{ burst: number; total: number }> {
             cursorChar: '-',
             ease: (progress: number) => progress,
             fontTimeout: 0,
-            maxLineDuration: 2,
-            minLineDuration: 2,
+            maxDuration: 2,
+            minDuration: 2,
             order: 'shuffle',
             respectReducedMotion: false,
             scrambleFromText: false,
@@ -224,11 +236,15 @@ async function largestSettleBurst(): Promise<{ burst: number; total: number }> {
 }
 
 /**
- * Order in which visual lines reach full settlement. Line duration tracks
- * character count, so a short wrapped remnant used to finish before the long
- * line above it.
+ * Order in which visual lines reach full settlement, plus the elapsed fraction
+ * of the reveal at which the first one landed. Order guards against a short
+ * wrapped remnant overtaking the long line above it; the fraction guards
+ * against the lines being played back to back, which is what a per-line ease
+ * produced — the first line finished a fifth of the way in and then sat there.
  */
-async function lineCompletionOrder(texts: string[]): Promise<number[]> {
+async function lineCompletions(
+  texts: string[]
+): Promise<{ order: number[]; firstAt: number }> {
   const page = await browser.newPage();
   try {
     await page.setContent(`<div id="target" style="width:4000px">${texts.join('<br>')}</div>`);
@@ -254,6 +270,8 @@ async function lineCompletionOrder(texts: string[]): Promise<number[]> {
           );
           const order: number[] = [];
           let finished = false;
+          let firstFrame = 0;
+          let frames = 0;
           void controller.finished.then(() => {
             finished = true;
           });
@@ -261,14 +279,16 @@ async function lineCompletionOrder(texts: string[]): Promise<number[]> {
 
           while (!finished) {
             await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+            frames += 1;
             lines.forEach((cells, index) => {
               if (order.includes(index)) return;
               if (cells.every((cell, i) => cell.textContent === expected[index][i])) {
                 order.push(index);
+                if (order.length === 1) firstFrame = frames;
               }
             });
           }
-          return order;
+          return { order, firstAt: firstFrame / frames };
         } finally {
           URL.revokeObjectURL(moduleUrl);
         }
@@ -290,12 +310,27 @@ describe('decode-text scheduling', () => {
   test('completes visual lines in reading order', async () => {
     // A short remnant after a long line is the case that used to invert:
     // duration tracks character count, so the short line finished first.
-    const order = await lineCompletionOrder([
+    const { order } = await lineCompletions([
       'THEQUICKBROWNFOXJUMPSOVERTHELAZYDOGANDKEEPSONRUNNING',
       'SHORTONE',
     ]);
 
     expect(order).toEqual([0, 1]);
+  });
+
+  test('runs the lines together instead of one after another', async () => {
+    // Every line shares one eased timeline, so they are all still boiling when
+    // the first one lands and the completions bunch into the tail. Easing each
+    // line on its own instead finished line one at a fifth of the reveal and
+    // left it static while the rest queued up behind it.
+    const { firstAt } = await lineCompletions([
+      'THEQUICKBROWNFOXJUMPSOVERTHELAZYDOG',
+      'PACKMYBOXWITHFIVEDOZENLIQUORJUGSNOW',
+      'HOWVEXINGLYQUICKDAFTZEBRASJUMPTODAY',
+      'SPHINXOFBLACKQUARTZJUDGEMYVOWTONIGHT',
+    ]);
+
+    expect(firstAt).toBeGreaterThan(0.5);
   });
 });
 
@@ -322,8 +357,12 @@ describe('decode-text grapheme handling', () => {
     expect(await firstScrambleGlyph('👩‍💻')).toBe('👩‍💻');
   });
 
-  test('keeps final resolution left to right in shuffle mode', async () => {
-    expect(await hasNonMonotonicSettlement()).toBe(false);
+  test('interleaves settled and boiling characters in shuffle mode', async () => {
+    expect(await hasInterleavedSettlement('shuffle')).toBe(true);
+  });
+
+  test('keeps final resolution left to right in ltr mode', async () => {
+    expect(await hasInterleavedSettlement('ltr')).toBe(false);
   });
 
   test('still collapses consecutive whitespace into one cell', async () => {
