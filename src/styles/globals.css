@@ -1463,18 +1463,9 @@
     -webkit-backdrop-filter: blur(8px);
     backdrop-filter: blur(8px);
     overflow: hidden;
-    /* Only transition colors, GSAP handles width/transform */
-    transition: color 0.2s ease, background 0.2s ease, border-color 0.2s ease, gap 0.2s ease;
-  }
-
-  .header-action-btn.is-hovered {
-    gap: 6px;
-  }
-
-  .header-action-btn.is-hovered {
-    color: hsl(var(--foreground));
-    background: hsl(var(--foreground) / 0.05);
-    border-color: hsl(var(--foreground) / 0.15);
+    /* Colours only. `transform` is deliberately absent: :active scales the
+       button, and letting it transition would lag the press. */
+    transition: color 0.2s ease, background 0.2s ease, border-color 0.2s ease;
   }
 
   .header-action-btn:active {
@@ -1534,20 +1525,6 @@
       gap: 0;
       padding: 0;
     }
-  }
-
-  /* Text labels - GSAP controls visibility via opacity/scale */
-  .header-action-btn-label {
-    display: inline-block;
-    white-space: nowrap;
-    max-width: 0;
-    opacity: 0;
-    overflow: hidden;
-    font-family: var(--font-mono);
-    font-weight: 600;
-    font-size: 10px;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
   }
 
   .header-action-btn svg {

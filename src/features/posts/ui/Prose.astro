@@ -364,9 +364,23 @@ const fragments = splitBlogProse(html);
         }
       };
 
+      // Resolve the three rotating elements once, then write transform directly
+      // to each during a drag. Setting --record-rotation on the card instead
+      // would be one write, but it invalidates style for the card's whole
+      // subtree — title, buttons, progress track and all — on every pointermove,
+      // to move three elements. The variable stays for the non-drag paths below.
+      const spinners = [
+        cardEl.querySelector<HTMLElement>('.blog-music__record'),
+        cardEl.querySelector<HTMLElement>('.blog-music__cover'),
+        cardEl.querySelector<HTMLElement>('.blog-music__label'),
+      ].filter((el): el is HTMLElement => el !== null);
+
       const syncRecordRotation = (fraction: number) => {
         const clamped = Math.min(1, Math.max(0, fraction));
-        cardEl.style.setProperty('--record-rotation', `${clamped * RECORD_SCRUB_TURNS}turn`);
+        const turns = clamped * RECORD_SCRUB_TURNS;
+        for (const el of spinners) {
+          el.style.transform = `translate(-50%, -50%) rotate(${turns}turn)`;
+        }
       };
 
       const freezeCurrentRecordRotation = () => {
@@ -432,6 +446,11 @@ const fragments = splitBlogProse(html);
         const endScrub = (event: PointerEvent) => {
           if (!scrubbing) return;
           scrubbing = false;
+          // Hand the transform back to the stylesheet before the spin animation
+          // resumes; an inline transform would outrank the keyframes and freeze
+          // the record at wherever the finger left it.
+          freezeCurrentRecordRotation();
+          for (const el of spinners) el.style.removeProperty('transform');
           cardEl.classList.remove('is-scrubbing');
           progress.releasePointerCapture(event.pointerId);
         };

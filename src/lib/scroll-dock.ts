@@ -92,7 +92,18 @@ export function createScrollDock(host: HTMLElement, channels: DockChannel[]): Sc
     host.style.setProperty('animation-range', next);
   };
 
-  const onScroll = () => paint();
+  // Scroll events outpace frames during momentum scrolling, and every paint()
+  // rewrites two inherited registered properties on the host — which re-resolves
+  // them down its whole subtree. One write per frame is all that can be shown,
+  // so anything more is discarded work.
+  let raf = 0;
+  const onScroll = () => {
+    if (raf) return;
+    raf = requestAnimationFrame(() => {
+      raf = 0;
+      paint();
+    });
+  };
 
   if (composited) {
     const names = channels.flatMap((channel) => [`sd-${channel}-ride`, `sd-${channel}-fold`]);
@@ -120,6 +131,10 @@ export function createScrollDock(host: HTMLElement, channels: DockChannel[]): Sc
       paint();
     },
     destroy() {
+      if (raf) {
+        cancelAnimationFrame(raf);
+        raf = 0;
+      }
       if (!composited) window.removeEventListener('scroll', onScroll);
       for (const property of [
         'animation-name',

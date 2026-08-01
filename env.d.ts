@@ -11,12 +11,6 @@ declare global {
       env?: Record<string, unknown>;
     }
   }
-
-  interface Window {
-    headerBtnAnimations?: {
-      register: (button: HTMLElement) => void;
-    };
-  }
 }
 
 declare module 'prismjs-components-importer/cjs/*';
