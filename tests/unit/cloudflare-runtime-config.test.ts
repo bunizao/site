@@ -85,6 +85,7 @@ describe('Cloudflare runtime configuration', () => {
     expect(dependabot).toContain('package-ecosystem: github-actions');
     expect(dependabot).toContain('open-pull-requests-limit: 5');
     expect(dependabot).toContain('minor-and-patch:');
+    expect(dependabot).toContain('dependency-name: typescript-astro-check');
     expect(dependabot).not.toContain('package-ecosystem: ""');
   });
 
