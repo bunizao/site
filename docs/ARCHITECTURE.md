@@ -53,7 +53,7 @@ Private API ownership lives in the separate `site-api` Worker. `site-api` direct
 4. **GitHub Contributions** (`src/features/home/ui/GitHubContributions.astro`, `site-api /api/github/contributions`) — Contribution graph from an API backed by GitHub GraphQL, with the public contributions API as a fallback
 5. **Telegram/BroadcastChannel** — Mood pages render base post content from the D1 archive, then hydrate visible comment counts and reactions from the live Telegram mirror. The live reader remains the fallback when archive reads fail.
 6. **Better Stack Status Page** (`site-api /api/footer`) — Footer service status from `https://status.tuuhub.com/index.json`
-7. **YouTube** (`src/features/posts/server/youtube.ts`, `src/lib/embed/youtube.ts`) — Server rendering converts both blog directives and Ghost YouTube iframe cards into the shared facade, then reads bounded oEmbed metadata. Posters are fetched by the public `site` Worker through the fixed `/static/youtube/<id>/<quality>.jpg` route; the official Player API and `youtube-nocookie.com` iframe load in the browser only after playback is requested.
+7. **YouTube** (`src/features/posts/server/youtube.ts`, `src/lib/embed/youtube.ts`) — Server rendering converts both blog directives and Ghost YouTube iframe cards into the shared facade, then reads bounded oEmbed metadata. Client-rendered Mood cards hydrate the real channel name through the same first-party metadata boundary. Posters, channel avatars, and channel metadata are fetched by the public `site` Worker through fixed `/static/youtube/<id>/...` routes; the official Player API and `youtube-nocookie.com` iframe load in the browser only after playback is requested.
 
 ## API Endpoints
 
@@ -83,7 +83,7 @@ Private API ownership lives in the separate `site-api` Worker. `site-api` direct
 - `GET /blog/preview/<24-character-post-id>` — Renders a Ghost draft through the production directive and blog prose pipeline during `astro dev`. Production returns `404` before loading preview-only dependencies, keeping them out of the Worker bundle. Every response is private and uncached.
 
 **Public asset proxy, served by the `site` Worker:**
-- `GET|HEAD /static/youtube/<11-character-id>/<maxresdefault|hqdefault>.jpg` — Fixed YouTube poster proxy. The route rejects query strings and arbitrary `i.ytimg.com` targets; no signing secret is exposed to client-rendered Mood cards.
+- `GET|HEAD /static/youtube/<11-character-id>/<maxresdefault|hqdefault|avatar>.jpg` and `/static/youtube/<11-character-id>/metadata.json` — Fixed YouTube poster, channel-avatar, and channel-metadata boundary. The routes reject query strings and arbitrary upstream targets; no signing secret is exposed to client-rendered Mood cards.
 
 Telegram references:
 

@@ -89,10 +89,10 @@ Provider behavior the policy now needs to reflect:
 
 Covered implementation:
 
-- [`src/lib/embed/youtube.ts`](../src/lib/embed/youtube.ts) renders a first-party facade whose poster uses the bounded `/static/youtube/<id>/<quality>.jpg` route
+- [`src/lib/embed/youtube.ts`](../src/lib/embed/youtube.ts) renders a first-party facade whose poster and channel avatar use bounded `/static/youtube/<id>/...` routes
 - [`src/lib/embed/youtube-controller.ts`](../src/lib/embed/youtube-controller.ts) creates the `youtube-nocookie.com` iframe only after the reader presses play
 - the controller stores only a session-scoped `yes` or `no` reachability verdict; country data is not used
-- the static proxy fetches YouTube poster bytes server-side, so the reader's browser does not contact YouTube before playback
+- the static proxy fetches YouTube poster and channel-avatar bytes server-side, so the reader's browser does not contact YouTube before playback
 
 ### Mood Pages and Public Content
 
@@ -132,7 +132,7 @@ Covered implementation:
 - Ghost is used for writing links in [`src/features/home/ui/Posts.astro`](../src/features/home/ui/Posts.astro)
 - GitHub is used for the contribution graph through `site-api /api/github/contributions`
 - Telegram-derived content is read live for user-facing mood pages; the private API also ingests Telegram updates into D1 as a structured archive
-- YouTube provides optional video playback only after a reader activates an embed; poster requests stay behind the bounded static proxy
+- YouTube provides optional video playback only after a reader activates an embed; poster and channel-avatar requests stay behind the bounded static proxy
 
 ## Why the Policy Is Markdown-Backed
 

@@ -27,7 +27,7 @@ Depending on how you use the site, we may collect or process the following categ
 - **Edge connection diagnostics.** The footer can display attributes of your current connection derived by Cloudflare from your request: the serving datacenter, HTTP protocol, TLS version, TCP round-trip time, approximate location, and network or internet provider. These values are computed per request, returned only to you, and are not stored.
 - **Listening feature request data.** The homepage listening card triggers server-side requests to Last.fm and Apple services to retrieve the most recent track, album metadata, artwork, preview URLs, and related listening status.
 - **Theme preference data.** If you change the site theme, the preference is stored locally in your browser and is not transmitted to us.
-- **YouTube embed preference data.** YouTube poster images are loaded through this site's static proxy. YouTube is not contacted by your browser unless you choose to play a video. After that choice, the browser stores a session-only reachability result so later video cards can use the same playback or external-link behavior.
+- **YouTube embed preference data.** YouTube poster images and channel avatars are loaded through this site's static proxy. YouTube is not contacted by your browser unless you choose to play a video. After that choice, the browser stores a session-only reachability result so later video cards can use the same playback or external-link behavior.
 - **Subscription record metadata.** For mood subscriptions: status fields such as pending, active, or unsubscribed, and timestamps for creation, update, confirmation, last confirmation sent, and last notification sent. An email hash is maintained alongside the address in order to index, deduplicate, and manage subscription records.
 - **Security and anti-abuse data.** Where Turnstile is enabled for the mood subscription flow, verification data may include a challenge token and the client IP address used during verification.
 - **Public-content request data.** Loading published writing, project, and mood content involves server-side or browser-side requests to Ghost, GitHub, a GitHub contributions fallback API, and Telegram-related sources.
@@ -70,7 +70,7 @@ When the feature runs, this site's server sends track lookup terms derived from 
 
 ## YouTube embeds
 
-Before you press play, embedded YouTube videos use poster images fetched through this site's `/static/youtube/` proxy. The page does not load a YouTube iframe, YouTube JavaScript, or YouTube cookies in that state.
+Before you press play, embedded YouTube videos use poster images and channel avatars fetched through this site's `/static/youtube/` proxy. The page does not load a YouTube iframe, YouTube JavaScript, or YouTube cookies in that state.
 
 Pressing play creates an iframe from YouTube's privacy-enhanced `youtube-nocookie.com` domain. YouTube and Google may then process standard request metadata such as your IP address, browser details, and network information under their own policies. The site stores only a `yes` or `no` reachability result in session storage; it expires with the browser session and is not sent to this site's server.
 
@@ -89,7 +89,7 @@ The site relies on the following third-party services to load public content and
 - **Ghost** — writing links and post metadata.
 - **GitHub** — repository data, project metadata, and the homepage contributions graph, retrieved through this site's internal API route. A fallback contributions API is used only where the GitHub GraphQL lookup is unavailable.
 - **Telegram-related sources** — mood content and comment threads.
-- **YouTube** — video playback after you choose to activate an embedded player; poster images are fetched server-side through this site's static proxy.
+- **YouTube** — video playback after you choose to activate an embedded player; poster images and channel avatars are fetched server-side through this site's static proxy.
 
 Depending on the page and feature in use, the associated requests may be made server-side or directly from your browser.
 

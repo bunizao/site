@@ -161,6 +161,65 @@ describe('static Telegram proxy', () => {
     expect(signatureObservations).toEqual([]);
   });
 
+  test('resolves and proxies bounded YouTube channel avatars', async () => {
+    const fetchedUrls: string[] = [];
+    globalThis.fetch = (async (input: RequestInfo | URL) => {
+      const url = String(input);
+      fetchedUrls.push(url);
+
+      if (url.startsWith('https://www.youtube.com/oembed?')) {
+        return Response.json({
+          title: 'MacBook Pro review',
+          author_name: 'Zhong Wen Ze',
+          author_url: 'https://www.youtube.com/@zhongwenze',
+        });
+      }
+      if (url === 'https://www.youtube.com/@zhongwenze') {
+        return new Response(
+          '<meta property="og:image" content="https://yt3.googleusercontent.com/channel-avatar=s900-c-k-c0x00ffffff-no-rj">',
+          { headers: { 'Content-Type': 'text/html; charset=utf-8' } },
+        );
+      }
+      if (url === 'https://yt3.googleusercontent.com/channel-avatar=s128-c-k-c0x00ffffff-no-rj') {
+        return new Response(new Uint8Array([1, 2, 3]), {
+          headers: { 'Content-Type': 'image/jpeg' },
+        });
+      }
+      throw new Error(`Unexpected URL: ${url}`);
+    }) as typeof fetch;
+
+    const metadataResponse = await GET({
+      request: new Request(
+        'https://buxx.me/static/youtube/fiX2TMzF1qk/metadata.json',
+        { headers: { 'CF-Connecting-IP': '192.0.2.35' } },
+      ),
+      params: { path: 'youtube/fiX2TMzF1qk/metadata.json' },
+      locals: { env: { STATIC_PROXY_MODE: 'enforce' } },
+    } as never);
+    const response = await GET({
+      request: new Request(
+        'https://buxx.me/static/youtube/fiX2TMzF1qk/avatar.jpg',
+        { headers: { 'CF-Connecting-IP': '192.0.2.35' } },
+      ),
+      params: { path: 'youtube/fiX2TMzF1qk/avatar.jpg' },
+      locals: { env: { STATIC_PROXY_MODE: 'enforce' } },
+    } as never);
+
+    expect(metadataResponse.status).toBe(200);
+    expect(await metadataResponse.json()).toMatchObject({
+      channelName: 'Zhong Wen Ze',
+      channelUrl: 'https://www.youtube.com/@zhongwenze',
+    });
+    expect(response.status).toBe(200);
+    expect(response.headers.get('content-type')).toBe('image/jpeg');
+    expect(fetchedUrls).toEqual([
+      'https://www.youtube.com/oembed?url=https%3A%2F%2Fwww.youtube.com%2Fwatch%3Fv%3DfiX2TMzF1qk&format=json',
+      'https://www.youtube.com/@zhongwenze',
+      'https://yt3.googleusercontent.com/channel-avatar=s128-c-k-c0x00ffffff-no-rj',
+    ]);
+    expect(signatureObservations).toEqual([]);
+  });
+
   test('rejects malformed YouTube poster paths before the upstream fetch', async () => {
     let fetchCount = 0;
     globalThis.fetch = Object.assign(

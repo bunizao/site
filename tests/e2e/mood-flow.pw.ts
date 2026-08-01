@@ -1286,7 +1286,7 @@ test.describe('Mood routes', () => {
               type: 'link-preview',
               href: 'https://youtu.be/aqz-KE-bpKQ?t=12',
               title: 'Big Buck Bunny',
-              siteName: 'Blender Foundation',
+              siteName: 'YouTube',
             }],
           })];
       await route.fulfill({
@@ -1296,6 +1296,16 @@ test.describe('Mood routes', () => {
       });
     });
     await page.route('**/static/youtube/**', async (route) => {
+      if (new URL(route.request().url()).pathname.endsWith('/metadata.json')) {
+        await route.fulfill({
+          contentType: 'application/json',
+          body: JSON.stringify({
+            channelName: 'Blender Foundation',
+            channelUrl: 'https://www.youtube.com/@BlenderOfficial',
+          }),
+        });
+        return;
+      }
       await route.fulfill({
         contentType: 'image/svg+xml',
         body: '<svg xmlns="http://www.w3.org/2000/svg" width="480" height="360"></svg>',
@@ -1318,6 +1328,11 @@ test.describe('Mood routes', () => {
 
     const card = page.locator(`[data-mood-id="${moodId}"] [data-yt]`);
     await expect(card).toHaveAttribute('data-yt-bound', 'true');
+    await expect(card.locator('[data-yt-channel]')).toHaveText('Blender Foundation');
+    await expect(card.locator('[data-yt-channel]')).toHaveAttribute(
+      'href',
+      'https://www.youtube.com/@BlenderOfficial',
+    );
     await expect(card.locator('[data-yt-player]')).not.toHaveAttribute('src', /.+/u);
     expect(playerRequests).toBe(0);
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(320);

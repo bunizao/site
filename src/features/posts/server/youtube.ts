@@ -12,8 +12,12 @@ export interface YouTubeMetadata {
 
 const LOOKUP_TIMEOUT_MS = 4_000;
 const MAX_RESPONSE_BYTES = 64 * 1024;
+const MAX_CHANNEL_PAGE_BYTES = 1_500_000;
 const MAX_CACHE_ENTRIES = 128;
 const metadataCache = new Map<string, Promise<YouTubeMetadata | null>>();
+const avatarCache = new Map<string, Promise<string | null>>();
+const YOUTUBE_CHANNEL_HOSTS = new Set(['youtube.com', 'www.youtube.com']);
+const YOUTUBE_AVATAR_HOSTS = new Set(['yt3.googleusercontent.com', 'yt3.ggpht.com']);
 const EMBED_FIGURE_RE =
   /<figure[^>]*class=(['"])[^'"]*\bkg-embed-card\b[^'"]*\1[^>]*>\s*<iframe\b[^>]*>\s*<\/iframe>\s*<\/figure>/giu;
 const BARE_IFRAME_RE = /<iframe\b[^>]*>\s*<\/iframe>/giu;
@@ -36,9 +40,9 @@ function decodeHtmlAttribute(value: string): string {
   );
 }
 
-function readIframeAttribute(iframeHtml: string, attribute: string): string {
+function readHtmlAttribute(html: string, attribute: string): string {
   const match = new RegExp(`\\b${attribute}\\s*=\\s*(['"])([\\s\\S]*?)\\1`, 'iu')
-    .exec(iframeHtml);
+    .exec(html);
   return match ? decodeHtmlAttribute(match[2]).trim() : '';
 }
 
@@ -47,14 +51,14 @@ async function replaceYouTubeIframes(html: string, pattern: RegExp): Promise<str
   if (matches.length === 0) return html;
 
   const replacements = await Promise.all(matches.map(async (match) => {
-    const source = readIframeAttribute(match[0], 'src');
+    const source = readHtmlAttribute(match[0], 'src');
     const reference = parseYouTubeVideoUrl(source);
     if (!reference) return match[0];
 
     const metadata = await resolveYouTubeMetadata(reference.id);
     return renderYouTubeEmbedMarkup({
       ...reference,
-      title: (metadata?.title ?? readIframeAttribute(match[0], 'title')) || 'YouTube video',
+      title: (metadata?.title ?? readHtmlAttribute(match[0], 'title')) || 'YouTube video',
       channelName: metadata?.channelName ?? 'YouTube',
       channelUrl: metadata?.channelUrl,
     });
@@ -88,14 +92,18 @@ function safeHttpUrl(value: unknown): string | undefined {
   }
 }
 
-async function readBoundedJson(response: Response): Promise<unknown> {
+async function readBoundedText(
+  response: Response,
+  maxBytes: number,
+  label: string,
+): Promise<string> {
   const declaredLength = response.headers.get('content-length');
-  if (declaredLength && /^\d+$/u.test(declaredLength) && Number(declaredLength) > MAX_RESPONSE_BYTES) {
-    throw new Error('YouTube oEmbed response exceeded the limit');
+  if (declaredLength && /^\d+$/u.test(declaredLength) && Number(declaredLength) > maxBytes) {
+    throw new Error(`${label} response exceeded the limit`);
   }
 
   const reader = response.body?.getReader();
-  if (!reader) throw new Error('YouTube oEmbed response has no body');
+  if (!reader) throw new Error(`${label} response has no body`);
 
   const chunks: Uint8Array[] = [];
   let totalBytes = 0;
@@ -105,9 +113,9 @@ async function readBoundedJson(response: Response): Promise<unknown> {
     if (!value) continue;
 
     totalBytes += value.byteLength;
-    if (totalBytes > MAX_RESPONSE_BYTES) {
+    if (totalBytes > maxBytes) {
       await reader.cancel().catch(() => undefined);
-      throw new Error('YouTube oEmbed response exceeded the limit');
+      throw new Error(`${label} response exceeded the limit`);
     }
     chunks.push(value);
   }
@@ -118,7 +126,11 @@ async function readBoundedJson(response: Response): Promise<unknown> {
     bytes.set(chunk, offset);
     offset += chunk.byteLength;
   }
-  return JSON.parse(new TextDecoder().decode(bytes)) as unknown;
+  return new TextDecoder().decode(bytes);
+}
+
+async function readBoundedJson(response: Response): Promise<unknown> {
+  return JSON.parse(await readBoundedText(response, MAX_RESPONSE_BYTES, 'YouTube oEmbed')) as unknown;
 }
 
 function parseMetadata(value: unknown): YouTubeMetadata | null {
@@ -189,6 +201,97 @@ export function resolveYouTubeMetadata(id: string): Promise<YouTubeMetadata | nu
   return pending;
 }
 
+function normalizeChannelUrl(value: string): string | null {
+  try {
+    const url = new URL(value);
+    if (
+      url.protocol !== 'https:'
+      || url.username
+      || url.password
+      || !YOUTUBE_CHANNEL_HOSTS.has(url.hostname.toLowerCase())
+    ) {
+      return null;
+    }
+    url.search = '';
+    url.hash = '';
+    return url.href;
+  } catch {
+    return null;
+  }
+}
+
+function parseChannelAvatarUrl(html: string): string | null {
+  const ogImageTag = html.match(
+    /<meta\b(?=[^>]*\bproperty=(['"])og:image\1)[^>]*>/iu,
+  )?.[0];
+  const value = ogImageTag ? readHtmlAttribute(ogImageTag, 'content') : '';
+  if (!value) return null;
+
+  try {
+    const url = new URL(value);
+    if (
+      url.protocol !== 'https:'
+      || url.username
+      || url.password
+      || !YOUTUBE_AVATAR_HOSTS.has(url.hostname.toLowerCase())
+    ) {
+      return null;
+    }
+    url.pathname = url.pathname.replace(/=s\d+(?=-|$)/u, '=s128');
+    url.search = '';
+    url.hash = '';
+    return url.href;
+  } catch {
+    return null;
+  }
+}
+
+async function fetchYouTubeChannelAvatarUrl(id: string): Promise<string | null> {
+  const metadata = await resolveYouTubeMetadata(id);
+  const channelUrl = normalizeChannelUrl(metadata?.channelUrl ?? '');
+  if (!channelUrl) return null;
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), LOOKUP_TIMEOUT_MS);
+  try {
+    const response = await fetch(channelUrl, {
+      headers: {
+        Accept: 'text/html',
+        'User-Agent': 'Mozilla/5.0 (compatible; BuxxAvatarProxy/1.0; +https://buxx.me/privacy)',
+      },
+      redirect: 'error',
+      signal: controller.signal,
+    });
+    if (!response.ok || !response.headers.get('content-type')?.toLowerCase().startsWith('text/html')) {
+      return null;
+    }
+    const html = await readBoundedText(response, MAX_CHANNEL_PAGE_BYTES, 'YouTube channel');
+    return parseChannelAvatarUrl(html);
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+export function resolveYouTubeChannelAvatarUrl(id: string): Promise<string | null> {
+  const cached = avatarCache.get(id);
+  if (cached) return cached;
+
+  const pending = fetchYouTubeChannelAvatarUrl(id);
+  avatarCache.set(id, pending);
+  if (avatarCache.size > MAX_CACHE_ENTRIES) {
+    const oldestId = avatarCache.keys().next().value;
+    if (oldestId) avatarCache.delete(oldestId);
+  }
+  void pending.then((avatarUrl) => {
+    if (!avatarUrl && avatarCache.get(id) === pending) {
+      avatarCache.delete(id);
+    }
+  });
+  return pending;
+}
+
 export async function enrichYouTubeEmbeds(html: string): Promise<string> {
   if (!html || !/youtu(?:\.be|be\.com)|youtube-nocookie\.com/iu.test(html)) return html;
 
@@ -198,4 +301,5 @@ export async function enrichYouTubeEmbeds(html: string): Promise<string> {
 
 export function resetYouTubeMetadataCacheForTests(): void {
   metadataCache.clear();
+  avatarCache.clear();
 }

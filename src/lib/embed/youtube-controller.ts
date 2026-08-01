@@ -117,6 +117,76 @@ function mountPoster(card: HTMLElement): void {
   if (poster.complete) queueMicrotask(inspect);
 }
 
+function mountAvatar(card: HTMLElement): void {
+  const avatar = card.querySelector('[data-yt-avatar]');
+  if (!(avatar instanceof HTMLImageElement) || avatar.dataset.ytAvatarBound === 'true') return;
+
+  avatar.dataset.ytAvatarBound = 'true';
+  const hide = () => {
+    avatar.hidden = true;
+  };
+
+  avatar.addEventListener('error', hide, { once: true });
+  if (avatar.complete && avatar.naturalWidth === 0) queueMicrotask(hide);
+}
+
+function safeYouTubeChannelUrl(value: unknown): string {
+  if (typeof value !== 'string') return '';
+
+  try {
+    const url = new URL(value);
+    if (
+      url.protocol !== 'https:'
+      || url.username
+      || url.password
+      || !['youtube.com', 'www.youtube.com'].includes(url.hostname.toLowerCase())
+    ) {
+      return '';
+    }
+    return url.href;
+  } catch {
+    return '';
+  }
+}
+
+function mountMetadata(card: HTMLElement): void {
+  const metadataPath = card.dataset.ytMetadata;
+  if (!metadataPath || card.dataset.ytMetadataBound === 'true') return;
+
+  card.dataset.ytMetadataBound = 'true';
+  void fetch(metadataPath, { headers: { Accept: 'application/json' } })
+    .then(async (response) => response.ok ? response.json() as Promise<unknown> : null)
+    .then((value) => {
+      if (!value || typeof value !== 'object' || Array.isArray(value)) return;
+
+      const payload = value as Record<string, unknown>;
+      const channelName = typeof payload.channelName === 'string'
+        ? payload.channelName.trim().slice(0, 160)
+        : '';
+      if (!channelName) return;
+
+      const current = card.querySelector('[data-yt-channel]');
+      if (!(current instanceof HTMLElement)) return;
+
+      const channelUrl = safeYouTubeChannelUrl(payload.channelUrl);
+      let channel = current;
+      if (channelUrl && !(current instanceof HTMLAnchorElement)) {
+        const link = document.createElement('a');
+        link.className = current.className;
+        link.dataset.ytChannel = '';
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+        current.replaceWith(link);
+        channel = link;
+      }
+      if (channel instanceof HTMLAnchorElement && channelUrl) {
+        channel.href = channelUrl;
+      }
+      channel.textContent = channelName;
+    })
+    .catch(() => undefined);
+}
+
 function markUnreachable(card: HTMLElement, player: HTMLIFrameElement): void {
   player.removeAttribute('src');
   player.hidden = true;
@@ -200,6 +270,8 @@ export function initYouTubeEmbeds(root: ParentNode = document): void {
 
     node.dataset.ytBound = 'true';
     mountPoster(node);
+    mountAvatar(node);
+    mountMetadata(node);
     frame.addEventListener('click', () => play(node));
   });
 }

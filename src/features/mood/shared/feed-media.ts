@@ -210,6 +210,7 @@ function renderLinkPreview(media: MediaItem): string {
       ...youtube,
       title: media.title?.trim() || 'YouTube video',
       channelName: media.siteName?.trim() || 'YouTube',
+      hydrateMetadata: true,
     });
   }
 

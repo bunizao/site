@@ -12,7 +12,7 @@ The goal is full behavior coverage for the first-party public site surface under
 | `/` | GitHub contributions success state and tooltip rendering | `tests/e2e/site.pw.ts` |
 | `/` | GitHub contributions failure fallback | `tests/e2e/site.pw.ts` |
 | `/mood` | Feed load, detail navigation, rich comment popover | `tests/e2e/mood-flow.pw.ts` |
-| `/mood` | Client-rendered YouTube facade, narrow viewport containment, capability-probed playback | `tests/e2e/mood-flow.pw.ts` |
+| `/mood` | Client-rendered YouTube facade, channel metadata hydration, narrow viewport containment, capability-probed playback | `tests/e2e/mood-flow.pw.ts` |
 | `/mood` | Feed empty state | `tests/e2e/mood-flow.pw.ts` |
 | `/mood` | Notify panel success, already subscribed, validation, rate limit, retryable error | `tests/e2e/mood-flow.pw.ts` |
 | `/mood/[id]` | Comments load, back navigation, empty state, error state, pagination dedupe | `tests/e2e/mood-flow.pw.ts` |

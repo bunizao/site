@@ -252,18 +252,44 @@
 }
 
 .yt__avatar {
+  position: relative;
   grid-row: 1 / span 2;
   width: 34px;
   height: 34px;
   display: grid;
   place-items: center;
+  overflow: hidden;
   border-radius: 999px;
   background: hsl(0 0% 0% / 0.4);
-  box-shadow: inset 0 0 0 1px hsl(0 0% 100% / 0.28);
   color: hsl(0 0% 100% / 0.8);
   font-family: var(--font-mono);
   font-size: 14px;
   text-transform: uppercase;
+}
+
+.yt__avatar::after {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: inset 0 0 0 1px hsl(0 0% 100% / 0.28);
+  content: '';
+}
+
+.yt__avatar-fallback {
+  grid-area: 1 / 1;
+}
+
+.yt__avatar-image {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  object-fit: cover;
+}
+
+.yt__avatar-image[hidden] {
+  display: none;
 }
 
 .yt__title {

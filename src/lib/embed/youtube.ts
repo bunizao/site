@@ -12,6 +12,7 @@ export interface YouTubeEmbedMarkupOptions extends YouTubeVideoReference {
   title: string;
   channelName: string;
   channelUrl?: string;
+  hydrateMetadata?: boolean;
 }
 
 function escapeHtml(value: string): string {
@@ -124,6 +125,16 @@ export function youtubePosterPath(id: string, quality: YouTubePosterQuality): st
   return `/static/youtube/${id}/${quality}.jpg`;
 }
 
+export function youtubeAvatarPath(id: string): string {
+  if (!isYouTubeVideoId(id)) throw new TypeError('Invalid YouTube video ID');
+  return `/static/youtube/${id}/avatar.jpg`;
+}
+
+export function youtubeMetadataPath(id: string): string {
+  if (!isYouTubeVideoId(id)) throw new TypeError('Invalid YouTube video ID');
+  return `/static/youtube/${id}/metadata.json`;
+}
+
 export function renderYouTubeEmbedMarkup(options: YouTubeEmbedMarkupOptions): string {
   const id = options.id;
   if (!isYouTubeVideoId(id)) throw new TypeError('Invalid YouTube video ID');
@@ -138,13 +149,17 @@ export function renderYouTubeEmbedMarkup(options: YouTubeEmbedMarkupOptions): st
   const watchUrl = youtubeWatchUrl(id, startSeconds);
   const posterUrl = youtubePosterPath(id, 'maxresdefault');
   const posterFallbackUrl = youtubePosterPath(id, 'hqdefault');
+  const avatarUrl = youtubeAvatarPath(id);
+  const metadataAttribute = options.hydrateMetadata
+    ? ` data-yt-metadata="${youtubeMetadataPath(id)}"`
+    : '';
   const initial = Array.from(channelName)[0]?.toUpperCase() || 'Y';
   const channelMarkup = channelUrl
-    ? `<a class="yt__channel" href="${escapeHtml(channelUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(channelName)}</a>`
-    : `<span class="yt__channel">${escapeHtml(channelName)}</span>`;
+    ? `<a class="yt__channel" data-yt-channel href="${escapeHtml(channelUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(channelName)}</a>`
+    : `<span class="yt__channel" data-yt-channel>${escapeHtml(channelName)}</span>`;
 
   return [
-    `<figure class="yt" data-yt data-video="${id}" data-start="${startSeconds}">`,
+    `<figure class="yt" data-yt data-video="${id}" data-start="${startSeconds}"${metadataAttribute}>`,
     '<div class="yt__stage">',
     `<button class="yt__frame" type="button" data-yt-frame aria-label="Play ${escapeHtml(title)}">`,
     `<img class="yt__poster" data-yt-poster data-yt-poster-fallback="${posterFallbackUrl}" src="${posterUrl}" alt="" loading="lazy" decoding="async" />`,
@@ -165,7 +180,10 @@ export function renderYouTubeEmbedMarkup(options: YouTubeEmbedMarkupOptions): st
     `<iframe class="yt__player" data-yt-player title="${escapeHtml(title)}" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen hidden></iframe>`,
     '</div>',
     '<figcaption class="yt__caption">',
-    `<span class="yt__avatar yt__avatar--mono" aria-hidden="true">${escapeHtml(initial)}</span>`,
+    '<span class="yt__avatar" aria-hidden="true">',
+    `<span class="yt__avatar-fallback">${escapeHtml(initial)}</span>`,
+    `<img class="yt__avatar-image" data-yt-avatar src="${avatarUrl}" alt="" loading="lazy" decoding="async" />`,
+    '</span>',
     `<span class="yt__title">${escapeHtml(title)}</span>`,
     '<span class="yt__meta">',
     channelMarkup,

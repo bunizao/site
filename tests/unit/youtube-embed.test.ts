@@ -72,6 +72,8 @@ describe('YouTube embed markup', () => {
     expect(html).toContain('data-yt data-video="aqz-KE-bpKQ" data-start="12"');
     expect(html).toContain('src="/static/youtube/aqz-KE-bpKQ/maxresdefault.jpg"');
     expect(html).toContain('data-yt-poster-fallback="/static/youtube/aqz-KE-bpKQ/hqdefault.jpg"');
+    expect(html).toContain('src="/static/youtube/aqz-KE-bpKQ/avatar.jpg"');
+    expect(html).toContain('data-yt-avatar');
     expect(html).toContain('Big &lt;Buck&gt; &amp; Bunny');
     expect(html).toContain('Blender &quot;Studio&quot;');
     expect(html).toContain('data-yt-player');
@@ -144,6 +146,7 @@ describe('YouTube content integrations', () => {
 
     expect(youtube).toContain('class="yt"');
     expect(youtube).toContain('data-start="12"');
+    expect(youtube).toContain('data-yt-metadata="/static/youtube/aqz-KE-bpKQ/metadata.json"');
     expect(youtube).not.toContain('bookmark-card');
     expect(ordinary).toContain('bookmark-card');
     expect(ordinary).not.toContain('data-yt');

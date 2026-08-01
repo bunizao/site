@@ -6,10 +6,15 @@ import {
   readStaticProxyKeyRing,
   verifyStaticProxyUrl,
 } from '@/lib/security/static-proxy-signing';
+import {
+  resolveYouTubeChannelAvatarUrl,
+  resolveYouTubeMetadata,
+} from '@/features/posts/server/youtube';
 
 export const prerender = false;
 
 const YOUTUBE_POSTER_HOST = 'i.ytimg.com';
+const YOUTUBE_AVATAR_HOSTS = ['yt3.googleusercontent.com', 'yt3.ggpht.com'];
 
 // Whitelist of allowed Telegram-related domains.
 const TELEGRAM_ALLOWED_DOMAINS = [
@@ -60,6 +65,7 @@ type StaticProxyMode = 'observe' | 'accept-both' | 'enforce';
 type ProxyTargetResolution =
   | { status: 'resolved'; targetUrl: string }
   | { status: 'invalid-target' }
+  | { status: 'upstream-unavailable' }
   | { status: 'signature-rejected' };
 
 const sanitizeContentType = (value: string | null): string | null => {
@@ -359,36 +365,47 @@ const resolveProxyTarget = (
   return targetUrl ? { status: 'resolved', targetUrl } : { status: 'invalid-target' };
 };
 
-const resolveYouTubePosterTarget = (
+const resolveYouTubeAssetTarget = async (
   request: Request,
   rawPath: string,
-): ProxyTargetResolution | null => {
+): Promise<ProxyTargetResolution | null> => {
   if (!rawPath.startsWith('youtube/')) return null;
   if (new URL(request.url).search) return { status: 'invalid-target' };
 
-  const match = /^youtube\/([A-Za-z0-9_-]{11})\/(maxresdefault|hqdefault)\.jpg$/u.exec(rawPath);
-  if (!match) return { status: 'invalid-target' };
+  const posterMatch = /^youtube\/([A-Za-z0-9_-]{11})\/(maxresdefault|hqdefault)\.jpg$/u.exec(rawPath);
+  if (posterMatch) {
+    return {
+      status: 'resolved',
+      targetUrl: `https://${YOUTUBE_POSTER_HOST}/vi/${posterMatch[1]}/${posterMatch[2]}.jpg`,
+    };
+  }
 
-  return {
-    status: 'resolved',
-    targetUrl: `https://${YOUTUBE_POSTER_HOST}/vi/${match[1]}/${match[2]}.jpg`,
-  };
+  const avatarMatch = /^youtube\/([A-Za-z0-9_-]{11})\/avatar\.jpg$/u.exec(rawPath);
+  if (!avatarMatch) return { status: 'invalid-target' };
+
+  const targetUrl = await resolveYouTubeChannelAvatarUrl(avatarMatch[1]);
+  return targetUrl ? { status: 'resolved', targetUrl } : { status: 'upstream-unavailable' };
 };
 
-const resolveRequestTarget = (
+const resolveRequestTarget = async (
   request: Request,
   rawPath: string,
   locals: App.Locals,
-): { allowedDomains: string[]; targetResolution: ProxyTargetResolution } => {
-  const youtubePosterTarget = resolveYouTubePosterTarget(request, rawPath);
+): Promise<{ allowedDomains: string[]; targetResolution: ProxyTargetResolution }> => {
+  const youtubeAssetTarget = await resolveYouTubeAssetTarget(request, rawPath);
   const allowedDomains = getAllowedDomains(locals);
-  if (youtubePosterTarget?.status === 'resolved') {
-    allowedDomains.push(YOUTUBE_POSTER_HOST);
+  if (youtubeAssetTarget?.status === 'resolved') {
+    const hostname = new URL(youtubeAssetTarget.targetUrl).hostname.toLowerCase();
+    if (hostname === YOUTUBE_POSTER_HOST) {
+      allowedDomains.push(YOUTUBE_POSTER_HOST);
+    } else if (YOUTUBE_AVATAR_HOSTS.includes(hostname)) {
+      allowedDomains.push(...YOUTUBE_AVATAR_HOSTS);
+    }
   }
 
   return {
     allowedDomains,
-    targetResolution: youtubePosterTarget
+    targetResolution: youtubeAssetTarget
       ?? resolveProxyTarget(request, rawPath, locals, allowedDomains),
   };
 };
@@ -408,6 +425,36 @@ const createRateLimitedResponse = (headers: Headers): Response => {
   });
 };
 
+const createUpstreamUnavailableResponse = (headers: Headers, head = false): Response => {
+  headers.set('cache-control', 'no-store');
+  return new Response(head ? null : 'YouTube channel avatar unavailable.', {
+    status: 502,
+    headers,
+  });
+};
+
+const readYouTubeMetadataId = (request: Request, rawPath: string): string | null => {
+  if (new URL(request.url).search) return null;
+  return /^youtube\/([A-Za-z0-9_-]{11})\/metadata\.json$/u.exec(rawPath)?.[1] ?? null;
+};
+
+const createYouTubeMetadataResponse = async (
+  id: string,
+  headers: Headers,
+  head = false,
+): Promise<Response> => {
+  const metadata = await resolveYouTubeMetadata(id);
+  if (!metadata) return createUpstreamUnavailableResponse(headers, head);
+
+  headers.set('access-control-allow-origin', '*');
+  headers.set('cache-control', 'public, max-age=86400, s-maxage=86400');
+  headers.set('content-type', 'application/json; charset=utf-8');
+  return new Response(head ? null : JSON.stringify({
+    channelName: metadata.channelName,
+    channelUrl: metadata.channelUrl ?? null,
+  }), { status: 200, headers });
+};
+
 export const GET: APIRoute = async ({ request, params, locals }) => {
   const rateLimit = checkRateLimit(
     request,
@@ -420,7 +467,11 @@ export const GET: APIRoute = async ({ request, params, locals }) => {
   }
 
   const rawPath = params.path ?? '';
-  const { allowedDomains, targetResolution } = resolveRequestTarget(request, rawPath, locals);
+  const metadataId = readYouTubeMetadataId(request, rawPath);
+  if (metadataId) {
+    return createYouTubeMetadataResponse(metadataId, rateLimitHeaders);
+  }
+  const { allowedDomains, targetResolution } = await resolveRequestTarget(request, rawPath, locals);
   if (targetResolution.status === 'signature-rejected') {
     return createSignatureRejectedResponse(rateLimitHeaders);
   }
@@ -429,6 +480,9 @@ export const GET: APIRoute = async ({ request, params, locals }) => {
       status: 400,
       headers: rateLimitHeaders,
     });
+  }
+  if (targetResolution.status === 'upstream-unavailable') {
+    return createUpstreamUnavailableResponse(rateLimitHeaders);
   }
   const { targetUrl } = targetResolution;
 
@@ -474,7 +528,11 @@ export const HEAD: APIRoute = async ({ request, params, locals }) => {
   }
 
   const rawPath = params.path ?? '';
-  const { allowedDomains, targetResolution } = resolveRequestTarget(request, rawPath, locals);
+  const metadataId = readYouTubeMetadataId(request, rawPath);
+  if (metadataId) {
+    return createYouTubeMetadataResponse(metadataId, rateLimitHeaders, true);
+  }
+  const { allowedDomains, targetResolution } = await resolveRequestTarget(request, rawPath, locals);
   if (targetResolution.status === 'signature-rejected') {
     return createSignatureRejectedResponse(rateLimitHeaders, true);
   }
@@ -483,6 +541,9 @@ export const HEAD: APIRoute = async ({ request, params, locals }) => {
       status: 400,
       headers: rateLimitHeaders,
     });
+  }
+  if (targetResolution.status === 'upstream-unavailable') {
+    return createUpstreamUnavailableResponse(rateLimitHeaders, true);
   }
   const { targetUrl } = targetResolution;
 
