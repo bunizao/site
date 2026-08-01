@@ -170,6 +170,19 @@ export const initViewTransitionNames = (): void => {
 };
 ```
 
+Two guards were added during execution, beyond the module sketched above; the
+shipped file is the reference.
+
+- **The intent carries its destination.** A ⌘-click opens a new tab without
+  navigating this document, so the armed name would otherwise survive and be
+  inherited by whatever navigation came next — the command palette, a redirect.
+  `pageswap` exposes `activation.entry.url`; the intent is honoured only when it
+  matches the link that was clicked.
+- **The handoff is scoped to that destination too.** A navigation written for
+  one URL and abandoned before it arrived used to leave a live key behind. Both
+  comparisons ignore a trailing slash, so a link to `/blog/x` landing on
+  `/blog/x/` still morphs.
+
 Markup moves from `style="view-transition-name:…"` to `data-vt-name="…"` in
 three places (`view-transition-class` stays inline — it is inert without a
 name, and `globals.css` keys the title timing off it):
