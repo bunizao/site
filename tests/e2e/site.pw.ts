@@ -171,7 +171,7 @@ test.describe('Home page', () => {
     expect(chain?.bioAnimatingAt).toBeGreaterThanOrEqual(chain?.bioReadyAt ?? Number.POSITIVE_INFINITY);
   });
 
-  test('resolves decoded words without inserting letters into settled text', async ({ page }) => {
+  test('keeps settled decoded cells stable while resolution stays interleaved', async ({ page }) => {
     await page.emulateMedia({ reducedMotion: 'no-preference' });
     await page.addInitScript(() => {
       let seed = 0x2f6e2b1;
@@ -181,13 +181,49 @@ test.describe('Home page', () => {
       };
     });
 
-    await page.goto('/');
+    await page.goto('/', { waitUntil: 'networkidle' });
 
-    const result = await page.locator('[data-hero-bio] [data-decode-root]').evaluate(
-      (root) => new Promise<{ inserted: boolean; snapshot?: string }>((resolve) => {
+    const decodeRoot = page.locator('[data-hero-bio] [data-decode-root]');
+    await expect(decodeRoot).toHaveClass(/dt-prepared/);
+    const result = await decodeRoot.evaluate(
+      (root) => new Promise<{
+        stable: boolean;
+        interleaved: boolean;
+        slotCountStable: boolean;
+        textMatches: boolean;
+        snapshot?: string;
+      }>((resolve) => {
         const deadline = performance.now() + 4_000;
+        const cells = Array.from(root.querySelectorAll<HTMLElement>('.dt-c'));
+        const slotCount = cells.length;
+        const source = Array.from(root.children)
+          .find((element) => element instanceof HTMLSpanElement && element.style.cssText.includes('position: absolute'))
+          ?.textContent ?? '';
+        const settled = new Map<HTMLElement, string>();
+        let interleaved = false;
+
+        // Visual lines are block spans with boundary whitespace trimmed, so
+        // compare the content stream without layout-only whitespace.
+        const compact = (value: string): string => value.replace(/\s+/g, '');
+        const isFinal = (cell: HTMLElement): boolean => (
+          !cell.dataset.state &&
+          Boolean(cell.textContent) &&
+          cell.textContent !== '\u00a0' &&
+          cell.textContent !== ' '
+        );
 
         const inspect = () => {
+          const currentCells = Array.from(root.querySelectorAll<HTMLElement>('.dt-c'));
+          if (currentCells.length !== slotCount) {
+            resolve({
+              stable: true,
+              interleaved,
+              slotCountStable: false,
+              textMatches: false,
+            });
+            return;
+          }
+
           for (const line of root.querySelectorAll('.dt-line')) {
             let foundUnsettledLetter = false;
             for (const cell of line.querySelectorAll<HTMLElement>('.dt-c')) {
@@ -196,24 +232,50 @@ test.describe('Home page', () => {
                 continue;
               }
 
-              const settled = !cell.dataset.state && Boolean(cell.textContent);
-              if (settled && foundUnsettledLetter) {
+              const finalText = settled.get(cell);
+              if (finalText !== undefined && (cell.dataset.state || cell.textContent !== finalText)) {
                 resolve({
-                  inserted: true,
+                  stable: false,
+                  interleaved,
+                  slotCountStable: true,
+                  textMatches: false,
                   snapshot: Array.from(line.querySelectorAll<HTMLElement>('.dt-c'))
                     .map((item) => `${item.textContent || '∅'}:${item.dataset.state || 'final'}`)
                     .join('|'),
                 });
                 return;
               }
-              if (!settled) foundUnsettledLetter = true;
+              if (isFinal(cell)) {
+                settled.set(cell, cell.textContent ?? '');
+                if (foundUnsettledLetter) interleaved = true;
+              } else {
+                foundUnsettledLetter = true;
+              }
             }
           }
 
-          if (root.classList.contains('dt-animating') || performance.now() < deadline) {
+          const complete = currentCells.every((cell) => (
+            cell.textContent === ' ' || isFinal(cell)
+          ));
+          if (!root.classList.contains('dt-animating') && complete) {
+            const finalText = compact(root.textContent ?? '');
+            const sourceText = compact(source);
+            resolve({
+              stable: true,
+              interleaved,
+              slotCountStable: true,
+              textMatches: finalText === sourceText,
+              snapshot: `source=${sourceText}|final=${finalText}`,
+            });
+          } else if (performance.now() < deadline) {
             requestAnimationFrame(inspect);
           } else {
-            resolve({ inserted: false });
+            resolve({
+              stable: true,
+              interleaved,
+              slotCountStable: true,
+              textMatches: false,
+            });
           }
         };
 
@@ -221,7 +283,10 @@ test.describe('Home page', () => {
       })
     );
 
-    expect(result.inserted, result.snapshot).toBe(false);
+    expect(result.stable, result.snapshot).toBe(true);
+    expect(result.interleaved).toBe(true);
+    expect(result.slotCountStable).toBe(true);
+    expect(result.textMatches, result.snapshot).toBe(true);
   });
 
   test('renders core sections and persists selected theme', async ({ page }) => {
