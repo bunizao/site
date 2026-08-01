@@ -160,13 +160,6 @@ const paletteCss = [
         // incoming page of a navigation already matches.
         if (navigator.vendor === 'Apple Computer, Inc.') {
           document.documentElement.classList.add('ua-webkit');
-          // WebKit runs cross-document view transitions on the main thread and
-          // drops a frame mid-tween; a stuttering fade reads worse than an
-          // instant load, so opt out on both sides of the navigation. The
-          // same-document theme wipe is untouched.
-          const skip = (event) => event.viewTransition?.skipTransition();
-          addEventListener('pageswap', skip);
-          addEventListener('pagereveal', skip);
         }
         // The masthead lockup's 1.77s entrance is a first-arrival flourish, and
         // /blog/ is a hub a reader passes through several times in one session

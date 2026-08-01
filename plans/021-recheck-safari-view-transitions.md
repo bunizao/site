@@ -1,6 +1,9 @@
 # 021 — Re-measure Safari, then delete the WebKit skip if it holds
 
-- **Status**: TODO (manual measurement — cannot be done by an agent)
+- **Status**: SHIPPED AHEAD OF THE MEASUREMENT (2026-08-01). The skip was removed
+  on the argument below rather than on an observation; Safari now runs the same
+  transition as everyone else. The feel-check in "Steps" is still owed, and if it
+  fails the revert is the two `addEventListener` lines in each layout.
 - **Commit**: 3ec02a76
 - **Severity**: LOW
 - **Category**: Cohesion / platform parity
@@ -75,9 +78,10 @@ Recorded so it isn't re-litigated:
 
 ## Steps
 
-1. Land 017 and 018 first.
-2. On a local branch, comment out the two `addEventListener('pageswap'/'pagereveal', skip)`
-   lines in `src/layouts/Layout.astro` and `src/layouts/BlogLayout.astro`.
+1. ~~Land 017 and 018 first.~~ Done.
+2. ~~Remove the two `addEventListener('pageswap'/'pagereveal', skip)` lines and
+   the `skip` const from `src/layouts/Layout.astro` and
+   `src/layouts/BlogLayout.astro`.~~ Done — the `ua-webkit` class stayed.
 3. `bun run build && bun preview` (the Cloudflare preview — dev's Node SSR is
    not representative of production timing).
 4. In real Safari on the Mac, and in Safari on a real iPhone over the LAN:
@@ -87,7 +91,9 @@ Recorded so it isn't re-litigated:
 5. Watch for: a dropped frame at the snapshot swap, the mark or title landing
    after the page has already painted, any flash of background.
 6. Record the verdict, the date, and the Safari version in the
-   `src/styles/globals.css` WebKit comment either way.
+   `src/styles/globals.css` WebKit comment either way. If it stutters, restore
+   the skip in both layouts and say so there — the comment currently states the
+   argument, not an observation.
 
 ## Boundaries
 

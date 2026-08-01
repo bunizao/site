@@ -33,7 +33,7 @@ leverage without a user selection step.
 | 018  | Home → blog is a threshold: the mark is the only shared element | P1 | S | 017 | DONE |
 | 019  | Root transition opacity ramp + reduced-motion crossfade | P2 | S | — | DONE |
 | 020  | Blog wordmark entrance once per session | P2 | S | — | DONE |
-| 021  | Re-measure Safari, then delete the WebKit skip if it holds | P3 | S | 017, 018 | TODO (manual, real Safari only) |
+| 021  | Re-measure Safari, then delete the WebKit skip if it holds | P3 | S | 017, 018 | Skip removed 2026-08-01; feel-check on real Safari still owed |
 
 Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJECTED (with one-line rationale)
 

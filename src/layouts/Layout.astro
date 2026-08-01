@@ -202,15 +202,6 @@ const wordmarkFontHref = '/fonts/wenkai-wordmark.woff2';
         // incoming page of a navigation already matches.
         if (navigator.vendor === 'Apple Computer, Inc.') {
           document.documentElement.classList.add('ua-webkit');
-          // WebKit runs cross-document view transitions on the main thread, so
-          // the snapshot swap collides with the incoming page's first paint and
-          // drops a frame mid-tween. Even an opacity-only crossfade stutters
-          // there, and a stuttering fade reads worse than an instant load, so
-          // opt WebKit out on both sides of the navigation. Same-document
-          // transitions (the theme wipe) are untouched.
-          const skip = (event) => event.viewTransition?.skipTransition();
-          addEventListener('pageswap', skip);
-          addEventListener('pagereveal', skip);
         }
         const storageKey = 'theme';
         const readStoredTheme = () => {

@@ -2345,13 +2345,14 @@ html.no-transition * {
   object-fit: cover;
 }
 
-/* No WebKit override lives here on purpose. WebKit runs these morphs largely on
-   the main thread, and even after flattening them to an opacity-only crossfade
-   it still dropped a frame mid-tween as the snapshot swap met the incoming
-   page's first paint. The layouts' no-FOUC script now calls skipTransition() on
-   pageswap/pagereveal for WebKit, so Safari navigates instantly instead of
-   stuttering. Delete that skip once Safari composites view transitions and the
-   rules above apply everywhere. */
+/* No WebKit override lives here on purpose, and as of 2026-08-01 no skip either.
+   WebKit used to stutter on these navigations, but that was measured against a
+   transition this file no longer describes: a full-viewport crossfade plus three
+   simultaneous per-slug title morphs plus a large hero bitmap. Home → blog is
+   now a crossfade and one ~44px mark, which is inside what the main thread can
+   carry. If Safari drops a frame at the snapshot swap, the fix is to restore
+   skipTransition() on pageswap/pagereveal in both layouts' no-FOUC script — not
+   to build a WebKit-only vocabulary here (plans/021 records why). */
 
 /* ─── Theme toggle: polygon gradient reveal ──────────────────────────────────
    A fixed gradient mask preserves the registry's feathered triangle while its
