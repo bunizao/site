@@ -80,7 +80,7 @@ describe('applyResponsiveImage DOM behavior', () => {
       channel: process.env.PLAYWRIGHT_BROWSER_CHANNEL,
       headless: true,
     });
-  });
+  }, 15_000);
 
   afterAll(async () => {
     await browser?.close();
