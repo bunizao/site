@@ -52,6 +52,7 @@ describe('Cloudflare runtime configuration', () => {
     expect(previewWorkflow).toContain('PUBLIC_GHOST_URL: ${{ vars.PUBLIC_GHOST_URL ||');
     expect(previewWorkflow).toContain('GHOST_CONTENT_API_KEY: ${{ secrets.GHOST_CONTENT_API_KEY }}');
     expect(previewWorkflow).toContain('run: bun run build:cloudflare');
+    expect(previewWorkflow).toContain('Install Playwright FFmpeg');
     expect(previewWorkflow).toContain('wrangler versions upload');
     expect(previewWorkflow).toContain('--preview-alias "$PREVIEW_ALIAS"');
     expect(previewWorkflow).toContain(
@@ -74,6 +75,7 @@ describe('Cloudflare runtime configuration', () => {
     expect(prWorkflow).not.toContain('wrangler deploy --config dist/server/wrangler.json --dry-run');
     expect(prWorkflow).not.toContain('secrets.GHOST_CONTENT_API_KEY');
     expect(prWorkflow).not.toContain('Install Playwright Chromium');
+    expect(prWorkflow).toContain('Install Playwright FFmpeg');
     expect(prWorkflow).toContain('PLAYWRIGHT_BROWSER_CHANNEL: chrome');
     expect(prWorkflow).toContain('node-version-file: .node-version');
   });

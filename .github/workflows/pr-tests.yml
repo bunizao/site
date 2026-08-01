@@ -91,6 +91,9 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
+      - name: Install Playwright FFmpeg
+        run: bunx playwright install ffmpeg
+
       - name: Run site e2e tests
         run: bun run test:e2e:site
 
