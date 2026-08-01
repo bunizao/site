@@ -36,18 +36,16 @@
   --portal-surface-1: hsl(var(--card));
   --portal-surface-2: hsl(var(--accent));
 
-  /* Motion: one shared curve plus Emil-strength enter/move variants. UI stays
-     under 300ms; enter uses ease-out so movement reads instantly. */
-  --portal-ease: cubic-bezier(0.2, 0, 0, 1);
-  --portal-ease-out: cubic-bezier(0.23, 1, 0.32, 1);
-  --portal-ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
-
-  /* Duration scale — Linear-crisp. Hover/press stay well under Emil's 300ms
-     ceiling; entrances are the only thing allowed to breathe a little. */
-  --portal-dur-press: 110ms;
-  --portal-dur-fast: 130ms;
-  --portal-dur-base: 190ms;
-  --portal-dur-enter: 240ms;
+  /* Motion: inherited from the site scale in globals.css. These aliases exist
+     so the rules below keep reading portal-prefixed names; the values are no
+     longer declared here. */
+  --portal-ease: var(--ease);
+  --portal-ease-out: var(--ease-out);
+  --portal-ease-in-out: var(--ease-in-out);
+  --portal-dur-press: var(--dur-press);
+  --portal-dur-fast: var(--dur-fast);
+  --portal-dur-base: var(--dur-base);
+  --portal-dur-enter: var(--dur-enter);
 
   /* Depth: layered transparent shadows tuned for the near-black surface. The
      coss card already paints a hairline top highlight; these add grounded

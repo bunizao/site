@@ -95,3 +95,72 @@ The privacy page is therefore linked from:
 - shared UI concerns are centralized in `Layout.astro`
 - content pages reuse the same shell and mutate the nav through `Page.astro`
 - the shared layout is optimized for the home page first, then adapted for document-style pages
+
+## Motion Vocabulary
+
+Declared at `:root` in [`src/styles/globals.css`](../src/styles/globals.css). One
+curve family, one duration scale, site-wide:
+
+| Token | Value |
+| --- | --- |
+| `--ease` | `cubic-bezier(0.2, 0, 0, 1)` |
+| `--ease-out` | `cubic-bezier(0.23, 1, 0.32, 1)` |
+| `--ease-in-out` | `cubic-bezier(0.77, 0, 0.175, 1)` |
+| `--dur-press` | `110ms` |
+| `--dur-fast` | `130ms` |
+| `--dur-base` | `190ms` |
+| `--dur-enter` | `240ms` |
+
+The scale was adopted from the portal, which was the only part of the site that
+had one; [`src/styles/portal.css`](../src/styles/portal.css) now aliases its
+`--portal-*` names to these so its existing rules keep reading their own
+vocabulary.
+
+**Rule: new motion uses a token. A literal curve needs a comment saying why it
+is not one.**
+
+`--expo-out` is deliberately outside this scale — it is a `linear()` easing for
+the 1.5s theme wipe, a different register from UI motion.
+[`src/styles/home-reveal.css`](../src/styles/home-reveal.css) likewise owns its
+own `--reveal-ease` by design.
+
+### Adoption follow-ups
+
+The adoption pass replaced literals only where the value matched a token
+exactly **and** the site was enumerated in plan 022. Left for a later pass:
+
+**Exact matches, mechanically safe** — these can become tokens with no change in
+rendering:
+
+- `src/features/components/ui/OnThisPage.astro:72` — `--ease-out`
+- `src/pages/privacy.astro:334` — `--ease-out`
+- `src/components/CommandPalette.astro:1554-1556` — `--ease`
+- `src/features/admin/ui/AnalyticsCharts.tsx:158` — `--ease` (inline style, React island)
+
+`src/styles/code-box.css:11` and `src/styles/listening.css:655` already read
+`var(--ease-out, …)` with a literal fallback; that form is deliberate for
+stylesheets that may mount outside their owning subtree.
+
+**Near-misses needing a judgement call** — each is an "ease-out with a long
+tail" that is *not* `--ease-out`. Collapsing them blind would change how things
+feel, so each site needs its own decision (is this meant to be the standard
+ease-out, or is the curve deliberate?):
+
+| Curve | Uses | Notable homes |
+| --- | --- | --- |
+| `cubic-bezier(0.16, 1, 0.3, 1)` | 31 | globals, TimelineWheel, 404, view transitions |
+| `cubic-bezier(0.2, 0.8, 0.2, 1)` | 12 | — |
+| `cubic-bezier(0.4, 0, 0.2, 1)` | 9 | Material's standard curve |
+| `cubic-bezier(0.32, 0.72, 0, 1)` | 8 | ProjectStack entrance |
+| `cubic-bezier(0.22, 1, 0.36, 1)` | 8 (+2 unspaced) | SiteWordmark, hero cards, GitHubContributions |
+| `cubic-bezier(0.25, 1, 0.3, 1)` | 6 | blog.css, SiteWordmark |
+| `cubic-bezier(0.45, 0, 0.2, 1)` | 4 | — |
+| `cubic-bezier(0.2, 0.7, 0.2, 1)` | 3 (+2 unspaced variant) | — |
+
+Overshoot curves (`0.25, 1.22, 0.45, 1.04`, `0.25, 1.18, 0.45, 1.04`,
+`0.34, 1.56, 0.64, 1`, `0.22, 1.2, 0.4, 1`) are character, not drift — they are
+not candidates for the token set.
+
+Also worth a pass: the same curve is spelled both with and without spaces
+(`cubic-bezier(0.22,1,0.36,1)` vs `cubic-bezier(0.22, 1, 0.36, 1)`), which
+defeats grep-based auditing.
