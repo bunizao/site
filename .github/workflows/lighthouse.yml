@@ -33,7 +33,7 @@ jobs:
     steps:
       - name: Resolve deployment context
         id: context
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             const inputUrl = context.payload.inputs?.deployment_url;
@@ -68,10 +68,12 @@ jobs:
         run: sleep 180
 
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version-file: .node-version
 
@@ -186,7 +188,7 @@ jobs:
 
       - name: Notify abnormal Lighthouse result
         if: always() && steps.tracker.outputs.notify_anomaly == 'true'
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             const fs = require('fs');
@@ -230,7 +232,7 @@ jobs:
 
       - name: Close resolved Lighthouse tracker
         if: steps.tracker.outputs.close_recovery == 'true'
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             const fs = require('fs');

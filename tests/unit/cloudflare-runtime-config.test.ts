@@ -41,10 +41,9 @@ describe('Cloudflare runtime configuration', () => {
     expect(configText).toContain('URL to audit; defaults to the production Worker');
   });
 
-  test('runs preview smoke without Vercel deployment events', () => {
+  test('keeps preview smoke manual and independent from PR validation', () => {
     const previewWorkflow = readText('.github/workflows/preview-smoke.yml');
 
-    expect(previewWorkflow).toContain('pull_request:');
     expect(previewWorkflow).toContain('workflow_dispatch:');
     expect(previewWorkflow).toContain('node-version-file: .node-version');
     expect(previewWorkflow).toContain('Configure Cloudflare Access preview');
@@ -58,6 +57,7 @@ describe('Cloudflare runtime configuration', () => {
       'E2E_BASE_URL: ${{ steps.context.outputs.preview_url || steps.cloudflare-preview.outputs.preview_url }}'
     );
     expect(previewWorkflow).toContain('local checked-out build');
+    expect(previewWorkflow).not.toContain('pull_request:');
     expect(previewWorkflow).not.toContain('deployment_status:');
     expect(previewWorkflow).not.toContain('github.event.deployment');
     expect(previewWorkflow).not.toContain('should_run');
@@ -72,6 +72,18 @@ describe('Cloudflare runtime configuration', () => {
     expect(prWorkflow).toContain('Cloudflare deploy blocked mock Ghost posts');
     expect(prWorkflow).not.toContain('wrangler deploy --config dist/server/wrangler.json --dry-run');
     expect(prWorkflow).not.toContain('secrets.GHOST_CONTENT_API_KEY');
+    expect(prWorkflow.match(/Install Playwright Chromium/g)).toHaveLength(1);
+    expect(prWorkflow).toContain('node-version-file: .node-version');
+  });
+
+  test('keeps dependency updates compatible with Bun and bounded CI load', () => {
+    const dependabot = readText('.github/dependabot.yml');
+
+    expect(dependabot).toContain('package-ecosystem: bun');
+    expect(dependabot).toContain('package-ecosystem: github-actions');
+    expect(dependabot).toContain('open-pull-requests-limit: 5');
+    expect(dependabot).toContain('minor-and-patch:');
+    expect(dependabot).not.toContain('package-ecosystem: ""');
   });
 
   test('runs Lighthouse without Vercel deployment events', () => {
