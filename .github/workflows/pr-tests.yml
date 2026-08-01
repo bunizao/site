@@ -21,6 +21,8 @@ jobs:
     name: Check, Unit, Build, Deployment Guard
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    env:
+      PLAYWRIGHT_BROWSER_CHANNEL: chrome
 
     steps:
       - name: Checkout
@@ -67,6 +69,8 @@ jobs:
     name: Site E2E
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    env:
+      PLAYWRIGHT_BROWSER_CHANNEL: chrome
 
     steps:
       - name: Checkout
@@ -86,9 +90,6 @@ jobs:
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
-
-      - name: Install Playwright Chromium
-        run: bunx playwright install --with-deps chromium
 
       - name: Run site e2e tests
         run: bun run test:e2e:site

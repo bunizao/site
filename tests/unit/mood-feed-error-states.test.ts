@@ -23,7 +23,10 @@ beforeAll(async () => {
     buildModule('../../src/features/mood/client/feed-media-hydration.ts'),
     buildModule('../../src/features/mood/client/feed-comments-popover.ts'),
   ]);
-  browser = await chromium.launch({ headless: true });
+  browser = await chromium.launch({
+    channel: process.env.PLAYWRIGHT_BROWSER_CHANNEL,
+    headless: true,
+  });
 });
 
 afterAll(async () => {

@@ -19,7 +19,10 @@ async function buildModule(relativePath: string): Promise<string> {
 
 beforeAll(async () => {
   moduleSource = await buildModule('../../src/features/mood/shared/date-grouping.ts');
-  browser = await chromium.launch({ headless: true });
+  browser = await chromium.launch({
+    channel: process.env.PLAYWRIGHT_BROWSER_CHANNEL,
+    headless: true,
+  });
 });
 
 afterAll(async () => {

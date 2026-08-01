@@ -18,7 +18,10 @@ beforeAll(async () => {
     throw new AggregateError(build.logs, 'Could not build mood search helpers for browser tests');
   }
   moduleSource = await build.outputs[0].text();
-  browser = await chromium.launch({ headless: true });
+  browser = await chromium.launch({
+    channel: process.env.PLAYWRIGHT_BROWSER_CHANNEL,
+    headless: true,
+  });
 });
 
 afterAll(async () => {

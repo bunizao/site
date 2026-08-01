@@ -76,7 +76,10 @@ describe('applyResponsiveImage DOM behavior', () => {
       throw new AggregateError(build.logs, 'Could not build feed-media-hydration for browser tests');
     }
     mediaHydrationSource = await build.outputs[0].text();
-    browser = await chromium.launch({ headless: true });
+    browser = await chromium.launch({
+      channel: process.env.PLAYWRIGHT_BROWSER_CHANNEL,
+      headless: true,
+    });
   });
 
   afterAll(async () => {

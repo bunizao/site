@@ -37,6 +37,7 @@ describe('Cloudflare runtime configuration', () => {
     expect(configText).not.toContain('x-vercel-set-bypass-cookie');
     expect(configText).not.toContain('bunx --bun astro dev');
     expect(configText).toContain('command: `node_modules/.bin/astro dev --host ${host} --port ${port}`');
+    expect(configText).toContain('process.env.PLAYWRIGHT_BROWSER_CHANNEL');
     expect(configText).toContain('Remote URL to test; omit to run against the local checked-out build');
     expect(configText).toContain('URL to audit; defaults to the production Worker');
   });
@@ -72,7 +73,8 @@ describe('Cloudflare runtime configuration', () => {
     expect(prWorkflow).toContain('Cloudflare deploy blocked mock Ghost posts');
     expect(prWorkflow).not.toContain('wrangler deploy --config dist/server/wrangler.json --dry-run');
     expect(prWorkflow).not.toContain('secrets.GHOST_CONTENT_API_KEY');
-    expect(prWorkflow.match(/Install Playwright Chromium/g)).toHaveLength(1);
+    expect(prWorkflow).not.toContain('Install Playwright Chromium');
+    expect(prWorkflow).toContain('PLAYWRIGHT_BROWSER_CHANNEL: chrome');
     expect(prWorkflow).toContain('node-version-file: .node-version');
   });
 
