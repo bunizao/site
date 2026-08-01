@@ -364,11 +364,21 @@ const blogMarkAsset = blog.mark;
     // The H1 docks by the time its top nears the bar; the run is its travel.
     // Cached, not recomputed per frame — `update()` below reads it every tick.
     let titleRun = 168;
+    // The ghost is one nowrap line, but the H1 it stands in for wraps to two or
+    // three on a phone — 342px of column against a 359px title. Lifting off from
+    // a wrapped headline snaps it to a single line wider than the screen, at the
+    // first scrolled pixel and at 27px type: a louder break than the collapse is
+    // worth. So the flight is earned by the title fitting on one line, and where
+    // it doesn't the bar title simply fades in with the bar. Re-checked from
+    // measureTitle(), which already runs on every event that can rewrap it.
+    let titleFitsOneLine = false;
 
     const measureTitle = () => {
       if (!titleGhost || !handoffMql.matches) return;
       const h = h1!.getBoundingClientRect();
       const heroFont = parseFloat(getComputedStyle(h1!).fontSize) || 28;
+      const heroLine = parseFloat(getComputedStyle(h1!).lineHeight) || heroFont * 1.3;
+      titleFitsOneLine = h.height <= heroLine * 1.5;
       const r = titleText.getBoundingClientRect();
       const tb = topbar.getBoundingClientRect();
       // Centre of the real bar title, relative to the bar's own box.
@@ -411,7 +421,7 @@ const blogMarkAsset = blog.mark;
     // title's pixels.
     const updateTitleGhost = () => {
       if (!titleGhost) return;
-      const flying = handoffMql.matches && window.scrollY > 0;
+      const flying = handoffMql.matches && titleFitsOneLine && window.scrollY > 0;
       titleGhost.classList.toggle('is-flying', flying);
       topbar.classList.toggle('title-handoff', flying);
       // The H1 keeps its layout box (visibility, not display) so the article
