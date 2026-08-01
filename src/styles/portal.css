@@ -722,11 +722,13 @@ html.theme-portal section {
   border-radius: inherit;
 }
 
-.portal-card-link:hover [data-slot='card'],
-.theme-portal [data-slot='card'].portal-card-interactive:hover {
-  border-color: hsl(var(--foreground) / 0.16);
-  box-shadow: var(--portal-shadow-lift);
-  transform: translateY(-2px);
+@media (hover: hover) and (pointer: fine) {
+  .portal-card-link:hover [data-slot='card'],
+  .theme-portal [data-slot='card'].portal-card-interactive:hover {
+    border-color: hsl(var(--foreground) / 0.16);
+    box-shadow: var(--portal-shadow-lift);
+    transform: translateY(-2px);
+  }
 }
 
 .portal-card-link:active [data-slot='card'],
@@ -977,8 +979,10 @@ a.portal-feed-row:hover,
   color: hsl(var(--foreground));
   gap: 5px;
 }
-.portal-sec-link:hover svg {
-  transform: translateX(1px);
+@media (hover: hover) and (pointer: fine) {
+  .portal-sec-link:hover svg {
+    transform: translateX(1px);
+  }
 }
 .portal-sec-link svg {
   transition: transform var(--portal-dur-fast) var(--portal-ease-out);

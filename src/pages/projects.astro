@@ -183,8 +183,10 @@ const linkLabel = (url: string) =>
     transition: transform 0.18s ease;
   }
 
-  .proj-gh:hover :global(svg) {
-    transform: translate(2px, -2px);
+  @media (hover: hover) and (pointer: fine) {
+    .proj-gh:hover :global(svg) {
+      transform: translate(2px, -2px);
+    }
   }
 
   /* ── The ledger ─────────────────────────────────────────────────────────── */
@@ -344,8 +346,10 @@ const linkLabel = (url: string) =>
     transition: transform 0.18s ease;
   }
 
-  .proj-link:hover :global(svg) {
-    transform: translate(2px, -2px);
+  @media (hover: hover) and (pointer: fine) {
+    .proj-link:hover :global(svg) {
+      transform: translate(2px, -2px);
+    }
   }
 
   /* ── Desktop: two columns, hero alternating side to side ─────────────────── */

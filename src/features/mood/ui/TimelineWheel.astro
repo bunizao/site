@@ -228,7 +228,10 @@ const { compact = false } = Astro.props;
     top: 50%;
     width: 5px;
     height: 5px;
-    transform: translateY(-50%) scale(0);
+    /* 0.6, not 0: at 5px the dot is already tiny, and growing it from nothing
+       reads as materialising rather than arriving. Opacity carries the
+       appearance. */
+    transform: translateY(-50%) scale(0.6);
     border-radius: 50%;
     background: hsl(var(--foreground));
     opacity: 0;

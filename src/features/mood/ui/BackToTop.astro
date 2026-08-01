@@ -96,8 +96,10 @@ const { threshold = 600, hideOnDesktop = false } = Astro.props;
     border-color: hsl(var(--foreground) / 0.2);
   }
 
-  .mood-back-to-top:hover svg {
-    transform: translateY(-2px);
+  @media (hover: hover) and (pointer: fine) {
+    .mood-back-to-top:hover svg {
+      transform: translateY(-2px);
+    }
   }
 
   .mood-back-to-top:active {

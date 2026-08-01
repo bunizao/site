@@ -265,8 +265,10 @@ const stamp = (iso: string): string => {
 
   /* The pill holds still while the title leans into it — the cai.im tell that
      turns a static fill into a hover that feels alive. */
-  :global(#writing-section .post-item:hover .post-title) {
-    transform: translateX(4px);
+  @media (hover: hover) and (pointer: fine) {
+    :global(#writing-section .post-item:hover .post-title) {
+      transform: translateX(4px);
+    }
   }
 
   :global(#writing-section .post-meta) {

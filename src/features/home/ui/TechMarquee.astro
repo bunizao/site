@@ -110,7 +110,22 @@ const duplicatedRow2 = [...row2, ...row2, ...row2];
     }
   }
 
-  .tech-marquee:hover .marquee-track {
-    animation-play-state: paused;
+  /* Pause on hover only where hover is real. On touch a tap fires a synthetic
+     hover and freezes the marquee until the user taps elsewhere. */
+  @media (hover: hover) and (pointer: fine) {
+    .tech-marquee:hover .marquee-track {
+      animation-play-state: paused;
+    }
+  }
+
+  /* Continuous horizontal drift is the one motion pattern that reliably
+     triggers vestibular symptoms. Reduced motion parks both tracks; the list
+     stays fully readable because the row is tripled, so resting at
+     translateX(0) lands on a copy boundary rather than mid-word. */
+  @media (prefers-reduced-motion: reduce) {
+    .marquee-track.left,
+    .marquee-track.right {
+      animation: none;
+    }
   }
 </style>

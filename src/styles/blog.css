@@ -393,9 +393,11 @@ html[data-theme-setting='system'] .blog-theme-toggle [data-blog-icon='system'] {
     transition: opacity 0.2s ease, transform 0.2s ease;
   }
 
-  .blog-yearrail:hover .blog-yearrail__label {
-    opacity: 1;
-    transform: none;
+  @media (hover: hover) and (pointer: fine) {
+    .blog-yearrail:hover .blog-yearrail__label {
+      opacity: 1;
+      transform: none;
+    }
   }
 
   .blog-yearrail__year:hover .blog-yearrail__tick,
