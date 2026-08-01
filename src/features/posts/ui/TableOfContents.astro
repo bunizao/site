@@ -451,13 +451,15 @@ const blogMarkAsset = blog.mark;
     // Slide the pill to hug the active link's box; depth indent comes for free.
     // Measured against the wrapper (not offsetParent) because each .toc-item is
     // positioned, which would otherwise pin every link's offsetTop near zero.
+    // One composited write instead of four layout writes. The pill is a 1x1 box
+    // (blog.css) with transform-origin at its top-left, so translate positions
+    // it and scale sizes it in the same property.
     const movePill = (link: HTMLAnchorElement) => {
       const wrap = wrapper!.getBoundingClientRect();
       const box = link.getBoundingClientRect();
-      pill!.style.top = `${box.top - wrap.top}px`;
-      pill!.style.left = `${box.left - wrap.left}px`;
-      pill!.style.width = `${box.width}px`;
-      pill!.style.height = `${box.height}px`;
+      pill!.style.transform =
+        `translate(${box.left - wrap.left}px, ${box.top - wrap.top}px)` +
+        ` scale(${box.width}, ${box.height})`;
       pill!.style.opacity = '1';
     };
 

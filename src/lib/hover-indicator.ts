@@ -38,12 +38,16 @@ export function attachHoverIndicator(list: HTMLElement, options: Options): void 
   }
   const pill = indicator;
 
+  // One composited write. The pill is a 1x1 box with transform-origin at its
+  // top-left (see the consumer stylesheet), so translate positions it and scale
+  // sizes it in the same property — no layout, and the promoted layer's raster
+  // stays reusable.
   const moveTo = (item: HTMLElement) => {
     const ir = item.getBoundingClientRect();
     const lr = list.getBoundingClientRect();
-    pill.style.width = `${ir.width + padX * 2}px`;
-    pill.style.height = `${ir.height + padY * 2}px`;
-    pill.style.transform = `translate(${ir.left - lr.left - padX}px, ${ir.top - lr.top - padY}px)`;
+    pill.style.transform =
+      `translate(${ir.left - lr.left - padX}px, ${ir.top - lr.top - padY}px)` +
+      ` scale(${ir.width + padX * 2}, ${ir.height + padY * 2})`;
     pill.style.opacity = '1';
   };
 
@@ -55,6 +59,7 @@ export function attachHoverIndicator(list: HTMLElement, options: Options): void 
   let pointerX = 0;
   let pointerY = 0;
   let scrolling = false;
+  let scrollRaf = 0;
 
   const enter = (item: HTMLElement) => {
     list.classList.add('is-hovering');
@@ -66,12 +71,19 @@ export function attachHoverIndicator(list: HTMLElement, options: Options): void 
     pill.style.opacity = '0';
   };
 
+  // Scroll fires far more often than it can be usefully answered, and answering
+  // it costs an elementFromPoint plus two rect reads — all forced layout. One
+  // answer per frame is the most the pill can show anyway.
   const onScroll = () => {
-    if (!list.classList.contains('is-hovering')) return;
-    const item = (document.elementFromPoint(pointerX, pointerY) as HTMLElement | null)
-      ?.closest<HTMLElement>(itemSelector);
-    if (item && list.contains(item)) moveTo(item);
-    else leave();
+    if (scrollRaf) return;
+    scrollRaf = requestAnimationFrame(() => {
+      scrollRaf = 0;
+      if (!list.classList.contains('is-hovering')) return;
+      const item = (document.elementFromPoint(pointerX, pointerY) as HTMLElement | null)
+        ?.closest<HTMLElement>(itemSelector);
+      if (item && list.contains(item)) moveTo(item);
+      else leave();
+    });
   };
 
   list.addEventListener('pointerover', (event) => {
@@ -93,6 +105,10 @@ export function attachHoverIndicator(list: HTMLElement, options: Options): void 
   }, { passive: true });
 
   list.addEventListener('pointerleave', () => {
+    if (scrollRaf) {
+      cancelAnimationFrame(scrollRaf);
+      scrollRaf = 0;
+    }
     if (scrolling) {
       document.removeEventListener('scroll', onScroll, { capture: true });
       scrolling = false;
