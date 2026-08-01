@@ -2,6 +2,7 @@ import { load } from 'cheerio';
 
 import { enrichAppleMusicEmbeds } from '../apple-music';
 import { enrichMoodEmbeds } from '../mood-embed';
+import { enrichYouTubeEmbeds } from '../youtube';
 import { DirectiveAttributeError } from './attributes';
 import { authorsDirective } from './authors';
 import { footnotesDirective } from './footnotes';
@@ -98,8 +99,10 @@ export const transformPostDirectives: DirectiveTransformer = async (html, contex
   let input = html;
   if (isRichDirectiveOutputTarget(context.outputTarget)) {
     const maskedDocument = maskProtectedHtml(input);
-    const enrichedMoodHtml = enrichMoodEmbeds(maskedDocument.maskedHtml);
-    input = maskedDocument.restore(await enrichAppleMusicEmbeds(enrichedMoodHtml));
+    let enrichedHtml = enrichMoodEmbeds(maskedDocument.maskedHtml);
+    enrichedHtml = await enrichYouTubeEmbeds(enrichedHtml);
+    enrichedHtml = await enrichAppleMusicEmbeds(enrichedHtml);
+    input = maskedDocument.restore(enrichedHtml);
   }
   return transformRegisteredPostDirectives(input, context);
 };

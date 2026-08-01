@@ -80,6 +80,30 @@ describe('YouTube embed markup', () => {
 });
 
 describe('YouTube content integrations', () => {
+  test('promotes Ghost YouTube iframe cards into the shared facade', async () => {
+    globalThis.fetch = Object.assign(
+      async () => Response.json({
+        title: 'Demo Video of My Project Always-Attend !',
+        author_name: 'bunizao',
+        author_url: 'https://www.youtube.com/@bunizao',
+      }),
+      { preconnect: originalFetch.preconnect },
+    );
+
+    const result = await transformPostDirectives([
+      '<blockquote>Below is a YouTube embed.</blockquote>',
+      '<figure class="kg-card kg-embed-card">',
+      '<iframe width="200" height="150" src="https://www.youtube.com/embed/ZD0piD83FcE?feature=oembed" title="Demo Video of My Project Always-Attend !"></iframe>',
+      '</figure>',
+    ].join(''), context);
+
+    expect(result.html).toContain('class="yt"');
+    expect(result.html).toContain('data-video="ZD0piD83FcE"');
+    expect(result.html).toContain('Demo Video of My Project Always-Attend !');
+    expect(result.html).not.toContain('youtube.com/embed');
+    expect(result.html).not.toContain('kg-embed-card');
+  });
+
   test('renders the directive as a facade on rich targets and a link elsewhere', async () => {
     for (const outputTarget of ['web', 'preview'] as const) {
       const result = await transformPostDirectives(

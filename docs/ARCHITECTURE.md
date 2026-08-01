@@ -53,7 +53,7 @@ Private API ownership lives in the separate `site-api` Worker. `site-api` direct
 4. **GitHub Contributions** (`src/features/home/ui/GitHubContributions.astro`, `site-api /api/github/contributions`) — Contribution graph from an API backed by GitHub GraphQL, with the public contributions API as a fallback
 5. **Telegram/BroadcastChannel** — Mood pages render base post content from the D1 archive, then hydrate visible comment counts and reactions from the live Telegram mirror. The live reader remains the fallback when archive reads fail.
 6. **Better Stack Status Page** (`site-api /api/footer`) — Footer service status from `https://status.tuuhub.com/index.json`
-7. **YouTube** (`src/features/posts/server/youtube.ts`, `src/lib/embed/youtube.ts`) — Server rendering reads bounded oEmbed metadata. Posters are fetched by the public `site` Worker through the fixed `/static/youtube/<id>/<quality>.jpg` route; the official Player API and `youtube-nocookie.com` iframe load in the browser only after playback is requested.
+7. **YouTube** (`src/features/posts/server/youtube.ts`, `src/lib/embed/youtube.ts`) — Server rendering converts both blog directives and Ghost YouTube iframe cards into the shared facade, then reads bounded oEmbed metadata. Posters are fetched by the public `site` Worker through the fixed `/static/youtube/<id>/<quality>.jpg` route; the official Player API and `youtube-nocookie.com` iframe load in the browser only after playback is requested.
 
 ## API Endpoints
 

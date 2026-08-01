@@ -1,4 +1,8 @@
-import { youtubeWatchUrl } from '@/lib/embed/youtube';
+import {
+  parseYouTubeVideoUrl,
+  renderYouTubeEmbedMarkup,
+  youtubeWatchUrl,
+} from '@/lib/embed/youtube';
 
 export interface YouTubeMetadata {
   title: string;
@@ -10,6 +14,61 @@ const LOOKUP_TIMEOUT_MS = 4_000;
 const MAX_RESPONSE_BYTES = 64 * 1024;
 const MAX_CACHE_ENTRIES = 128;
 const metadataCache = new Map<string, Promise<YouTubeMetadata | null>>();
+const EMBED_FIGURE_RE =
+  /<figure[^>]*class=(['"])[^'"]*\bkg-embed-card\b[^'"]*\1[^>]*>\s*<iframe\b[^>]*>\s*<\/iframe>\s*<\/figure>/giu;
+const BARE_IFRAME_RE = /<iframe\b[^>]*>\s*<\/iframe>/giu;
+const HTML_ATTRIBUTE_ENTITIES: Record<string, string> = {
+  '&amp;': '&',
+  '&#38;': '&',
+  '&#x26;': '&',
+  '&quot;': '"',
+  '&#34;': '"',
+  '&#x22;': '"',
+  '&apos;': "'",
+  '&#39;': "'",
+  '&#x27;': "'",
+};
+
+function decodeHtmlAttribute(value: string): string {
+  return value.replace(
+    /&(amp|#38|#x26|quot|#34|#x22|apos|#39|#x27);/giu,
+    (entity) => HTML_ATTRIBUTE_ENTITIES[entity.toLowerCase()] ?? entity,
+  );
+}
+
+function readIframeAttribute(iframeHtml: string, attribute: string): string {
+  const match = new RegExp(`\\b${attribute}\\s*=\\s*(['"])([\\s\\S]*?)\\1`, 'iu')
+    .exec(iframeHtml);
+  return match ? decodeHtmlAttribute(match[2]).trim() : '';
+}
+
+async function replaceYouTubeIframes(html: string, pattern: RegExp): Promise<string> {
+  const matches = [...html.matchAll(pattern)];
+  if (matches.length === 0) return html;
+
+  const replacements = await Promise.all(matches.map(async (match) => {
+    const source = readIframeAttribute(match[0], 'src');
+    const reference = parseYouTubeVideoUrl(source);
+    if (!reference) return match[0];
+
+    const metadata = await resolveYouTubeMetadata(reference.id);
+    return renderYouTubeEmbedMarkup({
+      ...reference,
+      title: (metadata?.title ?? readIframeAttribute(match[0], 'title')) || 'YouTube video',
+      channelName: metadata?.channelName ?? 'YouTube',
+      channelUrl: metadata?.channelUrl,
+    });
+  }));
+
+  let output = '';
+  let cursor = 0;
+  matches.forEach((match, index) => {
+    const start = match.index ?? cursor;
+    output += html.slice(cursor, start) + replacements[index];
+    cursor = start + match[0].length;
+  });
+  return output + html.slice(cursor);
+}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
@@ -128,6 +187,13 @@ export function resolveYouTubeMetadata(id: string): Promise<YouTubeMetadata | nu
     }
   });
   return pending;
+}
+
+export async function enrichYouTubeEmbeds(html: string): Promise<string> {
+  if (!html || !/youtu(?:\.be|be\.com)|youtube-nocookie\.com/iu.test(html)) return html;
+
+  const withoutEmbedFigures = await replaceYouTubeIframes(html, EMBED_FIGURE_RE);
+  return replaceYouTubeIframes(withoutEmbedFigures, BARE_IFRAME_RE);
 }
 
 export function resetYouTubeMetadataCacheForTests(): void {
