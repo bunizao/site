@@ -171,7 +171,7 @@ async function fetchYouTubeMetadata(id: string): Promise<YouTubeMetadata | null>
   try {
     const response = await fetch(endpoint, {
       headers: { Accept: 'application/json' },
-      redirect: 'error',
+      redirect: 'manual',
       signal: controller.signal,
     });
     if (!response.ok) return null;
@@ -259,7 +259,7 @@ async function fetchYouTubeChannelAvatarUrl(id: string): Promise<string | null> 
         Accept: 'text/html',
         'User-Agent': 'Mozilla/5.0 (compatible; BuxxAvatarProxy/1.0; +https://buxx.me/privacy)',
       },
-      redirect: 'error',
+      redirect: 'manual',
       signal: controller.signal,
     });
     if (!response.ok || !response.headers.get('content-type')?.toLowerCase().startsWith('text/html')) {

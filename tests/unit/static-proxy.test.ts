@@ -163,9 +163,11 @@ describe('static Telegram proxy', () => {
 
   test('resolves and proxies bounded YouTube channel avatars', async () => {
     const fetchedUrls: string[] = [];
-    globalThis.fetch = (async (input: RequestInfo | URL) => {
+    const redirectModes: Array<RequestRedirect | undefined> = [];
+    globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
       fetchedUrls.push(url);
+      redirectModes.push(init?.redirect);
 
       if (url.startsWith('https://www.youtube.com/oembed?')) {
         return Response.json({
@@ -217,6 +219,7 @@ describe('static Telegram proxy', () => {
       'https://www.youtube.com/@zhongwenze',
       'https://yt3.googleusercontent.com/channel-avatar=s128-c-k-c0x00ffffff-no-rj',
     ]);
+    expect(redirectModes).toEqual(['manual', 'manual', 'manual']);
     expect(signatureObservations).toEqual([]);
   });
 
