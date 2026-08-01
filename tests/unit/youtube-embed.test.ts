@@ -74,6 +74,7 @@ describe('YouTube embed markup', () => {
     expect(html).toContain('data-yt-poster-fallback="/static/youtube/aqz-KE-bpKQ/hqdefault.jpg"');
     expect(html).toContain('src="/static/youtube/aqz-KE-bpKQ/avatar.jpg"');
     expect(html).toContain('data-yt-avatar');
+    expect(html).not.toMatch(/data-yt-avatar[^>]*loading="lazy"/u);
     expect(html).toContain('Big &lt;Buck&gt; &amp; Bunny');
     expect(html).toContain('Blender &quot;Studio&quot;');
     expect(html).toContain('data-yt-player');

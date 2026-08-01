@@ -182,7 +182,7 @@ export function renderYouTubeEmbedMarkup(options: YouTubeEmbedMarkupOptions): st
     '<figcaption class="yt__caption">',
     '<span class="yt__avatar" aria-hidden="true">',
     `<span class="yt__avatar-fallback">${escapeHtml(initial)}</span>`,
-    `<img class="yt__avatar-image" data-yt-avatar src="${avatarUrl}" alt="" loading="lazy" decoding="async" />`,
+    `<img class="yt__avatar-image" data-yt-avatar src="${avatarUrl}" alt="" decoding="async" />`,
     '</span>',
     `<span class="yt__title">${escapeHtml(title)}</span>`,
     '<span class="yt__meta">',
