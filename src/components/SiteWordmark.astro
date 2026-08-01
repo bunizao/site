@@ -133,6 +133,16 @@ const characters = Array.from('無人之境');
     }
   }
 
+  /* Second and later arrivals in a session: the lockup is simply there. Only
+     the blog masthead is gated — the home doorway's copy is already held back
+     by the Writing section's reveal and plays at most once per home visit.
+     Clearing only `animation` leaves the hover transitions intact. */
+  :global(html.wordmark-seen) .site-wordmark--blog .site-wordmark__character,
+  :global(html.wordmark-seen) .site-wordmark--blog .site-wordmark__latin,
+  :global(html.wordmark-seen) .site-wordmark--blog .site-wordmark__wake {
+    animation: none;
+  }
+
   @media (prefers-reduced-motion: reduce) {
     .site-wordmark__character,
     .site-wordmark__latin,
