@@ -112,52 +112,65 @@ async function firstScrambleGlyph(charset: string): Promise<string> {
   }
 }
 
-async function hasNonMonotonicSettlement(): Promise<boolean> {
+const INTERLEAVE_TEXT = 'ABCDEFGHIJKLMNOP';
+
+/**
+ * True if a settled character was ever seen with an unsettled one to its left.
+ * In shuffle mode that interleaving is the effect: settled and boiling
+ * characters mixed across the line, no single edge to follow. In `ltr` mode it
+ * must never happen, because resolution is the mash front shifted and that
+ * front is ordered there.
+ */
+async function hasInterleavedSettlement(order: 'shuffle' | 'ltr'): Promise<boolean> {
   const page = await browser.newPage();
   try {
-    await page.setContent('<div id="target">ABCDEFGH</div>');
-    return await page.evaluate(async (source) => {
-      const moduleUrl = URL.createObjectURL(new Blob([source], { type: 'text/javascript' }));
-      try {
-        const { prepareDecode } = await import(moduleUrl);
-        const root = document.querySelector<HTMLElement>('#target');
-        if (!root) throw new Error('Missing decode target');
+    await page.setContent(`<div id="target">${INTERLEAVE_TEXT}</div>`);
+    return await page.evaluate(
+      async ({ source, input, queueOrder }) => {
+        const moduleUrl = URL.createObjectURL(new Blob([source], { type: 'text/javascript' }));
+        try {
+          const { prepareDecode } = await import(moduleUrl);
+          const root = document.querySelector<HTMLElement>('#target');
+          if (!root) throw new Error('Missing decode target');
 
-        const controller = await prepareDecode(root, {
-          charset: '#',
-          cursorChar: '-',
-          ease: (progress: number) => progress,
-          fontTimeout: 0,
-          maxDuration: 0.3,
-          minDuration: 0.3,
-          mutationHz: 18,
-          order: 'shuffle',
-          respectReducedMotion: false,
-          scrambleFromText: false,
-        });
-        let finished = false;
-        let nonMonotonic = false;
-        void controller.finished.then(() => {
-          finished = true;
-        });
-        controller.start();
-
-        while (!finished) {
-          await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
-          const cells = Array.from(root.querySelectorAll<HTMLElement>('.dt-c'));
-          let foundUnsettledCell = false;
-          cells.forEach((cell, index) => {
-            const settled = !cell.dataset.state && cell.textContent === 'ABCDEFGH'[index];
-            if (!settled) foundUnsettledCell = true;
-            else if (foundUnsettledCell) nonMonotonic = true;
+          const controller = await prepareDecode(root, {
+            charset: '#',
+            cursorChar: '-',
+            ease: (progress: number) => progress,
+            fontTimeout: 0,
+            maxDuration: 0.3,
+            minDuration: 0.3,
+            mutationHz: 18,
+            order: queueOrder,
+            respectReducedMotion: false,
+            scrambleFromText: false,
           });
-        }
 
-        return nonMonotonic;
-      } finally {
-        URL.revokeObjectURL(moduleUrl);
-      }
-    }, moduleSource);
+          const cells = Array.from(root.querySelectorAll<HTMLElement>('.dt-c'));
+          let finished = false;
+          let interleaved = false;
+          void controller.finished.then(() => {
+            finished = true;
+          });
+          controller.start();
+
+          while (!finished) {
+            await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+            let sawUnsettled = false;
+            cells.forEach((cell, index) => {
+              const settled = !cell.dataset.state && cell.textContent === input[index];
+              if (!settled) sawUnsettled = true;
+              else if (sawUnsettled) interleaved = true;
+            });
+          }
+
+          return interleaved;
+        } finally {
+          URL.revokeObjectURL(moduleUrl);
+        }
+      },
+      { source: moduleSource, input: INTERLEAVE_TEXT, queueOrder: order }
+    );
   } finally {
     await page.close();
   }
@@ -344,8 +357,12 @@ describe('decode-text grapheme handling', () => {
     expect(await firstScrambleGlyph('👩‍💻')).toBe('👩‍💻');
   });
 
-  test('keeps final resolution left to right in shuffle mode', async () => {
-    expect(await hasNonMonotonicSettlement()).toBe(false);
+  test('interleaves settled and boiling characters in shuffle mode', async () => {
+    expect(await hasInterleavedSettlement('shuffle')).toBe(true);
+  });
+
+  test('keeps final resolution left to right in ltr mode', async () => {
+    expect(await hasInterleavedSettlement('ltr')).toBe(false);
   });
 
   test('still collapses consecutive whitespace into one cell', async () => {

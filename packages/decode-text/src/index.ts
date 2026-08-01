@@ -9,14 +9,12 @@
  *  - Real VISUAL lines are measured (offsetTop grouping) and each line is
  *    rendered as a `white-space: nowrap` block, so a line can change width
  *    without re-wrapping the paragraph.
- *  - Scheduling runs Soulwire's three fronts, but in separated windows: the
- *    shuffled `show` (p^0.5 — cursors flood in early) and `mash` (p^2 —
- *    cursors graduate to boiling scramble) fronts both finish below
- *    `settleStart`, and only then does a strictly left-to-right resolve front
- *    sweep the line at constant speed. Packing the noisy fronts underneath the
- *    resolve front is what keeps the reveal smooth: a cell can never be held
- *    back by a late shuffle slot, so the line crystallises one glyph at a time
- *    instead of snapping in a block at the end.
+ *  - Scheduling runs Soulwire's fronts over a shuffled queue: `show` (p^0.5 —
+ *    cursors flood in early) and `mash` (p^2 — cursors graduate to boiling
+ *    scramble). Every character then boils for the same `boil` share of its
+ *    line before resolving, so the resolve order is the mash order and settled
+ *    characters stay interleaved with boiling ones across the whole line. No
+ *    edge sweeps across it; the line just gets cleaner everywhere at once.
  *  - There is ONE timeline for the whole text, eased once. Lines are windows
  *    laid out on that shared 0..1 axis, overlapping heavily (`lineSpread`), so
  *    the paragraph reads as a single object condensing. Easing each line
@@ -54,17 +52,13 @@ export interface DecodeOptions {
   /** Mash front exponent: cursor graduates to boiling scramble as p^mashPower sweeps. Default: 2 */
   mashPower?: number;
   /**
-   * Progress at which the left-to-right resolve front starts its sweep. The
-   * show and mash fronts are packed below it, so lower values mean less boiling
-   * and a longer, slower crystallisation. Default: 0.52
+   * How long a character scrambles between appearing and resolving, as a share
+   * of its line's window. Every character boils for the same length of time, so
+   * this is the single knob for how noisy the reveal is: resolution is the mash
+   * front shifted by exactly this much, which is what keeps settled and boiling
+   * characters interleaved instead of split by a sweeping edge. Default: 0.35
    */
-  settleStart?: number;
-  /**
-   * Shape of the resolve front across the line. 1 is a constant-speed beam;
-   * below 1 opens fast and savours the last glyphs; above 1 hesitates then
-   * finishes hard. Default: 0.8
-   */
-  settleCurve?: number;
+  boil?: number;
   /** Mix the text's own (ASCII) characters into the scramble pool. Default: true */
   scrambleFromText?: boolean;
   /**
@@ -164,8 +158,7 @@ const DEFAULTS = {
   order: 'shuffle' as DecodeOrder,
   showPower: 0.5,
   mashPower: 2,
-  settleStart: 0.52,
-  settleCurve: 0.8,
+  boil: 0.35,
   scrambleFromText: true,
   durationPerChar: 0.008,
   minDuration: 0.9,
@@ -184,9 +177,6 @@ const MAX_FRAME_MS = 64;
 
 /** Share of the pre-settle window the show front owns; the mash front takes the rest. */
 const SHOW_WINDOW = 0.65;
-
-/** Progress every cell spends boiling before the resolve front may reach it. */
-const MIN_BOIL = 0.06;
 
 /**
  * How far each line's weight is pulled toward the average when laying out the
@@ -422,19 +412,25 @@ const renderLine = (
 /**
  * Fold the three fronts into per-cell thresholds.
  *
- * The show and mash fronts keep Soulwire's power shape — a front with exponent
- * y reaches queue fraction q at progress q^(1/y), so showPower < 1 floods
- * cursors in early — but both are scaled into the window below `settleStart`,
- * where `shuffle` can scatter them freely. The resolve front then sweeps left
- * to right at constant speed over the remaining window, one cell at a time.
+ * Every character does the same thing: it appears as a cursor, boils for
+ * `boil` of the line's window, then resolves. The only thing that differs is
+ * *when* it starts, and that is drawn from the shuffled queue — so at any
+ * instant a line holds resolved characters, boiling ones and empty slots all
+ * interleaved, and it cleans up everywhere at once rather than being wiped.
  *
- * Keeping the two apart is the whole trick. When the shuffled mash threshold
- * was allowed to floor `settleAt` directly, the cell holding the last shuffle
- * slot could not resolve before progress 1, and the monotonic pass dragged
- * every cell behind it to the same frame — so most of a line snapped from
- * scramble to final text in a single frame. Now `mashAt + MIN_BOIL` is capped
- * at `settleStart` by construction, so that floor can never bind and the sweep
- * stays even.
+ * This is the whole look. A resolve front that sweeps left to right at a
+ * constant speed reads as a marching wipe no matter how the timeline is eased,
+ * because there is a single edge to follow: everything left of it is done,
+ * everything right of it is not. Recording soulwire.co.uk shows the opposite —
+ * mid-reveal, settled fragments sit scattered across the full width of a line
+ * with scramble between them, and resolution finishes before the line has even
+ * finished filling out.
+ *
+ * Since resolution is the mash front shifted by a constant, it inherits the
+ * shuffle and needs no ordering pass. That pass is what caused the one-frame
+ * flash this used to have: the cell holding the last shuffled slot could not
+ * resolve before the end, and forcing the frontier to be monotonic dragged
+ * every cell behind it into the same frame. Nothing drags anything now.
  *
  * Lines are then laid out as overlapping windows on the shared 0..1 axis,
  * weighted by character count. Line k ends at `(1 - spread) + spread · (chars
@@ -444,9 +440,11 @@ const renderLine = (
  * duration of the reveal.
  */
 const scheduleLines = (lines: Line[], opts: Resolved): number => {
-  const settleStart = Math.min(Math.max(opts.settleStart, MIN_BOIL), 0.95);
-  const appearEnd = settleStart * SHOW_WINDOW;
-  const mashEnd = Math.max(appearEnd, settleStart - MIN_BOIL);
+  const boil = Math.min(Math.max(opts.boil, 0.05), 0.9);
+  // The last character to start boiling must still finish by the end of the
+  // window, so the mash front has to stop a full boil short of it.
+  const mashEnd = 1 - boil;
+  const appearEnd = mashEnd * SHOW_WINDOW;
   const spread = Math.min(Math.max(opts.lineSpread, 0), 0.9);
 
   const chars = lines.map((line) => Math.max(1, line.cells.length));
@@ -462,20 +460,13 @@ const scheduleLines = (lines: Line[], opts: Resolved): number => {
     const appearSlots = opts.order === 'shuffle' ? shuffle(slots.slice()) : slots;
     line.cells.forEach((cell, i) => {
       const q = (appearSlots[i] + 1) / n;
-      const reach = Math.pow(n > 1 ? i / (n - 1) : 1, opts.settleCurve);
       cell.appearAt = appearEnd * Math.pow(q, 1 / opts.showPower);
       cell.mashAt = Math.max(cell.appearAt, mashEnd * Math.pow(q, 1 / opts.mashPower));
-      cell.settleAt = Math.max(
-        cell.mashAt + MIN_BOIL,
-        settleStart + (1 - settleStart) * reach
-      );
+      // Same boil for every character, so resolution is just the mash front
+      // shifted — shuffled where the mash front is shuffled, ordered where it
+      // is not. `ltr` therefore still resolves strictly left to right.
+      cell.settleAt = Math.min(1, cell.mashAt + boil);
     });
-    // Guard the resolve front against custom front options: it only ever moves
-    // forward, so text that already reads as finished never gains a letter
-    // behind the front.
-    for (let i = 1; i < n; i += 1) {
-      line.cells[i].settleAt = Math.max(line.cells[i].settleAt, line.cells[i - 1].settleAt);
-    }
 
     line.start = spread * (cumulative / total);
     cumulative += weights[index];

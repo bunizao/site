@@ -34,9 +34,9 @@ interface Settings {
   charset: string;
   /** Milliseconds per character of the whole text — `durationPerChar` in ms, which is easier to feel. */
   speed: number;
+  /** Scramble refresh rate in Hz — `mutationHz`. */
+  mutate: number;
   boil: number;
-  settleStart: number;
-  settleCurve: number;
   lineSpread: number;
 }
 
@@ -46,9 +46,8 @@ const DEFAULTS: Settings = {
   mono: true,
   charset: DEFAULT_CHARSET,
   speed: 8,
-  boil: 18,
-  settleStart: 0.52,
-  settleCurve: 0.8,
+  mutate: 18,
+  boil: 0.35,
   lineSpread: 0.3,
 };
 
@@ -169,9 +168,8 @@ const snippetLines = (settings: Settings): Token[][] => [
   optionLine('layout', settings.layout, true),
   optionLine('order', settings.order, true),
   optionLine('durationPerChar', (settings.speed / 1000).toFixed(3), false),
-  optionLine('mutationHz', String(settings.boil), false),
-  optionLine('settleStart', settings.settleStart.toFixed(2), false),
-  optionLine('settleCurve', settings.settleCurve.toFixed(2), false),
+  optionLine('mutationHz', String(settings.mutate), false),
+  optionLine('boil', settings.boil.toFixed(2), false),
   optionLine('lineSpread', settings.lineSpread.toFixed(2), false),
   [['cb-t-punc', '});']],
 ];
@@ -238,9 +236,8 @@ export function DecodeTextPlayground() {
       charset: settings.charset || undefined,
       durationPerChar: settings.speed / 1000,
       lineSpread: settings.lineSpread,
-      mutationHz: settings.boil,
-      settleStart: settings.settleStart,
-      settleCurve: settings.settleCurve,
+      mutationHz: settings.mutate,
+      boil: settings.boil,
       maxDuration: 6,
     }).then((next) => {
       stage.style.visibility = '';
@@ -340,28 +337,20 @@ export function DecodeTextPlayground() {
               onChange={(value) => set('speed', value)}
             />
             <Slider
-              label="Boil"
-              display={`${settings.boil}Hz`}
+              label="Mutate"
+              display={`${settings.mutate}Hz`}
               min={2}
               max={30}
-              value={settings.boil}
-              onChange={(value) => set('boil', value)}
+              value={settings.mutate}
+              onChange={(value) => set('mutate', value)}
             />
             <Slider
-              label="Settle start"
-              display={settings.settleStart.toFixed(2)}
-              min={10}
-              max={85}
-              value={Math.round(settings.settleStart * 100)}
-              onChange={(value) => set('settleStart', value / 100)}
-            />
-            <Slider
-              label="Settle curve"
-              display={settings.settleCurve.toFixed(2)}
-              min={50}
-              max={200}
-              value={Math.round(settings.settleCurve * 100)}
-              onChange={(value) => set('settleCurve', value / 100)}
+              label="Boil"
+              display={settings.boil.toFixed(2)}
+              min={5}
+              max={90}
+              value={Math.round(settings.boil * 100)}
+              onChange={(value) => set('boil', value / 100)}
             />
             <Slider
               label="Line spread"

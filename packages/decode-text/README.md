@@ -7,13 +7,14 @@ Two looks:
 - **`grow`** — Soulwire-style: the line condenses in from the left while glyphs boil, then settle. Wants a monospace font (scramble and real glyph must share a width).
 - **`static`** — classic decrypt: every character slot is locked to its final width up front and glyphs pop in place. Works in any font.
 
-Scheduling keeps Soulwire's fronts but separates the noisy ones from the
-resolve. A `show` front (`p^0.5`) floods cursors in early and a `mash` front
-(`p^2`) graduates them to boiling scramble — both shuffled, both finished
-before `settleStart` — and only then does the resolve front sweep left to
-right, one glyph at a time. The scramble pool also absorbs the text's own
-ASCII glyphs (`scrambleFromText`), so the mash reads like the sentence
-shuffling itself.
+Scheduling is Soulwire's: a `show` front (`p^0.5`) floods cursors in early, a
+`mash` front (`p^2`) graduates them to boiling scramble, and each character
+then boils for the same `boil` share of its line before resolving. Resolution
+is therefore the mash front shifted, so it inherits the queue's shuffle —
+settled characters stay interleaved with boiling ones right across the line
+instead of an edge marching left to right. The scramble pool also absorbs the
+text's own ASCII glyphs (`scrambleFromText`), so the mash reads like the
+sentence shuffling itself.
 
 The whole text runs on **one** timeline, eased once. Lines are overlapping
 windows on that shared axis (`lineSpread`), weighted by character count, so a
@@ -74,11 +75,10 @@ and font-style that differ from the host are baked onto each character, so
 | `charset` | `` __-—/\|<> `` | Scramble glyph pool |
 | `cursorChar` | `-` | Glyph a cell shows between the show and mash fronts |
 | `layout` | `grow` | `grow` (condense, monospace) / `static` (pop in place, any font) |
-| `order` | `shuffle` | Show/mash queue: `shuffle` (original) or `ltr` (smooth right-edge growth); final resolution is left to right in both modes |
+| `order` | `shuffle` | Queue order: `shuffle` (original — resolution interleaves across the line) or `ltr` (smooth right-edge growth, resolution follows it) |
 | `showPower` | `0.5` | Show front exponent — cells turn visible as `p^showPower` sweeps the queue |
 | `mashPower` | `2` | Mash front exponent — cursor graduates to scramble |
-| `settleStart` | `0.52` | Progress where the left-to-right resolve front starts; show/mash are packed below it |
-| `settleCurve` | `0.8` | Resolve front shape — `1` constant speed, `<1` opens fast and savours the tail, `>1` hesitates then finishes hard |
+| `boil` | `0.35` | Share of the line's window each character spends boiling before it resolves; larger keeps more of the line unsettled at once |
 | `scrambleFromText` | `true` | Mix the text's own ASCII glyphs into the scramble pool |
 | `durationPerChar` | `0.008` | Seconds per character of the whole text, clamped to `[minDuration, maxDuration]` |
 | `minDuration` / `maxDuration` | `0.9` / `3.2` | Clamp on the total reveal (seconds) |
