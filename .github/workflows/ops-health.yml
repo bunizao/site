@@ -32,7 +32,7 @@ jobs:
       - name: Checkout
         id: checkout
         continue-on-error: true
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
 
@@ -40,7 +40,7 @@ jobs:
         id: node
         if: steps.checkout.outcome == 'success'
         continue-on-error: true
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7
         with:
           node-version-file: .node-version
 
@@ -130,7 +130,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
 
@@ -183,14 +183,14 @@ jobs:
 
       - name: Restore cached ignore decision
         if: steps.evidence.outputs.fingerprint != ''
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v6
         with:
           key: ops-health-ignore-v1-${{ steps.evidence.outputs.fingerprint }}
           path: .ops-health-cache/ignored-decision.json
 
       - name: Find open incident
         id: incident
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         with:
           script: |
             const path = require('path');
@@ -204,7 +204,7 @@ jobs:
 
       - name: Resolve Codex analysis policy
         id: analysis
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         env:
           DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run == true }}
           FINGERPRINT: ${{ steps.evidence.outputs.fingerprint }}
@@ -235,7 +235,7 @@ jobs:
 
       - name: Upload sanitized incident evidence
         if: steps.evidence.outputs.artifact_name != ''
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ steps.evidence.outputs.artifact_name }}
           path: .ops-health
@@ -256,13 +256,13 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 50
           persist-credentials: false
 
       - name: Download sanitized incident evidence
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: ${{ needs.context.outputs.artifact_name }}
           path: .ops-health
@@ -310,21 +310,21 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
 
       - name: Download sanitized incident evidence
         if: needs.context.outputs.artifact_name != ''
         continue-on-error: true
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: ${{ needs.context.outputs.artifact_name }}
           path: .ops-health
 
       - name: Apply incident policy
         id: sync
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         env:
           CACHED_DECISION_PATH: .ops-health-cache/ignored-decision.json
           CODEX_FINAL_MESSAGE: ${{ needs.codex.outputs.final_message }}
@@ -349,7 +349,7 @@ jobs:
 
       - name: Cache ignored failure decision
         if: steps.sync.outputs.cache_ignore == 'true'
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v6
         with:
           key: ops-health-ignore-v1-${{ needs.context.outputs.fingerprint }}
           path: .ops-health-cache/ignored-decision.json
