@@ -38,16 +38,17 @@ export function attachHoverIndicator(list: HTMLElement, options: Options): void 
   }
   const pill = indicator;
 
-  // One composited write. The pill is a 1x1 box with transform-origin at its
-  // top-left (see the consumer stylesheet), so translate positions it and scale
-  // sizes it in the same property — no layout, and the promoted layer's raster
-  // stays reusable.
+  // Position by transform, size by width/height. Sizing via scale() on a 1x1 box
+  // is cheaper, but it scales border-radius with the box: a 12px radius on a
+  // ~700x50 pill renders as an 8400x600 corner, which both axes then clamp to
+  // half the box — the pill comes out an ellipse. The radius is the shape here,
+  // so it cannot ride the scale.
   const moveTo = (item: HTMLElement) => {
     const ir = item.getBoundingClientRect();
     const lr = list.getBoundingClientRect();
-    pill.style.transform =
-      `translate(${ir.left - lr.left - padX}px, ${ir.top - lr.top - padY}px)` +
-      ` scale(${ir.width + padX * 2}, ${ir.height + padY * 2})`;
+    pill.style.width = `${ir.width + padX * 2}px`;
+    pill.style.height = `${ir.height + padY * 2}px`;
+    pill.style.transform = `translate(${ir.left - lr.left - padX}px, ${ir.top - lr.top - padY}px)`;
     pill.style.opacity = '1';
   };
 

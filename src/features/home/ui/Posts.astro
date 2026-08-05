@@ -187,25 +187,22 @@ const stamp = (iso: string): string => {
   }
 
   /* cai.im sliding pill: a soft rounded rectangle that glides behind the
-     hovered row (springy transform), injected + moved by hover-indicator.ts. */
-  /* A 1x1 box that scale() stretches to the hovered row, so the pre-promotion
-     below actually holds: the layer's raster never changes, only its transform.
-     Tweening width/height instead forced a re-raster every frame. */
+     hovered row (springy transform), injected + moved by hover-indicator.ts.
+     Positioned by transform, sized in layout — scaling a 1x1 box would scale
+     its border-radius with it and render the pill as an ellipse. */
   :global(#writing-section .post-indicator) {
     position: absolute;
     left: 0;
     top: 0;
-    width: 1px;
-    height: 1px;
-    transform-origin: 0 0;
     z-index: 0;
     border-radius: 12px;
     background: hsl(var(--foreground) / 0.045);
     opacity: 0;
     pointer-events: none;
-    will-change: transform;
     transition:
       transform 0.46s cubic-bezier(0.25, 1.18, 0.45, 1.04),
+      width 0.4s cubic-bezier(0.25, 1, 0.3, 1),
+      height 0.4s cubic-bezier(0.25, 1, 0.3, 1),
       opacity 0.25s ease-out;
   }
 

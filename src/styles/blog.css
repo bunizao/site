@@ -192,27 +192,24 @@ html[data-theme-setting='system'] .blog-theme-toggle [data-blog-icon='system'] {
   padding: 0;
 }
 
-/* A 1x1 box that scale() stretches to the hovered row: moving the pill is a
-   single composited transform, so the pre-promotion below actually holds. The
-   previous version promoted the layer and then tweened width/height, which
-   forced a re-raster every frame — the promotion paid for and thrown away.
-   Radius rides the scale; at row heights (~48px) the rendered error is
-   sub-pixel. JS writes the transform; see src/lib/hover-indicator.ts. */
+/* Positioned by transform, sized by width/height. Sizing via scale() on a 1x1
+   box is one composited write, but it scales the radius too: 12px over a
+   ~700x50 pill clamps to half the box on both axes and the pill renders as an
+   ellipse. The rounded rectangle IS the hover affordance, so the size stays in
+   layout. JS writes all three; see src/lib/hover-indicator.ts. */
 .blog-indicator {
   position: absolute;
   left: 0;
   top: 0;
-  width: 1px;
-  height: 1px;
-  transform-origin: 0 0;
   z-index: 0;
   border-radius: 12px;
   background: var(--blog-fill);
   opacity: 0;
   pointer-events: none;
-  will-change: transform;
   transition:
     transform 0.46s cubic-bezier(0.25, 1.18, 0.45, 1.04),
+    width 0.4s cubic-bezier(0.25, 1, 0.3, 1),
+    height 0.4s cubic-bezier(0.25, 1, 0.3, 1),
     opacity 0.25s ease-out;
 }
 
@@ -842,27 +839,25 @@ html[data-theme-setting='system'] .blog-theme-toggle [data-blog-icon='system'] {
   position: relative;
 }
 
-/* Highlight that springs to the active link. Driven entirely by transform: the
-   pill is a 1x1 box that scale() stretches to the active link's dimensions, so
-   moving it is a composite, not a relayout. Radius is declared in the pill's
-   own (unscaled) units and therefore rides the scale — at the sizes involved
-   (~28px tall) the rendered error is sub-pixel. JS writes the transform; see
-   TableOfContents.astro. */
+/* Highlight that springs to the active link. Positioned by transform, sized in
+   layout: a scaled 1x1 box scales its border-radius with it, and a TOC link is
+   wide enough (~200x28) for an 8px radius to clamp to half the height and round
+   the pill into a lozenge. JS writes all three; see TableOfContents.astro. */
 .toc-sliding-pill {
   position: absolute;
   top: 0;
   left: 0;
-  width: 1px;
-  height: 1px;
-  transform-origin: 0 0;
+  width: 0;
+  height: 0;
   border-radius: 8px;
   background: color-mix(in srgb, var(--blog-accent) 20%, transparent);
   opacity: 0;
   z-index: 0;
   pointer-events: none;
-  will-change: transform;
   transition:
     transform 0.48s cubic-bezier(0.25, 1.22, 0.45, 1.04),
+    width 0.48s cubic-bezier(0.25, 1.22, 0.45, 1.04),
+    height 0.48s cubic-bezier(0.25, 1.22, 0.45, 1.04),
     opacity 0.25s ease-out;
 }
 
