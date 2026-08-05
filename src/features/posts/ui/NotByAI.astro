@@ -20,8 +20,19 @@ const blogCopy = blog.copy[blog.locale.blog];
 
 <style>
   .not-by-ai {
-    flex: 1 1 320px;
     min-width: 0;
+  }
+
+  /* The 320px is a *width* intent: hold a readable measure beside the action
+     pills, wrap below them when the bar can no longer afford it. It has to be
+     gated on the breakpoint where .blog-end__bar is still a row (blog.css) —
+     flex-basis follows the flex axis, so under `flex-direction: column` the
+     same declaration reserved 320px of height and opened ~300px of void under
+     this one line. */
+  @media (min-width: 640px) {
+    .not-by-ai {
+      flex: 1 1 320px;
+    }
   }
 
   .not-by-ai__line {
