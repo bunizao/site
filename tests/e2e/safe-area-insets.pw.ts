@@ -23,6 +23,34 @@ async function openCurrentBlogPost(page: Page) {
   await page.goto(href!, { waitUntil: 'networkidle' });
 }
 
+async function emulateVisualViewportTop(page: Page) {
+  await page.addInitScript(() => {
+    let offsetTop = 0;
+    const viewport = new EventTarget();
+
+    Object.defineProperties(viewport, {
+      offsetTop: { get: () => offsetTop },
+      offsetLeft: { get: () => 0 },
+      width: { get: () => window.innerWidth },
+      height: { get: () => window.innerHeight },
+      scale: { get: () => 1 },
+    });
+
+    Object.defineProperty(window, 'visualViewport', {
+      configurable: true,
+      value: viewport,
+    });
+
+    (window as Window & { __setVisualViewportTop?: (top: number) => void }).__setVisualViewportTop = (
+      top,
+    ) => {
+      offsetTop = top;
+      viewport.dispatchEvent(new Event('resize'));
+      viewport.dispatchEvent(new Event('scroll'));
+    };
+  });
+}
+
 test('every rendered layout opts into viewport-fit=cover', async ({ page }) => {
   await page.goto('/blog/', { waitUntil: 'networkidle' });
   await expect(page.locator('meta[name="viewport"]')).toHaveAttribute('content', /viewport-fit=cover/);
@@ -62,6 +90,43 @@ test('reading bar pads its row past the notch while its glass still covers the b
   expect(geometry!.fadeTop).toBeCloseTo(0, 0);
   // The controls clear the island.
   expect(geometry!.rowTop).toBeGreaterThanOrEqual(INSET - 1);
+});
+
+test('reading bars follow Safari visual viewport movement', async ({ page }) => {
+  await page.setViewportSize(PHONE);
+  await emulateVisualViewportTop(page);
+  await page.goto('/blog/demo-effects', { waitUntil: 'networkidle' });
+
+  await page.evaluate(() => {
+    (
+      window as unknown as Window & { __setVisualViewportTop: (top: number) => void }
+    ).__setVisualViewportTop(17);
+  });
+
+  await expect
+    .poll(() =>
+      page.evaluate(() =>
+        getComputedStyle(document.documentElement).getPropertyValue('--visual-viewport-top').trim(),
+      ),
+    )
+    .toBe('17px');
+
+  const blogTop = await page.evaluate(() => ({
+    bar: getComputedStyle(document.querySelector<HTMLElement>('.toc-topbar')!).top,
+    shield: getComputedStyle(document.body, '::after').top,
+  }));
+  expect(blogTop).toEqual({ bar: '17px', shield: '17px' });
+
+  await page.goto('/mood', { waitUntil: 'networkidle' });
+  await page.evaluate(() => {
+    (
+      window as unknown as Window & { __setVisualViewportTop: (top: number) => void }
+    ).__setVisualViewportTop(17);
+  });
+
+  await expect
+    .poll(() => page.locator('.mood-navbar').evaluate((navbar) => getComputedStyle(navbar).top))
+    .toBe('17px');
 });
 
 test('reading bar blocks scrolled article text from the status-bar band', async ({ page }) => {

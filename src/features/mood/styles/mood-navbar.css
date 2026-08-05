@@ -5,7 +5,9 @@
 
 .mood-navbar {
   --topbar-position: fixed;
-  top: 0;
+  /* Match the visual viewport while Safari's dynamic toolbar moves it inside
+     the layout viewport. The safe-area glass is anchored to this navbar. */
+  top: var(--visual-viewport-top, 0px);
   left: 0;
   right: 0;
   z-index: 55;

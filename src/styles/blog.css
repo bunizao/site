@@ -965,7 +965,10 @@ html[data-theme-setting='system'] .blog-theme-toggle [data-blog-icon='system'] {
 
 .toc-topbar {
   position: fixed;
-  top: 0;
+  /* iOS Safari moves the visual viewport inside the layout viewport as its
+     toolbar collapses. Follow that offset or the bar and shield drift above
+     the visible screen, exposing article text beside the Dynamic Island. */
+  top: var(--visual-viewport-top, 0px);
   left: 0;
   right: 0;
   z-index: 55;
@@ -1008,7 +1011,7 @@ html[data-theme-setting='system'] .blog-theme-toggle [data-blog-icon='system'] {
   body.blog-zone:has(.toc-topbar:not([hidden]))::after {
     content: '';
     position: fixed;
-    top: 0;
+    top: var(--visual-viewport-top, 0px);
     left: 0;
     right: 0;
     z-index: 56;

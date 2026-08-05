@@ -233,6 +233,9 @@ const paletteCss = [
       import { initSubscribePanels } from '@/features/notify/subscribe-panel';
       import { initYouTubeEmbeds } from '@/lib/embed/youtube-controller';
       import { initViewTransitionNames } from '@/lib/view-transition-names';
+      // Keep fixed reading chrome attached to Safari's visual viewport while
+      // its dynamic toolbar changes the layout viewport offset.
+      import('@/layouts/client/visual-viewport');
       initSubscribePanels();
       initYouTubeEmbeds();
       // Decides which single element (if any) may morph across the next
