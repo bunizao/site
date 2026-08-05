@@ -77,7 +77,7 @@ function mapGhostPreviewError(error: unknown): GhostDraftPreviewResult {
 
   console.error('Ghost Admin request failed.', {
     code: error.code,
-    status: error.status ?? null,
+    upstreamStatus: error.status ?? null,
   });
 
   switch (error.code) {
