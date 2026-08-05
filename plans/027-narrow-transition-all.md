@@ -1,6 +1,6 @@
 # 027 — Replace `transition: all` with the properties actually intended
 
-- **Status**: TODO
+- **Status**: DONE (2026-08-01, `57d7844d`)
 - **Severity**: MEDIUM
 - **Category**: Performance / Correctness
 - **Estimated scope**: 8 files, 13 rules

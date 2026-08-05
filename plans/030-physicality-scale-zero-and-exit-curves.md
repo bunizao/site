@@ -1,6 +1,6 @@
 # 030 — Nothing appears from nothing: three `scale(0)` entrances and one exit curve
 
-- **Status**: TODO
+- **Status**: DONE (2026-08-01, `686cb8d9`)
 - **Severity**: LOW
 - **Category**: Physicality / Easing
 - **Estimated scope**: 4 files, ~10 lines
