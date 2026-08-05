@@ -1,0 +1,24 @@
+/* Full-viewport contained scrolling. Safari only collapses its dynamic toolbar
+   when the root scroller moves; locking the root keeps content out of the
+   otherwise unmeasurable status-bar band on iOS. See @/lib/page-scroll. */
+html.page-scroll-root,
+html.page-scroll-root > body {
+  height: 100%;
+  overflow: hidden;
+}
+
+/* Body is the nearest common ancestor of the scroller and fixed chrome, so it
+   publishes the named timeline across that sibling boundary. */
+html.page-scroll-root > body {
+  timeline-scope: --page-scroll;
+}
+
+.page-scroller {
+  height: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior-y: contain;
+  -webkit-overflow-scrolling: touch;
+  scroll-timeline-name: --page-scroll;
+  scroll-timeline-axis: block;
+}

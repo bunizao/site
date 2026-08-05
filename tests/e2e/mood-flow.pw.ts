@@ -2,6 +2,16 @@ import { expect, test } from './fixtures';
 import { getLatestMoodId } from './helpers';
 import type { Page } from '@playwright/test';
 
+async function readPageScrollTop(page: Page): Promise<number> {
+  return page.locator('[data-page-scroller]').evaluate((scroller) => scroller.scrollTop);
+}
+
+async function scrollPageTo(page: Page, top: number): Promise<void> {
+  await page.locator('[data-page-scroller]').evaluate((scroller, nextTop) => {
+    scroller.scrollTo({ top: nextTop, behavior: 'instant' });
+  }, top);
+}
+
 function createMoodFeedPost(
   id: string,
   text = `E2E mood feed item ${id}`,
@@ -473,7 +483,7 @@ test.describe('Mood routes', () => {
     await expect(targetItem).toBeVisible();
     await targetItem.scrollIntoViewIfNeeded();
     await expect
-      .poll(async () => page.evaluate(() => window.scrollY))
+      .poll(() => readPageScrollTop(page))
       .toBeGreaterThan(0);
 
     await targetItem.hover();
@@ -580,10 +590,9 @@ test.describe('Mood routes', () => {
     await expect(page).toHaveURL(new RegExp(`/mood\\?${anchorId}$`));
     await expect(anchor).toBeVisible();
 
-    await page.evaluate(() => window.scrollTo({
-      top: document.documentElement.scrollHeight,
-      behavior: 'instant',
-    }));
+    await page.locator('[data-page-scroller]').evaluate((scroller) => {
+      scroller.scrollTo({ top: scroller.scrollHeight, behavior: 'instant' });
+    });
     await page.evaluate(() => window.dispatchEvent(new WheelEvent('wheel', {
       bubbles: true,
       deltaY: 600,
@@ -806,7 +815,7 @@ test.describe('Mood routes', () => {
       }, { timeout: 10_000 })
       .toBe(true);
 
-    await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
+    await scrollPageTo(page, 0);
     await expect(page.locator('[data-mood-id="1003"]')).toBeVisible();
 
     const updatedOrder = await page.locator('[data-mood-list] .mood-item').evaluateAll((items) => (
@@ -903,13 +912,15 @@ test.describe('Mood routes', () => {
 
     await page.evaluate(() => {
       window.dispatchEvent(new WheelEvent('wheel', { deltaY: -600 }));
-      window.scrollTo({ top: 0, behavior: 'instant' });
+      document.querySelector<HTMLElement>('[data-page-scroller]')
+        ?.scrollTo({ top: 0, behavior: 'instant' });
     });
     await expect(page.locator('[data-mood-id="3474"]')).toBeVisible();
     expect(afterRequests).toContain('3473');
 
     await page.evaluate(() => {
-      window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'instant' });
+      const scroller = document.querySelector<HTMLElement>('[data-page-scroller]');
+      scroller?.scrollTo({ top: scroller.scrollHeight, behavior: 'instant' });
       window.dispatchEvent(new WheelEvent('wheel', { deltaY: 600 }));
     });
     await expect(page.locator('[data-mood-id="3469"]')).toBeVisible();
@@ -974,7 +985,10 @@ test.describe('Mood routes', () => {
     await expect(page.locator(`[data-mood-id="${anchorId}"]`)).toBeVisible();
     await expect
       .poll(async () => page.evaluate(() => (
-        Math.abs(window.scrollY - (document.documentElement.scrollHeight - window.innerHeight))
+        (() => {
+          const scroller = document.querySelector<HTMLElement>('[data-page-scroller]')!;
+          return Math.abs(scroller.scrollTop - (scroller.scrollHeight - scroller.clientHeight));
+        })()
       )), { timeout: 30_000 })
       .toBeLessThanOrEqual(2);
 
@@ -1661,7 +1675,7 @@ test.describe('Mood routes', () => {
     await expect(video).toHaveAttribute('src', videoUrl);
     await expect(video).toHaveAttribute('data-test-playback-state', 'playing');
 
-    await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
+    await scrollPageTo(page, 0);
     await expect(video).toHaveAttribute('data-test-playback-state', 'paused');
   });
 
@@ -1717,6 +1731,19 @@ test.describe('Mood routes', () => {
     await expect(navbar.locator('.topbar-action')).toHaveCount(2);
     expect(await navbar.evaluate((element) => element.parentElement === document.body)).toBe(true);
     expect(await navbar.evaluate((element) => getComputedStyle(element).position)).toBe('fixed');
+    const containedScroll = await page.evaluate(() => {
+      const scroller = document.querySelector<HTMLElement>('[data-page-scroller]')!;
+      return {
+        rootOverflow: getComputedStyle(document.documentElement).overflowY,
+        scrollerOverflow: getComputedStyle(scroller).overflowY,
+        timelineName: getComputedStyle(scroller).getPropertyValue('scroll-timeline-name'),
+      };
+    });
+    expect(containedScroll).toEqual({
+      rootOverflow: 'hidden',
+      scrollerOverflow: 'auto',
+      timelineName: '--page-scroll',
+    });
     expect(await blurLayers.evaluateAll((layers) => layers.map((layer) => getComputedStyle(layer).backdropFilter))).toEqual([
       'blur(4px)',
       'blur(8px)',
@@ -1731,8 +1758,70 @@ test.describe('Mood routes', () => {
     const dockRun = await navbar.evaluate((element) =>
       Number.parseFloat(getComputedStyle(element).getPropertyValue('--run'))
     );
+    const heroOrigin = await page.evaluate(() => {
+      const scroller = document.querySelector<HTMLElement>('[data-page-scroller]')!;
+      const shell = document.querySelector<HTMLElement>('.site-shell')!;
+      const heroAvatar = document.querySelector<HTMLElement>('[data-mood-hero] [data-hero-avatar]')!;
+      const heroTitle = document.querySelector<HTMLElement>('[data-mood-hero] [data-hero-title]')!;
+      const flyer = document.querySelector<HTMLElement>('[data-mood-nav-flyer]')!;
+      const titleInk = document.querySelector<HTMLElement>('[data-mood-nav-title]')!;
+      const heroAvatarRect = heroAvatar.getBoundingClientRect();
+      const flyerRect = flyer.getBoundingClientRect();
+      const heroTitleRect = heroTitle.getBoundingClientRect();
+      const titleInkRect = titleInk.getBoundingClientRect();
+      const heroTransform = getComputedStyle(heroTitle).transform;
+      const matrix = heroTransform === 'none' ? new DOMMatrixReadOnly() : new DOMMatrixReadOnly(heroTransform);
+      const scrollerRect = scroller.getBoundingClientRect();
 
-    await page.evaluate((top) => window.scrollTo({ top, behavior: 'instant' }), dockRun + 5);
+      return {
+        avatarX: Math.abs(flyerRect.x - heroAvatarRect.x),
+        avatarY: Math.abs(flyerRect.y - heroAvatarRect.y),
+        avatarWidth: Math.abs(flyerRect.width - heroAvatarRect.width),
+        avatarHeight: Math.abs(flyerRect.height - heroAvatarRect.height),
+        titleX: Math.abs(titleInkRect.x - (heroTitleRect.x - matrix.e)),
+        titleY: Math.abs(titleInkRect.y - (heroTitleRect.y - matrix.f)),
+        scrollerTop: scrollerRect.top,
+        scrollerBottom: scrollerRect.bottom,
+        shellTop: shell.getBoundingClientRect().top,
+        viewportHeight: window.innerHeight,
+      };
+    });
+    expect(Math.max(
+      heroOrigin.avatarX,
+      heroOrigin.avatarY,
+      heroOrigin.avatarWidth,
+      heroOrigin.avatarHeight,
+      heroOrigin.titleX,
+      heroOrigin.titleY,
+    )).toBeLessThanOrEqual(1.5);
+    expect(heroOrigin.scrollerTop).toBe(0);
+    expect(heroOrigin.shellTop).toBe(0);
+    expect(heroOrigin.scrollerBottom).toBe(heroOrigin.viewportHeight);
+
+    // Chromium clamps real element scrolling at 0, while iOS WebKit exposes a
+    // negative scrollTop during rubber-band pull. Inject that boundary value and
+    // verify ownership returns to the naturally scrolling/levitating hero.
+    await page.locator('[data-page-scroller]').evaluate((scroller) => {
+      Object.defineProperty(scroller, 'scrollTop', {
+        configurable: true,
+        get: () => -24,
+      });
+      scroller.dispatchEvent(new Event('scroll'));
+    });
+    await expect(page.locator('[data-mood-hero] [data-hero-avatar]')).toHaveCSS('visibility', 'visible');
+    await expect(page.locator('[data-mood-hero] [data-hero-title]')).toHaveCSS('visibility', 'visible');
+    await expect(navbar.locator('[data-mood-nav-flyer]')).toHaveCSS('visibility', 'hidden');
+    await expect(navbar.locator('[data-mood-nav-title]')).toHaveCSS('visibility', 'hidden');
+    await page.locator('[data-page-scroller]').evaluate((scroller) => {
+      Reflect.deleteProperty(scroller, 'scrollTop');
+      scroller.scrollTo({ top: 0, behavior: 'instant' });
+      scroller.dispatchEvent(new Event('scroll'));
+    });
+
+    await scrollPageTo(page, dockRun + 5);
+
+    expect(await page.evaluate(() => window.scrollY)).toBe(0);
+    expect(await readPageScrollTop(page)).toBeGreaterThan(dockRun);
 
     await expect(navbar).toHaveClass(/is-docked/, { timeout: 30_000 });
     await expect.poll(() => navbar.evaluate((element) =>
@@ -1782,7 +1871,8 @@ test.describe('Mood routes', () => {
 
     await page.evaluate(() => {
       window.history.scrollRestoration = 'manual';
-      window.scrollTo({ top: 0, behavior: 'instant' });
+      document.querySelector<HTMLElement>('[data-page-scroller]')
+        ?.scrollTo({ top: 0, behavior: 'instant' });
     });
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await page.reload({ waitUntil: 'domcontentloaded' });
@@ -1800,19 +1890,51 @@ test.describe('Mood routes', () => {
       element.style.getPropertyValue('animation-timeline')
     )).toBe('');
 
-    await page.evaluate((top) => window.scrollTo({ top, behavior: 'instant' }), reducedRun / 2);
+    await scrollPageTo(page, reducedRun / 2);
     await expect(reducedNavbar).not.toHaveClass(/is-docked/);
     await expect(reducedFlyer).toHaveCSS('visibility', 'hidden');
     expect(await reducedNavbar.evaluate((element) =>
       Number.parseFloat(getComputedStyle(element).getPropertyValue('--dock-ride'))
     )).toBe(0);
 
-    await page.evaluate((top) => window.scrollTo({ top, behavior: 'instant' }), reducedRun + 5);
+    await scrollPageTo(page, reducedRun + 5);
     await expect(reducedNavbar).toHaveClass(/is-docked/);
     await expect(reducedFlyer).toHaveCSS('visibility', 'visible');
     expect(await reducedNavbar.evaluate((element) =>
       Number.parseFloat(getComputedStyle(element).getPropertyValue('--dock-ride'))
     )).toBe(1);
+  });
+
+  test('keeps the update notice above the desktop navbar blur', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 720 });
+    await page.goto('/mood', { waitUntil: 'domcontentloaded' });
+
+    const navbar = page.locator('[data-mood-navbar]');
+    const updateNotice = navbar.locator('[data-mood-update-notice]');
+    await updateNotice.evaluate((element) => {
+      element.style.display = 'inline-flex';
+      element.style.opacity = '1';
+      element.style.transform = 'none';
+    });
+    await expect(updateNotice).toBeVisible();
+
+    const noticeLayer = await updateNotice.evaluate((element) => {
+      const blur = element.parentElement?.querySelector<HTMLElement>(':scope > .topbar__blur');
+      const rect = element.getBoundingClientRect();
+      const hit = document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2);
+      return {
+        insideNavbar: element.parentElement?.matches('[data-mood-navbar]') ?? false,
+        noticeOwnsPixels: hit?.closest('[data-mood-update-notice]') === element,
+        noticeZIndex: Number.parseInt(getComputedStyle(element).zIndex, 10),
+        blurZIndex: blur ? Number.parseInt(getComputedStyle(blur).zIndex, 10) : -1,
+        pointerEvents: getComputedStyle(element).pointerEvents,
+      };
+    });
+
+    expect(noticeLayer.insideNavbar).toBe(true);
+    expect(noticeLayer.noticeOwnsPixels).toBe(true);
+    expect(noticeLayer.noticeZIndex).toBeGreaterThan(noticeLayer.blurZIndex);
+    expect(noticeLayer.pointerEvents).toBe('auto');
   });
 
   test('returns anchored feeds to the latest window from the desktop timeline wheel', async ({ page }) => {
@@ -1917,8 +2039,10 @@ test.describe('Mood routes', () => {
     expect(afterHover.cursor).toBe('pointer');
     expect(beforeHover.cursor).toBe('pointer');
 
-    await page.evaluate(() => window.scrollTo({ top: document.body.scrollHeight * 0.7, behavior: 'instant' }));
-    await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(720);
+    await page.locator('[data-page-scroller]').evaluate((scroller) => {
+      scroller.scrollTo({ top: scroller.scrollHeight * 0.7, behavior: 'instant' });
+    });
+    await expect.poll(() => readPageScrollTop(page)).toBeGreaterThan(720);
 
     const labelBox = await label.boundingBox();
     expect(labelBox).not.toBeNull();
@@ -1932,13 +2056,13 @@ test.describe('Mood routes', () => {
     expect(topButtonOwnsLabelHitArea).toBe(true);
 
     await page.mouse.click(labelCenter.x, labelCenter.y);
-    await expect.poll(() => page.evaluate(() => Math.round(window.scrollY))).toBe(0);
+    await expect.poll(async () => Math.round(await readPageScrollTop(page))).toBe(0);
 
     await page.goto(`/mood?${moodId}`, { waitUntil: 'domcontentloaded' });
     await expect(page.locator('[data-mood-feed]')).not.toHaveClass(/is-hidden/, { timeout: 30_000 });
     await page.locator('[data-mood-nav-top]').dispatchEvent('click');
     await page.waitForURL((url) => url.pathname === '/mood' && url.search === '');
-    await expect.poll(() => page.evaluate(() => Math.round(window.scrollY))).toBe(0);
+    await expect.poll(async () => Math.round(await readPageScrollTop(page))).toBe(0);
   });
 
   test('renders rich comment content in the feed popover', async ({ page }) => {

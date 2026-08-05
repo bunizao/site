@@ -264,6 +264,16 @@
   opacity: 1;
 }
 
+/* At rest and through negative rubber-band scroll, the real hero owns the title
+   so it moves naturally with the content and keeps its levitation animation. */
+.mood-navbar.has-title-flight:not(.is-flyer-active) .mood-nav-title__ink {
+  visibility: hidden;
+}
+
+.mood-navbar.is-reduced-motion:not(.is-docked).has-title-flight .mood-nav-title__ink {
+  visibility: hidden;
+}
+
 /* The title mirrors the channel's rich HTML (links, custom emoji), so keep its
    inner marks inline and quiet. */
 .mood-nav-title a {
@@ -299,7 +309,8 @@
 
 /* Anchored mood deep-links (#mood-<id>) must land below the fixed bar, not
    under it. Scoped to the feed page via :has so it never leaks elsewhere. */
-:root:has(main.mood-route) {
+:root:has(main.mood-route),
+[data-page-scroller]:has(main.mood-route) {
   scroll-padding-top: calc(68px + env(safe-area-inset-top, 0px));
 }
 

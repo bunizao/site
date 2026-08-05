@@ -5,6 +5,7 @@ import {
   sanitizeImageUrl,
 } from '@/features/mood/shared/comments';
 import { getMoodDetailHref } from '@/features/mood/shared/feed-anchor';
+import { pageScroll } from '@/lib/page-scroll';
 
 interface AnimatedEmojiHydrator {
   hydrate(root?: ParentNode): Promise<void>;
@@ -447,7 +448,7 @@ export function createFeedCommentsPopoverController(
     });
 
     window.addEventListener('resize', positionOpenPopovers);
-    window.addEventListener('scroll', positionOpenPopovers, { passive: true });
+    pageScroll().events.addEventListener('scroll', positionOpenPopovers, { passive: true });
   };
 
   const createIndicator = ({ postId, count, label }: CommentsIndicatorOptions): HTMLElement => {

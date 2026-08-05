@@ -85,4 +85,29 @@ describe('navbar regression guards', () => {
     expect(pageStyles).toContain('--brand-logo-height: var(--site-nav-mobile-logo-height);');
     expect(pageStyles).toContain('width: var(--site-nav-mobile-wordmark-width);');
   });
+
+  test('blog and Mood share the contained page scroll contract', () => {
+    const pageScroller = read('src/components/PageScroller.astro');
+    const pageScrollerStyles = read('src/styles/page-scroller.css');
+    const pageScroll = read('src/lib/page-scroll.ts');
+    const layout = read('src/layouts/Layout.astro');
+    const blogLayout = read('src/layouts/BlogLayout.astro');
+    const moodPage = read('src/pages/mood.astro');
+    const moodClients = [
+      'src/features/mood/ui/MoodNavbar.astro',
+      'src/features/mood/client/feed-controller.ts',
+      'src/features/mood/client/feed-update-watcher.ts',
+      'src/features/mood/client/timeline-wheel.ts',
+    ].map(read).join('\n');
+
+    expect(pageScroller).toContain('data-page-scroller');
+    expect(pageScrollerStyles).toContain('scroll-timeline-name: --page-scroll;');
+    expect(pageScrollerStyles).toContain('html.page-scroll-root');
+    expect(pageScroll).toContain("timeline: CONTAINED_TIMELINE");
+    expect(layout).toContain("'page-scroll-root': containedScroll");
+    expect(blogLayout).toContain('<PageScroller class="blog-scroller" restorationKey="blog-scroll">');
+    expect(moodPage).toContain('containedScroll');
+    expect(moodClients).toContain('pageScroll()');
+    expect(moodClients).not.toContain('window.scrollY');
+  });
 });

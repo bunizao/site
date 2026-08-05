@@ -1,312 +1,220 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test } from '@playwright/test';
 
-// iOS 26 extends the layout viewport up behind Safari's translucent toolbar, so
-// pages paint into the status-bar band whether they opt in or not. Without
-// `viewport-fit=cover` the env(safe-area-inset-*) values stay 0, so the CSS
-// cannot pad around a band it is already painting into — fixed bars land under
-// the Dynamic Island and article text shows beside it.
-//
-// These tests assert the CONTRACT that makes the safe-area rules live: the meta
-// tag ships, and the bars consume the inset in a way that survives it being
-// non-zero. A previous attempt at this bug forced the custom property to a fake
-// value and asserted things moved by it, which only restated the CSS; here the
-// inset is injected as a real length via a style override so the computed
-// padding proves the rules actually reference it.
+// iOS 26 can paint root-scrolling content above the layout viewport when its
+// dynamic toolbar collapses, while every CSS safe-area signal still reads 0.
+// Blog and Mood close that band at the source: the root stays locked and a
+// full-viewport inner element owns scrolling. Chromium cannot reproduce the
+// physical band, so these tests guard the structural contract that prevents it.
 
 const PHONE = { width: 390, height: 844 };
-const INSET = 47; // iPhone 16 Pro portrait top inset, near enough.
+const FAKE_INSET = 59; // iPhone 16 Pro portrait status-bar band.
 
-async function openCurrentBlogPost(page: Page) {
-  await page.goto('/blog/', { waitUntil: 'networkidle' });
-  const href = await page.locator('.blog-row__link').first().getAttribute('href');
-  expect(href).toMatch(/^\/blog\/[^/]+\/$/);
-  await page.goto(href!, { waitUntil: 'networkidle' });
+async function openDemoPost(page: import('@playwright/test').Page) {
+  await page.setViewportSize(PHONE);
+  await page.goto('/blog/demo-effects/', { waitUntil: 'networkidle' });
 }
 
-async function emulateVisualViewportTop(page: Page) {
-  await page.addInitScript(() => {
-    let offsetTop = 0;
-    const viewport = new EventTarget();
-
-    Object.defineProperties(viewport, {
-      offsetTop: { get: () => offsetTop },
-      offsetLeft: { get: () => 0 },
-      width: { get: () => window.innerWidth },
-      height: { get: () => window.innerHeight },
-      scale: { get: () => 1 },
-    });
-
-    Object.defineProperty(window, 'visualViewport', {
-      configurable: true,
-      value: viewport,
-    });
-
-    (window as Window & { __setVisualViewportTop?: (top: number) => void }).__setVisualViewportTop = (
-      top,
-    ) => {
-      offsetTop = top;
-      viewport.dispatchEvent(new Event('resize'));
-      viewport.dispatchEvent(new Event('scroll'));
-    };
-  });
+async function scrollPageTo(page: import('@playwright/test').Page, top: number) {
+  await page.locator('[data-page-scroller]').evaluate((scroller, nextTop) => {
+    scroller.scrollTo({ top: nextTop, behavior: 'instant' });
+  }, top);
 }
 
-test('every rendered layout opts into viewport-fit=cover', async ({ page }) => {
-  await page.goto('/blog/', { waitUntil: 'networkidle' });
-  await expect(page.locator('meta[name="viewport"]')).toHaveAttribute('content', /viewport-fit=cover/);
-  await openCurrentBlogPost(page);
-  await expect(page.locator('meta[name="viewport"]')).toHaveAttribute('content', /viewport-fit=cover/);
+test('every zone opts into the hardware band', async ({ page }) => {
+  for (const path of ['/blog/', '/blog/demo-effects/', '/', '/mood']) {
+    await page.goto(path, { waitUntil: 'domcontentloaded' });
+    const content = await page.getAttribute('meta[name="viewport"]', 'content');
+    expect(content, `${path} must declare cover`).toContain('viewport-fit=cover');
+  }
 });
 
-test('reading bar pads its row past the notch while its glass still covers the band', async ({
-  page,
-}) => {
-  await page.setViewportSize(PHONE);
-  await openCurrentBlogPost(page);
+test('no fixed layer at the screen top is fully opaque', async ({ page }) => {
+  await openDemoPost(page);
+  await scrollPageTo(page, 800);
 
-  // env() cannot be driven from a test, so stand in for the UA value by
-  // overriding the same declaration the rule reads. If .toc-topbar stopped
-  // consuming an inset in padding-top, this override would have no effect.
-  await page.addStyleTag({
-    content: `.toc-topbar { padding-top: ${INSET}px; }`,
+  const opaque = await page.evaluate(() => {
+    // Chromium serialises a fully opaque colour as rgb(), anything else as rgba().
+    const alpha = (color: string) => {
+      const match = color.match(/^rgba?\(([^)]+)\)$/);
+      if (!match) return 1;
+      const parts = match[1].split(',').map((part) => part.trim());
+      return parts.length < 4 ? 1 : Number.parseFloat(parts[3]);
+    };
+    const found: string[] = [];
+    for (const el of Array.from(document.querySelectorAll<HTMLElement>('[class*="blog-"], [class*="toc-"]'))) {
+      const style = getComputedStyle(el);
+      if (style.position !== 'fixed') continue;
+      // Only layers that must reach the physical top are at risk.
+      if (Number.parseFloat(style.top) !== 0) continue;
+      if (alpha(style.backgroundColor) >= 1) found.push(el.className);
+      if (alpha(getComputedStyle(el, '::before').backgroundColor) >= 1) {
+        found.push(`${el.className}::before`);
+      }
+    }
+    return found;
   });
 
-  const geometry = await page.evaluate(() => {
-    const bar = document.querySelector<HTMLElement>('.toc-topbar');
-    const row = bar?.querySelector<HTMLElement>('.toc-topbar__bar');
-    const fade = bar?.querySelector<HTMLElement>('.toc-topbar__fade');
-    if (!bar || !row || !fade) return null;
+  expect(opaque, 'Safari 26 clips opaque fixed layers to the visual viewport').toEqual([]);
+});
+
+test('contained scroll keeps the reading chrome at the viewport origin', async ({ page }) => {
+  await openDemoPost(page);
+  await scrollPageTo(page, 800);
+
+  const geometry = await page.locator('.toc-topbar').evaluate((bar) => {
+    const scroller = document.querySelector<HTMLElement>('[data-page-scroller]');
+    const row = bar.querySelector<HTMLElement>('.toc-topbar__bar');
+    const fade = bar.querySelector<HTMLElement>('.toc-topbar__fade');
+    if (!scroller || !row || !fade) return null;
+
+    const barStyle = getComputedStyle(bar);
+    const barRect = bar.getBoundingClientRect();
+    const fadeRect = fade.getBoundingClientRect();
+    const rowRect = row.getBoundingClientRect();
+    const scrollerRect = scroller.getBoundingClientRect();
+
     return {
-      barTop: bar.getBoundingClientRect().top,
-      fadeTop: fade.getBoundingClientRect().top,
-      rowTop: row.getBoundingClientRect().top,
+      barTop: barRect.top,
+      fadeTop: fadeRect.top,
+      marginTop: barStyle.marginTop,
+      position: barStyle.position,
+      rowTop: rowRect.top,
+      rootOverflow: getComputedStyle(document.documentElement).overflowY,
+      rootScrollTop: window.scrollY,
+      scrollerBottom: scrollerRect.bottom,
+      scrollerOverflow: getComputedStyle(scroller).overflowY,
+      scrollerScrollTop: scroller.scrollTop,
+      scrollerTop: scrollerRect.top,
+      top: barStyle.top,
+      transform: barStyle.transform,
+      viewportHeight: window.innerHeight,
     };
   });
 
   expect(geometry).not.toBeNull();
-  // The surface stays pinned to the true screen top: the band above the notch
-  // is still tinted, never a bare strip.
+
+  // The bar and scrolling layer share the viewport origin. The root never moves,
+  // so Safari never opens the unmeasurable band above them.
+  expect(geometry!.position).toBe('fixed');
+  expect(geometry!.top).toBe('0px');
+  expect(geometry!.marginTop).toBe('0px');
+  expect(geometry!.transform).toBe('none');
   expect(geometry!.barTop).toBeCloseTo(0, 0);
   expect(geometry!.fadeTop).toBeCloseTo(0, 0);
-  // The controls clear the island.
-  expect(geometry!.rowTop).toBeGreaterThanOrEqual(INSET - 1);
+  expect(geometry!.rowTop).toBeCloseTo(0, 0);
+  expect(geometry!.rootOverflow).toBe('hidden');
+  expect(geometry!.rootScrollTop).toBe(0);
+  expect(geometry!.scrollerOverflow).toBe('auto');
+  expect(geometry!.scrollerScrollTop).toBeGreaterThan(0);
+  expect(geometry!.scrollerTop).toBe(0);
+  expect(geometry!.scrollerBottom).toBe(geometry!.viewportHeight);
 });
 
-test('reading bars follow Safari visual viewport movement', async ({ page }) => {
-  await page.setViewportSize(PHONE);
-  await emulateVisualViewportTop(page);
-  await page.goto('/blog/demo-effects', { waitUntil: 'networkidle' });
+test('the reading bar keeps its progressive blur', async ({ page }) => {
+  await openDemoPost(page);
+  await scrollPageTo(page, 800);
 
-  await page.evaluate(() => {
-    (
-      window as unknown as Window & { __setVisualViewportTop: (top: number) => void }
-    ).__setVisualViewportTop(17);
-  });
-
-  await expect
-    .poll(() =>
-      page.evaluate(() =>
-        getComputedStyle(document.documentElement).getPropertyValue('--visual-viewport-top').trim(),
-      ),
-    )
-    .toBe('17px');
-
-  const blogTop = await page.evaluate(() => ({
-    bar: getComputedStyle(document.querySelector<HTMLElement>('.toc-topbar')!).top,
-    shield: getComputedStyle(document.body, '::after').top,
-  }));
-  expect(blogTop).toEqual({ bar: '17px', shield: '17px' });
-
-  await page.goto('/mood', { waitUntil: 'networkidle' });
-  await page.evaluate(() => {
-    (
-      window as unknown as Window & { __setVisualViewportTop: (top: number) => void }
-    ).__setVisualViewportTop(17);
-  });
-
-  await expect
-    .poll(() => page.locator('.mood-navbar').evaluate((navbar) => getComputedStyle(navbar).top))
-    .toBe('17px');
-});
-
-test('reading bar blocks scrolled article text from the status-bar band', async ({ page }) => {
-  await page.setViewportSize(PHONE);
-  await openCurrentBlogPost(page);
-
-  const usesInset = await page.evaluate(() => {
-    for (const sheet of Array.from(document.styleSheets)) {
-      let rules: CSSRuleList;
-      try {
-        rules = sheet.cssRules;
-      } catch {
-        continue;
-      }
-      for (const outerRule of Array.from(rules)) {
-        const nestedRules = 'cssRules' in outerRule
-          ? Array.from((outerRule as CSSGroupingRule).cssRules)
-          : [outerRule];
-        for (const rule of nestedRules) {
-          if (
-            rule instanceof CSSStyleRule &&
-            rule.selectorText === 'body.blog-zone:has(.toc-topbar:not([hidden]))::after' &&
-            rule.style.height.includes('safe-area-inset-top')
-          ) {
-            return true;
-          }
-        }
-      }
-    }
-    return false;
-  });
-
-  expect(usesInset, 'the article safe-area shield must consume the top inset').toBe(true);
-
-  await page.addStyleTag({
-    content: `body.blog-zone:has(.toc-topbar:not([hidden]))::after { height: ${INSET}px; }`,
-  });
-  await page.evaluate(() => window.scrollTo(0, 800));
-
-  const shield = await page.evaluate(() => {
-    const bar = document.querySelector<HTMLElement>('.toc-topbar');
-    const style = getComputedStyle(document.body, '::after');
-    if (!bar) return null;
+  const fade = await page.locator('.toc-topbar__fade').evaluate((el) => {
+    const style = getComputedStyle(el);
     return {
-      backdropFilter: style.backdropFilter || style.getPropertyValue('-webkit-backdrop-filter'),
       backgroundImage: style.backgroundImage,
-      height: style.height,
-      position: style.position,
-      top: style.top,
-      zIndex: Number.parseInt(style.zIndex, 10),
-      barZIndex: Number.parseInt(getComputedStyle(bar).zIndex, 10),
+      bottom: el.getBoundingClientRect().bottom,
+      filter: style.backdropFilter || style.getPropertyValue('-webkit-backdrop-filter'),
+      mask: style.maskImage || style.getPropertyValue('-webkit-mask-image'),
     };
   });
+  const rowBottom = await page
+    .locator('.toc-topbar__bar')
+    .evaluate((el) => el.getBoundingClientRect().bottom);
 
-  expect(shield).not.toBeNull();
-  expect(shield!.height).toBe(`${INSET}px`);
-  expect(shield!.position).toBe('fixed');
-  expect(shield!.top).toBe('0px');
-  expect(shield!.backgroundImage).toContain('linear-gradient');
-  expect(shield!.backdropFilter).toContain('blur(18px)');
-  expect(shield!.backdropFilter).toContain('saturate(1.4)');
-  expect(shield!.zIndex).toBeGreaterThan(shield!.barZIndex);
+  // One backdrop pass, a multi-stop mask ramp, and a feathered tail trailing the
+  // row — the surface has a top edge (the screen) and no bottom edge.
+  expect(fade.filter).toContain('blur(22px)');
+  expect(fade.mask).toContain('linear-gradient');
+  expect(fade.mask.match(/rgba?\(/g)?.length ?? 0).toBeGreaterThanOrEqual(3);
+  expect(fade.bottom - rowBottom).toBeCloseTo(40, 0);
+  // The near-solid plateau tracks the row rather than a fixed 52px, so a phone
+  // does not get a soft wash exactly where the title sits.
+  expect(fade.backgroundImage).toContain('gradient');
 });
 
-test('mood navbar blocks feed content from the status-bar band', async ({ page }) => {
-  await page.setViewportSize(PHONE);
-  await page.goto('/mood', { waitUntil: 'networkidle' });
+test('opening the reading menu grows the glass without moving the article', async ({ page }) => {
+  await openDemoPost(page);
+  await scrollPageTo(page, 800);
 
-  const usesInset = await page.evaluate(() => {
-    for (const sheet of Array.from(document.styleSheets)) {
-      let rules: CSSRuleList;
-      try {
-        rules = sheet.cssRules;
-      } catch {
-        continue;
-      }
-      for (const rule of Array.from(rules)) {
-        if (
-          rule instanceof CSSStyleRule &&
-          rule.selectorText === '.mood-navbar::before' &&
-          rule.style.height.includes('safe-area-inset-top')
-        ) {
-          return true;
-        }
-      }
-    }
-    return false;
-  });
+  const read = () =>
+    page.evaluate(() => ({
+      fadeHeight: document
+        .querySelector<HTMLElement>('.toc-topbar__fade')!
+        .getBoundingClientRect().height,
+      scrollY: document.querySelector<HTMLElement>('[data-page-scroller]')!.scrollTop,
+      shellTop: document.querySelector<HTMLElement>('.blog-shell')!.getBoundingClientRect().top,
+    }));
 
-  expect(usesInset, 'the mood safe-area shield must consume the top inset').toBe(true);
+  const before = await read();
+  await page.locator('.toc-topbar__title').click();
+  await expect.poll(async () => (await read()).fadeHeight).toBeGreaterThan(before.fadeHeight);
+  const after = await read();
 
-  const noInsetHeight = await page
-    .locator('.mood-navbar')
-    .evaluate((navbar) => getComputedStyle(navbar, '::before').height);
-  expect(noInsetHeight).toBe('0px');
-
-  await page.addStyleTag({ content: `.mood-navbar::before { height: ${INSET}px; }` });
-  await page.evaluate(() => window.scrollTo(0, 800));
-
-  const shield = await page.locator('.mood-navbar').evaluate((navbar) => {
-    const style = getComputedStyle(navbar, '::before');
-    const blur = navbar.querySelector<HTMLElement>('.topbar__blur');
-    return {
-      backdropFilter: style.backdropFilter || style.getPropertyValue('-webkit-backdrop-filter'),
-      backgroundImage: style.backgroundImage,
-      height: style.height,
-      position: style.position,
-      top: style.top,
-      zIndex: Number.parseInt(style.zIndex, 10),
-      blurZIndex: blur ? Number.parseInt(getComputedStyle(blur).zIndex, 10) : -1,
-    };
-  });
-
-  expect(shield.height).toBe(`${INSET}px`);
-  expect(shield.position).toBe('absolute');
-  expect(shield.top).toBe('0px');
-  expect(shield.backgroundImage).toContain('linear-gradient');
-  expect(shield.backdropFilter).toContain('blur(18px)');
-  expect(shield.backdropFilter).toContain('saturate(1.4)');
-  expect(shield.zIndex).toBeGreaterThan(shield.blurZIndex);
+  // The article never moves; the surface extends downward so the menu reads as
+  // the bar growing, not a card landing on it.
+  expect(after.shellTop).toBe(before.shellTop);
+  expect(after.scrollY).toBe(before.scrollY);
+  expect(after.fadeHeight).toBeGreaterThan(before.fadeHeight);
 });
 
-test('blog shell keeps content out of the status-bar band', async ({ page }) => {
-  await page.setViewportSize(PHONE);
-  await openCurrentBlogPost(page);
+test('legacy safe-area variables cannot shift the contained reading column', async ({ page }) => {
+  await openDemoPost(page);
 
-  const usesInset = await page.evaluate(() => {
-    const shell = document.querySelector('.blog-shell');
-    if (!shell) return null;
-    // Walk the stylesheets for the authored value; the computed value would
-    // already have resolved env() to 0 on a desktop browser.
-    for (const sheet of Array.from(document.styleSheets)) {
-      let rules: CSSRuleList;
-      try {
-        rules = sheet.cssRules;
-      } catch {
-        continue;
-      }
-      for (const rule of Array.from(rules)) {
-        // Read `padding` too, not just `paddingTop`: the rule authors the
-        // shorthand, and a shorthand does not populate its longhands in
-        // cssRules.
-        if (
-          rule instanceof CSSStyleRule &&
-          rule.selectorText === '.blog-shell' &&
-          `${rule.style.paddingTop} ${rule.style.padding}`.includes('safe-area-inset-top')
-        ) {
-          return true;
-        }
-      }
-    }
-    return false;
-  });
-
-  expect(usesInset, '.blog-shell padding-top must include the top inset').toBe(true);
-});
-
-test('insets cost nothing on hardware without a notch', async ({ page }) => {
-  await page.setViewportSize(PHONE);
-  await openCurrentBlogPost(page);
-
-  // Every inset is wrapped in a calc() with an explicit 0px fallback, so a UA
-  // that reports no safe area must land on exactly the pre-change geometry.
-  // This is the guard against the fix regressing every non-notched device.
-  const resolved = await page.evaluate(() => {
-    const shell = document.querySelector<HTMLElement>('.blog-shell');
-    const bar = document.querySelector<HTMLElement>('.toc-topbar');
+  const base = await page.evaluate(() => {
+    const shell = document.querySelector<HTMLElement>('.blog-shell')!;
     const totop = document.querySelector<HTMLElement>('.blog-totop');
-    if (!shell || !bar || !totop) return null;
+    const lightbox = document.querySelector<HTMLElement>('.blog-lightbox');
     return {
+      lightboxPadTop: lightbox ? getComputedStyle(lightbox).paddingTop : null,
       shellPadTop: getComputedStyle(shell).paddingTop,
-      barPadTop: getComputedStyle(bar).paddingTop,
-      shieldHeight: getComputedStyle(document.body, '::after').height,
-      totopBottom: getComputedStyle(totop).bottom,
+      totopBottom: totop ? getComputedStyle(totop).bottom : null,
     };
   });
 
-  expect(resolved).not.toBeNull();
-  expect(resolved!.shellPadTop).toBe('40px');
-  expect(resolved!.barPadTop).toBe('0px');
-  expect(resolved!.shieldHeight).toBe('0px');
-  expect(resolved!.totopBottom).toBe('24px');
+  // Chromium resolves every env() to 0, so these are the inset-free baselines.
+  expect(base.shellPadTop).toBe('40px');
+  if (base.totopBottom !== null) expect(base.totopBottom).toBe('24px');
+  // 5vmin of a 390x844 viewport.
+  if (base.lightboxPadTop !== null) expect(base.lightboxPadTop).toBe('19.5px');
+
+  // The contained-scroll strategy does not chase Safari's unreadable band with
+  // a synthetic offset; reintroducing that old variable must not move content.
+  const shellPadTop = await page.evaluate((inset) => {
+    document.body.style.setProperty('--blog-top-safe-area', `${inset}px`);
+    return getComputedStyle(document.querySelector<HTMLElement>('.blog-shell')!).paddingTop;
+  }, FAKE_INSET);
+  expect(shellPadTop).toBe('40px');
+});
+
+test('the blog path never reads the pinch-zoom viewport signal', async ({ page }) => {
+  await openDemoPost(page);
+
+  const offenders = await page.evaluate(() => {
+    const found: string[] = [];
+    for (const sheet of Array.from(document.styleSheets)) {
+      let rules: CSSRuleList;
+      try {
+        rules = sheet.cssRules;
+      } catch {
+        continue;
+      }
+      for (const rule of Array.from(rules)) {
+        if (!(rule instanceof CSSStyleRule)) continue;
+        if (!/^\.(blog-|toc-)/.test(rule.selectorText)) continue;
+        // --visual-viewport-top is a pinch-zoom signal that stays 0 on iOS. It
+        // belongs to the site nav; in this path it means someone is chasing the
+        // band with JS again instead of covering it in CSS.
+        if (rule.cssText.includes('--visual-viewport-top')) found.push(rule.selectorText);
+      }
+    }
+    return found;
+  });
+
+  expect(offenders).toEqual([]);
 });

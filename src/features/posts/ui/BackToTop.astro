@@ -10,17 +10,21 @@
 </button>
 
 <script>
+  import { pageScroll } from '@/lib/page-scroll';
+
   const button = document.querySelector<HTMLButtonElement>('.blog-totop');
   if (button) {
+    // The blog zone scrolls an inner element, not the root. See @/lib/page-scroll.
+    const scroll = pageScroll();
     const onScroll = () => {
-      const past = window.scrollY > window.innerHeight;
+      const past = scroll.el.scrollTop > scroll.el.clientHeight;
       button.hidden = !past;
       button.classList.toggle('is-visible', past);
     };
     button.addEventListener('click', () =>
-      window.scrollTo({ top: 0, behavior: 'smooth' }),
+      scroll.el.scrollTo({ top: 0, behavior: 'smooth' }),
     );
-    window.addEventListener('scroll', onScroll, { passive: true });
+    scroll.events.addEventListener('scroll', onScroll, { passive: true });
     onScroll();
   }
 </script>

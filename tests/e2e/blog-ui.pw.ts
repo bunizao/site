@@ -3,6 +3,12 @@ import { expect, test } from './fixtures';
 
 const GHOST_PREVIEW_E2E_POST_ID = '5ddc9141c35e7700383b2937';
 
+async function scrollPageTo(page: Page, top: number): Promise<void> {
+  await page.locator('[data-page-scroller]').evaluate((scroller, nextTop) => {
+    scroller.scrollTo({ top: nextTop, behavior: 'instant' });
+  }, top);
+}
+
 function isIgnorableDevConsoleError(message: string): boolean {
   return message.includes('Outdated Optimize Dep') || message.startsWith('Failed to load resource:');
 }
@@ -228,10 +234,11 @@ test.describe('Blog reading UI', () => {
       spacer.style.height = '500px';
       spacer.setAttribute('data-e2e-preceding-shift', '');
       document.querySelector('.blog-prose')?.before(spacer);
-      return heading.getBoundingClientRect().top + window.scrollY - 95;
+      const scroller = document.querySelector<HTMLElement>('[data-page-scroller]')!;
+      return heading.getBoundingClientRect().top + scroller.scrollTop - 95;
     });
 
-    await page.evaluate((top) => window.scrollTo({ top, behavior: 'instant' }), scrollTop);
+    await scrollPageTo(page, scrollTop);
     await expect(tocLinks.first()).toHaveClass(/active/);
     await expect(page.locator('.toc-link.active')).toHaveText(firstHeadingText);
   });
@@ -433,7 +440,7 @@ test.describe('Blog reading UI', () => {
       element.style.getPropertyValue('animation-timeline')
     )).toBe('');
 
-    await page.evaluate(() => window.scrollTo({ top: 180, behavior: 'instant' }));
+    await scrollPageTo(page, 180);
     await expect(page.locator('.toc-topbar')).toHaveClass(/is-visible/);
     await expect.poll(() => logoGhost.evaluate((element) =>
       Number.parseFloat(getComputedStyle(element).getPropertyValue('--dock-ride'))

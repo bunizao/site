@@ -3,6 +3,7 @@ import { slotText, type SlotOptions, type SlotTextController } from 'slot-text';
 import 'slot-text/style.css';
 import { getTimelineDateState } from '@/features/mood/client/timeline-date-tracker';
 import { getMoodFeedTopHref } from '@/features/mood/shared/feed-anchor';
+import { pageScroll } from '@/lib/page-scroll';
 
 type GsapModule = typeof gsap;
 
@@ -16,6 +17,7 @@ export function mountTimelineWheel(
   { feed: feedEl, list }: TimelineWheelDependencies
 ): () => void {
   const wheel = root;
+  const scroll = pageScroll();
   const dial = wheel.querySelector('[data-timeline-dial]') as HTMLElement | null;
   const label = wheel.querySelector('[data-timeline-label]') as HTMLElement | null;
 
@@ -34,7 +36,7 @@ export function mountTimelineWheel(
       return;
     }
 
-    window.scrollTo({ top: 0, behavior: prefersReducedMotion ? 'auto' : 'smooth' });
+    scroll.el.scrollTo({ top: 0, behavior: prefersReducedMotion ? 'auto' : 'smooth' });
   };
   topButton?.addEventListener('click', handleTopClick);
 
@@ -43,7 +45,7 @@ export function mountTimelineWheel(
   // whenever the reader scrolls back up past the first screen (the moment they
   // are likely heading for the top), then rolls back to the date on the way down.
   const TOP_TEXT = '↑ TOP';
-  const REVEAL_AT = (): number => window.innerHeight;
+  const REVEAL_AT = (): number => scroll.el.clientHeight || window.innerHeight;
   const DIR_DELTA = 6; // px of travel before a direction flip counts (anti-jitter)
   const rollBase: SlotOptions = prefersReducedMotion
     ? { stagger: 0, duration: 0, bounce: 0 }
@@ -451,10 +453,10 @@ export function mountTimelineWheel(
       const header = group.querySelector('.mood-date-header') as HTMLElement | null;
       const anchor = header ?? group;
       const rect = anchor.getBoundingClientRect();
-      const y = window.scrollY + rect.top;
-      return Number.isFinite(y) ? y : window.scrollY;
+      const y = scroll.el.scrollTop + rect.top;
+      return Number.isFinite(y) ? y : scroll.el.scrollTop;
     });
-    cachedFeedBottomY = window.scrollY + feedEl.getBoundingClientRect().bottom;
+    cachedFeedBottomY = scroll.el.scrollTop + feedEl.getBoundingClientRect().bottom;
   };
 
   const applyScrollPosition = (scrollY: number, animate = true): void => {
@@ -467,7 +469,7 @@ export function mountTimelineWheel(
       anchors: dateAnchors,
       feedBottomY: cachedFeedBottomY,
       scrollY,
-      viewportHeight: window.innerHeight,
+      viewportHeight: scroll.el.clientHeight || window.innerHeight,
     });
     const rotationIndex = Math.max(dateState.progressIndex, 0);
 
@@ -488,7 +490,7 @@ export function mountTimelineWheel(
     scrollSyncRaf = requestAnimationFrame(() => {
       scrollSyncRaf = 0;
       if (!scrollSyncActive || dateGroups.length === 0 || !isDesktop()) return;
-      applyScrollPosition(window.scrollY, animate);
+      applyScrollPosition(scroll.el.scrollTop, animate);
     });
   };
 
@@ -523,7 +525,7 @@ export function mountTimelineWheel(
 
     destroyLoadingAnimation();
     if (dateGroups.length > 0) {
-      applyScrollPosition(window.scrollY, true);
+      applyScrollPosition(scroll.el.scrollTop, true);
     }
   };
 
@@ -534,12 +536,12 @@ export function mountTimelineWheel(
     setLoadingSpin(shouldSpin);
   };
 
-  const handleWindowScroll = (): void => {
+  const handlePageScroll = (): void => {
     if (!scrollSyncActive || dateGroups.length === 0 || !isDesktop()) return;
     // Track direction with a small dead zone, then reveal "↑ TOP" only while the
     // reader is scrolling back up past the first screen — the moment a jump to
     // the top is most likely wanted. Scrolling down (or nearing the top) hides it.
-    const y = window.scrollY;
+    const y = scroll.el.scrollTop;
     const dy = y - dirAnchorY;
     if (Math.abs(dy) >= DIR_DELTA) {
       scrollDir = dy < 0 ? 'up' : 'down';
@@ -557,7 +559,7 @@ export function mountTimelineWheel(
 
   const destroyScrollSync = (): void => {
     if (scrollSyncActive) {
-      window.removeEventListener('scroll', handleWindowScroll);
+      scroll.events.removeEventListener('scroll', handlePageScroll);
       scrollSyncActive = false;
     }
     if (scrollSyncRaf !== 0) {
@@ -577,9 +579,9 @@ export function mountTimelineWheel(
   const setupScrollSync = (): void => {
     destroyScrollSync();
     scrollSyncActive = true;
-    dirAnchorY = window.scrollY;
+    dirAnchorY = scroll.el.scrollTop;
     scrollDir = 'down';
-    window.addEventListener('scroll', handleWindowScroll, { passive: true });
+    scroll.events.addEventListener('scroll', handlePageScroll, { passive: true });
     listResizeObserver = new ResizeObserver(scheduleAnchorRefresh);
     listResizeObserver.observe(list);
     scheduleScrollPositionSync(false);
@@ -600,7 +602,7 @@ export function mountTimelineWheel(
     createNotches();
     rebuildDateAnchors();
     setupScrollSync();
-    applyScrollPosition(window.scrollY, false);
+    applyScrollPosition(scroll.el.scrollTop, false);
 
     if (isDesktop()) {
       wheel.classList.add('is-visible');
@@ -633,7 +635,7 @@ export function mountTimelineWheel(
       if (!scrollSyncActive) {
         setupScrollSync();
       }
-      applyScrollPosition(window.scrollY, false);
+      applyScrollPosition(scroll.el.scrollTop, false);
     });
   };
 
@@ -643,7 +645,7 @@ export function mountTimelineWheel(
       wheel.classList.add('is-visible');
       if (dateGroups.length > 0) {
         rebuildDateAnchors();
-        applyScrollPosition(window.scrollY, false);
+        applyScrollPosition(scroll.el.scrollTop, false);
       }
       syncLoadingSpinState();
     } else {

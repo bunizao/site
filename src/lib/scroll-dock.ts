@@ -16,7 +16,12 @@
  * custom properties on the same host and derive positions in calc(). Rewriting
  * geometry is then a variable change, not an animation rebuild, which is what
  * makes re-measuring cheap enough to do mid-scroll.
+ *
+ * Which scroller drives it comes from `@/lib/page-scroll`, because it is not
+ * always the root one.
  */
+
+import { pageScroll, type PageScroll } from '@/lib/page-scroll';
 
 export type DockChannel = 'dock' | 'lift';
 
@@ -52,13 +57,17 @@ const ease = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 
 const supportsScrollTimeline = () =>
   typeof CSS !== 'undefined' && CSS.supports?.('animation-timeline: scroll()') === true;
 
-export function createScrollDock(host: HTMLElement, channels: DockChannel[]): ScrollDock {
+export function createScrollDock(
+  host: HTMLElement,
+  channels: DockChannel[],
+  scroll: PageScroll = pageScroll(),
+): ScrollDock {
   const composited = supportsScrollTimeline();
   const runs = new Map<DockChannel, number>(channels.map((channel) => [channel, 1]));
   let ranges = '';
 
   const read = (channel: DockChannel): DockProgress => {
-    const ride = clamp01(window.scrollY / (runs.get(channel) ?? 1));
+    const ride = clamp01(scroll.el.scrollTop / (runs.get(channel) ?? 1));
     return { ride, fold: ease(clamp01((ride - FOLD_START) / (1 - FOLD_START))) };
   };
 
@@ -114,11 +123,11 @@ export function createScrollDock(host: HTMLElement, channels: DockChannel[]): Sc
     host.style.setProperty('animation-fill-mode', names.map(() => 'both').join(','));
     host.style.setProperty(
       'animation-timeline',
-      names.map(() => 'scroll(root block)').join(','),
+      names.map(() => scroll.timeline).join(','),
     );
     publishRanges();
   } else {
-    window.addEventListener('scroll', onScroll, { passive: true });
+    scroll.events.addEventListener('scroll', onScroll, { passive: true });
   }
   paint();
 
@@ -135,7 +144,7 @@ export function createScrollDock(host: HTMLElement, channels: DockChannel[]): Sc
         cancelAnimationFrame(raf);
         raf = 0;
       }
-      if (!composited) window.removeEventListener('scroll', onScroll);
+      if (!composited) scroll.events.removeEventListener('scroll', onScroll);
       for (const property of [
         'animation-name',
         'animation-timing-function',

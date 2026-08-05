@@ -111,10 +111,46 @@ const avatar = initialChannel?.avatar?.trim() ?? '';
       hidden={!avatar}
     />
   </span>
+
+  <!-- This fixed status belongs to the navbar's foreground stacking context.
+       Keeping it beside the progressive blur instead of inside the page
+       scroller prevents the blur from sampling and softening the notice. -->
+  <div
+    class="mood-update-notice"
+    data-mood-update-notice
+    role="status"
+    aria-live="polite"
+    aria-atomic="true"
+    style="display: none;"
+  >
+    <p class="mood-update-text" data-mood-update-text>New moods are in!</p>
+    <div class="mood-update-actions" data-mood-update-actions>
+      <button class="mood-update-action" type="button" data-mood-update-refresh aria-label="Refresh">
+        <svg
+          class="mood-update-action-icon"
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          aria-hidden="true"
+        >
+          <polyline points="23 4 23 10 17 10"></polyline>
+          <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+        </svg>
+        <span class="mood-update-action-label">Refresh</span>
+      </button>
+    </div>
+    <div class="mood-update-progress" aria-hidden="true"></div>
+  </div>
 </Topbar>
 
 <script>
   import { getMoodFeedTopHref } from '@/features/mood/shared/feed-anchor';
+  import { pageScroll } from '@/lib/page-scroll';
   import { createScrollDock } from '@/lib/scroll-dock';
 
   // The translation an element's own transform currently contributes, so a rect
@@ -134,6 +170,7 @@ const avatar = initialChannel?.avatar?.trim() ?? '';
     const navbar = document.querySelector<HTMLElement>('[data-mood-navbar]');
     if (!navbar || navbar.dataset.moodNavbarReady === 'true') return;
     navbar.dataset.moodNavbarReady = 'true';
+    const scroll = pageScroll();
 
     // Avatar/title click → back to top (reuses the anchored-feed href when the
     // reader arrived via a /mood?<id> deep link, else a plain smooth scroll).
@@ -145,7 +182,7 @@ const avatar = initialChannel?.avatar?.trim() ?? '';
         return;
       }
       const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-      window.scrollTo({ top: 0, behavior: reduceMotion ? 'auto' : 'smooth' });
+      scroll.el.scrollTo({ top: 0, behavior: reduceMotion ? 'auto' : 'smooth' });
     });
 
     const flyer = navbar.querySelector<HTMLElement>('[data-mood-nav-flyer]');
@@ -164,7 +201,7 @@ const avatar = initialChannel?.avatar?.trim() ?? '';
     // setProperty calls, not a keyframe rebuild, so it stays safe to do while
     // the reader is mid-scroll. See @/lib/scroll-dock.
     const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    const dock = reduceMotion ? null : createScrollDock(navbar, ['dock']);
+    const dock = reduceMotion ? null : createScrollDock(navbar, ['dock'], scroll);
     const setVar = (name: string, value: number) =>
       navbar.style.setProperty(name, value.toFixed(3));
     let run = 1;
@@ -175,6 +212,23 @@ const avatar = initialChannel?.avatar?.trim() ?? '';
     // fade-in when it does not.
     let titleFly = false;
 
+    // Safari can report a negative scrollTop while the contained scroller
+    // rubber-bands. A scroll timeline clamps there, so the fixed flyers would
+    // otherwise freeze at y=0 while the real hero moves down. Let the real hero
+    // own that range (and keep its levitation); hand off only after positive
+    // scroll begins, where both representations share the same geometry.
+    const syncHeroOwnership = () => {
+      if (reduceMotion) {
+        navbar.classList.add('is-flyer-active');
+        return;
+      }
+
+      const flyerActive = scroll.el.scrollTop > 0;
+      navbar.classList.toggle('is-flyer-active', flyerActive);
+      heroAvatar.style.visibility = flyerActive ? 'hidden' : '';
+      if (heroTitle) heroTitle.style.visibility = flyerActive && titleFly ? 'hidden' : '';
+    };
+
     const measure = () => {
       const slotRect = slot.getBoundingClientRect();
       const slotSize = slotRect.width || 30;
@@ -182,12 +236,12 @@ const avatar = initialChannel?.avatar?.trim() ?? '';
       // The hero avatar keeps its layout box even while visually hidden, so its
       // rect stays valid as the flight's start position.
       const heroRect = heroAvatar.getBoundingClientRect();
-      const heroTopDoc = heroRect.top + window.scrollY;
+      const heroTopDoc = heroRect.top + scroll.el.scrollTop;
       const heroSize = heroRect.width || slotSize;
 
       setVar('--slot-x', slotRect.left);
       setVar('--slot-y', slotRect.top);
-      setVar('--hero-x', heroRect.left + window.scrollX);
+      setVar('--hero-x', heroRect.left + scroll.el.scrollLeft);
       setVar('--hero-y', heroTopDoc);
       // The flyer is laid out at the hero's size so the travel only ever scales
       // it DOWN. Sized at the slot, the ride would stretch a 30px raster ~2.7x
@@ -247,19 +301,20 @@ const avatar = initialChannel?.avatar?.trim() ?? '';
           // transform to recover the layout position underneath it.
           const heroRectT = heroTitle.getBoundingClientRect();
           const drift = readTransform(heroTitle);
-          setVar('--ink-hero-x', heroRectT.left + window.scrollX - drift.x);
-          setVar('--ink-hero-y', heroRectT.top + window.scrollY - drift.y);
+          setVar('--ink-hero-x', heroRectT.left + scroll.el.scrollLeft - drift.x);
+          setVar('--ink-hero-y', heroRectT.top + scroll.el.scrollTop - drift.y);
         }
       }
     };
 
     // The identity's hit area is the one thing the scalar cannot express —
-    // pointer-events has no numeric form. It costs a scrollY read and a
+    // pointer-events has no numeric form. It costs a scrollTop read and a
     // classList call that no-ops while the state holds, and it is the only
     // per-frame work left on this page.
     const update = () => {
+      syncHeroOwnership();
       const isDocked = reduceMotion
-        ? window.scrollY >= run
+        ? scroll.el.scrollTop >= run
         : (dock?.read('dock').fold ?? 0) > 0.99;
       if (reduceMotion) {
         navbar.style.setProperty('--dock-ride', isDocked ? '1' : '0');
@@ -273,17 +328,13 @@ const avatar = initialChannel?.avatar?.trim() ?? '';
       update();
     };
 
-    // Activate: measure and place the flyers first, then hand the hero avatar's
-    // and title's visible role over to them — this order avoids any flash.
+    // Activate: measure and place the flyers before deciding which
+    // representation owns the first frame, so the positive-scroll handoff never
+    // flashes or shifts.
     measure();
     update();
-    if (!reduceMotion) {
-      heroAvatar.style.visibility = 'hidden';
-      if (titleFly && heroTitle) heroTitle.style.visibility = 'hidden';
-    }
-    navbar.classList.add('is-flyer-active');
 
-    window.addEventListener('scroll', update, { passive: true });
+    scroll.events.addEventListener('scroll', update, { passive: true });
     window.addEventListener('resize', remeasure);
     window.addEventListener('load', remeasure);
 

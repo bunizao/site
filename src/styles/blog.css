@@ -33,6 +33,26 @@
   --blog-img-edge: inset 0 0 0 1px rgba(255, 255, 255, 0.1);
 }
 
+/* --- Contained scroll: the iOS status-bar band, closed at the source ------
+   Measured on an iPhone 16 Pro Max / iOS 26.1. When Safari collapses its
+   toolbar, window.innerHeight grows past documentElement.clientHeight and
+   ordinary document content paints ~60px ABOVE client y=0, into the band beside
+   the Dynamic Island.
+
+   CSS can neither measure that band — env(safe-area-inset-top) and
+   env(safe-area-max-inset-top) both read 0, with or without viewport-fit=cover —
+   nor cover it: fixed layers, sticky layers, and a sticky layer's absolutely
+   positioned children are all clipped to the layout viewport top, while the
+   scrolling contents layer is not. Four attempts died on that clip.
+
+   Safari collapses the toolbar only when the ROOT scroller moves. The shared
+   PageScroller keeps the root still, so the band never opens and the reading
+   bar is a plain lid at y=0 again.
+
+   It buys reading height rather than costing it: collapsed gives 836px with the
+   top 62 under a translucent system scrim, this gives a clean 796. The reusable
+   mechanics live in page-scroller.css; this block records the measured reason. */
+
 /* chl.ee is a flat surface — drop the site's ambient dot grid in this zone. */
 body.blog-zone::before {
   display: none;
@@ -41,11 +61,7 @@ body.blog-zone::before {
 .blog-shell {
   margin-inline: auto;
   max-width: var(--blog-measure);
-  /* The top pad absorbs the status-bar band on notched phones. .blog-topbar is
-     in flow (not fixed), and .toc-topbar stays transparent until the reader is
-     past the article header, so nothing else keeps the mark and the first lines
-     out from behind the Dynamic Island. Zero everywhere else. */
-  padding: calc(40px + env(safe-area-inset-top, 0px)) 24px 48px;
+  padding: 40px 24px 48px;
 }
 
 /* The shared site footer keeps its own top breathing room, but in the blog zone
@@ -951,8 +967,7 @@ html[data-theme-setting='system'] .blog-theme-toggle [data-blog-icon='system'] {
    back-to-top right. Bar and dropdown share ONE frosted surface (.toc-topbar__
    fade, sized via inset:0 to the whole control): opening the menu simply grows
    the control's height and the glass follows, so the menu reads as the bar
-   extending downward, not a separate card. The surface dissolves at its bottom
-   edge via a mask, so there is never a hard boundary. */
+   extending downward, not a separate card. */
 .toc-topbar {
   display: none;
 }
@@ -964,22 +979,28 @@ html[data-theme-setting='system'] .blog-theme-toggle [data-blog-icon='system'] {
 }
 
 .toc-topbar {
+  --bar-row: 52px;
+  /* Feathered tail below the row: the glass keeps blurring here while the mask
+     dissolves it, so the surface has no bottom edge to catch the eye. */
+  --bar-tail: 40px;
   position: fixed;
-  /* iOS Safari moves the visual viewport inside the layout viewport as its
-     toolbar collapses. Follow that offset or the bar and shield drift above
-     the visible screen, exposing article text beside the Dynamic Island. */
-  top: var(--visual-viewport-top, 0px);
+  top: 0;
   left: 0;
   right: 0;
   z-index: 55;
-  /* Soft tail below the content: the glass keeps blurring here, then the mask
-     fades it to nothing — no edge to catch the eye. Taps pass through (the
-     surface is pointer-events:none). */
-  padding-bottom: 40px;
-  /* Stays pinned at top:0 and pads its row down instead of offsetting `top`.
-     The controls clear the Dynamic Island while the surface reaches the screen
-     edge. Offsetting `top` would do the reverse: tidy row, bare strip above it. */
-  padding-top: env(safe-area-inset-top, 0px);
+  /* A plain lid at the viewport edge — no height and no fill of its own. It used
+     to carry both, as a cover for the iOS status-bar band; the band cannot be
+     covered from a fixed layer and no longer opens at all, because the scroll is
+     contained (see .blog-scroller). */
+  pointer-events: none;
+}
+
+.toc-topbar__surface {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  padding-bottom: var(--bar-tail);
   /* The bar surfaces as the reader passes the article header — by fading, on the
      scroll, over the back half of the mark's dock run.
 
@@ -997,58 +1018,47 @@ html[data-theme-setting='system'] .blog-theme-toggle [data-blog-icon='system'] {
   /* Opacity alone still hit-tests, and the controls below opt back into
      pointer-events; without this their tap targets sit over the article. */
   visibility: hidden;
-  pointer-events: none;
 }
 
-.toc-topbar.is-visible {
+.toc-topbar.is-visible .toc-topbar__surface {
   visibility: visible;
 }
 
-/* Give the hardware safe-area band a denser material than the reading bar below
-   it. One narrow blur pass keeps scrolled text illegible without turning the
-   Dynamic Island surround into a flat white or black strip. */
-@media (max-width: 1279px) {
-  body.blog-zone:has(.toc-topbar:not([hidden]))::after {
-    content: '';
-    position: fixed;
-    top: var(--visual-viewport-top, 0px);
-    left: 0;
-    right: 0;
-    z-index: 56;
-    height: env(safe-area-inset-top, 0px);
-    background: linear-gradient(
-      to bottom,
-      hsl(var(--background) / 0.78),
-      hsl(var(--background) / 0.68)
-    );
-    -webkit-backdrop-filter: blur(18px) saturate(1.4);
-    backdrop-filter: blur(18px) saturate(1.4);
-    pointer-events: none;
-  }
-}
+/* The single progressive surface behind row + menu, sized inset:0 to the whole
+   control so it grows with an open menu for free — one layer, one material, no
+   seam to keep aligned.
 
-@media (prefers-reduced-transparency: reduce) {
-  body.blog-zone:has(.toc-topbar:not([hidden]))::after {
-    background: hsl(var(--background) / 0.96);
-    -webkit-backdrop-filter: none;
-    backdrop-filter: none;
-  }
-}
-
-/* The single frosted surface behind bar + menu. inset:0 stretches it over the
-   whole control, so it grows with the menu for free. The mask dissolves the
-   bottom 40px (the padding tail) into the page. */
+   The tint is near-solid behind the row and thins downward as the mask dissolves
+   it, so blur and tint ramp out together: the surface has a top edge (the screen)
+   and no bottom edge. */
 .toc-topbar__fade {
   position: absolute;
   inset: 0;
   pointer-events: none;
-  /* Translucent and gradient, not a solid sheet: the tint thins toward the
-     bottom while strong blur keeps text legible — the chl.ee "通透" look. */
-  background: linear-gradient(to bottom, hsl(var(--background) / 0.55), hsl(var(--background) / 0.28));
+  z-index: 0;
+  background: linear-gradient(
+    to bottom,
+    hsl(var(--background) / 0.92),
+    hsl(var(--background) / 0.62) var(--bar-row),
+    hsl(var(--background) / 0.44) 100%
+  );
   -webkit-backdrop-filter: blur(22px) saturate(1.7);
   backdrop-filter: blur(22px) saturate(1.7);
-  -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 44px), transparent);
-  mask-image: linear-gradient(to bottom, #000 calc(100% - 44px), transparent);
+  /* The progressive part: blur AND tint ramp out together across the tail. The
+     stops approximate an ease-out — a straight two-stop ramp puts its steepest
+     alpha change at the very end, which the eye reads as the edge the mask was
+     supposed to remove. Anchored to the bottom, so an open menu just moves the
+     feather down with it. */
+  -webkit-mask-image: var(--bar-mask);
+  mask-image: var(--bar-mask);
+  --bar-mask: linear-gradient(
+    to bottom,
+    #000 calc(100% - var(--bar-tail)),
+    rgba(0, 0, 0, 0.86) calc(100% - var(--bar-tail) * 0.75),
+    rgba(0, 0, 0, 0.5) calc(100% - var(--bar-tail) * 0.45),
+    rgba(0, 0, 0, 0.16) calc(100% - var(--bar-tail) * 0.2),
+    transparent 100%
+  );
 }
 
 /* This surface blurs the page scrolling beneath it, so WebKit re-filters it
@@ -1056,13 +1066,27 @@ html[data-theme-setting='system'] .blog-theme-toggle [data-blog-icon='system'] {
    tighter blur with a slightly stronger tint reads the same through the mask
    but stays inside the scroll frame budget on iOS. */
 .ua-webkit .toc-topbar__fade {
-  background: linear-gradient(to bottom, hsl(var(--background) / 0.66), hsl(var(--background) / 0.36));
-  -webkit-backdrop-filter: blur(12px) saturate(1.5);
-  backdrop-filter: blur(12px) saturate(1.5);
+  background: linear-gradient(
+    to bottom,
+    hsl(var(--background) / 0.94),
+    hsl(var(--background) / 0.7) var(--bar-row),
+    hsl(var(--background) / 0.5) 100%
+  );
+  -webkit-backdrop-filter: blur(14px) saturate(1.5);
+  backdrop-filter: blur(14px) saturate(1.5);
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .toc-topbar__fade {
+    background: hsl(var(--background) / 0.96);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
 }
 
 .toc-topbar__bar {
   position: relative;
+  z-index: 1;
   /* Equal side rails (logo / back-to-top both 30px) so the centre column lands
      the title on the page axis, not just between its neighbours. */
   display: grid;
@@ -1140,6 +1164,13 @@ html[data-theme-setting='system'] .blog-theme-toggle [data-blog-icon='system'] {
   transform: translate(var(--lg-x), var(--lg-y)) scale(var(--lg-scale));
 }
 
+/* JS owns only the binary question — is the flight running at all. The fade-out
+   at the dock is the receiving half of the crossfade with the bar's own logo
+   (see .toc-topbar.logo-handoff above). */
+.toc-logo-ghost.is-flying {
+  opacity: clamp(0, (0.94 - var(--dock-ride)) / 0.06 + 1, 1);
+}
+
 .toc-logo-ghost img {
   display: block;
   width: 100%;
@@ -1153,9 +1184,14 @@ html[data-theme-setting='system'] .blog-theme-toggle [data-blog-icon='system'] {
 
 /* While the handoff owns the mark, the bar's own logo stays a live (clickable)
    link but cedes the pixels to the ghost — otherwise the two double up at the
-   dock. */
+   dock. They swap back over the last 6% of the run, where both are on the same
+   slot at the same size, so the exchange is invisible; the point is that the
+   bar's logo owns its pixels again the moment the flight is over. A ghost that
+   is the sole renderer of the mark forever is one stale measurement away from a
+   bar with an empty left slot, which is exactly what a docked bar cannot be.
+   Both sides read the same --dock-ride, so they cannot cross at two moments. */
 .toc-topbar.logo-handoff .toc-topbar__logo img {
-  opacity: 0;
+  opacity: clamp(0, (var(--dock-ride) - 0.94) / 0.06, 1);
 }
 
 /* Fixed "ghost" title that flies the article H1 up and shrinks it into the
@@ -1332,6 +1368,7 @@ html[data-theme-setting='system'] .blog-theme-toggle [data-blog-icon='system'] {
    max-height, which grows the control, which the surface follows. */
 .toc-topbar__menu {
   position: relative;
+  z-index: 1;
   max-height: 0;
   overflow: hidden;
   padding: 0 8px;
@@ -1412,8 +1449,8 @@ html[data-theme-setting='system'] .blog-theme-toggle [data-blog-icon='system'] {
 .blog-totop {
   position: fixed;
   right: 24px;
-  /* Clears the home indicator now that the zone declares viewport-fit=cover;
-     the inset is 0 on hardware without one. */
+  /* Clears the home indicator — and, on iOS 26, the floating URL bar that sits
+     over the bottom of the layout viewport. */
   bottom: calc(24px + env(safe-area-inset-bottom, 0px));
   display: inline-flex;
   align-items: center;
@@ -1469,8 +1506,9 @@ html[data-theme-setting='system'] .blog-theme-toggle [data-blog-icon='system'] {
   display: flex;
   align-items: center;
   justify-content: center;
-  /* The scrim still covers the full screen; only the image inset respects the
-     notch and home indicator, so a tall photo is never clipped by hardware. */
+  /* The scrim covers the whole screen (0.92 alpha keeps it composited, so Safari
+     26 does not clip it to the visual viewport) while the image stays inside the
+     safe area. */
   padding: calc(5vmin + env(safe-area-inset-top, 0px)) calc(5vmin + env(safe-area-inset-right, 0px))
     calc(5vmin + env(safe-area-inset-bottom, 0px)) calc(5vmin + env(safe-area-inset-left, 0px));
   background: hsl(var(--background) / 0.92);
