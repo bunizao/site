@@ -59,6 +59,8 @@ describe('Apple Music embed enrichment', () => {
       const url = new URL(input.toString());
       if (url.hostname === 'itunes.apple.com') {
         requestedIds.push(url.searchParams.get('id') ?? '');
+        expect(url.searchParams.get('country')).toBe('us');
+        expect(url.searchParams.get('entity')).toBe('song');
         return new Response(JSON.stringify({
           results: [
             {

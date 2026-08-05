@@ -245,6 +245,8 @@ async function lookupAppleTrackMetadata(id: string): Promise<AppleTrack | null> 
   try {
     const endpoint = new URL('https://itunes.apple.com/lookup');
     endpoint.searchParams.set('id', id);
+    endpoint.searchParams.set('country', AMP_STOREFRONT);
+    endpoint.searchParams.set('entity', 'song');
     const response = await fetch(endpoint, { headers: { Accept: 'application/json' } });
     if (response.ok) {
       const data = (await response.json()) as { results?: ItunesResult[] };
