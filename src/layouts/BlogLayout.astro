@@ -81,7 +81,14 @@ const paletteCss = [
 <html lang="zh">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <!-- viewport-fit=cover is not opting into edge-to-edge: iOS 26 already
+         extends the layout viewport up behind Safari's translucent toolbar, so
+         content paints into the status-bar band either way. Without `cover`,
+         env(safe-area-inset-*) resolves to 0 and the CSS cannot see the band it
+         is already painting into — article text rides up beside the Dynamic
+         Island and the reading bar sits under it. Declaring cover makes the
+         insets real so the rules below can pad around them. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>{fullTitle}</title>
     <meta name="description" content={metaDescription} />
     <link rel="canonical" href={canonical} />

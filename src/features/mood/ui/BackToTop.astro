@@ -41,7 +41,8 @@ const { threshold = 600, hideOnDesktop = false } = Astro.props;
   .mood-back-to-top {
     position: fixed;
     right: clamp(16px, 4vw, 32px);
-    bottom: clamp(20px, 4vh, 32px);
+    /* Clears the home indicator under viewport-fit=cover; 0 without one. */
+    bottom: calc(clamp(20px, 4vh, 32px) + env(safe-area-inset-bottom, 0px));
     z-index: 55;
     display: inline-flex;
     align-items: center;

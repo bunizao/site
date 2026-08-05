@@ -127,7 +127,13 @@ const wordmarkFontHref = '/fonts/wenkai-wordmark.woff2';
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- iOS 26 extends the layout viewport up behind Safari's translucent
+         toolbar, so pages paint into the status-bar band whether or not they ask
+         to. Without viewport-fit=cover, env(safe-area-inset-*) stays 0 and the
+         CSS cannot see that band — fixed bars end up under the Dynamic Island.
+         The safe-area rules throughout globals.css were written for this and
+         were inert until now; every inset is 0 on hardware without a notch. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="description" content={description} />
     {preloadFontHrefs.map((href) => (
       <link rel="preload" href={href} as="font" type="font/woff2" crossorigin />

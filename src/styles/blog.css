@@ -41,7 +41,11 @@ body.blog-zone::before {
 .blog-shell {
   margin-inline: auto;
   max-width: var(--blog-measure);
-  padding: 40px 24px 48px;
+  /* The top pad absorbs the status-bar band on notched phones. .blog-topbar is
+     in flow (not fixed), and .toc-topbar stays transparent until the reader is
+     past the article header, so nothing else keeps the mark and the first lines
+     out from behind the Dynamic Island. Zero everywhere else. */
+  padding: calc(40px + env(safe-area-inset-top, 0px)) 24px 48px;
 }
 
 /* The shared site footer keeps its own top breathing room, but in the blog zone
@@ -969,6 +973,12 @@ html[data-theme-setting='system'] .blog-theme-toggle [data-blog-icon='system'] {
      fades it to nothing — no edge to catch the eye. Taps pass through (the
      surface is pointer-events:none). */
   padding-bottom: 40px;
+  /* Stays pinned at top:0 and pads its row down instead of offsetting `top`.
+     __fade is inset:0 of this box, so the glass still covers the status-bar band
+     it would otherwise leave bare — the controls clear the Dynamic Island while
+     the surface reaches the screen edge. Offsetting `top` would do the reverse:
+     tidy row, untinted strip above it. */
+  padding-top: env(safe-area-inset-top, 0px);
   /* The bar surfaces as the reader passes the article header — by fading, on the
      scroll, over the back half of the mark's dock run.
 
@@ -1370,7 +1380,9 @@ html[data-theme-setting='system'] .blog-theme-toggle [data-blog-icon='system'] {
 .blog-totop {
   position: fixed;
   right: 24px;
-  bottom: 24px;
+  /* Clears the home indicator now that the zone declares viewport-fit=cover;
+     the inset is 0 on hardware without one. */
+  bottom: calc(24px + env(safe-area-inset-bottom, 0px));
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1425,7 +1437,10 @@ html[data-theme-setting='system'] .blog-theme-toggle [data-blog-icon='system'] {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 5vmin;
+  /* The scrim still covers the full screen; only the image inset respects the
+     notch and home indicator, so a tall photo is never clipped by hardware. */
+  padding: calc(5vmin + env(safe-area-inset-top, 0px)) calc(5vmin + env(safe-area-inset-right, 0px))
+    calc(5vmin + env(safe-area-inset-bottom, 0px)) calc(5vmin + env(safe-area-inset-left, 0px));
   background: hsl(var(--background) / 0.92);
   opacity: 0;
   pointer-events: none;

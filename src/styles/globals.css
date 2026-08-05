@@ -827,8 +827,11 @@
   /* Site Navigation */
   .site-nav {
     --topbar-position: fixed;
-    top: 16px;
-    left: 16px;
+    /* Insets are live now that the layouts declare viewport-fit=cover; both
+       resolve to 0 without a notch, so this is the same 16px everywhere else.
+       The left inset matters in landscape, where the notch eats a side gutter. */
+    top: calc(16px + env(safe-area-inset-top, 0px));
+    left: calc(16px + env(safe-area-inset-left, 0px));
     z-index: 100;
     isolation: isolate;
     display: flex;

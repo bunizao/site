@@ -10,6 +10,13 @@
   right: 0;
   z-index: 55;
   pointer-events: none;
+  /* Pads the row down past the Dynamic Island while staying pinned at top:0, so
+     the progressive blur behind it still covers the status-bar band. iOS 26
+     extends the layout viewport up behind Safari's translucent toolbar, which is
+     what pushed this bar under the island; the inset is 0 on every other device.
+     Padding, not `top`: the flight below measures the slot with
+     getBoundingClientRect, so the docked endpoint picks this up on its own. */
+  padding-top: env(safe-area-inset-top, 0px);
 
   /* Flight geometry, published by measure() as unitless numbers so the
      transforms below stay pure CSS. The navbar is also the scroll-dock host:
