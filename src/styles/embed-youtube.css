@@ -270,11 +270,31 @@
   border-radius: inherit;
 }
 
+/* No saturate() pass here, on purpose. backdrop-filter compounds: every layer
+   samples what the layers behind it already painted, which is what makes the
+   ladder ramp at all. So a saturate on each of the 7 layers multiplies out to
+   ~17x and turns the band into a rainbow smear. The topbar gets away with its
+   glass because only 2 of its 4 layers carry the pass. */
+
 /* Same z-index as .yt__blur, later in tree order: equal z-index paints in tree
    order, so this lands on top of the blur (and outside its backdrop) while both
-   stay under the text. An opaque floor owning the text rows, then a long feather
-   that fades out well clear of the type so no visible edge is drawn. Percentage
-   stops, so the ramp holds at any caption height. */
+   stay under the text. Percentage stops, so the ramp holds at any caption height.
+
+   Tint only, deliberately not a plate. The navbar's glass is --background/0.5
+   fading to 0 — you read the page through it, and this stays light enough that
+   the video shows through. Dark rather than the navbar's light because the
+   caption text is white.
+
+   The plateau runs to 62% and the feather is short, which is the one thing that
+   cannot be relaxed. Blur contributes nothing to contrast over a blown-out
+   frame — defocusing white against white still averages to white — so the tint
+   alone carries legibility, and it has to be at full depth wherever type sits.
+   The desktop title sits 12-43% up the band and the mobile title 33-58%, so a
+   gradient tuned to the desktop band alone leaves the phone title in the light
+   half: measured against a white poster with burnt-in subtitles, the previous
+   desktop-shaped ramp needed 0.93 peak before the phone cleared AA, while this
+   shape clears it at 0.64 (title 7.9:1 desktop / 6.7:1 mobile, worst pixel
+   6.0:1 / 5.8:1). Retune the stops and re-measure both widths, not just one. */
 .yt__scrim {
   position: absolute;
   inset: 0;
@@ -284,11 +304,10 @@
   background:
     linear-gradient(
       to top,
-      hsl(0 0% 0% / 0.82) 0%,
-      hsl(0 0% 0% / 0.74) 34%,
-      hsl(0 0% 0% / 0.52) 52%,
-      hsl(0 0% 0% / 0.26) 70%,
-      hsl(0 0% 0% / 0.09) 85%,
+      hsl(0 0% 0% / 0.64) 0%,
+      hsl(0 0% 0% / 0.6) 62%,
+      hsl(0 0% 0% / 0.37) 78%,
+      hsl(0 0% 0% / 0.15) 89%,
       transparent 100%
     );
 }
@@ -297,8 +316,8 @@
    to a flat --background tint. That is right behind the topbar, which sits over
    the page background, but here it painted near-white over white text and let
    the poster's own lettering through. The caption always needs a DARK plate, so
-   the tint is neutralised and the scrim alone carries contrast — deepened,
-   because nothing is defocusing burnt-in subtitles any more. */
+   the tint is neutralised and the scrim alone carries contrast — same plateau
+   shape as above, deepened, because nothing is defocusing burnt-in subtitles. */
 @media (prefers-reduced-transparency: reduce) {
   .yt__blur {
     background: none;
@@ -309,10 +328,9 @@
       linear-gradient(
         to top,
         hsl(0 0% 0% / 0.94) 0%,
-        hsl(0 0% 0% / 0.9) 40%,
-        hsl(0 0% 0% / 0.72) 60%,
-        hsl(0 0% 0% / 0.42) 78%,
-        hsl(0 0% 0% / 0.16) 90%,
+        hsl(0 0% 0% / 0.88) 62%,
+        hsl(0 0% 0% / 0.54) 78%,
+        hsl(0 0% 0% / 0.22) 89%,
         transparent 100%
       );
   }
@@ -379,12 +397,16 @@
   -webkit-line-clamp: 2;
 }
 
+/* 0.8 rather than a softer 0.72: at 12.5px this is small text, so it needs the
+   full 4.5:1, and the scrim is already as deep as it can go without reading as a
+   plate. Lifting the ink clears AA where darkening the glass would have cost the
+   see-through the whole band exists to keep. */
 .yt__meta {
   grid-column: 2;
   display: flex;
   align-items: center;
   gap: 4px 14px;
-  color: hsl(0 0% 100% / 0.72);
+  color: hsl(0 0% 100% / 0.8);
   font-size: 12.5px;
   line-height: 1.4;
   text-shadow: 0 1px 3px hsl(0 0% 0% / 0.5);

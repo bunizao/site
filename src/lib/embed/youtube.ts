@@ -199,9 +199,11 @@ export function renderYouTubeEmbedMarkup(options: YouTubeEmbedMarkupOptions): st
     // the box to opaque at the bottom, so blur builds downward into the text and
     // dissolves into the poster with no seam. 'top' inverts it and cuts a hard
     // line along the caption's top edge.
+    // strength 0.28 lands peak radius on ~22px, the same ceiling the topbar
+    // preset tops out at, so both surfaces read as the same material.
     renderProgressiveBlurMarkup({
       direction: 'bottom',
-      strength: 0.42,
+      strength: 0.28,
       className: 'yt__blur',
     }),
     '<span class="yt__scrim" aria-hidden="true"></span>',
