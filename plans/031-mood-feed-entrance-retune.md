@@ -1,6 +1,21 @@
 # 031 — Mood feed entrance, exit and skeleton: a retune that needs an owner decision
 
-- **Status**: BLOCKED — needs owner decision on §Decisions before execution
+## Owner decisions (recorded 2026-08-01, before execution)
+
+- **A → A2.** Entrance 0.55s, 60ms stagger, last card settles at 790ms. Exactly
+  the `home-reveal.css` values, so the feed joins the home page's motion family
+  rather than arriving as a slower cousin.
+- **B → B1.** The `filter: blur(6px)` is removed from the transition and from
+  both `--entering` and `--leaving`. It bought little at 24px of travel and cost
+  a repaint per card per frame at the busiest moment in the sequence.
+- **C → C1.** Only `mood-skeleton-sheen` survives, retuned 2.8s → 1.2s. The
+  pulse, flow and shimmer animations are deleted (their styling stays), and
+  their three `@keyframes` blocks went with them.
+
+Item 2 (the exit curve) was unconditional and is applied: 0.5s easeInCubic →
+0.25s `var(--ease-out)`.
+
+- **Status**: DONE
 - **Severity**: MEDIUM
 - **Category**: Easing & duration / Feel
 - **Estimated scope**: 1 file, ~40 lines
