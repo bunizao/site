@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 
 // iOS 26 extends the layout viewport up behind Safari's translucent toolbar, so
 // pages paint into the status-bar band whether they opt in or not. Without
@@ -16,19 +16,25 @@ import { expect, test } from '@playwright/test';
 const PHONE = { width: 390, height: 844 };
 const INSET = 47; // iPhone 16 Pro portrait top inset, near enough.
 
+async function openCurrentBlogPost(page: Page) {
+  await page.goto('/blog/', { waitUntil: 'networkidle' });
+  const href = await page.locator('.blog-row__link').first().getAttribute('href');
+  expect(href).toMatch(/^\/blog\/[^/]+\/$/);
+  await page.goto(href!, { waitUntil: 'networkidle' });
+}
+
 test('every rendered layout opts into viewport-fit=cover', async ({ page }) => {
-  for (const path of ['/blog/existence/', '/blog/']) {
-    await page.goto(path, { waitUntil: 'domcontentloaded' });
-    const content = await page.getAttribute('meta[name="viewport"]', 'content');
-    expect(content, `${path} must declare cover`).toContain('viewport-fit=cover');
-  }
+  await page.goto('/blog/', { waitUntil: 'networkidle' });
+  await expect(page.locator('meta[name="viewport"]')).toHaveAttribute('content', /viewport-fit=cover/);
+  await openCurrentBlogPost(page);
+  await expect(page.locator('meta[name="viewport"]')).toHaveAttribute('content', /viewport-fit=cover/);
 });
 
 test('reading bar pads its row past the notch while its glass still covers the band', async ({
   page,
 }) => {
   await page.setViewportSize(PHONE);
-  await page.goto('/blog/existence/', { waitUntil: 'networkidle' });
+  await openCurrentBlogPost(page);
 
   // env() cannot be driven from a test, so stand in for the UA value by
   // overriding the same declaration the rule reads. If .toc-topbar stopped
@@ -58,9 +64,123 @@ test('reading bar pads its row past the notch while its glass still covers the b
   expect(geometry!.rowTop).toBeGreaterThanOrEqual(INSET - 1);
 });
 
+test('reading bar blocks scrolled article text from the status-bar band', async ({ page }) => {
+  await page.setViewportSize(PHONE);
+  await openCurrentBlogPost(page);
+
+  const usesInset = await page.evaluate(() => {
+    for (const sheet of Array.from(document.styleSheets)) {
+      let rules: CSSRuleList;
+      try {
+        rules = sheet.cssRules;
+      } catch {
+        continue;
+      }
+      for (const outerRule of Array.from(rules)) {
+        const nestedRules = 'cssRules' in outerRule
+          ? Array.from((outerRule as CSSGroupingRule).cssRules)
+          : [outerRule];
+        for (const rule of nestedRules) {
+          if (
+            rule instanceof CSSStyleRule &&
+            rule.selectorText === 'body.blog-zone:has(.toc-topbar:not([hidden]))::after' &&
+            rule.style.height.includes('safe-area-inset-top')
+          ) {
+            return true;
+          }
+        }
+      }
+    }
+    return false;
+  });
+
+  expect(usesInset, 'the article safe-area shield must consume the top inset').toBe(true);
+
+  await page.addStyleTag({
+    content: `body.blog-zone:has(.toc-topbar:not([hidden]))::after { height: ${INSET}px; }`,
+  });
+  await page.evaluate(() => window.scrollTo(0, 800));
+
+  const shield = await page.evaluate(() => {
+    const bar = document.querySelector<HTMLElement>('.toc-topbar');
+    const style = getComputedStyle(document.body, '::after');
+    if (!bar) return null;
+    return {
+      background: style.backgroundColor,
+      height: style.height,
+      position: style.position,
+      top: style.top,
+      zIndex: Number.parseInt(style.zIndex, 10),
+      barZIndex: Number.parseInt(getComputedStyle(bar).zIndex, 10),
+    };
+  });
+
+  expect(shield).not.toBeNull();
+  expect(shield!.height).toBe(`${INSET}px`);
+  expect(shield!.position).toBe('fixed');
+  expect(shield!.top).toBe('0px');
+  expect(shield!.background).not.toMatch(/rgba?\([^)]*,\s*0(?:\.0+)?\)$/);
+  expect(shield!.zIndex).toBeGreaterThan(shield!.barZIndex);
+});
+
+test('mood navbar blocks feed content from the status-bar band', async ({ page }) => {
+  await page.setViewportSize(PHONE);
+  await page.goto('/mood', { waitUntil: 'networkidle' });
+
+  const usesInset = await page.evaluate(() => {
+    for (const sheet of Array.from(document.styleSheets)) {
+      let rules: CSSRuleList;
+      try {
+        rules = sheet.cssRules;
+      } catch {
+        continue;
+      }
+      for (const rule of Array.from(rules)) {
+        if (
+          rule instanceof CSSStyleRule &&
+          rule.selectorText === '.mood-navbar::before' &&
+          rule.style.height.includes('safe-area-inset-top')
+        ) {
+          return true;
+        }
+      }
+    }
+    return false;
+  });
+
+  expect(usesInset, 'the mood safe-area shield must consume the top inset').toBe(true);
+
+  const noInsetHeight = await page
+    .locator('.mood-navbar')
+    .evaluate((navbar) => getComputedStyle(navbar, '::before').height);
+  expect(noInsetHeight).toBe('0px');
+
+  await page.addStyleTag({ content: `.mood-navbar::before { height: ${INSET}px; }` });
+  await page.evaluate(() => window.scrollTo(0, 800));
+
+  const shield = await page.locator('.mood-navbar').evaluate((navbar) => {
+    const style = getComputedStyle(navbar, '::before');
+    const blur = navbar.querySelector<HTMLElement>('.topbar__blur');
+    return {
+      background: style.backgroundColor,
+      height: style.height,
+      position: style.position,
+      top: style.top,
+      zIndex: Number.parseInt(style.zIndex, 10),
+      blurZIndex: blur ? Number.parseInt(getComputedStyle(blur).zIndex, 10) : -1,
+    };
+  });
+
+  expect(shield.height).toBe(`${INSET}px`);
+  expect(shield.position).toBe('absolute');
+  expect(shield.top).toBe('0px');
+  expect(shield.background).not.toMatch(/rgba?\([^)]*,\s*0(?:\.0+)?\)$/);
+  expect(shield.zIndex).toBeGreaterThan(shield.blurZIndex);
+});
+
 test('blog shell keeps content out of the status-bar band', async ({ page }) => {
   await page.setViewportSize(PHONE);
-  await page.goto('/blog/existence/', { waitUntil: 'networkidle' });
+  await openCurrentBlogPost(page);
 
   const usesInset = await page.evaluate(() => {
     const shell = document.querySelector('.blog-shell');
@@ -95,7 +215,7 @@ test('blog shell keeps content out of the status-bar band', async ({ page }) => 
 
 test('insets cost nothing on hardware without a notch', async ({ page }) => {
   await page.setViewportSize(PHONE);
-  await page.goto('/blog/existence/', { waitUntil: 'networkidle' });
+  await openCurrentBlogPost(page);
 
   // Every inset is wrapped in a calc() with an explicit 0px fallback, so a UA
   // that reports no safe area must land on exactly the pre-change geometry.
@@ -108,6 +228,7 @@ test('insets cost nothing on hardware without a notch', async ({ page }) => {
     return {
       shellPadTop: getComputedStyle(shell).paddingTop,
       barPadTop: getComputedStyle(bar).paddingTop,
+      shieldHeight: getComputedStyle(document.body, '::after').height,
       totopBottom: getComputedStyle(totop).bottom,
     };
   });
@@ -115,5 +236,6 @@ test('insets cost nothing on hardware without a notch', async ({ page }) => {
   expect(resolved).not.toBeNull();
   expect(resolved!.shellPadTop).toBe('40px');
   expect(resolved!.barPadTop).toBe('0px');
+  expect(resolved!.shieldHeight).toBe('0px');
   expect(resolved!.totopBottom).toBe('24px');
 });

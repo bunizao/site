@@ -974,10 +974,8 @@ html[data-theme-setting='system'] .blog-theme-toggle [data-blog-icon='system'] {
      surface is pointer-events:none). */
   padding-bottom: 40px;
   /* Stays pinned at top:0 and pads its row down instead of offsetting `top`.
-     __fade is inset:0 of this box, so the glass still covers the status-bar band
-     it would otherwise leave bare — the controls clear the Dynamic Island while
-     the surface reaches the screen edge. Offsetting `top` would do the reverse:
-     tidy row, untinted strip above it. */
+     The controls clear the Dynamic Island while the surface reaches the screen
+     edge. Offsetting `top` would do the reverse: tidy row, bare strip above it. */
   padding-top: env(safe-area-inset-top, 0px);
   /* The bar surfaces as the reader passes the article header — by fading, on the
      scroll, over the back half of the mark's dock run.
@@ -1001,6 +999,23 @@ html[data-theme-setting='system'] .blog-theme-toggle [data-blog-icon='system'] {
 
 .toc-topbar.is-visible {
   visibility: visible;
+}
+
+/* The reading bar remains translucent below the hardware cutout, but text must
+   never scroll through the status-bar band itself. Keep that narrow strip
+   opaque and above the bar; its height is zero on devices without a top inset. */
+@media (max-width: 1279px) {
+  body.blog-zone:has(.toc-topbar:not([hidden]))::after {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 56;
+    height: env(safe-area-inset-top, 0px);
+    background: hsl(var(--background));
+    pointer-events: none;
+  }
 }
 
 /* The single frosted surface behind bar + menu. inset:0 stretches it over the

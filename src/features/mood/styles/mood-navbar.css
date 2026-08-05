@@ -45,6 +45,21 @@
   --ink-scale: 1;
 }
 
+/* The progressive blur remains translucent below the cutout, but feed content
+   must not scroll through the status-bar band. This strip has zero height on
+   devices without a top safe-area inset. */
+.mood-navbar::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 2;
+  height: env(safe-area-inset-top, 0px);
+  background: hsl(var(--background));
+  pointer-events: none;
+}
+
 /* The controls sit on the shared reading measure so the avatar aligns with the
    feed's left edge and the buttons with its right edge. */
 .mood-navbar__bar {
@@ -269,7 +284,7 @@
 /* Anchored mood deep-links (#mood-<id>) must land below the fixed bar, not
    under it. Scoped to the feed page via :has so it never leaks elsewhere. */
 :root:has(main.mood-route) {
-  scroll-padding-top: 68px;
+  scroll-padding-top: calc(68px + env(safe-area-inset-top, 0px));
 }
 
 @media (max-width: 480px) {
