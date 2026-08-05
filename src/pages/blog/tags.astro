@@ -182,9 +182,6 @@ const rowBottom = tags.filter((_, i) => i % 2 === 1);
       teardown = null;
     }
   }
-  sync();
-  desktop.addEventListener('change', sync);
-  calm.addEventListener('change', sync);
 
   // --- Dominant-colour border for image cards (best-effort, CORS-guarded) ---
   function dominantColor(img: HTMLImageElement): string | null {
@@ -248,4 +245,7 @@ const rowBottom = tags.filter((_, i) => i % 2 === 1);
   }
 
   wireCards();
+  sync();
+  desktop.addEventListener('change', sync);
+  calm.addEventListener('change', sync);
 </script>

@@ -192,22 +192,27 @@ html[data-theme-setting='system'] .blog-theme-toggle [data-blog-icon='system'] {
   padding: 0;
 }
 
+/* A 1x1 box that scale() stretches to the hovered row: moving the pill is a
+   single composited transform, so the pre-promotion below actually holds. The
+   previous version promoted the layer and then tweened width/height, which
+   forced a re-raster every frame — the promotion paid for and thrown away.
+   Radius rides the scale; at row heights (~48px) the rendered error is
+   sub-pixel. JS writes the transform; see src/lib/hover-indicator.ts. */
 .blog-indicator {
   position: absolute;
   left: 0;
   top: 0;
+  width: 1px;
+  height: 1px;
+  transform-origin: 0 0;
   z-index: 0;
   border-radius: 12px;
   background: var(--blog-fill);
   opacity: 0;
   pointer-events: none;
-  /* The pill springs to a new row on every hover; pre-promote it so Safari
-     composites the transform on the GPU instead of stuttering on frame one. */
   will-change: transform;
   transition:
     transform 0.46s cubic-bezier(0.25, 1.18, 0.45, 1.04),
-    width 0.4s cubic-bezier(0.25, 1, 0.3, 1),
-    height 0.4s cubic-bezier(0.25, 1, 0.3, 1),
     opacity 0.25s ease-out;
 }
 
@@ -388,9 +393,11 @@ html[data-theme-setting='system'] .blog-theme-toggle [data-blog-icon='system'] {
     transition: opacity 0.2s ease, transform 0.2s ease;
   }
 
-  .blog-yearrail:hover .blog-yearrail__label {
-    opacity: 1;
-    transform: none;
+  @media (hover: hover) and (pointer: fine) {
+    .blog-yearrail:hover .blog-yearrail__label {
+      opacity: 1;
+      transform: none;
+    }
   }
 
   .blog-yearrail__year:hover .blog-yearrail__tick,
@@ -835,23 +842,27 @@ html[data-theme-setting='system'] .blog-theme-toggle [data-blog-icon='system'] {
   position: relative;
 }
 
-/* Highlight that springs to the active link; JS sets top/left/width/height. */
+/* Highlight that springs to the active link. Driven entirely by transform: the
+   pill is a 1x1 box that scale() stretches to the active link's dimensions, so
+   moving it is a composite, not a relayout. Radius is declared in the pill's
+   own (unscaled) units and therefore rides the scale — at the sizes involved
+   (~28px tall) the rendered error is sub-pixel. JS writes the transform; see
+   TableOfContents.astro. */
 .toc-sliding-pill {
   position: absolute;
   top: 0;
   left: 0;
-  width: 0;
-  height: 0;
+  width: 1px;
+  height: 1px;
+  transform-origin: 0 0;
   border-radius: 8px;
   background: color-mix(in srgb, var(--blog-accent) 20%, transparent);
   opacity: 0;
   z-index: 0;
   pointer-events: none;
+  will-change: transform;
   transition:
-    top 0.48s cubic-bezier(0.25, 1.22, 0.45, 1.04),
-    height 0.48s cubic-bezier(0.25, 1.22, 0.45, 1.04),
-    left 0.48s cubic-bezier(0.25, 1.22, 0.45, 1.04),
-    width 0.48s cubic-bezier(0.25, 1.22, 0.45, 1.04),
+    transform 0.48s cubic-bezier(0.25, 1.22, 0.45, 1.04),
     opacity 0.25s ease-out;
 }
 
@@ -963,16 +974,28 @@ html[data-theme-setting='system'] .blog-theme-toggle [data-blog-icon='system'] {
      fades it to nothing — no edge to catch the eye. Taps pass through (the
      surface is pointer-events:none). */
   padding-bottom: 40px;
-  /* The bar slides down only after the reader passes the article header. */
-  opacity: 0;
-  transform: translateY(-100%);
+  /* The bar surfaces as the reader passes the article header — by fading, on the
+     scroll, over the back half of the mark's dock run.
+
+     It used to drop in from translateY(-100%) on a 0.32s transition. That was a
+     second arrival competing with the one that matters: the title flies UP into
+     this bar while the bar itself fell DOWN past it, and since one was timed and
+     the other scroll-driven, they crossed at whatever offset the reader's scroll
+     speed produced. The content supplies the movement here — the mark docks into
+     the bar, the title lands in it — so the surface only has to appear beneath
+     them. Fading on the same scalar also means it is fully opaque before the
+     title's crossfade begins, which matters because this opacity multiplies
+     everything inside: a bar still at 0.2 turned the incoming title dim just as
+     it arrived. */
+  opacity: clamp(0, (var(--dock-ride) - 0.25) / 0.35, 1);
+  /* Opacity alone still hit-tests, and the controls below opt back into
+     pointer-events; without this their tap targets sit over the article. */
+  visibility: hidden;
   pointer-events: none;
-  transition: opacity 0.25s ease, transform 0.32s cubic-bezier(0.32, 0.72, 0, 1);
 }
 
 .toc-topbar.is-visible {
-  opacity: 1;
-  transform: translateY(0);
+  visibility: visible;
 }
 
 /* The single frosted surface behind bar + menu. inset:0 stretches it over the
@@ -1107,9 +1130,25 @@ html[data-theme-setting='system'] .blog-theme-toggle [data-blog-icon='system'] {
    own `lift` channel. Two terms, like the mood navbar's flight: --tg-live is
    where the H1 actually is on screen right now, so the ghost rides up with the
    content, and --tg-pos then pulls it onto the bar's centre slot. The travel
-   finishes at 85% of the run and parks, so the crossfade below happens with the
-   ghost and the real bar title sharing one spot — never two titles in two
-   places, which was the earlier flaw. */
+   parks at 70% of the run so the crossfade happens with the ghost and the real
+   bar title sharing one spot — never two titles in two places.
+
+   The crossfade rides --lift-ride too, rather than a scroll position read on
+   the main thread: derived from the scroller, it cannot arrive a frame after
+   the flight it accompanies.
+
+   It also happens EARLY — the ghost is gone before it lands, and the bar title
+   is already coming up underneath. The obvious design is to park the ghost
+   exactly on the bar title and dissolve one into the other, and that is what
+   produced the doubled text: two renderings of one string can be brought to the
+   same box but never to the same pixels. Inter's optical sizing alone makes
+   14px text ~7% wider than 27px text scaled down, so the glyphs drift apart
+   inside a matched box. Almost-identical is the worst case there is — the eye
+   reads two words. Overlapping them while the ghost is still visibly larger and
+   higher gives it two different things to read instead, which is what the iOS
+   collapse this imitates actually does: the large title dissolves on its way
+   out, the small one appears in the bar, and they are never claimed to be one
+   object mid-flight. */
 .toc-title-ghost {
   position: fixed;
   top: 0;
@@ -1135,11 +1174,20 @@ html[data-theme-setting='system'] .blog-theme-toggle [data-blog-icon='system'] {
   --title-scale: 1;
 
   --tg-pos: clamp(0, var(--lift-ride) / 0.85, 1);
+  /* Out over 45-75% of the run, while there is still a size and a position
+     between the two titles for the eye to tell them apart. */
+  --tg-fade: clamp(0, (var(--lift-ride) - 0.5) / 0.22, 1);
   --tg-live: calc((var(--t1-y) - var(--lift-ride) * var(--lift-run)) * 1px);
   --tg-x: calc((var(--t1-x) + (var(--title-target-x) - var(--t1-x)) * var(--tg-pos)) * 1px);
   --tg-y: calc(var(--tg-live) + (var(--title-target-y) * 1px - var(--tg-live)) * var(--tg-pos));
   --tg-scale: calc(1 + (var(--title-scale) - 1) * var(--tg-pos));
   transform: translate(var(--tg-x), var(--tg-y)) scale(var(--tg-scale));
+}
+
+/* JS owns only the binary question — is the handoff running at all — because
+   that one has no numeric form. Everything continuous is above. */
+.toc-title-ghost.is-flying {
+  opacity: calc(1 - var(--tg-fade));
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -1161,11 +1209,25 @@ html[data-theme-setting='system'] .blog-theme-toggle [data-blog-icon='system'] {
   background: none;
   font: inherit;
   font-size: 14px;
-  font-weight: 500;
+  /* The H1's weight and tracking, at the bar's size. This is the receiving end
+     of a shared-element handoff, so it has to BE the article title shrunk — if
+     the two ends differ typographically, the crossover shows two strings of
+     different widths instead of one. */
+  font-weight: 600;
+  letter-spacing: -0.02em;
   color: var(--blog-ink);
   cursor: pointer;
   justify-self: center;
   transition: color 0.15s ease;
+}
+
+/* The receiving half of the title handoff, on the same scalar as the ghost via
+   its own dock (TableOfContents.astro) — one clock, so the two halves cannot
+   land at different moments. On the button rather than the text: the chevron
+   then arrives with the title instead of waiting at full opacity beside it, and
+   setTitle()'s WAAPI ticker keeps sole ownership of the text's own opacity. */
+.toc-topbar.title-handoff .toc-topbar__title {
+  opacity: clamp(0, (var(--lift-ride) - 0.35) / 0.2, 1);
 }
 
 /* No section map (no-toc post or a thin one): the centre is a plain reading

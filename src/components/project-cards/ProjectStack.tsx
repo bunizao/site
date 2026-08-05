@@ -656,9 +656,12 @@ function StoryGallery({
         animate={{ x: 0, y: 0, scale: 1 }}
         exit={{
           ...originPose,
+          // Not a pure ease-in: the card has to start moving on the frame the
+          // click lands, or the dismiss reads as ignored. Still faster than the
+          // 420ms entrance — the deliberate move in and the system's answer out.
           transition: reduce
             ? { duration: 0 }
-            : { duration: 0.3, ease: [0.4, 0, 1, 1] },
+            : { duration: 0.3, ease: [0.32, 0, 0.67, 0.3] },
         }}
         // A tween, not a spring: a spring's tail overshoot reads as a shiver at
         // the end of the zoom. Ease-out lands clean.

@@ -648,7 +648,13 @@ const {
     border: 1px solid hsl(var(--foreground) / 0.12);
     border-radius: 12px;
     cursor: pointer;
-    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    /* opacity is for :disabled, transform for :hover/:active. */
+    transition:
+      color 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+      border-color 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+      box-shadow 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+      transform 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+      opacity 0.25s cubic-bezier(0.4, 0, 0.2, 1);
     font-family: inherit;
     position: relative;
     overflow: hidden;
@@ -713,7 +719,10 @@ const {
   }
 
   a.mood-comment-cta-wrap .mood-comment-body {
-    transition: all 0.2s ease;
+    transition:
+      background 0.2s ease,
+      border-color 0.2s ease,
+      box-shadow 0.2s ease;
   }
 
   a.mood-comment-cta-wrap:hover .mood-comment-body {
@@ -748,7 +757,9 @@ const {
 
   .mood-comment-cta-arrow {
     opacity: 0.4;
-    transition: all 0.2s ease;
+    transition:
+      opacity 0.2s ease,
+      transform 0.2s ease;
     flex-shrink: 0;
   }
 

@@ -181,6 +181,20 @@
       0.9915 68.74%,
       1 100%
     );
+
+    /* Motion vocabulary. One curve family, one duration scale, site-wide.
+       Adopted from the portal's scale (src/styles/portal.css), which was the
+       only part of the site that had one. UI stays under 300ms; --dur-enter is
+       the only step allowed to breathe, and entrances are the only thing
+       allowed to use it. */
+    --ease: cubic-bezier(0.2, 0, 0, 1);
+    --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+    --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+
+    --dur-press: 110ms;
+    --dur-fast: 130ms;
+    --dur-base: 190ms;
+    --dur-enter: 240ms;
   }
 
   .dark {
@@ -643,7 +657,9 @@
     display: block;
     padding-block: 1rem;
     border-bottom: 1px dashed hsl(var(--muted));
-    transition: all 150ms ease;
+    /* padding-left is the only thing :hover changes — and it is layout, not
+       compositing. Kept as-authored; see plan 027 Findings. */
+    transition: padding-left 150ms ease;
   }
 
   .item:last-child {
@@ -669,7 +685,8 @@
     display: inline-flex;
     align-items: center;
     gap: 4px;
-    transition: all 0.15s ease;
+    /* The arrow's slide lives on .link::after, which owns its own transition. */
+    transition: color 0.15s ease;
   }
 
   .link::after {
@@ -694,7 +711,9 @@
     font-size: 12px;
     font-weight: 500;
     border-radius: var(--radius-md);
-    transition: all 0.15s ease;
+    transition:
+      background 0.15s ease,
+      color 0.15s ease;
   }
 
   @media (min-width: 640px) {
@@ -1449,18 +1468,9 @@
     -webkit-backdrop-filter: blur(8px);
     backdrop-filter: blur(8px);
     overflow: hidden;
-    /* Only transition colors, GSAP handles width/transform */
-    transition: color 0.2s ease, background 0.2s ease, border-color 0.2s ease, gap 0.2s ease;
-  }
-
-  .header-action-btn.is-hovered {
-    gap: 6px;
-  }
-
-  .header-action-btn.is-hovered {
-    color: hsl(var(--foreground));
-    background: hsl(var(--foreground) / 0.05);
-    border-color: hsl(var(--foreground) / 0.15);
+    /* Colours only. `transform` is deliberately absent: :active scales the
+       button, and letting it transition would lag the press. */
+    transition: color 0.2s ease, background 0.2s ease, border-color 0.2s ease;
   }
 
   .header-action-btn:active {
@@ -1520,20 +1530,6 @@
       gap: 0;
       padding: 0;
     }
-  }
-
-  /* Text labels - GSAP controls visibility via opacity/scale */
-  .header-action-btn-label {
-    display: inline-block;
-    white-space: nowrap;
-    max-width: 0;
-    opacity: 0;
-    overflow: hidden;
-    font-family: var(--font-mono);
-    font-weight: 600;
-    font-size: 10px;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
   }
 
   .header-action-btn svg {
@@ -1617,9 +1613,9 @@
 
   .menu-swap-icon {
     grid-area: 1 / 1;
-    transition: opacity 200ms cubic-bezier(0.2, 0, 0, 1),
-      transform 200ms cubic-bezier(0.2, 0, 0, 1),
-      filter 200ms cubic-bezier(0.2, 0, 0, 1);
+    transition: opacity 200ms var(--ease),
+      transform 200ms var(--ease),
+      filter 200ms var(--ease);
   }
 
   /* Closed: Menu shown, X waiting rotated/blurred. Open: they swap. */
@@ -1760,7 +1756,7 @@
     text-align: left;
     opacity: 0;
     transform: translateY(4px);
-    transition: opacity 220ms ease, transform 220ms cubic-bezier(0.23, 1, 0.32, 1),
+    transition: opacity 220ms ease, transform 220ms var(--ease-out),
       color 150ms ease, background 150ms ease;
   }
 
@@ -1876,7 +1872,9 @@
     border: none;
     border-radius: 6px;
     cursor: pointer;
-    transition: all 0.12s ease;
+    transition:
+      color 0.12s ease,
+      background 0.12s ease;
   }
 
   .theme-dropdown-item:hover {
@@ -2269,10 +2267,17 @@ html.no-transition * {
   }
 }
 
+/* Opacity finishes early (~160ms) while the transform keeps settling for the
+   rest of the window. Sharing one ramp left the whole page grey for a third of
+   the navigation while any named layer sat at full opacity on top of it — that
+   mismatch, not the movement, is what read as unfinished. */
 @keyframes vt-root-in {
   from {
     opacity: 0;
     transform: translateY(10px) scale(0.992);
+  }
+  35% {
+    opacity: 1;
   }
   to {
     opacity: 1;
@@ -2289,15 +2294,24 @@ html.no-transition * {
   animation-timing-function: cubic-bezier(0.32, 0.72, 0, 1);
 }
 
-/* The publication mark is the thread of continuity across the whole navigation.
-   On home the Writing doorway carries the same `blog-mark` name (Posts.astro),
-   so clicking "Enter" lifts that mark up into the blog masthead — one element
-   the eye tracks through the fade instead of everything dissolving at once.
-   The expo curve + longer window lets it travel the full home→masthead distance
-   smoothly and settle in step with the incoming page. */
+/* The publication mark is the thread of continuity across the whole navigation,
+   and — since the home teaser titles stopped morphing — the ONLY shared element
+   on home→blog. Crossing into the publication you follow its sign; once inside,
+   you follow the piece you chose (the title morph above). The home doorway
+   declares `blog-mark` as a candidate (Posts.astro) and the broker promotes it
+   only when the doorway is on screen, so the mark never travels from below the
+   fold. The expo curve + longer window lets it cover the real distance smoothly
+   and settle in step with the incoming page. */
 ::view-transition-group(blog-mark) {
   animation-duration: 460ms;
   animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* No outgoing counterpart (the doorway was off screen, or the reader arrived
+   from outside the site): the mark has nothing to travel from, so it arrives
+   with the page instead of on the UA's default fade schedule. */
+::view-transition-new(blog-mark):only-child {
+  animation: vt-root-in 460ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 /* Article hero (blog-hero): lifted out of the root snapshot into its own
@@ -2329,13 +2343,14 @@ html.no-transition * {
   object-fit: cover;
 }
 
-/* No WebKit override lives here on purpose. WebKit runs these morphs largely on
-   the main thread, and even after flattening them to an opacity-only crossfade
-   it still dropped a frame mid-tween as the snapshot swap met the incoming
-   page's first paint. The layouts' no-FOUC script now calls skipTransition() on
-   pageswap/pagereveal for WebKit, so Safari navigates instantly instead of
-   stuttering. Delete that skip once Safari composites view transitions and the
-   rules above apply everywhere. */
+/* No WebKit override lives here on purpose, and as of 2026-08-01 no skip either.
+   WebKit used to stutter on these navigations, but that was measured against a
+   transition this file no longer describes: a full-viewport crossfade plus three
+   simultaneous per-slug title morphs plus a large hero bitmap. Home → blog is
+   now a crossfade and one ~44px mark, which is inside what the main thread can
+   carry. If Safari drops a frame at the snapshot swap, the fix is to restore
+   skipTransition() on pageswap/pagereveal in both layouts' no-FOUC script — not
+   to build a WebKit-only vocabulary here (plans/021 records why). */
 
 /* ─── Theme toggle: polygon gradient reveal ──────────────────────────────────
    A fixed gradient mask preserves the registry's feathered triangle while its
@@ -2419,10 +2434,30 @@ html.no-transition * {
   }
 }
 
+/* Less movement, not less feedback. Killing every animation made navigation a
+   hard cut; the page still crossfades so the change is legible, but nothing
+   travels and nothing morphs. */
 @media (prefers-reduced-motion: reduce) {
-  ::view-transition-group(*),
+  ::view-transition-group(*) {
+    animation: none !important;
+  }
+
   ::view-transition-old(*),
   ::view-transition-new(*) {
     animation: none !important;
+  }
+
+  ::view-transition-old(root) {
+    animation: vt-root-out 150ms linear both !important;
+  }
+
+  ::view-transition-new(root) {
+    animation: vt-reduced-in 150ms linear both !important;
+  }
+}
+
+@keyframes vt-reduced-in {
+  from {
+    opacity: 0;
   }
 }

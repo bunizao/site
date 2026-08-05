@@ -9,7 +9,7 @@
 // no runtime hydration. One snapshot, one source of truth.
 import { blog } from '@/data/site';
 import { getTagLabel } from '@/features/posts/display';
-import { postPath, postTitleTransitionName } from '@/features/posts/format';
+import { postPath } from '@/features/posts/format';
 import { getAllPosts } from '@/features/posts/server/content';
 import SiteWordmark from '@/components/SiteWordmark.astro';
 
@@ -40,7 +40,11 @@ const stamp = (iso: string): string => {
     data-reveal-item
     style="--reveal-delay: 500ms; --reveal-duration: 500ms"
   >
-    <span class="writing-portal__mark" style="view-transition-name:blog-mark" aria-hidden="true">
+    {/* Candidate, not a claim: the broker in @/lib/view-transition-names only
+        promotes this to a real `view-transition-name` when the doorway is on
+        screen at click time. Unconditional naming used to fly the mark ~1900px
+        up from below the fold on any navigation started elsewhere. */}
+    <span class="writing-portal__mark" data-vt-name="blog-mark" aria-hidden="true">
       <img src={blog.mark} alt="" width="48" height="48" loading="lazy" decoding="async" />
     </span>
     <span class="writing-portal__id">
@@ -60,12 +64,15 @@ const stamp = (iso: string): string => {
             data-reveal-item
             style={`--reveal-delay: ${800 + index * 60}ms; --reveal-duration: 400ms`}
           >
-            {/* Same per-slug name as the article <h1> → the clicked home title
-                morphs into the post headline, matching the /blog list behaviour. */}
-            <span
-              class="post-title"
-              style={`view-transition-name:${postTitleTransitionName(post.slug)};view-transition-class:post-title`}
-            >{post.title}</span>
+            {/* No `view-transition-name` here on purpose. The blog is its own
+                publication (see this file's header); morphing a 16px teaser into
+                a 34px headline in another typographic register asserts a
+                sameness the design denies — and stretched the outgoing snapshot
+                ~3x across the wider article measure, leaving a giant ghost
+                trailing the real headline. Crossing the threshold follows the
+                publication mark instead (`blog-mark`, above). The title morph
+                stays where it is true: list row → headline inside the blog. */}
+            <span class="post-title">{post.title}</span>
             <span class="post-meta">
               {tag && <span class="post-tag">{getTagLabel(tag, locale)}</span>}
               <span class="post-date">{stamp(post.publishedAt)}</span>
@@ -181,21 +188,24 @@ const stamp = (iso: string): string => {
 
   /* cai.im sliding pill: a soft rounded rectangle that glides behind the
      hovered row (springy transform), injected + moved by hover-indicator.ts. */
+  /* A 1x1 box that scale() stretches to the hovered row, so the pre-promotion
+     below actually holds: the layer's raster never changes, only its transform.
+     Tweening width/height instead forced a re-raster every frame. */
   :global(#writing-section .post-indicator) {
     position: absolute;
     left: 0;
     top: 0;
+    width: 1px;
+    height: 1px;
+    transform-origin: 0 0;
     z-index: 0;
     border-radius: 12px;
     background: hsl(var(--foreground) / 0.045);
     opacity: 0;
     pointer-events: none;
-    /* Pre-promote so Safari composites the springy move on the GPU. */
     will-change: transform;
     transition:
       transform 0.46s cubic-bezier(0.25, 1.18, 0.45, 1.04),
-      width 0.4s cubic-bezier(0.25, 1, 0.3, 1),
-      height 0.4s cubic-bezier(0.25, 1, 0.3, 1),
       opacity 0.25s ease-out;
   }
 
@@ -255,8 +265,10 @@ const stamp = (iso: string): string => {
 
   /* The pill holds still while the title leans into it — the cai.im tell that
      turns a static fill into a hover that feels alive. */
-  :global(#writing-section .post-item:hover .post-title) {
-    transform: translateX(4px);
+  @media (hover: hover) and (pointer: fine) {
+    :global(#writing-section .post-item:hover .post-title) {
+      transform: translateX(4px);
+    }
   }
 
   :global(#writing-section .post-meta) {

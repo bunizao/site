@@ -344,7 +344,15 @@
   transition: transform 0.45s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
-.listening-art:hover:not(:disabled):not(.is-live):not(.is-preview-playing):not(.is-preview-loading) .listening-art-tonearm-arm,
+/* Hover and focus split deliberately: the hover branch is gated so a tap on
+   touch does not leave the arm swung out, but keyboard focus must keep its
+   feedback on every device. */
+@media (hover: hover) and (pointer: fine) {
+  .listening-art:hover:not(:disabled):not(.is-live):not(.is-preview-playing):not(.is-preview-loading) .listening-art-tonearm-arm {
+    transform: rotate(-18deg);
+  }
+}
+
 .listening-art:focus-visible:not(:disabled):not(.is-live):not(.is-preview-playing):not(.is-preview-loading) .listening-art-tonearm-arm {
   transform: rotate(-18deg);
 }
@@ -378,7 +386,12 @@
   opacity: 1;
 }
 
-.listening-art.is-live:hover:not(:disabled):not(.is-preview-playing):not(.is-preview-loading) .listening-art-tonearm-arm,
+@media (hover: hover) and (pointer: fine) {
+  .listening-art.is-live:hover:not(:disabled):not(.is-preview-playing):not(.is-preview-loading) .listening-art-tonearm-arm {
+    transform: rotate(18deg);
+  }
+}
+
 .listening-art.is-live:focus-visible:not(:disabled):not(.is-preview-playing):not(.is-preview-loading) .listening-art-tonearm-arm {
   transform: rotate(18deg);
 }
@@ -885,7 +898,9 @@
   border-radius: 999px;
   background: var(--listening-accent);
   box-shadow: 0 0 0 3px hsl(var(--background));
-  transform: translate(-50%, -50%) scale(0);
+  /* Not 0: the thumb has to grow from something real. Opacity keeps it absent
+     against the track at rest. */
+  transform: translate(-50%, -50%) scale(0.4);
   transition: transform 0.18s cubic-bezier(0.2, 0.8, 0.2, 1);
   pointer-events: none;
 }
@@ -897,7 +912,12 @@
   height: 4px;
 }
 
-.listening-progress:hover .listening-progress-thumb,
+@media (hover: hover) and (pointer: fine) {
+  .listening-progress:hover .listening-progress-thumb {
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
 .listening-progress:focus-visible .listening-progress-thumb {
   transform: translate(-50%, -50%) scale(1);
 }

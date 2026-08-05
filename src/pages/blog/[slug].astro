@@ -154,7 +154,8 @@ const turnstileSiteKey = isE2ESiteFixtureEnabled(Astro.locals)
       <header class="blog-article__header">
         <h1
           class="blog-article__title"
-          style={`view-transition-name:${titleVT};view-transition-class:post-title`}
+          data-vt-name={titleVT}
+          style="view-transition-class:post-title"
         >{post.title}</h1>
         <PostMeta post={post} />
         <TagList tags={post.tags} />

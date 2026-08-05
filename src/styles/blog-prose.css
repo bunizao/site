@@ -703,7 +703,15 @@
   transition: transform 0.45s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
-.blog-prose .blog-music__art:hover:not(:disabled):not(.is-playing) .blog-music__tonearm-arm,
+/* Hover and focus split deliberately: the hover branch is gated so a tap on
+   touch does not leave the arm swung out, but keyboard focus must keep its
+   feedback on every device. */
+@media (hover: hover) and (pointer: fine) {
+  .blog-prose .blog-music__art:hover:not(:disabled):not(.is-playing) .blog-music__tonearm-arm {
+    transform: rotate(-16deg);
+  }
+}
+
 .blog-prose .blog-music__art:focus-visible:not(:disabled):not(.is-playing) .blog-music__tonearm-arm {
   transform: rotate(-16deg);
 }
@@ -1038,7 +1046,9 @@
   border-radius: 999px;
   background: var(--blog-music-accent);
   box-shadow: 0 0 0 3px hsl(var(--background));
-  transform: translate(-50%, -50%) scale(0);
+  /* Not 0: the thumb has to grow from something real. Opacity keeps it absent
+     against the track at rest. */
+  transform: translate(-50%, -50%) scale(0.4);
   transition: transform 0.18s cubic-bezier(0.2, 0.8, 0.2, 1);
   pointer-events: none;
 }
@@ -1050,7 +1060,12 @@
   height: 4px;
 }
 
-.blog-prose .blog-music__progress:hover .blog-music__progress-thumb,
+@media (hover: hover) and (pointer: fine) {
+  .blog-prose .blog-music__progress:hover .blog-music__progress-thumb {
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
 .blog-prose .blog-music__progress:focus-visible .blog-music__progress-thumb {
   transform: translate(-50%, -50%) scale(1);
 }

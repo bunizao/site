@@ -1379,7 +1379,13 @@ const skeletonGroups = [
     text-decoration: none;
     cursor: pointer;
     opacity: 0;
-    transition: all 0.2s ease;
+    /* opacity for the card-hover reveal and :focus-visible, colour/background
+       for its own hover, transform for the press. */
+    transition:
+      opacity 0.2s ease,
+      color 0.2s ease,
+      background 0.2s ease,
+      transform 0.2s ease;
     z-index: 10;
   }
 
@@ -1497,19 +1503,35 @@ const skeletonGroups = [
     background-clip: content-box;
   }
 
-  :global(.mood-comments-wrapper:hover .mood-comments-popover),
+  /* The hover branch is split from the .is-popover-open branch and gated: on
+     touch a tap fires a synthetic hover that would strand the popover open.
+     The class branch stays ungated — it is the tap-to-open path itself. */
+  @media (hover: hover) and (pointer: fine) {
+    :global(.mood-comments-wrapper:hover .mood-comments-popover),
+    :global(.mood-comments-popover:hover) {
+      opacity: 1;
+      visibility: visible;
+      transform: translateX(-50%) translateY(0);
+      pointer-events: auto;
+    }
+  }
+
   :global(.mood-comments-wrapper.is-popover-open .mood-comments-popover),
-  :global(.mood-comments-popover.is-popover-open),
-  :global(.mood-comments-popover:hover) {
+  :global(.mood-comments-popover.is-popover-open) {
     opacity: 1;
     visibility: visible;
     transform: translateX(-50%) translateY(0);
     pointer-events: auto;
   }
 
+  @media (hover: hover) and (pointer: fine) {
+    :global(.mood-comments-popover[data-side="bottom"]:hover) {
+      transform: translateX(-50%) translateY(0);
+    }
+  }
+
   :global(.mood-comments-wrapper.is-popover-open .mood-comments-popover[data-side="bottom"]),
-  :global(.mood-comments-popover.is-popover-open[data-side="bottom"]),
-  :global(.mood-comments-popover[data-side="bottom"]:hover) {
+  :global(.mood-comments-popover.is-popover-open[data-side="bottom"]) {
     transform: translateX(-50%) translateY(0);
   }
 

@@ -11,7 +11,6 @@
   --line: hsl(var(--foreground) / 0.1);
   --line2: hsl(var(--foreground) / 0.2);
   --surface: hsl(var(--foreground) / 0.02);
-  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
 
   --shell: min(64rem, 100% - 2.5rem);
 }
@@ -449,18 +448,22 @@ html.dark .cgrid-tile:hover {
   opacity: 0.4;
 }
 
-/* The sliding pill glides behind the hovered row. */
+/* The sliding pill glides behind the hovered row. A 1x1 box that scale()
+   stretches to the row, so the promoted layer's raster stays reusable —
+   tweening width/height instead forced a re-raster every frame. */
 .hoverlist-indicator {
   position: absolute;
   top: 0;
   left: 0;
+  width: 1px;
+  height: 1px;
+  transform-origin: 0 0;
   z-index: 0;
   border-radius: var(--radius-md);
   background: hsl(var(--foreground) / 0.06);
   opacity: 0;
   pointer-events: none;
-  transition: transform 0.32s var(--ease-out), width 0.32s var(--ease-out),
-    height 0.32s var(--ease-out), opacity 0.2s ease;
+  transition: transform 0.32s var(--ease-out), opacity 0.2s ease;
   will-change: transform;
 }
 

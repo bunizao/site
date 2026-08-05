@@ -16,7 +16,10 @@ const heroPreview = post.featureImage && post.featureImage.includes('/api/v2/ima
   ? withWidthParam(post.featureImage, 640)
   : post.featureImage;
 // Same name as the article headline → the clicked title morphs into the post.
-// The shared class lets blog.css tune every title-morph group with one rule.
+// Declared as a candidate (`data-vt-name`) rather than a live
+// `view-transition-name`: the broker in @/lib/view-transition-names promotes
+// only the row the reader actually clicked, so a list→list navigation (blog
+// index → tag archive) no longer yanks every title the two lists share.
 const titleVT = postTitleTransitionName(post.slug);
 // Up to three public tags on the date line, each linking to its archive. The
 // post link is a stretched overlay (blog.css), so the whole row still opens the
@@ -32,7 +35,8 @@ const metaTags = post.tags.filter((tag) => tag.visibility === 'public').slice(0,
   <a class="blog-row__link" href={postPath(post.slug)}>
     <h2
       class="blog-row__title"
-      style={`view-transition-name:${titleVT};view-transition-class:post-title`}
+      data-vt-name={titleVT}
+      style="view-transition-class:post-title"
     >{post.title}</h2>
     {post.excerpt && <p class="blog-row__excerpt">{post.excerpt}</p>}
   </a>

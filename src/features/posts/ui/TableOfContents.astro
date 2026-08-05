@@ -279,12 +279,18 @@ const blogMarkAsset = blog.mark;
     // transform string could not do. What stays here is only the bookkeeping
     // that has no numeric form: which of the two marks owns the pixels.
     const REVEAL = 120; // scroll px where the bar appears AND the logo docks
+
+    // One dock for the whole bar: its own reveal rides `dock` (the mark's run)
+    // and the title's crossfade rides `lift` (the H1's run), both inherited by
+    // the controls inside. Every part of the arrival is then derived from the
+    // same scroll offset, so no piece of it can land a frame after another.
+    const topbarDock = createScrollDock(topbar, ['dock', 'lift']);
+    topbarDock.setRun('dock', REVEAL);
     const mark = document.querySelector<HTMLElement>('.blog-mark');
     const barLogo = topbar.querySelector<HTMLElement>('.toc-topbar__logo');
     const barLogoImg = barLogo?.querySelector<HTMLImageElement>('img');
     const handoffMql = window.matchMedia('(max-width: 1279px)');
     const canHandoff = !reduceMotion && !!mark && !!barLogo && !!barLogoImg;
-    const clamp01 = (n: number) => Math.min(1, Math.max(0, n));
 
     let ghost: HTMLElement | null = null;
     let logoDock: ScrollDock | null = null;
@@ -300,8 +306,8 @@ const blogMarkAsset = blog.mark;
       // of where the page happens to be when we measure.
       const b = barLogo!.getBoundingClientRect();
       const tb = topbar.getBoundingClientRect();
-      // The bar is translated off-screen when hidden; remove its own offset to
-      // recover where logo2 rests once the bar slides in.
+      // Measured against the bar's own box, so the dock target holds even if the
+      // bar is ever given an offset again — it fades in place today.
       setNum(ghost, '--l1-x', a.left);
       setNum(ghost, '--l1-y', a.top + window.scrollY);
       setNum(ghost, '--l1-size', a.width);
@@ -358,21 +364,37 @@ const blogMarkAsset = blog.mark;
     // The H1 docks by the time its top nears the bar; the run is its travel.
     // Cached, not recomputed per frame — `update()` below reads it every tick.
     let titleRun = 168;
+    // The ghost is one nowrap line, but the H1 it stands in for wraps to two or
+    // three on a phone — 342px of column against a 359px title. Lifting off from
+    // a wrapped headline snaps it to a single line wider than the screen, at the
+    // first scrolled pixel and at 27px type: a louder break than the collapse is
+    // worth. So the flight is earned by the title fitting on one line, and where
+    // it doesn't the bar title simply fades in with the bar. Re-checked from
+    // measureTitle(), which already runs on every event that can rewrap it.
+    let titleFitsOneLine = false;
 
     const measureTitle = () => {
       if (!titleGhost || !handoffMql.matches) return;
       const h = h1!.getBoundingClientRect();
       const heroFont = parseFloat(getComputedStyle(h1!).fontSize) || 28;
+      const heroLine = parseFloat(getComputedStyle(h1!).lineHeight) || heroFont * 1.3;
+      titleFitsOneLine = h.height <= heroLine * 1.5;
       const r = titleText.getBoundingClientRect();
       const tb = topbar.getBoundingClientRect();
-      // Centre of the real bar title, with the bar's hidden-state offset removed.
+      // Centre of the real bar title, relative to the bar's own box.
       const cx = r.left + r.width / 2;
       const cy = r.top - tb.top + r.height / 2;
-      const scale = (parseFloat(getComputedStyle(titleText).fontSize) || 14) / heroFont;
       // offsetWidth/Height, not a rect: the ghost carries the flight transform
       // at all times now, and the layout box is the only reading that ignores it.
       const gw = titleGhost.offsetWidth;
       const gh = titleGhost.offsetHeight;
+      // The font-size ratio, which is only honest because the bar title now
+      // wears the H1's weight and tracking (blog.css) — em-relative tracking
+      // scales with the glyphs, so equal size means equal width. Matching the
+      // measured width instead looks like the more direct fix and is a trap: it
+      // silently absorbs any type mismatch into the scale, so the ghost lands
+      // the right width with visibly larger glyphs.
+      const scale = (parseFloat(getComputedStyle(titleText).fontSize) || 14) / heroFont;
 
       titleRun = Math.max(1, h.top + window.scrollY - 52);
       setNum(titleGhost, '--t1-x', h.left);
@@ -384,38 +406,27 @@ const blogMarkAsset = blog.mark;
       setNum(titleGhost, '--title-target-y', cy - (gh * scale) / 2);
       setNum(titleGhost, '--title-scale', scale);
       titleDock?.setRun('lift', titleRun);
+      topbarDock.setRun('lift', titleRun);
     };
 
     // Extra scroll past the first heading before the centre swaps title→section.
     const SECTION_LEAD = 100;
 
-    // Only the crossfade stays on this thread: the ghost's travel is CSS, but
-    // the bar's real title lives inside the topbar and cannot inherit the
-    // ghost's scalar, and setTitle()'s WAAPI ticker has to be able to take the
-    // property back (hence the '' handback at the end of the run).
+    // The crossfade itself is CSS now, off the same `--lift-ride` the travel
+    // rides (see blog.css). Reading window.scrollY here instead meant the fade
+    // was observed a frame after the flight it was supposed to accompany, so on
+    // iOS momentum the ghost had already parked while the bar title had not yet
+    // started — two titles at once, which is what the doubling was. What stays
+    // on this thread is only the bookkeeping with no numeric form: who owns the
+    // title's pixels.
     const updateTitleGhost = () => {
       if (!titleGhost) return;
-      if (!handoffMql.matches) {
-        titleGhost.style.opacity = '0';
-        titleText.style.opacity = '';
-        h1!.style.visibility = '';
-        return;
-      }
-      const p = clamp01(window.scrollY / titleRun);
-      if (p <= 0) {
-        // At the top the real H1 owns the title; bar slot stays empty.
-        titleGhost.style.opacity = '0';
-        titleText.style.opacity = '0';
-        h1!.style.visibility = '';
-        return;
-      }
-      h1!.style.visibility = 'hidden';
-      // The travel finishes at p=0.85 and parks exactly on the dock; only then
-      // crossfade. Parked, the ghost and the real bar title share one spot, so
-      // the swap never shows two titles at two places — the earlier flaw.
-      const fade = clamp01((p - 0.85) / 0.15);
-      titleGhost.style.opacity = `${1 - fade}`;
-      titleText.style.opacity = p >= 1 ? '' : `${fade}`;
+      const flying = handoffMql.matches && titleFitsOneLine && window.scrollY > 0;
+      titleGhost.classList.toggle('is-flying', flying);
+      topbar.classList.toggle('title-handoff', flying);
+      // The H1 keeps its layout box (visibility, not display) so the article
+      // never reflows under the reader.
+      h1!.style.visibility = flying ? 'hidden' : '';
     };
 
     if (canTitle) {
@@ -440,13 +451,15 @@ const blogMarkAsset = blog.mark;
     // Slide the pill to hug the active link's box; depth indent comes for free.
     // Measured against the wrapper (not offsetParent) because each .toc-item is
     // positioned, which would otherwise pin every link's offsetTop near zero.
+    // One composited write instead of four layout writes. The pill is a 1x1 box
+    // (blog.css) with transform-origin at its top-left, so translate positions
+    // it and scale sizes it in the same property.
     const movePill = (link: HTMLAnchorElement) => {
       const wrap = wrapper!.getBoundingClientRect();
       const box = link.getBoundingClientRect();
-      pill!.style.top = `${box.top - wrap.top}px`;
-      pill!.style.left = `${box.left - wrap.left}px`;
-      pill!.style.width = `${box.width}px`;
-      pill!.style.height = `${box.height}px`;
+      pill!.style.transform =
+        `translate(${box.left - wrap.left}px, ${box.top - wrap.top}px)` +
+        ` scale(${box.width}, ${box.height})`;
       pill!.style.opacity = '1';
     };
 
@@ -467,9 +480,10 @@ const blogMarkAsset = blog.mark;
     const update = () => {
       ticking = false;
 
-      // Reveal the reading topbar once the reader has left the header behind —
-      // in step with the logo docking into it.
-      topbar.classList.toggle('is-visible', window.scrollY > REVEAL);
+      // Only hit-testing: how far in the bar is, is CSS reading --dock-ride.
+      // Armed from the first scrolled pixel so visibility is never the thing
+      // holding back an already-opaque bar.
+      topbar.classList.toggle('is-visible', window.scrollY > 0);
       updateGhost();
       updateTitleGhost();
       if (!hasToc || !wrapper || !fill || !pill || !headingTops.length) return;

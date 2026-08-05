@@ -110,7 +110,6 @@ const linkLabel = (url: string) =>
     --line: hsl(var(--foreground) / 0.1);
     --line2: hsl(var(--foreground) / 0.2);
     --surface: hsl(var(--foreground) / 0.02);
-    --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
     --shell: min(72rem, 100% - 2.5rem);
 
     min-height: 100vh;
@@ -184,8 +183,10 @@ const linkLabel = (url: string) =>
     transition: transform 0.18s ease;
   }
 
-  .proj-gh:hover :global(svg) {
-    transform: translate(2px, -2px);
+  @media (hover: hover) and (pointer: fine) {
+    .proj-gh:hover :global(svg) {
+      transform: translate(2px, -2px);
+    }
   }
 
   /* ── The ledger ─────────────────────────────────────────────────────────── */
@@ -345,8 +346,10 @@ const linkLabel = (url: string) =>
     transition: transform 0.18s ease;
   }
 
-  .proj-link:hover :global(svg) {
-    transform: translate(2px, -2px);
+  @media (hover: hover) and (pointer: fine) {
+    .proj-link:hover :global(svg) {
+      transform: translate(2px, -2px);
+    }
   }
 
   /* ── Desktop: two columns, hero alternating side to side ─────────────────── */
