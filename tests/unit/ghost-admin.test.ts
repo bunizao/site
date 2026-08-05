@@ -54,7 +54,7 @@ describe('Ghost Admin client', () => {
       `https://blog.example.test/ghost/api/admin/posts/${POST_ID}/?formats=html`,
     );
     expect(requestInit?.method).toBe('GET');
-    expect(requestInit?.redirect).toBe('error');
+    expect(requestInit?.redirect).toBe('manual');
     expect(requestInit?.cache).toBe('no-store');
     expect(requestHeaders.get('Accept')).toBe('application/json');
     expect(requestHeaders.get('Accept-Version')).toBe('v6.0');
@@ -207,6 +207,35 @@ describe('Ghost Admin client', () => {
       expect(String(error)).not.toContain(ADMIN_KEY);
       expect(String(error)).not.toContain(ADMIN_SECRET);
     }
+  });
+
+  test('reports redirects without forwarding the Admin credential', async () => {
+    const upstreamResponse = new Response(null, {
+      status: 302,
+      headers: { Location: 'https://other.example.test/ghost/' },
+    });
+    let requestInit: RequestInit | undefined;
+    const client = createGhostAdminClient({
+      url: 'https://blog.example.test',
+      adminApiKey: ADMIN_KEY,
+      fetch: async (_input, init) => {
+        requestInit = init;
+        return upstreamResponse;
+      },
+    });
+
+    try {
+      await client.readPostById(POST_ID);
+      throw new Error('Expected the redirected request to fail');
+    } catch (error) {
+      expect(error).toMatchObject({
+        code: 'request_failed',
+        status: 302,
+        message: 'Ghost Admin request failed.',
+      });
+    }
+    expect(requestInit?.redirect).toBe('manual');
+    expect(upstreamResponse.bodyUsed).toBe(false);
   });
 
   test('does not surface or consume upstream error bodies', async () => {

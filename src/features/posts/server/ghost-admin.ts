@@ -273,7 +273,7 @@ export function createGhostAdminClient(options: GhostAdminClientOptions): GhostA
           fetchImpl(url.toString(), {
             method: 'GET',
             cache: 'no-store',
-            redirect: 'error',
+            redirect: 'manual',
             signal: controller.signal,
             headers: {
               Accept: 'application/json',
