@@ -69,8 +69,16 @@ function createConfiguredClient(locals: RuntimeEnvLocals | undefined): GhostAdmi
 
 function mapGhostPreviewError(error: unknown): GhostDraftPreviewResult {
   if (!(error instanceof GhostAdminClientError)) {
+    console.error('Ghost draft preview failed.', {
+      errorType: error instanceof Error ? error.name : typeof error,
+    });
     return { ok: false, status: 500, message: 'Ghost draft preview failed.' };
   }
+
+  console.error('Ghost Admin request failed.', {
+    code: error.code,
+    status: error.status ?? null,
+  });
 
   switch (error.code) {
     case 'invalid_identifier':
