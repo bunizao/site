@@ -238,12 +238,12 @@ test.describe('Blog reading UI', () => {
 
   test('renders a Ghost draft preview through the real blog prose without caching', async ({ page }) => {
     const response = await page.goto(
-      `/blog/preview/${GHOST_PREVIEW_E2E_POST_ID}`,
+      `/dev/blog/${GHOST_PREVIEW_E2E_POST_ID}`,
       { waitUntil: 'domcontentloaded' },
     );
 
     expect(response?.status()).toBe(200);
-    expect(response?.headers()['cache-control']).toBe('private, no-store');
+    expect(response?.headers()['cache-control']).toBe('no-store, max-age=0');
     await expect(page.locator('[data-ghost-draft-preview]')).toBeVisible();
     await expect(page.locator('.blog-article__title')).toHaveText('E2E Ghost draft');
     await expect(page.locator('.blog-prose .blog-poem')).toContainText('E2E preview line');
@@ -251,13 +251,13 @@ test.describe('Blog reading UI', () => {
     await expect(page.locator('.ai-credit')).toContainText('reviewed the draft.');
     await expect(page.locator('.not-by-ai')).toHaveCount(0);
 
-    const invalid = await page.request.get('/blog/preview/not-a-ghost-id');
+    const invalid = await page.request.get('/dev/blog/not-a-ghost-id');
     expect(invalid.status()).toBe(404);
-    expect(invalid.headers()['cache-control']).toBe('private, no-store');
+    expect(invalid.headers()['cache-control']).toBe('no-store, max-age=0');
 
-    const missing = await page.request.get('/blog/preview/aaaaaaaaaaaaaaaaaaaaaaaa');
+    const missing = await page.request.get('/dev/blog/aaaaaaaaaaaaaaaaaaaaaaaa');
     expect(missing.status()).toBe(404);
-    expect(missing.headers()['cache-control']).toBe('private, no-store');
+    expect(missing.headers()['cache-control']).toBe('no-store, max-age=0');
   });
 
   test('probes YouTube capability on click without geo branching or overflow', async ({ page }) => {

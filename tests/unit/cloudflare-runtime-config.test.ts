@@ -173,35 +173,16 @@ describe('Cloudflare runtime configuration', () => {
     expect(ghostConfig).toContain('return readProcessEnv(name);');
   });
 
-  test('returns before loading Ghost draft preview dependencies in production', () => {
-    const previewRoute = readText('src/pages/blog/preview/[id].astro');
-    const productionGuardIndex = previewRoute.indexOf('if (!import.meta.env.DEV)');
-    const productionReturnIndex = previewRoute.indexOf(
-      "return new Response('Not found.'",
-      productionGuardIndex,
-    );
+  test('keeps Ghost draft previews inside the authenticated dev route', () => {
+    const previewRoute = readText('src/pages/dev/blog/[id].astro');
 
-    expect(productionGuardIndex).toBeGreaterThan(-1);
-    expect(productionReturnIndex).toBeGreaterThan(productionGuardIndex);
-    expect(previewRoute.slice(0, productionGuardIndex)).not.toMatch(/\bimport(?:\s|\()/);
+    expect(previewRoute).toContain("import('@/features/posts/server/ghost-preview')");
+    expect(previewRoute).not.toContain('import.meta.env.DEV');
 
-    const previewDependencies = [
-      '@/layouts/BlogLayout.astro',
-      '@/features/posts/ui/Prose.astro',
-      '@/features/posts/ui/AiCredit.astro',
-      '@/features/posts/ui/NotByAI.astro',
-      '@/features/posts/format',
-      '@/features/posts/server/directives/authors',
-      '@/features/posts/server/ghost-preview',
-    ];
-
-    for (const dependency of previewDependencies) {
-      const dynamicImportIndex = previewRoute.indexOf(`import('${dependency}')`);
-
-      expect(dynamicImportIndex).toBeGreaterThan(productionReturnIndex);
-      expect(previewRoute).not.toContain(`from '${dependency}'`);
-      expect(previewRoute).not.toContain(`import '${dependency}'`);
-    }
+    const middleware = readText('src/middleware.ts');
+    expect(middleware).toContain("const DEV_PORTAL_PREFIX = '/dev';");
+    expect(middleware).toContain('if (isDevPortalPath(pathname))');
+    expect(middleware).toContain('const session = await readAdminSession');
   });
 
   test('loads Tailwind 4 through its stylesheet entrypoint', () => {
