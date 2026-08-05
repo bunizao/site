@@ -149,7 +149,10 @@
     const ATTRIBUTION = /[—–]\s*[^—–\n]{1,40}\s*$/;
     const ATTRIBUTION_ONLY = /^(?:[—–]|--|-)\s*\S.{0,40}$/;
     const INLINE_ATTRIBUTION = /^([\s\S]*?)\s*((?:[—–]|--)\s*[^—–<]{1,40})\s*$/;
-    const stripTags = (value: string) => value.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim();
+    const stripTags = (value: string) => {
+      const parsed = new DOMParser().parseFromString(value, 'text/html');
+      return (parsed.body.textContent ?? '').replace(/\s+/g, ' ').trim();
+    };
 
     const promotePoem = (quote: HTMLElement, rawHtml: string) => {
       let html = rawHtml;
