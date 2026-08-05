@@ -106,7 +106,8 @@ test('reading bar blocks scrolled article text from the status-bar band', async 
     const style = getComputedStyle(document.body, '::after');
     if (!bar) return null;
     return {
-      background: style.backgroundColor,
+      backdropFilter: style.backdropFilter || style.getPropertyValue('-webkit-backdrop-filter'),
+      backgroundImage: style.backgroundImage,
       height: style.height,
       position: style.position,
       top: style.top,
@@ -119,7 +120,9 @@ test('reading bar blocks scrolled article text from the status-bar band', async 
   expect(shield!.height).toBe(`${INSET}px`);
   expect(shield!.position).toBe('fixed');
   expect(shield!.top).toBe('0px');
-  expect(shield!.background).not.toMatch(/rgba?\([^)]*,\s*0(?:\.0+)?\)$/);
+  expect(shield!.backgroundImage).toContain('linear-gradient');
+  expect(shield!.backdropFilter).toContain('blur(18px)');
+  expect(shield!.backdropFilter).toContain('saturate(1.4)');
   expect(shield!.zIndex).toBeGreaterThan(shield!.barZIndex);
 });
 
@@ -162,7 +165,8 @@ test('mood navbar blocks feed content from the status-bar band', async ({ page }
     const style = getComputedStyle(navbar, '::before');
     const blur = navbar.querySelector<HTMLElement>('.topbar__blur');
     return {
-      background: style.backgroundColor,
+      backdropFilter: style.backdropFilter || style.getPropertyValue('-webkit-backdrop-filter'),
+      backgroundImage: style.backgroundImage,
       height: style.height,
       position: style.position,
       top: style.top,
@@ -174,7 +178,9 @@ test('mood navbar blocks feed content from the status-bar band', async ({ page }
   expect(shield.height).toBe(`${INSET}px`);
   expect(shield.position).toBe('absolute');
   expect(shield.top).toBe('0px');
-  expect(shield.background).not.toMatch(/rgba?\([^)]*,\s*0(?:\.0+)?\)$/);
+  expect(shield.backgroundImage).toContain('linear-gradient');
+  expect(shield.backdropFilter).toContain('blur(18px)');
+  expect(shield.backdropFilter).toContain('saturate(1.4)');
   expect(shield.zIndex).toBeGreaterThan(shield.blurZIndex);
 });
 

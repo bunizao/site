@@ -45,9 +45,9 @@
   --ink-scale: 1;
 }
 
-/* The progressive blur remains translucent below the cutout, but feed content
-   must not scroll through the status-bar band. This strip has zero height on
-   devices without a top safe-area inset. */
+/* The safe-area band uses a denser material than the progressive blur below it.
+   One narrow blur pass keeps feed text illegible without turning the Dynamic
+   Island surround into a flat white or black strip. */
 .mood-navbar::before {
   content: '';
   position: absolute;
@@ -56,8 +56,22 @@
   right: 0;
   z-index: 2;
   height: env(safe-area-inset-top, 0px);
-  background: hsl(var(--background));
+  background: linear-gradient(
+    to bottom,
+    hsl(var(--background) / 0.78),
+    hsl(var(--background) / 0.68)
+  );
+  -webkit-backdrop-filter: blur(18px) saturate(1.4);
+  backdrop-filter: blur(18px) saturate(1.4);
   pointer-events: none;
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .mood-navbar::before {
+    background: hsl(var(--background) / 0.96);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
 }
 
 /* The controls sit on the shared reading measure so the avatar aligns with the
