@@ -173,10 +173,14 @@ Owed follow-up, neither of which code can close:
 - **021's Safari feel-check.** The WebKit `skipTransition` was removed ahead of
   the measurement it was meant to wait for. Every transition in the home → blog
   → post chain now runs on Safari unverified by a human eye.
-- **031's own verification list.** The mechanical half passes (`check` and
-  `build` are clean). The side-by-side against the Writing section — the actual
-  point of choosing A2 — needs a real browser and a person watching, as does the
-  throttled skeleton and the paint-cost recording under B1.
+- **031's feel-check and paint measurement.** Verified in real Chromium on
+  2026-08-05 (`check` and `build` clean; five live cards at indices 0-4 with
+  0/60/120/180/240ms delays, 0.55s, `filter: none`; a five-card entrance settles
+  at 800ms against A2's predicted 790ms; the throttled skeleton runs exactly one
+  animation, the 1.2s sheen, and reduced motion parks all three decorated
+  pseudo-elements). What remains is judgement, not measurement: whether the feed
+  now reads as the same motion family as the Writing section, and a DevTools
+  paint recording of the swap to put a number on B1's saving.
 
 Deliberately NOT planned (recorded so it isn't re-litigated):
 
