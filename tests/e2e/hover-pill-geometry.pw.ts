@@ -47,7 +47,7 @@ test('blog list pill is a rounded rect, not an ellipse', async ({ page }) => {
 
 test('post footer pledge line reserves no vertical void on a phone', async ({ page }) => {
   await page.setViewportSize(PHONE);
-  await page.goto('/blog/existence/', { waitUntil: 'networkidle' });
+  await page.goto('/blog/demo-effects/', { waitUntil: 'networkidle' });
 
   const metrics = await page.evaluate(() => {
     const aside = document.querySelector<HTMLElement>('.not-by-ai, .ai-credit');
