@@ -1,6 +1,8 @@
 ---
 export const prerender = false;
 
+import '../../../styles/blog-prose.css';
+
 const previewPolicyHeaders = {
   'Cache-Control': 'private, no-store',
   'X-Robots-Tag': 'noindex, nofollow',
@@ -8,7 +10,6 @@ const previewPolicyHeaders = {
 
 const [
   { default: BlogLayout },
-  { default: Prose },
   { default: AiCredit },
   { default: NotByAI },
   { formatPostDate },
@@ -16,7 +17,6 @@ const [
   { resolveGhostDraftPreview },
 ] = await Promise.all([
   import('@/layouts/BlogLayout.astro'),
-  import('@/features/posts/ui/Prose.astro'),
   import('@/features/posts/ui/AiCredit.astro'),
   import('@/features/posts/ui/NotByAI.astro'),
   import('@/features/posts/format'),
@@ -71,7 +71,7 @@ const authorshipCredits = readAuthorshipCredits(meta, post.slug);
         </p>
       </header>
 
-      <Prose html={html} />
+      <div class="blog-prose" set:html={html} />
     </article>
   </div>
 

@@ -246,7 +246,7 @@ test.describe('Blog reading UI', () => {
     expect(response?.headers()['cache-control']).toBe('no-store, max-age=0');
     await expect(page.locator('[data-ghost-draft-preview]')).toBeVisible();
     await expect(page.locator('.blog-article__title')).toHaveText('E2E Ghost draft');
-    await expect(page.locator('.blog-prose .blog-poem')).toContainText('E2E preview line');
+    await expect(page.locator('.blog-prose blockquote')).toContainText('E2E preview line');
     await expect(page.locator('.ai-credit')).toContainText('Claude Opus 4.6');
     await expect(page.locator('.ai-credit')).toContainText('reviewed the draft.');
     await expect(page.locator('.not-by-ai')).toHaveCount(0);
