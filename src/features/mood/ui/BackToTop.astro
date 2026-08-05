@@ -41,7 +41,8 @@ const { threshold = 600, hideOnDesktop = false } = Astro.props;
   .mood-back-to-top {
     position: fixed;
     right: clamp(16px, 4vw, 32px);
-    bottom: clamp(20px, 4vh, 32px);
+    /* Clears the home indicator under viewport-fit=cover; 0 without one. */
+    bottom: calc(clamp(20px, 4vh, 32px) + env(safe-area-inset-bottom, 0px));
     z-index: 55;
     display: inline-flex;
     align-items: center;
@@ -121,6 +122,7 @@ const { threshold = 600, hideOnDesktop = false } = Astro.props;
 
 <script>
   import { getMoodFeedTopHref } from '@/features/mood/shared/feed-anchor';
+  import { pageScroll } from '@/lib/page-scroll';
 
   function initBackToTop() {
     const button = document.querySelector<HTMLButtonElement>('[data-back-to-top]');
@@ -128,16 +130,17 @@ const { threshold = 600, hideOnDesktop = false } = Astro.props;
 
     const threshold = Number(button.dataset.threshold) || 600;
     const DIR_DELTA = 6; // px of travel before a direction flip counts (anti-jitter)
+    const scroll = pageScroll();
     button.hidden = false;
 
     // Fold the control away while reading forward (scrolling down) and unfold it
     // when the reader scrolls back up past the first screen — the moment a jump
     // to the top is most likely wanted.
-    let anchorY = window.scrollY;
+    let anchorY = scroll.el.scrollTop;
     let dir: 'up' | 'down' = 'down';
     let ticking = false;
     const sync = () => {
-      const y = window.scrollY;
+      const y = scroll.el.scrollTop;
       const dy = y - anchorY;
       if (Math.abs(dy) >= DIR_DELTA) {
         dir = dy < 0 ? 'up' : 'down';
@@ -161,10 +164,10 @@ const { threshold = 600, hideOnDesktop = false } = Astro.props;
       }
 
       const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-      window.scrollTo({ top: 0, behavior: reduceMotion ? 'auto' : 'smooth' });
+      scroll.el.scrollTo({ top: 0, behavior: reduceMotion ? 'auto' : 'smooth' });
     });
 
-    window.addEventListener('scroll', onScroll, { passive: true });
+    scroll.events.addEventListener('scroll', onScroll, { passive: true });
     sync();
   }
 

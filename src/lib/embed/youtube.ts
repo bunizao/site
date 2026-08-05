@@ -1,3 +1,5 @@
+import { renderProgressiveBlurMarkup } from '@/lib/progressive-blur';
+
 const YOUTUBE_VIDEO_ID_PATTERN = /^[A-Za-z0-9_-]{11}$/u;
 export const MAX_YOUTUBE_START_SECONDS = 7 * 24 * 60 * 60;
 
@@ -180,6 +182,31 @@ export function renderYouTubeEmbedMarkup(options: YouTubeEmbedMarkupOptions): st
     `<iframe class="yt__player" data-yt-player title="${escapeHtml(title)}" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen hidden></iframe>`,
     '</div>',
     '<figcaption class="yt__caption">',
+    // Real progressive-blur ladder (Figma-derived, WebKit pass-tuned) rather than
+    // a single backdrop pass: the caption sits over an arbitrary frame, and
+    // burnt-in subtitles land in exactly this band.
+    //
+    // Paint order inside the caption matters and is easy to get wrong. The
+    // caption is a stacking context, so this z-index:-1 element paints ABOVE the
+    // caption's own background — if the darkening lived on .yt__caption, these
+    // layers would sample that near-black gradient and blur it into a flat grey
+    // slab instead of touching the video. So the caption stays transparent and
+    // .yt__scrim carries the darkening as a second z-index:-1 layer: equal
+    // z-index resolves on tree order, so it paints after the blur (excluded from
+    // its backdrop) but still below the text.
+    //
+    // direction 'bottom': each layer's mask ramps from transparent at the top of
+    // the box to opaque at the bottom, so blur builds downward into the text and
+    // dissolves into the poster with no seam. 'top' inverts it and cuts a hard
+    // line along the caption's top edge.
+    // strength 0.28 lands peak radius on ~22px, the same ceiling the topbar
+    // preset tops out at, so both surfaces read as the same material.
+    renderProgressiveBlurMarkup({
+      direction: 'bottom',
+      strength: 0.28,
+      className: 'yt__blur',
+    }),
+    '<span class="yt__scrim" aria-hidden="true"></span>',
     '<span class="yt__avatar" aria-hidden="true">',
     `<span class="yt__avatar-fallback">${escapeHtml(initial)}</span>`,
     `<img class="yt__avatar-image" data-yt-avatar src="${avatarUrl}" alt="" decoding="async" />`,

@@ -237,6 +237,10 @@ const initialTitle = sections[0]?.title ?? label;
     right: 0;
     z-index: 55;
     padding-bottom: 40px;
+    /* Matches the two live bars this specimen demonstrates (.toc-topbar,
+       .mood-navbar): pad the row past the notch, keep the surface at top:0 so
+       the glass still covers the status-bar band. */
+    padding-top: env(safe-area-inset-top, 0px);
     color: hsl(var(--foreground, 0 0% 0%));
     font-family: var(--font-sans, ui-sans-serif, system-ui, sans-serif);
     pointer-events: none;

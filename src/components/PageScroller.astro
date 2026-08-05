@@ -1,0 +1,63 @@
+---
+// A full-viewport content scroller that leaves fixed page chrome outside the
+// scrolling layer. This keeps iOS Safari's root toolbar from collapsing and
+// exposes one named scroll timeline to every navbar/overlay on the page.
+import '@/styles/page-scroller.css';
+
+interface Props {
+  class?: string;
+  restorationKey?: string;
+}
+
+const { class: className, restorationKey } = Astro.props;
+---
+
+<div
+  class:list={['page-scroller', className]}
+  data-page-scroller
+  data-page-scroll-restoration={restorationKey}
+>
+  <slot />
+</div>
+
+<!-- The browser restores the root scroller, which is intentionally locked on
+     this page. Restore the contained scroller before first paint instead. -->
+<script is:inline>
+  (() => {
+    const scroller = document.querySelector('[data-page-scroller]');
+    const namespace = scroller?.getAttribute('data-page-scroll-restoration');
+    if (!scroller || !namespace || scroller.dataset.pageScrollRestorationReady === 'true') return;
+    scroller.dataset.pageScrollRestorationReady = 'true';
+
+    const key = namespace + ':' + location.pathname + location.search;
+    let target = 0;
+    const navigation = performance.getEntriesByType('navigation')[0];
+    if (navigation && navigation.type === 'back_forward') {
+      try {
+        target = Number(sessionStorage.getItem(key)) || 0;
+      } catch (error) {}
+    }
+
+    if (target > 0) {
+      scroller.scrollTop = target;
+      const landed = scroller.scrollTop;
+      // Media can still be sizing, which may clamp the first assignment. Retry
+      // after layout only when the reader has not moved the scroller meanwhile.
+      if (landed < target) {
+        addEventListener(
+          'load',
+          () => {
+            if (scroller.scrollTop === landed) scroller.scrollTop = target;
+          },
+          { once: true },
+        );
+      }
+    }
+
+    addEventListener('pagehide', () => {
+      try {
+        sessionStorage.setItem(key, String(scroller.scrollTop));
+      } catch (error) {}
+    });
+  })();
+</script>

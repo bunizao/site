@@ -5,6 +5,7 @@ import PostMeta from '@/features/posts/ui/PostMeta.astro';
 import TagList from '@/features/posts/ui/TagList.astro';
 import Prose from '@/features/posts/ui/Prose.astro';
 import TableOfContents from '@/features/posts/ui/TableOfContents.astro';
+import ReadingTopbar from '@/features/posts/ui/ReadingTopbar.astro';
 import AdjacentNav from '@/features/posts/ui/AdjacentNav.astro';
 import BackToTop from '@/features/posts/ui/BackToTop.astro';
 import NotByAI from '@/features/posts/ui/NotByAI.astro';
@@ -140,13 +141,14 @@ const turnstileSiteKey = isE2ESiteFixtureEnabled(Astro.locals)
     sizes: featureImageSrcSet ? featureImageSizes : undefined,
   } : undefined}
 >
+  <ReadingTopbar slot="readingbar" noToc={hasNoTocTag} />
   <a class="blog-back" href="/blog/">← All posts</a>
 
   <div class="blog-article-wrap">
     <aside class="blog-aside">
       <div class="blog-aside__sticky">
         <a class="blog-back-rail" href="/blog/">← Blog</a>
-        <TableOfContents noToc={hasNoTocTag} />
+        <TableOfContents />
       </div>
     </aside>
 

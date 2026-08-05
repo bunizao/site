@@ -1,6 +1,6 @@
 # 026 — scroll-dock fallback: coalesce per-event writes into a frame
 
-- **Status**: TODO
+- **Status**: DONE (2026-08-01, `60a112f3`)
 - **Severity**: LOW
 - **Category**: Performance
 - **Estimated scope**: 1 file, ~12 lines

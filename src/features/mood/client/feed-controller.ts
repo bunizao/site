@@ -8,6 +8,7 @@ import { createMoodMetaPatcher } from '@/features/mood/client/meta-patcher';
 import { hydrateMoodRichText } from '@/features/mood/client/rich-text';
 import { initListeningCards } from '@/lib/listening/controller';
 import { initYouTubeEmbeds } from '@/lib/embed/youtube-controller';
+import { pageScroll } from '@/lib/page-scroll';
 import { formatMoodDateKey, rekeyMoodServerRenderedGroups } from '@/features/mood/shared/date-grouping';
 import {
   getMoodFeedAnchorBeforeCursor,
@@ -30,6 +31,7 @@ const RETRYABLE_MOOD_FETCH_STATUSES = new Set([408, 425, 500, 502, 503, 504]);
 const FEED_PREFETCH_MARGIN_PX = 1200;
 
 export function initMoodFeedController(): void {
+    const scroll = pageScroll();
     const loadingEl = document.querySelector('[data-mood-loading]');
     const errorEl = document.querySelector('[data-mood-error]');
     const feedEl = document.querySelector('[data-mood-feed]') as HTMLElement | null;
@@ -474,7 +476,7 @@ export function initMoodFeedController(): void {
         if (!target) return false;
         const delta = target.getBoundingClientRect().top - top;
         if (Math.abs(delta) > ANCHOR_COMPENSATION_EPSILON) {
-          window.scrollBy({ top: delta, behavior: 'auto' });
+          scroll.el.scrollBy({ top: delta, behavior: 'auto' });
         }
         return true;
       };
@@ -556,7 +558,7 @@ export function initMoodFeedController(): void {
             }
 
             quietFrames = 0;
-            window.scrollBy({ top: delta, behavior: 'auto' });
+            scroll.el.scrollBy({ top: delta, behavior: 'auto' });
           };
 
           const tick = (now: number): void => {
@@ -765,15 +767,15 @@ export function initMoodFeedController(): void {
       };
 
       const prependMoods = (posts: MoodData[]): void => {
-        const previousScrollHeight = document.documentElement.scrollHeight;
+        const previousScrollHeight = scroll.el.scrollHeight;
         const insertedCount = renderer.prependMoods(posts, 0);
         if (insertedCount <= 0) return;
 
         totalCount += insertedCount;
-        const nextScrollHeight = document.documentElement.scrollHeight;
+        const nextScrollHeight = scroll.el.scrollHeight;
         const heightDelta = nextScrollHeight - previousScrollHeight;
         if (heightDelta > 0) {
-          window.scrollTo({ top: window.scrollY + heightDelta, behavior: 'auto' });
+          scroll.el.scrollTo({ top: scroll.el.scrollTop + heightDelta, behavior: 'auto' });
         }
         initListeningCards(list);
         initYouTubeEmbeds(list);
@@ -837,7 +839,7 @@ export function initMoodFeedController(): void {
       };
 
       function clearAnchorOlderObserverGate(): void {
-        window.removeEventListener('scroll', enableAnchorOlderObserverOnScroll);
+        scroll.events.removeEventListener('scroll', enableAnchorOlderObserverOnScroll);
         window.removeEventListener('wheel', enableAnchorOlderObserverOnWheel);
         window.removeEventListener('keydown', enableAnchorOlderObserverOnKeydown);
         window.removeEventListener('touchstart', rememberAnchorOlderTouchStart);
@@ -878,7 +880,7 @@ export function initMoodFeedController(): void {
 
       function enableAnchorOlderObserverOnScroll(): void {
         if (!anchorOlderScrollListenerActive) return;
-        if (window.scrollY < anchorOlderBaselineY + 80) return;
+        if (scroll.el.scrollTop < anchorOlderBaselineY + 80) return;
 
         openAnchorOlderObserverGate();
       }
@@ -903,17 +905,17 @@ export function initMoodFeedController(): void {
 
       function trackAnchorOlderObserverScroll(): void {
         if (!anchorOlderScrollListenerActive) return;
-        anchorOlderBaselineY = window.scrollY;
-        window.addEventListener('scroll', enableAnchorOlderObserverOnScroll, { passive: true });
+        anchorOlderBaselineY = scroll.el.scrollTop;
+        scroll.events.addEventListener('scroll', enableAnchorOlderObserverOnScroll, { passive: true });
       }
 
       function armAnchorOlderObserver(options: { trackScroll?: boolean } = {}): void {
         if (!feedAnchorId || !hasMore || observer || anchorOlderScrollListenerActive) return;
 
-        anchorOlderBaselineY = window.scrollY;
+        anchorOlderBaselineY = scroll.el.scrollTop;
         anchorOlderScrollListenerActive = true;
         if (options.trackScroll !== false) {
-          window.addEventListener('scroll', enableAnchorOlderObserverOnScroll, { passive: true });
+          scroll.events.addEventListener('scroll', enableAnchorOlderObserverOnScroll, { passive: true });
         }
         window.addEventListener('wheel', enableAnchorOlderObserverOnWheel, { passive: true });
         window.addEventListener('keydown', enableAnchorOlderObserverOnKeydown);
@@ -944,7 +946,7 @@ export function initMoodFeedController(): void {
       }
 
       function clearAnchorNewerObserverGate(): void {
-        window.removeEventListener('scroll', enableAnchorNewerObserverOnScroll);
+        scroll.events.removeEventListener('scroll', enableAnchorNewerObserverOnScroll);
         window.removeEventListener('wheel', enableAnchorNewerObserverOnWheel);
         window.removeEventListener('keydown', enableAnchorNewerObserverOnKeydown);
         window.removeEventListener('touchstart', rememberAnchorNewerTouchStart);
@@ -971,7 +973,7 @@ export function initMoodFeedController(): void {
 
       function enableAnchorNewerObserverOnScroll(): void {
         if (!anchorNewerScrollListenerActive) return;
-        if (window.scrollY > Math.max(0, anchorNewerBaselineY - 80)) return;
+        if (scroll.el.scrollTop > Math.max(0, anchorNewerBaselineY - 80)) return;
 
         openAnchorNewerObserverGate();
       }
@@ -996,17 +998,17 @@ export function initMoodFeedController(): void {
 
       function trackAnchorNewerObserverScroll(): void {
         if (!anchorNewerScrollListenerActive) return;
-        anchorNewerBaselineY = window.scrollY;
-        window.addEventListener('scroll', enableAnchorNewerObserverOnScroll, { passive: true });
+        anchorNewerBaselineY = scroll.el.scrollTop;
+        scroll.events.addEventListener('scroll', enableAnchorNewerObserverOnScroll, { passive: true });
       }
 
       function armAnchorNewerObserver(options: { trackScroll?: boolean } = {}): void {
         if (!feedAnchorId || !hasNewer || newerObserver || anchorNewerScrollListenerActive) return;
 
-        anchorNewerBaselineY = window.scrollY;
+        anchorNewerBaselineY = scroll.el.scrollTop;
         anchorNewerScrollListenerActive = true;
         if (options.trackScroll !== false) {
-          window.addEventListener('scroll', enableAnchorNewerObserverOnScroll, { passive: true });
+          scroll.events.addEventListener('scroll', enableAnchorNewerObserverOnScroll, { passive: true });
         }
         window.addEventListener('wheel', enableAnchorNewerObserverOnWheel, { passive: true });
         window.addEventListener('keydown', enableAnchorNewerObserverOnKeydown);
@@ -1254,7 +1256,7 @@ export function initMoodFeedController(): void {
         });
         window.addEventListener('popstate', () => scheduleCurrentUrlFeedAnchorReveal());
         window.addEventListener('hashchange', () => scheduleCurrentUrlFeedAnchorReveal());
-        window.addEventListener('scroll', patchVisibleMoodMeta, { passive: true });
+        scroll.events.addEventListener('scroll', patchVisibleMoodMeta, { passive: true });
         renderer.bindInteractions();
         animatedEmoji.observe(list);
         hydrateMoodRichText(list);

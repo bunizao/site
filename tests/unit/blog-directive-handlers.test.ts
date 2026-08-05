@@ -234,7 +234,7 @@ describe('music directive', () => {
       '<p><a href="https://music.apple.com/us/song/hash-song/1888707290?uo=4">Listen to Hash &amp; Song on Apple Music</a></p>',
     );
     expect(requestedUrls).toEqual([
-      'https://itunes.apple.com/lookup?id=1888707290',
+      'https://itunes.apple.com/lookup?id=1888707290&country=us&entity=song',
     ]);
   });
 

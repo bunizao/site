@@ -1,6 +1,6 @@
 # 022 — One motion vocabulary for the whole site
 
-- **Status**: TODO
+- **Status**: DONE (2026-08-01, `54926103`)
 - **Severity**: MEDIUM
 - **Category**: Cohesion / Design system
 - **Estimated scope**: 2 files for the tokens, ~12 files for the adoption pass

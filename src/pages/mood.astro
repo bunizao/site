@@ -124,6 +124,9 @@ const skeletonGroups = [
   rss={rss}
   oembed={oembed}
   preloadImages={preloadImages}
+  hideSiteNav
+  containedScroll
+  scrollRestorationKey="mood-scroll"
 >
   <!-- Mood owns its own top chrome: the default site nav + global header
        actions are hidden (via the scoped rule below) and replaced by
@@ -152,7 +155,6 @@ const skeletonGroups = [
   /* Mood renders its own MoodNavbar, so the layout's default site nav and
      global header actions are hidden on this route. Scoped via :has so it only
      applies to the feed page and never leaks to the rest of the site. */
-  :global(body:has(main.mood-route) [data-site-nav]),
   :global(body:has(main.mood-route) [data-header-actions]) {
     display: none !important;
   }
@@ -1844,12 +1846,12 @@ const skeletonGroups = [
     height: 1px;
   }
 
-  /* Update notice — inline with global header actions */
+  /* Update notice — above the navbar's progressive blur */
   :global(.mood-update-notice) {
     position: fixed;
     top: 16px;
     left: 16px;
-    z-index: 50;
+    z-index: 3;
     display: inline-flex;
     align-items: center;
     flex-shrink: 0;
@@ -1863,6 +1865,7 @@ const skeletonGroups = [
     backdrop-filter: blur(12px) saturate(1.3);
     box-shadow: 0 2px 12px hsl(0 0% 0% / 0.06);
     overflow: hidden;
+    pointer-events: auto;
     will-change: transform, opacity;
     transform: translateZ(0);
     transform-origin: left center;

@@ -60,7 +60,7 @@ describe('navbar regression guards', () => {
     expect(viewportSource).toContain('let bottomOverscrollLocked = false;');
     expect(viewportSource).toContain('const bottomOverscrollReleaseDistance = 96;');
     expect(viewportSource).toContain('const offsetTop = isBottomOverscrollOffset(rawOffsetTop) ? 0 : Math.round(rawOffsetTop);');
-    expect(viewportSource).toContain("window.addEventListener('scroll', syncAfterScroll");
+    expect(viewportSource).toContain("window.addEventListener('scroll', requestSync");
     expect(viewportSource).toContain("root.style.setProperty('--visual-viewport-top'");
     expect(globalStyles).toContain('--site-nav-mobile-top: calc(env(safe-area-inset-top, 0px) + var(--visual-viewport-top, 0px));');
     expect(globalStyles).toContain('top: var(--site-nav-mobile-top);');
@@ -84,5 +84,30 @@ describe('navbar regression guards', () => {
     expect(pageStyles).toContain('padding: var(--site-nav-mobile-padding);');
     expect(pageStyles).toContain('--brand-logo-height: var(--site-nav-mobile-logo-height);');
     expect(pageStyles).toContain('width: var(--site-nav-mobile-wordmark-width);');
+  });
+
+  test('blog and Mood share the contained page scroll contract', () => {
+    const pageScroller = read('src/components/PageScroller.astro');
+    const pageScrollerStyles = read('src/styles/page-scroller.css');
+    const pageScroll = read('src/lib/page-scroll.ts');
+    const layout = read('src/layouts/Layout.astro');
+    const blogLayout = read('src/layouts/BlogLayout.astro');
+    const moodPage = read('src/pages/mood.astro');
+    const moodClients = [
+      'src/features/mood/ui/MoodNavbar.astro',
+      'src/features/mood/client/feed-controller.ts',
+      'src/features/mood/client/feed-update-watcher.ts',
+      'src/features/mood/client/timeline-wheel.ts',
+    ].map(read).join('\n');
+
+    expect(pageScroller).toContain('data-page-scroller');
+    expect(pageScrollerStyles).toContain('scroll-timeline-name: --page-scroll;');
+    expect(pageScrollerStyles).toContain('html.page-scroll-root');
+    expect(pageScroll).toContain("timeline: CONTAINED_TIMELINE");
+    expect(layout).toContain("'page-scroll-root': containedScroll");
+    expect(blogLayout).toContain('<PageScroller class="blog-scroller" restorationKey="blog-scroll">');
+    expect(moodPage).toContain('containedScroll');
+    expect(moodClients).toContain('pageScroll()');
+    expect(moodClients).not.toContain('window.scrollY');
   });
 });

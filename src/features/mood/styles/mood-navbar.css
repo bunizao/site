@@ -5,11 +5,20 @@
 
 .mood-navbar {
   --topbar-position: fixed;
-  top: 0;
+  /* Match the visual viewport while Safari's dynamic toolbar moves it inside
+     the layout viewport. The safe-area glass is anchored to this navbar. */
+  top: var(--visual-viewport-top, 0px);
   left: 0;
   right: 0;
   z-index: 55;
   pointer-events: none;
+  /* Pads the row down past the Dynamic Island while staying pinned at top:0, so
+     the progressive blur behind it still covers the status-bar band. iOS 26
+     extends the layout viewport up behind Safari's translucent toolbar, which is
+     what pushed this bar under the island; the inset is 0 on every other device.
+     Padding, not `top`: the flight below measures the slot with
+     getBoundingClientRect, so the docked endpoint picks this up on its own. */
+  padding-top: env(safe-area-inset-top, 0px);
 
   /* Flight geometry, published by measure() as unitless numbers so the
      transforms below stay pure CSS. The navbar is also the scroll-dock host:
@@ -36,6 +45,35 @@
   --ink-dock-x: 0;
   --ink-dock-y: 0;
   --ink-scale: 1;
+}
+
+/* The safe-area band uses a denser material than the progressive blur below it.
+   One narrow blur pass keeps feed text illegible without turning the Dynamic
+   Island surround into a flat white or black strip. */
+.mood-navbar::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 2;
+  height: env(safe-area-inset-top, 0px);
+  background: linear-gradient(
+    to bottom,
+    hsl(var(--background) / 0.78),
+    hsl(var(--background) / 0.68)
+  );
+  -webkit-backdrop-filter: blur(18px) saturate(1.4);
+  backdrop-filter: blur(18px) saturate(1.4);
+  pointer-events: none;
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .mood-navbar::before {
+    background: hsl(var(--background) / 0.96);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
 }
 
 /* The controls sit on the shared reading measure so the avatar aligns with the
@@ -226,6 +264,16 @@
   opacity: 1;
 }
 
+/* At rest and through negative rubber-band scroll, the real hero owns the title
+   so it moves naturally with the content and keeps its levitation animation. */
+.mood-navbar.has-title-flight:not(.is-flyer-active) .mood-nav-title__ink {
+  visibility: hidden;
+}
+
+.mood-navbar.is-reduced-motion:not(.is-docked).has-title-flight .mood-nav-title__ink {
+  visibility: hidden;
+}
+
 /* The title mirrors the channel's rich HTML (links, custom emoji), so keep its
    inner marks inline and quiet. */
 .mood-nav-title a {
@@ -261,8 +309,9 @@
 
 /* Anchored mood deep-links (#mood-<id>) must land below the fixed bar, not
    under it. Scoped to the feed page via :has so it never leaks elsewhere. */
-:root:has(main.mood-route) {
-  scroll-padding-top: 68px;
+:root:has(main.mood-route),
+[data-page-scroller]:has(main.mood-route) {
+  scroll-padding-top: calc(68px + env(safe-area-inset-top, 0px));
 }
 
 @media (max-width: 480px) {

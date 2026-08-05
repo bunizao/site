@@ -3,6 +3,12 @@ import { expect, test } from './fixtures';
 
 const GHOST_PREVIEW_E2E_POST_ID = '5ddc9141c35e7700383b2937';
 
+async function scrollPageTo(page: Page, top: number): Promise<void> {
+  await page.locator('[data-page-scroller]').evaluate((scroller, nextTop) => {
+    scroller.scrollTo({ top: nextTop, behavior: 'instant' });
+  }, top);
+}
+
 function isIgnorableDevConsoleError(message: string): boolean {
   return message.includes('Outdated Optimize Dep') || message.startsWith('Failed to load resource:');
 }
@@ -228,36 +234,37 @@ test.describe('Blog reading UI', () => {
       spacer.style.height = '500px';
       spacer.setAttribute('data-e2e-preceding-shift', '');
       document.querySelector('.blog-prose')?.before(spacer);
-      return heading.getBoundingClientRect().top + window.scrollY - 95;
+      const scroller = document.querySelector<HTMLElement>('[data-page-scroller]')!;
+      return heading.getBoundingClientRect().top + scroller.scrollTop - 95;
     });
 
-    await page.evaluate((top) => window.scrollTo({ top, behavior: 'instant' }), scrollTop);
+    await scrollPageTo(page, scrollTop);
     await expect(tocLinks.first()).toHaveClass(/active/);
     await expect(page.locator('.toc-link.active')).toHaveText(firstHeadingText);
   });
 
   test('renders a Ghost draft preview through the real blog prose without caching', async ({ page }) => {
     const response = await page.goto(
-      `/blog/preview/${GHOST_PREVIEW_E2E_POST_ID}`,
+      `/dev/blog/${GHOST_PREVIEW_E2E_POST_ID}`,
       { waitUntil: 'domcontentloaded' },
     );
 
     expect(response?.status()).toBe(200);
-    expect(response?.headers()['cache-control']).toBe('private, no-store');
+    expect(response?.headers()['cache-control']).toBe('no-store, max-age=0');
     await expect(page.locator('[data-ghost-draft-preview]')).toBeVisible();
     await expect(page.locator('.blog-article__title')).toHaveText('E2E Ghost draft');
-    await expect(page.locator('.blog-prose .blog-poem')).toContainText('E2E preview line');
+    await expect(page.locator('.blog-prose blockquote')).toContainText('E2E preview line');
     await expect(page.locator('.ai-credit')).toContainText('Claude Opus 4.6');
     await expect(page.locator('.ai-credit')).toContainText('reviewed the draft.');
     await expect(page.locator('.not-by-ai')).toHaveCount(0);
 
-    const invalid = await page.request.get('/blog/preview/not-a-ghost-id');
+    const invalid = await page.request.get('/dev/blog/not-a-ghost-id');
     expect(invalid.status()).toBe(404);
-    expect(invalid.headers()['cache-control']).toBe('private, no-store');
+    expect(invalid.headers()['cache-control']).toBe('no-store, max-age=0');
 
-    const missing = await page.request.get('/blog/preview/aaaaaaaaaaaaaaaaaaaaaaaa');
+    const missing = await page.request.get('/dev/blog/aaaaaaaaaaaaaaaaaaaaaaaa');
     expect(missing.status()).toBe(404);
-    expect(missing.headers()['cache-control']).toBe('private, no-store');
+    expect(missing.headers()['cache-control']).toBe('no-store, max-age=0');
   });
 
   test('probes YouTube capability on click without geo branching or overflow', async ({ page }) => {
@@ -433,7 +440,7 @@ test.describe('Blog reading UI', () => {
       element.style.getPropertyValue('animation-timeline')
     )).toBe('');
 
-    await page.evaluate(() => window.scrollTo({ top: 180, behavior: 'instant' }));
+    await scrollPageTo(page, 180);
     await expect(page.locator('.toc-topbar')).toHaveClass(/is-visible/);
     await expect.poll(() => logoGhost.evaluate((element) =>
       Number.parseFloat(getComputedStyle(element).getPropertyValue('--dock-ride'))

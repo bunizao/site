@@ -32,6 +32,10 @@ const {
     const eventId = createId();
     const visitorId = readStoredId('localStorage', visitorKey);
     const sessionId = readStoredId('sessionStorage', sessionKey);
+    // The blog zone scrolls an inner element, so the root reads 0 forever. This
+    // script is is:inline and cannot import @/lib/page-scroll — the attribute is
+    // the contract between them. Declared above the first readScrollDepth() call.
+    const scroller = document.querySelector('[data-page-scroller]') || document.documentElement;
     let dwellMs = 0;
     let visibleSince = document.visibilityState === 'visible' ? now() : 0;
     let maxScrollDepth = readScrollDepth();
@@ -88,20 +92,9 @@ const {
     }
 
     function readScrollDepth() {
-      const root = document.documentElement;
-      const body = document.body;
-      const scrollTop = window.scrollY || root.scrollTop || body.scrollTop || 0;
-      const viewportHeight = window.innerHeight || root.clientHeight || 1;
-      const pageHeight = Math.max(
-        root.scrollHeight,
-        body.scrollHeight,
-        root.offsetHeight,
-        body.offsetHeight,
-        root.clientHeight,
-      );
-      const maxScroll = pageHeight - viewportHeight;
+      const maxScroll = scroller.scrollHeight - scroller.clientHeight;
       if (maxScroll <= 0) return 1;
-      return clamp(scrollTop / maxScroll, 0, 1);
+      return clamp(scroller.scrollTop / maxScroll, 0, 1);
     }
 
     function clamp(value, min, max) {
@@ -175,14 +168,16 @@ const {
       }).catch(() => {});
     }
 
-    window.addEventListener('scroll', () => {
+    // Capture, on document: an element's scroll event does not bubble, so this
+    // catches both the contained scroller and the root one.
+    document.addEventListener('scroll', () => {
       if (scrollPending) return;
       scrollPending = true;
       window.requestAnimationFrame(() => {
         scrollPending = false;
         refreshScrollDepth();
       });
-    }, { passive: true });
+    }, { passive: true, capture: true });
 
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'hidden') {

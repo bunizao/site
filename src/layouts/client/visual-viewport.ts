@@ -50,17 +50,16 @@ if (viewport) {
     if (frame) return;
     frame = window.requestAnimationFrame(syncVisualViewportTop);
   };
-  const syncAfterScroll = () => {
-    if (frame) {
-      window.cancelAnimationFrame(frame);
-      frame = 0;
-    }
-    syncVisualViewportTop();
-  };
 
   syncVisualViewportTop();
   viewport.addEventListener('resize', requestSync, { passive: true });
   viewport.addEventListener('scroll', requestSync, { passive: true });
-  window.addEventListener('scroll', syncAfterScroll, { passive: true });
+  // Every listener is rAF-coalesced, the window scroll one included. It used to
+  // cancel the pending frame and sync synchronously, which put a scrollHeight
+  // read (forced layout) and a :root style write inside the scroll handler —
+  // once per event, on the element that inherits to the whole document. Fixed
+  // bars consume this token in `top`, so that recalc landed mid-scroll and the
+  // home navbar juddered. rAF still runs before paint, so nothing drifts.
+  window.addEventListener('scroll', requestSync, { passive: true });
   window.addEventListener('orientationchange', requestSync, { passive: true });
 }

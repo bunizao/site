@@ -118,27 +118,33 @@ const initialPreviewPostsJson = serializeScriptJson(initialPosts.slice(0, INITIA
   /* Feed entrance. The section itself is revealed by src/lib/home-reveal.ts;
      these two classes cover the async swap from skeletons to real cards, which
      lands long after that first reveal. Both are pure CSS transitions, so a
-     busy main thread delays them rather than freezing them part-way. */
+     busy main thread delays them rather than freezing them part-way.
+
+     Timing matches the home reveal vocabulary (the 550ms/60ms pair in
+     home-reveal.css) so the feed arrives as part of the page rather than after
+     it. No blur: it bought very little at 24px of travel and cost a full repaint
+     per card per frame, at the one moment the main thread is busy rendering the
+     data that just arrived. */
   #moods-section .mood-item {
     transition:
-      opacity 0.7s var(--expo-out),
-      transform 0.7s var(--expo-out),
-      filter 0.7s var(--expo-out);
-    transition-delay: calc(var(--item-index, 0) * 90ms);
+      opacity 0.55s var(--expo-out),
+      transform 0.55s var(--expo-out);
+    transition-delay: calc(var(--item-index, 0) * 60ms);
   }
 
   #moods-section .mood-item--entering {
     opacity: 0;
     transform: translateY(24px) scale(0.94);
-    filter: blur(6px);
   }
 
+  /* An exit still has to start on the frame it is triggered. easeInCubic held
+     the card almost still for the first 100ms, which read as the refresh
+     hanging before anything moved. */
   #moods-section .mood-item--leaving {
     opacity: 0;
     transform: translateY(-12px) scale(0.94);
-    filter: blur(6px);
-    transition-duration: 0.5s;
-    transition-timing-function: cubic-bezier(0.55, 0.06, 0.68, 0.19);
+    transition-duration: 0.25s;
+    transition-timing-function: var(--ease-out);
     transition-delay: calc(var(--item-index, 0) * 60ms);
     pointer-events: none;
   }
@@ -150,7 +156,6 @@ const initialPreviewPostsJson = serializeScriptJson(initialPosts.slice(0, INITIA
       transition: none;
       opacity: 1;
       transform: none;
-      filter: none;
     }
   }
 
@@ -430,8 +435,6 @@ const initialPreviewPostsJson = serializeScriptJson(initialPosts.slice(0, INITIA
     border-radius: 50%;
     border: 1px solid hsl(var(--foreground) / 0.08);
     opacity: 0;
-    animation: mood-skeleton-pulse 2.4s ease-out infinite;
-    animation-delay: var(--skeleton-delay);
   }
 
   #moods-section .mood-item-skeleton .mood-line {
@@ -455,8 +458,6 @@ const initialPreviewPostsJson = serializeScriptJson(initialPosts.slice(0, INITIA
       transparent
     );
     transform: translateY(-60%);
-    animation: mood-skeleton-flow 2.6s ease-in-out infinite;
-    animation-delay: var(--skeleton-delay);
   }
 
   #moods-section .mood-card-skeleton {
@@ -481,7 +482,10 @@ const initialPreviewPostsJson = serializeScriptJson(initialPosts.slice(0, INITIA
       hsl(var(--foreground) / 0.08) 50%,
       transparent 80%
     );
-    animation: mood-skeleton-sheen 2.8s ease-in-out infinite;
+    /* The placeholder's only motion. Four overlapping 2-3s breaths read as
+       ambient rather than as loading; one faster sweep makes the same wait feel
+       shorter. */
+    animation: mood-skeleton-sheen 1.2s ease-in-out infinite;
     animation-delay: var(--skeleton-delay);
     opacity: 0.3;
   }
@@ -508,8 +512,6 @@ const initialPreviewPostsJson = serializeScriptJson(initialPosts.slice(0, INITIA
       hsl(var(--foreground) / 0.04)
     );
     background-size: 160% 100%;
-    animation: mood-skeleton-shimmer 1.9s ease-in-out infinite;
-    animation-delay: var(--skeleton-delay);
   }
 
   #moods-section .mood-skeleton-block {
@@ -549,17 +551,6 @@ const initialPreviewPostsJson = serializeScriptJson(initialPosts.slice(0, INITIA
     }
   }
 
-  @keyframes mood-skeleton-shimmer {
-    0% {
-      background-position: 200% 50%;
-      opacity: 0.45;
-    }
-    100% {
-      background-position: 0% 50%;
-      opacity: 0.85;
-    }
-  }
-
   @keyframes mood-skeleton-sheen {
     0% {
       transform: translateX(0);
@@ -569,40 +560,9 @@ const initialPreviewPostsJson = serializeScriptJson(initialPosts.slice(0, INITIA
     }
   }
 
-  @keyframes mood-skeleton-flow {
-    0% {
-      transform: translateY(-60%);
-      opacity: 0;
-    }
-    40% {
-      opacity: 0.5;
-    }
-    100% {
-      transform: translateY(120%);
-      opacity: 0;
-    }
-  }
-
-  @keyframes mood-skeleton-pulse {
-    0% {
-      transform: scale(0.85);
-      opacity: 0.25;
-    }
-    70% {
-      transform: scale(1.3);
-      opacity: 0;
-    }
-    100% {
-      opacity: 0;
-    }
-  }
-
   @media (prefers-reduced-motion: reduce) {
-    #moods-section .mood-item-skeleton .mood-skeleton-block,
-    #moods-section .mood-item-skeleton .mood-skeleton-time {
-      animation: none;
-    }
-
+    /* The sheen is the skeleton's only animation; hiding the three decorated
+       pseudo-elements parks the placeholder entirely. */
     #moods-section .mood-item-skeleton .mood-line::after,
     #moods-section .mood-item-skeleton .mood-dot::after,
     #moods-section .mood-item-skeleton .mood-card-skeleton::before {

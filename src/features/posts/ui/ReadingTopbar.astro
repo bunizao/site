@@ -1,0 +1,43 @@
+---
+import { blog } from '@/data/site';
+
+interface Props {
+  noToc?: boolean;
+}
+
+const { noToc = false } = Astro.props;
+---
+
+<!-- Slotted directly under <body>, outside the contained scroller: a fixed lid at
+     the viewport edge. Its reveal is driven by the scroller's named timeline (see
+     @/lib/page-scroll), not by anything on this thread. -->
+<div class="toc-topbar" data-no-toc={noToc ? 'true' : 'false'} hidden>
+  <div class="toc-topbar__surface">
+    <div class="toc-topbar__fade" aria-hidden="true"></div>
+    <div class="toc-topbar__bar">
+      <a class="toc-topbar__logo" href="/blog/" aria-label={blog.name}>
+        <img src={blog.mark} alt={blog.name} width="30" height="30" />
+      </a>
+      <button
+        class="toc-topbar__title"
+        type="button"
+        aria-haspopup="true"
+        aria-expanded="false"
+        aria-controls="toc-menu"
+      >
+        <span class="toc-topbar__title-text"></span>
+        <svg class="toc-topbar__chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="m6 9 6 6 6-6" />
+        </svg>
+      </button>
+      <button class="toc-topbar__totop" type="button" aria-label="Back to top">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M12 19V5M5 12l7-7 7 7" />
+        </svg>
+      </button>
+    </div>
+    <div class="toc-topbar__menu" id="toc-menu" role="menu" aria-hidden="true">
+      <ul class="toc-topbar__list"></ul>
+    </div>
+  </div>
+</div>

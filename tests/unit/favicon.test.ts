@@ -10,7 +10,7 @@ function readEmbeddedWebp(source: string): Buffer {
 describe('favicons', () => {
   test('adapts the blog tab icon while keeping topbar marks as WebP', () => {
     const layout = readFileSync(new URL('../../src/layouts/BlogLayout.astro', import.meta.url), 'utf8');
-    const toc = readFileSync(new URL('../../src/features/posts/ui/TableOfContents.astro', import.meta.url), 'utf8');
+    const readingTopbar = readFileSync(new URL('../../src/features/posts/ui/ReadingTopbar.astro', import.meta.url), 'utf8');
 
     // Browser tab strips ignore site CSS, so the favicon carries its own
     // color-scheme rule while in-page marks keep using the shared raster asset.
@@ -19,7 +19,7 @@ describe('favicons', () => {
     expect(layout).not.toContain('<link rel="icon" href={blogMarkAsset}');
     expect(layout).toContain('const blogMarkAsset = blog.mark;');
     expect(layout).toContain('<img src={blogMarkAsset} alt={blog.name} width="40" height="40" />');
-    expect(toc).toContain('<img src={blogMarkAsset} alt={blog.name} width="30" height="30" />');
+    expect(readingTopbar).toContain('<img src={blog.mark} alt={blog.name} width="30" height="30" />');
   });
 
   test('badges development tabs and versions production hrefs', () => {

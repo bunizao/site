@@ -1,6 +1,6 @@
 # 028 — Delete the header hover-expand: ~120 lines of JS that can never run
 
-- **Status**: TODO
+- **Status**: DONE (2026-08-01, `d96efed5`)
 - **Severity**: LOW
 - **Category**: Dead code
 - **Estimated scope**: 2 files, ~140 lines removed

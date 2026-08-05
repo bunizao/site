@@ -5,17 +5,7 @@
 // active section). Built client-side from the rendered article headings so it
 // works for any Ghost HTML; wide screens only, and only with >=2 headings. All
 // styling lives in blog.css (global) since these nodes are created at runtime.
-import { blog } from '@/data/site';
 import '@/styles/scroll-dock.css';
-
-interface Props {
-  /** Author opted out of the section map (#no-toc). The desktop rail and the
-      mobile dropdown stay off, but the reading topbar still shows the title. */
-  noToc?: boolean;
-}
-
-const { noToc = false } = Astro.props;
-const blogMarkAsset = blog.mark;
 ---
 
 <nav class="toc-container" aria-label="On this page" hidden>
@@ -30,45 +20,13 @@ const blogMarkAsset = blog.mark;
   </div>
 </nav>
 
-<!-- Mobile counterpart: a chl.ee-style reading topbar that slides in once the
-     reader leaves the article header behind. Logo left, title dead-centre,
-     back-to-top right. With a section map the centre title is tappable (drops
-     the heading list and tracks the active section; opening swaps it back to
-     the article title for context). Without one — a no-toc or thin post — it
-     stays a static title marker. The bar's blur fades into the page via a
-     masked layer, so the chrome reads as naturally transparent. Shown only
-     below the desktop breakpoint, where the gutter rail is hidden. -->
-<div class="toc-topbar" data-no-toc={noToc ? 'true' : 'false'} hidden>
-  <div class="toc-topbar__fade" aria-hidden="true"></div>
-  <div class="toc-topbar__bar">
-    <a class="toc-topbar__logo" href="/blog/" aria-label={blog.name}>
-      <img src={blogMarkAsset} alt={blog.name} width="30" height="30" />
-    </a>
-    <button
-      class="toc-topbar__title"
-      type="button"
-      aria-haspopup="true"
-      aria-expanded="false"
-      aria-controls="toc-menu"
-    >
-      <span class="toc-topbar__title-text"></span>
-      <svg class="toc-topbar__chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-        <path d="m6 9 6 6 6-6" />
-      </svg>
-    </button>
-    <button class="toc-topbar__totop" type="button" aria-label="Back to top">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-        <path d="M12 19V5M5 12l7-7 7 7" />
-      </svg>
-    </button>
-  </div>
-  <div class="toc-topbar__menu" id="toc-menu" role="menu" aria-hidden="true">
-    <ul class="toc-topbar__list"></ul>
-  </div>
-</div>
-
 <script>
+  import { pageScroll } from '@/lib/page-scroll';
   import { createScrollDock, type ScrollDock } from '@/lib/scroll-dock';
+
+  // The blog zone contains its scroll in an inner element, so `window.scrollY` is
+  // permanently 0 here. Everything below reads this instead. See @/lib/page-scroll.
+  const scroll = pageScroll();
 
   const nav = document.querySelector<HTMLElement>('.toc-container');
   const wrapper = nav?.querySelector<HTMLElement>('.toc-content-wrapper');
@@ -96,11 +54,9 @@ const blogMarkAsset = blog.mark;
     // A section map needs >=2 headings AND the author keeping it (no #no-toc).
     const hasToc = topbar.dataset.noToc !== 'true' && headings.length >= 2;
 
-    // This component renders inside `.blog-aside`, which is `display:none` below
-    // the desktop breakpoint — an ancestor no descendant rule can override. The
-    // fixed bar escapes it by portaling to <body>. It shows on every post; the
-    // centre is the article title until the active section takes over.
-    document.body.appendChild(topbar);
+    // ReadingTopbar is rendered directly under body, outside the hidden mobile
+    // aside. It shows on every post; the centre is the article title until the
+    // active section takes over.
     topbar.hidden = false;
 
     // Swap the centre title with a vertical "ticker": the old line lifts and
@@ -260,7 +216,7 @@ const blogMarkAsset = blog.mark;
     if (topbarTotop) {
       topbarTotop.addEventListener('click', () => {
         closeMenu();
-        window.scrollTo({ top: 0, behavior: reduceMotion ? 'auto' : 'smooth' });
+        scroll.el.scrollTo({ top: 0, behavior: reduceMotion ? 'auto' : 'smooth' });
       });
     }
 
@@ -284,7 +240,7 @@ const blogMarkAsset = blog.mark;
     // and the title's crossfade rides `lift` (the H1's run), both inherited by
     // the controls inside. Every part of the arrival is then derived from the
     // same scroll offset, so no piece of it can land a frame after another.
-    const topbarDock = createScrollDock(topbar, ['dock', 'lift']);
+    const topbarDock = createScrollDock(topbar, ['dock', 'lift'], scroll);
     topbarDock.setRun('dock', REVEAL);
     const mark = document.querySelector<HTMLElement>('.blog-mark');
     const barLogo = topbar.querySelector<HTMLElement>('.toc-topbar__logo');
@@ -301,18 +257,22 @@ const blogMarkAsset = blog.mark;
     const measureLogos = () => {
       if (!ghost || !handoffMql.matches) return;
       const a = mark!.getBoundingClientRect();
-      // logo1 scrolls with the page; anchor to its at-rest viewport position
-      // (doc-absolute top), so the ghost holds steady near the top regardless
-      // of where the page happens to be when we measure.
+      // logo1 scrolls with the page; anchor to its at-rest position in the
+      // scroller's own coordinate space, so the ghost holds steady near the top
+      // regardless of where the page happens to be when we measure.
       const b = barLogo!.getBoundingClientRect();
-      const tb = topbar.getBoundingClientRect();
-      // Measured against the bar's own box, so the dock target holds even if the
-      // bar is ever given an offset again — it fades in place today.
       setNum(ghost, '--l1-x', a.left);
-      setNum(ghost, '--l1-y', a.top + window.scrollY);
+      setNum(ghost, '--l1-y', a.top + scroll.el.scrollTop);
       setNum(ghost, '--l1-size', a.width);
+      // The dock target is a VIEWPORT coordinate, because the ghost is fixed.
+      // Measuring it against the bar's own box instead (b.top - barRect.top)
+      // looks more robust and is the bug that emptied the bar's left slot: it
+      // is only equal to the viewport reading while the bar sits at top:0, and
+      // it silently becomes an offset of exactly the bar's own displacement the
+      // moment anything moves the bar. The bar is a lid at the viewport edge
+      // (blog.css) — read the slot where it actually is.
       setNum(ghost, '--l2-x', b.left);
-      setNum(ghost, '--l2-y', b.top - tb.top);
+      setNum(ghost, '--l2-y', b.top);
       setNum(ghost, '--logo-scale', b.width / Math.max(1, a.width));
     };
 
@@ -320,22 +280,19 @@ const blogMarkAsset = blog.mark;
       if (!ghost) return;
       // Past the breakpoint there is no bar to dock into: stand everything down.
       if (!handoffMql.matches) {
-        ghost.style.opacity = '0';
+        ghost.classList.remove('is-flying');
         mark!.style.visibility = '';
         topbar.classList.remove('logo-handoff');
         return;
       }
       topbar.classList.add('logo-handoff');
-      if (window.scrollY <= 0) {
-        // At the very top the real header mark owns the stage.
-        ghost.style.opacity = '0';
-        mark!.style.visibility = '';
-        return;
-      }
-      // Ghost takes over; logo1 keeps its layout box (visibility, not display)
-      // so the header never reflows.
-      mark!.style.visibility = 'hidden';
-      ghost.style.opacity = '1';
+      // At the very top the real header mark owns the stage. Past that the ghost
+      // takes over and logo1 keeps its layout box (visibility, not display) so
+      // the header never reflows. Opacity is CSS's (it crossfades into the bar's
+      // own logo on --dock-ride); this only decides who is on stage.
+      const flying = scroll.el.scrollTop > 0;
+      ghost.classList.toggle('is-flying', flying);
+      mark!.style.visibility = flying ? 'hidden' : '';
     };
 
     if (canHandoff) {
@@ -347,7 +304,7 @@ const blogMarkAsset = blog.mark;
       img.alt = '';
       ghost.appendChild(img);
       document.body.appendChild(ghost);
-      logoDock = createScrollDock(ghost, ['dock']);
+      logoDock = createScrollDock(ghost, ['dock'], scroll);
       logoDock.setRun('dock', REVEAL);
       measureLogos();
     }
@@ -380,10 +337,10 @@ const blogMarkAsset = blog.mark;
       const heroLine = parseFloat(getComputedStyle(h1!).lineHeight) || heroFont * 1.3;
       titleFitsOneLine = h.height <= heroLine * 1.5;
       const r = titleText.getBoundingClientRect();
-      const tb = topbar.getBoundingClientRect();
-      // Centre of the real bar title, relative to the bar's own box.
+      // Centre of the real bar title in VIEWPORT space, because that is the
+      // space the fixed ghost's transform resolves in. See measureLogos().
       const cx = r.left + r.width / 2;
-      const cy = r.top - tb.top + r.height / 2;
+      const cy = r.top + r.height / 2;
       // offsetWidth/Height, not a rect: the ghost carries the flight transform
       // at all times now, and the layout box is the only reading that ignores it.
       const gw = titleGhost.offsetWidth;
@@ -396,9 +353,9 @@ const blogMarkAsset = blog.mark;
       // the right width with visibly larger glyphs.
       const scale = (parseFloat(getComputedStyle(titleText).fontSize) || 14) / heroFont;
 
-      titleRun = Math.max(1, h.top + window.scrollY - 52);
+      titleRun = Math.max(1, h.top + scroll.el.scrollTop - 52);
       setNum(titleGhost, '--t1-x', h.left);
-      setNum(titleGhost, '--t1-y', h.top + window.scrollY);
+      setNum(titleGhost, '--t1-y', h.top + scroll.el.scrollTop);
       setNum(titleGhost, '--lift-run', titleRun);
       // The docked top-left, folding in the ghost's own box at its end scale —
       // CSS cannot read that back, so it is resolved here.
@@ -413,7 +370,7 @@ const blogMarkAsset = blog.mark;
     const SECTION_LEAD = 100;
 
     // The crossfade itself is CSS now, off the same `--lift-ride` the travel
-    // rides (see blog.css). Reading window.scrollY here instead meant the fade
+    // rides (see blog.css). Reading a scroll offset here instead meant the fade
     // was observed a frame after the flight it was supposed to accompany, so on
     // iOS momentum the ghost had already parked while the bar title had not yet
     // started — two titles at once, which is what the doubling was. What stays
@@ -421,7 +378,7 @@ const blogMarkAsset = blog.mark;
     // title's pixels.
     const updateTitleGhost = () => {
       if (!titleGhost) return;
-      const flying = handoffMql.matches && titleFitsOneLine && window.scrollY > 0;
+      const flying = handoffMql.matches && titleFitsOneLine && scroll.el.scrollTop > 0;
       titleGhost.classList.toggle('is-flying', flying);
       topbar.classList.toggle('title-handoff', flying);
       // The H1 keeps its layout box (visibility, not display) so the article
@@ -444,22 +401,22 @@ const blogMarkAsset = blog.mark;
       titleGhost.style.lineHeight = cs.lineHeight;
       titleGhost.style.letterSpacing = cs.letterSpacing;
       document.body.appendChild(titleGhost);
-      titleDock = createScrollDock(titleGhost, ['lift']);
+      titleDock = createScrollDock(titleGhost, ['lift'], scroll);
       measureTitle();
     }
 
     // Slide the pill to hug the active link's box; depth indent comes for free.
     // Measured against the wrapper (not offsetParent) because each .toc-item is
     // positioned, which would otherwise pin every link's offsetTop near zero.
-    // One composited write instead of four layout writes. The pill is a 1x1 box
-    // (blog.css) with transform-origin at its top-left, so translate positions
-    // it and scale sizes it in the same property.
+    // Position rides the transform, size stays in layout: scale() on a 1x1 box
+    // is one write instead of three, but it scales border-radius too and the
+    // pill loses its corners (see blog.css).
     const movePill = (link: HTMLAnchorElement) => {
       const wrap = wrapper!.getBoundingClientRect();
       const box = link.getBoundingClientRect();
-      pill!.style.transform =
-        `translate(${box.left - wrap.left}px, ${box.top - wrap.top}px)` +
-        ` scale(${box.width}, ${box.height})`;
+      pill!.style.width = `${box.width}px`;
+      pill!.style.height = `${box.height}px`;
+      pill!.style.transform = `translate(${box.left - wrap.left}px, ${box.top - wrap.top}px)`;
       pill!.style.opacity = '1';
     };
 
@@ -472,23 +429,24 @@ const blogMarkAsset = blog.mark;
     let railHeight = 0;
 
     const measureRail = () => {
-      headingTops = headings.map((h) => h.getBoundingClientRect().top + window.scrollY);
-      proseEnd = prose.getBoundingClientRect().bottom + window.scrollY;
+      headingTops = headings.map((h) => h.getBoundingClientRect().top + scroll.el.scrollTop);
+      proseEnd = prose.getBoundingClientRect().bottom + scroll.el.scrollTop;
       railHeight = wrapper?.offsetHeight ?? 0;
     };
 
     const update = () => {
       ticking = false;
+      const scrolled = scroll.el.scrollTop;
 
       // Only hit-testing: how far in the bar is, is CSS reading --dock-ride.
       // Armed from the first scrolled pixel so visibility is never the thing
       // holding back an already-opaque bar.
-      topbar.classList.toggle('is-visible', window.scrollY > 0);
+      topbar.classList.toggle('is-visible', scrolled > 0);
       updateGhost();
       updateTitleGhost();
       if (!hasToc || !wrapper || !fill || !pill || !headingTops.length) return;
 
-      const line = window.scrollY + offset;
+      const line = scrolled + offset;
       const tops = headingTops;
 
       // Reading progress fills the dotted rail across the whole article.
@@ -508,7 +466,7 @@ const blogMarkAsset = blog.mark;
       // change) but only once the title has docked, so it never fights the
       // ghost. setTitle() dedupes, so re-calls are cheap. An open map keeps the
       // article title by design.
-      if (!menuOpen && window.scrollY >= titleRun) {
+      if (!menuOpen && scrolled >= titleRun) {
         const inSection = line > tops[0] + SECTION_LEAD;
         setTitle(inSection ? headings[i].textContent || postTitle : postTitle);
       }
@@ -537,7 +495,7 @@ const blogMarkAsset = blog.mark;
       onScroll();
     };
 
-    window.addEventListener('scroll', onScroll, { passive: true });
+    scroll.events.addEventListener('scroll', onScroll, { passive: true });
     // Logo + title geometry shift with width / breakpoint crossings, and the
     // rail's heading offsets shift with any reflow.
     window.addEventListener('resize', remeasure, { passive: true });

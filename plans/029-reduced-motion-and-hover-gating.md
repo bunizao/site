@@ -1,6 +1,10 @@
 # 029 — Reduced motion for the marquee, pointer gating for thirteen hover transforms
 
-- **Status**: TODO
+- **Status**: DONE (2026-08-01, `686cb8d9`). Eleven sites gated, not thirteen:
+  two table rows (`ShareRow.astro:179`, `blog.css:1999` reduced-motion twin) were
+  already `transform: none` inside a `prefers-reduced-motion` block, so there was
+  nothing to gate. `DetailArticle.astro:712` likewise resolves to
+  `transform: none`. Re-verified 2026-08-05.
 - **Severity**: MEDIUM
 - **Category**: Accessibility
 - **Estimated scope**: 12 files, ~40 lines

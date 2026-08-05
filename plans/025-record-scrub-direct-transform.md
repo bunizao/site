@@ -1,6 +1,6 @@
 # 025 — Record scrub: stop recalculating a whole card subtree per pointermove
 
-- **Status**: TODO
+- **Status**: DONE (2026-08-01, `60a112f3`)
 - **Severity**: MEDIUM
 - **Category**: Performance
 - **Estimated scope**: 1 file, ~20 lines

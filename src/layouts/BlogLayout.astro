@@ -15,6 +15,7 @@ import {
 } from '@/features/posts/server/og-image';
 import BlogSearch from '@/features/posts/ui/BlogSearch.astro';
 import CommandPalette from '@/components/CommandPalette.astro';
+import PageScroller from '@/components/PageScroller.astro';
 import { hasMarkdownRenderer } from '@/features/agent-markdown/server/registry';
 import { BLOG_FAVICON } from '@/lib/favicon';
 
@@ -78,10 +79,16 @@ const paletteCss = [
 <!doctype html>
 <!-- The publication is Chinese-primary; the lang also feeds Pagefind's
      language detection at index time (an `en` lang skips CJK segmentation). -->
-<html lang="zh">
+<!-- The root does not scroll in this zone. Why that is load-bearing rather than
+     a layout preference: page-scroller.css and @/lib/page-scroll. -->
+<html lang="zh" class="page-scroll-root">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <!-- `cover` does not make the insets readable on iOS 26 — measured on an
+         iPhone 16 Pro Max, env(safe-area-inset-top) is 0 either way. It stays
+         because the layout is edge-to-edge regardless and other zones share the
+         declaration. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>{fullTitle}</title>
     <meta name="description" content={metaDescription} />
     <link rel="canonical" href={canonical} />
@@ -189,36 +196,42 @@ const paletteCss = [
   </head>
 
   <body class="blog-zone reading">
-    <div class="blog-shell">
-      <header class="blog-topbar">
-        <a class="blog-mark" href="/blog/" aria-label={blog.name} style="view-transition-name:blog-mark">
-          <img src={blogMarkAsset} alt={blog.name} width="40" height="40" />
-        </a>
+    <!-- Outside the scroller: it is a fixed lid, and a fixed layer inside a
+         scroll container cannot read that container's anonymous timeline. It gets
+         driven by the named one the scroller publishes instead. -->
+    <slot name="readingbar" />
+    <PageScroller class="blog-scroller" restorationKey="blog-scroll">
+      <div class="blog-shell">
+        <header class="blog-topbar">
+          <a class="blog-mark" href="/blog/" aria-label={blog.name} style="view-transition-name:blog-mark">
+            <img src={blogMarkAsset} alt={blog.name} width="40" height="40" />
+          </a>
 
-        <div class="blog-topbar__controls">
-          <!-- Language toggle (zh/en) slots in here when the bilingual phase lands. -->
-          <BlogSearch />
-          <button
-          class="blog-theme-toggle"
-          type="button"
-          data-blog-theme-toggle
-          aria-label="Switch theme"
-        >
-          <span data-blog-icon="light" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41" /></svg>
-          </span>
-          <span data-blog-icon="dark" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" /></svg>
-          </span>
-          <span data-blog-icon="system" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" /><path d="M8 21h8M12 17v4" /></svg>
-          </span>
-          </button>
-        </div>
-      </header>
+          <div class="blog-topbar__controls">
+            <!-- Language toggle (zh/en) slots in here when the bilingual phase lands. -->
+            <BlogSearch />
+            <button
+              class="blog-theme-toggle"
+              type="button"
+              data-blog-theme-toggle
+              aria-label="Switch theme"
+            >
+              <span data-blog-icon="light" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41" /></svg>
+              </span>
+              <span data-blog-icon="dark" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" /></svg>
+              </span>
+              <span data-blog-icon="system" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" /><path d="M8 21h8M12 17v4" /></svg>
+              </span>
+            </button>
+          </div>
+        </header>
 
-      <slot />
-    </div>
+        <slot />
+      </div>
+    </PageScroller>
 
     <CommandPalette />
 

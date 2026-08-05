@@ -308,6 +308,43 @@
   margin-block: 36px;
 }
 
+/* --- YouTube facade ----------------------------------------------------- */
+/* The facade is a <figure> whose <figcaption> is an overlay pinned inside the
+   poster, not a caption under a photo — so both generic figure rules above are
+   actively wrong for it. `figure { margin: 0 }` (0,1,1) silently beat the
+   component's own `margin-block` (0,1,0) and left the card welded to the
+   paragraphs; the figcaption rule centred the title over its avatar and pushed
+   the whole overlay down by 10px. Same class of leak as .code-box-head.
+   Restore the card's rhythm at the sibling cards' 36px, and hand the overlay
+   back to embed-youtube.css. */
+.blog-prose .yt {
+  margin-block: 36px;
+}
+
+.blog-prose .yt__caption {
+  margin-top: 0;
+  font-size: inherit;
+  line-height: inherit;
+  color: inherit;
+  text-align: left;
+}
+
+/* Prose link styling assumes ink on paper. Inside the overlay it painted the
+   channel name and the YouTube link in --blog-ink — black text on a black
+   scrim, invisible in light mode — and added prose underlines over a photo.
+   These links live on the poster, so they inherit the overlay's own white. */
+.blog-prose .yt__channel,
+.blog-prose .yt__out {
+  color: inherit;
+  text-decoration: none;
+}
+
+.blog-prose .yt__channel:hover,
+.blog-prose .yt__out:hover {
+  color: #fff;
+  text-decoration: none;
+}
+
 /* The code-box header is a <figcaption>, so the generic image-caption rule above
    (margin-top + centering) lands on it and floats the header off the top edge,
    leaving the rounded corners wrapping dead space. Restore the component's intent:

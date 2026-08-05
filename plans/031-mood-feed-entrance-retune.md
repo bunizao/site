@@ -1,6 +1,21 @@
 # 031 — Mood feed entrance, exit and skeleton: a retune that needs an owner decision
 
-- **Status**: BLOCKED — needs owner decision on §Decisions before execution
+## Owner decisions (recorded 2026-08-01, before execution)
+
+- **A → A2.** Entrance 0.55s, 60ms stagger, last card settles at 790ms. Exactly
+  the `home-reveal.css` values, so the feed joins the home page's motion family
+  rather than arriving as a slower cousin.
+- **B → B1.** The `filter: blur(6px)` is removed from the transition and from
+  both `--entering` and `--leaving`. It bought little at 24px of travel and cost
+  a repaint per card per frame at the busiest moment in the sequence.
+- **C → C1.** Only `mood-skeleton-sheen` survives, retuned 2.8s → 1.2s. The
+  pulse, flow and shimmer animations are deleted (their styling stays), and
+  their three `@keyframes` blocks went with them.
+
+Item 2 (the exit curve) was unconditional and is applied: 0.5s easeInCubic →
+0.25s `var(--ease-out)`.
+
+- **Status**: DONE
 - **Severity**: MEDIUM
 - **Category**: Easing & duration / Feel
 - **Estimated scope**: 1 file, ~40 lines
@@ -232,3 +247,31 @@ changed to `1.2s`, and delete the `animation` (not the styling) from `:420`,
 - **Done when**: decisions are recorded at the top of this file, the exit starts
   immediately, and the entrance reads as part of the home page's motion rather
   than a slower guest.
+
+## Verified 2026-08-05
+
+Measured in a real headless Chromium at 1440×900 against the dev server, not the
+preview pane (which pauses rAF and reports `innerWidth: 0`). Script pattern:
+scroll `#moods-section` into view first — the feed load is IntersectionObserver-
+gated at `:1486-1496`, so nothing fetches until it is on screen.
+
+| Claim | Measured |
+| --- | --- |
+| Mechanical | `bun run check` 0 errors / 0 warnings across 505 files; `bun run build` clean |
+| Entrance timing | five live cards, `--item-index` 0-4, `transition-delay` 0 / 60 / 120 / 180 / 240ms, duration `0.55s, 0.55s` |
+| Entrance settle | 800ms for the last of five, against A2's predicted 790ms |
+| Blur removed | `filter: none` on all five settled cards and on `--entering` |
+| Exit | `--leaving` resolves to `0.25s` `cubic-bezier(0.23, 1, 0.32, 1)` — `--ease-out`, no ease-in |
+| Skeleton | with `/api/moods` held open, exactly **one** animation runs: `mood-skeleton-sheen` at `1.2s` |
+| Reduced motion | cards `transition-duration: 0s`, `opacity: 1`, `transform: none`; all three decorated skeleton pseudo-elements `display: none` |
+
+Two items are judgement rather than measurement and stay open: whether the feed
+now reads as the same motion family as the Writing section, and a DevTools paint
+recording of the swap to put a number on what B1 saved.
+
+One trap worth recording. Re-adding `mood-item--entering` to an already-settled
+card and sampling two frames later does **not** replay the entrance — it starts a
+1 → 0 transition, so every sample reads ~1.00 and the entrance looks broken. To
+measure the real thing, set the class **before** insertion (clone, add class, set
+`--item-index`, append, then remove the class on the next frame). That is what
+produced the 800ms figure.

@@ -4,6 +4,10 @@ import { expect, test } from './fixtures';
 const BLOG_POST_PATH_RE = /^\/blog\/[^/?#]+\/$/;
 const BLOG_TAG_PATH_RE = /^\/blog\/tag\/[^/?#]+\/$/;
 
+async function readPageScrollTop(page: Page): Promise<number> {
+  return page.locator('[data-page-scroller]').evaluate((scroller) => scroller.scrollTop);
+}
+
 interface BlogIndexTargets {
   firstPostHref: string;
   firstPostTitle: string;
@@ -228,14 +232,14 @@ test.describe('Blog routes', () => {
 
     const expectedHero = await nextRow.getAttribute('data-hero');
     expect(expectedHero).toBeTruthy();
-    const initialScrollY = await page.evaluate(() => window.scrollY);
+    const initialScrollY = await readPageScrollTop(page);
     await page.mouse.wheel(0, wheelDelta);
 
     await expect.poll(async () => page.evaluate(
       ({ x, y }) => document.elementFromPoint(x, y)?.closest<HTMLElement>('.blog-row')?.dataset.hero ?? null,
       pointer,
     )).toBe(expectedHero);
-    expect(await page.evaluate(() => window.scrollY)).toBeGreaterThan(initialScrollY);
+    expect(await readPageScrollTop(page)).toBeGreaterThan(initialScrollY);
     await expect(preview.locator('img')).toHaveAttribute('src', expectedHero!);
     await expect(preview).toHaveClass(/is-visible/);
 
@@ -253,7 +257,7 @@ test.describe('Blog routes', () => {
       );
     }, pointer)).toBeLessThan(3);
 
-    const pageHeight = await page.evaluate(() => document.documentElement.scrollHeight);
+    const pageHeight = await page.locator('[data-page-scroller]').evaluate((scroller) => scroller.scrollHeight);
     await page.mouse.wheel(0, pageHeight);
     await expect.poll(async () => page.evaluate(
       ({ x, y }) => document.elementFromPoint(x, y)?.closest('.blog-list') !== null,

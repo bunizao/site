@@ -15,6 +15,8 @@ interface Props {
   navVariant?: 'home' | 'page';
   brandVariant?: 'home';
   headerActionsVariant?: 'default' | 'home';
+  containedScroll?: boolean;
+  scrollRestorationKey?: string;
   structuredData?: Record<string, unknown> | Array<Record<string, unknown>>;
   // The faces this route paints above the fold, in priority order. Every face
   // is font-display: swap, so one that is painted early but not preloaded is a
@@ -40,6 +42,7 @@ import '../features/mood/styles/feed-rich-text.css';
 import { Moon, Sun, Monitor, Menu, X } from 'lucide-react';
 import AnimatedLogo from '@/features/logos/ui/AnimatedLogo.astro';
 import CommandPalette from '@/components/CommandPalette.astro';
+import PageScroller from '@/components/PageScroller.astro';
 import SearchButton from '@/components/SearchButton.astro';
 import SiteBrand from '@/components/SiteBrand.astro';
 import Topbar from '@/components/Topbar.astro';
@@ -67,6 +70,8 @@ const {
   navVariant,
   brandVariant,
   headerActionsVariant = 'default',
+  containedScroll = false,
+  scrollRestorationKey,
   structuredData,
   // Geist Mono carries the site identity (nav brand, meta) and Inter is the
   // body face on every page, so both are worth the priority everywhere. Routes
@@ -124,10 +129,16 @@ const wordmarkFontHref = '/fonts/wenkai-wordmark.woff2';
 ---
 
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class:list={{ 'page-scroll-root': containedScroll }}>
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- iOS 26 extends the layout viewport up behind Safari's translucent
+         toolbar, so pages paint into the status-bar band whether or not they ask
+         to. Without viewport-fit=cover, env(safe-area-inset-*) stays 0 and the
+         CSS cannot see that band — fixed bars end up under the Dynamic Island.
+         The safe-area rules throughout globals.css were written for this and
+         were inert until now; every inset is 0 on hardware without a notch. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="description" content={description} />
     {preloadFontHrefs.map((href) => (
       <link rel="preload" href={href} as="font" type="font/woff2" crossorigin />
@@ -402,9 +413,17 @@ const wordmarkFontHref = '/fonts/wenkai-wordmark.woff2';
       )}
     </div>
     <slot name="topbar" />
-    <div class="site-shell">
-      <slot />
-    </div>
+    {containedScroll ? (
+      <PageScroller restorationKey={scrollRestorationKey}>
+        <div class="site-shell">
+          <slot />
+        </div>
+      </PageScroller>
+    ) : (
+      <div class="site-shell">
+        <slot />
+      </div>
+    )}
 
     <CommandPalette />
 

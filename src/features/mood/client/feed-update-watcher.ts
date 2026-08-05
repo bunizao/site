@@ -1,4 +1,5 @@
 import type gsap from 'gsap';
+import { pageScroll } from '@/lib/page-scroll';
 
 type GsapModule = typeof gsap;
 
@@ -51,6 +52,7 @@ export function createFeedUpdateWatcher({
   getTotalCount,
   readSource,
 }: FeedUpdateWatcherOptions): FeedUpdateWatcherController {
+  const scroll = pageScroll();
   let latestSeenId = '';
   let pendingUpdateId = '';
   let isCheckingUpdates = false;
@@ -351,7 +353,7 @@ export function createFeedUpdateWatcher({
     }
 
     const canAutoRefresh =
-      document.visibilityState === 'visible' && window.scrollY <= AUTO_REFRESH_MAX_SCROLL_Y;
+      document.visibilityState === 'visible' && scroll.el.scrollTop <= AUTO_REFRESH_MAX_SCROLL_Y;
     void showUpdateNotice(canAutoRefresh);
   };
 
@@ -457,7 +459,7 @@ export function createFeedUpdateWatcher({
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'visible') {
         if (pendingUpdateId && isNewerMoodId(pendingUpdateId, latestSeenId)) {
-          void showUpdateNotice(window.scrollY <= AUTO_REFRESH_MAX_SCROLL_Y);
+          void showUpdateNotice(scroll.el.scrollTop <= AUTO_REFRESH_MAX_SCROLL_Y);
         }
         void checkForUpdates();
         return;
@@ -470,11 +472,11 @@ export function createFeedUpdateWatcher({
       void checkForUpdates();
     });
 
-    window.addEventListener(
+    scroll.events.addEventListener(
       'scroll',
       () => {
         if (!autoRefreshPending) return;
-        if (window.scrollY > AUTO_REFRESH_CANCEL_SCROLL_Y) {
+        if (scroll.el.scrollTop > AUTO_REFRESH_CANCEL_SCROLL_Y) {
           void showUpdateNotice(false);
         }
       },

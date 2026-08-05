@@ -34,16 +34,16 @@ leverage without a user selection step.
 | 019  | Root transition opacity ramp + reduced-motion crossfade | P2 | S | — | DONE |
 | 020  | Blog wordmark entrance once per session | P2 | S | — | DONE |
 | 021  | Re-measure Safari, then delete the WebKit skip if it holds | P3 | S | 017, 018 | Skip removed 2026-08-01; feel-check on real Safari still owed |
-| 022  | One motion vocabulary for the whole site | P2 | M | — | TODO |
-| 023  | TOC sliding pill: four layout properties → one transform | P1 | S | — | TODO |
-| 024  | Hover pill: fix the will-change/re-raster conflict + rAF the scroll path | P1 | S | — | TODO |
-| 025  | Record scrub: stop recalculating a card subtree per pointermove | P2 | S | — | TODO |
-| 026  | scroll-dock fallback: coalesce per-event writes into a frame | P3 | S | — | TODO |
-| 027  | Replace `transition: all` with the properties actually intended | P2 | M | 022 (soft) | TODO |
-| 028  | Delete the dead header hover-expand | P3 | S | — | TODO |
-| 029  | Reduced motion for the marquee, pointer gating for 13 hover transforms | P2 | M | — | TODO |
-| 030  | Three `scale(0)` entrances and one exit curve | P3 | S | — | TODO |
-| 031  | Mood feed entrance/exit/skeleton retune | P2 | S | owner decision | BLOCKED (needs decisions A/B/C, see plan) |
+| 022  | One motion vocabulary for the whole site | P2 | M | — | DONE (`54926103`) |
+| 023  | TOC sliding pill: four layout properties → one transform | P1 | S | — | DONE (`7ccaa6ef`) |
+| 024  | Hover pill: fix the will-change/re-raster conflict + rAF the scroll path | P1 | S | — | DONE (`7ccaa6ef`) |
+| 025  | Record scrub: stop recalculating a card subtree per pointermove | P2 | S | — | DONE (`60a112f3`) |
+| 026  | scroll-dock fallback: coalesce per-event writes into a frame | P3 | S | — | DONE (`60a112f3`) |
+| 027  | Replace `transition: all` with the properties actually intended | P2 | M | 022 (soft) | DONE (`57d7844d`) |
+| 028  | Delete the dead header hover-expand | P3 | S | — | DONE (`d96efed5`) |
+| 029  | Reduced motion for the marquee, pointer gating for 13 hover transforms | P2 | M | — | DONE (`686cb8d9`, 11 real sites — see plan) |
+| 030  | Three `scale(0)` entrances and one exit curve | P3 | S | — | DONE (`686cb8d9`) |
+| 031  | Mood feed entrance/exit/skeleton retune | P2 | S | owner decision | DONE (`2ca74e42`, A2+B1+C1) |
 
 Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJECTED (with one-line rationale)
 
@@ -162,13 +162,25 @@ discarded. If a reviewer can see a difference, the change is wrong. 022 is the
 exception in kind but not in effect: it renames curves to tokens without
 retuning any of them.
 
-**Feel and accessibility (029-031)** — these do change what the user sees, and
-029 and 031 need a decision before they are safe to execute. 031 is BLOCKED on
-three owner decisions recorded in its own file.
+**Feel and accessibility (029-031)** — these do change what the user sees.
 
-Execution: 023, 024, 025, 026, 028 and 030 are independent and can run in
-parallel — they touch disjoint files. 022 should land before 027 so the
-narrowing pass has tokens to write; 027 works without it, just with literals.
+All ten shipped on `fix/navigation-transitions` (022-030 on 2026-08-01, 031 on
+2026-08-05 once its decisions were recorded). 022 landed before 027, so the
+narrowing pass had tokens to write rather than literals.
+
+Owed follow-up, neither of which code can close:
+
+- **021's Safari feel-check.** The WebKit `skipTransition` was removed ahead of
+  the measurement it was meant to wait for. Every transition in the home → blog
+  → post chain now runs on Safari unverified by a human eye.
+- **031's feel-check and paint measurement.** Verified in real Chromium on
+  2026-08-05 (`check` and `build` clean; five live cards at indices 0-4 with
+  0/60/120/180/240ms delays, 0.55s, `filter: none`; a five-card entrance settles
+  at 800ms against A2's predicted 790ms; the throttled skeleton runs exactly one
+  animation, the 1.2s sheen, and reduced motion parks all three decorated
+  pseudo-elements). What remains is judgement, not measurement: whether the feed
+  now reads as the same motion family as the Writing section, and a DevTools
+  paint recording of the swap to put a number on B1's saving.
 
 Deliberately NOT planned (recorded so it isn't re-litigated):
 

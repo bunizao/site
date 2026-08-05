@@ -147,6 +147,11 @@ describe('components showcase registry', () => {
         type: 'registry:lib',
       },
       {
+        path: 'lib/page-scroll.ts',
+        target: '@lib/page-scroll.ts',
+        type: 'registry:lib',
+      },
+      {
         path: 'features/mood/ui/TimelineWheel.astro',
         target: '@ui/timeline-wheel.astro',
         type: 'registry:ui',
@@ -154,8 +159,8 @@ describe('components showcase registry', () => {
     ]);
     expect(item.files[0]?.content).toContain("from '@/lib/timeline-date-tracker'");
     expect(item.files[0]?.content).toContain("from '@/lib/feed-anchor'");
-    expect(item.files[3]?.content).toContain("from '@/lib/timeline-wheel'");
-    expect(item.files[3]?.content).toContain('data-timeline-wheel');
+    expect(item.files[4]?.content).toContain("from '@/lib/timeline-wheel'");
+    expect(item.files[4]?.content).toContain('data-timeline-wheel');
     expect(item.files.some(({ content }) => content.includes('@/features/'))).toBe(false);
   });
 

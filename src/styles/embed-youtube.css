@@ -1,3 +1,8 @@
+/* The caption overlay renders the shared progressive-blur ladder inline, so this
+   sheet owns that dependency rather than relying on some other import pulling it
+   in first. */
+@import './progressive-blur.css';
+
 .yt {
   --yt-radius: 12px;
   --yt-disc: 48px;
@@ -66,13 +71,14 @@
   filter: saturate(0.5) brightness(0.52);
 }
 
+/* Centre vignette only. The bottom band this used to carry stacked with the
+   caption's own scrim and muddied the lower third twice over; the caption now
+   owns every pixel of contrast beneath it. */
 .yt__veil {
   position: absolute;
   inset: 0;
   pointer-events: none;
-  background:
-    radial-gradient(ellipse 21% 33% at 50% 50%, hsl(0 0% 0% / 0.46), transparent 70%),
-    linear-gradient(to top, hsl(0 0% 0% / 0.3), transparent 26%);
+  background: radial-gradient(ellipse 21% 33% at 50% 50%, hsl(0 0% 0% / 0.46), transparent 70%);
   opacity: 0.82;
   transition: opacity 160ms ease;
 }
@@ -227,6 +233,14 @@
   pointer-events: none;
 }
 
+/* The caption sits over an arbitrary video frame, so it cannot rely on the
+   poster for contrast — burnt-in subtitles live exactly here, and a thin scrim
+   let them read straight through the title.
+   `align-items: end` keeps the avatar on the title's line rather than centred
+   across both rows, which is what made the block look welded together.
+   Deliberately no background: the caption is a stacking context, so a background
+   here would sit under .yt__blur and get sampled as the thing to blur. The
+   darkening lives on .yt__scrim instead. */
 .yt__caption {
   position: absolute;
   right: 1px;
@@ -235,25 +249,99 @@
   z-index: 2;
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
-  align-items: center;
-  gap: 1px 10px;
+  align-items: end;
+  gap: 5px 11px;
   margin: 0;
-  padding: 52px 14px 13px;
+  padding: 76px 15px 14px;
   border-radius: 0 0 calc(var(--yt-radius) - 1px) calc(var(--yt-radius) - 1px);
   pointer-events: none;
-  background: linear-gradient(
-    to top,
-    hsl(0 0% 0% / 0.88),
-    hsl(0 0% 0% / 0.62) 34%,
-    hsl(0 0% 0% / 0.26) 66%,
-    transparent
-  );
+  text-align: left;
   transition: opacity 220ms ease, transform 220ms ease;
 }
 
+/* Defocus the plate as well as darken it. A subtitle burnt into the frame is
+   high-contrast type of its own; dimming alone leaves it readable under the
+   title, whereas destroying its letterforms removes it as a competing text.
+   The shared <ProgressiveBlur> ladder does this — masked per layer, so the blur
+   never cuts a visible line across the picture. It sits behind the type but
+   above the poster. */
+.yt__blur {
+  z-index: -1;
+  border-radius: inherit;
+}
+
+/* No saturate() pass here, on purpose. backdrop-filter compounds: every layer
+   samples what the layers behind it already painted, which is what makes the
+   ladder ramp at all. So a saturate on each of the 7 layers multiplies out to
+   ~17x and turns the band into a rainbow smear. The topbar gets away with its
+   glass because only 2 of its 4 layers carry the pass. */
+
+/* Same z-index as .yt__blur, later in tree order: equal z-index paints in tree
+   order, so this lands on top of the blur (and outside its backdrop) while both
+   stay under the text. Percentage stops, so the ramp holds at any caption height.
+
+   Tint only, deliberately not a plate. The navbar's glass is --background/0.5
+   fading to 0 — you read the page through it, and this stays light enough that
+   the video shows through. Dark rather than the navbar's light because the
+   caption text is white.
+
+   The plateau runs to 62% and the feather is short, which is the one thing that
+   cannot be relaxed. Blur contributes nothing to contrast over a blown-out
+   frame — defocusing white against white still averages to white — so the tint
+   alone carries legibility, and it has to be at full depth wherever type sits.
+   The desktop title sits 12-43% up the band and the mobile title 33-58%, so a
+   gradient tuned to the desktop band alone leaves the phone title in the light
+   half: measured against a white poster with burnt-in subtitles, the previous
+   desktop-shaped ramp needed 0.93 peak before the phone cleared AA, while this
+   shape clears it at 0.64 (title 7.9:1 desktop / 6.7:1 mobile, worst pixel
+   6.0:1 / 5.8:1). Retune the stops and re-measure both widths, not just one. */
+.yt__scrim {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  pointer-events: none;
+  background:
+    linear-gradient(
+      to top,
+      hsl(0 0% 0% / 0.64) 0%,
+      hsl(0 0% 0% / 0.6) 62%,
+      hsl(0 0% 0% / 0.37) 78%,
+      hsl(0 0% 0% / 0.15) 89%,
+      transparent 100%
+    );
+}
+
+/* Reduce Transparency drops every backdrop pass and the shared ladder falls back
+   to a flat --background tint. That is right behind the topbar, which sits over
+   the page background, but here it painted near-white over white text and let
+   the poster's own lettering through. The caption always needs a DARK plate, so
+   the tint is neutralised and the scrim alone carries contrast — same plateau
+   shape as above, deepened, because nothing is defocusing burnt-in subtitles. */
+@media (prefers-reduced-transparency: reduce) {
+  .yt__blur {
+    background: none;
+  }
+
+  .yt__scrim {
+    background:
+      linear-gradient(
+        to top,
+        hsl(0 0% 0% / 0.94) 0%,
+        hsl(0 0% 0% / 0.88) 62%,
+        hsl(0 0% 0% / 0.54) 78%,
+        hsl(0 0% 0% / 0.22) 89%,
+        transparent 100%
+      );
+  }
+}
+
+/* Spans both text rows and stays optically centred against them via
+   align-self, so a one-line and a two-line title both look deliberate. */
 .yt__avatar {
   position: relative;
   grid-row: 1 / span 2;
+  align-self: center;
   width: 34px;
   height: 34px;
   display: grid;
@@ -292,26 +380,36 @@
   display: none;
 }
 
+/* Text shadow is the last line of defence: the gradient handles a normal frame,
+   but a blown-out white poster (or a subtitle's own white glow) can still eat
+   thin type. A tight shadow keeps the glyph edges without visible haze. */
 .yt__title {
   grid-column: 2;
   display: -webkit-box;
   overflow: hidden;
-  color: hsl(0 0% 100% / 0.96);
+  color: #fff;
   font-size: 15px;
-  font-weight: 500;
+  font-weight: 550;
   line-height: 1.4;
+  letter-spacing: -0.005em;
+  text-shadow: 0 1px 3px hsl(0 0% 0% / 0.55);
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
 }
 
+/* 0.8 rather than a softer 0.72: at 12.5px this is small text, so it needs the
+   full 4.5:1, and the scrim is already as deep as it can go without reading as a
+   plate. Lifting the ink clears AA where darkening the glass would have cost the
+   see-through the whole band exists to keep. */
 .yt__meta {
   grid-column: 2;
   display: flex;
   align-items: center;
   gap: 4px 14px;
-  color: hsl(0 0% 100% / 0.66);
-  font-size: 13px;
+  color: hsl(0 0% 100% / 0.8);
+  font-size: 12.5px;
   line-height: 1.4;
+  text-shadow: 0 1px 3px hsl(0 0% 0% / 0.5);
 }
 
 .yt__channel,
@@ -377,10 +475,16 @@ a.yt__channel,
 }
 
 @media (max-width: 600px) {
-  .yt { --yt-disc: 44px; }
+  .yt { --yt-disc: 44px; margin-block: 26px; }
   .yt__glyph { width: 24px; height: 24px; }
-  .yt__caption { padding: 34px 11px 10px; }
-  .yt__title { font-size: 14px; }
+  /* A phone card is barely 180-200px tall, so the desktop feather would cover
+     two thirds of the picture. Shortened until the scrim reads as a band on a
+     photo rather than the photo's bottom half — the gradient stops are all
+     percentages, so the ramp stays smooth at any box height. */
+  .yt__caption { gap: 3px 9px; padding: 34px 12px 10px; }
+  /* One line on a phone: a wrapped title pushes the scrim over most of a short
+     card for a title the tap-through shows in full anyway. */
+  .yt__title { font-size: 14px; -webkit-line-clamp: 1; }
   .yt__meta { font-size: 12px; }
   .yt__avatar { width: 30px; height: 30px; }
 }

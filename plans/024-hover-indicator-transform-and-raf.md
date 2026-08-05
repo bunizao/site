@@ -1,6 +1,6 @@
 # 024 — Hover pill: stop re-rasterising a promoted layer, and stop forcing layout on scroll
 
-- **Status**: TODO
+- **Status**: DONE (2026-08-01, `7ccaa6ef`)
 - **Severity**: HIGH
 - **Category**: Performance
 - **Estimated scope**: 2 files, ~30 lines

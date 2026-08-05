@@ -1,8 +1,13 @@
+/* No overflow:hidden here, and that is load-bearing. A rounded overflow clip on
+   this wrapper makes Chromium drop the mask on every backdrop-filter child: all
+   layers then paint full-bleed, the ladder collapses into one uniform pane, and
+   the band gains a hard edge where it should fade in. It fails silently —
+   getComputedStyle still reports the masks, so only pixels catch it. The layers
+   are inset:0 and cannot overflow anyway; corner rounding is theirs to do. */
 .pblur {
   --pblur-direction: to bottom;
   position: absolute;
   inset: 0;
-  overflow: hidden;
   border-radius: inherit;
   pointer-events: none;
 }
@@ -35,6 +40,9 @@
 .pblur__layer {
   position: absolute;
   inset: 0;
+  /* Each layer rounds itself instead of being clipped by the wrapper: a
+     backdrop-filter result is clipped to its own border-box, radius included. */
+  border-radius: inherit;
   background: rgb(255 255 255 / 0%);
   -webkit-backdrop-filter: var(--pblur-filter);
   backdrop-filter: var(--pblur-filter);
