@@ -2,6 +2,7 @@ import { describe, expect, test } from 'bun:test';
 
 import {
   cacheHtmlPageResponse,
+  contentEdgeCacheVersion,
   readCachedHtmlPage,
   withContentPolicy,
 } from '@/features/agent-markdown/server/responses';
@@ -11,6 +12,10 @@ import {
 } from '@/lib/http/edge-cache';
 
 describe('variant edge cache', () => {
+  test('isolates content caches between deployments', () => {
+    expect(contentEdgeCacheVersion('deploy-a')).not.toBe(contentEdgeCacheVersion('deploy-b'));
+  });
+
   test('builds separate keys for html and markdown variants', () => {
     const request = new Request('https://buxx.me/blog/demo-effects/?utm=ignored');
     const htmlKey = buildVariantCacheKey(request, {

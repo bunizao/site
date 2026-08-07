@@ -1,4 +1,5 @@
 import { spawn } from 'node:child_process';
+import { resolveCloudflareBuildId } from './build-id.mjs';
 import { verifyCloudflareDeployArtifacts } from './cloudflare-deploy-guard.mjs';
 
 function hasValue(name) {
@@ -34,6 +35,7 @@ function printMissingEnvError(missing) {
 }
 
 const buildEnv = { ...process.env };
+buildEnv.PUBLIC_BUILD_ID = resolveCloudflareBuildId(buildEnv);
 const missing = getMissingGhostEnv();
 
 if (missing.length > 0) {
