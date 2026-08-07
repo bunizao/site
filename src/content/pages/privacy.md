@@ -1,14 +1,14 @@
 ---
 title: Privacy Policy | Bunizao
-description: How this website collects, uses, discloses, and retains personal data, including Cloudflare hosting, blog reading analytics, YouTube embeds, edge diagnostics, the homepage listening card, mood subscriptions, and third-party services.
-updatedAt: August 1, 2026
+description: How this website collects, uses, discloses, and retains personal data, including Cloudflare hosting, reading and playback analytics, YouTube embeds, edge diagnostics, listening cards, mood subscriptions, and third-party services.
+updatedAt: August 8, 2026
 ---
 
 # Privacy Policy
 
 This Privacy Policy describes how this website collects, uses, discloses, and retains personal data. It applies to the site as a whole — pages, blog articles, API routes, the homepage listening card, and the optional mood subscription available at [/mood](/mood) — together with the infrastructure and service providers used to operate it.
 
-> **Summary.** We do not sell personal data, share it with data brokers, or use it to build advertising profiles. No third-party analytics or advertising trackers are loaded as part of a normal page view. Choosing to play an embedded YouTube video loads YouTube's third-party player. The only information you provide directly is an email address, and only if you choose to subscribe to mood notifications; you may withdraw it at any time.
+> **Summary.** We do not sell personal data, share it with data brokers, or use it to build advertising profiles. No third-party analytics or advertising trackers are loaded as part of a normal page view. First-party reading and audio-playback analytics are sent only to this site's own API. Choosing to play an embedded YouTube video loads YouTube's third-party player. The only information you provide directly is an email address, and only if you choose to subscribe to mood notifications; you may withdraw it at any time.
 
 ## Scope
 
@@ -24,6 +24,7 @@ Depending on how you use the site, we may collect or process the following categ
 - **Technical and request data.** Serving a page or an API route requires standard request metadata. It is processed to deliver the response, enforce rate limits, and prevent abuse.
 - **Operational and performance data.** Cloudflare processes request metadata, logs, and performance signals necessary to serve the site, maintain availability, and diagnose failures.
 - **Blog reading analytics.** Blog article pages send first-party reading events to this site's own API; no third-party analytics vendor is loaded. These events may include the post slug, event, visitor and session identifiers, dwell time, scroll depth, completion state, referrer, IP address, approximate location and network metadata derived by Cloudflare, language, browser, operating system, device type, and user agent.
+- **Listening playback analytics.** Listening cards send first-party playback events to this site's own API when you interact with audio. These events may include the track identifier, title and artist; page path and surface; play requests, successful starts, pauses, seeks and completion; actual listening time, media position and duration; the same visitor and session identifiers used for blog reading analytics; and request-derived IP address, approximate location, referrer, language, browser, operating system, device type, and user agent.
 - **Edge connection diagnostics.** The footer can display attributes of your current connection derived by Cloudflare from your request: the serving datacenter, HTTP protocol, TLS version, TCP round-trip time, approximate location, and network or internet provider. These values are computed per request, returned only to you, and are not stored.
 - **Listening feature request data.** The homepage listening card triggers server-side requests to Last.fm and Apple services to retrieve the most recent track, album metadata, artwork, preview URLs, and related listening status.
 - **Theme preference data.** If you change the site theme, the preference is stored locally in your browser and is not transmitted to us.
@@ -40,6 +41,7 @@ We use the data described above to operate, secure, and maintain the site, speci
 - retain your local theme preference;
 - monitor performance and reliability;
 - understand which articles are read, for how long, and how readers arrive;
+- understand which listening cards are played, whether playback starts, how long audio is heard, and whether a track is completed;
 - display edge connection diagnostics when you hover or focus the footer indicator;
 - retrieve and refresh listening data from Last.fm and Apple services;
 - load a YouTube player only after you choose to play an embedded video;
@@ -67,6 +69,12 @@ The server derives network and browser signals from the request, including IP ad
 The homepage calls this site's `/api/listening` route after the page loads. Last.fm serves as the primary source for recent listening activity, and Apple's music metadata endpoints are used to enrich the current track with album details, artwork, preview audio, and Apple Music links.
 
 When the feature runs, this site's server sends track lookup terms derived from the latest Last.fm result to Apple services and receives track metadata in response. Standard request metadata is processed as part of those outbound requests in the same manner as any server-to-server request.
+
+## Listening playback analytics
+
+Listening cards on the homepage, blog, mood, and component pages use first-party playback analytics served by this site's own API. No third-party analytics script is loaded. These events distinguish a play request from playback that actually starts, and record cumulative heard time rather than inferring listening solely from the media position. Pause, seek, progress checkpoint, completion, track, page, and surface data are grouped into one playback record.
+
+Playback analytics reuse the visitor identifier stored in local storage and the session identifier stored in session storage for blog reading analytics. The server derives IP, approximate Cloudflare location, referrer, language, browser, operating system, device type, and user-agent information from the request. You may clear the browser-stored identifiers through your browser's storage controls at any time.
 
 ## YouTube embeds
 
@@ -108,7 +116,7 @@ We do not sell personal data collected through this site, and we do not share su
 
 We retain data for as long as reasonably necessary to operate the site, maintain security, assess performance, and provide optional features such as mood subscriptions.
 
-Certain data is short-lived, including temporary rate-limit state, local theme settings, the session-only YouTube reachability result, and session identifiers stored in your browser. Blog reading analytics may be retained while the feature remains useful for understanding readership and operating the site. Subscription records may be retained longer in order to maintain opt-in status, unsubscribe status, and delivery history. Data held by Cloudflare, Resend, Ghost, GitHub, Telegram-related sources, YouTube, or other providers is additionally subject to those providers' own retention practices.
+Certain data is short-lived, including temporary rate-limit state, local theme settings, the session-only YouTube reachability result, and session identifiers stored in your browser. Blog reading and listening playback analytics may be retained while the features remain useful for understanding readership, audio engagement, and site operation. Subscription records may be retained longer in order to maintain opt-in status, unsubscribe status, and delivery history. Data held by Cloudflare, Resend, Ghost, GitHub, Telegram-related sources, YouTube, or other providers is additionally subject to those providers' own retention practices.
 
 ## Your rights and choices
 

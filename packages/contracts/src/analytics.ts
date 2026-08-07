@@ -4,6 +4,7 @@ export const BLOG_ANALYTICS_EVENTS_ENDPOINT = '/api/analytics/events' as const;
 export const BLOG_ANALYTICS_ARTICLE_ENDPOINT = '/api/analytics/article' as const;
 export const NEWSLETTER_ANALYTICS_OPEN_ENDPOINT = '/api/analytics/newsletter/open' as const;
 export const NEWSLETTER_ANALYTICS_CLICK_ENDPOINT = '/api/analytics/newsletter/click' as const;
+export const LISTENING_ANALYTICS_EVENT_ENDPOINT = '/api/analytics/listening' as const;
 export const BLOG_ANALYTICS_EVENTS_DEFAULT_LIMIT = 50;
 export const BLOG_ANALYTICS_READ_THRESHOLD_MS = 5_000;
 export const BLOG_ANALYTICS_COMPLETION_SCROLL_DEPTH = 0.9;
@@ -35,6 +36,8 @@ export type BlogAnalyticsDeviceType = 'mobile' | 'tablet' | 'desktop' | 'other' 
 
 export type NewsletterAnalyticsEventType = 'sent' | 'open' | 'click';
 export type NewsletterAnalyticsEmailType = 'blog_welcome' | 'blog_newsletter';
+export type ListeningAnalyticsAction = 'play_request' | 'play' | 'progress' | 'pause' | 'seek' | 'complete';
+export type ListeningAnalyticsSurface = 'home' | 'blog' | 'mood' | 'components' | 'other';
 
 export interface BlogAnalyticsEventInput {
   eventId: string;
@@ -115,6 +118,69 @@ export interface NewsletterAnalyticsSummary {
   daily: NewsletterAnalyticsDailyStats[];
 }
 
+export interface ListeningAnalyticsEventInput {
+  playbackId: string;
+  visitorId: string;
+  sessionId?: string | null;
+  action: ListeningAnalyticsAction;
+  trackId?: string | null;
+  trackTitle: string;
+  trackArtist?: string | null;
+  pagePath: string;
+  surface: ListeningAnalyticsSurface;
+  listenedMs: number;
+  mediaTimeMs: number;
+  durationMs: number;
+  requestCount: number;
+  playCount: number;
+  pauseCount: number;
+  seekCount: number;
+  completed: boolean;
+}
+
+export interface ListeningAnalyticsTotals {
+  requests: number;
+  plays: number;
+  uniqueListeners: number;
+  totalListenedMs: number;
+  avgListenedMs: number;
+  completionRate: number;
+}
+
+export interface ListeningAnalyticsTrackStats extends ListeningAnalyticsTotals {
+  trackId: string | null;
+  trackTitle: string;
+  trackArtist: string | null;
+}
+
+export interface ListeningAnalyticsSurfaceStats extends ListeningAnalyticsTotals {
+  surface: ListeningAnalyticsSurface;
+}
+
+export interface ListeningAnalyticsDailyStats extends ListeningAnalyticsTotals {
+  day: string;
+}
+
+export interface ListeningAnalyticsSessionRecord extends ListeningAnalyticsEventInput {
+  startedAt: string;
+  lastEventAt: string;
+  ip: string | null;
+  country: string | null;
+  city: string | null;
+  browser: string | null;
+  os: string | null;
+  deviceType: BlogAnalyticsDeviceType | null;
+  platform: BlogAnalyticsPlatform;
+}
+
+export interface ListeningAnalyticsSummary {
+  totals: ListeningAnalyticsTotals;
+  tracks: ListeningAnalyticsTrackStats[];
+  surfaces: ListeningAnalyticsSurfaceStats[];
+  daily: ListeningAnalyticsDailyStats[];
+  recent: ListeningAnalyticsSessionRecord[];
+}
+
 export interface BlogAnalyticsSummaryResult {
   range: {
     from: string | null;
@@ -128,6 +194,7 @@ export interface BlogAnalyticsSummaryResult {
   referrers: BlogAnalyticsBreakdown[];
   daily: BlogAnalyticsDailyStats[];
   newsletter?: NewsletterAnalyticsSummary;
+  listening?: ListeningAnalyticsSummary;
 }
 
 export interface BlogAnalyticsEventRecord {

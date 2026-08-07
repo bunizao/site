@@ -389,7 +389,7 @@ function renderMusicCard(track: AppleTrack): string {
   return [
     // Player chrome (title, "Full track", timestamps) is UI, not prose —
     // keep it out of the Pagefind excerpt index.
-    `<figure class="kg-card blog-music" data-blog-music data-pagefind-ignore>`,
+    `<figure class="kg-card blog-music" data-blog-music data-track-id="${escapeHtml(track.id)}" data-track-title="${title}" data-track-artist="${escapeHtml(track.artist)}" data-pagefind-ignore>`,
     `<button class="blog-music__art" type="button" data-blog-music-play data-apple-catalog-id="${escapeHtml(track.id)}" data-preview-url="${escapeHtml(track.previewUrl)}"${canPlay ? '' : ' disabled'} aria-pressed="false" aria-label="${canPlay ? `Play ${title}` : `${title}`}">`,
     `<span class="blog-music__frame">`,
     RECORD,

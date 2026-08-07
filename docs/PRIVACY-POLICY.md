@@ -85,6 +85,18 @@ Provider behavior the policy now needs to reflect:
 - Apple's music metadata search endpoints are used to enrich results with album data, artwork, preview audio, and Apple Music links
 - the listening card refreshes through this site's API route rather than embedding static personal listening data into the prerendered home HTML
 
+### Listening Playback Analytics
+
+Covered implementation:
+
+- [`src/lib/listening/analytics.ts`](../src/lib/listening/analytics.ts) creates one cumulative first-party record per playback and sends checkpoints to `site-api /api/analytics/listening`
+- [`src/lib/listening/controller.ts`](../src/lib/listening/controller.ts) instruments shared listening cards on the homepage, mood, and component surfaces
+- [`src/features/posts/client/prose.ts`](../src/features/posts/client/prose.ts) instruments Apple Music cards embedded in blog prose
+- the tracker distinguishes play requests from successful starts and records progress, pause, seek, and completion events
+- cumulative heard time is measured from active playback intervals, while media position and duration are retained separately
+- playback events reuse the visitor and session identifiers already created by first-party blog reading analytics
+- `site-api` enriches the event with request-derived IP, Cloudflare location, referrer, language, browser, operating system, device, and user-agent metadata and stores one upserted row per playback in `listening_analytics_events`
+
 ### YouTube Embeds
 
 Covered implementation:

@@ -93,6 +93,9 @@ describe('Apple Music embed enrichment', () => {
 
     expect(requestedIds).toEqual(['1888707290']);
     expect(output).toContain('data-blog-music');
+    expect(output).toContain('data-track-id="1888707290"');
+    expect(output).toContain('data-track-title="A&amp;B &lt;Track&gt;"');
+    expect(output).toContain('data-track-artist="Sample Artist"');
     expect(output).toContain('A&amp;B &lt;Track&gt;');
     expect(output).not.toContain('kg-embed-card');
   });

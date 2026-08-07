@@ -68,6 +68,7 @@ Private API ownership lives in the separate `site-api` Worker. `site-api` direct
 - `GET /api/v2/moods/live-counts?ids=<id,...>` — Batched live comments/reactions for visible archive-rendered posts
 - `GET /api/comments` — Comments
 - `GET /api/oembed.json` — oEmbed endpoint (docs: `docs/OEMBED-API.md`)
+- `POST /api/analytics/listening` — First-party listening playback events. One cumulative record per playback captures requests, starts, heard time, progress, pauses, seeks, and completion.
 
 **Machine ingress (`site-api`):**
 - `api.buxx.me` is machine ingress, not the canonical public API surface.

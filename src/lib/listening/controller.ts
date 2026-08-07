@@ -4,6 +4,10 @@
 // cards on client-rendered posts. `data-static="true"` cards skip the
 // live-track refresh loop; playback and seek still work.
 import { musicKitPlayer } from '@/lib/musickit/player';
+import {
+  createBrowserListeningAnalytics,
+  inferListeningSurface,
+} from '@/lib/listening/analytics';
 
 type ListeningTrackPayload = {
   id?: string;
@@ -203,6 +207,7 @@ export const initListeningCards = (root: ParentNode = document): void => {
     const recordEl = root.querySelector('.listening-art-record');
 
     let trackTitle = playButton.dataset.trackTitle ?? 'Track';
+    let trackArtist = artist?.textContent?.trim() ?? '';
     let trackUrl = playButton.dataset.trackUrl ?? '';
     let isLive = root.dataset.nowPlaying === 'true';
     const hasInitialTrack = root.dataset.hasInitialTrack === 'true';
@@ -211,6 +216,13 @@ export const initListeningCards = (root: ParentNode = document): void => {
       catalogId: playButton.dataset.appleCatalogId ?? '',
       previewUrl: playButton.dataset.previewUrl ?? '',
     };
+    const listeningAnalytics = createBrowserListeningAnalytics(() => ({
+      trackId: playbackRequest.catalogId.trim() || null,
+      trackTitle,
+      trackArtist: trackArtist || null,
+      pagePath: window.location.pathname,
+      surface: inferListeningSurface(window.location.pathname),
+    }));
 
     const updateArtworkAccent = () => {
       if (!(artwork instanceof HTMLImageElement)) {
@@ -432,6 +444,7 @@ export const initListeningCards = (root: ParentNode = document): void => {
       const nextIsLive = Boolean(track.isNowPlaying);
 
       trackTitle = nextTitle;
+      trackArtist = nextArtist;
       trackUrl = nextLink;
       // Only the first fill-in is a reveal; later refreshes swap text in place.
       if (root.classList.contains('is-loading')) settleOutOfLoading();
@@ -505,6 +518,12 @@ export const initListeningCards = (root: ParentNode = document): void => {
 
       const duration = ours ? snapshot.duration : 0;
       const current = ours ? snapshot.currentTime : 0;
+      listeningAnalytics?.observe({
+        owned: ours,
+        isPlaying: playing,
+        currentTime: current,
+        duration,
+      });
       const fraction = duration > 0 ? Math.min(1, current / duration) : 0;
       syncProgress(fraction);
       if (elapsedEl) elapsedEl.textContent = ours ? formatTime(current) : '0:00';
@@ -537,6 +556,7 @@ export const initListeningCards = (root: ParentNode = document): void => {
         if (!scrubbing) return;
         scrubbing = false;
         root.classList.remove('is-scrubbing');
+        listeningAnalytics?.recordSeek();
         progress.releasePointerCapture(event.pointerId);
       };
       progress.addEventListener('pointerup', endScrub);
@@ -551,6 +571,10 @@ export const initListeningCards = (root: ParentNode = document): void => {
         return;
       }
 
+      const snapshot = musicKitPlayer.snapshot();
+      const startsPlayback = snapshot.owner !== playbackRequest
+        || (!snapshot.isPlaying && !snapshot.isLoading);
+      if (startsPlayback) listeningAnalytics?.requestPlay();
       musicKitPlayer.toggle(playbackRequest).catch(() => undefined);
     });
 

@@ -1,4 +1,8 @@
   import { musicKitPlayer } from '@/lib/musickit/player';
+  import {
+    createBrowserListeningAnalytics,
+    inferListeningSurface,
+  } from '@/lib/listening/analytics';
 
   // --- Blur-up reveal: crossfade each image in once it decodes ---
   // Covers both the article body and the feature hero (outside .blog-prose).
@@ -326,8 +330,15 @@
       // One PlayRequest per card. Identity matters: the singleton tells us
       // "is this card the active owner" by reference, not by id string.
       const request = { catalogId, previewUrl };
-
       const cardEl = card as HTMLElement;
+      const listeningAnalytics = createBrowserListeningAnalytics(() => ({
+        trackId: cardEl.dataset.trackId?.trim() || catalogId.trim() || null,
+        trackTitle: cardEl.dataset.trackTitle?.trim() || 'Track',
+        trackArtist: cardEl.dataset.trackArtist?.trim() || null,
+        pagePath: window.location.pathname,
+        surface: inferListeningSurface(window.location.pathname),
+      }));
+
       const recordEl = card.querySelector<HTMLElement>('.blog-music__record');
       const progress = card.querySelector<HTMLElement>('[data-blog-music-progress]');
       const elapsedEl = card.querySelector<HTMLElement>('[data-blog-music-elapsed]');
@@ -390,6 +401,12 @@
 
         const duration = ours ? snap.duration : 0;
         const current = ours ? snap.currentTime : 0;
+        listeningAnalytics?.observe({
+          owned: ours,
+          isPlaying: playing,
+          currentTime: current,
+          duration,
+        });
         const fraction = duration > 0 ? Math.min(1, current / duration) : 0;
         syncProgress(fraction);
         if (elapsedEl) elapsedEl.textContent = formatTime(current);
@@ -397,6 +414,10 @@
       });
 
       button.addEventListener('click', () => {
+        const snapshot = musicKitPlayer.snapshot();
+        const startsPlayback = snapshot.owner !== request
+          || (!snapshot.isPlaying && !snapshot.isLoading);
+        if (startsPlayback) listeningAnalytics?.requestPlay();
         musicKitPlayer.toggle(request).catch(() => undefined);
       });
 
@@ -431,6 +452,7 @@
           freezeCurrentRecordRotation();
           for (const el of spinners) el.style.removeProperty('transform');
           cardEl.classList.remove('is-scrubbing');
+          listeningAnalytics?.recordSeek();
           progress.releasePointerCapture(event.pointerId);
         };
         progress.addEventListener('pointerup', endScrub);

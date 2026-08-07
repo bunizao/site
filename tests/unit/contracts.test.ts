@@ -10,6 +10,7 @@ import {
   MOOD_LIVE_COUNTS_PATH,
   MOOD_LIVE_FEED_PATH,
   MOOD_MEDIA_PROXY_BASE_PATH,
+  LISTENING_ANALYTICS_EVENT_ENDPOINT,
   NEWSLETTER_ANALYTICS_CLICK_ENDPOINT,
   NEWSLETTER_ANALYTICS_OPEN_ENDPOINT,
   NOTIFY_CHANNELS,
@@ -21,6 +22,8 @@ import type {
   BlogAnalyticsSummaryResult,
   ContentDocument,
   MoodFeedResponse,
+  ListeningAnalyticsEventInput,
+  ListeningAnalyticsSummary,
   NewsletterAnalyticsSummary,
   SubscriberRecord,
 } from '@bunizao/contracts';
@@ -219,5 +222,47 @@ describe('@bunizao/contracts', () => {
     expect(summary.articles[0].topPlatform).toBe('safari');
     expect(summary.newsletter?.campaigns[0]?.emailType).toBe('blog_newsletter');
     expect(events.events[0].refSource).toBe('internal');
+  });
+
+  test('exports listening analytics event and summary contracts', () => {
+    expect(LISTENING_ANALYTICS_EVENT_ENDPOINT).toBe('/api/analytics/listening');
+
+    const event = {
+      playbackId: '019f2fa9-7c7b-7000-9000-000000000010',
+      visitorId: '019f2fa9-7c7b-7000-9000-000000000011',
+      sessionId: '019f2fa9-7c7b-7000-9000-000000000012',
+      action: 'pause',
+      trackId: '2038979910',
+      trackTitle: 'Example track',
+      trackArtist: 'Example artist',
+      pagePath: '/blog/example/',
+      surface: 'blog',
+      listenedMs: 31_000,
+      mediaTimeMs: 42_000,
+      durationMs: 90_000,
+      requestCount: 1,
+      playCount: 1,
+      pauseCount: 1,
+      seekCount: 1,
+      completed: false,
+    } satisfies ListeningAnalyticsEventInput;
+
+    const summary = {
+      totals: {
+        requests: 4,
+        plays: 3,
+        uniqueListeners: 2,
+        totalListenedMs: 91_000,
+        avgListenedMs: 30_333,
+        completionRate: 1 / 3,
+      },
+      tracks: [],
+      surfaces: [],
+      daily: [],
+      recent: [],
+    } satisfies ListeningAnalyticsSummary;
+
+    expect(event.action).toBe('pause');
+    expect(summary.totals.plays).toBe(3);
   });
 });
