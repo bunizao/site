@@ -8,6 +8,7 @@ const LOAD_TIMEOUT_MS = 10_000;
 export interface PlayRequest {
   catalogId?: string;
   previewUrl?: string;
+  preferFullTrack?: boolean;
 }
 
 export type PlaybackSource = 'full' | 'preview' | null;
@@ -48,6 +49,7 @@ class MusicKitPlayer {
   private token: string | null = null;
   private tokenExpiry = 0;
   private preview: HTMLAudioElement | null = null;
+  private previewPrime: Promise<boolean> | null = null;
   private owner: PlayRequest | null = null;
   private source: PlaybackSource = null;
   private playing = false;
@@ -75,13 +77,13 @@ class MusicKitPlayer {
   }
 
   private currentTime(): number {
-    if (this.source === 'full' && this.kit) return this.kit.currentPlaybackTime || 0;
+    if (this.source === 'full' && this.kit) return this.kit.player.currentPlaybackTime || 0;
     if (this.source === 'preview' && this.preview) return this.preview.currentTime || 0;
     return 0;
   }
 
   private duration(): number {
-    if (this.source === 'full' && this.kit) return this.kit.currentPlaybackDuration || 0;
+    if (this.source === 'full' && this.kit) return this.kit.player.currentPlaybackDuration || 0;
     if (this.source === 'preview' && this.preview) {
       return Number.isFinite(this.preview.duration) ? this.preview.duration : 0;
     }
@@ -223,7 +225,7 @@ class MusicKitPlayer {
     const playingState = musicKit.PlaybackStates?.playing ?? 2;
     kit.addEventListener(musicKit.Events.playbackStateDidChange, () => {
       if (this.source !== 'full') return;
-      this.setState(kit.playbackState === playingState, 'full');
+      this.setState(kit.player.playbackState === playingState, 'full');
     });
     kit.addEventListener(musicKit.Events.playbackTimeDidChange, () => {
       if (this.source === 'full') this.emit();
@@ -272,7 +274,28 @@ class MusicKitPlayer {
     return this.preview;
   }
 
-  private playPreview(request: PlayRequest, operationId: number): void {
+  private primePreview(request: PlayRequest, operationId: number): void {
+    if (!request.previewUrl) return;
+    const audio = this.ensurePreview();
+    if (audio.src !== request.previewUrl) audio.src = request.previewUrl;
+    audio.muted = true;
+    audio.loop = true;
+    this.previewPrime = audio.play().then(
+      () => this.owner === request && this.operationId === operationId,
+      () => false,
+    );
+  }
+
+  private resetPreview(): void {
+    this.previewPrime = null;
+    if (!this.preview) return;
+    this.preview.pause();
+    this.preview.currentTime = 0;
+    this.preview.loop = false;
+    this.preview.muted = false;
+  }
+
+  private async playPreview(request: PlayRequest, operationId: number): Promise<void> {
     if (this.owner !== request || this.operationId !== operationId) return;
     if (!request.previewUrl) {
       this.setState(false, null);
@@ -280,8 +303,18 @@ class MusicKitPlayer {
     }
 
     const audio = this.ensurePreview();
+    const primed = this.previewPrime ? await this.previewPrime : false;
+    if (this.owner !== request || this.operationId !== operationId) return;
+    this.previewPrime = null;
     if (audio.src !== request.previewUrl) audio.src = request.previewUrl;
+    audio.loop = false;
+    audio.currentTime = 0;
+    audio.muted = false;
     this.setState(false, 'preview', true);
+    if (primed && !audio.paused) {
+      this.setState(true, 'preview');
+      return;
+    }
     this.clearLoadTimeout();
     this.loadTimer = window.setTimeout(() => {
       if (this.operationId === operationId && this.loading) this.setState(false, null);
@@ -319,7 +352,7 @@ class MusicKitPlayer {
         }
         return;
       }
-      this.playPreview(request, operationId);
+      void this.playPreview(request, operationId);
       return;
     }
 
@@ -332,7 +365,8 @@ class MusicKitPlayer {
     this.owner = request;
     this.setState(false, null, true);
 
-    if (request.catalogId) {
+    if (request.preferFullTrack && request.catalogId) {
+      this.primePreview(request, operationId);
       const kit = await this.ensureKit();
       if (this.owner !== request || this.operationId !== operationId) return;
       if (kit) {
@@ -342,6 +376,7 @@ class MusicKitPlayer {
           await this.withTimeout(kit.setQueue({ song: request.catalogId }));
           await this.withTimeout(kit.play());
           if (this.owner !== request || this.operationId !== operationId) return;
+          this.resetPreview();
           this.setState(true, 'full');
           return;
         } catch {
@@ -356,12 +391,13 @@ class MusicKitPlayer {
   private fallback(request: PlayRequest, operationId: number): void {
     if (this.owner !== request || this.operationId !== operationId) return;
     if (this.kit) this.kit.stop().catch(() => undefined);
-    this.playPreview(request, operationId);
+    void this.playPreview(request, operationId);
   }
 
   pause(): void {
     this.operationId += 1;
     this.clearLoadTimeout();
+    if (this.previewPrime) this.resetPreview();
     if (this.source === 'full' && this.kit) this.kit.pause().catch(() => undefined);
     if (this.source === 'preview' && this.preview) this.preview.pause();
     this.playing = false;
@@ -372,7 +408,7 @@ class MusicKitPlayer {
   seekFraction(fraction: number): void {
     const target = Math.min(1, Math.max(0, fraction)) * this.duration();
     if (!Number.isFinite(target)) return;
-    if (this.source === 'full' && this.kit) this.kit.seekToTime(target).catch(() => undefined);
+    if (this.source === 'full' && this.kit) this.kit.player.seekToTime(target).catch(() => undefined);
     if (this.source === 'preview' && this.preview) this.preview.currentTime = target;
     this.emit();
   }
@@ -381,10 +417,7 @@ class MusicKitPlayer {
     this.operationId += 1;
     this.clearLoadTimeout();
     if (this.kit) this.kit.stop().catch(() => undefined);
-    if (this.preview) {
-      this.preview.pause();
-      this.preview.currentTime = 0;
-    }
+    this.resetPreview();
     this.playing = false;
     this.loading = false;
     this.source = null;

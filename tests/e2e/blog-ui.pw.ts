@@ -24,6 +24,12 @@ async function installFakeAudio(page: Page): Promise<void> {
 
       async play() {
         this.paused = false;
+        const root = globalThis as typeof globalThis & {
+          __fakeAudioPlayCalls?: number;
+          __fakeAudioMutedAtPlay?: boolean[];
+        };
+        root.__fakeAudioPlayCalls = (root.__fakeAudioPlayCalls ?? 0) + 1;
+        root.__fakeAudioMutedAtPlay = [...(root.__fakeAudioMutedAtPlay ?? []), Boolean((this as FakeAudio & { muted?: boolean }).muted)];
       }
 
       pause() {
@@ -39,7 +45,26 @@ async function installFakeAudio(page: Page): Promise<void> {
   });
 }
 
-type MusicKitFixtureOutcome = 'ready' | 'authorize-error' | 'queue-error' | 'play-error';
+async function installMusicKitTokenFixture(page: Page): Promise<void> {
+  await page.route('**/api/v2/musickit/token', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        token: 'test.developer.token',
+        expiresAt: new Date(Date.now() + 2 * 86_400_000).toISOString(),
+      }),
+    });
+  });
+}
+
+type MusicKitFixtureOutcome =
+  | 'ready'
+  | 'configure-error'
+  | 'authorize-error'
+  | 'unauthorized'
+  | 'queue-error'
+  | 'play-error';
 
 async function installMusicKitFixture(
   page: Page,
@@ -59,20 +84,26 @@ async function installMusicKitFixture(
           Events: {
             playbackStateDidChange: 'playbackStateDidChange',
             playbackTimeDidChange: 'playbackTimeDidChange',
-            playbackDurationDidChange: 'playbackDurationDidChange',
             mediaPlaybackError: 'mediaPlaybackError'
           },
           PlaybackStates: { playing: 2 },
           async configure() {
+            if (${JSON.stringify(outcome)} === 'configure-error') throw new Error('configure failed');
             const listeners = new Map();
             const instance = {
               isAuthorized: false,
-              playbackState: 0,
-              currentPlaybackTime: 0,
-              currentPlaybackDuration: 245,
+              player: {
+                playbackState: 0,
+                currentPlaybackTime: 0,
+                currentPlaybackDuration: 245,
+                async seekToTime(seconds) {
+                  this.currentPlaybackTime = seconds;
+                  globalThis.__musicKitSeekTime = seconds;
+                }
+              },
               async authorize() {
                 if (${JSON.stringify(outcome)} === 'authorize-error') throw new Error('authorization failed');
-                this.isAuthorized = true;
+                if (${JSON.stringify(outcome)} !== 'unauthorized') this.isAuthorized = true;
                 return 'user-token';
               },
               async setQueue(descriptor) {
@@ -81,26 +112,25 @@ async function installMusicKitFixture(
               },
               async play() {
                 if (${JSON.stringify(outcome)} === 'play-error') throw new Error('play failed');
-                this.playbackState = 2;
+                this.player.playbackState = 2;
                 listeners.get('playbackStateDidChange')?.forEach((handler) => handler({}));
               },
               async pause() {
-                this.playbackState = 3;
+                this.player.playbackState = 3;
               },
               async stop() {
-                this.playbackState = 0;
-              },
-              async seekToTime(seconds) {
-                this.currentPlaybackTime = seconds;
+                this.player.playbackState = 0;
               },
               addEventListener(name, handler) {
                 const handlers = listeners.get(name) ?? [];
                 handlers.push(handler);
                 listeners.set(name, handlers);
               },
-              removeEventListener() {}
             };
             globalThis.__musicKitInstance = instance;
+            globalThis.__emitMusicKitError = () => {
+              listeners.get('mediaPlaybackError')?.forEach((handler) => handler({}));
+            };
             return instance;
           },
           getInstance() {
@@ -582,6 +612,9 @@ test.describe('Blog reading UI', () => {
     await expect(card).toHaveClass(/is-source-preview/);
     await expect(card).not.toHaveClass(/is-source-full/);
     expect(tokenRequests).toBe(1);
+    await expect.poll(() => page.evaluate(() => (
+      globalThis as typeof globalThis & { __fakeAudioMutedAtPlay?: boolean[] }
+    ).__fakeAudioMutedAtPlay)).toEqual([true]);
 
     const progress = card.locator('[data-blog-music-progress]');
     const progressBox = await progress.boundingBox();
@@ -620,16 +653,9 @@ test.describe('Blog reading UI', () => {
     });
     await installFakeAudio(page);
 
-    await page.route('**/api/v2/musickit/token', async (route) => {
-      tokenRequests += 1;
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          token: 'test.developer.token',
-          expiresAt: new Date(Date.now() + 86_400_000).toISOString(),
-        }),
-      });
+    await installMusicKitTokenFixture(page);
+    page.on('request', (request) => {
+      if (request.url().endsWith('/api/v2/musickit/token')) tokenRequests += 1;
     });
 
     await installMusicKitFixture(page, 'ready', () => {
@@ -659,28 +685,42 @@ test.describe('Blog reading UI', () => {
       song: catalogId,
     });
 
+    const progress = card.locator('[data-blog-music-progress]');
+    const progressBox = await progress.boundingBox();
+    expect(progressBox).not.toBeNull();
+    await page.mouse.click(
+      (progressBox?.x ?? 0) + (progressBox?.width ?? 0) / 2,
+      (progressBox?.y ?? 0) + (progressBox?.height ?? 0) / 2,
+    );
+    await expect.poll(() => page.evaluate(() => (
+      globalThis as typeof globalThis & { __musicKitSeekTime?: number }
+    ).__musicKitSeekTime)).toBe(122.5);
+
+    await page.evaluate(() => (
+      globalThis as typeof globalThis & { __emitMusicKitError?: () => void }
+    ).__emitMusicKitError?.());
+    await expect(card).toHaveClass(/is-source-preview/);
+    await expect(card).not.toHaveClass(/is-source-full/);
+
     expect({ consoleErrors, pageErrors }).toEqual({
       consoleErrors: [],
       pageErrors: [],
     });
   });
 
-  for (const outcome of ['authorize-error', 'queue-error', 'play-error'] as const) {
+  for (const outcome of [
+    'configure-error',
+    'authorize-error',
+    'unauthorized',
+    'queue-error',
+    'play-error',
+  ] as const) {
     test(`falls back to the preview when MusicKit hits ${outcome}`, async ({ page }) => {
       await page.addInitScript(() => {
         window.process = { env: {} } as typeof window.process;
       });
       await installFakeAudio(page);
-      await page.route('**/api/v2/musickit/token', async (route) => {
-        await route.fulfill({
-          status: 200,
-          contentType: 'application/json',
-          body: JSON.stringify({
-            token: 'test.developer.token',
-            expiresAt: new Date(Date.now() + 86_400_000).toISOString(),
-          }),
-        });
-      });
+      await installMusicKitTokenFixture(page);
       await installMusicKitFixture(page, outcome);
 
       const href = await findBlogMusicPostHref(page);
@@ -697,16 +737,7 @@ test.describe('Blog reading UI', () => {
 
   test('falls back to the preview when the MusicKit script fails to load', async ({ page }) => {
     await installFakeAudio(page);
-    await page.route('**/api/v2/musickit/token', async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          token: 'test.developer.token',
-          expiresAt: new Date(Date.now() + 86_400_000).toISOString(),
-        }),
-      });
-    });
+    await installMusicKitTokenFixture(page);
     await page.route('https://js-cdn.music.apple.com/musickit/v3/musickit.js', (route) => route.abort());
 
     const href = await findBlogMusicPostHref(page);

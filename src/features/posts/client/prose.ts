@@ -328,7 +328,7 @@
 
       // One PlayRequest per card. Identity matters: the singleton tells us
       // "is this card the active owner" by reference, not by id string.
-      const request = { catalogId, previewUrl };
+      const request = { catalogId, previewUrl, preferFullTrack: true };
       const cardEl = card as HTMLElement;
       const listeningAnalytics = createBrowserListeningAnalytics(() => ({
         trackId: cardEl.dataset.trackId?.trim() || catalogId.trim() || null,

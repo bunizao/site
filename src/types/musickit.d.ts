@@ -16,7 +16,6 @@ export interface MusicKitQueueDescriptor {
 export interface MusicKitEvents {
   playbackStateDidChange: string;
   playbackTimeDidChange: string;
-  playbackDurationDidChange: string;
   mediaPlaybackError?: string;
 }
 
@@ -27,19 +26,22 @@ export interface MusicKitStatic {
   PlaybackStates?: Record<string, number>;
 }
 
-export interface MusicKitInstance {
-  isAuthorized: boolean;
+export interface MusicKitPlaybackController {
   playbackState: number;
   currentPlaybackTime: number;
   currentPlaybackDuration: number;
+  seekToTime(seconds: number): Promise<void>;
+}
+
+export interface MusicKitInstance {
+  isAuthorized: boolean;
+  player: MusicKitPlaybackController;
   authorize(): Promise<string>;
   setQueue(descriptor: MusicKitQueueDescriptor): Promise<unknown>;
   play(): Promise<void>;
   pause(): Promise<void>;
   stop(): Promise<void>;
-  seekToTime(seconds: number): Promise<void>;
   addEventListener(name: string, handler: (event: unknown) => void): void;
-  removeEventListener(name: string, handler: (event: unknown) => void): void;
 }
 
 export {};
