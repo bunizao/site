@@ -225,7 +225,7 @@ describe('@bunizao/contracts', () => {
   });
 
   test('exports listening analytics event and summary contracts', () => {
-    expect(LISTENING_ANALYTICS_EVENT_ENDPOINT).toBe('/api/analytics/listening');
+    expect(LISTENING_ANALYTICS_EVENT_ENDPOINT).toBe('/api/v2/analytics/listening');
 
     const event = {
       playbackId: '019f2fa9-7c7b-7000-9000-000000000010',

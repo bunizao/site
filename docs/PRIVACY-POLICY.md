@@ -89,7 +89,7 @@ Provider behavior the policy now needs to reflect:
 
 Covered implementation:
 
-- [`src/lib/listening/analytics.ts`](../src/lib/listening/analytics.ts) creates one cumulative first-party record per playback and sends checkpoints to `site-api /api/analytics/listening`
+- [`src/lib/listening/analytics.ts`](../src/lib/listening/analytics.ts) creates one cumulative first-party record per playback and sends checkpoints to `site-api /api/v2/analytics/listening`
 - [`src/lib/listening/controller.ts`](../src/lib/listening/controller.ts) instruments shared listening cards on the homepage, mood, and component surfaces
 - [`src/features/posts/client/prose.ts`](../src/features/posts/client/prose.ts) instruments Apple Music cards embedded in blog prose
 - the tracker distinguishes play requests from successful starts and records progress, pause, seek, and completion events
