@@ -212,7 +212,11 @@ export async function createE2EApiFixtureResponse(context: FixtureContext): Prom
   ) {
     return listeningFixtureResponse();
   }
-  if (url.pathname === '/api/v2/musickit/token' || url.pathname === '/v2/musickit/token') {
+  if (
+    url.pathname === '/api/musickit/token'
+    || url.pathname === '/api/v2/musickit/token'
+    || url.pathname === '/v2/musickit/token'
+  ) {
     return musickitTokenFixtureResponse();
   }
   if (url.pathname === '/v2/admin/auth/start') {

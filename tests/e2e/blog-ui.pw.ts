@@ -46,7 +46,7 @@ async function installFakeAudio(page: Page): Promise<void> {
 }
 
 async function installMusicKitTokenFixture(page: Page): Promise<void> {
-  await page.route('**/api/v2/musickit/token', async (route) => {
+  await page.route('**/api/musickit/token', async (route) => {
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
@@ -581,7 +581,7 @@ test.describe('Blog reading UI', () => {
 
     await installFakeAudio(page);
 
-    await page.route('**/api/v2/musickit/token', async (route) => {
+    await page.route('**/api/musickit/token', async (route) => {
       tokenRequests += 1;
       await route.fulfill({
         status: 200,
@@ -655,7 +655,7 @@ test.describe('Blog reading UI', () => {
 
     await installMusicKitTokenFixture(page);
     page.on('request', (request) => {
-      if (request.url().endsWith('/api/v2/musickit/token')) tokenRequests += 1;
+      if (request.url().endsWith('/api/musickit/token')) tokenRequests += 1;
     });
 
     await installMusicKitFixture(page, 'ready', () => {

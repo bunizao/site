@@ -983,7 +983,7 @@ test.describe('Home page', () => {
       });
     });
 
-    await page.route('**/api/v2/musickit/token', async (route) => {
+    await page.route('**/api/musickit/token', async (route) => {
       tokenRequests += 1;
       await route.fulfill({
         status: 200,

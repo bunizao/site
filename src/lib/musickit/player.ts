@@ -1,7 +1,7 @@
 import type { MusicKitInstance, MusicKitStatic } from '@/types/musickit';
 
 const MUSICKIT_SRC = 'https://js-cdn.music.apple.com/musickit/v3/musickit.js';
-const TOKEN_ENDPOINT = '/api/v2/musickit/token';
+const TOKEN_ENDPOINT = '/api/musickit/token';
 const TOKEN_REFRESH_MARGIN_MS = 24 * 60 * 60 * 1000;
 const LOAD_TIMEOUT_MS = 10_000;
 
