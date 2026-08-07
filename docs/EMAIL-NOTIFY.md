@@ -64,14 +64,13 @@ Bindings:
 
 ## Scheduling Strategy
 
-- Real-time sends are triggered by `POST /webhooks/telegram`.
+- Immediate-delivery subscriptions are triggered by publication webhooks and enter the queue with a five-minute safety delay.
 - Scheduled sends are triggered by `/v2/notify/schedule`.
 - Failed sends are retried by `/v2/notify/retry`.
 
 ```text
-Telegram -> site-api /webhooks/telegram -> Cloudflare Queue
-         -> queue consumer -> /v2/notify/dispatch
-         -> notify service -> Resend
+Telegram/Ghost -> site-api publication webhook -> Cloudflare Queue (5 minute delay)
+               -> queue consumer -> notify service -> Resend
 ```
 
 The webhook and queue worker do not send email directly. `/v2/notify/dispatch` owns delivery, idempotency, and retry scheduling.
