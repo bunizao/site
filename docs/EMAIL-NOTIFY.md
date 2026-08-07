@@ -65,6 +65,7 @@ Bindings:
 ## Scheduling Strategy
 
 - Immediate-delivery subscriptions are triggered by publication webhooks and enter the queue with a five-minute safety delay.
+- Authenticated dispatch requests explicitly targeting only `immediate` delivery use the same delayed queue.
 - Scheduled sends are triggered by `/v2/notify/schedule`.
 - Failed sends are retried by `/v2/notify/retry`.
 
