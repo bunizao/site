@@ -10,10 +10,12 @@ import {
   buildVariantCacheKey,
   shouldBypassEdgeCache,
 } from '@/lib/http/edge-cache';
+import { getContentRoutePolicy } from '@/features/agent-markdown/server/registry';
 
 describe('variant edge cache', () => {
   test('isolates content caches between deployments', () => {
     expect(contentEdgeCacheVersion('deploy-a')).not.toBe(contentEdgeCacheVersion('deploy-b'));
+    expect(getContentRoutePolicy('/')?.edgeCacheHtml).toBe(true);
   });
 
   test('builds separate keys for html and markdown variants', () => {

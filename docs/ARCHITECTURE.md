@@ -113,7 +113,7 @@ The edge cache key includes the negotiated variant (`html` or `markdown`) plus p
 | `/mood/[id]` | `public, max-age=0, s-maxage=300, stale-while-revalidate=1800` for HTML; Markdown uses `s-maxage=300` | HTML and Markdown, variant-keyed |
 | `/blog`, `/blog/tags`, `/blog/tag/[slug]` | `public, max-age=0, s-maxage=120` for HTML and Markdown | HTML and Markdown, variant-keyed |
 | `/blog/[slug]` | `public, max-age=0, s-maxage=300` for HTML and Markdown | HTML and Markdown, variant-keyed |
-| `/` | `public, max-age=0, s-maxage=300` for HTML and Markdown | Markdown only |
+| `/` | `public, max-age=0, s-maxage=300` for HTML and Markdown | HTML and Markdown, variant-keyed |
 | `/privacy` | `public, max-age=0, s-maxage=3600` for HTML and Markdown | Markdown only |
 | `/projects` | `public, max-age=0, s-maxage=300` | Cache-Control only |
 | `/llms.txt` | `public, max-age=0, s-maxage=300` | Cache-Control only |

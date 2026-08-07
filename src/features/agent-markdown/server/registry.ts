@@ -327,7 +327,7 @@ export function getContentRoutePolicy(pathname: string): ContentRoutePolicy | nu
   const normalized = normalizePathname(pathname);
 
   if (normalized === '/') {
-    return { cacheTtlSeconds: 300, edgeCacheHtml: false, cacheHeaderName: EDGE_CACHE_HEADER };
+    return { cacheTtlSeconds: 300, edgeCacheHtml: true, cacheHeaderName: EDGE_CACHE_HEADER };
   }
   if (normalized === '/privacy') {
     return { cacheTtlSeconds: 3600, edgeCacheHtml: false, cacheHeaderName: EDGE_CACHE_HEADER };
