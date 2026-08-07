@@ -10,11 +10,11 @@ import {
   hasMarkdownRenderer,
 } from './registry';
 
-export function contentEdgeCacheVersion(buildId = import.meta.env.PUBLIC_BUILD_ID): string {
-  return `2:${buildId?.trim() || 'dev'}`;
-}
+const EDGE_CACHE_VERSION = '2';
 
-const EDGE_CACHE_VERSION = contentEdgeCacheVersion();
+export function homepageEdgeCacheVersion(buildId = import.meta.env.PUBLIC_BUILD_ID): string {
+  return `${EDGE_CACHE_VERSION}:${buildId?.trim() || 'dev'}`;
+}
 const CLOUDFLARE_CDN_CACHE_CONTROL_HEADER = 'Cloudflare-CDN-Cache-Control';
 const CONTENT_STALE_WHILE_REVALIDATE_SECONDS = 300;
 const NO_STORE_CACHE_CONTROL = 'no-store, max-age=0';
@@ -230,7 +230,7 @@ function createHtmlCacheOptions(request: Request): Parameters<typeof readEdgeCac
   return {
     namespace: 'content',
     variant: 'html',
-    version: EDGE_CACHE_VERSION,
+    version: url.pathname === '/' ? homepageEdgeCacheVersion() : EDGE_CACHE_VERSION,
     ttlSeconds: policy.cacheTtlSeconds,
     headerName: policy.cacheHeaderName,
     cacheControl: publicCacheControl(

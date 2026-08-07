@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test';
 
 import {
   cacheHtmlPageResponse,
-  contentEdgeCacheVersion,
+  homepageEdgeCacheVersion,
   readCachedHtmlPage,
   withContentPolicy,
 } from '@/features/agent-markdown/server/responses';
@@ -13,8 +13,8 @@ import {
 import { getContentRoutePolicy } from '@/features/agent-markdown/server/registry';
 
 describe('variant edge cache', () => {
-  test('isolates content caches between deployments', () => {
-    expect(contentEdgeCacheVersion('deploy-a')).not.toBe(contentEdgeCacheVersion('deploy-b'));
+  test('isolates homepage HTML caches between deployments', () => {
+    expect(homepageEdgeCacheVersion('deploy-a')).not.toBe(homepageEdgeCacheVersion('deploy-b'));
     expect(getContentRoutePolicy('/')?.edgeCacheHtml).toBe(true);
   });
 
