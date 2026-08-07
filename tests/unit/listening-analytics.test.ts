@@ -120,4 +120,13 @@ describe('listening analytics', () => {
     expect(source).toContain('listeningAnalytics?.observe({');
     expect(source).toContain('listeningAnalytics?.recordSeek()');
   });
+
+  test('emits the final media position before the preview player clears its source', () => {
+    const source = readFileSync(new URL('../../src/lib/musickit/player.ts', import.meta.url), 'utf8');
+    const endedHandler = source.match(/addEventListener\('ended', \(\) => \{(?<body>[\s\S]*?)\n\s*\}\);/u);
+    const body = endedHandler?.groups?.body ?? '';
+
+    expect(body).toContain('this.emit()');
+    expect(body.indexOf('this.emit()')).toBeLessThan(body.indexOf('this.source = null'));
+  });
 });

@@ -133,7 +133,16 @@ class PreviewPlayer {
     if (!this.audio) {
       this.audio = new Audio();
       this.audio.preload = 'none';
-      this.audio.addEventListener('ended', () => this.setState(false, null));
+      this.audio.addEventListener('ended', () => {
+        this.clearLoadTimeout();
+        this.playing = false;
+        this.loading = false;
+        // Emit the final media position before clearing the source so playback
+        // analytics can recognize completion even when background rAF is throttled.
+        this.emit();
+        this.source = null;
+        this.emit();
+      });
       this.audio.addEventListener('pause', () => {
         if (this.source === 'preview') {
           this.playing = false;
