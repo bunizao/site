@@ -238,11 +238,10 @@
       if (hasMarker || hasAttribution || versey) promotePoem(quote, html);
     });
 
-    // --- Apple Music listening cards: wire the 30s preview toggle ---
-    // The card markup + metadata are baked at build time; here we only add the
-    // play/pause interaction, the long-title marquee, and an artwork-sampled
-    // accent — mirroring the homepage now-playing widget. One <audio> per card,
-    // created lazily on first tap.
+    // --- Apple Music listening cards: wire the shared MusicKit player ---
+    // The card markup + metadata are baked at build time. The singleton tries
+    // full-track playback on first tap and preserves the preview as its floor.
+    // This layer owns the card feedback, scrubbing, marquee, and sampled accent.
 
     // Pull a vivid accent from the cover art so the playing wave + progress bar
     // can tint to the track, the same approach as features/home/ui/Listening.astro (kept

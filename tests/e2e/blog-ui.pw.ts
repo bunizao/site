@@ -39,6 +39,80 @@ async function installFakeAudio(page: Page): Promise<void> {
   });
 }
 
+type MusicKitFixtureOutcome = 'ready' | 'authorize-error' | 'queue-error' | 'play-error';
+
+async function installMusicKitFixture(
+  page: Page,
+  outcome: MusicKitFixtureOutcome,
+  onRequest: () => void = () => undefined,
+): Promise<void> {
+  await page.route('https://js-cdn.music.apple.com/musickit/v3/musickit.js', async (route) => {
+    onRequest();
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/javascript',
+      body: `
+        if (globalThis.process?.versions === undefined) {
+          throw new Error('MusicKit saw an unsafe process shim');
+        }
+        globalThis.MusicKit = {
+          Events: {
+            playbackStateDidChange: 'playbackStateDidChange',
+            playbackTimeDidChange: 'playbackTimeDidChange',
+            playbackDurationDidChange: 'playbackDurationDidChange',
+            mediaPlaybackError: 'mediaPlaybackError'
+          },
+          PlaybackStates: { playing: 2 },
+          async configure() {
+            const listeners = new Map();
+            const instance = {
+              isAuthorized: false,
+              playbackState: 0,
+              currentPlaybackTime: 0,
+              currentPlaybackDuration: 245,
+              async authorize() {
+                if (${JSON.stringify(outcome)} === 'authorize-error') throw new Error('authorization failed');
+                this.isAuthorized = true;
+                return 'user-token';
+              },
+              async setQueue(descriptor) {
+                if (${JSON.stringify(outcome)} === 'queue-error') throw new Error('queue failed');
+                globalThis.__musicKitQueue = descriptor;
+              },
+              async play() {
+                if (${JSON.stringify(outcome)} === 'play-error') throw new Error('play failed');
+                this.playbackState = 2;
+                listeners.get('playbackStateDidChange')?.forEach((handler) => handler({}));
+              },
+              async pause() {
+                this.playbackState = 3;
+              },
+              async stop() {
+                this.playbackState = 0;
+              },
+              async seekToTime(seconds) {
+                this.currentPlaybackTime = seconds;
+              },
+              addEventListener(name, handler) {
+                const handlers = listeners.get(name) ?? [];
+                handlers.push(handler);
+                listeners.set(name, handlers);
+              },
+              removeEventListener() {}
+            };
+            globalThis.__musicKitInstance = instance;
+            return instance;
+          },
+          getInstance() {
+            return globalThis.__musicKitInstance;
+          }
+        };
+        document.dispatchEvent(new Event('musickitloaded'));
+      `,
+    });
+  });
+}
+
 async function firstBlogPostHref(page: Page): Promise<string> {
   await page.goto('/blog', { waitUntil: 'domcontentloaded' });
 
@@ -461,7 +535,7 @@ test.describe('Blog reading UI', () => {
     await expectNoHorizontalOverflow(page);
   });
 
-  test('renders Apple Music cards and plays the preview without MusicKit', async ({ page }) => {
+  test('falls back to the preview when the MusicKit token is unavailable', async ({ page }) => {
     const consoleErrors: string[] = [];
     const pageErrors: string[] = [];
     let tokenRequests = 0;
@@ -507,7 +581,18 @@ test.describe('Blog reading UI', () => {
     await expect(card).toHaveClass(/is-playing/);
     await expect(card).toHaveClass(/is-source-preview/);
     await expect(card).not.toHaveClass(/is-source-full/);
-    expect(tokenRequests).toBe(0);
+    expect(tokenRequests).toBe(1);
+
+    const progress = card.locator('[data-blog-music-progress]');
+    const progressBox = await progress.boundingBox();
+    expect(progressBox).not.toBeNull();
+    await page.mouse.click(
+      (progressBox?.x ?? 0) + (progressBox?.width ?? 0) * 0.75,
+      (progressBox?.y ?? 0) + (progressBox?.height ?? 0) / 2,
+    );
+    await expect(progress).toHaveAttribute('aria-valuenow', '75');
+    await expect(card.locator('[data-blog-music-elapsed]')).toHaveText('0:22');
+    await expect(card.locator('[data-blog-music-total]')).toHaveText('0:30');
 
     expect({ consoleErrors, pageErrors }).toEqual({
       consoleErrors: [],
@@ -515,7 +600,7 @@ test.describe('Blog reading UI', () => {
     });
   });
 
-  test('plays previews without loading MusicKit when the page defines a process shim', async ({ page }) => {
+  test('plays a full track through lazy MusicKit with a safe process shim', async ({ page }) => {
     const consoleErrors: string[] = [];
     const pageErrors: string[] = [];
     let tokenRequests = 0;
@@ -547,65 +632,8 @@ test.describe('Blog reading UI', () => {
       });
     });
 
-    await page.route('https://js-cdn.music.apple.com/musickit/v3/musickit.js', async (route) => {
+    await installMusicKitFixture(page, 'ready', () => {
       sdkRequests += 1;
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/javascript',
-        body: `
-          if (globalThis.process?.versions === undefined) {
-            throw new Error('MusicKit saw an unsafe process shim');
-          }
-          globalThis.MusicKit = {
-            Events: {
-              playbackStateDidChange: 'playbackStateDidChange',
-              playbackTimeDidChange: 'playbackTimeDidChange',
-              playbackDurationDidChange: 'playbackDurationDidChange'
-            },
-            PlaybackStates: { playing: 2 },
-            async configure() {
-              const listeners = new Map();
-              const instance = {
-                isAuthorized: false,
-                playbackState: 0,
-                currentPlaybackTime: 0,
-                currentPlaybackDuration: 245,
-                async authorize() {
-                  this.isAuthorized = true;
-                  return 'user-token';
-                },
-                async setQueue(descriptor) {
-                  globalThis.__musicKitQueue = descriptor;
-                },
-                async play() {
-                  this.playbackState = 2;
-                  listeners.get('playbackStateDidChange')?.forEach((handler) => handler({}));
-                },
-                async pause() {
-                  this.playbackState = 3;
-                },
-                async stop() {
-                  this.playbackState = 0;
-                },
-                async seekToTime(seconds) {
-                  this.currentPlaybackTime = seconds;
-                },
-                addEventListener(name, handler) {
-                  const handlers = listeners.get(name) ?? [];
-                  handlers.push(handler);
-                  listeners.set(name, handlers);
-                },
-                removeEventListener() {}
-              };
-              globalThis.__musicKitInstance = instance;
-              return instance;
-            },
-            getInstance() {
-              return globalThis.__musicKitInstance;
-            }
-          };
-        `,
-      });
     });
 
     const href = await findBlogMusicPostHref(page);
@@ -620,15 +648,75 @@ test.describe('Blog reading UI', () => {
 
     await playButton.click();
     await expect(card).toHaveClass(/is-playing/);
-    await expect(card).toHaveClass(/is-source-preview/);
-    await expect(card).not.toHaveClass(/is-source-full/);
-    expect(tokenRequests).toBe(0);
-    expect(sdkRequests).toBe(0);
+    await expect(card).toHaveClass(/is-source-full/);
+    await expect(card).not.toHaveClass(/is-source-preview/);
+    expect(tokenRequests).toBe(1);
+    expect(sdkRequests).toBe(1);
+
+    await expect.poll(() => page.evaluate(() => (
+      globalThis as typeof globalThis & { __musicKitQueue?: unknown }
+    ).__musicKitQueue)).toEqual({
+      song: catalogId,
+    });
 
     expect({ consoleErrors, pageErrors }).toEqual({
       consoleErrors: [],
       pageErrors: [],
     });
+  });
+
+  for (const outcome of ['authorize-error', 'queue-error', 'play-error'] as const) {
+    test(`falls back to the preview when MusicKit hits ${outcome}`, async ({ page }) => {
+      await page.addInitScript(() => {
+        window.process = { env: {} } as typeof window.process;
+      });
+      await installFakeAudio(page);
+      await page.route('**/api/v2/musickit/token', async (route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            token: 'test.developer.token',
+            expiresAt: new Date(Date.now() + 86_400_000).toISOString(),
+          }),
+        });
+      });
+      await installMusicKitFixture(page, outcome);
+
+      const href = await findBlogMusicPostHref(page);
+      test.skip(!href, 'No Apple Music card is available in the current blog fixture.');
+      await page.goto(href as string, { waitUntil: 'domcontentloaded' });
+
+      const card = page.locator('[data-blog-music]').first();
+      await card.locator('[data-blog-music-play]').click();
+      await expect(card).toHaveClass(/is-playing/);
+      await expect(card).toHaveClass(/is-source-preview/);
+      await expect(card).not.toHaveClass(/is-source-full/);
+    });
+  }
+
+  test('falls back to the preview when the MusicKit script fails to load', async ({ page }) => {
+    await installFakeAudio(page);
+    await page.route('**/api/v2/musickit/token', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          token: 'test.developer.token',
+          expiresAt: new Date(Date.now() + 86_400_000).toISOString(),
+        }),
+      });
+    });
+    await page.route('https://js-cdn.music.apple.com/musickit/v3/musickit.js', (route) => route.abort());
+
+    const href = await findBlogMusicPostHref(page);
+    test.skip(!href, 'No Apple Music card is available in the current blog fixture.');
+    await page.goto(href as string, { waitUntil: 'domcontentloaded' });
+
+    const card = page.locator('[data-blog-music]').first();
+    await card.locator('[data-blog-music-play]').click();
+    await expect(card).toHaveClass(/is-playing/);
+    await expect(card).toHaveClass(/is-source-preview/);
   });
 
   test('opens the subscribe panel with email, channel, and RSS controls', async ({ page }) => {

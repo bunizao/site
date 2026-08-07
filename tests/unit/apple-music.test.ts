@@ -96,6 +96,8 @@ describe('Apple Music embed enrichment', () => {
     expect(output).toContain('data-track-id="1888707290"');
     expect(output).toContain('data-track-title="A&amp;B &lt;Track&gt;"');
     expect(output).toContain('data-track-artist="Sample Artist"');
+    expect(output).toContain('data-apple-catalog-id="1888707290"');
+    expect(output).toContain('data-preview-url="https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview211/v4/test.m4a"');
     expect(output).toContain('A&amp;B &lt;Track&gt;');
     expect(output).not.toContain('kg-embed-card');
   });

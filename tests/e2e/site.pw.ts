@@ -1014,7 +1014,7 @@ test.describe('Home page', () => {
     await playButton.click();
     await expect(root).toHaveClass(/is-preview-playing/);
     await expect(playButton).toHaveClass(/is-preview-playing/);
-    expect(tokenRequests).toBe(0);
+    expect(tokenRequests).toBe(1);
 
     const waveWidth = await page.locator('.listening-eyebrow-wave').evaluate((node) => {
       return Number.parseFloat(window.getComputedStyle(node).width);

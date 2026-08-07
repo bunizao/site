@@ -1,34 +1,21 @@
-// Preview playback singleton: the one audio brain for the whole site.
-//
-// The server now serves Apple's 90s extended preview through `previewUrl` (see
-// site-api extended-preview.ts), so full-track MusicKit streaming is gone from
-// the client entirely. That was a deliberate trade: full track only ever helped
-// already-authorized subscribers, yet it dragged in the MusicKit SDK, a token
-// endpoint, and an authorize() call that popped Apple's login sheet on the first
-// tap — burying the demo behind a wall. A plain HTMLAudioElement plays the
-// preview (30s or 90s) instantly, cross-origin, with zero login and zero SDK.
-//
-// One global instance gives us free single-owner preemption: starting any track
-// stops whatever was playing. Nothing loads until the first play tap (lazy),
-// keeping the "calm, zero client request" page contract intact.
+import type { MusicKitInstance, MusicKitStatic } from '@/types/musickit';
+
+const MUSICKIT_SRC = 'https://js-cdn.music.apple.com/musickit/v3/musickit.js';
+const TOKEN_ENDPOINT = '/api/v2/musickit/token';
+const TOKEN_REFRESH_MARGIN_MS = 24 * 60 * 60 * 1000;
+const LOAD_TIMEOUT_MS = 10_000;
 
 export interface PlayRequest {
-  /** Apple Music catalog song id. Kept for call-site compatibility; unused. */
   catalogId?: string;
-  /** Preview URL (30s or 90s extended). The only audio source. */
   previewUrl?: string;
 }
 
-// 'full' is never produced anymore, but the union stays for API compatibility
-// with consumers that branch on snapshot.source.
 export type PlaybackSource = 'full' | 'preview' | null;
 
 export interface PlaybackSnapshot {
-  /** The request currently owning playback, by identity. */
   owner: PlayRequest | null;
   isPlaying: boolean;
   isLoading: boolean;
-  /** Which engine is producing sound. Always 'preview' or null now. */
   source: PlaybackSource;
   currentTime: number;
   duration: number;
@@ -36,25 +23,40 @@ export interface PlaybackSnapshot {
 
 type Listener = (snapshot: PlaybackSnapshot) => void;
 
-/** Give up on a preview that never reaches playback within this window. */
-const LOAD_TIMEOUT_MS = 10_000;
+type TokenResponse = {
+  token?: string;
+  expiresAt?: string | number;
+};
 
-class PreviewPlayer {
-  private audio: HTMLAudioElement | null = null;
+function isReducedData(): boolean {
+  const connection = (navigator as Navigator & { connection?: { saveData?: boolean } }).connection;
+  return Boolean(connection?.saveData);
+}
 
+function prepareGlobalProcessShim(): void {
+  const processShim = (globalThis as unknown as {
+    process?: { env?: unknown; versions?: unknown };
+  }).process;
+  if (processShim?.env && processShim.versions === undefined) {
+    processShim.versions = null;
+  }
+}
+
+class MusicKitPlayer {
+  private kit: MusicKitInstance | null = null;
+  private kitLoad: Promise<MusicKitInstance | null> | null = null;
+  private token: string | null = null;
+  private tokenExpiry = 0;
+  private preview: HTMLAudioElement | null = null;
   private owner: PlayRequest | null = null;
   private source: PlaybackSource = null;
   private playing = false;
   private loading = false;
-
   private listeners = new Set<Listener>();
   private rafId = 0;
-  // Every start/stop bumps the token so a late-settling play() promise from an
-  // abandoned attempt can't flip state back on.
-  private startToken = 0;
+  private operationId = 0;
   private loadTimer = 0;
 
-  /** Subscribe to playback snapshots; returns an unsubscribe fn. */
   subscribe(listener: Listener): () => void {
     this.listeners.add(listener);
     listener(this.snapshot());
@@ -73,23 +75,24 @@ class PreviewPlayer {
   }
 
   private currentTime(): number {
-    return this.source === 'preview' && this.audio ? this.audio.currentTime || 0 : 0;
+    if (this.source === 'full' && this.kit) return this.kit.currentPlaybackTime || 0;
+    if (this.source === 'preview' && this.preview) return this.preview.currentTime || 0;
+    return 0;
   }
 
   private duration(): number {
-    if (this.source === 'preview' && this.audio) {
-      return Number.isFinite(this.audio.duration) ? this.audio.duration : 0;
+    if (this.source === 'full' && this.kit) return this.kit.currentPlaybackDuration || 0;
+    if (this.source === 'preview' && this.preview) {
+      return Number.isFinite(this.preview.duration) ? this.preview.duration : 0;
     }
     return 0;
   }
 
   private emit(): void {
-    const snap = this.snapshot();
-    this.listeners.forEach((listener) => listener(snap));
+    const snapshot = this.snapshot();
+    this.listeners.forEach((listener) => listener(snapshot));
   }
 
-  // Drive a lightweight rAF loop only while playing, so progress bars track
-  // time without a permanent timer.
   private startTicker(): void {
     if (this.rafId) return;
     const tick = () => {
@@ -105,8 +108,8 @@ class PreviewPlayer {
 
   private setState(playing: boolean, source: PlaybackSource, loading = false): void {
     this.playing = playing;
-    this.loading = loading;
     this.source = source;
+    this.loading = loading;
     this.emit();
     if (playing) this.startTicker();
   }
@@ -117,149 +120,270 @@ class PreviewPlayer {
     this.loadTimer = 0;
   }
 
-  // A preview that never reaches playback (dead CDN edge, offline mid-request)
-  // would otherwise leave the card spinning forever, so bound the wait.
-  private armLoadTimeout(token: number): void {
-    this.clearLoadTimeout();
-    this.loadTimer = window.setTimeout(() => {
-      this.loadTimer = 0;
-      if (this.startToken !== token || !this.loading) return;
-      this.stopCurrent();
-      this.emit();
-    }, LOAD_TIMEOUT_MS);
-  }
-
-  private ensureAudio(): HTMLAudioElement {
-    if (!this.audio) {
-      this.audio = new Audio();
-      this.audio.preload = 'none';
-      this.audio.addEventListener('ended', () => {
-        this.clearLoadTimeout();
-        this.playing = false;
-        this.loading = false;
-        // Emit the final media position before clearing the source so playback
-        // analytics can recognize completion even when background rAF is throttled.
-        this.emit();
-        this.source = null;
-        this.emit();
-      });
-      this.audio.addEventListener('pause', () => {
-        if (this.source === 'preview') {
-          this.playing = false;
-          this.emit();
-        }
-      });
-      // Mid-track rebuffering reuses the loading state, so the card shows the
-      // same spinner it shows on the first tap.
-      this.audio.addEventListener('waiting', () => {
-        if (this.source !== 'preview' || this.loading) return;
-        this.loading = true;
-        this.emit();
-        this.armLoadTimeout(this.startToken);
-      });
-      this.audio.addEventListener('playing', () => {
-        if (this.source !== 'preview') return;
-        this.clearLoadTimeout();
-        this.setState(true, 'preview');
-      });
-      this.audio.addEventListener('error', () => {
-        if (this.source !== 'preview') return;
-        this.stopCurrent();
-        this.emit();
-      });
-    }
-    return this.audio;
-  }
-
-  /**
-   * Toggle playback for a request. Same owner playing (or still loading) means
-   * stop; otherwise start or resume in place. Preview plays instantly — no
-   * login, no SDK.
-   */
-  async toggle(request: PlayRequest): Promise<void> {
-    const sameOwner = this.owner === request;
-    // Loading counts as "on": a second tap must be able to abort a preview that
-    // is taking too long, not queue another play() behind it.
-    if (sameOwner && (this.playing || this.loading)) {
-      this.pause();
-      return;
-    }
-    if (sameOwner && this.source && this.audio) {
-      // Resume in place.
-      const token = ++this.startToken;
-      this.setState(false, 'preview', true);
-      this.armLoadTimeout(token);
-      this.audio.play().then(
-        () => {
-          if (this.startToken !== token) return;
-          this.clearLoadTimeout();
-          this.setState(true, 'preview');
+  private async withTimeout<T>(work: Promise<T>): Promise<T> {
+    return new Promise<T>((resolve, reject) => {
+      const timer = window.setTimeout(() => reject(new Error('MusicKit request timed out')), LOAD_TIMEOUT_MS);
+      work.then(
+        (value) => {
+          window.clearTimeout(timer);
+          resolve(value);
         },
-        () => {
-          if (this.startToken !== token) return;
-          this.clearLoadTimeout();
-          this.setState(false, null);
+        (error: unknown) => {
+          window.clearTimeout(timer);
+          reject(error);
         },
       );
-      return;
-    }
-
-    this.start(request);
+    });
   }
 
-  private start(request: PlayRequest): void {
-    this.stopCurrent();
-    this.owner = request;
+  private async ensureToken(): Promise<string | null> {
+    const now = Date.now();
+    if (this.token && now < this.tokenExpiry - TOKEN_REFRESH_MARGIN_MS) return this.token;
 
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => controller.abort(), LOAD_TIMEOUT_MS);
+    try {
+      const response = await fetch(TOKEN_ENDPOINT, {
+        headers: { Accept: 'application/json' },
+        signal: controller.signal,
+      });
+      if (!response.ok) return null;
+      const data = (await response.json()) as TokenResponse;
+      if (!data.token) return null;
+      const expiry = data.expiresAt ? new Date(data.expiresAt).getTime() : 0;
+      this.token = data.token;
+      this.tokenExpiry = Number.isFinite(expiry) && expiry > now
+        ? expiry
+        : now + TOKEN_REFRESH_MARGIN_MS;
+      return this.token;
+    } catch {
+      return null;
+    } finally {
+      window.clearTimeout(timer);
+    }
+  }
+
+  private loadScript(): Promise<void> {
+    if (window.MusicKit) return Promise.resolve();
+
+    return this.withTimeout(new Promise<void>((resolve, reject) => {
+      const existing = document.querySelector<HTMLScriptElement>(`script[src="${MUSICKIT_SRC}"]`);
+      const script = existing ?? document.createElement('script');
+      const complete = () => window.MusicKit
+        ? resolve()
+        : reject(new Error('MusicKit did not initialize'));
+
+      script.addEventListener('load', complete, { once: true });
+      script.addEventListener('error', () => {
+        script.remove();
+        reject(new Error('MusicKit failed to load'));
+      }, { once: true });
+      document.addEventListener('musickitloaded', complete, { once: true });
+
+      if (!existing) {
+        prepareGlobalProcessShim();
+        script.src = MUSICKIT_SRC;
+        script.async = true;
+        script.dataset.webComponents = '';
+        document.head.appendChild(script);
+      }
+    }));
+  }
+
+  private async ensureKit(): Promise<MusicKitInstance | null> {
+    if (this.kit) return this.kit;
+    if (this.kitLoad) return this.kitLoad;
+    if (isReducedData()) return null;
+
+    this.kitLoad = (async () => {
+      const token = await this.ensureToken();
+      if (!token) return null;
+      try {
+        await this.loadScript();
+        const musicKit = window.MusicKit;
+        if (!musicKit) return null;
+        const configured = await this.withTimeout(musicKit.configure({
+          developerToken: token,
+          app: { name: 'buxx', build: '2.0.0' },
+        }));
+        this.kit = configured ?? musicKit.getInstance() ?? null;
+        if (this.kit) this.bindKitEvents(this.kit, musicKit);
+        return this.kit;
+      } catch {
+        return null;
+      }
+    })();
+
+    const result = await this.kitLoad;
+    if (!result) this.kitLoad = null;
+    return result;
+  }
+
+  private bindKitEvents(kit: MusicKitInstance, musicKit: MusicKitStatic): void {
+    const playingState = musicKit.PlaybackStates?.playing ?? 2;
+    kit.addEventListener(musicKit.Events.playbackStateDidChange, () => {
+      if (this.source !== 'full') return;
+      this.setState(kit.playbackState === playingState, 'full');
+    });
+    kit.addEventListener(musicKit.Events.playbackTimeDidChange, () => {
+      if (this.source === 'full') this.emit();
+    });
+
+    const errorEvent = musicKit.Events.mediaPlaybackError;
+    if (errorEvent) {
+      kit.addEventListener(errorEvent, () => {
+        const request = this.owner;
+        if (this.source === 'full' && request) this.fallback(request, this.operationId);
+      });
+    }
+  }
+
+  private ensurePreview(): HTMLAudioElement {
+    if (this.preview) return this.preview;
+
+    this.preview = new Audio();
+    this.preview.preload = 'none';
+    this.preview.addEventListener('ended', () => {
+      this.clearLoadTimeout();
+      this.playing = false;
+      this.loading = false;
+      this.emit();
+      this.source = null;
+      this.emit();
+    });
+    this.preview.addEventListener('pause', () => {
+      if (this.source !== 'preview') return;
+      this.playing = false;
+      this.emit();
+    });
+    this.preview.addEventListener('waiting', () => {
+      if (this.source !== 'preview' || this.loading) return;
+      this.loading = true;
+      this.emit();
+    });
+    this.preview.addEventListener('playing', () => {
+      if (this.source !== 'preview') return;
+      this.clearLoadTimeout();
+      this.setState(true, 'preview');
+    });
+    this.preview.addEventListener('error', () => {
+      if (this.source === 'preview') this.setState(false, null);
+    });
+    return this.preview;
+  }
+
+  private playPreview(request: PlayRequest, operationId: number): void {
+    if (this.owner !== request || this.operationId !== operationId) return;
     if (!request.previewUrl) {
       this.setState(false, null);
       return;
     }
 
-    const token = this.startToken;
-    const audio = this.ensureAudio();
+    const audio = this.ensurePreview();
     if (audio.src !== request.previewUrl) audio.src = request.previewUrl;
     this.setState(false, 'preview', true);
-    this.armLoadTimeout(token);
+    this.clearLoadTimeout();
+    this.loadTimer = window.setTimeout(() => {
+      if (this.operationId === operationId && this.loading) this.setState(false, null);
+    }, LOAD_TIMEOUT_MS);
     audio.play().then(
       () => {
-        // The attempt may have been aborted while play() awaited its first frame.
-        if (this.startToken !== token) return;
+        if (this.owner !== request || this.operationId !== operationId) return;
         this.clearLoadTimeout();
         this.setState(true, 'preview');
       },
       () => {
-        if (this.startToken !== token) return;
+        if (this.owner !== request || this.operationId !== operationId) return;
         this.clearLoadTimeout();
         this.setState(false, null);
       },
     );
   }
 
+  async toggle(request: PlayRequest): Promise<void> {
+    const sameOwner = this.owner === request;
+    if (sameOwner && (this.playing || this.loading)) {
+      this.pause();
+      return;
+    }
+
+    if (sameOwner && this.source) {
+      const operationId = ++this.operationId;
+      this.setState(false, this.source, true);
+      if (this.source === 'full' && this.kit) {
+        try {
+          await this.withTimeout(this.kit.play());
+          if (this.operationId === operationId) this.setState(true, 'full');
+        } catch {
+          this.fallback(request, operationId);
+        }
+        return;
+      }
+      this.playPreview(request, operationId);
+      return;
+    }
+
+    await this.start(request);
+  }
+
+  private async start(request: PlayRequest): Promise<void> {
+    this.stopCurrent();
+    const operationId = this.operationId;
+    this.owner = request;
+    this.setState(false, null, true);
+
+    if (request.catalogId) {
+      const kit = await this.ensureKit();
+      if (this.owner !== request || this.operationId !== operationId) return;
+      if (kit) {
+        try {
+          if (!kit.isAuthorized) await this.withTimeout(kit.authorize());
+          if (!kit.isAuthorized) throw new Error('Apple Music authorization unavailable');
+          await this.withTimeout(kit.setQueue({ song: request.catalogId }));
+          await this.withTimeout(kit.play());
+          if (this.owner !== request || this.operationId !== operationId) return;
+          this.setState(true, 'full');
+          return;
+        } catch {
+          // The preview remains the playback floor for every MusicKit failure.
+        }
+      }
+    }
+
+    this.fallback(request, operationId);
+  }
+
+  private fallback(request: PlayRequest, operationId: number): void {
+    if (this.owner !== request || this.operationId !== operationId) return;
+    if (this.kit) this.kit.stop().catch(() => undefined);
+    this.playPreview(request, operationId);
+  }
+
   pause(): void {
-    this.startToken += 1;
+    this.operationId += 1;
     this.clearLoadTimeout();
-    if (this.source === 'preview' && this.audio) this.audio.pause();
+    if (this.source === 'full' && this.kit) this.kit.pause().catch(() => undefined);
+    if (this.source === 'preview' && this.preview) this.preview.pause();
     this.playing = false;
     this.loading = false;
     this.emit();
   }
 
-  /** Seek within the current track. Fraction is 0..1 of duration. */
   seekFraction(fraction: number): void {
-    const clamped = Math.min(1, Math.max(0, fraction));
-    const target = clamped * this.duration();
+    const target = Math.min(1, Math.max(0, fraction)) * this.duration();
     if (!Number.isFinite(target)) return;
-    if (this.source === 'preview' && this.audio) this.audio.currentTime = target;
+    if (this.source === 'full' && this.kit) this.kit.seekToTime(target).catch(() => undefined);
+    if (this.source === 'preview' && this.preview) this.preview.currentTime = target;
     this.emit();
   }
 
   private stopCurrent(): void {
-    this.startToken += 1;
+    this.operationId += 1;
     this.clearLoadTimeout();
-    if (this.audio) {
-      this.audio.pause();
-      this.audio.currentTime = 0;
+    if (this.kit) this.kit.stop().catch(() => undefined);
+    if (this.preview) {
+      this.preview.pause();
+      this.preview.currentTime = 0;
     }
     this.playing = false;
     this.loading = false;
@@ -267,5 +391,4 @@ class PreviewPlayer {
   }
 }
 
-// The one instance. Importers share it for single-owner playback preemption.
-export const musicKitPlayer = new PreviewPlayer();
+export const musicKitPlayer = new MusicKitPlayer();
