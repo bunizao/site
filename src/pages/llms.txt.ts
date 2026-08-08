@@ -8,7 +8,7 @@ import {
   projects,
 } from '@/data/site';
 import { postPath } from '@/features/posts/format';
-import { getAllPosts } from '@/features/posts/server/content';
+import { getListedPosts } from '@/features/posts/server/content';
 
 export const prerender = true;
 
@@ -39,7 +39,7 @@ const PAGE_NOTES: Record<string, string> = {
 
 export const GET: APIRoute = async ({ site }) => {
   const base = site ?? new URL(meta.siteUrl);
-  const posts = (await getAllPosts()).slice(0, 8);
+  const posts = (await getListedPosts()).slice(0, 8);
 
   const lines = [
     '# Lucian Bu (Bunizao)',

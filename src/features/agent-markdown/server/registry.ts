@@ -31,6 +31,10 @@ import {
 } from '@/features/mood/shared/feed-anchor';
 import { normalizeMoodTagSlug } from '@/features/mood/shared/tag-filter';
 import { readBuiltBlogMarkdown } from './built-blog';
+import {
+  isUnlistedPost,
+  UNLISTED_ROBOTS_DIRECTIVES,
+} from '@/features/posts/unlisted';
 import privacyMarkdownRaw from '@/content/pages/privacy.md?raw';
 
 export const MARKDOWN_CONTENT_TYPE = 'text/markdown; charset=utf-8';
@@ -219,8 +223,8 @@ async function renderBlogIndex(context: MarkdownRendererContext) {
   const built = await readBuiltBlogMarkdown(context, { kind: 'index' });
   if (built) return markdownResult(built.body, built.status);
 
-  const { getAllPosts } = await import('@/features/posts/server/content');
-  return markdownResult(buildPostListAgentMarkdown('Blog', await getAllPosts(), context.site));
+  const { getListedPosts } = await import('@/features/posts/server/content');
+  return markdownResult(buildPostListAgentMarkdown('Blog', await getListedPosts(), context.site));
 }
 
 async function renderBlogTags(context: MarkdownRendererContext) {
@@ -250,13 +254,19 @@ async function renderBlogTag(context: MarkdownRendererContext) {
 async function renderBlogPost(context: MarkdownRendererContext) {
   const slug = context.params.slug ?? '';
   const built = await readBuiltBlogMarkdown(context, { kind: 'post', slug });
-  if (built) return markdownResult(built.body, built.status);
+  if (built && built.status !== 404) return markdownResult(built.body, built.status);
 
   const { getPostBySlug } = await import('@/features/posts/server/content');
   const post = await getPostBySlug(slug, { outputTarget: 'agent-markdown' });
   if (!post) return markdownResult('Blog post not found.\n', 404);
 
-  return markdownResult(buildPostAgentMarkdown(post, context.site));
+  return markdownResult(
+    buildPostAgentMarkdown(post, context.site),
+    200,
+    isUnlistedPost(post)
+      ? { 'X-Robots-Tag': UNLISTED_ROBOTS_DIRECTIVES }
+      : undefined,
+  );
 }
 
 const renderers: MarkdownRenderer[] = [

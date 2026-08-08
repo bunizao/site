@@ -1,11 +1,11 @@
 import type { APIRoute } from 'astro';
-import { getAllPosts } from '@/features/posts/server/content';
+import { getListedPosts } from '@/features/posts/server/content';
 import { buildBlogRssXml } from '@/features/posts/server/rss';
 
 export const prerender = true;
 
 export const GET: APIRoute = async () => {
-  const posts = await getAllPosts({ outputTarget: 'rss' });
+  const posts = await getListedPosts({ outputTarget: 'rss' });
 
   return new Response(buildBlogRssXml(posts), {
     headers: {

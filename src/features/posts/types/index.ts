@@ -234,7 +234,8 @@ export interface ContentProvider {
   getTiers(): Promise<Tier[]>;
   getTierBySlug(slug: string): Promise<Tier | null>;
   getSiteData(): Promise<Site>;
-  getAllPosts(): Promise<Post[]>;
+  getAccessiblePosts(): Promise<Post[]>;
+  getListedPosts(): Promise<Post[]>;
   getAllPages(): Promise<Page[]>;
   getAllTags(): Promise<Tag[]>;
   getAllAuthors(): Promise<Author[]>;

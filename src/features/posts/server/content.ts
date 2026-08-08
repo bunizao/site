@@ -43,18 +43,29 @@ export function resetPostsProviderForTests(): void {
   provider = null;
 }
 
-export async function getAllPosts(options: PostContentOptions = {}): Promise<Post[]> {
-  const posts = (await getPostsProvider().getAllPosts()).map(sanitizePostDerivedText);
+async function preparePosts(
+  posts: Post[],
+  options: PostContentOptions,
+): Promise<Post[]> {
+  const sanitizedPosts = posts.map(sanitizePostDerivedText);
   const { outputTarget } = options;
   if (!outputTarget) {
-    return [...posts].sort(comparePostsByPublishedDateDesc);
+    return [...sanitizedPosts].sort(comparePostsByPublishedDateDesc);
   }
 
   const transformed = await Promise.all(
-    posts.map((post) => transformPostContent(post, outputTarget)),
+    sanitizedPosts.map((post) => transformPostContent(post, outputTarget)),
   );
 
   return transformed.sort(comparePostsByPublishedDateDesc);
+}
+
+export async function getListedPosts(options: PostContentOptions = {}): Promise<Post[]> {
+  return preparePosts(await getPostsProvider().getListedPosts(), options);
+}
+
+export async function getAccessiblePosts(options: PostContentOptions = {}): Promise<Post[]> {
+  return preparePosts(await getPostsProvider().getAccessiblePosts(), options);
 }
 
 export async function getPostBySlug(

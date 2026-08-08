@@ -12,8 +12,18 @@ import {
 
 const EDGE_CACHE_VERSION = '2';
 
-export function homepageEdgeCacheVersion(buildId = import.meta.env.PUBLIC_BUILD_ID): string {
-  return `${EDGE_CACHE_VERSION}:${buildId?.trim() || 'dev'}`;
+export function contentEdgeCacheVersion(
+  pathname: string,
+  buildId = import.meta.env.PUBLIC_BUILD_ID,
+): string {
+  const normalizedPath = pathname === '/' ? pathname : pathname.replace(/\/+$/, '');
+  const isBuildBackedContent = normalizedPath === '/'
+    || normalizedPath === '/blog'
+    || normalizedPath.startsWith('/blog/');
+
+  return isBuildBackedContent
+    ? `${EDGE_CACHE_VERSION}:${buildId?.trim() || 'dev'}`
+    : EDGE_CACHE_VERSION;
 }
 const CLOUDFLARE_CDN_CACHE_CONTROL_HEADER = 'Cloudflare-CDN-Cache-Control';
 const CONTENT_STALE_WHILE_REVALIDATE_SECONDS = 300;
@@ -174,11 +184,12 @@ export async function renderMarkdownIfRequested(context: {
 
   const match = getMarkdownRenderer(url.pathname);
   if (!match) return null;
+  const cacheVersion = contentEdgeCacheVersion(url.pathname);
 
   const cached = await readEdgeCache(context.request, {
     namespace: 'content',
     variant: 'markdown',
-    version: EDGE_CACHE_VERSION,
+    version: cacheVersion,
     ttlSeconds: match.renderer.cacheTtlSeconds,
     headerName: EDGE_CACHE_HEADER,
     cacheControl: publicCacheControl(match.renderer.cacheTtlSeconds),
@@ -205,7 +216,7 @@ export async function renderMarkdownIfRequested(context: {
   return cacheEdgeResponse(context.request, response, {
     namespace: 'content',
     variant: 'markdown',
-    version: EDGE_CACHE_VERSION,
+    version: cacheVersion,
     ttlSeconds: match.renderer.cacheTtlSeconds,
     headerName: EDGE_CACHE_HEADER,
     cacheControl: publicCacheControl(match.renderer.cacheTtlSeconds),
@@ -230,7 +241,7 @@ function createHtmlCacheOptions(request: Request): Parameters<typeof readEdgeCac
   return {
     namespace: 'content',
     variant: 'html',
-    version: url.pathname === '/' ? homepageEdgeCacheVersion() : EDGE_CACHE_VERSION,
+    version: contentEdgeCacheVersion(url.pathname),
     ttlSeconds: policy.cacheTtlSeconds,
     headerName: policy.cacheHeaderName,
     cacheControl: publicCacheControl(

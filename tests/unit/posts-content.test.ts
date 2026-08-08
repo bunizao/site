@@ -5,14 +5,20 @@ import { buildGhostDataset } from '@/features/posts/adapter/ghost/dataset';
 import { getGhostRuntimeConfig } from '@/features/posts/adapter/ghost/config';
 import { mockPosts } from '@/features/posts/adapter/mock';
 import {
-  getAllPosts,
+  getAccessiblePosts,
+  getListedPosts,
   getPostBySlug,
+  getPublicTagDirectory,
+  getTagArchive,
   groupPostsByYear,
   resetPostsProviderForTests,
 } from '@/features/posts/server/content';
 import { getTagLabel } from '@/features/posts/display';
 import { formatPostDate } from '@/features/posts/format';
 import { buildBlogRssXml } from '@/features/posts/server/rss';
+import { renderMarkdownIfRequested } from '@/features/agent-markdown/server/responses';
+import { GET as getLlms } from '@/pages/llms.txt';
+import { GET as getPalette } from '@/pages/palette.json';
 import { GET as getSitemap } from '@/pages/sitemap.xml';
 
 const originalGhostUrl = process.env.PUBLIC_GHOST_URL;
@@ -60,7 +66,7 @@ describe('posts content provider', () => {
   test('returns sorted mock posts when Ghost is unconfigured', async () => {
     useMockGhostContent();
 
-    const posts = await getAllPosts();
+    const posts = await getListedPosts();
 
     expect(posts.length).toBeGreaterThan(0);
     expect(posts.map((post) => post.slug).slice(0, 3)).toEqual([
@@ -73,10 +79,39 @@ describe('posts content provider', () => {
   test('excludes non-public mock posts from public provider output', async () => {
     useMockGhostContent();
 
-    const posts = await getAllPosts();
+    const posts = await getListedPosts();
 
     expect(posts.every((post) => post.visibility === 'public' && post.access)).toBe(true);
     expect(posts.map((post) => post.slug)).not.toContain('members-only-notes');
+  });
+
+  test('keeps internal unlisted posts accessible only by their direct slug', async () => {
+    useMockGhostContent();
+
+    const [listedPosts, accessiblePosts, directPost] = await Promise.all([
+      getListedPosts(),
+      getAccessiblePosts(),
+      getPostBySlug('private-link-demo'),
+    ]);
+
+    expect(listedPosts.map((post) => post.slug)).not.toContain('private-link-demo');
+    expect(accessiblePosts.map((post) => post.slug)).toContain('private-link-demo');
+    expect(directPost?.title).toBe('Direct link only fixture');
+    expect(listedPosts.map((post) => post.slug)).toContain('notes-from-the-links-lab');
+  });
+
+  test('removes unlisted posts from tag directories, counts, and archives', async () => {
+    useMockGhostContent();
+
+    const [directory, archive] = await Promise.all([
+      getPublicTagDirectory(),
+      getTagArchive('systems'),
+    ]);
+    const systems = directory.find((tag) => tag.slug === 'systems');
+
+    expect(systems?.posts.map((post) => post.slug)).not.toContain('private-link-demo');
+    expect(systems?.postCount).toBe(systems?.posts.length);
+    expect(archive?.archive.posts.map((post) => post.slug)).not.toContain('private-link-demo');
   });
 
   test('hoists post directive metadata through the content boundary', async () => {
@@ -195,10 +230,9 @@ describe('posts content provider', () => {
     expect(config.isConfigured).toBe(true);
     expect(config.mockContent).toBe(true);
     expect(config.forceMockContent).toBe(true);
-    expect(dataset.posts.map((post) => post.slug).slice(0, 2)).toEqual([
-      'demo-effects',
-      'quiet-architecture',
-    ]);
+    expect(dataset.posts.map((post) => post.slug)).toContain('demo-effects');
+    expect(dataset.posts.map((post) => post.slug)).toContain('private-link-demo');
+    expect(dataset.posts.map((post) => post.slug)).not.toContain('members-only-notes');
   });
 
   test('keeps GHOST_MOCK_CONTENT as a fallback instead of a force flag', () => {
@@ -249,7 +283,7 @@ describe('posts content provider', () => {
   test('groups posts by published year in list order', async () => {
     useMockGhostContent();
 
-    const posts = await getAllPosts();
+    const posts = await getListedPosts();
     const groups = groupPostsByYear([
       { ...posts[0], publishedAt: '2026-04-09T10:30:00.000Z' },
       { ...posts[1], publishedAt: '2025-12-31T23:30:00.000Z' },
@@ -266,7 +300,7 @@ describe('posts content provider', () => {
   test('uses English publication and tag labels for the home doorway', async () => {
     useMockGhostContent();
 
-    const [post] = await getAllPosts();
+    const [post] = await getListedPosts();
     const tag = post.tags.find((item) => item.visibility === 'public');
 
     expect(tag).toBeDefined();
@@ -291,7 +325,7 @@ describe('blog subscription feed', () => {
   test('serializes blog RSS with canonical buxx.me URLs', async () => {
     useMockGhostContent();
 
-    const posts = await getAllPosts();
+    const posts = await getListedPosts();
     const xml = buildBlogRssXml(posts);
 
     expect(xml).toContain('<rss version="2.0"');
@@ -300,7 +334,55 @@ describe('blog subscription feed', () => {
     expect(xml).toContain('<link>https://buxx.me/blog/</link>');
     expect(xml).toContain('https://buxx.me/blog/demo-effects/');
     expect(xml).not.toContain('members-only-notes');
+    expect(xml).not.toContain('private-link-demo');
     expect(xml).not.toContain('blog.buxx.me/rss');
+  });
+
+  test('keeps unlisted posts out of palette, llms, and runtime Markdown indexes', async () => {
+    useMockGhostContent();
+
+    const [paletteResponse, llmsResponse, markdownResponse] = await Promise.all([
+      getPalette({} as any),
+      getLlms({ site: new URL('https://buxx.me') } as any),
+      renderMarkdownIfRequested({
+        request: new Request('https://buxx.me/blog/', {
+          headers: { Accept: 'text/markdown' },
+        }),
+        locals: {},
+        site: new URL('https://buxx.me'),
+      }),
+    ]);
+    const palette = await paletteResponse.text();
+    const llms = await llmsResponse.text();
+    const markdown = await markdownResponse?.text();
+
+    expect(palette).not.toContain('private-link-demo');
+    expect(llms).not.toContain('private-link-demo');
+    expect(markdown).not.toContain('private-link-demo');
+  });
+
+  test('serves direct unlisted Markdown with crawler exclusion headers', async () => {
+    useMockGhostContent();
+
+    const response = await renderMarkdownIfRequested({
+      request: new Request('https://buxx.me/blog/private-link-demo/', {
+        headers: { Accept: 'text/markdown' },
+      }),
+      locals: {
+        env: {
+          ASSETS: {
+            fetch: async () => new Response(null, { status: 404 }),
+          },
+        },
+      },
+      site: new URL('https://buxx.me'),
+    });
+
+    expect(response?.status).toBe(200);
+    expect(response?.headers.get('X-Robots-Tag')).toBe(
+      'noindex, nofollow, noarchive, nosnippet',
+    );
+    expect(await response?.text()).toContain('# Direct link only fixture');
   });
 
   test('includes blog routes in the sitemap', async () => {
@@ -318,6 +400,7 @@ describe('blog subscription feed', () => {
     expect(xml).toContain('<loc>https://buxx.me/blog/demo-effects/</loc>');
     expect(xml).toContain('<loc>https://buxx.me/blog/tag/systems/</loc>');
     expect(xml).not.toContain('members-only-notes');
+    expect(xml).not.toContain('private-link-demo');
   });
 });
 

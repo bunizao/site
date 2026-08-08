@@ -10,11 +10,11 @@
 import { blog } from '@/data/site';
 import { getTagLabel } from '@/features/posts/display';
 import { postPath } from '@/features/posts/format';
-import { getAllPosts } from '@/features/posts/server/content';
+import { getListedPosts } from '@/features/posts/server/content';
 import SiteWordmark from '@/components/SiteWordmark.astro';
 
 const locale = blog.locale.home;
-const posts = (await getAllPosts()).slice(0, 3);
+const posts = (await getListedPosts()).slice(0, 3);
 const blogCopy = blog.copy[locale];
 const enterRevealDelay = posts.length > 0 ? 1040 + posts.length * 60 : 900;
 

@@ -31,6 +31,7 @@ interface Props {
   modifiedTime?: string;
   authorName?: string;
   tags?: string[];
+  robots?: string;
   /** Preload hint for the page's LCP image (e.g. the post feature image). */
   preloadImage?: { href: string; srcset?: string; sizes?: string };
 }
@@ -46,10 +47,14 @@ const {
   modifiedTime,
   authorName,
   tags = [],
+  robots,
   preloadImage,
 } = Astro.props;
 const canonical = new URL(path, meta.siteUrl).href;
-const markdownAlternateUrl = hasMarkdownRenderer(new URL(canonical).pathname)
+const excludesIndexing = robots
+  ?.split(',')
+  .some((directive) => directive.trim().toLowerCase() === 'noindex') ?? false;
+const markdownAlternateUrl = !excludesIndexing && hasMarkdownRenderer(new URL(canonical).pathname)
   ? canonical
   : null;
 const fullTitle = title === blog.name ? title : `${title} — ${blog.name}`;
@@ -91,6 +96,7 @@ const paletteCss = [
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>{fullTitle}</title>
     <meta name="description" content={metaDescription} />
+    {robots ? <meta name="robots" content={robots} /> : null}
     <link rel="canonical" href={canonical} />
     {markdownAlternateUrl ? (
       <link rel="alternate" type="text/markdown" href={markdownAlternateUrl} />
@@ -195,7 +201,10 @@ const paletteCss = [
     </script>
   </head>
 
-  <body class="blog-zone reading">
+  <body
+    class="blog-zone reading"
+    data-pagefind-ignore={excludesIndexing ? 'all' : undefined}
+  >
     <!-- Outside the scroller: it is a fixed lid, and a fixed layer inside a
          scroll container cannot read that container's anonymous timeline. It gets
          driven by the named one the scroller publishes instead. -->
