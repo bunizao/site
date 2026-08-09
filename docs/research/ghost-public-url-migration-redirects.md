@@ -21,6 +21,35 @@ CMS origin.
 
 No production configuration was changed during this research.
 
+The explicit root exclusions are defense in depth, not the boundary that keeps
+nested Ghost traffic safe. A path such as `/api/posts` has two segments and
+cannot match either article rule at all. The exclusion set separately protects
+the bare `/api` and `/api/` forms, along with the equivalent root forms of every
+other known Ghost operational namespace.
+
+## Validation status
+
+- The JSON payload parses as exactly nine rules, leaving one slot within the
+  Free plan's ten-rule Single Redirect quota. The update must refuse to write
+  if preserved unrelated rules would exceed that quota.
+- Every filter and dynamic target expression passes an independent Cloudflare
+  Rules Language parser for the `http_request_dynamic_redirect` phase. The
+  longest filter is 709 characters, below Cloudflare's 4,096-character limit.
+- A local route matrix passed 17 redirect cases, 41 Ghost fall-through cases,
+  and four mutating-method cases. The fall-through cases include bare and
+  nested `/api`, `/admin`, `/comments`, and `/activitypub` paths.
+- All 18 current Ghost posts use the required one-segment permalink shape. All
+  18 new targets return `200`, declare the exact new URL as canonical, and
+  appear in the new sitemap.
+- Production is still unchanged: the three missing legacy URLs return `200`.
+  Both the configured API token and Wrangler OAuth currently receive
+  Cloudflare error `10000` when reading the dynamic redirect ruleset, so a safe
+  merged update and rollback snapshot cannot yet be produced.
+
+[Cloudflare URL forwarding
+availability](https://developers.cloudflare.com/rules/url-forwarding/#availability)
+documents the Free-plan quota and wildcard support.
+
 ## Why this is the final design
 
 The design has four useful failure properties:
@@ -89,6 +118,7 @@ source at commit `f318505718f95db27800a3d3bda8e670324260b1`.
 | `/links/` | `301 https://buxx.me/blog/` | Existing intentional retirement; not equivalent content and may be treated as a soft 404 |
 | `/robots.txt` | Keep on Ghost | It permits post crawling and points to the old sitemap, which redirects to the new sitemap |
 | `/ghost` and `/ghost/*` | Keep on Ghost | Admin, Admin API, Content API, and Ghost JWKS |
+| `/api/*`, `/admin/*` | Fall through to Ghost | Not current Ghost core mounts, but explicitly reserved from the article-shaped fallback |
 | `/members/*` | Keep on Ghost | Member sessions, checkout, comments API, webhooks, and member JWKS |
 | `/content/images/*` | Keep on Ghost | Image storage currently redirects to `static.buxx.me`; Ghost size variants include shapes the app proxy does not normalize |
 | `/content/media/*`, `/content/files/*` | Keep on Ghost | Media and file storage |
@@ -164,7 +194,7 @@ functions](https://developers.cloudflare.com/ruleset-engine/rules-language/funct
     "ref": "legacy_ghost_feeds",
     "description": "Legacy Ghost feeds",
     "action": "redirect",
-    "expression": "http.host eq \"blog.buxx.me\" and http.request.method in {\"GET\" \"HEAD\"} and (lower(http.request.uri.path) in {\"/rss\" \"/rss/\" \"/feed\" \"/feed/\"} or http.request.uri.path wildcard \"/tag/*/rss/\" or http.request.uri.path wildcard \"/tag/*/feed/\" or http.request.uri.path wildcard \"/author/*/rss/\" or http.request.uri.path wildcard \"/author/*/feed/\")",
+    "expression": "http.host eq \"blog.buxx.me\" and http.request.method in {\"GET\" \"HEAD\"} and (lower(http.request.uri.path) in {\"/rss\" \"/rss/\" \"/feed\" \"/feed/\"} or http.request.uri.path wildcard \"/tag/*/rss\" or http.request.uri.path wildcard \"/tag/*/rss/\" or http.request.uri.path wildcard \"/tag/*/feed\" or http.request.uri.path wildcard \"/tag/*/feed/\" or http.request.uri.path wildcard \"/author/*/rss\" or http.request.uri.path wildcard \"/author/*/rss/\" or http.request.uri.path wildcard \"/author/*/feed\" or http.request.uri.path wildcard \"/author/*/feed/\")",
     "action_parameters": {
       "from_value": {
         "target_url": { "value": "https://buxx.me/blog/rss.xml" },
@@ -190,7 +220,7 @@ functions](https://developers.cloudflare.com/ruleset-engine/rules-language/funct
     "ref": "legacy_ghost_tag_archive",
     "description": "Legacy Ghost tag archives",
     "action": "redirect",
-    "expression": "http.host eq \"blog.buxx.me\" and http.request.method in {\"GET\" \"HEAD\"} and starts_with(lower(http.request.uri.path), \"/tag/\") and len(http.request.uri.path) gt 5 and not (substring(http.request.uri.path, 5, -1) contains \"/\")",
+    "expression": "http.host eq \"blog.buxx.me\" and http.request.method in {\"GET\" \"HEAD\"} and http.request.uri.path wildcard \"/tag/*/\" and not http.request.uri.path wildcard \"/tag/*/*/\" and len(http.request.uri.path) gt 6",
     "action_parameters": {
       "from_value": {
         "target_url": { "expression": "concat(\"https://buxx.me/blog\", http.request.uri.path)" },
@@ -203,10 +233,10 @@ functions](https://developers.cloudflare.com/ruleset-engine/rules-language/funct
     "ref": "legacy_ghost_amp",
     "description": "Legacy Ghost article AMP aliases",
     "action": "redirect",
-    "expression": "http.host eq \"blog.buxx.me\" and http.request.method in {\"GET\" \"HEAD\"} and http.request.uri.path wildcard \"/*/amp/\" and not (substring(http.request.uri.path, 1, -5) contains \"/\")",
+    "expression": "http.host eq \"blog.buxx.me\" and http.request.method in {\"GET\" \"HEAD\"} and ((http.request.uri.path wildcard \"/*/amp/\" and not http.request.uri.path wildcard \"/*/*/amp/\") or (http.request.uri.path wildcard \"/*/amp\" and not http.request.uri.path wildcard \"/*/*/amp\"))",
     "action_parameters": {
       "from_value": {
-        "target_url": { "expression": "wildcard_replace(http.request.uri.path, \"/*/amp/\", \"https://buxx.me/blog/${1}/\")" },
+        "target_url": { "expression": "wildcard_replace(http.request.uri.path, \"/*/amp*\", \"https://buxx.me/blog/${1}/\")" },
         "status_code": 301,
         "preserve_query_string": true
       }
@@ -229,7 +259,7 @@ functions](https://developers.cloudflare.com/ruleset-engine/rules-language/funct
     "ref": "legacy_ghost_archive_consolidation",
     "description": "Legacy Ghost index and archive consolidation",
     "action": "redirect",
-    "expression": "http.host eq \"blog.buxx.me\" and http.request.method in {\"GET\" \"HEAD\"} and (lower(http.request.uri.path) in {\"/\" \"/links\" \"/links/\"} or http.request.uri.path wildcard \"/author/*\" or http.request.uri.path wildcard \"/page/*\")",
+    "expression": "http.host eq \"blog.buxx.me\" and http.request.method in {\"GET\" \"HEAD\"} and (lower(http.request.uri.path) in {\"/\" \"/links\" \"/links/\" \"/author\" \"/author/\" \"/page\" \"/page/\"} or http.request.uri.path wildcard \"/author/*\" or http.request.uri.path wildcard \"/page/*\")",
     "action_parameters": {
       "from_value": {
         "target_url": { "value": "https://buxx.me/blog/" },
@@ -242,7 +272,7 @@ functions](https://developers.cloudflare.com/ruleset-engine/rules-language/funct
     "ref": "legacy_ghost_root_article_trailing_slash",
     "description": "Legacy Ghost root articles with trailing slash",
     "action": "redirect",
-    "expression": "http.host eq \"blog.buxx.me\" and http.request.method in {\"GET\" \"HEAD\"} and http.request.uri.path ne \"/\" and ends_with(http.request.uri.path, \"/\") and not (http.request.uri.path contains \".\") and not (substring(http.request.uri.path, 1, -1) contains \"/\") and not (lower(http.request.uri.path) in {\"/rss/\" \"/feed/\" \"/links/\" \"/tags/\" \"/amp/\" \"/author/\" \"/page/\" \"/tag/\"} or lower(http.request.uri.path) eq \"/ghost/\" or starts_with(lower(http.request.uri.path), \"/ghost/\") or lower(http.request.uri.path) eq \"/content/\" or starts_with(lower(http.request.uri.path), \"/content/\") or lower(http.request.uri.path) eq \"/assets/\" or starts_with(lower(http.request.uri.path), \"/assets/\") or lower(http.request.uri.path) eq \"/public/\" or starts_with(lower(http.request.uri.path), \"/public/\") or lower(http.request.uri.path) eq \"/members/\" or starts_with(lower(http.request.uri.path), \"/members/\") or lower(http.request.uri.path) eq \"/email/\" or starts_with(lower(http.request.uri.path), \"/email/\") or lower(http.request.uri.path) eq \"/p/\" or starts_with(lower(http.request.uri.path), \"/p/\") or lower(http.request.uri.path) eq \"/.ghost/\" or starts_with(lower(http.request.uri.path), \"/.ghost/\") or lower(http.request.uri.path) eq \"/.well-known/\" or starts_with(lower(http.request.uri.path), \"/.well-known/\") or lower(http.request.uri.path) eq \"/r/\" or starts_with(lower(http.request.uri.path), \"/r/\") or lower(http.request.uri.path) eq \"/webmentions/\" or starts_with(lower(http.request.uri.path), \"/webmentions/\") or lower(http.request.uri.path) eq \"/gift/\" or starts_with(lower(http.request.uri.path), \"/gift/\") or lower(http.request.uri.path) eq \"/unsubscribe/\" or starts_with(lower(http.request.uri.path), \"/unsubscribe/\") or lower(http.request.uri.path) eq \"/cdn-cgi/\" or starts_with(lower(http.request.uri.path), \"/cdn-cgi/\"))",
+    "expression": "http.host eq \"blog.buxx.me\" and http.request.method in {\"GET\" \"HEAD\"} and http.request.uri.path ne \"/\" and http.request.uri.path wildcard \"/*/\" and not http.request.uri.path wildcard \"/*/*/\" and not (http.request.uri.path contains \".\") and not (lower(http.request.uri.path) in {\"/rss/\" \"/feed/\" \"/links/\" \"/tags/\" \"/amp/\" \"/author/\" \"/page/\" \"/tag/\" \"/ghost/\" \"/api/\" \"/admin/\" \"/content/\" \"/assets/\" \"/public/\" \"/members/\" \"/email/\" \"/p/\" \"/.ghost/\" \"/.well-known/\" \"/r/\" \"/webmentions/\" \"/gift/\" \"/unsubscribe/\" \"/comments/\" \"/activitypub/\" \"/cdn-cgi/\"})",
     "action_parameters": {
       "from_value": {
         "target_url": { "expression": "concat(\"https://buxx.me/blog\", http.request.uri.path)" },
@@ -255,7 +285,7 @@ functions](https://developers.cloudflare.com/ruleset-engine/rules-language/funct
     "ref": "legacy_ghost_root_article_no_trailing_slash",
     "description": "Legacy Ghost root articles without trailing slash",
     "action": "redirect",
-    "expression": "http.host eq \"blog.buxx.me\" and http.request.method in {\"GET\" \"HEAD\"} and http.request.uri.path ne \"/\" and not ends_with(http.request.uri.path, \"/\") and not (http.request.uri.path contains \".\") and not (substring(http.request.uri.path, 1) contains \"/\") and not (lower(http.request.uri.path) in {\"/rss\" \"/feed\" \"/links\" \"/tags\" \"/amp\" \"/author\" \"/page\" \"/tag\" \"/ghost\" \"/content\" \"/assets\" \"/public\" \"/members\" \"/email\" \"/p\" \"/.ghost\" \"/.well-known\" \"/r\" \"/webmentions\" \"/gift\" \"/unsubscribe\" \"/cdn-cgi\"})",
+    "expression": "http.host eq \"blog.buxx.me\" and http.request.method in {\"GET\" \"HEAD\"} and not ends_with(http.request.uri.path, \"/\") and ((http.request.uri.path ne \"/\" and http.request.uri.path wildcard \"/*\" and not http.request.uri.path wildcard \"/*/*\" and not (http.request.uri.path contains \".\") and not (lower(http.request.uri.path) in {\"/rss\" \"/feed\" \"/links\" \"/tags\" \"/amp\" \"/author\" \"/page\" \"/tag\" \"/ghost\" \"/api\" \"/admin\" \"/content\" \"/assets\" \"/public\" \"/members\" \"/email\" \"/p\" \"/.ghost\" \"/.well-known\" \"/r\" \"/webmentions\" \"/gift\" \"/unsubscribe\" \"/comments\" \"/activitypub\" \"/cdn-cgi\"})) or (http.request.uri.path wildcard \"/tag/*\" and not http.request.uri.path wildcard \"/tag/*/*\" and len(http.request.uri.path) gt 5))",
     "action_parameters": {
       "from_value": {
         "target_url": { "expression": "concat(\"https://buxx.me/blog\", http.request.uri.path, \"/\")" },
@@ -337,6 +367,7 @@ The change is not complete until all checks pass against production.
 - `/ghost/` remains `200`.
 - `/ghost/api/content/*` is not redirected.
 - `/ghost/api/admin/*` is not redirected.
+- `/api/*`, `/admin/*`, `/comments/*`, and `/activitypub/*` are not redirected.
 - `/ghost/.well-known/jwks.json` remains reachable.
 - `/members/api/site/` and `/members/.well-known/jwks.json` remain reachable.
 - Preview, email, unsubscribe, gift, webmention, link-tracking, theme asset,
@@ -357,10 +388,12 @@ Add a scheduled and post-publish check that:
 1. Reads all published post URLs from the Ghost Content API.
 2. Fails if any post pathname is not exactly one root segment with a trailing
    slash.
-3. Computes the expected `https://buxx.me/blog/:slug/` target.
-4. Asserts the old URL returns `301` with that exact `Location`.
-5. Asserts the target returns `200` and a new-host self-canonical.
-6. Runs the Ghost survival probes above.
+3. Reads all published Ghost pages and fails if a page does not have an
+   intentional mapping and an existing new-site target.
+4. Computes the expected `https://buxx.me/blog/:slug/` target.
+5. Asserts the old URL returns `301` with that exact `Location`.
+6. Asserts the target returns `200` and a new-host self-canonical.
+7. Runs the Ghost survival probes above.
 
 This converts a permalink-shape change or Cloudflare rule regression into an
 immediate deployment/operations failure instead of another silent SEO split.
