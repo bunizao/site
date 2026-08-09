@@ -95,6 +95,20 @@ function renderCodeFence(element: cheerio.Cheerio<AnyNode>): string {
   return [`\`\`\`${language}`, body, '```'].join('\n');
 }
 
+function renderBookmarkCard(
+  element: cheerio.Cheerio<AnyNode>,
+  baseUrl: URL,
+): string[] {
+  const link = element.find('a[href]').first();
+  const href = link.attr('href')?.trim();
+  const title = normalizeInline(element.find('.kg-bookmark-title').first().text());
+
+  if (!href) return title ? [title] : [];
+
+  const label = title || href;
+  return [`[${label}](${toAbsoluteUrl(href, baseUrl)})`];
+}
+
 function renderBlockNode($: LoadedCheerio, node: AnyNode, baseUrl: URL): string[] {
   if (node.type === 'text') {
     const text = normalizeInline((node as { data?: string }).data ?? '');
@@ -148,6 +162,10 @@ function renderBlockNode($: LoadedCheerio, node: AnyNode, baseUrl: URL): string[
   }
 
   if (tagName === 'figure') {
+    if (element.hasClass('kg-bookmark-card')) {
+      return renderBookmarkCard(element, baseUrl);
+    }
+
     const body = element
       .contents()
       .toArray()

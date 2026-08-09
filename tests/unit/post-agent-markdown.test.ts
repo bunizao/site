@@ -67,4 +67,34 @@ describe('post agent markdown', () => {
 
     expect(markdown).toContain('Use ``path\\`name`` safely.');
   });
+
+  test('serializes Ghost bookmark cards as links without preview text', () => {
+    const markdown = buildPostAgentMarkdown(
+      createPost({
+        html: [
+          '<p>The tide brought a reply.</p>',
+          '<figure class="kg-card kg-bookmark-card">',
+          '<a class="kg-bookmark-container" href="/blog/poem-for-the-sea/">',
+          '<div class="kg-bookmark-content">',
+          '<div class="kg-bookmark-title">Poem for the Sea</div>',
+          '<div class="kg-bookmark-description">An unrelated article preview that must not become body text.</div>',
+          '<div class="kg-bookmark-metadata">Murray · No Man\'s Land</div>',
+          '</div>',
+          '<div class="kg-bookmark-thumbnail"><img src="/preview.jpg" alt=""></div>',
+          '</a>',
+          '</figure>',
+          '<p>The current article continues.</p>',
+        ].join(''),
+      }),
+      new URL('https://buxx.me'),
+    );
+
+    expect(markdown).toContain(
+      '[Poem for the Sea](https://buxx.me/blog/poem-for-the-sea/)',
+    );
+    expect(markdown).not.toContain('unrelated article preview');
+    expect(markdown).not.toContain("No Man's Land");
+    expect(markdown).not.toContain('preview.jpg');
+    expect(markdown).toContain('The current article continues.');
+  });
 });
