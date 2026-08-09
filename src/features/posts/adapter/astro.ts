@@ -56,7 +56,8 @@ export function ghostAdapter(
                     const provider = createGhostContentProvider(${serializedOptions});
                     export default provider;
                     export const getSiteData = provider.getSiteData;
-                    export const getAllPosts = provider.getAllPosts;
+                    export const getAccessiblePosts = provider.getAccessiblePosts;
+                    export const getListedPosts = provider.getListedPosts;
                     export const getAllPages = provider.getAllPages;
                     export const getAllTags = provider.getAllTags;
                     export const getAllAuthors = provider.getAllAuthors;

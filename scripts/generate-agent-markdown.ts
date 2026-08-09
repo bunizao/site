@@ -10,7 +10,7 @@ import {
   buildTagDirectoryAgentMarkdown,
 } from '@/features/posts/server/agent-markdown';
 import {
-  getAllPosts,
+  getListedPosts,
   getPublicTagDirectory,
   getTagArchive,
 } from '@/features/posts/server/content';
@@ -30,7 +30,7 @@ async function writeMarkdown(assetPath: string, body: string): Promise<void> {
 }
 
 const [posts, tags] = await Promise.all([
-  getAllPosts({ outputTarget: 'agent-markdown' }),
+  getListedPosts({ outputTarget: 'agent-markdown' }),
   getPublicTagDirectory(),
 ]);
 

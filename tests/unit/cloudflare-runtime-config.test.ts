@@ -478,7 +478,7 @@ describe('Cloudflare runtime configuration', () => {
     expect(postsComponent).toContain("from '@/features/posts/server/content'");
     expect(postsComponent).toContain("from '@/features/posts/display'");
     expect(postsComponent).toContain('const locale = blog.locale.home;');
-    expect(postsComponent).toContain('getAllPosts()');
+    expect(postsComponent).toContain('getListedPosts()');
     expect(postsComponent).toContain('blog.copy[locale]');
     expect(postsComponent).toContain('getTagLabel(tag, locale)');
     expect(postsComponent).toContain('href={postPath(post.slug)}');

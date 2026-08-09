@@ -105,6 +105,10 @@ Production setup:
 - Every build installs a Wrangler pre-upload hook in `dist/server/wrangler.json`. The hook blocks fixture or empty blog artifacts even when someone runs `wrangler versions upload` directly.
 - Use `bun run upload:cloudflare -- --message "..."` for version uploads so the guard is also explicit in deployment logs.
 
+### Unlisted posts
+
+Add Ghost's internal `#unlisted` tag (`hash-unlisted`) to publish a direct-link-only post. The build still emits `/blog/<slug>/`, but the post is excluded from the homepage, blog and tag lists, RSS, sitemaps, Pagefind, palette data, `llms.txt`, adjacent navigation, and generated agent Markdown indexes and assets. The HTML and direct Markdown response both carry crawler exclusion directives. `site-api` applies the same internal-tag check at the Ghost content-source and webhook boundaries, so unlisted posts do not enter immediate notifications, retries, digest windows, welcome emails, or the public latest-writing cache.
+
 ## Bindings and Secrets
 
 Direct public Worker bindings in [`wrangler.jsonc`](../wrangler.jsonc):

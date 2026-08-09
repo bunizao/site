@@ -327,6 +327,22 @@ test.describe('Blog routes', () => {
     }
   });
 
+  test('keeps an unlisted post direct-only and excluded from crawlers and Pagefind', async ({ page }) => {
+    await page.goto('/blog/private-link-demo/');
+
+    await expect(page).toHaveTitle(/Direct link only fixture/);
+    await expect(page.locator('meta[name="robots"]')).toHaveAttribute(
+      'content',
+      'noindex, nofollow, noarchive, nosnippet',
+    );
+    await expect(page.locator('body')).toHaveAttribute('data-pagefind-ignore', 'all');
+    await expect(page.locator('link[rel="alternate"][type="text/markdown"]')).toHaveCount(0);
+    await expect(page.getByRole('navigation', { name: 'More posts' })).toHaveCount(0);
+
+    await page.goto('/blog/');
+    await expect(page.getByText('Direct link only fixture')).toHaveCount(0);
+  });
+
   test('renders model credits from post metadata without leaking the carrier or overflowing', async ({ page }) => {
     await page.setViewportSize({ width: 320, height: 900 });
 

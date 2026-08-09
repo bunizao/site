@@ -20,6 +20,7 @@ import {
   type Dataset,
 } from './ghost/dataset';
 import { type GhostAdapterOptions } from './ghost/config';
+import { isUnlistedPost } from '../unlisted';
 
 function paginate<T>(
   items: T[],
@@ -103,8 +104,12 @@ export function createGhostContentProvider(
     return (await getDataset()).site;
   }
 
-  async function getAllPosts() {
+  async function getAccessiblePosts() {
     return getPublicPosts((await getDataset()).posts);
+  }
+
+  async function getListedPosts() {
+    return (await getAccessiblePosts()).filter((post) => !isUnlistedPost(post));
   }
 
   async function getAllPages() {
@@ -124,14 +129,14 @@ export function createGhostContentProvider(
   }
 
   async function getHomepage(page = 1, limit = 8) {
-    const posts = await getAllPosts();
+    const posts = await getListedPosts();
     const { items, pagination } = paginate(posts, page, limit);
 
     return { posts: items, pagination };
   }
 
   async function getPostBySlug(slug: string) {
-    const posts = await getAllPosts();
+    const posts = await getAccessiblePosts();
     return posts.find((post) => post.slug === slug) ?? null;
   }
 
@@ -157,7 +162,7 @@ export function createGhostContentProvider(
   }
 
   async function getAdjacentPosts(slug: string) {
-    const posts = await getAllPosts();
+    const posts = await getListedPosts();
     const index = posts.findIndex((post) => post.slug === slug);
 
     if (index === -1) {
@@ -171,7 +176,7 @@ export function createGhostContentProvider(
   }
 
   async function getRecentPosts(limit = 2, excludeSlug?: string) {
-    const posts = await getAllPosts();
+    const posts = await getListedPosts();
 
     return posts.filter((post) => post.slug !== excludeSlug).slice(0, limit);
   }
@@ -196,7 +201,7 @@ export function createGhostContentProvider(
     page = 1,
     limit = 8,
   ): Promise<TagArchiveResult | null> {
-    const [tag, posts] = await Promise.all([getTagBySlug(slug), getAllPosts()]);
+    const [tag, posts] = await Promise.all([getTagBySlug(slug), getListedPosts()]);
 
     if (!tag) {
       return null;
@@ -223,7 +228,7 @@ export function createGhostContentProvider(
   ): Promise<AuthorArchiveResult | null> {
     const [author, posts] = await Promise.all([
       getAuthorBySlug(slug),
-      getAllPosts(),
+      getListedPosts(),
     ]);
 
     if (!author) {
@@ -245,18 +250,23 @@ export function createGhostContentProvider(
   }
 
   async function getTagDirectory(): Promise<TagDirectoryEntry[]> {
-    const [tags, posts] = await Promise.all([getAllTags(), getAllPosts()]);
+    const [tags, posts] = await Promise.all([getAllTags(), getListedPosts()]);
 
-    return tags.map((tag) => ({
-      ...tag,
-      posts: posts
-        .filter((post) => post.tags.some((postTag) => postTag.slug === tag.slug))
-        .slice(0, 10),
-    }));
+    return tags.map((tag) => {
+      const tagPosts = posts.filter((post) =>
+        post.tags.some((postTag) => postTag.slug === tag.slug),
+      );
+
+      return {
+        ...tag,
+        postCount: tagPosts.length,
+        posts: tagPosts.slice(0, 10),
+      };
+    });
   }
 
   async function getSearchDocuments(): Promise<SearchDocument[]> {
-    const [posts, pages] = await Promise.all([getAllPosts(), getAllPages()]);
+    const [posts, pages] = await Promise.all([getListedPosts(), getAllPages()]);
     const pageDocuments = pages
       .filter((page) => page.template !== 'tags')
       .map((page) => ({
@@ -280,7 +290,7 @@ export function createGhostContentProvider(
   return {
     getSite: getSiteData,
     getPosts: async (query) => {
-      const posts = await getAllPosts();
+      const posts = await getListedPosts();
 
       if (!query?.limit) {
         return posts;
@@ -304,7 +314,8 @@ export function createGhostContentProvider(
     getTiers: getAllTiers,
     getTierBySlug,
     getSiteData,
-    getAllPosts,
+    getAccessiblePosts,
+    getListedPosts,
     getAllPages,
     getAllTags,
     getAllAuthors,

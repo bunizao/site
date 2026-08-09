@@ -1,7 +1,7 @@
 import type { APIRoute } from 'astro';
 
 import { postPath } from '@/features/posts/format';
-import { getAllPosts } from '@/features/posts/server/content';
+import { getListedPosts } from '@/features/posts/server/content';
 
 export const prerender = true;
 
@@ -10,7 +10,7 @@ export const prerender = true;
 // pulls this static JSON lazily on first open.
 
 export const GET: APIRoute = async () => {
-  const posts = (await getAllPosts()).slice(0, 4).map((post) => ({
+  const posts = (await getListedPosts()).slice(0, 4).map((post) => ({
     title: post.title,
     path: postPath(post.slug),
   }));

@@ -1,7 +1,7 @@
 import type { APIRoute } from 'astro';
 import { canonical } from '@/lib/seo';
 import { postPath, tagPath } from '@/features/posts/format';
-import { getAllPosts, getPublicTagDirectory } from '@/features/posts/server/content';
+import { getListedPosts, getPublicTagDirectory } from '@/features/posts/server/content';
 
 export const prerender = true;
 
@@ -14,7 +14,7 @@ const pages = [
 
 export const GET: APIRoute = async () => {
   const updatedAt = new Date().toISOString();
-  const posts = await getAllPosts();
+  const posts = await getListedPosts();
   const tags = await getPublicTagDirectory();
   const staticUrls = pages
     .map(({ path, priority, changefreq }) => {

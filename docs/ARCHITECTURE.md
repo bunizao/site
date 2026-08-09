@@ -47,7 +47,7 @@ Private API ownership lives in the separate `site-api` Worker. `site-api` direct
 
 ## Data Sources
 
-1. **Ghost CMS** (`src/features/posts/server/content.ts`, `src/features/posts/server/ghost-admin.ts`) — Public blog posts use the Content API during builds. Local draft previews use the server-only Admin API and never expose its credential to the browser.
+1. **Ghost CMS** (`src/features/posts/server/content.ts`, `src/features/posts/server/ghost-admin.ts`) — Public blog posts use the Content API during builds. Discovery surfaces read `getListedPosts()`, while direct slug route generation reads `getAccessiblePosts()`. A public post carrying the internal Ghost tag `#unlisted` (`hash-unlisted`) remains reachable by slug but is removed from lists, archives, feeds, sitemaps, search, agent indexes, and notification sources. Local draft previews use the server-only Admin API and never expose its credential to the browser.
 2. **Project cards** (`src/features/home/ui/Projects.astro`) — Local project-card UI.
 3. **Last.fm + Apple iTunes Search** (`src/features/home/ui/Listening.astro`, `site-api /api/listening`) — Recent listening status from Last.fm, with client-side home hydration and iTunes enrichment for preview URLs and stronger artwork
 4. **GitHub Contributions** (`src/features/home/ui/GitHubContributions.astro`, `site-api /api/github/contributions`) — Contribution graph from an API backed by GitHub GraphQL, with the public contributions API as a fallback
@@ -103,7 +103,7 @@ Telegram references:
 
 Content routes with Markdown renderers negotiate on `Accept`. A request that explicitly ranks `text/markdown` at least as high as `text/html` receives `text/markdown; charset=utf-8`; browsers and wildcard-only clients receive HTML. Both variants set `Vary: Accept`, and Markdown responses also set `x-markdown-tokens` using the approximate `Math.ceil(chars / 4)` estimator.
 
-Blog Markdown is generated during `bun run build` under `dist/client/_agent-markdown/blog/*` and served through the Worker from static assets. Mood Markdown stays runtime-rendered because it reads the live feed/archive.
+Blog Markdown is generated during `bun run build` under `dist/client/_agent-markdown/blog/*` and served through the Worker from static assets. Unlisted posts do not receive a generated Markdown asset; direct `Accept: text/markdown` access falls back to runtime rendering with `X-Robots-Tag: noindex, nofollow, noarchive, nosnippet`. Their HTML uses the same robots directives and `data-pagefind-ignore="all"`. Mood Markdown stays runtime-rendered because it reads the live feed/archive.
 
 The edge cache key includes the negotiated variant (`html` or `markdown`) plus path and query string, so HTML and Markdown can never share a cache entry. `/dev`, `/oauth*`, `/api*`, and `/v2*` are `no-store` and never negotiate Markdown.
 
