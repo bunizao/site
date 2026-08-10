@@ -143,6 +143,7 @@ function buildHomeAgentMarkdown(baseUrl: URL): string {
     `# ${profile.name}`,
     '',
     `Also known as ${profile.alternateNames.join(', ')}.`,
+    `Writes as ${profile.penNames.join(', ')}.`,
     '',
     meta.description,
     '',

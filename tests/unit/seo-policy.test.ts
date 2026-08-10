@@ -16,6 +16,7 @@ describe('search indexing policy', () => {
     expect(profile).toMatchObject({
       name: 'Lucian Bu',
       alternateNames: ['Bunizao', 'Tutu', 'Collapsar'],
+      penNames: ['Murray'],
     });
     expect(blog.name).toBe('無人之境');
     expect(formatSiteTitle('Projects')).toBe('Projects — buxx.me');
@@ -35,7 +36,7 @@ describe('search indexing policy', () => {
       mainEntity: {
         '@type': 'Person',
         name: 'Lucian Bu',
-        alternateName: ['Bunizao', 'Tutu', 'Collapsar'],
+        alternateName: ['Bunizao', 'Tutu', 'Collapsar', 'Murray'],
       },
     });
   });
@@ -54,6 +55,8 @@ describe('search indexing policy', () => {
     expect(layout).toContain('`${pageTitle} — ${blog.name}`');
     expect(layout).toContain('<title>{fullTitle}</title>');
     expect(layout).toContain("'@type': 'BlogPosting'");
+    expect(layout).toContain("'@id': `${meta.siteUrl}/#person`");
+    expect(layout).toContain('{ alternateName: resolvedAuthorName }');
     expect(layout).toContain("name: blog.name");
     expect(layout).toContain('url: new URL(BLOG_FAVICON, meta.siteUrl).href');
   });

@@ -3,7 +3,10 @@ import { profile, meta } from '@/data/site';
 export const siteUrl = meta.siteUrl;
 export const siteName = meta.siteName;
 export const profileName = profile.name;
-export const profileAlternateNames = [...profile.alternateNames];
+export const profileAlternateNames: readonly string[] = [
+  ...profile.alternateNames,
+  ...profile.penNames,
+];
 export const siteDescription = meta.description;
 
 export const canonical = (path = '/') => new URL(path, siteUrl).href;

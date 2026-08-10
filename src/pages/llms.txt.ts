@@ -44,7 +44,7 @@ export const GET: APIRoute = async ({ site }) => {
   const lines = [
     `# ${profile.name}`,
     '',
-    `> ${meta.description} Also known as ${profile.alternateNames.join(', ')}. ${profile.jobTitle}, writing about ${profile.knowsAbout.join(', ').toLowerCase()}.`,
+    `> ${meta.description} Also known as ${profile.alternateNames.join(', ')}. Writes as ${profile.penNames.join(', ')}. ${profile.jobTitle}, writing about ${profile.knowsAbout.join(', ').toLowerCase()}.`,
     '',
     'This is the personal site of Lucian Bu. Fetch any URL below with',
     '`Accept: text/markdown` for a Markdown rendition. Use this file as the',

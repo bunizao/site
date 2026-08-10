@@ -28,6 +28,7 @@ export interface ProfileLink {
 export const profile = {
   name: 'Lucian Bu',
   alternateNames: ['Bunizao', 'Tutu', 'Collapsar'],
+  penNames: ['Murray'],
   jobTitle: 'Student / Developer / Blogger',
   email: 'me@buxx.me',
   knowsAbout: [

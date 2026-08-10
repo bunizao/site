@@ -8,6 +8,7 @@ Search and sharing metadata use four distinct names:
 | --- | --- | --- |
 | Person | `Lucian Bu` | Profile page, `Person` structured data, personal authorship |
 | Personal alias | `Bunizao` | `alternateName`, account handles, historical credits |
+| Pen name | `Murray` | Blog byline and the canonical Person's `alternateName` |
 | Website | `buxx.me` | `WebSite.name`, `og:site_name`, non-blog title suffixes, oEmbed provider |
 | Blog publication | `無人之境` | Blog title suffixes, `og:site_name`, `BlogPosting.publisher` |
 
@@ -39,8 +40,10 @@ The home page emits two linked entities:
 
 Blog article pages emit `BlogPosting`. The article author is a `Person`; the
 publisher is the `無人之境` publication with the thinking-woman mark as its
-logo. Structured data supplements visible title, canonical, Open Graph, and
-favicon metadata rather than replacing them.
+logo. When Ghost supplies the `Murray` byline, the author still uses the
+canonical `https://buxx.me/#person` entity, with `Lucian Bu` as its name and
+`Murray` as its `alternateName`. Structured data supplements visible title,
+canonical, Open Graph, and favicon metadata rather than replacing them.
 
 ## Indexing
 

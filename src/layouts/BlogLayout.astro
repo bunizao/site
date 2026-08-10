@@ -19,6 +19,7 @@ import PageScroller from '@/components/PageScroller.astro';
 import { hasMarkdownRenderer } from '@/features/agent-markdown/server/registry';
 import { BLOG_FAVICON } from '@/lib/favicon';
 import { serializeScriptJson } from '@/lib/serialize-script-json';
+import { profileAlternateNames, profileName } from '@/lib/seo';
 
 interface Props {
   title: string;
@@ -72,6 +73,21 @@ const resolvedOgImageAlt = ogImageAlt ?? fullTitle;
 const blogMarkAsset = blog.mark;
 const ogLogoUrl = new URL(blogMarkAsset, meta.siteUrl).href;
 const articleTags = tags.map((tag) => tag.trim()).filter(Boolean);
+const resolvedAuthorName = authorName ?? blog.author.name;
+const isProfileAuthor = resolvedAuthorName === profileName
+  || profileAlternateNames.includes(resolvedAuthorName);
+const articleAuthor = isProfileAuthor
+  ? {
+      '@type': 'Person',
+      '@id': `${meta.siteUrl}/#person`,
+      name: profileName,
+      ...(resolvedAuthorName === profileName ? {} : { alternateName: resolvedAuthorName }),
+      url: blog.author.home,
+    }
+  : {
+      '@type': 'Person',
+      name: resolvedAuthorName,
+    };
 const articleStructuredData = ogType === 'article'
   ? serializeScriptJson({
       '@context': 'https://schema.org',
@@ -89,11 +105,7 @@ const articleStructuredData = ogType === 'article'
         width: BLOG_OG_IMAGE_WIDTH,
         height: BLOG_OG_IMAGE_HEIGHT,
       },
-      author: {
-        '@type': 'Person',
-        name: authorName ?? blog.author.name,
-        url: blog.author.home,
-      },
+      author: articleAuthor,
       publisher: {
         '@type': 'Organization',
         name: blog.name,
