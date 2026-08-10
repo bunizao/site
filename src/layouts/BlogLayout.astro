@@ -18,6 +18,7 @@ import CommandPalette from '@/components/CommandPalette.astro';
 import PageScroller from '@/components/PageScroller.astro';
 import { hasMarkdownRenderer } from '@/features/agent-markdown/server/registry';
 import { BLOG_FAVICON } from '@/lib/favicon';
+import { serializeScriptJson } from '@/lib/serialize-script-json';
 
 interface Props {
   title: string;
@@ -57,12 +58,13 @@ const excludesIndexing = robots
 const markdownAlternateUrl = !excludesIndexing && hasMarkdownRenderer(new URL(canonical).pathname)
   ? canonical
   : null;
-const fullTitle = title === blog.name ? title : `${title} — ${blog.name}`;
+const pageTitle = normalizeBlogMetaText(title) || blog.name;
+const fullTitle = pageTitle === blog.name ? pageTitle : `${pageTitle} — ${blog.name}`;
 const metaDescription = normalizeBlogMetaText(description) || meta.description;
 const ogImage = customOgImage
   ? new URL(customOgImage, meta.siteUrl).href
   : buildBlogOgImageUrl({
-      title,
+      title: pageTitle,
       site: blog.name,
       excerpt: metaDescription,
     });
@@ -70,6 +72,44 @@ const resolvedOgImageAlt = ogImageAlt ?? fullTitle;
 const blogMarkAsset = blog.mark;
 const ogLogoUrl = new URL(blogMarkAsset, meta.siteUrl).href;
 const articleTags = tags.map((tag) => tag.trim()).filter(Boolean);
+const articleStructuredData = ogType === 'article'
+  ? serializeScriptJson({
+      '@context': 'https://schema.org',
+      '@type': 'BlogPosting',
+      headline: pageTitle,
+      description: metaDescription,
+      url: canonical,
+      mainEntityOfPage: {
+        '@type': 'WebPage',
+        '@id': canonical,
+      },
+      image: {
+        '@type': 'ImageObject',
+        url: ogImage,
+        width: BLOG_OG_IMAGE_WIDTH,
+        height: BLOG_OG_IMAGE_HEIGHT,
+      },
+      author: {
+        '@type': 'Person',
+        name: authorName ?? blog.author.name,
+        url: blog.author.home,
+      },
+      publisher: {
+        '@type': 'Organization',
+        name: blog.name,
+        url: new URL('/blog/', meta.siteUrl).href,
+        logo: {
+          '@type': 'ImageObject',
+          url: new URL(BLOG_FAVICON, meta.siteUrl).href,
+          width: 128,
+          height: 128,
+        },
+      },
+      datePublished: publishedTime,
+      dateModified: modifiedTime ?? publishedTime,
+      ...(articleTags.length > 0 ? { keywords: articleTags } : {}),
+    })
+  : null;
 
 // Emit the blog ink set (site.ts is the source of truth) as CSS custom
 // properties scoped to .blog-zone. --blog-accent stays as the primary alias so
@@ -130,6 +170,9 @@ const paletteCss = [
     <meta name="twitter:description" content={metaDescription} />
     <meta name="twitter:image" content={ogImage} />
     <meta name="twitter:image:alt" content={resolvedOgImageAlt} />
+    {articleStructuredData && (
+      <script type="application/ld+json" is:inline set:html={articleStructuredData} />
+    )}
 
     <!-- Blog ink set — values owned by blogPalette in src/data/site.ts. -->
     <style set:html={paletteCss}></style>

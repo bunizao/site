@@ -31,6 +31,9 @@ Routing rules:
 
 - `/mood` is dynamic and not prerendered.
 - `/mood/[id]` is dynamic and not prerendered.
+- `/mood` is indexable; `/mood/[id]` emits `noindex, follow` so the feed remains
+  discoverable without letting the unbounded detail archive crowd out editorial
+  pages in search results.
 - `/mood/[id]?embed=1` redirects to `/mood/embed?id=...&theme=...&link=false`.
 - `/mood/rss.xml` emits RSS from the feed source.
 - `/mood/subscribe` redirects to `/mood?subscribe=1`.
