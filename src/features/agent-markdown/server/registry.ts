@@ -140,9 +140,9 @@ function stripFrontmatter(markdown: string): string {
 
 function buildHomeAgentMarkdown(baseUrl: URL): string {
   return [
-    '# Bunizao',
+    `# ${profile.name}`,
     '',
-    `${profile.name} (${profile.alternateNames.join(', ')})`,
+    `Also known as ${profile.alternateNames.join(', ')}.`,
     '',
     meta.description,
     '',

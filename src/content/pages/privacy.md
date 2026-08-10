@@ -1,5 +1,5 @@
 ---
-title: Privacy Policy | Bunizao
+title: Privacy Policy
 description: How this website collects, uses, discloses, and retains personal data, including Cloudflare hosting, reading and playback analytics, YouTube embeds, edge diagnostics, listening cards, mood subscriptions, and third-party services.
 updatedAt: August 8, 2026
 ---

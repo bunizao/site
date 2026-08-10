@@ -23,14 +23,16 @@ import { getMoodFeedPreloadImage } from '@/features/mood/shared/lcp-preload';
 import { normalizeMoodTagSlug } from '@/features/mood/shared/tag-filter';
 import { isE2ESiteFixtureEnabled } from '@/lib/e2e';
 import { readEnv, readPublicEnv } from '@/lib/runtime/env';
+import { profile } from '@/data/site';
+import { formatSiteTitle } from '@/lib/seo';
 import '@/styles/mood-gallery.css';
 import '@/styles/listening.css';
 import '@/styles/embed-youtube.css';
 
 export const prerender = false;
 
-const title = "Moods | Bunizao's Website";
-const description = "Thoughts and moments from my Telegram channel";
+const title = formatSiteTitle('Moods');
+const description = `Short posts, photos, links, and moments from ${profile.name}'s Telegram channel.`;
 const canonicalUrl = new URL(Astro.url.pathname, Astro.url.origin).href;
 const moodAlternateUrl = new URL(canonicalUrl);
 const rssHref = '/mood/rss.xml';

@@ -8,6 +8,13 @@ export const siteDescription = meta.description;
 
 export const canonical = (path = '/') => new URL(path, siteUrl).href;
 
+export function formatSiteTitle(subject: string): string {
+  const normalizedSubject = subject.trim();
+  return !normalizedSubject || normalizedSubject === siteName
+    ? siteName
+    : `${normalizedSubject} — ${siteName}`;
+}
+
 // schema.org `sameAs` is derived from the profile links flagged for it, so the
 // social list lives in exactly one place.
 const sameAs = profile.links
@@ -19,8 +26,11 @@ export const profileJsonLd = {
   '@type': 'ProfilePage',
   '@id': `${siteUrl}/#profile`,
   url: siteUrl,
-  name: siteName,
+  name: profileName,
   description: siteDescription,
+  isPartOf: {
+    '@id': `${siteUrl}/#website`,
+  },
   mainEntity: {
     '@type': 'Person',
     '@id': `${siteUrl}/#person`,

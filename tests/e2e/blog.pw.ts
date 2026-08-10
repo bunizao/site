@@ -271,6 +271,7 @@ test.describe('Blog routes', () => {
   test('emits generated Open Graph image metadata for index and posts', async ({ page }) => {
     const { firstPostHref, firstPostTitle } = await collectBlogIndexTargets(page);
 
+    await expect(page).toHaveTitle('無人之境');
     const indexOgImage = new URL(await readMetaContent(page, 'meta[property="og:image"]'));
     expect(indexOgImage.toString()).toBe('https://buxx.me/blog-og.jpg');
     expect(await readMetaContent(page, 'meta[property="og:image:width"]')).toBe('1200');

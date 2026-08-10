@@ -6,12 +6,13 @@ import PostRow from '@/features/posts/ui/PostRow.astro';
 import PostHover from '@/features/posts/ui/PostHover.astro';
 import { getListedPosts, groupPostsByYear } from '@/features/posts/server/content';
 import Footer from '@/features/home/ui/Footer.astro';
+import { blog } from '@/data/site';
 
 const groups = groupPostsByYear(await getListedPosts());
 ---
 
 <BlogLayout
-  title="Blog"
+  title={blog.name}
   ogImage="/blog-og.jpg"
   ogImageAlt="無人之境 — Sillage"
 >

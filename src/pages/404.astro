@@ -6,8 +6,9 @@ import {
   getPeekRuntimeSlotKey,
   getPeekRuntimeTrackingPoseKeys,
 } from '@/features/logos/data/peek-runtime';
+import { formatSiteTitle } from '@/lib/seo';
 
-const title = '404 - page not found';
+const title = formatSiteTitle('Page not found');
 const description = "The page you're looking for isn't here.";
 const trackerDefaultAnimation = getPeekRuntimeSlotKey('not-found.tracker.default');
 const trackerHoverAnimation = getPeekRuntimeSlotKey('not-found.cta.hover');

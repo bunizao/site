@@ -42,7 +42,7 @@ export const GET: APIRoute = async ({ site }) => {
   const posts = (await getListedPosts()).slice(0, 8);
 
   const lines = [
-    '# Lucian Bu (Bunizao)',
+    `# ${profile.name}`,
     '',
     `> ${meta.description} Also known as ${profile.alternateNames.join(', ')}. ${profile.jobTitle}, writing about ${profile.knowsAbout.join(', ').toLowerCase()}.`,
     '',

@@ -8,6 +8,7 @@ import OnThisPage from '@/features/components/ui/OnThisPage.astro';
 import { InstallTabs, type InstallSpec } from '@/features/components/ui/InstallTabs';
 import CodeBox from '@/features/components/ui/CodeBox.astro';
 import '@/styles/components.css';
+import { formatSiteTitle } from '@/lib/seo';
 
 export const prerender = true;
 
@@ -66,7 +67,7 @@ const creditsHtml = (raw: string) =>
 
 <Layout
   preloadFont={['display', 'mono', 'sans']}
-  title={`${title} — Components`}
+  title={formatSiteTitle(title)}
   description={tagline}
   url={`/components/${slug}`}
   hideSiteNav

@@ -11,12 +11,13 @@
 import Layout from '@/layouts/Layout.astro';
 import ManagePreferences from '@/features/notify/ui/ManagePreferences.tsx';
 import { readPublicEnv } from '@/lib/runtime/env';
+import { formatSiteTitle } from '@/lib/seo';
 
 export const prerender = false;
 
 const turnstileSiteKey = readPublicEnv(Astro.locals, 'TURNSTILE_SITE_KEY');
 Astro.response.headers.set('Referrer-Policy', 'no-referrer');
-const title = "Manage subscription | Bunizao's Website";
+const title = formatSiteTitle('Manage subscription');
 const description = 'Manage your email subscriptions and delivery cadence, or unsubscribe.';
 ---
 

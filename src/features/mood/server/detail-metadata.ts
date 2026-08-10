@@ -1,7 +1,8 @@
 import * as cheerio from 'cheerio';
 import type { MediaItem, MoodContentDocument } from '@bunizao/contracts';
+import { profile } from '@/data/site';
+import { formatSiteTitle } from '@/lib/seo';
 
-const SITE_NAME = 'Bunizao';
 const DESCRIPTION_MAX_LENGTH = 220;
 
 // Static mood identity card, shown when a mood has no shareable image of its own
@@ -79,7 +80,7 @@ export function buildMoodDetailMetadata(
 ): MoodDetailMetadata {
   if (!post) {
     return {
-      title: 'Mood not found | Moods',
+      title: formatSiteTitle('Mood not found'),
       description: 'Mood not found.',
     };
   }
@@ -94,7 +95,7 @@ export function buildMoodDetailMetadata(
   );
   const description = summary
     ? truncateDescription(summary)
-    : `${moodLabel} from ${SITE_NAME}.`;
+    : `${moodLabel} from ${profile.name}.`;
   const imageMeta = firstShareableImage(post);
   const postImage = getShareableImageUrl(imageMeta?.src ?? null)
     ?? getShareableImageUrl(imageMeta?.fallbackSrc ?? null);
@@ -102,7 +103,7 @@ export function buildMoodDetailMetadata(
   // Per-post photo wins when the mood has one; otherwise the static identity card.
   if (!postImage) {
     return {
-      title: `${moodLabel} | ${SITE_NAME}`,
+      title: formatSiteTitle(moodLabel),
       description,
       image: FALLBACK_OG_IMAGE,
       imageAlt: FALLBACK_OG_ALT,
@@ -114,7 +115,7 @@ export function buildMoodDetailMetadata(
   const hasImageDimensions = Boolean(imageMeta?.width && imageMeta?.height);
 
   return {
-    title: `${moodLabel} | ${SITE_NAME}`,
+    title: formatSiteTitle(moodLabel),
     description,
     image: postImage,
     imageAlt: description,
