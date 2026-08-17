@@ -39,14 +39,13 @@ interface PreviewResponse {
   callbackPages: {
     confirmSuccess: string;
     confirmError: string;
-    unsubscribePrompt: string;
     unsubscribeSuccess: string;
     unsubscribeError: string;
   };
 }
 
 type EmailKey = 'subscribe' | 'welcome' | 'blog' | 'mood' | 'digest' | 'cancel';
-type CallbackKey = 'confirmSuccess' | 'confirmError' | 'unsubscribePrompt' | 'unsubscribeSuccess' | 'unsubscribeError';
+type CallbackKey = 'confirmSuccess' | 'confirmError' | 'unsubscribeSuccess' | 'unsubscribeError';
 type TemplateKey = EmailKey | CallbackKey;
 type CardSize = 'compacted' | 'regular' | 'expanded';
 type Surface = 'email' | 'page';
@@ -68,9 +67,8 @@ const TEMPLATE_ORDER: ReadonlyArray<TemplateMeta> = [
   { key: 'cancel', surface: 'email', label: 'Unsubscribe Notice', index: 'E6', intent: 'opt-out receipt' },
   { key: 'confirmSuccess', surface: 'page', label: 'Confirm — Success', index: 'P1', intent: 'callback after confirm OK' },
   { key: 'confirmError', surface: 'page', label: 'Confirm — Error', index: 'P2', intent: 'expired / used token' },
-  { key: 'unsubscribePrompt', surface: 'page', label: 'Unsubscribe — Prompt', index: 'P3', intent: 'GET unsubscribe link' },
-  { key: 'unsubscribeSuccess', surface: 'page', label: 'Unsubscribe — Success', index: 'P4', intent: 'POST unsubscribe' },
-  { key: 'unsubscribeError', surface: 'page', label: 'Unsubscribe — Error', index: 'P5', intent: 'invalid / failed' },
+  { key: 'unsubscribeSuccess', surface: 'page', label: 'Unsubscribe — Success', index: 'P3', intent: 'POST unsubscribe' },
+  { key: 'unsubscribeError', surface: 'page', label: 'Unsubscribe — Error', index: 'P4', intent: 'invalid / failed' },
 ];
 
 const CARD_SIZE_OPTIONS: ReadonlyArray<{ label: string; value: CardSize }> = [

@@ -4,10 +4,13 @@
 // rather than any single publication's identity. Copy is bilingual and follows
 // the browser language (see ManagePreferences.tsx).
 //
-// Two states live behind one route (see ManagePreferences.tsx):
-//   /subscribe/manage            → magic-link gate
-//   /subscribe/manage?token=…    → the control panel
-//   /subscribe/manage?demo=1     → control panel with sample data (review only)
+// This is the single destination for every subscription decision — including
+// unsubscribing, which arrives as ?intent=unsubscribe from an email footer:
+//
+//   /subscribe/manage                      → magic-link gate
+//   /subscribe/manage?token=…              → the control panel
+//   /subscribe/manage?token=…&intent=…     → panel with the confirmation raised
+//   /subscribe/manage?demo=1               → control panel with sample data
 import Layout from '@/layouts/Layout.astro';
 import ManagePreferences from '@/features/notify/ui/ManagePreferences.tsx';
 import { readPublicEnv } from '@/lib/runtime/env';
@@ -17,8 +20,8 @@ export const prerender = false;
 
 const turnstileSiteKey = readPublicEnv(Astro.locals, 'TURNSTILE_SITE_KEY');
 Astro.response.headers.set('Referrer-Policy', 'no-referrer');
-const title = formatSiteTitle('Manage subscription');
-const description = 'Manage your email subscriptions and delivery cadence, or unsubscribe.';
+const title = formatSiteTitle('Subscription preferences');
+const description = 'Manage your email subscriptions and delivery frequency, or unsubscribe.';
 ---
 
 <Layout
@@ -61,8 +64,23 @@ const description = 'Manage your email subscriptions and delivery cadence, or un
   }
 
   /* Neutral, site-level surface — rides the global fg/bg tokens so it matches
-     the /privacy and /mood chrome in both themes. No publication accent. */
+     the /privacy and /mood chrome in both themes. No publication accent.
+
+     Deliberately uncarded: the panel sits directly on the page with hairlines
+     between sections. A boxed form for four controls reads like an admin
+     console; this reads like a page you can leave whenever you like. */
   .mp-zone {
+    /* One five-step type scale for the whole page. Every rule below picks a
+       step — no one-off sizes, so the hierarchy stays readable at a glance. */
+    --mp-text-title: 24px;
+    --mp-text-lead: 15px;
+    --mp-text-base: 14px;
+    --mp-text-sm: 13px;
+    --mp-text-xs: 12px;
+    /* One vertical unit too: sections and the footer share the same rhythm. */
+    --mp-gap: 26px;
+    --mp-rule: hsl(var(--foreground) / 0.09);
+
     min-height: 100vh;
     padding: 8.5rem 0 7rem;
     background: hsl(var(--background));
@@ -71,107 +89,147 @@ const description = 'Manage your email subscriptions and delivery cadence, or un
   }
 
   .mp-shell {
-    width: min(100%, 520px);
+    width: min(100%, 460px);
     margin: 0 auto;
     padding: 0 1.5rem;
   }
 
-  .mp-card {
-    background: hsl(var(--background));
-    border: 1px solid hsl(var(--foreground) / 0.1);
-    border-radius: 16px;
-    box-shadow: 0 12px 32px hsl(var(--foreground) / 0.06), 0 2px 8px hsl(var(--foreground) / 0.03);
-    padding: 28px;
+  .mp-panel {
+    animation: mp-enter 0.42s cubic-bezier(0.22, 1, 0.36, 1) both;
   }
 
-  .mp-card--center {
+  .mp-panel--center {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 16px;
+    gap: 18px;
+    padding: 56px 0;
     text-align: center;
-    padding: 40px 28px;
   }
 
+  @keyframes mp-enter {
+    from {
+      opacity: 0;
+      transform: translate3d(0, 8px, 0);
+    }
+  }
+
+  /* --- Header ------------------------------------------------------------- */
   .mp-head {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 12px;
-    margin-bottom: 22px;
+    margin-bottom: var(--mp-gap);
   }
 
   .mp-title {
     margin: 0;
-    font-size: 20px;
+    font-size: var(--mp-text-title);
     font-weight: 600;
-    letter-spacing: -0.01em;
+    letter-spacing: -0.021em;
+    line-height: 1.25;
     color: hsl(var(--foreground));
   }
 
-  .mp-email {
-    margin: 4px 0 0;
-    font-size: 13px;
+  /* Whose preferences these are, and whether they're live — the two facts a
+     reader checks first, so they carry real weight instead of muted fine print. */
+  .mp-identity {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 14px;
+  }
+
+  .mp-identity-email {
+    min-width: 0;
+    font-size: var(--mp-text-lead);
+    font-weight: 500;
+    line-height: 1.4;
+    color: hsl(var(--foreground));
+    overflow-wrap: anywhere;
+  }
+
+  .mp-identity-meta {
+    margin: 6px 0 0;
+    font-size: var(--mp-text-xs);
+    line-height: 1.5;
     color: hsl(var(--muted-foreground));
   }
 
+  .mp-chip {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 24px;
+    margin-left: auto;
+    padding: 0 10px;
+    border-radius: 999px;
+    font-size: var(--mp-text-xs);
+    font-weight: 500;
+    white-space: nowrap;
+    background: hsl(152 52% 38% / 0.13);
+    color: hsl(152 48% 28%);
+  }
+
+  .mp-chip--pending {
+    background: hsl(38 85% 50% / 0.15);
+    color: hsl(30 72% 32%);
+  }
+
+  .dark .mp-chip {
+    background: hsl(152 48% 46% / 0.16);
+    color: hsl(152 52% 68%);
+  }
+
+  .dark .mp-chip--pending {
+    background: hsl(38 85% 55% / 0.16);
+    color: hsl(38 85% 68%);
+  }
+
+  .mp-chip-dot {
+    flex: none;
+    width: 6px;
+    height: 6px;
+    border-radius: 999px;
+    background: currentColor;
+  }
+
   .mp-lead {
-    margin: 10px 0 20px;
-    font-size: 14px;
+    margin: 12px 0 24px;
+    font-size: var(--mp-text-lead);
     line-height: 1.7;
     color: hsl(var(--foreground) / 0.66);
   }
 
-  .mp-badge {
-    flex: none;
-    display: inline-flex;
-    align-items: center;
-    height: 22px;
-    padding: 0 9px;
-    font-size: 11px;
-    font-weight: 600;
-    letter-spacing: 0.02em;
-    border-radius: 999px;
-  }
-
-  .mp-badge--active {
-    color: hsl(152 55% 32%);
-    background: hsl(152 55% 32% / 0.12);
-  }
-
-  .dark .mp-badge--active {
-    color: hsl(152 55% 70%);
-    background: hsl(152 55% 70% / 0.14);
-  }
-
-  .mp-badge--pending {
-    color: hsl(38 80% 40%);
-    background: hsl(38 80% 40% / 0.12);
-  }
-
   /* --- Sections ----------------------------------------------------------- */
+  /* Padding and border are set on all sides: globals.css styles bare <section>
+     elements with 48px block padding and a bottom rule, which would double the
+     hairlines and blow out the rhythm here. */
   .mp-section {
-    margin-top: 24px;
+    padding: var(--mp-gap) 0 0;
+    margin: var(--mp-gap) 0 0;
+    border-top: 1px solid var(--mp-rule);
+    border-bottom: none;
   }
 
   .mp-section:first-of-type {
+    padding-top: 0;
     margin-top: 0;
+    border-top: none;
   }
 
   .mp-section-title {
-    margin: 0 0 12px;
-    font-size: 12px;
+    margin: 0;
+    font-size: var(--mp-text-xs);
     font-weight: 600;
-    letter-spacing: 0.04em;
+    letter-spacing: 0.06em;
     text-transform: uppercase;
     color: hsl(var(--muted-foreground));
   }
 
-  /* --- Channels (toggle rows, mirrors SubscribePanel) --------------------- */
+  /* --- Channels (toggle rows) --------------------------------------------- */
   .mp-channels {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    margin-top: 8px;
   }
 
   .mp-channel {
@@ -179,21 +237,20 @@ const description = 'Manage your email subscriptions and delivery cadence, or un
     display: flex;
     align-items: center;
     gap: 12px;
-    padding: 12px 14px;
-    border: 1px solid hsl(var(--foreground) / 0.1);
-    border-radius: 12px;
+    padding: 14px 0;
     cursor: pointer;
     user-select: none;
     -webkit-tap-highlight-color: transparent;
-    transition: border-color 0.16s ease, background 0.16s ease;
   }
 
-  .mp-channel:hover {
-    background: hsl(var(--foreground) / 0.02);
+  .mp-channel + .mp-channel {
+    border-top: 1px solid hsl(var(--foreground) / 0.06);
   }
 
-  .mp-channel:has(input:checked) {
-    border-color: hsl(var(--foreground) / 0.18);
+  /* Drop the trailing row padding so the section rule sits the same distance
+     from the list as it does from the next heading. */
+  .mp-channel:last-of-type {
+    padding-bottom: 0;
   }
 
   .mp-channel input {
@@ -207,15 +264,16 @@ const description = 'Manage your email subscriptions and delivery cadence, or un
   .mp-channel-text {
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: 3px;
     min-width: 0;
   }
 
   .mp-channel-title {
-    font-size: 14px;
+    font-size: var(--mp-text-lead);
     font-weight: 500;
-    color: hsl(var(--foreground) / 0.6);
-    transition: color 0.16s ease;
+    line-height: 1.35;
+    color: hsl(var(--foreground) / 0.5);
+    transition: color 0.18s ease;
   }
 
   .mp-channel:has(input:checked) .mp-channel-title {
@@ -223,9 +281,9 @@ const description = 'Manage your email subscriptions and delivery cadence, or un
   }
 
   .mp-channel-meta {
-    font-size: 12px;
-    line-height: 1.3;
-    color: hsl(var(--muted-foreground) / 0.72);
+    font-size: var(--mp-text-sm);
+    line-height: 1.45;
+    color: hsl(var(--muted-foreground) / 0.75);
   }
 
   .mp-switch {
@@ -236,7 +294,7 @@ const description = 'Manage your email subscriptions and delivery cadence, or un
     height: 20px;
     border-radius: 999px;
     background: hsl(var(--foreground) / 0.14);
-    transition: background 0.18s ease;
+    transition: background 0.2s ease;
   }
 
   .mp-switch::after {
@@ -249,7 +307,7 @@ const description = 'Manage your email subscriptions and delivery cadence, or un
     border-radius: 50%;
     background: hsl(var(--background));
     box-shadow: 0 1px 2px hsl(var(--foreground) / 0.25);
-    transition: transform 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+    transition: transform 0.26s cubic-bezier(0.34, 1.4, 0.64, 1);
   }
 
   .mp-channel:has(input:checked) .mp-switch {
@@ -261,89 +319,152 @@ const description = 'Manage your email subscriptions and delivery cadence, or un
   }
 
   .mp-channel:has(input:focus-visible) .mp-switch {
-    outline: 2px solid hsl(var(--foreground));
-    outline-offset: 2px;
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 3px;
   }
 
-  /* --- Segmented control (mirrors .sub-seg) ------------------------------- */
+  /* --- Cadence ------------------------------------------------------------ */
+  .mp-cadence {
+    transition: opacity 0.24s ease;
+  }
+
+  .mp-cadence.is-muted {
+    opacity: 0.45;
+  }
+
+  /* Three discrete options is a segmented control, not a slider: each stop
+     carries its own label, so nothing has to be inferred from a thumb position
+     and no separate legend row is needed. The sliding pill keeps the motion. */
   .mp-seg {
+    --mp-seg-pad: 4px;
+    --mp-seg-pos: 0;
     --mp-seg-count: 3;
-    --mp-seg-offset: 0%;
     position: relative;
-    display: flex;
-    background: hsl(var(--foreground) / 0.04);
-    border-radius: 10px;
-    padding: 3px;
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: 1fr;
+    margin-top: 12px;
+    padding: var(--mp-seg-pad);
+    border-radius: 12px;
+    background: hsl(var(--foreground) / 0.06);
     isolation: isolate;
   }
 
-  .mp-seg-pill {
+  /* The pill has to read as lifted off the track in both themes: a raised white
+     surface on light, a lighter fill on dark (a background-coloured pill would
+     punch a hole in the dark track instead of sitting on it). */
+  .mp-seg-indicator {
     position: absolute;
-    top: 3px;
-    bottom: 3px;
-    left: 3px;
-    width: calc((100% - 6px) / var(--mp-seg-count));
-    border-radius: 8px;
+    top: var(--mp-seg-pad);
+    bottom: var(--mp-seg-pad);
+    left: var(--mp-seg-pad);
+    width: calc((100% - 2 * var(--mp-seg-pad)) / var(--mp-seg-count));
+    border-radius: 9px;
     background: hsl(var(--background));
-    box-shadow: 0 1px 3px hsl(var(--foreground) / 0.1), 0 0 0 1px hsl(var(--foreground) / 0.04);
-    transform: translate3d(var(--mp-seg-offset), 0, 0);
-    transition: transform 0.26s cubic-bezier(0.22, 1, 0.36, 1);
-    z-index: 0;
-    pointer-events: none;
+    box-shadow:
+      0 1px 3px hsl(var(--foreground) / 0.16),
+      0 0 0 1px hsl(var(--foreground) / 0.05);
+    transform: translate3d(calc(var(--mp-seg-pos) * 100%), 0, 0);
+    transition: transform 0.34s cubic-bezier(0.32, 1.12, 0.5, 1);
   }
 
-  .mp-seg-label {
-    flex: 1;
+  .dark .mp-seg-indicator {
+    background: hsl(var(--foreground) / 0.16);
+    box-shadow: none;
+  }
+
+  .mp-seg-option {
     position: relative;
     z-index: 1;
-    padding: 7px 0;
-    font-family: inherit;
-    font-size: 13px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 34px;
+    border-radius: 9px;
+    font-size: var(--mp-text-sm);
     font-weight: 500;
-    text-align: center;
+    line-height: 1;
+    white-space: nowrap;
     color: hsl(var(--muted-foreground));
-    background: none;
-    border: none;
-    border-radius: 8px;
     cursor: pointer;
-    transition: color 0.16s ease;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    transition: color 0.18s ease;
   }
 
-  .mp-seg-label.is-active {
+  .mp-seg-option:has(input:checked) {
     color: hsl(var(--foreground));
   }
 
-  .mp-seg-label:focus-visible {
-    outline: 2px solid hsl(var(--foreground));
-    outline-offset: 1px;
+  .mp-seg-option:has(input:disabled) {
+    cursor: not-allowed;
+  }
+
+  .mp-seg-option:has(input:focus-visible) {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: -2px;
+  }
+
+  .mp-seg-option input {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+    pointer-events: none;
+  }
+
+  .mp-cadence-hint {
+    margin: 12px 0 0;
+    min-height: 1.55em;
+    font-size: var(--mp-text-sm);
+    line-height: 1.55;
+    color: hsl(var(--foreground) / 0.62);
+    animation: mp-swap 0.28s ease both;
+  }
+
+  @keyframes mp-swap {
+    from {
+      opacity: 0;
+      transform: translate3d(0, 3px, 0);
+    }
   }
 
   /* --- Daily reveal ------------------------------------------------------- */
+  /* grid-template-rows 0fr → 1fr animates the real height, so the panel never
+     has to guess a max-height that a longer timezone name would overflow. */
   .mp-daily {
+    display: grid;
+    grid-template-rows: 0fr;
+    opacity: 0;
+    transition: grid-template-rows 0.32s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.22s ease;
+  }
+
+  .mp-daily.is-open {
+    grid-template-rows: 1fr;
+    opacity: 1;
+  }
+
+  .mp-daily-inner {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 12px;
     overflow: hidden;
-    max-height: 0;
-    opacity: 0;
-    margin-top: 0;
-    transition: max-height 0.26s ease, opacity 0.2s ease, margin-top 0.26s ease;
+    min-height: 0;
   }
 
-  .mp-daily.is-open {
-    max-height: 120px;
-    opacity: 1;
-    margin-top: 12px;
+  .mp-daily.is-open .mp-daily-inner {
+    padding-top: 16px;
   }
 
   .mp-field {
     display: flex;
     flex-direction: column;
     gap: 6px;
+    min-width: 0;
   }
 
   .mp-field-label {
-    font-size: 12px;
+    font-size: var(--mp-text-xs);
     color: hsl(var(--muted-foreground));
   }
 
@@ -353,13 +474,13 @@ const description = 'Manage your email subscriptions and delivery cadence, or un
     height: 40px;
     padding: 0 12px;
     font-family: inherit;
-    font-size: 14px;
+    font-size: var(--mp-text-base);
     color: hsl(var(--foreground));
     background: hsl(var(--foreground) / 0.04);
     border: 1px solid hsl(var(--foreground) / 0.1);
     border-radius: 10px;
     outline: none;
-    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    transition: border-color 0.16s ease, box-shadow 0.16s ease;
   }
 
   .mp-select {
@@ -370,6 +491,7 @@ const description = 'Manage your email subscriptions and delivery cadence, or un
     background-position: right 12px center;
     padding-right: 34px;
     cursor: pointer;
+    text-overflow: ellipsis;
   }
 
   .mp-input::placeholder {
@@ -392,44 +514,49 @@ const description = 'Manage your email subscriptions and delivery cadence, or un
     margin-bottom: 14px;
   }
 
-  /* --- Meta + actions ----------------------------------------------------- */
-  .mp-meta-row {
-    margin-top: 22px;
-    padding-top: 16px;
-    border-top: 1px solid hsl(var(--foreground) / 0.08);
-    font-size: 12px;
-    color: hsl(var(--muted-foreground));
-  }
-
-  .mp-actions {
+  /* --- Footer ------------------------------------------------------------- */
+  /* One row: the way out on the left, the way forward on the right. Both sit on
+     the panel's gutters, so nothing floats mid-column. */
+  .mp-foot {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 12px;
-    margin-top: 16px;
+    gap: 16px;
+    margin-top: var(--mp-gap);
+    padding-top: 20px;
+    border-top: 1px solid var(--mp-rule);
   }
 
-  .mp-actions-right {
+  .mp-foot-actions {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 14px;
   }
 
   .mp-saved {
-    font-size: 12px;
+    font-size: var(--mp-text-xs);
     color: hsl(var(--muted-foreground));
+    opacity: 0;
+    transform: translate3d(4px, 0, 0);
+    transition: opacity 0.24s ease, transform 0.24s ease;
   }
 
+  .mp-saved.is-on {
+    opacity: 1;
+    transform: none;
+  }
+
+  /* --- Buttons ------------------------------------------------------------ */
   .mp-btn {
     display: inline-flex;
     align-items: center;
     justify-content: center;
     gap: 6px;
-    min-width: 96px;
+    min-width: 112px;
     height: 40px;
-    padding: 0 18px;
+    padding: 0 20px;
     font-family: inherit;
-    font-size: 14px;
+    font-size: var(--mp-text-base);
     font-weight: 600;
     letter-spacing: 0.01em;
     color: hsl(var(--background));
@@ -437,7 +564,7 @@ const description = 'Manage your email subscriptions and delivery cadence, or un
     border: 1px solid transparent;
     border-radius: 10px;
     cursor: pointer;
-    transition: opacity 0.15s ease, background 0.15s ease, color 0.15s ease, border-color 0.15s ease, scale 0.12s ease;
+    transition: opacity 0.15s ease, background 0.15s ease, color 0.15s ease, scale 0.12s ease;
   }
 
   .mp-btn:hover:not(:disabled) {
@@ -449,7 +576,7 @@ const description = 'Manage your email subscriptions and delivery cadence, or un
   }
 
   .mp-btn:disabled {
-    opacity: 0.5;
+    opacity: 0.45;
     cursor: not-allowed;
   }
 
@@ -461,6 +588,7 @@ const description = 'Manage your email subscriptions and delivery cadence, or un
     color: hsl(var(--foreground));
     background: transparent;
     border-color: hsl(var(--foreground) / 0.16);
+    text-decoration: none;
   }
 
   .mp-btn--ghost:hover:not(:disabled) {
@@ -468,36 +596,64 @@ const description = 'Manage your email subscriptions and delivery cadence, or un
     opacity: 1;
   }
 
-  .mp-btn--danger {
-    color: hsl(0 72% 52%);
-    background: transparent;
-    border-color: hsl(0 72% 52% / 0.28);
-    min-width: 0;
+  /* Leaving is a text action, not a red button: it stays findable without
+     competing with the choice we'd rather offer — a quieter frequency. */
+  .mp-link-btn {
+    padding: 0;
+    font-family: inherit;
+    font-size: var(--mp-text-sm);
+    color: hsl(var(--muted-foreground));
+    background: none;
+    border: none;
+    text-decoration: underline;
+    text-underline-offset: 0.22em;
+    text-decoration-color: hsl(var(--muted-foreground) / 0.35);
+    cursor: pointer;
+    transition: color 0.15s ease, text-decoration-color 0.15s ease;
   }
 
-  .mp-btn--danger:hover:not(:disabled) {
-    background: hsl(0 72% 52% / 0.08);
-    opacity: 1;
+  .mp-link-btn:hover:not(:disabled) {
+    color: hsl(var(--foreground));
+    text-decoration-color: hsl(var(--foreground) / 0.5);
   }
 
-  .dark .mp-btn--danger {
+  .mp-link-btn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+
+  .mp-link-btn--danger {
+    color: hsl(0 68% 46%);
+    text-decoration-color: hsl(0 68% 46% / 0.35);
+  }
+
+  .mp-link-btn--danger:hover:not(:disabled) {
+    color: hsl(0 68% 46%);
+    text-decoration-color: hsl(0 68% 46% / 0.7);
+  }
+
+  .dark .mp-link-btn--danger {
     color: hsl(0 78% 68%);
-    border-color: hsl(0 78% 68% / 0.3);
+    text-decoration-color: hsl(0 78% 68% / 0.35);
+  }
+
+  .dark .mp-link-btn--danger:hover:not(:disabled) {
+    color: hsl(0 78% 68%);
   }
 
   /* --- Feedback bits ------------------------------------------------------ */
   .mp-hint {
-    margin: 10px 0 0;
-    font-size: 12px;
-    line-height: 1.5;
+    margin: 14px 0 0;
+    font-size: var(--mp-text-sm);
+    line-height: 1.55;
     color: hsl(38 80% 42%);
   }
 
   .mp-error {
-    margin: 12px 0 0;
-    font-size: 13px;
-    line-height: 1.5;
-    color: hsl(0 72% 52%);
+    margin: 20px 0 0;
+    font-size: var(--mp-text-sm);
+    line-height: 1.55;
+    color: hsl(0 68% 46%);
   }
 
   .dark .mp-error {
@@ -505,13 +661,13 @@ const description = 'Manage your email subscriptions and delivery cadence, or un
   }
 
   .mp-muted {
-    font-size: 13px;
+    font-size: var(--mp-text-sm);
     color: hsl(var(--muted-foreground));
   }
 
   .mp-result-text {
     margin: 0;
-    font-size: 14px;
+    font-size: var(--mp-text-lead);
     line-height: 1.7;
     color: hsl(var(--foreground));
   }
@@ -523,10 +679,10 @@ const description = 'Manage your email subscriptions and delivery cadence, or un
   }
 
   .mp-fineprint {
-    margin: 16px 0 0;
-    font-size: 11.5px;
-    line-height: 1.5;
-    color: hsl(var(--muted-foreground) / 0.78);
+    margin: 18px 0 0;
+    font-size: var(--mp-text-xs);
+    line-height: 1.55;
+    color: hsl(var(--muted-foreground) / 0.85);
   }
 
   .mp-fineprint a {
@@ -544,38 +700,56 @@ const description = 'Manage your email subscriptions and delivery cadence, or un
     align-items: center;
     justify-content: center;
     padding: 20px;
-    background: hsl(var(--foreground) / 0.35);
-    -webkit-backdrop-filter: blur(2px);
-    backdrop-filter: blur(2px);
+    background: hsl(var(--foreground) / 0.32);
+    -webkit-backdrop-filter: blur(3px);
+    backdrop-filter: blur(3px);
+    animation: mp-fade 0.18s ease both;
+  }
+
+  @keyframes mp-fade {
+    from {
+      opacity: 0;
+    }
   }
 
   .mp-confirm-box {
     width: min(100%, 380px);
     background: hsl(var(--background));
     border: 1px solid hsl(var(--foreground) / 0.1);
-    border-radius: 14px;
-    box-shadow: 0 20px 48px hsl(var(--foreground) / 0.18);
-    padding: 22px;
+    border-radius: 16px;
+    box-shadow: 0 24px 56px hsl(var(--foreground) / 0.2);
+    padding: 24px;
+    animation: mp-pop 0.28s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  @keyframes mp-pop {
+    from {
+      opacity: 0;
+      transform: translate3d(0, 10px, 0) scale(0.97);
+    }
   }
 
   .mp-confirm-title {
     margin: 0 0 8px;
-    font-size: 16px;
+    font-size: var(--mp-text-lead);
     font-weight: 600;
     color: hsl(var(--foreground));
   }
 
   .mp-confirm-body {
-    margin: 0 0 18px;
-    font-size: 13px;
+    margin: 0 0 22px;
+    font-size: var(--mp-text-sm);
     line-height: 1.6;
     color: hsl(var(--muted-foreground));
   }
 
+  /* Stacked, not side by side: the recommended action gets the full width and
+     the way out sits under it, so neither label has to wrap. */
   .mp-confirm-actions {
     display: flex;
-    justify-content: flex-end;
-    gap: 10px;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 14px;
   }
 
   /* --- Spinner ------------------------------------------------------------ */
@@ -607,11 +781,7 @@ const description = 'Manage your email subscriptions and delivery cadence, or un
     }
 
     .mp-shell {
-      padding: 0 1rem;
-    }
-
-    .mp-card {
-      padding: 22px;
+      padding: 0 1.25rem;
     }
   }
 
@@ -623,9 +793,20 @@ const description = 'Manage your email subscriptions and delivery cadence, or un
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .mp-seg-pill,
+    .mp-panel,
+    .mp-confirm,
+    .mp-confirm-box,
+    .mp-cadence-hint {
+      animation: none;
+    }
+
+    .mp-seg-indicator,
+    .mp-seg-option,
+    .mp-switch,
     .mp-switch::after,
-    .mp-daily {
+    .mp-daily,
+    .mp-saved,
+    .mp-cadence {
       transition: none;
     }
 
