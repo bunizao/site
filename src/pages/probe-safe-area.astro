@@ -1,0 +1,255 @@
+---
+// Dev-only instrument for the iOS 26 safe-area question. Open on the device,
+// scroll so Safari minimises its toolbar, screenshot. Delete once the reading
+// bar's band handling is settled.
+//
+// Established on an iPhone 16 Pro Max / iOS 26.1:
+//   - env(safe-area-inset-top) and env(safe-area-max-inset-top) are both 0,
+//     with or without viewport-fit=cover. CSS cannot MEASURE the band.
+//   - When the toolbar collapses, flow content paints ~60px above client y=0,
+//     into the status-bar band.
+//   - A `position: fixed` layer pulled above client y=0 — by `top: -64px` or by
+//     `translateY(-64px)`, both confirmed at rect.top === -64 — paints nothing
+//     there. iOS clips fixed layers to the layout viewport; the scrolling
+//     contents layer is not clipped. CSS cannot REACH the band from a fixed
+//     layer, either.
+//
+// Which leaves the layer that is not fixed. A sticky element lives in the
+// scrolling contents layer — the one that demonstrably paints into the band. If
+// sticky is not clipped, the reading bar becomes sticky and the band problem is
+// over.
+//   B: sticky pulled up directly, `top: -64px` with the row padded back down.
+//   C: zero-height sticky anchor at `top: 0` with an absolute surface reaching
+//      up out of it. Takes no flow space, and unlike B it locks at scrollY 0
+//      instead of settling over the first 64px.
+//   D: the fixed baseline, so the screenshot carries a known-clipped reference.
+//
+// The style block is `is:inline` on purpose. A scoped Astro style goes through
+// the Vite module graph, and editing this page shipped new markup against a
+// STALE stylesheet — three columns with no rules at all, which reads exactly
+// like a clipped layer. Inline CSS cannot go stale.
+export const prerender = false;
+if (!import.meta.env.DEV) return new Response(null, { status: 404 });
+
+const cover = Astro.url.searchParams.get('cover') !== '0';
+const viewport = cover
+  ? 'width=device-width, initial-scale=1, viewport-fit=cover'
+  : 'width=device-width, initial-scale=1';
+const ticks = [0, 20, 40, 60, 80, 100, 120];
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content={viewport} />
+    <title>safe-area probe {cover ? '(cover)' : '(no cover)'}</title>
+    <link rel="icon" href="data:," />
+    <style is:inline>
+      /* --lift is taller than any iPhone status-bar band, so nothing has to be
+         measured. If a column reaches the band, that constant is the fix. */
+      :root {
+        --lift: 64px;
+        --row: 52px;
+      }
+      * { box-sizing: border-box; }
+      html, body { margin: 0; padding: 0; }
+      body {
+        background: #fff;
+        color: #111;
+        font: 12px/1.2 ui-monospace, monospace;
+      }
+
+      /* The Dynamic Island is opaque black over CSS x 154–282 of a 440px screen,
+         i.e. 35%–64%, and it covers exactly the band this probe has to read. All
+         four columns stay outside it. */
+      .ruler,
+      .probe-b,
+      .probe-c,
+      .probe-d {
+        width: 15%;
+      }
+
+      /* Column A — document space. Proves the band is open in this screenshot. */
+      .ruler {
+        position: absolute;
+        top: 0;
+        left: 1%;
+        height: 400px;
+        background: rgba(0, 168, 89, 0.6);
+      }
+      .tick {
+        position: absolute;
+        left: 0;
+        right: 0;
+        border-top: 1px solid #000;
+        font-size: 10px;
+        padding-left: 2px;
+      }
+
+      .tag {
+        position: absolute;
+        top: 4px;
+        left: 4px;
+        right: 4px;
+        text-align: center;
+        color: #fff;
+        font-size: 10px;
+      }
+      .row {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        height: var(--row);
+        background: rgba(255, 255, 255, 0.92);
+        color: #000;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-top: 2px solid #000;
+        font-size: 10px;
+      }
+
+      /* B — sticky, pulled up by a negative `top`. The negative bottom margin
+         keeps it out of the flow so the filler below does not shift. */
+      .probe-b {
+        position: sticky;
+        top: calc(0px - var(--lift));
+        margin-left: 17%;
+        margin-bottom: calc(0px - var(--lift) - var(--row));
+        height: calc(var(--lift) + var(--row));
+        background: rgba(120, 0, 200, 0.85);
+        z-index: 20;
+      }
+
+      /* C — zero-height sticky anchor; the surface reaches up out of it. */
+      .probe-c {
+        position: sticky;
+        top: 0;
+        margin-left: 66%;
+        height: 0;
+        z-index: 20;
+      }
+      .probe-c > .surface {
+        position: absolute;
+        left: 0;
+        right: 0;
+        top: calc(0px - var(--lift));
+        height: calc(var(--lift) + var(--row));
+        background: rgba(0, 90, 220, 0.85);
+      }
+
+      /* D — the fixed baseline, known to clip at client y=0. */
+      .probe-d {
+        position: fixed;
+        left: 83%;
+        top: calc(0px - var(--lift));
+        height: calc(var(--lift) + var(--row));
+        background: rgba(230, 120, 0, 0.85);
+        z-index: 20;
+      }
+
+      /* client y=0, the line the fixed layers are stuck at. */
+      .origin {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 2px;
+        background: #ff00ff;
+        z-index: 21;
+      }
+
+      .filler { padding: 0 8px; }
+      .filler p {
+        margin: 0;
+        font-size: 15px;
+        letter-spacing: 0.04em;
+        color: #c1121f;
+      }
+
+      /* Fixed so any scrolled screenshot still carries the numbers. */
+      .readout {
+        position: fixed;
+        top: 190px;
+        left: 4px;
+        right: 4px;
+        z-index: 30;
+        padding: 8px;
+        border: 2px solid #111;
+        background: rgba(255, 255, 255, 0.96);
+        font-size: 15px;
+        line-height: 1.45;
+        white-space: pre-wrap;
+        word-break: break-all;
+      }
+    </style>
+  </head>
+
+  <body>
+    <div class="ruler">
+      {ticks.map((t) => <div class="tick" style={`top:${t}px`}>FLOW {t}</div>)}
+    </div>
+
+    <div class="probe-b" id="probe-b">
+      <span class="tag">B sticky</span>
+      <div class="row">ROW</div>
+    </div>
+
+    <div class="probe-c" id="probe-c">
+      <div class="surface" id="probe-c-surface">
+        <span class="tag">C anchor</span>
+        <div class="row">ROW</div>
+      </div>
+    </div>
+
+    <div class="probe-d" id="probe-d">
+      <span class="tag">D fixed</span>
+      <div class="row">ROW</div>
+    </div>
+
+    <div class="origin"></div>
+
+    <pre class="readout" id="readout">measuring…</pre>
+
+    <div class="filler">
+      {Array.from({ length: 60 }, (_, i) => <p>content row {i}</p>)}
+    </div>
+
+    <script is:inline>
+      (() => {
+        const out = document.getElementById('readout');
+        const probe = (id) => {
+          const el = document.getElementById(id);
+          const style = getComputedStyle(el);
+          // Print the resolved position so a stale stylesheet can never again be
+          // mistaken for a clipped layer.
+          return (
+            Math.round(el.getBoundingClientRect().top) + '/' + style.position.slice(0, 3)
+          );
+        };
+
+        const render = () => {
+          const scrollY = Math.round(window.scrollY);
+          out.textContent = [
+            'innerH=' + window.innerHeight + ' clientH=' + document.documentElement.clientHeight,
+            'screenH=' + window.screen.height + ' scrollY=' + scrollY,
+            'B=' + probe('probe-b') + ' C=' + probe('probe-c-surface') + ' D=' + probe('probe-d'),
+            // B rides with the content until it reaches its clamp, so a shallow
+            // scroll reads as a partial lift rather than a clipped one.
+            scrollY < 80 ? '>>> SCROLL MORE, B NOT CLAMPED <<<' : 'B CLAMPED — READ THE BAND',
+          ].join('\n');
+        };
+
+        render();
+        addEventListener('scroll', render, { passive: true });
+        addEventListener('resize', render);
+        if (window.visualViewport) {
+          visualViewport.addEventListener('resize', render);
+          visualViewport.addEventListener('scroll', render);
+        }
+      })();
+    </script>
+  </body>
+</html>

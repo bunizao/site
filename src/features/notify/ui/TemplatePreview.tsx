@@ -14,6 +14,7 @@ interface PreviewResponse {
   mode: 'daily' | 'every_5h';
   sample: 'live' | 'rich';
   timezone: string;
+  siteUrl: string;
   source: {
     channelTitle: string;
     channelAvatarUrl?: string;
@@ -50,7 +51,11 @@ interface PreviewResponse {
 
 type EmailKey = 'subscribe' | 'welcome' | 'blog' | 'mood' | 'digest' | 'cancel' | 'changeEmail' | 'emailChanged';
 type CallbackKey = 'confirmSuccess' | 'confirmError' | 'unsubscribeSuccess' | 'unsubscribeError';
-type TemplateKey = EmailKey | CallbackKey;
+// The preferences panel is the one notify surface this endpoint cannot build:
+// it is an Astro island in the site repo, so the catalog frames the real page
+// in demo mode instead of a string of HTML.
+type LiveKey = 'managePanel';
+type TemplateKey = EmailKey | CallbackKey | LiveKey;
 type CardSize = 'compacted' | 'regular' | 'expanded';
 type Surface = 'email' | 'page';
 
@@ -75,6 +80,7 @@ const TEMPLATE_ORDER: ReadonlyArray<TemplateMeta> = [
   { key: 'confirmError', surface: 'page', label: 'Confirm — Error', index: 'P2', intent: 'expired / used token' },
   { key: 'unsubscribeSuccess', surface: 'page', label: 'Unsubscribe — Success', index: 'P3', intent: 'POST unsubscribe' },
   { key: 'unsubscribeError', surface: 'page', label: 'Unsubscribe — Error', index: 'P4', intent: 'invalid / failed' },
+  { key: 'managePanel', surface: 'page', label: 'Preferences Panel', index: 'P5', intent: 'live page, demo record' },
 ];
 
 const CARD_SIZE_OPTIONS: ReadonlyArray<{ label: string; value: CardSize }> = [
@@ -167,13 +173,18 @@ export default function TemplatePreview() {
     [surfaceFilter]
   );
 
-  function getTemplateContent(key: TemplateKey): { subject?: string; html: string } {
+  function getTemplateContent(key: TemplateKey): { subject?: string; html: string; src?: string } {
     if (!preview) return { html: '' };
     if (
       key === 'subscribe' || key === 'welcome' || key === 'blog' || key === 'mood'
       || key === 'digest' || key === 'cancel' || key === 'changeEmail' || key === 'emailChanged'
     ) {
       return { subject: preview.subjects[key], html: preview.html[key] };
+    }
+    if (key === 'managePanel') {
+      // siteUrl is newer than this card; an API that predates it still renders.
+      const origin = (preview.siteUrl || window.location.origin).replace(/\/$/, '');
+      return { html: '', src: `${origin}/subscribe/manage?demo=1` };
     }
     return { html: preview.callbackPages[key] };
   }
@@ -301,7 +312,7 @@ export default function TemplatePreview() {
 
       <div className={`notify-grid${focused ? ' notify-grid--focused' : ''}`}>
         {visibleTemplates.map((tpl) => {
-          const { subject, html } = getTemplateContent(tpl.key);
+          const { subject, html, src } = getTemplateContent(tpl.key);
           const isFocused = focused === tpl.key;
           const isHidden = Boolean(focused) && !isFocused;
           return (
@@ -349,10 +360,11 @@ export default function TemplatePreview() {
                 </p>
               ) : null}
               <div className="notify-card__frame">
-                {html ? (
+                {html || src ? (
                   <iframe
                     title={`${tpl.label} preview`}
-                    srcDoc={html}
+                    src={src}
+                    srcDoc={src ? undefined : html}
                     className="notify-card__iframe"
                     loading="lazy"
                     sandbox={tpl.surface === 'page' ? 'allow-same-origin allow-scripts' : 'allow-same-origin'}
