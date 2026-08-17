@@ -130,11 +130,14 @@ const description = 'Manage your email subscriptions and delivery frequency, or 
 
   /* Whose preferences these are, and whether they're live — the two facts a
      reader checks first, so they carry real weight instead of muted fine print. */
+  /* Fixed height so swapping the address for an input doesn't move the chip or
+     reflow anything below it. */
   .mp-identity {
     display: flex;
     align-items: center;
     gap: 10px;
-    margin-top: 14px;
+    min-height: 34px;
+    margin-top: 12px;
   }
 
   .mp-identity-email {
@@ -151,6 +154,89 @@ const description = 'Manage your email subscriptions and delivery frequency, or 
     font-size: var(--mp-text-xs);
     line-height: 1.5;
     color: hsl(var(--muted-foreground));
+  }
+
+  .mp-icon-btn {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    padding: 0;
+    color: hsl(var(--muted-foreground));
+    background: none;
+    border: none;
+    border-radius: 7px;
+    cursor: pointer;
+    opacity: 0.65;
+    transition: opacity 0.15s ease, background 0.15s ease, color 0.15s ease;
+  }
+
+  .mp-icon-btn svg {
+    width: 14px;
+    height: 14px;
+  }
+
+  .mp-icon-btn:hover {
+    opacity: 1;
+    color: hsl(var(--foreground));
+    background: hsl(var(--foreground) / 0.07);
+  }
+
+  .mp-icon-btn:focus-visible {
+    opacity: 1;
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 2px;
+  }
+
+  .mp-identity-note {
+    margin: 10px 0 0;
+    font-size: var(--mp-text-sm);
+    line-height: 1.55;
+    color: hsl(152 48% 30%);
+    animation: mp-swap 0.28s ease both;
+  }
+
+  .dark .mp-identity-note {
+    color: hsl(152 52% 62%);
+  }
+
+  /* Same face and weight as the address it replaces, on a quiet fill instead of
+     a boxed form field — editing should feel like typing over the value. */
+  .mp-email-input {
+    flex: 1;
+    min-width: 0;
+    height: 34px;
+    padding: 0 10px;
+    font-family: inherit;
+    font-size: var(--mp-text-lead);
+    font-weight: 500;
+    color: hsl(var(--foreground));
+    background: hsl(var(--foreground) / 0.05);
+    border: 1px solid transparent;
+    border-radius: 9px;
+    outline: none;
+    transition: border-color 0.16s ease, background 0.16s ease;
+  }
+
+  .mp-email-input::placeholder {
+    font-weight: 500;
+    color: hsl(var(--muted-foreground) / 0.5);
+  }
+
+  .mp-email-input:focus {
+    background: transparent;
+    border-color: hsl(var(--foreground) / 0.24);
+  }
+
+  .mp-email-form-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 16px;
+    margin-top: 12px;
+    animation: mp-swap 0.24s ease both;
   }
 
   .mp-chip {
@@ -174,6 +260,12 @@ const description = 'Manage your email subscriptions and delivery frequency, or 
     color: hsl(30 72% 32%);
   }
 
+  /* Same slot, neutral tint: the row is mid-edit, not in a subscription state. */
+  .mp-chip--editing {
+    background: hsl(var(--foreground) / 0.08);
+    color: hsl(var(--muted-foreground));
+  }
+
   .dark .mp-chip {
     background: hsl(152 48% 46% / 0.16);
     color: hsl(152 52% 68%);
@@ -182,6 +274,11 @@ const description = 'Manage your email subscriptions and delivery frequency, or 
   .dark .mp-chip--pending {
     background: hsl(38 85% 55% / 0.16);
     color: hsl(38 85% 68%);
+  }
+
+  .dark .mp-chip--editing {
+    background: hsl(var(--foreground) / 0.1);
+    color: hsl(var(--muted-foreground));
   }
 
   .mp-chip-dot {
@@ -584,6 +681,15 @@ const description = 'Manage your email subscriptions and delivery frequency, or 
     width: 100%;
   }
 
+  .mp-btn--sm {
+    min-width: 0;
+    height: 32px;
+    padding: 0 14px;
+    font-size: var(--mp-text-sm);
+    font-weight: 500;
+    border-radius: 8px;
+  }
+
   .mp-btn--ghost {
     color: hsl(var(--foreground));
     background: transparent;
@@ -654,6 +760,10 @@ const description = 'Manage your email subscriptions and delivery frequency, or 
     font-size: var(--mp-text-sm);
     line-height: 1.55;
     color: hsl(0 68% 46%);
+  }
+
+  .mp-error--tight {
+    margin-top: 8px;
   }
 
   .dark .mp-error {
@@ -760,6 +870,11 @@ const description = 'Manage your email subscriptions and delivery frequency, or 
     border-top-color: hsl(var(--foreground));
     border-radius: 50%;
     animation: mp-spin 0.6s linear infinite;
+  }
+
+  .mp-spinner--sm {
+    width: 15px;
+    height: 15px;
   }
 
   .mp-spinner--on-fg {

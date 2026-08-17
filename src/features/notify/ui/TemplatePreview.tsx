@@ -27,6 +27,8 @@ interface PreviewResponse {
     mood: string;
     digest: string;
     cancel: string;
+    changeEmail: string;
+    emailChanged: string;
   };
   html: {
     subscribe: string;
@@ -35,6 +37,8 @@ interface PreviewResponse {
     mood: string;
     digest: string;
     cancel: string;
+    changeEmail: string;
+    emailChanged: string;
   };
   callbackPages: {
     confirmSuccess: string;
@@ -44,7 +48,7 @@ interface PreviewResponse {
   };
 }
 
-type EmailKey = 'subscribe' | 'welcome' | 'blog' | 'mood' | 'digest' | 'cancel';
+type EmailKey = 'subscribe' | 'welcome' | 'blog' | 'mood' | 'digest' | 'cancel' | 'changeEmail' | 'emailChanged';
 type CallbackKey = 'confirmSuccess' | 'confirmError' | 'unsubscribeSuccess' | 'unsubscribeError';
 type TemplateKey = EmailKey | CallbackKey;
 type CardSize = 'compacted' | 'regular' | 'expanded';
@@ -65,6 +69,8 @@ const TEMPLATE_ORDER: ReadonlyArray<TemplateMeta> = [
   { key: 'mood', surface: 'email', label: 'Mood Notification', index: 'E4', intent: 'per-post push' },
   { key: 'digest', surface: 'email', label: 'Mood Digest', index: 'E5', intent: 'batched window' },
   { key: 'cancel', surface: 'email', label: 'Unsubscribe Notice', index: 'E6', intent: 'opt-out receipt' },
+  { key: 'changeEmail', surface: 'email', label: 'Change Email Confirm', index: 'E7', intent: 'opt-in on the new address' },
+  { key: 'emailChanged', surface: 'email', label: 'Address Changed Notice', index: 'E8', intent: 'receipt to the old address' },
   { key: 'confirmSuccess', surface: 'page', label: 'Confirm — Success', index: 'P1', intent: 'callback after confirm OK' },
   { key: 'confirmError', surface: 'page', label: 'Confirm — Error', index: 'P2', intent: 'expired / used token' },
   { key: 'unsubscribeSuccess', surface: 'page', label: 'Unsubscribe — Success', index: 'P3', intent: 'POST unsubscribe' },
@@ -163,7 +169,10 @@ export default function TemplatePreview() {
 
   function getTemplateContent(key: TemplateKey): { subject?: string; html: string } {
     if (!preview) return { html: '' };
-    if (key === 'subscribe' || key === 'welcome' || key === 'blog' || key === 'mood' || key === 'digest' || key === 'cancel') {
+    if (
+      key === 'subscribe' || key === 'welcome' || key === 'blog' || key === 'mood'
+      || key === 'digest' || key === 'cancel' || key === 'changeEmail' || key === 'emailChanged'
+    ) {
       return { subject: preview.subjects[key], html: preview.html[key] };
     }
     return { html: preview.callbackPages[key] };

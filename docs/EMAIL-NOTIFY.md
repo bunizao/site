@@ -9,6 +9,10 @@ Canonical private API:
 - `POST https://api.buxx.me/v2/notify/subscribe`
 - `GET https://api.buxx.me/v2/notify/confirm`
 - `GET https://api.buxx.me/v2/notify/unsubscribe`
+- `GET|PATCH https://api.buxx.me/v2/notify/manage`
+- `POST https://api.buxx.me/v2/notify/manage/request`
+- `POST https://api.buxx.me/v2/notify/manage/email`
+- `GET https://api.buxx.me/v2/notify/change-email`
 - `POST https://api.buxx.me/v2/notify/dispatch`
 - `GET|POST https://api.buxx.me/v2/notify/schedule`
 - `GET|POST https://api.buxx.me/v2/notify/retry`

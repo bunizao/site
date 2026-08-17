@@ -5,6 +5,8 @@ export type NotifyAuditEventType =
   | 'subscribe_requested'
   | 'subscription_confirmed'
   | 'unsubscribed'
+  | 'email_change_requested'
+  | 'email_changed'
   | 'admin_create'
   | 'admin_update'
   | 'admin_delete'

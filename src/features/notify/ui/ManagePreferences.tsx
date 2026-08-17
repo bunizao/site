@@ -89,6 +89,7 @@ const STRINGS = {
     requestAgain: '用邮箱重新申请',
     statusActive: '已订阅',
     statusPending: '待确认',
+    statusEditing: '修改中',
     channelsHeading: '订阅内容',
     blogTitle: 'Blog · 無人之境',
     blogMeta: '长文更新即送达',
@@ -106,6 +107,13 @@ const STRINGS = {
     timezone: '时区',
     dailyTime: '送达时间',
     lastSent: (date: string) => `上次送达 · ${date}`,
+    editEmail: '换邮箱',
+    newEmailLabel: '新的邮箱地址',
+    sendConfirmation: '发送确认信',
+    changeEmailSent: (email: string) => `确认信已发往 ${email}。点开里面的链接就算换好了 —— 在那之前一切照旧。`,
+    changeEmailSame: '这就是当前的邮箱。',
+    changeEmailFailed: '发送失败，稍后重试。',
+    emailChanged: '邮箱已更新。',
     unsubscribeAll: '退订全部',
     saveChanges: '保存更改',
     saved: '已保存',
@@ -139,6 +147,7 @@ const STRINGS = {
     requestAgain: 'Request a new link',
     statusActive: 'Subscribed',
     statusPending: 'Pending',
+    statusEditing: 'Editing',
     channelsHeading: 'Subscriptions',
     blogTitle: 'Sillage · Blog',
     blogMeta: 'Sent when a post ships',
@@ -156,6 +165,13 @@ const STRINGS = {
     timezone: 'Timezone',
     dailyTime: 'Delivery time',
     lastSent: (date: string) => `Last sent · ${date}`,
+    editEmail: 'Change email',
+    newEmailLabel: 'New email address',
+    sendConfirmation: 'Send confirmation',
+    changeEmailSent: (email: string) => `Confirmation sent to ${email}. Open the link there to finish — nothing changes until you do.`,
+    changeEmailSame: 'That’s already your address.',
+    changeEmailFailed: 'Couldn’t send that. Try again shortly.',
+    emailChanged: 'Address updated.',
     unsubscribeAll: 'Unsubscribe from all',
     saveChanges: 'Save changes',
     saved: 'Saved',
@@ -656,6 +672,142 @@ function CadenceSegments({
   );
 }
 
+// --- Change of address ------------------------------------------------------
+// Only ever a *request*: the API mails a confirmation to the proposed address
+// and the record moves when that link is opened. So the panel keeps showing the
+// current address afterwards, and the copy says why.
+function ChangeEmailForm({
+  t,
+  currentEmail,
+  token,
+  isDemo,
+  onSent,
+  onCancel,
+}: {
+  t: T;
+  currentEmail: string;
+  token: string;
+  isDemo: boolean;
+  onSent: (email: string) => void;
+  onCancel: () => void;
+}) {
+  const [draft, setDraft] = React.useState('');
+  const [error, setError] = React.useState('');
+  const [busy, setBusy] = React.useState(false);
+  const inputRef = React.useRef<HTMLInputElement>(null);
+  const inputId = React.useId();
+
+  React.useEffect(() => {
+    inputRef.current?.focus();
+  }, []);
+
+  async function submit(event: React.FormEvent) {
+    event.preventDefault();
+    const value = draft.trim().toLowerCase();
+    if (!EMAIL_RE.test(value)) {
+      setError(t.invalidEmail);
+      return;
+    }
+    if (value === currentEmail.trim().toLowerCase()) {
+      setError(t.changeEmailSame);
+      return;
+    }
+    setError('');
+    setBusy(true);
+    try {
+      if (isDemo) {
+        onSent(value);
+        return;
+      }
+      const res = await fetch(`/api/notify/manage/email?token=${encodeURIComponent(token)}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ newEmail: value }),
+      });
+      if (res.status === 429) {
+        setError(t.tooFrequent);
+        return;
+      }
+      if (!res.ok) {
+        const payload = (await res.json().catch(() => ({}))) as { error?: string };
+        setError(payload.error || t.changeEmailFailed);
+        return;
+      }
+      onSent(value);
+    } catch {
+      setError(t.networkError);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  // The identity row keeps its shape: the field takes the address's slot and the
+  // chip stays put, reading "Editing" instead of the subscription status. Only
+  // the actions row is new, so opening the editor never reflows the header.
+  return (
+    <form onSubmit={submit} noValidate>
+      <div className="mp-identity">
+        <input
+          ref={inputRef}
+          id={inputId}
+          type="email"
+          className="mp-email-input"
+          aria-label={t.newEmailLabel}
+          placeholder={currentEmail}
+          autoComplete="email"
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Escape') onCancel();
+          }}
+        />
+        <StatusChip kind="editing" label={t.statusEditing} />
+      </div>
+      {error && (
+        <p className="mp-error mp-error--tight" role="alert">
+          {error}
+        </p>
+      )}
+      <div className="mp-email-form-actions">
+        <button type="button" className="mp-link-btn" disabled={busy} onClick={onCancel}>
+          {t.cancel}
+        </button>
+        {/* Ghost, not filled: "Save changes" is the one primary action on this
+            page, and a second solid button next to it flattens the hierarchy. */}
+        <button type="submit" className="mp-btn mp-btn--ghost mp-btn--sm" disabled={busy}>
+          {busy ? <span className="mp-spinner mp-spinner--sm" aria-hidden="true" /> : t.sendConfirmation}
+        </button>
+      </div>
+    </form>
+  );
+}
+
+function StatusChip({ kind, label }: { kind: 'active' | 'pending' | 'editing'; label: string }) {
+  return (
+    <span className={`mp-chip mp-chip--${kind}`}>
+      <span className="mp-chip-dot" aria-hidden="true" />
+      {label}
+    </span>
+  );
+}
+
+function PencilIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M12 20h9" />
+      <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
+    </svg>
+  );
+}
+
 // --- State 2: the control panel --------------------------------------------
 interface PreferencesPanelState {
   channels: NotifyChannel[];
@@ -775,6 +927,14 @@ function PreferencesPanel({
   const noChannels = channels.length === 0;
   const moodOn = channels.includes('mood');
 
+  // The change-of-address sub-form: open, or resolved with a pending
+  // confirmation. Kept out of the reducer — it patches nothing on this record.
+  const [emailFormOpen, setEmailFormOpen] = React.useState(false);
+  const [emailSentTo, setEmailSentTo] = React.useState('');
+  // Set by the confirmation link's redirect, so the reader arrives at a panel
+  // that says the move landed rather than one that merely looks different.
+  const justChanged = React.useMemo(() => readQueryParam('changed') === '1', []);
+
   function openConfirmDialog() {
     dispatch({ type: 'confirm-open', value: true });
     queueMicrotask(() => {
@@ -875,14 +1035,41 @@ function PreferencesPanel({
     <div className="mp-panel">
       <header className="mp-head">
         <h1 className="mp-title">{t.title}</h1>
-        <div className="mp-identity">
-          <span className="mp-identity-email">{initial.email}</span>
-          <span className={`mp-chip${status === 'active' ? '' : ' mp-chip--pending'}`}>
-            <span className="mp-chip-dot" aria-hidden="true" />
-            {status === 'active' ? t.statusActive : t.statusPending}
-          </span>
-        </div>
+        {emailFormOpen ? (
+          <ChangeEmailForm
+            t={t}
+            currentEmail={initial.email}
+            token={token}
+            isDemo={isDemo}
+            onSent={(email) => {
+              setEmailSentTo(email);
+              setEmailFormOpen(false);
+            }}
+            onCancel={() => setEmailFormOpen(false)}
+          />
+        ) : (
+          <div className="mp-identity">
+            <span className="mp-identity-email">{initial.email}</span>
+            {!emailSentTo && (
+              <button
+                type="button"
+                className="mp-icon-btn"
+                aria-label={t.editEmail}
+                title={t.editEmail}
+                onClick={() => setEmailFormOpen(true)}
+              >
+                <PencilIcon />
+              </button>
+            )}
+            <StatusChip
+              kind={status === 'active' ? 'active' : 'pending'}
+              label={status === 'active' ? t.statusActive : t.statusPending}
+            />
+          </div>
+        )}
         <p className="mp-identity-meta">{t.lastSent(formatDate(initial.lastNotifiedAt, lang))}</p>
+        {justChanged && !emailSentTo && <p className="mp-identity-note">{t.emailChanged}</p>}
+        {emailSentTo && <p className="mp-identity-note">{t.changeEmailSent(emailSentTo)}</p>}
       </header>
 
       <section className="mp-section">
