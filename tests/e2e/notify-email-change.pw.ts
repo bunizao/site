@@ -10,6 +10,47 @@ const manageView = {
 };
 
 test.describe('email change preferences', () => {
+  test('saves only after preferences change', async ({ page }) => {
+    let patchRequests = 0;
+    let requestBody: Record<string, unknown> | null = null;
+
+    await page.route('**/api/notify/manage?token=save-token', async (route) => {
+      const request = route.request();
+      if (request.method() === 'GET') {
+        await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(manageView) });
+        return;
+      }
+
+      patchRequests += 1;
+      requestBody = request.postDataJSON() as Record<string, unknown>;
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ ...manageView, deliveryMode: 'every_5h' }),
+      });
+    });
+
+    await page.goto('/subscribe/manage?token=save-token');
+    const saveButton = page.locator('.mp-btn--save');
+
+    await expect(saveButton).toBeDisabled();
+    expect(patchRequests).toBe(0);
+
+    await page.getByText('Every 5 hours', { exact: true }).click();
+    await expect(saveButton).toBeEnabled();
+    await saveButton.click();
+
+    await expect(saveButton).toBeDisabled();
+    expect(patchRequests).toBe(1);
+    expect(requestBody).toEqual({
+      status: 'active',
+      channels: ['mood', 'blog'],
+      deliveryMode: 'every_5h',
+      timezone: null,
+      dailyHour: null,
+    });
+  });
+
   test('keeps the current address until the confirmation request succeeds', async ({ page }) => {
     let requestBody: Record<string, unknown> | null = null;
 

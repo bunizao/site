@@ -40,6 +40,16 @@ interface ManagePreferencesView {
   lastNotifiedAt?: string;
 }
 
+interface EditablePreferences {
+  status: SubscriberStatus;
+  channels: NotifyChannel[];
+  deliveryMode: DeliveryMode;
+  timezone: string | null;
+  dailyHour: number | null;
+}
+
+type ManagePreferencesUpdatePayload = EditablePreferences | { status: 'unsubscribed' };
+
 interface Props {
   /** Cloudflare Turnstile site key for the magic-link request. */
   turnstileSiteKey?: string;
@@ -63,6 +73,13 @@ function getManagedChannels(channels: NotifyChannel[]): NotifyChannel[] {
 
 function getRetainedChannels(channels: NotifyChannel[]): NotifyChannel[] {
   return channels.filter((channel) => !MANAGED_CHANNELS.includes(channel));
+}
+
+function preferenceStateKey(preferences: EditablePreferences): string {
+  return JSON.stringify({
+    ...preferences,
+    channels: preferences.channels.toSorted(),
+  });
 }
 
 // --- i18n dictionary --------------------------------------------------------
@@ -966,6 +983,23 @@ function PreferencesPanel({
 
   const noChannels = channels.length === 0;
   const moodOn = channels.includes('mood');
+  const currentPreferences: EditablePreferences = {
+    status: 'active',
+    channels: [...channels, ...(retainedChannels.current ?? [])],
+    deliveryMode: mode,
+    timezone: mode === 'daily' ? timezone : null,
+    dailyHour: mode === 'daily' ? dailyHour : null,
+  };
+  const [persistedPreferencesKey, setPersistedPreferencesKey] = React.useState(() =>
+    preferenceStateKey({
+      status: initial.status,
+      channels: initial.channels,
+      deliveryMode: initial.deliveryMode,
+      timezone: initial.deliveryMode === 'daily' ? initial.timezone : null,
+      dailyHour: initial.deliveryMode === 'daily' ? initial.dailyHour : null,
+    })
+  );
+  const hasPreferenceChanges = preferenceStateKey(currentPreferences) !== persistedPreferencesKey;
 
   // The change-of-address sub-form: open, or resolved with a pending
   // confirmation. Kept out of the reducer — it patches nothing on this record.
@@ -1001,10 +1035,9 @@ function PreferencesPanel({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [wantsUnsubscribe]);
 
-  async function persist(body: Record<string, unknown>) {
+  async function persist(body: ManagePreferencesUpdatePayload) {
     if (isDemo) {
       // Demo mode: no network, just reflect the change locally.
-      dispatch({ type: 'saved', at: new Date().toISOString() });
       return true;
     }
     const res = await fetch(`/api/notify/manage?token=${encodeURIComponent(token)}`, {
@@ -1016,23 +1049,17 @@ function PreferencesPanel({
       const payload = (await res.json().catch(() => ({}))) as { error?: string };
       throw new Error(payload.error || `HTTP ${res.status}`);
     }
-    dispatch({ type: 'saved', at: new Date().toISOString() });
     return true;
   }
 
   async function save() {
-    if (noChannels) return;
+    if (noChannels || !hasPreferenceChanges) return;
     dispatch({ type: 'saving', value: true });
     dispatch({ type: 'error', value: '' });
     try {
-      await persist({
-        status: 'active',
-        // Merge managed selections with any retained system channels.
-        channels: [...channels, ...(retainedChannels.current ?? [])],
-        deliveryMode: mode,
-        timezone: mode === 'daily' ? timezone : null,
-        dailyHour: mode === 'daily' ? dailyHour : null,
-      });
+      await persist(currentPreferences);
+      setPersistedPreferencesKey(preferenceStateKey(currentPreferences));
+      dispatch({ type: 'saved', at: new Date().toISOString() });
       dispatch({ type: 'status', value: 'active' });
     } catch (e) {
       dispatch({ type: 'error', value: e instanceof Error && e.message ? e.message : t.saveFailed });
@@ -1241,7 +1268,7 @@ function PreferencesPanel({
             type="button"
             className="mp-btn mp-btn--save"
             data-state={saving ? 'saving' : savedAt ? 'saved' : 'idle'}
-            disabled={saving || noChannels}
+            disabled={saving || noChannels || !hasPreferenceChanges}
             onClick={save}
           >
             {/* All three labels share one grid cell, so the button never
