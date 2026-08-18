@@ -31,7 +31,7 @@ test.describe('email change preferences', () => {
     await page.getByLabel('New email address').fill('new@example.test');
     await page.getByRole('button', { name: 'Send confirmation' }).click();
 
-    await expect(page.getByText(/If eligible, we'll send a confirmation to new@example\.test/)).toBeVisible();
+    await expect(page.getByText("If eligible, we'll email new@example.test. Nothing changes until you confirm.")).toBeVisible();
     await expect(page.getByText('current@example.test')).toBeVisible();
     expect(requestBody).toEqual({ newEmail: 'new@example.test' });
   });
