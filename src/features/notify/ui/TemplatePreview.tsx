@@ -30,6 +30,7 @@ interface PreviewResponse {
     cancel: string;
     changeEmail: string;
     emailChanged: string;
+    deleteRecord: string;
   };
   html: {
     subscribe: string;
@@ -40,17 +41,20 @@ interface PreviewResponse {
     cancel: string;
     changeEmail: string;
     emailChanged: string;
+    deleteRecord: string;
   };
   callbackPages: {
     confirmSuccess: string;
     confirmError: string;
     unsubscribeSuccess: string;
     unsubscribeError: string;
+    deleteRecordConfirm: string;
+    deleteRecordDone: string;
   };
 }
 
-type EmailKey = 'subscribe' | 'welcome' | 'blog' | 'mood' | 'digest' | 'cancel' | 'changeEmail' | 'emailChanged';
-type CallbackKey = 'confirmSuccess' | 'confirmError' | 'unsubscribeSuccess' | 'unsubscribeError';
+type EmailKey = 'subscribe' | 'welcome' | 'blog' | 'mood' | 'digest' | 'cancel' | 'changeEmail' | 'emailChanged' | 'deleteRecord';
+type CallbackKey = 'confirmSuccess' | 'confirmError' | 'unsubscribeSuccess' | 'unsubscribeError' | 'deleteRecordConfirm' | 'deleteRecordDone';
 // The preferences panel is the one notify surface this endpoint cannot build:
 // it is an Astro island in the site repo, so the catalog frames the real page
 // in demo mode instead of a string of HTML.
@@ -76,11 +80,14 @@ const TEMPLATE_ORDER: ReadonlyArray<TemplateMeta> = [
   { key: 'cancel', surface: 'email', label: 'Unsubscribe Notice', index: 'E6', intent: 'opt-out receipt' },
   { key: 'changeEmail', surface: 'email', label: 'Change Email Confirm', index: 'E7', intent: 'opt-in on the new address' },
   { key: 'emailChanged', surface: 'email', label: 'Address Changed Notice', index: 'E8', intent: 'receipt to the old address' },
+  { key: 'deleteRecord', surface: 'email', label: 'Delete Record Confirm', index: 'E9', intent: 'second step before erasure' },
   { key: 'confirmSuccess', surface: 'page', label: 'Confirm — Success', index: 'P1', intent: 'callback after confirm OK' },
   { key: 'confirmError', surface: 'page', label: 'Confirm — Error', index: 'P2', intent: 'expired / used token' },
   { key: 'unsubscribeSuccess', surface: 'page', label: 'Unsubscribe — Success', index: 'P3', intent: 'POST unsubscribe' },
   { key: 'unsubscribeError', surface: 'page', label: 'Unsubscribe — Error', index: 'P4', intent: 'invalid / failed' },
-  { key: 'managePanel', surface: 'page', label: 'Preferences Panel', index: 'P5', intent: 'live page, demo record' },
+  { key: 'deleteRecordConfirm', surface: 'page', label: 'Delete Record — Confirm', index: 'P5', intent: 'the button that erases' },
+  { key: 'deleteRecordDone', surface: 'page', label: 'Delete Record — Receipt', index: 'P6', intent: 'what was removed' },
+  { key: 'managePanel', surface: 'page', label: 'Preferences Panel', index: 'P7', intent: 'live page, demo record' },
 ];
 
 const CARD_SIZE_OPTIONS: ReadonlyArray<{ label: string; value: CardSize }> = [
@@ -178,6 +185,7 @@ export default function TemplatePreview() {
     if (
       key === 'subscribe' || key === 'welcome' || key === 'blog' || key === 'mood'
       || key === 'digest' || key === 'cancel' || key === 'changeEmail' || key === 'emailChanged'
+      || key === 'deleteRecord'
     ) {
       return { subject: preview.subjects[key], html: preview.html[key] };
     }

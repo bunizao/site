@@ -116,7 +116,7 @@ We do not sell personal data collected through this site, and we do not share su
 
 We retain data for as long as reasonably necessary to operate the site, maintain security, assess performance, and provide optional features such as mood subscriptions.
 
-Certain data is short-lived, including temporary rate-limit state, local theme settings, the session-only YouTube reachability result, and session identifiers stored in your browser. Blog reading and listening playback analytics may be retained while the features remain useful for understanding readership, audio engagement, and site operation. Subscription records may be retained longer in order to maintain opt-in status, unsubscribe status, and delivery history. Data held by Cloudflare, Resend, Ghost, GitHub, Telegram-related sources, YouTube, or other providers is additionally subject to those providers' own retention practices.
+Certain data is short-lived, including temporary rate-limit state, local theme settings, the session-only YouTube reachability result, and session identifiers stored in your browser. Blog reading and listening playback analytics may be retained while the features remain useful for understanding readership, audio engagement, and site operation. Subscription records may be retained longer in order to maintain opt-in status, unsubscribe status, and delivery history. These records are removed when you delete your record from [/subscribe/manage](/subscribe/manage); what survives is a single receipt recording that a deletion happened, keyed so that it cannot be traced back to an address. Data held by Cloudflare, Resend, Ghost, GitHub, Telegram-related sources, YouTube, or other providers is additionally subject to those providers' own retention practices.
 
 ## Your rights and choices
 
@@ -125,7 +125,8 @@ You may:
 - browse the site in full without subscribing to any feature;
 - select your preferred notification delivery frequency;
 - unsubscribe at any time using the link included in every subscription email;
-- request access to, correction of, or deletion of your subscription record by contacting [me@buxx.me](mailto:me@buxx.me); and
+- change the address on your subscription, or delete your record outright, from [/subscribe/manage](/subscribe/manage). Deleting removes your email address, subscription settings, delivery history, and the associated audit entries from the database; it takes effect once you open the confirmation link we email you, and cannot be undone;
+- request access to or correction of your subscription record by contacting [me@buxx.me](mailto:me@buxx.me); and
 - clear locally stored theme preferences and analytics identifiers through your browser's storage controls.
 
 Where Turnstile is required on submission of the subscription form, completing the verification is a necessary part of subscribing.

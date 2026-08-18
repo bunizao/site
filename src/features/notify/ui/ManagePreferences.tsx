@@ -127,6 +127,15 @@ const STRINGS = {
     confirmQuieter: '先把频率调低',
     cancel: '取消',
     never: '—',
+    dataHeading: '你的数据',
+    dataLead: '我们只存这些：你的邮箱、订阅了什么、多久推一次、发过哪些信，以及一份带哈希 IP 的操作日志。',
+    deleteRecord: '删除我的所有记录',
+    deleteTitle: '删除全部记录？',
+    deleteBody: (email: string) => `我们会把 ${email} 和所有相关记录从数据库里抹掉：订阅、发信历史、操作日志。无法撤销。确认之前，我们会先往这个邮箱发一封带删除链接的邮件。`,
+    deleteKeep: '保留我的记录',
+    deleteSend: '把删除链接发给我',
+    deleteSent: (email: string) => `删除链接已发到 ${email}，一小时内有效。点开之前什么都不会变。`,
+    deleteFailed: '发送失败，稍后重试。',
   },
   en: {
     title: 'Subscription preferences',
@@ -186,6 +195,15 @@ const STRINGS = {
     confirmQuieter: 'Lower the frequency instead',
     cancel: 'Cancel',
     never: '—',
+    dataHeading: 'Your data',
+    dataLead: 'We hold your email address, what you subscribed to and how often, the record of what we have sent you, and a timestamped log of your own actions with a hashed IP.',
+    deleteRecord: 'Delete everything',
+    deleteTitle: 'Delete everything?',
+    deleteBody: (email: string) => `We’ll remove ${email} and every row attached to it — subscription, send history, audit log — from the database. This can’t be undone. We’ll email that address a confirmation link first.`,
+    deleteKeep: 'Keep my record',
+    deleteSend: 'Email me the link',
+    deleteSent: (email: string) => `The deletion link is on its way to ${email}. It expires within the hour, and nothing changes until you open it.`,
+    deleteFailed: 'Couldn’t send that. Try again shortly.',
   },
 } as const;
 
@@ -828,6 +846,9 @@ function PencilIcon() {
 }
 
 // --- State 2: the control panel --------------------------------------------
+// Two destructive actions share one dialog slot; only one can be open.
+type ConfirmKind = 'unsubscribe' | 'delete';
+
 interface PreferencesPanelState {
   channels: NotifyChannel[];
   mode: DeliveryMode;
@@ -837,7 +858,7 @@ interface PreferencesPanelState {
   saving: boolean;
   savedAt: string | null;
   error: string;
-  confirmOpen: boolean;
+  confirm: ConfirmKind | null;
 }
 
 type PreferencesPanelAction =
@@ -849,7 +870,7 @@ type PreferencesPanelAction =
   | { type: 'saved'; at: string | null }
   | { type: 'error'; value: string }
   | { type: 'status'; value: SubscriberStatus }
-  | { type: 'confirm-open'; value: boolean };
+  | { type: 'confirm'; value: ConfirmKind | null };
 
 function preferencesPanelReducer(
   state: PreferencesPanelState,
@@ -878,8 +899,8 @@ function preferencesPanelReducer(
       return { ...state, error: action.value };
     case 'status':
       return { ...state, status: action.value };
-    case 'confirm-open':
-      return { ...state, confirmOpen: action.value };
+    case 'confirm':
+      return { ...state, confirm: action.value };
   }
 }
 
@@ -930,9 +951,9 @@ function PreferencesPanel({
     saving: false,
     savedAt: null,
     error: '',
-    confirmOpen: false,
+    confirm: null,
   }));
-  const { channels, mode, timezone, dailyHour, status, saving, savedAt, error, confirmOpen } = state;
+  const { channels, mode, timezone, dailyHour, status, saving, savedAt, error, confirm } = state;
   const confirmDialogRef = React.useRef<HTMLDialogElement>(null);
   const confirmTitleId = React.useId();
   const confirmBodyId = React.useId();
@@ -954,8 +975,12 @@ function PreferencesPanel({
   // that says the move landed rather than one that merely looks different.
   const justChanged = React.useMemo(() => readQueryParam('changed') === '1', []);
 
-  function openConfirmDialog() {
-    dispatch({ type: 'confirm-open', value: true });
+  // Deleting is a request, never an act: the panel only ever gets as far as
+  // putting a confirmation link in the reader's inbox.
+  const [deleteLinkSent, setDeleteLinkSent] = React.useState(false);
+
+  function openConfirmDialog(kind: ConfirmKind) {
+    dispatch({ type: 'confirm', value: kind });
     queueMicrotask(() => {
       const dialog = confirmDialogRef.current;
       if (dialog && !dialog.open) dialog.showModal();
@@ -964,7 +989,7 @@ function PreferencesPanel({
 
   function closeConfirmDialog() {
     if (confirmDialogRef.current?.open) confirmDialogRef.current.close();
-    dispatch({ type: 'confirm-open', value: false });
+    dispatch({ type: 'confirm', value: null });
   }
 
   // The email's unsubscribe link lands here with the confirmation already up.
@@ -972,7 +997,7 @@ function PreferencesPanel({
   React.useEffect(() => {
     if (unsubscribeIntentHandled.current) return;
     unsubscribeIntentHandled.current = true;
-    if (wantsUnsubscribe && status !== 'unsubscribed') openConfirmDialog();
+    if (wantsUnsubscribe && status !== 'unsubscribed') openConfirmDialog('unsubscribe');
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [wantsUnsubscribe]);
 
@@ -1018,7 +1043,7 @@ function PreferencesPanel({
 
   async function unsubscribeAll() {
     confirmDialogRef.current?.close();
-    dispatch({ type: 'confirm-open', value: false });
+    dispatch({ type: 'confirm', value: null });
     dispatch({ type: 'saving', value: true });
     dispatch({ type: 'error', value: '' });
     try {
@@ -1026,6 +1051,29 @@ function PreferencesPanel({
       dispatch({ type: 'status', value: 'unsubscribed' });
     } catch (e) {
       dispatch({ type: 'error', value: e instanceof Error && e.message ? e.message : t.actionFailed });
+    } finally {
+      dispatch({ type: 'saving', value: false });
+    }
+  }
+
+  async function requestDeletion() {
+    closeConfirmDialog();
+    dispatch({ type: 'saving', value: true });
+    dispatch({ type: 'error', value: '' });
+    try {
+      if (!isDemo) {
+        const res = await fetch(`/api/notify/manage/delete?token=${encodeURIComponent(token)}`, {
+          method: 'POST',
+        });
+        if (res.status === 429) throw new Error(t.tooFrequent);
+        if (!res.ok) {
+          const payload = (await res.json().catch(() => ({}))) as { error?: string };
+          throw new Error(payload.error || t.deleteFailed);
+        }
+      }
+      setDeleteLinkSent(true);
+    } catch (e) {
+      dispatch({ type: 'error', value: e instanceof Error && e.message ? e.message : t.deleteFailed });
     } finally {
       dispatch({ type: 'saving', value: false });
     }
@@ -1177,7 +1225,12 @@ function PreferencesPanel({
       )}
 
       <footer className="mp-foot">
-        <button type="button" className="mp-link-btn" disabled={saving} onClick={openConfirmDialog}>
+        <button
+          type="button"
+          className="mp-link-btn"
+          disabled={saving}
+          onClick={() => openConfirmDialog('unsubscribe')}
+        >
           {t.unsubscribeAll}
         </button>
         <div className="mp-foot-actions">
@@ -1210,33 +1263,52 @@ function PreferencesPanel({
         </div>
       </footer>
 
-      <ConfirmUnsubscribeDialog
-        open={confirmOpen}
+      {/* Below the footer on purpose: this is the appendix to the page, not one
+          of the choices it is asking for. */}
+      <section className="mp-section mp-data">
+        <h2 className="mp-section-title">{t.dataHeading}</h2>
+        <p className="mp-data-lead">{t.dataLead}</p>
+        {deleteLinkSent ? (
+          <p className="mp-identity-note">{t.deleteSent(initial.email)}</p>
+        ) : (
+          <button
+            type="button"
+            className="mp-link-btn mp-link-btn--danger"
+            disabled={saving}
+            onClick={() => openConfirmDialog('delete')}
+          >
+            {t.deleteRecord}
+          </button>
+        )}
+      </section>
+
+      <ConfirmDialog
+        open={confirm !== null}
         dialogRef={confirmDialogRef}
         titleId={confirmTitleId}
         bodyId={confirmBodyId}
-        title={t.confirmTitle}
-        body={t.confirmBody(initial.email)}
-        quieterLabel={t.confirmQuieter}
-        confirmLabel={t.unsubscribeAll}
+        title={confirm === 'delete' ? t.deleteTitle : t.confirmTitle}
+        body={confirm === 'delete' ? t.deleteBody(initial.email) : t.confirmBody(initial.email)}
+        dismissLabel={confirm === 'delete' ? t.deleteKeep : t.confirmQuieter}
+        confirmLabel={confirm === 'delete' ? t.deleteSend : t.unsubscribeAll}
         saving={saving}
         onClose={closeConfirmDialog}
-        onConfirm={unsubscribeAll}
+        onConfirm={confirm === 'delete' ? requestDeletion : unsubscribeAll}
       />
     </div>
   );
 }
 
-// The dismissal path is the recommended one: "turn it down" is the primary
-// button, unsubscribing is the quiet text action next to it.
-function ConfirmUnsubscribeDialog({
+// The way out is always the recommended one: backing off is the primary button,
+// and the destructive action is the quiet text link under it.
+function ConfirmDialog({
   open,
   dialogRef,
   titleId,
   bodyId,
   title,
   body,
-  quieterLabel,
+  dismissLabel,
   confirmLabel,
   saving,
   onClose,
@@ -1248,7 +1320,7 @@ function ConfirmUnsubscribeDialog({
   bodyId: string;
   title: string;
   body: string;
-  quieterLabel: string;
+  dismissLabel: string;
   confirmLabel: string;
   saving: boolean;
   onClose: () => void;
@@ -1274,7 +1346,7 @@ function ConfirmUnsubscribeDialog({
         </p>
         <div className="mp-confirm-actions">
           <button type="button" className="mp-btn mp-btn--block" disabled={saving} onClick={onClose}>
-            {quieterLabel}
+            {dismissLabel}
           </button>
           <button type="button" className="mp-link-btn mp-link-btn--danger" disabled={saving} onClick={onConfirm}>
             {confirmLabel}

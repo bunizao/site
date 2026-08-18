@@ -643,6 +643,22 @@ const description = 'Manage your email subscriptions and delivery frequency, or 
     white-space: nowrap;
   }
 
+  /* --- Your data ---------------------------------------------------------- */
+  /* Sits below the footer rule, quieter than everything above it: the page is
+     asking for subscription choices, and this is the exit from the whole
+     arrangement rather than one more of them. */
+  .mp-data {
+    padding-top: 20px;
+    margin-top: 20px;
+  }
+
+  .mp-data-lead {
+    margin: 10px 0 14px;
+    font-size: var(--mp-text-sm);
+    line-height: 1.65;
+    color: hsl(var(--muted-foreground));
+  }
+
   /* --- Buttons ------------------------------------------------------------ */
   .mp-btn {
     display: inline-flex;
