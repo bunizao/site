@@ -38,6 +38,7 @@ export interface RetryRecord {
   postId: string;
   email: string;
   emailHash: string;
+  subscriberCreatedAt: string;
   attempt: number;
   createdAt: string;
   updatedAt: string;

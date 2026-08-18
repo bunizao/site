@@ -145,13 +145,13 @@ const STRINGS = {
     cancel: '取消',
     never: '—',
     dataHeading: '你的数据',
-    dataLead: '我们只存这些：你的邮箱、订阅了什么、多久推一次、发过哪些信，以及一份带哈希 IP 的操作日志。',
+    dataLead: '我们只存这些：你的邮箱、订阅了什么、多久推一次、发过哪些信、邮件打开或点击记录（可能包含 IP、地区和设备信息），以及一份带哈希 IP 的操作日志。',
     deleteRecord: '删除我的所有记录',
     deleteTitle: '删除全部记录？',
-    deleteBody: (email: string) => `我们会把 ${email} 和所有相关记录从数据库里抹掉：订阅、发信历史、操作日志。无法撤销。确认之前，我们会先往这个邮箱发一封带删除链接的邮件。`,
+    deleteBody: (email: string) => `我们会把 ${email} 和所有相关记录从数据库里抹掉：订阅、发信历史、邮件追踪和操作日志。无法撤销。确认之前，我们会先往能证明这条记录归属的邮箱发一封带删除链接的邮件。`,
     deleteKeep: '保留我的记录',
     deleteSend: '把删除链接发给我',
-    deleteSent: (email: string) => `删除链接已发到 ${email}，一小时内有效。点开之前什么都不会变。`,
+    deleteSent: (_email: string) => '删除链接已发到确认邮箱，一小时内有效。点开并确认之前什么都不会变。',
     deleteFailed: '发送失败，稍后重试。',
   },
   en: {
@@ -213,13 +213,13 @@ const STRINGS = {
     cancel: 'Cancel',
     never: '—',
     dataHeading: 'Your data',
-    dataLead: 'We hold your email address, what you subscribed to and how often, the record of what we have sent you, and a timestamped log of your own actions with a hashed IP.',
+    dataLead: 'We hold your email address, what you subscribed to and how often, delivery history, email open and click events (which may include IP, location, and device details), and a timestamped log of your own actions with a hashed IP.',
     deleteRecord: 'Delete everything',
     deleteTitle: 'Delete everything?',
-    deleteBody: (email: string) => `We’ll remove ${email} and every row attached to it — subscription, send history, audit log — from the database. This can’t be undone. We’ll email that address a confirmation link first.`,
+    deleteBody: (email: string) => `We’ll remove ${email} and every row attached to it — subscription, delivery history, email tracking, and audit log — from the database. This can’t be undone. We’ll email the address that proves control of this record a confirmation link first.`,
     deleteKeep: 'Keep my record',
     deleteSend: 'Email me the link',
-    deleteSent: (email: string) => `The deletion link is on its way to ${email}. It expires within the hour, and nothing changes until you open it.`,
+    deleteSent: (_email: string) => 'The deletion link is on its way to the confirmation address. It expires within the hour, and nothing changes until you open and confirm it.',
     deleteFailed: 'Couldn’t send that. Try again shortly.',
   },
 } as const;
@@ -1110,6 +1110,22 @@ function PreferencesPanel({
     return (
       <div className="mp-panel mp-panel--center">
         <p className="mp-result-text">{t.unsubscribedText}</p>
+        <section className="mp-section mp-data">
+          <h2 className="mp-section-title">{t.dataHeading}</h2>
+          <p className="mp-data-lead">{t.dataLead}</p>
+          {deleteLinkSent ? (
+            <p className="mp-identity-note">{t.deleteSent(initial.email)}</p>
+          ) : (
+            <button
+              type="button"
+              className="mp-link-btn mp-link-btn--danger"
+              disabled={saving}
+              onClick={() => openConfirmDialog('delete')}
+            >
+              {t.deleteRecord}
+            </button>
+          )}
+        </section>
         <button
           type="button"
           className="mp-btn"
@@ -1124,6 +1140,19 @@ function PreferencesPanel({
         <a className="mp-link-btn" href="/">
           {t.backHome}
         </a>
+        <ConfirmDialog
+          open={confirm !== null}
+          dialogRef={confirmDialogRef}
+          titleId={confirmTitleId}
+          bodyId={confirmBodyId}
+          title={t.deleteTitle}
+          body={t.deleteBody(initial.email)}
+          dismissLabel={t.deleteKeep}
+          confirmLabel={t.deleteSend}
+          saving={saving}
+          onClose={closeConfirmDialog}
+          onConfirm={requestDeletion}
+        />
       </div>
     );
   }

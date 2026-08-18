@@ -125,7 +125,7 @@ You may:
 - browse the site in full without subscribing to any feature;
 - select your preferred notification delivery frequency;
 - unsubscribe at any time using the link included in every subscription email;
-- change the address on your subscription, or delete your record outright, from [/subscribe/manage](/subscribe/manage). Deleting removes your email address, subscription settings, delivery history, and the associated audit entries from the database; it takes effect once you open the confirmation link we email you, and cannot be undone;
+- change the address on your subscription, or delete your record outright, from [/subscribe/manage](/subscribe/manage). Deleting removes your email address, subscription settings, delivery history, newsletter open/click data, and the associated audit entries from the database; opening the emailed link only shows a preview, and the deletion takes effect after you confirm it in your browser. It cannot be undone;
 - request access to or correction of your subscription record by contacting [me@buxx.me](mailto:me@buxx.me); and
 - clear locally stored theme preferences and analytics identifiers through your browser's storage controls.
 
