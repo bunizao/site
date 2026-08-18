@@ -630,17 +630,17 @@ const description = 'Manage your email subscriptions and delivery frequency, or 
     gap: 14px;
   }
 
-  .mp-saved {
-    font-size: var(--mp-text-xs);
-    color: hsl(var(--muted-foreground));
-    opacity: 0;
-    transform: translate3d(4px, 0, 0);
-    transition: opacity 0.24s ease, transform 0.24s ease;
-  }
-
-  .mp-saved.is-on {
-    opacity: 1;
-    transform: none;
+  /* The save state lives inside the button itself. Announce it separately so
+     screen readers hear "Saved" without the label swap being read as noise. */
+  .mp-sr-live {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
   }
 
   /* --- Buttons ------------------------------------------------------------ */
@@ -675,6 +675,56 @@ const description = 'Manage your email subscriptions and delivery frequency, or 
   .mp-btn:disabled {
     opacity: 0.45;
     cursor: not-allowed;
+  }
+
+  /* One box, three faces: idle label, spinner, confirmation. They stack in a
+     single grid cell so the button is always as wide as its widest state and
+     nothing around it shifts while saving. */
+  .mp-btn-swap {
+    display: grid;
+    align-items: center;
+    justify-items: center;
+  }
+
+  .mp-btn-face {
+    grid-area: 1 / 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    white-space: nowrap;
+    opacity: 0;
+    visibility: hidden;
+    transform: translate3d(0, 5px, 0) scale(0.96);
+    transition:
+      opacity 0.18s ease,
+      transform 0.32s cubic-bezier(0.22, 1, 0.36, 1),
+      visibility 0.32s;
+  }
+
+  .mp-btn--save[data-state='idle'] .mp-btn-face[data-face='idle'],
+  .mp-btn--save[data-state='saving'] .mp-btn-face[data-face='saving'],
+  .mp-btn--save[data-state='saved'] .mp-btn-face[data-face='saved'] {
+    opacity: 1;
+    visibility: visible;
+    transform: none;
+  }
+
+  .mp-btn-check {
+    width: 15px;
+    height: 15px;
+    stroke-dasharray: 24;
+    stroke-dashoffset: 24;
+  }
+
+  .mp-btn--save[data-state='saved'] .mp-btn-check {
+    animation: mp-check-draw 0.34s cubic-bezier(0.22, 1, 0.36, 1) 0.06s forwards;
+  }
+
+  @keyframes mp-check-draw {
+    to {
+      stroke-dashoffset: 0;
+    }
   }
 
   .mp-btn--block {
@@ -920,9 +970,14 @@ const description = 'Manage your email subscriptions and delivery frequency, or 
     .mp-switch,
     .mp-switch::after,
     .mp-daily,
-    .mp-saved,
+    .mp-btn-face,
     .mp-cadence {
       transition: none;
+    }
+
+    .mp-btn--save[data-state='saved'] .mp-btn-check {
+      animation: none;
+      stroke-dashoffset: 0;
     }
 
     .mp-btn:active:not(:disabled) {

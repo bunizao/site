@@ -121,6 +121,7 @@ const STRINGS = {
     actionFailed: '操作失败，稍后重试。',
     unsubscribedText: '已退订全部内容。这个邮箱不会再收到我们的消息。',
     resubscribe: '重新开启订阅',
+    backHome: '返回首页',
     confirmTitle: '退订全部内容？',
     confirmBody: (email: string) => `我们会停止向 ${email} 发送任何邮件。记录会保留，你随时可以回来重新开启。`,
     confirmQuieter: '先把频率调低',
@@ -179,6 +180,7 @@ const STRINGS = {
     actionFailed: 'Something went wrong. Try again shortly.',
     unsubscribedText: 'You’ve unsubscribed from everything. This inbox won’t hear from us again.',
     resubscribe: 'Re-enable subscription',
+    backHome: 'Back to home',
     confirmTitle: 'Unsubscribe from all?',
     confirmBody: (email: string) => `We’ll stop sending any mail to ${email}. Your record is kept, so you can come back any time.`,
     confirmQuieter: 'Lower the frequency instead',
@@ -791,6 +793,23 @@ function StatusChip({ kind, label }: { kind: 'active' | 'pending' | 'editing'; l
   );
 }
 
+function CheckIcon() {
+  return (
+    <svg
+      className="mp-btn-check"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.4"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="m4 12.5 5 5L20 6.5" />
+    </svg>
+  );
+}
+
 function PencilIcon() {
   return (
     <svg
@@ -1027,6 +1046,9 @@ function PreferencesPanel({
         >
           {t.resubscribe}
         </button>
+        <a className="mp-link-btn" href="/">
+          {t.backHome}
+        </a>
       </div>
     );
   }
@@ -1159,11 +1181,31 @@ function PreferencesPanel({
           {t.unsubscribeAll}
         </button>
         <div className="mp-foot-actions">
-          <span className={`mp-saved${savedAt ? ' is-on' : ''}`} aria-live="polite">
+          <span className="mp-sr-live" aria-live="polite">
             {savedAt ? t.saved : ''}
           </span>
-          <button type="button" className="mp-btn" disabled={saving || noChannels} onClick={save}>
-            {saving ? <span className="mp-spinner mp-spinner--on-fg" aria-hidden="true" /> : t.saveChanges}
+          <button
+            type="button"
+            className="mp-btn mp-btn--save"
+            data-state={saving ? 'saving' : savedAt ? 'saved' : 'idle'}
+            disabled={saving || noChannels}
+            onClick={save}
+          >
+            {/* All three labels share one grid cell, so the button never
+                resizes and the state change reads as one box changing its
+                mind rather than two elements swapping places. */}
+            <span className="mp-btn-swap">
+              <span className="mp-btn-face" data-face="idle">
+                {t.saveChanges}
+              </span>
+              <span className="mp-btn-face" data-face="saving">
+                <span className="mp-spinner mp-spinner--on-fg" aria-hidden="true" />
+              </span>
+              <span className="mp-btn-face" data-face="saved">
+                <CheckIcon />
+                {t.saved}
+              </span>
+            </span>
           </button>
         </div>
       </footer>
