@@ -30,6 +30,7 @@ const description = 'Manage your email subscriptions and delivery frequency, or 
   robots="noindex, nofollow"
   showSiteNav={true}
   navVariant="page"
+  brandVariant="home"
 >
   <main class="mp-zone">
     <div class="mp-shell">
@@ -39,30 +40,6 @@ const description = 'Manage your email subscriptions and delivery frequency, or 
 </Layout>
 
 <style is:global>
-  /* Page-variant nav chrome. These rules live in Page.astro for pages built on
-     that layout; this page uses Layout directly (like projects.astro), so it
-     carries its own copy — without them the brand logo renders unsized. */
-  .site-nav--page {
-    align-items: center;
-    justify-content: flex-start;
-    height: auto;
-    gap: 0;
-  }
-
-  .site-nav--page .site-brand {
-    width: auto;
-    height: 34px;
-    margin: 0;
-    border-radius: 0;
-    background: transparent;
-  }
-
-  .site-nav--page .site-brand:hover,
-  .site-nav--page .site-brand:focus-visible {
-    background: transparent;
-    opacity: 0.72;
-  }
-
   /* Neutral, site-level surface — rides the global fg/bg tokens so it matches
      the /privacy and /mood chrome in both themes. No publication accent.
 
@@ -82,7 +59,9 @@ const description = 'Manage your email subscriptions and delivery frequency, or 
     --mp-rule: hsl(var(--foreground) / 0.09);
 
     min-height: 100vh;
-    padding: 8.5rem 0 7rem;
+    /* Clearance for the fixed brand-home bar lives on .site-shell
+       (globals.css); keep only a residual so the gap reads intentional. */
+    padding: 1rem 0 7rem;
     background: hsl(var(--background));
     color: hsl(var(--foreground));
     font-family: var(--font-sans);
@@ -140,13 +119,17 @@ const description = 'Manage your email subscriptions and delivery frequency, or 
     margin-top: 12px;
   }
 
+  /* The row is height-locked, so the address stays on one line and truncates
+     rather than breaking mid-word. Tapping edit reveals the full value. */
   .mp-identity-email {
     min-width: 0;
     font-size: var(--mp-text-lead);
     font-weight: 500;
     line-height: 1.4;
     color: hsl(var(--foreground));
-    overflow-wrap: anywhere;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .mp-identity-meta {
@@ -613,12 +596,15 @@ const description = 'Manage your email subscriptions and delivery frequency, or 
 
   /* --- Footer ------------------------------------------------------------- */
   /* One row: the way out on the left, the way forward on the right. Both sit on
-     the panel's gutters, so nothing floats mid-column. */
+     the panel's gutters, so nothing floats mid-column. It wraps rather than
+     squeezes — on very narrow screens the button drops to its own line, still
+     right-aligned, so neither label ever breaks mid-phrase. */
   .mp-foot {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     justify-content: space-between;
-    gap: 16px;
+    gap: 12px 16px;
     margin-top: var(--mp-gap);
     padding-top: 20px;
     border-top: 1px solid var(--mp-rule);
@@ -628,6 +614,7 @@ const description = 'Manage your email subscriptions and delivery frequency, or 
     display: flex;
     align-items: center;
     gap: 14px;
+    margin-left: auto;
   }
 
   /* The save state lives inside the button itself. Announce it separately so
@@ -772,6 +759,7 @@ const description = 'Manage your email subscriptions and delivery frequency, or 
      competing with the choice we'd rather offer — a quieter frequency. */
   .mp-link-btn {
     padding: 0;
+    white-space: nowrap;
     font-family: inherit;
     font-size: var(--mp-text-sm);
     color: hsl(var(--muted-foreground));
@@ -958,7 +946,7 @@ const description = 'Manage your email subscriptions and delivery frequency, or 
 
   @media (max-width: 639px) {
     .mp-zone {
-      padding: calc(env(safe-area-inset-top, 0px) + 4.85rem) 0 5.5rem;
+      padding: 1rem 0 5.5rem;
     }
 
     .mp-shell {
