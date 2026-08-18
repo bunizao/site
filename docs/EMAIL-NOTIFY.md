@@ -1,10 +1,13 @@
-# Email Notify (Resend)
+# Email notification lifecycle
 
-This document describes the private API notify runtime in `site-api`.
+This document describes the reader-facing notification contract. The private
+implementation lives in `site-api`; the public site exposes the same routes
+under `/api/notify/*` through the `site` service binding. Direct Worker routes
+use `/notify/*` and the versioned `/v2/notify/*` compatibility redirect.
 
 ## Overview
 
-Canonical private API:
+Canonical API:
 
 - `POST https://api.buxx.me/v2/notify/subscribe`
 - `GET https://api.buxx.me/v2/notify/confirm`
@@ -21,6 +24,41 @@ Canonical private API:
 Public compatibility:
 
 - `https://buxx.me/api/notify/*` proxies to `site-api` through the public Worker's `API` service binding.
+
+Callback pages are non-cacheable, cannot be framed, and use a restrictive
+content security policy. Browser forms have bounded request bodies.
+
+## Email address changes
+
+Changing an address is a two-inbox flow:
+
+1. `POST /notify/manage/email?token=...` requires a fresh `manage` token for the current address. It stores a one-hour request bound to that subscriber generation and sends a confirmation link to the proposed address.
+2. `GET /notify/change-email?token=...` only validates the one-time request and renders a confirmation page. It never changes subscriber data.
+3. `POST /notify/change-email` requires a same-origin browser submission and commits the move atomically. The subscriber, send ledger, retry/dead-letter records, pending welcome email, and analytics identity move together.
+
+The confirmation token is single-use. Replaying a consumed token is idempotent,
+including after the token's one-hour cryptographic expiry: it renders success,
+does not mint another manage token, and does not send another notice. A
+destination that already has a subscription receives the same request response
+as an available destination, but no confirmation email is sent.
+
+The HTML form intentionally has no fixed `action`; it submits to the current
+browser URL. This preserves both direct `/notify/change-email` links and public
+`/api/notify/change-email` compatibility links. Service-binding requests carry
+`X-Forwarded-Origin`, which is accepted only on the internal
+`site-api.internal` origin for same-origin validation.
+
+Subscription and admin writes use conditional generation checks and monotonic
+timestamps. A stale request returns a conflict instead of recreating an older
+email identity.
+
+Consumed email-move markers remain for at least 180 days, covering the longest legacy
+unsubscribe token lifetime. Migration `0008_email_change_requests.sql` must be
+applied before activating the Worker so these revocation checks are available.
+
+The request endpoint uses a dedicated Durable Object quota of five attempts per
+client per hour. Other routes retain the shared observability limiter while the
+native Cloudflare Rate Limiting binding plan remains pending.
 
 ## Delivery Modes
 

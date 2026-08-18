@@ -168,7 +168,7 @@ const STRINGS = {
     editEmail: 'Change email',
     newEmailLabel: 'New email address',
     sendConfirmation: 'Send confirmation',
-    changeEmailSent: (email: string) => `Confirmation sent to ${email}. Open the link there to finish — nothing changes until you do.`,
+    changeEmailSent: (email: string) => `If eligible, we'll send a confirmation to ${email}. Open the link there to finish — nothing changes until you do.`,
     changeEmailSame: 'That’s already your address.',
     changeEmailFailed: 'Couldn’t send that. Try again shortly.',
     emailChanged: 'Address updated.',
