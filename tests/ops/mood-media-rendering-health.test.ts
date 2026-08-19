@@ -1,19 +1,16 @@
 import { describe, expect, test } from 'bun:test';
+import { getMoodFeedAnchorHref } from '@/features/mood/shared/feed-anchor';
 
 function getSiteUrl(): string {
   return (process.env.SITE_URL || process.env.PUBLIC_SITE_URL || 'https://buxx.me').replace(/\/+$/, '');
 }
 
 async function fetchAnchoredMoodPage(siteUrl: string, id: string): Promise<string> {
-  const url = new URL('/mood', siteUrl);
-  url.searchParams.set(id, '');
-  url.searchParams.set('source', 'archive');
-  url.searchParams.set('fresh', '1');
+  const url = new URL(getMoodFeedAnchorHref(id), siteUrl);
 
   const response = await fetch(url, {
     headers: {
       Accept: 'text/html,application/xhtml+xml',
-      'Cache-Control': 'no-cache',
     },
     signal: AbortSignal.timeout(10_000),
   });

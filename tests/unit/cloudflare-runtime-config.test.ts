@@ -122,10 +122,22 @@ describe('Cloudflare runtime configuration', () => {
     const opsWorkflow = readText('.github/workflows/ops-health.yml');
 
     expect(opsWorkflow).toContain('TELEGRAM_EXPECTED_WEBHOOK_URL: https://api.buxx.me/webhooks/telegram');
+    expect(opsWorkflow).toContain(
+      'gh api --allow-escape-sequences "repos/${GH_REPO}/actions/jobs/${job_id}/logs"',
+    );
     expect(opsWorkflow).toContain('include-hidden-files: true');
     expect(opsWorkflow).toContain('path: .ops-health-cache/ignored-decision.json');
     expect(opsWorkflow).not.toContain('path: .ops-health/ignored-decision.json');
     expect(opsWorkflow).not.toContain('TELEGRAM_EXPECTED_WEBHOOK_URL: https://image.buxx.me/webhook');
+  });
+
+  test('keeps mood rendering canaries on cacheable user routes', () => {
+    const mediaHealth = readText('tests/ops/mood-media-rendering-health.test.ts');
+
+    expect(mediaHealth).toContain('getMoodFeedAnchorHref(id)');
+    expect(mediaHealth).not.toContain("url.searchParams.set('source'");
+    expect(mediaHealth).not.toContain("url.searchParams.set('fresh'");
+    expect(mediaHealth).not.toContain("'Cache-Control': 'no-cache'");
   });
 
   test('uses the Cloudflare Astro adapter and root Wrangler scripts', () => {
