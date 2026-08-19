@@ -427,7 +427,9 @@ describe('static Telegram proxy', () => {
       mintStaticProxyUrl('https://cdn4.telegram-cdn.org/image.png', signingKeyRing),
       'https://buxx.me'
     );
-    proxyUrl.searchParams.set('s', `A${proxyUrl.searchParams.get('s')?.slice(1)}`);
+    const signature = proxyUrl.searchParams.get('s') ?? '';
+    const invalidFirstCharacter = signature.startsWith('A') ? 'B' : 'A';
+    proxyUrl.searchParams.set('s', `${invalidFirstCharacter}${signature.slice(1)}`);
 
     const response = await GET({
       request: new Request(proxyUrl, {
