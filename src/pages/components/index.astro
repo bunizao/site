@@ -11,10 +11,11 @@ import ContactLinksPreview from '@/features/components/previews/ContactLinksPrev
 import TagsPreview from '@/features/components/previews/TagsPreview.astro';
 import Footer from '@/features/home/ui/Footer.astro';
 import '@/styles/components.css';
+import { formatSiteTitle } from '@/lib/seo';
 
 export const prerender = true;
 
-const title = 'Components';
+const title = formatSiteTitle('Components');
 const description =
   "The signature interactive pieces this site is built from — a live bento of the projects deck, decode text, listening vinyl, GitHub activity, the mood wheel, contact links, tag cards, the mobile reading bar, and the list hover-preview. Every tile is a self-contained specimen.";
 ---

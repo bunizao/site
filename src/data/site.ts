@@ -6,19 +6,6 @@ import type { ComponentType } from 'react';
 import { FileText, Mail, Send, GraduationCap } from 'lucide-react';
 import { OpenAIIcon, AnthropicIcon, GitHubIcon, InstagramIcon } from '@/components/icons';
 
-// --- Site meta --------------------------------------------------------------
-// Site-level identity strings: page titles, og:site_name, and the default
-// OG/meta description. seo.ts and Layout.astro read these instead of inlining.
-
-export const meta = {
-  siteName: 'Bunizao',
-  siteUrl: 'https://buxx.me',
-  homeTitle: "Bunizao's Website",
-  // Default OG / meta description used on the home page and as the fallback.
-  description:
-    'Build and then polish. Ship and then reflect. Write, shoot, and think in between. I\'m Lucian.',
-};
-
 // --- Identity ---------------------------------------------------------------
 // The canonical "who I am" facts. seo.ts reads name/jobTitle/knowsAbout/links
 // from here instead of re-declaring them.
@@ -41,6 +28,7 @@ export interface ProfileLink {
 export const profile = {
   name: 'Lucian Bu',
   alternateNames: ['Bunizao', 'Tutu', 'Collapsar'],
+  penNames: ['Murray'],
   jobTitle: 'Student / Developer / Blogger',
   email: 'me@buxx.me',
   knowsAbout: [
@@ -58,6 +46,19 @@ export const profile = {
     { name: 'Instagram', url: 'https://tuu.cat/ig', icon: InstagramIcon, description: 'See my photos', handle: 'tuu.cat/ig', sameAs: true },
   ] satisfies ProfileLink[],
 } as const;
+
+// --- Site meta --------------------------------------------------------------
+// Site-level identity strings: page titles, og:site_name, and the default
+// OG/meta description. seo.ts and Layout.astro read these instead of inlining.
+
+export const meta = {
+  siteName: 'buxx.me',
+  siteUrl: 'https://buxx.me',
+  homeTitle: `${profile.name} — Student, Developer & Blogger`,
+  // Default OG / meta description used on the home page and as the fallback.
+  description:
+    `Build and then polish. Ship and then reflect. Write, shoot, and think in between. I'm ${profile.name}.`,
+};
 
 // Contact channels shown in the blog masthead "联系" widget. It mirrors the
 // home page "Find me at" row minus the Blog link (you're already reading it),
@@ -225,7 +226,7 @@ export const defaultAuthorId = 'murray';
 // --- Hero -------------------------------------------------------------------
 
 export const hero = {
-  typewriterNames: ['Lucian', 'Bunizao', 'Tutu', 'Collapsar'],
+  typewriterNames: [profile.name, ...profile.alternateNames],
   infoChips: ['18 y.o.', 'INFP', 'Libra'],
   // Rotating status verbs in the green dot.
   statusWords: [

@@ -3,13 +3,14 @@ import { ArrowUpRight, Star } from 'lucide-react';
 import Layout from '@/layouts/Layout.astro';
 import Footer from '@/features/home/ui/Footer.astro';
 import HeroPanel from '@/components/project-cards/HeroPanel';
-import { projects } from '@/data/site';
+import { profile, projects } from '@/data/site';
+import { formatSiteTitle } from '@/lib/seo';
 
 export const prerender = true;
 
-const title = 'Projects';
+const title = formatSiteTitle('Projects');
 const description =
-  'Things Bunizao built and still runs — a proxy-rules compiler, an edge image service, a Ghost theme, and a set of student-chore CLIs that speak MCP.';
+  `Selected projects by ${profile.name} — a proxy-rules compiler, an edge image service, a Ghost theme, and student-focused CLIs that speak MCP.`;
 
 const githubUrl = 'https://github.com/bunizao';
 

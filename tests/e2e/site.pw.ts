@@ -292,7 +292,7 @@ test.describe('Home page', () => {
   test('renders core sections and persists selected theme', async ({ page }) => {
     await page.goto('/');
 
-    await expect(page).toHaveTitle(/Bunizao's Website/i);
+    await expect(page).toHaveTitle('Lucian Bu — Student, Developer & Blogger');
     await expect(page.locator('[data-hero-name]')).toBeVisible();
     await expect(page.locator('#projects-section')).toBeVisible();
     await expect(page.locator('#writing-section')).toBeVisible();

@@ -40,7 +40,7 @@ GET /api/oembed.json?url=https://buxx.me/mood&maxwidth=400&maxheight=400&theme=d
   "type": "rich",
   "version": "1.0",
   "title": "Mood Feed",
-  "provider_name": "Bunizao",
+  "provider_name": "buxx.me",
   "provider_url": "https://buxx.me",
   "width": 400,
   "height": 400,

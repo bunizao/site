@@ -271,6 +271,7 @@ test.describe('Blog routes', () => {
   test('emits generated Open Graph image metadata for index and posts', async ({ page }) => {
     const { firstPostHref, firstPostTitle } = await collectBlogIndexTargets(page);
 
+    await expect(page).toHaveTitle('無人之境');
     const indexOgImage = new URL(await readMetaContent(page, 'meta[property="og:image"]'));
     expect(indexOgImage.toString()).toBe('https://buxx.me/blog-og.jpg');
     expect(await readMetaContent(page, 'meta[property="og:image:width"]')).toBe('1200');
@@ -285,6 +286,8 @@ test.describe('Blog routes', () => {
     expect(await readMetaContent(page, 'meta[property="og:type"]')).toBe('article');
     expect(await readMetaContent(page, 'meta[property="article:published_time"]')).toBeTruthy();
     expect(await readMetaContent(page, 'meta[property="article:author"]')).toBeTruthy();
+    await expect(page).toHaveTitle(`${firstPostTitle} — 無人之境`);
+    expect(await readMetaContent(page, 'meta[property="og:title"]')).toBe(`${firstPostTitle} — 無人之境`);
     expect(postOgImage.origin + postOgImage.pathname).toBe('https://og.tuuhub.com/api/og');
     expect(postOgImage.searchParams.get('title')).toBe(firstPostTitle);
     expect(postOgImage.searchParams.get('site')).toBe('無人之境');
@@ -292,6 +295,28 @@ test.describe('Blog routes', () => {
     expect(postOgImage.searchParams.get('date')).toMatch(/^[A-Z][a-z]+ \d{1,2}, \d{4}$/);
     expect(postOgImage.searchParams.get('excerpt')).toBeTruthy();
     expect(await readMetaContent(page, 'meta[name="twitter:image"]')).toBe(postOgImage.toString());
+
+    const blogPosting = await page.locator('script[type="application/ld+json"]').evaluateAll((scripts) => {
+      return scripts
+        .map((script) => JSON.parse(script.textContent ?? '{}'))
+        .find((item) => item['@type'] === 'BlogPosting');
+    });
+    expect(blogPosting).toMatchObject({
+      '@context': 'https://schema.org',
+      '@type': 'BlogPosting',
+      headline: firstPostTitle,
+      url: `https://buxx.me${firstPostHref}`,
+      publisher: {
+        '@type': 'Organization',
+        name: '無人之境',
+        url: 'https://buxx.me/blog/',
+        logo: {
+          '@type': 'ImageObject',
+          width: 128,
+          height: 128,
+        },
+      },
+    });
   });
 
   test('renders post detail with article semantics, Ghost HTML, and adjacent navigation', async ({ page }) => {

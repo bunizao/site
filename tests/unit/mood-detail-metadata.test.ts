@@ -29,7 +29,7 @@ describe('buildMoodDetailMetadata', () => {
 
     const metadata = buildMoodDetailMetadata(post, '655');
 
-    expect(metadata.title).toBe('Mood #655 | Bunizao');
+    expect(metadata.title).toBe('Mood #655 — buxx.me');
     expect(metadata.description).toBe('Strawberry milk');
     expect(metadata.image).toBe('https://image.buxx.me/mood/655/0');
     expect(metadata.imageAlt).toBe('Strawberry milk');
@@ -50,8 +50,8 @@ describe('buildMoodDetailMetadata', () => {
 
     const metadata = buildMoodDetailMetadata(post, '664');
 
-    expect(metadata.title).toBe('Mood #664 | Bunizao');
-    expect(metadata.description).toBe('Mood #664 from Bunizao.');
+    expect(metadata.title).toBe('Mood #664 — buxx.me');
+    expect(metadata.description).toBe('Mood #664 from Lucian Bu.');
     expect(metadata.description).not.toBe('Mood not found.');
     expect(metadata.image).toBe('https://image.buxx.me/mood/664/0');
     expect(metadata.imageWidth).toBeNull();
@@ -90,7 +90,7 @@ describe('buildMoodDetailMetadata', () => {
   test('keeps not found copy only for missing posts', () => {
     const metadata = buildMoodDetailMetadata(null, '999');
 
-    expect(metadata.title).toBe('Mood not found | Moods');
+    expect(metadata.title).toBe('Mood not found — buxx.me');
     expect(metadata.description).toBe('Mood not found.');
     expect(metadata.image).toBeUndefined();
   });

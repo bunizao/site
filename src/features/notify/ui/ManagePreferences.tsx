@@ -4,20 +4,25 @@
 //   no token  → magic-link gate: type an email, we mail a signed manage link.
 //               Always reports "sent" so the page never reveals whether an
 //               address is subscribed.
-//   token     → the control panel: toggle channels, pick a delivery cadence,
-//               and (for daily) a timezone + hour. Save patches the record;
-//               "unsubscribe all" flips status to unsubscribed (row kept).
+//   token     → the control panel: toggle channels, drag a cadence, and (for
+//               daily) pick a timezone + hour. Save patches the record;
+//               "unsubscribe" flips status to unsubscribed (row kept).
+//
+// This page is the ONLY reader-facing destination for subscription changes:
+// every email footer — including the ones labelled 退订 / Unsubscribe — lands
+// here, because slowing the mail down and stopping it are the same decision and
+// nobody should have to guess which link means which. ?intent=unsubscribe
+// raises the confirmation straight away while leaving the panel behind it, so
+// the reader can turn the frequency down instead of leaving entirely.
 //
 // Bilingual: copy follows the browser's language (zh for any Chinese locale,
 // otherwise en). Only the two operational channels the reader actually opts
 // into — blog and mood — are shown; privacy/announcement are system mail and
 // aren't managed here.
 //
-// The visual language — pill toggles and the sliding segmented control —
-// mirrors SubscribePanel.astro so the two surfaces read as one product. This
-// island owns only the DOM + fetches; the API lives in ../site-api under
-// /notify/manage (token action 'manage'). Types are local for now; they
-// move to @bunizao/contracts when the backend lands.
+// This island owns only the DOM + fetches; the API lives in ../site-api under
+// /notify/manage (token action 'manage' or 'unsubscribe'). Types are local for
+// now; they move to @bunizao/contracts when the backend lands.
 import * as React from 'react';
 
 // --- Shared shape (mirror of the planned contracts types) ------------------
@@ -35,6 +40,16 @@ interface ManagePreferencesView {
   lastNotifiedAt?: string;
 }
 
+interface EditablePreferences {
+  status: SubscriberStatus;
+  channels: NotifyChannel[];
+  deliveryMode: DeliveryMode;
+  timezone: string | null;
+  dailyHour: number | null;
+}
+
+type ManagePreferencesUpdatePayload = EditablePreferences | { status: 'unsubscribed' };
+
 interface Props {
   /** Cloudflare Turnstile site key for the magic-link request. */
   turnstileSiteKey?: string;
@@ -49,6 +64,9 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 // save preserves them by merging (see PreferencesPanel.save).
 const MANAGED_CHANNELS: NotifyChannel[] = ['blog', 'mood'];
 
+// Cadence order is also the slider's left-to-right order: loudest first.
+const MODE_ORDER: DeliveryMode[] = ['immediate', 'every_5h', 'daily'];
+
 function getManagedChannels(channels: NotifyChannel[]): NotifyChannel[] {
   return channels.filter((channel) => MANAGED_CHANNELS.includes(channel));
 }
@@ -57,12 +75,19 @@ function getRetainedChannels(channels: NotifyChannel[]): NotifyChannel[] {
   return channels.filter((channel) => !MANAGED_CHANNELS.includes(channel));
 }
 
+function preferenceStateKey(preferences: EditablePreferences): string {
+  return JSON.stringify({
+    ...preferences,
+    channels: preferences.channels.toSorted(),
+  });
+}
+
 // --- i18n dictionary --------------------------------------------------------
 // One flat object per language; components read t.<key>. Kept literal (no
-// interpolation lib) — the two placeholders that need a value take a fn.
+// interpolation lib) — the placeholders that need a value take a fn.
 const STRINGS = {
   zh: {
-    title: '管理订阅',
+    title: '订阅偏好',
     gateLead: '输入你订阅时用的邮箱，您将会收到一个管理链接，点开即可调整或退订。',
     emailLabel: '邮箱地址',
     emailPlaceholder: 'you@example.com',
@@ -81,19 +106,31 @@ const STRINGS = {
     requestAgain: '用邮箱重新申请',
     statusActive: '已订阅',
     statusPending: '待确认',
+    statusEditing: '修改中',
     channelsHeading: '订阅内容',
     blogTitle: 'Blog · 無人之境',
     blogMeta: '长文更新即送达',
     moodTitle: 'Mood · 闲谈手记',
-    moodMeta: '按下方节奏推送',
-    noChannelsHint: '至少保留一个订阅内容，否则请用下方的“退订全部”。',
-    cadenceHeading: '投递节奏',
+    moodMeta: '按下方频率推送',
+    noChannelsHint: '两个都关掉的话，直接用下面的「退订全部」更干脆。',
+    cadenceHeading: '推送频率',
     modeImmediate: '即时',
-    modeEvery5h: '每 5 时',
-    modeDaily: '每日摘要',
+    modeEvery5h: '每 5 小时',
+    modeDaily: '每日',
+    modeImmediateHint: '新的 mood 一发布，就落进你的收件箱。',
+    modeEvery5hHint: '攒成一封，每五小时送一次。',
+    modeDailyHint: '一天一封，时间你说了算。',
+    moodOffHint: '打开 Mood 订阅后才能调整频率。',
     timezone: '时区',
-    dailyTime: '每日时间',
+    dailyTime: '送达时间',
     lastSent: (date: string) => `上次送达 · ${date}`,
+    editEmail: '换邮箱',
+    newEmailLabel: '新的邮箱地址',
+    sendConfirmation: '发送确认信',
+    changeEmailSent: (email: string) => `若符合条件，我们会发确认信到 ${email}。确认前不会变更。`,
+    changeEmailSame: '这就是当前的邮箱。',
+    changeEmailFailed: '发送失败，稍后重试。',
+    emailChanged: '邮箱已更新。',
     unsubscribeAll: '退订全部',
     saveChanges: '保存更改',
     saved: '已保存',
@@ -101,13 +138,24 @@ const STRINGS = {
     actionFailed: '操作失败，稍后重试。',
     unsubscribedText: '已退订全部内容。这个邮箱不会再收到我们的消息。',
     resubscribe: '重新开启订阅',
+    backHome: '返回首页',
     confirmTitle: '退订全部内容？',
-    confirmBody: (email: string) => `我们会停止向 ${email} 发送任何邮件。但是记录会保留，你随时可以回来重新开启。`,
+    confirmBody: (email: string) => `我们会停止向 ${email} 发送任何邮件。记录会保留，你随时可以回来重新开启。`,
+    confirmQuieter: '先把频率调低',
     cancel: '取消',
     never: '—',
+    dataHeading: '你的数据',
+    dataLead: '我们只存这些：你的邮箱、订阅了什么、多久推一次、发过哪些信、邮件打开或点击记录（可能包含 IP、地区和设备信息），以及一份带哈希 IP 的操作日志。地址被重复使用且旧记录无法安全归属时，我们会保留那条记录，避免误删别人的数据。',
+    deleteRecord: '删除我的所有记录',
+    deleteTitle: '删除全部记录？',
+    deleteBody: (email: string) => `我们会把 ${email} 以及能安全归属于这次订阅的记录从数据库里抹掉：订阅、发信历史、邮件追踪和操作日志。地址被重复使用后无法安全归属的旧记录会保留，避免误删别人的数据。无法撤销。确认之前，我们会先往能证明这条记录归属的邮箱发一封带删除链接的邮件。`,
+    deleteKeep: '保留我的记录',
+    deleteSend: '把删除链接发给我',
+    deleteSent: (_email: string) => '删除链接已发到确认邮箱，一小时内有效。点开并确认之前什么都不会变。',
+    deleteFailed: '发送失败，稍后重试。',
   },
   en: {
-    title: 'Manage subscription',
+    title: 'Subscription preferences',
     gateLead: 'Enter the email you subscribed with. We’ll send a magic link to adjust or cancel your subscription.',
     emailLabel: 'Email address',
     emailPlaceholder: 'you@example.com',
@@ -126,19 +174,31 @@ const STRINGS = {
     requestAgain: 'Request a new link',
     statusActive: 'Subscribed',
     statusPending: 'Pending',
+    statusEditing: 'Editing',
     channelsHeading: 'Subscriptions',
     blogTitle: 'Sillage · Blog',
     blogMeta: 'Sent when a post ships',
     moodTitle: 'Mood · Feed',
-    moodMeta: 'Sent at the cadence below',
-    noChannelsHint: 'Keep at least one subscription, or use “Unsubscribe from all” below.',
-    cadenceHeading: 'Delivery cadence',
+    moodMeta: 'Sent at the frequency below',
+    noChannelsHint: 'With both off, “Unsubscribe from all” below is the cleaner exit.',
+    cadenceHeading: 'Push frequency',
     modeImmediate: 'Instant',
-    modeEvery5h: 'Every 5h',
-    modeDaily: 'Daily digest',
+    modeEvery5h: 'Every 5 hours',
+    modeDaily: 'Daily',
+    modeImmediateHint: 'New moods land in your inbox the moment they post.',
+    modeEvery5hHint: 'Bundled together and sent once every five hours.',
+    modeDailyHint: 'One bundle a day, at a time you choose.',
+    moodOffHint: 'Turn Mood on to change how often it arrives.',
     timezone: 'Timezone',
-    dailyTime: 'Daily time',
+    dailyTime: 'Delivery time',
     lastSent: (date: string) => `Last sent · ${date}`,
+    editEmail: 'Change email',
+    newEmailLabel: 'New email address',
+    sendConfirmation: 'Send confirmation',
+    changeEmailSent: (email: string) => `If eligible, we'll email ${email}. Nothing changes until you confirm.`,
+    changeEmailSame: 'That’s already your address.',
+    changeEmailFailed: 'Couldn’t send that. Try again shortly.',
+    emailChanged: 'Address updated.',
     unsubscribeAll: 'Unsubscribe from all',
     saveChanges: 'Save changes',
     saved: 'Saved',
@@ -146,10 +206,21 @@ const STRINGS = {
     actionFailed: 'Something went wrong. Try again shortly.',
     unsubscribedText: 'You’ve unsubscribed from everything. This inbox won’t hear from us again.',
     resubscribe: 'Re-enable subscription',
+    backHome: 'Back to home',
     confirmTitle: 'Unsubscribe from all?',
     confirmBody: (email: string) => `We’ll stop sending any mail to ${email}. Your record is kept, so you can come back any time.`,
+    confirmQuieter: 'Lower the frequency instead',
     cancel: 'Cancel',
     never: '—',
+    dataHeading: 'Your data',
+    dataLead: 'We hold your email address, what you subscribed to and how often, delivery history, email open and click events (which may include IP, location, and device details), and a timestamped log of your own actions with a hashed IP. If an old row cannot be safely attributed after an address is reused, we keep it rather than risk deleting another subscriber’s data.',
+    deleteRecord: 'Delete everything',
+    deleteTitle: 'Delete everything?',
+    deleteBody: (email: string) => `We’ll remove ${email} and every row safely tied to this subscription generation — subscription, delivery history, email tracking, and audit log. If an old row cannot be safely attributed after an address is reused, we keep it rather than risk deleting another subscriber’s data. This can’t be undone. We’ll email the address that proves control of this record a confirmation link first.`,
+    deleteKeep: 'Keep my record',
+    deleteSend: 'Email me the link',
+    deleteSent: (_email: string) => 'The deletion link is on its way to the confirmation address. It expires within the hour, and nothing changes until you open and confirm it.',
+    deleteFailed: 'Couldn’t send that. Try again shortly.',
   },
 } as const;
 
@@ -199,19 +270,23 @@ function formatDate(value: string | undefined, lang: Lang): string {
   }
 }
 
-function readToken(): string {
+function readQueryParam(name: string): string {
   if (typeof window === 'undefined') return '';
-  return new URL(window.location.href).searchParams.get('token')?.trim() ?? '';
+  return new URL(window.location.href).searchParams.get(name)?.trim() ?? '';
 }
 
-// A demo record so the page is reviewable before the backend exists:
+function readToken(): string {
+  return readQueryParam('token');
+}
+
+// A demo record so the page is reviewable without a live subscription:
 // /subscribe/manage?demo=1 renders the control panel with sample data.
 function demoView(): ManagePreferencesView {
   return {
     email: 'you@example.com',
     status: 'active',
     channels: ['blog', 'mood'],
-    deliveryMode: 'daily',
+    deliveryMode: 'every_5h',
     timezone: browserTimezone(),
     dailyHour: 9,
     lastNotifiedAt: '2026-06-28T09:00:00Z',
@@ -314,10 +389,10 @@ export default function ManagePreferences({ turnstileSiteKey = '' }: Props) {
   const lang = React.useMemo(detectLang, []);
   const t = STRINGS[lang];
   const token = React.useMemo(readToken, []);
-  const isDemo = React.useMemo(
-    () => typeof window !== 'undefined' && new URL(window.location.href).searchParams.has('demo'),
-    []
-  );
+  const isDemo = React.useMemo(() => Boolean(readQueryParam('demo')), []);
+  // Arriving from an email's 退订 / Unsubscribe link: raise the confirmation
+  // immediately, but keep the panel behind it as the gentler alternative.
+  const wantsUnsubscribe = React.useMemo(() => readQueryParam('intent') === 'unsubscribe', []);
   const demo = React.useMemo(() => (isDemo ? demoView() : null), [isDemo]);
   const [gateSent, setGateSent] = React.useState(false);
 
@@ -336,6 +411,7 @@ export default function ManagePreferences({ turnstileSiteKey = '' }: Props) {
         initial={demo}
         token={token}
         isDemo={isDemo}
+        wantsUnsubscribe={wantsUnsubscribe}
       />
     );
   }
@@ -352,15 +428,35 @@ export default function ManagePreferences({ turnstileSiteKey = '' }: Props) {
     );
   }
 
-  return <LoadedPreferencesPanel t={t} lang={lang} token={token} isDemo={isDemo} />;
+  return (
+    <LoadedPreferencesPanel
+      t={t}
+      lang={lang}
+      token={token}
+      isDemo={isDemo}
+      wantsUnsubscribe={wantsUnsubscribe}
+    />
+  );
 }
 
-function LoadedPreferencesPanel({ t, lang, token, isDemo }: { t: T; lang: Lang; token: string; isDemo: boolean }) {
+function LoadedPreferencesPanel({
+  t,
+  lang,
+  token,
+  isDemo,
+  wantsUnsubscribe,
+}: {
+  t: T;
+  lang: Lang;
+  token: string;
+  isDemo: boolean;
+  wantsUnsubscribe: boolean;
+}) {
   const snapshot = useManagePreferencesSnapshot(token);
 
   if (snapshot.phase === 'loading') {
     return (
-      <div className="mp-card mp-card--center">
+      <div className="mp-panel mp-panel--center">
         <span className="mp-spinner" aria-hidden="true" />
         <p className="mp-muted">{t.loading}</p>
       </div>
@@ -369,7 +465,7 @@ function LoadedPreferencesPanel({ t, lang, token, isDemo }: { t: T; lang: Lang; 
 
   if (snapshot.phase === 'invalid') {
     return (
-      <div className="mp-card mp-card--center">
+      <div className="mp-panel mp-panel--center">
         <p className="mp-result-text">{invalidManageMessage(snapshot.reason, t)}</p>
         <a className="mp-btn mp-btn--ghost" href="/subscribe/manage">
           {t.requestAgain}
@@ -386,6 +482,7 @@ function LoadedPreferencesPanel({ t, lang, token, isDemo }: { t: T; lang: Lang; 
       initial={snapshot.view}
       token={token}
       isDemo={isDemo}
+      wantsUnsubscribe={wantsUnsubscribe}
     />
   );
 }
@@ -466,7 +563,7 @@ function MagicLinkGate({
 
   if (sent) {
     return (
-      <div className="mp-card mp-card--center">
+      <div className="mp-panel mp-panel--center">
         <svg
           className="mp-result-icon"
           viewBox="0 0 24 24"
@@ -527,7 +624,7 @@ function MagicLinkGate({
   }
 
   return (
-    <div className="mp-card">
+    <div className="mp-panel">
       <h1 className="mp-title">{t.title}</h1>
       <p className="mp-lead">{t.gateLead}</p>
       <form onSubmit={submit} noValidate>
@@ -561,7 +658,214 @@ function MagicLinkGate({
   );
 }
 
+// --- The cadence control ----------------------------------------------------
+// Three options, three labelled segments. A slider would ask the reader to read
+// a thumb position against a legend; a segmented control just names each stop.
+// Native radios carry the semantics and arrow-key navigation; the only painted
+// extra is the pill that slides between segments.
+function CadenceSegments({
+  stops,
+  value,
+  label,
+  disabled,
+  onChange,
+}: {
+  stops: ReadonlyArray<{ value: DeliveryMode; label: string }>;
+  value: DeliveryMode;
+  label: string;
+  disabled: boolean;
+  onChange: (value: DeliveryMode) => void;
+}) {
+  const name = React.useId();
+  const index = Math.max(0, stops.findIndex((stop) => stop.value === value));
+
+  return (
+    <div
+      className="mp-seg"
+      role="radiogroup"
+      aria-label={label}
+      style={
+        {
+          '--mp-seg-pos': index,
+          '--mp-seg-count': stops.length,
+        } as React.CSSProperties
+      }
+    >
+      <span className="mp-seg-indicator" aria-hidden="true" />
+      {stops.map((stop) => (
+        <label key={stop.value} className="mp-seg-option">
+          <input
+            type="radio"
+            name={name}
+            value={stop.value}
+            checked={stop.value === value}
+            disabled={disabled}
+            onChange={() => onChange(stop.value)}
+          />
+          <span>{stop.label}</span>
+        </label>
+      ))}
+    </div>
+  );
+}
+
+// --- Change of address ------------------------------------------------------
+// Only ever a *request*: the API mails a confirmation to the proposed address
+// and the record moves when that link is opened. So the panel keeps showing the
+// current address afterwards, and the copy says why.
+function ChangeEmailForm({
+  t,
+  currentEmail,
+  token,
+  isDemo,
+  onSent,
+  onCancel,
+}: {
+  t: T;
+  currentEmail: string;
+  token: string;
+  isDemo: boolean;
+  onSent: (email: string) => void;
+  onCancel: () => void;
+}) {
+  const [draft, setDraft] = React.useState('');
+  const [error, setError] = React.useState('');
+  const [busy, setBusy] = React.useState(false);
+  const inputRef = React.useRef<HTMLInputElement>(null);
+  const inputId = React.useId();
+
+  React.useEffect(() => {
+    inputRef.current?.focus();
+  }, []);
+
+  async function submit(event: React.FormEvent) {
+    event.preventDefault();
+    const value = draft.trim().toLowerCase();
+    if (!EMAIL_RE.test(value)) {
+      setError(t.invalidEmail);
+      return;
+    }
+    if (value === currentEmail.trim().toLowerCase()) {
+      setError(t.changeEmailSame);
+      return;
+    }
+    setError('');
+    setBusy(true);
+    try {
+      if (isDemo) {
+        onSent(value);
+        return;
+      }
+      const res = await fetch(`/api/notify/manage/email?token=${encodeURIComponent(token)}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ newEmail: value }),
+      });
+      if (res.status === 429) {
+        setError(t.tooFrequent);
+        return;
+      }
+      if (!res.ok) {
+        const payload = (await res.json().catch(() => ({}))) as { error?: string };
+        setError(payload.error || t.changeEmailFailed);
+        return;
+      }
+      onSent(value);
+    } catch {
+      setError(t.networkError);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  // The identity row keeps its shape: the field takes the address's slot and the
+  // chip stays put, reading "Editing" instead of the subscription status. Only
+  // the actions row is new, so opening the editor never reflows the header.
+  return (
+    <form onSubmit={submit} noValidate>
+      <div className="mp-identity">
+        <input
+          ref={inputRef}
+          id={inputId}
+          type="email"
+          className="mp-email-input"
+          aria-label={t.newEmailLabel}
+          placeholder={currentEmail}
+          autoComplete="email"
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Escape') onCancel();
+          }}
+        />
+        <StatusChip kind="editing" label={t.statusEditing} />
+      </div>
+      {error && (
+        <p className="mp-error mp-error--tight" role="alert">
+          {error}
+        </p>
+      )}
+      <div className="mp-email-form-actions">
+        <button type="button" className="mp-link-btn" disabled={busy} onClick={onCancel}>
+          {t.cancel}
+        </button>
+        {/* Ghost, not filled: "Save changes" is the one primary action on this
+            page, and a second solid button next to it flattens the hierarchy. */}
+        <button type="submit" className="mp-btn mp-btn--ghost mp-btn--sm" disabled={busy}>
+          {busy ? <span className="mp-spinner mp-spinner--sm" aria-hidden="true" /> : t.sendConfirmation}
+        </button>
+      </div>
+    </form>
+  );
+}
+
+function StatusChip({ kind, label }: { kind: 'active' | 'pending' | 'editing'; label: string }) {
+  return (
+    <span className={`mp-chip mp-chip--${kind}`}>
+      <span className="mp-chip-dot" aria-hidden="true" />
+      {label}
+    </span>
+  );
+}
+
+function CheckIcon() {
+  return (
+    <svg
+      className="mp-btn-check"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.4"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="m4 12.5 5 5L20 6.5" />
+    </svg>
+  );
+}
+
+function PencilIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M12 20h9" />
+      <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
+    </svg>
+  );
+}
+
 // --- State 2: the control panel --------------------------------------------
+// Two destructive actions share one dialog slot; only one can be open.
+type ConfirmKind = 'unsubscribe' | 'delete';
+
 interface PreferencesPanelState {
   channels: NotifyChannel[];
   mode: DeliveryMode;
@@ -571,7 +875,7 @@ interface PreferencesPanelState {
   saving: boolean;
   savedAt: string | null;
   error: string;
-  confirmOpen: boolean;
+  confirm: ConfirmKind | null;
 }
 
 type PreferencesPanelAction =
@@ -583,7 +887,7 @@ type PreferencesPanelAction =
   | { type: 'saved'; at: string | null }
   | { type: 'error'; value: string }
   | { type: 'status'; value: SubscriberStatus }
-  | { type: 'confirm-open'; value: boolean };
+  | { type: 'confirm'; value: ConfirmKind | null };
 
 function preferencesPanelReducer(
   state: PreferencesPanelState,
@@ -612,8 +916,8 @@ function preferencesPanelReducer(
       return { ...state, error: action.value };
     case 'status':
       return { ...state, status: action.value };
-    case 'confirm-open':
-      return { ...state, confirmOpen: action.value };
+    case 'confirm':
+      return { ...state, confirm: action.value };
   }
 }
 
@@ -623,22 +927,30 @@ function PreferencesPanel({
   initial,
   token,
   isDemo,
+  wantsUnsubscribe,
 }: {
   t: T;
   lang: Lang;
   initial: ManagePreferencesView;
   token: string;
   isDemo: boolean;
+  wantsUnsubscribe: boolean;
 }) {
   const CHANNELS: Array<{ value: NotifyChannel; title: string; meta: string }> = [
     { value: 'blog', title: t.blogTitle, meta: t.blogMeta },
     { value: 'mood', title: t.moodTitle, meta: t.moodMeta },
   ];
-  const MODES: Array<{ value: DeliveryMode; label: string }> = [
-    { value: 'immediate', label: t.modeImmediate },
-    { value: 'every_5h', label: t.modeEvery5h },
-    { value: 'daily', label: t.modeDaily },
-  ];
+  const MODE_LABEL: Record<DeliveryMode, string> = {
+    immediate: t.modeImmediate,
+    every_5h: t.modeEvery5h,
+    daily: t.modeDaily,
+  };
+  const MODE_HINT: Record<DeliveryMode, string> = {
+    immediate: t.modeImmediateHint,
+    every_5h: t.modeEvery5hHint,
+    daily: t.modeDailyHint,
+  };
+  const STOPS = MODE_ORDER.map((value) => ({ value, label: MODE_LABEL[value] }));
 
   // Only the managed channels are editable here; anything else on the record
   // (privacy/announcement) is held aside and merged back on save.
@@ -656,9 +968,9 @@ function PreferencesPanel({
     saving: false,
     savedAt: null,
     error: '',
-    confirmOpen: false,
+    confirm: null,
   }));
-  const { channels, mode, timezone, dailyHour, status, saving, savedAt, error, confirmOpen } = state;
+  const { channels, mode, timezone, dailyHour, status, saving, savedAt, error, confirm } = state;
   const confirmDialogRef = React.useRef<HTMLDialogElement>(null);
   const confirmTitleId = React.useId();
   const confirmBodyId = React.useId();
@@ -669,15 +981,40 @@ function PreferencesPanel({
     return Array.from(set);
   }, [timezone]);
 
-  const segIndex = MODES.findIndex((m) => m.value === mode);
   const noChannels = channels.length === 0;
+  const moodOn = channels.includes('mood');
+  const currentPreferences: EditablePreferences = {
+    status: 'active',
+    channels: [...channels, ...(retainedChannels.current ?? [])],
+    deliveryMode: mode,
+    timezone: mode === 'daily' ? timezone : null,
+    dailyHour: mode === 'daily' ? dailyHour : null,
+  };
+  const [persistedPreferencesKey, setPersistedPreferencesKey] = React.useState(() =>
+    preferenceStateKey({
+      status: initial.status,
+      channels: initial.channels,
+      deliveryMode: initial.deliveryMode,
+      timezone: initial.deliveryMode === 'daily' ? initial.timezone : null,
+      dailyHour: initial.deliveryMode === 'daily' ? initial.dailyHour : null,
+    })
+  );
+  const hasPreferenceChanges = preferenceStateKey(currentPreferences) !== persistedPreferencesKey;
 
-  function toggleChannel(value: NotifyChannel) {
-    dispatch({ type: 'toggle-channel', value });
-  }
+  // The change-of-address sub-form: open, or resolved with a pending
+  // confirmation. Kept out of the reducer — it patches nothing on this record.
+  const [emailFormOpen, setEmailFormOpen] = React.useState(false);
+  const [emailSentTo, setEmailSentTo] = React.useState('');
+  // Set by the confirmation link's redirect, so the reader arrives at a panel
+  // that says the move landed rather than one that merely looks different.
+  const justChanged = React.useMemo(() => readQueryParam('changed') === '1', []);
 
-  function openConfirmDialog() {
-    dispatch({ type: 'confirm-open', value: true });
+  // Deleting is a request, never an act: the panel only ever gets as far as
+  // putting a confirmation link in the reader's inbox.
+  const [deleteLinkSent, setDeleteLinkSent] = React.useState(false);
+
+  function openConfirmDialog(kind: ConfirmKind) {
+    dispatch({ type: 'confirm', value: kind });
     queueMicrotask(() => {
       const dialog = confirmDialogRef.current;
       if (dialog && !dialog.open) dialog.showModal();
@@ -686,13 +1023,21 @@ function PreferencesPanel({
 
   function closeConfirmDialog() {
     if (confirmDialogRef.current?.open) confirmDialogRef.current.close();
-    dispatch({ type: 'confirm-open', value: false });
+    dispatch({ type: 'confirm', value: null });
   }
 
-  async function persist(body: Record<string, unknown>) {
+  // The email's unsubscribe link lands here with the confirmation already up.
+  const unsubscribeIntentHandled = React.useRef(false);
+  React.useEffect(() => {
+    if (unsubscribeIntentHandled.current) return;
+    unsubscribeIntentHandled.current = true;
+    if (wantsUnsubscribe && status !== 'unsubscribed') openConfirmDialog('unsubscribe');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [wantsUnsubscribe]);
+
+  async function persist(body: ManagePreferencesUpdatePayload) {
     if (isDemo) {
       // Demo mode: no network, just reflect the change locally.
-      dispatch({ type: 'saved', at: new Date().toISOString() });
       return true;
     }
     const res = await fetch(`/api/notify/manage?token=${encodeURIComponent(token)}`, {
@@ -704,23 +1049,17 @@ function PreferencesPanel({
       const payload = (await res.json().catch(() => ({}))) as { error?: string };
       throw new Error(payload.error || `HTTP ${res.status}`);
     }
-    dispatch({ type: 'saved', at: new Date().toISOString() });
     return true;
   }
 
   async function save() {
-    if (noChannels) return;
+    if (noChannels || !hasPreferenceChanges) return;
     dispatch({ type: 'saving', value: true });
     dispatch({ type: 'error', value: '' });
     try {
-      await persist({
-        status: 'active',
-        // Merge managed selections with any retained system channels.
-        channels: [...channels, ...(retainedChannels.current ?? [])],
-        deliveryMode: mode,
-        timezone: mode === 'daily' ? timezone : null,
-        dailyHour: mode === 'daily' ? dailyHour : null,
-      });
+      await persist(currentPreferences);
+      setPersistedPreferencesKey(preferenceStateKey(currentPreferences));
+      dispatch({ type: 'saved', at: new Date().toISOString() });
       dispatch({ type: 'status', value: 'active' });
     } catch (e) {
       dispatch({ type: 'error', value: e instanceof Error && e.message ? e.message : t.saveFailed });
@@ -731,7 +1070,7 @@ function PreferencesPanel({
 
   async function unsubscribeAll() {
     confirmDialogRef.current?.close();
-    dispatch({ type: 'confirm-open', value: false });
+    dispatch({ type: 'confirm', value: null });
     dispatch({ type: 'saving', value: true });
     dispatch({ type: 'error', value: '' });
     try {
@@ -744,10 +1083,49 @@ function PreferencesPanel({
     }
   }
 
+  async function requestDeletion() {
+    closeConfirmDialog();
+    dispatch({ type: 'saving', value: true });
+    dispatch({ type: 'error', value: '' });
+    try {
+      if (!isDemo) {
+        const res = await fetch(`/api/notify/manage/delete?token=${encodeURIComponent(token)}`, {
+          method: 'POST',
+        });
+        if (res.status === 429) throw new Error(t.tooFrequent);
+        if (!res.ok) {
+          const payload = (await res.json().catch(() => ({}))) as { error?: string };
+          throw new Error(payload.error || t.deleteFailed);
+        }
+      }
+      setDeleteLinkSent(true);
+    } catch (e) {
+      dispatch({ type: 'error', value: e instanceof Error && e.message ? e.message : t.deleteFailed });
+    } finally {
+      dispatch({ type: 'saving', value: false });
+    }
+  }
+
   if (status === 'unsubscribed') {
     return (
-      <div className="mp-card mp-card--center">
+      <div className="mp-panel mp-panel--center">
         <p className="mp-result-text">{t.unsubscribedText}</p>
+        <section className="mp-section mp-data">
+          <h2 className="mp-section-title">{t.dataHeading}</h2>
+          <p className="mp-data-lead">{t.dataLead}</p>
+          {deleteLinkSent ? (
+            <p className="mp-identity-note">{t.deleteSent(initial.email)}</p>
+          ) : (
+            <button
+              type="button"
+              className="mp-link-btn mp-link-btn--danger"
+              disabled={saving}
+              onClick={() => openConfirmDialog('delete')}
+            >
+              {t.deleteRecord}
+            </button>
+          )}
+        </section>
         <button
           type="button"
           className="mp-btn"
@@ -759,110 +1137,142 @@ function PreferencesPanel({
         >
           {t.resubscribe}
         </button>
+        <a className="mp-link-btn" href="/">
+          {t.backHome}
+        </a>
+        <ConfirmDialog
+          open={confirm !== null}
+          dialogRef={confirmDialogRef}
+          titleId={confirmTitleId}
+          bodyId={confirmBodyId}
+          title={t.deleteTitle}
+          body={t.deleteBody(initial.email)}
+          dismissLabel={t.deleteKeep}
+          confirmLabel={t.deleteSend}
+          saving={saving}
+          onClose={closeConfirmDialog}
+          onConfirm={requestDeletion}
+        />
       </div>
     );
   }
 
   return (
-    <div className="mp-card">
-      <div className="mp-head">
-        <div>
-          <h1 className="mp-title">{t.title}</h1>
-          <p className="mp-email">{initial.email}</p>
-        </div>
-        <span className={`mp-badge mp-badge--${status}`}>
-          {status === 'active' ? t.statusActive : t.statusPending}
-        </span>
-      </div>
+    <div className="mp-panel">
+      <header className="mp-head">
+        <h1 className="mp-title">{t.title}</h1>
+        {emailFormOpen ? (
+          <ChangeEmailForm
+            t={t}
+            currentEmail={initial.email}
+            token={token}
+            isDemo={isDemo}
+            onSent={(email) => {
+              setEmailSentTo(email);
+              setEmailFormOpen(false);
+            }}
+            onCancel={() => setEmailFormOpen(false)}
+          />
+        ) : (
+          <div className="mp-identity">
+            <span className="mp-identity-email">{initial.email}</span>
+            {!emailSentTo && (
+              <button
+                type="button"
+                className="mp-icon-btn"
+                aria-label={t.editEmail}
+                title={t.editEmail}
+                onClick={() => setEmailFormOpen(true)}
+              >
+                <PencilIcon />
+              </button>
+            )}
+            <StatusChip
+              kind={status === 'active' ? 'active' : 'pending'}
+              label={status === 'active' ? t.statusActive : t.statusPending}
+            />
+          </div>
+        )}
+        <p className="mp-identity-meta">{t.lastSent(formatDate(initial.lastNotifiedAt, lang))}</p>
+        {justChanged && !emailSentTo && <p className="mp-identity-note">{t.emailChanged}</p>}
+        {emailSentTo && <p className="mp-identity-note">{t.changeEmailSent(emailSentTo)}</p>}
+      </header>
 
       <section className="mp-section">
         <h2 className="mp-section-title">{t.channelsHeading}</h2>
         <div className="mp-channels">
-          {CHANNELS.map((ch) => {
-            const checked = channels.includes(ch.value);
-            return (
-              <label key={ch.value} className="mp-channel">
-                <input
-                  type="checkbox"
-                  checked={checked}
-                  onChange={() => toggleChannel(ch.value)}
-                />
-                <span className="mp-channel-text">
-                  <span className="mp-channel-title">{ch.title}</span>
-                  <span className="mp-channel-meta">{ch.meta}</span>
-                </span>
-                <span className="mp-switch" aria-hidden="true" />
-              </label>
-            );
-          })}
+          {CHANNELS.map((ch) => (
+            <label key={ch.value} className="mp-channel">
+              <input
+                type="checkbox"
+                checked={channels.includes(ch.value)}
+                onChange={() => dispatch({ type: 'toggle-channel', value: ch.value })}
+              />
+              <span className="mp-channel-text">
+                <span className="mp-channel-title">{ch.title}</span>
+                <span className="mp-channel-meta">{ch.meta}</span>
+              </span>
+              <span className="mp-switch" aria-hidden="true" />
+            </label>
+          ))}
         </div>
         {noChannels && <p className="mp-hint">{t.noChannelsHint}</p>}
       </section>
 
-      <section className="mp-section">
+      <section className={`mp-section mp-cadence${moodOn ? '' : ' is-muted'}`}>
         <h2 className="mp-section-title">{t.cadenceHeading}</h2>
-        <div
-          className="mp-seg"
-          role="radiogroup"
-          aria-label={t.cadenceHeading}
-          style={{ '--mp-seg-count': MODES.length, '--mp-seg-offset': `${segIndex * 100}%` } as React.CSSProperties}
-        >
-          <span className="mp-seg-pill" aria-hidden="true" />
-          {MODES.map((m) => (
-            <button
-              key={m.value}
-              type="button"
-              role="radio"
-              aria-checked={mode === m.value}
-              className={`mp-seg-label${mode === m.value ? ' is-active' : ''}`}
-              onClick={() => dispatch({ type: 'mode', value: m.value })}
-            >
-              {m.label}
-            </button>
-          ))}
-        </div>
 
-        <div className={`mp-daily${mode === 'daily' ? ' is-open' : ''}`}>
-          <div className="mp-field">
-            <label className="mp-field-label" htmlFor="mp-tz">
-              {t.timezone}
-            </label>
-            <select
-              id="mp-tz"
-              className="mp-select"
-              value={timezone}
-              onChange={(e) => dispatch({ type: 'timezone', value: e.target.value })}
-            >
-              {timezoneOptions.map((tz) => (
-                <option key={tz} value={tz}>
-                  {tz}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="mp-field">
-            <label className="mp-field-label" htmlFor="mp-hour">
-              {t.dailyTime}
-            </label>
-            <select
-              id="mp-hour"
-              className="mp-select"
-              value={dailyHour}
-              onChange={(e) => dispatch({ type: 'daily-hour', value: Number(e.target.value) })}
-            >
-              {Array.from({ length: 24 }, (_, h) => (
-                <option key={h} value={h}>
-                  {String(h).padStart(2, '0')}:00
-                </option>
-              ))}
-            </select>
+        <CadenceSegments
+          stops={STOPS}
+          value={mode}
+          label={t.cadenceHeading}
+          disabled={!moodOn}
+          onChange={(next) => dispatch({ type: 'mode', value: next })}
+        />
+
+        <p className="mp-cadence-hint" key={moodOn ? mode : 'off'}>
+          {moodOn ? MODE_HINT[mode] : t.moodOffHint}
+        </p>
+
+        <div className={`mp-daily${moodOn && mode === 'daily' ? ' is-open' : ''}`}>
+          <div className="mp-daily-inner">
+            <div className="mp-field">
+              <label className="mp-field-label" htmlFor="mp-tz">
+                {t.timezone}
+              </label>
+              <select
+                id="mp-tz"
+                className="mp-select"
+                value={timezone}
+                onChange={(e) => dispatch({ type: 'timezone', value: e.target.value })}
+              >
+                {timezoneOptions.map((tz) => (
+                  <option key={tz} value={tz}>
+                    {tz}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="mp-field">
+              <label className="mp-field-label" htmlFor="mp-hour">
+                {t.dailyTime}
+              </label>
+              <select
+                id="mp-hour"
+                className="mp-select"
+                value={dailyHour}
+                onChange={(e) => dispatch({ type: 'daily-hour', value: Number(e.target.value) })}
+              >
+                {Array.from({ length: 24 }, (_, h) => (
+                  <option key={h} value={h}>
+                    {String(h).padStart(2, '0')}:00
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
         </div>
       </section>
-
-      <div className="mp-meta-row">
-        <span>{t.lastSent(formatDate(initial.lastNotifiedAt, lang))}</span>
-      </div>
 
       {error && (
         <p className="mp-error" role="alert">
@@ -870,53 +1280,91 @@ function PreferencesPanel({
         </p>
       )}
 
-      <div className="mp-actions">
+      <footer className="mp-foot">
         <button
           type="button"
-          className="mp-btn mp-btn--danger"
+          className="mp-link-btn"
           disabled={saving}
-          onClick={openConfirmDialog}
+          onClick={() => openConfirmDialog('unsubscribe')}
         >
           {t.unsubscribeAll}
         </button>
-        <div className="mp-actions-right">
-          {savedAt && <span className="mp-saved">{t.saved}</span>}
+        <div className="mp-foot-actions">
+          <span className="mp-sr-live" aria-live="polite">
+            {savedAt ? t.saved : ''}
+          </span>
           <button
             type="button"
-            className="mp-btn"
-            disabled={saving || noChannels}
+            className="mp-btn mp-btn--save"
+            data-state={saving ? 'saving' : savedAt ? 'saved' : 'idle'}
+            disabled={saving || noChannels || !hasPreferenceChanges}
             onClick={save}
           >
-            {saving ? <span className="mp-spinner mp-spinner--on-fg" aria-hidden="true" /> : t.saveChanges}
+            {/* All three labels share one grid cell, so the button never
+                resizes and the state change reads as one box changing its
+                mind rather than two elements swapping places. */}
+            <span className="mp-btn-swap">
+              <span className="mp-btn-face" data-face="idle">
+                {t.saveChanges}
+              </span>
+              <span className="mp-btn-face" data-face="saving">
+                <span className="mp-spinner mp-spinner--on-fg" aria-hidden="true" />
+              </span>
+              <span className="mp-btn-face" data-face="saved">
+                <CheckIcon />
+                {t.saved}
+              </span>
+            </span>
           </button>
         </div>
-      </div>
+      </footer>
 
-      <ConfirmUnsubscribeDialog
-        open={confirmOpen}
+      {/* Below the footer on purpose: this is the appendix to the page, not one
+          of the choices it is asking for. */}
+      <section className="mp-section mp-data">
+        <h2 className="mp-section-title">{t.dataHeading}</h2>
+        <p className="mp-data-lead">{t.dataLead}</p>
+        {deleteLinkSent ? (
+          <p className="mp-identity-note">{t.deleteSent(initial.email)}</p>
+        ) : (
+          <button
+            type="button"
+            className="mp-link-btn mp-link-btn--danger"
+            disabled={saving}
+            onClick={() => openConfirmDialog('delete')}
+          >
+            {t.deleteRecord}
+          </button>
+        )}
+      </section>
+
+      <ConfirmDialog
+        open={confirm !== null}
         dialogRef={confirmDialogRef}
         titleId={confirmTitleId}
         bodyId={confirmBodyId}
-        title={t.confirmTitle}
-        body={t.confirmBody(initial.email)}
-        cancelLabel={t.cancel}
-        confirmLabel={t.unsubscribeAll}
+        title={confirm === 'delete' ? t.deleteTitle : t.confirmTitle}
+        body={confirm === 'delete' ? t.deleteBody(initial.email) : t.confirmBody(initial.email)}
+        dismissLabel={confirm === 'delete' ? t.deleteKeep : t.confirmQuieter}
+        confirmLabel={confirm === 'delete' ? t.deleteSend : t.unsubscribeAll}
         saving={saving}
         onClose={closeConfirmDialog}
-        onConfirm={unsubscribeAll}
+        onConfirm={confirm === 'delete' ? requestDeletion : unsubscribeAll}
       />
     </div>
   );
 }
 
-function ConfirmUnsubscribeDialog({
+// The way out is always the recommended one: backing off is the primary button,
+// and the destructive action is the quiet text link under it.
+function ConfirmDialog({
   open,
   dialogRef,
   titleId,
   bodyId,
   title,
   body,
-  cancelLabel,
+  dismissLabel,
   confirmLabel,
   saving,
   onClose,
@@ -928,7 +1376,7 @@ function ConfirmUnsubscribeDialog({
   bodyId: string;
   title: string;
   body: string;
-  cancelLabel: string;
+  dismissLabel: string;
   confirmLabel: string;
   saving: boolean;
   onClose: () => void;
@@ -953,20 +1401,10 @@ function ConfirmUnsubscribeDialog({
           {body}
         </p>
         <div className="mp-confirm-actions">
-          <button
-            type="button"
-            className="mp-btn mp-btn--ghost"
-            disabled={saving}
-            onClick={onClose}
-          >
-            {cancelLabel}
+          <button type="button" className="mp-btn mp-btn--block" disabled={saving} onClick={onClose}>
+            {dismissLabel}
           </button>
-          <button
-            type="button"
-            className="mp-btn mp-btn--danger"
-            disabled={saving}
-            onClick={onConfirm}
-          >
+          <button type="button" className="mp-link-btn mp-link-btn--danger" disabled={saving} onClick={onConfirm}>
             {confirmLabel}
           </button>
         </div>

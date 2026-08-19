@@ -143,6 +143,31 @@ async function buildListeningItem(): Promise<RegistryItem> {
     .replace("@/lib/listening/markup", '@/lib/listening-markup')
     .replace("@/lib/listening/controller", '@/lib/listening-controller')
     .replace("@/styles/listening.css", '@/lib/listening.css');
+  const removeSiteAnalytics = (content: string) => content.replace(
+    `import {
+  createBrowserListeningAnalytics,
+  inferListeningSurface,
+} from '@/lib/listening/analytics';`,
+    `type ListeningAnalytics = {
+  observe(observation: {
+    owned: boolean;
+    isPlaying: boolean;
+    currentTime: number;
+    duration: number;
+  }): void;
+  recordSeek(): void;
+  requestPlay(): void;
+};
+
+const createBrowserListeningAnalytics = (
+  _metadata: () => unknown,
+): ListeningAnalytics | null => null;
+
+const inferListeningSurface = (_pathname: string): 'other' => 'other';`,
+  );
+  const musicKitTypes = await readRegistryFile('types/musickit.d.ts', 'registry:lib');
+  musicKitTypes.target = 'types/musickit.d.ts';
+
   return {
     $schema: REGISTRY_ITEM_SCHEMA,
     name: 'listening',
@@ -167,7 +192,8 @@ async function buildListeningItem(): Promise<RegistryItem> {
       await readRepoRegistryFile(
         'src/lib/listening/controller.ts',
         'lib/listening-controller.ts',
-        'registry:lib'
+        'registry:lib',
+        removeSiteAnalytics
       ),
       await readRepoRegistryFile(
         'src/styles/listening.css',
@@ -175,6 +201,7 @@ async function buildListeningItem(): Promise<RegistryItem> {
         'registry:lib'
       ),
       await readRegistryFile('lib/musickit/player.ts', 'registry:lib'),
+      musicKitTypes,
       await readRegistryFile('assets/apple-logo.svg', 'registry:lib'),
     ],
   };

@@ -14,6 +14,7 @@ interface PreviewResponse {
   mode: 'daily' | 'every_5h';
   sample: 'live' | 'rich';
   timezone: string;
+  siteUrl: string;
   source: {
     channelTitle: string;
     channelAvatarUrl?: string;
@@ -27,6 +28,9 @@ interface PreviewResponse {
     mood: string;
     digest: string;
     cancel: string;
+    changeEmail: string;
+    emailChanged: string;
+    deleteRecord: string;
   };
   html: {
     subscribe: string;
@@ -35,19 +39,27 @@ interface PreviewResponse {
     mood: string;
     digest: string;
     cancel: string;
+    changeEmail: string;
+    emailChanged: string;
+    deleteRecord: string;
   };
   callbackPages: {
     confirmSuccess: string;
     confirmError: string;
-    unsubscribePrompt: string;
     unsubscribeSuccess: string;
     unsubscribeError: string;
+    deleteRecordConfirm: string;
+    deleteRecordDone: string;
   };
 }
 
-type EmailKey = 'subscribe' | 'welcome' | 'blog' | 'mood' | 'digest' | 'cancel';
-type CallbackKey = 'confirmSuccess' | 'confirmError' | 'unsubscribePrompt' | 'unsubscribeSuccess' | 'unsubscribeError';
-type TemplateKey = EmailKey | CallbackKey;
+type EmailKey = 'subscribe' | 'welcome' | 'blog' | 'mood' | 'digest' | 'cancel' | 'changeEmail' | 'emailChanged' | 'deleteRecord';
+type CallbackKey = 'confirmSuccess' | 'confirmError' | 'unsubscribeSuccess' | 'unsubscribeError' | 'deleteRecordConfirm' | 'deleteRecordDone';
+// The preferences panel is the one notify surface this endpoint cannot build:
+// it is an Astro island in the site repo, so the catalog frames the real page
+// in demo mode instead of a string of HTML.
+type LiveKey = 'managePanel';
+type TemplateKey = EmailKey | CallbackKey | LiveKey;
 type CardSize = 'compacted' | 'regular' | 'expanded';
 type Surface = 'email' | 'page';
 
@@ -66,11 +78,16 @@ const TEMPLATE_ORDER: ReadonlyArray<TemplateMeta> = [
   { key: 'mood', surface: 'email', label: 'Mood Notification', index: 'E4', intent: 'per-post push' },
   { key: 'digest', surface: 'email', label: 'Mood Digest', index: 'E5', intent: 'batched window' },
   { key: 'cancel', surface: 'email', label: 'Unsubscribe Notice', index: 'E6', intent: 'opt-out receipt' },
+  { key: 'changeEmail', surface: 'email', label: 'Change Email Confirm', index: 'E7', intent: 'opt-in on the new address' },
+  { key: 'emailChanged', surface: 'email', label: 'Address Changed Notice', index: 'E8', intent: 'receipt to the old address' },
+  { key: 'deleteRecord', surface: 'email', label: 'Delete Record Confirm', index: 'E9', intent: 'second step before erasure' },
   { key: 'confirmSuccess', surface: 'page', label: 'Confirm — Success', index: 'P1', intent: 'callback after confirm OK' },
   { key: 'confirmError', surface: 'page', label: 'Confirm — Error', index: 'P2', intent: 'expired / used token' },
-  { key: 'unsubscribePrompt', surface: 'page', label: 'Unsubscribe — Prompt', index: 'P3', intent: 'GET unsubscribe link' },
-  { key: 'unsubscribeSuccess', surface: 'page', label: 'Unsubscribe — Success', index: 'P4', intent: 'POST unsubscribe' },
-  { key: 'unsubscribeError', surface: 'page', label: 'Unsubscribe — Error', index: 'P5', intent: 'invalid / failed' },
+  { key: 'unsubscribeSuccess', surface: 'page', label: 'Unsubscribe — Success', index: 'P3', intent: 'POST unsubscribe' },
+  { key: 'unsubscribeError', surface: 'page', label: 'Unsubscribe — Error', index: 'P4', intent: 'invalid / failed' },
+  { key: 'deleteRecordConfirm', surface: 'page', label: 'Delete Record — Confirm', index: 'P5', intent: 'the button that erases' },
+  { key: 'deleteRecordDone', surface: 'page', label: 'Delete Record — Receipt', index: 'P6', intent: 'what was removed' },
+  { key: 'managePanel', surface: 'page', label: 'Preferences Panel', index: 'P7', intent: 'live page, demo record' },
 ];
 
 const CARD_SIZE_OPTIONS: ReadonlyArray<{ label: string; value: CardSize }> = [
@@ -163,10 +180,19 @@ export default function TemplatePreview() {
     [surfaceFilter]
   );
 
-  function getTemplateContent(key: TemplateKey): { subject?: string; html: string } {
+  function getTemplateContent(key: TemplateKey): { subject?: string; html: string; src?: string } {
     if (!preview) return { html: '' };
-    if (key === 'subscribe' || key === 'welcome' || key === 'blog' || key === 'mood' || key === 'digest' || key === 'cancel') {
+    if (
+      key === 'subscribe' || key === 'welcome' || key === 'blog' || key === 'mood'
+      || key === 'digest' || key === 'cancel' || key === 'changeEmail' || key === 'emailChanged'
+      || key === 'deleteRecord'
+    ) {
       return { subject: preview.subjects[key], html: preview.html[key] };
+    }
+    if (key === 'managePanel') {
+      // siteUrl is newer than this card; an API that predates it still renders.
+      const origin = (preview.siteUrl || window.location.origin).replace(/\/$/, '');
+      return { html: '', src: `${origin}/subscribe/manage?demo=1` };
     }
     return { html: preview.callbackPages[key] };
   }
@@ -294,7 +320,7 @@ export default function TemplatePreview() {
 
       <div className={`notify-grid${focused ? ' notify-grid--focused' : ''}`}>
         {visibleTemplates.map((tpl) => {
-          const { subject, html } = getTemplateContent(tpl.key);
+          const { subject, html, src } = getTemplateContent(tpl.key);
           const isFocused = focused === tpl.key;
           const isHidden = Boolean(focused) && !isFocused;
           return (
@@ -342,10 +368,11 @@ export default function TemplatePreview() {
                 </p>
               ) : null}
               <div className="notify-card__frame">
-                {html ? (
+                {html || src ? (
                   <iframe
                     title={`${tpl.label} preview`}
-                    srcDoc={html}
+                    src={src}
+                    srcDoc={src ? undefined : html}
                     className="notify-card__iframe"
                     loading="lazy"
                     sandbox={tpl.surface === 'page' ? 'allow-same-origin allow-scripts' : 'allow-same-origin'}

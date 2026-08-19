@@ -5,6 +5,8 @@ export type NotifyAuditEventType =
   | 'subscribe_requested'
   | 'subscription_confirmed'
   | 'unsubscribed'
+  | 'email_change_requested'
+  | 'email_changed'
   | 'admin_create'
   | 'admin_update'
   | 'admin_delete'
@@ -36,6 +38,7 @@ export interface RetryRecord {
   postId: string;
   email: string;
   emailHash: string;
+  subscriberCreatedAt: string;
   attempt: number;
   createdAt: string;
   updatedAt: string;

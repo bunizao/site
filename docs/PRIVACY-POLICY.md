@@ -121,6 +121,8 @@ Covered implementation:
 - subscribe: `site-api /v2/notify/subscribe`
 - confirm: `site-api /v2/notify/confirm`
 - unsubscribe: `site-api /v2/notify/unsubscribe`
+- preferences: `site-api /v2/notify/manage`
+- address change: `site-api /v2/notify/manage/email` requests it, `site-api /v2/notify/change-email` applies it after the new address confirms
 - dispatch / schedule / retry: `site-api /v2/notify/*`
 
 Supporting infrastructure:

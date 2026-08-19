@@ -16,6 +16,7 @@ Root-level `plans/` (repo root, numbered files) is the mood-hardening workstream
 | Doc | Read it when |
 | --- | --- |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | You need the runtime shape, directory map, API surface, env vars, or the site/site-api boundary. Start here. |
+| [SEO.md](SEO.md) | Public identity, title conventions, structured data, indexing, and search favicon policy. |
 | [MOOD.md](MOOD.md) | Anything under `/mood`: feed, detail, read path (D1 archive + live fallback), hydration. |
 | [HOME.md](HOME.md) | Home page sections, hero, Ghost publish → deploy hook flow. |
 | [BLOG-DESIGN.md](BLOG-DESIGN.md) | `/blog` visual system — normative design tokens for 無人之境. |
