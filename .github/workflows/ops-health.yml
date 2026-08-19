@@ -167,7 +167,7 @@ jobs:
 
           if [[ -z "${job_id}" ]]; then
             echo "The Ops Health job log could not be located." > .ops-health/raw.log
-          elif ! gh api "repos/${GH_REPO}/actions/jobs/${job_id}/logs" > .ops-health/raw.log; then
+          elif ! gh api --allow-escape-sequences "repos/${GH_REPO}/actions/jobs/${job_id}/logs" > .ops-health/raw.log; then
             echo "The Ops Health job log could not be downloaded." > .ops-health/raw.log
           fi
 
