@@ -111,32 +111,37 @@ const placeholderText = `${longestText}_`;
   interface GlyphToken {
     char: string;
     alpha: number;
+    /** Layout width always comes from the final character, so nothing reflows. */
     advance: string;
-    ghostChar?: string;
-    ghostAlpha?: number;
+    /** Center a scramble char inside the advance box instead of overflowing it. */
+    center?: boolean;
   }
 
+  /** Absolute millisecond schedule for one character. */
   interface DecodeGlyph {
     target: string;
     temp: string;
-    previousTemp: string;
-    placeholder: string;
     startAt: number;
-    mashAt: number;
     settleAt: number;
+    tick: number;
   }
 
   interface DecodeAnimation {
     text: string;
     pool: string[];
     glyphs: DecodeGlyph[];
-    lastMutationFrame: number;
+    duration: number;
   }
 
   const HERO_NAME_READY_EVENT = 'home:hero-name-ready';
   const FALLBACK_START_MS = 1100;
-  const SCRAMBLE_CHARS = '_--/\\|<>'.split('');
-  const SCRAMBLE_MUTATION_MS = 58;
+  const SCRAMBLE_CHARS = '-/\\|<>'.split('');
+  // Every glyph flickers a fixed number of times and then snaps, so the
+  // keystroke cadence is identical for "Tutu" and "Collapsar".
+  const SCRAMBLE_MUTATION_MS = 42;
+  const SCRAMBLE_TICKS = 2;
+  const SCRAMBLE_ALPHA = 0.45;
+  const SETTLE_TAIL_MS = 90;
   const CURSOR_CHAR = '_';
   const CURSOR_BLINK_MS = 575;
 
@@ -155,47 +160,27 @@ const placeholderText = `${longestText}_`;
   const stepDelayFor = (speed: number): number =>
     Math.max(34, Math.min(58, Math.round(speed * 0.58)));
 
-  const durationFor = (text: string, speed: number): number =>
-    Math.max(480, Math.min(860, text.length * stepDelayFor(speed) * 1.55));
-
-  const clamp01 = (value: number): number =>
-    Math.max(0, Math.min(1, value));
-
-  const easeOutCubic = (value: number): number => {
-    const progress = clamp01(value);
-    return 1 - Math.pow(1 - progress, 3);
-  };
-
   const randomFrom = (pool: string[]): string =>
-    pool[Math.floor(Math.random() * pool.length)] ?? '_';
+    pool[Math.floor(Math.random() * pool.length)] ?? '-';
 
-  const randomBetween = (min: number, max: number): number =>
-    min + Math.random() * (max - min);
-
-  const createDecodeAnimation = (text: string): DecodeAnimation => {
-    const inputChars = Array.from(new Set(text.toLowerCase().split('').filter(Boolean)));
+  const createDecodeAnimation = (text: string, step: number): DecodeAnimation => {
+    const inputChars = Array.from(
+      new Set(text.toLowerCase().split('').filter((char) => char.trim()))
+    );
     const pool = [...SCRAMBLE_CHARS, ...inputChars];
-    const glyphCount = Math.max(1, text.length);
-    const slotSpan = 0.68 / glyphCount;
-    const glyphs = Array.from(text).map((target, index): DecodeGlyph => {
-      const startAt = Math.min(0.72, index * slotSpan * 0.92 + randomBetween(0, slotSpan * 0.18));
-      const mashAt = Math.min(0.84, startAt + randomBetween(0.06, 0.1));
-      const settleDelay = index === 0 ? randomBetween(0.13, 0.18) : randomBetween(0.22, 0.32);
-      const settleAt = Math.min(0.96, startAt + settleDelay);
-      const temp = randomFrom(pool);
+    const scrambleMs = SCRAMBLE_TICKS * SCRAMBLE_MUTATION_MS;
+    const glyphs = Array.from(text).map((target, index): DecodeGlyph => ({
+      target,
+      temp: randomFrom(pool),
+      startAt: index * step,
+      // Whitespace lands instantly: a scramble char inside a space slot reads
+      // as a typo, not as decoding.
+      settleAt: index * step + (target.trim() ? scrambleMs : 0),
+      tick: -1,
+    }));
+    const lastSettleAt = glyphs.length ? glyphs[glyphs.length - 1].settleAt : 0;
 
-      return {
-        target,
-        temp,
-        previousTemp: temp,
-        placeholder: randomFrom(['-', '_']),
-        startAt,
-        mashAt,
-        settleAt,
-      };
-    });
-
-    return { text, pool, glyphs, lastMutationFrame: -1 };
+    return { text, pool, glyphs, duration: lastSettleAt + SETTLE_TAIL_MS };
   };
 
   const setupCanvas = (visual: HTMLElement, canvas: HTMLCanvasElement): CanvasState | null => {
@@ -244,8 +229,7 @@ const placeholderText = `${longestText}_`;
   const drawGlyphs = (
     state: CanvasState,
     glyphs: GlyphToken[],
-    showCursor = true,
-    cursorAlpha = 1
+    showCursor = true
   ): void => {
     const { context, width, height, font, color, baseline } = state;
 
@@ -256,24 +240,21 @@ const placeholderText = `${longestText}_`;
 
     let cursorX = 0;
     glyphs.forEach((glyph) => {
-      if (glyph.ghostChar && glyph.ghostAlpha && glyph.ghostChar !== glyph.char) {
-        context.globalAlpha = glyph.ghostAlpha;
-        context.fillText(glyph.ghostChar, cursorX, baseline);
-      }
+      const advance = context.measureText(glyph.advance).width;
+      const offset = glyph.center
+        ? (advance - context.measureText(glyph.char).width) / 2
+        : 0;
 
       context.globalAlpha = glyph.alpha;
-      context.fillText(glyph.char, cursorX, baseline);
-      cursorX += context.measureText(glyph.advance).width;
+      context.fillText(glyph.char, cursorX + offset, baseline);
+      cursorX += advance;
     });
 
-    if (!showCursor) {
-      context.globalAlpha = 1;
-      return;
-    }
-
-    context.globalAlpha = cursorAlpha;
-    context.fillText(CURSOR_CHAR, cursorX, baseline);
     context.globalAlpha = 1;
+
+    if (showCursor) {
+      context.fillText(CURSOR_CHAR, cursorX, baseline);
+    }
   };
 
   const drawWord = (state: CanvasState, word: string, showCursor = true): void => {
@@ -284,82 +265,38 @@ const placeholderText = `${longestText}_`;
     );
   };
 
-  const mutateTempChars = (
-    animation: DecodeAnimation,
-    progress: number,
-    elapsed: number
-  ): void => {
-    const mutationFrame = Math.floor(elapsed / SCRAMBLE_MUTATION_MS);
-    if (mutationFrame === animation.lastMutationFrame) return;
-
-    animation.lastMutationFrame = mutationFrame;
-
-    animation.glyphs.forEach((glyph) => {
-      if (progress < glyph.mashAt || progress >= glyph.settleAt) return;
-
-      if (Math.random() < 0.64) {
-        glyph.previousTemp = glyph.temp;
-        glyph.temp = randomFrom(animation.pool);
-      }
-    });
-  };
-
   const drawDecodeFrame = (
     state: CanvasState,
     animation: DecodeAnimation,
-    progress: number,
-    elapsed = 0
+    elapsed: number
   ): void => {
-    const { text } = animation;
-
-    if (progress >= 1) {
-      drawWord(state, text, true);
-      return;
-    }
-
     const glyphs: GlyphToken[] = [];
 
-    mutateTempChars(animation, progress, elapsed);
-
     for (const glyph of animation.glyphs) {
-      if (progress < glyph.startAt) break;
+      // Nothing past the cursor exists yet, so the cursor always trails the
+      // character being struck.
+      if (elapsed < glyph.startAt) break;
 
-      const slotProgress = clamp01((progress - glyph.startAt) / Math.max(0.001, glyph.settleAt - glyph.startAt));
-
-      if (progress >= glyph.settleAt) {
-        const settleFade = easeOutCubic((progress - glyph.settleAt) / 0.1);
-        glyphs.push({
-          char: glyph.target,
-          alpha: 0.82 + settleFade * 0.18,
-          advance: glyph.target,
-          ghostChar: glyph.temp,
-          ghostAlpha: 0.12 * (1 - settleFade),
-        });
+      if (elapsed >= glyph.settleAt) {
+        glyphs.push({ char: glyph.target, alpha: 1, advance: glyph.target });
         continue;
       }
 
-      if (progress < glyph.mashAt) {
-        glyphs.push({
-          char: glyph.placeholder,
-          alpha: 0.12 + easeOutCubic(slotProgress / 0.35) * 0.15,
-          advance: glyph.target,
-        });
-        continue;
+      const tick = Math.floor((elapsed - glyph.startAt) / SCRAMBLE_MUTATION_MS);
+      if (tick !== glyph.tick) {
+        glyph.tick = tick;
+        glyph.temp = randomFrom(animation.pool);
       }
-
-      const mashProgress = clamp01((progress - glyph.mashAt) / Math.max(0.001, glyph.settleAt - glyph.mashAt));
-      const pulse = Math.sin(mashProgress * Math.PI);
 
       glyphs.push({
         char: glyph.temp,
-        alpha: 0.24 + pulse * 0.18,
+        alpha: SCRAMBLE_ALPHA,
         advance: glyph.target,
-        ghostChar: glyph.previousTemp,
-        ghostAlpha: 0.06 + pulse * 0.05,
+        center: true,
       });
     }
 
-    drawGlyphs(state, glyphs, true, 0.5 + Math.sin(progress * Math.PI) * 0.22);
+    drawGlyphs(state, glyphs, true);
   };
 
   const cancelFrame = (root: TypewriterRoot): void => {
@@ -407,17 +344,15 @@ const placeholderText = `${longestText}_`;
     visual.classList.remove('is-typed');
     visual.classList.add('is-enhanced', 'is-typing');
 
-    const duration = durationFor(text, speed);
+    const animation = createDecodeAnimation(text, stepDelayFor(speed));
     const startedAt = performance.now();
-    const animation = createDecodeAnimation(text);
-    drawDecodeFrame(state, animation, 0.06);
+    drawDecodeFrame(state, animation, 0);
 
     const drawNext = (now: number): void => {
       const elapsed = now - startedAt;
-      const progress = Math.min(1, (now - startedAt) / duration);
-      drawDecodeFrame(state, animation, progress, elapsed);
 
-      if (progress < 1) {
+      if (elapsed < animation.duration) {
+        drawDecodeFrame(state, animation, elapsed);
         root._typewriterFrame = window.requestAnimationFrame(drawNext);
         return;
       }
