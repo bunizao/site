@@ -95,7 +95,9 @@ const brandRich = isHomeNav || brandHome;
 // The mobile menu follows the site nav and stays off chrome-hiding pages and
 // embedded specimen previews.
 const showMenu = !hideSiteNav;
-const showsBrandText = isHomeNav || isPageNav || brandHome || isDocsNav;
+// Docs show the mark alone: the bar already says `Docs` beside it, and the
+// wordmark repeated next to that is the site's name twice in 200px.
+const showsBrandText = isHomeNav || isPageNav || brandHome;
 const useHomeHeaderActions = isHomeNav || headerActionsVariant === 'home';
 const site = Astro.site ?? new URL('https://buxx.me');
 const siteName = meta.siteName;
@@ -311,8 +313,8 @@ const wordmarkFontHref = '/fonts/wenkai-wordmark.woff2';
         />
         {isDocsNav && (
           <a class="nav-docs-crumb" href="/docs">
-            <span class="nav-separator nav-separator--brand" aria-hidden="true">/</span>
-            <span>Docs</span>
+            <span class="nav-docs-rule" aria-hidden="true"></span>
+            <span class="nav-docs-label">Docs</span>
           </a>
         )}
         {!isPageNav && !isDocsNav && (

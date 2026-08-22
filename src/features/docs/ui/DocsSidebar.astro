@@ -12,6 +12,15 @@ const { groups, current } = Astro.props;
 const currentEntry = current
   ? groups.flatMap((group) => group.entries).find((entry) => entry.id === current)
   : undefined;
+
+// Docs have no page footer — the rail is the whole chrome, so the handful of
+// links out of it are pinned at its foot.
+const ELSEWHERE = [
+  { href: '/blog', label: 'Blog' },
+  { href: '/mood', label: 'Mood' },
+  { href: '/components', label: 'Components' },
+  { href: 'https://github.com/bunizao/site', label: 'Source', external: true },
+];
 ---
 
 {/* One markup tree for both breakpoints. It renders open so a no-JS or wide
@@ -38,8 +47,11 @@ const currentEntry = current
 
     <nav class="docs-nav-tree" aria-label="Docs">
       {groups.map((group) => (
-        <section class="docs-nav-group">
-          <p class="docs-nav-group-label">{group.label}</p>
+        <details class="docs-nav-group" open data-docs-group={group.label}>
+          <summary class="docs-nav-group-label">
+            <span>{group.label}</span>
+            <svg class="docs-nav-group-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+          </summary>
           <ul class="docs-nav-list">
             {group.entries.map((entry) => (
               <li>
@@ -54,9 +66,20 @@ const currentEntry = current
               </li>
             ))}
           </ul>
-        </section>
+        </details>
       ))}
     </nav>
+
+    <div class="docs-nav-foot">
+      {ELSEWHERE.map((item) => (
+        <a class="docs-nav-foot-link" href={item.href}>
+          {item.label}
+          {item.external && (
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7M9 7h8v8"/></svg>
+          )}
+        </a>
+      ))}
+    </div>
   </div>
 </details>
 
@@ -73,7 +96,33 @@ const currentEntry = current
     sync();
     wide.addEventListener('change', sync);
 
-    // Keep the active entry in view when the rail is taller than the viewport.
+    // Group collapse has to survive navigation or it is useless — docs reading is
+    // page-hopping, and a section folded away would reopen on every click.
+    const STORE = 'docs-nav-collapsed';
+    const read = (): string[] => {
+      try {
+        return JSON.parse(localStorage.getItem(STORE) ?? '[]');
+      } catch {
+        return [];
+      }
+    };
+    const collapsed = new Set(read());
+    const groups = nav.querySelectorAll<HTMLDetailsElement>('[data-docs-group]');
+    for (const group of groups) {
+      const key = group.dataset.docsGroup ?? '';
+      if (collapsed.has(key)) group.open = false;
+      group.addEventListener('toggle', () => {
+        if (group.open) collapsed.delete(key);
+        else collapsed.add(key);
+        try {
+          localStorage.setItem(STORE, JSON.stringify([...collapsed]));
+        } catch {
+          /* private mode — collapse still works, it just will not persist */
+        }
+      });
+    }
+
+    // Keep the active entry in view when the tree is taller than the rail.
     const active = nav.querySelector<HTMLElement>('[aria-current="page"]');
     if (active && wide.matches) {
       active.scrollIntoView({ block: 'nearest' });

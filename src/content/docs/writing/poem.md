@@ -9,7 +9,7 @@ Verse is written as a blockquote. The `poem` directive promotes it into a card:
 a soft rounded panel with an oversized opening quote, italic lines, stanza
 breaks, and a signature line for the attribution.
 
-```
+```md demo
 > [!poem] 雨巷
 > 撑着油纸伞，独自
 > 彷徨在悠长、悠长

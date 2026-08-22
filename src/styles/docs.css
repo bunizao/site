@@ -13,13 +13,15 @@
   --docs-line-soft: hsl(var(--foreground) / 0.06);
   --docs-surface: hsl(var(--foreground) / 0.03);
   --docs-surface-hover: hsl(var(--foreground) / 0.055);
-  /* Where the sticky rails pin, and where an anchored heading comes to rest —
-     both have to clear the fixed brand bar. */
+  /* The bar height is load-bearing twice over: the rail pins flush under it so
+     the divider runs unbroken from the chrome, and an anchored heading comes to
+     rest clear of it. */
+  --docs-bar-h: 3.25rem;
   --docs-rail-top: 4.75rem;
   --docs-anchor-offset: 5.5rem;
 
   min-height: 100vh;
-  padding: 0 0 6rem;
+  padding: 0;
   background: hsl(var(--background));
   color: hsl(var(--foreground));
   -webkit-font-smoothing: antialiased;
@@ -32,6 +34,17 @@
 body:has(.docs)::before,
 body:has(.docs) .spotlight-overlay {
   display: none;
+}
+
+/* Docs have no horizontal axis — code blocks scroll inside their own frame. A
+   two-finger swipe should therefore move nothing, including the rubber band. */
+html:has(.docs) {
+  overscroll-behavior-x: none;
+}
+
+html:has(.docs),
+body:has(.docs) {
+  overflow-x: clip;
 }
 
 /* globals.css gives every bare <section> the home page's band treatment (48px of
@@ -68,7 +81,7 @@ body:has(.docs) .spotlight-overlay {
 }
 
 .site-nav--docs .site-brand {
-  --brand-logo-height: 15px;
+  --brand-logo-height: 18px;
 }
 
 @media (min-width: 900px) {
@@ -80,30 +93,35 @@ body:has(.docs) .spotlight-overlay {
   }
 }
 
+/* mark | rule | Docs. A slash between the mark and the label reads as a path
+   segment with nothing before it; a hairline rule just separates identity from
+   section, which is all it is doing. */
 .nav-docs-crumb {
   display: inline-flex;
   align-items: center;
-  gap: 0.4rem;
-  margin-left: 0.1rem;
-  font-family: var(--font-mono);
-  font-size: 0.75rem;
-  letter-spacing: -0.005em;
-  color: hsl(var(--foreground) / 0.6);
+  gap: 0.7rem;
+  margin-left: 0.7rem;
   text-decoration: none;
+}
+
+.nav-docs-rule {
+  width: 1px;
+  height: 0.95rem;
+  background: hsl(var(--foreground) / 0.18);
+}
+
+.nav-docs-label {
+  font-family: var(--font-sans);
+  font-size: 0.875rem;
+  font-weight: 500;
+  letter-spacing: -0.011em;
+  color: hsl(var(--foreground) / 0.82);
   transition: color 0.15s ease;
 }
 
-.nav-docs-crumb:hover,
-.nav-docs-crumb:focus-visible {
+.nav-docs-crumb:hover .nav-docs-label,
+.nav-docs-crumb:focus-visible .nav-docs-label {
   color: hsl(var(--foreground));
-}
-
-/* The site separator is sized for 11px nav links; here it divides the wordmark
-   from the crumb and has to read at the same weight as both. */
-.nav-docs-crumb .nav-separator--brand {
-  margin-right: 0;
-  font-size: 0.8rem;
-  color: hsl(var(--foreground) / 0.24);
 }
 
 /* The bar is fixed and .site-shell is its sibling, so nothing pushes the page
@@ -225,36 +243,32 @@ body:has(.site-nav--docs) .global-header-actions {
 }
 
 @media (min-width: 64rem) {
-  /* Desktop: the disclosure is meaningless. Flatten it into a full-height rail
-     that scrolls on its own, so a thirty-page tree never pushes the article
-     down and the nav is still there at the bottom of a long endpoint page.
-
-     The <details> element is the scroller, not its body: Chrome slots the body
-     inside ::details-content, where a percentage height has nothing to resolve
-     against, so height: 100% there overflowed in silence and the last group in
-     the tree could not be reached. */
+  /* Desktop: the disclosure is meaningless. Flatten it into a viewport-height
+     rail pinned under the bar — search at the top, the tree scrolling between,
+     the exits at the foot. Only the middle band moves, so the rail reads as
+     chrome rather than as another column of page. */
   .docs-nav {
     position: sticky;
-    top: var(--docs-rail-top);
-    height: calc(100dvh - var(--docs-rail-top));
+    top: var(--docs-bar-h);
+    height: calc(100dvh - var(--docs-bar-h));
+    display: flex;
+    flex-direction: column;
     padding-right: 1.25rem;
     border-radius: 0;
     background: none;
     box-shadow: none;
     border-right: 1px solid var(--docs-line-soft);
-    overflow-y: auto;
-    overscroll-behavior: contain;
-    scrollbar-width: thin;
-    scrollbar-color: hsl(var(--foreground) / 0.16) transparent;
   }
 
-  .docs-nav::-webkit-scrollbar {
-    width: 6px;
-  }
-
-  .docs-nav::-webkit-scrollbar-thumb {
-    border-radius: 3px;
-    background: hsl(var(--foreground) / 0.16);
+  /* Chrome slots the body into ::details-content, so there that pseudo is the
+     flex item and .docs-nav-body is its child; elsewhere the body is the item
+     directly. One rule covering both keeps the column upright either way. */
+  .docs-nav::details-content,
+  .docs-nav-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
   }
 
   .docs-nav-summary {
@@ -262,7 +276,26 @@ body:has(.site-nav--docs) .global-header-actions {
   }
 
   .docs-nav-body {
-    padding: 0 0 2.5rem;
+    padding: 1.15rem 0 0;
+  }
+
+  .docs-nav-tree {
+    flex: 1 1 auto;
+    min-height: 0;
+    padding-bottom: 0.9rem;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--foreground) / 0.16) transparent;
+  }
+
+  .docs-nav-tree::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  .docs-nav-tree::-webkit-scrollbar-thumb {
+    border-radius: 3px;
+    background: hsl(var(--foreground) / 0.16);
   }
 }
 
@@ -309,18 +342,95 @@ body:has(.site-nav--docs) .global-header-actions {
 }
 
 .docs-nav-group + .docs-nav-group {
-  margin-top: 1.35rem;
+  margin-top: 1.1rem;
 }
 
+/* Each group folds. Thirty-three pages in five sections is more than a rail can
+   hold at once, and the reader working through Writing does not need Platform
+   expanded under it. */
 .docs-nav-group-label {
-  margin: 0 0 0.45rem;
-  padding-left: 0.6rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin: 0 0 0.3rem;
+  padding: 0.22rem 0.6rem;
+  border-radius: 0.4rem;
+  cursor: pointer;
+  list-style: none;
   font-family: var(--font-mono);
   font-size: 0.66rem;
   font-weight: 400;
   letter-spacing: 0.11em;
   text-transform: uppercase;
   color: var(--ink-faint);
+  transition: color 0.15s ease, background-color 0.15s ease;
+}
+
+.docs-nav-group-label::-webkit-details-marker {
+  display: none;
+}
+
+.docs-nav-group-label:hover,
+.docs-nav-group-label:focus-visible {
+  color: var(--ink-strong);
+  background: var(--docs-surface);
+}
+
+/* Always visible, never loud: a fold with no mark is a disclosure the reader
+   cannot see. */
+.docs-nav-group-chevron {
+  flex: none;
+  opacity: 0.5;
+  rotate: -90deg;
+  transition: rotate 0.18s cubic-bezier(0.2, 0, 0, 1), opacity 0.15s ease;
+}
+
+.docs-nav-group[open] > .docs-nav-group-label .docs-nav-group-chevron {
+  rotate: 0deg;
+}
+
+.docs-nav-group-label:hover .docs-nav-group-chevron {
+  opacity: 1;
+}
+
+/* --- Rail foot ---------------------------------------------------------- */
+/* Docs drop the site footer: a rail this tall makes the page end twice. The
+   handful of ways out live here instead, pinned where Linear puts them. */
+.docs-nav-foot {
+  display: flex;
+  flex-direction: column;
+  padding: 0.55rem 0 0.85rem;
+  /* Opaque, and on the full line rather than the soft one: the tree scrolls
+     under this block, and half its entries share names with the Surfaces group
+     that lands directly above it. A faint hairline was not enough to tell the
+     two apart. */
+  border-top: 1px solid var(--docs-line);
+  background: hsl(var(--background));
+}
+
+.docs-nav-foot-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.26rem 0.6rem;
+  border-radius: 0.4rem;
+  font-family: var(--font-sans);
+  font-size: 0.78rem;
+  letter-spacing: -0.006em;
+  color: hsl(var(--foreground) / 0.44);
+  text-decoration: none;
+  transition: color 0.15s ease, background-color 0.15s ease;
+}
+
+.docs-nav-foot-link:hover,
+.docs-nav-foot-link:focus-visible {
+  color: hsl(var(--foreground));
+  background: var(--docs-surface);
+}
+
+.docs-nav-foot-link svg {
+  opacity: 0.55;
 }
 
 .docs-nav-list {
@@ -442,6 +552,7 @@ body:has(.site-nav--docs) .global-header-actions {
 .docs-article {
   min-width: 0;
   padding-top: 2.5rem;
+  padding-bottom: 5rem;
 }
 
 @media (max-width: 63.99rem) {
@@ -686,22 +797,155 @@ body:has(.site-nav--docs) .global-header-actions {
   overflow-wrap: break-word;
 }
 
+/* Every fence is framed: a header strip carrying the language and a copy
+   button, the code under it, and — for a `demo` fence — the rendered result
+   below that. The three are siblings, joined here rather than wrapped, so the
+   markdown plugin stays two insertions long. Borders, not rings: the seam
+   between the parts is structure, and one shared line reads cleaner than two
+   inset rings meeting. */
+.docs-code-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  height: 2.15rem;
+  padding: 0 0.35rem 0 0.85rem;
+  border: 1px solid var(--docs-line);
+  border-bottom: 0;
+  border-radius: 0.6rem 0.6rem 0 0;
+  background: var(--docs-surface);
+}
+
+.docs-code-lang {
+  font-family: var(--font-code);
+  font-size: 0.7rem;
+  letter-spacing: 0.02em;
+  color: var(--ink-faint);
+}
+
+/* Concentric: the frame's 0.6rem minus the 0.35rem of padding beside it. */
+.docs-code-copy {
+  padding: 0.22rem 0.45rem;
+  border: 0;
+  border-radius: 0.25rem;
+  background: none;
+  cursor: pointer;
+  font-family: var(--font-code);
+  font-size: 0.7rem;
+  letter-spacing: 0.02em;
+  color: var(--ink-faint);
+  transition: color 0.12s ease, background-color 0.12s ease, scale 0.12s ease;
+}
+
+.docs-code-copy:hover,
+.docs-code-copy:focus-visible {
+  background: hsl(var(--foreground) / 0.06);
+  color: var(--ink-strong);
+}
+
+.docs-code-copy:active {
+  scale: 0.96;
+}
+
+.docs-code-copy[data-copied] {
+  color: var(--ink-strong);
+}
+
 .docs-prose pre.astro-code {
   margin: 0 0 1.5rem;
   padding: 0.9rem 1.05rem;
-  border-radius: 0.6rem;
+  border: 1px solid var(--docs-line);
+  border-radius: 0 0 0.6rem 0.6rem;
   background: var(--docs-surface) !important;
-  box-shadow: inset 0 0 0 1px var(--docs-line-soft);
   overflow-x: auto;
   font-size: 0.8125rem;
   line-height: 1.62;
   tab-size: 2;
+  /* The OS scrollbar is 15px of opaque grey sitting under every fence, which
+     reads as a progress bar rather than an affordance. Same thin treatment the
+     rail uses. */
+  scrollbar-width: thin;
+  scrollbar-color: hsl(var(--foreground) / 0.18) transparent;
+}
+
+.docs-prose pre.astro-code::-webkit-scrollbar {
+  height: 6px;
+}
+
+.docs-prose pre.astro-code::-webkit-scrollbar-thumb {
+  border-radius: 3px;
+  background: hsl(var(--foreground) / 0.18);
+}
+
+.docs-prose pre.astro-code::-webkit-scrollbar-track {
+  background: transparent;
 }
 
 .docs-prose pre.astro-code code {
   font-family: var(--font-code);
   background: none;
   padding: 0;
+}
+
+/* --- Demos -------------------------------------------------------------- */
+/* A `demo` fence renders its own snippet through the directive pipeline and
+   shows the result attached under the source, so the page proves the syntax
+   instead of describing it. */
+.docs-prose pre.astro-code:has(+ .docs-demo) {
+  margin-bottom: 0;
+  border-radius: 0;
+}
+
+.docs-demo {
+  max-width: 44rem;
+  margin: 0 0 1.5rem;
+  border: 1px solid var(--docs-line);
+  border-top: 0;
+  border-radius: 0 0 0.6rem 0.6rem;
+  overflow: hidden;
+}
+
+.docs-demo-label {
+  display: flex;
+  align-items: center;
+  height: 2.15rem;
+  padding: 0 0.85rem;
+  border-bottom: 1px solid var(--docs-line);
+  background: var(--docs-surface);
+  font-family: var(--font-code);
+  font-size: 0.7rem;
+  letter-spacing: 0.02em;
+  color: var(--ink-faint);
+}
+
+.docs-demo-render {
+  /* blog-prose.css reads its palette off .blog-zone, which docs are not in.
+     Seed the tokens it touches so the card looks exactly as it does in a post. */
+  --blog-ink: hsl(var(--foreground));
+  --blog-body: hsl(var(--foreground) / 0.78);
+  --blog-muted: hsl(var(--foreground) / 0.58);
+  --blog-faint: hsl(var(--foreground) / 0.42);
+  --blog-line: hsl(var(--foreground) / 0.1);
+  --blog-img-edge: inset 0 0 0 1px rgba(0, 0, 0, 0.1);
+
+  max-width: 36rem;
+  margin-inline: auto;
+  padding: 0.35rem 1.05rem;
+  color: var(--blog-body);
+}
+
+html.dark .docs-demo-render {
+  --blog-img-edge: inset 0 0 0 1px rgba(255, 255, 255, 0.1);
+}
+
+/* The cards carry a post's vertical rhythm; inside a demo frame the frame owns
+   the spacing. */
+.docs-demo-render > :first-child {
+  margin-top: 0;
+}
+
+.docs-demo-render > :last-child {
+  margin-bottom: 0;
 }
 
 /* Dual-theme fences. shikiConfig runs with `defaultColor: false`, so tokens ship

@@ -2,7 +2,10 @@ import { defineConfig } from 'astro/config';
 import { fileURLToPath } from 'node:url';
 import react from '@astrojs/react';
 import cloudflare from '@astrojs/cloudflare';
+import { satteri } from '@astrojs/markdown-satteri';
 import sitemap from '@astrojs/sitemap';
+
+import { docsCodePlugin } from './src/features/docs/server/markdown-plugin.ts';
 
 const isCoverageEnabled = process.env.COVERAGE === '1';
 const isE2EStrictPort = process.env.ASTRO_E2E_STRICT_PORT === '1';
@@ -60,6 +63,9 @@ if (isCoverageEnabled) {
 
 export default defineConfig({
   markdown: {
+    // Docs fences carry a header strip and, when tagged `demo`, a slot the
+    // docs route fills with the rendered snippet. No-ops elsewhere.
+    processor: satteri({ mdastPlugins: [docsCodePlugin] }),
     // Dual-theme fences so markdown code blocks follow the site theme instead of
     // painting one fixed palette. `defaultColor: false` emits --shiki-light /
     // --shiki-dark custom properties rather than inline colors; the CSS picks a
