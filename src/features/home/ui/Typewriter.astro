@@ -141,6 +141,13 @@ const placeholderText = `${longestText}_`;
   // Backspacing is brisker than typing, the way it is on a real keyboard:
   // one deliberate press per character going in, a held key coming out.
   const BACKSPACE_RATIO = 0.45;
+  // A struck slot shows a quiet underscore for one beat before it inks. This is
+  // soulwire's cursor band -- the calm stretch his decode runs between the show
+  // and mash fronts -- rather than a scramble: one stable glyph that sits on the
+  // baseline, carries little ink and can never be misread as a letter.
+  const LANDING_CHAR = '_';
+  const LANDING_ALPHA = 0.38;
+  const LANDING_BEATS = 1;
 
   const prefersReducedMotion = (): boolean =>
     window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
@@ -202,18 +209,36 @@ const placeholderText = `${longestText}_`;
     };
   };
 
-  /** Paints the struck characters and returns where the caret should sit. */
-  const drawText = (state: CanvasState, text: string): number => {
+  interface Glyph {
+    char: string;
+    alpha: number;
+    /** Layout width always comes from the final character, so nothing reflows. */
+    advance: string;
+  }
+
+  /** Paints the glyphs and returns where the caret should sit. */
+  const drawGlyphs = (state: CanvasState, glyphs: Glyph[]): number => {
     const { context, width, height, font, color, baseline } = state;
 
     context.clearRect(0, 0, width, height);
     context.font = font;
     context.fillStyle = color;
     context.textBaseline = 'alphabetic';
-    context.fillText(text, 0, baseline);
 
-    return context.measureText(text).width;
+    let x = 0;
+    for (const glyph of glyphs) {
+      const advance = context.measureText(glyph.advance).width;
+      context.globalAlpha = glyph.alpha;
+      context.fillText(glyph.char, x, baseline);
+      x += advance;
+    }
+
+    context.globalAlpha = 1;
+    return x;
   };
+
+  const drawText = (state: CanvasState, text: string): number =>
+    drawGlyphs(state, Array.from(text).map((char) => ({ char, alpha: 1, advance: char })));
 
   const placeCaret = (caret: HTMLElement, x: number): void => {
     caret.style.transform = `translateX(${x}px)`;
@@ -284,21 +309,27 @@ const placeholderText = `${longestText}_`;
       const chars = Array.from(text);
       const direction = to > from ? 1 : -1;
       const steps = Math.abs(to - from);
+      // Only ink on the way in. Erasing a character through a landing glyph
+      // would read as a typo being fixed, not as the name being taken back.
+      const landingMs = direction > 0 ? stepMs * LANDING_BEATS : 0;
       const startedAt = performance.now();
-      let shown = -1;
 
       const drawNext = (now: number): void => {
         // The beat is absolute rather than a share of the word, so "Tutu"
         // types at exactly the pace of "Collapsar".
-        const step = Math.min(steps, Math.floor((now - startedAt) / stepMs));
+        const elapsed = now - startedAt;
+        const step = Math.min(steps, Math.floor(elapsed / stepMs));
         const next = from + direction * step;
 
-        if (next !== shown) {
-          shown = next;
-          placeCaret(caret, drawText(state, chars.slice(0, next).join('')));
-        }
+        placeCaret(caret, drawGlyphs(state, chars.slice(0, next).map((char, index) => {
+          const struckAt = (index - from + 1) * stepMs;
+          return elapsed - struckAt < landingMs
+            ? { char: LANDING_CHAR, alpha: LANDING_ALPHA, advance: char }
+            : { char, alpha: 1, advance: char };
+        })));
 
-        if (step < steps) {
+        // The last character still owes its landing beat once the walk is done.
+        if (step < steps || elapsed < steps * stepMs + landingMs) {
           root._typewriterFrame = window.requestAnimationFrame(drawNext);
           return;
         }
