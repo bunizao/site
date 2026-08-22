@@ -2,7 +2,8 @@
 
 Reader-facing comments and reactions on `/blog/[slug]`. Participation requires
 an identity — GitHub, Google, or an email magic link. Avatars come from Gravatar
-through our own proxy, moderation is done by a model, and the commenter chooses
+through our own proxy, moderation is split between a free safety classifier and
+a small spam model, and the commenter chooses
 whether each comment they write appears in the public comment section.
 
 This is a plan, not an implementation.
@@ -83,6 +84,7 @@ Nothing here needs inventing:
 | One-time-use token table | The `jti` PK + `token_hash` UNIQUE + `expires_at` + `consumed_at` shape from `0008_email_change_requests.sql` |
 | Email delivery | Resend, via `notify/server/resend.ts` and `templates.ts` |
 | **Model calls** | `features/mood/server/mood-sentiment.ts` — `@ai-sdk/openai` + `generateText` with `Output.object({ schema })`, `temperature: 0`, `AI_API_KEY` / `AI_BASE_URL`, and a primary/fallback model pair |
+| **Moderation endpoint** | `AI_BASE_URL` is a plain var in `site-api/wrangler.jsonc` set to `https://api.openai.com/v1`, so `POST /v1/moderations` (`omni-moderation-latest`, free) is already reachable on the existing key |
 | **Model config** | `mood-ai-config.ts` — `MoodAiConfig` (`primary` + `fallback`) stored in KV under `mood:ai:config`, editable from the admin portal without a deploy |
 | Bot defence | `site-api` `src/lib/security/turnstile.ts` — `verifyTurnstileToken({ expectedAction })`. `/blog/[slug].astro` already receives `turnstileSiteKey` for the subscribe panel, so the client key is plumbed |
 | Rate limiting | `withDurableRateLimit` from `src/lib/http/rate-limited.ts`, backed by `RateLimitDO`. Note the sibling `withRateLimit` is observability-only and does not block — a spam-prone write path needs the durable variant |
@@ -141,6 +143,28 @@ both providers identically; there is no per-provider exception.
 Each provider gets its own reader-scoped OAuth application and its own secret
 pair, distinct from the admin app's credentials. The callback lands on
 `site-api`, which mints the reader session and 302s back to the post.
+
+### Display name: the reader types it
+
+The reader chooses their own display name. Not the OAuth profile name, not the
+email local-part, not a derived handle — asked for once, on the first write,
+in a single field beside the compose box, and editable afterwards from
+`/subscribe/manage`.
+
+OAuth does hand us a name, and using it silently would save a field. It would
+also publish whatever someone's GitHub profile happens to say next to their
+comment on a stranger's blog, which is a disclosure they never agreed to. An
+explicit field is one input and removes the whole question.
+
+Rules: 1–32 characters, trimmed, no newlines or control characters, rendered
+escaped like any other reader content. Uniqueness is **not** enforced — this is
+a comment section, not a username registry, and the avatar plus the owner's view
+of the underlying account are enough to tell two 张三 apart. Blocking names that
+impersonate the site owner is the one exception worth a check.
+
+The name is required before the first comment *or* the first reaction, since a
+reaction puts the reader in the public avatar stack. Nothing else about the
+reader is ever shown.
 
 ### Auth flow for comments: hold the draft, then verify
 
@@ -319,44 +343,100 @@ One level. `parent_id` is nullable and must point at a root comment. Deeper
 nesting is a recursive read, an unbounded indent on a 720px measure, and a
 mobile layout problem, for a conversation volume that will not need it.
 
-### Moderation: the model decides, the owner is told
+### Moderation: two axes, two classifiers
 
-Every comment is classified by a model before it becomes visible, on the
-verify/publish path — not at draft time, so unverified spam costs zero tokens.
+Every comment is classified before it becomes visible, on the verify/publish
+path — not at draft time, so unverified spam costs zero tokens.
 
-Implementation reuses `mood-sentiment.ts` wholesale: `@ai-sdk/openai` with
-`Output.object({ schema })`, `temperature: 0`, the same `AI_API_KEY` /
-`AI_BASE_URL` secrets, and the same primary→fallback retry. Config follows
-`mood-ai-config.ts` with a sibling KV key `comments:ai:config`, so the
-moderation model can be swapped from the admin portal without a deploy. The
-prompt must be explicitly bilingual — this is a Chinese-primary publication and
-a model prompted only in English will mis-score Chinese spam.
+**The thing to get right first: safety and spam are different problems, and the
+purpose-built moderation models only solve one of them.** Every dedicated guard
+model — OpenAI's `omni-moderation-latest`, Meta's Llama Guard 3, Google's
+ShieldGemma, Mistral's Shieldstral, Alibaba's Qwen3Guard — is trained against a
+*harm* taxonomy: hate, violence, sexual content, self-harm, illicit activity.
+**Spam is not a category in any of them.** A comment reading
+"好文章！我的网站有便宜代购 example.com" is perfectly safe by every one of those
+taxonomies and is exactly the thing that will actually show up here. So a single
+guard model would be the wrong tool used confidently, which is worse than no
+tool.
 
-The classifier returns a small fixed object:
+The two axes get one classifier each, run concurrently in a `Promise.all`, so
+the second one is effectively free in wall-clock terms:
+
+**Axis 1 — harm: `omni-moderation-latest`.** OpenAI's moderation endpoint is
+free, roughly 20ms, multilingual, and reachable on the credentials already in
+the worker: `AI_BASE_URL` is a plain var in `site-api/wrangler.jsonc` set to
+`https://api.openai.com/v1`, so `POST /v1/moderations` needs no new secret, no
+new vendor, and no new binding. It returns 13 independently-scored categories
+with per-category thresholds we choose. There is no reason not to have this.
+
+**Axis 2 — spam: a small general model with a spam prompt.** This is the axis
+that needs judgement rather than a taxonomy, and it is where the small-model
+instinct is right: classification is a much easier task than the `gpt-5.5` /
+`gpt-5` pair the mood sentiment path uses, and a nano/mini-class model does it
+at a fraction of the cost and latency. Structurally it is `mood-sentiment.ts`
+copied: `@ai-sdk/openai`, `Output.object({ schema })`, `temperature: 0`, the
+same primary→fallback retry. Config follows `mood-ai-config.ts` with a sibling
+KV key `comments:ai:config`, so the model can be swapped from the admin portal
+without a deploy.
+
+The prompt must be explicitly bilingual. This is a Chinese-primary publication,
+and Chinese support is the axis on which the off-the-shelf options actually
+differ: Llama Guard 3 covers eight languages and **Chinese is not one of them**,
+which rules out `@cf/meta/llama-guard-3-8b` on Workers AI despite it being the
+most convenient thing on our own platform. `omni-moderation-latest` is
+GPT-4o-derived and handles Chinese; a general small model handles it natively.
+
+The spam classifier returns a small fixed object:
 
 ```ts
 {
   action: 'publish' | 'hold' | 'reject',
-  reason: 'ok' | 'spam' | 'abuse' | 'off_topic' | 'personal_info' | 'unsure',
+  reason: 'ok' | 'spam' | 'promotional' | 'off_topic' | 'personal_info' | 'unsure',
   confidence: number,  // 0..1
 }
 ```
 
-Policy:
+Policy, merging both axes (the stricter verdict wins):
 
-| Verdict | Result |
+| Signal | Result |
 | --- | --- |
-| `publish`, confidence ≥ 0.8 | Published immediately |
-| `hold`, or any verdict under 0.8 | `status = 'held'`, invisible publicly, owner notified |
-| `reject`, confidence ≥ 0.9 | `status = 'rejected'`, owner notified, not silently dropped |
-| Model error, timeout, or missing key | `status = 'held'` — **fail closed** |
+| Harm score over threshold in any category | `status = 'rejected'`, owner notified |
+| Spam `publish`, confidence ≥ 0.8, harm clean | Published immediately |
+| Spam `hold`, or any verdict under 0.8 | `status = 'held'`, invisible publicly, owner notified |
+| Spam `reject`, confidence ≥ 0.9 | `status = 'rejected'`, owner notified, not silently dropped |
+| Either call errors, times out, or the key is missing | `status = 'held'` — **fail closed** |
 
 Fail-closed is the call: a held comment costs the reader a delay and the owner a
 tap; a published one costs a spam link on the site until someone notices. With a
 personal blog's volume, the hold queue will be nearly empty in normal operation,
-so the cost of the safe default is close to zero. The model call is wrapped in a
-short timeout (3s) so a slow provider degrades into "held" rather than a hung
-request.
+so the safe default costs close to nothing. Both calls are wrapped in a 3s
+timeout so a slow provider degrades into "held" rather than a hung request.
+
+**Considered and rejected:**
+
+- **Akismet.** The genuinely purpose-built blog-comment spam service, and the
+  only option with cross-site signal — it knows an address spammed ten thousand
+  other blogs this morning, which no local model can. Rejected on two grounds.
+  First, its free tier is personal-and-non-commercial only, and the
+  disqualifier list includes ads, affiliate links, and donations, so it is a
+  licence question rather than a technical one. Second and decisively: it means
+  posting every commenter's IP, email, and comment text to Automattic — the
+  exact leak the avatar section refuses to accept from hotlinked Gravatar. Being
+  inconsistent about that would be worse than having no rule.
+- **`@cf/meta/llama-guard-3-8b` on Workers AI.** Same platform, an `AI` binding
+  instead of an HTTP call, 10k free neurons a day. No Chinese, and no spam
+  category. Two disqualifiers.
+- **Qwen3Guard-Gen-0.6B.** The most interesting of the small guard models: 119
+  languages, explicitly benchmarked on Chinese, and the 0.6B reportedly rivals
+  guard models ten times its size. Still a harm-only taxonomy with no spam
+  category, and self-hosting it means a GPU or a new vendor. Worth revisiting
+  only if `omni-moderation` turns out to be the weak link on Chinese harm
+  detection — it is the right fallback for that specific failure, not a
+  replacement for the spam axis.
+- **A single larger general model doing both axes in one call.** One fewer
+  request, but it pays a general model's price for the harm axis that
+  `omni-moderation` does for free and better, and it collapses two independently
+  tunable thresholds into one prompt.
 
 The reader is always told the truth about what happened — "published",
 "under review", or "not accepted" — never shadow-banned into thinking their
@@ -371,8 +451,8 @@ private.
 Human override lives in the admin portal: a moderation queue listing held and
 rejected comments with publish / reject / ban-reader actions. A misclassified
 comment is fixed there. Marking a reader `banned` blocks all future writes;
-there is no trust tier beyond that, because the model re-screens every comment
-regardless of who wrote it.
+there is no trust tier beyond that, because both classifiers re-screen every
+comment regardless of who wrote it.
 
 ### Notifications
 
@@ -507,13 +587,17 @@ reply notifications.
    and Google behind one small provider interface — state parameter with PKCE,
    verified-email lookup, reader upsert, session mint, redirect back. Reader
    apps and secrets are distinct from the admin ones. (L)
-6. `features/comments/server/moderation.ts`: the classifier. Mirrors
-   `mood-sentiment.ts` structurally — zod schema, `Output.object`,
-   `temperature: 0`, primary/fallback — plus a 3s timeout and the fail-closed
-   policy table. Injectable `generate` dependency so tests never hit the network,
-   exactly as `MoodSentimentGenerate` does. (M)
-7. `features/comments/server/comments-ai-config.ts`: KV-backed model config
-   under `comments:ai:config`, cloned from `mood-ai-config.ts`. (S)
+6. `features/comments/server/moderation.ts`: both classifiers behind one
+   `moderate(text)` call. Axis 1 is a plain `fetch` to `POST /v1/moderations`
+   with `omni-moderation-latest` — no SDK needed, free, per-category thresholds
+   in one constant. Axis 2 mirrors `mood-sentiment.ts` structurally — zod
+   schema, `Output.object`, `temperature: 0`, primary/fallback. Both run in a
+   `Promise.all` under a 3s timeout, and the merge applies the fail-closed
+   policy table. Injectable dependencies for both calls so tests never hit the
+   network, exactly as `MoodSentimentGenerate` does. (M)
+7. `features/comments/server/comments-ai-config.ts`: KV-backed spam-model config
+   under `comments:ai:config`, cloned from `mood-ai-config.ts`. Defaults to a
+   nano/mini-class model, not the `gpt-5.5` / `gpt-5` sentiment pair. (S)
 8. `features/comments/server/service.ts`: submit, verify, list, delete, change
    visibility, toggle reaction. (L)
 9. Route files under `src/pages/v2/blog/`, each `export const prerender = false`
@@ -543,7 +627,8 @@ reply notifications.
     marked `data-pagefind-ignore`. (XS)
 18. `src/pages/static/[...path].ts`: allow the `avatar/<reader_id>` family. (S)
 19. `/subscribe/manage`: "my comments" section. (M)
-20. `src/content/pages/privacy.md` update, including the model processor. (S)
+20. `src/content/pages/privacy.md` update, including OpenAI as a processor for
+    comment text on both the moderation and spam-classifier calls. (S)
 21. Docs, all in the published collection: amend
     `src/content/docs/surfaces/blog.md` with the `xia` exception, note the reader
     OAuth apps in `src/content/docs/platform/auth.md`, extend
@@ -576,7 +661,8 @@ In `site-api`: `scripts/sql/migrations/0011_blog_comments.sql`,
   lowering the publish-confidence threshold in KV config, which turns the system
   into a pure moderation queue without a deploy.
 - **The model is a new runtime dependency on the write path.** A provider
-  outage becomes "every comment is held". Mitigated by the primary→fallback
+  outage becomes "every comment is held". Both axes hit the same vendor, so
+  there is no independence to bank on — the mitigation is the primary→fallback
   pair, the 3s timeout, and the fact that held is a recoverable state the owner
   is notified about — but it is worth watching the held rate as a health signal,
   not just the error rate.
@@ -630,7 +716,9 @@ In `site-api`: `scripts/sql/migrations/0011_blog_comments.sql`,
 Recorded so they are not relitigated:
 
 1. **No anonymous participation.** Reading is open; writing requires a session.
-2. **The model moderates.** Fail closed on error or low confidence.
+2. **Moderation is two classifiers, not one.** Free `omni-moderation-latest` for
+   harm, a small general model for spam, run concurrently. Fail closed on error
+   or low confidence.
 3. **`ops-bot` notifies only.** Moderation actions live in the admin portal.
 4. **Both GitHub and Google.** Reader-scoped apps, verified-email auto-link
    required for both.
@@ -638,16 +726,14 @@ Recorded so they are not relitigated:
    reaction-only scope.
 6. **Public vs private is the writer's own choice** about their own comment's
    place in the public comment section.
+7. **Readers type their own display name.** Never derived from the OAuth profile
+   or the email address.
 
 ## Open decisions
 
 Small, and none of them block starting Phase 1.
 
-1. **Display names.** OAuth gives us one. An email-only reader has nothing to
-   show in the avatar stack or comment header. Ask for a display name at first
-   comment, derive one from the email local-part, or show "Reader" with just the
-   avatar? My call: ask once, at first write, with the local-part prefilled.
-2. **Reaction attribution.** The avatar stack publishes who reacted. That is the
+1. **Reaction attribution.** The avatar stack publishes who reacted. That is the
    point of the feature, but it is a disclosure a reader might not expect from
    clicking a heart. My call: state it on the sign-in prompt ("your avatar will
    appear"), and no opt-out — an opt-out produces an incomplete stack that reads
@@ -659,10 +745,18 @@ Small, and none of them block starting Phase 1.
    and audit trail, or purge after 30 days? My call: 30 days, then hard delete,
    because a rejected comment is somebody's personal data we have no reason to
    keep.
-5. **Moderation model choice.** `comments:ai:config` defaults to the same
-   `gpt-5.5` / `gpt-5` pair as mood sentiment. Classification is a cheaper task
-   than it needs; a smaller default would cut cost and latency. Easy to change
-   in KV later, so this is a starting value, not a commitment.
+5. **Harm-category thresholds.** `omni-moderation-latest` returns 13
+   independently-scored categories and we pick the cut-off for each. A blog
+   comment section does not need the same bar as a chat product — `harassment`
+   matters, `violence/graphic` on a post about a war documentary probably does
+   not. Needs one pass of tuning against real comments rather than a guess up
+   front; start permissive on the descriptive categories and strict on the
+   directed-at-a-person ones.
+6. **Spam-model default.** `comments:ai:config` should start at a nano/mini-class
+   model rather than the `gpt-5.5` / `gpt-5` sentiment pair, but which one is
+   worth a quick bake-off on twenty real Chinese comments before it is written
+   into the default. Easy to change in KV later, so this is a starting value,
+   not a commitment.
 
 ## Dependencies
 
