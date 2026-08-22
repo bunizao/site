@@ -134,6 +134,10 @@ const placeholderText = `${longestText}_`;
   }
 
   const HERO_NAME_READY_EVENT = 'home:hero-name-ready';
+  // Announced once the first name is fully struck. The hero sequence keys its
+  // next stage off this rather than a guessed offset, so retuning the beat
+  // cannot desynchronise the page.
+  const HERO_NAME_TYPED_EVENT = 'home:hero-name-typed';
   const FALLBACK_START_MS = 1100;
   const DEFAULT_KEYSTROKE_MS = 90;
   const MIN_KEYSTROKE_MS = 40;
@@ -341,6 +345,8 @@ const placeholderText = `${longestText}_`;
       drawNext(startedAt);
     };
 
+    let announced = false;
+
     const playName = (): void => {
       const text = texts[index];
       const length = Array.from(text).length;
@@ -350,6 +356,11 @@ const placeholderText = `${longestText}_`;
       visual.classList.add('is-enhanced');
 
       animate(text, 0, length, keystrokeMs, () => {
+        if (!announced) {
+          announced = true;
+          window.dispatchEvent(new CustomEvent(HERO_NAME_TYPED_EVENT));
+        }
+
         if (texts.length < 2) return;
 
         // Let the finished name sit before the carriage takes it back.
