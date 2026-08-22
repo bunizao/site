@@ -1,0 +1,321 @@
+/* Docs-only search dialog (DocsSearch.astro). A <dialog> shown via
+   showModal() is promoted to the top layer, so it sits outside the DOM
+   subtree `.docs` styles it from in docs.css. --foreground/--background/
+   --muted-foreground live on :root and still cascade fine (proven already by
+   CommandPalette's .cmdk), but the .docs-only tokens (--ink-*, --docs-*) do
+   not — they are redeclared here rather than assumed inherited. */
+
+.docs-search {
+  --ink-strong: hsl(var(--foreground) / 0.94);
+  --ink-body: hsl(var(--foreground) / 0.66);
+  --ink-faint: hsl(var(--foreground) / 0.5);
+  --docs-line: hsl(var(--foreground) / 0.1);
+  --docs-line-soft: hsl(var(--foreground) / 0.06);
+  --docs-surface: hsl(var(--foreground) / 0.03);
+  --docs-surface-hover: hsl(var(--foreground) / 0.055);
+
+  /* Alignment contract, same idea as .cmdk: one left edge for input, group
+     labels, rows and footer; rows inset by (pad-x - list-pad) so icons line
+     up under the input icon. */
+  --ds-pad-x: 14px;
+  --ds-list-pad: 6px;
+
+  width: min(560px, calc(100vw - 32px));
+  margin-top: 12vh;
+  margin-inline: auto;
+  padding: 0;
+  border: 1px solid var(--docs-line);
+  border-radius: 14px;
+  background: hsl(var(--background));
+  color: hsl(var(--foreground));
+  box-shadow:
+    0 0 0 1px hsl(var(--foreground) / 0.04),
+    0 1px 2px rgb(0 0 0 / 0.04),
+    0 10px 28px -12px rgb(0 0 0 / 0.14),
+    0 28px 64px -28px rgb(0 0 0 / 0.3);
+  overflow: hidden;
+  outline: none;
+  font-family: var(--font-sans);
+}
+.dark .docs-search {
+  border-color: hsl(var(--foreground) / 0.12);
+  box-shadow:
+    0 0 0 1px hsl(var(--foreground) / 0.06),
+    0 2px 4px -1px rgb(0 0 0 / 0.4),
+    0 12px 32px -8px rgb(0 0 0 / 0.5),
+    0 32px 72px -24px rgb(0 0 0 / 0.7);
+}
+.docs-search::backdrop {
+  background: rgb(0 0 0 / 0.4);
+  -webkit-backdrop-filter: blur(3px);
+  backdrop-filter: blur(3px);
+}
+
+.docs-search-input-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 13px var(--ds-pad-x);
+  border-bottom: 1px solid var(--docs-line-soft);
+}
+.docs-search-input-icon {
+  flex-shrink: 0;
+  color: var(--ink-faint);
+}
+.docs-search-input-row input {
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border: none;
+  outline: none;
+  font-family: inherit;
+  font-size: 16px; /* keeps iOS from zooming the field on focus */
+  color: hsl(var(--foreground));
+}
+.docs-search-input-row input::placeholder {
+  color: var(--ink-faint);
+}
+.docs-search-close {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+  border: none;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--ink-faint);
+  cursor: pointer;
+  transition: color 150ms ease, background 150ms ease, scale 120ms ease;
+}
+.docs-search-close::before {
+  content: '';
+  position: absolute;
+  inset: -7px; /* keeps the tap target at 40x40 without growing the glyph */
+}
+@media (hover: hover) and (pointer: fine) {
+  .docs-search-close:hover {
+    color: hsl(var(--foreground));
+    background: var(--docs-surface);
+  }
+}
+.docs-search-close:active {
+  scale: 0.94;
+}
+.docs-search-close:focus-visible {
+  outline: 2px solid hsl(var(--foreground) / 0.4);
+  outline-offset: 1px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .docs-search-close:active {
+    scale: 1;
+  }
+}
+
+.docs-search-body {
+  position: relative;
+}
+
+.docs-search-status {
+  margin: 0;
+  padding: 12px var(--ds-pad-x);
+  font-size: 13px;
+  color: var(--ink-faint);
+}
+.docs-search-status[hidden] {
+  display: none;
+}
+
+.docs-search-list {
+  max-height: min(392px, 56vh);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: var(--ds-list-pad);
+  scrollbar-width: thin;
+  scrollbar-color: hsl(var(--foreground) / 0.16) transparent;
+}
+.docs-search-list::-webkit-scrollbar {
+  width: 10px;
+}
+.docs-search-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+.docs-search-list::-webkit-scrollbar-thumb {
+  background: hsl(var(--foreground) / 0.14);
+  border-radius: 99px;
+  border: 3px solid transparent;
+  background-clip: padding-box;
+}
+
+.docs-search-group + .docs-search-group {
+  margin-top: 2px;
+}
+.docs-search-group-label {
+  padding: 10px calc(var(--ds-pad-x) - var(--ds-list-pad)) 5px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+
+.docs-search-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  width: 100%;
+  min-height: 44px;
+  padding: 8px calc(var(--ds-pad-x) - var(--ds-list-pad));
+  /* Concentric: dialog 14px - list-pad 6px = 8px row radius. */
+  border-radius: 8px;
+  color: var(--ink-body);
+  text-decoration: none;
+  cursor: pointer;
+  transition: background 90ms ease, color 90ms ease;
+}
+@media (pointer: coarse) {
+  .docs-search-item {
+    min-height: 48px;
+  }
+}
+.docs-search-item-icon {
+  flex-shrink: 0;
+  width: 15px;
+  height: 15px;
+  margin-top: 2px;
+  color: var(--ink-faint);
+  transition: color 90ms ease;
+}
+@media (hover: hover) and (pointer: fine) {
+  .docs-search-item:hover:not(.is-active) {
+    background: var(--docs-surface);
+    color: var(--ink-strong);
+  }
+}
+/* Active row carries both the highlight and a static left rule, so the
+   current option still reads without relying on the animated background. */
+.docs-search-item.is-active {
+  background: var(--docs-surface-hover);
+  color: var(--ink-strong);
+  box-shadow: inset 2px 0 0 hsl(var(--foreground) / 0.5);
+}
+.docs-search-item.is-active .docs-search-item-icon {
+  color: var(--ink-strong);
+}
+.docs-search-item:active {
+  scale: 0.99;
+}
+@media (prefers-reduced-motion: reduce) {
+  .docs-search-item:active {
+    scale: 1;
+  }
+}
+.docs-search-item:focus-visible {
+  outline: 2px solid hsl(var(--foreground) / 0.4);
+  outline-offset: -2px;
+}
+
+.docs-search-item-main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+.docs-search-item-title {
+  font-size: 13.5px;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.docs-search-crumb {
+  margin-inline: 6px;
+  color: var(--ink-faint);
+}
+.docs-search-item-snippet {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--ink-faint);
+}
+.docs-search-item mark {
+  padding: 0.05em 0.15em;
+  border-radius: 3px;
+  background: hsl(var(--foreground) / 0.14);
+  color: hsl(var(--foreground));
+  font-weight: 600;
+}
+
+.docs-search-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 20px var(--ds-pad-x) 24px;
+}
+.docs-search-empty[hidden] {
+  display: none;
+}
+.docs-search-empty-text {
+  margin: 0;
+  font-size: 13.5px;
+  color: var(--ink-faint);
+}
+.docs-search-empty-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  border: 1px solid var(--docs-line);
+  border-radius: 8px;
+  background: var(--docs-surface);
+  color: hsl(var(--foreground));
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 130ms ease, border-color 130ms ease;
+}
+.docs-search-empty-action:hover,
+.docs-search-empty-action:focus-visible {
+  background: var(--docs-surface-hover);
+  border-color: hsl(var(--foreground) / 0.18);
+}
+
+.docs-search-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 9px var(--ds-pad-x);
+  border-top: 1px solid var(--docs-line-soft);
+  font-size: 12px;
+  color: var(--ink-faint);
+}
+.docs-search-footer span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.docs-search-footer-sep {
+  width: 1px;
+  height: 13px;
+  background: var(--docs-line);
+}
+
+@media (max-width: 640px) {
+  .docs-search {
+    width: calc(100vw - 24px);
+    margin-top: 9vh;
+  }
+  .docs-search-footer {
+    display: none;
+  }
+}

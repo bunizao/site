@@ -2,6 +2,7 @@
 import { render, type CollectionEntry } from 'astro:content';
 import Layout from '@/layouts/Layout.astro';
 import DocsSidebar from '@/features/docs/ui/DocsSidebar.astro';
+import DocsSearch from '@/features/docs/ui/DocsSearch.astro';
 import DocsToc, { type DocsTocItem } from '@/features/docs/ui/DocsToc.astro';
 import { docPath, getDocsNav, getDocsSiblings, type DocsGroup } from '@/features/docs/server/nav';
 import { expandDocsDemos } from '@/features/docs/server/demo';
@@ -94,6 +95,8 @@ const { prev, next } = getDocsSiblings(groups, entry.id);
       {toc.length > 1 && <DocsToc items={toc} />}
     </div>
   </main>
+
+  <DocsSearch />
 </Layout>
 
 <script>

@@ -1,6 +1,7 @@
 ---
 import Layout from '@/layouts/Layout.astro';
 import DocsSidebar from '@/features/docs/ui/DocsSidebar.astro';
+import DocsSearch from '@/features/docs/ui/DocsSearch.astro';
 import { docPath, getDocsNav } from '@/features/docs/server/nav';
 import { formatSiteTitle } from '@/lib/seo';
 import '@/styles/docs.css';
@@ -110,4 +111,6 @@ const ELSEWHERE = [
       </div>
     </div>
   </main>
+
+  <DocsSearch />
 </Layout>
