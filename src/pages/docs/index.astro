@@ -1,0 +1,87 @@
+---
+import Layout from '@/layouts/Layout.astro';
+import Footer from '@/features/home/ui/Footer.astro';
+import { docPath, getDocsNav } from '@/features/docs/server/nav';
+import { formatSiteTitle } from '@/lib/seo';
+import '@/styles/docs.css';
+
+export const prerender = true;
+
+const groups = await getDocsNav();
+
+// The aggregation half of the hub: where to go when you did not come here for
+// the reference. Notes are what each place actually is, not a restatement of
+// its name.
+const ELSEWHERE = [
+  { href: '/blog', label: 'Blog', note: 'Essays and notes — 無人之境' },
+  { href: '/mood', label: 'Mood', note: 'The running short-form feed' },
+  { href: '/components', label: 'Components', note: 'Installable pieces of this site' },
+  { href: '/projects', label: 'Projects', note: 'What I ship, and why' },
+  { href: 'https://github.com/bunizao/site', label: 'Source', note: 'This site on GitHub' },
+];
+
+const title = formatSiteTitle('Docs');
+const description =
+  'Reference for buxx.me — the public endpoints you can call, the embeds you can drop into someone else’s page, and how the writing gets published.';
+---
+
+<Layout
+  preloadFont={['display', 'sans', 'mono']}
+  title={title}
+  description={description}
+  url="/docs"
+  navVariant="page"
+  showSiteNav
+  brandVariant="home"
+>
+  <main class="docs">
+    <div class="docs-shell">
+      <div class="docs-article">
+        <header class="docs-hub-head">
+          <p class="docs-eyebrow">Documentation</p>
+          <h1 class="docs-title">Everything this site exposes.</h1>
+          <p class="docs-lede">
+            One reference for the public surface of buxx.me — embeds, badges, feeds, and the
+            path a post takes from draft to deploy. No keys, no signup; read the cache notes
+            before you point a poller at anything.
+          </p>
+        </header>
+
+        {groups.map((group) => (
+          <section class="docs-hub-section">
+            <header class="docs-hub-section-head">
+              <p class="docs-hub-section-label">{group.label}</p>
+              <p class="docs-hub-section-blurb">{group.blurb}</p>
+            </header>
+            <div class="docs-hub-grid">
+              {group.entries.map((entry) => (
+                <a class="docs-card" href={docPath(entry.id)}>
+                  <span class="docs-card-title">
+                    {entry.data.title}
+                    <svg class="docs-card-arrow" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7"/><path d="M8 7h9v9"/></svg>
+                  </span>
+                  <p class="docs-card-desc">{entry.data.description}</p>
+                </a>
+              ))}
+            </div>
+          </section>
+        ))}
+
+        <section class="docs-hub-elsewhere">
+          <p class="docs-hub-section-label">Elsewhere</p>
+          <ul class="docs-hub-elsewhere-list">
+            {ELSEWHERE.map((item) => (
+              <li>
+                <a class="docs-hub-elsewhere-link" href={item.href}>
+                  {item.label}
+                  <span>{item.note}</span>
+                </a>
+              </li>
+            ))}
+          </ul>
+        </section>
+      </div>
+    </div>
+  </main>
+  <Footer />
+</Layout>

@@ -11,6 +11,26 @@ How this tree works:
 
 Root-level `plans/` (repo root, numbered files) is the mood-hardening workstream backlog, separate from `docs/plans/`.
 
+## Published reference
+
+Some references are not internal notes — they are pages readers see. Those live
+in the `docs` content collection and ship at `buxx.me/docs`:
+
+| Page | Source |
+| --- | --- |
+| [/docs/overview](https://buxx.me/docs/overview) | `src/content/docs/overview.md` |
+| [/docs/api/oembed](https://buxx.me/docs/api/oembed) | `src/content/docs/api/oembed.md` |
+| [/docs/api/svg](https://buxx.me/docs/api/svg) | `src/content/docs/api/svg.md` |
+| [/docs/api/feeds](https://buxx.me/docs/api/feeds) | `src/content/docs/api/feeds.md` |
+| [/docs/blog/publishing](https://buxx.me/docs/blog/publishing) | `src/content/docs/blog/publishing.md` |
+
+There is deliberately one copy of each — a published page keeps no `docs/*.md`
+counterpart, so the reference cannot drift from an internal note. Add a page by
+dropping a Markdown file into `src/content/docs/` with `title`, `description`,
+`group`, and `order` frontmatter; the sidebar, hub, sitemap, and prev/next all
+follow from the collection. Group order lives in
+`src/features/docs/server/nav.ts`.
+
 ## Living reference
 
 | Doc | Read it when |
@@ -26,8 +46,6 @@ Root-level `plans/` (repo root, numbered files) is the mood-hardening workstream
 | [OAUTH-HUB.md](OAUTH-HUB.md) | Admin GitHub OAuth flow. |
 | [SECURITY.md](SECURITY.md) | Security boundaries and headers. |
 | [PRIVACY-POLICY.md](PRIVACY-POLICY.md) | How the `/privacy` page renders; policy text lives in `src/content/pages/privacy.md`. |
-| [SVG-API.md](SVG-API.md) | `/api/status.svg` and friends. |
-| [OEMBED-API.md](OEMBED-API.md) | `/api/oembed.json`. |
 | [MASCOT.md](MASCOT.md) | The peek mascot: assets and placement rules. |
 | [SHARED-LAYOUT.md](SHARED-LAYOUT.md) | Cross-page UI: nav, theme, footer. |
 | [SPOTLIGHT-OVERLAY.md](SPOTLIGHT-OVERLAY.md) | The pointer spotlight over the dot grid. |

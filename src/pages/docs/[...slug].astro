@@ -1,0 +1,88 @@
+---
+import { render, type CollectionEntry } from 'astro:content';
+import Layout from '@/layouts/Layout.astro';
+import Footer from '@/features/home/ui/Footer.astro';
+import OnThisPage from '@/features/components/ui/OnThisPage.astro';
+import DocsSidebar from '@/features/docs/ui/DocsSidebar.astro';
+import { docPath, getDocsNav, getDocsSiblings, type DocsGroup } from '@/features/docs/server/nav';
+import { formatSiteTitle } from '@/lib/seo';
+import '@/styles/docs.css';
+
+export const prerender = true;
+
+export async function getStaticPaths() {
+  const groups = await getDocsNav();
+  return groups.flatMap((group) =>
+    group.entries.map((entry) => ({
+      params: { slug: entry.id },
+      props: { entry, groups },
+    })),
+  );
+}
+
+interface Props {
+  entry: CollectionEntry<'docs'>;
+  groups: DocsGroup[];
+}
+const { entry, groups } = Astro.props;
+const { title, description, group } = entry.data;
+const { Content, headings } = await render(entry);
+
+// H2s only. Every migrated reference nests H3/H4 under an endpoint heading, and
+// listing all three depths turns the rail into a second copy of the page.
+const toc = headings
+  .filter((heading) => heading.depth === 2)
+  .map((heading) => ({ id: heading.slug, label: heading.text }));
+
+const { prev, next } = getDocsSiblings(groups, entry.id);
+---
+
+<Layout
+  preloadFont={['display', 'sans', 'mono']}
+  title={formatSiteTitle(title)}
+  description={description}
+  url={docPath(entry.id)}
+  navVariant="page"
+  showSiteNav
+  brandVariant="home"
+>
+  <main class="docs">
+    <div class="docs-shell docs-shell--article">
+      <DocsSidebar groups={groups} current={entry.id} />
+
+      <article class="docs-article">
+        <p class="docs-eyebrow">
+          <a href="/docs">Docs</a>
+          <span aria-hidden="true">/</span>
+          <span>{group}</span>
+        </p>
+        <h1 class="docs-title">{title}</h1>
+        <p class="docs-lede">{description}</p>
+
+        <div class="docs-prose">
+          <Content />
+        </div>
+
+        {(prev || next) && (
+          <nav class="docs-pager" aria-label="Docs pagination">
+            {prev && (
+              <a class="docs-pager-link docs-pager-link--prev" href={docPath(prev.id)} rel="prev">
+                <span class="docs-pager-dir">Previous</span>
+                <span class="docs-pager-title">{prev.data.title}</span>
+              </a>
+            )}
+            {next && (
+              <a class="docs-pager-link docs-pager-link--next" href={docPath(next.id)} rel="next">
+                <span class="docs-pager-dir">Next</span>
+                <span class="docs-pager-title">{next.data.title}</span>
+              </a>
+            )}
+          </nav>
+        )}
+      </article>
+
+      {toc.length > 1 && <OnThisPage items={toc} />}
+    </div>
+  </main>
+  <Footer />
+</Layout>

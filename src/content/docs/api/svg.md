@@ -1,4 +1,11 @@
-# SVG API Endpoints
+---
+title: SVG Endpoints
+description: Server-rendered badges and cards for GitHub READMEs and anywhere else that only accepts a static image.
+group: API
+order: 1
+badge: SSR
+---
+
 
 All SVG endpoints are server-side rendered Astro API routes exposed at `buxx.me`. They're designed to be embedded in GitHub READMEs and other Markdown files that only support static images.
 
@@ -6,15 +13,13 @@ Use `<picture>` + `<source media="(prefers-color-scheme: ...)">` to switch theme
 
 ---
 
-## Endpoints
-
-### `GET /api/activity-panel.svg`
+## `GET /api/activity-panel.svg`
 
 A stats panel displaying recent GitHub coding activity. Intended to sit alongside the GitHub Stats card.
 
 All values are passed as query parameters — the server renders them verbatim into the SVG. Actual data collection is handled separately by the `sync-recent-activity` GitHub Actions script.
 
-**Parameters**
+### Parameters
 
 | Parameter  | Type   | Default  | Description                              |
 |------------|--------|----------|------------------------------------------|
@@ -29,7 +34,7 @@ All values are passed as query parameters — the server renders them verbatim i
 | `exp`      | string | —        | Unix expiry timestamp for signed access when auth is enabled |
 | `sig`      | string | —        | HMAC signature for signed access when auth is enabled |
 
-**Rows rendered**
+### Rows rendered
 
 1. `activity scan` — `last {days} days`
 2. `active projects` — `{projects}`
@@ -42,7 +47,7 @@ All values are passed as query parameters — the server renders them verbatim i
 **Animation:** Each row fades in with a staggered 80ms delay
 **Auth:** When `ACTIVITY_PANEL_SIGNING_SECRET` is configured, requests must include valid `exp` and `sig` values.
 
-**Example (GitHub README)**
+### Example (GitHub README)
 
 ```html
 <picture>
@@ -54,11 +59,11 @@ All values are passed as query parameters — the server renders them verbatim i
 
 ---
 
-### `GET /api/status.svg`
+## `GET /api/status.svg`
 
 An animated badge showing a rotating status word with a pulsing green dot.
 
-**Parameters**
+### Parameters
 
 | Parameter | Type   | Default | Description                     |
 |-----------|--------|---------|---------------------------------|
@@ -68,7 +73,7 @@ An animated badge showing a rotating status word with a pulsing green dot.
 **Cache:** `public, max-age=10, s-maxage=10` (10 seconds)
 **Animation:** Pulsing dot; status word rotates every 10 seconds based on server time (25 words in pool)
 
-**Example**
+### Example
 
 ```html
 <picture>
@@ -80,11 +85,11 @@ An animated badge showing a rotating status word with a pulsing green dot.
 
 ---
 
-### `GET /api/site-badge.svg`
+## `GET /api/site-badge.svg`
 
 A compact badge linking to buxx.me, with an arrow icon.
 
-**Parameters**
+### Parameters
 
 | Parameter | Type   | Default   | Description                                        |
 |-----------|--------|-----------|----------------------------------------------------|
@@ -94,7 +99,7 @@ A compact badge linking to buxx.me, with an arrow icon.
 **Dimensions:** 130 × 32px
 **Cache:** `public, max-age=86400` (24 hours)
 
-**Example**
+### Example
 
 ```html
 <a href="https://buxx.me">
@@ -108,18 +113,18 @@ A compact badge linking to buxx.me, with an arrow icon.
 
 ---
 
-### `GET /api/project.svg`
+## `GET /api/project.svg`
 
 A project card with live GitHub star count, description, role badge, and technology tags. Fetches data from the GitHub GraphQL API at request time.
 
-**Parameters**
+### Parameters
 
 | Parameter | Type   | Default | Description                     |
 |-----------|--------|---------|---------------------------------|
 | `project` | string | —       | Project key (required, see below) |
 | `theme`   | string | `dark`  | Color scheme: `dark` or `light` |
 
-**Available project keys**
+### Available project keys
 
 | Key              | Repository                      |
 |------------------|---------------------------------|
@@ -133,7 +138,7 @@ A project card with live GitHub star count, description, role badge, and technol
 **Cache:** `public, max-age=3600` (1 hour)
 **Note:** Requires `GITHUB_TOKEN` env var with repository read access for live star counts.
 
-**Example**
+### Example
 
 ```html
 <picture>
@@ -145,11 +150,11 @@ A project card with live GitHub star count, description, role badge, and technol
 
 ---
 
-### `GET /api/tech-stack.svg`
+## `GET /api/tech-stack.svg`
 
 An infinite-scrolling horizontal marquee of technology tags.
 
-**Parameters**
+### Parameters
 
 | Parameter | Type   | Default | Description                     |
 |-----------|--------|---------|---------------------------------|
@@ -159,7 +164,7 @@ An infinite-scrolling horizontal marquee of technology tags.
 **Cache:** `public, max-age=3600` (1 hour)
 **Animation:** Continuous left scroll; the tag list is duplicated to ensure seamless looping
 
-**Example**
+### Example
 
 ```html
 <picture>

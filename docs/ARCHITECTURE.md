@@ -67,7 +67,7 @@ Private API ownership lives in the separate `site-api` Worker. `site-api` direct
 - `GET /api/v2/mood` — Archive mood feed used for the default base render
 - `GET /api/v2/moods/live-counts?ids=<id,...>` — Batched live comments/reactions for visible archive-rendered posts
 - `GET /api/comments` — Comments
-- `GET /api/oembed.json` — oEmbed endpoint (docs: `docs/OEMBED-API.md`)
+- `GET /api/oembed.json` — oEmbed endpoint (docs: `/docs/api/oembed`)
 - `POST /api/v2/analytics/listening` — First-party listening playback events. One cumulative record per playback captures requests, starts, heard time, progress, pauses, seeks, and completion.
 
 **Machine ingress (`site-api`):**
@@ -95,7 +95,7 @@ Telegram references:
 - `GET /api/status.svg`, `GET /api/tech-stack.svg`, `GET /api/site-badge.svg`
 - `GET /api/project.svg` (requires `?project=<name>`)
 - SVG font stacks come from `src/lib/fonts.ts`, which mirrors the CSS font tokens for server-rendered documents.
-- Full docs: `docs/SVG-API.md`
+- Full docs: `/docs/api/svg`
 
 **RSS:** `GET /mood/rss.xml`
 

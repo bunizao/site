@@ -1,0 +1,66 @@
+---
+import type { DocsGroup } from '@/features/docs/server/nav';
+import { docPath } from '@/features/docs/server/nav';
+
+interface Props {
+  groups: DocsGroup[];
+  current?: string;
+}
+const { groups, current } = Astro.props;
+
+const currentEntry = current
+  ? groups.flatMap((group) => group.entries).find((entry) => entry.id === current)
+  : undefined;
+---
+
+{/* One markup tree for both breakpoints. It renders open so a no-JS or wide
+    viewport always has the full nav; the script below collapses it only when the
+    viewport is narrow enough for the summary to be showing. Doing it that way
+    round means CSS never has to fight the UA's hiding of closed details
+    content. */}
+<details class="docs-nav" open data-docs-nav>
+  <summary class="docs-nav-summary">
+    <span class="docs-nav-summary-label">
+      {currentEntry ? `${currentEntry.data.group} · ${currentEntry.data.title}` : 'All docs'}
+    </span>
+    <svg class="docs-nav-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+  </summary>
+
+  <nav class="docs-nav-body" aria-label="Docs">
+    {groups.map((group) => (
+      <section class="docs-nav-group">
+        <p class="docs-nav-group-label">{group.label}</p>
+        <ul class="docs-nav-list">
+          {group.entries.map((entry) => (
+            <li>
+              <a
+                class="docs-nav-link"
+                href={docPath(entry.id)}
+                aria-current={entry.id === current ? 'page' : undefined}
+              >
+                <span class="docs-nav-cursor" aria-hidden="true"></span>
+                <span class="docs-nav-link-text">{entry.data.title}</span>
+                {entry.data.badge && <span class="docs-nav-badge">{entry.data.badge}</span>}
+              </a>
+            </li>
+          ))}
+        </ul>
+      </section>
+    ))}
+  </nav>
+</details>
+
+<script>
+  // Collapse the nav only where the summary is visible. The markup ships open so
+  // the wide layout and the no-JS case are both correct without this running.
+  (() => {
+    const nav = document.querySelector<HTMLDetailsElement>('[data-docs-nav]');
+    if (!nav) return;
+    const wide = window.matchMedia('(min-width: 60rem)');
+    const sync = () => {
+      nav.open = wide.matches;
+    };
+    sync();
+    wide.addEventListener('change', sync);
+  })();
+</script>

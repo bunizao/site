@@ -1,10 +1,14 @@
-# oEmbed API
+---
+title: oEmbed & Embeds
+description: Embed mood posts on any page — the oEmbed protocol, the raw iframe widget, and the postMessage contract.
+group: API
+order: 0
+---
+
 
 Embed mood posts on external platforms using the [oEmbed](https://oembed.com/) protocol.
 
-## Endpoints
-
-### oEmbed Discovery
+## oEmbed Discovery
 
 ```
 GET /api/oembed.json?url={url}
@@ -12,7 +16,7 @@ GET /api/oembed.json?url={url}
 
 Returns oEmbed JSON response for embedding mood content.
 
-#### Parameters
+### Parameters
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
@@ -27,13 +31,13 @@ Returns oEmbed JSON response for embedding mood content.
 | `origin` | string | No | Allowed parent origin for postMessage (e.g. `https://example.com`). |
 | `link` | string | No | Show "View all" link (`true`/`false`, default: `true`). |
 
-#### Example Request
+### Example Request
 
 ```
 GET /api/oembed.json?url=https://buxx.me/mood&maxwidth=400&maxheight=400&theme=dark
 ```
 
-#### Example Response
+### Example Response
 
 ```json
 {
@@ -49,7 +53,7 @@ GET /api/oembed.json?url=https://buxx.me/mood&maxwidth=400&maxheight=400&theme=d
 }
 ```
 
-### Embed Widget
+## Embed Widget
 
 ```
 GET /mood/embed
@@ -57,7 +61,7 @@ GET /mood/embed
 
 Renders an embeddable HTML widget for mood posts.
 
-#### Parameters
+### Parameters
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
@@ -71,7 +75,7 @@ Renders an embeddable HTML widget for mood posts.
 | `font` | string | No | Font: `mono` or `system` (default: `mono`). |
 | `origin` | string | No | Allowed parent origin for postMessage (e.g. `https://example.com`). |
 
-#### Examples
+### Examples
 
 ```html
 <!-- Latest mood post -->

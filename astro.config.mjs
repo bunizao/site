@@ -59,6 +59,17 @@ if (isCoverageEnabled) {
 }
 
 export default defineConfig({
+  markdown: {
+    // Dual-theme fences so markdown code blocks follow the site theme instead of
+    // painting one fixed palette. `defaultColor: false` emits --shiki-light /
+    // --shiki-dark custom properties rather than inline colors; the CSS picks a
+    // side off `html.dark`. Same contract CodeBox already renders under, so
+    // docs.css and code-box.css style the output identically.
+    shikiConfig: {
+      themes: { light: 'github-light', dark: 'github-dark' },
+      defaultColor: false,
+    },
+  },
   integrations: [
     {
       name: 'buxx-negotiated-content-dev-ssr',
@@ -74,7 +85,13 @@ export default defineConfig({
     },
     react(),
     sitemap({
-      filter: (page) => publicSitemapPaths.has(new URL(page).pathname),
+      // Explicit allowlist plus the whole /docs tree — the reference is static,
+      // public, and worth indexing as a unit, so listing each page by hand would
+      // just rot the moment a doc is added.
+      filter: (page) => {
+        const { pathname } = new URL(page);
+        return publicSitemapPaths.has(pathname) || pathname.startsWith('/docs/');
+      },
     }),
   ],
   devToolbar: {
