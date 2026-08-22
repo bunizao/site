@@ -26,6 +26,12 @@ function paragraph(lines: readonly string[]): string {
   return `<p>${lines.map(escapeHtml).join('<br>')}</p>`;
 }
 
+/** A block directive occupies its own paragraph — in the editor it is a line the
+    author ended with Enter, not Shift+Enter, and the pipeline only matches one
+    that owns its whole block. Two of them listed under each other in a fence
+    are still two blocks. */
+const BLOCK_DIRECTIVE = /^\[![a-z][\w-]*(?:\s[^\]]*)?\]$/iu;
+
 export function demoSourceToEditorHtml(source: string): string {
   const lines = source.replace(/\r\n/gu, '\n').replace(/\n+$/u, '').split('\n');
   const blocks: string[] = [];
@@ -48,10 +54,16 @@ export function demoSourceToEditorHtml(source: string): string {
       continue;
     }
 
+    if (BLOCK_DIRECTIVE.test(line.trim())) {
+      blocks.push(paragraph([line.trim()]));
+      index += 1;
+      continue;
+    }
+
     const body: string[] = [];
     while (index < lines.length) {
       const current = lines[index] ?? '';
-      if (!current.trim() || current.startsWith('>')) break;
+      if (!current.trim() || current.startsWith('>') || BLOCK_DIRECTIVE.test(current.trim())) break;
       body.push(current);
       index += 1;
     }

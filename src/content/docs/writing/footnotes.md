@@ -8,7 +8,7 @@ order: 6
 Footnotes use the familiar Markdown-extension syntax. A reference anywhere in the
 text, and a definition in a paragraph of its own:
 
-```
+```md demo
 Cloudflare bills by request, not by CPU time.[^billing]
 
 [^billing]: Workers Paid, as of the 2024 pricing change.

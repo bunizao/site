@@ -9,7 +9,7 @@ order: 5
 and a play button. YouTube's iframe and its scripts are not loaded until someone
 clicks.
 
-```
+```md demo
 [!youtube id=dQw4w9WgXcQ]
 [!youtube id=dQw4w9WgXcQ start=42]
 ```
