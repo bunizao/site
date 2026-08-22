@@ -460,42 +460,203 @@
     });
 
     // --- Tap-to-zoom lightbox for content images ---
-    const zoomable = root.querySelectorAll<HTMLImageElement>(
-      '.kg-image, .kg-image-card img, .kg-gallery-image img',
+    // A tap opens the original. Inside a gallery that opens the whole gallery,
+    // walkable with the arrow keys, the side buttons, or a swipe.
+    const zoomable = Array.from(
+      root.querySelectorAll<HTMLImageElement>(
+        '.kg-image, .kg-image-card img, .kg-gallery-image img',
+      ),
     );
 
     if (zoomable.length > 0) {
+      // data-zoom-src carries the unresized original (the on-page srcset may
+      // have picked a small variant); fall back to whatever is displayed.
+      const sourceOf = (img: HTMLImageElement) => img.dataset.zoomSrc || img.currentSrc || img.src;
+
+      // A gallery card is the set the author composed, and it is the only set
+      // the lightbox walks. An image the author placed on its own opens on its
+      // own — the article is a reading order, not an album.
+      const groupOf = (img: HTMLImageElement): HTMLImageElement[] => {
+        const card = img.closest('.kg-gallery-card');
+        return card
+          ? Array.from(card.querySelectorAll<HTMLImageElement>('.kg-gallery-image img'))
+          : [img];
+      };
+
+      const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+      const CHEVRON =
+        '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor"'
+        + ' stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">'
+        + '<path d="m15 4-8 8 8 8" /></svg>';
+      const SWIPE_COMMIT = 60; // px of horizontal travel that turns the page
+
       let overlay: HTMLDivElement | null = null;
+      let view!: HTMLImageElement;
+      let counter!: HTMLElement;
+      let group: HTMLImageElement[] = [];
+      let index = 0;
+      let returnFocus: HTMLElement | null = null;
+
+      const at = (position: number) => {
+        const total = group.length;
+        return ((position % total) + total) % total; // the walk wraps both ways
+      };
+
+      // Warm a neighbour, so the next step is a paint and not a download.
+      const preload = (position: number) => {
+        const img = group[at(position)];
+        if (img) new Image().src = sourceOf(img);
+      };
+
+      // One primitive for every move: the image lands from `fromX`. A step slides
+      // in from the side it came from; a released swipe springs back from wherever
+      // the finger left it.
+      const slide = (fromX: number, fromOpacity: number) => {
+        if (reduceMotion.matches) return;
+        view.animate(
+          [
+            { transform: `translateX(${fromX}px)`, opacity: fromOpacity },
+            { transform: 'none', opacity: 1 },
+          ],
+          { duration: 220, easing: 'cubic-bezier(0.22, 0.61, 0.36, 1)' },
+        );
+      };
+
+      const show = (next: number, direction: number) => {
+        index = at(next);
+        const img = group[index];
+        view.src = sourceOf(img);
+        view.alt = img.alt;
+        counter.textContent = `${index + 1} / ${group.length}`;
+        if (direction !== 0) slide(direction * 40, 0);
+        preload(index + 1);
+        preload(index - 1);
+      };
+
+      const step = (direction: number) => {
+        if (group.length > 1) show(index + direction, direction);
+      };
 
       const close = () => {
         overlay?.classList.remove('is-open');
         document.removeEventListener('keydown', onKey);
-      };
-      const onKey = (event: KeyboardEvent) => {
-        if (event.key === 'Escape') close();
+        // `inert` pulls focus back out of the closed overlay and keeps its two
+        // buttons out of the article's tab order — an invisible layer that is
+        // still tabbable is worse than no layer at all.
+        if (overlay) overlay.inert = true;
+        returnFocus?.focus({ preventScroll: true });
+        returnFocus = null;
       };
 
-      const open = (src: string, alt: string) => {
-        if (!overlay) {
-          overlay = document.createElement('div');
-          overlay.className = 'blog-lightbox';
-          overlay.innerHTML = '<img alt="" />';
-          overlay.addEventListener('click', close);
-          document.body.appendChild(overlay);
-        }
-        const img = overlay.querySelector('img')!;
-        img.src = src;
-        img.alt = alt;
+      const onKey = (event: KeyboardEvent) => {
+        if (event.key === 'Escape') close();
+        else if (event.key === 'ArrowLeft') step(-1);
+        else if (event.key === 'ArrowRight') step(1);
+        else return;
+        event.preventDefault();
+      };
+
+      const build = () => {
+        const node = document.createElement('div');
+        node.className = 'blog-lightbox';
+        node.tabIndex = -1;
+        node.inert = true;
+        node.setAttribute('role', 'dialog');
+        node.setAttribute('aria-modal', 'true');
+        node.setAttribute('aria-label', 'Image viewer');
+        node.innerHTML =
+          '<img class="blog-lightbox__image" alt="" />'
+          + `<button class="blog-lightbox__nav blog-lightbox__nav--prev" type="button"`
+          + ` data-step="-1" aria-label="Previous image">${CHEVRON}</button>`
+          + `<button class="blog-lightbox__nav blog-lightbox__nav--next" type="button"`
+          + ` data-step="1" aria-label="Next image">${CHEVRON}</button>`
+          + '<p class="blog-lightbox__counter" aria-hidden="true"></p>';
+        view = node.querySelector<HTMLImageElement>('.blog-lightbox__image')!;
+        counter = node.querySelector<HTMLElement>('.blog-lightbox__counter')!;
+
+        // Drag to walk the set: the image tracks the pointer, and a release past
+        // SWIPE_COMMIT turns the page. Anything shorter springs back and still
+        // counts as the tap that closes — the scrim's original job.
+        let startX = 0;
+        let startY = 0;
+        let dragging = false;
+        let dragged = false;
+
+        const settle = () => {
+          dragging = false;
+          view.style.transform = '';
+          view.style.opacity = '';
+        };
+
+        node.addEventListener('pointerdown', (event) => {
+          dragged = false;
+          if (event.button !== 0 || group.length < 2) return;
+          if ((event.target as HTMLElement).closest('.blog-lightbox__nav')) return;
+          startX = event.clientX;
+          startY = event.clientY;
+          dragging = true;
+          // Capture, so a drag that leaves the window still ends on this node.
+          node.setPointerCapture(event.pointerId);
+        });
+
+        node.addEventListener('pointermove', (event) => {
+          if (!dragging) return;
+          const dx = event.clientX - startX;
+          // Claim the gesture only once it is clearly horizontal, so a vertical
+          // flick never turns the page.
+          if (!dragged) {
+            if (Math.abs(dx) < 10 || Math.abs(dx) <= Math.abs(event.clientY - startY)) return;
+            dragged = true;
+          }
+          view.style.transform = `translateX(${dx}px)`;
+          view.style.opacity = String(Math.max(0.3, 1 - Math.abs(dx) / (window.innerWidth * 0.7)));
+        });
+
+        node.addEventListener('pointerup', (event) => {
+          if (!dragging) return;
+          const dx = event.clientX - startX;
+          const opacity = Number(view.style.opacity) || 1;
+          settle();
+          if (!dragged) return;
+          if (Math.abs(dx) > SWIPE_COMMIT) step(dx < 0 ? 1 : -1);
+          else slide(dx, opacity);
+        });
+
+        node.addEventListener('pointercancel', settle);
+
+        node.addEventListener('click', (event) => {
+          // A mouse swipe ends in a click; that click is not a dismissal.
+          if (dragged) {
+            dragged = false;
+            return;
+          }
+          const nav = (event.target as HTMLElement).closest<HTMLElement>('.blog-lightbox__nav');
+          if (nav) step(Number(nav.dataset.step));
+          else close();
+        });
+
+        document.body.appendChild(node);
+        return node;
+      };
+
+      const open = (img: HTMLImageElement) => {
+        overlay ??= build();
+        group = groupOf(img);
+        overlay.classList.toggle('is-solo', group.length < 2);
+        returnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+        show(Math.max(0, group.indexOf(img)), 0);
+        overlay.inert = false;
         overlay.classList.add('is-open');
+        // Focus the overlay itself: the arrow keys are bound to the document, and
+        // this puts a screen reader (and Tab) inside the dialog rather than back
+        // in the article behind it.
+        overlay.focus({ preventScroll: true });
         document.addEventListener('keydown', onKey);
       };
 
       zoomable.forEach((img) => {
         img.style.cursor = 'zoom-in';
-        // data-zoom-src carries the unresized original (the on-page srcset may
-        // have picked a small variant); fall back to whatever is displayed.
-        img.addEventListener('click', () =>
-          open(img.dataset.zoomSrc || img.currentSrc || img.src, img.alt));
+        img.addEventListener('click', () => open(img));
       });
     }
   }
