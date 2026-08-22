@@ -39,7 +39,6 @@ const toc: DocsTocItem[] = headings
   }));
 
 const { prev, next } = getDocsSiblings(groups, entry.id);
-const sourceUrl = `https://github.com/bunizao/site/blob/main/src/content/docs/${entry.id}.md`;
 ---
 
 <Layout
@@ -47,9 +46,7 @@ const sourceUrl = `https://github.com/bunizao/site/blob/main/src/content/docs/${
   title={formatSiteTitle(title)}
   description={description}
   url={docPath(entry.id)}
-  navVariant="page"
-  showSiteNav
-  brandVariant="home"
+  navVariant="docs"
 >
   <main class="docs docs--article">
     <div class="docs-shell docs-shell--article">
@@ -82,10 +79,6 @@ const sourceUrl = `https://github.com/bunizao/site/blob/main/src/content/docs/${
             </a>
           )}
         </nav>
-
-        <p class="docs-source">
-          <a href={sourceUrl} rel="noopener noreferrer" target="_blank">Edit this page on GitHub</a>
-        </p>
       </article>
 
       {toc.length > 1 && <DocsToc items={toc} />}

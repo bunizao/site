@@ -26,8 +26,11 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* The dot grid behind the page reads as noise under dense reference text. */
-body:has(.docs)::before {
+/* The dot grid behind the page reads as noise under dense reference text —
+   both the static layer and the pointer-following one, which on a page this
+   dense looks like the whole surface is being dragged around. */
+body:has(.docs)::before,
+body:has(.docs) .spotlight-overlay {
   display: none;
 }
 
@@ -37,6 +40,114 @@ body:has(.docs)::before {
 .docs section {
   padding: 0;
   border-bottom: 0;
+}
+
+/* --- Chrome ------------------------------------------------------------- */
+/* Docs run their own top bar. The site's floating brand pill has nothing to
+   anchor against once a fixed rail owns the left gutter, and the home lockup is
+   three times the identity a reference page needs. What is left is the smallest
+   thing that still says where you are: mark, wordmark, `/ Docs`. Search is not
+   here — the rail owns it, and one palette does not need two triggers. */
+.site-nav--docs {
+  /* Matches .docs-shell--article's measure so the bar's ends line up with the
+     rail on the left and the on-this-page column on the right. */
+  --docs-chrome-inset: max(1.75rem, calc((100vw - 88rem) / 2));
+
+  display: flex;
+  top: var(--site-nav-mobile-top, 0px);
+  left: 0;
+  right: 0;
+  height: 3.25rem;
+  gap: 0;
+  padding: 0 4rem 0 1rem;
+  z-index: 60;
+  background: hsl(var(--background) / 0.86);
+  backdrop-filter: blur(14px) saturate(150%);
+  -webkit-backdrop-filter: blur(14px) saturate(150%);
+  border-bottom: 1px solid hsl(var(--foreground) / 0.07);
+}
+
+.site-nav--docs .site-brand {
+  --brand-logo-height: 15px;
+}
+
+@media (min-width: 900px) {
+  .site-nav--docs {
+    /* body carries padding-left: calc(100vw - 100%); the bar is fixed and sits
+       outside it, so it repeats the compensation or lands a scrollbar-width
+       left of the column it aligns with. */
+    padding-left: calc(var(--docs-chrome-inset) + (100vw - 100%));
+  }
+}
+
+.nav-docs-crumb {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-left: 0.1rem;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  letter-spacing: -0.005em;
+  color: hsl(var(--foreground) / 0.6);
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+
+.nav-docs-crumb:hover,
+.nav-docs-crumb:focus-visible {
+  color: hsl(var(--foreground));
+}
+
+/* The site separator is sized for 11px nav links; here it divides the wordmark
+   from the crumb and has to read at the same weight as both. */
+.nav-docs-crumb .nav-separator--brand {
+  margin-right: 0;
+  font-size: 0.8rem;
+  color: hsl(var(--foreground) / 0.24);
+}
+
+/* The bar is fixed and .site-shell is its sibling, so nothing pushes the page
+   below it. */
+body:has(.site-nav--docs) .site-shell {
+  padding-top: calc(env(safe-area-inset-top, 0px) + var(--visual-viewport-top, 0px) + 3.25rem);
+}
+
+/* Re-centre the theme control into the bar. */
+body:has(.site-nav--docs) .global-header-actions {
+  top: calc(env(safe-area-inset-top, 0px) + var(--visual-viewport-top, 0px) + 0.625rem);
+  right: 1rem;
+  z-index: 61;
+}
+
+@media (min-width: 900px) {
+  body:has(.site-nav--docs) .global-header-actions {
+    right: max(1.75rem, calc((100vw - 88rem) / 2));
+  }
+}
+
+/* --- Navigation --------------------------------------------------------- */
+/* Reading reference material is page-hopping, and the site's arrival tween —
+   240ms out plus a 460ms rise — reads as drag when you are stepping through a
+   tree. Docs cross-fade instead, inside the 150ms window a high-frequency
+   interaction gets. Only pages that load this sheet are affected. */
+::view-transition-old(root) {
+  animation: docs-vt-out 90ms linear both;
+}
+
+::view-transition-new(root) {
+  animation: docs-vt-in 120ms cubic-bezier(0.2, 0, 0, 1) both;
+}
+
+@keyframes docs-vt-out {
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes docs-vt-in {
+  from {
+    opacity: 0;
+  }
 }
 
 /* --- Shell -------------------------------------------------------------- */
@@ -116,15 +227,34 @@ body:has(.docs)::before {
 @media (min-width: 64rem) {
   /* Desktop: the disclosure is meaningless. Flatten it into a full-height rail
      that scrolls on its own, so a thirty-page tree never pushes the article
-     down and the nav is still there at the bottom of a long endpoint page. */
+     down and the nav is still there at the bottom of a long endpoint page.
+
+     The <details> element is the scroller, not its body: Chrome slots the body
+     inside ::details-content, where a percentage height has nothing to resolve
+     against, so height: 100% there overflowed in silence and the last group in
+     the tree could not be reached. */
   .docs-nav {
     position: sticky;
     top: var(--docs-rail-top);
-    height: calc(100vh - var(--docs-rail-top));
+    height: calc(100dvh - var(--docs-rail-top));
+    padding-right: 1.25rem;
     border-radius: 0;
     background: none;
     box-shadow: none;
-    overflow: visible;
+    border-right: 1px solid var(--docs-line-soft);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--foreground) / 0.16) transparent;
+  }
+
+  .docs-nav::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  .docs-nav::-webkit-scrollbar-thumb {
+    border-radius: 3px;
+    background: hsl(var(--foreground) / 0.16);
   }
 
   .docs-nav-summary {
@@ -132,22 +262,7 @@ body:has(.docs)::before {
   }
 
   .docs-nav-body {
-    height: 100%;
-    padding: 0 1.25rem 2.5rem 0;
-    overflow-y: auto;
-    overscroll-behavior: contain;
-    border-right: 1px solid var(--docs-line-soft);
-    scrollbar-width: thin;
-    scrollbar-color: hsl(var(--foreground) / 0.16) transparent;
-  }
-
-  .docs-nav-body::-webkit-scrollbar {
-    width: 6px;
-  }
-
-  .docs-nav-body::-webkit-scrollbar-thumb {
-    border-radius: 3px;
-    background: hsl(var(--foreground) / 0.16);
+    padding: 0 0 2.5rem;
   }
 }
 
@@ -653,27 +768,6 @@ html.dark .docs-prose pre.astro-code span {
   font-size: 0.9rem;
   font-weight: 500;
   letter-spacing: -0.014em;
-  color: var(--ink-strong);
-}
-
-.docs-source {
-  max-width: 44rem;
-  margin: 1.5rem 0 0;
-  font-family: var(--font-sans);
-  font-size: 0.8125rem;
-  color: var(--ink-faint);
-}
-
-.docs-source a {
-  color: inherit;
-  text-decoration: underline;
-  text-decoration-color: hsl(var(--foreground) / 0.22);
-  text-underline-offset: 0.2em;
-  transition: color 0.15s ease;
-}
-
-.docs-source a:hover,
-.docs-source a:focus-visible {
   color: var(--ink-strong);
 }
 

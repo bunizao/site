@@ -12,7 +12,7 @@ interface Props {
   robots?: string;
   hideSiteNav?: boolean;
   showSiteNav?: boolean;
-  navVariant?: 'home' | 'page';
+  navVariant?: 'home' | 'page' | 'docs';
   brandVariant?: 'home';
   headerActionsVariant?: 'default' | 'home';
   containedScroll?: boolean;
@@ -84,6 +84,9 @@ const {
 
 const isHomeNav = navVariant === 'home';
 const isPageNav = navVariant === 'page';
+// Docs get their own bar: the compact mark, a `/ Docs` breadcrumb, and no site
+// section links — the rail beside the page already is the navigation.
+const isDocsNav = navVariant === 'docs';
 // Render the home brand identity (big animated peek + wordmark) inside a plain
 // horizontal bar on non-home pages that want it (e.g. /components). It reuses
 // home's brand look without home's scroll-driven vertical sidebar.
@@ -92,7 +95,7 @@ const brandRich = isHomeNav || brandHome;
 // The mobile menu follows the site nav and stays off chrome-hiding pages and
 // embedded specimen previews.
 const showMenu = !hideSiteNav;
-const showsBrandText = isHomeNav || isPageNav || brandHome;
+const showsBrandText = isHomeNav || isPageNav || brandHome || isDocsNav;
 const useHomeHeaderActions = isHomeNav || headerActionsVariant === 'home';
 const site = Astro.site ?? new URL('https://buxx.me');
 const siteName = meta.siteName;
@@ -273,9 +276,10 @@ const wordmarkFontHref = '/fonts/wenkai-wordmark.woff2';
         class:list={[
           'site-nav',
           {
-            'site-nav--mobile-visible': showSiteNav,
+            'site-nav--mobile-visible': showSiteNav || isDocsNav,
             'site-nav--home': isHomeNav,
             'site-nav--page': isPageNav,
+            'site-nav--docs': isDocsNav,
             'site-nav--brand-home': brandHome,
           },
         ]}
@@ -286,9 +290,9 @@ const wordmarkFontHref = '/fonts/wenkai-wordmark.woff2';
         data-peek-fast-scroll={navbarHoverAnimation}
         data-peek-fast-scroll-hold-ms={String(navbarFastScrollHoldMs)}
         data-peek-idle-timeout={navbarIdleTimeoutAnimation}
-        aria-label={isPageNav ? 'Home' : 'Page sections'}
+        aria-label={isPageNav || isDocsNav ? 'Home' : 'Page sections'}
       >
-        {!isPageNav ? <div class="nav-active-indicator" data-nav-indicator aria-hidden="true"></div> : null}
+        {!isPageNav && !isDocsNav ? <div class="nav-active-indicator" data-nav-indicator aria-hidden="true"></div> : null}
         <SiteBrand
           label="buxx.me — home"
           animation={navbarDefaultAnimation}
@@ -305,7 +309,13 @@ const wordmarkFontHref = '/fonts/wenkai-wordmark.woff2';
               ]
             : undefined}
         />
-        {!isPageNav && (
+        {isDocsNav && (
+          <a class="nav-docs-crumb" href="/docs">
+            <span class="nav-separator nav-separator--brand" aria-hidden="true">/</span>
+            <span>Docs</span>
+          </a>
+        )}
+        {!isPageNav && !isDocsNav && (
           <div class="nav-links" data-nav-links>
             <span class="nav-separator nav-separator--brand" aria-hidden="true">/</span>
             {navLinks.map((link, i) => (
@@ -362,7 +372,9 @@ const wordmarkFontHref = '/fonts/wenkai-wordmark.woff2';
       ]}
       data-header-actions
     >
-      <SearchButton class={brandHome ? 'topbar-action topbar-action--search' : undefined} />
+      {/* Docs carry their own search in the rail; two triggers for one palette
+          is one too many. */}
+      {!isDocsNav && <SearchButton class={brandHome ? 'topbar-action topbar-action--search' : undefined} />}
       <div class="theme-dropdown" data-theme-dropdown>
         <button class:list={['header-action-btn', { 'topbar-action': brandHome }]} type="button" data-theme-toggle aria-label="Switch theme" aria-haspopup="true" aria-expanded="false">
           <span class="theme-icon-container">
