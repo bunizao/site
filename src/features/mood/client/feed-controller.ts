@@ -365,7 +365,11 @@ export function initMoodFeedController(): void {
         group.appendChild(itemsContainer);
         wrapper.appendChild(group);
 
-        const controls = feedEl.querySelector('.mood-load-controls');
+        // An anchored feed carries a second .mood-load-controls above the
+        // stream for the newer end, and it matches first. Pinning to the older
+        // controls keeps this skeleton under the last item, where the reader
+        // scrolling down is actually looking.
+        const controls = feedEl.querySelector('.mood-load-controls:not(.mood-load-controls--newer)');
         if (controls) {
           feedEl.insertBefore(wrapper, controls);
         } else {
