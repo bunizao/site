@@ -36,15 +36,12 @@ body:has(.docs) .spotlight-overlay {
   display: none;
 }
 
-/* Docs have no horizontal axis — code blocks scroll inside their own frame. A
-   two-finger swipe should therefore move nothing, including the rubber band. */
+/* Docs have no horizontal axis — the fences and tables scroll inside their own
+   frames. A two-finger swipe reaching an edge would otherwise chain out to the
+   browser's back gesture, which looks exactly like the page being dragged.
+   globals.css already clips the overflow itself; only the chaining is left. */
 html:has(.docs) {
   overscroll-behavior-x: none;
-}
-
-html:has(.docs),
-body:has(.docs) {
-  overflow-x: clip;
 }
 
 /* globals.css gives every bare <section> the home page's band treatment (48px of
@@ -746,6 +743,7 @@ body:has(.site-nav--docs) .global-header-actions {
   max-width: 100%;
   margin: 0 0 1.5rem;
   overflow-x: auto;
+  overscroll-behavior-x: contain;
   border-collapse: collapse;
   font-size: 0.875rem;
   line-height: 1.5;
@@ -858,6 +856,9 @@ body:has(.site-nav--docs) .global-header-actions {
   border-radius: 0 0 0.6rem 0.6rem;
   background: var(--docs-surface) !important;
   overflow-x: auto;
+  /* Swiping a long line to its end must stop there. Without this the scroll
+     chains to the document and the whole page slides under the cursor. */
+  overscroll-behavior-x: contain;
   font-size: 0.8125rem;
   line-height: 1.62;
   tab-size: 2;
