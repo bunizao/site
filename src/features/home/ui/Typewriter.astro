@@ -138,6 +138,9 @@ const placeholderText = `${longestText}_`;
   const DEFAULT_KEYSTROKE_MS = 150;
   const MIN_KEYSTROKE_MS = 40;
   const MAX_KEYSTROKE_MS = 400;
+  // Backspacing is brisker than typing, the way it is on a real keyboard:
+  // one deliberate press per character going in, a held key coming out.
+  const BACKSPACE_RATIO = 0.45;
 
   const prefersReducedMotion = (): boolean =>
     window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
@@ -223,50 +226,6 @@ const placeholderText = `${longestText}_`;
     }
   };
 
-  const animateText = (
-    root: TypewriterRoot,
-    visual: HTMLElement,
-    canvas: HTMLCanvasElement,
-    caret: HTMLElement,
-    text: string,
-    keystrokeMs: number,
-    onDone?: () => void
-  ): void => {
-    const state = setupCanvas(visual, canvas);
-    if (!state) return;
-
-    cancelFrame(root);
-    root._typewriterCurrentText = text;
-    visual.setAttribute('aria-label', text);
-    visual.classList.add('is-enhanced');
-
-    const chars = Array.from(text);
-    const startedAt = performance.now();
-    let struck = -1;
-
-    const drawNext = (now: number): void => {
-      // Linear, one character per beat. Because the beat is absolute rather
-      // than a share of the word, "Tutu" types at exactly the pace of
-      // "Collapsar" instead of racing to fill a fixed duration.
-      const next = Math.min(chars.length, Math.floor((now - startedAt) / keystrokeMs));
-
-      if (next !== struck) {
-        struck = next;
-        placeCaret(caret, drawText(state, chars.slice(0, next).join('')));
-      }
-
-      if (struck < chars.length) {
-        root._typewriterFrame = window.requestAnimationFrame(drawNext);
-        return;
-      }
-
-      root._typewriterFrame = undefined;
-      onDone?.();
-    };
-
-    drawNext(startedAt);
-  };
-
   const initOne = (root: TypewriterRoot): void => {
     if (root._typewriterReady) return;
     root._typewriterReady = true;
@@ -307,26 +266,79 @@ const placeholderText = `${longestText}_`;
 
     document.fonts?.ready.then(redrawSettledText).catch(() => {});
 
+    const backspaceMs = Math.max(24, Math.round(keystrokeMs * BACKSPACE_RATIO));
+
+    /** Walks the visible character count from `from` to `to`, one per beat. */
+    const animate = (
+      text: string,
+      from: number,
+      to: number,
+      stepMs: number,
+      onDone: () => void
+    ): void => {
+      const state = setupCanvas(visual, canvas);
+      if (!state) return;
+
+      cancelFrame(root);
+
+      const chars = Array.from(text);
+      const direction = to > from ? 1 : -1;
+      const steps = Math.abs(to - from);
+      const startedAt = performance.now();
+      let shown = -1;
+
+      const drawNext = (now: number): void => {
+        // The beat is absolute rather than a share of the word, so "Tutu"
+        // types at exactly the pace of "Collapsar".
+        const step = Math.min(steps, Math.floor((now - startedAt) / stepMs));
+        const next = from + direction * step;
+
+        if (next !== shown) {
+          shown = next;
+          placeCaret(caret, drawText(state, chars.slice(0, next).join('')));
+        }
+
+        if (step < steps) {
+          root._typewriterFrame = window.requestAnimationFrame(drawNext);
+          return;
+        }
+
+        root._typewriterFrame = undefined;
+        onDone();
+      };
+
+      drawNext(startedAt);
+    };
+
+    const playName = (): void => {
+      const text = texts[index];
+      const length = Array.from(text).length;
+
+      root._typewriterCurrentText = text;
+      visual.setAttribute('aria-label', text);
+      visual.classList.add('is-enhanced');
+
+      animate(text, 0, length, keystrokeMs, () => {
+        if (texts.length < 2) return;
+
+        // Let the finished name sit before the carriage takes it back.
+        root._typewriterLoopTimer = window.setTimeout(() => {
+          animate(text, length, 0, backspaceMs, () => {
+            root._typewriterCurrentText = '';
+            index = (index + 1) % texts.length;
+            // One empty beat, so the next name does not start on the same
+            // frame the last one vanished.
+            root._typewriterLoopTimer = window.setTimeout(playName, keystrokeMs);
+          });
+        }, pauseDuration);
+      });
+    };
+
     const startFirstRun = (): void => {
       if (root._typewriterStarted) return;
       root._typewriterStarted = true;
       window.clearTimeout(root._typewriterStartTimer);
-      animateText(root, visual, canvas, caret, texts[index], keystrokeMs, () => {
-        if (texts.length > 1) {
-          root._typewriterLoopTimer = window.setTimeout(runLoop, pauseDuration);
-        }
-      });
-    };
-
-    const runLoop = (): void => {
-      index = (index + 1) % texts.length;
-      const nextText = texts[index];
-
-      requestAnimationFrame(() => {
-        animateText(root, visual, canvas, caret, nextText, keystrokeMs, () => {
-          root._typewriterLoopTimer = window.setTimeout(runLoop, pauseDuration);
-        });
-      });
+      playName();
     };
 
     window.addEventListener(HERO_NAME_READY_EVENT, startFirstRun, {
