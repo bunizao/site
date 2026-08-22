@@ -128,14 +128,16 @@ const placeholderText = `${longestText}_`;
 
   interface DecodeAnimation {
     text: string;
-    pool: string[];
     glyphs: DecodeGlyph[];
     duration: number;
   }
 
   const HERO_NAME_READY_EVENT = 'home:hero-name-ready';
   const FALLBACK_START_MS = 1100;
-  const SCRAMBLE_CHARS = '-/\\|<>'.split('');
+  // Bracket and slash forms only. Never a letter or digit, so an unresolved
+  // slot cannot be misread as a mistyped character, and every one of them spans
+  // cap height to baseline in Geist Mono, so the flicker does not bob.
+  const SCRAMBLE_CHARS = '/\\|()[]{}'.split('');
   // Every glyph flickers a fixed number of times and then snaps, so the
   // keystroke cadence is identical for "Tutu" and "Collapsar".
   const SCRAMBLE_MUTATION_MS = 42;
@@ -161,17 +163,13 @@ const placeholderText = `${longestText}_`;
     Math.max(34, Math.min(58, Math.round(speed * 0.58)));
 
   const randomFrom = (pool: string[]): string =>
-    pool[Math.floor(Math.random() * pool.length)] ?? '-';
+    pool[Math.floor(Math.random() * pool.length)] ?? '/';
 
   const createDecodeAnimation = (text: string, step: number): DecodeAnimation => {
-    const inputChars = Array.from(
-      new Set(text.toLowerCase().split('').filter((char) => char.trim()))
-    );
-    const pool = [...SCRAMBLE_CHARS, ...inputChars];
     const scrambleMs = SCRAMBLE_TICKS * SCRAMBLE_MUTATION_MS;
     const glyphs = Array.from(text).map((target, index): DecodeGlyph => ({
       target,
-      temp: randomFrom(pool),
+      temp: randomFrom(SCRAMBLE_CHARS),
       startAt: index * step,
       // Whitespace lands instantly: a scramble char inside a space slot reads
       // as a typo, not as decoding.
@@ -180,7 +178,7 @@ const placeholderText = `${longestText}_`;
     }));
     const lastSettleAt = glyphs.length ? glyphs[glyphs.length - 1].settleAt : 0;
 
-    return { text, pool, glyphs, duration: lastSettleAt + SETTLE_TAIL_MS };
+    return { text, glyphs, duration: lastSettleAt + SETTLE_TAIL_MS };
   };
 
   const setupCanvas = (visual: HTMLElement, canvas: HTMLCanvasElement): CanvasState | null => {
@@ -285,7 +283,7 @@ const placeholderText = `${longestText}_`;
       const tick = Math.floor((elapsed - glyph.startAt) / SCRAMBLE_MUTATION_MS);
       if (tick !== glyph.tick) {
         glyph.tick = tick;
-        glyph.temp = randomFrom(animation.pool);
+        glyph.temp = randomFrom(SCRAMBLE_CHARS);
       }
 
       glyphs.push({
