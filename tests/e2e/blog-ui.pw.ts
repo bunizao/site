@@ -347,6 +347,54 @@ test.describe('Blog reading UI', () => {
     await expect(page.locator('.toc-link.active')).toHaveText(firstHeadingText);
   });
 
+  test('walks the gallery from inside the lightbox', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.goto('/blog/demo-effects/', { waitUntil: 'domcontentloaded' });
+
+    const galleryImages = page.locator('.kg-gallery-card .kg-gallery-image img');
+    await expect(galleryImages).toHaveCount(3);
+
+    const lightbox = page.locator('.blog-lightbox');
+    const counter = lightbox.locator('.blog-lightbox__counter');
+
+    await galleryImages.first().click();
+    await expect(lightbox).toHaveClass(/is-open/);
+    await expect(counter).toHaveText('1 / 3');
+
+    await page.keyboard.press('ArrowRight');
+    await expect(counter).toHaveText('2 / 3');
+
+    await lightbox.locator('.blog-lightbox__nav--next').click();
+    await expect(counter).toHaveText('3 / 3');
+
+    // The walk wraps, so the last image steps on to the first.
+    await page.keyboard.press('ArrowRight');
+    await expect(counter).toHaveText('1 / 3');
+
+    // A drag past the commit distance turns the page — and the click that ends
+    // it must not also be read as the tap that dismisses.
+    const frame = (await lightbox.boundingBox())!;
+    const midY = frame.y + frame.height / 2;
+    await page.mouse.move(frame.x + frame.width * 0.6, midY);
+    await page.mouse.down();
+    await page.mouse.move(frame.x + frame.width * 0.2, midY, { steps: 12 });
+    await page.mouse.up();
+    await expect(counter).toHaveText('2 / 3');
+    await expect(lightbox).toHaveClass(/is-open/);
+
+    await page.keyboard.press('Escape');
+    await expect(lightbox).not.toHaveClass(/is-open/);
+    // Closed, it also leaves the article's tab order.
+    await expect(lightbox).toHaveAttribute('inert', '');
+
+    // An image the author placed on its own is not part of any set: it opens
+    // alone, without the chrome that implies there is somewhere to go.
+    await page.locator('.kg-image-card img.kg-image').first().click();
+    await expect(lightbox).toHaveClass(/is-solo/);
+    await expect(counter).toBeHidden();
+    await expect(lightbox.locator('.blog-lightbox__nav--next')).toBeHidden();
+  });
+
   test('renders a Ghost draft preview through the real blog prose without caching', async ({ page }) => {
     const response = await page.goto(
       `/dev/blog/${GHOST_PREVIEW_E2E_POST_ID}`,
