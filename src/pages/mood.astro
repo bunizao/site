@@ -1093,40 +1093,33 @@ const skeletonGroups = [
     object-fit: contain;
   }
 
-  /* Portrait images - fit within max height without cropping */
+  /* Portrait images - fit within max height without cropping.
+
+     The wrapper takes the contained box outright rather than shrinking to the
+     image, so it holds its height before the image decodes. `fit-content` here
+     measured 0px until then, and every one of these items collapsed and then
+     popped open as it scrolled into view. --mood-thumb-reserved-width carries
+     the server-computed contained width; the fallback is the box's max. */
   :global(.mood-item-thumb--portrait) {
     display: inline-flex;
     align-items: center;
     justify-content: center;
     align-self: flex-start;
-    width: fit-content;
-    max-width: min(100%, 220px);
-    background: hsl(var(--foreground) / 0.04);
-  }
-
-  :global(.mood-item-thumb--priority.mood-item-thumb--portrait) {
     width: min(100%, var(--mood-thumb-reserved-width, 220px));
     max-width: min(100%, var(--mood-thumb-reserved-width, 220px));
     aspect-ratio: var(--mood-thumb-ratio, 3 / 4);
+    background: hsl(var(--foreground) / 0.04);
   }
 
-  :global(.mood-item-thumb--portrait img) {
-    width: 100%;
-    height: auto;
-    max-width: 220px;
-    max-height: 280px;
-    object-fit: contain;
-    object-position: center;
-    margin: 0;
-  }
-
-  :global(.mood-item-thumb--priority.mood-item-thumb--portrait img),
-  :global(.mood-item-thumb--priority.mood-item-thumb--ultra-tall img) {
+  :global(.mood-item-thumb--portrait img),
+  :global(.mood-item-thumb--ultra-tall img) {
     width: 100%;
     height: 100%;
     max-width: none;
     max-height: none;
     object-fit: contain;
+    object-position: center;
+    margin: 0;
   }
 
   /* Ultra-tall images - contain without cropping */
@@ -1135,24 +1128,10 @@ const skeletonGroups = [
     align-items: center;
     justify-content: center;
     align-self: flex-start;
-    width: fit-content;
-    max-width: min(100%, 180px);
-    background: hsl(var(--foreground) / 0.03);
-  }
-
-  :global(.mood-item-thumb--priority.mood-item-thumb--ultra-tall) {
     width: min(100%, var(--mood-thumb-reserved-width, 180px));
     max-width: min(100%, var(--mood-thumb-reserved-width, 180px));
     aspect-ratio: var(--mood-thumb-ratio, 9 / 16);
-  }
-
-  :global(.mood-item-thumb--ultra-tall img) {
-    width: 100%;
-    height: auto;
-    max-width: 180px;
-    max-height: 320px;
-    object-fit: contain;
-    object-position: center;
+    background: hsl(var(--foreground) / 0.03);
   }
 
   @media (min-width: 640px) {
@@ -1184,31 +1163,13 @@ const skeletonGroups = [
     }
 
     :global(.mood-item-thumb--portrait) {
-      max-width: min(100%, 240px);
-    }
-
-    :global(.mood-item-thumb--priority.mood-item-thumb--portrait) {
       width: min(100%, var(--mood-thumb-reserved-width-sm, 240px));
       max-width: min(100%, var(--mood-thumb-reserved-width-sm, 240px));
     }
 
-    :global(.mood-item-thumb--portrait img) {
-      max-width: 240px;
-      max-height: 320px;
-    }
-
     :global(.mood-item-thumb--ultra-tall) {
-      max-width: min(100%, 200px);
-    }
-
-    :global(.mood-item-thumb--priority.mood-item-thumb--ultra-tall) {
       width: min(100%, var(--mood-thumb-reserved-width-sm, 200px));
       max-width: min(100%, var(--mood-thumb-reserved-width-sm, 200px));
-    }
-
-    :global(.mood-item-thumb--ultra-tall img) {
-      max-width: 200px;
-      max-height: 360px;
     }
   }
 
@@ -1241,31 +1202,13 @@ const skeletonGroups = [
     }
 
     :global(.mood-item-thumb--portrait) {
-      max-width: min(100%, 260px);
-    }
-
-    :global(.mood-item-thumb--priority.mood-item-thumb--portrait) {
       width: min(100%, var(--mood-thumb-reserved-width-lg, 260px));
       max-width: min(100%, var(--mood-thumb-reserved-width-lg, 260px));
     }
 
-    :global(.mood-item-thumb--portrait img) {
-      max-width: 260px;
-      max-height: 360px;
-    }
-
     :global(.mood-item-thumb--ultra-tall) {
-      max-width: min(100%, 220px);
-    }
-
-    :global(.mood-item-thumb--priority.mood-item-thumb--ultra-tall) {
       width: min(100%, var(--mood-thumb-reserved-width-lg, 220px));
       max-width: min(100%, var(--mood-thumb-reserved-width-lg, 220px));
-    }
-
-    :global(.mood-item-thumb--ultra-tall img) {
-      max-width: 220px;
-      max-height: 400px;
     }
   }
 

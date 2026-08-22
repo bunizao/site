@@ -32,6 +32,13 @@
 
 .mood-gallery--feed .mood-gallery-slide {
   border-radius: 20px;
+  /* The slide sizes to fit-content, which measures 0px until the deferred image
+     decodes, so every feed gallery collapsed and then popped open as it scrolled
+     into view. This is the box the image settles into anyway -- the capped
+     width, or the width its ratio reaches at the capped height, whichever is
+     smaller -- so stating it up front costs nothing and holds the height. */
+  width: min(400px, 280px * (var(--mood-gallery-ratio, 4 / 3)));
+  aspect-ratio: var(--mood-gallery-ratio, 4 / 3);
 }
 
 .mood-gallery-image {
@@ -43,8 +50,11 @@
 }
 
 .mood-gallery--feed .mood-gallery-image {
-  max-width: 400px;
-  max-height: 280px;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  object-fit: contain;
 }
 
 .mood-gallery--detail {
@@ -89,9 +99,8 @@
     gap: 12px;
   }
 
-  .mood-gallery--feed .mood-gallery-image {
-    max-width: 480px;
-    max-height: 320px;
+  .mood-gallery--feed .mood-gallery-slide {
+    width: min(480px, 320px * (var(--mood-gallery-ratio, 4 / 3)));
   }
 
   .mood-gallery--detail .mood-gallery-slide {
@@ -100,9 +109,8 @@
 }
 
 @media (min-width: 1024px) {
-  .mood-gallery--feed .mood-gallery-image {
-    max-width: 560px;
-    max-height: 360px;
+  .mood-gallery--feed .mood-gallery-slide {
+    width: min(560px, 360px * (var(--mood-gallery-ratio, 4 / 3)));
   }
 
   .mood-gallery--detail {

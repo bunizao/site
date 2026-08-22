@@ -105,12 +105,8 @@ function getPostHref(post: MoodFeedItem, navigationId: string): string | undefin
 function getThumbClass(
   post: MoodFeedItem,
   isTooBigVideoPreview = post.previewMediaType === 'too-big-video',
-  isPriorityMedia = false,
 ): string {
   const classes = ['mood-item-thumb'];
-  if (isPriorityMedia) {
-    classes.push('mood-item-thumb--priority');
-  }
   if (isTooBigVideoPreview) {
     classes.push('mood-item-thumb--video');
   }
@@ -430,12 +426,11 @@ function shouldHideQuoteAuthor(value?: string): boolean {
                       <Fragment set:html={renderMoodGalleryMarkup(post.gallery, { variant: 'feed', priority: isPriorityMedia })} />
                     ) : thumbImage || isTooBigVideoPreview ? (
                       <div
-                        class={getThumbClass(post, isTooBigVideoPreview, isPriorityMedia)}
+                        class={getThumbClass(post, isTooBigVideoPreview)}
                         style={getMoodFeedThumbnailStyle({
                           imageWidth: thumbWidth,
                           imageHeight: thumbHeight,
                           imageLayout: isTooBigVideoPreview ? null : post.imageLayout,
-                          priority: isPriorityMedia,
                         })}
                       >
                         {thumbImage ? (

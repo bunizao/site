@@ -2,7 +2,6 @@ export interface MoodFeedThumbnailInput {
   imageWidth?: number | null;
   imageHeight?: number | null;
   imageLayout?: 'landscape' | 'portrait' | 'ultra-tall' | null;
-  priority?: boolean;
 }
 
 function isPositiveNumber(value: number | null | undefined): value is number {
@@ -37,7 +36,12 @@ export function getMoodFeedThumbnailStyle(input: MoodFeedThumbnailInput): string
     `--mood-thumb-ratio:${input.imageWidth} / ${input.imageHeight}`,
   ];
 
-  if (input.priority && (input.imageLayout === 'portrait' || input.imageLayout === 'ultra-tall')) {
+  /* Portrait and ultra-tall thumbs size to `fit-content`, so before the image
+     decodes the wrapper is 0px wide and the aspect-ratio above resolves to 0px
+     tall. Every feed item with one collapsed and then popped open mid-scroll.
+     These widths are the contained box the image will land in, so the wrapper
+     holds its own height from first paint. */
+  if (input.imageLayout === 'portrait' || input.imageLayout === 'ultra-tall') {
     const boxes = containedBoxByLayout[input.imageLayout];
     boxes.forEach((box) => {
       const width = Math.min(box.maxWidth, box.maxHeight * ratio);
