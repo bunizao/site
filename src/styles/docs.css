@@ -288,26 +288,23 @@ body:has(.site-nav--docs) .global-header-actions {
   .docs-nav-tree {
     flex: 1 1 auto;
     min-height: 0;
-    /* The gutter the thumb draws in. macOS overlay scrollbars paint over
-       content rather than displacing it, so without this the thumb lands on
-       the active row's highlight and on the badges. scrollbar-gutter keeps
-       classic scrollbars from shifting the rows when the tree grows. */
-    padding-right: 0.5rem;
+    /* macOS overlay scrollbars paint over content rather than displacing it, so
+       the rows have to stand back far enough that the thumb reads as a separate
+       object instead of a stripe welded to the edge of the hover pill. The
+       standoff is what buys that air; the thumb's own shape cannot, because
+       Chrome drops every ::-webkit-scrollbar rule the moment scrollbar-width is
+       set. scrollbar-gutter keeps classic scrollbars from shifting the rows. */
+    padding-right: 1rem;
     padding-bottom: 0.9rem;
     scrollbar-gutter: stable;
     overflow-y: auto;
     overscroll-behavior: contain;
     scrollbar-width: thin;
-    scrollbar-color: hsl(var(--foreground) / 0.16) transparent;
+    scrollbar-color: hsl(var(--foreground) / 0.13) transparent;
   }
 
-  .docs-nav-tree::-webkit-scrollbar {
-    width: 6px;
-  }
-
-  .docs-nav-tree::-webkit-scrollbar-thumb {
-    border-radius: 3px;
-    background: hsl(var(--foreground) / 0.16);
+  .docs-nav-tree:hover {
+    scrollbar-color: hsl(var(--foreground) / 0.22) transparent;
   }
 }
 
@@ -355,7 +352,7 @@ body:has(.site-nav--docs) .global-header-actions {
   .docs-nav-search,
   .docs-nav-foot {
     width: auto;
-    margin-right: 0.5rem;
+    margin-right: 1rem;
   }
 }
 

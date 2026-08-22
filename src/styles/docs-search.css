@@ -163,11 +163,11 @@
 
 .docs-search-item {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 10px;
   width: 100%;
   min-height: 44px;
-  padding: 8px calc(var(--ds-pad-x) - var(--ds-list-pad));
+  padding: 9px calc(var(--ds-pad-x) - var(--ds-list-pad));
   /* Concentric: dialog 14px - list-pad 6px = 8px row radius. */
   border-radius: 8px;
   color: var(--ink-body);
@@ -184,22 +184,21 @@
   flex-shrink: 0;
   width: 15px;
   height: 15px;
-  margin-top: 2px;
   color: var(--ink-faint);
   transition: color 90ms ease;
 }
 @media (hover: hover) and (pointer: fine) {
-  .docs-search-item:hover:not(.is-active) {
-    background: var(--docs-surface);
+  .docs-search-item:hover {
+    background: var(--docs-surface-hover);
     color: var(--ink-strong);
   }
 }
-/* Active row carries both the highlight and a static left rule, so the
-   current option still reads without relying on the animated background. */
+/* Selection is a fill and nothing else. The fill is a class, not an animation,
+   so it survives prefers-reduced-motion on its own and needs no second marker
+   hanging off the edge of the row. */
 .docs-search-item.is-active {
   background: var(--docs-surface-hover);
   color: var(--ink-strong);
-  box-shadow: inset 2px 0 0 hsl(var(--foreground) / 0.5);
 }
 .docs-search-item.is-active .docs-search-item-icon {
   color: var(--ink-strong);
@@ -238,18 +237,16 @@
 .docs-search-item-snippet {
   display: -webkit-box;
   -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
+  -webkit-line-clamp: 1;
+  line-clamp: 1;
   overflow: hidden;
   font-size: 12.5px;
   line-height: 1.5;
   color: var(--ink-faint);
 }
 .docs-search-item mark {
-  padding: 0.05em 0.15em;
-  border-radius: 3px;
-  background: hsl(var(--foreground) / 0.14);
-  color: hsl(var(--foreground));
+  background: none;
+  color: var(--ink-strong);
   font-weight: 600;
 }
 
