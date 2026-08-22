@@ -56,3 +56,4 @@ follow from the collection. Group order lives in
 | Doc | Read it when |
 | --- | --- |
 | [PLAN-ops-portal.md](PLAN-ops-portal.md) | You need the approved roadmap for the portal rework, notify gate, Telegram ops bot, and analytics workstream. |
+| [plans/blog-comments.md](plans/blog-comments.md) | Reader comments and reactions on `/blog/[slug]`: magic-link identity, avatars, public/private threads. Supersedes the anonymous design in `.agents/tasks/prd-blog-comments-likes.md`. |
